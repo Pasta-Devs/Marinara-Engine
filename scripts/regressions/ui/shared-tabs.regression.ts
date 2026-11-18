@@ -85,4 +85,23 @@ for (const cell of row) {
   assert.match(cell.html, /<span class="min-w-0 truncate">/u, "an inline label stays on one line");
 }
 
+// A last row the cells do not fill (a ruleset sheet's 4 or 5 tabs in 3 columns): the last cell stretches to the
+// track's edge, so the row's line and its round corner end there, not mid-track.
+const four = render({ columns: 3 }, ["overview", "stats", "skills", "gear"]);
+assert.deepEqual(
+  four.map((cell) => cell.style["grid-column"]),
+  [undefined, undefined, undefined, "span 3"],
+);
+assert.deepEqual(
+  four.map((cell) => cell.corners),
+  [`${ROUND} 0 0 0`, "0 0 0 0", `0 ${ROUND} 0 0`, `0 0 ${ROUND} ${ROUND}`],
+  "the stretched last cell rounds both bottom corners",
+);
+const five = render({ columns: 3 }, ["overview", "stats", "skills", "gear", "spells"]);
+assert.deepEqual(
+  five.map((cell) => cell.style["grid-column"]),
+  [undefined, undefined, undefined, undefined, "span 2"],
+);
+assert.deepEqual(five.map((cell) => cell.corners).slice(3), [`0 0 0 ${ROUND}`, `0 0 ${ROUND} 0`]);
+
 console.log("shared-tabs regression passed");

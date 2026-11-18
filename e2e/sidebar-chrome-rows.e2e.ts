@@ -63,8 +63,9 @@ test.describe("in a 900px desktop window", () => {
 
     const idle = await background(chats);
     await characters.hover();
+    // The hover light comes from React state, which renders a moment after the pointer arrives.
+    await expect.poll(() => background(characters)).not.toBe(idle);
     const charactersHover = await background(characters);
-    expect(charactersHover).not.toBe(idle);
     await chats.hover();
     await expect.poll(() => background(chats)).toBe(charactersHover);
     expect(await iconStroke(chats), "a hovered Chats keeps the plain icon").not.toMatch(/^url\(/u);
@@ -81,8 +82,8 @@ test.describe("in a docked sidebar", () => {
     return Promise.all(
       (await tabs.all()).map((tab) =>
         tab.evaluate((button) => {
-          const icon = button.querySelector("svg")!.getBoundingClientRect();
-          const label = button.querySelector("span:last-child")!;
+          const icon = button.querySelector("svg")?.getBoundingClientRect();
+          const label = button.querySelector("[data-segment-label]")!;
           // The text's own width, which the label box clips when it is too narrow.
           const range = document.createRange();
           range.selectNodeContents(label);
@@ -90,8 +91,8 @@ test.describe("in a docked sidebar", () => {
           const box = button.getBoundingClientRect();
           return {
             label: label.textContent,
-            iconWidth: icon.width,
-            iconBeforeLabel: icon.width === 0 || icon.right <= text.left,
+            iconWidth: icon?.width ?? 0,
+            iconBeforeLabel: !icon || icon.right <= text.left,
             labelFits: text.width <= label.getBoundingClientRect().width + 0.5 && text.right <= box.right,
           };
         }),

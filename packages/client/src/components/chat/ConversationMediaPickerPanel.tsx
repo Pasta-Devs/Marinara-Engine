@@ -51,18 +51,20 @@ export function ConversationMediaPickerPanel({
         className,
       )}
     >
-      <Tabs
-        items={tabs.map((tab) => ({
-          id: tab.id,
-          label: t(`ui.noodle.media.tabs.${tab.id}`, { defaultValue: tab.label }),
-        }))}
-        value={activeTab}
-        onChange={onActiveTabChange}
-        variant="pill"
-        columns={tabs.length}
-        className="shrink-0 border-b border-foreground/10 px-2 py-1.5"
-        label={t("ui.noodle.media.tabsLabel")}
-      />
+      {/* The header bar pads a wrapper: the tab cells must touch the track's edge (ui/Tabs). */}
+      <div className="shrink-0 border-b border-foreground/10 px-2 py-1.5">
+        <Tabs
+          items={tabs.map((tab) => ({
+            id: tab.id,
+            label: t(`ui.noodle.media.tabs.${tab.id}`, { defaultValue: tab.label }),
+          }))}
+          value={activeTab}
+          onChange={onActiveTabChange}
+          variant="pill"
+          columns={tabs.length}
+          label={t("ui.noodle.media.tabsLabel")}
+        />
+      </div>
       <div className="min-h-0 flex-1">
         {activeTab === "emoji" && (
           <EmojiPicker

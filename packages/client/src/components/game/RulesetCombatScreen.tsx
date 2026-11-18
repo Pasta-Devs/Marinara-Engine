@@ -407,23 +407,25 @@ export function RulesetCombatScreen({
         data-game-section="combat-director"
         className="flex h-full min-h-0 flex-col bg-[var(--background)] text-[var(--foreground)]"
       >
-        <Tabs
-          items={(["board", "pane", "order", "log"] as const).map((tab) => ({
-            id: tab,
-            label: t(PHONE_TAB_KEYS[tab]),
-            disabled: boardStep && tab !== "board",
-            badge:
-              tab === "pane" && asked && phoneTab !== "pane" ? (
-                <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-[#f5c97a]" />
-              ) : undefined,
-          }))}
-          value={phoneTab}
-          onChange={setPhoneTab}
-          variant="pill"
-          columns={4}
-          className="shrink-0 border-b border-[var(--border)] bg-[var(--card)] p-1"
-          label={t("game.combat.director.title")}
-        />
+        {/* The header bar pads a wrapper: the tab cells must touch the track's edge (ui/Tabs). */}
+        <div className="shrink-0 border-b border-[var(--border)] bg-[var(--card)] p-1">
+          <Tabs
+            items={(["board", "pane", "order", "log"] as const).map((tab) => ({
+              id: tab,
+              label: t(PHONE_TAB_KEYS[tab]),
+              disabled: boardStep && tab !== "board",
+              badge:
+                tab === "pane" && asked && phoneTab !== "pane" ? (
+                  <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-[#f5c97a]" />
+                ) : undefined,
+            }))}
+            value={phoneTab}
+            onChange={setPhoneTab}
+            variant="pill"
+            columns={4}
+            label={t("game.combat.director.title")}
+          />
+        </div>
         {phoneTab === "board" ? (
           <>
             {boardColumn}

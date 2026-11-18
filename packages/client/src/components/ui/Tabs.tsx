@@ -49,8 +49,10 @@ const SEGMENT_DIVIDER = "1px solid var(--marinara-chat-chrome-button-border)";
 
 /**
  * A pill row, or a grid of rows, reads as one button split into cells: only the outer corners are round, a line
- * parts the cells of a row and another the rows, and the first cell of a row has none on the outer edge. The sides
- * are logical, so a right-to-left language mirrors them with the grid (inline styles skip the build's CSS lowering).
+ * parts the cells of a row and another the rows, and the first cell of a row has none on the outer edge. The last
+ * cell stretches across the empty places of a row it does not fill, so that row also ends at the track's edge. The
+ * sides are logical, so a right-to-left language mirrors them with the grid (inline styles skip the build's CSS
+ * lowering). Cells must touch the track: a caller that pads its tab row pads a wrapper, not the track.
  */
 function segmentCorners(index: number, count: number, columns: number): CSSProperties {
   const column = index % columns;
@@ -67,11 +69,14 @@ function segmentCorners(index: number, count: number, columns: number): CSSPrope
 }
 
 function segmentCellStyle(index: number, count: number, columns: number): CSSProperties {
+  const column = index % columns;
+  const emptyAfter = index === count - 1 ? columns - 1 - column : 0;
   return {
     ...segmentCorners(index, count, columns),
-    borderInlineStart: index % columns === 0 ? "1px solid transparent" : SEGMENT_DIVIDER,
+    borderInlineStart: column === 0 ? "1px solid transparent" : SEGMENT_DIVIDER,
     borderInlineEnd: "0",
     borderTop: index < columns ? undefined : SEGMENT_DIVIDER,
+    gridColumn: emptyAfter > 0 ? `span ${emptyAfter + 1}` : undefined,
   };
 }
 
@@ -152,7 +157,7 @@ export function Tabs<T extends string>({
     list?.scrollBy({ left: direction * list.clientWidth * 0.7, behavior: "smooth" });
   };
 
-  const slide = "transition-[transform,width,height] duration-200 ease-out motion-reduce:transition-none";
+  const slide = "transition-[transform,width,height,border-radius] duration-200 ease-out motion-reduce:transition-none";
   const list = (
     <div
       ref={listRef}
