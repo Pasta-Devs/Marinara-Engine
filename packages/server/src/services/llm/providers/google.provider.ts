@@ -20,7 +20,7 @@ import {
 import {
   capabilityModelId,
   isGeminiArgonOrCarbonModel,
-  isGeminiHydrogenModel,
+  isGeminiHydrogenOrNeonModel,
   isGeminiStrictRequestModel,
   isGeminiThinkingLevelModel,
   shouldSuppressUnknownModelParameters,
@@ -319,8 +319,8 @@ export function resolveGeminiThinkingConfig(
   if (!options.enableThinking && !options.reasoningEffort) return undefined;
 
   if (isGeminiThinkingLevelModel(model)) {
-    // Hydrogen adds xhigh; every other thinking-level model stops at high.
-    const top = isGeminiHydrogenModel(model) ? "xhigh" : "high";
+    // Hydrogen and Neon add xhigh; every other thinking-level model stops at high.
+    const top = isGeminiHydrogenOrNeonModel(model) ? "xhigh" : "high";
     const levelMap = { low: "low", medium: "medium", high: "high", xhigh: top, max: top } as const;
     return {
       thinkingLevel: options.reasoningEffort ? levelMap[options.reasoningEffort] : "high",

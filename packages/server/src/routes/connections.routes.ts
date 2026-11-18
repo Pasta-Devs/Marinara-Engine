@@ -59,7 +59,7 @@ import {
   isLocalAuthProvider,
   isChatProvider,
   isGeminiArgonOrCarbonModel,
-  isGeminiHydrogenModel,
+  isGeminiHydrogenOrNeonModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
   isOpenAIGpt6Model,
@@ -2589,13 +2589,14 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
       const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, model);
       // Reasoning models (GLM 5.3, Mistral reasoning models, Gemini 4 Argon and Carbon, which
-      // think at medium with no level saved, and Hydrogen, at high) spend one output budget on thinking and on text.
+      // think at medium with no level saved, and Hydrogen and Neon, at high) spend one output budget on thinking and on
+      // text.
       // At 200 tokens the whole budget is thinking and the test reports success with nothing to
       // show, so give them room for a one-line answer.
       const reasoningTest =
         isGlm53MandatoryReasoningModel(model) ||
         isGeminiArgonOrCarbonModel(model) ||
-        isGeminiHydrogenModel(model) ||
+        isGeminiHydrogenOrNeonModel(model) ||
         (conn.provider === "mistral" && (isMistralAdjustableReasoningModel(model) || isMistralGlm53Model(model)));
       const maxTokens = resolveStoredMaxTokens(conn.defaultParameters, reasoningTest ? 1024 : 200);
       let fullResponse = "";
