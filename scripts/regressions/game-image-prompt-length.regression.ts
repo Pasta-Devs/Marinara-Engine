@@ -97,6 +97,47 @@ try {
       }),
       /no usable prompt/,
     );
+    // A rewrite the player never switched on (a customized Illustrator prompt) must not cost the picture,
+    // and the request's other pictures do not try it again.
+    let optionalCalls = 0;
+    const optionalRewrite = Object.assign(
+      async () => {
+        optionalCalls += 1;
+        throw new Error("text model unavailable");
+      },
+      { required: false },
+    );
+    const fallbacks = [];
+    for (const sceneDescription of ["A garden at dusk.", "A garden at dawn.", "A garden at noon."]) {
+      fallbacks.push(
+        await buildBackgroundProviderPrompt({
+          ...common,
+          locationSlug: "garden",
+          sceneDescription,
+          dynamicPromptGenerator: optionalRewrite,
+        }),
+      );
+    }
+    assert.equal(optionalCalls, 1);
+    assert.ok(fallbacks[0]!.prompt.includes("garden at dusk"));
+    assert.ok(fallbacks[2]!.prompt.includes("garden at noon"));
+    // A rewrite stopped because the request was cancelled stops the request too.
+    const cancelled = new AbortController();
+    cancelled.abort();
+    await assert.rejects(
+      buildBackgroundProviderPrompt({
+        ...common,
+        locationSlug: "garden",
+        sceneDescription: "A garden at dusk.",
+        dynamicPromptGenerator: Object.assign(
+          async () => {
+            throw new Error("aborted");
+          },
+          { required: false, signal: cancelled.signal },
+        ),
+      }),
+      /aborted/,
+    );
   });
 
   await check("all supplied scene appearance notes retain their complete text", async () => {
