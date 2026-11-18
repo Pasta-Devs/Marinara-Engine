@@ -14317,6 +14317,11 @@ input.ov-edhead__title:not(#ov-x) {
   gap: 0.5rem;
 }
 /* Characters / Personas list view (the same table as Lorebooks). */
+/* The page is a scrolling flex column and the table box clips (overflow), so without this it shrank to the
+   window height and the rows past it could not be reached: the list never scrolled (Nov 18). */
+.ov-gallery > .ov-cl {
+  flex-shrink: 0;
+}
 .ov-cl__crumb {
   margin-bottom: 0.75rem;
 }
