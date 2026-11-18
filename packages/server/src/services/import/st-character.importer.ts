@@ -515,34 +515,39 @@ function embeddedBookAsWorldInfo(characterName: string, rawEmbeddedLorebook: unk
   };
 }
 
-// RisuAI cards keep some extensions as top-level fields (see convertRisuToV2).
-const RISU_TOP_LEVEL_EXTENSIONS: Array<[field: string, key: string]> = [
-  ["depth_prompt", "depth_prompt"],
-  ["depthPrompt", "depth_prompt"],
-  ["talkativeness", "talkativeness"],
-  ["regex_scripts", "regex_scripts"],
-  ["regexScripts", "regex_scripts"],
-  ["backstory", "backstory"],
-  ["appearance", "appearance"],
-];
+// RisuAI cards keep some extensions as top-level fields, which win over their `extensions` (see convertRisuToV2).
+const RISU_TOP_LEVEL_EXTENSIONS = [
+  "depth_prompt",
+  "talkativeness",
+  "regex_scripts",
+  "backstory",
+  "appearance",
+  "fav",
+  "world",
+] as const;
 
-/** The extensions a card file itself carries, including RisuAI's top-level ones. */
+function recordOrEmpty(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+/** The extensions a card file itself carries, read the way normalizeCharacterData reads that format. */
 function rawCardExtensions(raw: Record<string, unknown>): Record<string, unknown> {
-  const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
-  const extensions: Record<string, unknown> = {};
-  for (const source of cardData === raw ? [raw] : [raw, cardData]) {
-    for (const [field, key] of RISU_TOP_LEVEL_EXTENSIONS) {
-      if (source[field] !== undefined && extensions[key] === undefined) extensions[key] = source[field];
+  if (raw.type === "character" && raw.data && !(raw.spec === "chara_card_v2" || raw.spec === "chara_card_v3")) {
+    const merged = { ...raw, ...recordOrEmpty(raw.data) };
+    const extensions: Record<string, unknown> = { ...recordOrEmpty(merged.extensions) };
+    for (const key of RISU_TOP_LEVEL_EXTENSIONS) {
+      if (merged[key] !== undefined) extensions[key] = merged[key];
     }
+    if (extensions.depth_prompt === undefined && merged.depthPrompt !== undefined) {
+      extensions.depth_prompt = merged.depthPrompt;
+    }
+    if (extensions.regex_scripts === undefined && merged.regexScripts !== undefined) {
+      extensions.regex_scripts = merged.regexScripts;
+    }
+    return extensions;
   }
-  // As convertRisuToV2 reads { ...raw, ...data }: data's extensions, else a RisuAI card's top-level ones.
-  const own =
-    cardData.extensions && typeof cardData.extensions === "object"
-      ? cardData.extensions
-      : raw.type === "character" && raw.extensions && typeof raw.extensions === "object"
-        ? raw.extensions
-        : null;
-  return own ? { ...extensions, ...(own as Record<string, unknown>) } : extensions;
+  const cardData = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : raw;
+  return recordOrEmpty(cardData.extensions);
 }
 
 /**
