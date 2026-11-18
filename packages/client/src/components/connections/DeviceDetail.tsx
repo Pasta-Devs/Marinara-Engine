@@ -53,7 +53,7 @@ export const SMALL_ACTION = "mari-chrome-control px-2.5";
 export const DEVICE_FIELD = "mari-chrome-field h-8 w-full max-w-[18rem] px-2 text-xs max-md:h-11 max-sm:text-base";
 /** The facts and models card of a detail page, coloured from the Connections panel tokens. */
 export const DETAIL_CARD_CLASS =
-  "mari-panel-gradient--connections rounded-xl bg-[linear-gradient(135deg,color-mix(in_srgb,var(--mari-panel-gradient-start)_5%,transparent),color-mix(in_srgb,var(--mari-panel-gradient-end)_5%,transparent))] p-3";
+  "@container mari-panel-gradient--connections rounded-xl bg-[linear-gradient(135deg,color-mix(in_srgb,var(--mari-panel-gradient-start)_5%,transparent),color-mix(in_srgb,var(--mari-panel-gradient-end)_5%,transparent))] p-3";
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
@@ -152,10 +152,14 @@ export function FactRow({ label, children, stack }: { label: string; children: R
     <div
       className={cn(
         "flex min-h-9 items-center gap-3 text-xs",
+        // In a narrow card (the Connections panel), the label sits above its value so the value keeps the width.
+        "@max-xs:flex-col @max-xs:items-stretch @max-xs:gap-1 @max-xs:py-1",
         stack && "max-sm:flex-col max-sm:items-stretch max-sm:gap-1",
       )}
     >
-      <span className={cn("w-24 shrink-0 text-[var(--muted-foreground)]", stack && "max-sm:w-auto")}>{label}</span>
+      <span className={cn("w-24 shrink-0 text-[var(--muted-foreground)] @max-xs:w-auto", stack && "max-sm:w-auto")}>
+        {label}
+      </span>
       <span className="min-w-0 flex-1">{children}</span>
     </div>
   );
