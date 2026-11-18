@@ -255,6 +255,21 @@ try {
   });
   assert.equal((await twinScripts()).length, 1, "the twin the card dropped is removed");
 
+  // A RisuAI card: top-level fields win over its `extensions`, as when the card itself is read.
+  const risuScript = (name: string) => ({ scriptName: name, findRegex: "/r/g", replaceString: "s", placement: [2] });
+  const risu = await post("/api/import/st-character", {
+    type: "character",
+    name: "Risu Wren",
+    data: { name: "Risu Wren", description: "d", firstMessage: "hi" },
+    extensions: { regex_scripts: [risuScript("Root script")] },
+    regex_scripts: [risuScript("Top script")],
+  });
+  assert.equal(risu.success, true, JSON.stringify(risu));
+  const risuNames = rows(await get("/api/regex-scripts"))
+    .filter((script: { targetCharacterIds: unknown }) => String(script.targetCharacterIds).includes(risu.characterId))
+    .map((script: { name: string }) => script.name);
+  assert.deepEqual(risuNames, ["Top script"]);
+
   // Two files with the same name in one batch: each keeps its own choice (here, only the second updates).
   const before = rows(await get("/api/characters")).length;
   const form = new FormData();
