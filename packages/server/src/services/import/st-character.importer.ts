@@ -550,6 +550,14 @@ function rawCardExtensions(raw: Record<string, unknown>): Record<string, unknown
   return recordOrEmpty(cardData.extensions);
 }
 
+/** The regex scripts a card carries: its extensions first, then a top-level field some exporters write instead. */
+function cardRegexScripts(raw: Record<string, unknown>): unknown {
+  const fromExtensions = rawCardExtensions(raw).regex_scripts;
+  if (fromExtensions !== undefined) return fromExtensions;
+  const cardData = recordOrEmpty(raw.data && typeof raw.data === "object" ? raw.data : raw);
+  return cardData.regex_scripts ?? cardData.regexScripts ?? raw.regex_scripts ?? raw.regexScripts;
+}
+
 /**
  * Import the regex scripts embedded in a card and remember their ids on the character (importMetadata.regexScriptIds),
  * so a later update can bring them in line with the newer card. On update the remembered scripts are updated by name
@@ -564,7 +572,7 @@ async function importEmbeddedRegexScripts(
   scope: "character" | "global" | undefined,
   update?: { recordedIds: string[] | null },
 ) {
-  const importedRegex = convertStRegexScripts(rawCardExtensions(raw).regex_scripts, {
+  const importedRegex = convertStRegexScripts(cardRegexScripts(raw), {
     characterIds: (scope ?? "character") === "global" ? [] : [charId],
   });
   const regexStorage = createRegexScriptsStorage(db);
