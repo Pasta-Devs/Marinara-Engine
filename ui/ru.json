@@ -1685,6 +1685,7 @@
   "commandCenter.values.unknown": "Неизвестно",
   "commandCenter.workTitle": "Professor Mari",
   "common.close": "Закрыть",
+  "connections.accounts.editor.selfHostedOrder": "Запросы к вашему серверу идут в порядке задач: сначала агенты, работающие до ответа, затем сам ответ, затем агенты, работающие параллельно с ним или после него, затем всё остальное. Если вы не задали другое число, Marinara отправляет по два запроса одновременно, оставляя одно место свободным для ответа. Если ваш сервер обрабатывает другое число запросов одновременно (например, OLLAMA_NUM_PARALLEL в Ollama), укажите здесь то же число.",
   "connections.add.device.builtIn": "Встроенная модель",
   "connections.audioGeneration.callbackHelp": "Для музыки SunoAPI требуется общедоступный URL обратного вызова HTTPS, даже при опросе.",
   "connections.audioGeneration.callbackUrl": "URL обратного вызова для музыки SunoAPI",

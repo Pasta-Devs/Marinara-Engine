@@ -1685,6 +1685,7 @@
   "commandCenter.values.unknown": "不明",
   "commandCenter.workTitle": "Professor Mari",
   "common.close": "閉じる",
+  "connections.accounts.editor.selfHostedOrder": "自分のサーバーへのリクエストは、返信前のエージェント、返信、返信と並行または返信後のエージェント、その他のタスクの順に送信されます。数を指定しない場合、Marinaraは同時に2件まで送信し、そのうち1件分を返信用に空けておきます。サーバー側の同時実行数が異なる場合(OllamaのOLLAMA_NUM_PARALLELなど)、ここにも同じ数を設定してください。",
   "connections.add.device.builtIn": "内蔵モデル",
   "connections.audioGeneration.callbackHelp": "SunoAPIの音楽生成には、ポーリングを使う場合でも公開HTTPSコールバックURLが必要です。",
   "connections.audioGeneration.callbackUrl": "SunoAPI音楽コールバックURL",

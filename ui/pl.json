@@ -1688,6 +1688,7 @@
   "commandCenter.values.unknown": "Nieznany",
   "commandCenter.workTitle": "Professor Mari",
   "common.close": "Zamknij",
+  "connections.accounts.editor.selfHostedOrder": "Żądania do twojego serwera są wysyłane w kolejności zadań: najpierw agenci działający przed odpowiedzią, potem sama odpowiedź, następnie agenci działający równolegle z nią lub po niej, a na końcu wszystko inne. Marinara wysyła domyślnie dwa żądania naraz, chyba że ustawisz inną liczbę, i rezerwuje jedno miejsce dla odpowiedzi. Jeśli twój serwer obsługuje inną liczbę żądań naraz (np. OLLAMA_NUM_PARALLEL w aplikacji Ollama), ustaw tutaj tę samą liczbę.",
   "connections.add.device.builtIn": "Model wbudowany",
   "connections.audioGeneration.callbackHelp": "Muzyka SunoAPI wymaga publicznego adresu URL wywołania zwrotnego HTTPS, nawet przy odpytywaniu.",
   "connections.audioGeneration.callbackUrl": "Adres URL wywołania zwrotnego muzyki SunoAPI",
