@@ -2705,8 +2705,8 @@
 }
 
 /* Animated accents should repaint at their tick cadence, not start color, border
-   and shadow transitions across every mounted control between ticks. Desktop
-   gets Accent Pulse by default, so this applies to every pointer type.
+   and shadow transitions across every mounted control between ticks.
+   This applies to every pointer type when accent animation is enabled.
    ponytail: root colors still update at 2 Hz; isolated accent layers are the
    upgrade path if device profiles need a smaller rendering budget. */
 html[data-marinara-accent-animation] *,

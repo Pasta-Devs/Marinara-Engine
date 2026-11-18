@@ -458,8 +458,7 @@ export function getDefaultAppAccentColor() {
 }
 
 export function getDefaultAppAccentPulseMode() {
-  // Device input, not window width: a narrow desktop window still gets the desktop default.
-  return typeof window !== "undefined" && !window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  return false;
 }
 
 export function getDefaultAppBackgroundColor(theme: "dark" | "light") {
