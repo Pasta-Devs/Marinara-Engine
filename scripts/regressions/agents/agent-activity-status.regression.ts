@@ -76,5 +76,11 @@ assert.equal(agents().processingChatIds.includes("tail-chat"), false, "the chat 
 const generateHook = read("packages/client/src/hooks/use-generate.ts");
 assert.match(generateHook, /case "assistant_message_ready":[\s\S]{0,1600}setAbortController\(params\.chatId, null\)/u);
 assert.match(generateHook, /setProcessingRun\(agentProcessingRunId, false, params\.chatId\)/u);
+// Clear Trackers, shared by every Agent activity section, also clears the reply's saved CYOA choices.
+assert.match(
+  read("packages/client/src/hooks/use-agent-activity.ts"),
+  /latestAssistantMessage[\s\S]{0,240}extra: \{ cyoaChoices: \[\] \}/u,
+  "clearing Roleplay tracker state must also clear the persisted active CYOA prompt",
+);
 
 console.log("agent activity status regression passed");

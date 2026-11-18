@@ -1,6 +1,6 @@
 // Which shared-package build the dev launcher runs: the one that keeps the existing build output when
 // DEV_PRESERVE_SHARED_DIST is set. Also the dev scripts: dev:server builds shared first, and the server's watcher
-// ignores shared's build output so a rebuild doesn't restart it in a loop.
+// ignores shared's build output so a rebuild doesn't restart it in a loop. build:preserve keeps that output.
 import assert from "node:assert/strict";
 import { resolveDevSharedBuildScript } from "../../dev-shared-build.mjs";
 import { readFileSync } from "node:fs";
@@ -20,3 +20,10 @@ assert.match(
   /^node \.\/scripts\/pnpm-runner\.mjs build:shared && node \.\/scripts\/pnpm-runner\.mjs --filter @marinara-engine\/server dev$/u,
   "The server-only development command must establish shared build output first",
 );
+// build:preserve clears only the incremental build record, never the build output it is named for keeping.
+const sharedPackageJson = JSON.parse(
+  readFileSync(new URL("../../../packages/shared/package.json", import.meta.url), "utf8"),
+) as { scripts?: Record<string, string> };
+const preserveSharedBuild = sharedPackageJson.scripts?.["build:preserve"] ?? "";
+assert.match(preserveSharedBuild, /tsconfig\.tsbuildinfo/u);
+assert.doesNotMatch(preserveSharedBuild, /\bdist\b/u);

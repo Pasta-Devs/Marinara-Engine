@@ -81,13 +81,24 @@ try {
   // The sweep gate's state machine (pure, pinned against refactors): only a
   // conclusive none-eligible sweep may arm the skip, and the skip requires a
   // real, unchanged generation on both sides.
-  const { concludeAutonomousSweep, shouldSkipAutonomousSweep, startServerAutonomousScheduler } = await import(
-    "../../packages/server/src/services/conversation/server-autonomous-scheduler.service.js"
-  );
+  const { concludeAutonomousSweep, shouldSkipAutonomousSweep, startServerAutonomousScheduler } =
+    await import("../../packages/server/src/services/conversation/server-autonomous-scheduler.service.js");
   assert.equal(concludeAutonomousSweep({ inconclusive: false, sawEligible: false, generation: 7 }), 7);
-  assert.equal(concludeAutonomousSweep({ inconclusive: true, sawEligible: false, generation: 7 }), null, "cap-break/stopped sweeps prove nothing");
-  assert.equal(concludeAutonomousSweep({ inconclusive: false, sawEligible: true, generation: 7 }), null, "eligible chats keep sweeping");
-  assert.equal(concludeAutonomousSweep({ inconclusive: false, sawEligible: false, generation: null }), null, "no counter -> never arm");
+  assert.equal(
+    concludeAutonomousSweep({ inconclusive: true, sawEligible: false, generation: 7 }),
+    null,
+    "cap-break/stopped sweeps prove nothing",
+  );
+  assert.equal(
+    concludeAutonomousSweep({ inconclusive: false, sawEligible: true, generation: 7 }),
+    null,
+    "eligible chats keep sweeping",
+  );
+  assert.equal(
+    concludeAutonomousSweep({ inconclusive: false, sawEligible: false, generation: null }),
+    null,
+    "no counter -> never arm",
+  );
   assert.equal(shouldSkipAutonomousSweep(7, 7), true);
   assert.equal(shouldSkipAutonomousSweep(7, 8), false, "any write re-arms the sweep");
   assert.equal(shouldSkipAutonomousSweep(null, 7), false, "unarmed gate always sweeps");
@@ -109,6 +120,7 @@ try {
   let generated = 'data: {"type":"done"}\n\n';
   let checked: string[] = [];
   let generatedIntentKey: unknown;
+  let generatedForCharacterId: unknown;
   const originalAndroidSecret = process.env.MARINARA_ANDROID_SECRET;
   process.env.MARINARA_ANDROID_SECRET = "11".repeat(32);
   const asInjected = (headers: Record<string, string> = {}) =>
@@ -120,12 +132,13 @@ try {
     async inject(input: {
       url: string;
       headers?: Record<string, string>;
-      payload: { chatId: string; autonomousIntentKey?: string };
+      payload: { chatId: string; autonomousIntentKey?: string; forCharacterId?: string };
     }) {
       // The same check androidLocalAuthHook runs on every request.
       if (!isAndroidLocalAuthSatisfied(asInjected(input.headers))) return { statusCode: 401, payload: "{}" };
       if (!input.url.endsWith("/check")) {
         generatedIntentKey = input.payload.autonomousIntentKey;
+        generatedForCharacterId = input.payload.forCharacterId;
         return { statusCode: 200, payload: generated };
       }
       checked.push(input.payload.chatId);
@@ -171,6 +184,7 @@ try {
       "long_absence_check_in",
       "a character without a schedule keeps the check's reason, so a long-absence check-in is not repeated",
     );
+    assert.equal(generatedForCharacterId, "friend", "the scheduler generates for the one character the check picked");
   } finally {
     scheduler.stop();
     mock.timers.reset();
