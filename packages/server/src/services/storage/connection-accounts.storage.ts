@@ -31,6 +31,8 @@ import {
   inferVideoSource,
   isChatProvider,
   isLocalAuthProvider,
+  isLocalServerAddress,
+  LOCAL_SERVER_DEFAULT_PARALLEL,
   localAuthProviderBaseUrl,
   supportsSubscriptionUsageWidget,
   takesBalanceToken,
@@ -304,6 +306,21 @@ export async function withoutBlockedRows<T extends { accountId?: string | null }
   return rows.filter((row) => !row.accountId || !blocked.has(row.accountId));
 }
 
+/**
+ * How many requests an account takes at once (null = no limit). A Custom account on this computer
+ * or the home network (Ollama, LM Studio...), or one marked self-hosted, takes two at a time unless
+ * it says otherwise, so its requests go in task order (account-budget.ts). A named service on a local
+ * address is a proxy to that service, which takes many requests at once.
+ */
+export function accountParallelLimit(
+  account: Pick<ConnectionAccountRow, "provider" | "baseUrl" | "treatAsLocalEndpoint" | "maxParallelJobs">,
+): number | null {
+  if (account.maxParallelJobs) return account.maxParallelJobs;
+  const selfHosted =
+    account.treatAsLocalEndpoint === "true" || (account.provider === "custom" && isLocalServerAddress(account.baseUrl));
+  return selfHosted ? LOCAL_SERVER_DEFAULT_PARALLEL : null;
+}
+
 /** Keep the outbound budget registry in sync with the row's account, right before the row is used. */
 export async function syncAccountBudget(db: DB, row: { id: string; accountId?: string | null }): Promise<void> {
   const account = row.accountId ? await getConnectionAccount(db, row.accountId) : null;
@@ -311,9 +328,10 @@ export async function syncAccountBudget(db: DB, row: { id: string; accountId?: s
     setConnectionBudgetScope(row.id, null);
     return;
   }
+  const parallel = accountParallelLimit(account);
   setAccountRateLimit(account.id, account.maxRequestsPerMinute);
-  setAccountParallelLimit(account.id, account.maxParallelJobs);
-  setConnectionBudgetScope(row.id, account.maxRequestsPerMinute || account.maxParallelJobs ? account.id : null);
+  setAccountParallelLimit(account.id, parallel);
+  setConnectionBudgetScope(row.id, account.maxRequestsPerMinute || parallel ? account.id : null);
 }
 
 /** Copy a value onto the other rows of the same account and provider (pins, saved model list). */

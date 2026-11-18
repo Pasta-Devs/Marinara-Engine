@@ -1787,6 +1787,7 @@
   "connections.accounts.editor.saveAndContinue": "Save and continue",
   "connections.accounts.editor.saved": "Account saved",
   "connections.accounts.editor.saveFailed": "Could not save the account.",
+  "connections.accounts.editor.selfHostedOrder": "Requests to your own server go in task order: agents that run before the reply, then the reply, then agents beside or after it, then everything else. Marinara sends it two at a time unless you set a number, and keeps one of them free for the reply. If your server runs a different number at once (like OLLAMA_NUM_PARALLEL in Ollama), set the same number here.",
   "connections.accounts.editor.state.needs_key": "Needs a key",
   "connections.accounts.editor.state.off": "Off",
   "connections.accounts.editor.state.ok": "Available",

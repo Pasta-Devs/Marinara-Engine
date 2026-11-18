@@ -94,6 +94,12 @@ try {
     apiKey: "",
   });
   assert(connection);
+  // Both session-ending routes reach the model side by side, as on a server that takes several at once.
+  if (connection.accountId) {
+    const { createConnectionAccountsStorage } =
+      await import("../../packages/server/src/services/storage/connection-accounts.storage.js");
+    await createConnectionAccountsStorage(db).update(connection.accountId, { maxParallelJobs: 4 });
+  }
   const chats = createChatsStorage(db);
   const gameChat = (name: string) =>
     chats.create({ name, mode: "game", characterIds: [], connectionId: connection.id });

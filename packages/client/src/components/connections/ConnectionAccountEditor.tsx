@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   isChatProvider,
+  isLocalServerAddress,
+  LOCAL_SERVER_DEFAULT_PARALLEL,
   type ConnectionAccountState,
   type UpdateConnectionAccountInput,
 } from "@marinara-engine/shared";
@@ -311,6 +313,11 @@ export function ConnectionAccountEditor({
   const openModel = (id: string) => void leaveFor(() => openConnectionDetail(id));
   const addModel = () => void leaveFor(() => openAddModels({ accountId }));
 
+  // A server on this computer or the home network, or one marked self-hosted, gets one request at a
+  // time in task order unless "Parallel requests" says otherwise (server: syncAccountBudget).
+  const selfHosted =
+    !!account?.treatAsLocalEndpoint ||
+    (account?.provider === "custom" && isLocalServerAddress(draft?.baseUrl ?? account?.baseUrl));
   const capInput = (key: "maxRequestsPerMinute" | "maxParallelJobs", max: number, text: string) => (
     <label className="block min-w-0">
       <span className={labelClass}>{text}</span>
@@ -321,7 +328,11 @@ export function ConnectionAccountEditor({
         max={max}
         value={draft?.[key] ?? ""}
         onChange={(event) => set(key, event.target.value)}
-        placeholder={t("connections.accounts.editor.noLimit")}
+        placeholder={
+          key === "maxParallelJobs" && selfHosted
+            ? String(LOCAL_SERVER_DEFAULT_PARALLEL)
+            : t("connections.accounts.editor.noLimit")
+        }
         className={fieldClass}
       />
     </label>
@@ -641,6 +652,11 @@ export function ConnectionAccountEditor({
                   {capInput("maxRequestsPerMinute", 600, t("connections.accounts.editor.maxRequestsPerMinute"))}
                   {capInput("maxParallelJobs", 16, t("connections.accounts.editor.maxParallelJobs"))}
                 </div>
+                {selfHosted && (
+                  <p className="text-[0.6875rem] text-[var(--muted-foreground)] max-sm:text-[13px]">
+                    {t("connections.accounts.editor.selfHostedOrder")}
+                  </p>
+                )}
               </section>
             </SmoothFolderContent>
           </div>
