@@ -14,12 +14,12 @@ Every answer comes back as a number from 0 to 1: how sure the model is. Marinara
 
 The model reads a statement and says how likely it is to be true. Marinara compares that with a [threshold](#thresholds): at or above it counts as yes. This is the most common kind, used by activation questions, lorebook **Decision** fields, `{{#if decision:"..."}}` and the Illustrator's checks.
 
-| Statement                                                            | What it could switch                                           |
-| -------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Statement | What it could switch |
+| --- | --- |
 | `In the latest message, the characters move to a different location` | A tracker updates the location only on turns where it changed. |
-| `In the latest message, a dragon is physically present`              | A lorebook entry about dragons joins the prompt.               |
-| `{{user}} asked a question that {{char}} has not answered yet`       | A prompt line reminds the model to answer it.                  |
-| `The latest message describes a fight`                               | A combat agent runs on this turn only.                         |
+| `In the latest message, a dragon is physically present` | A lorebook entry about dragons joins the prompt. |
+| `{{user}} asked a question that {{char}} has not answered yet` | A prompt line reminds the model to answer it. |
+| `The latest message describes a fight` | A combat agent runs on this turn only. |
 
 ### One of several answers
 
@@ -71,7 +71,6 @@ Before you start, see [Which one to pick](#which-one-to-pick).
    - **Connections** lists your accounts that can answer decisions: hosted, or a chat model on a server you already run.
 
    Click an account on the left to browse its models. A NanoGPT, OpenRouter, or Google Gemini account lists its own decision models first, under **Decision models**, and its chat models below them, under **Chat models**. A Google Gemini account lists only its decision models, since its chat models cannot answer decisions. A decision model you picked earlier shows above **Starred**, with its account's name under it.
-
 4. To test it, click the **Decision settings** gear on the row and click **Test**. That button shows for the Built-in model entries. For a TypeSafe, OpenRouter, NanoGPT, or Google Gemini decision model, open **Edit model** on it and click **Test provider**. For an **Own decision server** account, use **Test** in the account's **⋯** menu.
 
 A passing test shows the probability of yes and how long the answer took. For a model on your computer it also says whether log-probabilities were available and whether the model answers directly. Log-probabilities are the model's confidence numbers for each word it could write. The test sends a fixed sample, not your chat.
@@ -107,11 +106,11 @@ Marinara asks the model one yes-or-no question, lets it write one token, and rea
 
 The **Thinking** setting controls what happens when a model cannot answer in one word. Some models always reason first.
 
-| Thinking                                                    | What it does                                                                                                      |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Thinking | What it does |
+| --- | --- |
 | **Auto (try one word, allow thinking if the model cannot)** | Default. After two failed one-word answers in a row, the model is allowed to think first, and Marinara tells you. |
-| **Off (always answer in one word)**                         | A model that cannot answer in one word gives no answer.                                                           |
-| **Allowed (let the model think first)**                     | Never asks the model to skip reasoning.                                                                           |
+| **Off (always answer in one word)** | A model that cannot answer in one word gives no answer. |
+| **Allowed (let the model think first)** | Never asks the model to skip reasoning. |
 
 A model that thinks first takes seconds, so by default it answers only for checks that run after the reply is on screen, such as post-processing agents. To make it also gate agents that run before the reply, turn on **Also gate agents that run before the reply**. Every reply then waits for it.
 
@@ -123,7 +122,7 @@ If your chat model runs in Ollama, LM Studio, llama.cpp, or another OpenAI-compa
 
 1. Click the **Decision** row under **Behind the scenes** in the **Jobs** box. The picker lists the models of every account, including your chat model. Or click **⋯** on the model and choose **Use for…** → **Decision**.
 2. Click the gear of the **Decision** row, then click **Test**. A passing test says whether the server returned log-probabilities and whether the model had to think first. Click **Done**.
-   You can also create one yourself. Use a Decision account with the source **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**, the same address as your chat account (for example `http://localhost:11434/v1` for Ollama), and the model name the server uses.
+You can also create one yourself. Use a Decision account with the source **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**, the same address as your chat account (for example `http://localhost:11434/v1` for Ollama), and the model name the server uses.
 
 It is asked like the Built-in model: one yes-or-no word per statement. Statements go one at a time, because Marinara cannot know how many requests your server handles at once. **Thinking** is always **Auto** for an account. A server on another computer needs `PROVIDER_LOCAL_URLS_ENABLED`. See [Connecting a Local or Self-Hosted Model](local-self-hosted.md).
 
@@ -143,13 +142,13 @@ If it did not work, see [Troubleshooting](#troubleshooting).
 
 A decision model has these fields. Click the model in the panel to open **Edit model**, or click the gear on the **Decision** row in the **Jobs** box to open **Decision settings** for the current decision model:
 
-| Field                           | What it does                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Decision source**             | **TypeSafe**, **OpenRouter**, **NanoGPT**, **Google Gemini**, **Custom System One endpoint**, or **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**. It is fixed when you create the model.                                                                                                                                                                                                                                 |
-| **API key source**              | **Enter a separate key (optional for local servers)** or **Use key from …** another account. Linked keys follow later key changes. A custom System One or OpenAI-compatible model can borrow a custom chat account's key only when both addresses have the same scheme, host, and port.                                                                                                                                                  |
+| Field | What it does |
+| --- | --- |
+| **Decision source** | **TypeSafe**, **OpenRouter**, **NanoGPT**, **Google Gemini**, **Custom System One endpoint**, or **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**. It is fixed when you create the model. |
+| **API key source** | **Enter a separate key (optional for local servers)** or **Use key from …** another account. Linked keys follow later key changes. A custom System One or OpenAI-compatible model can borrow a custom chat account's key only when both addresses have the same scheme, host, and port. |
 | **Recent-message token budget** | How many estimated tokens of chat to send. 1 to 30,000. Default 30,000 for TypeSafe, OpenRouter, NanoGPT, and Google Gemini, and 3,500 for custom servers. A decision model from a NanoGPT, OpenRouter, or Google Gemini account with a smaller input limit gets three quarters of it instead. Marinara drops older messages first, then trims the oldest part of the newest message. A rejected or over-budget request gives no answer. |
-| **Time limit (seconds)**        | How long to wait for each statement during chats. 0.5 to 30. Default 1.5, or 4 for NanoGPT and for an OpenAI-compatible chat model. See [Time limits](#time-limits).                                                                                                                                                                                                                                                                     |
-| **Custom Request Headers**      | Extra headers sent with every decision request, as a JSON object, for example `{"x-billing-mode": "paygo"}`. Not for keys: authentication headers are rejected.                                                                                                                                                                                                                                                                          |
+| **Time limit (seconds)** | How long to wait for each statement during chats. 0.5 to 30. Default 1.5, or 4 for NanoGPT and for an OpenAI-compatible chat model. See [Time limits](#time-limits). |
+| **Custom Request Headers** | Extra headers sent with every decision request, as a JSON object, for example `{"x-billing-mode": "paygo"}`. Not for keys: authentication headers are rejected. |
 
 TypeSafe sends to `https://api.typesafe.ai`. You can replace its **Base URL** with another server that runs TypeSafe's API, without `/v1/systemone`. It still needs your TypeSafe key, which goes to that server. **Custom System One endpoint** accepts a System One server you run, such as Open-Jev or [Strands decider](#run-strands-decider-yourself). Enter its address without `/v1/systemone`. A chat model server such as Ollama does not speak System One. Use **OpenAI-compatible chat model** for it.
 
@@ -200,13 +199,13 @@ An activation question decides whether an agent runs. A decision statement insid
 
 These need a built-in decision model that reads pictures (Liquid d1, Valen or Winnow). They are all off until you turn them on. Without such a model they are greyed out, with an ⓘ that says why. One you turned on earlier can still be turned off.
 
-| Feature                                                  | Where                                         | What it does                                                                                                                                                                                                                                                                                                                                                  |
-| -------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Picture check**                                        | **Chat Settings → Agents → Illustrator**      | Looks at each new Illustrator picture and selfie, and checks that it shows what was asked. A selfie is also compared with the character's avatar. **Make another if it doesn't match** draws once more after a miss. **Always make two, keep the better** draws two and keeps the one that matches better. Each extra picture costs another image generation. |
-| **Also check**                                           | Under **Picture check**                       | Your own checks, one per line, up to 6, such as `Kaelen has short red hair`. Start a line with `not:` for something the picture must not show, such as `not: The picture has writing or a watermark`.                                                                                                                                                         |
-| **Skip a picture the newest one already shows**          | Illustrator card                              | Before drawing, compares the newest picture in the chat with what is about to be drawn, and skips it when it would show the same scene again. Pictures you ask for are always made.                                                                                                                                                                           |
-| **Reuse a library background that looks like the place** | Illustrator card                              | When no background in your library is named for a new place, looks at up to 4 that share words with it and shows one that matches, instead of painting a new one. See [Check pictures with a decision model](../media/illustrator-agent.md#check-pictures-with-a-decision-model).                                                                             |
-| **Flag faces that don't match their expression**         | **Generate Sprites** window, expressions only | Looks at each face after it is drawn and marks any that may not show its expression, so you can untick or redraw it. See [Generate sprites with AI](../characters/sprites.md#generate-sprites-with-ai).                                                                                                                                                       |
+| Feature | Where | What it does |
+| --- | --- | --- |
+| **Picture check** | **Chat Settings → Agents → Illustrator** | Looks at each new Illustrator picture and selfie, and checks that it shows what was asked. A selfie is also compared with the character's avatar. **Make another if it doesn't match** draws once more after a miss. **Always make two, keep the better** draws two and keeps the one that matches better. Each extra picture costs another image generation. |
+| **Also check** | Under **Picture check** | Your own checks, one per line, up to 6, such as `Kaelen has short red hair`. Start a line with `not:` for something the picture must not show, such as `not: The picture has writing or a watermark`. |
+| **Skip a picture the newest one already shows** | Illustrator card | Before drawing, compares the newest picture in the chat with what is about to be drawn, and skips it when it would show the same scene again. Pictures you ask for are always made. |
+| **Reuse a library background that looks like the place** | Illustrator card | When no background in your library is named for a new place, looks at up to 4 that share words with it and shows one that matches, instead of painting a new one. See [Check pictures with a decision model](../media/illustrator-agent.md#check-pictures-with-a-decision-model). |
+| **Flag faces that don't match their expression** | **Generate Sprites** window, expressions only | Looks at each face after it is drawn and marks any that may not show its expression, so you can untick or redraw it. See [Generate sprites with AI](../characters/sprites.md#generate-sprites-with-ai). |
 
 A check that cannot run, because the model is off, slow or fails, counts as a pass: the picture is kept as it was made.
 
@@ -291,17 +290,17 @@ The **Built-in decision model** is a purpose-built decision model that Marinara 
 
 ### Which built-in decision model
 
-| Model                                    | Download      | Reads                 | Languages                                                            | Runs on                                                                                                                                                                                                                   |
-| ---------------------------------------- | ------------- | --------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **JevK5 4B**                             | About 2.7 GB  | Text                  | English                                                              | Almost any computer: NVIDIA, AMD, Intel or Apple graphics, or the processor alone. Uses the same runtime as the Built-in model.                                                                                           |
-| **JevK5 2B**                             | About 2 GB    | Text                  | English                                                              | Same as 4B. Faster on a processor or a small graphics card, a little less accurate.                                                                                                                                       |
-| **Liquid d1 3B**                         | About 2.3 GB  | Text, pictures        | 16, including Japanese, Chinese, Korean, German, Spanish and Russian | Almost any computer. The pick for chats that are not in English. Free for people and for companies under $10 million a year in revenue.                                                                                   |
-| **Valen-Decision 1.5 4B**                | About 5.8 GB  | Text, pictures        | 8 checked                                                            | Linux on a 64-bit Intel or AMD processor, on the processor only.                                                                                                                                                          |
-| **Valen-Decision 1.5 2B (full release)** | About 6.4 GB  | Text, pictures, clips | Not stated                                                           | Windows, macOS on Apple silicon, and Linux, on the processor. Needs about 6 GB of memory.                                                                                                                                 |
-| **Valen-Decision 1.5 4B (full release)** | About 11.8 GB | Text, pictures, clips | 8 checked                                                            | Same as 2B. Needs about 12 GB of memory, and is slower but more accurate.                                                                                                                                                 |
-| **Winnow E4B**                           | About 9 GB    | Text, pictures        | Not stated                                                           | Only Linux with an NVIDIA RTX 50-series card, the CUDA 13 libraries, and a processor with AVX-512 (such as AMD Ryzen 7000 or 9000; current Intel laptop and desktop chips lack it). Needs about 11 GB of graphics memory. |
-| **Open-Jev 2B**                          | About 4.6 GB  | Text                  | English                                                              | Linux with an NVIDIA card from the RTX 20 series or newer and driver 580 or newer. Uses about 4.8 GB of graphics memory and 10 GB of disk.                                                                                |
-| **Open-Jev 9B**                          | About 19.4 GB | Text                  | English                                                              | Same as 2B. Uses about 23.6 GB of graphics memory, so on a 24 GB card nothing else fits beside it.                                                                                                                        |
+| Model | Download | Reads | Languages | Runs on |
+| --- | --- | --- | --- | --- |
+| **JevK5 4B** | About 2.7 GB | Text | English | Almost any computer: NVIDIA, AMD, Intel or Apple graphics, or the processor alone. Uses the same runtime as the Built-in model. |
+| **JevK5 2B** | About 2 GB | Text | English | Same as 4B. Faster on a processor or a small graphics card, a little less accurate. |
+| **Liquid d1 3B** | About 2.3 GB | Text, pictures | 16, including Japanese, Chinese, Korean, German, Spanish and Russian | Almost any computer. The pick for chats that are not in English. Free for people and for companies under $10 million a year in revenue. |
+| **Valen-Decision 1.5 4B** | About 5.8 GB | Text, pictures | 8 checked | Linux on a 64-bit Intel or AMD processor, on the processor only. |
+| **Valen-Decision 1.5 2B (full release)** | About 6.4 GB | Text, pictures, clips | Not stated | Windows, macOS on Apple silicon, and Linux, on the processor. Needs about 6 GB of memory. |
+| **Valen-Decision 1.5 4B (full release)** | About 11.8 GB | Text, pictures, clips | 8 checked | Same as 2B. Needs about 12 GB of memory, and is slower but more accurate. |
+| **Winnow E4B** | About 9 GB | Text, pictures | Not stated | Only Linux with an NVIDIA RTX 50-series card, the CUDA 13 libraries, and a processor with AVX-512 (such as AMD Ryzen 7000 or 9000; current Intel laptop and desktop chips lack it). Needs about 11 GB of graphics memory. |
+| **Open-Jev 2B** | About 4.6 GB | Text | English | Linux with an NVIDIA card from the RTX 20 series or newer and driver 580 or newer. Uses about 4.8 GB of graphics memory and 10 GB of disk. |
+| **Open-Jev 9B** | About 19.4 GB | Text | English | Same as 2B. Uses about 23.6 GB of graphics memory, so on a 24 GB card nothing else fits beside it. |
 
 On 20 roleplay turns in 8 languages, JevK5 4B, Liquid d1 and Valen-Decision 1.5 4B answered all 20 correctly. Pick Liquid d1 if you are unsure, or Valen's full release if you want clips read.
 

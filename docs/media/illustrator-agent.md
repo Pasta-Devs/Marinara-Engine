@@ -40,14 +40,14 @@ Game Mode has no **Prompt Mode** or **Prompt Model** options. Open the game's **
 
 The **Prompt Mode** picker (labeled **Prompt** on the card) sets the art style for every prompt the Illustrator writes. A new Illustrator starts on **Background**.
 
-| Style             | What it draws                                                         |
-| ----------------- | --------------------------------------------------------------------- |
-| **Illustration**  | A single polished scene picture. The general style.                   |
-| **Comic Page**    | A comic page with panels, speech bubbles, captions and sound effects. |
-| **Colored Manga** | A colored manga scene with stylized bubbles and sound effects.        |
-| **B&W Manga**     | A black and white manga page with inked lines and screentone shading. |
-| **Background**    | A location or establishing shot with no characters.                   |
-| **Selfie**        | An in-character selfie or casual portrait.                            |
+| Style | What it draws |
+| --- | --- |
+| **Illustration** | A single polished scene picture. The general style. |
+| **Comic Page** | A comic page with panels, speech bubbles, captions and sound effects. |
+| **Colored Manga** | A colored manga scene with stylized bubbles and sound effects. |
+| **B&W Manga** | A black and white manga page with inked lines and screentone shading. |
+| **Background** | A location or establishing shot with no characters. |
+| **Selfie** | An in-character selfie or casual portrait. |
 
 The final look also depends on your style profile. See [Image Style Profiles](style-profiles.md).
 
@@ -151,7 +151,7 @@ No setting is needed. Captions appear only for NovelAI on its own host, so a pro
 
 In **Settings → Generations → Image Generation**, **Automatically save generated images to character galleries** is on by default. Turn it off to stop adding chat illustrations and selfies to the depicted characters' and personas' galleries. Images still appear in the conversation and chat Gallery, and explicit gallery saves still work. Existing entries are unchanged. Galleries share image files, so this controls membership, not deletion.
 
-For new NovelAI illustrations, the image inspector shows the scene and style prompt followed by the positive character captions, separated by `|`. The saved gallery prompt is the same.
+For new NovelAI illustrations, the image inspector shows the scene and style prompt followed by the positive character captions, separated by ` | `. The saved gallery prompt is the same.
 
 To draw an illustration again with a changed prompt, without regenerating the reply, open it and use **Regenerate image**. See [Regenerating an image](scene-backgrounds.md#regenerating-an-image).
 
