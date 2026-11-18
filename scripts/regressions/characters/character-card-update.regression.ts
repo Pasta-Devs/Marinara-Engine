@@ -270,6 +270,33 @@ try {
     .map((script: { name: string }) => script.name);
   assert.deepEqual(risuNames, ["Top script"]);
 
+  // Cards that keep regex scripts outside `extensions`: a V2 card's `data` and a V1 card's root.
+  const topScriptsFor = async (characterId: string) =>
+    rows(await get("/api/regex-scripts"))
+      .filter((script: { targetCharacterIds: unknown }) => String(script.targetCharacterIds).includes(characterId))
+      .map((script: { name: string }) => script.name);
+  const v2Top = await post("/api/import/st-character", {
+    spec: "chara_card_v2",
+    spec_version: "2.0",
+    data: {
+      name: "Top Wren",
+      description: "d",
+      first_mes: "hi",
+      extensions: {},
+      regex_scripts: [risuScript("V2 top")],
+    },
+  });
+  assert.equal(v2Top.success, true, JSON.stringify(v2Top));
+  assert.deepEqual(await topScriptsFor(v2Top.characterId), ["V2 top"]);
+  const v1Root = await post("/api/import/st-character", {
+    name: "Root Wren",
+    description: "d",
+    first_mes: "hi",
+    regex_scripts: [risuScript("V1 root")],
+  });
+  assert.equal(v1Root.success, true, JSON.stringify(v1Root));
+  assert.deepEqual(await topScriptsFor(v1Root.characterId), ["V1 root"]);
+
   // Two files with the same name in one batch: each keeps its own choice (here, only the second updates).
   const before = rows(await get("/api/characters")).length;
   const form = new FormData();
