@@ -224,7 +224,8 @@ export function ServiceListStep({
       good: true,
       icon: <ServiceTile service="local_model" />,
       open: () => setOnDevice(true),
-      types: ["text", "voice", "decision"],
+      // Voice has its own Built-in model (TTS) row above, so the family row stays out of that tab.
+      types: ["text", "decision"],
       group: "popular",
     });
   }
