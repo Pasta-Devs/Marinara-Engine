@@ -35,6 +35,8 @@ import {
   type DecisionLocalSlot,
   type DecisionModelOption,
   type DecisionModelOptions,
+  type DecisionInstallProgress,
+  type SidecarDownloadProgress,
 } from "@marinara-engine/shared";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -136,6 +138,32 @@ function localOption(slot: DecisionLocalSlot, selectedId: string | null): Decisi
     // decision model's are, and a slot whose runtime returns no log-probabilities
     // answers 1 or 0 outright. Both cases want the same warning.
     uncalibrated: true,
+  };
+}
+
+/**
+ * What an install is doing right now, for the page's progress bar. An install answers
+ * only when it has finished, which on a slow connection is many minutes, so the page
+ * polls this instead of watching a spinner it cannot tell from a stuck one.
+ */
+let installProgress: DecisionInstallProgress | null = null;
+
+function trackInstall(modelId: string, label: string) {
+  // A second click joins the install already running (the download is shared), so its
+  // bar carries on rather than restarting at zero.
+  if (installProgress?.modelId !== modelId)
+    installProgress = { modelId, label, phase: "runtime", downloaded: 0, total: 0, speed: 0, startedAt: Date.now() };
+  return (progress: SidecarDownloadProgress) => {
+    logger.debug("[decision-sidecar] %s %s %s", progress.phase, progress.status, progress.label ?? "");
+    if (!installProgress || installProgress.modelId !== modelId) return;
+    installProgress = {
+      ...installProgress,
+      phase: progress.phase,
+      downloaded: progress.downloaded,
+      total: progress.total,
+      speed: progress.speed,
+      ...(progress.phase === "runtime" && progress.label ? { runtimeLabel: progress.label } : {}),
+    };
   };
 }
 
@@ -363,19 +391,18 @@ export async function decisionRoutes(app: FastifyInstance) {
     try {
       // Open-Jev needs its Python environment; every other runtime is one server program,
       // and JevK5's is the chat model's own, installed only if it is not already here.
-      const onProgress = (progress: { phase: string; label?: string }) =>
-        logger.debug("[decision-sidecar] %s %s", progress.phase, progress.label ?? "");
+      const onProgress = trackInstall(model.id, model.label);
       if (model.runtime === "open_jev_torch") await decisionRuntimeService.ensureInstalled(onProgress);
       else await decisionServerRuntimeService.ensureInstalled(model.runtime, onProgress);
-      await decisionRuntimeService.downloadModel(model, (progress) =>
-        logger.debug("[decision-sidecar] %s %s", progress.phase, progress.label ?? ""),
-      );
+      await decisionRuntimeService.downloadModel(model, onProgress);
     } catch (error) {
+      installProgress = null;
       // Logged as well as returned: an install takes long enough that the page which
       // asked may be gone by the time it fails, and the reason would otherwise vanish.
       logger.warn(error, "[decision-sidecar] Install of %s failed", model.id);
       return reply.status(400).send({ error: error instanceof Error ? error.message : "Install failed" });
     }
+    installProgress = null;
     return {
       settings: await writeSidecarSettings((current) => ({
         ...current,
@@ -426,6 +453,17 @@ export async function decisionRoutes(app: FastifyInstance) {
       preflight: await preflightDecisionModel(inspected.model),
     };
   });
+
+  /** Stops a model download in progress. Files already finished are kept. */
+  app.post("/sidecar/cancel-install", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
+    decisionRuntimeService.cancel();
+    return { cancelled: true };
+  });
+
+  // Outside /sidecar on purpose: that prefix shares one request budget, and the page
+  // polls this every second or two for as long as a download runs.
+  app.get("/install-progress", async () => ({ progress: installProgress }));
 
   app.post("/sidecar/stop", { config: { rateLimit: DECISION_SIDECAR_RATE_LIMIT } }, async () => {
     await decisionProcessService.stop();

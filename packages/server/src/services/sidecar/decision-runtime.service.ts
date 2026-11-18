@@ -325,6 +325,16 @@ export class DecisionRuntimeService {
     onProgress?: (progress: SidecarDownloadProgress) => void,
   ): Promise<void> {
     this.cancelRequested = false;
+    // Reported as one download across every file, so the page can show one bar for the
+    // whole model rather than restarting at 0% for each file.
+    let doneBytes = 0;
+    const overall = (progress: SidecarDownloadProgress) =>
+      onProgress?.({
+        ...progress,
+        label: model.label,
+        downloaded: doneBytes + progress.downloaded,
+        total: Math.max(model.downloadSizeBytes, doneBytes + progress.downloaded),
+      });
     for (const artifact of model.artifacts) {
       const files = await this.listArtifactFiles(artifact);
       const snapshot = artifactSnapshotPath(artifact);
@@ -342,7 +352,10 @@ export class DecisionRuntimeService {
           throw new Error(`${artifact.repoId} lists a file outside its own directory: ${file.path}`);
         }
         mkdirSync(dirname(destination), { recursive: true });
-        if (await alreadyDownloaded(destination, file)) continue;
+        if (await alreadyDownloaded(destination, file)) {
+          doneBytes += file.size;
+          continue;
+        }
         const abort = new AbortController();
         this.activeFetchAbort = abort;
         try {
@@ -362,13 +375,14 @@ export class DecisionRuntimeService {
                 // are checked by size, which is what the hub itself exposes for them.
                 ...(file.sha256 ? { expectedSha256: file.sha256 } : {}),
                 progress: { phase: "model", label: `${model.label}: ${file.path}` },
-                onProgress,
+                onProgress: overall,
               }),
             { retries: 2, baseDelayMs: 1000, shouldRetry: (error) => !isAbortError(error) },
           );
         } finally {
           this.activeFetchAbort = null;
         }
+        doneBytes += file.size;
       }
       // Written last, so its presence is the signal that this artifact completed.
       // Merged with what is already recorded: two GGUF entries can share one repository

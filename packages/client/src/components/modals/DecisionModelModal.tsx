@@ -21,10 +21,13 @@ import {
   PowerOff,
   RefreshCw,
   Trash2,
+  X,
 } from "lucide-react";
-import { DECISION_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
+import { DECISION_SIDECAR_CONNECTION_ID, type DecisionInstallProgress } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
+  useCancelDecisionInstall,
+  useDecisionInstallProgress,
   useDecisionSidecar,
   useEnableDecisionSidecar,
   useInstallDecisionModel,
@@ -59,6 +62,13 @@ function formatBytes(bytes: number): string {
   return `${Math.round(bytes / 1_000_000)} MB`;
 }
 
+/**
+ * Set by Cancel, so the aborted install's error reads as what the user asked for. Not
+ * per page: the install may have been started by a page that has since been left and
+ * reopened, and it is that first page's promise that rejects.
+ */
+const installCancelled = { current: false };
+
 export function DecisionModelModal() {
   const { t: localizeUi, i18n } = useUiTranslation();
   const numberFormat = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 });
@@ -76,6 +86,8 @@ export function DecisionModelModal() {
   const startPolicy = useSetDecisionStartPolicy();
   const device = useSetDecisionDevice();
   const openModal = useUIStore((state) => state.openModal);
+  const installProgress = useDecisionInstallProgress(install.isPending || installRepo.isPending).data?.progress ?? null;
+  const cancelInstall = useCancelDecisionInstall();
 
   const data = sidecar.data;
   const models = data?.models ?? [];
@@ -99,6 +111,9 @@ export function DecisionModelModal() {
   // The runtime alone is several gigabytes, so an install that stopped before any
   // model landed still needs a way to be removed.
   const hasInstall = !!installedId || !!data?.settings.customModel || data?.runtimeInstalled === true;
+  // A model, not just its runtime: the runtime lands first, minutes before the model,
+  // and a page that counted it read "Ready" with no model at all.
+  const hasModel = !!installedId || !!data?.settings.customModel;
   // The installed model, from the catalog or pasted. An update can pin a different runtime (a new uv or Open-Jev
   // revision) than the one on disk, or its weights can go missing; either leaves it unable to start. Installing it
   // again repairs both, and files that are already here and whole are kept, not downloaded again.
@@ -134,8 +149,14 @@ export function DecisionModelModal() {
    * the verdict is a warning, because "Enable" reads as approval of something safe.
    */
   /** Every mutation here reports its own failure; a silent no-op reads as a bug. */
-  const report = (error: unknown) =>
+  const report = (error: unknown) => {
+    if (installCancelled.current) {
+      installCancelled.current = false;
+      toast(localizeUi("ui.modals.decisionmodelmodal.progress.cancelled"));
+      return;
+    }
     toast.error(error instanceof Error ? error.message : localizeUi("ui.modals.decisionmodelmodal.installFailed"));
+  };
 
   const handleEnable = async (next: boolean): Promise<boolean> => {
     if (!next) {
@@ -368,7 +389,7 @@ export function DecisionModelModal() {
       ? { tone: "warn", label: localizeUi("ui.modals.decisionmodelmodal.needsUpdateBadge") }
       : needsReinstall
         ? { tone: "warn", label: localizeUi("ui.modals.decisionmodelmodal.needsReinstallBadge") }
-        : !hasInstall
+        : !hasModel
           ? { tone: "off", label: localizeUi("connections.device.state.notDownloaded") }
           : !enabled
             ? { tone: "off", label: localizeUi("connections.accounts.state.off") }
@@ -378,8 +399,9 @@ export function DecisionModelModal() {
                 ? { tone: "ok", label: localizeUi("connections.device.state.running") }
                 : { tone: "ok", label: localizeUi("connections.device.state.ready") };
   const shown = installedId ? (models.find((model) => model.id === installedId) ?? selected) : selected;
-  const switching = !!selected && hasInstall && !customModel && selected.id !== installedId;
-  const installing = install.isPending || installRepo.isPending;
+  const switching = !!selected && hasModel && !customModel && selected.id !== installedId;
+  // A download started before this page opened still counts, so its button stays busy.
+  const installing = install.isPending || installRepo.isPending || !!installProgress;
 
   const body = (
     <div className="flex flex-col gap-3" data-component="DecisionModelDetail">
@@ -391,7 +413,7 @@ export function DecisionModelModal() {
         <span>· {localizeUi("connections.accounts.section.device")}</span>
       </DetailHero>
 
-      {data?.supported && !nothingRuns && hasInstall && (
+      {data?.supported && !nothingRuns && hasModel && (
         <div className="flex flex-wrap gap-1.5">
           <button type="button" onClick={() => void handleEnable(!enabled)} disabled={busy} className={SMALL_ACTION}>
             {enable.isPending ? (
@@ -581,11 +603,11 @@ export function DecisionModelModal() {
       )}
 
       {/* One primary button, as on the other models: download, or download the model picked above. */}
-      {data?.supported && !nothingRuns && selected && (!hasInstall || switching) && (
+      {data?.supported && !nothingRuns && selected && (!hasModel || switching) && (
         <button
           type="button"
-          onClick={() => void (hasInstall ? handleInstall() : handleDownload())}
-          disabled={busy || !selected.preflight.installable}
+          onClick={() => void (hasModel ? handleInstall() : handleDownload())}
+          disabled={busy || installing || !selected.preflight.installable}
           className="mari-chrome-control mari-chrome-control--primary w-full"
         >
           {installing ? <Spinner size="sm" /> : <HardDriveDownload size="0.8125rem" />}
@@ -598,6 +620,22 @@ export function DecisionModelModal() {
                   size: formatBytes(selected.downloadSizeBytes),
                 })}
         </button>
+      )}
+
+      {installProgress && (
+        <InstallProgressBar
+          progress={installProgress}
+          cancelling={cancelInstall.isPending}
+          onCancel={() => {
+            installCancelled.current = true;
+            cancelInstall.mutate(undefined, {
+              onError: (error) => {
+                installCancelled.current = false;
+                report(error);
+              },
+            });
+          }}
+        />
       )}
 
       {/* Bring your own: checked first, always, so the size and base weights are seen before agreeing. */}
@@ -709,4 +747,75 @@ export function DecisionModelModal() {
     </div>
   );
   return body;
+}
+
+/**
+ * One bar for the whole install: the program that runs the model first, then the
+ * model's files counted together, with the speed and time left so a slow download
+ * reads as slow rather than stuck.
+ */
+function InstallProgressBar({
+  progress,
+  cancelling,
+  onCancel,
+}: {
+  progress: DecisionInstallProgress;
+  cancelling: boolean;
+  onCancel: () => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const percent = progress.total > 0 ? Math.min(100, Math.floor((progress.downloaded / progress.total) * 100)) : null;
+  const secondsLeft =
+    progress.speed > 0 && progress.total > 0 ? (progress.total - progress.downloaded) / progress.speed : null;
+  const timeLeft =
+    secondsLeft === null
+      ? null
+      : secondsLeft < 60
+        ? localizeUi("ui.modals.decisionmodelmodal.progress.underMinute")
+        : localizeUi("ui.modals.decisionmodelmodal.progress.minutesLeft", { count: Math.round(secondsLeft / 60) });
+  const runtime = progress.phase === "runtime";
+  return (
+    <div className="flex flex-col gap-1.5" role="status" aria-live="polite">
+      <div
+        className="h-1.5 overflow-hidden rounded-full bg-[var(--secondary)]"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        {...(percent === null ? {} : { "aria-valuenow": percent })}
+      >
+        <div
+          className={cn(
+            "h-full rounded-full bg-[var(--primary)] transition-[width]",
+            percent === null && "animate-pulse",
+          )}
+          style={{ width: `${percent ?? 8}%` }}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+        <span className="min-w-0">
+          {runtime
+            ? localizeUi("ui.modals.decisionmodelmodal.progress.runtime", { model: progress.label })
+            : localizeUi("ui.modals.decisionmodelmodal.progress.model", {
+                model: progress.label,
+                done: formatBytes(progress.downloaded),
+                total: formatBytes(progress.total),
+                percent: percent ?? 0,
+              })}
+          {!runtime && progress.speed > 0 && (
+            <>
+              {" · "}
+              {localizeUi("ui.modals.decisionmodelmodal.progress.speed", { speed: formatBytes(progress.speed) })}
+              {timeLeft && ` · ${timeLeft}`}
+            </>
+          )}
+        </span>
+        {!runtime && (
+          <button type="button" onClick={onCancel} disabled={cancelling} className={SMALL_ACTION}>
+            <X size="0.75rem" />
+            {localizeUi("connections.builtinEmbedding.cancel")}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }

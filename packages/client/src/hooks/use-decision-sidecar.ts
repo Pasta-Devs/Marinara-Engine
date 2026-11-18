@@ -1,8 +1,9 @@
 // ──────────────────────────────────────────────
 // React Query: the managed decision sidecar
 // ──────────────────────────────────────────────
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { DecisionSidecarSettings, SidecarLoadAssessment } from "@marinara-engine/shared";
+import type { DecisionInstallProgress, DecisionSidecarSettings, SidecarLoadAssessment } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { decisionKeys } from "./use-decision-model";
 
@@ -78,6 +79,9 @@ export function useDecisionSidecar(enabled = true) {
 }
 
 /** Anything that changes the sidecar also changes what the model dropdown offers. */
+/** Not under the sidecar key: invalidating that after every change would restart its polling needlessly. */
+const decisionInstallProgressKey = ["decision", "install-progress"] as const;
+
 function invalidate(qc: ReturnType<typeof useQueryClient>) {
   void qc.invalidateQueries({ queryKey: decisionSidecarKey });
   void qc.invalidateQueries({ queryKey: decisionKeys.options() });
@@ -98,6 +102,34 @@ export function useInstallDecisionModel() {
     mutationFn: (modelId: string) =>
       api.post<{ settings: DecisionSidecarSettings }>("/decision/sidecar/install", { modelId }),
     onSuccess: () => invalidate(qc),
+  });
+}
+
+/**
+ * What an install is downloading right now. Read once when the page opens, so a
+ * download started earlier still shows its bar, then every 1.5 s while one runs.
+ */
+export function useDecisionInstallProgress(installing: boolean) {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: decisionInstallProgressKey,
+    queryFn: () => api.get<{ progress: DecisionInstallProgress | null }>("/decision/install-progress"),
+    refetchInterval: (state) => (installing || state.state.data?.progress ? 1500 : false),
+  });
+  // When a download this page did not start finishes, nothing else re-reads the model
+  // list, and the page would still offer to download what is now installed.
+  const active = !!query.data?.progress;
+  const wasActive = useRef(active);
+  useEffect(() => {
+    if (wasActive.current && !active) invalidate(qc);
+    wasActive.current = active;
+  }, [active, qc]);
+  return query;
+}
+
+export function useCancelDecisionInstall() {
+  return useMutation({
+    mutationFn: () => api.post<{ cancelled: boolean }>("/decision/sidecar/cancel-install", {}),
   });
 }
 

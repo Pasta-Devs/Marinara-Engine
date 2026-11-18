@@ -7,7 +7,7 @@ import { decisionCannotRun, useDecisionSidecar } from "../../../hooks/use-decisi
 import { useUIStore } from "../../../stores/ui.store";
 import { ListSearch, ListStatus } from "../../connections/ListFrame";
 import { ProviderIcon } from "../../connections/ProviderIcon";
-import { useDeviceEngines } from "../../connections/DeviceDetail";
+import { builtInFirst, useDeviceEngines } from "../../connections/DeviceDetail";
 import { useBuiltinEmbeddingState } from "../../connections/BuiltinEmbeddingDetail";
 import { recommendedBuiltinTtsModel } from "@marinara-engine/shared";
 import { useBuiltinTts } from "../../../hooks/use-builtin-tts";
@@ -93,15 +93,18 @@ function OnDeviceList({ onBack }: { onBack: () => void }) {
   const embedding = useBuiltinEmbeddingState();
   const engine = (item: string) => engines.find((entry) => entry.item === item);
   const local = engine("local-model");
-  const rows = [
-    // The same order as the On this device rows in Connections.
-    local && { id: "device:local-model", icon: "local-model", name: local.name, state: local.state },
-    ...engines
-      .filter((entry) => entry.item !== "local-model")
-      .map((entry) => ({ id: `device:${entry.item}`, icon: entry.item, name: entry.name, state: entry.state })),
-    decision && { id: DECISION_DEVICE_ID, icon: "decision", name: decision.name, state: decision.state },
-    embedding && { id: EMBEDDING_DEVICE_ID, icon: "builtin-embedding", name: embedding.name, state: embedding.state },
-  ].filter((row): row is { id: string; icon: string; name: string; state: string } => !!row);
+  const rows = builtInFirst(
+    [
+      // The same order as the On this device rows in Connections.
+      local && { id: "device:local-model", icon: "local-model", name: local.name, state: local.state },
+      ...engines
+        .filter((entry) => entry.item !== "local-model")
+        .map((entry) => ({ id: `device:${entry.item}`, icon: entry.item, name: entry.name, state: entry.state })),
+      decision && { id: DECISION_DEVICE_ID, icon: "decision", name: decision.name, state: decision.state },
+      embedding && { id: EMBEDDING_DEVICE_ID, icon: "builtin-embedding", name: embedding.name, state: embedding.state },
+    ].filter((row): row is { id: string; icon: string; name: string; state: string } => !!row),
+    (row) => row.icon,
+  );
   const open = (id: string) => {
     useUIStore.getState().closeModal();
     useUIStore.getState().openConnectionDetail(id);

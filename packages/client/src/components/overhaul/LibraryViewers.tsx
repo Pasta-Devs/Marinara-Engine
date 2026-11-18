@@ -38,7 +38,7 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { Toggle, flag, parseList, useRegexFolders, useRegexImport, useRegexKitActions } from "./LibraryTables";
 import { insertLibraryItems } from "../../lib/library-order";
-import { DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
+import { builtInFirst, DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
 import { ConnectionAccountEditor } from "../connections/ConnectionAccountEditor";
 import { ProviderIcon } from "../connections/ProviderIcon";
 import type { DeviceItem } from "../../hooks/use-device-setup";
@@ -887,7 +887,12 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
         sub: [embeddingEngine.state, embeddingEngine.detail].filter(Boolean).join(" · "),
         lead: <ProviderIcon provider="builtin-embedding" size="sm" dim={embeddingEngine.tone !== "ok"} />,
       });
-    if (devices.length) list.push({ id: "__device", label: localize("On this device"), rows: devices });
+    if (devices.length)
+      list.push({
+        id: "__device",
+        label: localize("On this device"),
+        rows: builtInFirst(devices, (row) => row.id.slice(DEVICE_PREFIX.length)),
+      });
     return list;
   }, [decisionEngine, embeddingEngine, engines, grouped, localize, search]);
   const accountPage = selectedId?.startsWith(ACCOUNT_PREFIX)
