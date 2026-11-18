@@ -50,7 +50,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "lightningcss-android-x64": "file:fallbacks/lightningcss-android-x64",
+    "lightningcss-android-x64": "npm:lightningcss-wasm@1.33.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
