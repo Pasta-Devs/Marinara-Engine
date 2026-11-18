@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { networkInterfaces } from "node:os";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { isCapabilityInternalRouteRequest } from "../services/capability-packages/capability-route-registration.service.js";
+import { notFound } from "../utils/not-found.js";
 
 const ANDROID_AUTH_PREFIX = "/api/android-auth";
 const ANDROID_LOGIN_PATH = "/android-login";
@@ -256,7 +257,7 @@ export async function androidLocalAuthRoutes(app: FastifyInstance) {
     const secret = androidSecret();
     const clientNonce = typeof request.body?.clientNonce === "string" ? request.body.clientNonce.toLowerCase() : "";
     if (!secret || !isDeviceLocalIp(request.ip) || !HEX_256.test(clientNonce)) {
-      return reply.status(404).send({ error: "Android authentication is unavailable" });
+      return notFound(reply, "Android authentication is unavailable");
     }
 
     pruneExpired();
@@ -335,7 +336,7 @@ export async function androidLocalAuthRoutes(app: FastifyInstance) {
 export async function androidLocalLoginRoute(app: FastifyInstance) {
   app.get(ANDROID_LOGIN_PATH, async (request, reply) => {
     noStore(reply);
-    if (!androidSecret() || !isDeviceLocalIp(request.ip)) return reply.status(404).send({ error: "Not found" });
+    if (!androidSecret() || !isDeviceLocalIp(request.ip)) return notFound(reply, "Not found");
     // The fragment carries a one-use ticket, never the persistent install secret.
     // Handle it before redirecting an already authenticated browser.
     const nonce = randomBytes(16).toString("base64");

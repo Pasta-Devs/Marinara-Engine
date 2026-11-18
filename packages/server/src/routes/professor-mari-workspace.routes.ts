@@ -57,6 +57,7 @@ import {
   MAX_CONTEXT_ITEM_CONTENT_LENGTH,
   MAX_CONTEXT_LABEL_LENGTH,
 } from "../services/storage/mari-workspace-context.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 export const professorMariPromptSchema = z.object({
   chatId: z.string().min(1),
@@ -404,7 +405,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       // Unreadable metadata counts as no marker below.
     }
     if (!chat || metadata.internalAssistant !== "professor-mari") {
-      return reply.status(404).send({ error: "Professor Mari chat not found" });
+      return notFound(reply, "Professor Mari chat not found");
     }
     let added: { id: string };
     try {
@@ -518,7 +519,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       const patched = await createChatsStorage(app.db).patchMetadata(input.chatId, {
         mariPermissionsMode: input.mode,
       });
-      if (!patched) return reply.status(404).send({ error: "Chat not found" });
+      if (!patched) return notFound(reply, "Chat not found");
       return { ok: true, mode: input.mode, chatId: input.chatId };
     }
     if (input.mode === null) {
@@ -570,14 +571,14 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     if (!privileged(req, reply)) return;
     const input = instructionUpdateSchema.parse(req.body);
     const instruction = await createMariInstructionsStorage(app.db).update(req.params.id, input);
-    if (!instruction) return reply.status(404).send({ error: "Memory not found" });
+    if (!instruction) return notFound(reply, "Memory not found");
     return { ok: true, instruction };
   });
 
   app.delete<{ Params: { id: string } }>("/instructions/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
     const removed = await createMariInstructionsStorage(app.db).remove(req.params.id);
-    if (!removed) return reply.status(404).send({ error: "Memory not found" });
+    if (!removed) return notFound(reply, "Memory not found");
     return { ok: true };
   });
 
@@ -605,7 +606,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     const chatIdRaw = req.query.chatId;
     const chatId = typeof chatIdRaw === "string" ? chatIdRaw.trim() : "";
     const removed = await createMariWorkspaceContextStorage(app.db).remove(req.params.id, chatId || undefined);
-    if (!removed) return reply.status(404).send({ error: "Attached context not found" });
+    if (!removed) return notFound(reply, "Attached context not found");
     return { ok: true };
   });
 
@@ -737,7 +738,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       req.log.error(err, "[professor-mari] Keep failed");
       return reply.status(500).send({ error: reviewActionFailure(err, "keep") });
     }
-    if (!result) return reply.status(404).send({ error: "Applied change review not found" });
+    if (!result) return notFound(reply, "Applied change review not found");
     if (result.approval.affectedTables.installed_extensions) await personalServerExtensionRuntime.reloadAll();
     await recordMariReceiptOutcome(app, result.approval.sessionId, result.approval.id, "kept");
     return { ok: true, ...result };
@@ -757,7 +758,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       req.log.error(err, "[professor-mari] Restore failed");
       return reply.status(500).send({ error: reviewActionFailure(err, "restore") });
     }
-    if (!result) return reply.status(404).send({ error: "Applied change review not found" });
+    if (!result) return notFound(reply, "Applied change review not found");
     if ("outcome" in result && result.outcome === "state_changed") {
       // #4852 F2: the row changed after Mari staged this review, so the restore was a no-op that
       // left the newer data intact. Return 200 with ok:false (a non-2xx would land in the client's
@@ -774,7 +775,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     if (!privileged(req, reply)) return;
     const { rows } = rejectRowsSchema.parse(req.body ?? {});
     const result = await getMariDbService(app.db).rejectRows(req.params.id, rows);
-    if (!result) return reply.status(404).send({ error: "Applied change review not found" });
+    if (!result) return notFound(reply, "Applied change review not found");
     if ("outcome" in result) {
       // state_changed (#4852 F2) or invalid_selection: nothing was reverted. Return 200 with
       // ok:false so the client shows result.error inline instead of a generic catch, mirroring the
@@ -788,7 +789,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     if (!privileged(req, reply)) return;
     const body = renderPromptSchema.parse(req.body ?? {});
     const change = getMariDbService(app.db).getPendingChangeRaw(req.params.id, body.index);
-    if (!change) return reply.status(404).send({ error: "Applied change review not found" });
+    if (!change) return notFound(reply, "Applied change review not found");
     if (change.table !== body.table || change.id !== body.id || change.action !== body.action) {
       return reply.status(409).send({ error: "This review changed since it was shown. Reopen it and try again." });
     }

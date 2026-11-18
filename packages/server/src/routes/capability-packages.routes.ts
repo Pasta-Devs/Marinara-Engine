@@ -29,6 +29,7 @@ import { capabilityModuleRuntime } from "../services/capability-packages/capabil
 import { refreshCapabilityAgentRegistry } from "../services/capability-packages/capability-agent-registry.service.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 const rulesetVersionQuery = z.object({
   rulesetId: z.string().min(1).max(140),
@@ -293,7 +294,7 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>("/:id/client", async (request, reply) => {
     const { id } = packageParams.parse(request.params);
     const entrypoint = await capabilityPackageManager.clientEntrypoint(id);
-    if (!entrypoint) return reply.status(404).send({ error: "Active client package not found" });
+    if (!entrypoint) return notFound(reply, "Active client package not found");
     // Deliberately NOT immutable, even though the URL carries ?v=: a package
     // author (or the catalog) can republish the same version string with
     // different bytes during development, and an immutable client bundle would
@@ -314,7 +315,7 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string; "*": string } }>("/:id/assets/*", async (request, reply) => {
     const { id, "*": assetPath } = packageAssetParams.parse(request.params);
     const asset = await capabilityPackageManager.packageAsset(id, assetPath);
-    if (!asset) return reply.status(404).send({ error: "Active package asset not found" });
+    if (!asset) return notFound(reply, "Active package asset not found");
     const etag = packageFileEtag(asset.sha256);
     // Never `immutable`: install policy permits republishing the SAME version
     // with different bytes (assertNotDowngrade refuses only lower versions),
@@ -387,7 +388,7 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     const { id } = packageParams.parse(request.params);
     await capabilityModuleRuntime.deactivatePackage(id);
     const removed = await capabilityPackageManager.uninstall(id);
-    if (!removed) return reply.status(404).send({ error: "Package not found" });
+    if (!removed) return notFound(reply, "Package not found");
     const chats = createChatsStorage(app.db);
     for (const chat of await chats.list()) {
       let metadata: Record<string, unknown> = {};

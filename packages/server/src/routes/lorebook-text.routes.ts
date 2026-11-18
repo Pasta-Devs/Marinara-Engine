@@ -18,6 +18,7 @@ import {
   LorebookTextImportError,
   readLorebookTextImportRequest,
 } from "../services/lorebook/text-import.js";
+import { notFound } from "../utils/not-found.js";
 
 export async function lorebookTextRoutes(app: FastifyInstance) {
   const storage = createLorebooksStorage(app.db);
@@ -27,7 +28,7 @@ export async function lorebookTextRoutes(app: FastifyInstance) {
   /** Import entries into an existing lorebook. Body: { format, text, duplicateMode }. */
   app.post<{ Params: { id: string } }>("/:id/import-text", { bodyLimit: importBodyLimit }, async (req, reply) => {
     const lorebook = await storage.getById(req.params.id);
-    if (!lorebook) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!lorebook) return notFound(reply, "Lorebook not found");
     try {
       const request = readLorebookTextImportRequest(req.body);
       return await app.db.transaction(async (tx) => {
@@ -68,7 +69,7 @@ export async function lorebookTextRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string }; Querystring: { format?: string } }>("/:id/export-text", async (req, reply) => {
     const lb = (await storage.getById(req.params.id)) as Lorebook | null;
-    if (!lb) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!lb) return notFound(reply, "Lorebook not found");
     const format = req.query.format === "csv" ? "csv" : "markdown";
     const entries = (await storage.listEntries(req.params.id)) as LorebookEntry[];
     const folders = (await storage.listFolders(req.params.id)) as LorebookFolder[];

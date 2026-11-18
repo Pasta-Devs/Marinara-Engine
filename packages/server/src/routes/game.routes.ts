@@ -615,6 +615,7 @@ import {
   readPreferredCharacterReferenceImage,
   readPreferredPersonaReferenceImage,
 } from "./generate/illustrator-references.js";
+import { notFound } from "../utils/not-found.js";
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -11687,7 +11688,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
 
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const meta = parseMeta(chat.metadata);
     const setupConfig = meta.gameSetupConfig as Record<string, unknown> | undefined;
@@ -11777,7 +11778,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
 
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     // This engine heals with any item it is handed and reads no effect, so in a game with ruleset items
     // it takes only an item the battle offers that is not the ruleset's own: one of the ruleset's items
     // does what its `use` says, which this engine cannot do (#6905). The screen offers no items here; the
@@ -12060,7 +12061,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   // the ledger from all of them, the party's place from the ones the Game Master last read.
   app.get<{ Params: { chatId: string } }>("/:chatId/world-journal", async (req, reply) => {
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const meta = parseMeta(chat.metadata);
     const world = await loadGameWorld(app.db, chat.id, meta);
     if (!world) return { journal: null };
@@ -12158,7 +12159,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   // ── GET /game/:chatId/town ──
   app.get<{ Params: { chatId: string } }>("/:chatId/town", async (req, reply) => {
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     const found = world ? await townOf(req.params.chatId, meta, world) : null;
@@ -12170,13 +12171,13 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   app.get<{ Params: { chatId: string } }>("/:chatId/town/interior", async (req, reply) => {
     const { building } = z.object({ building: z.string().min(1).max(16) }).parse(req.query);
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     const found = world ? await townOf(req.params.chatId, meta, world) : null;
     if (!world || !found) return reply.status(400).send({ error: "The party is not in a town." });
     const interior = worldInterior(world, found.town, building);
-    return interior ? { interior } : reply.status(404).send({ error: "No such building in this town." });
+    return interior ? { interior } : notFound(reply, "No such building in this town.");
   });
 
   // ── POST /game/:chatId/town/visit ──
@@ -12187,7 +12188,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { to } = z.object({ to: z.string().min(1).max(16) }).parse(req.body);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     const found = world ? await townOf(chatId, meta, world) : null;
@@ -12218,7 +12219,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       time = addMinutes((fresh.gameTime as GameTime) ?? createInitialTime(), minutes);
       return { gameTownVisit: visit, gameTownSpot: { settlementId: found.town.settlementId, at: to }, gameTime: time };
     });
-    if (!updated || !visit || !time) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated || !visit || !time) return notFound(reply, "Chat not found");
     await updateLatestGameStateWithTrackerLocks(createGameStateStorage(app.db), chatId, {
       time: formatGameTime(time),
     });
@@ -12233,7 +12234,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   // GET /game/:chatId/map: the game's map and the walk not yet told, or null for none.
   app.get<{ Params: { chatId: string } }>("/:chatId/map", async (req, reply) => {
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const meta = parseMeta(chat.metadata);
     return { map: gameDungeonMapFromMetadata(meta), walk: gameDungeonWalkFromMetadata(meta) };
   });
@@ -12288,7 +12289,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       time = addMinutes((fresh.gameTime as GameTime) ?? createInitialTime(), minutes);
       return { gameDungeonMap: map, gameDungeonWalk: walk, gameTime: time };
     });
-    if (!updated || !walk || !time || !map) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated || !walk || !time || !map) return notFound(reply, "Chat not found");
     await updateLatestGameStateWithTrackerLocks(createGameStateStorage(app.db), chatId, {
       time: formatGameTime(time),
     });
@@ -12313,7 +12314,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       left = kept.name;
       return { gameDungeonMap: null, gameDungeonWalk: null, gameDungeonLeft: kept.name };
     });
-    if (!updated || !left) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated || !left) return notFound(reply, "Chat not found");
     return { left };
   });
 
@@ -12328,7 +12329,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       .parse(req.body);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     if (!world) return reply.status(400).send({ error: "This game has no world." });
@@ -12390,7 +12391,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
       return { gameDungeonMap: map, gameDungeonWalk: null, gameDungeonLeft: null, gameDungeonView: "map" };
     });
-    if (!updated || !map) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated || !map) return notFound(reply, "Chat not found");
     return { map };
   });
 
@@ -12431,9 +12432,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   // the stored edit layer, and the ways as they run with it.
   app.get<{ Params: { chatId: string } }>("/:chatId/world/edit", async (req, reply) => {
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const game = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, parseMeta(chat.metadata)) : null;
-    if (!game) return reply.status(404).send({ error: "This game has no world." });
+    if (!game) return notFound(reply, "This game has no world.");
     if (!worldMadeByThisGenerator(game)) return reply.status(409).send({ error: OLD_GENERATOR_REFUSAL });
     return { world: worldForEditor(game), edits: game.edits ?? null, links: game.world.links };
   });
@@ -12442,12 +12443,12 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   app.get<{ Params: { chatId: string } }>("/:chatId/world/town", async (req, reply) => {
     const { settlement } = z.object({ settlement: z.string().min(1).max(16) }).parse(req.query);
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const game = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, parseMeta(chat.metadata)) : null;
-    if (!game) return reply.status(404).send({ error: "This game has no world." });
+    if (!game) return notFound(reply, "This game has no world.");
     if (!worldMadeByThisGenerator(game)) return reply.status(409).send({ error: OLD_GENERATOR_REFUSAL });
     const found = worldTownForEditor(game, settlement);
-    return found ?? reply.status(404).send({ error: "No such settlement in this world." });
+    return found ?? notFound(reply, "No such settlement in this world.");
   });
 
   // GET /game/:chatId/world/interior?settlement=&building=: a building's rooms for a room editor (W13b).
@@ -12456,12 +12457,12 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       .object({ settlement: z.string().min(1).max(16), building: z.string().min(1).max(16) })
       .parse(req.query);
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const game = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, parseMeta(chat.metadata)) : null;
-    if (!game) return reply.status(404).send({ error: "This game has no world." });
+    if (!game) return notFound(reply, "This game has no world.");
     if (!worldMadeByThisGenerator(game)) return reply.status(409).send({ error: OLD_GENERATOR_REFUSAL });
     const found = worldInteriorForEditor(game, settlement, building);
-    return found ?? reply.status(404).send({ error: "No building with rooms there." });
+    return found ?? notFound(reply, "No building with rooms there.");
   });
 
   // PUT /game/:chatId/world/edits: the whole edit layer, checked against the world; an empty one clears it.
@@ -12479,9 +12480,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     }
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const game = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, parseMeta(chat.metadata)) : null;
-    if (!game) return reply.status(404).send({ error: "This game has no world." });
+    if (!game) return notFound(reply, "This game has no world.");
     if (!worldMadeByThisGenerator(game)) return reply.status(409).send({ error: OLD_GENERATOR_REFUSAL });
     // The layer against the world, then its towns laid out by hand against the towns it makes (W9h).
     const worldIssues = worldEditIssues(game, parsed.data);
@@ -12528,7 +12529,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
       return saved;
     });
-    if (!updated) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated) return notFound(reply, "Chat not found");
     // Read through a typed local: assigned only inside the updater, so TS would narrow it to null here.
     const staleEdits = stale as { edits: unknown } | null;
     if (staleEdits)
@@ -12562,16 +12563,16 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   app.get<{ Params: { id: string } }>("/world-kits/starter/:id", async (req, reply) => {
     const starter = WORLD_STARTER_KITS.find((kit) => kit.id === req.params.id);
     const read = starter ? parseWorldKit(starter) : null;
-    if (!read?.ok) return reply.status(404).send({ error: "No such starter kit." });
+    if (!read?.ok) return notFound(reply, "No such starter kit.");
     return { kit: read.kit };
   });
 
   // GET /game/:chatId/world-kit: the kit a game keeps.
   app.get<{ Params: { chatId: string } }>("/:chatId/world-kit", async (req, reply) => {
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const kit = chat.mode === "game" ? gameWorldKitFromMetadata(parseMeta(chat.metadata)) : null;
-    if (!kit) return reply.status(404).send({ error: "This game has no setting kit." });
+    if (!kit) return notFound(reply, "This game has no setting kit.");
     return { kit };
   });
 
@@ -12631,9 +12632,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   // with the hand edits kept with it, to start a new game from.
   app.get<{ Params: { chatId: string } }>("/:chatId/world/file", async (req, reply) => {
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const game = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, parseMeta(chat.metadata)) : null;
-    if (!game) return reply.status(404).send({ error: "This game has no world." });
+    if (!game) return notFound(reply, "This game has no world.");
     return worldFile(
       chat.name,
       game.kit,
@@ -12657,10 +12658,10 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   // GET /game/:chatId/story
   app.get<{ Params: { chatId: string } }>("/:chatId/story", async (req, reply) => {
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const meta = parseMeta(chat.metadata);
     const game = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
-    if (!game) return reply.status(404).send({ error: "This game has no world." });
+    if (!game) return notFound(reply, "This game has no world.");
     const story = gameStoryFromMetadata(meta, game);
     const replies = await gameRepliesBefore(app.db, req.params.chatId);
     return {
@@ -12680,9 +12681,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { chatId } = req.params;
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const game = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, parseMeta(chat.metadata)) : null;
-    if (!game) return reply.status(404).send({ error: "This game has no world." });
+    if (!game) return notFound(reply, "This game has no world.");
     const body = (req.body ?? {}) as { story?: unknown; expected?: unknown };
     const input = body.story;
     // Checked against the world as it is when the story is written: hand edits saved meanwhile count.
@@ -12709,7 +12710,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       story = checked.story;
       return { gameStory: checked.story };
     });
-    if (!updated) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated) return notFound(reply, "Chat not found");
     const staleStory = stale as { story: unknown } | null;
     if (staleStory)
       return reply
@@ -12724,12 +12725,12 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   app.delete<{ Params: { chatId: string } }>("/:chatId/story", async (req, reply) => {
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     if (chat.mode !== "game" || !(await loadGameWorld(app.db, chat.id, parseMeta(chat.metadata)))) {
-      return reply.status(404).send({ error: "This game has no world." });
+      return notFound(reply, "This game has no world.");
     }
     const updated = await chats.patchMetadata(req.params.chatId, () => ({ gameStory: null }));
-    if (!updated) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated) return notFound(reply, "Chat not found");
     logger.info("[game/story] %s: story taken away", req.params.chatId);
     return { story: null };
   });
@@ -12738,9 +12739,9 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   app.get<{ Params: { chatId: string } }>("/:chatId/world/people", async (req, reply) => {
     const { place } = z.object({ place: z.string().min(1).max(16) }).parse(req.query);
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const game = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, parseMeta(chat.metadata)) : null;
-    if (!game) return reply.status(404).send({ error: "This game has no world." });
+    if (!game) return notFound(reply, "This game has no world.");
     return { people: worldPeopleOf(game, place) };
   });
 
@@ -12748,7 +12749,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   // screen never makes it again from the recipe.
   app.get<{ Params: { chatId: string } }>("/:chatId/world", async (req, reply) => {
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const game = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, parseMeta(chat.metadata)) : null;
     if (!game) return { world: null };
     const { frozen: _frozen, compiled: _compiled, ...shown } = game;
@@ -12780,13 +12781,13 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     }
     const chats = createChatsStorage(app.db);
     const found = await chats.getById(req.params.chatId);
-    if (!found) return reply.status(404).send({ error: "Chat not found" });
+    if (!found) return notFound(reply, "Chat not found");
     // One at a time for a game, and never while a session starts from its latest (which would copy it
     // without the world): everything below is read again inside the lock.
     const lockKey = found.groupId ?? readTrimmedString(parseMeta(found.metadata).gameId) ?? found.id;
     return withWorldLock(`game:${lockKey}`, async () => {
       const chat = await chats.getById(req.params.chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
       if (chat.mode !== "game") return reply.status(400).send({ error: "Only a game has a world." });
       assertRoomGameOperation(chat);
       const meta = parseMeta(chat.metadata);
@@ -12852,7 +12853,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
       if (!updated) {
         await snapshots.remove(chat.id);
-        return reply.status(404).send({ error: "Chat not found" });
+        return notFound(reply, "Chat not found");
       }
       return await shownWorld(chat.id, parseMeta(updated.metadata), reply);
     });
@@ -12874,7 +12875,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
   // ── GET /game/:chatId/overworld ──
   app.get<{ Params: { chatId: string } }>("/:chatId/overworld", async (req, reply) => {
     const chat = await createChatsStorage(app.db).getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     if (!world) return { overworld: null };
@@ -12904,7 +12905,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { to } = z.object({ to: z.string().min(1).max(16) }).parse(req.body);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const meta = parseMeta(chat.metadata);
     const world = chat.mode === "game" ? await loadGameWorld(app.db, chat.id, meta) : null;
     if (!world) return reply.status(400).send({ error: "This game has no world." });
@@ -12923,7 +12924,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       time = addMinutes((fresh.gameTime as GameTime) ?? createInitialTime(), Math.round(route.days * 24 * 60));
       return { gameWorldWalk: walked, gameTime: time };
     });
-    if (!updated || !walked || !time) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated || !walked || !time) return notFound(reply, "Chat not found");
     await updateLatestGameStateWithTrackerLocks(createGameStateStorage(app.db), chatId, {
       time: formatGameTime(time),
     });
@@ -12955,7 +12956,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         nextJournal = { ...journal, entries };
         return { gameJournal: nextJournal };
       });
-      if (!updated || !nextJournal) return reply.status(404).send({ error: "Chat not found" });
+      if (!updated || !nextJournal) return notFound(reply, "Chat not found");
 
       return { journal: nextJournal };
     },
@@ -12979,7 +12980,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         };
         return { gameJournal: nextJournal };
       });
-      if (!updated || !nextJournal) return reply.status(404).send({ error: "Chat not found" });
+      if (!updated || !nextJournal) return notFound(reply, "Chat not found");
 
       return { journal: nextJournal };
     },
@@ -14144,7 +14145,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     }
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     if (chat.mode !== "game") return reply.status(400).send({ error: "Not a game", issues: [] });
 
     // Party card sheets are read through the game's pinned ruleset, resolved once before the queue.
@@ -14164,7 +14165,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       }
       return result.patch;
     });
-    if (!updated) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated) return notFound(reply, "Chat not found");
     if (issues.length > 0) {
       const stale = issues.some((issue) => issue.reason === "stale");
       return reply.status(stale ? 409 : 400).send({
@@ -14470,7 +14471,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const chats = createChatsStorage(app.db);
     const agents = createAgentsStorage(app.db);
     const chat = await chats.getById(input.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const meta = parseMeta(chat.metadata);
     const query = buildGameSpotifySceneQuery({
@@ -14520,7 +14521,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const chats = createChatsStorage(app.db);
     const agents = createAgentsStorage(app.db);
     const chat = await chats.getById(input.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     try {
       return await playGameSpotifyTrack({
@@ -15039,7 +15040,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const query = listStoryboardsQuerySchema.parse(req.query);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const storyboards = createGameStoryboardsStorage(app.db);
     const gallery = createGalleryStorage(app.db);
@@ -15084,7 +15085,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       await recoverStaleGameStoryboards(storyboards, storyboardRecoveryCutoff(), "storyboard generate", input.chatId);
 
       const chat = await chats.getById(input.chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
       const ownerMode = chat.mode === "game" ? "game" : chat.mode === "roleplay" ? "roleplay" : null;
       if (!ownerMode) {
         return reply.status(400).send({ error: "Storyboards are available only in Game and Roleplay chats." });
@@ -15229,7 +15230,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
         });
       }
       const imgConn = await connections.getWithKey(imgConnId);
-      if (!imgConn) return reply.status(404).send({ error: "Image generation connection not found" });
+      if (!imgConn) return notFound(reply, "Image generation connection not found");
       const storyboardImageRequestContext = {
         imgSource: (imgConn as any).imageGenerationSource || imgConn.model || "",
         imgModel: imgConn.model || "",
@@ -16144,7 +16145,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const { chatId } = req.params;
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const videos = await createGameSceneVideosStorage(app.db).listByChatId(chatId);
     return { videos: videos.map((video) => serializeGameSceneVideo(video)) };
@@ -16168,12 +16169,12 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       const storage = createGameSceneVideosStorage(app.db);
       const videos = await storage.listByChatId(chatId);
       const matchingRow = videos.find((video) => video.filePath.replace(/\\/g, "/") === normalizedFilePath);
-      if (!matchingRow) return reply.status(404).send({ error: "Scene video not found" });
+      if (!matchingRow) return notFound(reply, "Scene video not found");
 
       const filePath = assertInsideDir(GAME_SCENE_VIDEOS_ROOT, join(GAME_SCENE_VIDEOS_ROOT, chatId, filename));
-      if (!existsSync(filePath)) return reply.status(404).send({ error: "Scene video file not found" });
+      if (!existsSync(filePath)) return notFound(reply, "Scene video file not found");
       const video = await validateVideoAssetFile(filePath, filename);
-      if (!video) return reply.status(404).send({ error: "Scene video file not found" });
+      if (!video) return notFound(reply, "Scene video file not found");
 
       return sendValidatedMediaFile(reply, video, {
         method: req.method,
@@ -16198,7 +16199,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     const promptOverridesStorage = createPromptOverridesStorage(app.db);
 
     const chat = await chats.getById(input.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const meta = parseMeta(chat.metadata);
     if (meta.gameSceneVideosEnabled === false) {
@@ -16210,7 +16211,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
     }
 
     const videoConn = await connections.getWithKey(videoConnectionId);
-    if (!videoConn) return reply.status(404).send({ error: "Video generation connection not found" });
+    if (!videoConn) return notFound(reply, "Video generation connection not found");
     if (videoConn.provider !== "video_generation") {
       return reply.status(400).send({ error: "The selected connection is not a video generation connection." });
     }
@@ -16229,7 +16230,7 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
       // so the owning chat is not necessarily this one (permanent-lease risk accepted, #5611).
       const galleryImage = await gallery.getById(requestedGalleryImageId);
       if (!galleryImage || !(await galleryImageBelongsToGameScope(chats, chat, galleryImage.chatId))) {
-        return reply.status(404).send({ error: "Gallery illustration not found" });
+        return notFound(reply, "Gallery illustration not found");
       }
       const galleryImagePath = resolveGalleryImagePath(galleryImage);
       if (!galleryImagePath) {

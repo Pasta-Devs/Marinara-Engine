@@ -11,6 +11,7 @@ import {
   updateLibraryFolderSchema,
 } from "@marinara-engine/shared";
 import { createLibraryFoldersStorage } from "../services/storage/library-folders.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 export async function libraryFoldersRoutes(app: FastifyInstance) {
   const storage = createLibraryFoldersStorage(app.db);
@@ -30,7 +31,7 @@ export async function libraryFoldersRoutes(app: FastifyInstance) {
     const { scope } = libraryFolderScopeParamsSchema.parse(req.params);
     const input = moveLibraryItemsSchema.parse(req.body);
     const moved = await storage.moveItems(scope, input);
-    if (!moved) return reply.status(404).send({ error: "Folder not found" });
+    if (!moved) return notFound(reply, "Folder not found");
     return reply.send({ ok: true });
   });
 
@@ -44,14 +45,14 @@ export async function libraryFoldersRoutes(app: FastifyInstance) {
     const { scope, id } = libraryFolderParamsSchema.parse(req.params);
     const input = updateLibraryFolderSchema.parse(req.body);
     const folder = await storage.update(scope, id, input);
-    if (!folder) return reply.status(404).send({ error: "Folder not found" });
+    if (!folder) return notFound(reply, "Folder not found");
     return reply.send(folder);
   });
 
   app.delete("/:scope/:id", async (req, reply) => {
     const { scope, id } = libraryFolderParamsSchema.parse(req.params);
     const removed = await storage.remove(scope, id);
-    if (!removed) return reply.status(404).send({ error: "Folder not found" });
+    if (!removed) return notFound(reply, "Folder not found");
     return reply.status(204).send();
   });
 }

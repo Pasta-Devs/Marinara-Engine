@@ -45,6 +45,7 @@ import {
   writeSpriteCatalog,
   withSpriteCatalogLock,
 } from "../services/sprites/sprite-catalog.js";
+import { notFound } from "../utils/not-found.js";
 
 async function getSpriteCapabilities() {
   try {
@@ -1556,7 +1557,7 @@ export async function spritesRoutes(app: FastifyInstance) {
 
     const dir = join(SPRITES_ROOT, characterId);
     if (!existsSync(dir)) {
-      return reply.status(404).send({ error: "No sprites found" });
+      return notFound(reply, "No sprites found");
     }
 
     const body = req.body as { expressions?: unknown; folderName?: unknown };
@@ -1571,7 +1572,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     });
 
     if (targets.length === 0) {
-      return reply.status(404).send({ error: "No matching sprites found" });
+      return notFound(reply, "No matching sprites found");
     }
 
     const folderName = sanitizeSpriteExportName(body.folderName, `sprites-${characterId}`);
@@ -1755,7 +1756,7 @@ export async function spritesRoutes(app: FastifyInstance) {
 
     const dir = join(SPRITES_ROOT, characterId);
     if (!existsSync(dir)) {
-      return reply.status(404).send({ error: "No sprites found" });
+      return notFound(reply, "No sprites found");
     }
 
     const body = req.body as { expressions?: string[]; cleanupStrength?: number; engine?: SpriteCleanupEngine };
@@ -1773,7 +1774,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     });
 
     if (targets.length === 0) {
-      return reply.status(404).send({ error: "No matching sprites found" });
+      return notFound(reply, "No matching sprites found");
     }
 
     const backupId = `${Date.now()}-${randomUUID()}`;
@@ -1875,7 +1876,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const manifestPath = join(backupDir, "manifest.json");
 
     if (!existsSync(manifestPath)) {
-      return reply.status(404).send({ error: "Cleanup backup was not found" });
+      return notFound(reply, "Cleanup backup was not found");
     }
 
     let manifest: SpriteCleanupBackupManifest;
@@ -1966,14 +1967,14 @@ export async function spritesRoutes(app: FastifyInstance) {
           return reply.code(400).send({ error: "Expression label must be at most 160 characters" });
 
         const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId));
-        if (!existsSync(dir)) return reply.status(404).send({ error: "No sprites found" });
+        if (!existsSync(dir)) return notFound(reply, "No sprites found");
 
         const files = readdirSync(dir);
         const source = files.find((filename) => {
           const ext = extname(filename);
           return SPRITE_FILE_RE.test(filename) && filename.slice(0, -ext.length) === expression;
         });
-        if (!source) return reply.status(404).send({ error: "Expression not found" });
+        if (!source) return notFound(reply, "Expression not found");
 
         const catalog = readSpriteCatalog(characterId);
         const sprites = listSpriteInfos(characterId);
@@ -2011,11 +2012,11 @@ export async function spritesRoutes(app: FastifyInstance) {
       const characterId = basename(req.params.characterId);
       return withSpriteCatalogLock(characterId, async () => {
         const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId));
-        if (!existsSync(dir)) return reply.status(404).send({ error: "No sprites found" });
+        if (!existsSync(dir)) return notFound(reply, "No sprites found");
         const match = readdirSync(dir).find(
           (file) => SPRITE_FILE_RE.test(file) && file.slice(0, -extname(file).length) === expression,
         );
-        if (!match) return reply.status(404).send({ error: "Expression not found" });
+        if (!match) return notFound(reply, "Expression not found");
         const catalog = readSpriteCatalog(characterId);
         delete catalog.sprites[expression];
         await unlink(assertInsideDir(dir, join(dir, basename(match))));
@@ -2046,11 +2047,11 @@ export async function spritesRoutes(app: FastifyInstance) {
 
     const filePath = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, characterId, filename));
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const image = await validateImageAssetFile(filePath, filename, { allowSvg: true });
-    if (!image) return reply.status(404).send({ error: "Not found" });
+    if (!image) return notFound(reply, "Not found");
 
     if (image.isSvg) reply.header("Content-Security-Policy", "sandbox; default-src 'none'");
     return sendValidatedMediaFile(reply, image, {
@@ -2083,7 +2084,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const connections = createConnectionsStorage(app.db);
     const conn = await connections.getWithKey(body.connectionId);
     if (!conn) {
-      return reply.status(404).send({ error: "Image generation connection not found or could not be decrypted" });
+      return notFound(reply, "Image generation connection not found or could not be decrypted");
     }
 
     const imgModel = conn.model || "";
@@ -2249,7 +2250,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const connections = createConnectionsStorage(app.db);
     const conn = await connections.getWithKey(body.connectionId);
     if (!conn) {
-      return reply.status(404).send({ error: "Video generation connection not found or could not be decrypted" });
+      return notFound(reply, "Video generation connection not found or could not be decrypted");
     }
     if ((conn as Record<string, unknown>).provider !== "video_generation") {
       return reply.status(400).send({ error: "Selected connection is not a Video Generation connection" });
@@ -2312,7 +2313,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const connections = createConnectionsStorage(app.db);
     const conn = await connections.getWithKey(body.connectionId);
     if (!conn) {
-      return reply.status(404).send({ error: "Video generation connection not found or could not be decrypted" });
+      return notFound(reply, "Video generation connection not found or could not be decrypted");
     }
     if ((conn as Record<string, unknown>).provider !== "video_generation") {
       return reply.status(400).send({ error: "Selected connection is not a Video Generation connection" });
@@ -2454,7 +2455,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const connections = createConnectionsStorage(app.db);
     const conn = await connections.getWithKey(body.connectionId);
     if (!conn) {
-      return reply.status(404).send({ error: "Image generation connection not found or could not be decrypted" });
+      return notFound(reply, "Image generation connection not found or could not be decrypted");
     }
 
     const imgModel = conn.model || "";

@@ -9,6 +9,7 @@ import {
 } from "@marinara-engine/shared";
 import { createConnectionFoldersStorage } from "../services/storage/connection-folders.storage.js";
 import { registerFolderCrudRoutes } from "./folder-routes.shared.js";
+import { notFound } from "../utils/not-found.js";
 
 export async function connectionFoldersRoutes(app: FastifyInstance) {
   const storage = createConnectionFoldersStorage(app.db);
@@ -20,7 +21,7 @@ export async function connectionFoldersRoutes(app: FastifyInstance) {
     const { connectionId, folderId } = moveConnectionToFolderSchema.parse(req.body);
     if (folderId) {
       const folder = await storage.getById(folderId);
-      if (!folder) return reply.status(404).send({ error: "Folder not found" });
+      if (!folder) return notFound(reply, "Folder not found");
     }
     await storage.moveConnection(connectionId, folderId);
     return reply.send({ ok: true });

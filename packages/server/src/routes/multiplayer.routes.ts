@@ -11,6 +11,7 @@ import { MultiplayerError } from "../services/multiplayer/room-store.js";
 import { multiplayerGuestDocument } from "../services/multiplayer/guest-document.js";
 import { parseRoomGameConfig } from "./game.routes.js";
 import { WORLD_SHARE_FILE_MAX_BYTES } from "@marinara-engine/shared";
+import { notFound } from "../utils/not-found.js";
 
 const id = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/u);
 const identity = { displayName: z.string().trim().min(1).max(80), persona: multiplayerPersonaSchema };
@@ -76,7 +77,7 @@ export async function multiplayerRoutes(app: FastifyInstance, options: { service
     if (path === "/api/multiplayer/status") return done();
     const status = service.featureState();
     if (!status.available || (path !== "/api/multiplayer/settings" && !status.enabled))
-      return reply.status(404).send({ error: "disabled" });
+      return notFound(reply, "disabled");
     if (path === "/api/multiplayer/guest-view") return done();
     if (!requirePrivilegedAccess(request, reply, { feature: "Multiplayer controls" })) return;
     done();

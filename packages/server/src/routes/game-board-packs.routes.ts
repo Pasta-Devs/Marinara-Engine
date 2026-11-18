@@ -29,6 +29,7 @@ import {
   createGameBoardPacksStorage,
   type GameBoardPackRow,
 } from "../services/storage/game-board-packs.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 const BUILT_IN_DIR = fileURLToPath(new URL("../assets/board-packs/", import.meta.url));
 const LOCAL = "local/";
@@ -157,7 +158,7 @@ export async function gameBoardPacksRoutes(app: FastifyInstance) {
   app.get("/pack", async (req, reply) => {
     const { id } = z.object({ id: packIdSchema }).parse(req.query);
     const pack = await byId(id);
-    if (!pack) return reply.status(404).send({ error: "No such board pack." });
+    if (!pack) return notFound(reply, "No such board pack.");
     return { pack };
   });
 
@@ -180,7 +181,7 @@ export async function gameBoardPacksRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Board pack removal" })) return;
     const { id } = z.object({ id: packIdSchema }).parse(req.query);
     const removed = await store.removeAll(removalId(id));
-    if (!removed) return reply.status(404).send({ error: "No such board pack." });
+    if (!removed) return notFound(reply, "No such board pack.");
     return { removed };
   });
 }

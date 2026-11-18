@@ -91,6 +91,7 @@ import type {
   EncounterLogEntry,
   RPGStatsConfig,
 } from "@marinara-engine/shared";
+import { notFound } from "../utils/not-found.js";
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -1666,7 +1667,7 @@ export async function encounterRoutes(app: FastifyInstance) {
 
     try {
       const chat = await chats.getById(chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
 
       const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat);
       const provider = createLLMProvider(
@@ -1780,7 +1781,7 @@ export async function encounterRoutes(app: FastifyInstance) {
 
     try {
       const chat = await chats.getById(chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
 
       const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat);
       const provider = createLLMProvider(
