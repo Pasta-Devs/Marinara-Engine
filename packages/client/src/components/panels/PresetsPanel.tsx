@@ -79,7 +79,7 @@ import {
   type LibrarySort,
 } from "../../lib/panel-sort";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
-import { isTokenSort } from "@marinara-engine/shared";
+import { isTokenSort, type RegexApplyMode } from "@marinara-engine/shared";
 import { downloadJsonFile } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
 import {
@@ -172,8 +172,6 @@ function parseNullableNumber(value: unknown): number | null {
   }
   return null;
 }
-
-type RegexApplyMode = "prompt" | "display" | "both";
 
 function isRegexApplyMode(value: unknown): value is RegexApplyMode {
   return value === "prompt" || value === "display" || value === "both";

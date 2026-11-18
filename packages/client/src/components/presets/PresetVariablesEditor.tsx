@@ -3,6 +3,7 @@
 // question, options, presentation) and the expanded option-value editor.
 // Moved verbatim out of PresetEditor.tsx so other editors can reuse it.
 // ──────────────────────────────────────────────
+import type { ChoiceDisplayMode, ChoiceOptionSort } from "@marinara-engine/shared";
 import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Modal } from "../ui/Modal";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -129,8 +130,6 @@ function reorderItemsToGap<T>(items: T[], sourceIndex: number, targetGapIndex: n
   return next;
 }
 
-type ChoiceDisplayMode = "auto" | "buttons" | "listbox";
-type ChoiceOptionSort = "manual" | "alphabetical";
 type VariableOptionDraft = { id: string; label: string; value: string; description?: string };
 
 function readChoiceDisplayMode(value: unknown): ChoiceDisplayMode {
