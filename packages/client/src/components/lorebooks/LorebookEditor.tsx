@@ -4307,7 +4307,9 @@ function VectorizeSection({
       },
     ];
   }, [sidecarModelDownloaded, sidecarModelDisplayName]);
-  const builtinEmbeddingOption = useBuiltinEmbeddingOption();
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
+  // Held while it is the selection, so removing the model shows it as not downloaded instead of forgetting it.
+  const builtinEmbeddingOption = useBuiltinEmbeddingOption(selectedConnectionId);
   const embeddingConnections = useMemo(
     () => [
       ...(builtinEmbeddingOption
@@ -4325,7 +4327,6 @@ function VectorizeSection({
     ],
     [builtinEmbeddingOption, connections, sidecarEmbeddingConnections],
   );
-  const [selectedConnectionId, setSelectedConnectionId] = useState<string>("");
   const [vectorizingMode, setVectorizingMode] = useState<"missing" | "all" | null>(null);
   const vectorizeInFlightRef = useRef(false);
   const [clearingVectors, setClearingVectors] = useState(false);
@@ -4356,7 +4357,12 @@ function VectorizeSection({
   }, [fetchSidecarStatus]);
 
   useEffect(() => {
-    if (selectedConnectionId && !embeddingConnections.some((connection) => connection.id === selectedConnectionId)) {
+    // A deleted saved connection is forgotten; the built-in embedding model can come back with a download.
+    if (
+      selectedConnectionId &&
+      selectedConnectionId !== BUILTIN_EMBEDDING_CONNECTION_ID &&
+      !embeddingConnections.some((connection) => connection.id === selectedConnectionId)
+    ) {
       setSelectedConnectionId("");
       try {
         window.localStorage.removeItem(LOREBOOK_VECTORIZE_CONNECTION_STORAGE_KEY);
@@ -4369,7 +4375,11 @@ function VectorizeSection({
     try {
       const storedConnectionId = window.localStorage.getItem(LOREBOOK_VECTORIZE_CONNECTION_STORAGE_KEY);
       if (storedConnectionId === LOREBOOK_VECTORIZE_NONE) return;
-      if (storedConnectionId && embeddingConnections.some((connection) => connection.id === storedConnectionId)) {
+      if (
+        storedConnectionId &&
+        (storedConnectionId === BUILTIN_EMBEDDING_CONNECTION_ID ||
+          embeddingConnections.some((connection) => connection.id === storedConnectionId))
+      ) {
         setSelectedConnectionId(storedConnectionId);
         return;
       }
