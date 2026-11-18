@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { sleep } from "../utils/sleep.js";
 import {
   applyClockCommandTags,
   rulesetChargesStart,
@@ -1517,7 +1518,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     if (stoppedGeneration?.abortController.signal.aborted) {
       const deadline = performance.now() + STOPPED_GENERATION_RELEASE_WAIT_MS;
       while (activeGenerations.get(input.chatId) === stoppedGeneration && performance.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await sleep(100);
       }
     }
     if (activeGenerations.has(input.chatId)) {

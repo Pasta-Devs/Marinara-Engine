@@ -79,3 +79,12 @@ for (const segment of ["..\\x", "a\\..\\..\\x", "..\\..\\Windows"]) {
 assert.equal(toSafeExportName('  a<b>:c"d/e\\f|g?h*i\u0001  j ', "x"), "a b c d e f g h i j");
 assert.equal(toSafeExportName(" /:* ", "fallback"), "fallback");
 
+// sleep resolves after the wait and rejects with AbortError when aborted.
+const { sleep } = await import("../../../packages/server/src/utils/sleep.js");
+await sleep(1);
+const controller = new AbortController();
+const waiting = sleep(60_000, controller.signal);
+controller.abort();
+await assert.rejects(waiting, { name: "AbortError" });
+await assert.rejects(sleep(1, AbortSignal.abort()), { name: "AbortError" });
+

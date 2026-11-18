@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "child_process";
+import { sleep } from "../../utils/sleep.js";
 import { logger } from "../../lib/logger.js";
 import { runWithRootLogContext } from "../../lib/log-context.js";
 import { createWriteStream, existsSync, readFileSync, writeFileSync, type WriteStream } from "fs";
@@ -14,10 +15,6 @@ import { sidecarRuntimeService, type SidecarRuntimeInstall } from "./sidecar-run
 import { assertSupportedLlamaCppModelPath } from "./sidecar-model-files.js";
 import { resolveSidecarRequestModel } from "./sidecar-request-model.js";
 import { SidecarGpuMemoryReporter } from "./sidecar-gpu-memory.js";
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 async function getFreePort(): Promise<number> {
   return await new Promise<number>((resolve, reject) => {
@@ -845,7 +842,7 @@ class SidecarProcessService {
         }
       }
 
-      await delay(backend === "mlx" ? 1_000 : 500);
+      await sleep(backend === "mlx" ? 1_000 : 500);
     }
 
     if (this.stopRequested) {
@@ -884,7 +881,7 @@ class SidecarProcessService {
       // Best-effort shutdown.
     }
 
-    const timeout = delay(5_000);
+    const timeout = sleep(5_000);
     await Promise.race([exited, timeout]);
 
     if (child.exitCode === null) {

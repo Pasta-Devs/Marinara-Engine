@@ -5,6 +5,7 @@
 // based on a user's configured image_generation connection.
 
 import { decryptCustomHeaders } from "../../utils/stored-secrets.js";
+import { sleep } from "../../utils/sleep.js";
 import { createHash, createHmac, randomBytes, randomUUID } from "crypto";
 import { existsSync, mkdirSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
@@ -56,11 +57,11 @@ import {
   assertInsideDir,
   normalizeLoopbackUrl,
   parseImageDataUrl,
-  safeFetch,
   resolveInside,
+  safeFetch,
   type SafeFetchOptions,
-} from "../../utils/security.js";
   validateOutboundUrl,
+} from "../../utils/security.js";
 import { notifyGenerationFallback } from "../generation/fallback-notification.js";
 import {
   isConnectionAdmissionFailure,
@@ -559,9 +560,9 @@ export function removeSavedImageFromDisk(filePath: string): void {
 }
 
 import type { StagedGalleryImage } from "@marinara-engine/shared";
+import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 export type { StagedGalleryImage } from "@marinara-engine/shared";
 
-import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 /**
  * Staged files are named for the writing process and only survive it if that process was killed
  * between writing the image and promoting or compensating it. Nothing can reference them, so a
@@ -2264,7 +2265,7 @@ async function generateHorde(baseUrl: string, apiKey: string, request: ImageGenR
       completed = true;
       break;
     }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await sleep(2000);
   }
 
   if (!completed) {

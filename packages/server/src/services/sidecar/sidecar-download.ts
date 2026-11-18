@@ -1,4 +1,5 @@
 import { createHash } from "crypto";
+import { sleep } from "../../utils/sleep.js";
 import { createWriteStream, existsSync, mkdirSync, renameSync, statSync, unlinkSync } from "fs";
 import { dirname } from "path";
 import { Readable } from "stream";
@@ -68,7 +69,7 @@ export async function retry<T>(
         throw error;
       }
       const delayMs = options.baseDelayMs * 2 ** (attempt - 1);
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      await sleep(delayMs);
     }
   }
 
