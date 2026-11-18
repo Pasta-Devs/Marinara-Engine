@@ -337,8 +337,8 @@ importers:
         specifier: ^7.1.1
         version: 7.1.1(eslint@10.13.0(jiti@2.7.0))
       lightningcss-android-x64:
-        specifier: file:fallbacks/lightningcss-android-x64
-        version: file:packages/client/fallbacks/lightningcss-android-x64
+        specifier: npm:lightningcss-wasm@1.33.0
+        version: lightningcss-wasm@1.33.0
       tailwindcss:
         specifier: ^4.3.3
         version: 4.3.3
@@ -3509,9 +3509,6 @@ packages:
     engines: {node: '>= 12.0.0'}
     cpu: [arm64]
     os: [android]
-
-  lightningcss-android-x64@file:packages/client/fallbacks/lightningcss-android-x64:
-    resolution: {directory: packages/client/fallbacks/lightningcss-android-x64, type: directory}
 
   lightningcss-darwin-arm64@1.33.0:
     resolution: {integrity: sha512-Sciaz8eenNTKn9b3t7+xr0ipTp9YxKQY4npwQ3mrRuL0BAVHBLyZxofhaKBAVtzmtRZ/zTyo0/to4B1uWG/Djg==}
@@ -7873,10 +7870,6 @@ snapshots:
 
   lightningcss-android-arm64@1.33.0:
     optional: true
-
-  lightningcss-android-x64@file:packages/client/fallbacks/lightningcss-android-x64:
-    dependencies:
-      lightningcss-wasm: 1.33.0
 
   lightningcss-darwin-arm64@1.33.0:
     optional: true
