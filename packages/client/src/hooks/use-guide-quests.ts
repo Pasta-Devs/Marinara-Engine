@@ -4,18 +4,17 @@
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { GUIDE_QUEST_GROUPS, guideQuestAchievementEvent, type GuideQuestGroupId } from "@marinara-engine/shared";
-import { GUIDE_QUESTS, pickDeepDives, rankDeepDiveGroups } from "../lib/guide-quests";
+import { finishedGuideQuestGroups, pickDeepDives, rankDeepDiveGroups } from "../lib/guide-quests";
+import { sendGuideQuestAwards } from "../lib/guide-quests-awards";
 import {
   GUIDE_QUESTS_CHANGED_EVENT,
-  markGuideExplorerSent,
   readGuideQuests,
   readGuideQuestsRaw,
   type GuideQuestsState,
 } from "../lib/guide-quests-progress";
 import { THINGS_TO_TRY_BY_ID } from "../lib/things-to-try";
 import { readThingsToTry } from "../lib/things-to-try-progress";
-import { achievementKeys, trackAchievementEvent } from "./use-achievements";
+import { achievementKeys } from "./use-achievements";
 import { useThingsToTry } from "./use-things-to-try";
 
 let snapshot: { raw: string | null; state: GuideQuestsState } | null = null;
@@ -58,25 +57,15 @@ export function useGuideQuests() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [things.modes, things.done, state.done],
   );
-  const finished = useMemo(
-    () =>
-      GUIDE_QUEST_GROUPS.filter((group) =>
-        GUIDE_QUESTS.filter((quest) => quest.group === group.id).every((quest) => done.has(quest.id)),
-      ).map((group) => group.id as GuideQuestGroupId),
-    [done],
-  );
+  const finished = useMemo(() => finishedGuideQuestGroups(done), [done]);
 
-  // Each finished group unlocks its Explorer achievement once.
+  // Explorer achievements are sent by the app-wide watcher (lib/guide-quests-awards.ts); this refreshes
+  // the Achievements list after any send it makes from here.
   useEffect(() => {
-    const unsent = finished.filter((group) => state.explorer[group] === undefined);
-    if (!unsent.length) return;
-    for (const group of unsent) {
-      markGuideExplorerSent(group);
-      void trackAchievementEvent(guideQuestAchievementEvent(group))
-        .then(() => queryClient.invalidateQueries({ queryKey: achievementKeys.all }))
-        .catch(() => undefined);
-    }
-  }, [finished, queryClient, state.explorer]);
+    const sends = sendGuideQuestAwards();
+    if (sends.length)
+      void Promise.all(sends).then(() => queryClient.invalidateQueries({ queryKey: achievementKeys.all }));
+  }, [finished, queryClient]);
 
   /** Deep dives mix into the Home widget once Things to try's Core trail is done. */
   const coreDone = things.finished.includes("core");

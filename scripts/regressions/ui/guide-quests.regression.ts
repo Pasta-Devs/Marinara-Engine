@@ -16,6 +16,7 @@ import {
   GUIDE_QUESTS,
   GUIDE_QUEST_BY_ID,
   deepDiveGroupKey,
+  finishedGuideQuestGroups,
   guideQuestKey,
   nextBasicsQuest,
   pickDeepDives,
@@ -85,11 +86,21 @@ for (const group of GUIDE_QUEST_GROUPS) {
   assert.equal(ACHIEVEMENT_DIRECT_EVENT_IDS[guideQuestAchievementEvent(group.id)], `explorer_${group.id}`);
   assert.ok(ACHIEVEMENT_DEFINITION_BY_ID.get(`explorer_${group.id}`), `explorer_${group.id} is defined`);
   assert.ok(en[`achievements.definitions.explorer.${group.id}.title`], `${group.id} achievement title is in en.json`);
-  assert.ok(
-    GUIDE_QUESTS.some((quest) => quest.group === group.id),
-    `${group.id} has quests`,
-  );
+  if (group.id !== "deepAll")
+    assert.ok(
+      GUIDE_QUESTS.some((quest) => quest.group === group.id),
+      `${group.id} has quests`,
+    );
 }
+
+// "Off The Deep End" needs every deep dive; a finished group earns its own achievement only.
+const allDeep = new Set(DEEP_DIVES.map((quest) => quest.id));
+assert.ok(finishedGuideQuestGroups(allDeep).includes("deepAll"), "every deep dive done earns deepAll");
+const oneShort = new Set([...allDeep].slice(1));
+assert.ok(!finishedGuideQuestGroups(oneShort).includes("deepAll"), "one deep dive short is not deepAll");
+const loreOnly = new Set(DEEP_DIVES.filter((quest) => quest.group === "deepLore").map((quest) => quest.id));
+assert.deepEqual(finishedGuideQuestGroups(loreOnly), ["deepLore"]);
+assert.deepEqual(finishedGuideQuestGroups(new Set()), []);
 
 // Ranking follows what the person does: a Game player sees Game deep dives first,
 // a Roleplay player sees Roleplay first, and recent lorebook work lifts Lorebook tricks.

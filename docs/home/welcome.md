@@ -92,7 +92,7 @@ The widget follows **Feature tips** in **Settings > General > Confirmations & He
 - **AI basics**: a short tour for people new to AI. It explains what a model is, the kinds Marinara uses, tokens and context, and helps you set up a model if you want to (you can skip that step). It ends with Professor Mari. It's offered once, in a small window after the welcome tutorial. See [AI Basics](ai-basics.md).
 - **Deep dives**: settings where the choice isn't obvious, and features few people find, such as CSS in a card's Creator's Notes. Groups you use most are listed first.
 
-Each one opens its guide at the passage that matters, highlighted, with a card under it that explains it in plain words. Click **Got it** to tick it; in AI basics this opens the next stop. Once you finish the Core trail, the widget's last row suggests a deep dive. Finishing AI basics or a group of deep dives unlocks an **Explorer** achievement. The offer window also follows **Feature tips**.
+Each one opens its guide at the passage that matters, highlighted, with a card under it that explains it in plain words. Click **Got it** to tick it; in AI basics this opens the next stop. Once you finish the Core trail, the widget's last row suggests a deep dive. Finishing AI basics or a group of deep dives unlocks an **Explorer** achievement, and finishing every deep dive unlocks one more. The offer window also follows **Feature tips**.
 
 ## Where to get help
 
