@@ -28,6 +28,7 @@ import {
 import { getEmbeddingRequestTimeoutMs, isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { debugJson, logDebugOverride } from "../../../lib/logger.js";
 import { decodePossiblyCompressedBody } from "../../../utils/security.js";
+import { isRecord } from "../../../utils/large-json.js";
 
 /** A single Gemini response part (text, thought summary, or signature-only). */
 interface GeminiFunctionCall {
@@ -332,10 +333,6 @@ export function resolveGeminiThinkingConfig(
     thinkingBudget: capGeminiThinkingBudget(requestedBudget, maxOutputTokens),
     includeThoughts: true,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function formatGeminiApiError(error: GeminiApiError | undefined): string | null {

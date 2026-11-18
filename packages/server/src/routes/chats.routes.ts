@@ -266,6 +266,7 @@ import {
   hasRoleplayDmThreadMarkers,
 } from "../services/conversation/autonomous-candidates.js";
 import { notFound } from "../utils/not-found.js";
+import { isRecord } from "../utils/large-json.js";
 
 type TrackerWrapFormat = "xml" | "markdown" | "none";
 type EntryStateOverrides = Record<string, { ephemeral?: number | null; enabled?: boolean }>;
@@ -350,10 +351,6 @@ async function isValidCharacterIdentity(db: Parameters<typeof createCharactersSt
   } catch {
     return false;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseChatMetadata(raw: unknown): Record<string, unknown> {

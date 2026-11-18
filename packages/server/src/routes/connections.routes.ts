@@ -158,6 +158,7 @@ import {
   normalizeVideoService,
 } from "../services/video/video-generation.js";
 import { notFound } from "../utils/not-found.js";
+import { isRecord } from "../utils/large-json.js";
 
 const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
@@ -217,10 +218,6 @@ async function generativeAudioConnectionError(connection: {
   } catch (error) {
     return error instanceof Error ? error.message : String(error);
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function readDebugMode(body: unknown): boolean {

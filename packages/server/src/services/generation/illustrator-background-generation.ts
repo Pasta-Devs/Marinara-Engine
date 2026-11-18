@@ -31,6 +31,7 @@ import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createPromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import { appendImagePromptInstructions } from "./image-prompt-instructions.js";
 import { resolveImageConnectionFallback } from "./media-connection-fallback.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const ROLEPLAY_BACKGROUND_MODES = new Set(["roleplay"]);
 const BACKGROUND_PLAN_MAX_TOKENS = 1_200;
@@ -76,10 +77,6 @@ type IllustratorSceneBackgroundArgs = {
   signal?: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function readTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";

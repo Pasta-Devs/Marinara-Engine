@@ -230,6 +230,7 @@ import { resolveGameGmPromptTemplate } from "../../services/generation/game-gm-p
 import { injectCapabilityContexts } from "../../services/generation/capability-prompt-runtime.js";
 import { getCapabilityPromptContextPackageIds } from "../../services/capability-packages/capability-prompt-context.service.js";
 import { notFound } from "../../utils/not-found.js";
+import { isRecord } from "../../utils/large-json.js";
 
 type WrapFormat = "xml" | "markdown" | "none";
 type DryRunPromptMessage = {
@@ -527,10 +528,6 @@ function parsePresetChoices(value: unknown): Record<string, string | string[]> |
   } catch {
     return null;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 export async function registerDryRunRoute(app: FastifyInstance) {

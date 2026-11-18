@@ -1,8 +1,5 @@
 import type { LLMToolCall, LLMToolDefinition } from "./base-provider.js";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "../../utils/large-json.js";
 
 function toolCallId(index: number): string {
   return `text_tool_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 8)}`;

@@ -1,5 +1,5 @@
 import { logger } from "../../lib/logger.js";
-import { parseJsonOrNull } from "../../utils/large-json.js";
+import { parseJsonOrNull, isRecord } from "../../utils/large-json.js";
 
 export const BEHOLDER_BODY_SLOTS = [
   "head",
@@ -90,10 +90,6 @@ type BeholderAgentsStore = {
     options?: { excludeMessageId?: string | null },
   ): Promise<{ resultData?: unknown } | null>;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function cleanText(value: unknown, maxLength = 320): string | undefined {
   if (typeof value !== "string") return undefined;

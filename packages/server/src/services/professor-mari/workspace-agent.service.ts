@@ -160,6 +160,7 @@ import {
 } from "./workspace-round-review.js";
 import type { PiRunInput } from "./pi-runtime.js";
 import { quickEditFingerprint, validateQuickEditProposal, QuickEditConflictError } from "./quick-edit-proposal.js";
+import { isRecord } from "../../utils/large-json.js";
 
 type DbConnectionWithKey = typeof apiConnections.$inferSelect & { apiKey: string };
 export type WorkspaceConnection = Pick<
@@ -1229,10 +1230,6 @@ ${toolDocs}
 
 function bool(value: unknown): boolean {
   return value === true || value === "true" || value === "1";
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseJsonObject(value: unknown): Record<string, unknown> | null {

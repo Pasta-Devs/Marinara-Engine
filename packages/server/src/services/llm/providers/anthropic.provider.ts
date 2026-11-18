@@ -28,6 +28,7 @@ import {
 import { debugJson, logger, logDebugOverride } from "../../../lib/logger.js";
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { resolveThinkingHeadroom } from "../../generation/output-token-limits.js";
+import { isRecord } from "../../../utils/large-json.js";
 
 const DEFAULT_CACHING_AT_DEPTH = 5;
 
@@ -214,10 +215,6 @@ function normalizeAnthropicFinishReason(reason: string | null | undefined): stri
   if (reason === "max_tokens") return "length";
   if (reason === "tool_use") return "tool_calls";
   return reason ?? "stop";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function formatAnthropicStreamError(error: unknown): string {
