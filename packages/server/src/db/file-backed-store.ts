@@ -4758,11 +4758,13 @@ class FileTableStore {
       // it also covers files pulled in transitively (stray holders), which
       // an encoding of loadedUnits would miss.
       const alreadyRead = this.loadedShardEncodings.get(meta.name);
+      const shards: Array<{ rows: Row[]; encoded: string }> = [];
       for (const encoded of [...discovered]) {
         if (alreadyRead?.has(encoded)) continue;
         const rows = this.loadShardFileSync(meta.name, encoded);
-        if (rows.length > 0) this.mergeLoadedRows(meta.name, rows, encoded);
+        if (rows.length > 0) shards.push({ rows, encoded });
       }
+      if (shards.length > 0) this.mergeLoadedShards(meta.name, shards);
     }
     this.fullyResidentTables.add(meta.name);
     logger.info("[file-storage] Lazy table %s is now fully resident (unbounded access)", meta.name);
@@ -4881,6 +4883,16 @@ class FileTableStore {
    * in transitively.
    */
   private mergeLoadedRows(table: string, incoming: Row[], sourceEncoded: string): Set<string> {
+    return this.mergeLoadedShards(table, [{ rows: incoming, encoded: sourceEncoded }]);
+  }
+
+  /**
+   * mergeLoadedRows for several shard files of one table at once, with the same per-file rules,
+   * but one id set, one sort and one install at the end. Leasing a whole table (a backup, a
+   * search across every chat) merged file by file used to rebuild the id set and re-sort every
+   * resident row once per file, which grew with the square of the library size.
+   */
+  private mergeLoadedShards(table: string, shards: Array<{ rows: Row[]; encoded: string }>): Set<string> {
     const meta = getMeta(table);
     const resident = this.tables.get(table) ?? [];
     const primaryKey = meta.primaryKey;
@@ -4888,84 +4900,92 @@ class FileTableStore {
       ? new Set(resident.map((row) => row[primaryKey]).filter((id) => typeof id === "string"))
       : null;
     let strayIds = this.strayResidentIds.get(table);
-    let strayFoundThisMerge = false;
     const added: Row[] = [];
     const replacements = new Map<string, Row>();
-    let duplicateCount = 0;
-    for (const row of incoming) {
-      const id = primaryKey && typeof row[primaryKey] === "string" ? (row[primaryKey] as string) : null;
-      const isCanonical = encodeShardKey(this.shardKeyForRow(table, row)) === sourceEncoded;
-      if (id && residentIds) {
-        if (residentIds.has(id)) {
-          if (isCanonical && strayIds?.has(id)) {
-            // The resident copy is a stray from a foreign file; the canonical
-            // file's copy wins, mirroring the eager loader's dedup rule.
-            replacements.set(id, row);
-            strayIds.delete(id);
-          } else {
-            duplicateCount += 1;
+    const allKeys = new Set<string>();
+    for (const { rows: incoming, encoded: sourceEncoded } of shards) {
+      let strayFoundThisMerge = false;
+      let replacedThisMerge = 0;
+      let duplicateCount = 0;
+      for (const row of incoming) {
+        const id = primaryKey && typeof row[primaryKey] === "string" ? (row[primaryKey] as string) : null;
+        const isCanonical = encodeShardKey(this.shardKeyForRow(table, row)) === sourceEncoded;
+        if (id && residentIds) {
+          if (residentIds.has(id)) {
+            if (isCanonical && strayIds?.has(id)) {
+              // The resident copy is a stray from a foreign file; the canonical
+              // file's copy wins, mirroring the eager loader's dedup rule.
+              replacements.set(id, row);
+              replacedThisMerge += 1;
+              strayIds.delete(id);
+            } else {
+              duplicateCount += 1;
+            }
+            continue;
           }
-          continue;
+          residentIds.add(id);
+          if (!isCanonical) {
+            strayFoundThisMerge = true;
+            // One Set per table, reused across the whole merge: allocating a
+            // fresh Set per stray row would overwrite the map entry and forget
+            // every stray id but the last, letting a stale stray copy beat its
+            // canonical row when the canonical file loads.
+            strayIds ??= new Set<string>();
+            strayIds.add(id);
+            this.strayResidentIds.set(table, strayIds);
+          }
         }
-        residentIds.add(id);
-        if (!isCanonical) {
-          strayFoundThisMerge = true;
-          // One Set per table, reused across the whole merge: allocating a
-          // fresh Set per stray row would overwrite the map entry and forget
-          // every stray id but the last, letting a stale stray copy beat its
-          // canonical row when the canonical file loads.
-          strayIds ??= new Set<string>();
-          strayIds.add(id);
-          this.strayResidentIds.set(table, strayIds);
+        added.push(row);
+      }
+      if (duplicateCount > 0) {
+        // The dropped copies live in THIS file; rewrite it from memory so they
+        // do not resurface on the next boot.
+        logger.warn(
+          { table, shard: sourceEncoded, duplicateCount },
+          "[file-storage] Dropped duplicate %s rows already resident in memory; the shard file will be rewritten.",
+          table,
+        );
+        this.dirty = true;
+        this.dirtyTables.add(table);
+        this.recordLoadHealMarks(table);
+        const stale = this.staleShardFiles.get(table) ?? new Set<string>();
+        stale.add(sourceEncoded);
+        this.staleShardFiles.set(table, stale);
+      }
+      if (replacedThisMerge > 0 && duplicateCount === 0) {
+        this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
+      }
+      const keys = this.shardKeysForRows(table, incoming);
+      for (const key of keys) allKeys.add(key);
+      // A merge that saw any corruption-healing event (dropped duplicates,
+      // canonical replacements, stray rows) pins every involved unit against
+      // eviction (#5592 PR-B): these states interweave per-file read-once
+      // bookkeeping across units, and they only occur on corrupt installs.
+      // Pin on events observed in THIS merge only: testing the accumulated
+      // table-wide stray set here would let a single misfiled row pin every
+      // unit loaded afterwards, silently disabling the eviction cap on the
+      // corrupt installs it most needs to protect.
+      if (duplicateCount > 0 || replacedThisMerge > 0 || strayFoundThisMerge) {
+        for (const key of keys) {
+          if (!this.pinnedUnits.has(key)) {
+            this.pinnedUnits.add(key);
+            logger.warn(
+              { table, unit: key },
+              "[file-storage] Unit pinned non-evictable after a corruption-healing merge; it stays resident for this process.",
+            );
+          }
         }
       }
-      added.push(row);
     }
-    if (duplicateCount > 0) {
-      // The dropped copies live in THIS file; rewrite it from memory so they
-      // do not resurface on the next boot.
-      logger.warn(
-        { table, shard: sourceEncoded, duplicateCount },
-        "[file-storage] Dropped duplicate %s rows already resident in memory; the shard file will be rewritten.",
-        table,
-      );
-      this.dirty = true;
-      this.dirtyTables.add(table);
-      this.recordLoadHealMarks(table);
-      const stale = this.staleShardFiles.get(table) ?? new Set<string>();
-      stale.add(sourceEncoded);
-      this.staleShardFiles.set(table, stale);
-    }
-    if (replacements.size > 0 && duplicateCount === 0) {
-      this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
-    }
-    const keys = this.shardKeysForRows(table, incoming);
-    // A merge that saw any corruption-healing event (dropped duplicates,
-    // canonical replacements, stray rows) pins every involved unit against
-    // eviction (#5592 PR-B): these states interweave per-file read-once
-    // bookkeeping across units, and they only occur on corrupt installs.
-    // Pin on events observed in THIS merge only: testing the accumulated
-    // table-wide stray set here would let a single misfiled row pin every
-    // unit loaded afterwards, silently disabling the eviction cap on the
-    // corrupt installs it most needs to protect.
-    if (duplicateCount > 0 || replacements.size > 0 || strayFoundThisMerge) {
-      for (const key of keys) {
-        if (!this.pinnedUnits.has(key)) {
-          this.pinnedUnits.add(key);
-          logger.warn(
-            { table, unit: key },
-            "[file-storage] Unit pinned non-evictable after a corruption-healing merge; it stays resident for this process.",
-          );
-        }
-      }
-    }
-    if (added.length === 0 && replacements.size === 0) return keys;
+    if (added.length === 0 && replacements.size === 0) return allKeys;
     const compareRows = compareRowOrder;
     const swapReplaced = (row: Row) => {
       const id = primaryKey && typeof row[primaryKey] === "string" ? (row[primaryKey] as string) : null;
       return (id && replacements.get(id)) || row;
     };
-    const merged = resident.map(swapReplaced).concat(added).sort(compareRows);
+    // A stray added from one file can be replaced by its canonical copy from a later file in the same batch.
+    const addedRows = replacements.size > 0 ? added.map(swapReplaced) : added;
+    const merged = resident.map(swapReplaced).concat(addedRows).sort(compareRows);
     this.tables.set(table, merged);
     const ctx = this.loadEffectTransactionContext();
     const snapshot = ctx?.snapshots.get(table);
@@ -4976,12 +4996,12 @@ class FileTableStore {
       // call argument, which overflows the call stack past ~100k rows — and
       // that throw landed AFTER the length = 0 truncation, leaving an empty
       // rollback snapshot that a later rollback installed as the live table.
-      const mirrored = snapshot.map(swapReplaced).concat(added).sort(compareRows);
+      const mirrored = snapshot.map(swapReplaced).concat(addedRows).sort(compareRows);
       snapshot.length = 0;
       for (const row of mirrored) snapshot.push(row);
     }
-    if (table === "messages") this.reindexMovedMessages(added.concat([...replacements.values()]));
-    return keys;
+    if (table === "messages") this.reindexMovedMessages(addedRows.concat([...replacements.values()]));
+    return allKeys;
   }
 
   // ── Unit eviction (#5592 Phase 2 PR-B) ────────────────────────────────

@@ -655,7 +655,11 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
 }
 
 /** Whether a message's stored extras could hold a roleplay interruption receipt (see readRoleplayInterruption). */
-function carriesInterruptionReceipt(input: { extra?: unknown; swipeExtra?: unknown; swipes?: Array<{ extra?: unknown }> }) {
+function carriesInterruptionReceipt(input: {
+  extra?: unknown;
+  swipeExtra?: unknown;
+  swipes?: Array<{ extra?: unknown }>;
+}) {
   const extras = [input.extra, input.swipeExtra, ...(input.swipes ?? []).map((swipe) => swipe.extra)];
   return extras.some((extra) => {
     if (extra === undefined || extra === null) return false;
