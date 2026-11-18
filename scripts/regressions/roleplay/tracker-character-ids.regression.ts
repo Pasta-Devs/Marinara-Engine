@@ -175,6 +175,19 @@ await runNamedCases([
     },
   },
   {
+    name: "Game Mode party NPC ids (npc:, party-npc:) pass through unchanged, turn after turn",
+    run: () => {
+      const reported = [
+        { characterId: "npc:harbormaster", name: "Harbormaster" },
+        { characterId: "party-npc:Wren", name: "Wren" },
+      ];
+      const first = applyTurn(reported, []);
+      assert.deepEqual(idsOf(first), ["npc:harbormaster", "party-npc:Wren"]);
+      const second = applyTurn(reported, first);
+      assert.deepEqual(idsOf(second), ["npc:harbormaster", "party-npc:Wren"]);
+    },
+  },
+  {
     name: "an NPC seen only in earlier turns keeps that id, but never one a current namesake already has",
     run: () => {
       const history = [{ characterId: "npc-old", name: "Mira" }];

@@ -16,7 +16,9 @@ import {
   normalizeTrackerFieldLocksForState,
   extractCharacterCardCastMembers,
   findTrackerCharacterRowByDriftedId,
+  isGamePartyNpcId,
   normalizeTextForMatch,
+  TRACKER_NPC_ID_PREFIX,
   type CharacterCardCastSource,
   type CharacterMacroProfile,
   normalizeSummaryTailMessages,
@@ -2097,9 +2099,6 @@ export function applyTrackerCharacterCardIdentity(
   return matchedIds;
 }
 
-/** Prefix of the ids the server gives NPCs; the client skips sprite lookups for it. */
-export const TRACKER_NPC_ID_PREFIX = "npc-";
-
 /**
  * Give each NPC row the id the server owns, whatever id the model wrote (#9541).
  *
@@ -2125,7 +2124,12 @@ export function assignTrackerCharacterIds(
   const cardIds = new Set([...options.cardIds].map((id) => id.trim().toLowerCase()));
   const isNpcRow = (row: Record<string, unknown>) => {
     const id = typeof row.characterId === "string" ? row.characterId.trim() : "";
-    return !cardIds.has(id.toLowerCase()) && !parseTrackerCastCharacterId(id) && !isManualTrackerCharacterId(id);
+    return (
+      !cardIds.has(id.toLowerCase()) &&
+      !parseTrackerCastCharacterId(id) &&
+      !isManualTrackerCharacterId(id) &&
+      !isGamePartyNpcId(id)
+    );
   };
   const npcIdOf = (row: Record<string, unknown>) => (typeof row.characterId === "string" ? row.characterId.trim() : "");
   const mintId = options.mintId ?? (() => `${TRACKER_NPC_ID_PREFIX}${newId()}`);

@@ -5,6 +5,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+/** Prefix of the ids the server gives Character Tracker NPCs (#9541). No card behind them, so no sprites. */
+export const TRACKER_NPC_ID_PREFIX = "npc-";
+
+/** Game Mode's party NPC ids (`npc:<slug>`, `party-npc:<name>`): owned elsewhere, so the tracker leaves them as they are. */
+export function isGamePartyNpcId(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const id = value.trim();
+  return id.startsWith("npc:") || id.startsWith("party-npc:");
+}
+
 /**
  * Character Tracker ids written by a model drift between runs: "Garrick Thum", "garrick_thum", "garrick-thum".
  * This folds them (and a display name) to one comparable form: lower case, letters and digits only.
