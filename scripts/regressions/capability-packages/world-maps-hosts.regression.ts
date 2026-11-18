@@ -86,4 +86,25 @@ assert.match(
   /agent\.id === "hierarchical-maps"[\s\S]{0,120}\? worldMapsSettingsDescription[\s\S]{0,80}: agent\.description/u,
   "Roleplay Chat Settings must omit package-installation guidance from the active World Maps card",
 );
+
+// Opening a map's linked lore from Chat Settings closes the drawer first, from every Chat Settings Maps host (the
+// Agents cards, so across the drawer, its Agents state and the Roleplay and Game cards).
+const chatSettingsMapsSource = [
+  "ChatSettingsDrawer.tsx",
+  "agents/use-chat-agents.ts",
+  "agents/RoleplayAgentsSection.tsx",
+  "agents/agent-settings-renderers.tsx",
+]
+  .map((path) => read(`features/chat-settings/${path}`))
+  .join("\n");
+assert.match(
+  chatSettingsMapsSource,
+  /const openLorebookFromSettings = useCallback\([\s\S]{0,220}closeForSurface\(\);[\s\S]{0,80}openLorebookDetail\(lorebookId\);/u,
+  "Opening linked Maps lore from Chat Settings must close the drawer before navigating",
+);
+assert.equal(
+  chatSettingsMapsSource.match(/onOpenLorebook: openLorebookFromSettings/gu)?.length,
+  2,
+  "Every Chat Settings Maps host must use the close-and-open lorebook callback",
+);
 console.info("World Maps host checks passed.");

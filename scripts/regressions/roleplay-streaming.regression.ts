@@ -29,7 +29,10 @@ import {
 } from "../../packages/client/src/lib/tts-autoplay.js";
 import { shouldUsePersistentTTSAudioCache } from "../../packages/client/src/lib/tts-audio-cache.js";
 import { getAgentBatchLane, type ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
-import { mergePairedBuiltInRewriteAgents } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
+import {
+  explicitlyRequestsTextRewrite,
+  mergePairedBuiltInRewriteAgents,
+} from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import { estimateAgentLoadCost } from "../../packages/shared/src/utils/agent-cost.js";
 import {
   DEFAULT_ECHO_CHAMBER_MESSAGE_DELAY_SECONDS,
@@ -2026,5 +2029,45 @@ assert.equal(
   previousTTSMessage.id,
   "the generation baseline should ignore the user's newest input",
 );
+
+// #4114-#4119: a finished reply's stream is cleared before the next one shows, a user's recent edit survives generation
+// refreshes and is not reverted, Roleplay editors keep a stable key, and only an explicit rewrite request counts as one.
+{
+  const generateHookSource = readFileSync(
+    new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url),
+    "utf8",
+  );
+  const clearStreamIndex = generateHookSource.indexOf("clearStreamBuffer(params.chatId);");
+  const exposeStreamingIndex = generateHookSource.indexOf("setStreaming(true, params.chatId);", clearStreamIndex);
+  assert.ok(
+    clearStreamIndex >= 0 && exposeStreamingIndex > clearStreamIndex,
+    "A completed response must be cleared before the next streaming state is exposed",
+  );
+
+  const chatsHookSource = readFileSync(
+    new URL("../../packages/client/src/hooks/use-chats.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    chatsHookSource,
+    /recentMessageContentEdits[\s\S]+preserveRecentMessageContentEdit/u,
+    "Recent user edits must survive authoritative generation refreshes",
+  );
+  assert.match(
+    chatsHookSource,
+    /cancelQueries\([\s\S]{0,180}revert:\s*false/u,
+    "Saving a message edit must not revert the immediately painted cache value",
+  );
+  const roleplaySurfaceSource = readFileSync(
+    new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(roleplaySurfaceSource, /key=\{msg\.id\}/u, "Roleplay message editors must keep a stable message key");
+
+  assert.equal(explicitlyRequestsTextRewrite(true), true);
+  assert.equal(explicitlyRequestsTextRewrite(" TRUE "), true);
+  assert.equal(explicitlyRequestsTextRewrite("false"), false);
+  assert.equal(explicitlyRequestsTextRewrite(undefined), false);
+}
 
 process.stdout.write("Roleplay streaming regression passed.\n");

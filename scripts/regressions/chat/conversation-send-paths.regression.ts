@@ -38,3 +38,19 @@ assert.equal(
   2,
   "presence-delay and post-only persistence should share the rollback helper",
 );
+
+// #4114-#4119: a background autonomous message is painted from its saved event before the notification plays, and a rewrite that changes nothing still clears the pending marker.
+{
+  const savedEventIndex = backgroundAutonomousSource.indexOf('eventType === "message_saved"');
+  const cachePaintIndex = backgroundAutonomousSource.indexOf("upsertPersistedMessages(", savedEventIndex);
+  const notificationIndex = backgroundAutonomousSource.indexOf("playConfiguredNotificationPing(", cachePaintIndex);
+  assert.ok(
+    savedEventIndex >= 0 && cachePaintIndex > savedEventIndex && notificationIndex > cachePaintIndex,
+    "Background messages must be painted from message_saved before the notification fires",
+  );
+  assert.match(
+    backgroundAutonomousSource,
+    /typeof rewrite\.editedText === "string"[\s\S]{0,500}delete nextExtra\.postProcessingPending/u,
+    "Background no-op rewrite events must paint the final text and clear the pending marker",
+  );
+}
