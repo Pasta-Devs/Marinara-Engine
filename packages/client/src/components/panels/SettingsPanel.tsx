@@ -9518,7 +9518,7 @@ function AdvancedSettings() {
               {localizeUi("ui.panels.advancedsettings.clearAllData")}
             </button>
           </div>
-          {confirmAction && (
+          {confirmAction && !isClearing && (
             <div className="flex flex-col gap-2 rounded-lg bg-[var(--background)]/55 p-2.5 ring-1 ring-[var(--border)]">
               <div className="flex items-start gap-2 text-[0.6875rem] font-medium text-[var(--marinara-chat-chrome-panel-text)]">
                 <AlertTriangle
@@ -9576,7 +9576,7 @@ function AdvancedSettings() {
             >
               <div className="flex items-center gap-2 text-[0.6875rem] font-medium text-[var(--marinara-chat-chrome-panel-text)]">
                 <Spinner size="sm" />
-                <span className="min-w-0 flex-1 truncate">
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
                   {backingUpBeforeExpunge || !expungeJob
                     ? localizeUi("ui.panels.advancedsettings.expungeBackingUp")
                     : expungeJob.total > 0
