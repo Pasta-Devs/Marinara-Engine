@@ -33,14 +33,15 @@ export const TRACKER_ID_ALIAS_MAX_LENGTH = 80;
  * duplicates and the kept id itself drop out, at most {@link TRACKER_ID_ALIAS_LIMIT}. Undefined when none are left.
  */
 export function withTrackerIdAlias(aliases: unknown, modelId: unknown, keptId: unknown): string[] | undefined {
-  const kept = typeof keptId === "string" ? keptId.trim().toLowerCase() : "";
+  // Keyed by slug, the form matching compares: five spellings of one id hold one slot, not five.
+  const kept = trackerIdentitySlug(keptId);
   const id = typeof modelId === "string" ? modelId.trim() : "";
   const seen = new Set<string>([kept]);
   const next: string[] = [];
   for (const alias of [id, ...(Array.isArray(aliases) ? aliases : [])]) {
     if (typeof alias !== "string" || !alias.trim() || alias.trim().length > TRACKER_ID_ALIAS_MAX_LENGTH) continue;
-    const key = alias.trim().toLowerCase();
-    if (seen.has(key)) continue;
+    const key = trackerIdentitySlug(alias);
+    if (!key || seen.has(key)) continue;
     seen.add(key);
     next.push(alias.trim());
   }
@@ -67,11 +68,12 @@ export function findTrackerCharacterRowByDriftedId(
   const tiers: Array<(row: Record<string, unknown>, index: number) => boolean> = [
     (row) => trackerIdentitySlug(row.characterId) === slug,
     // An id the model used for this row before, e.g. copied from its previous output. It holds through a rename
-    // ("the barkeep" learning her name is Mara), unless the new name belongs to another row.
+    // ("the barkeep" learning her name is Mara), unless the new name belongs to another row. A row that already has
+    // the name is never blocked by a namesake.
     (row, index) =>
       Array.isArray(row.idAliases) &&
       row.idAliases.some((alias) => trackerIdentitySlug(alias) === slug) &&
-      !namedElsewhere(index),
+      (normalizeTextForMatch(row.name) === nameKey || !namedElsewhere(index)),
     // An id that is the row's name counts only when the update doesn't name someone else (#9541).
     (row) => (!nameKey || normalizeTextForMatch(row.name) === nameKey) && trackerIdentitySlug(row.name) === slug,
   ];

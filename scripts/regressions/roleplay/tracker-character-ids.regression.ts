@@ -8,6 +8,7 @@ import {
   characterTrackerLockKey,
   isTrackerFieldLocked,
   resolveTrackerRowsUpdate,
+  withTrackerIdAlias,
   type GameState,
 } from "../../../packages/shared/src/index.js";
 import {
@@ -254,7 +255,7 @@ await runNamedCases([
     },
   },
   {
-    name: "aliases keep the newest five, never the row's own id, without duplicates",
+    name: "aliases keep the newest five, never the row's own id, one per slug",
     run: () => {
       let rows = applyTurn([{ characterId: "a1", name: "Wren" }], []);
       const id = rows[0]!.characterId;
@@ -263,7 +264,14 @@ await runNamedCases([
         rows = applyTurn([{ characterId: alias, name: "Wren" }], rows);
         assert.equal(rows[0]!.characterId, id, alias);
       }
-      assert.deepEqual(rows[0]!.idAliases, ["wr-en", "w.ren", "w ren", "w-ren", "WREN_"]);
+      // Spellings of one id share a slot (Dottore on #9542), so the older "a1" isn't pushed out.
+      assert.deepEqual(rows[0]!.idAliases, ["wr-en", "A1"]);
+      assert.deepEqual(
+        withTrackerIdAlias(["b", "c", "d", "e", "f"], "a", "npc-x"),
+        ["a", "b", "c", "d", "e"],
+        "the newest five",
+      );
+      assert.deepEqual(withTrackerIdAlias(["npc_x", "b"], "B_", "npc-x"), ["B_"], "never the row's own id");
     },
   },
   {
@@ -350,6 +358,29 @@ await runNamedCases([
       const card = [{ characterId: "card-alice", name: "Alice", idAliases: ["alice_1"] }];
       assignTrackerCharacterIds(card, { previousCharacters: [], cardIds: ["card-alice"], mintId: mintTestId });
       assert.equal(card[0]!.idAliases, undefined);
+    },
+  },
+  {
+    name: "an alias still finds its row when another stored row shares the row's own name",
+    run: () => {
+      const stored = [
+        { characterId: "npc-l", name: "Guard", idAliases: ["guard_left"] },
+        { characterId: "npc-r", name: "Guard" },
+      ];
+      const rows = applyTurn(
+        [
+          { characterId: "guard_left", name: "Guard", mood: "bored" },
+          { characterId: "npc-r", name: "Guard", mood: "alert" },
+        ],
+        stored,
+      );
+      assert.deepEqual(
+        rows.map((row) => [row.characterId, row.mood]),
+        [
+          ["npc-l", "bored"],
+          ["npc-r", "alert"],
+        ],
+      );
     },
   },
 ]);
