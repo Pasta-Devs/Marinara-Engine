@@ -381,22 +381,25 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
     await setOpen(conversation, true);
     expect(await modeSwitches(conversation)).toEqual({ crossChat: 1, dms: 0 });
     await conversation.getByRole("button", { name: "Link to Roleplay or Game" }).click();
-    const search = conversation.getByPlaceholder("Search roleplay or game chats");
+    // The shared picker window (#9468), portaled out of the drawer.
+    const conversationPicker = page.getByRole("dialog", { name: "Link to Roleplay or Game", exact: true });
+    const search = conversationPicker.getByPlaceholder("Search roleplay or game chats");
     // The search narrows the list: the Game chat drops out while only the Roleplay chat's name matches.
     await search.fill(`${stamp} Quest`);
-    await expect(conversation.getByRole("button", { name: `${stamp} Quest`, exact: true })).toBeVisible();
-    await expect(conversation.getByRole("button", { name: `${stamp} Campaign`, exact: true })).toHaveCount(0);
+    await expect(conversationPicker.getByRole("button", { name: `${stamp} Quest`, exact: true })).toBeVisible();
+    await expect(conversationPicker.getByRole("button", { name: `${stamp} Campaign`, exact: true })).toHaveCount(0);
     await search.fill(stamp);
-    const questOption = conversation.getByRole("button", { name: `${stamp} Quest`, exact: true });
+    const questOption = conversationPicker.getByRole("button", { name: `${stamp} Quest`, exact: true });
     await expect(questOption, "the picker lists the Roleplay chat").toBeVisible();
-    await expect(conversation.getByRole("button", { name: `${stamp} Campaign`, exact: true })).toBeVisible();
+    await expect(conversationPicker.getByRole("button", { name: `${stamp} Campaign`, exact: true })).toBeVisible();
     for (const hidden of ["Talk", "Spare Talk", "Spare Quest"]) {
       await expect(
-        conversation.getByRole("button", { name: `${stamp} ${hidden}`, exact: true }),
+        conversationPicker.getByRole("button", { name: `${stamp} ${hidden}`, exact: true }),
         `the Conversation picker leaves out ${hidden}: itself, other conversations and linked chats`,
       ).toHaveCount(0);
     }
     await questOption.click();
+    await expect(conversationPicker).toHaveCount(0);
     await expect.poll(() => readConnectedChatId(request, conversationId)).toBe(roleplayId);
     await expect(conversation.getByText(`${stamp} Quest`, { exact: true })).toBeVisible();
 
@@ -427,12 +430,13 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
     await setOpen(game, true);
     expect(await modeSwitches(game)).toEqual({ crossChat: 0, dms: 0 });
     await game.getByRole("button", { name: "Link to Conversation" }).click();
-    await game.getByPlaceholder("Search conversation chats").fill(stamp);
-    const talkOption = game.getByRole("button", { name: `${stamp} Talk`, exact: true });
+    const gamePicker = page.getByRole("dialog", { name: "Link to Conversation", exact: true });
+    await gamePicker.getByPlaceholder("Search conversation chats").fill(stamp);
+    const talkOption = gamePicker.getByRole("button", { name: `${stamp} Talk`, exact: true });
     await expect(talkOption, "the Game picker lists the Conversation chat").toBeVisible();
     for (const hidden of ["Quest", "Spare Talk", "Spare Quest"]) {
       await expect(
-        game.getByRole("button", { name: `${stamp} ${hidden}`, exact: true }),
+        gamePicker.getByRole("button", { name: `${stamp} ${hidden}`, exact: true }),
         `the Game picker leaves out ${hidden}: Roleplay chats and linked chats`,
       ).toHaveCount(0);
     }
@@ -451,6 +455,56 @@ test("Chat Settings links and unlinks chats from every mode", async ({ page, req
         request.delete(`/api/chats/${id}?force=true`),
       ),
     );
+    await request.delete(`/api/characters/${characterId}`);
+  }
+});
+
+test("Chat Settings applies the persona to earlier messages from the shared picker window", async ({
+  page,
+  request,
+}) => {
+  const characterId = await createCharacter(request, "Reassign Ada");
+  const chatId = await createChat(request, "roleplay", [characterId]);
+  const personaResponse = await request.post("/api/characters/personas", { data: { name: "Reassign Hero" } });
+  expect(personaResponse.ok()).toBeTruthy();
+  const personaId = ((await personaResponse.json()) as { id: string }).id;
+  for (const content of ["First line", "Second line"]) {
+    const sent = await request.post(`/api/chats/${chatId}/messages`, { data: { role: "user", content } });
+    expect(sent.ok()).toBeTruthy();
+  }
+  expect((await request.patch(`/api/chats/${chatId}`, { data: { personaId } })).ok()).toBeTruthy();
+  try {
+    await openApp(page, chatId);
+    const settings = await openChatSettings(page);
+    const persona = settings.locator('[data-drawer="roleplay-persona"]');
+    await setOpen(persona, true);
+    await persona.getByRole("button", { name: "Apply persona to earlier messages…" }).click();
+    // The shared picker window (#9468), not a dropdown drawn inside the drawer.
+    const picker = page.getByRole("dialog", { name: "Messages to update", exact: true });
+    await expect(picker).toBeVisible();
+    const unassigned = picker.locator("[data-pick-row]").filter({ hasText: "Messages sent without a persona" });
+    await expect(unassigned).toHaveAttribute("aria-current", "true");
+    const all = picker.locator("[data-pick-row]").filter({ hasText: "All user messages in this chat" });
+    await expect(all).toContainText("2");
+    await all.click();
+    await expect(all).toHaveAttribute("aria-current", "true");
+    await picker.getByRole("button", { name: /^Update 2/u }).click();
+    const confirm = page.getByRole("dialog", { name: "Apply persona to earlier messages?" });
+    await confirm.getByRole("button", { name: "Apply Persona", exact: true }).click();
+    await expect(picker).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const attributions = (await (
+          await request.get(`/api/chats/${chatId}/messages/persona-attributions`)
+        ).json()) as {
+          identities: { personaId: string; count: number }[];
+        };
+        return attributions.identities.map(({ personaId, count }) => [personaId, count]);
+      })
+      .toEqual([[personaId, 2]]);
+  } finally {
+    await request.delete(`/api/chats/${chatId}`);
+    await request.delete(`/api/characters/personas/${personaId}`);
     await request.delete(`/api/characters/${characterId}`);
   }
 });

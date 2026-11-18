@@ -12334,7 +12334,6 @@
   "ui.chatSettings.lorebookssection.lorebookTokenBudget": "Lorebook Token Budget",
   "ui.chatSettings.lorebookssection.noLorebooksActiveInThisChat": "No lorebooks active in this chat.",
   "ui.chatSettings.lorebookssection.searchLorebooks": "Search lorebooks…",
-  "ui.chatSettings.pickerdropdown.closePicker": "Close picker",
   "ui.chatSettings.promptpresetsection.presetsControlHowTheSystemPromptIsStructuredAnd": "A preset decides what instructions the AI gets and which generation settings it uses. Different presets make the AI behave differently.",
   "ui.chatSettings.promptpresetsection.thisPresetHasActiveLorebooksAvailableButNoLorebook": "This preset has active lorebooks available, but no lorebook marker.",
   "ui.chatSettings.sceneinstructionssection.expandEditor": "Expand editor",
