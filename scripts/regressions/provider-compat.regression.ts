@@ -968,6 +968,16 @@ for (const provider of ["google", "google_vertex"] as const) {
     `${provider} lists Neon`,
   );
 }
+// Vertex lists Neon, so it names Neon's default level; Hydrogen is unknown there and names none.
+assert.equal(
+  resolveProviderReasoningEffort({ provider: "google_vertex", model: "gemini-4-neon", reasoningEffort: undefined }),
+  "high",
+);
+assert.equal(
+  resolveProviderReasoningEffort({ provider: "google_vertex", model: "gemini-4-hydrogen", reasoningEffort: undefined }),
+  null,
+  "Hydrogen on Vertex is an unknown model: no level and no thinking room",
+);
 assert.equal(isGeminiHydrogenOrNeonModel("google/gemini-4-hydrogen"), true);
 assert.equal(isGeminiHydrogenOrNeonModel("gemini-4-hydrogenous"), false);
 assert.equal(isGeminiHydrogenOrNeonModel("google/gemini-4-neon"), true);

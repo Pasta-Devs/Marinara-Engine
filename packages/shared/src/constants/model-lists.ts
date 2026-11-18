@@ -232,8 +232,11 @@ export function resolveProviderReasoningEffort(args: {
     return args.reasoningEffort === "maximum" ? "max" : args.reasoningEffort;
   }
   // Hydrogen and Neon cannot turn thinking off either. Their default is high, so no level names high; their top level is
-  // xhigh. Hydrogen is on the Gemini API only: on Vertex it is an unknown model and sends no parameters.
-  if ((providerLower === "google" || providerLower === "google_vertex") && isGeminiHydrogenOrNeonModel(args.model)) {
+  // xhigh. Vertex lists only Neon: Hydrogen is an unknown model there and sends no parameters, so it names no level.
+  if (
+    isGeminiHydrogenOrNeonModel(args.model) &&
+    (providerLower === "google" || (providerLower === "google_vertex" && !!findKnownModel("google_vertex", args.model)))
+  ) {
     const effort = args.reasoningEffort;
     if (!effort || effort === "none") return "high";
     if (effort === "xhigh" || effort === "max" || effort === "maximum") return "xhigh";
