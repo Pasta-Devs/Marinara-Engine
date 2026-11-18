@@ -33,8 +33,7 @@ async function prepare(page: Page, chatId: string | null = null) {
   );
 }
 
-// TODO(#9468): find a field inside Chat Settings scroll box; the one picked so far sits in the fixed header strip.
-test.fixme("picker/popover closes once its field scrolls out of Chat Settings", async ({ page, request }, testInfo) => {
+test("picker/popover closes once its field scrolls out of Chat Settings", async ({ page, request }, testInfo) => {
   test.skip(
     testInfo.project.name.startsWith("mobile"),
     "Chat Settings is a window on desktop; the phone sheet is another layout.",
@@ -47,10 +46,13 @@ test.fixme("picker/popover closes once its field scrolls out of Chat Settings", 
   await prepare(page, chat.id);
   await page.goto("/");
   const settings = await openChatSettings(page);
-  const trigger = settings.getByRole("combobox", { name: "Chat button layout" });
+  // A field in the settings' scroll area (the title strip above it never scrolls).
+  const scrollArea = settings.locator(".overflow-y-auto.overscroll-contain").first();
+  const trigger = scrollArea.locator('[role="combobox"], [aria-haspopup="dialog"]').filter({ visible: true }).first();
+  await expect(trigger).toBeVisible();
   await trigger.click();
-  const title = await trigger.getAttribute("aria-label");
-  const picker = page.getByRole("dialog", { name: title ?? undefined, exact: true });
+  // Whichever picker it opened: the only open picker window.
+  const picker = page.locator('[role="dialog"][aria-modal="true"][data-chat-floating-panel]');
   await expect(picker).toBeVisible();
   // The field's own scroll box, scrolled until the field has left it.
   await trigger.evaluate((field) => {
@@ -64,10 +66,7 @@ test.fixme("picker/popover closes once its field scrolls out of Chat Settings", 
         return;
       }
     }
-    const chain = [];
-    for (let el = field.parentElement; el; el = el.parentElement)
-      chain.push(el.tagName + "." + String(el.className).slice(0, 40) + ":" + getComputedStyle(el).overflowY);
-    throw new Error("no scroll box: " + chain.join(" < "));
+    throw new Error("no scroll box around the field");
   });
   await expect(picker).toHaveCount(0);
   await testInfo.attach("picker-scrolled-away", { body: await page.screenshot(), contentType: "image/png" });
