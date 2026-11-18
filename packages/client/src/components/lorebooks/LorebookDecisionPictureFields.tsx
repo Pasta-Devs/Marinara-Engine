@@ -41,8 +41,11 @@ export function LorebookDecisionPictureFields({ pictures, mediaWithin, onChange,
         {t("ui.lorebooks.decisionPictures.title")}
         {!readsPictures && <VisionDecisionHint size="0.6875rem" />}
       </span>
-      {/* Greyed out for a model that cannot see, but a saved count can still be cleared. */}
-      <fieldset disabled={!readsPictures && pictures === 0} className={!readsPictures ? "opacity-50" : undefined}>
+      {/* Greyed out for a model that cannot see, but a saved count or window can still be cleared. */}
+      <fieldset
+        disabled={!readsPictures && pictures === 0 && mediaWithin === null}
+        className={!readsPictures ? "opacity-50" : undefined}
+      >
         <div className={overhaul ? "grid gap-2" : "grid grid-cols-2 gap-2"}>
           <label className={labelClass}>
             <span>{t("agents.activation.picturesLabel")}</span>
@@ -69,14 +72,16 @@ export function LorebookDecisionPictureFields({ pictures, mediaWithin, onChange,
             <select
               className={selectClass}
               value={mediaWithin ?? ""}
-              disabled={pictures === 0}
+              // Kept open while a window is saved, even with no pictures, so it can be set back to every turn.
+              disabled={pictures === 0 && mediaWithin === null}
               onChange={(event) =>
                 onChange({ decisionMediaWithin: event.target.value === "" ? null : Number(event.target.value) })
               }
             >
               <option value="">{t("agents.activation.mediaAlways")}</option>
               {[...new Set([1, 2, 3, 5, 10, 20, ...(mediaWithin === null ? [] : [mediaWithin])])]
-                .filter((count) => count <= MAX_DECISION_MEDIA_WITHIN)
+                // Without a model that sees, only the saved window and "every turn" are offered.
+                .filter((count) => count <= MAX_DECISION_MEDIA_WITHIN && (readsPictures || count === mediaWithin))
                 .sort((a, b) => a - b)
                 .map((count) => (
                   <option key={count} value={count}>
