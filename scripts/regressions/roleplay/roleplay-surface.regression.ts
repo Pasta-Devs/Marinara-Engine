@@ -1,6 +1,6 @@
 // The Roleplay surface: idle sprites stay below the transcript and choice controls, every Narrator render path gets
 // the live roster, and both background crossfade slots cover without stretching. Also Narrator avatar cycling, the
-// Echo Chamber and HUD on a phone, the Inventory Tracker with reduced effects, CYOA choices, and summary requests
+// Echo Chamber and HUD on a phone, the HUD's Stop Agents action, the Inventory Tracker with reduced effects, CYOA choices, and summary requests
 // opening Chat Settings. Reads component source until a test can drive these; most need browser tests.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -145,4 +145,17 @@ assert.match(
   chatMessageSource,
   /cycleMergedNarratorAvatars \? "absolute inset-0 w-full" : "relative w-0 min-w-0 flex-1"/u,
   "Disabling Narrator cycling must place active avatars together",
+);
+
+// The HUD menu offers Stop Agents only while agents run, styled like the actions beside it.
+const roleplayActionsSource = readFileSync(
+  new URL("../../../packages/client/src/components/chat/RoleplayHUDActionsMenu.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(roleplayActionsSource, /showStopAgentsAction = isAgentProcessing && !!onStopAgents/u);
+assert.match(roleplayActionsSource, /ui\.chat\.roleplayhudactionsmenu\.stopAgents/u);
+assert.doesNotMatch(
+  roleplayActionsSource,
+  /stopAgents[\s\S]{0,700}text-\[var\(--destructive\)\]/u,
+  "Stop Agents should use the same neutral action styling as its neighboring controls",
 );

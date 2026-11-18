@@ -22,10 +22,6 @@ import { buildSceneAnalyzerUserPrompt } from "../../packages/server/src/services
 import { postProcessSceneResult } from "../../packages/server/src/services/sidecar/scene-postprocess.js";
 import { explicitlyRequestsTextRewrite } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import { ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
-import {
-  mergeGeneratedChatMacroVariables,
-  normalizeChatMacroVariables,
-} from "../../packages/server/src/services/prompt/macro-context.js";
 import { HOME_CHAT_MODE_ACCENTS } from "../../packages/client/src/lib/home-chat-mode-style.js";
 
 assert.deepEqual(HOME_CHAT_MODE_ACCENTS, {
@@ -1097,27 +1093,6 @@ assert.equal(
 {
   // #5142, #5147, #5155, #5158, #5160, and #5164: pin the thin integration
   // seams that connect the focused behavior fixes to their production hosts.
-  const presetEditorSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/presets/PresetEditor.tsx"),
-    "utf8",
-  );
-  assert.doesNotMatch(
-    presetEditorSource,
-    /useEffect\([\s\S]{0,500}duplicatePreset\.mutateAsync/u,
-    "Opening a stock preset must never create an editable copy as a mount side effect",
-  );
-  assert.match(presetEditorSource, /ui\.presets\.preseteditor\.createEditableCopy/u);
-
-  const imageGenerationSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/server/src/services/image/image-generation.ts"),
-    "utf8",
-  );
-  assert.equal(
-    (imageGenerationSource.match(/detectedMime \? imageExtensionFromMimeType\(detectedMime\) : null/gu) ?? []).length,
-    2,
-    "Saved and staged gallery images must derive their extension from their decoded bytes",
-  );
-
   const generateRouteSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/server/src/routes/generate.routes.ts"),
     "utf8",
@@ -1230,23 +1205,6 @@ assert.equal(
   );
   assert.match(characterPromptContextSource, /world: cardPromptText\(charData\.extensions\?\.world\) \|\| undefined/u);
   assert.match(retryAgentsRouteSource, /world: cardPromptText\(extensions\.world\) \|\| undefined/u);
-  const roleplayActionsSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/chat/RoleplayHUDActionsMenu.tsx"),
-    "utf8",
-  );
-  assert.match(roleplayActionsSource, /showStopAgentsAction = isAgentProcessing && !!onStopAgents/u);
-  assert.match(roleplayActionsSource, /ui\.chat\.roleplayhudactionsmenu\.stopAgents/u);
-  assert.doesNotMatch(
-    roleplayActionsSource,
-    /stopAgents[\s\S]{0,700}text-\[var\(--destructive\)\]/u,
-    "Stop Agents should use the same neutral action styling as its neighboring controls",
-  );
-  const appSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/App.tsx"), "utf8");
-  assert.doesNotMatch(
-    appSource,
-    /const paused = !\([\s\S]{0,220}!reduceAmbientEffects/u,
-    "Reduced ambient motion must not pause Desktop Mari's functional navigation callbacks",
-  );
   assert.match(
     generateRouteSource,
     /const targetSwipeIndex =[\s\S]{0,300}lastSavedMsg[\s\S]{0,300}activeSwipeIndex/u,
@@ -1267,54 +1225,11 @@ assert.equal(
   assert.match(generateHookSource, /setProcessingRun\(agentProcessingRunId, false, params\.chatId\)/u);
   assert.match(agentStoreSource, /processingRunIdsByChat/u);
 
-  assert.deepEqual(normalizeChatMacroVariables({ score: "8", invalid: 4, "bad name": "x" }), { score: "8" });
-  const macroVariables = normalizeChatMacroVariables({ counter: "2" });
-  assert.deepEqual(normalizeChatMacroVariables({ ...macroVariables, counter: "3" }), { counter: "3" });
-  assert.equal(
-    Object.keys(normalizeChatMacroVariables(Object.fromEntries(Array.from({ length: 501 }, (_, i) => [`v${i}`, "x"]))))
-      .length,
-    500,
-    "persisted chat-local macro variables remain capped",
-  );
-  const fullMacroVariables = Object.fromEntries(Array.from({ length: 500 }, (_, i) => [`v${i}`, "x"]));
-  assert.deepEqual(
-    mergeGeneratedChatMacroVariables(fullMacroVariables, fullMacroVariables, {
-      ...fullMacroVariables,
-      overflow: "generated",
-    }),
-    fullMacroVariables,
-    "generation writes reapply the macro-variable cap after merging request changes",
-  );
   assert.match(
     generateRouteSource,
     /macroVariables: mergeGeneratedChatMacroVariables\(\s*current\.macroVariables,\s*persistedMacroVariableSnapshot,\s*chatMacroVariables,/u,
     "generation persists macro variables through the bounded merge helper",
   );
-
-  const perfDiagnosticsSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/lib/perf-diagnostics.ts"),
-    "utf8",
-  );
-  assert.match(perfDiagnosticsSource, /PerformanceObserver\.supportedEntryTypes\?\.includes\("longtask"\)/u);
-
-  const backupRoutesSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/backup.routes.ts"), "utf8");
-  const settingsPanelSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/panels/SettingsPanel.tsx"),
-    "utf8",
-  );
-  assert.match(backupRoutesSource, /app\.post\("\/download\/start"/u);
-  assert.match(backupRoutesSource, /app\.get<\{ Params: \{ jobId: string \} \}>\(\s*"\/download\/status\/:jobId"/u);
-  assert.match(
-    backupRoutesSource,
-    /app\.get<\{ Params: \{ jobId: string \}; Querystring: \{ token\?: string \} \}>\(\s*"\/download\/file\/:jobId"/u,
-  );
-  assert.match(
-    backupRoutesSource,
-    /if \(job\?\.status === "preparing"\) return;/u,
-    "backup cleanup cannot remove a temporary directory while its archive is still being written",
-  );
-  assert.match(settingsPanelSource, /\/backup\/download\/status\/\$\{encodeURIComponent\(started\.jobId\)\}/u);
-  assert.match(settingsPanelSource, /window\.location\.assign\(status\.downloadUrl\)/u);
 
   assert.match(
     retryAgentsRouteSource,

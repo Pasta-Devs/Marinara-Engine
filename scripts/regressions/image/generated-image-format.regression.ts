@@ -13,7 +13,8 @@ process.env.IMAGE_LOCAL_URLS_ENABLED = "true"; // Game background generators rea
 const requireServer = createRequire(new URL("../../../packages/server/package.json", import.meta.url));
 const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
-const { createAppSettingsStorage } = await import("../../../packages/server/src/services/storage/app-settings.storage.js");
+const { createAppSettingsStorage } =
+  await import("../../../packages/server/src/services/storage/app-settings.storage.js");
 const { appSettingsRoutes } = await import("../../../packages/server/src/routes/app-settings.routes.js");
 const { backgroundsRoutes } = await import("../../../packages/server/src/routes/backgrounds.routes.js");
 const { getSharp } = await import("../../../packages/server/src/services/image/sharp-runtime.js");
@@ -102,6 +103,15 @@ try {
   staged.promote();
   assert.deepEqual(readFileSync(join(directory, "gallery", staged.filePath)), buffer);
   staged.compensate();
+  // The extension follows the image's bytes, not the type the provider claimed.
+  assert.match(
+    saveImageToDisk("chat", converted.base64, "png", { shared: true }),
+    /^shared\/.*\.webp$/,
+    "saved WebP bytes labelled PNG get .webp",
+  );
+  const mislabelled = stageImageToDisk("chat", converted.base64, "png");
+  assert.match(mislabelled.filePath, /\.webp$/, "staged WebP bytes labelled PNG get .webp");
+  mislabelled.compensate();
 
   // A stored preference is reloaded at startup, rather than relying on the browser sending it per request.
   applyGeneratedImageFormatUiSettingsValue(null);
