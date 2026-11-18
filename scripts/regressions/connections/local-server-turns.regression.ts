@@ -142,4 +142,43 @@ async function take(connection: string, level?: "prepare" | "reply" | "turn" | "
   assert.equal(typeof release, "function", "an unlimited cloud account never waits");
 }
 
+// ── which accounts get the one-at-a-time default ────────────────────────────
+{
+  const { accountParallelLimit } =
+    await import("../../../packages/server/src/services/storage/connection-accounts.storage.js");
+  const base = {
+    provider: "custom",
+    baseUrl: "http://127.0.0.1:11434/v1",
+    treatAsLocalEndpoint: "false",
+    maxParallelJobs: null,
+  };
+  assert.equal(accountParallelLimit(base as never), 1, "Custom on a local address");
+  assert.equal(
+    accountParallelLimit({ ...base, baseUrl: "https://api.example.com/v1" } as never),
+    null,
+    "Custom in the cloud",
+  );
+  assert.equal(
+    accountParallelLimit({ ...base, provider: "openai" } as never),
+    null,
+    "named provider through a local proxy",
+  );
+  assert.equal(
+    accountParallelLimit({ ...base, provider: "openai", baseUrl: "https://api.openai.com/v1" } as never),
+    null,
+    'stored "false" is not local',
+  );
+  assert.equal(
+    accountParallelLimit({
+      ...base,
+      provider: "openai",
+      baseUrl: "https://x.example",
+      treatAsLocalEndpoint: "true",
+    } as never),
+    1,
+    "treat as local endpoint",
+  );
+  assert.equal(accountParallelLimit({ ...base, maxParallelJobs: 3 } as never), 3, "a set number wins");
+}
+
 console.log("local server turns: ok");

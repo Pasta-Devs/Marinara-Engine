@@ -83,7 +83,7 @@ The same model can answer decision questions, such as agent activation checks, w
 
 ## Requests go in task order
 
-A server on your own computer or home network sends one request at a time from Marinara, in task order: agents that run before the reply, then the reply, then agents beside or after it, then everything else. A tracker never makes the reply wait behind it.
+A Custom connection to a server on your own computer or home network gets one request at a time from Marinara, in task order: agents that run before the reply, then the reply, then agents beside or after it, then everything else. A tracker never makes the reply wait behind it.
 
 If your server runs several requests at once (for example `OLLAMA_NUM_PARALLEL` in Ollama, or the parallel setting in LM Studio or KoboldCpp), open **Edit account** → **More options** and set **Parallel requests** to the same number. With two or more, trackers and background work leave one free for the reply.
 

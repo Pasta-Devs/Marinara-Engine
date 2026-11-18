@@ -329,7 +329,9 @@ export function ConnectionAccountEditor({
 
   // A server on this computer or the home network, or one marked self-hosted, gets one request at a
   // time in task order unless "Parallel requests" says otherwise (server: syncAccountBudget).
-  const selfHosted = !!account?.treatAsLocalEndpoint || isLocalServerAddress(draft?.baseUrl ?? account?.baseUrl);
+  const selfHosted =
+    !!account?.treatAsLocalEndpoint ||
+    (account?.provider === "custom" && isLocalServerAddress(draft?.baseUrl ?? account?.baseUrl));
   const capInput = (key: "maxRequestsPerMinute" | "maxParallelJobs", max: number, text: string) => (
     <label className="block min-w-0">
       <span className={labelClass}>{text}</span>
