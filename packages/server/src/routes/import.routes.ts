@@ -52,6 +52,7 @@ import { assertInsideDir, safeCompareString, tokenForPath } from "../utils/secur
 import { logger } from "../lib/logger.js";
 import { openZipArchive, type ZipArchive } from "../lib/zip-reader.js";
 import { parseJsonBytes } from "../utils/large-json.js";
+import { STATUS_POLL_RATE_LIMIT } from "../middleware/rate-limit.js";
 
 const PICK_FOLDER_TIMEOUT_MS = 60_000; // 60s — prevents infinite hang on headless servers
 const FOLDER_TOKEN_TTL_MS = 15 * 60_000;
@@ -1313,7 +1314,7 @@ export async function importRoutes(app: FastifyInstance) {
   });
 
   /** The running or last SillyTavern import, for a page that lost or never had its progress stream. */
-  app.get("/st-bulk/status", async (req, reply) => {
+  app.get("/st-bulk/status", { config: { rateLimit: STATUS_POLL_RATE_LIMIT } }, async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "SillyTavern bulk import" })) return;
     reply.header("Cache-Control", "no-store");
     return { job: stBulkImportJob };
