@@ -1,33 +1,122 @@
 // Agent result effects shared by normal generation and the retry-agents route (#9508).
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { AGENT_RESULT_TYPE_VALUES, type AgentResult } from "../../../packages/shared/src/index.js";
-import {
+import type {
+  AgentResultEffectDeps,
+  TrackerSnapshotRow,
+} from "../../../packages/server/src/services/generation/agent-result-effects/index.js";
+import { runNamedCases } from "../fixtures/named-cases.js";
+
+// The tracker effects write a real game-state snapshot and the chat's journal, so they run against a throwaway data dir.
+const directory = mkdtempSync(join(tmpdir(), "marinara-agent-result-effects-"));
+process.env.DATA_DIR = directory;
+
+const {
   AGENT_RESULT_EFFECT_COVERAGE,
+  CHARACTER_TRACKER_STEPS,
   SHARED_AGENT_RESULT_EFFECT_TYPES,
   applyAgentResultEffect,
-  type AgentResultEffectDeps,
-} from "../../../packages/server/src/services/generation/agent-result-effects.js";
-import { runNamedCases } from "../fixtures/named-cases.js";
+} = await import("../../../packages/server/src/services/generation/agent-result-effects/index.js");
+const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
+const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
+
+const db = await createFileNativeDB();
+const chatsStore = createChatsStorage(db);
+const gameStates = createGameStateStorage(db);
 
 type Write = { id: string; swipeIndex: number; partial: Record<string, unknown> };
 
-function fakeDeps(overrides: Partial<AgentResultEffectDeps> = {}, fail = false) {
+/** A chat with one tracker snapshot for msg-1 swipe 0, which the tracker port hands to the effects. */
+async function trackerChat() {
+  const chat = await chatsStore.create({ name: "Tracker effects", mode: "roleplay", characterIds: [] });
+  assert(chat);
+  await gameStates.create({
+    chatId: chat.id,
+    messageId: "msg-1",
+    swipeIndex: 0,
+    date: null,
+    time: null,
+    location: null,
+    weather: null,
+    temperature: null,
+    presentCharacters: [],
+    recentEvents: [],
+    playerStats: null,
+    personaStats: null,
+  });
+  const snapshot = async () => (await gameStates.getByChatAndMessage(chat.id, "msg-1", 0)) as TrackerSnapshotRow;
+  const journal = async () => {
+    const fresh = await chatsStore.getById(chat.id);
+    const meta = typeof fresh?.metadata === "string" ? JSON.parse(fresh.metadata) : (fresh?.metadata ?? {});
+    return meta.gameJournal as
+      { quests: unknown[]; entries: Array<{ type: string }>; inventoryLog: Array<{ item: string }> } | undefined;
+  };
+  return { chatId: chat.id, snapshot, journal };
+}
+
+function fakeDeps(
+  overrides: Partial<AgentResultEffectDeps> = {},
+  options: {
+    fail?: boolean;
+    chatId?: string;
+    canEditTrackers?: boolean;
+    portraitSettings?: Record<string, unknown> | null;
+    drawPortrait?: (name: string) => Promise<string>;
+  } = {},
+) {
   const writes: Write[] = [];
+  const patches: Array<Record<string, unknown>> = [];
+  const portraitCalls: string[] = [];
+  let backgroundSaved: (characters: Array<Record<string, unknown>>) => void = () => {};
+  const backgroundSave = new Promise<Array<Record<string, unknown>>>((resolve) => (backgroundSaved = resolve));
+  const chatId = options.chatId ?? "chat-1";
   const deps: AgentResultEffectDeps = {
     origin: "generate",
-    chatId: "chat-1",
+    chatId,
     messageId: "msg-1",
     swipeIndex: 2,
     chats: {
       updateMessageExtraForSwipe: async (id: string, swipeIndex: number, partial: Record<string, unknown>) => {
-        if (fail) throw new Error("disk full");
+        if (options.fail) throw new Error("disk full");
         writes.push({ id, swipeIndex, partial });
         return null as never;
       },
     },
+    trackers: {
+      db,
+      canEditTrackers: () => options.canEditTrackers ?? true,
+      loadSnapshot: async () =>
+        (await gameStates.getByChatAndMessage(chatId, "msg-1", 0)) as unknown as TrackerSnapshotRow | null,
+      emitGameStatePatch: (patch) => patches.push(patch),
+      characters: {
+        cards: [{ id: "card-alice", name: "Alice", avatarPath: "/api/avatars/alice.png" }] as never,
+        history: [],
+        gameNpcs: [],
+        settings: options.portraitSettings ?? null,
+        loadBaseline: async () =>
+          (await gameStates.getByChatAndMessage(chatId, "msg-1", 0)) as unknown as TrackerSnapshotRow | null,
+        save: (presentCharacters) => gameStates.updateByMessage("msg-1", 0, chatId, { presentCharacters } as never),
+        loadForBackgroundSave: async () =>
+          (await gameStates.getByChatAndMessage(chatId, "msg-1", 0)) as unknown as TrackerSnapshotRow | null,
+        saveInBackground: async (presentCharacters) => {
+          await gameStates.updateByMessage("msg-1", 0, chatId, { presentCharacters } as never);
+          backgroundSaved(presentCharacters);
+        },
+        drawPortrait: async (character) => {
+          portraitCalls.push(character.name);
+          return options.drawPortrait
+            ? options.drawPortrait(character.name)
+            : `/api/avatars/npc/${chatId}/${character.name}.png`;
+        },
+      },
+    },
     ...overrides,
   };
-  return { deps, writes };
+  return { deps, writes, patches, portraitCalls, backgroundSave };
 }
 
 function result(overrides: Partial<AgentResult> = {}): AgentResult {
@@ -44,62 +133,322 @@ function result(overrides: Partial<AgentResult> = {}): AgentResult {
   };
 }
 
-await runNamedCases([
-  {
-    name: "every result type says whether its effect is shared, and every shared type has a handler",
-    run: () => {
-      assert.deepEqual(Object.keys(AGENT_RESULT_EFFECT_COVERAGE).sort(), [...AGENT_RESULT_TYPE_VALUES].sort());
-      const sharedInTable = AGENT_RESULT_TYPE_VALUES.filter((type) => AGENT_RESULT_EFFECT_COVERAGE[type] === "shared");
-      assert.deepEqual([...SHARED_AGENT_RESULT_EFFECT_TYPES].sort(), sharedInTable.sort());
-    },
+const questResult = result({
+  agentId: "agent-quest",
+  agentType: "quest",
+  type: "quest_update",
+  data: {
+    updates: [
+      {
+        questName: "Find the brass key",
+        action: "create",
+        description: "The cellar door is locked.",
+        objectives: [{ text: "Search the study", completed: false }],
+      },
+    ],
   },
-  {
-    name: "CYOA choices are saved on the message's swipe, the same way from generate and from retry",
-    run: async () => {
-      for (const origin of ["generate", "retry"] as const) {
-        const { deps, writes } = fakeDeps({ origin, signal: new AbortController().signal });
+});
+const inventoryResult = result({
+  agentId: "agent-inventory",
+  agentType: "inventory-tracker",
+  type: "inventory_tracker_update",
+  data: { inventory: [{ name: "Rope", qty: 1 }] },
+});
+
+const characterResult = result({
+  agentId: "agent-characters",
+  agentType: "character-tracker",
+  type: "character_tracker_update",
+  data: {
+    presentCharacters: [
+      { name: "Alice", appearance: "silver hair", mood: "calm" },
+      { name: "Mira", appearance: "red cloak", mood: "wary" },
+      { name: "Ghost", mood: "unseen" },
+    ],
+  },
+});
+const portraitsOn = { autoGenerateAvatars: true, imageConnectionId: "conn-image" };
+const presentCharactersOf = async (tracker: Awaited<ReturnType<typeof trackerChat>>) => {
+  const raw = (await tracker.snapshot()).presentCharacters;
+  return (typeof raw === "string" ? JSON.parse(raw) : raw) as Array<Record<string, unknown>>;
+};
+
+const playerStatsOf = (snapshot: TrackerSnapshotRow) =>
+  typeof snapshot.playerStats === "string" ? JSON.parse(snapshot.playerStats) : snapshot.playerStats;
+
+try {
+  await runNamedCases([
+    {
+      name: "every result type says whether its effect is shared, and every shared type has a handler",
+      run: () => {
+        assert.deepEqual(Object.keys(AGENT_RESULT_EFFECT_COVERAGE).sort(), [...AGENT_RESULT_TYPE_VALUES].sort());
+        const sharedInTable = AGENT_RESULT_TYPE_VALUES.filter(
+          (type) => AGENT_RESULT_EFFECT_COVERAGE[type] === "shared",
+        );
+        assert.deepEqual([...SHARED_AGENT_RESULT_EFFECT_TYPES].sort(), sharedInTable.sort());
+      },
+    },
+    {
+      name: "CYOA choices are saved on the message's swipe, the same way from generate and from retry",
+      run: async () => {
+        for (const origin of ["generate", "retry"] as const) {
+          const { deps, writes } = fakeDeps({ origin, signal: new AbortController().signal });
+          assert.equal(await applyAgentResultEffect(result(), deps), true);
+          assert.deepEqual(writes, [
+            { id: "msg-1", swipeIndex: 2, partial: { cyoaChoices: [{ label: "A", text: "Open the door" }] } },
+          ]);
+        }
+      },
+    },
+    {
+      name: "failed results, empty choices and a missing message write nothing",
+      run: async () => {
+        const { deps, writes } = fakeDeps();
+        assert.equal(await applyAgentResultEffect(result({ success: false }), deps), false);
+        assert.equal(await applyAgentResultEffect(result({ data: null }), deps), false);
+        assert.equal(await applyAgentResultEffect(result({ data: { choices: [] } }), deps), true);
+        const noMessage = fakeDeps({ messageId: null });
+        assert.equal(await applyAgentResultEffect(result(), noMessage.deps), true);
+        assert.deepEqual([...writes, ...noMessage.writes], []);
+      },
+    },
+    {
+      name: "types that are not shared yet are left to the route",
+      run: async () => {
+        const { deps, writes, patches } = fakeDeps();
+        const sprite = result({ type: "sprite_change", data: { expressions: [] } });
+        assert.equal(await applyAgentResultEffect(sprite, deps), false);
+        assert.deepEqual([writes, patches], [[], []]);
+      },
+    },
+    {
+      name: "a cancelled retry stops before writing and passes the abort on",
+      run: async () => {
+        const controller = new AbortController();
+        controller.abort();
+        const { deps, writes } = fakeDeps({ origin: "retry", signal: controller.signal });
+        await assert.rejects(applyAgentResultEffect(result(), deps), { name: "AbortError" });
+        assert.deepEqual(writes, []);
+
+        const tracker = await trackerChat();
+        const cancelled = fakeDeps({ origin: "retry", signal: controller.signal }, { chatId: tracker.chatId });
+        await assert.rejects(applyAgentResultEffect(questResult, cancelled.deps), { name: "AbortError" });
+        assert.equal((await tracker.snapshot()).playerStats, null);
+        assert.deepEqual(cancelled.patches, []);
+      },
+    },
+    {
+      name: "a storage failure is logged, not thrown, so the other results still apply",
+      run: async () => {
+        const { deps } = fakeDeps({}, { fail: true });
         assert.equal(await applyAgentResultEffect(result(), deps), true);
-        assert.deepEqual(writes, [
-          { id: "msg-1", swipeIndex: 2, partial: { cyoaChoices: [{ label: "A", text: "Open the door" }] } },
-        ]);
-      }
+      },
     },
-  },
-  {
-    name: "failed results, empty choices and a missing message write nothing",
-    run: async () => {
-      const { deps, writes } = fakeDeps();
-      assert.equal(await applyAgentResultEffect(result({ success: false }), deps), false);
-      assert.equal(await applyAgentResultEffect(result({ data: null }), deps), false);
-      assert.equal(await applyAgentResultEffect(result({ data: { choices: [] } }), deps), true);
-      const noMessage = fakeDeps({ messageId: null });
-      assert.equal(await applyAgentResultEffect(result(), noMessage.deps), true);
-      assert.deepEqual([...writes, ...noMessage.writes], []);
+    {
+      name: "quests land on the snapshot and in the journal the same way from generate and from retry",
+      run: async () => {
+        for (const origin of ["generate", "retry"] as const) {
+          const tracker = await trackerChat();
+          const { deps, patches } = fakeDeps({ origin }, { chatId: tracker.chatId });
+          assert.equal(await applyAgentResultEffect(questResult, deps), true);
+          const quests = playerStatsOf(await tracker.snapshot()).activeQuests;
+          assert.deepEqual(
+            quests.map((quest: { name: string }) => quest.name),
+            ["Find the brass key"],
+            origin,
+          );
+          assert.equal(patches.length, 1, origin);
+          assert.equal((await tracker.journal())?.quests.length, 1, origin);
+        }
+      },
     },
-  },
-  {
-    name: "types that are not shared yet are left to the route",
-    run: async () => {
-      const { deps, writes } = fakeDeps();
-      assert.equal(await applyAgentResultEffect(result({ type: "quest_update", data: { updates: [] } }), deps), false);
-      assert.deepEqual(writes, []);
+    {
+      name: "re-running the quest and inventory agents on the same reply adds no second journal entry",
+      run: async () => {
+        const tracker = await trackerChat();
+        for (const origin of ["generate", "retry"] as const) {
+          const { deps } = fakeDeps({ origin }, { chatId: tracker.chatId });
+          await applyAgentResultEffect(questResult, deps);
+          await applyAgentResultEffect(inventoryResult, deps);
+        }
+        const journal = await tracker.journal();
+        assert.equal(journal?.quests.length, 1);
+        assert.equal(journal?.entries.filter((entry) => entry.type === "quest").length, 1);
+        assert.deepEqual(
+          journal?.inventoryLog.map((entry) => entry.item),
+          ["Rope"],
+        );
+      },
     },
-  },
-  {
-    name: "a cancelled retry stops before writing and passes the abort on",
-    run: async () => {
-      const controller = new AbortController();
-      controller.abort();
-      const { deps, writes } = fakeDeps({ origin: "retry", signal: controller.signal });
-      await assert.rejects(applyAgentResultEffect(result(), deps), { name: "AbortError" });
-      assert.deepEqual(writes, []);
+    {
+      name: "persona stats, inventory and custom tracker fields are written to the message's snapshot",
+      run: async () => {
+        const tracker = await trackerChat();
+        const { deps, patches } = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId });
+        await applyAgentResultEffect(
+          result({
+            type: "persona_stats_update",
+            data: { stats: [{ name: "Energy", value: 40, max: 100, color: "#22c55e" }], status: "Tired" },
+          }),
+          deps,
+        );
+        await applyAgentResultEffect(inventoryResult, deps);
+        await applyAgentResultEffect(
+          result({ type: "custom_tracker_update", data: { fields: [{ name: "Clue", value: "north gate" }] } }),
+          deps,
+        );
+        const snapshot = await tracker.snapshot();
+        const personaStats =
+          typeof snapshot.personaStats === "string" ? JSON.parse(snapshot.personaStats) : snapshot.personaStats;
+        assert.equal(personaStats[0].name, "Energy");
+        const playerStats = playerStatsOf(snapshot);
+        assert.equal(playerStats.status, "Tired");
+        assert.deepEqual(
+          playerStats.inventoryTrackerInventory.map((item: { name: string }) => item.name),
+          ["Rope"],
+        );
+        assert.deepEqual(playerStats.customTrackerFields, [{ name: "Clue", value: "north gate" }]);
+        assert.equal(patches.length, 3);
+      },
     },
-  },
-  {
-    name: "a storage failure is logged, not thrown, so the other results still apply",
-    run: async () => {
-      const { deps } = fakeDeps({}, true);
-      assert.equal(await applyAgentResultEffect(result(), deps), true);
+    {
+      name: "the character list is saved the same way from generate and retry, and a card keeps its card avatar",
+      run: async () => {
+        for (const origin of ["generate", "retry"] as const) {
+          const tracker = await trackerChat();
+          const { deps, patches } = fakeDeps({ origin }, { chatId: tracker.chatId });
+          assert.equal(await applyAgentResultEffect(characterResult, deps), true);
+          const saved = await presentCharactersOf(tracker);
+          assert.deepEqual(
+            saved.map((character) => character.name),
+            ["Alice", "Mira", "Ghost"],
+            origin,
+          );
+          assert.equal(saved[0]!.avatarPath, "/api/avatars/alice.png", origin);
+          assert.equal(patches.length, 1, origin);
+        }
+      },
     },
-  },
-]);
+    {
+      name: "a snapshot whose stored character list is not a list still takes the new characters",
+      run: async () => {
+        const tracker = await trackerChat();
+        await gameStates.updateByMessage("msg-1", 0, tracker.chatId, { presentCharacters: { damaged: true } } as never);
+        const { deps, patches } = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId });
+        await applyAgentResultEffect(characterResult, deps);
+        assert.deepEqual(
+          (await presentCharactersOf(tracker)).map((character) => character.name),
+          ["Alice", "Mira", "Ghost"],
+        );
+        assert.equal(patches.length, 1);
+
+        const unparseable = await trackerChat();
+        const run = fakeDeps({ origin: "retry" }, { chatId: unparseable.chatId });
+        run.deps.trackers.characters.loadBaseline = async () => ({ id: "row-x", presentCharacters: "[{ not json" });
+        await applyAgentResultEffect(characterResult, run.deps);
+        assert.deepEqual(
+          (await presentCharactersOf(unparseable)).map((character) => character.name),
+          ["Alice", "Mira", "Ghost"],
+        );
+      },
+    },
+    {
+      name: "re-running the character tracker writes each new NPC to the journal once and never a card character",
+      run: async () => {
+        const tracker = await trackerChat();
+        for (const origin of ["generate", "retry", "retry"] as const) {
+          await applyAgentResultEffect(characterResult, fakeDeps({ origin }, { chatId: tracker.chatId }).deps);
+        }
+        const journal = (await tracker.journal()) as unknown as { npcLog: Array<{ npcName: string }> };
+        assert.deepEqual(journal.npcLog.map((entry) => entry.npcName).sort(), ["Ghost", "Mira"]);
+      },
+    },
+    {
+      name: "missing NPC portraits are drawn in the background and saved, never for a card or an NPC with no looks",
+      run: async () => {
+        const tracker = await trackerChat();
+        const run = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId, portraitSettings: portraitsOn });
+        await applyAgentResultEffect(characterResult, run.deps);
+        const savedInBackground = await run.backgroundSave;
+        assert.deepEqual(run.portraitCalls, ["Mira"]);
+        const miraPortrait = `/api/avatars/npc/${tracker.chatId}/Mira.png`;
+        assert.equal(savedInBackground.find((character) => character.name === "Mira")?.avatarPath, miraPortrait);
+        const stored = await presentCharactersOf(tracker);
+        assert.equal(stored.find((character) => character.name === "Mira")?.avatarPath, miraPortrait);
+        assert.equal(run.patches.length, 2, "the list, then the list with the portrait");
+      },
+    },
+    {
+      name: "no portrait is drawn with the setting off, after a cancel, or while the same NPC is still being drawn",
+      run: async () => {
+        const off = fakeDeps({}, { chatId: (await trackerChat()).chatId });
+        await applyAgentResultEffect(characterResult, off.deps);
+        assert.deepEqual(off.portraitCalls, []);
+
+        const controller = new AbortController();
+        controller.abort();
+        const cancelled = fakeDeps(
+          { origin: "retry", signal: controller.signal },
+          { chatId: (await trackerChat()).chatId, portraitSettings: portraitsOn },
+        );
+        await assert.rejects(applyAgentResultEffect(characterResult, cancelled.deps), { name: "AbortError" });
+        assert.deepEqual(cancelled.portraitCalls, []);
+
+        const tracker = await trackerChat();
+        let finishDrawing: () => void = () => {};
+        const drawing = new Promise<void>((resolve) => (finishDrawing = resolve));
+        const slow = fakeDeps(
+          { origin: "retry" },
+          {
+            chatId: tracker.chatId,
+            portraitSettings: portraitsOn,
+            drawPortrait: async (name) => {
+              await drawing;
+              return `/slow/${name}.png`;
+            },
+          },
+        );
+        await applyAgentResultEffect(characterResult, slow.deps);
+        const second = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId, portraitSettings: portraitsOn });
+        await applyAgentResultEffect(characterResult, second.deps);
+        assert.deepEqual([slow.portraitCalls, second.portraitCalls], [["Mira"], []]);
+        finishDrawing();
+        await slow.backgroundSave;
+      },
+    },
+    {
+      name: "the per-route step switches turn an extra off for that route only",
+      run: async () => {
+        const saved = { ...CHARACTER_TRACKER_STEPS.retry };
+        CHARACTER_TRACKER_STEPS.retry = { ...saved, drawPortraits: false, journal: false };
+        try {
+          const tracker = await trackerChat();
+          const retry = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId, portraitSettings: portraitsOn });
+          await applyAgentResultEffect(characterResult, retry.deps);
+          assert.deepEqual(retry.portraitCalls, []);
+          assert.equal(await tracker.journal(), undefined);
+          const generate = fakeDeps({ origin: "generate" }, { chatId: tracker.chatId, portraitSettings: portraitsOn });
+          await applyAgentResultEffect(characterResult, generate.deps);
+          assert.deepEqual(generate.portraitCalls, ["Mira"]);
+          await generate.backgroundSave;
+        } finally {
+          CHARACTER_TRACKER_STEPS.retry = saved;
+        }
+      },
+    },
+    {
+      name: "a custom agent without the edit-trackers capability changes nothing",
+      run: async () => {
+        const tracker = await trackerChat();
+        const { deps, patches } = fakeDeps({}, { chatId: tracker.chatId, canEditTrackers: false });
+        assert.equal(await applyAgentResultEffect(questResult, deps), true);
+        assert.equal((await tracker.snapshot()).playerStats, null);
+        assert.deepEqual(patches, []);
+        assert.equal(await tracker.journal(), undefined);
+      },
+    },
+  ]);
+} finally {
+  await db._fileStore.close();
+  rmSync(directory, { recursive: true, force: true });
+}
