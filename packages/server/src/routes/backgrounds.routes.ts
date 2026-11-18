@@ -40,6 +40,7 @@ import { resolveImagePromptReviewSize } from "../services/image/image-prompt-rev
 import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import { resolveGameSetupArtStylePrompt } from "@marinara-engine/shared";
+import { parseJsonRecord } from "../utils/large-json.js";
 import { notFound } from "../utils/not-found.js";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
@@ -170,19 +171,6 @@ function encodeAssetPath(path: string): string {
     .join("/");
 }
 
-function parseRecord(value: unknown): Record<string, unknown> {
-  if (!value) return {};
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-    } catch {
-      return {};
-    }
-  }
-  return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
 function readTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
@@ -191,7 +179,7 @@ async function readIllustratorImageConnectionId(
   agents: ReturnType<typeof createAgentsStorage>,
 ): Promise<string | null> {
   const agent = await agents.getByType("illustrator");
-  return readTrimmedString(parseRecord(agent?.settings).imageConnectionId);
+  return readTrimmedString(parseJsonRecord(agent?.settings).imageConnectionId);
 }
 
 async function resolveSceneBackgroundImageConnection(
@@ -435,7 +423,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       };
     }
 
-    const metadata = parseRecord(chat.metadata);
+    const metadata = parseJsonRecord(chat.metadata);
     const connections = createConnectionsStorage(app.db);
     const agents = createAgentsStorage(app.db);
     const imgConn = await resolveSceneBackgroundImageConnection(connections, agents, mode, metadata);
@@ -448,7 +436,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       };
     }
 
-    const setupConfig = parseRecord(metadata.gameSetupConfig);
+    const setupConfig = parseJsonRecord(metadata.gameSetupConfig);
     const gameState =
       mode === "game"
         ? await createGameStateStorage(app.db)

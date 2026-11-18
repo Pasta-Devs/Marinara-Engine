@@ -39,8 +39,8 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { normalizeBeholderState } from "../services/agents/beholder-state.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
-import { z } from "zod";
 import { notFound } from "../utils/not-found.js";
+import { z } from "zod";
 
 const AGENT_IMAGES_DIR = join(DATA_DIR, "agents", "images");
 const IMPORT_UNSAFE_AGENT_SETTING_KEYS = new Set([
