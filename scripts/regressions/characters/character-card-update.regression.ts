@@ -284,6 +284,8 @@ try {
       first_mes: "hi",
       extensions: {},
       regex_scripts: [risuScript("V2 top")],
+      depth_prompt: { prompt: "Stay in the tower.", depth: 2, role: "system" },
+      talkativeness: 0.2,
     },
   });
   assert.equal(v2Top.success, true, JSON.stringify(v2Top));
@@ -293,9 +295,25 @@ try {
     description: "d",
     first_mes: "hi",
     regex_scripts: [risuScript("V1 root")],
+    backstory: "Raised by ravens.",
   });
   assert.equal(v1Root.success, true, JSON.stringify(v1Root));
   assert.deepEqual(await topScriptsFor(v1Root.characterId), ["V1 root"]);
+  const storedExtensions = async (characterId: string) =>
+    JSON.parse((await get(`/api/characters/${characterId}`)).data).extensions;
+  const v2TopExtensions = await storedExtensions(v2Top.characterId);
+  assert.equal(v2TopExtensions.depth_prompt.prompt, "Stay in the tower.");
+  assert.equal(v2TopExtensions.depth_prompt.depth, 2);
+  assert.equal((await storedExtensions(v1Root.characterId)).backstory, "Raised by ravens.");
+  // An update from a card that keeps talkativeness beside `extensions` refreshes it.
+  const v2TopUpdate = await post("/api/import/st-character", {
+    spec: "chara_card_v2",
+    spec_version: "2.0",
+    data: { name: "Top Wren", description: "d2", first_mes: "hi", extensions: {}, talkativeness: 0.9 },
+    updateCharacterId: v2Top.characterId,
+  });
+  assert.equal(v2TopUpdate.success, true, JSON.stringify(v2TopUpdate));
+  assert.equal((await storedExtensions(v2Top.characterId)).talkativeness, 0.9);
 
   // Two files with the same name in one batch: each keeps its own choice (here, only the second updates).
   const before = rows(await get("/api/characters")).length;
