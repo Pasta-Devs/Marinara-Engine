@@ -4,7 +4,7 @@
 import { readdir, readFile, stat, copyFile, mkdir } from "fs/promises";
 import { join, extname, basename, relative } from "path";
 import { existsSync, readdirSync } from "fs";
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { inflateSync } from "node:zlib";
 import type { DB } from "../../db/connection.js";
 import {
@@ -15,7 +15,7 @@ import {
 import { importSTChat } from "./st-chat.importer.js";
 import { importSTPreset } from "./st-prompt.importer.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
-import { characters as charactersTable } from "../../db/schema/index.js";
+import { characters as charactersTable, chats as chatsTable } from "../../db/schema/index.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { getFileTimestampOverrides, parseTrustedTimestamp } from "./import-timestamps.js";
@@ -522,6 +522,11 @@ export interface STBulkImportOptions {
   regexScriptScope?: "character" | "global";
   /** The "Tag imported" / "Tag source" checkboxes; everything imported is tagged "Imported" and "ST". */
   importTags?: ImportTagOptions;
+  /**
+   * Skip characters and chats this Engine already has from an earlier import (on unless false).
+   * An import that looked stuck was often run again, and every run added a full second copy.
+   */
+  skipAlreadyImported?: boolean;
 }
 
 export interface STBulkImportResult {
@@ -536,6 +541,8 @@ export interface STBulkImportResult {
     backgrounds: number;
     personas: number;
   };
+  /** Left out because this Engine already had them (skipAlreadyImported). */
+  skipped?: { characters: number; chats: number; groupChats: number };
   errors: string[];
 }
 
@@ -558,6 +565,68 @@ function resolveSelectedItems<T extends { id: string }>(items: T[], selection: S
   if (selection === false || !Array.isArray(selection) || selection.length === 0) return [];
   const selectedIds = new Set(selection);
   return items.filter((item) => selectedIds.has(item.id));
+}
+
+/** Same card, same text: name, description and first message. Catches re-imports of an unchanged card. */
+function characterImportSignature(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  const record = data as Record<string, unknown>;
+  const inner = record.data && typeof record.data === "object" ? (record.data as Record<string, unknown>) : record;
+  const name = normalizeTextForMatch(typeof inner.name === "string" ? inner.name : record.name);
+  if (!name) return null;
+  const text = (value: unknown) => (typeof value === "string" ? value.replace(/\r\n/g, "\n").trim() : "");
+  return createHash("sha256")
+    .update(
+      `${name}\u0001${text(inner.description ?? record.description)}\u0001${text(inner.first_mes ?? record.first_mes)}`,
+    )
+    .digest("hex");
+}
+
+/** A chat file's own fingerprint, kept in the imported chat's metadata. */
+function chatFileFingerprint(content: string) {
+  return createHash("sha256").update(content.replace(/\r\n/g, "\n")).digest("hex");
+}
+
+/**
+ * Chats imported before fingerprints existed: the same file gives the same chat name, file label
+ * and file time, which no two different files share in practice.
+ */
+function legacyChatSignature(name: string, branchName: string | null | undefined, createdAt: string | null) {
+  if (!createdAt) return null;
+  return `${normalizeTextForMatch(name)}\u0001${branchName ?? ""}\u0001${createdAt}`;
+}
+
+async function existingImportSignatures(db: DB) {
+  const characters = new Set<string>();
+  const chats = new Set<string>();
+  for (const row of await db.select({ data: charactersTable.data }).from(charactersTable)) {
+    try {
+      const signature = characterImportSignature(JSON.parse(row.data));
+      if (signature) characters.add(signature);
+    } catch {
+      // unreadable card: never matches
+    }
+  }
+  const chatRows = await db
+    .select({ name: chatsTable.name, metadata: chatsTable.metadata, createdAt: chatsTable.createdAt })
+    .from(chatsTable);
+  for (const row of chatRows) {
+    let metadata: Record<string, unknown> = {};
+    try {
+      metadata = JSON.parse(row.metadata || "{}") as Record<string, unknown>;
+    } catch {
+      // no metadata: legacy signature with no label
+    }
+    if (typeof metadata.importFingerprint === "string") chats.add(`fp:${metadata.importFingerprint}`);
+    const createdAt = parseTrustedTimestamp(row.createdAt);
+    const branch = typeof metadata.branchName === "string" ? metadata.branchName : null;
+    const legacy = legacyChatSignature(row.name, branch, createdAt);
+    if (legacy) chats.add(`legacy:${legacy}`);
+    // Group chats carry no file label.
+    const legacyNoBranch = legacyChatSignature(row.name, null, createdAt);
+    if (legacyNoBranch) chats.add(`legacy:${legacyNoBranch}`);
+  }
+  return { characters, chats };
 }
 
 export async function runSTBulkImport(
@@ -590,6 +659,20 @@ export async function runSTBulkImport(
   const regexScriptScope = options.regexScriptScope ?? "character";
   const existingTagKeys =
     tagImportMode === "existing" && selectedCharacters.length > 0 ? await getExistingCharacterTagKeys(db) : undefined;
+  const skipAlreadyImported = options.skipAlreadyImported !== false;
+  const skipped = { characters: 0, chats: 0, groupChats: 0 };
+  const known = skipAlreadyImported ? await existingImportSignatures(db) : null;
+  /**
+   * True when this Engine already has it. Otherwise the first key (a content fingerprint) is
+   * remembered, so a folder's own exact copies import once. Later keys (legacy signatures) only
+   * match what existed before this run: two different files can share one.
+   */
+  const alreadyHave = (set: Set<string> | undefined, remembered: string | null, ...priorOnly: Array<string | null>) => {
+    if (!set) return false;
+    if ([remembered, ...priorOnly].some((key) => key !== null && set.has(key))) return true;
+    if (remembered !== null) set.add(remembered);
+    return false;
+  };
 
   // Import characters
   if (selectedCharacters.length > 0) {
@@ -604,7 +687,9 @@ export async function runSTBulkImport(
         if (ch.format === "png") {
           const buf = await readFile(ch.path);
           const card = extractCharaFromPng(buf);
-          if (card) {
+          if (card && alreadyHave(known?.characters, characterImportSignature(card))) {
+            skipped.characters++;
+          } else if (card) {
             // Attach avatar as data URL
             const b64 = buf.toString("base64");
             const dataUrl = `data:image/png;base64,${b64}`;
@@ -620,6 +705,10 @@ export async function runSTBulkImport(
           }
         } else {
           const raw = JSON.parse(await readFile(ch.path, "utf-8"));
+          if (alreadyHave(known?.characters, characterImportSignature(raw))) {
+            skipped.characters++;
+            continue;
+          }
           await importSTCharacter(raw, db, {
             timestampOverrides,
             tagImportMode,
@@ -686,6 +775,17 @@ export async function runSTBulkImport(
       try {
         const content = await readFile(ct.path, "utf-8");
         const fileInfo = await stat(ct.path);
+        const fingerprint = chatFileFingerprint(content);
+        const branchName = ct.chatName ?? basename(ct.path, ".jsonl");
+        const legacy = legacyChatSignature(
+          ct.characterName,
+          branchName,
+          parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt),
+        );
+        if (alreadyHave(known?.chats, `fp:${fingerprint}`, legacy && `legacy:${legacy}`)) {
+          skipped.chats++;
+          continue;
+        }
 
         const normalizedCharacterName = normalizeTextForMatch(ct.characterName);
         const normalizedFolderName = normalizeTextForMatch(ct.folderName);
@@ -704,8 +804,9 @@ export async function runSTBulkImport(
         await importSTChat(content, db, {
           characterId: charId,
           chatName: ct.characterName,
-          branchName: ct.chatName ?? basename(ct.path, ".jsonl"),
+          branchName,
           groupId,
+          sourceFingerprint: fingerprint,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
           importTags,
         });
@@ -728,6 +829,16 @@ export async function runSTBulkImport(
       try {
         const content = await readFile(gc.path, "utf-8");
         const fileInfo = await stat(gc.path);
+        const fingerprint = chatFileFingerprint(content);
+        const legacy = legacyChatSignature(
+          gc.groupName,
+          null,
+          parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt),
+        );
+        if (alreadyHave(known?.chats, `fp:${fingerprint}`, legacy && `legacy:${legacy}`)) {
+          skipped.groupChats++;
+          continue;
+        }
         // Build speaker→characterId map from member names
         const speakerMap: Record<string, string> = {};
         const memberCharacterIds = new Set<string>();
@@ -747,6 +858,7 @@ export async function runSTBulkImport(
           speakerMap,
           mode: "roleplay",
           groupId: gcGroupIds.get(groupKey)!,
+          sourceFingerprint: fingerprint,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
           importTags,
         });
@@ -852,5 +964,5 @@ export async function runSTBulkImport(
     }
   }
 
-  return { success: true, imported, errors };
+  return { success: true, imported, ...(skipAlreadyImported ? { skipped } : {}), errors };
 }

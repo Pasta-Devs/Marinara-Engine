@@ -108,6 +108,8 @@ export interface ImportSTChatOptions {
   importTags?: ImportTagOptions;
   /** The source tag; SillyTavern by default. */
   source?: string;
+  /** Fingerprint of the source file, kept in metadata so importing the same file again can be skipped. */
+  sourceFingerprint?: string;
 }
 
 function normalizeTranscriptTimestamps(
@@ -470,7 +472,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   if (!chat) return { error: "Failed to create chat" };
 
   // Preserve an imported branch/file label separately from the main thread/chat name.
-  if (Object.keys(marinaraMetadata).length > 0 || importedBranchName) {
+  if (Object.keys(marinaraMetadata).length > 0 || importedBranchName || opts?.sourceFingerprint) {
     const existingMetadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const importedMetadata = sanitizeImportedMarinaraMetadata(
       marinaraMetadata,
@@ -511,6 +513,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         ...existingMetadata,
         ...importedMetadata,
         ...(importedBranchName ? { branchName: importedBranchName } : {}),
+        ...(opts?.sourceFingerprint ? { importFingerprint: opts.sourceFingerprint } : {}),
       },
       { touchUpdatedAt: false },
     );
