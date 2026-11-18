@@ -523,13 +523,14 @@ const cases: RegressionCase[] = [
         new URL("../../../packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx", import.meta.url),
         "utf8",
       );
-      const roleplayAgentsSource = readFileSync(
-        new URL(
-          "../../../packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
-          import.meta.url,
-        ),
-        "utf8",
-      );
+      const roleplayAgentsSource = ["RoleplayAgentsSection.tsx", "GameAgentsSection.tsx", "agents-section-parts.tsx"]
+        .map((name) =>
+          readFileSync(
+            new URL(`../../../packages/client/src/features/chat-settings/agents/${name}`, import.meta.url),
+            "utf8",
+          ),
+        )
+        .join("\n");
       const agentRenderersSource = readFileSync(
         new URL(
           "../../../packages/client/src/features/chat-settings/agents/agent-settings-renderers.tsx",
@@ -1639,6 +1640,8 @@ const cases: RegressionCase[] = [
       );
       for (const path of [
         "agents/RoleplayAgentsSection.tsx",
+        "agents/GameAgentsSection.tsx",
+        "agents/agents-section-parts.tsx",
         "agents/agent-settings-renderers.tsx",
         "agents/use-chat-agents.ts",
       ]) {

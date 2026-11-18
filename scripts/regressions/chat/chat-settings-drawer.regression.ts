@@ -108,7 +108,11 @@ assert.deepEqual(writeOrder, ["first:start", "first:end", "second"]);
 
 // The image and video settings links in the Agents sections all use the one shared control.
 assert.equal(
-  [read("agents/ConversationAgentsSection.tsx"), read("agents/RoleplayAgentsSection.tsx")]
+  [
+    read("agents/ConversationAgentsSection.tsx"),
+    read("agents/RoleplayAgentsSection.tsx"),
+    read("agents/GameAgentsSection.tsx"),
+  ]
     .join("\n")
     .match(/<GenerationSettingsLink/gu)?.length,
   3,
@@ -149,10 +153,10 @@ assert.match(
     "utf8",
   );
   assert.match(generationStatusHookSource, /\/generate\/status\/\$\{encodeURIComponent\(chatId \?\? ""\)\}/u);
-  assert.match(roleplayAgentsSectionSource, /isRoleplayMode && \(activeGeneration \|\| stoppingGeneration\)/u);
+  assert.match(roleplayAgentsSectionSource, /\{\(activeGeneration \|\| stoppingGeneration\) && \(/u);
   assert.match(settingsDrawerSource, /await abortGenerationForChat\(chat\.id, controller\)/u);
   const stopGenerationActionStart = roleplayAgentsSectionSource.indexOf(
-    "{isRoleplayMode && (activeGeneration || stoppingGeneration) && (",
+    "{(activeGeneration || stoppingGeneration) && (",
   );
   const agentSuiteActionStart = roleplayAgentsSectionSource.indexOf(
     "onClick={() => setShowAgentSuiteModal(true)}",

@@ -74,6 +74,7 @@ for (const path of [
   "packages/client/src/features/chat-settings/sections/ConversationNotesSection.tsx",
   "packages/client/src/features/chat-settings/agents/ConversationAgentsSection.tsx",
   "packages/client/src/features/chat-settings/agents/RoleplayAgentsSection.tsx",
+  "packages/client/src/features/chat-settings/agents/GameAgentsSection.tsx",
 ]) {
   collect(path, "Section");
   collect(path, "Drawer");
