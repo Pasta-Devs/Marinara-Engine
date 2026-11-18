@@ -197,7 +197,7 @@ export function llmHttpErrorFromResponse(message: string, response: Response): L
 
 /** One `data:` line of a server-sent event stream and the `event:` name in force for it. */
 export interface SseData {
-  /** Last `event:` name since the previous blank line, or "" when none was sent. */
+  /** `event:` name sent before this `data:` line (cleared after it and on blank lines), or "". */
   event: string;
   /** Payload after `data:`, trimmed; `[DONE]` is passed through for the caller to handle. */
   data: string;
@@ -237,7 +237,13 @@ export async function* readSseData(response: Response, signal?: AbortSignal): As
         const trimmed = line.trim();
         if (trimmed === "") event = "";
         else if (trimmed.startsWith("event:")) event = trimmed.slice(6).trimStart();
-        else if (trimmed.startsWith("data:")) yield { event, data: trimmed.slice(5).trimStart() };
+        else if (trimmed.startsWith("data:")) {
+          // The name applies to the next `data:` line only, so a later bare line from a proxy
+          // that drops blank lines is not read as the same event.
+          const name = event;
+          event = "";
+          yield { event: name, data: trimmed.slice(5).trimStart() };
+        }
       }
     }
   } finally {

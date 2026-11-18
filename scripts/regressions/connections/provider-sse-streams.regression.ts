@@ -46,20 +46,21 @@ await runNamedCases([
     },
   },
   {
-    name: "reader keeps the event name until a blank line and skips comments",
+    name: "reader gives the event name to the next data line only and skips comments",
     run: async () => {
       const items = await collect(
         chunkedResponse([
           ": keep-alive\n\n",
           "event: response.output_text.delta\ndata: one\n",
-          "data: two\n\n",
+          "data: two\n",
+          "event: response.completed\n\n",
           "data: three\n",
           "id: 7\nretry: 100\n",
         ]),
       );
       assert.deepEqual(items, [
         { event: "response.output_text.delta", data: "one" },
-        { event: "response.output_text.delta", data: "two" },
+        { event: "", data: "two" },
         { event: "", data: "three" },
       ]);
     },
