@@ -330,6 +330,20 @@ try {
       },
     },
     {
+      name: "a snapshot whose stored character list is not a list still takes the new characters",
+      run: async () => {
+        const tracker = await trackerChat();
+        await gameStates.updateByMessage("msg-1", 0, tracker.chatId, { presentCharacters: { damaged: true } } as never);
+        const { deps, patches } = fakeDeps({ origin: "retry" }, { chatId: tracker.chatId });
+        await applyAgentResultEffect(characterResult, deps);
+        assert.deepEqual(
+          (await presentCharactersOf(tracker)).map((character) => character.name),
+          ["Alice", "Mira", "Ghost"],
+        );
+        assert.equal(patches.length, 1);
+      },
+    },
+    {
       name: "re-running the character tracker writes each new NPC to the journal once and never a card character",
       run: async () => {
         const tracker = await trackerChat();

@@ -85,8 +85,12 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
     deps.signal?.throwIfAborted();
     const previousSnapshot = await target.loadBaseline();
     deps.signal?.throwIfAborted();
-    const previousCharacters = parseJsonField<TrackedCharacter[]>(previousSnapshot?.presentCharacters, []);
-    const lockState = previousSnapshot ? parseGameStateRow(previousSnapshot) : null;
+    // A damaged row can hold something other than a list; merge onto an empty one rather than fail the run.
+    const storedCharacters = parseJsonField<unknown>(previousSnapshot?.presentCharacters, []);
+    const previousCharacters = Array.isArray(storedCharacters) ? (storedCharacters as TrackedCharacter[]) : [];
+    const lockState = previousSnapshot
+      ? parseGameStateRow({ ...previousSnapshot, presentCharacters: previousCharacters })
+      : null;
     let characters =
       resolveTrackerGroupUpdate(data.presentCharacters, previousCharacters, lockState, "presentCharacters") ??
       previousCharacters;
