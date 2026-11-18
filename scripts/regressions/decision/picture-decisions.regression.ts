@@ -26,7 +26,7 @@ const { createLorebookDecisionResolver } = await import(
   "../../../packages/server/src/services/decision/prompt-decisions.js"
 );
 const { libraryBackgroundCandidatesForLocation } = await import(
-  "../../../packages/server/src/services/generation/location-background-pins.js"
+  "../../../packages/server/src/services/generation/illustrator-background-reuse.js"
 );
 
 const PIXEL =
@@ -201,12 +201,11 @@ assert.equal(pictures.normalizePictureCheckMode("sometimes"), "off");
     { filename: "harbor-docks.png", tags: [] },
     { filename: "generated-old-harbor-tavern-2.png", tags: ["tavern"] },
     { filename: "forest.png", tags: ["pine forest"] },
-    { filename: "harbor-docks--wx-rain.png", tags: [] },
   ];
   assert.deepEqual(
     libraryBackgroundCandidatesForLocation("The Old Harbor tavern", library, 4),
     ["generated-old-harbor-tavern-2.png", "harbor-docks.png"],
-    "most shared words first; weather versions and unrelated pictures are left out",
+    "most shared words first; unrelated pictures are left out",
   );
   assert.deepEqual(libraryBackgroundCandidatesForLocation("A room", library), [], "no shared word, nothing looked at");
   assert.equal(libraryBackgroundCandidatesForLocation("harbor", library, 1).length, 1, "capped");
