@@ -21,6 +21,7 @@ import {
 } from "../../services/generation/conversation-emoji-vision.js";
 import { cosineSimilarity } from "../../services/lorebook/embeddings.js";
 import { isLocalEmbedderAvailable, localEmbed } from "../../services/local-embedder.js";
+import type { MemoryRecallEmbeddingSource } from "../../services/memory-recall.js";
 import { createLLMProvider } from "../../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../../services/llm/connection-fallback-provider.js";
 import type { GenerationPromptMessage } from "../../services/generation/prompt-message-scope.js";
@@ -84,22 +85,71 @@ function shuffleInPlace<T>(items: T[]): T[] {
   return items;
 }
 
-/** Order emoji names by semantic relevance to `query` via the local embedder. Returns null when unavailable. */
+/** Asset texts already embedded, by vector space; names and descriptions rarely change between messages. */
+const assetVectorCache = new Map<string, number[]>();
+const ASSET_VECTOR_CACHE_LIMIT = 4000;
+
+/**
+ * The message and the asset texts embedded with the Embeddings default (the message as a search, the assets as
+ * documents, so model prefixes apply), reusing earlier asset vectors. Null when that source fails.
+ */
+async function embedWithSource(
+  source: MemoryRecallEmbeddingSource,
+  query: string,
+  texts: string[],
+): Promise<{ queryVector: number[]; vectors: number[][] } | null> {
+  const space = source.cacheIdentity?.trim() || source.spaceId?.trim() || source.label;
+  const keyOf = (text: string) => `${space}\u0000${text}`;
+  const missing = [...new Set(texts.filter((text) => !assetVectorCache.has(keyOf(text))))];
+  const [queryVectors, fresh] = await Promise.all([
+    source.embed([query], undefined, "query"),
+    missing.length > 0 ? source.embed(missing, undefined, "document") : Promise.resolve([] as number[][]),
+  ]);
+  if (!queryVectors?.[0] || !fresh || fresh.length !== missing.length) return null;
+  missing.forEach((text, index) => {
+    if (assetVectorCache.size >= ASSET_VECTOR_CACHE_LIMIT) {
+      assetVectorCache.delete(assetVectorCache.keys().next().value!);
+    }
+    assetVectorCache.set(keyOf(text), fresh[index]!);
+  });
+  const vectors = texts.map((text) => assetVectorCache.get(keyOf(text)));
+  if (vectors.some((vector) => !vector)) return null;
+  return { queryVector: queryVectors[0], vectors: vectors as number[][] };
+}
+
+/**
+ * Order emoji names by semantic relevance to `query`: with the Embeddings default when one is set, else (or when it
+ * fails) with the bundled local embedder. Returns null when neither is available.
+ */
 async function rankEmojiNamesBySemantic(
   names: string[],
   query: string,
   boosted: ReadonlySet<string> = new Set(),
   describe: AssetDescriber = noDescriptions,
+  embeddingSource: MemoryRecallEmbeddingSource | null = null,
 ): Promise<string[] | null> {
-  if (names.length <= 1 || !query.trim() || !isLocalEmbedderAvailable()) return null;
+  if (names.length <= 1 || !query.trim()) return null;
+  const texts = names.map((name) => semanticAssetText(name, describe(name)));
+  let embedded: { queryVector: number[]; vectors: number[][] } | null = null;
+  if (embeddingSource) {
+    try {
+      embedded = await embedWithSource(embeddingSource, query, texts);
+    } catch (err) {
+      logger.debug(err, "[custom-emoji] Embeddings default failed; using the bundled embedder");
+    }
+  }
+  if (!embedded && !isLocalEmbedderAvailable()) return null;
   try {
-    const vectors = await localEmbed([query, ...names.map((name) => semanticAssetText(name, describe(name)))]);
-    if (!vectors || vectors.length !== names.length + 1) return null;
-    const queryVector = vectors[0]!;
+    if (!embedded) {
+      const vectors = await localEmbed([query, ...texts]);
+      if (!vectors || vectors.length !== names.length + 1) return null;
+      embedded = { queryVector: vectors[0]!, vectors: vectors.slice(1) };
+    }
+    const { queryVector, vectors } = embedded;
     return names
       .map((name, index) => ({
         name,
-        score: cosineSimilarity(queryVector, vectors[index + 1]!) + (boosted.has(name) ? OWN_ASSET_SEMANTIC_BOOST : 0),
+        score: cosineSimilarity(queryVector, vectors[index]!) + (boosted.has(name) ? OWN_ASSET_SEMANTIC_BOOST : 0),
       }))
       .sort((a, b) => b.score - a.score)
       .map((entry) => entry.name);
@@ -121,10 +171,11 @@ export async function rankCombinedAssetNames(
   sharedNames: string[],
   query: string,
   describe: AssetDescriber = noDescriptions,
+  embeddingSource: MemoryRecallEmbeddingSource | null = null,
 ): Promise<string[] | null> {
   const pool = uniqueEmojiNames([...ownNames, ...sharedNames]);
   if (pool.length <= 1) return pool;
-  return rankEmojiNamesBySemantic(pool, query, new Set(ownNames), describe);
+  return rankEmojiNamesBySemantic(pool, query, new Set(ownNames), describe, embeddingSource);
 }
 
 /** The names an advertisement offers, in its order (mirrors buildCustomEmojiAdvertisement's capping). */
@@ -164,11 +215,12 @@ export async function orderEmojiNames(
   prefs: CustomEmojiSelectionPrefs,
   query: string,
   describe: AssetDescriber = noDescriptions,
+  embeddingSource: MemoryRecallEmbeddingSource | null = null,
 ): Promise<string[]> {
   if (names.length <= 1) return names;
   // Reached for random/semantic, and as the tool-call fallback path: rank semantically when possible.
   if (prefs.mode === "semantic" || prefs.mode === "tool-call") {
-    const ranked = await rankEmojiNamesBySemantic(names, query, new Set(), describe);
+    const ranked = await rankEmojiNamesBySemantic(names, query, new Set(), describe, embeddingSource);
     if (ranked) return ranked;
   }
   return shuffleInPlace([...names]);
@@ -264,16 +316,23 @@ async function orderAdvertisedPools(
   prefs: CustomEmojiSelectionPrefs,
   query: string,
   describe: AssetDescriber,
+  embeddingSource: MemoryRecallEmbeddingSource | null,
 ): Promise<{ orderedShared: string[]; orderedOwnByChar: Map<string, string[]> }> {
   if (responders.length === 1 && (prefs.mode === "semantic" || prefs.mode === "tool-call")) {
     const charId = responders[0]!.charId;
-    const combined = await rankCombinedAssetNames(ownByChar.get(charId) ?? [], sharedNames, query, describe);
+    const combined = await rankCombinedAssetNames(
+      ownByChar.get(charId) ?? [],
+      sharedNames,
+      query,
+      describe,
+      embeddingSource,
+    );
     if (combined) return { orderedShared: [], orderedOwnByChar: new Map([[charId, combined]]) };
   }
-  const orderedShared = await orderEmojiNames(sharedNames, prefs, query, describe);
+  const orderedShared = await orderEmojiNames(sharedNames, prefs, query, describe, embeddingSource);
   const orderedOwnByChar = new Map<string, string[]>();
   for (const [charId, names] of ownByChar) {
-    orderedOwnByChar.set(charId, await orderEmojiNames(names, prefs, query, describe));
+    orderedOwnByChar.set(charId, await orderEmojiNames(names, prefs, query, describe, embeddingSource));
   }
   return { orderedShared, orderedOwnByChar };
 }
@@ -314,6 +373,8 @@ export async function appendConversationCustomAssetAdvertisements(args: {
   replyRulesMacroPlacement?: (content: string) => void;
   /** Filled with every visible emoji and sticker file and the offered names, for the emoji vision sheet. */
   visionCatalog?: ConversationAssetVisionCatalog;
+  /** The chat's Embeddings source (the app-wide default unless the chat picks one); semantic picks rank with it. */
+  embeddingSource?: MemoryRecallEmbeddingSource | null;
 }): Promise<void> {
   if (args.chatMode !== "conversation") return;
 
@@ -550,6 +611,7 @@ export async function appendConversationCustomAssetAdvertisements(args: {
         emojiPrefs,
         assetQuery,
         describeEmoji,
+        args.embeddingSource ?? null,
       );
       emojiAdvertisement = buildCustomEmojiAdvertisement(
         respondingConversationChars,
@@ -613,6 +675,7 @@ export async function appendConversationCustomAssetAdvertisements(args: {
         stickerPrefs,
         assetQuery,
         describeSticker,
+        args.embeddingSource ?? null,
       );
       stickerAdvertisement = buildCustomStickerAdvertisement(
         respondingConversationChars,
