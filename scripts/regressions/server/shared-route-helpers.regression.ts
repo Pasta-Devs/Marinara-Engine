@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
+import { z } from "../../../packages/server/node_modules/zod/index.js";
 
 // Shared server helpers keep the exact responses the old hand-written copies sent.
 const { notFound } = await import("../../../packages/server/src/utils/not-found.js");
@@ -88,3 +89,29 @@ controller.abort();
 await assert.rejects(waiting, { name: "AbortError" });
 await assert.rejects(sleep(1, AbortSignal.abort()), { name: "AbortError" });
 
+// parseBody sends the old 400 body: the route message and at most 10 Zod issues.
+const { parseBody } = await import("../../../packages/server/src/utils/parse-body.js");
+const bodyApp = Fastify();
+const schema = z.object(Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`f${i}`, z.number()])));
+bodyApp.post("/check", async (req, reply) => {
+  const input = parseBody(schema, req.body, reply, "Invalid check");
+  if (!input) return reply;
+  return { sum: Object.values(input).reduce((a, b) => a + b, 0) };
+});
+try {
+  const bad = await bodyApp.inject({ method: "POST", url: "/check", payload: {} });
+  assert.equal(bad.statusCode, 400);
+  const badBody = bad.json();
+  assert.equal(badBody.error, "Invalid check");
+  assert.equal(badBody.issues.length, 10);
+  assert.deepEqual(Object.keys(badBody), ["error", "issues"]);
+  const good = await bodyApp.inject({
+    method: "POST",
+    url: "/check",
+    payload: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`f${i}`, 1])),
+  });
+  assert.equal(good.statusCode, 200);
+  assert.deepEqual(good.json(), { sum: 12 });
+} finally {
+  await bodyApp.close();
+}
