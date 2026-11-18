@@ -160,6 +160,16 @@ export function artifactSnapshotPath(artifact: DecisionModelArtifact): string {
   return join(HF_HOME, "hub", `models--${artifact.repoId.replace(/\//g, "--")}`, "snapshots", artifact.revision);
 }
 
+/** The files a completed download recorded in a snapshot, or null when there is no receipt. */
+function readReceipt(snapshot: string): Record<string, number> | null {
+  try {
+    const parsed = JSON.parse(readFileSync(join(snapshot, DOWNLOAD_RECEIPT), "utf-8")) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, number>) : null;
+  } catch {
+    return null;
+  }
+}
+
 export class DecisionRuntimeService {
   private installPromise: Promise<DecisionRuntimeInstall> | null = null;
   private activeChild: ChildProcess | null = null;
@@ -361,9 +371,14 @@ export class DecisionRuntimeService {
         }
       }
       // Written last, so its presence is the signal that this artifact completed.
+      // Merged with what is already recorded: two GGUF entries can share one repository
+      // revision (JevK5 2B and 4B), and the second install must not erase the first's files.
       writeFileSync(
         join(snapshot, DOWNLOAD_RECEIPT),
-        JSON.stringify(Object.fromEntries(files.map((file) => [file.path, file.size]))),
+        JSON.stringify({
+          ...readReceipt(snapshot),
+          ...Object.fromEntries(files.map((file) => [file.path, file.size])),
+        }),
         "utf-8",
       );
     }
@@ -452,10 +467,16 @@ export class DecisionRuntimeService {
   modelDownloaded(model: SidecarDecisionModelInfo): boolean {
     return model.artifacts.every((artifact) => {
       const snapshot = artifactSnapshotPath(artifact);
-      const receipt = join(snapshot, DOWNLOAD_RECEIPT);
-      if (!existsSync(receipt)) return false;
+      const expected = readReceipt(snapshot);
+      if (!expected) return false;
+      // A GGUF entry's own file must be on the receipt, not only every file the receipt
+      // names: JevK5 2B and 4B share one snapshot, and the 2B's receipt says nothing
+      // about whether the 4B ever downloaded.
+      if (model.modelFile && artifact === model.artifacts[0] && !(model.modelFile in expected)) return false;
+      // The same for the vision projector: a model installed before it was added to the
+      // download is not whole until it arrives.
+      if (model.projectorFile && artifact === model.artifacts[0] && !(model.projectorFile in expected)) return false;
       try {
-        const expected = JSON.parse(readFileSync(receipt, "utf-8")) as Record<string, number>;
         return Object.entries(expected).every(([relative, size]) => {
           try {
             const file = assertInsideDir(snapshot, resolve(snapshot, relative));

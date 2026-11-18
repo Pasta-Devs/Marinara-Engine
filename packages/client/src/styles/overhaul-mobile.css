@@ -1350,6 +1350,11 @@
 }
 
 /* A section opened as its own page. */
+/* The page's header sticks flush under Chat settings' own header: the scroll area's top
+   padding would otherwise leave a strip where scrolled text shows through. */
+.marinara-chat-popover__scroll:has(> .ovm-cs-page[data-ovm-cs-current]) {
+  padding-top: 0 !important;
+}
 .ovm-cs-page__head {
   position: sticky;
   top: 0;
@@ -1588,7 +1593,7 @@
    adds specificity. */
 .ov-cs.ov-cs
   .ovm-cs-page__body.ovm-cs-page__body:not(#ovm-x)
-  :is(button, [role="button"], a[href], summary):not(.cursor-help) {
+  :is(button, [role="button"], a[href], summary):not(.cursor-help, [role="switch"]) {
   min-height: 2.25rem !important;
   height: auto !important;
 }
@@ -1621,6 +1626,15 @@
   :is(input[type="checkbox"], input[type="radio"]):not(.sr-only) {
   width: 1.125rem !important;
   height: 1.125rem !important;
+}
+/* Switches keep the pill shape everywhere else has; an invisible pad gives the thumb room. */
+.ov-cs.ov-cs .ovm-cs-page__body [role="switch"] {
+  position: relative;
+}
+.ov-cs.ov-cs .ovm-cs-page__body [role="switch"]::after {
+  content: "";
+  position: absolute;
+  inset: -0.625rem -0.375rem;
 }
 /* Help icons stay small to look at but get a thumb-sized hit area. */
 .ovm-cs-page__body .cursor-help,

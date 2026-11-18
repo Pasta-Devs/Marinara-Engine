@@ -28,6 +28,7 @@
     "@img/sharp-wasm32": "0.35.5",
     "@marinara-engine/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.32.2",
+    "@valen-team/sdk": "0.4.0",
     "adm-zip": "^0.6.1",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",

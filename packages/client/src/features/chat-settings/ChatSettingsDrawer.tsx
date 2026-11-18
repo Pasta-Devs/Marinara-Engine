@@ -74,6 +74,7 @@ import { FloatingWindow } from "../../components/ui/FloatingWindow";
 import { TrackerPanelIcon } from "../../components/ui/TrackerPanelIcon";
 import { type ChatToolbarFloatingPanelAnchor } from "../../components/chat/ChatToolbarControls";
 import { changedId } from "../../components/characters/CharacterSelect";
+import { PictureCheckFields } from "./PictureCheckFields";
 import { ChatSettingsSection as Section } from "./ChatSettingsSection";
 import { useMobileChatSettingsNav } from "./mobile-nav";
 import { MobileChatSettingsBack, MobileChatSettingsGroup, MobileChatSettingsQuick } from "./MobileChatSettingsNav";
@@ -4116,6 +4117,7 @@ export function ChatSettingsDrawer({
                             </div>
                           )}
                           {renderIllustratorDecisionChecks()}
+                          <PictureCheckFields chatId={chat.id} metadata={metadata} illustrator />
                           <label className="flex flex-col gap-1">
                             <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                               {localizeUi("ui.chat.chatsettingsdrawer.illustratorMakes")}

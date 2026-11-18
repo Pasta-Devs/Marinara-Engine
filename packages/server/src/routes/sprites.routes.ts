@@ -108,6 +108,7 @@ import {
   type ImageStyleProfileSettings,
 } from "@marinara-engine/shared";
 import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
+import { checkPicture, pictureDataUrl, resolvePictureDecisionBackend } from "../services/decision/picture-decisions.js";
 import {
   sendValidatedMediaFile,
   validateImageAssetBuffer,
@@ -183,6 +184,8 @@ type SpriteGenerateSheetBody = {
   styleProfileId?: string | null;
   /** Faces for a 2D avatar's talking head: open eyes and a closed mouth in every face. */
   talkingHeadFaces?: boolean;
+  /** Ask a decision model that reads pictures whether each face shows its expression, and flag those that do not. */
+  checkExpressions?: boolean;
 };
 
 type SpriteGenerateAnimatedBody = Omit<
@@ -695,6 +698,35 @@ export function withTalkingHeadSetContract(prompt: SpriteCompiledPrompt, face: s
 /** Removes a sheet's background when asked (native transparency is preferred; a flat matte is removed when a
  *  provider cannot return alpha) and cuts it into its cells, each cleaned again on its own. Cleanup that fails
  *  keeps the picture as it is rather than failing the sheet. */
+/**
+ * Marks each cell whose face does not look like its expression (`mismatch: true`), when
+ * the selected decision model reads pictures. Cells are marked in place; a check that
+ * cannot run marks nothing.
+ */
+async function flagMismatchedExpressions(
+  db: Parameters<typeof resolvePictureDecisionBackend>[0],
+  cells: Array<{ expression: string; base64: string; mismatch?: boolean }>,
+): Promise<void> {
+  const backend = await resolvePictureDecisionBackend(db);
+  if (!backend) return;
+  let flagged = 0;
+  for (const cell of cells) {
+    const picture = pictureDataUrl(cell.base64, "png");
+    if (!picture) continue;
+    const check = await checkPicture({
+      backend,
+      picture,
+      lines: [{ statement: `The character's face shows this expression: ${cell.expression.replace(/[_-]+/gu, " ")}` }],
+      context: "One expression sprite of a character.",
+    });
+    if (check && !check.passed) {
+      cell.mismatch = true;
+      flagged += 1;
+    }
+  }
+  if (flagged > 0) logger.info("[sprites] %d of %d face(s) may not show their expression", flagged, cells.length);
+}
+
 async function cutSpriteSheet(
   sheet: Buffer,
   plan: Pick<SpritePromptPlan, "cols" | "rows" | "expressions">,
@@ -2508,7 +2540,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const imageFallback = await resolveImageConnectionFallback(connections, conn.id);
 
     try {
-      return await withSpriteGenerationDeadline(
+      const generated = await withSpriteGenerationDeadline(
         (async () => {
           if (plan.fullBodyExpressionMode) {
             const cells: Array<{ expression: string; base64: string }> = [];
@@ -2723,6 +2755,10 @@ export async function spritesRoutes(app: FastifyInstance) {
           });
         })(),
       );
+      // Optional: a decision model that reads pictures flags faces that do not show
+      // their expression, for the review step. Nothing is redrawn or held back.
+      if (body.checkExpressions === true) await flagMismatchedExpressions(app.db, generated.cells);
+      return generated;
     } catch (err: any) {
       logger.error(err, "Sprite sheet generation failed");
       const failedExpressions = Array.isArray(err?.failedExpressions)

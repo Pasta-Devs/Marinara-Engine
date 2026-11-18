@@ -227,6 +227,12 @@ export interface DecisionModelOptions {
    * model keeps whatever the author chose; this only supplies the starting value.
    */
   calibration: DecisionCalibration;
+  /**
+   * What the selected model reads: always text, and pictures or clips for a built-in
+   * decision model that reads them. Settings that show a model pictures only work, and
+   * are only offered, when this has "image".
+   */
+  reads?: Array<"text" | "image" | "video">;
 }
 
 /**

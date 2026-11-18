@@ -58,6 +58,7 @@ import { isCapabilityPackageAvailable, useInstalledCapabilityPackages } from "..
 import { useUIStore } from "../../stores/ui.store";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { DecisionStatementNote } from "../ui/DecisionStatementNote";
+import { LorebookDecisionPictureFields } from "./LorebookDecisionPictureFields";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import type {
   LorebookEntry,
@@ -1606,6 +1607,8 @@ function buildEntrySavePayload(form: Partial<LorebookEntry>) {
     excludeFromVectorization: form.excludeFromVectorization,
     decisionStatement: form.decisionStatement,
     decisionMode: form.decisionMode,
+    decisionPictures: form.decisionPictures,
+    decisionMediaWithin: form.decisionMediaWithin,
     scanDepth: form.scanDepth,
     groupWeight: form.groupWeight,
     activationConditions: form.activationConditions,
@@ -2559,10 +2562,18 @@ function ExpandedDrawer({
                 )}
               </div>
               {(form.decisionMode ?? "off") !== "off" ? (
-                <DecisionStatementNote
-                  active={(form.decisionStatement ?? "").trim().length > 0}
-                  message={localizeUi("ui.lorebooks.expandeddrawer.decisionModelMissing")}
-                />
+                <>
+                  <DecisionStatementNote
+                    active={(form.decisionStatement ?? "").trim().length > 0}
+                    message={localizeUi("ui.lorebooks.expandeddrawer.decisionModelMissing")}
+                  />
+                  <LorebookDecisionPictureFields
+                    variant="overhaul"
+                    pictures={form.decisionPictures ?? 0}
+                    mediaWithin={form.decisionMediaWithin ?? null}
+                    onChange={update}
+                  />
+                </>
               ) : null}
             </OvmDrill>
             {overhaulMobile ? (
@@ -2759,6 +2770,12 @@ function ExpandedDrawer({
               <DecisionStatementNote
                 active={(form.decisionStatement ?? "").trim().length > 0}
                 message={localizeUi("ui.lorebooks.expandeddrawer.decisionModelMissing")}
+              />
+              <LorebookDecisionPictureFields
+                variant="classic"
+                pictures={form.decisionPictures ?? 0}
+                mediaWithin={form.decisionMediaWithin ?? null}
+                onChange={update}
               />
             </>
           )}

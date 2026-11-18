@@ -259,6 +259,10 @@ export interface LorebookEntry {
   decisionStatement: string;
   /** How `decisionStatement` acts on activation; `off` ignores it. */
   decisionMode: LorebookDecisionMode;
+  /** Newest chat pictures read with the statement (0 to 3), for a decision model that reads pictures. */
+  decisionPictures: number;
+  /** Ask the statement only when a picture is in the newest N messages; null asks every time. */
+  decisionMediaWithin: number | null;
   /** Images sent to the model whenever the entry activates. Always an array from the server; legacy rows read as []. */
   images?: LorebookEntryImage[];
 

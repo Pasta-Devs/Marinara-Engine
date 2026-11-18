@@ -8,6 +8,13 @@ import { supportsNovelAiCharacterPrompts } from "../image/character-prompts.js";
 // `enableSpriteGeneration` is active.
 // ──────────────────────────────────────────────
 
+import {
+  generateCheckedPicture,
+  pictureDataUrl,
+  type PictureCheckLine,
+  type PictureCheckMode,
+} from "../decision/picture-decisions.js";
+import type { DecisionBackend } from "../decision/decision-default.js";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { createHash } from "crypto";
 import { logger } from "../../lib/logger.js";
@@ -1637,6 +1644,8 @@ export async function generateChatBackgroundWeatherVersion(
     version: BackgroundWeatherVersionKey;
     shelter: SceneShelter;
     scenePrompt: string;
+    /** Optional: a decision model that reads pictures checks the version shows the weather. */
+    pictureCheck?: { mode: PictureCheckMode; backend: DecisionBackend | null; lines: PictureCheckLine[] };
   },
 ): Promise<string | null> {
   const source = plainPictureSource(req.baseFilename);
@@ -1661,12 +1670,8 @@ export async function generateChatBackgroundWeatherVersion(
   );
   try {
     const reference = readFileSync(source.path).toString("base64");
-    const result = await generateImage(
-      req.imgModel,
-      req.imgBaseUrl,
-      req.imgApiKey,
-      req.imgSource || req.imgService || "",
-      {
+    const drawVersion = () =>
+      generateImage(req.imgModel, req.imgBaseUrl, req.imgApiKey, req.imgSource || req.imgService || "", {
         prompt: compiled.prompt,
         negativePrompt: compiled.negativePrompt || undefined,
         model: req.imgModel,
@@ -1681,8 +1686,15 @@ export async function generateChatBackgroundWeatherVersion(
         referenceImage: reference,
         referenceIsCanvas: true,
         preserveProviderOutput: true,
-      },
-    );
+      });
+    const { result } = await generateCheckedPicture({
+      mode: req.pictureCheck?.mode ?? "off",
+      backend: req.pictureCheck?.backend ?? null,
+      lines: req.pictureCheck?.lines ?? [],
+      label: `Weather version (${req.version})`,
+      toDataUrl: (made) => pictureDataUrl(made.base64, made.ext),
+      generate: drawVersion,
+    });
     const image = await gameBackgroundImage(result, size);
     const filename = `${stem}.${image.ext}`;
     atomicWriteBuffer(join(CHAT_BACKGROUND_DIR, filename), image.buffer);

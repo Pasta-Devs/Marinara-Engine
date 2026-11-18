@@ -1,5 +1,5 @@
 import { ActivationQuestionFields } from "./ActivationQuestionFields";
-import { useDecisionCalibration, useHasDecisionModel } from "../../hooks/use-decision-model";
+import { useDecisionCalibration, useDecisionReadsPictures, useHasDecisionModel } from "../../hooks/use-decision-model";
 // ──────────────────────────────────────────────
 // Full-Page Agent Editor
 // Click an agent → opens this editor
@@ -793,6 +793,7 @@ export function AgentEditor() {
   );
   /** Whether any decision model is chosen, which is what enables the question fields. */
   const hasDecisionModel = useHasDecisionModel();
+  const decisionReadsPictures = useDecisionReadsPictures();
   /**
    * The selected model's operating point. A saved question keeps whatever its author
    * chose; this only supplies the starting value, because 0.5 is meaningful for a
@@ -811,6 +812,9 @@ export function AgentEditor() {
   const [localActivationQuestion, setLocalActivationQuestion] = useState("");
   const [localActivationThreshold, setLocalActivationThreshold] = useState(0.5);
   const [localActivationMaxSkip, setLocalActivationMaxSkip] = useState<number | "">("");
+  const [localActivationPictures, setLocalActivationPictures] = useState(0);
+  const [localActivationClips, setLocalActivationClips] = useState(0);
+  const [localActivationMediaWithin, setLocalActivationMediaWithin] = useState<number | "">("");
   const [localActivationKeywordsText, setLocalActivationKeywordsText] = useState("");
   const [localActivationScanDepth, setLocalActivationScanDepth] = useState<number | "">(
     DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
@@ -1019,6 +1023,11 @@ export function AgentEditor() {
         Number(settings.activationThreshold ?? decisionCalibrationRef.current.defaultThreshold),
       );
       setLocalActivationMaxSkip(typeof settings.activationMaxSkip === "number" ? settings.activationMaxSkip : "");
+      setLocalActivationPictures(typeof settings.activationPictures === "number" ? settings.activationPictures : 0);
+      setLocalActivationClips(typeof settings.activationClips === "number" ? settings.activationClips : 0);
+      setLocalActivationMediaWithin(
+        typeof settings.activationMediaWithin === "number" ? settings.activationMediaWithin : "",
+      );
       setLocalActivationScanDepth(
         (settings.activationScanDepth as number | undefined) ?? DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
       );
@@ -1590,6 +1599,19 @@ export function AgentEditor() {
               activationThreshold: localActivationThreshold,
               activationScanDepth,
               ...(localActivationMaxSkip !== "" ? { activationMaxSkip: localActivationMaxSkip } : {}),
+              ...(localActivationPictures > 0 ? { activationPictures: localActivationPictures } : {}),
+              ...(localActivationClips > 0 ? { activationClips: localActivationClips } : {}),
+              ...((localActivationPictures > 0 || localActivationClips > 0) && localActivationMediaWithin !== ""
+                ? { activationMediaWithin: localActivationMediaWithin }
+                : {}),
+              ...(localActivationPictures > 0 ? { activationPictures: localActivationPictures } : {}),
+              ...(localActivationClips > 0 ? { activationClips: localActivationClips } : {}),
+              ...((localActivationPictures > 0 || localActivationClips > 0) && localActivationMediaWithin !== ""
+                ? { activationMediaWithin: localActivationMediaWithin }
+                : {}),
+              ...((localActivationPictures > 0 || localActivationClips > 0) && localActivationMediaWithin !== ""
+                ? { activationMediaWithin: localActivationMediaWithin }
+                : {}),
             }
           : {}),
         ...(mayIncludeTurnData && localIncludePreGenInjections ? { includePreGenInjections: true } : {}),
@@ -1705,6 +1727,9 @@ export function AgentEditor() {
     localActivationQuestion,
     localActivationThreshold,
     localActivationMaxSkip,
+    localActivationPictures,
+    localActivationClips,
+    localActivationMediaWithin,
     localActivationKeywordsText,
     localActivationScanDepth,
     localInjectAsSection,
@@ -1873,6 +1898,9 @@ export function AgentEditor() {
         localActivationQuestion,
         localActivationThreshold,
         localActivationMaxSkip,
+        localActivationPictures,
+        localActivationClips,
+        localActivationMediaWithin,
         localActivationKeywordsText,
         localActivationScanDepth,
         localPrompt,
@@ -1938,6 +1966,12 @@ export function AgentEditor() {
           setLocalActivationThreshold(kept.localActivationThreshold as typeof localActivationThreshold);
         if ("localActivationMaxSkip" in kept)
           setLocalActivationMaxSkip(kept.localActivationMaxSkip as typeof localActivationMaxSkip);
+        if ("localActivationPictures" in kept)
+          setLocalActivationPictures(kept.localActivationPictures as typeof localActivationPictures);
+        if ("localActivationClips" in kept)
+          setLocalActivationClips(kept.localActivationClips as typeof localActivationClips);
+        if ("localActivationMediaWithin" in kept)
+          setLocalActivationMediaWithin(kept.localActivationMediaWithin as typeof localActivationMediaWithin);
         if ("localActivationKeywordsText" in kept)
           setLocalActivationKeywordsText(kept.localActivationKeywordsText as typeof localActivationKeywordsText);
         if ("localActivationScanDepth" in kept)
@@ -2099,6 +2133,11 @@ export function AgentEditor() {
             activationThreshold: localActivationThreshold,
             activationScanDepth,
             ...(localActivationMaxSkip !== "" ? { activationMaxSkip: localActivationMaxSkip } : {}),
+            ...(localActivationPictures > 0 ? { activationPictures: localActivationPictures } : {}),
+            ...(localActivationClips > 0 ? { activationClips: localActivationClips } : {}),
+            ...((localActivationPictures > 0 || localActivationClips > 0) && localActivationMediaWithin !== ""
+              ? { activationMediaWithin: localActivationMediaWithin }
+              : {}),
           }
         : {}),
       ...(mayIncludeTurnData && localIncludePreGenInjections ? { includePreGenInjections: true } : {}),
@@ -3791,6 +3830,10 @@ export function AgentEditor() {
                 threshold={localActivationThreshold}
                 recommendedThreshold={decisionCalibration.defaultThreshold}
                 maxSkip={localActivationMaxSkip}
+                pictures={localActivationPictures}
+                clips={localActivationClips}
+                mediaWithin={localActivationMediaWithin}
+                readsPictures={decisionReadsPictures}
                 // A local model slot is a decision model too, and it owns no
                 // connection row, so this asks the server which entry is selected
                 // rather than scanning the connections list for a flag.
@@ -3799,6 +3842,9 @@ export function AgentEditor() {
                   if (values.question !== undefined) setLocalActivationQuestion(values.question);
                   if (values.threshold !== undefined) setLocalActivationThreshold(values.threshold);
                   if (values.maxSkip !== undefined) setLocalActivationMaxSkip(values.maxSkip);
+                  if (values.pictures !== undefined) setLocalActivationPictures(values.pictures);
+                  if (values.clips !== undefined) setLocalActivationClips(values.clips);
+                  if (values.mediaWithin !== undefined) setLocalActivationMediaWithin(values.mediaWithin);
                   markDirty();
                 }}
               />

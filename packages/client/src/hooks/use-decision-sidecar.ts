@@ -13,6 +13,18 @@ export interface DecisionSidecarModel {
   downloadSizeBytes: number;
   diskBytes: number;
   vramBytes: number;
+  /** What `vramBytes` is weighed against: an NVIDIA card, system memory, or either (llama.cpp). */
+  memory?: "nvidia" | "cpu" | "llama";
+  runtime?: string;
+  /** Plain words for the languages it was checked on, when known. */
+  languages?: string | null;
+  /** System One question types it answers: noul, choice, score, bbox. */
+  questionTypes?: string[];
+  /** What it reads here (text, image, video), and what its other release adds. */
+  inputs?: string[];
+  extraInputs?: string[];
+  /** Seconds, from the speed it was timed at on this computer; null before it has run here. */
+  speed?: { sceneSeconds: number; pictureSeconds?: number; clipSeconds?: number } | null;
   licenses: string[];
   downloaded: boolean;
   preflight: {
@@ -119,7 +131,11 @@ export function useInspectDecisionRepo() {
           downloadSizeBytes: number;
           diskBytes: number;
           vramBytes: number;
+          memory?: "nvidia" | "cpu" | "llama";
           licenses: string[];
+          questionTypes?: string[];
+          inputs?: string[];
+          extraInputs?: string[];
           artifacts: Array<{ repoId: string; revision: string }>;
         };
         preflight?: DecisionSidecarModel["preflight"];

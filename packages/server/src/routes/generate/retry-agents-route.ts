@@ -160,6 +160,14 @@ import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { mediaProviderLanesEnabled } from "../../services/image/image-generation-queue.js";
 import { generateIllustratorImageVariants } from "../../services/image/illustrator-image-variants.js";
 import {
+  generateCheckedPicture,
+  normalizePictureCheckMode,
+  parsePictureCheckLines,
+  pictureDataUrl,
+  resolvePictureDecisionBackend,
+  type PictureCheckLine,
+} from "../../services/decision/picture-decisions.js";
+import {
   buildUncaptionedCharacterAppearanceBlock,
   IMAGE_APPEARANCE_OVERRIDES_MEMORY_KEY,
   personaEntityId,
@@ -4296,28 +4304,50 @@ async function applyRetryResultEffects(args: {
               type: "illustration_queued",
               data: { messageId: retryMessageId },
             });
+            // Optional picture check, as on a live turn.
+            const pictureCheckMode = normalizePictureCheckMode(chatMeta.pictureCheck);
+            const pictureCheckBackend =
+              pictureCheckMode === "off" ? null : await resolvePictureDecisionBackend(app.db, agentContext.signal);
+            const pictureCheckLines: PictureCheckLine[] = [
+              ...(imagePrompt.trim()
+                ? [{ statement: `The picture matches this description: ${imagePrompt.trim().slice(0, 300)}` }]
+                : []),
+              ...parsePictureCheckLines(chatMeta.pictureCheckLines),
+            ];
             const imageResults = await generateIllustratorImageVariants({
               count: chatMeta.illustratorImagesPerGeneration,
-              generate: () =>
-                generateImage(imgModel, imgBaseUrl, imgApiKey, imgServiceHint, {
-                  prompt: promptSubmission.prompt,
-                  negativePrompt: promptSubmission.negativePrompt || undefined,
-                  model: imgModel,
-                  width: imgWidth,
-                  height: imgHeight,
-                  imageEndpointId: imgConnFull.imageEndpointId || undefined,
-                  comfyWorkflow: (imgConnFull as any).comfyuiWorkflow || undefined,
-                  imageDefaults,
-                  quality: resolveConnectionImageQuality(imgConnFull),
-                  referenceImages,
-                  ...(illustratorCharacterPrompts.length > 0 ? { characterPrompts: illustratorCharacterPrompts } : {}),
-                  signal: agentContext.signal,
-                  fallback: providerAwareImageFallback,
-                  onFallback: (notice) => {
-                    assertRetryActive();
-                    notifyImageFallback(notice);
-                  },
-                }),
+              generate: async () =>
+                (
+                  await generateCheckedPicture({
+                    mode: pictureCheckMode,
+                    backend: pictureCheckBackend,
+                    lines: pictureCheckLines,
+                    label: "Illustrator",
+                    toDataUrl: (result) => pictureDataUrl(result.base64, result.ext),
+                    generate: () =>
+                      generateImage(imgModel, imgBaseUrl, imgApiKey, imgServiceHint, {
+                        prompt: promptSubmission.prompt,
+                        negativePrompt: promptSubmission.negativePrompt || undefined,
+                        model: imgModel,
+                        width: imgWidth,
+                        height: imgHeight,
+                        imageEndpointId: imgConnFull.imageEndpointId || undefined,
+                        comfyWorkflow: (imgConnFull as any).comfyuiWorkflow || undefined,
+                        imageDefaults,
+                        quality: resolveConnectionImageQuality(imgConnFull),
+                        referenceImages,
+                        ...(illustratorCharacterPrompts.length > 0
+                          ? { characterPrompts: illustratorCharacterPrompts }
+                          : {}),
+                        signal: agentContext.signal,
+                        fallback: providerAwareImageFallback,
+                        onFallback: (notice) => {
+                          assertRetryActive();
+                          notifyImageFallback(notice);
+                        },
+                      }),
+                  })
+                ).result,
               onVariantError: (error, index) =>
                 logger.warn(error, "[retry-agents] Illustrator image variant %d failed", index + 1),
             });

@@ -10,7 +10,18 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Download, HardDriveDownload, Link2, Power, PowerOff, RefreshCw, Trash2 } from "lucide-react";
+import {
+  Download,
+  Eye,
+  Gauge,
+  HardDriveDownload,
+  Link2,
+  ListChecks,
+  Power,
+  PowerOff,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import { DECISION_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
@@ -24,6 +35,7 @@ import {
   useSetDecisionStartPolicy,
   decisionCannotRun,
   useUpdateDecisionRuntime,
+  type DecisionSidecarModel,
 } from "../../hooks/use-decision-sidecar";
 import { useDecisionOptions, useSelectDecisionModel } from "../../hooks/use-decision-model";
 import { cn } from "../../lib/utils";
@@ -48,7 +60,8 @@ function formatBytes(bytes: number): string {
 }
 
 export function DecisionModelModal() {
-  const { t: localizeUi } = useUiTranslation();
+  const { t: localizeUi, i18n } = useUiTranslation();
+  const numberFormat = new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 });
   const sidecar = useDecisionSidecar(true);
   const enable = useEnableDecisionSidecar();
   const install = useInstallDecisionModel();
@@ -233,17 +246,24 @@ export function DecisionModelModal() {
       toast.error(localizeUi("ui.modals.decisionmodelmodal.recheckNeeded"));
       return;
     }
+    // A GGUF repository is one file with no base model; an Open-Jev package pins one.
+    const base = model.artifacts[1]?.repoId;
     const confirmed = await showConfirmDialog({
       title: localizeUi("ui.modals.decisionmodelmodal.downloadTitle"),
-      message: localizeUi("ui.modals.decisionmodelmodal.downloadPastedBody", {
-        label: model.label,
-        base: model.artifacts[1]?.repoId ?? "",
-        size: formatBytes(model.downloadSizeBytes),
-        // The download excludes the runtime's own environment, which is several
-        // gigabytes on its own, so the total on disk is named separately.
-        disk: formatBytes(model.diskBytes),
-        licenses: model.licenses.join(", "),
-      }),
+      message: localizeUi(
+        base
+          ? "ui.modals.decisionmodelmodal.downloadPastedBody"
+          : "ui.modals.decisionmodelmodal.downloadPastedGgufBody",
+        {
+          label: model.label,
+          base: base ?? "",
+          size: formatBytes(model.downloadSizeBytes),
+          // The download excludes the runtime's own environment, which is several
+          // gigabytes on its own, so the total on disk is named separately.
+          disk: formatBytes(model.diskBytes),
+          licenses: model.licenses.join(", "),
+        },
+      ),
       confirmLabel: localizeUi("ui.modals.decisionmodelmodal.download"),
     });
     if (!confirmed) return;
@@ -258,6 +278,82 @@ export function DecisionModelModal() {
     } catch (error) {
       report(error);
     }
+  };
+
+  /** How much memory a model takes, and which kind it is weighed against. */
+  const memoryLine = (model: Pick<DecisionSidecarModel, "vramBytes" | "memory">) =>
+    localizeUi(
+      model.memory === "cpu"
+        ? "connections.decisionDevice.memoryRam"
+        : model.memory === "llama"
+          ? "connections.decisionDevice.memoryAny"
+          : "connections.decisionDevice.memory",
+      { size: formatBytes(model.vramBytes) },
+    );
+
+  /** What a model answers, what it reads, and how fast it was here, in short lines. */
+  const capabilities = (model: {
+    questionTypes?: string[];
+    inputs?: string[];
+    extraInputs?: string[];
+    speed?: DecisionSidecarModel["speed"];
+  }) => {
+    const list = (kind: "questionType" | "input", values: string[] | undefined) =>
+      (values ?? []).map((value) => localizeUi(`ui.modals.decisionmodelmodal.${kind}.${value}`)).join(", ");
+    const answers = list("questionType", model.questionTypes);
+    const reads = list("input", model.inputs);
+    const elsewhere = list("input", model.extraInputs);
+    if (!answers && !reads) return null;
+    // Timed on this computer, never quoted from somewhere else: a speed measured on
+    // another machine would put people off for nothing, or promise too much.
+    const seconds = (value: number) => numberFormat.format(value);
+    const speed = model.speed
+      ? [
+          localizeUi("ui.modals.decisionmodelmodal.speed.scene", { seconds: seconds(model.speed.sceneSeconds) }),
+          ...(model.speed.pictureSeconds !== undefined
+            ? [
+                localizeUi("ui.modals.decisionmodelmodal.speed.picture", {
+                  seconds: seconds(model.speed.pictureSeconds),
+                }),
+              ]
+            : []),
+          ...(model.speed.clipSeconds !== undefined
+            ? [localizeUi("ui.modals.decisionmodelmodal.speed.clip", { seconds: seconds(model.speed.clipSeconds) })]
+            : []),
+        ].join(", ")
+      : null;
+    return (
+      <div className="mt-1 flex flex-col gap-1 text-[0.6875rem] text-[var(--muted-foreground)]">
+        {answers && (
+          <span className="flex items-start gap-1.5">
+            <ListChecks size="0.75rem" className="mt-0.5 shrink-0" />
+            {localizeUi("ui.modals.decisionmodelmodal.answers", { types: answers })}
+          </span>
+        )}
+        {reads && (
+          <span className="flex items-start gap-1.5">
+            <Eye size="0.75rem" className="mt-0.5 shrink-0" />
+            <span>
+              {localizeUi("ui.modals.decisionmodelmodal.reads", { inputs: reads })}
+              {elsewhere && (
+                <span className="text-[var(--muted-foreground)]/70">
+                  {" · "}
+                  {localizeUi("ui.modals.decisionmodelmodal.readsElsewhere", { inputs: elsewhere })}
+                </span>
+              )}
+            </span>
+          </span>
+        )}
+        {"speed" in model && (
+          <span className="flex items-start gap-1.5">
+            <Gauge size="0.75rem" className="mt-0.5 shrink-0" />
+            {speed
+              ? localizeUi("ui.modals.decisionmodelmodal.speedLine", { parts: speed })
+              : localizeUi("ui.modals.decisionmodelmodal.speedUnknown")}
+          </span>
+        )}
+      </div>
+    );
   };
 
   const decisionOptions = useDecisionOptions(true);
@@ -404,36 +500,44 @@ export function DecisionModelModal() {
                 aria-label={localizeUi("connections.device.fact.model")}
                 className={DEVICE_FIELD}
               >
+                {/* A model this computer cannot run stays choosable, so its reason can be read; its Download stays off. */}
                 {models.map((model) => (
-                  <option key={model.id} value={model.id} disabled={!model.preflight.installable}>
+                  <option key={model.id} value={model.id}>
                     {model.id === installedId
                       ? model.label
-                      : localizeUi("connections.builtinEmbedding.optionToDownload", {
-                          model: model.label,
-                          size: formatBytes(model.downloadSizeBytes),
-                        })}
+                      : !model.preflight.installable
+                        ? localizeUi("ui.modals.decisionmodelmodal.optionCannotRun", { model: model.label })
+                        : model.downloaded
+                          ? localizeUi("ui.modals.decisionmodelmodal.optionDownloaded", { model: model.label })
+                          : localizeUi("connections.builtinEmbedding.optionToDownload", {
+                              model: model.label,
+                              size: formatBytes(model.downloadSizeBytes),
+                            })}
                   </option>
                 ))}
               </select>
             )}
+            {selected && (
+              <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">{selected.description}</span>
+            )}
+            {selected && capabilities(selected)}
             {selected?.preflight.reason ? (
               <span className="mt-1 block text-[0.6875rem] text-[var(--warning)]">{selected.preflight.reason}</span>
             ) : selected ? (
               <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
-                {selected.licenses.join(", ")}
+                {[selected.languages, selected.licenses.join(", ")].filter(Boolean).join(" · ")}
               </span>
             ) : null}
           </FactRow>
-          {shown && (
-            <FactRow label={localizeUi("connections.device.fact.memory")}>
-              {localizeUi("connections.decisionDevice.memory", { size: formatBytes(shown.vramBytes) })}
-            </FactRow>
-          )}
+          {shown && <FactRow label={localizeUi("connections.device.fact.memory")}>{memoryLine(shown)}</FactRow>}
           <FactRow label={localizeUi("connections.device.fact.usedBy")}>
             {isDefault ? localizeUi("connections.decision.label") : localizeUi("connections.device.usedBy.none")}
           </FactRow>
           <FactRow label={localizeUi("connections.builtinEmbedding.runsOn")}>
-            {data.devices.length > 1 ? (
+            {/* A processor-only model ignores the card, so it names the processor, not a card. */}
+            {shown?.memory === "cpu" ? (
+              <span className="block">{localizeUi("connections.builtinEmbedding.device.cpu")}</span>
+            ) : data.devices.length > 1 ? (
               <select
                 value={String(data.cudaDevice)}
                 disabled={busy}
@@ -487,10 +591,12 @@ export function DecisionModelModal() {
           {installing ? <Spinner size="sm" /> : <HardDriveDownload size="0.8125rem" />}
           {installing
             ? localizeUi("ui.modals.decisionmodelmodal.installing")
-            : localizeUi("connections.builtinEmbedding.downloadModel", {
-                model: selected.label,
-                size: formatBytes(selected.downloadSizeBytes),
-              })}
+            : selected.downloaded
+              ? localizeUi("ui.modals.decisionmodelmodal.useSelected")
+              : localizeUi("connections.builtinEmbedding.downloadModel", {
+                  model: selected.label,
+                  size: formatBytes(selected.downloadSizeBytes),
+                })}
         </button>
       )}
 
@@ -538,15 +644,19 @@ export function DecisionModelModal() {
           {inspect.data?.model && inspect.data.preflight && (
             <div className="mt-2 flex flex-col gap-1">
               <div className="text-xs font-medium">{inspect.data.model.label}</div>
+              {capabilities(inspect.data.model)}
               <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
                 {[
                   formatBytes(inspect.data.model.downloadSizeBytes),
-                  localizeUi("connections.decisionDevice.memory", {
-                    size: formatBytes(inspect.data.model.vramBytes),
-                  }),
-                  localizeUi("ui.modals.decisionmodelmodal.baseWeights", {
-                    base: inspect.data.model.artifacts[1]?.repoId ?? "",
-                  }),
+                  memoryLine(inspect.data.model),
+                  // A GGUF repository has no separate base weights.
+                  ...(inspect.data.model.artifacts[1]
+                    ? [
+                        localizeUi("ui.modals.decisionmodelmodal.baseWeights", {
+                          base: inspect.data.model.artifacts[1].repoId,
+                        }),
+                      ]
+                    : []),
                   localizeUi("ui.modals.decisionmodelmodal.pastedLicenses", {
                     licenses: inspect.data.model.licenses.join(", "),
                   }),

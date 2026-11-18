@@ -40,6 +40,23 @@ export interface DecisionRequest {
    * every backend shipped before a model was measured wanting otherwise.
    */
   questionShape?: DecisionQuestionShape;
+  /**
+   * Fields a runtime reads beside the state, such as the pictures llama.cpp's decision
+   * server takes in `images`. Only Marinara's own decision models get any.
+   */
+  extraBody?: Record<string, unknown>;
+}
+
+/** The body with every inline picture or clip cut to its size, for logs and the inspector. */
+function withoutMediaData(value: unknown): unknown {
+  if (typeof value === "string")
+    return value.startsWith("data:") && value.length > 200
+      ? `${value.slice(0, value.indexOf(",") + 1)}… (${Math.round((value.length * 3) / 4 / 1024)} KB)`
+      : value;
+  if (Array.isArray(value)) return value.map(withoutMediaData);
+  if (value && typeof value === "object")
+    return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, withoutMediaData(inner)]));
+  return value;
 }
 
 /**
@@ -127,6 +144,7 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
       : { state: req.state };
     const body = {
       model: req.connection.model,
+      ...req.extraBody,
       ...context,
       questions: Object.fromEntries(
         req.questions.map((q, index) => {
@@ -144,15 +162,16 @@ export async function askNoulQuestions(req: DecisionRequest): Promise<{
         }),
       ),
     };
+    const loggedBody = withoutMediaData(body) as Record<string, unknown>;
     if (req.inspection) {
-      trace = { protocol: "system_one", body };
+      trace = { protocol: "system_one", body: loggedBody };
       req.inspection.requests.push(trace);
       if (req.inspection.mode === "inspect") return { answers, choices, latencyMs: 0 };
     }
     logDebugOverride(
       req.debugMode === true || process.env.DEBUG_AGENTS === "true",
       "[decision] System One request:\n%s",
-      debugJson(body),
+      debugJson(loggedBody),
     );
     const response = await postDecisionRequest(
       req.connection.endpoint,

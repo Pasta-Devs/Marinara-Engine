@@ -186,6 +186,10 @@ export const lorebookEntries = fileTable("lorebook_entries", {
   decisionStatement: text("decision_statement").notNull().default(""),
   /** How the statement acts: "off", "require" (must also be true) or "trigger" (can activate alone). */
   decisionMode: text("decision_mode").notNull().default("off"),
+  /** Newest chat pictures read with the statement, for a decision model that reads pictures. */
+  decisionPictures: integer("decision_pictures").notNull().default(0),
+  /** Ask only when a picture is in the newest N messages; null asks every time. */
+  decisionMediaWithin: integer("decision_media_within"),
 
   /** Images attached to this entry (JSON array of { path, caption }), served from /api/lorebooks/entry-images/. */
   images: text("images").notNull().default("[]"),
