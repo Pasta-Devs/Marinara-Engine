@@ -349,12 +349,13 @@ export class BuiltinEmbeddingService {
           this.clearIdleTimer();
         }
       });
+      let spawnError: string | null = null;
       child.on("error", (error) => {
-        this.error = error.message;
+        spawnError = error.message;
         logger.warn(error, "[builtin-embedding] llama-server failed to start");
       });
 
-      const waitReason = await this.waitUntilReady(child, port);
+      const waitReason = await this.waitUntilReady(child, port, () => spawnError);
       if (this.ready) {
         // A plan that failed before this one (the graphics card) left its reason; this one is serving.
         this.error = null;
@@ -362,8 +363,9 @@ export class BuiltinEmbeddingService {
         this.armIdleTimer();
         return;
       }
-      // llama-server's own last lines say why (a missing library, a flag the build rejects); the wait only says when.
-      const reason: string = this.recentOutput.slice(-3).join(" ") || waitReason || this.error || "";
+      // llama-server's own last lines say why (a missing library, a flag the build rejects), and a failed spawn
+      // carries the system's reason (no such file, no permission); the wait only says when.
+      const reason: string = this.recentOutput.slice(-3).join(" ") || spawnError || waitReason || "";
       await this.stop();
       this.error = reason || "The built-in embedding model did not start";
       if (index < plans.length - 1) logger.warn(`[builtin-embedding] ${plan.label} failed (${this.error}); trying CPU`);
@@ -371,9 +373,14 @@ export class BuiltinEmbeddingService {
   }
 
   /** Resolves null once ready, or with why it is not. */
-  private async waitUntilReady(child: ChildProcess, port: number): Promise<string | null> {
+  private async waitUntilReady(
+    child: ChildProcess,
+    port: number,
+    spawnError: () => string | null,
+  ): Promise<string | null> {
     const deadline = Date.now() + READY_TIMEOUT_MS;
     while (Date.now() < deadline) {
+      if (spawnError()) return "The embedding model could not be started";
       if (this.child !== child || child.exitCode !== null) return "The embedding model exited while starting";
       try {
         const response = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(2000) });
@@ -415,7 +422,8 @@ export class BuiltinEmbeddingService {
     this.ready = false;
     this.port = null;
     this.runningModelId = null;
-    if (!child || child.exitCode !== null || child.signalCode !== null) return;
+    // A process that never spawned has no pid and will never report an exit.
+    if (!child || child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return;
     this.stopping = (async () => {
       const exited = new Promise<void>((done) => {
         child.once("exit", () => done());

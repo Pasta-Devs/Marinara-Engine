@@ -203,6 +203,24 @@ try {
   rmSync(join(dir, "fail-start"));
   Object.assign(sidecarRuntimeService, { isGpuVariant: () => false });
 
+  // A runtime that cannot be spawned at all reports the system's reason, at once, not a readiness timeout.
+  await builtinEmbeddingService.stop();
+  Object.assign(sidecarRuntimeService, {
+    getCurrentInstall: () => ({
+      serverPath: join(dir, "missing-llama-server"),
+      variant: "cpu",
+      build: "test",
+      backend: "llama_cpp",
+    }),
+  });
+  const spawnStarted = Date.now();
+  assert.equal(await gemmaSource.embed(["No runtime."], undefined, "document"), null);
+  assert.ok(Date.now() - spawnStarted < 5_000);
+  assert.match(builtinEmbeddingService.getStatus().error ?? "", /ENOENT/u);
+  Object.assign(sidecarRuntimeService, {
+    getCurrentInstall: () => ({ serverPath: fakeServer, variant: "cpu", build: "test", backend: "llama_cpp" }),
+  });
+
   // A source made for one model refuses vectors from another one switched in meanwhile.
   await app.inject({ method: "POST", url: "/api/builtin-embedding/use", payload: { modelId: "qwen3-embedding-0.6b" } });
   assert.equal(await gemmaSource.embed(["Old space."], undefined, "document"), null);
