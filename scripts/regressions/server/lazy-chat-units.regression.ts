@@ -347,6 +347,38 @@ const shardExists = (dir: string, table: string, key: string) =>
   }
 }
 
+// ── Leasing the whole table merges every file in one pass with the same stray rules ──
+// An unscoped query reads all shard files and merges them together. A stray added from one file
+// must still lose to its canonical copy from another file in the same pass, whichever file is
+// read first.
+
+for (const strayHost of ["chat-a", "chat-z"]) {
+  const dir = tempStorageDir();
+  const owner = strayHost === "chat-a" ? "chat-b" : "chat-c";
+  writeShard(dir, "chats", strayHost, [chatRow(strayHost)]);
+  writeShard(dir, "chats", owner, [chatRow(owner)]);
+  const canonical1 = messageRow("m-1", owner, "canonical one");
+  const canonical2 = messageRow("m-2", owner, "canonical two");
+  writeShard(dir, "messages", strayHost, [
+    messageRow("m-host", strayHost, "host real"),
+    { ...canonical1, content: "stale stray one" },
+    { ...canonical2, content: "stale stray two" },
+  ]);
+  writeShard(dir, "messages", owner, [canonical1, canonical2]);
+  const db = await createFileNativeDB();
+  try {
+    const all = await db.select().from(messages);
+    assert.deepEqual(
+      all.map((row) => `${row.id}:${row.content}`).sort(),
+      ["m-1:canonical one", "m-2:canonical two", "m-host:host real"],
+      `a whole-table lease keeps one canonical copy of each row (strays in ${strayHost})`,
+    );
+  } finally {
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 // ── A .bak recovered DURING a flush keeps its recovery source safe ──
 // Loading a lazy shard whose primary is corrupt recovers the rows from .bak
 // and marks the corrupt primary so the healing write does NOT refresh the
@@ -587,7 +619,8 @@ const shardExists = (dir: string, table: string, key: string) =>
   ]);
   const db = await createFileNativeDB();
   try {
-    const { spatialContextSnapshots, gameCheckpoints } = await import("../../../packages/server/src/db/schema/index.js");
+    const { spatialContextSnapshots, gameCheckpoints } =
+      await import("../../../packages/server/src/db/schema/index.js");
     await assert.rejects(
       db.transaction(async (tx) => {
         // Deleting the snapshot set-nulls the checkpoint's spatialSnapshotId.
@@ -974,7 +1007,8 @@ const loadedUnitsOf = (db: Awaited<ReturnType<typeof createFileNativeDB>>) => db
   writeShard(dir, "game_state_snapshots", "chat-a", [gameStateRow("gs-a1", "chat-a", "m-a1", 0, 1)]);
   writeShard(dir, "game_state_snapshots", "chat-b", [gameStateRow("gs-b1", "chat-b", "m-b1", 0, 1)]);
   const db = await createFileNativeDB();
-  const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
+  const { createGameStateStorage } =
+    await import("../../../packages/server/src/services/storage/game-state.storage.js");
   const gameStateStore = createGameStateStorage(db as never);
   const leasedTables = () => db._fileStore.getFullyResidentLazyTables();
   try {

@@ -1853,37 +1853,72 @@ export function linuxProcessStartTimeMs(startTicks: number, bootTimeSeconds: num
   return bootTimeSeconds * 1_000 + (startTicks / ticksPerSecond) * 1_000;
 }
 
-function pidWasReused(record: StorageWriterLeaseRecord) {
+/** Program names a Marinara writer runs as on Windows: node.exe, or whatever runs this server. */
+const WINDOWS_WRITER_PROGRAMS = new Set(
+  ["node.exe", process.execPath.split(/[\\/]/u).pop() ?? ""].map((name) => name.toLowerCase()).filter(Boolean),
+);
+
+/**
+ * Windows answer for "is the process now holding this PID still the writer?". Windows hands freed
+ * PIDs out again quickly, often to a service. Get-Process cannot read a service's StartTime
+ * without admin rights and throws, so a crashed writer whose PID went to a service kept its lease
+ * until a reboot: every launch said "Another Marinara Engine process (PID ...) may be using" with
+ * nothing of ours running. Win32_Process gives any process's name and creation time to a normal
+ * user. "other-program": the PID now runs something that cannot be a Marinara server. "newer":
+ * it started after the lease. "gone": it exited between the two checks.
+ */
+function probeWindowsPidOwner(record: StorageWriterLeaseRecord, leaseTime: number) {
+  const executable = process.env.SystemRoot
+    ? join(process.env.SystemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+    : "powershell.exe";
+  const run = (command: string) =>
+    execFileSync(executable, ["-NoProfile", "-NonInteractive", "-Command", command], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      // Only reached when a lease exists and its PID is alive, so a slow cold PowerShell start
+      // (common right after a crash, while antivirus is busy) is worth waiting for.
+      timeout: 10_000,
+      maxBuffer: 8 * 1024,
+      windowsHide: true,
+    }).trim();
+  try {
+    const output = run(
+      `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${record.pid}" -ErrorAction Stop; ` +
+        `if ($p) { $p.Name + '|' + $p.CreationDate.ToUniversalTime().ToString('o') }`,
+    );
+    if (!output) return "gone" as const;
+    const separator = output.lastIndexOf("|");
+    const name = output.slice(0, separator).trim().toLowerCase();
+    const processTime = Date.parse(output.slice(separator + 1));
+    if (separator > 0 && name && !WINDOWS_WRITER_PROGRAMS.has(name)) return "other-program" as const;
+    if (Number.isFinite(processTime) && processTime > leaseTime + 1_000) return "newer" as const;
+    return null;
+  } catch {
+    // CIM unavailable: fall back to the older probe, which still works for our own processes.
+  }
+  try {
+    const processTime = Date.parse(
+      run(`(Get-Process -Id ${record.pid} -ErrorAction Stop).StartTime.ToUniversalTime().ToString('o')`),
+    );
+    return Number.isFinite(processTime) && processTime > leaseTime + 1_000 ? ("newer" as const) : null;
+  } catch {
+    return null;
+  }
+}
+
+function pidWasReused(record: StorageWriterLeaseRecord, options: { programOnly?: boolean } = {}) {
   const leaseTime = Date.parse(record.acquiredAt);
   if (!Number.isFinite(leaseTime)) return false;
 
   if (process.platform === "win32") {
-    try {
-      const executable = process.env.SystemRoot
-        ? join(process.env.SystemRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
-        : "powershell.exe";
-      const output = execFileSync(
-        executable,
-        [
-          "-NoProfile",
-          "-NonInteractive",
-          "-Command",
-          `(Get-Process -Id ${record.pid} -ErrorAction Stop).StartTime.ToUniversalTime().ToString('o')`,
-        ],
-        {
-          encoding: "utf8",
-          stdio: ["ignore", "pipe", "ignore"],
-          timeout: 2_000,
-          maxBuffer: 8 * 1024,
-          windowsHide: true,
-        },
-      );
-      const processTime = Date.parse(output.trim());
-      return Number.isFinite(processTime) && processTime > leaseTime + 1_000;
-    } catch {
-      return false;
-    }
+    const owner = probeWindowsPidOwner(record, leaseTime);
+    // The program check holds even under the weaker Windows storage proof: a PID now running some
+    // other program is not a Marinara writer, whatever else is uncertain.
+    if (options.programOnly) return owner === "other-program" || owner === "gone";
+    return owner !== null;
   }
+  // The program check is Windows-only; elsewhere programOnly callers keep the lease.
+  if (options.programOnly) return false;
 
   if (process.platform === "linux" || process.platform === "android") {
     try {
@@ -2257,6 +2292,125 @@ function assertUniqueRow(meta: TableMeta, rows: Row[], row: Row, excludedIndex =
   if (violation) throw new FileUniqueConstraintError(meta.name, violation.keys);
 }
 
+/**
+ * Hash index over a table's unique keys, so a batch insert checks each new row in O(1) instead of
+ * scanning every resident row. The linear scan made bulk imports quadratic: a SillyTavern import of
+ * a few thousand chats spent nearly all of its time comparing each new message against every
+ * message already in memory, and looked hung.
+ *
+ * An index belongs to one table array. Every mutation installs a new array, so a cached index is
+ * looked up by array identity and is moved to the next array only by the insert that built it.
+ * The length and end-row checks below catch the rare in-place refill of an array (load merges into
+ * a transaction snapshot), and a miss simply rebuilds.
+ */
+type UniqueRowIndex = {
+  constraints: Array<{ keys: string[]; when?: (row: Row) => boolean; seen: Set<string> }>;
+  length: number;
+  first: Row | undefined;
+  last: Row | undefined;
+};
+
+const uniqueRowIndexes = new WeakMap<Row[], UniqueRowIndex>();
+
+/** Primitive values only, matching the === comparison of the linear scan. Null for anything else. */
+function uniqueRowKey(row: Row, keys: string[]): string | null {
+  let key = "";
+  for (const column of keys) {
+    const value = row[column];
+    if (value !== null && (typeof value === "object" || typeof value === "function")) return null;
+    if (typeof value === "number" && Number.isNaN(value)) return null;
+    key += `${typeof value}:${String(value)}\u0001`;
+  }
+  return key;
+}
+
+function buildUniqueRowIndex(meta: TableMeta, rows: Row[]): UniqueRowIndex | null {
+  const constraints: UniqueRowIndex["constraints"] = [];
+  for (const constraint of declaredUniqueConstraints(meta)) {
+    const seen = new Set<string>();
+    for (const row of rows) {
+      if (constraint.when && !constraint.when(row)) continue;
+      const key = uniqueRowKey(row, constraint.keys);
+      if (key === null) return null;
+      seen.add(key);
+    }
+    constraints.push({ keys: constraint.keys, when: constraint.when, seen });
+  }
+  return { constraints, length: rows.length, first: rows[0], last: rows[rows.length - 1] };
+}
+
+/** Takes the cached index for `rows` (removing it from the cache), or builds one. */
+function takeUniqueRowIndex(meta: TableMeta, rows: Row[]): UniqueRowIndex | null {
+  const cached = uniqueRowIndexes.get(rows);
+  uniqueRowIndexes.delete(rows);
+  if (cached && cached.length === rows.length && cached.first === rows[0] && cached.last === rows[rows.length - 1]) {
+    return cached;
+  }
+  return buildUniqueRowIndex(meta, rows);
+}
+
+/** Adds a row's keys, or throws without adding anything when one is already taken. False: not indexable. */
+function addToUniqueRowIndex(meta: TableMeta, index: UniqueRowIndex, row: Row): boolean {
+  const keys: Array<string | null> = [];
+  for (const constraint of index.constraints) {
+    if (constraint.when && !constraint.when(row)) {
+      keys.push(null);
+      continue;
+    }
+    const key = uniqueRowKey(row, constraint.keys);
+    if (key === null) return false;
+    if (constraint.seen.has(key)) throw new FileUniqueConstraintError(meta.name, constraint.keys);
+    keys.push(key);
+  }
+  index.constraints.forEach((constraint, position) => {
+    const key = keys[position];
+    if (key != null) constraint.seen.add(key);
+  });
+  return true;
+}
+
+function cacheUniqueRowIndex(rows: Row[], index: UniqueRowIndex) {
+  index.length = rows.length;
+  index.first = rows[0];
+  index.last = rows[rows.length - 1];
+  uniqueRowIndexes.set(rows, index);
+}
+
+/**
+ * Update-path check for many changed rows at once: one counting pass instead of a scan per row.
+ * A changed row violates a constraint when its key occurs more than once in the new array (itself
+ * plus another), which is exactly what the per-row scan with excludedIndex finds.
+ */
+function assertUniqueChangedRows(meta: TableMeta, rows: Row[], changedIndexes: number[]) {
+  if (changedIndexes.length < 16) {
+    for (const index of changedIndexes) assertUniqueRow(meta, rows, rows[index]!, index);
+    return;
+  }
+  for (const constraint of declaredUniqueConstraints(meta)) {
+    const counts = new Map<string, number>();
+    let indexable = true;
+    for (const row of rows) {
+      if (constraint.when && !constraint.when(row)) continue;
+      const key = uniqueRowKey(row, constraint.keys);
+      if (key === null) {
+        indexable = false;
+        break;
+      }
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    if (!indexable) {
+      for (const index of changedIndexes) assertUniqueRow(meta, rows, rows[index]!, index);
+      return;
+    }
+    for (const index of changedIndexes) {
+      const row = rows[index]!;
+      if (constraint.when && !constraint.when(row)) continue;
+      const key = uniqueRowKey(row, constraint.keys);
+      if (key !== null && (counts.get(key) ?? 0) > 1) throw new FileUniqueConstraintError(meta.name, constraint.keys);
+    }
+  }
+}
+
 function cloneRow(row: Row) {
   return { ...row };
 }
@@ -2275,6 +2429,55 @@ function cloneRow(row: Row) {
  */
 function compareRowOrder(a: Row, b: Row) {
   return String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? ""));
+}
+
+/**
+ * Where `row` goes in rows kept in compareRowOrder: after every row that sorts at or before it.
+ * Newest-last is the usual case and costs one comparison. Otherwise a binary search: the old scan
+ * walked back from the end, which made importing old chats (SillyTavern history with past dates)
+ * compare each new message against nearly every message already loaded.
+ */
+function upperBoundInRowOrder(rows: Row[], row: Row, low = 0): number {
+  let high = rows.length;
+  if (high === low || compareRowOrder(rows[high - 1]!, row) <= 0) return high;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (compareRowOrder(rows[middle]!, row) <= 0) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+/**
+ * The same order as inserting `added` one at a time with upperBoundInRowOrder (ties keep existing
+ * rows first, then `added` in its own order), in one pass: one binary search per new row and one
+ * copy of the array, instead of a splice that moves the whole tail for every row.
+ */
+function mergeInCanonicalOrder(rows: Row[], added: Row[]): Row[] {
+  const sorted = added
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => compareRowOrder(a.row, b.row) || a.index - b.index)
+    .map((entry) => entry.row);
+  const last = rows[rows.length - 1];
+  if (last === undefined || compareRowOrder(last, sorted[0]!) <= 0) {
+    for (const row of sorted) rows.push(row);
+    return rows;
+  }
+  const segments: Row[][] = [];
+  let start = 0;
+  for (const row of sorted) {
+    const position = upperBoundInRowOrder(rows, row, start);
+    if (position > start) segments.push(rows.slice(start, position));
+    segments.push([row]);
+    start = position;
+  }
+  if (start < rows.length) segments.push(rows.slice(start));
+  // concat takes the segments as call arguments; keep each call well under the argument limit.
+  let merged: Row[] = [];
+  for (let index = 0; index < segments.length; index += 10_000) {
+    merged = merged.concat(...segments.slice(index, index + 10_000));
+  }
+  return merged;
 }
 
 function getMeta(table: Table | string) {
@@ -2889,8 +3092,9 @@ class FileTableStore {
       } else if (sameHost && pidProofUsable) {
         if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
         // On the Windows storage proof a live PID keeps the lease even if it
-        // may have been reused: only an exited PID frees it (#7801).
-        else if (hostProof !== "windows-local-storage" && pidWasReused(existing.record)) staleReason = "pid-reused";
+        // may have been reused (#7801), unless it now runs a different program.
+        else if (pidWasReused(existing.record, { programOnly: hostProof === "windows-local-storage" }))
+          staleReason = "pid-reused";
       }
       if (!staleReason) {
         throw new StorageWriterLeaseError(
@@ -3637,8 +3841,21 @@ class FileTableStore {
             // row — so sharing them between the old and new arrays is safe,
             // and the old O(rows) object-clone per insert was the largest
             // remaining per-write allocation spike on big tables (#4730).
-            const nextRows = target.slice();
+            let nextRows = target.slice();
             const affectedRows: Row[] = [];
+            // Lazy-table rows waiting to be merged into canonical order in one pass (see
+            // mergeInCanonicalOrder). Only used while the hash index answers uniqueness, since the
+            // scan fallback and conflict matching must see every row already placed.
+            const isLazyTable = LAZY_UNIT_TABLES.has(meta.name);
+            let pendingLazyRows: Row[] = [];
+            const placePendingLazyRows = () => {
+              if (pendingLazyRows.length === 0) return;
+              nextRows = mergeInCanonicalOrder(nextRows, pendingLazyRows);
+              pendingLazyRows = [];
+            };
+            // Plain inserts check uniqueness through the hash index; upserts keep the scan, since a
+            // conflict update rewrites an existing row's keys in place.
+            let uniqueIndex = onConflict ? null : takeUniqueRowIndex(meta, target);
             for (const row of preparedRows) {
               const conflictKeys =
                 conflictColumns.length > 0 ? conflictColumns : meta.primaryKey ? [meta.primaryKey] : [];
@@ -3658,26 +3875,29 @@ class FileTableStore {
                 affectedRows.push(existing, candidate);
                 nextRows[duplicateIndex] = candidate;
               } else {
-                assertUniqueRow(meta, nextRows, row);
+                if (!uniqueIndex || !addToUniqueRowIndex(meta, uniqueIndex, row)) {
+                  uniqueIndex = null;
+                  placePendingLazyRows();
+                  assertUniqueRow(meta, nextRows, row);
+                }
                 affectedRows.push(row);
-                if (LAZY_UNIT_TABLES.has(meta.name)) {
+                if (isLazyTable && uniqueIndex) {
+                  pendingLazyRows.push(row);
+                } else if (isLazyTable) {
                   // Keep lazy tables in canonical order at insert time — an
                   // appended row would re-sort on the next unit reload, and
                   // orderBy-less queries must not change results with
-                  // residency history (#5592 PR-B). Scan from the end: new
-                  // rows are usually newest, making this O(1) in practice.
-                  let position = nextRows.length;
-                  while (position > 0 && compareRowOrder(nextRows[position - 1]!, row) > 0) {
-                    position -= 1;
-                  }
-                  nextRows.splice(position, 0, row);
+                  // residency history (#5592 PR-B).
+                  nextRows.splice(upperBoundInRowOrder(nextRows, row), 0, row);
                 } else {
                   nextRows.push(row);
                 }
               }
             }
+            placePendingLazyRows();
             this.recordTxMutation(meta.name);
             this.tables.set(meta.name, nextRows);
+            if (uniqueIndex) cacheUniqueRowIndex(nextRows, uniqueIndex);
             if (SHARDED_TABLE_SET.has(meta.name)) {
               const shardKeys = this.shardKeysForRows(meta.name, affectedRows);
               // A conflict update can MOVE a row's shard key (profile import
@@ -3724,9 +3944,7 @@ class FileTableStore {
               return candidate;
             });
             if (changedIndexes.length > 0) {
-              for (const index of changedIndexes) {
-                assertUniqueRow(meta, nextRows, nextRows[index]!, index);
-              }
+              assertUniqueChangedRows(meta, nextRows, changedIndexes);
               this.recordTxMutation(meta.name);
               this.tables.set(meta.name, nextRows);
               if (SHARDED_TABLE_SET.has(meta.name)) {
@@ -4540,11 +4758,13 @@ class FileTableStore {
       // it also covers files pulled in transitively (stray holders), which
       // an encoding of loadedUnits would miss.
       const alreadyRead = this.loadedShardEncodings.get(meta.name);
+      const shards: Array<{ rows: Row[]; encoded: string }> = [];
       for (const encoded of [...discovered]) {
         if (alreadyRead?.has(encoded)) continue;
         const rows = this.loadShardFileSync(meta.name, encoded);
-        if (rows.length > 0) this.mergeLoadedRows(meta.name, rows, encoded);
+        if (rows.length > 0) shards.push({ rows, encoded });
       }
+      if (shards.length > 0) this.mergeLoadedShards(meta.name, shards);
     }
     this.fullyResidentTables.add(meta.name);
     logger.info("[file-storage] Lazy table %s is now fully resident (unbounded access)", meta.name);
@@ -4663,6 +4883,16 @@ class FileTableStore {
    * in transitively.
    */
   private mergeLoadedRows(table: string, incoming: Row[], sourceEncoded: string): Set<string> {
+    return this.mergeLoadedShards(table, [{ rows: incoming, encoded: sourceEncoded }]);
+  }
+
+  /**
+   * mergeLoadedRows for several shard files of one table at once, with the same per-file rules,
+   * but one id set, one sort and one install at the end. Leasing a whole table (a backup, a
+   * search across every chat) merged file by file used to rebuild the id set and re-sort every
+   * resident row once per file, which grew with the square of the library size.
+   */
+  private mergeLoadedShards(table: string, shards: Array<{ rows: Row[]; encoded: string }>): Set<string> {
     const meta = getMeta(table);
     const resident = this.tables.get(table) ?? [];
     const primaryKey = meta.primaryKey;
@@ -4670,84 +4900,92 @@ class FileTableStore {
       ? new Set(resident.map((row) => row[primaryKey]).filter((id) => typeof id === "string"))
       : null;
     let strayIds = this.strayResidentIds.get(table);
-    let strayFoundThisMerge = false;
     const added: Row[] = [];
     const replacements = new Map<string, Row>();
-    let duplicateCount = 0;
-    for (const row of incoming) {
-      const id = primaryKey && typeof row[primaryKey] === "string" ? (row[primaryKey] as string) : null;
-      const isCanonical = encodeShardKey(this.shardKeyForRow(table, row)) === sourceEncoded;
-      if (id && residentIds) {
-        if (residentIds.has(id)) {
-          if (isCanonical && strayIds?.has(id)) {
-            // The resident copy is a stray from a foreign file; the canonical
-            // file's copy wins, mirroring the eager loader's dedup rule.
-            replacements.set(id, row);
-            strayIds.delete(id);
-          } else {
-            duplicateCount += 1;
+    const allKeys = new Set<string>();
+    for (const { rows: incoming, encoded: sourceEncoded } of shards) {
+      let strayFoundThisMerge = false;
+      let replacedThisMerge = 0;
+      let duplicateCount = 0;
+      for (const row of incoming) {
+        const id = primaryKey && typeof row[primaryKey] === "string" ? (row[primaryKey] as string) : null;
+        const isCanonical = encodeShardKey(this.shardKeyForRow(table, row)) === sourceEncoded;
+        if (id && residentIds) {
+          if (residentIds.has(id)) {
+            if (isCanonical && strayIds?.has(id)) {
+              // The resident copy is a stray from a foreign file; the canonical
+              // file's copy wins, mirroring the eager loader's dedup rule.
+              replacements.set(id, row);
+              replacedThisMerge += 1;
+              strayIds.delete(id);
+            } else {
+              duplicateCount += 1;
+            }
+            continue;
           }
-          continue;
+          residentIds.add(id);
+          if (!isCanonical) {
+            strayFoundThisMerge = true;
+            // One Set per table, reused across the whole merge: allocating a
+            // fresh Set per stray row would overwrite the map entry and forget
+            // every stray id but the last, letting a stale stray copy beat its
+            // canonical row when the canonical file loads.
+            strayIds ??= new Set<string>();
+            strayIds.add(id);
+            this.strayResidentIds.set(table, strayIds);
+          }
         }
-        residentIds.add(id);
-        if (!isCanonical) {
-          strayFoundThisMerge = true;
-          // One Set per table, reused across the whole merge: allocating a
-          // fresh Set per stray row would overwrite the map entry and forget
-          // every stray id but the last, letting a stale stray copy beat its
-          // canonical row when the canonical file loads.
-          strayIds ??= new Set<string>();
-          strayIds.add(id);
-          this.strayResidentIds.set(table, strayIds);
+        added.push(row);
+      }
+      if (duplicateCount > 0) {
+        // The dropped copies live in THIS file; rewrite it from memory so they
+        // do not resurface on the next boot.
+        logger.warn(
+          { table, shard: sourceEncoded, duplicateCount },
+          "[file-storage] Dropped duplicate %s rows already resident in memory; the shard file will be rewritten.",
+          table,
+        );
+        this.dirty = true;
+        this.dirtyTables.add(table);
+        this.recordLoadHealMarks(table);
+        const stale = this.staleShardFiles.get(table) ?? new Set<string>();
+        stale.add(sourceEncoded);
+        this.staleShardFiles.set(table, stale);
+      }
+      if (replacedThisMerge > 0 && duplicateCount === 0) {
+        this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
+      }
+      const keys = this.shardKeysForRows(table, incoming);
+      for (const key of keys) allKeys.add(key);
+      // A merge that saw any corruption-healing event (dropped duplicates,
+      // canonical replacements, stray rows) pins every involved unit against
+      // eviction (#5592 PR-B): these states interweave per-file read-once
+      // bookkeeping across units, and they only occur on corrupt installs.
+      // Pin on events observed in THIS merge only: testing the accumulated
+      // table-wide stray set here would let a single misfiled row pin every
+      // unit loaded afterwards, silently disabling the eviction cap on the
+      // corrupt installs it most needs to protect.
+      if (duplicateCount > 0 || replacedThisMerge > 0 || strayFoundThisMerge) {
+        for (const key of keys) {
+          if (!this.pinnedUnits.has(key)) {
+            this.pinnedUnits.add(key);
+            logger.warn(
+              { table, unit: key },
+              "[file-storage] Unit pinned non-evictable after a corruption-healing merge; it stays resident for this process.",
+            );
+          }
         }
       }
-      added.push(row);
     }
-    if (duplicateCount > 0) {
-      // The dropped copies live in THIS file; rewrite it from memory so they
-      // do not resurface on the next boot.
-      logger.warn(
-        { table, shard: sourceEncoded, duplicateCount },
-        "[file-storage] Dropped duplicate %s rows already resident in memory; the shard file will be rewritten.",
-        table,
-      );
-      this.dirty = true;
-      this.dirtyTables.add(table);
-      this.recordLoadHealMarks(table);
-      const stale = this.staleShardFiles.get(table) ?? new Set<string>();
-      stale.add(sourceEncoded);
-      this.staleShardFiles.set(table, stale);
-    }
-    if (replacements.size > 0 && duplicateCount === 0) {
-      this.tableWriteGenerations.set(table, (this.tableWriteGenerations.get(table) ?? 0) + 1);
-    }
-    const keys = this.shardKeysForRows(table, incoming);
-    // A merge that saw any corruption-healing event (dropped duplicates,
-    // canonical replacements, stray rows) pins every involved unit against
-    // eviction (#5592 PR-B): these states interweave per-file read-once
-    // bookkeeping across units, and they only occur on corrupt installs.
-    // Pin on events observed in THIS merge only: testing the accumulated
-    // table-wide stray set here would let a single misfiled row pin every
-    // unit loaded afterwards, silently disabling the eviction cap on the
-    // corrupt installs it most needs to protect.
-    if (duplicateCount > 0 || replacements.size > 0 || strayFoundThisMerge) {
-      for (const key of keys) {
-        if (!this.pinnedUnits.has(key)) {
-          this.pinnedUnits.add(key);
-          logger.warn(
-            { table, unit: key },
-            "[file-storage] Unit pinned non-evictable after a corruption-healing merge; it stays resident for this process.",
-          );
-        }
-      }
-    }
-    if (added.length === 0 && replacements.size === 0) return keys;
+    if (added.length === 0 && replacements.size === 0) return allKeys;
     const compareRows = compareRowOrder;
     const swapReplaced = (row: Row) => {
       const id = primaryKey && typeof row[primaryKey] === "string" ? (row[primaryKey] as string) : null;
       return (id && replacements.get(id)) || row;
     };
-    const merged = resident.map(swapReplaced).concat(added).sort(compareRows);
+    // A stray added from one file can be replaced by its canonical copy from a later file in the same batch.
+    const addedRows = replacements.size > 0 ? added.map(swapReplaced) : added;
+    const merged = resident.map(swapReplaced).concat(addedRows).sort(compareRows);
     this.tables.set(table, merged);
     const ctx = this.loadEffectTransactionContext();
     const snapshot = ctx?.snapshots.get(table);
@@ -4758,12 +4996,12 @@ class FileTableStore {
       // call argument, which overflows the call stack past ~100k rows — and
       // that throw landed AFTER the length = 0 truncation, leaving an empty
       // rollback snapshot that a later rollback installed as the live table.
-      const mirrored = snapshot.map(swapReplaced).concat(added).sort(compareRows);
+      const mirrored = snapshot.map(swapReplaced).concat(addedRows).sort(compareRows);
       snapshot.length = 0;
       for (const row of mirrored) snapshot.push(row);
     }
-    if (table === "messages") this.reindexMovedMessages(added.concat([...replacements.values()]));
-    return keys;
+    if (table === "messages") this.reindexMovedMessages(addedRows.concat([...replacements.values()]));
+    return allKeys;
   }
 
   // ── Unit eviction (#5592 Phase 2 PR-B) ────────────────────────────────
