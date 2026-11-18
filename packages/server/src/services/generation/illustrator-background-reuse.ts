@@ -65,7 +65,17 @@ export function matchLibraryBackgroundForPlace(
 }
 
 /** Words too common in place names to say which place a picture is. */
-const COMMON_PLACE_WORDS = new Set(["generated", "room", "house", "place", "area", "interior", "exterior", "night", "day"]);
+const COMMON_PLACE_WORDS = new Set([
+  "generated",
+  "room",
+  "house",
+  "place",
+  "area",
+  "interior",
+  "exterior",
+  "night",
+  "day",
+]);
 
 function placeWords(text: string): Set<string> {
   return new Set(
