@@ -32,7 +32,8 @@ function message(error: unknown): string {
 }
 
 export async function builtinEmbeddingRoutes(app: FastifyInstance) {
-  app.get("/status", rateLimit, async () => builtinEmbeddingService.getStatus());
+  // No route limit of its own: the page polls this once a second during a download, so the default rule applies.
+  app.get("/status", async () => builtinEmbeddingService.getStatus());
 
   /**
    * Starts the download and answers at once; /status shows progress. When it finishes it becomes the model in use,

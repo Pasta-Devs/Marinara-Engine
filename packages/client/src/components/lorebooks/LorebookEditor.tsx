@@ -3876,6 +3876,7 @@ function VectorizeSection({
                 defaultLabel={localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch")}
                 includeLocalSidecar={sidecarEmbeddingConnections.length > 0}
                 rowFilter={(row) => embeddingConnections.some((connection) => connection.id === row.id)}
+                extraOptions={builtinEmbeddingOption ? [builtinEmbeddingOption] : []}
               />
             </div>
             <button
