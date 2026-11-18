@@ -610,6 +610,10 @@ export type GameDynamicImagePromptGenerator = ((
    * the regular prompt, so the picture is still sent; a required one fails the request.
    */
   required?: boolean;
+  /** The request's own signal: a rewrite stopped because the request was cancelled is not a rewrite failure. */
+  signal?: AbortSignal;
+  /** Set once an optional rewrite fails, so the request's other pictures skip it instead of failing again. */
+  failed?: boolean;
 };
 
 async function buildNpcPortraitRawPrompt(req: NpcPortraitRequest): Promise<string> {
@@ -757,16 +761,17 @@ async function maybeGenerateDynamicGameImagePrompt(
   generator: GameDynamicImagePromptGenerator | undefined,
   request: GameDynamicImagePromptRequest,
 ): Promise<string | null> {
-  if (!generator) return null;
+  if (!generator || generator.failed) return null;
   try {
     const generated = cleanDynamicGameImagePrompt(await generator(request));
     if (!generated) throw new Error("Dynamic image prompt generation returned no usable prompt");
     return generated;
   } catch (err) {
-    if (generator.required !== false) {
+    if (generator.required !== false || generator.signal?.aborted) {
       logger.warn(err, "[game-asset-gen] Dynamic image prompt generation failed");
       throw err;
     }
+    generator.failed = true;
     logger.warn(
       err,
       "[game-asset-gen] Optional image prompt rewrite failed; using the regular %s prompt",
