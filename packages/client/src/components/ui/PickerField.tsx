@@ -99,9 +99,22 @@ export type PickerFieldProps = ListTexts & {
 export function useFieldWindow(disabled: boolean | undefined) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  // The window goes away if the field turns disabled while it is open (such as during a save).
+  const openRef = useRef(open);
+  openRef.current = open;
+  const restoreRef = useRef(false);
+  // The window goes away if the field turns disabled while it is open (such as during a save or a refetch). Focus
+  // was in the window, so it falls to the page; once the field is enabled again it takes the focus back, unless the
+  // user has moved on to something else meanwhile (#5642).
   useEffect(() => {
-    if (disabled) setOpen(false);
+    if (disabled) {
+      if (openRef.current) restoreRef.current = true;
+      setOpen(false);
+      return;
+    }
+    if (!restoreRef.current) return;
+    restoreRef.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) triggerRef.current?.focus({ preventScroll: true });
   }, [disabled]);
   const close = () => {
     setOpen(false);
