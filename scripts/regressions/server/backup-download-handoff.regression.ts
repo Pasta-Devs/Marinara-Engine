@@ -42,9 +42,9 @@ assert.doesNotMatch(handlerSource, /\.blob\(\)|createObjectURL|showSaveFilePicke
 
 // Each job prepares its archive in its own temporary folder.
 const jobFolders = () => readdirSync(tmpdir()).filter((name) => name.startsWith("marinara-backup-download-"));
-const foldersBefore = new Set(jobFolders());
 const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
 const app = Fastify();
+let preparingFolder: string | undefined;
 try {
   app.decorate("db", await getDB());
   await app.register(backupRoutes, { prefix: "/api/backup" });
@@ -73,17 +73,22 @@ try {
   const again = await app.inject({ method: "GET", url: status.downloadUrl });
   assert.equal(again.statusCode, 404, "a prepared backup downloads only once");
 
+  // Only this job's folder counts: another download on this machine can add or remove folders with the same prefix.
+  const foldersBefore = new Set(jobFolders());
   const preparing = await app.inject({ method: "POST", url: "/api/backup/download/start" });
   assert.equal(preparing.statusCode, 202, preparing.body);
   assert.equal((preparing.json() as { status: string }).status, "preparing");
+  const newFolders = jobFolders().filter((name) => !foldersBefore.has(name));
+  assert.equal(newFolders.length, 1, `the preparing job made one temporary folder: ${newFolders.join(", ")}`);
+  preparingFolder = newFolders[0];
 } finally {
   await app.close();
   await closeDB();
 }
-assert.deepEqual(
-  jobFolders().filter((name) => !foldersBefore.has(name)),
-  [],
-  "closing the server waits for a preparing job, then removes every job's temporary folder",
+assert.equal(
+  jobFolders().includes(preparingFolder!),
+  false,
+  "closing the server waits for the preparing job, then removes its temporary folder",
 );
 
 console.log("Backup download handoff regression passed.");
