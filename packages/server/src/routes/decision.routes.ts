@@ -148,17 +148,23 @@ function localOption(slot: DecisionLocalSlot, selectedId: string | null): Decisi
  * polls this instead of watching a spinner it cannot tell from a stuck one.
  */
 let installProgress: DecisionInstallProgress | null = null;
-/** The install a Cancel was pressed for; it stops before its next phase. */
-let cancelledInstall: string | null = null;
+/** Which install the record belongs to, so a request only ever updates or clears its own. */
+let progressToken = 0;
+let nextInstallToken = 0;
+/** Installs a Cancel was pressed for; each stops before its next phase. */
+const cancelledInstalls = new Set<number>();
 
 function trackInstall(modelId: string, label: string) {
   // A second click joins the install already running (the download is shared), so its
   // bar carries on rather than restarting at zero.
-  if (installProgress?.modelId !== modelId)
+  if (installProgress?.modelId !== modelId) {
     installProgress = { modelId, label, phase: "runtime", downloaded: 0, total: 0, speed: 0, startedAt: Date.now() };
-  return (progress: SidecarDownloadProgress) => {
+    progressToken = ++nextInstallToken;
+  }
+  const token = progressToken;
+  const onProgress = (progress: SidecarDownloadProgress) => {
     logger.debug("[decision-sidecar] %s %s %s", progress.phase, progress.status, progress.label ?? "");
-    if (!installProgress || installProgress.modelId !== modelId) return;
+    if (!installProgress || progressToken !== token) return;
     installProgress = {
       ...installProgress,
       phase: progress.phase,
@@ -168,6 +174,11 @@ function trackInstall(modelId: string, label: string) {
       ...(progress.phase === "runtime" && progress.label ? { runtimeLabel: progress.label } : {}),
     };
   };
+  /** Clears the record when it is still this install's: a later install keeps its own. */
+  const finish = () => {
+    if (progressToken === token) installProgress = null;
+  };
+  return { token, onProgress, finish };
 }
 
 export async function decisionRoutes(app: FastifyInstance) {
@@ -395,24 +406,23 @@ export async function decisionRoutes(app: FastifyInstance) {
     // progress the page is following for the first.
     if (installProgress && installProgress.modelId !== model.id)
       return reply.status(409).send({ error: `${installProgress.label} is still installing` });
-    if (!installProgress) cancelledInstall = null;
+    const { token, onProgress, finish } = trackInstall(model.id, model.label);
     try {
       // Open-Jev needs its Python environment; every other runtime is one server program,
       // and JevK5's is the chat model's own, installed only if it is not already here.
-      const onProgress = trackInstall(model.id, model.label);
       if (model.runtime === "open_jev_torch") await decisionRuntimeService.ensureInstalled(onProgress);
       else await decisionServerRuntimeService.ensureInstalled(model.runtime, onProgress);
       // A Cancel during the server program's download stops here, before the weights.
-      if (cancelledInstall === model.id) throw new Error("The install was cancelled");
+      if (cancelledInstalls.has(token)) throw new Error("The install was cancelled");
       await decisionRuntimeService.downloadModel(model, onProgress);
     } catch (error) {
-      if (installProgress?.modelId === model.id) installProgress = null;
+      finish();
       // Logged as well as returned: an install takes long enough that the page which
       // asked may be gone by the time it fails, and the reason would otherwise vanish.
       logger.warn(error, "[decision-sidecar] Install of %s failed", model.id);
       return reply.status(400).send({ error: error instanceof Error ? error.message : "Install failed" });
     }
-    if (installProgress?.modelId === model.id) installProgress = null;
+    finish();
     return {
       settings: await writeSidecarSettings((current) => ({
         ...current,
@@ -469,7 +479,7 @@ export async function decisionRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Decision model download" })) return;
     // Both phases: the server program's download and the weights'. A chat runtime that
     // JevK5 shares with the built-in chat model is left to finish; the install stops after it.
-    if (installProgress) cancelledInstall = installProgress.modelId;
+    if (installProgress) cancelledInstalls.add(progressToken);
     decisionRuntimeService.cancel();
     decisionServerRuntimeService.cancel();
     installProgress = null;

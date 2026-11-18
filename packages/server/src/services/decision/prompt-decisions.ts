@@ -578,7 +578,12 @@ export async function answerPromptDecisions(args: {
   // With no answer, it stays on and its timers are left as they are.
   for (const decision of plan.decisions) {
     const lasts = decision.held?.lasts;
-    const answer = lasts ? turn.noul.get(lasts.key)?.yes : undefined;
+    // The condition is planned as its own statement, which may ask for pictures or clips:
+    // its answer is stored under that statement's key.
+    const condition = lasts
+      ? plan.decisions.find((other) => other.kind === "noul" && other.key === lasts.key)
+      : undefined;
+    const answer = lasts ? turn.noul.get(condition ? noulCacheKey(condition) : lasts.key)?.yes : undefined;
     if (!lasts || answer === undefined) continue;
     const stays = answer === (lasts.kind === "while");
     turn.noul.set(noulCacheKey(decision), { yes: stays, held: true });
