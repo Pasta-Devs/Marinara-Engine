@@ -201,7 +201,7 @@ export function CharacterSelect(props: CharacterSelectProps) {
 
   const close = () => {
     setOpen(false);
-    (anchorRef?.current ?? triggerRef.current)?.focus();
+    (anchorRef?.current ?? triggerRef.current)?.focus({ preventScroll: true });
   };
   const pickPersona = (id: string | null) => {
     if (props.kind !== "persona") return;

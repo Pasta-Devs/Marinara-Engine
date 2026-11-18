@@ -20,13 +20,25 @@ const PHONE_QUERY = "(max-width: 639px)";
 
 type Placement = { left: number; width: number; maxHeight: number; top?: number; bottom?: number };
 
+/**
+ * The popover hugs its rows: as wide as the widest one needs, at least the field's width, at most 352 px (or the
+ * field's width when that is wider). Measured once when it opens, so it doesn't jump while the search filters rows.
+ */
+function fitWidth(anchor: HTMLElement, panel: HTMLElement) {
+  const rect = anchor.getBoundingClientRect();
+  const max = Math.min(Math.max(rect.width, 352), window.innerWidth - 16);
+  panel.style.width = "max-content";
+  const natural = panel.offsetWidth;
+  panel.style.width = "";
+  return Math.max(Math.min(rect.width, max), Math.min(max, natural));
+}
+
 /** Popover next to the anchor: below it, or above when there is more room there. */
-function place(anchor: HTMLElement): Placement {
+function place(anchor: HTMLElement, width: number): Placement {
   const rect = anchor.getBoundingClientRect();
   const viewport = window.visualViewport;
   const top = viewport?.offsetTop ?? 0;
   const bottom = top + (viewport?.height ?? window.innerHeight);
-  const width = Math.min(Math.max(rect.width, 352), window.innerWidth - 16);
   const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8));
   const below = bottom - rect.bottom - 12;
   const above = rect.top - top - 12;
@@ -35,6 +47,33 @@ function place(anchor: HTMLElement): Placement {
   return openAbove
     ? { left, width, maxHeight, bottom: window.innerHeight - rect.top + 4 }
     : { left, width, maxHeight, top: rect.bottom + 4 };
+}
+
+/**
+ * The boxes that clip the anchor: its scrolling ancestors. Read once when the popover opens, since
+ * reading computed styles on every scroll event costs more than the check itself.
+ */
+function clippingBoxes(anchor: HTMLElement): HTMLElement[] {
+  const boxes: HTMLElement[] = [];
+  for (let el = anchor.parentElement; el && el !== document.body; el = el.parentElement) {
+    const style = getComputedStyle(el);
+    // A box without size (display: contents) clips nothing.
+    if (style.display === "contents" || el.clientHeight === 0) continue;
+    if (/auto|scroll|hidden|clip/.test(style.overflowX + style.overflowY)) boxes.push(el);
+  }
+  return boxes;
+}
+
+/** The anchor's middle has left what its clipping boxes show (a native dropdown closes then too). */
+function scrolledOutOfView(anchor: HTMLElement, boxes: readonly HTMLElement[]) {
+  const rect = anchor.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  if (y < 0 || y > window.innerHeight) return true;
+  return boxes.some((box) => {
+    const clip = box.getBoundingClientRect();
+    return y < clip.top || y > clip.bottom || x < clip.left || x > clip.right;
+  });
 }
 
 export function PickerWindow({
@@ -74,13 +113,39 @@ export function PickerWindow({
     return hostZ > omnibarZ ? "top" : hostZ === omnibarZ ? "omnibar" : undefined;
   });
   const [pos, setPos] = useState<Placement | null>(null);
+  const widthRef = useRef<number | null>(null);
+  // The scroll listener below is set up once per open; it reads the latest onClose from here.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useLayoutEffect(() => {
     if (phone) return;
-    const update = () => anchorRef.current && setPos(place(anchorRef.current));
+    const update = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      if (widthRef.current === null && panelRef.current) widthRef.current = fitWidth(anchor, panelRef.current);
+      // The measured width stays; a narrower window since then still caps it.
+      setPos(place(anchor, Math.min(widthRef.current ?? 352, window.innerWidth - 16)));
+    };
     update();
+    const boxes = anchorRef.current ? clippingBoxes(anchorRef.current) : [];
+    // Only a field that was in view when the popover opened closes it by leaving; an odd layout that already
+    // clips the field never closes it on the first scroll.
+    const startedInView = !!anchorRef.current && !scrolledOutOfView(anchorRef.current, boxes);
+    // Scrolling the field out of view (the chat settings window, a long form) closes the popover, or it would
+    // follow the field past the window's edge and float over whatever is there.
+    const onScroll = (event: Event) => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      // The popover's own list scrolling never moves the field.
+      if (event.target instanceof Node && panelRef.current?.contains(event.target)) return;
+      if (startedInView && scrolledOutOfView(anchor, boxes)) onCloseRef.current();
+      else update();
+    };
     window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
+    window.addEventListener("scroll", onScroll, true);
     window.visualViewport?.addEventListener("resize", update);
     // The trigger also moves when the layout around it changes size (a centred wizard growing as
     // lorebooks are picked), which fires neither event; watching its ancestors catches that.
@@ -90,7 +155,7 @@ export function PickerWindow({
     }
     return () => {
       window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("scroll", onScroll, true);
       window.visualViewport?.removeEventListener("resize", update);
       observer?.disconnect();
     };
@@ -182,7 +247,7 @@ export function PickerWindow({
               maxHeight: pos.maxHeight,
               ...(pos.top !== undefined ? { top: pos.top } : { bottom: pos.bottom }),
             }
-          : { visibility: "hidden" }
+          : { visibility: "hidden", left: 0, top: 0 }
       }
     >
       <div className="flex h-10 shrink-0 items-center px-3.5">

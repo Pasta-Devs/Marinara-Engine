@@ -1,16 +1,17 @@
 // Connected chats in every mode. A Conversation links to a Roleplay or Game chat; a Roleplay or Game chat shows the
 // Conversation linked to it, and only a Game chat can start the link from its own side.
-import { useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ArrowRightLeft, Link2, Plus, Unlink } from "lucide-react";
-import { includesTextForMatch, isRoleplayCommandEnabled, type Chat, type ChatMode } from "@marinara-engine/shared";
+import { isRoleplayCommandEnabled, type Chat, type ChatMode } from "@marinara-engine/shared";
 import { useConnectChat, useDisconnectChat, useUpdateChatMetadata } from "../../../hooks/use-chats";
 import { getConnectedChatDisplayName } from "../../../lib/chat-display";
 import { cn } from "../../../lib/utils";
 import { ChatModeIcon } from "../../../components/chat/ChatModeIcon";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
-import { PickerDropdown } from "../PickerDropdown";
+import { useFieldWindow } from "../../../components/ui/PickerField";
+import { PickerFolderList } from "../../../components/ui/PickerFolderList";
+import { PickerWindow } from "../../../components/ui/PickerWindow";
 import { DiscordMirrorControls } from "./DiscordMirrorSection";
 
 /** The chats each mode can link to from its own picker, with that picker's words. Roleplay has no picker. */
@@ -57,8 +58,8 @@ export function ConnectedChatsSection({
   const updateMeta = useUpdateChatMetadata();
   const connectChat = useConnectChat();
   const disconnectChat = useDisconnectChat();
-  const [showConnectionPicker, setShowConnectionPicker] = useState(false);
-  const [connectionSearch, setConnectionSearch] = useState("");
+  // Closing hands focus back to the button, as every shared picker does.
+  const connectionPicker = useFieldWindow(false);
   // Package integrations only show while their package is installed and usable.
   const noodleTimelineContextEnabled = metadata.noodleTimelineContextEnabled === true;
   const slurp2ActivityContextEnabled = metadata.slurp2ActivityContextEnabled === true;
@@ -148,45 +149,52 @@ export function ConnectedChatsSection({
           <p className="rounded-lg bg-[var(--secondary)]/50 px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.chatsettingsdrawer.noOocConversationIsLinkedDirectMessageCommandsCan")}
           </p>
-        ) : !showConnectionPicker ? (
-          <button
-            onClick={() => {
-              setShowConnectionPicker(true);
-              setConnectionSearch("");
-            }}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
-          >
-            <Plus size="0.75rem" /> {localizeUi(picker.label)}
-          </button>
         ) : (
-          <PickerDropdown
-            search={connectionSearch}
-            onSearchChange={setConnectionSearch}
-            onClose={() => setShowConnectionPicker(false)}
-            placeholder={localizeUi(picker.placeholder)}
-          >
-            {((allChats ?? []) as Chat[])
-              .filter(
-                (c) =>
-                  c.id !== chat.id &&
-                  picker.modes.includes(c.mode) &&
-                  !c.connectedChatId &&
-                  includesTextForMatch(getConnectedChatDisplayName(c), connectionSearch),
-              )
-              .map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => {
-                    connectChat.mutate({ chatId: chat.id, targetChatId: c.id });
-                    setShowConnectionPicker(false);
+          <>
+            <button
+              ref={connectionPicker.triggerRef}
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={connectionPicker.open}
+              onClick={connectionPicker.toggle}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+            >
+              <Plus size="0.75rem" /> {localizeUi(picker.label)}
+            </button>
+            {connectionPicker.open && (
+              // The shared picker window (#9468): a popover on desktop, a sheet on a phone, like every other picker.
+              <PickerWindow
+                title={localizeUi(picker.label)}
+                anchorRef={connectionPicker.triggerRef}
+                onClose={connectionPicker.close}
+              >
+                <PickerFolderList
+                  items={((allChats ?? []) as Chat[])
+                    .filter((c) => c.id !== chat.id && picker.modes.includes(c.mode) && !c.connectedChatId)
+                    .map((c) => ({
+                      id: c.id,
+                      label: getConnectedChatDisplayName(c),
+                      icon: (
+                        <ChatModeIcon
+                          mode={c.mode}
+                          size="0.75rem"
+                          className="shrink-0 text-[var(--muted-foreground)]"
+                        />
+                      ),
+                    }))}
+                  folders={[]}
+                  selectedIds={[]}
+                  onToggle={(targetChatId) => {
+                    connectChat.mutate({ chatId: chat.id, targetChatId });
+                    connectionPicker.close();
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]"
-                >
-                  <ChatModeIcon mode={c.mode} size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
-                  <span className="truncate">{getConnectedChatDisplayName(c)}</span>
-                </button>
-              ))}
-          </PickerDropdown>
+                  searchLabel={localizeUi(picker.placeholder)}
+                  emptyLabel={localizeUi("ui.select.empty")}
+                  noMatchesLabel={localizeUi("ui.select.noMatches")}
+                />
+              </PickerWindow>
+            )}
+          </>
         )}
         {noodleInstalled && (
           <SettingsSwitch

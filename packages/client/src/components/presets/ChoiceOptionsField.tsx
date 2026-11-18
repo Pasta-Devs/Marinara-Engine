@@ -4,9 +4,11 @@
 // rows, checkbox rows, a dropdown/listbox, or a one-option on/off switch.
 // Shared by the preset choice modal and character onboarding.
 // ──────────────────────────────────────────────
-import { CheckCircle2, Circle, CheckSquare2, Square } from "lucide-react";
+import { CheckCircle2, Circle, CheckSquare2, ListChecks, Square } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { PickerListField } from "../ui/PickerField";
 import { Select } from "../ui/Select";
 
 export interface ChoiceFieldOption {
@@ -87,29 +89,46 @@ export function ChoiceOptionsField({
   /** Accessible name for the dropdown/list, usually the question. */
   ariaLabel?: string;
 }) {
+  const { t } = useTranslation();
   const presentedOptions = getPresentedOptions(variable);
   const listboxMode = shouldUseListbox(variable);
   const selectedKeys = Array.isArray(selection) ? selection : [];
+  // A multi-pick value follows the list it was picked from, not the order of clicks (the native select it replaced
+  // did too), drops keys no option carries any more, and holds each key once even when an imported list repeats one.
+  const inOptionOrder = (keys: readonly string[]) =>
+    [...new Set(presentedOptions.map(optionKey))].filter((key) => keys.includes(key));
   const toggle = (key: string) =>
-    onChange(selectedKeys.includes(key) ? selectedKeys.filter((v) => v !== key) : [...selectedKeys, key]);
+    onChange(
+      inOptionOrder(selectedKeys.includes(key) ? selectedKeys.filter((v) => v !== key) : [...selectedKeys, key]),
+    );
 
   return (
     <div className="space-y-1.5">
       {listboxMode && variable.multiSelect ? (
-        <select
-          multiple
-          aria-label={ariaLabel}
-          value={selectedKeys}
-          onChange={(e) => onChange(Array.from(e.currentTarget.selectedOptions, (option) => option.value))}
-          size={Math.min(8, Math.max(4, presentedOptions.length))}
-          className="mari-preset-native-select min-h-28 w-full rounded-lg bg-[var(--background)] px-2 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-        >
-          {presentedOptions.map((opt) => (
-            <option key={opt.id} value={optionKey(opt)}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+        // A long multi-pick list opens the shared multi-pick window (#9468), as the profile slots do; the picks are
+        // listed under the field, each with its remove button.
+        <PickerListField
+          items={presentedOptions.map((opt) => ({
+            id: optionKey(opt),
+            label: String(opt.label ?? ""),
+            subtitle: opt.description ?? null,
+            searchText: opt.description,
+          }))}
+          selectedIds={selectedKeys}
+          onToggle={toggle}
+          onAdd={(ids) => onChange(inOptionOrder([...selectedKeys, ...ids]))}
+          title={ariaLabel ?? ""}
+          ariaLabel={ariaLabel}
+          triggerLabel={t("ui.select.chooseOptions")}
+          triggerIcon={
+            <ListChecks size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />
+          }
+          triggerClassName="mari-preset-native-select w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          removeLabel={(name) => t("chat.settingsProfile.builder.remove", { name })}
+          searchLabel={t("ui.select.search")}
+          emptyLabel={t("ui.select.empty")}
+          noMatchesLabel={t("ui.select.noMatches")}
+        />
       ) : listboxMode ? (
         // With nothing picked (e.g. "Write your own"), the field stays blank instead of showing the first option.
         <Select

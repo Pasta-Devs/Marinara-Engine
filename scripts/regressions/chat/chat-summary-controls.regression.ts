@@ -51,10 +51,17 @@ assert.match(
   /onClick=\{\(\) => void handleToggleVisiblePromptEditor\(\)\}[\s\S]{0,500}aria-expanded=\{visiblePromptEditorOpen\}/u,
   "The Summary Prompt Edit/Done action must expose disclosure semantics for its editor",
 );
+// The template chooser is the shared Select (#9468): its window closes on any click outside it, the Edit button's
+// included, so the editor no longer has its own selector state to close.
 assert.match(
   summaryPopoverSource,
-  /if \(!visiblePromptEditorOpen\) \{\s*setTemplateSelectOpen\(false\);\s*handleEditVisiblePrompt\(\);/u,
-  "Opening the Summary Prompt editor must close its template selector",
+  /if \(!visiblePromptEditorOpen\) \{\s*handleEditVisiblePrompt\(\);/u,
+  "Opening the Summary Prompt editor must open it from the visible prompt",
+);
+assert.doesNotMatch(
+  summaryPopoverSource,
+  /templateSelectOpen/u,
+  "The template chooser must not keep its own open state",
 );
 assert.match(
   summaryPopoverSource,

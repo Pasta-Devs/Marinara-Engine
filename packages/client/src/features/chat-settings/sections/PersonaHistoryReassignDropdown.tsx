@@ -4,7 +4,9 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { useChatPersonaAttributions, useReassignMessagePersonas } from "../../../hooks/use-chats";
-import { PickerDropdown } from "../PickerDropdown";
+import { useFieldWindow } from "../../../components/ui/PickerField";
+import { PickRow } from "../../../components/ui/PickerParts";
+import { PickerWindow } from "../../../components/ui/PickerWindow";
 import { Select } from "../../../components/ui/Select";
 import { Spinner } from "../../../components/ui/Spinner";
 
@@ -15,7 +17,8 @@ interface PersonaHistoryReassignDropdownProps {
 
 export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHistoryReassignDropdownProps) {
   const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(false);
+  // Closing hands focus back to the button, as every shared picker does.
+  const { open, triggerRef, close, toggle } = useFieldWindow(false);
   const [scope, setScope] = useState<"unassigned" | "persona" | "all">("unassigned");
   const [selectedSourceKey, setSelectedSourceKey] = useState("");
   const { data: attributions, isLoading } = useChatPersonaAttributions(chatId, open);
@@ -60,7 +63,7 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
         sourcePersonaSource: scope === "persona" ? currentSourceIdentity?.source : undefined,
       });
       toast.success(localizeUi("ui.chat.chatsettingsdrawer.reassignedMessagesSuccess", { count: result.updatedCount }));
-      setOpen(false);
+      close();
     } catch (error) {
       toast.error(
         localizeUi("ui.chat.chatsettingsdrawer.failedToReassignMessages", {
@@ -68,27 +71,33 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
         }),
       );
     }
-  }, [currentSourceIdentity, localizeUi, reassignMutation, scope, targetCount, targetName]);
+  }, [close, currentSourceIdentity, localizeUi, reassignMutation, scope, targetCount, targetName]);
+
+  const count = (value: number | undefined) => (
+    <span className="text-[0.6875rem] text-foreground/50">{value ?? 0}</span>
+  );
 
   return (
     <div className="mt-2">
-      {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          disabled={!targetName}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]"
-        >
-          <History size="0.75rem" />
-          <span>{localizeUi("ui.chat.chatsettingsdrawer.applyPersonaToEarlierMessages")}</span>
-        </button>
-      ) : (
-        <PickerDropdown
-          search=""
-          onSearchChange={() => {}}
-          onClose={() => setOpen(false)}
-          placeholder={localizeUi("ui.chat.chatsettingsdrawer.applyPersonaToEarlierMessages")}
-          searchable={false}
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={toggle}
+        disabled={!targetName}
+        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-[0.6875rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]"
+      >
+        <History size="0.75rem" />
+        <span>{localizeUi("ui.chat.chatsettingsdrawer.applyPersonaToEarlierMessages")}</span>
+      </button>
+      {open && (
+        // The shared picker window (#9468): pick which messages, then apply.
+        <PickerWindow
+          title={localizeUi("ui.chat.chatsettingsdrawer.messagesToUpdate")}
+          anchorRef={triggerRef}
+          onClose={close}
+          hug
         >
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-[var(--muted-foreground)]">
@@ -96,31 +105,23 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
               {localizeUi("ui.chat.chatsettingsdrawer.loadingAttributions")}
             </div>
           ) : (
-            <div className="space-y-1 p-2 text-xs">
-              <div className="px-1 py-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                {localizeUi("ui.chat.chatsettingsdrawer.messagesToUpdate")}
-              </div>
-              <label className="flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--accent)]">
-                <span className="flex items-center gap-2">
-                  <input type="radio" checked={scope === "unassigned"} onChange={() => setScope("unassigned")} />
-                  {localizeUi("ui.chat.chatsettingsdrawer.messagesSentWithoutPersona")}
-                </span>
-                <span>{attributions?.unassignedCount ?? 0}</span>
-              </label>
-              <div className="rounded-md px-2 py-1.5 hover:bg-[var(--accent)]">
-                <label className="flex cursor-pointer items-center justify-between gap-2">
-                  <span className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      checked={scope === "persona"}
-                      onChange={() => setScope("persona")}
-                      disabled={identities.length === 0}
-                    />
-                    {localizeUi("ui.chat.chatsettingsdrawer.messagesSentAs")}
-                  </span>
-                  {scope === "persona" && currentSourceIdentity?.count}
-                </label>
-                {scope === "persona" && identities.length > 0 && (
+            <div className="flex flex-col gap-0.5 overflow-y-auto px-1.5 pb-2">
+              <PickRow
+                picked={scope === "unassigned"}
+                onClick={() => setScope("unassigned")}
+                title={localizeUi("ui.chat.chatsettingsdrawer.messagesSentWithoutPersona")}
+                badge={count(attributions?.unassignedCount)}
+              />
+              {identities.length > 0 && (
+                <PickRow
+                  picked={scope === "persona"}
+                  onClick={() => setScope("persona")}
+                  title={localizeUi("ui.chat.chatsettingsdrawer.messagesSentAs")}
+                  badge={scope === "persona" ? count(currentSourceIdentity?.count) : undefined}
+                />
+              )}
+              {scope === "persona" && identities.length > 0 && (
+                <div className="px-2 pb-1">
                   <Select
                     label={localizeUi("ui.chat.chatsettingsdrawer.messagesSentAs")}
                     value={activeSourceKey}
@@ -129,29 +130,28 @@ export function PersonaHistoryReassignDropdown({ chatId, targetName }: PersonaHi
                       label: `${identity.name} (${identity.count})`,
                     }))}
                     onChange={setSelectedSourceKey}
-                    className="mt-2 w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs"
+                    className="w-full rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs"
                   />
-                )}
-              </div>
-              <label className="flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-[var(--accent)]">
-                <span className="flex items-center gap-2">
-                  <input type="radio" checked={scope === "all"} onChange={() => setScope("all")} />
-                  {localizeUi("ui.chat.chatsettingsdrawer.allUserMessagesInChat")}
-                </span>
-                <span>{attributions?.allUserMessageCount ?? 0}</span>
-              </label>
+                </div>
+              )}
+              <PickRow
+                picked={scope === "all"}
+                onClick={() => setScope("all")}
+                title={localizeUi("ui.chat.chatsettingsdrawer.allUserMessagesInChat")}
+                badge={count(attributions?.allUserMessageCount)}
+              />
               <button
                 type="button"
                 onClick={handleApply}
                 disabled={reassignMutation.isPending || !targetName || targetCount === 0}
-                className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-md bg-[var(--primary)] px-3 py-1.5 font-medium text-[var(--primary-foreground)] disabled:opacity-50"
+                className="mx-1.5 mt-1.5 flex items-center justify-center gap-1.5 rounded-md bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary-foreground)] disabled:opacity-50"
               >
                 {reassignMutation.isPending && <Spinner size="sm" />}
                 {localizeUi("ui.chat.chatsettingsdrawer.updateCountMessages", { count: targetCount })}
               </button>
             </div>
           )}
-        </PickerDropdown>
+        </PickerWindow>
       )}
     </div>
   );
