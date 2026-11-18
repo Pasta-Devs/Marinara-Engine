@@ -11390,6 +11390,14 @@ input.ov-edhead__title:focus {
   padding: 0;
   gap: 0.75rem;
 }
+/* The "< Expert" style step-back row: in the window it pins over the scroller's padding with negative margins
+   and its own backing. The page has no such padding, so it sits as a plain row and never covers the heading. */
+:root[data-overhaul] .mari-device-runtime .mari-connection-scope > div:first-child > div.sticky {
+  position: static;
+  margin: 0;
+  padding: 0;
+  background: none;
+}
 :root[data-overhaul] .mari-device-runtime .rounded-xl {
   border-radius: 0.375rem;
   background: none;
