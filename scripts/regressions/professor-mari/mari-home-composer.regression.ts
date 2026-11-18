@@ -1,7 +1,7 @@
-// Professor Mari's Home composer stops growing at its CSS max-height. Reads component source until a test can drive
-// it.
+// Professor Mari's Home composer stops growing at its CSS max-height, routes its keys through one helper, and keeps a
+// failed send's prompt out of the box. Reads component source until a test can drive it.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { createMariDraftPersist, onlyInsertedInto } from "../../../packages/client/src/lib/mari-composer-draft.js";
 import {
   resolveContextCharacter,
@@ -18,6 +18,24 @@ assert.match(
   professorMariHomeSource,
   /const cap = Number\.parseFloat\(getComputedStyle\(textarea\)\.maxHeight\);\s*const to = Number\.isFinite\(cap\) \? Math\.min\(textarea\.scrollHeight, cap\)/u,
   "Professor Mari's composer must stop growing at its max-height",
+);
+// Her one composer routes its keys through composerKeyAction (#7913; ui/composer-triggers checks each case), and a
+// failed or stopped send leaves the composer empty instead of putting the prompt back. Her chat's parts live in
+// components/chat/mari/, so read them all.
+const mariChatDir = new URL("../../../packages/client/src/components/chat/mari/", import.meta.url);
+const mariChatAllSource = [
+  professorMariHomeSource,
+  ...readdirSync(mariChatDir).map((name) => readFileSync(new URL(name, mariChatDir), "utf8")),
+].join("\n");
+assert.equal(
+  mariChatAllSource.match(/composerKeyAction\(\{/gu)?.length,
+  1,
+  "Professor Mari's composer must route its keys through composerKeyAction",
+);
+assert.doesNotMatch(
+  mariChatAllSource,
+  /catch \(error\) \{[^}]*setDraft\(/u,
+  "A failed or stopped Professor Mari send must not restore the submitted prompt to the composer",
 );
 
 // #9340: her draft is saved to the shared drafts store after a pause in typing, not on every keystroke (each save
