@@ -13,6 +13,7 @@ import {
   applyQuestResult,
 } from "./trackers.js";
 import type { AgentResultEffect, AgentResultEffectDeps } from "./types.js";
+import { applyWorldStateResult } from "./world-state.js";
 
 export { CHARACTER_TRACKER_STEPS } from "./character-tracker.js";
 export type {
@@ -21,6 +22,8 @@ export type {
   AgentResultEffectOrigin,
   TrackerEffectTarget,
   TrackerSnapshotRow,
+  WorldStateSaveContext,
+  WorldStateTarget,
 } from "./types.js";
 
 /**
@@ -33,7 +36,7 @@ export type {
  * forgotten branch.
  */
 export const AGENT_RESULT_EFFECT_COVERAGE: Record<AgentResultType, "shared" | "not_shared_yet"> = {
-  game_state_update: "not_shared_yet",
+  game_state_update: "shared",
   text_rewrite: "not_shared_yet",
   sprite_change: "not_shared_yet",
   echo_message: "not_shared_yet",
@@ -69,6 +72,7 @@ export const AGENT_RESULT_EFFECT_COVERAGE: Record<AgentResultType, "shared" | "n
 
 const SHARED_AGENT_RESULT_EFFECTS: Partial<Record<AgentResultType, AgentResultEffect>> = {
   cyoa_choices: applyCyoaChoicesResult,
+  game_state_update: applyWorldStateResult,
   character_tracker_update: applyCharacterTrackerResult,
   persona_stats_update: applyPersonaStatsResult,
   inventory_tracker_update: applyInventoryTrackerResult,
