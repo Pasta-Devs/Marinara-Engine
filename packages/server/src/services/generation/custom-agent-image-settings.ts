@@ -1,8 +1,5 @@
 import { BUILT_IN_AGENTS } from "@marinara-engine/shared";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "../../utils/large-json.js";
 
 function nonEmptyString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";

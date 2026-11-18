@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Check, ChevronRight, Eye, EyeOff, ExternalLink } from "lucide-react";
 import { useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
-import { PROVIDERS, type APIProvider } from "@marinara-engine/shared";
+import { type APIProvider, type ProviderDefinition } from "@marinara-engine/shared";
 import { cn } from "../../../lib/utils";
 import { SECTION_HEADING_CLASS } from "../../connections/ConnectionBalance";
 import { CheckIcon, CheckLine, checkBorderClass, type FieldCheck } from "../../connections/AccessCheck";
@@ -20,8 +20,6 @@ import {
   inputClass,
   labelClass,
 } from "./shared";
-
-type ProviderDefinition = (typeof PROVIDERS)[APIProvider];
 
 export interface AccessStepProps {
   provider: APIProvider | null;

@@ -20,6 +20,7 @@ import {
   renderTemplate,
   validateTemplate,
 } from "../services/prompt-overrides/index.js";
+import { notFound } from "../utils/not-found.js";
 
 const upsertBodySchema = z.object({
   template: z.string().min(1, "Template must not be empty"),
@@ -84,7 +85,7 @@ export async function promptOverridesRoutes(app: FastifyInstance) {
   /** Read the current override (if any) for a single key. */
   app.get<{ Params: { key: string } }>("/:key", async (req, reply) => {
     const def = getPromptOverrideDef(req.params.key);
-    if (!def) return reply.status(404).send({ error: "Unknown prompt key" });
+    if (!def) return notFound(reply, "Unknown prompt key");
     const row = await getStoredPromptOverride(storage, def);
     return {
       key: def.key,
@@ -98,7 +99,7 @@ export async function promptOverridesRoutes(app: FastifyInstance) {
   /** Render the canonical default with the registered example context. */
   app.get<{ Params: { key: string } }>("/:key/default", async (req, reply) => {
     const def = getPromptOverrideDef(req.params.key);
-    if (!def) return reply.status(404).send({ error: "Unknown prompt key" });
+    if (!def) return notFound(reply, "Unknown prompt key");
     return {
       key: def.key,
       label: def.label ?? null,
@@ -110,7 +111,7 @@ export async function promptOverridesRoutes(app: FastifyInstance) {
   /** Save or replace an override for the given key. */
   app.put<{ Params: { key: string } }>("/:key", async (req, reply) => {
     const def = getPromptOverrideDef(req.params.key);
-    if (!def) return reply.status(404).send({ error: "Unknown prompt key" });
+    if (!def) return notFound(reply, "Unknown prompt key");
     const input = upsertBodySchema.parse(req.body);
     const declared = def.variables.map((v) => v.name);
     const validation = validateTemplate(input.template, declared);
@@ -131,7 +132,7 @@ export async function promptOverridesRoutes(app: FastifyInstance) {
   /** Reset a key by removing its override row. */
   app.delete<{ Params: { key: string } }>("/:key", async (req, reply) => {
     const def = getPromptOverrideDef(req.params.key);
-    if (!def) return reply.status(404).send({ error: "Unknown prompt key" });
+    if (!def) return notFound(reply, "Unknown prompt key");
     await removeStoredPromptOverride(storage, def);
     return reply.status(204).send();
   });
@@ -139,7 +140,7 @@ export async function promptOverridesRoutes(app: FastifyInstance) {
   /** Render an arbitrary template with optional caller-supplied context (defaults to example). */
   app.post<{ Params: { key: string } }>("/:key/preview", async (req, reply) => {
     const def = getPromptOverrideDef(req.params.key);
-    if (!def) return reply.status(404).send({ error: "Unknown prompt key" });
+    if (!def) return notFound(reply, "Unknown prompt key");
     const input = previewBodySchema.parse(req.body);
     const declared = def.variables.map((v) => v.name);
     const validation = validateTemplate(input.template, declared);

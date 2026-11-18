@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
 import { join } from "path";
+import { isRecord } from "../utils/large-json.js";
 
 export type BackgroundLibraryFolder = {
   id: string;
@@ -15,10 +16,6 @@ export type BackgroundLibraryOrganization = {
   /** Background ids the user starred. Independent of the Roleplay default background. */
   favorites: string[];
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizedTimestamp(value: unknown, fallback: string): string {
   if (typeof value !== "string") return fallback;

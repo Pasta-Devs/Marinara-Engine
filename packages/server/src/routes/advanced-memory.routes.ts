@@ -4,6 +4,7 @@ import { partialInput } from "@marinara-engine/shared";
 import { advancedMemorySettingsSchema } from "@marinara-engine/shared";
 import { createAdvancedMemoryService } from "../services/advanced-memory.js";
 import { logger } from "../lib/logger.js";
+import { notFound } from "../utils/not-found.js";
 
 const operationSchema = z.object({
   settings: partialInput(advancedMemorySettingsSchema).optional(),
@@ -53,8 +54,7 @@ async function withMemoryDomainErrors<T>(reply: FastifyReply, operation: () => P
     return await operation();
   } catch (error) {
     if (error instanceof z.ZodError) return reply.status(400).send({ error: error.message });
-    if (error instanceof Error && error.message === "Memory record not found")
-      return reply.status(404).send({ error: error.message });
+    if (error instanceof Error && error.message === "Memory record not found") return notFound(reply, error.message);
     if (error instanceof Error && validationErrors.has(error.message))
       return reply.status(400).send({ error: error.message });
     throw error;

@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { logger } from "../lib/logger.js";
 import { fetchJannyCharacterCard } from "../services/bot-browser/janny-character-card.js";
 import { resolveValidatedImage, safeFetch, type OutboundUrlPolicy } from "../utils/security.js";
+import { notFound } from "../utils/not-found.js";
 
 const JANNY_SEARCH_URL = "https://search.jannyai.com/multi-search";
 const JANNY_SEARCH_POLICY: OutboundUrlPolicy = {
@@ -469,13 +470,13 @@ export async function botBrowserJannyRoutes(app: FastifyInstance) {
       }
 
       if (!html) {
-        return reply.status(404).send({ error: "Could not fetch character page (Cloudflare blocked)" });
+        return notFound(reply, "Could not fetch character page (Cloudflare blocked)");
       }
 
       // Parse Astro island props containing character data
       const astroProps = extractJannyAstroCharacterProps(html);
       if (astroProps === null) {
-        return reply.status(404).send({ error: "Could not parse character data from page" });
+        return notFound(reply, "Could not parse character data from page");
       }
 
       const propsDecoded = decodeAstroPropsAttribute(astroProps);
@@ -503,7 +504,7 @@ export async function botBrowserJannyRoutes(app: FastifyInstance) {
       const character = decodeAstroValue(propsJson.character) as Record<string, unknown> | null;
 
       if (!character) {
-        return reply.status(404).send({ error: "No character data found in page" });
+        return notFound(reply, "No character data found in page");
       }
 
       const creatorMatch = html.match(/Creator:\s*(?:<\/[^>]+>\s*)?<a[^>]*>@?([^<]+)<\/a>/);
@@ -544,7 +545,7 @@ export async function botBrowserJannyRoutes(app: FastifyInstance) {
     const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
       const image = await fetchAvatarImage(`${JANNY_IMAGE_BASE}${avatarPath}`, controller.signal);
-      if (!image) return reply.status(404).send({ error: "Avatar not found" });
+      if (!image) return notFound(reply, "Avatar not found");
       return reply
         .header("Content-Type", image.mimeType)
         .header("Cache-Control", "public, max-age=86400")

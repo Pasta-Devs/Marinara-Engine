@@ -1,7 +1,12 @@
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LogIn, Power, PowerOff, Users } from "lucide-react";
-import type { MultiplayerGuestSession, MultiplayerPersona, MultiplayerPreview } from "@marinara-engine/shared";
+import type {
+  MultiplayerGuestSession,
+  MultiplayerPersona,
+  MultiplayerPreview,
+  MultiplayerPreviewBody,
+} from "@marinara-engine/shared";
 import { multiplayerActionError, useMultiplayerMutation, useMultiplayerStatus } from "../../hooks/use-multiplayer";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -141,7 +146,7 @@ function MultiplayerJoin() {
   const [displayName, setDisplayName] = useState("");
   const [persona, setPersona] = useState<MultiplayerPersona>({ name: "", description: "" });
   const [consent, setConsent] = useState(false);
-  const preview = useMultiplayerMutation<MultiplayerPreview, { inviteCode: string }>("/multiplayer/preview");
+  const preview = useMultiplayerMutation<MultiplayerPreview, MultiplayerPreviewBody>("/multiplayer/preview");
   const join = useMultiplayerMutation<
     MultiplayerGuestSession,
     { inviteCode: string; password: string; displayName: string; persona: MultiplayerPersona; consent: boolean }

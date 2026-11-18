@@ -4,16 +4,32 @@
 import { redactStoredSecretsDeep } from "../utils/stored-secrets.js";
 import {
   chatIdForMariSession,
-  MARI_PERMISSIONS_MODES,
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
-  MARI_RUNTIMES,
   MARI_RUNTIME_SETTINGS_KEY,
   MARI_SKILL_GATE_SETTINGS_KEY,
   withMariReceiptOutcome,
   type MariPendingMessage,
+  mariWorkspaceAbortSchema,
+  mariWorkspaceContextCreateSchema,
+  mariWorkspaceInstructionCreateSchema,
+  mariWorkspaceInstructionUpdateSchema,
+  mariWorkspaceApproveSchema,
+  mariWorkspaceCliSchema,
+  mariWorkspacePendingCreateSchema,
+  mariWorkspacePermissionsModeSchema,
+  mariWorkspaceRejectRowsSchema,
+  mariWorkspaceRenderPromptSchema,
+  mariWorkspaceResetSchema,
+  mariWorkspaceRuntimeSchema,
+  mariWorkspaceSkillCreateSchema,
+  mariWorkspaceSkillGateSchema,
+  mariWorkspaceSkillUpdateSchema,
+  professorMariPromptSchema,
 } from "@marinara-engine/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { z } from "zod";
+
+// The documentation regression imports this from here.
+export { professorMariPromptSchema };
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { isSseReplyWritable, sendSseEvent, startSseKeepalive, startSseReply } from "./generate/sse.js";
 import {
@@ -46,258 +62,9 @@ import { listCanonicalDocumentation } from "../services/professor-mari/documenta
 import { getMonorepoRoot } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
-import {
-  createMariInstructionsStorage,
-  MAX_INSTRUCTION_CONTENT_LENGTH,
-  MAX_INSTRUCTION_DESCRIPTION_LENGTH,
-  MAX_INSTRUCTION_NAME_LENGTH,
-} from "../services/storage/mari-instructions.storage.js";
-import {
-  createMariWorkspaceContextStorage,
-  MAX_CONTEXT_ITEM_CONTENT_LENGTH,
-  MAX_CONTEXT_LABEL_LENGTH,
-} from "../services/storage/mari-workspace-context.storage.js";
-
-export const professorMariPromptSchema = z.object({
-  chatId: z.string().min(1),
-  message: z.string().min(1),
-  connectionId: z.string().optional().nullable(),
-  debugMode: z.boolean().optional().default(false),
-  existingUserMessageId: z.string().min(1).optional(),
-  // Send on a held queued message: the server takes it from the queue and uses ITS text, attachments, references
-  // and context instead of the ones above.
-  pendingMessageId: z.string().min(1).max(100).optional(),
-  queuedSinceSendIds: z.array(z.string().min(1).max(100)).max(100).optional(),
-  seasonalPackId: z.string().max(40).optional(),
-  context: z
-    .object({
-      source: z.enum([
-        "home",
-        "floating-assistant",
-        "command-center",
-        "faq",
-        "character-chat",
-        "character-editor",
-        "persona-editor",
-        "lorebook-editor",
-        "preset-editor",
-        "connection-editor",
-        "agent-editor",
-        "settings",
-        "game-setup",
-        "chat-error",
-      ]),
-      capability: z.enum(["explain", "recommend", "create", "edit", "repair", "navigate"]),
-      query: z.string().max(500).optional(),
-      resource: z
-        .object({
-          kind: z.enum([
-            "character",
-            "persona",
-            "lorebook",
-            "preset",
-            "connection",
-            "agent",
-            "setting",
-            "chat",
-            "game",
-          ]),
-          id: z.string().min(1).max(200),
-          label: z.string().max(200).optional(),
-        })
-        .optional(),
-      relatedResources: z
-        .array(
-          z.object({
-            kind: z.enum(["character", "persona", "lorebook", "preset", "connection", "agent"]),
-            id: z.string().min(1).max(200),
-            label: z.string().max(200).optional(),
-          }),
-        )
-        .max(4)
-        .optional(),
-      field: z.string().min(1).max(200).optional(),
-      fieldId: z.string().min(1).max(200).optional(),
-      fieldDraft: z.object({ value: z.string().max(20_000), selection: z.string().max(4_000).optional() }).optional(),
-      declinedFields: z
-        .array(z.object({ entityId: z.string().min(1).max(200), fieldId: z.string().min(1).max(300) }))
-        .max(50)
-        .optional(),
-      error: z.object({ message: z.string().min(1).max(2_000), code: z.string().max(200).optional() }).optional(),
-      action: z.string().max(500).optional(),
-      commandCenterResultId: z.string().min(1).max(256).optional(),
-      activeChat: z
-        .object({
-          id: z.string().min(1).max(256),
-          label: z.string().max(200).optional(),
-          mode: z.string().max(32).optional(),
-        })
-        .optional(),
-      settingsLocation: z
-        .object({ tab: z.string().max(64).optional(), controlId: z.string().max(128).optional() })
-        .optional(),
-      asideAnswer: z
-        .object({
-          query: z.string().max(500),
-          answer: z.string().max(4_000),
-          tier: z.enum(["local", "remote"]),
-          sources: z
-            .array(z.object({ path: z.string().max(300), heading: z.string().max(300) }))
-            .max(3)
-            .optional(),
-        })
-        .optional(),
-    })
-    .optional(),
-  attachments: z
-    .array(
-      z.object({
-        type: z.string().min(1),
-        data: z.string().min(1),
-        name: z.string().optional(),
-        filename: z.string().optional(),
-      }),
-    )
-    .optional()
-    .default([]),
-  // `@` links from the composer: resolved once, beside this message (the ids are re-read server-side).
-  references: z
-    .array(
-      z.object({
-        kind: z.enum([
-          "character",
-          "persona",
-          "lorebook",
-          "lorebookEntry",
-          "preset",
-          "skill",
-          "memory",
-          "chat",
-          "doc",
-          "agent",
-        ]),
-        id: z.string().min(1).max(200),
-        // A long record name or doc heading is cut, not a reason to refuse the whole message.
-        label: z
-          .string()
-          .min(1)
-          .transform((label) => label.slice(0, 200)),
-        parentId: z.string().max(200).optional(),
-      }),
-    )
-    .max(8)
-    .optional()
-    .default([]),
-});
-
-// A message queued while she works: the prompt's own shapes for what it carries.
-const pendingCreateSchema = professorMariPromptSchema
-  .pick({
-    chatId: true,
-    message: true,
-    attachments: true,
-    references: true,
-    context: true,
-  })
-  .extend({ steer: z.boolean().optional() });
-
-const abortSchema = z.object({
-  // Stop from the composer names its chat: that chat's queue comes back to the user instead of staying held.
-  chatId: z.string().min(1).optional(),
-});
-
-const resetSchema = z.object({
-  clearHistory: z.boolean().optional(),
-  // F12: Dismiss only needs the last-error flag cleared; a stale client error (poll lag, another
-  // tab) must not abort a run that is genuinely in flight.
-  keepRun: z.boolean().optional(),
-});
-
-// #5073: attached workspace context (chat-history slices). content is the already-serialized JSON;
-// the client builds it from the chat-history picker and estimates the token cost.
-const contextCreateSchema = z.object({
-  chatId: z.string().min(1),
-  kind: z.literal("chat_history").optional(),
-  label: z.string().min(1).max(MAX_CONTEXT_LABEL_LENGTH),
-  sourceChatId: z.string().optional().nullable(),
-  content: z.string().min(1).max(MAX_CONTEXT_ITEM_CONTENT_LENGTH),
-  tokenEstimate: z.number().int().nonnegative().optional(),
-});
-
-const cliSchema = z.object({
-  argv: z.array(z.string()).default([]),
-  command: z.string().optional(),
-  cwd: z.string().optional(),
-  sessionId: z.string().optional(),
-});
-
-const skillCreateSchema = z.object({
-  name: z.string().max(64).optional().nullable(),
-  description: z.string().max(1024).optional().nullable(),
-  fileName: z.string().max(240).optional().nullable(),
-  content: z.string().min(1).max(200_000),
-  enabled: z.boolean().optional(),
-});
-
-const skillUpdateSchema = z.object({
-  name: z.string().max(64).optional().nullable(),
-  description: z.string().max(1024).optional().nullable(),
-  content: z.string().max(200_000).optional().nullable(),
-  enabled: z.boolean().optional(),
-});
-
-// #4851: memories are edited directly by the user in the Memories panel (the user is
-// the reviewer of their own memory), so these routes deliberately do NOT call
-// workspaceService.reset(); a reset aborts Mari's in-flight turn, and the memory
-// injection is re-read live per turn, so no agent rebuild is needed.
-const instructionCreateSchema = z.object({
-  name: z.string().min(1).max(MAX_INSTRUCTION_NAME_LENGTH),
-  description: z.string().max(MAX_INSTRUCTION_DESCRIPTION_LENGTH).optional().default(""),
-  content: z.string().min(1).max(MAX_INSTRUCTION_CONTENT_LENGTH),
-  persistent: z.boolean().optional().default(false),
-  enabled: z.boolean().optional().default(false),
-});
-
-const instructionUpdateSchema = z.object({
-  name: z.string().min(1).max(MAX_INSTRUCTION_NAME_LENGTH).optional(),
-  description: z.string().max(MAX_INSTRUCTION_DESCRIPTION_LENGTH).optional(),
-  content: z.string().min(1).max(MAX_INSTRUCTION_CONTENT_LENGTH).optional(),
-  persistent: z.boolean().optional(),
-  enabled: z.boolean().optional(),
-});
-
-const approveSchema = z.object({
-  enable: z.boolean().optional(),
-});
-
-// #4931: per-row reject. Each row is the diffPreview index plus a {table,id,action} consistency
-// tuple the server re-checks against plan.changes[index] before reverting.
-const rejectRowRowSchema = z.object({
-  index: z.number().int().nonnegative(),
-  table: z.string().min(1),
-  id: z.string().min(1),
-  action: z.enum(["insert", "update", "replace", "delete"]),
-});
-
-const rejectRowsSchema = z.object({
-  rows: z.array(rejectRowRowSchema).min(1),
-});
-
-// #4931: synthetic Peek-Prompt render of one reviewed character/preset row (same identity tuple).
-const renderPromptSchema = rejectRowRowSchema;
-
-// #5725 Permissions Mode. A dedicated validated route owns the setting (the
-// docs-language pattern) - it is deliberately NOT in app-settings ALLOWED_KEYS,
-// so nothing can write junk the per-run reader would have to distrust.
-const permissionsModeSchema = z.object({
-  // mode null + chatId clears that chat's override back to the default.
-  mode: z.enum(MARI_PERMISSIONS_MODES).nullable(),
-  chatId: z.string().min(1).optional(),
-});
-
-// Professor Mari's runtime ("classic" or "pi"): the same validated-route pattern, global only.
-const runtimeSchema = z.object({ runtime: z.enum(MARI_RUNTIMES) });
-const skillGateSchema = z.object({ enabled: z.boolean() });
+import { createMariInstructionsStorage } from "../services/storage/mari-instructions.storage.js";
+import { createMariWorkspaceContextStorage } from "../services/storage/mari-workspace-context.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 /**
  * What the user reads when Keep or Restore fails (#6842), instead of a bare "Internal Server
@@ -376,7 +143,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
   app.post("/abort", async (req, reply) => {
     if (!privileged(req, reply)) return;
     stopCount += 1;
-    const input = abortSchema.parse(req.body ?? {});
+    const input = mariWorkspaceAbortSchema.parse(req.body ?? {});
     // Cleared BEFORE the abort, so the drain that wakes up when the run stops finds nothing left to send. Without
     // a chatId the queue stays held, as before.
     let returned: MariPendingMessage[] = [];
@@ -395,7 +162,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
   // Messages typed while she works. Summaries only on the way out: attachments can be 20 MB each.
   app.post("/pending", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = pendingCreateSchema.parse(req.body);
+    const input = mariWorkspacePendingCreateSchema.parse(req.body);
     const chat = await createChatsStorage(app.db).getById(input.chatId);
     let metadata: Record<string, unknown> = {};
     try {
@@ -404,7 +171,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       // Unreadable metadata counts as no marker below.
     }
     if (!chat || metadata.internalAssistant !== "professor-mari") {
-      return reply.status(404).send({ error: "Professor Mari chat not found" });
+      return notFound(reply, "Professor Mari chat not found");
     }
     let added: { id: string };
     try {
@@ -449,7 +216,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post("/reset", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = resetSchema.parse(req.body ?? {});
+    const input = mariWorkspaceResetSchema.parse(req.body ?? {});
     await getProfessorMariWorkspaceService(app).reset({
       clearHistory: input.clearHistory === true,
       keepRun: input.keepRun === true,
@@ -470,7 +237,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post("/skills", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = skillCreateSchema.parse(req.body);
+    const input = mariWorkspaceSkillCreateSchema.parse(req.body);
     const skill = await getProfessorMariWorkspaceSkillsService().create(input);
     await getProfessorMariWorkspaceService(app).reset();
     return { ok: true, skill };
@@ -483,7 +250,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     if (await getProfessorMariWorkspaceSkillsService().isReadOnly(req.params.id)) {
       return reply.code(403).send({ error: "Built-in skills are read-only. Copy it into a new skill to change it." });
     }
-    const input = skillUpdateSchema.parse(req.body);
+    const input = mariWorkspaceSkillUpdateSchema.parse(req.body);
     const skill = await getProfessorMariWorkspaceSkillsService().update(req.params.id, input);
     await getProfessorMariWorkspaceService(app).reset();
     return { ok: true, skill };
@@ -499,7 +266,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  // #4851: Memories management panel. Direct, reset-free writes (see instructionCreateSchema note).
+  // #4851: Memories management panel. Direct, reset-free writes (see mariWorkspaceInstructionCreateSchema note).
   // #5725: Permissions Mode. Reads never reset() the agent (the memories
   // convention) - a mode switch must not abort an in-flight turn; the next
   // run reads the new mode.
@@ -510,7 +277,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.put("/permissions-mode", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = permissionsModeSchema.parse(req.body);
+    const input = mariWorkspacePermissionsModeSchema.parse(req.body);
     if (input.chatId) {
       // Per-chat override (#5725 maintainer call): stored in chat metadata via
       // the queued patch (#5076), null clears it. isMariPermissionsMode treats
@@ -518,7 +285,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       const patched = await createChatsStorage(app.db).patchMetadata(input.chatId, {
         mariPermissionsMode: input.mode,
       });
-      if (!patched) return reply.status(404).send({ error: "Chat not found" });
+      if (!patched) return notFound(reply, "Chat not found");
       return { ok: true, mode: input.mode, chatId: input.chatId };
     }
     if (input.mode === null) {
@@ -536,7 +303,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.put("/runtime", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = runtimeSchema.parse(req.body);
+    const input = mariWorkspaceRuntimeSchema.parse(req.body);
     await createAppSettingsStorage(app.db).set(MARI_RUNTIME_SETTINGS_KEY, input.runtime);
     getProfessorMariWorkspaceService(app).resetRuntimeFailures();
     return { ok: true, runtime: input.runtime };
@@ -549,7 +316,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.put("/skill-gate", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = skillGateSchema.parse(req.body);
+    const input = mariWorkspaceSkillGateSchema.parse(req.body);
     await createAppSettingsStorage(app.db).set(MARI_SKILL_GATE_SETTINGS_KEY, input.enabled ? "true" : "false");
     return { ok: true, enabled: input.enabled };
   });
@@ -561,23 +328,23 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post("/instructions", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = instructionCreateSchema.parse(req.body);
+    const input = mariWorkspaceInstructionCreateSchema.parse(req.body);
     const instruction = await createMariInstructionsStorage(app.db).create(input);
     return { ok: true, instruction };
   });
 
   app.put<{ Params: { id: string } }>("/instructions/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = instructionUpdateSchema.parse(req.body);
+    const input = mariWorkspaceInstructionUpdateSchema.parse(req.body);
     const instruction = await createMariInstructionsStorage(app.db).update(req.params.id, input);
-    if (!instruction) return reply.status(404).send({ error: "Memory not found" });
+    if (!instruction) return notFound(reply, "Memory not found");
     return { ok: true, instruction };
   });
 
   app.delete<{ Params: { id: string } }>("/instructions/:id", async (req, reply) => {
     if (!privileged(req, reply)) return;
     const removed = await createMariInstructionsStorage(app.db).remove(req.params.id);
-    if (!removed) return reply.status(404).send({ error: "Memory not found" });
+    if (!removed) return notFound(reply, "Memory not found");
     return { ok: true };
   });
 
@@ -592,7 +359,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post("/context", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const input = contextCreateSchema.parse(req.body);
+    const input = mariWorkspaceContextCreateSchema.parse(req.body);
     const item = await createMariWorkspaceContextStorage(app.db).create(input);
     return { ok: true, item };
   });
@@ -605,7 +372,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     const chatIdRaw = req.query.chatId;
     const chatId = typeof chatIdRaw === "string" ? chatIdRaw.trim() : "";
     const removed = await createMariWorkspaceContextStorage(app.db).remove(req.params.id, chatId || undefined);
-    if (!removed) return reply.status(404).send({ error: "Attached context not found" });
+    if (!removed) return notFound(reply, "Attached context not found");
     return { ok: true };
   });
 
@@ -729,7 +496,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     }
     // #4851: "Keep & Enable" for a memory insert passes { enable: true } so the kept row
     // is switched on in the same action (memories land disabled by default).
-    const { enable } = approveSchema.parse(req.body ?? {});
+    const { enable } = mariWorkspaceApproveSchema.parse(req.body ?? {});
     let result: Awaited<ReturnType<ReturnType<typeof getMariDbService>["keepAppliedReviewAndWait"]>>;
     try {
       result = await getMariDbService(app.db).keepAppliedReviewAndWait(req.params.id, { enable });
@@ -737,7 +504,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       req.log.error(err, "[professor-mari] Keep failed");
       return reply.status(500).send({ error: reviewActionFailure(err, "keep") });
     }
-    if (!result) return reply.status(404).send({ error: "Applied change review not found" });
+    if (!result) return notFound(reply, "Applied change review not found");
     if (result.approval.affectedTables.installed_extensions) await personalServerExtensionRuntime.reloadAll();
     await recordMariReceiptOutcome(app, result.approval.sessionId, result.approval.id, "kept");
     return { ok: true, ...result };
@@ -757,7 +524,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
       req.log.error(err, "[professor-mari] Restore failed");
       return reply.status(500).send({ error: reviewActionFailure(err, "restore") });
     }
-    if (!result) return reply.status(404).send({ error: "Applied change review not found" });
+    if (!result) return notFound(reply, "Applied change review not found");
     if ("outcome" in result && result.outcome === "state_changed") {
       // #4852 F2: the row changed after Mari staged this review, so the restore was a no-op that
       // left the newer data intact. Return 200 with ok:false (a non-2xx would land in the client's
@@ -772,9 +539,9 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>("/approvals/:id/reject-rows", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const { rows } = rejectRowsSchema.parse(req.body ?? {});
+    const { rows } = mariWorkspaceRejectRowsSchema.parse(req.body ?? {});
     const result = await getMariDbService(app.db).rejectRows(req.params.id, rows);
-    if (!result) return reply.status(404).send({ error: "Applied change review not found" });
+    if (!result) return notFound(reply, "Applied change review not found");
     if ("outcome" in result) {
       // state_changed (#4852 F2) or invalid_selection: nothing was reverted. Return 200 with
       // ok:false so the client shows result.error inline instead of a generic catch, mirroring the
@@ -786,9 +553,9 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>("/approvals/:id/render-prompt", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    const body = renderPromptSchema.parse(req.body ?? {});
+    const body = mariWorkspaceRenderPromptSchema.parse(req.body ?? {});
     const change = getMariDbService(app.db).getPendingChangeRaw(req.params.id, body.index);
-    if (!change) return reply.status(404).send({ error: "Applied change review not found" });
+    if (!change) return notFound(reply, "Applied change review not found");
     if (change.table !== body.table || change.id !== body.id || change.action !== body.action) {
       return reply.status(409).send({ error: "This review changed since it was shown. Reopen it and try again." });
     }
@@ -809,7 +576,7 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
 
   app.post("/db/command", async (req, reply) => {
     if (!privileged(req, reply, true)) return;
-    const body = cliSchema.parse(req.body);
+    const body = mariWorkspaceCliSchema.parse(req.body);
     // #9342: `mari images look` pictures only reach Mari through her direct runtime; the shell CLI would print
     // megabytes of base64, so it gets a note instead.
     const { images, ...result } = await getMariDbService(app.db).executeCli(body);

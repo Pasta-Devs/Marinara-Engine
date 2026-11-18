@@ -9,6 +9,7 @@ import { pipeline } from "stream/promises";
 import { nanoid } from "nanoid";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir } from "../utils/security.js";
+import { notFound } from "../utils/not-found.js";
 
 const SOURCES_DIR = join(DATA_DIR, "knowledge-sources");
 const META_FILE = join(SOURCES_DIR, "meta.json");
@@ -257,7 +258,7 @@ export async function knowledgeSourcesRoutes(app: FastifyInstance) {
     const meta = readMeta();
     const entry = meta[id];
     if (!entry) {
-      return reply.status(404).send({ error: "Source not found" });
+      return notFound(reply, "Source not found");
     }
 
     const filePath = resolveSourcePath(entry.filename);
@@ -288,12 +289,12 @@ export async function knowledgeSourcesRoutes(app: FastifyInstance) {
     const meta = readMeta();
     const entry = meta[id];
     if (!entry) {
-      return reply.status(404).send({ error: "Source not found" });
+      return notFound(reply, "Source not found");
     }
 
     const filePath = resolveSourcePath(entry.filename);
     if (!filePath || !existsSync(filePath)) {
-      return reply.status(404).send({ error: "File not found on disk" });
+      return notFound(reply, "File not found on disk");
     }
 
     const text = await extractFileText(filePath, id, { size: entry.size, uploadedAt: entry.uploadedAt });

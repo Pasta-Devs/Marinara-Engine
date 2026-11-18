@@ -43,6 +43,7 @@ import {
   resolveMacros,
   type MacroContext,
   type RegexPlacement,
+  type RegexApplyMode,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
@@ -65,8 +66,6 @@ const PLACEMENT_META: Record<RegexPlacement, { label: string; description: strin
 const REGEX_FIELD_ICON_CLASS = "mari-chrome-accent-icon mari-accent-animated";
 const REGEX_ACTIVE_OPTION_CLASS =
   "mari-chrome-accent-surface mari-accent-animated ring-[var(--marinara-chat-chrome-button-border-active)]";
-type RegexApplyMode = "prompt" | "display" | "both";
-
 const APPLY_MODE_META: Record<RegexApplyMode, { label: string; description: string }> = {
   display: {
     label: "ui.agents.regexscripteditor.applyModeDisplay",

@@ -4,6 +4,7 @@
 // to a chat — user picks option(s) per variable.
 // Supports single-select and multi-select modes.
 // ──────────────────────────────────────────────
+import type { ChoiceDisplayMode, ChoiceOptionSort, ChoiceOption } from "@marinara-engine/shared";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
@@ -27,15 +28,6 @@ interface ChoiceSelectionModalProps {
   existingChoices?: Record<string, string | string[]>;
   chatFloatingPanel?: boolean;
 }
-
-interface ChoiceOption {
-  id: string;
-  label: string;
-  value: string;
-}
-
-type ChoiceDisplayMode = "auto" | "buttons" | "listbox";
-type ChoiceOptionSort = "manual" | "alphabetical";
 
 interface VariableData {
   id: string;

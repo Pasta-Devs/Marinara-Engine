@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
+import { notFound } from "../utils/not-found.js";
 
 const NOTIFICATION_SOUNDS_DIR = join(DATA_DIR, "notification-sounds");
 const MAX_NOTIFICATION_SOUND_BYTES = 10 * 1024 * 1024;
@@ -193,7 +194,7 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
 
   app.get("/file", async (_req, reply) => {
     const sound = await findStoredNotificationSound();
-    if (!sound) return reply.status(404).send({ error: "No custom notification sound." });
+    if (!sound) return notFound(reply, "No custom notification sound.");
     // Open a handle before replying: a concurrent replace/delete can remove
     // the file after discovery, and an open handle keeps the bytes readable.
     let handle;
@@ -201,7 +202,7 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
       handle = await open(sound.path, "r");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return reply.status(404).send({ error: "No custom notification sound." });
+        return notFound(reply, "No custom notification sound.");
       }
       throw error;
     }

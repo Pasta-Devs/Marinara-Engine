@@ -33,6 +33,7 @@ import {
   withWriterReferenceFallback,
   writerVisionKey,
 } from "../image/writer-reference-pictures.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
@@ -67,10 +68,6 @@ export type ManualIllustratorPromptResult = {
   plan: ManualIllustratorPromptPlan;
   tokensUsed: number;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function readTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";

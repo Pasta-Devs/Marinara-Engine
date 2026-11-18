@@ -44,6 +44,7 @@ import {
   readConnectionBalance,
 } from "../services/connections/balance.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 const createAccountBodySchema = createConnectionAccountSchema.partial({ name: true }).extend({
   /** First Model under the new account. Empty keeps the picker open for the client. */
@@ -176,7 +177,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     const before = input.apiKey ? await accounts.getById(req.params.id) : null;
     const oldKey = before ? decryptApiKey(before.apiKeyEncrypted) : "";
     const updated = await accounts.update(req.params.id, input);
-    if (!updated) return reply.status(404).send({ error: "Connection not found" });
+    if (!updated) return notFound(reply, "Connection not found");
     forgetConnectionBalance(updated.id);
     if (input.apiKey !== undefined || input.baseUrl !== undefined) resetMemoryRecallVectorizerCache();
     // A new key: name the other Connections that still hold the old one, so the client can offer to update them.
@@ -218,7 +219,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
   // What is left on the account, for services with a balance endpoint; `{ balance: null }` for the rest.
   app.get<{ Params: { id: string }; Querystring: { refresh?: string } }>("/:id/balance", async (req, reply) => {
     const account = await accounts.getById(req.params.id);
-    if (!account) return reply.status(404).send({ error: "Connection not found" });
+    if (!account) return notFound(reply, "Connection not found");
     if (!(await readsAllowed())) return { balance: null };
     return sendBalance(reply, account.id, () => ownBalance(account, req.query.refresh === "true"));
   });
@@ -229,7 +230,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     "/:id/usage-keys/:upstream/balance",
     async (req, reply) => {
       const account = await accounts.getById(req.params.id);
-      if (!account) return reply.status(404).send({ error: "Connection not found" });
+      if (!account) return notFound(reply, "Connection not found");
       const { upstream } = req.params;
       const entry = readUsageKeys(account)[upstream];
       if (!entry || !upstreamBalanceSource(upstream) || !(await readsAllowed())) return { balance: null };
@@ -265,25 +266,25 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       }
     }
     const updated = await accounts.setUsageKey(req.params.id, upstream, input);
-    if (!updated) return reply.status(404).send({ error: "Connection not found" });
+    if (!updated) return notFound(reply, "Connection not found");
     forgetConnectionBalance(updated.id);
     return listItem(updated);
   });
 
   app.delete<{ Params: { id: string; upstream: string } }>("/:id/usage-keys/:upstream", async (req, reply) => {
     const updated = await accounts.setUsageKey(req.params.id, req.params.upstream, null);
-    if (!updated) return reply.status(404).send({ error: "Connection not found" });
+    if (!updated) return notFound(reply, "Connection not found");
     forgetConnectionBalance(updated.id);
     return listItem(updated);
   });
 
   // Upload the Connection's picture (same checks and folder as a Model's). PATCH `icon` changes or resets it.
   app.post<{ Params: { id: string } }>("/:id/image", async (req, reply) => {
-    if (!(await accounts.getById(req.params.id))) return reply.status(404).send({ error: "Connection not found" });
+    if (!(await accounts.getById(req.params.id))) return notFound(reply, "Connection not found");
     const saved = await saveConnectionImage(req.params.id, req.body);
     if ("error" in saved) return reply.status(400).send(saved);
     const updated = await accounts.setImage(req.params.id, saved.imagePath);
-    if (!updated) return reply.status(404).send({ error: "Connection not found" });
+    if (!updated) return notFound(reply, "Connection not found");
     return listItem(updated);
   });
 
@@ -322,7 +323,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
     const body = splitBodySchema.parse(req.body);
     const source = await accounts.getById(req.params.id);
     if (!source || !(await linkedModel(source.id, body.connectionId))) {
-      return reply.status(404).send({ error: "Model not found in this Connection" });
+      return notFound(reply, "Model not found in this Connection");
     }
     const copy = await copyAccount(source, body.name);
     const moved = await connections.moveToAccount(body.connectionId, copy.id);
@@ -339,7 +340,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
   // settings but take no default roles.
   app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
     const source = await accounts.getById(req.params.id);
-    if (!source) return reply.status(404).send({ error: "Connection not found" });
+    if (!source) return notFound(reply, "Connection not found");
     const copy = await app.db.transaction(async () => {
       const created = await copyAccount(source, `${source.name} (Copy)`);
       for (const row of await accounts.linkedRows(source.id)) {
@@ -358,7 +359,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const result = await accounts.remove(req.params.id);
-    if (result === "not_found") return reply.status(404).send({ error: "Connection not found" });
+    if (result === "not_found") return notFound(reply, "Connection not found");
     if (result !== "deleted") {
       return reply.status(409).send({
         error: "This Connection still has Models. Remove them first.",
@@ -391,7 +392,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       );
       return row ? { connectionId: row.id, created: true } : "failed";
     });
-    if (result === "not_found") return reply.status(404).send({ error: "Connection not found" });
+    if (result === "not_found") return notFound(reply, "Connection not found");
     if (result === "not_chat") return reply.status(400).send({ error: "This Connection cannot hold chat Models." });
     if (result === "failed") return reply.status(500).send({ error: "Could not save the model" });
     if (result === "needs_model")
@@ -416,7 +417,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       const reason = updated ? await modelKeepReason(app.db, updated) : null;
       return { removable: !!updated && reason === null, reason };
     });
-    if (!result) return reply.status(404).send({ error: "Model not found" });
+    if (!result) return notFound(reply, "Model not found");
     return result;
   });
 
@@ -431,7 +432,7 @@ export async function connectionAccountsRoutes(app: FastifyInstance) {
       resetMemoryRecallVectorizerCache();
       return "removed" as const;
     });
-    if (result === "not_found") return reply.status(404).send({ error: "Model not found" });
+    if (result === "not_found") return notFound(reply, "Model not found");
     if (result !== "removed") return reply.status(409).send({ error: "This model is still in use.", reason: result });
     return reply.status(204).send();
   });

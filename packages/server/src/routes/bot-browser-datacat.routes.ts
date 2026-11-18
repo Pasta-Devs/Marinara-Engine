@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { logger } from "../lib/logger.js";
 import { resolveValidatedImage, safeFetch, type OutboundUrlPolicy } from "../utils/security.js";
+import { notFound } from "../utils/not-found.js";
 
 const DATACAT_API_BASE = "https://datacat.run";
 // API calls stay on DataCat itself, like the other Card Browser JSON catalogs.
@@ -257,7 +258,7 @@ export async function botBrowserDatacatRoutes(app: FastifyInstance) {
     const timeout = setTimeout(() => controller.abort(), 15_000);
     try {
       const image = await fetchAvatarImage(url, controller.signal);
-      if (!image) return reply.status(404).send({ error: "Avatar not found" });
+      if (!image) return notFound(reply, "Avatar not found");
       return reply
         .header("Content-Type", image.mimeType)
         .header("Cache-Control", "public, max-age=86400")

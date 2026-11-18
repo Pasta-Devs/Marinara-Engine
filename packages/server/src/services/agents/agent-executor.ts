@@ -99,6 +99,7 @@ import {
   type BeholderPassLane,
 } from "./beholder-state.js";
 import { formatOptionalVideoOffer } from "../generation/image-prompt-instructions.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
@@ -387,10 +388,6 @@ function redactSensitiveValue(value: unknown): unknown {
     redacted[key] = redactSensitiveValue(entry);
   }
   return redacted;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function shouldIncludeQuestContext(agentTypes: string[]): boolean {

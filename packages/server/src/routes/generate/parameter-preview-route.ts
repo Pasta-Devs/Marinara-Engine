@@ -19,6 +19,7 @@ import { resolveModelAccessPolicy } from "../../services/generation/model-access
 import { sentOutputBudget } from "../../services/generation/empty-response-reason.js";
 import { buildGenerationPromptPresetCandidates } from "./prompt-preset-selection.js";
 import { resolveBaseUrl, parseExtra, parseStoredGenerationParameters } from "./generate-route-utils.js";
+import { notFound } from "../../utils/not-found.js";
 
 const previewSchema = z.object({ connectionId: z.string().min(1), chatId: z.string().min(1).optional() });
 
@@ -27,9 +28,9 @@ export async function registerParameterPreviewRoute(app: FastifyInstance) {
   app.post("/parameters", async (request, reply) => {
     const input = previewSchema.parse(request.body);
     const connection = await createConnectionsStorage(app.db).getById(input.connectionId);
-    if (!connection) return reply.status(404).send({ error: "Connection not found" });
+    if (!connection) return notFound(reply, "Connection not found");
     const chat = input.chatId ? await createChatsStorage(app.db).getById(input.chatId) : null;
-    if (input.chatId && !chat) return reply.status(404).send({ error: "Chat not found" });
+    if (input.chatId && !chat) return notFound(reply, "Chat not found");
     const metadata = parseExtra(chat?.metadata);
     const chatMode = chat?.mode ?? "roleplay";
     const presets = createPromptsStorage(app.db);

@@ -29,6 +29,7 @@ import {
 } from "@marinara-engine/shared";
 import { readImageDimensionsFromBuffer } from "../../../utils/image-metadata.js";
 import { getSharp } from "../../../utils/sharp.js";
+import { isRecord } from "../../../utils/large-json.js";
 
 /** PNGTuber Plus avatars have tens of sprites; this only stops a hostile file from asking for thousands. */
 const MAX_SPRITES = 512;
@@ -84,10 +85,6 @@ const DAMAGED = "This PNGTuber Plus save is damaged, so it can't be imported.";
 
 function refuse(message: string): never {
   throw new AvatarImportError("invalid-file", message);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function own(record: Record<string, unknown>, key: string): unknown {

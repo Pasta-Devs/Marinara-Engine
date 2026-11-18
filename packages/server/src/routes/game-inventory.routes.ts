@@ -15,6 +15,7 @@ import {
 import { lootGameFight } from "../services/game/game-loot.service.js";
 import { takeGameStartingGear } from "../services/game/game-starting-gear.service.js";
 import { rollDieSecurely } from "../services/game/dice-rng.js";
+import { notFound } from "../utils/not-found.js";
 
 const restRequestSchema = z
   .object({
@@ -121,7 +122,7 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
       const outcome = applyGameInventoryOps(stacks, ops, undefined, rules, rollDieSecurely);
       return { stacks: outcome.stacks, journal: outcome.journal, value: outcome.results };
     });
-    if (!committed) return reply.status(404).send({ error: "Chat not found" });
+    if (!committed) return notFound(reply, "Chat not found");
     // Read through a typed local: assigned only inside the change, so TS would narrow it to null here.
     const staleIds = stale as string[] | null;
     if (staleIds)
@@ -190,7 +191,7 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid loot", issues: parsed.error.issues.slice(0, 10) });
     }
     const looted = await lootGameFight(app.db, parsed.data.chatId, parsed.data.fight, parsed.data.defeated);
-    if (!looted) return reply.status(404).send({ error: "Chat not found" });
+    if (!looted) return notFound(reply, "Chat not found");
     return looted;
   });
 

@@ -1,12 +1,15 @@
-import type { GameState, InventoryTrackerRowProblem, PlayerStats } from "@marinara-engine/shared";
+import type {
+  GameState,
+  InventoryTrackerRowProblem,
+  PlayerStats,
+  InventoryTrackerGroup,
+} from "@marinara-engine/shared";
 import type { TOptions } from "i18next";
 import {
   excludeInventoryTrackerCarriedDuplicates,
   findInventoryTrackerRowProblem,
   normalizeInventoryTrackerRows,
 } from "@marinara-engine/shared";
-
-type InventoryTrackerGroup = "currencies" | "equipped" | "inventory";
 
 /** Why an edited tracker block doesn't fit its shape. `trackerSliceErrorMessage` words it for the user. */
 export type TrackerSliceError =

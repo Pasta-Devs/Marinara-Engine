@@ -11,6 +11,7 @@ import {
   type APIProvider,
   AUDIO_SOURCE_OPTIONS,
   type DecisionSource,
+  type ChatMode,
 } from "@marinara-engine/shared";
 import { Modal } from "../../ui/Modal";
 import {
@@ -77,8 +78,6 @@ import {
 } from "./shared";
 import { Spinner } from "../../ui/Spinner";
 import { Checkbox } from "../../ui/Checkbox";
-
-type ChatMode = "conversation" | "roleplay" | "game";
 
 export interface CreateConnectionModalProps {
   open: boolean;
