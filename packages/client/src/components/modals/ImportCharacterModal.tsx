@@ -635,51 +635,51 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleFiles(
-                        pendingLorebookChoice.files,
-                        "none",
-                        pendingLorebookChoice.updatePlan,
-                        pendingLorebookChoice.inspections,
-                      )
-                    }
-                    className={SHEET_BUTTON_SECONDARY}
-                  >
-                    {localizeUi("ui.modals.importcharactermodal.noImport")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleFiles(
-                        pendingLorebookChoice.files,
-                        "hidden",
-                        pendingLorebookChoice.updatePlan,
-                        pendingLorebookChoice.inspections,
-                      )
-                    }
-                    className={SHEET_BUTTON_SECONDARY}
-                  >
-                    {localizeUi("ui.modals.importcharactermodal.importLorebookHidden")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleFiles(
-                        pendingLorebookChoice.files,
-                        "all",
-                        pendingLorebookChoice.updatePlan,
-                        pendingLorebookChoice.inspections,
-                      )
-                    }
-                    className={SHEET_BUTTON_PRIMARY}
-                  >
-                    {localizeUi("ui.modals.importcharactermodal.importLorebook")}
-                  </button>
-                </div>
               </div>
+            </div>
+            <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end [&>button]:whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() =>
+                  void handleFiles(
+                    pendingLorebookChoice.files,
+                    "none",
+                    pendingLorebookChoice.updatePlan,
+                    pendingLorebookChoice.inspections,
+                  )
+                }
+                className={SHEET_BUTTON_SECONDARY}
+              >
+                {localizeUi("ui.modals.importcharactermodal.noImport")}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void handleFiles(
+                    pendingLorebookChoice.files,
+                    "hidden",
+                    pendingLorebookChoice.updatePlan,
+                    pendingLorebookChoice.inspections,
+                  )
+                }
+                className={SHEET_BUTTON_SECONDARY}
+              >
+                {localizeUi("ui.modals.importcharactermodal.importLorebookHidden")}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void handleFiles(
+                    pendingLorebookChoice.files,
+                    "all",
+                    pendingLorebookChoice.updatePlan,
+                    pendingLorebookChoice.inspections,
+                  )
+                }
+                className={SHEET_BUTTON_PRIMARY}
+              >
+                {localizeUi("ui.modals.importcharactermodal.importLorebook")}
+              </button>
             </div>
           </div>
         )}
