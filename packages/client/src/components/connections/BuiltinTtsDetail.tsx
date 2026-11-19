@@ -519,9 +519,7 @@ export function BuiltinTtsDetail() {
 
   const describe = (model: BuiltinTtsModelInfo) =>
     [
-      installed(model.id)
-        ? ""
-        : t("connections.builtinEmbedding.notDownloadedSize", { size: formatBytes(model.downloadBytes) }),
+      // Status and size are in the header, the dropdown and the Download button; languages have their own row.
       model.id === recommended ? t("connections.builtinTts.recommendedForLanguage") : "",
       t(model.id === "supertonic-3" ? "connections.builtinTts.aboutSupertonic" : "connections.builtinTts.aboutKokoro", {
         voices: data.voices.filter((entry) => entry.model === model.id).length,

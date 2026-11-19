@@ -79,7 +79,7 @@ export function MemoryRecallMemoriesModal({
 
   const openBuiltinEmbeddings = () => {
     onClose();
-    useUIStore.getState().openConnectionDetail("device:embeddings");
+    useUIStore.getState().openConnectionsPanelPage("device:local-model#BuiltinEmbeddingDetail");
   };
 
   const handleExport = async () => {

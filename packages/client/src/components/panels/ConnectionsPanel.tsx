@@ -524,6 +524,41 @@ export function ConnectionsPanel() {
     },
     [wide],
   );
+  // A button elsewhere (Memories, Defaults) asked for one of this panel's pages. "#Name" after the key scrolls to
+  // that part of the page (data-component="Name"), such as the embedding model further down the built-in model page.
+  const requestedPage = useUIStore((s) => s.connectionsPanelPage);
+  useEffect(() => {
+    if (!requestedPage) return;
+    const [key, part] = requestedPage.split("#");
+    select(key ?? null);
+    useUIStore.getState().clearConnectionsPanelPage();
+    if (!part) return;
+    // The page can still be loading and growing, so keep it in view until it stops moving (or about 8 s pass),
+    // unless the person starts scrolling or typing themselves.
+    let tries = 0;
+    let lastTop: number | null = null;
+    let still = 0;
+    const timer = window.setInterval(() => {
+      const target = document.querySelector<HTMLElement>(`[data-component="${CSS.escape(part)}"]`);
+      if (target) {
+        const top = target.getBoundingClientRect().top;
+        if (lastTop !== null && Math.abs(top - lastTop) < 2) still += 1;
+        else {
+          still = 0;
+          target.scrollIntoView({ block: "start" });
+          lastTop = target.getBoundingClientRect().top;
+        }
+      }
+      if (still >= 5 || ++tries > 80) stop();
+    }, 100);
+    const userEvents = ["wheel", "touchstart", "keydown", "pointerdown"] as const;
+    function stop() {
+      window.clearInterval(timer);
+      for (const name of userEvents) window.removeEventListener(name, stop, true);
+    }
+    for (const name of userEvents) window.addEventListener(name, stop, { capture: true, passive: true });
+    // No cleanup: clearing the request above re-runs this effect, and the page still has to be scrolled.
+  }, [requestedPage, select]);
   // Drill-in moves focus to "‹ Connections", so a keyboard user lands on the new page; going back focuses its row.
   useEffect(() => {
     if (wide) return;
