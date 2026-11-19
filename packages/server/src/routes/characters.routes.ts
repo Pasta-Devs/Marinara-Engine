@@ -30,6 +30,8 @@ import {
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   restoreBakedGreetingImages,
   imageConnectionMakesTransparentPicture,
+  imageConnectionUsesTransparencyTags,
+  NOVELAI_TRANSPARENCY_TAGS,
   resolveOpenAIGifAnimation,
   gallerySheetGrid,
   parseGallerySheetNames,
@@ -648,11 +650,35 @@ function gallerySheetWantsTransparency(
   });
 }
 
+/** Whether a see-through sheet request to this connection is written as NovelAI's transparency tags. */
+function gallerySheetUsesTransparencyTags(conn: {
+  model?: string | null;
+  baseUrl?: string | null;
+  imageGenerationSource?: string | null;
+  imageService?: string | null;
+}): boolean {
+  const model = conn.model || "";
+  const source = conn.imageGenerationSource || model;
+  return imageConnectionUsesTransparencyTags({
+    source,
+    baseUrl: conn.baseUrl || "https://image.pollinations.ai",
+    serviceHint: conn.imageService || source,
+    model,
+  });
+}
+
 /** Ask for a see-through sheet, keeping the green screen as the fallback the gallery keys out when the service
- *  paints a backdrop anyway. A prompt edited so it no longer names the green screen gets the request added. */
-export function withGallerySheetTransparency(prompt: string): string {
+ *  paints a backdrop anyway. A prompt edited so it no longer names the green screen gets the request added. On
+ *  NovelAI (`tags`) the request is its transparency tags with no green fallback, which a tag model would paint. */
+export function withGallerySheetTransparency(prompt: string, tags = false): string {
   const greenScreen =
     /Plain flat solid pure green \(#00FF00\) background everywhere, like a green screen, (with no green in the [^;.]+?)(;|\.)/iu;
+  if (tags) {
+    const request = `${NOVELAI_TRANSPARENCY_TAGS}, no background`;
+    if (greenScreen.test(prompt))
+      return prompt.replace(greenScreen, (_match, _noGreen: string, end: string) => `${request}${end}`);
+    return `${prompt.trimEnd()} ${request}.`;
+  }
   if (greenScreen.test(prompt)) {
     return prompt.replace(
       greenScreen,
@@ -668,6 +694,7 @@ async function buildAvatarGenerationPrompt(
   body: AvatarGenerationBody,
   profile: Pick<ImageStyleProfile, "promptMode" | "subjectTags">,
   seeThrough = false,
+  transparencyTags = false,
 ): Promise<string> {
   const name = body.name?.trim() || (body.purpose === "cover" ? "Lorebook" : "Character");
   const appearance = body.appearance?.trim() || name;
@@ -689,7 +716,7 @@ async function buildAvatarGenerationPrompt(
       body.purpose === "emoji-sheet" ? CHARACTERS_EMOJI_SHEET : CHARACTERS_STICKER_SHEET,
       { name, appearance, count: stickers.length, cols, rows, expressions: stickers.join(", ") },
     );
-    return seeThrough ? withGallerySheetTransparency(sheetPrompt) : sheetPrompt;
+    return seeThrough ? withGallerySheetTransparency(sheetPrompt, transparencyTags) : sheetPrompt;
   }
   return buildAvatarPortraitLeadPrompt({
     name,
@@ -1731,6 +1758,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         body,
         avatarStyleProfile,
         gallerySheetWantsTransparency(body.purpose, resolved.conn),
+        gallerySheetUsesTransparencyTags(resolved.conn),
       ),
       userPositive: purposeInfo.kind === "avatar" ? body.appearance : undefined,
       styleProfiles: imageSettings.styleProfiles,
@@ -1823,7 +1851,13 @@ export async function charactersRoutes(app: FastifyInstance) {
         }
       : compileImagePrompt({
           kind: purposeInfo.kind,
-          prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile, seeThrough),
+          prompt: await buildAvatarGenerationPrompt(
+            promptOverridesStorage,
+            body,
+            avatarStyleProfile,
+            seeThrough,
+            seeThrough && gallerySheetUsesTransparencyTags(conn),
+          ),
           userPositive: purposeInfo.kind === "avatar" ? body.appearance : undefined,
           styleProfiles: imageSettings.styleProfiles,
           styleProfileId: body.styleProfileId,

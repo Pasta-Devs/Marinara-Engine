@@ -3310,6 +3310,11 @@
   gap: 0.5rem;
   min-width: 0;
 }
+/* The buttons always take their own row under the greeting, at every width. On a wide window they used to
+   join the greeting's row and sit over the right side, where themes paint their art (MARI to the Moon's rocket). */
+:root[data-overhaul] .mari-home-hero > .ov-home-hero-buttons {
+  flex: 1 0 100%;
+}
 .ov-home-hero-actions {
   display: flex;
   flex-wrap: wrap;
