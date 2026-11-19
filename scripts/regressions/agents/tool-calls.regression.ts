@@ -372,6 +372,23 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "web_fetch reads <noframes> and <noembed> as page text, and their nesting stays bounded",
+    run() {
+      // htmlparser2 12 parses these two as raw text, so their markup and entities reached the model as written.
+      const frameset = extractReadableText(`<html><head><title>Docs</title></head><frameset><frame src="a.html">
+<noframes><h2>Frame Alert</h2><p>This document is designed to be viewed using the frames feature. Link to <a href="b.html">Non-frame version</a> &amp; more.</p></noframes></frameset></html>`);
+      assert.match(frameset.text, /Frame Alert\n+This document is designed to be viewed using the frames feature\. Link to Non-frame version & more\./u);
+      assert.doesNotMatch(frameset.text, /<[a-z]|&amp;/iu);
+      const embed = extractReadableText("<body><NOEMBED><b>Fallback</b> text &amp; more</NOEMBED></body>");
+      assert.equal(embed.text, "Fallback text & more");
+      const depth = 100_000;
+      const started = Date.now();
+      extractReadableText(`<body><noframes>${"<article>".repeat(depth)}word${"</article>".repeat(depth)}</noframes></body>`);
+      const elapsed = Date.now() - started;
+      assert.ok(elapsed < 1_000, `nesting inside <noframes> took ${elapsed}ms`);
+    },
+  },
+  {
     name: "web_fetch extraction drops chrome, scripts and styles",
     run() {
       const page = `<!doctype html>
