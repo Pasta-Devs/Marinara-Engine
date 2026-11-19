@@ -14,6 +14,7 @@ import {
   resolveSpriteNativeTransparency,
   resolveSpriteSheetCanvas,
   resolveSpriteTransparencyTags,
+  spriteBackgroundNegatives,
   spritesRoutes,
 } from "../../../packages/server/src/routes/sprites.routes.js";
 import type { ImageGenerationDefaultsProfile } from "../../../packages/shared/src/types/image-generation-defaults.js";
@@ -75,6 +76,25 @@ assert.equal(
 );
 assert.equal(resolveSpriteTransparencyTags(novelAi("nai-diffusion-5-full")), true);
 assert.equal(resolveSpriteTransparencyTags({ model: "gpt-image-1", baseUrl: "https://api.openai.com/v1" }), false);
+// Tags only where they reach NovelAI V5 on its own host: a proxy or V4.5 set to Supported keeps the sentence,
+// its colour fallback and the matte contract.
+assert.equal(
+  resolveSpriteTransparencyTags(novelAi("nai-diffusion-5-full", "https://proxy.example.com/v1")),
+  false,
+  "a proxy can't read the tags",
+);
+assert.equal(resolveSpriteTransparencyTags(novelAi("nai-diffusion-4-5-full")), false, "V4.5 ignores the tags");
+assert.equal(resolveSpriteTransparencyTags(novelAi("nai-diffusion-5-full", "https://api.novelai.net")), true);
+// Tagged requests keep every background negative except the transparency terms that would cancel the tags.
+const taggedNegatives = spriteBackgroundNegatives({ nativeTransparentPng: true, transparencyTags: true });
+for (const term of ["scenery", "floor line", "visible grid lines", "panel borders", "white background"]) {
+  assert.ok(taggedNegatives.includes(term), term);
+}
+assert.doesNotMatch(taggedNegatives, /transparen/iu);
+assert.match(
+  spriteBackgroundNegatives({ nativeTransparentPng: true, transparencyTags: false }),
+  /fake transparency, transparency grid/u,
+);
 
 // A Model is asked for a see-through sprite only when it draws one: its Transparent backgrounds setting, else
 // the models known to (Automatic). Any other Model gets the flat chroma colour, never "transparent PNG".
