@@ -605,9 +605,14 @@ assert.match(
   "continuing setup for an existing game resolves the Illustrator choice from the same effective config it persists",
 );
 
+// The schema text lives in packages/shared since the route body schemas moved there.
+const gameRoutesSchemaSource = readFileSync(
+  join(repositoryRoot, "packages/shared/src/schemas/game-routes.schema.ts"),
+  "utf8",
+);
 const gameRoutesSource = readFileSync(join(repositoryRoot, "packages/server/src/routes/game.routes.ts"), "utf8");
 assert.match(
-  gameRoutesSource,
+  gameRoutesSchemaSource,
   /gameImageDynamicPromptEnabled: z\.boolean\(\)\.optional\(\)/u,
   "new-game setup accepts the dynamic Illustrator prompt choice",
 );

@@ -13,7 +13,8 @@ type Row = Record<string, unknown>;
  * row may carry instead. Format 11 moves every authored column into one CharacterData card in
  * `data`, like `characters`, so a persona and a character share one card shape.
  */
-const LEGACY_PERSONA_COLUMNS: Record<keyof PersonaStorageRow, string> = {
+// Public Face arrived after format 11, so no flat row carries it.
+const LEGACY_PERSONA_COLUMNS: Record<Exclude<keyof PersonaStorageRow, "publicFace">, string> = {
   id: "id",
   name: "name",
   comment: "comment",

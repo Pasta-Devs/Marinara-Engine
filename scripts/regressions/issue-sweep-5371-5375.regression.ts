@@ -112,7 +112,7 @@ assert.doesNotMatch(
 );
 assert.match(
   professorMariHomeSource,
-  /const reviewsByTurn = assignReviewsToTurns\(\s*displayMessages,\s*\[\s*\.\.\.visiblePendingChangeReviews\.map/u,
+  /const reviewsByTurn = useMemo\(\s*\(\) =>\s*assignReviewsToTurns\(\s*displayMessages,\s*\[\s*\.\.\.visiblePendingChangeReviews\.map/u,
   "Every visible pending review must be placed in the transcript",
 );
 assert.match(

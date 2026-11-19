@@ -1,6 +1,7 @@
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -57,17 +58,17 @@ for (const kind of ["character", "persona", "lorebook"] as const) {
       const header = folder.locator(':scope > [role="button"]');
       if ((await header.getAttribute("aria-expanded")) !== "true") await header.click();
       const rows = folder.locator(`[data-touch-drag-card="${kind}"]`);
-      const sort = page.locator('select.mari-chrome-sort-field[title="Sort order"]:visible');
-      await sort.selectOption("name-asc");
+      const sort = page.locator('[title="Sort order"] > [role="combobox"]:visible');
+      await chooseOption(page, sort, "A-Z");
       await expect(rows).toHaveCount(2);
       await expect(rows.nth(0)).toContainText(`${prefix} Alpha`);
       await expect(rows.nth(1)).toContainText(`${prefix} Zebra`);
       await page.screenshot({ path: testInfo.outputPath(`${kind}-folder-sort.png`) });
-      await sort.selectOption("name-desc");
+      await chooseOption(page, sort, "Z-A");
       await expect(rows.nth(0)).toContainText(`${prefix} Zebra`);
-      await sort.selectOption("newest");
+      await chooseOption(page, sort, "Newest");
       await expect(rows.nth(0)).toContainText(`${prefix} Alpha`);
-      await sort.selectOption("oldest");
+      await chooseOption(page, sort, "Oldest");
       await expect(rows.nth(0)).toContainText(`${prefix} Zebra`);
       // Character and persona search also match tags (#8427).
       const search = page.getByRole("textbox", {
@@ -165,6 +166,13 @@ for (const theme of ["light", "dark"] as const) {
           });
           expect(response.ok()).toBeTruthy();
           itemId = (await response.json()).id;
+          if (kind === "lorebook") {
+            // A book with no entries has no tokens, so the folder size sort would tie on name.
+            const entry = await request.post(`/api/lorebooks/${itemId}/entries`, {
+              data: { name: "Sized entry", content: "A long entry. ".repeat(80), enabled: true },
+            });
+            expect(entry.ok(), await entry.text()).toBeTruthy();
+          }
           const move =
             kind === "character" || kind === "persona"
               ? await request.patch(`/api/${folderPath}/${ids[2]}`, {
@@ -201,8 +209,19 @@ for (const theme of ["light", "dark"] as const) {
             `data-${kind}-folder-id`,
           );
         const sortSelect = page.locator(
-          `select.mari-chrome-sort-field[title="${kind === "chat" ? "Sort chats" : "Sort order"}"]:visible`,
+          `[title="${kind === "chat" ? "Sort chats" : "Sort order"}"] > [role="combobox"]:visible`,
         );
+        // The sort field shows labels, the test names the value each one saves.
+        const sortLabels: Record<string, string> = {
+          "name-asc": "A-Z",
+          "name-desc": "Z-A",
+          newest: "Newest",
+          oldest: "Oldest",
+          favorites: "Favorites",
+          tokens: "Most tokens",
+          recent: "Recent",
+          custom: kind === "chat" ? "Custom" : "Manual order",
+        };
         // The Connections panel sorts from its More actions menu unless it is two columns wide (#8456).
         const connectionSortLabels: Record<string, RegExp> = {
           "name-asc": /^A.Z$/u,
@@ -215,14 +234,14 @@ for (const theme of ["light", "dark"] as const) {
           page.getByRole("menuitemradio", { name: connectionSortLabels[value] });
         const sort = {
           selectOption: async (value: string) => {
-            if (kind !== "connection") return sortSelect.selectOption(value);
+            if (kind !== "connection") return chooseOption(page, sortSelect, sortLabels[value]!);
             await page.getByRole("button", { name: "More actions", exact: true }).click();
             await connectionSortItem(value).click();
             return [value];
           },
         };
         const expectSort = async (value: string) => {
-          if (kind !== "connection") return expect(sortSelect).toHaveValue(value);
+          if (kind !== "connection") return expect(sortSelect).toHaveAttribute("data-value", value);
           await page.getByRole("button", { name: "More actions", exact: true }).click();
           await expect(connectionSortItem(value)).toHaveAttribute("aria-checked", "true");
           await page.keyboard.press("Escape");

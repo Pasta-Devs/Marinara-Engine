@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseOption, pickerLabels } from "./select-field.js";
 
 const version = (JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string })
   .version;
@@ -39,7 +40,7 @@ test("GPT Image 2.6 Flare and Sunburst are offered with 2.5's quality levels", a
   try {
     await page.goto("/");
     await open();
-    await expect(quality.locator("option")).toHaveCount(4);
+    expect(await pickerLabels(page, quality)).toHaveLength(4);
     for (const [model, name, value, label] of [
       ["gpt-image-2.6-flare", "GPT Image 2.6 Flare", "xhigh", "Extra high"],
       ["gpt-image-2.6-sunburst", "GPT Image 2.6 Sunburst", "max", "Max"],
@@ -48,8 +49,8 @@ test("GPT Image 2.6 Flare and Sunburst are offered with 2.5's quality levels", a
       await expect(row(model)).toHaveCount(1);
       await expect(row(model)).toContainText(name);
       await row(model).click();
-      await expect(quality.locator("option")).toHaveCount(6);
-      await quality.selectOption({ label });
+      expect(await pickerLabels(page, quality)).toHaveLength(6);
+      await chooseOption(page, quality, label);
       await page.getByRole("button", { name: "Save", exact: true }).click();
       await expect
         .poll(async () => {
@@ -59,7 +60,7 @@ test("GPT Image 2.6 Flare and Sunburst are offered with 2.5's quality levels", a
         .toEqual({ model, quality: value });
       await page.reload();
       await open();
-      await expect(quality).toHaveValue(value);
+      await expect(quality).toHaveAttribute("data-value", value);
     }
     expect(errors).toEqual([]);
   } finally {

@@ -1,6 +1,7 @@
 import { compactQuestProgressForContext, formatCustomTrackerFieldForPrompt } from "@marinara-engine/shared";
 import { formatBeholderStateForPrompt, normalizeBeholderState } from "../agents/beholder-state.js";
 import { wrapContent } from "../prompt/format-engine.js";
+import { parseJsonOrNull } from "../../utils/large-json.js";
 
 type WrapFormat = "xml" | "markdown" | "none";
 
@@ -44,15 +45,6 @@ const CHARACTER_RESERVED_CUSTOM_FIELD_NAMES = new Set([
   "thoughts",
   "stats",
 ]);
-
-function parseMaybeJson(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
 
 function asText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -188,7 +180,7 @@ export function buildCommittedTrackerContextBlock(args: {
     if (snap.location) wsParts.push(`Location: ${snap.location}`);
     if (snap.weather) wsParts.push(`Weather: ${snap.weather}`);
     if (snap.temperature) wsParts.push(`Temperature: ${snap.temperature}`);
-    const worldCustomFields = parseMaybeJson(snap.worldCustomFields);
+    const worldCustomFields = parseJsonOrNull(snap.worldCustomFields);
     if (Array.isArray(worldCustomFields)) {
       const customLines: string[] = [];
       for (const field of worldCustomFields) {
@@ -203,7 +195,7 @@ export function buildCommittedTrackerContextBlock(args: {
   }
 
   if (hasCharTracker) {
-    const presentChars = parseMaybeJson(snap.presentCharacters);
+    const presentChars = parseJsonOrNull(snap.presentCharacters);
     if (Array.isArray(presentChars) && presentChars.length > 0) {
       const charLines = presentChars.map(formatCharacterLine).filter(isNonEmptyLine);
       if (charLines.length > 0)
@@ -212,7 +204,7 @@ export function buildCommittedTrackerContextBlock(args: {
   }
 
   if (hasPersonaStats && snap.personaStats) {
-    const psBars = parseMaybeJson(snap.personaStats);
+    const psBars = parseJsonOrNull(snap.personaStats);
     if (Array.isArray(psBars) && psBars.length > 0) {
       const barLines = psBars.map(formatStatLine).filter(isNonEmptyLine);
       if (barLines.length > 0) trackerParts.push(wrapContent(barLines.join("\n"), "Persona Stats", args.wrapFormat));
@@ -220,7 +212,7 @@ export function buildCommittedTrackerContextBlock(args: {
   }
 
   if (snap.playerStats) {
-    const stats = parseMaybeJson(snap.playerStats) as any;
+    const stats = parseJsonOrNull(snap.playerStats) as any;
     if (stats) {
       if (hasPersonaStats && stats.status) {
         trackerParts.push(wrapContent(`Status: ${stats.status}`, "Status", args.wrapFormat));

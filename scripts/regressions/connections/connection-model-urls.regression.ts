@@ -1,5 +1,5 @@
 // Model list and connection test URLs: Google's paged models URL, the catalog URL a connection test fetches, and
-// normalizing a Google base URL.
+// normalizing a Google base URL, plus the ComfyUI model names read from its loader info.
 import assert from "node:assert/strict";
 import {
   buildConnectionTestCatalogUrl,
@@ -54,3 +54,61 @@ assert.equal(
   false,
   "Gemini API keys must stay out of model URLs",
 );
+
+// Issue #3993 — ComfyUI model fetch must list the DiffusionModels (UNETLoader)
+// folder and keep missing loader metadata distinguishable from an empty list.
+{
+  const { parseComfyLoaderModelNames } = await import("../../../packages/server/src/routes/connections.routes.js");
+  const checkpointInfo = {
+    CheckpointLoaderSimple: { input: { required: { ckpt_name: [["sd15.safetensors", "shared.safetensors"]] } } },
+  };
+  const unetInfo = {
+    UNETLoader: {
+      input: { required: { unet_name: [["anima.safetensors", "zimage.safetensors", "shared.safetensors"]] } },
+    },
+  };
+  assert.deepEqual(parseComfyLoaderModelNames(checkpointInfo, "CheckpointLoaderSimple", "ckpt_name"), [
+    "sd15.safetensors",
+    "shared.safetensors",
+  ]);
+  assert.deepEqual(parseComfyLoaderModelNames(unetInfo, "UNETLoader", "unet_name"), [
+    "anima.safetensors",
+    "zimage.safetensors",
+    "shared.safetensors",
+  ]);
+  assert.deepEqual(
+    parseComfyLoaderModelNames(
+      { CheckpointLoaderSimple: { input: { required: { ckpt_name: [[]] } } } },
+      "CheckpointLoaderSimple",
+      "ckpt_name",
+    ),
+    [],
+    "A genuinely empty checkpoint list must stay a list, not a missing-schema signal",
+  );
+  assert.equal(
+    parseComfyLoaderModelNames({}, "CheckpointLoaderSimple", "ckpt_name"),
+    null,
+    "Missing checkpoint schema must be reported as null so the route can 502",
+  );
+  assert.equal(
+    parseComfyLoaderModelNames({}, "UNETLoader", "unet_name"),
+    null,
+    "A ComfyUI build without UNETLoader must be detectable so the route can degrade to checkpoints",
+  );
+  assert.equal(
+    parseComfyLoaderModelNames(
+      { CheckpointLoaderSimple: { input: { required: { ckpt_name: ["not-an-array"] } } } },
+      "CheckpointLoaderSimple",
+      "ckpt_name",
+    ),
+    null,
+    "Malformed options must not be mistaken for an empty model list",
+  );
+  const checkpointNames = parseComfyLoaderModelNames(checkpointInfo, "CheckpointLoaderSimple", "ckpt_name") ?? [];
+  const unetNames = parseComfyLoaderModelNames(unetInfo, "UNETLoader", "unet_name") ?? [];
+  assert.deepEqual(
+    [...new Set([...checkpointNames, ...unetNames])],
+    ["sd15.safetensors", "shared.safetensors", "anima.safetensors", "zimage.safetensors"],
+    "Overlapping names across the two folders must be listed once",
+  );
+}

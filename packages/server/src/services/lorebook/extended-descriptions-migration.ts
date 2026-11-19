@@ -14,6 +14,7 @@ import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const SOURCE_AGENT_ID = "extended-descriptions-migration";
 const MIGRATION_METADATA_KEY = "extendedDescriptionsLorebook";
@@ -39,10 +40,6 @@ type MigrationStats = {
   skippedAlreadyMigrated: number;
   errors: number;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function parseCharacterData(value: unknown): CharacterData | null {
   try {

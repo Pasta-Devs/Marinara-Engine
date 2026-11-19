@@ -16,6 +16,12 @@ A run interval makes an agent run once every few user and assistant messages ins
 
 In Roleplay, Illustrator's run interval is set per chat, in its card in **Chat Settings**. The value in its setup is the default for chats without their own. Illustrator also accepts **0**: it never runs automatically and stays available for Gallery actions.
 
+### Activation Keywords and questions
+
+Most pipeline agents have the same **Activation Keywords** section as [custom agents](custom-agents.md#activation-keywords). Fill it in to skip the agent on turns where it has nothing to do. For example, give Prose Guardian the same words as its **Banned Words** list, and set **Scan Depth** to 1: it then runs only when one of them appears in the new reply. Keywords match anywhere in a word, ignoring case, so `voss` also matches `Vossberg`; that only costs an extra run. An [activation question](custom-agents.md#activation-questions) can gate it on a yes-or-no question to your Decision model instead.
+
+Leave the section empty and the agent runs as before. A tracker that skips a turn keeps its last state until it runs again. Storyboard, Illustrator, Knowledge Retrieval and Knowledge Router have their own activation rules and don't show the section.
+
 ## Apps
 
 Apps have their own tab in **Home**. You use them on their own instead of adding them to a chat. Each asks for a restart after you install it.

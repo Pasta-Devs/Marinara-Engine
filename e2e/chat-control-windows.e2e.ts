@@ -4,6 +4,7 @@ import { openChatTool } from "./chat-settings-tools.js";
 // place anywhere. Bubbles snap into line with each other, and their places save with the chat.
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { closeChatSettings, openChatSettings, resetChatView } from "./chat-settings-tools.js";
 
@@ -641,7 +642,7 @@ test("automatic button rows and columns resize, persist, and restore free positi
     const free = await box(launcher);
     const settings = await openChatSettings(page);
     const layout = settings.getByLabel("Chat button layout", { exact: true });
-    await layout.selectOption("horizontal");
+    await chooseOption(page, layout, "Horizontal rows");
     await expect.poll(async () => (await savedWindowLayout(request, gameId))?.buttonLayout).toBe("horizontal");
     await closeChatSettings(page);
     const horizontal = await box(launcher);
@@ -650,14 +651,17 @@ test("automatic button rows and columns resize, persist, and restore free positi
     await page.reload();
     await expect(launcher).toBeVisible();
     const reopened = await openChatSettings(page);
-    await expect(reopened.getByLabel("Chat button layout", { exact: true })).toHaveValue("horizontal");
-    await reopened.getByLabel("Chat button layout", { exact: true }).selectOption("vertical");
+    await expect(reopened.getByLabel("Chat button layout", { exact: true })).toHaveAttribute(
+      "data-value",
+      "horizontal",
+    );
+    await chooseOption(page, reopened.getByLabel("Chat button layout", { exact: true }), "Vertical columns");
     await closeChatSettings(page);
     const vertical = await Promise.all([GAME_CONTROLS, SESSION, VOLUME].map((id) => box(bubble(page, id))));
     expect(new Set(vertical.map((rect) => rect.x)).size).toBe(1);
     await page.setViewportSize({ width: 1440, height: 900 });
     const finalSettings = await openChatSettings(page);
-    await finalSettings.getByLabel("Chat button layout", { exact: true }).selectOption("free");
+    await chooseOption(page, finalSettings.getByLabel("Chat button layout", { exact: true }), "Free positioning");
     await closeChatSettings(page);
     await expect.poll(async () => (await box(launcher)).x).toBeCloseTo(free.x, 0);
     await expect.poll(async () => (await box(launcher)).y).toBeCloseTo(free.y, 0);

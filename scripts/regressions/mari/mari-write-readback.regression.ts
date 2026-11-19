@@ -450,4 +450,30 @@ assert.match(workspaceAgent, /include the confirmatory read in the SAME response
 // The mismatch alarm is loud and unsmoothing.
 assert.match(workspaceAgent, /does NOT match the intended change \(see readBack\.mismatches\)/u);
 
+// What Mari is told about editing a card: each field keeps its own meaning, an update sends only the changed
+// fields, and she reads the card back before saying it's done. The workspace runtime gets it from the app_data tool
+// and its working rules, the Home chat from the seeded guide.
+{
+  const { WORKSPACE_TOOL_DEFINITIONS, workspaceCommandKnowledgePrompt } =
+    await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
+  const { MARI_ASSISTANT_PROMPT } = await import("../../../packages/server/src/db/seed-mari.js");
+  const appData = WORKSPACE_TOOL_DEFINITIONS.find((tool) => tool.name === "app_data");
+  const properties = (appData?.parameters as { properties: Record<string, { description?: string }> }).properties;
+  for (const field of ["data", "patch"]) {
+    assert.match(
+      properties[field]?.description ?? "",
+      /description is (a|the) brief identity overview.*backstory is [^,]*history.*appearance is physical features/u,
+      `app_data's ${field} keeps the card fields' meanings apart`,
+    );
+  }
+  assert.match(
+    workspaceCommandKnowledgePrompt(),
+    /Updates are patches: send only the changed fields.*Read the entity back\. Claim completion only when every requested value matches\./u,
+  );
+  assert.match(
+    MARI_ASSISTANT_PROMPT,
+    /Keep card fields distinct: description is a brief identity overview.*\n.*Include only fields the user asked to change\. After updating, fetch the character again and compare each requested field/u,
+  );
+}
+
 console.log("Mari write read-back regression passed.");

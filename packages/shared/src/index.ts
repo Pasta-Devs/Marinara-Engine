@@ -64,6 +64,9 @@ export * from "./types/chat-insights.js";
 
 // Schemas
 export * from "./schemas/multiplayer.schema.js";
+export * from "./schemas/professor-mari-workspace.schema.js";
+export * from "./schemas/game-routes.schema.js";
+export * from "./schemas/combat-director.schema.js";
 export * from "./schemas/chat.schema.js";
 export * from "./schemas/chat-preset.schema.js";
 export * from "./schemas/character.schema.js";
@@ -178,6 +181,7 @@ export * from "./constants/settings-registry.js";
 // Feature registries
 export * from "./features/agents/agent-manifest.types.js";
 export * from "./features/agents/storyboard-agent-settings.js";
+export * from "./features/agents/writer-reference-settings.js";
 export {
   BUILT_IN_AGENT_MANIFESTS,
   isBuiltInAgentHostManaged,
@@ -206,6 +210,7 @@ export * from "./utils/onboarding.js";
 export * from "./utils/ui-locales.js";
 export * from "./utils/xml-wrapper.js";
 export * from "./utils/scene-weather.js";
+export * from "./utils/gallery-descriptions.js";
 export * from "./utils/location-backgrounds.js";
 export * from "./utils/music-score.js";
 export * from "./utils/music-dj-folder.js";

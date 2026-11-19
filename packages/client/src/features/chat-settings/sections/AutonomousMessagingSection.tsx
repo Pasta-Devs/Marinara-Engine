@@ -11,6 +11,7 @@ import { cn } from "../../../lib/utils";
 import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
 import { ConversationTimeZoneSelect } from "../../../components/chat/ConversationTimeZoneSelect";
 import { type Chat, type WeekSchedule } from "@marinara-engine/shared";
+import { Select } from "../../../components/ui/Select";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 
 interface AutonomousMessagingSectionProps {
@@ -194,23 +195,24 @@ export function AutonomousMessagingSection({
                 <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                   {localizeUi("ui.chat.chatsettingsdrawer.chatCheckInCap")}
                 </span>
-                <select
-                  aria-label={localizeUi("ui.chat.chatsettingsdrawer.chatCheckInCapMode")}
+                <Select
+                  label={localizeUi("ui.chat.chatsettingsdrawer.chatCheckInCapMode")}
                   value={autonomousDailyCapOverride === null ? "default" : "numeric"}
-                  onChange={(e) =>
+                  options={[
+                    {
+                      value: "default",
+                      label: localizeUi("ui.chat.chatsettingsdrawer.defaultChatCeilingTalkativenessBased"),
+                    },
+                    { value: "numeric", label: localizeUi("ui.chat.chatsettingsdrawer.numericValue") },
+                  ]}
+                  onChange={(value) =>
                     updateMeta.mutate({
                       id: chat.id,
-                      autonomousDailyCapOverride:
-                        e.target.value === "numeric" ? (autonomousDailyCapOverride ?? 8) : null,
+                      autonomousDailyCapOverride: value === "numeric" ? (autonomousDailyCapOverride ?? 8) : null,
                     })
                   }
                   className="mari-chrome-field w-full !rounded-md px-3 py-2 text-xs"
-                >
-                  <option value="default">
-                    {localizeUi("ui.chat.chatsettingsdrawer.defaultChatCeilingTalkativenessBased")}
-                  </option>
-                  <option value="numeric">{localizeUi("ui.chat.chatsettingsdrawer.numericValue")}</option>
-                </select>
+                />
                 {autonomousDailyCapOverride !== null && (
                   <label className="flex items-center justify-between gap-3 rounded-md bg-[var(--background)]/35 px-2.5 py-2">
                     <span className="text-[0.625rem] text-[var(--muted-foreground)]">

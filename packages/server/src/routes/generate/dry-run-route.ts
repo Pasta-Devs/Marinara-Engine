@@ -4,6 +4,10 @@ import {
   type LorebookImageEntry,
 } from "../../services/generation/lorebook-image-prompt.js";
 import { withLatestMessageReply } from "../../services/generation/message-reply.js";
+import {
+  buildOtherPublicFacesBlock,
+  insertAfterFirstSystemMessage,
+} from "../../services/generation/character-prompt-context.js";
 import type { FastifyInstance } from "fastify";
 import {
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
@@ -118,7 +122,7 @@ import {
 } from "../../services/prompt/index.js";
 import { getPresetGenerationParameters, parsePresetParameters } from "../../services/prompt/assembler.js";
 import { resolveReasoningMacroValue } from "../../services/generation/provider-generation-runtime.js";
-import { cardPromptText } from "../../services/prompt/card-text.js";
+import { cardPromptText, impersonatePublicFaceText } from "../../services/prompt/card-text.js";
 import { resolveChatUserIdentity } from "../../services/chat-user-identity.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
 import {
@@ -225,6 +229,8 @@ import { resolveGameGmPromptTemplate } from "../../services/generation/game-gm-p
 
 import { injectCapabilityContexts } from "../../services/generation/capability-prompt-runtime.js";
 import { getCapabilityPromptContextPackageIds } from "../../services/capability-packages/capability-prompt-context.service.js";
+import { notFound } from "../../utils/not-found.js";
+import { isRecord } from "../../utils/large-json.js";
 
 type WrapFormat = "xml" | "markdown" | "none";
 type DryRunPromptMessage = {
@@ -524,10 +530,6 @@ function parsePresetChoices(value: unknown): Record<string, string | string[]> |
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
 export async function registerDryRunRoute(app: FastifyInstance) {
   const chats = createChatsStorage(app.db);
   const connections = createConnectionsStorage(app.db);
@@ -588,7 +590,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     if (!chatId) return reply.status(400).send({ error: "chatId is required" });
 
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const impersonate = body.impersonate === true;
     const streaming = body.streaming === true;
@@ -726,6 +728,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     // Pull existing messages, apply the same conversation-start + context limit filtering
     const chatMode = (chat.mode as string) ?? "roleplay";
+    // #9427: as in POST /api/generate, Roleplay only and only while impersonating.
+    const impersonatePublicFaces = chatMode === "roleplay" && impersonate && body.impersonatePublicFaces === true;
     const allCharacterIds: string[] = (() => {
       try {
         return JSON.parse((chat as any).characterIds as string);
@@ -771,7 +775,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       ? allChatMessages.findIndex((message) => message.id === regenerateMessageId)
       : -1;
     if (advancedMemoryEnabled && regenerateMessageId && advancedRegenerationIndex < 0) {
-      return reply.status(404).send({ error: "Regenerated message not found" });
+      return notFound(reply, "Regenerated message not found");
     }
     const advancedMemorySourceMessages =
       advancedRegenerationIndex >= 0 ? allChatMessages.slice(0, advancedRegenerationIndex) : allChatMessages;
@@ -1098,6 +1102,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           scenario: cardPromptText(identity.scenario),
           backstory: cardPromptText(identity.backstory),
           appearance: cardPromptText(identity.appearance),
+          publicFace: cardPromptText(identity.publicFace),
         };
       }
     } catch {
@@ -1596,6 +1601,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
                 personality,
                 backstory: cardPromptText(extensions.backstory),
                 appearance: cardPromptText(extensions.appearance),
+                publicFace: cardPromptText(extensions.publicFace),
                 scenario,
                 example: mesExample,
                 systemPrompt,
@@ -1603,6 +1609,19 @@ export async function registerDryRunRoute(app: FastifyInstance) {
               },
             };
             const resolveCharacterMacros = (value: string) => resolveMacros(value, characterMacroContext);
+
+            const publicFace = impersonatePublicFaceText({ extensions }, impersonatePublicFaces);
+            if (publicFace) {
+              const face = resolveCharacterMacros(publicFace).trim();
+              // "none" drops the name wrapper, so name the face in its own line.
+              const faceBlock = wrapContent(
+                `${wrapFormat === "none" ? name : "Public Face"}: ${face}`,
+                name,
+                wrapFormat,
+              ).trim();
+              if (faceBlock) characterBlocks.push(faceBlock);
+              continue;
+            }
 
             const lines: string[] = [];
             const resolvedDesc = resolveCharacterMacros(desc);
@@ -1935,6 +1954,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         idleDuration: promptIdleDuration,
         impersonate,
         preserveImpersonatePresetSections: impersonate && effectivePresetSource === "impersonate",
+        impersonatePublicFaces,
         deferCharacterMacros,
         decisions: promptMacroContext.decisions,
         lorebookDecisions,
@@ -2139,6 +2159,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         characterAdvancedPromptIds,
         promptMacroContext,
         wrapFormat,
+        undefined,
+        impersonatePublicFaces,
       );
       if (characterAdvancedPromptEntries.length > 0) {
         finalMessages = injectAtDepth(finalMessages as any, characterAdvancedPromptEntries) as any;
@@ -2231,6 +2253,19 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           }
         },
       );
+      // #9425: the same block a generation adds for this responder, after scoping like there.
+      if (promptTargetCharacterId && chatMeta.groupPublicFacesEnabled === true) {
+        insertAfterFirstSystemMessage(
+          finalMessages,
+          buildOtherPublicFacesBlock({
+            profilesById: historyMacroProfilesById,
+            activeCharacterIds: characterIds,
+            targetCharacterId: promptTargetCharacterId,
+            promptMacroContext,
+            wrapFormat,
+          }),
+        );
+      }
     }
 
     // ── Impersonate: same instruction block as POST /api/generate (no DB writes) ──

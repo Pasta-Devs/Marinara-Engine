@@ -3,6 +3,7 @@ import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { test, expect, type Route } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture";
+import { chooseOption } from "./select-field";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -668,7 +669,7 @@ test("Translator defaults wait for edits, survive reload, and apply only to futu
     await page.reload();
     await openSettings(origin.id);
     await expect(forget).toBeEnabled();
-    await expect(section.getByRole("combobox").first()).toHaveValue("ai");
+    await expect(section.getByRole("combobox").first()).toHaveAttribute("data-value", "ai");
     await expect(section.locator("[data-connection-value]")).toHaveAttribute("data-connection-value", connectionId);
     await expect(incomingPrompt).toHaveValue(expected.translationOutputPrompt);
     const inheritedChatIds: string[] = [];
@@ -714,10 +715,14 @@ test("Translator defaults wait for edits, survive reload, and apply only to futu
     const laterFailedPrompt = "A later incoming prompt that cannot be saved.";
     const firstFailureGate = new Promise<void>((resolve) => (releaseFirstPromptFailure = resolve));
     const failureGate = new Promise<void>((resolve) => (releasePromptFailure = resolve));
-    await page.route(`**${settingsPath}`, async (route) => {
-      if (route.request().method() === "PUT") defaultsWrites++;
-      await route.continue();
-    });
+    // Save sends ?fromChatId= so the server keeps the chat's stored DeepL key; match the path alone.
+    await page.route(
+      (url) => url.pathname === settingsPath,
+      async (route) => {
+        if (route.request().method() === "PUT") defaultsWrites++;
+        await route.continue();
+      },
+    );
     await page.route(`**/api/chats/${origin.id}/metadata`, async (route) => {
       if (
         route.request().method() === "PATCH" &&
@@ -1243,8 +1248,8 @@ test("Notification position is selectable, moves errors, and survives reload", a
     .first()
     .click();
   await expect(selector).toBeFocused();
-  await expect(selector).toHaveValue("top");
-  await selector.selectOption("bottom");
+  await expect(selector).toHaveAttribute("data-value", "top");
+  await chooseOption(page, selector, "Bottom");
   const error = async () => {
     await prepareViteFixtureDependencies(page, "/src/App.tsx");
     await page.evaluate(async () => {
@@ -1257,10 +1262,17 @@ test("Notification position is selectable, moves errors, and survives reload", a
     "Notification position fixture",
   );
   await page.reload();
-  await expect(selector).toHaveValue("bottom");
+  await expect(selector).toHaveAttribute("data-value", "bottom");
+  // Like a native select, the keys start from the current choice, and Back closes the list, not the panel.
+  await selector.click();
+  const list = page.getByRole("dialog", { name: "Notification position", exact: true });
+  await expect(list.locator("[data-pick-row][data-active='true']")).toHaveText("Bottom");
+  await page.goBack();
+  await expect(list).toHaveCount(0);
+  await expect(selector).toBeVisible();
   await error();
   await expect(page.locator('[data-sonner-toaster][data-y-position="bottom"] [data-sonner-toast]')).toBeVisible();
-  await selector.selectOption("top");
+  await chooseOption(page, selector, "Top");
   await expect(page.locator('[data-sonner-toaster][data-y-position="top"] [data-sonner-toast]')).toBeVisible();
 });
 
@@ -1366,4 +1378,36 @@ test("Conversation reactions stay beside their message when actions reveal", asy
     if (chatId) await request.delete(`/api/chats/${chatId}`).catch(() => undefined);
     if (characterId) await request.delete(`/api/characters/${characterId}`).catch(() => undefined);
   }
+});
+
+test("a long Select opens on its picked row", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "The popover path; phones get a sheet.");
+  page.setDefaultTimeout(10_000);
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    chibiProfessorMariEnabled: false,
+    sidebarOpen: false,
+    rightPanelOpen: true,
+    rightPanel: "settings",
+    settingsTab: "appearance",
+  });
+  await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
+  await page.goto("/");
+  const field = page.getByRole("combobox", { name: "What to change", exact: true }).first();
+  await field.scrollIntoViewIfNeeded();
+  await field.click();
+  const list = page.getByRole("dialog", { name: "What to change", exact: true });
+  const last = list.locator("[data-pick-row]").last();
+  const lastLabel = (await last.textContent())!.trim();
+  await last.click();
+  await expect(list).toHaveCount(0);
+  // The list only gets its height once the popover is placed, so the scroll to the picked row must wait for that.
+  await field.click();
+  const picked = list.locator('[data-pick-row][aria-current="true"]');
+  await expect(picked).toHaveText(lastLabel);
+  await expect(picked).toBeInViewport();
+  await expect(picked).toHaveAttribute("data-active", "true");
+  await page.keyboard.press("Escape");
+  await expect(list).toHaveCount(0);
 });

@@ -64,6 +64,53 @@ export function matchLibraryBackgroundForPlace(
   return best?.filename ?? null;
 }
 
+/** Words too common in place names to say which place a picture is. */
+const COMMON_PLACE_WORDS = new Set([
+  "generated",
+  "room",
+  "house",
+  "place",
+  "area",
+  "interior",
+  "exterior",
+  "night",
+  "day",
+]);
+
+function placeWords(text: string): Set<string> {
+  return new Set(
+    normalizePlaceText(text)
+      .split(" ")
+      .filter((word) => word.length >= 4 && !COMMON_PLACE_WORDS.has(word)),
+  );
+}
+
+/**
+ * Library pictures worth looking at for a place no name matched: those sharing the most
+ * words with it (file name and any tag), at most `limit`. None share a word: none returned,
+ * so a library is never looked through blindly.
+ */
+export function libraryBackgroundCandidatesForLocation(
+  location: string | null | undefined,
+  library: ReadonlyArray<{ filename: string; tags?: readonly string[] }>,
+  limit = 4,
+): string[] {
+  const wanted = placeWords(location ?? "");
+  if (wanted.size === 0) return [];
+  const scored: Array<{ filename: string; shared: number }> = [];
+  for (const item of library) {
+    const stem = item.filename.slice(0, item.filename.length - extname(item.filename).length).replace(/[-_]+/gu, " ");
+    const words = placeWords([stem, ...(item.tags ?? [])].join(" "));
+    let shared = 0;
+    for (const word of wanted) if (words.has(word)) shared += 1;
+    if (shared > 0) scored.push({ filename: item.filename, shared });
+  }
+  return scored
+    .sort((a, b) => b.shared - a.shared || a.filename.localeCompare(b.filename))
+    .slice(0, Math.max(0, limit))
+    .map((entry) => entry.filename);
+}
+
 /** The chat background library (data/backgrounds) with each picture's tags. */
 export function readBackgroundLibrary(dir = join(DATA_DIR, "backgrounds")): BackgroundLibraryItem[] {
   if (!existsSync(dir)) return [];

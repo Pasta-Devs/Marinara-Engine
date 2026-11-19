@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -135,6 +136,23 @@ test("typed illustration prompts wait for review and send only the confirmed sub
     expect(calls[2]?.illustratorMessageRange).toEqual([historicalMessage.id, historicalMessage.id]);
     expect(calls[3]?.illustratorMessageRange).toEqual([historicalMessage.id, historicalMessage.id]);
     await expect(dialog).not.toBeVisible();
+    // template=: the server writes the prompt with that Prompt Mode first, and the resume keeps references.
+    await input.fill("/illustrate template=default range=1 cup of tea");
+    await expect(input).toHaveValue("/illustrate template=default range=1 cup of tea");
+    await page.locator(".mari-chat-send-btn").click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("textbox")).toHaveValue("Historical room");
+    expect(calls[4]).toMatchObject({
+      agentPromptTemplateIds: { illustrator: "default" },
+      illustratorRequest: "cup of tea",
+      illustratorMessageRange: [historicalMessage.id, historicalMessage.id],
+    });
+    expect(calls[4]).not.toHaveProperty("illustratorPromptReviewOverride");
+    await dialog.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect.poll(() => calls.length).toBe(6);
+    expect(calls[5]?.illustratorPromptReviewOverride).toMatchObject({ prompt: "Historical room" });
+    expect(calls[5]?.illustratorPromptReviewOverride).not.toHaveProperty("subjectOnly");
+    await expect(dialog).not.toBeVisible();
     const conversation = await (
       await request.post("/api/chats", {
         data: { name: "Conversation review", mode: "conversation", characterIds: [], connectionId: connection.id },
@@ -166,7 +184,7 @@ test("typed illustration prompts wait for review and send only the confirmed sub
     await expect(dialog.getByRole("textbox")).toHaveValue("A reviewed scene");
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(dialog).not.toBeVisible();
-    expect(calls).toHaveLength(4);
+    expect(calls).toHaveLength(6);
   } finally {
     await Promise.all(resources.map((path) => request.delete(path)));
   }
@@ -260,24 +278,24 @@ test("prompt controls persist and preview preserves the selected history shape",
       return (await response.json()).prompt.messages as Array<{ role: string; content: string }>;
     };
     await openSettings();
-    await expect(selector).toHaveValue("apply");
+    await expect(selector).toHaveAttribute("data-value", "apply");
     await expect(page.getByText("Service Tier", { exact: true })).toBeVisible();
-    await selector.selectOption("none");
+    await chooseOption(page, selector, "Don't Apply");
     await expect.poll(async () => (await savedParameters()).strictRoleFormatting).toBe(false);
     await page.reload();
     await openSettings();
-    await expect(selector).toHaveValue("none");
+    await expect(selector).toHaveAttribute("data-value", "none");
     let prompt = await preview();
     expect(prompt.some((m) => m.content.includes("HISTORY_ONE") && m.content.includes("HISTORY_TWO"))).toBe(false);
     expect(prompt[0]?.role).toBe("system");
     expect(prompt[0]?.content).toContain("SYSTEM_RULES");
     expect(prompt[0]?.content).toContain("SYSTEM_WORLD");
-    await selector.selectOption("single");
+    await chooseOption(page, selector, "Single User Message");
     await expect.poll(async () => (await savedParameters()).singleUserMessage).toBe(true);
     prompt = await preview();
     expect(prompt.map((m) => m.role)).toEqual(["system", "user"]);
     expect(prompt[1]?.content).toContain("HISTORY_FOUR");
-    await selector.selectOption("apply");
+    await chooseOption(page, selector, "Apply");
     await expect.poll(async () => (await savedParameters()).strictRoleFormatting).toBe(true);
     prompt = await preview();
     expect(prompt.some((m) => m.content.includes("HISTORY_ONE") && m.content.includes("HISTORY_TWO"))).toBe(true);
@@ -294,15 +312,23 @@ test("prompt controls persist and preview preserves the selected history shape",
     await headers.fill('{"X-Provider":"second"}');
     await headers.blur();
     await editor.getByRole("button", { name: "Priority", exact: true }).click();
+    // The editor saves its defaults first, with the real header value in the body.
+    const defaultsRequest = page.waitForRequest(
+      (req) =>
+        req.method() === "PUT" &&
+        new URL(req.url()).pathname === `/api/connections/${connection.id}/default-parameters`,
+    );
     await editor.getByRole("button", { name: "Save", exact: true }).click();
+    expect((await defaultsRequest).postDataJSON().customHeaders).toEqual({ "X-Provider": "second" });
+    // Header values are stored encrypted and read back masked; the header name stays visible.
     await expect
       .poll(async () => {
         const row = await (await request.get(`/api/connections/${connection.id}`)).json();
-        return JSON.parse(row.defaultParameters).customHeaders;
+        return JSON.parse(row.defaultParameters).serviceTier;
       })
-      .toEqual({ "X-Provider": "second" });
+      .toBe("priority");
     const stored = await (await request.get(`/api/connections/${connection.id}`)).json();
-    expect(JSON.parse(stored.defaultParameters).serviceTier).toBe("priority");
+    expect(JSON.parse(stored.defaultParameters).customHeaders).toEqual({ "X-Provider": "••••••••" });
     await testInfo.attach("connection-header-controls", { body: await page.screenshot(), contentType: "image/png" });
 
     const received = await page.evaluate(async (chatId) => {

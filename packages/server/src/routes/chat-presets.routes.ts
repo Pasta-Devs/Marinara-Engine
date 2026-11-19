@@ -2,6 +2,7 @@
 // Routes: Chat settings profiles (legacy route/storage names use "chat preset")
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
+import { toSafeExportName } from "../utils/security.js";
 import {
   chatModeSchema,
   createChatPresetSchema,
@@ -22,6 +23,7 @@ import {
   maskChatRowSecrets,
   resolveChatMetadataSecretPlaceholders,
 } from "../utils/stored-secrets.js";
+import { notFound } from "../utils/not-found.js";
 
 type ChatPresetResponse = { settings: ChatPresetSettings };
 
@@ -52,14 +54,6 @@ function parseMetadataRecord(raw: unknown): Record<string, unknown> | null {
   } catch {
     return null;
   }
-}
-
-function toSafeExportName(name: string, fallback: string) {
-  const sanitized = name
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return sanitized || fallback;
 }
 
 interface ChatSettingsProfileExportPayload {
@@ -108,7 +102,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Settings profile not found" });
+    if (!preset) return notFound(reply, "Settings profile not found");
     return maskPresetSecrets(preset);
   });
 
@@ -123,7 +117,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string }; Querystring: { fromChatId?: string } }>("/:id", async (req, reply) => {
     const input = updateChatPresetSchema.parse(req.body);
     const existing = await storage.getById(req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Settings profile not found" });
+    if (!existing) return notFound(reply, "Settings profile not found");
     if (existing.isDefault && input.name !== undefined && input.name !== existing.name) {
       return reply.status(400).send({ error: "Cannot rename the Default settings profile" });
     }
@@ -141,13 +135,13 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string }; Querystring: { fromChatId?: string } }>("/:id/settings", async (req, reply) => {
     const parsed = chatPresetSettingsSchema.parse(req.body ?? {});
     const existing = await storage.getById(req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Settings profile not found" });
+    if (!existing) return notFound(reply, "Settings profile not found");
     const input = await resolvePresetSecrets(parsed, [
       await fromChatMetadata(req),
       existing.settings.metadata as Record<string, unknown> | undefined,
     ]);
     const updated = await storage.saveSettings(req.params.id, input);
-    if (!updated) return reply.status(404).send({ error: "Settings profile not found" });
+    if (!updated) return notFound(reply, "Settings profile not found");
     return maskPresetSecrets(updated);
   });
 
@@ -155,21 +149,21 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
     const body = (req.body ?? {}) as { name?: string };
     const duplicated = await storage.duplicate(req.params.id, body.name);
-    if (!duplicated) return reply.status(404).send({ error: "Settings profile not found" });
+    if (!duplicated) return notFound(reply, "Settings profile not found");
     return maskPresetSecrets(duplicated);
   });
 
   /** Mark a profile as the active one for its mode. */
   app.post<{ Params: { id: string } }>("/:id/set-active", async (req, reply) => {
     const updated = await storage.setActive(req.params.id);
-    if (!updated) return reply.status(404).send({ error: "Settings profile not found" });
+    if (!updated) return notFound(reply, "Settings profile not found");
     return maskPresetSecrets(updated);
   });
 
   /** Apply a profile's settings to an existing chat (replaces profile-controlled settings). */
   app.post<{ Params: { id: string; chatId: string } }>("/:id/apply/:chatId", async (req, reply) => {
     const [preset, chat] = await Promise.all([storage.getById(req.params.id), chatsStorage.getById(req.params.chatId)]);
-    if (!preset || !chat) return reply.status(404).send({ error: "Settings profile or chat not found" });
+    if (!preset || !chat) return notFound(reply, "Settings profile or chat not found");
     if (preset.mode !== chat.mode) {
       return reply.status(409).send({ error: "Settings profile mode does not match chat mode" });
     }
@@ -185,7 +179,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
         ? await prepareChatIdentityChange(app, chat, { personaId, personaCharacterId: null })
         : null;
     const updated = await storage.applyToChat(req.params.id, req.params.chatId, { connectionId, keepPersona });
-    if (!updated) return reply.status(404).send({ error: "Settings profile or chat not found" });
+    if (!updated) return notFound(reply, "Settings profile or chat not found");
     await announceIdentityChange?.();
     return maskChatRowSecrets(updated);
   });
@@ -193,7 +187,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
   /** After saving a profile, update the chat settings of the other chats that use it. */
   app.post<{ Params: { id: string } }>("/:id/apply-to-followers", async (req, reply) => {
     const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Settings profile not found" });
+    if (!preset) return notFound(reply, "Settings profile not found");
     if (preset.isDefault) return reply.status(400).send({ error: "Cannot save into the Default settings profile" });
     const body = (req.body ?? {}) as { exceptChatId?: unknown };
     const { chatIds, failed } = await storage.applyToFollowers(
@@ -210,7 +204,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     const removed = await storage.remove(req.params.id);
     if (!removed) {
       const existing = await storage.getById(req.params.id);
-      if (!existing) return reply.status(404).send({ error: "Settings profile not found" });
+      if (!existing) return notFound(reply, "Settings profile not found");
       return reply.status(400).send({ error: "Cannot delete the default settings profile" });
     }
     return reply.status(204).send();
@@ -220,7 +214,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id/export", async (req, reply) => {
     const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Settings profile not found" });
+    if (!preset) return notFound(reply, "Settings profile not found");
     const payload: ChatSettingsProfileExportPayload = {
       name: preset.name,
       mode: preset.mode,

@@ -1,4 +1,4 @@
-import { estimateTextTokens as estimateTokens, sliceTextToTokenBudget } from "@marinara-engine/shared";
+import { estimateTextTokens, sliceTextToTokenBudget } from "@marinara-engine/shared";
 
 const DEFAULT_MEMORY_RECALL_BUDGET_TOKENS = 1024;
 const MIN_MEMORY_RECALL_BUDGET_TOKENS = 384;
@@ -8,18 +8,12 @@ const MIN_RECALLED_MEMORY_TOKENS = 96;
 const MEMORY_RECALL_CONTEXT_SHARE = 0.15;
 const RECALL_TRUNCATION_MARKER = "\n...[recalled memory truncated]...\n";
 
-function estimateTextTokens(content: string): number {
-  const trimmed = content.trim();
-  if (!trimmed) return 0;
-  return estimateTokens(trimmed);
-}
-
 export function truncateRecalledMemory(content: string, tokenBudget: number): string {
-  if (estimateTokens(content) <= tokenBudget) return content;
-  const availableTokens = Math.floor(tokenBudget) - estimateTokens(RECALL_TRUNCATION_MARKER);
+  if (estimateTextTokens(content) <= tokenBudget) return content;
+  const availableTokens = Math.floor(tokenBudget) - estimateTextTokens(RECALL_TRUNCATION_MARKER);
   if (availableTokens <= 0) return sliceTextToTokenBudget(content, tokenBudget);
   const head = sliceTextToTokenBudget(content, Math.ceil(availableTokens * 0.7)).trimEnd();
-  const tail = sliceTextToTokenBudget(content, availableTokens - estimateTokens(head), true).trimStart();
+  const tail = sliceTextToTokenBudget(content, availableTokens - estimateTextTokens(head), true).trimStart();
   return `${head}${RECALL_TRUNCATION_MARKER}${tail}`;
 }
 
@@ -47,7 +41,7 @@ export function packRecalledMemories(
     }
 
     const packed = truncateRecalledMemory(memory.content, Math.min(MAX_RECALLED_MEMORY_TOKENS, remainingTokens));
-    const packedTokens = estimateTextTokens(packed);
+    const packedTokens = estimateTextTokens(packed.trim());
     if (packedTokens <= 0 || packedTokens > remainingTokens) {
       trimmed = true;
       break;

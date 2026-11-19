@@ -5,6 +5,7 @@ import { logger } from "../lib/logger.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { getCustomAgentImportPolicy } from "../services/agents/custom-agent-import-policy.service.js";
 import { createCustomAgentRepositoriesService } from "../services/agents/custom-agent-repositories.service.js";
+import { notFound } from "../utils/not-found.js";
 
 const repositoryUrlSchema = z.object({ url: z.string().trim().min(1).max(2048) }).strict();
 const applyRepositorySchema = repositoryUrlSchema
@@ -23,7 +24,7 @@ const repositoryParamsSchema = z.object({ id: z.string().regex(/^[a-f0-9]{16}$/u
 
 function requireFeature(reply: FastifyReply): boolean {
   if (isCustomAgentRepositoriesEnabled()) return true;
-  void reply.status(404).send({ error: "Custom agent repositories are disabled" });
+  void notFound(reply, "Custom agent repositories are disabled");
   return false;
 }
 
@@ -79,7 +80,7 @@ export async function customAgentRepositoriesRoutes(app: FastifyInstance) {
     try {
       const { id } = repositoryParamsSchema.parse(request.params);
       const repository = (await service.list()).find((entry) => entry.id === id);
-      if (!repository) return reply.status(404).send({ error: "Custom agent repository not found" });
+      if (!repository) return notFound(reply, "Custom agent repository not found");
       return await service.preview(repository.url);
     } catch (error) {
       logger.error(error, "Saved custom agent repository preview failed");
@@ -106,7 +107,7 @@ export async function customAgentRepositoriesRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(request, reply, { feature: "Custom agent repository removal" })) return;
     try {
       const { id } = repositoryParamsSchema.parse(request.params);
-      if (!(await service.remove(id))) return reply.status(404).send({ error: "Custom agent repository not found" });
+      if (!(await service.remove(id))) return notFound(reply, "Custom agent repository not found");
       return reply.status(204).send();
     } catch (error) {
       logger.error(error, "Custom agent repository removal failed");

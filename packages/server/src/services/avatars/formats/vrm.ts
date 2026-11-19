@@ -23,6 +23,7 @@ import {
   type VrmModelMeta,
 } from "@marinara-engine/shared";
 import { readAvatarConfig } from "../storage.js";
+import { isRecord } from "../../../utils/large-json.js";
 
 const GLB_MAGIC = 0x46546c67; // "glTF"
 const GLB_HEADER_BYTES = 12;
@@ -176,10 +177,6 @@ export type ValidatedVrmFile =
   | { type: "animation" };
 
 type JsonRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];

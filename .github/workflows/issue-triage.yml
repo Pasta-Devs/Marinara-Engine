@@ -1,0 +1,59 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  label:
+    name: Label by title prefix
+    # Only the title decides the label, so body edits are skipped.
+    if: github.event.action == 'opened' || github.event.changes.title
+    # Quick retitles of one issue run in order instead of racing.
+    concurrency:
+      group: issue-triage-${{ github.event.issue.number }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Match the type label to the title prefix
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            // Issue forms add these labels, but issues filed with gh, the API or a blank form get none.
+            const prefixLabels = [
+              ['[issue]', 'bug'],
+              ['[bug]', 'bug'],
+              ['[feature]', 'enhancement'],
+              ['[docs-i18n]', 'docs'],
+              ['[tracking]', 'tracking'],
+            ];
+            const labelFor = (title) =>
+              prefixLabels.find(([prefix]) => title.trim().toLowerCase().startsWith(prefix))?.[1];
+            const target = { owner: context.repo.owner, repo: context.repo.repo, issue_number: context.payload.issue.number };
+            // Read the issue now and reconcile from what it is, not from the event: the event is a snapshot
+            // from delivery time, and during quick retitles GitHub can drop a queued run.
+            const { data: issue } = await github.rest.issues.get(target);
+            const label = labelFor(issue.title);
+            // A title without one of these prefixes keeps its labels.
+            if (!label) {
+              return;
+            }
+            const current = issue.labels.map((existing) => existing.name);
+            // The type label follows the prefix: the issue keeps only the one its title names.
+            const typeLabels = [...new Set(prefixLabels.map(([, name]) => name))];
+            const stale = typeLabels.filter((name) => name !== label && current.includes(name));
+            for (const name of stale) {
+              try {
+                await github.rest.issues.removeLabel({ ...target, name });
+              } catch (error) {
+                // Someone removed it since the read above.
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+            }
+            if (!current.includes(label)) {
+              await github.rest.issues.addLabels({ ...target, labels: [label] });
+            }

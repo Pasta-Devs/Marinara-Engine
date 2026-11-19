@@ -25,6 +25,8 @@ const { capabilityModuleRuntime } =
 const { getCapabilityService } =
   await import("../../packages/server/src/services/capability-packages/capability-service-registry.service.js");
 const { advancedMemoryRecords } = await import("../../packages/server/src/db/schema/advanced-memory.js");
+const { messages } = await import("../../packages/server/src/db/schema/chats.js");
+const { gameStateSnapshots } = await import("../../packages/server/src/db/schema/game-state.js");
 const db = await getDB();
 const app = Fastify();
 app.decorate("db", db);
@@ -94,6 +96,7 @@ try {
     (h) => h.getChat(chat.id),
     (h) => h.listMessages(chat.id),
     (h) => h.getGameState!(chat.id),
+    (h) => h.listGameStates!(chat.id),
     (h) => h.listChatSummaries!(chat.id),
     (h) => h.spatialSnapshots.getById(snapshot.id),
     (h) => h.spatialSnapshots.getByAnchor(chat.id, "", 0),
@@ -249,6 +252,58 @@ try {
     gameSessions: [session],
     advancedMemory,
   });
+  // listGameStates (1.833): the committed snapshot of each message's active swipe, in message order.
+  const stated = (await createChatsStorage(db).create({
+    name: "Game states proof",
+    mode: "roleplay",
+    characterIds: [],
+    promptPresetId: null,
+  }))!;
+  const at = (n: number) => `2026-01-01T00:00:0${n}.000Z`;
+  const message = (id: string, n: number, activeSwipeIndex = 0) =>
+    ({
+      id,
+      chatId: stated.id,
+      role: "assistant",
+      characterId: null,
+      content: id,
+      activeSwipeIndex,
+      createdAt: at(n),
+    }) as typeof messages.$inferInsert;
+  const snap = (id: string, messageId: string, swipeIndex: number, date: string, committed: number, n: number) =>
+    ({
+      id,
+      chatId: stated.id,
+      messageId,
+      swipeIndex,
+      date,
+      time: "noon",
+      presentCharacters: '[{"characterId":"c1"}]',
+      committed,
+      createdAt: at(n),
+    }) as typeof gameStateSnapshots.$inferInsert;
+  for (const row of [message("m-b", 2), message("m-a", 1), message("m-c", 3), message("m-d", 4, 1), message("m-e", 5)])
+    await db.insert(messages).values(row);
+  for (const row of [
+    snap("s-b", "m-b", 0, "Day 2", 1, 2),
+    snap("s-a", "m-a", 0, "Day 1", 1, 1),
+    snap("s-c", "m-c", 0, "Day 3", 0, 3),
+    snap("s-d0", "m-d", 0, "Day 4 old swipe", 1, 4),
+    snap("s-d1", "m-d", 1, "Day 4", 1, 5),
+    snap("s-gone", "m-gone", 0, "Deleted", 1, 6),
+  ])
+    await db.insert(gameStateSnapshots).values(row);
+  const listed = await trusted.listGameStates!(stated.id);
+  assert.deepEqual(
+    listed.map((state) => [state.messageId, state.swipeIndex, state.date, state.snapshotId]),
+    [
+      ["m-a", 0, "Day 1", "s-a"],
+      ["m-b", 0, "Day 2", "s-b"],
+      ["m-d", 1, "Day 4", "s-d1"],
+    ],
+  );
+  assert.deepEqual(listed[0]?.presentCharacterIds, ["c1"]);
+  assert.deepEqual(await trusted.listGameStates!("no-such-chat"), []);
   // The older single summary reads as a legacy entry dated with the chat's own update time, not the read time.
   await createChatsStorage(db).patchMetadata(summarized.id, { summaryEntries: [], summary: "They met at the harbor." });
   await new Promise((resolve) => setTimeout(resolve, 5));

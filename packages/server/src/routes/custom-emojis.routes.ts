@@ -25,6 +25,7 @@ import {
   updateCustomEmojiSchema,
   normalizeGalleryDescription,
 } from "@marinara-engine/shared";
+import { notFound } from "../utils/not-found.js";
 
 const CUSTOM_EMOJIS_ROOT = join(DATA_DIR, "custom-emojis");
 const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
@@ -179,16 +180,16 @@ export async function customEmojisRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid path" });
     }
     const filePath = resolveFlatMediaFile(CUSTOM_EMOJIS_ROOT, filename);
-    if (!filePath || !existsSync(filePath)) return reply.status(404).send({ error: "Not found" });
+    if (!filePath || !existsSync(filePath)) return notFound(reply, "Not found");
     const image = await validateImageAssetFile(filePath, filename);
-    if (!image) return reply.status(404).send({ error: "Not found" });
+    if (!image) return notFound(reply, "Not found");
     return sendValidatedMediaFile(reply, image, { method: req.method, rangeHeader: req.headers.range });
   });
 
   // ── Rename ──
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const existing = (await storage.getById(req.params.id)) as CustomEmojiRow | null;
-    if (!existing) return reply.status(404).send({ error: "Custom emoji not found" });
+    if (!existing) return notFound(reply, "Custom emoji not found");
     const data = updateCustomEmojiSchema.parse(req.body);
     const name = data.name.toLowerCase();
     const dup = await storage.getByName(name);
@@ -197,7 +198,7 @@ export async function customEmojisRoutes(app: FastifyInstance) {
     }
     try {
       const updated = (await storage.update(req.params.id, { name })) as CustomEmojiRow | null;
-      if (!updated) return reply.status(404).send({ error: "Custom emoji not found" });
+      if (!updated) return notFound(reply, "Custom emoji not found");
       return withUrl(updated);
     } catch (err) {
       if (isUniqueNameError(err)) {
@@ -211,7 +212,7 @@ export async function customEmojisRoutes(app: FastifyInstance) {
   // ── Delete (+ remove the file) ──
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const existing = (await storage.getById(req.params.id)) as CustomEmojiRow | null;
-    if (!existing) return reply.status(404).send({ error: "Custom emoji not found" });
+    if (!existing) return notFound(reply, "Custom emoji not found");
     await storage.remove(req.params.id);
     try {
       const fp = resolveFlatMediaFile(CUSTOM_EMOJIS_ROOT, existing.filePath);

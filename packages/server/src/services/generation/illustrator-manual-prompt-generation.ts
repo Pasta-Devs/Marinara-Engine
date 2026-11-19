@@ -1,5 +1,6 @@
 import {
   DEFAULT_GENERATION_PARAMS,
+  getAgentCardContextMode,
   getAgentContextSources,
   type AgentContext,
   type CustomAgentContextSources,
@@ -11,6 +12,7 @@ import {
   readIllustratorImageAppearanceOverride,
 } from "../image/character-prompts.js";
 import { debugJson, logger } from "../../lib/logger.js";
+import { messageTextWithImagesForLog } from "../../lib/log-redaction.js";
 import {
   agentRequestOptions,
   buildAgentCurrentLocationBlock,
@@ -24,6 +26,14 @@ import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
 import { normalizeAgentMaxTokens, normalizeMaxContext } from "./generation-parameters.js";
 import { appendImagePromptInstructions, formatOptionalVideoOffer } from "./image-prompt-instructions.js";
+import {
+  attachWriterReferencePictures,
+  logWriterReferenceAttach,
+  readWriterReferencePayload,
+  withWriterReferenceFallback,
+  writerVisionKey,
+} from "../image/writer-reference-pictures.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
@@ -58,10 +68,6 @@ export type ManualIllustratorPromptResult = {
   plan: ManualIllustratorPromptPlan;
   tokensUsed: number;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function readTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -140,12 +146,19 @@ function escapeContextAttribute(value: string): string {
     .replace(/>/gu, "&gt;");
 }
 
-function buildCharacterPersonaContext(context: AgentContext): string {
+/** Follows the Illustrator's Characters and Persona sources, as an automatic run does (#9426). */
+function buildCharacterPersonaContext(context: AgentContext, sources: CustomAgentContextSources): string {
   const parts: string[] = ["<visual_identity_context>"];
-  if (context.characters.length > 0) {
+  const charactersMode = getAgentCardContextMode(sources, "characters");
+  if (charactersMode !== "off" && context.characters.length > 0) {
     parts.push("<characters>");
     for (const character of context.characters) {
       parts.push(`<character name="${escapeContextAttribute(character.name)}">`);
+      if (charactersMode === "publicFace") {
+        appendContextField(parts, "Public Face", character.publicFace, 2_000);
+        parts.push("</character>");
+        continue;
+      }
       appendContextField(parts, "Description", character.description, 2_000);
       appendContextField(parts, "Appearance", character.appearance, 1_500);
       appendContextField(parts, "Personality", character.personality, 1_000);
@@ -155,7 +168,13 @@ function buildCharacterPersonaContext(context: AgentContext): string {
     }
     parts.push("</characters>");
   }
-  if (context.persona) {
+  const personaMode = getAgentCardContextMode(sources, "persona");
+  if (personaMode === "publicFace" && context.persona) {
+    parts.push("<user_persona>");
+    appendContextField(parts, "Name", context.persona.name, 120);
+    appendContextField(parts, "Public Face", context.persona.publicFace, 2_000);
+    parts.push("</user_persona>");
+  } else if (personaMode === "full" && context.persona) {
     parts.push("<user_persona>");
     appendContextField(parts, "Name", context.persona.name, 120);
     appendContextField(parts, "Description", context.persona.description, 2_000);
@@ -240,10 +259,11 @@ export function buildManualIllustratorPromptMessages(args: {
   // Custom prompts may mix visual instructions with schemas or generation conditions.
   // Preserve them intact; the manual contract below overrides only when/how to return the prompt.
   const promptModeInstruction = args.selectedPromptTemplate?.trim();
-  // The current location, lorebook entries, summary and author notes follow the Illustrator's
-  // Context Sources, exactly as in an automatic Illustrator run (#8246, #8251).
-  const currentLocation = buildAgentCurrentLocationBlock(args.context, args.contextSources);
-  const referenceContext = buildAgentReferenceContextBlock(args.context, args.contextSources);
+  // Characters, persona, the current location, lorebook entries, summary and author notes follow
+  // the Illustrator's Context Sources, exactly as in an automatic Illustrator run (#8246, #8251, #9426).
+  const contextSources = args.contextSources ?? getAgentContextSources({ settings: {} });
+  const currentLocation = buildAgentCurrentLocationBlock(args.context, contextSources);
+  const referenceContext = buildAgentReferenceContextBlock(args.context, contextSources);
   const systemPrompt = [
     promptModeInstruction
       ? [
@@ -258,7 +278,7 @@ export function buildManualIllustratorPromptMessages(args: {
       ? `Additional Image Style instruction for the image prompt you write: ${args.styleInstruction}\nCombine it with the selected Illustrator prompt mode. It may refine rendering and visual treatment, but it must not replace or weaken the selected format, layout, framing, or text requirements. Express it as words for the image model; never copy its sentences into the JSON fields.`
       : "No visual style profile is selected. Infer only the visual treatment supported by the scene context.",
     args.characterPromptInstruction?.trim() ?? "",
-    buildCharacterPersonaContext(args.context),
+    buildCharacterPersonaContext(args.context, contextSources),
     ...(currentLocation ? [currentLocation] : []),
     ...(referenceContext ? [referenceContext] : []),
   ].join("\n\n");
@@ -311,7 +331,7 @@ export async function writeManualIllustratorPromptPlan(args: {
     args.context,
     { escapeValues: true },
   );
-  const messages = buildManualIllustratorPromptMessages({
+  const builtMessages = buildManualIllustratorPromptMessages({
     context: args.context,
     contextSize: args.illustratorAgent.settings.contextSize,
     selectedPromptTemplate,
@@ -322,9 +342,22 @@ export async function writeManualIllustratorPromptPlan(args: {
     videoOffer: args.videoOffer,
     contextSources: getAgentContextSources(args.illustratorAgent),
   });
+  // Writer reference pictures (V-102 Fallback A): the image connection drops them, so the writer sees them.
+  const writerReferences = readWriterReferencePayload(args.context.memory);
+  const messages = writerReferences ? attachWriterReferencePictures(builtMessages, writerReferences) : builtMessages;
+  const writerProvider = writerReferences
+    ? withWriterReferenceFallback(
+        args.illustratorAgent.provider,
+        writerReferences,
+        writerVisionKey(args.illustratorAgent.connectionId, args.illustratorAgent.model),
+      )
+    : args.illustratorAgent.provider;
+  if (writerReferences) logWriterReferenceAttach("[illustrate]", writerReferences);
   args.debugLog?.(
     "[debug/illustrator/manual-illustration-prompt] messages:\n%s",
-    messages.map((message) => `${message.role}:\n${message.content}`).join("\n\n"),
+    messages
+      .map((message) => `${message.role}:\n${messageTextWithImagesForLog(message.content, message.images)}`)
+      .join("\n\n"),
   );
 
   const maxContext =
@@ -342,7 +375,7 @@ export async function writeManualIllustratorPromptPlan(args: {
         "Manual Illustrator request exceeds the connection context limit. Shorten the selected prompt, reduce the Illustrator context size or Context Sources, or increase the connection context limit.",
       );
     }
-    return args.illustratorAgent.provider.chatComplete(requestMessages, {
+    return writerProvider.chatComplete(requestMessages, {
       model: args.illustratorAgent.model,
       // The prompt writer keeps its own temperature; the connection decides whether one is sent (#7131).
       temperature: gateAgentTemperature(args.illustratorAgent, 0.55),

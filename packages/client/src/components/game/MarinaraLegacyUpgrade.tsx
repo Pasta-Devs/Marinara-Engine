@@ -21,6 +21,7 @@ import {
 import { api } from "../../lib/api-client";
 import { chatKeys, useChat } from "../../hooks/use-chats";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 type GearOffer = { stackId: string; holder: string; from: string; to: string; slot: "weapon" | "armor" };
 
@@ -168,23 +169,17 @@ export function MarinaraLegacyUpgrade({ chatId }: { chatId: string }) {
                     {t("game.combat.marinara.legacy.level", { level: MARINARA_LEGACY_UPGRADE_LEVEL })}
                   </span>
                 </div>
-                <label className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span className="w-20 shrink-0 text-white/55">{t("game.combat.marinara.legacy.class")}</span>
-                  <select
+                  <Select
+                    label={t("game.combat.marinara.legacy.class")}
                     className="min-h-8 min-w-0 flex-1 rounded border border-white/15 bg-black/40 px-1.5 text-white/85"
                     value={primary}
                     disabled={busy}
-                    onChange={(event) =>
-                      setPicks((was) => ({ ...was, [card.name]: event.target.value as MarinaraArchetype }))
-                    }
-                  >
-                    {MARINARA_ARCHETYPES.map((id) => (
-                      <option key={id} value={id}>
-                        {tree(id)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onChange={(next) => setPicks((was) => ({ ...was, [card.name]: next as MarinaraArchetype }))}
+                    options={MARINARA_ARCHETYPES.map((id) => ({ value: id, label: tree(id) }))}
+                  />
+                </div>
                 {gearOf(card.name).map((offer) => (
                   <label key={offer.stackId} className="flex items-center gap-2 text-white/70">
                     <Checkbox

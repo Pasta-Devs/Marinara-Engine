@@ -1,10 +1,10 @@
 // ──────────────────────────────────────────────
 // Writer lease: per-boot cache of the OS boot id
 // ──────────────────────────────────────────────
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { logger } from "../lib/logger.js";
+import { writeFileAtomicSync } from "../utils/atomic-write.js";
 
 /**
  * How far two "now minus uptime" estimates of the same boot may drift apart
@@ -64,20 +64,13 @@ export function cachedBootId(
   }
   const bootId = probe();
   if (!bootId || !Number.isFinite(approxBootMs)) return bootId;
-  const tmpPath = `${cachePath}.${process.pid}.${randomUUID()}.tmp`;
   try {
     mkdirSync(dirname(cachePath), { recursive: true });
     const record: BootIdCacheRecord = { version: 1, approxBootMs, bootId };
-    writeFileSync(tmpPath, JSON.stringify(record), { mode: 0o600 });
-    renameSync(tmpPath, cachePath);
+    writeFileAtomicSync(cachePath, JSON.stringify(record), { mode: 0o600 });
   } catch (err) {
     // Caching is an optimisation only; the probe result is still correct.
     logger.warn(err, "[file-storage] Could not cache the boot id at %s", cachePath);
-    try {
-      rmSync(tmpPath, { force: true });
-    } catch (cleanupErr) {
-      logger.warn(cleanupErr, "[file-storage] Could not remove boot id cache temp file %s", tmpPath);
-    }
   }
   return bootId;
 }

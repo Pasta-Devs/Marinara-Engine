@@ -5,6 +5,7 @@ import type { FastifyInstance, FastifyReply } from "fastify";
 import { logger } from "../lib/logger.js";
 import { BotBrowserUpstreamError, fetchBotBrowserJson } from "../services/bot-browser/fetch-json.js";
 import { resolveValidatedImage, safeFetch } from "../utils/security.js";
+import { notFound } from "../utils/not-found.js";
 
 const PYGMALION_API_HOSTS = ["server.pygmalion.chat"];
 const PYGMALION_API_BASE = "https://server.pygmalion.chat/galatea.v1.PublicCharacterService";
@@ -264,7 +265,7 @@ export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
         policy: { allowedProtocols: ["https:"], allowedHostnames: [url.hostname] },
         maxResponseBytes: 25 * 1024 * 1024,
       });
-      if (!res.ok) return reply.status(404).send({ error: "Avatar not found" });
+      if (!res.ok) return notFound(reply, "Avatar not found");
       const buf = Buffer.from(await res.arrayBuffer());
       const image = resolveValidatedImage(buf);
       if (!image) {

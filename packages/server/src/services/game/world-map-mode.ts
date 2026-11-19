@@ -5,6 +5,7 @@ import {
   type GameWorldMapMode,
 } from "@marinara-engine/shared";
 import { ensureGameMapId, withActiveGameMapMeta } from "./map-position.service.js";
+import { isRecord } from "../../utils/large-json.js";
 
 export const HIERARCHICAL_MAPS_AGENT_ID = "hierarchical-maps";
 
@@ -13,10 +14,6 @@ export type GameStartWorldMapResolution = "unchanged" | "hierarchical" | "standa
 export interface GameStartWorldMapPatch {
   patch: Record<string, unknown>;
   resolution: GameStartWorldMapResolution;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function isGameMap(value: unknown): value is GameMap {

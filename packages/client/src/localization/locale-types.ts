@@ -15,7 +15,4 @@ export interface LocaleDescriptor {
   label: string;
 }
 
-export interface LoadedLocale {
-  metadata: LocaleMetadata;
-  messages: Record<string, string>;
-}
+export type { LoadedLocale } from "@marinara-engine/shared";

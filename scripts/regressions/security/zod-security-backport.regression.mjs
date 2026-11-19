@@ -146,8 +146,8 @@ const section = (text, key) => {
 };
 assert.deepEqual(
   section(workspace, "audit").map((line) => line.trim()),
-  ["ignore:", "- GHSA-mrhx-c7xc-m3w5", "- GHSA-gcqx-w48m-w2h4"],
-  "Only the independently guarded Zod and deepmerge backports may be exempted",
+  ["ignore:", "- GHSA-mrhx-c7xc-m3w5", "- GHSA-gcqx-w48m-w2h4", "- GHSA-fc5q-39xc-vjpf"],
+  "Only the independently guarded Zod and deepmerge backports and the picomatch exception may be exempted",
 );
 assert.deepEqual(
   section(workspace, "patchedDependencies")
@@ -158,7 +158,11 @@ assert.deepEqual(
 const versions = [
   ...new Set([...lock.matchAll(/^  zod@([^:(\s]+)(?:\([^\n]*\))?:/gmu)].map((match) => match[1])),
 ].sort();
-assert.deepEqual(versions, ["3.25.76", "4.6.7"], "Only the reviewed native version and patched API-1 alias are allowed");
+assert.deepEqual(
+  versions,
+  ["3.25.76", "4.6.7"],
+  "Only the reviewed native version and patched API-1 alias are allowed",
+);
 const patch = readFileSync(new URL("../../../patches/zod@3.25.76.patch", import.meta.url));
 const patchHash = createHash("sha256").update(patch).digest("hex");
 assert.ok(

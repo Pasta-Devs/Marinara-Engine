@@ -2,6 +2,7 @@ import type { FastifyStaticOptions } from "@fastify/static";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { readFile } from "node:fs/promises";
 import { basename, resolve, sep } from "node:path";
+import { notFound } from "../utils/not-found.js";
 
 const REVALIDATE_FILES = new Set(["index.html"]);
 const NO_STORE_FILES = new Set(["manifest.json", "sw.js", "registerSW.js"]);
@@ -21,7 +22,7 @@ export function createClientNotFoundHandler(clientIndex: string) {
       (acceptsHtml || (req.headers.accept === undefined && destination === "document"));
     reply.header("Cache-Control", "no-store");
     if (pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/assets/") || !isNavigation) {
-      return reply.status(404).send({ error: "Not Found" });
+      return notFound(reply, "Not Found");
     }
     reply.header("Cache-Control", "no-cache, must-revalidate");
     reply.header("Pragma", "no-cache");

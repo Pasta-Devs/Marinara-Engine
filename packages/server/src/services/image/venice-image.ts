@@ -1,3 +1,4 @@
+import { isRecord } from "../../utils/large-json.js";
 const VENICE_MAX_DIMENSION = 1280;
 const VENICE_MAX_IMAGE_BYTES = 30 * 1024 * 1024;
 
@@ -24,10 +25,6 @@ export type VeniceImageResult = {
   mimeType: string;
   ext: string;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function veniceAspectRatio(width: number, height: number): string {
   const ratio = width / height;

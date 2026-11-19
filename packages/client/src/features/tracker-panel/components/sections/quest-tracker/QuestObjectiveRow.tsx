@@ -1,12 +1,10 @@
 import { CheckCircle2, Circle, Lock, Unlock, X } from "lucide-react";
-import { isTrackerFieldLocked, type QuestProgress } from "@marinara-engine/shared";
+import { isTrackerFieldLocked, type QuestObjective } from "@marinara-engine/shared";
 import { cn } from "../../../../../lib/utils";
 import { visibleText } from "../../../lib/tracker-display";
 import { InlineEdit } from "../../controls/InlineControls";
 import { useTrackerLockContext } from "../../TrackerLockContext";
 import { useTranslation as useUiTranslation } from "react-i18next";
-
-type QuestObjective = QuestProgress["objectives"][number];
 
 const OBJECTIVE_ROW_CLASS =
   "relative grid min-h-4 gap-1 rounded-[2px] px-0.5 text-[0.6875rem] transition-colors hover:bg-[var(--accent)]/14";

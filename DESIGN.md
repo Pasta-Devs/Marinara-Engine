@@ -200,6 +200,7 @@ Marinara uses a hybrid of tonal layering, soft glow, and selective frosted surfa
 - **Style:** Tokenized input stroke, muted violet or card background, 8px radius, readable contrast.
 - **Focus:** Ring color uses the primary token, with visible outline or border shift.
 - **Error / Disabled:** Error state uses `--destructive` plus text or icon. Disabled controls reduce opacity but must remain readable.
+- **Pickers:** Every dropdown, select and item picker opens the one shared picker window (`PickerWindow` + `PickRow`); the connection and model picker (`ConnectionSelect`) is the one exception so far. Restyle pickers there, never per feature, and never use a native `<select>`. The architecture is in `docs/development/frontend.md` § Pickers and dropdowns.
 
 ### Navigation
 

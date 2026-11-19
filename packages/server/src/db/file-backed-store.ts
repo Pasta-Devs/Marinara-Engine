@@ -4,6 +4,7 @@
 //
 // Marinara stores user data as JSON table snapshots under DATA_DIR/storage.
 // This in-memory table store persists dirty tables back to those files.
+import { sleep } from "../utils/sleep.js";
 import {
   chmodSync,
   copyFileSync,
@@ -61,6 +62,7 @@ import {
   type AnyFileTable,
   type FileColumnValue,
 } from "./file-schema.js";
+import { parseJsonRecord } from "../utils/large-json.js";
 
 type Row = any;
 type Table = AnyFileTable;
@@ -366,8 +368,14 @@ type Executable<T> = PromiseLike<T> & {
   finally: Promise<T>["finally"];
 };
 
-type InsertValuesBuilder = Executable<void> & {
-  onConflictDoUpdate: (config: { target: unknown; set: Row }) => Executable<void>;
+/** Every insert resolves to the number of rows it added; a row a conflict updated isn't counted. */
+type InsertValuesBuilder = Executable<number> & {
+  onConflictDoUpdate: (config: { target: unknown; set: Row }) => Executable<number>;
+  /**
+   * Skips a row that clashes with an existing one on `target` or on any unique constraint, leaving
+   * the existing row as it is. Resolves to the number of rows inserted.
+   */
+  onConflictDoNothing: (config: { target: unknown }) => Executable<number>;
 };
 
 // Exported so regressions can pin behavior against the CURRENT version
@@ -1898,7 +1906,8 @@ function probeWindowsPidOwner(record: StorageWriterLeaseRecord, leaseTime: numbe
     const name = output.slice(0, separator).trim().toLowerCase();
     const processTime = Date.parse(output.slice(separator + 1));
     if (separator > 0 && name && !WINDOWS_WRITER_PROGRAMS.has(name)) return "other-program" as const;
-    if (Number.isFinite(processTime) && processTime > leaseTime + 1_000) return "newer" as const;
+    if (Number.isFinite(leaseTime) && Number.isFinite(processTime) && processTime > leaseTime + 1_000)
+      return "newer" as const;
     return null;
   } catch {
     // CIM unavailable: fall back to the older probe, which still works for our own processes.
@@ -1907,40 +1916,49 @@ function probeWindowsPidOwner(record: StorageWriterLeaseRecord, leaseTime: numbe
     const processTime = Date.parse(
       run(`(Get-Process -Id ${record.pid} -ErrorAction Stop).StartTime.ToUniversalTime().ToString('o')`),
     );
-    return Number.isFinite(processTime) && processTime > leaseTime + 1_000 ? ("newer" as const) : null;
+    return Number.isFinite(leaseTime) && Number.isFinite(processTime) && processTime > leaseTime + 1_000
+      ? ("newer" as const)
+      : null;
   } catch {
     return null;
   }
 }
 
-function pidWasReused(record: StorageWriterLeaseRecord, options: { programOnly?: boolean } = {}) {
+/**
+ * Returns why the lease's PID no longer belongs to its writer, or null when that can't be shown.
+ * An unreadable acquiredAt only rules out the start-time comparison: the Windows program-name
+ * check doesn't depend on it.
+ */
+function pidWasReused(
+  record: StorageWriterLeaseRecord,
+  options: { programOnly?: boolean } = {},
+): "newer" | "other-program" | "gone" | null {
   const leaseTime = Date.parse(record.acquiredAt);
-  if (!Number.isFinite(leaseTime)) return false;
 
   if (process.platform === "win32") {
     const owner = probeWindowsPidOwner(record, leaseTime);
     // The program check holds even under the weaker Windows storage proof: a PID now running some
     // other program is not a Marinara writer, whatever else is uncertain.
-    if (options.programOnly) return owner === "other-program" || owner === "gone";
-    return owner !== null;
+    if (options.programOnly) return owner === "other-program" || owner === "gone" ? owner : null;
+    return owner;
   }
   // The program check is Windows-only; elsewhere programOnly callers keep the lease.
-  if (options.programOnly) return false;
+  if (options.programOnly || !Number.isFinite(leaseTime)) return null;
 
   if (process.platform === "linux" || process.platform === "android") {
     try {
       const stat = readFileSync(`/proc/${record.pid}/stat`, "utf8");
       const startTicks = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19]);
       const bootTime = Number(readFileSync("/proc/stat", "utf8").match(/^btime (\d+)$/m)?.[1]);
-      if (!CURRENT_CLOCK_TICKS_PER_SECOND) return false;
+      if (!CURRENT_CLOCK_TICKS_PER_SECOND) return null;
       const processTime = linuxProcessStartTimeMs(startTicks, bootTime, CURRENT_CLOCK_TICKS_PER_SECOND);
-      return processTime !== null && processTime > leaseTime + 1_000;
+      return processTime !== null && processTime > leaseTime + 1_000 ? "newer" : null;
     } catch {
-      return false;
+      return null;
     }
   }
 
-  return false;
+  return null;
 }
 
 function isTermuxPrivateHomeStorage(rootDir: string) {
@@ -2583,17 +2601,6 @@ function matchesLike(value: unknown, pattern: unknown) {
   return new RegExp(`^${escaped}$`, "i").test(String(value ?? ""));
 }
 
-function parseJsonRecord(value: unknown): Record<string, unknown> {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
-  if (typeof value !== "string") return {};
-  try {
-    const parsed = JSON.parse(value);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
 /**
  * Membership sets resolved once per condition object (#5592 Phase 0). The
  * per-row form re-materialized the values array and ran Array.includes for
@@ -3030,7 +3037,7 @@ class FileTableStore {
       } catch (err) {
         if (err instanceof WriterLeasePendingError) {
           if (attempt < 9) {
-            await new Promise((resolve) => setTimeout(resolve, WRITER_LEASE_RETRY_DELAY_MS));
+            await sleep(WRITER_LEASE_RETRY_DELAY_MS);
             continue;
           }
           throw invalidWriterLeaseError(path, err);
@@ -3039,6 +3046,7 @@ class FileTableStore {
       }
 
       let staleReason: "boot" | "liveness" | "pid" | "pid-reused" | null = null;
+      let pidOwner: ReturnType<typeof pidWasReused> = null;
       // Same-host proof, in order of strength: the recorded machine ID matches
       // ours; the storage is Termux's app-private HOME; or one side could not
       // identify its machine (the writer left hostId null, #5744, or this
@@ -3100,8 +3108,10 @@ class FileTableStore {
         if (pidDefinitelyExited(existing.record.pid)) staleReason = "pid";
         // On the Windows storage proof a live PID keeps the lease even if it
         // may have been reused (#7801), unless it now runs a different program.
-        else if (pidWasReused(existing.record, { programOnly: hostProof === "windows-local-storage" }))
-          staleReason = "pid-reused";
+        else {
+          pidOwner = pidWasReused(existing.record, { programOnly: hostProof === "windows-local-storage" });
+          if (pidOwner) staleReason = "pid-reused";
+        }
       }
       if (!staleReason) {
         throw new StorageWriterLeaseError(
@@ -3132,14 +3142,16 @@ class FileTableStore {
       }
       rmSync(stalePath, { recursive: true });
       logger.warn(
-        { previousPid: existing.record.pid, path, staleReason, hostProof },
+        { previousPid: existing.record.pid, path, staleReason, pidOwner, hostProof },
         staleReason === "boot"
           ? "[file-storage] Reclaimed the writer lease after detecting that the previous owner belonged to an earlier boot."
           : staleReason === "liveness"
             ? "[file-storage] Reclaimed the writer lease after confirming the previous owner was no longer listening."
-            : staleReason === "pid-reused"
+            : pidOwner === "newer"
               ? "[file-storage] Reclaimed the writer lease after confirming its recorded PID belongs to a newer process."
-              : "[file-storage] Reclaimed the writer lease after confirming its same-host PID exited.",
+              : pidOwner === "other-program"
+                ? "[file-storage] Reclaimed the writer lease after confirming its recorded PID now runs a different program."
+                : "[file-storage] Reclaimed the writer lease after confirming its same-host PID exited.",
       );
     }
     throw new StorageWriterLeaseError(`The storage writer lease at ${path} changed repeatedly; retry startup.`);
@@ -3808,7 +3820,8 @@ class FileTableStore {
     const meta = getMeta(table);
     return {
       values: (rows) => {
-        const runInsert = (onConflict?: { target: unknown; set: Row }) =>
+        // Without `set`, a conflicting row is skipped and the existing row kept.
+        const runInsert = (onConflict?: { target: unknown; set?: Row }) =>
           executable(async () => {
             await this.waitForWritableTurn();
             this.assertWritable();
@@ -3850,6 +3863,7 @@ class FileTableStore {
             // remaining per-write allocation spike on big tables (#4730).
             let nextRows = target.slice();
             const affectedRows: Row[] = [];
+            let inserted = 0;
             // Lazy-table rows waiting to be merged into canonical order in one pass (see
             // mergeInCanonicalOrder). Only used while the hash index answers uniqueness, since the
             // scan fallback and conflict matching must see every row already placed.
@@ -3867,7 +3881,17 @@ class FileTableStore {
               const conflictKeys =
                 conflictColumns.length > 0 ? conflictColumns : meta.primaryKey ? [meta.primaryKey] : [];
               const duplicateIndex = onConflict ? findMatchingRowIndex(nextRows, row, conflictKeys) : -1;
+              // Like SQL's ON CONFLICT DO NOTHING without a target: a row that clashes with an
+              // existing one on its key or any unique constraint is skipped, not an error.
+              if (
+                onConflict &&
+                !onConflict.set &&
+                (duplicateIndex !== -1 || findUniqueViolation(meta, nextRows, row))
+              ) {
+                continue;
+              }
               if (onConflict && duplicateIndex !== -1) {
+                if (!onConflict.set) continue;
                 const existing = nextRows[duplicateIndex]!;
                 const ctx = this.contextForRow(meta, existing);
                 const candidate = cloneRow(existing);
@@ -3888,6 +3912,7 @@ class FileTableStore {
                   assertUniqueRow(meta, nextRows, row);
                 }
                 affectedRows.push(row);
+                inserted += 1;
                 if (isLazyTable && uniqueIndex) {
                   pendingLazyRows.push(row);
                 } else if (isLazyTable) {
@@ -3902,6 +3927,8 @@ class FileTableStore {
               }
             }
             placePendingLazyRows();
+            // Every row was skipped: nothing changed, so nothing to dirty.
+            if (affectedRows.length === 0 && preparedRows.length > 0) return 0;
             this.recordTxMutation(meta.name);
             this.tables.set(meta.name, nextRows);
             if (uniqueIndex) cacheUniqueRowIndex(nextRows, uniqueIndex);
@@ -3920,9 +3947,11 @@ class FileTableStore {
             } else {
               this.markDirty(meta.name);
             }
+            return inserted;
           });
         const builder = runInsert() as InsertValuesBuilder;
         builder.onConflictDoUpdate = (config) => runInsert(config);
+        builder.onConflictDoNothing = (config) => runInsert({ target: config.target });
         return builder;
       },
     };

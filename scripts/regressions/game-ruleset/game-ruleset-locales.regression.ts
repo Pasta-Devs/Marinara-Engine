@@ -516,18 +516,18 @@ console.log(
   assert.match(builder, /\{rt\(step\.label\)\}<\/h4>/, "a step's heading");
   assert.match(builder, /\{rt\(entry\.label\)\}/, "a catalog entry's name");
   const typed = source("components/rulesets/RulesetTypedInput.tsx");
-  assert.match(typed, /\{rt\(spec\.valueLabels\?\.\[option\] \?\? option\)\}/, "a field's options");
+  assert.match(typed, /label: rt\(spec\.valueLabels\?\.\[option\] \?\? option\)/, "a field's options");
   assert.match(typed, /\{rt\(word\)\}/, "a field's suggestions");
   assert.match(
     typed,
-    /onChange=\{\(event\) => onChange\(event\.target\.value\)\}/,
+    /onChange=\{\(next\) => onChange\(next\)\}/,
     "the value kept is the ruleset's own",
   );
   // The editor's catalog picker too: filters, entries and chips as shown, values kept as written.
   const picker = source("components/rulesets/RulesetCatalogPicker.tsx");
   assert.match(picker, /const rt = useRulesetText\(\);/);
   assert.match(picker, /\{rt\(view\.filter\.label\)\}/, "a filter's name");
-  assert.match(picker, /<option key=\{option\} value=\{option\}>\s*\{rt\(option\)\}/, "a filter's values");
+  assert.match(picker, /value: option, label: rt\(option\)/, "a filter's values");
   assert.match(picker, /\{rt\(entry\.label\)\}<\/span>/, "an entry's name");
   assert.match(picker, /rt\(entry\.label\)\.toLowerCase\(\)\.includes\(needle\)/, "found by its name as shown");
   const items = source("components/game/RulesetItemPicker.tsx");

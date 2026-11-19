@@ -19,7 +19,8 @@ import { buildLlamaArgs } from "../../../packages/server/src/services/sidecar/si
 import { SidecarGpuMemoryReporter } from "../../../packages/server/src/services/sidecar/sidecar-gpu-memory.js";
 
 if (process.argv.includes("--reload")) {
-  const { sidecarModelService } = await import("../../../packages/server/src/services/sidecar/sidecar-model.service.js");
+  const { sidecarModelService } =
+    await import("../../../packages/server/src/services/sidecar/sidecar-model.service.js");
   assert.equal(sidecarModelService.getConfig().kvCacheType, "q4_0");
   assert.equal(sidecarModelService.getModelFilePath(), process.env.GGUF_FIXTURE_PATH);
   assert.equal(sidecarModelService.getResolvedBackend(), "llama_cpp");
@@ -237,6 +238,32 @@ if (process.argv.includes("--reload")) {
       sidecarProcessService.stop = stop;
       sidecarProcessService.syncForCurrentConfig = sync;
       sidecarModelService.downloadCustomModel = downloadCustom;
+    }
+
+    // After the user unloads the model, a config sync leaves it unloaded; a restart loads it again, and later syncs
+    // do too. Starting the model is faked: a sync that would load it rejects with "fixture start".
+    const processInternals = sidecarProcessService as unknown as {
+      isRuntimeInstalled: () => boolean;
+      ensureRuntimeInstalled: () => Promise<never>;
+    };
+    const { isRuntimeInstalled, ensureRuntimeInstalled } = processInternals;
+    const isEnabled = sidecarModelService.isEnabled;
+    sidecarModelService.isEnabled = () => true;
+    processInternals.isRuntimeInstalled = () => true;
+    processInternals.ensureRuntimeInstalled = async () => {
+      throw new Error("fixture start");
+    };
+    try {
+      await assert.rejects(sidecarProcessService.syncForCurrentConfig(), /fixture start/, "a sync loads the model");
+      await sidecarProcessService.unload();
+      await sidecarProcessService.syncForCurrentConfig();
+      assert.equal(sidecarModelService.getStatus().status, "downloaded", "a sync after an unload keeps it unloaded");
+      await assert.rejects(sidecarProcessService.restart(), /fixture start/, "a restart loads the model");
+      await assert.rejects(sidecarProcessService.syncForCurrentConfig(), /fixture start/, "so do later syncs");
+    } finally {
+      sidecarModelService.isEnabled = isEnabled;
+      processInternals.isRuntimeInstalled = isRuntimeInstalled;
+      processInternals.ensureRuntimeInstalled = ensureRuntimeInstalled;
     }
     console.info("Local GGUF persistence, non-destructive removal, KV launch flags and GPU allocation parsing passed.");
   } finally {

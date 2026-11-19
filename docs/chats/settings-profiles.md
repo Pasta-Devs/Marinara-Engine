@@ -112,7 +112,7 @@ A profile can also hold **starting picks**: a persona, lorebooks to switch on, a
 - Applying the profile copies the picks into the chat. If the profile leaves one empty, the chat keeps its own.
 - Other settings in the profile still replace the chat's settings.
 - The picks are not linked. A later change in the chat stays in that chat.
-- **Save current chat settings into this profile** keeps the profile's own persona, lorebooks and background. A profile without a background takes the chat's background when you save into it.
+- **Save current chat settings into this profile** replaces the profile's lorebooks with the ones added to the chat, with **Add Lorebook** or by applying a profile. A lorebook that Lorebook Keeper made for the chat is not saved. If no lorebooks were added, the profile has none after the save. The profile keeps its own persona and background. A profile without a background takes the chat's background when you save into it.
 - Updating other chats never changes their persona, lorebooks or background.
 
 A profile does not replace chat-owned content: characters, sprites, summary, tags, scene prompt and **Author's Notes**. It also holds no conversation history and no running state such as macro variables, the characters you turned off, or a multiplayer room. A profile saved in an earlier version may still hold **Author's Notes**, but applying it keeps the chat's own.

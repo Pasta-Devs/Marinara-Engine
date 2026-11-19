@@ -77,6 +77,7 @@ import {
 } from "./SettingControls";
 import { Spinner } from "../../ui/Spinner";
 import { Checkbox } from "../../ui/Checkbox";
+import { Select } from "../../ui/Select";
 
 export type EditorDraft = PersonalExtensionImportDraft;
 
@@ -231,19 +232,18 @@ export function ExtensionRevisionHistorySettings() {
       <p className="text-xs text-[var(--muted-foreground)]">{t("settings.extensions.revisionHistory.description")}</p>
       <div className="flex items-center justify-between gap-3 text-xs">
         <label htmlFor={limitId}>{t("settings.extensions.revisionHistory.limit")}</label>
-        <select
+        <Select
           id={limitId}
-          value={data?.limit ?? PERSONAL_EXTENSION_DEFAULT_REVISIONS}
+          value={String(data?.limit ?? PERSONAL_EXTENSION_DEFAULT_REVISIONS)}
+          options={Array.from({ length: PERSONAL_EXTENSION_MAX_REVISIONS + 1 }, (_, limit) => ({
+            value: String(limit),
+            label: String(limit),
+          }))}
           disabled={!data || update.isPending}
-          onChange={(event) => void changeLimit(Number(event.target.value))}
+          onChange={(value) => void changeLimit(Number(value))}
+          label={t("settings.extensions.revisionHistory.limit")}
           className="rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)] disabled:opacity-50"
-        >
-          {Array.from({ length: PERSONAL_EXTENSION_MAX_REVISIONS + 1 }, (_, limit) => (
-            <option key={limit} value={limit}>
-              {limit}
-            </option>
-          ))}
-        </select>
+        />
       </div>
       {error && (
         <p role="alert" className="text-xs text-[var(--destructive)]">

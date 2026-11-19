@@ -18,6 +18,13 @@ import {
   type LLMToolCall,
   type LLMUsage,
 } from "../llm/base-provider.js";
+import {
+  attachWriterReferencePictures,
+  logWriterReferenceAttach,
+  readWriterReferencePayload,
+  withWriterReferenceFallback,
+  writerVisionKey,
+} from "../image/writer-reference-pictures.js";
 import { withThinkingHeadroom, type AgentGenerationParameters } from "../generation/agent-generation-parameters.js";
 import type {
   AgentResult,
@@ -43,6 +50,7 @@ import {
   MIN_AGENT_MAX_TOKENS,
   normalizeTrackerHiddenFields,
   normalizeCustomAgentCapabilities,
+  getAgentCardContextMode,
   getAgentContextSources,
   previousAgentOutputText,
   publicAgentOutput,
@@ -63,6 +71,7 @@ import {
   isDebugAgentsEnabled,
 } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
+import { messageTextWithImagesForLog } from "../../lib/log-redaction.js";
 import { failureLevel } from "../../lib/log-context.js";
 import { repairJsonText } from "../../lib/json-repair.js";
 import { LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
@@ -90,6 +99,7 @@ import {
   type BeholderPassLane,
 } from "./beholder-state.js";
 import { formatOptionalVideoOffer } from "../generation/image-prompt-instructions.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const MAX_AGENT_CONTEXT_MESSAGES = 200;
 const EXPRESSION_AGENT_RECENT_CONTEXT_MESSAGES = 2;
@@ -308,6 +318,7 @@ export function buildAgentPromptMacroContext(
       personality: value(character.personality),
       backstory: value(character.backstory),
       appearance: value(character.appearance),
+      publicFace: value(character.publicFace),
       scenario: value(character.scenario),
       example: value(character.mesExample),
       systemPrompt: value(character.systemPrompt),
@@ -319,6 +330,7 @@ export function buildAgentPromptMacroContext(
           personality: value(firstCharacter.personality),
           backstory: value(firstCharacter.backstory),
           appearance: value(firstCharacter.appearance),
+          publicFace: value(firstCharacter.publicFace),
           scenario: value(firstCharacter.scenario),
           example: value(firstCharacter.mesExample),
           systemPrompt: value(firstCharacter.systemPrompt),
@@ -332,6 +344,7 @@ export function buildAgentPromptMacroContext(
           backstory: value(context.persona.backstory),
           appearance: value(context.persona.appearance),
           scenario: value(context.persona.scenario),
+          publicFace: value(context.persona.publicFace),
         }
       : undefined,
     lorebookEntryCounts: context.lorebookEntryCounts,
@@ -377,10 +390,6 @@ function redactSensitiveValue(value: unknown): unknown {
   return redacted;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
 function shouldIncludeQuestContext(agentTypes: string[]): boolean {
   return agentTypes.includes("quest");
 }
@@ -400,17 +409,133 @@ function compactQuestPlayerStatsForContext(playerStats: unknown, agentTypes: str
   };
 }
 
-function omitQuestFieldLocksForContext(fieldLocks: unknown): unknown {
-  if (!isRecord(fieldLocks)) return fieldLocks;
+// ── Game-state sections in agent context (#9555) ──
+// The JSON shape and key names stay as stored: tracker package prompts name paths such as
+// `playerStats.customTrackerFields`. Keys are only left out, never renamed or regrouped.
 
-  let changed = false;
-  const nextEntries = Object.entries(fieldLocks).filter(([key]) => {
-    const keep = !key.startsWith("quests.");
-    if (!keep) changed = true;
-    return keep;
+type GameStateContextSection =
+  "scene" | "world" | "characters" | "persona" | "quests" | "customFields" | "inventory" | "legacyPlayer";
+
+const GAME_STATE_TOP_LEVEL_SECTIONS: Record<string, GameStateContextSection> = {
+  date: "scene",
+  time: "scene",
+  location: "scene",
+  weather: "scene",
+  temperature: "scene",
+  worldCustomFields: "world",
+  recentEvents: "world",
+  presentCharacters: "characters",
+  personaStats: "persona",
+};
+
+const PLAYER_STATS_SECTIONS: Record<string, GameStateContextSection> = {
+  status: "persona",
+  activeQuests: "quests",
+  customTrackerFields: "customFields",
+  inventoryTrackerCurrencies: "inventory",
+  inventoryTrackerEquipped: "inventory",
+  inventoryTrackerInventory: "inventory",
+  stats: "legacyPlayer",
+  attributes: "legacyPlayer",
+  skills: "legacyPlayer",
+  inventory: "legacyPlayer",
+};
+
+/** Lock key roots per section; a key matches its root exactly or as `<root>.…`. */
+const SECTION_LOCK_ROOTS: Record<GameStateContextSection, readonly string[]> = {
+  scene: [],
+  world: ["world"],
+  characters: ["characters"],
+  persona: ["persona"],
+  quests: ["quests"],
+  customFields: ["player.custom"],
+  inventory: ["player.inventoryTracker"],
+  legacyPlayer: ["player.inventory"],
+};
+
+/** Each tracker sees its own section and the scene line (date, time, location, weather, temperature). */
+const TRACKER_CONTEXT_SECTIONS: Record<string, readonly GameStateContextSection[]> = {
+  "world-state": ["scene", "world"],
+  "character-tracker": ["scene", "characters"],
+  "persona-stats": ["scene", "persona"],
+  quest: ["scene", "quests"],
+  "custom-tracker": ["scene", "customFields"],
+  "inventory-tracker": ["scene", "inventory"],
+};
+
+/** Every other agent (non-trackers, custom and package agents) sees all sections but quest progress. */
+const NON_TRACKER_CONTEXT_SECTIONS: readonly GameStateContextSection[] = [
+  "scene",
+  "world",
+  "characters",
+  "persona",
+  "customFields",
+  "inventory",
+  "legacyPlayer",
+];
+
+/** A batch sends one block, so it carries the union of its members' sections. */
+function gameStateContextSections(agentTypes: string[]): Set<GameStateContextSection> {
+  const sections = new Set<GameStateContextSection>();
+  for (const type of agentTypes) {
+    const own = Object.hasOwn(TRACKER_CONTEXT_SECTIONS, type) ? TRACKER_CONTEXT_SECTIONS[type] : undefined;
+    for (const section of own ?? NON_TRACKER_CONTEXT_SECTIONS) sections.add(section);
+  }
+  return sections;
+}
+
+/**
+ * The character-row fields an agent may read. An allowlist, so a field added to the row for the
+ * server or the UI (avatar path, crop, portrait framing, id aliases) stays out until listed here.
+ */
+const CHARACTER_ROW_CONTEXT_FIELDS = [
+  "characterId",
+  "name",
+  "emoji",
+  "mood",
+  "action",
+  "appearance",
+  "outfit",
+  "thoughts",
+  "customFields",
+  "stats",
+] as const;
+
+function allowlistCharacterRowsForContext(presentCharacters: unknown): unknown {
+  if (!Array.isArray(presentCharacters)) return presentCharacters;
+  return presentCharacters.filter(isRecord).map((character) => {
+    const row: Record<string, unknown> = {};
+    for (const field of CHARACTER_ROW_CONTEXT_FIELDS) {
+      if (character[field] !== undefined) row[field] = character[field];
+    }
+    return row;
   });
+}
 
-  return changed ? Object.fromEntries(nextEntries) : fieldLocks;
+function filterPlayerStatsForContext(
+  playerStats: unknown,
+  sections: Set<GameStateContextSection>,
+): Record<string, unknown> | undefined {
+  if (!isRecord(playerStats)) return undefined;
+  const next: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(playerStats)) {
+    const section = PLAYER_STATS_SECTIONS[key];
+    if (!section || !sections.has(section)) continue;
+    next[key] = key === "activeQuests" ? compactQuestProgressForContext(value) : value;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function filterFieldLocksForContext(
+  fieldLocks: unknown,
+  sections: Set<GameStateContextSection>,
+): Record<string, unknown> | undefined {
+  if (!isRecord(fieldLocks)) return undefined;
+  const roots = [...sections].flatMap((section) => SECTION_LOCK_ROOTS[section]);
+  const next = Object.fromEntries(
+    Object.entries(fieldLocks).filter(([key]) => roots.some((root) => key === root || key.startsWith(`${root}.`))),
+  );
+  return Object.keys(next).length > 0 ? next : undefined;
 }
 
 const HIDEABLE_CHARACTER_TRACKER_FIELDS = ["mood", "appearance", "outfit", "thoughts"] as const;
@@ -459,28 +584,29 @@ export function compactGameStateForAgentContext(gameState: unknown, agentTypes: 
     return gameState;
   }
 
+  const sections = gameStateContextSections(agentTypes);
   const hiddenFields = normalizeTrackerHiddenFields(gameState.hiddenTrackerFields);
-  const presentCharacters = compactPresentCharactersForHiddenFields(gameState.presentCharacters, hiddenFields);
-  const playerStats = compactQuestPlayerStatsForContext(gameState.playerStats, agentTypes);
-  const visibleFieldLocks = omitHiddenFieldLocksForContext(gameState.fieldLocks, hiddenFields);
-  const fieldLocks = shouldIncludeQuestContext(agentTypes)
-    ? visibleFieldLocks
-    : omitQuestFieldLocksForContext(visibleFieldLocks);
 
-  if (
-    presentCharacters === gameState.presentCharacters &&
-    playerStats === gameState.playerStats &&
-    fieldLocks === gameState.fieldLocks &&
-    gameState.hiddenTrackerFields === undefined
-  ) {
-    return gameState;
+  // Built from scratch: row metadata (ids, swipe, timestamps, manual overrides), hidden-field
+  // bookkeeping and Game Mode ruleset state never reach an agent, nor does any key not mapped above.
+  const next: Record<string, unknown> = {};
+  for (const [key, section] of Object.entries(GAME_STATE_TOP_LEVEL_SECTIONS)) {
+    if (!sections.has(section) || gameState[key] === undefined) continue;
+    next[key] = gameState[key];
   }
-
-  const next = { ...gameState };
-  delete next.hiddenTrackerFields;
-  if (presentCharacters !== gameState.presentCharacters) next.presentCharacters = presentCharacters;
-  if (playerStats !== gameState.playerStats) next.playerStats = playerStats;
-  if (fieldLocks !== gameState.fieldLocks) next.fieldLocks = fieldLocks;
+  if (next.presentCharacters !== undefined) {
+    // Hidden fields first: their lock keys need the full row's characterId and name.
+    next.presentCharacters = allowlistCharacterRowsForContext(
+      compactPresentCharactersForHiddenFields(next.presentCharacters, hiddenFields),
+    );
+  }
+  const playerStats = filterPlayerStatsForContext(gameState.playerStats, sections);
+  if (playerStats) next.playerStats = playerStats;
+  const fieldLocks = filterFieldLocksForContext(
+    omitHiddenFieldLocksForContext(gameState.fieldLocks, hiddenFields),
+    sections,
+  );
+  if (fieldLocks) next.fieldLocks = fieldLocks;
   return next;
 }
 
@@ -744,7 +870,7 @@ function debugMessages(messages: ChatMessage[]): AgentCallDebugEvent["messages"]
   return messages.map((message) => {
     const next: NonNullable<AgentCallDebugEvent["messages"]>[number] = {
       role: message.role,
-      content: message.content,
+      content: messageTextWithImagesForLog(message.content, message.images),
     };
     const name = (message as { name?: unknown }).name;
     if (typeof name === "string" && name.trim()) next.name = name;
@@ -866,7 +992,7 @@ export async function executeAgent(
       return makeError(config, "No prompt template configured", startTime);
     }
 
-    const messages = prepareAgentProviderMessages(
+    let messages = prepareAgentProviderMessages(
       config.type === "expression"
         ? buildExpressionAgentMessages(config, template, context)
         : config.type === "knowledge-retrieval"
@@ -877,6 +1003,13 @@ export async function executeAgent(
               ? buildBeholderMessages(config, template, context)
               : buildStandardAgentMessages(config, template, context),
     );
+    // Writer reference pictures (V-102 Fallback A): the image connection drops them, so the writer sees them.
+    const writerReferences = config.type === "illustrator" ? readWriterReferencePayload(context.memory) : null;
+    if (writerReferences) {
+      messages = attachWriterReferencePictures(messages, writerReferences);
+      provider = withWriterReferenceFallback(provider, writerReferences, writerVisionKey(config.connectionId, model));
+      logWriterReferenceAttach("Illustrator", writerReferences);
+    }
 
     const temperature = resolveAgentTemperature(config);
     const maxTokens = resolveAgentCallMaxTokens(provider, config, normalizeAgentMaxTokens(config.settings.maxTokens), {
@@ -931,7 +1064,7 @@ export async function executeAgent(
     // Call LLM (streaming to avoid proxy timeouts, no tools)
     logger.info(`[agent] ${config.type} (${config.name}) — ${model}`);
     for (const msg of messages) {
-      logger.debug(`[agent] [${msg.role}] ${msg.content}`);
+      logger.debug(`[agent] [${msg.role}] ${messageTextWithImagesForLog(msg.content, msg.images)}`);
     }
     logger.debug(
       `[agent] ═══ END PROMPT — temperature=${temperature} maxTokens=${maxTokens} reasoning=${requestOptions.reasoningEffort ?? "default"} ═══\n`,
@@ -3037,10 +3170,17 @@ function buildLoreBlock(context: AgentContext, sources: CustomAgentContextSource
   const parts: string[] = [];
   parts.push(`<lore>`);
 
-  if (sources.characters && context.characters.length > 0) {
+  // Public Face sends the name and that field only. An empty one sends the name alone, never the card.
+  const charactersMode = getAgentCardContextMode(sources, "characters");
+  if (charactersMode !== "off" && context.characters.length > 0) {
     parts.push(`<characters>`);
     for (const char of context.characters) {
       parts.push(`<character id="${char.id}" name="${char.name}">`);
+      if (charactersMode === "publicFace") {
+        pushLoreField(parts, "Public Face", char.publicFace);
+        parts.push(`</character>`);
+        continue;
+      }
       pushLoreField(parts, "Description", char.description);
       pushLoreField(parts, "Personality", char.personality);
       pushLoreField(parts, "Backstory", char.backstory);
@@ -3066,7 +3206,13 @@ function buildLoreBlock(context: AgentContext, sources: CustomAgentContextSource
     parts.push(`</characters>`);
   }
 
-  if (sources.persona && context.persona) {
+  const personaMode = getAgentCardContextMode(sources, "persona");
+  if (personaMode === "publicFace" && context.persona) {
+    parts.push(`<user_persona>`);
+    parts.push(`Name: ${context.persona.name}`);
+    pushLoreField(parts, "Public Face", context.persona.publicFace);
+    parts.push(`</user_persona>`);
+  } else if (personaMode === "full" && context.persona) {
     parts.push(`<user_persona>`);
     parts.push(`Name: ${context.persona.name}`);
     if (context.persona.description) parts.push(`Description: ${context.persona.description}`);
@@ -3371,7 +3517,18 @@ function buildAgentExtras(
     parts.push(
       "Latest known state for recurring characters, including characters currently absent. Use it for continuity when someone returns; this list does not mean everyone is present now.",
     );
-    parts.push(JSON.stringify(context.characterTrackerHistory));
+    // The same row allowlist as <current_game_state>: the merge still reads the full history rows
+    // (avatars, crops, aliases), only the prompt copy is stripped.
+    const hiddenFields = normalizeTrackerHiddenFields(
+      isRecord(context.gameState) ? context.gameState.hiddenTrackerFields : undefined,
+    );
+    parts.push(
+      JSON.stringify(
+        allowlistCharacterRowsForContext(
+          compactPresentCharactersForHiddenFields(context.characterTrackerHistory, hiddenFields),
+        ),
+      ),
+    );
     parts.push(`</character_tracker_history>`);
   }
 

@@ -539,6 +539,12 @@ export interface CapabilityPersistenceSession {
   /** Read-only. Optional so packages feature-detect and degrade on older Engines. */
   getGameState?(chatId: string): Promise<CapabilityGameStateRecord | null>;
   /**
+   * Capability API 1.833. Read-only: the committed World State snapshot of each message's active swipe, in message
+   * order. A message without one, and a snapshot whose message is gone or that is not tied to a message, are left
+   * out. Requires `chat-read`, like `getGameState`. Optional so packages feature-detect and degrade on older Engines.
+   */
+  listGameStates?(chatId: string): Promise<CapabilityGameStateRecord[]>;
+  /**
    * Capability API 1.387. Read-only: the chat's day, week, rolling and Game session summaries, all empty for a chat
    * without them or one that is not found. Requires `chat-read`, like `listMessages`. Optional so packages
    * feature-detect and degrade on older Engines.

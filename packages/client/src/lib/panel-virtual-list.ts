@@ -23,7 +23,8 @@ export function shouldFetchNextPage(input: NearEndInput): boolean {
 /** Keeps one row (a dragged card) in the rendered range so its drag handlers outlive scrolling it away. */
 export function withPinnedIndex(indexes: number[], pinnedIndex: number | undefined): number[] {
   if (pinnedIndex === undefined || pinnedIndex < 0 || indexes.includes(pinnedIndex)) return indexes;
-  return [pinnedIndex, ...indexes];
+  // Sorted, so DOM order stays list order for readers of the rendered rows (drag order, Alt+Arrow reorder).
+  return [...indexes, pinnedIndex].sort((a, b) => a - b);
 }
 
 // Measured row heights per list, so a remounted panel lands on the same row instead of re-estimating.

@@ -502,7 +502,14 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         ? connectionsList.filter((row) => !listed.has(row.accountId ?? "") && matchesKind(row, kind))
         : [];
     const names = saved.map((row) => accountOf(row)?.name ?? row.name);
-    return { count: found.count + saved.length, accounts: [...new Set([...found.accounts, ...names])], unknown };
+    // A downloaded built-in embedding model is a choice for Embeddings with no account: Pick it, never Add one.
+    if (job.key === "embeddings" && builtinEmbeddingActive) names.push(t("connections.builtinEmbedding.name"));
+    const builtin = job.key === "embeddings" && builtinEmbeddingActive ? 1 : 0;
+    return {
+      count: found.count + saved.length + builtin,
+      accounts: [...new Set([...found.accounts, ...names])],
+      unknown,
+    };
   };
   return all.map((tile) => (isEmpty(tile) ? { ...tile, find: findFor(JOB[tile.key]) } : tile));
 }

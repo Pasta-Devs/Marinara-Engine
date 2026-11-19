@@ -9,6 +9,7 @@ import type { FastifyInstance } from "fastify";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { decryptApiKey, encryptApiKey } from "../utils/crypto.js";
 import { logger } from "../lib/logger.js";
+import { notFound } from "../utils/not-found.js";
 
 function parseSettings(agent: { settings?: unknown } | null): Record<string, unknown> {
   if (!agent?.settings) return {};
@@ -164,7 +165,7 @@ export async function youtubeRoutes(app: FastifyInstance) {
     if (!trimmed) return reply.status(400).send({ error: "apiKey is required" });
 
     const agent = (agentId ? await storage.getById(agentId) : null) ?? (await storage.ensureBuiltinConfig("spotify"));
-    if (!agent) return reply.status(404).send({ error: "Agent not found" });
+    if (!agent) return notFound(reply, "Agent not found");
 
     const settings = parseSettings(agent);
     await storage.update(agent.id, {
@@ -190,7 +191,7 @@ export async function youtubeRoutes(app: FastifyInstance) {
    */
   app.post<{ Body: { agentId?: string } }>("/disconnect", async (req, reply) => {
     const agent = await resolveAgent(req.body?.agentId);
-    if (!agent) return reply.status(404).send({ error: "Agent not found" });
+    if (!agent) return notFound(reply, "Agent not found");
 
     const { youtubeApiKey, ...rest } = parseSettings(agent);
     await storage.update(agent.id, { settings: rest });

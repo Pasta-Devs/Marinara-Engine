@@ -11,6 +11,7 @@ import { AgentDefaultStatus } from "../../../components/chat/AgentSettingsContro
 import { NeedsModelChip, agentModelNeed } from "../../../components/connections/NeedsModelChip";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
+import { Select } from "../../../components/ui/Select";
 import { useUIStore } from "../../../stores/ui.store";
 
 export function IllustratorPromptConnectionSelect({
@@ -95,26 +96,24 @@ export function IllustratorImageStyleSelect({
   const updateMeta = useUpdateChatMetadata();
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles);
   return (
-    <label className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1">
       <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
         {localizeUi("ui.chat.chatsettingsdrawer.imageStyle")}
       </span>
-      <select
+      <Select
+        label={localizeUi("ui.chat.chatsettingsdrawer.imageStyle")}
         value={styleProfileId}
-        onChange={(event) => updateMeta.mutate({ id: chat.id, imageStyleProfileId: event.target.value || null })}
+        options={[
+          { value: "", label: emptyOptionLabel ?? "Use default style from Style Profiles in Advanced settings" },
+          ...imageStyleProfiles.profiles.map((profile) => ({ value: profile.id, label: profile.name })),
+        ]}
+        onChange={(value) => updateMeta.mutate({ id: chat.id, imageStyleProfileId: value || null })}
         className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-      >
-        <option value="">{emptyOptionLabel ?? "Use default style from Style Profiles in Advanced settings"}</option>
-        {imageStyleProfiles.profiles.map((profile) => (
-          <option key={profile.id} value={profile.id}>
-            {profile.name}
-          </option>
-        ))}
-      </select>
+      />
       {description ? (
         <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">{description}</span>
       ) : null}
-    </label>
+    </div>
   );
 }
 
@@ -122,30 +121,29 @@ export function IllustratorImagesPerGeneration({ chat, value }: { chat: Chat; va
   const { t: localizeUi } = useUiTranslation();
   const updateMeta = useUpdateChatMetadata();
   return (
-    <label className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1">
       <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
         {localizeUi("ui.chat.chatsettingsdrawer.imagesPerGeneration")}
       </span>
-      <select
-        value={value}
-        onChange={(event) =>
+      <Select
+        label={localizeUi("ui.chat.chatsettingsdrawer.imagesPerGeneration")}
+        value={String(value)}
+        options={Array.from({ length: MAX_ILLUSTRATOR_IMAGES_PER_GENERATION }, (_, index) => ({
+          value: String(index + 1),
+          label: String(index + 1),
+        }))}
+        onChange={(next) =>
           updateMeta.mutate({
             id: chat.id,
-            illustratorImagesPerGeneration: normalizeIllustratorImagesPerGeneration(event.target.value),
+            illustratorImagesPerGeneration: normalizeIllustratorImagesPerGeneration(next),
           })
         }
         className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
-      >
-        {Array.from({ length: MAX_ILLUSTRATOR_IMAGES_PER_GENERATION }, (_, index) => index + 1).map((count) => (
-          <option key={count} value={count}>
-            {count}
-          </option>
-        ))}
-      </select>
+      />
       <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
         {localizeUi("ui.chat.chatsettingsdrawer.generateThisManyVariantsForEachIllustrationOrSelfie")}
       </span>
-    </label>
+    </div>
   );
 }
 

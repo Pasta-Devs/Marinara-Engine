@@ -2,7 +2,16 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { multiplayerActionSchema, multiplayerInviteSchema, multiplayerPersonaSchema } from "@marinara-engine/shared";
+import {
+  multiplayerActionSchema,
+  multiplayerHostBodySchema,
+  multiplayerIdSchema,
+  multiplayerJoinBodySchema,
+  multiplayerLeaveGuestQuerySchema,
+  multiplayerPrepareBodySchema,
+  multiplayerPreviewBodySchema,
+  multiplayerSettingsBodySchema,
+} from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { MULTIPLAYER_GUEST_VIEW_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { logger } from "../lib/logger.js";
@@ -11,15 +20,9 @@ import { MultiplayerError } from "../services/multiplayer/room-store.js";
 import { multiplayerGuestDocument } from "../services/multiplayer/guest-document.js";
 import { parseRoomGameConfig } from "./game.routes.js";
 import { WORLD_SHARE_FILE_MAX_BYTES } from "@marinara-engine/shared";
+import { notFound } from "../utils/not-found.js";
 
-const id = z.string().regex(/^[A-Za-z0-9_-]{8,64}$/u);
-const identity = { displayName: z.string().trim().min(1).max(80), persona: multiplayerPersonaSchema };
-const invitation = { inviteCode: z.string().max(2052) };
-const password = z
-  .string()
-  .min(12)
-  .max(128)
-  .refine((value) => value.trim().length >= 12);
+const id = multiplayerIdSchema;
 const hostAction = z.discriminatedUnion("type", [
   z.object({ type: z.literal("invite") }).strict(),
   z.object({ type: z.literal("revoke-invite") }).strict(),
@@ -76,44 +79,21 @@ export async function multiplayerRoutes(app: FastifyInstance, options: { service
     if (path === "/api/multiplayer/status") return done();
     const status = service.featureState();
     if (!status.available || (path !== "/api/multiplayer/settings" && !status.enabled))
-      return reply.status(404).send({ error: "disabled" });
+      return notFound(reply, "disabled");
     if (path === "/api/multiplayer/guest-view") return done();
     if (!requirePrivilegedAccess(request, reply, { feature: "Multiplayer controls" })) return;
     done();
   });
   app.get("/status", async () => service.status());
   app.put("/settings", { bodyLimit: 1024 }, async (request) => {
-    const input = z
-      .object({ enabled: z.boolean(), consent: z.literal(true) })
-      .strict()
-      .parse(request.body);
+    const input = multiplayerSettingsBodySchema.parse(request.body);
     return service.settings(input.enabled);
   });
   app.post("/prepare", { bodyLimit: 1024 }, async (request) =>
-    service.prepare(
-      z
-        .union([
-          z.object({ chatId: id }).strict(),
-          z
-            .object({ mode: z.enum(["conversation", "roleplay", "game"]), name: z.string().trim().min(1).max(80) })
-            .strict(),
-        ])
-        .parse(request.body),
-    ),
+    service.prepare(multiplayerPrepareBodySchema.parse(request.body)),
   );
   app.post("/host", { bodyLimit: 16_384 }, async (request) =>
-    service.startHost(
-      z
-        .object({
-          chatId: id,
-          publicOrigin: multiplayerInviteSchema.shape.origin,
-          password,
-          ...identity,
-          consent: z.literal(true),
-        })
-        .strict()
-        .parse(request.body),
-    ),
+    service.startHost(multiplayerHostBodySchema.parse(request.body)),
   );
   app.get("/host", async () => service.hostState());
   app.post("/host/action", { bodyLimit: 16_384 }, async (request) =>
@@ -124,23 +104,18 @@ export async function multiplayerRoutes(app: FastifyInstance, options: { service
     service.hostAction(hostAction.parse(request.body)),
   );
   app.post("/preview", { bodyLimit: 4096 }, async (request) =>
-    service.preview(z.object(invitation).strict().parse(request.body).inviteCode),
+    service.preview(multiplayerPreviewBodySchema.parse(request.body).inviteCode),
   );
   app.post("/join", { bodyLimit: 16_384 }, async (request) => {
     if (request.headers["user-agent"]?.includes("MarinaraEngine/Android")) throw new MultiplayerError("unavailable");
-    return service.join(
-      z
-        .object({ ...invitation, password, ...identity, consent: z.literal(true) })
-        .strict()
-        .parse(request.body),
-    );
+    return service.join(multiplayerJoinBodySchema.parse(request.body));
   });
   app.get("/guest", async () => service.guestState());
   app.post("/guest/action", { bodyLimit: 16_384 }, async (request) =>
     service.guestAction(multiplayerActionSchema.parse(request.body)),
   );
   app.delete("/guest", async (request) => {
-    await service.leaveGuest(z.object({ chatId: id.optional() }).strict().parse(request.query).chatId);
+    await service.leaveGuest(multiplayerLeaveGuestQuerySchema.parse(request.query).chatId);
     return { left: true };
   });
   app.get("/guest-view", { config: { rateLimit: MULTIPLAYER_GUEST_VIEW_RATE_LIMIT } }, async (request, reply) => {

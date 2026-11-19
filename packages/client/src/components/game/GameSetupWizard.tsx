@@ -3202,6 +3202,15 @@ export function GameSetupWizard({
                                         className="w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-1.5 text-xs text-[var(--foreground)]"
                                       >
                                         <option value="">{localizeUi("ui.game.gamesetupwizard.choosePlaylist")}</option>
+                                        {/* A saved playlist outside the fetched page still shows as the pick. */}
+                                        {gameSpotifyPlaylistId &&
+                                          !spotifyPlaylistsQuery.data.playlists.some(
+                                            (entry) => entry.id === gameSpotifyPlaylistId,
+                                          ) && (
+                                            <option value={gameSpotifyPlaylistId}>
+                                              {gameSpotifyPlaylistName || gameSpotifyPlaylistId}
+                                            </option>
+                                          )}
                                         {spotifyPlaylistsQuery.data.playlists.map((playlist) => {
                                           const suffix =
                                             typeof playlist.trackCount === "number"

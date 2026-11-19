@@ -1,6 +1,7 @@
 import { normalizeSpotifySourceType, type Chat } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useUpdateChatMetadata } from "../../../hooks/use-chats";
+import { Select } from "../../../components/ui/Select";
 import { SPOTIFY_SOURCE_OPTIONS } from "../../../lib/spotify-source-options";
 
 type SpotifyPlaylist = { id: string; name: string; uri: string; trackCount: number | null; owned: boolean | null };
@@ -47,14 +48,16 @@ export function SpotifySourceSettings({
   const updateMeta = useUpdateChatMetadata();
   return (
     <>
-      <label className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
           {localizeUi("ui.chat.chatsettingsdrawer.spotifySource")}
         </span>
-        <select
+        <Select
+          label={localizeUi("ui.chat.chatsettingsdrawer.spotifySource")}
           value={sourceType}
-          onChange={(event) => {
-            const next = normalizeSpotifySourceType(event.target.value);
+          options={SPOTIFY_SOURCE_OPTIONS.map((option) => ({ value: option.id, label: option.label }))}
+          onChange={(value) => {
+            const next = normalizeSpotifySourceType(value);
             updateMeta.mutate({
               id: chat.id,
               [keys.sourceType]: next,
@@ -64,55 +67,47 @@ export function SpotifySourceSettings({
             });
           }}
           className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
-        >
-          {SPOTIFY_SOURCE_OPTIONS.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        />
         <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
           {SPOTIFY_SOURCE_OPTIONS.find((option) => option.id === sourceType)?.description ?? ""}
         </span>
-      </label>
+      </div>
 
       {sourceType === "playlist" && (
-        <label className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1">
           <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.chat.musicdjsetupfields.playlist")}
           </span>
           {playlistsQuery.data?.playlists.length ? (
-            <select
+            <Select
+              label={localizeUi("ui.chat.musicdjsetupfields.playlist")}
               value={playlistId}
-              onChange={(event) => {
-                const playlist = playlistsQuery.data?.playlists.find((entry) => entry.id === event.target.value);
+              options={[
+                { value: "", label: localizeUi("ui.chat.musicdjsetupfields.choosePlaylist") },
+                ...playlistsQuery.data.playlists.map((playlist) => {
+                  const suffix =
+                    typeof playlist.trackCount === "number"
+                      ? ` (${playlist.trackCount})`
+                      : playlist.owned === false
+                        ? " (followed, unavailable)"
+                        : "";
+                  return { value: playlist.id, label: `${playlist.name}${suffix}` };
+                }),
+              ]}
+              onChange={(value) => {
+                const playlist = playlistsQuery.data?.playlists.find((entry) => entry.id === value);
                 updateMeta.mutate({
                   id: chat.id,
-                  [keys.playlistId]: event.target.value || null,
+                  [keys.playlistId]: value || null,
                   [keys.playlistName]: playlist?.name ?? null,
                 });
               }}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)]"
-            >
-              <option value="">{localizeUi("ui.chat.musicdjsetupfields.choosePlaylist")}</option>
-              {playlistsQuery.data.playlists.map((playlist) => {
-                const suffix =
-                  typeof playlist.trackCount === "number"
-                    ? ` (${playlist.trackCount})`
-                    : playlist.owned === false
-                      ? " (followed, unavailable)"
-                      : "";
-                return (
-                  <option key={playlist.id} value={playlist.id}>
-                    {playlist.name}
-                    {suffix}
-                  </option>
-                );
-              })}
-            </select>
+            />
           ) : (
             <input
               key={`${chat.id}-${playlistId}`}
+              aria-label={localizeUi("ui.chat.musicdjsetupfields.playlist")}
               defaultValue={playlistId}
               onBlur={(event) =>
                 updateMeta.mutate({
@@ -134,7 +129,7 @@ export function SpotifySourceSettings({
               {localizeUi("ui.chat.musicdjsetupfields.connectSpotifyInTheMusicDjAgentToLoad")}
             </span>
           )}
-        </label>
+        </div>
       )}
 
       {sourceType === "artist" && (

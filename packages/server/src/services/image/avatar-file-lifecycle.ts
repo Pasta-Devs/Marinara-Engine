@@ -14,7 +14,7 @@ import {
 import { logger } from "../../lib/logger.js";
 import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
-import { assertInsideDir } from "../../utils/security.js";
+import { resolveInside } from "../../utils/security.js";
 
 const LOCAL_AVATAR_PREFIX = "/api/avatars/file/";
 const STORED_AVATAR_EXTENSIONS = new Set([".avif", ".bmp", ".gif", ".jpeg", ".jpg", ".png", ".webp"]);
@@ -75,7 +75,7 @@ export function resolveStoredAvatarFile(
     ) {
       return null;
     }
-    return assertInsideDir(avatarRoot, join(avatarRoot, filename));
+    return resolveInside(avatarRoot, filename);
   } catch {
     return null;
   }
@@ -317,7 +317,7 @@ async function abandonedAvatarFilesUnlocked(input: {
   const abandoned: AbandonedAvatarFile[] = [];
   for (const entry of entries) {
     if (!entry.isFile() || !STORED_AVATAR_EXTENSIONS.has(extname(entry.name).toLowerCase())) continue;
-    const filePath = assertInsideDir(input.avatarRoot, join(input.avatarRoot, entry.name));
+    const filePath = resolveInside(input.avatarRoot, entry.name);
     try {
       const fileStat = await stat(join(realRoot, entry.name));
       if (!fileStat.isFile() || input.nowMs - fileStat.mtimeMs < input.minimumAgeMs) continue;

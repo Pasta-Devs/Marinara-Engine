@@ -95,22 +95,41 @@ export type PickerFieldProps = ListTexts & {
   onChange: (value: string) => void;
 };
 
-function useFieldWindow(disabled: boolean | undefined) {
+/** Open state of a field's picker window; closing returns focus to the trigger. Shared with Select. */
+export function useFieldWindow(disabled: boolean | undefined) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  // The window goes away if the field turns disabled while it is open (such as during a save).
+  const restoreRef = useRef(false);
+  // Read while rendering, before the disabled attribute lands and the browser drops focus to the page: was the
+  // window open, or did the field itself have focus (a pick closes the window, then the save disables the field)?
+  const wasDisabledRef = useRef(disabled);
+  if (disabled && !wasDisabledRef.current && (open || document.activeElement === triggerRef.current)) {
+    restoreRef.current = true;
+  }
+  wasDisabledRef.current = disabled;
+  // The window goes away if the field turns disabled while it is open (such as during a save or a refetch). Focus
+  // was in the window, so it falls to the page; once the field is enabled again it takes the focus back, unless the
+  // user has moved on to something else meanwhile (#5642).
   useEffect(() => {
-    if (disabled) setOpen(false);
+    if (disabled) {
+      setOpen(false);
+      return;
+    }
+    if (!restoreRef.current) return;
+    restoreRef.current = false;
+    const active = document.activeElement;
+    if (!active || active === document.body) triggerRef.current?.focus({ preventScroll: true });
   }, [disabled]);
   const close = () => {
     setOpen(false);
-    triggerRef.current?.focus();
+    // Without a scroll: a popover closed because its field scrolled away must not pull the field back into view.
+    triggerRef.current?.focus({ preventScroll: true });
   };
   const toggle = () => (open ? close() : setOpen(true));
   return { open: open && !disabled, triggerRef, close, toggle };
 }
 
-function Chevron({ open }: { open: boolean }) {
+export function PickerChevron({ open }: { open: boolean }) {
   return (
     <ChevronDown
       size="0.75rem"
@@ -159,7 +178,7 @@ export function PickerField({
         className={cn(triggerClassName, "flex items-center justify-between gap-2 pr-3 text-left")}
       >
         <span className="min-w-0 flex-1 truncate">{selectedLabel}</span>
-        <Chevron open={open} />
+        <PickerChevron open={open} />
       </button>
       {open && (
         <PickerWindow title={title ?? ariaLabel} anchorRef={triggerRef} onClose={close}>
@@ -296,7 +315,7 @@ export function PickerListField({
       >
         {triggerIcon}
         <span className="min-w-0 flex-1 truncate text-[var(--muted-foreground)]">{triggerLabel}</span>
-        <Chevron open={open} />
+        <PickerChevron open={open} />
       </button>
       {picked.length > 0 && (
         <div className="flex flex-col gap-1">

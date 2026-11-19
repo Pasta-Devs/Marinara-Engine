@@ -11,6 +11,7 @@ import {
   startTurnGame,
 } from "../services/turn-games/turn-game-runner.service.js";
 import { listCapabilityTurnGameCommands } from "../services/capability-packages/capability-command-registry.service.js";
+import { notFound } from "../utils/not-found.js";
 
 const startSchema = z.object({
   gameType: z.string().min(1),
@@ -53,7 +54,7 @@ export async function turnGamesRoutes(app: FastifyInstance) {
   app.get("/:chatId/state", async (req, reply) => {
     const { chatId } = req.params as { chatId: string };
     const view = await getTurnGameView(app.db, chatId);
-    if (!view) return reply.status(404).send({ error: "No active game in this chat." });
+    if (!view) return notFound(reply, "No active game in this chat.");
     return { view };
   });
 

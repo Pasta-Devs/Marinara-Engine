@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import type { GameCombatStateSnapshot, TacticalCombatState } from "../packages/shared/src/index.js";
+import { chooseOption } from "./select-field.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -71,7 +72,11 @@ async function chooseClassicForNextBattle(page: Page, testInfo: TestInfo) {
   await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
   const section = page.locator('[data-chat-settings-section="combat-style"]');
   await section.locator('[role="button"][aria-expanded]').click();
-  await section.getByRole("combobox", { name: "Battle system", exact: true }).selectOption("classic");
+  await chooseOption(
+    page,
+    section.getByRole("combobox", { name: "Battle system", exact: true }),
+    "Turn-Based — cinematic menu battles",
+  );
   await page.getByRole("button", { name: "Close chat settings", exact: true }).click();
 }
 

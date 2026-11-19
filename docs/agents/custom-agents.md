@@ -102,6 +102,8 @@ By default an agent runs on its normal cadence (how often it runs). **Activation
 
 The agent then runs only when a keyword appears in those messages. Leave the box empty to turn the filter off. Cadence and any activation question still apply.
 
+Downloadable agents have the same section. See [Activation Keywords and questions](built-in-agents.md#activation-keywords-and-questions).
+
 ## Attach tools
 
 An agent can call tools: functions the AI runs to fetch or change something, then reads back. This is also called function calling.
@@ -128,6 +130,7 @@ When someone adds the agent to a chat, a **Prompt Mode** dropdown lists your opt
 - **Model override**: use a different model for this agent, for example a cheaper one. Leave it empty to use the chat's model. The agent sends the generation parameters saved on that connection. See [Parameters for agents](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget**: **Context Size** is how many recent messages the agent reads (default 5). **Max Output Tokens** is the output room reserved (default 4096, from 128 to 32768).
 - **Add as Prompt Section**: exposes the agent's latest output as a section you can place in a prompt preset.
+- **Context Sources**: what the agent reads besides its instructions. **Characters** and **Persona** each have three choices: **Off**, **Full card** or **Public Face**. **Public Face** sends only the name and the card's **Public Face** field. If that field is empty, only the name is sent. To write one, see [Card tab](../characters/creating-and-editing-characters.md#card-tab). When several agents share one request, each source uses the widest choice among them: **Full card**, then **Public Face**, then **Off**.
 
 Macros such as `{{user}}` and `{{char}}` work in the **Prompt Template**. See [Macros](../prompts/macros.md).
 
@@ -192,7 +195,7 @@ How it runs:
 - A timeout, an unavailable model or an invalid answer lets the agent run normally. The time limit depends on the model type and on whether the model has to think first. See [Time limits](../connections/decision-models.md#time-limits).
 - Imported agents with an activation question or decision statements show a notice linking to the Decision Models guide. Without a Decision model, the agent runs whenever keywords and **Trigger Cadence** allow, and prompt statements read as no.
 
-Activation questions apply to custom agents only. The built-in Illustrator has its own fixed checks for new places and weather, see [Decision model checks](../media/scene-backgrounds.md#check-every-reply-with-a-decision-model).
+Activation questions work the same way for downloadable agents, except the ones listed in [Activation Keywords and questions](built-in-agents.md#activation-keywords-and-questions). The built-in Illustrator also has its own fixed checks for new places and weather, see [Decision model checks](../media/scene-backgrounds.md#check-every-reply-with-a-decision-model).
 
 ## Decision statements in the agent's prompt
 

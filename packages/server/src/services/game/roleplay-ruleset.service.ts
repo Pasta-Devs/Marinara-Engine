@@ -31,6 +31,7 @@ import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { readMetadata } from "./game-inventory.service.js";
 import { createRulesetRef, loadRulesetRegistry } from "./ruleset-registry.service.js";
+import { parseJsonOrNull } from "../../utils/large-json.js";
 
 export type RoleplayRulesetOutcome =
   | { ok: true; gameRuleset: RulesetRef | null; cards: number; added: number }
@@ -42,15 +43,6 @@ interface RoleplaySheetSource {
   stored: unknown;
 }
 
-function readJson(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
 /** The chat's members who can carry a sheet: its persona first, because the persona is the player
  *  (their card leads the sheets), then its characters. The persona wins a name it shares with one. */
 async function loadRoleplaySheetSources(
@@ -60,12 +52,15 @@ async function loadRoleplaySheetSources(
 ): Promise<RoleplaySheetSource[]> {
   const characters = createCharactersStorage(db);
   const byName = new Map<string, RoleplaySheetSource>();
-  const ids = readJson(chat.characterIds);
+  const ids = parseJsonOrNull(chat.characterIds);
   for (const id of Array.isArray(ids) ? ids : []) {
     if (typeof id !== "string" || id.startsWith("npc:")) continue;
     const row = await characters.getById(id);
     if (!row) continue;
-    const data = readJson(row.data) as { name?: unknown; extensions?: { rulesetSheets?: Record<string, unknown> } };
+    const data = parseJsonOrNull(row.data) as {
+      name?: unknown;
+      extensions?: { rulesetSheets?: Record<string, unknown> };
+    };
     if (typeof data?.name !== "string" || !data.name.trim()) continue;
     // Sheets are kept by name, so a second card with the same name would take the first one's sheet.
     const key = normalizeCharacterLookupName(data.name);
@@ -82,7 +77,7 @@ async function loadRoleplaySheetSources(
   if (chat.personaId) {
     const persona = await characters.getPersona(chat.personaId);
     if (persona?.name?.trim()) {
-      const stats = readJson(persona.personaStats) as { rulesetSheets?: Record<string, unknown> } | null;
+      const stats = parseJsonOrNull(persona.personaStats) as { rulesetSheets?: Record<string, unknown> } | null;
       player = { name: persona.name, stored: stats?.rulesetSheets?.[rulesetId] };
       byName.delete(normalizeCharacterLookupName(persona.name));
     }

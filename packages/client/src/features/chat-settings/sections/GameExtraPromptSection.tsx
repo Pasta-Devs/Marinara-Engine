@@ -10,6 +10,7 @@ import {
   type AgentPromptTemplateOption,
 } from "@marinara-engine/shared";
 import { MacroTextarea } from "../../../components/ui/MacroTextarea";
+import { Select } from "../../../components/ui/Select";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { GameStoryBoundariesFields, type GameStorySettings } from "../../../components/game/GameStoryBoundariesFields";
 
@@ -112,49 +113,46 @@ export function GameExtraPromptSection({
       help={localizeUi("ui.chatSettings.gameextrapromptsection.chooseAPresetSGamePromptThenOptionallyEdit")}
     >
       <div className="space-y-2">
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.chatSettings.conversationpromptsection.promptSource")}
           </span>
-          <select
+          <Select
+            label={localizeUi("ui.chatSettings.conversationpromptsection.promptSource")}
             value={promptPresetId ?? ""}
-            onChange={(event) => onPromptPresetChange(event.target.value || null)}
+            options={[
+              {
+                value: "",
+                label:
+                  promptPresets.length === 0
+                    ? localizeUi("ui.chatSettings.conversationpromptsection.noPresetsAvailable")
+                    : localizeUi("ui.chatSettings.gameextrapromptsection.defaultGamePrompt"),
+              },
+              ...promptPresets.map((preset) => ({ value: preset.id, label: preset.name })),
+            ]}
+            onChange={(value) => onPromptPresetChange(value || null)}
             disabled={promptPresets.length === 0}
-            className="mari-preset-native-select min-w-0 flex-1 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="">
-              {promptPresets.length === 0
-                ? localizeUi("ui.chatSettings.conversationpromptsection.noPresetsAvailable")
-                : localizeUi("ui.chatSettings.gameextrapromptsection.defaultGamePrompt")}
-            </option>
-            {promptPresets.length > 0 &&
-              promptPresets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1.5">
+            className="mari-preset-native-select min-w-0 flex-1 truncate rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40 disabled:cursor-not-allowed disabled:opacity-60"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
           <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.chatSettings.gameextrapromptsection.gmPromptStyle")}
           </span>
-          <select
+          <Select
+            label={localizeUi("ui.chatSettings.gameextrapromptsection.gmPromptStyle")}
             value={gmPromptTemplateId ?? ""}
-            onChange={(event) => onGmPromptTemplateChange(event.target.value || null)}
-            className="mari-preset-native-select w-full truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
-          >
-            <option value="">{localizeUi("ui.chatSettings.gameextrapromptsection.useSelectedPromptSource")}</option>
-            {gmPromptTemplates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: localizeUi("ui.chatSettings.gameextrapromptsection.useSelectedPromptSource") },
+              ...gmPromptTemplates.map((template) => ({ value: template.id, label: template.name })),
+            ]}
+            onChange={(value) => onGmPromptTemplateChange(value || null)}
+            className="mari-preset-native-select w-full truncate rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+          />
           <span className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
             {localizeUi("ui.chatSettings.gameextrapromptsection.aSelectedGmStyleReplacesOnlyTheGamePrompt")}
           </span>
-        </label>
+        </div>
 
         <div className="flex items-center justify-between gap-2">
           <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">

@@ -8,17 +8,8 @@
 // ──────────────────────────────────────────────
 
 import { basename, isAbsolute, join, relative, resolve, sep } from "path";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  rmSync,
-  statSync,
-  unlinkSync,
-  writeFileSync,
-} from "fs";
+import { sleep } from "../../utils/sleep.js";
+import { existsSync, mkdirSync, readFileSync, realpathSync, statSync, unlinkSync } from "fs";
 import {
   SIDECAR_DEFAULT_CONFIG,
   SIDECAR_EMBEDDING_POOLING_TYPES,
@@ -45,6 +36,7 @@ import {
   validateLocalGgufPath,
 } from "./sidecar-model-files.js";
 import { logger } from "../../lib/logger.js";
+import { writeFileAtomicSync } from "../../utils/atomic-write.js";
 
 export const MODELS_DIR = join(getDataDir(), "models");
 export const CUSTOM_MODELS_DIR = join(MODELS_DIR, "custom");
@@ -123,10 +115,6 @@ function isRuntimePreference(value: unknown): value is SidecarConfig["runtimePre
 
 function isEmbeddingPooling(value: unknown): value is SidecarConfig["embeddingPooling"] {
   return typeof value === "string" && (SIDECAR_EMBEDDING_POOLING_TYPES as readonly string[]).includes(value);
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeIntegerSetting(value: unknown, fallback: number, min: number, max?: number): number {
@@ -274,13 +262,7 @@ class SidecarModelService {
   }
 
   private writeConfig(config: SidecarConfig): void {
-    const temporary = `${CONFIG_PATH}.${process.pid}.tmp`;
-    try {
-      writeFileSync(temporary, JSON.stringify(config, null, 2), "utf-8");
-      renameSync(temporary, CONFIG_PATH);
-    } finally {
-      rmSync(temporary, { force: true });
-    }
+    writeFileAtomicSync(CONFIG_PATH, JSON.stringify(config, null, 2));
   }
 
   private saveConfig(): void {
@@ -986,7 +968,7 @@ class SidecarModelService {
           logger.warn(error, "[sidecar] Failed to remove local model file %s", modelPath);
           return;
         }
-        await delay(250);
+        await sleep(250);
       }
     }
   }

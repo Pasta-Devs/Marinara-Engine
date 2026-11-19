@@ -17,6 +17,7 @@ import {
   type SpotifyCredentialsResult,
 } from "../services/spotify/spotify.service.js";
 import { composeDjMariPlaylist, DjMariPlaylistError } from "../services/spotify/dj-mari-playlist.service.js";
+import { notFound } from "../utils/not-found.js";
 
 // In-flight PKCE verifiers keyed by state param (short-lived, cleaned up on callback)
 const pendingAuth = new Map<
@@ -793,7 +794,7 @@ export async function spotifyAuthRoutes(app: FastifyInstance) {
     if (!agentId) return reply.status(400).send({ error: "agentId is required" });
 
     const agent = await storage.getById(agentId);
-    if (!agent) return reply.status(404).send({ error: "Agent not found" });
+    if (!agent) return notFound(reply, "Agent not found");
 
     const settings =
       agent.settings && typeof agent.settings === "string" ? JSON.parse(agent.settings) : (agent.settings ?? {});

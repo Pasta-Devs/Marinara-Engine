@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import {
+  COMMAND_CENTER_GROUP_LIMIT,
   COMMAND_CENTER_MAX_RESULTS,
   isAskMariShortcut,
   isOmnibarShortcut,
   normalizeCommandCenterSessionState,
   normalizeCommandRankingState,
   presentCommandCenterResults,
+  readShowMoreId,
+  showMoreId,
   rankCommandResults,
   readCommandRankingState,
   recordCommandUse,
@@ -20,6 +23,7 @@ import {
   isQuickPickerShortcut,
   isShortcutsHelpKey,
   isTypingTarget,
+  takesLetterKeys,
   shortcutKeyTypesText,
 } from "../../packages/client/src/lib/keyboard-shortcuts.js";
 import {
@@ -1307,6 +1311,15 @@ assert.ok(!("mariDetailId" in mariSession));
   assert.equal(isTypingTarget({ tagName: "TEXTAREA" }), true);
   assert.equal(isTypingTarget({ tagName: "DIV", closest: () => ({}) }), true);
   assert.equal(isTypingTarget({ tagName: "BUTTON", closest: () => null }), false);
+  // A Select trigger (role="combobox") takes letters for its typeahead, so "?" must reach it too, yet it raises no
+  // software keyboard, so layout code keeps asking isTypingTarget.
+  const matchesCombobox = (selector: string) => (selector.includes('[role="combobox"]') ? {} : null);
+  const trigger = { tagName: "BUTTON", closest: matchesCombobox };
+  assert.equal(takesLetterKeys(trigger), true);
+  assert.equal(isTypingTarget(trigger), false);
+  assert.equal(takesLetterKeys({ tagName: "BUTTON", closest: () => null }), false);
+  assert.equal(takesLetterKeys({ tagName: "TEXTAREA" }), true);
+  assert.equal(shortcutKeyTypesText({ composedPath: () => [trigger] }), true);
   assert.equal(formatShortcutKey("Mod", true), "⌘");
   assert.equal(formatShortcutKey("Mod", false), "Ctrl");
   assert.equal(formatShortcutKey("Alt", true), "⌥");
@@ -4638,4 +4651,35 @@ console.info("Command Center regression checks passed.");
   });
   assert.equal(row?.control, undefined, "a lorebook row exposes no global toggle");
   assert.equal(row?.preview().status, undefined, "a lorebook row shows no Enabled/Disabled chip");
+}
+
+{
+  // A search group lists COMMAND_CENTER_GROUP_LIMIT rows plus a "Show more" row; opening it lists them all.
+  const rows = Array.from({ length: 12 }, (_, index) => ({
+    id: `chat:${index}`,
+    category: "chat" as const,
+    group: "chats" as const,
+    title: `Moon ${index}`,
+  })) as unknown as CommandCenterPresentableResult[];
+  const makeShowMoreRow = (groupId: string, hidden: CommandCenterPresentableResult[]) =>
+    ({
+      ...hidden[0],
+      id: showMoreId(groupId, hidden[0].id),
+      title: `Show ${hidden.length} more`,
+    }) as CommandCenterPresentableResult;
+  const capped = presentCommandCenterResults(rows, { query: "moon", makeShowMoreRow });
+  const chatRows = capped.groups.find((group) => group.id === "chats")!.results;
+  assert.equal(chatRows.length, COMMAND_CENTER_GROUP_LIMIT + 1);
+  assert.equal(chatRows.at(-1)!.title, "Show 4 more");
+  assert.equal(capped.groups.find((group) => group.id === "chats")!.total, 12, "the header counts the whole group");
+  assert.deepEqual(capped.results, chatRows, "keyboard sees the rendered rows");
+  assert.deepEqual(readShowMoreId(chatRows.at(-1)!.id), { groupId: "chats", firstHiddenId: "chat:8" });
+  const opened = presentCommandCenterResults(rows, {
+    query: "moon",
+    makeShowMoreRow,
+    expandedGroups: new Set(["chats"]),
+  });
+  assert.equal(opened.results.length, 12);
+  assert.equal(opened.results[COMMAND_CENTER_GROUP_LIMIT]!.id, "chat:8");
+  assert.equal(presentCommandCenterResults(rows, { query: "moon" }).results.length, 12, "no row builder, no cap");
 }

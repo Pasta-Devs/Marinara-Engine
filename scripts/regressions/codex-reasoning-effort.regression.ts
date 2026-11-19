@@ -70,6 +70,8 @@ try {
 
   // Each level the Codex catalog lists for these models goes out as reasoning.effort, unchanged.
   const accepted: Record<string, Array<NonNullable<Options["reasoningEffort"]>>> = {
+    "gpt-6.2-sol": ["low", "medium", "high", "xhigh", "max"],
+    "gpt-6.2-astra": ["low", "medium", "high", "xhigh", "max"],
     "gpt-6.1-sol": ["low", "medium", "high", "xhigh", "max"],
     "gpt-5.6-sol": ["low", "medium", "high", "xhigh", "max"],
     "gpt-5.5": ["low", "medium", "high", "xhigh"],
@@ -279,7 +281,11 @@ try {
     const body = await send({ model: "gpt-6.1-sol", tools: [tool] as Options["tools"] });
     assert.equal(body.tools?.[0]?.name, "app_data", "Codex requests carry the tools");
     assert.equal(body.tool_choice, "auto");
-    const textual = await send({ model: "gpt-6.1-sol", tools: [tool] as Options["tools"], forceTextualToolCalls: true });
+    const textual = await send({
+      model: "gpt-6.1-sol",
+      tools: [tool] as Options["tools"],
+      forceTextualToolCalls: true,
+    });
     assert.equal(textual.tools, undefined, "textual tool calls still send no native tools");
   }
   console.log("codex-reasoning-effort regression passed");

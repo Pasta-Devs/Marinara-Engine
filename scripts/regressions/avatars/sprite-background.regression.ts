@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { join } from "node:path";
 import {
   applySpriteBackgroundInstruction,
   removeUniformSpriteBackgroundPng,
@@ -404,6 +406,34 @@ try {
   assert.equal(result.cells[0].expression, "feathers");
   const cleaned = await decodeRaw(Buffer.from(result.cells[0].base64, "base64"));
   assert.equal(pixelAt(cleaned.data, detailWidth, 20, 23).alpha, 255);
+
+  // Cleaning a saved sprite keeps the original in a backup outside the sprite set, and restoring puts it back.
+  // The runner gives this file a throwaway DATA_DIR.
+  const owner = "saved-cleanup-owner";
+  const spriteDir = join(process.env.DATA_DIR!, "sprites", owner);
+  mkdirSync(spriteDir, { recursive: true });
+  const original = await encodeRaw(chromaPixels, width, height);
+  writeFileSync(join(spriteDir, "happy.png"), original);
+  const savedCleanup = await cleanupApp.inject({
+    method: "POST",
+    url: `/${owner}/cleanup-saved`,
+    payload: { engine: "builtin" },
+  });
+  assert.equal(savedCleanup.statusCode, 200, savedCleanup.body);
+  const { backupId, processed, sprites } = savedCleanup.json();
+  assert.equal(processed, 1);
+  assert.deepEqual(
+    sprites.map((sprite: { filename: string }) => sprite.filename),
+    ["happy.png"],
+    "the backup is not a sprite",
+  );
+  const active = await decodeRaw(readFileSync(join(spriteDir, "happy.png")));
+  assert.ok(pixelAt(active.data, width, 0, 0).alpha <= 4, "the cleaned sprite is the active one");
+  assert.deepEqual(readFileSync(join(spriteDir, ".cleanup-backups", backupId, "happy.png")), original);
+  const restored = await cleanupApp.inject({ method: "POST", url: `/${owner}/cleanup-restore`, payload: { backupId } });
+  assert.equal(restored.statusCode, 200, restored.body);
+  assert.equal(restored.json().restored, 1);
+  assert.deepEqual(readFileSync(join(spriteDir, "happy.png")), original, "restoring brings the original back");
 } finally {
   await cleanupApp.close();
 }

@@ -44,7 +44,7 @@ export function useLibraryOrder(
       const row = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-drag-id]") : null;
       if (
         !row ||
-        (event.target instanceof Element && event.target.closest("input,textarea,select")) ||
+        (event.target instanceof Element && event.target.closest("input,textarea,select,[role='combobox']")) ||
         (event.target instanceof HTMLElement && event.target.isContentEditable) ||
         row.dataset.dragKind !== kind ||
         row.closest('[aria-hidden="true"]') ||

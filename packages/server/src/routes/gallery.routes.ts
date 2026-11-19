@@ -137,7 +137,7 @@ import {
 import { isDebugAgentsEnabled } from "../config/runtime-config.js";
 import { newId } from "../utils/id-generator.js";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
+import { assertInsideDir, isAllowedImageBuffer, resolveInside } from "../utils/security.js";
 import {
   sendValidatedMediaFile,
   validateImageAssetFile,
@@ -145,6 +145,8 @@ import {
 } from "../utils/media-file-security.js";
 import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import { tryParseJsonRecord } from "../lib/json-repair.js";
+import { notFound } from "../utils/not-found.js";
+import { parseJsonRecord, isRecord } from "../utils/large-json.js";
 
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const SPRITES_DIR = join(DATA_DIR, "sprites");
@@ -369,23 +371,6 @@ function buildGalleryImageUrl(image: { chatId?: string; filePath: string }, fall
 
 function expectedImageExt(ext: string): string {
   return ext === ".jpeg" ? "jpg" : ext.slice(1);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function parseJsonRecord(raw: unknown): Record<string, unknown> {
-  if (!raw) return {};
-  if (typeof raw === "string") {
-    try {
-      const parsed = JSON.parse(raw);
-      return isRecord(parsed) ? parsed : {};
-    } catch {
-      return {};
-    }
-  }
-  return isRecord(raw) ? raw : {};
 }
 
 function parseStringArray(raw: unknown): string[] {
@@ -1101,7 +1086,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
 
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const parts = req.params["*"].split("/").filter(Boolean);
     if (parts[0] === "gallery" && parts[1] && isSafeAssetSegment(parts[1])) {
@@ -1112,10 +1097,10 @@ export async function galleryRoutes(app: FastifyInstance) {
       const image = findGalleryRowByFilename(await storage.listByChatId(chatId), filename);
       const storedFile = image ? resolveStoredGalleryFile(image.filePath, GALLERY_DIR) : null;
       if (!storedFile || !existsSync(storedFile.absolutePath)) {
-        return reply.status(404).send({ error: "Not found" });
+        return notFound(reply, "Not found");
       }
       const validatedImage = await validateImageAssetFile(storedFile.absolutePath, storedFile.filename);
-      if (!validatedImage) return reply.status(404).send({ error: "Not found" });
+      if (!validatedImage) return notFound(reply, "Not found");
       return sendValidatedMediaFile(reply, validatedImage, { method: req.method, rangeHeader: req.headers.range });
     }
 
@@ -1123,15 +1108,15 @@ export async function galleryRoutes(app: FastifyInstance) {
       const target = parts[2];
       if (!isSafeAssetSegment(target)) return reply.status(400).send({ error: "Invalid sprite target" });
       const match = await findContextualSprite(chat, parts[1], target);
-      if (!match) return reply.status(404).send({ error: "Sprite not found" });
-      const spritePath = assertInsideDir(SPRITES_DIR, join(SPRITES_DIR, match.ownerId, match.filename));
+      if (!match) return notFound(reply, "Sprite not found");
+      const spritePath = resolveInside(SPRITES_DIR, match.ownerId, match.filename);
       const validatedImage = await validateImageAssetFile(spritePath, match.filename, { allowSvg: true });
-      if (!validatedImage) return reply.status(404).send({ error: "Sprite not found" });
+      if (!validatedImage) return notFound(reply, "Sprite not found");
       if (validatedImage.isSvg) reply.header("Content-Security-Policy", "sandbox; default-src 'none'");
       return sendValidatedMediaFile(reply, validatedImage, { method: req.method, rangeHeader: req.headers.range });
     }
 
-    return reply.status(404).send({ error: "Asset not found" });
+    return notFound(reply, "Asset not found");
   });
 
   // List all local assets relevant to a chat: chat gallery, participant card galleries, and sprites.
@@ -1140,7 +1125,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
 
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const assets: ChatAssetBrowserItem[] = [];
     const chatImages = await storage.listByChatId(chatId);
@@ -1223,7 +1208,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
 
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const videos = await createGameSceneVideosStorage(app.db).listByChatId(chatId);
     return { videos: videos.map((video) => serializeSceneVideo(video)) };
@@ -1235,7 +1220,7 @@ export async function galleryRoutes(app: FastifyInstance) {
 
     const sceneVideos = createGameSceneVideosStorage(app.db);
     const video = await sceneVideos.getById(id, chatId);
-    if (!video || video.chatId !== chatId) return reply.status(404).send({ error: "Scene video not found" });
+    if (!video || video.chatId !== chatId) return notFound(reply, "Scene video not found");
 
     await sceneVideos.remove(video.id, video.chatId);
     await removeSavedVideoFromDisk(video.filePath).catch((error) => {
@@ -1256,12 +1241,12 @@ export async function galleryRoutes(app: FastifyInstance) {
       const sceneVideos = createGameSceneVideosStorage(app.db);
       const videos = await sceneVideos.listByChatId(chatId);
       const matchingRow = videos.find((video) => video.filePath.replace(/\\/g, "/") === normalizedFilePath);
-      if (!matchingRow) return reply.status(404).send({ error: "Scene video not found" });
+      if (!matchingRow) return notFound(reply, "Scene video not found");
 
-      const filePath = assertInsideDir(GAME_SCENE_VIDEOS_ROOT, join(GAME_SCENE_VIDEOS_ROOT, chatId, filename));
+      const filePath = resolveInside(GAME_SCENE_VIDEOS_ROOT, chatId, filename);
       if (!existsSync(filePath)) return reply.status(404).send({ error: "Scene video file not found" });
       const video = await validateVideoAssetFile(filePath, filename);
-      if (!video) return reply.status(404).send({ error: "Scene video file not found" });
+      if (!video) return notFound(reply, "Scene video file not found");
 
       return sendValidatedMediaFile(reply, video, {
         method: req.method,
@@ -1390,7 +1375,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const input = generateConversationVideoSchema.parse(req.body);
 
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     if (chat.mode !== "conversation") {
       return reply.status(400).send({ error: "Video messages are only available in Conversation mode." });
     }
@@ -1519,7 +1504,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       })
       .parse(req.body ?? {});
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     if (chat.mode !== "roleplay") return reply.status(400).send({ error: "This command is for Roleplay chats." });
     const meta = parseChatMetadata(chat.metadata);
     // Ends the clip's writing and making when the request goes away, as the other video routes do.
@@ -1700,7 +1685,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     };
 
     const chat = await chats.getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     if (chat.mode !== "conversation") {
       return reply.status(400).send({ error: "Selfies from Gallery are only available in Conversation mode." });
     }
@@ -1711,7 +1696,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     }
 
     const character = await characters.getById(input.characterId, chatId);
-    if (!character) return reply.status(404).send({ error: "Character not found" });
+    if (!character) return notFound(reply, "Character not found");
 
     const meta = parseChatMetadata(chat.metadata);
     const imageConnectionId = readTrimmedString(meta.imageGenConnectionId);
@@ -1722,7 +1707,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     }
     const connections = createConnectionsStorage(app.db);
     const imageConn = await connections.getWithKey(imageConnectionId);
-    if (!imageConn) return reply.status(404).send({ error: "Image generation connection not found." });
+    if (!imageConn) return notFound(reply, "Image generation connection not found.");
     if (imageConn.provider !== "image_generation") {
       return reply.status(400).send({ error: "Selected selfie connection is not an image generation connection." });
     }
@@ -2388,9 +2373,9 @@ export async function galleryRoutes(app: FastifyInstance) {
 
       const input = rewriteGalleryImagePromptSchema.parse(req.body);
       const chat = await chats.getById(chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
       const original = await storage.getById(imageId, chatId);
-      if (!original) return reply.status(404).send({ error: "Image not found" });
+      if (!original) return notFound(reply, "Image not found");
       return reviseImagePromptDraft(
         reply,
         chat,
@@ -2409,16 +2394,16 @@ export async function galleryRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { assetId: string } }>("/mari-images/assets/:assetId", async (req, reply) => {
     const asset = await getMariPreviewAsset(req.params.assetId);
-    if (!asset) return reply.status(404).send({ error: "Image not found" });
+    if (!asset) return notFound(reply, "Image not found");
     return { asset, regenerable: isMariPreviewAssetRegenerable(asset) };
   });
 
   app.post<{ Params: { assetId: string } }>("/mari-images/assets/:assetId/regenerate/prompt", async (req, reply) => {
     const { chatId, ...draft } = reviseMariImagePromptSchema.parse(req.body);
     const chat = await getMariChat(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const asset = await getMariPreviewAsset(req.params.assetId);
-    if (!asset) return reply.status(404).send({ error: "Image not found" });
+    if (!asset) return notFound(reply, "Image not found");
     return reviseImagePromptDraft(reply, chat, draft, asset.connectionId, { captions: false });
   });
 
@@ -2428,7 +2413,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const input = regenerateMariImageSchema.parse(req.body);
     if (input.messageId && !input.chatId) return reply.status(400).send({ error: "messageId needs chatId" });
     const chat = input.chatId ? await getMariChat(input.chatId) : null;
-    if (input.chatId && !chat) return reply.status(404).send({ error: "Chat not found" });
+    if (input.chatId && !chat) return notFound(reply, "Chat not found");
     logDebugOverride(
       input.debugMode || isDebugAgentsEnabled(),
       "[debug/gallery/mari-images/regenerate] final prompt:\n%s",
@@ -2446,7 +2431,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       logger.warn(err, "[gallery/mari-images/regenerate] Regenerating Mari image %s failed", assetId);
       return reply.status(502).send({ error: err instanceof Error ? err.message : "Image regeneration failed" });
     }
-    if (!result) return reply.status(404).send({ error: "Image not found" });
+    if (!result) return notFound(reply, "Image not found");
 
     const swapped =
       chat && input.messageId
@@ -2478,9 +2463,9 @@ export async function galleryRoutes(app: FastifyInstance) {
 
       const input = regenerateGalleryImageSchema.parse(req.body);
       const chat = await chats.getById(chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
       const original = await storage.getById(imageId, chatId);
-      if (!original) return reply.status(404).send({ error: "Image not found" });
+      if (!original) return notFound(reply, "Image not found");
       const record = parseChatImageGenerationRecord(original.generation);
 
       const connectionsStore = createConnectionsStorage(app.db);
@@ -2738,7 +2723,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid chatId" });
     }
     if (!(await chats.getById(chatId))) {
-      return reply.status(404).send({ error: "Chat not found" });
+      return notFound(reply, "Chat not found");
     }
 
     const data = await req.file({ limits: { fileSize: GALLERY_UPLOAD_MAX_BYTES } });
@@ -2838,11 +2823,11 @@ export async function galleryRoutes(app: FastifyInstance) {
         ? await findMariPreviewFile(filename)
         : null;
     if (!storedFile || !existsSync(storedFile.absolutePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const validatedImage = await validateImageAssetFile(storedFile.absolutePath, storedFile.filename);
-    if (!validatedImage) return reply.status(404).send({ error: "Not found" });
+    if (!validatedImage) return notFound(reply, "Not found");
 
     const width = parseThumbnailWidth((req.query as { w?: string }).w);
     const thumbPath = width ? await resolveThumbPath(storedFile.absolutePath, width) : null;
@@ -2865,13 +2850,11 @@ export async function galleryRoutes(app: FastifyInstance) {
     const { chatId, imageId } = req.params;
     if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
     const image = await storage.getById(imageId, chatId);
-    if (!image || image.chatId !== chatId) return reply.status(404).send({ error: "Not found" });
+    if (!image || image.chatId !== chatId) return notFound(reply, "Not found");
     const tag = readGalleryTagPayload(req.body, { allowBackground: true });
     if ("error" in tag) return reply.status(400).send({ error: tag.error });
     const updated = await storage.setTag(imageId, chatId, tag.patch);
-    return updated
-      ? { ...updated, url: buildGalleryImageUrl(updated, chatId) }
-      : reply.status(404).send({ error: "Not found" });
+    return updated ? { ...updated, url: buildGalleryImageUrl(updated, chatId) } : notFound(reply, "Not found");
   });
 
   // Add a chat picture to a character's or persona's gallery, with its label. The gallery row
@@ -2888,11 +2871,9 @@ export async function galleryRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "targetType must be character or persona, with a targetId" });
     }
     const image = await storage.getById(imageId, chatId);
-    if (!image || image.chatId !== chatId) return reply.status(404).send({ error: "Not found" });
+    if (!image || image.chatId !== chatId) return notFound(reply, "Not found");
     if (targetType === "character" ? !(await characters.getById(targetId)) : !(await characters.getPersona(targetId))) {
-      return reply
-        .status(404)
-        .send({ error: targetType === "character" ? "Character not found" : "Persona not found" });
+      return notFound(reply, targetType === "character" ? "Character not found" : "Persona not found");
     }
     const result = await assignChatPictureToGallery({
       image,
@@ -2903,7 +2884,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     });
     if (!result.ok) {
       return result.reason === "missing-file"
-        ? reply.status(404).send({ error: "The picture's file is missing" })
+        ? notFound(reply, "The picture's file is missing")
         : reply.status(500).send({ error: "Could not add the picture" });
     }
     return {
@@ -2921,7 +2902,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const { chatId } = req.query as { chatId?: string };
     const image = await storage.getById(id, typeof chatId === "string" && chatId ? chatId : undefined);
     if (!image) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const deleted = await deleteChatGalleryImageEverywhere({ db: app.db, image });

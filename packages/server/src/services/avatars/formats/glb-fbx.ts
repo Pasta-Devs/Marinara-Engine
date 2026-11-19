@@ -26,6 +26,7 @@ import {
   requireScene,
   type GlbRefusalText,
 } from "./vrm.js";
+import { isRecord } from "../../../utils/large-json.js";
 
 export const GLB_MODEL_FILE = "glb-fbx/model.glb";
 export const FBX_MODEL_FILE = "glb-fbx/model.fbx";
@@ -58,12 +59,6 @@ export interface ValidatedGlbFbxFile {
   /** Blend shape names, each once, in file order. */
   morphNames: string[];
   warnings: string[];
-}
-
-type JsonRecord = Record<string, unknown>;
-
-function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function strings(value: unknown): string[] {

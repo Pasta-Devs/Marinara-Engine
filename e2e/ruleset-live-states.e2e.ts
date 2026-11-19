@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { parseRulesetDefinition } from "@marinara-engine/shared";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
+import { chooseOption, pickerLabels } from "./select-field.js";
 
 const parsed = parseRulesetDefinition(
   JSON.parse(readFileSync(new URL("../docs/examples/rulesets/ember-roads.json", import.meta.url), "utf8")),
@@ -77,18 +78,18 @@ for (const theme of ["light", "dark"] as const) {
     const sheet = page.getByTestId("sheet");
     const stance = sheet.getByLabel("Stance for Juno");
     // It starts where the ruleset says, and nothing is stored for a state at its default.
-    await expect(stance).toHaveValue("steady");
-    await expect(stance.locator("option")).toHaveText(["Guarded", "Steady", "Reckless"]);
+    await expect(stance).toHaveAttribute("data-value", "steady");
+    expect(await pickerLabels(page, stance)).toEqual(["Guarded", "Steady", "Reckless"]);
     await expect(sheet).toHaveAttribute("data-live", "null");
 
-    await stance.selectOption({ label: "Reckless" });
-    await expect(stance).toHaveValue("reckless");
+    await chooseOption(page, stance, "Reckless");
+    await expect(stance).toHaveAttribute("data-value", "reckless");
     await expect(sheet).toHaveAttribute("data-live", JSON.stringify({ states: { stance: "reckless" } }));
     await page.screenshot({ path: info.outputPath(`live-state-${theme}.png`), fullPage: true });
 
     // Making camp settles it, and a state back at its default is not stored.
     await sheet.getByRole("button", { name: "Make camp for Juno" }).click();
-    await expect(stance).toHaveValue("steady");
+    await expect(stance).toHaveAttribute("data-value", "steady");
     await expect
       .poll(async () => JSON.parse((await sheet.getAttribute("data-live")) ?? "null")?.states ?? null)
       .toBeNull();

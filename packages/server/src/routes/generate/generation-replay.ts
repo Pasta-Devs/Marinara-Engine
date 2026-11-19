@@ -11,6 +11,7 @@ export interface GenerationReplay {
   impersonatePresetId?: string | null;
   impersonateConnectionId?: string | null;
   impersonateBlockAgents?: boolean;
+  impersonatePublicFaces?: boolean;
   impersonatePromptTemplate?: string | null;
 }
 
@@ -23,6 +24,7 @@ export interface GenerationReplayInput {
   impersonatePresetId?: string | null;
   impersonateConnectionId?: string | null;
   impersonateBlockAgents?: boolean;
+  impersonatePublicFaces?: boolean;
   impersonatePromptTemplate?: string | null;
 }
 
@@ -70,6 +72,7 @@ export function buildGenerationReplay(input: GenerationReplayInput): GenerationR
     if (impersonateConnectionId) replay.impersonateConnectionId = impersonateConnectionId;
 
     if (input.impersonateBlockAgents === true) replay.impersonateBlockAgents = true;
+    if (input.impersonatePublicFaces === true) replay.impersonatePublicFaces = true;
 
     const impersonatePromptTemplate = asNonEmptyString(input.impersonatePromptTemplate);
     if (impersonatePromptTemplate) replay.impersonatePromptTemplate = impersonatePromptTemplate;
@@ -91,6 +94,7 @@ export function normalizeGenerationReplay(value: unknown): GenerationReplay | nu
     impersonatePresetId: asTrimmedNonEmptyString(raw.impersonatePresetId),
     impersonateConnectionId: asTrimmedNonEmptyString(raw.impersonateConnectionId),
     impersonateBlockAgents: raw.impersonateBlockAgents === true,
+    impersonatePublicFaces: raw.impersonatePublicFaces === true,
     impersonatePromptTemplate: asNonEmptyString(raw.impersonatePromptTemplate),
   });
 }
@@ -138,6 +142,11 @@ export function applyGenerationReplayToRegenerateInput(
 
     if (input.impersonateBlockAgents !== true && replay.impersonateBlockAgents === true) {
       input.impersonateBlockAgents = true;
+      applied = true;
+    }
+
+    if (input.impersonatePublicFaces !== true && replay.impersonatePublicFaces === true) {
+      input.impersonatePublicFaces = true;
       applied = true;
     }
 

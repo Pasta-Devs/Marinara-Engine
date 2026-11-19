@@ -11,11 +11,12 @@
 // an .env edit.
 
 import { createHash, randomBytes, randomInt, scrypt, timingSafeEqual } from "node:crypto";
-import { mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { logger } from "../lib/logger.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { getAdminSecret, getBasicAuthConfig } from "./runtime-config.js";
+import { writeFileAtomicSync } from "../utils/atomic-write.js";
 
 export type StoredLogin = { user: string; salt: string; hash: string; N: number; r: number; p: number };
 export type LoginConfig = { source: "env"; user: string; pass: string } | ({ source: "app" } & StoredLogin);
@@ -84,9 +85,7 @@ function watchedFile<T>(file: string, read: () => T, missing: T) {
 /** Owner-only (0600) and atomic: a crash leaves the old file or the new one, never half of it. */
 function writePrivateFile(file: string, value: unknown) {
   mkdirSync(DATA_DIR, { recursive: true });
-  const temp = `${file}.${randomBytes(6).toString("hex")}.tmp`;
-  writeFileSync(temp, `${JSON.stringify(value)}\n`, { mode: 0o600, flag: "wx" });
-  renameSync(temp, file);
+  writeFileAtomicSync(file, `${JSON.stringify(value)}\n`, { mode: 0o600 });
 }
 
 function removeFile(file: string) {

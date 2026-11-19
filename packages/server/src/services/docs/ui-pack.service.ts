@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { mkdir, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { normalizeLocaleResource, normalizeUILanguage } from "@marinara-engine/shared";
 import { getDataDir } from "../../config/runtime-config.js";
@@ -12,6 +11,7 @@ import {
   resolvePinnedBase,
   type DocsPackManifestFile,
 } from "./docs-pack.service.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 const MAX_PACK_BYTES = 5 * 1024 * 1024;
 const installs = new Map<string, Promise<void>>();
@@ -72,13 +72,7 @@ export function installUIPack(language: string): Promise<void> {
     const content = await fetchPackFile(`${base}/${file.path}`, file);
     normalizeLocaleResource(language, JSON.parse(content.toString("utf8")));
     await mkdir(join(getDataDir(), "ui-packs"), { recursive: true });
-    const temporary = `${destination}.${randomUUID()}.tmp`;
-    try {
-      await writeFile(temporary, content, { flag: "wx" });
-      await rename(temporary, destination);
-    } finally {
-      await rm(temporary, { force: true });
-    }
+    await writeFileAtomic(destination, content);
     logger.info("Installed UI language pack %s", language);
   })().finally(() => installs.delete(language));
   installs.set(language, install);

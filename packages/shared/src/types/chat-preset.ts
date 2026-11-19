@@ -271,6 +271,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "groupTurnPromptEnabled", // Tell each character it is their turn
   "groupSpeakerColors", // Colour speaker names
   "groupSpeakerNamesInHistory", // Speaker names in the history
+  "groupPublicFacesEnabled", // Other characters' Public Faces in each turn
   "autoActiveCharacters", // Who keeps the active characters current
   // Conversation features
   "crossChatAwareness", // Characters remember their other chats
@@ -311,6 +312,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "illustratorPromptConnectionId", // Illustrator: prompt connection
   "illustratorIncludeCharacterAppearance", // Illustrator: add card appearance
   "illustratorUseAvatarReferences", // Illustrator: send avatars as references
+  "illustratorReferencePictureTarget", // Illustrator: avatar references go to the image model, the writer, or both
   "illustratorVideoIncludeCharacterAppearance", // Illustrator: add card appearance to video prompts
   "illustratorVideoUseAvatarReferences", // Illustrator: a Prompt only clip starts from the avatar
   "illustratorAutoBackgroundsEnabled", // Illustrator: make a background when the scene moves

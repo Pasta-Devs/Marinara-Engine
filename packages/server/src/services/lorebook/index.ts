@@ -40,6 +40,7 @@ import {
   fitLorebookEntryToBudget,
   processActivatedEntries,
 } from "./prompt-injector.js";
+import { parseJsonOrNull } from "../../utils/large-json.js";
 
 export interface LorebookScanResult {
   worldInfoBefore: string;
@@ -378,15 +379,6 @@ export function filterRelevantLorebooks(lorebooks: RelevantLorebook[], filters?:
   });
 }
 
-function parseJsonValue(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Every lorebook and entry `{{include::...}}` can read (#6912). With a chat, the short
  * form looks for names in the lorebooks that chat uses: its own and the ones added to it,
@@ -397,9 +389,9 @@ export async function loadLorebookIncludes(db: DB, chatId?: string): Promise<Lor
   const books = (await storage.list()) as unknown as RelevantLorebook[];
   const entries = (await storage.listEntriesByLorebooks(books.map((book) => book.id))) as unknown as LorebookEntry[];
   const chat = chatId ? await createChatsStorage(db).getById(chatId) : null;
-  const metadata = parseJsonValue(chat?.metadata);
+  const metadata = parseJsonOrNull(chat?.metadata);
   const meta = metadata && typeof metadata === "object" ? (metadata as Record<string, unknown>) : {};
-  const characterIds = parseJsonValue(chat?.characterIds);
+  const characterIds = parseJsonOrNull(chat?.characterIds);
   const chatBooks = chat
     ? filterRelevantLorebooks(books, {
         chatId: chat.id,
