@@ -2107,6 +2107,7 @@ export async function galleryRoutes(app: FastifyInstance) {
           imageDefaults: context.imageDefaults,
           quality: resolveConnectionImageQuality(context.imageConnection),
           signal,
+          sceneBackground: true,
           fallback: context.imageFallback,
         },
       );

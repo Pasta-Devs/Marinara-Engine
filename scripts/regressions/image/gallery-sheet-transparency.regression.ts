@@ -23,6 +23,18 @@ assert.equal(
   "an edited prompt without the green screen gets the request added",
 );
 
+// On NovelAI the sheet asks with its transparency tags, and the green screen is gone instead of kept as a fallback.
+for (const definition of [CHARACTERS_STICKER_SHEET, CHARACTERS_EMOJI_SHEET]) {
+  const prompt = definition.defaultBuilder(definition.exampleContext);
+  const tagged = withGallerySheetTransparency(prompt, true);
+  assert.match(tagged, /transparent background, alpha transparency, no background;/u);
+  assert.doesNotMatch(tagged, /green/iu);
+}
+assert.equal(
+  withGallerySheetTransparency("A sheet of stickers on a blue background.", true),
+  "A sheet of stickers on a blue background. transparent background, alpha transparency, no background.",
+);
+
 // Automatic knows the models that return alpha; the Model's own setting wins either way.
 const row = (model: string, baseUrl: string, serviceHint = model) => ({ source: model, baseUrl, serviceHint, model });
 assert.equal(imageConnectionMakesTransparentPicture(row("gpt-image-1", "https://api.openai.com/v1")), true);
@@ -33,6 +45,14 @@ assert.equal(imageConnectionMakesTransparentPicture(row("gpt-image-1", "https://
 assert.equal(imageConnectionMakesTransparentPicture(row("openai/gpt-image-1.5", "https://openrouter.ai/api/v1")), true);
 assert.equal(imageConnectionMakesTransparentPicture(row("openai/gpt-image-2", "https://openrouter.ai/api/v1")), false);
 assert.equal(imageConnectionMakesTransparentPicture(row("", "", "codex_chatgpt")), false, "Codex draws GPT Image 2");
+assert.equal(
+  imageConnectionMakesTransparentPicture(row("nai-diffusion-5-full", "https://image.novelai.net", "novelai")),
+  true,
+);
+assert.equal(
+  imageConnectionMakesTransparentPicture(row("nai-diffusion-4-5-full", "https://image.novelai.net", "novelai")),
+  false,
+);
 const comfy = row("flux", "http://127.0.0.1:8188", "comfyui");
 assert.equal(imageConnectionMakesTransparentPicture(comfy), false);
 assert.equal(imageConnectionMakesTransparentPicture({ ...comfy, imageTransparency: "supported" }), true);

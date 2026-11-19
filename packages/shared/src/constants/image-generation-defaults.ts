@@ -54,6 +54,7 @@ export const DEFAULT_NOVELAI_DEFAULTS: NovelAiDefaults = {
   promptGuidanceRescale: 0,
   undesiredContentPreset: 0,
   dynamicResolutionBySubjectCount: true,
+  backgroundDataset: false,
   styleReferenceImage: null,
   styleReferenceStrength: 0.6,
   styleReferenceFidelity: 0.5,
@@ -365,6 +366,7 @@ function normalizeNovelAiDefaults(rawDefaults: unknown): NovelAiDefaults {
       raw.dynamicResolutionBySubjectCount,
       DEFAULT_NOVELAI_DEFAULTS.dynamicResolutionBySubjectCount,
     ),
+    backgroundDataset: readBoolean(raw.backgroundDataset, DEFAULT_NOVELAI_DEFAULTS.backgroundDataset),
     styleReferenceImage: readNullableString(raw.styleReferenceImage, DEFAULT_NOVELAI_DEFAULTS.styleReferenceImage),
     styleReferenceStrength: readNumber(
       raw.styleReferenceStrength,
