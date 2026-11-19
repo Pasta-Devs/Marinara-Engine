@@ -1982,6 +1982,22 @@ card so the panel has something to show. It is a soft seam: older Engines
 leave the method out, so check that it exists, as above. Declare 1.820 only when the package cannot work without it.
 No permission is needed.
 
+### Capability API 1.833: list a chat's World State snapshots
+
+`persistence.getGameState(chatId)` returns only the newest committed World State. `persistence.listGameStates(chatId)`
+returns the committed snapshot of each message's active swipe, in message order, each in the same record shape as
+`getGameState`. A package can read the in-story date the tracker saved for any message instead of asking a model to
+find it in the text.
+
+A message with no committed snapshot, a snapshot saved for a swipe the user has not kept, a snapshot whose message was
+deleted and a snapshot not tied to a message are left out, so the last entry can differ from `getGameState`. It needs
+the `chat-read` permission, like `getGameState`, and is read-only. It is a soft seam: older Engines leave the method
+out, so check that it exists, as above. Declare 1.833 only when the package cannot work without it.
+
+```ts
+const states = (await api.runtime.persistence.listGameStates?.(chatId)) ?? [];
+```
+
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 
 `persistence.listChatSummaries(chatId)` also returns `advancedMemory`: the chat's enabled, completed
