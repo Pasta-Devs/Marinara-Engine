@@ -8,6 +8,8 @@ import {
   normalizeChatSummaryEntries,
   type ChatSummaryEntry,
   applyTrackerFieldLocksToGameStatePatch,
+  characterCustomFieldTrackerLockKey,
+  characterStatTrackerLockKey,
   characterTrackerLockPrefix,
   customTrackerFieldLockPrefix,
   generationParametersSchema,
@@ -2163,6 +2165,17 @@ export function applyTrackerCharacterCardIdentity(
  * 4. nothing: a new `npc-…` id. An id unrelated to every stored row means a new character, as before.
  * Ids already stored are kept as they are, so existing locks need no migration.
  */
+/** A tracked row the server ids as an NPC: not a chat card, a cast member, a hand-made row or a Game party row. */
+function isTrackerNpcRow(row: Record<string, unknown>, cardIds: ReadonlySet<string>): boolean {
+  const id = typeof row.characterId === "string" ? row.characterId.trim() : "";
+  return (
+    !cardIds.has(id.toLowerCase()) &&
+    !parseTrackerCastCharacterId(id) &&
+    !isManualTrackerCharacterId(id) &&
+    !isGamePartyNpcId(id)
+  );
+}
+
 export function assignTrackerCharacterIds(
   characters: Array<Record<string, unknown>>,
   options: {
@@ -2173,15 +2186,7 @@ export function assignTrackerCharacterIds(
   },
 ): void {
   const cardIds = new Set([...options.cardIds].map((id) => id.trim().toLowerCase()));
-  const isNpcRow = (row: Record<string, unknown>) => {
-    const id = typeof row.characterId === "string" ? row.characterId.trim() : "";
-    return (
-      !cardIds.has(id.toLowerCase()) &&
-      !parseTrackerCastCharacterId(id) &&
-      !isManualTrackerCharacterId(id) &&
-      !isGamePartyNpcId(id)
-    );
-  };
+  const isNpcRow = (row: Record<string, unknown>) => isTrackerNpcRow(row, cardIds);
   const npcIdOf = (row: Record<string, unknown>) => (typeof row.characterId === "string" ? row.characterId.trim() : "");
   const mintId = options.mintId ?? (() => `${TRACKER_NPC_ID_PREFIX}${newId()}`);
 
@@ -2301,6 +2306,56 @@ const TRACKER_HANDOVER_PORTRAIT_FIELDS = [
 ] as const;
 const TRACKER_HANDOVER_TEXT_FIELDS = ["emoji", "mood", "appearance", "outfit", "thoughts"] as const;
 
+type LockRef = Parameters<typeof characterTrackerLockPrefix>[0];
+
+/**
+ * Folding an NPC row into a card row: the card row's stats and custom fields win, except one the user locked on the
+ * NPC row and not on the card row, which keeps the NPC's value. Stats and custom fields only the NPC had are kept.
+ * Runs before the lock keys move, so the NPC's keys are still under its own prefix.
+ */
+function foldLockedNpcValues(
+  merged: Record<string, unknown>,
+  npc: Record<string, unknown>,
+  locks: TrackerFieldLocks,
+  { npcRef, cardRef, index }: { npcRef: LockRef; cardRef: LockRef; index: number },
+) {
+  if (Array.isArray(npc.stats)) {
+    const stats = (Array.isArray(merged.stats) ? merged.stats : []).map((stat) =>
+      isPlainRecord(stat) ? { ...stat } : stat,
+    ) as Array<Record<string, unknown>>;
+    const cardHadStats = Array.isArray(merged.stats) && merged.stats !== npc.stats;
+    npc.stats.forEach((npcStat, statIndex) => {
+      if (!isPlainRecord(npcStat)) return;
+      const name = normalizeTextForMatch(npcStat.name);
+      const targetIndex = name ? stats.findIndex((stat) => normalizeTextForMatch(stat?.name) === name) : -1;
+      if (targetIndex < 0) {
+        if (cardHadStats) stats.push({ ...npcStat });
+        return;
+      }
+      const target = stats[targetIndex]!;
+      for (const field of ["name", "value", "max"] as const) {
+        const npcKey = characterStatTrackerLockKey(npcRef, index, npcStat as never, field, statIndex);
+        const cardKey = characterStatTrackerLockKey(cardRef, index, target as never, field, targetIndex);
+        if (isTrackerFieldLocked(locks, npcKey) && !isTrackerFieldLocked(locks, cardKey) && field in npcStat) {
+          target[field] = npcStat[field];
+        }
+      }
+    });
+    merged.stats = stats;
+  }
+  if (isPlainRecord(npc.customFields)) {
+    const fields: Record<string, unknown> = isPlainRecord(merged.customFields) ? { ...merged.customFields } : {};
+    for (const [name, value] of Object.entries(npc.customFields)) {
+      const npcLocked = (["name", "value"] as const).some((field) =>
+        isTrackerFieldLocked(locks, characterCustomFieldTrackerLockKey(npcRef, index, name, field)),
+      );
+      const cardLocked = isTrackerFieldLocked(locks, characterCustomFieldTrackerLockKey(cardRef, index, name, "value"));
+      if (!(name in fields) || (npcLocked && !cardLocked)) fields[name] = value;
+    }
+    merged.customFields = fields;
+  }
+}
+
 /**
  * A character card that joins the chat later takes over the NPC row the tracker already kept for that person (#9556).
  *
@@ -2342,15 +2397,8 @@ export function handOverTrackerNpcsToCards(input: {
   const cardsById = new Map(input.cards.map((card) => [card.id.trim().toLowerCase(), card]));
   const { cardsByName, cardsByAlias } = indexTrackerCardNames(input.cards);
   const canonicalCardNamesByKey = new Map([...cardsByName].map(([key, card]) => [key, card.name]));
-  const isNpcRow = (row: Record<string, unknown>) => {
-    const id = idOf(row);
-    return (
-      !cardsById.has(id.toLowerCase()) &&
-      !parseTrackerCastCharacterId(id) &&
-      !isManualTrackerCharacterId(id) &&
-      !isGamePartyNpcId(id)
-    );
-  };
+  const cardIds = new Set(cardsById.keys());
+  const isNpcRow = (row: Record<string, unknown>) => isTrackerNpcRow(row, cardIds);
   const cardFor = (row: Record<string, unknown>) => {
     const id = idOf(row);
     if (id.toLowerCase().startsWith(TRACKER_NPC_ID_PREFIX)) {
@@ -2396,11 +2444,8 @@ export function handOverTrackerNpcsToCards(input: {
     const index = indexes[0]!;
     const npc = rows[index]!;
     const from = idOf(npc);
-    const fromPrefix = characterTrackerLockPrefix(npc as Parameters<typeof characterTrackerLockPrefix>[0], index);
-    const toPrefix = characterTrackerLockPrefix(
-      { characterId: card.id, name: card.name } as Parameters<typeof characterTrackerLockPrefix>[0],
-      index,
-    );
+    const fromPrefix = characterTrackerLockPrefix(npc as LockRef, index);
+    const toPrefix = characterTrackerLockPrefix({ characterId: card.id, name: card.name } as LockRef, index);
     const cardKey = card.id.trim().toLowerCase();
     const cardIndex = rows.findIndex((row, i) => i !== index && !removed.has(i) && idOf(row).toLowerCase() === cardKey);
     const cardRow = cardIndex >= 0 ? rows[cardIndex]! : null;
@@ -2409,10 +2454,11 @@ export function handOverTrackerNpcsToCards(input: {
     if (cardRow) {
       for (const [key, value] of Object.entries(cardRow))
         if (value !== undefined && value !== null) merged[key] = value;
-      // Custom fields are the user's own structure: keep the NPC's, the card row's win per field.
-      if (isPlainRecord(npc.customFields) && isPlainRecord(cardRow.customFields)) {
-        merged.customFields = { ...npc.customFields, ...cardRow.customFields };
-      }
+      foldLockedNpcValues(merged, npc, fieldLocks, {
+        npcRef: npc as LockRef,
+        cardRef: { characterId: card.id, name: card.name } as LockRef,
+        index,
+      });
       for (const field of TRACKER_HANDOVER_TEXT_FIELDS) {
         if (
           npc[field] !== undefined &&

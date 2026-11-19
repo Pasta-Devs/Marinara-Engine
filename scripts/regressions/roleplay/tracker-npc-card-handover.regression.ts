@@ -5,6 +5,8 @@
 import assert from "node:assert/strict";
 import {
   applyTrackerFieldLocksToGameStatePatch,
+  characterCustomFieldTrackerLockKey,
+  characterStatTrackerLockKey,
   characterTrackerLockKey,
   type GameState,
 } from "../../../packages/shared/src/index.js";
@@ -225,6 +227,52 @@ await runNamedCases([
       const { handover } = applyTurn([], stored, [mara]);
       assert.deepEqual(handover.handedOver, []);
       assert.deepEqual(idsOf(handover.previousCharacters), ["manual-1", "npc-zzz"]);
+    },
+  },
+  {
+    name: "folding keeps a stat and a custom field locked only on the NPC row, and the card row's unlocked ones",
+    run: () => {
+      const npcRow = {
+        ...storedMara,
+        stats: [
+          { name: "Trust", value: 80, max: 100 },
+          { name: "Gold", value: 5, max: 100 },
+          { name: "Fear", value: 10, max: 100 },
+        ],
+        customFields: { Debt: "40 gold", Ship: "Gull" },
+      };
+      const cardRow = {
+        characterId: "card-mara",
+        name: "Mara Vex",
+        avatarPath: mara.avatarPath,
+        stats: [
+          { name: "Trust", value: 20, max: 100 },
+          { name: "Gold", value: 50, max: 100 },
+        ],
+        customFields: { Debt: "none", Rank: "Captain" },
+      };
+      const npcRef = { characterId: "npc-abc" };
+      const locks = {
+        [characterStatTrackerLockKey(npcRef, 0, { name: "Trust" }, "value")]: true,
+        [characterCustomFieldTrackerLockKey(npcRef, 0, "Debt", "value")]: true,
+      };
+      const { handover } = applyTurn([], [cardRow, npcRow], [mara], { fieldLocks: locks });
+      const [row] = handover.previousCharacters;
+      const stats = row!.stats as Array<{ name: string; value: number }>;
+      assert.deepEqual(
+        stats.map((stat) => [stat.name, stat.value]),
+        [
+          ["Trust", 80],
+          ["Gold", 50],
+          ["Fear", 10],
+        ],
+      );
+      assert.deepEqual(row!.customFields, { Debt: "40 gold", Rank: "Captain", Ship: "Gull" });
+      const cardRef = { characterId: "card-mara" };
+      assert.deepEqual(handover.fieldLocks, {
+        [characterStatTrackerLockKey(cardRef, 0, { name: "Trust" }, "value")]: true,
+        [characterCustomFieldTrackerLockKey(cardRef, 0, "Debt", "value")]: true,
+      });
     },
   },
   {
