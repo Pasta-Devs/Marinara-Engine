@@ -31,6 +31,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useId,
   type KeyboardEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -46,6 +47,7 @@ import {
 } from "../../../lib/composer-triggers";
 import type { MariCommandId } from "../../../lib/mari-commands";
 import { cn } from "../../../lib/utils";
+import { useUIStore } from "../../../stores/ui.store";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { openAddConnection } from "../../../lib/add-connection";
 import { ConnectionSwitcherBody } from "../../connections/ConnectionSwitcherBody";
@@ -255,6 +257,10 @@ export function MariComposer({
   const localize = useLocalizedUiText();
   const { t: localizeUi } = useTranslation();
   const { t } = useTranslation();
+  // Folding the suggestions box is remembered (and follows you to every window and device).
+  const suggestionsCollapsed = useUIStore((state) => state.professorMariSuggestionsCollapsed);
+  const setSuggestionsCollapsed = useUIStore((state) => state.setProfessorMariSuggestionsCollapsed);
+  const suggestionsBodyId = useId();
   // While she works, Send opens this choice of now or after her answer. It only exists while she works.
   const [sendMenuOpen, setSendMenuOpen] = useState(false);
   const sendMenuRef = useRef<HTMLDivElement | null>(null);
@@ -496,23 +502,61 @@ export function MariComposer({
         ) : null}
       </AnimatePresence>
       {showSuggestionPrompt && !showNextStepCards && suggestionQuestion && (!omnibarMode || messages.length > 0) ? (
-        <div className="mari-workspace-question-dock mb-2">
+        <div
+          className="mari-workspace-question-dock mb-2"
+          data-collapsible={!omnibarMode || undefined}
+          data-collapsed={(!omnibarMode && suggestionsCollapsed) || undefined}
+        >
           {!omnibarMode ? (
             <div className="mari-workspace-question-dock__prompt">
-              <Sparkles size="0.875rem" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <CompactMarkdown content={suggestionQuestion} />
-              </div>
+              {/* The fold sits top left with her sparkle beneath it. Folded, the box is one quiet line that is
+                  itself the button, so it opens from anywhere on it. */}
+              {suggestionsCollapsed ? (
+                <button
+                  type="button"
+                  className="mari-workspace-question-dock__folded"
+                  onClick={() => setSuggestionsCollapsed(false)}
+                  aria-expanded={false}
+                  title={t("mari.suggestions.show")}
+                >
+                  <span className="mari-workspace-question-dock__toggle" aria-hidden="true">
+                    <ChevronDown />
+                  </span>
+                  <span className="mari-workspace-question-dock__folded-label">{t("mari.suggestions.folded")}</span>
+                </button>
+              ) : (
+                <>
+                  <div className="mari-workspace-question-dock__rail">
+                    <button
+                      type="button"
+                      className="mari-workspace-question-dock__toggle"
+                      onClick={() => setSuggestionsCollapsed(true)}
+                      aria-expanded
+                      aria-controls={suggestionsBodyId}
+                      aria-label={t("mari.suggestions.hide")}
+                      title={t("mari.suggestions.hide")}
+                    >
+                      <ChevronDown aria-hidden="true" />
+                    </button>
+                    <Sparkles size="0.875rem" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <CompactMarkdown content={suggestionQuestion} />
+                  </div>
+                </>
+              )}
             </div>
           ) : null}
-          <div className="mari-workspace-answer-strip">
-            <MariSuggestionChips
-              chips={chipRowChips}
-              // N4 covers the next-step cards; the starter and plan/approval chips still draft.
-              onSelect={(chip) => handleSuggestionSelect(chip, true)}
-              disabled={isBusy}
-            />
-          </div>
+          {omnibarMode || !suggestionsCollapsed ? (
+            <div id={suggestionsBodyId} className="mari-workspace-answer-strip">
+              <MariSuggestionChips
+                chips={chipRowChips}
+                // N4 covers the next-step cards; the starter and plan/approval chips still draft.
+                onSelect={(chip) => handleSuggestionSelect(chip, true)}
+                disabled={isBusy}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
       <input
@@ -593,80 +637,8 @@ export function MariComposer({
           </div>
         ) : null}
 
-        <div className="relative flex min-w-0 flex-1 basis-full">
-          <InlineDraftOverlay
-            value={draft}
-            suffix={linkHintText || (ghostAvailable && !pickerOpen ? draftSuffix : "")}
-            hint={linkHint}
-            marks={[
-              ...referenceMarks,
-              ...(liveToken ? [{ start: liveToken.start, end: liveToken.end, tone: "pending" as const }] : []),
-            ]}
-            multiline
-            scrollLeft={composerScroll.left}
-            scrollTop={composerScroll.top}
-            className="mari-workspace-composer__text"
-            onAccept={ghostInToken || linkHint ? () => onPickerAction?.("ghost-link") : acceptDraftCompletion}
-          />
-          <textarea
-            ref={floatingTextareaRef}
-            value={draft}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              trackCaret(event.currentTarget);
-              if (mobileFocusMode) event.currentTarget.scrollIntoView({ block: "end" });
-            }}
-            onScroll={(event) => {
-              const { scrollLeft, scrollTop } = event.currentTarget;
-              // Display scaling leaves a fraction of a pixel to scroll even on one line: that must not fade the text.
-              event.currentTarget.toggleAttribute("data-scrolled", scrollTop >= 1);
-              setComposerScroll({ left: scrollLeft, top: scrollTop });
-            }}
-            onPaste={(event) => {
-              const files = pastedFiles(event.clipboardData);
-              if (files.length === 0) return;
-              event.preventDefault();
-              void handleAttachmentUpload(files);
-            }}
-            onSelect={(event) => trackCaret(event.currentTarget)}
-            onKeyUp={(event) => trackCaret(event.currentTarget)}
-            onClick={(event) => trackCaret(event.currentTarget)}
-            onKeyDown={(event) => {
-              const action = composerKeyAction({
-                key: event.key,
-                shiftKey: event.shiftKey,
-                metaKey: event.metaKey,
-                ctrlKey: event.ctrlKey,
-                isComposing: event.nativeEvent.isComposing,
-                pickerOpen,
-                hasGhost: ghostAvailable,
-                inReferenceToken: ghostInToken,
-                canDrillIn: referenceUi?.canDrillIn,
-                canDrillOut: referenceUi?.canDrillOut,
-                canLinkCompletion: referenceUi?.canLinkCompletion,
-                enterToSend,
-              });
-              if (action === "none") return;
-              event.preventDefault();
-              if (action === "ghost-accept") acceptDraftCompletion();
-              else if (action === "send") void handleSubmit();
-              else if (action === "queue") void handleSubmit(undefined, undefined, undefined, true);
-              else {
-                // In companion mode the first Escape closes only the picker, not the omnibar behind it.
-                if (action === "picker-close") event.stopPropagation();
-                onPickerAction?.(action);
-              }
-            }}
-            // The overlay is hidden from screen readers, so the field itself carries the hint.
-            aria-description={linkHintText || undefined}
-            aria-controls={pickerOpen ? referenceUi?.picker?.id : undefined}
-            aria-activedescendant={pickerOpen ? referenceUi?.activeOptionId : undefined}
-            rows={1}
-            placeholder={phone ? t("home.professorMari.placeholderPhone") : t("home.professorMari.placeholder")}
-            className="mari-workspace-composer__text mari-workspace-composer__input"
-          />
-        </div>
-        {/* Under the text, like Claude's: attach, the connection and the Permissions Mode. */}
+        {/* Attach and the connection sit before the text, as in the chat composer; the Permissions Mode sits by
+            Send. Narrow composers put the text on its own row above them. */}
         <div className="mari-composer-toolbar">
           <div className="mari-workspace-composer__attach mari-composer-menu">
             <MariAttachButton
@@ -746,37 +718,106 @@ export function MariComposer({
                 </div>
               ))}
           </div>
-          <div className="mari-composer-menu">
-            <button
-              ref={permissionsButtonRef}
-              type="button"
-              onClick={() => {
-                setConnectionMenuOpen(false);
-                setPermissionsMenuOpen((current) => !current);
-              }}
-              className="mari-composer-menu__trigger"
-              data-mode={permissionsMode}
-              aria-expanded={permissionsMenuOpen}
-              aria-label={localizeUi("ui.chat.quickreplymenu.value1Value2", {
-                value1: localizeUi("ui.chat.homeprofessormarichat.permissionsMode"),
-                value2: localize(MARI_PERMISSIONS_MODE_LABELS[permissionsMode].label),
-              })}
-              title={localizeUi("ui.chat.homeprofessormarichat.permissionsMode")}
-            >
-              <ActivePermissionsModeIcon aria-hidden="true" />
-              <span>{localize(MARI_PERMISSIONS_MODE_LABELS[permissionsMode].label)}</span>
-              <ChevronDown aria-hidden="true" />
-            </button>
-            {permissionsMenuOpen ? (
-              <div
-                ref={permissionsMenuRef}
-                className="mari-composer-menu__popover"
-                onKeyDown={onPermissionsMenuKeyDown}
-              >
-                {permissionsModeOptions}
-              </div>
-            ) : null}
-          </div>
+        </div>
+        <div className="mari-workspace-composer__text-row relative flex min-w-0 flex-1 basis-full">
+          <InlineDraftOverlay
+            value={draft}
+            suffix={linkHintText || (ghostAvailable && !pickerOpen ? draftSuffix : "")}
+            hint={linkHint}
+            marks={[
+              ...referenceMarks,
+              ...(liveToken ? [{ start: liveToken.start, end: liveToken.end, tone: "pending" as const }] : []),
+            ]}
+            multiline
+            scrollLeft={composerScroll.left}
+            scrollTop={composerScroll.top}
+            className="mari-workspace-composer__text"
+            onAccept={ghostInToken || linkHint ? () => onPickerAction?.("ghost-link") : acceptDraftCompletion}
+          />
+          <textarea
+            ref={floatingTextareaRef}
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              trackCaret(event.currentTarget);
+              if (mobileFocusMode) event.currentTarget.scrollIntoView({ block: "end" });
+            }}
+            onScroll={(event) => {
+              const { scrollLeft, scrollTop } = event.currentTarget;
+              // Display scaling leaves a fraction of a pixel to scroll even on one line: that must not fade the text.
+              event.currentTarget.toggleAttribute("data-scrolled", scrollTop >= 1);
+              setComposerScroll({ left: scrollLeft, top: scrollTop });
+            }}
+            onPaste={(event) => {
+              const files = pastedFiles(event.clipboardData);
+              if (files.length === 0) return;
+              event.preventDefault();
+              void handleAttachmentUpload(files);
+            }}
+            onSelect={(event) => trackCaret(event.currentTarget)}
+            onKeyUp={(event) => trackCaret(event.currentTarget)}
+            onClick={(event) => trackCaret(event.currentTarget)}
+            onKeyDown={(event) => {
+              const action = composerKeyAction({
+                key: event.key,
+                shiftKey: event.shiftKey,
+                metaKey: event.metaKey,
+                ctrlKey: event.ctrlKey,
+                isComposing: event.nativeEvent.isComposing,
+                pickerOpen,
+                hasGhost: ghostAvailable,
+                inReferenceToken: ghostInToken,
+                canDrillIn: referenceUi?.canDrillIn,
+                canDrillOut: referenceUi?.canDrillOut,
+                canLinkCompletion: referenceUi?.canLinkCompletion,
+                enterToSend,
+              });
+              if (action === "none") return;
+              event.preventDefault();
+              if (action === "ghost-accept") acceptDraftCompletion();
+              else if (action === "send") void handleSubmit();
+              else if (action === "queue") void handleSubmit(undefined, undefined, undefined, true);
+              else {
+                // In companion mode the first Escape closes only the picker, not the omnibar behind it.
+                if (action === "picker-close") event.stopPropagation();
+                onPickerAction?.(action);
+              }
+            }}
+            // The overlay is hidden from screen readers, so the field itself carries the hint.
+            aria-description={linkHintText || undefined}
+            aria-controls={pickerOpen ? referenceUi?.picker?.id : undefined}
+            aria-activedescendant={pickerOpen ? referenceUi?.activeOptionId : undefined}
+            rows={1}
+            placeholder={phone ? t("home.professorMari.placeholderPhone") : t("home.professorMari.placeholder")}
+            className="mari-workspace-composer__text mari-workspace-composer__input"
+          />
+        </div>
+        <div className="mari-composer-menu mari-composer-mode">
+          <button
+            ref={permissionsButtonRef}
+            type="button"
+            onClick={() => {
+              setConnectionMenuOpen(false);
+              setPermissionsMenuOpen((current) => !current);
+            }}
+            className="mari-composer-menu__trigger"
+            data-mode={permissionsMode}
+            aria-expanded={permissionsMenuOpen}
+            aria-label={localizeUi("ui.chat.quickreplymenu.value1Value2", {
+              value1: localizeUi("ui.chat.homeprofessormarichat.permissionsMode"),
+              value2: localize(MARI_PERMISSIONS_MODE_LABELS[permissionsMode].label),
+            })}
+            title={localizeUi("ui.chat.homeprofessormarichat.permissionsMode")}
+          >
+            <ActivePermissionsModeIcon aria-hidden="true" />
+            <span>{localize(MARI_PERMISSIONS_MODE_LABELS[permissionsMode].label)}</span>
+            <ChevronDown aria-hidden="true" />
+          </button>
+          {permissionsMenuOpen ? (
+            <div ref={permissionsMenuRef} className="mari-composer-menu__popover" onKeyDown={onPermissionsMenuKeyDown}>
+              {permissionsModeOptions}
+            </div>
+          ) : null}
         </div>
         {/* While she works one button shows: Stop on an empty field, Send once there is a message.
             That Send opens the full-width choice of now or after her answer. */}
