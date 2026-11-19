@@ -110,6 +110,7 @@ import {
   SPICYAPI_IMAGE_MODELS,
   VIDEO_GENERATION_SOURCES,
   inferImageSource,
+  imageConnectionMakesTransparentPicture,
   isOpenAIGptImageModel,
   isOpenAIGptImage25Model,
   resolveOpenAIImageQuality,
@@ -531,6 +532,7 @@ export function ConnectionEditor({
   const [localMaxTokensOverride, setLocalMaxTokensOverride] = useState<number | null>(null);
   /** "" = Automatic (the catalog decides), else "reads" or "text". */
   const [localImageInput, setLocalImageInput] = useState<"" | "reads" | "text">("");
+  const [localImageTransparency, setLocalImageTransparency] = useState<"" | "supported" | "unsupported">("");
   const [localClaudeFastMode, setLocalClaudeFastMode] = useState(false);
   const [localTreatAsLocalEndpoint, setLocalTreatAsLocalEndpoint] = useState(false);
   const [localDefaultParametersEnabled, setLocalDefaultParametersEnabled] = useState(false);
@@ -720,6 +722,9 @@ export function ConnectionEditor({
     setLocalAudioGenerationFormat(c.audioGenerationFormat === "chat_completions" ? "chat_completions" : "binary");
     setLocalMaxTokensOverride(typeof c.maxTokensOverride === "number" ? (c.maxTokensOverride as number) : null);
     setLocalImageInput(c.imageInput === "reads" || c.imageInput === "text" ? c.imageInput : "");
+    setLocalImageTransparency(
+      c.imageTransparency === "supported" || c.imageTransparency === "unsupported" ? c.imageTransparency : "",
+    );
     setLocalClaudeFastMode(c.claudeFastMode === "true" || c.claudeFastMode === true);
     setLocalTreatAsLocalEndpoint(c.treatAsLocalEndpoint === "true" || c.treatAsLocalEndpoint === true);
     const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(c.defaultParameters);
@@ -856,6 +861,15 @@ export function ConnectionEditor({
   const supportsGptImageQuality =
     localProvider === "image_generation" && selectedImageService === "openai" && isOpenAIGptImageModel(localModel);
   const effectiveImageGenerationQuality = resolveOpenAIImageQuality(localImageGenerationQuality, localModel);
+  /** What Automatic means for this Model: whether it is one known to draw see-through pictures. */
+  const imageTransparencyAutomatic =
+    localProvider === "image_generation" &&
+    imageConnectionMakesTransparentPicture({
+      source: selectedImageService || localModel,
+      baseUrl: localBaseUrl,
+      serviceHint: selectedImageService || localModel,
+      model: localModel,
+    });
   const selectedVideoService =
     localProvider === "video_generation"
       ? localVideoGenerationSource || localVideoService || effectiveVideoGenerationSource
@@ -1096,6 +1110,7 @@ export function ConnectionEditor({
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
       videoPromptInstructions: isVideoProvider ? normalizeVideoPromptInstructions(localVideoPromptInstructions) : null,
       imageGenerationQuality: isImageProvider ? effectiveImageGenerationQuality : "auto",
+      imageTransparency: isImageProvider ? localImageTransparency || null : null,
       videoGenerationSource: isVideoProvider ? selectedVideoProvider || null : null,
       videoService: isVideoProvider
         ? selectedVideoProvider === "swarmui"
@@ -1297,6 +1312,7 @@ export function ConnectionEditor({
     effectiveImageGenerationQuality,
     localMaxTokensOverride,
     localImageInput,
+    localImageTransparency,
     localClaudeFastMode,
     localTreatAsLocalEndpoint,
     localDefaultParametersEnabled,
@@ -1386,6 +1402,7 @@ export function ConnectionEditor({
         localAudioGenerationFormat,
         localMaxTokensOverride,
         localImageInput,
+        localImageTransparency,
         localClaudeFastMode,
         localTreatAsLocalEndpoint,
         localDefaultParametersEnabled,
@@ -1485,6 +1502,8 @@ export function ConnectionEditor({
         if ("localMaxTokensOverride" in kept)
           setLocalMaxTokensOverride(kept.localMaxTokensOverride as typeof localMaxTokensOverride);
         if ("localImageInput" in kept) setLocalImageInput(kept.localImageInput as typeof localImageInput);
+        if ("localImageTransparency" in kept)
+          setLocalImageTransparency(kept.localImageTransparency as typeof localImageTransparency);
         if ("localClaudeFastMode" in kept)
           setLocalClaudeFastMode(kept.localClaudeFastMode as typeof localClaudeFastMode);
         if ("localTreatAsLocalEndpoint" in kept)
@@ -1649,6 +1668,7 @@ export function ConnectionEditor({
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
       videoPromptInstructions: isVideoProvider ? normalizeVideoPromptInstructions(localVideoPromptInstructions) : null,
       imageGenerationQuality: isImageProvider ? effectiveImageGenerationQuality : "auto",
+      imageTransparency: isImageProvider ? localImageTransparency || null : null,
       comfyuiWorkflow:
         isImageProvider || (isVideoProvider && (videoProvider === "comfyui" || videoProvider === "swarmui"))
           ? localComfyuiWorkflow || null
@@ -3941,6 +3961,34 @@ export function ConnectionEditor({
                   : []),
               ]}
             />
+          </FieldGroup>
+        )}
+
+        {/* ── Transparent backgrounds ── */}
+        {localProvider === "image_generation" && (
+          <FieldGroup
+            label={t("connections.editor.imageTransparency.label")}
+            help={t("connections.editor.imageTransparency.help")}
+          >
+            <select
+              value={localImageTransparency}
+              aria-label={t("connections.editor.imageTransparency.label")}
+              onChange={(event) => {
+                setLocalImageTransparency(event.target.value as "" | "supported" | "unsupported");
+                markDirty();
+              }}
+              className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+            >
+              <option value="">
+                {t(
+                  imageTransparencyAutomatic
+                    ? "connections.editor.imageTransparency.autoSupported"
+                    : "connections.editor.imageTransparency.autoUnsupported",
+                )}
+              </option>
+              <option value="supported">{t("connections.editor.imageTransparency.supported")}</option>
+              <option value="unsupported">{t("connections.editor.imageTransparency.unsupported")}</option>
+            </select>
           </FieldGroup>
         )}
 

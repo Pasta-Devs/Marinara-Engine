@@ -185,6 +185,8 @@ export const createConnectionSchema = z.object({
     .default(null),
   /** null = Automatic: the Model's catalog decides whether it reads images. */
   imageInput: z.enum(["reads", "text"]).nullable().default(null),
+  /** null = Automatic: known image models decide whether pictures can come back see-through. */
+  imageTransparency: z.enum(["supported", "unsupported"]).nullable().default(null),
   audioVoice: z.string().nullable().default(null),
   /** Milliseconds; null keeps the default. */
   audioTimeoutMs: z

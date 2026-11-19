@@ -5,7 +5,7 @@ import { decryptCustomHeaders } from "../utils/stored-secrets.js";
 import type { FastifyInstance } from "fastify";
 import {
   isOpenAIGptImageModel,
-  isOpenAIGptImage2Model,
+  imageConnectionMakesTransparentPicture,
   normalizeSpriteExpressionKey,
   supportsOpenAIImageCustomSize,
   type AvatarEmotion,
@@ -24,8 +24,10 @@ import { DATA_DIR } from "../utils/data-dir.js";
 import { getBackgroundRemoverStatus } from "../services/image/background-remover.service.js";
 import {
   applySpriteBackgroundInstruction,
+  hasSpriteTransparency,
   removeSpriteBackgroundPng,
   selectSpriteChromaMatte,
+  settleSpriteBackground,
   spriteBackgroundContract,
   SPRITE_CLEANUP_REVISION,
   type SpriteCleanupEngine,
@@ -45,6 +47,7 @@ import {
   writeSpriteCatalog,
   withSpriteCatalogLock,
 } from "../services/sprites/sprite-catalog.js";
+import { resolveCharacterSprite } from "../services/sprites/sprite-reuse.js";
 import { notFound } from "../utils/not-found.js";
 
 async function getSpriteCapabilities() {
@@ -280,8 +283,52 @@ function animatedSpritePromptReviewId(expression: string): string {
   return spritePromptReviewId("expression", "animated-portrait", expression);
 }
 
-export function resolveSpriteNativeTransparency(model: string | undefined, requested: boolean): boolean {
-  return requested && !isOpenAIGptImage2Model(model);
+/** An image connection row as far as its see-through pictures go (see imageConnectionMakesTransparentPicture). */
+/**
+ * Fit a finished sprite into the requested size. A see-through picture is padded with see-through bars; a solid one
+ * (left as drawn, or never cleaned) with its own corner color, so a later cleanup still sees one flat background.
+ */
+export async function fitSpriteToSize(buffer: Buffer, width: number, height: number): Promise<Buffer> {
+  const sharp = await getSharp();
+  const metadata = await sharp(buffer).metadata();
+  if (!metadata.width || !metadata.height || (metadata.width === width && metadata.height === height)) return buffer;
+  // A clear corner means a see-through picture even when too little of it is clear for the ratio test.
+  const corner = await sharp(buffer).ensureAlpha().extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer();
+  const clearCorner = (corner[3] ?? 255) < 245;
+  const transparent = clearCorner || (await hasSpriteTransparency(buffer).catch(() => false));
+  const background = transparent
+    ? { r: 0, g: 0, b: 0, alpha: 0 }
+    : { r: corner[0] ?? 255, g: corner[1] ?? 255, b: corner[2] ?? 255, alpha: 1 };
+  return sharp(buffer).resize(width, height, { fit: "contain", background }).png().toBuffer();
+}
+
+export type SpriteTransparencyConnection = {
+  model?: string | null;
+  baseUrl?: string | null;
+  imageGenerationSource?: string | null;
+  imageService?: string | null;
+  imageTransparency?: string | null;
+};
+
+/** Ask the image service itself for a see-through sprite only when its Model draws one (its "Transparent
+ *  backgrounds" setting, or a model known to). Any other Model is asked for a flat chroma colour Marinara removes. */
+export function resolveSpriteNativeTransparency(
+  connection: SpriteTransparencyConnection | null | undefined,
+  requested: boolean,
+): boolean {
+  if (!requested || !connection) return false;
+  const model = connection.model || "";
+  const source = connection.imageGenerationSource || model;
+  return imageConnectionMakesTransparentPicture({
+    source,
+    baseUrl: connection.baseUrl || "https://image.pollinations.ai",
+    serviceHint: connection.imageService || source,
+    model,
+    imageTransparency:
+      connection.imageTransparency === "supported" || connection.imageTransparency === "unsupported"
+        ? connection.imageTransparency
+        : null,
+  });
 }
 
 export function resolveSpriteSheetCanvas({
@@ -731,12 +778,17 @@ async function flagMismatchedExpressions(
 async function cutSpriteSheet(
   sheet: Buffer,
   plan: Pick<SpritePromptPlan, "cols" | "rows" | "expressions">,
-  options: { clean: boolean; cleanupStrength: number },
-): Promise<{ sheetBase64: string; cells: Array<{ expression: string; base64: string }> }> {
+  options: { clean: boolean; cleanupStrength: number; askedForTransparency?: boolean },
+): Promise<{ sheetBase64: string; cells: Array<{ expression: string; base64: string; opaque?: true }> }> {
   let sheetBuffer = sheet;
   const sharp = await getSharp();
   let metadata = await sharp(sheetBuffer).metadata();
-  if (options.clean) {
+  // A sheet that came back see-through keeps its alpha. One a see-through Model drew solid is left as it is,
+  // each cell marked, so the review step offers the clean-up rather than changing it unasked.
+  const alreadyTransparent = await hasSpriteTransparency(sheetBuffer).catch(() => false);
+  const opaque = !alreadyTransparent && options.askedForTransparency === true;
+  const clean = options.clean && !alreadyTransparent && !opaque;
+  if (clean) {
     try {
       sheetBuffer = (await removeSpriteBackgroundPng(sheetBuffer, options.cleanupStrength)).buffer;
       metadata = await sharp(sheetBuffer).metadata();
@@ -751,7 +803,7 @@ async function cutSpriteSheet(
   const imgHeight = metadata.height ?? (plan.rows <= 2 ? 1024 : 1536);
   const cellWidth = Math.floor(imgWidth / plan.cols);
   const cellHeight = Math.floor(imgHeight / plan.rows);
-  const cellPromises: Promise<{ expression: string; base64: string }>[] = [];
+  const cellPromises: Promise<{ expression: string; base64: string; opaque?: true }>[] = [];
   for (let row = 0; row < plan.rows; row++) {
     for (let col = 0; col < plan.cols; col++) {
       const idx = row * plan.cols + col;
@@ -765,14 +817,14 @@ async function cutSpriteSheet(
             .extract({ left, top, width: cellWidth, height: cellHeight })
             .png()
             .toBuffer();
-          if (options.clean) {
+          if (clean) {
             try {
               cellBuffer = (await removeSpriteBackgroundPng(cellBuffer, options.cleanupStrength)).buffer;
             } catch (bgErr) {
               logger.warn(bgErr, 'Sprite background cleanup failed for "%s"; using the sheet crop', expression);
             }
           }
-          return { expression, base64: cellBuffer.toString("base64") };
+          return { expression, base64: cellBuffer.toString("base64"), ...(opaque ? { opaque: true as const } : {}) };
         })(),
       );
     }
@@ -1260,6 +1312,7 @@ async function buildSpritePromptPlan(
   db: DB,
   body: SpriteGenerateSheetBody,
   imgModel: string,
+  connection?: SpriteTransparencyConnection,
 ): Promise<SpritePromptPlan> {
   const cols = coerceSpriteGridDimension(body.cols, 2);
   const rows = coerceSpriteGridDimension(body.rows, 3);
@@ -1279,7 +1332,7 @@ async function buildSpritePromptPlan(
   const expressionList = expressions.join(", ");
   const promptOverridesStorage = createPromptOverridesStorage(db);
   const trimmedAppearance = body.appearance?.trim() || "";
-  const nativeTransparentPng = resolveSpriteNativeTransparency(imgModel, body.nativeTransparentPng === true);
+  const nativeTransparentPng = resolveSpriteNativeTransparency(connection, body.nativeTransparentPng === true);
   const matte = selectSpriteChromaMatte(trimmedAppearance);
   const backgroundOptions = {
     matte,
@@ -1431,6 +1484,21 @@ export async function spritesRoutes(app: FastifyInstance) {
   app.get<{ Params: { characterId: string } }>("/:characterId/catalog", async (req, reply) => {
     if (!ownerParams.safeParse(req.params).success) return reply.code(400).send({ error: "Invalid sprite owner" });
     return listSpriteCatalog(req.params.characterId);
+  });
+  // The artwork rule for client views and package clients (capability host: runtime.sprites.resolve).
+  const matchQuery = z.object({
+    kind: z.enum(["expression", "full-body"]),
+    expression: z.string().trim().max(160).optional(),
+    outfit: z.string().trim().max(100).optional(),
+    selected: z.string().trim().max(200).optional(),
+    maxReferences: z.coerce.number().int().min(1).max(4).optional(),
+  });
+  app.get<{ Params: { characterId: string } }>("/:characterId/match", async (req, reply) => {
+    const query = matchQuery.safeParse(req.query);
+    if (!ownerParams.safeParse(req.params).success || !query.success) {
+      return reply.code(400).send({ error: "Invalid sprite match request" });
+    }
+    return resolveCharacterSprite(req.params.characterId, query.data);
   });
   app.post<{ Params: { characterId: string } }>("/:characterId/folders", async (req, reply) => {
     const body = folderInput.safeParse(req.body);
@@ -2121,7 +2189,7 @@ export async function spritesRoutes(app: FastifyInstance) {
     const imgModel = conn.model || "";
     const imageDefaults = resolveConnectionImageDefaults(conn);
     const imageSettings = await loadImageGenerationUserSettings(app.db);
-    const plan = await buildSpritePromptPlan(app.db, body, imgModel);
+    const plan = await buildSpritePromptPlan(app.db, body, imgModel, conn);
     if (plan.expressions.length === 0) {
       return reply.status(400).send({ error: "No expressions remain after applying the requested grid size" });
     }
@@ -2496,9 +2564,9 @@ export async function spritesRoutes(app: FastifyInstance) {
     const imgServiceHint = conn.imageService || imgSource;
     const imageDefaults = resolveConnectionImageDefaults(conn);
     const imageSettings = await loadImageGenerationUserSettings(app.db);
-    const nativeTransparentPng = resolveSpriteNativeTransparency(imgModel, body.nativeTransparentPng === true);
+    const nativeTransparentPng = resolveSpriteNativeTransparency(conn, body.nativeTransparentPng === true);
     const shouldCleanBackground = body.noBackground === true || body.nativeTransparentPng === true;
-    const plan = await buildSpritePromptPlan(app.db, body, imgModel);
+    const plan = await buildSpritePromptPlan(app.db, body, imgModel, conn);
     if (plan.expressions.length === 0) {
       return reply.status(400).send({ error: "No expressions remain after applying the requested grid size" });
     }
@@ -2543,7 +2611,7 @@ export async function spritesRoutes(app: FastifyInstance) {
       const generated = await withSpriteGenerationDeadline(
         (async () => {
           if (plan.fullBodyExpressionMode) {
-            const cells: Array<{ expression: string; base64: string }> = [];
+            const cells: Array<{ expression: string; base64: string; opaque?: true }> = [];
             const failedExpressions: Array<{ expression: string; error: string }> = [];
             const { sheetWidth: targetWidth, sheetHeight: targetHeight } = resolveSpriteSheetCanvas({
               cols: 1,
@@ -2579,35 +2647,26 @@ export async function spritesRoutes(app: FastifyInstance) {
                 });
 
                 let spriteBuffer: Buffer = Buffer.from(imageResult.base64, "base64");
-                const sharp = await getSharp();
-                const metadata = await sharp(spriteBuffer).metadata();
-                if (metadata.width !== targetWidth || metadata.height !== targetHeight) {
-                  spriteBuffer = await sharp(spriteBuffer)
-                    .resize(targetWidth, targetHeight, {
-                      fit: "contain",
-                      background: nativeTransparentPng
-                        ? { r: 0, g: 0, b: 0, alpha: 0 }
-                        : shouldCleanBackground
-                          ? { r: plan.matte.rgb.red, g: plan.matte.rgb.green, b: plan.matte.rgb.blue, alpha: 1 }
-                          : { r: 255, g: 255, b: 255 },
-                    })
-                    .png()
-                    .toBuffer();
+                // Judge the background on the picture the model drew, before any padding adds see-through bars.
+                let opaque: true | undefined;
+                try {
+                  const settled = await settleSpriteBackground(spriteBuffer, {
+                    askedForTransparency: nativeTransparentPng,
+                    clean: shouldCleanBackground,
+                    cleanupStrength,
+                  });
+                  spriteBuffer = settled.buffer;
+                  opaque = settled.opaque;
+                } catch (bgErr) {
+                  logger.warn(
+                    bgErr,
+                    'Full-body expression background cleanup failed for "%s"; continuing with the generated image',
+                    expression,
+                  );
                 }
+                spriteBuffer = await fitSpriteToSize(spriteBuffer, targetWidth, targetHeight);
 
-                if (shouldCleanBackground) {
-                  try {
-                    spriteBuffer = (await removeSpriteBackgroundPng(spriteBuffer, cleanupStrength)).buffer;
-                  } catch (bgErr) {
-                    logger.warn(
-                      bgErr,
-                      'Full-body expression background cleanup failed for "%s"; continuing with the generated image',
-                      expression,
-                    );
-                  }
-                }
-
-                cells.push({ expression, base64: spriteBuffer.toString("base64") });
+                cells.push({ expression, base64: spriteBuffer.toString("base64"), ...(opaque ? { opaque } : {}) });
               } catch (expressionErr: any) {
                 const message = String(expressionErr?.message || "Generation failed")
                   .replace(/<[^>]*>/g, "")
@@ -2632,7 +2691,7 @@ export async function spritesRoutes(app: FastifyInstance) {
           }
 
           if (plan.generateExpressionsIndividually) {
-            const cells: Array<{ expression: string; base64: string }> = [];
+            const cells: Array<{ expression: string; base64: string; opaque?: true }> = [];
             const failedExpressions: Array<{ expression: string; error: string }> = [];
 
             for (const expression of plan.expressions) {
@@ -2681,33 +2740,25 @@ export async function spritesRoutes(app: FastifyInstance) {
                 });
 
                 let spriteBuffer: Buffer = Buffer.from(imageResult.base64, "base64");
-                const sharp = await getSharp();
-                const meta = await sharp(spriteBuffer).metadata();
-                if (meta.width && meta.height && (meta.width !== targetSize || meta.height !== targetSize)) {
-                  spriteBuffer = await sharp(spriteBuffer)
-                    .resize(targetSize, targetSize, {
-                      fit: "contain",
-                      background: nativeTransparentPng
-                        ? { r: 0, g: 0, b: 0, alpha: 0 }
-                        : shouldCleanBackground
-                          ? { r: plan.matte.rgb.red, g: plan.matte.rgb.green, b: plan.matte.rgb.blue, alpha: 1 }
-                          : { r: 255, g: 255, b: 255 },
-                    })
-                    .png()
-                    .toBuffer();
+                // Judge the background on the picture the model drew, before any padding adds see-through bars.
+                let opaque: true | undefined;
+                try {
+                  const settled = await settleSpriteBackground(spriteBuffer, {
+                    askedForTransparency: nativeTransparentPng,
+                    clean: shouldCleanBackground,
+                    cleanupStrength,
+                  });
+                  spriteBuffer = settled.buffer;
+                  opaque = settled.opaque;
+                } catch (bgErr) {
+                  logger.warn(bgErr, "Expression sprite background cleanup failed; continuing with original image");
                 }
-
-                if (shouldCleanBackground) {
-                  try {
-                    spriteBuffer = (await removeSpriteBackgroundPng(spriteBuffer, cleanupStrength)).buffer;
-                  } catch (bgErr) {
-                    logger.warn(bgErr, "Expression sprite background cleanup failed; continuing with original image");
-                  }
-                }
+                spriteBuffer = await fitSpriteToSize(spriteBuffer, targetSize, targetSize);
 
                 cells.push({
                   expression,
                   base64: spriteBuffer.toString("base64"),
+                  ...(opaque ? { opaque } : {}),
                 });
               } catch (expressionErr: any) {
                 const msg = String(expressionErr?.message || "Generation failed")
@@ -2752,6 +2803,7 @@ export async function spritesRoutes(app: FastifyInstance) {
           return cutSpriteSheet(Buffer.from(imageResult.base64, "base64"), plan, {
             clean: shouldCleanBackground,
             cleanupStrength,
+            askedForTransparency: nativeTransparentPng,
           });
         })(),
       );

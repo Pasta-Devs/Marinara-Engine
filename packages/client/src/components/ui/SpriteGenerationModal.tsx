@@ -16,6 +16,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { api } from "../../lib/api-client";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "./ImagePromptReviewModal";
 import {
+  imageConnectionMakesTransparentPicture,
   isOpenAIGptImageModel,
   normalizeSpriteExpressionLabel,
   supportsOpenAIImageCustomSize,
@@ -70,6 +71,8 @@ interface SlicedCell {
   sourceGrid?: SpriteGrid;
   /** The decision model thought the face does not show this expression. */
   mismatch?: boolean;
+  /** Asked for a see-through picture, the image model drew a solid background; left as drawn until cleaned. */
+  opaque?: boolean;
 }
 
 interface SpriteCleanupResult {
@@ -83,7 +86,7 @@ interface SpriteGrid {
 
 interface GenerateSheetResult {
   sheetBase64: string;
-  cells: Array<{ expression: string; base64: string; mimeType?: string; mismatch?: boolean }>;
+  cells: Array<{ expression: string; base64: string; mimeType?: string; mismatch?: boolean; opaque?: boolean }>;
   failedExpressions?: Array<{ expression: string; error: string }>;
 }
 
@@ -111,6 +114,10 @@ type GenerationConnectionOption = {
   model?: string;
   provider?: string;
   defaultForAgents?: boolean | string;
+  baseUrl?: string | null;
+  imageGenerationSource?: string | null;
+  imageService?: string | null;
+  imageTransparency?: "supported" | "unsupported" | null;
 };
 
 interface SliceAdjustments {
@@ -502,6 +509,7 @@ function createGeneratedSpritesFromResult(
       sourceCellIndex: sourceSheetDataUrl ? index : undefined,
       sourceGrid: sourceSheetDataUrl ? grid : undefined,
       ...(cell.mismatch ? { mismatch: true } : {}),
+      ...(cell.opaque ? { opaque: true } : {}),
     })),
   };
 }
@@ -625,6 +633,8 @@ export function SpriteGenerationModal({
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
   const [useCurrentAvatarReference, setUseCurrentAvatarReference] = useState(false);
   const [useCharacterSheetReference, setUseCharacterSheetReference] = useState(false);
+  // On by default: a saved sprite keeps new art looking like the art the character already has.
+  const [useSavedSpriteReference, setUseSavedSpriteReference] = useState(true);
   /** The sheet read into a data URL, since the server reads only avatar and sprite links itself. */
   const [characterSheetData, setCharacterSheetData] = useState<{ url: string; dataUrl: string } | null>(null);
   const [preset, setPreset] = useState<PresetKey>(DEFAULT_SPRITE_PRESET);
@@ -788,25 +798,48 @@ export function SpriteGenerationModal({
       ? Math.min(4, Math.max(generationGrid.cols, Math.ceil(Math.sqrt(cells.length))))
       : generationGrid.cols;
   const canAdjustSlices = !animatedExpressionMode && cells.some((cell) => !!cell.sourceSheetDataUrl);
+  // Pictures still showing the solid background a see-through Model sent back (not cleaned yet).
+  const opaqueCellCount = cells.filter((cell) => cell.opaque && cell.dataUrl === cell.rawDataUrl).length;
   const activeFrameCell = activeFrameIndex === null ? null : (cells[activeFrameIndex] ?? null);
   const hasCurrentAvatarReference = !!defaultAvatarUrl;
   const hasCharacterSheetReference = !!characterSheetUrl;
+  // The saved face the character rests on (neutral when there is one), drawn from as a reference.
+  const savedSpriteReferenceUrl = useMemo(
+    () =>
+      (
+        existingPortraitSprites.find((sprite) => sprite.expression === "neutral") ??
+        existingPortraitSprites.find((sprite) => ["idle", "default", "calm", "normal"].includes(sprite.expression)) ??
+        existingPortraitSprites[0]
+      )?.url ?? null,
+    [existingPortraitSprites],
+  );
+  const savedSpriteReferenceOn = useSavedSpriteReference && !!savedSpriteReferenceUrl;
   const avatarReferenceOn = useCurrentAvatarReference && hasCurrentAvatarReference;
   const characterSheetReferenceOn = useCharacterSheetReference && hasCharacterSheetReference;
   const characterSheetDataUrl =
     characterSheetData && characterSheetData.url === characterSheetUrl ? characterSheetData.dataUrl : null;
   const characterSheetLoading = characterSheetReferenceOn && !characterSheetDataUrl;
-  const maxUploadedReferenceImages = 4 - Number(avatarReferenceOn) - Number(characterSheetReferenceOn);
+  const maxUploadedReferenceImages =
+    4 - Number(avatarReferenceOn) - Number(characterSheetReferenceOn) - Number(savedSpriteReferenceOn);
   const effectiveReferenceImages = useMemo(
     () =>
       [
         avatarReferenceOn ? defaultAvatarUrl : null,
         characterSheetReferenceOn ? characterSheetDataUrl : null,
+        savedSpriteReferenceOn ? savedSpriteReferenceUrl : null,
         ...referenceImages,
       ]
         .filter((img): img is string => !!img)
         .slice(0, 4),
-    [avatarReferenceOn, characterSheetDataUrl, characterSheetReferenceOn, defaultAvatarUrl, referenceImages],
+    [
+      avatarReferenceOn,
+      characterSheetDataUrl,
+      characterSheetReferenceOn,
+      defaultAvatarUrl,
+      referenceImages,
+      savedSpriteReferenceOn,
+      savedSpriteReferenceUrl,
+    ],
   );
 
   // Read the character sheet once it is chosen, so the image model receives the picture itself.
@@ -851,7 +884,20 @@ export function SpriteGenerationModal({
     [animatedExpressionMode, effectiveConnectionId, imageConnections],
   );
   const selectedImageModel = selectedImageConnection?.model?.trim().toLowerCase() ?? "";
-  const selectedModelIsGptImage2 = /^gpt-image-2(?:$|-)/.test(selectedImageModel);
+  // Whether the chosen Model draws see-through pictures (its Transparent backgrounds setting, or a known model).
+  const selectedConnectionDrawsTransparency = selectedImageConnection
+    ? imageConnectionMakesTransparentPicture({
+        source: selectedImageConnection.imageGenerationSource || selectedImageConnection.model || "",
+        baseUrl: selectedImageConnection.baseUrl || "https://image.pollinations.ai",
+        serviceHint:
+          selectedImageConnection.imageService ||
+          selectedImageConnection.imageGenerationSource ||
+          selectedImageConnection.model ||
+          "",
+        model: selectedImageConnection.model || "",
+        imageTransparency: selectedImageConnection.imageTransparency,
+      })
+    : false;
   // Older GPT Image models draw every face as its own image, so each request asks for one face: it stays within
   // the request timeout and past the server's eight-face limit.
   const oneFacePerRequest =
@@ -1005,12 +1051,13 @@ export function SpriteGenerationModal({
     setUseCharacterSheetReference(!!characterSheetUrl);
   }, [characterSheetUrl]);
 
-  // Chosen avatar and sheet pictures take upload slots, so drop uploads past what is left.
+  // Chosen avatar, sheet and saved-sprite pictures take upload slots, so drop uploads past what is left (also
+  // after a file read that finishes once the limit dropped).
   useEffect(() => {
     setReferenceImages((prev) =>
       prev.length > maxUploadedReferenceImages ? prev.slice(0, maxUploadedReferenceImages) : prev,
     );
-  }, [maxUploadedReferenceImages]);
+  }, [maxUploadedReferenceImages, referenceImages.length]);
 
   useEffect(() => {
     if (activeFrameIndex !== null && activeFrameIndex >= cells.length) {
@@ -2348,6 +2395,27 @@ export function SpriteGenerationModal({
                   )}
                 </label>
               )}
+              {savedSpriteReferenceUrl && (
+                <label className="mb-2 flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
+                  <Checkbox
+                    checked={useSavedSpriteReference}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setUseSavedSpriteReference(enabled);
+                      if (enabled) {
+                        setReferenceImages((prev) => prev.slice(0, Math.max(0, 3 - Number(avatarReferenceOn))));
+                      }
+                    }}
+                    className="accent-[var(--primary)]"
+                  />
+                  <img
+                    src={savedSpriteReferenceUrl}
+                    alt={localizeUi("ui.spriteGeneration.savedSpriteReference.alt")}
+                    className="h-12 w-12 rounded-lg bg-[var(--background)] object-contain ring-1 ring-[var(--border)]"
+                  />
+                  <span className="flex-1">{localizeUi("ui.spriteGeneration.savedSpriteReference.label")}</span>
+                </label>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
                 <div className="flex flex-wrap gap-2">
                   {useCurrentAvatarReference && defaultAvatarUrl && (
@@ -2446,9 +2514,13 @@ export function SpriteGenerationModal({
                         "ui.ui.spritegenerationmodal.usesNativeTransparencyWhenAvailableOtherwiseMarinaraChoosesA",
                       )}
                 </span>
-                {!animatedExpressionMode && selectedModelIsGptImage2 && nativeTransparentPng && (
+                {!animatedExpressionMode && selectedImageConnection && nativeTransparentPng && (
                   <span className="mt-1 block text-[0.625rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]">
-                    {localizeUi("ui.ui.spritegenerationmodal.gptImage2DoesNotSupportNativeTransparencyRight")}
+                    {localizeUi(
+                      selectedConnectionDrawsTransparency
+                        ? "ui.spriteGeneration.transparency.native"
+                        : "ui.spriteGeneration.transparency.flatColor",
+                    )}
                   </span>
                 )}
               </span>
@@ -3016,7 +3088,7 @@ export function SpriteGenerationModal({
                         >
                           {cleanupApplying
                             ? localizeUi("ui.ui.spritegenerationmodal.applying")
-                            : cleanupApplied
+                            : cleanupApplied && opaqueCellCount === 0
                               ? localizeUi("ui.ui.spritegenerationmodal.reapplyCleanup")
                               : localizeUi("ui.ui.spritewandcleanupeditor.applyCleanup")}
                         </button>
@@ -3035,6 +3107,14 @@ export function SpriteGenerationModal({
                   <p className="mt-1 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
                     {localizeUi("ui.ui.spritegenerationmodal.cleanupIsAppliedAfterGenerationWhenEnabledItPreserves")}
                   </p>
+                  {noBackground && opaqueCellCount > 0 && (
+                    <p
+                      role="status"
+                      className="mt-2 rounded-md bg-amber-500/10 px-2 py-1.5 text-[0.6875rem] max-sm:text-[13px] leading-relaxed text-[var(--foreground)] ring-1 ring-amber-500/30"
+                    >
+                      {localizeUi("ui.spriteGeneration.transparency.opaqueResult", { count: opaqueCellCount })}
+                    </p>
+                  )}
                 </div>
               )}
               {!animatedExpressionMode && activeFrameCell && (

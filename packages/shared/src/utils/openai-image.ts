@@ -67,6 +67,31 @@ export function supportsOpenAITransparentBackground(model?: string | null): bool
   return isOpenAIGptImage25Model(model) || /^gpt-image-(?:1|1\.5)(?:$|-)/i.test(model?.trim() ?? "");
 }
 
+/** A Model's "Transparent backgrounds" setting: null is Automatic. */
+export type ImageTransparencySetting = "supported" | "unsupported" | null | undefined;
+
+/**
+ * Whether an image connection draws see-through pictures, so a sprite or sticker can ask for one instead of a flat
+ * colour Marinara removes afterwards. The Model's own setting wins; Automatic says yes only for the models known to
+ * return alpha: GPT Image 1, 1.5, 2.5 and 2.6 on OpenAI (not ToAPIs), OpenRouter and ChatGPT (Codex login).
+ * GPT Image 2 has no alpha. The connection is given as the routes map a row (see imageConnectionMakesAnimatedGif).
+ */
+export function imageConnectionMakesTransparentPicture(connection: {
+  source: string;
+  baseUrl: string;
+  serviceHint: string;
+  model?: string;
+  imageTransparency?: ImageTransparencySetting;
+}): boolean {
+  if (connection.imageTransparency === "supported") return true;
+  if (connection.imageTransparency === "unsupported") return false;
+  const backend = resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model);
+  const model = (connection.model ?? "").trim().replace(/^openai\//i, "");
+  if (backend === "openai") return !isToAPIsMediaUrl(connection.baseUrl) && supportsOpenAITransparentBackground(model);
+  if (backend === "openrouter" || backend === "codex_chatgpt") return supportsOpenAITransparentBackground(model);
+  return false;
+}
+
 export function resolveOpenAIImageQuality(value: unknown, model?: string | null): ImageGenerationQuality {
   if (value === "low" || value === "medium" || value === "high") return value;
   // OpenRouter uses the same IDs with an OpenAI namespace.

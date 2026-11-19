@@ -279,6 +279,8 @@ export interface APIConnection {
   decisionTimeoutMs?: number | null;
   /** Whether this chat Model reads images; null (Automatic) lets its catalog decide. */
   imageInput?: "reads" | "text" | null;
+  /** Whether this image Model draws see-through pictures; null (Automatic) lets the known models decide. */
+  imageTransparency?: "supported" | "unsupported" | null;
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: string | null;
   /** How long a speech request on this audio connection may take, in milliseconds; null is the default. */

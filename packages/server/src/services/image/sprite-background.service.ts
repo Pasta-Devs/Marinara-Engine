@@ -835,6 +835,12 @@ export async function removeSpriteBackgroundPng(
   cleanupStrength = 35,
   engine: SpriteCleanupEngine = "auto",
 ): Promise<{ buffer: Buffer; engine: UsedSpriteCleanupEngine; fallback?: true }> {
+  // A picture that is already see-through keeps its own edges: the remover would only soften good alpha. An
+  // engine picked by hand still runs, since the user asked for it.
+  if (engine === "auto" && (await hasSpriteTransparency(input))) {
+    const sharp = await getSharp();
+    return { buffer: await sharp(input).png().toBuffer(), engine: "builtin" };
+  }
   const configuredEngine = engine === "auto" ? getBackgroundRemoverStatus().engine : engine;
   if (configuredEngine === "backgroundremover") {
     const aiOutput = await tryRemoveBackgroundWithBackgroundRemover(input, {
@@ -862,4 +868,21 @@ export async function removeSpriteBackgroundPng(
   }
 
   return { buffer: matteOutput.buffer, engine: "builtin", fallback: true };
+}
+
+/**
+ * What happens to one generated sprite's background, by its own pixels:
+ * - already see-through: kept exactly as it came, whatever was asked;
+ * - drawn by a Model that was asked for a see-through picture but came back solid: left as it is and marked
+ *   `opaque`, so the review step says so and offers the clean-up instead of changing it unasked;
+ * - otherwise: the flat chroma colour is removed when `clean` is on.
+ */
+export async function settleSpriteBackground(
+  input: Buffer,
+  options: { askedForTransparency: boolean; clean: boolean; cleanupStrength: number },
+): Promise<{ buffer: Buffer; opaque?: true }> {
+  if (await hasSpriteTransparency(input)) return { buffer: input };
+  if (options.askedForTransparency) return { buffer: input, opaque: true };
+  if (!options.clean) return { buffer: input };
+  return { buffer: (await removeSpriteBackgroundPng(input, options.cleanupStrength)).buffer };
 }
