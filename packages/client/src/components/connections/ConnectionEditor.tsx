@@ -4817,7 +4817,7 @@ function ImageGenerationDefaultsPanel({
 
   return (
     <FieldGroup label={localizeUi("ui.connections.imagegenerationdefaultspanel.localImageDefaults")}>
-      <div className="rounded-xl border border-[var(--border)]">
+      <div className="mari-gendefaults rounded-xl border border-[var(--border)]">
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
@@ -4867,7 +4867,7 @@ function ImageGenerationDefaultsPanel({
                 max={4_294_967_295}
                 onCommit={updateSeed}
               />
-              <div className="flex flex-col gap-1 rounded-lg border border-[var(--border)] px-3 py-2">
+              <div className="mari-gendefaults__box flex flex-col gap-1 rounded-lg border border-[var(--border)] px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.imagegenerationdefaultspanel.styleProfile")}
@@ -5029,12 +5029,10 @@ function ImageGenerationDefaultsPanel({
                     onChange={(scheduler) => updateAutomatic1111({ scheduler })}
                   />
                 </div>
-                <SettingsCheckbox
+                <DefaultsToggle
                   label={localizeUi("ui.connections.imagegenerationdefaultspanel.restoreFaces")}
                   checked={automatic1111.restoreFaces}
                   onChange={(checked) => updateAutomatic1111({ restoreFaces: checked })}
-                  className="border border-[var(--border)] px-3 py-2"
-                  labelClassName="text-[var(--foreground)]"
                 />
                 {showCustomHeaders && (
                   <CustomParametersInput headers value={value.customHeaders ?? {}} onChange={updateCustomHeaders} />
@@ -5068,7 +5066,7 @@ function ImageGenerationDefaultsPanel({
                     onChange={(scheduler) => updateComfyUi({ scheduler })}
                   />
                 </div>
-                <SettingsCheckbox
+                <DefaultsToggle
                   label={localizeUi(
                     "ui.connections.imagegenerationdefaultspanel.uploadA1x1PlaceholderWhenNoReferenceImageIs",
                   )}
@@ -5077,16 +5075,12 @@ function ImageGenerationDefaultsPanel({
                   )}
                   checked={comfyui.uploadPlaceholderOnMissingReference}
                   onChange={(checked) => updateComfyUi({ uploadPlaceholderOnMissingReference: checked })}
-                  className="border border-[var(--border)] px-3 py-2"
-                  labelClassName="text-[var(--foreground)]"
                 />
                 {source === "swarmui" && (
-                  <SettingsCheckbox
+                  <DefaultsToggle
                     label={localizeUi("connections.mediaSources.swarmui.saveToBackend")}
                     checked={comfyui.saveToBackend === true}
                     onChange={(checked) => updateComfyUi({ saveToBackend: checked })}
-                    className="border border-[var(--border)] px-3 py-2"
-                    labelClassName="text-[var(--foreground)]"
                   />
                 )}
                 <ComfyUiLoraSettings
@@ -5132,25 +5126,21 @@ function ImageGenerationDefaultsPanel({
                     onChange={(noiseSchedule) => updateNovelAi({ noiseSchedule })}
                   />
                 </div>
-                <SettingsCheckbox
+                <DefaultsToggle
                   label={localizeUi("ui.connections.imagegenerationdefaultspanel.chooseResolutionFromCharacterCount")}
                   description={localizeUi(
                     "ui.connections.imagegenerationdefaultspanel.usesPortraitForOneSubjectSquareForTwoAnd",
                   )}
                   checked={novelai.dynamicResolutionBySubjectCount}
                   onChange={(checked) => updateNovelAi({ dynamicResolutionBySubjectCount: checked })}
-                  className="border border-[var(--border)] px-3 py-2"
-                  labelClassName="text-[var(--foreground)]"
                 />
-                <SettingsCheckbox
+                <DefaultsToggle
                   label={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDataset")}
                   description={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDatasetHelp")}
                   checked={novelai.backgroundDataset}
                   onChange={(checked) => updateNovelAi({ backgroundDataset: checked })}
-                  className="border border-[var(--border)] px-3 py-2"
-                  labelClassName="text-[var(--foreground)]"
                 />
-                <div className="space-y-2 rounded-lg border border-[var(--border)] px-3 py-2">
+                <div className="mari-gendefaults__box space-y-2 rounded-lg border border-[var(--border)] px-3 py-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="text-[0.625rem] font-medium text-[var(--foreground)]">
@@ -5232,6 +5222,45 @@ function ImageGenerationDefaultsPanel({
   );
 }
 
+/** A yes/no option in a model's generation defaults: a switch row with its explanation behind a ? in the new layout,
+ *  the boxed checkbox with the explanation underneath in the old one. */
+function DefaultsToggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const overhaulLook = useOverhaulLook();
+  if (overhaulLook) {
+    return (
+      <SettingsSwitch
+        label={label}
+        help={description}
+        checked={checked}
+        onChange={onChange}
+        labelPosition="start"
+        className="mari-gendefaults__toggle justify-between gap-3"
+        labelClassName="text-[0.8125rem]"
+      />
+    );
+  }
+  return (
+    <SettingsCheckbox
+      label={label}
+      description={description}
+      checked={checked}
+      onChange={onChange}
+      className="border border-[var(--border)] px-3 py-2"
+      labelClassName="text-[var(--foreground)]"
+    />
+  );
+}
+
 function TextSetting({
   label,
   value,
@@ -5244,7 +5273,7 @@ function TextSetting({
   placeholder?: string;
 }) {
   return (
-    <label className="block">
+    <label className="mari-gendefaults__field block">
       <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">{label}</span>
       <textarea
         value={value}
@@ -5380,7 +5409,7 @@ function VideoGenerationDefaultsPanel({
 
   return (
     <FieldGroup label={localizeUi("ui.connections.videogenerationdefaultspanel.videoDefaults")}>
-      <div className="rounded-xl border border-[var(--border)]">
+      <div className="mari-gendefaults rounded-xl border border-[var(--border)]">
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
@@ -5702,7 +5731,7 @@ function ChoiceSetting({
   const { t: localizeUi } = useUiTranslation();
   const listId = `image-default-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
-    <label className="block">
+    <label className="mari-gendefaults__field block">
       <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">{label}</span>
       <input
         list={listId}
@@ -5755,7 +5784,7 @@ function NumberSetting({
   };
 
   return (
-    <label className="block">
+    <label className="mari-gendefaults__field block">
       <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">{label}</span>
       <input
         value={draft}

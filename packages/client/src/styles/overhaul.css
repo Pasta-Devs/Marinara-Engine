@@ -11473,6 +11473,111 @@ input.ov-edhead__title:focus {
   padding-block: 0.375rem;
   font-size: 0.8125rem;
 }
+/* A model's Local image defaults / Video defaults: a flat disclosure with label-left rows and switch rows split by
+   hairlines, like Settings, instead of a bordered card of boxed fields and boxed checkboxes. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults {
+  border: 0;
+  border-radius: 0;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > button {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--ov-line);
+  background: none;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > button > div > div {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > button:hover > div > div {
+  color: var(--ov-accent-text);
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > div {
+  border-top: 0;
+  padding: 0.5rem 0 0;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > div > * {
+  margin-block: 0 !important;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > div > :first-child {
+  padding-bottom: 0.25rem;
+}
+/* Fields: label on the left, control on the right, one hairline under each row. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__field {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--ov-line);
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__field > span:first-child {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ov-text);
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__field > :is(input, textarea) {
+  margin-top: 0;
+  height: 2rem;
+  min-height: 2rem;
+  padding-block: 0.25rem;
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__field > textarea {
+  height: auto;
+  min-height: 2rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .grid {
+  column-gap: 1.5rem;
+  row-gap: 0;
+}
+/* The Style profile and NovelAI style plate groups lose their boxes; a hairline keeps them apart. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box {
+  border: 0;
+  border-bottom: 1px solid var(--ov-line);
+  border-radius: 0;
+  padding: 0.375rem 0;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box > div:first-child p:first-child,
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box > div:first-child > span:first-child {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ov-text);
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box .mari-gendefaults__field:last-child {
+  border-bottom: 0;
+}
+/* Style profile: the same label-left row; the suggestion and its Use button sit under the dropdown. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col > div:first-child {
+  display: contents;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col > div:first-child > span {
+  grid-column: 1;
+  grid-row: 1;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col > div:first-child > button {
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: start;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col > :not(:first-child) {
+  grid-column: 2;
+}
+/* Yes/no options: Settings-style switch rows. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__toggle {
+  border-radius: 0;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--ov-line);
+  background: none;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > div > p:last-child {
+  padding-top: 0.5rem;
+}
 /* Device cards (speech model, built-in model page): flat sections split by a rule, not tinted bubbles. */
 :root[data-overhaul] .mari-device-card {
   background: none;
