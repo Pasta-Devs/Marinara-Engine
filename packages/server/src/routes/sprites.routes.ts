@@ -644,17 +644,25 @@ function withSpriteSheetLayoutContract(
   };
 }
 
+const SPRITE_BACKGROUND_NEGATIVES =
+  "white background, off-white background, gray background, checkerboard background, fake transparency, transparency grid, textured background, gradient background, scenery, floor line, cast shadow, contact shadow, color spill, visible grid lines, panel borders, separator lines";
+
+/** The background negatives for a plan. A tag-prompted see-through request (NovelAI V5) keeps them all except the
+ *  transparency terms, which would cancel its tags. */
+export function spriteBackgroundNegatives(plan: Pick<SpritePromptPlan, "nativeTransparentPng" | "transparencyTags">) {
+  if (!(plan.nativeTransparentPng && plan.transparencyTags)) return SPRITE_BACKGROUND_NEGATIVES;
+  return SPRITE_BACKGROUND_NEGATIVES.split(", ")
+    .filter((term) => !/transparen/i.test(term))
+    .join(", ");
+}
+
 function withSpriteBackgroundContract(prompt: SpriteCompiledPrompt, plan: SpritePromptPlan): SpriteCompiledPrompt {
-  if (!plan.backgroundContract) return prompt;
+  const tagged = plan.nativeTransparentPng && plan.transparencyTags;
+  if (!plan.backgroundContract && !tagged) return prompt;
 
   return {
-    prompt: `${prompt.prompt}\n\n${plan.backgroundContract}`,
-    negativePrompt: [
-      prompt.negativePrompt,
-      "white background, off-white background, gray background, checkerboard background, fake transparency, transparency grid, textured background, gradient background, scenery, floor line, cast shadow, contact shadow, color spill, visible grid lines, panel borders, separator lines",
-    ]
-      .filter(Boolean)
-      .join(", "),
+    prompt: plan.backgroundContract ? `${prompt.prompt}\n\n${plan.backgroundContract}` : prompt.prompt,
+    negativePrompt: [prompt.negativePrompt, spriteBackgroundNegatives(plan)].filter(Boolean).join(", "),
   };
 }
 

@@ -114,7 +114,8 @@ export const NOVELAI_TRANSPARENCY_TAGS = "transparent background, alpha transpar
 
 /**
  * Whether a see-through request to this connection is written as NovelAI's transparency tags instead of a sentence
- * with a flat-colour fallback: a tag model reads "green background" in that fallback as something to draw.
+ * with a flat-colour fallback: a tag model reads "green background" in that fallback as something to draw. Only
+ * NovelAI V5 on NovelAI's own host honours the tags; a proxy or an older model keeps the sentence and its fallback.
  */
 export function imageConnectionUsesTransparencyTags(connection: {
   source: string;
@@ -123,7 +124,10 @@ export function imageConnectionUsesTransparencyTags(connection: {
   model?: string;
 }): boolean {
   return (
-    resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model) === "novelai"
+    resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model) ===
+      "novelai" &&
+    isNativeNovelAiImageUrl(connection.baseUrl) &&
+    isNovelAiV5ImageModel(connection.model)
   );
 }
 
