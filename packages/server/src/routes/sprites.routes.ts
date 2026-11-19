@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import {
   isOpenAIGptImageModel,
   imageConnectionMakesTransparentPicture,
+  imageConnectionUsesTransparencyTags,
   normalizeSpriteExpressionKey,
   supportsOpenAIImageCustomSize,
   type AvatarEmotion,
@@ -233,6 +234,8 @@ type SpritePromptPlan = {
   prompt: string;
   matte: SpriteChromaMatte;
   nativeTransparentPng: boolean;
+  /** NovelAI: the see-through request is written as its transparency tags. */
+  transparencyTags: boolean;
   backgroundContract: string;
   talkingHeadFaces: boolean;
   sheetWidth: number;
@@ -328,6 +331,19 @@ export function resolveSpriteNativeTransparency(
       connection.imageTransparency === "supported" || connection.imageTransparency === "unsupported"
         ? connection.imageTransparency
         : null,
+  });
+}
+
+/** Whether a see-through sprite request to this connection is written as NovelAI's transparency tags. */
+export function resolveSpriteTransparencyTags(connection: SpriteTransparencyConnection | null | undefined): boolean {
+  if (!connection) return false;
+  const model = connection.model || "";
+  const source = connection.imageGenerationSource || model;
+  return imageConnectionUsesTransparencyTags({
+    source,
+    baseUrl: connection.baseUrl || "https://image.pollinations.ai",
+    serviceHint: connection.imageService || source,
+    model,
   });
 }
 
@@ -1333,11 +1349,13 @@ async function buildSpritePromptPlan(
   const promptOverridesStorage = createPromptOverridesStorage(db);
   const trimmedAppearance = body.appearance?.trim() || "";
   const nativeTransparentPng = resolveSpriteNativeTransparency(connection, body.nativeTransparentPng === true);
+  const transparencyTags = nativeTransparentPng && resolveSpriteTransparencyTags(connection);
   const matte = selectSpriteChromaMatte(trimmedAppearance);
   const backgroundOptions = {
     matte,
     nativeTransparentPng,
     removeBackground: body.noBackground === true,
+    transparencyTags,
   };
   const { sheetWidth, sheetHeight, cellWidth, cellHeight } = resolveSpriteSheetCanvas({
     cols,
@@ -1407,6 +1425,7 @@ async function buildSpritePromptPlan(
     prompt,
     matte,
     nativeTransparentPng,
+    transparencyTags,
     backgroundContract: spriteBackgroundContract(backgroundOptions),
     talkingHeadFaces: body.talkingHeadFaces === true && body.spriteType !== "full-body",
     sheetWidth,
@@ -1441,6 +1460,7 @@ async function buildIndividualFullBodyExpressionRequest({
     matte: plan.matte,
     nativeTransparentPng: plan.nativeTransparentPng,
     removeBackground: body.noBackground === true,
+    transparencyTags: plan.transparencyTags,
   });
 
   const compiledPrompt = compileSpritePrompt(sourcePrompt, {
@@ -2242,6 +2262,7 @@ export async function spritesRoutes(app: FastifyInstance) {
             matte: plan.matte,
             nativeTransparentPng: plan.nativeTransparentPng,
             removeBackground: body.noBackground === true,
+            transparencyTags: plan.transparencyTags,
           });
           const compiledPrompt = compileSpritePrompt(expressionPrompt, {
             appearance: plan.appearance,
@@ -2704,6 +2725,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                   matte: plan.matte,
                   nativeTransparentPng,
                   removeBackground: body.noBackground === true,
+                  transparencyTags: plan.transparencyTags,
                 });
                 const compiledExpressionPrompt = compileSpritePrompt(expressionPrompt, {
                   appearance: plan.appearance,

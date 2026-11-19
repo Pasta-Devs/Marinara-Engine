@@ -199,11 +199,13 @@ Each service also has **Prompt prefix** and **Negative prefix** fields. Text the
 
 Sprites and sticker or emoji sheets look best with a see-through background. Each image model has a **Transparent backgrounds** setting that says whether it can draw one:
 
-- **Automatic** (the default) uses what Marinara knows about the model. It shows **Automatic (supported)** for GPT Image 1, 1.5, 2.5 and 2.6 on OpenAI, OpenRouter or ChatGPT (Codex login), and **Automatic (not supported)** for everything else, including GPT Image 2.
+- **Automatic** (the default) uses what Marinara knows about the model. It shows **Automatic (supported)** for GPT Image 1, 1.5, 2.5 and 2.6 on OpenAI, OpenRouter or ChatGPT (Codex login), and for NovelAI V5 (Full or Curated) on NovelAI's own service. It shows **Automatic (not supported)** for everything else, including GPT Image 2.
 - **Supported**: the model or workflow returns pictures with a real see-through background, for example a ComfyUI workflow that removes the background before it saves.
 - **Not supported**: always use the flat color Marinara removes, even on a model that could do better.
 
 When the model draws see-through pictures, sprites and sheets ask it for one and keep the result exactly as drawn. Otherwise the model is asked for a flat green, magenta or cyan background, and Marinara removes it. Whatever the setting, a picture that comes back see-through is never cleaned again. A picture a supported model sends back with a solid background is left as drawn and marked in the sprite review step, where **Apply cleanup** removes it.
+
+NovelAI is asked with its own tags, `transparent background, alpha transparency`, and without the flat-color fallback, which a tag model would read as something to paint.
 
 An OpenAI-compatible server that needs its own option for transparency can get it from **Custom parameters**, for example `"background": "transparent"`.
 

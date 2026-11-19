@@ -2587,7 +2587,7 @@
   "connections.editor.imageInput.text": "Text only",
   "connections.editor.imageTransparency.autoSupported": "Automatic (supported)",
   "connections.editor.imageTransparency.autoUnsupported": "Automatic (not supported)",
-  "connections.editor.imageTransparency.help": "Whether this model can draw a picture with a see-through background. Sprites and sticker sheets then ask it for one and keep its edges as drawn. Otherwise Marinara asks for a flat color and removes it. Automatic knows GPT Image 1, 1.5, 2.5 and 2.6; pick Supported for another model or workflow that returns see-through pictures.",
+  "connections.editor.imageTransparency.help": "Whether this model can draw a picture with a see-through background. Sprites and sticker sheets then ask it for one and keep its edges as drawn. Otherwise Marinara asks for a flat color and removes it. Automatic knows GPT Image 1, 1.5, 2.5 and 2.6, and NovelAI V5; pick Supported for another model or workflow that returns see-through pictures.",
   "connections.editor.imageTransparency.label": "Transparent backgrounds",
   "connections.editor.imageTransparency.supported": "Supported",
   "connections.editor.imageTransparency.unsupported": "Not supported",
