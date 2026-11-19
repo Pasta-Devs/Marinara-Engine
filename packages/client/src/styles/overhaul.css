@@ -4681,24 +4681,6 @@ input.ov-edhead__title:focus {
   flex-direction: column;
   overflow-y: auto;
 }
-.ov-cs-edit__hint {
-  display: flex;
-  align-items: start;
-  gap: 0.75rem;
-  padding: 0.625rem 1rem;
-  border-bottom: 1px solid var(--ov-line);
-  background: color-mix(in srgb, var(--ov-accent) 7%, transparent);
-  color: var(--ov-muted);
-  font-size: 0.8125rem;
-}
-.ov-cs-edit__hint p {
-  flex: 1;
-  margin: 0;
-}
-.ov-cs-edit__hint svg {
-  display: inline;
-  vertical-align: -2px;
-}
 .ov-cs-edit__panel {
   display: flex;
   flex-wrap: wrap;

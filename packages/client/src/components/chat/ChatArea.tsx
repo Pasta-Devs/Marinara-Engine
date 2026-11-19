@@ -41,7 +41,12 @@ import { hasActiveTextSelection } from "../../lib/text-selection";
 import { readChatMetadata } from "../../lib/chat-wizard-defaults";
 import { useChatWindowLayout } from "../../hooks/use-chat-window-layout";
 import { ChatSettingsBubble } from "./ChatSettingsBubble";
-import { useOverhaulActive, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
+import {
+  isOverhaulMobile,
+  useOverhaulActive,
+  useOverhaulMobile,
+  useOverhaulTouchMessages,
+} from "../../stores/overhaul.store";
 import {
   prefersReducedMotion,
   SWIPE_AXIS_RATIO,
@@ -858,7 +863,8 @@ const LocalChatArea = memo(function LocalChatArea({
     ui.setChatSettingsSectionExpanded("roleplay-memory-recall", true);
     const windows = useFloatingWindowStore.getState();
     const memoryWindowId = getDrawerWindowId(CHAT_SETTINGS_WINDOW_ID, "roleplay-memory-recall");
-    if (windows.detached[memoryWindowId]) {
+    // The new layout on phones and tablets shows popped-out sections in place (useDrawerPoppedOut).
+    if (windows.detached[memoryWindowId] && !isOverhaulMobile()) {
       void preloadChatSettingsDrawer();
       windows.openWindow(memoryWindowId);
     } else handleOpenSettingsPanel(undefined, { initialSection: "memory-recall" });

@@ -736,7 +736,10 @@
 /* ─── Chat settings: the desktop drawer's look as a phone/tablet sheet ─── */
 :root[data-overhaul="mobile"] .ov-cs [data-window-control="lock"],
 :root[data-overhaul="mobile"] .ov-cs [aria-label="Lock window"],
-:root[data-overhaul="mobile"] .ov-cs [data-chat-settings-control="reset-view"],
+/* Reset View only shows in Edit, the one place to put hidden sections back. It takes the Tracker Panel
+   dice's place there, so the title keeps its room. */
+:root[data-overhaul="mobile"] .ov-cs:not(.is-editing) [data-chat-settings-control="reset-view"],
+:root[data-overhaul="mobile"] .ov-cs.is-editing [data-chat-settings-control="tracker-panel"],
 :root[data-overhaul="mobile"] .ov-cs .ov-cs__mode {
   display: none !important;
 }
