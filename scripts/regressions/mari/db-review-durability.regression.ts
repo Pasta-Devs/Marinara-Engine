@@ -743,13 +743,25 @@ try {
         ) ?? -1;
       assert.ok(approval && index >= 0);
       const change = approval.diffPreview[index]!;
-      const tempPath = `${sidecarPath(dir, reviewId)}.${process.pid}.tmp`;
-      mkdirSync(tempPath);
+      // Refuse only the final rename, so the write fails whatever the temp file is called.
+      const sidecar = sidecarPath(dir, reviewId);
+      const originalRename = fs.promises.rename;
+      fs.promises.rename = (async (source, destination) => {
+        if (destination === sidecar) {
+          throw Object.assign(new Error(`EBUSY: resource busy or locked, rename '${String(source)}'`), {
+            code: "EBUSY",
+            syscall: "rename",
+          });
+        }
+        return originalRename(source, destination);
+      }) as typeof fs.promises.rename;
+      syncBuiltinESMExports();
       await assert.rejects(
         mari.rejectRows(reviewId, [{ index, table: change.table, id: change.id, action: change.action }]),
         /remaining review could not be saved safely/iu,
       );
-      rmSync(tempPath, { recursive: true, force: true });
+      fs.promises.rename = originalRename;
+      syncBuiltinESMExports();
       assert.ok(!existsSync(sidecarPath(dir, reviewId)), "obsolete sidecar is not hydratable");
       assert.ok(
         !new MariDbService(db).getPendingApprovals().some((candidate) => candidate.id === reviewId),

@@ -17,10 +17,16 @@ const { getDB, closeDB } = await import("../../../packages/server/src/db/connect
 const { generateRoutes } = await import("../../../packages/server/src/routes/generate.routes.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
-const { applyTrackerFieldLocksToGameStatePatch, replaceBuiltInAgentDefinitions, worldCustomFieldTrackerLockKey } =
-  await import("../../../packages/shared/dist/index.js");
+const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
+const {
+  applyTrackerFieldLocksToGameStatePatch,
+  characterDataSchema,
+  replaceBuiltInAgentDefinitions,
+  worldCustomFieldTrackerLockKey,
+} = await import("../../../packages/shared/dist/index.js");
 const { parseGameStateRow } = await import("../../../packages/server/src/routes/generate/generate-route-utils.js");
 const prompts: string[] = [];
 const trackerPrompts: string[] = [];
@@ -405,6 +411,81 @@ try {
     mainPrompts.at(-1)?.includes("SUMMARY_CONTEXT_SENTINEL"),
     "main summary is independent of the agent toggle",
   );
+
+  // #9426: a normal turn and the manual agent retry both send the Public Faces, not the cards.
+  const characterStore = createCharactersStorage(db);
+  const faceCharacter = await characterStore.create(
+    characterDataSchema.parse({
+      name: "Maren",
+      description: "MAREN_PRIVATE_CARD",
+      extensions: { publicFace: "MAREN_PUBLIC_FACE" },
+    }),
+  );
+  const facePersona = await characterStore.createPersona("Ilse", "ILSE_PRIVATE_CARD", undefined, {
+    publicFace: "ILSE_PUBLIC_FACE",
+  });
+  assert.ok(faceCharacter && facePersona);
+  const faceAgent = await agents.create({
+    type: "custom-public-face-fixture",
+    name: "Public Face fixture",
+    phase: "post_processing",
+    connectionId: connection.id,
+    promptTemplate: "CONTEXT_FIXTURE public faces",
+    settings: {
+      resultType: "context_injection",
+      contextSources: { chatHistory: true, charactersPublicFace: true, personaPublicFace: true },
+    },
+  });
+  assert.ok(faceAgent);
+  // Character Activity agents run from their own routing context before the reply.
+  const faceActivityAgent = await agents.create({
+    type: "custom-public-face-activity-fixture",
+    name: "Public Face activity fixture",
+    phase: "pre_generation",
+    connectionId: connection.id,
+    promptTemplate: "CONTEXT_FIXTURE activity",
+    settings: {
+      resultType: "character_activity_update",
+      customCapabilities: { manage_chat_characters: true },
+      contextSources: { chatHistory: true, charactersPublicFace: true, personaPublicFace: true },
+    },
+  });
+  assert.ok(faceActivityAgent);
+  const faceChat = await chats.create({
+    name: "Public Face fixture",
+    mode: "roleplay",
+    characterIds: [faceCharacter.id],
+    personaId: facePersona.id,
+    connectionId: connection.id,
+    promptPresetId: null,
+  });
+  assert.ok(faceChat);
+  await chats.patchMetadata(faceChat.id, {
+    enableAgents: true,
+    activeAgentIds: [faceAgent.type, faceActivityAgent.type],
+  });
+  await chats.createMessage({ chatId: faceChat.id, role: "user", content: "Hello there." });
+  const facePromptStart = prompts.length;
+  const faceTurn = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: faceChat.id } });
+  assert.equal(faceTurn.statusCode, 200, faceTurn.body);
+  assert.ok(!faceTurn.body.includes('"type":"error"'), faceTurn.body);
+  const faceReply = (await chats.listMessages(faceChat.id)).filter((message) => message.role === "assistant").at(-1);
+  assert.ok(faceReply);
+  const faceRetry = await app.inject({
+    method: "POST",
+    url: "/api/generate/retry-agents",
+    payload: { chatId: faceChat.id, agentTypes: [faceAgent.type], forMessageId: faceReply.id },
+  });
+  assert.equal(faceRetry.statusCode, 200, faceRetry.body);
+  assert.ok(!faceRetry.body.includes('"type":"error"'), faceRetry.body);
+  const facePrompts = prompts.slice(facePromptStart);
+  assert.equal(facePrompts.length, 3, "Character Activity and the agent on the turn, then the retry");
+  assert.equal(facePrompts.filter((prompt) => prompt.includes("CONTEXT_FIXTURE activity")).length, 1);
+  for (const prompt of facePrompts) {
+    assert.ok(prompt.includes("Public Face: MAREN_PUBLIC_FACE"), prompt);
+    assert.ok(prompt.includes("Public Face: ILSE_PUBLIC_FACE"), prompt);
+    assert.ok(!prompt.includes("MAREN_PRIVATE_CARD") && !prompt.includes("ILSE_PRIVATE_CARD"), prompt);
+  }
 } finally {
   provider.closeAllConnections();
   await new Promise<void>((done) => provider.close(() => done()));

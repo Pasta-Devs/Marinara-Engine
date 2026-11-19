@@ -1,8 +1,8 @@
 import { open, realpath, type FileHandle } from "node:fs/promises";
-import { basename, extname, join, posix, resolve, win32 } from "node:path";
+import { basename, extname, posix, resolve, win32 } from "node:path";
 import type { FastifyReply } from "fastify";
 import { getDataDir, getFileStorageDir } from "../config/runtime-config.js";
-import { assertInsideDir, isAllowedImageBuffer } from "./security.js";
+import { isAllowedImageBuffer, resolveInside } from "./security.js";
 
 const RASTER_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const SVG_EXTENSION = ".svg";
@@ -451,7 +451,7 @@ export function resolveFlatMediaFile(rootDir: string, storedFilePath: unknown): 
     return null;
   }
   try {
-    return assertInsideDir(rootDir, join(rootDir, storedFilePath));
+    return resolveInside(rootDir, storedFilePath);
   } catch {
     return null;
   }

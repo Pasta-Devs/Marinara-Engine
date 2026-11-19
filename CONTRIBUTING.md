@@ -287,6 +287,27 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 - Describe every user-visible fix, behavior change or feature under "What changed" in the PR description, written last from the final diff, not from the issue or plan; the release notes are written from it. If the change makes something stop working that worked before, say so in plain user words at the top of "What changed".
 - Avoid version drift. If your PR intentionally bumps a release, update every version-bearing file in one pass.
 
+## Labels
+
+Workflows add most labels. Only people with triage access can set labels by hand, so for everyone else the title is how an issue or pull request gets its type label.
+
+- **Issues:** start the title with the prefix the issue forms use. `.github/workflows/issue-triage.yml` sets the type label when the issue is opened or its title changes, whether it was filed through the form, `gh issue create` or the API. GitHub runs it from `main`, so a change to it takes effect at the next promotion. With triage access, also pass the label when you file with `gh issue create`, as in `--label bug`, using the label each prefix gets:
+  - `[Issue]:` or `[Bug]:` gets `bug`.
+  - `[Feature]:` gets `enhancement`.
+  - `[docs-i18n]` gets `docs`.
+  - `[Tracking]:` gets `tracking`. Use it for an umbrella issue that a series of pull requests works through, each linking back with "Part of #N".
+
+  The type label follows the prefix: of `bug`, `enhancement`, `docs` and `tracking`, the issue keeps only the one its prefix names, so change the prefix to change the type. A title without one of these prefixes keeps its labels. `fix:` and `feat:` are pull request prefixes, and an issue titled that way gets no label, so a bug report starts with `[Issue]:` even when it already proposes the fix.
+- **Pull requests:** start the title with a conventional prefix, with or without a scope: `fix`, `feat`, `docs`, `test`, `chore`, `perf`, `refactor` or `ci`, as in `fix(client):`. `.github/workflows/pull-request-triage.yml` sets the type label from it when the pull request is opened, edited or pushed to:
+  - `fix:` gets `bugfix`.
+  - `feat:` gets `feature`.
+  - The other prefixes already name their type, so they get neither.
+
+  The type label follows the prefix, like an issue's. A title without a known prefix falls back to the branch name (`fix/` or `bugfix/` gets `bugfix`, `feat/` or `feature/` gets `feature`), and keeps its labels when the branch doesn't name a type either.
+- **Areas:** labels such as `client`, `server`, `android`, `ci` and `docs` follow a pull request's changed files, as listed in `.github/labeler.yml`. `docs` covers `docs/`, the Markdown files at the top of the repository and `android/README.md`. Other Markdown, such as Professor Mari's skill files and `.github/plans/`, doesn't count. Dependabot pull requests get `dependencies`.
+- **Linked issues:** `.github/workflows/issue-status-from-prs.yml` adds `in-pr` to an issue named on a pull request's `Closes #N` line while the pull request is open, and `fixed-in-staging` once it merges into `staging`. It also gives the issue the pull request's area labels, except `docs`, by the time the pull request merges. It only adds them, so area labels set on the issue by hand stay.
+- Maintainers add the rest by hand, such as `regression`, `qol`, the scope labels (`normal-scope`, `scope-risk`, `feature-creep`) and `needs-codeowner-decision`.
+
 ## Documentation Rules
 
 - `README.md` is the user-facing overview and quickstart, not the full release log.

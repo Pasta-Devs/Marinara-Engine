@@ -12,7 +12,6 @@ import {
   type QuoteFormat,
 } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
-import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import type { ReactionSegmentTarget } from "../../lib/reactions";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { RemoteImageGate } from "../../lib/remote-image-placeholder";
@@ -20,6 +19,7 @@ import { resolveSelfCardAssets, type ChatGalleryIndex } from "../../lib/card-ass
 import { renderInlineWithCustomEmojis } from "../../lib/custom-emoji-render";
 import { renderWithStickerBlocks } from "../../lib/sticker-render";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
+import { ImageViewer } from "../ui/ImageViewer";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { ChatImagePreview } from "./ChatImagePreview";
 import { ChatVideoAttachment, isAttachmentHiddenByImageText, isVideoAttachment } from "./ChatVideoAttachment";
@@ -702,7 +702,7 @@ export function ConversationMessageSwipes({ ctx }: { ctx: MessageRenderContext }
   );
 }
 
-/** Image lightbox portal content. */
+/** Image lightbox: the shared viewer, with the prompt under the picture. */
 export function ConversationMessageLightbox({
   url,
   prompt,
@@ -713,34 +713,14 @@ export function ConversationMessageLightbox({
   onClose: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const backdropDismiss = useBackdropDismiss(onClose);
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
-      {...backdropDismiss}
+    <ImageViewer
+      title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
+      src={url}
+      alt={localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+      onClose={onClose}
     >
-      <div
-        className="flex max-h-[90vh] w-[min(90vw,64rem)] max-w-[90vw] flex-col items-center gap-2"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <img
-          src={url}
-          alt={localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
-          className={
-            prompt?.trim()
-              ? "max-h-[calc(90vh-9rem)] max-w-full rounded-lg object-contain shadow-2xl"
-              : "max-h-[90vh] max-w-full rounded-lg object-contain shadow-2xl"
-          }
-        />
-        <ImagePromptPanel prompt={prompt} className="w-full max-w-3xl" />
-      </div>
-      <button
-        onClick={onClose}
-        className="absolute right-[max(1rem,var(--mari-safe-area-inset-right))] top-4 rounded-full bg-black/50 p-2 text-white/80 transition-colors hover:bg-black/70 hover:text-white"
-        aria-label={localizeUi("ui.chat.chatimagelightbox.closeImage")}
-      >
-        <X size="1.125rem" />
-      </button>
-    </div>
+      <ImagePromptPanel prompt={prompt?.trim() ?? ""} className="w-full max-w-3xl" />
+    </ImageViewer>
   );
 }

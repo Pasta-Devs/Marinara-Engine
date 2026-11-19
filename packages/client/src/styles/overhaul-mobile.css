@@ -736,7 +736,10 @@
 /* ─── Chat settings: the desktop drawer's look as a phone/tablet sheet ─── */
 :root[data-overhaul="mobile"] .ov-cs [data-window-control="lock"],
 :root[data-overhaul="mobile"] .ov-cs [aria-label="Lock window"],
-:root[data-overhaul="mobile"] .ov-cs [data-chat-settings-control="reset-view"],
+/* Reset View only shows in Edit, the one place to put hidden sections back. It takes the Tracker Panel
+   dice's place there, so the title keeps its room. */
+:root[data-overhaul="mobile"] .ov-cs:not(.is-editing) [data-chat-settings-control="reset-view"],
+:root[data-overhaul="mobile"] .ov-cs.is-editing [data-chat-settings-control="tracker-panel"],
 :root[data-overhaul="mobile"] .ov-cs .ov-cs__mode {
   display: none !important;
 }
@@ -1995,6 +1998,13 @@
 }
 :root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__field > span:first-child {
   font-size: 0.8125rem;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-vec__model {
+  max-width: none;
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-vec .mari-chrome-control {
+  min-height: 2.75rem;
+  font-size: 0.875rem;
 }
 :root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-bk__switch small {
   white-space: normal;
@@ -5578,4 +5588,18 @@
   > .ov-btn:not(.ov-btn--primary)
   .ov-vw__tool-text:not(#ovm-x) {
   display: none;
+}
+
+/* Memories window on phones and tablets: finger-sized actions and forget button, readable text. */
+:root[data-overhaul="mobile"] .ov-mem :is(.ov-mem__actions, .ov-mem__warn) .mari-chrome-control {
+  min-height: 2.75rem;
+  font-size: 0.875rem;
+}
+:root[data-overhaul="mobile"] .ov-mem__forget {
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.5rem -0.5rem -0.5rem auto;
+}
+:root[data-overhaul="mobile"] .ov-mem {
+  font-size: 0.9375rem;
 }

@@ -9,7 +9,6 @@ import {
   MoreHorizontal,
   PackageCheck,
   RefreshCw,
-  Search,
   Sparkles,
   Trash2,
   TriangleAlert,
@@ -67,6 +66,7 @@ import { useOverhaulLook } from "../../stores/overhaul.store";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
 import { Spinner } from "../ui/Spinner";
+import { SearchInput } from "../ui/SearchInput";
 
 type BulkActionProgress = {
   action: "install" | "uninstall";
@@ -561,21 +561,14 @@ export function AgentCatalogView() {
     : undefined;
 
   const searchField = (
-    <div className="relative">
-      <Search
-        size="0.9rem"
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]"
-        aria-hidden="true"
-      />
-      <input
-        type="search"
-        className="mari-chrome-field h-10 w-full pl-9 pr-3 text-sm"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder={localizeUi("ui.agents.agentcatalogview.searchAgents")}
-        aria-label={localizeUi("ui.agents.agentcatalogview.searchDownloadableAgents")}
-      />
-    </div>
+    <SearchInput
+      value={query}
+      onChange={setQuery}
+      resultCount={catalog.isLoading || catalog.isError ? undefined : results?.length}
+      slashShortcut
+      label={localizeUi("ui.agents.agentcatalogview.searchDownloadableAgents")}
+      placeholder={localizeUi("ui.agents.agentcatalogview.searchAgents")}
+    />
   );
 
   let content;

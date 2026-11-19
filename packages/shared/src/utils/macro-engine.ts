@@ -22,6 +22,7 @@ export interface MacroContext {
     personality?: string;
     backstory?: string;
     appearance?: string;
+    publicFace?: string;
     scenario?: string;
     example?: string;
     systemPrompt?: string;
@@ -86,6 +87,7 @@ export interface MacroContext {
     personality?: string;
     backstory?: string;
     appearance?: string;
+    publicFace?: string;
     scenario?: string;
     example?: string;
     systemPrompt?: string;
@@ -99,6 +101,7 @@ export interface MacroContext {
     personality?: string;
     backstory?: string;
     appearance?: string;
+    publicFace?: string;
     scenario?: string;
   };
   /** Conversation-mode-only fields for {{convo_display}}/{{char_about}}/{{persona_about}}/{{convo_behavior}}.
@@ -199,6 +202,7 @@ const CHARACTER_MACRO_NAMES = new Set([
   "example",
   "group",
   "personality",
+  "publicface",
   "scenario",
 ]);
 const CHARACTER_CONDITIONAL_OPERAND_NAMES = new Set([
@@ -239,6 +243,7 @@ const DEFERRED_CHARACTER_MACRO_TOKENS = {
   personality: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}PERSONALITY\x1f`,
   backstory: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}BACKSTORY\x1f`,
   appearance: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}APPEARANCE\x1f`,
+  publicFace: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}PUBLIC_FACE\x1f`,
   scenario: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}SCENARIO\x1f`,
   example: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}EXAMPLE\x1f`,
   systemPrompt: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}SYSTEM_PROMPT\x1f`,
@@ -477,6 +482,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Identity", syntax: "{{personaPersonality}}", description: "Active persona personality" },
   { category: "Identity", syntax: "{{personaBackstory}}", description: "Active persona backstory" },
   { category: "Identity", syntax: "{{personaAppearance}}", description: "Active persona appearance" },
+  {
+    category: "Identity",
+    syntax: "{{personaPublicFace}}",
+    description: "Active persona Public Face: what others may know about them. Not part of {{persona}}",
+  },
   { category: "Identity", syntax: "{{personaScenario}}", description: "Active persona scenario" },
   { category: "Identity", syntax: "{{char}}", description: "Current character name" },
   { category: "Identity", syntax: "{{charName}}", description: "Alias for {{char}}" },
@@ -505,6 +515,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Character", syntax: "{{personality}}", description: "Current character personality" },
   { category: "Character", syntax: "{{backstory}}", description: "Current character backstory" },
   { category: "Character", syntax: "{{appearance}}", description: "Current character appearance" },
+  {
+    category: "Character",
+    syntax: "{{publicFace}}",
+    description: "Current character Public Face: what others may know about them",
+  },
   { category: "Character", syntax: "{{scenario}}", description: "Current character scenario" },
   { category: "Character", syntax: "{{example}}", description: "Current character example dialogue" },
   { category: "Character", syntax: "{{charSysInfo}}", description: "Current character system prompt" },
@@ -779,6 +794,7 @@ function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: 
       personality: profile.personality ?? "",
       backstory: profile.backstory ?? "",
       appearance: profile.appearance ?? "",
+      publicFace: profile.publicFace ?? "",
       scenario: profile.scenario ?? "",
       example: profile.example ?? "",
       systemPrompt: profile.systemPrompt ?? "",
@@ -808,6 +824,7 @@ export function resolveCharacterScopedMacros(
     )
     .replace(/\{\{\s*backstory\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "backstory", depth, baseContext))
     .replace(/\{\{\s*appearance\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "appearance", depth, baseContext))
+    .replace(/\{\{\s*publicFace\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "publicFace", depth, baseContext))
     .replace(/\{\{\s*scenario\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "scenario", depth, baseContext))
     .replace(/\{\{\s*example\s*\}\}/gi, () => resolveCharacterFieldValue(profile, "example", depth, baseContext))
     .replace(/\{\{\s*charSysInfo\s*\}\}/gi, () =>
@@ -834,6 +851,7 @@ export function resolveDeferredCharacterMacros(
     "personality",
     "backstory",
     "appearance",
+    "publicFace",
     "scenario",
     "example",
     "systemPrompt",
@@ -1482,6 +1500,8 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext, options: Reso
       return ctx.personaFields?.backstory ?? "";
     case "personaappearance":
       return ctx.personaFields?.appearance ?? "";
+    case "personapublicface":
+      return ctx.personaFields?.publicFace ?? "";
     case "personascenario":
       return ctx.personaFields?.scenario ?? "";
     case "characters":
@@ -1508,6 +1528,8 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext, options: Reso
       return ctx.characterFields?.backstory ?? "";
     case "appearance":
       return ctx.characterFields?.appearance ?? "";
+    case "publicface":
+      return ctx.characterFields?.publicFace ?? "";
     case "scenario":
       return ctx.characterFields?.scenario ?? "";
     case "example":
@@ -2301,6 +2323,7 @@ const PLAN_FIXED_OPERAND_NAMES = new Set([
   "personapersonality",
   "personabackstory",
   "personaappearance",
+  "personapublicface",
   "personascenario",
   "characters",
   "group",
@@ -2312,6 +2335,7 @@ const PLAN_FIXED_OPERAND_NAMES = new Set([
   "personality",
   "backstory",
   "appearance",
+  "publicface",
   "scenario",
   "example",
   "charsysinfo",
@@ -2325,6 +2349,7 @@ const PLAN_PER_CHARACTER_OPERAND_NAMES = new Set([
   "personality",
   "backstory",
   "appearance",
+  "publicface",
   "scenario",
   "example",
   "charsysinfo",
@@ -3447,6 +3472,9 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   result = result.replace(/\{\{personaAppearance\}\}/gi, () =>
     resolveNestedFieldMacros(ctx.personaFields?.appearance ?? ""),
   );
+  result = result.replace(/\{\{personaPublicFace\}\}/gi, () =>
+    resolveNestedFieldMacros(ctx.personaFields?.publicFace ?? ""),
+  );
   result = result.replace(/\{\{personaScenario\}\}/gi, () =>
     resolveNestedFieldMacros(ctx.personaFields?.scenario ?? ""),
   );
@@ -3458,6 +3486,7 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   result = result.replace(/\{\{personality\}\}/gi, () => characterReplacement("personality"));
   result = result.replace(/\{\{backstory\}\}/gi, () => characterReplacement("backstory"));
   result = result.replace(/\{\{appearance\}\}/gi, () => characterReplacement("appearance"));
+  result = result.replace(/\{\{publicFace\}\}/gi, () => characterReplacement("publicFace"));
   result = result.replace(/\{\{scenario\}\}/gi, () => characterReplacement("scenario"));
   result = result.replace(/\{\{example\}\}/gi, () => characterReplacement("example"));
   result = result.replace(/\{\{charSysInfo\}\}/gi, () => characterReplacement("systemPrompt"));

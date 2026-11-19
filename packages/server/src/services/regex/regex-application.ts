@@ -1,13 +1,16 @@
 // ──────────────────────────────────────────────
 // Regex Scripts — Prompt Application
 // ──────────────────────────────────────────────
-import { applyRegexReplacement, isPatternSafe, resolveRegexPatternLiteralMacros } from "@marinara-engine/shared";
+import {
+  applyRegexReplacement,
+  isPatternSafe,
+  resolveRegexPatternLiteralMacros,
+  type RegexApplyMode,
+} from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { vmRegexReplaceGuard } from "../lorebook/regex-timeout.js";
 
 type RegexPlacement = "ai_output" | "user_input";
-type RegexApplyMode = "prompt" | "display" | "both";
-
 type RegexScriptLike = {
   id?: unknown;
   name?: unknown;

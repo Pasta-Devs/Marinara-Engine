@@ -1,5 +1,6 @@
 // Character cards in and out: merging an imported card into the saved one, the V2 export with its embedded sprites
-// and their limits, gallery references on update, and validating card data on save and on native import.
+// and their limits, gallery references on update, validating card data on save and on native import, and card JSON
+// stored in compressed zTXt PNG chunks.
 import assert from "node:assert/strict";
 import {
   buildCompatibleCharacterExport,
@@ -195,3 +196,100 @@ assert.equal(
   "preserved",
   "Native import normalization must preserve unknown embedded-lorebook properties",
 );
+
+// Issue #4002 — Character Tavern stores card JSON in zTXt (zlib-compressed)
+// PNG chunks; every card-parsing path must read them, and export must strip
+// stale ones so re-exported cards cannot carry outdated compressed data.
+{
+  const { deflateSync, crc32: zlibCrc32 } = await import("node:zlib");
+  const { parsePngCharacterCard } = await import("../../../packages/client/src/lib/png-parser.js");
+  const { extractCharaFromPng } = await import("../../../packages/server/src/routes/import.routes.js");
+
+  const pngChunk = (type: string, data: Buffer) => {
+    const typeBytes = Buffer.from(type, "ascii");
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(zlibCrc32(Buffer.concat([typeBytes, data])) >>> 0);
+    return Buffer.concat([length, typeBytes, data, crc]);
+  };
+  const card = { spec: "chara_card_v3", spec_version: "3.0", data: { name: "Tavern Import", description: "zTXt" } };
+  const base64Card = Buffer.from(JSON.stringify(card), "utf8").toString("base64");
+  const ztxtData = Buffer.concat([
+    Buffer.from("chara", "ascii"),
+    Buffer.from([0, 0]),
+    deflateSync(Buffer.from(base64Card, "ascii")),
+  ]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0);
+  ihdr.writeUInt32BE(1, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const idat = Buffer.from([0x78, 0x01, 0x62, 0x60, 0x60, 0x60, 0x60, 0x00, 0x00, 0x00, 0x05, 0x00, 0x01]);
+  const ztxtPng = Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("zTXt", ztxtData),
+    pngChunk("IDAT", idat),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+
+  const serverParsed = extractCharaFromPng(ztxtPng);
+  assert.equal(
+    (serverParsed as { data?: { name?: string } } | null)?.data?.name,
+    "Tavern Import",
+    "Server import must extract character JSON from zTXt chunks",
+  );
+
+  const clientParsed = await parsePngCharacterCard(
+    new File([new Uint8Array(ztxtPng)], "card.png", { type: "image/png" }),
+  );
+  assert.equal(
+    (clientParsed.json as { data?: { name?: string } }).data?.name,
+    "Tavern Import",
+    "Client Card Browser import must extract character JSON from zTXt chunks",
+  );
+
+  const largeCard = {
+    ...card,
+    data: {
+      ...card.data,
+      name: "Large Gallery Import",
+      description: "x".repeat(100 * 1024),
+    },
+  };
+  const largeCardText = Buffer.from(JSON.stringify(largeCard), "utf8").toString("base64");
+  const largeZtxtData = Buffer.concat([
+    Buffer.from("chara", "ascii"),
+    Buffer.from([0, 0]),
+    deflateSync(Buffer.from(largeCardText, "ascii")),
+  ]);
+  const largeZtxtPng = Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk("IHDR", ihdr),
+    pngChunk("zTXt", largeZtxtData),
+    pngChunk("IDAT", idat),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+  assert.equal(
+    (extractCharaFromPng(largeZtxtPng) as { data?: { description?: string } } | null)?.data?.description?.length,
+    100 * 1024,
+    "Server import must accept valid zTXt card metadata below the decompression limit",
+  );
+  const largeClientParsed = await parsePngCharacterCard(
+    new File([new Uint8Array(largeZtxtPng)], "large-card.png", { type: "image/png" }),
+  );
+  assert.equal(
+    (largeClientParsed.json as { data?: { description?: string } }).data?.description?.length,
+    100 * 1024,
+    "Client import must accept valid zTXt card metadata below the decompression limit",
+  );
+
+  const { injectTextChunk } = await import("../../../packages/server/src/routes/characters.routes.js");
+  const reExported = injectTextChunk(ztxtPng, "chara", Buffer.from(JSON.stringify({ fresh: true })).toString("base64"));
+  assert.equal(
+    reExported.includes(deflateSync(Buffer.from(base64Card, "ascii"))),
+    false,
+    "Export must strip stale zTXt chara chunks instead of shipping outdated data",
+  );
+}

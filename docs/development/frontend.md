@@ -10,31 +10,34 @@ The client lives in `packages/client`. It talks to a Fastify API server (`packag
 
 ## Application architecture
 
-### Three-column layout
+### Shell layout
 
-The UI uses a Discord-inspired three-column design managed by `components/layout/AppShell.tsx`:
+`components/layout/AppShell.tsx` lays out the top bar, the center pane and one sidebar. The sidebar shows Chats or one panel, never both. It docks on the right by default, or on the left when `sidebarSide` is `"left"`:
 
 ```
-+-------------+-----------------------------+--------------+
-|  Left       |         Center              |  Right       |
-|  Sidebar    |                             |  Panel       |
-|             |  Chat area or Editor        |              |
-|  Chat list  |  (lazy-loaded)              |  Characters  |
-|  Folders    |                             |  Lorebooks   |
-|  Mode tabs  |  ChatConversationSurface    |  Presets     |
-|             |  ChatRoleplaySurface        |  Connections |
-|             |  GameSurface                |  Agents      |
-|             |  CharacterEditor            |  Personas    |
-|             |  LorebookEditor             |  Settings    |
-|             |  PresetEditor               |  Browser     |
-|             |  ...other editors           |              |
-+-------------+-----------------------------+--------------+
++-----------------------------------+----------------+
+|  Center                           |  Sidebar       |
+|                                   |                |
+|  Chat area or Editor              |  Chats         |
+|  (lazy-loaded)                    |  (chat list,   |
+|                                   |  folders,      |
+|  ChatConversationSurface          |  mode tabs)    |
+|  ChatRoleplaySurface              |                |
+|  GameSurface                      |  or a panel:   |
+|  CharacterEditor                  |  Characters    |
+|  LorebookEditor                   |  Personas      |
+|  PresetEditor                     |  Lorebooks     |
+|  ...other editors                 |  Presets, ...  |
++-----------------------------------+----------------+
 ```
 
-- Left sidebar (`components/layout/ChatSidebar.tsx`): the chat list, organized by folders and filterable by mode (Conversation, Roleplay, Game).
+- Sidebar (`[data-component="SidebarSlot"]` in `AppShell.tsx`): one slot on desktop. Inside its sliding wrapper (`SidebarSlotPanel`) are two stacked layers. `ChatSidebarPanel` renders `components/layout/ChatSidebar.tsx`, the chat list with folders and the mode tabs (Conversation, Roleplay, Game). It is always mounted on desktop, because unread counts and notification bubbles load from it. `RightPanelDesktop` renders `components/layout/RightPanel.tsx` and mounts the first time a panel opens. The hidden layer is `invisible`, `inert` and `aria-hidden`. Swapping between Chats and a panel is instant, and opening or closing the sidebar slides.
+- Width: one separator on the sidebar's inner edge (aria-label "Resize sidebar") sets the shared width, from `SHARED_SIDEBAR_WIDTH_MIN` (280) to `SHARED_SIDEBAR_WIDTH_MAX` (480). Read it with `selectSharedSidebarWidth`; the store keeps `sidebarWidth` and `rightPanelWidth` equal.
+- Side: with `sidebarSide: "left"` the slot gets CSS `order: -1`. It keeps its place in the React tree, so changing sides never remounts a panel. `--mari-chat-ui-inset-left` / `--mari-chat-ui-inset-right`, the docked Tracker Panel offset and modeless `Modal` insets follow the side.
+- Phones and tablets: when `isMobileShellViewport()` is true (`MOBILE_SHELL_MEDIA_QUERY`, or a window too narrow for the docked layout), the sidebar is a full-screen sheet from the right, rendered as `ChatSidebarPanel` or `RightPanelMobile`. `sidebarSide` does not apply there.
 - Center pane: either the active chat surface or a full editor (character, lorebook, preset, and so on). Only one shows at a time. Editors replace the chat area.
-- Right panel (`components/layout/RightPanel.tsx`): a resource browser and settings, toggled from the top bar. Once a panel is mounted, it stays in the DOM (hidden with CSS) to keep its scroll position and local state.
-- Top bar (`components/layout/TopBar.tsx`): quick-switch buttons for each right panel.
+- Panels (`components/layout/RightPanel.tsx`): routes `rightPanel` to a panel component and keeps visited panels mounted. See [Panel system](#panel-system-componentspanels).
+- Top bar (`components/layout/TopBar.tsx`): Home and the chat info on one side. On the sidebar's side, `[data-tour="panel-buttons"]` holds the Chats button (`[data-tour="sidebar-toggle"]`) first, then one button for each panel. With `sidebarSide: "left"` the bar mirrors (`flex-row-reverse`): the panel buttons sit on the left and Home at the far right. On phones and tablets Chats stays beside Home, and on phones Chats and the panel buttons move into the **More** menu.
 
 ### Navigation
 
@@ -48,8 +51,11 @@ Navigation is state-driven. There is no URL router. The `stores/ui.store.ts` Zus
 | Open connection editor | `connectionDetailId` | `openConnectionDetail(id)`                         |
 | Open agent editor      | `agentDetailId`      | `openAgentDetail(id)`                              |
 | Open persona editor    | `personaDetailId`    | `openPersonaDetail(id)`                            |
-| Switch right panel     | `rightPanel`         | `openRightPanel(name)` / `toggleRightPanel(name)` |
+| Show a panel           | `rightPanel`         | `openRightPanel(name)` / `toggleRightPanel(name)` |
+| Show Chats             | `sidebarOpen`        | `toggleSidebar()` / `setSidebarOpen(open)`        |
 | Open modal             | `modal`              | `openModal(type, props?)`                          |
+
+Chats and the panels share the sidebar, so the two are exclusive on every screen size. `openRightPanel` and `toggleRightPanel` close Chats, and `toggleSidebar` and `setSidebarOpen(true)` close the panel. `setSidebarOpen(false)` leaves an open panel alone. `selectSidebarShown` is false while a panel is open, so a stale pair with both flags true draws the panel, and the persisted state turns a saved pair like that into the panel only.
 
 ### Code splitting
 
@@ -76,6 +82,7 @@ The only persisted store (localStorage via the Zustand `persist` middleware). It
 - Sound: `convoNotificationSound` and `rpNotificationSound`.
 - Behavior: `confirmBeforeDelete`, `enterToSendRP`, `enterToSendConvo`, `weatherEffects`, and `guideGenerations`.
 - Navigation: `rightPanel`, `rightPanelOpen`, `sidebarOpen`, `settingsTab`, all `*DetailId` fields, and `modal`.
+- Sidebar layout: `sidebarSide` (`"right"` or `"left"`, default `"right"`, synced across devices and reset to `"right"` by `resetAppearanceSettings`), and `sidebarWidth` / `rightPanelWidth` (kept equal; read them with `selectSharedSidebarWidth`).
 
 Synced custom themes are not stored in `ui.store.ts`. They are fetched from the server through React Query and mirrored across devices connected to the same Marinara instance.
 
@@ -319,14 +326,14 @@ Modal pattern: all modals accept `{ open, onClose }`, wrap content in the `Modal
 
 ### Panel system (`components/panels/`)
 
-Right-side panels show resource lists with search, sort, and filtering. Clicking a resource opens its full editor in the center pane.
+Panels open in the sidebar in place of Chats and show resource lists with search, sort, and filtering. Clicking a resource opens its full editor in the center pane.
 
 Panels are registered in `RightPanel.tsx` in two places:
 
 1. `PANEL_CONFIG`: title, icon, and gradient color.
 2. `RIGHT_PANELS` (in `right-panel-panels.ts`): the component map.
 
-Panels keep their state through a `mountedPanels` Set held in a `useState` inside `RightPanel`. It tracks which panels have been visited. Once mounted, a panel stays in the DOM (hidden with `display: none` or `aria-hidden`) to keep its state.
+Panels keep their state through a `mountedPanels` Set held in a `useState` inside `RightPanel`. It tracks which panels have been visited. Once mounted, a panel stays in the DOM (hidden with `display: none` or `aria-hidden`) to keep its state. The Set belongs to one `RightPanel` mount, so a remount, such as the phone sheet opening again, starts with only the current panel.
 
 ### UI primitives (`components/ui/`)
 
@@ -343,6 +350,8 @@ Panels keep their state through a `mountedPanels` Set held in a `useState` insid
 All UI components use controlled props (value plus onChange) and portal rendering for overlays.
 
 **Library panels use `LibraryToolbar`.** Characters, Personas, Lorebooks, Agents and the Presets panel's tabs render their top controls through it: an optional library row (one full-width button, or the Download / Open Library pair), create / import / export / select, search with the shared sort menu, New Folder, then panel filters as `children`. The rows are typed props, not slots, so a new library panel gets the same markup instead of a copy that drifts. Add a prop there rather than hand-building a toolbar in a panel.
+
+`LibraryToolbar.tsx` also exports `SegmentedButtons`, one long `.mari-chrome-segmented` button split by `|`. It draws the Download / Open Library pair and the Presets panel's **Prompts** / **Regexes** / **Tools** / **Profiles** tabs, so every panel's top row has the same height. Passing `groupLabel` makes the row a `role="group"` of tabs, and `pressed` sets each tab's `aria-pressed`. `.mari-chrome-segmented` has `flex-shrink: 0`, so a panel's own fixed-height flex scroller (as in Characters) cannot squeeze the row.
 
 ## API client (`lib/api-client.ts`)
 
@@ -364,6 +373,30 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.streamEvents(path, body)` | `POST /api{path}`   | SSE async generator (all event types) |
 
 Errors throw `ApiError`, which carries `status` and `message` properties.
+
+## Pickers and dropdowns
+
+Every "pick a value" control opens one shared picker window. A design change to pickers (the surface, the row style, the width) belongs in the shared components below, never in a feature. Don't use a native `<select>`, and don't draw a list in a popover of your own: the app has neither left.
+
+| Layer | File | What it owns |
+| --- | --- | --- |
+| Window | `components/ui/PickerWindow.tsx` | The surface. On desktop it is a popover next to its field, as wide as its rows need (at least the field, at most 352 px or the field when that is wider). On a phone it is a bottom sheet (a `Modal`); inside a `Modal` it stays a popover so two sheets never stack. Escape, Back, an outside click and the field scrolling out of view close it. |
+| Rows | `components/ui/PickerParts.tsx` | `PickRow` (one row: art, title, a second line that wraps to two lines, badge, the check or checkbox), `PickerSearch`, folder headers and `usePickerKeyboard` (arrow keys, Enter). |
+| List | `components/ui/PickerFolderList.tsx` | The body: search box, rows grouped by library folders or `group`, single or multiple pick, "Add all" per folder. |
+| Fields | `components/ui/Select.tsx` | `Select`: one value from a fixed list, the replacement for a native `<select>`. A combobox trigger, search from `SELECT_SEARCH_MIN` options, arrow keys and type-ahead on the closed field. |
+| | `components/ui/PickerField.tsx` | `PickerField` (one item with a None row and folders), `PickerListField` / `PickerListWindow` (several items; the picks are listed under the field with remove buttons) and `useFieldWindow` (open state, and focus back to the field on close). |
+| | `components/ui/LibraryPickers.tsx`, `components/characters/CharacterSelect.tsx` | The preset, lorebook, character and persona fields built from the above. |
+
+How to add a picker:
+
+- **One value from a list:** `Select`. Give it a `label`: it names the field and titles the window.
+- **One library item** (with folders, art, a None row): `PickerField`, or the matching field in `LibraryPickers.tsx`.
+- **Several items:** `PickerListField`. Escape and outside clicks close the window; picking does not.
+- **Something that isn't a field** (a button that opens a short choice, like "Link to Conversation"): `useFieldWindow` for the open state and focus, `PickerWindow` anchored to the button, and `PickerFolderList` or `PickRow`s inside.
+
+Not on the shared picker yet: the connection and model picker (`ConnectionSelect` / `ModelPicker`, its own window). Other controls with their own surfaces aren't pickers: icon galleries (`StatIconPicker`), tag autocomplete, context and action menus.
+
+**Testing.** A `Select` trigger has `role="combobox"`, its picked value in `data-value`, and its window is a `dialog` named by the field's label. Rows carry `data-pick-row`; the picked row of a single pick has `aria-current="true"`, rows of a multiple pick have `aria-pressed`. `e2e/select-field.ts` has `chooseOption` and `pickerLabels`, which replace Playwright's `selectOption` on the old native selects.
 
 ## Styling system
 

@@ -26,14 +26,13 @@ test("phone More keeps core navigation visible and retains extension actions", a
 
   const topbar = page.locator('[data-component="TopBar"]');
   const home = topbar.getByTitle("Home");
-  const chats = topbar.getByTitle("Chats");
   const moreButton = page.getByRole("button", { name: "More", exact: true });
   await expect(home).toBeVisible();
-  await expect(chats).toBeVisible();
+  // #9375: on a phone Chats leaves the bar for the first row of the More menu, beside the other sidebars.
+  await expect(topbar.getByTitle("Chats")).toBeHidden();
   await expect(topbar.getByTitle("Characters")).toBeHidden();
   await expect(topbar.getByTitle("Settings")).toBeHidden();
   expect(await home.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThanOrEqual(36);
-  expect(await chats.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThanOrEqual(36);
 
   await page.evaluate(async () => {
     const { registerPersonalExtensionContribution, setPersonalExtensionContributionDispatcher } = await import(
@@ -64,6 +63,7 @@ test("phone More keeps core navigation visible and retains extension actions", a
   await moreButton.click();
   const menu = page.getByRole("menu", { name: "More destinations" });
   await expect(menu).toBeVisible();
+  await expect(menu.getByRole("menuitem").first()).toHaveAttribute("data-topbar-panel", "chats");
   await expect(menu.getByRole("menuitem", { name: "Characters", exact: true })).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: "Settings", exact: true })).toBeVisible();
   const extensionAction = menu.getByRole("menuitem", { name: /Fixture action.*Fixture Extension/ });
@@ -137,7 +137,7 @@ test("phone More keeps core navigation visible and retains extension actions", a
   await moreButton.click();
   await expect(page.getByRole("menuitem", { name: "Settings", exact: true })).toHaveAttribute("aria-current", "true");
   await expect(home).toBeVisible();
-  await expect(chats).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Chats", exact: true })).toBeVisible();
 });
 
 test("stacked dialogs keep focus in the top dialog and IME Escape does not dismiss it", async ({ page }, testInfo) => {

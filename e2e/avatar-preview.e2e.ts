@@ -187,7 +187,12 @@ test("applied character sheets use the avatar Full image presentation", async ({
       .poll(() => preview.locator("img").evaluate((image: HTMLImageElement) => image.naturalHeight))
       .toBe(1800);
     expect(await preview.locator("img").boundingBox()).toEqual(avatarBounds);
-    await expect(preview.locator(".mari-modal-panel")).toHaveCount(0);
+    // The shared viewer sits on Modal, but its panel must stay bare: no fill, border or shadow.
+    const chrome = await preview.locator(".mari-modal-panel").evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { background: style.backgroundColor, border: style.borderTopWidth, shadow: style.boxShadow };
+    });
+    expect(chrome).toEqual({ background: "rgba(0, 0, 0, 0)", border: "0px", shadow: "none" });
     await expect(preview.getByRole("heading")).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("sheet-full-image.png"), animations: "disabled" });
     await preview.getByRole("button", { name: "Close image", exact: true }).click();

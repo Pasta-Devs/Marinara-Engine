@@ -15,6 +15,8 @@ import {
 import { lootGameFight } from "../services/game/game-loot.service.js";
 import { takeGameStartingGear } from "../services/game/game-starting-gear.service.js";
 import { rollDieSecurely } from "../services/game/dice-rng.js";
+import { notFound } from "../utils/not-found.js";
+import { parseBody } from "../utils/parse-body.js";
 
 const restRequestSchema = z
   .object({
@@ -96,11 +98,9 @@ const plainValue = (value: unknown) => (value === undefined ? null : JSON.parse(
 
 export async function gameInventoryRoutes(app: FastifyInstance) {
   app.post("/", async (req, reply) => {
-    const parsed = gameInventoryOpsRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid inventory change", issues: parsed.error.issues.slice(0, 10) });
-    }
-    const { chatId, ops, expected } = parsed.data;
+    const input = parseBody(gameInventoryOpsRequestSchema, req.body, reply, "Invalid inventory change");
+    if (!input) return reply;
+    const { chatId, ops, expected } = input;
     // The ruleset's items, read before the change so no catalog is read with the chat's queue held.
     const rules = await loadGameInventoryItemBook(app.db, { chatId }, "player");
     let stale: string[] | null = null;
@@ -121,7 +121,7 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
       const outcome = applyGameInventoryOps(stacks, ops, undefined, rules, rollDieSecurely);
       return { stacks: outcome.stacks, journal: outcome.journal, value: outcome.results };
     });
-    if (!committed) return reply.status(404).send({ error: "Chat not found" });
+    if (!committed) return notFound(reply, "Chat not found");
     // Read through a typed local: assigned only inside the change, so TS would narrow it to null here.
     const staleIds = stale as string[] | null;
     if (staleIds)
@@ -142,18 +142,9 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
   // Using one of the ruleset's items outside a fight: what it does to whoever carries it lands on
   // their sheet, the item is spent, and the answer carries the line the Game Master is told.
   app.post("/use", async (req, reply) => {
-    const parsed = itemUseRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid item use", issues: parsed.error.issues.slice(0, 10) });
-    }
-    const used = await useGameRulesetItem(
-      app.db,
-      parsed.data.chatId,
-      parsed.data.stackId,
-      undefined,
-      parsed.data.more,
-      parsed.data.lasts,
-    );
+    const input = parseBody(itemUseRequestSchema, req.body, reply, "Invalid item use");
+    if (!input) return reply;
+    const used = await useGameRulesetItem(app.db, input.chatId, input.stackId, undefined, input.more, input.lasts);
     if (!used.ok)
       return reply.status(used.status).send({
         error: used.error,
@@ -172,11 +163,9 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
   // Starting gear (Capability API 1.78): a ruleset's gear into one character's bag, once for each kind
   // of gear unless the player asks again, all of it or none of it.
   app.post("/starting-gear", async (req, reply) => {
-    const parsed = startingGearRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid starting gear", issues: parsed.error.issues.slice(0, 10) });
-    }
-    const taken = await takeGameStartingGear(app.db, parsed.data);
+    const input = parseBody(startingGearRequestSchema, req.body, reply, "Invalid starting gear");
+    if (!input) return reply;
+    const taken = await takeGameStartingGear(app.db, input);
     if (!taken.ok) return reply.status(taken.status).send({ error: taken.error, reason: taken.reason });
     const { ok: _ok, ...answer } = taken;
     return answer;
@@ -185,30 +174,26 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
   // A won fight the director did not run: its loot, dropped once into the bags. A directed fight drops
   // its own on the step that wins it.
   app.post("/loot", async (req, reply) => {
-    const parsed = lootRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid loot", issues: parsed.error.issues.slice(0, 10) });
-    }
-    const looted = await lootGameFight(app.db, parsed.data.chatId, parsed.data.fight, parsed.data.defeated);
-    if (!looted) return reply.status(404).send({ error: "Chat not found" });
+    const input = parseBody(lootRequestSchema, req.body, reply, "Invalid loot");
+    if (!input) return reply;
+    const looted = await lootGameFight(app.db, input.chatId, input.fight, input.defeated);
+    if (!looted) return notFound(reply, "Chat not found");
     return looted;
   });
 
   // The sheet's Rest button: a rest on one character's sheet, and the charges it brings back to what
   // they carry, written together.
   app.post("/rest", async (req, reply) => {
-    const parsed = restRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid rest", issues: parsed.error.issues.slice(0, 10) });
-    }
+    const input = parseBody(restRequestSchema, req.body, reply, "Invalid rest");
+    if (!input) return reply;
     const rested = await restGameRulesetCharacter(
       app.db,
-      parsed.data.chatId,
-      parsed.data.character,
-      parsed.data.rest,
+      input.chatId,
+      input.character,
+      input.rest,
       undefined,
-      parsed.data.diceFrom,
-      parsed.data.recover,
+      input.diceFrom,
+      input.recover,
     );
     if (!rested.ok)
       return reply
@@ -220,11 +205,9 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
 
   // The features a rest offers this character to use as it ends (1.789), for the sheet's rest buttons.
   app.post("/rest-offers", async (req, reply) => {
-    const parsed = restOffersRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid rest", issues: parsed.error.issues.slice(0, 10) });
-    }
-    const offered = await gameRulesetRestOffers(app.db, parsed.data.chatId, parsed.data.character, parsed.data.rest);
+    const input = parseBody(restOffersRequestSchema, req.body, reply, "Invalid rest");
+    if (!input) return reply;
+    const offered = await gameRulesetRestOffers(app.db, input.chatId, input.character, input.rest);
     if (!offered.ok) return reply.status(offered.status).send({ error: offered.error });
     return { offers: offered.offers };
   });
@@ -232,11 +215,9 @@ export async function gameInventoryRoutes(app: FastifyInstance) {
   // One character's sheet set from the in-game sheet while the screen has no game state to patch
   // (before the first turn): merged into the others here, and the row made if there is none.
   app.post("/live", async (req, reply) => {
-    const parsed = liveRequestSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.status(400).send({ error: "Invalid sheet state", issues: parsed.error.issues.slice(0, 10) });
-    }
-    const set = await setGameRulesetLive(app.db, parsed.data.chatId, parsed.data.character, parsed.data.live);
+    const input = parseBody(liveRequestSchema, req.body, reply, "Invalid sheet state");
+    if (!input) return reply;
+    const set = await setGameRulesetLive(app.db, input.chatId, input.character, input.live);
     if (!set.ok) return reply.status(set.status).send({ error: set.error });
     return { rulesetLive: set.rulesetLive };
   });

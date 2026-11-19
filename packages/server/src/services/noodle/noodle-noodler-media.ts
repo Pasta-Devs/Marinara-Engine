@@ -3,7 +3,7 @@ import { join } from "path";
 import type { NoodlerManagedPost } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
-import { assertInsideDir } from "../../utils/security.js";
+import { resolveInside } from "../../utils/security.js";
 import { getSharp } from "../../utils/sharp.js";
 import { stageImageToDisk } from "../image/image-generation.js";
 
@@ -107,7 +107,7 @@ export function readNoodlerMediaPath(post: Pick<NoodlerManagedPost, "metadata">)
 export function resolveNoodlerMediaAbsolutePath(relativePath: string): string | null {
   if (!relativePath.startsWith(NOODLER_MEDIA_PREFIX)) return null;
   try {
-    return assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, relativePath));
+    return resolveInside(GALLERY_DIR, relativePath);
   } catch {
     return null;
   }

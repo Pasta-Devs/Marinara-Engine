@@ -2,6 +2,7 @@ import { safeFetch } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
 import { getSharp } from "../image/sharp-runtime.js";
 import type { AtlasCloudModelLimits, AtlasCloudModelOptionField } from "@marinara-engine/shared";
+import { isRecord } from "../../utils/large-json.js";
 
 /**
  * Atlas Cloud publishes one OpenAPI document per model. Its `Input` schema is the only
@@ -67,10 +68,6 @@ const ATLAS_CLOUD_MANAGED_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 const schemaCache = new Map<string, { schema: AtlasCloudModelInputSchema | null; expiresAt: number }>();
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function readFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;

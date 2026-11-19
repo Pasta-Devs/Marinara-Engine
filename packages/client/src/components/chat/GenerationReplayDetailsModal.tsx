@@ -169,7 +169,8 @@ export function GenerationReplayDetailsModal({
     hasImpersonate &&
     (storedText(replay?.impersonatePresetId) ||
       storedText(replay?.impersonateConnectionId) ||
-      replay?.impersonateBlockAgents === true);
+      replay?.impersonateBlockAgents === true ||
+      replay?.impersonatePublicFaces === true);
 
   return (
     <Modal
@@ -224,6 +225,12 @@ export function GenerationReplayDetailsModal({
                   <MetadataRow
                     label={localizeUi("navigation.topbar.agents")}
                     value={localizeUi("ui.chat.generationreplaydetailsmodal.blocked")}
+                  />
+                )}
+                {replay?.impersonatePublicFaces === true && (
+                  <MetadataRow
+                    label={localizeUi("ui.chat.generationreplaydetailsmodal.characterCards")}
+                    value={localizeUi("ui.chat.generationreplaydetailsmodal.publicFacesOnly")}
                   />
                 )}
               </dl>

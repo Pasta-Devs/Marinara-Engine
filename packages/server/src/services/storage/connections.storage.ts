@@ -881,6 +881,7 @@ export function createConnectionsStorage(db: DB) {
         maxStateTokens: input.maxStateTokens ?? null,
         decisionTimeoutMs: input.decisionTimeoutMs ?? null,
         imageInput: input.imageInput ?? null,
+        imageTransparency: input.imageTransparency ?? null,
         audioVoice: input.audioVoice ?? null,
         audioTimeoutMs: input.audioTimeoutMs ?? null,
         audioSoundEffects: String(input.audioSoundEffects ?? false),
@@ -1190,6 +1191,7 @@ export function createConnectionsStorage(db: DB) {
         updateFields.audioSource = data.audioSource;
       }
       if (data.imageInput !== undefined) updateFields.imageInput = data.imageInput;
+      if (data.imageTransparency !== undefined) updateFields.imageTransparency = data.imageTransparency;
       if (data.audioGenerationSource !== undefined) updateFields.audioGenerationSource = data.audioGenerationSource;
       if (data.audioGenerationCallbackUrl !== undefined)
         updateFields.audioGenerationCallbackUrl = data.audioGenerationCallbackUrl;
@@ -1372,6 +1374,7 @@ export function createConnectionsStorage(db: DB) {
         maxStateTokens: source.maxStateTokens,
         decisionTimeoutMs: source.decisionTimeoutMs,
         imageInput: source.imageInput,
+        imageTransparency: source.imageTransparency,
         audioVoice: source.audioVoice,
         audioTimeoutMs: source.audioTimeoutMs,
         audioSoundEffects: source.audioSoundEffects,

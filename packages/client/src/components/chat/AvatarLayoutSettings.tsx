@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { isAvatar3dKind } from "@marinara-engine/shared";
 import { AVATAR_FRAMINGS, type AvatarFraming } from "../../features/avatars/contract";
 import type { StageAvatarSummary } from "../../features/avatars/stage/avatar-stage-logic";
+import { Select } from "../ui/Select";
 import { AgentSettingsActionButton, AgentSettingsSegmentedControl, SpriteRangeSlider } from "./AgentSettingsControls";
 import { SPRITE_DISPLAY_SCALE_PERCENT_MAX, SPRITE_DISPLAY_SCALE_PERCENT_MIN } from "./sprite-display-modes";
 
@@ -70,18 +71,14 @@ export function AvatarLayoutSettings({ chatId, layout }: { chatId: string; layou
         <label htmlFor={selectId} className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
           {localizeUi("editor.avatar.label")}
         </label>
-        <select
+        <Select
           id={selectId}
+          label={localizeUi("editor.avatar.label")}
           value={selected.ownerId}
-          onChange={(event) => setSelectedOwnerId(event.target.value)}
+          options={layout.avatars.map((avatar) => ({ value: avatar.ownerId, label: avatar.name }))}
+          onChange={setSelectedOwnerId}
           className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-[0.625rem] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/60"
-        >
-          {layout.avatars.map((avatar) => (
-            <option key={avatar.ownerId} value={avatar.ownerId}>
-              {avatar.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="mt-3">

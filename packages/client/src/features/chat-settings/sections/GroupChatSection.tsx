@@ -288,6 +288,26 @@ export function GroupChatSection({
               labelClassName="text-[0.6875rem] font-medium"
             />
           )}
+          {!isConversation && (
+            <SettingsSwitch
+              label={localizeUi("ui.chat.chatsettingsdrawer.othersPublicFaces")}
+              description={
+                metadata.groupPublicFacesEnabled === true
+                  ? localizeUi("ui.chat.chatsettingsdrawer.othersPublicFacesOn")
+                  : localizeUi("ui.chat.chatsettingsdrawer.othersPublicFacesOff")
+              }
+              checked={metadata.groupPublicFacesEnabled === true}
+              onChange={(checked) => updateMeta.mutate({ id: chat.id, groupPublicFacesEnabled: checked })}
+              labelPosition="start"
+              className={cn(
+                "justify-between rounded-md px-3 py-2.5 text-left",
+                metadata.groupPublicFacesEnabled === true
+                  ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                  : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+              )}
+              labelClassName="text-[0.6875rem] font-medium"
+            />
+          )}
         </div>
       )}
 

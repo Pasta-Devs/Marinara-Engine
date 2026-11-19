@@ -240,6 +240,7 @@ import {
   resetMemoryRecallVectorizerCache,
   resolveMemoryRecallEmbeddingSource,
 } from "../services/memory-recall-embedding.js";
+import { isLocalEmbedderAvailable } from "../services/local-embedder.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
 import { npcAvatarSlug, sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
 import { buildCommittedTrackerContextBlock } from "../services/generation/committed-tracker-context.js";
@@ -265,6 +266,8 @@ import {
   isBackgroundAutonomousCandidate,
   hasRoleplayDmThreadMarkers,
 } from "../services/conversation/autonomous-candidates.js";
+import { notFound } from "../utils/not-found.js";
+import { isRecord } from "../utils/large-json.js";
 
 type TrackerWrapFormat = "xml" | "markdown" | "none";
 type EntryStateOverrides = Record<string, { ephemeral?: number | null; enabled?: boolean }>;
@@ -350,10 +353,6 @@ async function isValidCharacterIdentity(db: Parameters<typeof createCharactersSt
   } catch {
     return false;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseChatMetadata(raw: unknown): Record<string, unknown> {
@@ -516,6 +515,34 @@ export function normalizeChatForResponse<T extends { metadata?: unknown; charact
     metadata: maskChatMetadataSecrets(parseChatMetadata(chat.metadata)),
   });
 }
+/** `before` must match the stored `updatedAt` form (ISO, UTC), since pages compare the strings. */
+export function chatListQueryError(query: { limit?: string; before?: string }): string | null {
+  if (query.limit !== undefined && !/^[1-9]\d{0,5}$/.test(query.limit)) return "limit must be a whole number from 1";
+  const { before } = query;
+  if (before !== undefined && (Number.isNaN(Date.parse(before)) || new Date(before).toISOString() !== before)) {
+    return "before must be an ISO timestamp";
+  }
+  return null;
+}
+
+/**
+ * One page of the chat list, newest activity first. `before` is the `updatedAt` of the last chat
+ * on the previous page. A page never splits chats that share one `updatedAt` (bulk imports do), so
+ * the next page cannot skip them; such a page can run past `limit`.
+ */
+export function pageChatList<T extends { updatedAt: string }>(
+  chats: T[],
+  query: { limit?: string; before?: string },
+): T[] {
+  const limit = Number.parseInt(query.limit ?? "", 10);
+  const before = query.before;
+  const older = before ? chats.filter((chat) => chat.updatedAt < before) : chats;
+  if (!(limit > 0) || older.length <= limit) return older;
+  let end = limit;
+  while (end < older.length && older[end]!.updatedAt === older[end - 1]!.updatedAt) end++;
+  return older.slice(0, end);
+}
+
 type SummaryEntriesPatchBody =
   | { operation: "replace"; entry: Partial<ChatSummaryEntry> & { id: string; content: string } }
   | { operation: "delete"; entryId?: string; entryIds?: string[] }
@@ -1084,33 +1111,37 @@ export async function chatsRoutes(app: FastifyInstance) {
   };
 
   // List all chats
-  app.get("/", async (req, reply) => {
+  // No query: the whole list (what the app loads). `?limit=N&before=<updatedAt>` pages it.
+  app.get<{ Querystring: { limit?: string; before?: string } }>("/", async (req, reply) => {
+    const queryError = chatListQueryError(req.query);
+    if (queryError) return reply.status(400).send({ error: queryError });
     await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
-    const response = chats
-      .filter((chat) => !shouldHideProfessorMariChat(chat))
-      .map((chat) => {
-        // List only public fields; stored embeddings and write counters belong to the database/export.
-        const normalized = normalizeChatForResponse(chat);
-        return {
-          id: normalized.id,
-          name: normalized.name,
-          mode: normalized.mode,
-          characterIds: normalized.characterIds,
-          groupId: normalized.groupId,
-          personaId: normalized.personaId,
-          personaCharacterId: normalized.personaCharacterId,
-          promptPresetId: normalized.promptPresetId,
-          connectionId: normalized.connectionId,
-          connectedChatId: normalized.connectedChatId,
-          folderId: normalized.folderId,
-          sortOrder: normalized.sortOrder,
-          lastMessageAt: normalized.lastMessageAt,
-          createdAt: normalized.createdAt,
-          updatedAt: normalized.updatedAt,
-          metadata: normalized.metadata,
-        } satisfies Omit<Chat, "metadata"> & { metadata: Record<string, unknown> };
-      });
+    const response = pageChatList(
+      chats.filter((chat) => !shouldHideProfessorMariChat(chat)),
+      req.query,
+    ).map((chat) => {
+      // List only public fields; stored embeddings and write counters belong to the database/export.
+      const normalized = normalizeChatForResponse(chat);
+      return {
+        id: normalized.id,
+        name: normalized.name,
+        mode: normalized.mode,
+        characterIds: normalized.characterIds,
+        groupId: normalized.groupId,
+        personaId: normalized.personaId,
+        personaCharacterId: normalized.personaCharacterId,
+        promptPresetId: normalized.promptPresetId,
+        connectionId: normalized.connectionId,
+        connectedChatId: normalized.connectedChatId,
+        folderId: normalized.folderId,
+        sortOrder: normalized.sortOrder,
+        lastMessageAt: normalized.lastMessageAt,
+        createdAt: normalized.createdAt,
+        updatedAt: normalized.updatedAt,
+        metadata: normalized.metadata,
+      } satisfies Omit<Chat, "metadata"> & { metadata: Record<string, unknown> };
+    });
     return prepareJsonResponse(req, reply, response);
   });
 
@@ -1412,7 +1443,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/internal/professor-mari/chats/:id/activate", async (req, reply) => {
     const professorChats = (await storage.list()).filter(isHomeProfessorMariChat);
     const target = professorChats.find((chat) => chat.id === req.params.id);
-    if (!target) return reply.status(404).send({ error: "Professor Mari chat not found" });
+    if (!target) return notFound(reply, "Professor Mari chat not found");
 
     for (const chat of professorChats) {
       await storage.patchMetadata(chat.id, {
@@ -1436,7 +1467,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     "/internal/professor-mari/chats/:id",
     async (req, reply) => {
       const target = (await storage.list()).find((chat) => chat.id === req.params.id && isHomeProfessorMariChat(chat));
-      if (!target) return reply.status(404).send({ error: "Professor Mari chat not found" });
+      if (!target) return notFound(reply, "Professor Mari chat not found");
       const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
       if (!name) return reply.status(400).send({ error: "Name is required" });
       const updated = await storage.update(target.id, { name });
@@ -1447,7 +1478,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>("/internal/professor-mari/chats/:id", async (req, reply) => {
     const professorChats = (await storage.list()).filter(isHomeProfessorMariChat);
     const target = professorChats.find((chat) => chat.id === req.params.id);
-    if (!target) return reply.status(404).send({ error: "Professor Mari chat not found" });
+    if (!target) return notFound(reply, "Professor Mari chat not found");
     const wasActive = isActiveHomeProfessorMariChat(target);
     await storage.remove(target.id);
     // #6842: the chat's Keep/Restore cards go with it. Its changes stay applied.
@@ -1491,7 +1522,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat || isHomeProfessorMariChat(chat)) {
-      return reply.status(404).send({ error: "Chat not found" });
+      return notFound(reply, "Chat not found");
     }
     // Schedules and presence overrides live on the character cards; this chat
     // only caches them. Resolve on read so a card edited elsewhere shows up as
@@ -1556,7 +1587,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     const data = partialInput(createChatSchema).parse(req.body);
     const existing = await storage.getById(req.params.id);
     if (!existing || isHomeProfessorMariChat(existing)) {
-      return reply.status(404).send({ error: "Chat not found" });
+      return notFound(reply, "Chat not found");
     }
     if (data.characterIds?.includes(PROFESSOR_MARI_ID) && !hasProfessorMariCharacter(existing)) {
       return reply.status(400).send({ error: "Professor Mari is only available from the Home screen." });
@@ -1763,13 +1794,13 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.put<{ Params: { id: string } }>("/:id/model", async (req, reply) => {
     const pick = chatModelPickSchema.parse(req.body);
     const existing = await storage.getById(req.params.id);
-    if (!existing || isHomeProfessorMariChat(existing)) return reply.status(404).send({ error: "Chat not found" });
+    if (!existing || isHomeProfessorMariChat(existing)) return notFound(reply, "Chat not found");
     // "Use default" (decision 27): no Model of its own, so the chat answers through Main (as an unset chat did).
     let choice: ChatModelChoice | null = pick.connectionId === null ? null : (pick as ChatModelChoice);
     const special =
       !!choice && (choice.connectionId === "random" || choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID);
     const row = special || !choice ? null : await createConnectionsStorage(app.db).getById(choice.connectionId);
-    if (choice && !special && !row) return reply.status(404).send({ error: "Model not found" });
+    if (choice && !special && !row) return notFound(reply, "Model not found");
     if (row ? !isChatProvider(row.provider) : choice?.model) {
       return reply.status(400).send({ error: "A chat needs a chat Model to run on." });
     }
@@ -1828,13 +1859,13 @@ export async function chatsRoutes(app: FastifyInstance) {
         { metadataQueueHeld: true },
       );
     });
-    return updated ? normalizeChatForResponse(updated) : reply.status(404).send({ error: "Chat not found" });
+    return updated ? normalizeChatForResponse(updated) : notFound(reply, "Chat not found");
   });
 
   app.post<{ Params: { id: string } }>("/:id/touch", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat || isHomeProfessorMariChat(chat)) {
-      return reply.status(404).send({ error: "Chat not found" });
+      return notFound(reply, "Chat not found");
     }
     const updated = await storage.touch(req.params.id);
     return updated ? normalizeChatForResponse(updated) : updated;
@@ -1843,7 +1874,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Update chat metadata (partial merge)
   app.patch<{ Params: { id: string } }>("/:id/metadata", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const incoming = req.body as Record<string, unknown>;
     // The mask (or nothing) keeps a saved DeepL key or webhook, "" clears it, a new value replaces it; the
     // chat storage encrypts it on write.
@@ -2032,7 +2063,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       // A ruleset-only change must also agree with the saved style (classic when unspecified).
       if (Object.hasOwn(incoming, "gameRuleset") || Object.hasOwn(incoming, "gameCombatStyle")) {
         const freshChat = await storage.getById(req.params.id);
-        if (!freshChat) return reply.status(404).send({ error: "Chat not found" });
+        if (!freshChat) return notFound(reply, "Chat not found");
         const next = { ...parseChatMetadata(freshChat.metadata), ...incoming };
         const resolved = resolveGameRuleset(next, await loadRulesetRegistry(app.db));
         if (
@@ -2099,7 +2130,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Mark a chat as having autonomous messages the user has not viewed yet.
   app.post<{ Params: { id: string } }>("/:id/autonomous-unread", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const input = markAutonomousUnreadSchema.parse(req.body ?? {});
     const updated = await storage.markAutonomousUnread(req.params.id, input);
     return updated ? normalizeChatForResponse(updated) : updated;
@@ -2109,10 +2140,10 @@ export async function chatsRoutes(app: FastifyInstance) {
     const parsed = z.object({ enabled: z.boolean() }).strict().safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: "enabled must be a boolean" });
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const lorebooks = createLorebooksStorage(app.db);
     const entry = (await lorebooks.getEntry(req.params.entryId)) as unknown as LorebookEntry | null;
-    if (!entry) return reply.status(404).send({ error: "Lorebook entry not found" });
+    if (!entry) return notFound(reply, "Lorebook entry not found");
     const book = await lorebooks.getById(String(entry.lorebookId));
     const metadata = parseChatMetadata(chat.metadata);
     const characterIds = resolveActiveCharacterIds(resolveChatCharacterIds(chat.characterIds), metadata, {
@@ -2131,7 +2162,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         ...resolveLorebookScopeExclusions(chat.mode, metadata),
       }).length
     )
-      return reply.status(404).send({ error: "Lorebook entry not available in this chat" });
+      return notFound(reply, "Lorebook entry not available in this chat");
     if (parsed.data.enabled && !entry.enabled) {
       return reply.status(409).send({ error: "Enable this entry in its lorebook first" });
     }
@@ -2149,14 +2180,14 @@ export async function chatsRoutes(app: FastifyInstance) {
       else delete overrides[req.params.entryId];
       return { entryStateOverrides: overrides };
     });
-    if (!updated) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated) return notFound(reply, "Chat not found");
     return normalizeChatForResponse(updated);
   });
 
   // Clear autonomous unread state when the user views the relevant chat.
   app.delete<{ Params: { id: string } }>("/:id/autonomous-unread", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const updated = await storage.clearAutonomousUnread(req.params.id);
     return updated ? normalizeChatForResponse(updated) : updated;
   });
@@ -2182,7 +2213,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         ...(parsed.data.weekSummaries ?? {}),
       },
     }));
-    if (!updated) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated) return notFound(reply, "Chat not found");
     return normalizeChatForResponse(updated);
   });
 
@@ -2241,7 +2272,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     const rangeEntry = body.operation === "replace" && body.entry.sourceMode === "range" ? body.entry : null;
     if (rangeEntry) {
       const chat = await storage.getById(req.params.id);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
       const meta = parseExtra(chat.metadata) as Record<string, unknown>;
       const existingEntries = normalizeChatSummaryEntries(meta.summaryEntries, {
         legacySummary: typeof meta.summary === "string" ? meta.summary : null,
@@ -2272,7 +2303,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           rangeEndIndex: selection.rangeEndIndex,
           messageIds: selection.messages.map((message) => message.id),
         });
-        if (!updatedChat) return reply.status(404).send({ error: "Chat not found" });
+        if (!updatedChat) return notFound(reply, "Chat not found");
         return normalizeChatForResponse(updatedChat);
       }
     }
@@ -2339,7 +2370,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (reorderConflict) {
       return reply.status(409).send({ error: "Summary entries changed before they could be reordered" });
     }
-    if (!updated) return reply.status(404).send({ error: "Chat not found" });
+    if (!updated) return notFound(reply, "Chat not found");
     return normalizeChatForResponse(updated);
   });
 
@@ -2354,7 +2385,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     };
   }>("/:id/agent-write-approval/commit", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const body = req.body ?? {};
     const text = typeof body.text === "string" ? body.text.trim() : "";
@@ -2418,7 +2449,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           summaryEntries: result.entries,
         };
       });
-      if (!updated) return reply.status(404).send({ error: "Chat not found" });
+      if (!updated) return notFound(reply, "Chat not found");
       // Auto-hide is intentionally NOT applied on the approval-gated commit path:
       // the proposal's messageIds/ordering are captured at proposal time but the
       // entry commits later, so hiding here could target a drifted snapshot.
@@ -2491,7 +2522,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // scoped chat history so old failed days remain recoverable.
   app.post<{ Params: { id: string } }>("/:id/backfill-summaries", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     if (chat.mode !== "conversation") return reply.status(400).send({ error: "Not a conversation chat" });
 
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -2614,9 +2645,9 @@ export async function chatsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "targetChatId is required" });
     }
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const target = await storage.getById(targetChatId);
-    if (!target) return reply.status(404).send({ error: "Target chat not found" });
+    if (!target) return notFound(reply, "Target chat not found");
     // Don't allow self-connection
     if (req.params.id === targetChatId) {
       return reply.status(400).send({ error: "Cannot connect a chat to itself" });
@@ -2628,7 +2659,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Disconnect a chat from its partner
   app.post<{ Params: { id: string } }>("/:id/disconnect", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     await storage.disconnectChat(req.params.id);
     await storage.deleteInfluencesForChat(req.params.id);
     await storage.deleteNotesForChat(req.params.id);
@@ -2805,7 +2836,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Older Roleplay messages no summary covers yet, which the next prompt still sends past the recent tail (#8831).
   app.get<{ Params: { id: string } }>("/:id/summary-backlog", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const chatMeta = parseExtra(chat.metadata) as Record<string, unknown>;
     if (chat.mode !== "roleplay" || normalizeAdvancedMemorySettings(chatMeta.advancedMemory).enabled) {
       return { backlog: 0 };
@@ -2818,9 +2849,24 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // List memory-recall chunks for this chat only.
+  /**
+   * Which model embeds this chat's memories. `ownSearch` is Marinara's own small English search model, used when
+   * no Embeddings default or chat/connection embedding setting applies; the client then checks the memories'
+   * language and suggests the multilingual built-in model.
+   */
+  app.get<{ Params: { id: string } }>("/:id/memories/embedding-source", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return notFound(reply, "Chat not found");
+    const source = await resolveMemoryRecallEmbeddingSource(app.db, {
+      chatMetadata: chat.metadata,
+      connectionId: chat.connectionId,
+    });
+    return { ownSearch: !source && isLocalEmbedderAvailable(), model: source?.model ?? null };
+  });
+
   app.get<{ Params: { id: string } }>("/:id/memories", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const vectorizerAvailable = await isMemoryRecallVectorizerAvailable(app.db, {
       chatMetadata: chat.metadata,
       connectionId: chat.connectionId,
@@ -2854,7 +2900,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Export memory-recall chunks for this chat so they can be imported into another chat.
   app.get<{ Params: { id: string } }>("/:id/memories/export", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const chunks = await app.db
       .select({
@@ -2911,7 +2957,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     { bodyLimit: MEMORY_RECALL_IMPORT_BODY_LIMIT_BYTES },
     async (req, reply) => {
       const chat = await storage.getById(req.params.id);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
 
       const parsed = readMemoryRecallImportPayload(req.body);
       if (!parsed) {
@@ -2999,7 +3045,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Rebuild memory-recall chunks for this chat from the current message log.
   app.post<{ Params: { id: string } }>("/:id/memories/refresh", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     resetMemoryRecallVectorizerCache();
 
     const characterIds: string[] = Array.isArray(chat.characterIds)
@@ -3045,7 +3091,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Clear all memory-recall chunks for this chat.
   app.delete<{ Params: { id: string } }>("/:id/memories", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     await app.db.delete(memoryChunks).where(eq(memoryChunks.chatId, req.params.id));
     return reply.status(204).send();
   });
@@ -3053,7 +3099,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Delete one memory-recall chunk from this chat.
   app.delete<{ Params: { id: string; memoryId: string } }>("/:id/memories/:memoryId", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     await app.db
       .delete(memoryChunks)
       .where(and(eq(memoryChunks.chatId, req.params.id), eq(memoryChunks.id, req.params.memoryId)));
@@ -3102,7 +3148,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     Querystring: { trash?: string };
   }>("/:chatId/messages/:messageId", async (req, reply) => {
     const message = await storage.getMessage(req.params.messageId);
-    if (!message || message.chatId !== req.params.chatId) return reply.status(404).send({ error: "Message not found" });
+    if (!message || message.chatId !== req.params.chatId) return notFound(reply, "Message not found");
     const trashed =
       req.query.trash === "false" || !(await chatUsesMessageTrash(req.params.chatId))
         ? []
@@ -3126,7 +3172,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   app.get<{ Params: { chatId: string } }>("/:chatId/trash", async (req, reply) => {
-    if (!(await storage.getById(req.params.chatId))) return reply.status(404).send({ error: "Chat not found" });
+    if (!(await storage.getById(req.params.chatId))) return notFound(reply, "Chat not found");
     return messageTrashStore.list(req.params.chatId);
   });
 
@@ -3134,7 +3180,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     const body = z.object({ entryIds: z.array(z.string().min(1)).min(1).max(5000) }).safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: "entryIds array is required" });
     const chat = await storage.getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     // Disabling retention leaves existing recovery entries usable, but message-only restore cannot restore Game state.
     if (chat.mode === "game") return reply.status(409).send({ error: "Messages cannot be restored in Game Mode." });
     const active = (app as unknown as { activeGenerations?: Map<string, unknown> }).activeGenerations;
@@ -3156,7 +3202,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       .safeParse(req.body);
     if (!body.success || (!body.data.all && !body.data.entryIds))
       return reply.status(400).send({ error: "entryIds array or all: true is required" });
-    if (!(await storage.getById(req.params.chatId))) return reply.status(404).send({ error: "Chat not found" });
+    if (!(await storage.getById(req.params.chatId))) return notFound(reply, "Chat not found");
     const deleted = await messageTrashStore.deleteForever(
       req.params.chatId,
       body.data.all ? undefined : body.data.entryIds,
@@ -3169,7 +3215,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     const { content } = req.body as { content: string };
     if (typeof content !== "string") return reply.status(400).send({ error: "content is required" });
     const updated = await storage.updateMessageContent(req.params.messageId, content, { authored: true });
-    if (!updated) return reply.status(404).send({ error: "Message not found" });
+    if (!updated) return notFound(reply, "Message not found");
     return updated;
   });
 
@@ -3182,8 +3228,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         .safeParse(req.body);
       if (!body.success) return reply.status(400).send({ error: "Valid swipeIndex and activityIndex are required." });
       const message = await storage.getMessage(req.params.messageId);
-      if (!message || message.chatId !== req.params.chatId)
-        return reply.status(404).send({ error: "Message not found" });
+      if (!message || message.chatId !== req.params.chatId) return notFound(reply, "Message not found");
       const active = (app as unknown as { activeGenerations?: Map<string, unknown> }).activeGenerations;
       if (active?.has(req.params.chatId))
         return reply
@@ -3203,7 +3248,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     const body = z.object({ prompt: z.string().trim().min(1).max(2_000) }).safeParse(req.body);
     if (!body.success) return reply.status(400).send({ error: "Say what the artifact should be." });
     const chat = await storage.getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     if (chat.mode !== "roleplay") return reply.status(400).send({ error: "This command is for Roleplay chats." });
     const active = (app as unknown as { activeGenerations?: Map<string, unknown> }).activeGenerations;
     if (active?.has(chat.id))
@@ -3229,7 +3274,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         },
       ];
     });
-    if (!saved) return reply.status(404).send({ error: "Message not found" });
+    if (!saved) return notFound(reply, "Message not found");
     const summary = parseExtra(chat.metadata).summary;
     const error = await runHtmlArtifactCommand({
       db: app.db,
@@ -3252,8 +3297,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     async (req, reply) =>
       withChatMetadataPatchQueue(req.params.chatId, async () => {
         const message = await storage.getMessage(req.params.messageId);
-        if (!message || message.chatId !== req.params.chatId)
-          return reply.status(404).send({ error: "Message not found" });
+        if (!message || message.chatId !== req.params.chatId) return notFound(reply, "Message not found");
         const swipeIndex = req.query.swipeIndex === undefined ? undefined : Number(req.query.swipeIndex);
         if (swipeIndex !== undefined && (!Number.isSafeInteger(swipeIndex) || swipeIndex < 0))
           return reply.status(400).send({ error: "Invalid swipe index" });
@@ -3334,7 +3378,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           : swipeIndex === undefined
             ? await storage.updateMessageExtra(req.params.messageId, partial)
             : await storage.updateMessageExtraForSwipe(req.params.messageId, swipeIndex, partial);
-        if (!updated) return reply.status(404).send({ error: "Message not found" });
+        if (!updated) return notFound(reply, "Message not found");
         // A lone user reaction (no text after it) is a valid turn: feed it to the
         // autonomous-messaging cadence so a character may notice and respond,
         // time-gated. Only when this update leaves the user with a reaction here
@@ -3387,7 +3431,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Get historical persona attribution summaries across all user messages in a chat
   app.get<{ Params: { chatId: string } }>("/:chatId/messages/persona-attributions", async (req, reply) => {
     const chat = await storage.getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const summary = await storage.getPersonaAttributionsSummary(req.params.chatId);
     return summary;
   });
@@ -3395,7 +3439,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Reassign historical persona snapshots on user messages
   app.post<{ Params: { chatId: string } }>("/:chatId/messages/reassign-persona", async (req, reply) => {
     const chat = await storage.getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const parsed = reassignMessagePersonaSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -3442,10 +3486,10 @@ export async function chatsRoutes(app: FastifyInstance) {
   }>("/:chatId/messages/:messageId/game-state", async (req, reply) => {
     const message = await storage.getMessage(req.params.messageId);
     if (!message || message.chatId !== req.params.chatId) {
-      return reply.status(404).send({ error: "Message not found" });
+      return notFound(reply, "Message not found");
     }
     const chat = await storage.getById(req.params.chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const rawSwipeIndex = req.query.swipeIndex;
     if (typeof rawSwipeIndex === "string" && rawSwipeIndex.trim().length === 0) {
@@ -3516,7 +3560,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     });
     if (!rawRow) return reply.send(null);
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const ownerSpatialProjection = await resolveOwnerSpatialProjection(
       req.params.id,
       rawRow.messageId ? { exactAnchor: { messageId: rawRow.messageId, swipeIndex: rawRow.swipeIndex } } : {},
@@ -3617,7 +3661,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     const body = req.body as Record<string, unknown>;
     const manual = body.manual === true;
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const ownerSpatialProjection = await resolveOwnerSpatialProjection(req.params.id, {}, chat.metadata);
     if (manual && body.location !== undefined && ownerSpatialProjection?.ownerMode === "game") {
       return reply.status(409).send({
@@ -3794,7 +3838,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       );
       updated = await gameStateStore.getLatest(req.params.id);
     }
-    if (!updated) return reply.status(404).send({ error: "No game state found" });
+    if (!updated) return notFound(reply, "No game state found");
     // The row stores live sheet state as JSON text; callers get the same object the GET returns.
     return projectGameSnapshotLocation(
       {
@@ -3819,7 +3863,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // skips the saved prompt: it was sent before that turn's summary ran (#8831).
   app.post<{ Params: { id: string }; Body: PeekPromptBody }>("/:id/peek-prompt", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const chatMessages = await storage.listMessages(req.params.id);
     const current = req.body?.current === true;
@@ -3832,7 +3876,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       ? (chatMessages.find((message) => message.id === requestedMessageId) ?? null)
       : null;
     if (requestedMessageId && !requestedMessage) {
-      return reply.status(404).send({ error: "Message not found in this chat" });
+      return notFound(reply, "Message not found in this chat");
     }
     const chatMeta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const chatMode = (chat.mode as string) ?? "roleplay";
@@ -3969,7 +4013,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
 
     if (requestedMessage) {
-      return reply.status(404).send({ error: "No exact saved prompt is available for this turn" });
+      return notFound(reply, "No exact saved prompt is available for this turn");
     }
 
     if (advancedMemoryEnabled) {
@@ -4091,6 +4135,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               scenario: cardPromptText(identity.scenario),
               backstory: cardPromptText(identity.backstory),
               appearance: cardPromptText(identity.appearance),
+              publicFace: cardPromptText(identity.publicFace),
             };
           }
 
@@ -4568,6 +4613,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                   scenario: cardPromptText(charData.scenario),
                   backstory: cardPromptText(charData.extensions?.backstory),
                   appearance: cardPromptText(charData.extensions?.appearance),
+                  publicFace: cardPromptText(charData.extensions?.publicFace),
                   example: cardPromptText(charData.mes_example),
                   systemPrompt: cardPromptText(charData.system_prompt),
                 },
@@ -4821,7 +4867,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
       const message = await storage.getMessage(req.params.messageId);
       if (!message || message.chatId !== req.params.chatId) {
-        return reply.status(404).send({ error: "Message not found" });
+        return notFound(reply, "Message not found");
       }
       const created: Array<{ id: string; index: number }> = [];
       for (const content of normalized) {
@@ -4871,13 +4917,13 @@ export async function chatsRoutes(app: FastifyInstance) {
 
         const target = swipes.find((swipe: any) => swipe.index === index);
         if (!target) {
-          return reply.status(404).send({ error: "Swipe not found" });
+          return notFound(reply, "Swipe not found");
         }
 
         const previous = await storage.getMessage(req.params.messageId);
         const updated = await storage.removeSwipe(req.params.messageId, index);
         if (!updated) {
-          return reply.status(404).send({ error: "Message not found" });
+          return notFound(reply, "Message not found");
         }
 
         await forgetInventoryTelling(
@@ -4904,11 +4950,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       return withChatSwipeSelectionQueue(req.params.chatId, async () => {
         const message = await storage.getMessage(req.params.messageId);
         if (!message || message.chatId !== req.params.chatId) {
-          return reply.status(404).send({ error: "Message not found" });
+          return notFound(reply, "Message not found");
         }
         const swipes = await storage.getSwipes(req.params.messageId);
         if (!swipes.some((swipe: any) => swipe.index === keepIndex)) {
-          return reply.status(404).send({ error: "Swipe not found" });
+          return notFound(reply, "Swipe not found");
         }
 
         // Descending indexes keep the selected swipe stable until lower rows are
@@ -5539,7 +5585,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       chatsToExport = rows.filter((chat): chat is ChatRow => chat !== null && !shouldHideProfessorMariChat(chat));
     }
 
-    if (chatsToExport.length === 0) return reply.status(404).send({ error: "No chats found to export" });
+    if (chatsToExport.length === 0) return notFound(reply, "No chats found to export");
 
     // One transcript is read and compressed at a time while the ZIP is sent (#7115); the manifest goes last.
     const files = (async function* () {
@@ -5614,7 +5660,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     };
   }>("/:id/export", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
 
     const { startMessageId, endMessageId } = req.query;
     let range: { startMessageId: string; endMessageId: string } | undefined;
@@ -5624,7 +5670,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       }
       const boundaries = await Promise.all([storage.getMessage(startMessageId), storage.getMessage(endMessageId)]);
       if (boundaries.some((message) => message?.chatId !== chat.id)) {
-        return reply.status(404).send({ error: "Range message not found in this chat" });
+        return notFound(reply, "Range message not found in this chat");
       }
       range = { startMessageId, endMessageId };
     }
@@ -5651,7 +5697,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Create a branch (copy) of an existing chat
   app.post<{ Params: { id: string } }>("/:id/branch", async (req, reply) => {
     const sourceChat = await storage.getById(req.params.id);
-    if (!sourceChat) return reply.status(404).send({ error: "Chat not found" });
+    if (!sourceChat) return notFound(reply, "Chat not found");
 
     const sourceMeta =
       typeof sourceChat.metadata === "string" ? JSON.parse(sourceChat.metadata) : (sourceChat.metadata ?? {});
@@ -5672,7 +5718,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     const msgs = await storage.listMessages(req.params.id);
     if (upToMessageId && !msgs.some((msg) => msg.id === upToMessageId)) {
-      return reply.status(404).send({ error: "Cutoff message not found in source chat" });
+      return notFound(reply, "Cutoff message not found in source chat");
     }
 
     // Ensure the source chat belongs to a group so branches are linked
@@ -6165,7 +6211,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Model resolution: default-for-agents → chat connection.
   app.post<{ Params: { id: string } }>("/:id/generate-summary", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const signal = createChatSummaryAbortTracker(reply);
 
     const chatMeta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
@@ -6354,7 +6400,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       });
       const persistedCombinedEntry = combinedEntry as ChatSummaryEntry | null;
       if (!updatedChat || !persistedCombinedEntry) {
-        return reply.status(404).send({ error: "Chat not found" });
+        return notFound(reply, "Chat not found");
       }
       return {
         summary: combinedSummary,
@@ -6473,7 +6519,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         metadata: !hasRange && typeof body.contextSize !== "undefined" ? { summaryContextSize: contextSize } : {},
       },
     );
-    if (!updatedChat || !appended) return reply.status(404).send({ error: "Chat not found" });
+    if (!updatedChat || !appended) return notFound(reply, "Chat not found");
 
     return {
       summary: appended.summary,

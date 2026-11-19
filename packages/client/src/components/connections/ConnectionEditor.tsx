@@ -13,7 +13,6 @@ import { isConnectionFlagFalse, isLanguageGenerationConnection } from "../../lib
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { ConnectionSelect } from "./ConnectionSelect";
 import { useEffectiveGenerationParameters } from "../../hooks/use-effective-generation-parameters";
-import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 // ──────────────────────────────────────────────
 // Full-Page Connection Editor
 // Click a connection → opens this editor (like presets/characters)
@@ -111,6 +110,7 @@ import {
   SPICYAPI_IMAGE_MODELS,
   VIDEO_GENERATION_SOURCES,
   inferImageSource,
+  imageConnectionMakesTransparentPicture,
   isOpenAIGptImageModel,
   isOpenAIGptImage25Model,
   resolveOpenAIImageQuality,
@@ -158,6 +158,7 @@ import {
   type VideoResolution,
 } from "@marinara-engine/shared";
 import { Spinner } from "../ui/Spinner";
+import { Select } from "../ui/Select";
 import { Checkbox } from "../ui/Checkbox";
 
 /** Links where users can obtain API keys for each provider */
@@ -446,8 +447,6 @@ export function ConnectionEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   // The window's own body is what scrolls, so the keyboard check reaches it, not just the content inside it.
-  const scrollBodyRef = useRef<HTMLDivElement>(null);
-  useKeepFocusedFieldAboveKeyboard(scrollBodyRef);
   // The unsaved and save-error banners sit at the top of the scrolling body; bring them into view when they appear.
   useEffect(() => {
     if (showUnsavedWarning || saveError) contentRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -533,6 +532,7 @@ export function ConnectionEditor({
   const [localMaxTokensOverride, setLocalMaxTokensOverride] = useState<number | null>(null);
   /** "" = Automatic (the catalog decides), else "reads" or "text". */
   const [localImageInput, setLocalImageInput] = useState<"" | "reads" | "text">("");
+  const [localImageTransparency, setLocalImageTransparency] = useState<"" | "supported" | "unsupported">("");
   const [localClaudeFastMode, setLocalClaudeFastMode] = useState(false);
   const [localTreatAsLocalEndpoint, setLocalTreatAsLocalEndpoint] = useState(false);
   const [localDefaultParametersEnabled, setLocalDefaultParametersEnabled] = useState(false);
@@ -722,6 +722,9 @@ export function ConnectionEditor({
     setLocalAudioGenerationFormat(c.audioGenerationFormat === "chat_completions" ? "chat_completions" : "binary");
     setLocalMaxTokensOverride(typeof c.maxTokensOverride === "number" ? (c.maxTokensOverride as number) : null);
     setLocalImageInput(c.imageInput === "reads" || c.imageInput === "text" ? c.imageInput : "");
+    setLocalImageTransparency(
+      c.imageTransparency === "supported" || c.imageTransparency === "unsupported" ? c.imageTransparency : "",
+    );
     setLocalClaudeFastMode(c.claudeFastMode === "true" || c.claudeFastMode === true);
     setLocalTreatAsLocalEndpoint(c.treatAsLocalEndpoint === "true" || c.treatAsLocalEndpoint === true);
     const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(c.defaultParameters);
@@ -858,6 +861,15 @@ export function ConnectionEditor({
   const supportsGptImageQuality =
     localProvider === "image_generation" && selectedImageService === "openai" && isOpenAIGptImageModel(localModel);
   const effectiveImageGenerationQuality = resolveOpenAIImageQuality(localImageGenerationQuality, localModel);
+  /** What Automatic means for this Model: whether it is one known to draw see-through pictures. */
+  const imageTransparencyAutomatic =
+    localProvider === "image_generation" &&
+    imageConnectionMakesTransparentPicture({
+      source: selectedImageService || localModel,
+      baseUrl: localBaseUrl,
+      serviceHint: selectedImageService || localModel,
+      model: localModel,
+    });
   const selectedVideoService =
     localProvider === "video_generation"
       ? localVideoGenerationSource || localVideoService || effectiveVideoGenerationSource
@@ -1098,6 +1110,7 @@ export function ConnectionEditor({
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
       videoPromptInstructions: isVideoProvider ? normalizeVideoPromptInstructions(localVideoPromptInstructions) : null,
       imageGenerationQuality: isImageProvider ? effectiveImageGenerationQuality : "auto",
+      imageTransparency: isImageProvider ? localImageTransparency || null : null,
       videoGenerationSource: isVideoProvider ? selectedVideoProvider || null : null,
       videoService: isVideoProvider
         ? selectedVideoProvider === "swarmui"
@@ -1299,6 +1312,7 @@ export function ConnectionEditor({
     effectiveImageGenerationQuality,
     localMaxTokensOverride,
     localImageInput,
+    localImageTransparency,
     localClaudeFastMode,
     localTreatAsLocalEndpoint,
     localDefaultParametersEnabled,
@@ -1388,6 +1402,7 @@ export function ConnectionEditor({
         localAudioGenerationFormat,
         localMaxTokensOverride,
         localImageInput,
+        localImageTransparency,
         localClaudeFastMode,
         localTreatAsLocalEndpoint,
         localDefaultParametersEnabled,
@@ -1487,6 +1502,8 @@ export function ConnectionEditor({
         if ("localMaxTokensOverride" in kept)
           setLocalMaxTokensOverride(kept.localMaxTokensOverride as typeof localMaxTokensOverride);
         if ("localImageInput" in kept) setLocalImageInput(kept.localImageInput as typeof localImageInput);
+        if ("localImageTransparency" in kept)
+          setLocalImageTransparency(kept.localImageTransparency as typeof localImageTransparency);
         if ("localClaudeFastMode" in kept)
           setLocalClaudeFastMode(kept.localClaudeFastMode as typeof localClaudeFastMode);
         if ("localTreatAsLocalEndpoint" in kept)
@@ -1651,6 +1668,7 @@ export function ConnectionEditor({
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
       videoPromptInstructions: isVideoProvider ? normalizeVideoPromptInstructions(localVideoPromptInstructions) : null,
       imageGenerationQuality: isImageProvider ? effectiveImageGenerationQuality : "auto",
+      imageTransparency: isImageProvider ? localImageTransparency || null : null,
       comfyuiWorkflow:
         isImageProvider || (isVideoProvider && (videoProvider === "comfyui" || videoProvider === "swarmui"))
           ? localComfyuiWorkflow || null
@@ -2465,30 +2483,35 @@ export function ConnectionEditor({
               <label className="block text-xs" htmlFor="decision-credentials">
                 {t("connections.decision.credentials")}
               </label>
-              <select
+              <Select
                 id="decision-credentials"
+                label={t("connections.decision.credentials")}
                 value={localCredentialsFrom}
                 className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                onChange={(event) => {
-                  setLocalCredentialsFrom(event.target.value);
+                onChange={(next) => {
+                  setLocalCredentialsFrom(next);
                   setLocalApiKey("");
                   setClearStoredApiKeyOnSave(true);
                   markDirty();
                 }}
-              >
-                <option value="">{t("connections.decision.separateKey")}</option>
-                {localCredentialsFrom &&
-                  !credentialSources(localDecisionSource).some((row) => row.id === localCredentialsFrom) && (
-                    <option value={localCredentialsFrom} disabled>
-                      {t("connections.decision.errors.needs_relinking")}
-                    </option>
-                  )}
-                {credentialSources(localDecisionSource).map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {t("connections.decision.useKeyFrom", { name: row.name })}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: t("connections.decision.separateKey") },
+                  ...(localCredentialsFrom &&
+                  !credentialSources(localDecisionSource).some((row) => row.id === localCredentialsFrom)
+                    ? [
+                        {
+                          value: localCredentialsFrom,
+                          label: t("connections.decision.errors.needs_relinking"),
+                          disabledReason: t("connections.decision.errors.needs_relinking"),
+                        },
+                      ]
+                    : []),
+                  ...credentialSources(localDecisionSource).map((row) => ({
+                    value: row.id,
+                    label: t("connections.decision.useKeyFrom", { name: row.name }),
+                  })),
+                ]}
+              />
               {localCredentialsFrom && (
                 <p className="text-xs text-[var(--muted-foreground)]">
                   {t(
@@ -3311,6 +3334,50 @@ export function ConnectionEditor({
             </button>
           ))}
 
+        {/* ── Own address: another path on the Connection's server, for this Model only ── */}
+        {canOwnAddress &&
+          (ownAddressOpen ? (
+            <FieldGroup label={t("connections.ownAddress.label")} help={t("connections.ownAddress.help")}>
+              <input
+                data-own-address
+                value={localModelBaseUrl}
+                onChange={(e) => {
+                  setLocalModelBaseUrl(e.target.value);
+                  markDirty();
+                }}
+                spellCheck={false}
+                autoCapitalize="off"
+                autoCorrect="off"
+                inputMode="url"
+                className={cn(
+                  "mari-chrome-field h-11 w-full px-3 font-mono text-xs max-sm:text-base md:h-9",
+                  modelBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
+                )}
+                placeholder={accountAddress}
+              />
+              {modelBaseUrlValidation.error ? (
+                <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{modelBaseUrlValidation.error}</p>
+              ) : modelBaseUrlValidation.value && modelBaseUrlValidation.value !== localModelBaseUrl.trim() ? (
+                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.connections.connectioneditor.willSaveAs")} {modelBaseUrlValidation.value}
+                </p>
+              ) : null}
+              <p className="mt-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
+                {t("connections.ownAddress.hint", { address: accountAddress })}
+              </p>
+            </FieldGroup>
+          ) : (
+            <button
+              type="button"
+              data-own-address-add
+              onClick={() => setOwnAddressOpen(true)}
+              className="flex min-h-11 items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--marinara-chat-chrome-accent,var(--foreground))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:min-h-8"
+            >
+              <Plus size="0.875rem" aria-hidden />
+              {t("connections.ownAddress.add")}
+            </button>
+          ))}
+
         {/* ── Image Service (only for image_generation provider) ── */}
         {!accountLinked && localProvider === "image_generation" && (
           <FieldGroup label={localizeUi("ui.connections.connectioneditor.service")}>
@@ -3581,20 +3648,22 @@ export function ConnectionEditor({
             </label>
             {localAudioGenerationSource === "custom" && (
               <div className="space-y-3">
-                <label className="block space-y-1.5">
+                <div className="block space-y-1.5">
                   <span className="text-xs">{t("connections.gameAudio.format")}</span>
-                  <select
+                  <Select
+                    label={t("connections.gameAudio.format")}
                     value={localAudioGenerationFormat}
-                    onChange={(event) => {
-                      setLocalAudioGenerationFormat(event.target.value as "binary" | "chat_completions");
+                    onChange={(next) => {
+                      setLocalAudioGenerationFormat(next as "binary" | "chat_completions");
                       markDirty();
                     }}
                     className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)]"
-                  >
-                    <option value="binary">{t("connections.gameAudio.binary")}</option>
-                    <option value="chat_completions">{t("connections.gameAudio.chatCompletions")}</option>
-                  </select>
-                </label>
+                    options={[
+                      { value: "binary", label: t("connections.gameAudio.binary") },
+                      { value: "chat_completions", label: t("connections.gameAudio.chatCompletions") },
+                    ]}
+                  />
+                </div>
                 {(
                   [
                     ["music", localAudioMusicEndpoint, setLocalAudioMusicEndpoint],
@@ -3710,19 +3779,20 @@ export function ConnectionEditor({
         {/* ── Image reading ── */}
         {isChatProvider(localProvider) && (
           <FieldGroup label={t("connections.editor.imageInput.label")}>
-            <select
+            <Select
               value={localImageInput}
-              aria-label={t("connections.editor.imageInput.label")}
-              onChange={(event) => {
-                setLocalImageInput(event.target.value as "" | "reads" | "text");
+              label={t("connections.editor.imageInput.label")}
+              onChange={(next) => {
+                setLocalImageInput(next as "" | "reads" | "text");
                 markDirty();
               }}
               className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-            >
-              <option value="">{t("connections.editor.imageInput.auto")}</option>
-              <option value="reads">{t("connections.editor.imageInput.reads")}</option>
-              <option value="text">{t("connections.editor.imageInput.text")}</option>
-            </select>
+              options={[
+                { value: "", label: t("connections.editor.imageInput.auto") },
+                { value: "reads", label: t("connections.editor.imageInput.reads") },
+                { value: "text", label: t("connections.editor.imageInput.text") },
+              ]}
+            />
           </FieldGroup>
         )}
 
@@ -3870,25 +3940,57 @@ export function ConnectionEditor({
 
         {supportsGptImageQuality && (
           <FieldGroup label={localizeUi("ui.connections.connectioneditor.gptImageQuality")}>
-            <select
+            <Select
+              label={localizeUi("ui.connections.connectioneditor.gptImageQuality")}
               value={effectiveImageGenerationQuality}
-              onChange={(event) => {
-                setLocalImageGenerationQuality(event.target.value as ImageGenerationQuality);
+              onChange={(next) => {
+                setLocalImageGenerationQuality(next as ImageGenerationQuality);
                 markDirty();
               }}
               className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-            >
-              <option value="auto">{localizeUi("ui.connections.connectioneditor.imageQualityAuto")}</option>
-              <option value="low">{localizeUi("ui.connections.connectioneditor.imageQualityLow")}</option>
-              <option value="medium">{localizeUi("ui.connections.connectioneditor.imageQualityMedium")}</option>
-              <option value="high">{localizeUi("ui.connections.connectioneditor.imageQualityHigh")}</option>
-              {isOpenAIGptImage25Model(localModel) && (
-                <>
-                  <option value="xhigh">{localizeUi("ui.connections.connectioneditor.imageQualityExtraHigh")}</option>
-                  <option value="max">{localizeUi("ui.connections.connectioneditor.imageQualityMax")}</option>
-                </>
-              )}
-            </select>
+              options={[
+                { value: "auto", label: localizeUi("ui.connections.connectioneditor.imageQualityAuto") },
+                { value: "low", label: localizeUi("ui.connections.connectioneditor.imageQualityLow") },
+                { value: "medium", label: localizeUi("ui.connections.connectioneditor.imageQualityMedium") },
+                { value: "high", label: localizeUi("ui.connections.connectioneditor.imageQualityHigh") },
+                ...(isOpenAIGptImage25Model(localModel)
+                  ? [
+                      { value: "xhigh", label: localizeUi("ui.connections.connectioneditor.imageQualityExtraHigh") },
+                      { value: "max", label: localizeUi("ui.connections.connectioneditor.imageQualityMax") },
+                    ]
+                  : []),
+              ]}
+            />
+          </FieldGroup>
+        )}
+
+        {/* ── Transparent backgrounds ── */}
+        {localProvider === "image_generation" && (
+          <FieldGroup
+            label={t("connections.editor.imageTransparency.label")}
+            help={t("connections.editor.imageTransparency.help")}
+          >
+            <Select
+              label={t("connections.editor.imageTransparency.label")}
+              value={localImageTransparency}
+              onChange={(next) => {
+                setLocalImageTransparency(next as "" | "supported" | "unsupported");
+                markDirty();
+              }}
+              className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+              options={[
+                {
+                  value: "",
+                  label: t(
+                    imageTransparencyAutomatic
+                      ? "connections.editor.imageTransparency.autoSupported"
+                      : "connections.editor.imageTransparency.autoUnsupported",
+                  ),
+                },
+                { value: "supported", label: t("connections.editor.imageTransparency.supported") },
+                { value: "unsupported", label: t("connections.editor.imageTransparency.unsupported") },
+              ]}
+            />
           </FieldGroup>
         )}
 
@@ -4015,21 +4117,19 @@ export function ConnectionEditor({
         {/* ── Prompt Preset Override ── */}
         {!isMediaGenerationProvider && (
           <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}>
-            <select
+            <Select
+              label={localizeUi("ui.connections.connectioneditor.promptPresetOverride")}
               value={localPromptPresetId}
-              onChange={(e) => {
-                setLocalPromptPresetId(e.target.value);
+              onChange={(next) => {
+                setLocalPromptPresetId(next);
                 markDirty();
               }}
               className="mari-preset-native-select mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-            >
-              <option value="">{localizeUi("ui.connections.connectioneditor.useChatSPromptPreset")}</option>
-              {(allPresets ?? []).map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: localizeUi("ui.connections.connectioneditor.useChatSPromptPreset") },
+                ...(allPresets ?? []).map((preset) => ({ value: preset.id, label: preset.name })),
+              ]}
+            />
           </FieldGroup>
         )}
 
@@ -4162,14 +4262,15 @@ export function ConnectionEditor({
                 className="p-1"
               />
               {localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled && (
-                <label className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-2 py-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] px-2 py-1.5">
                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.connectioneditor.temporaryLinkLifetime")}
                   </span>
-                  <select
+                  <Select
+                    label={localizeUi("ui.connections.connectioneditor.temporaryLinkLifetime")}
                     value={localVideoDefaults.seedance.temporaryPublicReferenceUploadExpiry}
-                    onChange={(event) => {
-                      const expiry = event.target.value as VideoReferenceUploadExpiry;
+                    onChange={(next) => {
+                      const expiry = next as VideoReferenceUploadExpiry;
                       setLocalVideoDefaults(
                         sanitizeVideoGenerationProfile({
                           ...localVideoDefaults,
@@ -4183,14 +4284,9 @@ export function ConnectionEditor({
                       markDirty();
                     }}
                     className="mari-chrome-field mari-chrome-field--compact h-8 px-2 text-xs"
-                  >
-                    {VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    options={VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS}
+                  />
+                </div>
               )}
               <p className="px-1 text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">
                 {localizeUi("ui.connections.connectioneditor.keepThisOffIfYouDoNotWantLocal")}
@@ -4440,7 +4536,6 @@ export function ConnectionEditor({
       title={localName || localModel}
       width="max-w-lg"
       panelClassName="mari-editor-shell"
-      contentRef={scrollBodyRef}
       closeDisabled={editorBusy}
       titleSlot={
         <div className="flex min-w-0 items-center gap-2.5">
@@ -4724,7 +4819,7 @@ function ImageGenerationDefaultsPanel({
 
   return (
     <FieldGroup label={localizeUi("ui.connections.imagegenerationdefaultspanel.localImageDefaults")}>
-      <div className="rounded-xl border border-[var(--border)]">
+      <div className="mari-gendefaults rounded-xl border border-[var(--border)]">
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
@@ -4774,7 +4869,7 @@ function ImageGenerationDefaultsPanel({
                 max={4_294_967_295}
                 onCommit={updateSeed}
               />
-              <label className="flex flex-col gap-1 rounded-lg border border-[var(--border)] px-3 py-2">
+              <div className="mari-gendefaults__box flex flex-col gap-1 rounded-lg border border-[var(--border)] px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.imagegenerationdefaultspanel.styleProfile")}
@@ -4789,25 +4884,23 @@ function ImageGenerationDefaultsPanel({
                     </button>
                   )}
                 </div>
-                <select
+                <Select
+                  label={localizeUi("ui.connections.imagegenerationdefaultspanel.styleProfile")}
                   value={value.styleProfileId ?? ""}
-                  onChange={(event) => updateStyleProfile(event.target.value)}
+                  onChange={updateStyleProfile}
                   className="mari-chrome-field mari-chrome-field--compact h-8 px-2 text-xs"
-                >
-                  <option value="">{localizeUi("ui.connections.imagegenerationdefaultspanel.useGlobalDefault")}</option>
-                  {styleProfiles.profiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.name}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: "", label: localizeUi("ui.connections.imagegenerationdefaultspanel.useGlobalDefault") },
+                    ...styleProfiles.profiles.map((profile) => ({ value: profile.id, label: profile.name })),
+                  ]}
+                />
                 {suggestedStyleProfile && (
                   <span className="text-[0.55rem] text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.imagegenerationdefaultspanel.suggestedFromModelSource")}{" "}
                     {suggestedStyleProfile.name}
                   </span>
                 )}
-              </label>
+              </div>
               {service === "automatic1111" ? (
                 <>
                   <NumberSetting
@@ -4938,12 +5031,10 @@ function ImageGenerationDefaultsPanel({
                     onChange={(scheduler) => updateAutomatic1111({ scheduler })}
                   />
                 </div>
-                <SettingsCheckbox
+                <DefaultsToggle
                   label={localizeUi("ui.connections.imagegenerationdefaultspanel.restoreFaces")}
                   checked={automatic1111.restoreFaces}
                   onChange={(checked) => updateAutomatic1111({ restoreFaces: checked })}
-                  className="border border-[var(--border)] px-3 py-2"
-                  labelClassName="text-[var(--foreground)]"
                 />
                 {showCustomHeaders && (
                   <CustomParametersInput headers value={value.customHeaders ?? {}} onChange={updateCustomHeaders} />
@@ -4977,7 +5068,7 @@ function ImageGenerationDefaultsPanel({
                     onChange={(scheduler) => updateComfyUi({ scheduler })}
                   />
                 </div>
-                <SettingsCheckbox
+                <DefaultsToggle
                   label={localizeUi(
                     "ui.connections.imagegenerationdefaultspanel.uploadA1x1PlaceholderWhenNoReferenceImageIs",
                   )}
@@ -4986,16 +5077,12 @@ function ImageGenerationDefaultsPanel({
                   )}
                   checked={comfyui.uploadPlaceholderOnMissingReference}
                   onChange={(checked) => updateComfyUi({ uploadPlaceholderOnMissingReference: checked })}
-                  className="border border-[var(--border)] px-3 py-2"
-                  labelClassName="text-[var(--foreground)]"
                 />
                 {source === "swarmui" && (
-                  <SettingsCheckbox
+                  <DefaultsToggle
                     label={localizeUi("connections.mediaSources.swarmui.saveToBackend")}
                     checked={comfyui.saveToBackend === true}
                     onChange={(checked) => updateComfyUi({ saveToBackend: checked })}
-                    className="border border-[var(--border)] px-3 py-2"
-                    labelClassName="text-[var(--foreground)]"
                   />
                 )}
                 <ComfyUiLoraSettings
@@ -5041,17 +5128,21 @@ function ImageGenerationDefaultsPanel({
                     onChange={(noiseSchedule) => updateNovelAi({ noiseSchedule })}
                   />
                 </div>
-                <SettingsCheckbox
+                <DefaultsToggle
                   label={localizeUi("ui.connections.imagegenerationdefaultspanel.chooseResolutionFromCharacterCount")}
                   description={localizeUi(
                     "ui.connections.imagegenerationdefaultspanel.usesPortraitForOneSubjectSquareForTwoAnd",
                   )}
                   checked={novelai.dynamicResolutionBySubjectCount}
                   onChange={(checked) => updateNovelAi({ dynamicResolutionBySubjectCount: checked })}
-                  className="border border-[var(--border)] px-3 py-2"
-                  labelClassName="text-[var(--foreground)]"
                 />
-                <div className="space-y-2 rounded-lg border border-[var(--border)] px-3 py-2">
+                <DefaultsToggle
+                  label={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDataset")}
+                  description={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDatasetHelp")}
+                  checked={novelai.backgroundDataset}
+                  onChange={(checked) => updateNovelAi({ backgroundDataset: checked })}
+                />
+                <div className="mari-gendefaults__box space-y-2 rounded-lg border border-[var(--border)] px-3 py-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="text-[0.625rem] font-medium text-[var(--foreground)]">
@@ -5133,6 +5224,45 @@ function ImageGenerationDefaultsPanel({
   );
 }
 
+/** A yes/no option in a model's generation defaults: a switch row with its explanation behind a ? in the new layout,
+ *  the boxed checkbox with the explanation underneath in the old one. */
+function DefaultsToggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const overhaulLook = useOverhaulLook();
+  if (overhaulLook) {
+    return (
+      <SettingsSwitch
+        label={label}
+        help={description}
+        checked={checked}
+        onChange={onChange}
+        labelPosition="start"
+        className="mari-gendefaults__toggle justify-between gap-3"
+        labelClassName="text-[0.8125rem]"
+      />
+    );
+  }
+  return (
+    <SettingsCheckbox
+      label={label}
+      description={description}
+      checked={checked}
+      onChange={onChange}
+      className="border border-[var(--border)] px-3 py-2"
+      labelClassName="text-[var(--foreground)]"
+    />
+  );
+}
+
 function TextSetting({
   label,
   value,
@@ -5145,7 +5275,7 @@ function TextSetting({
   placeholder?: string;
 }) {
   return (
-    <label className="block">
+    <label className="mari-gendefaults__field block">
       <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">{label}</span>
       <textarea
         value={value}
@@ -5281,7 +5411,7 @@ function VideoGenerationDefaultsPanel({
 
   return (
     <FieldGroup label={localizeUi("ui.connections.videogenerationdefaultspanel.videoDefaults")}>
-      <div className="rounded-xl border border-[var(--border)]">
+      <div className="mari-gendefaults rounded-xl border border-[var(--border)]">
         <button
           type="button"
           onClick={() => onExpandedChange(!expanded)}
@@ -5367,11 +5497,12 @@ function VideoGenerationDefaultsPanel({
                       onCommit={(fps) => updateComfyUi({ fps })}
                     />
                   )}
-                  <label className="block">
+                  <div className="block">
                     <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.connections.videogenerationdefaultspanel.aspectRatio")}
                     </span>
-                    <select
+                    <Select
+                      label={localizeUi("ui.connections.videogenerationdefaultspanel.aspectRatio")}
                       value={
                         service === "xai"
                           ? value.xai.aspectRatio
@@ -5385,8 +5516,8 @@ function VideoGenerationDefaultsPanel({
                                   ? value.comfyui.aspectRatio
                                   : value.openrouter.aspectRatio
                       }
-                      onChange={(event) => {
-                        const aspectRatio = event.target.value === "9:16" ? "9:16" : "16:9";
+                      onChange={(next) => {
+                        const aspectRatio = next === "9:16" ? "9:16" : "16:9";
                         if (service === "xai") updateXai({ aspectRatio });
                         else if (service === "google_veo") updateGoogleVeo({ aspectRatio });
                         else if (service === "atlas") updateAtlas({ aspectRatio });
@@ -5395,16 +5526,18 @@ function VideoGenerationDefaultsPanel({
                         else updateOpenRouter({ aspectRatio });
                       }}
                       className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
-                    >
-                      <option value="16:9">16:9</option>
-                      <option value="9:16">9:16</option>
-                    </select>
-                  </label>
-                  <label className="block">
+                      options={[
+                        { value: "16:9", label: "16:9" },
+                        { value: "9:16", label: "9:16" },
+                      ]}
+                    />
+                  </div>
+                  <div className="block">
                     <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                       {localizeUi("ui.connections.videogenerationdefaultspanel.resolution")}
                     </span>
-                    <select
+                    <Select
+                      label={localizeUi("ui.connections.videogenerationdefaultspanel.resolution")}
                       value={
                         service === "xai"
                           ? value.xai.resolution
@@ -5418,8 +5551,8 @@ function VideoGenerationDefaultsPanel({
                                   ? value.comfyui.resolution
                                   : value.openrouter.resolution
                       }
-                      onChange={(event) => {
-                        const resolution = event.target.value as VideoResolution;
+                      onChange={(next) => {
+                        const resolution = next as VideoResolution;
                         if (service === "xai") updateXai({ resolution });
                         else if (service === "google_veo") updateGoogleVeo({ resolution });
                         else if (service === "atlas") updateAtlas({ resolution });
@@ -5428,20 +5561,15 @@ function VideoGenerationDefaultsPanel({
                         else updateOpenRouter({ resolution });
                       }}
                       className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
-                    >
-                      {VIDEO_RESOLUTION_OPTIONS.filter(
+                      options={VIDEO_RESOLUTION_OPTIONS.filter(
                         (option) =>
                           (service !== "google_veo" || option.value !== "480p") &&
                           (service !== "comfyui" || option.value !== "1080p") &&
                           (option.value !== "768p" || !!openRouterLimits?.resolutions.includes("768p")) &&
                           (!openRouterLimits || openRouterLimits.resolutions.includes(option.value)),
-                      ).map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      )}
+                    />
+                  </div>
                 </div>
                 {service === "atlas" && (
                   <AtlasCloudModelOptions
@@ -5498,21 +5626,21 @@ function VideoGenerationDefaultsPanel({
                   max={60}
                   onCommit={(durationSeconds) => updateGeminiOmni({ durationSeconds })}
                 />
-                <label className="block">
+                <div className="block">
                   <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                     {localizeUi("ui.connections.videogenerationdefaultspanel.aspectRatio")}
                   </span>
-                  <select
+                  <Select
+                    label={localizeUi("ui.connections.videogenerationdefaultspanel.aspectRatio")}
                     value={value.geminiOmni.aspectRatio}
-                    onChange={(event) =>
-                      updateGeminiOmni({ aspectRatio: event.target.value === "9:16" ? "9:16" : "16:9" })
-                    }
+                    onChange={(next) => updateGeminiOmni({ aspectRatio: next === "9:16" ? "9:16" : "16:9" })}
                     className="mari-chrome-field mt-1 h-11 w-full px-3 text-xs md:h-9"
-                  >
-                    <option value="16:9">16:9</option>
-                    <option value="9:16">9:16</option>
-                  </select>
-                </label>
+                    options={[
+                      { value: "16:9", label: "16:9" },
+                      { value: "9:16", label: "9:16" },
+                    ]}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -5605,7 +5733,7 @@ function ChoiceSetting({
   const { t: localizeUi } = useUiTranslation();
   const listId = `image-default-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
-    <label className="block">
+    <label className="mari-gendefaults__field block">
       <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">{label}</span>
       <input
         list={listId}
@@ -5658,7 +5786,7 @@ function NumberSetting({
   };
 
   return (
-    <label className="block">
+    <label className="mari-gendefaults__field block">
       <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">{label}</span>
       <input
         value={draft}

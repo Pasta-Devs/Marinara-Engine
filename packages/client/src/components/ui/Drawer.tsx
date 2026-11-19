@@ -135,8 +135,20 @@ function popOutLayout(geometry: WindowGeometry): WindowLayout {
 export function useDrawerContentVisible(id: string, open: boolean): boolean {
   const host = useDrawerHost();
   const windowId = host ? getDrawerWindowId(host.id, id) : null;
-  const detached = useFloatingWindowStore((state) => (windowId ? state.detached[windowId] === true : false));
+  const detached = useDrawerPoppedOut(host?.id ?? null, windowId);
   return open || detached;
+}
+
+/**
+ * True while a host's drawer shows in its own window. The new layout on phones and tablets has no
+ * windows for Chat settings sections (a sheet, no bubbles or tools menu), so a section popped out on a
+ * computer, or before that rule, stays in its place there instead of vanishing. The saved layout is kept,
+ * so the computer still shows its window.
+ */
+export function useDrawerPoppedOut(hostId: FloatingWindowId | null, windowId: FloatingWindowId | null) {
+  const overhaulMobile = useOverhaulMobile();
+  const detached = useFloatingWindowStore((state) => (windowId ? state.detached[windowId] === true : false));
+  return detached && !(overhaulMobile && hostId === CHAT_SETTINGS_WINDOW_ID);
 }
 
 export function Drawer({
@@ -165,9 +177,7 @@ export function Drawer({
   const bodyId = `mari-drawer-body-${useId().replace(/:/gu, "")}`;
   const host = useDrawerHost();
   const windowId = onPopOut ? (id ?? null) : host && id ? getDrawerWindowId(host.id, id) : null;
-  const poppedOut = useFloatingWindowStore((state) =>
-    windowId && !onPopOut ? state.detached[windowId] === true : false,
-  );
+  const poppedOut = useDrawerPoppedOut(host?.id ?? null, windowId && !onPopOut ? windowId : null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; offsetX: number; active: boolean }>(null);
   const suppressClickRef = useRef(false);
@@ -180,6 +190,8 @@ export function Drawer({
   // Connection stays its one-line selector everywhere.
   const pagedNav =
     overhaulMobile && !!id && id !== "connection" && host?.id === CHAT_SETTINGS_WINDOW_ID && navView !== "off";
+  // There, sections never pop out (see useDrawerPoppedOut), so they offer no pop-out button or drag-out.
+  const canPopOut = !!windowId && !(overhaulMobile && host?.id === CHAT_SETTINGS_WINDOW_ID && !onPopOut);
 
   if (poppedOut && host && windowId && id) {
     return (
@@ -315,7 +327,7 @@ export function Drawer({
 
   // Drag-out: past the host window's edge, the drop point becomes the new window's title bar.
   const handleHeaderPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!windowId || event.button !== 0 || event.pointerType === "touch") return;
+    if (!canPopOut || event.button !== 0 || event.pointerType === "touch") return;
     if (
       event.target instanceof Element &&
       event.target.closest(NO_DRAG_SELECTOR) &&
@@ -430,10 +442,10 @@ export function Drawer({
             <HelpTooltip text={help} side="left" />
           </span>
         )}
-        {(actions || windowId) && (
+        {(actions || canPopOut) && (
           <span className="mari-drawer__actions flex items-center" onClick={(event) => event.stopPropagation()}>
             {actions}
-            {windowId && (
+            {canPopOut && (
               <button
                 type="button"
                 data-drawer-control="pop-out"
@@ -558,7 +570,13 @@ function DetachedDrawerWindow({
 
   return (
     <>
-      <span ref={anchorRef} hidden data-drawer-anchor={drawerId} />
+      <span
+        ref={anchorRef}
+        hidden
+        data-drawer-anchor={drawerId}
+        // Chat settings' Edit list names the section from here while its window has it.
+        data-drawer-title={typeof title === "string" ? title : undefined}
+      />
       {container &&
         createPortal(
           <FloatingWindow

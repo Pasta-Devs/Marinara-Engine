@@ -9,7 +9,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const { inlineMediaMarker } = await import("../../../packages/server/src/lib/log-redaction.js");
+const { inlineMediaMarker, messageTextWithImagesForLog } =
+  await import("../../../packages/server/src/lib/log-redaction.js");
 
 const base64 = `iVBORw0KGgo${"A".repeat(40_000)}ElFTkSuQmCC`;
 assert.equal(inlineMediaMarker("image/png", base64), "[image/png base64, ~29 KB: iVBORw0KGgoAAAAA...AAAAAElFTkSuQmCC]");
@@ -122,5 +123,12 @@ const full = run("full");
 assert.ok(full.msg("payload mari").includes(base64), "LOG_INLINE_MEDIA=full keeps the data URL whole");
 assert.ok(full.msg("payload google").includes(base64), "LOG_INLINE_MEDIA=full keeps bare base64 whole");
 assert.ok(full.msg("raw text").includes(base64));
+
+// A prompt printed as text still shows the pictures attached to its messages (the Illustrator writer's references).
+assert.equal(messageTextWithImagesForLog("Draw Raven.", undefined), "Draw Raven.");
+assert.equal(
+  messageTextWithImagesForLog("Draw Raven.", [`data:image/png;base64,${base64}`]),
+  "Draw Raven.\n[attached picture 1: [image/png base64, ~29 KB: iVBORw0KGgoAAAAA...AAAAAElFTkSuQmCC]]",
+);
 
 console.log("Log inline media regression passed.");

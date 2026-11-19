@@ -4,17 +4,7 @@
 // Connection's: hero with state, labelled actions, one facts card, then the engine's own controls.
 // ──────────────────────────────────────────────
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-  BrainCircuit,
-  ChevronDown,
-  HardDriveDownload,
-  Link,
-  Power,
-  PowerOff,
-  RefreshCw,
-  Settings2,
-  Trash2,
-} from "lucide-react";
+import { BrainCircuit, HardDriveDownload, Link, Power, PowerOff, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -55,6 +45,7 @@ import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ProviderIcon } from "./ProviderIcon";
 import { closeIfClean, DictationSettings, VoiceJobSettings } from "./ConnectionDefaults";
 import { Modal } from "../ui/Modal";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
@@ -568,7 +559,14 @@ function LocalModelDetail() {
 
       <section className={DETAIL_CARD_CLASS}>
         <FactRow label={localizeUi("connections.device.fact.model")}>
-          <span className="block">{modelDisplayName ?? localizeUi("connections.device.state.notDownloaded")}</span>
+          {/* The header already says it isn't downloaded, so name the model it will download instead. */}
+          <span className="block">
+            {modelDisplayName ??
+              (variants.find((variant) => variant.quantization === config.quantization) ?? variants[0])?.label.split(
+                " — ",
+              )[0] ??
+              localizeUi("connections.device.state.notDownloaded")}
+          </span>
           {variants.length > 1 && (
             <span className="mt-1 flex flex-wrap gap-1">
               {variants.map((variant) => {
@@ -611,7 +609,6 @@ function LocalModelDetail() {
         </FactRow>
         {isDownloaded && <UnloadWhenUnusedRow />}
       </section>
-
       {isDownloaded ? (
         <div className="flex flex-col gap-1.5">
           <button
@@ -795,23 +792,13 @@ export function LocalWhisper() {
       {!speechModelDownloaded && speechAvailable && (
         <div className="mt-2 flex flex-col gap-2">
           <div className="relative">
-            <select
+            <Select
               value={speechModelChoice}
-              onChange={(event) => setSpeechModelChoice(event.target.value as SidecarSpeechModelId)}
-              className="mari-chrome-field h-8 w-full min-w-0 appearance-none pl-2.5 pr-8 text-xs max-md:h-11"
-              aria-label={localizeUi("connections.device.whisper.title")}
+              onChange={(next) => setSpeechModelChoice(next as SidecarSpeechModelId)}
+              className="mari-chrome-field h-8 w-full min-w-0 px-2.5 text-xs max-md:h-11"
+              label={localizeUi("connections.device.whisper.title")}
               disabled={speechDownloading || speechModels.length === 0}
-            >
-              {speechModels.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              size="0.875rem"
-              aria-hidden="true"
-              className="mari-chrome-field-icon pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
+              options={speechModels.map((model) => ({ value: model.id, label: model.label }))}
             />
           </div>
           {activeSpeechModel && (

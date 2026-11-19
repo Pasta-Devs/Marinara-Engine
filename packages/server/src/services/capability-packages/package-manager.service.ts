@@ -90,6 +90,7 @@ import { logger } from "../../lib/logger.js";
 import { openZipArchive, type ZipArchive, type ZipEntry, type ZipEntryBudget } from "../../lib/zip-reader.js";
 import { getBuildBranch } from "../../config/build-info.js";
 import { sidecarSpeechService } from "../sidecar/sidecar-speech.service.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 const ROOT = join(DATA_DIR, "capability-packages");
 const VERSIONS = join(ROOT, "versions");
@@ -431,11 +432,11 @@ async function writeRegistry(packages: InstalledCapabilityPackage[]) {
       !installedCapabilityPackageSchema.strict().safeParse(entry).success &&
       !(entry && typeof entry === "object" && "id" in entry && typeof entry.id === "string" && ids.has(entry.id)),
   );
-  const temporary = `${REGISTRY}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, JSON.stringify({ schemaVersion: 1, packages: [...packages, ...unsupported] }, null, 2), {
-    mode: 0o600,
-  });
-  await rename(temporary, REGISTRY);
+  await writeFileAtomic(
+    REGISTRY,
+    JSON.stringify({ schemaVersion: 1, packages: [...packages, ...unsupported] }, null, 2),
+    { mode: 0o600 },
+  );
 }
 
 interface CapabilityPackageUpdateDecisions {
@@ -473,9 +474,7 @@ async function readUpdateDecisions(): Promise<CapabilityPackageUpdateDecisions> 
 
 async function writeUpdateDecisions(decisions: CapabilityPackageUpdateDecisions) {
   await mkdir(ROOT, { recursive: true });
-  const temporary = `${UPDATE_DECISIONS}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, JSON.stringify(decisions, null, 2), { mode: 0o600 });
-  await rename(temporary, UPDATE_DECISIONS);
+  await writeFileAtomic(UPDATE_DECISIONS, JSON.stringify(decisions, null, 2), { mode: 0o600 });
 }
 
 async function clearDeclinedUpdate(packageId: string) {
@@ -487,15 +486,11 @@ async function clearDeclinedUpdate(packageId: string) {
 
 async function writeAvailabilityMigration(kind: "fresh" | "legacy") {
   await mkdir(ROOT, { recursive: true });
-  const temporary = `${AVAILABILITY_MIGRATION}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(
-    temporary,
+  await writeFileAtomic(
+    AVAILABILITY_MIGRATION,
     JSON.stringify({ schemaVersion: 1, kind, completedAt: new Date().toISOString() }, null, 2),
-    {
-      mode: 0o600,
-    },
+    { mode: 0o600 },
   );
-  await rename(temporary, AVAILABILITY_MIGRATION);
 }
 
 function hasValidCompletionTimestamp(value: unknown): value is string {
@@ -530,22 +525,20 @@ async function readNoodleExtractionMigrationKind(): Promise<"fresh" | "legacy" |
 
 async function writeNoodleExtractionMigration(kind: "fresh" | "legacy") {
   await mkdir(ROOT, { recursive: true });
-  const temporary = `${NOODLE_EXTRACTION_MIGRATION}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(
-    temporary,
+  await writeFileAtomic(
+    NOODLE_EXTRACTION_MIGRATION,
     JSON.stringify({ schemaVersion: 1, kind, completedAt: new Date().toISOString() }, null, 2),
     { mode: 0o600 },
   );
-  await rename(temporary, NOODLE_EXTRACTION_MIGRATION);
 }
 
 async function writeHierarchicalMapsSelectionCorrection() {
   await mkdir(ROOT, { recursive: true });
-  const temporary = `${HIERARCHICAL_MAPS_SELECTION_CORRECTION}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, JSON.stringify({ schemaVersion: 1, completedAt: new Date().toISOString() }, null, 2), {
-    mode: 0o600,
-  });
-  await rename(temporary, HIERARCHICAL_MAPS_SELECTION_CORRECTION);
+  await writeFileAtomic(
+    HIERARCHICAL_MAPS_SELECTION_CORRECTION,
+    JSON.stringify({ schemaVersion: 1, completedAt: new Date().toISOString() }, null, 2),
+    { mode: 0o600 },
+  );
 }
 
 async function readHierarchicalMapsSelectionCorrectionComplete(): Promise<boolean> {
@@ -14352,9 +14345,7 @@ async function readRulesetLanguage(): Promise<string> {
 
 async function writeRulesetLanguage(language: string) {
   await mkdir(ROOT, { recursive: true });
-  const temporary = `${RULESET_LANGUAGE}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(temporary, JSON.stringify({ schemaVersion: 1, language }), { mode: 0o600 });
-  await rename(temporary, RULESET_LANGUAGE);
+  await writeFileAtomic(RULESET_LANGUAGE, JSON.stringify({ schemaVersion: 1, language }), { mode: 0o600 });
 }
 
 function rulesetLocalePackFile(packageId: string, version: string, locale: string): string {
@@ -14454,9 +14445,7 @@ async function syncRulesetLocalePack(
           try {
             const data = await download(pack.url, Math.min(pack.bytes + 1, RULESET_LOCALE_MAX_BYTES + 1));
             verifyRulesetLocalePack(data, pack, locale, name);
-            const temporary = `${file}.tmp-${process.pid}-${Date.now()}`;
-            await writeFile(temporary, data, { mode: 0o600 });
-            await rename(temporary, file);
+            await writeFileAtomic(file, data, { mode: 0o600 });
             keep = file;
             outcome = "stored";
           } catch (error) {

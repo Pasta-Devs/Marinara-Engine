@@ -147,6 +147,8 @@ import {
   type StoredPersonaRow,
 } from "../personas/persona-card-storage.js";
 import { migrateLegacyPersonaRow, personaRowNeedsCardMigration } from "../../db/persona-card-migration.js";
+import { parseJsonArray, parseJsonRecord, isRecord } from "../../utils/large-json.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 type Row = Record<string, unknown>;
 type Table = AnyFileTable;
@@ -589,10 +591,6 @@ const TABLE_METAS = buildTableMetas();
 const AGENT_PHASES = new Set(["pre_generation", "parallel", "post_processing"]);
 const TOOL_EXECUTION_TYPES = new Set(["webhook", "static", "script"]);
 const BOOLEAN_TEXT_VALUES = new Set(["true", "false"]);
-
-function isRecord(value: unknown): value is Row {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function clone<T>(value: T): T {
   if (value === undefined) return value;
@@ -1641,6 +1639,10 @@ export function normalizeCharacterActionData(input: Row): Row {
     extensions.appearance = out.appearance;
     delete out.appearance;
   }
+  const publicFace = out.publicFace ?? out.public_face;
+  if (typeof publicFace === "string") extensions.publicFace = publicFace;
+  delete out.publicFace;
+  delete out.public_face;
   const aboutMe = out.aboutMe ?? out.about_me ?? out["about-me"];
   if (typeof aboutMe === "string") extensions.aboutMe = aboutMe;
   delete out.aboutMe;
@@ -1825,6 +1827,7 @@ export function buildPersonaCreateRow(data: Row, id: string, timestamp: string):
     scenario: firstString(data, ["scenario"]) ?? "",
     backstory: firstString(data, ["backstory"]) ?? "",
     appearance: firstString(data, ["appearance"]) ?? "",
+    publicFace: firstString(data, ["publicFace", "public_face"]) ?? "",
     cardFieldAlternatives: [],
     imageAppearanceEnabled:
       data.imageAppearanceEnabled === true ||
@@ -1879,7 +1882,7 @@ function boolText(value: boolean): string {
 function normalizeAgentActionData(input: Row, existing?: Row | null): Row {
   const name = firstString(input, ["name"]) ?? (typeof existing?.name === "string" ? existing.name : "");
   const settings = deepMerge(
-    isRecord(existing?.settings) ? existing.settings : parseJsonRecordValue(existing?.settings),
+    isRecord(existing?.settings) ? existing.settings : parseJsonRecord(existing?.settings),
     isRecord(input.settings) ? input.settings : {},
   ) as Row;
   // Match the editor's clear behavior without wiping unrelated package settings.
@@ -2061,7 +2064,7 @@ function refuseQuotedSectionIds(action: string, payload: Row): void {
   const sections = [payload.sections, payload.promptSections].flatMap((value) => (Array.isArray(value) ? value : []));
   const ids = [
     ...sections.map((section) => (isRecord(section) ? firstString(section, ["id", "sectionId"]) : undefined)),
-    ...parseJsonArrayValue(payload.sectionOrder ?? payload.section_order),
+    ...parseJsonArray(payload.sectionOrder ?? payload.section_order),
   ];
   const quoted = ids.find((id) => typeof id === "string" && /["']/.test(id));
   if (quoted === undefined) return;
@@ -2839,25 +2842,15 @@ function summarizeLorebookEntryRow(row: Row): Row {
   };
 }
 
-function parseJsonArrayValue(value: unknown): unknown[] {
-  const parsed = typeof value === "string" ? parseJsonMaybe(value) : value;
-  return Array.isArray(parsed) ? parsed : [];
-}
-
-function parseJsonRecordValue(value: unknown): Row {
-  const parsed = typeof value === "string" ? parseJsonMaybe(value) : value;
-  return isRecord(parsed) ? parsed : {};
-}
-
 function parsePromptPresetRow(row: Row): Row {
   return {
     ...row,
-    sectionOrder: parseJsonArrayValue(row.sectionOrder),
-    groupOrder: parseJsonArrayValue(row.groupOrder),
-    variableGroups: parseJsonArrayValue(row.variableGroups),
-    variableValues: parseJsonRecordValue(row.variableValues),
-    parameters: parseJsonRecordValue(row.parameters),
-    defaultChoices: parseJsonRecordValue(row.defaultChoices),
+    sectionOrder: parseJsonArray(row.sectionOrder),
+    groupOrder: parseJsonArray(row.groupOrder),
+    variableGroups: parseJsonArray(row.variableGroups),
+    variableValues: parseJsonRecord(row.variableValues),
+    parameters: parseJsonRecord(row.parameters),
+    defaultChoices: parseJsonRecord(row.defaultChoices),
     isDefault: row.isDefault === "true",
   };
 }
@@ -2873,7 +2866,7 @@ function summarizePromptPresetRow(row: Row): Row {
     author: parsed.author ?? "",
     sectionCount: Array.isArray(parsed.sectionOrder) ? parsed.sectionOrder.length : 0,
     groupCount: Array.isArray(parsed.groupOrder) ? parsed.groupOrder.length : 0,
-    choiceDefaults: Object.keys(parseJsonRecordValue(row.defaultChoices)).length,
+    choiceDefaults: Object.keys(parseJsonRecord(row.defaultChoices)).length,
     createdAt: parsed.createdAt,
     updatedAt: parsed.updatedAt,
   };
@@ -2919,14 +2912,14 @@ function summarizeChoiceBlockRow(row: Row): Row {
     presetId: parsed.presetId,
     variableName: parsed.variableName,
     question: typeof parsed.question === "string" ? truncateStr(parsed.question, 160) : "",
-    optionCount: parseJsonArrayValue(parsed.options).length,
+    optionCount: parseJsonArray(parsed.options).length,
     multiSelect: parsed.multiSelect,
     sortOrder: parsed.sortOrder,
   };
 }
 
 function summarizeAgentConfigRow(row: Row): Row {
-  const settings = parseJsonRecordValue(row.settings);
+  const settings = parseJsonRecord(row.settings);
   return {
     id: row.id,
     type: row.type,
@@ -2949,7 +2942,7 @@ function summarizeAgentConfigRow(row: Row): Row {
  *  configured) and a type present only in `agent_configs` (a custom agent) both surface here. */
 // Exported for the regression lane (L1: a registry-only type must still surface in `agent.list`).
 export function summarizeMergedAgentRow(manifest: BuiltInAgentManifest | undefined, configRow: Row | undefined): Row {
-  const configSettings = parseJsonRecordValue(configRow?.settings);
+  const configSettings = parseJsonRecord(configRow?.settings);
   const settingKeys = Object.keys(
     Object.keys(configSettings).length > 0 ? configSettings : (manifest?.defaultSettings ?? {}),
   );
@@ -3180,6 +3173,7 @@ function assertCliCardInput(
     ["backstory", "backstory"],
     ["appearance", "appearance"],
     ["about-me", "aboutMe"],
+    ["public-face", "publicFace"],
     ["tags", "tags"],
   ] as const) {
     const val = flagString(flags, flagName);
@@ -3237,6 +3231,7 @@ function buildMinimalCharacterData(
     ["backstory", "backstory"],
     ["appearance", "appearance"],
     ["about-me", "aboutMe"],
+    ["public-face", "publicFace"],
   ];
   for (const [flagName, fieldName] of extMap) {
     const val = flagString(flags, flagName);
@@ -3513,6 +3508,8 @@ export class MariDbService {
               "creatorNotes",
               "backstory",
               "appearance",
+              "publicFace",
+              "public_face",
               "aboutMe",
               "about_me",
               "about-me",
@@ -3595,6 +3592,8 @@ export class MariDbService {
               "creatorNotes",
               "backstory",
               "appearance",
+              "publicFace",
+              "public_face",
               "aboutMe",
               "about_me",
               "about-me",
@@ -3613,7 +3612,7 @@ export class MariDbService {
           comment === (typeof existing.comment === "string" ? existing.comment : "")
         ) {
           throw new Error(
-            'character.update needs a patch field such as name, summary, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, aboutMe, tags, or comment (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
+            'character.update needs a patch field such as name, summary, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, aboutMe, publicFace, tags, or comment (no known field arrived). Send them top-level or inside "patch" or "data"; unknown keys are dropped.',
           );
         }
         const name =
@@ -3818,6 +3817,8 @@ export class MariDbService {
             "scenario",
             "backstory",
             "appearance",
+            "publicFace",
+            "public_face",
             "imageAppearance",
             "image_appearance",
             "imageAppearanceEnabled",
@@ -3871,6 +3872,8 @@ export class MariDbService {
             "scenario",
             "backstory",
             "appearance",
+            "publicFace",
+            "public_face",
             "imageAppearance",
             "image_appearance",
             "imageAppearanceEnabled",
@@ -3901,6 +3904,7 @@ export class MariDbService {
         assignClearableStringField(patch, data, ["scenario"], "scenario");
         assignClearableStringField(patch, data, ["backstory"], "backstory");
         assignClearableStringField(patch, data, ["appearance"], "appearance");
+        assignClearableStringField(patch, data, ["publicFace", "public_face"], "publicFace");
         assignClearableStringField(patch, data, ["imageAppearance", "image_appearance"], "imageAppearance");
         if (data.imageAppearanceEnabled !== undefined || data.image_appearance_enabled !== undefined) {
           const flag = data.imageAppearanceEnabled ?? data.image_appearance_enabled;
@@ -6084,7 +6088,7 @@ export class MariDbService {
         if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
         const sectionId = firstString(args, ["sectionId"]);
         const orderIndex = new Map(
-          parseJsonArrayValue(preset.sectionOrder).map((id, index) => [String(id), index] as const),
+          parseJsonArray(preset.sectionOrder).map((id, index) => [String(id), index] as const),
         );
         const sections = (await this.rawRows("prompt_sections"))
           .filter((section) => section.presetId === presetId)
@@ -6111,9 +6115,7 @@ export class MariDbService {
         const presetId = requiredString(args, ["presetId", "id"], "prompt preset id");
         const preset = await this.getRawById(getMeta("prompt_presets"), presetId);
         if (!preset) throw missingRecord("prompt preset", presetId, "preset.list (or preset.search)");
-        const orderIndex = new Map(
-          parseJsonArrayValue(preset.groupOrder).map((id, index) => [String(id), index] as const),
-        );
+        const orderIndex = new Map(parseJsonArray(preset.groupOrder).map((id, index) => [String(id), index] as const));
         const groups = (await this.rawRows("prompt_groups"))
           .filter((group) => group.presetId === presetId)
           .sort(
@@ -6362,7 +6364,7 @@ export class MariDbService {
             throw new Error(`Group ${data.groupId} is not a group in this preset.`);
           }
         }
-        const sectionOrder = parseJsonArrayValue(preset.sectionOrder).map(String);
+        const sectionOrder = parseJsonArray(preset.sectionOrder).map(String);
         const sectionId = newId();
         const presetSections = (await this.rawRows("prompt_sections")).filter(
           (section) => section.presetId === presetId,
@@ -6414,7 +6416,7 @@ export class MariDbService {
             throw new Error(`Parent group ${data.parentGroupId} is not a group in this preset.`);
           }
         }
-        const groupOrder = parseJsonArrayValue(preset.groupOrder).map(String);
+        const groupOrder = parseJsonArray(preset.groupOrder).map(String);
         const groupId = newId();
         const row = buildPromptGroupInsertRow(data, presetId, groupId, (groupOrder.length + 1) * 100);
         return this.executeMutation(
@@ -7546,7 +7548,7 @@ export class MariDbService {
         const rawJson = await resolveJsonInput(flags, context.cwd);
         if (!name && !rawJson) {
           throw new Error(
-            "Usage: mari characters create --name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--about-me <text>] [--apply]\n" +
+            "Usage: mari characters create --name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--about-me <text>] [--public-face <text>] [--apply]\n" +
               "       or: mari characters create --json '<data_json>' [--json-file <path>] [--apply]",
           );
         }
@@ -7580,7 +7582,7 @@ export class MariDbService {
         const id = parsed.positionals[0];
         if (!id)
           throw new Error(
-            "Usage: mari characters update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
+            "Usage: mari characters update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--public-face <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
           );
         const existing = await this.getRawById(getMeta("characters"), id);
         if (!existing) throw missingRecord("character", id, "character.search (or character.list)");
@@ -7686,7 +7688,7 @@ export class MariDbService {
         const name = flagString(flags, "name")?.trim();
         if (!name) {
           throw new Error(
-            "Usage: mari personas create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
+            "Usage: mari personas create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--public-face <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
           );
         }
         const timestamp = now();
@@ -7705,6 +7707,7 @@ export class MariDbService {
             appearance: flagString(flags, "appearance"),
             convoDisplayName: flagString(flags, "convo-display-name"),
             aboutMe: flagString(flags, "about-me"),
+            publicFace: flagString(flags, "public-face"),
             convoBehavior: flagString(flags, "convo-behavior"),
           },
           id,
@@ -7726,7 +7729,7 @@ export class MariDbService {
         const id = parsed.positionals[0];
         if (!id)
           throw new Error(
-            "Usage: mari personas update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--tags <t1,t2,...>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
+            "Usage: mari personas update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--public-face <text>] [--convo-behavior <text-or-json>] [--tags <t1,t2,...>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
           );
         const patch: Row = { updatedAt: now() };
         const fieldMap: Array<[string, string]> = [
@@ -7742,6 +7745,7 @@ export class MariDbService {
           ["phonetic-name", "phoneticName"],
           ["convo-display-name", "convoDisplayName"],
           ["about-me", "aboutMe"],
+          ["public-face", "publicFace"],
         ];
         for (const [flagName, fieldName] of fieldMap) {
           const val = flagString(flags, flagName);
@@ -7760,7 +7764,7 @@ export class MariDbService {
         if (convoBehaviorRaw !== undefined) patch.convoBehavior = normalizePersonaConvoBehavior(convoBehaviorRaw);
         if (Object.keys(patch).length <= 1) {
           throw new Error(
-            "Provide at least one field to update (--name, --description, --personality, --scenario, --backstory, --appearance, --phonetic-name, --convo-display-name, --about-me, --convo-behavior, --tags, --comment, --creator, --creator-notes)",
+            "Provide at least one field to update (--name, --description, --personality, --scenario, --backstory, --appearance, --phonetic-name, --convo-display-name, --about-me, --public-face, --convo-behavior, --tags, --comment, --creator, --creator-notes)",
           );
         }
         const request: ParsedMutationRequest = {
@@ -9390,8 +9394,8 @@ export class MariDbService {
     for (const change of changes) {
       if (change.table !== "chats" || !change.afterRaw) continue;
       if (
-        stableJson(parseJsonRecordValue(change.afterRaw.metadata)[MARI_DECISION_STATE_KEY]) !==
-        stableJson(parseJsonRecordValue(change.beforeRaw?.metadata)[MARI_DECISION_STATE_KEY])
+        stableJson(parseJsonRecord(change.afterRaw.metadata)[MARI_DECISION_STATE_KEY]) !==
+        stableJson(parseJsonRecord(change.beforeRaw?.metadata)[MARI_DECISION_STATE_KEY])
       ) {
         issues.push({
           level: "error",
@@ -9544,10 +9548,10 @@ export class MariDbService {
     // default and character folders sit in its agent settings and get the same check (#8901).
     const localDestinations = (change: PlanChange, row: Row | null | undefined): Row => {
       if (!row) return {};
-      if (change.table === "chats") return parseJsonRecordValue(row.metadata);
-      if (change.table === "chat_presets") return parseJsonRecordValue(parseJsonRecordValue(row.settings).metadata);
+      if (change.table === "chats") return parseJsonRecord(row.metadata);
+      if (change.table === "chat_presets") return parseJsonRecord(parseJsonRecord(row.settings).metadata);
       if (change.table === "app_settings" && change.id === TRANSLATOR_DEFAULTS_SETTINGS_KEY) {
-        return parseJsonRecordValue(row.value);
+        return parseJsonRecord(row.value);
       }
       return {};
     };
@@ -9564,7 +9568,7 @@ export class MariDbService {
               ? "value"
               : null;
       if (!column) continue;
-      const root = parseJsonRecordValue(change.afterRaw[column]);
+      const root = parseJsonRecord(change.afterRaw[column]);
       const holder = change.table === "chat_presets" ? root.metadata : root;
       if (!isRecord(holder) || !hasChatMetadataSecretMask(holder)) continue;
       resolveChatMetadataSecretPlaceholders(holder, localDestinations(change, change.beforeRaw));
@@ -9815,7 +9819,7 @@ export class MariDbService {
     const preset = await this.getRawById(presetMeta, String(section.presetId));
     if (preset) {
       const parsed = parseRow(presetMeta.name, preset);
-      const currentOrder = parseJsonArrayValue(parsed.sectionOrder).map(String);
+      const currentOrder = parseJsonArray(parsed.sectionOrder).map(String);
       const nextOrder = currentOrder.filter((id) => id !== sectionId);
       if (nextOrder.length !== currentOrder.length) {
         const afterRaw = serializeRow(presetMeta.name, { ...parsed, sectionOrder: nextOrder, updatedAt: timestamp });
@@ -9859,7 +9863,7 @@ export class MariDbService {
     const preset = await this.getRawById(presetMeta, presetId);
     if (preset) {
       const parsed = parseRow(presetMeta.name, preset);
-      const currentOrder = parseJsonArrayValue(parsed.groupOrder).map(String);
+      const currentOrder = parseJsonArray(parsed.groupOrder).map(String);
       const nextOrder = currentOrder.filter((id) => id !== groupId);
       if (nextOrder.length !== currentOrder.length) {
         const afterRaw = serializeRow(presetMeta.name, { ...parsed, groupOrder: nextOrder, updatedAt: timestamp });
@@ -10296,7 +10300,7 @@ export class MariDbService {
       const removedIds = removing.get(String(folder.scope));
       if (!removedIds) continue;
       const parsed = parseRow(folderMeta.name, folder);
-      const itemIds = parseJsonArrayValue(parsed.itemIds).map(String);
+      const itemIds = parseJsonArray(parsed.itemIds).map(String);
       const nextIds = itemIds.filter((id) => !removedIds.has(id));
       if (nextIds.length === itemIds.length) continue;
       const afterRaw = serializeRow(folderMeta.name, { ...parsed, itemIds: nextIds, updatedAt: timestamp });
@@ -10708,14 +10712,11 @@ export class MariDbService {
     const finalPath = this.pendingSidecarPath(record.id);
     // Write to a temp file then atomically rename into place, so a crash mid-write can't leave a
     // partial .json that hydration would discard (losing the undo while the change stays applied).
-    // The .tmp suffix keeps an interrupted write out of the .json hydration set.
-    const tempPath = `${finalPath}.${process.pid}.tmp`;
+    // The helper's temp name ends in .tmp, which keeps an interrupted write out of the .json hydration set.
     try {
       await mkdir(this.pendingDir(), { recursive: true });
-      await writeFile(tempPath, JSON.stringify(record), "utf8");
-      renameSync(tempPath, finalPath);
+      await writeFileAtomic(finalPath, JSON.stringify(record));
     } catch (err) {
-      this.safeRm(tempPath);
       logger.warn(err, "[mari-db] failed to persist pending review %s", record.id);
       throw err;
     }
@@ -11194,9 +11195,9 @@ export class MariDbService {
       "Read:  list [--limit <n>] [--offset <n>] [--search <text>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
-      "Write: create (--name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
-      "       --backstory, --appearance, and --about-me write to matching data.extensions fields",
-      "Write: update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
+      "Write: create (--name <name> [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--public-face <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
+      "       --backstory, --appearance, --about-me and --public-face write to matching data.extensions fields",
+      "Write: update <id> [--name <name>] [--summary <text>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--public-face <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
       "Write: delete <id> [--apply] [--reason <text>]",
       "Writes dry-run by default; --apply saves reversible changes and shows a Keep/Restore review card.",
     ].join("\n");
@@ -11208,8 +11209,8 @@ export class MariDbService {
       "Read:  list [--limit <n>] [--offset <n>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
-      "Write: create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
-      "Write: update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--convo-behavior <text-or-json>] [--tags <t1,t2,...>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
+      "Write: create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--public-face <text>] [--convo-behavior <text-or-json>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
+      "Write: update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--backstory <text>] [--appearance <text>] [--phonetic-name <text>] [--convo-display-name <text>] [--about-me <text>] [--public-face <text>] [--convo-behavior <text-or-json>] [--tags <t1,t2,...>] [--comment <text>] [--creator <text>] [--creator-notes <text>] [--apply] [--reason <text>]",
       "Write: delete <id> [--apply] [--reason <text>]",
       "Writes dry-run by default; --apply saves reversible changes and shows a Keep/Restore review card.",
     ].join("\n");

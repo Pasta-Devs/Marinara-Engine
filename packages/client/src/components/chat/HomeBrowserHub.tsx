@@ -92,6 +92,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
+import { Select } from "../ui/Select";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { HomeAchievements } from "./HomeAchievements";
 import { ChatModeIcon } from "./ChatModeIcon";
@@ -537,9 +538,21 @@ function packHomeFeed(feed: HTMLElement | null, cause: "resize" | "layout" = "la
     .sort((a, b) => a.row - b.row || a.column - b.column);
   // Measure without the stretch from the last pack (only costs a layout when something was stretched).
   for (const item of items) if (item.stretchedTo) item.element.style.minHeight = "";
+  // What each widget really needs, with every card sized by its content instead of filling its box (see
+  // .mari-home-feed-grid[data-home-measuring] in globals.css). A card that fills its box with height: 100% can
+  // keep a stretch it no longer has: Vivaldi still laid What's new and Around the table out at their stretched
+  // height after the stretch came off, each pack stretched them again from there, and they grew to several
+  // screens tall (Nov 19). Content-sized, nothing is left to remember the stretch.
+  feed.setAttribute("data-home-measuring", "");
+  const needs = items.map((item) => item.element.offsetHeight);
+  feed.removeAttribute("data-home-measuring");
+  items.forEach((item, index) => {
+    const visible = homeWidgetVisibleHeight(item.element);
+    item.fills = visible >= item.element.offsetHeight - 1;
+    // A theme can end a card above its box (visible is smaller); otherwise the widget is never taller than it needs.
+    item.natural = Math.min(visible, needs[index] ?? visible);
+  });
   for (const item of items) {
-    item.natural = homeWidgetVisibleHeight(item.element);
-    item.fills = item.natural >= item.element.offsetHeight - 1;
     // Some Chromium builds (Vivaldi's, at least) still report a card whose content fills its height (Learn the
     // engine, What's new) at its stretched size right after the stretch is taken off. Packing that stale height
     // un-stretches the card, the next report shows it short again, it is stretched again: the card shook every
@@ -578,7 +591,9 @@ function packHomeFeed(feed: HTMLElement | null, cause: "resize" | "layout" = "la
     let lineBottom = Number.POSITIVE_INFINITY;
     for (const item of shown) {
       const bottom = item.top + item.height;
-      if (lineBottom - bottom > HOME_FEED_ALIGN_SLACK) lineBottom = bottom;
+      // A stretch never adds more than the slack to what the card needs, over all the passes together.
+      if (lineBottom - bottom > HOME_FEED_ALIGN_SLACK || lineBottom - item.top > item.natural + HOME_FEED_ALIGN_SLACK)
+        lineBottom = bottom;
       else if (lineBottom > bottom) {
         item.height = lineBottom - item.top;
         changed = true;
@@ -3535,44 +3550,32 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                 className="min-h-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
               />
             </label>
-            <label className="grid gap-1 text-sm">
+            <div className="grid gap-1 text-sm">
               {t("home.widgets.editAccent")}
-              <select
+              <Select<HomeCustomWidget["accent"]>
+                label={t("home.widgets.editAccent")}
                 value={editingCustomWidget.accent}
-                onChange={(event) =>
-                  setEditingCustomWidget({
-                    ...editingCustomWidget,
-                    accent: event.target.value as HomeCustomWidget["accent"],
-                  })
-                }
+                options={(["cyan", "orange", "pink", "violet"] as const).map((accent) => ({
+                  value: accent,
+                  label: t(`home.widgets.accent.${accent}`),
+                }))}
+                onChange={(accent) => setEditingCustomWidget({ ...editingCustomWidget, accent })}
                 className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
-              >
-                {["cyan", "orange", "pink", "violet"].map((accent) => (
-                  <option key={accent} value={accent}>
-                    {t(`home.widgets.accent.${accent}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="grid gap-1 text-sm">
+              />
+            </div>
+            <div className="grid gap-1 text-sm">
               {t("home.widgets.editIcon")}
-              <select
+              <Select<HomeCustomWidget["icon"]>
+                label={t("home.widgets.editIcon")}
                 value={editingCustomWidget.icon}
-                onChange={(event) =>
-                  setEditingCustomWidget({
-                    ...editingCustomWidget,
-                    icon: event.target.value as HomeCustomWidget["icon"],
-                  })
-                }
+                options={(["sparkles", "note", "heart", "star", "book", "compass"] as const).map((icon) => ({
+                  value: icon,
+                  label: t(`home.widgets.icon.${icon}`),
+                }))}
+                onChange={(icon) => setEditingCustomWidget({ ...editingCustomWidget, icon })}
                 className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 max-sm:text-base"
-              >
-                {["sparkles", "note", "heart", "star", "book", "compass"].map((icon) => (
-                  <option key={icon} value={icon}>
-                    {t(`home.widgets.icon.${icon}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
             {updateCustomWidgetMutation.isError && (
               <p role="alert" className="text-xs text-[var(--destructive)]">
                 {t("home.widgets.editFailed")}

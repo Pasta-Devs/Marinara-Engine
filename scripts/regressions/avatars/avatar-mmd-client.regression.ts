@@ -93,7 +93,7 @@ try {
 }
 assert.match(
   markup,
-  /<option value="笑い" selected="">笑い<\/option>/u,
+  /data-value="笑い"[^>]*>\s*<span[^>]*>笑い<\/span>/u,
   "a configured valid face stays selectable outside the bounded offered catalogue",
 );
 

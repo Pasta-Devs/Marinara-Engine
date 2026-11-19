@@ -138,6 +138,8 @@ export const generateRequestSchema = z.object({
   impersonatePresetId: z.string().nullish(),
   impersonateConnectionId: z.string().nullish(),
   impersonateBlockAgents: z.boolean().optional().default(false),
+  /** #9427: in Roleplay, send each character's Public Face in place of its card. */
+  impersonatePublicFaces: z.boolean().optional().default(false),
   impersonatePromptTemplate: z.string().optional(),
 });
 

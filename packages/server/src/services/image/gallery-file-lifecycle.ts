@@ -7,7 +7,7 @@ import { characterImages, chatImages, chats, globalImages, personaImages } from 
 import { logger } from "../../lib/logger.js";
 import { realPathInAppFolder } from "../../utils/app-folder.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
-import { assertInsideDir } from "../../utils/security.js";
+import { resolveInside } from "../../utils/security.js";
 
 export type StoredGalleryFile = {
   absolutePath: string;
@@ -55,7 +55,7 @@ export function resolveStoredGalleryFile(
 ): StoredGalleryFile | null {
   if (!filePath || filePath.includes("\0")) return null;
   try {
-    const absolutePath = assertInsideDir(galleryRoot, join(galleryRoot, normalizedGalleryPath(filePath)));
+    const absolutePath = resolveInside(galleryRoot, normalizedGalleryPath(filePath));
     return {
       absolutePath,
       directory: dirname(absolutePath),
@@ -71,10 +71,10 @@ export function resolveStoredGalleryFile(
  * referenced by owner-scoped URLs.
  */
 export function resolveOwnedGalleryPath(galleryRoot: string, ownerRoot: string, filename: string): string {
-  const ownedPath = assertInsideDir(ownerRoot, join(ownerRoot, filename));
+  const ownedPath = resolveInside(ownerRoot, filename);
   if (existsSync(ownedPath)) return ownedPath;
-  const sharedRoot = assertInsideDir(galleryRoot, join(galleryRoot, "shared"));
-  const sharedPath = assertInsideDir(sharedRoot, join(sharedRoot, filename));
+  const sharedRoot = resolveInside(galleryRoot, "shared");
+  const sharedPath = resolveInside(sharedRoot, filename);
   return existsSync(sharedPath) ? sharedPath : ownedPath;
 }
 

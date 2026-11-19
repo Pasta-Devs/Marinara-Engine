@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "fs";
-import { randomUUID } from "crypto";
+import { existsSync, mkdirSync, readFileSync } from "fs";
 import { join } from "path";
+import { isRecord } from "../utils/large-json.js";
+import { writeFileAtomicSync } from "../utils/atomic-write.js";
 
 export type BackgroundLibraryFolder = {
   id: string;
@@ -15,10 +16,6 @@ export type BackgroundLibraryOrganization = {
   /** Background ids the user starred. Independent of the Roleplay default background. */
   favorites: string[];
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizedTimestamp(value: unknown, fallback: string): string {
   if (typeof value !== "string") return fallback;
@@ -90,13 +87,7 @@ export function writeBackgroundLibraryOrganization(
 ): void {
   mkdirSync(backgroundsDir, { recursive: true });
   const path = organizationPath(backgroundsDir);
-  const temporaryPath = `${path}.${process.pid}.${randomUUID()}.tmp`;
-  try {
-    writeFileSync(temporaryPath, JSON.stringify(organization, null, 2), "utf-8");
-    renameSync(temporaryPath, path);
-  } finally {
-    if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
-  }
+  writeFileAtomicSync(path, JSON.stringify(organization, null, 2));
 }
 
 export function removeBackgroundFolder(

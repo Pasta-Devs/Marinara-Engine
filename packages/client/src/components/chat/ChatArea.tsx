@@ -41,7 +41,12 @@ import { hasActiveTextSelection } from "../../lib/text-selection";
 import { readChatMetadata } from "../../lib/chat-wizard-defaults";
 import { useChatWindowLayout } from "../../hooks/use-chat-window-layout";
 import { ChatSettingsBubble } from "./ChatSettingsBubble";
-import { useOverhaulActive, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
+import {
+  isOverhaulMobile,
+  useOverhaulActive,
+  useOverhaulMobile,
+  useOverhaulTouchMessages,
+} from "../../stores/overhaul.store";
 import {
   prefersReducedMotion,
   SWIPE_AXIS_RATIO,
@@ -858,7 +863,8 @@ const LocalChatArea = memo(function LocalChatArea({
     ui.setChatSettingsSectionExpanded("roleplay-memory-recall", true);
     const windows = useFloatingWindowStore.getState();
     const memoryWindowId = getDrawerWindowId(CHAT_SETTINGS_WINDOW_ID, "roleplay-memory-recall");
-    if (windows.detached[memoryWindowId]) {
+    // The new layout on phones and tablets shows popped-out sections in place (useDrawerPoppedOut).
+    if (windows.detached[memoryWindowId] && !isOverhaulMobile()) {
       void preloadChatSettingsDrawer();
       windows.openWindow(memoryWindowId);
     } else handleOpenSettingsPanel(undefined, { initialSection: "memory-recall" });
@@ -1184,8 +1190,18 @@ const LocalChatArea = memo(function LocalChatArea({
     [activeChatId, retryAgents],
   );
   const handleIllustrate = useCallback(
-    (prompt?: string, messageRange?: [string, string]) => {
+    (prompt?: string, messageRange?: [string, string], promptTemplateId?: string) => {
       if (!activeChatId) return;
+      // /illustrate template=…: that Prompt Mode writes the prompt this once, with the typed text as its guidance.
+      // References follow the chat's switches, and a prompt review comes from the server after the writer runs.
+      if (promptTemplateId) {
+        return retryAgents(activeChatId, ["illustrator"], {
+          illustratorRetryTargets: ["illustration"],
+          illustratorMessageRange: messageRange,
+          agentPromptTemplateIds: { illustrator: promptTemplateId },
+          ...(prompt ? { illustratorRequest: prompt } : {}),
+        }).then(() => undefined);
+      }
       const resultData = { prompt, characters: [] };
       if (prompt && useUIStore.getState().reviewImagePromptsBeforeSend) {
         setIllustratorPromptReview({
@@ -3384,6 +3400,7 @@ const LocalChatArea = memo(function LocalChatArea({
         } else if (
           target.tagName === "INPUT" ||
           target.tagName === "SELECT" ||
+          target.getAttribute("role") === "combobox" ||
           target.getAttribute("contenteditable") === "true"
         ) {
           return;

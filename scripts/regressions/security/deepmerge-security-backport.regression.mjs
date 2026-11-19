@@ -77,8 +77,8 @@ const section = (text, key) => {
 };
 assert.deepEqual(
   section(workspace, "audit").sort(),
-  ["ignore:", "- GHSA-mrhx-c7xc-m3w5", "- GHSA-gcqx-w48m-w2h4"].sort(),
-  "Only the independently guarded Zod and deepmerge backports may be exempted",
+  ["ignore:", "- GHSA-mrhx-c7xc-m3w5", "- GHSA-gcqx-w48m-w2h4", "- GHSA-fc5q-39xc-vjpf"].sort(),
+  "Only the independently guarded Zod and deepmerge backports and the picomatch exception may be exempted",
 );
 assert.deepEqual(
   section(workspace, "patchedDependencies").filter((line) => line.includes("deepmerge@")),

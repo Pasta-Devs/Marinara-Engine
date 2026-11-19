@@ -148,14 +148,7 @@ export function BuiltinDictationDetail({ engine }: { engine?: DeviceEngine }) {
           )}
           {shown && (
             <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
-              {[
-                speechModelDownloaded
-                  ? ""
-                  : t("connections.builtinEmbedding.notDownloadedSize", { size: formatBytes(shown.sizeBytes) }),
-                shown.description,
-              ]
-                .filter(Boolean)
-                .join(" ")}
+              {[shown.description].filter(Boolean).join(" ")}
             </span>
           )}
         </FactRow>

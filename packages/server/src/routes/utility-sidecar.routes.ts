@@ -11,6 +11,7 @@ import { utilitySidecarService } from "../services/utility-sidecar/utility-sidec
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { logger } from "../lib/logger.js";
 import { UTILITY_SIDECAR_RATE_LIMIT } from "../middleware/rate-limit.js";
+import { notFound } from "../utils/not-found.js";
 
 const modelIdSchema = z
   .string()
@@ -114,7 +115,7 @@ export async function utilitySidecarRoutes(app: FastifyInstance) {
       try {
         return await utilitySidecarService.checkForUpdate(modelIdSchema.parse(req.params.modelId));
       } catch (error) {
-        return reply.status(404).send({ error: error instanceof Error ? error.message : "Unknown model" });
+        return notFound(reply, error instanceof Error ? error.message : "Unknown model");
       }
     },
   );

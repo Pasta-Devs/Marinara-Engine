@@ -104,6 +104,25 @@ try {
     mergeGeneratedChatMacroVariables({}, {}, { ["__proto__"]: "safe own value" })["__proto__"],
     "safe own value",
   );
+  // Saved maps keep only string values under valid names, and never more than MAX_CHAT_VARIABLES of them.
+  assert.deepEqual(normalizeChatMacroVariables({ score: "8", invalid: 4, "bad name": "x" }), { score: "8" });
+  assert.deepEqual(normalizeChatMacroVariables({ ...normalizeChatMacroVariables({ counter: "2" }), counter: "3" }), {
+    counter: "3",
+  });
+  const capped = (count: number) => Object.fromEntries(Array.from({ length: count }, (_, i) => [`v${i}`, "x"]));
+  assert.equal(
+    Object.keys(normalizeChatMacroVariables(capped(MAX_CHAT_VARIABLES + 1))).length,
+    MAX_CHAT_VARIABLES,
+    "persisted chat-local macro variables remain capped",
+  );
+  assert.deepEqual(
+    mergeGeneratedChatMacroVariables(capped(MAX_CHAT_VARIABLES), capped(MAX_CHAT_VARIABLES), {
+      ...capped(MAX_CHAT_VARIABLES),
+      overflow: "generated",
+    }),
+    capped(MAX_CHAT_VARIABLES),
+    "generation writes reapply the macro-variable cap after merging request changes",
+  );
 
   // A name a {{setvar}} created keeps its own shape: still editable and
   // removable even though the UI could not have created it.

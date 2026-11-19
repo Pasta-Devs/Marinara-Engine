@@ -1384,7 +1384,8 @@
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.1em;
-  text-align: left;
+  /* Each heading sits in the middle of its column (Nov 19, her call for every Library table). */
+  text-align: center;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -2358,6 +2359,12 @@
 .ov-bk__grid--five {
   grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
 }
+/* Semantic search switches: side by side at their natural width, so a long label stays on one line. */
+.ov-bk__grid--switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem 2.5rem;
+}
 .ov-bk__field {
   display: grid;
   min-width: 0;
@@ -2467,6 +2474,42 @@
   height: 1px;
   flex: 1;
   background: var(--ov-line);
+}
+/* Book settings › Semantic search: status, the model to vectorize with and its actions, laid out like the
+   built-in model pages (label above a field, small controls, warnings as a thin line). */
+.ov-vec {
+  display: grid;
+  gap: 0.625rem;
+}
+.ov-vec__warn {
+  border-left: 2px solid var(--warning);
+  padding: 0.125rem 0 0.125rem 0.625rem;
+  font-size: 0.8125rem;
+}
+.ov-vec__warn > p {
+  color: var(--ov-text);
+}
+.ov-vec__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.625rem 1rem;
+}
+.ov-vec__model {
+  flex: 1 1 16rem;
+  max-width: 24rem;
+}
+.ov-vec__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+.ov-vec :is(.ov-vec__actions, .ov-vec__warn) .mari-chrome-control {
+  display: inline-flex;
+  min-height: 2.125rem;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
 }
 .ov-bk__vectors .mari-editor-panel {
   border: 0;
@@ -3266,6 +3309,11 @@
   align-items: center;
   gap: 0.5rem;
   min-width: 0;
+}
+/* The buttons always take their own row under the greeting, at every width. On a wide window they used to
+   join the greeting's row and sit over the right side, where themes paint their art (MARI to the Moon's rocket). */
+:root[data-overhaul] .mari-home-hero > .ov-home-hero-buttons {
+  flex: 1 0 100%;
 }
 .ov-home-hero-actions {
   display: flex;
@@ -4680,24 +4728,6 @@ input.ov-edhead__title:focus {
   flex: 1;
   flex-direction: column;
   overflow-y: auto;
-}
-.ov-cs-edit__hint {
-  display: flex;
-  align-items: start;
-  gap: 0.75rem;
-  padding: 0.625rem 1rem;
-  border-bottom: 1px solid var(--ov-line);
-  background: color-mix(in srgb, var(--ov-accent) 7%, transparent);
-  color: var(--ov-muted);
-  font-size: 0.8125rem;
-}
-.ov-cs-edit__hint p {
-  flex: 1;
-  margin: 0;
-}
-.ov-cs-edit__hint svg {
-  display: inline;
-  vertical-align: -2px;
 }
 .ov-cs-edit__panel {
   display: flex;
@@ -10082,17 +10112,24 @@ input.ov-edhead__title:focus {
   width: 100%;
   table-layout: fixed;
 }
-.ov-conn__table th:nth-child(2) {
+/* Column widths live on <col>s, so the Account heading can span the name and spacer columns its rows span. */
+.ov-conn__table col.ov-conn__col-lead {
+  width: 1.75rem;
+}
+.ov-conn__table col.ov-conn__col-name {
   width: 34%;
 }
-.ov-conn__table .ov-conn__fill {
-  width: auto;
+.ov-conn__table col.ov-conn__col-num {
+  width: 7rem;
 }
-.ov-conn__table th:nth-child(5) {
+.ov-conn__table col.ov-conn__col-status {
   width: 8.5rem;
 }
-.ov-conn__table th:nth-child(6) {
+.ov-conn__table col.ov-conn__col-bal {
   width: 7.5rem;
+}
+.ov-conn__table col.ov-conn__col-act {
+  width: 3rem;
 }
 .ov-conn__table td {
   overflow: hidden;
@@ -11435,6 +11472,125 @@ input.ov-edhead__title:focus {
 :root[data-overhaul] .mari-connection-scope .mari-tts-field .mari-chrome-field {
   padding-block: 0.375rem;
   font-size: 0.8125rem;
+}
+/* A model's Local image defaults / Video defaults: a flat disclosure with label-left rows and switch rows split by
+   hairlines, like Settings, instead of a bordered card of boxed fields and boxed checkboxes. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults {
+  border: 0;
+  border-radius: 0;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > button {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--ov-line);
+  background: none;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > button > div > div {
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > button:hover > div > div {
+  color: var(--ov-accent-text);
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > div {
+  border-top: 0;
+  padding: 0.5rem 0 0;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > div > * {
+  margin-block: 0 !important;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > div > :first-child {
+  padding-bottom: 0.25rem;
+}
+/* Fields: label on the left, control on the right, one hairline under each row. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__field {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+  padding: 0.375rem 0;
+  border-bottom: 1px solid var(--ov-line);
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__field > span:first-child {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ov-text);
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__field > :is(input, textarea) {
+  margin-top: 0;
+  height: 2rem;
+  min-height: 2rem;
+  padding-block: 0.25rem;
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__field > textarea {
+  height: auto;
+  min-height: 2rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .grid {
+  column-gap: 1.5rem;
+  row-gap: 0;
+}
+/* The Style profile and NovelAI style plate groups lose their boxes; a hairline keeps them apart. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box {
+  border: 0;
+  border-bottom: 1px solid var(--ov-line);
+  border-radius: 0;
+  padding: 0.375rem 0;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box > div:first-child p:first-child,
+:root[data-overhaul]
+  .mari-connection-scope
+  .mari-gendefaults
+  .mari-gendefaults__box
+  > div:first-child
+  > span:first-child {
+  font-size: 0.8125rem;
+  font-weight: 400;
+  color: var(--ov-text);
+}
+:root[data-overhaul]
+  .mari-connection-scope
+  .mari-gendefaults
+  .mari-gendefaults__box
+  .mari-gendefaults__field:last-child {
+  border-bottom: 0;
+}
+/* Style profile: the same label-left row; the suggestion and its Use button sit under the dropdown. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col > div:first-child {
+  display: contents;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col > div:first-child > span {
+  grid-column: 1;
+  grid-row: 1;
+}
+:root[data-overhaul]
+  .mari-connection-scope
+  .mari-gendefaults
+  .mari-gendefaults__box.flex-col
+  > div:first-child
+  > button {
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: start;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col > :not(:first-child) {
+  grid-column: 2;
+}
+/* Yes/no options: Settings-style switch rows. */
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__toggle {
+  border-radius: 0;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--ov-line);
+  background: none;
+}
+:root[data-overhaul] .mari-connection-scope .mari-gendefaults > div > p:last-child {
+  padding-top: 0.5rem;
 }
 /* Device cards (speech model, built-in model page): flat sections split by a rule, not tinted bubbles. */
 :root[data-overhaul] .mari-device-card {
@@ -13268,8 +13424,14 @@ input.ov-edhead__title:not(#ov-x) {
     justify-content: center;
   }
   /* Accounts table: the account name and status get the room; Models, Balance and the spacer column fold away. */
-  .ov-conn__table th:nth-child(2) {
+  .ov-conn__table col.ov-conn__col-name {
     width: auto;
+  }
+  .ov-conn__table :is(col.ov-conn__col-fill, col.ov-conn__col-num, col.ov-conn__col-bal) {
+    width: 0;
+  }
+  .ov-conn__table col.ov-conn__col-lead {
+    width: 1.5rem;
   }
   .ov-conn__table :is(th, td).ov-conn__fill,
   .ov-conn__table :is(th, td).ov-conn__num,
@@ -13285,7 +13447,7 @@ input.ov-edhead__title:not(#ov-x) {
   .ov-conn__model .ov-conn__ctx {
     width: auto;
   }
-  .ov-conn__table th:nth-child(5) {
+  .ov-conn__table col.ov-conn__col-status {
     width: 8.75rem;
   }
   .ov-conn__device td,
@@ -13926,11 +14088,6 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-ov-split-pane] [data-home-professor-art] > img {
   width: 96px !important;
   height: 144px !important;
-}
-/* SV19: a Library table's name heading sits over the names, not over the little picture in front of them
-   (in a narrow split side "LOREBOOK" lined up with nothing). */
-.ov-table:has(td.ov-table__name .ov-table__title > .ov-thumb:first-child) th.ov-table__name {
-  padding-left: calc(0.75rem + 1.75rem + 0.625rem);
 }
 
 /* A grouped tab still gets its second row: the one-row rule above (H4) must not fold the group row into the
@@ -14650,6 +14807,16 @@ input.ov-edhead__title:not(#ov-x) {
   font-weight: 400;
   text-overflow: ellipsis;
 }
+/* Staging's shared Select (a button that opens a picker window) sits next to native dropdowns in
+   Settings and the editors: its chevron is drawn like theirs (DD9), in the text colour and a little
+   heavier, instead of a thin grey icon. Themes that colour the native chevron colour this one too. */
+:root[data-overhaul] button[role="combobox"][aria-haspopup="dialog"] > svg:last-child {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  margin-right: -0.125rem;
+  color: var(--ov-select-chevron, currentColor);
+  stroke-width: 2.6;
+}
 
 /* Library > Extensions: the open extension's notes and code boxes (the rest is the shared editor). */
 .ov-exted__note {
@@ -14709,4 +14876,111 @@ input.ov-edhead__title:not(#ov-x) {
 }
 .ov-vw__new-short {
   display: none;
+}
+
+/* Memories for This Chat in the new layout: a summary row with labelled actions, a thin-line notice and one lined
+   list in the UI font (Nov 19; it was the classic window with 10px text and grey code boxes). */
+.ov-mem {
+  display: grid;
+  gap: 0.75rem;
+  color: var(--ov-text);
+  font-size: 0.875rem;
+}
+.ov-mem__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.ov-mem__count {
+  color: var(--ov-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ov-mem__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+.ov-mem :is(.ov-mem__actions, .ov-mem__warn) .mari-chrome-control {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+}
+.ov-mem__danger:not(:disabled):hover {
+  color: var(--destructive);
+}
+.ov-mem__warn {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  border-left: 2px solid var(--warning);
+  padding: 0.125rem 0 0.125rem 0.75rem;
+  font-size: 0.8125rem;
+}
+.ov-mem__empty {
+  padding: 2rem 1rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.75rem;
+  color: var(--ov-muted);
+  text-align: center;
+}
+.ov-mem__empty--error {
+  color: var(--destructive);
+}
+.ov-mem__list {
+  overflow: hidden;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.75rem;
+}
+.ov-mem__item {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem 0.75rem;
+}
+.ov-mem__item + .ov-mem__item {
+  border-top: 1px solid var(--ov-line);
+}
+/* Date and meta wrap inside the left cell; the forget button keeps the top-right corner. */
+.ov-mem__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+}
+.ov-mem__headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.125rem 0.75rem;
+  min-width: 0;
+}
+.ov-mem__when {
+  font-weight: 500;
+}
+.ov-mem__meta {
+  color: var(--ov-dim);
+  font-size: 0.8125rem;
+}
+.ov-mem__forget {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  color: var(--ov-dim);
+}
+.ov-mem__forget:not(:disabled):hover {
+  background: var(--ov-hover);
+  color: var(--destructive);
+}
+.ov-mem__text {
+  max-height: 14rem;
+  overflow-y: auto;
+  color: var(--ov-muted);
+  line-height: 1.55;
+  white-space: pre-wrap;
 }

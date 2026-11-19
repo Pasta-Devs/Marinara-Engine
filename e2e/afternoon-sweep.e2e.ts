@@ -160,15 +160,18 @@ test("agent categories fit and built-in context selections survive save, export 
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openAgentDetail("world-state");
     });
-    const characters = page.getByRole("checkbox", { name: /^Characters\b/ });
-    await expect(page.getByRole("checkbox", { name: /^Recalled memories\b/ })).toBeDisabled();
-    const previousOutput = page.getByRole("checkbox", { name: /^Previous output\b/ });
+    // Characters and Persona are three-way choices: Off, Full card or Public Face (#9426).
+    const characters = page.getByRole("radiogroup", { name: "Characters", exact: true });
+    const persona = page.getByRole("radiogroup", { name: "Persona", exact: true });
+    await expect(page.getByRole("switch", { name: /^Recalled memories\b/ })).toBeDisabled();
+    const previousOutput = page.getByRole("switch", { name: /^Previous output\b/ });
     await expect(previousOutput).toBeEnabled();
     await previousOutput.press("Space");
-    await expect(characters).toBeChecked();
-    await characters.focus();
-    await characters.press("Space");
-    await page.getByRole("checkbox", { name: /^Persona\b/ }).press("Space");
+    await expect(characters.getByRole("radio", { name: "Full card" })).toBeChecked();
+    await characters.getByRole("radio", { name: "Full card" }).focus();
+    await characters.getByRole("radio", { name: "Full card" }).press("Home");
+    await expect(characters.getByRole("radio", { name: "Off" })).toBeChecked();
+    await persona.getByRole("radio", { name: "Public Face" }).click();
     await page.locator("button.mari-editor-action--primary").click();
     const saved = async () => {
       const value = await (await request.get(`/api/agents/${agent.id}`)).json();
@@ -177,19 +180,27 @@ test("agent categories fit and built-in context selections survive save, export 
     await expect.poll(async () => (await saved()).contextSources?.characters).toBe(false);
     expect((await saved()).contextSources.chatHistory).toBe(true);
     expect((await saved()).contextSources.previousOutput).toBe(true);
+    expect((await saved()).contextSources).toMatchObject({
+      charactersPublicFace: false,
+      persona: false,
+      personaPublicFace: true,
+    });
     const download = await downloadExport(page, () =>
       page.getByRole("button", { name: "Export agent", exact: true }).click(),
     );
     const exported = new AdmZip(readFileSync((await download.path())!));
     const settings = exported.getEntries().find((entry) => entry.entryName.endsWith("/settings.json"))!;
-    expect(JSON.parse(settings.getData().toString("utf8")).contextSources.characters).toBe(false);
+    expect(JSON.parse(settings.getData().toString("utf8")).contextSources).toMatchObject({
+      characters: false,
+      personaPublicFace: true,
+    });
     await page.reload();
     await page.evaluate(async () => {
       const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
       useUIStore.getState().openAgentDetail("world-state");
     });
-    await expect(characters).not.toBeChecked();
-    await expect(page.getByRole("checkbox", { name: /^Persona\b/ })).not.toBeChecked();
+    await expect(characters.getByRole("radio", { name: "Off" })).toBeChecked();
+    await expect(persona.getByRole("radio", { name: "Public Face" })).toBeChecked();
     await expect(previousOutput).toBeChecked();
     await page.screenshot({ path: info.outputPath("built-in-context.png") });
     await page.route("**/api/personas", (route) => route.fulfill({ json: [] }));

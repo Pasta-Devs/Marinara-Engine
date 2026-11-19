@@ -48,7 +48,7 @@ type LoadedPreset = {
 // snapshot instead of the live row. It only maps rows the underlying query RETURNS — it never injects
 // the target into an unrelated query — which is safe because the synthetic render passes
 // characterIds = [targetId], so the only character read is the target's own lookup. Exported for the
-// open-issues regression, which validates the substitution/pass-through through the storage path.
+// mari/review-rejection regression, which validates the substitution/pass-through through the storage path.
 export function characterOverrideDb(db: DB, targetId: string, substitute: RawRow | null): DB {
   const mapRows = (rows: RawRow[]): RawRow[] =>
     rows.flatMap((row) => {

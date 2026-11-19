@@ -11,7 +11,7 @@ import {
   registerPreloadErrorRecovery,
   reloadBrowser,
 } from "../../../packages/client/src/lib/browser-runtime.js";
-import { formatSupportDiagnostics } from "../../../packages/client/src/lib/support-diagnostics.js";
+import { formatSupportDiagnostics, resolveClientOs } from "../../../packages/client/src/lib/support-diagnostics.js";
 
 const key = "marinara-client-runtime-events";
 const privateText = "PRIVATE_PROMPT_AND_CHAT_TEXT";
@@ -222,4 +222,50 @@ try {
     if (descriptor) Object.defineProperty(globalThis, name, descriptor);
     else Reflect.deleteProperty(globalThis, name);
   }
+}
+
+assert.equal(
+  resolveClientOs(
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_6) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+    "MacIntel",
+  ),
+  "macOS 15.6",
+);
+assert.equal(
+  resolveClientOs(
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/27.0 Safari/605.1.15",
+    "MacIntel",
+    5,
+  ),
+  "iPadOS (WebKit 605.1.15)",
+);
+const copiedSupportDiagnostics = formatSupportDiagnostics({
+  version: "2.4.2",
+  build: "2.4.2+abcdef123456",
+  commit: "abcdef123456",
+  serverOs: "Linux 6.8.0 (x64)",
+  serverMemory: { heapUsedMiB: 768, heapLimitMiB: 1536, rssMiB: 1024 },
+  clientOs: "macOS 15.6",
+  browser: "Marinara test shell",
+  gpu: "Test GPU",
+  connectionName: "Sol",
+  connectionProvider: "openai",
+  model: "gpt-5.6-sol",
+});
+for (const expectedLine of [
+  "Version: 2.4.2",
+  "Build: 2.4.2+abcdef123456",
+  "Commit: abcdef123456",
+  "Server OS: Linux 6.8.0 (x64)",
+  "Server memory: heap 768 / 1536 MiB; RSS 1024 MiB",
+  "Background wake lock: not reported",
+  "Last detected freeze: none detected",
+  "Client OS: macOS 15.6",
+  "Browser / app shell: Marinara test shell",
+  "GPU: Test GPU",
+  "Active connection: Sol",
+  "Connection provider: openai",
+  "LLM model: gpt-5.6-sol",
+]) {
+  assert.ok(copiedSupportDiagnostics.includes(expectedLine), `Support diagnostics must include ${expectedLine}`);
 }

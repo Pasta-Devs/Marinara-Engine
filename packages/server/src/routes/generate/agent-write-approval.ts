@@ -9,6 +9,7 @@ import {
   readKeeperUpdateName as readUpdateName,
   readLorebookKeeperUpdateOrder,
 } from "./lorebook-keeper-utils.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const LOREBOOK_APPROVAL_ENTRY_DELIMITER = "<!-- marinara:lorebook-entry:v1 -->";
 
@@ -56,10 +57,6 @@ function scanApprovalHeadings(value: string): ApprovalHeading[] {
   // Keeping that boundary lets users remove either or both metadata lines while
   // avoiding reinterpretation of arbitrary prose that merely contains a heading.
   return legacy[0]?.index === 0 ? legacy : [];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function readNestedEntry(update: Record<string, unknown>): Record<string, unknown> {

@@ -1,8 +1,19 @@
 import type { Page } from "@playwright/test";
 
+/** The native name the language picker shows for a locale, as the app derives it. */
+function nativeLanguageName(locale: string) {
+  const name = new Intl.DisplayNames([locale], { type: "language" }).of(locale) ?? locale;
+  return name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
+}
+
+/** The row for a UI language in the open language picker (the shared Select window; rows carry their label as title). */
+export function uiLanguageRow(page: Page, locale: string) {
+  return page.locator("[data-pick-row]").and(page.getByTitle(nativeLanguageName(locale), { exact: true }));
+}
+
 export async function selectUILanguage(page: Page, locale: string) {
   await page.locator("#settings-control-language-select").click();
-  await page.locator(`[role="option"][id="settings-control-language-select-list-${locale}"]`).click();
+  await uiLanguageRow(page, locale).click();
 }
 
 // Small excerpts of the moved packs, not a second bundled translation catalog.

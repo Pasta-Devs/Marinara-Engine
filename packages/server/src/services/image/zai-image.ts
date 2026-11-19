@@ -1,3 +1,4 @@
+import { isRecord } from "../../utils/large-json.js";
 const GLM_IMAGE_SIZES = [
   "1280x1280",
   "1568x1056",
@@ -25,10 +26,6 @@ type ZaiImageRequestInput = {
   width?: number;
   height?: number;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 export function buildZaiImageUrl(baseUrl: string): string {
   const parsed = new URL(baseUrl.replace(/\/+$/, ""));

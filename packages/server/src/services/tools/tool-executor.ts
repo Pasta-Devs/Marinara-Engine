@@ -1,4 +1,5 @@
 import { currentRoomGeneration, roomToolAllowed } from "../multiplayer/generation-policy.js";
+import { sleep } from "../../utils/sleep.js";
 // ──────────────────────────────────────────────
 // Tool Executor — Handles built-in + custom function calls
 // ──────────────────────────────────────────────
@@ -1351,10 +1352,6 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
   return Math.max(min, Math.min(max, Math.round(num)));
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function normalizeSpotifyRepeatState(value: unknown): "off" | "track" | "context" {
   return value === "track" || value === "context" ? value : "off";
 }
@@ -1523,7 +1520,7 @@ async function waitForSpotifyPlayback(
 ): Promise<SpotifyPlaybackSnapshot | null> {
   let latest: SpotifyPlaybackSnapshot | null = null;
   for (const delay of SPOTIFY_PLAYBACK_VERIFY_DELAYS_MS) {
-    if (delay > 0) await wait(delay);
+    if (delay > 0) await sleep(delay);
     latest = await fetchSpotifyPlaybackSnapshot(accessToken);
     if (expectedTrackUri) {
       if (latest?.isPlaying && latest.trackUri === expectedTrackUri) return latest;
@@ -1609,12 +1606,12 @@ async function primeSpotifyPlaybackDevice(
     logger.debug("[spotify] Idle-device prime failed for %s", deviceName ?? deviceId);
     return;
   }
-  await wait(SPOTIFY_PLAYBACK_SETTLE_MS);
+  await sleep(SPOTIFY_PLAYBACK_SETTLE_MS);
 }
 
 async function clearSpotifyRepeatBeforePlayback(accessToken: string, deviceId: string | null): Promise<void> {
   for (const delay of SPOTIFY_REPEAT_RETRY_DELAYS_MS) {
-    if (delay > 0) await wait(delay);
+    if (delay > 0) await sleep(delay);
     const repeat = await applySpotifyRepeatAfterPlay(accessToken, "off", deviceId);
     if (repeat !== "off") continue;
     const snapshot = await fetchSpotifyPlaybackSnapshot(accessToken);
@@ -1667,7 +1664,7 @@ async function verifyOrNudgeSpotifyPlayback(args: {
   );
   let transferred = await transferSpotifyPlaybackToDevice(args.accessToken, args.targetDeviceId, false);
   if (transferred) {
-    await wait(SPOTIFY_PLAYBACK_SETTLE_MS);
+    await sleep(SPOTIFY_PLAYBACK_SETTLE_MS);
     const retry = await requestSpotifyPlayback(args.accessToken, args.targetDeviceId, args.body);
     if (retry.ok) {
       current = await waitForSpotifyPlayback(args.accessToken, args.expectedTrackUri);
@@ -1679,7 +1676,7 @@ async function verifyOrNudgeSpotifyPlayback(args: {
 
   transferred = await transferSpotifyPlaybackToDevice(args.accessToken, args.targetDeviceId, true);
   if (transferred) {
-    await wait(SPOTIFY_PLAYBACK_SETTLE_MS);
+    await sleep(SPOTIFY_PLAYBACK_SETTLE_MS);
     const retry = await requestSpotifyPlayback(args.accessToken, args.targetDeviceId, args.body);
     if (retry.ok) {
       current = await waitForSpotifyPlayback(args.accessToken, args.expectedTrackUri);
@@ -2212,7 +2209,7 @@ async function spotifyPlay(
     const body: SpotifyPlayRequestBody = { uris: playbackUris, position_ms: 0 };
     const play = await requestSpotifyPlayback(creds.accessToken, playDeviceId, body);
     if (!play.ok) return { error: play.error };
-    if (singleTrackUri) await wait(SPOTIFY_PLAYBACK_SETTLE_MS);
+    if (singleTrackUri) await sleep(SPOTIFY_PLAYBACK_SETTLE_MS);
     let repeat = repeatTrackList
       ? null
       : await applySpotifyRepeatAfterPlay(creds.accessToken, effectiveRepeatAfterPlay, playDeviceId);
@@ -2242,7 +2239,7 @@ async function spotifyPlay(
     }
     if (repeatTrackList && current?.repeatState !== "context") {
       for (const delay of SPOTIFY_REPEAT_RETRY_DELAYS_MS) {
-        if (delay > 0) await wait(delay);
+        if (delay > 0) await sleep(delay);
         repeat = await applySpotifyRepeatAfterPlay(creds.accessToken, "context", targetDeviceId);
         const repeatSnapshot = await fetchSpotifyPlaybackSnapshot(creds.accessToken);
         if (repeatSnapshot) current = repeatSnapshot;
@@ -2312,7 +2309,7 @@ async function applySpotifyRepeatAfterPlay(
 
   for (let i = 0; i < attempts; i++) {
     const delay = SPOTIFY_REPEAT_RETRY_DELAYS_MS[Math.min(i, SPOTIFY_REPEAT_RETRY_DELAYS_MS.length - 1)] ?? 0;
-    if (delay > 0) await wait(delay);
+    if (delay > 0) await sleep(delay);
     const params = new URLSearchParams({ state: repeatAfterPlay });
     if (deviceId) params.set("device_id", deviceId);
     const res = await fetch(`https://api.spotify.com/v1/me/player/repeat?${params.toString()}`, {

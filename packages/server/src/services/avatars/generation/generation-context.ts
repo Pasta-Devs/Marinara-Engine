@@ -29,7 +29,7 @@ import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import type { DB } from "../../../db/connection.js";
 import { logDebugOverride } from "../../../lib/logger.js";
 import { DATA_DIR } from "../../../utils/data-dir.js";
-import { assertInsideDir, isAllowedImageBuffer } from "../../../utils/security.js";
+import { isAllowedImageBuffer, resolveInside } from "../../../utils/security.js";
 import { resolveImageConnectionFallback } from "../../generation/media-connection-fallback.js";
 import {
   resolveConnectionImageDefaults,
@@ -172,7 +172,7 @@ export interface AvatarSourceSprite {
 /** Sprite labels of an owner, sorted: the ones that can be edited (raster files), or with `all` every
  *  sprite, SVG ones too. */
 export function listAvatarSourceSprites(ownerId: string, { all = false } = {}): string[] {
-  const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, ownerId));
+  const dir = resolveInside(SPRITES_ROOT, ownerId);
   if (!existsSync(dir)) return [];
   const extensions = all ? SPRITE_EXTENSIONS : SPRITE_SOURCE_EXTENSIONS;
   return readdirSync(dir)
@@ -184,7 +184,7 @@ export function listAvatarSourceSprites(ownerId: string, { all = false } = {}): 
 
 /** Reads one of the owner's sprites by its exact label and decodes it to PNG. */
 export async function readAvatarSourceSprite(ownerId: string, label: string): Promise<AvatarSourceSprite> {
-  const dir = assertInsideDir(SPRITES_ROOT, join(SPRITES_ROOT, ownerId));
+  const dir = resolveInside(SPRITES_ROOT, ownerId);
   const filename = existsSync(dir)
     ? readdirSync(dir).find(
         (name) =>
@@ -192,7 +192,7 @@ export async function readAvatarSourceSprite(ownerId: string, label: string): Pr
       )
     : undefined;
   if (!filename) throw new AvatarGenerationError(404, `The sprite "${label}" was not found.`);
-  const bytes = await readFile(assertInsideDir(dir, join(dir, filename)));
+  const bytes = await readFile(resolveInside(dir, filename));
   if (!isAllowedImageBuffer(bytes)) {
     throw new AvatarGenerationError(422, `The sprite "${label}" is not a picture the image model can read.`);
   }

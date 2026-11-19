@@ -128,12 +128,7 @@ export function BuiltinEmotionDetail() {
         <FactRow label={t("connections.device.fact.model")}>
           {MODEL_LABEL}
           <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
-            {[
-              onDisk ? "" : t("connections.builtinEmbedding.notDownloadedSize", { size: formatBytes(data.totalBytes) }),
-              t("connections.builtinEmotion.about", { license: MODEL_LICENSE }),
-            ]
-              .filter(Boolean)
-              .join(" ")}
+            {[t("connections.builtinEmotion.about", { license: MODEL_LICENSE })].filter(Boolean).join(" ")}
           </span>
         </FactRow>
         <FactRow label={t("connections.device.fact.memory")}>

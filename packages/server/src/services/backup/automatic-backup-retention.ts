@@ -35,10 +35,14 @@ function formatBackupBytes(bytes: number): string {
 }
 
 /** Settings-panel message when the backups disk cannot hold the next archive, or null when it can. */
-export function automaticBackupFreeSpaceError(freeBytes: number, archiveBytes: number): string | null {
+export function automaticBackupFreeSpaceError(
+  freeBytes: number,
+  archiveBytes: number,
+  backupLabel = "the automatic backup",
+): string | null {
   const requiredBytes = archiveBytes + AUTOMATIC_BACKUP_FREE_SPACE_HEADROOM_BYTES;
   if (freeBytes >= requiredBytes) return null;
-  return `Not enough free space for the automatic backup: ${formatBackupBytes(freeBytes)} free, about ${formatBackupBytes(requiredBytes)} needed.`;
+  return `Not enough free space for ${backupLabel}: ${formatBackupBytes(freeBytes)} free, about ${formatBackupBytes(requiredBytes)} needed.`;
 }
 
 export function automaticBackupArchiveFilename(date: Date, uniqueSuffix = ""): string {

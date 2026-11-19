@@ -348,7 +348,9 @@
 }
 :root[data-mari-large-text] .mari-home-professor-widget [data-home-professor-description],
 :root[data-mari-large-text] [data-mari-part="home-widget"] [data-mari-part="home-widget-title"],
-:root[data-mari-large-text] .mari-home-widget-shortcut :is(p, span) {
+/* Only the text unclamps: icon tiles (Things to try) are spans too, and display: block knocked their
+   symbol to the top of the tile. */
+:root[data-mari-large-text] .mari-home-widget-shortcut :is(.mari-home-widget-shortcut__title, .mari-home-widget-shortcut__description) {
   display: block;
   -webkit-line-clamp: none;
   line-clamp: none;
@@ -862,7 +864,6 @@
 :root[data-mari-min-ui-text] .ov-povw__line,
 :root[data-mari-min-ui-text] .ov-cs__mode,
 :root[data-mari-min-ui-text] .ov-cs__hidden,
-:root[data-mari-min-ui-text] .ov-cs-edit__hint,
 :root[data-mari-min-ui-text] .ov-cs-edit__panel,
 :root[data-mari-min-ui-text] .ov-cs .mari-drawer__body,
 :root[data-mari-min-ui-text]

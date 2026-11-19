@@ -6,6 +6,7 @@ import { createChatFolderSchema, moveChatToFolderSchema, reorderChatsInFolderSch
 import { createChatFoldersStorage } from "../services/storage/chat-folders.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { registerFolderCrudRoutes } from "./folder-routes.shared.js";
+import { notFound } from "../utils/not-found.js";
 
 export async function chatFoldersRoutes(app: FastifyInstance) {
   const storage = createChatFoldersStorage(app.db);
@@ -19,7 +20,7 @@ export async function chatFoldersRoutes(app: FastifyInstance) {
     // Validate folder exists if non-null
     if (folderId) {
       const folder = await storage.getById(folderId);
-      if (!folder) return reply.status(404).send({ error: "Folder not found" });
+      if (!folder) return notFound(reply, "Folder not found");
     }
     // Propagate the folder to every branch in the group so later branch
     // creation/deletion doesn't drop the tree back into Uncategorized.

@@ -19,7 +19,7 @@ import {
   writeBackgroundLibraryOrganization,
   type BackgroundLibraryOrganization,
 } from "../services/background-library-organization.js";
-import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
+import { assertInsideDir, isAllowedImageBuffer, resolveInside } from "../utils/security.js";
 import { sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -51,6 +51,8 @@ import {
   resolveGameSetupArtStylePrompt,
   sceneShelter,
 } from "@marinara-engine/shared";
+import { parseJsonRecord } from "../utils/large-json.js";
+import { notFound } from "../utils/not-found.js";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const META_PATH = join(BG_DIR, "meta.json");
@@ -198,19 +200,6 @@ function encodeAssetPath(path: string): string {
     .join("/");
 }
 
-function parseRecord(value: unknown): Record<string, unknown> {
-  if (!value) return {};
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-    } catch {
-      return {};
-    }
-  }
-  return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
 function readTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
@@ -219,7 +208,7 @@ async function readIllustratorImageConnectionId(
   agents: ReturnType<typeof createAgentsStorage>,
 ): Promise<string | null> {
   const agent = await agents.getByType("illustrator");
-  return readTrimmedString(parseRecord(agent?.settings).imageConnectionId);
+  return readTrimmedString(parseJsonRecord(agent?.settings).imageConnectionId);
 }
 
 async function resolveSceneBackgroundImageConnection(
@@ -342,7 +331,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Folder name is required and must be 80 characters or fewer" });
     const organization = readOrganization();
     const folder = organization.folders.find((candidate) => candidate.id === id);
-    if (!folder) return reply.status(404).send({ error: "Folder not found" });
+    if (!folder) return notFound(reply, "Folder not found");
     folder.name = parsed.data.name;
     folder.updatedAt = new Date().toISOString();
     writeOrganization(organization);
@@ -353,7 +342,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const organization = readOrganization();
     if (!organization.folders.some((folder) => folder.id === id)) {
-      return reply.status(404).send({ error: "Folder not found" });
+      return notFound(reply, "Folder not found");
     }
     writeOrganization(removeBackgroundFolder(organization, id));
     return { success: true };
@@ -364,12 +353,12 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     if (!parsed.success) return reply.status(400).send({ error: "A valid backgroundId and folderId are required" });
     const organization = readOrganization();
     if (parsed.data.folderId && !organization.folders.some((folder) => folder.id === parsed.data.folderId)) {
-      return reply.status(404).send({ error: "Folder not found" });
+      return notFound(reply, "Folder not found");
     }
 
     const knownIds = knownBackgroundIds();
     if (!knownIds.has(parsed.data.backgroundId)) {
-      return reply.status(404).send({ error: "Background not found" });
+      return notFound(reply, "Background not found");
     }
 
     if (parsed.data.folderId) organization.assignments[parsed.data.backgroundId] = parsed.data.folderId;
@@ -384,7 +373,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "A valid backgroundId and favorite flag are required" });
     const knownIds = knownBackgroundIds();
     if (!knownIds.has(parsed.data.backgroundId)) {
-      return reply.status(404).send({ error: "Background not found" });
+      return notFound(reply, "Background not found");
     }
 
     const organization = readOrganization();
@@ -466,7 +455,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     };
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(input.chatId);
-    if (!chat) return { response: reply.status(404).send({ error: "Chat not found" }) };
+    if (!chat) return { response: notFound(reply, "Chat not found") };
 
     const mode = String(chat.mode ?? "");
     if (!SCENE_BACKGROUND_MODES.has(mode)) {
@@ -477,7 +466,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       };
     }
 
-    const metadata = parseRecord(chat.metadata);
+    const metadata = parseJsonRecord(chat.metadata);
     const connections = createConnectionsStorage(app.db);
     const agents = createAgentsStorage(app.db);
     const imgConn = await resolveSceneBackgroundImageConnection(connections, agents, mode, metadata);
@@ -490,7 +479,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       };
     }
 
-    const setupConfig = parseRecord(metadata.gameSetupConfig);
+    const setupConfig = parseJsonRecord(metadata.gameSetupConfig);
     const gameState =
       mode === "game"
         ? await createGameStateStorage(app.db)
@@ -644,7 +633,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(input.chatId);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
-    const metadata = parseRecord(chat.metadata);
+    const metadata = parseJsonRecord(chat.metadata);
     const background = readTrimmedString(metadata.background);
     const plain = background ? chatBackgroundPlainPicture(background) : null;
     if (!background || !plain) {
@@ -719,9 +708,9 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    const filePath = resolveInside(BG_DIR, filename);
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const body = req.body as { tags?: string[] };
@@ -758,9 +747,9 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    const filePath = resolveInside(BG_DIR, filename);
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const body = req.body as { name?: string };
@@ -781,7 +770,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     }
 
     const newFilename = uniqueFilename(desired);
-    const newPath = assertInsideDir(BG_DIR, join(BG_DIR, newFilename));
+    const newPath = resolveInside(BG_DIR, newFilename);
 
     renameSync(filePath, newPath);
 
@@ -818,16 +807,16 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    let filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    let filePath = resolveInside(BG_DIR, filename);
     if (!existsSync(filePath)) {
       // A background regenerated in another format replaced this file, so older references show the new image.
       const replacement = replacedGeneratedChatBackgroundPath(filename);
-      if (!replacement) return reply.status(404).send({ error: "Not found" });
+      if (!replacement) return notFound(reply, "Not found");
       filePath = assertInsideDir(BG_DIR, replacement);
     }
 
     const image = await validateImageAssetFile(filePath, filename);
-    if (!image) return reply.status(404).send({ error: "Not found" });
+    if (!image) return notFound(reply, "Not found");
 
     // Downscaled variant when asked for one; falls back to the original on any miss.
     const thumbPath = requestedWidth ? await resolveThumbPath(filePath, requestedWidth) : null;
@@ -869,9 +858,9 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    const filePath = resolveInside(BG_DIR, filename);
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     unlinkSync(filePath);

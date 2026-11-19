@@ -51,6 +51,8 @@ The **Prompt Mode** picker (labeled **Prompt** on the card) sets the art style f
 
 The final look also depends on your style profile. See [Image Style Profiles](style-profiles.md).
 
+To draw one picture in another style without changing the chat's choice, type `/illustrate template=` and the style's name, such as `/illustrate template="Comic Page"`. See [Slash Commands](../chats/slash-commands.md#illustrate-and-make-artifacts).
+
 ## Choose the prompt model
 
 The **Prompt Model** is the text model that writes the image prompt. It does not draw. Pick it in the **Prompt Model** list on the card. The default is **Main chat model**, which reuses your chat's model. Choose another text model if you want a different one to write prompts.
@@ -71,6 +73,15 @@ Two settings on the card help characters look the same across pictures. Both sta
 When it is on, a card or persona with **Image Appearance Override** turned on sends that override instead of its **Appearance** text. Use it when **Appearance** is written for the narrator but reads badly to an image model. Keep the full description in **Appearance** and put a shorter, tag-style version in the override. With the override off or empty, image prompts use **Appearance**. The narrator always sees the full **Appearance**. The switch is under **Appearance** in the Character and Persona editors.
 
 **Send Avatar References** sends character and persona avatars, or their sprites, to the image service as reference images, so the model can copy a face or outfit. Not every service accepts them. In a Roleplay chat it is a list like **Attach Card Appearance**. With videos included, a clip whose **First frame** is **Prompt only** starts from the character's avatar or sprite, and the choice reads **Prompt only (avatar from Send Avatar References)**.
+
+With **Send Avatar References** on for images, **Reference pictures go to** picks who gets them:
+
+- **Automatic** (default): the image model when its connection takes reference pictures, otherwise the prompt writer.
+- **Image model**: only the image model. A connection that can't take them gets none.
+- **Prompt writer**: only the Illustrator's prompt writer, which looks at them and describes what it sees in the image prompt.
+- **Both**: the image model and the prompt writer.
+
+The prompt writer is the way around image models that drop reference pictures, such as NovelAI V5. It needs a writer model that reads images. If the writer refuses them, its request is sent again without the pictures, and that writer gets none until the server restarts. A writer whose connection is marked as not reading images gets none. Sending pictures to the writer costs tokens on every run. Up to four pictures go: the cards named in `[illustrate: characters="…"]`, or else the chat's active characters and persona. **What to carry over from the pictures** says what the writer copies, such as only the look and not the art style. A Roleplay chat can set its own **Reference pictures go to** under **Send Avatar References**.
 
 ## Control how often it draws
 

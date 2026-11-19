@@ -50,7 +50,7 @@ Before you start: add an image generation connection.
 
 ### Fix how a sheet was cut
 
-After a sticker or emoji sheet is generated, each sticker is found by its outline, its green background is removed, and it appears as its own tile with its name. Saved stickers are at most 512 by 512 pixels and emoji at most 256 by 256, and each is tagged with its name.
+After a sticker or emoji sheet is generated, each sticker is found by its outline, its green background is removed, and it appears as its own tile with its name. On a model that draws see-through pictures (see [Transparent backgrounds](../media/image-providers.md#transparent-backgrounds)), the sheet is asked for a see-through background instead, with green only as the fallback, and a sheet that comes back see-through keeps its edges as drawn. Saved stickers are at most 512 by 512 pixels and emoji at most 256 by 256, and each is tagged with its name.
 
 - Click a tile to keep or skip it. Skipped tiles are not saved.
 - Edit the name under a tile to rename it.

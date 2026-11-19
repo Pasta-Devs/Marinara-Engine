@@ -160,6 +160,13 @@ export type ConversationAvatarShape = "circle" | "square";
 /** Chat profile pictures on phones: a small one by the name, the full column, or none. */
 export type PhoneChatAvatars = "mini" | "full" | "off";
 export type TrackerPanelSide = "left" | "right";
+/** Which edge of a desktop window the one sidebar (Chats and the panels) docks to; phones and tablets ignore it. */
+export type SidebarSide = "left" | "right";
+
+/** Stale or unknown synced values keep the sidebar on the right. */
+export function normalizeSidebarSide(value: unknown): SidebarSide {
+  return value === "left" ? "left" : "right";
+}
 export type TrackerThoughtBubbleDisplay = "inline" | "floating";
 export type TrackerStatDisplayMode = "bars" | "gauges";
 export type MusicPlayerSource = "spotify" | "youtube" | "custom";
@@ -301,6 +308,9 @@ export const SIDEBAR_WIDTH_MIN = 240;
 export const SIDEBAR_WIDTH_MAX = 480;
 export const RIGHT_PANEL_WIDTH_MIN = 280;
 export const RIGHT_PANEL_WIDTH_MAX = 520;
+/** The one desktop sidebar's width range: both stored widths are kept equal inside it. */
+export const SHARED_SIDEBAR_WIDTH_MIN = Math.max(SIDEBAR_WIDTH_MIN, RIGHT_PANEL_WIDTH_MIN);
+export const SHARED_SIDEBAR_WIDTH_MAX = Math.min(SIDEBAR_WIDTH_MAX, RIGHT_PANEL_WIDTH_MAX);
 export const TRACKER_PANEL_SIZE_PROFILE_WIDTHS: Record<TrackerPanelSizeProfile, number> = {
   compact: 280,
   standard: 340,
@@ -587,8 +597,9 @@ export function isMobileShellViewport(): boolean {
   // the media query. A sidebar width setting must never flip the whole app to the phone layout.
   if (isOverhaulLook()) return false;
   const { sidebarWidth, rightPanelWidth } = useUIStore.getState();
-  // Reserve both docked widths plus room for the topbar controls. Checking
-  // capacity, not open panels, avoids layout flips while switching sidebars.
+  // Reserve twice the sidebar width plus room for the topbar controls, the room the old two docked sidebars
+  // needed, so the switch to the phone layout stays where it was. Checking capacity, not open panels, avoids
+  // layout flips while switching panels.
   return window.innerWidth < 2 * (rightPanelWidth || sidebarWidth) + 384;
 }
 
@@ -818,6 +829,7 @@ export interface UIState {
   rightPanelOpen: boolean;
   rightPanelWidth: number;
   rightPanel: Panel;
+  sidebarSide: SidebarSide;
   trackerPanelEnabled: boolean;
   /** This chat uses the Tracker Panel; its runtime visibility lives in the floating-window store. */
   trackerPanelOpen: boolean;
@@ -1249,6 +1261,8 @@ export interface UIState {
   chibiProfessorMariEnabled: boolean;
   /** When true, Professor Mari shows generated suggestion chips and guided-plan options. */
   professorMariSuggestionsEnabled: boolean;
+  /** When true, Professor Mari's suggestions box above her composer is folded to one line. */
+  professorMariSuggestionsCollapsed: boolean;
   /** When true, the omnibar adds proactive context and edit suggestions. */
   omnibarSuggestionsEnabled: boolean;
   /** When true, achievements appear on Home and announce unlocks. Backend tracking stays silent either way. */
@@ -1466,6 +1480,8 @@ export interface UIState {
   impersonatePresetId: string | null;
   /** When true, suppress agent pipeline during impersonate. Persisted. */
   impersonateBlockAgents: boolean;
+  /** When true, Roleplay impersonates send each character's Public Face in place of its card (#9427). Persisted. */
+  impersonatePublicFaces: boolean;
 
   /** Transient: true when center content area is too narrow (overflow detected) */
   centerCompact: boolean;
@@ -1487,6 +1503,7 @@ export interface UIState {
   hideSidebarForFight: (hidden: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
+  setSidebarSide: (side: SidebarSide) => void;
   toggleTrackerPanel: (chatId?: string | null) => void;
   setTrackerPanelEnabled: (enabled: boolean) => void;
   setTrackerPanelOpen: (open: boolean, chatId?: string | null) => void;
@@ -1741,6 +1758,7 @@ export interface UIState {
   setTTSLineVolume: (v: number) => void;
   setChibiProfessorMariEnabled: (v: boolean) => void;
   setProfessorMariSuggestionsEnabled: (v: boolean) => void;
+  setProfessorMariSuggestionsCollapsed: (v: boolean) => void;
   setOmnibarSuggestionsEnabled: (v: boolean) => void;
   setAchievementsEnabled: (v: boolean) => void;
   setSeasonalThemesDisabled: (v: boolean) => void;
@@ -1835,6 +1853,7 @@ export interface UIState {
   setAddCyoaChoicesToMessage: (v: boolean) => void;
   setImpersonatePresetId: (id: string | null) => void;
   setImpersonateBlockAgents: (v: boolean) => void;
+  setImpersonatePublicFaces: (v: boolean) => void;
 
   /** Legacy migration helpers for browser-local custom themes. */
   setHasMigratedCustomThemesToServer: (v: boolean) => void;
@@ -2181,6 +2200,7 @@ export function pickSyncedSettings(state: UIState) {
     ttsLineVolume: state.ttsLineVolume,
     chibiProfessorMariEnabled: state.chibiProfessorMariEnabled,
     professorMariSuggestionsEnabled: state.professorMariSuggestionsEnabled,
+    professorMariSuggestionsCollapsed: state.professorMariSuggestionsCollapsed,
     omnibarSuggestionsEnabled: state.omnibarSuggestionsEnabled,
     mariPanelSortMode: state.mariPanelSortMode,
     omnibarAsideEnabled: state.omnibarAsideEnabled,
@@ -2282,13 +2302,30 @@ export function pickSyncedSettings(state: UIState) {
     addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
     impersonateBlockAgents: state.impersonateBlockAgents,
+    impersonatePublicFaces: state.impersonatePublicFaces,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
   };
 }
 
-/** Whether the chat list is drawn: the player's choice, unless a fight on a board has it hidden. */
+/**
+ * Whether the chat list is drawn: the player's choice, unless a fight on a board has it hidden. This build keeps the
+ * classic layout's two sidebars (the new layout has its own one sidebar), so an open panel doesn't hide it.
+ */
 export function selectSidebarShown(state: Pick<UIState, "sidebarOpen" | "sidebarHiddenForFight">) {
   return state.sidebarOpen && !state.sidebarHiddenForFight;
+}
+
+/** Whether the one sidebar is open, on Chats or on a panel. */
+export function selectOneSidebarOpen(state: Pick<UIState, "sidebarOpen" | "sidebarHiddenForFight" | "rightPanelOpen">) {
+  return state.rightPanelOpen || selectSidebarShown(state);
+}
+
+/** The one sidebar's width: both stored widths are kept equal, the panel's first as it always was. */
+export function selectSharedSidebarWidth(state: Pick<UIState, "sidebarWidth" | "rightPanelWidth">) {
+  return Math.max(
+    SHARED_SIDEBAR_WIDTH_MIN,
+    Math.min(SHARED_SIDEBAR_WIDTH_MAX, state.rightPanelWidth || state.sidebarWidth),
+  );
 }
 
 export function pickPersistedUIState(state: UIState) {
@@ -2300,6 +2337,7 @@ export function pickPersistedUIState(state: UIState) {
     rightPanelOpen: state.rightPanelOpen,
     rightPanelWidth: state.rightPanelWidth,
     rightPanel: state.rightPanel,
+    sidebarSide: state.sidebarSide,
     settingsTab: state.settingsTab,
     characterDetailId: state.characterDetailId,
     lorebookDetailId: state.lorebookDetailId,
@@ -2477,6 +2515,7 @@ export function pickPersistedUIState(state: UIState) {
     ttsLineVolume: state.ttsLineVolume,
     chibiProfessorMariEnabled: state.chibiProfessorMariEnabled,
     professorMariSuggestionsEnabled: state.professorMariSuggestionsEnabled,
+    professorMariSuggestionsCollapsed: state.professorMariSuggestionsCollapsed,
     omnibarSuggestionsEnabled: state.omnibarSuggestionsEnabled,
     achievementsEnabled: state.achievementsEnabled,
     seasonalThemesDisabled: state.seasonalThemesDisabled,
@@ -2577,6 +2616,7 @@ export function pickPersistedUIState(state: UIState) {
     addCyoaChoicesToMessage: state.addCyoaChoicesToMessage,
     impersonatePresetId: state.impersonatePresetId,
     impersonateBlockAgents: state.impersonateBlockAgents,
+    impersonatePublicFaces: state.impersonatePublicFaces,
     learnedGameSetupOptions: state.learnedGameSetupOptions,
     rememberedGameSetupText: state.rememberedGameSetupText,
   };
@@ -2603,6 +2643,7 @@ export const useUIStore = create<UIState>()(
         rightPanelOpen: false,
         rightPanelWidth: 320,
         rightPanel: "chat" as Panel,
+        sidebarSide: "right" as SidebarSide,
         trackerPanelEnabled: true,
         trackerPanelOpen: false,
         trackerPanelOpenByChatId: {},
@@ -2848,6 +2889,7 @@ export const useUIStore = create<UIState>()(
         ttsLineVolume: 50,
         chibiProfessorMariEnabled: true,
         professorMariSuggestionsEnabled: true,
+        professorMariSuggestionsCollapsed: false,
         omnibarSuggestionsEnabled: true,
         achievementsEnabled: true,
         seasonalThemesDisabled: false,
@@ -2963,6 +3005,7 @@ export const useUIStore = create<UIState>()(
         addCyoaChoicesToMessage: false,
         impersonatePresetId: null,
         impersonateBlockAgents: false,
+        impersonatePublicFaces: false,
 
         toggleSidebar: () =>
           set((s) => {
@@ -2984,6 +3027,7 @@ export const useUIStore = create<UIState>()(
           set({ sidebarWidth: Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width)) }),
         setRightPanelWidth: (width) =>
           set({ rightPanelWidth: Math.max(RIGHT_PANEL_WIDTH_MIN, Math.min(RIGHT_PANEL_WIDTH_MAX, width)) }),
+        setSidebarSide: (side) => set({ sidebarSide: normalizeSidebarSide(side) }),
         toggleTrackerPanel: (chatId) =>
           set((s) => {
             const trackerPanelOpen = s.trackerPanelEnabled ? !s.trackerPanelOpen : false;
@@ -3052,8 +3096,8 @@ export const useUIStore = create<UIState>()(
 
         openRightPanel: (panel) =>
           set(() => {
-            const mobile = isMobileShellViewport();
             dismissChatFloatingUiForMobilePanel(true);
+            const mobile = isMobileShellViewport();
             return {
               rightPanelOpen: true,
               rightPanel: panel,
@@ -3064,8 +3108,8 @@ export const useUIStore = create<UIState>()(
         toggleRightPanel: (panel) =>
           set((s) => {
             if (s.rightPanelOpen && s.rightPanel === panel) return { rightPanelOpen: false };
-            const mobile = isMobileShellViewport();
             dismissChatFloatingUiForMobilePanel(true);
+            const mobile = isMobileShellViewport();
             return {
               rightPanelOpen: true,
               rightPanel: panel,
@@ -3634,6 +3678,7 @@ export const useUIStore = create<UIState>()(
         setTTSLineVolume: (v) => set({ ttsLineVolume: Math.max(0, Math.min(100, Math.round(v))) }),
         setChibiProfessorMariEnabled: (v) => set({ chibiProfessorMariEnabled: v }),
         setProfessorMariSuggestionsEnabled: (v) => set({ professorMariSuggestionsEnabled: v }),
+        setProfessorMariSuggestionsCollapsed: (v) => set({ professorMariSuggestionsCollapsed: v }),
         setOmnibarSuggestionsEnabled: (v) => set({ omnibarSuggestionsEnabled: v }),
         setAchievementsEnabled: (v) => set({ achievementsEnabled: v }),
         // Switching seasonal themes back on also undoes a "Turn it off" from this year's greeting.
@@ -3745,6 +3790,7 @@ export const useUIStore = create<UIState>()(
         // Swipe-menu choices intentionally survive appearance resets; only their toggles change them.
         resetAppearanceSettings: () =>
           set({
+            sidebarSide: "right" as SidebarSide,
             trackerPanelEnabled: true,
             trackerPanelOpen: false,
             trackerPanelOpenByChatId: {},
@@ -3924,6 +3970,7 @@ export const useUIStore = create<UIState>()(
         setAddCyoaChoicesToMessage: (v) => set({ addCyoaChoicesToMessage: v }),
         setImpersonatePresetId: (id) => set({ impersonatePresetId: id }),
         setImpersonateBlockAgents: (v) => set({ impersonateBlockAgents: v }),
+        setImpersonatePublicFaces: (v) => set({ impersonatePublicFaces: v }),
         setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
         clearLegacyCustomThemes: () => set({ customThemes: [], activeCustomTheme: null }),
         setHasCompletedOnboarding: (v) => set({ hasCompletedOnboarding: v }),
@@ -4214,6 +4261,7 @@ export const useUIStore = create<UIState>()(
           if (persisted.impersonatePromptTemplate === undefined) persisted.impersonatePromptTemplate = "";
           if (persisted.impersonatePresetId === undefined) persisted.impersonatePresetId = null;
           if (persisted.impersonateBlockAgents === undefined) persisted.impersonateBlockAgents = false;
+          if (persisted.impersonatePublicFaces === undefined) persisted.impersonatePublicFaces = false;
           if (persisted.trimIncompleteModelOutput === undefined) {
             persisted.trimIncompleteModelOutput = false;
           }
@@ -4733,6 +4781,7 @@ export const useUIStore = create<UIState>()(
           ),
           chatWidgetPreset: normalizeChatWidgetPreset(persisted.chatWidgetPreset),
           roleplayChatPosition: normalizeRoleplayChatPosition(persisted.roleplayChatPosition),
+          sidebarSide: normalizeSidebarSide(persisted.sidebarSide),
           roleplayChatWidthPercent: normalizeRoleplayChatWidthPercent(persisted.roleplayChatWidthPercent),
           chatWidgetFont: normalizeChatWidgetFont(persisted.chatWidgetFont),
           chatWidgetShape: normalizeChatWidgetShape(persisted.chatWidgetShape),

@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { addAbortListener } from "node:events";
-import { access, mkdir, readdir, rename, unlink, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import {
   GENERATIVE_AUDIO_DEFAULTS,
@@ -22,6 +22,7 @@ import {
   validateSunoMusicCallback,
   type GenerativeAudioProviderConfig,
 } from "./generative-audio-providers.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 export type GeneratedAudioContext =
   { axis: "area" | "tier"; key: string; lengthMs?: number } | { scope: string; key: string; lengthMs?: number };
@@ -264,14 +265,7 @@ async function compose(
     lengthMs: context ? (context.lengthMs ?? 120_000) : undefined,
   });
   await mkdir(directory, { recursive: true });
-  const temporary = join(directory, `.${hash}.${randomUUID()}.tmp`);
-  try {
-    await writeFile(temporary, bytes);
-    await rename(temporary, join(GAME_ASSETS_DIR, path));
-  } catch (error) {
-    await unlink(temporary).catch(() => {});
-    throw error;
-  }
+  await writeFileAtomic(join(GAME_ASSETS_DIR, path), bytes);
   if (isConnectionTest) {
     const previousTracks = await readdir(directory, { withFileTypes: true }).catch((error) => {
       logger.warn(error, "Failed to list previous connection test tracks");

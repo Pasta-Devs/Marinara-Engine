@@ -2,12 +2,13 @@
 // File Browser — Text file editor modal
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FileText, X } from "lucide-react";
+import { FileText } from "lucide-react";
 import type { TreeNode } from "../../hooks/use-game-assets";
 import { useGameAssetFileContent, useSaveGameAssetFile } from "../../hooks/use-game-assets";
 import { cn } from "../../lib/utils";
 import { handleTextareaTab } from "../../lib/textarea-editing";
 import { toast } from "sonner";
+import { Modal } from "../ui/Modal";
 import { renderMarkdownBlocks, applyInlineMarkdown } from "../../lib/markdown";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -113,16 +114,12 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
   const isMd = node.ext === ".md";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 pb-[max(var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4 sm:pl-[max(1rem,var(--mari-safe-area-inset-left))] sm:pr-[max(1rem,var(--mari-safe-area-inset-right))]"
-      onClick={handleRequestClose}
-    >
-      <div
-        className="flex h-[85vh] max-h-[calc(100vh-1.5rem)] w-full max-w-4xl flex-col rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-xl supports-[height:100dvh]:h-[85dvh] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--border)]/40 px-4 py-3">
+    <Modal
+      open
+      onClose={handleRequestClose}
+      title={node.name}
+      titleSlot={
+        <div className="flex w-full items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <FileText size="1rem" className="text-[var(--foreground)]/80" />
             <span className="text-sm font-semibold text-[var(--foreground)]">
@@ -157,51 +154,15 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
                 </button>
               </div>
             )}
-            <button
-              onClick={handleRequestClose}
-              className="rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-            >
-              <X size="1rem" />
-            </button>
           </div>
         </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-hidden">
-          {isLoading ? (
-            <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
-              {localizeUi("ui.characters.characterlibraryview.loading")}
-            </div>
-          ) : mode === "preview" && isMd ? (
-            <div className="h-full overflow-y-auto p-6">
-              <div className="mari-message-content whitespace-pre-wrap break-words text-sm text-[var(--foreground)]">
-                {renderMarkdownBlocks(content, applyInlineMarkdown, "editor-preview")}
-              </div>
-            </div>
-          ) : (
-            <div className="grid h-full grid-cols-[3rem_minmax(0,1fr)]">
-              <pre
-                ref={lineNumbersRef}
-                className="h-full overflow-hidden border-r border-[var(--border)]/40 bg-[var(--accent)]/30 py-3 pr-2 text-right font-mono text-xs leading-relaxed text-[var(--muted-foreground)]"
-              >
-                {lineNumbers}
-              </pre>
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                onScroll={handleScroll}
-                onKeyDown={handleKeyDown}
-                spellCheck={false}
-                maxLength={MAX_TEXT_LENGTH}
-                className="h-full w-full resize-none bg-[var(--card)] p-3 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-[var(--border)]/40 px-4 py-3">
+      }
+      width="max-w-4xl"
+      mobileFullscreen
+      panelClassName="sm:h-[85vh]"
+      contentClassName="flex flex-col !overflow-hidden !p-0"
+      footer={
+        <div className="flex w-full items-center justify-between gap-2">
           <span className="text-xs text-[var(--muted-foreground)]">
             {content.length.toLocaleString()} {localizeUi("ui.panels.promptoverrideseditorbody.chars")}
           </span>
@@ -223,7 +184,40 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
             </button>
           </div>
         </div>
+      }
+    >
+      <div className="flex-1 overflow-hidden">
+        {isLoading ? (
+          <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
+            {localizeUi("ui.characters.characterlibraryview.loading")}
+          </div>
+        ) : mode === "preview" && isMd ? (
+          <div className="h-full overflow-y-auto p-6">
+            <div className="mari-message-content whitespace-pre-wrap break-words text-sm text-[var(--foreground)]">
+              {renderMarkdownBlocks(content, applyInlineMarkdown, "editor-preview")}
+            </div>
+          </div>
+        ) : (
+          <div className="grid h-full grid-cols-[3rem_minmax(0,1fr)]">
+            <pre
+              ref={lineNumbersRef}
+              className="h-full overflow-hidden border-r border-[var(--border)]/40 bg-[var(--accent)]/30 py-3 pr-2 text-right font-mono text-xs leading-relaxed text-[var(--muted-foreground)]"
+            >
+              {lineNumbers}
+            </pre>
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onScroll={handleScroll}
+              onKeyDown={handleKeyDown}
+              spellCheck={false}
+              maxLength={MAX_TEXT_LENGTH}
+              className="h-full w-full resize-none bg-[var(--card)] p-3 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none"
+            />
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

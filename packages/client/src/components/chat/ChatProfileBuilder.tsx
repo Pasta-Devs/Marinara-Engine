@@ -33,6 +33,7 @@ import {
 import { CharacterSelect } from "../characters/CharacterSelect";
 import { LorebookListField, PresetPickerField } from "../ui/LibraryPickers";
 import { Modal } from "../ui/Modal";
+import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { PickerField, PickerListField, PickerTileArt } from "../ui/PickerField";
 import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
@@ -538,6 +539,18 @@ function ChatProfileBuilderBody({
           className={fieldClass}
         />
       );
+    if (key === "conn")
+      return (
+        <ConnectionSelect
+          kind="chat"
+          value={ids[0] ?? null}
+          onChange={(next) => pickOne(next ?? "")}
+          defaultLabel={t("chat.settingsProfile.builder.none")}
+          aria-label={ariaLabel}
+          title={ariaLabel}
+          className={fieldClass}
+        />
+      );
     const items = library[key].map((item) => ({
       id: item.id,
       label: item.name,
@@ -558,14 +571,26 @@ function ChatProfileBuilderBody({
           onToggle={(id) => toggleInSlot(key, id)}
           onAdd={(add) => addToSlot(key, add)}
           title={ariaLabel}
-          triggerLabel={t("chat.settingsProfile.builder.chooseAgents")}
-          triggerIcon={<Bot size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />}
+          triggerLabel={t(
+            key === "tool" ? "chat.settingsProfile.builder.chooseTools" : "chat.settingsProfile.builder.chooseAgents",
+          )}
+          triggerIcon={
+            key === "tool" ? (
+              <Wrench size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />
+            ) : (
+              <Bot size="0.875rem" aria-hidden="true" className="shrink-0 text-[var(--muted-foreground)]" />
+            )
+          }
           triggerClassName={fieldClass}
           ariaLabel={ariaLabel}
           removeLabel={(name) => t("chat.settingsProfile.builder.remove", { name })}
           keepMissing
           {...texts}
-          searchLabel={t("ui.agents.agentcatalogview.searchAgents")}
+          searchLabel={t(
+            key === "tool"
+              ? "ui.chatSettings.functioncallingsection.searchFunctions"
+              : "ui.agents.agentcatalogview.searchAgents",
+          )}
         />
       );
     return (
@@ -647,39 +672,6 @@ function ChatProfileBuilderBody({
                 ids.length ? "chat.settingsProfile.builder.savedSettings" : "chat.settingsProfile.builder.summaryHelp",
               )}
             </span>
-          ) : key === "tool" ? (
-            <div
-              role="group"
-              aria-labelledby={`${fieldId}-${key}`}
-              className="max-h-44 overflow-y-auto overscroll-contain rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1"
-            >
-              {[
-                ...items,
-                ...ids.filter((id) => !items.some((item) => item.id === id)).map((id) => ({ id, name: id })),
-              ].map((item) => (
-                <label
-                  key={item.id}
-                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm text-[var(--foreground)] hover:bg-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--ring)]"
-                >
-                  <Checkbox
-                    checked={ids.includes(item.id)}
-                    onChange={(event) => {
-                      const checked = event.target.checked;
-                      setSettings((prev) => {
-                        const current = slotIds(key, prev);
-                        return withSlot(
-                          key,
-                          prev,
-                          checked ? [...current, item.id] : current.filter((id) => id !== item.id),
-                        );
-                      });
-                    }}
-                    className="h-4 w-4 shrink-0 accent-[var(--primary)]"
-                  />
-                  <span className="min-w-0 break-words">{item.name}</span>
-                </label>
-              ))}
-            </div>
           ) : (
             renderPicker(key, ids)
           )}

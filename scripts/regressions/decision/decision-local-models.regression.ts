@@ -852,7 +852,7 @@ assert.equal(hasThinkingSetting("decision_sidecar"), false);
   );
   const body = route.slice(route.indexOf('app.post("/select"'), route.indexOf('app.post("/thinking"'));
   const clearAt = body.lastIndexOf("settings.remove(DECISION_LOCAL_DEFAULT_SETTINGS_KEY)");
-  const notFoundAt = body.indexOf("status(404)");
+  const notFoundAt = body.indexOf("notFound(reply,");
   // The LAST 409 in the route body is the connection branch; the first is the local
   // slot's, which sits above the clear for a different reason. Matching the first
   // would have made this assertion pass while testing nothing it claims to.

@@ -151,10 +151,9 @@ test("chat tools live in Chat Settings in every mode and their top buttons are g
       const [nameTop, branchesTop] = await tops([chatName, branches]);
       expect(branchesTop, `${chat.mode}: Chat Branches under Chat Name`).toBeGreaterThan(nameTop!);
       const nextAfterName = await chatName.evaluate((element) => {
-        const parent = element.closest("[style*='order']") ?? element;
-        const siblings = Array.from(parent.parentElement!.children).filter((child) => child.getClientRects().length);
+        const siblings = Array.from(element.parentElement!.children).filter((child) => child.getClientRects().length);
         const sorted = siblings.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-        const next = sorted[sorted.indexOf(parent) + 1];
+        const next = sorted[sorted.indexOf(element) + 1];
         return next?.getAttribute("data-drawer") ?? next?.querySelector("[data-drawer]")?.getAttribute("data-drawer");
       });
       expect(nextAfterName).toBe(`${chat.mode}-chat-branches`);

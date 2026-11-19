@@ -8,7 +8,10 @@ import {
   storedPersonaFromRow,
 } from "../../../packages/server/src/services/personas/persona-card-storage.js";
 import { migrateLegacyPersonaRow } from "../../../packages/server/src/db/persona-card-migration.js";
-import { encodePersonaUpdate, projectPersona } from "../../../packages/server/src/services/personas/persona-projector.js";
+import {
+  encodePersonaUpdate,
+  projectPersona,
+} from "../../../packages/server/src/services/personas/persona-projector.js";
 import type { PersonaStorageRow } from "../../../packages/server/src/services/storage/characters.storage.js";
 
 const minimalRow: PersonaStorageRow = {
@@ -29,6 +32,7 @@ const minimalRow: PersonaStorageRow = {
   scenario: "",
   backstory: "",
   appearance: "",
+  publicFace: "",
   imageAppearanceEnabled: "false",
   imageAppearance: "",
   avatarPath: null,
@@ -79,6 +83,7 @@ const canonicalPersona: Persona = {
   scenario: "A parlour, late evening.",
   backstory: "Invented the first algorithm.",
   appearance: "Dark hair and a day dress.",
+  publicFace: "A well-known mathematician with dark hair.",
   imageAppearanceEnabled: true,
   imageAppearance: "A portrait in candlelight.",
   avatarPath: canonicalRecord.avatarPath,
@@ -168,6 +173,10 @@ assert.deepEqual(
   personaRowFromStored(canonicalRow as unknown as Parameters<typeof personaRowFromStored>[0]),
   canonicalRow,
 );
+// Public Face lives in the card extensions; an empty one adds no key to the stored card.
+assert.equal(JSON.parse(storedRows.canonical.data).extensions.publicFace, canonicalPersona.publicFace);
+assert.equal(projectPersona(personaRowFromStored(storedRows.canonical)).publicFace, canonicalPersona.publicFace);
+assert.equal(Object.hasOwn(JSON.parse(storedRows.minimal.data).extensions, "publicFace"), false);
 // Name aliases live in the card extensions and round-trip through the codec.
 assert.deepEqual(JSON.parse(storedRows.canonical.data).extensions.nameAliases, ["Countess", "Ada L."]);
 assert.deepEqual(projectPersona(personaRowFromStored(storedRows.canonical)).nameAliases, ["Countess", "Ada L."]);

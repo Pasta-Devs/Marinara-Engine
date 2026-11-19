@@ -21,7 +21,7 @@ import {
   type ReactNode,
   type TouchEvent as ReactTouchEvent,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -97,6 +97,7 @@ import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { CharacterSelect } from "../characters/CharacterSelect";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { api } from "../../lib/api-client";
 import {
   BUILTIN_EMBEDDING_CONNECTION_ID,
@@ -151,6 +152,8 @@ import { Spinner } from "../ui/Spinner";
 // worth a server round-trip on every toggle. Keyed per-lorebook so collapse
 // state is independent across books.
 // ──────────────────────────────────────────────
+// Collapsed entry row height (px), the list's guess until a row is measured.
+const ENTRY_ROW_ESTIMATE = 56;
 const FOLDER_COLLAPSE_KEY_PREFIX = "lorebook-folder-collapsed:";
 const LOREBOOK_VECTORIZE_CONNECTION_STORAGE_KEY = "marinara:lorebook-vectorize-connection-id";
 /** Stored for an explicit "No semantic search", so the embedding default does not replace it on the next visit. */
@@ -490,14 +493,37 @@ export function LorebookEditor() {
   const [saving, setSaving] = useState(false);
 
   const [entrySearch, setEntrySearch] = useState("");
+  // Rows are windowed, so a new entry may not be mounted: ask the lists to scroll to it first.
+  const [scrollToEntryId, setScrollToEntryId] = useState<string | null>(null);
+  const snapToEntryRef = useRef(true);
+  const revealIndexIn = (list: { id: string }[]) => {
+    const i = scrollToEntryId ? list.findIndex((entry) => entry.id === scrollToEntryId) : -1;
+    return i >= 0 ? i : undefined;
+  };
   useEffect(() => {
     const id = newlyCreatedEntryRef.current;
     if (!id) return;
-    const row = contentRef.current?.querySelector<HTMLElement>(`[data-lorebook-entry-row-id="${CSS.escape(id)}"]`);
-    if (!row) return;
-    row.scrollIntoView({ block: "start" });
     newlyCreatedEntryRef.current = null;
-  }, [entries, expandedEntryId, contentRef]);
+    snapToEntryRef.current = true;
+    setScrollToEntryId(id);
+  }, [entries]);
+  useEffect(() => {
+    if (!scrollToEntryId) return;
+    // Two frames: the list scrolls and mounts the row, then the row snaps to the top.
+    const frame = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const row = snapToEntryRef.current
+          ? contentRef.current?.querySelector<HTMLElement>(
+              `[data-lorebook-entry-row-id="${CSS.escape(scrollToEntryId)}"]`,
+            )
+          : null;
+        // Anchored, so the drawer opening below the row cannot scroll it away.
+        if (row) scrollToElement(row);
+        setScrollToEntryId(null);
+      }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [scrollToEntryId, contentRef, scrollToElement]);
   const [entrySort, setEntrySort] = useState<EntrySortKey>("order");
   // Keyword-test panel state. The panel is collapsed by default so it doesn't
   // crowd the editor for users who don't need it. We debounce the text input
@@ -1126,18 +1152,15 @@ export function LorebookEditor() {
         });
       }
       setExpandedEntryId(entryId);
-      if (!scroll) return;
-      if (overhaulMobile) setOvPanel(null);
-      setOvmDetail(true);
-      window.requestAnimationFrame(() => {
-        const row = contentRef.current?.querySelector<HTMLElement>(
-          `[data-lorebook-entry-row-id="${CSS.escape(entryId)}"]`,
-        );
-        // Anchored, so the drawer opening below the row cannot scroll it away.
-        if (row) scrollToElement(row);
-      });
+      if (scroll) {
+        if (overhaulMobile) setOvPanel(null);
+        setOvmDetail(true);
+      }
+      // Windowed rows: mount the target before anything looks for it.
+      snapToEntryRef.current = scroll;
+      setScrollToEntryId(entryId);
     },
-    [contentRef, entries, folders, lorebookId, overhaulMobile, scrollToElement],
+    [entries, folders, lorebookId, overhaulMobile],
   );
 
   // Open the entry an opener asked for once, e.g. one just made from selected chat text (#6899).
@@ -2217,78 +2240,90 @@ export function LorebookEditor() {
                 {localizeUi("ui.lorebooks.lorebookeditor.emptyDragAnEntryHereOrPickThisFolder")}
               </p>
             )}
-            {folderEntries.map((entry, eIdx) => {
-              const isDropTarget = dropTargetContainer === folder.id && draggingEntryIdx !== null;
-              const sameContainer = dragSourceContainer === folder.id;
-              const showDropBefore =
-                isDropTarget &&
-                sameContainer &&
-                entryDropIdx === eIdx &&
-                draggingEntryIdx !== eIdx &&
-                draggingEntryIdx !== eIdx - 1;
-              const showDropAfter =
-                isDropTarget &&
-                sameContainer &&
-                eIdx === folderEntries.length - 1 &&
-                entryDropIdx === folderEntries.length &&
-                draggingEntryIdx !== eIdx;
-              return (
-                <div key={entry.id}>
-                  {showDropBefore && (
-                    <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
-                  )}
-                  <LorebookEntryRow
-                    entry={entry}
-                    lorebookId={lorebookId}
-                    isExpanded={expandedEntryId === entry.id}
-                    onToggleExpand={() => toggleEntryExpanded(entry.id)}
-                    characters={characters}
-                    characterTags={characterTags}
-                    folders={folders}
-                    draggable={canReorderEntries}
-                    isDragging={sameContainer && draggingEntryIdx === eIdx}
-                    isDragReady={sameContainer && entryDragReadyIdx === eIdx}
-                    onDragHandleMouseDown={() => {
-                      if (canReorderEntries) {
-                        setEntryDragReadyIdx(eIdx);
-                        setDragSourceContainer(folder.id);
+            <PanelVirtualList
+              listKey={`lorebook-entries:${lorebookId}:folder:${folder.id}`}
+              count={folderEntries.length}
+              getItemKey={(i) => folderEntries[i]!.id}
+              estimateSize={ENTRY_ROW_ESTIMATE}
+              gap={6}
+              pinnedIndex={
+                dragSourceContainer === folder.id && draggingEntryIdx !== null ? draggingEntryIdx : undefined
+              }
+              scrollToIndex={revealIndexIn(folderEntries)}
+              renderRow={(eIdx) => {
+                const entry = folderEntries[eIdx]!;
+                const isDropTarget = dropTargetContainer === folder.id && draggingEntryIdx !== null;
+                const sameContainer = dragSourceContainer === folder.id;
+                const showDropBefore =
+                  isDropTarget &&
+                  sameContainer &&
+                  entryDropIdx === eIdx &&
+                  draggingEntryIdx !== eIdx &&
+                  draggingEntryIdx !== eIdx - 1;
+                const showDropAfter =
+                  isDropTarget &&
+                  sameContainer &&
+                  eIdx === folderEntries.length - 1 &&
+                  entryDropIdx === folderEntries.length &&
+                  draggingEntryIdx !== eIdx;
+                return (
+                  <div key={entry.id}>
+                    {showDropBefore && (
+                      <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
+                    )}
+                    <LorebookEntryRow
+                      entry={entry}
+                      lorebookId={lorebookId}
+                      isExpanded={expandedEntryId === entry.id}
+                      onToggleExpand={() => toggleEntryExpanded(entry.id)}
+                      characters={characters}
+                      characterTags={characterTags}
+                      folders={folders}
+                      draggable={canReorderEntries}
+                      isDragging={sameContainer && draggingEntryIdx === eIdx}
+                      isDragReady={sameContainer && entryDragReadyIdx === eIdx}
+                      onDragHandleMouseDown={() => {
+                        if (canReorderEntries) {
+                          setEntryDragReadyIdx(eIdx);
+                          setDragSourceContainer(folder.id);
+                        }
+                      }}
+                      onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
+                      onDragHandleTouchStart={(e, sourceElement) =>
+                        handleEntryDragHandleTouchStart(entry.id, e, sourceElement)
                       }
-                    }}
-                    onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
-                    onDragHandleTouchStart={(e, sourceElement) =>
-                      handleEntryDragHandleTouchStart(entry.id, e, sourceElement)
-                    }
-                    onDragStart={(e) => handleEntryDragStart(folder.id, eIdx, entry.id, e)}
-                    onDragOver={(e) => {
-                      // A folder dragged over an entry is really being dragged over the
-                      // enclosing folder's body — route it there (nest / un-nest).
-                      if (draggingFolderIdx !== null) {
-                        handleFolderBodyFolderDragOver(folder.id, e);
-                        return;
-                      }
-                      e.stopPropagation();
-                      handleEntryDragOver(folder.id, eIdx, e);
-                    }}
-                    onDrop={(e) => {
-                      e.stopPropagation();
-                      if (draggingFolderIdx !== null) commitFolderDrop(e);
-                      else commitEntryDrop(e);
-                    }}
-                    onDragEnd={resetEntryDragState}
-                    selectionMode={entrySelectionMode}
-                    isSelected={selectedEntryIds.has(entry.id)}
-                    onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
-                    previewMatch={effectivePreviewMatches.get(entry.id)}
-                    activationStat={activationStatsById.get(entry.id)}
-                    mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
-                    onUpdateEntry={handleEntryUpdate}
-                  />
-                  {showDropAfter && (
-                    <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
-                  )}
-                </div>
-              );
-            })}
+                      onDragStart={(e) => handleEntryDragStart(folder.id, eIdx, entry.id, e)}
+                      onDragOver={(e) => {
+                        // A folder dragged over an entry is really being dragged over the
+                        // enclosing folder's body — route it there (nest / un-nest).
+                        if (draggingFolderIdx !== null) {
+                          handleFolderBodyFolderDragOver(folder.id, e);
+                          return;
+                        }
+                        e.stopPropagation();
+                        handleEntryDragOver(folder.id, eIdx, e);
+                      }}
+                      onDrop={(e) => {
+                        e.stopPropagation();
+                        if (draggingFolderIdx !== null) commitFolderDrop(e);
+                        else commitEntryDrop(e);
+                      }}
+                      onDragEnd={resetEntryDragState}
+                      selectionMode={entrySelectionMode}
+                      isSelected={selectedEntryIds.has(entry.id)}
+                      onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
+                      previewMatch={effectivePreviewMatches.get(entry.id)}
+                      activationStat={activationStatsById.get(entry.id)}
+                      mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
+                      onUpdateEntry={handleEntryUpdate}
+                    />
+                    {showDropAfter && (
+                      <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
+                    )}
+                  </div>
+                );
+              }}
+            />
             {childFolders.map((child) => renderFolder(child))}
           </div>
         )}
@@ -2336,9 +2371,18 @@ export function LorebookEditor() {
       </span>
     </label>
   );
-  const ovSwitch = (label: string, hint: string, checked: boolean, onChange: (value: boolean) => void) => (
+  const ovSwitch = (
+    label: string,
+    hint: string,
+    checked: boolean,
+    onChange: (value: boolean) => void,
+    help?: string,
+  ) => (
     <div className="ov-bk__field">
-      <span>{label}</span>
+      <span>
+        {label}
+        {help ? <HelpTooltip text={help} /> : null}
+      </span>
       <span className="ov-bk__switch">
         <SettingsSwitch
           ariaLabel={label}
@@ -2729,14 +2773,79 @@ export function LorebookEditor() {
           </div>
 
           <p className="ov-bk__eyebrow">{localizeUi("Semantic search (embeddings)")}</p>
-          <div className="ov-bk__grid ov-bk__grid--five">
+          {/* Switches on one line, then the numbers in the same columns as Scanning, so the two sections read alike. */}
+          <div className="ov-bk__grid ov-bk__grid--switches">
             {ovSwitch(localizeUi("ui.lorebooks.lorebookeditor.vectors"), "", !formExcludeFromVectorization, (value) =>
               setFormExcludeFromVectorization(!value),
             )}
+            {formExcludeFromVectorization
+              ? null
+              : ovSwitch(
+                  localizeUi("ui.lorebooks.vectorizesection.includeCharacterContext"),
+                  "",
+                  formVectorIncludeAssistant,
+                  setFormVectorIncludeAssistant,
+                  localizeUi("ui.lorebooks.vectorizesection.includeCharacterContextHint"),
+                )}
           </div>
+          {formExcludeFromVectorization ? null : (
+            <div className="ov-bk__grid ov-bk__grid--five">
+              <>
+                {ovNumber(
+                  localizeUi("ui.lorebooks.vectorizesection.queryMessages"),
+                  formVectorQueryDepth,
+                  (value) =>
+                    setFormVectorQueryDepth(Math.max(0, Math.min(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX, value))),
+                  "msgs",
+                  localizeUi("ui.lorebooks.vectorizesection.howManyRecentChatMessagesToEmbedWhenSearching"),
+                  { min: 0, max: LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX },
+                )}
+                <label className="ov-bk__field">
+                  <span>
+                    {localizeUi("ui.lorebooks.vectorizesection.scoreThreshold")}
+                    <HelpTooltip
+                      text={localizeUi(
+                        "ui.lorebooks.vectorizesection.minimumCalibratedSemanticSimilarityRequiredBeforeAVectorizedEntry",
+                      )}
+                    />
+                  </span>
+                  <span className="ov-bk__num">
+                    <input
+                      type="number"
+                      value={formVectorScoreThreshold}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      onChange={(event) => {
+                        setFormVectorScoreThreshold(
+                          Math.max(0, Math.min(1, Number.parseFloat(event.target.value) || 0)),
+                        );
+                        markLorebookDirty();
+                      }}
+                    />
+                  </span>
+                </label>
+                {ovNumber(
+                  localizeUi("ui.lorebooks.vectorizesection.vectorLimit"),
+                  formVectorMaxResults,
+                  (value) =>
+                    setFormVectorMaxResults(
+                      Math.max(
+                        LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MIN,
+                        Math.min(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MAX, value),
+                      ),
+                    ),
+                  "entries",
+                  localizeUi("ui.lorebooks.vectorizesection.maximumNumberOfSemanticVectorEntriesThisLorebookCan"),
+                  { min: LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MIN, max: LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MAX },
+                )}
+              </>
+            </div>
+          )}
           {formExcludeFromVectorization ? null : (
             <div className="ov-bk__vectors">
               <VectorizeSection
+                overhaul
                 lorebookId={lorebookId!}
                 entries={entries}
                 excludeFromVectorization={formExcludeFromVectorization}
@@ -3244,114 +3353,134 @@ export function LorebookEditor() {
                 {localizeUi("ui.lorebooks.lorebookeditor.noEntriesAtTheRootLevel")}
               </p>
             )}
-            {(entriesByContainer.get(null) ?? []).map((entry, idx) => {
-              const rootList = entriesByContainer.get(null) ?? [];
-              const isDropTarget = dropTargetContainer === null && draggingEntryIdx !== null;
-              const sameContainer = dragSourceContainer === null;
-              // Same rule as inside folders: only show the position bar for
-              // same-container drops because cross-container moves preserve
-              // Order. The amber ring on the root drop zone (added for Issue
-              // 2) handles the cross-container affordance.
-              const showDropBefore =
-                isDropTarget &&
-                sameContainer &&
-                entryDropIdx === idx &&
-                draggingEntryIdx !== idx &&
-                draggingEntryIdx !== idx - 1;
-              const showDropAfter =
-                isDropTarget &&
-                sameContainer &&
-                idx === rootList.length - 1 &&
-                entryDropIdx === rootList.length &&
-                draggingEntryIdx !== idx;
-              return (
-                <div key={entry.id}>
-                  {showDropBefore && (
-                    <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
-                  )}
-                  <LorebookEntryRow
-                    entry={entry}
-                    lorebookId={lorebookId}
-                    isExpanded={expandedEntryId === entry.id}
-                    onToggleExpand={() => toggleEntryExpanded(entry.id)}
-                    characters={characters}
-                    characterTags={characterTags}
-                    folders={folders}
-                    draggable={canReorderEntries}
-                    isDragging={sameContainer && draggingEntryIdx === idx}
-                    isDragReady={sameContainer && entryDragReadyIdx === idx}
-                    onDragHandleMouseDown={() => {
-                      if (canReorderEntries) {
-                        setEntryDragReadyIdx(idx);
-                        setDragSourceContainer(null);
+            <PanelVirtualList
+              listKey={`lorebook-entries:${lorebookId}:root`}
+              count={(entriesByContainer.get(null) ?? []).length}
+              getItemKey={(i) => (entriesByContainer.get(null) ?? [])[i]!.id}
+              estimateSize={ENTRY_ROW_ESTIMATE}
+              gap={6}
+              pinnedIndex={dragSourceContainer === null && draggingEntryIdx !== null ? draggingEntryIdx : undefined}
+              scrollToIndex={revealIndexIn(entriesByContainer.get(null) ?? [])}
+              renderRow={(idx) => {
+                const rootList = entriesByContainer.get(null) ?? [];
+                const entry = rootList[idx]!;
+                const isDropTarget = dropTargetContainer === null && draggingEntryIdx !== null;
+                const sameContainer = dragSourceContainer === null;
+                // Same rule as inside folders: only show the position bar for
+                // same-container drops because cross-container moves preserve
+                // Order. The amber ring on the root drop zone (added for Issue
+                // 2) handles the cross-container affordance.
+                const showDropBefore =
+                  isDropTarget &&
+                  sameContainer &&
+                  entryDropIdx === idx &&
+                  draggingEntryIdx !== idx &&
+                  draggingEntryIdx !== idx - 1;
+                const showDropAfter =
+                  isDropTarget &&
+                  sameContainer &&
+                  idx === rootList.length - 1 &&
+                  entryDropIdx === rootList.length &&
+                  draggingEntryIdx !== idx;
+                return (
+                  <div key={entry.id}>
+                    {showDropBefore && (
+                      <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
+                    )}
+                    <LorebookEntryRow
+                      entry={entry}
+                      lorebookId={lorebookId}
+                      isExpanded={expandedEntryId === entry.id}
+                      onToggleExpand={() => toggleEntryExpanded(entry.id)}
+                      characters={characters}
+                      characterTags={characterTags}
+                      folders={folders}
+                      draggable={canReorderEntries}
+                      isDragging={sameContainer && draggingEntryIdx === idx}
+                      isDragReady={sameContainer && entryDragReadyIdx === idx}
+                      onDragHandleMouseDown={() => {
+                        if (canReorderEntries) {
+                          setEntryDragReadyIdx(idx);
+                          setDragSourceContainer(null);
+                        }
+                      }}
+                      onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
+                      onDragHandleTouchStart={(e, sourceElement) =>
+                        handleEntryDragHandleTouchStart(entry.id, e, sourceElement)
                       }
-                    }}
-                    onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
-                    onDragHandleTouchStart={(e, sourceElement) =>
-                      handleEntryDragHandleTouchStart(entry.id, e, sourceElement)
-                    }
-                    onDragStart={(e) => handleEntryDragStart(null, idx, entry.id, e)}
-                    onDragOver={(e) => {
-                      // Let folder drags fall through to the root list (un-nest).
-                      if (draggingFolderIdx !== null) return;
-                      e.stopPropagation();
-                      handleEntryDragOver(null, idx, e);
-                    }}
-                    onDrop={(e) => {
-                      if (draggingFolderIdx !== null) return;
-                      e.stopPropagation();
-                      commitEntryDrop(e);
-                    }}
-                    onDragEnd={resetEntryDragState}
-                    selectionMode={entrySelectionMode}
-                    isSelected={selectedEntryIds.has(entry.id)}
-                    onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
-                    previewMatch={effectivePreviewMatches.get(entry.id)}
-                    activationStat={activationStatsById.get(entry.id)}
-                    mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
-                    onUpdateEntry={handleEntryUpdate}
-                  />
-                  {showDropAfter && (
-                    <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
-                  )}
-                </div>
-              );
-            })}
+                      onDragStart={(e) => handleEntryDragStart(null, idx, entry.id, e)}
+                      onDragOver={(e) => {
+                        // Let folder drags fall through to the root list (un-nest).
+                        if (draggingFolderIdx !== null) return;
+                        e.stopPropagation();
+                        handleEntryDragOver(null, idx, e);
+                      }}
+                      onDrop={(e) => {
+                        if (draggingFolderIdx !== null) return;
+                        e.stopPropagation();
+                        commitEntryDrop(e);
+                      }}
+                      onDragEnd={resetEntryDragState}
+                      selectionMode={entrySelectionMode}
+                      isSelected={selectedEntryIds.has(entry.id)}
+                      onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
+                      previewMatch={effectivePreviewMatches.get(entry.id)}
+                      activationStat={activationStatsById.get(entry.id)}
+                      mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
+                      onUpdateEntry={handleEntryUpdate}
+                    />
+                    {showDropAfter && (
+                      <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
+                    )}
+                  </div>
+                );
+              }}
+            />
           </div>
         </div>
       )}
 
       {/* Entries — flat view (search active or non-Order sort) */}
       {lorebookId && !showFolderGrouping && filteredEntries.length > 0 && (
-        <div ref={entryListRef} className="space-y-1.5">
-          {filteredEntries.map((entry) => (
-            <LorebookEntryRow
-              key={entry.id}
-              entry={entry}
-              lorebookId={lorebookId}
-              isExpanded={expandedEntryId === entry.id}
-              onToggleExpand={() => toggleEntryExpanded(entry.id)}
-              characters={characters}
-              characterTags={characterTags}
-              folders={folders}
-              draggable={false}
-              isDragging={false}
-              isDragReady={false}
-              onDragHandleMouseDown={() => undefined}
-              onDragHandleMouseUp={() => undefined}
-              onDragStart={() => undefined}
-              onDragOver={() => undefined}
-              onDrop={() => undefined}
-              onDragEnd={() => undefined}
-              selectionMode={entrySelectionMode}
-              isSelected={selectedEntryIds.has(entry.id)}
-              onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
-              previewMatch={effectivePreviewMatches.get(entry.id)}
-              activationStat={activationStatsById.get(entry.id)}
-              mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
-              onUpdateEntry={handleEntryUpdate}
-            />
-          ))}
+        <div ref={entryListRef}>
+          <PanelVirtualList
+            listKey={`lorebook-entries:${lorebookId}:flat`}
+            count={filteredEntries.length}
+            getItemKey={(i) => filteredEntries[i]!.id}
+            estimateSize={ENTRY_ROW_ESTIMATE}
+            gap={6}
+            scrollToIndex={revealIndexIn(filteredEntries)}
+            renderRow={(i) => {
+              const entry = filteredEntries[i]!;
+              return (
+                <LorebookEntryRow
+                  entry={entry}
+                  lorebookId={lorebookId}
+                  isExpanded={expandedEntryId === entry.id}
+                  onToggleExpand={() => toggleEntryExpanded(entry.id)}
+                  characters={characters}
+                  characterTags={characterTags}
+                  folders={folders}
+                  draggable={false}
+                  isDragging={false}
+                  isDragReady={false}
+                  onDragHandleMouseDown={() => undefined}
+                  onDragHandleMouseUp={() => undefined}
+                  onDragStart={() => undefined}
+                  onDragOver={() => undefined}
+                  onDrop={() => undefined}
+                  onDragEnd={() => undefined}
+                  selectionMode={entrySelectionMode}
+                  isSelected={selectedEntryIds.has(entry.id)}
+                  onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
+                  previewMatch={effectivePreviewMatches.get(entry.id)}
+                  activationStat={activationStatsById.get(entry.id)}
+                  mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
+                  onUpdateEntry={handleEntryUpdate}
+                />
+              );
+            }}
+          />
         </div>
       )}
 
@@ -4263,7 +4392,10 @@ function VectorizeSection({
   onVectorIncludeAssistantChange,
   onVectorScoreThresholdChange,
   onVectorMaxResultsChange,
+  overhaul = false,
 }: {
+  /** The overhaul's Book settings: its own row holds the switches and numbers; this adds status, model and actions. */
+  overhaul?: boolean;
   lorebookId: string;
   entries: LorebookEntry[];
   excludeFromVectorization: boolean;
@@ -4411,14 +4543,32 @@ function VectorizeSection({
     }
   };
 
-  const handleVectorize = async (mode: "missing" | "all") => {
-    if (!selectedConnectionId) return;
+  // Entries vectorized by a model other than the Embeddings default: chats on the default skip them.
+  const vectorStatusQuery = useQuery({
+    queryKey: ["lorebooks", lorebookId, "vector-status", defaultEmbedding?.connectionId ?? null, storedVectorCount],
+    queryFn: () =>
+      api.get<{ defaultSource: { connectionId: string; model: string } | null; staleCount: number }>(
+        `/lorebooks/${lorebookId}/vector-status`,
+      ),
+    enabled: !excludeFromVectorization && storedVectorCount > 0,
+    staleTime: 30_000,
+  });
+  const staleDefault =
+    !excludeFromVectorization && storedVectorCount > 0 && vectorStatusQuery.data?.defaultSource
+      ? { ...vectorStatusQuery.data.defaultSource, count: vectorStatusQuery.data.staleCount }
+      : null;
+
+  /** `connectionOverride` re-vectorizes with that source (the notice's button) and makes it the picked one. */
+  const handleVectorize = async (mode: "missing" | "all", connectionOverride?: string) => {
+    const connectionId = connectionOverride ?? selectedConnectionId;
+    if (!connectionId) return;
     if (mode === "missing" && missingCount === 0) return;
     if (vectorizeInFlightRef.current) return;
     vectorizeInFlightRef.current = true;
     try {
-      const conn = embeddingConnections.find((c) => c.id === selectedConnectionId);
-      if (mode === "all" && storedVectorCount > 0) {
+      const conn = embeddingConnections.find((c) => c.id === connectionId);
+      // The notice already says what the button does, so it doesn't ask again.
+      if (mode === "all" && storedVectorCount > 0 && !connectionOverride) {
         const confirmed = await showConfirmDialog({
           title: localizeUi("ui.lorebooks.vectorizesection.reVectorizeAllEntries"),
           message: localizeUi("ui.lorebooks.vectorizesection.reVectorizeAllEntriesWithConnection", {
@@ -4432,16 +4582,18 @@ function VectorizeSection({
         if (!confirmed) return;
       }
       if (hasUnsavedChanges && !(await onBeforeVectorize())) return;
+      if (connectionOverride && connectionOverride !== selectedConnectionId) handleConnectionChange(connectionOverride);
 
       setVectorizingMode(mode);
       setResult(null);
       try {
         const res = await api.post(`/lorebooks/${lorebookId}/vectorize`, {
-          connectionId: selectedConnectionId,
+          connectionId,
           onlyMissing: mode === "missing",
         });
         const data = res as { vectorized: number; total?: number; skipped?: number };
         await queryClient.invalidateQueries({ queryKey: lorebookKeys.entries(lorebookId) });
+        await queryClient.invalidateQueries({ queryKey: ["lorebooks", lorebookId, "vector-status"] });
         setResult({
           success: true,
           message:
@@ -4489,6 +4641,146 @@ function VectorizeSection({
     }
   };
 
+  const staleNotice =
+    staleDefault && staleDefault.count > 0 ? (
+      <div
+        role="status"
+        className={cn(
+          "text-[0.6875rem]",
+          overhaul ? "ov-vec__warn" : "rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2.5",
+        )}
+      >
+        <p className="flex items-start gap-1.5 text-[var(--foreground)]">
+          <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
+          <span>
+            {localizeUi("ui.lorebooks.vectorizesection.staleDefault", {
+              count: staleDefault.count,
+              model: staleDefault.model,
+            })}
+          </span>
+        </p>
+        <button
+          type="button"
+          onClick={() => void handleVectorize("all", staleDefault.connectionId)}
+          disabled={vectorizing || vectorizableEntryCount === 0}
+          className={cn(
+            "mt-2 inline-flex max-w-full items-center gap-1.5",
+            overhaul
+              ? "mari-chrome-control px-2.5"
+              : "rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50 max-sm:min-h-11",
+          )}
+        >
+          {vectorizingMode === "all" ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" className="shrink-0" />}
+          <span className="truncate">
+            {vectorizingMode === "all"
+              ? localizeUi("ui.lorebooks.vectorizesection.reVectorizing")
+              : localizeUi("ui.lorebooks.vectorizesection.reVectorizeWithModel", { model: staleDefault.model })}
+          </span>
+        </button>
+      </div>
+    ) : null;
+
+  const resultLine = result ? (
+    <p className={cn("flex items-center gap-1 text-[0.625rem]", result.success ? "text-emerald-400" : "text-red-400")}>
+      {result.success ? <Check size="0.625rem" /> : <AlertTriangle size="0.625rem" />}
+      {result.message}
+    </p>
+  ) : null;
+
+  if (overhaul) {
+    const pickerOptions = (
+      <>
+        <option value="">{localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch")}</option>
+        {embeddingConnections.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+            {c.embeddingModel?.trim() && c.embeddingModel.trim() !== c.name ? ` (${c.embeddingModel})` : ""}
+          </option>
+        ))}
+      </>
+    );
+    return (
+      <div className="ov-vec">
+        <p className="ov-bk__note">
+          {[
+            localizeUi("ui.lorebooks.vectorizesection.vectorizedOfTotal", {
+              done: vectorizedCount,
+              total: vectorizableEntryCount,
+            }),
+            excludedCount > 0 ? `${excludedCount} ${localizeUi("ui.lorebooks.vectorizesection.excluded")}` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+        {staleNotice}
+        {embeddingConnections.length === 0 ? (
+          <p className="ov-bk__note">
+            {localizeUi("ui.lorebooks.vectorizesection.noConnectionsWithAnEmbeddingModelConfiguredSetAn")}
+          </p>
+        ) : (
+          <div className="ov-vec__row">
+            <label className="ov-bk__field ov-vec__model">
+              <span>{localizeUi("connections.embeddingDefault.label")}</span>
+              <select value={selectedConnectionId} onChange={(e) => handleConnectionChange(e.target.value)}>
+                {pickerOptions}
+              </select>
+            </label>
+            <div className="ov-vec__actions">
+              <button
+                type="button"
+                onClick={() => handleVectorize(primaryVectorizeMode)}
+                disabled={vectorizing || vectorizableEntryCount === 0 || !selectedConnectionId}
+                className="mari-chrome-control mari-chrome-control--primary px-2.5"
+              >
+                {vectorizingMode === primaryVectorizeMode ? (
+                  <Spinner size="sm" />
+                ) : primaryVectorizeMode === "all" ? (
+                  <RefreshCw size="0.75rem" />
+                ) : (
+                  <Sparkles size="0.75rem" />
+                )}
+                {vectorizingMode === primaryVectorizeMode
+                  ? primaryVectorizeMode === "all"
+                    ? localizeUi("ui.lorebooks.vectorizesection.reVectorizing")
+                    : localizeUi("ui.lorebooks.vectorizesection.vectorizing")
+                  : primaryVectorizeMode === "all"
+                    ? localizeUi("ui.lorebooks.vectorizesection.reVectorizeValue1Entries", {
+                        value1: vectorizableEntryCount,
+                      })
+                    : localizeUi("ui.lorebooks.vectorizesection.vectorizeValue1Missing", { value1: missingCount })}
+              </button>
+              {showRevectorizeAllAction && (
+                <button
+                  type="button"
+                  onClick={() => handleVectorize("all")}
+                  disabled={vectorizing || vectorizableEntryCount === 0 || !selectedConnectionId}
+                  className="mari-chrome-control px-2.5"
+                  title={localizeUi("ui.lorebooks.vectorizesection.overwriteEveryStoredVectorInThisLorebookWithThe")}
+                >
+                  {vectorizingMode === "all" ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" />}
+                  {vectorizingMode === "all"
+                    ? localizeUi("ui.lorebooks.vectorizesection.reVectorizing")
+                    : localizeUi("ui.lorebooks.vectorizesection.reVectorizeAll")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleClearVectors}
+                disabled={clearingVectors || vectorizing || storedVectorCount === 0}
+                className="mari-chrome-control px-2.5"
+                title={localizeUi("ui.lorebooks.vectorizesection.deleteVectorsKeepsText")}
+              >
+                {clearingVectors ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
+                {localizeUi("ui.lorebooks.vectorizesection.deleteVectors")}
+              </button>
+            </div>
+          </div>
+        )}
+        {resultLine}
+      </div>
+    );
+  }
+
   return (
     <div className="mari-editor-panel space-y-3 p-4">
       <div className="flex items-center gap-2">
@@ -4526,6 +4818,7 @@ function VectorizeSection({
           </span>
         )}
       </div>
+      {staleNotice}
       <SettingsSwitch
         label={localizeUi("ui.lorebooks.vectorizesection.includeCharacterContext")}
         description={localizeUi("ui.lorebooks.vectorizesection.includeCharacterContextHint")}
@@ -4682,17 +4975,7 @@ function VectorizeSection({
               {localizeUi("ui.lorebooks.vectorizesection.semanticSearchIsOffUntilYouChooseAnEmbedding")}
             </p>
           )}
-          {result && (
-            <p
-              className={cn(
-                "text-[0.625rem] flex items-center gap-1",
-                result.success ? "text-emerald-400" : "text-red-400",
-              )}
-            >
-              {result.success ? <Check size="0.625rem" /> : <AlertTriangle size="0.625rem" />}
-              {result.message}
-            </p>
-          )}
+          {resultLine}
         </>
       )}
     </div>

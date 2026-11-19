@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 import { openChatSettings } from "./chat-settings-tools.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -158,24 +159,30 @@ for (const theme of ["dark", "light"] as const) {
       await prepare(page, theme, { rightPanelOpen: true, rightPanel: "settings", settingsTab: "addons" });
       await page.goto("/");
       const limit = page.getByLabel("Previous revisions to keep", { exact: true });
-      await expect(limit).toHaveValue("10");
-      await expect(limit.locator("option")).toHaveCount(11);
-      await limit.selectOption("2");
+      await expect(limit).toHaveAttribute("data-value", "10");
+      await limit.click();
+      const limitRows = page
+        .getByRole("dialog", { name: "Previous revisions to keep", exact: true })
+        .locator("[data-pick-row]");
+      await expect(limitRows).toHaveCount(11);
+      await page.keyboard.press("Escape");
+      await expect(limitRows).toHaveCount(0);
+      await chooseOption(page, limit, "2");
       await expect(page.getByText("Remove older extension revisions?", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Cancel", exact: true }).click();
-      await expect(limit).toHaveValue("10");
+      await expect(limit).toHaveAttribute("data-value", "10");
       expect((await (await request.get("/api/personal-extensions/revision-history")).json()).limit).toBe(10);
-      await limit.selectOption("0");
+      await chooseOption(page, limit, "0");
       await page.getByRole("button", { name: "Remove older revisions", exact: true }).click();
-      await expect(limit).toHaveValue("0");
+      await expect(limit).toHaveAttribute("data-value", "0");
       await page.reload();
-      await expect(limit).toHaveValue("0");
+      await expect(limit).toHaveAttribute("data-value", "0");
       await testInfo.attach(`retention-${theme}`, {
         body: await limit.locator("xpath=ancestor::section[1]").screenshot(),
         contentType: "image/png",
       });
-      await limit.selectOption("5");
-      await expect(limit).toHaveValue("5");
+      await chooseOption(page, limit, "5");
+      await expect(limit).toHaveAttribute("data-value", "5");
       await expect(page.getByText("Remove older extension revisions?", { exact: true })).toHaveCount(0);
     } finally {
       await request.patch("/api/personal-extensions/revision-history", { data: { limit: 10 } });
@@ -202,8 +209,8 @@ for (const theme of ["dark", "light"] as const) {
     await prepare(page, theme, { rightPanelOpen: true, rightPanel: "settings", settingsTab: "addons" });
     await page.goto("/");
     const limit = page.getByLabel("Previous revisions to keep", { exact: true });
-    await expect(limit).toHaveValue("3");
-    await limit.selectOption("5");
+    await expect(limit).toHaveAttribute("data-value", "3");
+    await chooseOption(page, limit, "5");
     await expect(page.getByText("Remove older extension revisions?", { exact: true })).toBeVisible();
     await expect(page.locator('.mari-modal[role="dialog"]')).toHaveCSS("opacity", "1");
     await expect(page.locator(".mari-modal-panel")).toHaveCSS("opacity", "1");
@@ -220,12 +227,12 @@ for (const theme of ["dark", "light"] as const) {
       contentType: "image/png",
     });
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(limit).toHaveValue("3");
+    await expect(limit).toHaveAttribute("data-value", "3");
     expect(changes).toEqual([{ limit: 5 }]);
     await expect(page.getByText("Could not update extension revision history.", { exact: true })).toHaveCount(0);
-    await limit.selectOption("5");
+    await chooseOption(page, limit, "5");
     await page.getByRole("button", { name: "Remove older revisions", exact: true }).click();
-    await expect(limit).toHaveValue("5");
+    await expect(limit).toHaveAttribute("data-value", "5");
     expect(changes).toEqual([{ limit: 5 }, { limit: 5 }, { limit: 5, confirmPrune: true }]);
   });
 

@@ -45,6 +45,8 @@ export function useInDialogFocusScope(scopeRef: RefObject<HTMLElement | null>, o
   }, [open, scopeRef]);
 
   return (event: KeyboardEvent<HTMLElement>) => {
+    // React bubbles keys from portals (a field's picker) through here; they belong to that window, not this scope.
+    if (!(event.target instanceof Node) || !scopeRef.current?.contains(event.target)) return;
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();

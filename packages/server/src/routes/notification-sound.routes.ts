@@ -1,10 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { mkdir, open, rename, stat, unlink, writeFile } from "fs/promises";
+import { mkdir, open, stat, unlink } from "fs/promises";
 import { extname, join } from "path";
-import { randomUUID } from "crypto";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir } from "../utils/security.js";
+import { resolveInside } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
+import { notFound } from "../utils/not-found.js";
+import { writeFileAtomic } from "../utils/atomic-write.js";
 
 const NOTIFICATION_SOUNDS_DIR = join(DATA_DIR, "notification-sounds");
 const MAX_NOTIFICATION_SOUND_BYTES = 10 * 1024 * 1024;
@@ -65,7 +66,7 @@ export function detectNotificationSoundFormat(buffer: Buffer): NotificationSound
 }
 
 function soundPath(extension: NotificationSoundFormat["extension"]): string {
-  return assertInsideDir(NOTIFICATION_SOUNDS_DIR, join(NOTIFICATION_SOUNDS_DIR, `notification${extension}`));
+  return resolveInside(NOTIFICATION_SOUNDS_DIR, `notification${extension}`);
 }
 
 async function findStoredNotificationSound(): Promise<StoredNotificationSound | null> {
@@ -161,15 +162,10 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
     }
 
     const finalPath = soundPath(uploadedExtension);
-    const tempPath = assertInsideDir(
-      NOTIFICATION_SOUNDS_DIR,
-      join(NOTIFICATION_SOUNDS_DIR, `.notification-${randomUUID()}.tmp`),
-    );
     try {
       return await withNotificationSoundLock(async () => {
         await mkdir(NOTIFICATION_SOUNDS_DIR, { recursive: true });
-        await writeFile(tempPath, buffer, { flag: "wx" });
-        await rename(tempPath, finalPath);
+        await writeFileAtomic(finalPath, buffer);
         await removeStoredNotificationSounds(finalPath);
         const details = await stat(finalPath);
         return soundStatus({
@@ -180,7 +176,6 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
         });
       });
     } catch (error) {
-      await unlink(tempPath).catch(() => undefined);
       logger.error(error, "Failed to save custom notification sound");
       return reply.status(500).send({ error: "Failed to save the notification sound." });
     }
@@ -193,7 +188,7 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
 
   app.get("/file", async (_req, reply) => {
     const sound = await findStoredNotificationSound();
-    if (!sound) return reply.status(404).send({ error: "No custom notification sound." });
+    if (!sound) return notFound(reply, "No custom notification sound.");
     // Open a handle before replying: a concurrent replace/delete can remove
     // the file after discovery, and an open handle keeps the bytes readable.
     let handle;
@@ -201,7 +196,7 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
       handle = await open(sound.path, "r");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return reply.status(404).send({ error: "No custom notification sound." });
+        return notFound(reply, "No custom notification sound.");
       }
       throw error;
     }

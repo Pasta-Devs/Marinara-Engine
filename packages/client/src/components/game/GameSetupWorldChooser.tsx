@@ -33,6 +33,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { WordsField, useWritingSeconds } from "./GameSetupWorldKitChooser";
 import { GAME_SETUP_GHOST_BUTTON_CLASS, GAME_SETUP_INPUT_CLASS as INPUT } from "./game-setup-classes";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 
 /** What the wizard holds while a world is being made. */
 export interface WorldDraft {
@@ -476,17 +477,17 @@ export function GameSetupWorldChooser({
                   <label htmlFor="world-grounding" className={FIELD_LABEL}>
                     {t("game.world.setup.grounding")}
                   </label>
-                  <select
+                  <Select
                     id="world-grounding"
+                    label={t("game.world.setup.grounding")}
                     value={draft.grounding}
-                    onChange={(event) =>
-                      edit((next) => (next.grounding = event.target.value as WorldDraft["grounding"]))
-                    }
+                    onChange={(next) => edit((draft) => (draft.grounding = next as WorldDraft["grounding"]))}
                     className={INPUT}
-                  >
-                    <option value="expand">{t("game.world.setup.groundingExpand")}</option>
-                    <option value="strict">{t("game.world.setup.groundingStrict")}</option>
-                  </select>
+                    options={[
+                      { value: "expand", label: t("game.world.setup.groundingExpand") },
+                      { value: "strict", label: t("game.world.setup.groundingStrict") },
+                    ]}
+                  />
                 </div>
                 <button
                   type="button"

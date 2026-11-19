@@ -124,6 +124,7 @@ import { api, formatFirstApiValidationIssue } from "../../lib/api-client";
 import { downloadSpriteFile } from "../../lib/sprite-download";
 import { downloadUrlToDevice, shouldUseIosImageShare } from "../../lib/file-download";
 import { ImageDownloadButton } from "../ui/ImageDownloadButton";
+import { ImageViewer, VIEWER_BUTTON_CLASS } from "../ui/ImageViewer";
 import { parseTrackerCardColorConfig, serializeTrackerCardColorConfig } from "../../lib/tracker-card-colors";
 import {
   getStatNameOccurrence,
@@ -206,6 +207,7 @@ import {
   reconcileVersionedPersonaEditorSave,
 } from "./persona-editor-transitions";
 import { Spinner } from "../ui/Spinner";
+import { ColorField } from "../ui/ColorPicker";
 
 // ── Tabs ──
 const TABS = [
@@ -231,6 +233,7 @@ const PERSONA_CARD_SECTIONS = [
   { id: "persona-card-backstory", field: "backstory" },
   { id: "persona-card-appearance", field: "appearance" },
   { id: "persona-card-scenario", field: "scenario" },
+  { id: "persona-card-public-face", field: "publicFace" },
   { id: "persona-card-dialogue", field: "mes_example" },
 ] as const;
 
@@ -287,6 +290,7 @@ const OVERHAUL_OPTIONAL_CARD_FIELDS = [
   { id: "backstory", label: "Backstory" },
   { id: "appearance", label: "Appearance" },
   { id: "scenario", label: "Scenario" },
+  { id: "publicFace", label: "Public Face" },
   { id: "mes_example", label: "Example dialogue" },
 ] as const;
 function overhaulHasText(value: unknown) {
@@ -309,6 +313,7 @@ interface PersonaFormData {
   scenario: string;
   backstory: string;
   appearance: string;
+  publicFace: string;
   /** Mirrors the card's image-prompt override: `imageAppearance` is used instead of
    *  `appearance` in image prompts while `imageAppearanceEnabled` is on. */
   imageAppearanceEnabled: boolean;
@@ -350,7 +355,14 @@ function appendNewTags(existingTags: string[], rawInput: string) {
   return additions.length > 0 ? [...existingTags, ...additions] : existingTags;
 }
 
-const PERSONA_QUOTE_FIELD_KEYS = new Set<string>(["description", "personality", "scenario", "backstory", "appearance"]);
+const PERSONA_QUOTE_FIELD_KEYS = new Set<string>([
+  "description",
+  "personality",
+  "scenario",
+  "backstory",
+  "appearance",
+  "publicFace",
+]);
 
 function formatPersonaFieldValue<K extends keyof PersonaFormData>(
   key: K,
@@ -429,6 +441,7 @@ function personaFormFromPersona(persona: Persona): PersonaFormData {
     scenario: persona.scenario ?? "",
     backstory: persona.backstory ?? "",
     appearance: persona.appearance ?? "",
+    publicFace: persona.publicFace ?? "",
     imageAppearanceEnabled: persona.imageAppearanceEnabled === true,
     imageAppearance: persona.imageAppearance ?? "",
     characterSheetImageId: persona.characterSheetImageId ?? null,
@@ -517,8 +530,6 @@ function PersonaGalleryTab({
   const {
     lightbox,
     setLightbox,
-    lightboxRef,
-    lightboxCloseRef,
     selectingImages,
     setSelectingImages,
     selectedImageIds,
@@ -527,6 +538,7 @@ function PersonaGalleryTab({
     leaveImageSelection,
     toggleImageSelection,
   } = useCardGallerySelection(images);
+  const lightboxIndex = images?.findIndex((item) => item.id === lightbox?.id) ?? -1;
 
   const handleUpload = useCallback(
     (files: File[]) => {
@@ -870,33 +882,23 @@ function PersonaGalleryTab({
       )}
 
       {lightbox && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 max-md:pt-[env(safe-area-inset-top)]"
-          ref={lightboxRef}
-          tabIndex={-1}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.stopPropagation();
-              setLightbox(null);
-            }
-          }}
-          role="dialog"
-          aria-modal="true"
-          aria-label={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
-          onClick={() => setLightbox(null)}
-        >
-          <div className="relative max-h-[90vh] max-w-[90vw] w-[min(90vw,90vh)]" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={lightbox.url}
-              alt={lightbox.prompt || personaName || "Persona image"}
-              className="max-h-[85vh] w-full rounded-lg object-contain shadow-2xl"
-            />
-            <div className="absolute right-2 top-2 flex gap-2">
+        <ImageViewer
+          title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
+          onClose={() => setLightbox(null)}
+          src={lightbox.url}
+          alt={lightbox.prompt || personaName || "Persona image"}
+          items={
+            images && lightboxIndex >= 0 ? images.map((item) => ({ url: item.url, alt: item.prompt || "" })) : undefined
+          }
+          index={lightboxIndex}
+          onIndexChange={(next) => images && setLightbox(images[next]!)}
+          actions={
+            <>
               <button
                 type="button"
                 onClick={() => onSetAvatar(lightbox)}
                 disabled={editorBusy}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80 disabled:opacity-50"
+                className={VIEWER_BUTTON_CLASS}
                 title={localizeUi("ui.personas.personagallerytab.setAsAvatar")}
               >
                 {galleryAvatarPending ? <Spinner size="sm" /> : <User size="0.875rem" />}
@@ -908,24 +910,15 @@ function PersonaGalleryTab({
               <button
                 type="button"
                 onClick={() => void handleDelete(lightbox)}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
+                className={VIEWER_BUTTON_CLASS}
                 title={localizeUi("lorebook.editor.batch.delete")}
                 aria-label={localizeUi("lorebook.editor.batch.delete")}
               >
                 <Trash2 size="0.875rem" />
               </button>
-              <button
-                type="button"
-                ref={lightboxCloseRef}
-                onClick={() => setLightbox(null)}
-                aria-label={localizeUi("ui.chat.chatimagelightbox.closeImage")}
-                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
-              >
-                <X size="0.875rem" />
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        />
       )}
     </div>
   );
@@ -2176,6 +2169,7 @@ export function PersonaEditor() {
     backstory: overhaulHasText(formData.backstory),
     appearance: overhaulHasText(formData.appearance),
     scenario: overhaulHasText(formData.scenario),
+    publicFace: overhaulHasText(formData.publicFace),
   };
   const overhaulVisibleFields = new Set<string>(
     OVERHAUL_OPTIONAL_CARD_FIELDS.map((field) => field.id).filter(
@@ -2290,7 +2284,12 @@ export function PersonaEditor() {
             ? [
                 { id: "persona-card-description", label: "Description" },
                 ...OVERHAUL_OPTIONAL_CARD_FIELDS.filter((field) => overhaulVisibleFields.has(field.id)).map(
-                  (field) => ({ id: `persona-card-${field.id}`, label: field.label }),
+                  (field) => ({
+                    id:
+                      PERSONA_CARD_SECTIONS.find((section) => section.field === field.id)?.id ??
+                      `persona-card-${field.id}`,
+                    label: field.label,
+                  }),
                 ),
               ]
             : undefined,
@@ -3721,12 +3720,7 @@ function PersonaStatsTab({
               {parsed.bars.map((bar, i) => (
                 <div key={i} className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 space-y-2">
                   <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={bar.color}
-                      onChange={(e) => updateBar(i, "color", e.target.value)}
-                      className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent"
-                    />
+                    <ColorField value={bar.color} onChange={(color) => updateBar(i, "color", color)} label={bar.name} />
                     <StatIconPicker
                       value={resolveStatIconAssignment(
                         formData.trackerCardColors.statIcons ?? [],
@@ -3976,7 +3970,7 @@ function PersonaMetadataTab({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <CardIdentityFields
           kind="persona"
           fields={formData}
@@ -4261,6 +4255,7 @@ const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; la
   { key: "scenario", label: "Scenario" },
   { key: "backstory", label: "Backstory" },
   { key: "appearance", label: "Appearance" },
+  { key: "publicFace", label: "Public Face", labelKey: "chat.settings.inlineEditor.fields.publicFace" },
   { key: "imageAppearance", label: "Image appearance override" },
   { key: "imageAppearanceEnabled", label: "Use Image Appearance Override" },
   { key: "characterSheetImageId", label: "Character sheet" },
@@ -4292,6 +4287,7 @@ function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnap
     scenario: formData.scenario,
     backstory: formData.backstory,
     appearance: formData.appearance,
+    publicFace: formData.publicFace,
     imageAppearanceEnabled: String(formData.imageAppearanceEnabled),
     imageAppearance: formData.imageAppearance,
     characterSheetImageId: formData.characterSheetImageId ?? "",
@@ -4787,6 +4783,16 @@ function PersonaCardTab({
         localizeUi("ui.personas.personacardtab.aWanderingAdventurerSeekingAnswersAboutAMysteriousArtifact") +
         " " +
         seedHint,
+      rows: 8,
+    },
+    {
+      key: "publicFace",
+      sectionId: "persona-card-public-face",
+      mariField: "publicFace",
+      title: localizeUi("chat.settings.inlineEditor.fields.publicFace"),
+      subtitle: localizeUi("ui.cardFields.publicFace.subtitle"),
+      helpText: localizeUi("ui.cardFields.publicFace.help"),
+      placeholder: localizeUi("ui.cardFields.publicFace.placeholder"),
       rows: 8,
     },
     {

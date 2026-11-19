@@ -34,6 +34,16 @@ const group = await resolve([], "Doctor Ash and Elena Vale stand together.", ["c
 assert.deepEqual(group.characterIds, ["chat", "global"]);
 assert.deepEqual(group.appearanceNames, ["Doctor Ash", "Elena Vale"]);
 assert.doesNotMatch(group.appearanceBlock ?? "", /unrelated|duplicate|ambiguous/);
+// The image service takes only so many reference images, but the picture is still filed under everyone in it.
+const capped = await resolveIllustratorCharacterReferences({
+  charactersStore,
+  chatCharacters: cards.filter((card) => ["chat", "global", "unrelated"].includes(card.id)),
+  requestedNames: ["Doctor Ash", "Elena Vale", "Rain"],
+  promptText: "",
+  includeReferenceImages: false,
+  maxReferences: 1,
+});
+assert.deepEqual(capped.characterIds, ["chat", "unrelated", "global"]);
 assert.deepEqual((await resolve([], "An empty landscape.")).characterIds, []);
 assert.deepEqual((await resolve([], "")).characterIds, [], "Backgrounds must not inherit a solo-chat avatar");
 

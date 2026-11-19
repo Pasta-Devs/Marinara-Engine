@@ -935,7 +935,7 @@ type RoleplaySurfaceProps = {
   isForkingScene?: boolean;
   onOpenScheduleEditor?: ComponentProps<typeof ChatCommonOverlays>["onOpenScheduleEditor"];
   onCloseSettings: (options?: { force?: boolean }) => void;
-  onIllustrate?: (prompt?: string, messageRange?: [string, string]) => void;
+  onIllustrate?: (prompt?: string, messageRange?: [string, string], promptTemplateId?: string) => void;
   onHtml?: (prompt?: string) => void | Promise<void>;
   onRoleplayVideo?: (description?: string) => void | Promise<void>;
   onIllustrateWithAgent?: (agentType: string) => void | Promise<void>;
@@ -1456,9 +1456,7 @@ export function ChatRoleplaySurface({
     const timer = window.setInterval(() => {
       if (
         document.hidden ||
-        document.querySelector(
-          '[data-component="Modal"], [data-component="ExpandedTextarea"], [data-macro-modal], textarea:focus, input:focus',
-        )
+        document.querySelector('.mari-modal, [data-component="ExpandedTextarea"], textarea:focus, input:focus')
       )
         return;
       setVnParagraphIndex(currentParagraphIndex + 1);

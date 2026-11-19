@@ -1,6 +1,5 @@
-import { z } from "zod";
 import {
-  TACTICAL_BATTLEFIELD_SIZES,
+  tacticalBattlefieldSetupSchema,
   validateTacticalBattlefieldBrief,
   salvageTacticalBattlefieldBrief,
   type TacticalBattlefieldBrief,
@@ -9,22 +8,6 @@ import {
 } from "@marinara-engine/shared";
 
 export type { TacticalBattlefieldSetup } from "@marinara-engine/shared";
-
-export const MAX_TACTICAL_BATTLEFIELD_SEED = 0xffff_ffff;
-
-export const tacticalBattlefieldSeedSchema = z
-  .number()
-  .int("Battlefield seed must be a whole number.")
-  .min(0, "Battlefield seed must be at least 0.")
-  .max(MAX_TACTICAL_BATTLEFIELD_SEED, `Battlefield seed must be at most ${MAX_TACTICAL_BATTLEFIELD_SEED}.`);
-
-export const tacticalBattlefieldSetupSchema = z
-  .object({
-    seed: tacticalBattlefieldSeedSchema.optional(),
-    size: z.enum(TACTICAL_BATTLEFIELD_SIZES).optional(),
-    instructions: z.string().trim().max(4000).optional(),
-  })
-  .strict();
 
 const TACTICAL_MOVEMENT_MODES = new Set<TacticalMovementMode>(["walk", "fly", "teleport"]);
 

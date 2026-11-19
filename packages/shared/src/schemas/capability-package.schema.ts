@@ -1628,7 +1628,16 @@ const capabilityPackageManifestBaseSchema = z
 //        file. No permission.
 // 1.830: the host's `components` gain the shared Switch, Checkbox and Spinner, and showConfirmDialog.
 // Not a soft seam: an older Engine leaves them undefined, so a package that uses one declares it. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 830 } as const);
+// 1.831: the host's `components` gain the shared Select (the app's dropdown: a popover on desktop, a sheet on
+//        phones). Not a soft seam, as 1.830. No permission.
+// 1.832: the host's `components` gain the shared Tabs (`pill` and `underline`) and SearchInput.
+//        Not a soft seam: an older Engine leaves it undefined, so a package that uses it
+//        declares it. No permission.
+// 1.833: `persistence.listGameStates(chatId)` reads the committed World State snapshot of each message's active
+//        swipe, in message order (`getGameState` still returns only the newest). Read-only, behind `chat-read`.
+//        Soft seam: an older Engine leaves it undefined, so a package feature-detects it and declares 1.833
+//        only when it cannot work without it.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 833 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

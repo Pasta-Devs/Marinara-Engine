@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { join } from "node:path";
 import {
   applySpriteBackgroundInstruction,
   removeUniformSpriteBackgroundPng,
+  spriteBackgroundContract,
   selectSpriteChromaMatte,
   SPRITE_CLEANUP_REVISION,
 } from "../../../packages/server/src/services/image/sprite-background.service.js";
@@ -10,6 +13,8 @@ import {
   buildFullBodyReferenceContract,
   resolveSpriteNativeTransparency,
   resolveSpriteSheetCanvas,
+  resolveSpriteTransparencyTags,
+  spriteBackgroundNegatives,
   spritesRoutes,
 } from "../../../packages/server/src/routes/sprites.routes.js";
 import type { ImageGenerationDefaultsProfile } from "../../../packages/shared/src/types/image-generation-defaults.js";
@@ -41,11 +46,81 @@ const chromaOnlyPrompt = applySpriteBackgroundInstruction("full-body character o
 assert.match(chromaOnlyPrompt, /chroma green #00FF00/iu);
 assert.doesNotMatch(chromaOnlyPrompt, /solid white background/iu);
 assert.match(chromaOnlyPrompt, /never a painted transparency checkerboard/iu);
-assert.equal(resolveSpriteNativeTransparency("gpt-image-2", true), false);
-assert.equal(resolveSpriteNativeTransparency("gpt-image-2-preview", true), false);
-assert.equal(resolveSpriteNativeTransparency("gpt-image-1.5", true), true);
-assert.equal(resolveSpriteNativeTransparency("sdxl", true), true);
-assert.equal(resolveSpriteNativeTransparency("gpt-image-2", false), false);
+// NovelAI is asked with its transparency tags and no flat-colour fallback: a tag model paints "green background".
+const novelAiOptions = {
+  matte: selectSpriteChromaMatte("black hair"),
+  nativeTransparentPng: true,
+  removeBackground: true,
+};
+const novelAiPrompt = applySpriteBackgroundInstruction("portrait on a solid white background", {
+  ...novelAiOptions,
+  transparencyTags: true,
+});
+assert.equal(novelAiPrompt, "portrait on a transparent background, alpha transparency, no background");
+assert.doesNotMatch(novelAiPrompt, /green|#00FF00|transparent PNG/iu);
+assert.equal(spriteBackgroundContract({ ...novelAiOptions, transparencyTags: true }), "");
+assert.match(spriteBackgroundContract(novelAiOptions), /MANDATORY BACKGROUND CONTRACT/u);
+const novelAi = (model: string, baseUrl = "https://image.novelai.net") => ({
+  model,
+  baseUrl,
+  imageGenerationSource: "novelai",
+  imageService: "novelai",
+});
+assert.equal(resolveSpriteNativeTransparency(novelAi("nai-diffusion-5-full"), true), true);
+assert.equal(resolveSpriteNativeTransparency(novelAi("nai-diffusion-5-curated"), true), true);
+assert.equal(resolveSpriteNativeTransparency(novelAi("nai-diffusion-4-5-full"), true), false, "V4.5 draws no alpha");
+assert.equal(
+  resolveSpriteNativeTransparency(novelAi("nai-diffusion-5-full", "https://proxy.example.com/v1"), true),
+  false,
+  "a proxy is not NovelAI's own service",
+);
+assert.equal(resolveSpriteTransparencyTags(novelAi("nai-diffusion-5-full")), true);
+assert.equal(resolveSpriteTransparencyTags({ model: "gpt-image-1", baseUrl: "https://api.openai.com/v1" }), false);
+// Tags only where they reach NovelAI V5 on its own host: a proxy or V4.5 set to Supported keeps the sentence,
+// its colour fallback and the matte contract.
+assert.equal(
+  resolveSpriteTransparencyTags(novelAi("nai-diffusion-5-full", "https://proxy.example.com/v1")),
+  false,
+  "a proxy can't read the tags",
+);
+assert.equal(resolveSpriteTransparencyTags(novelAi("nai-diffusion-4-5-full")), false, "V4.5 ignores the tags");
+assert.equal(resolveSpriteTransparencyTags(novelAi("nai-diffusion-5-full", "https://api.novelai.net")), true);
+// Tagged requests keep every background negative except the transparency terms that would cancel the tags.
+const taggedNegatives = spriteBackgroundNegatives({ nativeTransparentPng: true, transparencyTags: true });
+for (const term of ["scenery", "floor line", "visible grid lines", "panel borders", "white background"]) {
+  assert.ok(taggedNegatives.includes(term), term);
+}
+assert.doesNotMatch(taggedNegatives, /transparen/iu);
+assert.match(
+  spriteBackgroundNegatives({ nativeTransparentPng: true, transparencyTags: false }),
+  /fake transparency, transparency grid/u,
+);
+
+// A Model is asked for a see-through sprite only when it draws one: its Transparent backgrounds setting, else
+// the models known to (Automatic). Any other Model gets the flat chroma colour, never "transparent PNG".
+const openAI = (model: string) => ({ model, baseUrl: "https://api.openai.com/v1" });
+assert.equal(resolveSpriteNativeTransparency(openAI("gpt-image-2"), true), false);
+assert.equal(resolveSpriteNativeTransparency(openAI("gpt-image-2-preview"), true), false);
+assert.equal(resolveSpriteNativeTransparency(openAI("gpt-image-1.5"), true), true);
+assert.equal(resolveSpriteNativeTransparency(openAI("gpt-image-1.5"), false), false);
+assert.equal(resolveSpriteNativeTransparency(openAI("gpt-image-2"), false), false);
+assert.equal(
+  resolveSpriteNativeTransparency({ model: "openai/gpt-image-1", baseUrl: "https://openrouter.ai/api/v1" }, true),
+  true,
+);
+assert.equal(
+  resolveSpriteNativeTransparency({ model: "gpt-image-1.5", baseUrl: "https://toapis.com/v1" }, true),
+  false,
+  "ToAPIs refuses see-through requests",
+);
+const comfy = { model: "sdxl", baseUrl: "http://127.0.0.1:8188", imageService: "comfyui" };
+assert.equal(resolveSpriteNativeTransparency(comfy, true), false, "Automatic: an unknown model draws a flat colour");
+assert.equal(resolveSpriteNativeTransparency({ ...comfy, imageTransparency: "supported" }, true), true);
+assert.equal(
+  resolveSpriteNativeTransparency({ ...openAI("gpt-image-1.5"), imageTransparency: "unsupported" }, true),
+  false,
+);
+assert.equal(resolveSpriteNativeTransparency(null, true), false);
 
 assert.deepEqual(resolveSpriteSheetCanvas({ cols: 1, rows: 1, spriteType: "full-body", model: "gpt-image-2" }), {
   sheetWidth: 1024,
@@ -384,6 +459,34 @@ try {
   assert.equal(result.cells[0].expression, "feathers");
   const cleaned = await decodeRaw(Buffer.from(result.cells[0].base64, "base64"));
   assert.equal(pixelAt(cleaned.data, detailWidth, 20, 23).alpha, 255);
+
+  // Cleaning a saved sprite keeps the original in a backup outside the sprite set, and restoring puts it back.
+  // The runner gives this file a throwaway DATA_DIR.
+  const owner = "saved-cleanup-owner";
+  const spriteDir = join(process.env.DATA_DIR!, "sprites", owner);
+  mkdirSync(spriteDir, { recursive: true });
+  const original = await encodeRaw(chromaPixels, width, height);
+  writeFileSync(join(spriteDir, "happy.png"), original);
+  const savedCleanup = await cleanupApp.inject({
+    method: "POST",
+    url: `/${owner}/cleanup-saved`,
+    payload: { engine: "builtin" },
+  });
+  assert.equal(savedCleanup.statusCode, 200, savedCleanup.body);
+  const { backupId, processed, sprites } = savedCleanup.json();
+  assert.equal(processed, 1);
+  assert.deepEqual(
+    sprites.map((sprite: { filename: string }) => sprite.filename),
+    ["happy.png"],
+    "the backup is not a sprite",
+  );
+  const active = await decodeRaw(readFileSync(join(spriteDir, "happy.png")));
+  assert.ok(pixelAt(active.data, width, 0, 0).alpha <= 4, "the cleaned sprite is the active one");
+  assert.deepEqual(readFileSync(join(spriteDir, ".cleanup-backups", backupId, "happy.png")), original);
+  const restored = await cleanupApp.inject({ method: "POST", url: `/${owner}/cleanup-restore`, payload: { backupId } });
+  assert.equal(restored.statusCode, 200, restored.body);
+  assert.equal(restored.json().restored, 1);
+  assert.deepEqual(readFileSync(join(spriteDir, "happy.png")), original, "restoring brings the original back");
 } finally {
   await cleanupApp.close();
 }
@@ -527,4 +630,83 @@ console.info("Sprite background regression passed.");
     compiled,
     "other sprites get no looks",
   );
+}
+
+// #9574: a picture is judged by its own pixels. Real alpha is kept untouched; a Model asked for a see-through
+// picture that came back solid is left as drawn and marked, never cleaned unasked; any other is cleaned.
+{
+  const { settleSpriteBackground } =
+    await import("../../../packages/server/src/services/image/sprite-background.service.js");
+  const size = 32;
+  const cutout = solidImage(size, size, [0, 0, 0, 0]);
+  for (let yPos = 8; yPos < 24; yPos++)
+    for (let xPos = 8; xPos < 24; xPos++) setPixel(cutout, size, xPos, yPos, [200, 40, 40, 255]);
+  const cutoutPng = await encodeRaw(cutout, size, size);
+  const kept = await settleSpriteBackground(cutoutPng, {
+    askedForTransparency: false,
+    clean: true,
+    cleanupStrength: 35,
+  });
+  assert.equal(kept.buffer, cutoutPng, "a see-through picture is kept byte for byte");
+  assert.equal(kept.opaque, undefined);
+
+  const onGreen = solidImage(size, size, [0, 255, 0, 255]);
+  for (let yPos = 8; yPos < 24; yPos++)
+    for (let xPos = 8; xPos < 24; xPos++) setPixel(onGreen, size, xPos, yPos, [200, 40, 40, 255]);
+  const onGreenPng = await encodeRaw(onGreen, size, size);
+  const reported = await settleSpriteBackground(onGreenPng, {
+    askedForTransparency: true,
+    clean: true,
+    cleanupStrength: 35,
+  });
+  assert.equal(reported.buffer, onGreenPng, "an unexpected solid background is not changed unasked");
+  assert.equal(reported.opaque, true);
+
+  const cleaned = await settleSpriteBackground(onGreenPng, {
+    askedForTransparency: false,
+    clean: true,
+    cleanupStrength: 35,
+  });
+  assert.equal(cleaned.opaque, undefined);
+  const cleanedPixels = await decodeRaw(cleaned.buffer);
+  assert.equal(
+    pixelAt(cleanedPixels.data, size, 1, 1).alpha,
+    0,
+    "a Model without alpha still gets its flat colour removed",
+  );
+
+  const untouched = await settleSpriteBackground(onGreenPng, {
+    askedForTransparency: false,
+    clean: false,
+    cleanupStrength: 35,
+  });
+  assert.equal(untouched.buffer, onGreenPng);
+
+  // A solid picture at another size is still reported, and its padding keeps one flat background for a later
+  // cleanup: the check runs on what the Model drew, before the picture is fitted.
+  const { fitSpriteToSize } = await import("../../../packages/server/src/routes/sprites.routes.js");
+  const fitted = await fitSpriteToSize(reported.buffer, size, size + 16);
+  const fittedPixels = await decodeRaw(fitted);
+  assert.equal(fittedPixels.info.height, size + 16);
+  assert.deepEqual(
+    [pixelAt(fittedPixels.data, size, 1, 1).alpha, pixelAt(fittedPixels.data, size, 1, 1).green],
+    [255, 255],
+    "a solid picture is padded with its own background colour, not see-through bars",
+  );
+  const fittedCutout = await decodeRaw(await fitSpriteToSize(cutoutPng, size, size + 16));
+  assert.equal(pixelAt(fittedCutout.data, size, 1, 1).alpha, 0, "a see-through picture gets see-through bars");
+
+  // Clear only at its corners (too little for the ratio test): still padded with see-through bars.
+  const cornersOnly = solidImage(size, size, [200, 40, 40, 255]);
+  for (const [cx, cy] of [
+    [0, 0],
+    [size - 1, 0],
+    [0, size - 1],
+    [size - 1, size - 1],
+  ])
+    setPixel(cornersOnly, size, cx, cy, [0, 0, 0, 0]);
+  const fittedCorners = await decodeRaw(
+    await fitSpriteToSize(await encodeRaw(cornersOnly, size, size), size, size + 16),
+  );
+  assert.equal(pixelAt(fittedCorners.data, size, 1, 1).alpha, 0, "a clear corner keeps the padding see-through");
 }

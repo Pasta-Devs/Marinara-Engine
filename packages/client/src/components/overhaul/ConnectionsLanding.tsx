@@ -874,11 +874,20 @@ export function ConnectionsLanding() {
       ) : (
         <div className="ov-table-wrap">
           <table className="ov-table ov-conn__table">
+            <colgroup>
+              <col className="ov-conn__col-lead" />
+              <col className="ov-conn__col-name" />
+              <col className="ov-conn__col-fill" />
+              <col className="ov-conn__col-num" />
+              <col className="ov-conn__col-status" />
+              <col className="ov-conn__col-bal" />
+              <col className="ov-conn__col-act" />
+            </colgroup>
             <thead>
               <tr>
                 <th className="ov-conn__lead" aria-hidden="true" />
-                <th>{localize(byFolder ? "Folder" : "Account")}</th>
-                <th className="ov-conn__fill" aria-hidden="true" />
+                {/* Spans the spacer column too, like the account and folder names under it. */}
+                <th colSpan={2}>{localize(byFolder ? "Folder" : "Account")}</th>
                 <th className="ov-conn__num">{localize("Models")}</th>
                 <th>{localize("Status")}</th>
                 <th className="ov-conn__bal">{localize("Balance")}</th>

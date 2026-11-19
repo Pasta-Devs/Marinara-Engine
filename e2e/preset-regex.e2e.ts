@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { chooseOption } from "./select-field";
 import { seedUIState } from "./ui-state-fixture";
 
 const appVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -61,13 +62,17 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
   try {
     await page.goto("/");
     const editor = await openPreset(page, preset.id);
-    await editor.getByRole("combobox", { name: "Scoped regex default", exact: true }).selectOption("exclusive");
+    await chooseOption(page, editor.getByRole("combobox", { name: "Scoped regex default", exact: true }), "Exclusive");
     await editor.getByRole("button", { name: "Save", exact: true }).click();
     await expect(editor.getByText("Changes saved", { exact: true })).toBeVisible();
     await expect
       .poll(async () => (await (await request.get(`/api/prompts/${preset.id}`)).json()).scopedRegexMode)
       .toBe("exclusive");
-    await editor.getByRole("combobox", { name: "Add existing script", exact: true }).selectOption(script.id);
+    await chooseOption(
+      page,
+      editor.getByRole("combobox", { name: "Add existing script", exact: true }),
+      "Existing scoped fixture",
+    );
     await expect(editor.locator(".mari-editor-title-input")).toHaveValue("Existing scoped fixture");
     // Binding remains a draft until Save, rather than changing a global script on selection.
     expect(
@@ -78,8 +83,15 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
     ).toEqual(["other-preset"]);
     await editor.getByRole("button", { name: /^Back to/ }).click();
     await editor.getByRole("button", { name: "Discard", exact: true }).click();
-    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveValue("exclusive");
-    await editor.getByRole("combobox", { name: "Add existing script", exact: true }).selectOption(script.id);
+    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveAttribute(
+      "data-value",
+      "exclusive",
+    );
+    await chooseOption(
+      page,
+      editor.getByRole("combobox", { name: "Add existing script", exact: true }),
+      "Existing scoped fixture",
+    );
     await expect(editor.locator(".mari-editor-title-input")).toHaveValue("Existing scoped fixture");
     await page.route(`**/api/regex-scripts/${script.id}`, (route) =>
       route.fulfill({ status: 500, json: { error: "Synthetic save failure" } }),
@@ -134,11 +146,17 @@ test("preset regex tab saves defaults, reuses the regex editor, and preserves ex
     expect(JSON.parse(created.targetPromptPresetIds)).toEqual([preset.id]);
     await editor.getByRole("button", { name: /^Back to/ }).click();
     await expect(editor.getByRole("button", { name: "Created in preset fixture" })).toBeVisible();
-    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveValue("exclusive");
+    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveAttribute(
+      "data-value",
+      "exclusive",
+    );
     await testInfo.attach("preset-regex-editor", { body: await page.screenshot(), contentType: "image/png" });
     await page.reload();
     await openPreset(page, preset.id);
-    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveValue("exclusive");
+    await expect(editor.getByRole("combobox", { name: "Scoped regex default", exact: true })).toHaveAttribute(
+      "data-value",
+      "exclusive",
+    );
   } finally {
     await Promise.all(scriptIds.map((id) => request.delete(`/api/regex-scripts/${id}`)));
     await request.delete(`/api/prompts/${preset.id}`);
@@ -330,13 +348,11 @@ test("regex library folders pause chat display and bulk toggles keep each script
     expect((await scriptState()).map((row) => row?.[1])).toEqual(originalOrders);
     await exitSelection.click();
 
-    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Run scripts in Test pack", exact: true }).click();
     await expect(folder.getByText("Paused", { exact: true })).toBeVisible();
     await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(1);
-    await expect(
-      folder.getByRole("checkbox", { name: "Run Pack format (paused by folder)", exact: true }),
-    ).toBeChecked();
-    await expect(folder.getByRole("checkbox", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
+    await expect(folder.getByRole("switch", { name: "Run Pack format (paused by folder)", exact: true })).toBeChecked();
+    await expect(folder.getByRole("switch", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
     await expect(message).toContainText("PACK_RAW and outside formatted");
     await page.screenshot({ path: info.outputPath("regex-folders-paused.png") });
     const orderView = page.getByRole("button", { name: "Execution order", exact: true });
@@ -347,7 +363,7 @@ test("regex library folders pause chat display and bulk toggles keep each script
     await page.reload();
     await expect(message).toContainText("PACK_RAW and outside formatted");
     await openRegexes();
-    await expect(folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true })).not.toBeChecked();
+    await expect(folder.getByRole("switch", { name: "Run scripts in Test pack", exact: true })).not.toBeChecked();
     await selectRegex.click();
     await folder.getByRole("checkbox", { name: "Select Pack format", exact: true }).check();
     await folder.getByRole("checkbox", { name: "Select Pack experimental", exact: true }).check();
@@ -370,11 +386,11 @@ test("regex library folders pause chat display and bulk toggles keep each script
     expect(rejected.status()).toBe(404);
     expect((await scriptState())[0]?.[0]).toBe("false");
     await exitSelection.click();
-    await folder.getByRole("checkbox", { name: "Run Pack format", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Run Pack format", exact: true }).click();
     await expect(message).toContainText("PACK_RAW and outside formatted");
-    await folder.getByRole("checkbox", { name: "Run scripts in Test pack", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Run scripts in Test pack", exact: true }).click();
     await expect(message).toContainText("pack formatted and outside formatted");
-    await expect(folder.getByRole("checkbox", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
+    await expect(folder.getByRole("switch", { name: "Run Pack experimental", exact: true })).not.toBeChecked();
     await page.getByRole("button", { name: "Execution order", exact: true }).click();
     await expect(folder).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Pack format", exact: false }).first()).toBeVisible();
@@ -453,10 +469,10 @@ test("function library folders pause offered tools and bulk toggles keep each fu
     await expect(folder.getByRole("checkbox", { name: "Select e2e_folder_alpha", exact: true })).toBeChecked();
     await exitSelection.click();
 
-    await folder.getByRole("checkbox", { name: "Offer tools in Test tools", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Offer tools in Test tools", exact: true }).click();
     await expect(folder.getByText("Paused", { exact: true })).toBeVisible();
     await expect(
-      folder.getByRole("checkbox", { name: "Offer e2e_folder_alpha (paused by folder)", exact: true }),
+      folder.getByRole("switch", { name: "Offer e2e_folder_alpha (paused by folder)", exact: true }),
     ).toBeChecked();
     await expect(folder.getByText("Paused by folder", { exact: true })).toHaveCount(1);
     await expect.poll(toolState).toEqual([
@@ -489,7 +505,7 @@ test("function library folders pause offered tools and bulk toggles keep each fu
     expect((await toolState())[0]?.[0]).toBe(false);
     await exitSelection.click();
 
-    await folder.getByRole("checkbox", { name: "Offer tools in Test tools", exact: true }).locator("..").click();
+    await folder.getByRole("switch", { name: "Offer tools in Test tools", exact: true }).click();
     await expect.poll(toolState).toEqual([
       [false, false],
       [false, false],

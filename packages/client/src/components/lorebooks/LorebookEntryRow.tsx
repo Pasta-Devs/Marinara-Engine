@@ -56,6 +56,7 @@ import {
 } from "../../hooks/use-lorebooks";
 import { isCapabilityPackageAvailable, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useUIStore } from "../../stores/ui.store";
+import { Select } from "../ui/Select";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { DecisionStatementNote } from "../ui/DecisionStatementNote";
 import { LorebookDecisionPictureFields } from "./LorebookDecisionPictureFields";
@@ -1265,6 +1266,7 @@ export function LorebookEntryRow({
             onClick={(e) => e.stopPropagation()}
           >
             <CompactSelect
+              label={localizeUi("ui.lorebooks.lorebookentryrow.position")}
               value={String(localPosition)}
               onChange={(v) => {
                 const n = Number(v) as LorebookEntry["position"];
@@ -1324,6 +1326,7 @@ export function LorebookEntryRow({
             />
             {folders.length > 0 && (
               <CompactSelect
+                label={localizeUi("ui.lorebooks.lorebookentryrow.folder")}
                 value={entry.folderId ?? ""}
                 onChange={(v) => patch({ folderId: v === "" ? null : v })}
                 title={localizeUi("ui.lorebooks.lorebookentryrow.moveThisEntryToADifferentFolderNoneRoot")}
@@ -1387,9 +1390,11 @@ function CompactSelect({
   value,
   onChange,
   options,
+  label,
   title,
   className,
 }: {
+  label: string;
   value: string;
   onChange: (v: string) => void;
   options: Array<{ value: string; label: string }>;
@@ -1397,18 +1402,14 @@ function CompactSelect({
   className?: string;
 }) {
   return (
-    <select
+    <Select
       value={value}
       title={title}
-      onChange={(e) => onChange(e.target.value)}
+      label={label}
+      onChange={(next) => onChange(next)}
+      options={options}
       className={cn("mari-editor-field h-6 min-w-0 truncate px-1 text-[0.625rem]", className)}
-    >
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+    />
   );
 }
 
@@ -1490,20 +1491,16 @@ function MobileSelect({
   options: Array<{ value: string; label: string }>;
 }) {
   return (
-    <label className="grid grid-cols-[5.75rem_minmax(0,1fr)] items-center gap-2 text-[0.6875rem]">
+    <div className="grid grid-cols-[5.75rem_minmax(0,1fr)] items-center gap-2 text-[0.6875rem]">
       <span className="text-[var(--muted-foreground)]">{label}</span>
-      <select
+      <Select
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(next) => onChange(next)}
+        label={label}
+        options={options}
         className="mari-editor-field h-9 w-full min-w-0 px-2 text-xs"
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      />
+    </div>
   );
 }
 
@@ -1620,22 +1617,23 @@ function buildEntrySavePayload(form: Partial<LorebookEntry>) {
 function FilterModeSelect({
   value,
   onChange,
+  label,
 }: {
   value: LorebookFilterMode;
   onChange: (value: LorebookFilterMode) => void;
+  label: string;
 }) {
   return (
-    <select
+    <Select
       value={value}
-      onChange={(e) => onChange(e.target.value as LorebookFilterMode)}
+      onChange={(next) => onChange(next as LorebookFilterMode)}
+      label={label}
       className="mari-editor-field h-7 px-2 text-[0.6875rem]"
-    >
-      {(["any", "include", "exclude"] as LorebookFilterMode[]).map((mode) => (
-        <option key={mode} value={mode}>
-          {FILTER_MODE_LABEL[mode]}
-        </option>
-      ))}
-    </select>
+      options={(["any", "include", "exclude"] as LorebookFilterMode[]).map((mode) => ({
+        value: mode,
+        label: FILTER_MODE_LABEL[mode],
+      }))}
+    />
   );
 }
 
@@ -2792,6 +2790,7 @@ function ExpandedDrawer({
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[0.6875rem] font-medium">{localizeUi("navigation.topbar.characters")}</span>
                 <FilterModeSelect
+                  label={localizeUi("navigation.topbar.characters")}
                   value={form.characterFilterMode ?? "any"}
                   onChange={(value) => update({ characterFilterMode: value })}
                 />
@@ -2810,6 +2809,7 @@ function ExpandedDrawer({
                   {localizeUi("ui.lorebooks.expandeddrawer.characterTags")}
                 </span>
                 <FilterModeSelect
+                  label={localizeUi("ui.lorebooks.expandeddrawer.characterTags")}
                   value={form.characterTagFilterMode ?? "any"}
                   onChange={(value) => update({ characterTagFilterMode: value })}
                 />
@@ -2828,6 +2828,7 @@ function ExpandedDrawer({
                   {localizeUi("ui.lorebooks.expandeddrawer.generation")}
                 </span>
                 <FilterModeSelect
+                  label={localizeUi("ui.lorebooks.expandeddrawer.generation")}
                   value={form.generationTriggerFilterMode ?? "any"}
                   onChange={(value) => update({ generationTriggerFilterMode: value })}
                 />
@@ -2963,15 +2964,17 @@ function ExpandedDrawer({
           icon={Settings2}
           help={localizeUi("ui.lorebooks.expandeddrawer.whichRoleThisEntrySContentIsAttributedTo")}
         >
-          <select
+          <Select
             value={form.role ?? "system"}
-            onChange={(e) => update({ role: e.target.value as "system" | "user" | "assistant" })}
+            onChange={(next) => update({ role: next as "system" | "user" | "assistant" })}
+            label={localizeUi("ui.lorebooks.expandeddrawer.role")}
             className="mari-editor-field w-full px-2 py-1.5 text-xs"
-          >
-            <option value="system">{localizeUi("ui.lorebooks.expandeddrawer.system")}</option>
-            <option value="user">{localizeUi("ui.lorebooks.expandeddrawer.user")}</option>
-            <option value="assistant">{localizeUi("ui.lorebooks.expandeddrawer.assistant")}</option>
-          </select>
+            options={[
+              { value: "system", label: localizeUi("ui.lorebooks.expandeddrawer.system") },
+              { value: "user", label: localizeUi("ui.lorebooks.expandeddrawer.user") },
+              { value: "assistant", label: localizeUi("ui.lorebooks.expandeddrawer.assistant") },
+            ]}
+          />
         </FieldGroup>
 
         {/* Timing */}

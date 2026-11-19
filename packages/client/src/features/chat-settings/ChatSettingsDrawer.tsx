@@ -26,7 +26,6 @@ import { ChatWindowFavoriteButton } from "./ChatWindowFavoriteButton";
 import { listCombatStyles, resolveCombatStyle } from "../../components/game/combat-styles";
 import { AgentActivitySection } from "../../components/agents/AgentActivitySection";
 import { withAgentActivityStatus } from "../../components/agents/AgentActivityIcon";
-import { useKeepFocusedFieldAboveKeyboard } from "../../hooks/use-keep-focused-field-above-keyboard";
 import {
   X,
   BookOpen,
@@ -79,7 +78,7 @@ import { ChatSettingsSection as Section } from "./ChatSettingsSection";
 import { useMobileChatSettingsNav } from "./mobile-nav";
 import { MobileChatSettingsBack, MobileChatSettingsGroup, MobileChatSettingsQuick } from "./MobileChatSettingsNav";
 import { ActiveChatBackgroundPicker } from "../../components/panels/settings/BackgroundPicker";
-import { LocationBackgroundPins } from "../../components/chat/LocationBackgroundPins";
+import { LocationBackgroundPins } from "./LocationBackgroundPins";
 import { AdvancedParametersSection } from "./sections/AdvancedParametersSection";
 import { CardFieldAlternativesSection } from "./sections/CardFieldAlternativesSection";
 import { ChatNameSection } from "./sections/ChatNameSection";
@@ -168,6 +167,7 @@ import {
   AgentSettingsTextarea,
   AgentSettingsToggle,
   MediaScopeSelect,
+  AgentChoiceSelect,
   GamePromptTemplateSelect,
   GenerationSettingsLink,
 } from "../../components/chat/AgentSettingsControls";
@@ -242,7 +242,7 @@ import { useMatchMedia } from "../../hooks/use-match-media";
 import { useChatControlDockStore, useHostHasDetachedDrawers } from "../../components/ui/drawer-host";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import type { ChatMode, ChatPreset, PromptPreset } from "@marinara-engine/shared";
-import { customAgentHasCapability, parseAgentSettingsRecord } from "@marinara-engine/shared";
+import { customAgentHasCapability, parseAgentSettingsRecord, REFERENCE_PICTURE_TARGETS } from "@marinara-engine/shared";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import {
@@ -306,7 +306,7 @@ const InlineLorebookEntriesEditor = lazy(() =>
     default: module.InlineLorebookEntriesEditor,
   })),
 );
-const StoryboardChatSettingsPanel = lazy(() => import("./StoryboardChatSettingsPanel"));
+const StoryboardChatSettingsPanel = lazy(() => import("./agents/StoryboardChatSettingsPanel"));
 const ChatGalleryPanel = lazy(() =>
   import("./ChatGalleryPanel").then((module) => ({ default: module.ChatGalleryPanel })),
 );
@@ -315,7 +315,7 @@ const ActiveLorebookEntriesContent = lazy(() =>
     default: module.ActiveLorebookEntriesContent,
   })),
 );
-const BeholderChatSettingsPanel = lazy(() => import("./BeholderChatSettingsPanel"));
+const BeholderChatSettingsPanel = lazy(() => import("./agents/BeholderChatSettingsPanel"));
 
 const DRAWER_WINDOW_SCROLL_AREA = cn(NEUTRAL_PANEL_SCROLL_AREA, "@container");
 
@@ -478,7 +478,6 @@ export function ChatSettingsDrawer({
   const setControlDockHost = useChatControlDockStore((state) => state.setElement);
   const panelRef = useRef<HTMLDivElement | null>(null);
   // On phones the sheet keeps the field being typed in (a summary, the notes) above the keyboard.
-  useKeepFocusedFieldAboveKeyboard(panelRef);
   const modePromptDefaultAppliedRef = useRef<string | null>(null);
   const agentSuiteCloseGuardRef = useRef<(() => Promise<boolean>) | null>(null);
   const drawerClosingRef = useRef(false);
@@ -1537,6 +1536,7 @@ export function ChatSettingsDrawer({
     secretPlotMessages,
     illustratorIncludeCharacterAppearance,
     illustratorUseAvatarReferences,
+    illustratorReferencePictureTarget,
     illustratorPromptConnectionId,
     illustratorImageConnectionId,
     illustratorImagesPerGeneration,
@@ -2603,23 +2603,30 @@ export function ChatSettingsDrawer({
       confirmLabel: localizeUi("chat.settings.resetViewConfirm.confirm"),
       cancelLabel: localizeUi("chat.delete.dialog.cancel"),
     });
-    if (confirmed) resetView();
+    if (confirmed) {
+      resetView();
+      // Sections hidden or reordered in Edit come back too (the new layout keeps that arrangement per chat mode).
+      useOverhaulStore.getState().setChatSettingsLayout(chatMode, null);
+    }
     if (button.isConnected) button.focus({ preventScroll: true });
   };
+  const resetViewButton = (
+    <button
+      type="button"
+      data-chat-help="reset-view"
+      data-chat-settings-control="reset-view"
+      aria-label={resetViewLabel}
+      title={resetViewLabel}
+      className="mari-window__control"
+      onClick={(event) => void handleResetView(event.currentTarget)}
+    >
+      <RotateCcw size="0.8125rem" />
+    </button>
+  );
   // Reset View and the favorite arrangement, then the Tracker Panel dice and window controls.
   const headerControls = (
     <>
-      <button
-        type="button"
-        data-chat-help="reset-view"
-        data-chat-settings-control="reset-view"
-        aria-label={resetViewLabel}
-        title={resetViewLabel}
-        className="mari-window__control"
-        onClick={(event) => void handleResetView(event.currentTarget)}
-      >
-        <RotateCcw size="0.8125rem" />
-      </button>
+      {resetViewButton}
       <ChatWindowFavoriteButton
         mode={chatMode}
         hintsDismissed={metadata.chatSettingsHintDismissed === true}
@@ -2819,7 +2826,8 @@ export function ChatSettingsDrawer({
         title={localizeUi("chat.toolbar.settings")}
         titleIcon={<Settings2 size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />}
         titleAccessory={overhaulActive ? <OvChatSettingsHeader mode={chatMode} /> : helpLayoutButton}
-        headerControls={ovDocked ? null : headerControls}
+        // Docked keeps a quiet header; Edit still offers Reset View there.
+        headerControls={ovDocked ? (ovEditing ? resetViewButton : null) : headerControls}
         closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
         {...windowProps}
         // Sidebar presses belong to the modeless profile editor while it is open.
@@ -4222,6 +4230,27 @@ export function ChatSettingsDrawer({
                             }
                             onReset={resetIllustratorAvatarReferences}
                           />
+                          {illustratorUseAvatarReferences && (
+                            <AgentChoiceSelect
+                              label={localizeUi("ui.agents.agenteditor.referencePictureTarget")}
+                              description={localizeUi(
+                                `ui.agents.agenteditor.referencePictureTargetHelp.${illustratorReferencePictureTarget}`,
+                              )}
+                              value={illustratorReferencePictureTarget}
+                              options={REFERENCE_PICTURE_TARGETS.map((target) => ({
+                                value: target,
+                                label: localizeUi(`ui.agents.agenteditor.referencePictureTargetOption.${target}`),
+                              }))}
+                              active
+                              onChange={(target) =>
+                                updateMeta.mutate({ id: chat.id, illustratorReferencePictureTarget: target })
+                              }
+                              overridden={typeof metadata.illustratorReferencePictureTarget === "string"}
+                              onReset={() =>
+                                updateMeta.mutate({ id: chat.id, illustratorReferencePictureTarget: null })
+                              }
+                            />
+                          )}
                           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
                             <p className="min-w-0 flex-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
                               {localizeUi(
