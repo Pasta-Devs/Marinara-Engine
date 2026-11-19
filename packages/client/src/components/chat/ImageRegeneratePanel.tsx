@@ -195,7 +195,10 @@ function PromptField({
           title={resetLabel}
           onClick={() => onChange(original)}
           disabled={disabled || value === original}
-          className={cn(BUTTON_CLASS, "w-11 shrink-0 px-0 text-[var(--muted-foreground)] hover:bg-[var(--accent)]")}
+          className={cn(
+            BUTTON_CLASS,
+            "-my-1.5 w-11 shrink-0 px-0 text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+          )}
         >
           <RotateCcw size="1rem" aria-hidden />
         </button>
@@ -524,111 +527,125 @@ export function ImageRegeneratePanel({
       )}
       <div
         className={cn(
-          "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
-          !collapsed && "border-b border-[var(--border)]",
+          "shrink-0",
+          !collapsed &&
+            isNativeNovelAi &&
+            "max-sm:flex max-sm:items-center max-sm:gap-1.5 max-sm:border-b max-sm:border-[var(--border)] max-sm:px-2.5 max-sm:py-1",
         )}
       >
-        <h2
-          id={titleId}
-          ref={titleRef}
-          tabIndex={-1}
-          className={cn(
-            "min-w-0 shrink-0 truncate text-base font-semibold focus:outline-none",
-            showCollapsedMaskBar && "max-md:sr-only",
-          )}
-        >
-          {t("ui.chat.chatimagelightbox.regenerateImage")}
-        </h2>
         <div
           className={cn(
-            "flex shrink-0 items-center gap-1.5",
-            showCollapsedMaskBar && "min-w-0 flex-1 justify-between md:justify-end md:gap-2",
+            "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
+            !collapsed && "border-b border-[var(--border)]",
+            !collapsed && isNativeNovelAi && "max-sm:contents",
           )}
         >
-          {showCollapsedMaskBar && maskControls && (
-            <>
-              <div className="hidden min-w-0 flex-1 items-center sm:flex sm:max-w-56">
-                <MaskBrushSlider maskControls={maskControls} disabled={busy} compact />
-              </div>
-              <MaskToolButtons maskControls={maskControls} disabled={busy} compact />
-              <span
-                role="status"
+          <h2
+            id={titleId}
+            ref={titleRef}
+            tabIndex={-1}
+            className={cn(
+              "min-w-0 shrink-0 truncate text-base font-semibold focus:outline-none",
+              showCollapsedMaskBar && "max-md:sr-only",
+              !collapsed && isNativeNovelAi && "max-sm:sr-only",
+            )}
+          >
+            {t("ui.chat.chatimagelightbox.regenerateImage")}
+          </h2>
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-1.5",
+              showCollapsedMaskBar && "min-w-0 flex-1 justify-between md:justify-end md:gap-2",
+              !collapsed && isNativeNovelAi && "max-sm:contents",
+            )}
+          >
+            {showCollapsedMaskBar && maskControls && (
+              <>
+                <div className="hidden min-w-0 flex-1 items-center sm:flex sm:max-w-56">
+                  <MaskBrushSlider maskControls={maskControls} disabled={busy} compact />
+                </div>
+                <MaskToolButtons maskControls={maskControls} disabled={busy} compact />
+                <span
+                  role="status"
+                  className={cn(
+                    "shrink-0 whitespace-nowrap rounded-md border px-2 py-1 text-[0.7rem] font-medium",
+                    hasMask
+                      ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
+                      : "border-[var(--border)] text-[var(--muted-foreground)]",
+                  )}
+                >
+                  {t(hasMask ? "ui.imagemaskcanvas.modeInpaintingShort" : "ui.imagemaskcanvas.modeImg2Img")}
+                </span>
+              </>
+            )}
+            <div
+              className={cn("flex shrink-0 items-center gap-1", !collapsed && isNativeNovelAi && "max-sm:order-last")}
+            >
+              {collapsed && phase && <Spinner size="sm" aria-hidden="true" />}
+              <button
+                type="button"
+                onClick={() => setCollapsed((current) => !current)}
+                aria-expanded={!collapsed}
+                aria-label={t(
+                  collapsed ? "ui.chat.imageregeneratepanel.expandPanel" : "ui.chat.imageregeneratepanel.collapsePanel",
+                )}
+                title={t(
+                  collapsed ? "ui.chat.imageregeneratepanel.expandPanel" : "ui.chat.imageregeneratepanel.collapsePanel",
+                )}
                 className={cn(
-                  "shrink-0 whitespace-nowrap rounded-md border px-2 py-1 text-[0.7rem] font-medium",
-                  hasMask
-                    ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
-                    : "border-[var(--border)] text-[var(--muted-foreground)]",
+                  BUTTON_CLASS,
+                  "w-11 shrink-0 px-0 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                 )}
               >
-                {t(hasMask ? "ui.imagemaskcanvas.modeInpaintingShort" : "ui.imagemaskcanvas.modeImg2Img")}
-              </span>
-            </>
-          )}
-          <div className="flex shrink-0 items-center gap-1">
-            {collapsed && phase && <Spinner size="sm" aria-hidden="true" />}
-            <button
-              type="button"
-              onClick={() => setCollapsed((current) => !current)}
-              aria-expanded={!collapsed}
-              aria-label={t(
-                collapsed ? "ui.chat.imageregeneratepanel.expandPanel" : "ui.chat.imageregeneratepanel.collapsePanel",
-              )}
-              title={t(
-                collapsed ? "ui.chat.imageregeneratepanel.expandPanel" : "ui.chat.imageregeneratepanel.collapsePanel",
-              )}
-              className={cn(
-                BUTTON_CLASS,
-                "w-11 shrink-0 px-0 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-              )}
-            >
-              {collapsed ? <ChevronUp size="1.125rem" aria-hidden /> : <ChevronDown size="1.125rem" aria-hidden />}
-            </button>
+                {collapsed ? <ChevronUp size="1.125rem" aria-hidden /> : <ChevronDown size="1.125rem" aria-hidden />}
+              </button>
+            </div>
           </div>
         </div>
+        {!collapsed && isNativeNovelAi && (
+          <div
+            role="tablist"
+            aria-label={t("ui.chat.imageregeneratepanel.modeTablist")}
+            className="flex min-w-0 flex-1 gap-1 sm:shrink-0 sm:flex-initial sm:border-b sm:border-[var(--border)] sm:px-4 sm:py-1.5"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveMode === "regenerate"}
+              disabled={busy}
+              onClick={() => setMode("regenerate")}
+              className={cn(
+                BUTTON_CLASS,
+                "min-w-0 flex-1 rounded-lg px-2.5 text-xs sm:px-3 sm:text-sm",
+                effectiveMode === "regenerate"
+                  ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
+              )}
+            >
+              {t("ui.chat.imageregeneratepanel.modeRegenerate")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={effectiveMode === "edit"}
+              disabled={busy}
+              onClick={() => setMode("edit")}
+              className={cn(
+                BUTTON_CLASS,
+                "min-w-0 flex-1 rounded-lg px-2.5 text-xs sm:px-3 sm:text-sm",
+                effectiveMode === "edit"
+                  ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
+              )}
+            >
+              {t("ui.chat.imageregeneratepanel.modeEditImage")}
+            </button>
+          </div>
+        )}
       </div>
       {!collapsed && (
         <>
-          {isNativeNovelAi && (
-            <div
-              role="tablist"
-              aria-label={t("ui.chat.imageregeneratepanel.modeTablist")}
-              className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-1.5"
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={effectiveMode === "regenerate"}
-                disabled={busy}
-                onClick={() => setMode("regenerate")}
-                className={cn(
-                  BUTTON_CLASS,
-                  "flex-1 rounded-lg",
-                  effectiveMode === "regenerate"
-                    ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
-                )}
-              >
-                {t("ui.chat.imageregeneratepanel.modeRegenerate")}
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={effectiveMode === "edit"}
-                disabled={busy}
-                onClick={() => setMode("edit")}
-                className={cn(
-                  BUTTON_CLASS,
-                  "flex-1 rounded-lg",
-                  effectiveMode === "edit"
-                    ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
-                )}
-              >
-                {t("ui.chat.imageregeneratepanel.modeEditImage")}
-              </button>
-            </div>
-          )}
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4 pt-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3">
             {isNativeNovelAi && effectiveMode === "edit" && (
               <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--marinara-chat-chrome-input-bg)]/60 p-3">
                 {maskControls && (
@@ -834,15 +851,18 @@ export function ImageRegeneratePanel({
             )}
           </div>
 
-          <div className="shrink-0 border-t border-[var(--border)] px-4 py-3">
+          <div className="shrink-0 border-t border-[var(--border)] px-2.5 py-1.5 sm:px-4 sm:py-3">
             {error && (
               <p role="alert" className="mb-2 max-h-20 overflow-y-auto break-words text-sm text-[var(--destructive)]">
                 {error}
               </p>
             )}
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
               {phase && (
-                <p role="status" className="mr-auto flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+                <p
+                  role="status"
+                  className="mr-auto flex items-center gap-2 text-xs text-[var(--muted-foreground)] sm:text-sm"
+                >
                   <Spinner size="md" aria-hidden="true" />
                   {t(
                     phase === "revising"
@@ -855,7 +875,7 @@ export function ImageRegeneratePanel({
                 type="button"
                 onClick={onCancel}
                 disabled={busy}
-                className={cn(BUTTON_CLASS, "hover:bg-[var(--accent)]")}
+                className={cn(BUTTON_CLASS, "px-2 text-xs hover:bg-[var(--accent)] sm:px-3 sm:text-sm")}
               >
                 {t("chat.delete.dialog.cancel")}
               </button>
@@ -863,7 +883,7 @@ export function ImageRegeneratePanel({
                 type="button"
                 onClick={() => void run("revise")}
                 disabled={busy || promptMissing}
-                className={SECONDARY_BUTTON_CLASS}
+                className={cn(SECONDARY_BUTTON_CLASS, "gap-1.5 px-2.5 text-xs sm:gap-2 sm:px-3 sm:text-sm")}
               >
                 <Sparkles size="1rem" aria-hidden />
                 {t("ui.chat.imageregeneratepanel.revise")}
@@ -874,7 +894,7 @@ export function ImageRegeneratePanel({
                 disabled={busy || promptMissing}
                 className={cn(
                   BUTTON_CLASS,
-                  "bg-[var(--primary)] font-semibold text-[var(--primary-foreground)] hover:opacity-90",
+                  "gap-1.5 bg-[var(--primary)] px-3 text-xs font-semibold text-[var(--primary-foreground)] hover:opacity-90 sm:gap-2 sm:px-3 sm:text-sm",
                 )}
               >
                 {hasGuidance ? <Sparkles size="1rem" aria-hidden /> : <RefreshCw size="1rem" aria-hidden />}

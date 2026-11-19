@@ -149,7 +149,7 @@ export function ChatImageLightbox({
       overMari={overMari}
       src={image.url}
       alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
-      childrenMaxHeightClass={editing ? "max-h-[56dvh] sm:max-h-[48dvh]" : undefined}
+      childrenMaxHeightClass={editing ? "max-h-[64%] [@media(max-height:520px)]:max-h-[82%] sm:max-h-[48%]" : undefined}
       media={
         editing && editSurfaceActive ? (
           <ImageMaskCanvas
