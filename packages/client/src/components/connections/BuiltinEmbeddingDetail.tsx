@@ -123,9 +123,7 @@ export function BuiltinEmbeddingDetail() {
 
   const describe = (model: BuiltinEmbeddingModelInfo) =>
     [
-      data?.installed[model.id]
-        ? ""
-        : t("connections.builtinEmbedding.notDownloadedSize", { size: formatBytes(model.downloadSizeBytes) }),
+      // Status and size are in the header, the dropdown and the Download button.
       model.recommended ? `${t("connections.builtinEmbedding.recommended")}.` : "",
       t(
         model.id === "qwen3-embedding-0.6b"

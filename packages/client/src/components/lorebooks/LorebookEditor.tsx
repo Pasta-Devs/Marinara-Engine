@@ -2371,9 +2371,18 @@ export function LorebookEditor() {
       </span>
     </label>
   );
-  const ovSwitch = (label: string, hint: string, checked: boolean, onChange: (value: boolean) => void) => (
+  const ovSwitch = (
+    label: string,
+    hint: string,
+    checked: boolean,
+    onChange: (value: boolean) => void,
+    help?: string,
+  ) => (
     <div className="ov-bk__field">
-      <span>{label}</span>
+      <span>
+        {label}
+        {help ? <HelpTooltip text={help} /> : null}
+      </span>
       <span className="ov-bk__switch">
         <SettingsSwitch
           ariaLabel={label}
@@ -2764,14 +2773,79 @@ export function LorebookEditor() {
           </div>
 
           <p className="ov-bk__eyebrow">{localizeUi("Semantic search (embeddings)")}</p>
-          <div className="ov-bk__grid ov-bk__grid--five">
+          {/* Switches on one line, then the numbers in the same columns as Scanning, so the two sections read alike. */}
+          <div className="ov-bk__grid ov-bk__grid--switches">
             {ovSwitch(localizeUi("ui.lorebooks.lorebookeditor.vectors"), "", !formExcludeFromVectorization, (value) =>
               setFormExcludeFromVectorization(!value),
             )}
+            {formExcludeFromVectorization
+              ? null
+              : ovSwitch(
+                  localizeUi("ui.lorebooks.vectorizesection.includeCharacterContext"),
+                  "",
+                  formVectorIncludeAssistant,
+                  setFormVectorIncludeAssistant,
+                  localizeUi("ui.lorebooks.vectorizesection.includeCharacterContextHint"),
+                )}
           </div>
+          {formExcludeFromVectorization ? null : (
+            <div className="ov-bk__grid ov-bk__grid--five">
+              <>
+                {ovNumber(
+                  localizeUi("ui.lorebooks.vectorizesection.queryMessages"),
+                  formVectorQueryDepth,
+                  (value) =>
+                    setFormVectorQueryDepth(Math.max(0, Math.min(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX, value))),
+                  "msgs",
+                  localizeUi("ui.lorebooks.vectorizesection.howManyRecentChatMessagesToEmbedWhenSearching"),
+                  { min: 0, max: LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX },
+                )}
+                <label className="ov-bk__field">
+                  <span>
+                    {localizeUi("ui.lorebooks.vectorizesection.scoreThreshold")}
+                    <HelpTooltip
+                      text={localizeUi(
+                        "ui.lorebooks.vectorizesection.minimumCalibratedSemanticSimilarityRequiredBeforeAVectorizedEntry",
+                      )}
+                    />
+                  </span>
+                  <span className="ov-bk__num">
+                    <input
+                      type="number"
+                      value={formVectorScoreThreshold}
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      onChange={(event) => {
+                        setFormVectorScoreThreshold(
+                          Math.max(0, Math.min(1, Number.parseFloat(event.target.value) || 0)),
+                        );
+                        markLorebookDirty();
+                      }}
+                    />
+                  </span>
+                </label>
+                {ovNumber(
+                  localizeUi("ui.lorebooks.vectorizesection.vectorLimit"),
+                  formVectorMaxResults,
+                  (value) =>
+                    setFormVectorMaxResults(
+                      Math.max(
+                        LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MIN,
+                        Math.min(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MAX, value),
+                      ),
+                    ),
+                  "entries",
+                  localizeUi("ui.lorebooks.vectorizesection.maximumNumberOfSemanticVectorEntriesThisLorebookCan"),
+                  { min: LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MIN, max: LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MAX },
+                )}
+              </>
+            </div>
+          )}
           {formExcludeFromVectorization ? null : (
             <div className="ov-bk__vectors">
               <VectorizeSection
+                overhaul
                 lorebookId={lorebookId!}
                 entries={entries}
                 excludeFromVectorization={formExcludeFromVectorization}
@@ -4318,7 +4392,10 @@ function VectorizeSection({
   onVectorIncludeAssistantChange,
   onVectorScoreThresholdChange,
   onVectorMaxResultsChange,
+  overhaul = false,
 }: {
+  /** The overhaul's Book settings: its own row holds the switches and numbers; this adds status, model and actions. */
+  overhaul?: boolean;
   lorebookId: string;
   entries: LorebookEntry[];
   excludeFromVectorization: boolean;
@@ -4564,6 +4641,146 @@ function VectorizeSection({
     }
   };
 
+  const staleNotice =
+    staleDefault && staleDefault.count > 0 ? (
+      <div
+        role="status"
+        className={cn(
+          "text-[0.6875rem]",
+          overhaul ? "ov-vec__warn" : "rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2.5",
+        )}
+      >
+        <p className="flex items-start gap-1.5 text-[var(--foreground)]">
+          <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
+          <span>
+            {localizeUi("ui.lorebooks.vectorizesection.staleDefault", {
+              count: staleDefault.count,
+              model: staleDefault.model,
+            })}
+          </span>
+        </p>
+        <button
+          type="button"
+          onClick={() => void handleVectorize("all", staleDefault.connectionId)}
+          disabled={vectorizing || vectorizableEntryCount === 0}
+          className={cn(
+            "mt-2 inline-flex max-w-full items-center gap-1.5",
+            overhaul
+              ? "mari-chrome-control px-2.5"
+              : "rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50 max-sm:min-h-11",
+          )}
+        >
+          {vectorizingMode === "all" ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" className="shrink-0" />}
+          <span className="truncate">
+            {vectorizingMode === "all"
+              ? localizeUi("ui.lorebooks.vectorizesection.reVectorizing")
+              : localizeUi("ui.lorebooks.vectorizesection.reVectorizeWithModel", { model: staleDefault.model })}
+          </span>
+        </button>
+      </div>
+    ) : null;
+
+  const resultLine = result ? (
+    <p className={cn("flex items-center gap-1 text-[0.625rem]", result.success ? "text-emerald-400" : "text-red-400")}>
+      {result.success ? <Check size="0.625rem" /> : <AlertTriangle size="0.625rem" />}
+      {result.message}
+    </p>
+  ) : null;
+
+  if (overhaul) {
+    const pickerOptions = (
+      <>
+        <option value="">{localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch")}</option>
+        {embeddingConnections.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+            {c.embeddingModel?.trim() && c.embeddingModel.trim() !== c.name ? ` (${c.embeddingModel})` : ""}
+          </option>
+        ))}
+      </>
+    );
+    return (
+      <div className="ov-vec">
+        <p className="ov-bk__note">
+          {[
+            localizeUi("ui.lorebooks.vectorizesection.vectorizedOfTotal", {
+              done: vectorizedCount,
+              total: vectorizableEntryCount,
+            }),
+            excludedCount > 0 ? `${excludedCount} ${localizeUi("ui.lorebooks.vectorizesection.excluded")}` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+        {staleNotice}
+        {embeddingConnections.length === 0 ? (
+          <p className="ov-bk__note">
+            {localizeUi("ui.lorebooks.vectorizesection.noConnectionsWithAnEmbeddingModelConfiguredSetAn")}
+          </p>
+        ) : (
+          <div className="ov-vec__row">
+            <label className="ov-bk__field ov-vec__model">
+              <span>{localizeUi("connections.embeddingDefault.label")}</span>
+              <select value={selectedConnectionId} onChange={(e) => handleConnectionChange(e.target.value)}>
+                {pickerOptions}
+              </select>
+            </label>
+            <div className="ov-vec__actions">
+              <button
+                type="button"
+                onClick={() => handleVectorize(primaryVectorizeMode)}
+                disabled={vectorizing || vectorizableEntryCount === 0 || !selectedConnectionId}
+                className="mari-chrome-control mari-chrome-control--primary px-2.5"
+              >
+                {vectorizingMode === primaryVectorizeMode ? (
+                  <Spinner size="sm" />
+                ) : primaryVectorizeMode === "all" ? (
+                  <RefreshCw size="0.75rem" />
+                ) : (
+                  <Sparkles size="0.75rem" />
+                )}
+                {vectorizingMode === primaryVectorizeMode
+                  ? primaryVectorizeMode === "all"
+                    ? localizeUi("ui.lorebooks.vectorizesection.reVectorizing")
+                    : localizeUi("ui.lorebooks.vectorizesection.vectorizing")
+                  : primaryVectorizeMode === "all"
+                    ? localizeUi("ui.lorebooks.vectorizesection.reVectorizeValue1Entries", {
+                        value1: vectorizableEntryCount,
+                      })
+                    : localizeUi("ui.lorebooks.vectorizesection.vectorizeValue1Missing", { value1: missingCount })}
+              </button>
+              {showRevectorizeAllAction && (
+                <button
+                  type="button"
+                  onClick={() => handleVectorize("all")}
+                  disabled={vectorizing || vectorizableEntryCount === 0 || !selectedConnectionId}
+                  className="mari-chrome-control px-2.5"
+                  title={localizeUi("ui.lorebooks.vectorizesection.overwriteEveryStoredVectorInThisLorebookWithThe")}
+                >
+                  {vectorizingMode === "all" ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" />}
+                  {vectorizingMode === "all"
+                    ? localizeUi("ui.lorebooks.vectorizesection.reVectorizing")
+                    : localizeUi("ui.lorebooks.vectorizesection.reVectorizeAll")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleClearVectors}
+                disabled={clearingVectors || vectorizing || storedVectorCount === 0}
+                className="mari-chrome-control px-2.5"
+                title={localizeUi("ui.lorebooks.vectorizesection.deleteVectorsKeepsText")}
+              >
+                {clearingVectors ? <Spinner size="sm" /> : <Trash2 size="0.75rem" />}
+                {localizeUi("ui.lorebooks.vectorizesection.deleteVectors")}
+              </button>
+            </div>
+          </div>
+        )}
+        {resultLine}
+      </div>
+    );
+  }
+
   return (
     <div className="mari-editor-panel space-y-3 p-4">
       <div className="flex items-center gap-2">
@@ -4601,35 +4818,7 @@ function VectorizeSection({
           </span>
         )}
       </div>
-      {staleDefault && staleDefault.count > 0 && (
-        <div
-          role="status"
-          className="rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2.5 text-[0.6875rem]"
-        >
-          <p className="flex items-start gap-1.5 text-[var(--foreground)]">
-            <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
-            <span>
-              {localizeUi("ui.lorebooks.vectorizesection.staleDefault", {
-                count: staleDefault.count,
-                model: staleDefault.model,
-              })}
-            </span>
-          </p>
-          <button
-            type="button"
-            onClick={() => void handleVectorize("all", staleDefault.connectionId)}
-            disabled={vectorizing || vectorizableEntryCount === 0}
-            className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50 max-sm:min-h-11"
-          >
-            {vectorizingMode === "all" ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" className="shrink-0" />}
-            <span className="truncate">
-              {vectorizingMode === "all"
-                ? localizeUi("ui.lorebooks.vectorizesection.reVectorizing")
-                : localizeUi("ui.lorebooks.vectorizesection.reVectorizeWithModel", { model: staleDefault.model })}
-            </span>
-          </button>
-        </div>
-      )}
+      {staleNotice}
       <SettingsSwitch
         label={localizeUi("ui.lorebooks.vectorizesection.includeCharacterContext")}
         description={localizeUi("ui.lorebooks.vectorizesection.includeCharacterContextHint")}
@@ -4786,17 +4975,7 @@ function VectorizeSection({
               {localizeUi("ui.lorebooks.vectorizesection.semanticSearchIsOffUntilYouChooseAnEmbedding")}
             </p>
           )}
-          {result && (
-            <p
-              className={cn(
-                "text-[0.625rem] flex items-center gap-1",
-                result.success ? "text-emerald-400" : "text-red-400",
-              )}
-            >
-              {result.success ? <Check size="0.625rem" /> : <AlertTriangle size="0.625rem" />}
-              {result.message}
-            </p>
-          )}
+          {resultLine}
         </>
       )}
     </div>

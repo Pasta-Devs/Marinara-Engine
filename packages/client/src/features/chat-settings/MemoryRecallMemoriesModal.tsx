@@ -17,6 +17,7 @@ import {
   useChatMemoryEmbeddingSource,
 } from "../../hooks/use-chats";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
@@ -76,6 +77,8 @@ export function MemoryRecallMemoriesModal({
       embeddingSourceQuery.data?.ownSearch === true && looksMostlyNonEnglish(memories.map((memory) => memory.content)),
     [embeddingSourceQuery.data?.ownSearch, memories],
   );
+
+  const overhaulActive = useOverhaulLook();
 
   const openBuiltinEmbeddings = () => {
     onClose();
@@ -190,6 +193,142 @@ export function MemoryRecallMemoriesModal({
     }
   };
 
+  const statusLabel = (memory: ChatMemoryChunk) =>
+    memory.hasEmbedding
+      ? localizeUi("ui.chat.memoryrecallmemoriesmodal.vectorized")
+      : memory.embeddingStatus === "unavailable"
+        ? localizeUi("ui.chat.memoryrecallmemoriesmodal.embeddingUnavailable")
+        : localizeUi("ui.chat.memoryrecallmemoriesmodal.waitingForVector");
+
+  const importInput = (
+    <input ref={importInputRef} type="file" accept=".json,.marinara" className="hidden" onChange={handleImportFile} />
+  );
+
+  if (overhaulActive) {
+    // The new layout's window look: a summary row with labelled actions, a thin-line notice, one lined list.
+    return (
+      <Modal
+        open={open}
+        onClose={onClose}
+        title={localizeUi("ui.chat.memoryrecallmemoriesmodal.memoriesForThisChat")}
+        width="max-w-3xl"
+        chatFloatingPanel={chatFloatingPanel}
+      >
+        <div className="ov-mem">
+          <div className="ov-mem__bar">
+            <span className="ov-mem__count">
+              {memories.length === 1
+                ? `1 ${localizeUi("ui.chat.memoryrecallmemoriesmodal.memoryChunk")}`
+                : `${memories.length.toLocaleString()} ${localizeUi("ui.chat.memoryrecallmemoriesmodal.memoryChunks")}`}
+              {memories.length > 0
+                ? ` · ~${totalTokens.toLocaleString()} ${localizeUi("ui.agents.agenteditor.tokens")}`
+                : ""}
+            </span>
+            <span className="ov-mem__actions">
+              {importInput}
+              <button
+                type="button"
+                onClick={() => void handleRevectorize()}
+                disabled={memoriesQuery.isFetching || refreshMemories.isPending || importMemories.isPending}
+                className="mari-chrome-control px-2.5"
+                title={localizeUi("ui.chat.memoryrecallmemoriesmodal.reVectorizeAllMemoriesDescription")}
+              >
+                <RefreshCw
+                  size="0.75rem"
+                  className={cn((memoriesQuery.isFetching || refreshMemories.isPending) && "animate-spin")}
+                />
+                {localizeUi("ui.chat.memoryrecallmemoriesmodal.reVectorizeAll")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleExport()}
+                disabled={memories.length === 0 || exportMemories.isPending}
+                className="mari-chrome-control px-2.5"
+              >
+                <Upload size="0.75rem" />
+                {localizeUi("ui.chat.memoryrecallmemoriesmodal.export")}
+              </button>
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                disabled={importMemories.isPending}
+                className="mari-chrome-control px-2.5"
+              >
+                <Download size="0.75rem" />
+                {localizeUi("ui.chat.memoryrecallmemoriesmodal.import")}
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                disabled={memories.length === 0 || clearMemories.isPending}
+                className="mari-chrome-control ov-mem__danger px-2.5"
+              >
+                <Trash2 size="0.75rem" />
+                {localizeUi("ui.chat.memoryrecallmemoriesmodal.clearAll")}
+              </button>
+            </span>
+          </div>
+
+          {showLanguageNotice && (
+            <div role="status" className="ov-mem__warn">
+              <p>{localizeUi("ui.chat.memoryrecallmemoriesmodal.nonEnglishNotice")}</p>
+              <button type="button" onClick={openBuiltinEmbeddings} className="mari-chrome-control px-2.5">
+                <Languages size="0.75rem" />
+                {localizeUi("ui.chat.memoryrecallmemoriesmodal.openBuiltinEmbeddings")}
+              </button>
+            </div>
+          )}
+
+          {memoriesQuery.isLoading ? (
+            <p className="ov-mem__empty">{localizeUi("ui.chat.memoryrecallmemoriesmodal.loadingMemories")}</p>
+          ) : memoriesQuery.error ? (
+            <p className="ov-mem__empty ov-mem__empty--error">
+              {localizeUi("ui.chat.memoryrecallmemoriesmodal.failedToLoadMemories")}
+            </p>
+          ) : memories.length === 0 ? (
+            <p className="ov-mem__empty">
+              {localizeUi("ui.chat.memoryrecallmemoriesmodal.noRecallMemoriesHaveBeenCreatedForThisChat")}
+            </p>
+          ) : (
+            <ul className="ov-mem__list">
+              {memories.map((memory) => (
+                <li key={memory.id} className="ov-mem__item">
+                  <div className="ov-mem__head">
+                    <span className="ov-mem__headline">
+                      <span
+                        className="ov-mem__when"
+                        title={`${localizeUi("ui.chat.memoryrecallmemoriesmodal.created")} ${formatMemoryDate(memory.createdAt)}`}
+                      >
+                        {formatMemoryDate(memory.firstMessageAt)} – {formatMemoryDate(memory.lastMessageAt)}
+                      </span>
+                      <span className="ov-mem__meta">
+                        {[
+                          `${memory.messageCount} ${localizeUi("ui.agents.agenteditor.messages")}`,
+                          statusLabel(memory),
+                        ].join(" · ")}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(memory)}
+                      disabled={deleteMemory.isPending}
+                      className="ov-mem__forget"
+                      title={localizeUi("ui.chat.memoryrecallmemoriesmodal.forgetThisMemory")}
+                      aria-label={localizeUi("ui.chat.memoryrecallmemoriesmodal.forgetThisMemory")}
+                    >
+                      <Trash2 size="0.8125rem" />
+                    </button>
+                  </div>
+                  <p className="ov-mem__text">{memory.content}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <Modal
       open={open}
@@ -216,13 +355,7 @@ export function MemoryRecallMemoriesModal({
             )}
           </div>
           <div className="flex items-center gap-1">
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".json,.marinara"
-              className="hidden"
-              onChange={handleImportFile}
-            />
+            {importInput}
             <button
               type="button"
               onClick={() => void handleExport()}
