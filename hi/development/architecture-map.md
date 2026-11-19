@@ -165,7 +165,7 @@ Fastify API, फ़ाइल-नेटिव स्टोरेज और प्
 | `packages/server/src/routes/generate.routes.ts` | साझा जेनरेशन और एजेंट | रूट, स्ट्रीमिंग, प्रॉम्प्ट, एजेंट, स्टोरेज और साइड इफ़ेक्ट, सब एक ही फ़ाइल में हैं। |
 | `packages/server/src/routes/game.routes.ts` | `MODE-GAME` | API हैंडलर, GM फ़्लो, सीन एनालिसिस, असेट, कॉम्बैट और सेव करना, सब आपस में गुँथे हुए हैं। |
 | `packages/client/src/components/game/GameSurface.tsx` | `MODE-GAME` | रेंडरिंग, स्टेट ऑर्केस्ट्रेशन, असेट, लॉग, नैरेशन, कॉम्बैट और इफ़ेक्ट आपस में गुँथे हुए हैं। |
-| `packages/client/src/components/chat/ChatSettingsDrawer.tsx` | मिली-जुली चैट सेटिंग्स | `features/chat-settings` में सेक्शन अलग निकालने का काम चल रहा है, फिर भी यह पैनल अभी बड़ा है। |
+| `packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx` | मिली-जुली चैट सेटिंग्स | `features/chat-settings/sections` में सेक्शन अलग निकालने का काम चल रहा है, फिर भी यह पैनल अभी बड़ा है। |
 | `packages/client/src/components/game/GameNarration.tsx` | `MODE-GAME` | डिस्प्ले रेंडरिंग और कमांड फ़ॉर्मैटिंग एक-दूसरे से कसकर जुड़ी हैं। |
 | `packages/client/src/components/game/GameCombatUI.tsx` | `MODE-GAME` | कॉम्बैट डिस्प्ले, कंट्रोल और लॉग को छोटे पैनल और हुक में बाँटा जा सकता है। |
 | `packages/client/src/components/chat/RoleplayHUD.tsx` | `MODE-ROLEPLAY` | `RoleplayHUDActionsMenu.tsx` और `RoleplayHUDPanels.tsx` के ज़रिए इसका कुछ हिस्सा अलग हो चुका है। |

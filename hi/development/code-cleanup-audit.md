@@ -228,7 +228,7 @@ TypeScript की अनयूज़्ड जाँचें ज़बरदस
 
 ### 6.3 चालू कोड के जटिल हिस्से
 
-सबसे बड़े चालू मॉड्यूल हैं `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/components/chat/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts` और `client/components/panels/SettingsPanel.tsx`। ये हटाने वाले उम्मीदवार नहीं हैं। सीमित रूट हैंडलर, डोमेन सर्विस, ड्रॉअर सेक्शन और शुद्ध हेल्पर अलग निकालते रहें, पर सिर्फ़ तब जब उस सुविधा में वैसे भी बदलाव हो रहा हो। अकेला "सब कुछ बाँट दो" वाला PR सिर्फ़ हलचल बढ़ाएगा, व्यवहार का भरोसेमंद सबूत नहीं देगा।
+सबसे बड़े चालू मॉड्यूल हैं `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/features/chat-settings/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts` और `client/components/panels/SettingsPanel.tsx`। ये हटाने वाले उम्मीदवार नहीं हैं। सीमित रूट हैंडलर, डोमेन सर्विस, ड्रॉअर सेक्शन और शुद्ध हेल्पर अलग निकालते रहें, पर सिर्फ़ तब जब उस सुविधा में वैसे भी बदलाव हो रहा हो। अकेला "सब कुछ बाँट दो" वाला PR सिर्फ़ हलचल बढ़ाएगा, व्यवहार का भरोसेमंद सबूत नहीं देगा। Chat Settings Drawer इसका अपवाद था। इसे हर PR में एक सेक्शन के हिसाब से बाँटा गया (#9119)। इसके फ़ोल्डर के नियम `packages/client/.instructions.md` के Chat Settings सेक्शन में हैं।
 
 ## 7. जिन्हें क्लीनअप से जानबूझकर बाहर रखा गया
 

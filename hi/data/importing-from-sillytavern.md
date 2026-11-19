@@ -61,7 +61,7 @@
   - **Existing only** सिर्फ़ वे टैग रखता है जो आपके पास पहले से हैं।
 - **Imported regex scripts** (डिफ़ॉल्ट **Character only**):
   - **Character only** स्क्रिप्ट को हर कैरेक्टर पर लागू करता है।
-  - **Global** उन्हें हर चैट के लिए **Presets → Regexes** में जोड़ देता है।
+- **Global** उन्हें **Presets → Regexes** में जोड़ता है, जहाँ अलग-अलग चैट में चलने वाली स्क्रिप्ट संभाल सकते हैं। [रेजेक्स स्क्रिप्ट](../extending/regex-scripts.md#manage-your-scripts) देखें।
 
 अगर यह काम नहीं किया:
 

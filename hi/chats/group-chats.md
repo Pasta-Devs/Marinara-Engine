@@ -79,9 +79,13 @@ Roleplay के **Individual** मोड में **Smart** या **Manual** �
 
 बोलने वाला चुनने के लिए **Trigger Response** पिकर इस्तेमाल करें। कंप्यूटर पर यह **Send** (भेजें) के बगल वाला बटन है, जिसका लेबल **Trigger character response** है। फ़ोन पर यह संदेश बार से खुलने वाली टूल ट्रे में **Trigger Response** के नीचे होता है। टेक्स्ट में बोलने वाले का नाम लेने के लिए `@` और कैरेक्टर का नाम टाइप करें। एक ऑटोकंप्लीट लिस्ट दिखती है।
 
+<a id="more-individual-settings"></a>
+
 ### Individual की बाकी सेटिंग्स
 
 - **Add Turn To Prompt** डिफ़ॉल्ट रूप से चालू रहता है। यह एक छोटा निर्देश जोड़ता है, जिसमें बताया जाता है कि किस कैरेक्टर को जवाब देना है।
+- **Others' Public Faces** (सिर्फ़ Roleplay) डिफ़ॉल्ट रूप से बंद है। हर कैरेक्टर को सिर्फ़ अपना कार्ड मिलता है, इसलिए वह दूसरों को चैट से ही जानता है। इसे चालू करने पर हर कैरेक्टर की बारी में बाकी सक्रिय कैरेक्टर की **Public Face** का टेक्स्ट जुड़ता है, यानी उनके राज़ छोड़े जाते हैं और सिर्फ़ वह जानकारी जाती है जो सीन में कोई भी जान सकता है। खाली Public Face वाले और निष्क्रिय कैरेक्टर शामिल नहीं होते। इसे लिखने के लिए [Card टैब](../characters/creating-and-editing-characters.md#card-tab) देखें।
+
 - **Name Prefix History** (सिर्फ़ Roleplay) डिफ़ॉल्ट रूप से बंद रहता है। यह बदलता है कि पुराने संदेशों पर बोलने वालों के नाम कैसे लगाए जाते हैं। इसे बंद ही रहने दें, जब तक कोई कैरेक्टर बार-बार यह गड़बड़ न करे कि किसने क्या कहा।
 
 ### Scenario Override (Roleplay)
@@ -102,6 +106,7 @@ Roleplay के **Individual** मोड में **Smart** या **Manual** �
 | **Response Order** | Individual | Sequential |
 | **Add Turn To Prompt** | Individual | चालू |
 | **Name Prefix History** | Roleplay, Individual | बंद |
+| **Others' Public Faces** | Roleplay, Individual | बंद |
 | **Scenario Override** | Roleplay | खाली |
 | **Character Exchanges** | Conversation, Autonomous Messaging | बंद |
 
