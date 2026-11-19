@@ -240,8 +240,8 @@ importers:
         specifier: 3.5.5
         version: 3.5.5(three@0.186.1)
       '@takahirox/three-mmd':
-        specifier: 0.1.4
-        version: 0.1.4(three@0.186.1)
+        specifier: 0.1.2
+        version: 0.1.2(three@0.186.1)
       '@tanstack/react-query':
         specifier: ^5.107.1
         version: 5.107.1(@types/react@19.3.0)(react@19.3.1)
@@ -2375,8 +2375,8 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@takahirox/three-mmd@0.1.4':
-    resolution: {integrity: sha512-r663JzXNf3iMMmEY5bXRI8YzDnT/FrjgeJx+KL/cRVcbSNx1uZbTfv+wxFqX8RDjamoNYL2LEFOZ/KvCH5WWQw==}
+  '@takahirox/three-mmd@0.1.2':
+    resolution: {integrity: sha512-DEpo6GgPknMy62WN1bQUPTqXtx45Rzyh0YZpd8O94MBBFNb7x5fhfhqXLOv6/8slJnjrj8v4ZLcT3OYI9nd3Tg==}
     peerDependencies:
       three: ~0.186.0
 
@@ -6649,7 +6649,7 @@ snapshots:
       tailwindcss: 4.3.5
       vite: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.46.2)(tsx@4.23.15)(yaml@2.9.0)
 
-  '@takahirox/three-mmd@0.1.4(three@0.186.1)':
+  '@takahirox/three-mmd@0.1.2(three@0.186.1)':
     dependencies:
       mmd-parser: 1.1.4
       three: 0.186.1
