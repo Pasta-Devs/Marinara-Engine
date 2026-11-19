@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "b64d5bb052d55445d3180f729a1ad3d41eb0338da05e7887a300d2df4066d84a",
-      "bytes": 40285
+      "sha256": "c1961218666d99229bedd78d03d461f191a8408e9dee11a05ac20c64f901664d",
+      "bytes": 40307
     },
     {
       "path": "agents/custom-agents.md",
@@ -324,8 +324,8 @@
     },
     {
       "path": "development/architecture-map.md",
-      "sha256": "c47bea7ba059fca16f93760159adc0a5246e598b428bb6e392f24cb1fc7d4193",
-      "bytes": 22665
+      "sha256": "84d8dbc6a518e50c9466ab489cfea1efafddcb7e739f5016e869165999446577",
+      "bytes": 22661
     },
     {
       "path": "development/chat-resource-drag-drop-plan.md",
@@ -684,8 +684,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "8c4b1bcaee7a41af0a871c71d4749eaaf2d54cf210cc824bf8531796d6047618",
-      "bytes": 25947
+      "sha256": "4c43933d4660a353ee2eba450d30923300af7140414d31db0d1f1814802f2cba",
+      "bytes": 25961
     },
     {
       "path": "prompts/conditional-prompts.md",

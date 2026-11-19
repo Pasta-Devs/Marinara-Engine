@@ -15,7 +15,7 @@ Choisir un modèle pour la tâche **Voice** active la synthèse vocale. Rien ne 
 
 1. Clique sur **Connections** dans la barre du haut. Repère la ligne **Voice** sous **Pictures & sound** (images et son) dans l'encadré **Jobs**.
 2. Clique sur la ligne et choisis un modèle vocal ou un service vocal. La ligne affiche ton choix.
-3. Clique sur l'engrenage de la ligne pour ouvrir les réglages de la voix. Si tu n'as pas encore de compte vocal, clique sur **Add** dans la ligne ou ajoutes-en un comme dans le démarrage rapide.
+3. Clique sur l'engrenage de la ligne pour ouvrir les réglages de la voix. Si tu n'as pas encore de compte vocal, clique sur **Add** dans la ligne ou ajoute un compte comme dans le démarrage rapide.
 4. Pour désactiver la synthèse vocale, clique sur la ligne et choisis **Turn voice off** (désactiver la voix). La ligne affiche **Off** (désactivé) et rien n'est lu à voix haute.
 
 Un service vocal est le service qui produit l'audio. Marinara prend en charge ceux-ci :
@@ -166,7 +166,7 @@ Si ça n'a pas marché, voir [Dépannage](#troubleshooting).
 
 ## Clips en cache
 
-Marinara garde l'audio généré dans ton navigateur pour ne pas générer deux fois la même réplique. La section **Cached clips** de **Voice settings** (clips en cache) affiche un compteur en direct et la taille totale. Clique sur **Export cached TTS clips** (exporter les clips TTS en cache), l'icône de téléchargement, pour enregistrer chaque clip en cache sous forme de fichiers audio séparés. Le cache supprime tout seul ses clips les plus anciens. L'application n'a pas de bouton pour l'effacer. Pour le vider, efface les données de ton navigateur.
+Marinara garde l'audio généré dans ton navigateur pour ne pas générer deux fois la même réplique. La section **Cached clips** (clips en cache) de **Voice settings** affiche un compteur en direct et la taille totale. Clique sur **Export cached TTS clips** (exporter les clips TTS en cache), l'icône de téléchargement, pour enregistrer chaque clip en cache sous forme de fichiers audio séparés. Le cache supprime tout seul ses clips les plus anciens. L'application n'a pas de bouton pour l'effacer. Pour le vider, efface les données de ton navigateur.
 
 ## Le TTS dans chaque mode de chat
 
@@ -188,7 +188,7 @@ Si la voix prononce mal le nom d'un personnage ou d'un persona, ajoute un **Phon
 - **ElevenLabs ne parle pas** : choisis une vraie voix, pas le texte indicatif "Select an ElevenLabs voice". Vérifie que le modèle est un modèle vocal, pas un modèle de création de voix dont l'identifiant contient `ttv`.
 - **Une réplique s'arrête avec "No audio after 60 s"** : le serveur vocal a besoin de plus de temps. Augmente **Request timeout (seconds)** à l'endroit indiqué par le message. Voir [Délai d'attente des requêtes](#request-timeout).
 - **Un serveur auto-hébergé sur une adresse locale est bloqué** : active `TTS_LOCAL_URLS_ENABLED` dans `.env`. Ce réglage autorise Marinara à joindre une adresse locale ou privée pour les serveurs OpenAI-compatible ou de type ElevenLabs. PocketTTS n'en a pas besoin. Voir [Référence de configuration du serveur](../CONFIGURATION.md).
-- **Tester rapidement** : clique sur **Preview** dans la carte pour entendre un court extrait avec tes réglages actuels.
+- **Tester rapidement** : clique sur **Preview** dans **Voice settings** pour entendre un court extrait avec tes réglages actuels.
 
 ## Référence : musique, effets sonores et Gacha Forge
 
@@ -219,7 +219,9 @@ La musique de contexte générée est composée une fois par zone ou par niveau 
 
 ### Dialogues et audio dans Gacha Forge
 
-À partir de la version 1.11.0, Gacha Forge utilise le compte sélectionné pour la tâche **Voice** et les voix que celle-ci attribue à chaque personnage. - Active **Read character dialogue** (lire les dialogues des personnages) pour lire les dialogues des personnages importés auxquels une voix a été attribuée. Ce réglage se trouve à l'étape de configuration **Lore** (contexte de l'univers) d'un nouveau monde, ou dans les réglages de monde propres à Gacha Forge pour un monde existant. La narration, les pensées, les unités générées sans identifiant de personnage de Marinara Engine et les personnages sans voix restent silencieux. Un nom seul n'emprunte jamais la voix d'un autre personnage.
+À partir de la version 1.11.0, Gacha Forge utilise le compte sélectionné pour la tâche **Voice** et les voix que celle-ci attribue à chaque personnage.
+
+- Active **Read character dialogue** (lire les dialogues des personnages) pour lire les dialogues des personnages importés auxquels une voix a été attribuée. Ce réglage se trouve à l'étape de configuration **Lore** (contexte de l'univers) d'un nouveau monde, ou dans les réglages de monde propres à Gacha Forge pour un monde existant. La narration, les pensées, les unités générées sans identifiant de personnage de Marinara Engine et les personnages sans voix restent silencieux. Un nom seul n'emprunte jamais la voix d'un autre personnage.
 
 - Un compte Audio sélectionné peut être utilisé quand la tâche **Voice** n'est pas sur **Off**.
 - La musique et les effets sonores fournis avec Game n'ont besoin d'aucun compte de génération. Pour composer de nouvelles pistes, active **Generate music and sound effects** (générer de la musique et des effets sonores) dans Gacha Forge et choisis un compte Music & Sound Effects sous **Audio connection** (connexion audio). Ce champ apparaît quand la génération est activée. Les pistes de Home, des combats, des boss, des scènes de l'histoire et des histoires de personnages sont générées au premier besoin, puis réutilisées. Ces requêtes utilisent ton compte chez le service.
