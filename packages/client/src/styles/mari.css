@@ -4690,18 +4690,31 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   grid-template-columns: 1.25rem minmax(0, 1fr);
 }
 
-/* Lined up with the first row of suggestions (they wrap on a narrow box): both sit on the chips' text baseline,
-   and the icon drops a little so its middle meets the label's. */
 .mari-workspace-question-dock__sparkle {
-  align-self: baseline;
+  display: grid;
+  align-self: start;
   justify-self: center;
-  translate: 0 0.0625rem;
+  place-items: center;
   color: var(--primary);
+}
+
+.mari-workspace-question-dock__sparkle > * {
+  grid-area: 1 / 1;
+}
+
+.mari-workspace-question-dock__sparkle > svg {
   filter: drop-shadow(0 0 0.45rem color-mix(in srgb, var(--primary) 22%, transparent));
 }
 
+.mari-workspace-question-dock__sparkle-sizer {
+  width: 0;
+  min-width: 0;
+  padding-inline: 0;
+  border-inline-width: 0;
+  visibility: hidden;
+}
+
 .mari-workspace-question-dock__prompt > .mari-workspace-answer-strip {
-  align-self: baseline;
   padding: 0;
 }
 

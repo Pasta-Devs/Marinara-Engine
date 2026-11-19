@@ -549,7 +549,12 @@ export function MariComposer({
                   <div className="mari-workspace-question-dock__question min-w-0">
                     <CompactMarkdown content={suggestionQuestion} />
                   </div>
-                  <Sparkles className="mari-workspace-question-dock__sparkle" size="0.875rem" aria-hidden="true" />
+                  {/* An invisible chip gives the slot a chip's exact height in every theme, so the sparkle sits
+                      in the middle of the first row of suggestions (they wrap on a narrow box). */}
+                  <span className="mari-workspace-question-dock__sparkle" aria-hidden="true">
+                    <span className="mari-suggestion-chip mari-workspace-question-dock__sparkle-sizer">&#8203;</span>
+                    <Sparkles size="0.875rem" />
+                  </span>
                   <div id={suggestionsBodyId} className="mari-workspace-answer-strip">
                     {chipStrip}
                   </div>
