@@ -501,6 +501,33 @@ try {
       },
     },
     {
+      name: "an NPC keeps the id the server gave it when the model writes the id differently (#9541)",
+      run: async () => {
+        for (const origin of ["generate", "retry"] as const) {
+          const tracker = await trackerChat();
+          const turn = (presentCharacters: Array<Record<string, unknown>>) =>
+            applyAgentResultEffect(
+              result({ ...characterResult, data: { presentCharacters } }),
+              fakeDeps({ origin }, { chatId: tracker.chatId }).deps,
+            );
+          await turn([
+            { characterId: "Alice", name: "Alice" },
+            { characterId: "Garrick Thum", name: "Garrick Thum", mood: "calm" },
+          ]);
+          const [alice, garrick] = await presentCharactersOf(tracker);
+          assert.equal(alice!.characterId, "card-alice", origin);
+          assert.match(String(garrick!.characterId), /^npc-/, origin);
+          await turn([
+            { characterId: "Alice", name: "Alice" },
+            { characterId: "garrick_thum", name: "Garrick Thum", mood: "angry" },
+          ]);
+          const after = await presentCharactersOf(tracker);
+          assert.equal(after[1]!.characterId, garrick!.characterId, origin);
+          assert.equal(after[1]!.mood, "angry", origin);
+        }
+      },
+    },
+    {
       name: "World State from generate: every field, missing ones from the previous row, saved and sent to the HUD",
       run: async () => {
         const tracker = await worldChat({ location: "Harbor", weather: "rain", time: "dawn" });

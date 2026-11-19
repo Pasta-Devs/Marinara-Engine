@@ -15,7 +15,11 @@ import {
   normalizeGroupChatMode,
   normalizeTrackerFieldLocksForState,
   extractCharacterCardCastMembers,
+  findTrackerCharacterRowByDriftedId,
+  isGamePartyNpcId,
   normalizeTextForMatch,
+  TRACKER_NPC_ID_PREFIX,
+  withTrackerIdAlias,
   type CharacterCardCastSource,
   type CharacterMacroProfile,
   normalizeSummaryTailMessages,
@@ -55,6 +59,7 @@ import {
   type PromptAttachment,
 } from "../../services/generation/prompt-attachments.js";
 import { summaryEntriesAlwaysInPrompt } from "../../services/generation/roleplay-summary-retrieval.js";
+import { newId } from "../../utils/id-generator.js";
 
 export { resolveBaseUrl } from "../../services/generation/connection-base-url.js";
 export {
@@ -2093,6 +2098,129 @@ export function applyTrackerCharacterCardIdentity(
   }
   characters.splice(0, characters.length, ...canonicalCharacters);
   return matchedIds;
+}
+
+/**
+ * Give each NPC row the id the server owns, whatever id the model wrote (#9541).
+ *
+ * The Character Tracker writes NPC ids itself ("Garrick Thum" one run, "garrick_thum" the next), and locks,
+ * hidden fields, avatars and portraits all key on them. Card rows (card ids), members of multi-character cards
+ * (`<cardId>:cast:<name>`) and rows the user added (`manual-…`) already have stable ids and are left alone.
+ * An NPC row takes the id of the stored row it means, found in this order, each stored row claimed once:
+ * 1. the same id;
+ * 2. an id that folds to the same slug as a stored id, or as a stored name when the row names nobody else;
+ * 3. no id at all: the one stored row with that name, then the one in earlier turns' history;
+ * 4. nothing: a new `npc-…` id. An id unrelated to every stored row means a new character, as before.
+ * Ids already stored are kept as they are, so existing locks need no migration.
+ */
+export function assignTrackerCharacterIds(
+  characters: Array<Record<string, unknown>>,
+  options: {
+    previousCharacters: ReadonlyArray<Record<string, unknown>>;
+    history?: ReadonlyArray<Record<string, unknown>>;
+    cardIds: Iterable<string>;
+    mintId?: () => string;
+  },
+): void {
+  const cardIds = new Set([...options.cardIds].map((id) => id.trim().toLowerCase()));
+  const isNpcRow = (row: Record<string, unknown>) => {
+    const id = typeof row.characterId === "string" ? row.characterId.trim() : "";
+    return (
+      !cardIds.has(id.toLowerCase()) &&
+      !parseTrackerCastCharacterId(id) &&
+      !isManualTrackerCharacterId(id) &&
+      !isGamePartyNpcId(id)
+    );
+  };
+  const npcIdOf = (row: Record<string, unknown>) => (typeof row.characterId === "string" ? row.characterId.trim() : "");
+  const mintId = options.mintId ?? (() => `${TRACKER_NPC_ID_PREFIX}${newId()}`);
+
+  // Stored rows without an id stay candidates: their locks are keyed by name, and matching them keeps it that way.
+  const previous = options.previousCharacters.filter(isNpcRow);
+  const claimed = new Set<number>();
+  const pending = characters.filter(isNpcRow);
+  // The id each row arrived with, before it's replaced: it becomes one of the row's aliases.
+  const modelIds = new Map(pending.map((row) => [row, npcIdOf(row)]));
+  const assigned = new Map<Record<string, unknown>, string>();
+  // The stored row each incoming row turned out to be, whose aliases it inherits.
+  const matchedRows = new Map<Record<string, unknown>, Record<string, unknown>>();
+  const claim = (row: Record<string, unknown>, index: number) => {
+    claimed.add(index);
+    assigned.set(row, npcIdOf(previous[index]!));
+    matchedRows.set(row, previous[index]!);
+  };
+  const unassigned = () => pending.filter((row) => !assigned.has(row));
+  const available = (_row: Record<string, unknown>, index: number) => !claimed.has(index);
+
+  // 1. Exact ids first, so a row that names its id outright wins over one that only resembles it.
+  for (const row of pending) {
+    const id = npcIdOf(row).toLowerCase();
+    if (!id) continue;
+    const index = previous.findIndex(
+      (stored, i) => available(stored, i) && !!npcIdOf(stored) && npcIdOf(stored).toLowerCase() === id,
+    );
+    if (index >= 0) claim(row, index);
+  }
+  // 2. Drifted ids.
+  for (const row of unassigned()) {
+    if (!npcIdOf(row)) continue;
+    const index = findTrackerCharacterRowByDriftedId(previous, row.characterId, row.name, available);
+    if (index >= 0) claim(row, index);
+  }
+  // 3. No id: an unambiguous name in the stored list. A stored row by that name always wins over history, even
+  // when it's taken, so history can't hand out an id that bypasses that row's locks.
+  const nameOnly = unassigned().filter((row) => !npcIdOf(row) && trackerCharacterNameKey(row));
+  const storedNamesakes = new Set<Record<string, unknown>>();
+  for (const row of nameOnly) {
+    const name = trackerCharacterNameKey(row);
+    const named = previous.flatMap((stored, i) => (trackerCharacterNameKey(stored) === name ? [i] : []));
+    if (named.length === 0) continue;
+    storedNamesakes.add(row);
+    if (named.length === 1 && available(previous[named[0]!]!, named[0]!)) claim(row, named[0]!);
+  }
+  // ...then in earlier turns (which may hold other swipes), never reusing an id a stored or current row has: a
+  // renamed NPC can be in history under its old name while the stored list has it under the new one.
+  const usedIds = new Set(
+    [...previous.map(npcIdOf), ...characters.map((row) => assigned.get(row) ?? npcIdOf(row))]
+      .map((id) => id.toLowerCase())
+      .filter(Boolean),
+  );
+  for (const row of nameOnly) {
+    if (assigned.has(row) || storedNamesakes.has(row)) continue;
+    const name = trackerCharacterNameKey(row);
+    const fromHistory = (options.history ?? []).filter(
+      (stored) => isNpcRow(stored) && npcIdOf(stored) && trackerCharacterNameKey(stored) === name,
+    );
+    const historyIds = new Set(fromHistory.map((stored) => npcIdOf(stored).toLowerCase()));
+    const [historyId] = historyIds;
+    if (historyIds.size === 1 && historyId && !usedIds.has(historyId)) {
+      assigned.set(row, npcIdOf(fromHistory[0]!));
+      matchedRows.set(row, fromHistory[0]!);
+      usedIds.add(historyId);
+    }
+  }
+  // 4. Everyone left is someone new.
+  for (const row of unassigned()) assigned.set(row, mintId());
+  // Card and cast rows have ids of their own: an alias carried over from an NPC row it replaced means nothing there.
+  for (const row of characters) if (!isNpcRow(row)) delete row.idAliases;
+
+  for (const [row, id] of assigned) {
+    if (id) row.characterId = id;
+    // Matched a stored row that never had an id: stay without one, so its name-keyed locks keep matching.
+    else delete row.characterId;
+    // A matched row keeps the stored row's aliases (and any the incremental merge already added); a new one starts
+    // with only the id the model gave it.
+    const stored = matchedRows.get(row);
+    const known = stored
+      ? [
+          ...(Array.isArray(row.idAliases) ? row.idAliases : []),
+          ...(Array.isArray(stored.idAliases) ? stored.idAliases : []),
+        ]
+      : [];
+    const aliases = withTrackerIdAlias(known, modelIds.get(row), id);
+    if (aliases) row.idAliases = aliases;
+    else delete row.idAliases;
+  }
 }
 
 export function preserveTrackerCharacterUiFields(

@@ -61,6 +61,11 @@ export interface GameState {
 /** A character present in the current scene. */
 export interface PresentCharacter {
   characterId: string;
+  /**
+   * Other ids the Character Tracker model used for this NPC, newest first (at most 5). The server owns NPC ids, so a
+   * model that keeps writing its own id (say from its previous output) still finds the same row (#9541).
+   */
+  idAliases?: string[];
   name: string;
   emoji: string;
   mood: string;
