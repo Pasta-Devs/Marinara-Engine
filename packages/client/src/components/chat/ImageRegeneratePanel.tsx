@@ -87,6 +87,23 @@ const MASK_ACTION_BUTTON_CLASS =
   "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-45";
 type CharacterPrompt = ImagePromptDraft["characterPrompts"][number];
 
+function MaskModeBadge({ hasMask, label, className }: { hasMask: boolean; label: string; className?: string }) {
+  return (
+    <span
+      role="status"
+      className={cn(
+        "shrink-0 whitespace-nowrap rounded-md border px-2 py-0.5 text-[0.7rem] font-medium",
+        hasMask
+          ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
+          : "border-[var(--border)] text-[var(--muted-foreground)]",
+        className,
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 function maskToolClass(active: boolean) {
   return cn(
     MASK_ACTION_BUTTON_CLASS,
@@ -407,7 +424,7 @@ export function ImageRegeneratePanel({
     if (next.connectionId) setConnectionId(next.connectionId);
   }, [imageSyncKey]);
 
-  const { isNativeNovelAi, effectiveConnectionId } = useMemo(() => {
+  const { isNativeNovelAi, effectiveConnectionId, hasSelectedConnection } = useMemo(() => {
     const rows = (connectionRows ?? []).filter(
       (row): row is Record<string, unknown> & { id: string; provider: string } =>
         !!row &&
@@ -419,13 +436,15 @@ export function ImageRegeneratePanel({
     );
     const chosenId = connectionId || record?.connectionId || "";
     const chosen = chosenId ? rows.find((row) => row.id === chosenId) : undefined;
+    const eligibleFallbackRows = rows.filter((row) => !isConnectionFlagTrue(row.profileImportReviewRequired));
     const effective =
       chosen ??
-      rows.find((row) => isConnectionFlagTrue(row.defaultForAgents)) ??
-      (rows.length === 1 ? rows[0] : undefined);
+      eligibleFallbackRows.find((row) => isConnectionFlagTrue(row.defaultForAgents)) ??
+      (eligibleFallbackRows.length === 1 ? eligibleFallbackRows[0] : undefined);
     return {
       isNativeNovelAi: isNativeNovelAiConnection(effective),
       effectiveConnectionId: typeof effective?.id === "string" ? effective.id : "",
+      hasSelectedConnection: Boolean(connectionId && rows.some((row) => row.id === connectionId)),
     };
   }, [connectionId, connectionRows, record?.connectionId]);
 
@@ -468,8 +487,11 @@ export function ImageRegeneratePanel({
         negativePrompt: draft.negativePrompt,
         characterPrompts: draft.characterPrompts.filter((entry) => entry.prompt.trim()),
       };
-      const resolvedConnectionId =
-        connectionId || (effectiveMode === "edit" || effectiveReuseSeed ? effectiveConnectionId : "");
+      const resolvedConnectionId = hasSelectedConnection
+        ? connectionId
+        : effectiveMode === "edit" || effectiveReuseSeed
+          ? effectiveConnectionId
+          : "";
       const connection =
         resolvedConnectionId &&
         connectionRows?.some(
@@ -552,17 +574,10 @@ export function ImageRegeneratePanel({
           <div className="min-w-0 flex-1">
             <MaskBrushSlider maskControls={maskControls} disabled={busy} sliderId={collapsedBrushSizeFieldId} />
           </div>
-          <span
-            role="status"
-            className={cn(
-              "shrink-0 whitespace-nowrap rounded-md border px-2 py-0.5 text-[0.7rem] font-medium",
-              hasMask
-                ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
-                : "border-[var(--border)] text-[var(--muted-foreground)]",
-            )}
-          >
-            {t(hasMask ? "ui.imagemaskcanvas.modeInpaintingShort" : "ui.imagemaskcanvas.modeImg2Img")}
-          </span>
+          <MaskModeBadge
+            hasMask={hasMask}
+            label={t(hasMask ? "ui.imagemaskcanvas.modeInpaintingShort" : "ui.imagemaskcanvas.modeImg2Img")}
+          />
         </div>
       )}
       <div
@@ -605,17 +620,11 @@ export function ImageRegeneratePanel({
                   <MaskBrushSlider maskControls={maskControls} disabled={busy} compact />
                 </div>
                 <MaskToolButtons maskControls={maskControls} disabled={busy} compact />
-                <span
-                  role="status"
-                  className={cn(
-                    "max-sm:hidden shrink-0 whitespace-nowrap rounded-md border px-2 py-1 text-[0.7rem] font-medium",
-                    hasMask
-                      ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
-                      : "border-[var(--border)] text-[var(--muted-foreground)]",
-                  )}
-                >
-                  {t(hasMask ? "ui.imagemaskcanvas.modeInpaintingShort" : "ui.imagemaskcanvas.modeImg2Img")}
-                </span>
+                <MaskModeBadge
+                  hasMask={hasMask}
+                  label={t(hasMask ? "ui.imagemaskcanvas.modeInpaintingShort" : "ui.imagemaskcanvas.modeImg2Img")}
+                  className="py-1 max-sm:hidden"
+                />
               </>
             )}
             <div
@@ -689,17 +698,10 @@ export function ImageRegeneratePanel({
                 <div className="space-y-2 border-b border-[var(--border)] pb-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.maskTools")}</span>
-                    <span
-                      role="status"
-                      className={cn(
-                        "shrink-0 rounded-md border px-2 py-0.5 text-[0.7rem] font-medium",
-                        hasMask
-                          ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
-                          : "border-[var(--border)] text-[var(--muted-foreground)]",
-                      )}
-                    >
-                      {t(hasMask ? "ui.imagemaskcanvas.modeInpainting" : "ui.imagemaskcanvas.modeInpaintingShort")}
-                    </span>
+                    <MaskModeBadge
+                      hasMask={hasMask}
+                      label={t(hasMask ? "ui.imagemaskcanvas.modeInpainting" : "ui.imagemaskcanvas.modeImg2Img")}
+                    />
                   </div>
                   <MaskToolButtons maskControls={maskControls} disabled={busy} />
                   <MaskBrushSlider maskControls={maskControls} disabled={busy} sliderId={brushSizeFieldId} />

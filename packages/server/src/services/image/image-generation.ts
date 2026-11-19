@@ -2653,19 +2653,37 @@ function clampNovelAiDimension(value: number): number {
   return Math.max(NOVELAI_MIN_DIMENSION, Math.min(NOVELAI_MAX_DIMENSION, rounded));
 }
 
-function clampNovelAiCanvasSize(rawWidth: number, rawHeight: number): { width: number; height: number } {
-  let width = clampNovelAiDimension(rawWidth);
-  let height = clampNovelAiDimension(rawHeight);
-  const pixels = width * height;
-  if (pixels <= NOVELAI_MAX_PIXELS) return { width, height };
-
-  const scale = Math.sqrt(NOVELAI_MAX_PIXELS / pixels);
-  width = Math.max(NOVELAI_MIN_DIMENSION, Math.floor((width * scale) / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE);
-  height = Math.max(
-    NOVELAI_MIN_DIMENSION,
-    Math.floor((height * scale) / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE,
+export function clampNovelAiCanvasSize(rawWidth: number, rawHeight: number): { width: number; height: number } {
+  const safeWidth = Number.isFinite(rawWidth) && rawWidth > 0 ? rawWidth : NOVELAI_MIN_DIMENSION;
+  const safeHeight = Number.isFinite(rawHeight) && rawHeight > 0 ? rawHeight : NOVELAI_MIN_DIMENSION;
+  // Apply one shared scale factor before rounding to 64 px multiples so oversized non-square
+  // sources keep their aspect ratio instead of collapsing to a square.
+  const scale = Math.min(
+    NOVELAI_MAX_DIMENSION / safeWidth,
+    NOVELAI_MAX_DIMENSION / safeHeight,
+    Math.sqrt(NOVELAI_MAX_PIXELS / (safeWidth * safeHeight)),
+    1,
   );
-  return { width, height };
+  if (scale < 1) {
+    const width = Math.max(
+      NOVELAI_MIN_DIMENSION,
+      Math.min(NOVELAI_MAX_DIMENSION, Math.floor((safeWidth * scale) / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE),
+    );
+    const height = Math.max(
+      NOVELAI_MIN_DIMENSION,
+      Math.min(NOVELAI_MAX_DIMENSION, Math.floor((safeHeight * scale) / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE),
+    );
+    return { width, height };
+  }
+
+  const width = clampNovelAiDimension(safeWidth);
+  const height = clampNovelAiDimension(safeHeight);
+  if (width * height <= NOVELAI_MAX_PIXELS) return { width, height };
+
+  return {
+    width: Math.max(NOVELAI_MIN_DIMENSION, Math.floor(safeWidth / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE),
+    height: Math.max(NOVELAI_MIN_DIMENSION, Math.floor(safeHeight / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE),
+  };
 }
 
 export function detectNovelAiSubjectCount(prompt: string): number | null {
@@ -3201,13 +3219,8 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
   );
   const prompt = prepareNovelAiPrompt(transparency.prompt, "prompt", baseModel);
   const negativePrompt = prepareNovelAiPrompt(transparency.negativePrompt, "negative prompt", baseModel);
-  const seed =
-    typeof request.seedOverride === "number" &&
-    Number.isInteger(request.seedOverride) &&
-    request.seedOverride >= 0 &&
-    request.seedOverride <= 0xffffffff
-      ? request.seedOverride
-      : resolveSeed(request.imageDefaults);
+  const explicitSeedOverride = readValidSeedNumber(request.seedOverride);
+  const seed = explicitSeedOverride ?? resolveSeed(request.imageDefaults);
 
   let editInputs: Awaited<ReturnType<typeof prepareNovelAiEditInputs>> | null = null;
   let styleReferenceImage: string | undefined;
@@ -3344,7 +3357,7 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
       ? (rawBody.parameters as Record<string, unknown>)
       : {};
   const mergedBodyParams: Record<string, unknown> = { ...parameters, ...customBodyParams };
-  const finalSeed = readValidSeedNumber(mergedBodyParams.seed) ?? seed;
+  const finalSeed = explicitSeedOverride ?? readValidSeedNumber(mergedBodyParams.seed) ?? seed;
   let finalWidth =
     typeof mergedBodyParams.width === "number" && Number.isFinite(mergedBodyParams.width)
       ? mergedBodyParams.width

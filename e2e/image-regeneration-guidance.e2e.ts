@@ -421,6 +421,7 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
 
     const maskCanvas = dialog.getByLabel("Inpainting mask brush canvas");
     await expect(maskCanvas).toBeVisible();
+    await expect(dialog.getByText("Img2Img", { exact: true })).toBeVisible();
     const invertBtn = dialog.getByRole("button", { name: "Invert mask", exact: true });
     await expect(invertBtn).toBeDisabled();
     await dialog.getByRole("checkbox", { name: /Reuse original seed/ }).check();
@@ -447,6 +448,7 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
     await page.mouse.move(box!.x + box!.width * 0.6, box!.y + box!.height * 0.6, { steps: 5 });
     await page.mouse.up();
 
+    await expect(dialog.getByText("Inpainting mask active", { exact: true })).toBeVisible();
     await expect(invertBtn).toBeEnabled();
     await invertBtn.click();
 

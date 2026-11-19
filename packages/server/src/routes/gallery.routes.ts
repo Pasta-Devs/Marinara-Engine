@@ -156,6 +156,7 @@ import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import { tryParseJsonRecord } from "../lib/json-repair.js";
 import { notFound } from "../utils/not-found.js";
 import { parseJsonRecord, isRecord } from "../utils/large-json.js";
+import { GALLERY_IMAGE_REGENERATE_RATE_LIMIT } from "../middleware/rate-limit.js";
 
 const GALLERY_DIR = join(DATA_DIR, "gallery");
 const SPRITES_DIR = join(DATA_DIR, "sprites");
@@ -2436,71 +2437,76 @@ export async function galleryRoutes(app: FastifyInstance) {
   });
 
   // The new asset replaces the old one in the reply it was opened from (#9387); the old file stays in the manifest.
-  app.post<{ Params: { assetId: string } }>("/mari-images/assets/:assetId/regenerate", async (req, reply) => {
-    const { assetId } = req.params;
-    const input = regenerateMariImageSchema.parse(req.body);
-    if (input.messageId && !input.chatId) return reply.status(400).send({ error: "messageId needs chatId" });
-    const chat = input.chatId ? await getMariChat(input.chatId) : null;
-    if (input.chatId && !chat) return notFound(reply, "Chat not found");
-    const debugOverrideEnabled = input.debugMode || isDebugAgentsEnabled();
-    logDebugOverride(debugOverrideEnabled, "[debug/gallery/mari-images/regenerate] final prompt:\n%s", input.prompt);
-    if (input.editMode || input.reuseSeed) {
-      logDebugOverride(
-        debugOverrideEnabled,
-        "[debug/gallery/mari-images/regenerate] editMode=%s strength=%s noise=%s reuseSeed=%s",
-        input.editMode ?? "standard",
-        input.strength ?? "default",
-        input.noise ?? "default",
-        Boolean(input.reuseSeed),
-      );
-    }
-
-    let result;
-    try {
-      result = await getMariImagesService(app.db).regeneratePreviewAsset(assetId, {
-        prompt: input.prompt,
-        negativePrompt: input.negativePrompt,
-        connectionId: input.connectionId,
-        editMode: input.editMode,
-        maskImage: input.maskImage,
-        strength: input.strength,
-        noise: input.noise,
-        reuseSeed: input.reuseSeed,
-        debugMode: input.debugMode,
-      });
-    } catch (err) {
-      if (err instanceof MariImageValidationError || err instanceof NovelAiEditInputError) {
-        return reply.status(400).send({ error: err.message });
+  app.post<{ Params: { assetId: string } }>(
+    "/mari-images/assets/:assetId/regenerate",
+    { config: { rateLimit: GALLERY_IMAGE_REGENERATE_RATE_LIMIT } },
+    async (req, reply) => {
+      const { assetId } = req.params;
+      const input = regenerateMariImageSchema.parse(req.body);
+      if (input.messageId && !input.chatId) return reply.status(400).send({ error: "messageId needs chatId" });
+      const chat = input.chatId ? await getMariChat(input.chatId) : null;
+      if (input.chatId && !chat) return notFound(reply, "Chat not found");
+      const debugOverrideEnabled = input.debugMode || isDebugAgentsEnabled();
+      logDebugOverride(debugOverrideEnabled, "[debug/gallery/mari-images/regenerate] final prompt:\n%s", input.prompt);
+      if (input.editMode || input.reuseSeed) {
+        logDebugOverride(
+          debugOverrideEnabled,
+          "[debug/gallery/mari-images/regenerate] editMode=%s strength=%s noise=%s reuseSeed=%s",
+          input.editMode ?? "standard",
+          input.strength ?? "default",
+          input.noise ?? "default",
+          Boolean(input.reuseSeed),
+        );
       }
-      logger.warn(err, "[gallery/mari-images/regenerate] Regenerating Mari image %s failed", assetId);
-      return reply.status(502).send({ error: err instanceof Error ? err.message : "Image regeneration failed" });
-    }
-    if (!result) return notFound(reply, "Image not found");
 
-    const swapped =
-      chat && input.messageId
-        ? await swapMariPreviewAssetInMessage(app.db, chat.id, input.messageId, result.previous, result.asset)
-        : null;
-    logger.info(
-      "[gallery/mari-images/regenerate] Regenerated Mari image %s as %s (message swapped: %s)",
-      assetId,
-      result.asset.id,
-      !!swapped,
-    );
-    return {
-      asset: result.asset,
-      regenerable: isMariPreviewAssetRegenerable(result.asset),
-      replacedMessageIds: swapped ? [input.messageId] : [],
-      // What the swap wrote, so her window patches its own transcript with exactly the stored text.
-      replacedMessages: swapped && input.messageId ? [{ id: input.messageId, ...swapped }] : [],
-    };
-  });
+      let result;
+      try {
+        result = await getMariImagesService(app.db).regeneratePreviewAsset(assetId, {
+          prompt: input.prompt,
+          negativePrompt: input.negativePrompt,
+          connectionId: input.connectionId,
+          editMode: input.editMode,
+          maskImage: input.maskImage,
+          strength: input.strength,
+          noise: input.noise,
+          reuseSeed: input.reuseSeed,
+          debugMode: input.debugMode,
+        });
+      } catch (err) {
+        if (err instanceof MariImageValidationError || err instanceof NovelAiEditInputError) {
+          return reply.status(400).send({ error: err.message });
+        }
+        logger.warn(err, "[gallery/mari-images/regenerate] Regenerating Mari image %s failed", assetId);
+        return reply.status(502).send({ error: err instanceof Error ? err.message : "Image regeneration failed" });
+      }
+      if (!result) return notFound(reply, "Image not found");
+
+      const swapped =
+        chat && input.messageId
+          ? await swapMariPreviewAssetInMessage(app.db, chat.id, input.messageId, result.previous, result.asset)
+          : null;
+      logger.info(
+        "[gallery/mari-images/regenerate] Regenerated Mari image %s as %s (message swapped: %s)",
+        assetId,
+        result.asset.id,
+        !!swapped,
+      );
+      return {
+        asset: result.asset,
+        regenerable: isMariPreviewAssetRegenerable(result.asset),
+        replacedMessageIds: swapped ? [input.messageId] : [],
+        // What the swap wrote, so her window patches its own transcript with exactly the stored text.
+        replacedMessages: swapped && input.messageId ? [{ id: input.messageId, ...swapped }] : [],
+      };
+    },
+  );
 
   // Regenerate an existing image from its final request, optionally edited (#7767). The new image
   // replaces the old one wherever a message or storyboard frame shows it; the old one stays in the
   // gallery.
   app.post<{ Params: { chatId: string; imageId: string } }>(
     "/:chatId/images/:imageId/regenerate",
+    { config: { rateLimit: GALLERY_IMAGE_REGENERATE_RATE_LIMIT } },
     async (req, reply) => {
       const { chatId, imageId } = req.params;
       if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });

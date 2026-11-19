@@ -50,6 +50,8 @@ export function getSceneVideoDownloadName(video: Pick<GeneratedSceneVideo, "file
   return fromUrl || `scene-video-${video.id}.mp4`;
 }
 
+const EMPTY_MASK_STATE: ImageMaskState = { strokeCount: 0, hasMask: false, isDrawing: false };
+
 interface ChatImageLightboxProps {
   image: ChatImage;
   /** Other pictures of the same set. With more than one, the viewer gets arrows, swipe, a counter and a filmstrip. */
@@ -95,26 +97,32 @@ export function ChatImageLightbox({
   const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
   const [maskTool, setMaskTool] = useState<MaskTool>("brush");
   const [maskBrushSize, setMaskBrushSize] = useState(DEFAULT_MASK_BRUSH_PX);
-  const [maskState, setMaskState] = useState<ImageMaskState>({ strokeCount: 0, hasMask: false, isDrawing: false });
+  const [maskState, setMaskState] = useState<ImageMaskState>(EMPTY_MASK_STATE);
   const maskControlsRef = useRef<ImageMaskCanvasHandle | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const resetMask = useCallback((options?: { resetToolAndBrush?: boolean }) => {
+    setMaskDataUrl(null);
+    setMaskState(EMPTY_MASK_STATE);
+    if (options?.resetToolAndBrush) {
+      setMaskTool("brush");
+      setMaskBrushSize(DEFAULT_MASK_BRUSH_PX);
+    }
+  }, []);
 
   const closeEditing = () => {
     setEditing(false);
     setEditSurfaceActive(false);
-    setMaskDataUrl(null);
-    setMaskTool("brush");
-    setMaskState({ strokeCount: 0, hasMask: false, isDrawing: false });
+    resetMask({ resetToolAndBrush: true });
   };
 
-  const handleEditSurfaceChange = useCallback((active: boolean) => {
-    setEditSurfaceActive(active);
-    if (!active) {
-      setMaskDataUrl(null);
-      setMaskTool("brush");
-      setMaskState({ strokeCount: 0, hasMask: false, isDrawing: false });
-    }
-  }, []);
+  const handleEditSurfaceChange = useCallback(
+    (active: boolean) => {
+      setEditSurfaceActive(active);
+      if (!active) resetMask({ resetToolAndBrush: true });
+    },
+    [resetMask],
+  );
   // Lightweight message and storyboard images omit the generation record. Resolve
   // it once here so viewing and editing use the same saved request.
   const needsGalleryRow = !!regenerate && activeImage.generation === undefined;
@@ -180,9 +188,7 @@ export function ChatImageLightbox({
         if (!images) return;
         setImage(images[next]!);
         setEditSurfaceActive(false);
-        setMaskDataUrl(null);
-        setMaskTool("brush");
-        setMaskState({ strokeCount: 0, hasMask: false, isDrawing: false });
+        resetMask({ resetToolAndBrush: true });
       }}
       actions={
         <>
@@ -243,8 +249,7 @@ export function ChatImageLightbox({
           onCancel={closeEditing}
           onRegenerated={(next) => {
             setImage(next);
-            setMaskDataUrl(null);
-            setMaskState({ strokeCount: 0, hasMask: false, isDrawing: false });
+            resetMask();
             maskControlsRef.current?.clear();
           }}
         />

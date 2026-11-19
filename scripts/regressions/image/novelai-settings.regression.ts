@@ -4,6 +4,7 @@ import { promises as dns } from "node:dns";
 import { mock } from "node:test";
 import { deflateSync } from "node:zlib";
 import {
+  clampNovelAiCanvasSize,
   detectNovelAiSubjectCount,
   generateImage,
   imageConnectionTakesReferencePicture,
@@ -312,11 +313,32 @@ for (let by = 0; by < 512; by += 8) {
   }
 }
 
+// Aspect-preserving NovelAI canvas clamp keeps source proportions across 2048 px sides, pixel budget, and slivers.
+assert.deepEqual(clampNovelAiCanvasSize(4032, 3024), { width: 1152, height: 832 });
+assert.deepEqual(clampNovelAiCanvasSize(3024, 4032), { width: 832, height: 1152 });
+assert.deepEqual(clampNovelAiCanvasSize(1600, 1200), { width: 1152, height: 832 });
+assert.deepEqual(clampNovelAiCanvasSize(4032, 100), { width: 2048, height: 64 });
+assert.deepEqual(clampNovelAiCanvasSize(768, 512), { width: 768, height: 512 });
+assert.deepEqual(clampNovelAiCanvasSize(1185, 865), { width: 1152, height: 832 });
+
 // Corrupted source bytes convert into NovelAiEditInputError (400) rather than opaque 500s.
 await assert.rejects(
   prepareNovelAiEditInputs(Buffer.from("not-an-image").toString("base64")),
   (err: unknown) => err instanceof NovelAiEditInputError,
 );
+
+// Large 4:3 edit source preserves its 4:3 proportion instead of collapsing to 1024x1024.
+const largeLandscapeSource = await sharp({
+  create: { width: 4032, height: 3024, channels: 3, background: { r: 20, g: 50, b: 90 } },
+})
+  .png({ compressionLevel: 1 })
+  .toBuffer();
+const preparedLargeEdit = await prepareNovelAiEditInputs(largeLandscapeSource.toString("base64"));
+assert.equal(preparedLargeEdit.width, 1152);
+assert.equal(preparedLargeEdit.height, 832);
+assert.equal(preparedLargeEdit.width % 64, 0);
+assert.equal(preparedLargeEdit.height % 64, 0);
+assert.ok(preparedLargeEdit.width * preparedLargeEdit.height <= 1024 * 1024);
 
 // Empty mask is rejected cleanly before calling NovelAI.
 const emptyMaskPng = await sharp({
@@ -498,7 +520,7 @@ try {
   );
   assert.equal(capturedPayloads.length, 2, "rejected non-native/invalid requests must not dispatch any fetch");
 
-  // customParameters cannot override infill action/model/mask, while a custom seed takes precedence over seedOverride.
+  // customParameters cannot override infill action/model/mask, and explicit seedOverride wins over custom parameters.seed.
   const customEditRes = await generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
     prompt: "1girl, crown",
     model: "nai-diffusion-5-full",
@@ -519,18 +541,59 @@ try {
       novelai: { ...DEFAULT_NOVELAI_DEFAULTS },
     },
   });
-  assert.equal(customEditRes.seed, 555666);
+  assert.equal(customEditRes.seed, 111);
   assert.equal(customEditRes.width, 768);
   assert.equal(customEditRes.height, 512);
-  const customEditBody = capturedPayloads[2]!;
+  const customEditBody = capturedPayloads.at(-1)!;
   assert.equal(customEditBody.action, "infill");
   assert.equal(customEditBody.model, "nai-diffusion-5-full-inpainting");
   const customEditParams = customEditBody.parameters as Record<string, unknown>;
-  assert.equal(customEditParams.seed, 555666);
-  assert.equal(customEditParams.extra_noise_seed, 555666);
+  assert.equal(customEditParams.seed, 111);
+  assert.equal(customEditParams.extra_noise_seed, 111);
   assert.equal(customEditParams.strength, 0.85);
-  assert.equal((customEditParams.img2img as Record<string, unknown>).extra_noise_seed, 555666);
+  assert.equal((customEditParams.img2img as Record<string, unknown>).extra_noise_seed, 111);
   assert.equal(typeof customEditParams.mask, "string");
+
+  // Plain text-to-image with seedOverride keeps seedOverride over custom parameters.seed while still applying custom dimensions.
+  const plainSeedOverrideRes = await generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
+    prompt: "1girl, meadow",
+    model: "nai-diffusion-5-full",
+    seedOverride: 222,
+    imageDefaults: {
+      version: 1,
+      service: "novelai",
+      seed: -1,
+      customParameters: {
+        parameters: { seed: 555666, width: 512, height: 768 },
+      },
+      novelai: { ...DEFAULT_NOVELAI_DEFAULTS },
+    },
+  });
+  assert.equal(plainSeedOverrideRes.seed, 222);
+  assert.equal(plainSeedOverrideRes.width, 512);
+  assert.equal(plainSeedOverrideRes.height, 768);
+  const plainOverrideParams = capturedPayloads.at(-1)!.parameters as Record<string, unknown>;
+  assert.equal(plainOverrideParams.seed, 222);
+  assert.equal(plainOverrideParams.width, 512);
+  assert.equal(plainOverrideParams.height, 768);
+
+  // Without seedOverride, connection customParameters.parameters.seed still applies cleanly.
+  const customSeedOnlyRes = await generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
+    prompt: "1girl, sunset",
+    model: "nai-diffusion-5-full",
+    imageDefaults: {
+      version: 1,
+      service: "novelai",
+      seed: -1,
+      customParameters: {
+        parameters: { seed: 555666 },
+      },
+      novelai: { ...DEFAULT_NOVELAI_DEFAULTS },
+    },
+  });
+  assert.equal(customSeedOnlyRes.seed, 555666);
+  const customSeedOnlyParams = capturedPayloads.at(-1)!.parameters as Record<string, unknown>;
+  assert.equal(customSeedOnlyParams.seed, 555666);
 
   // 5) Primary NovelAI edit failure skips non-native fallback completely.
   let calledFallback = false;
