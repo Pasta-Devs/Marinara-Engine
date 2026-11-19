@@ -509,35 +509,41 @@ export function MariComposer({
         >
           {!omnibarMode ? (
             <div className="mari-workspace-question-dock__prompt">
-              {/* The fold sits top left with her sparkle beneath it; folded, the box is one quiet line. */}
-              <div className="mari-workspace-question-dock__rail">
-                <button
-                  type="button"
-                  className="mari-workspace-question-dock__toggle"
-                  onClick={() => setSuggestionsCollapsed(!suggestionsCollapsed)}
-                  aria-expanded={!suggestionsCollapsed}
-                  aria-controls={suggestionsBodyId}
-                  aria-label={t(suggestionsCollapsed ? "mari.suggestions.show" : "mari.suggestions.hide")}
-                  title={t(suggestionsCollapsed ? "mari.suggestions.show" : "mari.suggestions.hide")}
-                >
-                  <ChevronDown aria-hidden="true" />
-                </button>
-                {!suggestionsCollapsed ? <Sparkles size="0.875rem" aria-hidden="true" /> : null}
-              </div>
+              {/* The fold sits top left with her sparkle beneath it. Folded, the box is one quiet line that is
+                  itself the button, so it opens from anywhere on it. */}
               {suggestionsCollapsed ? (
                 <button
                   type="button"
                   className="mari-workspace-question-dock__folded"
                   onClick={() => setSuggestionsCollapsed(false)}
-                  aria-hidden="true"
-                  tabIndex={-1}
+                  aria-expanded={false}
+                  title={t("mari.suggestions.show")}
                 >
-                  {t("mari.suggestions.folded")}
+                  <span className="mari-workspace-question-dock__toggle" aria-hidden="true">
+                    <ChevronDown />
+                  </span>
+                  <span className="mari-workspace-question-dock__folded-label">{t("mari.suggestions.folded")}</span>
                 </button>
               ) : (
-                <div className="min-w-0 flex-1">
-                  <CompactMarkdown content={suggestionQuestion} />
-                </div>
+                <>
+                  <div className="mari-workspace-question-dock__rail">
+                    <button
+                      type="button"
+                      className="mari-workspace-question-dock__toggle"
+                      onClick={() => setSuggestionsCollapsed(true)}
+                      aria-expanded
+                      aria-controls={suggestionsBodyId}
+                      aria-label={t("mari.suggestions.hide")}
+                      title={t("mari.suggestions.hide")}
+                    >
+                      <ChevronDown aria-hidden="true" />
+                    </button>
+                    <Sparkles size="0.875rem" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <CompactMarkdown content={suggestionQuestion} />
+                  </div>
+                </>
               )}
             </div>
           ) : null}

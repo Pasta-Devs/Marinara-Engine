@@ -4733,18 +4733,20 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 
 /* Mouse only: on touch, :hover sticks after a tap. */
 @media (hover: hover) and (pointer: fine) {
-  .mari-workspace-question-dock__toggle:hover,
-  .mari-workspace-question-dock[data-collapsed]
-    .mari-workspace-question-dock__prompt:hover
-    .mari-workspace-question-dock__toggle {
+  button.mari-workspace-question-dock__toggle:hover,
+  .mari-workspace-question-dock__folded:hover .mari-workspace-question-dock__toggle {
     background: var(--mari-hover);
+    color: var(--foreground);
+  }
+
+  .mari-workspace-question-dock__folded:hover {
     color: var(--foreground);
   }
 }
 
 /* Drawn at 20px, hit at 44px on touch. */
 @media (pointer: coarse) {
-  .mari-workspace-question-dock__toggle::after {
+  button.mari-workspace-question-dock__toggle::after {
     position: absolute;
     inset: -0.75rem;
     content: "";
@@ -4761,25 +4763,28 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 }
 
 .mari-workspace-question-dock__folded {
+  display: flex;
   min-width: 0;
   flex: 1;
-  overflow: hidden;
+  align-items: center;
+  gap: 0.625rem;
   color: var(--muted-foreground);
   font-size: 0.75rem;
   font-weight: 500;
   text-align: start;
+}
+
+.mari-workspace-question-dock__folded:focus-visible {
+  border-radius: 0.375rem;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.mari-workspace-question-dock__folded-label {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .mari-workspace-question-dock__folded:hover {
-    color: var(--foreground);
-  }
-}
-
-.mari-workspace-question-dock .mari-suggestion-chips {
-  margin-bottom: 0;
 }
 
 /* A real next question (a plan step, held changes) reads as her last line, with a small sparkle, no box. */
