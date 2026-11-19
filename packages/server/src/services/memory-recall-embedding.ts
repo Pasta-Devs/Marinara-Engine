@@ -283,7 +283,7 @@ export async function readDefaultEmbeddingConnectionId(db: DB): Promise<string |
 }
 
 /** The app-wide default (Connection defaults > Embeddings), resolved like an ordinary connection. */
-async function resolveDefaultEmbeddingSource(db: DB): Promise<MemoryRecallEmbeddingSource | null> {
+export async function resolveDefaultEmbeddingSource(db: DB): Promise<MemoryRecallEmbeddingSource | null> {
   const defaultId = await readDefaultEmbeddingConnectionId(db);
   if (!defaultId) return null;
   if (isPseudoEmbeddingConnectionId(defaultId)) return resolvePseudoEmbeddingSource(defaultId) ?? null;

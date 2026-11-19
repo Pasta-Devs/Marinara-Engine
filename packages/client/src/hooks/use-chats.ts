@@ -706,6 +706,16 @@ export function useClearChatMemories(chatId: string | null) {
   });
 }
 
+/** Whether this chat's memories are embedded by Marinara's own (English-only) search model. */
+export function useChatMemoryEmbeddingSource(chatId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: [...chatKeys.memories(chatId ?? ""), "embedding-source"],
+    queryFn: () => api.get<{ ownSearch: boolean; model: string | null }>(`/chats/${chatId}/memories/embedding-source`),
+    enabled: !!chatId && enabled,
+    staleTime: 30_000,
+  });
+}
+
 export function useRefreshChatMemories(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({

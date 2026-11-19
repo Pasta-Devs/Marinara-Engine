@@ -275,6 +275,7 @@ export * from "./utils/greeting-image-bake.js";
 export * from "./utils/text-matching.js";
 export * from "./utils/chat-search-query.js";
 export * from "./utils/chat-stats.js";
+export * from "./utils/english-text-check.js";
 export * from "./utils/character-cast.js";
 export * from "./utils/speaker-segments.js";
 export * from "./utils/sprite-labels.js";
