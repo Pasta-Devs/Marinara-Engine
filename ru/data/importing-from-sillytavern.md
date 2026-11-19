@@ -64,7 +64,7 @@
 **Imported regex scripts** (по умолчанию **Character only**):
 
 - **Character only** применяет скрипты к каждому персонажу.
-- **Global** добавляет их в **Presets → Regexes** для всех чатов.
+- **Global** добавляет их в **Presets → Regexes**, где можно управлять скриптами, работающими в разных чатах. См. [Regex-скрипты](../extending/regex-scripts.md#manage-your-scripts).
 
 Если не получилось:
 

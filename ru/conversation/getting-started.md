@@ -57,6 +57,7 @@ Conversation – это режим чата в стиле мессенджера
 | **8-Ball Pool** | Собрать партию в пул. | 8-Ball Pool |
 | **Tic-Tac-Toe** | Принять вызов на партию в крестики-нолики. | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | Принять матч. | Rock-Paper-Scissors |
+| Другие игры, по названию игры | Начать игру или принять приглашение. | Эта игра, например Blackjack или Wordle |
 
 О **Influence** и **Notes** см. [Связь чата Conversation с чатом Roleplay или Game](../chats/connected-chats.md). В последнем столбце указан агент, которого нужно установить из **Agent Organizer**.
 

@@ -61,6 +61,8 @@ Impersonate поручает модели написать ваше следую
 
 Короткий псевдоним – `/imp`. **Regenerate** работает и на сообщении, которое написал Impersonate, так что можно получить другую версию.
 
+<a id="the-impersonate-settings"></a>
+
 ### Настройки Impersonate
 
 Эти настройки действуют на каждый запуск `/impersonate` во всех ваших чатах. Откройте **Chat Settings** (настройки чата) в чате Roleplay и найдите раздел **Impersonate**. Как открыть панель, см. [Обзор панели Chat Settings](chat-settings.md).
@@ -71,6 +73,7 @@ Impersonate поручает модели написать ваше следую
 | **Preset** (пресет) | Пресет промпта только для ответов Impersonate. По умолчанию: **Use chat default** (как в чате). См. [Редактор пресетов и управление промптами](../prompts/presets.md). |
 | **Connection** (подключение) | Модель для ответов Impersonate, например более дешевая или быстрая. По умолчанию: **Use chat default**. Можно также выбрать **Random**. См. [Подключение к провайдеру ИИ](../connections/connecting-to-a-provider.md). |
 | **Skip agents** (пропускать агентов) | Пропускает работу агентов (трекеров, маршрутизаторов лорбуков и похожих помощников) во время Impersonate. Так Impersonate работает быстро и не меняет состояние мира. По умолчанию выключено. См. [Агенты](../agents/agents-overview.md). |
+| **Send Public Faces** (отправлять публичные образы) | В чатах Roleplay персонаж с заполненным **Public Face** представлен в промпте Impersonate только именем и публичным образом, поэтому ответ учитывает лишь доступные вам сведения. Это заменяет остальное содержимое карточки: Description, Personality, Backstory, Appearance, Scenario, System Prompt, примеры диалогов, атрибуты RPG, Post-History Instructions и Depth Prompt. У персонажа с пустым Public Face сохраняется полная карточка. Макросы в пресете или шаблоне промпта Impersonate, например `{{description}}`, по-прежнему отправляют указанные в них сведения. **Regenerate** сохраняет настройку, с которой написано сообщение. По умолчанию выключено. См. [Вкладка Card](../characters/creating-and-editing-characters.md#card-tab). |
 | **Use CYOA as direction** (использовать CYOA как направление) | Нажатие на вариант CYOA (choose your own adventure, "выбери свое приключение") делает его направлением для Impersonate, а не публикует его. По умолчанию выключено. Если в **Settings → General → Input & Editing** включено **Add CYOA choices to the message box instead of sending them** (добавлять варианты CYOA в поле сообщения, а не отправлять их), нажатие только добавляет текст в поле сообщения, и эта настройка ни на что не влияет. |
 
 ### Свой промпт для одного чата
