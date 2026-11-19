@@ -11537,12 +11537,21 @@ input.ov-edhead__title:focus {
   padding: 0.375rem 0;
 }
 :root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box > div:first-child p:first-child,
-:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box > div:first-child > span:first-child {
+:root[data-overhaul]
+  .mari-connection-scope
+  .mari-gendefaults
+  .mari-gendefaults__box
+  > div:first-child
+  > span:first-child {
   font-size: 0.8125rem;
   font-weight: 400;
   color: var(--ov-text);
 }
-:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box .mari-gendefaults__field:last-child {
+:root[data-overhaul]
+  .mari-connection-scope
+  .mari-gendefaults
+  .mari-gendefaults__box
+  .mari-gendefaults__field:last-child {
   border-bottom: 0;
 }
 /* Style profile: the same label-left row; the suggestion and its Use button sit under the dropdown. */
@@ -11560,7 +11569,12 @@ input.ov-edhead__title:focus {
   grid-column: 1;
   grid-row: 1;
 }
-:root[data-overhaul] .mari-connection-scope .mari-gendefaults .mari-gendefaults__box.flex-col > div:first-child > button {
+:root[data-overhaul]
+  .mari-connection-scope
+  .mari-gendefaults
+  .mari-gendefaults__box.flex-col
+  > div:first-child
+  > button {
   grid-column: 2;
   grid-row: 3;
   justify-self: start;
