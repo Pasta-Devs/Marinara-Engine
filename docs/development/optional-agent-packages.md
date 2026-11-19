@@ -1269,7 +1269,7 @@ reads the world from it, exactly as it was made, so a pack keeps working across 
 the files from a game's or library world's **Download** (or `GET /api/game/:chatId/world/file`), which
 include it. A pack file is at most 8 MB, the largest share file the Engine reads (a tile pack keeps its
 own smaller limits), so a world whose file is larger (a very big world's snapshot) cannot ship in a pack. A world whose story sets an `intro`
-needs Capability API 1.339 (see [The intro message](../extending/writing-story-scripts.md#the-intro-message)).
+needs Capability API 1.339 (see [The intro message](writing-story-scripts.md#the-intro-message)).
 `tiles` may be an image tile pack (tile pack version 2: PNG sheets on a grid of cells, with sprites of
 several cells), which needs Capability API 1.80; the Engine decodes and checks its sheets once per
 package version. With the Experience on, a new game is locked
@@ -1312,7 +1312,7 @@ names the Experience's tracks and when they play:
 Each track is also a declared asset, and every track id named is one of `tracks`. A place in `places` is
 a place of one of the pack's worlds, by id. Out of a fight, the game plays the place's track, else the
 track of the nearest place it is inside that has one, else `default`; in a fight, `combat`. A story's
-`music` action (see [Writing Game Mode Story Scripts](../extending/writing-story-scripts.md)) cues one
+`music` action (see [Writing Game Mode Story Scripts](writing-story-scripts.md)) cues one
 of the tracks over all of these until it hands back. With none of these, the Engine's own music plays.
 A player who has picked their own music source (the Music DJ, Spotify) hears that instead: their choice
 always wins.
@@ -1417,7 +1417,7 @@ audio sizes) are all reported; the files' checks stop at the first problem, as a
 #### Capability API 1.351: held seasons
 
 A world's story may hold places at a season whatever the date (`seasons`, and the `season` action: see
-[writing story scripts](../extending/writing-story-scripts.md#seasons)), and a world's battlefields may be
+[writing story scripts](writing-story-scripts.md#seasons)), and a world's battlefields may be
 painted with seasons (`seasons` rows and `seasonKeys`). A map pack with either needs 1.351. The overworld
 reads held places as `seasons` (place id to season, `*` for the whole world) from
 `GET /api/game/:chatId/overworld`; a made battlefield carries its tiles' starting seasons as `seasons`,
@@ -1507,7 +1507,7 @@ number flag of one of the pack's stories. A map pack with `storyUses` needs 1.35
 
 A story fight's variants may be for parties above six, or open-ended (`"party": { "min": 7 }`), and a
 story condition may ask the party's size (`{ "partySize": { "is": ">=", "value": 7 } }`; see
-[writing story scripts](../extending/writing-story-scripts.md#conditions)).
+[writing story scripts](writing-story-scripts.md#conditions)).
 
 A companion of the people file may never fight:
 
@@ -1552,7 +1552,7 @@ Pixelforge's Experience tab writes it. Every key is optional, and the player may
 - Text limits: `setting` 4,000 characters, `language` 100, `playerGoals` and `preferences` 2,000, `gameSpecialInstructions` 2,000, `artStylePrompt` 500.
 
 `intro` is the Game Master's intro message (1.339), with the same rules as a story script's `intro`
-(see [Writing story scripts](../extending/writing-story-scripts.md#the-intro-message)). It is the only
+(see [Writing story scripts](writing-story-scripts.md#the-intro-message)). It is the only
 value that locks. A locked intro shows read-only in the wizard, and the game opens with it whatever the
 setup sends. The game keeps the intro as it was when the game began (`chat.metadata.gameExperienceIntro`).
 It is read before the story's own `intro`. A setup-file import keeps its own values, and turning the

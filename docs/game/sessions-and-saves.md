@@ -46,7 +46,7 @@ After a session is concluded, the same button in its row changes to **New Sessio
 1. Open **Session** and go to **Session History**.
 2. In the current session row, click **New Session** (the play icon).
 
-The GM resumes the story from the last summary and any note you wrote when you ended the session. In a game with a generated world, the world goes on from where it was left: the days that passed, the party's deeds and standing, the places and groups the story added, and where the party went.
+The GM resumes the story from the last summary and any note you wrote when you ended the session.
 
 ## Read past sessions
 

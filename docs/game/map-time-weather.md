@@ -9,8 +9,6 @@ Game Mode shows a map panel on the game screen. It lists the current map name, t
 - **On a computer**, the map is an inline panel you can read at a glance. You can drag it and lock it in place. For how draggable panels work, see [Game Mode: HUD Widgets](hud-widgets.md).
 - **On a phone**, tap **Map** to open the panel. Its button starts near the top left and can be dragged around the chat. Use **Lock window** to keep the button in place, and **Close** to return to it. The position is saved with the chat. The phone map uses your chat widget style from **Settings → Appearance → App**, and its button stays separate from the three-dot **Chat tools** menu.
 
-A VN game has the scene map described here. The overworld, towns and dungeon maps belong to Overworld games, which are not available yet (see [VN or Overworld](getting-started.md#vn-or-overworld)).
-
 ### Grid view and node view
 
 Marinara picks the view from the kind of place the map shows. You do not switch by hand.
@@ -64,12 +62,6 @@ The game clock uses fixed math, not the AI. Every new game starts at Day 1, 08:0
 
 When the clock passes midnight, the day number goes up by one.
 
-In a game with a world, time also passes on its own:
-
-- While the overworld is in front and the game is waiting on you, a game minute passes every five real seconds. It stops while the GM is writing, before you have read its reply, while the scene view is in front and while the app is in the background.
-- A walk on the overworld passes the days its route takes.
-- When the Game Master (GM) says days pass (a journey, a long rest, a wait), the clock moves by those days. A regenerated reply does not move it again. Set the day by hand if the new telling takes a different time.
-
 ## Weather
 
 The game tracks weather with fixed math, not the AI. Weather depends on the biome (the kind of place the party is in, such as desert, arctic, coastal or mountain) and the season. Examples are clear, cloudy, rain, storm, snow, blizzard, fog and sandstorm. Weather changes most often when you travel or take a long rest, sometimes when you explore, and rarely otherwise. It flavors how the GM describes each scene.
@@ -81,64 +73,6 @@ To see weather on screen, turn on **Dynamic weather effects (rain, snow, fog, et
 The game keeps a hidden party morale score from 0 to 100. It has five levels, lowest to highest: Broken, Low, Steady, High and Inspired.
 
 Morale rises when you win a fight, complete a quest or find treasure. It falls when you lose a fight, fail a quest or lose an ally. Over time it drifts back toward the middle. It is not shown as a number. It colors how the GM describes your party's mood. It does not change your dice rolls.
-
-## The overworld and other Overworld maps
-
-The sections below describe **Overworld** games, which are not available yet. They apply only if your server has turned the feature on.
-
-### The overworld
-
-A game with a generated world (see [Making a world](getting-started.md#making-a-world)) opens on the **overworld**: the world's ground drawn as a pixel map behind the narration, with forests, hills, coasts and seas, the roads and lanes between settlements, each settlement drawn by its size, and your party. The bigger places are named, and so is the one you are in. Drag the map to look around.
-
-1. Tap or click a settlement, or pick it from **Places** (nearest first, with the trip time).
-2. Read its size and the trip from where you are: days or hours, and by which ways.
-3. Click **Walk there**. The party goes along the world's ways by the quickest route, and the walk's days pass on the clock at once.
-
-Your next turn tells the GM where you walked, how long it took and by which ways, so it can tell the arrival. A second walk before your next turn carries on from where the first ended.
-
-Caves, mines, crypts and ruins a few steps out of a settlement are drawn as **sites**. A new world has one or two in each region, named after the settlement beside them ("Hollin Caves", "Ashby Ruins"). **Walk there** goes along the ways to its settlement and then off the road on foot. At a site, **Enter** opens its map (see [Dungeons, caves and stations](#dungeons-caves-and-stations)). A site that matters to the story stays **closed** (faded, no trip, no entry) until the GM opens it. A world maker can also hide a site until then or open it from the start.
-
-A place in ruins is drawn in ruins. After dark the map dims and windows light up. Each setting family (fantasy, wuxia, modern day, the 1920s, science fiction, the wasteland) has its own tiles. A kit with no family draws plain tiles.
-
-To switch between views, use **Show the scene** and **Show the overworld** in **Game controls** (on a phone, in the three-dot **Chat tools** menu). The game remembers your choice. A fight and a session replay use their own screens.
-
-### Tile packs
-
-Tile packs hold the palette and every tile (each kind of ground, settlements by size, the party, and a town's streets, roofs and townsfolk) as rows of pixels. Every setting family has a built-in pack. Open the **Agents** panel and find **Tile packs** to:
-
-- choose which pack each setting is drawn with (**Built in** is its own),
-- **Import a tile pack** from a `.tilepack.json` file,
-- **Export** a pack to share it, or **Remove** it, which sends any setting drawn with it back to its own tiles.
-
-A pack only needs the tiles it changes, and anything it leaves out is drawn plain. A pack that names a tile Marinara does not draw keeps the rest and says what it left out.
-
-### The town
-
-At a settlement, pick it on the overworld and choose **Enter** to see the town. It is laid out from the world: streets and a square, places the world or story has in it (named on their buildings), a hall in a bigger place, workplaces for the trades the place is known for, and homes. People are where the hour puts them: at work by day, in the square at dusk, at home at night.
-
-Pick a building or the square, or choose from **Places in town**, to see who is there and how many minutes away it is. **Walk there** crosses town along the streets, round buildings and anything a hand layout painted, over its bridges. The minutes pass on the clock, and your next turn tells the GM where the party went and who is there. A visit to a named place, such as an inn the story added, makes it the party's current place. **Leave town** goes back to the overworld. The game remembers which view you were in.
-
-A town can be **laid out by hand** with a world editor such as Pixelforge, as part of the world's hand edits.
-
-- Buildings can move to other lots. A building moved onto another's lot swaps with it, and every building still faces a street.
-- The ground can be painted with streets, paving, open ground, trees or a well, but never under a building, before its door, in the middle of the square or under a market stall.
-- Who lives and works where never changes, and a walk to a moved building is timed from its new door.
-- The editor refuses a layout that does not fit the town and says why. Places the story adds in play still find a lot.
-- A layout can also place buildings off the lots, paint fields, dirt paths, water with bridges and hedges, and set decorations. The town view draws them all (decorations only with an image pack that has them).
-
-### Dungeons, caves and stations
-
-When the story goes underground or aboard, the GM can open a **map of the place**: a dungeon, cave or station, drawn over the scene. It is laid out from the game and the place's name, so the same place always has the same rooms, and going back keeps the map as it was. The GM picks a look from eleven: rock, ice, crystal and lava caves; a crypt, a sewer and a temple; and a station's corridors, lab, engine deck and hydroponics. With a tile pack for that look, the map uses its art. Without one, it is plain colors.
-
-A place in town the party can go down into (a cave, mine, crypt, sewer or ruin by its name, or in science fiction a derelict or a bunker) shows **Go down** when the party is there.
-
-- It opens the same map each time, and leaving puts the party back in town.
-- While the party is on another map, leave that one first.
-- A place can also have a map made by hand with a world editor such as Pixelforge. **Go down** then opens that map, whatever the place is called, drawn with the pack it names. On such a map the way out is where the party came in, props never block the way, and people stand on named spots at the hours the map gives them. The GM is told who is there.
-
-Click a place on the map, or use the arrow keys, to walk there by the shortest way. The minutes pass on the clock (about a minute per thirty steps), and your next turn tells the GM which area the party walked from and to. The label at the top names the current area. **Show the scene** and **Show the map** in **Game controls** switch between the scene and the map.
-
-To leave, walk back to the way out (stairs, a ladder or a hatch) and choose **Leave**. The GM can also end the map when the story leaves the place. Regenerating a turn that opened, walked or left a map puts the map back as it was before that turn.
 
 ## Related guides
 
