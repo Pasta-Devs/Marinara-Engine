@@ -17,6 +17,7 @@
 // Writes <out>/report.html (every finding with a marked screenshot), findings.json and, with --webkit, the tap
 // timings. Exit code 1 when anything is found. Known, intended exceptions go in scripts/ui-check/allow.json.
 import { spawn } from "node:child_process";
+import { request as httpRequest } from "node:http";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -86,7 +87,8 @@ async function startServer() {
   log(`starting a test server on ${clientPort} (data in ${dataDir})`);
   const child = spawn(process.execPath, [join(repoRoot, "scripts/dev.mjs")], {
     cwd: repoRoot,
-    stdio: ["ignore", "ignore", "inherit"],
+    // The dev server's own warnings drown the check's output; --verbose shows them.
+    stdio: ["ignore", "ignore", flag("verbose") ? "inherit" : "ignore"],
     env: {
       ...process.env,
       DATA_DIR: dataDir,
@@ -111,16 +113,34 @@ async function startServer() {
 }
 
 function apiClient(base) {
-  const call = async (method, path, body) => {
-    const response = await fetch(new URL(path, base), {
-      method,
-      headers: body ? { "content-type": "application/json" } : {},
-      body: body ? JSON.stringify(body) : undefined,
+  // node:http rather than fetch: Node 22's fetch (undici) crashed the whole run with an internal assertion when
+  // the dev server dropped a kept-alive connection between calls.
+  const call = (method, path, body) =>
+    new Promise((ok, fail) => {
+      const payload = body ? JSON.stringify(body) : null;
+      const request = httpRequest(
+        new URL(path, base),
+        {
+          method,
+          agent: false,
+          headers: payload ? { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } : {},
+        },
+        (response) => {
+          let text = "";
+          response.setEncoding("utf8");
+          response.on("data", (chunk) => (text += chunk));
+          response.on("end", () => {
+            if ((response.statusCode ?? 500) >= 400)
+              fail(new Error(`${method} ${path}: ${response.statusCode} ${text.slice(0, 200)}`));
+            else ok(text ? JSON.parse(text) : null);
+          });
+        },
+      );
+      request.on("error", fail);
+      request.setTimeout(60_000, () => request.destroy(new Error(`${method} ${path}: timed out`)));
+      if (payload) request.write(payload);
+      request.end();
     });
-    const text = await response.text();
-    if (!response.ok) throw new Error(`${method} ${path}: ${response.status} ${text.slice(0, 200)}`);
-    return text ? JSON.parse(text) : null;
-  };
   return {
     get: (path) => call("GET", path),
     post: (path, body = {}) => call("POST", path, body),
@@ -364,6 +384,9 @@ ${timings}${rows || "<p>Nothing found.</p>"}`,
   return { total, withProblems: withProblems.length };
 }
 
+/** What has been checked so far, written out even when the run dies half way. */
+const partial = { results: [], themes: [] };
+
 async function main() {
   mkdirSync(out, { recursive: true });
   rmSync(join(out, "shots"), { recursive: true, force: true });
@@ -382,7 +405,7 @@ async function main() {
         !(screen.run?.[2] === "needs-data" && screen.run[1] === undefined),
     );
     const browser = await chromium.launch({ args: ["--disable-audio-output", "--mute-audio"] });
-    const results = [];
+    const results = partial.results;
     // 1. Every screen, every size, the app's own look.
     await pool(
       sizes.flatMap((size) =>
@@ -395,6 +418,7 @@ async function main() {
     if (themeArg !== "none") {
       const gallery = (await api.get("/api/themes/gallery")).themes.map((t) => t.id);
       themes = themeArg === "all" ? gallery : themeArg.split(",").filter((id) => gallery.includes(id));
+      partial.themes = themes;
       const previous = await api.get("/api/themes/active").catch(() => null);
       for (const theme of themes) {
         const installed = await api.post(`/api/themes/gallery/${encodeURIComponent(theme)}`);
@@ -458,8 +482,11 @@ async function main() {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((error) => {
+  const die = (error) => {
     console.error(error);
+    if (partial.results.length) writeReport(partial.results, { themes: partial.themes, tapTimings: null });
     process.exit(2);
-  });
+  };
+  process.on("uncaughtException", die);
+  main().catch(die);
 }
