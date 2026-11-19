@@ -57,6 +57,9 @@ export async function runWebKit(appUrl, allow, results, out, screens) {
             ]);
           }
           await new Promise((r) => setTimeout(r, 1500));
+          await page.run(
+            `document.head.append(Object.assign(document.createElement("style"), { textContent: "[data-sonner-toaster]{display:none!important}" }))`,
+          );
           entry.findings = (await page.run(detect, [{ allow: allow.checks ?? {}, covered: true }])).map((f) => ({
             ...f,
             at: "page",

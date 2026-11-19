@@ -270,6 +270,8 @@ async function check(page, label) {
   const size = page.viewportSize();
   if (size) await page.mouse.move(size.width / 2, size.height / 2);
   await page.waitForTimeout(350);
+  // Toasts ("Achievement unlocked", "Saved") come and go over whatever is under them; they are not the layout.
+  await page.addStyleTag({ content: "[data-sonner-toaster]{display:none!important}" }).catch(() => undefined);
   const findings = await page.evaluate(detectLayoutProblems, { allow: allow.checks ?? {} });
   return findings.map((f) => ({ ...f, at: label }));
 }

@@ -203,6 +203,9 @@ export async function runVivaldi(appUrl, allow, results, out, screens) {
           if (screen.run) await tab.evaluate(`(${screen.run[0]})(${JSON.stringify(screen.run[1] ?? null)})`);
           await sleep(1500);
           await tab.evaluate(SKIP_INTRO);
+          await tab.evaluate(
+            `document.head.append(Object.assign(document.createElement("style"), { textContent: "[data-sonner-toaster]{display:none!important}" }))`,
+          );
           entry.findings = (await tab.evaluate(detect)).map((f) => ({ ...f, at: "page" }));
           if (screen.id === "home") entry.findings.push(...(await tab.evaluate(HOME_STABLE)));
           if (entry.findings.length)
