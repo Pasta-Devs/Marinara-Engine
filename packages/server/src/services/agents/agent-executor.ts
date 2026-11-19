@@ -409,17 +409,132 @@ function compactQuestPlayerStatsForContext(playerStats: unknown, agentTypes: str
   };
 }
 
-function omitQuestFieldLocksForContext(fieldLocks: unknown): unknown {
-  if (!isRecord(fieldLocks)) return fieldLocks;
+// ── Game-state sections in agent context (#9555) ──
+// The JSON shape and key names stay as stored: tracker package prompts name paths such as
+// `playerStats.customTrackerFields`. Keys are only left out, never renamed or regrouped.
 
-  let changed = false;
-  const nextEntries = Object.entries(fieldLocks).filter(([key]) => {
-    const keep = !key.startsWith("quests.");
-    if (!keep) changed = true;
-    return keep;
+type GameStateContextSection =
+  "scene" | "world" | "characters" | "persona" | "quests" | "customFields" | "inventory" | "legacyPlayer";
+
+const GAME_STATE_TOP_LEVEL_SECTIONS: Record<string, GameStateContextSection> = {
+  date: "scene",
+  time: "scene",
+  location: "scene",
+  weather: "scene",
+  temperature: "scene",
+  worldCustomFields: "world",
+  recentEvents: "world",
+  presentCharacters: "characters",
+  personaStats: "persona",
+};
+
+const PLAYER_STATS_SECTIONS: Record<string, GameStateContextSection> = {
+  status: "persona",
+  activeQuests: "quests",
+  customTrackerFields: "customFields",
+  inventoryTrackerCurrencies: "inventory",
+  inventoryTrackerEquipped: "inventory",
+  inventoryTrackerInventory: "inventory",
+  stats: "legacyPlayer",
+  attributes: "legacyPlayer",
+  skills: "legacyPlayer",
+  inventory: "legacyPlayer",
+};
+
+/** Lock key roots per section; a key matches its root exactly or as `<root>.…`. */
+const SECTION_LOCK_ROOTS: Record<GameStateContextSection, readonly string[]> = {
+  scene: [],
+  world: ["world"],
+  characters: ["characters"],
+  persona: ["persona"],
+  quests: ["quests"],
+  customFields: ["player.custom"],
+  inventory: ["player.inventoryTracker"],
+  legacyPlayer: ["player.inventory"],
+};
+
+/** Each tracker sees its own section and the scene line (date, time, location, weather, temperature). */
+const TRACKER_CONTEXT_SECTIONS: Record<string, readonly GameStateContextSection[]> = {
+  "world-state": ["scene", "world"],
+  "character-tracker": ["scene", "characters"],
+  "persona-stats": ["scene", "persona"],
+  quest: ["scene", "quests"],
+  "custom-tracker": ["scene", "customFields"],
+  "inventory-tracker": ["scene", "inventory"],
+};
+
+/** Every other agent (non-trackers, custom and package agents) sees all sections but quest progress. */
+const NON_TRACKER_CONTEXT_SECTIONS: readonly GameStateContextSection[] = [
+  "scene",
+  "world",
+  "characters",
+  "persona",
+  "customFields",
+  "inventory",
+  "legacyPlayer",
+];
+
+/** A batch sends one block, so it carries the union of its members' sections. */
+function gameStateContextSections(agentTypes: string[]): Set<GameStateContextSection> {
+  const sections = new Set<GameStateContextSection>();
+  for (const type of agentTypes) {
+    for (const section of TRACKER_CONTEXT_SECTIONS[type] ?? NON_TRACKER_CONTEXT_SECTIONS) sections.add(section);
+  }
+  return sections;
+}
+
+/**
+ * The character-row fields an agent may read. An allowlist, so a field added to the row for the
+ * server or the UI (avatar path, crop, portrait framing, id aliases) stays out until listed here.
+ */
+const CHARACTER_ROW_CONTEXT_FIELDS = [
+  "characterId",
+  "name",
+  "emoji",
+  "mood",
+  "action",
+  "appearance",
+  "outfit",
+  "thoughts",
+  "customFields",
+  "stats",
+] as const;
+
+function allowlistCharacterRowsForContext(presentCharacters: unknown): unknown {
+  if (!Array.isArray(presentCharacters)) return presentCharacters;
+  return presentCharacters.filter(isRecord).map((character) => {
+    const row: Record<string, unknown> = {};
+    for (const field of CHARACTER_ROW_CONTEXT_FIELDS) {
+      if (character[field] !== undefined) row[field] = character[field];
+    }
+    return row;
   });
+}
 
-  return changed ? Object.fromEntries(nextEntries) : fieldLocks;
+function filterPlayerStatsForContext(
+  playerStats: unknown,
+  sections: Set<GameStateContextSection>,
+): Record<string, unknown> | undefined {
+  if (!isRecord(playerStats)) return undefined;
+  const next: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(playerStats)) {
+    const section = PLAYER_STATS_SECTIONS[key];
+    if (!section || !sections.has(section)) continue;
+    next[key] = key === "activeQuests" ? compactQuestProgressForContext(value) : value;
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function filterFieldLocksForContext(
+  fieldLocks: unknown,
+  sections: Set<GameStateContextSection>,
+): Record<string, unknown> | undefined {
+  if (!isRecord(fieldLocks)) return undefined;
+  const roots = [...sections].flatMap((section) => SECTION_LOCK_ROOTS[section]);
+  const next = Object.fromEntries(
+    Object.entries(fieldLocks).filter(([key]) => roots.some((root) => key === root || key.startsWith(`${root}.`))),
+  );
+  return Object.keys(next).length > 0 ? next : undefined;
 }
 
 const HIDEABLE_CHARACTER_TRACKER_FIELDS = ["mood", "appearance", "outfit", "thoughts"] as const;
@@ -468,28 +583,29 @@ export function compactGameStateForAgentContext(gameState: unknown, agentTypes: 
     return gameState;
   }
 
+  const sections = gameStateContextSections(agentTypes);
   const hiddenFields = normalizeTrackerHiddenFields(gameState.hiddenTrackerFields);
-  const presentCharacters = compactPresentCharactersForHiddenFields(gameState.presentCharacters, hiddenFields);
-  const playerStats = compactQuestPlayerStatsForContext(gameState.playerStats, agentTypes);
-  const visibleFieldLocks = omitHiddenFieldLocksForContext(gameState.fieldLocks, hiddenFields);
-  const fieldLocks = shouldIncludeQuestContext(agentTypes)
-    ? visibleFieldLocks
-    : omitQuestFieldLocksForContext(visibleFieldLocks);
 
-  if (
-    presentCharacters === gameState.presentCharacters &&
-    playerStats === gameState.playerStats &&
-    fieldLocks === gameState.fieldLocks &&
-    gameState.hiddenTrackerFields === undefined
-  ) {
-    return gameState;
+  // Built from scratch: row metadata (ids, swipe, timestamps, manual overrides), hidden-field
+  // bookkeeping and Game Mode ruleset state never reach an agent, nor does any key not mapped above.
+  const next: Record<string, unknown> = {};
+  for (const [key, section] of Object.entries(GAME_STATE_TOP_LEVEL_SECTIONS)) {
+    if (!sections.has(section) || gameState[key] === undefined) continue;
+    next[key] = gameState[key];
   }
-
-  const next = { ...gameState };
-  delete next.hiddenTrackerFields;
-  if (presentCharacters !== gameState.presentCharacters) next.presentCharacters = presentCharacters;
-  if (playerStats !== gameState.playerStats) next.playerStats = playerStats;
-  if (fieldLocks !== gameState.fieldLocks) next.fieldLocks = fieldLocks;
+  if (next.presentCharacters !== undefined) {
+    // Hidden fields first: their lock keys need the full row's characterId and name.
+    next.presentCharacters = allowlistCharacterRowsForContext(
+      compactPresentCharactersForHiddenFields(next.presentCharacters, hiddenFields),
+    );
+  }
+  const playerStats = filterPlayerStatsForContext(gameState.playerStats, sections);
+  if (playerStats) next.playerStats = playerStats;
+  const fieldLocks = filterFieldLocksForContext(
+    omitHiddenFieldLocksForContext(gameState.fieldLocks, hiddenFields),
+    sections,
+  );
+  if (fieldLocks) next.fieldLocks = fieldLocks;
   return next;
 }
 

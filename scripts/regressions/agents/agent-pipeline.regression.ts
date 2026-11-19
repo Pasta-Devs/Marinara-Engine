@@ -528,22 +528,49 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "agent current game state hides quest progress from non-quest agents",
-    run() {
-      const hiddenMoodKey = characterTrackerLockKey({ characterId: "mira", name: "Mira" }, 0, "mood");
+    name: "agent current game state shows each tracker its own section without internal fields",
+    async run() {
+      const hiddenMoodKey = characterTrackerLockKey({ characterId: "npc-mira", name: "Mira" }, 0, "mood");
       const gameState = {
-        date: "Day 1",
+        id: "state-1",
+        chatId: "chat-sections",
+        messageId: "message-1",
+        swipeIndex: 0,
+        committed: true,
+        createdAt: "2026-11-19T12:00:00.000Z",
+        manualOverrides: { mood: "MANUAL_OVERRIDE_SENTINEL" },
+        date: "Day 3",
+        time: "Dusk",
+        location: "North Gate",
+        weather: "Rain",
+        temperature: "Cold",
+        worldCustomFields: [{ name: "Threat", value: "High", icon: "flame" }],
+        recentEvents: ["The gate closed."],
         presentCharacters: [
           {
-            characterId: "mira",
+            characterId: "npc-mira",
             name: "Mira",
+            emoji: "M",
             mood: "Uneasy",
+            appearance: "Tall",
             outfit: "Travel cloak",
+            thoughts: "Watch the clerk.",
+            customFields: { Loyalty: "Wavering" },
+            stats: [{ name: "HP", value: 8, max: 10, color: "#f00" }],
+            avatarPath: "/api/avatars/npc/chat-sections/Mira.png",
+            avatarCrop: { x: 1, y: 2 },
+            portraitFocusX: 40,
+            portraitFocusY: 20,
+            portraitZoom: 1.5,
+            idAliases: ["mira-old"],
           },
         ],
         playerStats: {
-          status: "Recognized by the northern clerk",
-          inventory: [{ name: "glass earring", description: "A dangerous token", quantity: 1, location: "on_person" }],
+          status: "Soaked",
+          stats: [{ name: "Grit", value: 3, max: 5, color: "#0f0" }],
+          attributes: null,
+          skills: {},
+          inventory: [{ name: "glass earring", description: "A token", quantity: 1, location: "on_person" }],
           activeQuests: [
             {
               questEntryId: "The Man Called Maukie",
@@ -553,37 +580,179 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
               completed: false,
             },
           ],
+          customTrackerFields: [{ name: "Reputation", value: "Known" }],
+          inventoryTrackerCurrencies: [{ name: "Gold", qty: 4 }],
+          inventoryTrackerEquipped: [{ name: "Dagger" }],
+          inventoryTrackerInventory: [{ name: "Rope" }],
         },
+        personaStats: [{ name: "Energy", value: 40, max: 100, color: "#00f" }],
         fieldLocks: {
-          "quests.id:The%20Man%20Called%20Maukie.name": true,
-          "playerStats.status": true,
+          "world.location": true,
+          "world.custom.Threat": true,
+          "characters.id:npc-mira.outfit": true,
           [hiddenMoodKey]: true,
+          "persona.status": true,
+          "quests.id:The%20Man%20Called%20Maukie.name": true,
+          "player.custom.Reputation": true,
+          "player.inventoryTracker.currencies.Gold": true,
+          "player.inventory.glass earring": true,
         },
         hiddenTrackerFields: { [hiddenMoodKey]: true },
+        rulesetLive: { mira: { hp: 3 } },
+        rulesetClocks: { doom: 2 },
+      };
+      type Compacted = Record<string, any>;
+      const compact = (types: string[]) => compactGameStateForAgentContext(gameState, types) as Compacted;
+      const internals = [
+        "id",
+        "chatId",
+        "messageId",
+        "swipeIndex",
+        "committed",
+        "createdAt",
+        "manualOverrides",
+        "hiddenTrackerFields",
+        "rulesetLive",
+        "rulesetClocks",
+      ];
+      const characterInternals = [
+        "avatarPath",
+        "avatarCrop",
+        "portraitFocusX",
+        "portraitFocusY",
+        "portraitZoom",
+        "idAliases",
+      ];
+      const assertNoInternals = (state: Compacted) => {
+        for (const key of internals) assert.equal(key in state, false, `${key} leaked`);
+        for (const row of state.presentCharacters ?? []) {
+          for (const key of characterInternals) assert.equal(key in row, false, `character ${key} leaked`);
+        }
+      };
+      const scene = { date: "Day 3", time: "Dusk", location: "North Gate", weather: "Rain", temperature: "Cold" };
+      const assertScene = (state: Compacted) => {
+        for (const [key, value] of Object.entries(scene)) assert.equal(state[key], value);
       };
 
-      const backgroundState = compactGameStateForAgentContext(gameState, ["background"]) as {
-        playerStats: Record<string, unknown>;
-        fieldLocks: Record<string, unknown>;
-        presentCharacters: Array<Record<string, unknown>>;
-        hiddenTrackerFields?: Record<string, unknown>;
-      };
-      assert.equal("activeQuests" in backgroundState.playerStats, false);
-      assert.equal(backgroundState.playerStats.status, "Recognized by the northern clerk");
-      assert.equal(backgroundState.fieldLocks["quests.id:The%20Man%20Called%20Maukie.name"], undefined);
-      assert.equal(backgroundState.fieldLocks["playerStats.status"], true);
-      assert.equal(backgroundState.fieldLocks[hiddenMoodKey], undefined);
-      assert.equal("mood" in backgroundState.presentCharacters[0]!, false);
-      assert.equal(backgroundState.presentCharacters[0]?.outfit, "Travel cloak");
-      assert.equal("hiddenTrackerFields" in backgroundState, false);
+      // Non-tracker agents keep every section but quest progress, internals stripped.
+      const background = compact(["background"]);
+      assertNoInternals(background);
+      assertScene(background);
+      assert.deepEqual(background.worldCustomFields, gameState.worldCustomFields);
+      assert.equal(background.presentCharacters[0].outfit, "Travel cloak");
+      assert.equal("mood" in background.presentCharacters[0], false);
+      assert.deepEqual(background.presentCharacters[0].customFields, { Loyalty: "Wavering" });
+      assert.equal(background.presentCharacters[0].stats.length, 1);
+      assert.equal("activeQuests" in background.playerStats, false);
+      assert.equal(background.playerStats.status, "Soaked");
+      assert.equal(background.playerStats.inventory.length, 1);
+      assert.equal(background.personaStats.length, 1);
+      assert.equal(background.fieldLocks["quests.id:The%20Man%20Called%20Maukie.name"], undefined);
+      assert.equal(background.fieldLocks[hiddenMoodKey], undefined);
+      assert.equal(background.fieldLocks["persona.status"], true);
+      assert.equal(background.fieldLocks["player.inventory.glass earring"], true);
 
-      const questState = compactGameStateForAgentContext(gameState, ["quest"]) as {
-        playerStats: { activeQuests?: Array<{ name?: string }> };
-        fieldLocks: Record<string, unknown>;
-      };
-      assert.equal(Array.isArray(questState.playerStats.activeQuests), true);
-      assert.equal(questState.playerStats.activeQuests?.[0]?.name, "The Man Called Maukie");
-      assert.equal(questState.fieldLocks["quests.id:The%20Man%20Called%20Maukie.name"], true);
+      // Each tracker: the scene line, its own section and its own locks.
+      const world = compact(["world-state"]);
+      assertNoInternals(world);
+      assertScene(world);
+      assert.deepEqual(
+        Object.keys(world).sort(),
+        [...Object.keys(scene), "fieldLocks", "recentEvents", "worldCustomFields"].sort(),
+      );
+      assert.deepEqual(Object.keys(world.fieldLocks).sort(), ["world.custom.Threat", "world.location"]);
+
+      const characters = compact(["character-tracker"]);
+      assertNoInternals(characters);
+      assertScene(characters);
+      assert.deepEqual(
+        Object.keys(characters).sort(),
+        [...Object.keys(scene), "fieldLocks", "presentCharacters"].sort(),
+      );
+      assert.deepEqual(Object.keys(characters.presentCharacters[0]).sort(), [
+        "appearance",
+        "characterId",
+        "customFields",
+        "emoji",
+        "name",
+        "outfit",
+        "stats",
+        "thoughts",
+      ]);
+      assert.deepEqual(Object.keys(characters.fieldLocks), ["characters.id:npc-mira.outfit"]);
+
+      const persona = compact(["persona-stats"]);
+      assertScene(persona);
+      assert.deepEqual(persona.playerStats, { status: "Soaked" });
+      assert.equal(persona.personaStats.length, 1);
+      assert.equal("presentCharacters" in persona, false);
+      assert.deepEqual(Object.keys(persona.fieldLocks), ["persona.status"]);
+
+      const quest = compact(["quest"]);
+      assert.deepEqual(Object.keys(quest.playerStats), ["activeQuests"]);
+      assert.equal(quest.playerStats.activeQuests[0].name, "The Man Called Maukie");
+      assert.deepEqual(Object.keys(quest.fieldLocks), ["quests.id:The%20Man%20Called%20Maukie.name"]);
+
+      const custom = compact(["custom-tracker"]);
+      assert.deepEqual(custom.playerStats, { customTrackerFields: [{ name: "Reputation", value: "Known" }] });
+      assert.deepEqual(Object.keys(custom.fieldLocks), ["player.custom.Reputation"]);
+
+      const inventory = compact(["inventory-tracker"]);
+      assert.deepEqual(Object.keys(inventory.playerStats).sort(), [
+        "inventoryTrackerCurrencies",
+        "inventoryTrackerEquipped",
+        "inventoryTrackerInventory",
+      ]);
+      assert.deepEqual(Object.keys(inventory.fieldLocks), ["player.inventoryTracker.currencies.Gold"]);
+
+      // A batch sends one block: the union of its members' sections.
+      const trackerBatch = compact(["world-state", "character-tracker"]);
+      assert.equal(trackerBatch.worldCustomFields.length, 1);
+      assert.equal(trackerBatch.presentCharacters.length, 1);
+      assert.equal("playerStats" in trackerBatch, false);
+      assert.equal("personaStats" in trackerBatch, false);
+      const mixedBatch = compact(["character-tracker", "background"]);
+      assertNoInternals(mixedBatch);
+      assert.equal(mixedBatch.playerStats.inventoryTrackerInventory.length, 1);
+      assert.equal("activeQuests" in mixedBatch.playerStats, false);
+      const questBatch = compact(["quest", "background"]);
+      assert.equal(questBatch.playerStats.activeQuests.length, 1);
+
+      // The same rows reach the history block (<committed_tracker_state>) stripped.
+      const capture = makeCapturingProvider(`{}`);
+      const tracker = makeRegressionAgentConfig({
+        type: "character-tracker",
+        name: "Character Tracker",
+        settings: { resultType: "character_tracker_update" },
+      });
+      await executeAgent(
+        tracker as any,
+        makeRegressionAgentContext({
+          gameState: gameState as any,
+          recentMessages: [
+            { role: "user", content: "We wait at the gate." },
+            { role: "assistant", content: "Mira keeps watch.", gameState: gameState as any },
+          ],
+        }),
+        capture.provider as any,
+        "regression-model",
+      );
+      const request = capture.calls[0]!.map((message) => message.content).join("\n");
+      assert.match(request, /<committed_tracker_state>/u);
+      assert.match(request, /<current_game_state>/u);
+      assert.match(request, /Travel cloak/u);
+      for (const leaked of [
+        /api\/avatars\/npc/u,
+        /mira-old/u,
+        /portraitZoom/u,
+        /avatarCrop/u,
+        /MANUAL_OVERRIDE_SENTINEL/u,
+        /rulesetClocks/u,
+        /Rope/u,
+        /Maukie/u,
+      ]) {
+        assert.doesNotMatch(request, leaked);
+      }
     },
   },
   {
