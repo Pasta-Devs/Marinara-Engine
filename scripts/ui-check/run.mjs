@@ -295,6 +295,20 @@ async function runScreen(browser, base, sizeName, screen, theme, results) {
       },
     );
     await settle(page);
+    // The app starts in the desktop shell and switches to the phone shell once the phone stylesheet is in, which
+    // in some themes lands after the page looks settled; the switch opens the Chats page, so a screen opened
+    // before it ends up under that page. Wait for the shell to stop changing (and be the phone shell on phones).
+    await page.waitForFunction(
+      (phone) => {
+        const desktop = window.__marinaraUiCheck.overhaul.getState().desktop;
+        const state = (window.__uiCheckShell ??= { desktop, since: performance.now() });
+        if (state.desktop !== desktop) Object.assign(state, { desktop, since: performance.now() });
+        return (!phone || !desktop) && performance.now() - state.since > 1000;
+      },
+      sizeName === "phone",
+      { timeout: 15_000, polling: 100 },
+    );
+    await settle(page);
     await closeIntro(page);
     if (screen.run) {
       const [source, argument] = screen.run;

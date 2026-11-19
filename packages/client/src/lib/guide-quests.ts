@@ -421,15 +421,6 @@ const DEEP: Partial<Record<GuideQuestGroupId, Row[]>> = {
       "Play a past session again, or edit what happened in it.",
       "Open a past session in Session History.",
     ],
-    [
-      "DG9",
-      "Write your own story scripts",
-      "extending/writing-story-scripts.md",
-      "",
-      "",
-      "Story scripts, HUD widgets and creature packs let you build pieces for Game Mode yourself. For people who want to make content, not only play it.",
-      "Read the first example and imagine one for your campaign.",
-    ],
   ],
   deepAnyMode: [
     [

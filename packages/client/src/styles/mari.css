@@ -4680,20 +4680,42 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   padding: 0 0.875rem 0.75rem;
 }
 
-/* The fold: a small chevron at the top left, her sparkle beneath it. Folded, the box keeps one quiet line
-   ("Suggestions") so it is easy to bring back; the whole line opens it. */
-.mari-workspace-question-dock__rail {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.3rem;
+/* The fold: a small chevron at the top left. Open, the box is two lines on a grid: the fold beside her question,
+   her sparkle beside the suggestions. Folded, it keeps one quiet line ("Suggestions") that opens it again. */
+.mari-workspace-question-dock:not([data-collapsed]) .mari-workspace-question-dock__prompt {
+  display: grid;
+  align-items: start;
+  padding-bottom: 0.75rem;
+  gap: 0.5rem 0.625rem;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
 }
 
-.mari-workspace-question-dock__rail > svg {
-  flex: none;
+.mari-workspace-question-dock__sparkle {
+  display: grid;
+  align-self: start;
+  justify-self: center;
+  place-items: center;
   color: var(--primary);
+}
+
+.mari-workspace-question-dock__sparkle > * {
+  grid-area: 1 / 1;
+}
+
+.mari-workspace-question-dock__sparkle > svg {
   filter: drop-shadow(0 0 0.45rem color-mix(in srgb, var(--primary) 22%, transparent));
+}
+
+.mari-workspace-question-dock__sparkle-sizer {
+  width: 0;
+  min-width: 0;
+  padding-inline: 0;
+  border-inline-width: 0;
+  visibility: hidden;
+}
+
+.mari-workspace-question-dock__prompt > .mari-workspace-answer-strip {
+  padding: 0;
 }
 
 .mari-workspace-question-dock__toggle {

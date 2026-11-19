@@ -131,6 +131,14 @@ const open = {
         h.overhaul.getState().setMobileSidePageOpen(false);
       }, key),
     ),
+  mari: (folded) =>
+    hook((folded) => {
+      const h = window.__marinaraUiCheck;
+      h.ui.getState().setProfessorMariSuggestionsCollapsed?.(folded);
+      h.overhaul.getState().openMari();
+      // Phones: Mari's page, not the Chats page over it.
+      h.overhaul.getState().setMobileSidePageOpen(false);
+    }, folded),
   sidePane: (pane) =>
     hook((pane) => {
       const h = window.__marinaraUiCheck;
@@ -253,14 +261,10 @@ export function screenList(ids) {
       ),
     },
     // Professor Mari's own page: the suggestions box above her composer, open and folded, and the composer.
-    { id: "professor-mari", group: "core", run: hook(() => window.__marinaraUiCheck.overhaul.getState().openMari()) },
+    { id: "professor-mari", group: "core", run: open.mari(false) },
     {
       id: "professor-mari-folded",
-      run: hook(() => {
-        // The fold arrived after this check (Mari suggestions thread); a build without it shows them open.
-        window.__marinaraUiCheck.ui.getState().setProfessorMariSuggestionsCollapsed?.(true);
-        window.__marinaraUiCheck.overhaul.getState().openMari();
-      }),
+      run: open.mari(true),
     },
     {
       id: "omnibar",
