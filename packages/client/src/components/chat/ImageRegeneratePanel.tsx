@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { RefreshCw, RotateCcw, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import type { ChatImageGenerationRecord } from "@marinara-engine/shared";
+import { isNativeNovelAiConnection, type ChatImageGenerationRecord } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
 import type { ChatImage, RegenerateChatImageInput } from "../../hooks/use-gallery";
 import {
@@ -10,9 +10,11 @@ import {
   useReviseChatImagePrompt,
   type ImagePromptDraft,
 } from "../../hooks/use-regenerate-chat-image";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { useUIStore } from "../../stores/ui.store";
 import { cn } from "../../lib/utils";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
+import { Checkbox } from "../ui/Checkbox";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import { Spinner } from "../ui/Spinner";
@@ -38,6 +40,8 @@ interface ImageRegeneratePanelProps {
   record: ChatImageGenerationRecord | null;
   /** Message the image was opened from, so the server swaps that attachment directly. */
   messageId?: string;
+  maskDataUrl?: string | null;
+  onEditSurfaceChange?: (active: boolean) => void;
   onCancel: () => void;
   onBusyChange: (busy: boolean) => void;
   onRegenerated: (image: ChatImage) => void;
@@ -174,6 +178,8 @@ export function ImageRegeneratePanel({
   regenerator,
   record,
   messageId,
+  maskDataUrl,
+  onEditSurfaceChange,
   onCancel,
   onBusyChange,
   onRegenerated,
@@ -192,6 +198,8 @@ export function ImageRegeneratePanel({
   const runningRef = useRef(false);
   const titleId = useId();
   const connectionFieldId = useId();
+  const strengthFieldId = useId();
+  const noiseFieldId = useId();
   const original: ImagePromptDraft = {
     prompt: record?.prompt ?? image.prompt,
     negativePrompt: record?.negativePrompt ?? "",
@@ -200,6 +208,11 @@ export function ImageRegeneratePanel({
   const [draft, setDraft] = useState(original);
   const [guidance, setGuidance] = useState("");
   const [connectionId, setConnectionId] = useState(record?.connectionId ?? "");
+  const [mode, setMode] = useState<"regenerate" | "edit">("regenerate");
+  const [reuseSeed, setReuseSeed] = useState(false);
+  const [img2imgStrength, setImg2imgStrength] = useState(0.7);
+  const [img2imgNoise, setImg2imgNoise] = useState(0);
+  const [infillStrength, setInfillStrength] = useState(1);
   const [phase, setPhase] = useState<"revising" | "generating" | null>(null);
   const [error, setError] = useState("");
   const busy = phase !== null;
@@ -208,9 +221,40 @@ export function ImageRegeneratePanel({
   const hasReferences =
     !!references && (references.characterIds.length > 0 || !!references.personaId || !!references.locationImageId);
 
+  const isNativeNovelAi = useMemo(() => {
+    const rows = (connectionRows ?? []).filter(
+      (row): row is Record<string, unknown> & { id: string; provider: string } =>
+        !!row &&
+        typeof row === "object" &&
+        "id" in row &&
+        typeof row.id === "string" &&
+        "provider" in row &&
+        row.provider === "image_generation",
+    );
+    const chosenId = connectionId || record?.connectionId || "";
+    const chosen = chosenId ? rows.find((row) => row.id === chosenId) : undefined;
+    const effective =
+      chosen ??
+      rows.find((row) => isConnectionFlagTrue(row.defaultForAgents)) ??
+      (rows.length === 1 ? rows[0] : undefined);
+    return isNativeNovelAiConnection(effective);
+  }, [connectionId, connectionRows, record?.connectionId]);
+
+  const effectiveMode = isNativeNovelAi ? mode : "regenerate";
+  const effectiveReuseSeed = isNativeNovelAi ? reuseSeed : false;
+  const hasMask = effectiveMode === "edit" && Boolean(maskDataUrl);
+  const activeStrength = hasMask ? infillStrength : img2imgStrength;
+
   useEffect(() => {
     titleRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    onEditSurfaceChange?.(effectiveMode === "edit");
+    return () => {
+      onEditSurfaceChange?.(false);
+    };
+  }, [effectiveMode, onEditSurfaceChange]);
 
   const updateCharacter = (index: number, update: (entry: CharacterPrompt) => CharacterPrompt) =>
     setDraft((current) => ({
@@ -260,10 +304,20 @@ export function ImageRegeneratePanel({
       }
       step = "generating";
       setPhase(step);
+      const editParams =
+        effectiveMode === "edit"
+          ? {
+              editMode: (hasMask ? "infill" : "img2img") as "img2img" | "infill",
+              strength: activeStrength,
+              ...(hasMask ? { maskImage: maskDataUrl! } : { noise: img2imgNoise }),
+            }
+          : {};
       const regenerated = await regenerate({
         imageId: image.id,
         ...input,
         ...connection,
+        ...editParams,
+        ...(effectiveReuseSeed ? { reuseSeed: true } : {}),
         ...(messageId ? { messageId } : {}),
         debugMode,
       });
@@ -304,7 +358,101 @@ export function ImageRegeneratePanel({
       >
         {t("ui.chat.chatimagelightbox.regenerateImage")}
       </h2>
-      <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4">
+      {isNativeNovelAi && (
+        <div
+          role="tablist"
+          aria-label={t("ui.chat.imageregeneratepanel.modeTablist")}
+          className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-1.5"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={effectiveMode === "regenerate"}
+            disabled={busy}
+            onClick={() => setMode("regenerate")}
+            className={cn(
+              BUTTON_CLASS,
+              "flex-1 rounded-lg",
+              effectiveMode === "regenerate"
+                ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
+                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
+            )}
+          >
+            {t("ui.chat.imageregeneratepanel.modeRegenerate")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={effectiveMode === "edit"}
+            disabled={busy}
+            onClick={() => setMode("edit")}
+            className={cn(
+              BUTTON_CLASS,
+              "flex-1 rounded-lg",
+              effectiveMode === "edit"
+                ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
+                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
+            )}
+          >
+            {t("ui.chat.imageregeneratepanel.modeEditImage")}
+          </button>
+        </div>
+      )}
+      <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4 pt-3">
+        {isNativeNovelAi && effectiveMode === "edit" && (
+          <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--marinara-chat-chrome-input-bg)]/60 p-3">
+            <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+              {t(hasMask ? "ui.chat.imageregeneratepanel.inpaintingHint" : "ui.chat.imageregeneratepanel.img2imgHint")}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label htmlFor={strengthFieldId} className="flex flex-col gap-1.5">
+                <span className="flex items-center justify-between gap-2">
+                  <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.strength")}</span>
+                  <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
+                    {activeStrength.toFixed(2)}
+                  </span>
+                </span>
+                <input
+                  id={strengthFieldId}
+                  type="range"
+                  min={0.01}
+                  max={hasMask ? 1 : 0.99}
+                  step={0.01}
+                  value={activeStrength}
+                  disabled={busy}
+                  onChange={(event) => {
+                    const value = Number(event.target.value);
+                    if (hasMask) setInfillStrength(value);
+                    else setImg2imgStrength(value);
+                  }}
+                  className="min-h-11 w-full cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
+                />
+              </label>
+              {!hasMask && (
+                <label htmlFor={noiseFieldId} className="flex flex-col gap-1.5">
+                  <span className="flex items-center justify-between gap-2">
+                    <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.noise")}</span>
+                    <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
+                      {img2imgNoise.toFixed(2)}
+                    </span>
+                  </span>
+                  <input
+                    id={noiseFieldId}
+                    type="range"
+                    min={0}
+                    max={0.99}
+                    step={0.01}
+                    value={img2imgNoise}
+                    disabled={busy}
+                    onChange={(event) => setImg2imgNoise(Number(event.target.value))}
+                    className="min-h-11 w-full cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+        )}
+
         <PromptField
           label={t("ui.agents.customagentrepositoriesmodal.prompt")}
           value={draft.prompt}
@@ -380,10 +528,29 @@ export function ImageRegeneratePanel({
           />
         </div>
 
-        {(!record || hasReferences) && (
+        {isNativeNovelAi && (
+          <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]">
+            <Checkbox
+              checked={effectiveReuseSeed}
+              disabled={busy}
+              onChange={(event) => setReuseSeed(event.target.checked)}
+            />
+            <span>
+              {record?.seed !== undefined
+                ? t("ui.chat.imageregeneratepanel.reuseOriginalSeedValue", { seed: record.seed })
+                : t("ui.chat.imageregeneratepanel.reuseOriginalSeed")}
+            </span>
+          </label>
+        )}
+
+        {(effectiveMode === "edit" ? hasReferences : !record || hasReferences) && (
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
             {t(
-              !record ? "ui.chat.imageregeneratepanel.noRecordNotice" : "ui.chat.imageregeneratepanel.referencesNotice",
+              effectiveMode === "edit"
+                ? "ui.chat.imageregeneratepanel.referencesOmittedInEditNotice"
+                : !record
+                  ? "ui.chat.imageregeneratepanel.noRecordNotice"
+                  : "ui.chat.imageregeneratepanel.referencesNotice",
             )}
           </p>
         )}
@@ -430,7 +597,13 @@ export function ImageRegeneratePanel({
             className={SECONDARY_BUTTON_CLASS}
           >
             <RefreshCw size="1rem" aria-hidden />
-            {t("ui.chat.imageregeneratepanel.generate")}
+            {t(
+              effectiveMode === "edit"
+                ? hasMask
+                  ? "ui.chat.imageregeneratepanel.inpaint"
+                  : "ui.chat.imageregeneratepanel.applyEdit"
+                : "ui.chat.imageregeneratepanel.generate",
+            )}
           </button>
           <button
             type="button"

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Pin, RefreshCw } from "lucide-react";
 import { parseChatImageGenerationRecord, type GeneratedSceneVideo } from "@marinara-engine/shared";
 import { useGalleryImages, type ChatImage } from "../../hooks/use-gallery";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { ImageDownloadButton } from "../ui/ImageDownloadButton";
+import { ImageMaskCanvas } from "../ui/ImageMaskCanvas";
 import { ImageViewer, VIEWER_BUTTON_CLASS } from "../ui/ImageViewer";
 import { cn } from "../../lib/utils";
 import { ImagePromptPanel } from "./ImagePromptPanel";
@@ -84,7 +85,20 @@ export function ChatImageLightbox({
   // A regeneration swaps in the new image so the user sees the result right away.
   const [activeImage, setImage] = useState(initialImage);
   const [editing, setEditing] = useState(false);
+  const [editSurfaceActive, setEditSurfaceActive] = useState(false);
+  const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const closeEditing = () => {
+    setEditing(false);
+    setEditSurfaceActive(false);
+    setMaskDataUrl(null);
+  };
+
+  const handleEditSurfaceChange = useCallback((active: boolean) => {
+    setEditSurfaceActive(active);
+    if (!active) setMaskDataUrl(null);
+  }, []);
   // Lightweight message and storyboard images omit the generation record. Resolve
   // it once here so viewing and editing use the same saved request.
   const needsGalleryRow = !!regenerate && activeImage.generation === undefined;
@@ -111,7 +125,7 @@ export function ChatImageLightbox({
     <ImageViewer
       title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
       // Escape, back and outside taps first leave the regenerate panel, then the viewer.
-      onClose={() => (editing ? setEditing(false) : onClose())}
+      onClose={() => (editing ? closeEditing() : onClose())}
       onCloseButton={onClose}
       closeDisabled={busy}
       closeLabel={localizeUi("ui.chat.chatimagelightbox.closeImage")}
@@ -119,6 +133,17 @@ export function ChatImageLightbox({
       overMari={overMari}
       src={image.url}
       alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+      media={
+        editing && editSurfaceActive ? (
+          <ImageMaskCanvas
+            key={image.id}
+            src={image.url}
+            alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+            disabled={busy}
+            onMaskChange={setMaskDataUrl}
+          />
+        ) : undefined
+      }
       items={
         images && galleryIndex >= 0 && !editing && !busy
           ? images.map((item) => ({
@@ -128,7 +153,12 @@ export function ChatImageLightbox({
           : undefined
       }
       index={galleryIndex}
-      onIndexChange={(next) => images && setImage(images[next]!)}
+      onIndexChange={(next) => {
+        if (!images) return;
+        setImage(images[next]!);
+        setEditSurfaceActive(false);
+        setMaskDataUrl(null);
+      }}
       actions={
         <>
           {canRegenerate && !editing && (
@@ -171,11 +201,13 @@ export function ChatImageLightbox({
           regenerator={regenerator}
           record={record}
           messageId={regenerate.messageId}
+          maskDataUrl={maskDataUrl}
+          onEditSurfaceChange={handleEditSurfaceChange}
           onBusyChange={setBusy}
-          onCancel={() => setEditing(false)}
+          onCancel={closeEditing}
           onRegenerated={(next) => {
             setImage(next);
-            setEditing(false);
+            closeEditing();
           }}
         />
       ) : loadingDetails ? (
