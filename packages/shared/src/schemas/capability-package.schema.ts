@@ -1641,7 +1641,11 @@ const capabilityPackageManifestBaseSchema = z
 //        sprite, a saved sprite that already shows the request, saved sprites as references, nothing) and reads
 //        one sprite's bytes. Read-only. Soft seam: an older Engine leaves it undefined, so a package
 //        feature-detects it and declares 1.834 only when it cannot work without it. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 834 } as const);
+// 1.835: `services.tts.ttsService.prepareAudio(text, options)` makes a line's clip into the shared audio cache
+//        without playing it, so a later speak or speakSequence with the same text, cacheKey, voice, speaker, tone
+//        and audioConnectionId starts at once. Soft seam: an older Engine leaves it undefined, so a package
+//        feature-detects it and declares 1.835 only when it cannot work without it. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 835 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
