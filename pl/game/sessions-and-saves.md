@@ -50,7 +50,7 @@ Gdy sesja jest już zamknięta, ten sam przycisk w jej wierszu zmienia się w **
 1. Otwórz **Session** i przejdź do zakładki **Session History**.
 2. W wierszu bieżącej sesji kliknij **New Session** (ikona odtwarzania).
 
-GM wznawia opowieść od ostatniego podsumowania i od notatki, jeśli została wpisana przy kończeniu sesji. W grze z wygenerowanym światem świat toczy się dalej od miejsca, w którym go zostawiono: dni, które minęły, czyny i reputacja drużyny, miejsca i grupy dodane przez opowieść oraz to, dokąd drużyna dotarła.
+GM wznawia opowieść od ostatniego podsumowania i od notatki, jeśli została wpisana przy kończeniu sesji.
 
 ## Czytanie dawnych sesji
 

@@ -36,7 +36,7 @@ Si no funcionó, consulta [La generación del mundo falla con un error de JSON o
 
 | Paso | Qué defines |
 | --- | --- |
-| **Connection** | **Game Name** (Nombre de la partida), el **Model** que dirige al GM y un **Scene effects model** opcional. Por ahora, la tarjeta **Game Mode** solo muestra **VN** (consulta [VN u Overworld](#vn-or-overworld)). |
+| **Connection** | **Game Name** (Nombre de la partida), el **Model** que dirige al GM y un **Scene effects model** opcional. Por ahora, la tarjeta **Game Mode** solo muestra **VN**. |
 | **World** | Género, ambientación, tono, dificultad, clasificación de contenido, estilo de historia, violencia, límites de contenido e idioma. **Combat Preference** (Preferencia de combate) es **Turn-Based** o **Tactical**. Todas las partidas nuevas usan clases **MRPG** (Marinara RPG). Consulta [Clases MRPG](mrpg-classes.md). Cuando hay un conjunto de reglas instalado, aparece una opción **Rules** (Reglas). Consulta [Elegir las reglas](#choose-rules). |
 | **Party** | Tu persona (el personaje que interpretas), **Game Master Mode**, los miembros del grupo y **GM intro message** (Mensaje de introducción del GM). Consulta [El mensaje de introducción del GM](#the-gm-intro-message). El árbol MRPG inicial de cada miembro procede de la sección **Game Mode** de su tarjeta (consulta [Elegir los árboles de un personaje](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** | Lo que quieres de la aventura. |
@@ -54,7 +54,7 @@ Con el agente **Hierarchical Maps** descargado (ahora llamado World Maps; consul
 
 | Opción | Predeterminado | Notas |
 | --- | --- | --- |
-| Genre | Fantasy | Se permiten varios, además de los tuyos propios. Un kit de ambientación elegido primero fija el suyo. |
+| Genre | Fantasy | Se permiten varios, además de los tuyos propios. |
 | Tone | Heroic | Se permiten varios. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** o **Brutal**. Los ajustes más altos hacen las peleas más difíciles: más enemigos y más fuertes en una partida MRPG (consulta [Batallas en una partida MRPG](combat.md#battles-in-an-mrpg-game)), y enemigos que golpean más fuerte en una partida Legacy (consulta [Escalado de dificultad](combat.md#difficulty-scaling)). |
 | Content Rating (sexual content) (Clasificación del contenido: contenido sexual) | SFW | **SFW** o **NSFW**. Solo abarca el contenido sexual. NSFW lo permite, no lo obliga. |
@@ -157,7 +157,7 @@ En una computadora, los controles se abren con botones cerca de la esquina super
 
 | Control | Qué contiene |
 | --- | --- |
-| **Game controls** (el mando de juego) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (cuando Music DJ pone la música) y **Retry assets image generation**. Para un fondo de storyboard, también repetir, reproducir/pausar y silenciar. **Show the scene** (Mostrar la escena), **Show the overworld** (Mostrar el overworld) y **Show the map** (Mostrar el mapa) cambian de vista en las partidas que los tienen. **Edit game data** (Editar datos del juego) corrige a mano los datos guardados (consulta [Editar los datos del juego a mano](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** (Puntos de control) vuelve a un momento anterior (consulta [Cómo se guarda tu juego](sessions-and-saves.md#how-your-game-saves)). |
+| **Game controls** (el mando de juego) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (cuando Music DJ pone la música) y **Retry assets image generation**. Para un fondo de storyboard, también repetir, reproducir/pausar y silenciar. **Edit game data** (Editar datos del juego) corrige a mano los datos guardados (consulta [Editar los datos del juego a mano](sessions-and-saves. md#editing-game-data-by-hand)). **Checkpoints** (Puntos de control) vuelve a un momento anterior (consulta [Cómo se guarda tu juego](sessions-and-saves. md#how-your-game-saves)). |
 | **Session** (la pluma) | El historial de sesiones, el diario y los controles de sesión. Consulta [Game Mode: sesiones y partidas guardadas](sessions-and-saves.md). |
 | **Volume** (el altavoz) | Volumen de **Master**, **Music**, **Sound Effects**, **TTS** y **Ambient**. |
 | **Game Assets** (la carpeta) | Los medios de la escena y el Asset Browser. Consulta [Recursos del juego](game-assets.md). |
@@ -251,60 +251,3 @@ Un aviso dice **The model declined this request** (El modelo rechazó esta solic
 - [Recursos del juego](game-assets.md): la biblioteca de música, sonido, sprites y fondos.
 - [Guía del agente Storyboard](storyboard.md): los Storyboards para Game Mode y Roleplay.
 - [Roleplay Mode: primeros pasos](../roleplay/getting-started.md): las Author's Notes funcionan aquí de la misma forma.
-
-## Overworld
-
-Las secciones de abajo describen las partidas **Overworld**, que todavía no están disponibles. Léelas solo si tu servidor las ha activado.
-
-<a id="vn-or-overworld"></a>
-
-### VN u Overworld
-
-Una partida nueva se juega en uno de dos modos de juego, que se elige en el primer paso y se mantiene en todas sus sesiones:
-
-- **Overworld** es un mundo creado para tu ambientación, que se recorre en un mapa del overworld, con pueblos, lugares que explorar y mazmorras. Necesita un kit de ambientación y un mundo. Hasta que elijas un kit, se usa el de tu primer género (High fantasy si el género no tiene uno), y se genera un mundo al azar para él.
-- **VN** es Game Mode como siempre ha sido, contado como una novela visual: escena por escena, con el mapa de la escena y las batallas, y sin kit de ambientación, mundo, overworld, pueblos ni mapas de mazmorras.
-
-Overworld está bloqueado salvo que quien administra el servidor defina `MARINARA_OVERWORLD_GAMES`. Mientras está bloqueado, su tarjeta aparece atenuada con la nota "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games." Entonces todas las partidas nuevas son VN, y las opciones de kit de ambientación y de mundo no aparecen. Una partida creada antes de que existiera esta opción sigue jugándose como antes: con un mundo es una partida Overworld; sin él, una partida VN.
-
-<a id="choosing-a-setting-kit"></a>
-
-### Elegir un kit de ambientación
-
-Un **Setting kit** (Kit de ambientación) le da al GM las palabras con las que se escribe tu tipo de mundo: los nombres de los lugares y los tamaños de los asentamientos, los tipos de facción, cómo viaja la gente, cómo se llaman un año y un día, cómo nombra cada cultura a su gente, el dinero y los bienes, los elementos, los lugares de batalla y qué familia de arte y música usa (consulta [Recursos del juego](game-assets.md#a-settings-own-art-and-music)). También indica qué tipos de cambio permite el mundo, como rivalidades, crímenes, guerras o desastres, y lo rápido que cambia. Un tipo desactivado nunca se introduce, así que una riña puede quedarse en una riña.
-
-Hay ocho kits: alta fantasía, wuxia y xianxia, época actual, época actual sobrenatural, los años veinte, cyberpunk, space opera y postapocalíptico. La época actual es tranquila de forma predeterminada, sin crimen, conflicto ni catástrofes, y a un ritmo lento.
-
-- Elegir un kit antes que un género fija el género que encaja con él. Un género que elegiste tú se queda como está.
-- **Write it for my setting** (Escríbelo para mi ambientación) pide a tu modelo del GM que reescriba el kit para tu género, tu ambientación y tu tono. Si el resultado no es coherente, se le pide una vez más al modelo indicándole los motivos. Si sigue fallando, el asistente te dice qué estaba mal y conserva el kit que tenías.
-- **Change its words** (Cambiar sus palabras) abre todas las palabras del kit. Escribe una lista en una línea, separada por comas. Un kit con un problema, como un nombre vacío o ningún asentamiento, indica qué está mal, y la partida no puede empezar hasta que se corrija.
-- **Download this kit** (Descargar este kit) guarda un archivo `.worldkit.json` para compartirlo. **Import a kit file** (Importar un archivo de kit) vuelve a leer uno.
-
-La partida conserva el kit con el que se creó, y un archivo de configuración compartido lo lleva consigo. Una Experience puede incluir su propio paquete de mapa (un kit, mapas ya hechos y mosaicos). Con esa Experience activada, la configuración muestra su kit como fijado y, si incluye mapas, un **Map** (Mapa) que elegir. Desactivar la Experience te devuelve tus opciones.
-
-<a id="making-a-world"></a>
-
-### Crear un mundo
-
-Con un kit elegido, **Your world** (Tu mundo) dispone un mundo con las palabras del kit antes de que empiece la partida: las regiones, asentamientos de todos los tamaños, por qué es conocido cada lugar y los caminos entre ellos (carreteras, ríos, rutas marítimas, rutas de salto) con la duración de cada trayecto en días.
-
-Un mundo se crea a partir de una **World seed** (Semilla del mundo). La misma semilla, el mismo kit y el mismo planteamiento siempre crean el mismo mundo. **Roll** (Tirar) te da otro, y volver a escribir un número te devuelve uno anterior. La vista previa muestra un pequeño mapa del terreno y los asentamientos, dónde empieza el grupo y una lista de los asentamientos por región.
-
-- **Start from this lore** (Empezar desde este trasfondo) lee los lorebooks marcados en busca de los lugares y los sucesos fechados que mencionan, conservados exactamente como están escritos. **Build around the lore** (Construir alrededor del trasfondo) completa el mundo a su alrededor. **Only the lore's places** (Solo los lugares del trasfondo) no crea nada aparte de ellos.
-- **Write the world's brief** (Escribir el planteamiento del mundo) pide a tu modelo del GM el presente, los lugares principales, las facciones en torno a las que gira el presente (qué quiere cada una, y sus aliadas y rivales) y nombres para los lugares y las personas con el sonido propio de cada cultura. Los lugares del trasfondo se conservan escriba lo que escriba el modelo. Todo lo que no encaja con el kit se deja fuera y se cuenta. **Change the brief** (Cambiar el planteamiento) abre sus palabras, incluidos los nombres de pila y los apellidos de cada cultura. Sin un planteamiento, los lugares van numerados y la gente se identifica por su oficio.
-
-**Un mundo tiene un pasado.** Antes de que empiece la partida, el mundo avanza año a año desde su fundación. Los asentamientos crecen, las facciones se fundan, ganan y pierden líderes, y se alían y se enemistan entre sí. Donde el mundo los tiene, los bandidos, las guerras y las hambrunas dejan su huella. Un cambio grave solo llega después de llevar un tiempo gestándose, y solo de los tipos que permite el kit. Los sucesos fechados de tu trasfondo o del planteamiento ocurren cuando y donde dicen. La misma semilla y el mismo planteamiento dan el mismo pasado.
-
-**Lo que sabe el GM.** El GM siempre sabe dónde está el grupo, adónde puede ir y cuánto tarda cada camino. Se le cuentan los sucesos más destacados del pasado, quién dirige el lugar actual y el pasado de ese lugar. Sobre cualquier otro lugar o facción puede preguntar, y recibe la respuesta en su siguiente turno. Indica adónde va el grupo con una etiqueta de lugar. Un lugar que figura en el mundo conserva el tamaño que le dio el mundo. Un lugar que no figura en el mundo, como una granja, conserva el nombre que le da el GM. Cada asentamiento tiene gente generada por la semilla cuando llega el grupo: un nombre de su cultura, un oficio acorde con el lugar, un temperamento, una forma de hablar y un aspecto. Cuando el GM nombra a alguien por su nombre completo, esa persona se une a los personajes registrados.
-
-**Lo que hace el grupo queda hecho.** Cuando el grupo ayuda o perjudica a una facción, cambia lo que sienten dos facciones entre sí, toma o arruina un lugar o pone a alguien al frente de una facción, el GM lo registra en su respuesta. Cada cambio se comprueba con el mundo. Se rechaza un cambio de un tipo que el kit tiene desactivado, o uno que nombra un lugar o una facción que el mundo no tiene. A partir de entonces, al GM se le cuenta el mundo tal como lo dejó la historia. Un lugar que añadió la historia es un lugar al que el grupo puede ir. Un swipe (respuesta alternativa), una regeneración o un mensaje eliminado deshacen un cambio junto con su respuesta.
-
-**El mundo sigue adelante sin el grupo.** Cuando el GM dice que pasa el tiempo, el mundo avanza una semana cada vez, solo en los tipos de cambio que tiene el kit. Las catástrofes nunca llegan solas: solo el GM puede narrar una, y se rechaza si su tipo está desactivado. Nada se decide donde está el grupo. Las noticias viajan: el GM se entera de un cambio lejano una vez que han pasado los días que tardan los caminos. Las hazañas del grupo cuentan más a medida que se da a conocer.
-
-**Ediciones manuales.** En un editor de mundos puedes renombrar o mover lugares, pintar el terreno, añadir lugares y personas, pintar el campo de batalla táctico de un lugar (consulta [Combate](combat.md#tactical-battles-and-terrain)) y trazar un pueblo (consulta [El pueblo](map-time-weather.md#the-town)). Todas las partes del juego ven las ediciones al instante. Un lugar renombrado sigue respondiendo a su nombre anterior. Las ediciones cambian el mundo de ahora en adelante, nunca su pasado. Un pueblo conserva su trazado, así que los lugares y las personas que añades van a sus siguientes parcelas libres y viviendas.
-
-**Archivos de mundo.** **Download this world** (Descargar este mundo), en **Your world**, guarda el mundo que estás creando, y **Download the world** (Descargar el mundo), en la pestaña World de una partida, guarda el mundo de esa partida con sus ediciones manuales como un archivo `.world.json`. **Import a world file** (Importar un archivo de mundo), junto al kit de ambientación, lo lee en la configuración de una partida nueva: elige el kit del archivo y crea su mundo. **Your worlds** (Tus mundos) hace lo mismo con un mundo de tu biblioteca. Un archivo también puede llevar la historia del mundo: los sucesos y las escenas que escribió quien lo creó. Las escenas de una historia aparecen en la narración antes de la respuesta del GM, exactamente como se escribieron, y sus objetivos de misión aparecen en **Story** (Historia), en la pestaña World del diario. Para escribir una, consulta [Escribir guiones de historia de Game Mode](../extending/writing-story-scripts.md). Las ediciones manuales y la historia pertenecen a esa semilla y ese planteamiento, así que se dejan fuera si cambias cualquiera de los dos. Un archivo que no se puede leer se rechaza y el asistente dice por qué. Si el contenido de un archivo no encaja con el kit, una parte se deja fuera y el asistente dice cuál.
-
-**Más adelante, y lo que se conserva.** A una partida creada sin mundo se le puede dar uno más adelante desde la pestaña **World** (Mundo) del diario, con **Make a world for this game** (Crear un mundo para esta partida). El mundo empieza a partir del siguiente turno, y los turnos pasados, el mapa y la gente se quedan como están. El botón aparece atenuado mientras Overworld RPG está bloqueado. Una partida conserva su mundo tal como se creó, así que una sesión nueva, una rama y un chat exportado conservan el mismo mundo. Un mundo creado por una versión anterior del generador sigue jugándose, pero ya no se puede editar.
-
-Una partida con un mundo se abre en el **overworld** (el mapa del mundo): un mapa de píxeles donde llevas al grupo de un asentamiento a otro y entras en los pueblos. Consulta [El overworld](map-time-weather.md#the-overworld).

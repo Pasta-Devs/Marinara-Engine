@@ -137,18 +137,6 @@ Czat w trybie Game Mode może korzystać tylko z części folderów zasobów, na
 
 Pasek pokazuje "All folders included" albo liczbę wykluczonych folderów. **Reset to all** znów włącza wszystkie. Wybór zapisuje się tylko dla tego czatu. Zmienia foldery, z których Game Mode może wybierać, ale nie usuwa ani nie ukrywa żadnego pliku.
 
-<a id="a-settings-own-art-and-music"></a>
-
-### Własna grafika i muzyka settingu
-
-Gra rozpoczęta z zestawem settingu ma rodzinę stylistyczną, widoczną w sekcji **Art and music** (grafika i muzyka), gdy zmieniasz słownictwo zestawu: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` albo jedną z własnych rodzin zestawu. Gra korzysta z folderów nazwanych tak jak jej rodzina i z każdego folderu, którego nazwa nie jest nazwą żadnej rodziny, a foldery innych rodzin pomija. Gra cyberpunkowa nigdy nie zagra muzyki do bitew fantasy ani nie pokaże zaczarowanego lasu. Gdy nic z jej rodziny ani ze wspólnych folderów nie pasuje, nic nie gra – gra nie sięga po ścieżkę innej rodziny. Gra bez zestawu settingu korzysta ze wszystkich folderów.
-
-- **Music**: ścieżki settingu umieść w `music/<state>/<family>/<intensity>`, na przykład `combat/wuxia/intense`. Mają pierwszeństwo przed wspólnymi ścieżkami.
-- **Backgrounds**: `backgrounds/<family>`. Tła wygenerowane w grze z zestawem settingu też trafiają do tego folderu.
-- **Dźwięki walki**: dźwięk w `sfx/combat/<family>` o tej samej nazwie co wbudowany, na przykład `sword-swing`, zastępuje go w grach tej rodziny. Wbudowane dźwięki walki są w stylu fantasy, więc walki innych rodzin są ciche, dopóki nie dodasz dla nich własnych.
-
-Wbudowane tła startowe liczą się jako wspólne, z wyjątkiem teł fantasy (`ancient_library`, `castle_cliff`, `enchanted_forest`) i współczesnego `city_night`. Zestaw settingu zapisany, zanim pojawiły się rodziny stylistyczne, nadal działa: zestaw utworzony na podstawie zestawu startowego korzysta z rodziny tamtego zestawu, a każdy inny korzysta ze wszystkich folderów, dopóki nie wybierzesz rodziny w sekcji **Art and music**. Opisany wyżej pasek wyboru podaje rodzinę otwartej gry.
-
 <a id="generated-sound-effects-and-music"></a>
 
 ## Generowane efekty dźwiękowe i muzyka

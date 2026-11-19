@@ -112,9 +112,6 @@ Das Adventure Journal protokolliert deine Kampagne fortlaufend. Es entsteht aus 
 | **Items** | Ein Protokoll der Gegenstände, die du erhalten, benutzt, verloren oder entfernt hast. |
 | **Library** (Bibliothek) | Notizen und Bücher aus der Spielwelt, die der GM dir gezeigt hat, gespeichert zum Nachlesen. |
 | **Notes** (Notizen) | Dein eigener Notizblock. |
-| **World** (Welt) | In einem Spiel mit generierter Welt die Welt, wie deine Party sie kennt. |
-
-Der Tab **World** zeigt, wo du bist und wie bekannt die Party ist, ihr Ansehen bei jeder Gruppe, was sie getan hat, Neuigkeiten, die sie erreicht haben (Gerüchte sind gekennzeichnet), Ärger, der sich zusammenbraut und von dem sie gehört hat, und die Vergangenheit, die jeder Einheimische erzählen würde. Er zeigt nur, was die Party wissen kann. Geheimnisse, die nur der GM kennt, bleiben verborgen. Er folgt der Geschichte über Swipes und Verzweigungen hinweg.
 
 ### Spielernotizen
 
@@ -147,7 +144,7 @@ Ist das dein erstes Spiel, nimm **Standalone GM**.
 
 ## Referenz: Inventar mit Regelsatz
 
-Diese Teile gelten nur für Spiele mit Regelsatz oder mit einem Setting-Kit, das Geld hat. Siehe [Mit einem Regelsatz spielen](rulesets.md).
+Siehe [Mit einem Regelsatz spielen](rulesets. md).
 
 ### Gegenstände aus dem Regelsatz
 
@@ -190,8 +187,6 @@ Ein Regelsatz kann auch Märkte haben, sodass davon, wo du bist, abhängt, was d
 - Kaufst du etwas, errechnet Marinara den Preis aus den Kosten des Gegenstands und daraus, wie günstig oder teuer das Geschäft ist, nimmt ihn aus dem Geldbeutel des Käufers und legt den Gegenstand in seine Tasche. Unterkunft, Überfahrt und andere Dienste werden nur bezahlt.
 - Ein Kauf, den der Ort, der Händler oder der Geldbeutel nicht zulässt, wird abgelehnt, und der GM erfährt den Grund.
 - Ein Regelsatz kann jeden Tag an einem Ort anders machen: Ein Ort hat vielleicht nur wenige Stück von etwas Seltenem, ein Händler bietet vielleicht etwas Ungewöhnliches an, und du kannst Dinge zu einem Teil des Preises zurückverkaufen, bis die Händler ausgegeben haben, was sie an einem Tag auszahlen. Ein neuer Markttag am selben Ort, den der GM beginnt, wenn die Party bleibt, füllt die Regale und Kassen wieder.
-
-Auch ein Spiel ohne Regelsatz hat Geld und einen Markt, wenn sein Setting-Kit beides hat. Jedes Starter-Kit hat es, etwa Kupfer, Silber und Gold in High Fantasy, Kupfermünzen und Silbertael in Wuxia, Dollar und Cent in der Gegenwart und Credits in Cyberpunk und Space Opera. Der Laden des Kits listet Alltagswaren mit Preis und dem kleinsten Ort, der sie jeweils verkauft. So hat ein Dorf ein Café, aber erst eine Stadt ein Erste-Hilfe-Set. Du kannst das Geld und den Laden unter **Change its words** (Wörter ändern) des Kits ändern oder das Geld entfernen. Siehe [Ein Setting-Kit wählen](getting-started.md#choosing-a-setting-kit).
 
 ## Verwandte Anleitungen
 

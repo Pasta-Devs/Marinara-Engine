@@ -50,7 +50,7 @@ Cuando una sesión está concluida, el mismo botón de su fila cambia a **New Se
 1. Abre **Session** y ve a **Session History**.
 2. En la fila de la sesión actual, haz clic en **New Session** (el icono de reproducir).
 
-El GM reanuda la historia a partir del último resumen y de cualquier nota que hayas escrito al terminar la sesión. En un juego con un mundo generado, el mundo continúa desde donde se dejó: los días que pasaron, las hazañas y la reputación del grupo, los lugares y las agrupaciones que añadió la historia, y adónde fue el grupo.
+El GM reanuda la historia a partir del último resumen y de cualquier nota que hayas escrito al terminar la sesión.
 
 ## Leer sesiones pasadas
 

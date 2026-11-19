@@ -50,7 +50,7 @@ Depois que uma sessão é concluída, o mesmo botão na linha dela vira **New Se
 1. Abra **Session** e vá para **Session History**.
 2. Na linha da sessão atual, clique em **New Session** (o ícone de play).
 
-O GM retoma a história a partir do último resumo e de qualquer nota que você escreveu ao encerrar a sessão. Em um jogo com mundo gerado, o mundo continua de onde parou: os dias que passaram, os feitos e a reputação da equipe, os lugares e grupos que a história acrescentou e os lugares por onde a equipe andou.
+O GM retoma a história a partir do último resumo e de qualquer nota que você escreveu ao encerrar a sessão.
 
 ## Ler as sessões anteriores
 

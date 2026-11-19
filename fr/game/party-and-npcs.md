@@ -112,9 +112,6 @@ L'Adventure Journal tient le registre de ta campagne. Il se construit à partir 
 | **Items** | Le journal des objets que tu as obtenus, utilisés, perdus ou retirés. |
 | **Library** (bibliothèque) | Les notes et les livres de l'univers que le GM t'a montrés, conservés pour que tu puisses les relire. |
 | **Notes** | Ton propre bloc-notes. |
-| **World** (monde) | Dans une partie avec un monde généré, le monde tel que ton équipe le connaît. |
-
-L'onglet **World** montre où tu te trouves et à quel point l'équipe est connue, sa réputation auprès de chaque groupe, ce qu'elle a fait, les nouvelles qui lui sont parvenues (les rumeurs sont signalées), les troubles qui couvent et dont elle a entendu parler, et le passé que n'importe quel habitant raconterait. Il ne montre que ce que l'équipe peut savoir. Les secrets que seul le GM connaît restent cachés. Il suit l'histoire à travers les swipes et les branches.
 
 ### Les notes du joueur
 
@@ -147,7 +144,7 @@ Pour une première partie, prends **Standalone GM**.
 
 ## Référence : inventaire avec un ensemble de règles
 
-Ces sections ne s'appliquent qu'aux parties qui utilisent un ensemble de règles, ou un kit d'univers doté d'une monnaie. Voir [Jouer avec un ensemble de règles](rulesets.md).
+Voir [Jouer avec un ensemble de règles](rulesets. md).
 
 ### Objets de l'ensemble de règles
 
@@ -190,8 +187,6 @@ Un ensemble de règles peut aussi avoir des marchés : ce que tu peux acheter d�
 - Quand tu achètes, Marinara calcule le prix à partir du coût de l'objet et de ce que l'affaire a d'avantageux ou de coûteux, le prend dans la bourse de l'acheteur et met l'objet dans son sac. Le logement, le passage et les autres services sont seulement payés.
 - Un achat que le lieu, le vendeur ou la bourse ne permet pas est refusé, et le GM apprend pourquoi.
 - Un ensemble de règles peut rendre chaque journée différente dans un lieu : un lieu peut n'avoir que quelques exemplaires d'une chose rare, un vendeur peut proposer quelque chose d'inhabituel, et tu peux revendre des objets pour une part du prix jusqu'à ce que les vendeurs aient dépensé ce qu'ils déboursent en une journée. Un nouveau jour dans le même lieu, que le GM commence quand l'équipe reste sur place, remplit de nouveau les étals et les bourses.
-
-Une partie sans ensemble de règles a elle aussi de l'argent et un marché quand son kit d'univers en prévoit. C'est le cas de chaque kit de départ, par exemple le cuivre, l'argent et l'or en high fantasy, les sapèques de cuivre et les taels d'argent en wuxia, les dollars et les cents à l'époque moderne, et les crédits en cyberpunk et en space opera. La boutique du kit liste des objets du quotidien, chacun avec un prix et le plus petit lieu qui le vend : un village a un café, mais seule une ville a une trousse de premiers secours. Tu peux changer l'argent et la boutique sous **Change its words** (modifier ses mots) dans le kit, ou retirer l'argent. Voir [Choisir un kit d'univers](getting-started.md#choosing-a-setting-kit).
 
 ## Guides associés
 

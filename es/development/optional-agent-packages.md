@@ -724,7 +724,7 @@ Un paquete `game-surface` que se configura desde el asistente de Game (`gameSurf
 }
 ```
 
-`worlds` (como máximo 32) y `tiles` son opcionales. Un archivo de mundo puede llevar el guion de historia de su mundo (worldgen W10), que viaja con el mapa como parte de él. Un archivo de mundo de la versión 2 también lleva el `snapshot` del mundo, el mundo tal como se creó (W11): un Engine cuyo generador de mundos haya cambiado desde entonces lee el mundo a partir de él, exactamente como se creó, así que un paquete sigue funcionando tras las actualizaciones de Engine. Escribe los archivos desde **Download** (Descargar) de una partida o de un mundo de la biblioteca (o con `GET /api/game/:chatId/world/file`), que lo incluyen. Un archivo del paquete ocupa como máximo 8 MB, el mayor archivo para compartir que lee Engine (un paquete de mosaicos conserva sus propios límites, más pequeños), así que un mundo cuyo archivo sea más grande (la instantánea de un mundo muy grande) no puede incluirse en un paquete. Un mundo cuya historia define un `intro` necesita Capability API 1.339 (consulta [El mensaje de introducción](../extending/writing-story-scripts.md#the-intro-message)). `tiles` puede ser un paquete de mosaicos de imagen (versión 2 del paquete de mosaicos: hojas PNG sobre una cuadrícula de celdas, con sprites de varias celdas), que necesita Capability API 1.80; Engine decodifica y comprueba sus hojas una vez por versión del paquete. Con la Experience activada, una partida nueva queda fijada al kit del paquete; si el paquete incluye mundos, el jugador elige uno de ellos (con su historia) y no crea ningún otro. Desactivar la Experience devuelve al jugador sus propias opciones. `POST /api/game/create` aplica a una partida el mismo bloqueo. La partida conserva su kit y su mundo como cualquier partida, así que sigue jugándose si se quita el paquete, y dibuja su overworld y sus pueblos con los mosaicos del paquete mientras el paquete esté instalado.
+`worlds` (como máximo 32) y `tiles` son opcionales. Un archivo de mundo puede llevar el guion de historia de su mundo (worldgen W10), que viaja con el mapa como parte de él. Un archivo de mundo de la versión 2 también lleva el `snapshot` del mundo, el mundo tal como se creó (W11): un Engine cuyo generador de mundos haya cambiado desde entonces lee el mundo a partir de él, exactamente como se creó, así que un paquete sigue funcionando tras las actualizaciones de Engine. Escribe los archivos desde **Download** (Descargar) de una partida o de un mundo de la biblioteca (o con `GET /api/game/:chatId/world/file`), que lo incluyen. Un archivo del paquete ocupa como máximo 8 MB, el mayor archivo para compartir que lee Engine (un paquete de mosaicos conserva sus propios límites, más pequeños), así que un mundo cuyo archivo sea más grande (la instantánea de un mundo muy grande) no puede incluirse en un paquete. Un mundo cuya historia define un `intro` necesita Capability API 1.339 (consulta [El mensaje de introducción](writing-story-scripts.md#the-intro-message)). `tiles` puede ser un paquete de mosaicos de imagen (versión 2 del paquete de mosaicos: hojas PNG sobre una cuadrícula de celdas, con sprites de varias celdas), que necesita Capability API 1.80; Engine decodifica y comprueba sus hojas una vez por versión del paquete. Con la Experience activada, una partida nueva queda fijada al kit del paquete; si el paquete incluye mundos, el jugador elige uno de ellos (con su historia) y no crea ningún otro. Desactivar la Experience devuelve al jugador sus propias opciones. `POST /api/game/create` aplica a una partida el mismo bloqueo. La partida conserva su kit y su mundo como cualquier partida, así que sigue jugándose si se quita el paquete, y dibuja su overworld y sus pueblos con los mosaicos del paquete mientras el paquete esté instalado.
 
 Engine lee los archivos por la ruta de recursos verificada (tamaño declarado de 8 MB como máximo cada uno, con el hash comprobado de nuevo) y los comprueba igual que comprueba los archivos para compartir. Un paquete se rechaza entero, indicando el motivo, cuando un archivo no se puede leer, cuando un mundo se creó con otro kit o no encaja en él, o cuando sus bytes no son los instalados; entonces la Experience no puede empezar una partida. Un conjunto de reglas nunca forma parte de un paquete de mapa: una Experience que necesita sus propias reglas incluye un paquete de conjunto de reglas aparte.
 
@@ -757,7 +757,7 @@ Cada pista también es un recurso declarado, y cada ID de pista nombrado es uno 
 en `places` es un lugar de uno de los mundos del paquete, por su ID. Fuera de una pelea, el juego
 reproduce la pista del lugar; si no tiene, la del lugar más cercano que lo contiene y que tiene una;
 si no hay ninguno, `default`; en una pelea, `combat`. La acción `music` de una historia (consulta
-[Escribir guiones de historia de Game Mode](../extending/writing-story-scripts.md)) pone una de las
+[Escribir guiones de historia de Game Mode](writing-story-scripts.md)) pone una de las
 pistas por encima de todas estas hasta que devuelve el control. Sin ninguna de ellas, suena la música
 del propio Engine. Un jugador que ha elegido su propia fuente de música (Music DJ, Spotify) escucha
 esa en su lugar: su elección siempre tiene prioridad.
@@ -850,7 +850,7 @@ de los archivos se detienen en el primer problema, como durante una instalación
 #### Capability API 1.351: estaciones retenidas
 
 La historia de un mundo puede mantener lugares en una estación sea cual sea la fecha (`seasons` y la
-acción `season`: consulta [escribir guiones de historia](../extending/writing-story-scripts.md#seasons)),
+acción `season`: consulta [escribir guiones de historia](writing-story-scripts.md#seasons)),
 y los campos de batalla de un mundo pueden pintarse con estaciones (filas `seasons` y `seasonKeys`).
 Un paquete de mapa con cualquiera de ellas necesita 1.351. El mapa del mundo lee los lugares retenidos
 como `seasons` (ID de lugar a estación, `*` para el mundo entero) desde
@@ -953,7 +953,7 @@ indicador debe ser un indicador numérico de una de las historias del paquete. U
 Las variantes de una pelea de historia pueden ser para grupos de más de seis o sin límite superior
 (`"party": { "min": 7 }`), y una condición de historia puede preguntar el tamaño del grupo
 (`{ "partySize": { "is": ">=", "value": 7 } }`; consulta
-[escribir guiones de historia](../extending/writing-story-scripts.md#conditions)).
+[escribir guiones de historia](writing-story-scripts.md#conditions)).
 
 Un compañero del archivo de habitantes puede no pelear nunca:
 
@@ -1000,7 +1000,7 @@ el jugador puede seguir cambiando cada valor:
 
 `intro` es el mensaje de introducción del Game Master (1.339), con las mismas reglas que el `intro`
 de un guion de historia (consulta
-[Escribir guiones de historia](../extending/writing-story-scripts.md#the-intro-message)). Es el único
+[Escribir guiones de historia](writing-story-scripts.md#the-intro-message)). Es el único
 valor que bloquea. Una introducción bloqueada se muestra como solo lectura en el asistente, y la
 partida empieza con ella sea cual sea la configuración enviada. La partida conserva la introducción
 tal como era cuando comenzó (`chat.metadata.gameExperienceIntro`). Se lee antes que el `intro` de la

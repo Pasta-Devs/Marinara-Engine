@@ -137,18 +137,6 @@ Um chat de Game Mode pode usar só algumas das suas pastas de recursos, por exem
 
 Uma barra mostra "All folders included" ou quantas pastas estão excluídas. **Reset to all** (redefinir para todas) inclui tudo de novo. A escolha fica salva só para aquele chat. Ela muda as pastas das quais o Game Mode pode escolher, e não exclui nem esconde nenhum arquivo.
 
-<a id="a-settings-own-art-and-music"></a>
-
-### A própria arte e música de um cenário
-
-Um jogo iniciado com um kit de cenário tem uma família de arte, mostrada em **Art and music** (arte e música) quando você muda as palavras do kit: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` ou uma família própria do kit. O jogo usa as pastas com o nome da família dele e todas as pastas sem nome de família, e deixa de fora as pastas das outras famílias. Um jogo cyberpunk nunca toca música de batalha de fantasia nem mostra a floresta encantada. Quando nada da família dele nem das pastas compartilhadas combina, nada toca, em vez de uma trilha de outra família. Um jogo sem kit de cenário usa todas as pastas.
-
-- **Music**: coloque as trilhas do cenário em `music/<state>/<family>/<intensity>`, como `combat/wuxia/intense`. Elas tocam antes das trilhas compartilhadas.
-- **Backgrounds**: `backgrounds/<family>`. Os planos de fundo gerados em um jogo com kit de cenário também são salvos ali.
-- **Sons de combate**: um som em `sfx/combat/<family>` com o mesmo nome de um som incluído, como `sword-swing`, substitui esse som nos jogos daquela família. Os sons de combate incluídos são de fantasia, então as lutas das outras famílias ficam silenciosas até você adicionar os sons delas.
-
-Os planos de fundo iniciais incluídos contam como compartilhados, exceto os de fantasia (`ancient_library`, `castle_cliff`, `enchanted_forest`) e o moderno `city_night`. Um kit de cenário salvo antes de existirem as famílias de arte continua funcionando: um kit feito a partir de um kit inicial usa a família desse kit inicial, e qualquer outro usa todas as pastas até você escolher uma família em **Art and music**. A barra de seleção acima mostra o nome da família do jogo aberto.
-
 <a id="generated-sound-effects-and-music"></a>
 
 ## Efeitos sonoros e música gerados

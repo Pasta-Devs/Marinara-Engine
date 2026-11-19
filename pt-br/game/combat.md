@@ -161,11 +161,8 @@ Alguns ataques e habilidades carregam um elemento. O primeiro elemento a atingir
 Quais elementos existem depende do cenário:
 
 - Sem kit de cenário, ou com um kit que não nomeia nenhum: os seis clássicos (fogo, gelo, raio, veneno, sagrado, sombra).
-- Wuxia: as cinco fases (madeira, fogo, terra, metal, água), cada uma superando a seguinte.
-- Cyberpunk e space opera: cinético, térmico, EM e químico ou plasma.
-- Dias atuais e anos 1920: nenhum.
 
-Chuva e tempestades em terreno aberto enfraquecem os elementos parecidos com fogo e fortalecem os parecidos com raio. Em uma luta tática, um elemento bate mais forte contra um que ele supera e mais fraco contra um que o supera. Você pode mudar os elementos e as reações de um kit em **Change its words** (mudar as palavras). Veja [Escolher um kit de cenário](getting-started.md#choosing-a-setting-kit).
+Chuva e tempestades em terreno aberto enfraquecem os elementos parecidos com fogo e fortalecem os parecidos com raio. Em uma luta tática, um elemento bate mais forte contra um que ele supera e mais fraco contra um que o supera.
 
 ## Mecânicas de chefe e loot
 
@@ -173,7 +170,7 @@ Inimigos fortes podem ter mecânicas de chefe, regras especiais que o GM escreve
 
 Quando você vence, os inimigos deixam loot (itens caídos), que vai direto para as bolsas da equipe. Os itens têm uma raridade, de common a uncommon, rare, epic e legendary. A dificuldade mais alta puxa os itens para as raridades maiores e entrega um pouco mais deles. Uma notificação diz o que caiu, e o GM fica sabendo que os itens já estão nas suas bolsas.
 
-O que cai depende do seu cenário. Uma partida com kit de cenário deixa o loot do próprio kit (uma partida de dias atuais deixa um vale-presente ou um kit de primeiros socorros, nunca uma espada encantada), e você pode mudar essas palavras em **Change its words**. Uma partida sem kit deixa o que o gênero dela costuma ter. Um gênero sem kit inicial, como Steampunk, deixa coisas simples que não pertencem a nenhum cenário. Em uma partida cujo conjunto de regras tem tabelas de loot próprias, os inimigos deixam os itens do conjunto, e um conjunto de regras que desativa os itens próprios do Game Mode deixa só os dele.
+O que cai depende do seu cenário. Em uma partida cujo conjunto de regras tem tabelas de loot próprias, os inimigos deixam os itens do conjunto, e um conjunto de regras que desativa os itens próprios do Game Mode deixa só os dele.
 
 ## Referência: batalhas táticas
 
@@ -186,14 +183,6 @@ Não há configurações de campo de batalha para preencher ao criar uma partida
 Marinara verifica a descrição e a disposição. O terreno pedido é preservado, e o encontro continua alcançável.
 
 Se as restrições não couberem juntas, a batalha informa o problema. **Use generated terrain** (usar terreno gerado) então começa sem os elementos de terreno rejeitados. Eles nunca são removidos em silêncio.
-
-Um mundo também pode ter campos de batalha feitos à mão: tabuleiros pintados casa por casa para um dos lugares dele, com um editor de mundos como o Pixelforge. Quando uma luta começa nesse lugar, ou dentro dele, ela usa um desses tabuleiros em vez de um gerado.
-
-- O tabuleiro é usado exatamente como foi pintado. Se o lugar tiver vários, a semente da luta (um número que escolhe um deles) decide.
-- A descrição de terreno do GM não é usada nesse caso, mas a formação dele continua decidindo onde cada lado começa. O GM fica sabendo que o tabuleiro foi feito para esse lugar.
-- Um tabuleiro feito à mão precisa seguir três regras: ele tem um dos três tamanhos de tabuleiro, as duas colunas de cada lado são planícies, onde os lados se posicionam, e toda casa em que um combatente pode ficar se conecta ao resto. O criador recusa um tabuleiro que quebre uma regra e diz por quê.
-
-Esses tabuleiros ficam guardados com as edições manuais do mundo, então viajam em arquivos de mundo, pacotes de mapa e na biblioteca.
 
 | Terreno | Caminhada | Defesa e esquiva |
 | --- | --- | --- |
@@ -216,7 +205,7 @@ Os dois modos especiais usam a capacidade de movimento atual e a distância em l
 
 Uma batalha Tactical organiza os turnos de uma de duas formas:
 
-- **One at a time, by initiative** (um por vez, por iniciativa): cada unidade recebe um lugar em uma ordem rolada, e só a unidade da vez pode agir. O tabuleiro mostra a ordem. As partidas Overworld novas usam esta forma.
+- **One at a time, by initiative** (um por vez, por iniciativa): cada unidade recebe um lugar em uma ordem rolada, e só a unidade da vez pode agir. O tabuleiro mostra a ordem.
 - **Your whole party, then the enemies** (toda a sua equipe, depois os inimigos): cada unidade da equipe pode agir, e depois acontece a fase inimiga. As partidas VN usam esta forma.
 
 Para mudar, abra **Chat Settings**, expanda **Combat Style** e escolha uma **Turn order**. A opção aparece enquanto o **Battle system** é Tactical, a menos que o conjunto de regras da partida conduza as próprias lutas. A mudança vale a partir da próxima batalha. Uma batalha em andamento mantém a ordem dela.
@@ -227,11 +216,11 @@ Para mudar, abra **Chat Settings**, expanda **Combat Style** e escolha uma **Tur
 
 - **Visão.** Paredes e montanhas bloqueiam a visão. Uma unidade só pode atacar, usar uma habilidade ou usar um item em um alvo que consegue ver.
 - **Cobertura.** Algo entre o atacante e o alvo protege o alvo. Uma casa de floresta ou de ruínas no caminho, ou uma parede ou montanha que bloqueia parte da visão, dá meia cobertura. Uma parede ou montanha que bloqueia a maior parte da visão dá cobertura de três quartos. A meia cobertura tira 15 pontos percentuais da chance de acerto, e a de três quartos, 30. O bônus da própria casa do alvo e a cobertura dele não se somam: vale o melhor.
-- **Altura.** Em um tabuleiro com montanhas, uma montanha tem dois níveis de altura, e o chão em volta dela, um nível. Subir um nível custa um ponto de movimento a mais, e descer não custa nada. Um degrau de dois níveis ou mais é um penhasco, que ninguém consegue atravessar a pé. Um terreno mais alto também bloqueia a visão entre duas casas mais baixas. Atacar de cima para baixo a partir de um terreno mais alto soma 10 à chance de acerto, um ataque à distância a partir de um terreno mais alto alcança uma casa a mais, e uma cobertura baixa, como uma floresta, não esconde um alvo visto de cima. Campos de batalha feitos à mão podem ter os próprios penhascos.
+- **Altura. ** Em um tabuleiro com montanhas, uma montanha tem dois níveis de altura, e o chão em volta dela, um nível. Subir um nível custa um ponto de movimento a mais, e descer não custa nada. Um degrau de dois níveis ou mais é um penhasco, que ninguém consegue atravessar a pé. Um terreno mais alto também bloqueia a visão entre duas casas mais baixas. Atacar de cima para baixo a partir de um terreno mais alto soma 10 à chance de acerto, um ataque à distância a partir de um terreno mais alto alcança uma casa a mais, e uma cobertura baixa, como uma floresta, não esconde um alvo visto de cima.
 
 ### Cenas de campo de batalha
 
-Um tabuleiro tático é disposto como o tipo de lugar onde a luta acontece: uma floresta tem árvores para se esconder, uma masmorra tem paredes e corredores, uma cidade tem ruas. Uma partida com kit de cenário nomeia as próprias cenas com as palavras dele, então uma luta cyberpunk acontece em um terraço ou em um corredor de megabloco, e uma luta wuxia em uma floresta de bambu ou em uma casa de chá. As casas do tabuleiro também usam as palavras do cenário (cobertura e destroços em vez de floresta e ruínas). Você pode mudar as cenas e as palavras das casas de um kit em **Change its words**.
+Um tabuleiro tático é disposto como o tipo de lugar onde a luta acontece: uma floresta tem árvores para se esconder, uma masmorra tem paredes e corredores, uma cidade tem ruas.
 
 ## Guias relacionados
 

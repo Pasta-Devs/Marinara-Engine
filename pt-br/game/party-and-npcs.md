@@ -112,9 +112,6 @@ O Adventure Journal (o diário da aventura) é um registro contínuo da sua camp
 | **Items** | Um registro dos itens que você conseguiu, usou, perdeu ou removeu. |
 | **Library** | Anotações e livros do mundo do jogo que o GM mostrou a você, salvos para você reler. |
 | **Notes** | O seu próprio bloco de notas. |
-| **World** | Em uma partida com mundo gerado, o mundo como a sua equipe o conhece. |
-
-A aba **World** (mundo) mostra onde vocês estão e quanto a equipe é conhecida, a posição dela com cada grupo, o que ela já fez, as notícias que chegaram até ela (os boatos vêm marcados), os problemas que estão se formando e de que ela ouviu falar, e o passado que qualquer morador contaria. Ela mostra só o que a equipe poderia saber. Os segredos que só o GM conhece continuam escondidos. Ela acompanha a história através de swipes e ramificações.
 
 ### Anotações do jogador
 
@@ -147,7 +144,7 @@ Se este é o seu primeiro jogo, use **Standalone GM**.
 
 ## Referência: inventário com conjunto de regras
 
-Estas partes valem só para partidas que usam um conjunto de regras, ou um kit de cenário com dinheiro. Veja [Jogar com um conjunto de regras](rulesets.md).
+Veja [Jogar com um conjunto de regras](rulesets. md).
 
 ### Itens do conjunto
 
@@ -190,8 +187,6 @@ Um conjunto também pode ter mercados, de modo que o que você pode comprar depe
 - Quando você compra, Marinara calcula o preço a partir do custo do item e de quão barato ou caro é o negócio, tira o valor da bolsa de moedas de quem compra e coloca o item na bolsa dessa pessoa. Hospedagem, passagem e outros serviços são apenas pagos.
 - Uma compra que o lugar, o vendedor ou a bolsa de moedas não permitem é recusada, e o GM fica sabendo o motivo.
 - Um conjunto pode fazer cada dia em um lugar ser diferente: um lugar pode ter só algumas unidades de algo raro, um vendedor pode aparecer com algo incomum, e você pode vender coisas de volta por uma parte do preço até os vendedores gastarem o que pagam em um dia. Um novo dia no mesmo lugar, que o GM inicia quando a equipe fica por lá, reabastece as prateleiras e as bolsas de moedas.
-
-Uma partida sem conjunto de regras também tem dinheiro e mercado quando o kit de cenário dela os tem. Todo kit inicial tem, por exemplo, cobre, prata e ouro na alta fantasia, moedas de cobre e taéis de prata no wuxia, dólares e centavos nos dias atuais, e créditos no cyberpunk e na space opera. A loja do kit lista as coisas do dia a dia, cada uma com um preço e o menor lugar que a vende, então um vilarejo tem um café, mas só uma cidade tem um kit de primeiros socorros. Você pode mudar o dinheiro e a loja em **Change its words** (mudar as palavras), no kit, ou remover o dinheiro. Veja [Escolher um kit de cenário](getting-started.md#choosing-a-setting-kit).
 
 ## Guias relacionados
 

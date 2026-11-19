@@ -101,7 +101,6 @@ z dróg konfiguracji:
 - **Use template** otwiera bibliotekę światów jeszcze przed utworzeniem gry.
 - **Build manually** zaczyna od pustej hierarchii do edycji.
 - **From the world** (ze świata) pojawia się, gdy gra tworzy świat (zobacz
-  [Tworzenie świata](../game/getting-started.md#making-a-world)). Układa ten
   świat jako mapę: jego regiony, osady i miejsca oraz drogi między nimi wraz
   z czasem podróży. Przed zapisaniem możesz to sprawdzić. Ta droga nie wymaga
   generowania przez AI, a miejsca na mapie są miejscami świata.

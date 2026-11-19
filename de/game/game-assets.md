@@ -137,18 +137,6 @@ Ein Game-Chat kann nur einen Teil deiner Asset-Ordner nutzen, etwa damit deine f
 
 Eine Leiste zeigt „All folders included“ oder wie viele Ordner ausgeschlossen sind. **Reset to all** (Alle wieder aufnehmen) nimmt wieder alles auf. Die Auswahl wird nur für diesen Chat gespeichert. Sie ändert, aus welchen Ordnern der Game Mode wählen darf, löscht oder versteckt aber keine Datei.
 
-<a id="a-settings-own-art-and-music"></a>
-
-### Eigene Grafik und Musik eines Settings
-
-Ein Spiel, das mit einem Setting-Kit gestartet wurde, hat eine Stilfamilie für Grafik und Musik. Du siehst sie unter **Art and music** (Grafik und Musik), wenn du die Wörter des Kits änderst: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland` oder eine eigene Familie des Kits. Das Spiel nutzt die Ordner, die nach seiner Familie benannt sind, und jeden Ordner, der nach keiner Familie benannt ist, und lässt die Ordner anderer Familien weg. Ein Cyberpunk-Spiel spielt nie Fantasy-Kampfmusik und zeigt nie den verzauberten Wald. Passt nichts aus seiner Familie oder den gemeinsamen Ordnern, läuft lieber gar nichts als ein Titel einer anderen Familie. Ein Spiel ohne Setting-Kit nutzt jeden Ordner.
-
-- **Music**: Lege die Titel des Settings unter `music/<state>/<family>/<intensity>` ab, zum Beispiel `combat/wuxia/intense`. Sie haben Vorrang vor gemeinsamen Titeln.
-- **Backgrounds**: `backgrounds/<family>`. Hintergründe, die in einem Spiel mit Setting-Kit generiert werden, landen ebenfalls dort.
-- **Kampfgeräusche**: Ein Geräusch in `sfx/combat/<family>`, das genauso heißt wie ein mitgeliefertes, etwa `sword-swing`, ersetzt dieses in Spielen dieser Familie. Die mitgelieferten Kampfgeräusche sind Fantasy, die Kämpfe anderer Familien bleiben also still, bis du eigene Geräusche für sie hinzufügst.
-
-Die mitgelieferten Starter-Hintergründe gelten als gemeinsam, außer den Fantasy-Hintergründen (`ancient_library`, `castle_cliff`, `enchanted_forest`) und dem modernen `city_night`. Ein Setting-Kit, das gespeichert wurde, bevor es Stilfamilien gab, funktioniert weiter: Eines, das aus einem Starter-Kit entstanden ist, nutzt dessen Familie, und jedes andere nutzt jeden Ordner, bis du unter **Art and music** eine Familie auswählst. Die Auswahlleiste oben nennt die Familie des geöffneten Spiels.
-
 <a id="generated-sound-effects-and-music"></a>
 
 ## Generierte Soundeffekte und Musik
