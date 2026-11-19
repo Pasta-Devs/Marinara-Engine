@@ -4,6 +4,7 @@ import { OpenAIProvider } from "./openai.provider.js";
 import { sidecarModelService } from "../../sidecar/sidecar-model.service.js";
 import { sidecarProcessService } from "../../sidecar/sidecar-process.service.js";
 import { resolveSidecarRequestModel } from "../../sidecar/sidecar-request-model.js";
+import { acquireMainModelTurn, runOnMainModel } from "../../sidecar/main-model-turns.js";
 import { getEmbeddingRequestTimeoutMs } from "../../../config/runtime-config.js";
 import { logger } from "../../../lib/logger.js";
 
@@ -87,25 +88,33 @@ export class LocalSidecarProvider extends BaseLLMProvider {
 
   async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
     this.assertToolCallsAvailable(options);
-    const delegate = await this.createDelegate();
-    const runtimeOptions = this.applyBackendRequestConstraints(this.applyRuntimeSettings(options));
-    const forceTextual = this.isTextualToolCallFallback() && !!runtimeOptions.tools?.length;
-    return yield* delegate.chat(messages, {
-      ...runtimeOptions,
-      model: this.getRequestModel(),
-      ...(forceTextual ? { forceTextualToolCalls: true } : {}),
-    });
+    // The turn is held for the whole stream, so the slot it uses is counted until the last token.
+    const release = await acquireMainModelTurn(options.localPriority, options.signal);
+    try {
+      const delegate = await this.createDelegate();
+      const runtimeOptions = this.applyBackendRequestConstraints(this.applyRuntimeSettings(options));
+      const forceTextual = this.isTextualToolCallFallback() && !!runtimeOptions.tools?.length;
+      return yield* delegate.chat(messages, {
+        ...runtimeOptions,
+        model: this.getRequestModel(),
+        ...(forceTextual ? { forceTextualToolCalls: true } : {}),
+      });
+    } finally {
+      release();
+    }
   }
 
   async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
     this.assertToolCallsAvailable(options);
-    const delegate = await this.createDelegate();
-    const runtimeOptions = this.applyBackendRequestConstraints(this.applyRuntimeSettings(options));
-    const forceTextual = this.isTextualToolCallFallback() && !!runtimeOptions.tools?.length;
-    return delegate.chatComplete(messages, {
-      ...runtimeOptions,
-      model: this.getRequestModel(),
-      ...(forceTextual ? { forceTextualToolCalls: true } : {}),
+    return runOnMainModel(options.localPriority, options.signal, async () => {
+      const delegate = await this.createDelegate();
+      const runtimeOptions = this.applyBackendRequestConstraints(this.applyRuntimeSettings(options));
+      const forceTextual = this.isTextualToolCallFallback() && !!runtimeOptions.tools?.length;
+      return delegate.chatComplete(messages, {
+        ...runtimeOptions,
+        model: this.getRequestModel(),
+        ...(forceTextual ? { forceTextualToolCalls: true } : {}),
+      });
     });
   }
 
@@ -119,15 +128,17 @@ export class LocalSidecarProvider extends BaseLLMProvider {
       );
     }
 
-    const baseUrl = await sidecarProcessService.ensureReady();
-    const requestModel = this.getRequestModel();
+    return runOnMainModel(undefined, signal, async () => {
+      const baseUrl = await sidecarProcessService.ensureReady();
+      const requestModel = this.getRequestModel();
 
-    try {
-      return await this.requestOpenAIEmbeddings(baseUrl, texts, requestModel, signal);
-    } catch (error) {
-      if (!isNotFoundError(error)) throw error;
-      return this.requestLegacyEmbeddings(baseUrl, texts, signal);
-    }
+      try {
+        return await this.requestOpenAIEmbeddings(baseUrl, texts, requestModel, signal);
+      } catch (error) {
+        if (!isNotFoundError(error)) throw error;
+        return this.requestLegacyEmbeddings(baseUrl, texts, signal);
+      }
+    });
   }
 
   private async requestOpenAIEmbeddings(

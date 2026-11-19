@@ -24,7 +24,8 @@ import {
 import { runWithRootLogContext } from "../../lib/log-context.js";
 import { logger } from "../../lib/logger.js";
 import { getDataDir } from "../../utils/data-dir.js";
-import { getMeasuredProcessBytes } from "./sidecar-footprint.js";
+import { estimateSlotBytes, getMeasuredProcessBytes } from "./sidecar-footprint.js";
+import { localModelManager } from "./local-model-manager.js";
 import { buildLlamaArgs, buildLlamaStartupPlans } from "./sidecar-launch-plan.js";
 import { downloadFileWithProgress, isAbortError } from "./sidecar-download.js";
 import { sidecarRuntimeService } from "./sidecar-runtime.service.js";
@@ -32,8 +33,6 @@ import { sidecarRuntimeService } from "./sidecar-runtime.service.js";
 const EMBEDDING_DIR = join(getDataDir(), "models", "builtin-embedding");
 const CONFIG_PATH = join(EMBEDDING_DIR, "builtin-embedding-config.json");
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
-/** Stops the process after this long with no embedding request, so it does not hold memory between chats. */
-export const BUILTIN_EMBEDDING_IDLE_MS = 15 * 60_000;
 const READY_TIMEOUT_MS = 120_000;
 const REQUEST_TIMEOUT_MS = 120_000;
 /** Room left for the special tokens llama.cpp adds around a text. */
@@ -82,9 +81,8 @@ export class BuiltinEmbeddingService {
   private error: string | null = null;
   private starting: Promise<void> | null = null;
   private stopping: Promise<void> | null = null;
-  private idleTimer: NodeJS.Timeout | null = null;
-  /** Requests in flight, so the idle timer never stops a process mid-request. */
-  private active = 0;
+  /** GPU layers the running process was started with, so its memory is weighed against the right pool. */
+  private runningGpuLayers: number | null = null;
   private download: (SidecarDownloadProgress & { modelId: BuiltinEmbeddingModelId }) | null = null;
   private downloadAbort: AbortController | null = null;
   /** Last lines llama-server printed, for a start that fails. */
@@ -305,6 +303,8 @@ export class BuiltinEmbeddingService {
       this.error = "The llama.cpp runtime is not installed yet. Download the built-in model once to install it.";
       return;
     }
+    // Make room first: other built-in models that are not working on anything step aside.
+    await localModelManager.prepareToLoad("embedding", this.footprintBytes(), this.placement());
     const plans =
       this.config.device === "cpu"
         ? [{ gpuLayers: 0, label: "CPU" }]
@@ -327,6 +327,7 @@ export class BuiltinEmbeddingService {
         maxParallelJobs: 1,
       });
       this.recentOutput = [];
+      this.runningGpuLayers = plan.gpuLayers;
       const child = spawn(runtime.serverPath, args, { stdio: ["ignore", "pipe", "pipe"] });
       const remember = (chunk: Buffer) => {
         for (const line of chunk.toString("utf8").split(/\r?\n/u)) {
@@ -346,7 +347,7 @@ export class BuiltinEmbeddingService {
           this.port = null;
           this.ready = false;
           this.runningModelId = null;
-          this.clearIdleTimer();
+          localModelManager.noteStopped("embedding");
         }
       });
       let spawnError: string | null = null;
@@ -360,7 +361,8 @@ export class BuiltinEmbeddingService {
         // A plan that failed before this one (the graphics card) left its reason; this one is serving.
         this.error = null;
         logger.info(`[builtin-embedding] ${model.label} ready on 127.0.0.1:${port} (${plan.label})`);
-        this.armIdleTimer();
+        // Unloaded after the Engine-wide "Unload when unused" time, like the other built-in models.
+        localModelManager.noteLoaded("embedding");
         return;
       }
       // llama-server's own last lines say why (a missing library, a flag the build rejects), and a failed spawn
@@ -396,19 +398,32 @@ export class BuiltinEmbeddingService {
     return "The embedding model did not become ready in time";
   }
 
-  private clearIdleTimer(): void {
-    if (this.idleTimer) clearTimeout(this.idleTimer);
-    this.idleTimer = null;
+  /** Up and serving; a process still starting is not counted, so it is never unloaded mid-start. */
+  isLoaded(): boolean {
+    return this.ready && !!this.child;
   }
 
-  private armIdleTimer(): void {
-    this.clearIdleTimer();
-    this.idleTimer = setTimeout(() => {
-      if (this.active > 0) return this.armIdleTimer();
-      logger.info("[builtin-embedding] Unused for a while; stopping to free memory");
-      void this.stop();
-    }, BUILTIN_EMBEDDING_IDLE_MS);
-    this.idleTimer.unref?.();
+  /** Where the model runs (or would): the graphics card when the runtime has one, unless set to CPU. */
+  placement(): "gpu" | "cpu" {
+    if (this.child && this.runningGpuLayers !== null) return this.runningGpuLayers === 0 ? "cpu" : "gpu";
+    if (this.config.device === "cpu") return "cpu";
+    const runtime = sidecarRuntimeService.getCurrentInstall();
+    return runtime && sidecarRuntimeService.isGpuVariant(runtime.variant) ? "gpu" : "cpu";
+  }
+
+  /** Memory it holds while running, or what the active model is expected to want. */
+  footprintBytes(): number | null {
+    const pid = this.child?.pid ?? null;
+    if (this.ready && pid) {
+      const measured = this.runningGpuLayers === 0 ? residentBytes(pid) : getMeasuredProcessBytes(pid);
+      if (measured) return measured;
+    }
+    const model = this.getActiveModel();
+    if (!model) return null;
+    return estimateSlotBytes({
+      fileBytes: this.config.installed[model.id]?.bytes ?? model.downloadSizeBytes,
+      contextSize: model.contextSize,
+    });
   }
 
   /** Stop the process and wait until it is gone. Unload, and every switch of model or device, go through here. */
@@ -416,7 +431,7 @@ export class BuiltinEmbeddingService {
     if (this.stopping) return this.stopping;
     // An old start failure no longer describes a stopped model; a failed start sets its reason again after this.
     this.error = null;
-    this.clearIdleTimer();
+    localModelManager.noteStopped("embedding");
     const child = this.child;
     this.child = null;
     this.ready = false;
@@ -483,7 +498,8 @@ export class BuiltinEmbeddingService {
    */
   async embed(texts: string[], signal?: AbortSignal, expectedModelId?: BuiltinEmbeddingModelId): Promise<number[][]> {
     if (texts.length === 0) return [];
-    this.active += 1;
+    // Counts as use, so the model is not unloaded for being idle mid-request.
+    const end = localModelManager.begin("embedding");
     try {
       const { baseUrl, model } = await this.ensureRunning();
       if (expectedModelId && model.id !== expectedModelId) {
@@ -506,10 +522,18 @@ export class BuiltinEmbeddingService {
       }
       return vectors as number[][];
     } finally {
-      this.active -= 1;
-      if (this.child) this.armIdleTimer();
+      end();
     }
   }
 }
 
 export const builtinEmbeddingService = new BuiltinEmbeddingService();
+
+localModelManager.register({
+  id: "embedding",
+  label: () => builtinEmbeddingService.getActiveModel()?.label ?? "The built-in embedding model",
+  isLoaded: () => builtinEmbeddingService.isLoaded(),
+  footprintBytes: () => builtinEmbeddingService.footprintBytes(),
+  placement: () => builtinEmbeddingService.placement(),
+  unload: () => builtinEmbeddingService.stop(),
+});

@@ -8,8 +8,10 @@ import { useUIStore } from "../../../stores/ui.store";
 import { ListStatus } from "../../connections/ListFrame";
 import { SearchInput } from "../../ui/SearchInput";
 import { ProviderIcon } from "../../connections/ProviderIcon";
-import { useDeviceEngines } from "../../connections/DeviceDetail";
+import { builtInFirst, useDeviceEngines } from "../../connections/DeviceDetail";
 import { useBuiltinEmbeddingState } from "../../connections/BuiltinEmbeddingDetail";
+import { recommendedBuiltinTtsModel } from "@marinara-engine/shared";
+import { useBuiltinTts } from "../../../hooks/use-builtin-tts";
 import { DECISION_DEVICE_ID, EMBEDDING_DEVICE_ID, useDecisionEngine } from "../../overhaul/decision-engine";
 import {
   DECISION_BUILTIN,
@@ -92,15 +94,18 @@ function OnDeviceList({ onBack }: { onBack: () => void }) {
   const embedding = useBuiltinEmbeddingState();
   const engine = (item: string) => engines.find((entry) => entry.item === item);
   const local = engine("local-model");
-  const rows = [
-    // The same order as the On this device rows in Connections.
-    local && { id: "device:local-model", icon: "local-model", name: local.name, state: local.state },
-    ...engines
-      .filter((entry) => entry.item === "tts" || entry.item === "stt")
-      .map((entry) => ({ id: `device:${entry.item}`, icon: entry.item, name: entry.name, state: entry.state })),
-    decision && { id: DECISION_DEVICE_ID, icon: "decision", name: decision.name, state: decision.state },
-    embedding && { id: EMBEDDING_DEVICE_ID, icon: "builtin-embedding", name: embedding.name, state: embedding.state },
-  ].filter((row): row is { id: string; icon: string; name: string; state: string } => !!row);
+  const rows = builtInFirst(
+    [
+      // The same order as the On this device rows in Connections.
+      local && { id: "device:local-model", icon: "local-model", name: local.name, state: local.state },
+      ...engines
+        .filter((entry) => entry.item !== "local-model")
+        .map((entry) => ({ id: `device:${entry.item}`, icon: entry.item, name: entry.name, state: entry.state })),
+      decision && { id: DECISION_DEVICE_ID, icon: "decision", name: decision.name, state: decision.state },
+      embedding && { id: EMBEDDING_DEVICE_ID, icon: "builtin-embedding", name: embedding.name, state: embedding.state },
+    ].filter((row): row is { id: string; icon: string; name: string; state: string } => !!row),
+    (row) => row.icon,
+  );
   const open = (id: string) => {
     useUIStore.getState().closeModal();
     useUIStore.getState().openConnectionDetail(id);
@@ -143,8 +148,10 @@ export function ServiceListStep({
   kind,
   compact = false,
 }: ServiceListStepProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const localize = useLocalizedUiText();
+  const builtinTts = useBuiltinTts(compact);
+  const decisionEngine = useDecisionEngine();
   // The compact menu has no "All" tab: it opens on Text, the usual reason to add an account.
   const [type, setType] = useState<ModelType | "all" | "decision">(
     kind === "chat"
@@ -189,10 +196,61 @@ export function ServiceListStep({
   const decision = useDecisionSidecar(kind === "decision" && !compact);
   // The family name: the menu row that lists every model on this device.
   const builtInName = t("connections.add.device.builtIn");
-  // The new layout's menu has one Built-in model row for every type that runs here; it opens their list.
+  // Each tab of the new layout's menu offers the one built-in model for its type, opening that model's page.
+  const openDevice = (id: string) => {
+    useUIStore.getState().closeModal();
+    useUIStore.getState().openConnectionDetail(id);
+  };
+  const isLite = import.meta.env.VITE_MARINARA_LITE === "true";
+  // The built-in voice model leads the Voice tab: free, offline, nothing to host. Its tag names the model that
+  // suits the Engine's language (Supertonic 3 for Korean, Japanese, German, Polish and Russian).
+  const ttsName = t("connections.builtinTts.name");
+  if (compact && builtinTts.data?.supported && matches(`${ttsName} kokoro supertonic voice tts speech offline`)) {
+    const model = recommendedBuiltinTtsModel(i18n.language);
+    tiles.push({
+      id: "device:builtin-tts",
+      name: ttsName,
+      tag: builtinTts.data.models.find((entry) => entry.id === model)?.label ?? null,
+      good: true,
+      icon: <ProviderIcon provider="builtin-tts" size="add" />,
+      open: () => openDevice("device:builtin-tts"),
+      types: ["voice"],
+      group: "popular",
+    });
+  }
+  const sidecarName = t("connections.add.device.local_model");
+  if (compact && !isLite && matches(`${sidecarName} local offline device sidecar gemma chat`)) {
+    tiles.push({
+      id: "device:local-model",
+      name: sidecarName,
+      tag: t("connections.accounts.section.device"),
+      good: true,
+      icon: <ProviderIcon provider="local-model" size="add" />,
+      open: () => openDevice("device:local-model"),
+      types: ["text"],
+      group: "popular",
+    });
+  }
+  if (compact && decisionEngine && matches(`${decisionEngine.name} local offline device decision`)) {
+    tiles.push({
+      id: DECISION_DEVICE_ID,
+      name: decisionEngine.name,
+      tag: t("connections.accounts.section.device"),
+      good: true,
+      icon: <ProviderIcon provider="decision" size="add" />,
+      open: () => openDevice(DECISION_DEVICE_ID),
+      types: ["decision"],
+      group: "popular",
+      decisionOnly: true,
+    });
+  }
+  // The family row lists every model on this device; it shows only in a search, where the tabs are hidden.
   if (
     compact &&
-    matches(`${builtInName} local offline device sidecar decision embedding embeddings voice tts whisper dictation`)
+    needle &&
+    matches(
+      `${builtInName} local offline device sidecar decision embedding embeddings voice tts whisper dictation kokoro supertonic emotions mood avatar`,
+    )
   ) {
     tiles.push({
       id: ON_DEVICE,
@@ -201,7 +259,7 @@ export function ServiceListStep({
       good: true,
       icon: <ServiceTile service="local_model" />,
       open: () => setOnDevice(true),
-      types: ["text", "voice", "decision"],
+      types: [],
       group: "popular",
     });
   }

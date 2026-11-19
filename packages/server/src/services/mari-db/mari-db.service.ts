@@ -1777,6 +1777,8 @@ export function buildLorebookEntryCreateRow(
     ...parseLorebookDecisionActivation({
       decisionStatement: firstString(data, ["decisionStatement", "decision_statement"]),
       decisionMode: firstString(data, ["decisionMode", "decision_mode"]),
+      decisionPictures: data.decisionPictures ?? data.decision_pictures,
+      decisionMediaWithin: data.decisionMediaWithin ?? data.decision_media_within,
     }),
     locked: "false",
     // Message provenance: rows Mari creates are human-directed, so they are
@@ -1891,6 +1893,8 @@ function normalizeAgentActionData(input: Row, existing?: Row | null): Row {
     "activationThreshold",
     "activationScanDepth",
     "activationMaxSkip",
+    "activationPictures",
+    "activationClips",
     "runInterval",
   ]) {
     if (isRecord(input.settings) && (input.settings[key] === null || input.settings[key] === "")) delete settings[key];
@@ -4343,6 +4347,21 @@ export class MariDbService {
       target.decisionMode = parsedMode.data;
       changed = true;
     }
+    // Pictures read with the statement, for a decision model that reads pictures.
+    const picturesKey = ["decisionPictures", "decision_pictures"].find((key) => source[key] !== undefined);
+    if (picturesKey !== undefined) {
+      target.decisionPictures = parseLorebookDecisionActivation({
+        decisionPictures: source[picturesKey],
+      }).decisionPictures;
+      changed = true;
+    }
+    const withinKey = ["decisionMediaWithin", "decision_media_within"].find((key) => source[key] !== undefined);
+    if (withinKey !== undefined) {
+      target.decisionMediaWithin = parseLorebookDecisionActivation({
+        decisionMediaWithin: source[withinKey],
+      }).decisionMediaWithin;
+      changed = true;
+    }
     changed = assignBooleanTextField(target, source, ["selective"], "selective") || changed;
     const selectiveLogic = normalizeSelectiveLogic(source);
     if (selectiveLogic !== undefined) {
@@ -5151,6 +5170,8 @@ export class MariDbService {
             "excludeFromVectorization",
             "decisionStatement",
             "decisionMode",
+            "decisionPictures",
+            "decisionMediaWithin",
             "locked",
             "characterFilterMode",
             "characterFilterIds",
@@ -5228,6 +5249,8 @@ export class MariDbService {
             "excludeFromVectorization",
             "decisionStatement",
             "decisionMode",
+            "decisionPictures",
+            "decisionMediaWithin",
             "locked",
             "characterFilterMode",
             "characterFilterIds",

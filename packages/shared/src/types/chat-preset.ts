@@ -318,6 +318,10 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "illustratorWeatherBackgroundsEnabled", // Illustrator: weather versions of the background
   "illustratorDecisionLocationCheck", // Illustrator: Decision model checks for a new place
   "illustratorDecisionWeatherCheck", // Illustrator: Decision model checks for a weather change
+  "pictureCheck", // Illustrator and selfies: a decision model that reads pictures checks each one
+  "pictureCheckLines", // Illustrator and selfies: what else the picture check asks
+  "illustratorSkipShownScene", // Illustrator: skip a picture the newest one already shows
+  "illustratorReuseByLooking", // Illustrator: reuse a library background that looks like the place
   "illustratorVideoMode", // Illustrator: pictures, pictures and clips, or clips only
   "illustratorImagesPerGeneration", // Illustrator: images per run
   "illustratorRunInterval", // Illustrator: run interval

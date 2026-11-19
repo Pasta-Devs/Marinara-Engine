@@ -109,9 +109,9 @@ const BASICS: Row[] = [
     "Decision models",
     "connections/decision-models.md",
     "",
-    "answers yes-or-no questions for Marinara",
-    'A Decision model only answers small yes-or-no questions, like "did the scene move to a new place?". Its answers are never shown in the chat; they switch features on and off. It\'s optional, and the Built-in model can do it for free.',
-    "A referee who only says yes or no. Small and fast, so it can check every single reply without slowing the game down.",
+    "answers short questions about your chat for Marinara",
+    'A Decision model answers small questions about the chat instead of writing replies: usually yes or no, like "did the scene move to a new place?", but it can also pick one of a few options or give a score, and some can look at pictures shared in the chat. Its answers are never shown in the chat; they switch features on and off. It\'s optional, and the Built-in model can do it for free.',
+    "A referee who makes quick calls: yes or no, which one, how much. Small and fast, so it can check every single reply without slowing the game down.",
   ],
   [
     "AB7",

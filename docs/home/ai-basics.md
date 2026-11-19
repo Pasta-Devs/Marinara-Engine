@@ -34,7 +34,7 @@ Marinara can use more than one kind of model:
 | Kind                       | What it does                                                                                                               | Needed?                            |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | **Chat model**             | Writes the replies.                                                                                                        | Yes, one is enough to start.       |
-| **Decision model**         | Answers small yes-or-no questions, such as "did the scene move to a new place?".                                           | Optional.                          |
+| **Decision model**         | Answers small questions about the chat: yes or no, which of a few options, or how much. Some can look at pictures too.     | Optional.                          |
 | **Embedding model**        | Turns text into numbers that capture its meaning, so Marinara can find lore and memories by meaning. It never writes text. | Optional. A small one is built in. |
 | **Image reading**          | A model that can look at a picture and describe it.                                                                        | Optional.                          |
 | **Image, video and voice** | Separate services that make pictures, clips and speech. A chat model can't.                                                | Optional.                          |

@@ -1,5 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
 import {
+  lowerLocalModelPriorityAfterReply,
+  runWithLocalModelPriority,
+} from "../services/sidecar/local-model-priority.js";
+import {
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   type LocationBackgroundPin,
   applyClockCommandTags,
@@ -466,7 +470,19 @@ import { createCustomStickersStorage } from "../services/storage/custom-stickers
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../services/storage/persona-gallery.storage.js";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
+import { decisionMediaForMessage, hasRecentDecisionMedia } from "../services/decision/decision-media.js";
+import {
+  generateCheckedPicture,
+  newestChatPicture,
+  newestPictureAlreadyShows,
+  normalizePictureCheckMode,
+  parsePictureCheckLines,
+  pictureDataUrl,
+  resolvePictureDecisionBackend,
+  type PictureCheckLine,
+} from "../services/decision/picture-decisions.js";
 import { resolveGalleryImagePath } from "../services/image/gallery-image-path.js";
+import { reuseLibraryBackgroundByLooking } from "../services/generation/background-reuse-by-looking.js";
 import { isSentSelfieAttachment } from "../services/generation/prompt-attachments.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { gameTtsEmotionIndicatorsEnabled } from "../services/tts-emotion-guidance.js";
@@ -2165,6 +2181,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         ? scopedMessages.filter((message: any) => !isMessageHiddenFromAI(message))
         : scopedMessages;
       let lorebookKeeperMessages = chatMessages;
+      // Pictures and clips in the chat, for a built-in decision model that reads them.
+      // References only: nothing is read unless such a model is the one answering.
+      const decisionMediaGallery = createGalleryStorage(app.db);
+      const decisionMediaContext = {
+        chatId: input.chatId,
+        galleryImagePath: async (galleryId: string) => {
+          const image = await decisionMediaGallery.getById(galleryId, input.chatId);
+          return image ? resolveGalleryImagePath(image) : null;
+        },
+      };
       let regenMsg: any;
       let regenerateUserMessage: SimpleMessage | null = null;
       let regenerateUserSourceMessage: SimpleMessage | null = null;
@@ -3724,6 +3750,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 ? personaName
                 : (historyMacroProfilesById.get(message.characterId)?.name ?? "Narrator"),
             content: typeof message.content === "string" ? message.content : "",
+            media: decisionMediaForMessage(message, decisionMediaContext),
           }));
         // Sticky and cooldown (#6582): the chat's statement timers, moved on to this turn
         // once the turn is known below, and saved whenever they change.
@@ -6760,6 +6787,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         ): Promise<Set<string>> => {
           try {
             const candidates: ActivationQuestionCandidate[] = [];
+            // References only: nothing is read until a model that looks at pictures asks.
+            const withMedia = messages.map((message) => ({
+              ...message,
+              media: decisionMediaForMessage(message as { extra?: unknown }, decisionMediaContext),
+            }));
+            // Agents whose question waits for a picture or clip that is not there: they do not run.
+            const waiting = new Set<string>();
             for (const agent of agents) {
               if (!agentSupportsActivationGate(agent.type) || (agent.phase === "post_processing") !== postProcessing)
                 continue;
@@ -6777,14 +6811,22 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 )
                   continue;
               }
+              if (
+                activation.mediaWithin &&
+                !hasRecentDecisionMedia(withMedia, activation.mediaWithin, activation.media)
+              ) {
+                waiting.add(agent.id);
+                continue;
+              }
               candidates.push({
                 agentId: agent.id,
                 question: renderAgentPromptTemplate(activation.question, agent.settings, agentContext),
                 threshold: activation.threshold,
                 scanDepth: activation.scanDepth,
+                media: activation.media,
               });
             }
-            if (candidates.length === 0 || agentSignal.aborted) return new Set();
+            if (candidates.length === 0 || agentSignal.aborted) return waiting;
             const backend = await resolveDecisionBackend(
               {
                 getLocalDefault: () => appSettings.get(DECISION_SETTINGS_KEYS.localDefault),
@@ -6796,14 +6838,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               },
               agentSignal,
             );
-            if (!backend) return new Set();
+            if (!backend) return waiting;
             // A model that has to reason first takes seconds, and a pre-generation or
             // parallel gate sits in front of the user's reply. Those agents run as if
             // they had no question unless the user opted into waiting for them.
-            if (!postProcessing && backend.deferPreGeneration) return new Set();
+            if (!postProcessing && backend.deferPreGeneration) return waiting;
             const evaluation = await evaluateActivationQuestions({
               candidates,
-              messages: messages.map((message) => ({
+              messages: withMedia.map((message) => ({
                 ...message,
                 name:
                   message.role === "user"
@@ -6813,6 +6855,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               })),
               maxStateTokens: backend.maxStateTokens,
               defaultThreshold: backend.calibration.defaultThreshold,
+              ...(backend.mediaTokens ? { mediaTokens: backend.mediaTokens } : {}),
               ask: backend.ask,
             });
             for (const candidate of candidates) {
@@ -6824,7 +6867,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   candidate.threshold,
                 );
             }
-            return evaluation.skip;
+            return new Set([...evaluation.skip, ...waiting]);
           } catch {
             logger.warn("[decision] Activation evaluation failed; leaving eligible agents enabled");
             return new Set();
@@ -9785,6 +9828,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           const textChatOptions: ChatOptions = {
             ...(advancedMemoryEnabled ? { preserveContext: true } : {}),
+            localPriority: "reply",
             model: conn.model,
             temperature,
             maxTokens: effectiveMaxTokensForSend,
@@ -9861,6 +9905,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 requestOptions: () => {
                   replyThinking = "";
                   return {
+                    localPriority: "reply",
                     model: conn.model,
                     preserveContext: advancedMemoryEnabled,
                     temperature,
@@ -13047,9 +13092,16 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 weatherVersions: weatherVersionsEnabled,
                 galleryPins: await galleryPinsForChat(),
               });
-              const reuseFromPlan = (plan: { locationName: string }) => {
+              const reuseFromPlan = async (plan: { locationName: string }) => {
                 // No tracker location to go by: the Prompt Model's place name is matched instead.
-                const found = matchLibraryBackgroundForLocation(plan.locationName, readChatBackgroundLibrary());
+                const library = readChatBackgroundLibrary();
+                const found =
+                  matchLibraryBackgroundForLocation(plan.locationName, library) ??
+                  // Optional: no name matches, so a decision model that reads pictures looks at a
+                  // few backgrounds sharing words with the place, and reuses one that shows it.
+                  (freshMeta.illustratorReuseByLooking === true
+                    ? await reuseLibraryBackgroundByLooking(app.db, plan.locationName, library, agentSignal)
+                    : null);
                 if (!found) return null;
                 if (!weatherVersionsEnabled || !weatherForReuse) return found;
                 const weatherPlan = planChatBackgroundWeather(found, weatherForReuse);
@@ -13331,6 +13383,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         }
 
         await finalizeLorebookWrites();
+        // The reply is written: what this generation still sends the built-in model ranks below the next reply.
+        lowerLocalModelPriorityAfterReply();
         const hasPostProcessingAgents = resolvedAgents.some((a) => a.phase === "post_processing");
         // A continued reply's segment is only the added text, so it reads only the whispers written with it.
         agentContext.mainResponseSegments = shouldPrefixGroupHistorySpeakers
@@ -15542,7 +15596,32 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 }
               }
 
-              if (!storyboardSuppressesForeground && shouldGenerate && imagePrompt) {
+              // Optional: skip a picture the chat's newest one already shows. Never for a picture the user asked for.
+              let alreadyShown = false;
+              if (
+                !storyboardSuppressesForeground &&
+                shouldGenerate &&
+                imagePrompt &&
+                !commandTarget &&
+                usesChatIllustratorSettings &&
+                chatMeta.illustratorSkipShownScene === true
+              ) {
+                const skipBackend = await resolvePictureDecisionBackend(app.db, agentSignal);
+                const newest = skipBackend
+                  ? await newestChatPicture(allChatMessages as Array<{ extra?: unknown }>, decisionMediaContext)
+                  : null;
+                alreadyShown =
+                  !!skipBackend &&
+                  !!newest &&
+                  (await newestPictureAlreadyShows({
+                    backend: skipBackend,
+                    picture: newest,
+                    description: imagePrompt,
+                  }));
+                if (alreadyShown) logger.info("[illustrator] Skipped: the newest picture already shows this moment");
+              }
+
+              if (!storyboardSuppressesForeground && shouldGenerate && imagePrompt && !alreadyShown) {
                 // Resolve connections: text LLM = connectionId, image gen = settings.imageConnectionId
                 const imagePositivePrompt = ((imagePromptAgent?.settings?.imagePositivePrompt as string) ?? "").trim();
                 const savedNegativePrompt = ((imagePromptAgent?.settings?.imageNegativePrompt as string) ?? "").trim();
@@ -15870,27 +15949,49 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           : undefined;
                       fullPrompt = compiledPrompt.prompt;
 
+                      // Optional: a decision model that reads pictures checks each picture against what was
+                      // asked, and asks for another when it does not match (or always makes two and keeps
+                      // the better). Off, or without such a model, nothing is asked.
+                      const pictureCheckMode = normalizePictureCheckMode(chatMeta.pictureCheck);
+                      const pictureCheckBackend =
+                        pictureCheckMode === "off" ? null : await resolvePictureDecisionBackend(app.db, agentSignal);
+                      const pictureCheckLines: PictureCheckLine[] = [
+                        ...(imagePrompt.trim()
+                          ? [{ statement: `The picture matches this description: ${imagePrompt.trim().slice(0, 300)}` }]
+                          : []),
+                        ...parsePictureCheckLines(chatMeta.pictureCheckLines),
+                      ];
                       const imageResults = await generateIllustratorImageVariants({
                         count: chatMeta.illustratorImagesPerGeneration,
-                        generate: () =>
-                          generateImage(imgModel, imgBaseUrl, imgApiKey, imgServiceHint, {
-                            prompt: compiledPrompt.prompt,
-                            negativePrompt: finalNegativePrompt || undefined,
-                            model: imgModel,
-                            width: imgWidth,
-                            height: imgHeight,
-                            imageEndpointId: imgConnFull.imageEndpointId || undefined,
-                            comfyWorkflow: imgConnFull.comfyuiWorkflow || undefined,
-                            imageDefaults,
-                            quality: resolveConnectionImageQuality(imgConnFull),
-                            referenceImages: illustratorRefImages,
-                            ...(illustratorCharacterPrompts.length > 0
-                              ? { characterPrompts: illustratorCharacterPrompts }
-                              : {}),
-                            debugMode: input.debugMode,
-                            fallback: providerAwareImageFallback,
-                            onFallback,
-                          }),
+                        generate: async () =>
+                          (
+                            await generateCheckedPicture({
+                              mode: pictureCheckMode,
+                              backend: pictureCheckBackend,
+                              lines: pictureCheckLines,
+                              label: "Illustrator",
+                              toDataUrl: (result) => pictureDataUrl(result.base64, result.ext),
+                              generate: () =>
+                                generateImage(imgModel, imgBaseUrl, imgApiKey, imgServiceHint, {
+                                  prompt: compiledPrompt.prompt,
+                                  negativePrompt: finalNegativePrompt || undefined,
+                                  model: imgModel,
+                                  width: imgWidth,
+                                  height: imgHeight,
+                                  imageEndpointId: imgConnFull.imageEndpointId || undefined,
+                                  comfyWorkflow: imgConnFull.comfyuiWorkflow || undefined,
+                                  imageDefaults,
+                                  quality: resolveConnectionImageQuality(imgConnFull),
+                                  referenceImages: illustratorRefImages,
+                                  ...(illustratorCharacterPrompts.length > 0
+                                    ? { characterPrompts: illustratorCharacterPrompts }
+                                    : {}),
+                                  debugMode: input.debugMode,
+                                  fallback: providerAwareImageFallback,
+                                  onFallback,
+                                }),
+                            })
+                          ).result,
                         onVariantError: (error, index) =>
                           logger.warn(error, "[illustrator] Image variant %d failed", index + 1),
                       });
@@ -16977,7 +17078,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
     } catch (error) {
       return rejectGenerationOutput(output, 409, { error: (error as Error).message, code: "room_generation_required" });
     }
-    return runWithRoomGeneration(policy, () => executeGeneration(input, output));
+    // Built-in model requests made while this reply is prepared rank above everything else;
+    // the context drops a level once the reply is written (see local-model-priority.ts).
+    return runWithLocalModelPriority("prepare", () =>
+      runWithRoomGeneration(policy, () => executeGeneration(input, output)),
+    );
   };
 
   app.post("/", async (req, reply) => runGeneration(generateRequestSchema.parse(req.body), reply));

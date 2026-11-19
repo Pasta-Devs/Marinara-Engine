@@ -497,7 +497,7 @@ export function CardGallery({
           )}
         </span>
       </td>
-      <td className="ov-table__name ov-cl__name">
+      <td className="ov-table__name ov-cl__name" title={card.name}>
         <span className="ov-cl__title">
           <span className="ov-cl__name-text">{card.name}</span>
           {card.hasLorebook ? lorebookMark : null}
@@ -516,7 +516,7 @@ export function CardGallery({
         <td className="ov-table__desc ov-cl__notes">{notesPreview(card).replace(/\n/g, " ") || "—"}</td>
       ) : null}
       <td className={cn("ov-cl__tags", !isCharacters && "ov-table__desc")} title={card.tags.join(", ") || undefined}>
-        {card.tags.length ? card.tags.map((tag) => `#${tag}`).join(" ") : "—"}
+        <span className="ov-table__clip">{card.tags.length ? card.tags.map((tag) => `#${tag}`).join(" ") : "—"}</span>
       </td>
       <td className="ov-table__num">{card.tokens}</td>
       <td className="ov-cl__updated">{formatRelativeContact(card.updatedAt) ?? "—"}</td>
@@ -557,6 +557,41 @@ export function CardGallery({
     </select>
   );
 
+  // Desktop: List is the first stop on the card-size switch (one control, so the toolbar keeps one line), and it
+  // sits before the sort as on Lorebooks and Presets. Phones and tablets have the List / Gallery switch in the
+  // header, and this one after the sort.
+  const sizeSwitch = (
+    <div className="ov-seg ov-gallery__size" role="group" aria-label={localize("View")} hidden={mobile && listView}>
+      {mobile ? null : (
+        <button
+          type="button"
+          className={cn(listView && "is-on")}
+          aria-pressed={listView}
+          title={localize("List")}
+          aria-label={localize("List")}
+          onClick={() => setListView(true)}
+        >
+          <List size={14} aria-hidden="true" />
+        </button>
+      )}
+      {GALLERY_SIZES.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className={cn(!listView && cardSize === option.id && "is-on")}
+          aria-pressed={!listView && cardSize === option.id}
+          title={localize(option.title)}
+          aria-label={localize(option.title)}
+          onClick={() => {
+            setCardSize(option.id);
+            setListView(false);
+          }}
+        >
+          <option.icon size={option.iconSize} aria-hidden="true" />
+        </button>
+      ))}
+    </div>
+  );
   const viewSwitch = <ViewSwitch gallery={!listView} onChange={(gallery) => setListView(!gallery)} />;
   const folderRow = (folder: (typeof groups)[number]["folder"], count: number, open: boolean) => (
     <tr key={`folder:${folder.id}`} className="ov-table__folder">
@@ -612,7 +647,7 @@ export function CardGallery({
                 <th className="ov-table__lead" aria-hidden="true" />
                 <th className="ov-table__name">{localize(isCharacters ? "Character" : "Persona")}</th>
                 {isCharacters ? <th className="ov-table__desc">{localize("Creator's Notes")}</th> : null}
-                <th className={cn(!isCharacters && "ov-table__desc")}>{localize("Tags")}</th>
+                <th className={cn("ov-cl__tags", !isCharacters && "ov-table__desc")}>{localize("Tags")}</th>
                 <th className="ov-table__num">{localize("Tokens")}</th>
                 <th>{localize("Updated")}</th>
                 <th className="ov-table__more" aria-hidden="true" />
@@ -707,6 +742,7 @@ export function CardGallery({
         ) : null}
         <span className="ov-gallery__spacer" />
         <KitFolderViewToggle folders={folders} view={folderView} />
+        {mobile ? null : sizeSwitch}
         <select
           className="ov-select"
           value={sort}
@@ -732,38 +768,7 @@ export function CardGallery({
             className="ovm-lp-view--tools"
           />
         ) : null}
-        {/* Desktop: List is the first stop on the card-size switch (one control, so the toolbar keeps one
-            line); phones and tablets have the List / Gallery switch in the header. */}
-        <div className="ov-seg ov-gallery__size" role="group" aria-label={localize("View")} hidden={mobile && listView}>
-          {mobile ? null : (
-            <button
-              type="button"
-              className={cn(listView && "is-on")}
-              aria-pressed={listView}
-              title={localize("List")}
-              aria-label={localize("List")}
-              onClick={() => setListView(true)}
-            >
-              <List size={14} aria-hidden="true" />
-            </button>
-          )}
-          {GALLERY_SIZES.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              className={cn(!listView && cardSize === option.id && "is-on")}
-              aria-pressed={!listView && cardSize === option.id}
-              title={localize(option.title)}
-              aria-label={localize(option.title)}
-              onClick={() => {
-                setCardSize(option.id);
-                setListView(false);
-              }}
-            >
-              <option.icon size={option.iconSize} aria-hidden="true" />
-            </button>
-          ))}
-        </div>
+        {mobile ? sizeSwitch : null}
       </div>
 
       {listView ? listBody : null}

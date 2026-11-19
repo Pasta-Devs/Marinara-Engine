@@ -35,6 +35,7 @@ import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
 import { appendImportTags, ImportTagChecks, importTagsBody, useImportTagChoice } from "./ImportTagChecks";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import { ImportOptionPicker } from "./ImportOptionPicker";
 
 interface Props {
   open: boolean;
@@ -82,6 +83,33 @@ const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; short: st
   },
 ];
 
+/** What happens to a card's embedded lorebook: asked per import, or decided up front for every card. */
+type EmbeddedLorebookMode = "ask" | EmbeddedLorebookChoice;
+type EmbeddedLorebookChoice = "all" | "hidden" | "none";
+
+const EMBEDDED_LOREBOOK_OPTIONS: Array<{ value: EmbeddedLorebookMode; short: string; description: string }> = [
+  {
+    value: "ask",
+    short: "ui.modals.importcharactermodal.ovLorebooksAsk",
+    description: "ui.modals.importcharactermodal.lorebooksAskHint",
+  },
+  {
+    value: "all",
+    short: "ui.modals.importcharactermodal.ovLorebooksAll",
+    description: "ui.modals.importcharactermodal.lorebooksAllHint",
+  },
+  {
+    value: "hidden",
+    short: "ui.modals.importcharactermodal.ovLorebooksHidden",
+    description: "ui.modals.importcharactermodal.lorebooksHiddenHint",
+  },
+  {
+    value: "none",
+    short: "ui.modals.importcharactermodal.ovLorebooksNone",
+    description: "ui.modals.importcharactermodal.lorebooksNoneHint",
+  },
+];
+
 type RegexScriptScope = "character" | "global";
 
 const REGEX_SCOPE_OPTIONS: Array<{ value: RegexScriptScope; label: string; short: string; description: string }> = [
@@ -98,44 +126,6 @@ const REGEX_SCOPE_OPTIONS: Array<{ value: RegexScriptScope; label: string; short
     description: "ui.modals.importcharactermodal.scopeGlobalHint",
   },
 ];
-
-/** New layout: a label-left segmented picker with the chosen option's description underneath. */
-function OvImportPicker<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: Array<{ value: T; short: string; description: string }>;
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const current = options.find((option) => option.value === value);
-  return (
-    <div className="ov-imp__pick">
-      <span className="ov-imp__label">{label}</span>
-      <div className="ov-imp__choice">
-        <div className="ov-seg" role="radiogroup" aria-label={label}>
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={option.value === value}
-              className={cn(option.value === value && "is-on")}
-              onClick={() => onChange(option.value)}
-            >
-              {localizeUi(option.short)}
-            </button>
-          ))}
-        </div>
-        {current ? <p className="ov-imp__desc">{localizeUi(current.description)}</p> : null}
-      </div>
-    </div>
-  );
-}
 
 export function ImportCharacterModal({ open, onClose }: Props) {
   const { t: localizeUi } = useUiTranslation();
@@ -159,6 +149,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
   const [creatorNotes, setCreatorNotes] = useState<CreatorNotesUpdate>("merge");
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
   const [regexScriptScope, setRegexScriptScope] = useState<RegexScriptScope>("character");
+  const [embeddedLorebookMode, setEmbeddedLorebookMode] = useState<EmbeddedLorebookMode>("ask");
   const [splitDescription, setSplitDescription] = useState(false);
   const importTags = useImportTagChoice();
   // The row whose split summary is shown; kept after closing so the dialog does not empty while it fades.
@@ -181,11 +172,14 @@ export function ImportCharacterModal({ open, onClose }: Props) {
 
   const handleFiles = async (
     files: File[],
-    importEmbeddedLorebook?: boolean,
+    lorebookChoice?: EmbeddedLorebookChoice,
     updatePlan?: CardUpdatePlan,
     knownInspections?: CharacterFileInspection[],
   ) => {
     if (files.length === 0) return;
+    // A choice made in the window ("All", "Hidden", "None") skips the per-import question.
+    const embeddedLorebookChoice =
+      lorebookChoice ?? (embeddedLorebookMode === "ask" ? undefined : embeddedLorebookMode);
     setStatus("loading");
     setResults([]);
     setPendingLorebookChoice(null);
@@ -229,7 +223,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
       // embedded lorebooks. The files keep their positions, so a choice stays with its file.
       const stKeys = new Map(stCharacterFiles.map((file) => [file, fileKey(file, files.indexOf(file))] as const));
       let inspections = knownInspections;
-      if (stCharacterFiles.length > 0 && (updatePlan === undefined || importEmbeddedLorebook === undefined)) {
+      if (stCharacterFiles.length > 0 && (updatePlan === undefined || embeddedLorebookChoice === undefined)) {
         inspections ??= await inspectCharacterFiles(stCharacterFiles);
       }
       if (inspections && updatePlan === undefined) {
@@ -255,7 +249,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
         }
       }
       const decisionFor = (file: File) => updatePlan?.decisions[stKeys.get(file) ?? ""];
-      if (inspections && importEmbeddedLorebook === undefined) {
+      if (inspections && embeddedLorebookChoice === undefined) {
         const previews = stCharacterFiles.flatMap((file, index) => {
           const inspection = inspections![index];
           return inspection?.success && inspection.hasEmbeddedLorebook && decisionFor(file) !== "skip"
@@ -314,7 +308,8 @@ export function ImportCharacterModal({ open, onClose }: Props) {
             })),
           ),
         );
-        form.append("importEmbeddedLorebook", String(importEmbeddedLorebook ?? true));
+        form.append("importEmbeddedLorebook", String(embeddedLorebookChoice !== "none"));
+        form.append("hideEmbeddedLorebook", String(embeddedLorebookChoice === "hidden"));
         form.append("tagImportMode", tagImportMode);
         form.append("regexScriptScope", regexScriptScope);
         form.append("splitDescription", String(splitDescription));
@@ -352,7 +347,9 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                     result.embeddedLorebook?.skipped
                       ? "ui.modals.importcharactermodal.importedNameWithoutLorebook"
                       : result.lorebook?.lorebookId
-                        ? "ui.modals.importcharactermodal.importedNameWithLorebook"
+                        ? embeddedLorebookChoice === "hidden"
+                          ? "ui.modals.importcharactermodal.importedNameWithHiddenLorebook"
+                          : "ui.modals.importcharactermodal.importedNameWithLorebook"
                         : "ui.modals.importcharactermodal.importedName",
                     { name: result.name ?? result.filename },
                   )
@@ -494,6 +491,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
     setCreatorNotes("merge");
     setTagImportMode("all");
     setRegexScriptScope("character");
+    setEmbeddedLorebookMode("ask");
     setSplitDescription(false);
     importTags.reset();
   };
@@ -600,37 +598,51 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleFiles(
-                        pendingLorebookChoice.files,
-                        false,
-                        pendingLorebookChoice.updatePlan,
-                        pendingLorebookChoice.inspections,
-                      )
-                    }
-                    className={SHEET_BUTTON_SECONDARY}
-                  >
-                    {localizeUi("ui.modals.importcharactermodal.noImport")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleFiles(
-                        pendingLorebookChoice.files,
-                        true,
-                        pendingLorebookChoice.updatePlan,
-                        pendingLorebookChoice.inspections,
-                      )
-                    }
-                    className={SHEET_BUTTON_PRIMARY}
-                  >
-                    {localizeUi("ui.modals.importcharactermodal.importLorebook")}
-                  </button>
-                </div>
               </div>
+            </div>
+            <div className="mt-3 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end [&>button]:whitespace-nowrap">
+              <button
+                type="button"
+                onClick={() =>
+                  void handleFiles(
+                    pendingLorebookChoice.files,
+                    "none",
+                    pendingLorebookChoice.updatePlan,
+                    pendingLorebookChoice.inspections,
+                  )
+                }
+                className={SHEET_BUTTON_SECONDARY}
+              >
+                {localizeUi("ui.modals.importcharactermodal.noImport")}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void handleFiles(
+                    pendingLorebookChoice.files,
+                    "hidden",
+                    pendingLorebookChoice.updatePlan,
+                    pendingLorebookChoice.inspections,
+                  )
+                }
+                className={SHEET_BUTTON_SECONDARY}
+              >
+                {localizeUi("ui.modals.importcharactermodal.importLorebookHidden")}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void handleFiles(
+                    pendingLorebookChoice.files,
+                    "all",
+                    pendingLorebookChoice.updatePlan,
+                    pendingLorebookChoice.inspections,
+                  )
+                }
+                className={SHEET_BUTTON_PRIMARY}
+              >
+                {localizeUi("ui.modals.importcharactermodal.importLorebook")}
+              </button>
             </div>
           </div>
         )}
@@ -658,17 +670,23 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                 {localizeUi("ui.modals.importcharactermodal.ovBrowse")}
               </button>
             </div>
-            <OvImportPicker
+            <ImportOptionPicker
               label={localizeUi("ui.modals.importcharactermodal.ovCardTags")}
               options={TAG_IMPORT_OPTIONS}
               value={tagImportMode}
               onChange={setTagImportMode}
             />
-            <OvImportPicker
+            <ImportOptionPicker
               label={localizeUi("ui.modals.importcharactermodal.ovRegexScripts")}
               options={REGEX_SCOPE_OPTIONS}
               value={regexScriptScope}
               onChange={setRegexScriptScope}
+            />
+            <ImportOptionPicker
+              label={localizeUi("ui.modals.importcharactermodal.ovLorebooks")}
+              options={EMBEDDED_LOREBOOK_OPTIONS}
+              value={embeddedLorebookMode}
+              onChange={setEmbeddedLorebookMode}
             />
             <label className="ov-imp__pick ov-imp__check">
               <span className="ov-imp__label">{localizeUi("ui.modals.importcharactermodal.ovDescription")}</span>
@@ -766,6 +784,41 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                     />
                     <span className="block text-xs font-medium text-[var(--foreground)]">
                       {localizeUi(option.label)}
+                    </span>
+                    <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                      {localizeUi(option.description)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-3">
+              <div className="mb-2">
+                <p className="text-xs font-semibold text-[var(--foreground)]">
+                  {localizeUi("ui.modals.importcharactermodal.embeddedLorebooks")}
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-4">
+                {EMBEDDED_LOREBOOK_OPTIONS.map((option) => (
+                  <label
+                    key={option.value}
+                    className={`cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
+                      embeddedLorebookMode === option.value
+                        ? "border-[var(--primary)] bg-[var(--primary)]/10"
+                        : "border-[var(--border)] bg-[var(--background)]/40 hover:border-[var(--muted-foreground)]"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="embeddedLorebookMode"
+                      value={option.value}
+                      checked={embeddedLorebookMode === option.value}
+                      onChange={() => setEmbeddedLorebookMode(option.value)}
+                      className="sr-only"
+                    />
+                    <span className="block text-xs font-medium text-[var(--foreground)]">
+                      {localizeUi(option.short)}
                     </span>
                     <span className="mt-1 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
                       {localizeUi(option.description)}

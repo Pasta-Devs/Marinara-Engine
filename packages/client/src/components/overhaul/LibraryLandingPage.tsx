@@ -37,10 +37,19 @@ const TablesPage = preloadedLazy(() =>
 );
 const SettingsModulePage = preloadedLazy(() =>
   loadSettings().then((m) => {
-    function SettingsModulePage({ section }: PageProps) {
-      return section === "extensions" ? <m.OverhaulExtensionsPage /> : <m.OverhaulSettingsPage />;
+    function SettingsModulePage(_props: PageProps) {
+      return <m.OverhaulSettingsPage />;
     }
     return SettingsModulePage;
+  }),
+);
+// Extensions is a list + editor viewer, like Custom tools.
+const ExtensionsPage = preloadedLazy(() =>
+  import("./ExtensionsViewer").then((m) => {
+    function ExtensionsPage(_props: PageProps) {
+      return <m.OvExtensionsViewer />;
+    }
+    return ExtensionsPage;
   }),
 );
 // Agents opens on the Agent Organizer, which lists installed and the user's own agents.
@@ -59,7 +68,7 @@ const PAGES: Partial<Record<LibrarySection, ComponentType<PageProps>>> = {
   connections: TablesPage,
   agents: AgentsPage,
   settings: SettingsModulePage,
-  extensions: SettingsModulePage,
+  extensions: ExtensionsPage,
 };
 /**
  * Fetches every Library page's code (and Settings' sections) so opening one renders at once
@@ -70,6 +79,7 @@ export function preloadLibraryPages() {
     TablesPage.preload(),
     SettingsModulePage.preload(),
     AgentsPage.preload(),
+    ExtensionsPage.preload(),
     loadSettings().then((m) => m.preloadOverhaulSettingsSections()),
   ]).catch(() => undefined);
 }

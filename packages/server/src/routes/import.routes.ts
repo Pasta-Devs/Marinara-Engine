@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { execFile } from "child_process";
+import { randomUUID } from "node:crypto";
 import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
 import { readdir, stat } from "fs/promises";
@@ -34,7 +35,13 @@ import {
 import { importSTPreset } from "../services/import/st-prompt.importer.js";
 import { importSTLorebook } from "../services/import/st-lorebook.importer.js";
 import { importMarinara } from "../services/import/marinara.importer.js";
-import { scanSTFolder, runSTBulkImport, type STBulkImportOptions } from "../services/import/st-bulk.importer.js";
+import {
+  scanSTFolder,
+  runSTBulkImport,
+  type ImportProgress as STBulkImportProgress,
+  type STBulkImportOptions,
+  type STBulkImportResult,
+} from "../services/import/st-bulk.importer.js";
 import { characters as charactersTable } from "../db/schema/index.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { newId } from "../utils/id-generator.js";
@@ -45,6 +52,7 @@ import { assertInsideDir, safeCompareString, tokenForPath } from "../utils/secur
 import { logger } from "../lib/logger.js";
 import { openZipArchive, type ZipArchive } from "../lib/zip-reader.js";
 import { parseJsonBytes } from "../utils/large-json.js";
+import { STATUS_POLL_RATE_LIMIT } from "../middleware/rate-limit.js";
 
 const PICK_FOLDER_TIMEOUT_MS = 60_000; // 60s — prevents infinite hang on headless servers
 const FOLDER_TOKEN_TTL_MS = 15 * 60_000;
@@ -523,6 +531,7 @@ async function importCharacterBuffer(
   splitDescription?: boolean,
   importTags?: ImportTagOptions,
   update?: CharacterUpdateTarget,
+  hideEmbeddedLorebook?: boolean,
 ) {
   const updateOptions = update
     ? {
@@ -547,6 +556,7 @@ async function importCharacterBuffer(
         await importSTCharacter(charData, db, {
           timestampOverrides,
           importEmbeddedLorebook,
+          hideEmbeddedLorebook,
           tagImportMode,
           existingTagKeys,
           regexScriptScope,
@@ -565,6 +575,7 @@ async function importCharacterBuffer(
     return importCharX(buffer, db, {
       timestampOverrides,
       importEmbeddedLorebook,
+      hideEmbeddedLorebook,
       tagImportMode,
       existingTagKeys,
       regexScriptScope,
@@ -589,6 +600,7 @@ async function importCharacterBuffer(
       await importSTCharacter(json, db, {
         timestampOverrides,
         importEmbeddedLorebook,
+        hideEmbeddedLorebook,
         tagImportMode,
         existingTagKeys,
         regexScriptScope,
@@ -633,6 +645,22 @@ async function inspectCharacterBuffer(fileName: string, buffer: Buffer) {
       embeddedLorebookEntries: 0,
     };
   }
+}
+
+type STBulkImportJob = {
+  id: string;
+  running: boolean;
+  startedAt: string;
+  finishedAt?: string;
+  progress: STBulkImportProgress | null;
+  result: STBulkImportResult | null;
+};
+
+/** One SillyTavern import at a time; a second start would import everything twice. */
+let stBulkImportJob: STBulkImportJob | null = null;
+
+function emptyImportCounts(): STBulkImportResult["imported"] {
+  return { characters: 0, chats: 0, groupChats: 0, presets: 0, lorebooks: 0, backgrounds: 0, personas: 0 };
 }
 
 export async function importRoutes(app: FastifyInstance) {
@@ -912,7 +940,7 @@ export async function importRoutes(app: FastifyInstance) {
     // Handle multipart file upload (PNG character cards)
     if (contentType.includes("multipart/form-data")) {
       const file = await req.file({
-        limits: { fields: 8, parts: 9, files: 1, fieldSize: 64 * 1024, fileSize: IMPORT_BODY_LIMIT_BYTES },
+        limits: { fields: 9, parts: 10, files: 1, fieldSize: 64 * 1024, fileSize: IMPORT_BODY_LIMIT_BYTES },
       });
       if (!file) return { success: false, error: "No file uploaded" };
       const timestampOverrides = readTimestampOverridesFromMultipart(file as any);
@@ -941,12 +969,15 @@ export async function importRoutes(app: FastifyInstance) {
         regexScriptScope,
         splitDescription,
         readMultipartImportTags(file as any),
+        undefined,
+        readMultipartBooleanField(file as any, "hideEmbeddedLorebook"),
       );
     }
 
     // Standard JSON body
     const body = { ...(req.body as Record<string, unknown>) };
     const importEmbeddedLorebook = readBooleanOption(body.importEmbeddedLorebook);
+    const hideEmbeddedLorebook = readBooleanOption(body.hideEmbeddedLorebook);
     const rawTagImportMode = body.tagImportMode;
     const tagImportMode = readTagImportMode(rawTagImportMode);
     if (rawTagImportMode !== undefined && tagImportMode === undefined) return invalidTagImportModeResponse();
@@ -959,6 +990,7 @@ export async function importRoutes(app: FastifyInstance) {
     const useCardPicture = body.useCardPicture !== false;
     const creatorNotes = readCreatorNotesUpdate(body.creatorNotes);
     delete body.importEmbeddedLorebook;
+    delete body.hideEmbeddedLorebook;
     delete body.tagImportMode;
     delete body.regexScriptScope;
     delete body.splitDescription;
@@ -969,6 +1001,7 @@ export async function importRoutes(app: FastifyInstance) {
       return await importSTCharacter(body, app.db, {
         timestampOverrides: readTimestampOverridesFromBody(body),
         importEmbeddedLorebook,
+        hideEmbeddedLorebook,
         tagImportMode,
         regexScriptScope,
         splitDescription,
@@ -1049,6 +1082,7 @@ export async function importRoutes(app: FastifyInstance) {
     let totalBytes = 0;
     const timestampEntries: Array<{ name?: string; lastModified?: number | string }> = [];
     let importEmbeddedLorebook: boolean | undefined;
+    let hideEmbeddedLorebook: boolean | undefined;
     let tagImportMode: STCharacterTagImportMode | undefined;
     let invalidTagImportMode = false;
     let regexScriptScope: "character" | "global" | undefined;
@@ -1088,6 +1122,10 @@ export async function importRoutes(app: FastifyInstance) {
 
       if (part.fieldname === "importEmbeddedLorebook") {
         importEmbeddedLorebook = readBooleanOption(part.value);
+      }
+
+      if (part.fieldname === "hideEmbeddedLorebook") {
+        hideEmbeddedLorebook = readBooleanOption(part.value);
       }
 
       if (part.fieldname === "tagImportMode") {
@@ -1150,6 +1188,7 @@ export async function importRoutes(app: FastifyInstance) {
           splitDescription,
           importTags,
           takeCharacterUpdateTarget(updateTargets, fileIndex, file.filename),
+          hideEmbeddedLorebook,
         );
         results.push({ filename: file.filename, ...result });
       } catch (error) {
@@ -1234,6 +1273,27 @@ export async function importRoutes(app: FastifyInstance) {
     }
     if (bulkRegexScriptScope) options.regexScriptScope = bulkRegexScriptScope;
     options.importTags = readImportTagOptions((req.body as { options?: { importTags?: unknown } }).options?.importTags);
+    const bulkLorebookOptions = req.body as {
+      options?: { importEmbeddedLorebook?: unknown; hideEmbeddedLorebook?: unknown };
+    };
+    options.importEmbeddedLorebook = readBooleanOption(bulkLorebookOptions.options?.importEmbeddedLorebook);
+    options.hideEmbeddedLorebook = readBooleanOption(bulkLorebookOptions.options?.hideEmbeddedLorebook);
+
+    if (stBulkImportJob?.running) {
+      return reply.status(409).send({
+        success: false,
+        code: "import-running",
+        error: "A SillyTavern import is already running. Its progress is shown here until it finishes.",
+      });
+    }
+    const job: STBulkImportJob = {
+      id: randomUUID(),
+      running: true,
+      startedAt: new Date().toISOString(),
+      progress: null,
+      result: null,
+    };
+    stBulkImportJob = job;
 
     // Set up SSE headers
     reply.raw.writeHead(200, {
@@ -1242,19 +1302,42 @@ export async function importRoutes(app: FastifyInstance) {
       Connection: "keep-alive",
     });
 
+    // The import keeps going when the page goes away (tab closed, laptop asleep, dropped
+    // connection): it is the server's work, and stopping halfway would leave half a library.
+    // GET /st-bulk/status lets a reopened page pick the progress back up.
     const sendEvent = (event: string, data: unknown) => {
+      if (reply.raw.destroyed || reply.raw.writableEnded) return;
       reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     };
+    // A heartbeat keeps proxies and browsers from closing a quiet stream during one long item.
+    const heartbeat = setInterval(() => {
+      if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.write(": keep-alive\n\n");
+    }, 15_000);
+    heartbeat.unref();
 
     try {
       const result = await runSTBulkImport(resolved.path, options, app.db, (progress) => {
+        job.progress = progress;
         sendEvent("progress", progress);
       });
+      job.result = result;
       sendEvent("done", result);
     } catch (err) {
-      sendEvent("done", { success: false, error: (err as Error).message, imported: {}, errors: [] });
+      job.result = { success: false, error: (err as Error).message, imported: emptyImportCounts(), errors: [] };
+      sendEvent("done", job.result);
+    } finally {
+      clearInterval(heartbeat);
+      job.running = false;
+      job.finishedAt = new Date().toISOString();
     }
-    reply.raw.end();
+    if (!reply.raw.destroyed && !reply.raw.writableEnded) reply.raw.end();
+  });
+
+  /** The running or last SillyTavern import, for a page that lost or never had its progress stream. */
+  app.get("/st-bulk/status", { config: { rateLimit: STATUS_POLL_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "SillyTavern bulk import" })) return;
+    reply.header("Cache-Control", "no-store");
+    return { job: stBulkImportJob };
   });
 
   /** Open a native OS folder picker dialog and return the selected path. */

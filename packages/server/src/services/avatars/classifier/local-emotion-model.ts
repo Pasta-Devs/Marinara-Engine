@@ -7,7 +7,7 @@
 // download (a fixed `.download` temp name, so an interrupted download is replaced, never piled up). The model then
 // loads from that folder alone, so it works offline once downloaded. It runs in a worker thread
 // (emotion-model.worker.ts): loading and inference never block the server while a reply streams.
-import { existsSync, statSync } from "node:fs";
+import { existsSync, rmSync, statSync } from "node:fs";
 import { totalmem } from "node:os";
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
@@ -82,6 +82,11 @@ function hasFile(file: { path: string; size: number }): boolean {
 /** Every pinned file is on disk at its pinned size (the hash was checked before the file got its name). */
 export function isLocalEmotionModelDownloaded(): boolean {
   return MODEL_FILES.every(hasFile);
+}
+
+/** Deletes the downloaded files (the Built-in model (emotions) page's Remove files). */
+export function removeLocalEmotionModel(): void {
+  rmSync(join(MODELS_DIR, "avatar-emotion"), { recursive: true, force: true });
 }
 
 /** Downloads the missing files; `onProgress` gets the bytes done of AVATAR_EMOTION_MODEL_BYTES. */

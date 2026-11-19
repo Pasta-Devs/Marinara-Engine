@@ -8,6 +8,13 @@ import { supportsNovelAiCharacterPrompts } from "../image/character-prompts.js";
 // `enableSpriteGeneration` is active.
 // ──────────────────────────────────────────────
 
+import {
+  generateCheckedPicture,
+  pictureDataUrl,
+  type PictureCheckLine,
+  type PictureCheckMode,
+} from "../decision/picture-decisions.js";
+import type { DecisionBackend } from "../decision/decision-default.js";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "fs";
 import { createHash } from "crypto";
 import { logger } from "../../lib/logger.js";
@@ -594,9 +601,20 @@ export type GameDynamicImagePromptRequest = {
   maxCharacters: number;
 };
 
-export type GameDynamicImagePromptGenerator = (
+export type GameDynamicImagePromptGenerator = ((
   request: GameDynamicImagePromptRequest,
-) => Promise<string | null | undefined>;
+) => Promise<string | null | undefined>) & {
+  /**
+   * False when the player never turned on AI-written image prompts and the rewrite only runs because
+   * the Illustrator prompt or Prompt Director was customized. A failed optional rewrite falls back to
+   * the regular prompt, so the picture is still sent; a required one fails the request.
+   */
+  required?: boolean;
+  /** The request's own signal: a rewrite stopped because the request was cancelled is not a rewrite failure. */
+  signal?: AbortSignal;
+  /** Set once an optional rewrite fails, so the request's other pictures skip it instead of failing again. */
+  failed?: boolean;
+};
 
 async function buildNpcPortraitRawPrompt(req: NpcPortraitRequest): Promise<string> {
   const vars = npcPortraitVariables(req);
@@ -613,7 +631,7 @@ export async function buildNpcPortraitProviderPrompt(req: NpcPortraitRequest): P
     };
   }
   const sourcePrompt = await buildNpcPortraitRawPrompt(req);
-  const prompt = await maybeGenerateDynamicGameImagePrompt(req.dynamicPromptGenerator, {
+  const rewritten = await maybeGenerateDynamicGameImagePrompt(req.dynamicPromptGenerator, {
     kind: "portrait",
     title: req.npcName,
     sourcePrompt,
@@ -627,9 +645,9 @@ export async function buildNpcPortraitProviderPrompt(req: NpcPortraitRequest): P
     ],
   });
   return compileGameImagePrompt(
-    req.dynamicPromptGenerator ? { ...req, appearance: null, preserveFullSourcePrompt: true } : req,
+    rewritten ? { ...req, appearance: null, preserveFullSourcePrompt: true } : req,
     "portrait",
-    prompt,
+    rewritten ?? sourcePrompt,
     GAME_PORTRAIT_NEGATIVE_PROMPT,
   );
 }
@@ -735,18 +753,33 @@ function normalizedPromptText(value: string): string {
     .trim();
 }
 
+/**
+ * The rewritten prompt, or null when there is no rewriter or an optional rewrite failed, in which
+ * case the picture is still sent with the regular prompt, as if no rewriter ran.
+ */
 async function maybeGenerateDynamicGameImagePrompt(
   generator: GameDynamicImagePromptGenerator | undefined,
   request: GameDynamicImagePromptRequest,
-): Promise<string> {
-  if (!generator) return request.sourcePrompt;
+): Promise<string | null> {
+  if (!generator || generator.failed) return null;
   try {
     const generated = cleanDynamicGameImagePrompt(await generator(request));
     if (!generated) throw new Error("Dynamic image prompt generation returned no usable prompt");
     return generated;
   } catch (err) {
-    logger.warn(err, "[game-asset-gen] Dynamic image prompt generation failed");
-    throw err;
+    // A cancelled request is not a rewrite failure: it stops the request, and its caller reports it.
+    if (generator.signal?.aborted) throw err;
+    if (generator.required !== false) {
+      logger.warn(err, "[game-asset-gen] Dynamic image prompt generation failed");
+      throw err;
+    }
+    generator.failed = true;
+    logger.warn(
+      err,
+      "[game-asset-gen] Optional image prompt rewrite failed; using the regular %s prompt",
+      request.kind,
+    );
+    return null;
   }
 }
 
@@ -1064,7 +1097,7 @@ export async function buildBackgroundProviderPrompt(req: BackgroundGenRequest): 
     };
   }
   const sourcePrompt = await buildBackgroundRawPrompt(req);
-  const prompt = await maybeGenerateDynamicGameImagePrompt(req.dynamicPromptGenerator, {
+  const rewritten = await maybeGenerateDynamicGameImagePrompt(req.dynamicPromptGenerator, {
     kind: "background",
     title: req.locationSlug,
     sourcePrompt,
@@ -1083,13 +1116,13 @@ export async function buildBackgroundProviderPrompt(req: BackgroundGenRequest): 
     ],
   });
   return compileGameImagePrompt(
-    req.dynamicPromptGenerator
+    rewritten
       ? { ...req, artStyle: req.mapsArtworkContext ? undefined : req.artStyle, preserveFullSourcePrompt: true }
       : req.mapsArtworkContext
         ? { ...req, artStyle: undefined }
         : req,
     "background",
-    prompt,
+    rewritten ?? sourcePrompt,
     GAME_BACKGROUND_NEGATIVE_PROMPT,
   );
 }
@@ -1220,7 +1253,7 @@ export async function buildSceneIllustrationProviderPrompt(
   const sourcePrompt = await buildSceneIllustrationRawPrompt(req);
   const referenceImages = sceneIllustrationReferenceImagesForProvider(req);
   const useGamePromptTemplate = req.useGamePromptTemplate !== false;
-  const prompt = await maybeGenerateDynamicGameImagePrompt(req.dynamicPromptGenerator, {
+  const rewritten = await maybeGenerateDynamicGameImagePrompt(req.dynamicPromptGenerator, {
     kind: "illustration",
     title: req.title || req.reason || req.slug || "Scene illustration",
     sourcePrompt,
@@ -1244,9 +1277,9 @@ export async function buildSceneIllustrationProviderPrompt(
       : [],
   });
   return compileGameImagePrompt(
-    req.dynamicPromptGenerator ? { ...req, preserveFullSourcePrompt: true } : req,
+    rewritten ? { ...req, preserveFullSourcePrompt: true } : req,
     "illustration",
-    prompt,
+    rewritten ?? sourcePrompt,
     GAME_ILLUSTRATION_NEGATIVE_PROMPT,
   );
 }
@@ -1637,6 +1670,8 @@ export async function generateChatBackgroundWeatherVersion(
     version: BackgroundWeatherVersionKey;
     shelter: SceneShelter;
     scenePrompt: string;
+    /** Optional: a decision model that reads pictures checks the version shows the weather. */
+    pictureCheck?: { mode: PictureCheckMode; backend: DecisionBackend | null; lines: PictureCheckLine[] };
   },
 ): Promise<string | null> {
   const source = plainPictureSource(req.baseFilename);
@@ -1661,12 +1696,8 @@ export async function generateChatBackgroundWeatherVersion(
   );
   try {
     const reference = readFileSync(source.path).toString("base64");
-    const result = await generateImage(
-      req.imgModel,
-      req.imgBaseUrl,
-      req.imgApiKey,
-      req.imgSource || req.imgService || "",
-      {
+    const drawVersion = () =>
+      generateImage(req.imgModel, req.imgBaseUrl, req.imgApiKey, req.imgSource || req.imgService || "", {
         prompt: compiled.prompt,
         negativePrompt: compiled.negativePrompt || undefined,
         model: req.imgModel,
@@ -1681,8 +1712,15 @@ export async function generateChatBackgroundWeatherVersion(
         referenceImage: reference,
         referenceIsCanvas: true,
         preserveProviderOutput: true,
-      },
-    );
+      });
+    const { result } = await generateCheckedPicture({
+      mode: req.pictureCheck?.mode ?? "off",
+      backend: req.pictureCheck?.backend ?? null,
+      lines: req.pictureCheck?.lines ?? [],
+      label: `Weather version (${req.version})`,
+      toDataUrl: (made) => pictureDataUrl(made.base64, made.ext),
+      generate: drawVersion,
+    });
     const image = await gameBackgroundImage(result, size);
     const filename = `${stem}.${image.ext}`;
     atomicWriteBuffer(join(CHAT_BACKGROUND_DIR, filename), image.buffer);

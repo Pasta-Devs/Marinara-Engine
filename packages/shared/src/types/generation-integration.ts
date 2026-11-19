@@ -70,6 +70,11 @@ export interface LLMToolDefinition {
 
 export interface ChatOptions {
   model: string;
+  /**
+   * Turn order on the built-in model: before-reply agents, then the reply, then agents
+   * that run beside or after it, then everything else. Ignored by remote providers.
+   */
+  localPriority?: "prepare" | "reply" | "turn" | "background";
   temperature?: number;
   maxTokens?: number;
   /** Total context window limit for prompt + completion tokens. */

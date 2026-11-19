@@ -42,7 +42,7 @@ import { hostOf } from "../connections/ConnectionGroup";
 import { JobPickerWindow, useConnectionDefaults, type DefaultsTile } from "../connections/ConnectionDefaults";
 import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import type { ConnectionRowData } from "../connections/ConnectionRow";
-import { useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
+import { builtInFirst, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
 import { useDecisionEngine } from "./decision-engine";
 import { useBuiltinEmbeddingState } from "../connections/BuiltinEmbeddingDetail";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
@@ -210,61 +210,64 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
     !setup["local-model"].setUp &&
     !engines.some((engine) => engine.item === "local-model");
   if (engines.length === 0 && !builtInAvailable && !decision && !embedding) return null;
-  const rows = [
-    ...engines.map((engine) => ({
-      item: engine.item,
-      name: engine.name,
-      detail: [engine.detail, engine.item === "local-model" && usedBy.length ? usedBy.join(", ") : null]
-        .filter(Boolean)
-        .join(" · "),
-      tone: engine.tone,
-      state: engine.state,
-      fix: engine.fix,
-      open: () => onOpen(engine.item),
-    })),
-    ...(builtInAvailable
-      ? [
-          {
-            item: "local-model" as DeviceItem,
-            name: t("connections.add.device.local_model"),
-            detail: localize("No account needed"),
-            tone: "off" as const,
-            state: t("connections.builtin.card.notDownloaded"),
-            fix: {
-              label: t("connections.defaults.setUp"),
-              run: () => openAddConnection({ category: "device", item: "local-model" }),
+  const rows = builtInFirst(
+    [
+      ...engines.map((engine) => ({
+        item: engine.item,
+        name: engine.name,
+        detail: [engine.detail, engine.item === "local-model" && usedBy.length ? usedBy.join(", ") : null]
+          .filter(Boolean)
+          .join(" · "),
+        tone: engine.tone,
+        state: engine.state,
+        fix: engine.fix,
+        open: () => onOpen(engine.item),
+      })),
+      ...(builtInAvailable
+        ? [
+            {
+              item: "local-model" as DeviceItem,
+              name: t("connections.add.device.local_model"),
+              detail: localize("No account needed"),
+              tone: "off" as const,
+              state: t("connections.builtin.card.notDownloaded"),
+              fix: {
+                label: t("connections.defaults.setUp"),
+                run: () => openAddConnection({ category: "device", item: "local-model" }),
+              },
+              open: () => openAddConnection({ category: "device", item: "local-model" }),
             },
-            open: () => openAddConnection({ category: "device", item: "local-model" }),
-          },
-        ]
-      : []),
-    ...(decision
-      ? [
-          {
-            item: "decision" as DeviceItem,
-            name: decision.name,
-            detail: decision.detail,
-            tone: decision.tone,
-            state: decision.state,
-            fix: undefined as { label: string; run: () => void } | undefined,
-            open: () => onOpen("decision" as DeviceItem),
-          },
-        ]
-      : []),
-    ...(embedding
-      ? [
-          {
-            item: "builtin-embedding" as DeviceItem,
-            name: embedding.name,
-            detail: embedding.detail,
-            tone: embedding.tone,
-            state: embedding.state,
-            fix: undefined as { label: string; run: () => void } | undefined,
-            open: () => onOpen("embeddings" as DeviceItem),
-          },
-        ]
-      : []),
-  ];
+          ]
+        : []),
+      ...(decision
+        ? [
+            {
+              item: "decision" as DeviceItem,
+              name: decision.name,
+              detail: decision.detail,
+              tone: decision.tone,
+              state: decision.state,
+              fix: undefined as { label: string; run: () => void } | undefined,
+              open: () => onOpen("decision" as DeviceItem),
+            },
+          ]
+        : []),
+      ...(embedding
+        ? [
+            {
+              item: "builtin-embedding" as DeviceItem,
+              name: embedding.name,
+              detail: embedding.detail,
+              tone: embedding.tone,
+              state: embedding.state,
+              fix: undefined as { label: string; run: () => void } | undefined,
+              open: () => onOpen("embeddings" as DeviceItem),
+            },
+          ]
+        : []),
+    ],
+    (row) => row.item,
+  );
   return (
     <>
       <tr className="ov-conn__account is-open ov-conn__account--other">
@@ -615,7 +618,7 @@ export function ConnectionsLanding() {
               >
                 <Star size={13} aria-hidden="true" />
               </button>
-              <b>{row.name || row.model}</b>
+              <b title={row.name || row.model}>{row.name || row.model}</b>
               {row.name && row.model && row.name !== row.model ? (
                 <span className="ov-conn__dim">{row.model}</span>
               ) : loadedModel ? (
@@ -730,7 +733,7 @@ export function ConnectionsLanding() {
             <td colSpan={2}>
               <span className="ov-conn__acct">
                 <Folder size={15} aria-hidden="true" />
-                <b>{section.name}</b>
+                <b title={section.name}>{section.name}</b>
               </span>
             </td>
             <td className="ov-conn__num">{section.rows.length}</td>
@@ -922,7 +925,7 @@ export function ConnectionsLanding() {
                                 size="sm"
                                 dim={account.state !== "ok"}
                               />
-                              <b>{account.name}</b>
+                              <b title={account.name}>{account.name}</b>
                               {host && !account.name.includes(host) ? (
                                 <span className="ov-conn__dim">{host}</span>
                               ) : null}

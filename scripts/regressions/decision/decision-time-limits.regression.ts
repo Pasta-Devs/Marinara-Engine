@@ -16,7 +16,8 @@ const root = mkdtempSync(join(tmpdir(), "marinara-decision-limits-"));
 process.env.DATA_DIR = root;
 
 const { DECISION_TIMEOUT_MS, findDecisionModel } = await import("../../../packages/shared/src/index.js");
-const { whenDecisionServerFree } = await import("../../../packages/server/src/services/decision/decision-server-queue.js");
+const { whenDecisionServerFree } =
+  await import("../../../packages/server/src/services/decision/decision-server-queue.js");
 const { answersAskedFor, perStatementLimitMs, resolveDecisionBackend } =
   await import("../../../packages/server/src/services/decision/decision-default.js");
 const { askSidecarNoulQuestions } =
@@ -90,7 +91,11 @@ try {
     );
     assert.ok(sidecar.length > 0, "the System One sidecar branch must still exist");
     assert.match(sidecar, /whenDecisionServerFree\(resolved\.baseUrl, resolved\.serverSlots, signal/u);
-    assert.match(sidecar, /resolved\.perQuestionMs \?\? DECISION_TIMEOUT_MS\.sidecar/u);
+    // The first answer gets the measured limit of a model on the processor, and every
+    // later answer its own measured cost, falling back to that first limit, never to
+    // the fixed four seconds a long scene on a processor cannot meet.
+    assert.match(sidecar, /resolved\.firstAnswerMs \?\? DECISION_TIMEOUT_MS\.sidecar/u);
+    assert.match(sidecar, /resolved\.perQuestionMs \?\? resolved\.firstAnswerMs \?\? DECISION_TIMEOUT_MS\.sidecar/u);
     assert.doesNotMatch(source, /Math\.min\(\s*DECISION_TIMEOUT_MS\.thinking/u, "no ceiling on a group's limit");
   }
 

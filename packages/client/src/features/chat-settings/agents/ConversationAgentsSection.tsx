@@ -6,6 +6,7 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { Archive, Image, Puzzle, Sparkles } from "lucide-react";
 import { VIDEO_FIRST_FRAMES, normalizeVideoFirstFrame, type Chat } from "@marinara-engine/shared";
 import { ChatSettingsSection as Section } from "../ChatSettingsSection";
+import { PictureCheckFields } from "../PictureCheckFields";
 import { type ChatConnectionOption } from "../sections/ConnectionSection";
 import {
   AgentSettingsCard,
@@ -312,6 +313,7 @@ export function ConversationAgentsSection({
                       })
                     }
                   />
+                  <PictureCheckFields chatId={chat.id} metadata={metadata} />
                 </div>
               </AgentSettingsCard>
             )}

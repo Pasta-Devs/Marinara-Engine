@@ -70,7 +70,7 @@ const { serializeDecisionRuntimeManifestStamp } =
   await import("../../../packages/server/src/services/sidecar/runtime-integrity-manifest.js");
 const { artifactSnapshotPath, decisionRuntimeInstalled, decisionRuntimeService, inheritedEnv } =
   await import("../../../packages/server/src/services/sidecar/decision-runtime.service.js");
-const { decisionProcessService } =
+const { decisionProcessService, describeEarlyExit } =
   await import("../../../packages/server/src/services/sidecar/decision-process.service.js");
 const { configuredCudaIndex, preflightDecisionModel } =
   await import("../../../packages/server/src/services/sidecar/decision-preflight.js");
@@ -81,7 +81,8 @@ const { inspectDecisionRepo } = await import("../../../packages/server/src/servi
 const realFetch = globalThis.fetch;
 const platformDescriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
 const archDescriptor = Object.getOwnPropertyDescriptor(process, "arch")!;
-const model = structuredClone(SIDECAR_DECISION_MODELS[0]!);
+// The Open-Jev entry: these cases cover its Python runtime, fake GPU and manifest.
+const model = structuredClone(SIDECAR_DECISION_MODELS.find((entry) => entry.runtime === "open_jev_torch")!);
 
 // The address the fake Python announces: a stand-in decision server that records what
 // it is asked and can hold an answer back, so a case can look at the engine while the
@@ -569,6 +570,47 @@ exec sleep 30
   assert.equal(missing.assessment.verdict, "unsupported", "a chosen card that is gone is not replaced by another");
   assert.match(missing.reason ?? "", /device 1\) is not present/u);
   delete process.env.MARINARA_DECISION_CUDA_DEVICE;
+
+  // ── each runtime is refused where it cannot run, before anything downloads ────
+
+  settings = { ...settings, cudaDevice: null };
+  const catalogEntry = (id: string) => SIDECAR_DECISION_MODELS.find((entry) => entry.id === id)!;
+  // The NVIDIA card picked in the panel has nothing to do with a llama.cpp model.
+  settings = { ...settings, cudaDevice: 1 };
+  assert.notEqual((await preflightDecisionModel(catalogEntry("jevk5-4b"))).assessment.verdict, "unsupported");
+  settings = { ...settings, cudaDevice: null };
+  // Winnow's build has code for RTX 50-series cards only. The fake card reports 12.0,
+  // so what is left to refuse it here is the CUDA 13 libraries this machine lacks.
+  const winnow = await preflightDecisionModel(catalogEntry("winnow-e4b"), { fresh: true });
+  assert.equal(winnow.installable, false);
+  // Or for the processor: its published build uses AVX-512, which most Intel chips lack.
+  assert.match(winnow.reason ?? "", /AVX-512|libcudart\.so\.13|Could not check/u);
+  assert.deepEqual(catalogEntry("winnow-e4b").requiredCpuFlags, ["avx512f"]);
+  // A server that dies on an illegal instruction says why, not just "stopped".
+  assert.equal(
+    describeEarlyExit(catalogEntry("winnow-e4b"), { code: null, signal: "SIGILL" }),
+    "crashed at start (illegal instruction): its build needs a processor with AVX-512",
+  );
+  assert.equal(describeEarlyExit(catalogEntry("winnow-e4b"), { code: 1, signal: null }), null);
+  // A card of another generation is refused for the card, which no library fixes. The processor
+  // requirement is dropped here: on a runner without AVX-512 it would be refused for that first.
+  const older = { ...catalogEntry("winnow-e4b"), requiredCpuFlags: [], onlyComputeCapabilities: ["9.0"] };
+  assert.match((await preflightDecisionModel(older, { fresh: true })).reason ?? "", /compute capability 9\.0/u);
+  // Valen's runtime is a Linux x64 build: a Mac is refused before the download, while
+  // JevK5 on the chat model's llama.cpp is offered there.
+  Object.defineProperty(process, "platform", { ...platformDescriptor, value: "darwin" });
+  Object.defineProperty(process, "arch", { ...archDescriptor, value: "arm64" });
+  const valenOnMac = await preflightDecisionModel(catalogEntry("valen-decision-1.5-4b"));
+  assert.equal(valenOnMac.installable, false);
+  assert.match(valenOnMac.reason ?? "", /Requires Linux on a 64-bit Intel or AMD processor/u);
+  assert.notEqual((await preflightDecisionModel(catalogEntry("jevk5-4b"))).assessment.verdict, "unsupported");
+  Object.defineProperty(process, "platform", { ...platformDescriptor, value: "linux" });
+  Object.defineProperty(process, "arch", { ...archDescriptor, value: "x64" });
+  // A model larger than the computer's memory is refused, not left to fail at load.
+  const hugeLlama = { ...catalogEntry("jevk5-4b"), vramBytes: Number.MAX_SAFE_INTEGER };
+  const tooBig = await preflightDecisionModel(hugeLlama);
+  assert.equal(tooBig.assessment.verdict, "wont_fit");
+  assert.match(tooBig.reason ?? "", /GB of memory$/u);
 } finally {
   globalThis.fetch = realFetch;
   // Released before the stop: a failed case can leave a warm-up held, and the stop

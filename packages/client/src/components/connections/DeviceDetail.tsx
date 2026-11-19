@@ -9,6 +9,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
+  BUILTIN_TTS_SOURCE,
   LOCAL_SIDECAR_CONNECTION_ID,
   getDefaultAgentPrompt,
   type SidecarQuantization,
@@ -22,7 +23,7 @@ import {
   useInstalledCapabilityPackages,
 } from "../../hooks/use-capability-packages";
 import { useFeatureModels } from "../../hooks/use-connection-accounts";
-import { useConnections, useDefaultEmbeddingConnection } from "../../hooks/use-connections";
+import { useDefaultEmbeddingConnection } from "../../hooks/use-connections";
 import { useDecisionOptions } from "../../hooks/use-decision-model";
 import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useTTSConfig } from "../../hooks/use-tts";
@@ -34,12 +35,15 @@ import { JOB, JOBS, jobLabelKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
 import { DecisionModelModal } from "../modals/DecisionModelModal";
 import { BuiltinEmbeddingDetail } from "./BuiltinEmbeddingDetail";
+import { BuiltinDictationDetail } from "./BuiltinDictationDetail";
+import { BuiltinEmotionDetail, useBuiltinEmotionState } from "./BuiltinEmotionDetail";
+import { BuiltinTtsDetail, useBuiltinTtsState } from "./BuiltinTtsDetail";
 import { ModelDownloadModal } from "../modals/ModelDownloadModal";
+import { LocalModelSlotNote, UnloadWhenUnusedRow } from "./LocalModelShared";
 import { hostOf } from "../modals/create-connection/shared";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ProviderIcon } from "./ProviderIcon";
-import { closeIfClean, DEVICE_VOICE, DictationSettings, useJobModels, VoiceJobSettings } from "./ConnectionDefaults";
-import type { ConnectionRowData } from "./ConnectionRow";
+import { closeIfClean, DictationSettings, VoiceJobSettings } from "./ConnectionDefaults";
 import { Modal } from "../ui/Modal";
 import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
@@ -58,7 +62,7 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-function describeSpeechRuntimeUnavailable(
+export function describeSpeechRuntimeUnavailable(
   runtime: SidecarSpeechRuntimeDiagnostics | null,
   localizeUi: TFunction,
 ): string {
@@ -144,13 +148,12 @@ export function DetailHero({
   );
 }
 
-/** `stack` puts the label above on a phone, for a dropdown that needs the whole width to show its choice. */
 export function FactRow({ label, children }: { label: string; children: ReactNode }) {
   // Label left on every screen size, so a page with a dropdown lines up with one without.
   // On a phone values wrap to several lines, so the label sits on the first line, not the middle.
   return (
     <div className="flex min-h-9 items-center gap-3 text-xs max-sm:items-baseline max-sm:py-2">
-      <span className="w-20 shrink-0 text-[var(--muted-foreground)]">{label}</span>
+      <span className="w-24 shrink-0 text-[var(--muted-foreground)]">{label}</span>
       <span className="min-w-0 flex-1">{children}</span>
     </div>
   );
@@ -166,6 +169,16 @@ export type DeviceEngine = {
 };
 
 /** The engines on this device, each with its state and its one action: the This device card's rows. */
+/**
+ * Marinara's own models first, then servers the user runs (a local voice server):
+ * the built-in rows are one set and read as one, so nothing the user added sits
+ * between them, whichever list shows them.
+ */
+export function builtInFirst<T>(rows: T[], itemOf: (row: T) => string): T[] {
+  const server = (row: T) => itemOf(row) === "tts";
+  return [...rows.filter((row) => !server(row)), ...rows.filter(server)];
+}
+
 export function useDeviceEngines(): DeviceEngine[] {
   const { t } = useTranslation();
   const setup = useDeviceSetup();
@@ -179,7 +192,8 @@ export function useDeviceEngines(): DeviceEngine[] {
   const speechModels = useSidecarStore((s) => s.speechModels);
   const speechDownloading = useSidecarStore((s) => s.speechDownloadProgress?.status === "downloading");
   const { data: tts } = useTTSConfig();
-  const modelFor = useJobModels((useConnections().data ?? []) as ConnectionRowData[]);
+  const builtinTts = useBuiltinTtsState();
+  const emotions = useBuiltinEmotionState();
   const whisperAvailable = setup.stt.available;
   useEffect(() => {
     if (whisperAvailable) void useSidecarStore.getState().fetchSpeechStatus();
@@ -233,13 +247,14 @@ export function useDeviceEngines(): DeviceEngine[] {
       });
     }
   }
+  // The voice model the Engine runs itself, beside the voice servers people host.
+  if (builtinTts) engines.push({ item: "builtin-tts", ...builtinTts });
   if (whisperAvailable) {
-    const dictation = t(jobLabelKey(JOB.stt));
     const first = speechModels[0]?.id;
     engines.push({
       item: "stt",
-      name: "Whisper",
-      detail: dictation,
+      name: t("connections.builtinDictation.name"),
+      detail: "Whisper",
       ...(speechDownloaded
         ? { tone: "ok" as const, state: t("connections.device.whisper.ready") }
         : speechDownloading
@@ -261,38 +276,22 @@ export function useDeviceEngines(): DeviceEngine[] {
     });
   }
   // A voice server the user hosts runs here; a cloud voice (ElevenLabs, OpenAI, xAI) shows on the Voice job row.
-  // Local PocketTTS always has a row, so the card shows the Voice engine even when voice is off or cloud.
+  // Only once it is the voice in use: a server Marinara does not ship (PocketTTS, a Kokoro at localhost:8880)
+  // listed before anyone set one up read like a built-in model. Built-in model (TTS) is the one on offer.
   const localVoice = setup.tts.setUp && !!tts?.local;
-  if (localVoice && tts.source !== "pockettts") {
+  // The built-in voice model has a row of its own above.
+  if (localVoice && tts.source !== BUILTIN_TTS_SOURCE) {
     engines.push({
       item: "tts",
       name: t(`connections.device.ttsSource.${tts.source}`),
       tone: "ok",
-      state: t("connections.accounts.state.ok"),
-      // A server the user runs on another source (a Kokoro at localhost:8880) shows its address, not a cloud name.
+      state: t("connections.device.state.inUse"),
+      // It shows its address, not a cloud name.
       detail: [t(jobLabelKey(JOB.voice)), hostOf(tts.baseUrl)].filter(Boolean).join(" · "),
     });
-  } else {
-    engines.push({
-      item: "tts",
-      name: t("connections.device.ttsSource.pockettts"),
-      detail: t(jobLabelKey(JOB.voice)),
-      ...(localVoice
-        ? { tone: "ok" as const, state: t("connections.device.state.inUse") }
-        : {
-            tone: "off" as const,
-            state: t("connections.device.state.notInUse"),
-            fix: {
-              label: t("connections.device.useForVoice"),
-              run: () => {
-                modelFor(JOB.voice)?.onChange(`${DEVICE_VOICE}pockettts`);
-                useUIStore.getState().openModal("job-settings", { job: "voice" });
-              },
-            },
-          }),
-    });
   }
-  return engines;
+  if (emotions) engines.push({ item: "emotions", ...emotions });
+  return builtInFirst(engines, (engine) => engine.item);
 }
 
 /** The jobs the Local Model does now, as role labels: for its page and its row in the On this device card. */
@@ -556,6 +555,8 @@ function LocalModelDetail() {
         </div>
       )}
 
+      {isDownloaded && !failed && <LocalModelSlotNote slot="main" />}
+
       <section className={DETAIL_CARD_CLASS}>
         <FactRow label={localizeUi("connections.device.fact.model")}>
           <span className="block">{modelDisplayName ?? localizeUi("connections.device.state.notDownloaded")}</span>
@@ -599,6 +600,7 @@ function LocalModelDetail() {
             </span>
           </span>
         </FactRow>
+        {isDownloaded && <UnloadWhenUnusedRow />}
       </section>
       {/* The built-in embedding model is its own process too, installed and run from here. */}
       <section className={DETAIL_CARD_CLASS}>
@@ -859,6 +861,9 @@ export function DeviceDetail({ item }: { item: DeviceItem }) {
     (entry) => entry.status !== "error" && entry.manifest.kind.includes("conversation-calls"),
   );
   if (item === "local-model") return isLite ? null : <LocalModelDetail />;
+  if (item === "builtin-tts") return <BuiltinTtsDetail />;
+  if (item === "emotions") return <BuiltinEmotionDetail />;
+  if (item === "stt" && callsInstalled && !isLite) return <BuiltinDictationDetail engine={engine} />;
   const job = item === "tts" ? "voice" : "stt";
   const inUse = engine?.tone === "ok";
   // The same frame as the other models on this device: hero, one row of actions, then the facts card.
@@ -897,7 +902,6 @@ export function DeviceDetail({ item }: { item: DeviceItem }) {
           {inUse ? t(jobLabelKey(item === "tts" ? JOB.voice : JOB.stt)) : t("connections.device.usedBy.none")}
         </FactRow>
       </section>
-      {item === "stt" && callsInstalled && !isLite && <LocalWhisper />}
     </div>
   );
 }

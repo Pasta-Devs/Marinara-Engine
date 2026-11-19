@@ -79,7 +79,9 @@ import { Spinner } from "../../ui/Spinner";
 import { Checkbox } from "../../ui/Checkbox";
 import { Select } from "../../ui/Select";
 
-type EditorDraft = PersonalExtensionImportDraft;
+export type EditorDraft = PersonalExtensionImportDraft;
+
+export { extensionDraft, sourceLabel };
 
 const EMPTY_DRAFT: EditorDraft = {
   name: "",
@@ -259,46 +261,310 @@ export function PersonalExtensionsSettings({ showIntro = true }: { showIntro?: b
   return <ExtensionSettings showIntro={showIntro} mode="personal" />;
 }
 
+/**
+ * The open extension's page below its header: its state (running, waiting for approval), name, version,
+ * runtime, description, capabilities, code and revisions. Only imported (external) extensions are editable.
+ */
+export function PersonalExtensionEditorBody({
+  current,
+  draft,
+  setDraft,
+  editable,
+  busy,
+  onRestore,
+}: {
+  current: PersonalExtensionListItem | null;
+  draft: EditorDraft;
+  setDraft: (update: (value: EditorDraft) => EditorDraft) => void;
+  editable: boolean;
+  busy: boolean;
+  onRestore: (extension: PersonalExtensionListItem, contentHash: string) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const { t } = useTranslation();
+  const approvalChanged = Boolean(current && current.approvedHash !== current.contentHash);
+  const fullPageAccess = draft.capabilities.includes(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY);
+  const currentTraffic = current ? getPersonalExtensionTraffic(current.id) : null;
+  return (
+    <>
+      {current && (
+        <div
+          className={cn(
+            "flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs",
+            current.enabled
+              ? "border-[var(--primary)]/40 bg-[var(--primary)]/10 text-[var(--primary)]"
+              : approvalChanged
+                ? "border-[var(--primary)]/25 bg-[var(--primary)]/[0.06] text-[var(--foreground)]"
+                : "border-[var(--border)] bg-[var(--secondary)]/50 text-[var(--muted-foreground)]",
+          )}
+        >
+          {current.enabled ? (
+            <Check size="0.875rem" className="mt-0.5 shrink-0" />
+          ) : approvalChanged ? (
+            <ShieldAlert size="0.875rem" className="mt-0.5 shrink-0" />
+          ) : (
+            <PowerOff size="0.875rem" className="mt-0.5 shrink-0" />
+          )}
+          <div className="min-w-0">
+            <div className="font-semibold">
+              {current.enabled
+                ? localizeUi("ui.panels.extensionsettings.runningApprovedCode")
+                : approvalChanged
+                  ? localizeUi("ui.panels.extensionsettings.disabledPendingApproval")
+                  : localizeUi("ui.agents.agenteditor.disabled")}
+            </div>
+            <div className="mt-0.5 break-all text-[0.625rem] opacity-80">
+              {localizeUi("ui.panels.extensionsettings.hash")} {current.contentHash}
+              {localizeUi("ui.panels.extensionsettings.source")} {sourceLabel(current.source, t)}
+            </div>
+            {current.serverError && <div className="mt-1 text-[var(--destructive)]">{current.serverError}</div>}
+            {currentTraffic && currentTraffic.requests > 0 && (
+              <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[0.625rem]">
+                <Activity size="0.6875rem" aria-hidden="true" />
+                {t("settings.personalExtensions.traffic.summary", {
+                  requests: currentTraffic.requests,
+                  bytes: formatBytes(currentTraffic.bytes),
+                  rate: currentTraffic.requestsLastMinute,
+                })}
+                {currentTraffic.sustainedHighRate && (
+                  <span className="font-semibold text-[var(--destructive)]">
+                    {t("settings.personalExtensions.traffic.highRate")}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-2">
+        <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          {localizeUi("ui.panels.imagestyleprofileseditor.name")}
+          <input
+            value={draft.name}
+            readOnly={!editable}
+            onChange={(event) => setDraft((value) => ({ ...value, name: event.target.value }))}
+            className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          {localizeUi("ui.panels.extensionsettings.version")}
+          <input
+            value={draft.version ?? ""}
+            readOnly={!editable}
+            onChange={(event) => setDraft((value) => ({ ...value, version: event.target.value || null }))}
+            placeholder="1.0.0"
+            className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          {localizeUi("ui.panels.extensionsettings.runtime")}
+          <select
+            value={draft.runtime}
+            disabled={!editable}
+            onChange={(event) =>
+              setDraft((value) => ({
+                ...value,
+                runtime: event.target.value === "server" ? "server" : "client",
+                ...(event.target.value === "server" ? { capabilities: [] } : {}),
+              }))
+            }
+            className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
+          >
+            <option value="client">{localizeUi("settings.notifications.browser")}</option>
+            <option value="server">{localizeUi("ui.panels.extensionsettings.server")}</option>
+          </select>
+        </label>
+      </div>
+
+      <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+        {localizeUi("chat.settings.inlineEditor.fields.description")}
+        <textarea
+          value={draft.description}
+          readOnly={!editable}
+          onChange={(event) => setDraft((value) => ({ ...value, description: event.target.value }))}
+          rows={2}
+          className="resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
+        />
+      </label>
+
+      <div
+        className={cn(
+          "flex items-start gap-2 rounded-lg border px-3 py-2.5 text-[0.6875rem] leading-relaxed text-[var(--foreground)]",
+          fullPageAccess
+            ? "border-[var(--destructive)]/45 bg-[var(--destructive)]/[0.08]"
+            : "border-[var(--primary)]/30 bg-[var(--primary)]/[0.08]",
+        )}
+      >
+        <AlertTriangle
+          size="0.875rem"
+          className={cn("mt-0.5 shrink-0", fullPageAccess ? "text-[var(--destructive)]" : "text-[var(--primary)]")}
+        />
+        {draft.runtime === "server"
+          ? t("settings.personalExtensions.sandbox.server")
+          : fullPageAccess
+            ? t("settings.personalExtensions.sandbox.fullPage")
+            : t("settings.personalExtensions.sandbox.browser")}
+      </div>
+
+      {draft.runtime === "client" && (
+        <div className="grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-3">
+          <div>
+            <div className="text-xs font-semibold text-[var(--foreground)]">
+              {t("settings.personalExtensions.capabilities.title")}
+            </div>
+            <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+              {t("settings.personalExtensions.capabilities.description")}
+            </p>
+          </div>
+          {PERSONAL_EXTENSION_CAPABILITIES.filter(
+            (capability) => editable || capability !== PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
+          ).map((capability) => {
+            const checked = draft.capabilities.includes(capability);
+            const isFullPageCapability = capability === PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY;
+            return (
+              <label
+                key={capability}
+                className={cn(
+                  "flex min-h-11 items-start gap-2.5 rounded-md border bg-[var(--background)]/45 px-3 py-2",
+                  isFullPageCapability ? "border-[var(--destructive)]/40" : "border-[var(--border)]",
+                )}
+              >
+                <Checkbox
+                  checked={checked}
+                  disabled={!editable}
+                  onChange={(event) =>
+                    setDraft((value) => ({
+                      ...value,
+                      capabilities: event.target.checked
+                        ? isFullPageCapability
+                          ? [PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY]
+                          : PERSONAL_EXTENSION_CAPABILITIES.filter(
+                              (candidate) =>
+                                candidate !== PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY &&
+                                (candidate === capability || value.capabilities.includes(candidate)),
+                            )
+                        : value.capabilities.filter((candidate) => candidate !== capability),
+                    }))
+                  }
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-[var(--foreground)]">
+                    <span className={cn(isFullPageCapability && "text-[var(--destructive)]")}>
+                      {t(`settings.personalExtensions.capabilities.${capability}.label`)}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                    {t(`settings.personalExtensions.capabilities.${capability}.description`)}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+
+      {draft.runtime === "client" ? (
+        <div className="grid gap-3">
+          <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+            {fullPageAccess
+              ? t("settings.personalExtensions.fullPageCssLabel")
+              : localizeUi("ui.panels.extensionsettings.cssSanitizedBeforeUse")}
+            <textarea
+              value={draft.css ?? ""}
+              readOnly={!editable}
+              onChange={(event) => setDraft((value) => ({ ...value, css: event.target.value }))}
+              spellCheck={false}
+              placeholder={localizeUi("ui.panels.extensionsettings.optionalExtensionCss")}
+              className="min-h-72 resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
+            />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+            {localizeUi("ui.panels.extensionsettings.browserJavascript")}
+            <textarea
+              value={draft.js ?? ""}
+              readOnly={!editable}
+              onChange={(event) => setDraft((value) => ({ ...value, js: event.target.value }))}
+              spellCheck={false}
+              placeholder={localizeUi("ui.panels.extensionsettings.optionalBrowserJavascript")}
+              className="min-h-72 resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
+            />
+          </label>
+        </div>
+      ) : (
+        <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          {localizeUi("ui.panels.extensionsettings.serverJavascript")}
+          <textarea
+            value={draft.serverJs ?? ""}
+            readOnly={!editable}
+            onChange={(event) => setDraft((value) => ({ ...value, serverJs: event.target.value }))}
+            spellCheck={false}
+            placeholder={localizeUi("ui.panels.extensionsettings.trustedServerJavascript")}
+            className="min-h-96 resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
+          />
+        </label>
+      )}
+
+      {current && current.revisions.length > 0 && (
+        <details className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35">
+          <summary className="flex min-h-10 cursor-pointer items-center gap-2 px-3 text-xs font-semibold">
+            <History size="0.875rem" />
+            {localizeUi("ui.panels.extensionsettings.revisionHistory")}
+            {current.revisions.length})
+          </summary>
+          <div className="flex flex-col gap-1.5 border-t border-[var(--border)] p-2">
+            {current.revisions.map((revision) => (
+              <div
+                key={`${revision.contentHash}-${revision.savedAt}`}
+                className="flex flex-wrap items-center gap-2 rounded-md bg-[var(--background)]/60 px-2.5 py-2 text-[0.625rem]"
+              >
+                <Clock3 size="0.75rem" className="text-[var(--muted-foreground)]" />
+                <span className="font-mono">{shortHash(revision.contentHash)}</span>
+                <span className="text-[var(--muted-foreground)]">
+                  {revision.runtime === "server"
+                    ? localizeUi("ui.panels.extensionsettings.server")
+                    : localizeUi("settings.notifications.browser")}
+                  {revision.version
+                    ? localizeUi("ui.panels.extensionsettings.vValue1", { value1: revision.version })
+                    : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onRestore(current, revision.contentHash)}
+                  disabled={busy}
+                  className={cn(SETTINGS_BUTTON_CLASS, "ml-auto")}
+                >
+                  <RotateCcw size="0.75rem" />
+                  {localizeUi("ui.panels.extensionsettings.restoreDraft")}
+                </button>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </>
+  );
+}
+
 export function ExternalExtensionsSettings({ showIntro = false }: { showIntro?: boolean }) {
   return <ExtensionSettings showIntro={showIntro} mode="external" />;
 }
 
-function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: ExtensionSettingsMode }) {
+/**
+ * Everything the Extensions list and editor do (turn on with hash approval, turn off, delete, restore a
+ * revision, save a draft, import), shared by Settings > Addons and the new layout's Library > Extensions.
+ * `candidates`: the extensions an import may update by name.
+ */
+export function usePersonalExtensionActions(candidates: PersonalExtensionListItem[]) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
-  const { data: allExtensions = [], isLoading, error } = usePersonalExtensions();
-  const extensions = useMemo(
-    () =>
-      allExtensions.filter((extension) =>
-        mode === "personal" ? extension.source === "professor_mari" : extension.source !== "professor_mari",
-      ),
-    [allExtensions, mode],
-  );
-  const isExternal = mode === "external";
   const createExtension = useCreatePersonalExtension();
   const updateExtension = useUpdatePersonalExtension();
   const approveExtension = useApprovePersonalExtension();
   const rollbackExtension = useRollbackPersonalExtension();
   const deleteExtension = useDeletePersonalExtension();
-  const [editorId, setEditorId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<EditorDraft>(EMPTY_DRAFT);
   const [importing, setImporting] = useState(false);
-  const [, refreshTraffic] = useState(0);
-
-  useEffect(() => {
-    const refresh = () => refreshTraffic((value) => value + 1);
-    const unsubscribe = subscribePersonalExtensionTraffic(refresh);
-    const intervalId = window.setInterval(refresh, 10_000);
-    return () => {
-      unsubscribe();
-      window.clearInterval(intervalId);
-    };
-  }, []);
-
-  const editingExtension = useMemo(
-    () => (editorId ? (extensions.find((extension) => extension.id === editorId) ?? null) : null),
-    [editorId, extensions],
-  );
   const busy =
     createExtension.isPending ||
     updateExtension.isPending ||
@@ -307,57 +573,49 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
     deleteExtension.isPending ||
     importing;
 
-  const openExisting = useCallback((extension: PersonalExtensionListItem) => {
-    setDraft(extensionDraft(extension));
-    setEditorId(extension.id);
-  }, []);
-
-  const closeEditor = useCallback(() => {
-    setEditorId(null);
-    setDraft({ ...EMPTY_DRAFT });
-  }, []);
-
-  // Phone Back steps from the editor to the list exactly like the button: same function, no extra discard.
-  const panelShowing = useUIStore((s) => s.rightPanelOpen && s.rightPanel === "settings");
-  useBackDismiss(panelShowing && !!editorId, closeEditor);
-
-  const saveDraft = useCallback(async () => {
-    if (!editingExtension) {
-      toast.error(localizeUi("ui.panels.extensionsettings.personalExtensionNotFound"));
-      return;
-    }
-    const validation = validateDraft(draft);
-    if (validation) {
-      toast.error(validation);
-      return;
-    }
-    const payload = {
-      name: draft.name.trim(),
-      version: draft.version?.trim() || null,
-      description: draft.description,
-      runtime: draft.runtime,
-      capabilities: draft.runtime === "client" ? draft.capabilities : [],
-      css: draft.runtime === "client" ? draft.css || null : null,
-      js: draft.runtime === "client" ? draft.js || null : null,
-      serverJs: draft.runtime === "server" ? draft.serverJs || null : null,
-    } as const;
-    try {
-      const updated = await updateExtension.mutateAsync({ id: editingExtension.id, ...payload });
-      toast.success(
-        updated.approvedHash === updated.contentHash
-          ? localizeUi("ui.panels.extensionsettings.value1Saved", { value1: updated.name })
-          : localizeUi("ui.panels.extensionsettings.value1SavedAsADisabledDraftReviewAndRun", { value1: updated.name }),
-      );
-      setDraft(extensionDraft(updated));
-    } catch (saveError) {
-      toast.error(
-        getPrivilegedActionErrorMessage(
-          saveError,
-          localizeUi("ui.panels.extensionsettings.failedToSavePersonalExtension"),
-        ),
-      );
-    }
-  }, [draft, editingExtension, updateExtension, localizeUi]);
+  const saveDraft = useCallback(
+    async (editingExtension: PersonalExtensionListItem | null, draft: EditorDraft) => {
+      if (!editingExtension) {
+        toast.error(localizeUi("ui.panels.extensionsettings.personalExtensionNotFound"));
+        return null;
+      }
+      const validation = validateDraft(draft);
+      if (validation) {
+        toast.error(validation);
+        return null;
+      }
+      const payload = {
+        name: draft.name.trim(),
+        version: draft.version?.trim() || null,
+        description: draft.description,
+        runtime: draft.runtime,
+        capabilities: draft.runtime === "client" ? draft.capabilities : [],
+        css: draft.runtime === "client" ? draft.css || null : null,
+        js: draft.runtime === "client" ? draft.js || null : null,
+        serverJs: draft.runtime === "server" ? draft.serverJs || null : null,
+      } as const;
+      try {
+        const updated = await updateExtension.mutateAsync({ id: editingExtension.id, ...payload });
+        toast.success(
+          updated.approvedHash === updated.contentHash
+            ? localizeUi("ui.panels.extensionsettings.value1Saved", { value1: updated.name })
+            : localizeUi("ui.panels.extensionsettings.value1SavedAsADisabledDraftReviewAndRun", {
+                value1: updated.name,
+              }),
+        );
+        return updated;
+      } catch (saveError) {
+        toast.error(
+          getPrivilegedActionErrorMessage(
+            saveError,
+            localizeUi("ui.panels.extensionsettings.failedToSavePersonalExtension"),
+          ),
+        );
+        return null;
+      }
+    },
+    [updateExtension, localizeUi],
+  );
 
   const runExtension = useCallback(
     async (extension: PersonalExtensionListItem) => {
@@ -425,11 +683,11 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
         }),
         confirmLabel: localizeUi("lorebook.editor.batch.delete"),
       });
-      if (!confirmed) return;
+      if (!confirmed) return false;
       try {
         await deleteExtension.mutateAsync(extension.id);
-        if (editorId === extension.id) closeEditor();
         toast.success(localizeUi("ui.panels.extensionsettings.value1Deleted", { value1: extension.name }));
+        return true;
       } catch (deleteError) {
         toast.error(
           getPrivilegedActionErrorMessage(
@@ -437,9 +695,10 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
             localizeUi("ui.panels.extensionsettings.failedToDeletePersonalExtension"),
           ),
         );
+        return false;
       }
     },
-    [closeEditor, deleteExtension, editorId, localizeUi],
+    [deleteExtension, localizeUi],
   );
 
   const restoreRevision = useCallback(
@@ -451,13 +710,13 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
         }),
         confirmLabel: localizeUi("ui.panels.extensionsettings.restoreDraft"),
       });
-      if (!confirmed) return;
+      if (!confirmed) return null;
       try {
         const restored = await rollbackExtension.mutateAsync({ id: extension.id, contentHash });
-        setDraft(extensionDraft(restored));
         toast.success(
           localizeUi("ui.panels.extensionsettings.restoredValue1AsADisabledDraft", { value1: restored.name }),
         );
+        return restored;
       } catch (rollbackError) {
         toast.error(
           getPrivilegedActionErrorMessage(
@@ -465,6 +724,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
             localizeUi("ui.panels.extensionsettings.failedToRestoreRevision"),
           ),
         );
+        return null;
       }
     },
     [rollbackExtension, localizeUi],
@@ -505,7 +765,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
     async (entries: FolderPackageImportEntry[], fallbackName: string) => {
       let installed = 0;
       let skipped = 0;
-      let working = [...extensions];
+      let working = [...candidates];
       for (const entry of entries) {
         const imported = normalizePersonalExtensionImportEntry(entry, fallbackName);
         if (!imported) {
@@ -531,7 +791,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
         toast.warning(localizeUi("ui.panels.extensionsettings.invalidExtensionEntriesSkipped", { count: skipped }));
       }
     },
-    [extensions, installDraft, localizeUi],
+    [candidates, installDraft, localizeUi],
   );
 
   const importFile = useCallback(
@@ -601,13 +861,99 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
     [importEntries, localizeUi],
   );
 
+  return {
+    busy,
+    importing,
+    saveDraft,
+    runExtension,
+    disableExtension,
+    removeExtension,
+    restoreRevision,
+    importFile,
+    importFolder,
+  };
+}
+
+function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: ExtensionSettingsMode }) {
+  const { t: localizeUi } = useUiTranslation();
+  const { t } = useTranslation();
+  const { data: allExtensions = [], isLoading, error } = usePersonalExtensions();
+  const extensions = useMemo(
+    () =>
+      allExtensions.filter((extension) =>
+        mode === "personal" ? extension.source === "professor_mari" : extension.source !== "professor_mari",
+      ),
+    [allExtensions, mode],
+  );
+  const isExternal = mode === "external";
+  const {
+    busy,
+    importing,
+    saveDraft: saveExtensionDraft,
+    runExtension,
+    disableExtension,
+    removeExtension: deleteExtensionRecord,
+    restoreRevision: restoreExtensionRevision,
+    importFile,
+    importFolder,
+  } = usePersonalExtensionActions(extensions);
+  const [editorId, setEditorId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<EditorDraft>(EMPTY_DRAFT);
+  const [, refreshTraffic] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => refreshTraffic((value) => value + 1);
+    const unsubscribe = subscribePersonalExtensionTraffic(refresh);
+    const intervalId = window.setInterval(refresh, 10_000);
+    return () => {
+      unsubscribe();
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const editingExtension = useMemo(
+    () => (editorId ? (extensions.find((extension) => extension.id === editorId) ?? null) : null),
+    [editorId, extensions],
+  );
+
+  const openExisting = useCallback((extension: PersonalExtensionListItem) => {
+    setDraft(extensionDraft(extension));
+    setEditorId(extension.id);
+  }, []);
+
+  const closeEditor = useCallback(() => {
+    setEditorId(null);
+    setDraft({ ...EMPTY_DRAFT });
+  }, []);
+
+  // Phone Back steps from the editor to the list exactly like the button: same function, no extra discard.
+  const panelShowing = useUIStore((s) => s.rightPanelOpen && s.rightPanel === "settings");
+  useBackDismiss(panelShowing && !!editorId, closeEditor);
+
+  const saveDraft = useCallback(async () => {
+    const updated = await saveExtensionDraft(editingExtension, draft);
+    if (updated) setDraft(extensionDraft(updated));
+  }, [draft, editingExtension, saveExtensionDraft]);
+
+  const removeExtension = useCallback(
+    async (extension: PersonalExtensionListItem) => {
+      if ((await deleteExtensionRecord(extension)) && editorId === extension.id) closeEditor();
+    },
+    [closeEditor, deleteExtensionRecord, editorId],
+  );
+
+  const restoreRevision = useCallback(
+    async (extension: PersonalExtensionListItem, contentHash: string) => {
+      const restored = await restoreExtensionRevision(extension, contentHash);
+      if (restored) setDraft(extensionDraft(restored));
+    },
+    [restoreExtensionRevision],
+  );
+
   if (editorId) {
     const current = editingExtension
       ? (extensions.find((extension) => extension.id === editingExtension.id) ?? editingExtension)
       : null;
-    const approvalChanged = Boolean(current && current.approvedHash !== current.contentHash);
-    const fullPageAccess = draft.capabilities.includes(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY);
-    const currentTraffic = current ? getPersonalExtensionTraffic(current.id) : null;
     return (
       <div className="flex flex-col gap-3">
         {/* Pinned while the editor scrolls: -top-3 cancels the scroller's p-3 so it sits flush, and the row must stay a direct child of this root. */}
@@ -688,264 +1034,14 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
           </div>
         </div>
 
-        {current && (
-          <div
-            className={cn(
-              "flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs",
-              current.enabled
-                ? "border-[var(--primary)]/40 bg-[var(--primary)]/10 text-[var(--primary)]"
-                : approvalChanged
-                  ? "border-[var(--primary)]/25 bg-[var(--primary)]/[0.06] text-[var(--foreground)]"
-                  : "border-[var(--border)] bg-[var(--secondary)]/50 text-[var(--muted-foreground)]",
-            )}
-          >
-            {current.enabled ? (
-              <Check size="0.875rem" className="mt-0.5 shrink-0" />
-            ) : approvalChanged ? (
-              <ShieldAlert size="0.875rem" className="mt-0.5 shrink-0" />
-            ) : (
-              <PowerOff size="0.875rem" className="mt-0.5 shrink-0" />
-            )}
-            <div className="min-w-0">
-              <div className="font-semibold">
-                {current.enabled
-                  ? localizeUi("ui.panels.extensionsettings.runningApprovedCode")
-                  : approvalChanged
-                    ? localizeUi("ui.panels.extensionsettings.disabledPendingApproval")
-                    : localizeUi("ui.agents.agenteditor.disabled")}
-              </div>
-              <div className="mt-0.5 break-all text-[0.625rem] opacity-80">
-                {localizeUi("ui.panels.extensionsettings.hash")} {current.contentHash}
-                {localizeUi("ui.panels.extensionsettings.source")} {sourceLabel(current.source, t)}
-              </div>
-              {current.serverError && <div className="mt-1 text-[var(--destructive)]">{current.serverError}</div>}
-              {currentTraffic && currentTraffic.requests > 0 && (
-                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[0.625rem]">
-                  <Activity size="0.6875rem" aria-hidden="true" />
-                  {t("settings.personalExtensions.traffic.summary", {
-                    requests: currentTraffic.requests,
-                    bytes: formatBytes(currentTraffic.bytes),
-                    rate: currentTraffic.requestsLastMinute,
-                  })}
-                  {currentTraffic.sustainedHighRate && (
-                    <span className="font-semibold text-[var(--destructive)]">
-                      {t("settings.personalExtensions.traffic.highRate")}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="grid gap-2">
-          <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.imagestyleprofileseditor.name")}
-            <input
-              value={draft.name}
-              readOnly={!isExternal}
-              onChange={(event) => setDraft((value) => ({ ...value, name: event.target.value }))}
-              className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.extensionsettings.version")}
-            <input
-              value={draft.version ?? ""}
-              readOnly={!isExternal}
-              onChange={(event) => setDraft((value) => ({ ...value, version: event.target.value || null }))}
-              placeholder="1.0.0"
-              className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
-            />
-          </label>
-          <div className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.extensionsettings.runtime")}
-            <Select
-              value={draft.runtime}
-              options={[
-                { value: "client", label: localizeUi("settings.notifications.browser") },
-                { value: "server", label: localizeUi("ui.panels.extensionsettings.server") },
-              ]}
-              disabled={!isExternal}
-              onChange={(runtime) =>
-                setDraft((value) => ({
-                  ...value,
-                  runtime: runtime === "server" ? "server" : "client",
-                  ...(runtime === "server" ? { capabilities: [] } : {}),
-                }))
-              }
-              label={localizeUi("ui.panels.extensionsettings.runtime")}
-              className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
-            />
-          </div>
-        </div>
-
-        <label className="flex flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-          {localizeUi("chat.settings.inlineEditor.fields.description")}
-          <textarea
-            value={draft.description}
-            readOnly={!isExternal}
-            onChange={(event) => setDraft((value) => ({ ...value, description: event.target.value }))}
-            rows={2}
-            className="resize-y rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
-          />
-        </label>
-
-        <div
-          className={cn(
-            "flex items-start gap-2 rounded-lg border px-3 py-2.5 text-[0.6875rem] leading-relaxed text-[var(--foreground)]",
-            fullPageAccess
-              ? "border-[var(--destructive)]/45 bg-[var(--destructive)]/[0.08]"
-              : "border-[var(--primary)]/30 bg-[var(--primary)]/[0.08]",
-          )}
-        >
-          <AlertTriangle
-            size="0.875rem"
-            className={cn("mt-0.5 shrink-0", fullPageAccess ? "text-[var(--destructive)]" : "text-[var(--primary)]")}
-          />
-          {draft.runtime === "server"
-            ? t("settings.personalExtensions.sandbox.server")
-            : fullPageAccess
-              ? t("settings.personalExtensions.sandbox.fullPage")
-              : t("settings.personalExtensions.sandbox.browser")}
-        </div>
-
-        {draft.runtime === "client" && (
-          <div className="grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-3">
-            <div>
-              <div className="text-xs font-semibold text-[var(--foreground)]">
-                {t("settings.personalExtensions.capabilities.title")}
-              </div>
-              <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
-                {t("settings.personalExtensions.capabilities.description")}
-              </p>
-            </div>
-            {PERSONAL_EXTENSION_CAPABILITIES.filter(
-              (capability) => isExternal || capability !== PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
-            ).map((capability) => {
-              const checked = draft.capabilities.includes(capability);
-              const isFullPageCapability = capability === PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY;
-              return (
-                <label
-                  key={capability}
-                  className={cn(
-                    "flex min-h-11 items-start gap-2.5 rounded-md border bg-[var(--background)]/45 px-3 py-2",
-                    isFullPageCapability ? "border-[var(--destructive)]/40" : "border-[var(--border)]",
-                  )}
-                >
-                  <Checkbox
-                    checked={checked}
-                    disabled={!isExternal}
-                    onChange={(event) =>
-                      setDraft((value) => ({
-                        ...value,
-                        capabilities: event.target.checked
-                          ? isFullPageCapability
-                            ? [PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY]
-                            : PERSONAL_EXTENSION_CAPABILITIES.filter(
-                                (candidate) =>
-                                  candidate !== PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY &&
-                                  (candidate === capability || value.capabilities.includes(candidate)),
-                              )
-                          : value.capabilities.filter((candidate) => candidate !== capability),
-                      }))
-                    }
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-xs font-medium text-[var(--foreground)]">
-                      <span className={cn(isFullPageCapability && "text-[var(--destructive)]")}>
-                        {t(`settings.personalExtensions.capabilities.${capability}.label`)}
-                      </span>
-                    </span>
-                    <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                      {t(`settings.personalExtensions.capabilities.${capability}.description`)}
-                    </span>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-
-        {draft.runtime === "client" ? (
-          <div className="grid gap-3">
-            <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-              {fullPageAccess
-                ? t("settings.personalExtensions.fullPageCssLabel")
-                : localizeUi("ui.panels.extensionsettings.cssSanitizedBeforeUse")}
-              <textarea
-                value={draft.css ?? ""}
-                readOnly={!isExternal}
-                onChange={(event) => setDraft((value) => ({ ...value, css: event.target.value }))}
-                spellCheck={false}
-                placeholder={localizeUi("ui.panels.extensionsettings.optionalExtensionCss")}
-                className="min-h-72 resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
-              />
-            </label>
-            <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.extensionsettings.browserJavascript")}
-              <textarea
-                value={draft.js ?? ""}
-                readOnly={!isExternal}
-                onChange={(event) => setDraft((value) => ({ ...value, js: event.target.value }))}
-                spellCheck={false}
-                placeholder={localizeUi("ui.panels.extensionsettings.optionalBrowserJavascript")}
-                className="min-h-72 resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
-              />
-            </label>
-          </div>
-        ) : (
-          <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.extensionsettings.serverJavascript")}
-            <textarea
-              value={draft.serverJs ?? ""}
-              readOnly={!isExternal}
-              onChange={(event) => setDraft((value) => ({ ...value, serverJs: event.target.value }))}
-              spellCheck={false}
-              placeholder={localizeUi("ui.panels.extensionsettings.trustedServerJavascript")}
-              className="min-h-96 resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 font-mono text-[0.6875rem] leading-relaxed text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
-            />
-          </label>
-        )}
-
-        {current && current.revisions.length > 0 && (
-          <details className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35">
-            <summary className="flex min-h-10 cursor-pointer items-center gap-2 px-3 text-xs font-semibold">
-              <History size="0.875rem" />
-              {localizeUi("ui.panels.extensionsettings.revisionHistory")}
-              {current.revisions.length})
-            </summary>
-            <div className="flex flex-col gap-1.5 border-t border-[var(--border)] p-2">
-              {current.revisions.map((revision) => (
-                <div
-                  key={`${revision.contentHash}-${revision.savedAt}`}
-                  className="flex flex-wrap items-center gap-2 rounded-md bg-[var(--background)]/60 px-2.5 py-2 text-[0.625rem]"
-                >
-                  <Clock3 size="0.75rem" className="text-[var(--muted-foreground)]" />
-                  <span className="font-mono">{shortHash(revision.contentHash)}</span>
-                  <span className="text-[var(--muted-foreground)]">
-                    {revision.runtime === "server"
-                      ? localizeUi("ui.panels.extensionsettings.server")
-                      : localizeUi("settings.notifications.browser")}
-                    {revision.version
-                      ? localizeUi("ui.panels.extensionsettings.vValue1", { value1: revision.version })
-                      : ""}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => void restoreRevision(current, revision.contentHash)}
-                    disabled={busy}
-                    className={cn(SETTINGS_BUTTON_CLASS, "ml-auto")}
-                  >
-                    <RotateCcw size="0.75rem" />
-                    {localizeUi("ui.panels.extensionsettings.restoreDraft")}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
+        <PersonalExtensionEditorBody
+          current={current}
+          draft={draft}
+          setDraft={setDraft}
+          editable={isExternal}
+          busy={busy}
+          onRestore={(extension, hash) => void restoreRevision(extension, hash)}
+        />
       </div>
     );
   }

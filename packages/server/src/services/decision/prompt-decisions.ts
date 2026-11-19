@@ -19,6 +19,7 @@ import {
   collectDecisionQuestions,
   decisionLocalSlotForId,
   DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
+  MAX_DECISION_PICTURES,
   normalizeDecisionQuestion,
   parseChoiceOptions,
   planDecisionStatements,
@@ -33,6 +34,13 @@ import {
 } from "@marinara-engine/shared";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { buildDecisionState, type DecisionMessage } from "../generation/agent-activation-questions.js";
+import {
+  clampDecisionMediaWant,
+  decisionMediaKey,
+  hasRecentDecisionMedia,
+  NO_DECISION_MEDIA,
+  type DecisionMediaWant,
+} from "./decision-media.js";
 import type { DecisionBackend } from "./decision-default.js";
 import { describeDecisionSlot } from "./decision-slots.js";
 import type { LorebookDecisionResolver } from "../lorebook/index.js";
@@ -63,6 +71,11 @@ export interface PlannedDecision {
   priority?: DecisionStatementPriority;
   /** The first `until:` or `while:` written on a `decision:` statement (#6922). */
   lasts?: DecisionLifetime;
+  /** The most `pictures:` and `clips:` written on any of its occurrences; none when unset. */
+  pictures?: number;
+  clips?: number;
+  /** The smallest `media_within:` written on any of its occurrences: asked only when a recent message has media. */
+  mediaWithin?: number;
   /** Set when sticky, cooldown or `every:` holds its answer this turn: it is not asked, and takes no slot. */
   held?: HeldDecision;
 }
@@ -278,6 +291,10 @@ export function planPromptDecisions(
           if (collected.sticky) planned.sticky = Math.max(planned.sticky ?? 0, collected.sticky);
           if (collected.cooldown) planned.cooldown = Math.max(planned.cooldown ?? 0, collected.cooldown);
           if (collected.every) planned.every = Math.min(planned.every ?? collected.every, collected.every);
+          if (collected.pictures) planned.pictures = Math.max(planned.pictures ?? 0, collected.pictures);
+          if (collected.clips) planned.clips = Math.max(planned.clips ?? 0, collected.clips);
+          if (collected.mediaWithin)
+            planned.mediaWithin = Math.min(planned.mediaWithin ?? collected.mediaWithin, collected.mediaWithin);
           if (collected.lasts && collected.kind === "noul" && !planned.lasts) {
             const conditionKey = resolveDecisionQuestionText(collected.lasts.statement, ctx);
             if (conditionKey)
@@ -381,12 +398,22 @@ export class PromptDecisionTurnCache {
 
 export const promptDecisionTurnCache = new PromptDecisionTurnCache();
 
+/**
+ * The key a yes/no answer is cached under this turn. A statement that asks for pictures
+ * or clips is a different question from the same words asked on text alone, so an answer
+ * is reused only by an occurrence that wanted the same media.
+ */
+function noulCacheKey(decision: Pick<PlannedDecision, "key" | "pictures" | "clips">): string {
+  const want = clampDecisionMediaWant({ pictures: decision.pictures, clips: decision.clips });
+  return want.pictures + want.clips > 0 ? `${decision.key}\u0003${decisionMediaKey(want)}` : decision.key;
+}
+
 /** A Choice answer is cached against its options and their criteria, which a later edit can change. */
 function choiceCacheKey(decision: PlannedDecision): string {
   const options = decision.options.map((option, index) =>
     decision.criteria?.[index] ? `${option}\u0002${decision.criteria[index]}` : option,
   );
-  return `${decision.key}\u0000${options.sort().join("\u0001")}`;
+  return `${noulCacheKey(decision)}\u0000${options.sort().join("\u0001")}`;
 }
 
 /** What is already known for this turn, without asking anything. For Peek Prompt. */
@@ -400,7 +427,7 @@ export function cachedPromptDecisionAnswers(
   const choices = new Map<string, string>();
   for (const decision of plan.decisions) {
     if (decision.kind === "noul") {
-      const cached = turn?.noul.get(decision.key)?.yes ?? decision.held?.yes;
+      const cached = turn?.noul.get(noulCacheKey(decision))?.yes ?? decision.held?.yes;
       if (cached !== undefined) answers.set(decision.key, cached);
     } else {
       const choice =
@@ -444,15 +471,27 @@ export async function answerPromptDecisions(args: {
   // A held statement is answered by its timer and never asked.
   for (const decision of plan.decisions) {
     if (!decision.held) continue;
-    if (decision.kind === "noul") turn.noul.set(decision.key, { yes: decision.held.yes, held: true });
+    if (decision.kind === "noul") turn.noul.set(noulCacheKey(decision), { yes: decision.held.yes, held: true });
     else
       turn.choice.set(
         choiceCacheKey(decision),
         decision.held.yes && decision.held.choice !== undefined ? decision.held.choice : DECISION_CHOICE_NONE,
       );
   }
+  // `media_within:` waits for a picture or clip: on a turn without one in the newest
+  // messages, the statement reads as no and is not asked, like a held one.
+  for (const decision of plan.decisions)
+    if (
+      !decision.held &&
+      decision.mediaWithin &&
+      !hasRecentDecisionMedia(args.messages, decision.mediaWithin, decision)
+    ) {
+      decision.held = { yes: false };
+      if (decision.kind === "noul") turn.noul.set(noulCacheKey(decision), { yes: false, held: true });
+      else turn.choice.set(choiceCacheKey(decision), DECISION_CHOICE_NONE);
+    }
   const pending = plan.decisions.filter((decision) =>
-    decision.kind === "noul" ? !turn.noul.has(decision.key) : !turn.choice.has(choiceCacheKey(decision)),
+    decision.kind === "noul" ? !turn.noul.has(noulCacheKey(decision)) : !turn.choice.has(choiceCacheKey(decision)),
   );
   if (plan.dropped.length > 0) {
     // The count at warn; the statements themselves are chat content and go to debug.
@@ -463,67 +502,96 @@ export async function answerPromptDecisions(args: {
     );
     logger.debug("[decision] Dropped decision statements: %s", plan.dropped.join(" | "));
   }
-  let requestError: string | undefined;
+  // Per statement, since statements with different pictures go in different requests.
+  const requestErrors = new Map<number, string>();
   if (backend && pending.length > 0 && (args.afterReply || !backend.deferPreGeneration)) {
-    const questions: NoulQuestion[] = pending.map((decision, index) => ({
-      id: `d${index}`,
-      instructions: decision.key,
-      ...(decision.kind === "choice"
-        ? { options: decision.options, ...(decision.criteria ? { criteria: decision.criteria } : {}) }
-        : {}),
-    }));
-    try {
-      const state = buildDecisionState(
-        args.messages,
-        DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
-        backend.maxStateTokens,
-      );
-      const result = await backend.askMixed(state, questions);
-      requestError = result.error;
-      pending.forEach((decision, index) => {
-        if (decision.kind === "noul") {
-          const p = result.answers.get(`d${index}`);
-          if (p === undefined) return;
-          const yes = p >= backend.calibration.defaultThreshold;
-          turn.noul.set(decision.key, {
-            p,
-            yes,
-            threshold: backend.calibration.defaultThreshold,
-            binary: result.binaryAnswers?.has(`d${index}`),
-          });
-          if (args.timers) {
-            recordDecisionTimer(args.timers.state, args.timers.turn, decision, { yes });
-            recordDecisionCheck(args.timers.state, args.timers.turn, decision);
-          }
-        } else {
-          const choice = result.choices.get(`d${index}`);
-          if (choice === undefined) return;
-          turn.choice.set(choiceCacheKey(decision), choice);
-          if (args.timers) {
-            if (choice !== DECISION_CHOICE_NONE)
-              recordDecisionTimer(args.timers.state, args.timers.turn, decision, { choice });
-            recordDecisionCheck(args.timers.state, args.timers.turn, decision);
+    // Statements that show the model the same pictures share one request. A model that
+    // reads text only is never sent any, so its statements all go together.
+    const groups = new Map<string, { want: DecisionMediaWant; indexes: number[] }>();
+    pending.forEach((decision, index) => {
+      const want = backend.mediaTokens
+        ? clampDecisionMediaWant({ pictures: decision.pictures, clips: decision.clips })
+        : NO_DECISION_MEDIA;
+      const key = decisionMediaKey(want);
+      const group = groups.get(key) ?? { want, indexes: [] };
+      group.indexes.push(index);
+      groups.set(key, group);
+    });
+    for (const { want, indexes } of groups.values()) {
+      // Ids keep each statement's place in the whole turn, which the report looks up.
+      const questions: NoulQuestion[] = indexes.map((index) => {
+        const decision = pending[index]!;
+        return {
+          id: `d${index}`,
+          instructions: decision.key,
+          ...(decision.kind === "choice"
+            ? { options: decision.options, ...(decision.criteria ? { criteria: decision.criteria } : {}) }
+            : {}),
+        };
+      });
+      try {
+        const state = buildDecisionState(
+          args.messages,
+          DEFAULT_CUSTOM_AGENT_ACTIVATION_SCAN_DEPTH,
+          backend.maxStateTokens,
+          {
+            want,
+            ...(backend.mediaTokens ? { tokens: backend.mediaTokens } : {}),
+          },
+        );
+        const result = await backend.askMixed(state, questions);
+        if (result.error) for (const index of indexes) requestErrors.set(index, result.error);
+        for (const index of indexes) {
+          const decision = pending[index]!;
+          if (decision.kind === "noul") {
+            const p = result.answers.get(`d${index}`);
+            if (p === undefined) continue;
+            const yes = p >= backend.calibration.defaultThreshold;
+            turn.noul.set(noulCacheKey(decision), {
+              p,
+              yes,
+              threshold: backend.calibration.defaultThreshold,
+              binary: result.binaryAnswers?.has(`d${index}`),
+            });
+            if (args.timers) {
+              recordDecisionTimer(args.timers.state, args.timers.turn, decision, { yes });
+              recordDecisionCheck(args.timers.state, args.timers.turn, decision);
+            }
+          } else {
+            const choice = result.choices.get(`d${index}`);
+            if (choice === undefined) continue;
+            turn.choice.set(choiceCacheKey(decision), choice);
+            if (args.timers) {
+              if (choice !== DECISION_CHOICE_NONE)
+                recordDecisionTimer(args.timers.state, args.timers.turn, decision, { choice });
+              recordDecisionCheck(args.timers.state, args.timers.turn, decision);
+            }
           }
         }
-      });
-    } catch (error) {
-      requestError = "request_failed";
-      logger.warn(error, "[decision] Prompt decision request failed; those branches read as no");
+      } catch (error) {
+        for (const index of indexes) requestErrors.set(index, "request_failed");
+        logger.warn(error, "[decision] Prompt decision request failed; those branches read as no");
+      }
     }
   }
   // until/while (#6922): a block kept on by its condition reads that condition's answer.
   // With no answer, it stays on and its timers are left as they are.
   for (const decision of plan.decisions) {
     const lasts = decision.held?.lasts;
-    const answer = lasts ? turn.noul.get(lasts.key)?.yes : undefined;
+    // The condition is planned as its own statement, which may ask for pictures or clips:
+    // its answer is stored under that statement's key.
+    const condition = lasts
+      ? plan.decisions.find((other) => other.kind === "noul" && other.key === lasts.key)
+      : undefined;
+    const answer = lasts ? turn.noul.get(condition ? noulCacheKey(condition) : lasts.key)?.yes : undefined;
     if (!lasts || answer === undefined) continue;
     const stays = answer === (lasts.kind === "while");
-    turn.noul.set(decision.key, { yes: stays, held: true });
+    turn.noul.set(noulCacheKey(decision), { yes: stays, held: true });
     if (args.timers) recordDecisionLifetime(args.timers.state, args.timers.turn, decision, stays);
   }
   const answers = cachedPromptDecisionAnswers(plan, args.cacheKey, cache);
   const report: DecisionDebugResult[] = plan.decisions.map((decision) => {
-    const cached = turn.noul.get(decision.key);
+    const cached = turn.noul.get(noulCacheKey(decision));
     const choice = answers.choices?.get(decision.key);
     const answered = decision.kind === "noul" ? cached !== undefined : choice !== undefined;
     const index = pending.indexOf(decision);
@@ -542,7 +610,7 @@ export async function answerPromptDecisions(args: {
               : "unanswered";
     const error =
       status === "unanswered"
-        ? (requestError ??
+        ? (requestErrors.get(index) ??
           inspection?.requests
             .slice(traceStart)
             .find((request) => request.results?.some((result) => result.id === `d${index}`))?.error)
@@ -667,16 +735,37 @@ export function createLorebookDecisionResolver(args: {
       entryId: request.entryId,
       key: resolveDecisionQuestionText(request.statement, args.macroContext),
     }));
+    // The same statement on several entries reads the most pictures any of them asks
+    // for, and waits for media only when every one of them does (the widest window).
+    const media = new Map<string, { pictures: number; mediaWithin?: number; always: boolean }>();
+    requests.forEach((request, index) => {
+      const key = keyed[index]!.key;
+      if (!key) return;
+      const prior = media.get(key) ?? { pictures: 0, always: false };
+      const pictures = Math.max(prior.pictures, Math.max(0, Math.min(MAX_DECISION_PICTURES, request.pictures ?? 0)));
+      const always = prior.always || !request.mediaWithin;
+      const mediaWithin = always ? undefined : Math.max(prior.mediaWithin ?? 0, request.mediaWithin ?? 0);
+      media.set(key, { pictures, always, ...(mediaWithin ? { mediaWithin } : {}) });
+    });
     const planned: PlannedDecision[] = [];
     const dropped: string[] = [];
     const seen = new Set<string>();
     for (const { key } of keyed) {
       if (!key || seen.has(key)) continue;
       seen.add(key);
+      const want = media.get(key);
       // A Decision field has no timing of its own, but the same statement held elsewhere
       // keeps its held answer here too, and takes no slot.
       const held = args.held?.("noul", key);
-      if (held || admit(key)) planned.push({ kind: "noul", key, options: [], ...(held ? { held } : {}) });
+      if (held || admit(key))
+        planned.push({
+          kind: "noul",
+          key,
+          options: [],
+          ...(want?.pictures ? { pictures: want.pictures } : {}),
+          ...(want?.mediaWithin ? { mediaWithin: want.mediaWithin } : {}),
+          ...(held ? { held } : {}),
+        });
       else dropped.push(key);
     }
     const plan: PromptDecisionPlan = { decisions: planned, dropped };

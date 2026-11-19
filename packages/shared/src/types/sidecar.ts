@@ -94,8 +94,13 @@ export interface SidecarConfig {
   topP: number;
   /** Top-k sampling limit for local inference. */
   topK: number;
-  /** Maximum local agent requests and llama-server slots that may run in parallel. */
+  /**
+   * Requests the built-in model works on at once (llama-server slots). 0 = Auto: two
+   * when the machine has room for the second slot's context memory, otherwise one.
+   */
   maxParallelJobs: number;
+  /** Set once a config has been through the Auto migration, so a later choice of 2 stays 2. */
+  maxParallelJobsVersion?: number;
   /** GPU layers to offload (-1 = try max GPU offload first, then fall back if startup fails). */
   gpuLayers: number;
   /** llama.cpp K/V cache precision; f16 preserves the default runtime behavior. */
@@ -394,7 +399,8 @@ export const SIDECAR_DEFAULT_CONFIG: SidecarConfig = {
   temperature: 0.3,
   topP: 0.95,
   topK: 64,
-  maxParallelJobs: 2,
+  maxParallelJobs: 0,
+  maxParallelJobsVersion: 2,
   gpuLayers: -1,
   enableNativeToolCalls: true,
   embeddingPooling: "none",
@@ -477,3 +483,19 @@ export const SIDECAR_MLX_MODELS: SidecarModelInfo[] = [
     ramBytes: 4_800_000_000,
   },
 ];
+
+/** A built-in decision model install in progress, for the page's progress bar. */
+export interface DecisionInstallProgress {
+  modelId: string;
+  /** The model's display name. */
+  label: string;
+  /** "runtime" while the program that runs it downloads, then "model" for its weights. */
+  phase: "runtime" | "model";
+  /** Bytes so far and in total: the runtime file in that phase, the whole model in the next. */
+  downloaded: number;
+  total: number;
+  /** Bytes per second. */
+  speed: number;
+  runtimeLabel?: string;
+  startedAt: number;
+}

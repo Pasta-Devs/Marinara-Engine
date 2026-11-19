@@ -23,7 +23,9 @@ import { decisionSlotContextSize, resolveDecisionSlot } from "./decision-slots.j
 import { askSidecarNoulQuestions, connectionChatTarget, type ChatDecisionTarget } from "./sidecar-decision.backend.js";
 import { resolveDecisionConnection, type DecisionConnectionRow } from "./decision-connection.js";
 import { whenDecisionServerFree } from "./decision-server-queue.js";
+import { localModelManager } from "../sidecar/local-model-manager.js";
 import { askNoulQuestions, DECISION_CHOICE_NONE, type NoulQuestion } from "./system-one.client.js";
+import { decisionMediaTokens, decisionRequestWithMedia, loadDecisionMedia } from "./decision-media.js";
 
 /**
  * Headroom left for the system prompt and the question when capping a state against a
@@ -62,6 +64,11 @@ export interface DecisionBackend {
    * `DECISION_UNMEASURED_STATEMENT_MS`, and a pass asks every statement rather than judge fewer on a guess.
    */
   requestMs?: (statements: number) => number;
+  /**
+   * What one picture and one clip cost this model's input, for a decision that asks to
+   * show it some. Absent for a model that reads text only, which is never sent any.
+   */
+  mediaTokens?: { picture: number; clip: number };
   ask: (state: unknown, questions: NoulQuestion[]) => Promise<Map<string, number> | null>;
   /**
    * Yes/no and Choice questions together, for prompt conditionals. A question with
@@ -241,42 +248,59 @@ export async function resolveDecisionBackend(
       // The model's own launch limit, never the main sidecar's context. Overshooting
       // it is not a truncation, it is a 422 and a failed gate on every long scene.
       const limit = resolved.maxLengthTokens ?? decisionSlotContextSize(slot);
+      // A decision that shows the model pictures takes their room out of the scene when
+      // its state is built; one that does not keeps the whole budget.
       const maxStateTokens = Math.max(256, limit - SIDECAR_STATE_HEADROOM_TOKENS);
+      const mediaTokens = decisionMediaTokens(resolved.runtime, resolved.inputs);
       const perQuestionMs = resolved.perQuestionMs;
       // Local and on loopback, but a model still has to run: the sidecar's limit for the
       // first answer, then its measured cost for each further one. A model with no
       // measured cost gets the full limit for every answer. Never one limit for the
       // whole group, however many statements it carries.
-      const askSidecar = (state: unknown, questions: NoulQuestion[]) =>
+      const askSidecar = async (state: unknown, questions: NoulQuestion[]) => {
+        // The chat's newest pictures and clips the decision asked for, for a model that reads them. Loaded
+        // before the queue so reading files and scaling pictures never holds the model.
+        const media = await loadDecisionMedia(state, resolved.inputs);
+        const request = decisionRequestWithMedia(resolved.runtime, state, media);
+        const mediaMs =
+          media.images.length * (resolved.mediaMs?.image ?? 0) + media.videos.length * (resolved.mediaMs?.video ?? 0);
         // Its server answers one request at a time, so a request's clock starts once it
         // reaches the model, not while another request is still being answered.
-        whenDecisionServerFree(resolved.baseUrl, resolved.serverSlots, signal, () =>
-          askNoulQuestions({
-            connection: {
-              protocol: "system_one",
-              endpoint: `${resolved.baseUrl}/v1/systemone`,
-              apiKey: "",
-              model: resolved.model,
-              maxStateTokens,
-            },
-            state,
-            questions,
-            timeoutMs: perStatementLimitMs(
-              answersAskedFor(questions),
-              DECISION_TIMEOUT_MS.sidecar,
-              resolved.perQuestionMs ?? DECISION_TIMEOUT_MS.sidecar,
-            ),
-            signal,
-            questionShape: calibration.questionShape,
-            debugMode: deps.debugMode,
-            inspection: deps.inspection,
-          }),
+        return whenDecisionServerFree(resolved.baseUrl, resolved.serverSlots, signal, () =>
+          // Counts as use, so the decision model is not unloaded for being idle mid-question.
+          localModelManager.track("decision", () =>
+            askNoulQuestions({
+              connection: {
+                protocol: "system_one",
+                endpoint: `${resolved.baseUrl}/v1/systemone`,
+                apiKey: "",
+                model: resolved.model,
+                maxStateTokens,
+              },
+              state: request.state,
+              ...(request.extraBody ? { extraBody: request.extraBody } : {}),
+              questions,
+              // Media are read once, with the scene, so their time is added once.
+              timeoutMs:
+                perStatementLimitMs(
+                  answersAskedFor(questions),
+                  resolved.firstAnswerMs ?? DECISION_TIMEOUT_MS.sidecar,
+                  resolved.perQuestionMs ?? resolved.firstAnswerMs ?? DECISION_TIMEOUT_MS.sidecar,
+                ) + mediaMs,
+              signal,
+              questionShape: calibration.questionShape,
+              debugMode: deps.debugMode,
+              inspection: deps.inspection,
+            }),
+          ),
         );
+      };
       return {
         model: resolved.model,
         debugMode: deps.debugMode,
         inspection: deps.inspection,
         maxStateTokens,
+        ...(mediaTokens.picture || mediaTokens.clip ? { mediaTokens } : {}),
         calibration,
         // It scores candidates in one pass and never reasons, so nothing is deferred.
         deferPreGeneration: false,

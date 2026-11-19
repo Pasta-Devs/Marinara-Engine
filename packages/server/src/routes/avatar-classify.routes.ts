@@ -6,6 +6,8 @@
 //   GET  /model  AvatarEmotionModelStatus: the local model's download and load state, for the agents' pages
 //   POST /model  { chatId } → AvatarEmotionModelStatus. Downloads (when missing) and loads the local model, only
 //                for a Roleplay chat that has 2D or 3D Avatars turned on and installed; 409 otherwise.
+//   POST /model/download  → AvatarEmotionModelStatus. The Built-in model (emotions) page's Download (privileged).
+//   POST /model/remove    → AvatarEmotionModelStatus. Unloads it and deletes its files (privileged).
 // Backed by services/avatars/emotion-classifier.ts. Rate limited in middleware/rate-limit.ts.
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -20,7 +22,10 @@ import {
   avatarEmotionModelStatus,
   classifyAvatarEmotions,
   prepareAvatarEmotionModel,
+  isAvatarEmotionModelLoading,
+  removeAvatarEmotionModel,
 } from "../services/avatars/emotion-classifier.js";
+import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { capabilityPackageManager } from "../services/capability-packages/package-manager.service.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 
@@ -62,6 +67,22 @@ export async function avatarClassifyRoutes(app: FastifyInstance, options: Avatar
     }
     // The download and load run on; the agents' pages follow them through GET /model.
     void prepareAvatarEmotionModel();
+    return avatarEmotionModelStatus();
+  });
+
+  app.post("/model/download", { config: { rateLimit: AVATAR_CLASSIFY_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Built-in emotion model download" })) return;
+    if (avatarEmotionModelStatus().unsupported) return reply.status(409).send({ error: "This server cannot run it" });
+    void prepareAvatarEmotionModel(true);
+    return avatarEmotionModelStatus();
+  });
+
+  app.post("/model/remove", { config: { rateLimit: AVATAR_CLASSIFY_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Built-in emotion model removal" })) return;
+    if (isAvatarEmotionModelLoading()) {
+      return reply.status(409).send({ error: "Wait until the emotion model has finished downloading or starting" });
+    }
+    await removeAvatarEmotionModel();
     return avatarEmotionModelStatus();
   });
 }

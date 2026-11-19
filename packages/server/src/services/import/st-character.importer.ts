@@ -129,6 +129,8 @@ export interface STCharacterImportPreview {
 export interface STCharacterImportOptions {
   timestampOverrides?: TimestampOverrides | null;
   importEmbeddedLorebook?: boolean;
+  /** Import the embedded lorebook hidden from the Lorebook library (still linked and active for the character). */
+  hideEmbeddedLorebook?: boolean;
   tagImportMode?: STCharacterTagImportMode;
   existingTagKeys?: ReadonlySet<string>;
   /** Where embedded regex scripts land: scoped to the character (default) or global. */
@@ -413,6 +415,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
         characterId: charId,
         namePrefix: data.name,
         timestampOverrides: options?.timestampOverrides,
+        hiddenFromLibrary: options?.hideEmbeddedLorebook === true,
         ...(options?.importTags ? { importTags: options.importTags, source: importSource } : {}),
         beforeCommit: async (tx, result) => {
           const updatedImportMetadata = {
@@ -902,6 +905,7 @@ async function updateCharacterFromCard(input: {
         characterId,
         namePrefix: data.name,
         existingLorebookId,
+        hiddenFromLibrary: input.options.hideEmbeddedLorebook === true,
         ...(input.options.importTags ? { importTags: input.options.importTags, source: input.importSource } : {}),
         beforeCommit: async (tx, result) => {
           const latest = await createCharactersStorage(tx).getById(characterId);

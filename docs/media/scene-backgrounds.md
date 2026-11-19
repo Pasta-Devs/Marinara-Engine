@@ -42,6 +42,8 @@ Before Illustrator paints a new place, it looks for a picture you already have, 
 
 Case, accents and "'s" don't matter, and the most specific name wins over a plain `bedroom.png`. If one fits, it is shown (in the story's weather, when that version exists) and nothing is painted. Only a place with no match gets a new picture.
 
+If nothing matches by name, and you turned on **Reuse a library background that looks like the place** on the Illustrator card, a [decision model that reads pictures](../connections/decision-models.md#features-that-look-at-pictures) looks at up to 4 library pictures that share a word with the place and shows one that matches. Only when none does is a new one painted. It is off by default and greyed out without such a model.
+
 To make sure a place keeps its picture, name the file after the place (`kitchen.png` for "Kitchen"), or give it a tag of two or more words, such as `smith house kitchen` (see [Tag a background](../appearance/chat-backgrounds.md#tag-a-background)). One-word tags like `kitchen` or `night` are ignored here, because they usually describe how a picture looks.
 
 ## Weather versions of backgrounds

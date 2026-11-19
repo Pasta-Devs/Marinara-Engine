@@ -7,6 +7,7 @@ import {
   type GameState,
   type ImageStyleProfileSettings,
 } from "@marinara-engine/shared";
+import { normalizePictureCheckMode, resolvePictureDecisionBackend } from "../decision/picture-decisions.js";
 import type { DB } from "../../db/connection.js";
 import { debugJson, logger } from "../../lib/logger.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
@@ -479,11 +480,11 @@ export async function generateIllustratorSceneBackground(
     promptOverride?: string;
     negativePromptOverride?: string;
     /** After the plan is written: a library picture to show instead of painting one (null paints). */
-    reuseExisting?: (plan: IllustratorBackgroundPlan) => string | null;
+    reuseExisting?: (plan: IllustratorBackgroundPlan) => string | null | Promise<string | null>;
   },
 ): Promise<GeneratedIllustratorBackground> {
   const { plan, request } = await prepareIllustratorSceneBackground(args, args.planOverride);
-  const existing = args.reuseExisting?.(plan);
+  const existing = await args.reuseExisting?.(plan);
   if (existing) {
     return { ...plan, filename: existing, url: `/api/backgrounds/file/${encodeURIComponent(existing)}`, reused: true };
   }
@@ -499,6 +500,27 @@ export async function generateIllustratorSceneBackground(
     filename,
     url: `/api/backgrounds/file/${encodeURIComponent(filename)}`,
   };
+}
+
+/**
+ * The chat's picture check for a weather version: the version must show the weather, through a window
+ * when the place is indoors. Off without the setting or a decision model that reads pictures.
+ */
+async function weatherVersionPictureCheck(
+  args: IllustratorSceneBackgroundArgs,
+  version: BackgroundWeatherVersionKey,
+  shelter: ReturnType<typeof sceneShelter>,
+) {
+  const mode = normalizePictureCheckMode(args.chatMetadata.pictureCheck);
+  if (mode === "off") return undefined;
+  const backend = await resolvePictureDecisionBackend(args.db, args.signal);
+  if (!backend) return undefined;
+  const weather = version.replace(/-/gu, " ");
+  const statement =
+    shelter === "outdoors"
+      ? `The picture shows ${weather} weather.`
+      : `The picture shows ${weather} weather, outside or through a window.`;
+  return { mode, backend, lines: [{ statement }] };
 }
 
 /** Whether the chat makes weather versions of its background (Chat settings > Illustrator). */
@@ -552,6 +574,7 @@ export async function generateIllustratorBackgroundWeatherVersion(
       version: args.version,
       shelter,
       scenePrompt: args.scenePrompt,
+      pictureCheck: await weatherVersionPictureCheck(args, args.version, shelter),
     }),
     needsStencil
       ? generateChatBackgroundWindowMask({ ...request, baseFilename: args.baseFilename })
