@@ -2,16 +2,28 @@ import {
   useCallback,
   useEffect,
   useId,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
 } from "react";
 import { Eraser, Paintbrush, Trash2, Undo2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 
-type MaskTool = "brush" | "eraser";
+export type MaskTool = "brush" | "eraser";
+
+export interface ImageMaskState {
+  strokeCount: number;
+  hasMask: boolean;
+}
+
+export interface ImageMaskCanvasHandle {
+  undo: () => void;
+  clear: () => void;
+}
 
 interface MaskPoint {
   x: number;
@@ -28,14 +40,19 @@ export interface ImageMaskCanvasProps {
   src: string;
   alt: string;
   disabled?: boolean;
+  tool?: MaskTool;
+  brushSizePx?: number;
+  hideToolbar?: boolean;
   onMaskChange: (maskDataUrl: string | null) => void;
+  onMaskStateChange?: (state: ImageMaskState) => void;
+  controlsRef?: RefObject<ImageMaskCanvasHandle | null>;
   className?: string;
 }
 
 const MAX_BACKING_SIDE = 2048;
-const DEFAULT_BRUSH_PX = 48;
-const MIN_BRUSH_PX = 8;
-const MAX_BRUSH_PX = 140;
+export const DEFAULT_MASK_BRUSH_PX = 48;
+export const MIN_MASK_BRUSH_PX = 8;
+export const MAX_MASK_BRUSH_PX = 140;
 const OVERLAY_TINT = "rgba(96, 165, 250, 0.58)";
 
 const TOOL_BUTTON_CLASS =
@@ -82,7 +99,18 @@ function renderStroke(ctx: CanvasRenderingContext2D, width: number, height: numb
  * Overlay brush canvas matching an image's fitted aspect box 1:1.
  * Paints a uniform translucent mask and exports a binary white/black PNG for inpainting.
  */
-export function ImageMaskCanvas({ src, alt, disabled = false, onMaskChange, className }: ImageMaskCanvasProps) {
+export function ImageMaskCanvas({
+  src,
+  alt,
+  disabled = false,
+  tool,
+  brushSizePx,
+  hideToolbar = false,
+  onMaskChange,
+  onMaskStateChange,
+  controlsRef,
+  className,
+}: ImageMaskCanvasProps) {
   const { t } = useUiTranslation();
   const sizeSliderId = useId();
   const stageHostRef = useRef<HTMLDivElement>(null);
@@ -97,14 +125,21 @@ export function ImageMaskCanvas({ src, alt, disabled = false, onMaskChange, clas
 
   const [hostSize, setHostSize] = useState<{ width: number; height: number } | null>(null);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
-  const [tool, setTool] = useState<MaskTool>("brush");
-  const [brushSizePx, setBrushSizePx] = useState(DEFAULT_BRUSH_PX);
+  const [internalTool, setInternalTool] = useState<MaskTool>("brush");
+  const [internalBrushSizePx, setInternalBrushSizePx] = useState(DEFAULT_MASK_BRUSH_PX);
   const [strokeCount, setStrokeCount] = useState(0);
   const [hasMask, setHasMask] = useState(false);
+
+  const activeTool = tool ?? internalTool;
+  const activeBrushSizePx = brushSizePx ?? internalBrushSizePx;
 
   useEffect(() => {
     onMaskChangeRef.current = onMaskChange;
   }, [onMaskChange]);
+
+  useEffect(() => {
+    onMaskStateChange?.({ strokeCount, hasMask });
+  }, [strokeCount, hasMask, onMaskStateChange]);
 
   useEffect(() => {
     const host = stageHostRef.current;
@@ -259,9 +294,9 @@ export function ImageMaskCanvas({ src, alt, disabled = false, onMaskChange, clas
     const canvas = event.currentTarget;
     const rect = canvas.getBoundingClientRect();
     const minSide = Math.max(1, Math.min(rect.width, rect.height));
-    const radiusRatio = brushSizePx / 2 / minSide;
+    const radiusRatio = activeBrushSizePx / 2 / minSide;
     const point = toCanvasPoint(canvas, event.clientX, event.clientY);
-    const stroke: MaskStroke = { tool, radiusRatio, points: [point] };
+    const stroke: MaskStroke = { tool: activeTool, radiusRatio, points: [point] };
 
     activePointerIdRef.current = event.pointerId;
     activeStrokeRef.current = stroke;
@@ -315,26 +350,39 @@ export function ImageMaskCanvas({ src, alt, disabled = false, onMaskChange, clas
     exportMask();
   };
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (disabled || strokesRef.current.length === 0) return;
     strokesRef.current.pop();
     setStrokeCount(strokesRef.current.length);
     rebuildFromStrokes();
     exportMask();
-  };
+  }, [disabled, exportMask, rebuildFromStrokes]);
 
-  const handleClear = () => {
-    if (disabled || (!hasMask && strokesRef.current.length === 0)) return;
+  const handleClear = useCallback(() => {
+    if (disabled || (strokesRef.current.length === 0 && !hasMask)) return;
     strokesRef.current = [];
     setStrokeCount(0);
     setHasMask(false);
     rebuildFromStrokes();
     onMaskChangeRef.current(null);
-  };
+  }, [disabled, hasMask, rebuildFromStrokes]);
+
+  useImperativeHandle(
+    controlsRef,
+    () => ({
+      undo: handleUndo,
+      clear: handleClear,
+    }),
+    [handleClear, handleUndo],
+  );
 
   return (
     <div
-      className={cn("flex size-full min-h-0 flex-col items-center justify-center gap-2 overflow-hidden", className)}
+      className={cn(
+        "flex size-full min-h-0 flex-col items-center justify-center overflow-hidden",
+        !hideToolbar && "gap-2",
+        className,
+      )}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
@@ -374,94 +422,102 @@ export function ImageMaskCanvas({ src, alt, disabled = false, onMaskChange, clas
         </div>
       </div>
 
-      <div className="flex max-w-full shrink-0 flex-wrap items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--sidebar)]/95 px-2.5 py-1.5 text-xs text-[var(--foreground)] shadow-lg">
-        <button
-          type="button"
-          onClick={() => setTool("brush")}
-          aria-pressed={tool === "brush"}
-          disabled={disabled}
-          className={cn(
-            TOOL_BUTTON_CLASS,
-            tool === "brush"
-              ? "border-[var(--primary)] bg-[var(--primary)]/15 font-semibold text-[var(--foreground)]"
-              : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-          )}
-        >
-          <Paintbrush size="0.875rem" aria-hidden />
-          {t("ui.imagemaskcanvas.brush")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setTool("eraser")}
-          aria-pressed={tool === "eraser"}
-          disabled={disabled}
-          className={cn(
-            TOOL_BUTTON_CLASS,
-            tool === "eraser"
-              ? "border-[var(--primary)] bg-[var(--primary)]/15 font-semibold text-[var(--foreground)]"
-              : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-          )}
-        >
-          <Eraser size="0.875rem" aria-hidden />
-          {t("ui.imagemaskcanvas.eraser")}
-        </button>
-
-        <label
-          htmlFor={sizeSliderId}
-          className="flex min-h-11 items-center gap-2 px-1 text-xs text-[var(--muted-foreground)] sm:border-l sm:border-[var(--border)] sm:pl-2.5"
-        >
-          <span className="shrink-0">{t("ui.imagemaskcanvas.brushSize")}</span>
-          <input
-            id={sizeSliderId}
-            type="range"
-            min={MIN_BRUSH_PX}
-            max={MAX_BRUSH_PX}
-            step={2}
-            value={brushSizePx}
+      {!hideToolbar && (
+        <div className="flex max-w-full shrink-0 flex-wrap items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--sidebar)]/95 px-2.5 py-1.5 text-xs text-[var(--foreground)] shadow-lg">
+          <button
+            type="button"
+            onClick={() => setInternalTool("brush")}
+            aria-pressed={activeTool === "brush"}
             disabled={disabled}
-            onChange={(event) => setBrushSizePx(Number(event.target.value))}
-            className="w-24 cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
-          />
-          <span className="w-11 text-right tabular-nums text-[var(--foreground)]">
-            {t("ui.imagemaskcanvas.brushSizeValue", { size: brushSizePx })}
+            className={cn(
+              TOOL_BUTTON_CLASS,
+              activeTool === "brush"
+                ? "border-[var(--primary)] bg-[var(--primary)]/15 font-semibold text-[var(--foreground)]"
+                : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+            )}
+          >
+            <Paintbrush size="0.875rem" aria-hidden />
+            {t("ui.imagemaskcanvas.brush")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setInternalTool("eraser")}
+            aria-pressed={activeTool === "eraser"}
+            disabled={disabled}
+            className={cn(
+              TOOL_BUTTON_CLASS,
+              activeTool === "eraser"
+                ? "border-[var(--primary)] bg-[var(--primary)]/15 font-semibold text-[var(--foreground)]"
+                : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+            )}
+          >
+            <Eraser size="0.875rem" aria-hidden />
+            {t("ui.imagemaskcanvas.eraser")}
+          </button>
+
+          <label
+            htmlFor={sizeSliderId}
+            className="flex min-h-11 items-center gap-2 px-1 text-xs text-[var(--muted-foreground)] sm:border-l sm:border-[var(--border)] sm:pl-2.5"
+          >
+            <span className="shrink-0">{t("ui.imagemaskcanvas.brushSize")}</span>
+            <input
+              id={sizeSliderId}
+              type="range"
+              min={MIN_MASK_BRUSH_PX}
+              max={MAX_MASK_BRUSH_PX}
+              step={2}
+              value={activeBrushSizePx}
+              disabled={disabled}
+              onChange={(event) => setInternalBrushSizePx(Number(event.target.value))}
+              className="w-24 cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
+            />
+            <span className="w-11 text-right tabular-nums text-[var(--foreground)]">
+              {t("ui.imagemaskcanvas.brushSizeValue", { size: activeBrushSizePx })}
+            </span>
+          </label>
+
+          <button
+            type="button"
+            onClick={handleUndo}
+            disabled={disabled || strokeCount === 0}
+            aria-label={t("ui.imagemaskcanvas.undo")}
+            title={t("ui.imagemaskcanvas.undo")}
+            className={cn(
+              TOOL_BUTTON_CLASS,
+              "border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]",
+            )}
+          >
+            <Undo2 size="0.875rem" aria-hidden />
+            <span className="max-sm:sr-only">{t("ui.imagemaskcanvas.undo")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={disabled || (!hasMask && strokeCount === 0)}
+            aria-label={t("ui.imagemaskcanvas.clear")}
+            title={t("ui.imagemaskcanvas.clear")}
+            className={cn(
+              TOOL_BUTTON_CLASS,
+              "border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]",
+            )}
+          >
+            <Trash2 size="0.875rem" aria-hidden />
+            <span className="max-sm:sr-only">{t("ui.imagemaskcanvas.clear")}</span>
+          </button>
+
+          <span
+            role="status"
+            className={cn(
+              "rounded-md border px-2 py-1 text-[0.7rem] font-medium",
+              hasMask
+                ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
+                : "border-[var(--border)] text-[var(--muted-foreground)]",
+            )}
+          >
+            {t(hasMask ? "ui.imagemaskcanvas.modeInpainting" : "ui.imagemaskcanvas.modeImg2Img")}
           </span>
-        </label>
-
-        <button
-          type="button"
-          onClick={handleUndo}
-          disabled={disabled || strokeCount === 0}
-          aria-label={t("ui.imagemaskcanvas.undo")}
-          title={t("ui.imagemaskcanvas.undo")}
-          className={cn(TOOL_BUTTON_CLASS, "border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]")}
-        >
-          <Undo2 size="0.875rem" aria-hidden />
-          <span className="max-sm:sr-only">{t("ui.imagemaskcanvas.undo")}</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleClear}
-          disabled={disabled || (!hasMask && strokeCount === 0)}
-          aria-label={t("ui.imagemaskcanvas.clear")}
-          title={t("ui.imagemaskcanvas.clear")}
-          className={cn(TOOL_BUTTON_CLASS, "border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]")}
-        >
-          <Trash2 size="0.875rem" aria-hidden />
-          <span className="max-sm:sr-only">{t("ui.imagemaskcanvas.clear")}</span>
-        </button>
-
-        <span
-          role="status"
-          className={cn(
-            "rounded-md border px-2 py-1 text-[0.7rem] font-medium",
-            hasMask
-              ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
-              : "border-[var(--border)] text-[var(--muted-foreground)]",
-          )}
-        >
-          {t(hasMask ? "ui.imagemaskcanvas.modeInpainting" : "ui.imagemaskcanvas.modeImg2Img")}
-        </span>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,7 +4,13 @@ import { parseChatImageGenerationRecord, type GeneratedSceneVideo } from "@marin
 import { useGalleryImages, type ChatImage } from "../../hooks/use-gallery";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { ImageDownloadButton } from "../ui/ImageDownloadButton";
-import { ImageMaskCanvas } from "../ui/ImageMaskCanvas";
+import {
+  DEFAULT_MASK_BRUSH_PX,
+  ImageMaskCanvas,
+  type ImageMaskCanvasHandle,
+  type ImageMaskState,
+  type MaskTool,
+} from "../ui/ImageMaskCanvas";
 import { ImageViewer, VIEWER_BUTTON_CLASS } from "../ui/ImageViewer";
 import { cn } from "../../lib/utils";
 import { ImagePromptPanel } from "./ImagePromptPanel";
@@ -87,17 +93,27 @@ export function ChatImageLightbox({
   const [editing, setEditing] = useState(false);
   const [editSurfaceActive, setEditSurfaceActive] = useState(false);
   const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
+  const [maskTool, setMaskTool] = useState<MaskTool>("brush");
+  const [maskBrushSize, setMaskBrushSize] = useState(DEFAULT_MASK_BRUSH_PX);
+  const [maskState, setMaskState] = useState<ImageMaskState>({ strokeCount: 0, hasMask: false });
+  const maskControlsRef = useRef<ImageMaskCanvasHandle | null>(null);
   const [busy, setBusy] = useState(false);
 
   const closeEditing = () => {
     setEditing(false);
     setEditSurfaceActive(false);
     setMaskDataUrl(null);
+    setMaskTool("brush");
+    setMaskState({ strokeCount: 0, hasMask: false });
   };
 
   const handleEditSurfaceChange = useCallback((active: boolean) => {
     setEditSurfaceActive(active);
-    if (!active) setMaskDataUrl(null);
+    if (!active) {
+      setMaskDataUrl(null);
+      setMaskTool("brush");
+      setMaskState({ strokeCount: 0, hasMask: false });
+    }
   }, []);
   // Lightweight message and storyboard images omit the generation record. Resolve
   // it once here so viewing and editing use the same saved request.
@@ -133,6 +149,7 @@ export function ChatImageLightbox({
       overMari={overMari}
       src={image.url}
       alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+      childrenMaxHeightClass={editing ? "max-h-[56dvh] sm:max-h-[48dvh]" : undefined}
       media={
         editing && editSurfaceActive ? (
           <ImageMaskCanvas
@@ -140,7 +157,12 @@ export function ChatImageLightbox({
             src={image.url}
             alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
             disabled={busy}
+            tool={maskTool}
+            brushSizePx={maskBrushSize}
+            hideToolbar
             onMaskChange={setMaskDataUrl}
+            onMaskStateChange={setMaskState}
+            controlsRef={maskControlsRef}
           />
         ) : undefined
       }
@@ -158,6 +180,8 @@ export function ChatImageLightbox({
         setImage(images[next]!);
         setEditSurfaceActive(false);
         setMaskDataUrl(null);
+        setMaskTool("brush");
+        setMaskState({ strokeCount: 0, hasMask: false });
       }}
       actions={
         <>
@@ -172,7 +196,7 @@ export function ChatImageLightbox({
               <RefreshCw size="0.875rem" />
             </button>
           )}
-          {pinEnabled && (
+          {pinEnabled && !editing && (
             <button
               type="button"
               disabled={busy}
@@ -188,7 +212,7 @@ export function ChatImageLightbox({
               <Pin size="0.875rem" />
             </button>
           )}
-          {downloadEnabled && (
+          {downloadEnabled && !editing && (
             <ImageDownloadButton url={image.url} filename={downloadName} className={VIEWER_BUTTON_CLASS} />
           )}
         </>
@@ -202,6 +226,16 @@ export function ChatImageLightbox({
           record={record}
           messageId={regenerate.messageId}
           maskDataUrl={maskDataUrl}
+          maskControls={{
+            tool: maskTool,
+            onToolChange: setMaskTool,
+            brushSizePx: maskBrushSize,
+            onBrushSizeChange: setMaskBrushSize,
+            strokeCount: maskState.strokeCount,
+            hasMask: maskState.hasMask,
+            onUndo: () => maskControlsRef.current?.undo(),
+            onClear: () => maskControlsRef.current?.clear(),
+          }}
           onEditSurfaceChange={handleEditSurfaceChange}
           onBusyChange={setBusy}
           onCancel={closeEditing}

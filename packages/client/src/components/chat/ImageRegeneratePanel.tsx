@@ -1,5 +1,15 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { RefreshCw, RotateCcw, Sparkles } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Eraser,
+  Paintbrush,
+  RefreshCw,
+  RotateCcw,
+  Sparkles,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { isNativeNovelAiConnection, type ChatImageGenerationRecord } from "@marinara-engine/shared";
@@ -16,6 +26,7 @@ import { cn } from "../../lib/utils";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { Checkbox } from "../ui/Checkbox";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { MAX_MASK_BRUSH_PX, MIN_MASK_BRUSH_PX, type MaskTool } from "../ui/ImageMaskCanvas";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import { Spinner } from "../ui/Spinner";
 
@@ -34,6 +45,17 @@ export interface ImageRegenerator {
   regeneratedMessage?: string;
 }
 
+export interface ImageMaskControls {
+  tool: MaskTool;
+  onToolChange: (tool: MaskTool) => void;
+  brushSizePx: number;
+  onBrushSizeChange: (sizePx: number) => void;
+  strokeCount: number;
+  hasMask: boolean;
+  onUndo: () => void;
+  onClear: () => void;
+}
+
 interface ImageRegeneratePanelProps {
   image: ChatImage;
   regenerator?: ImageRegenerator;
@@ -41,6 +63,7 @@ interface ImageRegeneratePanelProps {
   /** Message the image was opened from, so the server swaps that attachment directly. */
   messageId?: string;
   maskDataUrl?: string | null;
+  maskControls?: ImageMaskControls;
   onEditSurfaceChange?: (active: boolean) => void;
   onCancel: () => void;
   onBusyChange: (busy: boolean) => void;
@@ -56,7 +79,89 @@ const LABEL_CLASS = "text-xs font-semibold text-[var(--foreground)]";
 const BUTTON_CLASS =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50";
 const SECONDARY_BUTTON_CLASS = `${BUTTON_CLASS} border border-[var(--border)] hover:bg-[var(--accent)]`;
+const MASK_ACTION_BUTTON_CLASS =
+  "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-45";
 type CharacterPrompt = ImagePromptDraft["characterPrompts"][number];
+
+function maskToolClass(active: boolean) {
+  return cn(
+    MASK_ACTION_BUTTON_CLASS,
+    active
+      ? "border-[var(--primary)] bg-[var(--primary)]/15 font-semibold text-[var(--foreground)]"
+      : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+  );
+}
+
+function MaskToolButtons({
+  maskControls,
+  disabled,
+  compact = false,
+}: {
+  maskControls: ImageMaskControls;
+  disabled: boolean;
+  compact?: boolean;
+}) {
+  const { t } = useUiTranslation();
+
+  return (
+    <div className={cn("flex items-center", compact ? "shrink-0 gap-1" : "flex-wrap gap-1.5")}>
+      <button
+        type="button"
+        onClick={() => maskControls.onToolChange("brush")}
+        aria-pressed={maskControls.tool === "brush"}
+        aria-label={compact ? t("ui.imagemaskcanvas.brush") : undefined}
+        title={compact ? t("ui.imagemaskcanvas.brush") : undefined}
+        disabled={disabled}
+        className={cn(maskToolClass(maskControls.tool === "brush"), compact ? "w-11 px-0" : "px-2.5")}
+      >
+        <Paintbrush size="0.875rem" aria-hidden />
+        {!compact && t("ui.imagemaskcanvas.brush")}
+      </button>
+      <button
+        type="button"
+        onClick={() => maskControls.onToolChange("eraser")}
+        aria-pressed={maskControls.tool === "eraser"}
+        aria-label={compact ? t("ui.imagemaskcanvas.eraser") : undefined}
+        title={compact ? t("ui.imagemaskcanvas.eraser") : undefined}
+        disabled={disabled}
+        className={cn(maskToolClass(maskControls.tool === "eraser"), compact ? "w-11 px-0" : "px-2.5")}
+      >
+        <Eraser size="0.875rem" aria-hidden />
+        {!compact && t("ui.imagemaskcanvas.eraser")}
+      </button>
+      <button
+        type="button"
+        onClick={maskControls.onUndo}
+        disabled={disabled || maskControls.strokeCount === 0}
+        aria-label={t("ui.imagemaskcanvas.undo")}
+        title={t("ui.imagemaskcanvas.undo")}
+        className={cn(
+          MASK_ACTION_BUTTON_CLASS,
+          "border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]",
+          compact ? "w-11 px-0" : "max-sm:w-11 max-sm:px-0 sm:px-2.5",
+        )}
+      >
+        <Undo2 size="0.875rem" aria-hidden />
+        {!compact && <span className="max-sm:sr-only">{t("ui.imagemaskcanvas.undo")}</span>}
+      </button>
+      <button
+        type="button"
+        onClick={maskControls.onClear}
+        disabled={disabled || (!maskControls.hasMask && maskControls.strokeCount === 0)}
+        aria-label={t("ui.imagemaskcanvas.clear")}
+        title={t("ui.imagemaskcanvas.clear")}
+        className={cn(
+          MASK_ACTION_BUTTON_CLASS,
+          "border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]",
+          compact ? "w-11 px-0" : "max-sm:w-11 max-sm:px-0 sm:px-2.5",
+        )}
+      >
+        <Trash2 size="0.875rem" aria-hidden />
+        {!compact && <span className="max-sm:sr-only">{t("ui.imagemaskcanvas.clear")}</span>}
+      </button>
+    </div>
+  );
+}
 
 function PromptField({
   label,
@@ -179,6 +284,7 @@ export function ImageRegeneratePanel({
   record,
   messageId,
   maskDataUrl,
+  maskControls,
   onEditSurfaceChange,
   onCancel,
   onBusyChange,
@@ -198,6 +304,7 @@ export function ImageRegeneratePanel({
   const runningRef = useRef(false);
   const titleId = useId();
   const connectionFieldId = useId();
+  const brushSizeFieldId = useId();
   const strengthFieldId = useId();
   const noiseFieldId = useId();
   const original: ImagePromptDraft = {
@@ -209,6 +316,7 @@ export function ImageRegeneratePanel({
   const [guidance, setGuidance] = useState("");
   const [connectionId, setConnectionId] = useState(record?.connectionId ?? "");
   const [mode, setMode] = useState<"regenerate" | "edit">("regenerate");
+  const [collapsed, setCollapsed] = useState(false);
   const [reuseSeed, setReuseSeed] = useState(false);
   const [img2imgStrength, setImg2imgStrength] = useState(0.7);
   const [img2imgNoise, setImg2imgNoise] = useState(0);
@@ -244,6 +352,7 @@ export function ImageRegeneratePanel({
   const effectiveReuseSeed = isNativeNovelAi ? reuseSeed : false;
   const hasMask = effectiveMode === "edit" && Boolean(maskDataUrl);
   const activeStrength = hasMask ? infillStrength : img2imgStrength;
+  const showCollapsedMaskBar = collapsed && isNativeNovelAi && effectiveMode === "edit" && Boolean(maskControls);
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -327,6 +436,7 @@ export function ImageRegeneratePanel({
       const label = t(
         step === "revising" ? "ui.chat.imageregeneratepanel.reviseFailed" : "ui.chat.imageregeneratepanel.failed",
       );
+      setCollapsed(false);
       setError(
         cause instanceof Error
           ? t("ui.chat.imageregeneratepanel.errorDetail", { label, message: cause.message })
@@ -350,274 +460,373 @@ export function ImageRegeneratePanel({
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
-      <h2
-        id={titleId}
-        ref={titleRef}
-        tabIndex={-1}
-        className="shrink-0 border-b border-[var(--border)] px-4 py-3 text-base font-semibold focus:outline-none"
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
+          !collapsed && "border-b border-[var(--border)]",
+        )}
       >
-        {t("ui.chat.chatimagelightbox.regenerateImage")}
-      </h2>
-      {isNativeNovelAi && (
-        <div
-          role="tablist"
-          aria-label={t("ui.chat.imageregeneratepanel.modeTablist")}
-          className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-1.5"
+        <h2
+          id={titleId}
+          ref={titleRef}
+          tabIndex={-1}
+          className={cn(
+            "min-w-0 truncate text-base font-semibold focus:outline-none",
+            showCollapsedMaskBar && "max-sm:sr-only",
+          )}
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={effectiveMode === "regenerate"}
-            disabled={busy}
-            onClick={() => setMode("regenerate")}
-            className={cn(
-              BUTTON_CLASS,
-              "flex-1 rounded-lg",
-              effectiveMode === "regenerate"
-                ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
-            )}
-          >
-            {t("ui.chat.imageregeneratepanel.modeRegenerate")}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={effectiveMode === "edit"}
-            disabled={busy}
-            onClick={() => setMode("edit")}
-            className={cn(
-              BUTTON_CLASS,
-              "flex-1 rounded-lg",
-              effectiveMode === "edit"
-                ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
-            )}
-          >
-            {t("ui.chat.imageregeneratepanel.modeEditImage")}
-          </button>
-        </div>
-      )}
-      <div className="min-h-0 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4 pt-3">
-        {isNativeNovelAi && effectiveMode === "edit" && (
-          <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--marinara-chat-chrome-input-bg)]/60 p-3">
-            <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-              {t(hasMask ? "ui.chat.imageregeneratepanel.inpaintingHint" : "ui.chat.imageregeneratepanel.img2imgHint")}
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label htmlFor={strengthFieldId} className="flex flex-col gap-1.5">
-                <span className="flex items-center justify-between gap-2">
-                  <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.strength")}</span>
-                  <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
-                    {activeStrength.toFixed(2)}
-                  </span>
-                </span>
-                <input
-                  id={strengthFieldId}
-                  type="range"
-                  min={0.01}
-                  max={hasMask ? 1 : 0.99}
-                  step={0.01}
-                  value={activeStrength}
-                  disabled={busy}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    if (hasMask) setInfillStrength(value);
-                    else setImg2imgStrength(value);
-                  }}
-                  className="min-h-11 w-full cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
-                />
-              </label>
-              {!hasMask && (
-                <label htmlFor={noiseFieldId} className="flex flex-col gap-1.5">
-                  <span className="flex items-center justify-between gap-2">
-                    <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.noise")}</span>
-                    <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
-                      {img2imgNoise.toFixed(2)}
-                    </span>
-                  </span>
-                  <input
-                    id={noiseFieldId}
-                    type="range"
-                    min={0}
-                    max={0.99}
-                    step={0.01}
-                    value={img2imgNoise}
-                    disabled={busy}
-                    onChange={(event) => setImg2imgNoise(Number(event.target.value))}
-                    className="min-h-11 w-full cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
-                  />
-                </label>
+          {t("ui.chat.chatimagelightbox.regenerateImage")}
+        </h2>
+        <div
+          className={cn(
+            "flex shrink-0 items-center gap-1.5",
+            showCollapsedMaskBar && "max-sm:min-w-0 max-sm:flex-1 max-sm:justify-between",
+          )}
+        >
+          {showCollapsedMaskBar && maskControls && (
+            <>
+              <MaskToolButtons maskControls={maskControls} disabled={busy} compact />
+              <span
+                role="status"
+                className={cn(
+                  "shrink-0 whitespace-nowrap rounded-md border px-2 py-1 text-[0.7rem] font-medium",
+                  hasMask
+                    ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
+                    : "border-[var(--border)] text-[var(--muted-foreground)]",
+                )}
+              >
+                {t(hasMask ? "ui.imagemaskcanvas.modeInpaintingShort" : "ui.imagemaskcanvas.modeImg2Img")}
+              </span>
+            </>
+          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {collapsed && phase && <Spinner size="sm" aria-hidden="true" />}
+            <button
+              type="button"
+              onClick={() => setCollapsed((current) => !current)}
+              aria-expanded={!collapsed}
+              aria-label={t(
+                collapsed ? "ui.chat.imageregeneratepanel.expandPanel" : "ui.chat.imageregeneratepanel.collapsePanel",
               )}
+              title={t(
+                collapsed ? "ui.chat.imageregeneratepanel.expandPanel" : "ui.chat.imageregeneratepanel.collapsePanel",
+              )}
+              className={cn(
+                BUTTON_CLASS,
+                "w-11 shrink-0 px-0 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+              )}
+            >
+              {collapsed ? <ChevronUp size="1.125rem" aria-hidden /> : <ChevronDown size="1.125rem" aria-hidden />}
+            </button>
+          </div>
+        </div>
+      </div>
+      {!collapsed && (
+        <>
+          {isNativeNovelAi && (
+            <div
+              role="tablist"
+              aria-label={t("ui.chat.imageregeneratepanel.modeTablist")}
+              className="flex shrink-0 gap-1 border-b border-[var(--border)] px-4 py-1.5"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={effectiveMode === "regenerate"}
+                disabled={busy}
+                onClick={() => setMode("regenerate")}
+                className={cn(
+                  BUTTON_CLASS,
+                  "flex-1 rounded-lg",
+                  effectiveMode === "regenerate"
+                    ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
+                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
+                )}
+              >
+                {t("ui.chat.imageregeneratepanel.modeRegenerate")}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={effectiveMode === "edit"}
+                disabled={busy}
+                onClick={() => setMode("edit")}
+                className={cn(
+                  BUTTON_CLASS,
+                  "flex-1 rounded-lg",
+                  effectiveMode === "edit"
+                    ? "bg-[var(--accent)] font-semibold text-[var(--foreground)]"
+                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]/60 hover:text-[var(--foreground)]",
+                )}
+              >
+                {t("ui.chat.imageregeneratepanel.modeEditImage")}
+              </button>
+            </div>
+          )}
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-4 pt-3">
+            {isNativeNovelAi && effectiveMode === "edit" && (
+              <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--marinara-chat-chrome-input-bg)]/60 p-3">
+                {maskControls && (
+                  <div className="space-y-2 border-b border-[var(--border)] pb-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.maskTools")}</span>
+                      <span
+                        role="status"
+                        className={cn(
+                          "shrink-0 rounded-md border px-2 py-0.5 text-[0.7rem] font-medium",
+                          hasMask
+                            ? "border-[var(--primary)]/50 bg-[var(--primary)]/15 text-[var(--foreground)]"
+                            : "border-[var(--border)] text-[var(--muted-foreground)]",
+                        )}
+                      >
+                        {t(hasMask ? "ui.imagemaskcanvas.modeInpainting" : "ui.imagemaskcanvas.modeImg2Img")}
+                      </span>
+                    </div>
+                    <MaskToolButtons maskControls={maskControls} disabled={busy} />
+                    <div className="flex items-center gap-2">
+                      <label htmlFor={brushSizeFieldId} className="shrink-0 text-xs text-[var(--muted-foreground)]">
+                        {t("ui.imagemaskcanvas.brushSize")}
+                      </label>
+                      <input
+                        id={brushSizeFieldId}
+                        type="range"
+                        min={MIN_MASK_BRUSH_PX}
+                        max={MAX_MASK_BRUSH_PX}
+                        step={2}
+                        value={maskControls.brushSizePx}
+                        disabled={busy}
+                        onChange={(event) => maskControls.onBrushSizeChange(Number(event.target.value))}
+                        className="min-h-11 min-w-0 flex-1 cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
+                      />
+                      <span className="w-11 shrink-0 text-right text-xs tabular-nums text-[var(--foreground)]">
+                        {t("ui.imagemaskcanvas.brushSizeValue", { size: maskControls.brushSizePx })}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label htmlFor={strengthFieldId} className="flex flex-col gap-1.5">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.strength")}</span>
+                      <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
+                        {activeStrength.toFixed(2)}
+                      </span>
+                    </span>
+                    <input
+                      id={strengthFieldId}
+                      type="range"
+                      min={0.01}
+                      max={hasMask ? 1 : 0.99}
+                      step={0.01}
+                      value={activeStrength}
+                      disabled={busy}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        if (hasMask) setInfillStrength(value);
+                        else setImg2imgStrength(value);
+                      }}
+                      className="min-h-11 w-full cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
+                    />
+                  </label>
+                  {!hasMask && (
+                    <label htmlFor={noiseFieldId} className="flex flex-col gap-1.5">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.noise")}</span>
+                        <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
+                          {img2imgNoise.toFixed(2)}
+                        </span>
+                      </span>
+                      <input
+                        id={noiseFieldId}
+                        type="range"
+                        min={0}
+                        max={0.99}
+                        step={0.01}
+                        value={img2imgNoise}
+                        disabled={busy}
+                        onChange={(event) => setImg2imgNoise(Number(event.target.value))}
+                        className="min-h-11 w-full cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
+                      />
+                    </label>
+                  )}
+                </div>
+                <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+                  {t(
+                    hasMask
+                      ? "ui.chat.imageregeneratepanel.inpaintingHint"
+                      : "ui.chat.imageregeneratepanel.img2imgHint",
+                  )}
+                </p>
+              </div>
+            )}
+
+            <PromptField
+              label={t("ui.agents.customagentrepositoriesmodal.prompt")}
+              value={draft.prompt}
+              original={original.prompt}
+              onChange={(prompt) => setDraft((current) => ({ ...current, prompt }))}
+              disabled={busy}
+              rows={4}
+            />
+            <PromptField
+              label={t("ui.agents.agenteditor.negativePrompt")}
+              value={draft.negativePrompt}
+              original={original.negativePrompt}
+              onChange={(negativePrompt) => setDraft((current) => ({ ...current, negativePrompt }))}
+              disabled={busy}
+            />
+
+            {draft.characterPrompts.length > 0 && (
+              <div className="space-y-3 border-t border-[var(--border)] pt-3">
+                <h3 className="text-sm font-semibold">{t("ui.chat.imageregeneratepanel.characterPrompts")}</h3>
+                {draft.characterPrompts.map((character, index) => (
+                  <div key={`${character.name}-${index}`} className="space-y-2">
+                    <PromptField
+                      label={t("ui.chat.imagepromptpanel.characterPrompt", { name: character.name })}
+                      value={character.prompt}
+                      original={original.characterPrompts[index]?.prompt ?? ""}
+                      onChange={(prompt) => updateCharacter(index, (entry) => ({ ...entry, prompt }))}
+                      disabled={busy}
+                    />
+                    <PromptField
+                      label={t("ui.chat.imagepromptpanel.characterNegativePrompt", { name: character.name })}
+                      value={character.negativePrompt ?? ""}
+                      original={original.characterPrompts[index]?.negativePrompt ?? ""}
+                      onChange={(negativePrompt) => updateCharacter(index, (entry) => ({ ...entry, negativePrompt }))}
+                      disabled={busy}
+                    />
+                    <PlacementFields
+                      name={character.name}
+                      position={character.position}
+                      disabled={busy}
+                      onChange={(position) => updateCharacter(index, (entry) => ({ ...entry, position }))}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <label className="flex flex-col gap-2 border-t border-[var(--border)] pt-3">
+              <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.guidance")}</span>
+              <textarea
+                value={guidance}
+                onChange={(event) => setGuidance(event.target.value)}
+                disabled={busy}
+                rows={2}
+                maxLength={4000}
+                placeholder={t("ui.chat.imageregeneratepanel.guidancePlaceholder")}
+                className={FIELD_CLASS}
+              />
+            </label>
+
+            <div className="flex flex-col gap-2">
+              <label htmlFor={connectionFieldId} className={LABEL_CLASS}>
+                {t("ui.chat.imageregeneratepanel.connection")}
+              </label>
+              <ConnectionSelect
+                id={connectionFieldId}
+                job={t("connections.picker.job.imageRegeneration")}
+                kind="image"
+                value={connectionId || null}
+                onChange={(nextId) => setConnectionId(nextId ?? "")}
+                defaultLabel={regenerator?.defaultConnectionLabel ?? t("ui.chat.imageregeneratepanel.chatConnection")}
+                disabled={busy}
+                className="min-h-11"
+              />
+            </div>
+
+            {isNativeNovelAi && (
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]">
+                <Checkbox
+                  checked={effectiveReuseSeed}
+                  disabled={busy}
+                  onChange={(event) => setReuseSeed(event.target.checked)}
+                />
+                <span>
+                  {record?.seed !== undefined
+                    ? t("ui.chat.imageregeneratepanel.reuseOriginalSeedValue", { seed: record.seed })
+                    : t("ui.chat.imageregeneratepanel.reuseOriginalSeed")}
+                </span>
+              </label>
+            )}
+
+            {(effectiveMode === "edit" ? hasReferences : !record || hasReferences) && (
+              <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+                {t(
+                  effectiveMode === "edit"
+                    ? "ui.chat.imageregeneratepanel.referencesOmittedInEditNotice"
+                    : !record
+                      ? "ui.chat.imageregeneratepanel.noRecordNotice"
+                      : "ui.chat.imageregeneratepanel.referencesNotice",
+                )}
+              </p>
+            )}
+          </div>
+
+          <div className="shrink-0 border-t border-[var(--border)] px-4 py-3">
+            {error && (
+              <p role="alert" className="mb-2 max-h-20 overflow-y-auto break-words text-sm text-[var(--destructive)]">
+                {error}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {phase && (
+                <p role="status" className="mr-auto flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+                  <Spinner size="md" aria-hidden="true" />
+                  {t(
+                    phase === "revising"
+                      ? "ui.chat.imageregeneratepanel.revising"
+                      : "ui.chat.imageregeneratepanel.generating",
+                  )}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={busy}
+                className={cn(BUTTON_CLASS, "hover:bg-[var(--accent)]")}
+              >
+                {t("chat.delete.dialog.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void run("revise")}
+                disabled={busy || promptMissing}
+                className={SECONDARY_BUTTON_CLASS}
+              >
+                <Sparkles size="1rem" aria-hidden />
+                {t("ui.chat.imageregeneratepanel.revise")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void run("generate")}
+                disabled={busy || promptMissing}
+                className={SECONDARY_BUTTON_CLASS}
+              >
+                <RefreshCw size="1rem" aria-hidden />
+                {t(
+                  effectiveMode === "edit"
+                    ? hasMask
+                      ? "ui.chat.imageregeneratepanel.inpaint"
+                      : "ui.chat.imageregeneratepanel.applyEdit"
+                    : "ui.chat.imageregeneratepanel.generate",
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => void run("both")}
+                disabled={busy || promptMissing}
+                className={cn(
+                  BUTTON_CLASS,
+                  "bg-[var(--primary)] font-semibold text-[var(--primary-foreground)] hover:opacity-90",
+                )}
+              >
+                {t("ui.chat.imageregeneratepanel.reviseAndGenerate")}
+              </button>
             </div>
           </div>
-        )}
-
-        <PromptField
-          label={t("ui.agents.customagentrepositoriesmodal.prompt")}
-          value={draft.prompt}
-          original={original.prompt}
-          onChange={(prompt) => setDraft((current) => ({ ...current, prompt }))}
-          disabled={busy}
-          rows={4}
-        />
-        <PromptField
-          label={t("ui.agents.agenteditor.negativePrompt")}
-          value={draft.negativePrompt}
-          original={original.negativePrompt}
-          onChange={(negativePrompt) => setDraft((current) => ({ ...current, negativePrompt }))}
-          disabled={busy}
-        />
-
-        {draft.characterPrompts.length > 0 && (
-          <div className="space-y-3 border-t border-[var(--border)] pt-3">
-            <h3 className="text-sm font-semibold">{t("ui.chat.imageregeneratepanel.characterPrompts")}</h3>
-            {draft.characterPrompts.map((character, index) => (
-              <div key={`${character.name}-${index}`} className="space-y-2">
-                <PromptField
-                  label={t("ui.chat.imagepromptpanel.characterPrompt", { name: character.name })}
-                  value={character.prompt}
-                  original={original.characterPrompts[index]?.prompt ?? ""}
-                  onChange={(prompt) => updateCharacter(index, (entry) => ({ ...entry, prompt }))}
-                  disabled={busy}
-                />
-                <PromptField
-                  label={t("ui.chat.imagepromptpanel.characterNegativePrompt", { name: character.name })}
-                  value={character.negativePrompt ?? ""}
-                  original={original.characterPrompts[index]?.negativePrompt ?? ""}
-                  onChange={(negativePrompt) => updateCharacter(index, (entry) => ({ ...entry, negativePrompt }))}
-                  disabled={busy}
-                />
-                <PlacementFields
-                  name={character.name}
-                  position={character.position}
-                  disabled={busy}
-                  onChange={(position) => updateCharacter(index, (entry) => ({ ...entry, position }))}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-
-        <label className="flex flex-col gap-2 border-t border-[var(--border)] pt-3">
-          <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.guidance")}</span>
-          <textarea
-            value={guidance}
-            onChange={(event) => setGuidance(event.target.value)}
-            disabled={busy}
-            rows={2}
-            maxLength={4000}
-            placeholder={t("ui.chat.imageregeneratepanel.guidancePlaceholder")}
-            className={FIELD_CLASS}
-          />
-        </label>
-
-        <div className="flex flex-col gap-2">
-          <label htmlFor={connectionFieldId} className={LABEL_CLASS}>
-            {t("ui.chat.imageregeneratepanel.connection")}
-          </label>
-          <ConnectionSelect
-            id={connectionFieldId}
-            job={t("connections.picker.job.imageRegeneration")}
-            kind="image"
-            value={connectionId || null}
-            onChange={(nextId) => setConnectionId(nextId ?? "")}
-            defaultLabel={regenerator?.defaultConnectionLabel ?? t("ui.chat.imageregeneratepanel.chatConnection")}
-            disabled={busy}
-            className="min-h-11"
-          />
-        </div>
-
-        {isNativeNovelAi && (
-          <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--foreground)]">
-            <Checkbox
-              checked={effectiveReuseSeed}
-              disabled={busy}
-              onChange={(event) => setReuseSeed(event.target.checked)}
-            />
-            <span>
-              {record?.seed !== undefined
-                ? t("ui.chat.imageregeneratepanel.reuseOriginalSeedValue", { seed: record.seed })
-                : t("ui.chat.imageregeneratepanel.reuseOriginalSeed")}
-            </span>
-          </label>
-        )}
-
-        {(effectiveMode === "edit" ? hasReferences : !record || hasReferences) && (
-          <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-            {t(
-              effectiveMode === "edit"
-                ? "ui.chat.imageregeneratepanel.referencesOmittedInEditNotice"
-                : !record
-                  ? "ui.chat.imageregeneratepanel.noRecordNotice"
-                  : "ui.chat.imageregeneratepanel.referencesNotice",
-            )}
-          </p>
-        )}
-      </div>
-
-      <div className="shrink-0 border-t border-[var(--border)] px-4 py-3">
-        {error && (
-          <p role="alert" className="mb-2 max-h-20 overflow-y-auto break-words text-sm text-[var(--destructive)]">
-            {error}
-          </p>
-        )}
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {phase && (
-            <p role="status" className="mr-auto flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-              <Spinner size="md" aria-hidden="true" />
-              {t(
-                phase === "revising"
-                  ? "ui.chat.imageregeneratepanel.revising"
-                  : "ui.chat.imageregeneratepanel.generating",
-              )}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className={cn(BUTTON_CLASS, "hover:bg-[var(--accent)]")}
-          >
-            {t("chat.delete.dialog.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void run("revise")}
-            disabled={busy || promptMissing}
-            className={SECONDARY_BUTTON_CLASS}
-          >
-            <Sparkles size="1rem" aria-hidden />
-            {t("ui.chat.imageregeneratepanel.revise")}
-          </button>
-          <button
-            type="button"
-            onClick={() => void run("generate")}
-            disabled={busy || promptMissing}
-            className={SECONDARY_BUTTON_CLASS}
-          >
-            <RefreshCw size="1rem" aria-hidden />
-            {t(
-              effectiveMode === "edit"
-                ? hasMask
-                  ? "ui.chat.imageregeneratepanel.inpaint"
-                  : "ui.chat.imageregeneratepanel.applyEdit"
-                : "ui.chat.imageregeneratepanel.generate",
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => void run("both")}
-            disabled={busy || promptMissing}
-            className={cn(
-              BUTTON_CLASS,
-              "bg-[var(--primary)] font-semibold text-[var(--primary-foreground)] hover:opacity-90",
-            )}
-          >
-            {t("ui.chat.imageregeneratepanel.reviseAndGenerate")}
-          </button>
-        </div>
-      </div>
+        </>
+      )}
     </section>
   );
 }

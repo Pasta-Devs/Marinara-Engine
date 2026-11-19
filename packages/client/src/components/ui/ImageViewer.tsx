@@ -241,6 +241,8 @@ interface ImageViewerProps {
   actions?: ReactNode;
   /** Caption area under the picture (prompt, file info, ...). */
   children?: ReactNode;
+  /** Optional max-height Tailwind class for the bottom children slot (defaults to `max-h-[45dvh]`). */
+  childrenMaxHeightClass?: string;
   /** Lets the owner put focus back on Close after its own panels close. */
   closeButtonRef?: RefObject<HTMLButtonElement | null>;
 }
@@ -260,6 +262,7 @@ export function ImageViewer({
   onIndexChange,
   actions,
   children,
+  childrenMaxHeightClass,
   closeButtonRef,
 }: ImageViewerProps) {
   const { t } = useTranslation();
@@ -380,7 +383,14 @@ export function ImageViewer({
         </div>
       </div>
       {children && (
-        <div className="mx-auto max-h-[45dvh] w-full max-w-3xl shrink-0 overflow-y-auto px-3 pb-2">{children}</div>
+        <div
+          className={cn(
+            "mx-auto flex w-full max-w-3xl shrink-0 flex-col overflow-y-auto px-3 pb-2",
+            childrenMaxHeightClass ?? "max-h-[45dvh]",
+          )}
+        >
+          {children}
+        </div>
       )}
       {gallery && (
         <div className="flex shrink-0 justify-start gap-2 overflow-x-auto px-3 py-2 motion-safe:scroll-smooth sm:justify-center">
