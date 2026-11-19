@@ -4680,40 +4680,6 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   padding: 0 0.875rem 0.75rem;
 }
 
-/* Her sparkle sits on the chips' first line, in the fold's column, so the chips line up with her question. The
-   mark is a chip with nothing drawn, so it is exactly a chip tall at any text size or theme. */
-.mari-workspace-question-dock[data-collapsible] .mari-workspace-answer-strip {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.625rem;
-}
-
-.mari-workspace-question-dock[data-collapsible] .mari-workspace-answer-strip > .mari-suggestion-chips {
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.mari-workspace-answer-strip > .mari-suggestion-chip.mari-workspace-answer-strip__mark:not(#mari-x) {
-  display: flex;
-  width: 1.25rem;
-  min-width: 0;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  padding-inline: 0;
-  border-color: transparent;
-  background: none;
-  box-shadow: none;
-  color: var(--primary);
-  filter: drop-shadow(0 0 0.45rem color-mix(in srgb, var(--primary) 22%, transparent));
-  pointer-events: none;
-}
-
-.mari-workspace-answer-strip > .mari-workspace-answer-strip__mark::before,
-.mari-workspace-answer-strip > .mari-workspace-answer-strip__mark::after {
-  display: none;
-}
-
 /* The fold: a small chevron at the top left, her sparkle beneath it. Folded, the box keeps one quiet line
    ("Suggestions") so it is easy to bring back; the whole line opens it. */
 .mari-workspace-question-dock__rail {
@@ -4722,6 +4688,12 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
+}
+
+.mari-workspace-question-dock__rail > svg {
+  flex: none;
+  color: var(--primary);
+  filter: drop-shadow(0 0 0.45rem color-mix(in srgb, var(--primary) 22%, transparent));
 }
 
 .mari-workspace-question-dock__toggle {
