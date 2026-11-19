@@ -51,6 +51,8 @@
     "regression:launcher-update": "node ./scripts/run-launcher-regressions.mjs",
     "regression:android-local-auth:run": "node ./scripts/pnpm-runner.mjs --filter @marinara-engine/server exec tsx ../../scripts/regressions/security/android-local-auth.regression.ts",
     "regression:android-local-auth": "node ./scripts/pnpm-runner.mjs build:shared && node ./scripts/pnpm-runner.mjs regression:android-local-auth:run",
+    "ui:check": "node ./scripts/ui-check/run.mjs",
+    "ui:check:quick": "node ./scripts/ui-check/run.mjs --quick",
     "smoke:ui": "playwright test -c playwright.config.ts --project=desktop-chromium --grep @smoke --workers=1",
     "smoke:production": "playwright test -c playwright.production.config.ts --workers=1",
     "test": "node ./scripts/check-windows-installer-layout.mjs && node ./scripts/pnpm-runner.mjs regression",

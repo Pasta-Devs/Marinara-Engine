@@ -10,12 +10,12 @@ Shared skills live in `.agents/skills`, where Codex discovers them. Use the inst
 - Preserve the user's configured model and reasoning effort unless a model change is requested or an applicable workflow authorizes a selection. Verify model IDs and supported effort levels against the current host; API availability does not guarantee availability in Codex. Do not change the user's global configuration to carry out a repository task.
 - When selecting an OpenAI model for an authorized task, use this repository's task-based guidance, not a supposed one-to-one translation of Claude model tiers:
 
-| Work | OpenAI model, when available |
-| --- | --- |
-| Difficult architecture, cross-system debugging, final integration and demanding review | `gpt-6-astra` |
-| Substantial implementation or detailed review | `gpt-5.6-sol` |
-| Bounded implementation where balanced cost and capability matter | `gpt-5.6-terra` |
-| Narrow searches, mechanical edits or focused checks | `gpt-5.6-luna` |
+| Work                                                                                   | OpenAI model, when available |
+| -------------------------------------------------------------------------------------- | ---------------------------- |
+| Difficult architecture, cross-system debugging, final integration and demanding review | `gpt-6-astra`                |
+| Substantial implementation or detailed review                                          | `gpt-5.6-sol`                |
+| Bounded implementation where balanced cost and capability matter                       | `gpt-5.6-terra`              |
+| Narrow searches, mechanical edits or focused checks                                    | `gpt-5.6-luna`               |
 
 - The table is project guidance, checked against the available host models on 2026-09-17. Honor an explicitly requested supported model, including `gpt-5.5`, rather than silently substituting another. Use only reasoning levels exposed by that host/model; larger effort is not mandatory for routine work.
 - When delegation is authorized, use the available Codex subagent tools for independent, bounded work with clear ownership. Keep integration and verification with the primary agent. Do not create user-visible tasks as a substitute for subagents unless the user asks for a new task. If delegation is unavailable, continue locally.
@@ -146,5 +146,6 @@ Storage-format rule (separate from the app version — never touched by `version
 - **Read `packages/client/.instructions.md` before editing any client code.** It is the authoritative reference for architecture, patterns, conventions, and common-mistake avoidance.
 - Treat localization as part of every client UI change. New or changed user-facing labels, messages, tooltips, placeholders, toasts, confirmations, accessibility text, tutorials, and similar copy must use semantic localization keys and update the canonical English catalog in the same change. Community locale files are intentionally partial: update only translations the contributor can responsibly supply, and let missing keys fall back to English. Never touch every bundled locale merely to copy English or satisfy key parity. Do not translate model prompts or user-authored content. Run `pnpm localization:check` before shipping.
 - Validate with `pnpm check` (Prettier, ESLint, type checks and production builds; `MARINARA_CHECK_JOBS=1` runs its lanes one at a time on low-memory machines). Use `pnpm regression:prompt` for prompt/lorebook/macro regressions and `pnpm smoke:ui` for the browser shell smoke suite when the change touches those areas.
+- Before shipping any UI change, run `pnpm ui:check` (or `pnpm ui:check:quick` while iterating): it opens the main screens at desktop, tablet and phone sizes, in every starter theme, in real Vivaldi (110% and 100% zoom) and real WebKit, and fails on cut-off pages, popups outside the window, giant pictures, stretched rows and covered buttons. Attach `.tmp/ui-check/report.html` findings (and its tap timings) to the QC report. See `scripts/ui-check/README.md`.
 - Check phone and tablet speed or layout in real WebKit (Safari's engine), not Chrome: run `scripts/perf/setup-webkit.sh http://localhost:7860` (installs and starts WebKitGTK's WebDriver, then smoke-tests the app as an iPhone and an iPad with Show tap timings on), then drive pages with `scripts/perf/webkit-qc.mjs`. Include the tap timings readings in the QC report. See `scripts/perf/README.md`.
 - For Android, check the Termux install and launch with `scripts/perf/setup-termux.sh` (real arm64 Termux in Docker running `start-termux.sh`; works in a container without KVM, slowly through CPU emulation on x86) whenever a change touches dependencies, native modules, the build, `start-termux.sh` or the Android APK's start-up. Check Android Chrome (the engine the APK's WebView uses) with `scripts/perf/setup-android.sh http://localhost:7860` where `/dev/kvm` exists, or run the manual **Android QC** GitHub workflow on the branch when it does not. Use WebKit for speed findings; the emulator runs on a PC processor. See `scripts/perf/README.md`.

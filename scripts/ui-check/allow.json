@@ -1,0 +1,15 @@
+{
+  "_readme": "Known, intended exceptions to the UI check, per check: CSS selectors whose elements (and everything in them) are skipped. Each needs a reason. Prefer data-ui-check-allow=\"<check>\" on the element itself.",
+  "checks": {
+    "covered": [],
+    "clipped": [],
+    "unreachable": [],
+    "offscreen": [],
+    "picture": [],
+    "stretched": [".ov-card__art", ".ov-rail__portrait-empty"]
+  },
+  "reasons": {
+    ".ov-card__art": "stretched: a card picture keeps the card shape even when it is the empty New character tile",
+    ".ov-rail__portrait-empty": "stretched: the empty portrait keeps the size of the picture it stands in for"
+  }
+}

@@ -1,0 +1,357 @@
+// ──────────────────────────────────────────────
+// UI check: the layout detectors, run inside the page
+// ──────────────────────────────────────────────
+// One self-contained function (no imports, no closures over this file), so Playwright can pass it to
+// page.evaluate and the WebKit driver can send its source through WebDriver. It looks at what is on screen now and
+// returns every layout problem it can prove from the DOM alone:
+//
+//   clipped      a box with overflow hidden cuts off content taller/wider than itself, with nothing to scroll
+//   unreachable  a button, field or line of text sits outside the window and nothing can scroll it into view
+//   sideways     the page itself scrolls sideways
+//   offscreen    a popup, menu or window pokes out of the window
+//   picture      a picture is far bigger than the box it belongs in (the "giant avatar" family)
+//   stretched    a row or button is mostly empty space: many times taller than what is in it (Home's giant links)
+//   covered      a button is under something else, so a tap lands on the wrong thing
+//
+// Every finding names the element (a short CSS path) and the numbers, so a report reads without a screenshot.
+// An element (and everything in it) is skipped when it or an ancestor has data-ui-check="ignore"; pass
+// `allow` (CSS selectors) to skip known, intended cases per check.
+
+export function detectLayoutProblems(options = {}) {
+  const allow = options.allow ?? {};
+  const scope = options.scope ? document.querySelector(options.scope) : document.body;
+  const findings = [];
+  if (!scope) return [{ check: "missing", where: options.scope, detail: "scope element is missing" }];
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const cssPath = (el) => {
+    const parts = [];
+    for (let node = el; node && node !== document.body && parts.length < 4; node = node.parentElement) {
+      let part = node.tagName.toLowerCase();
+      const component = node.getAttribute("data-component");
+      if (node.id && !/\d{3,}|:/.test(node.id)) part += `#${node.id}`;
+      else if (component) part += `[data-component="${component}"]`;
+      else {
+        const classes = [...node.classList].filter((c) => !/[:[\]/!]/.test(c)).slice(0, 2);
+        if (classes.length) part += `.${classes.join(".")}`;
+      }
+      parts.unshift(part);
+      if (node.id || component) break;
+    }
+    return parts.join(" > ");
+  };
+  const label = (el) => {
+    const text = (el.getAttribute("aria-label") || el.textContent || "").replace(/\s+/g, " ").trim();
+    return text.length > 40 ? `${text.slice(0, 40)}…` : text;
+  };
+  const ignored = (el, check) => {
+    if (el.closest('[data-ui-check="ignore"]')) return true;
+    const own = el.closest("[data-ui-check-allow]");
+    if (own && own.getAttribute("data-ui-check-allow").split(/\s+/).includes(check)) return true;
+    for (const selector of allow[check] ?? []) {
+      try {
+        if (el.closest(selector)) return true;
+      } catch {
+        /* A bad selector in the allow list skips nothing. */
+      }
+    }
+    return false;
+  };
+  const styleCache = new Map();
+  const styleOf = (el) => {
+    let style = styleCache.get(el);
+    if (!style) {
+      style = getComputedStyle(el);
+      styleCache.set(el, style);
+    }
+    return style;
+  };
+  /** Drawn, takes room, and not faded out or hidden for assistive tech only. */
+  const shown = (el) => {
+    if (!el.getClientRects().length) return false;
+    for (let node = el; node && node !== document.documentElement; node = node.parentElement) {
+      const style = styleOf(node);
+      if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) < 0.05) return false;
+      if (node.inert || node.getAttribute("aria-hidden") === "true") return false;
+    }
+    const rect = el.getBoundingClientRect();
+    return rect.width >= 2 && rect.height >= 2;
+  };
+  const add = (check, el, detail, rect = el.getBoundingClientRect()) => {
+    if (ignored(el, check)) return;
+    findings.push({
+      check,
+      where: cssPath(el),
+      text: label(el),
+      detail,
+      rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
+    });
+  };
+  const scrolls = (style, axis) => {
+    const value = axis === "y" ? style.overflowY : style.overflowX;
+    return value === "auto" || value === "scroll" || value === "overlay";
+  };
+  const all = [scope, ...scope.querySelectorAll("*")].filter(
+    (el) => el instanceof HTMLElement || el instanceof SVGElement,
+  );
+  const visible = all.filter((el) => el instanceof HTMLElement && shown(el));
+  const visibleSet = new Set(visible);
+
+  // ── sideways: the page itself scrolls sideways ──
+  const pageWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+  if (pageWidth > vw + 1) {
+    findings.push({
+      check: "sideways",
+      where: "html",
+      text: "",
+      detail: `page is ${pageWidth}px wide in a ${vw}px window`,
+    });
+  }
+
+  // ── clipped: overflow hidden cuts off content and nothing scrolls ──
+  for (const el of visible) {
+    const style = styleOf(el);
+    const clipsY = style.overflowY === "hidden" || style.overflowY === "clip";
+    if (!clipsY || el.clientHeight < 40 || style.webkitLineClamp !== "none") continue;
+    const hidden = el.scrollHeight - el.clientHeight;
+    if (hidden <= 4) continue;
+    // Only content that is really there counts: something shown that starts below the box's bottom edge or runs
+    // past it. Decorations (absolutely placed art, glows) are skipped.
+    const box = el.getBoundingClientRect();
+    const bottom = box.top + el.clientTop + el.clientHeight;
+    let cut = null;
+    for (const child of el.querySelectorAll(
+      "button, a[href], input, textarea, select, [role=button], [role=tab], [role=option], h1, h2, h3, h4, p, li, label",
+    )) {
+      if (!visibleSet.has(child)) continue;
+      const childStyle = styleOf(child);
+      if (childStyle.position === "absolute" || childStyle.position === "fixed") continue;
+      const rect = child.getBoundingClientRect();
+      if (rect.bottom > bottom + 2 && rect.height > 0) {
+        // Clipped by this box and not by a scroller between them (that one scrolls).
+        let scroller = false;
+        for (let node = child.parentElement; node && node !== el; node = node.parentElement) {
+          if (scrolls(styleOf(node), "y")) scroller = true;
+        }
+        if (!scroller) {
+          cut = child;
+          break;
+        }
+      }
+    }
+    if (cut) add("clipped", el, `shows ${el.clientHeight} of ${el.scrollHeight}px; "${label(cut)}" is cut off below`);
+  }
+
+  // ── unreachable: outside the window and no scroller can bring it in ──
+  const reachable = (el) => {
+    for (let node = el.parentElement; node; node = node.parentElement) {
+      const style = styleOf(node);
+      if (
+        (scrolls(style, "y") && node.scrollHeight > node.clientHeight + 1) ||
+        (scrolls(style, "x") && node.scrollWidth > node.clientWidth + 1)
+      )
+        return true;
+      if (style.position === "fixed") return false;
+    }
+    const root = document.scrollingElement ?? document.documentElement;
+    return (
+      root.scrollHeight > vh + 1 &&
+      styleOf(document.documentElement).overflowY !== "hidden" &&
+      styleOf(document.body).overflowY !== "hidden"
+    );
+  };
+  const targets = visible.filter((el) =>
+    el.matches(
+      "button, a[href], input:not([type=hidden]), textarea, select, [role=button], [role=tab], [role=option], [role=menuitem], h1, h2, h3",
+    ),
+  );
+  for (const el of targets) {
+    const rect = el.getBoundingClientRect();
+    // Visually hidden helpers (1px boxes) and things parked far away on purpose.
+    if (rect.width < 4 || rect.height < 4 || rect.right < -2000 || rect.left > vw + 2000) continue;
+    const below = rect.top > vh - 2;
+    const right = rect.left > vw - 2;
+    const partly = rect.bottom > vh + 2 || rect.right > vw + 2 || rect.left < -2 || rect.top < -2;
+    if (!below && !right && !partly) continue;
+    // Bars that slide away on purpose (the auto-hiding top bar, closed drawers): their fixed frame is itself
+    // mostly out of the window, and it comes back on hover or a swipe.
+    let slidAway = false;
+    for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+      const position = styleOf(node).position;
+      if (position !== "fixed" && position !== "sticky") continue;
+      const r = node.getBoundingClientRect();
+      const visibleArea =
+        Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0)) *
+        Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0));
+      if (visibleArea < r.width * r.height * 0.5) slidAway = true;
+      break;
+    }
+    if (slidAway) continue;
+    // A clipping ancestor already hides it: that box is reported under "clipped" (or the clipping is a carousel).
+    let clippedAway = false;
+    for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+      const style = styleOf(node);
+      if (style.overflowX !== "visible" || style.overflowY !== "visible") {
+        const r = node.getBoundingClientRect();
+        if (
+          rect.top >= r.bottom - 1 ||
+          rect.bottom <= r.top + 1 ||
+          rect.left >= r.right - 1 ||
+          rect.right <= r.left + 1
+        )
+          clippedAway = true;
+        break;
+      }
+    }
+    if (clippedAway || reachable(el)) continue;
+    add(
+      "unreachable",
+      el,
+      `at ${Math.round(rect.left)},${Math.round(rect.top)} (${Math.round(rect.width)}x${Math.round(rect.height)}) in a ${vw}x${vh} window, nothing scrolls to it`,
+      rect,
+    );
+  }
+
+  // ── offscreen: an open popup, menu or window pokes out of the window ──
+  for (const el of visible) {
+    if (
+      !el.matches(
+        "[role=dialog], [role=alertdialog], [role=menu], [role=listbox], [role=tooltip], [data-radix-popper-content-wrapper] > *, [data-floating-window]",
+      )
+    )
+      continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) continue;
+    const out = Math.max(-rect.left, -rect.top, rect.right - vw, rect.bottom - vh);
+    if (out > 2) add("offscreen", el, `pokes ${Math.round(out)}px out of the ${vw}x${vh} window`, rect);
+  }
+
+  // ── picture: far bigger than the box it belongs in ──
+  for (const el of visible) {
+    if (!el.matches("img, video, canvas, picture")) continue;
+    const rect = el.getBoundingClientRect();
+    const frame = el.parentElement?.closest(":not(picture):not(a):not(span)") ?? el.parentElement;
+    if (!frame) continue;
+    const f = frame.getBoundingClientRect();
+    if (f.width < 4 || f.height < 4) continue;
+    const spill = Math.max(f.left - rect.left, f.top - rect.top, rect.right - f.right, rect.bottom - f.bottom);
+    // Cropping inside a clipped frame is how cropped avatars work; a picture only counts as giant when it is
+    // also much bigger than its frame and more than a quarter of the window (what people actually saw).
+    const giant = rect.width * rect.height > vw * vh * 0.25 && rect.width * rect.height > f.width * f.height * 4;
+    const frameStyle = styleOf(frame);
+    const frameClips = frameStyle.overflowX !== "visible" || frameStyle.overflowY !== "visible";
+    if (giant || (!frameClips && spill > 24 && styleOf(el).position !== "absolute")) {
+      add(
+        "picture",
+        el,
+        `${Math.round(rect.width)}x${Math.round(rect.height)} in a ${Math.round(f.width)}x${Math.round(f.height)} box`,
+        rect,
+      );
+    }
+  }
+
+  // ── stretched: a row or button that is mostly empty space ──
+  for (const el of visible) {
+    if (!el.matches("a[href], button, [role=button], [role=option], [role=menuitem], li")) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.height < 120) continue;
+    if (el.querySelector("img, video, canvas, textarea, [role=img], svg[width='100%']")) {
+      // Picture tiles are tall on purpose; only flag when even the picture is small.
+      const media = [...el.querySelectorAll("img, video, canvas, [role=img]")].filter((m) => visibleSet.has(m));
+      if (media.some((m) => m.getBoundingClientRect().height > rect.height * 0.35)) continue;
+    }
+    let top = Infinity;
+    let bottom = -Infinity;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const r = range.getBoundingClientRect();
+      if (!r.height) continue;
+      top = Math.min(top, r.top);
+      bottom = Math.max(bottom, r.bottom);
+    }
+    for (const child of el.querySelectorAll("img, svg, video, canvas")) {
+      if (!visibleSet.has(child) && !(child instanceof SVGElement)) continue;
+      const r = child.getBoundingClientRect();
+      if (!r.height) continue;
+      top = Math.min(top, r.top);
+      bottom = Math.max(bottom, r.bottom);
+    }
+    if (!Number.isFinite(top)) continue;
+    const used = bottom - top;
+    if (used * 3 < rect.height) {
+      add("stretched", el, `${Math.round(rect.height)}px tall for ${Math.round(used)}px of content`, rect);
+    }
+  }
+
+  // ── covered: a button you can see but cannot tap ──
+  if (options.covered !== false) {
+    const modal = [...document.querySelectorAll("[role=dialog][aria-modal=true], [role=alertdialog]")]
+      .filter((d) => shown(d))
+      .at(-1);
+    for (const el of targets) {
+      if (!el.matches("button, a[href], [role=button], [role=tab], input, select, textarea")) continue;
+      if (modal && !modal.contains(el)) continue;
+      if (styleOf(el).pointerEvents === "none") continue;
+      const rect = el.getBoundingClientRect();
+      // A whole-card click area under the card's own buttons (Home's Recent chats card) is meant to be covered.
+      const parentRect = el.parentElement?.getBoundingClientRect();
+      if (
+        styleOf(el).position === "absolute" &&
+        parentRect &&
+        rect.width * rect.height >= parentRect.width * parentRect.height * 0.9
+      )
+        continue;
+      if (rect.width < 12 || rect.height < 12) continue;
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      if (x < 0 || y < 0 || x >= vw || y >= vh) continue;
+      // Only what is inside its own scroller's visible part (a list scrolled past the edge is fine).
+      let inView = true;
+      for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+        const style = styleOf(node);
+        if (style.overflowX !== "visible" || style.overflowY !== "visible") {
+          const r = node.getBoundingClientRect();
+          if (x < r.left || x > r.right || y < r.top || y > r.bottom) inView = false;
+        }
+      }
+      if (!inView) continue;
+      const hit = document.elementFromPoint(x, y);
+      if (!hit || el.contains(hit) || hit.contains(el)) continue;
+      // Wholly behind one panel (a drawer over the page) is out of sight, not a trap: only a button you can still
+      // see part of, with something lying over its middle, is.
+      const inset = 2;
+      const corners = [
+        [rect.left + inset, rect.top + inset],
+        [rect.right - inset, rect.top + inset],
+        [rect.left + inset, rect.bottom - inset],
+        [rect.right - inset, rect.bottom - inset],
+      ].filter(([cx, cy]) => cx >= 0 && cy >= 0 && cx < vw && cy < vh);
+      if (
+        corners.every(([cx, cy]) => {
+          const at = document.elementFromPoint(cx, cy);
+          return at && !el.contains(at) && !at.contains(el);
+        })
+      )
+        continue;
+      // Something drawn over the button on purpose (a label wrapping it, its own tooltip).
+      if (hit.closest("label")?.contains(el)) continue;
+      const over = hit.closest(
+        "button, a, [role=button], [role=dialog], [role=menu], [role=listbox], header, nav, aside, section, div",
+      );
+      add("covered", el, `a tap in its middle lands on ${cssPath(over ?? hit)}`, rect);
+    }
+  }
+
+  // Duplicates (the same box reported twice through two of its children) read as noise.
+  const seen = new Set();
+  return findings.filter((f) => {
+    const key = `${f.check}|${f.where}|${f.text}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
