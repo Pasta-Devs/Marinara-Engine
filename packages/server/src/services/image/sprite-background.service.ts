@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Sprite background contracts and matte cleanup
 // ──────────────────────────────────────────────
+import { NOVELAI_TRANSPARENCY_TAGS } from "@marinara-engine/shared";
 import { getBackgroundRemoverStatus, tryRemoveBackgroundWithBackgroundRemover } from "./background-remover.service.js";
 import { clampByte, clampUnit, getSharp, type RgbColor } from "./sharp-runtime.js";
 
@@ -75,14 +76,22 @@ export function spriteChromaMatteInstruction(matte: SpriteChromaMatte): string {
 
 export function applySpriteBackgroundInstruction(
   prompt: string,
-  options: { matte: SpriteChromaMatte; nativeTransparentPng: boolean; removeBackground: boolean },
+  options: {
+    matte: SpriteChromaMatte;
+    nativeTransparentPng: boolean;
+    removeBackground: boolean;
+    /** NovelAI: ask with its transparency tags, and no flat-colour fallback for it to paint. */
+    transparencyTags?: boolean;
+  },
 ): string {
   if (!options.nativeTransparentPng && !options.removeBackground) return prompt;
 
   const chromaFallback = spriteChromaMatteInstruction(options.matte);
-  const replacement = options.nativeTransparentPng
-    ? `no background, transparent PNG format. If native transparency is unsupported, ${chromaFallback}`
-    : chromaFallback;
+  const replacement = !options.nativeTransparentPng
+    ? chromaFallback
+    : options.transparencyTags
+      ? `${NOVELAI_TRANSPARENCY_TAGS}, no background`
+      : `no background, transparent PNG format. If native transparency is unsupported, ${chromaFallback}`;
   const updated = prompt.replace(
     /\b(?:(?:solid|plain) white(?: studio)? background|white studio background|white background)\b/giu,
     () => replacement,
@@ -96,8 +105,11 @@ export function spriteBackgroundContract(options: {
   matte: SpriteChromaMatte;
   nativeTransparentPng: boolean;
   removeBackground: boolean;
+  transparencyTags?: boolean;
 }): string {
   if (!options.nativeTransparentPng && !options.removeBackground) return "";
+  // The tags already ask; the contract's colour fallback and its "transparency" negatives would undo them.
+  if (options.nativeTransparentPng && options.transparencyTags) return "";
   const matteInstruction = spriteChromaMatteInstruction(options.matte);
   return options.nativeTransparentPng
     ? `MANDATORY BACKGROUND CONTRACT: output native transparency with no backdrop. If the provider cannot return alpha transparency, ${matteInstruction}.`
