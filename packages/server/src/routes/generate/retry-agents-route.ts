@@ -4189,6 +4189,7 @@ async function applyRetryResultEffects(args: {
                   referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
                   referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
                   locationImageId: spatialLocationReferenceImage ? retryOwnerSpatialProjection?.referenceImageId : null,
+                  seed: imageResult.seed,
                 }),
               });
               assertRetryActive();

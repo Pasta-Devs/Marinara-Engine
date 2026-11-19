@@ -480,6 +480,7 @@ async function generateSelfie(
         connectionId: imgConnFull.id,
         negativePrompt: selfieSubmission.negativePrompt,
         referenceCharacterIds: selfieReferenceCharacterIds,
+        seed: imageResult.seed,
       }),
     });
     await persistGeneratedImageToEntityGalleries({

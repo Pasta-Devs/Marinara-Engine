@@ -4,11 +4,13 @@
 // The regenerate route re-sends that request (optionally edited), saves a new image and
 // swaps it into the message attachment that showed the old one.
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { promises as dns } from "node:dns";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { mock } from "node:test";
 
 const fixtureDir = mkdtempSync(join(tmpdir(), "marinara-chat-image-generation-"));
 process.env.DATA_DIR = fixtureDir;
@@ -31,9 +33,13 @@ const { readRecordedReferenceImages } =
   await import("../../packages/server/src/services/image/illustrator-references.js");
 const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
 const { createAppSettingsStorage } = await import("../../packages/server/src/services/storage/app-settings.storage.js");
+const { createCharactersStorage } = await import("../../packages/server/src/services/storage/characters.storage.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../packages/server/src/services/storage/connections.storage.js");
 const { createGalleryStorage } = await import("../../packages/server/src/services/storage/gallery.storage.js");
+const { readNovelAiPngSeed } = await import("../../packages/server/src/services/image/image-generation.js");
+const { getSharp } = await import("../../packages/server/src/services/image/sharp-runtime.js");
+const { characterDataSchema } = await import("../../packages/shared/dist/index.js");
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const imagePrompts: string[] = [];
@@ -894,6 +900,196 @@ try {
     expectedRewrite.characterPrompts[0],
     { name: "Rolim", prompt: "chancellor" },
   ]);
+
+  // ── Native NovelAI img2img, infill, seed reuse & validations ──
+  const sharp = await getSharp();
+  assert.ok(sharp, "sharp is available for NovelAI gallery edit regression");
+  const naiCanvas = await sharp({
+    create: { width: 768, height: 512, channels: 3, background: { r: 24, g: 48, b: 96 } },
+  })
+    .png()
+    .toBuffer();
+  const naiMask = await sharp({
+    create: { width: 768, height: 512, channels: 3, background: { r: 255, g: 255, b: 255 } },
+  })
+    .png()
+    .toBuffer();
+  const naiGalleryDir = join(fixtureDir, "gallery", chat.id);
+  mkdirSync(naiGalleryDir, { recursive: true });
+  writeFileSync(join(naiGalleryDir, "nai-source.png"), naiCanvas);
+
+  const characters = createCharactersStorage(db);
+  const arceanaChar = await characters.create(
+    characterDataSchema.parse({ name: "Arceana" }),
+    "/api/avatars/file/arceana.png",
+  );
+  assert.ok(arceanaChar?.id);
+  const novelAi45 = await connections.create({
+    name: "Native NovelAI V4.5 fixture",
+    provider: "image_generation",
+    baseUrl: "https://image.novelai.net",
+    model: "nai-diffusion-4-5-full",
+    imageService: "novelai",
+    apiKey: "fixture",
+  });
+  assert.ok(novelAi45?.id);
+
+  const naiImage = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/nai-source.png`,
+    prompt: "1girl, throne room",
+    provider: "image_generation",
+    model: "nai-diffusion-5-full",
+    width: 768,
+    height: 512,
+    generation: buildChatImageGenerationRecord({
+      prompt: "1girl, throne room",
+      connectionId: novelAi.id,
+      negativePrompt: "lowres",
+      characterPrompts: [{ name: "Arceana", prompt: "tall elf queen", position: { x: 0.5, y: 0.5 } }],
+      referenceCharacterIds: [arceanaChar.id],
+      seed: 123456,
+    }),
+  });
+  assert.ok(naiImage?.id);
+  const naiRegenerateUrl = `/api/gallery/${chat.id}/images/${naiImage.id}/regenerate`;
+
+  // Validation checks before hitting NovelAI.
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: naiRegenerateUrl,
+        payload: { prompt: "edit", editMode: "img2img", connectionId: connection.id },
+      })
+    ).statusCode,
+    400,
+    "non-NovelAI connection cannot run img2img/infill",
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: naiRegenerateUrl,
+        payload: { prompt: "inpaint", editMode: "infill" },
+      })
+    ).statusCode,
+    400,
+    "infill without maskImage returns 400",
+  );
+
+  // Image without record seed OR PNG seed rejects reuseSeed with 400.
+  writeFileSync(join(naiGalleryDir, "no-seed.png"), naiCanvas);
+  const seedlessImage = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/no-seed.png`,
+    prompt: "seedless",
+    provider: "image_generation",
+    model: "nai-diffusion-5-full",
+    generation: buildChatImageGenerationRecord({ prompt: "seedless", connectionId: novelAi.id }),
+  });
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: `/api/gallery/${chat.id}/images/${seedlessImage!.id}/regenerate`,
+        payload: { prompt: "seedless", reuseSeed: true },
+      })
+    ).statusCode,
+    400,
+    "missing seed returns 400 when reuseSeed is true",
+  );
+
+  const novelAiRequests: Array<Record<string, unknown>> = [];
+  const realFetch = globalThis.fetch;
+  const dnsMock = mock.method(dns, "lookup", async (hostname: string) => {
+    assert.equal(hostname, "image.novelai.net");
+    return [{ address: "8.8.8.8", family: 4 }];
+  });
+  const fetchMock = mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    if (url.origin === "https://image.novelai.net") {
+      novelAiRequests.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(new Uint8Array(naiCanvas), { status: 200, headers: { "content-type": "image/png" } });
+    }
+    return realFetch(input, init);
+  });
+
+  try {
+    // 1) img2img with reuseSeed on V4.5 uses record.seed, omits director refs even with real character refs, persists new seed.
+    const img2imgResp = await app.inject({
+      method: "POST",
+      url: naiRegenerateUrl,
+      payload: {
+        prompt: "1girl, throne room, evening",
+        connectionId: novelAi45.id,
+        editMode: "img2img",
+        strength: 0.65,
+        noise: 0.1,
+        reuseSeed: true,
+      },
+    });
+    assert.equal(img2imgResp.statusCode, 200, img2imgResp.body);
+    assert.equal(novelAiRequests[0]?.action, "img2img");
+    const naiParams1 = novelAiRequests[0]?.parameters as Record<string, unknown>;
+    assert.equal(naiParams1.seed, 123456);
+    assert.equal(naiParams1.extra_noise_seed, 123456);
+    assert.equal(naiParams1.strength, 0.65);
+    assert.equal(naiParams1.noise, 0.1);
+    assert.equal(naiParams1.director_reference_images, undefined, "img2img omits recorded character refs");
+    const img2imgSavedRecord = parseChatImageGenerationRecord(img2imgResp.json().image.generation);
+    assert.equal(img2imgSavedRecord?.seed, 123456);
+
+    // 2) infill on V5 switches model to -inpainting, sets mask + add_original_image + img2img object.
+    const infillResp = await app.inject({
+      method: "POST",
+      url: `/api/gallery/${chat.id}/images/${img2imgResp.json().image.id}/regenerate`,
+      payload: {
+        prompt: "1girl, smiling",
+        connectionId: novelAi.id,
+        editMode: "infill",
+        maskImage: `data:image/png;base64,${naiMask.toString("base64")}`,
+        strength: 0.95,
+      },
+    });
+    assert.equal(infillResp.statusCode, 200, infillResp.body);
+    assert.equal(novelAiRequests[1]?.action, "infill");
+    assert.equal(novelAiRequests[1]?.model, "nai-diffusion-5-full-inpainting");
+    const naiParams2 = novelAiRequests[1]?.parameters as Record<string, unknown>;
+    assert.equal(naiParams2.add_original_image, true);
+    assert.equal(typeof naiParams2.mask, "string");
+    assert.deepEqual(naiParams2.img2img, {
+      strength: 0.95,
+      noise: 0,
+      extra_noise_seed: naiParams2.seed,
+      color_correct: true,
+    });
+    const infillSavedRow = infillResp.json().image as { filePath: string; generation: string };
+    const infillSavedRecord = parseChatImageGenerationRecord(infillSavedRow.generation);
+    assert.equal(typeof infillSavedRecord?.seed, "number");
+
+    // 3) Fallback to PNG iTXt seed when legacy record has no stored seed field.
+    const savedFileBuffer = readFileSync(join(fixtureDir, "gallery", infillSavedRow.filePath));
+    assert.equal(readNovelAiPngSeed(savedFileBuffer), infillSavedRecord?.seed);
+    const pngSeedSource = await gallery.create({
+      chatId: chat.id,
+      filePath: infillSavedRow.filePath,
+      prompt: "from png iTXt seed",
+      provider: "image_generation",
+      model: "nai-diffusion-5-full",
+      generation: buildChatImageGenerationRecord({ prompt: "from png iTXt seed", connectionId: novelAi.id }),
+    });
+    const pngSeedResp = await app.inject({
+      method: "POST",
+      url: `/api/gallery/${chat.id}/images/${pngSeedSource!.id}/regenerate`,
+      payload: { prompt: "from png iTXt seed, retried", reuseSeed: true },
+    });
+    assert.equal(pngSeedResp.statusCode, 200, pngSeedResp.body);
+    assert.equal((novelAiRequests[2]?.parameters as Record<string, unknown>).seed, infillSavedRecord?.seed);
+  } finally {
+    fetchMock.mock.restore();
+    dnsMock.mock.restore();
+  }
 
   console.log("chat-image-generation-record: ok (record, storage round trip, regenerate route)");
 } finally {

@@ -3,12 +3,14 @@
 // The new picture replaces the old one in the reply it was opened from, and her stored tool results name the new
 // asset, so a later "assign that one" means the picture the user sees.
 import assert from "node:assert/strict";
+import { promises as dns } from "node:dns";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { mock } from "node:test";
 
 const root = mkdtempSync(join(tmpdir(), "marinara-mari-image-lightbox-"));
 const originalEnv = { DATA_DIR: process.env.DATA_DIR, FILE_STORAGE_DIR: process.env.FILE_STORAGE_DIR };
@@ -44,6 +46,7 @@ const { mariSourceReference } = await import("../../../packages/server/src/servi
 const { createConnectionsStorage } =
   await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+const { getSharp } = await import("../../../packages/server/src/services/image/sharp-runtime.js");
 const { createConnectionSchema } = await import("../../../packages/shared/dist/index.js");
 
 const db = await getDB();
@@ -246,6 +249,100 @@ try {
   assert.equal(mariSourceReference("sprite:owner/happy.png"), "/api/sprites/owner/file/happy.png");
   for (const label of ["data-url", "base64", "C:\\Users\\me\\cat.png", "/etc/passwd", "gallery:no-file", "", null])
     assert.equal(mariSourceReference(label), null, `${label} is not re-readable`);
+
+  // 7. Native NovelAI img2img, infill, seed recovery and 400 validations on Mari preview assets.
+  const sharp = await getSharp();
+  assert.ok(sharp);
+  const naiCanvas = await sharp({
+    create: { width: 512, height: 512, channels: 3, background: { r: 30, g: 60, b: 90 } },
+  })
+    .png()
+    .toBuffer();
+  const naiMask = await sharp({
+    create: { width: 512, height: 512, channels: 3, background: { r: 255, g: 255, b: 255 } },
+  })
+    .png()
+    .toBuffer();
+  const novelAiConn = (await createConnectionsStorage(db).create(
+    createConnectionSchema.parse({
+      name: "Native NovelAI",
+      provider: "image_generation",
+      baseUrl: "https://image.novelai.net",
+      model: "nai-diffusion-5-full",
+      imageService: "novelai",
+      apiKey: "fixture",
+    }),
+  ))!;
+
+  const mariNaiRequests: Array<Record<string, unknown>> = [];
+  const realFetch = globalThis.fetch;
+  const dnsMock = mock.method(dns, "lookup", async (hostname: string) => {
+    assert.equal(hostname, "image.novelai.net");
+    return [{ address: "8.8.8.8", family: 4 }];
+  });
+  const fetchMock = mock.method(globalThis, "fetch", async (input: string | URL | Request, init?: RequestInit) => {
+    const url = new URL(input instanceof Request ? input.url : String(input));
+    if (url.origin === "https://image.novelai.net") {
+      mariNaiRequests.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return new Response(new Uint8Array(naiCanvas), { status: 200, headers: { "content-type": "image/png" } });
+    }
+    return realFetch(input, init);
+  });
+
+  try {
+    const naiOriginal = await images(
+      "generate",
+      "--connection",
+      novelAiConn.id,
+      "--width",
+      "512",
+      "--height",
+      "512",
+      "--prompt",
+      "1girl, portrait",
+    );
+    const naiRecordRes = await app.inject(`/api/gallery/mari-images/assets/${naiOriginal.id}`);
+    assert.equal(naiRecordRes.statusCode, 200, naiRecordRes.body);
+    const loadedSeed = (naiRecordRes.json() as { asset: Asset & { seed?: number } }).asset.seed;
+    assert.equal(typeof loadedSeed, "number", "GET /mari-images/assets/:assetId exposes asset seed");
+
+    // 400 validation errors: non-NovelAI connection and missing mask on infill.
+    assert.equal(
+      (await refuse({ prompt: "edit", editMode: "img2img", connectionId: connection.id }, naiOriginal.id)).statusCode,
+      400,
+    );
+    assert.equal((await refuse({ prompt: "inpaint", editMode: "infill" }, naiOriginal.id)).statusCode, 400);
+
+    // img2img with reuseSeed reuses original seed and creates iterative asset:<id> source.
+    const mariImg2Img = await refuse(
+      { prompt: "1girl, blue eyes", editMode: "img2img", strength: 0.7, noise: 0.05, reuseSeed: true },
+      naiOriginal.id,
+    );
+    assert.equal(mariImg2Img.statusCode, 200, mariImg2Img.body);
+    assert.equal(mariNaiRequests[1]?.action, "img2img");
+    assert.equal((mariNaiRequests[1]?.parameters as Record<string, unknown>).seed, loadedSeed);
+    const img2imgAsset = (mariImg2Img.json() as { asset: Asset & { seed?: number }; regenerable: boolean }).asset;
+    assert.equal(img2imgAsset.operation, "edit");
+    assert.equal(img2imgAsset.sourceImage, `asset:${naiOriginal.id}`);
+    assert.equal(img2imgAsset.seed, loadedSeed);
+
+    // infill on edited preview asset works iteratively and switches model to -inpainting.
+    const mariInfill = await refuse(
+      {
+        prompt: "1girl, sunglasses",
+        editMode: "infill",
+        maskImage: `data:image/png;base64,${naiMask.toString("base64")}`,
+        strength: 0.9,
+      },
+      img2imgAsset.id,
+    );
+    assert.equal(mariInfill.statusCode, 200, mariInfill.body);
+    assert.equal(mariNaiRequests[2]?.action, "infill");
+    assert.equal(mariNaiRequests[2]?.model, "nai-diffusion-5-full-inpainting");
+  } finally {
+    fetchMock.mock.restore();
+    dnsMock.mock.restore();
+  }
 
   console.log("Mari image lightbox regression passed.");
 } finally {

@@ -15146,6 +15146,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             locationImageId: spatialLocationReferenceImage
                               ? postReplySpatialProjection?.referenceImageId
                               : null,
+                            seed: imageResult.seed,
                           }),
                         });
                         firstGalleryImageId ??= (galleryEntry as { id?: string } | null)?.id ?? null;

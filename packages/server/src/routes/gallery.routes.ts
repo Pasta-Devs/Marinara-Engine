@@ -3,12 +3,13 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
-import { writeFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { basename, extname, join } from "path";
 import { z } from "zod";
 import {
   buildChatImageGenerationRecord,
   findImageStyleProfile,
+  isNativeNovelAiUrl,
   parseChatImageGenerationRecord,
   LOCAL_SIDECAR_CONNECTION_ID,
   readImageAppearanceOverride,
@@ -32,7 +33,13 @@ import { createAppSettingsStorage } from "../services/storage/app-settings.stora
 import { loadGameVideoPrompt } from "../services/video/game-video-prompt.js";
 import { removeSavedVideoFromDisk, type VideoReferenceImage } from "../services/video/video-generation.js";
 import { resolveGameVideoRuntime } from "../services/video/game-video-runtime.js";
-import { generateImage, removeSavedImageFromDisk, saveImageToDisk } from "../services/image/image-generation.js";
+import {
+  NovelAiEditInputError,
+  generateImage,
+  readNovelAiPngSeed,
+  removeSavedImageFromDisk,
+  saveImageToDisk,
+} from "../services/image/image-generation.js";
 import { resolveGalleryImagePath } from "../services/image/gallery-image-path.js";
 import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import {
@@ -89,10 +96,12 @@ import { createGameStoryboardsStorage } from "../services/storage/game-storyboar
 import { resolveBaseUrl } from "./generate/generate-route-utils.js";
 import {
   MARI_PREVIEW_CHAT_ID,
+  MariImageValidationError,
   findMariPreviewFile,
   getMariImagesService,
   getMariPreviewAsset,
   isMariPreviewAssetRegenerable,
+  readMariPreviewAssetSeed,
   swapMariPreviewAssetInMessage,
 } from "../services/mari-db/mari-images.service.js";
 import {
@@ -261,11 +270,23 @@ const regenerateGalleryImageSchema = z.object({
   connectionId: z.string().trim().min(1).max(200).optional(),
   /** Message the image was opened from, so its attachment is swapped without scanning swipes. */
   messageId: z.string().trim().min(1).max(200).optional(),
+  editMode: z.enum(["img2img", "infill"]).optional(),
+  maskImage: z.string().trim().min(1).max(16_000_000).optional(),
+  strength: z.number().finite().min(0.01).max(1).optional(),
+  noise: z.number().finite().min(0).max(0.99).optional(),
+  reuseSeed: z.boolean().optional(),
   debugMode: z.boolean().optional().default(false),
 });
 
 const rewriteGalleryImagePromptSchema = regenerateGalleryImageSchema
-  .omit({ messageId: true })
+  .omit({
+    messageId: true,
+    editMode: true,
+    maskImage: true,
+    strength: true,
+    noise: true,
+    reuseSeed: true,
+  })
   .required({ negativePrompt: true, characterPrompts: true })
   .extend({ guidance: z.string().trim().max(4_000).optional() });
 
@@ -1969,6 +1990,7 @@ export async function galleryRoutes(app: FastifyInstance) {
             connectionId: imageConn.id,
             negativePrompt: providerNegativePrompt,
             referenceCharacterIds: referenceImages ? [character.id] : [],
+            seed: imageResult.seed,
           }),
         });
         if (!image) throw new Error("Generated selfie metadata could not be saved");
@@ -2124,6 +2146,7 @@ export async function galleryRoutes(app: FastifyInstance) {
           prompt: compiledPrompt.prompt,
           connectionId: context.imageConnection.id,
           negativePrompt: compiledPrompt.negativePrompt,
+          seed: generated.seed,
         }),
       });
       if (!image) throw new Error("Generated Gallery image metadata could not be saved");
@@ -2395,7 +2418,11 @@ export async function galleryRoutes(app: FastifyInstance) {
   app.get<{ Params: { assetId: string } }>("/mari-images/assets/:assetId", async (req, reply) => {
     const asset = await getMariPreviewAsset(req.params.assetId);
     if (!asset) return notFound(reply, "Image not found");
-    return { asset, regenerable: isMariPreviewAssetRegenerable(asset) };
+    const seed = asset.seed ?? (await readMariPreviewAssetSeed(asset));
+    return {
+      asset: seed !== undefined && asset.seed === undefined ? { ...asset, seed } : asset,
+      regenerable: isMariPreviewAssetRegenerable(asset),
+    };
   });
 
   app.post<{ Params: { assetId: string } }>("/mari-images/assets/:assetId/regenerate/prompt", async (req, reply) => {
@@ -2414,11 +2441,18 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (input.messageId && !input.chatId) return reply.status(400).send({ error: "messageId needs chatId" });
     const chat = input.chatId ? await getMariChat(input.chatId) : null;
     if (input.chatId && !chat) return notFound(reply, "Chat not found");
-    logDebugOverride(
-      input.debugMode || isDebugAgentsEnabled(),
-      "[debug/gallery/mari-images/regenerate] final prompt:\n%s",
-      input.prompt,
-    );
+    const debugOverrideEnabled = input.debugMode || isDebugAgentsEnabled();
+    logDebugOverride(debugOverrideEnabled, "[debug/gallery/mari-images/regenerate] final prompt:\n%s", input.prompt);
+    if (input.editMode || input.reuseSeed) {
+      logDebugOverride(
+        debugOverrideEnabled,
+        "[debug/gallery/mari-images/regenerate] editMode=%s strength=%s noise=%s reuseSeed=%s",
+        input.editMode ?? "standard",
+        input.strength ?? "default",
+        input.noise ?? "default",
+        Boolean(input.reuseSeed),
+      );
+    }
 
     let result;
     try {
@@ -2426,8 +2460,17 @@ export async function galleryRoutes(app: FastifyInstance) {
         prompt: input.prompt,
         negativePrompt: input.negativePrompt,
         connectionId: input.connectionId,
+        editMode: input.editMode,
+        maskImage: input.maskImage,
+        strength: input.strength,
+        noise: input.noise,
+        reuseSeed: input.reuseSeed,
+        debugMode: input.debugMode,
       });
     } catch (err) {
+      if (err instanceof MariImageValidationError || err instanceof NovelAiEditInputError) {
+        return reply.status(400).send({ error: err.message });
+      }
       logger.warn(err, "[gallery/mari-images/regenerate] Regenerating Mari image %s failed", assetId);
       return reply.status(502).send({ error: err instanceof Error ? err.message : "Image regeneration failed" });
     }
@@ -2492,6 +2535,44 @@ export async function galleryRoutes(app: FastifyInstance) {
       const imageTarget = resolveGalleryImageTarget(imageConnection);
       const { imageModel, imageBaseUrl, imageSource, imageServiceHint } = imageTarget;
       const imageFallback = await resolveImageConnectionFallback(connectionsStore, imageConnection.id);
+      if (input.editMode) {
+        if (
+          resolveImageBackend(imageSource, imageBaseUrl, imageServiceHint, imageModel) !== "novelai" ||
+          !isNativeNovelAiUrl(imageBaseUrl)
+        ) {
+          return reply
+            .status(400)
+            .send({ error: "Image-to-image and inpainting edits require a native NovelAI connection." });
+        }
+        if (input.editMode === "infill" && !input.maskImage) {
+          return reply.status(400).send({ error: "Inpainting requires a painted mask." });
+        }
+      }
+
+      let sourceBuffer: Buffer | null = null;
+      if (input.editMode || (input.reuseSeed && record?.seed === undefined)) {
+        const sourcePath = resolveGalleryImagePath(original);
+        if (sourcePath) {
+          try {
+            sourceBuffer = await readFile(sourcePath);
+          } catch {
+            sourceBuffer = null;
+          }
+        }
+        if (input.editMode && !sourceBuffer) {
+          return reply.status(400).send({ error: "The original image file is no longer available on disk." });
+        }
+      }
+
+      let seedOverride: number | undefined;
+      if (input.reuseSeed) {
+        const recoveredSeed = record?.seed ?? (sourceBuffer ? readNovelAiPngSeed(sourceBuffer) : null);
+        if (recoveredSeed === null) {
+          return reply.status(400).send({ error: "No original seed was found for this image." });
+        }
+        seedOverride = recoveredSeed;
+      }
+
       const width = original.width ?? imageSettings.illustration.width;
       const height = original.height ?? imageSettings.illustration.height;
       const negativePrompt = (input.negativePrompt ?? record?.negativePrompt ?? "").trim();
@@ -2508,25 +2589,28 @@ export async function galleryRoutes(app: FastifyInstance) {
         personaSource: null,
         locationImageId: null,
       };
-      const locationImage = references.locationImageId
-        ? await readSpatialLocationReferenceImageById({
-            db: app.db,
-            chatId,
-            referenceImageId: references.locationImageId,
-          })
-        : null;
-      const referenceImages = mergeSpatialLocationReferenceImages(
-        locationImage,
-        await readRecordedReferenceImages({
-          characterIds: references.characterIds,
-          personaId: references.personaId,
-          personaSource: references.personaSource,
-          charactersStore: characters,
-          characterGallery,
-          personaGallery,
-        }),
-        6,
-      );
+      let referenceImages: string[] = [];
+      if (!input.editMode) {
+        const locationImage = references.locationImageId
+          ? await readSpatialLocationReferenceImageById({
+              db: app.db,
+              chatId,
+              referenceImageId: references.locationImageId,
+            })
+          : null;
+        referenceImages = mergeSpatialLocationReferenceImages(
+          locationImage,
+          await readRecordedReferenceImages({
+            characterIds: references.characterIds,
+            personaId: references.personaId,
+            personaSource: references.personaSource,
+            charactersStore: characters,
+            characterGallery,
+            personaGallery,
+          }),
+          6,
+        );
+      }
 
       const debugOverrideEnabled = input.debugMode || isDebugAgentsEnabled();
       logDebugOverride(debugOverrideEnabled, "[debug/gallery/regenerate] final prompt:\n%s", input.prompt);
@@ -2538,6 +2622,16 @@ export async function galleryRoutes(app: FastifyInstance) {
           debugOverrideEnabled,
           "[debug/gallery/regenerate] character prompts:\n%s",
           debugJson(characterPrompts),
+        );
+      }
+      if (input.editMode || seedOverride !== undefined) {
+        logDebugOverride(
+          debugOverrideEnabled,
+          "[debug/gallery/regenerate] editMode=%s strength=%s noise=%s seedOverride=%s",
+          input.editMode ?? "standard",
+          input.strength ?? "default",
+          input.noise ?? "default",
+          seedOverride ?? "random",
         );
       }
 
@@ -2562,13 +2656,27 @@ export async function galleryRoutes(app: FastifyInstance) {
             comfyWorkflow: imageConnection.comfyuiWorkflow || undefined,
             imageDefaults,
             quality: resolveConnectionImageQuality(imageConnection),
-            ...(referenceImages.length > 0 ? { referenceImages } : {}),
+            ...(input.editMode
+              ? {
+                  editMode: input.editMode,
+                  sourceImage: sourceBuffer!.toString("base64"),
+                  ...(input.editMode === "infill"
+                    ? { maskImage: input.maskImage, addOriginalImage: true }
+                    : { noise: input.noise }),
+                  strength: input.strength,
+                }
+              : referenceImages.length > 0
+                ? { referenceImages }
+                : {}),
+            ...(seedOverride !== undefined ? { seedOverride } : {}),
             ...(characterPrompts.length > 0 ? { characterPrompts } : {}),
             signal,
             debugMode: input.debugMode,
             fallback: imageFallback,
           },
         );
+        const savedWidth = generated.width ?? width;
+        const savedHeight = generated.height ?? height;
         const filePath = saveImageToDisk(chatId, generated.base64, generated.ext, { shared: true });
         savedFilePath = filePath;
         const prompt = generated.effectivePrompt ?? input.prompt;
@@ -2580,8 +2688,8 @@ export async function galleryRoutes(app: FastifyInstance) {
           prompt,
           provider,
           model,
-          width,
-          height,
+          width: savedWidth,
+          height: savedHeight,
           generation: buildChatImageGenerationRecord({
             prompt: input.prompt,
             connectionId: imageConnection.id,
@@ -2591,6 +2699,7 @@ export async function galleryRoutes(app: FastifyInstance) {
             referencePersonaId: references.personaId,
             referencePersonaSource: references.personaSource,
             locationImageId: references.locationImageId,
+            seed: generated.seed,
           }),
         });
         if (!image) throw new Error("Regenerated image metadata could not be saved");
@@ -2647,8 +2756,8 @@ export async function galleryRoutes(app: FastifyInstance) {
           prompt,
           provider,
           model,
-          width,
-          height,
+          width: savedWidth,
+          height: savedHeight,
         }).catch((galleryErr) =>
           logger.warn(galleryErr, "[gallery/regenerate] Could not copy image %s to entity galleries", image.id),
         );
@@ -2688,6 +2797,9 @@ export async function galleryRoutes(app: FastifyInstance) {
           } catch (cleanupErr) {
             logger.warn(cleanupErr, "[gallery/regenerate] Failed to clean up orphaned image file %s", savedFilePath);
           }
+        }
+        if (err instanceof NovelAiEditInputError) {
+          return reply.status(400).send({ error: err.message });
         }
         logger.warn(err, "[gallery/regenerate] Image regeneration failed for chat %s", chatId);
         return reply.status(502).send({
