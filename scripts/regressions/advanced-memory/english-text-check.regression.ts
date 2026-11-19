@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { looksMostlyNonEnglish } from "../../packages/shared/src/utils/english-text-check.js";
+import { looksMostlyNonEnglish } from "../../../packages/shared/src/utils/english-text-check.js";
 
 // Marinara's own search model is English-only; the memories window suggests a multilingual model when this is true.
 const samples: Record<string, string> = {
