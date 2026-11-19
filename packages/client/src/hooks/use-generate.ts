@@ -1243,7 +1243,12 @@ function applyGameStatePatchToStore(
   const current = useGameStateStore.getState().current;
 
   if (current?.chatId === chatId) {
-    const lockedPatch = applyTrackerFieldLocksToGameStatePatch(patch, current);
+    // A handover to a card (#9556) sends the locks under their new keys; merge with those, not the old ones.
+    const patchLocks =
+      patch.fieldLocks && typeof patch.fieldLocks === "object"
+        ? (patch.fieldLocks as Record<string, boolean>)
+        : undefined;
+    const lockedPatch = applyTrackerFieldLocksToGameStatePatch(patch, current, patchLocks ?? current.fieldLocks);
     const merged = { ...current, ...lockedPatch, chatId, ...(anchor ?? {}) };
     if (lockedPatch.playerStats && typeof lockedPatch.playerStats === "object" && current.playerStats) {
       const mergedPS = { ...current.playerStats, ...(lockedPatch.playerStats as object) };

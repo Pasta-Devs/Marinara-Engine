@@ -7,7 +7,8 @@
  *     that can't is never asked for an edit, and draws a new face with its blink and talk pictures instead
  *     (maintainer request, 2026-10-19; avatar-variant-composite.regression.ts covers the set);
  *   - a fallback connection that would drop the picture is skipped for an edit, one that takes it is used;
- *   - SpicyAPI, whose model's input schema decides, refuses an edit before a task is created.
+ *   - SpicyAPI, whose model's input schema decides, refuses an edit before a task is created;
+ *   - Stability v2 uploads a reference's own bytes and type, whether it arrives as a data URL or as bare base64.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -31,7 +32,8 @@ const {
 const { drawAvatarImageEdit, resolveAvatarImageConnection } =
   await import("../../../packages/server/src/services/avatars/generation/generation-context.js");
 const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
 
 assert.equal(
   IMAGE_EDIT_UNSUPPORTED_MESSAGE,
@@ -207,10 +209,19 @@ const picture = await sharp({ create: { width: 64, height: 64, channels: 3, back
   .png()
   .toBuffer();
 const requests: string[] = [];
+/** Each Stability request's multipart body, with its content type, to read back the uploaded picture. */
+const stabilityBodies: Array<{ body: Buffer; type: string }> = [];
 const server = createServer(async (request, response) => {
-  for await (const _chunk of request) void _chunk;
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(chunk as Buffer);
   const url = request.url ?? "";
   requests.push(url);
+  if (url.startsWith("/stability/")) {
+    stabilityBodies.push({ body: Buffer.concat(chunks), type: String(request.headers["content-type"]) });
+    response.setHeader("content-type", "image/png");
+    response.end(picture);
+    return;
+  }
   response.setHeader("content-type", "application/json");
   if (url.startsWith("/primary/")) {
     response.statusCode = 500;
@@ -337,6 +348,30 @@ try {
     requests.some((url) => url.startsWith("/spicy/api/v1/jobs/createTask")),
     "a model with a picture input gets its task",
   );
+
+  // Stability v2 image-to-image: the picture's real bytes, as a PNG, whatever form the reference came in.
+  const dataUrl = `data:image/png;base64,${picture.toString("base64")}`;
+  for (const [label, reference] of [
+    ["a data URL", { referenceImage: dataUrl }],
+    ["a data URL among several", { referenceImages: [dataUrl] }],
+    ["bare base64", { referenceImage: picture.toString("base64") }],
+  ] as const) {
+    stabilityBodies.length = 0;
+    await generateImage("stability", `${base}/stability`, "fixture-key", "stability", {
+      prompt: "Two people at the lamp.",
+      width: 768,
+      height: 1344,
+      allowLocalUrls: true,
+      ...reference,
+    });
+    assert.equal(stabilityBodies.length, 1, label);
+    const sent = stabilityBodies[0]!;
+    const form = await new Response(sent.body, { headers: { "content-type": sent.type } }).formData();
+    const image = form.get("image") as File;
+    assert.ok(Buffer.from(await image.arrayBuffer()).equals(picture), `${label}: the picture's own bytes`);
+    assert.equal(image.type, "image/png", label);
+    assert.equal(form.get("mode"), "image-to-image", label);
+  }
 } finally {
   (logger as { warn: unknown }).warn = warn;
   await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -5,6 +5,7 @@ import {
   normalizeImageStyleProfileSettings,
   type ImageStyleProfileSettings,
 } from "@marinara-engine/shared";
+import { isRecord } from "../../utils/large-json.js";
 
 export interface ImageGenerationSize {
   width: number;
@@ -35,10 +36,6 @@ const DEFAULT_IMAGE_GENERATION_SETTINGS: ImageGenerationUserSettings = {
   selfie: { width: 896, height: 1152 },
   styleProfiles: normalizeImageStyleProfileSettings(null),
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 export function clampImageDimension(value: unknown, fallback: number) {
   const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;

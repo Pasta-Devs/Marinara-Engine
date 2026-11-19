@@ -289,8 +289,8 @@ try {
 
 // #9482: x86_64 Android (Chromebooks, BlueStacks and other Android on PCs) has no native build of three packages the
 // client build loads, so each falls back to WebAssembly there: rolldown (Vite's bundler) and Tailwind's oxide load
-// their WASI bindings on their own; lightningcss requires `lightningcss-android-x64`, which the client provides by
-// handing it lightningcss's WebAssembly build. The client installs both missing pieces at their packages' versions.
+// their WASI bindings on their own; lightningcss requires `lightningcss-android-x64`, which the client installs as an
+// alias of lightningcss's WebAssembly build. The client installs both missing pieces at their packages' versions.
 const clientRequire = createRequire(join(repositoryRoot, "packages/client/package.json"));
 const rolldownEntry = createRequire(clientRequire.resolve("vite")).resolve("rolldown");
 const tailwindNodeRequire = createRequire(
@@ -317,6 +317,15 @@ assert.equal(
   versionFrom(createRequire(lightningcssEntry).resolve("lightningcss-android-x64"), "lightningcss-wasm"),
   versionFrom(lightningcssEntry, "lightningcss"),
   "the lightningcss WebAssembly build behind lightningcss-android-x64 must match the lightningcss Tailwind uses",
+);
+// #9530: no dependency may be a local folder. pnpm copies a folder dependency into .pnpm with hard links and does not
+// fall back to copying files when that fails. Android does not let apps create hard links, so on every Termux install the
+// whole `pnpm install` stops with "Permission denied". Registry packages install there as normal.
+const lockfile = readFileSync(join(repositoryRoot, "pnpm-lock.yaml"), "utf8");
+assert.deepEqual(
+  lockfile.match(/resolution: \{directory: [^}]*\}/gu) ?? [],
+  [],
+  "a local folder dependency stops `pnpm install` on Android; publish it or alias a registry package instead",
 );
 // Runs each package the way x86_64 Termux does: Node reports android/x64, so no native build loads.
 const x64Fixture = mkdtempSync(join(tmpdir(), "marinara-android-x64-"));

@@ -19,7 +19,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { hasEditorLeaveHandler } from "../../lib/editor-leave";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile } from "../../lib/download-json";
-import { getFolderImportEntries, isPatternSafe } from "@marinara-engine/shared";
+import { getFolderImportEntries, isPatternSafe, type RegexApplyMode } from "@marinara-engine/shared";
 import { ApiError } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
@@ -54,8 +54,6 @@ function parseNullableNumber(value: unknown): number | null {
   }
   return null;
 }
-
-type RegexApplyMode = "prompt" | "display" | "both";
 
 function isRegexApplyMode(value: unknown): value is RegexApplyMode {
   return value === "prompt" || value === "display" || value === "both";

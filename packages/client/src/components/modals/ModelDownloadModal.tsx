@@ -1450,9 +1450,11 @@ export function ModelDownloadModal({ open, onClose, embedded }: Props) {
                 ) : null}
               </select>
               <p className={HINT}>
-                {maxParallelJobsInput === "0" && localModels?.parallel?.reason
-                  ? `${localizeUi("connections.localModels.atOnceReason", { reason: localModels.parallel.reason })} `
-                  : ""}
+                {maxParallelJobsInput === "0" && localModels?.parallel?.reason && (
+                  <span className="block">
+                    {localizeUi("connections.localModels.atOnceReason", { reason: localModels.parallel.reason })}
+                  </span>
+                )}
                 {localizeUi("connections.localModels.atOnceHint")}
               </p>
             </Field>

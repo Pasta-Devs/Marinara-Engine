@@ -27,6 +27,7 @@ import type {
   WikiSiteInfo,
   WikiTruncation,
 } from "./types.js";
+import { isRecord } from "../../../utils/large-json.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_CONTENT_MAX_BYTES = 50_000;
@@ -63,10 +64,6 @@ class HostQueue {
       this.queue.shift()?.();
     }
   }
-}
-
-function isRecord(value: unknown): value is JsonRecord {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function stringValue(value: unknown): string | undefined {

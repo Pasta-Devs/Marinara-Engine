@@ -1,5 +1,6 @@
 import { safeFetch } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
+import { isRecord } from "../../utils/large-json.js";
 
 export type AtlasCloudGenerationKind = "image" | "video";
 
@@ -31,10 +32,6 @@ function readPositiveIntervalEnv(name: string, fallbackMs: number) {
   if (!raw) return fallbackMs;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : fallbackMs;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function readString(value: unknown): string | null {

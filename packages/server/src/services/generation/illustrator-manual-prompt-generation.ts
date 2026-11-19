@@ -12,6 +12,7 @@ import {
   readIllustratorImageAppearanceOverride,
 } from "../image/character-prompts.js";
 import { debugJson, logger } from "../../lib/logger.js";
+import { messageTextWithImagesForLog } from "../../lib/log-redaction.js";
 import {
   agentRequestOptions,
   buildAgentCurrentLocationBlock,
@@ -25,6 +26,14 @@ import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import { measureContextBudget, type ChatCompletionResult, type ChatMessage } from "../llm/base-provider.js";
 import { normalizeAgentMaxTokens, normalizeMaxContext } from "./generation-parameters.js";
 import { appendImagePromptInstructions, formatOptionalVideoOffer } from "./image-prompt-instructions.js";
+import {
+  attachWriterReferencePictures,
+  logWriterReferenceAttach,
+  readWriterReferencePayload,
+  withWriterReferenceFallback,
+  writerVisionKey,
+} from "../image/writer-reference-pictures.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const DEFAULT_MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
@@ -59,10 +68,6 @@ export type ManualIllustratorPromptResult = {
   plan: ManualIllustratorPromptPlan;
   tokensUsed: number;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function readTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -326,7 +331,7 @@ export async function writeManualIllustratorPromptPlan(args: {
     args.context,
     { escapeValues: true },
   );
-  const messages = buildManualIllustratorPromptMessages({
+  const builtMessages = buildManualIllustratorPromptMessages({
     context: args.context,
     contextSize: args.illustratorAgent.settings.contextSize,
     selectedPromptTemplate,
@@ -337,9 +342,22 @@ export async function writeManualIllustratorPromptPlan(args: {
     videoOffer: args.videoOffer,
     contextSources: getAgentContextSources(args.illustratorAgent),
   });
+  // Writer reference pictures (V-102 Fallback A): the image connection drops them, so the writer sees them.
+  const writerReferences = readWriterReferencePayload(args.context.memory);
+  const messages = writerReferences ? attachWriterReferencePictures(builtMessages, writerReferences) : builtMessages;
+  const writerProvider = writerReferences
+    ? withWriterReferenceFallback(
+        args.illustratorAgent.provider,
+        writerReferences,
+        writerVisionKey(args.illustratorAgent.connectionId, args.illustratorAgent.model),
+      )
+    : args.illustratorAgent.provider;
+  if (writerReferences) logWriterReferenceAttach("[illustrate]", writerReferences);
   args.debugLog?.(
     "[debug/illustrator/manual-illustration-prompt] messages:\n%s",
-    messages.map((message) => `${message.role}:\n${message.content}`).join("\n\n"),
+    messages
+      .map((message) => `${message.role}:\n${messageTextWithImagesForLog(message.content, message.images)}`)
+      .join("\n\n"),
   );
 
   const maxContext =
@@ -357,7 +375,7 @@ export async function writeManualIllustratorPromptPlan(args: {
         "Manual Illustrator request exceeds the connection context limit. Shorten the selected prompt, reduce the Illustrator context size or Context Sources, or increase the connection context limit.",
       );
     }
-    return args.illustratorAgent.provider.chatComplete(requestMessages, {
+    return writerProvider.chatComplete(requestMessages, {
       model: args.illustratorAgent.model,
       // The prompt writer keeps its own temperature; the connection decides whether one is sent (#7131).
       temperature: gateAgentTemperature(args.illustratorAgent, 0.55),

@@ -15,13 +15,16 @@ import { eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { mariInstructions } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import {
+  MAX_INSTRUCTION_CONTENT_LENGTH,
+  MAX_INSTRUCTION_NAME_LENGTH,
+  MAX_INSTRUCTION_DESCRIPTION_LENGTH,
+} from "@marinara-engine/shared";
 
 // Much smaller than a Skill's 200K cap: a memory is injected (its index always, its
 // body on fetch or when persistent), so keeping bodies lean is the whole point.
 // Enforced as hard limits (not silent truncation) on every write path.
-export const MAX_INSTRUCTION_CONTENT_LENGTH = 20_000;
-export const MAX_INSTRUCTION_NAME_LENGTH = 120;
-export const MAX_INSTRUCTION_DESCRIPTION_LENGTH = 300;
+export { MAX_INSTRUCTION_CONTENT_LENGTH, MAX_INSTRUCTION_NAME_LENGTH, MAX_INSTRUCTION_DESCRIPTION_LENGTH };
 
 export interface MariInstructionRow {
   id: string;

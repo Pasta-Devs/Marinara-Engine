@@ -17,6 +17,8 @@ export type SelectOption<T extends string = string> = {
   label: string;
   /** Second line under the label. */
   description?: string;
+  /** Extra text the search finds the option by, not shown (a voice's accent and gender). */
+  searchText?: string;
   icon?: ReactNode;
   /** Greys the option out, with this as its second line. */
   disabledReason?: string;
@@ -116,7 +118,7 @@ export function Select<T extends string>({
               label: option.label,
               subtitle: option.description,
               // The search also finds an option by its description (a language by its English name).
-              searchText: option.description,
+              searchText: [option.description, option.searchText].filter(Boolean).join(" ") || undefined,
               icon: option.icon,
               disabledReason: option.disabledReason,
               group: option.group,

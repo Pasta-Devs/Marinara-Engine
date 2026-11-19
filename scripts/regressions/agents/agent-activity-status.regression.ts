@@ -1,6 +1,7 @@
 // #7322: Agent activity's icon turns into a spinner while the chat's agents work and shows a steady dot
 // after one fails. The dot stays until Agent activity has been on screen or the failures clear (a new
-// reply, a retry, a chat change), and seeing it never drops the failures Retry needs.
+// reply, a retry, a chat change), and seeing it never drops the failures Retry needs. Each agent run is tracked on its
+// own, so an old reply's agents finishing leaves a newer reply's agents shown as busy.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { AgentFailure } from "../../../packages/client/src/lib/agent-failures.ts";
@@ -61,6 +62,25 @@ assert.match(
   read("packages/client/src/components/agents/AgentActivitySection.tsx"),
   /IntersectionObserver[\s\S]*?isIntersecting[\s\S]*?markFailedAgentsSeen\(chatId\)/u,
   "Agent activity on screen marks the failures seen",
+);
+
+// An old reply's agents can still run when the next reply's agents start. Each run is tracked on its own, so the old
+// one finishing leaves the chat busy until the newer one finishes too.
+agents().setProcessingRun("old-tail", true, "tail-chat");
+agents().setProcessingRun("new-reply", true, "tail-chat");
+agents().setProcessingRun("old-tail", false, "tail-chat");
+assert.ok(agents().processingChatIds.includes("tail-chat"), "the newer run keeps the chat busy");
+agents().setProcessingRun("new-reply", false, "tail-chat");
+assert.equal(agents().processingChatIds.includes("tail-chat"), false, "the chat is idle once both runs finish");
+// The composer is released once the reply is saved, and each generation ends only its own agent run.
+const generateHook = read("packages/client/src/hooks/use-generate.ts");
+assert.match(generateHook, /case "assistant_message_ready":[\s\S]{0,1600}setAbortController\(params\.chatId, null\)/u);
+assert.match(generateHook, /setProcessingRun\(agentProcessingRunId, false, params\.chatId\)/u);
+// Clear Trackers, shared by every Agent activity section, also clears the reply's saved CYOA choices.
+assert.match(
+  read("packages/client/src/hooks/use-agent-activity.ts"),
+  /latestAssistantMessage[\s\S]{0,240}extra: \{ cyoaChoices: \[\] \}/u,
+  "clearing Roleplay tracker state must also clear the persisted active CYOA prompt",
 );
 
 console.log("agent activity status regression passed");

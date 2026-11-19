@@ -2,7 +2,8 @@
 // Plan / Bypass). Functional checks on the pure pieces plus source pins on the
 // enforcement seams.
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -113,10 +114,7 @@ assert.equal(
 // The arming flag is a PERSISTED message-extra flag - the stored content is
 // only the visible say text, so a content scan can never see the deferral
 // (CodeRabbit round 1: the substring check never armed, deadlocking Manual).
-assert.match(
-  workspaceAgent,
-  /const manualApprovalArmed = lastExtra\.mariDeferredMutations === true && history\.at\(-1\)\?\.role === "user";/u,
-);
+// Which replies arm it is checked against the real prompt builder at the end.
 assert.match(workspaceAgent, /if \(run\.endedWithDeferral\) extraUpdate\.mariDeferredMutations = true;/u);
 // The deferral marker is retryable: the row is retained across a failed extra
 // write and the persisted flag flips only after the extras land.
@@ -169,7 +167,7 @@ assert.match(
 
 const routes = readSource("packages/server/src/routes/professor-mari-workspace.routes.ts");
 assert.match(
-  routes,
+  readSource("packages/shared/src/schemas/professor-mari-workspace.schema.ts"),
   /z\.enum\(MARI_PERMISSIONS_MODES\)\.nullable\(\)/u,
   "the PUT must validate against the shared enum (nullable clears a chat override)",
 );
@@ -328,6 +326,81 @@ for (const [name, source] of [
 ] as const) {
   const control = [...source].find((ch) => ch.charCodeAt(0) < 32 && ch !== "\n" && ch !== "\r" && ch !== "\t");
   assert.equal(control, undefined, `${name} must not contain raw control characters`);
+}
+
+// ── Manual: only Accept answers a held change ───────────────────────────────
+// Run through the real prompt builder against a file-native store. A reply that
+// arms the run lets Mari's silent change frames apply; anything else must not.
+const storageDir = mkdtempSync(join(tmpdir(), "marinara-mari-permissions-"));
+const previousStorageDir = process.env.FILE_STORAGE_DIR;
+process.env.FILE_STORAGE_DIR = storageDir;
+const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
+try {
+  const db = await getDB();
+  const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
+  const { createAppSettingsStorage } =
+    await import("../../../packages/server/src/services/storage/app-settings.storage.js");
+  const { ProfessorMariWorkspaceService } =
+    await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
+  const { MARI_AUTHORIZATION_ACCEPT_CHIP, MARI_AUTHORIZATION_DECLINE_CHIP } =
+    await import("../../../packages/shared/src/types/professor-mari-workspace.js");
+  await createAppSettingsStorage(db).set("mari-runtime", "classic");
+  const chats = createChatsStorage(db);
+  const agent = new ProfessorMariWorkspaceService({ db } as never) as unknown as {
+    buildPromptMessages: (
+      chatId: string,
+      connection: unknown,
+      mode: string,
+      handoff: string | null,
+    ) => Promise<{ manualApprovalArmed: boolean; heldCalls: unknown[] }>;
+  };
+  const connection = { id: "c", name: "Regression", provider: "custom", model: "m", maxContext: 200_000 };
+  const heldCall = {
+    name: "app_data",
+    arguments: { action: "persona.update", personaId: "p1", patch: { description: "new" } },
+  };
+  const afterHeldChange = async (reply: string | null) => {
+    const chat = await chats.create({ name: "Manual approval", mode: "conversation", characterIds: [] });
+    await chats.createMessage({ chatId: chat!.id, role: "user", characterId: null, content: "Rewrite my persona." });
+    await chats.createMessage({
+      chatId: chat!.id,
+      role: "assistant",
+      characterId: null,
+      content: "I'll rewrite your persona's description. Accept to apply it.",
+      extra: { mariDeferredMutations: true, mariHeldCalls: [heldCall] },
+    });
+    if (reply !== null) {
+      await chats.createMessage({ chatId: chat!.id, role: "user", characterId: null, content: reply });
+    }
+    return agent.buildPromptMessages(chat!.id, connection, "manual", null);
+  };
+
+  const accepted = await afterHeldChange(MARI_AUTHORIZATION_ACCEPT_CHIP.prompt);
+  assert.equal(accepted.manualApprovalArmed, true, "Accept arms the run");
+  assert.equal(accepted.heldCalls.length, 1, "Accept gets the stored held call");
+  assert.equal((await afterHeldChange(` ${MARI_AUTHORIZATION_ACCEPT_CHIP.prompt}\n`)).manualApprovalArmed, true);
+  for (const reply of [
+    "Actually, what does my character's backstory say?",
+    MARI_AUTHORIZATION_DECLINE_CHIP.prompt,
+    "yes",
+    "Yes, go ahead and apply it.",
+  ]) {
+    assert.equal(
+      (await afterHeldChange(reply)).manualApprovalArmed,
+      false,
+      `"${reply}" is not Accept, so Mari's next change must be held again`,
+    );
+  }
+  assert.equal(
+    (await afterHeldChange(null)).manualApprovalArmed,
+    false,
+    "a Retry that ends on her row answers nothing",
+  );
+} finally {
+  await closeDB();
+  if (previousStorageDir === undefined) delete process.env.FILE_STORAGE_DIR;
+  else process.env.FILE_STORAGE_DIR = previousStorageDir;
+  rmSync(storageDir, { recursive: true, force: true });
 }
 
 console.log("Mari permissions-mode regression passed.");

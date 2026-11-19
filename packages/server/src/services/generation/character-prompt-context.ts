@@ -1,6 +1,7 @@
 import {
   formatRpgStatsForPrompt,
   nameToXmlTag,
+  normalizeNameAliases,
   normalizeRpgStatPools,
   readImageAppearanceOverride,
   resolveMacros,
@@ -16,6 +17,8 @@ import { cardPromptText } from "../prompt/card-text.js";
 export type CharacterPromptInfo = {
   id: string;
   name: string;
+  /** Other names the card goes by; the Character Tracker links tracked rows to the card by them. */
+  nameAliases?: string[];
   world?: string;
   description: string;
   personality: string;
@@ -153,6 +156,7 @@ export async function loadCharacterPromptInfo({
     charInfo.push({
       id: cid,
       name: charData.name ?? "Unknown",
+      nameAliases: normalizeNameAliases(charData.extensions?.nameAliases),
       world: cardPromptText(charData.extensions?.world) || undefined,
       description,
       personality: cardPromptText(charData.personality),

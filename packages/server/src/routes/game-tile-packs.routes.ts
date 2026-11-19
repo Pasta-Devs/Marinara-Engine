@@ -30,6 +30,7 @@ import {
   TilePackVersionTooOldError,
   type GameTilePackRow,
 } from "../services/storage/game-tile-packs.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 const BUILT_IN_DIR = fileURLToPath(new URL("../assets/overworld-tiles/", import.meta.url));
 const BUILT_IN_DUNGEON_DIR = fileURLToPath(new URL("../assets/dungeon-tiles/", import.meta.url));
@@ -149,7 +150,7 @@ export async function gameTilePacksRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const family = req.params.family;
       if (!(WORLD_ART_FAMILIES as readonly string[]).includes(family)) {
-        return reply.status(404).send({ error: "No built-in tile pack for that family." });
+        return notFound(reply, "No built-in tile pack for that family.");
       }
       const read = parseTilePack(await readFile(`${BUILT_IN_DIR}${family}.json`, "utf8"));
       if (!read.ok) {
@@ -165,7 +166,7 @@ export async function gameTilePacksRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: z.string().min(1).max(80) }).parse(req.query);
     const row = await store.latestOf(id);
     const pack = row ? packOf(row) : null;
-    if (!pack) return reply.status(404).send({ error: "No such tile pack." });
+    if (!pack) return notFound(reply, "No such tile pack.");
     return { pack };
   });
 
@@ -210,7 +211,7 @@ export async function gameTilePacksRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Tile pack removal" })) return;
     const { id } = z.object({ id: z.string().min(1).max(80) }).parse(req.query);
     const removed = await store.removeAll(removalId(id));
-    if (!removed) return reply.status(404).send({ error: "No such tile pack." });
+    if (!removed) return notFound(reply, "No such tile pack.");
     const selection = await readSelection();
     const kept = Object.fromEntries(Object.entries(selection).filter(([, packId]) => packId !== removalId(id)));
     if (Object.keys(kept).length !== Object.keys(selection).length)
@@ -226,7 +227,7 @@ export async function gameTilePacksRoutes(app: FastifyInstance) {
       .parse(req.body);
     if (packId) {
       const row = await store.latestOf(packId);
-      if (!row) return reply.status(404).send({ error: "No such tile pack." });
+      if (!row) return notFound(reply, "No such tile pack.");
       // Only for its own family, so the choices never name more families than the stored packs do.
       if (row.family !== family) return reply.status(400).send({ error: "That tile pack is for another setting." });
     }

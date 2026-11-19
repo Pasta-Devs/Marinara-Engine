@@ -5,7 +5,7 @@ import { join } from "path";
 import { fileURLToPath } from "url";
 import type { SidecarDownloadProgress, SidecarRuntimeInfo } from "@marinara-engine/shared";
 import { getDataDir } from "../../utils/data-dir.js";
-import { assertInsideDir } from "../../utils/security.js";
+import { resolveInside } from "../../utils/security.js";
 import { downloadFileWithProgress, isAbortError, retry } from "./sidecar-download.js";
 import { MLX_RUNTIME_MANIFEST, serializeMlxRuntimeManifestStamp } from "./runtime-integrity-manifest.js";
 
@@ -412,7 +412,7 @@ class MlxRuntimeService {
         .split(/\r?\n/u)
         .filter(Boolean);
       for (const entry of entries) {
-        assertInsideDir(extractDirectory, join(extractDirectory, entry));
+        resolveInside(extractDirectory, entry);
       }
       execFileSync("tar", ["-xzf", archivePath, "-C", extractDirectory], {
         timeout: 120_000,

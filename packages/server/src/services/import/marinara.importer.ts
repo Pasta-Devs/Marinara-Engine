@@ -57,7 +57,7 @@ import { resolveLorebookEntryRole } from "./lorebook-role.js";
 import { access, mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
-import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../../utils/security.js";
+import { extensionFromImageMime, isAllowedImageBuffer, resolveInside } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
 import { removeUnattachedAvatarFile } from "../image/avatar-file-lifecycle.js";
 import { encodePersonaCreate } from "../personas/persona-projector.js";
@@ -146,7 +146,7 @@ async function saveAvatarFromDataUrl(dataUrl: unknown, prefix: string, id: strin
   const avatarsDir = join(DATA_DIR, "avatars");
   await mkdir(avatarsDir, { recursive: true });
   const filename = `${prefix}-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${decoded.ext}`;
-  const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
+  const filepath = resolveInside(avatarsDir, filename);
   try {
     await writeFile(filepath, decoded.buffer);
   } catch (error) {
@@ -252,7 +252,7 @@ export async function restoreSprites(sprites: unknown, id: string, catalog?: unk
     }
     usedNames.add(safeName);
     try {
-      const filepath = assertInsideDir(dir, join(dir, safeName));
+      const filepath = resolveInside(dir, safeName);
       await writeFile(filepath, decoded.buffer);
       restored.set(rawName.replace(/\.[^.]+$/, ""), safeName.replace(/\.[^.]+$/, ""));
     } catch (err) {
@@ -346,7 +346,7 @@ async function restoreOwnerGallery(
       }
     }
     try {
-      const filepath = assertInsideDir(dir, join(dir, safeFilename));
+      const filepath = resolveInside(dir, safeFilename);
       await writeFile(filepath, decoded.buffer);
       const restored = await createImage({
         filePath: `${ownerFolder}/${ownerId}/${safeFilename}`,

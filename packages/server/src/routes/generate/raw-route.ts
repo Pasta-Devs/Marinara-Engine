@@ -49,6 +49,7 @@ import {
   resolveBaseUrl,
   resolveProviderTopK,
 } from "./generate-route-utils.js";
+import { notFound } from "../../utils/not-found.js";
 
 const rawMessageSchema = z
   .object({
@@ -150,7 +151,7 @@ export async function registerRawRoute(app: FastifyInstance) {
       body.connectionId === LOCAL_SIDECAR_CONNECTION_ID
         ? createLocalSidecarGenerationConnection()
         : await connections.getWithKey(body.connectionId);
-    if (!conn) return reply.status(404).send({ error: "Connection not found" });
+    if (!conn) return notFound(reply, "Connection not found");
     if (!conn.model && !allowsDefaultChatModel(conn))
       return reply.status(400).send({ error: "Connection does not have a chat model configured" });
 

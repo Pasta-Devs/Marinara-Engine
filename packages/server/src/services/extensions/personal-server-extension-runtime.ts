@@ -1,4 +1,5 @@
 import type { ChildProcess } from "node:child_process";
+import { sleep } from "../../utils/sleep.js";
 import { appendFile, open, readFile, stat } from "node:fs/promises";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
@@ -557,7 +558,7 @@ export class PersonalServerExtensionRuntime {
             // check, and before cleanup rm-rf's the sandbox dir: with adaptive
             // polling the last messages (including a `fatal` explaining the
             // exit) may still be sitting unread in the output file (#4706).
-            while (pollingOutput) await new Promise((resolve) => setTimeout(resolve, 10));
+            while (pollingOutput) await sleep(10);
             await pollOutput();
           }
           // Fully close the handle before cleanup removes the directory it

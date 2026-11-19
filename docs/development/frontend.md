@@ -374,6 +374,30 @@ import { api, ApiError } from "@/lib/api-client";
 
 Errors throw `ApiError`, which carries `status` and `message` properties.
 
+## Pickers and dropdowns
+
+Every "pick a value" control opens one shared picker window. A design change to pickers (the surface, the row style, the width) belongs in the shared components below, never in a feature. Don't use a native `<select>`, and don't draw a list in a popover of your own: the app has neither left.
+
+| Layer | File | What it owns |
+| --- | --- | --- |
+| Window | `components/ui/PickerWindow.tsx` | The surface. On desktop it is a popover next to its field, as wide as its rows need (at least the field, at most 352 px or the field when that is wider). On a phone it is a bottom sheet (a `Modal`); inside a `Modal` it stays a popover so two sheets never stack. Escape, Back, an outside click and the field scrolling out of view close it. |
+| Rows | `components/ui/PickerParts.tsx` | `PickRow` (one row: art, title, a second line that wraps to two lines, badge, the check or checkbox), `PickerSearch`, folder headers and `usePickerKeyboard` (arrow keys, Enter). |
+| List | `components/ui/PickerFolderList.tsx` | The body: search box, rows grouped by library folders or `group`, single or multiple pick, "Add all" per folder. |
+| Fields | `components/ui/Select.tsx` | `Select`: one value from a fixed list, the replacement for a native `<select>`. A combobox trigger, search from `SELECT_SEARCH_MIN` options, arrow keys and type-ahead on the closed field. |
+| | `components/ui/PickerField.tsx` | `PickerField` (one item with a None row and folders), `PickerListField` / `PickerListWindow` (several items; the picks are listed under the field with remove buttons) and `useFieldWindow` (open state, and focus back to the field on close). |
+| | `components/ui/LibraryPickers.tsx`, `components/characters/CharacterSelect.tsx` | The preset, lorebook, character and persona fields built from the above. |
+
+How to add a picker:
+
+- **One value from a list:** `Select`. Give it a `label`: it names the field and titles the window.
+- **One library item** (with folders, art, a None row): `PickerField`, or the matching field in `LibraryPickers.tsx`.
+- **Several items:** `PickerListField`. Escape and outside clicks close the window; picking does not.
+- **Something that isn't a field** (a button that opens a short choice, like "Link to Conversation"): `useFieldWindow` for the open state and focus, `PickerWindow` anchored to the button, and `PickerFolderList` or `PickRow`s inside.
+
+Not on the shared picker yet: the connection and model picker (`ConnectionSelect` / `ModelPicker`, its own window). Other controls with their own surfaces aren't pickers: icon galleries (`StatIconPicker`), tag autocomplete, context and action menus.
+
+**Testing.** A `Select` trigger has `role="combobox"`, its picked value in `data-value`, and its window is a `dialog` named by the field's label. Rows carry `data-pick-row`; the picked row of a single pick has `aria-current="true"`, rows of a multiple pick have `aria-pressed`. `e2e/select-field.ts` has `chooseOption` and `pickerLabels`, which replace Playwright's `selectOption` on the old native selects.
+
 ## Styling system
 
 ### Tailwind CSS v4

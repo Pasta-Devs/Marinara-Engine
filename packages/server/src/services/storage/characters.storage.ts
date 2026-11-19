@@ -45,6 +45,7 @@ import { toPaginatedList } from "../../utils/list-pagination.js";
 import { withAvatarFileLifecycleLock } from "../image/avatar-file-lifecycle.js";
 import { logger } from "../../lib/logger.js";
 import { takeRateLimitedSlot } from "../../lib/log-rate-limit.js";
+import { isRecord } from "../../utils/large-json.js";
 
 function resolveTimestamps(overrides?: TimestampOverrides | null) {
   const normalized = normalizeTimestampOverrides(overrides);
@@ -126,10 +127,6 @@ function normalizeCharacterData(data: CharacterData): CharacterData {
 
 function personaSnapshotChanged(current: PersonaCardSnapshot, next: PersonaCardSnapshot) {
   return JSON.stringify(current) !== JSON.stringify(next);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function mergeNestedRecord(current: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {

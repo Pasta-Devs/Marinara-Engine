@@ -78,7 +78,7 @@ import { ChatSettingsSection as Section } from "./ChatSettingsSection";
 import { useMobileChatSettingsNav } from "./mobile-nav";
 import { MobileChatSettingsBack, MobileChatSettingsGroup, MobileChatSettingsQuick } from "./MobileChatSettingsNav";
 import { ActiveChatBackgroundPicker } from "../../components/panels/settings/BackgroundPicker";
-import { LocationBackgroundPins } from "../../components/chat/LocationBackgroundPins";
+import { LocationBackgroundPins } from "./LocationBackgroundPins";
 import { AdvancedParametersSection } from "./sections/AdvancedParametersSection";
 import { CardFieldAlternativesSection } from "./sections/CardFieldAlternativesSection";
 import { ChatNameSection } from "./sections/ChatNameSection";
@@ -167,6 +167,7 @@ import {
   AgentSettingsTextarea,
   AgentSettingsToggle,
   MediaScopeSelect,
+  AgentChoiceSelect,
   GamePromptTemplateSelect,
   GenerationSettingsLink,
 } from "../../components/chat/AgentSettingsControls";
@@ -241,7 +242,7 @@ import { useMatchMedia } from "../../hooks/use-match-media";
 import { useChatControlDockStore, useHostHasDetachedDrawers } from "../../components/ui/drawer-host";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import type { ChatMode, ChatPreset, PromptPreset } from "@marinara-engine/shared";
-import { customAgentHasCapability, parseAgentSettingsRecord } from "@marinara-engine/shared";
+import { customAgentHasCapability, parseAgentSettingsRecord, REFERENCE_PICTURE_TARGETS } from "@marinara-engine/shared";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import {
@@ -305,7 +306,7 @@ const InlineLorebookEntriesEditor = lazy(() =>
     default: module.InlineLorebookEntriesEditor,
   })),
 );
-const StoryboardChatSettingsPanel = lazy(() => import("./StoryboardChatSettingsPanel"));
+const StoryboardChatSettingsPanel = lazy(() => import("./agents/StoryboardChatSettingsPanel"));
 const ChatGalleryPanel = lazy(() =>
   import("./ChatGalleryPanel").then((module) => ({ default: module.ChatGalleryPanel })),
 );
@@ -314,7 +315,7 @@ const ActiveLorebookEntriesContent = lazy(() =>
     default: module.ActiveLorebookEntriesContent,
   })),
 );
-const BeholderChatSettingsPanel = lazy(() => import("./BeholderChatSettingsPanel"));
+const BeholderChatSettingsPanel = lazy(() => import("./agents/BeholderChatSettingsPanel"));
 
 const DRAWER_WINDOW_SCROLL_AREA = cn(NEUTRAL_PANEL_SCROLL_AREA, "@container");
 
@@ -1535,6 +1536,7 @@ export function ChatSettingsDrawer({
     secretPlotMessages,
     illustratorIncludeCharacterAppearance,
     illustratorUseAvatarReferences,
+    illustratorReferencePictureTarget,
     illustratorPromptConnectionId,
     illustratorImageConnectionId,
     illustratorImagesPerGeneration,
@@ -4220,6 +4222,27 @@ export function ChatSettingsDrawer({
                             }
                             onReset={resetIllustratorAvatarReferences}
                           />
+                          {illustratorUseAvatarReferences && (
+                            <AgentChoiceSelect
+                              label={localizeUi("ui.agents.agenteditor.referencePictureTarget")}
+                              description={localizeUi(
+                                `ui.agents.agenteditor.referencePictureTargetHelp.${illustratorReferencePictureTarget}`,
+                              )}
+                              value={illustratorReferencePictureTarget}
+                              options={REFERENCE_PICTURE_TARGETS.map((target) => ({
+                                value: target,
+                                label: localizeUi(`ui.agents.agenteditor.referencePictureTargetOption.${target}`),
+                              }))}
+                              active
+                              onChange={(target) =>
+                                updateMeta.mutate({ id: chat.id, illustratorReferencePictureTarget: target })
+                              }
+                              overridden={typeof metadata.illustratorReferencePictureTarget === "string"}
+                              onReset={() =>
+                                updateMeta.mutate({ id: chat.id, illustratorReferencePictureTarget: null })
+                              }
+                            />
+                          )}
                           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
                             <p className="min-w-0 flex-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
                               {localizeUi(

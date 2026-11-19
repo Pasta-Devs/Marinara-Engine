@@ -30,6 +30,9 @@
 # TLS-inspecting proxy, set TERMUX_QC_CA_FILE to its CA bundle (NODE_EXTRA_CA_CERTS or SSL_CERT_FILE are used when set).
 # Termux's package mirror must be reachable: packages-cf.termux.dev (allow it in sandboxed cloud environments).
 #
+# Like Android, the container refuses hard links ("Permission denied"); pnpm can't install a local folder dependency
+# without them (#9530).
+#
 # Limits: this is Termux on a PC kernel, not on Android. Android-only things are not covered: the phantom process
 # killer, battery savers, storage permissions, the Android APK's Termux hand-off, and real phone speed.
 set -euo pipefail
@@ -117,16 +120,24 @@ fi
 
 # 2. The container (Termux's home lives in a volume so dependencies survive restarts).
 [ "$FRESH" = 1 ] && { docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$VOLUME" >/dev/null 2>&1 || true; }
-# A memory cap is set when the container is created, so a different --memory needs a new container.
+# Android doesn't let apps create hard links (SELinux answers EACCES, "Permission denied"); Linux does. This syscall
+# filter refuses them the same way. It replaces Docker's default filter, which is fine for a throwaway container that
+# runs only this checkout and Termux.
+SECCOMP='{"defaultAction":"SCMP_ACT_ALLOW","syscalls":[{"names":["link","linkat"],"action":"SCMP_ACT_ERRNO","errnoRet":13}]}'
+# The memory cap and the filter are set when the container is created, so a different --memory or filter (including
+# a container from before the filter) needs a new container.
+CONFIG="memory=$MEMORY seccomp=$SECCOMP"
 if [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" = true ] &&
-  [ "$(docker inspect -f '{{index .Config.Labels "termux-qc-memory"}}' "$NAME" 2>/dev/null)" != "$MEMORY" ]; then
-  log "recreating the container for --memory ${MEMORY:-(none)}; the Termux home volume stays"
+  [ "$(docker inspect -f '{{index .Config.Labels "termux-qc-config"}}' "$NAME" 2>/dev/null)" != "$CONFIG" ]; then
+  log "recreating the container (--memory ${MEMORY:-none}, hard links refused); the Termux home volume stays"
   docker rm -f "$NAME" >/dev/null 2>&1 || true
 fi
 if [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" != true ]; then
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   CA_FILE="${TERMUX_QC_CA_FILE:-${NODE_EXTRA_CA_CERTS:-${SSL_CERT_FILE:-}}}"
-  args=(-d --name "$NAME" --network host -v "$VOLUME:$HOME_DIR" --label "termux-qc-memory=$MEMORY")
+  args=(-d --name "$NAME" --network host -v "$VOLUME:$HOME_DIR" --label "termux-qc-config=$CONFIG")
+  printf '%s\n' "$SECCOMP" >"$STATE/android-seccomp.json"
+  args+=(--security-opt "seccomp=$STATE/android-seccomp.json")
   [ "$native" = 0 ] && args+=(--platform "linux/$([ "$ARCH" = aarch64 ] && echo arm64 || echo "$ARCH")")
   for var in HTTPS_PROXY https_proxy HTTP_PROXY http_proxy NO_PROXY no_proxy; do
     [ -n "${!var:-}" ] && args+=(-e "$var=${!var}")

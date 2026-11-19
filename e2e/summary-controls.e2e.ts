@@ -425,11 +425,15 @@ test("Chat Summary range fields fit long message numbers in a quiet box", async 
     expect.soft(layout.widthShare).toBeGreaterThan(0.8);
     await page.screenshot({ path: info.outputPath("summary-range-fields.png") });
     // Escape dismisses the template choices without closing the surrounding settings window.
-    const template = panel.getByRole("button", { name: "Summary prompt template", exact: true });
+    // The shared Select (#9468): a combobox trigger whose picker window is titled by its label.
+    const template = panel.getByRole("combobox", { name: "Summary prompt template", exact: true });
+    await expect(template).toHaveText(/Built-in default/u);
     await template.click();
-    const choices = panel.getByRole("listbox");
+    const choices = page.getByRole("dialog", { name: "Summary prompt template", exact: true });
     await expect(choices).toBeVisible();
-    await choices.getByRole("option").first().focus();
+    await expect(choices.locator("[data-pick-row]").first()).toHaveAttribute("aria-current", "true");
+    // Focus moves into the window (its search box, or the list that takes the arrow keys).
+    await expect.poll(() => choices.evaluate((window) => window.contains(document.activeElement))).toBe(true);
     await page.keyboard.press("Escape");
     await expect(choices).toHaveCount(0);
     await expect(panel).toBeVisible();

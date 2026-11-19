@@ -8,7 +8,7 @@ import { z } from "zod";
 import { parseAgentSettingsRecord } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
+import { isAllowedImageBuffer, resolveInside } from "../utils/security.js";
 import { sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
 import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 import { npcAvatarSlug } from "../services/game/npc-avatar-utils.js";
@@ -19,6 +19,7 @@ import {
 } from "../services/image/tracker-portrait.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 const trackerPortraitRequestSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -75,13 +76,13 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid filename" });
     }
 
-    const filePath = assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename));
+    const filePath = resolveInside(AVATAR_DIR, filename);
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const image = await validateImageAssetFile(filePath, filename);
-    if (!image) return reply.status(404).send({ error: "Not found" });
+    if (!image) return notFound(reply, "Not found");
 
     // `?w=` asks for a downscaled copy (Library cards, list icons): a full card PNG is often several
     // MB, and dozens of them at once held up every other request on a phone or tablet.
@@ -106,13 +107,13 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid path" });
     }
 
-    const filePath = assertInsideDir(NPC_AVATAR_DIR, join(NPC_AVATAR_DIR, chatId, filename));
+    const filePath = resolveInside(NPC_AVATAR_DIR, chatId, filename);
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const image = await validateImageAssetFile(filePath, filename);
-    if (!image) return reply.status(404).send({ error: "Not found" });
+    if (!image) return notFound(reply, "Not found");
     return sendValidatedMediaFile(reply, image, {
       method: req.method,
       rangeHeader: req.headers.range,
@@ -154,7 +155,7 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Unsupported or invalid avatar image" });
     }
     const filename = `${safeName}.${image.ext}`;
-    const filePath = assertInsideDir(npcDir, join(npcDir, filename));
+    const filePath = resolveInside(npcDir, filename);
     writeFileSync(filePath, imageBuffer);
 
     return reply.send({ avatarPath: `/api/avatars/npc/${chatId}/${filename}?v=${Date.now()}` });
@@ -171,7 +172,7 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid portrait request" });
     }
     const chat = await createChatsStorage(app.db).getById(chatId);
-    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (!chat) return notFound(reply, "Chat not found");
     const tracker = await createAgentsStorage(app.db).getByType("character-tracker");
     const connectionId = parseAgentSettingsRecord(tracker?.settings).imageConnectionId;
     if (typeof connectionId !== "string" || !connectionId.trim()) {

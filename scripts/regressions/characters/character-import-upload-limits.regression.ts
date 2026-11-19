@@ -83,13 +83,13 @@ const nativeEnvelope = (data: Record<string, unknown>) =>
 const refused = { error: "The request body is larger than this endpoint accepts." };
 
 try {
-  // A single card upload takes up to 8 option fields.
+  // A single card upload takes up to 9 option fields (the embedded lorebook choice is the ninth).
   const single = (parts: Part[]) => post("/api/import/st-character", form(parts));
   const singleCard = (name: string): Part => ({ name: "file", filename: `${name}.json`, data: card(name) });
-  const eightFields = await single([...fields(8), singleCard("Eight")]);
+  const eightFields = await single([...fields(9), singleCard("Eight")]);
   assert.equal(eightFields.statusCode, 200, eightFields.body);
   assert.equal(eightFields.json().success, true, eightFields.body);
-  const nineFields = await single([...fields(9), singleCard("Nine")]);
+  const nineFields = await single([...fields(10), singleCard("Nine")]);
   assert.equal(nineFields.statusCode, 413, nineFields.body);
   assert.deepEqual(nineFields.json(), refused);
 

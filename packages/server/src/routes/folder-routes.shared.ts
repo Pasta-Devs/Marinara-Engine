@@ -7,6 +7,7 @@ import {
 import type { FastifyInstance } from "fastify";
 import type { ZodType } from "zod";
 import { logger } from "../lib/logger.js";
+import { notFound } from "../utils/not-found.js";
 
 type StoredFolder = {
   collapsed: string;
@@ -52,7 +53,7 @@ export function registerFolderCrudRoutes<TCreate, TFolder extends StoredFolder>(
     const { id } = folderIdParamsSchema.parse(req.params);
     const input = updateFolderSchema.parse(req.body);
     const existing = await storage.getById(id);
-    if (!existing) return reply.status(404).send({ error: "Folder not found" });
+    if (!existing) return notFound(reply, "Folder not found");
     const folder = await storage.update(id, input);
     if (!folder) {
       logger.error("Folder storage.update returned no folder for %s", id);
@@ -64,7 +65,7 @@ export function registerFolderCrudRoutes<TCreate, TFolder extends StoredFolder>(
   app.delete("/:id", async (req, reply) => {
     const { id } = folderIdParamsSchema.parse(req.params);
     const existing = await storage.getById(id);
-    if (!existing) return reply.status(404).send({ error: "Folder not found" });
+    if (!existing) return notFound(reply, "Folder not found");
     await storage.remove(id);
     return reply.send({ ok: true });
   });

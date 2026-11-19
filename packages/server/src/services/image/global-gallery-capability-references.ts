@@ -2,6 +2,7 @@ import type { DB } from "../../db/connection.js";
 import { inArray } from "../../db/file-query.js";
 import { capabilityDocuments, chats, globalImages } from "../../db/schema/index.js";
 import { withGlobalGalleryImageLifecycleLocks } from "./gallery-file-lifecycle.js";
+import { parseJsonOrNull } from "../../utils/large-json.js";
 
 const GLOBAL_GALLERY_REFERENCE_PREFIX = "global-gallery:";
 const MAX_SCANNED_VALUES = 200_000;
@@ -22,18 +23,9 @@ export interface GlobalGalleryCapabilityReferenceSummary {
   totalCount: number;
 }
 
-function parseStoredJson(value: unknown): unknown {
-  if (typeof value !== "string") return value;
-  try {
-    return JSON.parse(value) as unknown;
-  } catch {
-    return null;
-  }
-}
-
 function containsExactReference(value: unknown, referenceId: string): boolean {
   if (typeof value === "string" && !value.includes(referenceId)) return false;
-  const pending: unknown[] = [parseStoredJson(value)];
+  const pending: unknown[] = [parseJsonOrNull(value)];
   let scanned = 0;
   const enqueue = (nested: unknown): boolean => {
     if (scanned + pending.length >= MAX_SCANNED_VALUES) return false;
@@ -68,7 +60,7 @@ function containsExactReference(value: unknown, referenceId: string): boolean {
 function collectReferenceImageIds(value: unknown): Set<string> {
   const imageIds = new Set<string>();
   if (typeof value === "string" && !value.includes(GLOBAL_GALLERY_REFERENCE_PREFIX)) return imageIds;
-  const pending: unknown[] = [parseStoredJson(value)];
+  const pending: unknown[] = [parseJsonOrNull(value)];
   let scanned = 0;
   const enqueue = (nested: unknown) => {
     if (scanned + pending.length >= MAX_SCANNED_VALUES) {

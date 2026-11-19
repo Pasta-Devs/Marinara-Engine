@@ -189,6 +189,7 @@ export function ConnectionModelList<T extends { model?: string | null; provider?
               ))
             ) : (
               <PanelVirtualList
+                asList={false}
                 listKey={`connection-model-list:${id}:${key}`}
                 count={kept.length}
                 getItemKey={(index) => String(getKey(kept[index]!))}

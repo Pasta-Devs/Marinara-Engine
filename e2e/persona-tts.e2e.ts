@@ -75,10 +75,10 @@ test("personas share the existing voice selector and assignment shape", async ({
     const rowSaved = page.waitForRequest((r) => r.method() === "PUT" && r.url().endsWith("/api/tts/config"));
     await addVoice.click();
     await rowSaved;
-    await card.getByRole("button", { name: "Select character or persona", exact: true }).click();
-    const choices = page.getByTestId("tts-character-options");
-    await expect(choices.getByRole("option", { name, exact: true })).toBeVisible();
-    await choices.getByRole("option", { name: `${name} (Persona)`, exact: true }).click();
+    await card.getByRole("combobox", { name: "Select character or persona", exact: true }).click();
+    const choices = page.getByRole("dialog", { name: "Select character or persona", exact: true });
+    await expect(choices.locator(`[data-pick-row][title="${name}"]`)).toBeVisible();
+    await choices.locator(`[data-pick-row][title="${name} (Persona)"]`).click();
     releaseRefetch();
     const voice = card.getByTestId(`tts-custom-voice-input-character-${persona.id}`);
     await voice.fill("persona-voice");

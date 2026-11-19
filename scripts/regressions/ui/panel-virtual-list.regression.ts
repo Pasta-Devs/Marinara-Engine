@@ -28,7 +28,8 @@ assert.equal(
 assert.equal(shouldFetchNextPage({ ...base, lastVisibleIndex: undefined }), false);
 
 // Dragged row: added when scrolled out of range, never duplicated, ignored when absent (-1 / undefined).
-assert.deepEqual(withPinnedIndex([3, 4, 5], 9), [9, 3, 4, 5]);
+assert.deepEqual(withPinnedIndex([3, 4, 5], 9), [3, 4, 5, 9]);
+assert.deepEqual(withPinnedIndex(withPinnedIndex([3, 4, 5], 9), 1), [1, 3, 4, 5, 9]);
 assert.deepEqual(withPinnedIndex([3, 4, 5], 4), [3, 4, 5]);
 assert.deepEqual(withPinnedIndex([3, 4, 5], -1), [3, 4, 5]);
 assert.deepEqual(withPinnedIndex([3, 4, 5], undefined), [3, 4, 5]);

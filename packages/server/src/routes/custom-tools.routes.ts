@@ -13,6 +13,7 @@ import { createCustomToolsStorage } from "../services/storage/custom-tools.stora
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { CUSTOM_TOOL_BULK_TOGGLE_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { isCustomToolScriptEnabled } from "../config/runtime-config.js";
+import { notFound } from "../utils/not-found.js";
 
 const SCRIPT_TOOL_DISABLED_MESSAGE =
   "Script custom tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true in your .env and restart Marinara only for trusted isolated script tools.";
@@ -42,14 +43,14 @@ export async function customToolsRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Custom tool bulk toggle" })) return;
     const { toolIds, enabled } = bulkSetCustomToolsEnabledSchema.parse(req.body);
     if (!(await storage.setEnabled(toolIds, enabled))) {
-      return reply.status(404).send({ error: "One or more custom tools were not found" });
+      return notFound(reply, "One or more custom tools were not found");
     }
     return reply.status(204).send();
   });
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const tool = await storage.getById(req.params.id);
-    if (!tool) return reply.status(404).send({ error: "Tool not found" });
+    if (!tool) return notFound(reply, "Tool not found");
     return tool;
   });
 
@@ -74,7 +75,7 @@ export async function customToolsRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Custom tool update" })) return;
     const data = updateCustomToolSchema.parse(req.body);
     const current = await storage.getById(req.params.id);
-    if (!current) return reply.status(404).send({ error: "Tool not found" });
+    if (!current) return notFound(reply, "Tool not found");
 
     const nextExecutionType = data.executionType ?? current.executionType;
     if (nextExecutionType === "script" && !isCustomToolScriptEnabled()) {

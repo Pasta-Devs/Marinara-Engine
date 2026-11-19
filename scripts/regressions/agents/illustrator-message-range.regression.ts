@@ -383,6 +383,8 @@ try {
   await chats.patchMetadata(templateChat.id, {
     agentPromptTemplateIds: { illustrator: "ink-wash" },
     illustratorUseAvatarReferences: true,
+    // DALL-E 3 takes no reference pictures; on Automatic they would go to the prompt writer instead.
+    illustratorReferencePictureTarget: "image",
     illustratorIncludeCharacterAppearance: true,
   });
   await chats.createMessage({ chatId: templateChat.id, role: "assistant", content: "Aster waits by the gate." });

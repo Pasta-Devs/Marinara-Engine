@@ -139,6 +139,7 @@ const APP_ACCENT_CUSTOM_VARIABLES = [
   "--marinara-chat-chrome-accent-gradient",
 ] as const;
 const ACCENT_RGB_TICK_MS = 500;
+const SHELL_PANEL_ACCENT_QUIET_MS = 600;
 const ACCENT_RGB_SOLID_CYCLE_MS = 7_200;
 const ACCENT_RGB_GRADIENT_STOP_MS = 6_000;
 const CUSTOM_CURSOR_RECOLOR_SCROLL_FREEZE_MS = 360;
@@ -1128,6 +1129,22 @@ export function App() {
       }
     };
 
+    // Motion's spring slides do not necessarily appear in document.getAnimations().
+    // Cover their opening/closing work and resize drags before a root-token tick can interrupt them.
+    let shellPanelQuietUntil = 0;
+    const unsubscribeShellMotion = useUIStore.subscribe((state, previous) => {
+      if (
+        state.sidebarOpen !== previous.sidebarOpen ||
+        state.rightPanelOpen !== previous.rightPanelOpen ||
+        state.trackerPanelOpen !== previous.trackerPanelOpen ||
+        state.sidebarWidth !== previous.sidebarWidth ||
+        state.rightPanelWidth !== previous.rightPanelWidth ||
+        state.trackerPanelSizeProfile !== previous.trackerPanelSizeProfile
+      ) {
+        shellPanelQuietUntil = performance.now() + SHELL_PANEL_ACCENT_QUIET_MS;
+      }
+    });
+
     const queueAccentAnimationTick = () => {
       if (accentAnimationTimer !== null) return;
 
@@ -1141,13 +1158,16 @@ export function App() {
           return;
         }
         // A tick restyles the whole app; skip it while a sidebar slides so the slide does not stall.
-        const sidebarSliding = document.getAnimations?.()?.some(
-          (animation) =>
-            // Only the slot's own width slide; a theme animation on the slot must not freeze the accent.
-            animation instanceof CSSTransition &&
-            animation.transitionProperty === "width" &&
-            (animation.effect as KeyframeEffect | null)?.target?.classList.contains("mari-shell-panel-slot"),
-        );
+        const sidebarSliding =
+          document.documentElement.dataset.marinaraResizing === "col" ||
+          performance.now() < shellPanelQuietUntil ||
+          document.getAnimations?.()?.some(
+            (animation) =>
+              // Only the slot's own width slide; a theme animation on the slot must not freeze the accent.
+              animation instanceof CSSTransition &&
+              animation.transitionProperty === "width" &&
+              (animation.effect as KeyframeEffect | null)?.target?.classList.contains("mari-shell-panel-slot"),
+          );
         if (!sidebarSliding) applyLiveAccent();
         queueAccentAnimationTick();
       }, ACCENT_RGB_TICK_MS);
@@ -1211,6 +1231,7 @@ export function App() {
     reducedMotionQuery.addEventListener("change", syncAccentAnimationState);
 
     return () => {
+      unsubscribeShellMotion();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", syncAccentAnimationState);
       window.removeEventListener("blur", syncAccentAnimationState);

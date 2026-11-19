@@ -79,7 +79,6 @@ import {
   isMutatingWorkspaceCommand,
   isPreviewOnlyAppDataCommand,
   isReadOnlyWorkspaceCommand,
-  isRecord,
   isWithin,
   normalizeSlashPath,
   numberArg,
@@ -96,6 +95,7 @@ import {
   workspaceMutationTargetForPath,
   readStoredMariSkillGate,
 } from "./workspace-agent.service.js";
+import { isRecord } from "../../utils/large-json.js";
 import { createAppSettingsStorage } from "../storage/app-settings.storage.js";
 
 export type WorkspaceRunScope = {

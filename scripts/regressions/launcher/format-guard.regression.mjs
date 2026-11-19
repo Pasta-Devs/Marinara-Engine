@@ -80,6 +80,34 @@ assert.match(
   /trap release_termux_wake_lock EXIT/u,
   "the Termux launcher must release its wake lock whenever the server exits",
 );
+// When the Termux launcher rebuilds: after an update changes the version or commit, when the shared or server build
+// is missing, and when the client build is incomplete, where it retries once and checks again.
+assert.match(termuxLauncherSource, /TERMUX_REBUILD_REQUIRED/u);
+for (const buildEntry of ["packages/shared/dist/constants/defaults.js", "packages/server/dist/index.js"]) {
+  assert.ok(
+    termuxLauncherSource.includes(`if [ ! -f "${buildEntry}" ]; then`),
+    `Termux must rebuild when ${buildEntry} is missing`,
+  );
+}
+const termuxClientBuildBlock = termuxLauncherSource
+  .split("if ! node scripts/check-client-build.mjs; then\n")[1]
+  ?.split("\nfi")[0];
+assert.ok(termuxClientBuildBlock, "Termux must handle an incomplete client build");
+assert.equal(
+  termuxClientBuildBlock.match(/build_termux_client/gu)?.length,
+  2,
+  "Initial build and retry must use the bounded build heap",
+);
+assert.match(
+  termuxClientBuildBlock,
+  /    node scripts\/check-client-build\.mjs$/u,
+  "Termux must rebuild and recheck incomplete client assets, including a missing index",
+);
+assert.match(
+  termuxLauncherSource.split("build_termux_client() (")[1]?.split("\n)")[0] ?? "",
+  /MARINARA_LOW_MEMORY_BUILD=1 run_pnpm --filter @marinara-engine\/client build/u,
+  "Termux must build the client as a low-memory build",
+);
 assert.doesNotMatch(
   termuxLauncherSource,
   /--max-old-space-size=2048/u,

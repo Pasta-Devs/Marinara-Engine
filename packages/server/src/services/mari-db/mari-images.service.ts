@@ -2,7 +2,7 @@
 // Professor Mari image command service
 // ──────────────────────────────────────────────
 import { existsSync, lstatSync } from "node:fs";
-import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, unlink } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import {
   inferImageSource,
@@ -27,10 +27,10 @@ import {
 } from "../sprites/sprite-catalog.js";
 import { newId, now } from "../../utils/id-generator.js";
 import {
-  assertInsideDir,
   extensionFromImageMime,
   isAllowedImageBuffer,
   parseImageDataUrl,
+  resolveInside,
 } from "../../utils/security.js";
 import { generateImage, type ImageGenResult } from "../image/image-generation.js";
 import { getSharp } from "../image/sharp-runtime.js";
@@ -64,6 +64,7 @@ import {
   resolveOwnedGalleryPath,
   unlinkGalleryFileIfUnreferenced,
 } from "../image/gallery-file-lifecycle.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 type Json = Record<string, unknown>;
 
@@ -800,14 +801,7 @@ function unlinkedAppFile(folder: string, path: string): string {
 async function writeAppFile(folder: string, path: string, data: string | Buffer): Promise<void> {
   const entry = unlinkedAppFile(folder, path);
   await mkdir(dirname(entry), { recursive: true });
-  const temporary = join(dirname(entry), `.mari-${newId()}.tmp`);
-  try {
-    await writeFile(temporary, data, { flag: "wx" });
-    await rename(temporary, entry);
-  } catch (error) {
-    await unlink(temporary).catch(() => undefined);
-    throw error;
-  }
+  await writeFileAtomic(entry, data);
 }
 
 // The sprite catalog helpers refuse a linked owner folder; this also refuses a sprites folder linked out of the data
@@ -1179,7 +1173,7 @@ function appImagePathFromUrl(value: string): { path: string; folder: string; lab
     const filename = decodeSafePathSegment(parts[3]);
     if (!filename) return null;
     return {
-      path: assertInsideDir(AVATAR_DIR, join(AVATAR_DIR, filename)),
+      path: resolveInside(AVATAR_DIR, filename),
       folder: AVATAR_DIR,
       label: `avatar:${filename}`,
       url: pathname,
@@ -1189,7 +1183,7 @@ function appImagePathFromUrl(value: string): { path: string; folder: string; lab
     const filename = decodeSafePathSegment(parts[4]);
     if (!filename) return null;
     return {
-      path: assertInsideDir(LOREBOOK_IMAGE_DIR, join(LOREBOOK_IMAGE_DIR, filename)),
+      path: resolveInside(LOREBOOK_IMAGE_DIR, filename),
       folder: LOREBOOK_IMAGE_DIR,
       label: `lorebook-image:${filename}`,
       url: pathname,
@@ -1199,7 +1193,7 @@ function appImagePathFromUrl(value: string): { path: string; folder: string; lab
     const filename = decodeSafePathSegment(parts[3]);
     if (!filename) return null;
     return {
-      path: assertInsideDir(BACKGROUND_DIR, join(BACKGROUND_DIR, filename)),
+      path: resolveInside(BACKGROUND_DIR, filename),
       folder: BACKGROUND_DIR,
       label: `background:${filename}`,
       url: pathname,
@@ -1211,7 +1205,7 @@ function appImagePathFromUrl(value: string): { path: string; folder: string; lab
     if (!ownerId || !filename) return null;
     const root = join(SPRITES_DIR, ownerId);
     return {
-      path: assertInsideDir(root, join(root, filename)),
+      path: resolveInside(root, filename),
       folder: root,
       label: `sprite:${ownerId}/${filename}`,
       url: pathname,
@@ -1838,11 +1832,7 @@ export class MariImagesService {
         candidate.filePath === value,
     );
     if (asset) {
-      const image = await imageFromFile(
-        assertInsideDir(PREVIEW_DIR, join(PREVIEW_DIR, asset.filename)),
-        `asset:${asset.id}`,
-        PREVIEW_DIR,
-      );
+      const image = await imageFromFile(resolveInside(PREVIEW_DIR, asset.filename), `asset:${asset.id}`, PREVIEW_DIR);
       return { ...image, url: asset.url, asset };
     }
 

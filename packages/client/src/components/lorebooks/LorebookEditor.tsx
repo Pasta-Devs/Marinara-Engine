@@ -97,6 +97,7 @@ import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { CharacterSelect } from "../characters/CharacterSelect";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { PanelVirtualList } from "../panels/PanelVirtualList";
 import { api } from "../../lib/api-client";
 import {
   BUILTIN_EMBEDDING_CONNECTION_ID,
@@ -151,6 +152,8 @@ import { Spinner } from "../ui/Spinner";
 // worth a server round-trip on every toggle. Keyed per-lorebook so collapse
 // state is independent across books.
 // ──────────────────────────────────────────────
+// Collapsed entry row height (px), the list's guess until a row is measured.
+const ENTRY_ROW_ESTIMATE = 56;
 const FOLDER_COLLAPSE_KEY_PREFIX = "lorebook-folder-collapsed:";
 const LOREBOOK_VECTORIZE_CONNECTION_STORAGE_KEY = "marinara:lorebook-vectorize-connection-id";
 /** Stored for an explicit "No semantic search", so the embedding default does not replace it on the next visit. */
@@ -490,14 +493,37 @@ export function LorebookEditor() {
   const [saving, setSaving] = useState(false);
 
   const [entrySearch, setEntrySearch] = useState("");
+  // Rows are windowed, so a new entry may not be mounted: ask the lists to scroll to it first.
+  const [scrollToEntryId, setScrollToEntryId] = useState<string | null>(null);
+  const snapToEntryRef = useRef(true);
+  const revealIndexIn = (list: { id: string }[]) => {
+    const i = scrollToEntryId ? list.findIndex((entry) => entry.id === scrollToEntryId) : -1;
+    return i >= 0 ? i : undefined;
+  };
   useEffect(() => {
     const id = newlyCreatedEntryRef.current;
     if (!id) return;
-    const row = contentRef.current?.querySelector<HTMLElement>(`[data-lorebook-entry-row-id="${CSS.escape(id)}"]`);
-    if (!row) return;
-    row.scrollIntoView({ block: "start" });
     newlyCreatedEntryRef.current = null;
-  }, [entries, expandedEntryId, contentRef]);
+    snapToEntryRef.current = true;
+    setScrollToEntryId(id);
+  }, [entries]);
+  useEffect(() => {
+    if (!scrollToEntryId) return;
+    // Two frames: the list scrolls and mounts the row, then the row snaps to the top.
+    const frame = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        const row = snapToEntryRef.current
+          ? contentRef.current?.querySelector<HTMLElement>(
+              `[data-lorebook-entry-row-id="${CSS.escape(scrollToEntryId)}"]`,
+            )
+          : null;
+        // Anchored, so the drawer opening below the row cannot scroll it away.
+        if (row) scrollToElement(row);
+        setScrollToEntryId(null);
+      }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [scrollToEntryId, contentRef, scrollToElement]);
   const [entrySort, setEntrySort] = useState<EntrySortKey>("order");
   // Keyword-test panel state. The panel is collapsed by default so it doesn't
   // crowd the editor for users who don't need it. We debounce the text input
@@ -1126,18 +1152,15 @@ export function LorebookEditor() {
         });
       }
       setExpandedEntryId(entryId);
-      if (!scroll) return;
-      if (overhaulMobile) setOvPanel(null);
-      setOvmDetail(true);
-      window.requestAnimationFrame(() => {
-        const row = contentRef.current?.querySelector<HTMLElement>(
-          `[data-lorebook-entry-row-id="${CSS.escape(entryId)}"]`,
-        );
-        // Anchored, so the drawer opening below the row cannot scroll it away.
-        if (row) scrollToElement(row);
-      });
+      if (scroll) {
+        if (overhaulMobile) setOvPanel(null);
+        setOvmDetail(true);
+      }
+      // Windowed rows: mount the target before anything looks for it.
+      snapToEntryRef.current = scroll;
+      setScrollToEntryId(entryId);
     },
-    [contentRef, entries, folders, lorebookId, overhaulMobile, scrollToElement],
+    [entries, folders, lorebookId, overhaulMobile],
   );
 
   // Open the entry an opener asked for once, e.g. one just made from selected chat text (#6899).
@@ -2217,78 +2240,90 @@ export function LorebookEditor() {
                 {localizeUi("ui.lorebooks.lorebookeditor.emptyDragAnEntryHereOrPickThisFolder")}
               </p>
             )}
-            {folderEntries.map((entry, eIdx) => {
-              const isDropTarget = dropTargetContainer === folder.id && draggingEntryIdx !== null;
-              const sameContainer = dragSourceContainer === folder.id;
-              const showDropBefore =
-                isDropTarget &&
-                sameContainer &&
-                entryDropIdx === eIdx &&
-                draggingEntryIdx !== eIdx &&
-                draggingEntryIdx !== eIdx - 1;
-              const showDropAfter =
-                isDropTarget &&
-                sameContainer &&
-                eIdx === folderEntries.length - 1 &&
-                entryDropIdx === folderEntries.length &&
-                draggingEntryIdx !== eIdx;
-              return (
-                <div key={entry.id}>
-                  {showDropBefore && (
-                    <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
-                  )}
-                  <LorebookEntryRow
-                    entry={entry}
-                    lorebookId={lorebookId}
-                    isExpanded={expandedEntryId === entry.id}
-                    onToggleExpand={() => toggleEntryExpanded(entry.id)}
-                    characters={characters}
-                    characterTags={characterTags}
-                    folders={folders}
-                    draggable={canReorderEntries}
-                    isDragging={sameContainer && draggingEntryIdx === eIdx}
-                    isDragReady={sameContainer && entryDragReadyIdx === eIdx}
-                    onDragHandleMouseDown={() => {
-                      if (canReorderEntries) {
-                        setEntryDragReadyIdx(eIdx);
-                        setDragSourceContainer(folder.id);
+            <PanelVirtualList
+              listKey={`lorebook-entries:${lorebookId}:folder:${folder.id}`}
+              count={folderEntries.length}
+              getItemKey={(i) => folderEntries[i]!.id}
+              estimateSize={ENTRY_ROW_ESTIMATE}
+              gap={6}
+              pinnedIndex={
+                dragSourceContainer === folder.id && draggingEntryIdx !== null ? draggingEntryIdx : undefined
+              }
+              scrollToIndex={revealIndexIn(folderEntries)}
+              renderRow={(eIdx) => {
+                const entry = folderEntries[eIdx]!;
+                const isDropTarget = dropTargetContainer === folder.id && draggingEntryIdx !== null;
+                const sameContainer = dragSourceContainer === folder.id;
+                const showDropBefore =
+                  isDropTarget &&
+                  sameContainer &&
+                  entryDropIdx === eIdx &&
+                  draggingEntryIdx !== eIdx &&
+                  draggingEntryIdx !== eIdx - 1;
+                const showDropAfter =
+                  isDropTarget &&
+                  sameContainer &&
+                  eIdx === folderEntries.length - 1 &&
+                  entryDropIdx === folderEntries.length &&
+                  draggingEntryIdx !== eIdx;
+                return (
+                  <div key={entry.id}>
+                    {showDropBefore && (
+                      <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
+                    )}
+                    <LorebookEntryRow
+                      entry={entry}
+                      lorebookId={lorebookId}
+                      isExpanded={expandedEntryId === entry.id}
+                      onToggleExpand={() => toggleEntryExpanded(entry.id)}
+                      characters={characters}
+                      characterTags={characterTags}
+                      folders={folders}
+                      draggable={canReorderEntries}
+                      isDragging={sameContainer && draggingEntryIdx === eIdx}
+                      isDragReady={sameContainer && entryDragReadyIdx === eIdx}
+                      onDragHandleMouseDown={() => {
+                        if (canReorderEntries) {
+                          setEntryDragReadyIdx(eIdx);
+                          setDragSourceContainer(folder.id);
+                        }
+                      }}
+                      onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
+                      onDragHandleTouchStart={(e, sourceElement) =>
+                        handleEntryDragHandleTouchStart(entry.id, e, sourceElement)
                       }
-                    }}
-                    onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
-                    onDragHandleTouchStart={(e, sourceElement) =>
-                      handleEntryDragHandleTouchStart(entry.id, e, sourceElement)
-                    }
-                    onDragStart={(e) => handleEntryDragStart(folder.id, eIdx, entry.id, e)}
-                    onDragOver={(e) => {
-                      // A folder dragged over an entry is really being dragged over the
-                      // enclosing folder's body — route it there (nest / un-nest).
-                      if (draggingFolderIdx !== null) {
-                        handleFolderBodyFolderDragOver(folder.id, e);
-                        return;
-                      }
-                      e.stopPropagation();
-                      handleEntryDragOver(folder.id, eIdx, e);
-                    }}
-                    onDrop={(e) => {
-                      e.stopPropagation();
-                      if (draggingFolderIdx !== null) commitFolderDrop(e);
-                      else commitEntryDrop(e);
-                    }}
-                    onDragEnd={resetEntryDragState}
-                    selectionMode={entrySelectionMode}
-                    isSelected={selectedEntryIds.has(entry.id)}
-                    onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
-                    previewMatch={effectivePreviewMatches.get(entry.id)}
-                    activationStat={activationStatsById.get(entry.id)}
-                    mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
-                    onUpdateEntry={handleEntryUpdate}
-                  />
-                  {showDropAfter && (
-                    <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
-                  )}
-                </div>
-              );
-            })}
+                      onDragStart={(e) => handleEntryDragStart(folder.id, eIdx, entry.id, e)}
+                      onDragOver={(e) => {
+                        // A folder dragged over an entry is really being dragged over the
+                        // enclosing folder's body — route it there (nest / un-nest).
+                        if (draggingFolderIdx !== null) {
+                          handleFolderBodyFolderDragOver(folder.id, e);
+                          return;
+                        }
+                        e.stopPropagation();
+                        handleEntryDragOver(folder.id, eIdx, e);
+                      }}
+                      onDrop={(e) => {
+                        e.stopPropagation();
+                        if (draggingFolderIdx !== null) commitFolderDrop(e);
+                        else commitEntryDrop(e);
+                      }}
+                      onDragEnd={resetEntryDragState}
+                      selectionMode={entrySelectionMode}
+                      isSelected={selectedEntryIds.has(entry.id)}
+                      onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
+                      previewMatch={effectivePreviewMatches.get(entry.id)}
+                      activationStat={activationStatsById.get(entry.id)}
+                      mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
+                      onUpdateEntry={handleEntryUpdate}
+                    />
+                    {showDropAfter && (
+                      <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
+                    )}
+                  </div>
+                );
+              }}
+            />
             {childFolders.map((child) => renderFolder(child))}
           </div>
         )}
@@ -3244,114 +3279,134 @@ export function LorebookEditor() {
                 {localizeUi("ui.lorebooks.lorebookeditor.noEntriesAtTheRootLevel")}
               </p>
             )}
-            {(entriesByContainer.get(null) ?? []).map((entry, idx) => {
-              const rootList = entriesByContainer.get(null) ?? [];
-              const isDropTarget = dropTargetContainer === null && draggingEntryIdx !== null;
-              const sameContainer = dragSourceContainer === null;
-              // Same rule as inside folders: only show the position bar for
-              // same-container drops because cross-container moves preserve
-              // Order. The amber ring on the root drop zone (added for Issue
-              // 2) handles the cross-container affordance.
-              const showDropBefore =
-                isDropTarget &&
-                sameContainer &&
-                entryDropIdx === idx &&
-                draggingEntryIdx !== idx &&
-                draggingEntryIdx !== idx - 1;
-              const showDropAfter =
-                isDropTarget &&
-                sameContainer &&
-                idx === rootList.length - 1 &&
-                entryDropIdx === rootList.length &&
-                draggingEntryIdx !== idx;
-              return (
-                <div key={entry.id}>
-                  {showDropBefore && (
-                    <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
-                  )}
-                  <LorebookEntryRow
-                    entry={entry}
-                    lorebookId={lorebookId}
-                    isExpanded={expandedEntryId === entry.id}
-                    onToggleExpand={() => toggleEntryExpanded(entry.id)}
-                    characters={characters}
-                    characterTags={characterTags}
-                    folders={folders}
-                    draggable={canReorderEntries}
-                    isDragging={sameContainer && draggingEntryIdx === idx}
-                    isDragReady={sameContainer && entryDragReadyIdx === idx}
-                    onDragHandleMouseDown={() => {
-                      if (canReorderEntries) {
-                        setEntryDragReadyIdx(idx);
-                        setDragSourceContainer(null);
+            <PanelVirtualList
+              listKey={`lorebook-entries:${lorebookId}:root`}
+              count={(entriesByContainer.get(null) ?? []).length}
+              getItemKey={(i) => (entriesByContainer.get(null) ?? [])[i]!.id}
+              estimateSize={ENTRY_ROW_ESTIMATE}
+              gap={6}
+              pinnedIndex={dragSourceContainer === null && draggingEntryIdx !== null ? draggingEntryIdx : undefined}
+              scrollToIndex={revealIndexIn(entriesByContainer.get(null) ?? [])}
+              renderRow={(idx) => {
+                const rootList = entriesByContainer.get(null) ?? [];
+                const entry = rootList[idx]!;
+                const isDropTarget = dropTargetContainer === null && draggingEntryIdx !== null;
+                const sameContainer = dragSourceContainer === null;
+                // Same rule as inside folders: only show the position bar for
+                // same-container drops because cross-container moves preserve
+                // Order. The amber ring on the root drop zone (added for Issue
+                // 2) handles the cross-container affordance.
+                const showDropBefore =
+                  isDropTarget &&
+                  sameContainer &&
+                  entryDropIdx === idx &&
+                  draggingEntryIdx !== idx &&
+                  draggingEntryIdx !== idx - 1;
+                const showDropAfter =
+                  isDropTarget &&
+                  sameContainer &&
+                  idx === rootList.length - 1 &&
+                  entryDropIdx === rootList.length &&
+                  draggingEntryIdx !== idx;
+                return (
+                  <div key={entry.id}>
+                    {showDropBefore && (
+                      <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mb-1 h-0.5 rounded-full" />
+                    )}
+                    <LorebookEntryRow
+                      entry={entry}
+                      lorebookId={lorebookId}
+                      isExpanded={expandedEntryId === entry.id}
+                      onToggleExpand={() => toggleEntryExpanded(entry.id)}
+                      characters={characters}
+                      characterTags={characterTags}
+                      folders={folders}
+                      draggable={canReorderEntries}
+                      isDragging={sameContainer && draggingEntryIdx === idx}
+                      isDragReady={sameContainer && entryDragReadyIdx === idx}
+                      onDragHandleMouseDown={() => {
+                        if (canReorderEntries) {
+                          setEntryDragReadyIdx(idx);
+                          setDragSourceContainer(null);
+                        }
+                      }}
+                      onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
+                      onDragHandleTouchStart={(e, sourceElement) =>
+                        handleEntryDragHandleTouchStart(entry.id, e, sourceElement)
                       }
-                    }}
-                    onDragHandleMouseUp={() => setEntryDragReadyIdx(null)}
-                    onDragHandleTouchStart={(e, sourceElement) =>
-                      handleEntryDragHandleTouchStart(entry.id, e, sourceElement)
-                    }
-                    onDragStart={(e) => handleEntryDragStart(null, idx, entry.id, e)}
-                    onDragOver={(e) => {
-                      // Let folder drags fall through to the root list (un-nest).
-                      if (draggingFolderIdx !== null) return;
-                      e.stopPropagation();
-                      handleEntryDragOver(null, idx, e);
-                    }}
-                    onDrop={(e) => {
-                      if (draggingFolderIdx !== null) return;
-                      e.stopPropagation();
-                      commitEntryDrop(e);
-                    }}
-                    onDragEnd={resetEntryDragState}
-                    selectionMode={entrySelectionMode}
-                    isSelected={selectedEntryIds.has(entry.id)}
-                    onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
-                    previewMatch={effectivePreviewMatches.get(entry.id)}
-                    activationStat={activationStatsById.get(entry.id)}
-                    mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
-                    onUpdateEntry={handleEntryUpdate}
-                  />
-                  {showDropAfter && (
-                    <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
-                  )}
-                </div>
-              );
-            })}
+                      onDragStart={(e) => handleEntryDragStart(null, idx, entry.id, e)}
+                      onDragOver={(e) => {
+                        // Let folder drags fall through to the root list (un-nest).
+                        if (draggingFolderIdx !== null) return;
+                        e.stopPropagation();
+                        handleEntryDragOver(null, idx, e);
+                      }}
+                      onDrop={(e) => {
+                        if (draggingFolderIdx !== null) return;
+                        e.stopPropagation();
+                        commitEntryDrop(e);
+                      }}
+                      onDragEnd={resetEntryDragState}
+                      selectionMode={entrySelectionMode}
+                      isSelected={selectedEntryIds.has(entry.id)}
+                      onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
+                      previewMatch={effectivePreviewMatches.get(entry.id)}
+                      activationStat={activationStatsById.get(entry.id)}
+                      mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
+                      onUpdateEntry={handleEntryUpdate}
+                    />
+                    {showDropAfter && (
+                      <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
+                    )}
+                  </div>
+                );
+              }}
+            />
           </div>
         </div>
       )}
 
       {/* Entries — flat view (search active or non-Order sort) */}
       {lorebookId && !showFolderGrouping && filteredEntries.length > 0 && (
-        <div ref={entryListRef} className="space-y-1.5">
-          {filteredEntries.map((entry) => (
-            <LorebookEntryRow
-              key={entry.id}
-              entry={entry}
-              lorebookId={lorebookId}
-              isExpanded={expandedEntryId === entry.id}
-              onToggleExpand={() => toggleEntryExpanded(entry.id)}
-              characters={characters}
-              characterTags={characterTags}
-              folders={folders}
-              draggable={false}
-              isDragging={false}
-              isDragReady={false}
-              onDragHandleMouseDown={() => undefined}
-              onDragHandleMouseUp={() => undefined}
-              onDragStart={() => undefined}
-              onDragOver={() => undefined}
-              onDrop={() => undefined}
-              onDragEnd={() => undefined}
-              selectionMode={entrySelectionMode}
-              isSelected={selectedEntryIds.has(entry.id)}
-              onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
-              previewMatch={effectivePreviewMatches.get(entry.id)}
-              activationStat={activationStatsById.get(entry.id)}
-              mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
-              onUpdateEntry={handleEntryUpdate}
-            />
-          ))}
+        <div ref={entryListRef}>
+          <PanelVirtualList
+            listKey={`lorebook-entries:${lorebookId}:flat`}
+            count={filteredEntries.length}
+            getItemKey={(i) => filteredEntries[i]!.id}
+            estimateSize={ENTRY_ROW_ESTIMATE}
+            gap={6}
+            scrollToIndex={revealIndexIn(filteredEntries)}
+            renderRow={(i) => {
+              const entry = filteredEntries[i]!;
+              return (
+                <LorebookEntryRow
+                  entry={entry}
+                  lorebookId={lorebookId}
+                  isExpanded={expandedEntryId === entry.id}
+                  onToggleExpand={() => toggleEntryExpanded(entry.id)}
+                  characters={characters}
+                  characterTags={characterTags}
+                  folders={folders}
+                  draggable={false}
+                  isDragging={false}
+                  isDragReady={false}
+                  onDragHandleMouseDown={() => undefined}
+                  onDragHandleMouseUp={() => undefined}
+                  onDragStart={() => undefined}
+                  onDragOver={() => undefined}
+                  onDrop={() => undefined}
+                  onDragEnd={() => undefined}
+                  selectionMode={entrySelectionMode}
+                  isSelected={selectedEntryIds.has(entry.id)}
+                  onToggleSelected={(event) => toggleEntrySelection(entry.id, event)}
+                  previewMatch={effectivePreviewMatches.get(entry.id)}
+                  activationStat={activationStatsById.get(entry.id)}
+                  mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
+                  onUpdateEntry={handleEntryUpdate}
+                />
+              );
+            }}
+          />
         </div>
       )}
 

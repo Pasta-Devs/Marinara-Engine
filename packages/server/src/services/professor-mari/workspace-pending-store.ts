@@ -6,7 +6,7 @@
 // the folder: workspacePathAccessPolicy calls it forbidden. Nothing here is a "held" flag; a pending message
 // with no run going is held by definition, so a restart leaves them waiting and nothing auto-sends.
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import {
   isSubjectOnlyMariContext,
@@ -15,6 +15,7 @@ import {
 } from "@marinara-engine/shared";
 import { getFileStorageDir } from "../../config/runtime-config.js";
 import { logger } from "../../lib/logger.js";
+import { writeFileAtomic } from "../../utils/atomic-write.js";
 
 /** How a prompt() run ended. Only "finished" lets the next queued message go. */
 export type MariPromptOutcome = "finished" | "stopped";
@@ -105,14 +106,7 @@ async function writeList(path: string, list: MariPendingMessage[]) {
     return;
   }
   await mkdir(getMariPendingDir(), { recursive: true });
-  const temporaryPath = `${path}.${randomUUID()}.tmp`;
-  try {
-    await writeFile(temporaryPath, JSON.stringify(list), { encoding: "utf8", mode: 0o600 });
-    await rename(temporaryPath, path);
-  } catch (err) {
-    await rm(temporaryPath, { force: true }).catch(() => undefined);
-    throw err;
-  }
+  await writeFileAtomic(path, JSON.stringify(list), { mode: 0o600 });
 }
 
 export async function listPending(chatId: string): Promise<MariPendingMessage[]> {

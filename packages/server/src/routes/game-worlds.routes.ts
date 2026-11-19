@@ -43,6 +43,7 @@ import {
   worldInteriorForEditor,
 } from "../services/game/world-editor.service.js";
 import { createGameWorldsStorage, type GameWorldRow } from "../services/storage/game-worlds.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 const nameSchema = z.string().trim().min(1).max(120);
 
@@ -199,7 +200,7 @@ export async function gameWorldsRoutes(app: FastifyInstance) {
       if (!read) return { refused: "This world no longer reads." };
       return kept(name.data, read.game, read.story);
     });
-    if (!updated) return reply.status(404).send({ error: "No such world." });
+    if (!updated) return notFound(reply, "No such world.");
     if ("refused" in updated) return reply.status(409).send({ error: updated.refused });
     return { world: summary(updated.row) };
   });
@@ -210,7 +211,7 @@ export async function gameWorldsRoutes(app: FastifyInstance) {
     { config: { rateLimit: GAME_WORLDS_RATE_LIMIT } },
     async (req, reply) => {
       if (!requirePrivilegedAccess(req, reply, { feature: "World library removal" })) return;
-      if (!(await store.remove(req.params.id))) return reply.status(404).send({ error: "No such world." });
+      if (!(await store.remove(req.params.id))) return notFound(reply, "No such world.");
       logger.info("[game/worlds] %s: removed", req.params.id);
       return { removed: true };
     },
@@ -248,7 +249,7 @@ export async function gameWorldsRoutes(app: FastifyInstance) {
       if (!world) return;
       if (!worldMadeByThisGenerator(world.game)) return reply.status(409).send({ error: OLD_GENERATOR_REFUSAL });
       const found = worldTownForEditor(world.game, settlement);
-      return found ?? reply.status(404).send({ error: "No such settlement in this world." });
+      return found ?? notFound(reply, "No such settlement in this world.");
     },
   );
 
@@ -263,7 +264,7 @@ export async function gameWorldsRoutes(app: FastifyInstance) {
       if (!world) return;
       if (!worldMadeByThisGenerator(world.game)) return reply.status(409).send({ error: OLD_GENERATOR_REFUSAL });
       const found = worldInteriorForEditor(world.game, settlement, building);
-      return found ?? reply.status(404).send({ error: "No building with rooms there." });
+      return found ?? notFound(reply, "No building with rooms there.");
     },
   );
 
@@ -302,7 +303,7 @@ export async function gameWorldsRoutes(app: FastifyInstance) {
         const { edits: _old, world: _compiled, frozen: _frozen, compiled: _preEdit, ...inputs } = read.game;
         return kept(row.name, { ...inputs, ...(edits ? { edits } : {}) }, read.story);
       });
-      if (!updated) return reply.status(404).send({ error: "No such world." });
+      if (!updated) return notFound(reply, "No such world.");
       if ("refused" in updated) return reply.status(400).send({ error: updated.refused, issues: updated.issues ?? [] });
       const game = readRow(updated.row)?.game;
       if (!game) return reply.status(409).send({ error: "This world no longer reads." });
@@ -337,7 +338,7 @@ export async function gameWorldsRoutes(app: FastifyInstance) {
           return { refused: `The story does not fit this world: ${checked.issues[0]}`, issues: checked.issues };
         return kept(row.name, read.game, checked.story);
       });
-      if (!updated) return reply.status(404).send({ error: "No such world." });
+      if (!updated) return notFound(reply, "No such world.");
       if ("refused" in updated) return reply.status(400).send({ error: updated.refused, issues: updated.issues ?? [] });
       return { story: readRow(updated.row)?.story ?? null };
     },
@@ -353,7 +354,7 @@ export async function gameWorldsRoutes(app: FastifyInstance) {
         if (!read) return { refused: "This world no longer reads." };
         return kept(row.name, read.game, null);
       });
-      if (!updated) return reply.status(404).send({ error: "No such world." });
+      if (!updated) return notFound(reply, "No such world.");
       if ("refused" in updated) return reply.status(409).send({ error: updated.refused });
       return { story: null };
     },

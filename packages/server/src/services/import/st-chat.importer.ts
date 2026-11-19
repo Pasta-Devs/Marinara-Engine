@@ -30,6 +30,7 @@ import {
   parseTrustedTimestamp,
   type TimestampOverrides,
 } from "./import-timestamps.js";
+import { isRecord } from "../../utils/large-json.js";
 
 interface STChatHeader {
   user_name?: string;
@@ -155,10 +156,6 @@ function normalizeTranscriptTimestamps(
       createdAt: new Date(candidateMs).toISOString(),
     };
   });
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function normalizeImportedRole(value: unknown): ParsedSTChatMessageInput["role"] | null {

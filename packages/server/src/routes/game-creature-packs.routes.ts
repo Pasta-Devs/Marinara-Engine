@@ -19,6 +19,7 @@ import {
   CreaturePackVersionConflictError,
   type GameCreaturePackRow,
 } from "../services/storage/game-creature-packs.storage.js";
+import { notFound } from "../utils/not-found.js";
 
 /** The stored pack every fight is drawn with, in app settings. */
 const SELECTION_KEY = "gameCreaturePackSelection";
@@ -97,7 +98,7 @@ export async function gameCreaturePacksRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: packIdSchema }).parse(req.query);
     const row = await store.latestOf(id);
     const pack = row ? packOf(row) : null;
-    if (!pack) return reply.status(404).send({ error: "No such creature pack." });
+    if (!pack) return notFound(reply, "No such creature pack.");
     return { pack };
   });
 
@@ -125,7 +126,7 @@ export async function gameCreaturePacksRoutes(app: FastifyInstance) {
     const { id } = z.object({ id: packIdSchema }).parse(req.query);
     const filed = removalId(id);
     const removed = await store.removeAll(filed);
-    if (!removed) return reply.status(404).send({ error: "No such creature pack." });
+    if (!removed) return notFound(reply, "No such creature pack.");
     if ((await readSelection()) === filed) await settings.set(SELECTION_KEY, "");
     return { removed };
   });
@@ -133,7 +134,7 @@ export async function gameCreaturePacksRoutes(app: FastifyInstance) {
   // ── PUT /api/game-tile-packs/creatures/selection ── the pack fights are drawn with; none for tokens.
   app.put("/selection", { config: { rateLimit: GAME_RULESETS_RATE_LIMIT } }, async (req, reply) => {
     const { packId } = z.object({ packId: packIdSchema.nullable() }).parse(req.body);
-    if (packId && !(await store.latestOf(packId))) return reply.status(404).send({ error: "No such creature pack." });
+    if (packId && !(await store.latestOf(packId))) return notFound(reply, "No such creature pack.");
     await settings.set(SELECTION_KEY, packId ?? "");
     return { selection: packId };
   });

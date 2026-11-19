@@ -2,6 +2,7 @@
 // Discord Webhook Mirror — one-way message relay
 // ──────────────────────────────────────────────
 import { logger } from "../lib/logger.js";
+import { sleep } from "../utils/sleep.js";
 import { safeFetch } from "../utils/security.js";
 // Posts messages to a Discord channel webhook with per-character identity.
 // Webhook API: https://discord.com/developers/docs/resources/webhook#execute-webhook
@@ -52,10 +53,6 @@ async function drain(webhookUrl: string) {
   if (entry.queue.length === 0) {
     webhookQueues.delete(webhookUrl);
   }
-}
-
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
 }
 
 /**

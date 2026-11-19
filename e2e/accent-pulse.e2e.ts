@@ -38,7 +38,6 @@ test.describe("Marinara accent defaults", () => {
       // A load, a reload, a screenshot and a dozen clicks: each click waits 2-4 s for a stable frame on CI
       // WebKit, so the steps alone took 50-66 s there (runs 42053259370, 42060999461, 42073643163; 13-15 s on a Mac).
       test.setTimeout(120_000);
-      const desktop = testInfo.project.name.includes("desktop");
       await seedUIState(
         page,
         {
@@ -54,7 +53,7 @@ test.describe("Marinara accent defaults", () => {
         .poll(() => readAccentPreferences(page))
         .toEqual({
           color: "",
-          pulse: desktop,
+          pulse: false,
           rgb: false,
           ready: true,
         });
@@ -69,7 +68,7 @@ test.describe("Marinara accent defaults", () => {
       await expect(root).toHaveAttribute("data-marinara-chat-chrome-accent-mode", "gradient");
       await openAppearance(page);
       const pulse = page.getByLabel("Accent Pulse", { exact: true });
-      await expect(pulse).toBeChecked({ checked: desktop });
+      await expect(pulse).toBeChecked({ checked: false });
       const picker = page.locator("#settings-control-app-accent-color");
       await picker.scrollIntoViewIfNeeded();
       await testInfo.attach(`default-${theme}-appearance.png`, {
@@ -97,15 +96,15 @@ test.describe("Marinara accent defaults", () => {
         .poll(() => readAccentPreferences(page))
         .toEqual({
           color: "#1e90ff",
-          pulse: !desktop,
+          pulse: true,
           rgb: false,
           ready: true,
         });
       // Persisted panel state already reopens Appearance after reload.
-      await expect(pulse).toBeChecked({ checked: !desktop });
+      await expect(pulse).toBeChecked({ checked: true });
       await picker.getByRole("button", { name: "Reset to default", exact: true }).click();
       await expect(picker.getByRole("button", { name: "Default Marinara Gradient", exact: true })).toBeVisible();
-      await expect(pulse).toBeChecked({ checked: !desktop });
+      await expect(pulse).toBeChecked({ checked: true });
       await picker.getByRole("button", { name: "Default Marinara Gradient", exact: true }).click();
       await showPalette();
       await picker.getByRole("button", { name: "Gay RGB rainbow", exact: true }).click();
@@ -117,11 +116,11 @@ test.describe("Marinara accent defaults", () => {
         .poll(() => readAccentPreferences(page))
         .toEqual({
           color: "",
-          pulse: desktop,
+          pulse: false,
           rgb: false,
           ready: true,
         });
-      await expect(pulse).toBeChecked({ checked: desktop });
+      await expect(pulse).toBeChecked({ checked: false });
       await page.emulateMedia({ reducedMotion: "reduce" });
       await expect(root).not.toHaveAttribute("data-marinara-accent-animation");
       await expect
@@ -134,7 +133,7 @@ test.describe("Marinara accent defaults", () => {
     });
   }
 
-  test("device defaults survive narrow desktop and wide mobile windows and legacy sync", async ({ page }, testInfo) => {
+  test("steady defaults survive narrow desktop and wide mobile windows and legacy sync", async ({ page }, testInfo) => {
     const desktop = testInfo.project.name.includes("desktop");
     await page.setViewportSize({ width: desktop ? 600 : 1200, height: 900 });
     await seedUIState(page, { hasCompletedOnboarding: true });
@@ -148,7 +147,7 @@ test.describe("Marinara accent defaults", () => {
       .poll(() => readAccentPreferences(page))
       .toEqual({
         color: "#1e90ff",
-        pulse: desktop,
+        pulse: false,
         rgb: false,
         ready: true,
       });
@@ -243,7 +242,7 @@ test.describe("Marinara accent defaults", () => {
   });
 
   for (const savedPulse of [undefined, false, true]) {
-    test(`legacy preferences preserve color and Pulse=${String(savedPulse)}`, async ({ page }, testInfo) => {
+    test(`legacy preferences preserve color and Pulse=${String(savedPulse)}`, async ({ page }) => {
       await page.addInitScript(
         ({ persistence, pulse }) => {
           localStorage.setItem(
@@ -266,7 +265,7 @@ test.describe("Marinara accent defaults", () => {
         .poll(() => readAccentPreferences(page))
         .toEqual({
           color: "#d4acfb",
-          pulse: savedPulse ?? testInfo.project.name.includes("desktop"),
+          pulse: savedPulse ?? false,
           rgb: false,
           ready: true,
         });
@@ -543,3 +542,159 @@ for (const theme of ["dark", "light"] as const) {
     ).toBe("#ff7ec1");
   });
 }
+
+test("fresh installs and Appearance reset keep accent animation off", async ({ page }) => {
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: null } }));
+  await page.addInitScript(
+    (appVersion) => localStorage.setItem("marinara:whats-new:seen-version", appVersion),
+    version,
+  );
+  await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false }, "if-missing");
+  await page.goto("/");
+  await expect.poll(() => readAccentPreferences(page)).toEqual({ color: "", pulse: false, rgb: false, ready: true });
+  await expect(page.locator("html")).not.toHaveAttribute("data-marinara-accent-animation");
+  await page.evaluate(async () => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+    useUIStore.getState().setAppAccentPulseMode(true);
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (name) => JSON.parse(localStorage.getItem(name) ?? "{}").state?.appAccentPulseMode,
+        UI_PERSISTENCE.name,
+      ),
+    )
+    .toBe(true);
+  await page.reload();
+  await expect.poll(async () => (await readAccentPreferences(page)).pulse).toBe(true);
+  await page.evaluate(async () => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+    useUIStore.getState().resetAppearanceSettings();
+  });
+  await expect.poll(() => readAccentPreferences(page)).toEqual({ color: "", pulse: false, rgb: false, ready: true });
+  await expect(page.locator("html")).not.toHaveAttribute("data-marinara-accent-animation");
+});
+
+for (const panel of ["chats", "resources", "tracker"] as const) {
+  for (const opening of [true, false]) {
+    test(`accent ticks wait for ${panel} sidebar ${opening ? "opening" : "closing"} and resume afterward`, async ({
+      page,
+    }, info) => {
+      await page.setViewportSize({
+        width: panel === "resources" ? 1440 : panel === "tracker" ? 768 : 390,
+        height: 844,
+      });
+      await page.clock.install();
+      await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: null } }));
+      await page.addInitScript((appVersion) => {
+        localStorage.setItem("marinara:whats-new:seen-version", appVersion);
+      }, version);
+      await seedUIState(page, {
+        hasCompletedOnboarding: true,
+        sidebarOpen: panel === "chats" && !opening,
+        rightPanelOpen: panel === "resources" && !opening,
+        trackerPanelOpen: panel === "tracker" && !opening,
+        appAccentColor: "#1e90ff",
+        appAccentPulseMode: false,
+        appAccentRgbMode: false,
+      });
+      await page.goto("/");
+      await expect.poll(async () => (await readAccentPreferences(page)).ready).toBe(true);
+      await page.clock.pauseAt(new Date((await page.evaluate(() => Date.now())) + 1000));
+      await page.evaluate(async () => {
+        const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+        useUIStore.getState().setAppAccentRgbMode(true);
+      });
+      await expect(page.locator("html")).toHaveAttribute("data-marinara-accent-animation", "gradient");
+      const liveAccent = () => page.evaluate(() => document.documentElement.style.getPropertyValue("--primary"));
+      const before = await liveAccent();
+      await page.clock.runFor(400);
+      await page.evaluate(
+        async ({ panel, opening }) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          const state = useUIStore.getState();
+          if (panel === "chats") state.setSidebarOpen(opening);
+          else if (panel === "resources") {
+            if (opening) state.openRightPanel("characters");
+            else state.closeRightPanel();
+          } else state.setTrackerPanelOpen(opening);
+        },
+        { panel, opening },
+      );
+      // The next 500 ms accent tick lands 100 ms into the slide. A root-token write here restyles the app.
+      await page.clock.runFor(100);
+      expect(await liveAccent()).toBe(before);
+      await page.clock.runFor(1100);
+      expect(await liveAccent()).not.toBe(before);
+      await page.clock.resume();
+      await expect(page.locator('[data-component="TopBar"]')).toBeVisible();
+      if (opening && panel !== "tracker") {
+        await expect(
+          page.locator(`[data-component="${panel === "chats" ? "ChatSidebar" : "RightPanel"}"]`),
+        ).toBeVisible();
+      }
+      if (panel !== "tracker") {
+        await page.screenshot({
+          path: info.outputPath(`${panel}-${opening ? "open" : "closed"}.png`),
+          animations: "disabled",
+        });
+        if (panel === "resources" && opening) {
+          await page.setViewportSize({ width: 768, height: 844 });
+          await expect(page.locator('[data-component="RightPanel"]')).toBeVisible();
+          await page.screenshot({ path: info.outputPath("resources-open-tablet.png"), animations: "disabled" });
+        }
+      }
+    });
+  }
+}
+
+test("accent ticks wait throughout a sidebar resize drag and resume after release", async ({ page }, info) => {
+  test.skip(!info.project.name.includes("desktop"), "Desktop sidebar resize handle.");
+  await page.clock.install();
+  await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: null } }));
+  await page.addInitScript(
+    (appVersion) => localStorage.setItem("marinara:whats-new:seen-version", appVersion),
+    version,
+  );
+  await seedUIState(page, {
+    hasCompletedOnboarding: true,
+    sidebarOpen: true,
+    rightPanelOpen: false,
+    appAccentColor: "#1e90ff",
+    appAccentRgbMode: false,
+    appAccentPulseMode: false,
+    customCursorEnabled: false,
+  });
+  await page.goto("/");
+  const handle = page.getByRole("separator", { name: "Resize sidebar", exact: true });
+  await expect(handle).toBeVisible();
+  await expect.poll(async () => (await readAccentPreferences(page)).ready).toBe(true);
+  await page.clock.pauseAt(new Date((await page.evaluate(() => Date.now())) + 1000));
+  await page.evaluate(async () => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+    useUIStore.getState().setAppAccentRgbMode(true);
+  });
+  await expect(page.locator("html")).toHaveAttribute("data-marinara-accent-animation", "gradient");
+  await page.clock.runFor(1000);
+  const liveAccent = () => page.evaluate(() => document.documentElement.style.getPropertyValue("--primary"));
+  const before = await liveAccent();
+  const box = (await handle.boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await expect(page.locator("html")).toHaveAttribute("data-marinara-resizing", "col");
+  try {
+    await page.clock.runFor(1500);
+    expect(await liveAccent()).toBe(before);
+    await page.mouse.move(x - 40, y);
+    await page.clock.runFor(1000);
+    expect(await liveAccent()).toBe(before);
+  } finally {
+    await page.mouse.up();
+  }
+  await expect(page.locator("html")).not.toHaveAttribute("data-marinara-resizing", "col");
+  await page.clock.runFor(1100);
+  expect(await liveAccent()).not.toBe(before);
+  await page.clock.resume();
+});

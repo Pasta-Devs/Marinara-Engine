@@ -2,22 +2,8 @@
 // TTS Configuration Card (Connections Panel)
 // ──────────────────────────────────────────────
 import { saveBlobToDevice } from "../../../lib/file-download";
-import { useCallback, useState, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
-import {
-  Volume2,
-  Check,
-  RefreshCw,
-  Play,
-  Square,
-  ChevronDown,
-  Plus,
-  X,
-  Download,
-  Search,
-  UserRound,
-  AlertTriangle,
-} from "lucide-react";
+import { useState, useEffect, useId, useMemo, useRef } from "react";
+import { Volume2, Check, RefreshCw, Play, Square, Plus, X, Download, UserRound, AlertTriangle } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { toast } from "sonner";
 import { useTTSConfig, useUpdateTTSConfig, useTTSModels, useTTSVoices, useVoiceJobMoved } from "../../../hooks/use-tts";
@@ -425,20 +411,6 @@ function ToggleRow({ label, checked, onChange }: { label: string; checked: boole
   return <SettingsCheckbox label={label} checked={checked} onChange={onChange} align="between" />;
 }
 
-function TtsDropdownIcon({ compact = false }: { compact?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "mari-chrome-control mari-chrome-control--small pointer-events-none absolute right-1.5 top-1/2 flex min-w-0 -translate-y-1/2 items-center justify-center p-0",
-        compact ? "h-6 w-6" : "h-7 w-7",
-      )}
-      aria-hidden="true"
-    >
-      <ChevronDown size={compact ? "0.6875rem" : "0.75rem"} />
-    </span>
-  );
-}
-
 type TtsSearchableSelectOption = {
   id: string;
   label: string;
@@ -446,16 +418,17 @@ type TtsSearchableSelectOption = {
   disabled?: boolean;
 };
 
+// The "none" row: the field's placeholder, picked to clear the value.
+const TTS_NONE = "__none__";
+
+/** The card's voice and speaker lists: the shared Select (#9468), searchable once they run long. */
 function TtsSearchableSelect({
   value,
   options,
   disabled,
   placeholder,
   ariaLabel,
-  searchPlaceholder,
-  emptyText,
   optionKind,
-  testId,
   compact = false,
   onChange,
 }: {
@@ -464,282 +437,39 @@ function TtsSearchableSelect({
   disabled: boolean;
   placeholder: string;
   ariaLabel: string;
-  searchPlaceholder: string;
-  emptyText: string;
   optionKind: "character" | "voice";
-  testId: string;
   compact?: boolean;
   onChange: (value: string) => void;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const listboxId = useId();
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [position, setPosition] = useState<{ left: number; top: number; width: number; maxHeight: number } | null>(
-    null,
-  );
-  const selected = options.find((option) => option.id === value);
-  const normalizedSearch = search.trim().toLowerCase();
-  const filteredOptions = normalizedSearch
-    ? options.filter((option) => option.searchText.toLowerCase().includes(normalizedSearch))
-    : options;
-  const restoreFrameRef = useRef(0);
-  const restoreFocusToTrigger = useCallback(() => {
-    // Deferred one frame: focusing synchronously races the panel unmount and
-    // any concurrent re-render of the trigger row — the focus call can land
-    // on a node that detaches a beat later, dropping focus to <body> (#5633).
-    // Retried across frames: focus() on a disabled button is a silent no-op,
-    // and the trigger is transiently disabled whenever a voices refetch flips
-    // `fetchingVoices` — a single-frame restore landing in that window
-    // stranded keyboard focus on <body> for good (#5642). Bounded so an
-    // indefinitely disabled trigger cannot leak a perpetual rAF loop.
-    const startedAt = performance.now();
-    cancelAnimationFrame(restoreFrameRef.current);
-    const attempt = () => {
-      const trigger = triggerRef.current;
-      // If focus has legitimately landed somewhere else in the meantime
-      // (the user tabbed on), the restore is stale — never steal from them.
-      const active = document.activeElement;
-      if (active && active !== document.body && active !== trigger && !panelRef.current?.contains(active)) return;
-      if (trigger && !trigger.disabled) {
-        trigger.focus();
-        if (document.activeElement === trigger) return;
-      }
-      if (performance.now() - startedAt > 2000) return;
-      restoreFrameRef.current = requestAnimationFrame(attempt);
-    };
-    restoreFrameRef.current = requestAnimationFrame(attempt);
-  }, []);
-
-  useEffect(() => () => cancelAnimationFrame(restoreFrameRef.current), []);
-
-  const closePanel = useCallback(
-    (restoreFocus = true) => {
-      setOpen(false);
-      setSearch("");
-      if (restoreFocus) restoreFocusToTrigger();
-    },
-    [restoreFocusToTrigger],
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!rootRef.current?.contains(target) && !panelRef.current?.contains(target)) {
-        closePanel(false);
-      }
-    };
-    // Escape closes only the open list. Heard first (capture) and stopped, it never reaches the Escape of a dialog
-    // this card sits in, such as the Add window, which would close with it.
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.isComposing) return;
-      event.stopPropagation();
-      closePanel();
-    };
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape, true);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape, true);
-    };
-  }, [closePanel, open]);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setPosition(null);
-      return;
-    }
-
-    const updatePosition = () => {
-      const trigger = rootRef.current;
-      if (!trigger) return;
-      const triggerRect = trigger.getBoundingClientRect();
-      const viewportPadding = 12;
-      const gap = 6;
-      const preferredWidth = compact ? 352 : 384;
-      const width = Math.min(
-        Math.max(triggerRect.width, preferredWidth),
-        Math.max(0, window.innerWidth - viewportPadding * 2),
-      );
-      const left = Math.min(
-        Math.max(triggerRect.left, viewportPadding),
-        Math.max(viewportPadding, window.innerWidth - width - viewportPadding),
-      );
-      const availableBelow = window.innerHeight - triggerRect.bottom - viewportPadding - gap;
-      const availableAbove = triggerRect.top - viewportPadding - gap;
-      const desiredHeight = Math.min(panelRef.current?.offsetHeight ?? 320, 320);
-      const openAbove = availableBelow < Math.min(220, desiredHeight) && availableAbove > availableBelow;
-      const maxHeight = Math.max(160, Math.min(320, openAbove ? availableAbove : availableBelow));
-      const panelHeight = Math.min(panelRef.current?.offsetHeight ?? desiredHeight, maxHeight);
-      const top = openAbove
-        ? Math.max(viewportPadding, triggerRect.top - panelHeight - gap)
-        : Math.min(triggerRect.bottom + gap, window.innerHeight - panelHeight - viewportPadding);
-
-      setPosition({ left, top, width, maxHeight });
-    };
-
-    let frame = 0;
-    const schedulePositionUpdate = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        updatePosition();
-      });
-    };
-
-    updatePosition();
-    schedulePositionUpdate();
-    window.addEventListener("resize", schedulePositionUpdate);
-    window.addEventListener("scroll", schedulePositionUpdate, true);
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      window.removeEventListener("resize", schedulePositionUpdate);
-      window.removeEventListener("scroll", schedulePositionUpdate, true);
-    };
-  }, [compact, open]);
-
-  useEffect(() => {
-    if (!disabled || !open) return;
-    // Force-closing because the control became disabled unmounts the panel —
-    // and with it the autofocused search input — so without a restore,
-    // keyboard focus silently falls to <body> (#5642). Only restore when the
-    // user's focus was actually inside this control. Focus already sitting on
-    // <body> counts as inside: with few options no search input renders, so
-    // focus stays on the trigger, and the browser drops it to <body>
-    // synchronously when the trigger's disabled attribute lands — before this
-    // effect can observe it. An outside pointerdown closes the panel through
-    // closePanel(false) before focus could legitimately be elsewhere, and the
-    // restore's own guard aborts if any real element takes focus meanwhile.
-    const active = document.activeElement;
-    const focusWasInside =
-      !active ||
-      active === document.body ||
-      active === triggerRef.current ||
-      panelRef.current?.contains(active) === true;
-    setOpen(false);
-    setSearch("");
-    if (focusWasInside) restoreFocusToTrigger();
-  }, [disabled, open, restoreFocusToTrigger]);
-
+  const { t: localizeUi } = useUiTranslation();
+  const icon = optionKind === "character" ? <UserRound size="0.75rem" /> : <Volume2 size="0.75rem" />;
   return (
-    <div ref={rootRef} className="relative min-w-0 flex-1">
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-label={ariaLabel}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? listboxId : undefined}
+    <div className="min-w-0 flex-1">
+      <Select
+        label={ariaLabel}
+        value={value || TTS_NONE}
+        options={[
+          { value: TTS_NONE, label: placeholder, icon },
+          ...options.map((option) => ({
+            value: option.id,
+            label: option.label,
+            searchText: option.searchText,
+            icon,
+            disabledReason: option.disabled ? localizeUi("tts.assignments.alreadyHasVoice") : undefined,
+          })),
+          // A saved value the list no longer offers (a deleted character, a list still loading) still shows as itself,
+          // as a saved voice does, instead of reading as unassigned.
+          ...(value && !options.some((option) => option.id === value) ? [{ value, label: value, icon }] : []),
+        ]}
+        onChange={(next) => onChange(next === TTS_NONE ? "" : next)}
         disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
+        searchable={options.length > 8}
         className={cn(
           INPUT_CLS,
-          "relative flex min-w-0 cursor-pointer items-center text-left disabled:cursor-not-allowed disabled:opacity-50",
-          compact ? "py-2 pr-3 text-xs" : "pr-10",
+          "min-w-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+          compact && "py-2 pr-3 text-xs",
         )}
-      >
-        <span className={cn("truncate", !value && "text-[var(--muted-foreground)]")}>
-          {(selected?.label ?? value) || placeholder}
-        </span>
-        {!compact && <TtsDropdownIcon />}
-      </button>
-      {open &&
-        typeof document !== "undefined" &&
-        createPortal(
-          <div
-            ref={panelRef}
-            className="fixed z-[10001] flex overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--background)] p-1.5 shadow-2xl shadow-black/40"
-            style={{
-              left: position?.left ?? -9999,
-              top: position?.top ?? -9999,
-              width: position?.width ?? 0,
-              maxHeight: position?.maxHeight ?? 320,
-              opacity: position ? 1 : 0,
-            }}
-          >
-            <div className="flex min-h-0 w-full flex-col">
-              {options.length > 8 && (
-                <label className="relative mb-1.5 block shrink-0">
-                  <Search
-                    size="0.75rem"
-                    className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--primary)]"
-                  />
-                  {/* A combobox for the open list, so Escape here closes only the picker, not its panel. */}
-                  <input
-                    autoFocus
-                    role="combobox"
-                    aria-expanded
-                    aria-controls={listboxId}
-                    aria-autocomplete="list"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder={searchPlaceholder}
-                    className={cn(INPUT_CLS, "py-2 pl-8 text-xs")}
-                  />
-                </label>
-              )}
-              <div
-                id={listboxId}
-                role="listbox"
-                aria-label={ariaLabel}
-                data-testid={testId}
-                className="min-h-0 overflow-x-hidden overflow-y-scroll pr-1 [scrollbar-color:var(--primary)_var(--secondary)] [scrollbar-gutter:stable] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--primary)] [&::-webkit-scrollbar-track]:bg-[var(--secondary)] [&::-webkit-scrollbar]:w-2"
-              >
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={!value}
-                  onClick={() => {
-                    onChange("");
-                    closePanel();
-                  }}
-                  className={cn(
-                    "flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-[var(--secondary)]",
-                    !value && "bg-[var(--primary)]/10 text-[var(--primary)]",
-                  )}
-                >
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--secondary)] text-[var(--primary)]">
-                    {optionKind === "character" ? <UserRound size="0.75rem" /> : <Volume2 size="0.75rem" />}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{placeholder}</span>
-                  {!value && <Check size="0.75rem" className="shrink-0" />}
-                </button>
-                {filteredOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="option"
-                    aria-selected={option.id === value}
-                    aria-disabled={option.disabled || undefined}
-                    disabled={option.disabled}
-                    title={option.label}
-                    onClick={() => {
-                      onChange(option.id);
-                      closePanel();
-                    }}
-                    className={cn(
-                      "flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs hover:bg-[var(--secondary)] disabled:cursor-not-allowed disabled:opacity-40",
-                      option.id === value && "bg-[var(--primary)]/10 text-[var(--primary)]",
-                    )}
-                  >
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--secondary)] text-[var(--primary)]">
-                      {optionKind === "character" ? <UserRound size="0.75rem" /> : <Volume2 size="0.75rem" />}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                    {option.id === value && <Check size="0.75rem" className="shrink-0" />}
-                  </button>
-                ))}
-                {filteredOptions.length === 0 && (
-                  <p className="px-2.5 py-3 text-center text-xs text-[var(--muted-foreground)]">{emptyText}</p>
-                )}
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      />
     </div>
   );
 }
@@ -761,7 +491,6 @@ export function VoiceSelect({
   compact?: boolean;
   onChange: (value: string) => void;
 }) {
-  const { t: localizeUi } = useUiTranslation();
   return (
     <TtsSearchableSelect
       value={value}
@@ -773,10 +502,7 @@ export function VoiceSelect({
       disabled={disabled}
       placeholder={placeholder}
       ariaLabel={ariaLabel}
-      searchPlaceholder={localizeUi("ui.panels.ttsconfigcard.searchVoices")}
-      emptyText={localizeUi("ui.panels.ttsconfigcard.noMatchingVoices")}
       optionKind="voice"
-      testId="tts-voice-options"
       compact={compact}
       onChange={onChange}
     />
@@ -849,10 +575,7 @@ function CharacterSelect({
       disabled={options.length === 0}
       placeholder={localizeUi("tts.assignments.selectSpeaker")}
       ariaLabel={localizeUi("tts.assignments.selectSpeaker")}
-      searchPlaceholder={localizeUi("tts.assignments.searchSpeakers")}
-      emptyText={localizeUi("tts.assignments.noMatchingSpeakers")}
       optionKind="character"
-      testId="tts-character-options"
       compact
       onChange={onChange}
     />

@@ -73,6 +73,7 @@ import { sidecarModelService } from "../services/sidecar/sidecar-model.service.j
 import { utilitySidecarService } from "../services/utility-sidecar/utility-sidecar.service.js";
 
 import { decisionConnectionUnavailable, readSelectedDecisionModel } from "../services/decision/decision-status.js";
+import { notFound } from "../utils/not-found.js";
 export { decisionConnectionUnavailable } from "../services/decision/decision-status.js";
 
 const slotSchema = z.enum(DECISION_LOCAL_SLOTS);
@@ -395,7 +396,7 @@ export async function decisionRoutes(app: FastifyInstance) {
       model = inspected.model;
       custom = true;
     }
-    if (!model) return reply.status(404).send({ error: "No such decision model" });
+    if (!model) return notFound(reply, "No such decision model");
     if (!sidecarSettings.enabled)
       return reply.status(409).send({ error: "Enable the decision sidecar before installing a model" });
     const preflight = await preflightDecisionModel(model);
@@ -555,7 +556,7 @@ export async function decisionRoutes(app: FastifyInstance) {
       return { selected: null };
     }
     const row = await connections.getById(id);
-    if (!row || row.provider !== "decision") return reply.status(404).send({ error: "No such decision connection" });
+    if (!row || row.provider !== "decision") return notFound(reply, "No such decision connection");
     // The same check the dropdown greys the row out with. A stale client, or a direct
     // request, must not be able to store a connection that cannot sign a request:
     // that leaves a decision model named in the UI while every gate fails open.

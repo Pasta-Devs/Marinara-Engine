@@ -144,6 +144,10 @@ import {
   type ToolDefinition,
   isChatProvider,
   NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
+  DEFAULT_WRITER_REFERENCE_INSTRUCTION,
+  readWriterReferenceSettings,
+  REFERENCE_PICTURE_TARGETS,
+  type ReferencePictureTarget,
 } from "@marinara-engine/shared";
 import {
   createAgentFolderPackageFilename,
@@ -876,6 +880,8 @@ export function AgentEditor() {
   const [localIncludeOutfitInAvatars, setLocalIncludeOutfitInAvatars] = useState(true);
   const [localUseAvatarReferences, setLocalUseAvatarReferences] = useState(false);
   const [localIncludeCharacterAppearance, setLocalIncludeCharacterAppearance] = useState(false);
+  const [localReferencePictureTarget, setLocalReferencePictureTarget] = useState<ReferencePictureTarget>("auto");
+  const [localWriterReferenceInstruction, setLocalWriterReferenceInstruction] = useState("");
   const [localImagePositivePrompt, setLocalImagePositivePrompt] = useState("");
   const [localImageNegativePrompt, setLocalImageNegativePrompt] = useState("");
   const [localStoryboardSettings, setLocalStoryboardSettings] = useState<StoryboardAgentSettings>(() =>
@@ -1096,6 +1102,10 @@ export function AgentEditor() {
       setLocalUseAvatarReferences(
         (settings.useAvatarReferences as boolean | undefined) ?? defaultSettings.useAvatarReferences === true,
       );
+      setLocalReferencePictureTarget(readWriterReferenceSettings(settings).target);
+      setLocalWriterReferenceInstruction(
+        typeof settings.writerReferenceInstruction === "string" ? settings.writerReferenceInstruction : "",
+      );
       setLocalIncludeCharacterAppearance(
         (settings.includeCharacterAppearance as boolean | undefined) ??
           defaultSettings.includeCharacterAppearance === true,
@@ -1176,6 +1186,8 @@ export function AgentEditor() {
       setLocalAutoGenerateAvatars(false);
       setLocalIncludeOutfitInAvatars(true);
       setLocalUseAvatarReferences(defaultSettings.useAvatarReferences === true);
+      setLocalReferencePictureTarget("auto");
+      setLocalWriterReferenceInstruction("");
       setLocalIncludeCharacterAppearance(defaultSettings.includeCharacterAppearance === true);
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
@@ -1251,6 +1263,8 @@ export function AgentEditor() {
       setLocalIncludeOutfitInAvatars(true);
       setLocalUseAvatarReferences(false);
       setLocalIncludeCharacterAppearance(false);
+      setLocalReferencePictureTarget("auto");
+      setLocalWriterReferenceInstruction("");
       setLocalImagePositivePrompt("");
       setLocalImageNegativePrompt("");
       setLocalProseGuardianBanned(DEFAULT_PROSE_GUARDIAN_BANNED_WORDS);
@@ -1680,6 +1694,12 @@ export function AgentEditor() {
           ? {
               useAvatarReferences: localUseAvatarReferences,
               includeCharacterAppearance: localIncludeCharacterAppearance,
+              ...(isIllustratorAgent
+                ? {
+                    referencePictureTarget: localReferencePictureTarget,
+                    writerReferenceInstruction: localWriterReferenceInstruction.trim(),
+                  }
+                : {}),
             }
           : {}),
         ...(isStoryboardAgent ? storyboardSettingsForStorage(localStoryboardSettings) : {}),
@@ -1761,6 +1781,8 @@ export function AgentEditor() {
     localIncludeOutfitInAvatars,
     localUseAvatarReferences,
     localIncludeCharacterAppearance,
+    localReferencePictureTarget,
+    localWriterReferenceInstruction,
     localProseGuardianBanned,
     localProseGuardianAvoid,
     localProseGuardianPrefer,
@@ -2200,6 +2222,12 @@ export function AgentEditor() {
         ? {
             useAvatarReferences: localUseAvatarReferences,
             includeCharacterAppearance: localIncludeCharacterAppearance,
+            ...(isIllustratorAgent
+              ? {
+                  referencePictureTarget: localReferencePictureTarget,
+                  writerReferenceInstruction: localWriterReferenceInstruction.trim(),
+                }
+              : {}),
           }
         : {}),
       ...(isStoryboardAgent ? storyboardSettingsForStorage(localStoryboardSettings) : {}),
@@ -3483,6 +3511,69 @@ export function AgentEditor() {
                     "ui.agents.agenteditor.sendsReferencesOnlyForCharactersOrPersonaNamesMatched",
                   )}
                 />
+                {isIllustratorAgent && localUseAvatarReferences && (
+                  <div className="grid gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5">
+                    <span className="text-xs font-medium text-[var(--foreground)]">
+                      {localizeUi("ui.agents.agenteditor.referencePictureTarget")}
+                    </span>
+                    <span className="text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                      {localizeUi(`ui.agents.agenteditor.referencePictureTargetHelp.${localReferencePictureTarget}`)}
+                    </span>
+                    <Select<ReferencePictureTarget>
+                      label={localizeUi("ui.agents.agenteditor.referencePictureTarget")}
+                      value={localReferencePictureTarget}
+                      onChange={(target) => {
+                        setLocalReferencePictureTarget(target);
+                        markDirty();
+                      }}
+                      options={REFERENCE_PICTURE_TARGETS.map((target) => ({
+                        value: target,
+                        label: localizeUi(`ui.agents.agenteditor.referencePictureTargetOption.${target}`),
+                      }))}
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
+                    />
+                    {localReferencePictureTarget !== "image" && (
+                      <div className="mt-1.5 grid gap-1.5 border-t border-[var(--border)] pt-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                            {localizeUi("ui.agents.agenteditor.writerReferenceInstruction")}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLocalWriterReferenceInstruction(
+                                localWriterReferenceInstruction.trim() ? "" : DEFAULT_WRITER_REFERENCE_INSTRUCTION,
+                              );
+                              markDirty();
+                            }}
+                            className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                          >
+                            {localWriterReferenceInstruction.trim() ? (
+                              <>
+                                <RotateCcw size="0.625rem" /> {localizeUi("ui.agents.agenteditor.resetToDefault")}
+                              </>
+                            ) : (
+                              <>
+                                <FileText size="0.625rem" /> {localizeUi("ui.agents.agenteditor.copyDefaultToEdit")}
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <textarea
+                          aria-label={localizeUi("ui.agents.agenteditor.writerReferenceInstruction")}
+                          value={localWriterReferenceInstruction}
+                          onChange={(event) => {
+                            setLocalWriterReferenceInstruction(event.target.value);
+                            markDirty();
+                          }}
+                          placeholder={DEFAULT_WRITER_REFERENCE_INSTRUCTION}
+                          rows={4}
+                          className="min-h-[5rem] resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/45 focus:border-[var(--primary)]/50"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
                 <EditorSwitchRow
                   label={localizeUi(
                     "ui.agents.agenteditor.attachMatchingCharacterAppearanceDescriptionsToImagePrompts",

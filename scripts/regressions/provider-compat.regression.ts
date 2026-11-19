@@ -4,7 +4,7 @@ import { debugJson, logger } from "../../packages/server/src/lib/logger.js";
 import {
   findKnownModel,
   isClaudeAdaptiveOnlyNoSamplingModel,
-  isGeminiHydrogenModel,
+  isGeminiHydrogenOrNeonModel,
   isGeminiModel,
   isGeminiStrictRequestModel,
   isGeminiThinkingLevelModel,
@@ -926,13 +926,19 @@ assert.equal(
   undefined,
   "Argon cannot turn thinking off, so Off sends nothing and Google's default level applies",
 );
-// Hydrogen adds xhigh; the rest of the family stops at high.
+// Hydrogen and Neon add xhigh; the rest of the family stops at high.
 // https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen
+// https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-neon
 for (const [model, effort, level] of [
   ["gemini-4-hydrogen", "xhigh", "xhigh"],
   ["gemini-4-hydrogen", "max", "xhigh"],
   ["gemini-4-hydrogen", "high", "high"],
   ["gemini-4-hydrogen", "low", "low"],
+  ["gemini-4-neon", "xhigh", "xhigh"],
+  ["gemini-4-neon", "max", "xhigh"],
+  ["gemini-4-neon", "high", "high"],
+  ["gemini-4-neon", "medium", "medium"],
+  ["google/gemini-4-neon", "xhigh", "xhigh"],
   ["gemini-4-argon", "xhigh", "high"],
   ["gemini-4-carbon", "max", "high"],
 ] as const) {
@@ -954,9 +960,32 @@ assert.equal(
   "gemini-4-argon",
   "the rest of Vertex's list stays",
 );
-assert.equal(isGeminiHydrogenModel("google/gemini-4-hydrogen"), true);
-assert.equal(isGeminiHydrogenModel("gemini-4-hydrogenous"), false);
+// Neon is on the Gemini API and on Vertex (global, us and eu), with Hydrogen's limits.
+for (const provider of ["google", "google_vertex"] as const) {
+  assert.deepEqual(
+    findKnownModel(provider, "gemini-4-neon"),
+    { id: "gemini-4-neon", name: "gemini-4-neon", context: 1_048_576, maxOutput: 65_536 },
+    `${provider} lists Neon`,
+  );
+}
+// Vertex lists Neon, so it names Neon's default level; Hydrogen is unknown there and names none.
+assert.equal(
+  resolveProviderReasoningEffort({ provider: "google_vertex", model: "gemini-4-neon", reasoningEffort: undefined }),
+  "high",
+);
+assert.equal(
+  resolveProviderReasoningEffort({ provider: "google_vertex", model: "gemini-4-hydrogen", reasoningEffort: undefined }),
+  null,
+  "Hydrogen on Vertex is an unknown model: no level and no thinking room",
+);
+assert.equal(isGeminiHydrogenOrNeonModel("google/gemini-4-hydrogen"), true);
+assert.equal(isGeminiHydrogenOrNeonModel("gemini-4-hydrogenous"), false);
+assert.equal(isGeminiHydrogenOrNeonModel("google/gemini-4-neon"), true);
+assert.equal(isGeminiHydrogenOrNeonModel("gemini-4-neonate"), false);
+assert.equal(isGeminiHydrogenOrNeonModel("gemini-4-argon"), false);
 assert.equal(isGeminiStrictRequestModel("gemini-4-hydrogen"), true);
+assert.equal(isGeminiStrictRequestModel("gemini-4-neon"), true);
+assert.equal(isGeminiStrictRequestModel("google/gemini-4-neon:online"), true);
 assert.deepEqual(
   [
     "gemini-2.0-flash",
@@ -4269,14 +4298,53 @@ try {
         replayMetadata ? identifiedParts : identifiedParts.map(({ functionCall }) => ({ functionCall })),
         "both serialization paths must retain the provider's function-call ids",
       );
+      // Both results go back in one user turn, in call order (Google's parallel-call rule, #9552).
       assert.deepEqual(
         contents.slice(2).map(({ parts }) => parts),
-        ["roll-first", "roll-second"].map((id, index) => [
-          { functionResponse: { id, name: "roll_dice", response: { total: 17 + index } } },
-        ]),
-        "each functionResponse must include the matching provider-issued id",
+        [
+          ["roll-first", "roll-second"].map((id, index) => ({
+            functionResponse: { id, name: "roll_dice", response: { total: 17 + index } },
+          })),
+        ],
+        "each functionResponse must include the matching provider-issued id, all in one user turn",
       );
     }
+    // Results of different rounds stay in their own turns, and a result never joins a text turn.
+    await gemini.chatComplete(
+      [
+        { role: "user", content: "roll twice" },
+        { role: "assistant", content: "", tool_calls: identifiedResult.toolCalls },
+        ...identifiedResult.toolCalls.map((call): ChatMessage => ({
+          role: "tool",
+          tool_call_id: call.id,
+          content: "{}",
+        })),
+        {
+          role: "assistant",
+          content: "",
+          tool_calls: [{ id: "roll-third", type: "function", function: { name: "roll_dice", arguments: "{}" } }],
+        },
+        { role: "tool", tool_call_id: "roll-third", content: "{}" },
+        { role: "user", content: "and once more" },
+        { role: "tool", tool_call_id: "roll-orphan", content: "{}" },
+      ],
+      { model: "gemini-2.0-flash", tools: [rollDiceTool], onToken: () => {} },
+    );
+    assert.deepEqual(
+      (geminiRequestBodies.at(-1)!.contents as Array<{ role: string; parts: Array<Record<string, unknown>> }>).map(
+        ({ role, parts }) => `${role}:${parts.map((part) => Object.keys(part)[0]).join("+")}`,
+      ),
+      [
+        "user:text",
+        "model:functionCall+functionCall",
+        "user:functionResponse+functionResponse",
+        "model:functionCall",
+        "user:functionResponse",
+        "user:text",
+        "user:functionResponse",
+      ],
+      "only consecutive results after one model turn share a user turn",
+    );
 
     // Two calls in one response with no ids of their own: the synthesized fallback ids are
     // built from a running index, so they must not collide.

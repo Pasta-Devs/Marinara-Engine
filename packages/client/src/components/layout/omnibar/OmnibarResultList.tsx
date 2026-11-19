@@ -131,7 +131,9 @@ export function OmnibarResultList({
                 >
                   {groupLabels[group.id]}
                 </h3>
-                <span className="text-[0.625rem] text-[var(--muted-foreground)]/70">{group.results.length}</span>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]/70">
+                  {group.total ?? group.results.length}
+                </span>
               </div>
               <ul
                 className={cn(

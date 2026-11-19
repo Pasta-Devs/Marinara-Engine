@@ -99,7 +99,11 @@ import {
 } from "../../lib/chat-summary-batch";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
 import { Tabs } from "../ui/Tabs";
+
+/** The Select value for the built-in default prompt, which the settings store as no template. */
+const DEFAULT_SUMMARY_TEMPLATE = "__builtin-default__";
 
 interface ChatSummaryPanelProps {
   chatId: string;
@@ -372,7 +376,6 @@ export function ChatSummaryPanel({
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [draftEntry, setDraftEntry] = useState<ChatSummaryEntry | null>(null);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
-  const [templateSelectOpen, setTemplateSelectOpen] = useState(false);
   const [summaryPromptView, setSummaryPromptView] = useState<SummaryPromptView>("summary");
   const [combinePromptEditorOpen, setCombinePromptEditorOpen] = useState(false);
   const [showInactiveSummaries, setShowInactiveSummaries] = useState(false);
@@ -1547,7 +1550,6 @@ export function ChatSummaryPanel({
       const currentSettings = readCurrentPromptSettings();
       const saved = await persistPromptTemplates(currentSettings.templates, templateId);
       if (!saved) return;
-      setTemplateSelectOpen(false);
     },
     [persistPromptTemplates, readCurrentPromptSettings],
   );
@@ -1614,7 +1616,6 @@ export function ChatSummaryPanel({
   const visiblePromptEditorOpen = summaryPromptView === "combine" ? combinePromptEditorOpen : templateEditorOpen;
   const handleToggleVisiblePromptEditor = useCallback(async () => {
     if (!visiblePromptEditorOpen) {
-      setTemplateSelectOpen(false);
       handleEditVisiblePrompt();
       return;
     }
@@ -1623,7 +1624,6 @@ export function ChatSummaryPanel({
       if (saved) setCombinePromptEditorOpen(false);
       return;
     }
-    setTemplateSelectOpen(false);
     setTemplateEditorOpen(false);
   }, [commitCombinePromptDraft, handleEditVisiblePrompt, summaryPromptView, visiblePromptEditorOpen]);
 
@@ -1975,67 +1975,33 @@ export function ChatSummaryPanel({
               {summaryPromptView === "summary" ? (
                 <div className="h-48 space-y-2 overflow-y-auto pr-0.5">
                   <div className="grid grid-cols-1 gap-1">
-                    <div
-                      className="relative min-w-0"
-                      onKeyDown={(event) => {
-                        if (event.key !== "Escape" || !templateSelectOpen) return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setTemplateSelectOpen(false);
-                        event.currentTarget
-                          .querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')
-                          ?.focus();
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setTemplateSelectOpen((open) => !open)}
-                        disabled={!globalPromptSettingsReady || promptSettingsSaveLocked}
-                        className="flex w-full min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--card)] py-1 pl-2 pr-2 text-left truncate text-xs font-semibold text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50"
-                        aria-haspopup="listbox"
-                        aria-expanded={templateSelectOpen}
-                        aria-label={localizeUi("ui.chat.summarypopover.summaryPromptTemplate")}
-                      >
-                        <span className="min-w-0 truncate">{promptTemplateSummary}</span>
-                        <ChevronRight
-                          size="0.75rem"
-                          className={cn(
-                            "shrink-0 text-[var(--muted-foreground)] transition-transform",
-                            templateSelectOpen && "rotate-90",
-                          )}
-                        />
-                      </button>
-                      {templateSelectOpen && (
-                        <div
-                          role="listbox"
-                          className="mt-1 max-h-40 overflow-y-auto rounded-md border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--popover-foreground)] shadow-xl shadow-black/25"
-                        >
-                          <SummaryPromptSelectOption
-                            active={!normalizedActivePromptTemplateId}
-                            label={localizeUi("ui.chat.summarypopover.builtInDefault")}
-                            disabled={promptSettingsSaveLocked}
-                            onSelect={() => void handleSelectPromptTemplate(null)}
-                          />
-                          {longTermMemorySummaryPromptAvailable && (
-                            <SummaryPromptSelectOption
-                              active={isLongTermMemoryPromptSelected}
-                              label={localizeUi("chat.summary.template.longTermMemory")}
-                              disabled={promptSettingsSaveLocked}
-                              onSelect={() => void handleSelectPromptTemplate(LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID)}
-                            />
-                          )}
-                          {cleanedPromptTemplates.map((template) => (
-                            <SummaryPromptSelectOption
-                              key={template.id}
-                              active={normalizedActivePromptTemplateId === template.id}
-                              label={template.name}
-                              disabled={promptSettingsSaveLocked}
-                              onSelect={() => void handleSelectPromptTemplate(template.id)}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    {/* The shared Select (#9468): its picker window, not a list drawn inside the panel. */}
+                    <Select
+                      label={localizeUi("ui.chat.summarypopover.summaryPromptTemplate")}
+                      // A template that no longer exists reads as the built-in default, as the old button's text did.
+                      value={
+                        isLongTermMemoryPromptSelected
+                          ? LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID
+                          : (activePromptTemplate?.id ?? DEFAULT_SUMMARY_TEMPLATE)
+                      }
+                      options={[
+                        { value: DEFAULT_SUMMARY_TEMPLATE, label: localizeUi("ui.chat.summarypopover.builtInDefault") },
+                        ...(longTermMemorySummaryPromptAvailable || isLongTermMemoryPromptSelected
+                          ? [
+                              {
+                                value: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+                                label: localizeUi("chat.summary.template.longTermMemory"),
+                              },
+                            ]
+                          : []),
+                        ...cleanedPromptTemplates.map((template) => ({ value: template.id, label: template.name })),
+                      ]}
+                      onChange={(next) =>
+                        void handleSelectPromptTemplate(next === DEFAULT_SUMMARY_TEMPLATE ? null : next)
+                      }
+                      disabled={!globalPromptSettingsReady || promptSettingsSaveLocked}
+                      className="w-full rounded-md bg-[var(--card)] py-1 pl-2 pr-2 text-xs font-semibold ring-1 ring-[var(--border)]"
+                    />
                   </div>
 
                   {!templateEditorOpen && (
@@ -3232,34 +3198,6 @@ function SummaryReadableSection({ section, sectionIndex }: SummaryReadableSectio
         })}
       </div>
     </section>
-  );
-}
-
-interface SummaryPromptSelectOptionProps {
-  active: boolean;
-  label: string;
-  disabled?: boolean;
-  onSelect: () => void;
-}
-
-function SummaryPromptSelectOption({ active, label, disabled, onSelect }: SummaryPromptSelectOptionProps) {
-  return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={active}
-      disabled={disabled}
-      onClick={onSelect}
-      className={cn(
-        "flex w-full min-w-0 items-center gap-1.5 rounded px-2 py-1.5 text-left text-[0.6875rem] transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-        active
-          ? "bg-[var(--accent)] text-[var(--popover-foreground)] ring-1 ring-[var(--border)]"
-          : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-      )}
-    >
-      <Check size="0.625rem" className={cn("shrink-0", active ? "opacity-100" : "opacity-0")} />
-      <span className="min-w-0 truncate">{label}</span>
-    </button>
   );
 }
 

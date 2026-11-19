@@ -79,7 +79,7 @@ import { flushDB, type DB } from "../db/connection.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { BACKUP_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { startSseKeepalive } from "./generate/sse.js";
-import { assertInsideDir, safeCompareString } from "../utils/security.js";
+import { assertInsideDir, resolveInside, safeCompareString, toSafeExportName } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { crc32Buffer, finishCrc32, updateCrc32State } from "../utils/crc32.js";
 import { ENCRYPTED_WEBHOOK_PREFIX, encryptCustomToolWebhookUrl } from "../utils/custom-tool-webhook.js";
@@ -107,6 +107,7 @@ import {
   parseAutomaticBackupRetentionCount,
   pruneAutomaticBackupFiles,
 } from "../services/backup/automatic-backup-retention.js";
+import { notFound } from "../utils/not-found.js";
 
 /** Directories inside DATA_DIR that should be included in every backup. */
 const BACKUP_DIRS = [
@@ -465,15 +466,7 @@ function resolveBackupDir(dataDir: string, dirName: string) {
 }
 
 function resolvePersistedEncryptionKeyPath(dataDir: string) {
-  return assertInsideDir(dataDir, join(dataDir, ENCRYPTION_KEY_FILENAME));
-}
-
-function toSafeExportName(name: string, fallback: string) {
-  const sanitized = name
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return sanitized || fallback;
+  return resolveInside(dataDir, ENCRYPTION_KEY_FILENAME);
 }
 
 function asStringArray(value: unknown): string[] {
@@ -648,7 +641,7 @@ function resolveProfileExportFilePath(dataDir: string, filePath: unknown) {
   const cleanPath = filePath.split("?")[0];
   if (!cleanPath) return null;
   try {
-    return assertInsideDir(dataDir, join(dataDir, cleanPath));
+    return resolveInside(dataDir, cleanPath);
   } catch {
     return null;
   }
@@ -1852,7 +1845,7 @@ async function collectProfileAssetZipSources(
     const safePath = normalizeProfileAssetPath(file.path);
     if (!safePath) continue;
     try {
-      const inputPath = assertInsideDir(dataDir, join(dataDir, ...safePath.split("/")));
+      const inputPath = resolveInside(dataDir, ...safePath.split("/"));
       if (!existsSync(inputPath)) throw new Error("file no longer exists");
       const fileStat = await stat(inputPath);
       if (!fileStat.isFile()) throw new Error("path is not a regular file");
@@ -4199,7 +4192,7 @@ export async function backupRoutes(app: FastifyInstance) {
     async (req, reply) => {
       if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
       const job = backupDownloadJobs.get(req.params.jobId);
-      if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+      if (!job) return notFound(reply, "Backup download job not found or expired");
       return reply.send({
         status: job.status,
         filename: `${job.backupName}.zip`,
@@ -4225,7 +4218,7 @@ export async function backupRoutes(app: FastifyInstance) {
         ? isPreparedBackupDownloadTokenValid(job.downloadToken, req.query.token)
         : false;
       if (!requirePrivilegedAccess(req, reply, { feature: "Backup download", oneTimeCapabilityAuthorized })) return;
-      if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+      if (!job) return notFound(reply, "Backup download job not found or expired");
       if (job.status === "failed") return reply.status(500).send({ error: job.error ?? "Backup download failed" });
       if (job.status !== "ready" || job.size === undefined) {
         return reply.status(409).send({ error: "Backup is still being prepared" });
@@ -4271,7 +4264,7 @@ export async function backupRoutes(app: FastifyInstance) {
     const backupDir = join(backupsRoot, name);
 
     if (!existsSync(backupDir)) {
-      return reply.status(404).send({ error: "Backup not found" });
+      return notFound(reply, "Backup not found");
     }
 
     // Remove recursively
@@ -4656,7 +4649,7 @@ export async function backupRoutes(app: FastifyInstance) {
                   await mkdir(avatarDir, { recursive: true });
                   const avatarName = `persona-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
                   const avatarPath = `avatars/${avatarName}`;
-                  avatarFile = assertInsideDir(avatarDir, join(avatarDir, avatarName));
+                  avatarFile = resolveInside(avatarDir, avatarName);
                   await writeFile(avatarFile, Buffer.from(p.avatarBase64, "base64"));
                   const updated = await chars.updatePersona(created.id, { avatarPath }, { skipVersionSnapshot: true });
                   if (!updated) throw new Error("Imported Persona disappeared before its avatar could be attached");

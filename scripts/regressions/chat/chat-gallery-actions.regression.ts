@@ -1,5 +1,6 @@
 // The chat gallery's actions: scene videos delete through the chat-scoped route, and batch select, download and
-// delete, with a guard against a second batch while one runs. Reads component source until a test can drive these.
+// delete, with a guard against a second batch while one runs, and Conversation's custom image-agent illustrate. Reads
+// component source until a test can drive these.
 // The scene-video delete route itself runs for real at the end.
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -86,5 +87,47 @@ try {
 } finally {
   await app.close();
   await closeDB();
+}
+
+// #4940-#4942: Conversation's Gallery can ask a custom image agent to illustrate, through the actions the drawer reads.
+{
+  const chatAreaSource = readFileSync(
+    new URL("../../../packages/client/src/components/chat/ChatArea.tsx", import.meta.url),
+    "utf8",
+  );
+  const conversationSurfaceSource = readFileSync(
+    new URL("../../../packages/client/src/components/chat/ChatConversationSurface.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    chatAreaSource,
+    /const handleIllustrateWithAgent = useCallback\([\s\S]*?forceImageGeneration: true/u,
+    "Illustrate with an agent must force the image",
+  );
+  // Look inside the Conversation surface's element only: the Roleplay surface below it takes the same prop.
+  const conversationSurfaceStart = chatAreaSource.indexOf("<ChatConversationSurface");
+  const roleplaySurfaceStart = chatAreaSource.indexOf("<ChatRoleplaySurface", conversationSurfaceStart);
+  assert.ok(
+    conversationSurfaceStart >= 0 && roleplaySurfaceStart > conversationSurfaceStart,
+    "ChatArea must render the Conversation surface before the Roleplay surface",
+  );
+  assert.match(
+    chatAreaSource.slice(conversationSurfaceStart, roleplaySurfaceStart),
+    /onIllustrateWithAgent=\{handleIllustrateWithAgent\}/u,
+    "Conversation Gallery must forward custom image-agent illustration requests",
+  );
+  // The Gallery drawer in Chat Settings reads the actions the conversation surface provides, so the action must be in
+  // the actions it hands over, not only in its props. End at the object's close, before the dependency list.
+  const galleryActionsStart = conversationSurfaceSource.indexOf("const galleryActions = useMemo(");
+  const galleryActionsEnd = conversationSurfaceSource.indexOf("\n    }),\n", galleryActionsStart);
+  assert.ok(
+    galleryActionsStart >= 0 && galleryActionsEnd > galleryActionsStart,
+    "Conversation's Gallery actions object must be found",
+  );
+  assert.match(
+    conversationSurfaceSource.slice(galleryActionsStart, galleryActionsEnd),
+    /\(\) => \(\{[\s\S]*?\bonIllustrateWithAgent,/u,
+    "Conversation's Gallery actions must include illustrate with an agent",
+  );
 }
 console.info("Chat gallery actions and the scene-video delete route passed.");

@@ -3,12 +3,14 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { join, extname, basename } from "path";
-import { mkdir, readFile, rename, unlink, writeFile, stat } from "fs/promises";
+import { mkdir, readFile, unlink, stat } from "fs/promises";
 import { createWriteStream, existsSync, mkdirSync, readFileSync } from "fs";
 import { pipeline } from "stream/promises";
 import { nanoid } from "nanoid";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir } from "../utils/security.js";
+import { resolveInside } from "../utils/security.js";
+import { notFound } from "../utils/not-found.js";
+import { writeFileAtomic } from "../utils/atomic-write.js";
 
 const SOURCES_DIR = join(DATA_DIR, "knowledge-sources");
 const META_FILE = join(SOURCES_DIR, "meta.json");
@@ -83,7 +85,7 @@ function resolveSourcePath(filename: unknown): string | null {
   if (basename(filename) !== filename || filename.includes("/") || filename.includes("\\")) return null;
   if (!ALLOWED_EXTS.has(extname(filename).toLowerCase())) return null;
   try {
-    return assertInsideDir(SOURCES_DIR, join(SOURCES_DIR, filename));
+    return resolveInside(SOURCES_DIR, filename);
   } catch {
     return null;
   }
@@ -102,9 +104,7 @@ async function writeMeta(mutator: MetaStoreUpdater) {
   const apply = async () => {
     const next = await mutator(readMeta());
     // Atomic write: a crash mid-write must not leave a truncated meta.json.
-    const tmp = `${META_FILE}.tmp`;
-    await writeFile(tmp, JSON.stringify(next, null, 2), "utf-8");
-    await rename(tmp, META_FILE);
+    await writeFileAtomic(META_FILE, JSON.stringify(next, null, 2));
   };
   // Run the mutation whether the previous link resolved or rejected, but keep
   // propagating failures to this call's awaiter.
@@ -257,7 +257,7 @@ export async function knowledgeSourcesRoutes(app: FastifyInstance) {
     const meta = readMeta();
     const entry = meta[id];
     if (!entry) {
-      return reply.status(404).send({ error: "Source not found" });
+      return notFound(reply, "Source not found");
     }
 
     const filePath = resolveSourcePath(entry.filename);
@@ -288,12 +288,12 @@ export async function knowledgeSourcesRoutes(app: FastifyInstance) {
     const meta = readMeta();
     const entry = meta[id];
     if (!entry) {
-      return reply.status(404).send({ error: "Source not found" });
+      return notFound(reply, "Source not found");
     }
 
     const filePath = resolveSourcePath(entry.filename);
     if (!filePath || !existsSync(filePath)) {
-      return reply.status(404).send({ error: "File not found on disk" });
+      return notFound(reply, "File not found on disk");
     }
 
     const text = await extractFileText(filePath, id, { size: entry.size, uploadedAt: entry.uploadedAt });

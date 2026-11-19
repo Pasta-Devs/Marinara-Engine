@@ -44,6 +44,7 @@ import {
   resolveMacros,
   type MacroContext,
   type RegexPlacement,
+  type RegexApplyMode,
 } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
@@ -70,7 +71,6 @@ const PLACEMENT_META: Record<RegexPlacement, { label: string; description: strin
 const REGEX_FIELD_ICON_CLASS = "mari-chrome-accent-icon mari-accent-animated";
 const REGEX_ACTIVE_OPTION_CLASS =
   "mari-chrome-accent-surface mari-accent-animated ring-[var(--marinara-chat-chrome-button-border-active)]";
-type RegexApplyMode = "prompt" | "display" | "both";
 const REGEX_FLAG_TITLES: Record<string, string> = {
   g: "Global: replace every match",
   i: "Case-insensitive",

@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import { Transform, type Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { finishCrc32, updateCrc32State } from "../../utils/crc32.js";
-import { assertInsideDir } from "../../utils/security.js";
+import { resolveInside } from "../../utils/security.js";
 import { validateImageAssetFile, validateVideoAssetFile } from "../../utils/media-file-security.js";
 
 export class ProfileImportAssetValidationError extends Error {}
@@ -204,9 +204,9 @@ export async function stageProfileImportAssets(
       }
       declaredBytes += input.expectedSize;
 
-      const stagedPath = assertInsideDir(stagedDataDir, join(stagedDataDir, ...parts));
-      const outputPath = assertInsideDir(dataDir, join(dataDir, ...parts));
-      const backupPath = assertInsideDir(rollbackDataDir, join(rollbackDataDir, ...parts));
+      const stagedPath = resolveInside(stagedDataDir, ...parts);
+      const outputPath = resolveInside(dataDir, ...parts);
+      const backupPath = resolveInside(rollbackDataDir, ...parts);
       try {
         const contents = await input.read();
         if (!contents) continue;

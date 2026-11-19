@@ -1,4 +1,4 @@
-// Where context usage shows: inside the connection switcher in Conversation, in Chat Settings' Connection section
+// Where context usage shows: inside the connection switcher in Conversation and Roleplay, in Chat Settings' Connection section
 // rather than the input in Game, and in the configured chat chrome colours. Reads component source; replacing these needs browser tests.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -50,3 +50,19 @@ assert.match(
   /\{contextBudget && <ContextBudgetIndicator budget=\{contextBudget\} \/>\}/u,
   "Game connection settings must show measured context usage",
 );
+// Roleplay keeps it in the connection switcher too, on desktop and phone, with the larger gauge.
+const clientSource = (path: string) =>
+  readFileSync(new URL(`../../../packages/client/src/components/chat/${path}`, import.meta.url), "utf8");
+assert.doesNotMatch(
+  clientSource("ChatInput.tsx"),
+  /<ContextBudgetIndicator/u,
+  "Roleplay context usage must stay inside the connection switcher",
+);
+for (const [name, path] of [
+  ["desktop connection switcher", "QuickConnectionSwitcher.tsx"],
+  ["mobile connection switcher", "QuickSwitcherMobile.tsx"],
+] as const) {
+  const source = clientSource(path);
+  assert.match(source, /<ContextBudgetIndicator budget=\{contextBudget\}/u, `${name} must show usage in its popup`);
+  assert.match(source, /relative flex h-\[1\.875rem\] w-\[1\.875rem\]/u, `${name} must use the larger context gauge`);
+}

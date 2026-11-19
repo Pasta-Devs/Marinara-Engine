@@ -104,6 +104,16 @@ export function shortenInlineMediaText(text: string): string {
   });
 }
 
+/**
+ * Text and its attached pictures (`ChatMessage.images`) for a prompt printed as text, each picture as its marker:
+ * a log that prints only the text would hide that pictures went out at all.
+ */
+export function messageTextWithImagesForLog(content: string, images?: readonly string[]): string {
+  if (!images?.length) return content;
+  const lines = images.map((image, index) => `[attached picture ${index + 1}: ${shortenInlineMediaText(image)}]`);
+  return [content, ...lines].join("\n");
+}
+
 function shortenInlineMediaValue(value: unknown): unknown {
   if (typeof value === "string") return shortenInlineMediaText(value);
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;

@@ -1,5 +1,6 @@
 // The Chat Summary controls: combining reveals the kept sources, entries reorder by drag, touch and keyboard, and
-// the Summary Prompt card has one Edit path that saves on Done or when the drawer closes. Reads component source;
+// the Summary Prompt card has one Edit path that saves on Done or when the drawer closes, and a prompt save locks the
+// prompt controls until it finishes. Reads component source;
 // replacing these needs browser tests.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -51,10 +52,17 @@ assert.match(
   /onClick=\{\(\) => void handleToggleVisiblePromptEditor\(\)\}[\s\S]{0,500}aria-expanded=\{visiblePromptEditorOpen\}/u,
   "The Summary Prompt Edit/Done action must expose disclosure semantics for its editor",
 );
+// The template chooser is the shared Select (#9468): its window closes on any click outside it, the Edit button's
+// included, so the editor no longer has its own selector state to close.
 assert.match(
   summaryPopoverSource,
-  /if \(!visiblePromptEditorOpen\) \{\s*setTemplateSelectOpen\(false\);\s*handleEditVisiblePrompt\(\);/u,
-  "Opening the Summary Prompt editor must close its template selector",
+  /if \(!visiblePromptEditorOpen\) \{\s*handleEditVisiblePrompt\(\);/u,
+  "Opening the Summary Prompt editor must open it from the visible prompt",
+);
+assert.doesNotMatch(
+  summaryPopoverSource,
+  /templateSelectOpen/u,
+  "The template chooser must not keep its own open state",
 );
 assert.match(
   summaryPopoverSource,
@@ -66,3 +74,48 @@ assert.match(
   /batchAbortControllerRef\.current\?\.abort\(\);\s*void commitCombinePromptDraftRef\.current\(\);/u,
   "Collapsing the Chat Summary drawer or closing Chat Settings must still persist the Combine draft",
 );
+
+// Saving the summary prompts locks every prompt control until the save finishes, so a second change can't overwrite it.
+{
+  const promptSettingsPersistSource = summaryPopoverSource.slice(
+    summaryPopoverSource.indexOf("const persistPromptTemplates"),
+    summaryPopoverSource.indexOf("const commitCombinePromptDraft"),
+  );
+  const promptSettingsLockIndex = promptSettingsPersistSource.indexOf("promptSettingsSaveLockedRef.current = true");
+  const promptSettingsMutationIndex = promptSettingsPersistSource.indexOf("updateGlobalPromptSettings.mutateAsync");
+  const promptSettingsUnlockIndex = promptSettingsPersistSource.indexOf("promptSettingsSaveLockedRef.current = false");
+  assert.ok(
+    promptSettingsLockIndex >= 0 &&
+      promptSettingsLockIndex < promptSettingsMutationIndex &&
+      promptSettingsMutationIndex < promptSettingsUnlockIndex,
+    "Summary prompt writes must lock before mutation and unlock only afterward",
+  );
+  const summaryPromptControlsSource = summaryPopoverSource.slice(
+    summaryPopoverSource.indexOf("<Tabs"),
+    summaryPopoverSource.indexOf('localizeUi("ui.chat.summarypopover.summaryConnection")'),
+  );
+  assert.equal(
+    summaryPromptControlsSource.match(/disabled=\{promptSettingsSaveLocked\}/gu)?.length,
+    5,
+    "Every prompt option, template row, and open template editor control must use the save lock",
+  );
+  assert.equal(
+    summaryPromptControlsSource.match(/disabled=\{!globalPromptSettingsReady \|\| promptSettingsSaveLocked\}/gu)
+      ?.length,
+    2,
+    "Every prompt-level action must use the save lock",
+  );
+  assert.match(
+    summaryPromptControlsSource,
+    /!hasTemplateDraft \|\|\s*promptSettingsSaveLocked \|\|\s*!globalPromptSettingsReady/u,
+    "The template Save action must use the save lock",
+  );
+  const summaryPromptTemplateRowSource = summaryPopoverSource.slice(
+    summaryPopoverSource.indexOf("interface SummaryPromptTemplateRowProps"),
+  );
+  assert.equal(
+    summaryPromptTemplateRowSource.match(/disabled=\{disabled\}/gu)?.length,
+    4,
+    "Every template-row action must forward its disabled state",
+  );
+}

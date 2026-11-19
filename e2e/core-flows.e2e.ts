@@ -12448,18 +12448,17 @@ test("ElevenLabs exposes scrollable account voices for the shared voice and each
     await openJobSettings(page, "voice");
     const ttsCard = ttsConfigCard(page);
 
-    const allCharactersVoicePicker = ttsCard.getByRole("button", { name: "Shared Voice" });
+    // The voice and speaker lists are the shared Select (#9468): a combobox opening the shared picker window.
+    const allCharactersVoicePicker = ttsCard.getByRole("combobox", { name: "Shared Voice" });
     await allCharactersVoicePicker.click();
-    const voiceList = page.getByTestId("tts-voice-options");
-    await expect(voiceList.getByRole("option")).toHaveCount(49);
-    await expect(voiceList.getByText("Custom Voice 48 (voice-48)", { exact: true })).toBeAttached();
-    await expect(voiceList).toHaveCSS("overflow-y", "scroll");
-    expect(
-      await voiceList.evaluate((element) => ({
-        scrollable: element.scrollHeight > element.clientHeight,
-        gutter: getComputedStyle(element).scrollbarGutter,
-      })),
-    ).toEqual({ scrollable: true, gutter: "stable" });
+    const voiceWindow = page.getByRole("dialog", { name: /^Shared voice$/iu });
+    const voiceList = voiceWindow.locator("[data-picker-list]");
+    // The 48 account voices and the "none" row.
+    await expect(voiceWindow.locator("[data-pick-row]")).toHaveCount(49);
+    await expect(voiceWindow.getByText("Custom Voice 48 (voice-48)", { exact: true })).toBeAttached();
+    expect(await voiceList.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+    // Long lists get the search box, which also finds a voice by the metadata it doesn't show.
+    await expect(voiceWindow.getByRole("searchbox")).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(allCharactersVoicePicker).toBeFocused();
@@ -12467,15 +12466,14 @@ test("ElevenLabs exposes scrollable account voices for the shared voice and each
     await expect(refreshButton).toBeVisible();
     await ttsCard.getByRole("button", { name: "Add voice" }).click();
 
-    const characterPicker = ttsCard.getByRole("button", { name: "Select character or persona" });
+    const characterPicker = ttsCard.getByRole("combobox", { name: "Select character or persona" });
     await characterPicker.click();
-    const characterList = page.getByTestId("tts-character-options");
+    const characterList = page.getByRole("dialog", { name: "Select character or persona", exact: true });
     await expect(characterList).toBeVisible();
-    await expect(characterList).toHaveCSS("overflow-y", "scroll");
-    await expect(characterList.locator("xpath=../..")).toHaveCSS("position", "fixed");
+    await expect(characterList).toHaveCSS("position", "fixed");
     const savesBeforeAssignment = saveCount;
     const fetchesBeforeAssignment = voiceFetchCount;
-    await characterList.getByRole("option", { name: characterName, exact: true }).click();
+    await characterList.locator(`[data-pick-row][title="${characterName}"]`).click();
     await expect(characterPicker).toBeFocused();
     await characterPicker.click();
     await page.keyboard.press("Escape");
@@ -12488,17 +12486,16 @@ test("ElevenLabs exposes scrollable account voices for the shared voice and each
     await expect.poll(() => saveCount, { timeout: 5_000 }).toBeGreaterThan(savesBeforeAssignment);
     await expect.poll(() => voiceFetchCount, { timeout: 5_000 }).toBeGreaterThan(fetchesBeforeAssignment);
 
-    const characterVoicePicker = ttsCard.getByRole("button", { name: /^Voice for / });
+    const characterVoicePicker = ttsCard.getByRole("combobox", { name: /^Voice for / });
     const characterVoiceTriggerBox = await characterVoicePicker.boundingBox();
     await characterVoicePicker.click();
-    const characterVoiceList = page.getByTestId("tts-voice-options");
-    const characterVoiceMenuBox = await characterVoiceList.locator("xpath=../..").boundingBox();
+    const characterVoiceList = page.getByRole("dialog", { name: /^Voice for / });
+    await expect(characterVoiceList).toBeVisible();
+    const characterVoiceMenuBox = await characterVoiceList.boundingBox();
     expect(characterVoiceTriggerBox).not.toBeNull();
     expect(characterVoiceMenuBox).not.toBeNull();
-    // The compact voice menu keeps its 352px reading width and is never narrower than its trigger. In the old side
-    // panel page that made it outgrow the trigger by 40px or more; the Add window that holds the card since #8678
-    // gives the trigger itself more room than that.
-    expect(characterVoiceMenuBox!.width).toBeGreaterThanOrEqual(Math.max(352, characterVoiceTriggerBox!.width) - 0.5);
+    // The shared picker hugs its rows (#9468), never narrower than its trigger.
+    expect(characterVoiceMenuBox!.width).toBeGreaterThanOrEqual(characterVoiceTriggerBox!.width - 0.5);
     await page.keyboard.press("Escape");
     await expect(characterVoicePicker).toBeFocused();
 
