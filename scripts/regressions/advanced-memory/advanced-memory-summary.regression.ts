@@ -98,7 +98,9 @@ const { createFileNativeDB } = await import("../../../packages/server/src/db/fil
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
+const { createAppSettingsStorage } = await import("../../../packages/server/src/services/storage/app-settings.storage.js");
 const {
+  CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
   characterDataSchema,
   createChatSummaryEntry,
   DEFAULT_CHAT_SUMMARY_PROMPT,
@@ -224,6 +226,10 @@ try {
   assert.equal(body.max_output_tokens, 8196, "automated summaries reserve at least 8,196 output tokens");
   assert(body.instructions?.includes(DEFAULT_CHAT_SUMMARY_PROMPT), "scene recaps send the default summary prompt");
   assert.doesNotMatch(body.instructions!, /paragraph/u, "scene recaps ask for no fixed number of paragraphs");
+  assert(
+    body.instructions?.includes("Always return a recap of the supplied events, even when earlier summaries already cover them."),
+    "a recap is required even when earlier summaries cover the scene",
+  );
   assert.equal(
     body.reasoning?.effort,
     "low",
@@ -236,6 +242,21 @@ try {
     records.some((record) => record.kind === "excerpt" && record.content.includes("The frogs sang")),
     "only historical excerpts retain verbatim source text",
   );
+  // A prompt selected in Summaries is sent in place of the default.
+  const appSettings = createAppSettingsStorage(db);
+  const customPrompt = "CUSTOM_SUMMARY_PROMPT: recap the scene as a ballad.";
+  await appSettings.set(
+    CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
+    JSON.stringify({ templates: [{ id: "ballad", name: "Ballad", prompt: customPrompt }], activeTemplateId: "ballad" }),
+  );
+  const customStart = requests.length;
+  await memory.initialize((await createChat("Custom summary prompt")).id);
+  const customRequest = requests
+    .slice(customStart)
+    .find((item) => !item.instructions?.startsWith("Identify scene transitions"))!;
+  assert(customRequest.instructions?.includes(customPrompt), "scene recaps send the prompt selected in Summaries");
+  assert(!customRequest.instructions?.includes(DEFAULT_CHAT_SUMMARY_PROMPT), "a selected prompt replaces the default");
+  await appSettings.remove(CHAT_SUMMARY_PROMPT_SETTINGS_KEY);
   const sharedChat = await createChat("Two characters remember the same history");
   await chats.update(sharedChat.id, { characterIds: ["maukie", "powers"] });
   await chats.patchMetadata(sharedChat.id, {
