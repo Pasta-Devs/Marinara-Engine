@@ -227,8 +227,13 @@ try {
   assert(body.instructions?.includes(DEFAULT_CHAT_SUMMARY_PROMPT), "scene recaps send the default summary prompt");
   assert.doesNotMatch(body.instructions!, /paragraph/u, "scene recaps ask for no fixed number of paragraphs");
   assert(
-    body.instructions?.includes("Always return a recap of the supplied events, even when earlier summaries already cover them."),
+    body.instructions?.includes("Always return a recap, even when earlier summaries already cover these events."),
     "a recap is required even when earlier summaries cover the scene",
+  );
+  assert(
+    !body.instructions?.includes('Return only valid JSON: {"summary":"historical recap"}') &&
+      body.instructions?.includes('Output: {"summary":"historical recap","audience":'),
+    "a scene recap states its JSON once, with the audience",
   );
   assert.equal(
     body.reasoning?.effort,
