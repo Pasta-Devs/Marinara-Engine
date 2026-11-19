@@ -142,6 +142,8 @@ Some attacks and skills carry an element. The first element to hit a target leav
 
 ### Elements
 
+A game uses the classic six elements: fire, ice, lightning, poison, holy and shadow.
+
 Rain and storms on open ground damp fire-like elements and feed lightning-like ones. In a tactical fight, an element hits harder against one it beats and softer against one that beats it.
 
 ## Boss mechanics and loot
