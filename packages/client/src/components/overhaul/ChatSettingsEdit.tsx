@@ -7,8 +7,10 @@
 // movable, resizable window. The arrangement is kept per chat mode.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ExternalLink, Eye, EyeOff, GripVertical, Pencil } from "lucide-react";
+import { ExternalLink, Eye, EyeOff, GripVertical, Pencil, Undo2 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { getDrawerWindowId } from "../../lib/floating-window-layout";
+import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useOverhaulMobile, useOverhaulStore, type OverhaulChatSettingsLayout } from "../../stores/overhaul.store";
 import { OvSeg } from "./LoreEntryParts";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -95,7 +97,7 @@ export function OvChatSettingsHeader({ mode }: { mode: string }) {
   );
 }
 
-type SectionInfo = { id: string; label: string; baseOrder: number; domIndex: number };
+type SectionInfo = { id: string; label: string; baseOrder: number; domIndex: number; poppedOut: boolean };
 
 function readSections(container: HTMLElement | null): SectionInfo[] {
   if (!container) return [];
@@ -106,15 +108,23 @@ function readSections(container: HTMLElement | null): SectionInfo[] {
   );
   children.forEach((child, domIndex) => {
     if (!(child instanceof HTMLElement)) return;
+    // A section in its own window leaves only a hidden anchor here. It stays in the list, so it can be put back.
+    const anchor = child.matches("[data-drawer-anchor]")
+      ? child
+      : child.querySelector<HTMLElement>(":scope > [data-drawer-anchor]");
     // Some sections sit in a wrapper that carries the order; the id is on the section inside.
     const id =
       child.dataset.chatSettingsSection ??
-      child.querySelector<HTMLElement>("[data-chat-settings-section]")?.dataset.chatSettingsSection;
+      child.querySelector<HTMLElement>("[data-chat-settings-section]")?.dataset.chatSettingsSection ??
+      anchor?.dataset.drawerAnchor;
     if (!id) return;
     const label =
-      child.querySelector(".mari-drawer__title")?.textContent?.trim() || child.dataset.ovLabel || id.replace(/-/g, " ");
+      child.querySelector(".mari-drawer__title")?.textContent?.trim() ||
+      anchor?.dataset.drawerTitle ||
+      child.dataset.ovLabel ||
+      id.replace(/-/g, " ");
     const baseOrder = Number.parseFloat(child.style.order) || 0;
-    found.push({ id, label, baseOrder, domIndex });
+    found.push({ id, label, baseOrder, domIndex, poppedOut: !!anchor });
   });
   return found;
 }
@@ -200,12 +210,6 @@ export function OvChatSettingsEditor({
 
   return (
     <div className="ov-cs-edit">
-      <div className="ov-cs-edit__hint">
-        <p>{localizeUi("ui.overhaul.ovchatsettingseditor.dragARowToReorderItClickTheEye")}</p>
-        <button type="button" className="ov-ed__link" onClick={() => setLayout(mode, null)}>
-          {localizeUi("chat.settings.resetViewConfirm.confirm")}
-        </button>
-      </div>
       {/* On phones and tablets the drawer is always a bottom sheet, so docking,
           floating and width don't apply. */}
       {overhaulMobile ? null : (
@@ -291,21 +295,41 @@ export function OvChatSettingsEditor({
               >
                 {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
-              <button
-                type="button"
-                className="ov-cs-edit__pop"
-                title={localizeUi("ui.overhaul.ovchatsettingseditor.openValue1InItsOwnWindow", {
-                  value1: section.label,
-                })}
-                aria-label={localizeUi("ui.overhaul.ovchatsettingseditor.openValue1InItsOwnWindow", {
-                  value1: section.label,
-                })}
-                onClick={() => popOutSection(section.id)}
-              >
-                <ExternalLink size={13} />
-              </button>
+              {section.poppedOut ? (
+                <button
+                  type="button"
+                  className="ov-cs-edit__pop"
+                  data-ov-cs-put-back={section.id}
+                  title={localizeUi("ui.overhaul.ovchatsettingseditor.putValue1Back", { value1: section.label })}
+                  aria-label={localizeUi("ui.overhaul.ovchatsettingseditor.putValue1Back", { value1: section.label })}
+                  onClick={() =>
+                    useFloatingWindowStore.getState().dockDrawer(getDrawerWindowId(CHAT_SETTINGS_WINDOW_ID, section.id))
+                  }
+                >
+                  <Undo2 size={13} />
+                </button>
+              ) : overhaulMobile ? null : (
+                // Phones and tablets show every section in the sheet: there is no window to pop one into.
+                <button
+                  type="button"
+                  className="ov-cs-edit__pop"
+                  title={localizeUi("ui.overhaul.ovchatsettingseditor.openValue1InItsOwnWindow", {
+                    value1: section.label,
+                  })}
+                  aria-label={localizeUi("ui.overhaul.ovchatsettingseditor.openValue1InItsOwnWindow", {
+                    value1: section.label,
+                  })}
+                  onClick={() => popOutSection(section.id)}
+                >
+                  <ExternalLink size={13} />
+                </button>
+              )}
               <span className="ov-cs-edit__label">{section.label}</span>
-              {hidden ? <small>{localizeUi("game.combat.ruleset.stance.hidden")}</small> : null}
+              {section.poppedOut ? (
+                <small>{localizeUi("ui.overhaul.ovchatsettingseditor.inItsOwnWindow")}</small>
+              ) : hidden ? (
+                <small>{localizeUi("game.combat.ruleset.stance.hidden")}</small>
+              ) : null}
             </li>
           );
         })}

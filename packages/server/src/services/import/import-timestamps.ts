@@ -97,3 +97,39 @@ export function ensureTimestampAfter(candidate: unknown, previous: unknown): str
   if (!normalizedPrevious || normalizedCandidate > normalizedPrevious) return normalizedCandidate;
   return new Date(new Date(normalizedPrevious).getTime() + 1).toISOString();
 }
+
+// Cards can claim any date; one before character cards existed or in the future is ignored.
+const EARLIEST_CARD_DATE = "2015-01-01T00:00:00.000Z";
+const CARD_DATE_FUTURE_SLACK_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The creation date a character card carries, if any: V3 `data.creation_date` (Unix seconds) or the
+ * `create_date` SillyTavern writes beside the card (or inside `data`).
+ */
+export function cardCreationTimestamp(raw: Record<string, unknown>, nowMs = Date.now()): string | null {
+  const data = raw.data && typeof raw.data === "object" ? (raw.data as Record<string, unknown>) : {};
+  for (const value of [data.creation_date, raw.create_date, data.create_date]) {
+    // V3 writes 0 when the date is unknown.
+    if (value === 0 || value === "0") continue;
+    const parsed = parseTrustedTimestamp(value);
+    if (!parsed) continue;
+    if (parsed < EARLIEST_CARD_DATE || Date.parse(parsed) > nowMs + CARD_DATE_FUTURE_SLACK_MS) continue;
+    return parsed;
+  }
+  return null;
+}
+
+/**
+ * Dates for a character made from an imported card. Created is when the card was made: its own creation
+ * date, else the file's date sent with the upload, else now. Updated is always the import time, so every
+ * card imported (or updated) in one go shows the same "Updated" time.
+ */
+export function characterCardImportTimestamps(
+  raw: Record<string, unknown>,
+  overrides?: TimestampOverrides | null,
+  nowMs = Date.now(),
+): { createdAt: string; updatedAt: string } {
+  const updatedAt = new Date(nowMs).toISOString();
+  const createdAt = cardCreationTimestamp(raw, nowMs) ?? normalizeTimestampOverrides(overrides)?.createdAt ?? updatedAt;
+  return { createdAt: createdAt > updatedAt ? updatedAt : createdAt, updatedAt };
+}

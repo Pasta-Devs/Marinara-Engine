@@ -2603,23 +2603,30 @@ export function ChatSettingsDrawer({
       confirmLabel: localizeUi("chat.settings.resetViewConfirm.confirm"),
       cancelLabel: localizeUi("chat.delete.dialog.cancel"),
     });
-    if (confirmed) resetView();
+    if (confirmed) {
+      resetView();
+      // Sections hidden or reordered in Edit come back too (the new layout keeps that arrangement per chat mode).
+      useOverhaulStore.getState().setChatSettingsLayout(chatMode, null);
+    }
     if (button.isConnected) button.focus({ preventScroll: true });
   };
+  const resetViewButton = (
+    <button
+      type="button"
+      data-chat-help="reset-view"
+      data-chat-settings-control="reset-view"
+      aria-label={resetViewLabel}
+      title={resetViewLabel}
+      className="mari-window__control"
+      onClick={(event) => void handleResetView(event.currentTarget)}
+    >
+      <RotateCcw size="0.8125rem" />
+    </button>
+  );
   // Reset View and the favorite arrangement, then the Tracker Panel dice and window controls.
   const headerControls = (
     <>
-      <button
-        type="button"
-        data-chat-help="reset-view"
-        data-chat-settings-control="reset-view"
-        aria-label={resetViewLabel}
-        title={resetViewLabel}
-        className="mari-window__control"
-        onClick={(event) => void handleResetView(event.currentTarget)}
-      >
-        <RotateCcw size="0.8125rem" />
-      </button>
+      {resetViewButton}
       <ChatWindowFavoriteButton
         mode={chatMode}
         hintsDismissed={metadata.chatSettingsHintDismissed === true}
@@ -2819,7 +2826,8 @@ export function ChatSettingsDrawer({
         title={localizeUi("chat.toolbar.settings")}
         titleIcon={<Settings2 size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />}
         titleAccessory={overhaulActive ? <OvChatSettingsHeader mode={chatMode} /> : helpLayoutButton}
-        headerControls={ovDocked ? null : headerControls}
+        // Docked keeps a quiet header; Edit still offers Reset View there.
+        headerControls={ovDocked ? (ovEditing ? resetViewButton : null) : headerControls}
         closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
         {...windowProps}
         // Sidebar presses belong to the modeless profile editor while it is open.
