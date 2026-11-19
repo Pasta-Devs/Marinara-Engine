@@ -688,6 +688,9 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal("presentCharacters" in persona, false);
       assert.deepEqual(Object.keys(persona.fieldLocks), ["persona.status"]);
 
+      // An agent type that names an Object.prototype key is an ordinary non-tracker.
+      assert.equal(compact(["constructor"]).playerStats.status, "Soaked");
+
       const quest = compact(["quest"]);
       assert.deepEqual(Object.keys(quest.playerStats), ["activeQuests"]);
       assert.equal(quest.playerStats.activeQuests[0].name, "The Man Called Maukie");

@@ -478,7 +478,8 @@ const NON_TRACKER_CONTEXT_SECTIONS: readonly GameStateContextSection[] = [
 function gameStateContextSections(agentTypes: string[]): Set<GameStateContextSection> {
   const sections = new Set<GameStateContextSection>();
   for (const type of agentTypes) {
-    for (const section of TRACKER_CONTEXT_SECTIONS[type] ?? NON_TRACKER_CONTEXT_SECTIONS) sections.add(section);
+    const own = Object.hasOwn(TRACKER_CONTEXT_SECTIONS, type) ? TRACKER_CONTEXT_SECTIONS[type] : undefined;
+    for (const section of own ?? NON_TRACKER_CONTEXT_SECTIONS) sections.add(section);
   }
   return sections;
 }
