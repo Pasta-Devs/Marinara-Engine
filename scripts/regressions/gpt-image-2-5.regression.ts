@@ -63,7 +63,14 @@ for (const model of ["gpt-image-1", "gpt-image-1-mini", "gpt-image-1.5", "gpt-im
   assert.equal(resolveConnectionImageQuality({ model, imageGenerationQuality: "high" }), "high");
 }
 assert.equal(imageGenerationQualitySchema.safeParse("ultra").success, false);
-assert.equal(resolveSpriteNativeTransparency("gpt-image-2", true), false);
+assert.equal(
+  resolveSpriteNativeTransparency({ model: "gpt-image-2", baseUrl: "https://api.openai.com/v1" }, true),
+  false,
+);
+assert.equal(
+  resolveSpriteNativeTransparency({ model: "gpt-image-1.5", baseUrl: "https://api.openai.com/v1" }, true),
+  true,
+);
 for (const model of ["gpt-image-2.5-flare", "gpt-image-2"]) {
   const fallback = await resolveImageConnectionFallback(
     {

@@ -283,6 +283,23 @@ function animatedSpritePromptReviewId(expression: string): string {
 }
 
 /** An image connection row as far as its see-through pictures go (see imageConnectionMakesTransparentPicture). */
+/**
+ * Fit a finished sprite into the requested size. A see-through picture is padded with see-through bars; a solid one
+ * (left as drawn, or never cleaned) with its own corner color, so a later cleanup still sees one flat background.
+ */
+export async function fitSpriteToSize(buffer: Buffer, width: number, height: number): Promise<Buffer> {
+  const sharp = await getSharp();
+  const metadata = await sharp(buffer).metadata();
+  if (!metadata.width || !metadata.height || (metadata.width === width && metadata.height === height)) return buffer;
+  const transparent = await hasSpriteTransparency(buffer).catch(() => false);
+  let background = { r: 0, g: 0, b: 0, alpha: 0 };
+  if (!transparent) {
+    const corner = await sharp(buffer).ensureAlpha().extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer();
+    background = { r: corner[0] ?? 255, g: corner[1] ?? 255, b: corner[2] ?? 255, alpha: 1 };
+  }
+  return sharp(buffer).resize(width, height, { fit: "contain", background }).png().toBuffer();
+}
+
 export type SpriteTransparencyConnection = {
   model?: string | null;
   baseUrl?: string | null;
@@ -2629,22 +2646,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                 });
 
                 let spriteBuffer: Buffer = Buffer.from(imageResult.base64, "base64");
-                const sharp = await getSharp();
-                const metadata = await sharp(spriteBuffer).metadata();
-                if (metadata.width !== targetWidth || metadata.height !== targetHeight) {
-                  spriteBuffer = await sharp(spriteBuffer)
-                    .resize(targetWidth, targetHeight, {
-                      fit: "contain",
-                      background: nativeTransparentPng
-                        ? { r: 0, g: 0, b: 0, alpha: 0 }
-                        : shouldCleanBackground
-                          ? { r: plan.matte.rgb.red, g: plan.matte.rgb.green, b: plan.matte.rgb.blue, alpha: 1 }
-                          : { r: 255, g: 255, b: 255 },
-                    })
-                    .png()
-                    .toBuffer();
-                }
-
+                // Judge the background on the picture the model drew, before any padding adds see-through bars.
                 let opaque: true | undefined;
                 try {
                   const settled = await settleSpriteBackground(spriteBuffer, {
@@ -2661,6 +2663,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                     expression,
                   );
                 }
+                spriteBuffer = await fitSpriteToSize(spriteBuffer, targetWidth, targetHeight);
 
                 cells.push({ expression, base64: spriteBuffer.toString("base64"), ...(opaque ? { opaque } : {}) });
               } catch (expressionErr: any) {
@@ -2736,22 +2739,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                 });
 
                 let spriteBuffer: Buffer = Buffer.from(imageResult.base64, "base64");
-                const sharp = await getSharp();
-                const meta = await sharp(spriteBuffer).metadata();
-                if (meta.width && meta.height && (meta.width !== targetSize || meta.height !== targetSize)) {
-                  spriteBuffer = await sharp(spriteBuffer)
-                    .resize(targetSize, targetSize, {
-                      fit: "contain",
-                      background: nativeTransparentPng
-                        ? { r: 0, g: 0, b: 0, alpha: 0 }
-                        : shouldCleanBackground
-                          ? { r: plan.matte.rgb.red, g: plan.matte.rgb.green, b: plan.matte.rgb.blue, alpha: 1 }
-                          : { r: 255, g: 255, b: 255 },
-                    })
-                    .png()
-                    .toBuffer();
-                }
-
+                // Judge the background on the picture the model drew, before any padding adds see-through bars.
                 let opaque: true | undefined;
                 try {
                   const settled = await settleSpriteBackground(spriteBuffer, {
@@ -2764,6 +2752,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                 } catch (bgErr) {
                   logger.warn(bgErr, "Expression sprite background cleanup failed; continuing with original image");
                 }
+                spriteBuffer = await fitSpriteToSize(spriteBuffer, targetSize, targetSize);
 
                 cells.push({
                   expression,

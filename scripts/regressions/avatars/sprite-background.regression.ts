@@ -598,4 +598,18 @@ console.info("Sprite background regression passed.");
     cleanupStrength: 35,
   });
   assert.equal(untouched.buffer, onGreenPng);
+
+  // A solid picture at another size is still reported, and its padding keeps one flat background for a later
+  // cleanup: the check runs on what the Model drew, before the picture is fitted.
+  const { fitSpriteToSize } = await import("../../../packages/server/src/routes/sprites.routes.js");
+  const fitted = await fitSpriteToSize(reported.buffer, size, size + 16);
+  const fittedPixels = await decodeRaw(fitted);
+  assert.equal(fittedPixels.info.height, size + 16);
+  assert.deepEqual(
+    [pixelAt(fittedPixels.data, size, 1, 1).alpha, pixelAt(fittedPixels.data, size, 1, 1).green],
+    [255, 255],
+    "a solid picture is padded with its own background colour, not see-through bars",
+  );
+  const fittedCutout = await decodeRaw(await fitSpriteToSize(cutoutPng, size, size + 16));
+  assert.equal(pixelAt(fittedCutout.data, size, 1, 1).alpha, 0, "a see-through picture gets see-through bars");
 }
