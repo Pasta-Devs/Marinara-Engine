@@ -16,6 +16,14 @@ Mit einem Laufintervall läuft ein Agent nur einmal alle paar Nutzer- und Assist
 
 In Roleplay legst du das Laufintervall von Illustrator pro Chat fest, auf seiner Karte in **Chat Settings**. Der Wert aus seiner Einrichtung ist der Standard für Chats ohne eigenen Wert. Illustrator akzeptiert auch **0**: Dann läuft er nie automatisch und bleibt für Galerieaktionen verfügbar.
 
+<a id="activation-keywords-and-questions"></a>
+
+### Aktivierungs-Schlüsselwörter und Aktivierungsfragen
+
+Die meisten Pipeline-Agenten haben denselben Abschnitt **Activation Keywords** (Aktivierungs-Schlüsselwörter) wie [eigene Agenten](custom-agents.md#activation-keywords). Füll ihn aus, damit der Agent nur in passenden Zügen läuft. Gib Prose Guardian zum Beispiel dieselben Wörter wie in seiner Liste **Banned Words** (verbotene Wörter) und setz **Scan Depth** auf 1. Dann läuft er nur, wenn eines davon in der neuen Antwort erscheint. Schlüsselwörter zählen auch innerhalb eines Wortes und unabhängig von Groß- und Kleinschreibung: `voss` passt auch zu `Vossberg`. Das kostet nur einen zusätzlichen Lauf. Mit einer [Aktivierungsfrage](custom-agents.md#activation-questions) kannst du den Lauf stattdessen von der Antwort deines Entscheidungsmodells auf eine Ja-oder-Nein-Frage abhängig machen.
+
+Bleibt der Abschnitt leer, läuft der Agent wie bisher. Ein Tracker, der einen Zug überspringt, behält seinen letzten Stand bis zum nächsten Lauf. Storyboard, Illustrator, Knowledge Retrieval und Knowledge Router haben eigene Aktivierungsregeln und zeigen diesen Abschnitt nicht.
+
 ## Apps
 
 Apps haben einen eigenen Tab in **Home**. Du nutzt sie eigenständig, statt sie einem Chat hinzuzufügen. Nach der Installation bittet jede um einen Neustart.

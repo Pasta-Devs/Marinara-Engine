@@ -26,7 +26,7 @@ Für einen ersten Versuch wähle **Static Result**: Dieser Typ braucht sonst nic
 Regeln für Namen und Beschreibungen:
 
 - Der Name ist 1 bis 100 Zeichen lang, die Beschreibung 1 bis 500 Zeichen.
-- Zwei Tools dürfen nicht denselben Namen tragen, und ein Tool darf keinen eingebauten Namen wie `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` oder `update_about_me` verwenden. Bei einer Kollision erscheint eine Meldung wie `"your_name" is a reserved built-in tool name.`
+- Zwei Tools dürfen nicht denselben Namen tragen, und ein Tool darf keinen eingebauten Namen wie `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`, `web_fetch` oder `update_about_me` verwenden. Bei einer Kollision erscheint eine Meldung wie `"your_name" is a reserved built-in tool name.`
 - Verlässt du den Editor mit ungespeicherten Änderungen, bietet ein Banner **Keep editing**, **Discard** oder **Save & close** an.
 
 Oben im Tab **Tools** findest du:
@@ -179,6 +179,8 @@ Ein Tool zu erstellen bringt die KI noch nicht dazu, es zu nutzen. Du schaltest 
 4. Prüfe, ob es funktioniert: Frag die KI etwas, das dein Tool beantwortet, beim Beispiel `store_hours` etwa „Wie sind eure Öffnungszeiten?“. Die Antwort sollte den Text des Tools verwenden.
 
 Ist **Enable Tool Use** eingeschaltet und darunter nichts hinzugefügt, kann der Chat jedes global aktivierte Tool verwenden, das er unterstützt: die eingebauten Tools und jedes eigene Tool, dessen Schalter im Tab **Tools** eingeschaltet ist und dessen Ordner nicht pausiert ist. Game-Chats brauchen für `search_lorebook` zusätzlich **Let the GM search lore** (GM im Weltwissen suchen lassen).
+
+> **Hinweis:** Manche eingebauten Tools bleiben auch bei eingeschaltetem **Enable Tool Use** aus, bis du sie auswählst. Dazu gehört `web_fetch`, weil die KI damit selbst eine Webadresse zum Lesen auswählen kann. Das gilt auch für die Spotify-Tools.
 
 So begrenzt du einen Chat auf eine Auswahl:
 

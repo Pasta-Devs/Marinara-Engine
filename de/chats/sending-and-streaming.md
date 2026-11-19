@@ -15,7 +15,7 @@ Wenn es nicht funktioniert hat: Ist für den Chat kein Modell eingestellt, schl�
 
 ### Send on Enter
 
-Du findest die Einstellung unter **Settings → General → Input & Editing**. Pro Chat-Modus gibt es einen Schalter.
+Du findest die Einstellung unter **Settings → General → Input & Editing**. Pro Chat-Modus gibt es einen Schalter. Es wird auf dem jeweiligen Gerät gespeichert. Auf dem Handy kann die Einstellung also anders sein als am Computer.
 
 | Chat-Modus | Standard | Wenn aus |
 | --- | --- | --- |

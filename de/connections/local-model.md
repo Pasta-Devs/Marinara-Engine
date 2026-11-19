@@ -67,7 +67,6 @@ Auf Apple Silicon heißt **Find files** stattdessen **Validate repo**, und das R
 | **Use for tracker agents (roleplay)** | Hält das Modell für Tracker-Agenten am Laufen. Standardmäßig aus. |
 | **Use for game scene analysis** | Hält es für Szeneneffekte im Game Mode wie Hintergründe, Musik und Wetter am Laufen. Standardmäßig an. |
 | **Use the built-in model for all tracker agents** | Richtet alle eingebauten Tracker-Agenten auf dieses Modell aus. Die Agenten selbst schaltet es nicht ein. |
-| **Change in Defaults** | Öffnet den Bereich **Jobs**, in dem du dem Modell weitere Aufgaben geben kannst. |
 
 Sind beide Schalter aus, startet das Modell nicht von selbst. Es startet, sobald du einen davon einschaltest oder ein Chat oder eine Aufgabe es nutzt. Wie du Agenten aktivierst, steht unter [Memory Recall und Chat-Zusammenfassungen](../agents/memory.md).
 
@@ -147,7 +146,7 @@ Marinara lädt nur die llama.cpp-, MLX- und uv-Versionen herunter, die für dein
 
 Das **Local speech model** (lokales Sprachmodell) wandelt für Conversation-Anrufe deine Stimme auf deinem eigenen Rechner in Text um. Es ist ein Whisper-Modell, also ein Speech-to-Text-Modell. Es braucht das Agentenpaket **Calls**, das du unter **Agents → Agent Organizer** installierst.
 
-1. Öffne das Panel **Connections** und klick unter **On this device** (auf diesem Gerät) auf den Eintrag **Speech to text** (Spracherkennung).
+1. Öffne das Panel **Connections** und klick auf **Local speech model** in der Karte **On this device** (auf diesem Gerät).
 2. Wähl unter **Local speech model** ein Modell im Dropdown-Menü.
 3. Klick auf **Download Whisper**.
 4. Warte auf **Ready**. Starte Marinara vollständig neu, bevor du Calls nutzt.

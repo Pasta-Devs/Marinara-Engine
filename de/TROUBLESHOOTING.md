@@ -240,7 +240,7 @@ Das **Built-in model** (eingebautes Modell) läuft ohne API-Key auf deinem Compu
 1. Öffne **Chat Settings → Memory Recall** und prüf, ob **Enable Memory Recall** eingeschaltet ist.
 2. Öffne **Access memories for this chat**. Sieh dir unter **Memories for This Chat** den Status jedes Abschnitts an.
 3. **Waiting for vector** bedeutet, dass die Erinnerung noch verarbeitet wird. Warte und schreib dann weiter.
-4. **Embedding unavailable** bedeutet, dass keine Embedding-Quelle funktioniert. Richte ein Embedding-Konto ein oder lass das eingebaute Modell laden. Soll eine Quelle für jeden Chat gelten, wähl sie unter **Embeddings** im Bereich **Defaults** (Standardwerte) von **Connections** aus.
+4. **Embedding unavailable** bedeutet, dass keine Embedding-Quelle funktioniert. Richte ein Embedding-Konto ein oder lass das eingebaute Modell laden. Soll eine Quelle für jeden Chat gelten, wähl sie für die Aufgabe **Embeddings** im Bereich **Jobs** (Aufgaben) von **Connections** aus.
 
 Eine Erinnerung entsteht erst nach mindestens 5 neuen Nachrichten. Recall zeigt nur Erinnerungen, die eng zu deiner neuen Nachricht passen, und kann deshalb nichts liefern, obwohl Erinnerungen vorhanden sind.
 
@@ -321,9 +321,9 @@ Liefert das Modell fehlerhaftes JSON (strukturierten Text), öffnet Marinara das
 
 ## Stimme, Anrufe und TTS
 
-- **Charaktere sprechen in einem Anruf nicht.** Text to Speech (Sprachausgabe) ist nicht eingerichtet. Öffne **Connections → Text to Speech**, schalte es ein, wähl eine Quelle, trag deinen Key ein, such eine Stimme aus und speichere. Ein Charakter ohne Stimme erscheint nur als Text.
-- **Die Sprachausgabe bricht mit „No audio after N s“ ab.** Dein Sprachserver ist langsamer, als Marinara wartet, was bei einem lokalen Server auf einem Laptop häufig vorkommt. `N` ist dein aktuelles Zeitlimit. Erhöh **Request timeout (seconds)** unter **Connections → Text to Speech** oder in dem Audio-Konto, das die Meldung nennt. Siehe [Zeitlimit für Anfragen](media/tts-setup.md#request-timeout).
-- **Das Mikrofon funktioniert nicht.** Installier **Calls** über **Agents → Agent Organizer**. Öffne dann **Connections → Speech to text**, such unter **On this device** (auf diesem Gerät) nach **Local speech model**, wähl ein Whisper-Modell und klick auf **Download Whisper**. Firefox braucht das, weil ihm die Spracherkennung im Browser fehlt. Wenn du Calls deinstallierst, werden seine Whisper-Modelle gelöscht. Du kannst auch einen eigenen Server nutzen: Siehe [Einen eigenen Speech-to-Text-Server nutzen](conversation/calls.md#use-your-own-speech-to-text-server).
+- **Charaktere sprechen in einem Anruf nicht.** Für die Aufgabe **Voice** (Stimme) ist kein Modell gewählt. Öffne **Connections**, klick im Bereich **Jobs** auf die Zeile **Voice** und wähl ein Sprachmodell. Klick dann auf das Zahnrad daneben und wähl eine Stimme. Ein Charakter ohne Stimme erscheint nur als Text.
+- **Die Sprachausgabe bricht mit „No audio after N s“ ab.** Dein Sprachserver ist langsamer, als Marinara wartet, was bei einem lokalen Server auf einem Laptop häufig vorkommt. `N` ist dein aktuelles Zeitlimit. Erhöh **Request timeout (seconds)** unter **More** (Mehr) in **Voice settings** (Stimmeinstellungen; das Zahnrad auf der Zeile **Voice** im Bereich **Jobs**) oder im Fenster **Edit model** (Modell bearbeiten) des Audiomodells, das die Meldung nennt. Siehe [Zeitlimit für Anfragen](media/tts-setup.md#request-timeout).
+- **Das Mikrofon funktioniert nicht.** Installier **Calls** über **Agents → Agent Organizer**. Öffne dann **Connections**, such in der Karte **On this device** (auf diesem Gerät) nach **Local speech model**, wähl ein Whisper-Modell und klick auf **Download Whisper**. Firefox braucht das, weil ihm die Spracherkennung im Browser fehlt. Wenn du Calls deinstallierst, werden seine Whisper-Modelle gelöscht. Du kannst auch einen eigenen Server nutzen: Siehe [Einen eigenen Speech-to-Text-Server nutzen](conversation/calls.md#use-your-own-speech-to-text-server).
 - **Local Whisper is disabled in Lite mode.** Das Lite-Image kann das lokale Sprachmodell nicht ausführen. Nutz eine vollständige Installation.
 
 ### Der Spotify-Login des Music DJ scheitert bei einer Remote- oder Netzwerkinstallation

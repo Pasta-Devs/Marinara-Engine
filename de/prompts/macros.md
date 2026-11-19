@@ -21,6 +21,8 @@ Makros laufen innerhalb von Marinara und brauchen weder Einrichtung noch API-Key
 - Preset-Variablen (das Auffangmuster `{{NAME}}`) brauchen ein Prompt-Preset, das sie definiert. Siehe [Preset-Variablen](preset-variables.md).
 - Das Agent-Makro `{{agent::TYPE}}` zeigt erst dann Text, wenn der passende Agent gelaufen ist und eine Ausgabe erzeugt hat.
 
+<a id="identity-character-and-persona-macros"></a>
+
 ## Makros für Identität, Charakter und Persona
 
 Diese Makros ziehen Namen und Kartenfelder der sprechenden Person und des antwortenden Charakters heran. Der User bist du (beziehungsweise deine aktive Persona). Der Charakter ist der Bot, der antwortet.

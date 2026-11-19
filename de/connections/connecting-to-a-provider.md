@@ -15,12 +15,14 @@ Bevor du anfängst, hol dir einen API-Key von dem Dienst, den du nutzen willst. 
 Bei den meisten Diensten musst du dich erst registrieren, bei manchen auch Guthaben aufladen, bevor ein Key funktioniert. Andere Dienste findest du unter [Unterstützte KI-Anbieter](providers-reference.md). Wie du ohne Key ein Modell auf deinem eigenen Rechner nutzt, steht unter [Eingebautes Modell einrichten](local-model.md).
 
 1. Klick in der oberen Leiste auf **Connections** (Verbindungen). Das Panel öffnet sich rechts. Hast du noch keine Konten, fragt es **Where do your models come from?** und zeigt einige Dienste. Klick auf einen Dienst, nicht auf **Built-in model** (eingebautes Modell). Das Fenster **Add account** öffnet sich direkt beim Schritt für den Key. Mach bei Schritt 4 weiter.
-2. Klick auf **Add** (Hinzufügen). Das Fenster **Add account** öffnet sich.
-3. Klick auf den gewünschten Dienst. Um ihn zu finden, tipp in das Feld **Search providers** (Anbieter suchen). Die Liste hat die Abschnitte **Chat**, **Images & video** (Bilder und Video), **Voice** (Stimme) und **Decisions** (Entscheidungen). Ein normales Chat-Modell findest du unter **Chat**.
+2. Klick auf **Add** (Hinzufügen). Das Fenster **Add account** öffnet sich mit einer gemeinsamen Liste aller Dienste.
+3. Klick auf den gewünschten Dienst. Such im Feld **Search providers** (Anbieter suchen) oder filtere mit **Text**, **Image** (Bild), **Video** oder **Voice** (Stimme). Jede Kachel zeigt, welche Typen der Dienst anbietet.
 4. Klick auf **API key** und füge deinen Key ein. Klick auf die Schaltfläche mit dem Auge, um zu prüfen, ob du den Key vollständig eingefügt hast.
 5. Klick auf **Connect** (Verbinden). Marinara testet den Key. Klappt es, siehst du **Connected** und die Zahl der gefundenen Modelle.
-6. Wie es weitergeht, hängt davon ab, ob du schon ein Main-Modell hast. Main ist die Aufgabe, deine Chat-Antworten zu schreiben.
+6. Unter **Found in … — use it for:** steht jede Zeile für eine Aufgabe wie **Main** oder **Images**. Hak die Aufgaben an, die das gefundene Modell übernehmen soll. Hat der Dienst keine Modellliste, tipp die Modell-ID in die Zeile. Klick auf **Done** (Fertig) oder auf **Skip** (Überspringen), um das Konto ohne Aufgaben zu speichern.
+7. Wie es weitergeht, hängt davon ab, ob du schon ein Main-Modell hast. Main ist die Aufgabe, deine Chat-Antworten zu schreiben.
    - **Noch kein Main-Modell, oder du hast Add aus einem neuen Chat geöffnet:** Das Fenster zeigt die Modelle des Dienstes. Modelle mit **Recommended** (empfohlen) stehen oben. Klick auf ein Modell, um es hinzuzufügen, oder tipp einen Namen in **Search or enter model ID…** (Modell-ID suchen oder eingeben). Weißt du nicht, welches du nehmen sollst, nimm eines mit **Recommended**. Du kannst es später ändern. Lass **Make … my Main model** (… zu meinem Main-Modell machen) angehakt. Die Option erscheint nur, wenn du noch kein Main-Modell hast. Hast du Add aus einem neuen Chat geöffnet und schon ein Main-Modell, erscheint stattdessen die Schaltfläche **Set … as Main** (… als Main festlegen). Klick dann auf **Done** (Fertig) oder, aus einem neuen Chat heraus, auf **Start chatting** (Chat beginnen).
+   - **Du hast Add aus einer Aufgabenauswahl geöffnet:** Das Fenster schließt sich und die Aufgabe erscheint wieder mit dem neuen Modell in der Liste.
    - **Du hast schon ein Main-Modell:** Das Fenster schließt sich, und eine Meldung sagt, dass das Konto mit seiner Zahl an Modellen hinzugefügt wurde. Um weitere Modelle hinzuzufügen, klick am Konto auf **⋯** und wähl **Add model** (Modell hinzufügen).
 
 Das Panel zeigt dein Konto. **Connected** in Schritt 5 bedeutet bereits, dass der Key funktioniert. Ist das neue Modell dein Main-Modell, starte einen Chat und schick eine Nachricht: Kommt eine Antwort, funktioniert alles. Hattest du schon ein Main-Modell, nutzen neue Chats weiterhin dieses. Um das neue Konto zu nutzen, füge ihm ein Modell hinzu (**⋯** → **Add model**) und wähl dieses Modell dann für einen Chat oder eine Aufgabe (siehe [Das Modell für jede Aufgabe wählen](#choosing-the-model-for-each-job)).
@@ -68,12 +70,12 @@ Eine Aufgabe ist etwas, das ein Modell für dich erledigt. Der Bereich **Jobs** 
 | --- | --- |
 | **Chat** | **Main** schreibt die Antworten in deinen Chats. **Agents** (Agenten) betreibt die Hilfsagenten. **Impersonate** schreibt in deinem Namen. |
 | **Omnibar** | **Professor Mari** und **Quick answers** (schnelle Antworten). |
-| **Pictures & sound** (Bild und Ton) | **Images** (Bilder), **Video**, **Voice (Text to Speech)** und, sofern verfügbar, **Dictation (Speech to Text)**. |
+| **Pictures & sound** (Bild und Ton) | **Images** (Bilder), **Video**, **Voice** und, sofern verfügbar, **Dictation**. |
 | **Behind the scenes** (hinter den Kulissen) | **Decision**, **Embeddings** und **Image reading** (Bilder lesen). |
 
-Jede Zeile zeigt das Modell, das die Aufgabe übernimmt, oder was die Aufgabe ohne Modell tut, etwa **Follows Main** oder **Off**. Eine Aufgabe, die ein Modell braucht, zeigt **Choose a model**. Klick auf **Jobs**, um den Bereich einzuklappen.
+Jede Zeile zeigt das Modell, das die Aufgabe übernimmt, oder was die Aufgabe ohne Modell tut, etwa **Follows Main** oder **Off**. Eine unbelegte Aufgabe zeigt **N models found** mit **Pick** (Auswählen) oder **None in your accounts** mit **Add**. Die Auswahl zeigt die passenden Modelle aller Konten. **Add** öffnet **Add account** und führt dich danach zur Aufgabe zurück. Klick auf **Jobs**, um den Bereich einzuklappen.
 
-Um das Modell für eine Aufgabe zu ändern, klick auf ihre Zeile. Dann öffnet sich **Model for** (Modell für) für diese Aufgabe – außer bei drei Zeilen. **Decision** und **Embeddings** öffnen eigene Bedienelemente (siehe [Decision-Modelle](decision-models.md) und [Unterstützte KI-Anbieter](providers-reference.md#embeddings)). **Dictation (Speech to Text)** öffnet die Spracheinrichtung.
+Um das Modell für eine Aufgabe zu ändern, klick auf ihre Zeile. Dann öffnet sich **Model for** (Modell für) für diese Aufgabe – außer bei drei Zeilen. **Decision** und **Embeddings** öffnen eigene Bedienelemente (siehe [Decision-Modelle](decision-models.md) und [Unterstützte KI-Anbieter](providers-reference.md#embeddings)). **Dictation** (Diktat) öffnet die Einrichtung der Spracherkennung. **Voice** und **Dictation** haben außerdem ein Zahnrad für ihr Einstellungsfenster. Wenn du ein **Voice**-Modell auswählst, schaltet sich die Sprachausgabe ein.
 
 In **Model for**:
 

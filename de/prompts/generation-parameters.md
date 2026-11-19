@@ -42,6 +42,8 @@ Jeder numerische Parameter hat ein Eingabefeld und einen Send-Schalter (siehe un
 - Ist der Send-Schalter an, fordert **Off** den Dienst auf, das Nachdenken abzuschalten, sofern das Modell das bekanntermaßen unterstützt. Manche Modelle können das Nachdenken nicht abschalten und liefern womöglich trotzdem Reasoning zurück. Soll gar nicht nachgedacht werden, nimm ein Modell ohne Denkmodus.
 - Ist der Send-Schalter aus, geht keine Reasoning-Vorgabe raus, und der Dienst nutzt seinen eigenen Standard.
 
+MiniMax M3.1 Flash auf NanoGPT denkt immer nach. Zur Wahl stehen **Low** bis **Max**. Ohne Vorgabe nutzt NanoGPT **Max**. War zuvor **Off** gespeichert, sendet Marinara **Low**.
+
 **Verbosity** legt fest, wie lang und detailliert Antworten ausfallen sollen: **None**, **Low**, **Medium** oder **High**. Nur manche Modelle werten die Einstellung aus.
 
 ## Tuning-Tipps
@@ -156,7 +158,9 @@ Die Zeile **Effective** neben einem Parameter zeigt den Wert, der sich durchsetz
 
 ## Parameter für Agenten
 
-Agentenaufrufe nutzen die **Chat defaults**, die in dem Konto gespeichert sind, über das sie laufen: im eigenen Konto des Agenten oder im Konto des Chats, wenn der Agent keines hat. Send-Schalter und Modellgrenzen gelten wie bei einer Chat-Antwort. Presets und die **Advanced Parameters** eines Chats ändern Agentenaufrufe nicht, abgesehen von der Temperaturregel unten.
+Agentenaufrufe nutzen die **Chat defaults**, die in dem Konto gespeichert sind, über das sie laufen: im eigenen Konto des Agenten oder im Konto des Chats, wenn der Agent keines hat. Send-Schalter und Modellgrenzen gelten wie bei einer Chat-Antwort. Die Regeln unten erklären, wann Agenten die **Advanced Parameters** eines Chats übernehmen.
+
+In Roleplay gelten **Reasoning Effort** des Chats und der zugehörige Send-Schalter auch für das **Prompt Model** des Illustrators. Automatische Illustrationen, Erzählerbefehle und manuelle Illustrationen übernehmen die Einstellung des Chats, wenn du sie festgelegt hast. Das Ersatzmodell nutzt seinen eigenen gespeicherten Denkaufwand, falls einer gesetzt ist.
 
 - **An Agenten gesendet:** Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, eigene Header und die zusätzlichen Parameter, die du unter **Settings** (Einstellungen), dann **Advanced** (Erweitert), dann **Parameters** hinzufügst, etwa Top A oder einen Seed. Ein Parameter mit ausgeschaltetem Send-Schalter wird nicht gesendet.
 - **Nicht an Agenten gesendet:** Max Output Tokens, Stoppsequenzen, Prefills, Thinking Tags und andere Einstellungen für das Promptformat. Jeder Agent behält seinen eigenen Wert für **Max Output Tokens**.

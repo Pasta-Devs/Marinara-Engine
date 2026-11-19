@@ -79,10 +79,13 @@ In Roleplay im Modus **Individual** mit der Reihenfolge **Smart** oder **Manual*
 
 Mit der Auswahl **Trigger Response** wählst du einen Sprecher. Am Computer ist das eine Schaltfläche neben **Send** (Senden) mit der Beschriftung **Trigger character response**. Am Telefon steht sie unter **Trigger Response** im Werkzeugfach, das du über die Nachrichtenleiste öffnest. Um einen Sprecher im Text zu nennen, tipp `@` und den Namen des Charakters. Eine Vorschlagsliste erscheint.
 
+<a id="more-individual-settings"></a>
+
 ### Weitere Einstellungen für Individual
 
 - **Add Turn To Prompt** ist standardmäßig an. Der Schalter ergänzt eine kurze Anweisung, die nennt, welcher Charakter antworten soll.
 - **Name Prefix History** (nur Roleplay) ist standardmäßig aus. Der Schalter ändert, wie vergangene Nachrichten mit Sprechernamen versehen werden. Lass ihn aus, solange kein Charakter immer wieder durcheinanderbringt, wer was gesagt hat.
+- **Others' Public Faces** (Öffentliche Profile der anderen) ist nur in Roleplay verfügbar und standardmäßig aus. Jeder Charakter bekommt nur seine eigene Charakterkarte und kennt die anderen daher nur aus dem Chat. Schaltest du die Einstellung ein, bekommt jeder Charakter in seinem Zug den **Public Face**-Text der anderen aktiven Charaktere. Das sind Dinge, die jeder in der Szene über sie wissen könnte, ohne ihre Geheimnisse. Charaktere mit leerem Public Face und inaktive Charaktere bleiben außen vor. Siehe [Tab „Card“](../characters/creating-and-editing-characters.md#card-tab), um das Feld auszufüllen.
 
 ### Scenario Override (Roleplay)
 
@@ -102,6 +105,7 @@ Schalte **Character Exchanges** (Charaktere untereinander) unter **Chat Settings
 | **Response Order** | Individual | Sequential |
 | **Add Turn To Prompt** | Individual | An |
 | **Name Prefix History** | Roleplay, Individual | Aus |
+| **Others' Public Faces** | Roleplay, Individual | Aus |
 | **Scenario Override** | Roleplay | Leer |
 | **Character Exchanges** | Conversation, Autonomous Messaging | Aus |
 

@@ -71,7 +71,7 @@ Unter Android ist diese Einstellung standardmäßig an, solange du sie nicht set
 
 ## Das Modell für Entscheidungen nutzen
 
-Dasselbe Modell kann auch Entscheidungsfragen beantworten, etwa Aktivierungsprüfungen für Agenten, ohne dass eine zweite Kopie geladen wird. Klick im Panel am Modell auf **⋯** und wähl **Use this model for decisions** (dieses Modell für Entscheidungen verwenden). Die Option erscheint bei einem OpenAI-kompatiblen Modell mit Modellnamen. Siehe [Decision-Modelle](decision-models.md#on-a-server-you-already-run).
+Dasselbe Modell kann auch Entscheidungsfragen beantworten, etwa Aktivierungsprüfungen für Agenten, ohne dass eine zweite Kopie geladen wird. Klick im Panel am Modell auf **⋯** und wähl **Use for…** (Verwenden für…) → **Decision**. Die Option erscheint bei einem OpenAI-kompatiblen Modell mit Modellnamen. Siehe [Decision-Modelle](decision-models.md#on-a-server-you-already-run).
 
 ## Anfragen kommen nach Aufgaben geordnet an die Reihe
 

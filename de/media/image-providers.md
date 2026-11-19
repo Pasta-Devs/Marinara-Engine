@@ -7,14 +7,14 @@ Die Bildgenerierung liefert Szenenillustrationen, Selfies, Szenenhintergründe s
 Ein API-Key ist ein geheimer Code, den dir ein Dienst gibt, damit Marinara dein Konto dort nutzen kann. Die Webadresse jedes Dienstes trägt Marinara selbst ein, du musst also nur selten eine eintippen.
 
 1. Klick in der oberen Leiste auf **Connections** (Verbindungen) und dann auf **Add** (Hinzufügen). Das Fenster **Add account** (Konto hinzufügen) öffnet sich.
-2. Such den Dienst heraus. Die Liste hat einen Abschnitt **Images & video** (Bilder und Video), und mit **Search providers** (Anbieter suchen) findest du einen Dienst schneller.
+2. Such den Dienst heraus. Klick bei den Typfiltern auf **Image** (Bild) oder tipp in **Search providers** (Anbieter suchen).
 3. Füge deinen Key in das Feld **API key** ein. Kostenlose und lokale Dienste brauchen keinen. Für einen Server, den du selbst betreibst, füllst du das Adressfeld aus.
 4. Klick auf **Connect** (Verbinden). Marinara testet das Konto.
-5. Wähle ein Bildmodell aus der Liste oder tipp eine Modell-ID ein. Das ist dein Bildmodell. Es erscheint im Panel **Connections** unter dem Konto.
+5. Hake unter **Found in … — use it for:** die Option **Images** (Bilder) an. Hat der Dienst keine Modellliste, tipp die Modell-ID in die Zeile. Klick auf **Done** (Fertig).
 6. Öffne das Bildmodell und klick auf **Test image** (Bild testen). Marinara erzeugt ein kleines Testbild.
-7. Soll die App dieses Modell für Bilder verwenden, setze oben im Panel **Connections** unter **Defaults** (Standardwerte) die Aufgabe **Images** (Bilder).
+7. Das Anhaken von **Images** in Schritt 5 legt auch die Aufgabe **Images** im Bereich **Jobs** (Aufgaben) oben im Panel **Connections** fest. Um sie später zu ändern, klick auf die Zeile **Images**.
 
-Um einem Konto ein weiteres Bildmodell hinzuzufügen, öffne sein Menü **⋯** und klick auf **Add image model** (Bildmodell hinzufügen). Das vollständige Fenster beschreibt [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
+Um einem Konto ein weiteres Bildmodell hinzuzufügen, klick auf **⋯** in der Kontozeile und wähl **Add model** (Modell hinzufügen). Das vollständige Fenster beschreibt [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 
 Wenn es nicht funktioniert hat: **Test image** schlägt fehl, wenn Key oder Adresse falsch sind. Prüf zuerst beides. **Test provider** (Anbieter testen) prüft nur, ob Marinara den Dienst erreichen kann. **Test image** erzeugt ein echtes Bild und kann Guthaben verbrauchen.
 

@@ -16,7 +16,7 @@ Den Prompt schreibt der Illustrator selbst, das Bild zeichnet aber ein separates
 
 Ein Bildmodell gibst du ihm auf einem von zwei Wegen.
 
-1. Leg im Panel **Connections** (Verbindungen) unter **Defaults** (Standardwerte) die Aufgabe **Images** (Bilder) fest.
+1. Leg im Panel **Connections** (Verbindungen) im Bereich **Jobs** (Aufgaben) die Aufgabe **Images** (Bilder) fest.
 2. Oder gib dem Illustrator im Fenster **Open Setup** (Einrichtung öffnen) ein eigenes Bildmodell.
 
 Findet die App kein Bildmodell, schlägt das Bild fehl, und du wirst aufgefordert, eines auszuwählen.
@@ -76,14 +76,14 @@ Ist die Einstellung an, schickt eine Karte oder Persona mit eingeschaltetem **Im
 
 **Send Avatar References** (Avatar-Referenzen senden) schickt die Avatare von Charakteren und Personas oder deren Sprites als Referenzbilder an den Bilddienst, damit das Modell ein Gesicht oder Outfit übernehmen kann. Nicht jeder Dienst akzeptiert sie. In einem Roleplay-Chat ist es eine Liste wie **Attach Card Appearance**. Sind Videos eingeschlossen, beginnt ein Clip, dessen **First frame** (Startbild) auf **Prompt only** steht, mit dem Avatar oder Sprite des Charakters, und die Option heißt dann **Prompt only (avatar from Send Avatar References)**.
 
-Ist **Avatar-Referenzen senden** für Bilder eingeschaltet, legt **Reference pictures go to** fest, wer sie bekommt:
+Ist **Send Avatar References** für Bilder eingeschaltet, legt **Reference pictures go to** fest, wer sie bekommt:
 
 - **Automatic** (Standard): das Bildmodell, wenn seine Verbindung Referenzbilder annimmt, sonst das promptschreibende Modell.
 - **Image model**: nur das Bildmodell. Eine Verbindung, die keine Referenzbilder annimmt, bekommt keine.
 - **Prompt writer**: nur das promptschreibende Modell des Illustrators. Es sieht sie sich an und beschreibt im Bild-Prompt, was es darauf sieht.
 - **Both**: das Bildmodell und das promptschreibende Modell.
 
-Das promptschreibende Modell hilft bei Bildmodellen, die Referenzbilder verwerfen, etwa NovelAI V5. Dafür muss es Bilder lesen können. Lehnt es sie ab, wird seine Anfrage ohne Bilder erneut gesendet, und es bekommt bis zum Neustart des Servers keine mehr. Ist seine Verbindung als nicht bildlesend markiert, bekommt es keine. Bilder an das promptschreibende Modell zu senden kostet bei jedem Lauf Tokens. Es werden bis zu vier Bilder gesendet: die der in `[illustrate: characters="…"]` genannten Karten oder andernfalls die der aktiven Charaktere und der Persona des Chats. **What to carry over from the pictures** legt fest, was das Modell übernimmt, etwa nur das Aussehen und nicht den Kunststil. Ein Roleplay-Chat kann unter **Avatar-Referenzen senden** seine eigene Einstellung für **Reference pictures go to** festlegen.
+Das promptschreibende Modell hilft bei Bildmodellen, die Referenzbilder verwerfen, etwa NovelAI V5. Dafür muss es Bilder lesen können. Lehnt es sie ab, wird seine Anfrage ohne Bilder erneut gesendet, und es bekommt bis zum Neustart des Servers keine mehr. Ist seine Verbindung als nicht bildlesend markiert, bekommt es keine. Bilder an das promptschreibende Modell zu senden kostet bei jedem Lauf Tokens. Es werden bis zu vier Bilder gesendet: die der in `[illustrate: characters="…"]` genannten Karten oder andernfalls die der aktiven Charaktere und der Persona des Chats. **What to carry over from the pictures** legt fest, was das Modell übernimmt, etwa nur das Aussehen und nicht den Kunststil. Ein Roleplay-Chat kann unter **Send Avatar References** seine eigene Einstellung für **Reference pictures go to** festlegen.
 
 ## Festlegen, wie oft er zeichnet
 

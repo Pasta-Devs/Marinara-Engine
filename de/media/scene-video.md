@@ -37,7 +37,7 @@ Für **SwarmUI** trägt Marinara `http://127.0.0.1:7801` ein. Füge einen Video-
 
 ### Als Standard-Videomodell festlegen
 
-Soll ein Videomodell gelten, wenn ein Chat kein eigenes hat, setze die Aufgabe **Video** unter **Defaults** (Standardwerte) oben im Panel **Connections**. In den Chat-Einstellungen erscheint sie als **Default video provider**. Fehlen ein Chat-Modell und ein Standard, warnen die Video-Aktionen und bitten dich, eines zu wählen.
+Soll ein Videomodell gelten, wenn ein Chat kein eigenes hat, setze die Aufgabe **Video** im Bereich **Jobs** (Aufgaben) oben im Panel **Connections**. In den Chat-Einstellungen erscheint sie als **Default video provider**. Fehlen ein Chat-Modell und ein Standard, warnen die Video-Aktionen und bitten dich, eines zu wählen.
 
 ### Anweisungen für Video-Prompts
 

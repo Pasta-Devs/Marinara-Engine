@@ -36,7 +36,7 @@ Wenn es nicht funktioniert hat: Lies die rote Meldung neben der Datei. Die übri
 | | **No tags**: die Tags überspringen. |
 | | **Existing only**: nur Tags behalten, die es in deiner Bibliothek schon gibt. |
 | **Imported regex scripts** (importierte Regex-Skripte) | **Character only** (Standard): Die Regeln laufen für diesen Charakter. |
-| | **Global**: Die Regeln landen unter **Presets → Regexes** und laufen in jedem Chat. |
+| | **Global**: Die Regeln landen unter **Presets → Regexes** und können chatübergreifend laufen. |
 | **Split description into fields** (Beschreibung in Felder aufteilen) | Standardmäßig aus. Hake es an, um gekennzeichneten Text zu Persönlichkeit, Aussehen und Ähnlichem aus **Description** (Beschreibung) in eigene Felder zu verschieben. |
 
 Regex-Skripte sind kleine Regeln, die Text ersetzen. Bleib bei **Character only**, solange du die Regeln nicht überall haben willst. Karten für Erzähler, Welten oder mehrere Charaktere bleiben beim Aufteilen unverändert.

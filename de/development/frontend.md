@@ -233,7 +233,7 @@ Im Ordner `src/hooks/` stecken außerdem viele funktionsspezifische Hooks. Eine 
 | `use-knowledge-sources.ts`     | Verwaltung der Wissensquellen              |
 | `use-gallery.ts`               | Bilder der Chat-Galerie                    |
 | `use-chat-folders.ts`          | CRUD für Chat-Ordner samt Sortierung       |
-| `use-regex-scripts.ts`         | CRUD für Regex-Skripte                     |
+| `use-regex-scripts.ts` | CRUD für Regex-Skripte, Umsortieren und gemeinsames Umschalten |
 | `use-haptic.ts`                | Verbindung und Befehle für Haptik-Geräte   |
 
 ## Komponenten-Überblick
@@ -364,6 +364,30 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Asynchroner SSE-Generator (alle Ereignistypen) |
 
 Fehler werfen `ApiError` – dieses Objekt trägt die Eigenschaften `status` und `message`.
+
+## Auswahlfelder und Dropdowns
+
+Jedes Steuerelement zur Auswahl eines Werts öffnet ein gemeinsames Auswahlfenster. Ändere die Darstellung, die Zeilen oder die Breite in den gemeinsamen Komponenten unten. Verwende weder ein natives `<select>` noch eine eigene Liste in einem Popover. Beides gibt es in der App nicht mehr.
+
+| Ebene | Datei | Zuständigkeit |
+| --- | --- | --- |
+| Fenster | `components/ui/PickerWindow.tsx` | Die Oberfläche. Am Computer öffnet sich ein Popover neben dem Feld. Es ist so breit wie seine Zeilen es erfordern, mindestens so breit wie das Feld und höchstens 352 px oder bei einem breiteren Feld so breit wie dieses. Am Handy öffnet sich ein Einschub von unten (ein `Modal`). Innerhalb eines `Modal` bleibt es ein Popover, damit sich zwei Einschübe nicht stapeln. Escape, Zurück, ein Klick außerhalb oder ein aus dem Sichtbereich gescrolltes Feld schließen es. |
+| Zeilen | `components/ui/PickerParts.tsx` | `PickRow` (Bild, Titel, eine Zusatzzeile mit Umbruch auf bis zu zwei Zeilen, Badge, Häkchen oder Kontrollkästchen), `PickerSearch`, Ordnerüberschriften und `usePickerKeyboard` (Pfeiltasten, Enter). |
+| Liste | `components/ui/PickerFolderList.tsx` | Der Inhalt: Suchfeld, Zeilen nach Bibliotheksordnern oder `group` gruppiert, Einzelauswahl oder Mehrfachauswahl, "Add all" pro Ordner. |
+| Felder | `components/ui/Select.tsx` | `Select` ersetzt das native `<select>` für einen Wert aus einer festen Liste. Es nutzt einen Combobox-Auslöser, bietet Suche ab `SELECT_SEARCH_MIN` Optionen und unterstützt im geschlossenen Feld Pfeiltasten und Auswahl durch Tippen. |
+| | `components/ui/PickerField.tsx` | `PickerField` (ein Eintrag mit einer Zeile für None und Ordnern), `PickerListField` / `PickerListWindow` (mehrere Einträge, die unter dem Feld mit Entfernen-Schaltflächen stehen) und `useFieldWindow` (Öffnungszustand und Rückgabe des Fokus beim Schließen). |
+| | `components/ui/LibraryPickers.tsx`, `components/characters/CharacterSelect.tsx` | Die daraus aufgebauten Felder für Presets, Lorebooks, Charaktere und Personas. |
+
+So fügst du eine Auswahl hinzu:
+
+- **Ein Wert aus einer Liste:** `Select`. Setz ein `label`. Es benennt das Feld und dient als Fenstertitel.
+- **Ein Bibliothekseintrag** (mit Ordnern, Bild und einer Zeile für None): `PickerField` oder das passende Feld aus `LibraryPickers.tsx`.
+- **Mehrere Einträge:** `PickerListField`. Escape und Klicks außerhalb schließen das Fenster. Eine Auswahl lässt es offen.
+- **Ein Steuerelement ohne Feld** (etwa eine Schaltfläche für eine kurze Auswahl wie "Link to Conversation"): `useFieldWindow` für Öffnungszustand und Fokus, `PickerWindow` an der Schaltfläche und darin `PickerFolderList` oder einzelne `PickRow`-Zeilen.
+
+Die Verbindungs- und Modellauswahl (`ConnectionSelect` / `ModelPicker`) hat noch ihr eigenes Fenster. Symbolgalerien (`StatIconPicker`), Autovervollständigung für Tags sowie Kontext- und Aktionsmenüs haben eigene Oberflächen und zählen nicht als Auswahlfelder.
+
+**Tests.** Ein `Select`-Auslöser hat `role="combobox"` und enthält seinen Wert in `data-value`. Sein Fenster ist ein `dialog` mit dem Feldnamen. Zeilen tragen `data-pick-row`. Bei Einzelauswahl hat die gewählte Zeile `aria-current="true"`. Zeilen einer Mehrfachauswahl haben `aria-pressed`. `e2e/select-field.ts` enthält `chooseOption` und `pickerLabels`. Sie ersetzen Playwrights `selectOption` für die früheren nativen Auswahlfelder.
 
 ## Styling-System
 

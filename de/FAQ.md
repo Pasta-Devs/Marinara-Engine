@@ -122,7 +122,7 @@ Er macht aus fertigem Erzähltext Bilder. Installiere **Storyboard** über **Age
 
 ## Können Charaktere in einem Anruf laut sprechen?
 
-Ja, im Conversation Mode. Dafür muss **Text to Speech** (Sprachausgabe) unter **Connections** eingerichtet sein. Die Schritte, auch zur Spracherkennung für dein Mikrofon, stehen unter [Anrufe](conversation/calls.md).
+Ja, im Conversation Mode. Dafür brauchst du ein Modell für die Aufgabe **Voice** (Stimme) unter **Connections**. Die Schritte, auch zur Spracherkennung für dein Mikrofon, stehen unter [Anrufe](conversation/calls.md).
 
 ## Kann Marinara Bilder generieren?
 

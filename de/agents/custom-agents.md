@@ -125,12 +125,14 @@ Ein Agent kann mehrere Prompt-Varianten enthalten. So wählt jeder Chat eine dav
 
 Fügt jemand den Agenten einem Chat hinzu, listet ein Dropdown-Menü **Prompt Mode** deine Varianten auf. Gibt es keine, erscheint nur der Standard-Prompt.
 
+<a id="other-settings"></a>
+
 ## Weitere Einstellungen
 
 - **Model override** (Modell überschreiben): Nutze für diesen Agenten ein anderes Modell, zum Beispiel ein günstigeres. Bleibt das Feld leer, nutzt er das Modell des Chats. Der Agent sendet die auf dieser Verbindung gespeicherten Generierungsparameter. Siehe [Parameter für Agenten](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget** (Agent-Budget): **Context Size** gibt an, wie viele der letzten Nachrichten der Agent liest (Standard 5). **Max Output Tokens** ist der für die Ausgabe reservierte Platz (Standard 4.096, von 128 bis 32.768).
 - **Add as Prompt Section** (Als Prompt-Abschnitt hinzufügen): stellt die jüngste Ausgabe des Agenten als Abschnitt bereit, den du in ein Prompt-Preset einfügen kannst.
-- **Kontextquellen**: Was der Agent außer seinen Anweisungen liest. **Charaktere** und **Persona** bieten jeweils drei Optionen: **Aus**, **Full card** oder **Public Face**. **Public Face** sendet nur den Namen und das Feld **Public Face** der Karte. Ist das Feld leer, wird nur der Name gesendet. Wie du es ausfüllst, steht unter [Tab „Card“](../characters/creating-and-editing-characters.md#card-tab). Teilen sich mehrere Agenten eine Anfrage, gilt für jede Quelle die umfangreichste gewählte Option: zuerst **Full card**, dann **Public Face**, dann **Aus**.
+- **Context Sources** (Kontextquellen): Was der Agent außer seinen Anweisungen liest. **Characters** (Charaktere) und **Persona** bieten jeweils drei Optionen: **Off** (Aus), **Full card** oder **Public Face**. **Public Face** sendet nur den Namen und das Feld **Public Face** der Karte. Ist das Feld leer, wird nur der Name gesendet. Wie du es ausfüllst, steht unter [Tab „Card“](../characters/creating-and-editing-characters.md#card-tab). Teilen sich mehrere Agenten eine Anfrage, gilt für jede Quelle die umfangreichste gewählte Option: zuerst **Full card**, dann **Public Face**, dann **Off**.
 
 Makros wie `{{user}}` und `{{char}}` funktionieren in der **Prompt Template**. Siehe [Makros](../prompts/macros.md).
 
