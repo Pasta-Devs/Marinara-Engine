@@ -163,6 +163,7 @@ const SETTINGS_TABS = [
  * id: stable name in reports. group: "core" screens also run in every theme.
  * run: [function source, argument] for page.evaluate, or null (Home). ids: fixture key the argument comes from.
  * then: real clicks after the page shows (the windows and drawers that open on top).
+ * ready: a selector to wait for after run, for a screen that takes several steps to show.
  */
 export function screenList(ids) {
   return [
@@ -220,6 +221,42 @@ export function screenList(ids) {
           h.chat.getState().setActiveChatId(id);
           h.overhaul.getState().setMobileSidePageOpen(false);
           setTimeout(() => h.ui.setState({ chatSettingsRequest: { chatId: id, section: null } }), 600);
+        }, ids.roleplayChat),
+      ),
+    },
+    {
+      // Phones and tablets: a Chat settings section opened as its own page, scrolled so its header is stuck.
+      // Advanced Parameters sits in a wrapper, which once kept the scroller's top padding as a strip above it.
+      id: "roleplay-chat-settings-section",
+      group: "core",
+      ready: "[data-ui-check-ready]",
+      run: needsData(
+        hook((id) => {
+          const h = window.__marinaraUiCheck;
+          h.chat.getState().setActiveChatId(id);
+          h.overhaul.getState().setMobileSidePageOpen(false);
+          setTimeout(() => h.ui.setState({ chatSettingsRequest: { chatId: id, section: null } }), 600);
+          // Step by step as each part shows, quickly enough that the check never settles in between.
+          // Keeps the page open and scrolled (a refetch while other screens load can redraw it), and says ready once
+          // that has held for a moment. A computer has no section pages: Chat settings as it opens is the screen.
+          const started = Date.now();
+          let held = 0;
+          const ready = () => document.documentElement.setAttribute("data-ui-check-ready", "");
+          const step = setInterval(() => {
+            const elapsed = Date.now() - started;
+            if (elapsed > 6000) ready();
+            if (elapsed > 20000) return clearInterval(step);
+            // The chats list can come back over the chat while it opens.
+            h.overhaul.getState().setMobileSidePageOpen(false);
+            if (!document.querySelector('.ov-cs [data-drawer="advanced-parameters"]')) return;
+            const head = document.querySelector(".ovm-cs-page__head");
+            if (!head) return h.chatSettingsNav.getState().showPage("advanced-parameters");
+            let scroller = head.parentElement;
+            while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY))
+              scroller = scroller.parentElement;
+            if (scroller && scroller.scrollTop < 150) scroller.scrollTop = 160;
+            if (++held >= 8) ready();
+          }, 100);
         }, ids.roleplayChat),
       ),
     },

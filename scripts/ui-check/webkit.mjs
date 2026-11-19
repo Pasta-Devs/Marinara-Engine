@@ -57,6 +57,13 @@ export async function runWebKit(appUrl, allow, results, out, screens) {
             ]);
           }
           await new Promise((r) => setTimeout(r, 1500));
+          if (screen.ready) {
+            for (let waited = 0; waited < 10_000; waited += 250) {
+              if (await page.run(`return !!document.querySelector(arguments[0])`, [screen.ready])) break;
+              await new Promise((r) => setTimeout(r, 250));
+            }
+            await new Promise((r) => setTimeout(r, 500));
+          }
           await page.run(
             `document.head.append(Object.assign(document.createElement("style"), { textContent: "[data-sonner-toaster]{display:none!important}" }))`,
           );

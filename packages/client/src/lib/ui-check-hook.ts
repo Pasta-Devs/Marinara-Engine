@@ -8,6 +8,7 @@ import { useUIStore } from "../stores/ui.store";
 import { useOverhaulStore } from "../stores/overhaul.store";
 import { useChatStore } from "../stores/chat.store";
 import { openLibrarySection } from "../components/overhaul/library-navigation";
+import { useMobileChatSettingsNav } from "../features/chat-settings/mobile-nav";
 
 export function installUiCheckHook() {
   try {
@@ -16,6 +17,12 @@ export function installUiCheckHook() {
     return;
   }
   Object.assign(window, {
-    __marinaraUiCheck: { ui: useUIStore, overhaul: useOverhaulStore, chat: useChatStore, openLibrarySection },
+    __marinaraUiCheck: {
+      ui: useUIStore,
+      overhaul: useOverhaulStore,
+      chat: useChatStore,
+      chatSettingsNav: useMobileChatSettingsNav,
+      openLibrarySection,
+    },
   });
 }

@@ -15,6 +15,7 @@
 //   greeting     Home's buttons sit beside the greeting (over the hero's art) instead of under it
 //   off-center   an icon tile's icon is off the tile's middle (Things to try with large text)
 //   heading      a Library table's column heading is off its column's middle (Connections' Models, Nov 19)
+//   sticky-gap   a sticky header stops short of its scroller's top edge, so scrolled content shows above it
 //
 // Every finding names the element (a short CSS path) and the numbers, so a report reads without a screenshot.
 // An element (and everything in it) is skipped when it or an ancestor has data-ui-check="ignore"; pass
@@ -405,6 +406,30 @@ export function detectLayoutProblems(options = {}) {
     if (text.width >= right - left) continue;
     const dx = text.left + text.width / 2 - (left + right) / 2;
     if (Math.abs(dx) > 3) add("heading", th, `the heading sits ${Math.round(dx)}px from its column's middle`, rect);
+  }
+
+  // ── sticky-gap: a header stuck to the top of a scrolled box, with a strip above it where the content shows ──
+  // A phone's Chat settings section page: the scroller's top padding left 8px of settings above its header (Nov 19).
+  for (const el of visible) {
+    const style = styleOf(el);
+    if (style.position !== "sticky" || style.top === "auto") continue;
+    let scroller = el.parentElement;
+    while (scroller && scroller !== document.body && !scrolls(styleOf(scroller), "y"))
+      scroller = scroller.parentElement;
+    if (!scroller || scroller === document.body || scroller.scrollTop < 8) continue;
+    const box = scroller.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const stuckAt = box.top + scroller.clientTop + parseFloat(style.top);
+    // Only while stuck (it would sit higher without sticky), with real content passing through the gap.
+    if (Math.abs(rect.top - (stuckAt + parseFloat(styleOf(scroller).paddingTop))) > 1) continue;
+    const gap = rect.top - (box.top + scroller.clientTop);
+    if (gap < 2 || parseFloat(styleOf(scroller).paddingTop) < 2) continue;
+    add(
+      "sticky-gap",
+      el,
+      `it sticks ${Math.round(gap)}px below its scroller's top edge; scrolled content shows above it`,
+      rect,
+    );
   }
 
   // Duplicates (the same box reported twice through two of its children) read as noise.
