@@ -38,7 +38,7 @@ import { DATA_DIR } from "../../utils/data-dir.js";
 import { isAllowedImageBuffer } from "../../utils/security.js";
 import { parseJsonBytes } from "../../utils/large-json.js";
 import { openZipArchive, type ZipArchive } from "../../lib/zip-reader.js";
-import { normalizeTimestampOverrides, type TimestampOverrides } from "./import-timestamps.js";
+import { characterCardImportTimestamps, type TimestampOverrides } from "./import-timestamps.js";
 import { restoreSprites } from "./marinara.importer.js";
 
 const AVATAR_DIR = join(DATA_DIR, "avatars");
@@ -295,7 +295,8 @@ export type STCharacterTagImportMode = "all" | "none" | "existing";
 
 export async function importSTCharacter(raw: Record<string, unknown>, db: DB, options?: STCharacterImportOptions) {
   const storage = createCharactersStorage(db);
-  const normalizedTimestamps = normalizeTimestampOverrides(options?.timestampOverrides);
+  // Read before the card is normalized, so the date SillyTavern writes beside the card is still there.
+  const importTimestamps = characterCardImportTimestamps(raw, options?.timestampOverrides);
   const shouldImportEmbeddedLorebook = options?.importEmbeddedLorebook ?? true;
   const tagImportMode = options?.tagImportMode ?? "all";
   const embeddedMarinaraSprites = takeEmbeddedMarinaraSprites(raw);
@@ -402,7 +403,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     });
   }
 
-  const character = await storage.create(data, avatarPath, normalizedTimestamps);
+  const character = await storage.create(data, avatarPath, importTimestamps);
   const charId = (character as { id?: string } | null)?.id;
 
   // Extract character_book into a standalone lorebook linked to this character
@@ -414,7 +415,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
       const result = await importSTLorebook(wiData, db, {
         characterId: charId,
         namePrefix: data.name,
-        timestampOverrides: options?.timestampOverrides,
+        timestampOverrides: importTimestamps,
         hiddenFromLibrary: options?.hideEmbeddedLorebook === true,
         ...(options?.importTags ? { importTags: options.importTags, source: importSource } : {}),
         beforeCommit: async (tx, result) => {
@@ -433,7 +434,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
             { extensions: { ...data.extensions } },
             undefined,
             {
-              updatedAt: normalizedTimestamps?.updatedAt ?? normalizedTimestamps?.createdAt ?? null,
+              updatedAt: importTimestamps.updatedAt,
               skipVersionSnapshot: true,
             },
           );
@@ -469,7 +470,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
       await storage.update(charId, { ...fields, extensions: { appearance, backstory } }, undefined, {
         versionSource: DESCRIPTION_SPLIT_VERSION.source,
         versionReason: DESCRIPTION_SPLIT_VERSION.reason,
-        updatedAt: normalizedTimestamps?.updatedAt ?? normalizedTimestamps?.createdAt ?? null,
+        updatedAt: importTimestamps.updatedAt,
       });
     } catch (err) {
       logger.warn(err, "Imported %s without splitting its description", charId);
