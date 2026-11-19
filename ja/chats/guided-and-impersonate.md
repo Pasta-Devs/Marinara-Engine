@@ -61,6 +61,8 @@ Impersonateは、次の自分のメッセージを、ペルソナの口調でモ
 
 短い別名は`/imp`です。Impersonateが書いたメッセージにも**Regenerate**が使えるので、別の版を作れます。
 
+<a id="the-impersonate-settings"></a>
+
 ### Impersonateの設定
 
 これらの設定は、すべてのチャットのすべての`/impersonate`に適用されます。Roleplayのチャットで**Chat Settings**(チャット設定)を開き、**Impersonate**のセクションを探してください。パネルの開き方は[Chat Settings](chat-settings.md)を参照してください。
@@ -71,6 +73,7 @@ Impersonateは、次の自分のメッセージを、ペルソナの口調でモ
 | **Preset** | impersonateの返信にだけ使うプロンプトプリセットです。デフォルトは**Use chat default**です。[プリセット](../prompts/presets.md)を参照してください。 |
 | **Connection** | impersonateの返信に使うモデルです。より安価なモデルや速いモデルなどを選べます。デフォルトは**Use chat default**です。**Random**も選べます。[AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)を参照してください。 |
 | **Skip agents** | impersonateの実行中は、エージェント(トラッカー、ロアブックの振り分けなどの補助機能)を省略します。impersonateが速くなり、世界の状態も変わりません。デフォルトではオフです。[エージェント](../agents/agents-overview.md)を参照してください。 |
+| **Send Public Faces**(公開情報を送信) | Roleplayチャットでは、**Public Face**(周囲に知られている情報)のあるキャラクターは、名前とPublic FaceだけがImpersonateのプロンプトに入ります。それにより、返信が知るのは自分の立場で知り得る情報に限られます。これらはカードのほかの情報(Description、Personality、Backstory、Appearance、Scenario、System Prompt、会話例、RPGの属性、Post-History Instructions、Depth Prompt)を置き換えます。Public Faceが空ならカード全体を使います。Impersonateのプリセットやプロンプトテンプレートに入れた`{{description}}`などのマクロは、引き続き指定された内容を送信します。**Regenerate**(再生成)では、そのメッセージを書いた時点の設定を使います。デフォルトではオフです。[Cardタブ](../characters/creating-and-editing-characters.md#card-tab)を参照してください。 |
 | **Use CYOA as direction** | CYOA(choose your own adventure、選択肢で進む形式)の選択肢をクリックしたときに、それを投稿する代わりに、impersonateの指示として使います。デフォルトではオフです。**Settings → General → Input & Editing**で**Add CYOA choices to the message box instead of sending them**(CYOAの選択肢を送信せずメッセージ入力欄に追加する)がオンの場合、クリックしても文章がメッセージ欄に追加されるだけで、この設定は効果がありません。 |
 
 ### 1つのチャットにプロンプトを設定する

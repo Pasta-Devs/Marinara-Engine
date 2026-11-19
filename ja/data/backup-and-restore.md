@@ -53,6 +53,8 @@ Marinaraは、オンにしてまもなく最初のバックアップを作りま
 
 > **Tip:** データフォルダーの外にも、コピーをもう1つ置いてください。ディスクの故障やアプリの消去では、自動バックアップも一緒に消えます。
 
+<a id="export-a-profile"></a>
+
 ## プロファイルのエクスポート
 
 1. **Settings → Advanced → Backup & Export**を開きます。
@@ -66,6 +68,8 @@ Marinaraは、オンにしてまもなく最初のバックアップを作りま
 ネイティブ形式のプロファイルは、`marinara-profile.json`としてダウンロードされます。大きすぎる場合、MarinaraはZIPファイルを代わりに提案します。**Export ZIP**をクリックすると、`marinara-profile.zip`がダウンロードされます。
 
 ネイティブ形式のプロファイルにはPersonal Extensionのコードも残りますが、有効かどうかの状態と承認は残りません。復元された拡張機能はすべて無効の状態で入ります。**Settings → Addons**で、もう一度確認してください。
+
+ネイティブ形式のプロファイルには、正規表現スクリプト、そのフォルダー、各フォルダーの一時停止設定も残ります。個別のスクリプトをJSONで共有するには、[正規表現スクリプト](../extending/regex-scripts.md#import-and-replace-scripts)を参照してください。
 
 ## Import Profileでの復元
 

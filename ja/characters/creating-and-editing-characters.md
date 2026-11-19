@@ -59,7 +59,7 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 
 - **Character ID**。読み取り専用で、カードを保存したあとに表示されます。**Copy**(コピー)をクリックするとコピーできます。
 - **Name**(名前)。表示される名前です。プロンプトの中では`{{char}}`になります。これは、Marinaraがキャラクターの名前に置き換えるプレースホルダーです。
-- **Other names**(別名)。`Clark Kent, Kal-El, Mr. Kent`のように、キャラクターの愛称、フルネーム、敬称などを設定できます。複数の名前はカンマで区切り、<kbd>Enter</kbd>を押すか**Add**(追加)をクリックします。Roleplayチャットでは、これらの名前にも色を付けられます。[キャラクターの色](colors-and-stats.md#the-three-colors)を参照してください。
+- **Other names**(別名)。`Clark Kent, Kal-El, Mr. Kent`のように、キャラクターの愛称、フルネーム、敬称などを設定できます。複数の名前はカンマで区切り、<kbd>Enter</kbd>を押すか**Add**(追加)をクリックします。Roleplayチャットでは、これらの名前にも色を付けられます。Character Trackerは、これらの別名で追跡しているキャラクターをカードに関連付けます。[キャラクターの色](colors-and-stats.md#the-three-colors)を参照してください。
 - **Creator**(作成者)。カードを作った人で、共有するときのクレジットになります。
 - **Version**(バージョン)。`1.0`のように自分で決めるバージョン番号です。隣にある**Automatic versioning**(自動バージョン管理)スイッチは、以前のバージョンを残し、カードが変わるとこの番号を上げます。バージョン履歴にスナップショットが保存されるのは、このスイッチがオンのときだけです。
 - **Talkativeness**(発言頻度)。0から100パーセントまでのスライダーです。グループチャットでこのキャラクターがどのくらい発言するかを決めます。デフォルトは50パーセントです。
@@ -84,6 +84,9 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 | **Backstory**(背景設定) | 生い立ちや出自、重要な人間関係。 | あり |
 | **Appearance**(外見) | 容姿、服装、見た目の細部。AIアバターのプロンプトのもとにもなります。 | あり |
 | **Scenario**(シナリオ) | このキャラクターと新しくチャットを始めるときの、デフォルトの状況設定。 | あり |
+| **Public Face**(周囲に知られている情報) | カードから非公開情報を除いた内容。 | マクロや設定で指定された箇所のみ |
+
+**Public Face**には、そのキャラクターについてほかの登場人物が見たり知ったりできる外見、立ち居振る舞い、役割、評判、公になっている人間関係などを記入します。秘密、内心、非公開の過去、キャラクターの演じ方に関する指示は含めないでください。この欄はキャラクターカードの一部としては送られません。プロンプトでは、`{{publicFace}}`、または自分のペルソナなら`{{personaPublicFace}}`マクロを置いた場所でだけ読み取ります。[プロンプトのマクロ](../prompts/macros.md#identity-character-and-persona-macros)を参照してください。IndividualのRoleplayグループチャットでは、**Others' Public Faces**(ほかのキャラクターの公開情報)がこの欄をほかのキャラクターのターンに送信します。[Individualの追加設定](../chats/group-chats.md#more-individual-settings)を参照してください。**Characters**(キャラクター)または**Persona**(ペルソナ)のソースを**Public Face**に設定したエージェントは、カードの代わりにこの欄を読みます。[その他の設定](../agents/custom-agents.md#other-settings)を参照してください。**Send Public Faces**(公開情報を送信)がオンの場合、RoleplayのImpersonateはカードの代わりにこの欄を読みます。[Impersonateの設定](../chats/guided-and-impersonate.md#the-impersonate-settings)を参照してください。
 
 **Image Appearance Override**(画像用の外見指定)は**Appearance**の下にあり、デフォルトではオフです。オンにすると、短い画像用タグを入れる2つ目の欄が現れます。たとえばLoRAのトリガーワード(独自の画像スタイルをオンにするキーワード)です。オンで内容が入っているあいだは、画像プロンプトにそのタグが書いたとおりに使われ、**Appearance**は背景情報として残ります。AIアバターのプロンプトもここから作られます。ナレーターには、常に**Appearance**の全文が見えます。
 
@@ -105,13 +108,13 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 
 ### 杖でカードの欄を書く
 
-**Summary**、**Description**、**Personality**、**Backstory**、**Appearance**、**Scenario**、**Example Dialogue**、**First Message**、各**Alternate Greeting**の欄の上には、アイコンだけの杖のボタンがあります。ツールチップに、そのボタンが書く欄の名前が表示されます。
+**Summary**、**Description**、**Personality**、**Backstory**、**Appearance**、**Scenario**、**Public Face**、**Example Dialogue**、**First Message**、各**Alternate Greeting**の欄の上には、アイコンだけの杖のボタンがあります。ツールチップに、そのボタンが書く欄の名前が表示されます。
 
 始める前に: 動作するテキスト接続を設定してください。[AIプロバイダーへの接続](../connections/connecting-to-a-provider.md)を参照してください。
 
 1. 残したいアイデアを欄に書きます。たとえば`smart, scientist, handsome`のように入力するか、空欄のままにします。
 2. AIに参考にしてほしいほかのカードの欄を埋めます。先に保存する必要はありません。
-3. その欄の杖をクリックします。Marinaraは、入力済みの文章を出発点にして、その欄を100–300語で書くよう依頼します。Example Dialogueでは、やり取りの見本を依頼します。**First Message**と各**Alternate Greeting**では、こちらの返答を決めつけない書き出しのメッセージを1つ依頼します。
+3. その欄の杖をクリックします。Marinaraは、入力済みの文章を出発点にして、その欄を100–300語で書くよう依頼します。Example Dialogueでは、やり取りの見本を依頼します。**First Message**と各**Alternate Greeting**では、こちらの返答を決めつけない書き出しのメッセージを1つ依頼します。**Public Face**には語数の範囲がありません。杖はカードの残りの部分から非公開情報を除いて書き直すため、長さはカードの内容に応じて変わります。
 4. 結果を編集してから、**Save**をクリックします。
 
 杖は、デフォルトのエージェント用テキスト接続を使います。それがない場合は、デフォルトのテキスト接続を使います。設定済みのエージェント用フォールバック接続も適用されます。
@@ -159,11 +162,11 @@ Character Editorは、チャット領域を全画面の作業スペースに置�
 
 **Voice**タブでは、Text to Speechで読み上げるときのキャラクターの声を設定します。
 
-- **Voice**(声)。このキャラクターの声です。変更は**Save**を押さなくてもすぐに保存されます。**Connections → Text to Speech**(接続 → 音声合成)にあるこのキャラクターの行と同じ設定です。空欄のままにすると、デフォルトの声を使います。名前が一致するカード(AU版のコピー元など)に声が設定されている場合は、このカードもその声を使うため、空欄にはその声の名前が表示されます。
+- **Voice**(声)。このキャラクターの声です。変更は**Save**を押さなくてもすぐに保存されます。**Connections**(接続)の**Voice**の設定にあるこのキャラクターの行と同じ設定です。空欄のままにすると、デフォルトの声を使います。名前が一致するカード(AU版のコピー元など)に声が設定されている場合は、このカードもその声を使うため、空欄にはその声の名前が表示されます。
 - **Preview**(試聴)。その声で短い文を読み上げます。文にはキャラクターの名前が入り、**Phonetic name**(読み仮名)を設定している場合はそちらが読まれます。
 - **Phonetic name**。発音を直すためだけに使う、任意の表記です。カードの一部なので、残すには**Save**をクリックしてください。
 
-Text to Speechがオフのとき、またはすべてのキャラクターが1つの声を共有しているときは、**Voice**欄の代わりに短い案内が表示されます。1つの声を共有している場合は、案内に**Use a voice per character**(キャラクターごとの声を使う)が表示されます。**Open Text to Speech settings**(音声合成の設定を開く)を押すとConnectionsが開きます。[Text to Speech (TTS)の設定](../media/tts-setup.md)を参照してください。
+Text to Speechがオフのとき、またはすべてのキャラクターが1つの声を共有しているときは、**Voice**欄の代わりに短い案内が表示されます。1つの声を共有している場合は、案内に**Use a voice per character**(キャラクターごとの声を使う)が表示されます。**Open Text to Speech settings**(音声合成の設定を開く)を押すと**Connections**の**Voice**の設定が開きます。[Text to Speech (TTS)の設定](../media/tts-setup.md)を参照してください。
 
 ## Advancedタブ
 

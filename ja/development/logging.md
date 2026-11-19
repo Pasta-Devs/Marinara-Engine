@@ -111,6 +111,8 @@ UIのデバッグ切り替えは`logDebugOverride`経由で引き続き機能し
 
 <a id="checks"></a>
 
+インラインメディアは通常、全文をログに出しません。`debugJson`は各base64ペイロードを`[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`のようなマーカーで置き換え、種類、サイズ、先頭と末尾の各16文字を表示します。文字列全体やテキスト内の`data:` URLと、AnthropicやGoogleのメディアパートの単独の`data`フィールドが対象です。base64が複数行に折り返されていても処理します。`msg`シリアライザーも通常の`%s`と`%j`の行にある`data:` URLに同じ処理を行います。単独の`data`フィールドを短縮するのは`debugJson`だけです。変更は出力用のコピーだけに適用し、渡された値は編集しません。`.env`に`LOG_INLINE_MEDIA=full`を設定すると、再びペイロード全体を出力します。`log-inline-media`回帰テストがこの動作を確認します。
+
 ## アプリ内コンソール
 
 NAS、VPS、Docker、Termuxなど、ターミナルにアクセスできない環境では、Settings → Advanced → **Open Console**(コンソールを開く)からサーバーの最近のログをアプリ内で確認できます。

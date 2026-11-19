@@ -147,7 +147,7 @@ Marinaraがダウンロードするのは、使っているリリースで承認
 
 **Local speech model**(ローカル音声モデル)は、Conversationの通話のために、自分のコンピューター上で声をテキストに変換します。これはWhisperモデル、つまり音声をテキストに変換するモデルです。**Agents → Agent Organizer**でインストールする**Calls**エージェントパッケージが必要です。
 
-1. **Connections**(接続)パネルを開き、**On this device**(このデバイス上)の下にある**Speech to text**(音声認識)の項目をクリックします。
+1. **Connections**(接続)パネルを開き、**On this device**(このデバイス上)カードの**Local speech model**(ローカル音声モデル)をクリックします。
 2. **Local speech model**の下のドロップダウンからモデルを選びます。
 3. **Download Whisper**(Whisperをダウンロード)をクリックします。
 4. **Ready**になるまで待ちます。Callsを使う前に、Marinaraを完全に再起動してください。

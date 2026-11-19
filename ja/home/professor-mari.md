@@ -11,7 +11,7 @@ Professor Mariは、ホーム画面に組み込まれたアシスタントです
 
 Professor Mariのウィンドウが開きます。どの画面からでも呼び出せます。Search(検索)に入力して**Ask Prof. Mari**を選ぶか、<kbd>Ctrl</kbd>+<kbd>J</kbd>(Macでは<kbd>⌘</kbd>+<kbd>J</kbd>)を押すか、スマートフォンでは上部バーから下へ引き下ろしてください。ヘッダーの表示は、待機中は**Ready to help**、作業中は**Working on it...**になります。
 
-メッセージはふだんの言葉で入力し、<kbd>Enter</kbd>を押します。<kbd>Shift</kbd>+<kbd>Enter</kbd>で改行します。Professor Mariの設定で**Enter sends to Professor Mari**(EnterでProfessor Mariに送信)をオフにすると、<kbd>Enter</kbd>で改行し、<kbd>Ctrl</kbd>+<kbd>Enter</kbd>で送信します。最初のメッセージを送ると、**Hello World**の実績が解除されます。
+メッセージはふだんの言葉で入力し、<kbd>Enter</kbd>を押します。<kbd>Shift</kbd>+<kbd>Enter</kbd>で改行します。Professor Mariの設定で**Enter sends to Professor Mari**(EnterでProfessor Mariに送信)をオフにすると、<kbd>Enter</kbd>で改行し、<kbd>Ctrl</kbd>+<kbd>Enter</kbd>か送信ボタンで送信します。トグルは端末ごとに保存されるので、スマートフォンではオフ、パソコンではオンにできます。最初のメッセージを送ると、**Hello World**の実績が解除されます。
 
 Professor Mariの設定はすべて、**Settings → General → Search and Professor Mari settings → Open**(設定 → 一般 → SearchとProfessor Mariの設定 → 開く)にあります。Searchの歯車アイコンからも開けます。コンピューターでは、**Professor Mari window**(Professor Mariのウィンドウ)の下にある**Height**(高さ)と**Width**(幅)のスライダーで、ウィンドウの大きさを変えられます。スマートフォンでは、ウィンドウが画面いっぱいに広がります。
 
@@ -39,7 +39,7 @@ Professor Mariは、編集する前に対象を読み込みます。依頼が曖
 - テーマ、エージェント、プロンプトプリセット、Personal Extensionの下書きの作成と編集。下書きは、コードを読んで**Settings → Addons**(設定 → アドオン)で承認するまでオフのままです。
 - プリセット全体を置き換えずに、プリセットの1つのセクションだけをその場で編集。
 - ダウンロードできるエージェントの比較と、目的に合うものの提案。インストールするときは、**Agents → Agent Organizer**へ案内します。[ダウンロードできるエージェント一覧](../agents/built-in-agents.md)を参照してください。
-- アバター、スプライト、背景などの画像の作成と割り当て。先に画像生成のアカウントが必要です。Professor Mariがアカウントを作ることはありません。
+- アバター、スプライト、背景などの画像の作成と割り当て。先に画像生成のアカウントが必要です。Professor Mariがアカウントを作ることはありません。作成された画像をクリックすると、原寸大で表示し、元のプロンプトを読んだり、ダウンロードしたり、プロンプトを編集して再生成したりできます。返信内の画像は再生成したものに置き換わります。
 - キャラクターや世界観を調べるときの、公開されているFandomのwikiページの参照。
 
 ### チップから始める
@@ -136,7 +136,7 @@ Professor Mariがキャラクター、ペルソナ、ロアブック、プリセ
 
 ### /でコマンドを使う
 
-行の先頭で`/`を入力すると、Professor Mariのコマンドが一覧表示されます。入力を続けて絞り込み、<kbd>Enter</kbd>を押します。一覧には、自分のSkillsとMemoriesも表示されます。どちらかを選ぶと、`@`と同じようにリンクされます。
+行の先頭かスペースの直後で`/`を入力すると、Professor Mariのコマンドが一覧表示されます。1つのメッセージで複数のコマンドを使えます。入力を続けて絞り込み、<kbd>Enter</kbd>を押します。一覧には、自分のSkillsとMemoriesも表示されます。どちらかを選ぶと、`@`と同じようにリンクされます。
 
 | コマンド | 内容 |
 | --- | --- |

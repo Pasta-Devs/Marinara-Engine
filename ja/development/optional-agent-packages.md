@@ -94,6 +94,12 @@ globalThis.__MARINARA_HOST__ = {
 | `modules` | ライブラリーのモジュール。bare specifier(パスを含まないモジュール名)をキーにします(後述)。 |
 | `queryClient` | Engineが描画に使う唯一のReact Queryの`QueryClient`。 |
 | `components.Modal` | Engineの`Modal`。重なり順、Escapeキー、戻るボタンの処理を含みます。 |
+| `components.Switch`、`components.Checkbox` | Capability API 1.830から、Engine共通のスイッチとチェックボックスを使い、パッケージの外観をホストに合わせられます。 |
+| `components.Spinner` | Capability API 1.830から使えるEngine共通の読み込みリングです。通常はスクリーンリーダーに表示せず、`label`を渡すとステータス領域になります。 |
+| `components.Tabs` | Capability API 1.832から使えるEngine共通のタブバーです。`variant="pill"`はビューを切り替えるセグメント式のバー、`variant="underline"`はシートやダイアログ内のセクションを切り替えるテキストタブです。矢印キー、Home、Endでタブ間を移動します。 |
+| `components.SearchInput` | Capability API 1.832から使えるEngineの検索欄です。`value`、`onChange`、スクリーンリーダー用の`label`を渡します。クリアボタンがあり、Escapeはまず入力を消します。`resultCount`は「4 found」、`busy`はスピナーを表示します。`size="compact"`は項目の多いツールバーに収まり、`slashShortcut`を指定すると「/」で欄にフォーカスできます。 |
+| `components.showConfirmDialog` | Capability API 1.830から使えるEngineの確認ダイアログです。`services.dialogs.showConfirmDialog`と同じ関数です。 |
+| `components.Select` | Capability API 1.831から使えるEngineのドロップダウンです。`value`(文字列または`null`)、`options`(`{ value, label, description?, icon?, group?, disabledReason? }`)、`onChange(next)`、`label`を渡します。`placeholder`、`disabled`、`id`、`title`、`aria-describedby`、`className`、`searchable`、`buttonRef`は任意です。デスクトップではポップオーバー、スマートフォンではシートが開き、選択肢が8個以上なら検索できます。ネイティブの`<select>`の代わりに使ってください。 |
 | `data.emojiCatalog` | `lib/emoji-catalog.generated.ts`モジュール。 |
 | `api` | `lib/api-client.ts`モジュール(`api`、`ApiError`、`getApiErrorMessage`、...)。 |
 
@@ -1397,7 +1403,7 @@ Engineはパッケージのクライアント要素を`view="widget"`でマウ�
 - `llm.withFallback(...)`は同じパッケージホストで作ったプロバイダーを包み、Engineの受付制御、フォールバック通知、プロバイダー選択動作を維持します。
 - `images.generate(...)`と`videos.generate(...)`はキャンセル、要求ログ、ネットワーク検査、メディアキューを含むEngineの実装を使います。呼び出し元の`signal`とUIの`debugMode`があれば転送してください。1.816以降では、画像リクエストの`animation`でループするGIFを要求します([Capability API 1.816](#capability-api-1816-animated-gif-images)を参照してください)。
 - `images.save`、`images.remove`、`images.stage`、`images.sweepStaged`はギャラリーの安全な書き込みと一時ファイルのライフサイクルを再利用します。`videos.save`と`videos.remove`は動画の保存経路を再利用します。`images.resolveNovelAiRequestSize`はホストのNovelAIサイズ正規化を使います。動画時間と公開参照アップロードの正規化も、`videos.resolveDuration`と`videos.resolveReferenceUpload`で利用できます。
-- `speech.transcribe(audio, { filename, mimeType, signal })`は、録音した音声をユーザーが**Connections → Speech to Text**(接続 → 音声認識)で設定した音声認識サーバーへ送り、文字起こしの結果を返します。そのサーバーがオフのあいだは`null`を返すので、パッケージは自前の文字起こしを使い続けます。ホストのURLポリシー(`STT_LOCAL_URLS_ENABLED`)とサイズ・時間の制限を適用し、保存されたキーは公開しません。`speech`は任意で、新しいCapability APIを宣言する必要はありません。`typeof api.runtime.integrations?.speech?.transcribe === "function"`を確認し、古いEngineではフォールバックしてください。
+- `speech.transcribe(audio, { filename, mimeType, signal })`は、録音した音声をユーザーが**Connections**(接続)の**Jobs**(役割)ボックスにある**Dictation**(音声入力)の設定で設定した音声認識サーバーへ送り、文字起こしの結果を返します。そのサーバーがオフのあいだは`null`を返すので、パッケージは自前の文字起こしを使い続けます。ホストのURLポリシー(`STT_LOCAL_URLS_ENABLED`)とサイズ・時間の制限を適用し、保存されたキーは公開しません。`speech`は任意で、新しいCapability APIを宣言する必要はありません。`typeof api.runtime.integrations?.speech?.transcribe === "function"`を確認し、古いEngineではフォールバックしてください。
 
 共有の要求・結果型は`@marinara-engine/shared`からエクスポートされます。パッケージ固有のプロンプト構築と処理の調整はパッケージに置き、プロバイダーI/OにはEngineのサービス実装をコピーせず、これらのホスト入口を呼んでください。純粋なヘルパーや型は引き続きバンドルできます。
 

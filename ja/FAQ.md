@@ -122,7 +122,7 @@ Professor Mariは、ホーム画面に組み込まれたアシスタントです
 
 ## 通話でキャラクターに声を出してもらえますか?
 
-はい。Conversationモードで使えます。**Connections**(接続)で**Text to Speech**(音声合成)を設定しておく必要があります。マイクの音声認識を含む手順は、[通話](conversation/calls.md)を参照してください。
+はい。Conversationモードで使えます。**Connections**(接続)で**Voice**(音声)の役割にモデルを設定しておく必要があります。マイクの音声認識を含む手順は、[通話](conversation/calls.md)を参照してください。
 
 ## Marinaraは画像を生成できますか?
 

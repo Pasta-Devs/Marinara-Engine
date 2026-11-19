@@ -40,14 +40,13 @@ Marinaraは、ブラウザーでマイクまたはカメラを録音します。
 
 ### Text to Speechの設定
 
-Text to Speechは、どのキャラクターが、どの声で話せるかを決めます。全体の手順は[Text to Speech(TTS)のセットアップ](../media/tts-setup.md)を読んでください。要点は次のとおりです。**Connections**を開き、**Add account**をクリックして、**Text to speech**を選びます。すでに**On this device**の下に一覧表示されている場合は、そこで開きます。そのうえで、次の手順に従います。
+Text to Speechで、誰がどの声で話せるかを設定します。詳しい手順は[Text to Speech (TTS)の設定](../media/tts-setup.md)を参照してください。
 
-1. Text to Speechをオンにします。
-2. ソースを選びます: **OpenAI-compatible**、**ElevenLabs**、**PocketTTS**、**xAI Voice**。
-3. そのソースのAPIキーかローカルサーバーのアドレスを入力します。
-4. モデルと声を選びます。
-5. **Voice option**を**One voice for all**または**Selected per character or persona**に設定します。キャラクターごとに声を決めると、グループ通話が聞き分けやすくなります。
-6. 保存してから、プレビューのボタンを使って、音声が聞こえることを確認します。
+1. **Connections**(接続)を開き、**Jobs**(役割)ボックスの**Voice**(音声)の行をクリックします。
+2. 音声モデルか音声サービスを選びます。選ぶと音声合成がオンになります。キーとアドレスは、そのモデルのアカウントから取得します。
+3. **Voice**の行の歯車をクリックし、**Voice settings**(音声の設定)を開きます。
+4. **Who speaks**(話者)で**Shared voice**(共通の声)を選ぶか、**Character and persona voices**(キャラクターとペルソナの声)で個別に声を割り当てます。グループ通話では、声を分けると誰が話しているか分かりやすくなります。
+5. **Preview**(プレビュー)をクリックし、音声が聞こえることを確認します。
 
 キャラクターにMarinaraが特定できる声がない場合、そのキャラクターは、通話中は文字だけになります。
 
@@ -128,8 +127,8 @@ Local Whisperは、Marinaraを動かしているコンピューター上で、�
 
 始める前に: Callsをインストールしてください。インストールしないと、このセクションは表示されません。
 
-1. **Connections**を開き、**On this device**の下にある**Speech to text**を探します。一覧にない場合は、**Add account**をクリックして、**Speech to text**を選びます。
-2. このページの**Local Speech model**を探します。
+1. **Connections**(接続)を開き、**On this device**(このデバイス上)カードの**Local speech model**(ローカル音声モデル)を探します。
+2. そのカードの**Local speech model**をクリックします。
 3. モデルを選びます。
    - **Whisper Tiny (Multilingual)**: ダウンロードは約180 MB、メモリーは約350 MB。スマートフォンや古いコンピューターに最適です。
    - **Whisper Base (Multilingual)**: ダウンロードは約320 MB、メモリーは約650 MB。聞き取りにくい音声に向いています。
@@ -146,7 +145,7 @@ Local Whisperは、Marinaraを動かしているコンピューター上で、�
 
 Local Whisperが、自分の言語やアクセントで苦戦する場合は、代わりに別の音声認識サーバーに音声を送ります。OpenAIの音声認識の形式(`/audio/transcriptions`のアドレス)を受け付けるサーバーであれば、自分で動かしているものでも、OpenAIやGroqのようなサービスでも使えます。
 
-1. **Connections**を開き、**On this device**の下にある**Speech to text**を開きます。一覧にない場合は、**Add account**をクリックして、**Speech to text**を選びます。Callsがインストールされていないと、表示されません。
+1. **Connections**(接続)を開き、**Jobs**(役割)ボックスで**Dictation**(音声入力)の行の歯車をクリックします。そこに**Speech to text**(音声認識)サーバーの設定があります。Callsがインストールされていない場合は表示されません。
 2. **Server URL**を入力します。例: `http://localhost:8000/v1`。
 3. サーバーが必要とする場合は、**API key**を入力します。暗号化されて保存され、伏せて表示されます。
 4. サーバーが使う**Model**名を入力します。空にすると、`whisper-1`を送ります。

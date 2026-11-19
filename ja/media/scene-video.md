@@ -37,7 +37,7 @@ Game Modeと**Animate illustration**は必ず画像から始まるため、先�
 
 ### デフォルトの動画モデルにする
 
-チャットに独自の動画モデルがないときに使う動画モデルを決めるには、**Connections**(接続)パネル上部の**Defaults**(デフォルト)にある**Video**(動画)の役割を設定します。Chat Settingsでは、これが**Default video provider**と表示されます。チャットのモデルもデフォルトもない場合、動画の操作時にモデルを選ぶよう警告が表示されます。
+チャットに独自の動画モデルがないときに使う動画モデルを決めるには、**Connections**(接続)パネル上部の**Jobs**(役割)ボックスの**Video**(動画)の役割を設定します。Chat Settingsでは、これが**Default video provider**と表示されます。チャットのモデルもデフォルトもない場合、動画の操作時にモデルを選ぶよう警告が表示されます。
 
 ### Video prompting instructions
 

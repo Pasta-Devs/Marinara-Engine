@@ -233,7 +233,7 @@ Roleplayモードのシーンと世界の状態を保持します。
 | `use-knowledge-sources.ts`     | 知識ソースの管理                |
 | `use-gallery.ts`               | チャットのギャラリー画像                      |
 | `use-chat-folders.ts`          | チャットフォルダーのCRUDと並べ替え          |
-| `use-regex-scripts.ts`         | 正規表現スクリプトのCRUD                       |
+| `use-regex-scripts.ts` | 正規表現スクリプトのCRUD、並べ替え、一括切り替え |
 | `use-haptic.ts`                | ハプティックデバイスの接続とコマンド      |
 
 ## コンポーネントガイド
@@ -364,6 +364,30 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.streamEvents(path, body)` | `POST /api{path}`   | SSEの非同期ジェネレーター(すべてのイベント種別) |
 
 エラーは`ApiError`としてthrowされます。`status`と`message`のプロパティーを持ちます。
+
+## ピッカーとドロップダウン
+
+値を選ぶコントロールは、すべて共通のピッカーウィンドウを開きます。表示面、行のスタイル、幅などの変更は、個別の機能側ではなく、以下の共通コンポーネントに加えてください。アプリではネイティブの`<select>`も独自のポップオーバー内の一覧も廃止しています。
+
+| レイヤー | ファイル | 担当範囲 |
+| --- | --- | --- |
+| ウィンドウ | `components/ui/PickerWindow.tsx` | 表示面です。デスクトップでは欄の横に、行を表示するのに必要な幅のポップオーバーを開きます。最小は欄と同じ幅、最大は352 pxで、欄がそれより広ければ欄と同じ幅です。スマートフォンではボトムシート(`Modal`)になります。シートが重ならないよう、`Modal`内ではポップオーバーのままです。Escape、戻る、外側のクリック、スクロールで欄が画面外に出る操作で閉じます。 |
+| 行 | `components/ui/PickerParts.tsx` | `PickRow`(画像、タイトル、最大2行に折り返す補足、バッジ、チェックマークまたはチェックボックスからなる1行)、`PickerSearch`、フォルダー見出し、`usePickerKeyboard`(矢印キー、Enter)です。 |
+| 一覧 | `components/ui/PickerFolderList.tsx` | 本体です。検索欄、ライブラリーのフォルダーまたは`group`で分類した行、単一選択と複数選択、フォルダーごとの「Add all」を扱います。 |
+| 入力欄 | `components/ui/Select.tsx` | `Select`は固定の一覧から1つの値を選ぶ、ネイティブの`<select>`の代替です。コンボボックスのトリガー、`SELECT_SEARCH_MIN`件からの検索、閉じた状態での矢印キーと文字入力による選択に対応します。 |
+| | `components/ui/PickerField.tsx` | `PickerField`(フォルダーとNone行付きの単一選択)、`PickerListField` / `PickerListWindow`(複数選択。選んだ項目を削除ボタン付きで欄の下に表示)、`useFieldWindow`(開閉の状態と、閉じた後に欄へフォーカスを戻す処理)です。 |
+| | `components/ui/LibraryPickers.tsx`、`components/characters/CharacterSelect.tsx` | 上記を使ったプリセット、ロアブック、キャラクター、ペルソナの入力欄です。 |
+
+ピッカーの追加方法は次のとおりです。
+
+- **一覧から1つの値:** `Select`を使います。`label`が欄の名前とウィンドウの見出しになります。
+- **ライブラリーの項目1つ**(フォルダー、画像、None行付き): `PickerField`か、`LibraryPickers.tsx`の対応する欄を使います。
+- **複数の項目:** `PickerListField`を使います。Escapeや外側のクリックでウィンドウが閉じます。項目を選んでも閉じません。
+- **入力欄以外**(「Link to Conversation」のように少数の選択肢を開くボタン): 開閉の状態とフォーカスに`useFieldWindow`を使い、ボタンに`PickerWindow`を配置し、中に`PickerFolderList`または`PickRow`を入れます。
+
+接続とモデルのピッカー(`ConnectionSelect` / `ModelPicker`)は、まだ専用ウィンドウを使います。アイコンギャラリー(`StatIconPicker`)、タグの自動補完、コンテキストメニュー、アクションメニューにも独自の表示面があり、ピッカーには含まれません。
+
+**テスト。** `Select`のトリガーには`role="combobox"`と、選んだ値を格納する`data-value`があります。ウィンドウは欄のラベルを名前とする`dialog`です。各行には`data-pick-row`が付きます。単一選択では選んだ行が`aria-current="true"`を持ち、複数選択の各行には`aria-pressed`が付きます。以前のネイティブの選択欄で使っていたPlaywrightの`selectOption`は、`e2e/select-field.ts`の`chooseOption`と`pickerLabels`で置き換えます。
 
 ## スタイリングの仕組み
 

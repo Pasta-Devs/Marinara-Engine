@@ -125,6 +125,7 @@ Marinaraはデータをそのままの形のJSONファイルとして保存す�
 | `LOG_LEVEL` | `warn` | 上のレベル。 |
 | `LOG_PRESET` | `default` | `prompt-connections`は、`debug`と同じプロンプトとモデルの詳細を表示しつつ、`GET /api/chats`のような定型のリクエストの行を隠します。 |
 | `LOG_DISABLE_REQUEST_LOGGING` | `false` | `true`にすると、定型のリクエストの行を隠し、レベルはそのままにします。変更には再起動が必要です。 |
+| `LOG_INLINE_MEDIA` | `short` | `short`は画像やそのほかのbase64ファイルを、種類とサイズを示す短いマーカーでデバッグ出力します。`full`は全体を出力するため、1プロンプトで数MBになる場合があります。 |
 | `LOG_FORMAT` | 自動 | `pretty`は、どこでも読みやすい行で出力します。たとえば`docker logs`で**Debug mode**(デバッグモード)のプロンプトを読むときに使います。`json`は、1行に1つのJSONオブジェクトを出力します。変更には再起動が必要です。 |
 
 ターミナルでは、サーバーは読みやすい行で出力します。Dockerのログなどそれ以外の場所では、本番用のサーバーはJSONの行を出力します。Termuxのランチャーは読みやすい行を指定します。ブラウザー側のログは別の仕組みで、`LOG_LEVEL`では制御しません。

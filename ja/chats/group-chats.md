@@ -79,9 +79,13 @@ Roleplayの**Individual**モードで順序が**Smart**または**Manual**の場
 
 **Trigger Response**の選択メニューで発言者を選びます。コンピューターでは**Send**の横にあるボタンで、ラベルは**Trigger character response**です。スマートフォンでは、メッセージバーから開くツールトレイの**Trigger Response**の下にあります。テキストで発言者を指定するには、`@`に続けてキャラクター名を入力します。候補の一覧が表示されます。
 
+<a id="more-individual-settings"></a>
+
 ### そのほかのIndividualの設定
 
 - **Add Turn To Prompt**は、デフォルトでオンです。どのキャラクターが返信するかを示す短い指示を追加します。
+- **Others' Public Faces**(ほかのキャラクターの公開情報、Roleplayのみ)は、デフォルトでオフです。各キャラクターに渡るのは自分のカードだけなので、ほかのキャラクターについてはチャットの内容からしか知りません。オンにすると、各ターンにほかのアクティブなキャラクターの**Public Face**(周囲に知られている情報)の内容が追加されます。秘密を除き、その場の誰でも知り得る情報です。Public Faceが空のキャラクターや、非アクティブなキャラクターは対象外です。書き方は[Cardタブ](../characters/creating-and-editing-characters.md#card-tab)を参照してください。
+
 - **Name Prefix History**(Roleplayのみ)は、デフォルトでオフです。過去のメッセージに発言者名を付ける方法を変えます。誰が何を言ったかをキャラクターが取り違え続ける場合以外は、オフのままにしてください。
 
 ### Scenario Override(Roleplay)
@@ -102,6 +106,7 @@ Roleplayの**Individual**モードで順序が**Smart**または**Manual**の場
 | **Response Order** | Individual | Sequential |
 | **Add Turn To Prompt** | Individual | オン |
 | **Name Prefix History** | Roleplay、Individual | オフ |
+| **Others' Public Faces** | Roleplay、Individual | オフ |
 | **Scenario Override** | Roleplay | 空 |
 | **Character Exchanges** | Conversation、Autonomous Messaging | オフ |
 
