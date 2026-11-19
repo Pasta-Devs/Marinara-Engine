@@ -8,6 +8,7 @@ import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { fetchSpotifyApi, normalizeSpotifySearchQuery, type SpotifyCredentialsResult } from "./spotify.service.js";
+import { parseJsonRecord } from "../../utils/large-json.js";
 
 type ChatRow = Awaited<ReturnType<ReturnType<typeof createChatsStorage>["list"]>>[number];
 type MessageRow = Awaited<ReturnType<ReturnType<typeof createChatsStorage>["listMessagesPaginated"]>>[number];
@@ -78,21 +79,8 @@ function fail(status: number, message: string): never {
   throw new DjMariPlaylistError(status, message);
 }
 
-function parseJsonObject(value: unknown): Record<string, unknown> {
-  if (!value) return {};
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-    } catch {
-      return {};
-    }
-  }
-  return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
 function parseCharacter(row: CharacterRow): { id: string; name: string; description: string; personality: string } {
-  const data = parseJsonObject(row.data);
+  const data = parseJsonRecord(row.data);
   return {
     id: row.id,
     name: typeof data.name === "string" && data.name.trim() ? data.name.trim() : "Unnamed character",
@@ -186,13 +174,13 @@ function extractJson(text: string): string {
 
 function parseGeneratedTracks(raw: string): GeneratedTrack[] {
   const parsed = JSON.parse(extractJson(raw)) as unknown;
-  const record = parseJsonObject(parsed);
+  const record = parseJsonRecord(parsed);
   const tracks = Array.isArray(record.tracks) ? record.tracks : Array.isArray(parsed) ? parsed : [];
   const normalized: GeneratedTrack[] = [];
   const seen = new Set<string>();
 
   for (const item of tracks) {
-    const row = parseJsonObject(item);
+    const row = parseJsonRecord(item);
     const title =
       typeof row.title === "string"
         ? row.title.trim()
@@ -455,12 +443,12 @@ async function resolveProviderConnection(db: DB) {
 }
 
 function summarizeMetadata(chat: ChatRow): Record<string, unknown> {
-  const meta = parseJsonObject(chat.metadata);
+  const meta = parseJsonRecord(chat.metadata);
   const out: Record<string, unknown> = {};
   for (const key of ["summary", "tags", "gameActiveState", "gameStoryArc", "gameSpotifySourceType"]) {
     if (meta[key] !== undefined && meta[key] !== null && meta[key] !== "") out[key] = meta[key];
   }
-  const setup = parseJsonObject(meta.gameSetupConfig);
+  const setup = parseJsonRecord(meta.gameSetupConfig);
   for (const key of ["setting", "genre", "tone", "premise", "playerGoals", "additionalPreferences"]) {
     if (setup[key] !== undefined && setup[key] !== null && setup[key] !== "") out[`setup.${key}`] = setup[key];
   }

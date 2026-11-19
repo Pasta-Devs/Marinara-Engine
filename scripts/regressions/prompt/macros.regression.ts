@@ -421,6 +421,36 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "Public Face macros resolve per group responder and for the persona, outside {{persona}}",
+    run: () => {
+      const context: MacroContext = {
+        user: "Ada",
+        char: "Maukie",
+        characters: ["Maukie", "Pantalone"],
+        variables: {},
+        characterFields: { publicFace: "A cat everyone in town knows." },
+        personaFields: { description: "Mathematician", publicFace: "A countess with ink-stained gloves." },
+      };
+      assert.equal(
+        resolveMacros("{{publicFace}} / {{personaPublicFace}}", context),
+        "A cat everyone in town knows. / A countess with ink-stained gloves.",
+      );
+      assert.equal(resolveMacros("{{persona}}", context), "Mathematician");
+      assert.equal(resolveMacros("{{#if publicFace}}known{{/if}}", context), "known");
+
+      const deferred = resolveMacros("{{publicFace}}", context, { deferCharacterMacros: "all" });
+      assert.equal(hasDeferredCharacterMacros(deferred), true);
+      assert.equal(
+        resolveDeferredCharacterMacros(
+          deferred,
+          { name: "Pantalone", publicFace: "A banker; {{char}} to all." },
+          context,
+        ),
+        "A banker; Pantalone to all.",
+      );
+    },
+  },
+  {
     name: "conversation character macros defer to the active Individual group responder",
     run() {
       const initialContext = {

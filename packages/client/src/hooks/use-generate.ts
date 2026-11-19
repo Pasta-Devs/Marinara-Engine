@@ -97,6 +97,8 @@ type RetryAgentsOptions = {
   /** Told the Gallery id of each picture the Illustrator draws in this run. */
   onIllustration?: (galleryImageId: string) => void;
   illustratorMessageRange?: [string, string];
+  /** Scene guidance from /illustrate template=…, for that Prompt Mode's prompt writer. */
+  illustratorRequest?: string;
   /** Force image generation for the retried custom image agents' results (snapshot button, #4682). */
   forceImageGeneration?: boolean;
 };
@@ -1241,7 +1243,12 @@ function applyGameStatePatchToStore(
   const current = useGameStateStore.getState().current;
 
   if (current?.chatId === chatId) {
-    const lockedPatch = applyTrackerFieldLocksToGameStatePatch(patch, current);
+    // A handover to a card (#9556) sends the locks under their new keys; merge with those, not the old ones.
+    const patchLocks =
+      patch.fieldLocks && typeof patch.fieldLocks === "object"
+        ? (patch.fieldLocks as Record<string, boolean>)
+        : undefined;
+    const lockedPatch = applyTrackerFieldLocksToGameStatePatch(patch, current, patchLocks ?? current.fieldLocks);
     const merged = { ...current, ...lockedPatch, chatId, ...(anchor ?? {}) };
     if (lockedPatch.playerStats && typeof lockedPatch.playerStats === "object" && current.playerStats) {
       const mergedPS = { ...current.playerStats, ...(lockedPatch.playerStats as object) };
@@ -1336,6 +1343,7 @@ export function useGenerate() {
       impersonatePresetId?: string;
       impersonateConnectionId?: string;
       impersonateBlockAgents?: boolean;
+      impersonatePublicFaces?: boolean;
       impersonatePromptTemplate?: string;
       /** When true, this generation drives the active turn-game's bot seats instead of a chat reply. */
       turnGameBots?: boolean;
@@ -4017,6 +4025,7 @@ export function useGenerate() {
             ...(options?.illustratorRetryTargets ? { illustratorRetryTargets: options.illustratorRetryTargets } : {}),
             ...(options?.illustratorStillOnly ? { illustratorStillOnly: true } : {}),
             ...(options?.illustratorMessageRange ? { illustratorMessageRange: options.illustratorMessageRange } : {}),
+            ...(options?.illustratorRequest ? { illustratorRequest: options.illustratorRequest } : {}),
             ...(options?.forceImageGeneration ? { forceImageGeneration: true } : {}),
             musicPlayerEnabled: useUIStore.getState().musicPlayerEnabled,
             musicPlayerSource: useUIStore.getState().musicPlayerSource,

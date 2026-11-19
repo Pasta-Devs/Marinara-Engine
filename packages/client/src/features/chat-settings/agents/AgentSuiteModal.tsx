@@ -56,6 +56,7 @@ import { StateJsonField } from "../../../components/ui/state-editor/StateJsonFie
 import { useUIStore } from "../../../stores/ui.store";
 import { useGameStateStore } from "../../../stores/game-state.store";
 import { Modal } from "../../../components/ui/Modal";
+import { Select } from "../../../components/ui/Select";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
 import { Spinner } from "../../../components/ui/Spinner";
@@ -909,17 +910,13 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
         <div className="flex flex-col gap-3 sm:flex-row">
           {/* Agent picker — dropdown on mobile, rail on desktop */}
           <div className="shrink-0 sm:w-44">
-            <select
-              value={effectiveAgentId ?? ""}
-              onChange={(event) => selectAgent(event.target.value)}
+            <Select
+              label={localizeUi("ui.chat.agentsuitemodal.agentSuite")}
+              value={effectiveAgentId}
+              options={agents.map((agent) => ({ value: agent.id, label: agent.name }))}
+              onChange={selectAgent}
               className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40 sm:hidden"
-            >
-              {agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>
-                  {agent.name}
-                </option>
-              ))}
-            </select>
+            />
             <div className="hidden flex-col gap-1 sm:flex">
               {agents.map((agent) => (
                 <button

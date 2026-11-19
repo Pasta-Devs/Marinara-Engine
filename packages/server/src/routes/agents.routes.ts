@@ -38,7 +38,8 @@ import { applyIllustratorChatRunInterval } from "../services/generation/agent-ca
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { normalizeBeholderState } from "../services/agents/beholder-state.js";
 import { DATA_DIR } from "../utils/data-dir.js";
-import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
+import { extensionFromImageMime, isAllowedImageBuffer, resolveInside } from "../utils/security.js";
+import { notFound } from "../utils/not-found.js";
 import { z } from "zod";
 
 const AGENT_IMAGES_DIR = join(DATA_DIR, "agents", "images");
@@ -213,7 +214,7 @@ async function allowsMusicDjFolderPaths(
 function getSafeAgentImagePath(filename: string): string | null {
   if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
   try {
-    return assertInsideDir(AGENT_IMAGES_DIR, join(AGENT_IMAGES_DIR, filename));
+    return resolveInside(AGENT_IMAGES_DIR, filename);
   } catch {
     return null;
   }
@@ -275,11 +276,11 @@ export async function agentsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { filename: string } }>("/images/file/:filename", async (req, reply) => {
     const filepath = getSafeAgentImagePath(req.params.filename);
-    if (!filepath || !existsSync(filepath)) return reply.status(404).send({ error: "Image not found" });
+    if (!filepath || !existsSync(filepath)) return notFound(reply, "Image not found");
 
     const buffer = await readFile(filepath);
     const imageInfo = isAllowedImageBuffer(buffer, extname(filepath));
-    if (!imageInfo) return reply.status(404).send({ error: "Image not found" });
+    if (!imageInfo) return notFound(reply, "Image not found");
 
     return reply
       .header("Content-Type", imageInfo.mimeType)
@@ -332,7 +333,7 @@ export async function agentsRoutes(app: FastifyInstance) {
       const state = normalizeBeholderState(body?.state);
       if (!state) return reply.status(400).send({ error: "Invalid Beholder state" });
       const run = await storage.getLastSuccessfulRunByType("beholder", req.params.chatId);
-      if (!run) return reply.status(404).send({ error: "No Beholder run to correct yet" });
+      if (!run) return notFound(reply, "No Beholder run to correct yet");
       // The run can be deleted between the lookup and the write. Reporting success then
       // would tell the operator their correction was saved when it was discarded.
       const updated = await storage.updateRunResultData(run.id, state, req.params.chatId);
@@ -443,11 +444,11 @@ export async function agentsRoutes(app: FastifyInstance) {
   app.get<{ Params: { agentType: string; chatId: string } }>("/cadence/:agentType/:chatId", async (req, reply) => {
     const { agentType, chatId } = req.params;
     const builtIn = BUILT_IN_AGENTS.find((agent) => agent.id === agentType);
-    if (!builtIn) return reply.status(404).send({ error: "Unknown agent type" });
+    if (!builtIn) return notFound(reply, "Unknown agent type");
 
     const defaults = getDefaultBuiltInAgentSettings(agentType);
     if (defaults.runInterval === undefined) {
-      return reply.status(404).send({ error: "Agent does not use run intervals" });
+      return notFound(reply, "Agent does not use run intervals");
     }
     const fallback = normalizeRunInterval(defaults.runInterval, 1);
     const config = await storage.getByType(agentType);
@@ -496,7 +497,7 @@ export async function agentsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { runId: string } }>("/runs/:runId", async (req, reply) => {
     const input = updateAgentRunSchema.parse(req.body);
     const run = await storage.getRunWithConfig(req.params.runId, input.chatId);
-    if (!run) return reply.status(404).send({ error: "Agent run not found" });
+    if (!run) return notFound(reply, "Agent run not found");
     if (BUILT_IN_AGENTS.some((agent) => agent.id === run.agentType)) {
       return reply.status(403).send({ error: "Built-in agent runs are not editable here" });
     }
@@ -505,13 +506,13 @@ export async function agentsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const agent = await storage.getById(req.params.id);
-    if (!agent) return reply.status(404).send({ error: "Agent not found" });
+    if (!agent) return notFound(reply, "Agent not found");
     return agent;
   });
 
   app.get<{ Params: { id: string; widgetId: string } }>("/:id/home-widgets/:widgetId/state", async (req, reply) => {
     const state = await storage.readHomeWidgetState(req.params.id, req.params.widgetId);
-    if (!state) return reply.status(404).send({ error: "Widget unavailable" });
+    if (!state) return notFound(reply, "Widget unavailable");
     return state;
   });
 
@@ -525,7 +526,7 @@ export async function agentsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { agentType: string } }>("/type/:agentType", async (req, reply) => {
     const config = await getOrCreateConfigByType(req.params.agentType);
     if (!config) {
-      return reply.status(404).send({ error: "Agent is not configured" });
+      return notFound(reply, "Agent is not configured");
     }
     const data = updateAgentConfigSchema.parse(req.body);
     if (!(await allowsMusicDjFolderPaths(req, reply, data.settings, async () => config.settings))) return;
@@ -547,7 +548,7 @@ export async function agentsRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>("/:id/image", async (req, reply) => {
     const config = (await storage.getById(req.params.id)) ?? (await getOrCreateConfigByType(req.params.id));
-    if (!config) return reply.status(404).send({ error: "Agent not found" });
+    if (!config) return notFound(reply, "Agent not found");
 
     const body = req.body as { image?: string };
     if (!body.image) return reply.status(400).send({ error: "No image data provided" });
@@ -561,11 +562,11 @@ export async function agentsRoutes(app: FastifyInstance) {
     const filename = `agent-${config.id.replace(/[^a-zA-Z0-9_-]/g, "-")}-${Date.now()}-${Math.random()
       .toString(36)
       .slice(2, 8)}.${ext}`;
-    const filepath = assertInsideDir(AGENT_IMAGES_DIR, join(AGENT_IMAGES_DIR, filename));
+    const filepath = resolveInside(AGENT_IMAGES_DIR, filename);
     await writeFile(filepath, buffer);
 
     const updated = await storage.update(config.id, { imagePath: `/api/agents/images/file/${filename}` });
-    if (!updated) return reply.status(404).send({ error: "Agent not found" });
+    if (!updated) return notFound(reply, "Agent not found");
     return updated;
   });
 
@@ -593,7 +594,7 @@ export async function agentsRoutes(app: FastifyInstance) {
     const { agentType } = req.params;
     const builtIn = BUILT_IN_AGENTS.find((a) => a.id === agentType);
     if (!builtIn) {
-      return reply.status(404).send({ error: "Unknown agent type" });
+      return notFound(reply, "Unknown agent type");
     }
 
     const existing = await storage.getByType(agentType);
@@ -670,7 +671,7 @@ export async function agentsRoutes(app: FastifyInstance) {
   app.get<{ Params: { agentType: string; chatId: string } }>("/memory/:agentType/:chatId", async (req, reply) => {
     const config = await storage.getByType(req.params.agentType);
     if (!config) {
-      return reply.status(404).send({ error: "Agent is not configured" });
+      return notFound(reply, "Agent is not configured");
     }
     const memory = await storage.getMemory(config.id, req.params.chatId);
     return { agentConfigId: config.id, memory };
@@ -683,7 +684,7 @@ export async function agentsRoutes(app: FastifyInstance) {
   }>("/memory/:agentType/:chatId", async (req, reply) => {
     const config = await getOrCreateConfigByType(req.params.agentType);
     if (!config) {
-      return reply.status(404).send({ error: "Agent is not configured" });
+      return notFound(reply, "Agent is not configured");
     }
     const body = (req.body ?? {}) as { patch?: Record<string, unknown> };
     const patch = body.patch;

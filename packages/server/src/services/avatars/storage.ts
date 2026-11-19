@@ -37,7 +37,7 @@ import {
 } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
-import { assertInsideDir } from "../../utils/security.js";
+import { resolveInside } from "../../utils/security.js";
 
 export const AVATAR_MODELS_DIR = join(DATA_DIR, "avatar-models");
 
@@ -68,7 +68,7 @@ function ownerKey(owner: AvatarOwnerRef): string {
 /** Absolute folder of one owner. Validates the owner id; never creates anything. */
 export function avatarOwnerDir(owner: AvatarOwnerRef): string {
   const checked = checkedOwner(owner);
-  return assertInsideDir(AVATAR_MODELS_DIR, join(AVATAR_MODELS_DIR, checked.ownerType, checked.ownerId));
+  return resolveInside(AVATAR_MODELS_DIR, checked.ownerType, checked.ownerId);
 }
 
 /** Absolute path of a stored file, checked to stay inside the owner's folder. */
@@ -76,7 +76,7 @@ export function resolveAvatarFile(owner: AvatarOwnerRef, path: AvatarFilePath): 
   if (!isAvatarFilePath(path)) throw new AvatarStorageError(400, "That avatar file name isn't allowed.");
   const dir = avatarOwnerDir(owner);
   const [kind, name] = path.split("/") as [string, string];
-  return assertInsideDir(dir, join(dir, kind, name));
+  return resolveInside(dir, kind, name);
 }
 
 // ── Per-owner queue ──
@@ -194,7 +194,7 @@ async function removeUnreferencedFiles(owner: AvatarOwnerRef, kind: AvatarKind, 
   }
   for (const name of names) {
     if (kept.has(name.toLowerCase())) continue;
-    await rm(assertInsideDir(dir, join(dir, name)), { recursive: true, force: true });
+    await rm(resolveInside(dir, name), { recursive: true, force: true });
   }
 }
 

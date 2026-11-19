@@ -1,9 +1,10 @@
-import type { PresentCharacter } from "@marinara-engine/shared";
+import { isGamePartyNpcId, TRACKER_NPC_ID_PREFIX, type PresentCharacter } from "@marinara-engine/shared";
 import type { SpriteInfo } from "../../../hooks/use-characters";
 
 export function isSpriteLookupCharacterId(characterId: string | null | undefined) {
   const id = characterId?.trim();
-  return !!id && !id.startsWith("manual-") && !id.startsWith("party-npc:") && !id.startsWith("npc:");
+  // Hand-added rows, Game Mode party NPCs and NPCs the server named (#9541) have no card behind them: no sprites.
+  return !!id && !id.startsWith("manual-") && !isGamePartyNpcId(id) && !id.startsWith(TRACKER_NPC_ID_PREFIX);
 }
 
 export function getSpriteExpressionForCharacter(

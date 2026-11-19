@@ -405,6 +405,8 @@ export interface AgentContext {
   characters: Array<{
     id: string;
     name: string;
+    /** Other names the card goes by (`extensions.nameAliases`). */
+    nameAliases?: string[];
     /** Persisted character-card world name, when configured. */
     world?: string;
     description: string;
@@ -413,6 +415,8 @@ export interface AgentContext {
     systemPrompt?: string;
     backstory?: string;
     appearance?: string;
+    /** Sent instead of the card when the agent's Characters source is set to Public Face. */
+    publicFace?: string;
     mesExample?: string;
     firstMes?: string;
     postHistoryInstructions?: string;
@@ -436,6 +440,8 @@ export interface AgentContext {
     backstory?: string;
     appearance?: string;
     scenario?: string;
+    /** Sent instead of the card when the agent's Persona source is set to Public Face. */
+    publicFace?: string;
     personaStats?: { enabled: boolean; bars: Array<{ name: string; value: number; max: number; color: string }> };
     rpgStats?: {
       enabled: boolean;
@@ -597,6 +603,19 @@ function toBuiltInAgentMeta(agent: BuiltInAgentManifest): BuiltInAgentMeta {
 
 export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [];
 
+/** Built-ins whose runs the Engine already gates with its own logic. */
+const SELF_GATED_AGENT_TYPES: ReadonlySet<string> = new Set(["illustrator", "knowledge-retrieval", "knowledge-router"]);
+
+/**
+ * Whether the generic activation keywords and activation question apply to this agent.
+ * Custom agents always qualify; built-ins qualify unless a dedicated workflow runs them.
+ */
+export function agentSupportsActivationGate(agentType: string): boolean {
+  if (SELF_GATED_AGENT_TYPES.has(agentType)) return false;
+  const builtIn = BUILT_IN_AGENTS.find((agent) => agent.id === agentType);
+  return !builtIn || (builtIn.execution !== "host" && builtIn.execution !== "feature");
+}
+
 export const DEFAULT_AGENT_CONTEXT_SIZE = 5;
 export const DEFAULT_AGENT_MAX_TOKENS = 4096;
 export const MIN_AGENT_MAX_TOKENS = 128;
@@ -633,6 +652,10 @@ export const CUSTOM_AGENT_CONTEXT_SOURCE_IDS = [
   "trackerData",
   "recalledMemories",
   "previousOutput",
+  // Public Face choice for Characters and Persona (#9426). Kept apart from `characters` and
+  // `persona`, which stay false in this state, so code that only knows those sends less.
+  "charactersPublicFace",
+  "personaPublicFace",
 ] as const;
 
 export type CustomAgentContextSource = (typeof CUSTOM_AGENT_CONTEXT_SOURCE_IDS)[number];
@@ -648,7 +671,35 @@ export const DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES: CustomAgentContextSources = {
   trackerData: false,
   recalledMemories: false,
   previousOutput: false,
+  charactersPublicFace: false,
+  personaPublicFace: false,
 };
+
+/** How much of a character or persona card an agent's Characters or Persona source sends. */
+export type AgentCardContextMode = "off" | "full" | "publicFace";
+export type AgentCardContextSource = "characters" | "persona";
+
+const PUBLIC_FACE_CONTEXT_SOURCE = {
+  characters: "charactersPublicFace",
+  persona: "personaPublicFace",
+} as const satisfies Record<AgentCardContextSource, CustomAgentContextSource>;
+
+/** Full card wins over Public Face, so a batch that merges sources sends the widest choice. */
+export function getAgentCardContextMode(
+  sources: CustomAgentContextSources,
+  source: AgentCardContextSource,
+): AgentCardContextMode {
+  if (sources[source]) return "full";
+  return sources[PUBLIC_FACE_CONTEXT_SOURCE[source]] ? "publicFace" : "off";
+}
+
+export function setAgentCardContextMode(
+  sources: CustomAgentContextSources,
+  source: AgentCardContextSource,
+  mode: AgentCardContextMode,
+): CustomAgentContextSources {
+  return { ...sources, [source]: mode === "full", [PUBLIC_FACE_CONTEXT_SOURCE[source]]: mode === "publicFace" };
+}
 
 export function normalizeCustomAgentContextSources(settings: unknown): CustomAgentContextSources {
   const stored = parseAgentSettingsRecord(settings).contextSources;
@@ -678,6 +729,8 @@ export function getAgentContextSources(config: {
     trackerData: true,
     recalledMemories: true,
     previousOutput: false,
+    charactersPublicFace: false,
+    personaPublicFace: false,
   };
 }
 

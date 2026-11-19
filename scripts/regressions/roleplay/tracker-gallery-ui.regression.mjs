@@ -36,7 +36,7 @@ const connectedChatsSections = readSource(
 );
 const chatSidebar = readSource("packages/client/src/components/layout/ChatSidebar.tsx");
 const homeBrowserHub = readSource("packages/client/src/components/chat/HomeBrowserHub.tsx");
-const storyboardChatSettings = readSource("packages/client/src/features/chat-settings/StoryboardChatSettingsPanel.tsx");
+const storyboardChatSettings = readSource("packages/client/src/features/chat-settings/agents/StoryboardChatSettingsPanel.tsx");
 const conversationView = readSource("packages/client/src/components/chat/ConversationView.tsx");
 const agentSettingsControls = readSource("packages/client/src/components/chat/AgentSettingsControls.tsx");
 const translationSection = readSource("packages/client/src/features/chat-settings/sections/TranslationSection.tsx");
@@ -175,7 +175,7 @@ assert.doesNotMatch(
 );
 assert.match(
   chatGallery,
-  /className="mari-chrome-field h-10 w-full !rounded-md pl-9 pr-10 text-xs"/u,
+  /<SearchInput\b/u,
   "the shared Gallery search must reuse the standard chat field",
 );
 assert.match(

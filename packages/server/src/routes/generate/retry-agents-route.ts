@@ -6,8 +6,6 @@ import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
-  applyQuestUpdatesToPlayerStats,
-  applyTrackerFieldLocksToGameStatePatch,
   getCustomAgentResultCapability,
   customAgentHasCapability,
   parseLorebookWriterOrder,
@@ -17,8 +15,6 @@ import {
   isBuiltInAgentRuntimeDisabled,
   isBuiltInAgentHostManaged,
   isRetiredBuiltInAgentId,
-  normalizeWorldCustomFields,
-  isTrackerRowsUpdate,
   normalizeAgentPhaseValue,
   normalizeAgentPromptTemplateSelectionMap,
   normalizeImagePromptInstructions,
@@ -33,7 +29,6 @@ import {
   type AgentResult,
   type APIProvider,
   type ChatMode,
-  type GameMap,
   type WrapFormat,
   type ManagedGenerationParameterDefinition,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
@@ -46,7 +41,6 @@ import {
   resolveIllustratorChatReasoning,
   type AgentReasoningOptions,
 } from "../../services/generation/agent-generation-parameters.js";
-import { and, eq } from "../../db/file-query.js";
 import { listCharacterSprites } from "../../services/game/sprite.service.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import {
@@ -83,6 +77,7 @@ import { utilitySidecarService } from "../../services/utility-sidecar/utility-si
 import { buildUtilitySidecarEntry } from "../../services/utility-sidecar/utility-sidecar.provider.js";
 import {
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
+  normalizeNameAliases,
   parseDecisionPromptQuestionLimit,
   readImageAppearanceOverride,
   UTILITY_SIDECAR_CONNECTION_ID,
@@ -160,6 +155,14 @@ import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { mediaProviderLanesEnabled } from "../../services/image/image-generation-queue.js";
 import { generateIllustratorImageVariants } from "../../services/image/illustrator-image-variants.js";
 import {
+  WRITER_REFERENCE_MEMORY_KEY,
+  collectWriterReferencePictures,
+  imageModelGetsReferencePictures,
+  readWriterReferenceNames,
+  writerVisionKey,
+  type WriterReferencePayload,
+} from "../../services/image/writer-reference-pictures.js";
+import {
   generateCheckedPicture,
   normalizePictureCheckMode,
   parsePictureCheckLines,
@@ -197,29 +200,18 @@ import type { GameStateForScanning } from "../../services/lorebook/keyword-scann
 import { filterRelevantLorebooks } from "../../services/lorebook/index.js";
 import { storedContentForTextlessScanEntries } from "../../services/lorebook/lorebook-scan-compaction.js";
 import { createCustomToolsStorage } from "../../services/storage/custom-tools.storage.js";
-import { syncGameMapMetaPartyPosition } from "../../services/game/map-position.service.js";
 import {
   agentCurrentLocationFromProjection,
   formatOwnerSpatialBreadcrumb,
-  omitAuthoritativeGameLocation,
   projectGameSnapshotLocation,
   resolveOwnerSpatialProjection,
 } from "../../services/spatial-context/projection.js";
-import { gameStateSnapshots as gameStateSnapshotsTable } from "../../db/schema/index.js";
 import {
-  buildLockedPlayerStatsArrayPatch,
-  buildLockedInventoryTrackerPatch,
-  resolveTrackerGroupUpdate,
-  buildWorldCustomFieldsStreamValue,
-  buildLockedPersonaTrackerPatch,
-  applyTrackerCharacterCardIdentity,
   collectLatestTrackerCharacterHistory,
   isMessageHiddenFromAI,
   parseExtra,
   parseGameStateRow,
   parseJsonField,
-  parseSnapshotPlayerStats,
-  preserveTrackerCharacterUiFields,
   resolveActiveCharacterIds,
   resolveCharacterNameMap,
   resolveGroupGenerationMode,
@@ -328,6 +320,12 @@ import {
   resolveEffectiveAgentSettings,
 } from "../../services/generation/agent-resolution.js";
 import { resolveAgentGenerationTools } from "../../services/generation/tool-resolution-runtime.js";
+import { generateTrackerPortrait, trackerPortraitStyleProfileId } from "../../services/image/tracker-portrait.js";
+import type { GameNpc } from "@marinara-engine/shared";
+import {
+  applyAgentResultEffect,
+  type TrackerEffectTarget,
+} from "../../services/generation/agent-result-effects/index.js";
 import {
   buildRetryAgentPersona,
   resolveIdentityCharacterScopes,
@@ -348,7 +346,14 @@ type PersonaContext = {
   identitySource: "persona" | "character" | null;
   personaName: string;
   personaDescription: string;
-  personaFields: { example?: string; personality?: string; scenario?: string; backstory?: string; appearance?: string };
+  personaFields: {
+    example?: string;
+    personality?: string;
+    scenario?: string;
+    backstory?: string;
+    appearance?: string;
+    publicFace?: string;
+  };
   /** Image-prompt appearance override (#7053); empty when the user has none. */
   imageAppearanceOverride: string;
   personaAvatarPath?: string | null;
@@ -660,6 +665,9 @@ async function executeManualIllustratorPromptRequest(args: {
   illustratorEntry: ResolvedRetryAgent;
   agentContext: AgentContext;
   debugMode: boolean;
+  /** Scene guidance typed after /illustrate template=…, depicted by the selected Prompt Mode's writer. */
+  request?: string;
+  writerReferences: RetryWriterReferences;
 }): Promise<AgentResult> {
   const startedAt = Date.now();
   try {
@@ -696,12 +704,19 @@ async function executeManualIllustratorPromptRequest(args: {
       characterPromptInstruction,
       manualAttachCardAppearance,
     );
+    const writerReferences = await args.writerReferences(args.illustratorEntry, imageConnection);
     const generated = await writeManualIllustratorPromptPlan({
       illustratorAgent: args.illustratorEntry.resolved,
-      context: args.agentContext,
+      context: writerReferences
+        ? {
+            ...args.agentContext,
+            memory: { ...args.agentContext.memory, [WRITER_REFERENCE_MEMORY_KEY]: writerReferences },
+          }
+        : args.agentContext,
       styleInstruction,
       characterPromptInstruction: manualCharacterPromptInstruction,
       imagePromptInstructions: normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions) ?? undefined,
+      request: args.request,
       // Pictures and clips / Clips only: the planner may ask for a clip, as the Illustrator agent can.
       videoOffer:
         args.agentContext.memory._generatedVideos && typeof args.agentContext.memory._generatedVideos === "object"
@@ -745,6 +760,54 @@ async function executeManualIllustratorPromptRequest(args: {
  * Who a re-run Illustrator can show, for its picture references and its clips alike: the chat's characters, a
  * character used as the user, and the persona, read from the agent context.
  */
+type ImageConnectionArg = Parameters<typeof collectWriterReferencePictures>[0]["imageConnection"];
+type RetryWriterReferences = (
+  entry: ResolvedRetryAgent,
+  imageConnection: ImageConnectionArg | null,
+) => Promise<WriterReferencePayload | null>;
+
+/** The Illustrator writer's reference pictures for a retry or a Gallery illustration, routed like a chat run. */
+function retryWriterReferences(args: {
+  app: FastifyInstance;
+  chat: any;
+  chatId: string;
+  chatMeta: Record<string, unknown>;
+  conns: ReturnType<typeof createConnectionsStorage>;
+  chars: ReturnType<typeof createCharactersStorage>;
+  agentContext: AgentContext;
+}): RetryWriterReferences {
+  return async (entry, imageConnection) => {
+    if (entry.resolved.type !== "illustrator" || !imageConnection) return null;
+    const connectionId = entry.resolved.connectionId;
+    const writerConnection = connectionId ? await args.conns.getById(connectionId).catch(() => null) : null;
+    return collectWriterReferencePictures({
+      agentSettings: entry.resolved.settings,
+      chatMeta: args.chatMeta,
+      imageConnection,
+      writer: {
+        visionKey: writerVisionKey(connectionId, entry.agentModel),
+        connectionId: connectionId ?? "",
+        imageInput: (writerConnection as { imageInput?: string | null } | null)?.imageInput,
+      },
+      namedCards: readWriterReferenceNames(args.agentContext.memory),
+      cast: await retryIllustratorClipCast(args.agentContext, args.chars, args.chatId),
+      references: {
+        charactersStore: args.chars,
+        chatScope:
+          args.chat.mode === "roleplay"
+            ? {
+                chatId: args.chatId,
+                characterIds: parseJsonField<string[]>(args.chat.characterIds, []),
+                getById: args.chars.getById,
+              }
+            : undefined,
+        characterGallery: createCharacterGalleryStorage(args.app.db),
+        personaGallery: createPersonaGalleryStorage(args.app.db),
+      },
+    });
+  };
+}
+
 async function retryIllustratorClipCast(
   agentContext: AgentContext,
   chars: ReturnType<typeof createCharactersStorage>,
@@ -848,6 +911,7 @@ async function resolvePersonaContext(
     scenario: cardPromptText(persona.scenario),
     backstory: cardPromptText(persona.backstory),
     appearance: cardPromptText(persona.appearance),
+    publicFace: cardPromptText(persona.publicFace),
   };
 
   if (persona.personaStats) {
@@ -1063,6 +1127,7 @@ async function buildRetryAgentContext(args: {
     charInfo.push({
       id: cid,
       name: (charData.name as string | undefined) ?? "Unknown",
+      nameAliases: normalizeNameAliases(extensions.nameAliases),
       world: cardPromptText(extensions.world) || undefined,
       description: cardPromptText(charData.description),
       personality: cardPromptText(charData.personality) || undefined,
@@ -1070,6 +1135,7 @@ async function buildRetryAgentContext(args: {
       systemPrompt: cardPromptText(charData.system_prompt) || undefined,
       backstory: cardPromptText(extensions.backstory ?? charData.backstory) || undefined,
       appearance: cardPromptText(extensions.appearance ?? charData.appearance) || undefined,
+      publicFace: cardPromptText(extensions.publicFace) || undefined,
       mesExample: cardPromptText(charData.mes_example) || undefined,
       firstMes: cardPromptText(charData.first_mes) || undefined,
       postHistoryInstructions: cardPromptText(charData.post_history_instructions) || undefined,
@@ -2684,9 +2750,11 @@ async function resolveRetryImagePromptContext(args: {
   conns?: ReturnType<typeof createConnectionsStorage>;
   chatMode?: ChatMode;
   chatMeta?: Record<string, unknown>;
+  writerReferences?: RetryWriterReferences;
 }): Promise<AgentContext> {
   const memory = { ...args.context.memory };
   delete memory._imagePromptInstructions;
+  delete memory[WRITER_REFERENCE_MEMORY_KEY];
 
   if (!args.conns || !args.chatMode || !args.chatMeta) {
     return { ...args.context, memory };
@@ -2706,6 +2774,8 @@ async function resolveRetryImagePromptContext(args: {
   imageConnection ??= await args.conns.getDefaultForImageGeneration().catch(() => null);
   const imagePromptInstructions = normalizeImagePromptInstructions(imageConnection?.imagePromptInstructions);
   if (imagePromptInstructions) memory._imagePromptInstructions = imagePromptInstructions;
+  const writerReferences = await args.writerReferences?.(args.entry, imageConnection);
+  if (writerReferences) memory[WRITER_REFERENCE_MEMORY_KEY] = writerReferences;
   return { ...args.context, memory };
 }
 
@@ -2745,6 +2815,7 @@ async function executeRetryBatches(
   preparedCapabilityContexts: Map<string, AgentContext> = new Map(),
   agentMainResponse?: string,
   engineScenes: readonly string[] | null = null,
+  writerReferences?: RetryWriterReferences,
 ) {
   const retryAgents = mergeRetryPairedBuiltInRewriteAgents(resolvedAgents);
   const effectiveChatMode: ChatMode = chatMode ?? (agentContext.chatMode as ChatMode);
@@ -2909,6 +2980,7 @@ async function executeRetryBatches(
           conns,
           chatMode,
           chatMeta,
+          writerReferences,
         });
         groupResults.push(
           await runProviderJob(() =>
@@ -2919,7 +2991,14 @@ async function executeRetryBatches(
 
       for (const entry of toolAgents) {
         const toolContext = isImagePromptRetryAgent(entry)
-          ? await resolveRetryImagePromptContext({ entry, context: preparedGroupContext, conns, chatMode, chatMeta })
+          ? await resolveRetryImagePromptContext({
+              entry,
+              context: preparedGroupContext,
+              conns,
+              chatMode,
+              chatMeta,
+              writerReferences,
+            })
           : preparedGroupContext;
         const result = await runProviderJob(() =>
           executeAgent(entry.resolved, toolContext, group.provider, group.model, entry.resolved.toolContext),
@@ -3150,6 +3229,7 @@ async function applyRetryResultEffects(args: {
   secretPlotRerollMode?: "full" | "turn_only";
   signal: AbortSignal;
   onLorebookEffectStatus?: (agentId: string, status: RetryLorebookEffectStatus) => void;
+  onFallback?: GenerationFallbackNotifier;
 }) {
   const {
     app,
@@ -3176,6 +3256,7 @@ async function applyRetryResultEffects(args: {
     secretPlotRerollMode,
     signal,
     onLorebookEffectStatus,
+    onFallback,
   } = args;
   const assertRetryActive = () => signal.throwIfAborted();
   assertRetryActive();
@@ -3303,6 +3384,57 @@ async function applyRetryResultEffects(args: {
     return updated;
   };
 
+  const retryTrackerEffects: TrackerEffectTarget = {
+    db: app.db,
+    canEditTrackers: (trackerResult) => customAgentCanApplyRetryResult(trackerResult, resolvedAgents, "edit_trackers"),
+    loadSnapshot: loadRetryTargetGameStateSnapshot,
+    emitGameStatePatch: (patch) => sendSseEvent(reply, { type: "game_state_patch", data: patch }),
+    characters: {
+      cards: agentContext.characters,
+      history: (agentContext.characterTrackerHistory ?? []) as unknown as Array<Record<string, unknown>>,
+      gameNpcs: Array.isArray(chatMeta.gameNpcs) ? (chatMeta.gameNpcs as GameNpc[]) : [],
+      settings: resolvedAgents.find((entry) => entry.resolved.type === "character-tracker")?.resolved.settings ?? null,
+      loadBaseline: loadRetryTargetGameStateSnapshot,
+      save: (presentCharacters, movedKeys) => updateRetryTargetGameStateSnapshot({ presentCharacters, ...movedKeys }),
+      // The portraits finish after this route has answered and its signal has fired, so these skip the abort checks.
+      loadForBackgroundSave: () =>
+        retryMessageId
+          ? gameStateStore.getByChatAndMessage(chatId, retryMessageId, retrySwipeIndex)
+          : gameStateStore.getLatest(chatId),
+      saveInBackground: (presentCharacters) =>
+        retryMessageId
+          ? gameStateStore.updateByMessage(retryMessageId, retrySwipeIndex, chatId, { presentCharacters } as any)
+          : gameStateStore.updateLatest(chatId, { presentCharacters } as any),
+      drawPortrait: (character, { connectionId, includeOutfit }) =>
+        generateTrackerPortrait({
+          db: app.db,
+          connectionId,
+          chatId,
+          styleProfileId: trackerPortraitStyleProfileId(chatMeta),
+          character,
+          includeOutfit,
+          debugMode,
+          onFallback,
+        }),
+    },
+    world: {
+      loadPrevious: async () => (await loadRetryTargetGameStateSnapshot()) ?? (await loadRetryBaseGameStateSnapshot()),
+      // A retry never moves the party on the spatial map; the map's place just stays the stored location.
+      resolveAuthoritativeLocation: async (guidance) => {
+        if (retryCompatibilityLocation !== null && guidance !== null) {
+          logger.debug("[retry-agents] Ignoring generated Game location for spatially authoritative chat %s", chatId);
+        }
+        return retryCompatibilityLocation;
+      },
+      patchScope: "sent",
+      save: async (fields) => {
+        if (Object.keys(fields).length > 0) await updateRetryTargetGameStateSnapshot(fields);
+      },
+      chatMeta,
+      mapOwnedBySpatial: retryCompatibilityLocation !== null,
+      emitGameMapUpdate: (map) => sendSseEvent(reply, { type: "game_map_update", data: map }),
+    },
+  };
   // A game reply's scenes shown as written (worldgen W10), which no rewrite may change.
   const engineScenes =
     chat?.mode === "game"
@@ -3369,78 +3501,6 @@ async function applyRetryResultEffects(args: {
       }
     }
 
-    if (
-      result.success &&
-      result.type === "game_state_update" &&
-      result.agentType !== "combat" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const gs = result.data as Record<string, unknown>;
-        const proposedWorldStatePatch: Record<string, unknown> = {};
-        if (gs.date != null) proposedWorldStatePatch.date = gs.date as string;
-        if (gs.time != null) proposedWorldStatePatch.time = gs.time as string;
-        if (gs.location != null) proposedWorldStatePatch.location = gs.location as string;
-        if (gs.weather != null) proposedWorldStatePatch.weather = gs.weather as string;
-        if (gs.temperature != null) proposedWorldStatePatch.temperature = gs.temperature as string;
-        if (gs.worldCustomFields !== undefined)
-          proposedWorldStatePatch.worldCustomFields = isTrackerRowsUpdate(gs.worldCustomFields)
-            ? gs.worldCustomFields
-            : normalizeWorldCustomFields(gs.worldCustomFields);
-        if (retryCompatibilityLocation !== null && gs.location != null) {
-          logger.debug("[retry-agents] Ignoring generated Game location for spatially authoritative chat %s", chatId);
-        }
-        const worldStatePatch = omitAuthoritativeGameLocation(proposedWorldStatePatch, retryOwnerSpatialProjection);
-        const lockSnapshot = (await loadRetryTargetGameStateSnapshot()) ?? (await loadRetryBaseGameStateSnapshot());
-        assertRetryActive();
-        const worldLockState = lockSnapshot ? parseGameStateRow(lockSnapshot as Record<string, unknown>) : null;
-        const lockedWorldStatePatch = applyTrackerFieldLocksToGameStatePatch(worldStatePatch, worldLockState);
-        if (retryCompatibilityLocation !== null) {
-          lockedWorldStatePatch.location = retryCompatibilityLocation;
-        }
-        if (Object.keys(worldStatePatch).length > 0 || retryCompatibilityLocation !== null) {
-          await updateRetryTargetGameStateSnapshot(lockedWorldStatePatch);
-          assertRetryActive();
-        }
-
-        const nextLocation = typeof lockedWorldStatePatch.location === "string" ? lockedWorldStatePatch.location : null;
-        if (retryCompatibilityLocation === null) {
-          const existingGameMap = (chatMeta.gameMap as GameMap | null) ?? null;
-          const syncedMeta = syncGameMapMetaPartyPosition(chatMeta, nextLocation);
-          const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
-          if (syncedGameMap && syncedGameMap !== existingGameMap) {
-            Object.assign(chatMeta, syncedMeta);
-            assertRetryActive();
-            await chats.updateMetadata(chatId, chatMeta);
-            assertRetryActive();
-            sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
-          }
-        }
-
-        assertRetryActive();
-        sendSseEvent(reply, {
-          type: "game_state_patch",
-          data: {
-            ...lockedWorldStatePatch,
-            ...(isTrackerRowsUpdate(gs.worldCustomFields)
-              ? {
-                  worldCustomFields: buildWorldCustomFieldsStreamValue(
-                    gs.worldCustomFields,
-                    worldLockState?.worldCustomFields,
-                    lockedWorldStatePatch.worldCustomFields,
-                  ),
-                }
-              : {}),
-          },
-        });
-      } catch (err) {
-        assertRetryActive();
-        logger.error(err, "[retry-agents] Failed to apply world-state tracker update");
-      }
-    }
-
     // Keep message.extra.contextInjections in sync when retrying agents that emit injectable text,
     // so regenerate/swipe replays the edited or re-run snippet instead of stale cache.
     if (
@@ -3484,118 +3544,6 @@ async function applyRetryResultEffects(args: {
       } catch {
         assertRetryActive();
         /* non-critical */
-      }
-    }
-
-    if (
-      result.success &&
-      result.type === "character_tracker_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const ctData = result.data as Record<string, unknown>;
-        if (
-          !isTrackerRowsUpdate(ctData.presentCharacters) &&
-          (!Array.isArray(ctData.presentCharacters) || ctData.presentCharacters.length === 0)
-        ) {
-          const resultKeys = Object.keys(ctData);
-          // `{}` and an empty list are the prompt's no-change replies; any other shape is lost output (#7208).
-          logger[resultKeys.length === 0 || Array.isArray(ctData.presentCharacters) ? "debug" : "warn"](
-            "[retry-agents] character-tracker emitted no presentCharacters (result keys: %s); keeping existing snapshot",
-            resultKeys.join(", ") || "none",
-          );
-          continue;
-        }
-        const previousSnapshot = await loadRetryTargetGameStateSnapshot();
-        assertRetryActive();
-        let previousCharacters: any[] = [];
-        if (previousSnapshot?.presentCharacters) {
-          try {
-            const parsed =
-              typeof previousSnapshot.presentCharacters === "string"
-                ? JSON.parse(previousSnapshot.presentCharacters)
-                : previousSnapshot.presentCharacters;
-            previousCharacters = Array.isArray(parsed) ? parsed : [];
-          } catch {
-            previousCharacters = [];
-          }
-        }
-        let presentCharacters =
-          resolveTrackerGroupUpdate(
-            ctData.presentCharacters,
-            previousCharacters,
-            previousSnapshot ? parseGameStateRow(previousSnapshot as Record<string, unknown>) : null,
-            "presentCharacters",
-          ) ?? previousCharacters;
-        applyTrackerCharacterCardIdentity(presentCharacters, agentContext.characters, {
-          previousCharacters: [
-            ...previousCharacters,
-            ...((agentContext.characterTrackerHistory ?? []) as unknown as Array<Record<string, unknown>>),
-          ],
-        });
-        preserveTrackerCharacterUiFields(presentCharacters, previousCharacters);
-        preserveTrackerCharacterUiFields(
-          presentCharacters,
-          (agentContext.characterTrackerHistory ?? []) as unknown as Array<Record<string, unknown>>,
-        );
-        const lockedCharacterPatch = applyTrackerFieldLocksToGameStatePatch(
-          { presentCharacters },
-          previousSnapshot ? parseGameStateRow(previousSnapshot as Record<string, unknown>) : null,
-        );
-        presentCharacters = Array.isArray(lockedCharacterPatch.presentCharacters)
-          ? lockedCharacterPatch.presentCharacters
-          : presentCharacters;
-        await updateRetryTargetGameStateSnapshot({ presentCharacters });
-        assertRetryActive();
-        sendSseEvent(reply, { type: "game_state_patch", data: { presentCharacters } });
-      } catch (err) {
-        assertRetryActive();
-        logger.error(err, "[retry-agents] Failed to apply character-tracker update");
-      }
-    }
-
-    if (
-      result.success &&
-      result.type === "persona_stats_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const psData = result.data as Record<string, unknown>;
-        const hasStats = Array.isArray(psData.stats);
-        const hasStatus = typeof psData.status === "string";
-        const bars = hasStats ? (psData.stats as any[]) : [];
-        const status = hasStatus ? (psData.status as string) : "";
-        const latest = await loadRetryTargetGameStateSnapshot();
-        assertRetryActive();
-        const personaPatch = buildLockedPersonaTrackerPatch({
-          stats: bars,
-          status,
-          hasStats,
-          hasStatus,
-          snapshot: latest,
-          lockState: latest ? parseGameStateRow(latest as Record<string, unknown>) : null,
-        });
-        if (latest) {
-          if (Object.keys(personaPatch.updates).length > 0) {
-            assertRetryActive();
-            await app.db
-              .update(gameStateSnapshotsTable)
-              .set(personaPatch.updates)
-              .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, latest.id)));
-            assertRetryActive();
-          }
-        }
-        if (personaPatch.changed) {
-          assertRetryActive();
-          sendSseEvent(reply, { type: "game_state_patch", data: personaPatch.patch });
-        }
-      } catch (err) {
-        assertRetryActive();
-        logger.error(err, "[retry-agents] Failed to apply persona-stats tracker update");
       }
     }
 
@@ -3689,160 +3637,16 @@ async function applyRetryResultEffects(args: {
       }
     }
 
-    if (
-      result.success &&
-      result.type === "quest_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const qData = result.data as Record<string, unknown>;
-        const updates = Array.isArray(qData.updates) ? qData.updates : [];
-        logger.debug(
-          "[retry-agents] Quest agent result — updates: %d, data keys: %s %s",
-          updates.length,
-          Object.keys(qData).join(","),
-          JSON.stringify(qData).slice(0, 500),
-        );
-        if (updates.length > 0) {
-          const snap = await loadRetryTargetGameStateSnapshot();
-          assertRetryActive();
-          const existingPS = parseSnapshotPlayerStats(snap);
-          const questMerge = applyQuestUpdatesToPlayerStats(existingPS, updates, {
-            autoRemoveFullyCompleted: true,
-          });
-          const questTrackerPatch = buildLockedPlayerStatsArrayPatch<any>({
-            field: "activeQuests",
-            values: questMerge.quests,
-            snapshot: snap,
-            lockState: snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
-            basePlayerStats: questMerge.playerStats,
-          });
-          if (questMerge.changed && questTrackerPatch.changed) {
-            if (snap) {
-              assertRetryActive();
-              await app.db
-                .update(gameStateSnapshotsTable)
-                .set({ playerStats: JSON.stringify(questTrackerPatch.playerStats) })
-                .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, snap.id)));
-              assertRetryActive();
-            }
-            assertRetryActive();
-            sendSseEvent(reply, { type: "game_state_patch", data: questTrackerPatch.patch });
-          }
-        }
-      } catch (err) {
-        assertRetryActive();
-        logger.warn(err, "[retry-agents] Quest tracker persistence failed");
-      }
-    }
-
-    // Persist re-rolled CYOA choices onto the last assistant message + active swipe
-    // so they survive a page refresh, and broadcast them to the client store.
-    if (result.success && result.type === "cyoa_choices" && result.data && typeof result.data === "object") {
-      try {
-        const cyoaData = result.data as { choices?: Array<{ label: string; text: string }> };
-        if (retryMessageId && cyoaData.choices && cyoaData.choices.length > 0) {
-          assertRetryActive();
-          await chats.updateMessageExtraForSwipe(retryMessageId, retrySwipeIndex, { cyoaChoices: cyoaData.choices });
-          assertRetryActive();
-          logger.info(
-            "[retry-agents] CYOA choices persisted chatId=%s messageId=%s swipeIndex=%d choiceCount=%d",
-            chatId,
-            retryMessageId,
-            retrySwipeIndex,
-            cyoaData.choices.length,
-          );
-        }
-      } catch (err) {
-        assertRetryActive();
-        logger.warn(
-          err,
-          "[retry-agents] CYOA choices persistence failed chatId=%s messageId=%s",
-          chatId,
-          retryMessageId,
-        );
-      }
-    }
-
-    if (
-      result.success &&
-      result.type === "inventory_tracker_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const snap = await loadRetryTargetGameStateSnapshot();
-        assertRetryActive();
-        const inventoryTrackerPatch = buildLockedInventoryTrackerPatch({
-          data: result.data as Record<string, unknown>,
-          snapshot: snap,
-          lockState: snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
-        });
-        if (snap && inventoryTrackerPatch.changed) {
-          assertRetryActive();
-          await app.db
-            .update(gameStateSnapshotsTable)
-            .set({ playerStats: JSON.stringify(inventoryTrackerPatch.playerStats) })
-            .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, snap.id)));
-          assertRetryActive();
-        }
-        if (inventoryTrackerPatch.changed) {
-          assertRetryActive();
-          sendSseEvent(reply, { type: "game_state_patch", data: inventoryTrackerPatch.patch });
-        }
-      } catch (err) {
-        assertRetryActive();
-        logger.error(err, "[retry-agents] Failed to apply inventory tracker update");
-      }
-    }
-
-    if (
-      result.success &&
-      result.type === "custom_tracker_update" &&
-      result.data &&
-      typeof result.data === "object" &&
-      customAgentCanApplyRetryResult(result, resolvedAgents, "edit_trackers")
-    ) {
-      try {
-        const ctData = result.data as Record<string, unknown>;
-        const hasFields = Array.isArray(ctData.fields) || isTrackerRowsUpdate(ctData.fields);
-        if (hasFields) {
-          const snap = await loadRetryTargetGameStateSnapshot();
-          assertRetryActive();
-          const rawFields =
-            resolveTrackerGroupUpdate(
-              ctData.fields,
-              parseSnapshotPlayerStats(snap).customTrackerFields ?? [],
-              snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
-              "customTrackerFields",
-            ) ?? [];
-          const customTrackerPatch = buildLockedPlayerStatsArrayPatch<any>({
-            field: "customTrackerFields",
-            values: rawFields,
-            snapshot: snap,
-            lockState: snap ? parseGameStateRow(snap as Record<string, unknown>) : null,
-          });
-          if (snap && customTrackerPatch.changed) {
-            assertRetryActive();
-            await app.db
-              .update(gameStateSnapshotsTable)
-              .set({ playerStats: JSON.stringify(customTrackerPatch.playerStats) })
-              .where(and(eq(gameStateSnapshotsTable.chatId, chatId), eq(gameStateSnapshotsTable.id, snap.id)));
-            assertRetryActive();
-          }
-          if (customTrackerPatch.changed) {
-            assertRetryActive();
-            sendSseEvent(reply, { type: "game_state_patch", data: customTrackerPatch.patch });
-          }
-        }
-      } catch {
-        assertRetryActive();
-        // Non-critical patching failure.
-      }
-    }
+    // Effects shared with normal generation (CYOA choices and the trackers so far, #9508)
+    await applyAgentResultEffect(result, {
+      origin: "retry",
+      chatId,
+      messageId: retryMessageId,
+      swipeIndex: retrySwipeIndex,
+      chats,
+      trackers: retryTrackerEffects,
+      signal,
+    });
 
     // ── ILLUSTRATOR: generate image from agent prompt ──
     if (
@@ -4077,7 +3881,10 @@ async function applyRetryResultEffects(args: {
               !subjectOnly &&
               (usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                 ? chatMeta.illustratorUseAvatarReferences
-                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true);
+                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true) &&
+              // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
+              (!usesChatIllustratorSettings ||
+                imageModelGetsReferencePictures(chatMeta, imagePromptAgent?.resolved.settings, imgConnFull));
             const includeCharacterAppearance =
               !subjectOnly &&
               (usesChatIllustratorSettings && typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
@@ -4882,6 +4689,8 @@ export async function registerRetryAgentsRoute(
       illustratorStillOnly?: boolean;
       /** Inclusive stored-message IDs selected by /illustrate range=N-M. */
       illustratorMessageRange?: unknown;
+      /** Scene guidance from /illustrate template=…: the manual prompt writer depicts it. */
+      illustratorRequest?: unknown;
       /** Force image generation for retried custom image agents' results (snapshot button, #4682). */
       forceImageGeneration?: boolean;
       lorebookKeeperBackfill?: boolean;
@@ -4916,6 +4725,7 @@ export async function registerRetryAgentsRoute(
       illustratorRetryTargets: rawIllustratorRetryTargets,
       illustratorStillOnly = false,
       illustratorMessageRange,
+      illustratorRequest: rawIllustratorRequest,
       forceImageGeneration = false,
       lorebookKeeperBackfill = false,
       customLorebookBackfill = false,
@@ -4973,6 +4783,15 @@ export async function registerRetryAgentsRoute(
     ) {
       return reply.status(400).send({ error: "Invalid Illustrator message range" });
     }
+    if (
+      rawIllustratorRequest !== undefined &&
+      (typeof rawIllustratorRequest !== "string" || !isManualIllustratorImageRequest)
+    ) {
+      return reply.status(400).send({ error: "Invalid Illustrator request" });
+    }
+    // Trimmed and bounded like beholderDirective.
+    const illustratorRequest =
+      typeof rawIllustratorRequest === "string" ? rawIllustratorRequest.trim().slice(0, 2000) || undefined : undefined;
 
     startSseReply(reply, { "X-Accel-Buffering": "no" });
 
@@ -5800,6 +5619,8 @@ export async function registerRetryAgentsRoute(
                   illustratorEntry: nonLorebookAgents[0]!,
                   agentContext,
                   debugMode,
+                  request: illustratorRequest,
+                  writerReferences: retryWriterReferences({ app, chat, chatId, chatMeta, conns, chars, agentContext }),
                 }),
               ]
             : nonLorebookAgents.length > 0
@@ -5819,6 +5640,7 @@ export async function registerRetryAgentsRoute(
                   chatMode === "game"
                     ? storyScenesOf(retryMessageId ? (await chats.getMessage(retryMessageId))?.extra : null)
                     : null,
+                  retryWriterReferences({ app, chat, chatId, chatMeta, conns, chars, agentContext }),
                 )
               : [];
       if (abortController.signal.aborted) return;
@@ -6071,6 +5893,7 @@ export async function registerRetryAgentsRoute(
         illustratorStillOnly,
         forceImageGeneration: forceImageGeneration === true,
         debugMode,
+        onFallback,
         secretPlotRerollMode,
         signal: abortController.signal,
         onLorebookEffectStatus: customLorebookBackfillTarget

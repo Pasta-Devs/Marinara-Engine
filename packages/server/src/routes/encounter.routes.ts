@@ -87,10 +87,13 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import type { ChatMessage } from "../services/llm/base-provider.js";
 import { debugJson, logger, logDebugOverride } from "../lib/logger.js";
 import { cardPromptText } from "../services/prompt/card-text.js";
-import { normalizeCharacterLookupName, normalizeRpgStatPools } from "@marinara-engine/shared";
+import {
+  normalizeCharacterLookupName,
+  normalizeRpgStatPools,
+  tacticalBattlefieldSetupSchema,
+} from "@marinara-engine/shared";
 import { roomCharacterNames } from "../services/multiplayer/fight-players.js";
 import {
-  tacticalBattlefieldSetupSchema,
   validateTacticalEncounterBlueprint,
   type TacticalBattlefieldSetup,
 } from "../services/game/tactical-battlefield.service.js";
@@ -106,6 +109,7 @@ import type {
   EncounterLogEntry,
   RPGStatsConfig,
 } from "@marinara-engine/shared";
+import { notFound } from "../utils/not-found.js";
 
 // ──────────────────────────────────────────────
 // Helpers
@@ -1747,7 +1751,7 @@ export async function encounterRoutes(app: FastifyInstance) {
 
     try {
       const chat = await chats.getById(chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
 
       const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat);
       const provider = createLLMProvider(
@@ -1861,7 +1865,7 @@ export async function encounterRoutes(app: FastifyInstance) {
 
     try {
       const chat = await chats.getById(chatId);
-      if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat) return notFound(reply, "Chat not found");
 
       const { conn, baseUrl } = await resolveEncounterConnection(connections, connectionId, chat);
       const provider = createLLMProvider(

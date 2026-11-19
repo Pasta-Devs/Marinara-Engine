@@ -83,9 +83,16 @@ for (const theme of ["light", "dark"] as const) {
         expect(response.ok()).toBeTruthy();
         await expect(button).toBeEnabled();
       };
+      // Choices 1 and "1" share a label, so pick by row: row 0 is the model default, then one row per choice.
+      const pickShotType = async (row: number) => {
+        await editor.getByRole("combobox", { name: "shot_type", exact: true }).click();
+        const picker = page.getByRole("dialog", { name: "shot_type", exact: true });
+        await picker.locator("[data-pick-row]").nth(row).click();
+        await expect(picker).toHaveCount(0);
+      };
       await editor.getByRole("button", { name: /Atlas Cloud.*setup/i }).click();
       await editor.getByRole("textbox", { name: /prototype/ }).fill("cinematic");
-      await editor.getByRole("combobox", { name: "shot_type", exact: true }).selectOption({ value: "1" });
+      await pickShotType(2);
       await save();
       await expect.poll(storedOptions).toEqual({ "vendor/first": { prototype: "cinematic", shot_type: "1" } });
       await editor.getByRole("combobox", { name: "shot_type", exact: true }).scrollIntoViewIfNeeded();
@@ -99,7 +106,7 @@ for (const theme of ["light", "dark"] as const) {
       await useModel("vendor/second");
       await expect(editor.getByRole("textbox", { name: /prototype/ })).not.toBeVisible();
       await editor.getByRole("textbox", { name: /negative_prompt/ }).fill("blurry");
-      await editor.getByRole("combobox", { name: "shot_type", exact: true }).selectOption({ value: "2" });
+      await pickShotType(3);
       await save();
       const secondOptions = { negative_prompt: "blurry", shot_type: "__model_default__" };
       await expect.poll(storedOptions).toEqual({

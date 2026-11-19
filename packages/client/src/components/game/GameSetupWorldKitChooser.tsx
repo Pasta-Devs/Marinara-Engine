@@ -38,6 +38,8 @@ import { useUIStore } from "../../stores/ui.store";
 import { useWorldLibrary } from "../../hooks/use-world-library";
 import { GAME_SETUP_GHOST_BUTTON_CLASS, GAME_SETUP_INPUT_CLASS as INPUT } from "./game-setup-classes";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
+import { ColorField } from "../ui/ColorPicker";
 
 export interface WorldKitWriteRequest {
   connectionId?: string;
@@ -357,21 +359,19 @@ export function GameSetupWorldKitChooser({
           {t("game.worldKit.setup.downloadKit")}
         </button>
         {library.data?.length ? (
-          <select
-            aria-label={t("game.worldKit.setup.libraryWorld")}
-            value=""
-            onChange={(event) => void pickLibraryWorld(event.target.value)}
+          <Select
+            label={t("game.worldKit.setup.libraryWorld")}
+            value={null}
+            placeholder={t("game.worldKit.setup.libraryWorldPick")}
+            onChange={(next) => void pickLibraryWorld(next)}
             className={cn(INPUT, "w-auto")}
-          >
-            <option value="">{t("game.worldKit.setup.libraryWorldPick")}</option>
-            {library.data.map((world) => (
-              <option key={world.id} value={world.id}>
-                {world.kit
-                  ? t("game.worldKit.setup.libraryWorldOption", { name: world.name, kit: world.kit })
-                  : world.name}
-              </option>
-            ))}
-          </select>
+            options={library.data.map((world) => ({
+              value: world.id,
+              label: world.kit
+                ? t("game.worldKit.setup.libraryWorldOption", { name: world.name, kit: world.kit })
+                : world.name,
+            }))}
+          />
         ) : null}
         <input
           ref={kitFileRef}
@@ -479,18 +479,17 @@ export function GameSetupWorldKitChooser({
                   <label htmlFor="world-kit-scale" className={FIELD_LABEL}>
                     {t("game.worldKit.setup.scale")}
                   </label>
-                  <select
+                  <Select
                     id="world-kit-scale"
+                    label={t("game.worldKit.setup.scale")}
                     value={kit.scale}
-                    onChange={(event) => edit((draft) => (draft.scale = event.target.value as WorldKit["scale"]))}
+                    onChange={(next) => edit((draft) => (draft.scale = next as WorldKit["scale"]))}
                     className={INPUT}
-                  >
-                    {WORLD_SCALES.map((scale) => (
-                      <option key={scale} value={scale}>
-                        {t(`game.worldKit.setup.scales.${scale}`)}
-                      </option>
-                    ))}
-                  </select>
+                    options={WORLD_SCALES.map((scale) => ({
+                      value: scale,
+                      label: t(`game.worldKit.setup.scales.${scale}`),
+                    }))}
+                  />
                 </div>
               </div>
               <div>
@@ -509,26 +508,27 @@ export function GameSetupWorldKitChooser({
                 <label htmlFor="world-kit-family" className={FIELD_LABEL}>
                   {t("game.worldKit.setup.family")}
                 </label>
-                <select
+                <Select
                   id="world-kit-family"
+                  label={t("game.worldKit.setup.family")}
                   value={family ?? ""}
-                  onChange={(event) =>
+                  onChange={(next) =>
                     edit((draft) => {
-                      if (event.target.value) draft.family = event.target.value;
+                      if (next) draft.family = next;
                       else delete draft.family;
                     })
                   }
                   className={INPUT}
-                >
-                  {!family && <option value="">{t("game.worldKit.setup.families.none")}</option>}
-                  {[...WORLD_ART_FAMILIES, ...(!family || WORLD_ART_FAMILIES.includes(family) ? [] : [family])].map(
-                    (each) => (
-                      <option key={each} value={each}>
-                        {WORLD_ART_FAMILIES.includes(each) ? t(`game.worldKit.setup.families.${each}`) : each}
-                      </option>
+                  options={[
+                    ...(!family ? [{ value: "", label: t("game.worldKit.setup.families.none") }] : []),
+                    ...[...WORLD_ART_FAMILIES, ...(!family || WORLD_ART_FAMILIES.includes(family) ? [] : [family])].map(
+                      (each) => ({
+                        value: each as string,
+                        label: WORLD_ART_FAMILIES.includes(each) ? t(`game.worldKit.setup.families.${each}`) : each,
+                      }),
                     ),
-                  )}
-                </select>
+                  ]}
+                />
                 <p className="mt-1 text-[var(--muted-foreground)]">
                   {family ? t("game.worldKit.setup.familyHelp", { family }) : t("game.worldKit.setup.familyNoneHelp")}
                 </p>
@@ -556,25 +556,21 @@ export function GameSetupWorldKitChooser({
                   <label htmlFor="world-kit-settlements" className={FIELD_LABEL}>
                     {t("game.worldKit.setup.settlements")}
                   </label>
-                  <select
+                  <Select
                     id="world-kit-settlements"
-                    value={settlementsIndex}
-                    onChange={(event) =>
+                    label={t("game.worldKit.setup.settlements")}
+                    value={String(settlementsIndex)}
+                    onChange={(next) =>
                       edit((draft) => {
-                        const chosen = Number(event.target.value);
+                        const chosen = Number(next);
                         draft.layers = draft.layers.map(({ settlements: _was, ...layer }, index) =>
                           index === chosen ? { ...layer, settlements: true } : layer,
                         );
                       })
                     }
                     className={INPUT}
-                  >
-                    {kit.layers.map((layer, index) => (
-                      <option key={`${layer.id}-${index}`} value={index}>
-                        {layer.label}
-                      </option>
-                    ))}
-                  </select>
+                    options={kit.layers.map((layer, index) => ({ value: String(index), label: layer.label }))}
+                  />
                 </div>
                 <WordsField
                   id="world-kit-sizes"
@@ -684,20 +680,17 @@ export function GameSetupWorldKitChooser({
                   <label htmlFor="world-kit-pace" className={FIELD_LABEL}>
                     {t("game.worldKit.setup.pace")}
                   </label>
-                  <select
+                  <Select
                     id="world-kit-pace"
+                    label={t("game.worldKit.setup.pace")}
                     value={kit.change.pace}
-                    onChange={(event) =>
-                      edit((draft) => (draft.change.pace = event.target.value as WorldKit["change"]["pace"]))
-                    }
+                    onChange={(next) => edit((draft) => (draft.change.pace = next as WorldKit["change"]["pace"]))}
                     className={INPUT}
-                  >
-                    {WORLD_PACES.map((pace) => (
-                      <option key={pace} value={pace}>
-                        {t(`game.worldKit.setup.paces.${pace}`)}
-                      </option>
-                    ))}
-                  </select>
+                    options={WORLD_PACES.map((pace) => ({
+                      value: pace,
+                      label: t(`game.worldKit.setup.paces.${pace}`),
+                    }))}
+                  />
                 </div>
               </fieldset>
 
@@ -818,29 +811,27 @@ export function GameSetupWorldKitChooser({
                           aria-label={t("game.worldKit.setup.elementSign", { name: element.label })}
                           className={cn(INPUT, "w-14 shrink-0 text-center")}
                         />
-                        <input
-                          type="color"
+                        <ColorField
                           value={element.color ?? "#888888"}
-                          onChange={(event) => edit((draft) => (draft.elements![index]!.color = event.target.value))}
-                          aria-label={t("game.worldKit.setup.elementColor", { name: element.label })}
-                          className="h-8 w-10 shrink-0 cursor-pointer rounded border border-[var(--border)] bg-transparent"
+                          onChange={(hex) => edit((draft) => (draft.elements![index]!.color = hex))}
+                          label={t("game.worldKit.setup.elementColor", { name: element.label })}
                         />
-                        <select
+                        <Select
+                          label={t("game.worldKit.setup.elementWeather", { name: element.label })}
                           value={element.weather ?? ""}
-                          onChange={(event) =>
+                          onChange={(value) =>
                             edit((draft) => {
-                              const value = event.target.value;
                               if (value === "hot" || value === "charged") draft.elements![index]!.weather = value;
                               else delete draft.elements![index]!.weather;
                             })
                           }
-                          aria-label={t("game.worldKit.setup.elementWeather", { name: element.label })}
                           className={cn(INPUT, "w-auto shrink-0")}
-                        >
-                          <option value="">{t("game.worldKit.setup.elementWeathers.none")}</option>
-                          <option value="hot">{t("game.worldKit.setup.elementWeathers.hot")}</option>
-                          <option value="charged">{t("game.worldKit.setup.elementWeathers.charged")}</option>
-                        </select>
+                          options={[
+                            { value: "", label: t("game.worldKit.setup.elementWeathers.none") },
+                            { value: "hot", label: t("game.worldKit.setup.elementWeathers.hot") },
+                            { value: "charged", label: t("game.worldKit.setup.elementWeathers.charged") },
+                          ]}
+                        />
                         <button
                           type="button"
                           onClick={() =>
@@ -898,21 +889,16 @@ export function GameSetupWorldKitChooser({
                           className={cn(INPUT, "min-w-32 flex-1")}
                         />
                         {(["on", "with"] as const).map((key) => (
-                          <select
+                          <Select
                             key={key}
-                            value={reaction[key]}
-                            onChange={(event) => edit((draft) => (draft.reactions![index]![key] = event.target.value))}
-                            aria-label={t(`game.worldKit.setup.reaction${key === "on" ? "On" : "With"}`, {
+                            label={t(`game.worldKit.setup.reaction${key === "on" ? "On" : "With"}`, {
                               name: reaction.label,
                             })}
+                            value={reaction[key]}
+                            onChange={(next) => edit((draft) => (draft.reactions![index]![key] = next))}
                             className={cn(INPUT, "w-auto shrink-0")}
-                          >
-                            {kit.elements!.map((element, at) => (
-                              <option key={`${element.label}-${at}`} value={element.label}>
-                                {element.label}
-                              </option>
-                            ))}
-                          </select>
+                            options={kit.elements!.map((element) => ({ value: element.label, label: element.label }))}
+                          />
                         ))}
                         <NumberField
                           value={reaction.times}
@@ -990,24 +976,20 @@ export function GameSetupWorldKitChooser({
                           aria-label={t("game.worldKit.setup.sceneName")}
                           className={cn(INPUT, "min-w-32 flex-1")}
                         />
-                        <select
+                        <Select
+                          label={t("game.worldKit.setup.sceneLike", { name: scene.label })}
                           value={scene.like}
-                          onChange={(event) =>
+                          onChange={(next) =>
                             edit(
-                              (draft) =>
-                                (draft.scenes![index]!.like = event.target
-                                  .value as (typeof TACTICAL_ENVIRONMENTS)[number]),
+                              (draft) => (draft.scenes![index]!.like = next as (typeof TACTICAL_ENVIRONMENTS)[number]),
                             )
                           }
-                          aria-label={t("game.worldKit.setup.sceneLike", { name: scene.label })}
                           className={cn(INPUT, "w-auto shrink-0")}
-                        >
-                          {TACTICAL_ENVIRONMENTS.map((like) => (
-                            <option key={like} value={like}>
-                              {t(`game.worldKit.setup.battlefields.${like}`)}
-                            </option>
-                          ))}
-                        </select>
+                          options={TACTICAL_ENVIRONMENTS.map((like) => ({
+                            value: like,
+                            label: t(`game.worldKit.setup.battlefields.${like}`),
+                          }))}
+                        />
                         {kit.scenes!.length > 1 && (
                           <button
                             type="button"
@@ -1126,18 +1108,13 @@ export function GameSetupWorldKitChooser({
                           label={t("game.worldKit.setup.shopPrice", { name: thing.name })}
                           className={cn(INPUT, "w-28 shrink-0")}
                         />
-                        <select
-                          value={Math.min(thing.from ?? 0, kit.sizes.length - 1)}
-                          onChange={(event) => edit((draft) => (draft.shop![index]!.from = Number(event.target.value)))}
-                          aria-label={t("game.worldKit.setup.shopFrom", { name: thing.name })}
+                        <Select
+                          label={t("game.worldKit.setup.shopFrom", { name: thing.name })}
+                          value={String(Math.min(thing.from ?? 0, kit.sizes.length - 1))}
+                          onChange={(next) => edit((draft) => (draft.shop![index]!.from = Number(next)))}
                           className={cn(INPUT, "w-auto shrink-0")}
-                        >
-                          {kit.sizes.map((size, rank) => (
-                            <option key={`${size.id}-${rank}`} value={rank}>
-                              {size.label}
-                            </option>
-                          ))}
-                        </select>
+                          options={kit.sizes.map((size, rank) => ({ value: String(rank), label: size.label }))}
+                        />
                         <label className="flex shrink-0 items-center gap-1 text-[var(--muted-foreground)]">
                           <Checkbox
                             checked={thing.service === true}

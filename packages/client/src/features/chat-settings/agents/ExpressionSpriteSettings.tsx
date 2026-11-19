@@ -1,6 +1,7 @@
 import { Image } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AvatarCrop } from "@marinara-engine/shared";
+import { Select } from "../../../components/ui/Select";
 import { cn, getAvatarCropStyle } from "../../../lib/utils";
 import {
   AgentSettingsActionButton,
@@ -235,19 +236,17 @@ export function ExpressionSpriteSettings({
             >
               {localizeUi("ui.chat.chatsettingsdrawer.spriteLayoutApplyTo")}
             </label>
-            <select
+            <Select
               id={`sprite-layout-apply-to-${chatId}`}
+              label={localizeUi("ui.chat.chatsettingsdrawer.spriteLayoutApplyTo")}
               value={selectedLayoutSubjectId ?? ""}
-              onChange={(event) => onSelectLayoutSubject(event.target.value || null)}
+              options={[
+                { value: "", label: localizeUi("ui.chat.chatsettingsdrawer.spriteLayoutAll") },
+                ...layoutSubjects.map((subject) => ({ value: subject.id, label: subject.name })),
+              ]}
+              onChange={(value) => onSelectLayoutSubject(value || null)}
               className="min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--background)] px-2.5 py-1.5 text-[0.625rem] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/60"
-            >
-              <option value="">{localizeUi("ui.chat.chatsettingsdrawer.spriteLayoutAll")}</option>
-              {layoutSubjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.name}
-                </option>
-              ))}
-            </select>
+            />
             {selectedLayoutSubjectId && (
               <AgentSettingsActionButton
                 onClick={onResetSelectedLayoutSubject}

@@ -160,6 +160,7 @@ import {
 } from "./workspace-round-review.js";
 import type { PiRunInput } from "./pi-runtime.js";
 import { quickEditFingerprint, validateQuickEditProposal, QuickEditConflictError } from "./quick-edit-proposal.js";
+import { isRecord } from "../../utils/large-json.js";
 
 type DbConnectionWithKey = typeof apiConnections.$inferSelect & { apiKey: string };
 export type WorkspaceConnection = Pick<
@@ -871,7 +872,7 @@ export const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         data: {
           type: "object",
           description:
-            "Entity fields. For character/persona cards: description is a brief identity overview, personality is behavioral traits and mannerisms, backstory is the character's substantive history, and appearance is physical features/clothing. Keep those fields distinct. character.create accepts name, description, personality, scenario, firstMes/firstMessage, mesExample, creatorNotes, backstory, appearance, aboutMe, systemPrompt, postHistoryInstructions, tags, summary, comment, alternateGreetings, creator, and characterVersion. persona.create accepts aboutMe too. lorebook.create accepts name, description, category, tags, book tuning (scanDepth, tokenBudget, entryLimit, recursive, maxRecursionDepth), and an entries array whose items contain name, content, description, keys, secondaryKeys, tag, constant, selective, selectiveLogic, matchWholeWords, caseSensitive, useRegex, position, depth, order, role, group, decisionStatement (plain statement), decisionMode (off/require/trigger), sticky, and cooldown. agent.create/update accepts promptTemplate and a settings object with activationQuestion (plain statement, max 500 chars; empty clears), activationThreshold (0.05–0.95), activationScanDepth, activationMaxSkip (1–100), activationPictures (0–3, newest chat pictures shown to a decision model that reads them; default 0), activationClips (0–1), runInterval (positive integer), activationKeywords; all these activation fields belong inside settings. decision.record accepts data.category (authoring/setupReminder/cachePlacement), answer (pending/allow/decline/suppress), source (user/memory/skill), sourceId (for Memory/Skill), quote (exact source body text), scope (turn/chat; default turn, setupReminder always chat). suppress is only for setupReminder. Read skill builtin-lorebook with skill.get for what each entry field does. home_widget.create accepts title, description, accent (cyan, orange, pink, or violet), and icon (sparkles, note, heart, star, book, or compass).",
+            "Entity fields. For character/persona cards: description is a brief identity overview, personality is behavioral traits and mannerisms, backstory is the character's substantive history, and appearance is physical features/clothing. Keep those fields distinct. publicFace is the card minus its private parts, written only when the user asks (skill builtin-characters). character.create accepts name, description, personality, scenario, firstMes/firstMessage, mesExample, creatorNotes, backstory, appearance, aboutMe, publicFace, systemPrompt, postHistoryInstructions, tags, summary, comment, alternateGreetings, creator, and characterVersion. persona.create accepts aboutMe and publicFace too. lorebook.create accepts name, description, category, tags, book tuning (scanDepth, tokenBudget, entryLimit, recursive, maxRecursionDepth), and an entries array whose items contain name, content, description, keys, secondaryKeys, tag, constant, selective, selectiveLogic, matchWholeWords, caseSensitive, useRegex, position, depth, order, role, group, decisionStatement (plain statement), decisionMode (off/require/trigger), sticky, and cooldown. agent.create/update accepts promptTemplate and a settings object with activationQuestion (plain statement, max 500 chars; empty clears), activationThreshold (0.05–0.95), activationScanDepth, activationMaxSkip (1–100), activationPictures (0–3, newest chat pictures shown to a decision model that reads them; default 0), activationClips (0–1), runInterval (positive integer), activationKeywords; all these activation fields belong inside settings. decision.record accepts data.category (authoring/setupReminder/cachePlacement), answer (pending/allow/decline/suppress), source (user/memory/skill), sourceId (for Memory/Skill), quote (exact source body text), scope (turn/chat; default turn, setupReminder always chat). suppress is only for setupReminder. Read skill builtin-lorebook with skill.get for what each entry field does. home_widget.create accepts title, description, accent (cyan, orange, pink, or violet), and icon (sparkles, note, heart, star, book, or compass).",
         },
         patch: {
           type: "object",
@@ -1229,10 +1230,6 @@ ${toolDocs}
 
 function bool(value: unknown): boolean {
   return value === true || value === "true" || value === "1";
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseJsonObject(value: unknown): Record<string, unknown> | null {
@@ -2780,7 +2777,7 @@ export function mariPermissionsModePrompt(mode: MariPermissionsMode): string | n
   ];
   if (mode === "manual") {
     lines.push(
-      "Manual - always ask before making changes. For any mutating command, describe the exact change in say and include the commands in the SAME response; Marinara will hold those commands and show an Accept action. After the user approves, resend the commands with an empty say - the server only executes silent command frames in the run right after an approval. Never apply a change the user has not just approved.",
+      "Manual - always ask before making changes. For any mutating command, describe the exact change in say and include the commands in the SAME response; Marinara will hold those commands and show an Accept action. After the user chooses Accept, resend the commands with an empty say - the server only executes silent command frames in the run right after Accept. If they approve in words instead, show the same change again so they can choose Accept. Never apply a change the user has not just approved.",
     );
   } else if (mode === "plan") {
     lines.push(
@@ -5230,13 +5227,18 @@ export class ProfessorMariWorkspaceService {
     const allMessages = await chatStorage.listMessages(chatId);
     const history = allMessages.slice(-MAX_HISTORY_MESSAGES);
     // #5725 Manual mode: arm silent command frames only when Mari's last
-    // persisted turn was a deferral (the user's new message answers it). The
+    // persisted turn was a deferral and the user answered it with Accept. The
     // deferral is a flag on the message's extra - persisted content is only
     // the visible say text, never the JSON envelope.
     const lastAssistant = [...history].reverse().find((row) => row.role === "assistant");
     const lastExtra = parseExtra(lastAssistant?.extra);
-    // A Retry after a partial reply ends on her row: it answers nothing, so it arms nothing.
-    const manualApprovalArmed = lastExtra.mariDeferredMutations === true && history.at(-1)?.role === "user";
+    // Any other reply (a new request, Don't apply, a typed "yes") arms nothing, so a change she sends then is held
+    // on a new card. A Retry after a partial reply ends on her row: it answers nothing, so it arms nothing either.
+    const lastRow = history.at(-1);
+    const manualApprovalArmed =
+      lastExtra.mariDeferredMutations === true &&
+      lastRow?.role === "user" &&
+      lastRow.content.trim() === MARI_AUTHORIZATION_ACCEPT_CHIP.prompt;
     // Stored held calls: a fresh id each, only mutating ones, anything malformed counts as none.
     const heldCalls: WorkspaceCommandCall[] = Array.isArray(lastExtra.mariHeldCalls)
       ? lastExtra.mariHeldCalls.flatMap((raw): WorkspaceCommandCall[] =>

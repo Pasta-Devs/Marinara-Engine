@@ -38,7 +38,7 @@ import { StringDecoder } from "string_decoder";
 import { randomBytes, randomUUID } from "crypto";
 import { createInflateRaw, inflateRawSync } from "zlib";
 import AdmZip from "adm-zip";
-import { FILE_BACKED_TABLES, STORAGE_WRITER_LEASE_FILENAME } from "../db/file-backed-store.js";
+import { FILE_BACKED_TABLES, STORAGE_WRITER_LEASE_FILENAME, isLazyUnitTable } from "../db/file-backed-store.js";
 import { migrateLegacyNoodleAccountRow } from "../db/noodle-platform-migration.js";
 import { migrateLegacyPersonaRow } from "../db/persona-card-migration.js";
 import { personaRowFromStored, type StoredPersonaRow } from "../services/personas/persona-card-storage.js";
@@ -78,7 +78,8 @@ import { normalizeTimestampOverrides } from "../services/import/import-timestamp
 import { flushDB, type DB } from "../db/connection.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { BACKUP_RATE_LIMIT } from "../middleware/rate-limit.js";
-import { assertInsideDir, safeCompareString } from "../utils/security.js";
+import { startSseKeepalive } from "./generate/sse.js";
+import { assertInsideDir, resolveInside, safeCompareString, toSafeExportName } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { crc32Buffer, finishCrc32, updateCrc32State } from "../utils/crc32.js";
 import { ENCRYPTED_WEBHOOK_PREFIX, encryptCustomToolWebhookUrl } from "../utils/custom-tool-webhook.js";
@@ -106,6 +107,7 @@ import {
   parseAutomaticBackupRetentionCount,
   pruneAutomaticBackupFiles,
 } from "../services/backup/automatic-backup-retention.js";
+import { notFound } from "../utils/not-found.js";
 
 /** Directories inside DATA_DIR that should be included in every backup. */
 const BACKUP_DIRS = [
@@ -187,6 +189,18 @@ function withOptionalNoodleAutoPostPaused<T>(operation: () => Promise<T>): Promi
 const PROFILE_IMPORT_MEMORY_WARNING_BYTES = 512 * 1024 * 1024;
 const PROFILE_EXPORT_JSON_TOO_LARGE_CODE = "PROFILE_EXPORT_JSON_TOO_LARGE";
 const AUTOMATIC_BACKUP_SETTINGS_KEY = "automatic_backup";
+/**
+ * Safety copies are named `marinara-before-import-<time>-<id>.zip`, so a new copy never replaces the
+ * one the Undo record names. The time sorts by name, newest last.
+ */
+const PRE_IMPORT_BACKUP_PATTERN = /^marinara-before-import-[0-9TZ-]+-[0-9a-f]{8}\.zip$/u;
+/**
+ * The Undo record: the last import's copy and the rows and files it wrote. It lives in the database
+ * so it commits or rolls back with the import itself, and it never leaves this install.
+ */
+const PROFILE_IMPORT_UNDO_SETTING = "profile_import_undo";
+/** Root folder inside the safety copy; it must match the `marinara-backup-*` shape the backup reader accepts. */
+const PRE_IMPORT_BACKUP_ROOT = "marinara-backup-before-import";
 const AUTOMATIC_BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const AUTOMATIC_BACKUP_OMISSION_HISTORY_LIMIT = 1_000;
 const AUTOMATIC_BACKUP_OMISSION_HISTORY_BYTES = 256 * 1024;
@@ -323,6 +337,9 @@ type ProfileStorageSnapshot = {
   tables: ProfileTableSnapshots;
   files: ProfileFileAsset[];
 };
+/** What one import wrote: row keys by table, and file paths. Undo restores only these from the safety copy. */
+type ProfileImportWrites = { rows: Record<string, string[]>; files: string[] };
+type ProfileImportUndoRecord = ProfileImportWrites & { copy: string };
 type ProfileArchiveTableFile = { path: string; count: number; size: number };
 type ProfileArchiveStorageSnapshot = {
   version: 2;
@@ -449,15 +466,7 @@ function resolveBackupDir(dataDir: string, dirName: string) {
 }
 
 function resolvePersistedEncryptionKeyPath(dataDir: string) {
-  return assertInsideDir(dataDir, join(dataDir, ENCRYPTION_KEY_FILENAME));
-}
-
-function toSafeExportName(name: string, fallback: string) {
-  const sanitized = name
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return sanitized || fallback;
+  return resolveInside(dataDir, ENCRYPTION_KEY_FILENAME);
 }
 
 function asStringArray(value: unknown): string[] {
@@ -632,7 +641,7 @@ function resolveProfileExportFilePath(dataDir: string, filePath: unknown) {
   const cleanPath = filePath.split("?")[0];
   if (!cleanPath) return null;
   try {
-    return assertInsideDir(dataDir, join(dataDir, cleanPath));
+    return resolveInside(dataDir, cleanPath);
   } catch {
     return null;
   }
@@ -802,8 +811,8 @@ export function sanitizeProfileTableRows(tableName: string, rows: Array<Record<s
     }));
   }
   if (tableName === "app_settings") {
-    // The Tripo API key stays on this install too, like the connection keys blanked above.
-    return rows.filter((row) => row.key !== TRIPO_API_KEY_SETTING);
+    // The Tripo API key and the Undo record stay on this install too, like the connection keys blanked above.
+    return rows.filter((row) => row.key !== TRIPO_API_KEY_SETTING && row.key !== PROFILE_IMPORT_UNDO_SETTING);
   }
   if (tableName === "agent_configs") {
     return rows.map((row) => redactAgentSecrets(row));
@@ -1516,6 +1525,13 @@ async function importProfileStorageSnapshot(
   warnings: ProfileImportWarning[],
   onProgress?: ProfileImportProgressReporter,
   readAsset?: ProfileAssetReader,
+  /** Filled with the key of every row written over by key and every file restored, for Undo Last Import. */
+  writes?: ProfileImportWrites,
+  /** Runs inside the import's transaction once everything is written, so what it saves commits with the import. */
+  beforeCommit?: (tx: DB) => Promise<void>,
+  /** "Keep my current versions": a row that already exists is skipped instead of written over. */
+  keepExisting = false,
+  /** The "Tag imported" / "Tag source" checkboxes; left out, nothing is tagged. */
   importTags?: ImportTagOptions,
 ) {
   validateProfileStorageTableInputs(snapshot);
@@ -1638,7 +1654,10 @@ async function importProfileStorageSnapshot(
             cleanRow = tagProfileImportRow(tableName, cleanRow, importTags);
             const insert = tx.insert(table as any).values(cleanRow as any) as any;
             const conflictTarget = schemaPrimaryKeyColumn(table);
-            if (conflictTarget) {
+            let added = true;
+            if (conflictTarget && keepExisting) {
+              added = (await insert.onConflictDoNothing({ target: conflictTarget })) > 0;
+            } else if (conflictTarget) {
               // Exported secrets are redacted. The table-specific update set preserves
               // agent/tool secrets, while the connection plan above retains a credential
               // only when its provider and destination still match.
@@ -1646,11 +1665,12 @@ async function importProfileStorageSnapshot(
                 target: conflictTarget,
                 set: buildProfileUpdateSet(tableName, cleanRow),
               });
+              if (writes) (writes.rows[tableName] ??= []).push(String(cleanRow[conflictTarget.key]));
             } else {
               await insert;
             }
             completedItems++;
-            tableCounts[tableName] = (tableCounts[tableName] ?? 0) + 1;
+            if (added) tableCounts[tableName] = (tableCounts[tableName] ?? 0) + 1;
             emit("tables", `Importing ${tableName.replace(/_/g, " ")}`);
           }
         }
@@ -1662,8 +1682,10 @@ async function importProfileStorageSnapshot(
         for (const asset of stagedAssets.assets) {
           files++;
           completedItems++;
+          writes?.files.push(asset.path);
           emit("files", `Restoring ${asset.path}`, files);
         }
+        await beforeCommit?.(tx);
         await flushDB();
       });
       committed = true;
@@ -1823,7 +1845,7 @@ async function collectProfileAssetZipSources(
     const safePath = normalizeProfileAssetPath(file.path);
     if (!safePath) continue;
     try {
-      const inputPath = assertInsideDir(dataDir, join(dataDir, ...safePath.split("/")));
+      const inputPath = resolveInside(dataDir, ...safePath.split("/"));
       if (!existsSync(inputPath)) throw new Error("file no longer exists");
       const fileStat = await stat(inputPath);
       if (!fileStat.isFile()) throw new Error("path is not a regular file");
@@ -3383,6 +3405,19 @@ async function readProfileArchiveAsset(
   }
 }
 
+/** Read a profile or full-backup ZIP already on disk; the caller owns the file. */
+async function readProfileImportArchive(archivePath: string): Promise<ProfileImportInput> {
+  const zip = await readProfileZipArchive(archivePath);
+  const { envelope, basePath } = await readProfileEnvelopeFromArchive(zip);
+  const warnings: ProfileImportWarning[] = [];
+  const archiveAssets = validateProfileArchiveAssets(zip, basePath, envelope, warnings);
+  return {
+    envelope,
+    readAsset: (safePath) => readProfileArchiveAsset(zip, archiveAssets, safePath),
+    warnings,
+  };
+}
+
 async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImportInput> {
   const contentType = String(req.headers["content-type"] ?? "").toLowerCase();
   if (!contentType.includes("multipart/form-data")) {
@@ -3410,14 +3445,8 @@ async function readProfileImportRequest(req: FastifyRequest): Promise<ProfileImp
       if (fileStream.truncated) throw new ProfileImportRequestError("Profile archive upload was truncated.");
     }
     if (!receivedFile) throw new ProfileImportRequestError("No profile archive uploaded.");
-    const zip = await readProfileZipArchive(archivePath);
-    const { envelope, basePath } = await readProfileEnvelopeFromArchive(zip);
-    const warnings: ProfileImportWarning[] = [];
-    const archiveAssets = validateProfileArchiveAssets(zip, basePath, envelope, warnings);
     return {
-      envelope,
-      readAsset: (safePath) => readProfileArchiveAsset(zip, archiveAssets, safePath),
-      warnings,
+      ...(await readProfileImportArchive(archivePath)),
       cleanup: () => rm(uploadDir, { recursive: true, force: true }),
     };
   } catch (err) {
@@ -3622,6 +3651,154 @@ async function writeFullBackupArchive(
   return { omittedEntries: [...omittedEntries] };
 }
 
+/** Throw the Settings-panel message when the backups disk cannot hold an archive of this size. */
+async function assertBackupFits(backupsRoot: string, archiveBytes: number, backupLabel: string) {
+  const freeBytes = await statfs(backupsRoot)
+    .then((fsStat) => Number(fsStat.bavail) * Number(fsStat.bsize))
+    .catch((error) => {
+      const logError = error instanceof Error ? error : new Error(String(error));
+      logger.warn(logError, "[backup] Could not read free disk space; writing %s unchecked", backupLabel);
+      return null;
+    });
+  const error = freeBytes === null ? null : automaticBackupFreeSpaceError(freeBytes, archiveBytes, backupLabel);
+  if (error) throw new Error(error);
+}
+
+/** The finished safety copies in `backups/`, oldest first. */
+async function listPreImportBackups(): Promise<string[]> {
+  const names = await readdir(getBackupsRoot()).catch(() => [] as string[]);
+  return names.filter((name) => PRE_IMPORT_BACKUP_PATTERN.test(name)).sort();
+}
+
+/** The record is data anyone with database access could change, so only a well-formed one counts. */
+function parseUndoRecord(value: string | null | undefined): ProfileImportUndoRecord | null {
+  try {
+    const parsed = JSON.parse(value ?? "") as Partial<ProfileImportUndoRecord>;
+    return typeof parsed.copy === "string" &&
+      PRE_IMPORT_BACKUP_PATTERN.test(parsed.copy) &&
+      typeof parsed.rows === "object" &&
+      parsed.rows !== null &&
+      Array.isArray(parsed.files)
+      ? (parsed as ProfileImportUndoRecord)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The record Undo Last Import can run from: its copy must be the newest. A newer copy means an import
+ * stopped before it finished saving, so this record no longer describes the last import.
+ */
+async function readUndoRecord(db: DB): Promise<ProfileImportUndoRecord | null> {
+  const record = parseUndoRecord(await createAppSettingsStorage(db).get(PROFILE_IMPORT_UNDO_SETTING));
+  return record && (await listPreImportBackups()).at(-1) === record.copy ? record : null;
+}
+
+async function removePreImportBackup(copy: string) {
+  await rm(join(getBackupsRoot(), copy), { force: true }).catch((error: unknown) =>
+    logger.warn(error, "[backup] Could not remove the safety copy %s", copy),
+  );
+}
+
+/** Delete Safety Copy: the record, then every copy and half-written copy, so nothing is left taking space. */
+async function removeAllPreImportBackups(db: DB) {
+  await createAppSettingsStorage(db).remove(PROFILE_IMPORT_UNDO_SETTING);
+  const names = await readdir(getBackupsRoot()).catch(() => [] as string[]);
+  let firstError: unknown;
+  for (const name of names.filter((name) => PRE_IMPORT_BACKUP_PATTERN.test(name.replace(/\.pending$/u, "")))) {
+    await rm(join(getBackupsRoot(), name), { force: true }).catch((error: unknown) => {
+      firstError ??= error;
+    });
+  }
+  if (firstError) throw firstError;
+}
+
+/** Keep only the rows and files the last import wrote, so Undo leaves everything else as it is now. */
+function onlyRowsAndFilesWritten(
+  snapshot: ProfileStorageSnapshot,
+  writes: ProfileImportWrites,
+): ProfileStorageSnapshot {
+  const tables: ProfileTableSnapshots = {};
+  for (const [tableName, keys] of Object.entries(writes.rows)) {
+    const table = profileTableObjects.get(tableName);
+    const keyColumn = table ? schemaPrimaryKeyColumn(table)?.key : undefined;
+    const rows = snapshot.tables[tableName];
+    if (!keyColumn || !Array.isArray(rows) || !Array.isArray(keys)) continue;
+    const written = new Set(keys);
+    tables[tableName] = rows.filter((row) => written.has(String(row[keyColumn])));
+  }
+  const files = new Set(writes.files);
+  return {
+    ...snapshot,
+    tables,
+    files: snapshot.files.filter((file) => files.has(normalizeProfileAssetPath(file?.path) ?? "")),
+  };
+}
+
+/**
+ * For "Keep my current versions": drop the rows and files this install already has, so the preview,
+ * its warnings and the import only see what is missing. Lazily loaded tables (messages and the
+ * like) are left for the import's `onConflictDoNothing`, which checks them without loading every
+ * chat; the preview leaves their message count out for that reason.
+ */
+async function withoutWhatAlreadyExists(db: DB, snapshot: ProfileStorageSnapshot): Promise<ProfileStorageSnapshot> {
+  const tables: ProfileTableSnapshots = { ...snapshot.tables };
+  for (const [tableName, rows] of Object.entries(snapshot.tables)) {
+    const table = profileTableObjects.get(tableName);
+    const keyColumn = table ? schemaPrimaryKeyColumn(table)?.key : undefined;
+    if (!table || !keyColumn || !Array.isArray(rows) || isLazyUnitTable(tableName)) continue;
+    const existing = new Set(
+      ((await db.select().from(table as any)) as Array<Record<string, unknown>>).map((row) => String(row[keyColumn])),
+    );
+    // A malformed row stays in, so the import's own validation rejects the file as usual.
+    tables[tableName] = rows.filter((row) => !existing.has(String(row?.[keyColumn])));
+  }
+  const dataDir = getDataDir();
+  // The long-term memory vault is one set of files: keep the current one whole, or add the file's whole.
+  const hasMemoryVault = existsSync(join(dataDir, "long-term-memory"))
+    ? readdirSync(join(dataDir, "long-term-memory")).length > 0
+    : false;
+  const files = (Array.isArray(snapshot.files) ? snapshot.files : []).filter((file) => {
+    const path = normalizeProfileAssetPath(file?.path);
+    if (!path) return true;
+    if (hasMemoryVault && path.startsWith("long-term-memory/")) return false;
+    return !existsSync(join(dataDir, path));
+  });
+  return { ...snapshot, tables, files };
+}
+
+/**
+ * Full backup written just before Import Profile overwrites rows, so the import can be undone from
+ * Settings. Returns its file name. The previous copy stays until this import's record replaces its own.
+ */
+async function writePreImportBackup(app: FastifyInstance): Promise<string> {
+  await flushDB();
+  const backupsRoot = getBackupsRoot();
+  const copy = `marinara-before-import-${new Date().toISOString().replace(/[:.]/gu, "-")}-${randomBytes(4).toString("hex")}.zip`;
+  const finalPath = join(backupsRoot, copy);
+  const pendingPath = `${finalPath}.pending`;
+  const workingDir = await mkdtemp(join(tmpdir(), "marinara-pre-import-backup-"));
+  try {
+    await mkdir(backupsRoot, { recursive: true, mode: PRIVATE_DIRECTORY_MODE });
+    await hardenPrivateBackupTree(backupsRoot);
+    // Callers hold the backup lock, so a half-written copy found now was left by a stop mid-write.
+    for (const name of await readdir(backupsRoot)) {
+      if (name.endsWith(".pending") && PRE_IMPORT_BACKUP_PATTERN.test(name.replace(/\.pending$/u, ""))) {
+        await rm(join(backupsRoot, name), { force: true });
+      }
+    }
+    await writeFullBackupArchive(app, pendingPath, PRE_IMPORT_BACKUP_ROOT, workingDir, (archiveBytes) =>
+      assertBackupFits(backupsRoot, archiveBytes, "a safety copy"),
+    );
+    await rename(pendingPath, finalPath);
+    return copy;
+  } finally {
+    await rm(pendingPath, { force: true }).catch(() => {});
+    await rm(workingDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function writeAutomaticBackup(app: FastifyInstance, retentionCount: number) {
   await flushDB();
   const backupsRoot = getBackupsRoot();
@@ -3644,18 +3821,8 @@ async function writeAutomaticBackup(app: FastifyInstance, retentionCount: number
       pendingPath,
       "marinara-automatic-backup",
       workingDir,
-      async (archiveBytes) => {
-        // A run that cannot fit would fail with ENOSPC and be retried in full every hour; refuse it up front (#6087).
-        const freeBytes = await statfs(backupsRoot)
-          .then((fsStat) => Number(fsStat.bavail) * Number(fsStat.bsize))
-          .catch((error) => {
-            const logError = error instanceof Error ? error : new Error(String(error));
-            logger.warn(logError, "[backup] Could not read free disk space; writing the automatic backup unchecked");
-            return null;
-          });
-        const error = freeBytes === null ? null : automaticBackupFreeSpaceError(freeBytes, archiveBytes);
-        if (error) throw new Error(error);
-      },
+      // A run that cannot fit would fail with ENOSPC and be retried in full every hour; refuse it up front (#6087).
+      (archiveBytes) => assertBackupFits(backupsRoot, archiveBytes, "the automatic backup"),
     );
     const hadPreviousBackup = existsSync(finalPath);
     try {
@@ -4025,7 +4192,7 @@ export async function backupRoutes(app: FastifyInstance) {
     async (req, reply) => {
       if (!requirePrivilegedAccess(req, reply, { feature: "Backup download" })) return;
       const job = backupDownloadJobs.get(req.params.jobId);
-      if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+      if (!job) return notFound(reply, "Backup download job not found or expired");
       return reply.send({
         status: job.status,
         filename: `${job.backupName}.zip`,
@@ -4051,7 +4218,7 @@ export async function backupRoutes(app: FastifyInstance) {
         ? isPreparedBackupDownloadTokenValid(job.downloadToken, req.query.token)
         : false;
       if (!requirePrivilegedAccess(req, reply, { feature: "Backup download", oneTimeCapabilityAuthorized })) return;
-      if (!job) return reply.status(404).send({ error: "Backup download job not found or expired" });
+      if (!job) return notFound(reply, "Backup download job not found or expired");
       if (job.status === "failed") return reply.status(500).send({ error: job.error ?? "Backup download failed" });
       if (job.status !== "ready" || job.size === undefined) {
         return reply.status(409).send({ error: "Backup is still being prepared" });
@@ -4097,7 +4264,7 @@ export async function backupRoutes(app: FastifyInstance) {
     const backupDir = join(backupsRoot, name);
 
     if (!existsSync(backupDir)) {
-      return reply.status(404).send({ error: "Backup not found" });
+      return notFound(reply, "Backup not found");
     }
 
     // Remove recursively
@@ -4151,16 +4318,47 @@ export async function backupRoutes(app: FastifyInstance) {
     },
   );
 
-  const importProfile = async (req: FastifyRequest, reply: FastifyReply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Profile import" })) return;
+  /** `undo` imports the safety copy the last import saved, instead of an uploaded file, and saves no new copy. */
+  const handleProfileImport = async (req: FastifyRequest, reply: FastifyReply, undo: boolean) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: undo ? "Undo profile import" : "Profile import" })) return;
 
     const wantsProgressStream = String(req.headers.accept ?? "").includes("text/event-stream");
     const importTags = readImportTagOptions(req.headers[PROFILE_IMPORT_TAGS_HEADER]);
-    const previewOnly = (req.query as { preview?: unknown } | undefined)?.preview === "true";
+    const query = req.query as { preview?: unknown; keepExisting?: unknown } | undefined;
+    const previewOnly = !undo && query?.preview === "true";
+    // "Keep my current versions, only add what's missing": nothing already here is written over.
+    const keepExisting = !undo && query?.keepExisting === "true";
     const providedPreviewToken =
       typeof req.headers["x-profile-preview-token"] === "string" ? req.headers["x-profile-preview-token"].trim() : "";
     let importInput: ProfileImportInput;
-    if (!previewOnly && providedPreviewToken) {
+    const undoRecord = undo ? await readUndoRecord(app.db) : null;
+    if (undo) {
+      if (!undoRecord) {
+        return reply.status(404).send({
+          error: "No safety copy",
+          message: "There is no saved copy from before an import to put back.",
+        });
+      }
+      try {
+        importInput = await readProfileImportArchive(join(getBackupsRoot(), undoRecord.copy));
+        const safetyData = importInput.envelope?.data as Record<string, unknown> | undefined;
+        if (!safetyData || !isProfileStorageSnapshot(safetyData.fileStorage)) {
+          throw new ProfileImportRequestError("The safety copy from before the last import could not be read.");
+        }
+        safetyData.fileStorage = onlyRowsAndFilesWritten(safetyData.fileStorage, undoRecord);
+        // The copy's asset check covered every file; only the ones being put back matter here.
+        const filesWritten = new Set(undoRecord.files);
+        importInput.warnings = importInput.warnings?.filter(
+          (warning) =>
+            (warning.type !== "missing_asset" && warning.type !== "skipped_asset") || filesWritten.has(warning.path),
+        );
+      } catch (err) {
+        if (err instanceof ProfileImportRequestError) {
+          return sendProfileImportRequestError(reply, err);
+        }
+        return sendBackupRouteError(reply, err, "Undo profile import");
+      }
+    } else if (!previewOnly && providedPreviewToken) {
       const previewInput = await takeProfileImportPreview(providedPreviewToken);
       if (!previewInput) {
         return reply.status(410).send({
@@ -4190,9 +4388,21 @@ export async function backupRoutes(app: FastifyInstance) {
 
       const data = envelope.data as Record<string, any>;
       const warnings = importInput.warnings ?? [];
+      // The Undo record belongs to this install; a profile can't bring or replace one.
+      const importedSettings = isProfileStorageSnapshot(data.fileStorage) ? data.fileStorage.tables.app_settings : null;
+      if (Array.isArray(importedSettings)) {
+        data.fileStorage.tables.app_settings = importedSettings.filter(
+          (row) => row.key !== PROFILE_IMPORT_UNDO_SETTING,
+        );
+      }
+      if (keepExisting && isProfileStorageSnapshot(data.fileStorage)) {
+        data.fileStorage = await withoutWhatAlreadyExists(app.db, data.fileStorage);
+      }
       const profileStoragePreviewStats = isProfileStorageSnapshot(data.fileStorage)
         ? previewProfileStorageSnapshotStats(data.fileStorage, importInput.readAsset, warnings)
         : null;
+      // Which messages are missing is only known once the import writes them (withoutWhatAlreadyExists).
+      if (keepExisting && profileStoragePreviewStats) profileStoragePreviewStats.messages = 0;
       if (previewOnly && isProfileStorageSnapshot(data.fileStorage)) {
         await planProfileNoodleImport(
           app.db,
@@ -4217,6 +4427,11 @@ export async function backupRoutes(app: FastifyInstance) {
           warnings,
           previewToken,
           totalItems,
+          // Older profiles, and "Keep my current versions", only add items, so they need no safety copy
+          // and leave nothing to undo.
+          undoable: !keepExisting && isProfileStorageSnapshot(data.fileStorage),
+          // Older profiles can't keep current versions: their import always adds next to them.
+          keepsExisting: keepExisting && isProfileStorageSnapshot(data.fileStorage),
         };
       }
 
@@ -4229,16 +4444,20 @@ export async function backupRoutes(app: FastifyInstance) {
         sendEvent({ type: "progress", data: progress });
       };
 
+      // The safety copy and staging can each run for minutes without a progress event; without
+      // a keepalive a proxy or tunnel may close the idle stream while the import carries on.
+      let stopKeepalive = () => {};
       if (wantsProgressStream) {
         reply.raw.writeHead(200, {
           "Content-Type": "text/event-stream",
           "Cache-Control": "no-cache",
           Connection: "keep-alive",
         });
+        stopKeepalive = startSseKeepalive(reply);
         sendEvent({
           type: "started",
           data: {
-            label: "Profile import started",
+            label: undo ? "Undoing the last import" : "Profile import started",
             totalItems,
           },
         });
@@ -4246,14 +4465,66 @@ export async function backupRoutes(app: FastifyInstance) {
 
       try {
         if (isProfileStorageSnapshot(data.fileStorage)) {
-          const imported = await importProfileStorageSnapshot(
-            app,
-            data.fileStorage,
-            warnings,
-            wantsProgressStream ? sendProgress : undefined,
-            importInput.readAsset,
-            importTags,
-          );
+          let safetyCopy: string | null = null;
+          if (!undo && !keepExisting) {
+            // Import overwrites rows that already exist, so keep a way back before the first write.
+            sendProgress({
+              phase: "safety-copy",
+              label: "Saving a safety copy",
+              completedItems: 0,
+              totalItems,
+              imported: { characters: 0, personas: 0, lorebooks: 0, presets: 0, agents: 0, themes: 0 },
+            });
+            try {
+              safetyCopy = await withAutomaticBackupLifecycleLock(() => writePreImportBackup(app));
+            } catch (err) {
+              const reason = getBackupErrorMessage(err, "The safety copy could not be written.");
+              throw new Error(`Nothing was imported, because a safety copy could not be saved first. ${reason}`);
+            }
+          }
+          const writes: ProfileImportWrites = { rows: {}, files: [] };
+          let replacedCopy: string | undefined;
+          let imported: Awaited<ReturnType<typeof importProfileStorageSnapshot>>;
+          try {
+            imported = await importProfileStorageSnapshot(
+              app,
+              data.fileStorage,
+              warnings,
+              wantsProgressStream ? sendProgress : undefined,
+              importInput.readAsset,
+              writes,
+              // The Undo record commits with the rows it lists: an undo clears it, an import replaces it.
+              // An import that keeps current versions replaces nothing, so the previous Undo stays.
+              keepExisting
+                ? undefined
+                : async (tx) => {
+                    const undoSettings = createAppSettingsStorage(tx);
+                    const currentCopy = parseUndoRecord(await undoSettings.get(PROFILE_IMPORT_UNDO_SETTING))?.copy;
+                    if (undo) {
+                      // A second undo, or an import that finished since this undo read the record, rolls this one back.
+                      if (currentCopy !== undoRecord?.copy) {
+                        throw new Error("Nothing was undone, because another import or undo finished first.");
+                      }
+                      return undoSettings.remove(PROFILE_IMPORT_UNDO_SETTING);
+                    }
+                    replacedCopy = currentCopy;
+                    await undoSettings.set(
+                      PROFILE_IMPORT_UNDO_SETTING,
+                      JSON.stringify({ copy: safetyCopy, ...writes }),
+                    );
+                  },
+              keepExisting,
+              importTags,
+            );
+          } catch (error) {
+            // The rollback kept the previous record, so its Undo still works. This import's copy goes,
+            // unless the rollback failed too and the copy is the only way back.
+            if (safetyCopy && !(error instanceof AggregateError)) await removePreImportBackup(safetyCopy);
+            throw error;
+          }
+          // The copy an undo used, or the one this import's record replaced, is no longer needed.
+          const unusedCopy = undo ? undoRecord?.copy : replacedCopy;
+          if (unusedCopy) await removePreImportBackup(unusedCopy);
           const payload = { success: true, imported, warnings };
           if (wantsProgressStream) {
             sendEvent({ type: "done", data: payload });
@@ -4345,6 +4616,7 @@ export async function backupRoutes(app: FastifyInstance) {
                   personality: p.personality,
                   backstory: p.backstory,
                   appearance: p.appearance,
+                  publicFace: typeof p.publicFace === "string" ? p.publicFace : "",
                   scenario: p.scenario,
                   nameColor: p.nameColor,
                   dialogueColor: p.dialogueColor,
@@ -4377,7 +4649,7 @@ export async function backupRoutes(app: FastifyInstance) {
                   await mkdir(avatarDir, { recursive: true });
                   const avatarName = `persona-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
                   const avatarPath = `avatars/${avatarName}`;
-                  avatarFile = assertInsideDir(avatarDir, join(avatarDir, avatarName));
+                  avatarFile = resolveInside(avatarDir, avatarName);
                   await writeFile(avatarFile, Buffer.from(p.avatarBase64, "base64"));
                   const updated = await chars.updatePersona(created.id, { avatarPath }, { skipVersionSnapshot: true });
                   if (!updated) throw new Error("Imported Persona disappeared before its avatar could be attached");
@@ -4718,6 +4990,8 @@ export async function backupRoutes(app: FastifyInstance) {
           return sendProfileImportRequestError(reply, err);
         }
         return sendBackupRouteError(reply, err, "Profile import");
+      } finally {
+        stopKeepalive();
       }
     } finally {
       if (!retainInputForPreview) await importInput.cleanup?.();
@@ -4768,6 +5042,26 @@ export async function backupRoutes(app: FastifyInstance) {
       config: { rateLimit: BACKUP_RATE_LIMIT },
       preParsing: profileImportJsonBodyLimit,
     },
-    importProfile,
+    (req, reply) => handleProfileImport(req, reply, false),
   );
+
+  // The newest safety copy, for the Undo and Delete Safety Copy buttons. A copy without a usable
+  // record (a stop mid-import) can't be undone from, but can still be deleted to free its space.
+  app.get("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Undo profile import" })) return;
+    const newest = (await listPreImportBackups()).at(-1);
+    const safetyCopy = newest ? await stat(join(getBackupsRoot(), newest)).catch(() => null) : null;
+    if (!safetyCopy) return { available: false };
+    return { available: Boolean(await readUndoRecord(app.db)), savedAt: safetyCopy.mtime.toISOString() };
+  });
+  app.post("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, (req, reply) =>
+    handleProfileImport(req, reply, true),
+  );
+  // Frees the space the safety copy takes without undoing anything; Android can't reach the folder.
+  app.delete("/import-profile/undo", { config: { rateLimit: BACKUP_RATE_LIMIT } }, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Delete profile import safety copy" })) return;
+    // The lock keeps it from removing a copy while an import is still writing it.
+    await withAutomaticBackupLifecycleLock(() => removeAllPreImportBackups(app.db));
+    return { success: true };
+  });
 }

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { networkInterfaces } from "node:os";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { networkInterfaces, tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 import {
   androidLocalAuthHook,
@@ -14,6 +14,10 @@ import {
   isAndroidLocalAuthSatisfied,
 } from "../../../packages/server/src/middleware/android-local-auth.js";
 import { csrfProtectionHook } from "../../../packages/server/src/middleware/csrf-protection.js";
+import {
+  registerCapabilityPrivilegedRoutes,
+  runCapabilityInternalRoute,
+} from "../../../packages/server/src/services/capability-packages/capability-route-registration.service.js";
 
 const originalSecret = process.env.MARINARA_ANDROID_SECRET;
 const originalCsrfTrustedOrigins = process.env.CSRF_TRUSTED_ORIGINS;
@@ -33,6 +37,22 @@ app.get("/api/health", async (request) => ({ status: "ok", detailed: isAndroidLo
 app.get("/api/private", async () => ({ private: true }));
 app.post("/api/private-mutation", async () => ({ mutated: true }));
 app.get("/api/spotify/callback", async () => ({ callback: true }));
+// #7500: package background jobs (Noodle, Slurp) call their own routes through runInternalRoute.
+const packageRequestHeaders: Record<string, unknown>[] = [];
+const packageRoute = (id: string) =>
+  registerCapabilityPrivilegedRoutes(
+    app,
+    { id, manifest: { id, name: id, permissions: ["routes"] } } as never,
+    async (routes) => {
+      routes.post("/refresh", async (request) => {
+        packageRequestHeaders.push({ ...request.headers });
+        return { refreshed: id };
+      });
+    },
+    { prefix: `/api/${id}` },
+  );
+const releaseNoodle = await packageRoute("noodle");
+await packageRoute("slurp");
 
 try {
   await app.ready();
@@ -45,6 +65,39 @@ try {
     headers: androidLocalAuthInjectHeaders(),
   });
   assert.equal(serverOwnRequest.statusCode, 200, "the server's own injected calls carry the local secret (#7475)");
+
+  const refresh = await runCapabilityInternalRoute(app, "noodle", { method: "POST", url: "/api/noodle/refresh" });
+  assert.equal(refresh.statusCode, 200, "a package's own runInternalRoute call passes Android local auth (#7500)");
+  assert.deepEqual(refresh.json(), { refreshed: "noodle" });
+  const packageHeaders = packageRequestHeaders.at(-1)!;
+  assert.equal(packageHeaders["x-marinara-android-secret"], undefined, "the install secret never reaches package code");
+  const noodleToken = packageHeaders["x-marinara-internal-route"];
+  assert.equal(typeof noodleToken, "string");
+  const injectNoodle = (headers: Record<string, string> = {}) =>
+    app.inject({ method: "POST", url: "/api/noodle/refresh", headers });
+  assert.equal((await injectNoodle()).statusCode, 401, "a bare localhost call to a package route stays refused");
+  assert.equal((await injectNoodle({ "x-marinara-internal-route": "" })).statusCode, 401, "an empty token is refused");
+  assert.equal(
+    (await injectNoodle({ "x-marinara-internal-route": "00000000-0000-4000-8000-000000000000" })).statusCode,
+    401,
+    "a wrong token is refused",
+  );
+  const withNoodleToken = { "x-marinara-internal-route": String(noodleToken) };
+  for (const url of ["/api/slurp/refresh", "/api/private-mutation", "/api/noodle/refresh/../../private-mutation"]) {
+    const response = await app.inject({ method: "POST", url, headers: withNoodleToken });
+    assert.equal(response.statusCode, 401, `noodle's token opens only noodle's own routes, not ${url}`);
+  }
+  assert.equal(
+    (await runCapabilityInternalRoute(app, "slurp", { method: "POST", url: "/api/slurp/refresh" })).statusCode,
+    200,
+    "each package passes with its own token",
+  );
+  releaseNoodle();
+  await assert.rejects(
+    () => runCapabilityInternalRoute(app, "noodle", { method: "POST", url: "/api/noodle/refresh" }),
+    /no active internal route registration/u,
+  );
+  assert.equal((await injectNoodle(withNoodleToken)).statusCode, 401, "a token stops working once its routes end");
 
   const health = await app.inject({ method: "GET", url: "/api/health" });
   assert.equal(health.statusCode, 200, "local readiness checks must remain available without a browser session");
@@ -451,6 +504,135 @@ pkg() {
   );
   assert.match(activitySource, /termuxInstallNonce/u, "installer callbacks must carry an unguessable nonce");
 
+  // #9441: Install / Start must not move an install that is already newer than the APK's
+  // embedded commit back to it (or stop on the format guard for it). Run the generated
+  // repository steps against local Git repositories, with only the launcher and guard stubbed.
+  const bootstrapJavaSource = activitySource
+    .slice(activitySource.indexOf('return "set -e\\n"'), activitySource.indexOf("+ launcherCommand;"))
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("//"))
+    .join("\n");
+  const bootstrapRepositorySteps = (releaseSha: string): string => {
+    const shell = [...bootstrapJavaSource.matchAll(/"(?:[^"\\]|\\.)*"|\breleaseCommit\b/gu)]
+      .map(([token]) => (token === "releaseCommit" ? `'${releaseSha}'` : (JSON.parse(token) as string)))
+      .join("");
+    const start = shell.indexOf('if [ ! -d "$HOME/Marinara-Engine/.git" ]');
+    assert.ok(start >= 0, "missing the APK bootstrap repository steps");
+    return shell.slice(start);
+  };
+  const bootstrapRoot = mkdtempSync(join(tmpdir(), "marinara-apk-bootstrap-"));
+  try {
+    const originDir = join(bootstrapRoot, "origin");
+    const gitConfigPath = join(bootstrapRoot, "gitconfig");
+    writeFileSync(
+      gitConfigPath,
+      [
+        `[url "${pathToFileURL(originDir).href}"]`,
+        "\tinsteadOf = https://github.com/Pasta-Devs/Marinara-Engine.git",
+        "[user]\n\tname = Regression\n\temail = regression@example.invalid",
+        "[init]\n\tdefaultBranch = main",
+        '[protocol "file"]\n\tallow = always',
+        "[uploadpack]\n\tallowAnySHA1InWant = true",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    const gitEnv: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_GLOBAL: gitConfigPath, GIT_CONFIG_NOSYSTEM: "1" };
+    for (const name of ["GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"]) delete gitEnv[name];
+    const git = (cwd: string, args: string[], date?: string): string => {
+      const result = spawnSync("git", args, {
+        cwd,
+        encoding: "utf8",
+        env: date ? { ...gitEnv, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date } : gitEnv,
+      });
+      assert.equal(result.status, 0, `git ${args.join(" ")}: ${result.stdout}${result.stderr}`);
+      return result.stdout.trim();
+    };
+    mkdirSync(join(originDir, "scripts"), { recursive: true });
+    git(originDir, ["init", "-q"]);
+    writeFileSync(
+      join(originDir, "start-termux.sh"),
+      '#!/bin/sh\nprintf \'%s|%s|%s\\n\' "$(git rev-parse HEAD)" "$(git branch --show-current)" "$*" > "$HOME/started"\n',
+      "utf8",
+    );
+    writeFileSync(
+      join(originDir, "scripts", "protect-launcher-data.mjs"),
+      'process.exit(Number(process.env.GUARD_STATUS ?? "0"));\n',
+      "utf8",
+    );
+    git(originDir, ["add", "."]);
+    git(originDir, ["commit", "-q", "-m", "older"], "2026-01-01T00:00:00Z");
+    const olderSha = git(originDir, ["rev-parse", "HEAD"]);
+    git(originDir, ["commit", "-q", "--allow-empty", "-m", "apk release"], "2026-02-01T00:00:00Z");
+    const releaseSha = git(originDir, ["rev-parse", "HEAD"]);
+    git(originDir, ["checkout", "-q", "-b", "staging"]);
+    git(originDir, ["commit", "-q", "--allow-empty", "-m", "newer"], "2026-03-01T00:00:00Z");
+    const newerSha = git(originDir, ["rev-parse", "HEAD"]);
+    git(originDir, ["checkout", "-q", "main"]);
+
+    const runBootstrap = (name: string, installed: string[] | null, guardStatus: number) => {
+      const home = join(bootstrapRoot, name);
+      mkdirSync(home);
+      if (installed) {
+        git(home, ["clone", "-q", pathToFileURL(originDir).href, "Marinara-Engine"]);
+        git(join(home, "Marinara-Engine"), installed);
+      }
+      const result = spawnSync("bash", ["-s"], {
+        input: `set -e\n${bootstrapRepositorySteps(releaseSha)}./start-termux.sh --skip-update\n`,
+        encoding: "utf8",
+        env: { ...gitEnv, HOME: home, GUARD_STATUS: String(guardStatus) },
+      });
+      let started: { head: string; branch: string; args: string } | null = null;
+      try {
+        const [head, branch, args] = readFileSync(join(home, "started"), "utf8").trim().split("|");
+        started = { head, branch, args };
+      } catch {
+        // The launcher never ran.
+      }
+      return { ...result, started };
+    };
+
+    const fresh = runBootstrap("fresh", null, 0);
+    assert.equal(fresh.status, 0, `fresh install: ${fresh.stdout}${fresh.stderr}`);
+    assert.deepEqual(fresh.started, { head: releaseSha, branch: "", args: "--skip-update" });
+
+    const switchedToStaging = runBootstrap("staging", ["checkout", "-q", "staging"], 2);
+    assert.equal(
+      switchedToStaging.status,
+      0,
+      `a newer branch must start without the APK's format guard: ${switchedToStaging.stdout}${switchedToStaging.stderr}`,
+    );
+    assert.deepEqual(
+      switchedToStaging.started,
+      { head: newerSha, branch: "staging", args: "--skip-update" },
+      "Install / Start must keep the branch the user switched to",
+    );
+    assert.doesNotMatch(switchedToStaging.stdout, /Install a newer APK/u);
+
+    const launcherUpdated = runBootstrap("launcher-updated", ["checkout", "-q", "--detach", newerSha], 0);
+    assert.equal(launcherUpdated.status, 0, `${launcherUpdated.stdout}${launcherUpdated.stderr}`);
+    assert.deepEqual(
+      launcherUpdated.started,
+      { head: newerSha, branch: "", args: "--skip-update" },
+      "a launcher-updated APK install must not move back to the APK's older commit",
+    );
+
+    const olderInstall = runBootstrap("older", ["checkout", "-q", "--detach", olderSha], 0);
+    assert.equal(olderInstall.status, 0, `${olderInstall.stdout}${olderInstall.stderr}`);
+    assert.deepEqual(
+      olderInstall.started,
+      { head: releaseSha, branch: "", args: "--skip-update" },
+      "a newer APK must still move an older install to its embedded commit",
+    );
+
+    const olderBlocked = runBootstrap("older-blocked", ["checkout", "-q", "--detach", olderSha], 2);
+    assert.equal(olderBlocked.status, 1, "the format guard must still stop a move to the APK's commit");
+    assert.match(olderBlocked.stdout, /Install a newer APK\./u);
+    assert.equal(olderBlocked.started, null);
+  } finally {
+    rmSync(bootstrapRoot, { recursive: true, force: true });
+  }
+
   const gradleSource = readFileSync(resolve(repositoryRoot, "android/app/build.gradle"), "utf8");
   assert.doesNotMatch(gradleSource, /signingConfigs\.debug/u, "release builds must never use Android's debug key");
   assert.match(gradleSource, /Release APK(?:\/AAB)? builds require all ANDROID_SIGNING_\*/u);
@@ -527,3 +709,13 @@ pkg() {
   else process.env.CSRF_TRUSTED_ORIGINS = originalCsrfTrustedOrigins;
   await app.close();
 }
+
+const androidMainActivitySource = readFileSync(
+  new URL("../../../android/app/src/main/java/com/marinara/engine/MainActivity.java", import.meta.url),
+  "utf8",
+);
+assert.match(
+  androidMainActivitySource,
+  /public void saveFile\(String token, String base64Data, String mimeType, String filename\)/u,
+  "Android file saves must require the authenticated top-frame bridge token",
+);

@@ -2,17 +2,16 @@
 // File Browser — Search input (responsive)
 // ──────────────────────────────────────────────
 import { useEffect, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { SearchInput as SharedSearchInput } from "../ui/SearchInput";
 
 /**
  * Responsive search input for the file browser.
  *
  * Desktop: always-visible 192px input on the right.
  * Mobile: collapsed to a search-icon button; expands inline when tapped.
- * @param search - Current query string
- * @param onSearch - Callback when query changes
  */
 export function SearchInput({ search, onSearch }: { search: string; onSearch: (v: string) => void }) {
   const { t } = useTranslation();
@@ -20,16 +19,14 @@ export function SearchInput({ search, onSearch }: { search: string; onSearch: (v
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (expanded && inputRef.current) {
-      inputRef.current.focus();
-    }
+    if (expanded) inputRef.current?.focus();
   }, [expanded]);
 
   return (
     <div className="relative ml-auto flex items-center">
-      {/* Mobile collapsed state */}
       {!expanded && (
         <button
+          type="button"
           onClick={() => setExpanded(true)}
           className="flex h-10 w-10 items-center justify-center rounded-lg border border-(--border) bg-(--background) text-(--muted-foreground) transition-colors hover:bg-(--accent) hover:text-(--foreground) sm:hidden"
           title={t("search.folder.title")}
@@ -37,39 +34,23 @@ export function SearchInput({ search, onSearch }: { search: string; onSearch: (v
           <Search size="0.875rem" />
         </button>
       )}
-
-      {/* Expanded input (always shown on desktop) */}
-      <div className={cn("relative", !expanded && "hidden sm:block")}>
-        <Search size="0.875rem" className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--muted-foreground)]" />
-        <input
-          ref={inputRef}
-          type="text"
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          onBlur={() => {
-            if (!search) setExpanded(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              setExpanded(false);
-              onSearch("");
-            }
-          }}
-          placeholder={t("search.folder.placeholder")}
-          className="h-10 w-48 rounded-lg border border-(--border) bg-(--background) pl-7 pr-7 text-sm text-(--foreground) outline-none transition-colors focus:border-(--foreground)/40 focus:ring-1 focus:ring-(--foreground)/15 max-sm:absolute max-sm:right-0 max-sm:top-1/2 max-sm:w-48 max-sm:-translate-y-1/2 sm:h-8"
-        />
-        {expanded && (
-          <button
-            onClick={() => {
-              setExpanded(false);
-              onSearch("");
-            }}
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-(--muted-foreground) hover:bg-(--accent) hover:text-(--foreground) sm:hidden"
-          >
-            <X size="0.75rem" />
-          </button>
+      <SharedSearchInput
+        value={search}
+        onChange={onSearch}
+        label={t("search.folder.placeholder")}
+        placeholder={t("search.folder.placeholder")}
+        inputRef={inputRef}
+        onBlur={() => {
+          if (!search) setExpanded(false);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !search) setExpanded(false);
+        }}
+        className={cn(
+          "w-48 max-sm:absolute max-sm:right-0 max-sm:top-1/2 max-sm:-translate-y-1/2",
+          !expanded && "hidden sm:flex",
         )}
-      </div>
+      />
     </div>
   );
 }

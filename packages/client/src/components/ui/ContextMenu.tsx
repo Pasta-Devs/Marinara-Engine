@@ -192,7 +192,7 @@ export function ContextMenu({
                 "mari-context-menu max-h-[80dvh] overflow-y-auto border border-[var(--border)] bg-[var(--card)] px-2 shadow-xl backdrop-blur-xl animate-fade-in-up",
                 BOTTOM_SHEET_CLASS,
               )
-            : "mari-context-menu max-h-[calc(100dvh-0.5rem)] min-w-[12rem] max-w-[min(20rem,calc(100vw-0.5rem))] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
+            : "mari-context-menu max-h-[calc(var(--mari-visual-viewport-height,100dvh)-0.5rem)] min-w-[12rem] max-w-[min(20rem,calc(100vw-0.5rem))] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] py-1 shadow-xl animate-fade-in-up"
         }
         onContextMenu={(e) => e.preventDefault()}
       >

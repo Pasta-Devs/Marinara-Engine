@@ -34,7 +34,7 @@ try {
   const books = createLorebooksStorage(db);
   const loreA = (await books.create({ name: "Aeloria" }))!.id;
   const loreB = (await books.create({ name: "Magic" }))!.id;
-  const inject = async (method: "GET" | "POST" | "PATCH", url: string, payload?: unknown) => {
+  const inject = async (method: "GET" | "POST" | "PATCH" | "PUT", url: string, payload?: unknown) => {
     const response = await app.inject({ method, url, payload: payload as never });
     assert.ok(response.statusCode < 300, `${method} ${url} -> ${response.statusCode} ${response.body}`);
     return response.json();
@@ -244,22 +244,35 @@ try {
   assert.equal(exportedSettings.lorebookIds, undefined, "export drops the lorebook ids");
 
   // "Save into profile" takes the chat's background only when the profile has none, and never pulls
-  // the chat's persona or lorebooks in.
+  // the chat's persona in. The chat's lorebooks replace the profile's, so a chat without any clears them.
   const chatSnapshot = { connectionId: "conn", metadata: { background: "chat.png", activeLorebookIds: ["own"] } };
-  const noBackground = saveIntoProfileSettings(chatSnapshot, { personaId: "p1", metadata: {} });
+  const noBackground = saveIntoProfileSettings(chatSnapshot, { personaId: "p1", metadata: {} }, ["own"]);
   assert.equal(
     noBackground.metadata?.background,
     "chat.png",
     "save into a profile without a background captures the chat's",
   );
   assert.equal(noBackground.personaId, "p1", "save keeps the profile's persona");
-  assert.equal(noBackground.lorebookIds, undefined, "save does not pull in the chat's lorebooks");
-  const withBackground = saveIntoProfileSettings(chatSnapshot, {
-    lorebookIds: ["lb"],
-    metadata: { background: "own.png" },
-  });
+  assert.deepEqual(noBackground.lorebookIds, ["own"], "save takes the chat's lorebooks");
+  const withBackground = saveIntoProfileSettings(
+    chatSnapshot,
+    { lorebookIds: ["lb"], metadata: { background: "own.png" } },
+    ["own"],
+  );
   assert.equal(withBackground.metadata?.background, "own.png", "save keeps the profile's own background");
-  assert.deepEqual(withBackground.lorebookIds, ["lb"], "save keeps the profile's lorebooks");
+  assert.deepEqual(withBackground.lorebookIds, ["own"], "the chat's lorebooks replace the profile's");
+  const saveFrom = async (chatLorebookIds: string[]) =>
+    (
+      await inject(
+        "PUT",
+        `/api/chat-presets/${profile.id}/settings`,
+        saveIntoProfileSettings({ metadata: {} }, profile.settings, chatLorebookIds),
+      )
+    ).settings;
+  assert.deepEqual((await saveFrom([loreB])).lorebookIds, [loreB], "the saved profile holds the chat's lorebooks");
+  const cleared = await saveFrom([]);
+  assert.equal(cleared.lorebookIds, undefined, "a chat without lorebooks leaves the saved profile without any");
+  assert.equal(cleared.personaId, persona.id, "the saved profile keeps its persona");
 
   console.info("Settings profile starting picks passed.");
 } finally {

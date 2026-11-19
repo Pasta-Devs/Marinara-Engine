@@ -18,6 +18,7 @@ import {
   unlinkGalleryFileIfUnreferenced,
   withGlobalGalleryImageLifecycleLocks,
 } from "../services/image/gallery-file-lifecycle.js";
+import { notFound } from "../utils/not-found.js";
 
 const GLOBAL_GALLERY_ROOT = join(DATA_DIR, "gallery", "global");
 const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
@@ -66,7 +67,7 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string }; Body: { name?: string } }>("/folders/:id", async (req, reply) => {
     const existing = await storage.getFolderById(req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Folder not found" });
+    if (!existing) return notFound(reply, "Folder not found");
     const name = req.body?.name?.trim();
     if (!name) return reply.status(400).send({ error: "Name is required" });
     return storage.renameFolder(req.params.id, name);
@@ -75,7 +76,7 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
   // Deleting a folder re-files its images to root (handled in storage).
   app.delete<{ Params: { id: string } }>("/folders/:id", async (req, reply) => {
     const existing = await storage.getFolderById(req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Folder not found" });
+    if (!existing) return notFound(reply, "Folder not found");
     await storage.removeFolder(req.params.id);
     return { success: true };
   });
@@ -185,11 +186,11 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
 
       const filePath = resolveFlatMediaFile(GLOBAL_GALLERY_ROOT, filename);
       if (!filePath || !existsSync(filePath)) {
-        return reply.status(404).send({ error: "Not found" });
+        return notFound(reply, "Not found");
       }
 
       const image = await validateImageAssetFile(filePath, filename);
-      if (!image) return reply.status(404).send({ error: "Not found" });
+      if (!image) return notFound(reply, "Not found");
 
       // ?w= asks for a downscaled WebP preview; any miss (other width, animation, no sharp) serves the original.
       const width = parseThumbnailWidth(req.query.w);
@@ -216,7 +217,7 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
   // Move an image into (or out of) a folder. folderId null = root.
   app.patch<{ Params: { id: string }; Body: { folderId?: string | null } }>("/:id", async (req, reply) => {
     const image = await storage.getImageById(req.params.id);
-    if (!image) return reply.status(404).send({ error: "Not found" });
+    if (!image) return notFound(reply, "Not found");
 
     const rawFolderId = req.body?.folderId;
     const folderId =
@@ -225,7 +226,7 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
         : rawFolderId;
     if (folderId) {
       const folder = await storage.getFolderById(folderId);
-      if (!folder) return reply.status(404).send({ error: "Folder not found" });
+      if (!folder) return notFound(reply, "Folder not found");
     }
 
     return storage.moveImage(req.params.id, folderId);
@@ -237,7 +238,7 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
     Body: { customKind?: string | null; customName?: string | null; width?: number; height?: number };
   }>("/:id/tag", async (req, reply) => {
     const image = await storage.getImageById(req.params.id);
-    if (!image) return reply.status(404).send({ error: "Not found" });
+    if (!image) return notFound(reply, "Not found");
     const kind = req.body?.customKind ?? null;
     if (kind !== null && kind !== "emoji" && kind !== "sticker") {
       return reply.status(400).send({ error: "Invalid customKind" });
@@ -278,7 +279,7 @@ export async function globalGalleryRoutes(app: FastifyInstance) {
     );
 
     if (deletion.status === "missing") {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
     if (deletion.status === "referenced") {
       return reply.status(409).send({

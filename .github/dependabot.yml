@@ -1,5 +1,7 @@
 version: 2
 
+# Each update sets `labels` so its pull requests get only `dependencies`, not Dependabot's default of `dependencies`
+# plus a language label.
 updates:
   - package-ecosystem: npm
     directory: /
@@ -7,6 +9,7 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    labels: [dependencies]
 
   - package-ecosystem: github-actions
     directory: /
@@ -14,6 +17,7 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    labels: [dependencies]
 
   - package-ecosystem: gradle
     directory: /android
@@ -21,3 +25,4 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    labels: [dependencies]

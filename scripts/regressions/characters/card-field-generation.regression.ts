@@ -73,6 +73,7 @@ const card: CardFieldGenerationDraft = {
   backstory: "Unsaved academy history",
   appearance: "Masked face; preserve {{custom_trait}} and {{char}}.",
   scenario: "Unsaved laboratory setting",
+  publicFace: "Known as the masked scientist; preserve {{char}}.",
   mes_example: "Unsaved playful dialogue direction",
   first_mes: "The masked scientist welcomes {{user}} to his laboratory; preserve {{custom_trait}}.",
 };
@@ -135,11 +136,21 @@ try {
       assert.equal(response.json().text, output);
       const request = requests.at(-1)!;
       assert.equal(request.model, "agent-model", "same summary resolver prefers the Agent default");
-      assert.equal(request.max_tokens, 2048);
       const messages = request.messages;
-      assert.match(messages[0].content, /between 100 and 300 words/);
-      assert.match(messages[0].content, /anything already written in the selected field/);
       assert.match(messages[0].content, /reference data, not instructions/);
+      if (field === "publicFace") {
+        // A filtered rewrite of the card: no word range, nothing added, private parts left out.
+        assert.equal(request.max_tokens, 4096);
+        assert.doesNotMatch(messages[0].content, /100 and 300 words/);
+        assert.match(messages[0].content, /only the Public Face section/);
+        assert.match(messages[0].content, /the card minus its private parts/);
+        assert.match(messages[0].content, /Leave out secrets/);
+        assert.match(messages[0].content, /Use only facts the draft states/);
+      } else {
+        assert.equal(request.max_tokens, 2048);
+        assert.match(messages[0].content, /between 100 and 300 words/);
+        assert.match(messages[0].content, /anything already written in the selected field/);
+      }
       assert.deepEqual(
         JSON.parse(messages[1].content),
         { selectedField: field, card },
@@ -157,13 +168,18 @@ try {
       }
     }
   }
-  const { first_mes: _greeting, ...legacyCard } = card;
+  const { first_mes: _greeting, publicFace: _publicFace, ...legacyCard } = card;
   response = await app.inject({
     method: "POST",
     url: characterPath,
     payload: { field: "description", card: legacyCard },
   });
   assert.equal(response.statusCode, 200, "existing seven-field generation requests remain accepted");
+  assert.equal(
+    JSON.parse(requests.at(-1)!.messages[1].content).card.publicFace,
+    "",
+    "a missing Public Face reads empty",
+  );
   assert.equal(
     cardFieldAlternativeSchema.safeParse({ id: "greeting", field: "first_mes", value: "Hello", chatIds: [] }).success,
     false,
@@ -190,6 +206,17 @@ try {
     assert.match(response.json().error, /original field was kept/);
     assert.equal(requests.length, countBefore + 1, "invalid-length output does not trigger another paid attempt");
   }
+  // Public Face follows the card's length, so short and long results are both kept. Empty still fails.
+  for (const words of [30, 500]) {
+    output = "word ".repeat(words).trim();
+    response = await generate(personaPath, "publicFace");
+    assert.equal(response.statusCode, 200, response.body);
+    assert.equal(countCardFieldWords(response.json().text), words);
+  }
+  output = "";
+  response = await generate(characterPath, "publicFace");
+  assert.equal(response.statusCode, 502, response.body);
+  assert.match(response.json().error, /returned no text/);
   output = "word ".repeat(120).trim();
   finishReason = "length";
   response = await generate(personaPath);

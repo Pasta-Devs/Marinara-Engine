@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Panel: Browser (sidebar — shows imported characters)
 // ──────────────────────────────────────────────
+import { PanelVirtualList } from "./PanelVirtualList";
 import { useState, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import { useCharacters, useDeleteCharacter } from "../../hooks/use-characters";
@@ -9,6 +10,8 @@ import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
 import { Search, User, Bot, Trash2, ArrowUpDown } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { sortBasicPanelItems } from "../../lib/panel-sort";
+import { librarySortOptions } from "../../lib/library-sort-options";
+import { Select } from "../ui/Select";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -158,18 +161,20 @@ export function BotBrowserPanel() {
           />
         </div>
         <div className="relative">
-          <select
+          <Select
             value={sort}
-            onChange={(e) => setSort(e.target.value as ResourcePanelSort)}
-            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
+            onChange={(next) => setSort(next as ResourcePanelSort)}
+            className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9 [&>svg]:hidden"
             title={localizeUi("ui.panels.agentspanel.sortOrder")}
-            aria-label={localizeUi("ui.panels.botbrowserpanel.sortImportedCharacters")}
-          >
-            <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>
-            <option value="name-desc">{localizeUi("ui.panels.backgroundpicker.zA")}</option>
-            <option value="newest">{localizeUi("ui.panels.backgroundpicker.newest")}</option>
-            <option value="oldest">{localizeUi("ui.panels.backgroundpicker.oldest")}</option>
-          </select>
+            label={localizeUi("ui.panels.botbrowserpanel.sortImportedCharacters")}
+            searchable={false}
+            options={librarySortOptions<ResourcePanelSort>(localizeUi, {
+              az: "name-asc",
+              za: "name-desc",
+              newest: "newest",
+              oldest: "oldest",
+            })}
+          />
           <ArrowUpDown
             size="0.625rem"
             className="mari-chrome-field-icon mari-chrome-sort-icon mari-accent-animated pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
@@ -189,65 +194,72 @@ export function BotBrowserPanel() {
             : localizeUi("ui.panels.botbrowserpanel.noImportedCharactersYet")}
         </div>
       ) : (
-        <div className="flex flex-col gap-0.5">
-          {sorted.map((char) => (
-            <div
-              key={char.id}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                const greeting = getCharacterGreeting(char.id);
-                setContextMenu({
-                  x: e.clientX,
-                  y: e.clientY,
-                  charId: char.id,
-                  charName: char.name,
-                  firstMes: greeting.firstMes,
-                  altGreetings: greeting.altGreetings,
-                });
-              }}
-              className="group flex items-center gap-1 rounded-xl transition-all hover:bg-[var(--sidebar-accent)]"
-            >
-              <button
-                type="button"
-                onClick={() => openCharacterDetail(char.id)}
-                className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-2 text-left"
-              >
-                <div className="mari-panel-gradient-surface mari-panel-gradient--browser relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm">
-                  {char.avatarPath ? (
-                    <img
-                      src={char.avatarPath}
-                      alt={char.name}
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                      style={getAvatarCropStyle(char.avatarCrop)}
-                    />
-                  ) : (
-                    <User size="0.875rem" />
-                  )}
-                </div>
-                <span className="min-w-0 flex-1 truncate text-xs font-medium">{char.name}</span>
-              </button>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  void handleDeleteCharacter(char);
+        <PanelVirtualList
+          listKey="bot-browser:imported"
+          count={sorted.length}
+          getItemKey={(index) => sorted[index]!.id}
+          estimateSize={48}
+          gap={2}
+          renderRow={(index) => {
+            const char = sorted[index]!;
+            return (
+              <div
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  const greeting = getCharacterGreeting(char.id);
+                  setContextMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    charId: char.id,
+                    charName: char.name,
+                    firstMes: greeting.firstMes,
+                    altGreetings: greeting.altGreetings,
+                  });
                 }}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-                disabled={deletingCharacterId !== null}
-                className="mari-chrome-control mari-chrome-control--small mr-1 h-8 w-8 shrink-0 p-0 disabled:cursor-wait disabled:opacity-50"
-                title={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: char.name })}
-                aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: char.name })}
+                className="group flex items-center gap-1 rounded-xl transition-all hover:bg-[var(--sidebar-accent)]"
               >
-                <Trash2 size="0.75rem" />
-              </button>
-            </div>
-          ))}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => openCharacterDetail(char.id)}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-2 text-left"
+                >
+                  <div className="mari-panel-gradient-surface mari-panel-gradient--browser relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl shadow-sm">
+                    {char.avatarPath ? (
+                      <img
+                        src={char.avatarPath}
+                        alt={char.name}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        style={getAvatarCropStyle(char.avatarCrop)}
+                      />
+                    ) : (
+                      <User size="0.875rem" />
+                    )}
+                  </div>
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium">{char.name}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void handleDeleteCharacter(char);
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                  disabled={deletingCharacterId !== null}
+                  className="mari-chrome-control mari-chrome-control--small mr-1 h-8 w-8 shrink-0 p-0 disabled:cursor-wait disabled:opacity-50"
+                  title={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: char.name })}
+                  aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: char.name })}
+                >
+                  <Trash2 size="0.75rem" />
+                </button>
+              </div>
+            );
+          }}
+        />
       )}
 
       {contextMenu &&

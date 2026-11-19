@@ -42,6 +42,7 @@ import {
 import { isOwnerWithoutLogin, requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { ACCESS_LOGIN_RATE_LIMIT, RUNTIME_DIAGNOSTICS_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { listRefusals } from "../middleware/refused-devices.js";
+import { notFound } from "../utils/not-found.js";
 
 const ENV_MANAGED = { error: "The login is set in .env (BASIC_AUTH_USER and BASIC_AUTH_PASS). Change it there." };
 const ADMIN_SECRET_ENV_MANAGED = { error: "The admin secret is set in .env (ADMIN_SECRET). Change it there." };
@@ -194,7 +195,7 @@ export async function accessStatusRoutes(app: FastifyInstance) {
     { config: { rateLimit: ACCESS_LOGIN_RATE_LIMIT } },
     async (request, reply) => {
       if (!requirePrivilegedAccess(request, reply, { feature: "Signed-in browsers", signedIn: true })) return;
-      if (!endSession(request.params.id)) return reply.status(404).send({ error: "Session not found" });
+      if (!endSession(request.params.id)) return notFound(reply, "Session not found");
       return reply.status(204).send();
     },
   );

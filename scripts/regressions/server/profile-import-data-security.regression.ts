@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { Readable } from "node:stream";
 import AdmZip from "adm-zip";
 import Fastify from "../../../packages/server/node_modules/fastify/fastify.js";
 import multipart from "../../../packages/server/node_modules/@fastify/multipart/index.js";
@@ -39,15 +40,18 @@ assert.doesNotMatch(mixedWarningDetails, /Missing:[^\n]*rejected\.svg/su);
 assert.match(mixedWarningDetails, /Skipped: Rejected an unsafe profile image/su);
 assert.match(mixedWarningDetails, /1 imported executable custom tool will be disabled/su);
 
-function multipartUpload(filename: string, bytes: Buffer) {
+function multipartUpload(filename: string, bytes: Buffer, ...moreFiles: Array<[string, Buffer]>) {
   const boundary = `marinara-${Date.now().toString(36)}`;
   return {
     payload: Buffer.concat([
-      Buffer.from(
-        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: application/zip\r\n\r\n`,
-      ),
-      bytes,
-      Buffer.from(`\r\n--${boundary}--\r\n`),
+      ...[[filename, bytes] as [string, Buffer], ...moreFiles].flatMap(([name, data]) => [
+        Buffer.from(
+          `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\nContent-Type: application/zip\r\n\r\n`,
+        ),
+        data,
+        Buffer.from("\r\n"),
+      ]),
+      Buffer.from(`--${boundary}--\r\n`),
     ]),
     headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
   };
@@ -560,6 +564,33 @@ try {
     assert.equal(restoredCatalog.sprites[0]?.label, "joy");
     assert.equal(restoredCatalog.sprites[0]?.folderId, beforeTransfer.folders[0]!.id);
     assert.deepEqual(await readFile(join(spriteDirectory, "happy.png")), validPng);
+
+    // An upload carries one archive. The same valid archive sent twice in one upload is refused.
+    const twoArchives = await app.inject({
+      method: "POST",
+      url: "/api/backup/import-profile?preview=true",
+      ...multipartUpload("first.zip", exportedProfile.rawPayload, ["second.zip", exportedProfile.rawPayload]),
+    });
+    assert.equal(twoArchives.statusCode, 400, "an upload with two profile archives must be refused");
+
+    // A JSON import is refused once more than 256 MiB has arrived, while it uploads, rather than after the whole
+    // body has been read into memory. ZIP uploads stream to disk and have their own, larger limit.
+    const jsonLimitBytes = 256 * 1024 * 1024;
+    const padding = Buffer.alloc(1024 * 1024, " ");
+    const paddingChunks = jsonLimitBytes / padding.length + 1;
+    const oversizedJson = await app.inject({
+      method: "POST",
+      url: "/api/backup/import-profile?preview=true",
+      headers: { "content-type": "application/json", "content-length": String(2 + paddingChunks * padding.length) },
+      payload: Readable.from(
+        (function* () {
+          yield Buffer.from("{}");
+          for (let chunk = 0; chunk < paddingChunks; chunk++) yield padding;
+        })(),
+      ),
+    });
+    assert.equal(oversizedJson.statusCode, 413, oversizedJson.body);
+    assert.equal(oversizedJson.json().message, "Profile import JSON exceeds the upload limit.");
   } finally {
     await app.close();
     await dbModule.closeDB();

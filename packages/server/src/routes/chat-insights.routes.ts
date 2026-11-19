@@ -11,6 +11,7 @@ import {
   normalizeTimezoneOffset,
   searchAllChats,
 } from "../services/chat-insights/chat-insights.service.js";
+import { notFound } from "../utils/not-found.js";
 
 export async function chatInsightsRoutes(app: FastifyInstance) {
   const activityCache = createActivityOverviewCache(app.db);
@@ -65,7 +66,7 @@ export async function chatInsightsRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "Stats parameters must each have a single text value" });
       }
       const [chat] = await app.db.select().from(chats).where(eq(chats.id, req.params.id));
-      if (!chat || isInternalAssistantChat(chat)) return reply.status(404).send({ error: "Chat not found" });
+      if (!chat || isInternalAssistantChat(chat)) return notFound(reply, "Chat not found");
       return computeStoredChatStats(app.db, chat, {
         timezoneOffsetMinutes: normalizeTimezoneOffset(req.query.tzOffset),
         timeZone: req.query.tz ?? null,

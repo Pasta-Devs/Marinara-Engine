@@ -26,7 +26,7 @@ import type {
 } from "@marinara-engine/shared";
 import { getDataDir } from "../../utils/data-dir.js";
 import { downloadFileWithProgress, isAbortError, retry } from "./sidecar-download.js";
-import { assertInsideDir } from "../../utils/security.js";
+import { resolveInside } from "../../utils/security.js";
 import {
   LLAMA_CPP_RUNTIME_MANIFEST,
   getLlamaRuntimeManifestEntry,
@@ -648,7 +648,7 @@ class SidecarRuntimeService {
     if (archivePath.endsWith(".zip")) {
       const zip = new AdmZip(archivePath);
       for (const entry of zip.getEntries()) {
-        assertInsideDir(targetDir, join(targetDir, entry.entryName));
+        resolveInside(targetDir, entry.entryName);
       }
       zip.extractAllTo(targetDir, true);
       return;
@@ -657,7 +657,7 @@ class SidecarRuntimeService {
     if (archivePath.endsWith(".tar.gz")) {
       await execFileAsync("tar", ["-tzf", archivePath], { timeout: 120_000 }).then(({ stdout }) => {
         for (const entry of stdout.split(/\r?\n/u).filter(Boolean)) {
-          assertInsideDir(targetDir, join(targetDir, entry));
+          resolveInside(targetDir, entry);
         }
       });
       await execFileAsync("tar", ["-xzf", archivePath, "-C", targetDir], { timeout: 120_000 });

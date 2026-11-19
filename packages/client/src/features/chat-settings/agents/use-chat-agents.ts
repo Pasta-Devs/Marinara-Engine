@@ -4,7 +4,12 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { type CastCharacter } from "../sections/cast-shared";
 import { type ChatConnectionOption } from "../sections/ConnectionSection";
-import { AVATAR_AGENT_IDS, BUILT_IN_AGENTS, estimateTextTokens } from "@marinara-engine/shared";
+import {
+  AVATAR_AGENT_IDS,
+  BUILT_IN_AGENTS,
+  estimateTextTokens,
+  resolveReferencePictureTarget,
+} from "@marinara-engine/shared";
 import { showAlertDialog, showConfirmDialog } from "../../../lib/app-dialogs";
 import { type AvatarLayoutControls } from "../../../components/chat/AvatarLayoutSettings";
 import { useCharacters, usePersonas, type SpriteInfo } from "../../../hooks/use-characters";
@@ -102,7 +107,7 @@ import {
   normalizeGameVideoPromptTemplates,
   getGameVideoPromptTemplateOptions,
   resolveSelectedGameVideoPromptTemplateId,
-} from "../lib/game-video-prompt-templates";
+} from "./game-video-prompt-templates";
 import {
   buildConversationCommandToggleOptions,
   readConversationCommandToggles,
@@ -111,6 +116,11 @@ import {
 export const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
 export const DEFAULT_PROSE_GUARDIAN_AVOID =
   "no repetition of any phrases or sentence structure from the last messages, if the last output started with dialogue line, this one needs to start with narration, no purple prose";
+const PROSE_GUARDIAN_TEXT_FIELDS = new Set<string>([
+  "proseGuardianBannedWords",
+  "proseGuardianAvoidInstructions",
+  "proseGuardianStyleInstructions",
+]);
 
 export function getAgentSettingsMenuId(chatId: string, agentId: string): string {
   return `chat-settings-agent-menu-${chatId}-${agentId}`.replace(/[^a-zA-Z0-9_-]/g, "-");
@@ -902,6 +912,11 @@ export function useChatAgents({
     typeof metadata.illustratorUseAvatarReferences === "boolean"
       ? metadata.illustratorUseAvatarReferences
       : illustratorDefaults.useAvatarReferences === true;
+  // Where those references go (image model, prompt writer, both, automatic): this chat's pick, else the agent's.
+  const illustratorReferencePictureTarget = resolveReferencePictureTarget(
+    metadata.illustratorReferencePictureTarget,
+    illustratorDefaults,
+  );
   const illustratorPromptConnectionId =
     typeof metadata.illustratorPromptConnectionId === "string" ? metadata.illustratorPromptConnectionId : "";
   const illustratorImageConnectionId =
@@ -1051,55 +1066,103 @@ export function useChatAgents({
   const [proseGuardianBannedDraft, setProseGuardianBannedDraft] = useState(proseGuardianBannedWords);
   const [proseGuardianAvoidDraft, setProseGuardianAvoidDraft] = useState(proseGuardianAvoidInstructions);
   const [proseGuardianStyleDraft, setProseGuardianStyleDraft] = useState(proseGuardianStyleInstructions);
+  // This chat's Prose Guardian text fields whose save is running or failed. A failed save puts the old text back in
+  // the chat's metadata; those fields keep what was typed, so it can be saved again rather than lost.
+  const unsavedProseGuardianFields = useRef({
+    chatId: chat.id,
+    fields: new Map<string, { save: symbol; failed: boolean }>(),
+  });
+  const getUnsavedProseGuardianFields = useCallback(() => {
+    if (unsavedProseGuardianFields.current.chatId !== chat.id) {
+      unsavedProseGuardianFields.current = { chatId: chat.id, fields: new Map() };
+    }
+    return unsavedProseGuardianFields.current.fields;
+  }, [chat.id]);
   useEffect(() => {
-    setProseGuardianBannedDraft(proseGuardianBannedWords);
-  }, [proseGuardianBannedWords]);
+    if (!getUnsavedProseGuardianFields().has("proseGuardianBannedWords")) {
+      setProseGuardianBannedDraft(proseGuardianBannedWords);
+    }
+  }, [getUnsavedProseGuardianFields, proseGuardianBannedWords]);
 
   useEffect(() => {
-    setProseGuardianAvoidDraft(proseGuardianAvoidInstructions);
-  }, [proseGuardianAvoidInstructions]);
+    if (!getUnsavedProseGuardianFields().has("proseGuardianAvoidInstructions")) {
+      setProseGuardianAvoidDraft(proseGuardianAvoidInstructions);
+    }
+  }, [getUnsavedProseGuardianFields, proseGuardianAvoidInstructions]);
 
   useEffect(() => {
-    setProseGuardianStyleDraft(proseGuardianStyleInstructions);
-  }, [proseGuardianStyleInstructions]);
+    if (!getUnsavedProseGuardianFields().has("proseGuardianStyleInstructions")) {
+      setProseGuardianStyleDraft(proseGuardianStyleInstructions);
+    }
+  }, [getUnsavedProseGuardianFields, proseGuardianStyleInstructions]);
 
   const updateMetaAsync = updateMeta.mutateAsync;
   const saveProseGuardianSettings = useCallback(
-    (patch: Record<string, unknown>) =>
-      trackChatMetadataSave(chat.id, () => updateMetaAsync({ id: chat.id, ...patch })),
-    [chat.id, updateMetaAsync],
+    async (patch: Record<string, unknown>) => {
+      const unsaved = getUnsavedProseGuardianFields();
+      const save = Symbol("prose-guardian-save");
+      const fields = Object.keys(patch).filter((key) => PROSE_GUARDIAN_TEXT_FIELDS.has(key));
+      for (const field of fields) unsaved.set(field, { save, failed: false });
+      // A later save of the same field may be queued behind this one; that save owns the mark.
+      const ownMarks = () => fields.filter((field) => unsaved.get(field)?.save === save);
+      try {
+        await trackChatMetadataSave(chat.id, () => updateMetaAsync({ id: chat.id, ...patch }));
+      } catch (error) {
+        for (const field of ownMarks()) unsaved.set(field, { save, failed: true });
+        throw error;
+      }
+      for (const field of ownMarks()) unsaved.delete(field);
+    },
+    [chat.id, getUnsavedProseGuardianFields, updateMetaAsync],
   );
+  const showProseGuardianSaveError = useCallback(() => {
+    // One id, so a failed save on leaving a field and the close's failed retry show one message.
+    toast.error(localizeUi("ui.chat.chatsettingsdrawer.failedToSaveProseGuardianChanges"), {
+      id: "prose-guardian-save-failed",
+    });
+  }, [localizeUi]);
   const commitProseGuardianSettings = useCallback(
     (patch: Record<string, unknown>) => {
-      void saveProseGuardianSettings(patch).catch(() => {
-        toast.error(localizeUi("ui.chat.chatsettingsdrawer.failedToSaveProseGuardianChanges"));
-      });
+      void saveProseGuardianSettings(patch).catch(showProseGuardianSaveError);
     },
-    [saveProseGuardianSettings, localizeUi],
+    [saveProseGuardianSettings, showProseGuardianSaveError],
   );
   const flushProseGuardianDrafts = useCallback(async () => {
-    const patch: Record<string, unknown> = {};
-    const banned = proseGuardianBannedDraft.trim();
-    const avoid = proseGuardianAvoidDraft.trim();
-    const prefer = proseGuardianStyleDraft.trim();
-
-    if (banned !== proseGuardianBannedWords) patch.proseGuardianBannedWords = banned;
-    if (avoid !== proseGuardianAvoidInstructions) patch.proseGuardianAvoidInstructions = avoid;
-    if (prefer !== proseGuardianStyleInstructions) patch.proseGuardianStyleInstructions = prefer;
-    if (Object.keys(patch).length === 0) {
-      await waitForPendingChatMetadataSaves(chat.id);
-      return true;
+    const drafts: Record<string, string> = {
+      proseGuardianBannedWords: proseGuardianBannedDraft.trim(),
+      proseGuardianAvoidInstructions: proseGuardianAvoidDraft.trim(),
+      proseGuardianStyleInstructions: proseGuardianStyleDraft.trim(),
+    };
+    const saved: Record<string, string> = {
+      proseGuardianBannedWords: proseGuardianBannedWords,
+      proseGuardianAvoidInstructions: proseGuardianAvoidInstructions,
+      proseGuardianStyleInstructions: proseGuardianStyleInstructions,
+    };
+    const unsaved = getUnsavedProseGuardianFields();
+    // A field whose save failed but whose text is back to the saved text has nothing left to save.
+    for (const [field, mark] of unsaved) {
+      if (mark.failed && drafts[field] === saved[field]) unsaved.delete(field);
     }
-
+    const changed = Object.keys(drafts).filter((field) => drafts[field] !== saved[field]);
     try {
-      await saveProseGuardianSettings(patch);
-      return true;
+      // Saves for one chat run in order, so either way every save already started has settled after this.
+      if (changed.length > 0) {
+        await saveProseGuardianSettings(Object.fromEntries(changed.map((field) => [field, drafts[field]])));
+      } else {
+        await waitForPendingChatMetadataSaves(chat.id);
+      }
     } catch {
-      toast.error(localizeUi("ui.chat.chatsettingsdrawer.failedToSaveProseGuardianChanges"));
+      showProseGuardianSaveError();
       return false;
     }
+    // A field still marked had its own save fail (it started on leaving the field), or one started meanwhile. Stay
+    // open with its text: the next close sees it as changed and saves it.
+    if (unsaved.size === 0) return true;
+    if ([...unsaved.values()].some((mark) => mark.failed)) showProseGuardianSaveError();
+    return false;
   }, [
     chat.id,
+    getUnsavedProseGuardianFields,
     proseGuardianAvoidDraft,
     proseGuardianAvoidInstructions,
     proseGuardianBannedDraft,
@@ -1107,7 +1170,7 @@ export function useChatAgents({
     proseGuardianStyleDraft,
     proseGuardianStyleInstructions,
     saveProseGuardianSettings,
-    localizeUi,
+    showProseGuardianSaveError,
   ]);
   const getKnowledgeAgentSourceSettings = useCallback(
     (agentType: KnowledgeAgentType) => {
@@ -2463,6 +2526,7 @@ export function useChatAgents({
     secretPlotMessages,
     illustratorIncludeCharacterAppearance,
     illustratorUseAvatarReferences,
+    illustratorReferencePictureTarget,
     illustratorPromptConnectionId,
     illustratorImageConnectionId,
     illustratorImagesPerGeneration,

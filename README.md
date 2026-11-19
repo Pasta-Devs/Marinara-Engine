@@ -172,7 +172,7 @@ Make Marinara look the way you want. Most of this lives in **Settings → Appear
 - **Chat widgets:** style the movable chat buttons, windows, and sections with the **Default**, **Dottore**, or **Mari** preset, then change their font, shape, colors (gradients too), and button size. Three switches let your messages and input box match.
 - **Each chat mode:** Conversation rows or bubbles with gradient backgrounds, Roleplay in classic or Visual Novel display with your choice of avatar style, and Game Mode portrait and sprite sizes.
 - **Themes:** write, import, and share custom CSS themes in the **Theme Library**, or give a character card its own look with Card CSS. Professor Mari can make themes for you.
-- **Your layout:** move the chat buttons where you like and, on a computer, resize Chat Settings or pop its sections out into their own windows. Save the arrangement for new chats or in a settings profile.
+- **Your layout:** move the chat buttons where you like and, on a computer, resize Chat Settings or pop its sections out into their own windows. Save the arrangement for new chats or in a settings profile. On a computer, the sidebar that holds Chats and the panels can sit on the right or the left.
 
 See [Appearance Settings](docs/appearance/appearance-settings.md) and [Custom CSS Themes](docs/appearance/custom-css-themes.md).
 

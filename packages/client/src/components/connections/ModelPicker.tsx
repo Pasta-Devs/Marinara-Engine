@@ -7,11 +7,11 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
+  isChatProvider,
   speaksOpenAIChat,
   type ChatModelChoice,
   type ConnectionPickerKind,
 } from "@marinara-engine/shared";
-import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { usePickModel, useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import {
@@ -33,6 +33,7 @@ import { mediaRowFor, mediaSources, type MediaKind } from "../../lib/media-sourc
 import { isDecisionCatalogModel } from "../../lib/connection-model-selection";
 import { NATIVE_DECISION_SOURCE, type ServiceId } from "../modals/create-connection/shared";
 import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
+import { Tabs } from "../ui/Tabs";
 import { ProviderIcon } from "./ProviderIcon";
 
 type Extra = ConnectionExtraOption;
@@ -341,6 +342,27 @@ function ModelPickerSlot({
     }
   };
 
+  // Decision assignments use a separate tested row; highlight the matching provider model in the shared list.
+  const assigned = (rows as ConnectionModelRow[] | undefined)?.find((row) => row.id === value);
+  const decisionPeers =
+    decision && assigned?.accountId
+      ? (rows as ConnectionModelRow[] | undefined)?.filter(
+          (row) => row.accountId === assigned.accountId && isChatProvider(row.provider),
+        )
+      : undefined;
+  const decisionAnchor = decisionPeers?.find((row) => row.model === assigned?.model) ?? decisionPeers?.[0];
+  const currentChoice =
+    decisionAnchor && assigned?.model
+      ? {
+          connectionId: decisionAnchor.id,
+          ...(decisionAnchor.model !== assigned.model
+            ? { model: assigned.model, name: assigned.name || assigned.model }
+            : {}),
+        }
+      : !decision && value && !extraOptions.some((extra) => extra.value === value)
+        ? { connectionId: value }
+        : null;
+
   const onAdd = () => {
     known.current = new Set((accounts ?? []).map((account) => account.id));
     openAddConnection(jobKey ? { job: jobKey, assign: onChangeRef.current, previous: value } : undefined);
@@ -353,7 +375,7 @@ function ModelPickerSlot({
       title={title}
       width="max-w-2xl"
       opaque
-      panelClassName="connection-picker-dialog mari-connection-scope h-[min(36rem,calc(100dvh-1.5rem))]"
+      panelClassName="connection-picker-dialog mari-connection-scope h-[min(36rem,calc(var(--mari-visual-viewport-height,100dvh)-1.5rem))]"
       closeButtonClassName="!min-h-11 !min-w-11"
       restoreFocusRef={restoreFocusRef}
       contentClassName="flex flex-col !overflow-hidden !p-0"
@@ -364,6 +386,7 @@ function ModelPickerSlot({
         kind={decision ? "chat" : kind}
         rowFilter={rowFilter}
         catalogBrowse
+        showUnstarred
         accountFilter={
           mediaKind ? (account) => mediaSources(account.provider, kind as MediaKind).length > 0 : undefined
         }
@@ -372,12 +395,10 @@ function ModelPickerSlot({
             ? (account, all) => all.find((row) => row.accountId === account.id && row.provider === account.provider)
             : undefined
         }
-        current={
-          !decision && value && !extraOptions.some((extra) => extra.value === value) ? { connectionId: value } : null
-        }
+        current={currentChoice}
         onApply={decision ? applyDecision : embedding ? applyEmbedding : mediaKind ? applyMedia : apply}
         onDone={onClose}
-        confirmCurrent={confirmCurrent}
+        confirmCurrent={confirmCurrent || decision}
         showLocalModel={includeLocalSidecar}
         followDefault={
           includeDefault
@@ -512,23 +533,25 @@ export function ModelPicker({
           }
         : {})}
       header={
-        <div role="tablist" className="grid shrink-0 grid-cols-2 gap-1.5 border-b border-[var(--border)]/40 p-2">
-          {slots.map((entry) => (
-            <button
-              key={entry.key}
-              type="button"
-              role="tab"
-              aria-selected={slot === entry.key}
-              onClick={() => setSlot(entry.key)}
-              className={cn(
-                "flex min-h-11 min-w-0 flex-col items-start justify-center rounded-lg px-3 py-1 text-left transition-colors",
-                slot === entry.key ? "bg-[var(--mari-connection-tint)]" : "hover:bg-foreground/[0.05]",
-              )}
-            >
-              <span className="text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">{entry.label}</span>
-              <span className="w-full truncate text-xs font-medium">{entry.value}</span>
-            </button>
-          ))}
+        // The header bar pads a wrapper: the tab cells must touch the track's edge (ui/Tabs).
+        <div className="border-b border-[var(--border)]/40 p-2">
+          <Tabs
+            items={slots.map((entry) => ({
+              id: entry.key,
+              label: (
+                <>
+                  <span className="block text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">
+                    {entry.label}
+                  </span>
+                  <span className="block truncate text-xs font-medium">{entry.value}</span>
+                </>
+              ),
+            }))}
+            value={slot}
+            onChange={setSlot}
+            variant="pill"
+            label={t("connections.picker.slots")}
+          />
         </div>
       }
     />

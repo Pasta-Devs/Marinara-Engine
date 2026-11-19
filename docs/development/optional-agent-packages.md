@@ -111,7 +111,10 @@ this page. Package builds declare matching structural types instead of importing
 | `components.Modal`        | The Engine's `Modal`, with its overlay order, Escape and back-button handling.                                                                                                           |
 | `components.Switch`, `components.Checkbox` | From capability API 1.830, the Engine's shared switch and checkbox, so a package matches the host look. |
 | `components.Spinner` | From capability API 1.830, the Engine's shared loading ring. It is hidden from screen readers unless you pass a `label`, which makes it a status region. |
+| `components.Tabs` | From capability API 1.832, the Engine's shared tab bar. `variant="pill"` is the segmented track for switching views; `variant="underline"` is text tabs for sections inside a sheet or dialog. Arrow keys, Home and End move between tabs. |
+| `components.SearchInput` | From capability API 1.832, the Engine's search field. Pass `value`, `onChange` and a screen-reader `label`. It has a clear button, and Escape clears the text first. `resultCount` shows "4 found", `busy` shows a spinner, `size="compact"` fits dense toolbars, and `slashShortcut` lets "/" focus the field. |
 | `components.showConfirmDialog` | From capability API 1.830, the Engine's confirm dialog, the same function as `services.dialogs.showConfirmDialog`. |
+| `components.Select` | From capability API 1.831, the Engine's dropdown: pass `value` (a string or `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` and a `label`; optional `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` and `buttonRef`. It opens a popover on desktop and a sheet on phones, with search from eight options. Use it instead of a native `<select>`. |
 | `data.emojiCatalog`       | The `lib/emoji-catalog.generated.ts` module.                                                                                                                                             |
 | `api`                     | The `lib/api-client.ts` module (`api`, `ApiError`, `getApiErrorMessage`, ...).                                                                                                           |
 
@@ -1978,6 +1981,22 @@ package also counts as activity, so the panel does not show "No agent activity y
 card so the panel has something to show. It is a soft seam: older Engines
 leave the method out, so check that it exists, as above. Declare 1.820 only when the package cannot work without it.
 No permission is needed.
+
+### Capability API 1.833: list a chat's World State snapshots
+
+`persistence.getGameState(chatId)` returns only the newest committed World State. `persistence.listGameStates(chatId)`
+returns the committed snapshot of each message's active swipe, in message order, each in the same record shape as
+`getGameState`. A package can read the in-story date the tracker saved for any message instead of asking a model to
+find it in the text.
+
+A message with no committed snapshot, a snapshot saved for a swipe the user has not kept, a snapshot whose message was
+deleted and a snapshot not tied to a message are left out, so the last entry can differ from `getGameState`. It needs
+the `chat-read` permission, like `getGameState`, and is read-only. It is a soft seam: older Engines leave the method
+out, so check that it exists, as above. Declare 1.833 only when the package cannot work without it.
+
+```ts
+const states = (await api.runtime.persistence.listGameStates?.(chatId)) ?? [];
+```
 
 ### Capability API 1.391: Advanced Memory scene summaries and the memory block
 

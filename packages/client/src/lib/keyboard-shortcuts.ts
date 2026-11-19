@@ -138,13 +138,23 @@ export function isTypingTarget(target: unknown): boolean {
 }
 
 /**
+ * True when `target` takes the letter keys itself: a text field, or a Select (role="combobox") that jumps to the
+ * option starting with the letter. Not for layout code, which asks isTypingTarget: a Select raises no software keyboard.
+ */
+export function takesLetterKeys(target: unknown): boolean {
+  if (isTypingTarget(target)) return true;
+  const element = target as TargetLike | null;
+  return !!element?.closest?.('[role="combobox"]');
+}
+
+/**
  * #9129: a modifier letter that the page-level handler would steal must not reach a field that is being
  * typed in - a Japanese IME's Ctrl+J (SKK's on switch), not a request to open a panel. The path is read,
  * not the event's target, because a package's shadow root retargets the event to its host.
  */
 export function shortcutKeyTypesText(event: { composedPath?: () => ArrayLike<unknown> }): boolean {
   const path = typeof event.composedPath === "function" ? Array.from(event.composedPath()) : [];
-  return path.some(isTypingTarget);
+  return path.some(takesLetterKeys);
 }
 
 export function formatShortcutKey(key: string, apple = isApplePlatform()): string {

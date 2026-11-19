@@ -642,6 +642,33 @@ function createPersistenceSession(db: DB, assertPermission: PersistencePermissio
         .limit(1);
       return rows[0] ? mapGameState(rows[0]) : null;
     },
+    async listGameStates(chatId) {
+      assertPermission("chat-read");
+      const [messageRows, snapshotRows] = await Promise.all([
+        db
+          .select({ id: messages.id, activeSwipeIndex: messages.activeSwipeIndex })
+          .from(messages)
+          .where(eq(messages.chatId, chatId))
+          .orderBy(messages.createdAt, messages.id),
+        db
+          .select()
+          .from(gameStateSnapshots)
+          .where(and(eq(gameStateSnapshots.chatId, chatId), eq(gameStateSnapshots.committed, 1)))
+          .orderBy(desc(gameStateSnapshots.createdAt), desc(gameStateSnapshots.id)),
+      ]);
+      // Newest first, so the first row seen for a message and swipe wins.
+      const bySwipe = new Map<string, typeof gameStateSnapshots.$inferSelect>();
+      for (const row of snapshotRows) {
+        const key = `${row.messageId}:${row.swipeIndex}`;
+        if (!bySwipe.has(key)) bySwipe.set(key, row);
+      }
+      const records: CapabilityGameStateRecord[] = [];
+      for (const message of messageRows) {
+        const row = bySwipe.get(`${message.id}:${message.activeSwipeIndex}`);
+        if (row) records.push(mapGameState(row));
+      }
+      return records;
+    },
     async appendRoleplayEvent(input: CapabilityRoleplayEventInput): Promise<CapabilityRoleplayEventRecord | null> {
       assertPermission("chat-write");
       const scopedOwner = engineEventOwner(input.chatId);

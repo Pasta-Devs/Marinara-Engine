@@ -8,6 +8,7 @@ import { chooseCharacter } from "./character-picker.js";
 import { serveWithServerCsp } from "./server-csp-fixture.js";
 import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
+import { chooseOption } from "./select-field.js";
 
 // Keep the controlled package registry visible after reload: a production PWA worker bypasses page.route.
 test.use({ serviceWorkers: "block" });
@@ -429,8 +430,8 @@ test("MMD setup imports, maps and removes model-specific motion for character an
         .locator('input[accept=".pmx,.zip"]')
         .setInputFiles({ name: "fixture.zip", mimeType: "application/zip", buffer: await bundle(false) });
       await expect(panel.getByRole("button", { name: "Replace PMX model", exact: true })).toBeVisible();
-      await expect(panel.getByLabel("Happy", { exact: true })).toHaveValue("笑い");
-      await panel.getByLabel("Happy", { exact: true }).selectOption("");
+      await expect(panel.getByLabel("Happy", { exact: true })).toHaveAttribute("data-value", "笑い");
+      await chooseOption(page, panel.getByLabel("Happy", { exact: true }), "None");
       await expect
         .poll(
           async () =>
@@ -438,7 +439,7 @@ test("MMD setup imports, maps and removes model-specific motion for character an
               ?.expressionMap.happy?.target,
         )
         .toBeNull();
-      await panel.getByLabel("Happy", { exact: true }).selectOption("笑い");
+      await chooseOption(page, panel.getByLabel("Happy", { exact: true }), "笑い");
       await expect
         .poll(
           async () =>
@@ -456,7 +457,11 @@ test("MMD setup imports, maps and removes model-specific motion for character an
         if ((await page.locator("html").getAttribute("data-theme")) !== theme) {
           await clickTopbarPanel(page, "settings");
           await page.getByRole("tab", { name: "Appearance", exact: true }).click();
-          await page.locator("#settings-control-theme-mode select").selectOption(theme);
+          await chooseOption(
+            page,
+            page.locator('#settings-control-theme-mode [role="combobox"]'),
+            theme === "light" ? "Light" : "Dark",
+          );
           await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
           await clickTopbarPanel(page, "settings");
           if (!(await setup.isVisible())) {

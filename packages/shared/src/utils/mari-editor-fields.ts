@@ -38,6 +38,7 @@ export const MARI_EDITOR_KINDS = {
       "creator",
       "extensions.backstory",
       "extensions.appearance",
+      "extensions.publicFace",
       "extensions.depth_prompt",
       "extensions.onboarding",
     ]),
@@ -47,6 +48,8 @@ export const MARI_EDITOR_KINDS = {
       greeting: "first_mes",
       backstory: "extensions.backstory",
       appearance: "extensions.appearance",
+      publicFace: "extensions.publicFace",
+      public_face: "extensions.publicFace",
     } as Record<string, string>,
     reviewOrder: [
       "name",
@@ -59,6 +62,7 @@ export const MARI_EDITOR_KINDS = {
       "extensions.backstory",
       "extensions.appearance",
       "scenario",
+      "extensions.publicFace",
       "first_mes",
       "mes_example",
       "system_prompt",
@@ -84,6 +88,7 @@ export const MARI_EDITOR_KINDS = {
       "appearance",
       "imageAppearance",
       "scenario",
+      "publicFace",
       "mes_example",
     ]),
     // `persona.update` columns are camelCase; a snake_case key names the same column.
@@ -91,6 +96,7 @@ export const MARI_EDITOR_KINDS = {
       phonetic_name: "phoneticName",
       creator_notes: "creatorNotes",
       image_appearance: "imageAppearance",
+      public_face: "publicFace",
     } as Record<string, string>,
     reviewOrder: [
       "name",
@@ -107,6 +113,7 @@ export const MARI_EDITOR_KINDS = {
       // is off, so a review there could never show. Her card still lists it; add it back with a
       // toggle-aware review list if users ask.
       "scenario",
+      "publicFace",
       "mes_example",
     ],
   },

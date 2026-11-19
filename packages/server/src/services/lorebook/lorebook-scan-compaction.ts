@@ -1,3 +1,4 @@
+import { isRecord } from "../../utils/large-json.js";
 /**
  * Every generated message records the lorebook scan that built its prompt (`extra.lorebookScan`), and that scan
  * carries the full resolved text of every activated entry. With large lorebooks that is hundreds of KB per message,
@@ -12,10 +13,6 @@
  */
 
 export const COMPACT_LOREBOOK_SCAN_MARKER = "contentStripped";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 /** True when a stored scan still carries entry text. */
 export function lorebookScanHasContent(scan: unknown): boolean {

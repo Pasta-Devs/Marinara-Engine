@@ -1549,22 +1549,24 @@
   padding: 0;
 }
 
+/* The mode's new-chat button (.mari-chat-mode-action) writes in a pale tint of its colour, as the other sidebars'
+   create buttons do (--mari-panel-gradient-text). */
 .mari-chat-logo-mode--conversation {
   --mari-chat-logo-mode-color: var(--mari-logo-cyan);
   --mari-chat-logo-mode-color-deep: var(--mari-logo-cyan-deep);
-  --mari-chat-logo-mode-text: #062426;
+  --mari-chat-logo-mode-text: #f0fdfc;
 }
 
 .mari-chat-logo-mode--roleplay {
   --mari-chat-logo-mode-color: var(--mari-logo-orange);
   --mari-chat-logo-mode-color-deep: var(--mari-logo-orange-deep);
-  --mari-chat-logo-mode-text: #261006;
+  --mari-chat-logo-mode-text: #fff7ed;
 }
 
 .mari-chat-logo-mode--game {
   --mari-chat-logo-mode-color: var(--marinara-mode-game-accent);
   --mari-chat-logo-mode-color-deep: color-mix(in srgb, var(--marinara-mode-game-accent) 85%, var(--background));
-  --mari-chat-logo-mode-text: #260d19;
+  --mari-chat-logo-mode-text: #fff1f7;
 }
 
 .mari-chat-mode-action {
@@ -1683,11 +1685,12 @@
 .mari-connection-model-section-head + [data-virtual-list] > [data-index="0"] > .mari-connection-model-slot {
   border-block-start: 1px solid color-mix(in srgb, var(--foreground) 5%, transparent);
 }
-/* The empty state wears the connections tint, like .mari-suggestion-chip. A tint, no frame. */
+/* The empty state ("Where do your models come from?") wears the theme's accent tint, like the rest of the connection
+   chrome (.mari-connection-scope below); connection blue stays on the primary action. A tint, no frame. */
 .mari-connection-empty {
   border-radius: 0.875rem;
-  /* Flat: one even connection-blue tint, no gradient. */
-  background: color-mix(in srgb, var(--mari-panel-gradient-start) 7%, var(--card));
+  /* Flat: one even tint, no gradient. */
+  background: color-mix(in srgb, var(--marinara-chat-chrome-accent) 7%, var(--card));
 }
 .mari-connection-defaults-job {
   transition: background-color 150ms ease;
@@ -2225,9 +2228,7 @@
   color: var(--mari-panel-gradient-start);
 }
 
-.mari-topbar-chat-gradient-icon svg,
-.mari-topbar-chat-gradient-hover:hover svg,
-.mari-topbar-chat-gradient-hover:focus-visible svg {
+.mari-topbar-chat-gradient-icon svg {
   color: var(--mari-logo-cyan);
   stroke: url(#mari-topbar-chats-gradient);
 }
@@ -2249,6 +2250,9 @@
 
 .mari-chrome-segmented {
   display: grid;
+  /* As .mari-chrome-control: a full panel column (Characters' own scroller) must not squeeze the row and its
+     buttons below their height. */
+  flex-shrink: 0;
   min-height: 2.5rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--marinara-chat-chrome-button-border);
@@ -2308,7 +2312,8 @@
 }
 
 .mari-chrome-segmented__button--selected,
-.mari-chrome-segmented__button[aria-pressed="true"] {
+.mari-chrome-segmented__button[aria-pressed="true"],
+.mari-chrome-segmented__button[aria-selected="true"] {
   background: var(--marinara-chat-chrome-button-bg-active);
   color: var(--marinara-chat-chrome-button-text-active);
   box-shadow: inset 0 0 0 1px var(--marinara-chat-chrome-focus-ring);
@@ -2344,11 +2349,6 @@
 
 .mari-chrome-sort-field:hover {
   border-color: var(--marinara-chat-chrome-button-border-hover);
-}
-
-.mari-chrome-sort-field option {
-  background: var(--marinara-chat-chrome-panel-bg);
-  color: var(--marinara-chat-chrome-button-text-active);
 }
 
 .mari-chat-settings-popover select,
@@ -2801,8 +2801,8 @@
 }
 
 /* Animated accents should repaint at their tick cadence, not start color, border
-   and shadow transitions across every mounted control between ticks. Desktop
-   gets Accent Pulse by default, so this applies to every pointer type.
+   and shadow transitions across every mounted control between ticks.
+   This applies to every pointer type when accent animation is enabled.
    ponytail: root colors still update at 2 Hz; isolated accent layers are the
    upgrade path if device profiles need a smaller rendering budget. */
 html[data-marinara-accent-animation] *,
@@ -5637,6 +5637,13 @@ strong {
 
 .mari-shell-panel-edge--right::after {
   right: 0;
+}
+
+/* The mirrored top bar (desktop sidebar on the left) has the music players next to Home, on the right: the YouTube
+   video opens under them, away from the sidebar. */
+.mari-topbar[data-sidebar-side="left"] [data-component="YouTubeVideoPanel"][data-video-shown] {
+  left: auto;
+  right: max(0.5rem, var(--mari-safe-area-inset-right));
 }
 
 .mari-shell-panel-slot {

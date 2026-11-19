@@ -15,10 +15,12 @@ import {
   type LLMToolCall,
   type LLMToolDefinition,
   type LLMUsage,
+  readSseData,
 } from "../base-provider.js";
 import {
   capabilityModelId,
   isGeminiArgonOrCarbonModel,
+  isGeminiHydrogenOrNeonModel,
   isGeminiStrictRequestModel,
   isGeminiThinkingLevelModel,
   shouldSuppressUnknownModelParameters,
@@ -27,6 +29,7 @@ import {
 import { getEmbeddingRequestTimeoutMs, isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { debugJson, logDebugOverride } from "../../../lib/logger.js";
 import { decodePossiblyCompressedBody } from "../../../utils/security.js";
+import { isRecord } from "../../../utils/large-json.js";
 
 /** A single Gemini response part (text, thought summary, or signature-only). */
 interface GeminiFunctionCall {
@@ -316,7 +319,9 @@ export function resolveGeminiThinkingConfig(
   if (!options.enableThinking && !options.reasoningEffort) return undefined;
 
   if (isGeminiThinkingLevelModel(model)) {
-    const levelMap = { low: "low", medium: "medium", high: "high", xhigh: "high", max: "high" } as const;
+    // Hydrogen and Neon add xhigh; every other thinking-level model stops at high.
+    const top = isGeminiHydrogenOrNeonModel(model) ? "xhigh" : "high";
+    const levelMap = { low: "low", medium: "medium", high: "high", xhigh: top, max: top } as const;
     return {
       thinkingLevel: options.reasoningEffort ? levelMap[options.reasoningEffort] : "high",
       includeThoughts: true,
@@ -329,10 +334,6 @@ export function resolveGeminiThinkingConfig(
     thinkingBudget: capGeminiThinkingBudget(requestedBudget, maxOutputTokens),
     includeThoughts: true,
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function formatGeminiApiError(error: GeminiApiError | undefined): string | null {
@@ -571,19 +572,22 @@ function formatGoogleContents(
 
     if (message.role === "tool") {
       const name = message.tool_call_id ? (toolNamesById.get(message.tool_call_id) ?? "tool_result") : "tool_result";
-      contents.push({
-        role: "user",
-        parts: [
-          {
-            functionResponse: {
-              // Match ids actually replayed to Gemini, not Engine's synthetic ids for id-less calls.
-              ...(message.tool_call_id && emittedToolIds.has(message.tool_call_id) ? { id: message.tool_call_id } : {}),
-              name,
-              response: parseToolResultContent(message.content || ""),
-            },
-          },
-        ],
-      });
+      const part = {
+        functionResponse: {
+          // Match ids actually replayed to Gemini, not Engine's synthetic ids for id-less calls.
+          ...(message.tool_call_id && emittedToolIds.has(message.tool_call_id) ? { id: message.tool_call_id } : {}),
+          name,
+          response: parseToolResultContent(message.content || ""),
+        },
+      };
+      // Results of parallel calls go back in one user turn, in call order, as Google's guides ask.
+      // https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-neon
+      const previous = contents.at(-1);
+      if (previous?.role === "user" && previous.parts.every((existing) => "functionResponse" in existing)) {
+        previous.parts.push(part);
+      } else {
+        contents.push({ role: "user", parts: [part] });
+      }
       continue;
     }
 
@@ -798,20 +802,10 @@ export class GoogleProvider extends BaseLLMProvider {
     }
 
     // ── SSE streaming path (tools attached, thinking off) ──
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("No response body");
-
-    const onAbort = () => reader.cancel().catch(() => {});
-    if (options.signal) {
-      if (options.signal.aborted) {
-        await reader.cancel().catch(() => {});
-        return { content: null, toolCalls: [], finishReason: "abort", usage: undefined };
-      }
-      options.signal.addEventListener("abort", onAbort, { once: true });
+    if (options.signal?.aborted) {
+      await response.body?.cancel().catch(() => {});
+      return { content: null, toolCalls: [], finishReason: "abort", usage: undefined };
     }
-
-    const decoder = new TextDecoder();
-    let buffer = "";
     let streamUsage: LLMUsage | undefined;
 
     // Accumulators for reconstructing response parts
@@ -825,81 +819,63 @@ export class GoogleProvider extends BaseLLMProvider {
     // whose signature was moved onto a neighboring part.
     const toolParts: GeminiPart[] = [];
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
-
-        const lines = buffer.split(/\r?\n/);
-        buffer = done ? "" : (lines.pop() ?? "");
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data:")) continue;
-          const data = trimmed.slice(5).trimStart();
-
-          let parsed: GeminiResponsePayload;
-          try {
-            parsed = JSON.parse(data) as GeminiResponsePayload;
-          } catch {
-            // Skip malformed lines
-            continue;
-          }
-
-          const apiError = formatGeminiApiError(parsed.error);
-          if (apiError) throw new Error(`Gemini API streaming error: ${apiError}`);
-
-          const blockReason = formatGeminiPromptBlock(parsed.promptFeedback);
-          if (blockReason) throw new Error(`Gemini blocked the prompt (${blockReason})`);
-
-          if (parsed.usageMetadata) streamUsage = geminiUsage(parsed.usageMetadata);
-
-          const candidate = parsed.candidates?.[0];
-          const parts: GeminiPart[] = candidate?.content?.parts ?? [];
-          if (candidate) {
-            sawCandidate = true;
-            if (candidate.finishReason) lastFinishReason = candidate.finishReason;
-          }
-          const finishError = geminiFinishReasonError(
-            candidate?.finishReason,
-            responseText.length > 0 || toolCalls.length > 0 || parts.length > 0,
-            streamUsage,
-          );
-          if (finishError) throw finishError;
-
-          for (const part of parts) {
-            // Gemini sends functionCall args as an object, not a partial-JSON delta, so a
-            // call is complete the moment its part arrives — no accumulation. The index is a
-            // running counter across frames so synthesized fallback ids cannot collide.
-            const call = geminiToolCallFromPart(part, toolParts.length);
-            if (call) {
-              toolCalls.push(call);
-              toolParts.push({
-                functionCall: part.functionCall,
-                ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}),
-              });
-              continue;
-            }
-
-            // Capture thought signature from any non-call part
-            if (part.thoughtSignature) lastSignature = part.thoughtSignature;
-
-            if (part.thought && part.text) {
-              // Thought summary part
-              thoughtText += part.text;
-              options.onThinking?.(part.text);
-            } else if (part.text && !part.thought) {
-              // Regular text part
-              responseText += part.text;
-              if (options.onToken) await options.onToken(part.text);
-            }
-          }
-        }
-        if (done) break;
+    for await (const { data } of readSseData(response, options.signal)) {
+      let parsed: GeminiResponsePayload;
+      try {
+        parsed = JSON.parse(data) as GeminiResponsePayload;
+      } catch {
+        // Skip malformed lines
+        continue;
       }
-    } finally {
-      if (options.signal) options.signal.removeEventListener("abort", onAbort);
-      await reader.cancel().catch(() => {});
+
+      const apiError = formatGeminiApiError(parsed.error);
+      if (apiError) throw new Error(`Gemini API streaming error: ${apiError}`);
+
+      const blockReason = formatGeminiPromptBlock(parsed.promptFeedback);
+      if (blockReason) throw new Error(`Gemini blocked the prompt (${blockReason})`);
+
+      if (parsed.usageMetadata) streamUsage = geminiUsage(parsed.usageMetadata);
+
+      const candidate = parsed.candidates?.[0];
+      const parts: GeminiPart[] = candidate?.content?.parts ?? [];
+      if (candidate) {
+        sawCandidate = true;
+        if (candidate.finishReason) lastFinishReason = candidate.finishReason;
+      }
+      const finishError = geminiFinishReasonError(
+        candidate?.finishReason,
+        responseText.length > 0 || toolCalls.length > 0 || parts.length > 0,
+        streamUsage,
+      );
+      if (finishError) throw finishError;
+
+      for (const part of parts) {
+        // Gemini sends functionCall args as an object, not a partial-JSON delta, so a
+        // call is complete the moment its part arrives — no accumulation. The index is a
+        // running counter across frames so synthesized fallback ids cannot collide.
+        const call = geminiToolCallFromPart(part, toolParts.length);
+        if (call) {
+          toolCalls.push(call);
+          toolParts.push({
+            functionCall: part.functionCall,
+            ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}),
+          });
+          continue;
+        }
+
+        // Capture thought signature from any non-call part
+        if (part.thoughtSignature) lastSignature = part.thoughtSignature;
+
+        if (part.thought && part.text) {
+          // Thought summary part
+          thoughtText += part.text;
+          options.onThinking?.(part.text);
+        } else if (part.text && !part.thought) {
+          // Regular text part
+          responseText += part.text;
+          if (options.onToken) await options.onToken(part.text);
+        }
+      }
     }
 
     // A tools round may legitimately carry no prose at all — only the functionCall — so the
@@ -1115,20 +1091,10 @@ export class GoogleProvider extends BaseLLMProvider {
     }
 
     // ── SSE streaming path ──
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("No response body");
-
-    const onAbort = () => reader.cancel().catch(() => {});
-    if (options.signal) {
-      if (options.signal.aborted) {
-        await reader.cancel().catch(() => {});
-        return;
-      }
-      options.signal.addEventListener("abort", onAbort, { once: true });
+    if (options.signal?.aborted) {
+      await response.body?.cancel().catch(() => {});
+      return;
     }
-
-    const decoder = new TextDecoder();
-    let buffer = "";
     let streamUsage: LLMUsage | undefined;
 
     // Accumulators for reconstructing response parts
@@ -1138,71 +1104,51 @@ export class GoogleProvider extends BaseLLMProvider {
     let sawCandidate = false;
     let lastFinishReason: string | undefined;
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
-
-        const lines = buffer.split(/\r?\n/);
-        buffer = done ? "" : (lines.pop() ?? "");
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-
-          if (!trimmed.startsWith("data:")) continue;
-          const data = trimmed.slice(5).trimStart();
-
-          let parsed: GeminiResponsePayload;
-          try {
-            parsed = JSON.parse(data) as GeminiResponsePayload;
-          } catch {
-            // Skip malformed lines
-            continue;
-          }
-
-          const apiError = formatGeminiApiError(parsed.error);
-          if (apiError) throw new Error(`Gemini API streaming error: ${apiError}`);
-
-          const blockReason = formatGeminiPromptBlock(parsed.promptFeedback);
-          if (blockReason) throw new Error(`Gemini blocked the prompt (${blockReason})`);
-
-          if (parsed.usageMetadata) {
-            streamUsage = geminiUsage(parsed.usageMetadata);
-          }
-          const candidate = parsed.candidates?.[0];
-          const parts: GeminiPart[] = candidate?.content?.parts ?? [];
-          if (candidate) {
-            sawCandidate = true;
-            if (candidate.finishReason) lastFinishReason = candidate.finishReason;
-          }
-          const finishError = geminiFinishReasonError(
-            candidate?.finishReason,
-            responseText.length > 0 || parts.length > 0,
-            streamUsage,
-          );
-          if (finishError) throw finishError;
-
-          for (const part of parts) {
-            // Capture thought signature from any part
-            if (part.thoughtSignature) lastSignature = part.thoughtSignature;
-
-            if (part.thought && part.text) {
-              // Thought summary part
-              thoughtText += part.text;
-              if (options.onThinking) options.onThinking(part.text);
-            } else if (part.text && !part.thought) {
-              // Regular text part
-              responseText += part.text;
-              yield part.text;
-            }
-          }
-        }
-        if (done) break;
+    for await (const { data } of readSseData(response, options.signal)) {
+      let parsed: GeminiResponsePayload;
+      try {
+        parsed = JSON.parse(data) as GeminiResponsePayload;
+      } catch {
+        // Skip malformed lines
+        continue;
       }
-    } finally {
-      if (options.signal) options.signal.removeEventListener("abort", onAbort);
-      await reader.cancel().catch(() => {});
+
+      const apiError = formatGeminiApiError(parsed.error);
+      if (apiError) throw new Error(`Gemini API streaming error: ${apiError}`);
+
+      const blockReason = formatGeminiPromptBlock(parsed.promptFeedback);
+      if (blockReason) throw new Error(`Gemini blocked the prompt (${blockReason})`);
+
+      if (parsed.usageMetadata) {
+        streamUsage = geminiUsage(parsed.usageMetadata);
+      }
+      const candidate = parsed.candidates?.[0];
+      const parts: GeminiPart[] = candidate?.content?.parts ?? [];
+      if (candidate) {
+        sawCandidate = true;
+        if (candidate.finishReason) lastFinishReason = candidate.finishReason;
+      }
+      const finishError = geminiFinishReasonError(
+        candidate?.finishReason,
+        responseText.length > 0 || parts.length > 0,
+        streamUsage,
+      );
+      if (finishError) throw finishError;
+
+      for (const part of parts) {
+        // Capture thought signature from any part
+        if (part.thoughtSignature) lastSignature = part.thoughtSignature;
+
+        if (part.thought && part.text) {
+          // Thought summary part
+          thoughtText += part.text;
+          if (options.onThinking) options.onThinking(part.text);
+        } else if (part.text && !part.thought) {
+          // Regular text part
+          responseText += part.text;
+          yield part.text;
+        }
+      }
     }
 
     if (!responseText) {

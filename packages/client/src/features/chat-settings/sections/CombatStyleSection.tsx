@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { Swords } from "lucide-react";
 import type { GameCombatStyle } from "@marinara-engine/shared";
+import { Select } from "../../../components/ui/Select";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { getCombatStyle, isBuiltInCombatStyle, listCombatStyles } from "../../../components/game/combat-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -44,47 +45,50 @@ export function CombatStyleSection({
       help={localizeUi("ui.chatSettings.combatstylesection.chooseHowBattlesPlayOutWhenTheGameMaster")}
     >
       <div className="space-y-2">
-        <label className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
           <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.chatSettings.combatstylesection.battleSystem")}
           </span>
-          <select
+          <Select
+            label={localizeUi("ui.chatSettings.combatstylesection.battleSystem")}
             value={combatStyle}
-            onChange={(event) => onCombatStyleChange(event.target.value as GameCombatStyle)}
-            className="mari-preset-native-select w-full truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
-          >
-            {offered("classic") && (
-              <option value="classic">
-                {localizeUi("ui.chatSettings.combatstylesection.classicCinematicMenuBattles")}
-              </option>
-            )}
-            {offered("tactical") && (
-              <option value="tactical">{localizeUi("game.combat.preference.tacticalLabel")}</option>
-            )}
-            {listCombatStyles()
-              .filter((id) => !isBuiltInCombatStyle(id) && offered(id))
-              .map((id) => (
-                <option key={id} value={id}>
-                  {getCombatStyle(id).label ?? id}
-                </option>
-              ))}
-          </select>
-        </label>
+            options={[
+              ...(offered("classic")
+                ? [
+                    {
+                      value: "classic",
+                      label: localizeUi("ui.chatSettings.combatstylesection.classicCinematicMenuBattles"),
+                    },
+                  ]
+                : []),
+              ...(offered("tactical")
+                ? [{ value: "tactical", label: localizeUi("game.combat.preference.tacticalLabel") }]
+                : []),
+              ...listCombatStyles()
+                .filter((id) => !isBuiltInCombatStyle(id) && offered(id))
+                .map((id) => ({ value: id as string, label: getCombatStyle(id).label ?? id })),
+            ]}
+            onChange={(value) => onCombatStyleChange(value as GameCombatStyle)}
+            className="mari-preset-native-select w-full truncate rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+          />
+        </div>
         {/* A ruleset's own fights roll initiative by its own rules, so the choice is for Tactical battles. */}
         {combatStyle === "tactical" && !rulesetResolvesFights && (
-          <label className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
               {localizeUi("ui.chatSettings.combatstylesection.turnOrder")}
             </span>
-            <select
+            <Select<"side" | "initiative">
+              label={localizeUi("ui.chatSettings.combatstylesection.turnOrder")}
               value={turnOrder}
-              onChange={(event) => onTurnOrderChange(event.target.value as "side" | "initiative")}
-              className="mari-preset-native-select w-full truncate rounded-lg bg-[var(--secondary)] px-3 py-2 pr-8 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
-            >
-              <option value="initiative">{localizeUi("ui.chatSettings.combatstylesection.turnOrderInitiative")}</option>
-              <option value="side">{localizeUi("ui.chatSettings.combatstylesection.turnOrderSide")}</option>
-            </select>
-          </label>
+              options={[
+                { value: "initiative", label: localizeUi("ui.chatSettings.combatstylesection.turnOrderInitiative") },
+                { value: "side", label: localizeUi("ui.chatSettings.combatstylesection.turnOrderSide") },
+              ]}
+              onChange={onTurnOrderChange}
+              className="mari-preset-native-select w-full truncate rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40"
+            />
+          </div>
         )}
         {allowedStyles && (
           <p className="text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">

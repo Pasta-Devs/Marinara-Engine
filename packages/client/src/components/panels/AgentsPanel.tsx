@@ -124,6 +124,8 @@ import { requestChatSettingsSectionOpen } from "../../lib/chat-floating-ui-event
 import { confirmEditorLeave } from "../../lib/editor-leave";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { parseChatMetadata } from "../../lib/chat-display";
+import { Select } from "../ui/Select";
+import { PanelVirtualList } from "./PanelVirtualList";
 
 type JsonRecord = Record<string, unknown>;
 const AGENT_GRADIENT_SURFACE =
@@ -1314,67 +1316,80 @@ export function AgentsPanel() {
               {localizeUi("ui.panels.agentspanel.noCustomAgentsYet")}
             </p>
           ) : (
-            visibleCustomAgents.map((agent) =>
-              renderAgentCard({
-                needs: agentModelNeed(agent.type, agent.settings),
-                localizeUi,
-                id: agent.id,
-                type: agent.type,
-                name: agent.name,
-                description: catalogTaglineByAgentId.get(agent.type) ?? agent.description,
-                inChat: activeChat ? isInActiveChat({ id: agent.id, type: agent.type }) : undefined,
-                onRemoveFromChat: () => void removeFromActiveChat({ id: agent.id, type: agent.type, name: agent.name }),
-                imagePath: agent.imagePath ?? null,
-                custom: true,
-                openAgentDetail,
-                onDuplicate: capabilityAgentRegistryReady ? () => void handleDuplicateAgent(agent) : undefined,
-                onImagePick: () => handlePickAgentImage(agent.id),
-                selectionMode,
-                selected: selectedAgentIds.has(agent.id),
-                onToggleSelected: () => toggleAgentSelection(agent.id),
-                isDragging: draggedAgentId === agent.id,
-                onDragStart: (event) => {
-                  const ids = getDraggedAgentIds(agent.id);
-                  const agentTypes = getDraggedAgentTypes(agent.id);
-                  setDraggedAgentId(agent.id);
-                  event.dataTransfer.effectAllowed = "copyMove";
-                  event.dataTransfer.setData("application/x-marinara-agent-ids", JSON.stringify(ids));
-                  event.dataTransfer.setData("text/plain", agent.id);
-                  writeChatResourceDragPayload(event.dataTransfer, {
-                    version: 1,
-                    kind: "agent",
-                    ids: agentTypes,
-                    label:
-                      ids.length === 1
-                        ? agent.name
-                        : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", { count: ids.length }),
-                  });
-                },
-                onDragEnd: () => {
-                  setDraggedAgentId(null);
-                  clearActiveChatResourceDrag();
-                },
-                onTouchStart: (event) =>
-                  startAgentTouchDrag(event, agent.id, {
-                    sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="agent"]'),
-                    chatResourcePayload: {
+            <PanelVirtualList
+              listKey="agents:custom"
+              count={visibleCustomAgents.length}
+              getItemKey={(index) => visibleCustomAgents[index]!.id}
+              estimateSize={96}
+              gap={4}
+              pinnedIndex={(() => {
+                const i = visibleCustomAgents.findIndex((agent) => agent.id === draggedAgentId);
+                return i >= 0 ? i : undefined;
+              })()}
+              renderRow={(index) => {
+                const agent = visibleCustomAgents[index]!;
+                return renderAgentCard({
+                  needs: agentModelNeed(agent.type, agent.settings),
+                  localizeUi,
+                  id: agent.id,
+                  type: agent.type,
+                  name: agent.name,
+                  description: catalogTaglineByAgentId.get(agent.type) ?? agent.description,
+                  inChat: activeChat ? isInActiveChat({ id: agent.id, type: agent.type }) : undefined,
+                  onRemoveFromChat: () =>
+                    void removeFromActiveChat({ id: agent.id, type: agent.type, name: agent.name }),
+                  imagePath: agent.imagePath ?? null,
+                  custom: true,
+                  openAgentDetail,
+                  onDuplicate: capabilityAgentRegistryReady ? () => void handleDuplicateAgent(agent) : undefined,
+                  onImagePick: () => handlePickAgentImage(agent.id),
+                  selectionMode,
+                  selected: selectedAgentIds.has(agent.id),
+                  onToggleSelected: () => toggleAgentSelection(agent.id),
+                  isDragging: draggedAgentId === agent.id,
+                  onDragStart: (event) => {
+                    const ids = getDraggedAgentIds(agent.id);
+                    const agentTypes = getDraggedAgentTypes(agent.id);
+                    setDraggedAgentId(agent.id);
+                    event.dataTransfer.effectAllowed = "copyMove";
+                    event.dataTransfer.setData("application/x-marinara-agent-ids", JSON.stringify(ids));
+                    event.dataTransfer.setData("text/plain", agent.id);
+                    writeChatResourceDragPayload(event.dataTransfer, {
                       version: 1,
                       kind: "agent",
-                      ids: getDraggedAgentTypes(agent.id),
+                      ids: agentTypes,
                       label:
-                        getDraggedAgentIds(agent.id).length === 1
+                        ids.length === 1
                           ? agent.name
-                          : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", {
-                              count: getDraggedAgentIds(agent.id).length,
-                            }),
-                    },
-                  }),
-                nativeDragEnabled: nativeAgentDragEnabled,
-                touchSafeDragMode: touchSafeAgentDragMode,
-                suppressClickRef: suppressAgentClickRef,
-                onDelete: capabilityAgentRegistryReady ? () => void confirmAndRemoveAgent(agent) : undefined,
-              }),
-            )
+                          : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", { count: ids.length }),
+                    });
+                  },
+                  onDragEnd: () => {
+                    setDraggedAgentId(null);
+                    clearActiveChatResourceDrag();
+                  },
+                  onTouchStart: (event) =>
+                    startAgentTouchDrag(event, agent.id, {
+                      sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="agent"]'),
+                      chatResourcePayload: {
+                        version: 1,
+                        kind: "agent",
+                        ids: getDraggedAgentTypes(agent.id),
+                        label:
+                          getDraggedAgentIds(agent.id).length === 1
+                            ? agent.name
+                            : localizeUi("ui.chat.chatresourcedropoverlay.agentCount", {
+                                count: getDraggedAgentIds(agent.id).length,
+                              }),
+                      },
+                    }),
+                  nativeDragEnabled: nativeAgentDragEnabled,
+                  touchSafeDragMode: touchSafeAgentDragMode,
+                  suppressClickRef: suppressAgentClickRef,
+                  onDelete: capabilityAgentRegistryReady ? () => void confirmAndRemoveAgent(agent) : undefined,
+                });
+              }}
+            />
           )}
         </PanelSection>
       )}
@@ -1852,23 +1867,24 @@ function TilePacksSection() {
       {families.map((family) => (
         <div key={family} className="flex items-center gap-2.5 rounded-xl p-2">
           <span className="min-w-0 flex-1 truncate text-sm">{familyLabel(family)}</span>
-          <select
+          <Select
+            label={t("game.tilePacks.chooseFor", { family: familyLabel(family) })}
             value={library.selection[family] ?? ""}
-            onChange={(event) => choose.mutate({ family, packId: event.target.value || null })}
-            className="mari-chrome-field h-8 max-w-[55%] appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem]"
-            aria-label={t("game.tilePacks.chooseFor", { family: familyLabel(family) })}
-          >
-            <option value="">
-              {library.builtIn.includes(family) ? t("game.tilePacks.builtIn") : t("game.tilePacks.plain")}
-            </option>
-            {library.packs
-              .filter((pack) => pack.family === family)
-              .map((pack) => (
-                <option key={pack.id} value={pack.id}>
-                  {t("game.tilePacks.packVersion", { name: pack.name, version: pack.version })}
-                </option>
-              ))}
-          </select>
+            onChange={(next) => choose.mutate({ family, packId: next || null })}
+            className="mari-chrome-field h-8 max-w-[55%] py-0 pl-2.5 pr-7 text-[0.6875rem]"
+            options={[
+              {
+                value: "",
+                label: library.builtIn.includes(family) ? t("game.tilePacks.builtIn") : t("game.tilePacks.plain"),
+              },
+              ...library.packs
+                .filter((pack) => pack.family === family)
+                .map((pack) => ({
+                  value: pack.id,
+                  label: t("game.tilePacks.packVersion", { name: pack.name, version: pack.version }),
+                })),
+            ]}
+          />
         </div>
       ))}
       {library.packs.map((pack) => (

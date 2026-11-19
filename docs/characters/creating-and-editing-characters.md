@@ -69,7 +69,7 @@ The **Metadata** tab holds identity and organization details. They help you sort
 
 - **Character ID**. Read-only. It appears after the card is saved. Click **Copy** to copy it.
 - **Name**. The display name. It is `{{char}}` in prompts, a placeholder that Marinara replaces with the character's name.
-- **Other names**. Nicknames, full names or titles the character also goes by, such as `Clark Kent, Kal-El, Mr. Kent`. Type several separated by commas and press <kbd>Enter</kbd> or click **Add**. Roleplay chats can paint them in the name color. See [Character Colors](colors-and-stats.md#the-three-colors).
+- **Other names**. Nicknames, full names or titles the character also goes by, such as `Clark Kent, Kal-El, Mr. Kent`. Type several separated by commas and press <kbd>Enter</kbd> or click **Add**. Roleplay chats can paint them in the name color, and the Character Tracker links a character it tracks under one of these names to the card. See [Character Colors](colors-and-stats.md#the-three-colors).
 - **Creator**. Who made the card, for credit when you share it.
 - **Version**. A version number you set, such as `1.0`. The **Automatic versioning** switch next to it keeps earlier versions and raises this number when the card changes. Version history only saves snapshots while this switch is on.
 - **Talkativeness**. A slider from 0 to 100 percent. It sets how often this character speaks in group chats. The default is 50 percent.
@@ -92,6 +92,9 @@ The **Card** tab is the main writing workspace. Jump links at the top skip to an
 | **Backstory** | History, origin, important relationships. | Yes |
 | **Appearance** | Looks, clothing, visual details. Also seeds an AI avatar prompt. | Yes |
 | **Scenario** | The default setting for new chats with this character. | Yes |
+| **Public Face** | The card minus its private parts. | Only where a macro or setting asks for it |
+
+**Public Face** is what the rest of the cast could see or know about the character: looks, manner, role, reputation, and relationships that are no secret. Leave out secrets, inner thoughts, private history and instructions on how to play the character. It is never sent as part of this character's card. A prompt reads it only where you place the `{{publicFace}}` macro, or `{{personaPublicFace}}` for your persona. See [Prompt Macros](../prompts/macros.md#identity-character-and-persona-macros). In an Individual Roleplay group chat, **Others' Public Faces** sends it to the other characters' turns. See [More Individual settings](../chats/group-chats.md#more-individual-settings). An agent whose **Characters** or **Persona** source is set to **Public Face** reads it instead of the card. See [Other settings](../agents/custom-agents.md#other-settings). With **Send Public Faces** on, Impersonate in Roleplay reads it instead of the card. See [The Impersonate settings](../chats/guided-and-impersonate.md#the-impersonate-settings).
 
 **Image Appearance Override** sits under **Appearance** and is off by default. Turn it on to show a second box for short image tags, such as a LoRA trigger word (a keyword that switches on a custom image style). While it is on and filled, image prompts use those tags exactly as written, with **Appearance** kept as background. An AI avatar prompt is seeded from it too. The narrator always sees the full **Appearance** text.
 
@@ -111,13 +114,13 @@ Greetings and example messages can show images from the character's Gallery. See
 
 ### Write a card field with the wand
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** and each **Alternate Greeting** have an icon-only wand button above the field. Its tooltip names the field it writes.
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message** and each **Alternate Greeting** have an icon-only wand button above the field. Its tooltip names the field it writes.
 
 Before you start: set up a working text connection. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 1. Write any ideas you want to keep in the field, such as `smart, scientist, handsome`, or leave it empty.
 2. Fill in any other card fields you want the AI to use as reference. You do not need to save first.
-3. Click the field's wand. Marinara asks for 100–300 words for that field, using your text as the starting details. Example Dialogue asks for sample exchanges. **First Message** and each **Alternate Greeting** ask for one opening message that leaves your reply open.
+3. Click the field's wand. Marinara asks for 100–300 words for that field, using your text as the starting details. Example Dialogue asks for sample exchanges. **First Message** and each **Alternate Greeting** ask for one opening message that leaves your reply open. **Public Face** has no word range: its wand rewrites the rest of the card without the private parts, so the length follows your card.
 4. Edit the result, then click **Save**.
 
 The wand uses your default agent text connection, or your default text connection if there is none. A configured agent fallback connection still applies.
@@ -170,7 +173,7 @@ The **Regex Scripts** section holds find-and-replace scripts for this one charac
 
 ## Use an alternative field in selected chats
 
-An alternative field gives the same character a different description, appearance, backstory or other detail in chosen chats, while everyone else keeps the original. Each of the seven card fields has **Add Alternative Field** below it.
+An alternative field gives the same character a different description, appearance, backstory or other detail in chosen chats, while everyone else keeps the original. Each of the eight card fields has **Add Alternative Field** below it.
 
 1. Click **Add Alternative Field** under the field you want to vary. Marinara copies the field's text into a new alternative.
 2. Optional: click its title, such as **Backstory alternative 1**, and type a name such as `Young`. Names are up to 60 characters. Leave the name empty to keep the numbered title.

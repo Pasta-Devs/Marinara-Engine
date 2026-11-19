@@ -49,6 +49,8 @@ import { MarinaraItemFacts } from "./MarinaraItemFacts";
 import { chatKeys, useChat } from "../../hooks/use-chats";
 import { useUIStore } from "../../stores/ui.store";
 import { Checkbox } from "../ui/Checkbox";
+import { Select } from "../ui/Select";
+import { Tabs } from "../ui/Tabs";
 
 const blockKey = (block: string) => block.replace(/-(\w)/g, (_, c: string) => c.toUpperCase());
 
@@ -119,22 +121,21 @@ export function MarinaraClassSheet({ chatId, name, stored }: Props) {
     !progression ||
     (progression.level === 1 && progression.xp === 0 && Object.keys(progression.classLevels).length === 1);
   const treePicker = fresh && (
-    <label className="flex items-center gap-2 text-xs" data-testid="marinara-primary">
+    <div className="flex items-center gap-2 text-xs" data-testid="marinara-primary">
       <span className="w-24 shrink-0 text-[var(--muted-foreground)]">{t("game.combat.marinara.sheet.primary")}</span>
-      <select
+      <Select
+        label={t("game.combat.marinara.sheet.primary")}
         className="min-h-9 min-w-0 flex-1 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2"
-        value={progression?.primary ?? ""}
+        value={progression?.primary ?? null}
+        placeholder={t("game.combat.marinara.sheet.primaryUnset")}
         disabled={busy}
-        onChange={(event) => event.target.value && void save({ primary: event.target.value as MarinaraArchetype })}
-      >
-        {!progression && <option value="">{t("game.combat.marinara.sheet.primaryUnset")}</option>}
-        {MARINARA_ARCHETYPES.map((tree) => (
-          <option key={tree} value={tree}>
-            {t(`game.combat.marinara.archetype.${tree}`)}
-          </option>
-        ))}
-      </select>
-    </label>
+        onChange={(next) => next && void save({ primary: next as MarinaraArchetype })}
+        options={MARINARA_ARCHETYPES.map((tree) => ({
+          value: tree,
+          label: t(`game.combat.marinara.archetype.${tree}`),
+        }))}
+      />
+    </div>
   );
   if (!progression)
     return (
@@ -187,27 +188,15 @@ export function MarinaraClassSheet({ chatId, name, stored }: Props) {
         />
       </div>
 
-      <div className={cn("-mx-5 flex gap-0.5 overflow-x-auto border-y px-4 py-1.5", LINE)} role="tablist">
-        {TABS.map((one) => (
-          <button
-            key={one}
-            type="button"
-            role="tab"
-            id={`marinara-sheet-tab-${one}`}
-            aria-selected={tab === one}
-            aria-controls={`marinara-sheet-panel-${one}`}
-            onClick={() => setTab(one)}
-            className={cn(
-              "h-8 shrink-0 rounded-md px-2.5 text-[0.8125rem] font-medium transition-colors",
-              tab === one
-                ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--foreground)]",
-            )}
-          >
-            {t(`game.combat.marinara.sheet2.tab.${one}`)}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        variant="underline"
+        idPrefix="marinara-sheet"
+        className="-mx-5 px-4"
+        label={t("game.combat.marinara.sheet2.tabs")}
+        value={tab}
+        onChange={setTab}
+        items={TABS.map((one) => ({ id: one, label: t(`game.combat.marinara.sheet2.tab.${one}`) }))}
+      />
 
       {/* A floor on the panel's height keeps the tab row still while switching tabs on a desktop. */}
       <div
@@ -689,32 +678,36 @@ function GearTab({
     pick: (id: string) => void,
     slot?: "weapon" | "armor",
   ) => (
-    <label key={label} className={cn("grid gap-1 rounded-lg border px-2.5 py-2", LINE)}>
+    <div key={label} className={cn("grid gap-1 rounded-lg border px-2.5 py-2", LINE)}>
       <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{label}</span>
-      <select
+      <Select
+        label={label}
         className="min-h-9 min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 text-[0.8125rem]"
         value={value ?? ""}
         disabled={busy || progression.fallen}
-        onChange={(event) => pick(event.target.value)}
-      >
-        <option value="">
-          {slot && standard[slot]
-            ? t("game.combat.marinara.sheet.gearStandardPiece", { name: marinaraItemName(standard[slot]!, place) })
-            : t("game.combat.marinara.sheet.gearNothing")}
-        </option>
-        {ids.map((id) => (
-          <option key={id} value={id}>
-            {slot && marinaraBelowStandard(id, slot, archetype, tier, progression.stats.strength)
-              ? t("game.combat.marinara.sheet.gearBelowStandard", { name: marinaraItemName(id, place) })
-              : marinaraItemName(id, place)}
-          </option>
-        ))}
-      </select>
+        onChange={(next) => pick(next)}
+        options={[
+          {
+            value: "",
+            label:
+              slot && standard[slot]
+                ? t("game.combat.marinara.sheet.gearStandardPiece", { name: marinaraItemName(standard[slot]!, place) })
+                : t("game.combat.marinara.sheet.gearNothing"),
+          },
+          ...ids.map((id) => ({
+            value: id,
+            label:
+              slot && marinaraBelowStandard(id, slot, archetype, tier, progression.stats.strength)
+                ? t("game.combat.marinara.sheet.gearBelowStandard", { name: marinaraItemName(id, place) })
+                : marinaraItemName(id, place),
+          })),
+        ]}
+      />
       <MarinaraItemFacts
         itemId={value || (slot ? standard[slot] : undefined)}
         className="text-[var(--muted-foreground)]"
       />
-    </label>
+    </div>
   );
   return (
     <div className="space-y-2" data-testid="marinara-gear">

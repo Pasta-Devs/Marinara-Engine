@@ -20,13 +20,10 @@ import type { PlanUsage, PlanUsageWindow, PlanUsageWindowId } from "@marinara-en
 import { logger } from "../../../../lib/logger.js";
 import { loadSdk } from "../claude-subscription.provider.js";
 import { claudeCodeExecutableOption } from "./installed-cli.js";
+import { isRecord } from "../../../../utils/large-json.js";
 
 /** Usage reads are informational, so they fail fast rather than hold a handler open. */
 const CLAUDE_PLAN_USAGE_TIMEOUT_MS = 15_000;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function normalizeWindow(id: PlanUsageWindowId, value: unknown): PlanUsageWindow | null {
   if (!isRecord(value)) return null;

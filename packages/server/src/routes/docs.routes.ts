@@ -13,7 +13,7 @@ import { existsSync } from "fs";
 import { readdir, readFile, realpath, stat } from "fs/promises";
 import { join, resolve } from "path";
 import { getMonorepoRoot } from "../config/runtime-config.js";
-import { assertInsideDir } from "../utils/security.js";
+import { assertInsideDir, resolveInside } from "../utils/security.js";
 import { isExcludedDevelopmentDoc, USER_DEVELOPMENT_DOCS } from "../services/professor-mari/documentation-tools.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import {
@@ -32,6 +32,7 @@ import {
   withDocsPackMutationLock,
   type DocsPackInstallProgress,
 } from "../services/docs/docs-pack.service.js";
+import { notFound } from "../utils/not-found.js";
 
 const DOCS_DIR = resolve(getMonorepoRoot(), "docs");
 
@@ -430,11 +431,11 @@ async function resolveRequestLanguage(lang: unknown, storage: AppSettingsStorage
 export function resolvePhysical(code: string, segments: string[]): { file: string; language: string; root: string } {
   if (code !== DEFAULT_DOCS_LANGUAGE) {
     const packDir = langRoot(code);
-    const candidate = assertInsideDir(packDir, join(packDir, ...segments));
+    const candidate = resolveInside(packDir, ...segments);
     if (existsSync(candidate)) return { file: candidate, language: code, root: packDir };
   }
   return {
-    file: assertInsideDir(DOCS_DIR, join(DOCS_DIR, ...segments)),
+    file: resolveInside(DOCS_DIR, ...segments),
     language: DEFAULT_DOCS_LANGUAGE,
     root: DOCS_DIR,
   };
@@ -581,7 +582,7 @@ export async function docsRoutes(app: FastifyInstance) {
   /** List available documentation files plus the on-disk docs folder path */
   app.get<{ Querystring: { lang?: string } }>("/", async (req, reply) => {
     if (!existsSync(DOCS_DIR)) {
-      return reply.status(404).send({ error: "Documentation folder not found" });
+      return notFound(reply, "Documentation folder not found");
     }
     try {
       const language = await resolveRequestLanguage(req.query.lang, storage);
@@ -610,7 +611,7 @@ export async function docsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Query must be at least 2 characters" });
     }
     if (!existsSync(DOCS_DIR)) {
-      return reply.status(404).send({ error: "Documentation folder not found" });
+      return notFound(reply, "Documentation folder not found");
     }
 
     try {
@@ -691,7 +692,7 @@ export async function docsRoutes(app: FastifyInstance) {
     try {
       const { file: candidatePath, language: fileLanguage, root } = resolvePhysical(language, segments);
       if (!existsSync(candidatePath)) {
-        return reply.status(404).send({ error: "Not found" });
+        return notFound(reply, "Not found");
       }
       filePath = await assertRealPathInside(root, candidatePath);
       servedLanguage = fileLanguage;

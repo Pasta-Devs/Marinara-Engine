@@ -442,3 +442,52 @@ export const multiplayerPeerResponseSchema = z.discriminatedUnion("type", [
 
 export type MultiplayerPeerRequest = z.infer<typeof multiplayerPeerRequestSchema>;
 export type MultiplayerPeerResponse = z.infer<typeof multiplayerPeerResponseSchema>;
+
+// Request bodies of the host's own authenticated controls (server: multiplayer.routes.ts).
+export const multiplayerIdSchema = id;
+const multiplayerIdentityShape = {
+  displayName: z.string().trim().min(1).max(80),
+  persona: multiplayerPersonaSchema,
+};
+const multiplayerInvitationShape = { inviteCode: z.string().max(2052) };
+const multiplayerPasswordSchema = z
+  .string()
+  .min(12)
+  .max(128)
+  .refine((value) => value.trim().length >= 12);
+
+export const multiplayerSettingsBodySchema = z.object({ enabled: z.boolean(), consent: z.literal(true) }).strict();
+
+export const multiplayerPrepareBodySchema = z.union([
+  z.object({ chatId: id }).strict(),
+  z
+    .object({
+      mode: z.enum(["conversation", "roleplay", "game"]),
+      name: z.string().trim().min(1).max(80),
+    })
+    .strict(),
+]);
+
+export const multiplayerHostBodySchema = z
+  .object({
+    chatId: id,
+    publicOrigin: multiplayerInviteSchema.shape.origin,
+    password: multiplayerPasswordSchema,
+    ...multiplayerIdentityShape,
+    consent: z.literal(true),
+  })
+  .strict();
+
+export const multiplayerPreviewBodySchema = z.object(multiplayerInvitationShape).strict();
+
+export const multiplayerJoinBodySchema = z
+  .object({
+    ...multiplayerInvitationShape,
+    password: multiplayerPasswordSchema,
+    ...multiplayerIdentityShape,
+    consent: z.literal(true),
+  })
+  .strict();
+
+export const multiplayerLeaveGuestQuerySchema = z.object({ chatId: id.optional() }).strict();
+export type MultiplayerPreviewBody = z.input<typeof multiplayerPreviewBodySchema>;

@@ -75,15 +75,49 @@ A native profile keeps Personal Extension code, but not whether it is turned on 
 2. Under the button, leave **Tag imported** and **Tag source** ticked to tag the characters, personas, lorebooks, presets and chats it brings in with **Imported** and **Backup**. Untick them to restore everything exactly as it was.
 3. Click **Import Profile (JSON/ZIP)**.
 4. Choose `marinara-profile.json`, `marinara-profile.zip` or a backup `.zip`. The button shows **Scanning Profile...**.
-5. Read the **Import Profile** dialog. It lists what Marinara found and warns that you cannot undo the import.
-6. Click **Import**, or **Cancel** to stop. The button shows **Importing Profile...** and a progress bar follows. When it finishes, a message says the profile was imported.
+5. Read the **Import Profile** dialog. It lists what Marinara found. Items already in Marinara are replaced by the file's versions, unless you [only add what's missing](#only-add-whats-missing).
+6. Click **Import**, or **Cancel** to stop. The button shows **Importing Profile...**. Marinara first saves a safety copy of your data, then a progress bar follows. When it finishes, a message says the profile was imported.
 
 If it did not work:
 
 - Unless you open Marinara at `localhost`, `127.0.0.1` or `[::1]`, profile import needs HTTPS. The error is "Profile import requires HTTPS outside local development." Open Marinara through an HTTPS address.
 - If a `.zip` is missing some media files, the import still finishes. A warning lists what is missing, and Marinara imports the rest.
+- If the disk is too full for the safety copy, nothing is imported. The error starts with "Nothing was imported, because a safety copy could not be saved first." Free up about as much space as a full backup takes, then import again.
 
 If you import the same profile twice, Marinara updates your items and does not copy them. Profiles from much older versions can make duplicates.
+
+### Only add what's missing
+
+To get back something you deleted without losing changes you made since, turn on **Keep my current versions, only add what's missing** above **Import Profile (JSON/ZIP)**, then import as above. Every item and file already in Marinara stays as it is, and only what Marinara doesn't have is added. That includes everything you deleted since the file was saved, such as single messages or lorebook entries, not only the item you wanted back. Long-term memory counts as one item: if Marinara already has some, the file's is not added.
+
+Nothing is replaced, so Marinara saves no safety copy, and **Undo Last Import** still undoes the import before this one.
+
+Profiles from much older versions can't do this: they always add their items next to yours, and the **Import Profile** dialog says so.
+
+### Undo an import
+
+Before each import that replaces items, Marinara saves a full copy of your data in the `backups/` folder of the data folder, as a file whose name starts with `marinara-before-import-` followed by the date and time. When the import finishes, the copy from the import before it is deleted, so only the latest one is kept.
+
+1. Open **Settings → Data → Backup & Restore**.
+2. Click **Undo Last Import**. The line under it shows when the safety copy was saved.
+3. Click **Undo Last Import** in the dialog to confirm.
+
+Undo puts back your versions of the items and files the last import replaced. If you changed one of those items after the import, that change is lost. Everything else stays as it is, including items the import added. You can undo an import once, and then the safety copy is deleted.
+
+Undo does not turn back on what the import switched off for safety. Turn these on again by hand:
+
+- your active theme;
+- Personal Extensions (review them again in **Settings → Addons**);
+- custom tools that run a script or a webhook;
+- Professor Mari memories.
+
+If the import cleared a connection's API key, enter the key again (see [Enter your keys again](#enter-your-keys-again)). Set it again as your default or fallback connection if it was one.
+
+Branch chats the import replaced stay unlinked from the chat they branched from. The import already removed that link, and Undo cannot bring it back.
+
+Profiles from much older versions only add items, so Marinara saves no safety copy for them and there is nothing to undo.
+
+The safety copy takes as much space as a full backup. To free that space without undoing the import, click **Delete Safety Copy** in **Settings → Data → Backup & Restore**, then confirm. Your data stays as it is, but you can no longer undo that import. If an import was interrupted, **Delete Safety Copy** can appear on its own; the copy can't be used for Undo then, but you can still delete it.
 
 ## Enter your keys again
 

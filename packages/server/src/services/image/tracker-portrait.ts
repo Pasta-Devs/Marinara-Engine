@@ -6,7 +6,7 @@ import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import type { DB } from "../../db/connection.js";
 import { logDebugOverride } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
-import { assertInsideDir } from "../../utils/security.js";
+import { resolveInside } from "../../utils/security.js";
 import { npcAvatarSlug } from "../game/npc-avatar-utils.js";
 import { resolveImageConnectionFallback } from "../generation/media-connection-fallback.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
@@ -78,7 +78,7 @@ export async function generateTrackerPortrait(args: {
   const safeName = npcAvatarSlug(args.character.name);
   if (!safeName) throw new Error("Invalid character name");
   const npcRoot = join(DATA_DIR, "avatars", "npc");
-  const npcDir = assertInsideDir(npcRoot, join(npcRoot, args.chatId));
+  const npcDir = resolveInside(npcRoot, args.chatId);
   const portraitFile = join(npcDir, `${safeName}.png`);
   if (portraitsInProgress.has(portraitFile)) {
     throw new TrackerPortraitConflictError("A portrait for this character is already being made.");

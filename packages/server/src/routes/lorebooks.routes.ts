@@ -93,11 +93,12 @@ import { sidecarModelService } from "../services/sidecar/sidecar-model.service.j
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { uniqueExportName } from "../utils/export-stream.js";
-import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
+import { extensionFromImageMime, isAllowedImageBuffer, resolveInside, toSafeExportName } from "../utils/security.js";
 import { parseLibraryPageQuery } from "../utils/list-pagination.js";
 import { createSeededRandom } from "../services/lorebook/seeded-random.js";
 import { lorebookTextRoutes } from "./lorebook-text.routes.js";
 import AdmZip from "adm-zip";
+import { notFound } from "../utils/not-found.js";
 
 const LOREBOOK_IMAGES_DIR = join(DATA_DIR, "lorebooks", "images");
 /** Pasted test text is capped; the scanner only looks at recent context anyway. */
@@ -111,14 +112,6 @@ function parseCsvQuery(value: unknown) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function toSafeExportName(name: string, fallback: string) {
-  const sanitized = name
-    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return sanitized || fallback;
 }
 
 type ExportFormat = "native" | "compatible";
@@ -140,7 +133,7 @@ function parseImageUpload(image: string): { buffer: Buffer; hintedExt: string } 
 function getSafeLorebookImagePath(filename: string): string | null {
   if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) return null;
   try {
-    return assertInsideDir(LOREBOOK_IMAGES_DIR, join(LOREBOOK_IMAGES_DIR, filename));
+    return resolveInside(LOREBOOK_IMAGES_DIR, filename);
   } catch {
     return null;
   }
@@ -448,11 +441,11 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { filename: string } }>("/images/file/:filename", async (req, reply) => {
     const filepath = getSafeLorebookImagePath(req.params.filename);
-    if (!filepath || !existsSync(filepath)) return reply.status(404).send({ error: "Image not found" });
+    if (!filepath || !existsSync(filepath)) return notFound(reply, "Image not found");
 
     const buffer = await readFile(filepath);
     const imageInfo = isAllowedImageBuffer(buffer, extname(req.params.filename));
-    if (!imageInfo) return reply.status(404).send({ error: "Image not found" });
+    if (!imageInfo) return notFound(reply, "Image not found");
 
     return reply
       .header("Content-Type", imageInfo.mimeType)
@@ -462,7 +455,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { filename: string } }>("/entry-images/:filename", async (req, reply) => {
     const data = await readLorebookImageDataUrl(`/api/lorebooks/entry-images/${req.params.filename}`);
-    if (!data) return reply.status(404).send({ error: "Image not found" });
+    if (!data) return notFound(reply, "Image not found");
     const separator = data.indexOf(",");
     return reply
       .header("Content-Type", data.slice(5, data.indexOf(";")))
@@ -473,7 +466,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const lb = await storage.getById(req.params.id);
-    if (!lb) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!lb) return notFound(reply, "Lorebook not found");
     return lb;
   });
 
@@ -496,7 +489,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       if (updated) await syncCharacterBookFromLorebook(tx, req.params.id, { throwOnError: true });
       return updated;
     });
-    if (!updated) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!updated) return notFound(reply, "Lorebook not found");
     return updated;
   });
 
@@ -533,7 +526,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>("/:id/image", async (req, reply) => {
     const lorebook = await storage.getById(req.params.id);
-    if (!lorebook) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!lorebook) return notFound(reply, "Lorebook not found");
 
     const body = req.body as { image?: string };
     if (!body.image) return reply.status(400).send({ error: "No image data provided" });
@@ -545,7 +538,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const ext = extensionFromImageMime(imageInfo.mimeType);
     await mkdir(LOREBOOK_IMAGES_DIR, { recursive: true });
     const filename = `lorebook-${req.params.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const filepath = assertInsideDir(LOREBOOK_IMAGES_DIR, join(LOREBOOK_IMAGES_DIR, filename));
+    const filepath = resolveInside(LOREBOOK_IMAGES_DIR, filename);
     await writeFile(filepath, buffer);
 
     // A new picture starts uncropped.
@@ -553,7 +546,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       imagePath: `/api/lorebooks/images/file/${filename}`,
       imageCrop: null,
     });
-    if (!updated) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!updated) return notFound(reply, "Lorebook not found");
     return updated;
   });
 
@@ -578,7 +571,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string }; Querystring: { format?: ExportFormat } }>("/:id/export", async (req, reply) => {
     const lb = (await storage.getById(req.params.id)) as Record<string, unknown> | null;
-    if (!lb) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!lb) return notFound(reply, "Lorebook not found");
     const entries = await embedLorebookImages(
       (await storage.listEntries(req.params.id)) as Array<Record<string, unknown>>,
     );
@@ -654,7 +647,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     }
 
     if (exportedCount === 0) {
-      return reply.status(404).send({ error: "No lorebooks found for the provided ids" });
+      return notFound(reply, "No lorebooks found for the provided ids");
     }
 
     return reply
@@ -687,7 +680,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string; entryId: string } }>("/:id/entries/:entryId", async (req, reply) => {
     const entry = (await storage.getEntry(req.params.entryId)) as LorebookEntry | null;
-    if (!entry) return reply.status(404).send({ error: "Entry not found" });
+    if (!entry) return notFound(reply, "Entry not found");
     return entry;
   });
 
@@ -734,7 +727,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const input = updateLorebookEntrySchema.parse(req.body);
     if (input.images !== undefined) {
       const entry = (await storage.getEntry(req.params.entryId)) as LorebookEntry | null;
-      if (!entry || entry.lorebookId !== req.params.id) return reply.status(404).send({ error: "Entry not found" });
+      if (!entry || entry.lorebookId !== req.params.id) return notFound(reply, "Entry not found");
       for (const image of input.images) {
         if (!(await readLorebookImageDataUrl(image.path)))
           return reply.status(400).send({ error: "Reference image not found" });
@@ -746,7 +739,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
         if (updated) await syncCharacterBookFromLorebook(tx, req.params.id, { throwOnError: true });
         return updated;
       });
-      if (!updated) return reply.status(404).send({ error: "Entry not found" });
+      if (!updated) return notFound(reply, "Entry not found");
       return updated;
     } catch (err) {
       if (err instanceof Error && err.message === "folderId does not belong to this lorebook") {
@@ -768,7 +761,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string; entryId: string } }>("/:id/entries/:entryId/images", async (req, reply) => {
     const entry = (await storage.getEntry(req.params.entryId)) as LorebookEntry | null;
-    if (!entry || entry.lorebookId !== req.params.id) return reply.status(404).send({ error: "Entry not found" });
+    if (!entry || entry.lorebookId !== req.params.id) return notFound(reply, "Entry not found");
     if ((entry.images?.length ?? 0) >= 4) return reply.status(400).send({ error: "Maximum 4 images per entry" });
     const file = await req.file({ limits: { fileSize: LOREBOOK_IMAGE_MAX_BYTES, files: 1 } });
     if (!file) return reply.status(400).send({ error: "No image uploaded" });
@@ -789,7 +782,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
         if (updated) await syncCharacterBookFromLorebook(tx, req.params.id, { throwOnError: true });
         return updated;
       });
-      if (!updated) return reply.status(404).send({ error: "Entry not found" });
+      if (!updated) return notFound(reply, "Entry not found");
       attached = true;
       return updated;
     } catch (error) {
@@ -841,7 +834,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       const [issue] = validationDetails(parsed.error.issues);
       return reply.status(400).send({ error: issue?.message ?? "Invalid request" });
     }
-    if (!(await storage.getById(req.params.id))) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!(await storage.getById(req.params.id))) return notFound(reply, "Lorebook not found");
     try {
       return await app.db.transaction(async (tx) => {
         const result = await createLorebooksStorage(tx).bulkEditEntries(req.params.id, parsed.data);
@@ -864,7 +857,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/:id/entries/bulk-delete", async (req, reply) => {
     const parsed = lorebookBulkDeleteSchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
-    if (!(await storage.getById(req.params.id))) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!(await storage.getById(req.params.id))) return notFound(reply, "Lorebook not found");
     const result = await storage.bulkRemoveEntries(req.params.id, parsed.data.entryIds, (tx) =>
       syncCharacterBookFromLorebook(tx, req.params.id, { throwOnError: true }),
     );
@@ -894,9 +887,9 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     }
 
     const sourceLorebook = await storage.getById(req.params.id);
-    if (!sourceLorebook) return reply.status(404).send({ error: "Source lorebook not found" });
+    if (!sourceLorebook) return notFound(reply, "Source lorebook not found");
     const targetLorebook = await storage.getById(targetLorebookId);
-    if (!targetLorebook) return reply.status(404).send({ error: "Target lorebook not found" });
+    if (!targetLorebook) return notFound(reply, "Target lorebook not found");
 
     const sourceEntries: LorebookEntry[] = [];
     for (const entryId of entryIds) {
@@ -904,7 +897,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       if (entry?.lorebookId === req.params.id) sourceEntries.push(entry);
     }
     if (sourceEntries.length === 0) {
-      return reply.status(404).send({ error: "No matching entries found in the source lorebook" });
+      return notFound(reply, "No matching entries found in the source lorebook");
     }
 
     const created: LorebookEntry[] = [];
@@ -1008,7 +1001,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     // Scope by lorebookId so /lorebooks/A/folders/B can't update folder B if
     // it actually belongs to lorebook X.
     const updated = await storage.updateFolder(req.params.folderId, input, req.params.id);
-    if (!updated) return reply.status(404).send({ error: "Folder not found" });
+    if (!updated) return notFound(reply, "Folder not found");
     return updated;
   });
 
@@ -1029,7 +1022,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     // the same lorebook. Scoped by lorebookId so /lorebooks/A/folders/B can't
     // clone a folder that belongs to lorebook X.
     const existing = await storage.getFolder(req.params.folderId, req.params.id);
-    if (!existing) return reply.status(404).send({ error: "Folder not found" });
+    if (!existing) return notFound(reply, "Folder not found");
     const created = await storage.cloneFolder(req.params.folderId, req.params.id);
     return reply.status(201).send(created);
   });
@@ -1395,7 +1388,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     { bodyLimit: LOREBOOK_TEST_BODY_LIMIT },
     async (req, reply) => {
       const lorebook = (await storage.getById(req.params.id)) as unknown as Lorebook | null;
-      if (!lorebook) return reply.status(404).send({ error: "Lorebook not found" });
+      if (!lorebook) return notFound(reply, "Lorebook not found");
       const chatId = typeof req.body?.chatId === "string" && req.body.chatId.trim() ? req.body.chatId.trim() : null;
       const text = typeof req.body?.text === "string" ? req.body.text.slice(0, LOREBOOK_TEST_MAX_TEXT) : "";
 
@@ -1406,7 +1399,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       if (chatId) {
         const chatsStorage = createChatsStorage(app.db);
         const chat = await chatsStorage.getById(chatId);
-        if (!chat) return reply.status(404).send({ error: "Chat not found" });
+        if (!chat) return notFound(reply, "Chat not found");
         messages = (await chatsStorage.listMessages(chatId)).map((message) => ({
           role: message.role === "narrator" ? "system" : String(message.role),
           content: typeof message.content === "string" ? message.content : "",
@@ -1442,7 +1435,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id/activation-stats", async (req, reply) => {
     const lorebook = await storage.getById(req.params.id);
-    if (!lorebook) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!lorebook) return notFound(reply, "Lorebook not found");
     const entries = (await storage.listEntries(req.params.id)) as unknown as Array<{ id: string }>;
     return listLorebookActivationStats(
       app.db,
@@ -1464,7 +1457,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const connStorage = createConnectionsStorage(app.db);
     const conn = useLocalSidecar || useBuiltinEmbedding ? null : await connStorage.getWithKey(body.connectionId);
     if (!useLocalSidecar && !useBuiltinEmbedding && !conn) {
-      return reply.status(404).send({ error: "Connection not found" });
+      return notFound(reply, "Connection not found");
     }
     // Resolve the source the way chat-time semantic matching does (Embedding Connection override
     // included), so stored entry vectors and query vectors land in the same embedding space.
@@ -1594,7 +1587,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.delete<{ Params: { id: string } }>("/:id/vectors", async (req, reply) => {
     const lorebook = await storage.getById(req.params.id);
-    if (!lorebook) return reply.status(404).send({ error: "Lorebook not found" });
+    if (!lorebook) return notFound(reply, "Lorebook not found");
 
     const entries = (await storage.listEntries(req.params.id)) as Array<Record<string, unknown>>;
     const cleared = entries.filter((entry) => Array.isArray(entry.embedding) && entry.embedding.length > 0).length;

@@ -227,6 +227,18 @@ export function mergePairedBuiltInRewriteAgents(agents: ResolvedAgent[]): Resolv
   return merged;
 }
 
+/**
+ * The rewrite runs left once activation gating has skipped some agents. Pairs are merged only
+ * from the agents still active, so a gated-off agent neither drops its partner's rewrite nor
+ * keeps its own instructions in the merged request.
+ */
+export function activeTextRewriteRunAgents(
+  textRewriteAgents: ResolvedAgent[],
+  inactiveAgentIds: ReadonlySet<string>,
+): ResolvedAgent[] {
+  return mergePairedBuiltInRewriteAgents(textRewriteAgents.filter((agent) => !inactiveAgentIds.has(agent.id)));
+}
+
 export function normalizeProseGuardianPromptTemplate(agentType: string, promptTemplate: unknown): string {
   const template = typeof promptTemplate === "string" ? promptTemplate : "";
   if (agentType !== "prose-guardian") return template;

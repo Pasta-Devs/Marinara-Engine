@@ -104,7 +104,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
           opaque
           chatFloatingPanel
           restoreFocusRef={btnRef}
-          panelClassName="ovm-qs-modal max-sm:h-[calc(100dvh-1.5rem)] max-sm:min-h-0"
+          panelClassName="ovm-qs-modal max-sm:h-[calc(var(--mari-visual-viewport-height,100dvh)-1.5rem)] max-sm:min-h-0"
           contentClassName="flex flex-col overflow-hidden !p-0"
         >
           <div data-quick-switcher-mobile-menu className="flex min-h-0 flex-1 flex-col">

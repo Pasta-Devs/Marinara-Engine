@@ -20,8 +20,9 @@ import { useSpatialContext } from "../../hooks/use-spatial-context";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
-import { BackgroundPicker } from "../panels/settings/BackgroundPicker";
-import { SETTINGS_BUTTON_CLASS } from "../panels/settings/SettingControls";
+import { BackgroundPicker } from "../../components/panels/settings/BackgroundPicker";
+import { SETTINGS_BUTTON_CLASS } from "../../components/panels/settings/SettingControls";
+import { Select } from "../../components/ui/Select";
 
 const FIELD_CLASS =
   "w-full min-w-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/60 focus:border-[var(--primary)]/50 max-sm:!text-base";
@@ -166,19 +167,16 @@ function PinRow({
           className={cn(FIELD_CLASS, "text-[0.6875rem]")}
         />
         {mapPlaces && mapPlaces.length > 0 && (
-          <select
+          <Select
             value={pin.placeId ?? ""}
-            onChange={(event) => onChange({ ...pin, placeId: event.target.value || null })}
-            aria-label={t("chat.settings.locationPins.mapPlace")}
+            options={[
+              { value: "", label: t("chat.settings.locationPins.noMapPlace") },
+              ...mapPlaces.map((place) => ({ value: place.id, label: place.name })),
+            ]}
+            onChange={(value) => onChange({ ...pin, placeId: value || null })}
+            label={t("chat.settings.locationPins.mapPlace")}
             className={cn(FIELD_CLASS, "text-[0.6875rem]")}
-          >
-            <option value="">{t("chat.settings.locationPins.noMapPlace")}</option>
-            {mapPlaces.map((place) => (
-              <option key={place.id} value={place.id}>
-                {place.name}
-              </option>
-            ))}
-          </select>
+          />
         )}
       </div>
       <div className="shrink-0">

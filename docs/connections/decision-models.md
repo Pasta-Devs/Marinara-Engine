@@ -92,7 +92,7 @@ Jev and Open-Jev are different models. Jev is TypeSafe's hosted model, available
 
 On Android (Termux), only JevK5 and Liquid d1 are offered as the **Built-in decision model**, and a phone's processor can be too slow for them. A hosted account is the practical choice, for example Jev through OpenRouter. See [Set up a Decision account](#set-up-a-decision-account).
 
-Write presets, cards, and agents for "a decision model", never "requires Jev". A statement that asks for pictures still works with a model that reads only text: it gets the text alone. They use the same statement syntax with any model, but models can give different answers. When you import content that uses decisions, including custom agents and official agent installs, Marinara shows a notice that links here. Restoring a whole profile ZIP does not show it.
+Write presets, cards, and agents for "a decision model", never "requires Jev". A statement that asks for pictures still works with a model that reads only text: it gets the text alone. They use the same statement syntax with any model, but models can give different answers. When you import content that uses decisions, including custom agents and Agent Organizer installs, Marinara shows a notice that links here. Restoring a whole profile ZIP does not show it.
 
 ## Use the Built-in model
 

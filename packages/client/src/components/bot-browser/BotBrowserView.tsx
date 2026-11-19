@@ -78,6 +78,7 @@ import { ImportTagChecks, importTagsBody, useImportTagChoice } from "../modals/I
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 import { SurfaceBackButton } from "../ui/SurfaceBackButton";
 import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseButton";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
 import {
@@ -3031,32 +3032,23 @@ export function BotBrowserView() {
                   )}
                 </div>
 
-                <select
+                <Select
                   value={sort}
-                  onChange={(e) => {
-                    setSort(e.target.value);
+                  onChange={(next) => {
+                    setSort(next);
                     setPage(1);
                   }}
+                  label={localizeUi("ui.botBrowser.botbrowserview.sortBy")}
+                  searchable={false}
                   className="mari-chrome-field h-10 px-3 py-0 text-xs md:h-9"
-                >
-                  {sortGroups.map((group) =>
-                    group.label ? (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.options.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.labelKey ? localizeUi(opt.labelKey) : opt.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ) : (
-                      group.options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.labelKey ? localizeUi(opt.labelKey) : opt.label}
-                        </option>
-                      ))
-                    ),
+                  options={sortGroups.flatMap((group) =>
+                    group.options.map((opt) => ({
+                      value: opt.value,
+                      label: (opt.labelKey ? localizeUi(opt.labelKey) : opt.label) ?? "",
+                      group: group.label || undefined,
+                    })),
                   )}
-                </select>
+                />
 
                 <button
                   onClick={() => setShowTagPanel((v) => !v)}
@@ -3238,17 +3230,20 @@ export function BotBrowserView() {
                           <label className="mari-chrome-text-muted w-24 text-xs">
                             {localizeUi("ui.botBrowser.botbrowserview.sortDirection")}
                           </label>
-                          <select
+                          <Select
                             value={sortAsc ? "asc" : "desc"}
-                            onChange={(e) => {
-                              setSortAsc(e.target.value === "asc");
+                            onChange={(next) => {
+                              setSortAsc(next === "asc");
                               setPage(1);
                             }}
+                            label={localizeUi("ui.botBrowser.botbrowserview.sortDirection")}
+                            searchable={false}
                             className="mari-chrome-field mari-chrome-field--compact px-2 py-1 text-xs"
-                          >
-                            <option value="desc">{localizeUi("ui.botBrowser.botbrowserview.descending")}</option>
-                            <option value="asc">{localizeUi("ui.botBrowser.botbrowserview.ascending")}</option>
-                          </select>
+                            options={[
+                              { value: "desc", label: localizeUi("ui.botBrowser.botbrowserview.descending") },
+                              { value: "asc", label: localizeUi("ui.botBrowser.botbrowserview.ascending") },
+                            ]}
+                          />
                         </div>
                       )}
                       {provider.hasTokenFilters && (
@@ -3334,22 +3329,20 @@ export function BotBrowserView() {
                         {localizeUi("ui.botBrowser.botbrowserview.previous")}
                       </button>
                       {hasMore === undefined && totalPages > 1 && totalPages < 9000 ? (
-                        <label className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+                        <div className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
                           {localizeUi("ui.botBrowser.botbrowserview.page")}
-                          <select
-                            aria-label={localizeUi("ui.botBrowser.botbrowserview.page")}
-                            value={page}
-                            onChange={(event) => setPage(Number(event.target.value))}
+                          <Select
+                            label={localizeUi("ui.botBrowser.botbrowserview.page")}
+                            value={String(page)}
+                            onChange={(next) => setPage(Number(next))}
                             className="mari-chrome-field mari-chrome-field--compact px-2 py-1 text-xs"
-                          >
-                            {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-                              <option key={pageNumber} value={pageNumber}>
-                                {pageNumber}
-                              </option>
-                            ))}
-                          </select>
+                            options={Array.from({ length: totalPages }, (_, index) => ({
+                              value: String(index + 1),
+                              label: String(index + 1),
+                            }))}
+                          />
                           {localizeUi("ui.botBrowser.botbrowserview.ofValue1", { value1: totalPages })}
-                        </label>
+                        </div>
                       ) : (
                         <span className="text-xs text-[var(--muted-foreground)]">
                           {localizeUi("ui.botBrowser.botbrowserview.page")} {page}

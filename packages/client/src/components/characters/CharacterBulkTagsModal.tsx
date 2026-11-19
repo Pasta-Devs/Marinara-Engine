@@ -16,6 +16,7 @@ import {
   type CharacterTagEdit,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { Select } from "../ui/Select";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { cn } from "../../lib/utils";
 import { useAllCharacterCatalog, useBulkEditCharacterTags } from "../../hooks/use-characters";
@@ -193,23 +194,19 @@ export function CharacterBulkTagsModal({ open, onClose, selectedIds, onApplied }
             <span className="text-xs font-medium">{t("characters.bulkTags.rename")}</span>
             {renames.map((rename, index) => (
               <div key={index} className="flex items-center gap-1.5">
-                <select
+                <Select
                   value={rename.from}
-                  onChange={(event) =>
-                    setRenames((current) =>
-                      current.map((item, i) => (i === index ? { ...item, from: event.target.value } : item)),
-                    )
+                  placeholder={t("characters.bulkTags.renameFrom")}
+                  onChange={(next) =>
+                    setRenames((current) => current.map((item, i) => (i === index ? { ...item, from: next } : item)))
                   }
-                  aria-label={t("characters.bulkTags.renameFrom")}
+                  label={t("characters.bulkTags.renameFrom")}
                   className="mari-chrome-field h-9 min-w-0 flex-1 px-2 text-xs"
-                >
-                  <option value="">{t("characters.bulkTags.renameFrom")}</option>
-                  {existingTags.map(([tag]) => (
-                    <option key={tag} value={tag}>
-                      {tag}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: "", label: t("characters.bulkTags.renameFrom") },
+                    ...existingTags.map(([tag]) => ({ value: tag, label: tag })),
+                  ]}
+                />
                 <ArrowRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
                 <input
                   value={rename.to}

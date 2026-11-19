@@ -5,6 +5,7 @@ import { ConnectionSelect } from "../../../components/connections/ConnectionSele
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
 import { QUICK_REPLIES_SETTINGS_CONTROL_ID, useUIStore } from "../../../stores/ui.store";
+import { Select } from "../../../components/ui/Select";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { ImpersonatePromptTemplateField } from "./ImpersonatePromptTemplateField";
 
@@ -26,6 +27,8 @@ export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
   };
   const blockAgents = useUIStore((state) => state.impersonateBlockAgents);
   const setBlockAgents = useUIStore((state) => state.setImpersonateBlockAgents);
+  const publicFaces = useUIStore((state) => state.impersonatePublicFaces);
+  const setPublicFaces = useUIStore((state) => state.setImpersonatePublicFaces);
   const openRightPanel = useUIStore((state) => state.openRightPanel);
   const setSettingsTargetControlId = useUIStore((state) => state.setSettingsTargetControlId);
 
@@ -47,7 +50,7 @@ export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
 
         <div className="border-t border-[var(--border)]/60 pt-2.5">
           <div className="grid gap-3 pb-2.5 @lg:grid-cols-2">
-            <label className="min-w-0 space-y-1">
+            <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[0.6875rem] font-semibold">{localizeUi("chat.toolbar.preset")}</span>
                 <HelpTooltip
@@ -56,19 +59,17 @@ export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
                   )}
                 />
               </div>
-              <select
+              <Select
+                label={localizeUi("chat.toolbar.preset")}
                 value={presetId ?? ""}
-                onChange={(event) => setPresetId(event.target.value || null)}
+                options={[
+                  { value: "", label: localizeUi("ui.chatSettings.impersonatesection.useChatDefault") },
+                  ...presets.map((preset) => ({ value: preset.id, label: preset.name })),
+                ]}
+                onChange={(value) => setPresetId(value || null)}
                 className="w-full rounded-lg bg-[var(--secondary)]/70 px-2.5 py-1.5 text-xs outline-none ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)] focus:ring-2 focus:ring-[var(--ring)]"
-              >
-                <option value="">{localizeUi("ui.chatSettings.impersonatesection.useChatDefault")}</option>
-                {presets.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              />
+            </div>
 
             <label className="min-w-0 space-y-1">
               <div className="flex items-center gap-1.5">
@@ -101,6 +102,18 @@ export function ImpersonateSection({ presets }: ImpersonateSectionProps) {
               helpPosition="label"
               checked={blockAgents}
               onChange={setBlockAgents}
+              labelPosition="start"
+              className="justify-between rounded-md px-2 py-1.5 text-left"
+              labelClassName="text-xs font-semibold"
+            />
+
+            <SettingsSwitch
+              label={localizeUi("ui.chatSettings.impersonatesection.sendPublicFaces")}
+              help={localizeUi("ui.chatSettings.impersonatesection.sendPublicFacesHelp")}
+              description={localizeUi("ui.chatSettings.impersonatesection.sendPublicFacesDescription")}
+              helpPosition="label"
+              checked={publicFaces}
+              onChange={setPublicFaces}
               labelPosition="start"
               className="justify-between rounded-md px-2 py-1.5 text-left"
               labelClassName="text-xs font-semibold"

@@ -49,6 +49,7 @@ import {
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { sendValidatedMediaFile, validateImageAssetFile } from "../utils/media-file-security.js";
 import type { MarinaraRouteRateLimit } from "../middleware/rate-limit.js";
+import { notFound } from "../utils/not-found.js";
 
 type OwnerParams = { ownerType: string; ownerId: string };
 
@@ -159,7 +160,7 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
     if (!owner) return reply.status(400).send({ error: "Invalid character or persona" });
     const config = await readAvatarConfig(owner);
     if (config) return config;
-    if (!(await ownerExists(owner))) return reply.status(404).send({ error: "Character or persona not found" });
+    if (!(await ownerExists(owner))) return notFound(reply, "Character or persona not found");
     // JSON null, not a 404: picking an owner without an avatar is normal, and the browser logs every 404.
     return reply.type("application/json").send("null");
   });
@@ -175,7 +176,7 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
         const [issue] = validationDetails(parsed.error.issues);
         return reply.status(400).send({ error: issue?.message ?? "Invalid avatar settings" });
       }
-      if (!(await ownerExists(owner))) return reply.status(404).send({ error: "Character or persona not found" });
+      if (!(await ownerExists(owner))) return notFound(reply, "Character or persona not found");
       const update = parsed.data;
       try {
         const config = await updateAvatarConfig(owner, (current): AvatarConfig => {
@@ -191,7 +192,7 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
           };
         });
         if (await ownerGoneAfterWrite(owner)) {
-          return reply.status(404).send({ error: "Character or persona not found" });
+          return notFound(reply, "Character or persona not found");
         }
         return config;
       } catch (error) {
@@ -227,7 +228,7 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
   app.post<{ Params: OwnerParams }>("/:ownerType/:ownerId/import", routeOptions, async (req, reply) => {
     const owner = parseOwner(req.params);
     if (!owner) return reply.status(400).send({ error: "Invalid character or persona" });
-    if (!(await ownerExists(owner))) return reply.status(404).send({ error: "Character or persona not found" });
+    if (!(await ownerExists(owner))) return notFound(reply, "Character or persona not found");
 
     // The global multipart cap (AVATAR_IMPORT_MAX_BYTES) is the only size limit.
     const data = await req.file({ limits: { fileSize: AVATAR_IMPORT_MAX_BYTES, files: 1 } });
@@ -280,7 +281,7 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
         return extracted;
       });
       if (await ownerGoneAfterWrite(owner)) {
-        return reply.status(404).send({ error: "Character or persona not found" });
+        return notFound(reply, "Character or persona not found");
       }
       logger.info("[avatars] Imported a %s avatar for %s %s", result.kind, owner.ownerType, owner.ownerId);
       return result;
@@ -311,14 +312,14 @@ export async function avatarModelsRoutes(app: FastifyInstance) {
       if (kind === "pngtuber") {
         // PNGTuber layers are raster images only; SVG is never served from here.
         const image = await validateImageAssetFile(filePath, name);
-        if (!image) return reply.status(404).send({ error: "Not found" });
+        if (!image) return notFound(reply, "Not found");
         return sendValidatedMediaFile(reply, image, sendOptions);
       }
       if (kind !== "mmd" && !AVATAR_IMPORT_EXTENSIONS[kind].includes(extname(name).toLowerCase())) {
-        return reply.status(404).send({ error: "Not found" });
+        return notFound(reply, "Not found");
       }
       const model = await openModelFile(filePath, kind);
-      if (!model) return reply.status(404).send({ error: "Not found" });
+      if (!model) return notFound(reply, "Not found");
       return sendValidatedMediaFile(reply, model, sendOptions);
     },
   );

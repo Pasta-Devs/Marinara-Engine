@@ -1,6 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseOption } from "./select-field.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
@@ -321,7 +322,7 @@ test("the guided builder applies picks, rolls and buys scores, and saves the she
     const rolled = (await page.getByText(/^Rolled: /).textContent())!.replace("Rolled: ", "").split(", ").map(Number);
     expect(rolled).toHaveLength(6);
     for (const value of rolled) expect(value >= 3 && value <= 18).toBe(true);
-    await page.getByRole("combobox", { name: "Base score for Constitution" }).selectOption("0");
+    await chooseOption(page, page.getByRole("combobox", { name: "Base score for Constitution" }), String(rolled[0]));
     await expect(summary.getByText(String(rolled[0]! + 2), { exact: true }).first()).toBeVisible();
     await expect(steps.getByRole("button", { name: "Ability Scores 5 choices left", exact: true })).toBeVisible();
 
@@ -652,21 +653,44 @@ test("rating stages retain priority purchases, free ranks and manual overrides",
     await expect(page.getByRole("button", { name: "Next", exact: true })).toBeEnabled();
     await steps.getByRole("button", { name: /^Dots/ }).click();
     await expect(page.getByRole("button", { name: "Raise Strength", exact: true })).toBeDisabled();
-    await page.getByLabel("Allotment for Physical", { exact: true }).selectOption("0");
-    await page.getByLabel("Allotment for Social", { exact: true }).selectOption("1");
-    await page.getByLabel("Allotment for Mental", { exact: true }).selectOption("2");
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Allotment for Physical", exact: true }),
+      "Primary (7 dots)",
+    );
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Allotment for Social", exact: true }),
+      "Secondary (5 dots)",
+    );
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Allotment for Mental", exact: true }),
+      "Tertiary (3 dots)",
+    );
     for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Raise Strength", exact: true }).click();
     await expect(page.getByRole("button", { name: "Raise Strength", exact: true })).toBeDisabled();
     for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Raise Dexterity", exact: true }).click();
     await expect(page.getByRole("button", { name: "Raise Constitution", exact: true })).toBeDisabled();
     await page.getByLabel("Notes for Strength (optional)", { exact: true }).fill("Heritage specialty");
-    await page.getByLabel("Allotment for Physical", { exact: true }).selectOption("2");
-    await expect(page.getByLabel("Allotment for Mental", { exact: true })).toHaveValue("0");
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Allotment for Physical", exact: true }),
+      "Tertiary (3 dots)",
+    );
+    await expect(page.getByRole("combobox", { name: "Allotment for Mental", exact: true })).toHaveAttribute(
+      "data-value",
+      "0",
+    );
     await expect(
       page.getByText("4 saved dots are inactive. Reduce or clear them to fit this stage.", { exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Next", exact: true })).toBeEnabled();
-    await page.getByLabel("Allotment for Physical", { exact: true }).selectOption("0");
+    await chooseOption(
+      page,
+      page.getByRole("combobox", { name: "Allotment for Physical", exact: true }),
+      "Primary (7 dots)",
+    );
     await expect(page.getByText("Base/prior 1 · Free 0 · Bought 4 · Total 5", { exact: true })).toBeVisible();
     await steps.getByRole("button", { name: /^Appearance/ }).click();
     await expect(page.getByRole("button", { name: "Raise Appearance", exact: true })).toBeDisabled();

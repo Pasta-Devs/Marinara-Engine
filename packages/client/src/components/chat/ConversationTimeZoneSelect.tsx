@@ -12,6 +12,7 @@ import {
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
 type ConversationTimeZoneSelectProps = {
@@ -97,22 +98,18 @@ export function ConversationTimeZoneSelect({
             (containerQueries ? "@lg:grid-cols-[minmax(0,1fr)_auto]" : "sm:grid-cols-[minmax(0,1fr)_auto]"),
         )}
       >
-        <select
+        <Select
           id={selectId}
+          label={localizeUi("ui.chat.conversationtimezoneselect.scheduleTimezone")}
           value={conversationTimeZone}
           disabled={isSaving}
-          onChange={(event) => selectTimeZone(event.target.value)}
+          options={timeZoneOptions.map(({ timeZone, label }) => ({ value: timeZone, label }))}
+          onChange={selectTimeZone}
           className={cn(
             "min-h-10 max-sm:min-h-11 max-sm:text-base w-full rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-[0.6875rem] text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/60 focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-wait disabled:opacity-60",
             compact && "min-h-9 bg-[var(--background)]",
           )}
-        >
-          {timeZoneOptions.map(({ timeZone, label }) => (
-            <option key={timeZone} value={timeZone}>
-              {label}
-            </option>
-          ))}
-        </select>
+        />
 
         {conversationTimeZone !== detectedTimeZone && (
           <button

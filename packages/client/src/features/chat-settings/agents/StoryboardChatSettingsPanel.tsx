@@ -13,11 +13,11 @@ import {
   type StoryboardViewerMode,
 } from "@marinara-engine/shared";
 import { mergeBuiltInAgentSettings, normalizeStoryboardAgentSettings } from "@marinara-engine/shared";
-import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
-import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
-import { useUpdateChatMetadata } from "../../hooks/use-chats";
-import { ConnectionSelect, type ConnectionSelectKind } from "../../components/connections/ConnectionSelect";
-import { useUIStore } from "../../stores/ui.store";
+import { useAgentConfigs, type AgentConfigRow } from "../../../hooks/use-agents";
+import { useCapabilityAgentRegistry } from "../../../hooks/use-capability-packages";
+import { useUpdateChatMetadata } from "../../../hooks/use-chats";
+import { ConnectionSelect, type ConnectionSelectKind } from "../../../components/connections/ConnectionSelect";
+import { useUIStore } from "../../../stores/ui.store";
 import {
   AgentSettingsActionButton,
   AgentDefaultStatus,
@@ -25,7 +25,7 @@ import {
   AgentSettingsSubsection,
   AgentSettingsToggle,
   GamePromptTemplateSelect,
-} from "../../components/chat/AgentSettingsControls";
+} from "../../../components/chat/AgentSettingsControls";
 
 type StoryboardChatSettingsPanelProps = {
   active: boolean;

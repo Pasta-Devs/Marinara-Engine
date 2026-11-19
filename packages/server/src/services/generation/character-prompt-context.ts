@@ -1,6 +1,7 @@
 import {
   formatRpgStatsForPrompt,
   nameToXmlTag,
+  normalizeNameAliases,
   normalizeRpgStatPools,
   readImageAppearanceOverride,
   resolveMacros,
@@ -16,6 +17,8 @@ import { cardPromptText } from "../prompt/card-text.js";
 export type CharacterPromptInfo = {
   id: string;
   name: string;
+  /** Other names the card goes by; the Character Tracker links tracked rows to the card by them. */
+  nameAliases?: string[];
   world?: string;
   description: string;
   personality: string;
@@ -23,6 +26,8 @@ export type CharacterPromptInfo = {
   systemPrompt: string;
   backstory: string;
   appearance: string;
+  /** For the {{publicFace}} macro only; never part of the character's own card. */
+  publicFace: string;
   /**
    * Image-prompt-only appearance override (#7053). Set when the card enables
    * `extensions.imageAppearanceEnabled` with non-empty `extensions.imageAppearance`.
@@ -151,6 +156,7 @@ export async function loadCharacterPromptInfo({
     charInfo.push({
       id: cid,
       name: charData.name ?? "Unknown",
+      nameAliases: normalizeNameAliases(charData.extensions?.nameAliases),
       world: cardPromptText(charData.extensions?.world) || undefined,
       description,
       personality: cardPromptText(charData.personality),
@@ -158,6 +164,7 @@ export async function loadCharacterPromptInfo({
       systemPrompt: cardPromptText(charData.system_prompt),
       backstory: cardPromptText(charData.extensions?.backstory),
       appearance: cardPromptText(charData.extensions?.appearance),
+      publicFace: cardPromptText(charData.extensions?.publicFace),
       imageAppearanceOverride: readImageAppearanceOverride(charData.extensions, null) ?? undefined,
       mesExample: cardPromptText(charData.mes_example),
       firstMes: cardPromptText(charData.first_mes),
@@ -185,6 +192,7 @@ export function buildCharacterMacroProfilesById(charInfo: CharacterPromptInfo[])
         personality: character.personality,
         backstory: character.backstory,
         appearance: character.appearance,
+        publicFace: character.publicFace,
         scenario: character.scenario,
         example: character.mesExample,
         systemPrompt: character.systemPrompt,
@@ -207,6 +215,52 @@ function wrapFieldEntries(fields: Array<{ label: string; value: string }>, forma
         2,
       ),
     );
+}
+
+/**
+ * #9425: what one Individual-group responder may know about the other active characters, from
+ * their Public Faces. Each resolves its macros as its own character. Returns "" when none has one.
+ * Labels are never a bare character name, because per-responder scoping strips blocks named after
+ * other characters.
+ */
+export function buildOtherPublicFacesBlock(args: {
+  profilesById: ReadonlyMap<string, CharacterMacroProfile>;
+  activeCharacterIds: readonly string[];
+  targetCharacterId: string;
+  promptMacroContext: MacroContext;
+  wrapFormat: WrapFormat;
+}): string {
+  const entries = args.activeCharacterIds.flatMap((id) => {
+    const profile = args.profilesById.get(id);
+    if (id === args.targetCharacterId || !profile?.publicFace?.trim()) return [];
+    const text = resolveMacros(profile.publicFace, {
+      ...args.promptMacroContext,
+      char: profile.name,
+      charPhonetic: profile.phoneticName || profile.name,
+      characterFields: { ...profile },
+    }).trim();
+    if (!text) return [];
+    const leaf = sanitizePromptLeaf(text, args.wrapFormat);
+    // "none" drops wrapper labels, and this block exists to tell the characters apart.
+    if (args.wrapFormat === "none") return [`${profile.name}: ${leaf}`];
+    return [wrapContent(leaf, `${profile.name} (public face)`, args.wrapFormat, 1)];
+  });
+  if (entries.length === 0) return "";
+  return wrapContent(
+    [
+      "What the rest of the scene can see or know about the other characters. It is not their full character card: treat anything beyond it as unknown.",
+      ...entries,
+    ].join("\n"),
+    "other characters",
+    args.wrapFormat,
+  );
+}
+
+/** Adds a system message right after the first one, where the character cards usually sit. */
+export function insertAfterFirstSystemMessage(messages: GenerationPromptMessage[], content: string): void {
+  if (!content) return;
+  const firstSystem = messages.findIndex((message) => message.role === "system");
+  messages.splice(firstSystem >= 0 ? firstSystem + 1 : 0, 0, { role: "system", content });
 }
 
 function hasNamedProfileBlock(content: string, name: string): boolean {
@@ -242,6 +296,8 @@ export function injectIdentityFallbackMessages(args: {
   /** Conversation mode only: enables the opt-in per-card convo display-name line.
    *  Gated so the field never reaches RP/VN/Game prompts. */
   isConversation?: boolean;
+  /** #9427: an impersonated Roleplay turn, so a card with a Public Face sends only it. */
+  impersonatePublicFaces?: boolean;
 }): void {
   const allContent = args.messages.map((message) => message.content).join("\n");
   const promptTemplateSources = args.promptTemplateSources ?? [];
@@ -259,12 +315,26 @@ export function injectIdentityFallbackMessages(args: {
         scenario: character.scenario,
         backstory: character.backstory,
         appearance: character.appearance,
+        publicFace: character.publicFace,
         example: character.mesExample,
         systemPrompt: character.systemPrompt,
         postHistoryInstructions: character.postHistoryInstructions,
       },
     };
     const resolveCharacterMacros = (value: string) => resolveMacros(value, characterMacroContext);
+    const publicFace = args.impersonatePublicFaces === true ? character.publicFace.trim() : "";
+    if (publicFace) {
+      if (hasNamedProfileBlock(allContent, character.name)) continue;
+      // Only Roleplay without a preset gets here, always in the xml format, so "none" needs no name line.
+      const leaf = sanitizePromptLeaf(resolveCharacterMacros(publicFace), args.wrapFormat).trim();
+      if (leaf) {
+        insertAfterFirstSystemMessage(
+          args.messages,
+          wrapContent(wrapContent(leaf, "public_face", args.wrapFormat, 2), character.name, args.wrapFormat, 1),
+        );
+      }
+      continue;
+    }
     const resolvedFields: Record<CharacterFallbackFieldKey, string> = {
       description: resolveCharacterMacros(character.description),
       personality: resolveCharacterMacros(character.personality),

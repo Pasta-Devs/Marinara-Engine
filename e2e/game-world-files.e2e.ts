@@ -16,6 +16,7 @@ import { downloadExport } from "./export-save.js";
 import { openGame } from "./game-ruleset-fight-fixture.js";
 import { seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
+import { chooseOption, pickerLabels } from "./select-field.js";
 
 /**
  * Kit and world share files (worldgen W9d), on screen: a world file is imported into a new game's setup
@@ -223,8 +224,8 @@ test("a world from the library comes into a new game's setup with its kit, hand 
       await expect(heading).not.toHaveText(previous);
     }
     const picker = wizard.getByRole("combobox", { name: "Your worlds", exact: true });
-    await expect(picker.locator(`option[value="${libraryId}"]`)).toHaveCount(1);
-    await picker.selectOption(libraryId);
+    expect(await pickerLabels(page, picker)).toContain("Library Riverlands (High fantasy)");
+    await chooseOption(page, picker, "Library Riverlands (High fantasy)");
     await expect(wizard.getByText("Imported the world Library Riverlands with its setting kit.")).toBeVisible();
     await expect(wizard.getByText("This world has hand edits.", { exact: false })).toBeVisible();
     await expect(wizard.getByText("This world has a story", { exact: false })).toBeVisible();

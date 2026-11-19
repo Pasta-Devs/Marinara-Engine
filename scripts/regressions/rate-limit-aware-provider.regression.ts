@@ -24,11 +24,7 @@ assert.equal(parseRetryAfterMs("12"), 12_000, "delta-seconds parse to ms");
 assert.equal(parseRetryAfterMs("0"), 0, "zero seconds is a valid immediate retry");
 assert.equal(parseRetryAfterMs(null), undefined, "absent header yields undefined");
 assert.equal(parseRetryAfterMs("not-a-date"), undefined, "unparseable header yields undefined");
-assert.equal(
-  parseRetryAfterMs("Wed, 21 Oct 1999 07:28:00 GMT"),
-  0,
-  "a past HTTP-date clamps to 0, never negative",
-);
+assert.equal(parseRetryAfterMs("Wed, 21 Oct 1999 07:28:00 GMT"), 0, "a past HTTP-date clamps to 0, never negative");
 
 // ── isRateLimitError classification ───────────────────────────────
 assert.equal(isRateLimitError(new LLMHttpError("x", { status: 429 })), true, "429 is retryable");
@@ -67,7 +63,7 @@ const OK: ChatCompletionResult = {
 
 class ScriptedProvider extends BaseLLMProvider {
   public calls = 0;
-  constructor(private readonly plan: Array<"429" | "400" | "ok">) {
+  constructor(private readonly plan: Array<"429" | "429-slow" | "400" | "ok">) {
     super("", "", 1000, null, null);
   }
   // eslint-disable-next-line require-yield
@@ -78,6 +74,7 @@ class ScriptedProvider extends BaseLLMProvider {
     const step = this.plan[Math.min(this.calls, this.plan.length - 1)];
     this.calls += 1;
     if (step === "429") throw new LLMHttpError("rate limited", { status: 429, retryAfterMs: 0 });
+    if (step === "429-slow") throw new LLMHttpError("rate limited", { status: 429, retryAfterMs: 5_000 });
     if (step === "400") throw new LLMHttpError("bad request", { status: 400 });
     return OK;
   }
@@ -115,6 +112,19 @@ assert.equal(
   MAX_RATE_LIMIT_RETRIES + 1,
   "it makes the initial attempt plus exactly MAX_RATE_LIMIT_RETRIES retries",
 );
+
+// Aborting during the backoff wait rejects with the signal's own reason, not a generic abort error.
+const waiting = new ScriptedProvider(["429-slow", "ok"]);
+const waitController = new AbortController();
+const reason = new Error("caller stopped the generation");
+setTimeout(() => waitController.abort(reason), 20);
+await assert.rejects(
+  () =>
+    withRateLimitAwareProvider(waiting, "conn-abort").chatComplete([], { ...options, signal: waitController.signal }),
+  (error) => error === reason,
+  "the backoff wait surfaces the abort reason unchanged",
+);
+assert.equal(waiting.calls, 1, "an aborted backoff makes no second attempt");
 
 // The decorator factory is idempotent (never nests two retry layers).
 const base = new ScriptedProvider(["ok"]);

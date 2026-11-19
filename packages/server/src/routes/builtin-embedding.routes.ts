@@ -14,7 +14,7 @@ import {
 } from "@marinara-engine/shared";
 import { logger } from "../lib/logger.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
-import { UTILITY_SIDECAR_RATE_LIMIT } from "../middleware/rate-limit.js";
+import { STATUS_POLL_RATE_LIMIT, UTILITY_SIDECAR_RATE_LIMIT } from "../middleware/rate-limit.js";
 import { withLongTermMemoryEmbeddingChange } from "../services/generation/long-term-memory-runtime.js";
 import {
   readDefaultEmbeddingConnectionId,
@@ -32,8 +32,10 @@ function message(error: unknown): string {
 }
 
 export async function builtinEmbeddingRoutes(app: FastifyInstance) {
-  // No route limit of its own: the page polls this once a second during a download, so the default rule applies.
-  app.get("/status", async () => builtinEmbeddingService.getStatus());
+  // The page polls this once a second during a download, so it gets a poll-sized limit, not the utility one.
+  app.get("/status", { config: { rateLimit: STATUS_POLL_RATE_LIMIT } }, async () =>
+    builtinEmbeddingService.getStatus(),
+  );
 
   /**
    * Starts the download and answers at once; /status shows progress. When it finishes it becomes the model in use,

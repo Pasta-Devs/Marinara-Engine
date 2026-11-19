@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { chooseOption } from "./select-field.js";
 import { chooseCharacter } from "./character-picker.js";
 import { chatSettingsDrawer, drawerToggle, openChatSettings } from "./chat-settings-tools.js";
 
@@ -192,6 +193,7 @@ for (const resultType of ["lorebook_update", "context_injection"] as const) {
         }, type);
       };
       const order = page.getByRole("combobox", { name: "New entry order", exact: true });
+      const legacyLabel = resultType === "lorebook_update" ? "Agent-supplied (defaults to 100)" : "Default (100)";
       const fixed = page.getByRole("spinbutton", { name: "Fixed order", exact: true });
       const editor = page.locator(".mari-editor-shell").filter({ has: order });
       const saveAndVerify = async (value: number | string | undefined) => {
@@ -211,25 +213,25 @@ for (const resultType of ["lorebook_update", "context_injection"] as const) {
 
       await page.goto("/");
       await openAgent();
-      await expect(order).toHaveValue("legacy");
+      await expect(order).toHaveAttribute("data-value", "legacy");
       await expect(fixed).toBeHidden();
       await editor.getByPlaceholder("Agent name…").fill("Renamed lorebook writer");
       await saveAndVerify(undefined);
-      await expect(order).toHaveValue("legacy");
+      await expect(order).toHaveAttribute("data-value", "legacy");
 
-      await order.selectOption("fixed");
+      await chooseOption(page, order, "Fixed");
       await expect(fixed).toHaveValue("100");
       await saveAndVerify(100);
       await expect(fixed).toHaveValue("100");
 
-      await order.selectOption("growing");
+      await chooseOption(page, order, "Growing");
       await saveAndVerify("growing");
-      await expect(order).toHaveValue("growing");
+      await expect(order).toHaveAttribute("data-value", "growing");
       await expect(fixed).toBeHidden();
 
-      await order.selectOption("legacy");
+      await chooseOption(page, order, legacyLabel);
       await saveAndVerify(undefined);
-      await expect(order).toHaveValue("legacy");
+      await expect(order).toHaveAttribute("data-value", "legacy");
     } finally {
       if (agentId) await request.delete(`/api/agents/${agentId}`);
       await request.delete(`/api/lorebooks/${book.id}`);

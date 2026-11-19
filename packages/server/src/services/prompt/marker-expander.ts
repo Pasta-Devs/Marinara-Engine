@@ -31,7 +31,7 @@ import {
   type LorebookScanResult,
 } from "../lorebook/index.js";
 import { COMMITTED_TRACKER_AGENT_TYPES } from "../generation/committed-tracker-context.js";
-import { cardPromptText } from "./card-text.js";
+import { cardPromptText, impersonatePublicFaceText } from "./card-text.js";
 import { wrapContent } from "./format-engine.js";
 import { advancedMemoryMarkerContent, type AdvancedMemoryPromptParts } from "./advanced-memory-prompt.js";
 import { sanitizeExampleDialoguePromptLeaf, sanitizePromptLeaf } from "./prompt-escaping.js";
@@ -132,6 +132,8 @@ export interface MarkerContext {
   groupScenarioOverrideText?: string | null;
   /** Include card example dialogue in Character Info when the preset has no dedicated marker for it. */
   includeExampleDialogueInCharacterMarker?: boolean;
+  /** #9427: an impersonated turn with the Public Faces switch on, so cards with one send only it. */
+  impersonatePublicFaces?: boolean;
 }
 
 /** Expanded marker result. */
@@ -234,6 +236,16 @@ async function expandCharacter(
     const profile = characterMacroProfileFromData(data);
     const characterMacroContext = macroContextForCharacterProfile(ctx.macroCtx, profile);
 
+    const publicFace = impersonatePublicFaceText(data, ctx.impersonatePublicFaces);
+    if (publicFace) {
+      const leaf = sanitizePromptLeaf(resolveMacros(publicFace, characterMacroContext), ctx.wrapFormat).trim();
+      // "none" drops wrapper labels, so name each face as #9425's block does.
+      if (leaf && ctx.wrapFormat === "none") parts.push(`${data.name}: ${leaf}`);
+      else if (leaf)
+        parts.push(wrapContent(wrapContent(leaf, "public_face", ctx.wrapFormat, 2), data.name, ctx.wrapFormat, 1));
+      continue;
+    }
+
     let fields = resolveCharacterMarkerFields(config.characterFields);
     if (
       ctx.includeExampleDialogueInCharacterMarker === true &&
@@ -305,6 +317,7 @@ function macroContextForCharacterProfile(base: MacroContext, profile: CharacterM
       personality: profile.personality,
       backstory: profile.backstory,
       appearance: profile.appearance,
+      publicFace: profile.publicFace,
       scenario: profile.scenario,
       example: profile.example,
       systemPrompt: profile.systemPrompt,
@@ -320,6 +333,7 @@ function characterMacroProfileFromData(data: CharacterData): CharacterMacroProfi
     personality: data.personality ?? "",
     backstory: data.extensions?.backstory ?? "",
     appearance: data.extensions?.appearance ?? "",
+    publicFace: data.extensions?.publicFace ?? "",
     scenario: data.scenario ?? "",
     example: data.mes_example ?? "",
     systemPrompt: data.system_prompt ?? "",
@@ -591,6 +605,7 @@ async function expandDialogueExamples(_config: MarkerConfig, ctx: MarkerContext)
     const row = await charStorage.getById(charId, ctx.chatId);
     if (!row) continue;
     const data = JSON.parse(row.data) as CharacterData;
+    if (impersonatePublicFaceText(data, ctx.impersonatePublicFaces)) continue;
 
     const example = cardPromptText(data.mes_example);
     if (example) {

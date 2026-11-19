@@ -4,6 +4,7 @@ interface CyoaChoiceImpersonationOptions {
   presetId?: string | null;
   connectionId?: string | null;
   blockAgents?: boolean;
+  publicFaces?: boolean;
   promptTemplate?: string;
 }
 
@@ -25,6 +26,7 @@ export function buildCyoaChoiceSubmissionPayload(input: {
           ...(input.impersonation.presetId ? { impersonatePresetId: input.impersonation.presetId } : {}),
           ...(input.impersonation.connectionId ? { impersonateConnectionId: input.impersonation.connectionId } : {}),
           ...(input.impersonation.blockAgents ? { impersonateBlockAgents: true as const } : {}),
+          ...(input.impersonation.publicFaces ? { impersonatePublicFaces: true as const } : {}),
           ...(promptTemplate ? { impersonatePromptTemplate: promptTemplate } : {}),
         }
       : {}),

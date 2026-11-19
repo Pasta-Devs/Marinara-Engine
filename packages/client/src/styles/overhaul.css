@@ -14632,6 +14632,16 @@ input.ov-edhead__title:not(#ov-x) {
   font-weight: 400;
   text-overflow: ellipsis;
 }
+/* Staging's shared Select (a button that opens a picker window) sits next to native dropdowns in
+   Settings and the editors: its chevron is drawn like theirs (DD9), in the text colour and a little
+   heavier, instead of a thin grey icon. Themes that colour the native chevron colour this one too. */
+:root[data-overhaul] button[role="combobox"][aria-haspopup="dialog"] > svg:last-child {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  margin-right: -0.125rem;
+  color: var(--ov-select-chevron, currentColor);
+  stroke-width: 2.6;
+}
 
 /* Library > Extensions: the open extension's notes and code boxes (the rest is the shared editor). */
 .ov-exted__note {

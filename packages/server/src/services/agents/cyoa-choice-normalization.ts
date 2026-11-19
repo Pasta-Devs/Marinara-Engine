@@ -1,9 +1,6 @@
+import { isRecord } from "../../utils/large-json.js";
 const SINGLE_QUOTED_SPAN_RE =
   /(^|[\s([{—–-])'((?:[^'\r\n]|(?<=[\p{L}\p{N}])'(?=[\p{L}\p{N}]))+)'(?=$|[\s)\]},.!?;:—–-])/gmu;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 
 export function normalizeCyoaDialogueQuotes(text: string): string {
   return text.replace(SINGLE_QUOTED_SPAN_RE, '$1"$2"');

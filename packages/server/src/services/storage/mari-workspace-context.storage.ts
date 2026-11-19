@@ -13,14 +13,14 @@ import { and, eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { mariWorkspaceContext } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { MAX_CONTEXT_ITEM_CONTENT_LENGTH, MAX_CONTEXT_LABEL_LENGTH } from "@marinara-engine/shared";
 
 // A context item is injected into Mari's prompt VERBATIM every turn, so an
 // oversized blob would blow the model's context window (the injection block is
 // preserved by the context trimmer, unlike history). Cap per item as a hard
 // server-side sanity guard; the client estimates tokens and steers the user to
 // Last-N / a range before they get near this. ~200K chars ≈ 50K tokens.
-export const MAX_CONTEXT_ITEM_CONTENT_LENGTH = 200_000;
-export const MAX_CONTEXT_LABEL_LENGTH = 200;
+export { MAX_CONTEXT_ITEM_CONTENT_LENGTH, MAX_CONTEXT_LABEL_LENGTH };
 
 export type MariWorkspaceContextKind = "chat_history";
 

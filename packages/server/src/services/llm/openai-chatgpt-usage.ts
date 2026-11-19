@@ -15,6 +15,7 @@ import type { PlanUsage, PlanUsageWindow } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import { safeFetch } from "../../utils/security.js";
 import { buildOpenAIChatGPTHeaders, getOpenAIChatGPTAuth } from "./openai-chatgpt-auth.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const OPENAI_CHATGPT_USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
 
@@ -23,10 +24,6 @@ const OPENAI_CHATGPT_USAGE_TIMEOUT_MS = 10_000;
 
 /** A window at least this long is the weekly one; ChatGPT plans pair a 5-hour window with a 7-day one. */
 const WEEKLY_WINDOW_MIN_SECONDS = 6 * 24 * 60 * 60;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function finiteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;

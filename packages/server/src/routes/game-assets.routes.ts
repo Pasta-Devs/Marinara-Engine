@@ -50,6 +50,7 @@ import {
   sendValidatedMediaFile,
   validateImageAssetFile,
 } from "../utils/media-file-security.js";
+import { notFound } from "../utils/not-found.js";
 
 const META_PATH = join(GAME_ASSETS_DIR, "meta.json");
 
@@ -543,7 +544,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
       const rootPrefix = canonicalRoot.endsWith(sep) ? canonicalRoot : `${canonicalRoot}${sep}`;
       if (!filePath.startsWith(rootPrefix)) throw new Error("Asset path escapes the game-assets directory");
     } catch {
-      return reply.status(404).send({ error: "Asset not found" });
+      return notFound(reply, "Asset not found");
     }
 
     const ext = extname(wildcard).toLowerCase();
@@ -551,7 +552,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
 
     if (IMAGE_EXTS.has(ext)) {
       const image = await validateImageAssetFile(filePath, safeRelativePath, { allowSvg: true });
-      if (!image) return reply.status(404).send({ error: "Asset not found" });
+      if (!image) return notFound(reply, "Asset not found");
       // A generated WebP is passive even if the source path is swapped after validation.
       const width = parseThumbnailWidth((req.query as { w?: string }).w);
       const thumbPath = width ? await resolveThumbPath(filePath, width) : null;
@@ -615,7 +616,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     // The real file must be audio too: a link named like a track can point at any file in the folder's tree.
     const realExt = canonicalPath ? extname(canonicalPath).toLowerCase() : "";
     if (!canonicalPath || !isFile || !MUSIC_FILE_EXTENSIONS.has(realExt)) {
-      return reply.status(404).send({ error: "Music file not found" });
+      return notFound(reply, "Music file not found");
     }
 
     // Bind the check to the file actually opened: a link swapped in after the check would make the open follow it,
@@ -624,7 +625,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     try {
       handle = await open(canonicalPath, "r");
     } catch {
-      return reply.status(404).send({ error: "Music file not found" });
+      return notFound(reply, "Music file not found");
     }
     let sameFile = false;
     try {
@@ -643,7 +644,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     }
     if (!sameFile) {
       await handle.close().catch(() => undefined);
-      return reply.status(404).send({ error: "Music file not found" });
+      return notFound(reply, "Music file not found");
     }
 
     const mime = MIME_MAP[realExt] ?? "application/octet-stream";
@@ -781,7 +782,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Path escapes game assets directory" });
     }
     if (!existsSync(entry)) {
-      return reply.status(404).send({ error: "Asset not found" });
+      return notFound(reply, "Asset not found");
     }
     if (isBundledGameAsset(filePath)) {
       return reply.status(403).send({ error: "Cannot delete native assets" });
@@ -854,7 +855,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     }
 
     if (!existsSync(target) || !statSync(target).isDirectory()) {
-      return reply.status(404).send({ error: "Folder not found" });
+      return notFound(reply, "Folder not found");
     }
 
     const meta = loadMeta();
@@ -919,7 +920,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     }
 
     if (!existsSync(target)) {
-      return reply.status(404).send({ error: "Folder not found" });
+      return notFound(reply, "Folder not found");
     }
 
     const stat = statSync(target);
@@ -973,7 +974,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     }
 
     if (!existsSync(oldFull)) {
-      return reply.status(404).send({ error: "File not found" });
+      return notFound(reply, "File not found");
     }
 
     // The new name goes in the same checked real folder.
@@ -1010,7 +1011,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     }
 
     if (!existsSync(oldFull)) {
-      return reply.status(404).send({ error: "File not found" });
+      return notFound(reply, "File not found");
     }
 
     const oldStat = statSync(oldFull);
@@ -1059,7 +1060,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     }
 
     if (!existsSync(oldFull)) {
-      return reply.status(404).send({ error: "File not found" });
+      return notFound(reply, "File not found");
     }
 
     let destDir: string;
@@ -1248,7 +1249,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     }
 
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "File not found" });
+      return notFound(reply, "File not found");
     }
 
     const stat = statSync(filePath);
@@ -1315,7 +1316,7 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     }
 
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "File not found" });
+      return notFound(reply, "File not found");
     }
 
     const stat = statSync(filePath);

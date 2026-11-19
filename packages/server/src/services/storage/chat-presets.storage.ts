@@ -31,6 +31,7 @@ import {
 
 import { createAppSettingsStorage } from "./app-settings.storage.js";
 import { createLibraryFoldersStorage } from "./library-folders.storage.js";
+import { isRecord } from "../../utils/large-json.js";
 
 const CHAT_MODES: ChatMode[] = ["conversation", "roleplay"];
 const EXCLUDED_METADATA_SET = new Set([
@@ -67,10 +68,6 @@ function isPresetExcludedMetadataKey(key: string) {
 function readStringIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.filter((id): id is string => typeof id === "string" && !!id.trim()).map((id) => id.trim()))];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function parseStoredChatMetadata(value: unknown): Record<string, unknown> | null {

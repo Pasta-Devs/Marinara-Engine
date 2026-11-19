@@ -1,10 +1,15 @@
 // Translator defaults: saved defaults seed new chats only, a chat profile's valid translator choices win, and broken
-// defaults never block creating a chat. Runs on a fresh database in a temporary folder.
+// defaults never block creating a chat. Runs on a fresh database in a temporary folder. After it, the default
+// translation prompt and its target language.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createChatPresetsStorage } from "../../../packages/server/src/services/storage/chat-presets.storage.js";
+import {
+  DEFAULT_TRANSLATION_SYSTEM_PROMPT,
+  resolveTranslationSystemPrompt,
+} from "../../../packages/shared/src/constants/defaults.js";
 
 const storageRoot = mkdtempSync(join(tmpdir(), "marinara-translator-defaults-"));
 const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
@@ -155,3 +160,6 @@ try {
   else process.env.FILE_STORAGE_DIR = previousFileStorageDir;
   rmSync(storageRoot, { recursive: true, force: true });
 }
+
+assert.match(DEFAULT_TRANSLATION_SYSTEM_PROMPT, /\{\{targetLanguage\}\}/u);
+assert.match(resolveTranslationSystemPrompt(DEFAULT_TRANSLATION_SYSTEM_PROMPT, "Japanese"), /into Japanese/u);

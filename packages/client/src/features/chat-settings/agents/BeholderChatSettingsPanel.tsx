@@ -2,9 +2,9 @@ import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Eye, Settings2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { api } from "../../lib/api-client";
-import { AgentSettingsActionButton } from "../../components/chat/AgentSettingsControls";
-import { Spinner } from "../../components/ui/Spinner";
+import { api } from "../../../lib/api-client";
+import { AgentSettingsActionButton } from "../../../components/chat/AgentSettingsControls";
+import { Spinner } from "../../../components/ui/Spinner";
 
 type Damage = "pristine" | "damaged" | "cracked" | "broken";
 type WoundSeverity = "minor" | "serious" | "critical";

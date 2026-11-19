@@ -11,6 +11,7 @@ import { fitMessagesToContext, llmFetch, sanitizeApiError, type ChatMessage } fr
 import { sidecarModelService } from "./sidecar-model.service.js";
 import { sidecarProcessService } from "./sidecar-process.service.js";
 import { resolveSidecarRequestModel } from "./sidecar-request-model.js";
+import { isRecord } from "../../utils/large-json.js";
 import { runOnMainModel } from "./main-model-turns.js";
 
 let activeRequests = 0;
@@ -66,10 +67,6 @@ type SidecarChatCompletionChunk = {
     };
   }>;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
 
 function extractSidecarErrorMessage(parsed: Record<string, unknown>): string | null {
   const error = parsed.error;

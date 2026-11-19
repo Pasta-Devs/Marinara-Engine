@@ -9,6 +9,8 @@ import { join, extname, basename } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { openFolderInFileManager } from "../lib/open-folder-in-file-manager.js";
+import { notFound } from "../utils/not-found.js";
+import { writeFileAtomic } from "../utils/atomic-write.js";
 
 const FONTS_DIR = join(DATA_DIR, "fonts");
 const FONT_METADATA_FILE = join(FONTS_DIR, "font-metadata.json");
@@ -126,14 +128,7 @@ async function readFontMetadata(): Promise<Record<string, FontMetadataEntry>> {
 
 async function writeFontMetadata(metadata: Record<string, FontMetadataEntry>) {
   ensureDir();
-  const tempFile = `${FONT_METADATA_FILE}.${Date.now()}-${Math.random().toString(36).slice(2)}.tmp`;
-  try {
-    await writeFile(tempFile, `${JSON.stringify(metadata, null, 2)}\n`, "utf-8");
-    await rename(tempFile, FONT_METADATA_FILE);
-  } catch (err) {
-    await unlink(tempFile).catch(() => {});
-    throw err;
-  }
+  await writeFileAtomic(FONT_METADATA_FILE, `${JSON.stringify(metadata, null, 2)}\n`);
 }
 
 function inferFontWeight(filename: string): string {
@@ -360,7 +355,7 @@ export async function fontsRoutes(app: FastifyInstance) {
 
     const filePath = join(FONTS_DIR, filename);
     if (!existsSync(filePath)) {
-      return reply.status(404).send({ error: "Not found" });
+      return notFound(reply, "Not found");
     }
 
     const stream = createReadStream(filePath);
@@ -412,9 +407,10 @@ export async function fontsRoutes(app: FastifyInstance) {
         if (!reachedGoogle) {
           return reply.status(502).send({ error: "Could not reach Google Fonts. Check your internet connection." });
         }
-        return reply
-          .status(404)
-          .send({ error: `Font "${sanitized}" not found on Google Fonts, or has no regular (400) weight available` });
+        return notFound(
+          reply,
+          `Font "${sanitized}" not found on Google Fonts, or has no regular (400) weight available`,
+        );
       }
 
       const metadata = await readFontMetadata();
