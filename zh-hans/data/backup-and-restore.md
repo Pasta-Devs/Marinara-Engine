@@ -52,6 +52,8 @@ Marinara 可以在运行它的电脑上按计划自动创建完整备份。
 
 > **提示：** 在数据文件夹之外另存一份副本。磁盘丢失或应用被删除时，自动备份也会一起消失。
 
+<a id="export-a-profile"></a>
+
 ## 导出档案
 
 1. 打开 **Settings → Advanced → Backup & Export**。
@@ -63,6 +65,8 @@ Marinara 可以在运行它的电脑上按计划自动创建完整备份。
 - **Compatible JSON** 会生成一个 `.zip`，里面是供其他工具使用的普通角色、用户角色和世界书文件。这种档案不能在 Marinara 里恢复。
 
 原生档案会下载为 `marinara-profile.json`。如果档案太大，Marinara 会改为提供 ZIP 文件。点击 **Export ZIP** 即可下载 `marinara-profile.zip`。
+
+原生档案会保留正则脚本、所在的文件夹以及每个文件夹的暂停设置。要将单条脚本作为 JSON 分享，见[正则脚本](../extending/regex-scripts.md#import-and-replace-scripts)。
 
 原生档案保留 Personal Extension 的代码，但不保留扩展是否开启或是否获得批准的状态。恢复出来的每个扩展都处于禁用状态。请在 **Settings → Addons**(设置 → 插件) 里重新审核。
 

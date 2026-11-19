@@ -240,7 +240,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 1. 打开 **Chat Settings → Memory Recall**(聊天设置 → 记忆功能)，确认 **Enable Memory Recall** 已开启。
 2. 打开 **Access memories for this chat**。在 **Memories for This Chat** 里查看每个记忆块的状态。
 3. **Waiting for vector** 表示这条记忆还在处理。等一会儿，再继续聊。
-4. **Embedding unavailable** 表示没有可用的嵌入来源。设置一个嵌入账号，或者等内置模型加载完成。想让所有聊天都用同一个来源，就在 **Connections** 的 **Defaults**(默认值) 区域里，从 **Embeddings**(嵌入) 中选择它。
+4. **Embedding unavailable** 表示没有可用的嵌入来源。设置一个嵌入账号，或者等内置模型加载完成。想让所有聊天都用同一个来源，就在 **Connections** 的 **Jobs**(分工) 区域里，为 **Embeddings**(嵌入) 工作选择它。
 
 至少要有 5 条新消息，才会生成一条记忆。召回只给出和你的新消息高度相关的记忆，所以即使存在记忆，也可能什么都不返回。
 
@@ -321,9 +321,9 @@ pnpm backgroundremover:install
 
 ## 语音、通话和 TTS
 
-- **通话中角色不出声。** 语音合成还没设置好。打开 **Connections → Text to Speech**(连接 → 语音合成)，开启它，选择来源，填入密钥，选一个声音，然后保存。没有声音的角色只会以文字显示。
-- **语音播放停下并提示“No audio after N s”。** 你的语音服务器比 Marinara 等待的时间更慢，笔记本上的本地服务器经常这样。`N` 是你当前的超时时间。在 **Connections → Text to Speech** 里，或者在消息中点名的音频账号里，调高 **Request timeout (seconds)**(请求超时，单位为秒)。见[请求超时](media/tts-setup.md#request-timeout)。
-- **麦克风不工作。** 从 **Agents → Agent Organizer** 安装 **Calls**(通话)。然后打开 **Connections → Speech to text**(连接 → 语音识别)，在 **On this device**(在你的电脑上) 下找到 **Local speech model**(本地语音模型)，选一个 Whisper 模型，然后点击 **Download Whisper**(下载 Whisper)。Firefox 需要这一步，因为它没有浏览器语音识别。卸载 Calls 会删掉它的 Whisper 模型。你也可以使用自己的服务器：见[使用你自己的语音识别服务器](conversation/calls.md#use-your-own-speech-to-text-server)。
+- **通话中角色不出声。** **Voice**(声音) 工作还没有模型。打开 **Connections**，点击 **Jobs** 区域中的 **Voice** 行，选择一个语音模型。然后点击这一行的齿轮，选择声音。没有声音的角色只会以文字显示。
+- **语音播放停下并提示“No audio after N s”。** 你的语音服务器比 Marinara 等待的时间更慢，笔记本上的本地服务器经常这样。`N` 是你当前的超时时间。在 **Voice settings**(声音设置) 的 **More**(更多) 下调高 **Request timeout (seconds)**(请求超时，单位为秒)；该窗口通过 **Jobs** 区域中 **Voice** 行的齿轮打开。也可以在消息中点名的音频模型的 **Edit model**(编辑模型) 窗口里调整。见[请求超时](media/tts-setup.md#request-timeout)。
+- **麦克风不工作。** 从 **Agents → Agent Organizer** 安装 **Calls**(通话)。然后打开 **Connections**，在 **On this device**(在你的电脑上) 卡片中找到 **Local speech model**(本地语音模型)，选一个 Whisper 模型，然后点击 **Download Whisper**(下载 Whisper)。Firefox 需要这一步，因为它没有浏览器语音识别。卸载 Calls 会删掉它的 Whisper 模型。你也可以使用自己的服务器：见[使用你自己的语音识别服务器](conversation/calls.md#use-your-own-speech-to-text-server)。
 - **Local Whisper is disabled in Lite mode.** 精简版镜像跑不了本地语音模型。改用完整安装。
 
 ### 远程或局域网安装时 Music DJ 的 Spotify 登录失败

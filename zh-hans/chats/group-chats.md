@@ -79,10 +79,14 @@
 
 用 **Trigger Response** 选择器指定发言人。电脑上，它是 **Send**(发送) 旁边的一个按钮，标签为 **Trigger character response**(触发角色回复)。手机上，它在从消息栏打开的工具盘里，位于 **Trigger Response** 下。想用文字点名发言人，输入 `@` 再跟上角色名，会弹出自动补全列表。
 
+<a id="more-individual-settings"></a>
+
 ### 更多 Individual 设置
 
 - **Add Turn To Prompt**(把当前回合写进提示词) 默认开启。它会加一句简短的指令，点明这一轮该由哪个角色回复。
 - **Name Prefix History**(历史消息加姓名前缀，仅 Roleplay) 默认关闭。它会改变历史消息标注发言人名字的方式。除非某个角色总是搞混谁说了什么，否则保持关闭。
+
+- **Others' Public Faces**(其他角色的公开形象)：这个选项仅适用于 Roleplay，默认关闭。每个角色只收到自己的角色卡，只能从聊天中了解其他角色。开启后，每个角色的回合会加入其他活跃角色的 **Public Face** 内容，也就是场景里任何人都可能知道的信息，不含秘密。未启用的角色或 Public Face 为空的角色都会被略过。填写方法见[Card 选项卡](../characters/creating-and-editing-characters.md#card-tab)。
 
 ### Scenario Override(Roleplay)
 
@@ -102,6 +106,7 @@
 | **Response Order** | Individual | Sequential |
 | **Add Turn To Prompt** | Individual | 开启 |
 | **Name Prefix History** | Roleplay，Individual | 关闭 |
+| **Others' Public Faces** | Roleplay, Individual | 关闭 |
 | **Scenario Override** | Roleplay | 空 |
 | **Character Exchanges** | Conversation，Autonomous Messaging | 关闭 |
 

@@ -109,6 +109,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 
 UI 调试开关仍通过 `logDebugOverride` 工作。这是在 `LOG_LEVEL` 隐藏 debug 时查看提示词的指定方式。
 
+内嵌媒体在日志里以缩略形式显示。`debugJson` 会把每段 base64 数据替换成类似 `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]` 的标记，包含类型、大小以及开头和结尾各 16 个字符。这适用于 `data:` URL（整个字符串或正文的一部分），也适用于 Anthropic 和 Google 媒体部分中没有前缀的 `data` 字段，即使 base64 分成多行也是如此。`msg` 序列化器也会缩短普通 `%s` 和 `%j` 日志行中的 `data:` URL；没有前缀的 `data` 字段只会通过 `debugJson` 缩短。变化只发生在输出的副本里，传入的值保持原样。在 `.env` 中设置 `LOG_INLINE_MEDIA=full` 可恢复完整输出。回归测试 `log-inline-media` 覆盖了这个行为。
+
 <a id="checks"></a>
 
 ## 应用内控制台

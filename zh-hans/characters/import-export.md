@@ -36,7 +36,7 @@ Marinara 导出文件保留的细节最多。其他几种格式来自 SillyTaver
 | | **No tags**：跳过这些标签。 |
 | | **Existing only**：只保留角色库里已有的标签。 |
 | **Imported regex scripts**(导入的正则脚本) | **Character only**(默认)：规则只对这个角色生效。 |
-| | **Global**(全局)：规则会加进 **Presets → Regexes**(预设 → 正则)，在每一次聊天里都生效。 |
+| | **Global**(全局)：规则会加进 **Presets → Regexes**(预设 → 正则)，可在不同聊天中运行。 |
 | **Split description into fields**(将描述拆分到各字段) | 默认关闭。勾选后，**Description**(描述) 里标明为性格、外观等内容的文字会移到各自的字段里。 |
 
 正则脚本就是一些小的文本替换规则。除非确实想让这些规则处处生效，否则就保留 **Character only**。拆分不会改动旁白类、世界设定类和多角色的角色卡，它们保持原样。

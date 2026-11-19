@@ -41,6 +41,27 @@
 - `unmodified`：单颗骰子的若干点数，第一颗骰子显示这些点数时，记录会加以标记（1.136），这样就能应用那些单独处理“未修正的 66”的表：`[66, 100]`。记录写明 `unmodified="66"`，骰子卡也会显示，Game Master 会被告知按规则对它的规定处理。
 - `difficultyLadder`：向 Game Master 提供的难度候选。`dc` 是总和必须达到的数字。Game Master 也可以不写数字，而是直接点名某一档，如 `difficulty="Hard"`，Engine 会从该档读出数字。
 
+#### 两颗命名骰
+
+求和检定可以掷两颗各有名字的骰子，哪颗骰子掷出的点数更高会决定剧情走向（Capability API 1.821）。社区规则集无须声明；打包规则集声明 1.821。
+
+```json
+"dice": { "count": 2, "sides": 12 },
+"duality": {
+  "dice": [{ "id": "hope", "label": "Hope" }, { "id": "fear", "label": "Fear" }],
+  "tieIsCritical": true,
+  "text": "With Hope the player gains a Hope; with Fear the Game Master gains a Fear."
+}
+```
+
+- `dice`: 两个名字，按掷骰顺序排列。`rolls` 中的第一颗骰子对应列在首位的名字。
+- `tieIsCritical`: 可选，默认 `true`。此时只要两颗骰子点数相同，无论总和多少都算大成功。
+- `text`: 可选，用一行文字告诉 Game Master 每颗骰子在游戏中代表什么。
+
+结果仍是两颗骰子的点数加上调整值，照常与难度比较。记录会注明哪颗骰子点数更高，如 `duality="Hope"`，或注明平局 `duality="tie"`。骰子卡也会显示这个结果，同时通知 Game Master 按对应骰子叙述检定。
+
+`duality` 要求 `dice.count` 为 2、使用普通骰面（没有 `faces`）、不设置 `openEnded`、`advantage` 为假，且两个 ID 不同。两个标签也必须不同，并且都不能叫 `tie`，因为记录用标签来标识点数更高的骰子。覆盖项可以为部分检定设置或移除它。
+
 #### 情节骰
 
 求和检定可以再掷一颗骰子，它的骰面带的是符号而不是数字（Capability API 1.822）。社区规则集无须声明；打包规则集声明 1.822。
@@ -139,6 +160,8 @@
 - `situationalDice`：可选，Game Master 为特技、伤势或昏暗照明等情境，用 `bonus=` 对单次检定增减骰子的范围。
 - `pairs`：可选（Capability API 1.824）。`{ "from": 10, "successes": 4 }` 让每一对点数达到或超过 `from` 的骰子合计算作 `successes` 次成功，而不是各算一次；检定成功且掷出一对时，就是大成功。三个 10 是一对再加一个：五次成功。`from` 必须达到或高于最高目标，且 `pairs` 不能与 `double` 或 `stances` 并用。
 - `hunger`：可选（Capability API 1.824）。`{ "label": "Hunger", "max": 5, "text": "..." }` 让骰池中最多 `max` 颗骰子成为特殊骰。Game Master 在检定中用 `hunger="N"` 要求使用它们，数量通常读自人物卡上的某条轨道。它们是 `rolls` 中最前面的几颗骰子，属于骰池本身（绝不是额外的骰子），任何重掷都不会碰它们。大成功时若其中一颗显示大成功面（`pairs` 的点数，或骰子的最高面），会标记 `messy="true"`；失败时若其中一颗显示 1，会标记 `bestial="true"`。记录还会写明 `hunger="2" hungerLabel="Hunger"`，骰子卡会显示所有这些内容。`max` 不能超过 `pool.max`。
+- `groups`：可选（Capability API 1.826）。最多可用三个组区分骰池中骰子的来源：`{ "id": "base", "label": "Base", "from": "ability" }`、`{ "id": "skill", "label": "Skill", "from": "skill", "banes": false }` 和 `{ "id": "gear", "label": "Gear", "from": "gear" }`。骰子在 `rolls` 中按各组的列出顺序排列。`ability` 组包含属性自身的骰子，`gear` 组包含 Game Master 用 `gear="N"` 要求的骰子，`skill` 组包含其余骰子。因此减值先扣技能骰。除非 `banes` 为假，否则各组会统计掷出的 1。记录中的 `groups="Base:2:1|Skill:2|Gear:1:0"` 会先列各组的骰子数量，再为统计 1 的组列出 1 的数量。骰子卡显示相同的信息。每种来源对应一个组，必须有 `skill` 组，各组标签不得相同，且 `groups` 不能与 `explode` 并用。掷出 1 的后果由 Game Master 执行。
+- `push`：可选（Capability API 1.826）。`{ "text": "..." }` 允许把一次投掷强推一次。Game Master 再写一遍相同的检定并加上 `push="true"`。Engine 从上条回复的记录中读取该角色这项检定的最后一次投掷，不读取新标签上的数字。所有既未成功、也未掷出计入统计的 1 的骰子都会重掷（骰池没有分组时，所有的 1 都保留）。前一次投掷必须属于同一角色；没有指名的记录属于玩家。强推沿用前一次投掷的目标值，不消耗、不使用也不添加任何东西。新记录用 `pushed="N"` 标明重掷了多少颗骰子。已经带有 `pushed` 的记录不能再次强推。如果找不到该角色符合条件的前一次投掷（第二次强推、为全队强推、在 `[branch:]` 块中强推，或前一次投掷不可能由这项检定产生），Engine 不会掷骰，直接写回 `reason="not-pushable"` 结束检定。`push` 不能与 `stances`、`explode` 或 `hunger` 并用。
 - `reroll`：可选，系统免费给予的重掷，最多六项，每项有一个 `id`，Game Master 在检定中用 `reroll=` 点名。点数不高于 `upTo` 的骰子会再掷一次：`"once"` 表示新点数无论是多少都保留，`"until"` 则一直重掷到点数更高为止。`upTo` 取 1 到骰子面数减一，因为重掷所有点数永远不会停下；`until` 在单次检定重掷一百次后也会停止。检定不点名就不会重掷。一次检定只进行一次重掷：如果角色的消耗或使用的条目也买了一次，就采用覆盖点数更多的那一次，覆盖相同时 `until` 优先于 `once`。
 - `difficultyLadder`：`successes` 是要求的成功次数。某一档也可指定 `target`，但仅当目标可调且在范围之内时有效。该档的检定就按这个目标计数：Game Master 用 `difficulty=` 点名该档时，或者写下恰好只有一档需要的 `dc=` 时。如果几档需要相同的成功次数，单靠 `dc=` 无法说明指的是哪一档，目标就保持默认；请点名该档。
 

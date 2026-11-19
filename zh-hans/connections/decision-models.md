@@ -124,29 +124,31 @@ Marinara 向模型提一个是或否的问题，让它只写一个 Token，再�
 
 如果聊天模型运行在 Ollama、LM Studio、llama.cpp 或其他 OpenAI 兼容服务器上，它就能回答判定，Marinara 不必再加载第二份。
 
-1. 在 **Connections** 面板里点击该模型上的 **⋯**，选择 **Use this model for decisions**(将此模型用于判定)。**Add account**(添加账号) 窗口会直接打开到判定这一步，地址、模型和密钥都与原来相同。
-2. 选择模型，然后点击 **Test decision**(测试判定)。测试通过时，会说明服务器是否返回了对数概率，以及模型是否必须先推理。点击 **Done**(完成)。
+1. 点击 **Jobs** 框中 **Behind the scenes** 下的 **Decision** 行。选择器列出所有账号的模型，包括你的聊天模型。也可以点击模型上的 **⋯**，选择 **Use for…** → **Decision**。
+2. 点击 **Decision** 行的齿轮，再点击 **Test**。测试通过时会说明服务器是否返回了对数概率，以及模型是否需要先推理。点击 **Done**。
 也可以自己创建一个。使用来源为 **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**(OpenAI 兼容聊天模型) 的 Decision 账号，填写与聊天账号相同的地址（例如 Ollama 的 `http://localhost:11434/v1`），以及服务器使用的模型名称。
 
 询问方式与内置模型相同：每条陈述要一个表示是或否的词。陈述逐条发送，因为 Marinara 无法知道你的服务器一次能处理多少请求。对账号来说，**Thinking** 始终是 **Auto**(自动)。另一台电脑上的服务器需要 `PROVIDER_LOCAL_URLS_ENABLED`。见[连接本地或自托管模型](local-self-hosted.md)。
 
 <a id="set-up-a-decision-connection"></a>
 
-## 设置 Decision 连接
+<a id="set-up-a-decision-account"></a>
+
+## 设置 Decision 账号
 
 托管的 Decision 账号会把选定的最近消息和陈述发给该服务，可能产生费用。Smart 回复顺序还会发送[角色名单](#what-the-model-sees)。
 
 1. 点击顶栏里的 **Connections**，再点击 **Add**(添加)。
 2. 点击类型按钮中的 **Decision**(判定)，再点击 **TypeSafe** 或 **Own decision server**。如果用 NanoGPT，见[通过 NanoGPT](#through-nanogpt)；如果用 OpenRouter 或 Google Gemini，见[通过 OpenRouter 或 Google Gemini](#through-openrouter-or-google-gemini)。
-3. 填写 **API key**(API 密钥)；如果是 **Own decision server**，则填写 **Server address**(服务器地址)。点击 **Connect**(连接)。窗口关闭，面板里会出现新账号。
-4. 点击 **Behind the scenes** 下的 **Decision** 行，选择新模型。
+3. 填写 **API key**(API 密钥)；如果是 **Own decision server**，则填写 **Server address**(服务器地址)。点击 **Connect**(连接)。
+4. 在 **Found in TypeSafe — use it for:** 下勾选 **Decision**，再点击 **Done**。模型会显示在 **Jobs** 框中 **Behind the scenes** 下的 **Decision** 行。
 5. 要测试它，在面板里点击该模型打开 **Edit model**，然后点击 **Provider tests**(服务商测试) 卡片里的 **Test provider**。**Own decision server** 模型在那里没有 **Test provider** 按钮。请改为在面板里打开账号的 **⋯** 菜单，点击 **Test**。
 
 **Test provider** 通过时，会显示概率、回答耗时和账号的时限。**⋯** 菜单里账号的 **Test** 只说明是否成功以及耗时多久。测试至少等待 10 秒；时限更长时，等待时限再加 5 秒。如果回答耗时超过时限，结果会注明：在聊天中，这样的回答会算作没有答案。
 
 没有成功时，见[故障排查](#troubleshooting)。
 
-Decision 编辑器（在判定模型上打开 **Edit model**）有这些字段：
+判定模型有以下字段。点击面板中的模型可打开 **Edit model**，或点击 **Jobs** 框中 **Decision** 行的齿轮，打开当前判定模型的 **Decision settings**。
 
 | 字段 | 作用 |
 | --- | --- |

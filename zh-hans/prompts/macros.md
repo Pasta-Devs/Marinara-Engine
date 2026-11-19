@@ -21,6 +21,8 @@ Marinara 组装要发给 AI 的文字时，会把每个 `{{tag}}` 换成它当�
 - 预设变量（`{{NAME}}` 这种通配写法）需要提示词预设先把它们定义好。见[预设变量](preset-variables.md)。
 - 智能体宏 `{{agent::TYPE}}` 只有等对应的智能体跑完并产出内容之后，才会显示文字。
 
+<a id="identity-character-and-persona-macros"></a>
+
 ## 身份、角色与用户角色相关的宏
 
 这类宏取的是发言方和回复方的名字与角色卡字段。user 指你自己（或者当前启用的用户角色），character 指正在回复的那个角色。

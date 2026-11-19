@@ -36,7 +36,7 @@
 | **Lorebooks**(世界书) | 所有世界书、条目和文件夹。 |
 | **Presets**(预设) | 所有提示词预设和预设文件夹，内置标准预设除外。 |
 | **Connections**(连接) | 所有已保存的账号，以及与之关联的模型选择和语音设置。 |
-| **Automation & Addons**(自动化与插件) | 所有智能体设置、自定义工具、正则脚本和已同步的主题。不包括 Personal Extensions(个人扩展) 或 External Extensions。 |
+| **Automation & Addons**(自动化与插件) | 所有智能体设置、自定义工具、正则脚本及其文件夹，以及已同步的主题。不包括 Personal Extensions(个人扩展) 或 External Extensions。 |
 | **Media & Assets**(媒体与素材) | 背景、头像、立绘、图库、场景视频、字体和知识源文件。 |
 
 更多细节：

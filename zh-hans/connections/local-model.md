@@ -67,7 +67,7 @@ Apple Silicon 上改为显示两个 MLX 预设：
 | **Use for tracker agents (roleplay)**(用于追踪器智能体，角色扮演) | 让模型为追踪器智能体保持运行。默认关闭。 |
 | **Use for game scene analysis**(用于游戏场景分析) | 让它为 Game Mode 的场景效果保持运行，比如背景、音乐和天气。默认开启。 |
 | **Use the built-in model for all tracker agents**(所有追踪器智能体都使用内置模型) | 把所有内置追踪器智能体都指向这个模型。它不会把智能体开启。 |
-| **Change in Defaults**(在默认设置中更改) | 打开 **Jobs** 框，可以在那里给它分配其他工作。 |
+
 
 两个开关都关时，模型不会自己启动。开启其中一个，或者有聊天或工作用到它时，它才会启动。启用智能体的方法见[记忆功能与聊天摘要](../agents/memory.md)。
 
@@ -147,7 +147,7 @@ Marinara 只下载为你当前版本批准的 llama.cpp、MLX 和 uv 版本，�
 
 **Local speech model**(本地语音模型) 在你自己的电脑上把你的语音转成文字，供 Conversation(对话模式) 通话使用。它是一个 Whisper 模型，属于语音识别模型。它需要 **Calls**(通话) 智能体包，在 **Agents → Agent Organizer**(智能体 → 智能体管理器) 里安装。
 
-1. 打开 **Connections** 面板，点击 **On this device**(在你的电脑上) 下面的 **Speech to text**(语音识别) 项。
+1. 打开 **Connections** 面板，点击 **On this device**(在你的电脑上) 卡片里的 **Local speech model**(本地语音模型)。
 2. 在 **Local speech model** 下面，从下拉菜单里选一个模型。
 3. 点击 **Download Whisper**(下载 Whisper)。
 4. 等它显示 **Ready**。使用 Calls 之前，完全重启一次 Marinara。

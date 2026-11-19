@@ -56,6 +56,7 @@ Conversation(对话模式) 是即时通讯风格的聊天模式：一个或多�
 | **8-Ball Pool** | 摆好球，开始一局台球。 | 8-Ball Pool |
 | **Tic-Tac-Toe**(井字棋) | 接受井字棋挑战。 | Tic-Tac-Toe |
 | **Rock-Paper-Scissors**(石头剪刀布) | 接受一场对局。 | Rock-Paper-Scissors |
+| 其他游戏，以游戏名命名 | 发起或接受该游戏的对局。 | 对应游戏，例如 Blackjack 或 Wordle |
 
 **Influence** 和 **Notes** 的说明见[把 Conversation 聊天连接到 Roleplay 或 Game](../chats/connected-chats.md)。表格最后一列写的是需要从 **Agent Organizer** 安装的智能体。
 

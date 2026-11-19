@@ -122,7 +122,7 @@ Professor Mari 是主页上的内置助手。她能讲解这个应用，也能�
 
 ## 角色能在通话里出声说话吗？
 
-能，在 Conversation 模式里。你需要先在 **Connections** 里配好 **Text to Speech**(语音合成)。具体步骤见[通话](conversation/calls.md)，包括麦克风的语音识别。
+能，在 Conversation 模式里。你需要先在 **Connections** 的 **Voice**(声音) 工作中选择一个模型。具体步骤见[通话](conversation/calls.md)，包括麦克风的语音识别。
 
 ## Marinara 能生成图像吗？
 

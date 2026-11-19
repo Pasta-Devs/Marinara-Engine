@@ -61,6 +61,8 @@ Impersonate 让模型用你的用户角色的口吻写出你的下一条消息�
 
 简写是 `/imp`。**Regenerate** 对 Impersonate 写出的消息同样有效，所以可以换一个版本。
 
+<a id="the-impersonate-settings"></a>
+
 ### Impersonate 相关设置
 
 这些设置对你所有聊天里的每一次 `/impersonate` 都生效。在一个 Roleplay 聊天里打开 **Chat Settings**(聊天设置)，找到 **Impersonate** 这一节。怎么打开这个面板，见[聊天设置总览](chat-settings.md)。
@@ -71,6 +73,7 @@ Impersonate 让模型用你的用户角色的口吻写出你的下一条消息�
 | **Preset**(预设) | 只用于 impersonate 回复的提示词预设。默认：**Use chat default**(使用聊天默认值)。见[预设](../prompts/presets.md)。 |
 | **Connection**(连接) | 用于 impersonate 回复的模型，比如更便宜或更快的模型。默认：**Use chat default**。也可以选 **Random**(随机)。见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。 |
 | **Skip agents**(跳过智能体) | 在 impersonate 期间跳过智能体（追踪器、世界书路由之类的辅助程序）。这样它会更快，也不会改动世界状态。默认关闭。见[智能体](../agents/agents-overview.md)。 |
+| **Send Public Faces**(发送公开形象) | 在 Roleplay 聊天中，填写了 **Public Face** 的角色在 Impersonate 提示词中只显示名字和公开形象，让回复只依据你可能知道的信息。它替代卡片发送的其他所有内容：Description、Personality、Backstory、Appearance、Scenario、System Prompt、示例对话、RPG 属性、Post-History Instructions 和 Depth Prompt。Public Face 为空的角色仍会发送完整角色卡。放在 Impersonate 预设或提示词模板里的宏（如 `{{description}}`）仍会发送各自指定的内容。**Regenerate** 保留写这条消息时使用的设置。默认关闭。见[Card 选项卡](../characters/creating-and-editing-characters.md#card-tab)。 |
 | **Use CYOA as direction**(把 CYOA 选项当作方向说明) | 点击一个 CYOA(自选冒险) 选项时，把它当作 impersonate 的方向说明，而不是直接发出去。默认关闭。如果在 **Settings → General → Input & Editing** 里开启了 **Add CYOA choices to the message box instead of sending them**(把 CYOA 选项加入消息框而不是直接发送)，点击只会把文字加进你的消息框，这个设置也就不起作用。 |
 
 ### 为单个聊天设置提示词

@@ -16,6 +16,14 @@
 
 在 Roleplay 里，Illustrator 的运行间隔按聊天分别设置，位置在 **Chat Settings** 里它的卡片上。它设置里的值就是默认值，供没有单独设置的聊天使用。Illustrator 也接受 **0**：这时它永远不会自动运行，但仍可用于 Gallery 操作。
 
+<a id="activation-keywords-and-questions"></a>
+
+### 激活关键词和问题
+
+大多数管线智能体都有和[自定义智能体](custom-agents.md#activation-keywords)一样的 **Activation Keywords**(激活关键词) 区域。填写后，智能体会跳过无事可做的回合。例如，让 Prose Guardian 使用与 **Banned Words** 列表相同的词，并把 **Scan Depth** 设为 1，它就只会在新回复出现其中某个词时运行。匹配不限于整个单词，不区分大小写，所以 `voss` 也会匹配 `Vossberg`，这只会多运行一次。你也可以用[激活问题](custom-agents.md#activation-questions)，根据 Decision 模型给出的“是”或“否”来决定是否运行。
+
+留空时，智能体照常运行。追踪器跳过一个回合后，会保持上次状态，直到下次运行。Storyboard、Illustrator、Knowledge Retrieval 和 Knowledge Router 有各自的激活规则，因此不显示这个区域。
+
 <a id="apps"></a>
 
 ## 应用类

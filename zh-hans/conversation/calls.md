@@ -41,14 +41,13 @@ Marinara 在你的浏览器中录制麦克风或摄像头。根据下文的输�
 <a id="set-up-text-to-speech"></a>
 ### 设置语音合成
 
-语音合成决定哪些角色能开口说话，以及使用哪种声音。完整步骤请阅读 [Text to Speech (TTS) 设置](../media/tts-setup.md)。简而言之，打开 **Connections**，点击 **Add account**(添加账号)，然后选择 **Text to speech**。如果它已列在 **On this device**(在你的电脑上) 下，就直接在那里打开它。然后：
+语音合成决定哪些角色能开口说话，以及使用哪种声音。完整步骤请阅读 [Text to Speech (TTS) 设置](../media/tts-setup.md)。简要步骤如下：
 
-1. 开启语音合成。
-2. 选择来源：**OpenAI-compatible**、**ElevenLabs**、**PocketTTS** 或 **xAI Voice**。
-3. 输入该来源的 API 密钥或本地服务器地址。
-4. 选择模型和声音。
-5. 把 **Voice option**(声音选项) 设为 **One voice for all**（所有角色同一声音）或 **Selected per character or persona**（按角色或用户角色单独选择）。为每个角色单独配声，可以让群组通话更容易听清。
-6. 保存，然后使用预览按钮，确认你能听到声音。
+1. 打开 **Connections**，点击 **Jobs** 框中的 **Voice** 行。
+2. 选择语音模型或语音服务。选中后即开启语音合成。密钥和地址由模型所属账号提供。
+3. 点击 **Voice** 行的齿轮，打开 **Voice settings**(声音设置)。
+4. 在 **Who speaks**(谁在说话) 中选择 **Shared voice**(共用声音)，或者在 **Character and persona voices**(角色和用户角色的声音) 下分别指定声音。不同的声音能让你更容易跟上群组通话。
+5. 点击 **Preview**(试听)，确认听得到声音。
 
 如果某个角色没有 Marinara 能解析的声音，该角色在本次通话中只能以文字参与。
 
@@ -128,8 +127,8 @@ Local Whisper 会在运行 Marinara 的电脑上把你的语音转换为文字�
 
 **开始之前：** 安装 Calls。没有它，本节会隐藏。
 
-1. 打开 **Connections**，在 **On this device** 下找到 **Speech to text**(语音识别)。如果没有列出，请点击 **Add account**，然后选择 **Speech to text**。
-2. 在该页面找到 **Local speech model**(本地语音模型)。
+1. 打开 **Connections**，在 **On this device**(在你的电脑上) 卡片中找到 **Local speech model**(本地语音模型)。
+2. 点击这张卡片中的 **Local speech model**。
 3. 选择一个模型：
    - **Whisper Tiny (Multilingual)**：下载约 180 MB，占用约 350 MB 内存。最适合手机和较旧的电脑。
    - **Whisper Base (Multilingual)**：下载约 320 MB，占用约 650 MB 内存。对不清晰的语音效果更好。
@@ -145,7 +144,7 @@ Local Whisper 会在运行 Marinara 的电脑上把你的语音转换为文字�
 
 如果 Local Whisper 对你的语言或口音识别不佳，可以改为把语音发送到另一个语音识别服务器。只要接受 OpenAI 语音识别格式（即 `/audio/transcriptions` 地址）的服务器都可以使用，无论是你自己架设的，还是 OpenAI、Groq 等服务。
 
-1. 打开 **Connections**，并打开 **On this device** 下的 **Speech to text**。如果没有列出，请点击 **Add account**，然后选择 **Speech to text**。未安装 Calls 时，它会隐藏。
+1. 打开 **Connections**，点击 **Jobs** 框中 **Dictation**(语音识别) 行的齿轮。这里可以设置 **Speech to text** 服务器。未安装 Calls 时，这些设置会隐藏。
 2. 输入 **Server URL**（服务器地址），例如 `http://localhost:8000/v1`。
 3. 如果服务器需要，请输入 **API key**(API 密钥)。它会加密保存，并以掩码方式显示。
 4. 输入服务器使用的 **Model**(模型) 名称。留空则发送 `whisper-1`。

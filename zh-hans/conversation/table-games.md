@@ -113,7 +113,7 @@
 
 打开 **Chat Settings → Agents → Commands**，或在创建聊天时使用 **Automation**(自动化) 步骤。总开关 **Commands** 管控所有由角色执行的动作，包括桌游、自拍和通话。关闭它后，角色不会自行发起任何事项。
 
-每款已安装的游戏都有自己的开关，除非你关闭，否则默认开启：**UNO**、**Chess**、**Poker**、**8-Ball Pool**、**Tic-Tac-Toe** 和 **Rock-Paper-Scissors**。参见[选择角色可以使用的命令](getting-started.md#choose-which-commands-a-character-can-use)。
+每款已安装的游戏都有自己的开关，除非你关闭，否则默认开启：**UNO**、**Chess**、**Poker**、**8-Ball Pool**、**Tic-Tac-Toe** 和 **Rock-Paper-Scissors**。其他游戏包（例如 Blackjack 或 Wordle）的开关以游戏名命名。参见[选择角色可以使用的命令](getting-started.md#choose-which-commands-a-character-can-use)。
 
 这些开关只控制角色的行为。游戏的斜杠命令和 “let's play” 这类说法，即使该开关关闭也能使用。
 

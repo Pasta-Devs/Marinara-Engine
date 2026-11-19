@@ -71,7 +71,7 @@ PROVIDER_LOCAL_URLS_ENABLED=true
 
 ## 用这个模型做判定
 
-同一个模型也能回答判定问题，例如智能体激活检查，不需要再加载一份。在面板里点击这个模型上的 **⋯**，选择 **Use this model for decisions**(将此模型用于判定)。有模型名称的 OpenAI 兼容模型才会显示这一项。见 [Decision 模型](decision-models.md#on-a-server-you-already-run)。
+同一个模型也能回答判定问题，例如智能体激活检查，不需要再加载一份。在面板里点击这个模型上的 **⋯**，选择 **Use for…** → **Decision**。有模型名称的 OpenAI 兼容模型才会显示这一项。见 [Decision 模型](decision-models.md#on-a-server-you-already-run)。
 
 ## 请求按任务顺序处理
 

@@ -64,7 +64,7 @@
 **Imported regex scripts**(导入的正则脚本)（默认 **Character only**）：
 
 - **Character only** 让脚本只作用于各自的角色。
-- **Global** 把脚本添加到 **Presets → Regexes**(预设 → 正则)，对所有聊天生效。
+- **Global** 把脚本添加到 **Presets → Regexes**(预设 → 正则)，你可以在该选项卡管理跨聊天运行的脚本。见[正则脚本](../extending/regex-scripts.md#manage-your-scripts)。
 
 如果没有成功：
 
