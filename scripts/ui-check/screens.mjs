@@ -157,6 +157,12 @@ export function screenList(ids) {
   return [
     { id: "home", group: "core", run: null },
     {
+      id: "home-large-text",
+      group: "core",
+      // Settings > Appearance text size 20 (large text): Home's text unclamps and wraps, the layout it has to survive.
+      run: hook(() => window.__marinaraUiCheck.ui.getState().setFontSize(20)),
+    },
+    {
       id: "home-widgets-window",
       run: null,
       // Desktop and tablet: the Widgets button under the greeting. Phones keep it in Home's menu (not checked).

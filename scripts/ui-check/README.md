@@ -12,6 +12,8 @@ Vivaldi and in real WebKit (Safari's engine), and fails when a layout is broken:
 | `picture`     | A picture far bigger than its box                                                    | Giant cropped avatars in Recent chats and List view (Nov 18) |
 | `stretched`   | A row or button that is mostly empty space (3x taller than its content, 120px+)      | Home's giant Discord / Support rows (Nov 19)                 |
 | `covered`     | A button you can see part of, with something lying over its middle                   | Buttons hidden under a bar or panel                          |
+| `greeting`    | Home's buttons sit beside the greeting, out over the hero's art, instead of under it | MARI to the Moon's buttons over the rocket (Nov 19)          |
+| `off-center`  | An icon tile's icon is off the tile's middle                                         | Things to try icons riding high with large text (Nov 19)     |
 | `unstable`    | (Vivaldi, Home) a widget that keeps changing height                                  | Home widgets shaking in Vivaldi (Nov 17)                     |
 
 ## Run it

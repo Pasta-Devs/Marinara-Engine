@@ -12,6 +12,8 @@
 //   picture      a picture is far bigger than the box it belongs in (the "giant avatar" family)
 //   stretched    a row or button is mostly empty space: many times taller than what is in it (Home's giant links)
 //   covered      a button is under something else, so a tap lands on the wrong thing
+//   greeting     Home's buttons sit beside the greeting (over the hero's art) instead of under it
+//   off-center   an icon tile's icon is off the tile's middle (Things to try with large text)
 //
 // Every finding names the element (a short CSS path) and the numbers, so a report reads without a screenshot.
 // An element (and everything in it) is skipped when it or an ancestor has data-ui-check="ignore"; pass
@@ -344,6 +346,45 @@ export function detectLayoutProblems(options = {}) {
       );
       add("covered", el, `a tap in its middle lands on ${cssPath(over ?? hit)}`, rect);
     }
+  }
+
+  // ── greeting: Home's buttons sit under the greeting, never beside it out over the hero's art (Nov 19) ──
+  const hero = scope.querySelector(".mari-home-hero");
+  const heroButtons = hero?.querySelector(":scope > .ov-home-hero-buttons, :scope > .ov-home-modes");
+  const greeting = hero?.querySelector("h1");
+  if (heroButtons && greeting && visibleSet.has(heroButtons) && visibleSet.has(greeting)) {
+    const buttons = heroButtons.getBoundingClientRect();
+    const title = greeting.getBoundingClientRect();
+    if (buttons.top < title.bottom - 2)
+      add(
+        "greeting",
+        heroButtons,
+        `the buttons start ${Math.round(title.bottom - buttons.top)}px above the greeting's bottom edge (beside it, not under it)`,
+        buttons,
+      );
+  }
+
+  // ── off-center: an icon tile (a small square box holding one icon) whose icon is off its middle ──
+  // Things to try's tiles with large text: the symbol sat 8px above the middle (Nov 19).
+  for (const el of visible) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 20 || rect.width > 72 || Math.abs(rect.width - rect.height) > rect.width * 0.15) continue;
+    if (el.children.length !== 1 || el.textContent.trim()) continue;
+    const icon = el.firstElementChild;
+    if (!(icon instanceof SVGSVGElement || icon instanceof HTMLImageElement)) continue;
+    const style = styleOf(el);
+    // A tile is drawn: a fill, a border or a rounded shape. A bare wrapper around an icon is not.
+    const drawn =
+      (style.backgroundColor !== "rgba(0, 0, 0, 0)" && style.backgroundColor !== "transparent") ||
+      parseFloat(style.borderTopWidth) > 0 ||
+      style.backgroundImage !== "none";
+    if (!drawn) continue;
+    const box = icon.getBoundingClientRect();
+    if (box.width < 6 || box.width > rect.width * 0.9) continue;
+    const dx = box.left + box.width / 2 - (rect.left + rect.width / 2);
+    const dy = box.top + box.height / 2 - (rect.top + rect.height / 2);
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > Math.max(3, rect.width * 0.1))
+      add("off-center", el, `its icon sits ${Math.round(dx)}px across, ${Math.round(dy)}px down from the middle`, rect);
   }
 
   // Duplicates (the same box reported twice through two of its children) read as noise.
