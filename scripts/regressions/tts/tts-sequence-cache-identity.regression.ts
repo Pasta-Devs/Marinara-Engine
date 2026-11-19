@@ -101,14 +101,36 @@ try {
   check(sent.length === beforePrepare + 1, "preparing a line synthesizes it once");
   check(ttsService.getState() === "idle" && ttsService.getPlayback() === null, "preparing never starts playback");
   await ttsService.prepareAudio("Prepared line.", { ...lineOptions, cacheKey: "prepared-line" });
-  await play([{ text: "Prepared line.", voice: "voice-a", speaker: "Mari", cacheKey: "prepared-line" }], "connection-a");
+  await play(
+    [{ text: "Prepared line.", voice: "voice-a", speaker: "Mari", cacheKey: "prepared-line" }],
+    "connection-a",
+  );
   check(sent.length === beforePrepare + 1, "a prepared line plays, and prepares again, from the cache");
   await ttsService.prepareAudio("Unkeyed line.", lineOptions);
   await ttsService.prepareAudio("   ", { ...lineOptions, cacheKey: "blank-line" });
   check(sent.length === beforePrepare + 1, "a line without a cacheKey or text is skipped");
-  const playing = play([{ text: "Playing line.", voice: "voice-a", cacheKey: "playing-line" }], "connection-a");
-  await ttsService.prepareAudio("Next line.", { ...lineOptions, cacheKey: "next-line" });
-  await playing;
+  // Preparing never stops the line playing: it calls no stop(), and that line still reaches playing and ends.
+  const states: string[] = [];
+  const unsubscribe = ttsService.subscribe((state, activeId) => states.push(`${state}:${activeId}`));
+  const stop = ttsService.stop;
+  let stops = 0;
+  ttsService.stop = function (this: typeof ttsService) {
+    stops += 1;
+    return stop.call(this);
+  };
+  try {
+    const playing = play([{ text: "Playing line.", voice: "voice-a", cacheKey: "playing-line" }], "connection-a");
+    const stopsBefore = stops;
+    const preparing = ttsService.prepareAudio("Next line.", { ...lineOptions, cacheKey: "next-line" });
+    check(stops === stopsBefore, "preparing a line never stops the one playing");
+    await preparing;
+    check(stops === stopsBefore, "nor does finishing it");
+    await playing;
+  } finally {
+    ttsService.stop = stop;
+    unsubscribe();
+  }
+  check(states.includes("playing:identity"), "the line playing while another is prepared still plays");
   check(sent.length === beforePrepare + 3, "a line is prepared while another plays to its end");
 
   // A minimal transaction fixture exercises the actual persistent-cache branch without adding a dependency.
