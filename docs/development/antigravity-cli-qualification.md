@@ -54,7 +54,7 @@ excludeDefaultComponents: true
 commandExecutionPolicy: off
 ```
 
-The official [custom-agent frontmatter reference](https://antigravity.google/docs/subagents/) documents `mainAgent`, `subagent`, and `commandExecutionPolicy`. The inheritance and exclusion controls are described in the plugin guide and changelog cited above. The fixture was tested as a combination; successful agent selection does not establish that every field was enforced independently.
+The official [custom-agent frontmatter reference](https://antigravity.google/docs/subagents/) documents `mainAgent`, `subagent`, `tools`, and `commandExecutionPolicy`. The inheritance and exclusion controls are described in the plugin guide and changelog cited above. The fixture was tested as a combination; successful agent selection does not establish that every field was enforced independently.
 
 Generation used `--settings <session-settings-json> --agent me-isolation-probe --model gemini-4-neon-high --disable-slash-commands --print-timeout 40s --output-format stream-json -p <prompt>`, with an independent 55-second subprocess limit. The inline JSON settings trusted the temporary workspace, selected default agent mode, disabled custom status/title scripts, and selected the permission mode noted below. No permissions were skipped.
 
