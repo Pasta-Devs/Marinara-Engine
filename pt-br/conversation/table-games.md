@@ -114,7 +114,7 @@ Encerrar um jogo mais cedo exclui o estado dele e não registra vencedor.
 
 Abra **Chat Settings → Agents → Commands**, ou use a etapa **Automation** quando você cria o chat. A chave geral **Commands** controla todas as ações executadas pelos personagens, incluindo jogos de mesa, selfies e chamadas. Com ela desativada, os personagens não iniciam nada por conta própria.
 
-Cada jogo instalado tem a sua própria chave, ativada, a menos que você a desative: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** e **Rock-Paper-Scissors**. Veja [Escolha quais Commands um personagem pode usar](getting-started.md#choose-which-commands-a-character-can-use).
+Cada jogo instalado tem a sua própria chave, ativada, a menos que você a desative: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** e **Rock-Paper-Scissors**. Outros pacotes de jogos, como Blackjack ou Wordle, recebem uma chave com o nome do jogo. Veja [Escolha quais Commands um personagem pode usar](getting-started.md#choose-which-commands-a-character-can-use).
 
 Essas chaves controlam só o que os personagens fazem. O comando de barra de um jogo e a frase "let's play" funcionam mesmo com a chave desativada.
 

@@ -7,14 +7,14 @@ A geração de imagens alimenta as ilustrações de cena, as selfies, os planos 
 A chave de API é um código secreto que um serviço dá a você para que Marinara possa usar a sua conta. Marinara preenche o endereço web de cada serviço para você, então raramente é preciso digitar um.
 
 1. Clique em **Connections** (Conexões) na barra superior e depois em **Add** (adicionar). A janela **Add account** (adicionar conta) abre.
-2. Encontre o serviço. A lista tem uma seção **Images & video** (imagens e vídeo), e a caixa **Search providers** (buscar provedores) ajuda você a encontrá-lo.
+2. Encontre o serviço. Clique em **Image** (imagem) nos filtros de tipo ou digite em **Search providers** (buscar provedores).
 3. Cole a sua chave no campo **API key** (chave de API). Serviços gratuitos e locais não precisam de chave. Para um servidor que você mesmo roda, preencha o campo de endereço.
 4. Clique em **Connect** (conectar). Marinara testa a conta.
-5. Escolha um modelo de imagem na lista ou digite o ID de um modelo. Esse é o seu modelo de imagem. Ele aparece abaixo da conta no painel **Connections**.
+5. Em **Found in … — use it for:**, marque **Images** (imagens). Se o serviço não tiver uma lista de modelos, digite o ID do modelo na linha. Clique em **Done** (concluir).
 6. Abra o modelo de imagem e clique em **Test image** (testar imagem). Marinara gera uma pequena imagem de teste.
-7. Para que ele seja o modelo que o aplicativo usa para as imagens, defina a tarefa **Images** (imagens) em **Defaults** (padrões), no topo do painel **Connections**.
+7. Marcar **Images** no passo 5 também define a tarefa **Images** no quadro **Jobs** (tarefas), no topo do painel **Connections**. Para alterá-la depois, clique na linha **Images**.
 
-Para adicionar outro modelo de imagem a uma conta, abra o menu **⋯** dela e clique em **Add image model** (adicionar modelo de imagem). Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md) para conhecer a janela inteira.
+Para adicionar outro modelo de imagem a uma conta, clique em **⋯** na linha da conta e escolha **Add model** (adicionar modelo). Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md) para conhecer a janela inteira.
 
 Se não funcionou: **Test image** falha quando a chave ou o endereço está errado. Confira os dois primeiro. **Test provider** (testar provedor) só verifica se Marinara consegue alcançar o serviço. **Test image** gera uma imagem de verdade e pode gastar crédito.
 

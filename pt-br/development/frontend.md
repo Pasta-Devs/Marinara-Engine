@@ -233,7 +233,7 @@ A pasta `src/hooks/` também tem muitos hooks específicos de cada recurso. Uma 
 | `use-knowledge-sources.ts`     | Gerenciamento das fontes de conhecimento                |
 | `use-gallery.ts`               | Imagens da galeria do chat                           |
 | `use-chat-folders.ts`          | CRUD de pastas de chat, mais a reordenação                |
-| `use-regex-scripts.ts`         | CRUD de scripts de regex                           |
+| `use-regex-scripts.ts` | CRUD de scripts de regex, reordenação e ativação ou desativação em lote |
 | `use-haptic.ts`                | Conexão e comandos de dispositivos hápticos      |
 
 ## Guia de componentes
@@ -364,6 +364,30 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Gerador assíncrono de SSE (todos os tipos de evento) |
 
 Os erros lançam `ApiError`, que carrega as propriedades `status` e `message`.
+
+## Seletores e listas suspensas
+
+Todo controle para escolher um valor abre a mesma janela de seleção. Altere a aparência, o estilo das linhas ou a largura apenas nos componentes compartilhados abaixo. Não use o `<select>` nativo nem crie uma lista em uma janela flutuante própria. O aplicativo já substituiu os dois.
+
+| Camada | Arquivo | Responsabilidade |
+| --- | --- | --- |
+| Janela | `components/ui/PickerWindow.tsx` | No computador, a janela flutua ao lado do campo e se ajusta às linhas. A largura mínima é a do campo, e a máxima é 352 px ou a do campo, se for maior. No celular, ela abre em um painel inferior (`Modal`). Dentro de outro `Modal`, continua flutuante para evitar dois painéis sobrepostos. Escape, Voltar, clique fora da janela e rolagem do campo para fora da tela a fecham. |
+| Linhas | `components/ui/PickerParts.tsx` | `PickRow` (imagem, título, texto secundário que pode ocupar duas linhas, selo, marca ou caixa de seleção), `PickerSearch`, cabeçalhos de pastas e `usePickerKeyboard` (setas e Enter). |
+| Lista | `components/ui/PickerFolderList.tsx` | Conteúdo: busca, linhas agrupadas por pasta da biblioteca ou `group`, seleção única ou múltipla e "Add all" por pasta. |
+| Campos | `components/ui/Select.tsx` | `Select` escolhe um valor de uma lista fixa e substitui o `<select>` nativo. Abre por um controle combobox, tem busca a partir de `SELECT_SEARCH_MIN` opções e aceita setas e digitação para localizar opções com o campo fechado. |
+|  | `components/ui/PickerField.tsx` | `PickerField` (um item, com opção None e pastas), `PickerListField` / `PickerListWindow` (vários itens, listados abaixo do campo com botões de remoção) e `useFieldWindow` (estado de abertura e foco de volta no campo ao fechar). |
+|  | `components/ui/LibraryPickers.tsx`, `components/characters/CharacterSelect.tsx` | Campos de preset, lorebook, personagem e persona construídos com os componentes acima. |
+
+Como adicionar um seletor:
+
+- **Um valor de uma lista:** `Select`. Passe um `label` para nomear o campo e dar título à janela.
+- **Um item da biblioteca** (com pastas, imagens e a opção None): `PickerField` ou o campo correspondente em `LibraryPickers.tsx`.
+- **Vários itens:** `PickerListField`. Escape e cliques fora fecham a janela. Escolher um item a mantém aberta.
+- **Um controle que não é campo** (por exemplo, um botão que abre poucas opções, como "Link to Conversation"): use `useFieldWindow` para o estado de abertura e o foco, `PickerWindow` ancorado ao botão e `PickerFolderList` ou linhas `PickRow` dentro da janela.
+
+O seletor de conexão e modelo (`ConnectionSelect` / `ModelPicker`) ainda tem janela própria. Galerias de ícones (`StatIconPicker`), preenchimento automático de tags e menus de contexto e ação também têm interfaces próprias e não são seletores.
+
+**Testes.** O botão de `Select` tem `role="combobox"`, o valor escolhido em `data-value` e uma janela `dialog` nomeada pelo rótulo do campo. Linhas têm `data-pick-row`. Em seleção única, a linha escolhida tem `aria-current="true"`. Em seleção múltipla, as linhas têm `aria-pressed`. Em `e2e/select-field.ts`, `chooseOption` e `pickerLabels` substituem o `selectOption` que o Playwright usava nos seletores nativos antigos.
 
 ## Sistema de estilos
 

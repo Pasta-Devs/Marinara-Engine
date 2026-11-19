@@ -21,6 +21,8 @@ As macros rodam dentro do Marinara e não precisam de configuração nem de chav
 - As variáveis de preset (o coringa `{{NAME}}`) precisam de um preset de prompt que as defina. Veja [Variáveis de preset](preset-variables.md).
 - A macro de agente `{{agent::TYPE}}` só mostra texto depois que o agente correspondente roda e produz uma saída.
 
+<a id="identity-character-and-persona-macros"></a>
+
 ## Macros de identidade, personagem e persona
 
 Estas macros trazem os nomes e os campos do card de quem fala e do personagem que responde. O usuário é você (ou a persona ativa). O personagem é o bot que está respondendo.

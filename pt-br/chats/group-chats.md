@@ -79,10 +79,14 @@ No modo **Individual** de Roleplay com a ordem **Smart** ou **Manual**, a primei
 
 Use o seletor **Trigger Response** para escolher quem fala. No computador, ele é um botão ao lado de **Send** (enviar), identificado como **Trigger character response**. No celular, ele fica sob **Trigger Response**, na bandeja de ferramentas que você abre pela barra de mensagem. Para indicar quem fala pelo texto, digite `@` e o nome do personagem. Uma lista de sugestões aparece.
 
+<a id="more-individual-settings"></a>
+
 ### Mais configurações do modo Individual
 
 - **Add Turn To Prompt** (acrescentar o turno ao prompt) vem ativado por padrão. Ele acrescenta uma instrução curta dizendo qual personagem deve responder.
 - **Name Prefix History** (só em Roleplay) vem desativado por padrão. Ele muda a forma como as mensagens antigas recebem o nome de quem falou. Deixe desativado, a não ser que algum personagem viva confundindo quem disse o quê.
+
+- **Others' Public Faces** (faces públicas dos demais personagens). A opção (somente Roleplay) vem desativada. Cada personagem recebe só o próprio card, então só conhece os outros pelo chat. Ative-a para acrescentar o texto **Public Face** dos outros personagens ativos a cada turno: o que qualquer pessoa na cena poderia saber sobre eles, sem os segredos. Personagens inativos ou com Public Face vazio ficam de fora. Para preencher o campo, veja [A aba Card](../characters/creating-and-editing-characters.md#card-tab).
 
 ### Scenario Override (Roleplay)
 
@@ -102,6 +106,7 @@ Ative **Character Exchanges** (trocas entre personagens) em **Chat Settings → 
 | **Response Order** | Individual | Sequential |
 | **Add Turn To Prompt** | Individual | Ligado |
 | **Name Prefix History** | Roleplay, Individual | Desligado |
+| **Others' Public Faces** | Roleplay, Individual | Desativado |
 | **Scenario Override** | Roleplay | Vazio |
 | **Character Exchanges** | Conversation, Autonomous Messaging | Desligado |
 

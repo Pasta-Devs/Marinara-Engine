@@ -92,9 +92,10 @@ A aba **Card** guarda os campos que descrevem você para a IA. Cada um tem uma e
 | **Backstory** | História, origem, relações. | Sim |
 | **Appearance** | Aparência, roupas, detalhes visuais. | Sim |
 | **Scenario** | A sua situação padrão nos roleplays. | Sim |
+| **Public Face** (face pública) | O card sem as partes privadas. | Só por `{{personaPublicFace}}` ou se a fonte **Persona** de um agente estiver definida como **Public Face** |
 | **Example Dialogue** (diálogo de exemplo) | Trocas de mensagens de exemplo. Separe-as com `<START>`. Use `{{user}}` para a sua persona e `{{char}}` para o outro personagem. | Sim |
 
-**Image Appearance Override** (aparência alternativa para imagens), abaixo de **Appearance**, funciona como nos personagens. Veja [A aba Card](creating-and-editing-characters.md#card-tab). As caixas de texto aceitam macros.
+**Image Appearance Override** (aparência alternativa para imagens), abaixo de **Appearance**, e **Public Face** funcionam como nos personagens. Veja [A aba Card](creating-and-editing-characters.md#card-tab). As caixas de texto aceitam macros.
 
 Estes recursos funcionam como nos personagens, com a persona como assunto:
 

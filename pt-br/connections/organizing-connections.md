@@ -29,7 +29,7 @@ Clique em **⋯** na linha de uma conta:
 | **Edit account** (editar conta) | Abre as configurações dela, entre elas **Name**, **Address**, **API key** e **Use this account**. |
 | **Replace key** (substituir a chave) | Cola uma chave nova. Se a chave antiga está em outras contas, Marinara pergunta se deve atualizar essas contas também. |
 | **Test** (testar) | Verifica a chave e mostra o resultado. |
-| **Add model** (adicionar modelo) | Abre a lista de modelos da conta. **Add image model** (adicionar modelo de imagem) aparece nos serviços que também geram imagens. |
+| **Add model** (adicionar modelo) | Abre a lista de modelos da conta. |
 | **Select models** (selecionar modelos) | Permite mover ou excluir vários modelos de uma vez. |
 | **Duplicate** (duplicar) | Adiciona uma cópia da conta, com cópias dos modelos dela. |
 | **Turn off** / **Turn on** (desligar / ativar) | Faz Marinara parar de usar a conta ou voltar a usá-la. |
@@ -57,7 +57,7 @@ Clique em **⋯** na linha de um modelo:
 
 | Ação | O que faz |
 | --- | --- |
-| **Make default for…** (tornar padrão para) | Dá uma tarefa ao modelo, o mesmo que escolhê-lo na caixa **Jobs**. |
+| **Use for…** | Abre a lista de tarefas. Clique em uma para atribuí-la ao modelo, como na caixa **Jobs**. Uma marca indica as tarefas que já foram atribuídas. |
 | **Edit model** (editar modelo) | Abre as configurações dele. Clicar na linha do modelo faz o mesmo. |
 | **Move to account…** (mover para a conta) | Move o modelo para outra conta. Ele passa a usar a chave daquela conta. |
 | **Folder** (pasta) | Coloca o modelo em uma pasta. |

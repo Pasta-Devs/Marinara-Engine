@@ -51,6 +51,8 @@ Cada execução precisa de espaço livre para mais um arquivo completo, porque o
 
 > **Dica:** guarde uma segunda cópia fora da pasta de dados. Um disco perdido ou um aplicativo apagado também remove os backups automáticos.
 
+<a id="export-a-profile"></a>
+
 ## Exportar um perfil
 
 1. Abra **Settings → Advanced → Backup & Export**.
@@ -62,6 +64,8 @@ Cada execução precisa de espaço livre para mais um arquivo completo, porque o
 - **Compatible JSON** gera um `.zip` de arquivos simples de personagens, personas e lorebooks, para outras ferramentas. Você não pode restaurá-lo no Marinara.
 
 Um perfil nativo é baixado como `marinara-profile.json`. Se ele for grande demais, o Marinara oferece um arquivo ZIP no lugar. Clique em **Export ZIP** para baixar `marinara-profile.zip`.
+
+O perfil nativo guarda os scripts de regex, suas pastas e a configuração de pausa de cada pasta. Para compartilhar scripts individuais como JSON, veja [Scripts de regex](../extending/regex-scripts.md#import-and-replace-scripts).
 
 Um perfil nativo mantém o código de Personal Extension, mas não mantém o estado ligado ou aprovado. Toda extensão restaurada chega desativada. Revise-a de novo em **Settings → Addons**.
 

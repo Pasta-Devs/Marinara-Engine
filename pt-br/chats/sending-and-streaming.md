@@ -15,7 +15,7 @@ Se não funcionou: sem um modelo definido para o chat, a resposta falha na hora,
 
 ### Send on Enter
 
-Ele fica em **Settings → General → Input & Editing** (Configurações → Geral → Entrada e edição). Há um botão liga/desliga para cada modo de chat.
+Ele fica em **Settings → General → Input & Editing** (Configurações → Geral → Entrada e edição). Há um botão liga/desliga para cada modo de chat. A configuração fica salva no dispositivo em que você a altera, então pode ser diferente no celular e no computador.
 
 | Modo de chat | Padrão | Quando está desligado |
 | --- | --- | --- |

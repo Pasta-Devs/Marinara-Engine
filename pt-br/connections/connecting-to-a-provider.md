@@ -15,12 +15,14 @@ Antes de começar, consiga uma chave de API de um serviço que você quer usar. 
 A maioria dos serviços pede que você se cadastre, e alguns pedem que você adicione crédito, antes de a chave funcionar. Para outros serviços, veja [Provedores de IA compatíveis](providers-reference.md). Para usar um modelo no seu próprio computador sem chave, veja [Como configurar o Built-in model](local-model.md).
 
 1. Clique em **Connections** (Conexões) na barra superior. O painel abre à direita. Se você ainda não tem contas, ele pergunta **Where do your models come from?** (de onde vêm os seus modelos?) e mostra alguns serviços. Clique em um serviço (não em **Built-in model**). A janela **Add account** abre na etapa da chave. Vá para o passo 4.
-2. Clique em **Add** (adicionar). A janela **Add account** abre.
-3. Clique no serviço que você quer. Digite na caixa **Search providers** (buscar provedores) para encontrá-lo. A lista tem as seções **Chat**, **Images & video**, **Voice** e **Decisions** (chat, imagens e vídeo, voz e decisões). Para um modelo de chat normal, procure em **Chat**.
+2. Clique em **Add** (adicionar). A janela **Add account** abre com uma lista única de serviços.
+3. Clique no serviço que você quer. Digite na caixa **Search providers** (buscar provedores) ou clique em **Text** (texto), **Image** (imagem), **Video** (vídeo) ou **Voice** (voz) para filtrar pelo tipo. Cada cartão mostra os tipos que o serviço oferece.
 4. Clique em **API key** (chave de API) e cole a sua chave. Clique no botão de olho para conferir se você colou a chave inteira.
 5. Clique em **Connect** (conectar). Marinara testa a chave. Quando ela funciona, aparece **Connected** com o número de modelos encontrados.
-6. O que acontece depois depende de você já ter um modelo Main. Main (principal) é a tarefa de escrever as respostas dos seus chats.
+6. Em **Found in … — use it for:**, cada linha é uma tarefa, como **Main** ou **Images**. Marque as tarefas que devem usar o modelo encontrado pela Marinara. Se o serviço não listar modelos, digite o ID na linha. Clique em **Done**. Para manter a conta sem atribuir o modelo a uma tarefa, clique em **Skip**.
+7. O que acontece depois depende de você já ter um modelo Main. Main (principal) é a tarefa de escrever as respostas dos seus chats.
    - **Ainda não há modelo Main, ou você abriu o Add em um chat novo:** a janela mostra os modelos do serviço. Os modelos **Recommended** (recomendados) ficam no topo. Clique em um modelo para adicioná-lo, ou digite um nome em **Search or enter model ID…** (buscar ou digitar o ID do modelo). Se você não sabe qual escolher, fique com um **Recommended**. Dá para trocar depois. Deixe **Make … my Main model** (definir como o meu modelo principal) marcado. Essa opção só aparece quando você não tem um modelo Main. Quando você abriu o Add em um chat novo e já tem um modelo Main, aparece no lugar dela um botão **Set … as Main** (definir como principal). Depois clique em **Done** (concluir), ou em **Start chatting** (começar a conversar) se você veio de um chat novo.
+   - **Você abriu o Add no seletor de uma tarefa:** a janela fecha e a Marinara volta para a tarefa, com o novo modelo na lista.
    - **Você já tem um modelo Main:** a janela fecha e uma mensagem diz que a conta foi adicionada, com o número de modelos dela. Para adicionar mais modelos, clique em **⋯** na conta e escolha **Add model** (adicionar modelo).
 
 O painel mostra a sua conta. O **Connected** do passo 5 já quer dizer que a chave funciona. Se o modelo novo é o seu modelo Main, comece um chat e envie uma mensagem: uma resposta quer dizer que tudo funciona. Se você já tinha um modelo Main, os chats novos continuam usando esse modelo. Para usar a conta nova, adicione um modelo a ela (**⋯** → **Add model**) e escolha esse modelo para um chat ou uma tarefa (veja [Como escolher o modelo de cada tarefa](#choosing-the-model-for-each-job)).
@@ -68,12 +70,12 @@ Uma tarefa é algo que um modelo faz por você. A caixa **Jobs** lista as tarefa
 | --- | --- |
 | **Chat** | **Main** escreve as respostas dos seus chats. **Agents** (agentes) roda os agentes auxiliares. **Impersonate** escreve como você. |
 | **Omnibar** | **Professor Mari** e **Quick answers** (respostas rápidas). |
-| **Pictures & sound** (imagens e som) | **Images**, **Video**, **Voice (Text to Speech)** (voz: texto para fala) e **Dictation (Speech to Text)** (ditado: fala para texto), quando disponível. |
+| **Pictures & sound** (imagens e som) | **Images**, **Video**, **Voice** (voz: texto para fala) e **Dictation** (ditado: fala para texto), quando disponível. |
 | **Behind the scenes** (nos bastidores) | **Decision**, **Embeddings** e **Image reading** (leitura de imagens). |
 
-Cada linha mostra o modelo que faz aquela tarefa, ou o que a tarefa faz sem um modelo, como **Follows Main** ou **Off**. Uma tarefa que precisa de um modelo mostra **Choose a model**. Clique em **Jobs** para recolher a caixa.
+Cada linha mostra o modelo que faz aquela tarefa, ou o que a tarefa faz sem um modelo, como **Follows Main** ou **Off**. Uma tarefa sem modelo mostra **N models found** (modelos encontrados) com **Pick** (escolher), ou **None in your accounts** (nenhum nas suas contas) com **Add**. O seletor lista modelos compatíveis de todas as contas. **Add** abre a janela **Add account** e volta à tarefa. Clique em **Jobs** para recolher a caixa.
 
-Para trocar o modelo de uma tarefa, clique na linha dela. Abre **Model for** (modelo para) aquela tarefa, exceto em três linhas. **Decision** e **Embeddings** abrem os próprios controles (veja [Modelos de decisão](decision-models.md) e [Provedores de IA compatíveis](providers-reference.md#embeddings)). **Dictation (Speech to Text)** abre a configuração de fala.
+Para trocar o modelo de uma tarefa, clique na linha dela. Abre **Model for** (modelo para) aquela tarefa, exceto em três linhas. **Decision** e **Embeddings** abrem os próprios controles (veja [Modelos de decisão](decision-models.md) e [Provedores de IA compatíveis](providers-reference.md#embeddings)). **Dictation** abre a configuração de fala. As linhas **Voice** e **Dictation** também têm uma engrenagem que abre a janela de configurações. Escolher um modelo de **Voice** ativa a síntese de fala.
 
 Em **Model for**:
 

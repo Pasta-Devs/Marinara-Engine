@@ -124,29 +124,31 @@ As probabilidades de sim ou não de um modelo de chat geral funcionam com um lim
 
 Se o seu modelo de chat roda no Ollama, LM Studio, llama.cpp ou outro servidor compatível com OpenAI, ele pode responder decisões sem que Marinara carregue uma segunda cópia.
 
-1. Clique em **⋯** nesse modelo, no painel **Connections**, e escolha **Use this model for decisions** (usar este modelo para decisões). A janela **Add account** (adicionar conta) abre na etapa de decisão, com o mesmo endereço, modelo e chave.
-2. Escolha o modelo e clique em **Test decision** (testar decisão). Um teste bem-sucedido informa se o servidor retornou log-probabilidades e se o modelo precisou raciocinar antes. Clique em **Done** (concluir).
+1. Clique na linha **Decision** em **Behind the scenes**, na caixa **Jobs**. O seletor lista os modelos de todas as contas, inclusive o seu modelo de chat. Você também pode clicar em **⋯** no modelo e escolher **Use for…** → **Decision**.
+2. Clique na engrenagem da linha **Decision** e depois em **Test**. Se passar, o teste informa se o servidor retornou log-probabilidades e se o modelo precisou raciocinar antes. Clique em **Done**.
 Você também pode criá-lo por conta própria. Use uma conta Decision com a fonte **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)** (modelo de chat compatível com OpenAI), o mesmo endereço da sua conta de chat (por exemplo, `http://localhost:11434/v1` para Ollama) e o nome do modelo que o servidor usa.
 
 Ele é consultado como o modelo embutido: uma palavra de sim ou não por declaração. As declarações vão uma por vez, porque Marinara não tem como saber quantas solicitações o seu servidor processa ao mesmo tempo. **Thinking** é sempre **Auto** para uma conta. Um servidor em outro computador precisa de `PROVIDER_LOCAL_URLS_ENABLED`. Veja [Conectar um modelo local ou auto-hospedado](local-self-hosted.md).
 
 <a id="set-up-a-decision-connection"></a>
 
-## Configurar uma conexão Decision
+<a id="set-up-a-decision-account"></a>
+
+## Configurar uma conta Decision
 
 Uma conta Decision hospedada envia ao serviço as mensagens recentes selecionadas e as declarações, e pode gerar cobranças. A ordem de resposta Smart também envia uma [lista de personagens](#what-the-model-sees).
 
 1. Clique em **Connections** na barra superior e depois em **Add** (adicionar).
 2. Clique no filtro de tipo **Decision** e depois em **TypeSafe** ou **Own decision server**. Para o NanoGPT, veja [Pelo NanoGPT](#through-nanogpt). Para o OpenRouter ou o Google Gemini, veja [Pelo OpenRouter ou Google Gemini](#through-openrouter-or-google-gemini).
-3. Informe a **API key** (chave de API) ou, para **Own decision server**, o **Server address** (endereço do servidor). Clique em **Connect** (conectar). A janela fecha e o painel mostra a conta nova.
-4. Clique na linha **Decision**, em **Behind the scenes**, e escolha o modelo novo.
+3. Informe a **API key** (chave de API) ou, para **Own decision server**, o **Server address** (endereço do servidor). Clique em **Connect** (conectar).
+4. Em **Found in TypeSafe — use it for:**, marque **Decision** e clique em **Done**. A linha **Decision** em **Behind the scenes**, na caixa **Jobs**, passa a mostrar o modelo.
 5. Para testá-lo, clique no modelo no painel para abrir **Edit model** e depois clique em **Test provider** no cartão **Provider tests** (testes do provedor). Um modelo de **Own decision server** não tem o botão **Test provider** ali. Em vez disso, abra o menu **⋯** da conta no painel e clique em **Test**.
 
 Um **Test provider** bem-sucedido mostra a probabilidade, quanto tempo a resposta levou e o tempo limite da conta. O **Test** da conta, no menu **⋯**, só informa se funcionou e quanto tempo levou. O teste espera pelo menos 10 segundos, ou 5 segundos além de um limite maior. Se a resposta demorar mais que o limite, o resultado avisa: nos chats, essa resposta contaria como ausência de resposta.
 
 Se não funcionar, veja [Solução de problemas](#troubleshooting).
 
-O editor de Decision (**Edit model** em um modelo de decisão) tem estes campos:
+O modelo de decisão tem os campos a seguir. Clique no modelo no painel para abrir **Edit model**, ou clique na engrenagem da linha **Decision** na caixa **Jobs** para abrir **Decision settings** do modelo atual.
 
 | Campo | O que faz |
 | --- | --- |

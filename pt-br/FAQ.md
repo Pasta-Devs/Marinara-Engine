@@ -122,7 +122,7 @@ Ele transforma o texto já concluído da história em imagens. Instale o **Story
 
 ## Os personagens podem falar em voz alta em uma chamada?
 
-Sim, no modo Conversation. Você precisa do **Text to Speech** (conversão de texto em voz) configurado em **Connections**. Veja [Chamadas](conversation/calls.md) para o passo a passo, inclusive o reconhecimento de fala do seu microfone.
+Sim, no modo Conversation. Você precisa de um modelo na tarefa **Voice** (voz) em **Connections**. Veja [Chamadas](conversation/calls.md) para o passo a passo, inclusive o reconhecimento de fala do seu microfone.
 
 ## Marinara consegue gerar imagens?
 

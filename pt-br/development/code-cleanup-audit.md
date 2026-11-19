@@ -228,7 +228,7 @@ Há valor real em unificar, mas juntar qualquer um dos dois pares de uma vez cri
 
 ### 6.3 Pontos ativos de complexidade
 
-Os maiores módulos ativos são `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/components/chat/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts` e `client/components/panels/SettingsPanel.tsx`. Nenhum deles é candidato à remoção. Continue extraindo handlers de rota delimitados, serviços de domínio, seções do painel lateral e funções puras apenas quando a funcionalidade afetada já estiver sendo mexida. Um PR isolado de "dividir tudo" só traria agitação, sem comprovação confiável de comportamento.
+Os maiores módulos ativos são `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/features/chat-settings/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts` e `client/components/panels/SettingsPanel.tsx`. Nenhum deles é candidato à remoção. Continue extraindo handlers de rota delimitados, serviços de domínio, seções do painel lateral e funções puras apenas quando a funcionalidade afetada já estiver sendo mexida. Um PR isolado de "dividir tudo" só traria agitação, sem comprovação confiável de comportamento. O painel de configurações do chat foi a exceção: ele foi dividido seção por seção, uma por PR (#9119). As regras da pasta estão na seção Chat Settings de `packages/client/.instructions.md`.
 
 ## 7. Itens deixados de fora da limpeza de propósito
 

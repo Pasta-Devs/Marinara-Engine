@@ -163,7 +163,7 @@ Em **Voice** (voz), um serviço de áudio fala as vozes dos personagens e a narr
 
 Cada fonte preenche um endereço e um modelo padrão. **Default voice** (voz padrão) é a voz usada quando nada mais específico, como uma voz por personagem, está definido. **Request timeout (seconds)** (tempo limite da requisição, em segundos) é quanto tempo Marinara espera por uma fala. Aumente esse valor para um servidor de voz lento.
 
-Para escolher a conta de fala que Marinara usa por padrão, clique na linha **Voice (Text to Speech)** (voz: texto para fala) da caixa **Jobs** (tarefas). Para ler mensagens em voz alta com uma delas, escolha-a como **Source** (origem) no card **Text to Speech**. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md) e [Usar uma conexão de áudio](../media/tts-setup.md#use-a-voice-model-from-an-account).
+Para escolher a conta de fala que Marinara usa por padrão, clique na linha **Voice** (voz) da caixa **Jobs** (tarefas). Para ler mensagens em voz alta, escolha o modelo da conta nessa linha. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md) e [Usar um modelo de voz de uma conta](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 
@@ -189,7 +189,7 @@ Ative o áudio gerado em cada Game, ou ative **Sound effects** (efeitos sonoros)
 
 ## Embeddings
 
-Os embeddings transformam texto em listas de números para que Marinara encontre textos relacionados. Eles são a base da busca semântica dos lorebooks e do Memory Recall. A maioria dos serviços de chat permite definir um modelo de embedding e, se quiser, uma **Embedding endpoint URL** (URL do endpoint de embedding) em **Semantic search (embeddings)** (busca semântica por embeddings), no editor do modelo.
+Os embeddings transformam texto em listas de números para que Marinara encontre textos relacionados. Eles são a base da busca semântica dos lorebooks e do Memory Recall. A maioria dos serviços de chat permite definir um modelo de embedding e, se quiser, uma **Embedding endpoint URL** (URL do endpoint de embedding) em **More** → **Semantic search (embeddings)** (busca semântica por embeddings), na janela **Edit model** do modelo.
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** e **Grok CLI (Subscription)** não geram embeddings. Nesses casos, use o menu suspenso **Embedding provider** (provedor de embeddings) para emprestar outra conta, como uma compatível com OpenAI, **Google Gemini** ou o **Built-in model** (modelo embutido).
 
