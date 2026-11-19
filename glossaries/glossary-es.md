@@ -587,3 +587,11 @@ Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.m
 ## Roleplay message box opacity (2026-11-11, #9063)
 
 Precedents from the #9063 sync of `characters/colors-and-stats.md`, "Los tres colores", against Engine `ced9558565` (merge of #9091): the old sentence saying the slider *replaces* saved transparency is gone. The verb is **escalar**: "El control deslizante escala la transparencia guardada en el color del cuadro del mensaje". *Alpha* is **el alfa**, kept Latin in the code spans. *Fill* is **el relleno**, after `appearance/custom-css-themes.md`'s **Background Color** rellena; *chat widget* is **el widget del chat**. The new paragraph reuses the file's existing **Apply preset colors** (Aplicar colores del preset) gloss, capitalised after the bold label as this file does, and runs the label bare afterwards.
+
+### 2026-11-19: Connections and Public Face
+
+- **Voice settings** (Ajustes de voz), in `es/conversation/calls.md`.
+- **Who speaks** (Quién habla), in `es/conversation/calls.md`.
+- **Public Face** (Imagen pública), in `es/characters/creating-and-editing-characters.md`.
+- **Others' Public Faces** (Imágenes públicas de los demás), in `es/chats/group-chats.md`.
+- **Send Public Faces** (Enviar imágenes públicas), in `es/chats/guided-and-impersonate.md`.

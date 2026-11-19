@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "75004436d3ddb907137d07592e46f276e169dfc4e37e70a07a1dc85375eb2866",
-      "bytes": 38625
+      "sha256": "249dc7cf448d5ff6193fa2b258fb20de56a52070d761554cec9c2f08a5c5672f",
+      "bytes": 38645
     },
     {
       "path": "agents/custom-agents.md",
@@ -319,13 +319,13 @@
     },
     {
       "path": "development/antigravity-cli-qualification.md",
-      "sha256": "667da29da69dbd48af950650acc0801374e0c105a143421ac81723111bba5853",
-      "bytes": 17566
+      "sha256": "4de272db428d5f81ada87a27ebacee3b1f955f7141bcfe788bb8ae5df0672528",
+      "bytes": 17584
     },
     {
       "path": "development/architecture-map.md",
-      "sha256": "cf6aff34fecb320b741337f432c2c0624da68af21ab373fd2c1077e6f54dbc71",
-      "bytes": 22634
+      "sha256": "837d3fe293ba20e87450fa47f911dd6baafda9533842e42c1a61a84b28e62ff2",
+      "bytes": 22637
     },
     {
       "path": "development/chat-resource-drag-drop-plan.md",
@@ -334,8 +334,8 @@
     },
     {
       "path": "development/code-cleanup-audit.md",
-      "sha256": "50c773159dd71a8c656c3c4f121b9bf855b23d3de94b5b48fefa1256dc5d9218",
-      "bytes": 29196
+      "sha256": "13b7cfe78dd3c951feb9c1145c6bc042769bc3e066d0158d46eef77e1a3c275b",
+      "bytes": 29199
     },
     {
       "path": "development/file-storage.md",
@@ -684,8 +684,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "fb4e56ecbbddcb6a768f1232f713571cefbe4a1811b6fccb25d7d6a03279cbc9",
-      "bytes": 24689
+      "sha256": "725b9797c57493231f73b80e5500e57fc28a1df8bf9bbc7154c3092ee456460a",
+      "bytes": 24698
     },
     {
       "path": "prompts/conditional-prompts.md",

@@ -166,7 +166,7 @@ Si no funcionó, consulta [Solución de problemas](#troubleshooting).
 
 ## Clips en caché
 
-Marinara guarda el audio generado en tu navegador para no generar la misma línea dos veces. La sección **Cached clips** de **Voice settings** (Clips en caché) muestra un recuento en vivo y el tamaño total. Haz clic en **Export cached TTS clips** (Exportar los clips de TTS en caché; el icono de descarga) para guardar cada clip en caché como archivos de audio separados. La caché recorta sus clips más antiguos por sí sola. No hay un botón para vaciarla en la app. Borra los datos de tu navegador para vaciarla.
+Marinara guarda el audio generado en tu navegador para no generar la misma línea dos veces. La sección **Cached clips** (Clips en caché) de **Voice settings** muestra un recuento en vivo y el tamaño total. Haz clic en **Export cached TTS clips** (Exportar los clips de TTS en caché; el icono de descarga) para guardar cada clip en caché como archivos de audio separados. La caché recorta sus clips más antiguos por sí sola. No hay un botón para vaciarla en la app. Borra los datos de tu navegador para vaciarla.
 
 ## TTS en cada modo de chat
 
@@ -188,7 +188,7 @@ Si la voz pronuncia mal el nombre de un personaje o de una persona, añade un **
 - **ElevenLabs no habla**: elige una voz real, no el texto provisional "Select an ElevenLabs voice". Comprueba que el modelo sea de voz, no uno de diseño de voces cuyo ID contenga `ttv`.
 - **Una línea se detiene con "No audio after 60 s"**: el servidor de voz necesita más tiempo. Sube **Request timeout (seconds)** donde indica el mensaje. Consulta [Tiempo de espera de la solicitud](#request-timeout).
 - **Un servidor autoalojado en una dirección local está bloqueado**: activa `TTS_LOCAL_URLS_ENABLED` en `.env`. Permite que Marinara llegue a una dirección local o privada para servidores compatibles con OpenAI o de estilo ElevenLabs. PocketTTS no lo necesita. Consulta [Referencia de configuración del servidor](../CONFIGURATION.md).
-- **Prueba rápida**: haz clic en **Preview** en la tarjeta para oír una breve muestra con tus ajustes actuales.
+- **Prueba rápida**: haz clic en **Preview** en **Voice settings** para oír una breve muestra con tus ajustes actuales.
 
 ## Referencia: música, efectos de sonido y Gacha Forge
 
@@ -219,7 +219,9 @@ La música de contexto generada se compone una vez por zona o nivel de encuentro
 
 ### Diálogo y audio de Gacha Forge
 
-Gacha Forge 1.11.0 o posterior usa la cuenta seleccionada para la tarea **Voice** y sus asignaciones de voz por personaje. - Activa **Read character dialogue** (Leer diálogos de personajes) para leer los diálogos de los personajes importados que tienen una voz asignada. Está en el paso de configuración **Lore** (Trasfondo) de un mundo nuevo, o en los ajustes de mundo propios de Gacha Forge para un mundo existente. La narración, los pensamientos, las unidades generadas sin un ID de personaje del Engine y los personajes sin voz permanecen en silencio. Un nombre por sí solo nunca toma prestada la voz de otro personaje.
+Gacha Forge 1.11.0 o posterior usa la cuenta seleccionada para la tarea **Voice** y sus asignaciones de voz por personaje.
+
+- Activa **Read character dialogue** (Leer diálogos de personajes) para leer los diálogos de los personajes importados que tienen una voz asignada. Está en el paso de configuración **Lore** (Trasfondo) de un mundo nuevo, o en los ajustes de mundo propios de Gacha Forge para un mundo existente. La narración, los pensamientos, las unidades generadas sin un ID de personaje del Engine y los personajes sin voz permanecen en silencio. Un nombre por sí solo nunca toma prestada la voz de otro personaje.
 
 - Una cuenta Audio seleccionada puede usarse cuando la tarea **Voice** no está en **Off**.
 - La música y los efectos de sonido incluidos de Game no necesitan una cuenta de generación. Para componer pistas nuevas, activa **Generate music and sound effects** (Generar música y efectos de sonido) en Gacha Forge y elige una cuenta de Music & Sound Effects en **Audio connection** (Conexión de audio). Aparece cuando la generación está activada. Las pistas de inicio, de combate, de jefe, de escena de historia y de historia de personaje se generan cuando se necesitan por primera vez y luego se reutilizan. Estas solicitudes usan tu cuenta del servicio.

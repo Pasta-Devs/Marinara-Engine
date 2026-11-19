@@ -56,7 +56,7 @@ commandExecutionPolicy: off
 
 La [referencia oficial del encabezado de agentes personalizados](https://antigravity.google/docs/subagents/) documenta `mainAgent`, `subagent`, `tools` y `commandExecutionPolicy`. Los controles de herencia y exclusión se describen en la guía de plugins y en el registro de cambios citados arriba. La configuración de prueba se usó en conjunto. Que se seleccionara el agente correctamente no demuestra que cada campo se aplicara por separado.
 
-Para generar texto se usó `--settings <session-settings-json> --agent me-isolation-probe --model gemini-4-neon-high --disable-slash-commands --print-timeout 40s --output-format stream-json -p <prompt>`, con un límite independiente de 55 segundos para el subproceso. Los ajustes JSON en línea marcaron el espacio temporal como confiable, seleccionaron el modo de agente predeterminado y el modo de permisos que se indica abajo, y desactivaron los scripts personalizados de estado y título. No se omitió ningún permiso.
+Para generar texto se usó `--settings <session-settings-json> --agent me-isolation-probe --model gemini-4-neon-high --disable-slash-commands --print-timeout 40s --output-format stream-json -p <prompt>`, con un límite independiente de 55 segundos para el subproceso. Los ajustes JSON en línea marcaron el espacio temporal como confiable, seleccionaron el modo de agente predeterminado y el modo de permisos que se indica abajo, y desactivaron los scripts personalizados de estado y título. No se eludió ninguna comprobación de permisos.
 
 El objeto de ajustes tenía esta forma. Se sustituyó `<temporary-workspace>` por el directorio de la prueba y se asignó a `toolPermission` el modo de permisos de cada fila:
 

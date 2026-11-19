@@ -165,7 +165,7 @@ Estos archivos son los que con más probabilidad frenarán el trabajo futuro, po
 | `packages/server/src/routes/generate.routes.ts` | generación y agentes compartidos | La ruta, el streaming, el prompt, los agentes, el almacenamiento y los efectos secundarios viven en un solo archivo. |
 | `packages/server/src/routes/game.routes.ts` | `MODE-GAME` | Los manejadores de la API, el flujo del GM, el análisis de escena, los assets, el combate y la persistencia están acoplados. |
 | `packages/client/src/components/game/GameSurface.tsx` | `MODE-GAME` | El renderizado, la orquestación de estado, los assets, los registros, la narración, el combate y los efectos están acoplados. |
-| `packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx` | chat settings mixtos | La extracción de secciones está en curso en `features/chat-settings/sections`, pero el panel lateral sigue siendo grande. |
+| `packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx` | varios ajustes del chat | La extracción de secciones está en curso en `features/chat-settings/sections`, pero el panel lateral sigue siendo grande. |
 | `packages/client/src/components/game/GameNarration.tsx` | `MODE-GAME` | El renderizado de la visualización y el formato de comandos están fuertemente acoplados. |
 | `packages/client/src/components/game/GameCombatUI.tsx` | `MODE-GAME` | La visualización de combate, los controles y los registros pueden convertirse en paneles y hooks más pequeños. |
 | `packages/client/src/components/chat/RoleplayHUD.tsx` | `MODE-ROLEPLAY` | Una división está hecha en parte mediante `RoleplayHUDActionsMenu.tsx` y `RoleplayHUDPanels.tsx`. |
