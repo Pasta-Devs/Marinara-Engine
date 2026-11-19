@@ -649,6 +649,66 @@ export interface CapabilityDecisionHost {
   evaluate(request: CapabilityDecisionRequest): Promise<CapabilityDecisionResult | null>;
 }
 
+/** A saved sprite's kind: a face (portrait expression) or a full-body pose. */
+export type CapabilitySpriteKind = "expression" | "full-body";
+
+/** One saved sprite of a character or persona. */
+export interface CapabilitySpriteRecord {
+  /** Stable id within the owner's library (the file name without its extension; full-body ones start `full_`). */
+  handle: string;
+  kind: CapabilitySpriteKind;
+  /** The user's label, normalised (`happy_winter_coat`), without `full_`. */
+  name: string;
+  /** The user's label as shown in the editor, without `full_`. */
+  label: string;
+  /** The sprite folder it is filed in (often an outfit, "Winter coat"), or null. */
+  folder: string | null;
+  /** Same-origin link to the picture, for a client view. */
+  url: string;
+  mimeType: string;
+}
+
+/** What a feature needs a picture of. `outfit` matches a folder name or a name facet (`happy_winter_coat`). */
+export interface CapabilitySpriteRequest {
+  kind: CapabilitySpriteKind;
+  /** An expression (faces) or pose (full body), such as "happy" or "wave". Left out: the resting picture. */
+  expression?: string | null;
+  outfit?: string | null;
+}
+
+/** `exact`: the expression in the requested outfit (or in any, when none was asked); `outfit`: the outfit's resting
+ *  picture for a request without an expression; `default`: the library's resting picture. */
+export type CapabilitySpriteMatch = "exact" | "outfit" | "default";
+
+/** The artwork rule's answer, in its order: the explicit choice, a saved match, saved references to draw from, none. */
+export type CapabilitySpriteResolution =
+  | { source: "selected"; sprite: CapabilitySpriteRecord }
+  | { source: "library"; sprite: CapabilitySpriteRecord; match: CapabilitySpriteMatch }
+  | { source: "reference"; references: CapabilitySpriteRecord[] }
+  | { source: "none" };
+
+/**
+ * Capability API 1.834. A character's or persona's saved sprites, so a package uses the art the user already has
+ * before it draws new art, and draws what is missing from that art. No permission: reads, like `resources`.
+ * Optional: feature-detect it on older Engines.
+ */
+export interface CapabilitySpriteHost {
+  /** Every saved sprite of the owner (character or persona id); empty when there are none. */
+  list(ownerId: string): Promise<CapabilitySpriteRecord[]>;
+  /**
+   * The artwork rule. `selected` is a saved sprite the user chose (an equipped outfit's picture): it wins while it
+   * exists. Then a saved sprite that shows the request, then up to `maxReferences` (1 to 4, default 4) saved sprites
+   * to pass to `integrations.images.generate` as `referenceImages`, then `none`. A package's own explicitly chosen
+   * art (not a saved sprite) comes before all of this and needs no call.
+   */
+  resolve(
+    ownerId: string,
+    request: CapabilitySpriteRequest & { selected?: string | null; maxReferences?: number },
+  ): Promise<CapabilitySpriteResolution>;
+  /** One saved sprite's picture as base64, and whether it is already see-through; null when it is gone. */
+  read(ownerId: string, handle: string): Promise<{ base64: string; mimeType: string; transparent: boolean } | null>;
+}
+
 export interface CapabilityRuntimeHost {
   /** Capability API 1.816. The Engine's supportedCapabilityApi; absent on older Engines. */
   capabilityApi?: { readonly major: number; readonly minor: number };
@@ -686,6 +746,8 @@ export interface CapabilityRuntimeHost {
   logger: CapabilityRuntimeLogger;
   persistence: CapabilityPersistenceHost;
   resources: CapabilityResourceHost;
+  /** Capability API 1.834. Saved sprites and the artwork rule; see CapabilitySpriteHost. */
+  sprites?: CapabilitySpriteHost;
   /** Capability API 1.341. */
   services?: CapabilityServiceLookupHost;
   /** Capability API 1.341. */

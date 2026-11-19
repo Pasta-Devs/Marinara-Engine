@@ -29,6 +29,7 @@ import {
   isEmptyCharacterTagEdit,
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   restoreBakedGreetingImages,
+  imageConnectionMakesTransparentPicture,
   resolveOpenAIGifAnimation,
   gallerySheetGrid,
   parseGallerySheetNames,
@@ -621,10 +622,53 @@ const GALLERY_BACKGROUND_HARD_NEGATIVE_PROMPT =
 const STICKER_SHEET_HARD_NEGATIVE_PROMPT =
   "text, captions, speech bubbles, lettering, logos, watermarks, grid lines, frames, overlapping stickers, cropped stickers, busy background, unrelated characters, inconsistent faces";
 
+/** Whether a gallery sheet is asked to come back see-through: sticker and emoji sheets on a Model that draws
+ *  see-through pictures (its "Transparent backgrounds" setting, or a model known to). */
+function gallerySheetWantsTransparency(
+  purpose: AvatarGenerationBody["purpose"],
+  conn: {
+    model?: string | null;
+    baseUrl?: string | null;
+    imageGenerationSource?: string | null;
+    imageService?: string | null;
+    imageTransparency?: string | null;
+  },
+): boolean {
+  if (purpose !== "sticker-sheet" && purpose !== "emoji-sheet") return false;
+  const model = conn.model || "";
+  const source = conn.imageGenerationSource || model;
+  return imageConnectionMakesTransparentPicture({
+    source,
+    baseUrl: conn.baseUrl || "https://image.pollinations.ai",
+    serviceHint: conn.imageService || source,
+    model,
+    imageTransparency:
+      conn.imageTransparency === "supported" || conn.imageTransparency === "unsupported"
+        ? conn.imageTransparency
+        : null,
+  });
+}
+
+/** Ask for a see-through sheet, keeping the green screen as the fallback the gallery keys out when the service
+ *  paints a backdrop anyway. A prompt edited so it no longer names the green screen gets the request added. */
+export function withGallerySheetTransparency(prompt: string): string {
+  const greenScreen =
+    /Plain flat solid pure green \(#00FF00\) background everywhere, like a green screen, (with no green in the [^;.]+?)(;|\.)/iu;
+  if (greenScreen.test(prompt)) {
+    return prompt.replace(
+      greenScreen,
+      (_match, noGreen: string, end: string) =>
+        `Transparent background everywhere (no backdrop at all, real PNG alpha); only if transparency is impossible, a plain flat solid pure green (#00FF00) background like a green screen, ${noGreen}${end}`,
+    );
+  }
+  return `${prompt.trimEnd()} Transparent background everywhere (no backdrop at all, real PNG alpha).`;
+}
+
 async function buildAvatarGenerationPrompt(
   promptOverridesStorage: ReturnType<typeof createPromptOverridesStorage>,
   body: AvatarGenerationBody,
   profile: Pick<ImageStyleProfile, "promptMode" | "subjectTags">,
+  seeThrough = false,
 ): Promise<string> {
   const name = body.name?.trim() || (body.purpose === "cover" ? "Lorebook" : "Character");
   const appearance = body.appearance?.trim() || name;
@@ -641,11 +685,12 @@ async function buildAvatarGenerationPrompt(
     const parsed = parseGallerySheetNames(body.stickers);
     const stickers = parsed.length ? parsed : DEFAULT_GALLERY_SHEET_NAMES;
     const { cols, rows } = gallerySheetGrid(stickers.length);
-    return loadPrompt(
+    const sheetPrompt = await loadPrompt(
       promptOverridesStorage,
       body.purpose === "emoji-sheet" ? CHARACTERS_EMOJI_SHEET : CHARACTERS_STICKER_SHEET,
       { name, appearance, count: stickers.length, cols, rows, expressions: stickers.join(", ") },
     );
+    return seeThrough ? withGallerySheetTransparency(sheetPrompt) : sheetPrompt;
   }
   return buildAvatarPortraitLeadPrompt({
     name,
@@ -1683,7 +1728,12 @@ export async function charactersRoutes(app: FastifyInstance) {
     );
     const compiled = compileImagePrompt({
       kind: purposeInfo.kind,
-      prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
+      prompt: await buildAvatarGenerationPrompt(
+        promptOverridesStorage,
+        body,
+        avatarStyleProfile,
+        gallerySheetWantsTransparency(body.purpose, resolved.conn),
+      ),
       userPositive: purposeInfo.kind === "avatar" ? body.appearance : undefined,
       styleProfiles: imageSettings.styleProfiles,
       styleProfileId: body.styleProfileId,
@@ -1767,6 +1817,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
     );
     const imageFallback = await resolveImageConnectionFallback(connections, conn.id);
+    const seeThrough = gallerySheetWantsTransparency(body.purpose, conn);
     const compiled = promptOverride
       ? {
           prompt: promptOverride.prompt,
@@ -1774,7 +1825,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         }
       : compileImagePrompt({
           kind: purposeInfo.kind,
-          prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile),
+          prompt: await buildAvatarGenerationPrompt(promptOverridesStorage, body, avatarStyleProfile, seeThrough),
           userPositive: purposeInfo.kind === "avatar" ? body.appearance : undefined,
           styleProfiles: imageSettings.styleProfiles,
           styleProfileId: body.styleProfileId,
@@ -1811,6 +1862,8 @@ export async function charactersRoutes(app: FastifyInstance) {
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
         imageDefaults,
         quality: resolveConnectionImageQuality(conn),
+        // A see-through sheet keeps its alpha: no WebP re-encode, and the gallery skips keying a sheet already clear.
+        ...(seeThrough ? { transparentBackground: true, preserveProviderOutput: true } : {}),
         animation:
           body.animation && typeof body.animation === "object" ? resolveOpenAIGifAnimation(body.animation) : undefined,
         debugMode: debugOverrideEnabled,
