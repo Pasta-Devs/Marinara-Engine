@@ -303,8 +303,8 @@ export function detectLayoutProblems(options = {}) {
       const parentRect = el.parentElement?.getBoundingClientRect();
       if (
         styleOf(el).position === "absolute" &&
-        parentRect &&
-        rect.width * rect.height >= parentRect.width * parentRect.height * 0.9
+        ((parentRect && rect.width * rect.height >= parentRect.width * parentRect.height * 0.9) ||
+          ["top", "right", "bottom", "left"].every((side) => styleOf(el)[side] === "0px"))
       )
         continue;
       if (rect.width < 12 || rect.height < 12) continue;

@@ -125,7 +125,10 @@ const open = {
   chat: (key) =>
     needsData(
       hook((id) => {
-        window.__marinaraUiCheck.chat.getState().setActiveChatId(id);
+        const h = window.__marinaraUiCheck;
+        h.chat.getState().setActiveChatId(id);
+        // Phones: the chat, not the Chats page over it.
+        h.overhaul.getState().setMobileSidePageOpen(false);
       }, key),
     ),
   sidePane: (pane) =>
@@ -207,6 +210,7 @@ export function screenList(ids) {
         hook((id) => {
           const h = window.__marinaraUiCheck;
           h.chat.getState().setActiveChatId(id);
+          h.overhaul.getState().setMobileSidePageOpen(false);
           setTimeout(() => h.ui.setState({ chatSettingsRequest: { chatId: id, section: null } }), 600);
         }, ids.roleplayChat),
       ),
