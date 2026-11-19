@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "2e9e3ba40bd649eb4782cebab578468864cc114e07793119ca8f42b84116645e",
-      "bytes": 45128
+      "sha256": "dfd5ef27cbd3666329aa5263b70d28672189831b240300b0106795c3b8d39c13",
+      "bytes": 45191
     },
     {
       "path": "agents/custom-agents.md",
@@ -264,8 +264,8 @@
     },
     {
       "path": "conversation/calls.md",
-      "sha256": "f6956451e015624856f96109b7fd1d57672ee81d7de21c07563a36ec8a9ad60e",
-      "bytes": 23730
+      "sha256": "377e22b69db3d0af0d00b985477a829e1b9bdc1815334004aa187c252d25b48e",
+      "bytes": 23721
     },
     {
       "path": "conversation/emoji-stickers-gifs.md",
@@ -274,8 +274,8 @@
     },
     {
       "path": "conversation/getting-started.md",
-      "sha256": "2123dec4986601296135b65ef9b84caf8fcdf8865714cb88a026590fbffcf24f",
-      "bytes": 10199
+      "sha256": "cc219096cee8b4bf7760e92bb8b5bd8ba1a07fd5aaf784b93fabd083628bc50a",
+      "bytes": 10207
     },
     {
       "path": "conversation/profiles.md",
@@ -654,8 +654,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "4598c05d3c6129662beaa11f0a64da6737b6be1700dce7ca454b7a5db1662800",
-      "bytes": 23289
+      "sha256": "28eadcd43c90fa62e539481c15b310c33a7f2a9e1c7556ccf435ee87d23dce9a",
+      "bytes": 23283
     },
     {
       "path": "media/image-providers.md",
@@ -669,8 +669,8 @@
     },
     {
       "path": "media/scene-backgrounds.md",
-      "sha256": "cfe799ea2f3747630a9c05174bd80a3574a076c3afbd93b7d0a4143148f18834",
-      "bytes": 10741
+      "sha256": "9d72b6e3906da51bc77c1c2488979bbd9c65c3890824fe5529949dccbd57ad1b",
+      "bytes": 10738
     },
     {
       "path": "media/scene-video.md",
@@ -684,8 +684,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "b11f8b4fa7a97d18f3f55da0f5e0ec6124619e29f94f7f062ac76b5f01d196a5",
-      "bytes": 29835
+      "sha256": "094c54cca34526aec5e2725e0f4ff9615160233d7852eeba8e8f57b3cc6beef2",
+      "bytes": 29815
     },
     {
       "path": "prompts/conditional-prompts.md",

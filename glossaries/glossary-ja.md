@@ -739,3 +739,8 @@ Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.m
 ## Roleplay message box opacity (2026-11-11, #9063)
 
 Precedents from the #9063 sync of `characters/colors-and-stats.md`、「3つの色」: the old sentence saying the slider *replaces* saved transparency is gone. The construction is 掛ける: 「このスライダーは、…透明度に、スライダーの値を掛けます」, and the color's own アルファ値 is likewise 掛けた. *Alpha* is **アルファ値**, per the pack's アルファ word in the LaTeX note; it needs no gloss. *Fill* is **塗り** (「吹き出しの塗りを決め」), after **Background Color**(背景色)が…塗りつぶします in `appearance/custom-css-themes.md`; *chat widget* is **チャットウィジェット**, matching **Chat widget style**(チャットウィジェットのスタイル). The new paragraph reuses **Apply preset colors**(プリセットの色を適用) with the pack's half-width, tightly attached parentheses and runs the label bare afterwards.
+
+## Connections jobs and Public Face (2026-11-19)
+
+- **Voice settings**(音声の設定) and **Who speaks**(話者) are used in `conversation/calls.md` and `media/tts-setup.md`. The audio action **Preview** keeps **(試聴)** from the Character Voice tab ruling.
+- **Public Face**(周囲に知られている情報) follows the card field in `characters/creating-and-editing-characters.md`. Keep **Others' Public Faces**(ほかのキャラクターの公開情報) and **Send Public Faces**(公開情報を送信) distinct. The former applies to other characters in Individual Roleplay, and the latter to Impersonate.
