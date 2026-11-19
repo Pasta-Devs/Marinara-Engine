@@ -4373,6 +4373,13 @@ body {
   );
 }
 
+/* While packHomeFeed measures (one synchronous read), every card is sized by its content instead of filling its
+   box, so the widget comes out at what it needs (at least its standard size) and never at a stretch it had before. */
+.mari-home-feed-grid[data-home-measuring] > .mari-home-widget > :not(.mari-home-widget__drag-handle) {
+  align-self: start;
+  height: auto;
+}
+
 /* Safari (WebKit) sizes the columns of a grid whose items are all absolutely positioned as if the grid were
    one gap wider than it is, so the right column of widgets ran past the page's right margin (11px on an iPad,
    wider than Home's greeting above it). One empty in-flow item across the first row gives WebKit a normal
