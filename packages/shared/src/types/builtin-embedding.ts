@@ -39,6 +39,12 @@ export interface BuiltinEmbeddingModelInfo {
    */
   physicalBatch: number;
   license: string;
+  /**
+   * The Engine's own languages (UI_LANGUAGE_CODES) its makers name it as covering, or null when they give only a
+   * count. Qwen3 names its 119 (Qwen3 Technical Report, Table 36 lists every Engine language); EmbeddingGemma's card
+   * says "100+" and names none.
+   */
+  engineLanguages: readonly string[] | null;
   recommended: boolean;
 }
 
@@ -56,6 +62,7 @@ export const BUILTIN_EMBEDDING_MODELS: readonly BuiltinEmbeddingModelInfo[] = [
     contextSize: 4096,
     physicalBatch: 512,
     license: "Apache 2.0",
+    engineLanguages: ["en", "ar", "de", "es", "fr", "hi", "ja", "ko", "pl", "pt-BR", "ru", "zh-Hans"],
     recommended: true,
   },
   {
@@ -72,6 +79,7 @@ export const BUILTIN_EMBEDDING_MODELS: readonly BuiltinEmbeddingModelInfo[] = [
     contextSize: 1024,
     physicalBatch: 1024,
     license: "Gemma",
+    engineLanguages: null,
     recommended: false,
   },
 ];

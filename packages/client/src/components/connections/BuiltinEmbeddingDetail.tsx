@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   BUILTIN_EMBEDDING_CONNECTION_ID,
+  UI_LANGUAGE_CODES,
   type BuiltinEmbeddingModelId,
   type BuiltinEmbeddingModelInfo,
 } from "@marinara-engine/shared";
@@ -40,6 +41,7 @@ import {
 } from "./DeviceDetail";
 import type { ConnectionExtraOption } from "./ConnectionSelect";
 import { ProviderIcon } from "./ProviderIcon";
+import { useLanguageName } from "./use-language-name";
 import { LocalModelSlotNote, UnloadWhenUnusedRow } from "./LocalModelShared";
 
 /** The page's state as one coloured word, shared with the On this device rows. */
@@ -82,7 +84,7 @@ export function useBuiltinEmbeddingOption(current?: string | null): ConnectionEx
 }
 
 export function BuiltinEmbeddingDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const status = useBuiltinEmbedding();
   const embeddingDefault = useDefaultEmbeddingConnection();
   const setDefault = useSetDefaultEmbeddingConnection();
@@ -134,6 +136,26 @@ export function BuiltinEmbeddingDetail() {
     ]
       .filter(Boolean)
       .join(" ");
+
+  const languageName = useLanguageName();
+  const languagesLine = (model: BuiltinEmbeddingModelInfo) => {
+    if (!model.engineLanguages) return t("connections.builtinEmbedding.languagesUnnamed");
+    const list = (codes: readonly string[]) => {
+      const names = codes.map((code) => languageName(code));
+      try {
+        return new Intl.ListFormat(i18n.language, { type: "conjunction" }).format(names);
+      } catch {
+        return names.join(", ");
+      }
+    };
+    const missing = UI_LANGUAGE_CODES.filter((code) => !model.engineLanguages?.includes(code));
+    return missing.length === 0
+      ? t("connections.builtinEmbedding.languagesAllEngine", { languages: list(model.engineLanguages) })
+      : t("connections.builtinEmbedding.languagesSomeEngine", {
+          languages: list(model.engineLanguages),
+          missing: list(missing),
+        });
+  };
 
   const startDownload = async (model: BuiltinEmbeddingModelInfo) => {
     const confirmed = await showConfirmDialog({
@@ -288,10 +310,8 @@ export function BuiltinEmbeddingDetail() {
             {describe(active ?? choice)}
           </span>
         </FactRow>
-        {/* Its own row, like the voice page's (Nov 19). Both models were trained on 100+ languages. */}
-        <FactRow label={t("connections.builtinTts.languages")}>
-          {t("connections.builtinEmbedding.languagesMany")}
-        </FactRow>
+        {/* Its own row, like the voice page's (Nov 19): every Engine language it covers by name, and any it leaves out. */}
+        <FactRow label={t("connections.builtinTts.languages")}>{languagesLine(active ?? choice)}</FactRow>
         <FactRow label={t("connections.device.fact.memory")}>
           {data.running && data.memoryBytes
             ? t("connections.builtinEmbedding.memoryNow", {

@@ -54,6 +54,7 @@ import {
   type EngineTone,
 } from "./DeviceDetail";
 import { ProviderIcon } from "./ProviderIcon";
+import { useLanguageName } from "./use-language-name";
 
 /** A short line in each language a preview can read; the person can type their own. */
 const SAMPLE_LINES: Record<string, string> = {
@@ -75,26 +76,6 @@ const PREVIEW_MAX_CHARS = 300;
 
 /** "en-us" → "en", "pt-br" → "pt". */
 const baseLanguage = (code: string) => code.toLowerCase().split(/[-_]/)[0] ?? "en";
-
-/** A language's own name in the Engine's language ("en-gb" → "English (United Kingdom)"). */
-function useLanguageName() {
-  const { i18n } = useTranslation();
-  return useMemo(() => {
-    let names: Intl.DisplayNames | null = null;
-    try {
-      names = new Intl.DisplayNames([i18n.language, "en"], { type: "language" });
-    } catch {
-      names = null;
-    }
-    return (code: string) => {
-      try {
-        return names?.of(code) ?? code;
-      } catch {
-        return code;
-      }
-    };
-  }, [i18n.language]);
-}
 
 /** Whether the Voice job speaks with the built-in voice model now. */
 function useVoiceUsesBuiltin(): boolean {
