@@ -367,7 +367,7 @@ Los errores lanzan `ApiError`, que lleva las propiedades `status` y `message`.
 
 ## Selectores y menús desplegables
 
-Cada control para elegir un valor abre una ventana de selección compartida. Los cambios de diseño, como la superficie, las filas o el ancho, se hacen en los componentes compartidos de abajo. Evita el `<select>` nativo y las listas en menús flotantes propios. La aplicación ya no usa ninguno.
+Cada control para elegir un valor abre una ventana de selección compartida. Los cambios de diseño, como la superficie, las filas o el ancho, deben hacerse solo en los componentes compartidos de abajo, nunca en una función concreta. No uses el `<select>` nativo ni listas en menús flotantes propios. La aplicación ya no usa ninguno.
 
 | Capa | Archivo | Responsabilidad |
 | --- | --- | --- |
