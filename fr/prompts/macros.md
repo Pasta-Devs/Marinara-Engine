@@ -21,6 +21,8 @@ Les macros tournent dans Marinara et ne demandent ni configuration ni clé API. 
 - Les variables de preset (le fourre-tout `{{NAME}}`) réclament un preset de prompt qui les définit. Voir [Variables de preset](preset-variables.md).
 - La macro d'agent `{{agent::TYPE}}` n'affiche du texte qu'une fois l'agent correspondant exécuté et son résultat produit.
 
+<a id="identity-character-and-persona-macros"></a>
+
 ## Macros d'identité, de personnage et de persona
 
 Ces macros récupèrent les noms et les champs de fiche de celui qui parle et du personnage qui répond. L'utilisateur, c'est toi (ou le persona actif). Le personnage, c'est l'IA qui répond.

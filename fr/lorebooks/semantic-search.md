@@ -16,10 +16,10 @@ Avant de commencer : il te faut soit un compte dont le service propose des embed
 
 Option 1 : un compte doté d'un modèle d'embedding.
 
-1. Ouvre le panneau **Connections** (Connexions) et ouvre un compte pour le modifier.
-2. Ouvre **Advanced** (avancé), puis **More** (plus), et repère **Semantic search (embeddings)** (recherche sémantique).
+1. Ouvre **Connections** (Connexions) et clique sur le modèle pour ouvrir **Edit model** (modifier le modèle).
+2. Clique sur **More** (plus) et repère **Semantic search (embeddings)** (recherche sémantique).
 3. Saisis un nom de modèle d'embedding, comme `text-embedding-3-small`. Si tu n'es pas sûr du nom, consulte la documentation de ton service, ou utilise plutôt le modèle intégré.
-4. Enregistre le compte.
+4. Enregistre le modèle.
 5. Clique sur **Test embedding** (tester l'embedding) pour vérifier. Marinara enregistre d'abord, calcule l'embedding d'un court texte d'exemple et affiche la taille du vecteur, par exemple "1536 dimensions", ou l'erreur renvoyée par le service.
 
 Pour envoyer les requêtes d'embedding avec la clé et l'adresse d'un autre compte, choisis ce compte sous **Embedding provider** (fournisseur d'embeddings). La valeur par défaut est **Same as this provider** (comme ce fournisseur). Si le compte choisi a son propre modèle d'embedding, Marinara l'utilise. Sinon, il utilise le nom de modèle saisi ici.

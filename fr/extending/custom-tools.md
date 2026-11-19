@@ -26,7 +26,7 @@ Pour un premier essai, choisis **Static Result** (résultat fixe) : il n'a besoi
 Règles pour les noms et les descriptions :
 
 - Le nom compte de 1 à 100 caractères. La description compte de 1 à 500 caractères.
-- Deux outils ne peuvent pas porter le même nom, et un outil ne peut pas utiliser un nom intégré comme `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` ou `update_about_me`. Un conflit affiche un message comme `"your_name" is a reserved built-in tool name.`
+- Deux outils ne peuvent pas porter le même nom, et un outil ne peut pas utiliser un nom intégré comme `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`, `web_fetch` ou `update_about_me`. Un conflit affiche un message comme `"your_name" is a reserved built-in tool name.`
 - Si tu quittes l'éditeur avec des modifications non enregistrées, une bannière propose **Keep editing** (continuer à modifier), **Discard** (abandonner) ou **Save & close** (enregistrer et fermer).
 
 Les boutons en haut de l'onglet **Tools** sont :
@@ -179,6 +179,8 @@ Créer un outil ne suffit pas à ce que l'IA s'en serve. Tu dois aussi activer l
 4. Vérifie que ça marche : pose à l'IA une question à laquelle ton outil répond, comme "What are your store hours?" pour l'exemple `store_hours`. La réponse devrait utiliser le texte de l'outil.
 
 Quand **Enable Tool Use** est activé et qu'aucun outil n'est ajouté en dessous, le chat peut utiliser tous les outils activés globalement qu'il prend en charge : les outils intégrés, plus chaque outil personnalisé dont l'interrupteur est activé dans l'onglet **Tools** et dont le dossier est actif. Les chats Game exigent aussi **Let the GM search lore** (laisser le GM rechercher dans le lore) pour `search_lorebook`.
+
+> **Note :** Quelques outils intégrés restent désactivés tant que tu ne les coches pas, même quand **Enable Tool Use** est activé. C'est le cas de `web_fetch`, qui laisse l'IA choisir l'adresse web à lire. Les outils Spotify fonctionnent de la même façon.
 
 Pour limiter un chat à une sélection :
 

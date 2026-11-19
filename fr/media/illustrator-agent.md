@@ -16,7 +16,7 @@ L'agent Illustrator rédige le prompt, mais c'est un modèle d'image distinct qu
 
 Tu peux lui fournir un modèle d'image de deux façons.
 
-1. Règle la tâche **Images** sous **Defaults** (valeurs par défaut) dans le panneau **Connections** (Connexions).
+1. Règle la tâche **Images** dans l'encadré **Jobs** (tâches) du panneau **Connections** (Connexions).
 2. Ou donne à l'agent Illustrator son propre modèle d'image sur son écran **Open Setup** (ouvrir la configuration).
 
 Si aucun modèle d'image n'est trouvé, l'image échoue et l'application te demande d'en choisir un.
@@ -76,14 +76,14 @@ Quand il est activé, une fiche ou un persona dont **Image Appearance Override**
 
 **Send Avatar References** (envoyer les avatars en référence) envoie au service d'images les avatars des personnages et des personas, ou leurs sprites, comme images de référence, pour que le modèle puisse reprendre un visage ou une tenue. Tous les services ne les acceptent pas. Dans un chat Roleplay, c'est une liste comme **Attach Card Appearance**. Si les vidéos sont incluses, un clip dont **First frame** (première image) vaut **Prompt only** part de l'avatar ou du sprite du personnage, et le choix s'affiche comme **Prompt only (avatar from Send Avatar References)**.
 
-Avec **Envoyer l'avatar en référence** activé pour les images, **Reference pictures go to** (destinataires des images de référence) choisit qui les reçoit :
+Avec **Send Avatar References** activé pour les images, **Reference pictures go to** (destinataires des images de référence) choisit qui les reçoit :
 
-- **Automatique** (par défaut) : le modèle d'image si sa connexion accepte les images de référence, sinon le modèle qui rédige le prompt.
+- **Automatic** (par défaut) : le modèle d'image si sa connexion accepte les images de référence, sinon le modèle qui rédige le prompt.
 - **Image model** (modèle d'image) : uniquement le modèle d'image. Une connexion qui ne les accepte pas n'en reçoit aucune.
 - **Prompt writer** (modèle de rédaction du prompt) : uniquement le modèle qui rédige les prompts d'Illustrator, qui les examine et décrit ce qu'il voit dans le prompt d'image.
 - **Both** (les deux) : le modèle d'image et le modèle qui rédige le prompt.
 
-Le modèle qui rédige le prompt permet de contourner les modèles d'image qui ignorent les images de référence, comme NovelAI V5. Il faut qu'il puisse lire les images. S'il les refuse, sa requête est renvoyée sans les images, et ce modèle n'en reçoit plus jusqu'au redémarrage du serveur. Un modèle de rédaction dont la connexion est marquée comme ne lisant pas les images n'en reçoit aucune. Lui envoyer des images coûte des tokens à chaque exécution. Au plus quatre images sont envoyées : celles des fiches nommées dans `[illustrate: characters="…"]`, ou, à défaut, celles des personnages actifs du chat et du persona. **What to carry over from the pictures** (ce qu'il faut reprendre des images) indique ce que le modèle de rédaction copie, par exemple seulement l'apparence et pas le style graphique. Un chat Roleplay peut définir son propre choix **Reference pictures go to** sous **Envoyer l'avatar en référence**.
+Le modèle qui rédige le prompt permet de contourner les modèles d'image qui ignorent les images de référence, comme NovelAI V5. Il faut qu'il puisse lire les images. S'il les refuse, sa requête est renvoyée sans les images, et ce modèle n'en reçoit plus jusqu'au redémarrage du serveur. Un modèle de rédaction dont la connexion est marquée comme ne lisant pas les images n'en reçoit aucune. Lui envoyer des images coûte des tokens à chaque exécution. Au plus quatre images sont envoyées : celles des fiches nommées dans `[illustrate: characters="…"]`, ou, à défaut, celles des personnages actifs du chat et du persona. **What to carry over from the pictures** (ce qu'il faut reprendre des images) indique ce que le modèle de rédaction copie, par exemple seulement l'apparence et pas le style graphique. Un chat Roleplay peut définir son propre choix **Reference pictures go to** sous **Send Avatar References**.
 
 ## Contrôler la fréquence des images
 

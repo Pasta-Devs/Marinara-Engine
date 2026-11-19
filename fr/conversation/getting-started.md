@@ -55,6 +55,7 @@ Les Commands sont des actions que le personnage décide de faire seul. Tu ne les
 | **8-Ball Pool** | Lancer une partie de billard. | 8-Ball Pool |
 | **Tic-Tac-Toe** | Accepter un défi de morpion. | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | Accepter une partie. | Rock-Paper-Scissors |
+| Autres jeux, chacun sous son nom | Lancer ou accepter une partie. | Le jeu correspondant, comme Blackjack ou Wordle |
 
 Pour **Influence** et **Notes**, voir [Chats connectés](../chats/connected-chats.md). La dernière colonne nomme l'agent à installer depuis **Agent Organizer**.
 

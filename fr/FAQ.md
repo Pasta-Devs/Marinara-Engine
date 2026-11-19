@@ -124,7 +124,7 @@ Il transforme un texte d'histoire terminé en images. Installe **Storyboard** de
 
 ## Les personnages peuvent-ils parler à voix haute pendant un appel ?
 
-Oui, en mode Conversation. Il faut que **Text to Speech** (synthèse vocale) soit configuré dans **Connections**. Pour les étapes, y compris la reconnaissance vocale pour ton micro, voir [Appels](conversation/calls.md).
+Oui, en mode Conversation. Il te faut un modèle pour la tâche **Voice** (voix) dans **Connections**. Pour les étapes, y compris la reconnaissance vocale pour ton micro, voir [Appels](conversation/calls.md).
 
 ## Marinara peut-il générer des images ?
 

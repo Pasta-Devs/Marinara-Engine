@@ -29,7 +29,7 @@ Clique sur **⋯** sur la ligne d'un compte :
 | **Edit account** (modifier le compte) | Ouvre ses réglages, notamment **Name** (nom), **Address** (adresse), **API key** (clé API) et **Use this account** (utiliser ce compte). |
 | **Replace key** (remplacer la clé) | Colle une nouvelle clé. Si l'ancienne clé se trouve sur d'autres comptes, Marinara te demande s'il faut aussi les mettre à jour. |
 | **Test** (tester) | Vérifie la clé et affiche le résultat. |
-| **Add model** (ajouter un modèle) | Ouvre la liste des modèles du compte. **Add image model** (ajouter un modèle d'images) s'affiche pour les services qui produisent aussi des images. |
+| **Add model** (ajouter un modèle) | Ouvre la liste de modèles du compte. |
 | **Select models** (sélectionner des modèles) | Permet de déplacer ou de supprimer plusieurs modèles d'un coup. |
 | **Duplicate** (dupliquer) | Ajoute une copie du compte, avec des copies de ses modèles. |
 | **Turn off** (désactiver) / **Turn on** (activer) | Arrête ou reprend l'utilisation du compte par Marinara. |
@@ -57,7 +57,7 @@ Clique sur **⋯** sur la ligne d'un modèle :
 
 | Action | Ce qu'elle fait |
 | --- | --- |
-| **Make default for…** (définir par défaut pour…) | Confie une tâche au modèle, comme si tu le choisissais dans l'encadré **Jobs**. |
+| **Use for…** (utiliser pour…) | Ouvre la liste des tâches. Clique sur une tâche pour la confier au modèle, comme dans l'encadré **Jobs**. Une coche indique les tâches déjà attribuées. |
 | **Edit model** (modifier le modèle) | Ouvre ses réglages. Cliquer sur la ligne du modèle fait la même chose. |
 | **Move to account…** (déplacer vers un compte…) | Déplace le modèle vers un autre compte. Il utilise alors la clé de ce compte. |
 | **Folder** (dossier) | Range le modèle dans un dossier. |

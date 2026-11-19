@@ -109,6 +109,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 
 Le réglage de débogage de l'interface fonctionne toujours via `logDebugOverride`. C'est le moyen prévu pour voir les prompts quand `LOG_LEVEL` masque debug.
 
+Par défaut, les médias intégrés apparaissent sous forme abrégée dans le journal. `debugJson` remplace chaque bloc de données en base64 par un marqueur tel que `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`, avec le type, la taille et les 16 premiers et derniers caractères. Cela couvre les URL `data:` seules ou intégrées à du texte, ainsi que les champs `data` seuls des éléments multimédias d'Anthropic et de Google. La règle s'applique même si le base64 s'étend sur plusieurs lignes. Le sérialiseur `msg` fait de même pour les URL `data:` dans les lignes simples `%s` et `%j`. Seul `debugJson` raccourcit les champs `data` seuls. Seule la copie affichée change. La valeur transmise reste intacte. `LOG_INLINE_MEDIA=full` dans `.env` affiche de nouveau les données en entier. Le test de régression `log-inline-media` couvre ce comportement.
+
 <a id="checks"></a>
 
 ## Console dans l'application

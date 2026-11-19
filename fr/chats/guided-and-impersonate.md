@@ -61,6 +61,8 @@ Le modèle publie un message utilisateur dans la peau de ton persona. Par exempl
 
 L'alias court est `/imp`. **Regenerate** fonctionne sur un message écrit par Impersonate : tu peux donc en obtenir une autre version.
 
+<a id="the-impersonate-settings"></a>
+
 ### Les réglages d'Impersonate
 
 Ces réglages s'appliquent à chaque `/impersonate`, dans tous tes chats. Ouvre **Chat Settings** (réglages du chat) dans un chat Roleplay et repère la section **Impersonate**. Voir [Vue d'ensemble des Chat Settings](chat-settings.md) pour savoir comment ouvrir le panneau.
@@ -71,6 +73,7 @@ Ces réglages s'appliquent à chaque `/impersonate`, dans tous tes chats. Ouvre 
 | **Preset** | Un preset de prompt réservé aux réponses d'Impersonate. Par défaut : **Use chat default** (utiliser la valeur par défaut du chat). Voir [Presets](../prompts/presets.md). |
 | **Connection** (connexion) | Le modèle des réponses d'Impersonate, par exemple un modèle moins cher ou plus rapide. Par défaut : **Use chat default**. Tu peux aussi choisir **Random**. Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md). |
 | **Skip agents** (ignorer les agents) | Saute les agents (trackers, routeurs de lorebooks et autres aides du même genre) pendant Impersonate. Impersonate reste ainsi rapide et ne modifie pas l'état du monde. Désactivé par défaut. Voir [Agents](../agents/agents-overview.md). |
+| **Send Public Faces** (envoyer les images publiques) | Dans un chat Roleplay, le prompt Impersonate mentionne un personnage qui a un **Public Face** en donnant seulement son nom et son image publique. Ta réponse ne tient ainsi compte que de ce que tu pourrais savoir. Cela remplace tout le reste de la fiche : Description, Personality, Backstory, Appearance, Scenario, System Prompt, exemples de dialogue, caractéristiques RPG, Post-History Instructions et Depth Prompt. Si Public Face est vide, la fiche complète reste utilisée. Les macros que tu places dans un preset ou modèle de prompt Impersonate, comme `{{description}}`, envoient toujours leur contenu. **Regenerate** conserve le réglage utilisé pour écrire le message. Désactivé par défaut. Voir [Onglet Card](../characters/creating-and-editing-characters.md#card-tab). |
 | **Use CYOA as direction** (utiliser le choix CYOA comme indication) | Un clic sur une option CYOA (choose your own adventure, l'aventure dont tu es le héros) l'utilise comme indication d'Impersonate au lieu de la publier. Désactivé par défaut. Si **Add CYOA choices to the message box instead of sending them** (ajouter les choix CYOA à la zone de saisie au lieu de les envoyer) est activé dans **Settings → General → Input & Editing**, un clic ajoute seulement le texte à ton champ de message, et ce réglage n'a aucun effet. |
 
 ### Définir un prompt pour un seul chat

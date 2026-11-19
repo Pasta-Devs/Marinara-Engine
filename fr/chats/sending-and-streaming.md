@@ -15,7 +15,7 @@ Si ça n'a pas marché : si aucun modèle n'est défini pour le chat, la répons
 
 ### Send on Enter
 
-Ce réglage se trouve dans **Settings → General → Input & Editing** (Paramètres → Général → Saisie et édition). Il y a un interrupteur par mode de chat.
+Ce réglage se trouve dans **Settings → General → Input & Editing** (Paramètres → Général → Saisie et édition). Il y a un interrupteur par mode de chat. Il est enregistré sur l'appareil où tu le règles. Tu peux donc avoir un réglage différent sur ton téléphone et sur ton ordinateur.
 
 | Mode de chat | Par défaut | Quand il est désactivé |
 | --- | --- | --- |

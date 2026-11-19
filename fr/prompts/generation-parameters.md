@@ -42,6 +42,8 @@ Chaque paramètre numérique a un champ de saisie et un interrupteur Send (voir 
 - Quand l'interrupteur Send est activé, **Off** demande au service de désactiver la réflexion, si le modèle est réputé le prendre en charge. Certains modèles ne peuvent pas désactiver la réflexion et peuvent quand même renvoyer du raisonnement. Choisis un modèle sans raisonnement quand la réflexion doit être absente.
 - Quand l'interrupteur Send est désactivé, aucune préférence de raisonnement n'est envoyée, et le service applique son propre comportement par défaut.
 
+MiniMax M3.1 Flash raisonne toujours sur NanoGPT. Les niveaux vont de **Low** à **Max**. Si aucun niveau n'est envoyé, NanoGPT utilise **Max**. Si tu avais enregistré **Off**, Marinara envoie **Low**.
+
 **Verbosity** (verbosité) règle la longueur et le niveau de détail des réponses : **None**, **Low**, **Medium** ou **High**. Seuls certains modèles s'en servent.
 
 ## Conseils de réglage
@@ -156,7 +158,9 @@ La ligne **Effective** à côté d'un paramètre affiche la valeur qui l'emporte
 
 ## Paramètres des agents
 
-Les appels des agents utilisent les **Chat defaults** enregistrés sur le compte avec lequel ils s'exécutent : le compte propre à l'agent, ou celui du chat si l'agent n'en a pas. Les interrupteurs Send et les limites des modèles s'appliquent comme pour une réponse du chat. Les presets et les **Advanced Parameters** d'un chat ne changent pas les appels des agents, à l'exception de la règle de température ci-dessous.
+Les appels des agents utilisent les **Chat defaults** enregistrés sur le compte avec lequel ils s'exécutent : le compte propre à l'agent, ou celui du chat si l'agent n'en a pas. Les interrupteurs Send et les limites des modèles s'appliquent comme pour une réponse du chat. Les règles ci-dessous indiquent quand les agents utilisent les **Advanced Parameters** d'un chat.
+
+En Roleplay, le réglage **Reasoning Effort** du chat et son interrupteur d'envoi s'appliquent aussi au **Prompt Model** d'Illustrator. Les illustrations automatiques, les commandes du narrateur et les illustrations manuelles utilisent ce réglage si tu l'as défini. Le modèle de secours utilise son propre niveau de raisonnement enregistré s'il en a un.
 
 - **Envoyés aux agents** : Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, les en-têtes personnalisés et les paramètres supplémentaires que tu ajoutes sous **Settings** (Paramètres), puis **Advanced** (avancé), puis **Parameters**, comme Top A ou une seed. Un paramètre dont l'interrupteur Send est désactivé n'est pas envoyé.
 - **Non envoyés aux agents** : Max Output Tokens, les séquences d'arrêt, les préremplissages, Thinking Tags et les autres réglages de format du prompt. Chaque agent garde son propre **Max Output Tokens**.

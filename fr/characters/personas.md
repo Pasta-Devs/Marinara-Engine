@@ -92,9 +92,10 @@ L'onglet **Card** contient les champs qui te décrivent à l'IA. Chacun affiche 
 | **Backstory** (passé) | Histoire, origines, relations. | Oui |
 | **Appearance** (apparence) | Physique, vêtements, détails visuels. | Oui |
 | **Scenario** (scénario) | Ta situation par défaut dans les roleplays. | Oui |
+| **Public Face** (image publique) | La fiche sans ses éléments privés. | Seulement via `{{personaPublicFace}}` ou si la source **Persona** d'un agent est réglée sur **Public Face** |
 | **Example Dialogue** (exemples de dialogue) | Des exemples d'échanges. Sépare-les avec `<START>`. Utilise `{{user}}` pour ton persona et `{{char}}` pour l'autre personnage. | Oui |
 
-**Image Appearance Override** (apparence propre aux images), sous **Appearance**, fonctionne comme pour les personnages. Voir [Onglet Card](creating-and-editing-characters.md#card-tab). Les zones de texte acceptent les macros.
+**Image Appearance Override** (apparence propre aux images), sous **Appearance**, et **Public Face** fonctionnent comme pour les personnages. Voir [Onglet Card](creating-and-editing-characters.md#card-tab). Les zones de texte acceptent les macros.
 
 Ces fonctions marchent comme sur les personnages, avec le persona pour sujet :
 
