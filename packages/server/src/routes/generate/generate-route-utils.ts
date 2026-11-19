@@ -2393,6 +2393,10 @@ export function handOverTrackerNpcsToCards(input: {
     if (cardRow) {
       for (const [key, value] of Object.entries(cardRow))
         if (value !== undefined && value !== null) merged[key] = value;
+      // Custom fields are the user's own structure: keep the NPC's, the card row's win per field.
+      if (isPlainRecord(npc.customFields) && isPlainRecord(cardRow.customFields)) {
+        merged.customFields = { ...npc.customFields, ...cardRow.customFields };
+      }
       for (const field of TRACKER_HANDOVER_TEXT_FIELDS) {
         if (
           npc[field] !== undefined &&

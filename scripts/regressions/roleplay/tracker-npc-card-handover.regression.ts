@@ -142,8 +142,15 @@ await runNamedCases([
     name: "a snapshot that already holds both rows folds them: card values win, the NPC's locked field and every lock stay",
     run: () => {
       const stored = [
-        { characterId: "card-mara", name: "Mara Vex", mood: "tired", outfit: "blue", avatarPath: mara.avatarPath },
-        storedMara,
+        {
+          characterId: "card-mara",
+          name: "Mara Vex",
+          mood: "tired",
+          outfit: "blue",
+          avatarPath: mara.avatarPath,
+          customFields: { Rank: "Captain", Debt: "none" },
+        },
+        { ...storedMara, customFields: { Debt: "40 gold", Ship: "Gull" } },
       ];
       const locks = { [lockKey("npc-abc", "outfit")]: true, [lockKey("card-mara", "mood")]: true };
       const { handover } = applyTurn([], stored, [mara], { fieldLocks: locks });
@@ -152,6 +159,7 @@ await runNamedCases([
       assert.equal(row!.characterId, "card-mara");
       assert.equal(row!.mood, "tired");
       assert.equal(row!.outfit, "red coat");
+      assert.deepEqual(row!.customFields, { Debt: "none", Ship: "Gull", Rank: "Captain" });
       assert.deepEqual(row!.idAliases, ["npc-abc"]);
       assert.deepEqual(handover.fieldLocks, {
         [lockKey("card-mara", "outfit")]: true,
