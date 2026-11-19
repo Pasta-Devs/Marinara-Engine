@@ -125,6 +125,7 @@ Marinara guarda tus datos como archivos JSON simples, así que puedes copiar y l
 | `LOG_LEVEL` | `warn` | El nivel de arriba. |
 | `LOG_PRESET` | `default` | `prompt-connections` muestra el mismo detalle de prompt y modelo que `debug`, pero oculta las líneas de solicitud rutinarias como `GET /api/chats`. |
 | `LOG_DISABLE_REQUEST_LOGGING` | `false` | `true` oculta las líneas de solicitud rutinarias y conserva tu nivel. Necesita un reinicio. |
+| `LOG_INLINE_MEDIA` | `short` | `short` muestra las imágenes y otros archivos en base64 en la salida de depuración como un marcador breve con su tipo y tamaño. `full` los imprime completos, lo que puede suponer varios MB por prompt. |
 | `LOG_FORMAT` | automático | `pretty` imprime líneas legibles en todas partes, por ejemplo para leer los prompts de **Debug mode** (Modo de depuración) en `docker logs`. `json` imprime un objeto JSON por línea. Necesita un reinicio. |
 
 En una terminal, el servidor imprime líneas legibles. En otros lugares, como los registros de Docker, un servidor de producción imprime líneas JSON. El lanzador de Termux pide líneas legibles. El registro del navegador es aparte y no lo controla `LOG_LEVEL`.

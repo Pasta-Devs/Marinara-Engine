@@ -16,6 +16,14 @@ Un intervalo de ejecución hace que un agente se ejecute una vez cada varios men
 
 En Roleplay, el intervalo de ejecución de Illustrator se define por chat, en su tarjeta dentro de **Chat Settings**. El valor de su configuración es el predeterminado para los chats que no tienen uno propio. Illustrator también acepta **0**: nunca se ejecuta automáticamente y sigue disponible para las acciones de Gallery.
 
+<a id="activation-keywords-and-questions"></a>
+
+### Palabras clave y preguntas de activación
+
+La mayoría de los agentes del flujo de generación tienen la misma sección **Activation Keywords** (Palabras clave de activación) que los [agentes personalizados](custom-agents.md#activation-keywords). Llénala para omitir el agente en los turnos en que no tiene nada que hacer. Por ejemplo, dale a Prose Guardian las mismas palabras que en su lista **Banned Words** (Palabras prohibidas) y pon **Scan Depth** (Profundidad de búsqueda) en 1. Así solo se ejecuta cuando una aparece en la respuesta nueva. Las palabras clave coinciden incluso dentro de otra palabra y sin distinguir mayúsculas de minúsculas. Por ejemplo, `voss` también coincide con `Vossberg` y solo supone una ejecución adicional. Una [pregunta de activación](custom-agents.md#activation-questions) puede condicionar la ejecución a una pregunta de sí o no para tu modelo de decisión.
+
+Si dejas la sección vacía, el agente se ejecuta como antes. Un tracker que omite un turno conserva su último estado hasta la próxima ejecución. Storyboard, Illustrator, Knowledge Retrieval y Knowledge Router tienen sus propias reglas de activación y no muestran la sección.
+
 ## Apps
 
 Las Apps tienen su propia pestaña en **Home**. Las usas por separado en lugar de añadirlas a un chat. Cada una pide reiniciar después de instalarla.

@@ -57,6 +57,7 @@ Cada familia tiene su propio interruptor. Todas empiezan activadas excepto **Vid
 | **8-Ball Pool** | Armar una partida de billar. | 8-Ball Pool |
 | **Tic-Tac-Toe** | Aceptar un desafío de tres en raya. | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | Aceptar una partida. | Rock-Paper-Scissors |
+| Otros juegos, con el nombre de cada juego | Iniciar o aceptar una partida. | El juego correspondiente, como Blackjack o Wordle |
 
 Para **Influence** y **Notes**, consulta [Chats conectados](../chats/connected-chats.md). La última columna indica el agente que debes instalar desde **Agent Organizer**.
 

@@ -15,7 +15,7 @@ Si no funcionó: si el chat no tiene ningún modelo configurado, la respuesta fa
 
 ### Send on Enter
 
-Está en **Settings → General → Input & Editing** (Configuración → General → Entrada y edición). Hay un interruptor por cada modo de chat.
+Está en **Settings → General → Input & Editing** (Configuración → General → Entrada y edición). Hay un interruptor por cada modo de chat. Se guarda en el dispositivo donde lo configuras, así que el ajuste puede ser distinto en el teléfono y en la computadora.
 
 | Modo de chat | Predeterminado | Cuando está desactivado |
 | --- | --- | --- |

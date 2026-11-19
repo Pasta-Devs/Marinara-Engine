@@ -34,7 +34,7 @@ Cada categoría borra solo lo que indica la lista de su fila, salvo la carpeta d
 | **Lorebooks** | Todos los lorebooks, entradas y carpetas. |
 | **Presets** | Todos los presets de prompts y carpetas de presets, salvo el preset de fábrica integrado. |
 | **Connections** | Todas las cuentas guardadas, y las elecciones de modelo y los ajustes de voz vinculados a ellas. |
-| **Automation & Addons** | Todos los ajustes de agentes, herramientas personalizadas, scripts de regex y temas sincronizados. No las Personal Extensions ni las External Extensions. |
+| **Automation & Addons** | Todos los ajustes de agentes, herramientas personalizadas, scripts de regex y sus carpetas, y temas sincronizados. No las Personal Extensions ni las External Extensions. |
 | **Media & Assets** | Fondos, avatares, sprites, galería, videos de escenas, fuentes y archivos de fuentes de conocimiento. |
 
 Más detalles:

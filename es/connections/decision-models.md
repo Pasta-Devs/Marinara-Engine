@@ -132,7 +132,9 @@ Se consulta igual que el modelo integrado: una palabra de sí o no por declaraci
 
 <a id="set-up-a-decision-connection"></a>
 
-## Configurar una conexión Decision
+<a id="set-up-a-decision-account"></a>
+
+## Configurar una cuenta Decision
 
 Una cuenta Decision alojada envía al servicio los mensajes recientes seleccionados y las declaraciones, y puede costar dinero. El orden de respuesta Smart también envía una [lista de personajes](#what-the-model-sees).
 

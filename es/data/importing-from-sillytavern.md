@@ -64,7 +64,7 @@ Si el escaneo encuentra personajes, aparecen dos opciones más:
 **Imported regex scripts** (el valor predeterminado es **Character only**):
 
 - **Character only** aplica los scripts a cada personaje.
-- **Global** los agrega a **Presets → Regexes** para todos los chats.
+- **Global**: los agrega a **Presets → Regexes**, donde puedes administrar los scripts que se ejecutan en distintos chats. Consulta [Scripts de regex](../extending/regex-scripts.md#manage-your-scripts).
 
 Si no funcionó:
 

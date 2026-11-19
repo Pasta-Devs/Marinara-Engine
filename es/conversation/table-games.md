@@ -114,7 +114,7 @@ Terminar un juego antes de tiempo borra su estado y no registra ningún ganador.
 
 Abre **Chat Settings → Agents → Commands**, o usa el paso **Automation** cuando creas el chat. El interruptor general **Commands** controla todas las acciones que ejecutan los personajes, incluidos los juegos de mesa, las selfies y las llamadas. Con él desactivado, los personajes no empiezan nada por su cuenta.
 
-Cada juego instalado tiene su propio interruptor, activado a menos que lo desactives: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** y **Rock-Paper-Scissors**. Consulta [Elegir qué Commands puede usar un personaje](getting-started.md#choose-which-commands-a-character-can-use).
+Cada juego instalado tiene su propio interruptor, activado a menos que lo desactives: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** y **Rock-Paper-Scissors**. Otros paquetes de juegos, como Blackjack o Wordle, tienen un interruptor con el nombre del juego. Consulta [Elegir qué Commands puede usar un personaje](getting-started.md#choose-which-commands-a-character-can-use).
 
 Estos interruptores controlan solo lo que hacen los personajes. El comando con barra de un juego y la frase "let's play" funcionan incluso con su interruptor desactivado.
 

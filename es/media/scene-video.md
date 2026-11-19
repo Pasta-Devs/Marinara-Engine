@@ -37,7 +37,7 @@ Para **SwarmUI**, Marinara rellena `http://127.0.0.1:7801`. Pega un flujo de tra
 
 ### Convertirlo en el modelo de video predeterminado
 
-Para usar un modelo de video cuando un chat no tiene uno propio, establece la tarea **Video** en **Defaults** (Valores predeterminados), en la parte superior del panel **Connections**. Chat Settings (Ajustes del chat) lo muestra como **Default video provider** (Proveedor de video predeterminado). Sin un modelo del chat y sin un predeterminado, las acciones de video muestran un aviso para que elijas uno.
+Para usar un modelo de video cuando un chat no tiene uno propio, establece la tarea **Video** en el cuadro **Jobs** (Tareas), en la parte superior del panel **Connections**. Chat Settings (Ajustes del chat) lo muestra como **Default video provider** (Proveedor de video predeterminado). Sin un modelo del chat y sin un predeterminado, las acciones de video muestran un aviso para que elijas uno.
 
 ### Instrucciones para los prompts de video
 

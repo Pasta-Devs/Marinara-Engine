@@ -11,7 +11,7 @@ Professor Mari es el asistente integrado de la pantalla de inicio. Explica la ap
 
 Se abre su ventana. También puedes llegar a ella desde cualquier pantalla: escribe en Search (Búsqueda) y elige **Ask Prof. Mari** (Pregúntale a Professor Mari), pulsa <kbd>Ctrl</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> en un Mac), o desliza hacia abajo desde la barra superior en un teléfono. Su cabecera muestra **Ready to help** (Lista para ayudar) cuando está inactiva y **Working on it...** (Trabajando en ello...) mientras trabaja.
 
-Escribe tu mensaje en lenguaje sencillo y pulsa <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> añade una línea nueva. Si desactivas **Enter sends to Professor Mari** (Enter envía a Professor Mari) en sus ajustes, <kbd>Enter</kbd> añade una línea nueva y <kbd>Ctrl</kbd>+<kbd>Enter</kbd> envía. Tu primer mensaje desbloquea el logro **Hello World**.
+Escribe tu mensaje en lenguaje sencillo y pulsa <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> añade una línea nueva. Si desactivas **Enter sends to Professor Mari** (Enter envía a Professor Mari) en sus ajustes, <kbd>Enter</kbd> añade una línea nueva y <kbd>Ctrl</kbd>+<kbd>Enter</kbd> o el botón de envío envía el mensaje. El ajuste se guarda por dispositivo, así que puedes desactivarlo en el teléfono y mantenerlo activado en la computadora. Tu primer mensaje desbloquea el logro **Hello World**.
 
 Todos sus ajustes están en **Settings → General → Search and Professor Mari settings → Open** (Configuración → General → Ajustes de Search y Professor Mari → Abrir), o en el engranaje de Search. En una computadora, los controles deslizantes **Height** (Alto) y **Width** (Ancho) de **Professor Mari window** (Ventana de Professor Mari) cambian el tamaño de su ventana. En un teléfono, su ventana ocupa toda la pantalla.
 
@@ -39,7 +39,7 @@ Lee un elemento antes de editarlo, y pregunta cuando tu solicitud es vaga.
 - Crear o editar un tema, un agente, un preset de prompt o un borrador de Personal Extension (Extensión personal). Un borrador permanece desactivado hasta que lees su código y lo apruebas en **Settings → Addons** (Configuración → Complementos).
 - Editar una sección de un preset directamente, en lugar de reemplazar el preset entero.
 - Comparar los agentes descargables y decirte cuáles encajan con tu objetivo. Te envía a **Agents → Agent Organizer** (Agentes → Organizador de agentes) para instalarlos. Consulta [Referencia de agentes descargables](../agents/built-in-agents.md).
-- Crear o asignar imágenes, como avatares, sprites y fondos. Primero necesitas una cuenta de generación de imágenes. Ella no crea una.
+- Crear o asignar imágenes, como avatares, sprites y fondos. Primero necesitas una cuenta de generación de imágenes. Ella no crea una. Haz clic en una imagen que haya creado para abrirla a tamaño completo. Desde ahí puedes leer el prompt, descargar la imagen o editar el prompt y volver a generarla. La imagen nueva reemplaza a la anterior en su respuesta.
 - Consultar páginas públicas de wikis de Fandom cuando investigas un personaje o un mundo.
 
 ### Empezar con un chip
@@ -136,7 +136,7 @@ Un vínculo se envía una vez, con el mensaje en el que lo añades. Después, el
 
 ### Comandos con /
 
-Escribe `/` al principio de una línea para ver la lista de sus comandos. Sigue escribiendo para filtrar y luego pulsa <kbd>Enter</kbd>. La lista también muestra tus Skills y Memories. Al elegir uno se vincula, igual que con `@`.
+Escribe `/` al principio de una línea o después de un espacio para ver la lista de sus comandos. Así puedes usar varios en un mismo mensaje. Sigue escribiendo para filtrar y luego pulsa <kbd>Enter</kbd>. La lista también muestra tus Skills y Memories. Al elegir uno se vincula, igual que con `@`.
 
 | Comando | Qué hace |
 | --- | --- |

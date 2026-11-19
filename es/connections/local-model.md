@@ -67,7 +67,6 @@ Abre la tarjeta **Built-in model** cuando el modelo esté descargado. Su página
 | **Use for tracker agents (roleplay)** | Mantiene el modelo en ejecución para los agentes de seguimiento. Desactivado de forma predeterminada. |
 | **Use for game scene analysis** | Lo mantiene en ejecución para los efectos de escena del Game Mode, como fondos, música y clima. Activado de forma predeterminada. |
 | **Use the built-in model for all tracker agents** | Apunta todos los agentes de seguimiento integrados a este modelo. No activa los agentes. |
-| **Change in Defaults** | Abre el cuadro **Jobs**, donde puedes darle otras tareas. |
 
 Si ambos interruptores están desactivados, el modelo no se inicia por sí solo. Se inicia cuando activas uno, o cuando un chat o una tarea lo usa. Consulta [Memory Recall y resúmenes de chat](../agents/memory.md) para activar agentes.
 
@@ -147,7 +146,7 @@ Marinara solo descarga las versiones de llama.cpp, MLX y uv aprobadas para tu ve
 
 El **Local speech model** (Modelo de voz local) convierte tu voz en texto en tu propia computadora para las llamadas de Conversation. Es un modelo Whisper, un modelo de voz a texto. Necesita el paquete de agente **Calls**, que instalas en **Agents → Agent Organizer** (Agentes → Organizador de agentes).
 
-1. Abre el panel **Connections** y haz clic en el elemento **Speech to text** (Voz a texto) en **On this device** (En este dispositivo).
+1. Abre el panel **Connections** y haz clic en **Local speech model** en la tarjeta **On this device** (En este dispositivo).
 2. En **Local speech model**, elige un modelo del menú desplegable.
 3. Haz clic en **Download Whisper** (Descargar Whisper).
 4. Espera a que diga **Ready**. Reinicia Marinara por completo antes de usar Calls.

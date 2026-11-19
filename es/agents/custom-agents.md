@@ -125,6 +125,8 @@ Un agente puede contener varias variantes de prompt, así que cada chat puede el
 
 Cuando alguien añade el agente a un chat, un menú desplegable **Prompt Mode** lista tus opciones. Si no hay ninguna, solo se muestra el prompt predeterminado.
 
+<a id="other-settings"></a>
+
 ## Otros ajustes
 
 - **Model override** (Modelo alternativo): usa un modelo distinto para este agente, por ejemplo uno más barato. Déjalo vacío para usar el modelo del chat. El agente envía los parámetros de generación guardados en esa conexión. Consulta [Parámetros para agentes](../prompts/generation-parameters.md#parameters-for-agents).

@@ -41,6 +41,27 @@ El significado del número depende del tipo: `dice-sum` lo suma a la tirada; `di
 - `unmodified`: caras de un único dado que el registro marca cuando el primer dado las muestra (1.136), para poder aplicar las tablas que tratan aparte "un 66 sin modificar": `[66, 100]`. El registro indica `unmodified="66"`, la tarjeta lo muestra y se indica al Game Master que aplique lo que dicen las reglas al respecto.
 - `difficultyLadder`: dificultades que se indica al GM que elija. `dc` es el número que debe alcanzar el total. El Game Master puede nombrar un peldaño en vez de escribir su número, como `difficulty="Hard"`, y el motor toma el número del peldaño.
 
+#### Dos dados con nombre
+
+Una prueba por suma puede tirar dos dados, cada uno con su nombre, cuando la historia depende de cuál saca el número más alto (Capability API 1.821). Un sistema de la comunidad no requiere nada. Un sistema empaquetado declara 1.821.
+
+```json
+"dice": { "count": 2, "sides": 12 },
+"duality": {
+  "dice": [{ "id": "hope", "label": "Hope" }, { "id": "fear", "label": "Fear" }],
+  "tieIsCritical": true,
+  "text": "With Hope the player gains a Hope; with Fear the Game Master gains a Fear."
+}
+```
+
+- `dice`: Los dos nombres en el orden de tirada. El primer dado en `rolls` es el primero de la lista.
+- `tieIsCritical`: Opcional, `true` de forma predeterminada. Con ese valor, un empate cuenta como éxito crítico con cualquier total.
+- `text`: Opcional. Una línea que indica al Game Master qué significa cada dado en la mesa.
+
+El total sigue siendo la suma de los dos dados y el modificador, que se compara con la dificultad habitual. El registro indica qué dado sacó más, `duality="Hope"`, o que hubo empate, `duality="tie"`. La tarjeta de dados lo muestra y el Game Master recibe instrucciones para narrar la prueba según ese dado.
+
+`duality` exige `dice.count` igual a 2, caras normales (sin `faces`), ausencia de `openEnded` y `advantage` en false. Los dos identificadores y las dos etiquetas deben ser distintos. Ninguna etiqueta puede ser `tie`, porque el registro identifica al dado de mayor valor por su etiqueta. Una anulación puede activar o quitar esta opción para determinadas pruebas.
+
 #### Un dado de trama
 
 Una prueba sumada puede tirar un dado más cuyas caras llevan símbolos, no números (Capability API 1.822). Un conjunto comunitario no necesita nada; uno empaquetado declara 1.822.
@@ -139,6 +160,8 @@ El número de la ficha es el **tamaño de la reserva**, no una bonificación adi
 - `situationalDice`: opcional. Límites de dados que el GM puede añadir o quitar con `bonus=` por acrobacias, heridas o mala iluminación.
 - `pairs`: opcional (Capability API 1.824). `{ "from": 10, "successes": 4 }` hace que cada par de dados que muestre `from` o más cuente `successes` entre los dos, en vez de uno cada uno, y una prueba que tiene éxito con un par es un éxito crítico. Tres 10 son un par y uno más: cinco. `from` es igual o superior al objetivo más alto, y `pairs` no puede ir junto a `double` ni a `stances`.
 - `hunger`: opcional (Capability API 1.824). `{ "label": "Hunger", "max": 5, "text": "..." }` permite que hasta `max` dados de la reserva sean dados especiales. El Game Master los pide en una prueba con `hunger="N"`, un número que normalmente se lee de un contador de la ficha. Son los primeros dados de `rolls`, forman parte de la reserva (nunca son dados adicionales) y ninguna repetición los toca. Un éxito crítico con uno de ellos en la cara crítica (la cara de `pairs` o la más alta del dado) se marca con `messy="true"`, y un fallo con uno de ellos mostrando 1 se marca con `bestial="true"`. El registro también indica `hunger="2" hungerLabel="Hunger"`, y la tarjeta de dados lo muestra todo. `max` no puede superar `pool.max`.
+- `groups`: Opcional (Capability API 1.826). Hasta tres grupos distinguen los dados de la reserva por su origen: `{ "id": "base", "label": "Base", "from": "ability" }`, `{ "id": "skill", "label": "Skill", "from": "skill", "banes": false }` y `{ "id": "gear", "label": "Gear", "from": "gear" }`. Los dados aparecen en `rolls` en el orden de los grupos. `ability` contiene los dados propios del atributo, `gear` los que pide el Game Master con `gear="N"` y `skill` el resto. Por eso, una penalización quita primero dados de habilidad. Cada grupo cuenta sus unos, salvo si `banes` es false. El registro indica `groups="Base:2:1|Skill:2|Gear:1:0"`, con el número de dados de cada grupo y luego el número de unos cuando se cuentan. La tarjeta de dados muestra lo mismo. Hay un grupo por origen, `skill` es obligatorio, las etiquetas son distintas y `groups` es incompatible con `explode`. El Game Master aplica la consecuencia de sacar un uno.
+- `push`: Opcional (Capability API 1.826). `{ "text": "..." }` permite forzar una tirada una vez. El Game Master vuelve a escribir la misma prueba con `push="true"`. El Engine toma la última tirada de esa prueba para ese personaje del registro en la respuesta anterior, sin usar los números de la etiqueta nueva. Vuelve a tirar todos los dados que no hayan dado un éxito ni muestren un uno que cuente. En una reserva sin grupos se conservan todos los unos. La tirada anterior debe ser del mismo personaje. Si el registro no nombra a nadie, corresponde al jugador. Se mantiene el objetivo de la tirada anterior y no se gasta, usa ni añade nada. El registro nuevo indica `pushed="N"` con la cantidad de dados que se volvieron a tirar. No se puede forzar de nuevo un registro con `pushed`. Si no hay una tirada anterior válida de ese personaje, no se tira ningún dado y la prueba se resuelve con `reason="not-pushable"`. Esto incluye un segundo intento de forzar, un intento para todo el grupo, uno dentro de un bloque `[branch:]` o una tirada anterior que esta prueba no pudo producir. `push` es incompatible con `stances`, `explode` y `hunger`.
 - `reroll`: opcional. Repeticiones que concede el sistema sin que nadie las pague, hasta seis, cada una con un `id` que el GM nombra en una prueba con `reroll=`. Las caras iguales o inferiores a `upTo` se vuelven a tirar: con `"once"`, la cara nueva se queda sea cual sea; con `"until"`, se sigue tirando hasta que salgan más altas. `upTo` va de 1 a una cara menos que las del dado, porque repetir todas las caras no terminaría nunca, y un `until` se detiene de todos modos tras cien repeticiones en una prueba. No se tira ninguna salvo que la prueba la nombre. Una prueba hace una sola repetición: si un gasto o una entrada que usó el personaje también compró una, se tira la que alcanza más caras y, si alcanzan las mismas, `until` antes que `once`.
 - `difficultyLadder`: `successes` indica cuántos éxitos se necesitan. Un peldaño también puede definir `target`, pero solo si es ajustable y dentro de sus límites. Ese es el objetivo con el que cuenta una prueba en ese peldaño: cuando el GM nombra el peldaño con `difficulty=` o escribe un `dc=` que solo necesita exactamente un peldaño. Si varios peldaños necesitan la misma cantidad de éxitos, `dc=` por sí solo no indica cuál se quería, así que el objetivo sigue siendo el predeterminado; nombra el peldaño.
 

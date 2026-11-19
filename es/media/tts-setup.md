@@ -4,85 +4,82 @@ Text to Speech (TTS, texto a voz) lee en voz alta los mensajes del chat y la nar
 
 ## Inicio rápido
 
-1. Abre la tarjeta de Text to Speech (pasos abajo) y activa **Use text to speech** (Usar texto a voz).
-2. Elige un **Source** (Fuente) y pega tu clave en **API key** (clave de API).
-3. Haz clic en **Preview** (Probar) para oír una muestra.
-4. En un chat, haz clic en **Speak** (Hablar) debajo de un mensaje.
+1. Haz clic en **Connections** (Conexiones) en la barra superior y después en **Add** (Añadir).
+2. Haz clic en **Voice** (Voz) en los filtros de tipo, elige un servicio y pega tu clave en **API key**. Haz clic en **Connect** (Conectar).
+3. En **Found in … — use it for:**, marca **Voice** y haz clic en **Done** (Listo). Elegir un modelo de Voice activa el texto a voz.
+4. Haz clic en el engranaje de la fila **Voice** del cuadro **Jobs** (Tareas) y después en **Preview** (Vista previa) para oír una muestra. En un chat, haz clic en **Speak** (Leer en voz alta) debajo de un mensaje.
 
 ## Activar Text to Speech
 
-Casi todos los ajustes de TTS están en una sola tarjeta. Activar TTS no hace que nada hable por sí solo. Revela el botón **Speak** en cada mensaje y las opciones de **Auto-play** (Reproducción automática). Tú sigues eligiendo qué se lee y cuándo.
+Elegir un modelo para la tarea **Voice** activa el texto a voz. No hace que nada se lea por sí solo. Muestra el botón **Speak** en cada mensaje y las opciones de **Auto-play**. Tú sigues eligiendo qué se lee y cuándo.
 
-1. Haz clic en **Connections** (Conexiones) en la barra superior y luego en **Add** (Añadir). Se abre la ventana **Add account** (Añadir cuenta).
-2. En **Voice** (Voz), elige **Text to speech** (Texto a voz). Se abre la tarjeta. Si Text to Speech ya usa PocketTTS u otro servidor de voz en tu computadora o en tu red privada, la misma tarjeta también está en **On this device** (En este dispositivo).
-3. Activa **Use text to speech**. Mientras está desactivado, no se lee nada en voz alta.
-4. Abre la lista **Source** y elige un servicio.
+1. Haz clic en **Connections** en la barra superior. Busca la fila **Voice** en **Pictures & sound** (Imágenes y sonido), dentro del cuadro **Jobs**.
+2. Haz clic en la fila y elige un modelo o servicio de voz. La fila muestra tu selección.
+3. Haz clic en el engranaje de la fila para abrir los ajustes de voz. Si aún no tienes una cuenta de voz, haz clic en **Add** en la fila, o añade una como en el inicio rápido.
+4. Para desactivar el texto a voz, haz clic en la fila y elige **Turn voice off** (Desactivar la voz). La fila muestra **Off** (Desactivado) y no se lee nada en voz alta.
 
-Un **Source** es el servicio que produce el audio.
+Un servicio de voz es el servicio que crea el audio. Marinara admite estos:
 
-- **OpenAI-compatible**: OpenAI, o cualquier servidor que copie el formato de TTS de OpenAI. Es el valor predeterminado.
+- **OpenAI-compatible**: OpenAI o cualquier servidor que imite el formato TTS de OpenAI. Es el predeterminado.
 - **ElevenLabs**: el servicio de voz de ElevenLabs.
 - **PocketTTS**: un servidor de voz gratuito que ejecutas en tu propia computadora.
 - **xAI Voice**: el servicio de voz de xAI.
 
-Marinara mantiene un perfil guardado por separado para cada Source: su clave, su dirección, su modelo, sus voces y sus parámetros. Al cambiar de Source se restaura la configuración anterior de ese Source. Un Source que aún no hayas configurado empieza con los valores predeterminados.
+Marinara guarda un perfil separado para cada servicio de voz: su clave, dirección, modelo, voces y parámetros. Al cambiar de servicio, se recupera su configuración anterior. Un servicio que aún no has configurado empieza con los valores predeterminados.
 
-Las solicitudes pasan por el propio servidor de Marinara. Tu API key se guarda cifrada en el servidor. Después de guardarla, el campo muestra puntos enmascarados y la clave real nunca vuelve a tu navegador.
+Las solicitudes pasan por el servidor de Marinara. Tu clave API se guarda cifrada en el servidor. Después de guardarla, el campo muestra puntos y la clave real nunca vuelve a tu navegador.
 
 <a id="use-an-audio-connection"></a><a id="use-a-voice-model-from-an-account"></a>
 
-### Usar una conexión de Audio
+### Usar un modelo de Voice de una cuenta
 
-Si ya añadiste una cuenta de **Audio** (consulta [Proveedores de IA compatibles](../connections/providers-reference.md#audio)), no necesitas volver a introducir sus datos. Aparece en la lista **Source**, en **Audio providers** (Proveedores de audio), con su tipo de fuente entre corchetes.
+Si ya añadiste una cuenta **Audio** (consulta [Proveedores de IA compatibles](../connections/providers-reference.md#audio)), no necesitas introducir sus datos otra vez. Sus modelos de voz aparecen en el selector de **Voice**.
 
-1. Abre la lista **Source** y elige la cuenta.
-2. Elige sus voces y los demás ajustes de abajo.
+1. Haz clic en la fila **Voice** del cuadro **Jobs** y elige el modelo.
+2. Haz clic en el engranaje de la fila. Elige las voces y los demás ajustes.
 
-Marinara entonces usa la dirección, la clave, el modelo y el **Request timeout (seconds)** (Tiempo de espera de la solicitud, en segundos) de esa cuenta, así que la tarjeta oculta esos campos. La clave se queda en la cuenta y nunca se copia en la tarjeta ni se envía a tu navegador. Los cambios en la cuenta, como una clave nueva, se aplican de inmediato.
+Marinara usa la dirección, la clave, el modelo y el valor **Request timeout (seconds)** de esa cuenta, así que los ajustes de voz no muestran esos campos. La clave permanece en la cuenta y nunca se copia a los ajustes de voz ni se envía a tu navegador. Los cambios de la cuenta, como una nueva clave, se aplican de inmediato.
 
-Las voces, la velocidad y los demás ajustes de voz se guardan por cuenta. Dos cuentas del mismo tipo nunca los comparten. Tus ajustes de los cuatro Source normales se quedan como estaban. El interruptor de la tarjeta sigue activando y desactivando el TTS normal.
+Las voces, la velocidad y los demás ajustes de voz se guardan por cuenta. Dos cuentas del mismo tipo nunca los comparten. Tus ajustes para los cuatro servicios de voz habituales se mantienen.
 
-Si la cuenta elegida se elimina o no se puede usar, la tarjeta muestra **Missing Audio provider** (Falta el proveedor de Audio) y no se dice nada hasta que elijas otro Source. Marinara nunca cambia de Source por su cuenta. Si la cuenta muestra la lista de sus voces, la tarjeta nombra cualquier voz guardada que no esté en la lista.
+Si la cuenta elegida se elimina o no se puede usar, la fila muestra **The voice account is missing** (Falta la cuenta de voz) y no se lee nada hasta que elijas otro modelo de voz. Marinara nunca cambia por su cuenta.
 
 ## Configurar la dirección, la clave y el modelo
 
-Omite esta sección si elegiste una cuenta de Audio. La cuenta proporciona estos datos.
+La ventana **Add account** (Añadir cuenta) solo pide la clave o la dirección. Para cambiarlas después, haz clic en **⋯** en la cuenta de **Connections** y después en **Edit account** (Editar cuenta). Omite esto si elegiste una cuenta Audio. La cuenta proporciona estos datos.
 
-1. Revisa **Base URL** (URL base). Cada Source rellena un valor predeterminado (tabla de abajo). Cámbialo solo para un proxy o un servidor que ejecutes tú.
-2. Pega tu clave en **API key**. Para conservar una clave existente, deja los puntos enmascarados. Para eliminarla, borra el campo.
-3. Revisa **Model** (Modelo). Cada Source rellena un valor predeterminado. Puedes escribir otro modelo que admita tu servicio.
+1. Comprueba **Address** (Dirección). Cada servicio rellena un valor predeterminado (tabla siguiente). Cámbialo solo para un proxy o un servidor que tú ejecutes.
+2. Pega tu clave en **API key**. Para conservar una clave existente, deja los puntos. Para quitarla, vacía el campo.
+3. Elige el modelo o escribe otro ID de modelo que admita tu servicio.
 
-| Source | Base URL predeterminada | Modelo predeterminado | Voz predeterminada |
+| Servicio de voz | Dirección predeterminada | Modelo predeterminado | Voz predeterminada |
 | --- | --- | --- | --- |
 | OpenAI-compatible | `https://api.openai.com/v1` | `tts-1` | `alloy` |
 | ElevenLabs | `https://api.elevenlabs.io` | `eleven_multilingual_v2` | ninguna, debes elegir una |
 | PocketTTS | `http://localhost:8000` | `pocket-tts` | `alba` |
 | xAI Voice | `https://api.x.ai/v1` | `grok-tts` | `eve` |
 
-Para **ElevenLabs**, la lista **Model** carga los modelos de voz que tu cuenta puede usar. Elige un modelo de voz normal. Los ID de modelo que contienen `ttv` son modelos de diseño de voz que no pueden leer texto. Si eliges uno, la reproducción falla con un error que te indica que uses un modelo de voz.
+Para **ElevenLabs**, la lista de modelos carga los modelos de voz que puede usar tu cuenta. Elige un modelo de voz normal. Los ID de modelo que contienen `ttv` son modelos de diseño de voces que no pueden leer texto. Si eliges uno, la reproducción falla con un error que te indica que uses un modelo de voz.
 
 ### PocketTTS
 
-PocketTTS no está integrado en Marinara. Instala [el servidor oficial de PocketTTS](https://github.com/kyutai-labs/pocket-tts) por separado e inícialo con `uvx pocket-tts serve`. Marinara no lo descarga ni lo administra. El servidor oficial usa `http://localhost:8000`. Deja **Base URL** con ese valor salvo que hayas cambiado el host o el puerto. Marinara detecta la API multipart oficial `/tts`. Las URL personalizadas del [adaptador de PocketTTS compatible con OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server) siguen funcionando.
+PocketTTS no está integrado en Marinara. Instala [el servidor oficial de PocketTTS](https://github.com/kyutai-labs/pocket-tts) por separado e inícialo con `uvx pocket-tts serve`. Marinara no lo descarga ni lo administra. El servidor oficial usa `http://localhost:8000`. Deja **Address** con ese valor salvo que hayas cambiado el host o el puerto. Marinara detecta la API multipart oficial `/tts`. Las URL personalizadas del [adaptador de PocketTTS compatible con OpenAI](https://github.com/teddybear082/pocket-tts-openai_streaming_server) siguen funcionando.
 
 <a id="request-timeout"></a>
 
 ### Tiempo de espera de la solicitud
 
-Marinara espera hasta 60 segundos por cada línea hablada. Un servidor de voz en tu propia computadora, sobre todo en una laptop, puede necesitar más tiempo para una línea larga. Sube **Request timeout (seconds)**, debajo de **Model**. El rango es de 10 a 3.600 segundos.
+Marinara espera hasta 60 segundos por cada línea hablada. Un servidor de voz en tu propia computadora, sobre todo en una laptop, puede necesitar más tiempo para una línea larga. Sube **Request timeout (seconds)** en **More** (Más), dentro de **Voice settings** (Ajustes de voz; el engranaje de la fila **Voice** del cuadro **Jobs**). El rango es de 10 a 3.600 segundos.
 
-Una cuenta de Audio tiene su propio **Request timeout (seconds)**, debajo de **Default voice** (Voz predeterminada) en su editor. Los chats que hablan mediante una cuenta de Audio, incluida una elegida como **Source**, usan ese límite. El límite de la tarjeta cubre la voz que usa los ajustes propios de la tarjeta, incluido **Preview**. Si una línea tarda demasiado, el error indica cuántos segundos esperó Marinara y qué ajuste debes subir.
+Una cuenta Audio tiene su propio **Request timeout (seconds)**, debajo de **Default voice** (Voz predeterminada) en la ventana **Edit model** (Editar modelo) de su modelo y en **Voice settings**. Los chats que hablan mediante una cuenta Audio, incluida una elegida para la tarea **Voice**, usan ese límite. El límite de **Voice settings** cubre el habla desde esos ajustes, incluido **Preview**. Si una línea tarda demasiado, el error indica cuántos segundos esperó Marinara y qué ajuste debes aumentar.
 
 ## Elegir voces
 
-**Voice option** (Opción de voz) decide cómo se asignan las voces.
-
-- **One voice for all** (Una voz para todos): cada hablante usa la misma voz. Es el valor predeterminado.
-- **Selected per character or persona** (Seleccionada por personaje o persona): das sus propias voces a los personajes y las personas (los perfiles que te representan) que elijas.
+Cada hablante usa **Shared voice** (Voz compartida) hasta que das una voz propia a un personaje o una persona. La sección **Who speaks** (Quién habla) de **Voice settings** contiene ambas opciones.
 
 ### Una voz para todos
 
-Elige la voz en **Shared voice** (Voz compartida). Para cargar la lista de voces real de tu servicio, introduce sus datos y haz clic en **Refresh voices from provider** (Actualizar las voces desde el proveedor; el icono de flecha circular). Esto guarda primero la tarjeta, así que una clave recién introducida se usa de inmediato. Antes de que te conectes, se muestra una breve lista integrada para que el campo no esté vacío. Un error del servicio se muestra en lugar de hacer pasar la lista de reserva por una actualización correcta.
+Elige la voz en **Shared voice**. Para cargar la lista real de voces de tu servicio, haz clic en **Refresh voices from provider** (Actualizar voces del proveedor, el icono de flecha circular). Antes de conectarte, aparece una lista integrada corta para que el campo no esté vacío. Los errores del servicio se muestran, en lugar de presentar la lista de respaldo como si la actualización hubiera funcionado.
 
 El servidor oficial de PocketTTS no tiene un endpoint para listar voces, así que Marinara muestra sus voces integradas y mantiene un campo de texto junto a la lista para otro nombre integrado o una URL de voz compatible. Los servidores adaptadores compatibles pueden devolver su propia lista y aceptar ID o rutas personalizados.
 
@@ -90,12 +87,11 @@ Para **ElevenLabs** debes elegir una voz. Marinara carga toda la biblioteca de l
 
 ### Seleccionada por personaje o persona
 
-1. Pon **Voice option** en **Selected per character or persona**.
-2. En **Character and persona voices** (Voces de personajes y personas), haz clic en **Add voice** (Añadir voz).
-3. Elige un personaje o una persona en la lista de la izquierda y una voz en la lista de la derecha.
-4. Repite para cada uno.
+1. En **Character and persona voices** (Voces de personajes y personas), haz clic en **Add voice** (Añadir voz).
+2. Elige un personaje o una persona en la lista izquierda y una voz en la derecha.
+3. Repite para cada uno.
 
-También puedes elegir la voz de un personaje en la pestaña **Voice** del **Character Editor** (Editor de personajes). Cambia la misma fila. **Refresh** (Actualizar) en este cuadro vuelve a cargar la lista de voces. Crea primero tus personajes. Si no tienes ninguno, la app te indica que añadas un personaje o una persona antes de asignar voces.
+También puedes elegir la voz de un personaje en la pestaña **Voice** del **Character Editor** (Editor de personajes). Cambia la misma fila. Mientras los personajes comparten una voz, la pestaña dice **All characters share one voice right now.** Haz clic en **Use a voice per character** para cambiar y elige una voz. Haz clic en **Open Text to Speech settings** para abrir **Voice settings**. **Refresh** (Actualizar) en **Character and persona voices** vuelve a cargar la lista de voces. Crea primero tus personajes. Si no tienes ninguno, la app te indica que añadas un personaje o una persona antes de asignar voces.
 
 Un personaje sin una voz personal usa la voz de una tarjeta con un nombre coincidente, como el original de una copia AU. De lo contrario, usa la voz compartida. Consulta [Crear y editar personajes](../characters/creating-and-editing-characters.md).
 
@@ -121,9 +117,9 @@ Un NPC (personaje no jugador) rastreado sin una voz personal recibe una elecció
 
 **Audio format** (Formato de audio) es **MP3** (predeterminado) o **WAV**. Usa WAV para servidores locales que no puedan producir MP3. El control está oculto para ElevenLabs, que siempre usa MP3. Aparece para xAI Voice pero no tiene efecto, porque xAI siempre devuelve MP3.
 
-El rango del control deslizante **Speed** (Velocidad) depende del Source:
+El rango del control **Speed** (Velocidad) depende del servicio de voz:
 
-| Source | Rango |
+| Servicio de voz | Rango |
 | --- | --- |
 | OpenAI-compatible | De 0,25 a 4,0 veces |
 | PocketTTS | De 0,25 a 4,0 en los adaptadores compatibles. El servidor oficial controla la velocidad por sí mismo. |
@@ -134,7 +130,7 @@ Una velocidad guardada fuera del rango se ajusta al valor permitido más cercano
 
 ## Reproducción automática
 
-Cada interruptor de **Auto-play** lee un tipo de mensaje nuevo en cuanto termina de generarse. Necesitan que **Use text to speech** esté activado. Todos empiezan desactivados.
+Cada interruptor **Auto-play** lee un tipo de mensaje nuevo en cuanto termina de generarse. Necesitan un modelo en la tarea **Voice**. Todos empiezan desactivados.
 
 - **Roleplay messages** (Mensajes de Roleplay): las respuestas nuevas de Roleplay.
 - **Conversation messages** (Mensajes de Conversation): las respuestas nuevas de Conversation.
@@ -154,11 +150,11 @@ Estos filtros se aplican a la reproducción manual y a la automática, incluidas
 - **Skip fenced code blocks** (Omitir los bloques de código delimitados).
 - **Skip text inside square brackets** (Omitir el texto entre corchetes).
 
-Activa **Roleplay speaker extractor** (Identificación de hablantes en Roleplay) para ver **Enable emotion indicators** (Activar indicadores de emoción). Esta opción añade indicaciones de voz sin cambiar las palabras del diálogo. Con los indicadores de emoción activados, el texto entre corchetes llega al servicio de voz incluso si **Skip text inside square brackets** está activado. Esto puede incluir notas. Para que las notas entre corchetes no se lean, desactiva los indicadores de emoción y deja activada la opción de omitir. Las indicaciones como `[Low, steady voice, restrained urgency]` se mantienen completas cuando una línea larga se divide. Se siguen eliminando las etiquetas conocidas de hablante y de escena. El modelo de voz decide cómo usar cada indicación. Con **Use text to speech**, **Game narration** y los indicadores de emoción activados, los diálogos de escena, del grupo y de combate de Game también pueden incluir indicaciones.
+Activa **Roleplay speaker extractor** (Identificación de hablantes en Roleplay) para ver **Enable emotion indicators** (Activar indicadores de emoción). Esta opción añade indicaciones de voz sin cambiar las palabras del diálogo. Con los indicadores de emoción activados, el texto entre corchetes llega al servicio de voz incluso si **Skip text inside square brackets** está activado. Esto puede incluir notas. Para que las notas entre corchetes no se lean, desactiva los indicadores de emoción y deja activada la opción de omitir. Las indicaciones como `[Low, steady voice, restrained urgency]` se mantienen completas cuando una línea larga se divide. Se siguen eliminando las etiquetas conocidas de hablante y de escena. El modelo de voz decide cómo usar cada indicación. Con un modelo en la tarea **Voice**, **Game narration** y los indicadores de emoción activados, los diálogos de escena, del grupo y de combate de Game también pueden incluir indicaciones.
 
 ## Hablar un solo mensaje
 
-Una vez que TTS está activado, aparece un botón **Speak** (un icono de micrófono) en la barra de herramientas debajo de cada mensaje de personaje o de narrador.
+Cuando la tarea **Voice** tiene un modelo, aparece un botón **Speak** (un icono de micrófono) en la barra de herramientas debajo de cada mensaje de personaje o narrador.
 
 - Haz clic en **Speak** para leerlo. El botón muestra un estado de carga mientras obtiene el audio.
 - Vuelve a hacer clic mientras se reproduce para detenerlo. El tooltip (texto de ayuda) dice **Stop speaking** (Detener la voz).
@@ -170,7 +166,7 @@ Si no funcionó, consulta [Solución de problemas](#troubleshooting).
 
 ## Clips en caché
 
-Marinara guarda el audio generado en tu navegador para no generar la misma línea dos veces. El panel **Cached clips** (Clips en caché) muestra un recuento en vivo y el tamaño total. Haz clic en **Export cached TTS clips** (Exportar los clips de TTS en caché; el icono de descarga) para guardar cada clip en caché como archivos de audio separados. La caché recorta sus clips más antiguos por sí sola. No hay un botón para vaciarla en la app. Borra los datos de tu navegador para vaciarla.
+Marinara guarda el audio generado en tu navegador para no generar la misma línea dos veces. La sección **Cached clips** de **Voice settings** (Clips en caché) muestra un recuento en vivo y el tamaño total. Haz clic en **Export cached TTS clips** (Exportar los clips de TTS en caché; el icono de descarga) para guardar cada clip en caché como archivos de audio separados. La caché recorta sus clips más antiguos por sí sola. No hay un botón para vaciarla en la app. Borra los datos de tu navegador para vaciarla.
 
 ## TTS en cada modo de chat
 
@@ -186,10 +182,10 @@ Si la voz pronuncia mal el nombre de un personaje o de una persona, añade un **
 
 ## Solución de problemas
 
-- **No habla nada**: comprueba que **Use text to speech** esté activado. Luego revisa el interruptor de **Auto-play** correcto, o usa **Speak** en un mensaje.
-- **La tarjeta muestra Missing Audio provider**: la cuenta elegida como **Source** se eliminó o no se puede usar. Elige otro Source. Consulta [Usar una conexión de Audio](#use-an-audio-connection).
-- **No hay voces en la lista**: guarda la tarjeta con TTS activado y una clave válida, y luego haz clic en **Refresh voices from provider**. El servidor oficial de PocketTTS usa la lista integrada de Marinara. Para un adaptador compatible de PocketTTS, comprueba que `<Base URL>/v1/voices` responda.
-- **ElevenLabs no habla**: elige una voz real, no el marcador de posición "Select an ElevenLabs voice". Comprueba que **Model** sea un modelo de voz, no un modelo de diseño de voz cuyo ID contenga `ttv`.
+- **No se lee nada**: comprueba que la fila **Voice** del cuadro **Jobs** no esté en **Off**. Después comprueba el interruptor **Auto-play** adecuado, o usa **Speak** en un mensaje.
+- **La fila Voice muestra The voice account is missing**: la cuenta del modelo de voz se eliminó o no se puede usar. Elige otro modelo de voz. Consulta [Usar un modelo de Voice de una cuenta](#use-a-voice-model-from-an-account).
+- **No hay voces en la lista**: comprueba que la fila **Voice** tenga un modelo y una clave válida, y haz clic en **Refresh voices from provider**. El servidor oficial de PocketTTS usa la lista integrada de Marinara. Para un wrapper compatible con PocketTTS, comprueba que `<Base URL>/v1/voices` responda.
+- **ElevenLabs no habla**: elige una voz real, no el texto provisional "Select an ElevenLabs voice". Comprueba que el modelo sea de voz, no uno de diseño de voces cuyo ID contenga `ttv`.
 - **Una línea se detiene con "No audio after 60 s"**: el servidor de voz necesita más tiempo. Sube **Request timeout (seconds)** donde indica el mensaje. Consulta [Tiempo de espera de la solicitud](#request-timeout).
 - **Un servidor autoalojado en una dirección local está bloqueado**: activa `TTS_LOCAL_URLS_ENABLED` en `.env`. Permite que Marinara llegue a una dirección local o privada para servidores compatibles con OpenAI o de estilo ElevenLabs. PocketTTS no lo necesita. Consulta [Referencia de configuración del servidor](../CONFIGURATION.md).
 - **Prueba rápida**: haz clic en **Preview** en la tarjeta para oír una breve muestra con tus ajustes actuales.
@@ -206,7 +202,7 @@ Estas secciones son para configuraciones avanzadas.
 2. Introduce la dirección, la clave y el modelo de tu servidor de música o de efectos de sonido.
 3. Configura **Generation API format** (Formato de la API de generación) e introduce las rutas de los endpoints que ofrece tu servidor. Una ruta vacía deja esa función sin disponibilidad.
 4. Activa **Music generation** (Generación de música), **Sound-effect generation** (Generación de efectos de sonido) o ambas.
-5. Selecciona esta cuenta en la configuración de Game o en los ajustes de audio del juego. Conserva por separado tu cuenta de voz seleccionada en la tarjeta de TTS.
+5. Selecciona esta cuenta en la configuración de Game o en los ajustes de audio del juego. Conserva por separado tu cuenta de voz seleccionada en los ajustes de voz de la tarea **Voice**.
 
 Las rutas de los endpoints se añaden a la Base URL de la cuenta. Para `http://localhost:8002/v1`, usa `chat/completions` para llegar a `/v1/chat/completions`. Los endpoints HTTP locales requieren `TTS_LOCAL_URLS_ENABLED=true` en `.env`, como las demás solicitudes locales de audio compatible.
 
@@ -223,8 +219,9 @@ La música de contexto generada se compone una vez por zona o nivel de encuentro
 
 ### Diálogo y audio de Gacha Forge
 
-Gacha Forge 1.11.0 o posterior usa la cuenta seleccionada en la tarjeta de TTS y sus asignaciones de voz por personaje. - Activa **Read character dialogue** (Leer diálogos de personajes) para leer los diálogos de los personajes importados que tienen una voz asignada. Está en el paso de configuración **Lore** (Trasfondo) de un mundo nuevo, o en los ajustes de mundo propios de Gacha Forge para un mundo existente. La narración, los pensamientos, las unidades generadas sin un ID de personaje del Engine y los personajes sin voz permanecen en silencio. Un nombre por sí solo nunca toma prestada la voz de otro personaje.
-- Una cuenta de Audio seleccionada puede usarse cuando el interruptor de TTS del mundo está activado. Si usas directamente los ajustes de fuente propios de la tarjeta, **Use text to speech** también debe estar activado.
+Gacha Forge 1.11.0 o posterior usa la cuenta seleccionada para la tarea **Voice** y sus asignaciones de voz por personaje. - Activa **Read character dialogue** (Leer diálogos de personajes) para leer los diálogos de los personajes importados que tienen una voz asignada. Está en el paso de configuración **Lore** (Trasfondo) de un mundo nuevo, o en los ajustes de mundo propios de Gacha Forge para un mundo existente. La narración, los pensamientos, las unidades generadas sin un ID de personaje del Engine y los personajes sin voz permanecen en silencio. Un nombre por sí solo nunca toma prestada la voz de otro personaje.
+
+- Una cuenta Audio seleccionada puede usarse cuando la tarea **Voice** no está en **Off**.
 - La música y los efectos de sonido incluidos de Game no necesitan una cuenta de generación. Para componer pistas nuevas, activa **Generate music and sound effects** (Generar música y efectos de sonido) en Gacha Forge y elige una cuenta de Music & Sound Effects en **Audio connection** (Conexión de audio). Aparece cuando la generación está activada. Las pistas de inicio, de combate, de jefe, de escena de historia y de historia de personaje se generan cuando se necesitan por primera vez y luego se reutilizan. Estas solicitudes usan tu cuenta del servicio.
 - El botón de silencio de la esquina superior derecha silencia a la vez la música, el diálogo y los efectos de sonido. Los ajustes visuales de Gacha Forge tienen controles de volumen separados para los tres, incluido el cero, además de la pausa de reproducción automática (**3 segundos** de forma predeterminada, después de la aparición del texto y de cualquier diálogo hablado). Las elecciones siguen esperando al jugador. El diálogo hablado se cancela al salir de una escena. Al salir del mundo, su audio se detiene.
 
