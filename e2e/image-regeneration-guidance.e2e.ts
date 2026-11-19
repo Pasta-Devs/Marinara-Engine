@@ -419,8 +419,10 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
     await expect(editModeBtn).toBeVisible();
     await editModeBtn.click();
 
-    const maskCanvas = dialog.getByLabel("Inpainting mask canvas");
+    const maskCanvas = dialog.getByLabel("Inpainting mask brush canvas");
     await expect(maskCanvas).toBeVisible();
+    const invertBtn = dialog.getByRole("button", { name: "Invert mask", exact: true });
+    await expect(invertBtn).toBeDisabled();
     await dialog.getByRole("checkbox", { name: /Reuse original seed/ }).check();
 
     const applyEdit = dialog.getByRole("button", { name: "Apply edit", exact: true });
@@ -445,7 +447,10 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
     await page.mouse.move(box!.x + box!.width * 0.6, box!.y + box!.height * 0.6, { steps: 5 });
     await page.mouse.up();
 
-    const inpaintBtn = dialog.getByRole("button", { name: "Inpaint", exact: true });
+    await expect(invertBtn).toBeEnabled();
+    await invertBtn.click();
+
+    const inpaintBtn = dialog.getByRole("button", { name: "Inpaint image", exact: true });
     await expect(inpaintBtn).toBeVisible();
     await inpaintBtn.click();
     await expect(promptField).toHaveValue("1girl, harbor at dusk (step 1) (step 2)");

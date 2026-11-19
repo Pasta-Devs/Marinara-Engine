@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
+  Contrast,
   Eraser,
   Paintbrush,
   RefreshCw,
@@ -54,6 +55,7 @@ export interface ImageMaskControls {
   strokeCount: number;
   hasMask: boolean;
   isDrawing?: boolean;
+  onInvert?: () => void;
   onUndo: () => void;
   onClear: () => void;
 }
@@ -131,6 +133,22 @@ function MaskToolButtons({
         <Eraser size="0.875rem" aria-hidden />
         {!compact && t("ui.imagemaskcanvas.eraser")}
       </button>
+      {!compact && maskControls.onInvert && (
+        <button
+          type="button"
+          onClick={maskControls.onInvert}
+          disabled={disabled || !maskControls.hasMask || Boolean(maskControls.isDrawing)}
+          aria-label={t("ui.imagemaskcanvas.invert")}
+          title={t("ui.imagemaskcanvas.invert")}
+          className={cn(
+            MASK_ACTION_BUTTON_CLASS,
+            "border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)] max-sm:w-11 max-sm:px-0 sm:px-2.5",
+          )}
+        >
+          <Contrast size="0.875rem" aria-hidden />
+          <span className="max-sm:sr-only">{t("ui.imagemaskcanvas.invert")}</span>
+        </button>
+      )}
       <button
         type="button"
         onClick={maskControls.onUndo}

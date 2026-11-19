@@ -9,7 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
-import { Eraser, Paintbrush, RotateCcw, Trash2, Undo2 } from "lucide-react";
+import { Contrast, Eraser, Paintbrush, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 
@@ -24,6 +24,7 @@ export interface ImageMaskState {
 export interface ImageMaskCanvasHandle {
   undo: () => void;
   clear: () => void;
+  invert: () => void;
 }
 
 interface MaskPoint {
@@ -36,6 +37,8 @@ interface MaskStroke {
   radiusRatio: number;
   points: MaskPoint[];
 }
+
+type MaskHistoryEntry = MaskStroke | { kind: "invert" };
 
 export interface ImageMaskCanvasProps {
   src: string;
@@ -109,6 +112,18 @@ function renderStroke(ctx: CanvasRenderingContext2D, width: number, height: numb
   ctx.restore();
 }
 
+function renderHistoryEntry(ctx: CanvasRenderingContext2D, width: number, height: number, entry: MaskHistoryEntry) {
+  if ("kind" in entry) {
+    ctx.save();
+    ctx.globalCompositeOperation = "xor";
+    ctx.fillStyle = "rgba(255, 255, 255, 1)";
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+    return;
+  }
+  renderStroke(ctx, width, height, entry);
+}
+
 /**
  * Overlay brush canvas matching an image's fitted aspect box 1:1 with wheel/pinch zoom and pan.
  * Paints a uniform translucent mask and exports a binary white/black PNG for inpainting.
@@ -135,7 +150,7 @@ export function ImageMaskCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const alphaCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const exportCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const strokesRef = useRef<MaskStroke[]>([]);
+  const strokesRef = useRef<MaskHistoryEntry[]>([]);
   const activeStrokeRef = useRef<MaskStroke | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
   const onMaskChangeRef = useRef(onMaskChange);
@@ -317,8 +332,8 @@ export function ImageMaskCanvas({
     const ctx = alpha.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, alpha.width, alpha.height);
-    for (const stroke of strokesRef.current) {
-      renderStroke(ctx, alpha.width, alpha.height, stroke);
+    for (const entry of strokesRef.current) {
+      renderHistoryEntry(ctx, alpha.width, alpha.height, entry);
     }
     compositeVisible();
   }, [compositeVisible]);
@@ -611,6 +626,8 @@ export function ImageMaskCanvas({
 
   const handleUndo = useCallback(() => {
     if (disabled || strokesRef.current.length === 0) return;
+    activeStrokeRef.current = null;
+    activePointerIdRef.current = null;
     strokesRef.current.pop();
     setStrokeCount(strokesRef.current.length);
     setIsDrawing(false);
@@ -618,8 +635,19 @@ export function ImageMaskCanvas({
     exportMask();
   }, [disabled, exportMask, rebuildFromStrokes]);
 
+  const handleInvert = useCallback(() => {
+    if (disabled || !hasMask || activeStrokeRef.current) return;
+    strokesRef.current.push({ kind: "invert" });
+    setStrokeCount(strokesRef.current.length);
+    setIsDrawing(false);
+    rebuildFromStrokes();
+    exportMask();
+  }, [disabled, exportMask, hasMask, rebuildFromStrokes]);
+
   const handleClear = useCallback(() => {
     if (disabled || (strokesRef.current.length === 0 && !hasMask)) return;
+    activeStrokeRef.current = null;
+    activePointerIdRef.current = null;
     strokesRef.current = [];
     setStrokeCount(0);
     setHasMask(false);
@@ -633,8 +661,9 @@ export function ImageMaskCanvas({
     () => ({
       undo: handleUndo,
       clear: handleClear,
+      invert: handleInvert,
     }),
-    [handleClear, handleUndo],
+    [handleClear, handleInvert, handleUndo],
   );
 
   return (
@@ -778,6 +807,20 @@ export function ImageMaskCanvas({
             </label>
           )}
 
+          <button
+            type="button"
+            onClick={handleInvert}
+            disabled={disabled || !hasMask || isDrawing}
+            aria-label={t("ui.imagemaskcanvas.invert")}
+            title={t("ui.imagemaskcanvas.invert")}
+            className={cn(
+              TOOL_BUTTON_CLASS,
+              "border-[var(--border)] text-[var(--foreground)] hover:bg-[var(--accent)]",
+            )}
+          >
+            <Contrast size="0.875rem" aria-hidden />
+            <span className="max-sm:sr-only">{t("ui.imagemaskcanvas.invert")}</span>
+          </button>
           <button
             type="button"
             onClick={handleUndo}

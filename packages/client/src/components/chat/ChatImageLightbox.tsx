@@ -234,6 +234,7 @@ export function ChatImageLightbox({
             strokeCount: maskState.strokeCount,
             hasMask: maskState.hasMask,
             isDrawing: Boolean(maskState.isDrawing),
+            onInvert: () => maskControlsRef.current?.invert(),
             onUndo: () => maskControlsRef.current?.undo(),
             onClear: () => maskControlsRef.current?.clear(),
           }}

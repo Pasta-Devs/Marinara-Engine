@@ -14460,6 +14460,7 @@
   "ui.imagemaskcanvas.canvasLabel": "Inpainting mask brush canvas",
   "ui.imagemaskcanvas.clear": "Clear mask",
   "ui.imagemaskcanvas.eraser": "Eraser",
+  "ui.imagemaskcanvas.invert": "Invert mask",
   "ui.imagemaskcanvas.modeImg2Img": "Img2Img",
   "ui.imagemaskcanvas.modeInpainting": "Inpainting mask active",
   "ui.imagemaskcanvas.modeInpaintingShort": "Inpainting",
