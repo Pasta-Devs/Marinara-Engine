@@ -7,6 +7,9 @@
 import {
   applyTrackerFieldLocksToGameStatePatch,
   isTrackerRowsUpdate,
+  normalizeTrackerFieldLocks,
+  normalizeTrackerHiddenFields,
+  renameTrackerFieldLockPrefix,
   normalizeTextForMatch,
   type AgentResult,
   type GameNpc,
@@ -121,10 +124,6 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
           hiddenTrackerFields: handover.hiddenFields,
         }
       : null;
-    const movedKeys =
-      handover.handedOver.length > 0
-        ? { fieldLocks: handover.fieldLocks, hiddenTrackerFields: handover.hiddenFields }
-        : undefined;
     if (handover.handedOver.length > 0) {
       logger.info(
         "[agent-effects] character-tracker handed %d NPC row(s) over to their cards origin=%s messageId=%s swipeIndex=%d",
@@ -163,6 +162,21 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
     if (steps.fillAvatars) await fillAvatars(characters, cardCharacterIds, deps);
 
     deps.signal?.throwIfAborted();
+    // The lock and hidden maps as they are now, with only the handed-over keys moved: a lock the user clicked while
+    // this run was busy stays.
+    let movedKeys: { fieldLocks: Record<string, boolean>; hiddenTrackerFields: Record<string, boolean> } | undefined;
+    if (handover.renamedLockPrefixes.length > 0) {
+      const current = await target.loadBaseline();
+      deps.signal?.throwIfAborted();
+      const currentState = current ? parseGameStateRow(current) : storedState;
+      let fieldLocks = normalizeTrackerFieldLocks(currentState?.fieldLocks);
+      let hiddenTrackerFields = normalizeTrackerHiddenFields(currentState?.hiddenTrackerFields);
+      for (const { from, to } of handover.renamedLockPrefixes) {
+        fieldLocks = renameTrackerFieldLockPrefix(fieldLocks, from, to);
+        hiddenTrackerFields = renameTrackerFieldLockPrefix(hiddenTrackerFields, from, to);
+      }
+      movedKeys = { fieldLocks, hiddenTrackerFields };
+    }
     await target.save(characters, movedKeys);
     deps.signal?.throwIfAborted();
     logger.info(

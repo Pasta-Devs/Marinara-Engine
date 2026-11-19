@@ -17,6 +17,7 @@ import {
   normalizeTrackerFieldLocksForState,
   normalizeTrackerHiddenFields,
   renameTrackerFieldLockPrefix,
+  trackerIdentitySlug,
   isTrackerFieldLocked,
   type TrackerFieldLocks,
   type TrackerHiddenFields,
@@ -2003,7 +2004,9 @@ export function applyTrackerCharacterCardIdentity(
     const card = cardsById.get(trackerCharacterIdKey(previous));
     if (!card || !Array.isArray(previous.idAliases)) continue;
     for (const alias of previous.idAliases) {
-      if (typeof alias === "string" && alias.trim()) cardsByStoredIdAlias.set(alias.trim().toLowerCase(), card);
+      // Keyed by slug, the form drifted ids are compared in (as incremental updates do), so "mara_vex" finds "Mara Vex".
+      const key = trackerIdentitySlug(alias);
+      if (key) cardsByStoredIdAlias.set(key, card);
     }
   }
 
@@ -2044,14 +2047,17 @@ export function applyTrackerCharacterCardIdentity(
     }
 
     const explicitCanonicalName = resolveExplicitCanonicalName(character.name, canonicalCardNamesByKey);
-    const storedAliasCard = cardsById.has(trackerCharacterIdKey(character))
-      ? undefined
-      : cardsByStoredIdAlias.get(trackerCharacterIdKey(character));
+    const idSlug = trackerIdentitySlug(character.characterId);
+    const storedAliasCard =
+      cardsById.has(trackerCharacterIdKey(character)) || !idSlug ? undefined : cardsByStoredIdAlias.get(idSlug);
+    // Rows the user made by hand and Game party rows keep their own ids; an Other name doesn't turn them into the card.
+    const ownsItsId =
+      isManualTrackerCharacterId(character.characterId) || isGamePartyNpcId(trackerCharacterIdKey(character));
     const card =
       cardsById.get(trackerCharacterIdKey(character)) ??
       storedAliasCard ??
       cardsByName.get(nameKey) ??
-      cardsByAlias.get(nameKey) ??
+      (ownsItsId ? undefined : cardsByAlias.get(nameKey)) ??
       (explicitCanonicalName ? cardsByName.get(normalizeTextForMatch(explicitCanonicalName)) : undefined);
     if (!card) {
       const castCard =
@@ -2064,7 +2070,7 @@ export function applyTrackerCharacterCardIdentity(
     const isCardName =
       !nameKey ||
       nameKey === cardNameKey ||
-      cardsByAlias.get(nameKey) === card ||
+      (!ownsItsId && cardsByAlias.get(nameKey) === card) ||
       storedAliasCard === card ||
       (!!explicitCanonicalName && normalizeTextForMatch(explicitCanonicalName) === cardNameKey);
     return { character, card, isCardName, castNameKey: isCardName ? "" : nameKey, viaCastId: false };
@@ -2320,6 +2326,8 @@ export function handOverTrackerNpcsToCards(input: {
   fieldLocks: TrackerFieldLocks;
   hiddenFields: TrackerHiddenFields;
   handedOver: Array<{ from: string; to: string }>;
+  /** Lock-key prefixes that moved, to re-apply to the maps as they are at save time. */
+  renamedLockPrefixes: Array<{ from: string; to: string }>;
   ambiguousCardIds: string[];
 } {
   const idOf = (row: Record<string, unknown>) => (typeof row.characterId === "string" ? row.characterId.trim() : "");
@@ -2328,10 +2336,12 @@ export function handOverTrackerNpcsToCards(input: {
   let fieldLocks = normalizeTrackerFieldLocks(input.fieldLocks);
   let hiddenFields = normalizeTrackerHiddenFields(input.hiddenFields);
   const handedOver: Array<{ from: string; to: string }> = [];
+  const renamedLockPrefixes: Array<{ from: string; to: string }> = [];
   const ambiguousCardIds: string[] = [];
 
   const cardsById = new Map(input.cards.map((card) => [card.id.trim().toLowerCase(), card]));
   const { cardsByName, cardsByAlias } = indexTrackerCardNames(input.cards);
+  const canonicalCardNamesByKey = new Map([...cardsByName].map(([key, card]) => [key, card.name]));
   const isNpcRow = (row: Record<string, unknown>) => {
     const id = idOf(row);
     return (
@@ -2348,7 +2358,13 @@ export function handOverTrackerNpcsToCards(input: {
       if (promoted) return { card: promoted, byId: true };
     }
     const name = trackerCharacterNameKey(row);
-    const card = name ? (cardsByName.get(name) ?? cardsByAlias.get(name)) : undefined;
+    // The same name tiers card identity uses: exact name, Other name, then a quoted or bracketed alias ('Marisol "Mari"').
+    const explicit = resolveExplicitCanonicalName(row.name, canonicalCardNamesByKey);
+    const card = name
+      ? (cardsByName.get(name) ??
+        cardsByAlias.get(name) ??
+        (explicit ? cardsByName.get(normalizeTextForMatch(explicit)) : undefined))
+      : undefined;
     return card ? { card, byId: false } : null;
   };
   const withoutNpcPortrait = (row: Record<string, unknown>, card: TrackerCharacterCardIdentity) => {
@@ -2372,7 +2388,7 @@ export function handOverTrackerNpcsToCards(input: {
 
   const removed = new Set<number>();
   for (const [card, entry] of candidates) {
-    const indexes = entry.byId.length > 0 ? entry.byId : entry.byName;
+    const indexes = [...entry.byId, ...entry.byName];
     if (indexes.length !== 1) {
       ambiguousCardIds.push(card.id);
       continue;
@@ -2427,24 +2443,38 @@ export function handOverTrackerNpcsToCards(input: {
     fieldLocks = renameTrackerFieldLockPrefix(fieldLocks, fromPrefix, toPrefix);
     hiddenFields = renameTrackerFieldLockPrefix(hiddenFields, fromPrefix, toPrefix);
     handedOver.push({ from, to: card.id });
-  }
-  if (handedOver.length === 0) {
-    return { previousCharacters: rows, history, fieldLocks, hiddenFields, handedOver, ambiguousCardIds };
+    renamedLockPrefixes.push({ from: fromPrefix, to: toPrefix });
   }
   rows = rows.filter((_row, index) => !removed.has(index));
 
-  // Earlier turns still hold the NPC row: re-key it there too, so its portrait framing and id can't come back through
-  // the history fallbacks (UI fields by name, ids by name).
-  const cardsByHandedOverId = new Map<string, TrackerCharacterCardIdentity>();
-  for (const { from, to } of handedOver) {
-    const card = cardsById.get(to.trim().toLowerCase());
-    if (from && card) cardsByHandedOverId.set(from.toLowerCase(), card);
+  // Earlier turns still hold the NPC row, on every run after the handover too (history is committed snapshots only):
+  // re-key it by the old ids the card rows remember, so its portrait framing and id can't come back through the
+  // history fallbacks (UI fields by name, ids by name).
+  const cardsByOldId = new Map<string, TrackerCharacterCardIdentity>();
+  for (const row of rows) {
+    const card = cardsById.get(idOf(row).toLowerCase());
+    if (!card || !Array.isArray(row.idAliases)) continue;
+    for (const alias of row.idAliases) {
+      const key = trackerIdentitySlug(alias);
+      if (key) cardsByOldId.set(key, card);
+    }
   }
-  history = history.map((row) => {
-    const card = cardsByHandedOverId.get(idOf(row).toLowerCase());
-    return card ? withoutNpcPortrait(row, card) : row;
-  });
-  return { previousCharacters: rows, history, fieldLocks, hiddenFields, handedOver, ambiguousCardIds };
+  if (cardsByOldId.size > 0) {
+    history = history.map((row) => {
+      if (!isNpcRow(row)) return row;
+      const card = cardsByOldId.get(trackerIdentitySlug(idOf(row)));
+      return card ? withoutNpcPortrait(row, card) : row;
+    });
+  }
+  return {
+    previousCharacters: rows,
+    history,
+    fieldLocks,
+    hiddenFields,
+    handedOver,
+    renamedLockPrefixes,
+    ambiguousCardIds,
+  };
 }
 
 export function preserveTrackerCharacterUiFields(

@@ -227,4 +227,74 @@ await runNamedCases([
       assert.deepEqual(idsOf(handover.previousCharacters), ["manual-1", "npc-zzz"]);
     },
   },
+  {
+    name: "through the whole pipeline, an Other name doesn't turn a manual or Game party row into the card",
+    run: () => {
+      const stored = [
+        { characterId: "manual-7", name: "Mara", outfit: "red" },
+        { characterId: "npc:garrick", name: "Mara", outfit: "grey" },
+      ];
+      const rows = applyTurn(
+        [
+          { characterId: "manual-7", name: "Mara", outfit: "red" },
+          { characterId: "npc:garrick", name: "Mara", outfit: "grey" },
+        ],
+        stored,
+        [maraWithAlias],
+      ).rows;
+      assert.deepEqual(idsOf(rows), ["manual-7", "npc:garrick"]);
+    },
+  },
+  {
+    name: "after the handover a re-spelled old id in a full list still reaches the card",
+    run: () => {
+      const stored = [{ ...storedMara, characterId: "Mara Vex" }];
+      const handed = applyTurn([{ characterId: "card-mara", name: "Mara Vex" }], stored, [mara]).rows;
+      assert.deepEqual(handed[0]!.idAliases, ["Mara Vex"]);
+      const rows = applyTurn([{ characterId: "mara_vex", name: "Mara", mood: "grim" }], handed, [mara]).rows;
+      assert.deepEqual(idsOf(rows), ["card-mara"]);
+    },
+  },
+  {
+    name: "a re-run after the handover, with history still holding the NPC row, keeps the NPC framing off the card",
+    run: () => {
+      const handed = applyTurn([{ characterId: "card-mara", name: "Mara Vex" }], [storedMara], [mara]).rows;
+      const history = [{ ...storedMara }];
+      const rerun = applyTurn([{ characterId: "card-mara", name: "Mara Vex", mood: "grim" }], handed, [mara], {
+        history,
+      }).rows;
+      assert.deepEqual(idsOf(rerun), ["card-mara"]);
+      assert.equal(rerun[0]!.portraitZoom, undefined);
+      assert.equal(rerun[0]!.avatarPath, mara.avatarPath);
+    },
+  },
+  {
+    name: "one NPC row matching by id and another by name for the same card hand over neither",
+    run: () => {
+      const promoted: Card = { id: "q7Kp2", name: "Captain Ilse" };
+      const stored = [
+        { characterId: "npc-q7Kp2", name: "The Captain" },
+        { characterId: "npc-def", name: "Captain Ilse" },
+      ];
+      const { handover } = applyTurn([], stored, [promoted]);
+      assert.deepEqual(handover.handedOver, []);
+      assert.deepEqual(handover.ambiguousCardIds, ["q7Kp2"]);
+    },
+  },
+  {
+    name: "a quoted alias in the stored name hands over like card identity resolves it",
+    run: () => {
+      const mari: Card = { id: "card-mari", name: "Mari" };
+      const stored = [{ characterId: "npc-abc", name: 'Marisol "Mari"', outfit: "red" }];
+      const { rows, handover } = applyTurn(
+        [{ characterId: "npc-abc", name: 'Marisol "Mari"', outfit: "blue" }],
+        stored,
+        [mari],
+        { fieldLocks: { [lockKey("npc-abc", "outfit")]: true } },
+      );
+      assert.deepEqual(idsOf(rows), ["card-mari"]);
+      assert.equal(rows[0]!.outfit, "red");
+      assert.deepEqual(handover.fieldLocks, { [lockKey("card-mari", "outfit")]: true });
+    },
+  },
 ]);
