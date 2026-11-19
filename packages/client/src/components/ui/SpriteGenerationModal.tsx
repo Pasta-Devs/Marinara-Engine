@@ -808,6 +808,12 @@ export function SpriteGenerationModal({
   const savedSpriteReferenceOn = useSavedSpriteReference && !!savedSpriteReferenceUrl;
   const avatarReferenceOn = useCurrentAvatarReference && hasCurrentAvatarReference;
   const maxUploadedReferenceImages = 4 - Number(avatarReferenceOn) - Number(savedSpriteReferenceOn);
+  // The saved sprite can turn on after uploads (its list loads late): never keep an upload that would not be sent.
+  useEffect(() => {
+    setReferenceImages((prev) =>
+      prev.length > maxUploadedReferenceImages ? prev.slice(0, Math.max(0, maxUploadedReferenceImages)) : prev,
+    );
+  }, [maxUploadedReferenceImages]);
   const effectiveReferenceImages = useMemo(
     () =>
       [
@@ -2295,8 +2301,9 @@ export function SpriteGenerationModal({
                     onChange={(e) => {
                       const enabled = e.target.checked;
                       setUseCurrentAvatarReference(enabled);
+                      // Keep the uploads within what is left of the four, so every shown reference is sent.
                       if (enabled) {
-                        setReferenceImages((prev) => prev.slice(0, 3));
+                        setReferenceImages((prev) => prev.slice(0, Math.max(0, 3 - Number(savedSpriteReferenceOn))));
                       }
                     }}
                     className="accent-[var(--primary)]"
@@ -2315,7 +2322,13 @@ export function SpriteGenerationModal({
                 <label className="mb-2 flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
                   <Checkbox
                     checked={useSavedSpriteReference}
-                    onChange={(e) => setUseSavedSpriteReference(e.target.checked)}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setUseSavedSpriteReference(enabled);
+                      if (enabled) {
+                        setReferenceImages((prev) => prev.slice(0, Math.max(0, 3 - Number(avatarReferenceOn))));
+                      }
+                    }}
                     className="accent-[var(--primary)]"
                   />
                   <img
