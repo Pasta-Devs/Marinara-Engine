@@ -299,6 +299,8 @@ async function runScreen(browser, base, sizeName, screen, theme, results) {
     if (screen.run) {
       const [source, argument] = screen.run;
       await page.evaluate(([source, argument]) => (0, eval)(`(${source})`)(argument), [source, argument]);
+      if (screen.ready)
+        await page.waitForSelector(screen.ready, { state: "attached", timeout: 10_000 }).catch(() => {});
       await settle(page);
     }
     if (screen.then) {

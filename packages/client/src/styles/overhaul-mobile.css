@@ -1354,8 +1354,9 @@
 
 /* A section opened as its own page. */
 /* The page's header sticks flush under Chat settings' own header: the scroll area's top
-   padding would otherwise leave a strip where scrolled text shows through. */
-.marinara-chat-popover__scroll:has(> .ovm-cs-page[data-ovm-cs-current]) {
+   padding would otherwise leave a strip where scrolled text shows through. Some sections (Advanced
+   Parameters) sit in a wrapper that carries their order, so the page is not always a direct child. */
+.marinara-chat-popover__scroll:has(.ovm-cs-page[data-ovm-cs-current]) {
   padding-top: 0 !important;
 }
 .ovm-cs-page__head {
