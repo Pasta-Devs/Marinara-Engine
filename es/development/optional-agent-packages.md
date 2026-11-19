@@ -1246,6 +1246,19 @@ donde se aplica el tiempo de caché de la conexión.
 
 Los Engines anteriores ignoran la opción, así que un paquete siempre puede pasarla. Declara 1.815 cuando el paquete dependa de ella.
 
+<a id="capability-api-1835-prepare-voice-clips-ahead"></a>
+
+### Capability API 1.835: preparar clips de voz por adelantado
+
+`services.tts.ttsService.prepareAudio(text, options?)` crea el clip de una línea en la caché de audio compartida sin reproducirlo. Llámalo con el mismo texto y las mismas opciones que usará después `speak` o `speakSequence`: `cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone` y `audioConnectionId`. Esa llamada empieza entonces a reproducir de inmediato, sin una segunda síntesis.
+
+- Un clip que ya está en caché, o que otra llamada está creando, no se vuelve a crear.
+- La reproducción nunca se detiene ni se cambia, así que un paquete puede preparar las siguientes líneas mientras suena una.
+- Una línea sin texto o sin `cacheKey` se omite, porque nada podría encontrar su clip.
+- `options.signal` solo detiene la espera. La síntesis ya enviada continúa y se guarda en caché, salvo que `abortCacheGenerationOnAbort` esté activado.
+
+No necesita ningún permiso. Los Engines anteriores no tienen el método, así que comprueba `typeof ttsService.prepareAudio === "function"` y sigue dando voz a las líneas cuando aparezcan. Declara 1.835 solo si el paquete no puede funcionar sin él.
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: imágenes GIF animadas
@@ -1594,6 +1607,8 @@ no sea de voz, se ignora y se aplica la resolución de voz habitual: la conexió
 luego la conexión predeterminada o de respaldo y, por último, los ajustes heredados. Si la propia
 conexión de voz guardada no está disponible, se rechaza la reproducción en vez de utilizar otra
 conexión. Los paquetes que requieran una conexión concreta deben validar el ID guardado antes de reproducir.
+
+Para crear clips de voz antes de que se reproduzcan sus líneas, consulta [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead).
 
 - `createPlayer()` devuelve un reproductor independiente con `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,

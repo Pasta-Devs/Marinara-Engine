@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "e3af4baa6cb49ea93ef7185189ed7fcede2ee9f7bf020a2a76280d3a97d51029",
-      "bytes": 159709
+      "sha256": "292e3d914bdd97b2bb0656f135ac44587625453befaecf54acf573a42932f59b",
+      "bytes": 160940
     },
     {
       "path": "development/personal-extensions.md",
