@@ -133,16 +133,6 @@ A Game Mode chat can use only some of your asset folders, for example to keep yo
 
 A bar shows "All folders included" or how many are excluded. **Reset to all** includes everything again. The choice is saved for that chat only. It changes which folders Game Mode may pick from, and does not delete or hide any file.
 
-### A setting's own art and music
-
-A game started with a setting kit has an art family, shown under **Art and music** when you change the kit's words: `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland`, or one of the kit's own. The game uses folders named for its family and every folder not named for a family, and leaves out other families' folders. A cyberpunk game never plays fantasy battle music or shows the enchanted forest. When nothing of its family or the shared folders fits, nothing plays rather than another family's track. A game without a setting kit uses every folder.
-
-- **Music**: put the setting's tracks in `music/<state>/<family>/<intensity>`, such as `combat/wuxia/intense`. They play ahead of shared tracks.
-- **Backgrounds**: `backgrounds/<family>`. Backgrounds generated in a game with a setting kit are saved there too.
-- **Combat sounds**: a sound in `sfx/combat/<family>` with the same name as a bundled one, such as `sword-swing`, replaces it in games of that family. The bundled combat sounds are fantasy, so other families' fights are quiet until you add their own.
-
-The bundled starter backgrounds count as shared, except the fantasy ones (`ancient_library`, `castle_cliff`, `enchanted_forest`) and the modern `city_night`. A setting kit saved before art families existed keeps working: one made from a starter kit uses that starter's family, and any other uses every folder until you pick a family under **Art and music**. The selection bar above names the open game's family.
-
 ## Generated sound effects and music
 
 Game Mode can generate sound effects and music through a **Music & Sound Effects** account. Choose ElevenLabs, SunoAPI or a custom compatible server. Each new sound or track uses that service account. Bundled audio stays available without generation.

@@ -142,14 +142,7 @@ Some attacks and skills carry an element. The first element to hit a target leav
 
 ### Elements
 
-Which elements exist belongs to the setting:
-
-- No setting kit, or a kit that names none: the classic six (fire, ice, lightning, poison, holy, shadow).
-- Wuxia: the five phases (wood, fire, earth, metal, water), each overcoming the next.
-- Cyberpunk and space opera: kinetic, thermal, EM, and chemical or plasma.
-- Modern day and 1920s: none.
-
-Rain and storms on open ground damp fire-like elements and feed lightning-like ones. In a tactical fight, an element hits harder against one it beats and softer against one that beats it. You can change a kit's elements and reactions under **Change its words**. See [Choosing a setting kit](getting-started.md#choosing-a-setting-kit).
+Rain and storms on open ground damp fire-like elements and feed lightning-like ones. In a tactical fight, an element hits harder against one it beats and softer against one that beats it.
 
 ## Boss mechanics and loot
 
@@ -157,7 +150,7 @@ Strong enemies can have boss mechanics, special rules the GM writes for that fig
 
 When you win, the enemies drop loot, which goes straight into the party's bags. Items have a rarity, from common to uncommon, rare, epic and legendary. Higher difficulty tilts drops toward rarer items and gives slightly more of them. A notification says what dropped, and the GM is told it is already in your bags.
 
-What drops belongs to your setting. A game with a setting kit drops the kit's own loot (a modern-day game drops a gift card or a first-aid kit, never an enchanted sword), and you can change those words under **Change its words**. A game without a kit drops what its genre usually has. A genre with no starter kit, such as Steampunk, drops plain things that belong to no setting. In a game whose ruleset has its own loot tables, enemies drop the ruleset's items instead, and a ruleset that turns Game Mode's own items off drops only its own.
+What drops belongs to your setting. In a game whose ruleset has its own loot tables, enemies drop the ruleset's items instead, and a ruleset that turns Game Mode's own items off drops only its own.
 
 ## Reference: tactical battles
 
@@ -168,14 +161,6 @@ There are no battlefield settings to fill in when you create a game. Each fight 
 Marinara checks the brief and the layout. It keeps the requested terrain while keeping the encounter reachable.
 
 If the constraints cannot fit together, the battle reports the problem. **Use generated terrain** then starts without the rejected terrain features. It never erases them quietly.
-
-A world can also have hand-made battlefields: boards painted tile by tile for one of its places with a world editor such as Pixelforge. When a fight starts at that place, or inside it, it uses one of those boards instead of a generated one.
-
-- The board is used exactly as painted. If the place has several, the fight's seed (a number that picks one) chooses.
-- The GM's terrain brief is not used there, but its formation still decides where each side starts. The GM is told the board was made for this place.
-- A hand-made board must follow three rules: it is one of the three board sizes, the two columns at each side are plains where the sides line up, and every tile a fighter can stand on connects to the rest. The maker refuses a board that breaks a rule and says why.
-
-These boards are kept with the world's hand edits, so they travel in world files, map packs and the library.
 
 | Terrain | Walking | Defense and evasion |
 | --- | --- | --- |
@@ -196,7 +181,7 @@ Both special modes use the current movement allowance and straight (not diagonal
 
 A Tactical battle takes turns in one of two ways:
 
-- **One at a time, by initiative**: every unit gets a place in a rolled order and only the unit whose turn it is can act. The board shows the order. New Overworld games use this.
+- **One at a time, by initiative**: every unit gets a place in a rolled order and only the unit whose turn it is can act. The board shows the order.
 - **Your whole party, then the enemies**: each party unit can act, then the enemy phase plays. VN games use this.
 
 To change it, open **Chat Settings**, expand **Combat Style** and pick a **Turn order**. It appears while the **Battle system** is Tactical, unless the game's ruleset runs its own fights. The change applies from the next battle. A battle in progress keeps its order.
@@ -205,11 +190,11 @@ To change it, open **Chat Settings**, expand **Combat Style** and pick a **Turn 
 
 - **Sight.** Walls and mountains block sight. A unit can attack, use a skill or use an item only on a target it can see.
 - **Cover.** Something between attacker and target protects the target. A forest or ruins tile in the way, or a wall or mountain blocking part of the view, gives half cover. A wall or mountain blocking most of the view gives three-quarter cover. Half cover takes 15 percentage points off the hit chance and three-quarter cover 30. A target's own tile bonus and its cover do not add up: the better one counts.
-- **Height.** On a board with mountains, a mountain stands two levels high and the ground around it one. Walking up one level costs one more movement point, and walking down costs nothing. A step of two levels or more is a cliff nobody can walk. Higher ground also blocks sight between two lower tiles. Attacking down from higher ground adds 10 to the hit chance, a ranged attack from higher ground reaches one tile farther, and low cover such as a forest does not hide a target from above. Hand-made battlefields can have cliffs of their own.
+- **Height.** On a board with mountains, a mountain stands two levels high and the ground around it one. Walking up one level costs one more movement point, and walking down costs nothing. A step of two levels or more is a cliff nobody can walk. Higher ground also blocks sight between two lower tiles. Attacking down from higher ground adds 10 to the hit chance, a ranged attack from higher ground reaches one tile farther, and low cover such as a forest does not hide a target from above.
 
 ### Battlefield scenes
 
-A tactical board is laid out like the kind of place the fight happens in: a forest has trees to hide among, a dungeon has walls and corridors, a city has streets. A game with a setting kit names its own scenes in its words, so a cyberpunk fight happens on a rooftop or in a megablock corridor and a wuxia fight in a bamboo forest or a teahouse. The board's tiles use the setting's words too (cover and debris rather than forest and ruins). You can change a kit's scenes and tile words under **Change its words**.
+A tactical board is laid out like the kind of place the fight happens in: a forest has trees to hide among, a dungeon has walls and corridors, a city has streets.
 
 ## Related guides
 
