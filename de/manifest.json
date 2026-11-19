@@ -224,8 +224,8 @@
     },
     {
       "path": "connections/connecting-to-a-provider.md",
-      "sha256": "78a357ef053f15ada43fa7958c1b3ae9682cb15001d64ddfefe18f75294aa44b",
-      "bytes": 13887
+      "sha256": "06a447c456b412582986ec8ebb59b060e4cb576c02622e68b94e5cb45820c8c0",
+      "bytes": 13908
     },
     {
       "path": "connections/decision-models.md",
@@ -344,8 +344,8 @@
     },
     {
       "path": "development/frontend.md",
-      "sha256": "3b09b5605af34d1f2087ca59db316f7d7821a4be45464fe8552bc6b5426eac4e",
-      "bytes": 55634
+      "sha256": "0b5975acf8f05a32624f41678bcd3306ed7e9f0cef67485cedf506a3dda88d17",
+      "bytes": 55671
     },
     {
       "path": "development/game-combat-ai.md",

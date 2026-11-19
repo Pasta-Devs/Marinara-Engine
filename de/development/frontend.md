@@ -367,7 +367,7 @@ Fehler werfen `ApiError` – dieses Objekt trägt die Eigenschaften `status` und
 
 ## Auswahlfelder und Dropdowns
 
-Jedes Steuerelement zur Auswahl eines Werts öffnet ein gemeinsames Auswahlfenster. Ändere die Darstellung, die Zeilen oder die Breite in den gemeinsamen Komponenten unten. Verwende weder ein natives `<select>` noch eine eigene Liste in einem Popover. Beides gibt es in der App nicht mehr.
+Jedes Steuerelement zur Auswahl eines Werts öffnet ein gemeinsames Auswahlfenster. Ändere die Darstellung, die Zeilen oder die Breite nur in den gemeinsamen Komponenten unten, nie in einer einzelnen Funktion. Verwende weder ein natives `<select>` noch eine eigene Liste in einem Popover. Beides gibt es in der App nicht mehr.
 
 | Ebene | Datei | Zuständigkeit |
 | --- | --- | --- |
