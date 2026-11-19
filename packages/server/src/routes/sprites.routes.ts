@@ -291,12 +291,13 @@ export async function fitSpriteToSize(buffer: Buffer, width: number, height: num
   const sharp = await getSharp();
   const metadata = await sharp(buffer).metadata();
   if (!metadata.width || !metadata.height || (metadata.width === width && metadata.height === height)) return buffer;
-  const transparent = await hasSpriteTransparency(buffer).catch(() => false);
-  let background = { r: 0, g: 0, b: 0, alpha: 0 };
-  if (!transparent) {
-    const corner = await sharp(buffer).ensureAlpha().extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer();
-    background = { r: corner[0] ?? 255, g: corner[1] ?? 255, b: corner[2] ?? 255, alpha: 1 };
-  }
+  // A clear corner means a see-through picture even when too little of it is clear for the ratio test.
+  const corner = await sharp(buffer).ensureAlpha().extract({ left: 0, top: 0, width: 1, height: 1 }).raw().toBuffer();
+  const clearCorner = (corner[3] ?? 255) < 245;
+  const transparent = clearCorner || (await hasSpriteTransparency(buffer).catch(() => false));
+  const background = transparent
+    ? { r: 0, g: 0, b: 0, alpha: 0 }
+    : { r: corner[0] ?? 255, g: corner[1] ?? 255, b: corner[2] ?? 255, alpha: 1 };
   return sharp(buffer).resize(width, height, { fit: "contain", background }).png().toBuffer();
 }
 

@@ -820,12 +820,6 @@ export function SpriteGenerationModal({
   const characterSheetLoading = characterSheetReferenceOn && !characterSheetDataUrl;
   const maxUploadedReferenceImages =
     4 - Number(avatarReferenceOn) - Number(characterSheetReferenceOn) - Number(savedSpriteReferenceOn);
-  // The saved sprite can turn on after uploads (its list loads late): never keep an upload that would not be sent.
-  useEffect(() => {
-    setReferenceImages((prev) =>
-      prev.length > maxUploadedReferenceImages ? prev.slice(0, Math.max(0, maxUploadedReferenceImages)) : prev,
-    );
-  }, [maxUploadedReferenceImages]);
   const effectiveReferenceImages = useMemo(
     () =>
       [
@@ -1056,12 +1050,13 @@ export function SpriteGenerationModal({
     setUseCharacterSheetReference(!!characterSheetUrl);
   }, [characterSheetUrl]);
 
-  // Chosen avatar and sheet pictures take upload slots, so drop uploads past what is left.
+  // Chosen avatar, sheet and saved-sprite pictures take upload slots, so drop uploads past what is left (also
+  // after a file read that finishes once the limit dropped).
   useEffect(() => {
     setReferenceImages((prev) =>
       prev.length > maxUploadedReferenceImages ? prev.slice(0, maxUploadedReferenceImages) : prev,
     );
-  }, [maxUploadedReferenceImages]);
+  }, [maxUploadedReferenceImages, referenceImages.length]);
 
   useEffect(() => {
     if (activeFrameIndex !== null && activeFrameIndex >= cells.length) {
