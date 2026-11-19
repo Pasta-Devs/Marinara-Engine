@@ -1,6 +1,8 @@
 # Writing Game Mode Story Scripts
 
-A story script steers how a Game Mode game unfolds: scenes that play when the party arrives somewhere, things the Game Master is asked to do once a condition is met, objectives the player follows in the journal, and moments the Game Master itself may mark. Write one if you build worlds for others. To play a world that has a story, see [Making a world](../game/getting-started.md#making-a-world).
+> **Note:** Story scripts belong to Overworld games, which are not released yet. This is a developer page, kept out of the in-app Docs and Professor Mari. See [Overworld games (unreleased)](overworld-games.md).
+
+A story script steers how a Game Mode game unfolds: scenes that play when the party arrives somewhere, things the Game Master is asked to do once a condition is met, objectives the player follows in the journal, and moments the Game Master itself may mark. Write one if you build worlds for others. To play a world that has a story, see [Making a world](overworld-games.md#making-a-world).
 
 A story script is data, not code. Nothing in it runs. The Engine checks it against the world it is for, plays it turn by turn, and refuses anything that does not fit.
 
@@ -11,7 +13,7 @@ Before you start, you need a world to attach the story to, and its place and per
 A story belongs to one world. It names that world's places and people, so it only makes sense with the world it was written for (its seed, its brief and its hand edits).
 
 - In a **world file** (`.world.json`), as a top-level `story` beside `world`. An Engine that does not know stories still reads the world.
-- In an Experience's **map pack**: each world file can carry its story, and a new game takes it with the map. See [optional agent packages](../development/optional-agent-packages.md).
+- In an Experience's **map pack**: each world file can carry its story, and a new game takes it with the map. See [optional agent packages](optional-agent-packages.md).
 - In a world kept in the library, outside any game: `GET`, `PUT` and `DELETE /api/game-worlds/:id/story`, the same as a game's. A new game started from that world takes the story with it.
 - In a game, once it starts: `GET`, `PUT` and `DELETE /api/game/:chatId/story` read, save and remove it. A save is checked against the game's world, hand edits included, and hand edits that would take away something the story names are refused.
 
@@ -209,7 +211,7 @@ Any action may carry its own `if`: it is done only when its conditions hold as t
 
 Which actions were done is recorded with the trip, so a `gm` event's scenes and asks arrive the next turn as they were done when the Game Master marked it.
 
-A companion is a person of the pack's people file marked as one (see the map pack's people in [optional agent packages](../development/optional-agent-packages.md)).
+A companion is a person of the pack's people file marked as one (see the map pack's people in [optional agent packages](optional-agent-packages.md)).
 
 Of the `rest`, `travel` and `idle` events that could happen on one turn, only one does: the one with the highest `priority` (a whole number from -100 to 100, 0 when left out; the first in the script on a tie). A companion's campfire talk, a pair of companions bickering on the road, or a companion coming to the player in a quiet hour then never pile up. With a `party` condition, such a scene happens only while those companions travel with the party. 
 
@@ -396,7 +398,7 @@ Each story feature needs a minimum Capability API version.
 - more than 64 flags need 1.353 (the limit is 256);
 - fight `variants` need 1.356;
 - `any` conditions, a `fight` event naming its fight, a `leave` event, a flag's `min` or `max`, and an `if` on an action or a page need 1.358;
-- a map pack whose ruleset overlay has a `storyUses` entry (an item use that spends a story number, which a held ground `if` can read) needs 1.359; see [items that cost a story number](../development/optional-agent-packages.md#capability-api-1359-items-that-cost-a-story-number);
+- a map pack whose ruleset overlay has a `storyUses` entry (an item use that spends a story number, which a held ground `if` can read) needs 1.359; see [items that cost a story number](optional-agent-packages.md#capability-api-1359-items-that-cost-a-story-number);
 - a `partySize` condition, a variant for a party above 6 or open-ended, or more than 6 variants need 1.360;
 - a `noncombatant` companion, left out of the party size, needs 1.360;
 - a `season` action `over` everything inside it needs 1.361;

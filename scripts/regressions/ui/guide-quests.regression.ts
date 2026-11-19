@@ -25,7 +25,7 @@ import {
 
 // AI basics and Deep dives: every quest points at a real passage, has its strings, and ranks sensibly.
 assert.equal(AI_BASICS_QUESTS.length, 12, "twelve AI basics quests");
-assert.equal(DEEP_DIVES.length, 83, "83 deep dives");
+assert.equal(DEEP_DIVES.length, 82, "82 deep dives");
 assert.equal(GUIDE_QUEST_BY_ID.size, GUIDE_QUESTS.length, "quest ids are unique");
 assert.equal(AI_BASICS_QUESTS.at(-1)?.special, "mari", "the tour ends at Professor Mari");
 assert.ok(

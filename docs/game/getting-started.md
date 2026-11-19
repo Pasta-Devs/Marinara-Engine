@@ -36,7 +36,7 @@ If it did not work, see [World generation fails with a JSON or 422 error](#world
 
 | Step | What you set |
 | --- | --- |
-| **Connection** | **Game Name**, the **Model** that runs the GM, and an optional **Scene effects model**. The **Game Mode** card shows **VN** only for now (see [VN or Overworld](#vn-or-overworld)). |
+| **Connection** | **Game Name**, the **Model** that runs the GM, and an optional **Scene effects model**. The **Game Mode** card shows **VN** only for now. |
 | **World** | Genre, setting, tone, difficulty, content rating, story style, violence, content boundaries and language. **Combat Preference** is **Turn-Based** or **Tactical**. Every new game plays on **MRPG** (Marinara RPG) classes (see [MRPG classes](mrpg-classes.md)). When a ruleset is installed, a **Rules** choice appears (see [Choose rules](#choose-rules)). |
 | **Party** | Your persona (the character you play), **Game Master Mode**, party members and **GM intro message** (see [The GM intro message](#the-gm-intro-message)). Each member's starting MRPG tree comes from the **Game Mode** section of their card (see [Choose a character's trees](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** | What you want from the adventure. |
@@ -54,7 +54,7 @@ With the **Hierarchical Maps** agent downloaded (now called World Maps, see [Wor
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| Genre | Fantasy | Several allowed, plus your own. A setting kit picked first sets its own. |
+| Genre | Fantasy | Several allowed, plus your own. |
 | Tone | Heroic | Several allowed. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** or **Brutal**. Higher settings make fights harder: more and tougher foes in an MRPG game (see [Battles in an MRPG game](combat.md#battles-in-an-mrpg-game)), harder-hitting enemies in a Legacy game (see [Difficulty scaling](combat.md#difficulty-scaling)). |
 | Content Rating (sexual content) | SFW | **SFW** or **NSFW**. Covers sexual content only. NSFW permits it, it does not force it. |
@@ -151,7 +151,7 @@ On a computer, the controls open from buttons near the top right of the chat. On
 
 | Control | What it holds |
 | --- | --- |
-| **Game controls** (game controller) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (when Music DJ plays the music) and **Retry assets image generation**. For a storyboard background, also replay, play/pause and mute. **Show the scene**, **Show the overworld** and **Show the map** switch views in games that have them. **Edit game data** fixes saved data by hand (see [Editing game data by hand](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** returns to an earlier moment (see [How your game saves](sessions-and-saves.md#how-your-game-saves)). |
+| **Game controls** (game controller) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (when Music DJ plays the music) and **Retry assets image generation**. For a storyboard background, also replay, play/pause and mute. **Edit game data** fixes saved data by hand (see [Editing game data by hand](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** returns to an earlier moment (see [How your game saves](sessions-and-saves.md#how-your-game-saves)). |
 | **Session** (feather) | Session history, the journal and session controls. See [Game Mode: Sessions and Saves](sessions-and-saves.md). |
 | **Volume** (speaker) | **Master**, **Music**, **Sound Effects**, **TTS** and **Ambient** volume. |
 | **Game Assets** (folder) | Scene media and the Asset Browser. See [Game Assets](game-assets.md). |
@@ -239,54 +239,3 @@ A toast says **The model declined this request** when the model refused to write
 - [Game Assets](game-assets.md): the music, sound, sprite and background library.
 - [Storyboard Agent Guide](storyboard.md): Storyboards for Game Mode and Roleplay.
 - [Roleplay Mode: Getting Started](../roleplay/getting-started.md): Author's Notes work the same way here.
-
-## Overworld
-
-The sections below describe **Overworld** games, which are not available yet. Read them only if your server has turned it on.
-
-### VN or Overworld
-
-A new game is played in one of two game modes, chosen on the first step and kept for all its sessions:
-
-- **Overworld** is a world made for your setting, walked on an overworld map, with towns, places to explore and dungeons. It needs a setting kit and a world. Until you pick a kit, the one for your first genre is used (High fantasy if the genre has none), and a world is rolled for it.
-- **VN** is Game Mode as it always was, told like a visual novel: scene by scene, with the scene map and battles, and no setting kit, world, overworld, towns or dungeon maps.
-
-Overworld is locked unless the server owner sets `MARINARA_OVERWORLD_GAMES`. While locked, its card is greyed out with the note "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games." Every new game is then a VN game, and the setting kit and world choices do not appear. A game made before the choice existed keeps playing as it did: with a world it is an Overworld game, without one a VN game.
-
-### Choosing a setting kit
-
-A **Setting kit** gives the GM the words your kind of world is written in: place names and settlement sizes, kinds of group, how people travel, names for a year and a day, how peoples name themselves, money and goods, elements, battle places and which family of art and music it uses (see [Game Assets](game-assets.md#a-settings-own-art-and-music)). It also says which kinds of change the world allows, such as rivalries, crime, wars or disasters, and how fast it changes. A kind that is off is never brought in, so a quarrel can stay a quarrel.
-
-There are eight kits: high fantasy, wuxia and xianxia, modern day, modern supernatural, the 1920s, cyberpunk, space opera and post-apocalyptic. Modern day is gentle by default, with no crime, conflict or catastrophe, at a slow pace.
-
-- Picking a kit before a genre sets the genre that fits it. A genre you chose yourself stays.
-- **Write it for my setting** asks your GM model to rewrite the kit for your genre, setting and tone. If the result does not hold together, the model is asked once more with the reasons. If it still fails, the wizard tells you what was wrong and keeps the kit you had.
-- **Change its words** opens every word of the kit. Type a list on one line, separated by commas. A kit with a problem, such as an empty name or no settlements, says what is wrong, and the game cannot start until it is fixed.
-- **Download this kit** saves a `.worldkit.json` file to share. **Import a kit file** reads one back in.
-
-The game keeps the kit it was created with, and a shared setup file carries it. An Experience can ship its own map pack (a kit, ready-made maps and tiles). With that Experience on, the setup shows its kit as set and, if it ships maps, a **Map** to pick. Turning the Experience off gives your choices back.
-
-### Making a world
-
-With a kit chosen, **Your world** lays out a world in the kit's words before the game starts: regions, settlements of every size, what each place is known for and the ways between them (roads, rivers, sea lanes, jump lanes) with trip times in days.
-
-A world comes from a **World seed**. The same seed, kit and brief always make the same world. **Roll** gives another, and typing a number back brings one back. The preview shows a small map of the ground and settlements, where the party starts and a list of settlements by region.
-
-- **Start from this lore** reads the ticked lorebooks for the places and dated events they state, kept exactly as written. **Build around the lore** fills the world in around them. **Only the lore's places** makes nothing beside them.
-- **Write the world's brief** asks your GM model for the present day, the major places, the groups the present day turns on (what each wants, and its allies and rivals) and names for places and people in each people's own sound. The lore's places are kept whatever the model writes. Anything that does not fit the kit is left out and counted. **Change the brief** opens its words, including each people's given and family names. Without a brief, places are numbered and people go by their job.
-
-**A world has a past.** Before the game begins, the world runs forward year by year from its founding. Settlements grow, groups are founded, take and lose leaders and fall in and out with each other. Where the world has them, bandits, wars and famines leave marks. A severe change comes only after it has been brewing, and only in the kinds the kit allows. Dated events from your lore or the brief happen when and where they say. The same seed and brief give the same past.
-
-**What the GM knows.** The GM always knows where the party is, where it can go and how long each way takes. It is told the most notable events of the past, who leads the current place and that place's history. For any other place or group it can ask and gets the answer on its next turn. It names where the party goes with a place tag. A listed place keeps the size the world gave it. A place the world does not list, such as a farmhouse, keeps the name the GM gives it. Each settlement has people drawn by the seed when the party arrives: a name from their culture, a job suited to the place, a temperament, speech and looks. When the GM names someone in full, they join the tracked characters.
-
-**What the party does stays done.** When the party helps or hinders a group, changes how two groups feel about each other, takes or ruins a place or puts someone at a group's head, the GM records it in its reply. Each change is checked against the world. A change of a kind the kit has off, or one naming a place or group the world does not have, is refused. From then on the GM is told the world as the story left it. A place the story added is a place the party can go. A swipe, a regeneration or a deleted message takes a change back with its reply.
-
-**The world goes on without the party.** When the GM says time passes, the world steps forward a week at a time, only in the kinds of change the kit has. Catastrophes never come on their own: only the GM can narrate one, and it is refused if its kind is off. Nothing is decided where the party is. News travels: the GM hears of a far change once the days the roads take have passed. The party's deeds count for more as it becomes known.
-
-**Hand edits.** In a world editor you can rename or move places, paint the ground, add places and people, paint a place's tactical battlefield (see [Combat](combat.md#tactical-battles-and-terrain)) and lay out a town (see [The town](map-time-weather.md#the-town)). Every part of the game sees the edits at once. A renamed place still answers to its old name. Edits change the world from now on, never its past. A town keeps its layout, so places and people you add go on its next free plots and homes.
-
-**World files.** **Download this world** (under **Your world**) saves the world you are making, and **Download the world** on a game's World tab saves that game's world with hand edits as a `.world.json` file. **Import a world file** (beside the setting kit) reads one into a new game's setup: it picks the file's kit and makes its world. **Your worlds** does the same with a world from your library. A file can also carry the world's story: events and scenes its creator wrote. A story's scenes appear in the narration before the GM's reply, exactly as written, and its quest objectives are listed under **Story** on the journal's World tab. To write one, see [Writing Game Mode Story Scripts](../extending/writing-story-scripts.md). Hand edits and the story belong to that seed and brief, so they are left out if you change either. A file that cannot be read is refused and the wizard says why. A file whose content does not fit the kit is partly left out and the wizard says what.
-
-**Later and saved.** A game made without a world can be given one later from the journal's **World** tab with **Make a world for this game**. The world starts from the next turn, and past turns, map and people stay. The button is greyed out while Overworld RPG is locked. A game keeps its world as it was made, so a new session, a branch and an exported chat keep the same world. A world made by an earlier version of the generator plays on but can no longer be edited.
-
-A game with a world opens on the **overworld**, a pixel map where you walk the party between settlements and enter towns. See [The overworld](map-time-weather.md#the-overworld).

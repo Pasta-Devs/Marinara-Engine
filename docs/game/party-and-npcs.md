@@ -108,9 +108,6 @@ The Adventure Journal is a running record of your campaign. It is built from sav
 | **Items** | A log of items you acquired, used, lost or removed. |
 | **Library** | In-world notes and books the GM has shown you, saved for rereading. |
 | **Notes** | Your own notepad. |
-| **World** | In a game with a generated world, the world as your party knows it. |
-
-The **World** tab shows where you are and how well known the party is, its standing with each group, what it has done, news that has reached it (rumours are marked), trouble brewing that it has heard of and the past any local would tell. It shows only what the party could know. Secrets only the GM knows stay hidden. It follows the story through swipes and branches.
 
 ### Player notes
 
@@ -143,7 +140,7 @@ If this is your first game, use **Standalone GM**.
 
 ## Reference: ruleset inventory
 
-These parts apply only to games that use a ruleset, or a setting kit with money. See [Playing with a Ruleset](rulesets.md).
+These parts apply only to games that use a ruleset. See [Playing with a Ruleset](rulesets.md).
 
 ### Ruleset items
 
@@ -186,8 +183,6 @@ A ruleset can also have markets, so what you can buy depends on where you are.
 - When you buy, Marinara works out the price from the item's cost and how cheap or dear the deal is, takes it from the buyer's purse and puts the item in their bag. Lodging, passage and other services are only paid for.
 - A purchase the place, seller or purse cannot make is refused and the GM is told why.
 - A ruleset can make each day at a place different: a place may keep only a few of something rare, a seller may turn up something unusual, and you can sell things back at a share of the price until the sellers have spent what they pay out in a day. A new day at the same place, which the GM starts when the party stays on, fills the shelves and purses again.
-
-A game without a ruleset has money and a market too when its setting kit has them. Every starter kit does, for example copper, silver and gold in high fantasy, copper cash and taels of silver in wuxia, dollars and cents in modern day, and credits in cyberpunk and space opera. The kit's shop lists everyday goods with a price and the smallest place that sells each, so a village has a café but only a town has a first-aid kit. You can change the money and the shop under the kit's **Change its words**, or remove the money. See [Choosing a setting kit](getting-started.md#choosing-a-setting-kit).
 
 ## Related guides
 
