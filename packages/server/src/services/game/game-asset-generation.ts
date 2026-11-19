@@ -1321,6 +1321,7 @@ export async function generateBackground(req: BackgroundGenRequest): Promise<str
         fallback: req.imgFallback,
         signal: req.signal,
         preserveProviderOutput: true,
+        sceneBackground: true,
       },
     );
 
@@ -1394,6 +1395,7 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
         fallback: req.imgFallback,
         signal: req.signal,
         preserveProviderOutput: true,
+        sceneBackground: true,
       },
     );
 

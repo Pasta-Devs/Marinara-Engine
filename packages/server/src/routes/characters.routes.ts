@@ -1896,6 +1896,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         quality: resolveConnectionImageQuality(conn),
         // A see-through sheet keeps its alpha: no WebP re-encode, and the gallery skips keying a sheet already clear.
         ...(seeThrough ? { transparentBackground: true, preserveProviderOutput: true } : {}),
+        ...(body.purpose === "background" ? { sceneBackground: true } : {}),
         animation:
           body.animation && typeof body.animation === "object" ? resolveOpenAIGifAnimation(body.animation) : undefined,
         debugMode: debugOverrideEnabled,

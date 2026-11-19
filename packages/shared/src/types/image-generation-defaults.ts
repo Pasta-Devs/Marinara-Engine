@@ -42,6 +42,9 @@ export interface NovelAiDefaults {
   promptGuidanceRescale: number;
   undesiredContentPreset: number;
   dynamicResolutionBySubjectCount: boolean;
+  /** Start background pictures with NovelAI's "background dataset" tag (V4.5 and V5). Off by default: the dataset
+   *  leans photographic, which can clash with an anime-style chat. */
+  backgroundDataset: boolean;
   /** Persistent V4.5 style-only director reference stored with this connection. */
   styleReferenceImage: string | null;
   styleReferenceStrength: number;

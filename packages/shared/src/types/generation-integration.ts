@@ -305,6 +305,8 @@ export interface ImageGenRequest {
   animation?: ImageAnimation;
   /** Request a transparent image background when the provider/model supports it. */
   transparentBackground?: boolean;
+  /** The picture is a scene background (no characters). NovelAI can start it with its "background dataset" tag. */
+  sceneBackground?: boolean;
   /** Keep uncompressed provider output for sprite/portrait processing that requires its original pixels and format. */
   preserveProviderOutput?: boolean;
   /** Optional caller-owned abort signal for cancelling long image requests. */

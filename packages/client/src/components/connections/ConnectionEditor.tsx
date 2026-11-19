@@ -5142,6 +5142,14 @@ function ImageGenerationDefaultsPanel({
                   className="border border-[var(--border)] px-3 py-2"
                   labelClassName="text-[var(--foreground)]"
                 />
+                <SettingsCheckbox
+                  label={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDataset")}
+                  description={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDatasetHelp")}
+                  checked={novelai.backgroundDataset}
+                  onChange={(checked) => updateNovelAi({ backgroundDataset: checked })}
+                  className="border border-[var(--border)] px-3 py-2"
+                  labelClassName="text-[var(--foreground)]"
+                />
                 <div className="space-y-2 rounded-lg border border-[var(--border)] px-3 py-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
