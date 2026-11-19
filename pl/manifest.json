@@ -69,8 +69,8 @@
     },
     {
       "path": "agents/memory.md",
-      "sha256": "f54bb8af5f5ff1922c5c9a3fa5fc01dbf39e0019397ffb64305745f43cc27200",
-      "bytes": 52142
+      "sha256": "51456bd9ffbe144962d15450f549cca71f6c56408dd3a80c455b294db97ac425",
+      "bytes": 52137
     },
     {
       "path": "agents/noodle-settings.md",
