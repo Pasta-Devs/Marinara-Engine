@@ -74,7 +74,11 @@ export interface CharacterTrackerTarget {
   settings: Record<string, unknown> | null;
   /** The snapshot the new character list merges onto. Reads only; `save` creates the row when needed. */
   loadBaseline: () => Promise<TrackerSnapshotRow | null>;
-  save: (presentCharacters: Array<Record<string, unknown>>) => Promise<unknown>;
+  /** `movedKeys` only when an NPC row was handed over to its card: the lock and hidden maps under the card id. */
+  save: (
+    presentCharacters: Array<Record<string, unknown>>,
+    movedKeys?: { fieldLocks: Record<string, boolean>; hiddenTrackerFields: Record<string, boolean> },
+  ) => Promise<unknown>;
   /** Re-reads this message's row after the portraits are drawn, when the route has already answered. */
   loadForBackgroundSave: () => Promise<TrackerSnapshotRow | null>;
   /** Saves the drawn portraits. Must not depend on the route's abort signal, which may have fired by then. */

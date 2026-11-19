@@ -17,6 +17,7 @@ import { logger } from "../../../lib/logger.js";
 import {
   applyTrackerCharacterCardIdentity,
   assignTrackerCharacterIds,
+  handOverTrackerNpcsToCards,
   isManualTrackerCharacterId,
   parseGameStateRow,
   preserveTrackerCharacterUiFields,
@@ -86,7 +87,6 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
     const previousSnapshot = await target.loadBaseline();
     deps.signal?.throwIfAborted();
     const stored = readStoredCharacters(previousSnapshot?.presentCharacters);
-    const previousCharacters = stored.characters;
     if (stored.damage) {
       // A damaged row merges onto an empty list rather than failing the run; say so, without logging its contents.
       logger.warn(
@@ -99,30 +99,71 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
         deps.swipeIndex,
       );
     }
-    const lockState = previousSnapshot
-      ? parseGameStateRow({ ...previousSnapshot, presentCharacters: previousCharacters })
+    const storedState = previousSnapshot
+      ? parseGameStateRow({ ...previousSnapshot, presentCharacters: stored.characters })
       : null;
+    // A card that joined the chat takes over its NPC row, locks and hidden fields included, before anything merges
+    // onto the stored rows (#9556).
+    const handover = handOverTrackerNpcsToCards({
+      previousCharacters: stored.characters,
+      history: target.history,
+      fieldLocks: storedState?.fieldLocks,
+      hiddenFields: storedState?.hiddenTrackerFields,
+      cards: target.cards,
+    });
+    const previousCharacters = handover.previousCharacters;
+    const history = handover.history;
+    const lockState = storedState
+      ? {
+          ...storedState,
+          presentCharacters: previousCharacters as unknown as typeof storedState.presentCharacters,
+          fieldLocks: handover.fieldLocks,
+          hiddenTrackerFields: handover.hiddenFields,
+        }
+      : null;
+    const movedKeys =
+      handover.handedOver.length > 0
+        ? { fieldLocks: handover.fieldLocks, hiddenTrackerFields: handover.hiddenFields }
+        : undefined;
+    if (handover.handedOver.length > 0) {
+      logger.info(
+        "[agent-effects] character-tracker handed %d NPC row(s) over to their cards origin=%s messageId=%s swipeIndex=%d",
+        handover.handedOver.length,
+        deps.origin,
+        deps.messageId,
+        deps.swipeIndex,
+      );
+    }
+    if (handover.ambiguousCardIds.length > 0) {
+      logger.warn(
+        "[agent-effects] character-tracker left %d card(s) without a handover: several NPC rows match each origin=%s messageId=%s swipeIndex=%d",
+        handover.ambiguousCardIds.length,
+        deps.origin,
+        deps.messageId,
+        deps.swipeIndex,
+      );
+    }
     let characters =
       resolveTrackerGroupUpdate(data.presentCharacters, previousCharacters, lockState, "presentCharacters") ??
       previousCharacters;
     const cardCharacterIds = applyTrackerCharacterCardIdentity(characters, target.cards, {
-      previousCharacters: [...previousCharacters, ...target.history],
+      previousCharacters: [...previousCharacters, ...history],
     });
     // The server owns NPC ids; the model's id only helps find the stored row it means (#9541).
     assignTrackerCharacterIds(characters, {
       previousCharacters,
-      history: target.history,
+      history,
       cardIds: target.cards.map((card) => card.id),
     });
     preserveTrackerCharacterUiFields(characters, previousCharacters);
-    preserveTrackerCharacterUiFields(characters, target.history);
+    preserveTrackerCharacterUiFields(characters, history);
     const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ presentCharacters: characters }, lockState);
     characters = Array.isArray(lockedPatch.presentCharacters) ? lockedPatch.presentCharacters : characters;
 
     if (steps.fillAvatars) await fillAvatars(characters, cardCharacterIds, deps);
 
     deps.signal?.throwIfAborted();
-    await target.save(characters);
+    await target.save(characters, movedKeys);
     deps.signal?.throwIfAborted();
     logger.info(
       "[agent-effects] character-tracker saved %d characters origin=%s messageId=%s swipeIndex=%d",
@@ -131,7 +172,7 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
       deps.messageId,
       deps.swipeIndex,
     );
-    deps.trackers.emitGameStatePatch({ presentCharacters: characters });
+    deps.trackers.emitGameStatePatch({ presentCharacters: characters, ...movedKeys });
     // Only after the save: the portrait task merges onto the saved row, and must not race the save that creates it.
     if (steps.drawPortraits) drawMissingPortraits(characters, deps);
 

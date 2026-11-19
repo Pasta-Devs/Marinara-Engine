@@ -405,6 +405,8 @@ export interface AgentContext {
   characters: Array<{
     id: string;
     name: string;
+    /** Other names the card goes by (`extensions.nameAliases`). */
+    nameAliases?: string[];
     /** Persisted character-card world name, when configured. */
     world?: string;
     description: string;
