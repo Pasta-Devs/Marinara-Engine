@@ -306,12 +306,29 @@ try {
     const loadedSeed = (naiRecordRes.json() as { asset: Asset & { seed?: number } }).asset.seed;
     assert.equal(typeof loadedSeed, "number", "GET /mari-images/assets/:assetId exposes asset seed");
 
-    // 400 validation errors: non-NovelAI connection and missing mask on infill.
+    // 400 validation errors: non-NovelAI connection, stray mask, non-NovelAI reuseSeed, and missing mask on infill.
     assert.equal(
       (await refuse({ prompt: "edit", editMode: "img2img", connectionId: connection.id }, naiOriginal.id)).statusCode,
       400,
     );
     assert.equal((await refuse({ prompt: "inpaint", editMode: "infill" }, naiOriginal.id)).statusCode, 400);
+    assert.equal(
+      (
+        await refuse(
+          {
+            prompt: "stray mask",
+            editMode: "img2img",
+            maskImage: `data:image/png;base64,${naiMask.toString("base64")}`,
+          },
+          naiOriginal.id,
+        )
+      ).statusCode,
+      400,
+    );
+    assert.equal(
+      (await refuse({ prompt: "seed", reuseSeed: true, connectionId: connection.id }, naiOriginal.id)).statusCode,
+      400,
+    );
 
     // img2img with reuseSeed reuses original seed and creates iterative asset:<id> source.
     const mariImg2Img = await refuse(
@@ -339,6 +356,14 @@ try {
     assert.equal(mariInfill.statusCode, 200, mariInfill.body);
     assert.equal(mariNaiRequests[2]?.action, "infill");
     assert.equal(mariNaiRequests[2]?.model, "nai-diffusion-5-full-inpainting");
+
+    // Plain Regenerate on a native-edited preview asset reruns as clean generation, not legacy reference edit.
+    const mariPlainRegen = await refuse({ prompt: "1girl, sunrise" }, img2imgAsset.id);
+    assert.equal(mariPlainRegen.statusCode, 200, mariPlainRegen.body);
+    const plainAsset = (mariPlainRegen.json() as { asset: Asset }).asset;
+    assert.equal(plainAsset.operation, "generate");
+    assert.equal(plainAsset.sourceImage, null);
+    assert.equal(mariNaiRequests[3]?.action, "generate");
   } finally {
     fetchMock.mock.restore();
     dnsMock.mock.restore();

@@ -131,6 +131,7 @@ export type MariImageAsset = {
   serviceHint: string;
   model: string;
   sourceImage?: string | null;
+  nativeEditMode?: "img2img" | "infill";
   seed?: number;
   createdAt: string;
 };
@@ -831,6 +832,7 @@ async function savePreviewAsset(args: {
   connection: ImageConnection;
   capability: ImageCapability;
   sourceImage?: string | null;
+  nativeEditMode?: "img2img" | "infill";
 }) {
   // Read first, so a refused manifest leaves no unlisted image behind.
   const assets = await readManifest();
@@ -860,13 +862,14 @@ async function savePreviewAsset(args: {
     styleProfileName: args.style.profile?.name ?? null,
     width: args.result.width ?? args.width ?? null,
     height: args.result.height ?? args.height ?? null,
-    connectionId: args.connection.id,
-    connectionName: args.connection.name,
-    provider: args.connection.provider,
+    connectionId: args.result.effectiveConnection?.connectionId ?? args.connection.id,
+    connectionName: args.result.effectiveConnection?.connectionName ?? args.connection.name,
+    provider: args.result.effectiveConnection?.provider ?? args.connection.provider,
     source: args.capability.source,
     serviceHint: args.capability.serviceHint,
-    model: args.connection.model || "",
+    model: args.result.effectiveConnection?.model || args.connection.model || "",
     sourceImage: args.sourceImage ?? null,
+    ...(args.nativeEditMode ? { nativeEditMode: args.nativeEditMode } : {}),
     ...(args.result.seed !== undefined ? { seed: args.result.seed } : {}),
     createdAt: now(),
   };
@@ -1331,6 +1334,10 @@ export class MariImagesService {
   ): Promise<{ previous: MariImageAsset; asset: MariImageAsset } | null> {
     const previous = await getMariPreviewAsset(assetId);
     if (!previous) return null;
+    if (input.maskImage && input.editMode !== "infill") {
+      throw new MariImageValidationError("A mask image is only valid for inpainting edits.");
+    }
+    const isLegacyReferenceEdit = previous.operation === "edit" && !previous.nativeEditMode;
 
     if (!input.editMode && !input.reuseSeed) {
       const flags = new Map<string, string | boolean>([
@@ -1344,13 +1351,13 @@ export class MariImagesService {
       ]);
       if (previous.width) flags.set("width", String(previous.width));
       if (previous.height) flags.set("height", String(previous.height));
-      if (previous.operation === "edit") {
+      if (isLegacyReferenceEdit) {
         const source = mariSourceReference(previous.sourceImage);
         if (!source) throw new Error("This image was edited from a picture that can't be read again.");
         flags.set("source", source);
       }
       const result = await this.generateOrEdit(
-        previous.operation,
+        isLegacyReferenceEdit ? "edit" : "generate",
         { command: "mari images regenerate (lightbox)", sessionId: "mari-image-lightbox" },
         flags,
       );
@@ -1363,24 +1370,27 @@ export class MariImagesService {
     const negativePrompt = input.negativePrompt ?? previous.negativePrompt ?? "";
     const connection = await this.getConnection(
       input.connectionId?.trim() || previous.connectionId,
-      !input.editMode && previous.operation === "edit",
+      !input.editMode && isLegacyReferenceEdit,
     );
     const capability = capabilityForConnection(connection);
     const imgModel = connection.model || "";
     const imgBaseUrl = connection.baseUrl || "https://image.pollinations.ai";
     const imgSource = connection.imageGenerationSource || imgModel;
     const imgServiceHint = connection.imageService || imgSource;
+    const isNativeNovelAi =
+      resolveImageBackend(imgSource, imgBaseUrl, imgServiceHint, imgModel) === "novelai" &&
+      isNativeNovelAiUrl(imgBaseUrl);
 
     if (input.editMode) {
-      if (
-        resolveImageBackend(imgSource, imgBaseUrl, imgServiceHint, imgModel) !== "novelai" ||
-        !isNativeNovelAiUrl(imgBaseUrl)
-      ) {
+      if (!isNativeNovelAi) {
         throw new MariImageValidationError("Image-to-image and inpainting edits require a native NovelAI connection.");
       }
       if (input.editMode === "infill" && !input.maskImage?.trim()) {
         throw new MariImageValidationError("Inpainting requires a painted mask.");
       }
+    }
+    if (input.reuseSeed && !isNativeNovelAi) {
+      throw new MariImageValidationError("Reusing the original seed requires a native NovelAI connection.");
     }
 
     let previewBuffer: Buffer | null = null;
@@ -1408,7 +1418,7 @@ export class MariImagesService {
     }
 
     let legacyEditSource: ResolvedImage | null = null;
-    if (!input.editMode && previous.operation === "edit") {
+    if (!input.editMode && isLegacyReferenceEdit) {
       const source = mariSourceReference(previous.sourceImage);
       if (!source) throw new Error("This image was edited from a picture that can't be read again.");
       const sourceFlags = new Map<string, string | boolean>([["source", source]]);
@@ -1466,7 +1476,7 @@ export class MariImagesService {
       throw err;
     }
 
-    const operation = input.editMode ? "edit" : previous.operation;
+    const operation = input.editMode ? "edit" : isLegacyReferenceEdit ? "edit" : "generate";
     const asset = await savePreviewAsset({
       result,
       operation,
@@ -1482,7 +1492,12 @@ export class MariImagesService {
       height: size.height,
       connection,
       capability,
-      sourceImage: input.editMode ? `asset:${previous.id}` : (previous.sourceImage ?? null),
+      sourceImage: input.editMode
+        ? `asset:${previous.id}`
+        : isLegacyReferenceEdit
+          ? (previous.sourceImage ?? null)
+          : null,
+      nativeEditMode: input.editMode,
     });
     return { previous, asset };
   }

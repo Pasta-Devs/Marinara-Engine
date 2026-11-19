@@ -477,7 +477,7 @@ async function generateSelfie(
       height: selfieHeight,
       generation: buildChatImageGenerationRecord({
         prompt: selfieSubmission.prompt,
-        connectionId: imgConnFull.id,
+        connectionId: imageResult.effectiveConnection?.connectionId ?? imgConnFull.id,
         negativePrompt: selfieSubmission.negativePrompt,
         referenceCharacterIds: selfieReferenceCharacterIds,
         seed: imageResult.seed,

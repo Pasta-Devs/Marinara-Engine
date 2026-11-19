@@ -6,6 +6,8 @@ import { deflateSync } from "node:zlib";
 import {
   detectNovelAiSubjectCount,
   generateImage,
+  imageConnectionTakesReferencePicture,
+  NovelAiEditInputError,
   prepareNovelAiEditInputs,
   readNovelAiPngSeed,
   resolveNovelAiDefaults,
@@ -13,6 +15,10 @@ import {
   resolveNovelAiRequestSize,
   resolveNovelAiSize,
 } from "../../../packages/server/src/services/image/image-generation.js";
+import {
+  isNovelAiCharacterPromptModel,
+  resolveNovelAiCharacterPromptLimit,
+} from "../../../packages/server/src/services/image/character-prompts.js";
 import { getSharp } from "../../../packages/server/src/services/image/sharp-runtime.js";
 import { isNativeNovelAiConnection } from "../../../packages/shared/dist/index.js";
 import { DEFAULT_NOVELAI_DEFAULTS } from "../../../packages/shared/src/constants/image-generation-defaults.js";
@@ -153,6 +159,20 @@ assert.equal(resolveNovelAiInpaintingModel("nai-diffusion-5-full-inpainting"), "
 assert.equal(resolveNovelAiInpaintingModel("nai-diffusion-4-5-curated"), "nai-diffusion-4-5-curated-inpainting");
 assert.equal(resolveNovelAiInpaintingModel("nai-diffusion-4-curated-preview"), "nai-diffusion-4-curated-inpainting");
 
+// Inpainting model suffixes retain character-prompt limits and V4.5 precise reference support.
+assert.equal(resolveNovelAiCharacterPromptLimit("nai-diffusion-4-5-full-inpainting"), 6);
+assert.equal(resolveNovelAiCharacterPromptLimit("nai-diffusion-5-full-inpainting"), 22);
+assert.equal(isNovelAiCharacterPromptModel("nai-diffusion-4-curated-inpainting"), true);
+assert.equal(
+  imageConnectionTakesReferencePicture({
+    source: "novelai",
+    baseUrl: "https://image.novelai.net",
+    serviceHint: "novelai",
+    model: "nai-diffusion-4-5-full-inpainting",
+  }),
+  true,
+);
+
 // PNG chunk helpers for readNovelAiPngSeed fallback tests (tEXt Comment and zTXt).
 function pngChunk(type: string, data: Buffer): Buffer {
   const typeBytes = Buffer.from(type, "ascii");
@@ -169,11 +189,29 @@ function pngChunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([len, body, crcBuf]);
 }
 
-function injectTestTextChunk(png: Buffer, type: "tEXt" | "zTXt", keyword: string, text: string): Buffer {
-  const data =
-    type === "tEXt"
-      ? Buffer.concat([Buffer.from(keyword, "latin1"), Buffer.from([0]), Buffer.from(text, "utf8")])
-      : Buffer.concat([Buffer.from(keyword, "latin1"), Buffer.from([0, 0]), deflateSync(Buffer.from(text, "utf8"))]);
+function injectTestTextChunk(
+  png: Buffer,
+  type: "tEXt" | "zTXt" | "iTXt",
+  keyword: string,
+  text: string,
+  options?: { compressed?: boolean; compressionMethod?: number },
+): Buffer {
+  let data: Buffer;
+  if (type === "tEXt") {
+    data = Buffer.concat([Buffer.from(keyword, "latin1"), Buffer.from([0]), Buffer.from(text, "utf8")]);
+  } else if (type === "zTXt") {
+    data = Buffer.concat([
+      Buffer.from(keyword, "latin1"),
+      Buffer.from([0, options?.compressionMethod ?? 0]),
+      deflateSync(Buffer.from(text, "utf8")),
+    ]);
+  } else {
+    const compressed = options?.compressed === true ? 1 : 0;
+    const method = options?.compressionMethod ?? 0;
+    const rawPayload = Buffer.from(text, "utf8");
+    const payload = compressed === 1 ? deflateSync(rawPayload) : rawPayload;
+    data = Buffer.concat([Buffer.from(keyword, "latin1"), Buffer.from([0, compressed, method, 0, 0]), payload]);
+  }
   const chunk = pngChunk(type, data);
   const parts: Buffer[] = [png.subarray(0, 8)];
   let offset = 8;
@@ -220,11 +258,13 @@ const sampleSource = await sharp({
   .png()
   .toBuffer();
 
-// Build a non-binary soft gradient/box mask over 768x512 and verify 8x8 quantization + binarization.
+// Build an unaligned soft/thin-stroke mask over 768x512 and verify exact 8x8 max/any-pixel quantization + binarization.
 const rawSoftMask = Buffer.alloc(768 * 512);
 for (let y = 0; y < 512; y++) {
   for (let x = 0; x < 768; x++) {
-    rawSoftMask[y * 768 + x] = x >= 128 && x < 256 && y >= 64 && y < 192 ? 200 : x < 16 ? 120 : 0;
+    const inUnalignedBox = x >= 131 && x < 253 && y >= 67 && y < 189;
+    const inThinStroke = x >= 402 && x < 404 && y >= 200 && y < 216;
+    rawSoftMask[y * 768 + x] = inUnalignedBox || inThinStroke ? 200 : x < 16 ? 120 : 0;
   }
 }
 const softMaskPng = await sharp(rawSoftMask, { raw: { width: 768, height: 512, channels: 1 } })
@@ -248,14 +288,35 @@ for (let i = 0; i < maskPixels.data.length; i += maskPixels.info.channels) {
   const v = maskPixels.data[i]!;
   assert.ok(v === 0 || v === 255, `Expected binary mask pixel 0 or 255, got ${v}`);
 }
-// Every 8x8 block must be uniform.
+// Every pixel in every 8x8 block must match exact white/black block coverage (catching thin strokes and unaligned edges).
 for (let by = 0; by < 512; by += 8) {
   for (let bx = 0; bx < 768; bx += 8) {
+    let intersectsPainted = false;
+    for (let dy = 0; dy < 8 && !intersectsPainted; dy++) {
+      for (let dx = 0; dx < 8; dx++) {
+        const px = bx + dx;
+        const py = by + dy;
+        if ((px >= 131 && px < 253 && py >= 67 && py < 189) || (px >= 402 && px < 404 && py >= 200 && py < 216)) {
+          intersectsPainted = true;
+          break;
+        }
+      }
+    }
+    const expected = intersectsPainted ? 255 : 0;
     const ch = maskPixels.info.channels;
-    const expected = maskPixels.data[(by * 768 + bx) * ch]!;
-    assert.equal(maskPixels.data[((by + 7) * 768 + (bx + 7)) * ch]!, expected);
+    for (let dy = 0; dy < 8; dy++) {
+      for (let dx = 0; dx < 8; dx++) {
+        assert.equal(maskPixels.data[((by + dy) * 768 + (bx + dx)) * ch]!, expected);
+      }
+    }
   }
 }
+
+// Corrupted source bytes convert into NovelAiEditInputError (400) rather than opaque 500s.
+await assert.rejects(
+  prepareNovelAiEditInputs(Buffer.from("not-an-image").toString("base64")),
+  (err: unknown) => err instanceof NovelAiEditInputError,
+);
 
 // Empty mask is rejected cleanly before calling NovelAI.
 const emptyMaskPng = await sharp({
@@ -380,15 +441,34 @@ try {
   assert.equal(infillMeta.request?.parameters?.image, "[omitted]");
   assert.equal(infillMeta.request?.parameters?.mask, "[omitted]");
 
-  // 3) readNovelAiPngSeed supports native NovelAI Comment JSON and returns null on missing/non-PNG bytes.
+  // 3) readNovelAiPngSeed supports Comment tEXt/zTXt/compressed iTXt, handles seed 0, rejects invalid uint32 / bad method / oversized chunks.
   const commentPng = injectTestTextChunk(sampleSource, "tEXt", "Comment", JSON.stringify({ seed: 987654321 }));
   assert.equal(readNovelAiPngSeed(commentPng), 987654321);
   const compressedCommentPng = injectTestTextChunk(sampleSource, "zTXt", "Comment", JSON.stringify({ seed: 13579 }));
   assert.equal(readNovelAiPngSeed(compressedCommentPng), 13579);
+  const zeroSeedPng = injectTestTextChunk(sampleSource, "iTXt", "Comment", JSON.stringify({ seed: 0 }), {
+    compressed: true,
+  });
+  assert.equal(readNovelAiPngSeed(zeroSeedPng), 0);
+  const badMethodPng = injectTestTextChunk(sampleSource, "iTXt", "Comment", JSON.stringify({ seed: 99 }), {
+    compressed: true,
+    compressionMethod: 1,
+  });
+  assert.equal(readNovelAiPngSeed(badMethodPng), null);
+  const outOfRangeSeedPng = injectTestTextChunk(sampleSource, "tEXt", "Comment", JSON.stringify({ seed: 4294967296 }));
+  assert.equal(readNovelAiPngSeed(outOfRangeSeedPng), null);
+  const oversizedCommentPng = injectTestTextChunk(
+    sampleSource,
+    "zTXt",
+    "Comment",
+    JSON.stringify({ seed: 42, pad: "x".repeat(300 * 1024) }),
+  );
+  assert.equal(readNovelAiPngSeed(oversizedCommentPng), null);
+  assert.equal(readNovelAiPngSeed(Buffer.concat([sampleSource.subarray(0, 12), Buffer.from([0, 0, 5, 0])])), null);
   assert.equal(readNovelAiPngSeed(sampleSource), null);
   assert.equal(readNovelAiPngSeed(Buffer.from("not-a-png")), null);
 
-  // 4) Non-native NovelAI hosts refuse editMode immediately before sending any request.
+  // 4) Non-native NovelAI hosts refuse editMode/seedOverride immediately; img2img refuses stray masks; customParameters cannot break infill/seed.
   await assert.rejects(
     generateImage("novelai", "https://novelai-proxy.example.com", "synthetic", "novelai", {
       prompt: "1girl",
@@ -398,7 +478,86 @@ try {
     }),
     /native NovelAI connection/,
   );
-  assert.equal(capturedPayloads.length, 2, "rejected non-native edit must not dispatch any fetch");
+  await assert.rejects(
+    generateImage("novelai", "https://novelai-proxy.example.com", "synthetic", "novelai", {
+      prompt: "1girl",
+      model: "nai-diffusion-5-full",
+      seedOverride: 123,
+    }),
+    /Reusing the original seed/,
+  );
+  await assert.rejects(
+    generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
+      prompt: "1girl",
+      model: "nai-diffusion-5-full",
+      editMode: "img2img",
+      sourceImage: sampleSource.toString("base64"),
+      maskImage: softMaskPng.toString("base64"),
+    }),
+    /only valid for inpainting/,
+  );
+  assert.equal(capturedPayloads.length, 2, "rejected non-native/invalid requests must not dispatch any fetch");
+
+  // customParameters cannot override infill action/model/mask, while a custom seed takes precedence over seedOverride.
+  const customEditRes = await generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
+    prompt: "1girl, crown",
+    model: "nai-diffusion-5-full",
+    editMode: "infill",
+    sourceImage: sampleSource.toString("base64"),
+    maskImage: softMaskPng.toString("base64"),
+    strength: 0.85,
+    seedOverride: 111,
+    imageDefaults: {
+      version: 1,
+      service: "novelai",
+      seed: -1,
+      customParameters: {
+        action: "generate",
+        model: "nai-diffusion-3",
+        parameters: { seed: 555666, width: 512, strength: 0.1 },
+      },
+      novelai: { ...DEFAULT_NOVELAI_DEFAULTS },
+    },
+  });
+  assert.equal(customEditRes.seed, 555666);
+  assert.equal(customEditRes.width, 768);
+  assert.equal(customEditRes.height, 512);
+  const customEditBody = capturedPayloads[2]!;
+  assert.equal(customEditBody.action, "infill");
+  assert.equal(customEditBody.model, "nai-diffusion-5-full-inpainting");
+  const customEditParams = customEditBody.parameters as Record<string, unknown>;
+  assert.equal(customEditParams.seed, 555666);
+  assert.equal(customEditParams.extra_noise_seed, 555666);
+  assert.equal(customEditParams.strength, 0.85);
+  assert.equal((customEditParams.img2img as Record<string, unknown>).extra_noise_seed, 555666);
+  assert.equal(typeof customEditParams.mask, "string");
+
+  // 5) Primary NovelAI edit failure skips non-native fallback completely.
+  let calledFallback = false;
+  fetchMock.mock.mockImplementationOnce(async () => new Response("upstream error", { status: 500 }));
+  await assert.rejects(
+    generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
+      prompt: "1girl",
+      model: "nai-diffusion-5-full",
+      editMode: "img2img",
+      sourceImage: sampleSource.toString("base64"),
+      fallback: {
+        connectionId: "openai-fallback",
+        connectionName: "OpenAI",
+        provider: "image_generation",
+        source: "openai",
+        baseUrl: "https://api.openai.com/v1",
+        apiKey: "sk-test",
+        serviceHint: "openai",
+        model: "gpt-image-1",
+      },
+      onFallback: async () => {
+        calledFallback = true;
+      },
+    }),
+    /500/,
+  );
+  assert.equal(calledFallback, false, "primary NovelAI edit failure must not invoke non-NovelAI fallback");
 } finally {
   fetchMock.mock.restore();
   dnsMock.mock.restore();

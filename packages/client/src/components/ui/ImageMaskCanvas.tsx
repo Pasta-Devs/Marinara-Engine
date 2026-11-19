@@ -18,6 +18,7 @@ export type MaskTool = "brush" | "eraser";
 export interface ImageMaskState {
   strokeCount: number;
   hasMask: boolean;
+  isDrawing?: boolean;
 }
 
 export interface ImageMaskCanvasHandle {
@@ -41,8 +42,11 @@ export interface ImageMaskCanvasProps {
   alt: string;
   disabled?: boolean;
   tool?: MaskTool;
+  onToolChange?: (tool: MaskTool) => void;
   brushSizePx?: number;
+  onBrushSizeChange?: (brushSizePx: number) => void;
   hideToolbar?: boolean;
+  onBackdropClick?: () => void;
   onMaskChange: (maskDataUrl: string | null) => void;
   onMaskStateChange?: (state: ImageMaskState) => void;
   controlsRef?: RefObject<ImageMaskCanvasHandle | null>;
@@ -54,7 +58,6 @@ export const DEFAULT_MASK_BRUSH_PX = 48;
 export const MIN_MASK_BRUSH_PX = 8;
 export const MAX_MASK_BRUSH_PX = 140;
 const MAX_ZOOM = 5;
-const OVERLAY_TINT = "rgba(96, 165, 250, 0.58)";
 
 const TOOL_BUTTON_CLASS =
   "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-45";
@@ -115,8 +118,11 @@ export function ImageMaskCanvas({
   alt,
   disabled = false,
   tool,
+  onToolChange,
   brushSizePx,
+  onBrushSizeChange,
   hideToolbar = false,
+  onBackdropClick,
   onMaskChange,
   onMaskStateChange,
   controlsRef,
@@ -140,6 +146,7 @@ export function ImageMaskCanvas({
   const [internalBrushSizePx, setInternalBrushSizePx] = useState(DEFAULT_MASK_BRUSH_PX);
   const [strokeCount, setStrokeCount] = useState(0);
   const [hasMask, setHasMask] = useState(false);
+  const [isDrawing, setIsDrawing] = useState(false);
 
   const [view, setView] = useState({ s: 1, x: 0, y: 0 });
   const viewRef = useRef(view);
@@ -150,17 +157,21 @@ export function ImageMaskCanvas({
   const interactionRef = useRef<"idle" | "paint" | "pan" | "pinch">("idle");
   const panLastRef = useRef<{ x: number; y: number } | null>(null);
   const pinchRef = useRef({ dist: 1, s0: 1, imgX: 0, imgY: 0 });
+  const backdropTapRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const backdropClickReadyRef = useRef(false);
 
   const activeTool = tool ?? internalTool;
   const activeBrushSizePx = brushSizePx ?? internalBrushSizePx;
+  const canChangeTool = tool === undefined || Boolean(onToolChange);
+  const canChangeBrushSize = brushSizePx === undefined || Boolean(onBrushSizeChange);
 
   useEffect(() => {
     onMaskChangeRef.current = onMaskChange;
   }, [onMaskChange]);
 
   useEffect(() => {
-    onMaskStateChange?.({ strokeCount, hasMask });
-  }, [strokeCount, hasMask, onMaskStateChange]);
+    onMaskStateChange?.({ strokeCount, hasMask, isDrawing });
+  }, [strokeCount, hasMask, isDrawing, onMaskStateChange]);
 
   useEffect(() => {
     const host = stageHostRef.current;
@@ -291,10 +302,11 @@ export function ImageMaskCanvas({
     if (!visible || !alpha) return;
     const ctx = visible.getContext("2d");
     if (!ctx) return;
+    const primaryColor = (typeof window !== "undefined" ? getComputedStyle(visible).color.trim() : "") || "#60a5fa";
     ctx.clearRect(0, 0, visible.width, visible.height);
     ctx.drawImage(alpha, 0, 0, visible.width, visible.height);
     ctx.globalCompositeOperation = "source-in";
-    ctx.fillStyle = OVERLAY_TINT;
+    ctx.fillStyle = primaryColor;
     ctx.fillRect(0, 0, visible.width, visible.height);
     ctx.globalCompositeOperation = "source-over";
   }, []);
@@ -339,7 +351,7 @@ export function ImageMaskCanvas({
     const outData = out.data;
     let painted = false;
     for (let i = 0; i < srcData.length; i += 4) {
-      if (srcData[i + 3]! > 0) {
+      if (srcData[i + 3]! >= 128) {
         outData[i] = 255;
         outData[i + 1] = 255;
         outData[i + 2] = 255;
@@ -384,8 +396,8 @@ export function ImageMaskCanvas({
   const toCanvasPoint = (canvas: HTMLCanvasElement, clientX: number, clientY: number): MaskPoint => {
     const rect = canvas.getBoundingClientRect();
     return {
-      x: rect.width > 0 ? Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) : 0,
-      y: rect.height > 0 ? Math.min(1, Math.max(0, (clientY - rect.top) / rect.height)) : 0,
+      x: rect.width > 0 ? (clientX - rect.left) / rect.width : 0,
+      y: rect.height > 0 ? (clientY - rect.top) / rect.height : 0,
     };
   };
 
@@ -393,14 +405,22 @@ export function ImageMaskCanvas({
     event.stopPropagation();
     if (event.target instanceof Element && event.target.closest("button")) return;
 
+    backdropClickReadyRef.current = false;
+    backdropTapRef.current =
+      event.target === event.currentTarget && event.button === 0 && pointersRef.current.size === 0
+        ? { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+        : null;
+
     const stage = event.currentTarget;
     stage.setPointerCapture?.(event.pointerId);
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
     if (pointersRef.current.size === 2) {
+      backdropTapRef.current = null;
       if (activeStrokeRef.current) {
         activeStrokeRef.current = null;
         activePointerIdRef.current = null;
+        setIsDrawing(false);
         rebuildFromStrokes();
       }
       interactionRef.current = "pinch";
@@ -429,6 +449,7 @@ export function ImageMaskCanvas({
       event.pointerType === "mouse" &&
       (event.button === 1 || event.button === 2 || (event.button === 0 && spaceHeldRef.current));
     if (wantsPan && viewRef.current.s > 1) {
+      backdropTapRef.current = null;
       interactionRef.current = "pan";
       panLastRef.current = { x: event.clientX, y: event.clientY };
       setIsPanning(true);
@@ -447,6 +468,7 @@ export function ImageMaskCanvas({
     interactionRef.current = "paint";
     activePointerIdRef.current = event.pointerId;
     activeStrokeRef.current = stroke;
+    setIsDrawing(true);
 
     const alpha = alphaCanvasRef.current;
     const ctx = alpha?.getContext("2d");
@@ -465,6 +487,13 @@ export function ImageMaskCanvas({
     event.stopPropagation();
     if (!pointersRef.current.has(event.pointerId)) return;
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (
+      backdropTapRef.current?.pointerId === event.pointerId &&
+      Math.hypot(event.clientX - backdropTapRef.current.x, event.clientY - backdropTapRef.current.y) > 6
+    ) {
+      backdropTapRef.current = null;
+    }
 
     if (interactionRef.current === "pinch" && pointersRef.current.size === 2) {
       const [a, b] = [...pointersRef.current.values()];
@@ -516,14 +545,55 @@ export function ImageMaskCanvas({
     }
     pointersRef.current.delete(event.pointerId);
 
+    const backdropTap = backdropTapRef.current;
+    backdropTapRef.current = null;
+    if (
+      backdropTap?.pointerId === event.pointerId &&
+      event.target === event.currentTarget &&
+      Math.hypot(event.clientX - backdropTap.x, event.clientY - backdropTap.y) <= 6
+    ) {
+      backdropClickReadyRef.current = true;
+    }
+
     const stroke = activeStrokeRef.current;
     if (interactionRef.current === "paint" && stroke && activePointerIdRef.current === event.pointerId) {
       activeStrokeRef.current = null;
       activePointerIdRef.current = null;
       interactionRef.current = "idle";
+      setIsDrawing(false);
       strokesRef.current.push(stroke);
       setStrokeCount(strokesRef.current.length);
       exportMask();
+      return;
+    }
+
+    if (interactionRef.current === "pan") {
+      panLastRef.current = null;
+      setIsPanning(false);
+      interactionRef.current = "idle";
+      return;
+    }
+
+    if (interactionRef.current === "pinch" && pointersRef.current.size === 0) {
+      interactionRef.current = "idle";
+    }
+  };
+
+  const handleStagePointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    pointersRef.current.delete(event.pointerId);
+    backdropTapRef.current = null;
+    backdropClickReadyRef.current = false;
+
+    if (interactionRef.current === "paint" && activePointerIdRef.current === event.pointerId) {
+      activeStrokeRef.current = null;
+      activePointerIdRef.current = null;
+      interactionRef.current = "idle";
+      setIsDrawing(false);
+      rebuildFromStrokes();
       return;
     }
 
@@ -543,6 +613,7 @@ export function ImageMaskCanvas({
     if (disabled || strokesRef.current.length === 0) return;
     strokesRef.current.pop();
     setStrokeCount(strokesRef.current.length);
+    setIsDrawing(false);
     rebuildFromStrokes();
     exportMask();
   }, [disabled, exportMask, rebuildFromStrokes]);
@@ -552,6 +623,7 @@ export function ImageMaskCanvas({
     strokesRef.current = [];
     setStrokeCount(0);
     setHasMask(false);
+    setIsDrawing(false);
     rebuildFromStrokes();
     onMaskChangeRef.current(null);
   }, [disabled, hasMask, rebuildFromStrokes]);
@@ -580,7 +652,13 @@ export function ImageMaskCanvas({
         onPointerDown={handleStagePointerDown}
         onPointerMove={handleStagePointerMove}
         onPointerUp={finishStagePointer}
-        onPointerCancel={finishStagePointer}
+        onPointerCancel={handleStagePointerCancel}
+        onClick={(event) => {
+          event.stopPropagation();
+          const shouldClose = backdropClickReadyRef.current && event.target === event.currentTarget;
+          backdropClickReadyRef.current = false;
+          if (shouldClose) onBackdropClick?.();
+        }}
         onContextMenu={(event) => event.preventDefault()}
         className="relative min-h-0 w-full flex-1 touch-none select-none overflow-hidden"
       >
@@ -623,7 +701,7 @@ export function ImageMaskCanvas({
             ref={canvasRef}
             aria-label={t("ui.imagemaskcanvas.canvasLabel")}
             className={cn(
-              "absolute inset-0 size-full touch-none",
+              "absolute inset-0 size-full touch-none text-[var(--primary)] opacity-55",
               disabled
                 ? "cursor-not-allowed opacity-70"
                 : isPanning
@@ -638,57 +716,67 @@ export function ImageMaskCanvas({
 
       {!hideToolbar && (
         <div className="flex max-w-full shrink-0 flex-wrap items-center justify-center gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--sidebar)]/95 px-2.5 py-1.5 text-xs text-[var(--foreground)] shadow-lg">
-          <button
-            type="button"
-            onClick={() => setInternalTool("brush")}
-            aria-pressed={activeTool === "brush"}
-            disabled={disabled}
-            className={cn(
-              TOOL_BUTTON_CLASS,
-              activeTool === "brush"
-                ? "border-[var(--primary)] bg-[var(--primary)]/15 font-semibold text-[var(--foreground)]"
-                : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-            )}
-          >
-            <Paintbrush size="0.875rem" aria-hidden />
-            {t("ui.imagemaskcanvas.brush")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setInternalTool("eraser")}
-            aria-pressed={activeTool === "eraser"}
-            disabled={disabled}
-            className={cn(
-              TOOL_BUTTON_CLASS,
-              activeTool === "eraser"
-                ? "border-[var(--primary)] bg-[var(--primary)]/15 font-semibold text-[var(--foreground)]"
-                : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-            )}
-          >
-            <Eraser size="0.875rem" aria-hidden />
-            {t("ui.imagemaskcanvas.eraser")}
-          </button>
+          {canChangeTool && (
+            <>
+              <button
+                type="button"
+                onClick={() => (onToolChange ? onToolChange("brush") : setInternalTool("brush"))}
+                aria-pressed={activeTool === "brush"}
+                disabled={disabled}
+                className={cn(
+                  TOOL_BUTTON_CLASS,
+                  activeTool === "brush"
+                    ? "border-[var(--primary)] bg-[var(--primary)]/15 font-semibold text-[var(--foreground)]"
+                    : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                )}
+              >
+                <Paintbrush size="0.875rem" aria-hidden />
+                {t("ui.imagemaskcanvas.brush")}
+              </button>
+              <button
+                type="button"
+                onClick={() => (onToolChange ? onToolChange("eraser") : setInternalTool("eraser"))}
+                aria-pressed={activeTool === "eraser"}
+                disabled={disabled}
+                className={cn(
+                  TOOL_BUTTON_CLASS,
+                  activeTool === "eraser"
+                    ? "border-[var(--primary)] bg-[var(--primary)]/15 font-semibold text-[var(--foreground)]"
+                    : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                )}
+              >
+                <Eraser size="0.875rem" aria-hidden />
+                {t("ui.imagemaskcanvas.eraser")}
+              </button>
+            </>
+          )}
 
-          <label
-            htmlFor={sizeSliderId}
-            className="flex min-h-11 items-center gap-2 px-1 text-xs text-[var(--muted-foreground)] sm:border-l sm:border-[var(--border)] sm:pl-2.5"
-          >
-            <span className="shrink-0">{t("ui.imagemaskcanvas.brushSize")}</span>
-            <input
-              id={sizeSliderId}
-              type="range"
-              min={MIN_MASK_BRUSH_PX}
-              max={MAX_MASK_BRUSH_PX}
-              step={2}
-              value={activeBrushSizePx}
-              disabled={disabled}
-              onChange={(event) => setInternalBrushSizePx(Number(event.target.value))}
-              className="w-24 cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
-            />
-            <span className="w-11 text-right tabular-nums text-[var(--foreground)]">
-              {t("ui.imagemaskcanvas.brushSizeValue", { size: activeBrushSizePx })}
-            </span>
-          </label>
+          {canChangeBrushSize && (
+            <label
+              htmlFor={sizeSliderId}
+              className="flex min-h-11 items-center gap-2 px-1 text-xs text-[var(--muted-foreground)] sm:border-l sm:border-[var(--border)] sm:pl-2.5"
+            >
+              <span className="shrink-0">{t("ui.imagemaskcanvas.brushSize")}</span>
+              <input
+                id={sizeSliderId}
+                type="range"
+                min={MIN_MASK_BRUSH_PX}
+                max={MAX_MASK_BRUSH_PX}
+                step={2}
+                value={activeBrushSizePx}
+                disabled={disabled}
+                onChange={(event) =>
+                  onBrushSizeChange
+                    ? onBrushSizeChange(Number(event.target.value))
+                    : setInternalBrushSizePx(Number(event.target.value))
+                }
+                className="w-24 cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
+              />
+              <span className="w-11 text-right tabular-nums text-[var(--foreground)]">
+                {t("ui.imagemaskcanvas.brushSizeValue", { size: activeBrushSizePx })}
+              </span>
+            </label>
+          )}
 
           <button
             type="button"

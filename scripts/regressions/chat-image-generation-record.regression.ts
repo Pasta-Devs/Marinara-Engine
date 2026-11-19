@@ -102,6 +102,41 @@ try {
     },
   });
 
+  // Seed 0 and uint32 upper bound survive; out-of-range/non-integer seeds are omitted.
+  assert.equal(buildChatImageGenerationRecord({ seed: 0 })?.seed, 0);
+  assert.equal(buildChatImageGenerationRecord({ seed: 4294967295 })?.seed, 4294967295);
+  assert.equal(buildChatImageGenerationRecord({ seed: -1 })?.seed, undefined);
+  assert.equal(buildChatImageGenerationRecord({ seed: 4294967296 })?.seed, undefined);
+  assert.equal(buildChatImageGenerationRecord({ seed: 1.5 })?.seed, undefined);
+  assert.equal(
+    parseChatImageGenerationRecord(
+      JSON.stringify({
+        version: 1,
+        prompt: null,
+        connectionId: null,
+        negativePrompt: null,
+        characterPrompts: [],
+        references: { characterIds: [], personaId: null, personaSource: null, locationImageId: null },
+        seed: 0,
+      }),
+    )?.seed,
+    0,
+  );
+  assert.equal(
+    parseChatImageGenerationRecord(
+      JSON.stringify({
+        version: 1,
+        prompt: null,
+        connectionId: null,
+        negativePrompt: null,
+        characterPrompts: [],
+        references: { characterIds: [], personaId: null, personaSource: null, locationImageId: null },
+        seed: 4294967296,
+      }),
+    )?.seed,
+    undefined,
+  );
+
   // Unknown, empty and malformed values read as "no record".
   assert.equal(parseChatImageGenerationRecord(null), null);
   assert.equal(parseChatImageGenerationRecord(""), null);
@@ -977,6 +1012,53 @@ try {
     400,
     "infill without maskImage returns 400",
   );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: naiRegenerateUrl,
+        payload: {
+          prompt: "img2img with stray mask",
+          editMode: "img2img",
+          maskImage: `data:image/png;base64,${naiMask.toString("base64")}`,
+        },
+      })
+    ).statusCode,
+    400,
+    "img2img with maskImage returns 400",
+  );
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: naiRegenerateUrl,
+        payload: { prompt: "seed on openai", connectionId: connection.id, reuseSeed: true },
+      })
+    ).statusCode,
+    400,
+    "reuseSeed on non-NovelAI connection returns 400",
+  );
+
+  // Missing source file on disk returns 400 before dispatching an edit.
+  const missingSourceRow = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/deleted-file.png`,
+    prompt: "gone",
+    provider: "image_generation",
+    model: "nai-diffusion-5-full",
+    generation: buildChatImageGenerationRecord({ prompt: "gone", connectionId: novelAi.id, seed: 12 }),
+  });
+  assert.equal(
+    (
+      await app.inject({
+        method: "POST",
+        url: `/api/gallery/${chat.id}/images/${missingSourceRow!.id}/regenerate`,
+        payload: { prompt: "edit gone", editMode: "img2img" },
+      })
+    ).statusCode,
+    400,
+    "missing source file returns 400 on edit",
+  );
 
   // Image without record seed OR PNG seed rejects reuseSeed with 400.
   writeFileSync(join(naiGalleryDir, "no-seed.png"), naiCanvas);
@@ -1039,6 +1121,12 @@ try {
     assert.equal(naiParams1.director_reference_images, undefined, "img2img omits recorded character refs");
     const img2imgSavedRecord = parseChatImageGenerationRecord(img2imgResp.json().image.generation);
     assert.equal(img2imgSavedRecord?.seed, 123456);
+    assert.deepEqual(img2imgSavedRecord?.references, {
+      characterIds: [],
+      personaId: null,
+      personaSource: null,
+      locationImageId: null,
+    });
 
     // 2) infill on V5 switches model to -inpainting, sets mask + add_original_image + img2img object.
     const infillResp = await app.inject({

@@ -272,12 +272,16 @@ export function ImageViewer({
   const [zoomedSrc, setZoomedSrc] = useState<string | null>(null);
   const filmstripSelectedRef = useRef<HTMLButtonElement>(null);
 
+  useEffect(() => {
+    if (media) setZoomedSrc(null);
+  }, [media]);
+
   const count = items?.length ?? 0;
   const gallery = !media && count > 1;
   const current = gallery ? items![clamp(index, 0, count - 1)]! : null;
   const shownSrc = current?.url ?? src ?? "";
   const shownAlt = current?.alt ?? alt ?? "";
-  const zoomed = zoomedSrc === shownSrc;
+  const zoomed = !media && zoomedSrc === shownSrc;
 
   const go = (target: number) => {
     if (!gallery || zoomed || target < 0 || target >= count) return;

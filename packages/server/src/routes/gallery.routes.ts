@@ -1987,7 +1987,7 @@ export async function galleryRoutes(app: FastifyInstance) {
           height,
           generation: buildChatImageGenerationRecord({
             prompt: providerPrompt,
-            connectionId: imageConn.id,
+            connectionId: imageResult.effectiveConnection?.connectionId ?? imageConn.id,
             negativePrompt: providerNegativePrompt,
             referenceCharacterIds: referenceImages ? [character.id] : [],
             seed: imageResult.seed,
@@ -2535,11 +2535,14 @@ export async function galleryRoutes(app: FastifyInstance) {
       const imageTarget = resolveGalleryImageTarget(imageConnection);
       const { imageModel, imageBaseUrl, imageSource, imageServiceHint } = imageTarget;
       const imageFallback = await resolveImageConnectionFallback(connectionsStore, imageConnection.id);
+      if (input.maskImage && input.editMode !== "infill") {
+        return reply.status(400).send({ error: "A mask image is only valid for inpainting edits." });
+      }
+      const isNativeNovelAi =
+        resolveImageBackend(imageSource, imageBaseUrl, imageServiceHint, imageModel) === "novelai" &&
+        isNativeNovelAiUrl(imageBaseUrl);
       if (input.editMode) {
-        if (
-          resolveImageBackend(imageSource, imageBaseUrl, imageServiceHint, imageModel) !== "novelai" ||
-          !isNativeNovelAiUrl(imageBaseUrl)
-        ) {
+        if (!isNativeNovelAi) {
           return reply
             .status(400)
             .send({ error: "Image-to-image and inpainting edits require a native NovelAI connection." });
@@ -2547,6 +2550,9 @@ export async function galleryRoutes(app: FastifyInstance) {
         if (input.editMode === "infill" && !input.maskImage) {
           return reply.status(400).send({ error: "Inpainting requires a painted mask." });
         }
+      }
+      if (input.reuseSeed && !isNativeNovelAi) {
+        return reply.status(400).send({ error: "Reusing the original seed requires a native NovelAI connection." });
       }
 
       let sourceBuffer: Buffer | null = null;
@@ -2692,13 +2698,13 @@ export async function galleryRoutes(app: FastifyInstance) {
           height: savedHeight,
           generation: buildChatImageGenerationRecord({
             prompt: input.prompt,
-            connectionId: imageConnection.id,
+            connectionId: generated.effectiveConnection?.connectionId ?? imageConnection.id,
             negativePrompt,
             characterPrompts,
-            referenceCharacterIds: references.characterIds,
-            referencePersonaId: references.personaId,
-            referencePersonaSource: references.personaSource,
-            locationImageId: references.locationImageId,
+            referenceCharacterIds: input.editMode ? [] : references.characterIds,
+            referencePersonaId: input.editMode ? null : references.personaId,
+            referencePersonaSource: input.editMode ? null : references.personaSource,
+            locationImageId: input.editMode ? null : references.locationImageId,
             seed: generated.seed,
           }),
         });

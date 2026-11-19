@@ -95,7 +95,7 @@ export function ChatImageLightbox({
   const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
   const [maskTool, setMaskTool] = useState<MaskTool>("brush");
   const [maskBrushSize, setMaskBrushSize] = useState(DEFAULT_MASK_BRUSH_PX);
-  const [maskState, setMaskState] = useState<ImageMaskState>({ strokeCount: 0, hasMask: false });
+  const [maskState, setMaskState] = useState<ImageMaskState>({ strokeCount: 0, hasMask: false, isDrawing: false });
   const maskControlsRef = useRef<ImageMaskCanvasHandle | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -104,7 +104,7 @@ export function ChatImageLightbox({
     setEditSurfaceActive(false);
     setMaskDataUrl(null);
     setMaskTool("brush");
-    setMaskState({ strokeCount: 0, hasMask: false });
+    setMaskState({ strokeCount: 0, hasMask: false, isDrawing: false });
   };
 
   const handleEditSurfaceChange = useCallback((active: boolean) => {
@@ -112,7 +112,7 @@ export function ChatImageLightbox({
     if (!active) {
       setMaskDataUrl(null);
       setMaskTool("brush");
-      setMaskState({ strokeCount: 0, hasMask: false });
+      setMaskState({ strokeCount: 0, hasMask: false, isDrawing: false });
     }
   }, []);
   // Lightweight message and storyboard images omit the generation record. Resolve
@@ -160,6 +160,7 @@ export function ChatImageLightbox({
             tool={maskTool}
             brushSizePx={maskBrushSize}
             hideToolbar
+            onBackdropClick={busy ? undefined : closeEditing}
             onMaskChange={setMaskDataUrl}
             onMaskStateChange={setMaskState}
             controlsRef={maskControlsRef}
@@ -181,7 +182,7 @@ export function ChatImageLightbox({
         setEditSurfaceActive(false);
         setMaskDataUrl(null);
         setMaskTool("brush");
-        setMaskState({ strokeCount: 0, hasMask: false });
+        setMaskState({ strokeCount: 0, hasMask: false, isDrawing: false });
       }}
       actions={
         <>
@@ -232,6 +233,7 @@ export function ChatImageLightbox({
             onBrushSizeChange: setMaskBrushSize,
             strokeCount: maskState.strokeCount,
             hasMask: maskState.hasMask,
+            isDrawing: Boolean(maskState.isDrawing),
             onUndo: () => maskControlsRef.current?.undo(),
             onClear: () => maskControlsRef.current?.clear(),
           }}
@@ -241,7 +243,7 @@ export function ChatImageLightbox({
           onRegenerated={(next) => {
             setImage(next);
             setMaskDataUrl(null);
-            setMaskState({ strokeCount: 0, hasMask: false });
+            setMaskState({ strokeCount: 0, hasMask: false, isDrawing: false });
             maskControlsRef.current?.clear();
           }}
         />
