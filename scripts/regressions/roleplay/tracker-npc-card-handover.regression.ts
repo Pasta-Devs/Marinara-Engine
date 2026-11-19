@@ -32,7 +32,7 @@ const storedMara: Row = {
   avatarPath: "/api/avatars/npc/mara.png",
   portraitZoom: 2,
 };
-const lockKey = (id: string, field: "outfit" | "mood" | "thoughts") =>
+const lockKey = (id: string, field: "name" | "outfit" | "mood" | "thoughts") =>
   characterTrackerLockKey({ characterId: id }, 0, field);
 
 let minted = 0;
@@ -83,7 +83,28 @@ await runNamedCases([
     run: () => {
       const linked = applyTurn([{ characterId: "npc-abc", name: "Mara", mood: "grim" }], [], [maraWithAlias]).rows;
       assert.deepEqual(idsOf(linked), ["card-mara"]);
-      assert.equal(linked[0]!.name, "Mara Vex");
+      // The id carries the identity, so the row keeps the Other name the story uses.
+      assert.equal(linked[0]!.name, "Mara");
+      // A name that is neither the card name nor an Other name still becomes the card name.
+      const quoted = applyTurn([{ characterId: "card-mara", name: "Captain Vex" }], [], [maraWithAlias]).rows;
+      assert.equal(quoted[0]!.name, "Mara Vex");
+      // A stored NPC called by an Other name keeps it through the handover.
+      const handed = applyTurn([], [{ characterId: "npc-m", name: "Mara", outfit: "grey" }], [maraWithAlias]).handover;
+      assert.deepEqual(
+        handed.previousCharacters.map((row) => [row.characterId, row.name]),
+        [["card-mara", "Mara"]],
+      );
+      // A name the user locked on the NPC row stays through the handover (here found by its promoted id, npc-<cardId>).
+      const locked = applyTurn(
+        [{ characterId: "card-mara", name: "Mara Vex" }],
+        [{ ...storedMara, characterId: "npc-card-mara", name: "The Courier" }],
+        [mara],
+        {
+          fieldLocks: { [lockKey("npc-card-mara", "name")]: true },
+        },
+      );
+      assert.equal(locked.rows[0]!.characterId, "card-mara");
+      assert.equal(locked.rows[0]!.name, "The Courier");
       const unlinked = applyTurn([{ characterId: "npc-xyz", name: "Mara", mood: "grim" }], [], [mara]).rows;
       assert.ok(String(unlinked[0]!.characterId).startsWith("npc-test"));
     },

@@ -345,6 +345,8 @@ async function journalNewNpcs(
   for (const character of characters) {
     const name = (character.name as string) ?? "";
     if (!name || previousNames.has(normalizeTextForMatch(name))) continue;
+    // Card characters aren't NPCs, also when the tracker shows them under one of their Other names.
+    if (cards.some((card) => card.id === character.characterId)) continue;
     if (cards.some((card) => normalizeTextForMatch(card.name) === normalizeTextForMatch(name))) continue;
     const mood = (character.mood as string) || "";
     const npc: GameNpc = {

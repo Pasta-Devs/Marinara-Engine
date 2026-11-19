@@ -2113,6 +2113,7 @@ export function applyTrackerCharacterCardIdentity(
   };
 
   for (const { character, card, isCardName, castNameKey } of resolved) {
+    const nameKey = trackerCharacterNameKey(character);
     if (!card) {
       canonicalCharacters.push(character);
       continue;
@@ -2139,10 +2140,12 @@ export function applyTrackerCharacterCardIdentity(
       continue;
     }
 
+    // The card id carries the identity, so a row may go by one of the card's Other names ("Mara" for "Mara Vex").
+    const keepsOtherName = typeof character.name === "string" && !!nameKey && cardsByAlias.get(nameKey) === card;
     pushOrMerge(`card:${card.id}`, {
       ...character,
       characterId: card.id,
-      name: card.name,
+      name: keepsOtherName ? (character.name as string).trim() : card.name,
       avatarPath: card.avatarPath ?? null,
       avatarCrop: card.avatarCrop ?? null,
     });
@@ -2304,9 +2307,11 @@ const TRACKER_HANDOVER_PORTRAIT_FIELDS = [
   "portraitFocusY",
   "portraitZoom",
 ] as const;
-const TRACKER_HANDOVER_TEXT_FIELDS = ["emoji", "mood", "appearance", "outfit", "thoughts"] as const;
+const TRACKER_HANDOVER_TEXT_FIELDS = ["emoji", "name", "mood", "appearance", "outfit", "thoughts"] as const;
 
 type LockRef = Parameters<typeof characterTrackerLockPrefix>[0];
+/** A stat as its lock key names it: by name, or by position when it has none. */
+const statLockRef = (stat: Record<string, unknown>) => ({ name: typeof stat.name === "string" ? stat.name : "" });
 
 /**
  * Folding an NPC row into a card row: the card row's stats and custom fields win, except one the user locked on the
@@ -2334,8 +2339,8 @@ function foldLockedNpcValues(
       }
       const target = stats[targetIndex]!;
       for (const field of ["name", "value", "max"] as const) {
-        const npcKey = characterStatTrackerLockKey(npcRef, index, npcStat as never, field, statIndex);
-        const cardKey = characterStatTrackerLockKey(cardRef, index, target as never, field, targetIndex);
+        const npcKey = characterStatTrackerLockKey(npcRef, index, statLockRef(npcStat), field, statIndex);
+        const cardKey = characterStatTrackerLockKey(cardRef, index, statLockRef(target), field, targetIndex);
         if (isTrackerFieldLocked(locks, npcKey) && !isTrackerFieldLocked(locks, cardKey) && field in npcStat) {
           target[field] = npcStat[field];
         }
@@ -2416,7 +2421,9 @@ export function handOverTrackerNpcsToCards(input: {
     return card ? { card, byId: false } : null;
   };
   const withoutNpcPortrait = (row: Record<string, unknown>, card: TrackerCharacterCardIdentity) => {
-    const next: Record<string, unknown> = { ...row, characterId: card.id, name: card.name };
+    // An NPC known by one of the card's Other names keeps that name; any other name becomes the card's.
+    const name = cardsByAlias.get(trackerCharacterNameKey(row)) === card ? row.name : card.name;
+    const next: Record<string, unknown> = { ...row, characterId: card.id, name };
     // A card without a picture keeps the NPC's until it gets one.
     if (typeof card.avatarPath === "string" && card.avatarPath.trim()) {
       for (const field of TRACKER_HANDOVER_PORTRAIT_FIELDS) delete next[field];
@@ -2459,14 +2466,16 @@ export function handOverTrackerNpcsToCards(input: {
         cardRef: { characterId: card.id, name: card.name } as LockRef,
         index,
       });
-      for (const field of TRACKER_HANDOVER_TEXT_FIELDS) {
-        if (
-          npc[field] !== undefined &&
-          isTrackerFieldLocked(fieldLocks, `${fromPrefix}.${field}`) &&
-          !isTrackerFieldLocked(fieldLocks, `${toPrefix}.${field}`)
-        ) {
-          merged[field] = npc[field];
-        }
+    }
+    // A field locked on the NPC row (and not on the card row) keeps the NPC value, the name included: a locked
+    // nickname stays.
+    for (const field of TRACKER_HANDOVER_TEXT_FIELDS) {
+      if (
+        npc[field] !== undefined &&
+        isTrackerFieldLocked(fieldLocks, `${fromPrefix}.${field}`) &&
+        !isTrackerFieldLocked(fieldLocks, `${toPrefix}.${field}`)
+      ) {
+        merged[field] = npc[field];
       }
     }
     const aliases = withTrackerIdAlias(

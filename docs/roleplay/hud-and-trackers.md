@@ -71,7 +71,7 @@ Tracker agents overwrite HUD values after each turn. Lock mode lets you pin a va
 
 To unlock, click the same button again (**Unlock field**). To leave lock mode, click the top toggle again (**Exit lock mode**). Lock mode is shared across the whole HUD, so turning it on in one tracker shows the lock buttons everywhere.
 
-When someone the tracker kept as a side character gets their own character card in the chat, the next tracker run moves their entry to the card, with its locks and hidden fields. The card keeps its own portrait. A shorter name links to the card when the card lists it under **Other names**.
+When someone the tracker kept as a side character gets their own character card in the chat, the next tracker run moves their entry to the card, with its locks and hidden fields. The card keeps its own portrait. A shorter name links to the card when the card lists it under **Other names**, and the tracker keeps showing the name the story uses.
 
 ## Re-run a tracker
 
