@@ -261,6 +261,13 @@ export function MariComposer({
   const suggestionsCollapsed = useUIStore((state) => state.professorMariSuggestionsCollapsed);
   const setSuggestionsCollapsed = useUIStore((state) => state.setProfessorMariSuggestionsCollapsed);
   const suggestionsBodyId = useId();
+  const chipStrip = (
+    <MariSuggestionChips
+      chips={chipRowChips}
+      onSelect={(chip) => handleSuggestionSelect(chip, true)}
+      disabled={isBusy}
+    />
+  );
   // While she works, Send opens this choice of now or after her answer. It only exists while she works.
   const [sendMenuOpen, setSendMenuOpen] = useState(false);
   const sendMenuRef = useRef<HTMLDivElement | null>(null);
@@ -501,6 +508,7 @@ export function MariComposer({
           </motion.button>
         ) : null}
       </AnimatePresence>
+      {/* N4 covers the next-step cards; the starter and plan/approval chips still draft. */}
       {showSuggestionPrompt && !showNextStepCards && suggestionQuestion && (!omnibarMode || messages.length > 0) ? (
         <div
           className="mari-workspace-question-dock mb-2"
@@ -526,37 +534,35 @@ export function MariComposer({
                 </button>
               ) : (
                 <>
-                  <div className="mari-workspace-question-dock__rail">
-                    <button
-                      type="button"
-                      className="mari-workspace-question-dock__toggle"
-                      onClick={() => setSuggestionsCollapsed(true)}
-                      aria-expanded
-                      aria-controls={suggestionsBodyId}
-                      aria-label={t("mari.suggestions.hide")}
-                      title={t("mari.suggestions.hide")}
-                    >
-                      <ChevronDown aria-hidden="true" />
-                    </button>
-                    <Sparkles size="0.875rem" aria-hidden="true" />
-                  </div>
-                  <div className="min-w-0 flex-1">
+                  {/* Two lines: the fold beside her question, her sparkle beside the suggestions. */}
+                  <button
+                    type="button"
+                    className="mari-workspace-question-dock__toggle"
+                    onClick={() => setSuggestionsCollapsed(true)}
+                    aria-expanded
+                    aria-controls={suggestionsBodyId}
+                    aria-label={t("mari.suggestions.hide")}
+                    title={t("mari.suggestions.hide")}
+                  >
+                    <ChevronDown aria-hidden="true" />
+                  </button>
+                  <div className="mari-workspace-question-dock__question min-w-0">
                     <CompactMarkdown content={suggestionQuestion} />
+                  </div>
+                  {/* An invisible chip gives the slot a chip's exact height in every theme, so the sparkle sits
+                      in the middle of the first row of suggestions (they wrap on a narrow box). */}
+                  <span className="mari-workspace-question-dock__sparkle" aria-hidden="true">
+                    <span className="mari-suggestion-chip mari-workspace-question-dock__sparkle-sizer">&#8203;</span>
+                    <Sparkles size="0.875rem" />
+                  </span>
+                  <div id={suggestionsBodyId} className="mari-workspace-answer-strip">
+                    {chipStrip}
                   </div>
                 </>
               )}
             </div>
           ) : null}
-          {omnibarMode || !suggestionsCollapsed ? (
-            <div id={suggestionsBodyId} className="mari-workspace-answer-strip">
-              <MariSuggestionChips
-                chips={chipRowChips}
-                // N4 covers the next-step cards; the starter and plan/approval chips still draft.
-                onSelect={(chip) => handleSuggestionSelect(chip, true)}
-                disabled={isBusy}
-              />
-            </div>
-          ) : null}
+          {omnibarMode ? <div className="mari-workspace-answer-strip">{chipStrip}</div> : null}
         </div>
       ) : null}
       <input
