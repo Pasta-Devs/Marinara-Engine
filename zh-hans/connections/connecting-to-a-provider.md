@@ -15,12 +15,14 @@
 大多数服务要求先注册，有些还要求先充值，密钥才能用。其他服务见[支持的 AI 服务商](providers-reference.md)。想在自己的电脑上用模型、不要密钥，见[内置模型设置](local-model.md)。
 
 1. 点击顶栏里的 **Connections**(连接)。面板会在右侧打开。如果你还没有账号，它会问 **Where do your models come from?**，并列出几个服务。点击一个服务（不要点 **Built-in model**(内置模型)）。**Add account** 窗口会直接打开到填密钥的那一步。跳到第 4 步。
-2. 点击 **Add**(添加)。**Add account** 窗口随即打开。
-3. 点击你想用的服务。在标着 **Search providers**(搜索服务商) 的输入框里输入文字可以查找。列表分成 **Chat**(聊天)、**Images & video**(图像与视频)、**Voice**(声音) 和 **Decisions**(判定) 几个部分。普通的聊天模型在 **Chat** 下面找。
+2. 点击 **Add**(添加)。**Add account** 窗口会打开，显示一个统一的服务列表。
+3. 点击你要用的服务。你可以在 **Search providers**(搜索服务商) 中输入名称，也可以点选 **Text**(文本)、**Image**(图像)、**Video**(视频) 或 **Voice**(声音) 按类型筛选。每张卡片会列出服务提供的类型。
 4. 点击 **API key**(API 密钥)，粘贴密钥。点击眼睛按钮，确认密钥粘贴完整。
 5. 点击 **Connect**(连接)。Marinara 会测试这个密钥。测试通过时，会显示 **Connected** 和找到的模型数量。
-6. 接下来怎样，取决于你是否已经有 Main 模型。Main 是写聊天回复的那项工作。
+6. 在 **Found in … — use it for:** 下，每行是一项工作，例如 **Main** 或 **Images**。勾选要使用 Marinara 找到的模型的工作。服务没有模型列表时，在该行输入模型 ID。点击 **Done**；如果只想保留账号、暂不分配工作，则点击 **Skip**(跳过)。
+7. 接下来怎样，取决于你是否已经有 Main 模型。Main 是写聊天回复的那项工作。
    - **还没有 Main 模型，或者你是从新聊天里打开 Add 的：** 窗口会列出这个服务的模型。**Recommended**(推荐) 模型排在最上面。点击一个模型即可添加，也可以在 **Search or enter model ID…**(搜索或输入模型 ID…) 里输入名称。不知道选哪个，就选一个 **Recommended** 的，之后随时可以改。让 **Make … my Main model**(把……设为我的主模型) 保持勾选，只有在你还没有 Main 模型时才会显示这一项。如果你是从新聊天里打开 Add、并且已经有 Main 模型，就会改为显示 **Set … as Main**(把……设为主模型) 按钮。然后点击 **Done**(完成)；如果是从新聊天进来的，就点 **Start chatting**(开始聊天)。
+   - **从工作的选择器打开了 Add：**窗口关闭，Marinara 会返回该项工作，新模型会出现在列表中。
    - **已经有 Main 模型：** 窗口会关闭，并弹出一条消息，说明账号已添加以及它的模型数量。想添加更多模型，点击账号上的 **⋯**，选择 **Add model**(添加模型)。
 
 面板里会出现你的账号。第 5 步显示 **Connected**，就已经说明密钥可用。如果新模型就是你的 Main 模型，开一个聊天发条消息：收到回复就说明一切正常。如果你原本就有 Main 模型，新聊天仍然用原来那个。要用新账号，先给它添加一个模型（**⋯** → **Add model**），再把这个模型选给某个聊天或某项工作（见[为每项工作选择模型](#choosing-the-model-for-each-job)）。
@@ -68,12 +70,12 @@
 | --- | --- |
 | **Chat** | **Main**(主模型) 在聊天里写回复。**Agents**(智能体) 运行辅助智能体。**Impersonate**(代写) 以你的身份写。 |
 | **Omnibar**(搜索栏) | **Professor Mari** 和 **Quick answers**(快速回答)。 |
-| **Pictures & sound**(画面与声音) | **Images**(图像)、**Video**(视频)、**Voice (Text to Speech)**(语音合成)，以及可用时的 **Dictation (Speech to Text)**(语音识别)。 |
+| **Pictures & sound**(画面与声音) | **Images**(图像)、**Video**(视频)、**Voice**(语音合成)，以及可用时的 **Dictation**(语音识别)。 |
 | **Behind the scenes**(幕后) | **Decision**(判定)、**Embeddings**(嵌入) 和 **Image reading**(读图)。 |
 
-每一行显示负责这项工作的模型；没有模型时，则显示这项工作会怎么处理，比如 **Follows Main**(跟随主模型) 或 **Off**(关闭)。必须有模型才能做的工作会显示 **Choose a model**(选择模型)。点击 **Jobs** 可以折叠这个框。
+每一行显示负责这项工作的模型；没有模型时，则显示这项工作会怎么处理，比如 **Follows Main**(跟随主模型) 或 **Off**(关闭)。尚未分配模型的工作会显示 **N models found**(找到的模型) 和 **Pick**(选择)，或 **None in your accounts**(账号里没有可用模型) 和 **Add**。选择器列出所有账号中适合该项工作的模型。**Add** 打开 **Add account** 窗口，完成后回到该项工作。点击 **Jobs** 可以折叠这个框。
 
-要更改某项工作的模型，点击它那一行。除了三行以外，都会打开这项工作的 **Model for**(用于……的模型) 窗口。**Decision** 和 **Embeddings** 会打开它们自己的控件（见 [Decision 模型](decision-models.md)和[支持的 AI 服务商](providers-reference.md#embeddings)）。**Dictation (Speech to Text)** 会打开语音设置。
+要更改某项工作的模型，点击它那一行。除了三行以外，都会打开这项工作的 **Model for**(用于……的模型) 窗口。**Decision** 和 **Embeddings** 会打开它们自己的控件（见 [Decision 模型](decision-models.md)和[支持的 AI 服务商](providers-reference.md#embeddings)）。**Dictation** 打开语音设置。**Voice** 和 **Dictation** 的行也各有一个齿轮，可打开各自的设置窗口。选择 **Voice** 模型后就会启用语音合成。
 
 在 **Model for** 窗口里：
 

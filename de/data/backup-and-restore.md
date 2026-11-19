@@ -53,6 +53,8 @@ Für jeden Durchlauf muss Platz für ein weiteres vollständiges Archiv frei sei
 
 > **Tipp:** Bewahre eine zweite Kopie außerhalb des Datenordners auf. Bei einem Festplattenausfall oder wenn die App gelöscht wird, gehen auch die automatischen Backups verloren.
 
+<a id="export-a-profile"></a>
+
 ## Ein Profil exportieren
 
 1. Öffne **Settings → Advanced → Backup & Export**.
@@ -66,6 +68,8 @@ Für jeden Durchlauf muss Platz für ein weiteres vollständiges Archiv frei sei
 Ein natives Profil wird als `marinara-profile.json` heruntergeladen. Ist es zu groß, bietet Marinara stattdessen eine ZIP-Datei an. Klick auf **Export ZIP**, um `marinara-profile.zip` herunterzuladen.
 
 Ein natives Profil behält den Code von Personal Extensions, aber nicht den Aktivierungs- oder Freigabestatus. Jede wiederhergestellte Erweiterung ist deaktiviert. Prüfe sie erneut unter **Settings → Addons**.
+
+Ein natives Profil behält Regex-Skripte, ihre Ordner und die Pause-Einstellung jedes Ordners. Wie du einzelne Skripte als JSON weitergibst, steht unter [Regex-Skripte](../extending/regex-scripts.md#import-and-replace-scripts).
 
 ## Mit Import Profile wiederherstellen
 

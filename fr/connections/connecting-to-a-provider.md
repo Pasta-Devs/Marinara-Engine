@@ -15,12 +15,14 @@ Avant de commencer, procure-toi une clé API auprès d'un service que tu veux ut
 La plupart des services te demandent de créer un compte, et certains d'ajouter du crédit, avant qu'une clé fonctionne. Pour les autres services, voir [Fournisseurs d'IA pris en charge](providers-reference.md). Pour utiliser un modèle sur ton propre ordinateur sans clé, voir [Configuration du modèle intégré](local-model.md).
 
 1. Clique sur **Connections** (Connexions) dans la barre du haut. Le panneau s'ouvre à droite. Si tu n'as encore aucun compte, il demande **Where do your models come from?** (d'où viennent tes modèles ?) et affiche quelques services. Clique sur un service (pas sur **Built-in model**). La fenêtre **Add account** s'ouvre sur l'étape de la clé. Passe à l'étape 4.
-2. Clique sur **Add** (ajouter). La fenêtre **Add account** s'ouvre.
-3. Clique sur le service voulu. Pour le trouver, tape dans la zone intitulée **Search providers** (rechercher des fournisseurs). La liste comporte les sections **Chat**, **Images & video** (images et vidéo), **Voice** (voix) et **Decisions** (décisions). Pour un modèle de chat normal, regarde sous **Chat**.
+2. Clique sur **Add** (ajouter). **Add account** s'ouvre avec une liste unique de services.
+3. Clique sur le service voulu. Cherche-le dans **Search providers** (rechercher des fournisseurs) ou filtre avec **Text** (texte), **Image**, **Video** (vidéo) ou **Voice** (voix). Chaque vignette indique les types proposés par le service.
 4. Clique sur **API key** (clé API) et colle ta clé. Clique sur le bouton en forme d'œil pour vérifier que tu l'as collée en entier.
 5. Clique sur **Connect** (connecter). Marinara teste la clé. Quand elle fonctionne, tu vois **Connected** avec le nombre de modèles trouvés.
-6. La suite varie selon que tu as déjà un modèle Main (principal) ou non. Main, c'est la tâche qui consiste à écrire les réponses de tes chats.
+6. Sous **Found in … — use it for:**, chaque ligne correspond à une tâche comme **Main** ou **Images**. Coche les tâches à confier au modèle trouvé par Marinara. Si le service n'a pas de liste de modèles, saisis l'identifiant du modèle dans la ligne. Clique sur **Done** (terminé). Pour garder le compte sans lui donner de tâche, clique plutôt sur **Skip** (ignorer).
+7. La suite varie selon que tu as déjà un modèle Main (principal) ou non. Main, c'est la tâche qui consiste à écrire les réponses de tes chats.
    - **Pas encore de modèle Main, ou tu as ouvert Add depuis un nouveau chat :** la fenêtre affiche les modèles du service. Les modèles **Recommended** (recommandés) sont en haut. Clique sur un modèle pour l'ajouter, ou tape un nom dans **Search or enter model ID…** (rechercher ou saisir un ID de modèle). Si tu ne sais pas lequel choisir, prends-en un **Recommended**. Tu pourras le changer plus tard. Laisse **Make … my Main model** (faire de … mon modèle Main) coché. Cette case ne s'affiche que si tu n'as aucun modèle Main. Si tu as ouvert Add depuis un nouveau chat et que tu as déjà un modèle Main, un bouton **Set … as Main** (définir … comme Main) s'affiche à la place. Clique ensuite sur **Done** (terminé), ou sur **Start chatting** (commencer à discuter) depuis un nouveau chat.
+   - **Tu as ouvert Add depuis le sélecteur d'une tâche :** la fenêtre se ferme et Marinara te ramène à la tâche, avec le nouveau modèle dans la liste.
    - **Tu as déjà un modèle Main :** la fenêtre se ferme et un message indique que le compte a été ajouté, avec son nombre de modèles. Pour ajouter d'autres modèles, clique sur **⋯** sur le compte et choisis **Add model** (ajouter un modèle).
 
 Le panneau affiche ton compte. **Connected**, à l'étape 5, veut déjà dire que la clé fonctionne. Si le nouveau modèle est ton modèle Main, démarre un chat et envoie un message : une réponse veut dire que tout fonctionne. Si tu avais déjà un modèle Main, les nouveaux chats l'utilisent toujours. Pour utiliser le nouveau compte, ajoute-lui un modèle (**⋯** → **Add model**), puis choisis ce modèle pour un chat ou une tâche (voir [Choisir le modèle de chaque tâche](#choosing-the-model-for-each-job)).
@@ -68,12 +70,12 @@ Une tâche, c'est quelque chose qu'un modèle fait pour toi. L'encadré **Jobs**
 | --- | --- |
 | **Chat** | **Main** écrit les réponses dans tes chats. **Agents** fait tourner les agents d'assistance. **Impersonate** écrit à ta place. |
 | **Omnibar** | **Professor Mari** et **Quick answers** (réponses rapides). |
-| **Pictures & sound** (images et son) | **Images**, **Video** (vidéo), **Voice (Text to Speech)** (voix, synthèse vocale) et **Dictation (Speech to Text)** (dictée, reconnaissance vocale) quand elle est disponible. |
+| **Pictures & sound** (images et son) | **Images**, **Video** (vidéo), **Voice** et **Dictation** quand elle est disponible. |
 | **Behind the scenes** (en coulisses) | **Decision** (décision), **Embeddings** et **Image reading** (lecture d'images). |
 
-Chaque ligne affiche le modèle qui s'occupe de cette tâche, ou ce que fait la tâche sans modèle, par exemple **Follows Main** (suit Main) ou **Off** (désactivé). Une tâche qui a besoin d'un modèle affiche **Choose a model** (choisir un modèle). Clique sur **Jobs** pour replier l'encadré.
+Chaque ligne affiche le modèle qui s'occupe de cette tâche, ou ce que fait la tâche sans modèle, par exemple **Follows Main** (suit Main) ou **Off** (désactivé). Une tâche sans modèle affiche **N models found** avec **Pick** (choisir), ou **None in your accounts** avec **Add**. Le sélecteur liste les modèles compatibles de tous les comptes. **Add** ouvre **Add account**, puis revient à la tâche. Clique sur **Jobs** pour replier l'encadré.
 
-Pour changer le modèle d'une tâche, clique sur sa ligne. La fenêtre **Model for** (modèle pour) de cette tâche s'ouvre, sauf pour trois lignes. **Decision** et **Embeddings** ouvrent leurs propres contrôles (voir [Modèles de décision](decision-models.md) et [Fournisseurs d'IA pris en charge](providers-reference.md#embeddings)). **Dictation (Speech to Text)** ouvre la configuration de la reconnaissance vocale.
+Pour changer le modèle d'une tâche, clique sur sa ligne. La fenêtre **Model for** (modèle pour) de cette tâche s'ouvre, sauf pour trois lignes. **Decision** et **Embeddings** ouvrent leurs propres contrôles (voir [Modèles de décision](decision-models.md) et [Fournisseurs d'IA pris en charge](providers-reference.md#embeddings)). **Dictation** (dictée) ouvre la configuration de la reconnaissance vocale. **Voice** et **Dictation** ont aussi une roue dentée qui ouvre leur fenêtre de réglages. Choisir un modèle **Voice** active la synthèse vocale.
 
 Dans **Model for** :
 

@@ -16,7 +16,7 @@ El Illustrator escribe el prompt, pero un modelo de imagen aparte dibuja la imag
 
 Dale un modelo de imagen de una de estas dos maneras.
 
-1. Establece la tarea **Images** (Imágenes) en **Defaults** (Predeterminados) del panel **Connections** (Conexiones).
+1. Establece la tarea **Images** (Imágenes) en el cuadro **Jobs** (Tareas) del panel **Connections** (Conexiones).
 2. O dale al Illustrator su propio modelo de imagen en su pantalla **Open Setup** (Abrir la configuración).
 
 Si no se encuentra ningún modelo de imagen, la imagen falla y la app te pide que elijas uno.

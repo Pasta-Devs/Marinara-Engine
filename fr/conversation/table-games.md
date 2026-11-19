@@ -114,7 +114,7 @@ Terminer une partie plus tôt supprime son état et n'enregistre aucun gagnant.
 
 Ouvre **Chat Settings → Agents → Commands**, ou utilise l'étape **Automation** quand tu crées le chat. L'interrupteur principal **Commands** contrôle toutes les actions lancées par les personnages, y compris les jeux de table, les selfies et les appels. Quand il est désactivé, les personnages ne lancent rien seuls.
 
-Chaque jeu installé a son propre interrupteur, activé sauf si tu le désactives : **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** et **Rock-Paper-Scissors**. Voir [Choisir quelles Commands un personnage peut utiliser](getting-started.md#choose-which-commands-a-character-can-use). Ces interrupteurs contrôlent seulement ce que font les personnages. La commande slash d'un jeu et la phrase "let's play" fonctionnent même quand son interrupteur est désactivé.
+Chaque jeu installé a son propre interrupteur, activé sauf si tu le désactives : **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** et **Rock-Paper-Scissors**. Les autres jeux installables, comme Blackjack ou Wordle, ont un interrupteur qui porte le nom du jeu. Voir [Choisir quelles Commands un personnage peut utiliser](getting-started.md#choose-which-commands-a-character-can-use). Ces interrupteurs contrôlent seulement ce que font les personnages. La commande slash d'un jeu et la phrase "let's play" fonctionnent même quand son interrupteur est désactivé.
 
 ## Guides associés
 

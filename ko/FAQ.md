@@ -122,7 +122,7 @@ Professor Mari는 홈 화면에 있는 내장 어시스턴트입니다. 앱을 �
 
 ## 통화에서 캐릭터가 소리 내어 말할 수 있나요?
 
-네, Conversation 모드에서 됩니다. **Connections**에 **Text to Speech**(TTS)가 설정되어 있어야 합니다. 마이크 음성 인식을 포함한 단계는 [Conversation 음성 통화와 영상 통화](conversation/calls.md)를 참고하세요.
+네, Conversation 모드에서 됩니다. **Connections**에서 **Voice**(음성) 작업에 모델을 지정해야 합니다. 마이크 음성 인식을 포함한 단계는 [Conversation 음성 통화와 영상 통화](conversation/calls.md)를 참고하세요.
 
 ## Marinara로 이미지를 만들 수 있나요?
 

@@ -228,7 +228,7 @@ La consolidation a une vraie valeur, mais fusionner l'une ou l'autre paire d'un 
 
 ### 6.3 Points chauds de complexité active
 
-Les plus gros modules actifs sont `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/components/chat/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts` et `client/components/panels/SettingsPanel.tsx`. Ce ne sont pas des candidats à la suppression. Continue d'extraire des gestionnaires de route délimités, des services métier, des sections de panneau latéral et des fonctions pures, mais seulement quand la fonctionnalité concernée est déjà en cours de modification. Une PR isolée du type "on découpe tout" apporterait de l'agitation sans preuve fiable au niveau du comportement.
+Les plus gros modules actifs sont `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/features/chat-settings/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts` et `client/components/panels/SettingsPanel.tsx`. Ce ne sont pas des candidats à la suppression. Continue d'extraire des gestionnaires de route délimités, des services métier, des sections de panneau latéral et des fonctions pures, mais seulement quand la fonctionnalité concernée est déjà en cours de modification. Une PR isolée du type "on découpe tout" apporterait de l'agitation sans preuve fiable au niveau du comportement. Le panneau des réglages du chat faisait exception. Il a été découpé à raison d'une section par PR (#9119). Les règles de son dossier figurent dans `packages/client/.instructions.md` à la section Chat Settings.
 
 ## 7. Éléments délibérément exclus du nettoyage
 

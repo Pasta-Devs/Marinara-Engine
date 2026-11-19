@@ -233,7 +233,7 @@ Marinara Engine 是一个 AI 聊天应用，提供 Conversation(对话模式)、
 | `use-knowledge-sources.ts` | 知识源管理 |
 | `use-gallery.ts` | 聊天图库图片 |
 | `use-chat-folders.ts` | 聊天文件夹的增删改查和排序 |
-| `use-regex-scripts.ts` | 正则脚本的增删改查 |
+| `use-regex-scripts.ts` | 正则脚本的增删改查、重新排序和批量启停 |
 | `use-haptic.ts` | 触觉设备的连接和指令 |
 
 ## 组件指南
@@ -364,6 +364,30 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.streamEvents(path, body)` | `POST /api{path}` | SSE 异步生成器（全部事件类型） |
 
 出错时抛出 `ApiError`，它带有 `status` 和 `message` 属性。
+
+## 选择器和下拉菜单
+
+所有用于选择值的控件都会打开同一个共享选择窗口。要调整选择器的界面、行样式或宽度，只需修改下面的共享组件。不要使用原生 `<select>`，也不要自行绘制浮层列表。应用已不再使用这两种做法。
+
+| 层级 | 文件 | 职责 |
+| --- | --- | --- |
+| 窗口 | `components/ui/PickerWindow.tsx` | 在电脑上是字段旁边的浮层，宽度随行内容变化，至少与字段一样宽，最多 352 px；字段更宽时以字段宽度为上限。手机上会打开底部面板（`Modal`）。在另一个 `Modal` 内仍使用浮层，避免叠放两个面板。按 Escape 或返回键、点击外部、将字段滚出视野时会关闭。 |
+| 行 | `components/ui/PickerParts.tsx` | `PickRow`（图片、标题、可折成两行的副文本、徽章和勾选标记或复选框）、`PickerSearch`、文件夹标题和 `usePickerKeyboard`（方向键和 Enter）。 |
+| 列表 | `components/ui/PickerFolderList.tsx` | 主体内容，包括搜索框、按库文件夹或 `group` 分组的行、单选或多选，以及每个文件夹的“Add all”。 |
+| 字段 | `components/ui/Select.tsx` | `Select` 从固定列表中选一个值，替代原生 `<select>`。它用组合框按钮打开，从 `SELECT_SEARCH_MIN` 个选项起提供搜索，字段关闭时支持方向键和键入前缀查找。 |
+|  | `components/ui/PickerField.tsx` | `PickerField`（单项选择，包含 None 行和文件夹）、`PickerListField`／`PickerListWindow`（选择多项，所选项列在字段下方并带移除按钮）以及 `useFieldWindow`（维护打开状态，关闭时把焦点还给字段）。 |
+|  | `components/ui/LibraryPickers.tsx`, `components/characters/CharacterSelect.tsx` | 基于上述组件构建的预设、世界书、角色和用户角色字段。 |
+
+添加选择器的方法：
+
+- **从列表中选一个值：**使用 `Select`。传入 `label`，为字段命名并设置窗口标题。
+- **选择一个库项目**（带文件夹、图片和 None 行）：使用 `PickerField`，或 `LibraryPickers.tsx` 里对应的字段。
+- **选择多个项目：**使用 `PickerListField`。按 Escape 或点击窗口外部可关闭窗口，选中项目时窗口保持打开。
+- **非字段控件**（例如打开简短列表的“Link to Conversation”按钮）：用 `useFieldWindow` 管理打开状态和焦点，将 `PickerWindow` 锚定到按钮，窗口内使用 `PickerFolderList` 或多行 `PickRow`。
+
+连接和模型选择器（`ConnectionSelect`／`ModelPicker`）仍使用自己的窗口。图标库（`StatIconPicker`）、标签自动补全、上下文菜单和操作菜单也有自己的界面，它们不属于选择器。
+
+**测试。** `Select` 的触发按钮带有 `role="combobox"`，所选值保存在 `data-value` 中，窗口是由字段标签命名的 `dialog`。列表行带有 `data-pick-row`。单选时，所选行带有 `aria-current="true"`；多选行带有 `aria-pressed`。`e2e/select-field.ts` 提供 `chooseOption` 和 `pickerLabels`，取代 Playwright 在旧原生下拉框上使用的 `selectOption`。
 
 ## 样式系统
 

@@ -160,7 +160,7 @@ Sous **Voice**, un service audio fait parler les voix des personnages et la narr
 
 Chaque source remplit une adresse et un modèle par défaut. Le réglage **Default voice** (voix par défaut) désigne la voix utilisée quand rien de plus précis, comme une voix propre à un personnage, n'est défini. Le réglage **Request timeout (seconds)** (délai d'attente de la requête, en secondes) fixe le temps pendant lequel Marinara attend une réplique parlée. Augmente-le pour un serveur vocal lent.
 
-Pour choisir le compte de synthèse vocale que Marinara utilise par défaut, clique sur la ligne **Voice (Text to Speech)** (voix, synthèse vocale) dans l'encadré **Jobs** (tâches). Pour lire les messages à voix haute avec l'un d'eux, choisis-le comme **Source** dans la carte **Text to Speech** (synthèse vocale). Consulte [Configuration du Text to Speech (TTS)](../media/tts-setup.md) et [Utiliser une connexion Audio](../media/tts-setup.md#use-a-voice-model-from-an-account).
+Pour choisir le compte de synthèse vocale par défaut, clique sur la ligne **Voice** (voix) dans l'encadré **Jobs** (tâches). Pour lire les messages à voix haute, choisis le modèle du compte sur cette ligne. Voir [Configuration du Text to Speech (TTS)](../media/tts-setup.md) et [Utiliser un modèle vocal d'un compte](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 
@@ -186,7 +186,7 @@ Active l'audio généré pour chaque Game, ou active **Sound effects** (effets s
 
 ## Embeddings
 
-Les embeddings transforment le texte en listes de nombres pour que Marinara puisse retrouver du texte apparenté. Ils font tourner la recherche sémantique des lorebooks et Memory Recall. La plupart des services de chat te permettent de définir un modèle d'embedding et, en option, une **Embedding endpoint URL** (URL du point d'accès d'embeddings) sous **Semantic search (embeddings)** (recherche sémantique) dans l'éditeur du modèle.
+Les embeddings transforment le texte en listes de nombres pour que Marinara puisse retrouver du texte apparenté. Ils font tourner la recherche sémantique des lorebooks et Memory Recall. La plupart des services de chat te permettent de définir un modèle d'embedding et, en option, une **Embedding endpoint URL** (URL du point d'accès d'embeddings) sous **More** (plus) → **Semantic search (embeddings)** dans **Edit model** (modifier le modèle).
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** et **Grok CLI (Subscription)** ne savent pas produire d'embeddings. Pour ceux-là, utilise le menu déroulant **Embedding provider** (fournisseur d'embeddings) pour emprunter un autre compte, comme un compte compatible OpenAI, **Google Gemini** ou le **Built-in model** (modèle intégré).
 

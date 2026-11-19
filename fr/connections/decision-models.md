@@ -124,29 +124,31 @@ Les probabilités oui/non d'un modèle de chat généraliste fonctionnent avec u
 
 Si ton modèle de chat tourne dans Ollama, LM Studio, llama.cpp ou un autre serveur compatible OpenAI, il peut répondre aux décisions sans que Marinara en charge une seconde copie.
 
-1. Clique sur la ligne **Décision** sous **Behind the scenes**, dans l'encadré **Jobs**. Le sélecteur liste les modèles de tous les comptes, y compris ton modèle de chat. Tu peux aussi cliquer sur **⋯** sur le modèle et choisir **Use for…** (utiliser pour…) → **Décision**.
-2. Clique sur l'engrenage de la ligne **Décision**, puis sur **Test**. Un test réussi indique si le serveur a renvoyé des log-probabilités et si le modèle a dû raisonner d'abord. Clique sur **Done** (terminé).
+1. Clique sur la ligne **Decision** sous **Behind the scenes**, dans l'encadré **Jobs**. Le sélecteur liste les modèles de tous les comptes, y compris ton modèle de chat. Tu peux aussi cliquer sur **⋯** sur le modèle et choisir **Use for…** (utiliser pour…) → **Decision**.
+2. Clique sur l'engrenage de la ligne **Decision**, puis sur **Test**. Un test réussi indique si le serveur a renvoyé des log-probabilités et si le modèle a dû raisonner d'abord. Clique sur **Done** (terminé).
 Tu peux aussi le créer toi-même. Utilise un compte Decision avec la source **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**, la même adresse que ton compte de chat (par exemple `http://localhost:11434/v1` pour Ollama) et le nom de modèle qu'utilise le serveur.
 
 Il est interrogé comme le modèle intégré : un mot oui/non par énoncé. Les énoncés partent un par un, car Marinara ne peut pas savoir combien de requêtes ton serveur traite à la fois. **Thinking** est toujours sur **Auto** pour un compte. Un serveur sur un autre ordinateur nécessite `PROVIDER_LOCAL_URLS_ENABLED`. Consulte [Connecter un modèle local ou auto-hébergé](local-self-hosted.md).
 
 <a id="set-up-a-decision-connection"></a>
 
-## Configurer une connexion Decision
+<a id="set-up-a-decision-account"></a>
+
+## Configurer un compte Decision
 
 Un compte Decision hébergé envoie au service les messages récents sélectionnés et les énoncés, et peut coûter de l'argent. L'ordre de réponse Smart envoie aussi une [liste des personnages](#what-the-model-sees).
 
 1. Clique sur **Connections** dans la barre du haut, puis sur **Add** (ajouter).
 2. Clique sur **Decision** (décision) dans les filtres par type, puis sur **TypeSafe** ou **Own decision server**. Pour NanoGPT, voir [Via NanoGPT](#through-nanogpt). Pour OpenRouter ou Google Gemini, voir [Via OpenRouter ou Google Gemini](#through-openrouter-or-google-gemini).
-3. Saisis le champ **API key** (clé API) ou, pour **Own decision server**, le champ **Server address** (adresse du serveur). Clique sur **Connect** (connecter). La fenêtre se ferme et le panneau affiche le nouveau compte.
-4. Clique sur la ligne **Decision** sous **Behind the scenes** et choisis le nouveau modèle.
+3. Saisis le champ **API key** (clé API) ou, pour **Own decision server**, le champ **Server address** (adresse du serveur). Clique sur **Connect** (connecter).
+4. Sous **Found in TypeSafe — use it for:**, coche **Decision**, puis clique sur **Done**. Le modèle s'affiche maintenant sur la ligne **Decision** sous **Behind the scenes**, dans l'encadré **Jobs**.
 5. Pour le tester, clique sur le modèle dans le panneau pour ouvrir **Edit model**, puis clique sur **Test provider** dans la carte **Provider tests** (tests du fournisseur). Un modèle **Own decision server** n'y a pas de bouton **Test provider**. Ouvre plutôt le menu **⋯** du compte dans le panneau et clique sur **Test**.
 
 Un **Test provider** réussi affiche la probabilité, la durée de la réponse et le délai du compte. Le **Test** du compte, dans le menu **⋯**, indique seulement s'il a fonctionné et combien de temps il a pris. Le test attend au moins 10 secondes, ou 5 secondes au-delà d'un délai plus long. Si la réponse a pris plus de temps que le délai, le résultat le signale : pendant un chat, cette réponse compterait comme une absence de réponse.
 
 En cas d'échec, consulte [Résolution des problèmes](#troubleshooting).
 
-L'éditeur Decision (**Edit model** sur un modèle de décision) contient ces champs :
+Un modèle de décision a les champs suivants. Clique sur le modèle dans le panneau pour ouvrir **Edit model**, ou sur la roue dentée de la ligne **Decision** dans l'encadré **Jobs** pour ouvrir **Decision settings** (réglages de décision) du modèle de décision actuel :
 
 | Champ | Effet |
 | --- | --- |
@@ -333,7 +335,7 @@ Avant tout téléchargement, Marinara vérifie que ton ordinateur peut exécuter
 1. Clique sur **Connexions** dans la barre du haut. Sous **On this device** (sur cet appareil), clique sur **Built-in model (decisions)** (modèle intégré pour les décisions). Tu peux aussi cliquer sur **Ajouter** dans le panneau **Connexions**, puis sur **Built-in model (decisions)** sous **Decisions** (décisions).
 2. Choisis un modèle dans la liste **Modèle**. En dessous, tu vois sa description, puis **Réponses** et **Lit** (voir [Ce qu'affiche la page d'un modèle](#what-a-model-page-lists)), ses langues et ses licences.
 3. Clique sur **Télécharger**, avec le nom et la taille du modèle. Confirme la taille, le verdict matériel et les licences. Rien n'est téléchargé avant cette étape.
-4. Clique sur **Utiliser pour Décision**, ou clique sur la ligne **Décision** sous **Behind the scenes** (en coulisses), dans l'encadré **Jobs** (tâches), et choisis **Built-in model (decisions)**.
+4. Clique sur **Use for Decision**, ou clique sur la ligne **Decision** sous **Behind the scenes** (en coulisses), dans l'encadré **Jobs** (tâches), et choisis **Built-in model (decisions)**.
 
 Une fois qu'un modèle a été exécuté, sa page affiche aussi **Sur cet ordinateur**, avec les durées mesurées : quelques tours de chat, une image et un clip pour les modèles qui les lisent. Ces durées viennent de ton propre ordinateur : elles t'indiquent donc à quel point un énoncé ralentit quand il demande une image.
 

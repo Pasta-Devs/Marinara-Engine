@@ -92,9 +92,10 @@ Marinaraは毎回のプロンプトで、ペルソナをAIに送ります。ペ�
 | **Backstory** | 経歴、出自、人間関係です。 | はい |
 | **Appearance** | 外見、服装、見た目の詳細です。 | はい |
 | **Scenario** | ロールプレイでのデフォルトの状況です。 | はい |
+| **Public Face**(周囲に知られている情報) | カードから非公開情報を除いた内容。 | `{{personaPublicFace}}`を使うか、エージェントの**Persona**ソースを**Public Face**に設定したときのみ |
 | **Example Dialogue**(会話例) | やり取りの見本です。`<START>`で区切ります。ペルソナには`{{user}}`、相手のキャラクターには`{{char}}`を使います。 | はい |
 
-**Appearance**の下にある**Image Appearance Override**(画像用の外見指定)は、キャラクターの場合と同じように動作します。[Cardタブ](creating-and-editing-characters.md#card-tab)を参照してください。テキストボックスはマクロに対応しています。
+**Appearance**の下にある**Image Appearance Override**(画像用の外見指定)と**Public Face**は、キャラクターの場合と同じように動作します。[Cardタブ](creating-and-editing-characters.md#card-tab)を参照してください。テキストボックスはマクロに対応しています。
 
 次の機能は、対象がペルソナになるだけで、キャラクターと同じように動作します。
 

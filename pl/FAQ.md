@@ -122,7 +122,7 @@ Zamienia gotowy tekst opowieści w obrazy. Zainstaluj agenta **Storyboard** z **
 
 ## Czy postacie mogą mówić na głos w rozmowie?
 
-Tak, w trybie Conversation. Potrzebna jest skonfigurowana funkcja **Text to Speech** (synteza mowy) w **Connections**. Kroki, w tym rozpoznawanie mowy z mikrofonu, opisuje przewodnik [Rozmowy](conversation/calls.md).
+Tak, w trybie Conversation. Potrzebny jest model dla zadania **Voice** (głos) w **Connections**. Kroki, w tym rozpoznawanie mowy z mikrofonu, opisuje przewodnik [Rozmowy](conversation/calls.md).
 
 ## Czy Marinara potrafi generować obrazy?
 

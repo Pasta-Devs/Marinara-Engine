@@ -57,6 +57,7 @@ Cada família tem a sua própria chave. Todas começam ativadas, exceto **Videos
 | **8-Ball Pool** | Montar uma partida de sinuca. | 8-Ball Pool |
 | **Tic-Tac-Toe** | Aceitar um desafio de jogo da velha. | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | Aceitar uma partida. | Rock-Paper-Scissors |
+| Outros jogos, pelo nome do jogo | Iniciar ou aceitar uma partida desse jogo. | O próprio jogo, como Blackjack ou Wordle |
 
 Para **Influence** e **Notes**, veja [Chats conectados](../chats/connected-chats.md). A última coluna indica o agente a instalar em **Agent Organizer**.
 

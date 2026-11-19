@@ -165,7 +165,7 @@ Fastify製のAPI、ファイルネイティブのストレージ、プロバイ�
 | `packages/server/src/routes/generate.routes.ts` | 生成とエージェントの共通部分 | ルート、ストリーミング、プロンプト、エージェント、ストレージ、副作用が1つのファイルに同居しています。 |
 | `packages/server/src/routes/game.routes.ts` | `MODE-GAME` | APIのハンドラー、GMのフロー、シーン解析、アセット、戦闘、永続化が密結合しています。 |
 | `packages/client/src/components/game/GameSurface.tsx` | `MODE-GAME` | 描画、状態のオーケストレーション、アセット、ログ、ナレーション、戦闘、演出が密結合しています。 |
-| `packages/client/src/components/chat/ChatSettingsDrawer.tsx` | チャット設定の混在 | セクションの切り出しを`features/chat-settings`で進めていますが、パネル本体はまだ大きいままです。 |
+| `packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx` | チャット設定の混在 | セクションの切り出しを`features/chat-settings/sections`で進めていますが、パネル本体はまだ大きいままです。 |
 | `packages/client/src/components/game/GameNarration.tsx` | `MODE-GAME` | 表示の描画とコマンドの整形が密結合しています。 |
 | `packages/client/src/components/game/GameCombatUI.tsx` | `MODE-GAME` | 戦闘の表示、操作、ログは、より小さなパネルとフックに分けられます。 |
 | `packages/client/src/components/chat/RoleplayHUD.tsx` | `MODE-ROLEPLAY` | `RoleplayHUDActionsMenu.tsx`と`RoleplayHUDPanels.tsx`への分割が途中まで進んでいます。 |

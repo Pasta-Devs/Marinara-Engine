@@ -11,7 +11,7 @@ Professor Mari ist die eingebaute Assistentin auf dem Home-Bildschirm. Sie erkl�
 
 Ihr Fenster öffnet sich. Du erreichst sie auch von jedem anderen Bildschirm aus: Tipp etwas in die Suche und wähl **Ask Prof. Mari** (Prof. Mari fragen), drück <kbd>Strg</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> auf dem Mac) oder zieh auf dem Handy von der oberen Leiste nach unten. Ihre Kopfzeile zeigt **Ready to help**, wenn sie nichts zu tun hat, und **Working on it...**, während sie arbeitet.
 
-Tipp deine Nachricht in ganz normaler Sprache und drück <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> fügt eine neue Zeile ein. Schaltest du in ihren Einstellungen **Enter sends to Professor Mari** (Enter sendet an Professor Mari) aus, fügt <kbd>Enter</kbd> eine neue Zeile ein, und <kbd>Strg</kbd>+<kbd>Enter</kbd> sendet. Deine erste Nachricht schaltet die Errungenschaft **Hello World** frei.
+Tipp deine Nachricht in ganz normaler Sprache und drück <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> fügt eine neue Zeile ein. Schaltest du in ihren Einstellungen **Enter sends to Professor Mari** (Enter sendet an Professor Mari) aus, fügt <kbd>Enter</kbd> eine neue Zeile ein, und <kbd>Ctrl</kbd>+<kbd>Enter</kbd> oder die Schaltfläche zum Senden schickt die Nachricht ab. Der Schalter wird pro Gerät gespeichert. Du kannst ihn also auf deinem Handy ausschalten und am Computer eingeschaltet lassen. Deine erste Nachricht schaltet die Errungenschaft **Hello World** frei.
 
 Alle ihre Einstellungen findest du unter **Settings → General → Search and Professor Mari settings → Open** (Einstellungen → Allgemein → Einstellungen für Suche und Professor Mari → Öffnen) oder über das Zahnrad in der Suche. Am Computer ändern die Schieberegler **Height** (Höhe) und **Width** (Breite) unter **Professor Mari window** (Fenster von Professor Mari) die Größe ihres Fensters. Auf dem Handy füllt ihr Fenster den Bildschirm.
 
@@ -39,7 +39,7 @@ Bevor sie ein Objekt bearbeitet, liest sie es, und bei vagen Anfragen fragt sie 
 - Ein Theme, einen Agenten, ein Prompt-Preset oder einen Entwurf für eine Personal Extension (persönliche Erweiterung) anlegen oder bearbeiten. Ein Entwurf bleibt ausgeschaltet, bis du seinen Code gelesen und ihn unter **Settings → Addons** freigegeben hast.
 - Einen einzelnen Abschnitt eines Presets an Ort und Stelle bearbeiten, statt das ganze Preset zu ersetzen.
 - Die herunterladbaren Agenten vergleichen und dir sagen, welche zu deinem Ziel passen. Zum Installieren schickt sie dich zu **Agents → Agent Organizer**. Siehe [Referenz der herunterladbaren Agenten](../agents/built-in-agents.md).
-- Bilder wie Avatare, Sprites und Hintergründe erzeugen oder zuweisen. Dafür brauchst du vorher ein Konto für Bildgenerierung. Das legt sie nicht für dich an.
+- Bilder wie Avatare, Sprites und Hintergründe erzeugen oder zuweisen. Dafür brauchst du vorher ein Konto für Bildgenerierung. Das legt sie nicht für dich an. Klick auf ein Bild, das sie erzeugt hat, um es in voller Größe zu öffnen. Dort kannst du den zugehörigen Prompt lesen, das Bild herunterladen oder den Prompt bearbeiten und das Bild neu erzeugen. Das neue Bild ersetzt das alte in ihrer Antwort.
 - Öffentliche Fandom-Wiki-Seiten nachschlagen, wenn du zu einem Charakter oder einer Welt recherchierst.
 
 ### Mit einem Chip anfangen
@@ -136,7 +136,7 @@ Eine Verknüpfung wird einmal gesendet, und zwar mit der Nachricht, in der du si
 
 ### Befehle mit /
 
-Tipp `/` am Zeilenanfang, um ihre Befehle aufzulisten. Tipp weiter, um zu filtern, und drück dann <kbd>Enter</kbd>. Die Liste zeigt auch deine Skills und Memories. Wählst du eines davon, wird es verknüpft, wie bei `@`.
+Tipp `/` am Anfang einer Zeile oder nach einem Leerzeichen, um ihre Befehle aufzulisten. So kannst du in einer Nachricht mehrere Befehle verwenden. Tipp weiter, um zu filtern, und drück dann <kbd>Enter</kbd>. Die Liste zeigt auch deine Skills und Memories. Wählst du eines davon, wird es verknüpft, wie bei `@`.
 
 | Befehl | Was er tut |
 | --- | --- |

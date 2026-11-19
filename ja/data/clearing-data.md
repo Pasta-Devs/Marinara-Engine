@@ -36,7 +36,7 @@
 | **Lorebooks** | すべてのロアブック、エントリー、フォルダー。 |
 | **Presets** | 組み込みの標準プリセットを除く、すべてのプロンプトプリセットとプリセットのフォルダー。 |
 | **Connections** | 保存済みのすべてのアカウント、およびそれに紐づくモデルの選択と音声の設定。 |
-| **Automation & Addons** | すべてのエージェント設定、カスタムツール、正規表現スクリプト、同期したテーマ。Personal ExtensionsとExternal Extensionsは対象外。 |
+| **Automation & Addons** | すべてのエージェント設定、カスタムツール、正規表現スクリプトとそのフォルダー、同期したテーマ。Personal ExtensionsとExternal Extensionsは対象外。 |
 | **Media & Assets** | 背景、アバター、スプライト、ギャラリー、シーン動画、フォント、知識ソースのファイル。 |
 
 詳しい内容は次のとおりです。

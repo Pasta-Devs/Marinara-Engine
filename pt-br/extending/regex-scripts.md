@@ -46,6 +46,8 @@ O cabeçalho da seção tem três botões de ícone: **Create regex**, **Import 
 
 Para encontrar um script, digite em **Search regexes** (buscar regexes). A busca procura nos nomes e padrões dos scripts e abre as pastas com resultados. Durante a busca, você não pode arrastar os scripts para mudar a ordem.
 
+<a id="organize-scripts-in-folders"></a>
+
 #### Organizar scripts em pastas
 
 1. Clique em **New Folder** (nova pasta) e dê um nome à pasta.
@@ -54,7 +56,15 @@ Para encontrar um script, digite em **Search regexes** (buscar regexes). A busca
 
 Clique no nome de uma pasta para expandi-la ou recolhê-la. Desligue a pasta para pausar seus scripts em todos os chats. O cabeçalho mostra **Paused** (pausada). Cada script mantém a posição salva do próprio botão liga/desliga. Um script ativado em uma pasta pausada aparece com o botão cinza e a etiqueta **Paused by folder** (pausado pela pasta). Excluir a pasta move seus scripts para o nível superior, onde cada um segue o próprio botão liga/desliga.
 
-As pastas agrupam scripts sem mudar a ordem de execução. Clique em **Execution order** (ordem de execução) para ver a lista completa na ordem em que os scripts rodam. Arraste um script pela alça para mudar a ordem. Quando não há pastas, a lista já aparece nessa ordem.
+As pastas agrupam scripts sem mudar a ordem de execução. Clique em **Execution order** (ordem de execução) para ver a lista completa na ordem em que os scripts rodam. Arraste um script pela alça para mudar a ordem. Quando não há pastas, a lista já aparece nessa ordem. Nessa visualização, um ícone de pausa indica que um script está ligado, mas a pasta está pausada.
+
+### Alterar vários scripts de uma vez
+
+1. Clique em **Select regex scripts**.
+2. Marque os scripts que você quer alterar.
+3. Clique em **Enable selected** (ativar selecionados), **Disable selected** (desativar selecionados) ou **Move to folder**. Você também pode exportar ou excluir a seleção.
+
+**Enable selected** muda os botões de cada script. Retome uma pasta pausada para os scripts ativados voltarem a rodar.
 
 <a id="editor-fields"></a>
 
@@ -95,7 +105,7 @@ Uma lista opcional de textos simples removidos depois que a substituição roda.
 
 ### Live Test
 
-Cole um texto de exemplo, e o resultado aparece em **Result:**. O Live Test confere só a lógica de localizar, substituir e remover. O local de aplicação, o estado ligado ou desligado, o escopo de personagem e a profundidade são avaliados em um chat de verdade. Você pode usar macros como `{{user}}` e `{{char}}` no padrão, na substituição e nos textos a remover. No Live Test, elas usam valores de exemplo. Veja [Macros](../prompts/macros.md).
+Cole um texto de exemplo, e o resultado aparece em **Result:**. O **Live Test** confere só a lógica de localizar, substituir e remover. Teste o script em um chat para conferir o local de aplicação, a pausa da pasta, os botões dos scripts, o escopo de personagem ou a profundidade. Você pode usar macros como `{{user}}` e `{{char}}` no padrão, na substituição e nos textos a remover. No **Live Test**, elas usam valores de exemplo. Veja [Macros](../prompts/macros.md).
 
 <a id="choose-where-a-script-runs"></a>
 
@@ -122,7 +132,7 @@ Nas suas próprias mensagens, um script de **User Input** em **Only Display** ou
 
 As duas configurações ficam em **Advanced Options**.
 
-- **Execution Order** (ordem de execução) é um número. Números menores rodam primeiro, o que importa quando vários scripts podem corresponder ao mesmo texto. Um script novo começa em 0, e o aplicativo atribui o próximo número livre quando você salva. Você também pode arrastar as linhas na lista **Regexes**.
+- **Execution Order** (ordem de execução) é um número. Números menores rodam primeiro, o que importa quando vários scripts podem corresponder ao mesmo texto. Um script novo começa em 0, e o aplicativo atribui o próximo número livre quando você salva. Para mudar a ordem pelo painel, veja [Organizar scripts em pastas](#organize-scripts-in-folders).
 - **Depth Range** (faixa de profundidade) limita até onde no passado um script roda, com **Min** e **Max**. A mensagem mais nova é a profundidade 0, a anterior é a profundidade 1, e assim por diante. Deixe os dois vazios para rodar em qualquer profundidade. O salvamento é bloqueado se **Min** for maior que **Max**.
 
 ### Chats em grupo
@@ -165,6 +175,8 @@ A opção **Use preset default** (usar o padrão do preset) segue o **Scoped reg
 
 Abaixo dos modos, o painel lista os scripts limitados de cada personagem, com um botão liga/desliga para cada um. Esse botão é do próprio script, então ele muda o script em todos os chats. O modo controla os scripts do lado da exibição. Os scripts de prompt sempre acompanham o personagem que está gerando a resposta.
 
+<a id="import-and-replace-scripts"></a>
+
 ## Importar e substituir scripts
 
 ### Importar do SillyTavern
@@ -172,16 +184,19 @@ Abaixo dos modos, o painel lista os scripts limitados de cada personagem, com um
 Marinara lê os scripts de regex que vêm dentro de um card de personagem do SillyTavern. Ao importar um card, uma seção **Imported regex scripts** (scripts de regex importados) oferece duas opções:
 
 - **Character only** (o padrão): os scripts ficam limitados àquele personagem.
-- **Global**: os scripts entram em **Presets** e rodam em todos os chats.
+- **Global**: acrescenta os scripts a **Presets → Regexes**, e eles podem rodar em diferentes chats.
 
 Essa escolha aparece na janela de importação de um personagem e no fluxo em lote **Import from SillyTavern Folder**. Scripts com o padrão vazio, ou com um padrão que não passa na verificação de segurança, são ignorados. Para importar um arquivo JSON simples de scripts, use **Import regexes from JSON** em **Regexes**. Veja [Importar do SillyTavern](../data/importing-from-sillytavern.md).
+
+**Export regexes to JSON** salva todos os scripts globais em um arquivo. Ao selecionar scripts, use **Export** para salvar só os selecionados. Uma exportação de regex em JSON mantém as configurações de cada script. Para manter também a organização em pastas e as configurações de pausa, use **Export Profile** com **Marinara Native**. Veja [Exportar um perfil](../data/backup-and-restore.md#export-a-profile). Scripts importados de um JSON de regex aparecem no nível superior. Mova-os para uma pasta depois de importar.
 
 ### Substituir um pacote de regex
 
 1. Em **Presets → Regexes**, escolha **Select regex scripts** (selecionar scripts de regex).
-2. Marque as entradas do pacote antigo ou escolha **Select all regex scripts** (selecionar todos os scripts de regex).
-3. Use **Export** (exportar) ou **Delete** (excluir) na barra de ações. A exclusão pede uma única confirmação e não pode ser desfeita.
+2. Marque as entradas do pacote antigo. **Select all regex scripts** (selecionar todos os scripts de regex) seleciona a biblioteca inteira, inclusive os scripts em pastas recolhidas.
+3. Clique em **Delete** (excluir) na barra de ações. O Marinara pede confirmação. Para guardar uma cópia, clique em **Export** (exportar) antes de excluir.
 4. Importe o pacote atualizado.
+5. Se você usa uma pasta para o pacote, mova os novos scripts para ela.
 
 As exclusões que falharem continuam selecionadas para você tentar de novo. Os scripts não selecionados ficam onde estão. As atribuições a presets continuam disponíveis no editor de regex.
 

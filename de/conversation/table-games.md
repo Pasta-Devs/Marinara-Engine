@@ -114,7 +114,7 @@ Ein Spiel vorzeitig zu beenden löscht seinen Stand und vermerkt keinen Sieger.
 
 Öffne **Chat Settings → Agents → Commands**, oder den Schritt **Automation**, wenn du den Chat erstellst. Der Hauptschalter **Commands** steuert alle Aktionen, die Charaktere selbst auslösen, auch Tischspiele, Selfies und Anrufe. Ist er aus, beginnen Charaktere von sich aus nichts.
 
-Jedes installierte Spiel hat einen eigenen Schalter, der an ist, solange du ihn nicht ausschaltest: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** und **Rock-Paper-Scissors**. Siehe [Wählen, welche Commands ein Charakter nutzen darf](getting-started.md#choose-which-commands-a-character-can-use).
+Jedes installierte Spiel hat einen eigenen Schalter, der an ist, solange du ihn nicht ausschaltest: **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe** und **Rock-Paper-Scissors**. Weitere Spielepakete wie Blackjack oder Wordle haben einen Schalter mit dem Namen des Spiels. Siehe [Wählen, welche Commands ein Charakter nutzen darf](getting-started.md#choose-which-commands-a-character-can-use).
 
 Diese Schalter steuern nur, was Charaktere tun. Der Slash-Befehl eines Spiels und die Formulierung „let's play“ funktionieren auch, wenn sein Schalter aus ist.
 

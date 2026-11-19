@@ -165,7 +165,7 @@ Fastify API, 파일 네이티브 저장소, 제공자 연동을 담당합니다.
 | `packages/server/src/routes/generate.routes.ts` | 공통 생성 및 에이전트 | 라우트, 스트리밍, 프롬프트, 에이전트, 저장소, 부수 효과가 한 파일에 있습니다. |
 | `packages/server/src/routes/game.routes.ts` | `MODE-GAME` | API 핸들러, GM 흐름, 장면 분석, 에셋, 전투, 영속화가 얽혀 있습니다. |
 | `packages/client/src/components/game/GameSurface.tsx` | `MODE-GAME` | 렌더링, 상태 조율, 에셋, 로그, 나레이션, 전투, 이펙트가 얽혀 있습니다. |
-| `packages/client/src/components/chat/ChatSettingsDrawer.tsx` | 채팅 설정 혼재 | `features/chat-settings`로 섹션을 떼어내는 작업이 진행 중이지만 드로어는 아직 큽니다. |
+| `packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx` | 채팅 설정 혼재 | `features/chat-settings/sections`로 섹션을 떼어내는 작업이 진행 중이지만 드로어는 아직 큽니다. |
 | `packages/client/src/components/game/GameNarration.tsx` | `MODE-GAME` | 표시 렌더링과 명령 서식 처리가 단단히 붙어 있습니다. |
 | `packages/client/src/components/game/GameCombatUI.tsx` | `MODE-GAME` | 전투 표시, 조작, 로그를 더 작은 패널과 훅으로 나눌 수 있습니다. |
 | `packages/client/src/components/chat/RoleplayHUD.tsx` | `MODE-ROLEPLAY` | `RoleplayHUDActionsMenu.tsx`와 `RoleplayHUDPanels.tsx`로 일부는 이미 분리했습니다. |

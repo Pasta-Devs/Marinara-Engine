@@ -35,15 +35,15 @@ Memory Recall braucht ein Modell, das die Fingerabdrücke erzeugt. Legst du nich
 
 Bevor du anfängst: Du brauchst ein Konto, das Embeddings anbietet. Siehe [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 
-1. Öffne **Connections** (Verbindungen) und bearbeite das Konto.
-2. Such den Abschnitt **Semantic search (embeddings)**.
+1. Öffne **Connections** (Verbindungen) und klick auf das Modell, um **Edit model** (Modell bearbeiten) zu öffnen.
+2. Klick auf **More** (Mehr) und such den Abschnitt **Semantic search (embeddings)**.
 3. Trag den Namen eines Embedding-Modells ein, zum Beispiel `text-embedding-3-small`.
 4. Optional: Leg unter **Embedding endpoint URL** eine andere Adresse fest.
 5. Optional: Leih dir über **Embedding provider** (Embedding-Anbieter) Key und Adresse eines anderen Kontos. **Same as this provider** (wie dieser Anbieter) behält die eigenen dieses Kontos.
 
 Manche Dienste bieten keine Embeddings an. Marinara bittet dich dann, ein eigenes Embedding-Konto zu wählen, etwa ein OpenAI-kompatibles, Google oder das eingebaute Modell.
 
-Willst du überall dieselbe Quelle nutzen, wähl sie unter **Embeddings** in **Connections → Defaults** (Standardwerte). Konten ohne eigenes Embedding-Modell verwenden sie dann. Die Einstellung eines Kontos hat weiterhin Vorrang.
+Willst du überall dieselbe Quelle nutzen, wähl sie für die Aufgabe **Embeddings** im Bereich **Jobs** (Aufgaben) von **Connections**. Konten ohne eigenes Embedding-Modell verwenden sie dann. Die Einstellung eines Kontos hat weiterhin Vorrang.
 
 Gibt es weder ein Embedding-Konto noch einen **Embeddings**-Standard, greift Marinara auf ein eingebautes Embedding-Modell zurück. Es wird einmal heruntergeladen und läuft ohne API-Key auf deinem Rechner. Siehe [Eingebautes Modell einrichten](../connections/local-model.md).
 

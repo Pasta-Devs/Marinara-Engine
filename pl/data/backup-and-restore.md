@@ -53,6 +53,8 @@ Każde wykonanie wymaga wolnego miejsca na jeszcze jedno pełne archiwum, poniew
 
 > **Wskazówka:** Przechowuj drugą kopię poza folderem danych. Awaria dysku lub usunięcie danych aplikacji usuwa też automatyczne kopie zapasowe.
 
+<a id="export-a-profile"></a>
+
 ## Eksport profilu
 
 1. Otwórz **Settings → Advanced → Backup & Export**.
@@ -64,6 +66,8 @@ Każde wykonanie wymaga wolnego miejsca na jeszcze jedno pełne archiwum, poniew
 - **Compatible JSON** (zgodny format JSON) tworzy plik `.zip` ze zwykłymi plikami postaci, person i lorebooków dla innych narzędzi. Nie da się go przywrócić w aplikacji Marinara Engine.
 
 Profil natywny pobiera się jako `marinara-profile.json`. Jeśli jest za duży, Marinara proponuje zamiast niego plik ZIP. Kliknij **Export ZIP** (eksport ZIP), aby pobrać `marinara-profile.zip`.
+
+Profil natywny zachowuje skrypty regex, ich foldery i ustawienie wstrzymania każdego folderu. Aby udostępnić pojedyncze skrypty jako JSON, zobacz [Skrypty regex](../extending/regex-scripts.md#import-and-replace-scripts).
 
 Profil natywny zachowuje kod Personal Extension, lecz nie zachowuje informacji o włączeniu ani zatwierdzeniu rozszerzenia. Każde przywrócone rozszerzenie jest wyłączone. Przejrzyj je ponownie w **Settings → Addons** (ustawienia, dodatki).
 

@@ -20,11 +20,11 @@ She smiles Hello there.
 
 ## Ein Regex-Skript anlegen
 
-Deine globalen Skripte liegen im Panel **Presets**, im Abschnitt **Regexes** (Regex-Skripte). Öffne das Panel über die Schaltfläche **Presets** in der oberen Leiste.
+Deine globalen Skripte liegen im Tab **Regexes** (Regex-Skripte) des Panels **Presets**.
 
 ### So legst du ein Regex-Skript an
 
-1. Öffne **Presets** und such den Abschnitt **Regexes**.
+1. Öffne **Presets → Regexes** über die obere Leiste.
 2. Klick auf **Create regex** (Regex anlegen). Der vollständige Editor öffnet sich.
 3. Trag oben einen Namen ein. Ein neues Skript heißt zunächst „New Regex Script“.
 4. Gib unter **Find Pattern (Regex)** `\*([^*]+)\*` ein (siehe [Felder im Editor](#editor-fields)).
@@ -40,15 +40,29 @@ Wenn es nicht funktioniert hat: Ein roter Fehler unter **Find Pattern (Regex)** 
 
 ### Deine Skripte verwalten
 
-Jede Zeile der Liste **Regexes** zeigt den Namen des Skripts, ein Tag **AI** oder **User**, das Muster als `/pattern/flags`, einen Ein-/Aus-Schalter (wirkt sofort), **Edit regex** (Regex bearbeiten, Stift-Symbol) und **Delete regex** (Regex löschen, Papierkorb-Symbol). Gibt es noch keine Skripte, steht in der Liste „No regexes yet“.
-
-Die Kopfzeile des Abschnitts hat drei Symbol-Schaltflächen: **Create regex**, **Import regexes from JSON** (Regex-Skripte aus JSON importieren) und **Export regexes to JSON** (Regex-Skripte als JSON exportieren). Die letzte speichert alle deine globalen Skripte in einer Datei. Skripte, die an einen einzelnen Charakter gebunden sind, werden getrennt verwaltet; siehe [Ein Skript auf einen Charakter begrenzen](#limit-a-script-to-one-character).
+Jede Zeile zeigt den Skriptnamen, ein Tag **AI** oder **User** und das Muster als `/pattern/flags`. Öffne den Editor über den Namen oder **Edit regex** (Regex bearbeiten). Der Schalter daneben bestimmt, ob das Skript läuft. Mit **Delete regex** (Regex löschen) entfernst du es. Sind keine Skripte oder Ordner vorhanden, steht im Tab „No regexes yet“. Charakterspezifische Skripte liegen beim Charakter. Siehe [Ein Skript auf einen Charakter begrenzen](#limit-a-script-to-one-character).
 
 Such im Feld **Search regexes** (Regex-Skripte suchen) nach Skriptnamen oder Mustern. Die Suche öffnet jeden Ordner mit einem Treffer. Während der Suche kannst du Skripte nicht verschieben.
 
-Lege mit **New Folder** (Neuer Ordner) einen Ordner an. Klick auf seinen Namen, um ihn auf- oder zuzuklappen. Schalte ihn aus, um seine Skripte in allen Chats zu pausieren. In der Kopfzeile steht **Paused** (Pausiert). Jedes Skript behält seine gespeicherte Schalterstellung. Ein eingeschaltetes Skript in einem pausierten Ordner zeigt einen grauen Schalter und **Paused by folder** (Durch Ordner pausiert). Löschst du den Ordner, wandern seine Skripte auf die oberste Ebene und folgen ihren eigenen Schaltern.
+<a id="organize-scripts-in-folders"></a>
+
+### Skripte in Ordnern organisieren
+
+1. Lege mit **New Folder** (Neuer Ordner) einen Ordner an.
+2. Klick in der Skriptzeile auf das Ordnersymbol, um **Move to folder** (In Ordner verschieben) zu öffnen.
+3. Wähle den Zielordner. Um das Skript aus einem Ordner zu nehmen, wähle **No folder (top level)** (Kein Ordner, oberste Ebene).
+
+Klick auf seinen Namen, um ihn auf- oder zuzuklappen. Schalte ihn aus, um seine Skripte in allen Chats zu pausieren. In der Kopfzeile steht **Paused** (Pausiert). Jedes Skript behält seine gespeicherte Schalterstellung. Ein eingeschaltetes Skript in einem pausierten Ordner zeigt einen grauen Schalter und **Paused by folder** (Durch Ordner pausiert). Löschst du den Ordner, wandern seine Skripte auf die oberste Ebene und folgen ihren eigenen Schaltern.
 
 Ordner gruppieren Skripte, ohne ihre Ausführungsreihenfolge zu ändern. Klick auf **Execution order** (Ausführungsreihenfolge), um die vollständige Liste in dieser Reihenfolge zu sehen. Zieh ein Skript an seinem Griff, um die Reihenfolge zu ändern. Ohne Ordner steht die Liste bereits in Ausführungsreihenfolge.
+
+### Mehrere Skripte auf einmal ändern
+
+1. Klick auf **Select regex scripts** (Regex-Skripte auswählen).
+2. Markiere die Skripte, die du ändern willst.
+3. Klick auf **Enable selected** (Auswahl aktivieren), **Disable selected** (Auswahl deaktivieren) oder **Move to folder**. Du kannst die Auswahl auch exportieren oder löschen.
+
+**Enable selected** ändert die einzelnen Skriptschalter. Heb die Pause des Ordners auf, damit seine eingeschalteten Skripte wieder laufen.
 
 <a id="editor-fields"></a>
 
@@ -89,7 +103,7 @@ Eine optionale Liste einfacher Zeichenfolgen, die nach der Ersetzung entfernt we
 
 ### Live Test
 
-Füg Beispieltext ein, und das Ergebnis erscheint unter **Result:**. Live Test prüft nur die Logik aus Suchen, Ersetzen und Entfernen. Platzierung, Ein-/Aus-Zustand, Charakterbindung und Tiefe werden erst in einem echten Chat ausgewertet. Im Muster, in der Ersetzung und in den Trim Strings kannst du Makros wie `{{user}}` und `{{char}}` verwenden. Im Live Test verwenden sie Beispielwerte. Siehe [Makros](../prompts/macros.md).
+Füg Beispieltext ein, und das Ergebnis erscheint unter **Result:**. **Live Test** prüft nur die Logik aus Suchen, Ersetzen und Entfernen. Platzierung, Ordnerpause, Skriptschalter, Charakterbindung und Tiefe prüfst du in einem echten Chat. Im Muster, in der Ersetzung und in den Trim Strings kannst du Makros wie `{{user}}` und `{{char}}` verwenden. Im **Live Test** verwenden sie Beispielwerte. Siehe [Makros](../prompts/macros.md).
 
 <a id="choose-where-a-script-runs"></a>
 
@@ -116,7 +130,7 @@ Bei deinen eigenen Nachrichten schreibt ein **User Input**-Skript auf **Only Dis
 
 Beide sitzen in den **Advanced Options**.
 
-- **Execution Order** (Ausführungsreihenfolge) ist eine Zahl. Kleinere Zahlen laufen zuerst. Das zählt, wenn mehrere Skripte denselben Text treffen können. Ein neues Skript startet bei 0, und beim Speichern vergibt die App die nächste freie Zahl. Du kannst die Zeilen auch in der Liste **Regexes** verschieben.
+- **Execution Order** (Ausführungsreihenfolge) ist eine Zahl. Kleinere Zahlen laufen zuerst. Das zählt, wenn mehrere Skripte denselben Text treffen können. Ein neues Skript startet bei 0, und beim Speichern vergibt die App die nächste freie Zahl. Wie du die Reihenfolge im Panel änderst, steht unter [Skripte in Ordnern organisieren](#organize-scripts-in-folders).
 - **Depth Range** (Tiefenbereich) begrenzt mit **Min** und **Max**, wie weit zurück ein Skript läuft. Die neueste Nachricht hat Tiefe 0, die davor Tiefe 1 und so weiter. Lass beide Felder leer, damit das Skript in jeder Tiefe läuft. Ist **Min** größer als **Max**, wird das Speichern blockiert.
 
 ### Gruppenchats
@@ -159,6 +173,8 @@ Gebundene Skripte laufen nicht von selbst in jedem Chat. Eine Einstellung pro Ch
 
 Unter den Modi listet das Panel die gebundenen Skripte jedes Charakters, jedes mit einem eigenen Schalter. Dieser Schalter gehört zum Skript selbst und ändert es deshalb in jedem Chat. Der Modus steuert die Skripte auf der Anzeigeseite. Prompt-Skripte richten sich immer nach dem Charakter, der die Antwort generiert.
 
+<a id="import-and-replace-scripts"></a>
+
 ## Skripte importieren und ersetzen
 
 ### Aus SillyTavern importieren
@@ -166,16 +182,19 @@ Unter den Modi listet das Panel die gebundenen Skripte jedes Charakters, jedes m
 Marinara liest Regex-Skripte, die in einer SillyTavern-Charakterkarte mitgeliefert werden. Beim Import einer Karte bietet der Abschnitt **Imported regex scripts** (importierte Regex-Skripte) zwei Möglichkeiten:
 
 - **Character only** (Standard): Die Skripte bleiben an diesen Charakter gebunden.
-- **Global**: Die Skripte landen unter **Presets** und laufen in jedem Chat.
+- **Global**: Die Skripte landen unter **Presets → Regexes** und können chatübergreifend laufen.
 
 Die Auswahl erscheint im Importdialog für einzelne Charaktere und im Sammelimport über **Import from SillyTavern Folder**. Skripte mit leerem Muster oder mit einem Muster, das die Sicherheitsprüfung nicht besteht, werden übersprungen. Eine einfache JSON-Datei mit Skripten importierst du über **Import regexes from JSON** in **Regexes**. Siehe [Aus SillyTavern importieren](../data/importing-from-sillytavern.md).
+
+**Export regexes to JSON** speichert alle globalen Skripte in einer Datei. Um nur die ausgewählten Skripte zu speichern, nutze **Export**. Ein Regex-JSON-Export behält die Einstellungen der einzelnen Skripte. Verwende **Export Profile** mit **Marinara Native**, um zusätzlich Ordnerzuordnung und Pause-Einstellungen zu speichern. Siehe [Ein Profil exportieren](../data/backup-and-restore.md#export-a-profile). Aus Regex-JSON importierte Skripte erscheinen auf der obersten Ebene. Verschieb sie nach dem Import in einen Ordner.
 
 ### Ein Regex-Paket ersetzen
 
 1. Wähle unter **Presets → Regexes** **Select regex scripts** (Regex-Skripte auswählen).
-2. Markiere die Einträge des alten Pakets oder wähle **Select all regex scripts** (alle Regex-Skripte auswählen).
-3. Nutze **Export** (Exportieren) oder **Delete** (Löschen) in der Aktionsleiste. Das Löschen fragt einmal nach und lässt sich nicht rückgängig machen.
+2. Markiere die Einträge des alten Pakets. **Select all regex scripts** (alle Regex-Skripte auswählen) wählt die ganze Bibliothek aus, auch Skripte in zugeklappten Ordnern.
+3. Klick in der Aktionsleiste auf **Delete** (Löschen). Marinara fragt zur Bestätigung nach. Willst du eine Kopie behalten, klick vor dem Löschen auf **Export** (Exportieren).
 4. Importiere das aktualisierte Paket.
+5. Wenn du einen Ordner für das Paket nutzt, verschieb die neuen Skripte dorthin.
 
 Fehlgeschlagene Löschungen bleiben ausgewählt, damit du es erneut versuchen kannst. Nicht ausgewählte Skripte bleiben, wo sie sind. Preset-Zuordnungen bleiben im Regex-Editor verfügbar.
 

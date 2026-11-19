@@ -233,7 +233,7 @@ Roleplay 모드의 장면과 세계 컨텍스트를 담습니다.
 | `use-knowledge-sources.ts` | 지식 소스 관리 |
 | `use-gallery.ts` | 채팅 갤러리 이미지 |
 | `use-chat-folders.ts` | 채팅 폴더 CRUD와 순서 변경 |
-| `use-regex-scripts.ts` | 정규식 스크립트 CRUD |
+| `use-regex-scripts.ts` | 정규식 스크립트 CRUD, 순서 변경, 일괄 전환 |
 | `use-haptic.ts` | 햅틱 기기 연결과 명령 |
 
 ## 컴포넌트 안내
@@ -364,6 +364,30 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.streamEvents(path, body)` | `POST /api{path}` | SSE 비동기 제너레이터(모든 이벤트 종류) |
 
 오류는 `ApiError`로 던지며, 여기에는 `status`와 `message` 속성이 담깁니다.
+
+## 선택기와 드롭다운
+
+값을 고르는 컨트롤은 모두 공용 선택기 창을 엽니다. 표시 영역, 행 스타일, 너비 등 선택기의 디자인은 아래의 공용 컴포넌트에서 변경하세요. 앱에서는 기본 `<select>`와 기능별 팝오버의 자체 목록을 모두 없앴습니다.
+
+| 계층 | 파일 | 담당하는 부분 |
+| --- | --- | --- |
+| 창 | `components/ui/PickerWindow.tsx` | 표시 영역입니다. 데스크톱에서는 필드 옆에서 행에 필요한 너비로 팝오버를 엽니다. 최소 필드 너비, 최대 352 px이며 필드가 더 넓으면 필드 너비까지 열립니다. 휴대폰에서는 하단 시트(`Modal`)입니다. `Modal` 안에서는 두 시트가 겹치지 않도록 팝오버로 유지합니다. Escape, 뒤로 가기, 바깥 클릭, 스크롤해서 필드가 보이지 않게 되면 닫힙니다. |
+| 행 | `components/ui/PickerParts.tsx` | `PickRow`(이미지, 제목, 두 줄까지 줄바꿈되는 보조 텍스트, 배지, 체크 표시 또는 체크박스로 이루어진 한 행), `PickerSearch`, 폴더 머리글, `usePickerKeyboard`(방향키와 Enter)입니다. |
+| 목록 | `components/ui/PickerFolderList.tsx` | 검색 상자, 라이브러리 폴더나 `group`에 따라 묶은 행, 단일 또는 다중 선택, 폴더마다 있는 "Add all"을 담는 본문입니다. |
+| 필드 | `components/ui/Select.tsx` | `Select`는 고정 목록에서 값 하나를 고르는 기본 `<select>`의 대체품입니다. 콤보 상자 트리거, 선택지 `SELECT_SEARCH_MIN`개부터 검색, 닫힌 필드에서 방향키와 타이핑으로 이동을 지원합니다. |
+| | `components/ui/PickerField.tsx` | `PickerField`(None 행과 폴더가 있는 단일 선택), `PickerListField` / `PickerListWindow`(다중 선택, 고른 항목은 필드 아래에 제거 버튼과 함께 표시), `useFieldWindow`(열린 상태와 닫을 때 필드로 포커스 복귀)입니다. |
+| | `components/ui/LibraryPickers.tsx`, `components/characters/CharacterSelect.tsx` | 위 컴포넌트로 만든 프리셋, 로어북, 캐릭터, 페르소나 필드입니다. |
+
+선택기를 추가하는 방법은 다음과 같습니다.
+
+- **목록의 값 하나:** `Select`를 쓰세요. `label`이 필드 이름과 창 제목이 됩니다.
+- **라이브러리 항목 하나**(폴더, 이미지, None 행 포함): `PickerField` 또는 `LibraryPickers.tsx`의 해당 필드를 쓰세요.
+- **항목 여러 개:** `PickerListField`를 쓰세요. Escape나 바깥 클릭으로 창을 닫을 수 있으며, 항목을 골라도 닫히지 않습니다.
+- **필드 이외의 컨트롤**("Link to Conversation"처럼 짧은 선택 목록을 여는 버튼): 열린 상태와 포커스에는 `useFieldWindow`를 쓰고, 버튼에 `PickerWindow`를 붙이고 내부에 `PickerFolderList` 또는 `PickRow`를 넣으세요.
+
+연결 및 모델 선택기(`ConnectionSelect` / `ModelPicker`)는 아직 자체 창을 씁니다. 아이콘 갤러리(`StatIconPicker`), 태그 자동 완성, 컨텍스트 메뉴와 작업 메뉴에도 자체 표시 영역이 있으며 선택기에 해당하지 않습니다.
+
+**테스트.** `Select` 트리거에는 `role="combobox"`와 선택 값을 담은 `data-value`가 있습니다. 창은 필드 레이블을 이름으로 쓰는 `dialog`입니다. 행마다 `data-pick-row`가 있습니다. 단일 선택에서 선택한 행에는 `aria-current="true"`가 있고, 다중 선택의 행에는 `aria-pressed`가 있습니다. `e2e/select-field.ts`의 `chooseOption`과 `pickerLabels`는 이전 기본 선택 요소에서 쓰던 Playwright의 `selectOption`을 대신합니다.
 
 ## 스타일 시스템
 

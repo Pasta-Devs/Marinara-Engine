@@ -37,7 +37,7 @@ Pour **SwarmUI**, Marinara remplit `http://127.0.0.1:7801`. Colle un workflow vi
 
 ### En faire le modèle vidéo par défaut
 
-Pour utiliser un modèle vidéo quand un chat n'a pas le sien, règle la tâche **Video** sous **Defaults** (valeurs par défaut), en haut du panneau **Connections**. Dans Chat Settings, elle apparaît sous le nom **Default video provider** (fournisseur vidéo par défaut). Sans modèle de chat ni modèle par défaut, les actions vidéo t'avertissent pour que tu en choisisses un.
+Pour utiliser un modèle vidéo quand un chat n'a pas le sien, règle la tâche **Video** dans l'encadré **Jobs** (tâches), en haut du panneau **Connections**. Dans Chat Settings, elle apparaît sous le nom **Default video provider** (fournisseur vidéo par défaut). Sans modèle de chat ni modèle par défaut, les actions vidéo t'avertissent pour que tu en choisisses un.
 
 ### Instructions pour les prompts vidéo
 

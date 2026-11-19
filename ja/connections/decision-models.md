@@ -130,23 +130,25 @@ Marinaraはモデルにはい・いいえの質問を1つ送り、1トークン�
 
 問い合わせ方は内蔵モデルと同じで、判定文ごとにはい・いいえの1語を求めます。サーバーが同時にいくつのリクエストを処理できるかMarinaraには分からないため、判定文は1つずつ送ります。アカウントの**Thinking**(推論)は常に**Auto**です。別のコンピューター上のサーバーには`PROVIDER_LOCAL_URLS_ENABLED`が必要です。[ローカルモデルやセルフホストモデルへの接続](local-self-hosted.md)を参照してください。
 
+<a id="set-up-a-decision-account"></a>
+
 <a id="set-up-a-decision-connection"></a>
 
-## Decision接続の設定
+## Decisionアカウントの設定
 
 ホスト型のDecisionアカウントは、選択した最近のメッセージと判定文をサービスに送信し、料金が発生することがあります。Smart応答順では[キャラクター一覧](#what-the-model-sees)も送信します。
 
 1. 上部バーの**Connections**(接続)をクリックし、**Add**(追加)をクリックします。
-2. 種類のボタンで**Decision**(判定)をクリックし、**TypeSafe**または**Own decision server**をクリックします。NanoGPTは[NanoGPT経由](#through-nanogpt)、OpenRouterまたはGoogle Geminiは[OpenRouterまたはGoogle Gemini経由](#through-openrouter-or-google-gemini)を参照してください。
-3. **API key**(APIキー)を入力します。**Own decision server**の場合は**Server address**(サーバーのアドレス)を入力します。**Connect**(接続)をクリックします。ウィンドウが閉じ、パネルに新しいアカウントが表示されます。
-4. **Behind the scenes**(裏方の処理)の下にある**Decision**の行をクリックし、新しいモデルを選びます。
+2. **TypeSafe**または**Own decision server**を検索するか、種類のチップで**Text**(テキスト)をクリックします。OpenRouterの場合は**OpenRouter**をクリックします。
+3. **API key**(APIキー)を入力します。**Own decision server**の場合は**Server address**(サーバーのアドレス)を入力します。**Connect**(接続)をクリックします。
+4. **Found in TypeSafe — use it for:**で**Decision**にチェックを入れ、**Done**(完了)をクリックします。**Jobs**(役割)ボックスの**Behind the scenes**(裏方の処理)の下にある**Decision**の行にモデルが表示されます。
 5. テストするには、パネルでモデルをクリックして**Edit model**(モデルの編集)を開き、**Provider tests**(プロバイダーのテスト)カードの**Test provider**(プロバイダーをテスト)をクリックします。**Own decision server**のモデルには、そこに**Test provider**ボタンがありません。代わりに、パネルでアカウントの**⋯**メニューを開き、**Test**(テスト)をクリックします。
 
 **Test provider**に成功すると、確率、回答にかかった時間、アカウントの制限時間が表示されます。**⋯**メニューにあるアカウントの**Test**では、動作したかどうかと、かかった時間だけが表示されます。テストは少なくとも10秒待ちます。制限時間がそれより長い場合は、その制限時間の5秒後まで待ちます。回答が制限時間より長くかかった場合は、結果にその旨が表示されます。チャットでは、その回答は回答なしとして扱われます。
 
 うまくいかなかった場合は、[トラブルシューティング](#troubleshooting)を参照してください。
 
-Decisionエディター(判定モデルの**Edit model**)には、次の欄があります。
+判定モデルには次の欄があります。パネルでモデルをクリックすると**Edit model**(モデルの編集)が開きます。**Jobs**ボックスの**Decision**の行にある歯車をクリックすると、現在のモデルの**Decision settings**(判定の設定)が開きます。
 
 | 欄 | 内容 |
 | --- | --- |

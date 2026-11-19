@@ -161,7 +161,7 @@ Unter **Voice** spricht ein Audiodienst Charakterstimmen und Erzähltext. Wähle
 
 Jede Quelle trägt eine Standardadresse und ein Standardmodell ein. **Default voice** (Standardstimme) ist die Stimme, die gilt, solange nichts Spezifischeres festgelegt ist, etwa eine eigene Stimme pro Charakter. **Request timeout (seconds)** legt fest, wie lange Marinara auf eine gesprochene Zeile wartet. Erhöhe den Wert bei einem langsamen Sprachserver.
 
-Um das Sprachkonto festzulegen, das Marinara standardmäßig nutzt, klick im Bereich **Jobs** (Aufgaben) auf die Zeile **Voice (Text to Speech)**. Um damit Nachrichten vorlesen zu lassen, wähle es in der Karte **Text to Speech** als **Source** (Quelle). Siehe [Text to Speech (TTS) einrichten](../media/tts-setup.md) und [Eine Audioverbindung verwenden](../media/tts-setup.md#use-a-voice-model-from-an-account).
+Um das Standardkonto für die Sprachausgabe zu wählen, klick im Bereich **Jobs** (Aufgaben) auf die Zeile **Voice** (Stimme). Damit der Dienst Nachrichten vorliest, wähl sein Modell in dieser Zeile. Siehe [Text to Speech (TTS) einrichten](../media/tts-setup.md) und [Ein Stimmmodell aus einem Konto verwenden](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 
@@ -187,7 +187,7 @@ Schalte generiertes Audio für jedes Game einzeln ein, oder schalte **Sound effe
 
 ## Embeddings
 
-Embeddings verwandeln Text in Zahlenlisten, damit Marinara verwandten Text finden kann. Sie treiben die semantische Suche in Lorebooks und Memory Recall an. Bei den meisten Chat-Diensten kannst du im Modell-Editor unter **Semantic search (embeddings)** (semantische Suche) ein Embedding-Modell und optional eine **Embedding endpoint URL** angeben.
+Embeddings verwandeln Text in Zahlenlisten, damit Marinara verwandten Text finden kann. Sie treiben die semantische Suche in Lorebooks und Memory Recall an. Bei den meisten Chat-Diensten kannst du unter **More** (Mehr) → **Semantic search (embeddings)** (semantische Suche) im Fenster **Edit model** (Modell bearbeiten) ein Embedding-Modell und optional eine **Embedding endpoint URL** angeben.
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** und **Grok CLI (Subscription)** können keine Embeddings erzeugen. Nutze dort das Dropdown-Menü **Embedding provider** (Embedding-Anbieter), um ein anderes Konto mitzuverwenden, etwa ein OpenAI-kompatibles, **Google Gemini** oder das **Built-in model** (eingebautes Modell).
 

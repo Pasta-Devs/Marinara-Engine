@@ -165,7 +165,7 @@ API на Fastify, файловое хранилище и интеграции с
 | `packages/server/src/routes/generate.routes.ts` | общая генерация и агенты | Маршрут, стриминг, промпт, агенты, хранилище и побочные эффекты собраны в одном файле. |
 | `packages/server/src/routes/game.routes.ts` | `MODE-GAME` | Обработчики API, сценарий GM, анализ сцены, ресурсы, бой и сохранение данных сцеплены друг с другом. |
 | `packages/client/src/components/game/GameSurface.tsx` | `MODE-GAME` | Отрисовка, управление состоянием, ресурсы, журналы, повествование, бой и эффекты сцеплены друг с другом. |
-| `packages/client/src/components/chat/ChatSettingsDrawer.tsx` | смешанные настройки чата | Разделы постепенно выносятся в `features/chat-settings`, но выдвижная панель все еще большая. |
+| `packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx` | смешанные настройки чата | Разделы постепенно выносятся в `features/chat-settings/sections`, но выдвижная панель все еще большая. |
 | `packages/client/src/components/game/GameNarration.tsx` | `MODE-GAME` | Отрисовка на экране и форматирование команд тесно сцеплены. |
 | `packages/client/src/components/game/GameCombatUI.tsx` | `MODE-GAME` | Показ боя, элементы управления и журналы можно разбить на меньшие панели и хуки. |
 | `packages/client/src/components/chat/RoleplayHUD.tsx` | `MODE-ROLEPLAY` | Часть уже вынесена в `RoleplayHUDActionsMenu.tsx` и `RoleplayHUDPanels.tsx`. |

@@ -79,10 +79,13 @@ En Roleplay, en mode **Individual** avec l'ordre **Smart** ou **Manual** (manuel
 
 Utilise le sélecteur **Trigger Response** pour choisir un intervenant. Sur ordinateur, c'est un bouton à côté de **Send** (envoyer), avec l'étiquette **Trigger character response** (déclencher la réponse d'un personnage). Sur téléphone, il se trouve sous **Trigger Response**, dans le tiroir d'outils que tu ouvres depuis la barre de message. Pour nommer un intervenant par écrit, tape `@` suivi du nom du personnage. Une liste d'autocomplétion apparaît.
 
+<a id="more-individual-settings"></a>
+
 ### Autres réglages Individual
 
 - **Add Turn To Prompt** (ajouter le tour au prompt) est activé par défaut. Il ajoute une courte instruction qui indique quel personnage doit répondre.
 - **Name Prefix History** (préfixer l'historique par les noms ; Roleplay uniquement) est désactivé par défaut. Il change la façon dont les messages passés sont étiquetés avec le nom de leur auteur. Laisse-le désactivé, sauf si un personnage confond sans arrêt qui a dit quoi.
+- **Others' Public Faces** (images publiques des autres) est réservé à Roleplay et désactivé par défaut. Chaque personnage reçoit seulement sa propre fiche, donc il ne connaît les autres que par le chat. Active ce réglage pour ajouter le texte **Public Face** des autres personnages actifs à chaque tour d'un personnage. Il décrit ce que chacun dans la scène pourrait savoir d'eux, sans leurs secrets. Les personnages inactifs ou dont le champ Public Face est vide sont exclus. Pour remplir ce champ, voir [Onglet Card](../characters/creating-and-editing-characters.md#card-tab).
 
 ### Scenario Override (Roleplay)
 
@@ -102,6 +105,7 @@ Active **Character Exchanges** (échanges entre personnages) dans **Chat Setting
 | **Response Order** | Individual | Sequential |
 | **Add Turn To Prompt** | Individual | Activé |
 | **Name Prefix History** | Roleplay, Individual | Désactivé |
+| **Others' Public Faces** | Roleplay, Individual | Désactivé |
 | **Scenario Override** | Roleplay | Vide |
 | **Character Exchanges** | Conversation, Autonomous Messaging | Désactivé |
 

@@ -41,6 +41,27 @@ O significado do número depende do tipo: `dice-sum` o soma à rolagem; `dice-po
 - `unmodified`: faces de um dado único que o registro marca quando o primeiro dado as mostra (1.136), para que tabelas que tratam à parte "um 66 não modificado" possam ser aplicadas: `[66, 100]`. O registro diz `unmodified="66"`, o cartão também, e o Game Master é instruído a aplicar o que as regras dizem sobre isso.
 - `difficultyLadder`: dificuldades entre as quais o GM deve escolher. `dc` é o número que o total precisa alcançar. O GM pode nomear um patamar em vez de escrever seu número, como `difficulty="Hard"`, e o Engine lê o número desse patamar.
 
+#### Dois dados nomeados
+
+Um teste somado pode rolar dois dados com nomes próprios, e o que acontece na história depende de qual deles mostra o maior valor (Capability API 1.821). Um conjunto comunitário não precisa declarar nada. Um conjunto empacotado declara 1.821.
+
+```json
+"dice": { "count": 2, "sides": 12 },
+"duality": {
+  "dice": [{ "id": "hope", "label": "Hope" }, { "id": "fear", "label": "Fear" }],
+  "tieIsCritical": true,
+  "text": "With Hope the player gains a Hope; with Fear the Game Master gains a Fear."
+}
+```
+
+- `dice`: Os dois nomes, na ordem da rolagem. O primeiro dado em `rolls` é o primeiro da lista.
+- `tieIsCritical`: Opcional. O padrão é `true`. Nesse caso, um empate é um sucesso crítico, qualquer que seja o total.
+- `text`: Opcional. Uma linha que explica ao Game Master o significado de cada dado na mesa.
+
+O total continua sendo a soma dos dois dados e do modificador, comparada à dificuldade como de costume. O registro indica qual dado mostrou o valor maior, como `duality="Hope"`, ou registra o empate como `duality="tie"`. O cartão de dados também mostra isso, e o Game Master recebe a instrução de narrar o teste conforme o dado indicado.
+
+`duality` exige `dice.count` igual a 2, faces comuns (sem `faces`), ausência de `openEnded` e `advantage` falso. Os dois identificadores precisam ser diferentes. Os rótulos também precisam ser diferentes, e nenhum pode ser `tie`, pois o registro identifica o dado vencedor pelo rótulo. Uma substituição pode ativar ou remover a opção em alguns testes.
+
 #### Um dado de trama
 
 Um teste somado pode rolar mais um dado cujas faces trazem símbolos, não números (Capability API 1.822). Um conjunto comunitário não precisa de nada; um empacotado declara 1.822.
@@ -139,6 +160,8 @@ O número da ficha é o **tamanho da reserva**, não um bônus adicional. Uma po
 - `situationalDice`: opcional. Limites de dados que o GM pode adicionar ou retirar com `bonus=` por acrobacias, ferimentos ou pouca luz.
 - `pairs`: opcional (Capability API 1.824). `{ "from": 10, "successes": 4 }` faz cada par de dados que mostra `from` ou mais contar `successes` juntos, em vez de um cada, e um teste que tem sucesso com um par é um sucesso crítico. Três 10 são um par e mais um: cinco. `from` fica igual ou acima do maior alvo, e `pairs` não pode ficar ao lado de `double` nem de `stances`.
 - `hunger`: opcional (Capability API 1.824). `{ "label": "Hunger", "max": 5, "text": "..." }` permite que até `max` dados da reserva sejam dados especiais. O Game Master os pede num teste com `hunger="N"`, um número geralmente lido de uma trilha da ficha. Eles são os primeiros dados em `rolls`, fazem parte da reserva (nunca são dados extras) e nenhuma nova rolagem os toca. Um sucesso crítico com um deles na face crítica (a face de `pairs`, ou a maior do dado) é marcado com `messy="true"`, e uma falha com um deles mostrando 1 é marcada com `bestial="true"`. O registro também diz `hunger="2" hungerLabel="Hunger"`, e o cartão de dados mostra tudo isso. `max` não pode passar de `pool.max`.
+- `groups`: Opcional (Capability API 1.826). Até três grupos distinguem os dados da reserva pela origem: `{ "id": "base", "label": "Base", "from": "ability" }`, `{ "id": "skill", "label": "Skill", "from": "skill", "banes": false }` e `{ "id": "gear", "label": "Gear", "from": "gear" }`. Os dados aparecem em `rolls` na ordem da lista de grupos. O grupo `ability` contém os dados do atributo, o grupo `gear` contém os dados pedidos pelo Game Master com `gear="N"`, e o grupo `skill` contém os demais. Uma penalidade reduz primeiro os dados de perícia. Cada grupo conta os resultados 1, salvo quando `banes` é falso. O registro indica `groups="Base:2:1|Skill:2|Gear:1:0"`: a quantidade de dados de cada grupo, seguida da quantidade de resultados 1 onde eles são contados. O cartão de dados mostra o mesmo. Há um grupo por origem, `skill` é obrigatório, os rótulos são distintos e `groups` é incompatível com `explode`. Cabe ao Game Master aplicar as consequências de um resultado 1.
+- `push`: Opcional (Capability API 1.826). `{ "text": "..." }` permite forçar uma rolagem uma vez. O Game Master escreve o mesmo teste com `push="true"`. O Engine recupera a última rolagem desse personagem no registro da resposta anterior, sem usar os números da nova tag. Ele relança os dados que não tiveram sucesso nem mostraram um 1 que conte (sem grupos, preserva todos os resultados 1). A rolagem anterior tem de ser do mesmo personagem. Um registro sem nome é do jogador. A nova rolagem usa o alvo anterior e não gasta, usa nem acrescenta nada. O novo registro informa `pushed="N"` com o número de dados relançados. Um registro com `pushed` não pode ser forçado de novo. Se não houver uma rolagem anterior elegível do personagem (segunda tentativa, tentativa para todo o grupo, tentativa dentro de `[branch:]` ou uma rolagem anterior que esse teste não poderia produzir), nenhum dado é rolado. O Engine grava `reason="not-pushable"` para encerrar o teste. `push` é incompatível com `stances`, `explode` e `hunger`.
 - `reroll`: opcional. Novas rolagens que o sistema concede sem que ninguém pague por elas, até seis, cada uma com um `id` que o GM nomeia num teste com `reroll=`. Faces iguais ou inferiores a `upTo` são roladas de novo: com `"once"`, a nova face vale, seja qual for; com `"until"`, até mostrarem mais. `upTo` vai de 1 até uma face abaixo do número de faces do dado, já que rolar de novo todas as faces nunca pararia, e um `until` para de qualquer forma depois de cem novas rolagens num teste. Nenhuma é rolada a menos que o teste a nomeie. Um teste faz uma única nova rolagem: quando um gasto ou uma entrada usada pelo personagem também comprou uma, rola-se a que alcança mais faces e, se alcançarem as mesmas, `until` prevalece sobre `once`.
 - `difficultyLadder`: `successes` informa quantos sucessos são necessários. Um patamar também pode nomear `target`, mas só se for ajustável e dentro dos limites. Esse alvo é o que um teste naquele patamar usa para contar: quando o GM nomeia o patamar com `difficulty=` ou escreve um `dc=` que exatamente um patamar exige. Quando vários patamares exigem o mesmo número de sucessos, `dc=` sozinho não diz qual foi o pretendido, então o alvo continua sendo o padrão; nomeie o patamar.
 

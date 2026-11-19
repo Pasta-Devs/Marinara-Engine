@@ -7,14 +7,14 @@
 API 密钥是服务给你的一串秘密代码，Marinara 靠它使用你的账号。每个服务的网址都由 Marinara 自动填好，所以很少需要自己输入。
 
 1. 点击顶栏里的 **Connections**(连接)，再点击 **Add**(添加)。**Add account**(添加账号) 窗口随即打开。
-2. 找到要用的服务。列表里有 **Images & video**(图像与视频) 分区，也可以用 **Search providers**(搜索服务商) 查找。
+2. 找到要用的服务。点击类型筛选中的 **Image**(图像)，或者在 **Search providers**(搜索服务商) 中输入文字。
 3. 把密钥粘贴到 **API key**(API 密钥) 输入框。免费服务和本地服务不需要密钥。如果是你自己运行的服务器，就填好地址字段。
 4. 点击 **Connect**(连接)。Marinara 会测试这个账号。
-5. 从列表里选一个图像模型，或者输入模型 ID。这就是你的图像模型，它会显示在 **Connections** 面板里这个账号的下方。
+5. 在 **Found in … — use it for:** 下勾选 **Images**(图像)。如果服务没有模型列表，就在这一行输入模型 ID。点击 **Done**(完成)。
 6. 打开这个图像模型，点击 **Test image**(测试图像)。Marinara 会生成一张小尺寸的测试图。
-7. 要让应用用它来出图，在 **Connections** 面板顶部的 **Defaults**(默认值) 下设置 **Images**(图像) 这项工作。
+7. 在第 5 步勾选 **Images**，也会设置 **Connections** 面板顶部 **Jobs**(分工) 区域中的 **Images** 工作。以后要修改，点击 **Images** 行。
 
-要给某个账号再添加一个图像模型，打开它的 **⋯** 菜单，点击 **Add image model**(添加图像模型)。窗口的完整说明见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
+要给某个账号再添加一个图像模型，点击账号行中的 **⋯**，选择 **Add model**(添加模型)。窗口的完整说明见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 
 如果没有成功：密钥或地址不对时，**Test image** 会失败，先把这两项都检查一遍。**Test provider**(测试服务商) 只检查 Marinara 能否连上这个服务。**Test image** 会实际生成一张图，可能消耗额度。
 

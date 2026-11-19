@@ -125,6 +125,7 @@ Marinara는 데이터를 일반 JSON 파일로 보관하므로 백업을 복사�
 | `LOG_LEVEL` | `warn` | 위의 레벨입니다. |
 | `LOG_PRESET` | `default` | `prompt-connections`는 `debug`와 같은 수준의 프롬프트와 모델 정보를 보여 주면서 `GET /api/chats` 같은 일상적인 요청 줄은 숨깁니다. |
 | `LOG_DISABLE_REQUEST_LOGGING` | `false` | `true`로 두면 레벨은 그대로 두고 일상적인 요청 줄을 숨깁니다. 재시작이 필요합니다. |
+| `LOG_INLINE_MEDIA` | `short` | `short`는 이미지와 기타 base64 파일을 유형과 크기가 들어간 짧은 표시로 디버그 출력에 기록합니다. `full`은 전체를 출력하므로 프롬프트당 수 MB가 될 수 있습니다. |
 | `LOG_FORMAT` | 자동 | `pretty`는 어디서나 읽기 쉬운 줄로 출력합니다. 예를 들어 `docker logs`에서 **Debug mode**(디버그 모드) 프롬프트를 읽을 때 씁니다. `json`은 한 줄에 JSON 객체 하나씩 출력합니다. 재시작이 필요합니다. |
 
 터미널에서는 서버가 읽기 쉬운 줄로 출력합니다. Docker 로그처럼 그 밖의 곳에서는 프로덕션 서버가 JSON 줄로 출력합니다. Termux 런처는 읽기 쉬운 줄을 요청합니다. 브라우저 로그는 별개이며 `LOG_LEVEL`로 제어하지 않습니다.

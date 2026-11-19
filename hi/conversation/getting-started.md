@@ -57,6 +57,7 @@ Commands वे काम हैं जो कैरेक्टर खुद �
 | **8-Ball Pool** | पूल की बाज़ी लगाना | 8-Ball Pool |
 | **Tic-Tac-Toe** | tic-tac-toe की चुनौती स्वीकार करना | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | एक मुकाबला स्वीकार करना | Rock-Paper-Scissors |
+| गेम के नाम वाले दूसरे कमांड | वह गेम शुरू या स्वीकार करना | वही गेम, जैसे Blackjack या Wordle |
 
 **Influence** और **Notes** के लिए [Conversation को Roleplay या Game से जोड़ना](../chats/connected-chats.md) देखें। आखिरी कॉलम उस एजेंट का नाम बताता है जिसे **Agent Organizer** से इंस्टॉल करना है।
 

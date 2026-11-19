@@ -11,7 +11,7 @@ Professor Mari é a assistente integrada da tela inicial. Ela explica o aplicati
 
 A janela dela se abre. Você também chega até ela de qualquer tela: digite na busca e escolha **Ask Prof. Mari**, pressione <kbd>Ctrl</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> no Mac) ou, no celular, puxe a barra superior para baixo. O cabeçalho dela mostra **Ready to help** quando ela está parada e **Working on it...** enquanto ela trabalha.
 
-Digite a sua mensagem em linguagem comum e pressione <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha. Se você desligar **Enter sends to Professor Mari** (Enter envia para a Professor Mari) nas configurações dela, <kbd>Enter</kbd> quebra a linha e <kbd>Ctrl</kbd>+<kbd>Enter</kbd> envia. A sua primeira mensagem desbloqueia a conquista **Hello World**.
+Digite a sua mensagem em linguagem comum e pressione <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> quebra a linha. Se você desligar **Enter sends to Professor Mari** (Enter envia para a Professor Mari) nas configurações dela, <kbd>Enter</kbd> quebra a linha e <kbd>Ctrl</kbd>+<kbd>Enter</kbd> envia. Você também pode enviar pelo botão de envio. O botão liga/desliga é salvo por dispositivo, então você pode desligá-lo no celular e mantê-lo ligado no computador. A sua primeira mensagem desbloqueia a conquista **Hello World**.
 
 Todas as configurações dela ficam em **Settings → General → Search and Professor Mari settings → Open** (Configurações → Geral → configurações da busca e da Professor Mari → abrir), ou na engrenagem da busca. No computador, os controles deslizantes **Height** (altura) e **Width** (largura), em **Professor Mari window** (janela da Professor Mari), mudam o tamanho da janela dela. No celular, a janela dela ocupa a tela inteira.
 
@@ -39,7 +39,7 @@ Ela lê um item antes de editá-lo e pergunta quando o seu pedido está vago.
 - Criar ou editar um tema, um agente, um preset de prompt ou um rascunho de Personal Extension. O rascunho fica desativado até você ler o código dele e aprová-lo em **Settings → Addons** (Configurações → Complementos).
 - Editar uma seção de um preset no próprio lugar, em vez de substituir o preset inteiro.
 - Comparar os agentes disponíveis para download e dizer quais combinam com o seu objetivo. Ela encaminha você para **Agents → Agent Organizer** (agentes → Organizador de agentes) para instalá-los. Veja [Referência dos agentes para download](../agents/built-in-agents.md).
-- Gerar ou atribuir imagens, como avatares, sprites e planos de fundo. Antes, você precisa de uma conta de geração de imagens. Ela não cria essa conta.
+- Gerar ou atribuir imagens, como avatares, sprites e planos de fundo. Antes, você precisa de uma conta de geração de imagens. Ela não cria essa conta. Clique em uma imagem que ela criou para abri-la em tamanho real, ler o prompt que a gerou, baixá-la ou editar o prompt e gerar a imagem de novo. A imagem nova substitui a anterior na resposta dela.
 - Consultar páginas públicas de wikis do Fandom quando você pesquisa um personagem ou um mundo.
 
 ### Comece com uma sugestão

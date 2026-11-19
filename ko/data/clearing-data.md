@@ -36,7 +36,7 @@
 | **Lorebooks**(로어북) | 모든 로어북, 항목, 폴더. |
 | **Presets**(프리셋) | 기본 제공 프리셋을 제외한 모든 프롬프트 프리셋과 프리셋 폴더. |
 | **Connections**(연결) | 저장된 모든 계정, 그리고 계정에 묶인 모델 선택과 음성 설정. |
-| **Automation & Addons**(자동화 및 애드온) | 모든 에이전트 설정, 사용자 지정 도구, 정규식 스크립트, 동기화된 테마. Personal Extensions와 External Extensions는 제외합니다. |
+| **Automation & Addons**(자동화 및 애드온) | 모든 에이전트 설정, 사용자 지정 도구, 정규식 스크립트와 해당 폴더, 동기화된 테마. Personal Extensions와 External Extensions는 제외합니다. |
 | **Media & Assets**(미디어 및 에셋) | 배경, 아바타, 스프라이트, 갤러리, 장면 영상, 글꼴, 지식 소스 파일. |
 
 자세한 내용은 다음과 같습니다.

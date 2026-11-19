@@ -36,7 +36,7 @@ Se não funcionou: leia a mensagem vermelha ao lado do arquivo. Os outros arquiv
 | | **No tags**: ignora as tags. |
 | | **Existing only**: mantém as tags que já existem na sua biblioteca. |
 | **Imported regex scripts** (scripts de regex importados) | **Character only** (padrão): as regras valem para este personagem. |
-| | **Global**: as regras vão para **Presets → Regexes** e valem em todos os chats. |
+| | **Global**: as regras vão para **Presets → Regexes** e podem rodar em diferentes chats. |
 | **Split description into fields** (dividir a descrição em campos) | Desligada por padrão. Marque a opção para tirar de **Description** (descrição) o texto rotulado de personalidade, aparência e similares e colocá-lo nos campos próprios. |
 
 Os scripts de regex são pequenas regras de substituição de texto. Mantenha **Character only**, a não ser que você queira as regras em todo lugar. A divisão deixa como estão os cards de narrador, de mundo e de vários personagens.

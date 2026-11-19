@@ -42,6 +42,8 @@ Cada parámetro numérico tiene una casilla de entrada y un interruptor de enví
 - Con el interruptor de envío activado, **Off** le pide al proveedor que desactive el razonamiento, cuando se sabe que el modelo lo admite. Algunos modelos no pueden desactivar el razonamiento y pueden seguir devolviéndolo. Elige un modelo sin razonamiento cuando sea imprescindible que no lo haya.
 - Con el interruptor de envío desactivado, no se envía ninguna preferencia de razonamiento, y el proveedor usa su propio valor predeterminado.
 
+MiniMax M3.1 Flash en NanoGPT siempre razona. Ofrece niveles de **Low** a **Max**. Si no recibe un nivel, NanoGPT usa **Max**. Si habías guardado **Off**, Marinara envía **Low**.
+
 **Verbosity** (Verbosidad) fija cuán largas y detalladas deben ser las respuestas: **None**, **Low**, **Medium** o **High**. Solo algunos modelos lo usan.
 
 ## Consejos de ajuste
@@ -156,7 +158,9 @@ La línea **Effective** junto a un parámetro muestra el valor que gana y de qu�
 
 ## Parámetros para agentes
 
-Las llamadas de los agentes usan los **Chat defaults** guardados en la cuenta con la que se ejecutan: la cuenta propia del agente, o la del chat si el agente no tiene una. Los interruptores de envío y los límites del modelo se aplican como en una respuesta del chat. Los presets y los **Advanced Parameters** de un chat no cambian las llamadas de los agentes, salvo por la regla de temperatura de más abajo.
+Las llamadas de los agentes usan los **Chat defaults** guardados en la cuenta con la que se ejecutan: la cuenta propia del agente, o la del chat si el agente no tiene una. Los interruptores de envío y los límites del modelo se aplican como en una respuesta del chat. Las reglas de abajo indican cuándo usan los agentes los **Advanced Parameters** del chat.
+
+En Roleplay, **Reasoning Effort** del chat y su interruptor de envío también se aplican al **Prompt Model** de Illustrator. Las ilustraciones automáticas, los comandos del narrador y las ilustraciones manuales usan ese ajuste si lo has definido. El modelo de respaldo usa su propio nivel de razonamiento guardado cuando lo tiene.
 
 - **Se envían a los agentes:** Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, los encabezados personalizados y los parámetros adicionales que agregas en **Settings** (Configuración), luego **Advanced** (Avanzado) y luego **Parameters** (Parámetros), como Top A o una semilla. Un parámetro con el interruptor de envío desactivado no se envía.
 - **No se envían a los agentes:** Max Output Tokens, secuencias de parada, prefills, Thinking Tags y otros ajustes de formato del prompt. Cada agente conserva su propio **Max Output Tokens**.

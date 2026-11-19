@@ -36,7 +36,7 @@ Si ça n'a pas marché : lis le message rouge à côté du fichier. Les autres f
 | | **No tags** : ignore-les. |
 | | **Existing only** : garde les tags déjà présents dans ta bibliothèque. |
 | **Imported regex scripts** (scripts regex importés) | **Character only** (par défaut) : les règles s'exécutent pour ce personnage. |
-| | **Global** : les règles vont dans **Presets → Regexes** (presets → regex) et s'exécutent dans tous les chats. |
+| | **Global** : les règles vont dans **Presets → Regexes** (presets → regex) et peuvent s'exécuter dans plusieurs chats. |
 | **Split description into fields** (répartir la description en champs) | Désactivée par défaut. Coche-la pour sortir de **Description** les passages de personnalité, d'apparence et autres annoncés par un intitulé, et placer chacun dans son propre champ. |
 
 Les scripts regex sont de petites règles de remplacement de texte. Garde **Character only**, sauf si tu veux ces règles partout. La répartition ne touche pas aux fiches de narrateur, d'univers ou à plusieurs personnages.

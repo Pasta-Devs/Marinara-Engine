@@ -42,14 +42,13 @@ Marinara는 브라우저에서 마이크나 카메라를 녹음합니다. 입력
 
 ### Text to Speech 설정하기
 
-Text to Speech는 어떤 캐릭터가 어떤 음성으로 말할 수 있는지 정합니다. 전체 안내는 [Text to Speech(TTS) 설정](../media/tts-setup.md)을 읽으세요. 간단히 말하면 **Connections**(연결)를 열고 **Add account**를 클릭한 다음 **Text to speech**를 고르세요. **On this device** 아래에 이미 있으면 그곳에서 여세요. 그다음 이렇게 하세요.
+Text to Speech는 어떤 캐릭터가 어떤 목소리로 말할 수 있는지 정합니다. 전체 단계는 [Text to Speech(TTS) 설정](../media/tts-setup.md)을 참고하세요. 간단한 절차는 다음과 같습니다.
 
-1. Text to Speech를 켜세요.
-2. 소스를 고르세요. **OpenAI-compatible**, **ElevenLabs**, **PocketTTS**, **xAI Voice** 중 하나입니다.
-3. 그 소스의 API 키나 로컬 서버 주소를 입력하세요.
-4. 모델과 음성을 고르세요.
-5. **Voice option**(음성 소스)을 **One voice for all**(모든 캐릭터에 하나의 음성 사용)이나 **Selected per character or persona**(캐릭터 개별 음성)로 정하세요. 캐릭터별 음성을 쓰면 그룹 통화에서 누가 말하는지 따라가기 쉽습니다.
-6. 저장한 다음 미리듣기 버튼으로 소리가 나는지 확인하세요.
+1. **Connections**(연결)를 열고 **Jobs**(작업) 상자의 **Voice**(음성) 행을 클릭하세요.
+2. 음성 모델이나 음성 서비스를 고르세요. 고르면 음성 합성이 켜집니다. 키와 주소는 모델의 계정에서 가져옵니다.
+3. **Voice** 행에서 톱니바퀴를 클릭해 **Voice settings**를 여세요.
+4. **Who speaks**에서 **Shared voice**를 고르거나 **Character and persona voices**에서 캐릭터와 페르소나마다 목소리를 지정하세요. 목소리가 다르면 그룹 통화에서 누가 말하는지 알아듣기 쉽습니다.
+5. **Preview**(미리 듣기)를 클릭해 소리가 들리는지 확인하세요.
 
 Marinara가 찾을 수 있는 음성이 없는 캐릭터는 이번 통화에서 텍스트로만 참여합니다.
 
@@ -130,8 +129,8 @@ Local Whisper는 Marinara를 실행하는 컴퓨터에서 내 음성을 텍스�
 
 **시작하기 전에:** Calls를 설치하세요. 설치하지 않으면 이 섹션이 숨겨집니다.
 
-1. **Connections**를 열고 **On this device** 아래에서 **Speech to text**를 찾으세요. 목록에 없으면 **Add account**를 클릭하고 **Speech to text**를 고르세요.
-2. 그 페이지에서 **Local speech model**을 찾으세요.
+1. **Connections**를 열고 **On this device**(이 기기) 카드에서 **Local speech model**(로컬 음성 모델)을 찾으세요.
+2. 그 카드에서 **Local speech model**을 클릭하세요.
 3. 모델을 고르세요.
    - **Whisper Tiny (Multilingual)**: 다운로드 약 180 MB, 메모리 350 MB. 휴대폰과 오래된 컴퓨터에 가장 적합합니다.
    - **Whisper Base (Multilingual)**: 다운로드 약 320 MB, 메모리 650 MB. 알아듣기 힘든 음성에 더 낫습니다.
@@ -148,7 +147,7 @@ Local Whisper는 Marinara를 실행하는 컴퓨터에서 내 음성을 텍스�
 
 Local Whisper가 내 언어나 억양을 잘 알아듣지 못하면 음성을 다른 음성 인식 서버로 보내세요. OpenAI 음성 인식 형식(`/audio/transcriptions` 주소)을 받는 서버라면 직접 운영하든 OpenAI나 Groq 같은 서비스를 쓰든 상관없이 작동합니다.
 
-1. **Connections**를 열고 **On this device** 아래의 **Speech to text**를 여세요. 목록에 없으면 **Add account**를 클릭하고 **Speech to text**를 고르세요. Calls를 설치하지 않으면 숨겨져 있습니다.
+1. **Connections**를 열고 **Jobs** 상자의 **Dictation**(받아쓰기) 행에서 톱니바퀴를 클릭하세요. **Speech to text**(음성 인식) 서버 설정이 여기에 있습니다. Calls를 설치하지 않았으면 숨겨집니다.
 2. **Server URL**(서버 URL)을 입력하세요. 예를 들면 `http://localhost:8000/v1`입니다.
 3. 서버가 요구하면 **API key**(API 키)를 입력하세요. 암호화해서 저장하며 가려진 채로 표시됩니다.
 4. 서버가 쓰는 **Model**(모델) 이름을 입력하세요. 비워 두면 `whisper-1`을 보냅니다.

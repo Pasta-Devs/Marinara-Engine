@@ -79,10 +79,13 @@ En el modo **Individual** de Roleplay con el orden **Smart** o **Manual**, la pr
 
 Usa el selector **Trigger Response** para elegir a un hablante. En una computadora es un botón junto a **Send** (Enviar), con la etiqueta **Trigger character response** (Activar la respuesta del personaje). En un teléfono está bajo **Trigger Response**, en la bandeja de herramientas que abres desde la barra de mensajes. Para nombrar a un hablante por escrito, escribe `@` y el nombre del personaje. Aparece una lista de autocompletado.
 
+<a id="more-individual-settings"></a>
+
 ### Más ajustes de Individual
 
 - **Add Turn To Prompt** (Añadir el turno al prompt) está activado de forma predeterminada. Agrega una breve instrucción que nombra qué personaje debe responder.
 - **Name Prefix History** (solo en Roleplay) está desactivado de forma predeterminada. Cambia cómo se etiquetan los mensajes anteriores con los nombres de los hablantes. Déjalo desactivado a menos que un personaje siga confundiendo quién dijo qué.
+- **Others' Public Faces** (Imágenes públicas de los demás) solo está disponible en Roleplay y está desactivado de forma predeterminada. Cada personaje recibe solo su propia tarjeta, por lo que conoce a los demás por el chat. Activa este ajuste para añadir el texto de **Public Face** de los demás personajes activos al turno de cada personaje. Es lo que cualquiera en la escena podría saber de ellos, sin sus secretos. Se omiten los personajes inactivos y los que tienen Public Face vacío. Para escribirlo, consulta [Pestaña Card](../characters/creating-and-editing-characters.md#card-tab).
 
 ### Scenario Override (Roleplay)
 
@@ -102,6 +105,7 @@ Activa **Character Exchanges** (Intercambios entre personajes) en **Chat Setting
 | **Response Order** | Individual | Sequential |
 | **Add Turn To Prompt** | Individual | Activado |
 | **Name Prefix History** | Roleplay, Individual | Desactivado |
+| **Others' Public Faces** | Roleplay, Individual | Desactivado |
 | **Scenario Override** | Roleplay | Vacío |
 | **Character Exchanges** | Conversation, Autonomous Messaging | Desactivado |
 

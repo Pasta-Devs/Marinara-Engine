@@ -233,7 +233,7 @@ La carpeta `src/hooks/` también contiene muchos hooks específicos de cada func
 | `use-knowledge-sources.ts`     | Gestión de fuentes de conocimiento        |
 | `use-gallery.ts`               | Imágenes de la galería del chat           |
 | `use-chat-folders.ts`          | CRUD de carpetas de chat más reordenamiento |
-| `use-regex-scripts.ts`         | CRUD de scripts de regex                  |
+| `use-regex-scripts.ts` | CRUD de scripts de regex, reordenación y cambios en bloque del estado |
 | `use-haptic.ts`                | Conexión y comandos de dispositivos hápticos |
 
 ## Guía de componentes
@@ -364,6 +364,30 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Generador asíncrono SSE (todos los tipos de evento) |
 
 Los errores lanzan `ApiError`, que lleva las propiedades `status` y `message`.
+
+## Selectores y menús desplegables
+
+Cada control para elegir un valor abre una ventana de selección compartida. Los cambios de diseño, como la superficie, las filas o el ancho, deben hacerse solo en los componentes compartidos de abajo, nunca en una función concreta. No uses el `<select>` nativo ni listas en menús flotantes propios. La aplicación ya no usa ninguno.
+
+| Capa | Archivo | Responsabilidad |
+| --- | --- | --- |
+| Ventana | `components/ui/PickerWindow.tsx` | La superficie. En la computadora es un menú flotante junto al campo. Tiene el ancho que necesitan las filas, como mínimo el del campo y como máximo 352 px o el ancho del campo si es mayor. En el teléfono es un panel inferior (un `Modal`). Dentro de un `Modal` sigue siendo flotante para evitar dos paneles superpuestos. Escape, Atrás, un clic fuera o el desplazamiento del campo fuera de la vista lo cierran. |
+| Filas | `components/ui/PickerParts.tsx` | `PickRow` (imagen, título, texto secundario que puede ocupar dos líneas, insignia, marca o casilla), `PickerSearch`, encabezados de carpetas y `usePickerKeyboard` (flechas y Enter). |
+| Lista | `components/ui/PickerFolderList.tsx` | El cuerpo: cuadro de búsqueda, filas agrupadas por carpetas de la biblioteca o por `group`, selección única o múltiple y "Add all" por carpeta. |
+| Campos | `components/ui/Select.tsx` | `Select` sustituye al `<select>` nativo para elegir un valor de una lista fija. Usa un control de apertura de tipo combobox, tiene búsqueda a partir de `SELECT_SEARCH_MIN` opciones y admite flechas y selección por escritura con el campo cerrado. |
+| | `components/ui/PickerField.tsx` | `PickerField` (un elemento, con fila None y carpetas), `PickerListField` / `PickerListWindow` (varios elementos, que aparecen debajo del campo con botones para quitarlos) y `useFieldWindow` (estado de apertura y retorno del foco al cerrar). |
+| | `components/ui/LibraryPickers.tsx`, `components/characters/CharacterSelect.tsx` | Los campos de presets, lorebooks, personajes y personas basados en los componentes anteriores. |
+
+Para añadir un selector:
+
+- **Un valor de una lista:** `Select`. Dale un `label` para nombrar el campo y titular la ventana.
+- **Un elemento de la biblioteca** (con carpetas, imagen y fila None): `PickerField` o el campo correspondiente de `LibraryPickers.tsx`.
+- **Varios elementos:** `PickerListField`. Escape y los clics fuera cierran la ventana. Elegir un elemento la deja abierta.
+- **Un control que no es un campo** (por ejemplo, un botón para una elección breve como "Link to Conversation"): `useFieldWindow` controla la apertura y el foco, `PickerWindow` se ancla al botón y contiene `PickerFolderList` o filas `PickRow`.
+
+El selector de conexión y modelo (`ConnectionSelect` / `ModelPicker`) aún usa su propia ventana. Las galerías de iconos (`StatIconPicker`), el autocompletado de etiquetas y los menús de contexto y acciones tienen sus propias superficies y no son selectores.
+
+**Pruebas.** El control de apertura de `Select` tiene `role="combobox"` y guarda el valor elegido en `data-value`. Su ventana es un `dialog` nombrado con la etiqueta del campo. Las filas llevan `data-pick-row`. En selección única, la fila elegida tiene `aria-current="true"`. Las filas de selección múltiple llevan `aria-pressed`. `e2e/select-field.ts` ofrece `chooseOption` y `pickerLabels`, que sustituyen a `selectOption` de Playwright para los selectores nativos anteriores.
 
 ## Sistema de estilos
 

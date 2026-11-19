@@ -34,7 +34,7 @@ Chaque catégorie supprime seulement ce que sa ligne indique, sauf pour le dossi
 | **Lorebooks** | Tous les lorebooks, entrées et dossiers. |
 | **Presets** | Tous les presets de prompt et dossiers de presets, sauf le preset de base intégré. |
 | **Connections** | Tous les comptes enregistrés, et les choix de modèles et de voix liés à eux. |
-| **Automation & Addons** | Tous les réglages d'agents, outils personnalisés, scripts regex et thèmes synchronisés. Pas les Personal Extensions ni les External Extensions. |
+| **Automation & Addons** | Tous les réglages d'agents, outils personnalisés, scripts regex, leurs dossiers et thèmes synchronisés. Pas les Personal Extensions ni les External Extensions. |
 | **Media & Assets** | Arrière-plans, avatars, sprites, galerie, vidéos de scène, polices et fichiers de sources de connaissances. |
 
 Plus de détails :

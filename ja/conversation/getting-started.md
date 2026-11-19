@@ -57,6 +57,7 @@ Commandsは、キャラクターが自分で決めて行う操作です。自分
 | **8-Ball Pool** | ビリヤードのラックを組む。 | 8-Ball Pool |
 | **Tic-Tac-Toe** | 三目並べの勝負を受ける。 | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | 勝負を受ける。 | Rock-Paper-Scissors |
+| その他のゲーム(ゲーム名で呼び出し) | ゲームを始めるか、申し出を受けます。 | BlackjackやWordleなど、該当するゲーム |
 
 **Influence**と**Notes**については、[ConversationをRoleplayやGameにつなぐ](../chats/connected-chats.md)を参照してください。右端の列は、**Agent Organizer**からインストールするエージェントの名前です。
 

@@ -41,6 +41,27 @@ Le sens du nombre dépend du type : `dice-sum` l'ajoute au jet ; `dice-pool` et 
 - `unmodified` : faces d'un seul dé que le registre signale quand le premier dé les montre (1.136), pour pouvoir appliquer les tables qui traitent à part "un 66 non modifié" : `[66, 100]`. Le registre indique `unmodified="66"`, la carte aussi, et le Game Master a pour consigne d'appliquer ce que les règles en disent.
 - `difficultyLadder` : difficultés parmi lesquelles le GM doit choisir. `dc` est le nombre que le total doit atteindre. Le Game Master peut nommer un palier au lieu d'écrire son nombre, comme `difficulty="Hard"`, et le moteur lit le nombre sur ce palier.
 
+#### Deux dés nommés
+
+Un test qui additionne les dés peut en lancer deux, chacun nommé, quand la suite du récit dépend du dé qui affiche le plus grand nombre (Capability API 1.821). Un système communautaire n'a rien à ajouter. Un système distribué en paquet déclare 1.821.
+
+```json
+"dice": { "count": 2, "sides": 12 },
+"duality": {
+  "dice": [{ "id": "hope", "label": "Hope" }, { "id": "fear", "label": "Fear" }],
+  "tieIsCritical": true,
+  "text": "With Hope the player gains a Hope; with Fear the Game Master gains a Fear."
+}
+```
+
+- `dice` : Les deux noms, dans l'ordre du jet. Le premier dé de `rolls` est le premier nommé.
+- `tieIsCritical` : Facultatif, `true` par défaut. Dans ce cas, une égalité est une réussite critique quel que soit le total.
+- `text` : Facultatif. Une ligne qui explique au Game Master ce que chaque dé signifie à la table.
+
+Le total reste la somme des deux dés et du modificateur, comparée à la difficulté comme d'habitude. Le registre indique le dé le plus haut, `duality="Hope"`, ou l'égalité, `duality="tie"`. La carte des dés l'affiche et le Game Master doit raconter le test en tenant compte de ce dé.
+
+`duality` exige `dice.count` à 2, des faces ordinaires (sans `faces`), aucun `openEnded` et `advantage` à false. Les deux identifiants et les deux libellés doivent être distincts. Aucun libellé ne peut être `tie`, car le registre désigne le dé le plus haut par son libellé. Une dérogation peut activer ou retirer cette option pour certains tests.
+
 #### Un dé d'intrigue
 
 Un test additionné peut lancer un dé de plus, dont les faces portent des symboles au lieu de nombres (Capability API 1.822). Un ensemble communautaire n'a besoin de rien ; un ensemble en package déclare 1.822.
@@ -139,6 +160,8 @@ Le nombre de la fiche est la **taille de la réserve**, pas un bonus ajouté. Un
 - `situationalDice` : facultatif. Limites des dés ajoutés ou retirés par le GM avec `bonus=` pour une prouesse, des blessures ou une mauvaise lumière.
 - `pairs` : facultatif (Capability API 1.824). `{ "from": 10, "successes": 4 }` fait que chaque paire de dés montrant `from` ou plus compte ensemble `successes` réussites, là où les deux dés en auraient compté une chacun, et un test réussi avec une paire est une réussite critique. Trois 10 donnent une paire et un dé de plus : cinq réussites. `from` est égal ou supérieur à la cible la plus haute, et `pairs` ne peut pas figurer à côté de `double` ou de `stances`.
 - `hunger` : facultatif (Capability API 1.824). `{ "label": "Hunger", "max": 5, "text": "..." }` permet à `max` dés au plus de la réserve d'être des dés spéciaux. Le Game Master les demande sur un test avec `hunger="N"`, nombre qu'il lit en général sur une piste de la fiche. Ce sont les premiers dés de `rolls`, ils font partie de la réserve (jamais des dés en plus) et aucune relance ne les touche. Une réussite critique où l'un d'eux montre la face critique (la face de `pairs`, ou la plus haute du dé) est marquée `messy="true"`, et un échec où l'un d'eux montre 1 est marqué `bestial="true"`. Le registre indique aussi `hunger="2" hungerLabel="Hunger"`, et la carte des dés affiche tout cela. `max` ne peut pas dépasser `pool.max`.
+- `groups` : Facultatif (Capability API 1.826). Jusqu'à trois groupes distinguent les dés de la réserve selon leur source : `{ "id": "base", "label": "Base", "from": "ability" }`, `{ "id": "skill", "label": "Skill", "from": "skill", "banes": false }` et `{ "id": "gear", "label": "Gear", "from": "gear" }`. Les dés figurent dans `rolls` dans l'ordre des groupes. `ability` contient les dés de la caractéristique, `gear` les dés demandés par le Game Master avec `gear="N"` et `skill` le reste. Une pénalité retire donc d'abord des dés de compétence. Un groupe compte ses 1 sauf si `banes` vaut false. Le registre indique `groups="Base:2:1|Skill:2|Gear:1:0"`, avec le nombre de dés de chaque groupe, puis le nombre de 1 quand ils sont comptés. La carte des dés affiche les mêmes chiffres. Il y a un groupe par source, `skill` est obligatoire, les libellés sont distincts et `groups` est incompatible avec `explode`. Le Game Master applique les conséquences d'un 1.
+- `push` : Facultatif (Capability API 1.826). `{ "text": "..." }` permet de pousser un jet une fois. Le Game Master écrit de nouveau le même test avec `push="true"`. Le moteur prend le dernier jet de ce test pour ce personnage dans le registre de la réponse précédente. Il ignore les nombres de la nouvelle balise. Il relance les dés qui n'ont ni réussi ni affiché un 1 comptabilisé. Sans groupes, il conserve tous les 1. Le jet précédent doit appartenir au même personnage. Si le registre ne nomme personne, le jet est celui du joueur. La relance conserve l'objectif du jet précédent. Rien n'est dépensé, utilisé ou ajouté. Le nouveau registre indique le nombre de dés relancés avec `pushed="N"`. Un jet marqué `pushed` ne peut pas être poussé une deuxième fois. Faute de jet précédent admissible pour le personnage, aucun dé n'est lancé et le test est réglé par `reason="not-pushable"`. Cela couvre une deuxième relance, une relance pour toute l'équipe, une relance dans un bloc `[branch:]` ou un jet précédent impossible pour ce test. `push` est incompatible avec `stances`, `explode` et `hunger`.
 - `reroll` : facultatif. Des relances que le système accorde sans que personne ne les paie, jusqu'à six, chacune avec un `id` que le Game Master nomme sur un test avec `reroll=`. Les faces égales ou inférieures à `upTo` sont relancées : `"once"`, et la nouvelle face reste quelle qu'elle soit, ou `"until"`, jusqu'à ce qu'elles montrent plus. `upTo` va de 1 au nombre de faces du dé moins un, puisqu'une relance de toutes les faces ne s'arrêterait jamais, et un `until` s'arrête de toute façon après cent relances sur un même test. Aucune n'est lancée si le test ne la nomme pas. Un test lance une seule relance : si une dépense ou une entrée utilisée par le personnage en a aussi acheté une, celle qui atteint le plus de faces est lancée, et `until` l'emporte sur `once` à faces égales.
 - `difficultyLadder` : `successes` indique le nombre de réussites nécessaire. Un palier peut nommer un `target`, seulement si la cible est réglable et dans ses limites. C'est avec cette cible que compte un test à ce palier : quand le Game Master nomme le palier avec `difficulty=`, ou écrit un `dc=` qu'exige un seul palier. Si plusieurs paliers exigent le même nombre de réussites, `dc=` seul ne peut pas dire lequel était visé : la cible reste celle par défaut ; nomme le palier.
 

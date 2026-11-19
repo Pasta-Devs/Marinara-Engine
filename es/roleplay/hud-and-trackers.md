@@ -73,6 +73,8 @@ Los agentes tracker sobrescriben los valores del HUD después de cada turno. El 
 
 Para desbloquear, haz clic en el mismo botón otra vez (**Unlock field**). Para salir del modo de bloqueo, haz clic otra vez en el interruptor superior (**Exit lock mode**). El modo de bloqueo se comparte en todo el HUD, así que activarlo en un tracker muestra los botones de bloqueo en todas partes.
 
+Si un personaje que el tracker seguía como secundario recibe su propia tarjeta de personaje en el chat, en la siguiente ejecución el tracker traslada su entrada a la tarjeta, junto con los bloqueos y los campos ocultos. La tarjeta conserva su propio retrato. Si la tarjeta incluye un nombre abreviado en **Other names** (Otros nombres), el tracker lo vincula con la tarjeta y sigue mostrando el nombre que usa la historia.
+
 ## Volver a ejecutar un tracker
 
 Para actualizar un tracker ahora en lugar de esperar al siguiente mensaje, haz clic en el botón de flecha circular que tiene dentro. Vuelve a ejecutar solo ese tracker para el último turno. El tooltip (texto de ayuda) nombra el tracker, por ejemplo **Re-run world state tracker only**.

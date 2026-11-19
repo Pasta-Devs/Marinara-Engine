@@ -125,6 +125,7 @@ Marinara 把数据保存为普通的 JSON 文件，所以备份可以直接复�
 | `LOG_LEVEL` | `warn` | 上面所说的级别。 |
 | `LOG_PRESET` | `default` | `prompt-connections` 显示的提示词和模型细节与 `debug` 相同，但会隐藏 `GET /api/chats` 这类常规请求行。 |
 | `LOG_DISABLE_REQUEST_LOGGING` | `false` | `true` 会隐藏常规请求行，同时保留你设的级别。需要重启。 |
+| `LOG_INLINE_MEDIA` | `short` | `short` 在调试输出中将图像等 base64 文件显示为带有类型和大小的简短标记。`full` 会完整输出，每个提示词可能占用数 MB。 |
 | `LOG_FORMAT` | 自动 | `pretty` 在任何地方都打印便于阅读的行，例如要在 `docker logs` 里读 **Debug mode**(调试模式) 的提示词时。`json` 每行打印一个 JSON 对象。需要重启。 |
 
 在终端里，服务器打印便于阅读的行。在其他地方，比如 Docker 日志里，生产环境的服务器打印 JSON 行。Termux 启动脚本会要求打印便于阅读的行。浏览器端的日志是独立的，不受 `LOG_LEVEL` 控制。

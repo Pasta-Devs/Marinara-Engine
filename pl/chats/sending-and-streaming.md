@@ -17,7 +17,7 @@ Jeśli to nie zadziałało: gdy czat nie ma ustawionego modelu, odpowiedź od ra
 
 ### Ustawienie Send on Enter
 
-Znajdziesz je w **Settings → General → Input & Editing** (ustawienia, ogólne, wprowadzanie i edycja). Każdy tryb czatu ma własny przełącznik.
+Znajdziesz je w **Settings → General → Input & Editing** (ustawienia, ogólne, wprowadzanie i edycja). Każdy tryb czatu ma własny przełącznik. Ustawienie zapisuje się na urządzeniu, na którym je zmienisz, więc na telefonie i komputerze może być inne.
 
 | Tryb czatu | Domyślnie | Gdy wyłączone |
 | --- | --- | --- |

@@ -11,7 +11,7 @@ Professor Mari 是主页上的内置助手。她能讲解这个应用、帮你�
 
 她的窗口随即打开。在任何界面也都能找到她：在 Search(搜索栏) 里打字并选择 **Ask Prof. Mari**，按 <kbd>Ctrl</kbd>+<kbd>J</kbd>(Mac 上是 <kbd>⌘</kbd>+<kbd>J</kbd>)，或者在手机上从顶栏往下拉。她空闲时，标题栏显示 **Ready to help**(随时待命)，干活时显示 **Working on it...**。
 
-用日常语言写好消息，按 <kbd>Enter</kbd> 发送。<kbd>Shift</kbd>+<kbd>Enter</kbd> 换行。如果在她的设置里关掉 **Enter sends to Professor Mari**(按 Enter 发送给 Professor Mari)，<kbd>Enter</kbd> 就变成换行，按 <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 才发送。你的第一条消息会解锁 **Hello World** 成就。
+用日常语言写好消息，按 <kbd>Enter</kbd> 发送。<kbd>Shift</kbd>+<kbd>Enter</kbd> 换行。如果在她的设置里关掉 **Enter sends to Professor Mari**(按 Enter 发送给 Professor Mari)，<kbd>Enter</kbd> 就变成换行，按 <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 才发送。也可以点击发送按钮。这个开关按设备保存，可以在手机上关闭、在电脑上保持开启。你的第一条消息会解锁 **Hello World** 成就。
 
 她的所有设置都在 **Settings → General → Search and Professor Mari settings → Open**(设置 → 常规 → Search 与 Professor Mari 设置 → 打开) 里，也可以点 Search 里的齿轮图标。在电脑上，**Professor Mari window**(Professor Mari 窗口) 下的 **Height**(高度) 和 **Width**(宽度) 滑块可以调整她窗口的大小。在手机上，她的窗口会占满屏幕。
 
@@ -39,7 +39,7 @@ Professor Mari 是主页上的内置助手。她能讲解这个应用、帮你�
 - 创建或编辑主题、智能体、提示词预设或 Personal Extension(个人扩展) 草稿。在你读过草稿的代码并在 **Settings → Addons**(设置 → 插件) 里批准之前，它一直处于关闭状态。
 - 就地编辑预设的某一部分，而不必替换整份预设。
 - 对比各个可下载的智能体，告诉你哪些适合你的目标。她会让你去 **Agents → Agent Organizer**(智能体 → 智能体管理器) 安装它们。见[可下载智能体参考](../agents/built-in-agents.md)。
-- 生成或指定图像，比如头像、立绘和背景。你需要先有一个图像生成账号，她不会替你创建。
+- 生成或指定图像，比如头像、立绘和背景。你需要先有一个图像生成账号，她不会替你创建。点击她生成的图像，可以按原尺寸打开、查看生成用的提示词、下载，或编辑提示词后重新生成。新图像会替换她回复里的旧图像。
 - 你研究某个角色或世界观时，查阅公开的 Fandom wiki 页面。
 
 ### 从小标签开始

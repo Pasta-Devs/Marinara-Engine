@@ -35,15 +35,15 @@ Memory Recall에는 지문을 만드는 모델이 필요합니다. 아무것도 
 
 시작하기 전에: 임베딩을 제공하는 계정이 필요합니다. [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)를 참고하세요.
 
-1. **Connections**(연결)를 열고 계정을 편집하세요.
-2. **Semantic search (embeddings)**(시맨틱 검색) 섹션을 찾으세요.
+1. **Connections**(연결)를 열고 모델을 클릭해 **Edit model**(모델 편집)을 여세요.
+2. **More**(더보기)를 클릭하고 **Semantic search (embeddings)**(시맨틱 검색)를 찾으세요.
 3. 임베딩 모델 이름을 입력하세요. 예를 들면 `text-embedding-3-small`입니다.
 4. 선택 사항: 주소를 바꾸려면 **Embedding endpoint URL**(임베딩 엔드포인트 URL)을 설정하세요.
 5. 선택 사항: 다른 계정의 키와 주소를 빌려 쓰려면 **Embedding provider**(임베딩 연결)를 사용하세요. **Same as this provider**(이 연결과 동일)는 이 계정 자체의 키와 주소를 그대로 씁니다.
 
 임베딩을 제공하지 않는 서비스도 있습니다. 그럴 때 Marinara는 OpenAI 호환 계정, Google, 내장 모델 같은 임베딩 전용 계정을 고르라고 안내합니다.
 
-어디서나 소스 하나를 쓰려면 **Connections → Defaults**(연결 → 기본값)의 **Embeddings**(임베딩)에서 고르세요. 자체 임베딩 모델이 없는 계정은 그 소스를 사용합니다. 계정에 직접 설정한 값이 계속 우선합니다.
+어디서나 소스 하나를 쓰려면 **Connections**의 **Jobs**(작업) 상자에서 **Embeddings**(임베딩) 작업에 지정하세요. 자체 임베딩 모델이 없는 계정은 그 소스를 사용합니다. 계정에 직접 설정한 값이 계속 우선합니다.
 
 임베딩 계정도 **Embeddings** 기본값도 없으면 Marinara는 내장 임베딩 모델로 대체합니다. 이 모델은 한 번만 다운로드하며, API 키 없이 컴퓨터에서 실행됩니다. [내장 모델 설정](../connections/local-model.md)을 참고하세요.
 

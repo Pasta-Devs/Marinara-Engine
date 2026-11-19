@@ -73,6 +73,8 @@ Agenci śledzący nadpisują wartości na pasku HUD po każdej turze. Tryb bloka
 
 Aby odblokować, kliknij ten sam przycisk ponownie (podpowiedź **Unlock field**). Aby wyjść z trybu blokady, kliknij ponownie górny przełącznik (podpowiedź **Exit lock mode**). Tryb blokady obejmuje cały pasek HUD, więc włączenie go w jednym trackerze pokazuje przyciski kłódki wszędzie.
 
+Gdy postać poboczna śledzona przez tracker dostanie w czacie własną kartę postaci, następne uruchomienie trackera przeniesie jej wpis na kartę razem z blokadami i ukrytymi polami. Karta zachowa własny portret. Krótsza nazwa zostanie powiązana z kartą, jeśli jest w niej wymieniona w polu **Other names**. Tracker nadal pokazuje nazwę używaną w historii.
+
 ## Ponownie uruchom tracker
 
 Aby zaktualizować tracker od razu, bez czekania na kolejną wiadomość, kliknij przycisk z okrągłą strzałką w jego wnętrzu. Uruchamia on ponownie tylko ten tracker dla ostatniej tury. Podpowiedź wymienia nazwę trackera, na przykład **Re-run world state tracker only**.

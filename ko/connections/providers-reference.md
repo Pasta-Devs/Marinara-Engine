@@ -161,7 +161,7 @@ OpenAI, OpenRouter, xAI, NanoGPT, Arli AI, Z.AI, Google의 이미지 및 동영�
 
 소스마다 기본 주소와 모델이 채워집니다. **Default voice**(기본 음성)는 캐릭터별 음성처럼 더 구체적인 설정이 없을 때 쓰는 음성입니다. **Request timeout (seconds)**(요청 제한 시간, 초)는 Marinara가 음성 대사 한 줄을 기다리는 시간입니다. 음성 서버가 느리다면 값을 올리세요.
 
-Marinara가 기본으로 쓸 음성 계정을 고르려면 **Jobs**(작업) 상자에서 **Voice (Text to Speech)**(음성, TTS) 행을 클릭하세요. 그 계정으로 메시지를 소리 내어 읽으려면 **Text to Speech**(TTS) 카드에서 그 계정을 **Source**(연결 소스)로 고르세요. [Text to Speech(TTS) 설정](../media/tts-setup.md)과 [오디오 연결 사용하기](../media/tts-setup.md#use-a-voice-model-from-an-account)를 참고하세요.
+Marinara가 기본으로 쓸 음성 계정을 고르려면 **Jobs**(작업) 상자에서 **Voice**(음성) 행을 클릭하세요. 계정으로 메시지를 소리 내어 읽으려면 **Voice** 행에서 그 계정의 모델을 고르세요. [Text to Speech(TTS) 설정](../media/tts-setup.md)과 [오디오 연결 사용하기](../media/tts-setup.md#use-a-voice-model-from-an-account)를 참고하세요.
 
 <a id="music--sound-effects"></a>
 
@@ -189,7 +189,7 @@ Game마다 오디오 생성을 켜거나, Roleplay의 명령 설정에서 **Soun
 
 ## 임베딩
 
-임베딩은 텍스트를 숫자 목록으로 바꿔 Marinara가 관련 텍스트를 찾을 수 있게 합니다. 로어북 시맨틱 검색과 Memory Recall(기억 회상)이 임베딩을 사용합니다. 채팅 서비스는 대부분 모델 편집기의 **Semantic search (embeddings)**(시맨틱 검색) 아래에서 임베딩 모델과 선택 사항인 **Embedding endpoint URL**(임베딩 엔드포인트 URL)을 설정할 수 있습니다.
+임베딩은 텍스트를 숫자 목록으로 바꿔 Marinara가 관련 텍스트를 찾을 수 있게 합니다. 로어북 시맨틱 검색과 Memory Recall(기억 회상)이 임베딩을 사용합니다. 대부분의 채팅 서비스는 모델의 **Edit model**(모델 편집) 창에서 **More**(더보기) → **Semantic search (embeddings)**(시맨틱 검색)를 열어 임베딩 모델과 선택 사항인 **Embedding endpoint URL**을 설정할 수 있습니다.
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, **Grok CLI (Subscription)**은 임베딩을 만들 수 없습니다. 이런 서비스에서는 **Embedding provider**(임베딩 연결) 드롭다운으로 다른 계정을 빌려 쓰세요. OpenAI 호환 계정, **Google Gemini**, **Built-in model**(내장 모델) 등을 쓸 수 있습니다.
 

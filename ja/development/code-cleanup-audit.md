@@ -228,7 +228,7 @@ TypeScriptの未使用チェックを強制すると、**サーバーで57件**�
 
 ### 6.3 現役の複雑さのホットスポット
 
-現役のモジュールでもっとも大きいのは`server/routes/game.routes.ts`、`client/components/game/GameSurface.tsx`、`client/components/chat/ChatSettingsDrawer.tsx`、`server/routes/generate.routes.ts`、`client/components/panels/SettingsPanel.tsx`です。これらは削除の候補ではありません。範囲を限定したルートハンドラー、ドメインサービス、パネルのセクション、純粋なヘルパーの切り出しは、その機能をすでに変更している場合にかぎって続けてください。分割だけを目的としたPRは、動作を確かめる手立てがないまま変更を増やすだけです。
+現役のモジュールでもっとも大きいのは`server/routes/game.routes.ts`、`client/components/game/GameSurface.tsx`、`client/features/chat-settings/ChatSettingsDrawer.tsx`、`server/routes/generate.routes.ts`、`client/components/panels/SettingsPanel.tsx`です。これらは削除の候補ではありません。範囲を限定したルートハンドラー、ドメインサービス、パネルのセクション、純粋なヘルパーの切り出しは、その機能をすでに変更している場合にかぎって続けてください。分割だけを目的としたPRは、動作を確かめる手立てがないまま変更を増やすだけです。Chat Settings Drawerは例外で、1回のPRにつき1セクションずつ分割しました(#9119)。フォルダーの規則は`packages/client/.instructions.md`のChat Settingsセクションにあります。
 
 ## 7. クリーンアップから意図的に除外した項目
 

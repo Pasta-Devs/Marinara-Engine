@@ -125,12 +125,14 @@ Un agent peut contenir plusieurs variantes de prompt, pour que chaque chat en ch
 
 Quand quelqu'un ajoute l'agent à un chat, un menu déroulant **Prompt Mode** (mode de prompt) liste tes options. Sans option, seul le prompt par défaut s'affiche.
 
+<a id="other-settings"></a>
+
 ## Autres réglages
 
 - **Model override** (modèle de remplacement) : utilise un autre modèle pour cet agent, par exemple un modèle moins cher. Laisse-le vide pour utiliser le modèle du chat. L'agent envoie les paramètres de génération enregistrés sur cette connexion. Voir [Paramètres des agents](../prompts/generation-parameters.md#parameters-for-agents).
 - **Agent Budget** (budget de l'agent) : **Context Size** (taille du contexte) est le nombre de messages récents que l'agent lit (5 par défaut). **Max Output Tokens** (nombre maximal de tokens en sortie) est la place réservée à la sortie (4 096 par défaut, de 128 à 32 768).
 - **Add as Prompt Section** (ajouter comme section du prompt) : expose la dernière sortie de l'agent sous forme de section que tu peux placer dans un preset de prompt.
-- **Sources de contexte** : ce que l'agent lit en plus de ses instructions. **Personnages** et **Persona** ont chacun trois choix : **Désactivé**, **Full card** (fiche complète) ou **Public Face** (image publique). **Public Face** envoie uniquement le nom et le champ **Public Face** de la fiche. Si ce champ est vide, seul le nom est envoyé. Pour le remplir, voir [Onglet Fiche](../characters/creating-and-editing-characters.md#card-tab). Quand plusieurs agents partagent une requête, chaque source utilise le choix le plus large parmi eux : **Full card**, puis **Public Face**, puis **Désactivé**.
+- **Context Sources** (sources de contexte) : ce que l'agent lit en plus de ses instructions. **Characters** (personnages) et **Persona** ont chacun trois choix : **Off** (désactivé), **Full card** (fiche complète) ou **Public Face** (image publique). **Public Face** envoie uniquement le nom et le champ **Public Face** de la fiche. Si ce champ est vide, seul le nom est envoyé. Pour le remplir, voir [Onglet Fiche](../characters/creating-and-editing-characters.md#card-tab). Quand plusieurs agents partagent une requête, chaque source utilise le choix le plus large parmi eux : **Full card**, puis **Public Face**, puis **Off**.
 
 Les macros comme `{{user}}` et `{{char}}` fonctionnent dans **Prompt Template**. Voir [Macros](../prompts/macros.md).
 

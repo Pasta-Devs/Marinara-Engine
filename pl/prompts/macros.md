@@ -21,6 +21,8 @@ Makra działają wewnątrz aplikacji Marinara Engine i nie wymagają konfiguracj
 - Zmienne presetu (uniwersalny zapis `{{NAME}}`) wymagają presetu promptu, który je definiuje. Zobacz [Zmienne presetu](preset-variables.md).
 - Makro agenta `{{agent::TYPE}}` pokazuje tekst dopiero wtedy, gdy odpowiedni agent zakończy pracę i zwróci wynik.
 
+<a id="identity-character-and-persona-macros"></a>
+
 ## Makra tożsamości, postaci i persony
 
 Te makra wstawiają imiona oraz pola kart osoby mówiącej i odpowiadającej postaci. Użytkownik to ty (albo twoja aktywna persona). Postać to bot, który odpowiada.

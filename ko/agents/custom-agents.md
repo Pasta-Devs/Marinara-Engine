@@ -125,6 +125,8 @@ Post-Processing 에이전트에는 **Turn Data Access**(턴 데이터 접근) �
 
 누군가 이 에이전트를 채팅에 추가하면 **Prompt Mode**(프롬프트 모드) 드롭다운에 옵션이 나열됩니다. 옵션이 없으면 기본 프롬프트만 표시됩니다.
 
+<a id="other-settings"></a>
+
 ## 그 밖의 설정
 
 - **Model override**(연결 재정의): 이 에이전트에 다른 모델을 씁니다. 예를 들어 더 저렴한 모델을 쓸 수 있습니다. 비워 두면 채팅의 모델을 씁니다. 에이전트는 해당 연결에 저장된 생성 파라미터를 전송합니다. [에이전트용 파라미터](../prompts/generation-parameters.md#parameters-for-agents)를 참고하세요.

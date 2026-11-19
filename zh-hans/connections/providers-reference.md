@@ -162,7 +162,7 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI 和 Google 的图像和视�
 
 每个来源都会填好默认的地址和模型。**Default voice**(默认声音) 是在没有设置更具体的声音（比如单个角色的声音）时使用的声音。**Request timeout (seconds)**(请求超时，单位为秒) 是 Marinara 等待一句语音的时长。语音服务器较慢时调高它。
 
-要选择 Marinara 默认使用的语音账号，点击 **Jobs**(分工) 框里的 **Voice (Text to Speech)**(语音合成) 行。要用它朗读消息，在 **Text to Speech**(语音合成) 卡片里把它选为 **Source**(语音来源)。见 [Text to Speech (TTS) 设置](../media/tts-setup.md)和[使用音频连接](../media/tts-setup.md#use-a-voice-model-from-an-account)。
+要选择 Marinara 默认使用的语音账号，点击 **Jobs**(分工) 框中的 **Voice**(声音) 行。要朗读消息，请在该行选择账号的模型。见[Text to Speech (TTS) 设置](../media/tts-setup.md)和[使用账号中的语音模型](../media/tts-setup.md#use-a-voice-model-from-an-account)。
 
 <a id="music--sound-effects"></a>
 
@@ -190,7 +190,7 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI 和 Google 的图像和视�
 
 ## 嵌入
 
-嵌入把文本转成一串串数字，让 Marinara 能找出相关的文本。世界书的语义搜索和 Memory Recall(记忆功能) 都靠它驱动。大多数聊天服务都允许你在模型编辑器的 **Semantic search (embeddings)**(语义搜索与嵌入) 下设置嵌入模型，以及可选的 **Embedding endpoint URL**(嵌入端点 URL)。
+嵌入把文本转成一串串数字，让 Marinara 能找出相关的文本。世界书的语义搜索和 Memory Recall(记忆功能) 都靠它驱动。大多数聊天服务都允许你在模型的 **Edit model** 窗口中打开 **More** → **Semantic search (embeddings)**(语义搜索与嵌入)后设置嵌入模型，以及可选的 **Embedding endpoint URL**(嵌入端点 URL)。
 
 **Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)** 和 **Grok CLI (Subscription)** 无法生成嵌入。遇到这几家，就用 **Embedding provider**(嵌入服务商) 下拉菜单借用另一个账号，比如某个 OpenAI 兼容账号、**Google Gemini** 或 **Built-in model**(内置模型)。
 

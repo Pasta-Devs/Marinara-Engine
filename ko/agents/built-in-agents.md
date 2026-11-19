@@ -16,6 +16,14 @@
 
 Roleplay에서는 Illustrator의 실행 간격을 채팅마다 **Chat Settings**의 Illustrator 카드에서 설정합니다. 에이전트 설정에 지정한 값은 자체 값이 없는 채팅에 적용되는 기본값입니다. Illustrator는 **0**도 허용합니다. 0이면 자동으로 실행되지 않으며, Gallery 작업에서는 계속 쓸 수 있습니다.
 
+<a id="activation-keywords-and-questions"></a>
+
+### 활성화 키워드와 질문
+
+대부분의 파이프라인 에이전트에는 [사용자 지정 에이전트](custom-agents.md#activation-keywords)와 같은 **Activation Keywords**(활성화 키워드) 섹션이 있습니다. 에이전트가 할 일이 없는 턴에 실행을 건너뛰려면 이 섹션을 채우세요. 예를 들어 Prose Guardian에서 **Banned Words**(금지어) 목록과 같은 단어를 넣고 **Scan Depth**(깊이 스캔)를 1로 설정하면 새 답변에 그 단어 중 하나가 나왔을 때만 실행됩니다. 키워드는 대소문자를 구분하지 않으며 단어 안의 어느 위치에서든 일치합니다. 따라서 `voss`는 `Vossberg`와도 일치하며, 이 경우 한 번 더 실행될 뿐입니다. 대신 [활성화 질문](custom-agents.md#activation-questions)으로 Decision 모델에 예 또는 아니요로 답할 질문을 보내고, 그 답에 따라 에이전트의 실행 여부를 정할 수 있습니다.
+
+섹션을 비워 두면 에이전트가 이전처럼 실행됩니다. 턴을 건너뛴 트래커는 다음 실행까지 마지막 상태를 유지합니다. Storyboard, Illustrator, Knowledge Retrieval, Knowledge Router에는 자체 활성화 규칙이 있으며 이 섹션이 표시되지 않습니다.
+
 ## Apps
 
 Apps는 **Home**에 전용 탭이 있습니다. 채팅에 추가하지 않고 따로 열어서 사용합니다. 설치하고 나면 모두 다시 시작하라고 안내합니다.

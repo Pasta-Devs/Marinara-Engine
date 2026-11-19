@@ -109,6 +109,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 
 O ajuste de debug da interface continua funcionando por `logDebugOverride`. Esse é o caminho previsto para ver prompts quando `LOG_LEVEL` oculta debug.
 
+A mídia embutida aparece de forma abreviada no log. `debugJson` troca cada conteúdo base64 por um marcador como `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`, com o tipo, o tamanho e os primeiros e últimos 16 caracteres. Isso inclui URLs `data:` (a string inteira ou dentro de um texto) e campos `data` sem prefixo nas partes de mídia da Anthropic e do Google, mesmo se o base64 ocupar várias linhas. O serializador `msg` faz o mesmo com URLs `data:` em linhas comuns com `%s` e `%j`. Só `debugJson` abrevia um campo `data` sem prefixo. A mudança só afeta a cópia impressa. O valor recebido permanece intacto. Defina `LOG_INLINE_MEDIA=full` no `.env` para voltar a imprimir o conteúdo inteiro. O teste de regressão `log-inline-media` cobre esse comportamento.
+
 <a id="checks"></a>
 
 ## Console no aplicativo

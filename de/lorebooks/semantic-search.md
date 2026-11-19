@@ -16,10 +16,10 @@ Bevor du anfängst: Du brauchst entweder ein Konto, dessen Dienst Embeddings anb
 
 Weg 1: ein Konto mit Embedding-Modell.
 
-1. Öffne das Panel **Connections** (Verbindungen) und öffne ein Konto zum Bearbeiten.
-2. Öffne **Advanced** (Erweitert), dann **More** (Mehr), und suche **Semantic search (embeddings)** (semantische Suche).
+1. Öffne **Connections** (Verbindungen) und klick auf das Modell, um **Edit model** (Modell bearbeiten) zu öffnen.
+2. Klick auf **More** (Mehr) und suche **Semantic search (embeddings)** (semantische Suche).
 3. Gib den Namen eines Embedding-Modells ein, etwa `text-embedding-3-small`. Bist du dir beim Namen unsicher, schau in der Dokumentation deines Dienstes nach oder nimm stattdessen das eingebaute Modell.
-4. Speichere das Konto.
+4. Speichere das Modell.
 5. Klick zur Prüfung auf **Test embedding** (Embedding testen). Marinara speichert zuerst, bettet einen kurzen Beispieltext ein und zeigt die Vektorgröße an, etwa „1536 dimensions“, oder den Fehler, den der Dienst zurückgegeben hat.
 
 Um Embedding-Anfragen über den Key und die Adresse eines anderen Kontos zu schicken, wähle dieses Konto unter **Embedding provider** (Embedding-Anbieter). Der Standard ist **Same as this provider** (wie dieser Anbieter). Hat das gewählte Konto ein eigenes Embedding-Modell, nutzt Marinara dieses. Andernfalls nutzt es den hier eingetippten Modellnamen.

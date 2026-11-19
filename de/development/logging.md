@@ -109,6 +109,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 
 Der Debug-Schalter der Oberfläche funktioniert weiter über `logDebugOverride`. Das ist der vorgesehene Weg, Prompts auch dann zu sehen, wenn `LOG_LEVEL` debug ausblendet.
 
+Standardmäßig landen eingebettete Medien nur gekürzt im Log. `debugJson` ersetzt jede Base64-Nutzlast durch eine Kurzangabe wie `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`. Sie enthält Typ, Größe sowie die ersten und letzten 16 Zeichen. Das gilt für `data:`-URLs, einzeln oder in einem Text, und für reine `data`-Felder in Medienelementen von Anthropic und Google. Auch Base64 über mehrere Zeilen wird gekürzt. Der `msg`-Serializer kürzt `data:`-URLs auch in einfachen `%s`- und `%j`-Zeilen. Ein reines `data`-Feld kürzt nur `debugJson`. Die Kürzung betrifft nur die Ausgabe. Der übergebene Wert bleibt unverändert. Mit `LOG_INLINE_MEDIA=full` in `.env` erscheinen die Nutzlasten wieder vollständig. Der Regressionstest `log-inline-media` prüft das.
+
 <a id="checks"></a>
 
 ## Konsole in der App

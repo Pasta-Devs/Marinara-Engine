@@ -109,6 +109,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 
 El interruptor de depuración de la interfaz sigue funcionando mediante `logDebugOverride`. Es la vía prevista para ver prompts cuando `LOG_LEVEL` oculta debug.
 
+De forma predeterminada, los archivos multimedia insertados aparecen abreviados en el registro. `debugJson` reemplaza cada bloque de datos en base64 por un marcador como `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`, con el tipo, el tamaño y los primeros y últimos 16 caracteres. Se aplica a las URL `data:`, tanto si ocupan toda la cadena como si están dentro de un texto, y a los campos `data` de los elementos multimedia de Anthropic y Google. También se aplica cuando el base64 ocupa varias líneas. El serializador `msg` hace lo mismo con las URL `data:` en líneas simples de `%s` y `%j`. Solo `debugJson` abrevia un campo `data` sin envoltorio. Se modifica únicamente la copia impresa. El valor original queda intacto. Para volver a imprimir los datos completos, configura `LOG_INLINE_MEDIA=full` en `.env`. La prueba de regresión `log-inline-media` comprueba este comportamiento.
+
 <a id="checks"></a>
 
 ## Consola en la aplicación

@@ -16,7 +16,7 @@ Illustratorが書くのはプロンプトで、絵を描くのは別の画像モ
 
 Illustratorに画像モデルを渡す方法は2つあります。
 
-1. **Connections**(接続)パネルの**Defaults**(デフォルト)で、**Images**(画像)の役割を設定します。
+1. **Connections**(接続)パネルの**Jobs**(役割)ボックスで**Images**(画像)の役割を設定します。
 2. または、Illustratorの**Open Setup**(設定を開く)画面で、Illustrator専用の画像モデルを指定します。
 
 画像モデルが見つからない場合、画像の生成は失敗し、アプリが画像モデルを選ぶよう求めます。

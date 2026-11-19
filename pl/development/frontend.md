@@ -233,7 +233,7 @@ Folder `src/hooks/` zawiera też wiele hooków związanych z konkretnymi funkcja
 | `use-knowledge-sources.ts`     | Zarządzanie źródłami wiedzy                |
 | `use-gallery.ts`               | Obrazy w galerii czatu                     |
 | `use-chat-folders.ts`          | CRUD folderów czatów oraz zmiana kolejności |
-| `use-regex-scripts.ts`         | CRUD skryptów regex                        |
+| `use-regex-scripts.ts` | CRUD skryptów regex, zmiana kolejności i zbiorcze przełączanie |
 | `use-haptic.ts`                | Połączenie z urządzeniem haptycznym i komendy |
 
 ## Przewodnik po komponentach
@@ -364,6 +364,30 @@ import { api, ApiError } from "@/lib/api-client";
 | `api.streamEvents(path, body)` | `POST /api{path}`   | Generator asynchroniczny SSE (wszystkie typy zdarzeń) |
 
 Błędy zgłaszane są jako `ApiError`, który niesie właściwości `status` i `message`.
+
+## Selektory i listy rozwijane
+
+Każda kontrolka do wyboru wartości otwiera wspólne okno selektora. Zmieniaj wygląd, styl wiersza lub szerokość selektorów wyłącznie w komponentach wspólnych wymienionych poniżej. Nie dodawaj natywnego `<select>` ani własnej listy w wyskakującym oknie. Aplikacja nie używa już żadnego z tych rozwiązań.
+
+| Warstwa | Plik | Za co odpowiada |
+| --- | --- | --- |
+| Okno | `components/ui/PickerWindow.tsx` | Na komputerze to wyskakujące okno przy polu, o szerokości dopasowanej do wierszy: co najmniej tyle co pole, najwyżej 352 px lub szerokość pola, jeśli jest większa. Na telefonie otwiera się od dołu jako `Modal`. Wewnątrz `Modal` pozostaje oknem przy polu, żeby nie nakładać dwóch wysuwanych paneli. Zamyka się po Escape, Wstecz, kliknięciu poza nim lub przewinięciu pola poza widok. |
+| Wiersze | `components/ui/PickerParts.tsx` | `PickRow` (grafika, tytuł, dodatkowy tekst zawijany do dwóch linii, plakietka, znacznik lub pole wyboru), `PickerSearch`, nagłówki folderów i `usePickerKeyboard` (strzałki, Enter). |
+| Lista | `components/ui/PickerFolderList.tsx` | Zawartość: wyszukiwarka, wiersze według folderów biblioteki lub `group`, wybór pojedynczy lub wielokrotny oraz przycisk "Add all" dla każdego folderu. |
+| Pola | `components/ui/Select.tsx` | `Select` wybiera jedną wartość ze stałej listy i zastępuje natywny `<select>`. Ma przycisk typu combobox, wyszukiwanie od `SELECT_SEARCH_MIN` opcji oraz obsługę strzałek i wpisywania nazwy przy zamkniętym polu. |
+|  | `components/ui/PickerField.tsx` | `PickerField` (jeden element, wiersz None i foldery), `PickerListField` / `PickerListWindow` (kilka elementów, które pojawiają się pod polem z przyciskami usuwania) oraz `useFieldWindow` (stan otwarcia i przywracanie fokusu do pola po zamknięciu). |
+|  | `components/ui/LibraryPickers.tsx`, `components/characters/CharacterSelect.tsx` | Pola presetów, lorebooków, postaci i person zbudowane z powyższych elementów. |
+
+Jak dodać selektor:
+
+- **Jedna wartość z listy:** `Select`. Przekaż `label`, które nazywa pole i nadaje tytuł oknu.
+- **Jeden element biblioteki** (z folderami, grafiką i wierszem None): `PickerField` lub odpowiednie pole z `LibraryPickers.tsx`.
+- **Kilka elementów:** `PickerListField`. Escape i kliknięcie poza oknem zamykają je. Sam wybór go nie zamyka.
+- **Kontrolka, która nie jest polem** (np. przycisk "Link to Conversation" z krótką listą wyboru): użyj `useFieldWindow` dla stanu otwarcia i fokusu, `PickerWindow` przy przycisku i `PickerFolderList` lub wierszy `PickRow` wewnątrz.
+
+Selektor połączeń i modeli (`ConnectionSelect` / `ModelPicker`) nadal ma osobne okno. Galerie ikon (`StatIconPicker`), uzupełnianie tagów oraz menu kontekstowe i menu akcji mają własne interfejsy i nie są selektorami.
+
+**Testowanie.** Przycisk `Select` ma `role="combobox"`, wybraną wartość w `data-value` i okno typu `dialog` nazwane etykietą pola. Wiersze mają `data-pick-row`. Wybrany wiersz przy wyborze pojedynczym ma `aria-current="true"`, a wiersze przy wyborze wielokrotnym mają `aria-pressed`. `e2e/select-field.ts` udostępnia `chooseOption` i `pickerLabels` w miejsce funkcji `selectOption` z Playwright używanej w starych natywnych polach.
 
 ## System stylów
 

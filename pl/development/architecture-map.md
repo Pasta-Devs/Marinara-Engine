@@ -165,7 +165,7 @@ Te pliki najbardziej spowalniają dalszą pracę, bo mieszają wiele spraw w jed
 | `packages/server/src/routes/generate.routes.ts` | wspólne generowanie i agenci | Trasa, streaming, prompt, agenci, magazyn i efekty uboczne mieszkają w jednym pliku. |
 | `packages/server/src/routes/game.routes.ts` | `MODE-GAME` | Obsługa API, przepływ GM, analiza sceny, zasoby, walka i utrwalanie danych są ze sobą splecione. |
 | `packages/client/src/components/game/GameSurface.tsx` | `MODE-GAME` | Renderowanie, orkiestracja stanu, zasoby, logi, narracja, walka i efekty są ze sobą splecione. |
-| `packages/client/src/components/chat/ChatSettingsDrawer.tsx` | mieszane ustawienia czatu | Wydzielanie sekcji trwa w `features/chat-settings`, ale panel boczny wciąż jest duży. |
+| `packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx` | mieszane ustawienia czatu | Wydzielanie sekcji trwa w `features/chat-settings/sections`, ale panel boczny wciąż jest duży. |
 | `packages/client/src/components/game/GameNarration.tsx` | `MODE-GAME` | Renderowanie widoku i formatowanie komend są ściśle powiązane. |
 | `packages/client/src/components/game/GameCombatUI.tsx` | `MODE-GAME` | Widok walki, sterowanie i logi mogą się rozpaść na mniejsze panele i hooki. |
 | `packages/client/src/components/chat/RoleplayHUD.tsx` | `MODE-ROLEPLAY` | Podział częściowo wykonano przez `RoleplayHUDActionsMenu.tsx` i `RoleplayHUDPanels.tsx`. |

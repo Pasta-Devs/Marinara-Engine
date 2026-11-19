@@ -53,6 +53,8 @@ Marinara는 이 기능을 켠 직후에 첫 백업을 만듭니다. 실행이 �
 
 > **팁:** 데이터 폴더 바깥에도 사본을 하나 더 보관하세요. 디스크가 고장 나거나 앱을 지우면 자동 백업도 함께 사라집니다.
 
+<a id="export-a-profile"></a>
+
 ## 프로필 내보내기
 
 1. **Settings** → **Advanced** → **Backup & Export**를 여세요.
@@ -66,6 +68,8 @@ Marinara는 이 기능을 켠 직후에 첫 백업을 만듭니다. 실행이 �
 네이티브 프로필은 `marinara-profile.json`으로 다운로드됩니다. 너무 크면 Marinara가 대신 ZIP 파일을 제안합니다. **Export ZIP**(ZIP 추출)을 클릭하면 `marinara-profile.zip`을 다운로드합니다.
 
 네이티브 프로필은 Personal Extension 코드는 유지하지만, 활성화 여부와 승인 여부는 유지하지 않습니다. 복원한 확장은 모두 비활성화된 채로 들어옵니다. **Settings** → **Addons**(애드온)에서 다시 검토하세요.
+
+네이티브 프로필에는 정규식 스크립트, 해당 폴더, 각 폴더의 일시 중지 설정이 보존됩니다. 스크립트를 개별적으로 JSON으로 공유하려면 [정규식 스크립트](../extending/regex-scripts.md#import-and-replace-scripts)를 참고하세요.
 
 ## Import Profile로 복원하기
 

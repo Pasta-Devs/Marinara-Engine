@@ -36,7 +36,7 @@ Jede Kategorie löscht nur, was in ihrer Zeile steht, mit Ausnahme des Galerieor
 | **Lorebooks** | Alle Lorebooks, Einträge und Ordner. |
 | **Presets** | Alle Prompt-Presets und Preset-Ordner, außer dem eingebauten Standard-Preset. |
 | **Connections** | Alle gespeicherten Konten sowie die damit verbundenen Modellauswahlen und Spracheinstellungen. |
-| **Automation & Addons** | Alle Agenten-Einstellungen, eigene Tools, Regex-Skripte und synchronisierte Themes. Nicht Personal Extensions oder External Extensions. |
+| **Automation & Addons** | Alle Agenten-Einstellungen, eigene Tools, Regex-Skripte samt Ordnern und synchronisierte Themes. Nicht Personal Extensions oder External Extensions. |
 | **Media & Assets** | Hintergründe, Avatare, Sprites, Galerie, Szenenvideos, Schriftarten und Dateien von Wissensquellen. |
 
 Mehr Details:

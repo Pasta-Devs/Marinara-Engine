@@ -94,6 +94,12 @@ globalThis.__MARINARA_HOST__ = {
 | `modules` | 베어 지정자를 키로 하는 라이브러리 모듈입니다(아래 참고). |
 | `queryClient` | Engine이 렌더링에 쓰는 단 하나의 React Query `QueryClient`입니다. |
 | `components.Modal` | 오버레이 순서, Escape 키와 뒤로 가기 버튼 처리를 갖춘 Engine의 `Modal`입니다. |
+| `components.Switch`, `components.Checkbox` | Capability API 1.830부터 Engine의 공용 스위치와 체크박스를 써서 패키지 모양을 호스트에 맞출 수 있습니다. |
+| `components.Spinner` | Capability API 1.830부터 쓰는 Engine의 공용 로딩 링입니다. 스크린 리더에서 숨겨지며 `label`을 전달하면 상태 영역이 됩니다. |
+| `components.Tabs` | Capability API 1.832부터 쓰는 Engine의 공용 탭 막대입니다. `variant="pill"`은 보기를 전환하는 분할 막대이고, `variant="underline"`은 시트나 대화 상자 안의 구역에 쓰는 텍스트 탭입니다. 방향키, Home, End로 탭 사이를 이동합니다. |
+| `components.SearchInput` | Capability API 1.832부터 쓰는 Engine의 검색 필드입니다. `value`, `onChange`와 스크린 리더용 `label`을 전달하세요. 지우기 버튼이 있으며 Escape는 먼저 텍스트를 지웁니다. `resultCount`는 "4 found"를, `busy`는 스피너를 표시합니다. `size="compact"`는 공간이 좁은 도구 모음에 맞으며, `slashShortcut`을 쓰면 "/"로 필드에 포커스를 줄 수 있습니다. |
+| `components.showConfirmDialog` | Capability API 1.830부터 쓰는 Engine의 확인 대화 상자입니다. `services.dialogs.showConfirmDialog`와 같은 함수입니다. |
+| `components.Select` | Capability API 1.831부터 쓰는 Engine의 드롭다운입니다. `value`(문자열 또는 `null`), `options`(`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` 및 `label`을 전달하세요. `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable`과 `buttonRef`는 선택 사항입니다. 데스크톱에서는 팝오버, 휴대폰에서는 시트가 열리며, 선택지가 8개 이상이면 검색할 수 있습니다. 기본 `<select>` 대신 사용하세요. |
 | `data.emojiCatalog` | `lib/emoji-catalog.generated.ts` 모듈입니다. |
 | `api` | `lib/api-client.ts` 모듈(`api`, `ApiError`, `getApiErrorMessage`, ...)입니다. |
 
@@ -1398,7 +1404,7 @@ Engine은 패키지 클라이언트 요소를 `view="widget"`으로 마운트합
 - `llm.withFallback(...)`는 같은 패키지 호스트가 만든 제공자를 감싸며 Engine의 요청 수용, 대체 알림, 제공자 선택 동작을 유지합니다.
 - `images.generate(...)`와 `videos.generate(...)`는 취소, 요청 로그, 네트워크 검사, 미디어 큐를 포함한 현재 Engine 구현을 사용합니다. 호출자의 `signal`과 UI `debugMode`가 있으면 전달하세요. 1.816부터 이미지 요청의 `animation`은 반복 재생되는 GIF를 요청합니다([Capability API 1.816](#capability-api-1816-animated-gif-images) 참고).
 - `images.save`, `images.remove`, `images.stage`, `images.sweepStaged`는 갤러리의 안전한 쓰기와 임시 파일 수명 주기를 재사용합니다. `videos.save`와 `videos.remove`는 영상 저장 경로를 재사용합니다. `images.resolveNovelAiRequestSize`는 호스트의 NovelAI 크기 정규화를 재사용합니다. 영상 길이와 공개 참조 업로드 정규화도 `videos.resolveDuration`, `videos.resolveReferenceUpload`로 사용할 수 있습니다.
-- `speech.transcribe(audio, { filename, mimeType, signal })`는 녹음한 오디오를 사용자가 **Connections → Speech to Text**(연결 → 음성 인식)에서 설정한 음성 인식 서버로 보내고, 변환된 텍스트를 반환합니다. 그 서버가 꺼져 있으면 `null`을 반환하므로 패키지는 자체 음성 변환을 그대로 사용합니다. 호스트의 URL 정책(`STT_LOCAL_URLS_ENABLED`)과 크기, 시간 제한을 적용하며 저장된 키는 절대 노출하지 않습니다. `speech`는 선택적이며 더 새로운 Capability API를 요구하지 않습니다. `typeof api.runtime.integrations?.speech?.transcribe === "function"`을 확인하고, 오래된 Engine에서는 대체 경로를 사용하세요.
+- `speech.transcribe(audio, { filename, mimeType, signal })`는 녹음한 오디오를 사용자가 **Connections**(연결)의 **Jobs**(작업) 상자에 있는 **Dictation**(받아쓰기) 작업 설정에서 설정한 음성 인식 서버로 보내고, 변환된 텍스트를 반환합니다. 그 서버가 꺼져 있으면 `null`을 반환하므로 패키지는 자체 음성 변환을 그대로 사용합니다. 호스트의 URL 정책(`STT_LOCAL_URLS_ENABLED`)과 크기, 시간 제한을 적용하며 저장된 키는 절대 노출하지 않습니다. `speech`는 선택적이며 더 새로운 Capability API를 요구하지 않습니다. `typeof api.runtime.integrations?.speech?.transcribe === "function"`을 확인하고, 오래된 Engine에서는 대체 경로를 사용하세요.
 
 공유 요청·결과 타입은 `@marinara-engine/shared`에서 내보냅니다. 패키지별 프롬프트 구성과 작업 조정은 패키지에 두고, 제공자 입출력은 Engine 서비스 구현을 복사하지 말고 이 호스트 진입점을 호출하세요. 순수 헬퍼와 타입은 여전히 번들에 포함할 수 있습니다.
 

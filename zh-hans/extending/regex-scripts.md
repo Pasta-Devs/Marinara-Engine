@@ -46,6 +46,8 @@ She smiles Hello there.
 
 区块标题栏有三个图标按钮：**Create regex**、**Import regexes from JSON**(从 JSON 导入正则) 和 **Export regexes to JSON**(导出正则为 JSON)（把你所有的全局脚本保存到一个文件里）。绑定到单个角色的脚本单独存放；见[把脚本限定给一个角色](#limit-a-script-to-one-character)。
 
+<a id="organize-scripts-in-folders"></a>
+
 ### 用文件夹整理脚本
 
 1. 用 **New Folder**(新建文件夹) 创建文件夹并命名。
@@ -54,7 +56,15 @@ She smiles Hello there.
 
 点击文件夹名称可以展开或折叠。关闭文件夹的开关后，里面的脚本会在所有聊天中暂停，文件夹标题会显示 **Paused**(已暂停)。各脚本保留自己的开关设置。已启用的脚本如果位于暂停的文件夹中，开关会变灰，并显示 **Paused by folder**(因文件夹暂停)。删除文件夹会将脚本移到顶层，脚本继续按各自的开关设置运行。
 
-文件夹不会改变脚本执行顺序。点击 **Execution order**(执行顺序) 按实际执行顺序查看整个列表。拖动脚本的把手可以改变顺序。没有文件夹时，列表已经按执行顺序排列。
+文件夹不会改变脚本执行顺序。点击 **Execution order**(执行顺序) 按实际执行顺序查看整个列表。拖动脚本的把手可以改变顺序。没有文件夹时，列表已经按执行顺序排列。在此视图中，暂停图标表示脚本本身已启用，但其文件夹已暂停。
+
+### 同时修改多条脚本
+
+1. 点击 **Select regex scripts**。
+2. 勾选你要修改的脚本。
+3. 点击 **Enable selected**(启用选中项)、**Disable selected**(禁用选中项) 或 **Move to folder**。你也可以导出或删除所选脚本。
+
+**Enable selected** 只改变各脚本的开关。要让暂停文件夹中已启用的脚本再次运行，请先恢复文件夹。
 
 <a id="editor-fields"></a>
 
@@ -95,7 +105,7 @@ She smiles Hello there.
 
 ### Live Test
 
-粘贴示例文本，结果会显示在 **Result:** 下方。Live Test 只检查查找、替换和裁剪的逻辑。生效环节、启停状态、角色范围和深度要在真实聊天中才会评估。模式、替换内容和裁剪字符串里都可以使用 `{{user}}` 和 `{{char}}` 这类宏。在 Live Test 中它们使用示例值。见[宏](../prompts/macros.md)。
+粘贴示例文本，结果会显示在 **Result:** 下方。**Live Test** 只检查查找、替换和裁剪的逻辑。要检查生效环节、文件夹暂停状态、脚本开关、角色范围或深度，请在聊天中试用脚本。模式、替换内容和裁剪字符串里都可以使用 `{{user}}` 和 `{{char}}` 这类宏。在 **Live Test** 中它们使用示例值。见[宏](../prompts/macros.md)。
 
 <a id="choose-where-a-script-runs"></a>
 
@@ -122,7 +132,7 @@ She smiles Hello there.
 
 两者都在 **Advanced Options** 中。
 
-- **Execution Order**(执行顺序) 是一个数字。数字小的先运行，当多条脚本可能命中同一段文字时，这一点很重要。新脚本开始时为 0，保存时应用会分配下一个空闲编号。你也可以在 **Regexes** 列表中拖动行。
+- **Execution Order**(执行顺序) 是一个数字。数字小的先运行，当多条脚本可能命中同一段文字时，这一点很重要。新脚本开始时为 0，保存时应用会分配下一个空闲编号。要从面板更改顺序，见[用文件夹整理脚本](#organize-scripts-in-folders)。
 - **Depth Range**(深度范围) 用 **Min**(最小) 和 **Max**(最大) 限定脚本往前作用多远。最新的消息是深度 0，它之前的一条是深度 1，依此类推。两者都留空就在任意深度运行。**Min** 大于 **Max** 时无法保存。
 
 ### 群聊
@@ -165,6 +175,8 @@ She smiles Hello there.
 
 模式下方，面板会列出每个角色的限定脚本，每条都有一个开关。这个开关属于脚本本身，所以会在所有聊天里改变这条脚本。模式控制的是显示侧的脚本。提示词脚本始终跟随正在生成回复的那个角色。
 
+<a id="import-and-replace-scripts"></a>
+
 ## 导入和替换脚本
 
 ### 从 SillyTavern 导入
@@ -172,16 +184,19 @@ She smiles Hello there.
 Marinara 能读取打包在 SillyTavern 角色卡里的正则脚本。导入角色卡时，**Imported regex scripts**(已导入的正则脚本) 区块会提供两个选择：
 
 - **Character only**(仅该角色)（默认）：脚本保持限定给该角色。
-- **Global**(全局)：脚本加入 **Presets**，在每个聊天里运行。
+- **Global**(全局)：脚本会加入 **Presets → Regexes**，可在不同聊天中运行。
 
 单个角色的导入对话框和批量的 **Import from SillyTavern Folder**(从 SillyTavern 文件夹导入) 流程都会出现这个选择。模式为空或未通过安全检查的脚本会被跳过。要导入纯 JSON 格式的脚本文件，使用 **Regexes** 中的 **Import regexes from JSON**。见[从 SillyTavern 导入](../data/importing-from-sillytavern.md)。
+
+**Export regexes to JSON** 会把所有全局脚本保存到一个文件中。选择脚本时，使用 **Export** 可只保存所选脚本。正则 JSON 导出会保留各脚本的设置。要同时保留脚本所在的文件夹和暂停设置，请用 **Export Profile** 并选择 **Marinara Native**。见[导出档案](../data/backup-and-restore.md#export-a-profile)。从正则 JSON 导入的脚本会出现在顶层，导入后可移入文件夹。
 
 ### 替换正则脚本包
 
 1. 在 **Presets → Regexes**(预设 → 正则) 中，选择 **Select regex scripts**(选择正则脚本)。
-2. 勾选旧脚本包的条目，或选择 **Select all regex scripts**(选择全部正则脚本)。
-3. 使用操作栏中的 **Export**(导出) 或 **Delete**(删除)。删除只会确认一次，且无法撤销。
+2. 勾选旧脚本包的条目。**Select all regex scripts**(选择全部正则脚本) 会选择整个库，包括折叠文件夹里的脚本。
+3. 点击操作栏中的 **Delete**(删除)。Marinara 会要求确认。要先留一份副本，请在删除之前点击 **Export**(导出)。
 4. 导入更新后的脚本包。
+5. 如果脚本包有自己的文件夹，请把新脚本移入其中。
 
 删除失败的脚本会保持选中，方便重试。未选中的脚本保留不动。预设关联仍可在正则编辑器中使用。
 

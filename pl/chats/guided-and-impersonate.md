@@ -61,6 +61,8 @@ Model publikuje wiadomość użytkownika jako twoja persona. Na przykład ta kom
 
 Krótki odpowiednik to `/imp`. **Regenerate** działa na wiadomości napisanej przez Impersonate, więc możesz dostać inną wersję.
 
+<a id="the-impersonate-settings"></a>
+
 ### Ustawienia Impersonate
 
 Te ustawienia obowiązują przy każdym użyciu `/impersonate` na wszystkich twoich czatach. Otwórz panel **Chat Settings** (ustawienia czatu) na czacie w trybie Roleplay i znajdź sekcję **Impersonate**. Jak otworzyć ten panel, opisuje [Panel **Chat Settings** – przegląd](chat-settings.md).
@@ -71,6 +73,7 @@ Te ustawienia obowiązują przy każdym użyciu `/impersonate` na wszystkich two
 | **Preset** | Preset promptu tylko dla odpowiedzi z Impersonate. Domyślnie: **Use chat default** (użyj ustawienia czatu). Zobacz [Edytor presetów i menedżer promptów](../prompts/presets.md). |
 | **Connection** (połączenie) | Model dla odpowiedzi z Impersonate, na przykład tańszy albo szybszy. Domyślnie: **Use chat default**. Możesz też wybrać **Random** (losowo). Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md). |
 | **Skip agents** (pomijanie agentów) | Pomija agentów (trackery, agentów kierujących lorebookami i podobnych pomocników) podczas Impersonate. Dzięki temu Impersonate działa szybko i nie zmienia stanu świata. Domyślnie wyłączone. Zobacz [Agenci](../agents/agents-overview.md). |
+| **Send Public Faces** (wysyłanie publicznych wizerunków) | W czatach Roleplay postać z wypełnionym polem **Public Face** pojawia się w prompcie Impersonate tylko jako imię i publiczny wizerunek, więc odpowiedź korzysta wyłącznie z tego, co możesz wiedzieć. Zastępuje to wszystko inne z karty: Description, Personality, Backstory, Appearance, Scenario, System Prompt, przykładowe dialogi, atrybuty RPG, Post-History Instructions i Depth Prompt. Postać z pustym polem Public Face zachowuje pełną kartę. Makra z presetu lub szablonu promptu Impersonate, np. `{{description}}`, nadal wysyłają wskazane dane. **Regenerate** zachowuje ustawienie użyte do napisania wiadomości. Domyślnie wyłączone. Zobacz [Zakładka Card](../characters/creating-and-editing-characters.md#card-tab). |
 | **Use CYOA as direction** (użycie CYOA jako wskazówki) | Kliknięcie opcji CYOA (choose your own adventure, czyli "wybierz własną przygodę") używa jej jako wskazówki dla Impersonate zamiast publikować ją na czacie. Domyślnie wyłączone. Jeśli w **Settings → General → Input & Editing** włączono **Add CYOA choices to the message box instead of sending them** (dodawanie wyborów CYOA do pola wiadomości zamiast ich wysyłania), kliknięcie tylko dodaje tekst do pola wiadomości, a to ustawienie nic nie zmienia. |
 
 ### Ustawianie promptu dla jednego czatu

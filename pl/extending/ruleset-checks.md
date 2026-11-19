@@ -41,6 +41,27 @@ Znaczenie otrzymanej liczby zależy od rodzaju: `dice-sum` dodaje ją do rzutu, 
 - `unmodified`: wyniki pojedynczej kości, które zapis oznacza, gdy wypadną na pierwszej kości (1.136), aby dało się stosować tabele traktujące osobno "niezmodyfikowane 66": `[66, 100]`. Zapis zawiera `unmodified="66"`, karta rzutu to podaje, a instrukcje nakazują modelowi Game Master zastosować to, co mówią o tym zasady.
 - `difficultyLadder`: trudności, spośród których ma wybierać Game Master. `dc` to liczba, którą suma musi osiągnąć. Zamiast liczby Game Master może podać nazwę stopnia, np. `difficulty="Hard"`, a Engine odczyta liczbę z tego stopnia.
 
+#### Dwie nazwane kości
+
+Test oparty na sumie może rzucić dwiema kośćmi, z których każda ma nazwę. To, która da wyższy wynik, wpływa na przebieg historii (Capability API 1.821). Zestaw społecznościowy nie potrzebuje żadnej deklaracji. Zestaw dostarczany jako pakiet deklaruje 1.821.
+
+```json
+"dice": { "count": 2, "sides": 12 },
+"duality": {
+  "dice": [{ "id": "hope", "label": "Hope" }, { "id": "fear", "label": "Fear" }],
+  "tieIsCritical": true,
+  "text": "With Hope the player gains a Hope; with Fear the Game Master gains a Fear."
+}
+```
+
+- `dice`: Dwie nazwy w kolejności rzucania. Pierwsza kość w `rolls` to pierwsza wymieniona kość.
+- `tieIsCritical`: Opcjonalne. Domyślnie `true`. Remis jest wtedy krytycznym sukcesem bez względu na sumę.
+- `text`: Opcjonalne. Jeden wiersz wyjaśniający Game Master, co oznacza każda kość w grze.
+
+Wynik to nadal suma dwóch kości i modyfikatora, porównywana jak zwykle z trudnością. Zapis wskazuje kość z wyższym wynikiem, np. `duality="Hope"`, albo remis: `duality="tie"`. Karta rzutu również to pokazuje, a Game Master dostaje polecenie opisania testu zgodnie z wynikiem tej kości.
+
+Opcja `duality` wymaga wartości 2 w `dice.count`, zwykłych ścianek (bez `faces`), braku `openEnded` i fałszywego `advantage`. Identyfikatory muszą być różne. Etykiety także muszą się różnić i żadna nie może brzmieć `tie`, ponieważ zapis wskazuje zwycięską kość według etykiety. Nadpisanie może włączyć lub usunąć tę opcję w wybranych testach.
+
 #### Kość fabularna
 
 Test z sumą może rzucić jeszcze jedną kością, której ścianki mają symbole zamiast liczb (Capability API 1.822). Zestaw społecznościowy niczego nie potrzebuje; zestaw dostarczany jako pakiet deklaruje 1.822.
@@ -139,6 +160,8 @@ Liczba z arkusza to **wielkość puli**, a nie premia dodawana do niej. Cecha 3 
 - `situationalDice`: opcjonalne. Zakres kości dodawanych lub odejmowanych przez Game Master dla jednego testu przez `bonus=`, np. za wyczyny, rany lub słabe światło.
 - `pairs`: opcjonalne (Capability API 1.824). `{ "from": 10, "successes": 4 }` sprawia, że każda para kości z wynikiem co najmniej `from` daje razem `successes` sukcesów, zamiast po jednym z każdej kości, a udany test z parą jest krytycznym sukcesem. Trzy kości z wynikiem 10 to jedna para i jeszcze jedna kość: pięć sukcesów. `from` nie może być niższe niż najwyższy próg, a `pairs` nie może występować obok `double` ani `stances`.
 - `hunger`: opcjonalne (Capability API 1.824). `{ "label": "Hunger", "max": 5, "text": "..." }` pozwala, aby najwyżej `max` kości puli było kośćmi specjalnymi. Game Master prosi o nie w teście przez `hunger="N"`, zwykle odczytując ich liczbę z toru w arkuszu. Są to pierwsze kości w `rolls`, należą do puli (nigdy nie są dodatkowymi kośćmi) i nie dotyczy ich żaden ponowny rzut. Krytyczny sukces, w którym jedna z nich pokazuje ściankę krytyczną (ściankę z `pairs` albo najwyższą ściankę kości), jest oznaczany `messy="true"`, a porażka, w której jedna z nich pokazuje 1, jest oznaczana `bestial="true"`. Zapis zawiera też `hunger="2" hungerLabel="Hunger"`, a karta rzutu podaje to wszystko. `max` nie może być większe niż `pool.max`.
+- `groups`: Opcjonalne (Capability API 1.826). Maksymalnie trzy grupy rozróżniają kości w puli według źródła: `{ "id": "base", "label": "Base", "from": "ability" }`, `{ "id": "skill", "label": "Skill", "from": "skill", "banes": false }` oraz `{ "id": "gear", "label": "Gear", "from": "gear" }`. Kości znajdują się w `rolls` w kolejności wymienionych grup. Grupa `ability` zawiera kości atrybutu, `gear` kości, o które Game Master prosi przez `gear="N"`, a `skill` pozostałe. Kara odejmuje więc najpierw kości umiejętności. Grupa zlicza jedynki, chyba że `banes` ma wartość false. Wpis `groups="Base:2:1|Skill:2|Gear:1:0"` podaje liczbę kości każdej grupy, a potem liczbę jedynek tam, gdzie są zliczane. Karta rzutu pokazuje to samo. Każdemu źródłu odpowiada jedna grupa, grupa `skill` jest wymagana, etykiety muszą się różnić, a `groups` nie można łączyć z `explode`. Skutki wyrzucenia jedynki stosuje Game Master.
+- `push`: Opcjonalne (Capability API 1.826). `{ "text": "..." }` pozwala raz ponowić rzut. Game Master ponownie zapisuje ten sam test z `push="true"`. Silnik pobiera ostatni rzut tej postaci w tym teście z zapisu w poprzedniej odpowiedzi, bez używania liczb z nowego znacznika. Ponownie rzuca każdą kością, która nie dała sukcesu ani zliczanej jedynki (jeśli pula nie ma grup, zachowuje wszystkie jedynki). Poprzedni rzut musi należeć do tej samej postaci. Zapis bez nazwy postaci należy do gracza. Obowiązuje próg poprzedniego rzutu i niczego się nie wydaje, nie zużywa ani nie dodaje. Nowy zapis zawiera `pushed="N"` z liczbą ponownie rzuconych kości. Zapisu zawierającego `pushed` nie można ponowić po raz drugi. Jeśli nie ma poprzedniego rzutu tej postaci, który można ponowić (druga próba ponowienia, próba dla całej drużyny, próba w bloku `[branch:]` albo poprzedni rzut, którego ten test nie mógł wykonać), silnik w ogóle nie rzuca kośćmi. Zapisuje `reason="not-pushable"`, kończąc próbę. Opcji `push` nie można łączyć z `stances`, `explode` ani `hunger`.
 - `reroll`: opcjonalne. Ponowne rzuty przyznawane przez system bez żadnej opłaty, do sześciu, każdy z `id`, które Game Master podaje w teście przez `reroll=`. Wyniki nie większe niż `upTo` rzuca się ponownie: `"once"` oznacza, że nowy wynik zostaje, jakikolwiek jest, a `"until"`, że rzuca się nimi, aż wypadnie wyższy wynik. `upTo` wynosi od 1 do liczby o jeden mniejszej niż liczba ścianek kości, ponieważ ponowny rzut każdego wyniku nigdy by się nie skończył, a `until` i tak zatrzymuje się po stu ponownych rzutach w jednym teście. Żaden nie jest wykonywany, jeśli test go nie wskazuje. Jeden test wykonuje jeden ponowny rzut: jeśli wydatek lub wpis użyty przez postać także go kupił, wykonuje się ten, który obejmuje więcej wyników, a przy równym zasięgu `until` ma pierwszeństwo przed `once`.
 - `difficultyLadder`: `successes` określa liczbę wymaganych sukcesów. Stopień może też wskazywać `target`, ale tylko gdy próg jest regulowany i w jego zakresie. Z tego progu korzysta test na danym stopniu: gdy Game Master wskazuje stopień przez `difficulty=` albo zapisuje `dc=` wymagane przez dokładnie jeden stopień. Gdy kilka stopni wymaga tej samej liczby sukcesów, samo `dc=` nie określa, o który chodzi, więc próg pozostaje domyślny; podaj nazwę stopnia.
 

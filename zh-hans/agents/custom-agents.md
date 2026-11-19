@@ -125,12 +125,14 @@ Post-Processing 智能体还会多出一个 **Turn Data Access**(回合数据访
 
 有人把这个智能体加进聊天时，会看到一个 **Prompt Mode**(提示词模式) 下拉菜单，列出你的选项。一个选项都没有时，只显示默认提示词。
 
+<a id="other-settings"></a>
+
 ## 其他设置
 
 - **Model override**(模型覆盖)：给这个智能体换一个模型，比如更便宜的模型。留空就沿用聊天的模型。智能体会发送该连接上保存的生成参数。见[智能体参数](../prompts/generation-parameters.md#parameters-for-agents)。
 - **Agent Budget**(智能体预算)：**Context Size**(上下文大小) 是智能体读取的最近消息条数（默认 5）。**Max Output Tokens**(最大输出 Token 数) 是预留的输出空间（默认 4096，范围 128 到 32768）。
 - **Add as Prompt Section**(作为提示词段落加入)：把智能体的最新输出作为一个段落暴露出来，可以放进提示词预设。
-- **Context Sources**(上下文来源)：智能体除了指令之外还会读取什么。**Characters**(角色) 和 **Persona**(人设) 各有三个选项：**Off**(关闭)、**Full card**(完整角色卡) 或 **Public Face**(公开形象)。**Public Face** 只发送名字和卡片的 **Public Face** 字段。字段为空时，只发送名字。填写方法见[Card 选项卡](../characters/creating-and-editing-characters.md#card-tab)。多个智能体共用一个请求时，每项来源都会采用其中范围最广的选项：依次为 **Full card**、**Public Face**、**Off**。
+- **Context Sources**(上下文来源)：智能体除了指令之外还会读取什么。**Characters**(角色) 和 **Persona**(用户角色) 各有三个选项：**Off**(关闭)、**Full card**(完整角色卡) 或 **Public Face**(公开形象)。**Public Face** 只发送名字和卡片的 **Public Face** 字段。字段为空时，只发送名字。填写方法见[Card 选项卡](../characters/creating-and-editing-characters.md#card-tab)。多个智能体共用一个请求时，每项来源都会采用其中范围最广的选项：依次为 **Full card**、**Public Face**、**Off**。
 
 `{{user}}`、`{{char}}` 这类宏在 **Prompt Template** 里同样有效。见[宏](../prompts/macros.md)。
 

@@ -113,7 +113,7 @@ Conversationのチャットのキャラクターを相手に、UNO、チェス�
 
 **Chat Settings → Agents → Commands**を開くか、チャットを作るときに**Automation**のステップを使います。マスターの**Commands**スイッチは、テーブルゲーム、自撮り写真、通話を含む、キャラクター主導のすべての操作を制御します。オフのときは、キャラクターが自分から何かを始めることはありません。
 
-インストールしたゲームには、それぞれ専用のスイッチがあり、オフにしない限りオンです。**UNO**、**Chess**、**Poker**、**8-Ball Pool**、**Tic-Tac-Toe**、**Rock-Paper-Scissors**です。[キャラクターが使えるCommandsの選択](getting-started.md#choose-which-commands-a-character-can-use)を参照してください。
+インストールしたゲームには、それぞれ専用のスイッチがあり、オフにしない限りオンです。**UNO**、**Chess**、**Poker**、**8-Ball Pool**、**Tic-Tac-Toe**、**Rock-Paper-Scissors**です。BlackjackやWordleなど、ほかのゲームパッケージにはゲーム名の付いたスイッチが表示されます。[キャラクターが使えるCommandsの選択](getting-started.md#choose-which-commands-a-character-can-use)を参照してください。
 
 これらのスイッチが制御するのは、キャラクターができることだけです。ゲームのスラッシュコマンドと、「let's play」という言い方は、スイッチがオフでも動作します。
 

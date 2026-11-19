@@ -40,14 +40,13 @@ L'interrupteur principal **Commands** dans la même section doit être activé p
 
 ### Configurer Text to Speech
 
-Text to Speech décide quels personnages peuvent parler et avec quelle voix. Lis [Configuration de Text to Speech (TTS)](../media/tts-setup.md) pour le guide complet. En bref, ouvre **Connections**, clique sur **Add account** et choisis **Text to speech**. S'il est déjà listé sous **On this device**, ouvre-le là. Ensuite :
+Text to Speech décide quels personnages peuvent parler et avec quelle voix. Lis [Configuration de Text to Speech (TTS)](../media/tts-setup.md) pour le guide complet. En bref :
 
-1. Active Text to Speech.
-2. Choisis une source : **OpenAI-compatible**, **ElevenLabs**, **PocketTTS** ou **xAI Voice**.
-3. Saisis la clé API ou l'adresse du serveur local pour cette source.
-4. Choisis un modèle et une voix.
-5. Règle **Voice option** sur **One voice for all** ou **Selected per character or persona**. Des voix par personnage rendent les appels de groupe plus faciles à suivre.
-6. Enregistre, puis utilise l'aperçu pour confirmer que tu entends l'audio.
+1. Ouvre **Connections** et clique sur la ligne **Voice** (voix) dans l'encadré **Jobs** (tâches).
+2. Choisis un modèle ou un service vocal. Ce choix active le Text to Speech. Le compte du modèle fournit la clé et l'adresse.
+3. Clique sur la roue dentée de la ligne **Voice** pour ouvrir **Voice settings** (réglages de la voix).
+4. Dans **Who speaks** (qui parle), choisis une **Shared voice** (voix partagée) ou attribue des voix dans **Character and persona voices**. Des voix par personnage rendent les appels de groupe plus faciles à suivre.
+5. Clique sur **Preview** (aperçu) pour vérifier que tu entends le son.
 
 Si un personnage n'a pas de voix que Marinara peut résoudre, ce personnage reste en texte seulement pour l'appel.
 
@@ -128,8 +127,8 @@ Local Whisper transforme ta voix en texte sur l'ordinateur qui exécute Marinara
 
 **Avant de commencer :** installe Calls. La section est masquée sans lui.
 
-1. Ouvre **Connections** et trouve **Speech to text** sous **On this device**. S'il n'est pas listé, clique sur **Add account** et choisis **Speech to text**.
-2. Trouve **Local speech model** sur cette page.
+1. Ouvre **Connections** et repère **Local speech model** dans la carte **On this device**.
+2. Clique sur **Local speech model** dans cette carte.
 3. Choisis un modèle :
    - **Whisper Tiny (Multilingual)** : environ 180 Mo à télécharger et 350 Mo de mémoire. Idéal pour les téléphones et les ordinateurs plus anciens.
    - **Whisper Base (Multilingual)** : environ 320 Mo à télécharger et 650 Mo de mémoire. Meilleur avec une voix peu claire.
@@ -146,7 +145,7 @@ Si ça n'a pas marché : sur une build Lite de Marinara, tu vois "Local Whisper 
 
 Si Local Whisper a du mal avec ta langue ou ton accent, envoie plutôt ta voix à un autre serveur de reconnaissance vocale. Tout serveur qui accepte le format de reconnaissance vocale d'OpenAI (l'adresse `/audio/transcriptions`) convient, que tu l'exécutes toi-même ou que tu utilises un service comme OpenAI ou Groq.
 
-1. Ouvre **Connections** et ouvre **Speech to text** sous **On this device**. S'il n'est pas listé, clique sur **Add account** et choisis **Speech to text**. Il est masqué tant que Calls n'est pas installé.
+1. Ouvre **Connections** et clique sur la roue dentée de la ligne **Dictation** (dictée) dans l'encadré **Jobs**. Les réglages du serveur **Speech to text** s'y trouvent. Ils restent masqués tant que Calls n'est pas installé.
 2. Saisis le champ **Server URL**, par exemple `http://localhost:8000/v1`.
 3. Saisis une **API key** si le serveur en a besoin. Elle est enregistrée chiffrée et affichée masquée.
 4. Saisis le **Model** que ton serveur utilise. Laisse vide pour envoyer `whisper-1`.

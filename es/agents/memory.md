@@ -35,15 +35,15 @@ Memory Recall necesita un modelo que cree las huellas. Si no configuras nada, Ma
 
 Antes de empezar: necesitas una cuenta que ofrezca embeddings. Consulta [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md).
 
-1. Abre **Connections** (Conexiones) y edita la cuenta.
-2. Busca la sección **Semantic search (embeddings)** (Búsqueda semántica: embeddings).
+1. Abre **Connections** (Conexiones) y haz clic en el modelo para abrir **Edit model** (Editar modelo).
+2. Haz clic en **More** (Más) y busca **Semantic search (embeddings)** (Búsqueda semántica: embeddings).
 3. Escribe el nombre de un modelo de embeddings, por ejemplo `text-embedding-3-small`.
 4. Opcional: define **Embedding endpoint URL** (URL del endpoint de embeddings) para cambiar la dirección.
 5. Opcional: usa **Embedding provider** (Proveedor de embeddings) para tomar prestadas la clave y la dirección de otra cuenta. **Same as this provider** (Igual que este proveedor) conserva las de esta cuenta.
 
 Algunos servicios no ofrecen embeddings. En ese caso, Marinara te pide elegir una cuenta de embeddings dedicada, como una compatible con OpenAI, Google o el modelo integrado.
 
-Para usar una sola fuente en todas partes, elígela en **Embeddings**, dentro de **Connections → Defaults** (Conexiones → Valores predeterminados). Las cuentas sin un modelo de embeddings propio la usan. El ajuste propio de una cuenta sigue teniendo prioridad.
+Para usar una sola fuente en todas partes, elígela en la tarea **Embeddings** del cuadro **Jobs** (Tareas) de **Connections**. Las cuentas sin un modelo de embeddings propio la usan. El ajuste propio de una cuenta sigue teniendo prioridad.
 
 Sin una cuenta de embeddings ni un valor predeterminado de **Embeddings**, Marinara recurre a un modelo de embeddings integrado. Se descarga una sola vez y se ejecuta en tu computadora sin ninguna API key (clave de API). Consulta [Configuración del modelo integrado](../connections/local-model.md).
 

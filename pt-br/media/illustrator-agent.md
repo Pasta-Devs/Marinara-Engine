@@ -16,7 +16,7 @@ O Illustrator escreve o prompt, mas quem desenha a imagem é um modelo de imagem
 
 Há dois jeitos de dar um modelo de imagem a ele.
 
-1. Defina a tarefa **Images** em **Defaults** (padrões), no painel **Connections** (conexões).
+1. Defina a tarefa **Images** na caixa **Jobs** (tarefas), no painel **Connections** (conexões).
 2. Ou dê ao Illustrator um modelo de imagem próprio na tela **Open Setup** (abrir a configuração) dele.
 
 Se nenhum modelo de imagem for encontrado, a imagem falha e o aplicativo pede que você escolha um.

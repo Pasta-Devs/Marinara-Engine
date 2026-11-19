@@ -29,7 +29,7 @@ Klick in der Zeile eines Kontos auf **⋯**:
 | **Edit account** | Öffnet seine Einstellungen, darunter **Name**, **Address**, **API key** und **Use this account**. |
 | **Replace key** | Fügt einen neuen Key ein. Steht der alte Key auch bei anderen Konten, fragt Marinara, ob es diese ebenfalls aktualisieren soll. |
 | **Test** | Prüft den Key und zeigt das Ergebnis. |
-| **Add model** | Öffnet die Modellliste des Kontos. **Add image model** erscheint bei Diensten, die auch Bilder erzeugen. |
+| **Add model** | Öffnet die Modellliste des Kontos. |
 | **Select models** | Lässt dich mehrere Modelle auf einmal verschieben oder löschen. |
 | **Duplicate** | Legt eine Kopie des Kontos mit Kopien seiner Modelle an. |
 | **Turn off** / **Turn on** | Schaltet die Nutzung des Kontos durch Marinara aus oder wieder ein. |
@@ -57,7 +57,7 @@ Klick in einer Modellzeile auf **⋯**:
 
 | Aktion | Funktion |
 | --- | --- |
-| **Make default for…** | Gibt dem Modell eine Aufgabe, genau wie die Auswahl im Bereich **Jobs**. |
+| **Use for…** (Verwenden für…) | Öffnet die Aufgabenliste. Klick auf eine Aufgabe, um sie dem Modell zu geben, wie im Bereich **Jobs**. Ein Häkchen markiert die Aufgaben, die es bereits übernimmt. |
 | **Edit model** | Öffnet seine Einstellungen. Ein Klick auf die Modellzeile bewirkt dasselbe. |
 | **Move to account…** | Verschiebt das Modell in ein anderes Konto. Danach nutzt es den Key dieses Kontos. |
 | **Folder** | Legt das Modell in einen Ordner. |

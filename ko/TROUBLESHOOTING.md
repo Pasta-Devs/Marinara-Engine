@@ -240,7 +240,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 1. **Chat Settings → Memory Recall**(채팅 설정 → 기억 회상)을 열고 **Enable Memory Recall**(이전 기억 불러오기)이 켜져 있는지 확인하세요.
 2. **Access memories for this chat**(이 채팅의 기억에 접근)을 여세요. **Memories for This Chat**(이 채팅의 기억)에서 각 조각의 상태를 확인하세요.
 3. **Waiting for vector**는 기억을 아직 처리하는 중이라는 뜻입니다. 기다렸다가 다시 채팅하세요.
-4. **Embedding unavailable**은 동작하는 임베딩 소스가 없다는 뜻입니다. 임베딩 계정을 설정하거나 내장 모델이 로드되게 두세요. 모든 채팅에 소스 하나를 쓰려면 **Connections**의 **Defaults**(기본값) 섹션에 있는 **Embeddings**(임베딩)에서 고르세요.
+4. **Embedding unavailable**은 동작하는 임베딩 소스가 없다는 뜻입니다. 임베딩 계정을 설정하거나 내장 모델이 로드되게 두세요. 모든 채팅에 소스 하나를 쓰려면 **Connections**의 **Jobs**(작업) 상자에서 **Embeddings**(임베딩) 작업에 지정하세요.
 
 기억은 새 메시지가 5개 이상 쌓여야 만들어집니다. 회상은 새 메시지와 많이 비슷한 기억만 보여 주므로, 기억이 있어도 아무것도 나오지 않을 수 있습니다.
 
@@ -321,9 +321,9 @@ pnpm backgroundremover:install
 
 ## 음성, 통화, TTS
 
-- **통화 중에 캐릭터가 말하지 않음.** Text to Speech(음성 합성)가 설정되지 않은 것입니다. **Connections → Text to Speech**(연결 → TTS)를 열어 켜고, 소스를 고르고, 키를 입력하고, 음성을 고른 다음 저장하세요. 음성이 없는 캐릭터는 텍스트로만 표시됩니다.
-- **음성이 "No audio after N s"와 함께 멈춤.** 음성 서버가 Marinara가 기다리는 시간보다 느린 것입니다. 노트북에서 돌리는 로컬 서버라면 흔한 일입니다. `N`은 현재 타임아웃 값입니다. **Connections → Text to Speech**에서, 또는 메시지에 나온 오디오 계정에서 **Request timeout (seconds)**(요청 제한 시간, 초)를 늘리세요. [요청 타임아웃](media/tts-setup.md#request-timeout)을 참고하세요.
-- **마이크가 동작하지 않음.** **Agents → Agent Organizer**에서 **Calls**를 설치하세요. 그런 다음 **Connections → Speech to text**(연결 → 음성 인식)를 열고 **On this device**(이 기기) 아래에서 **Local speech model**(로컬 음성 모델)을 찾아 Whisper 모델을 고른 다음 **Download Whisper**(Whisper 다운로드)를 클릭하세요. Firefox는 브라우저 음성 인식이 없어서 이 과정이 필요합니다. Calls를 제거하면 Whisper 모델도 삭제됩니다. 직접 운영하는 서버를 쓸 수도 있습니다. [직접 운영하는 음성 인식 서버 사용하기](conversation/calls.md#use-your-own-speech-to-text-server)를 참고하세요.
+- **통화에서 캐릭터가 말하지 않음.** **Voice**(음성) 작업에 모델이 없습니다. **Connections**를 열고 **Jobs**(작업) 상자의 **Voice** 행을 클릭해 음성 모델을 고르세요. 그런 다음 톱니바퀴를 클릭해 목소리를 고르세요. 목소리가 없는 캐릭터는 텍스트로만 표시됩니다.
+- **음성이 "No audio after N s"와 함께 멈춤.** 음성 서버가 Marinara가 기다리는 시간보다 느린 것입니다. 노트북에서 돌리는 로컬 서버라면 흔한 일입니다. `N`은 현재 타임아웃 값입니다. **Voice settings**의 **More**(더보기)에서 **Request timeout (seconds)**(요청 제한 시간, 초)를 늘리세요. **Jobs** 상자의 **Voice** 행에 있는 톱니바퀴로 이 설정을 엽니다. 메시지에 나온 음성 모델의 **Edit model**(모델 편집) 창에서 타임아웃을 늘려도 됩니다. [요청 타임아웃](media/tts-setup.md#request-timeout)을 참고하세요.
+- **마이크가 동작하지 않음.** **Agents → Agent Organizer**에서 **Calls**를 설치하세요. 그런 다음 **Connections**를 열고 **On this device**(이 기기) 카드에서 **Local speech model**(로컬 음성 모델)을 찾아 Whisper 모델을 고른 다음 **Download Whisper**(Whisper 다운로드)를 클릭하세요. Firefox는 브라우저 음성 인식이 없어서 이 과정이 필요합니다. Calls를 제거하면 Whisper 모델도 삭제됩니다. 직접 운영하는 서버를 쓸 수도 있습니다. [직접 운영하는 음성 인식 서버 사용하기](conversation/calls.md#use-your-own-speech-to-text-server)를 참고하세요.
 - **Local Whisper is disabled in Lite mode.** lite 이미지로는 로컬 음성 모델을 실행할 수 없습니다. 일반 설치를 쓰세요.
 
 ### 원격이나 네트워크 설치 환경에서 Music DJ의 Spotify 로그인이 실패할 때

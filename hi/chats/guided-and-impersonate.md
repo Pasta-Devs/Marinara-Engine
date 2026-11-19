@@ -61,6 +61,8 @@ Impersonate से मॉडल आपका अगला संदेश आप
 
 इसका छोटा उपनाम `/imp` है। **Regenerate** उस संदेश पर भी काम करता है जिसे Impersonate ने लिखा हो, इसलिए आप उसका दूसरा रूप पा सकते हैं।
 
+<a id="the-impersonate-settings"></a>
+
 ### Impersonate की सेटिंग्स
 
 ये सेटिंग्स आपकी सारी चैट में हर `/impersonate` पर लागू होती हैं। किसी Roleplay चैट में **Chat Settings** (चैट सेटिंग्स) खोलें और **Impersonate** सेक्शन ढूँढें। पैनल खोलने का तरीका [चैट सेटिंग्स](chat-settings.md) में देखें।
@@ -71,6 +73,7 @@ Impersonate से मॉडल आपका अगला संदेश आप
 | **Preset** | सिर्फ़ Impersonate वाले जवाबों के लिए एक प्रॉम्प्ट प्रीसेट। डिफ़ॉल्ट: **Use chat default**। देखें [प्रीसेट](../prompts/presets.md)। |
 | **Connection** | Impersonate वाले जवाबों का मॉडल, जैसे कोई सस्ता या तेज़ मॉडल। डिफ़ॉल्ट: **Use chat default**। **Random** भी चुन सकते हैं। देखें [किसी AI प्रोवाइडर से कनेक्ट करना](../connections/connecting-to-a-provider.md)। |
 | **Skip agents** | Impersonate के दौरान एजेंट (ट्रैकर, लोरबुक राउटर और ऐसे दूसरे मददगार) नहीं चलाता। इससे Impersonate तेज़ रहता है और वर्ल्ड स्टेट नहीं बदलता। डिफ़ॉल्ट रूप से बंद। देखें [एजेंट](../agents/agents-overview.md)। |
+| **Send Public Faces** | Roleplay चैट में **Public Face** वाले कैरेक्टर का सिर्फ़ नाम और Public Face Impersonate प्रॉम्प्ट में जाता है, ताकि आपका जवाब उतना ही जाने जितना आप जान सकते हैं। यह कार्ड से भेजी जाने वाली बाकी सारी जानकारी की जगह लेता है: Description, Personality, Backstory, Appearance, Scenario, System Prompt, डायलॉग के उदाहरण, RPG एट्रिब्यूट, Post-History Instructions और Depth Prompt। Public Face खाली हो तो पूरा कार्ड जाता है। Impersonate प्रीसेट या प्रॉम्प्ट टेम्पलेट में आपके डाले `{{description}}` जैसे मैक्रो अब भी वही भेजते हैं जिसका वे नाम लेते हैं। **Regenerate** संदेश लिखते समय की सेटिंग रखता है। डिफ़ॉल्ट रूप से बंद। देखें [Card टैब](../characters/creating-and-editing-characters.md#card-tab)। |
 | **Use CYOA as direction** | किसी CYOA (choose your own adventure) विकल्प पर क्लिक करने से वह पोस्ट होने के बजाय Impersonate की दिशा बन जाता है। डिफ़ॉल्ट रूप से बंद। अगर **Settings → General → Input & Editing** में **Add CYOA choices to the message box instead of sending them** (CYOA विकल्प भेजने के बजाय संदेश बॉक्स में जोड़ें) चालू है, तो क्लिक करने पर टेक्स्ट सिर्फ़ आपके संदेश बॉक्स में जुड़ता है और इस सेटिंग का कोई असर नहीं होता। |
 
 ### एक चैट के लिए प्रॉम्प्ट सेट करना

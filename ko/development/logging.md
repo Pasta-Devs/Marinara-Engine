@@ -111,6 +111,8 @@ UI 디버그 토글은 계속 `logDebugOverride`를 통해 동작합니다. `LOG
 
 <a id="checks"></a>
 
+인라인 미디어는 기본적으로 전체가 로그에 남지 않습니다. `debugJson`은 각 base64 페이로드를 `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]` 같은 표시로 바꿉니다. 여기에는 유형, 크기, 처음과 끝의 16자가 각각 들어갑니다. 문자열 전체나 텍스트 안의 `data:` URL과 Anthropic 및 Google 미디어 부분의 단독 `data` 필드에 적용되며, base64가 여러 줄로 나뉘어도 처리합니다. `msg` 직렬화기는 일반 `%s`, `%j` 줄의 `data:` URL에 같은 처리를 합니다. 단독 `data` 필드는 `debugJson`에서만 줄입니다. 출력할 사본만 바꾸며 전달한 값은 그대로 유지합니다. `.env`에서 `LOG_INLINE_MEDIA=full`을 설정하면 페이로드 전체를 다시 출력합니다. `log-inline-media` 회귀 테스트가 이 동작을 검사합니다.
+
 ## 앱 내 콘솔
 
 NAS, VPS, Docker, Termux처럼 터미널을 직접 볼 수 없는 환경에서는 Settings → Advanced → **Open Console**(콘솔 열기)에서 최근 서버 로그를 앱으로 볼 수 있습니다.

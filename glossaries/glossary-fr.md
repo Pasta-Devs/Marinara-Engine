@@ -599,3 +599,11 @@ Precedents from the #8999 sync of `roleplay/rulesets.md` (new), `game/rulesets.m
 ## Roleplay message box opacity (2026-11-11, #9063)
 
 Precedents from the #9063 sync of `characters/colors-and-stats.md`, **Les trois couleurs** : la phrase disant que le curseur *remplace* la transparence enregistrée est remplacée. The verb is **mettre à l'échelle**: "Ce curseur met à l'échelle la transparence enregistrée dans la couleur de la bulle de message". *Alpha* is **l'alpha**, kept Latin inside the code spans. *Fill* is **le remplissage**, after `appearance/custom-css-themes.md`'s **Background Color** remplit; *chat widget* is **le widget du chat** (lowercase gloss form, like **Chat widget style** (style des widgets du chat)). The new paragraph reuses the pack's **Apply preset colors** (appliquer les couleurs du preset) gloss in lowercase and then runs the label bare. The post-colon space stays a plain ASCII space, per the pack's typography rule.
+
+### 2026-11-19: Connections and Public Face
+
+- **Voice settings** (réglages de la voix), in `fr/conversation/calls.md`.
+- **Who speaks** (qui parle), in `fr/conversation/calls.md`.
+- **Public Face** (image publique), in `fr/characters/creating-and-editing-characters.md`.
+- **Others' Public Faces** (images publiques des autres), in `fr/chats/group-chats.md`.
+- **Send Public Faces** (envoyer les images publiques), in `fr/chats/guided-and-impersonate.md`.

@@ -34,7 +34,7 @@ Roleplayでは、**Illustrator**エージェントをインストールした時
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-解決するには、**Connections**(接続)パネルの**Defaults**(デフォルト)で**Images**(画像)の役割を設定するか、**Illustrator**エージェントに専用の画像モデルを指定してください。
+解決するには、**Connections**(接続)パネルの**Jobs**(役割)ボックスで**Images**(画像)の役割を設定するか、**Illustrator**エージェントに専用の画像モデルを指定してください。
 
 ## Galleryセクション
 

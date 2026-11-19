@@ -35,15 +35,15 @@ Memory Recall 需要一个生成指纹的模型。如果你什么都不设，Mar
 
 开始之前：你需要一个提供嵌入的账号。见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 
-1. 打开 **Connections**(连接)，编辑这个账号。
-2. 找到 **Semantic search (embeddings)**(语义搜索与嵌入) 一节。
+1. 打开 **Connections**(连接)，点击模型，打开 **Edit model**(编辑模型)。
+2. 点击 **More**(更多)，找到 **Semantic search (embeddings)**(语义搜索与嵌入)。
 3. 填入嵌入模型名称，例如 `text-embedding-3-small`。
 4. 可选：设置 **Embedding endpoint URL**(嵌入端点 URL)，更改地址。
 5. 可选：用 **Embedding provider**(嵌入服务商) 借用另一个账号的密钥和地址。**Same as this provider**(与此服务商相同) 则使用这个账号自己的密钥和地址。
 
 有些服务不提供嵌入。这时 Marinara 会请你另选一个专门的嵌入账号，比如 OpenAI 兼容账号、Google 或内置模型。
 
-想在所有地方都用同一个来源，就在 **Connections → Defaults**(连接 → 默认值) 的 **Embeddings**(嵌入) 里选它。没有自己的嵌入模型的账号会使用它。账号自己的设置仍然优先。
+想在所有地方都用同一个来源，就在 **Connections** 的 **Jobs**(分工) 区域里为 **Embeddings**(嵌入) 工作选它。没有自己的嵌入模型的账号会使用它。账号自己的设置仍然优先。
 
 既没有嵌入账号、也没有 **Embeddings** 默认值时，Marinara 会退回内置嵌入模型。它只下载一次，在你的电脑上运行，不需要 API 密钥。见[内置模型设置](../connections/local-model.md)。
 

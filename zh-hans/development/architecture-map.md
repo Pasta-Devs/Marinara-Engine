@@ -165,7 +165,7 @@ Fastify API、文件原生存储和服务商集成，目前有好几百个源文
 | `packages/server/src/routes/generate.routes.ts` | 共享生成与智能体 | 路由、流式输出、提示词、智能体、存储和副作用全在一个文件里。 |
 | `packages/server/src/routes/game.routes.ts` | `MODE-GAME` | API 处理器、GM 流程、场景分析、素材、战斗和持久化耦合在一起。 |
 | `packages/client/src/components/game/GameSurface.tsx` | `MODE-GAME` | 渲染、状态编排、素材、日志、旁白、战斗和特效耦合在一起。 |
-| `packages/client/src/components/chat/ChatSettingsDrawer.tsx` | 混杂的聊天设置 | 分区抽取正在 `features/chat-settings` 里推进，但这个抽屉依然很大。 |
+| `packages/client/src/features/chat-settings/ChatSettingsDrawer.tsx` | 混杂的聊天设置 | 分区抽取正在 `features/chat-settings/sections` 里推进，但这个抽屉依然很大。 |
 | `packages/client/src/components/game/GameNarration.tsx` | `MODE-GAME` | 展示渲染和命令格式化紧紧耦合在一起。 |
 | `packages/client/src/components/game/GameCombatUI.tsx` | `MODE-GAME` | 战斗展示、控件和日志可以拆成更小的面板和 hook。 |
 | `packages/client/src/components/chat/RoleplayHUD.tsx` | `MODE-ROLEPLAY` | 已经通过 `RoleplayHUDActionsMenu.tsx` 和 `RoleplayHUDPanels.tsx` 拆掉了一部分。 |

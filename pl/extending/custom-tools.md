@@ -26,7 +26,7 @@ Na pierwszą próbę wybierz **Static Result** (stały wynik): nie potrzebuje ni
 Zasady dotyczące nazw i opisów:
 
 - Nazwa ma od 1 do 100 znaków. Opis ma od 1 do 500 znaków.
-- Dwa narzędzia nie mogą mieć tej samej nazwy, a narzędzie nie może używać nazwy wbudowanej, takiej jak `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search` czy `update_about_me`. Przy kolizji pojawia się komunikat, np. `"your_name" is a reserved built-in tool name.`
+- Dwa narzędzia nie mogą mieć tej samej nazwy, a narzędzie nie może używać nazwy wbudowanej, takiej jak `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`, `web_fetch` czy `update_about_me`. Przy kolizji pojawia się komunikat, np. `"your_name" is a reserved built-in tool name.`
 - Jeśli wychodzisz z edytora z niezapisanymi zmianami, pasek oferuje **Keep editing** (dalsza edycja), **Discard** (odrzucenie) i **Save & close** (zapisanie i zamknięcie).
 
 U góry zakładki **Tools** są przyciski:
@@ -180,6 +180,8 @@ Samo utworzenie narzędzia nie sprawia, że AI z niego korzysta. Trzeba jeszcze 
 4. Sprawdź, czy działa: zadaj AI pytanie, na które odpowiada twoje narzędzie, np. "Jakie są godziny otwarcia sklepu?" w przypadku przykładu `store_hours`. Odpowiedź powinna wykorzystać tekst narzędzia.
 
 Gdy **Enable Tool Use** jest włączone, a poniżej nic nie dodano, czat może korzystać ze wszystkich globalnie włączonych narzędzi, które obsługuje: z narzędzi wbudowanych oraz z każdego własnego narzędzia, którego przełącznik w zakładce **Tools** jest włączony. Czaty Game wymagają też **Let the GM search lore** (pozwól postaci GM przeszukiwać lorebooki) dla `search_lorebook`.
+
+> **Uwaga:** Niektóre wbudowane narzędzia pozostają wyłączone, nawet przy włączonej opcji **Enable Tool Use**, dopóki ich nie zaznaczysz. Jednym z nich jest `web_fetch`, które pozwala AI wybrać adres strony do odczytania. Narzędzia Spotify działają tak samo.
 
 Aby ograniczyć czat do wybranego zestawu:
 

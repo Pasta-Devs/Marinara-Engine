@@ -34,7 +34,7 @@ Cada categoria exclui só o que a sua linha lista, exceto a pasta da galeria, in
 | **Lorebooks** | Todos os lorebooks, entradas e pastas. |
 | **Presets** | Todos os presets de prompt e pastas de presets, exceto o preset de fábrica embutido. |
 | **Connections** | Todas as contas salvas e as escolhas de modelo e de voz ligadas a elas. |
-| **Automation & Addons** | Todas as configurações de agentes, ferramentas personalizadas, scripts de regex e temas sincronizados. Não inclui Personal Extensions nem External Extensions. |
+| **Automation & Addons** | Todas as configurações de agentes, ferramentas personalizadas, scripts de regex com suas pastas e temas sincronizados. Não inclui Personal Extensions nem External Extensions. |
 | **Media & Assets** | Planos de fundo, avatares, sprites, galeria, vídeos de cena, fontes e arquivos de fontes de conhecimento. |
 
 Mais detalhes:

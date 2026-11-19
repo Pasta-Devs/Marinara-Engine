@@ -114,7 +114,7 @@
 
 **Chat Settings** → **Agents** → **Commands**를 열거나, 채팅을 만들 때 **Automation**(자동화) 단계를 쓰세요. 마스터 **Commands** 스위치는 테이블 게임, 셀카, 통화를 포함해 캐릭터가 실행하는 모든 동작을 통제합니다. 이 스위치가 꺼져 있으면 캐릭터는 스스로 아무것도 시작하지 않습니다.
 
-설치한 게임마다 자체 스위치가 있으며, 직접 끄지 않으면 켜져 있습니다. **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe**, **Rock-Paper-Scissors**입니다. [캐릭터가 쓸 수 있는 Commands 고르기](getting-started.md#choose-which-commands-a-character-can-use)를 참고하세요.
+설치한 게임마다 자체 스위치가 있으며, 직접 끄지 않으면 켜져 있습니다. **UNO**, **Chess**, **Poker**, **8-Ball Pool**, **Tic-Tac-Toe**, **Rock-Paper-Scissors**입니다. Blackjack이나 Wordle과 같은 다른 게임 패키지에는 게임 이름을 딴 스위치가 생깁니다. [캐릭터가 쓸 수 있는 Commands 고르기](getting-started.md#choose-which-commands-a-character-can-use)를 참고하세요.
 
 이 스위치들은 캐릭터가 하는 일만 통제합니다. 게임의 슬래시 명령어와 "let's play" 문구는 스위치가 꺼져 있어도 작동합니다.
 

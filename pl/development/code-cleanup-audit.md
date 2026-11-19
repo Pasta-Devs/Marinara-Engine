@@ -228,7 +228,7 @@ Scalanie ma tu realną wartość, ale zlanie którejkolwiek pary w całości da�
 
 ### 6.3 Aktywne ogniska złożoności
 
-Największe aktywne moduły to `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/components/chat/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts` i `client/components/panels/SettingsPanel.tsx`. Nie są kandydatami do usunięcia. Wydzielaj z nich ograniczone obsługi tras, usługi domenowe, sekcje panelu bocznego i czyste funkcje pomocnicze tylko wtedy, gdy dana funkcja i tak jest właśnie zmieniana. Osobny PR w stylu "podzielmy wszystko" wprowadziłby zamieszanie bez wiarygodnego dowodu zachowania.
+Największe aktywne moduły to `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/features/chat-settings/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts` i `client/components/panels/SettingsPanel.tsx`. Nie są kandydatami do usunięcia. Wydzielaj z nich ograniczone obsługi tras, usługi domenowe, sekcje panelu bocznego i czyste funkcje pomocnicze tylko wtedy, gdy dana funkcja i tak jest właśnie zmieniana. Osobny PR w stylu "podzielmy wszystko" wprowadziłby zamieszanie bez wiarygodnego dowodu zachowania. Panel ustawień czatu był wyjątkiem: został podzielony po jednej sekcji na PR (#9119), a reguły dotyczące jego folderu opisuje sekcja Chat Settings w pliku `packages/client/.instructions.md`.
 
 ## 7. Elementy świadomie wyłączone z porządkowania
 

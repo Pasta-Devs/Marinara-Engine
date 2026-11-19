@@ -15,7 +15,7 @@
 
 ### Send on Enter
 
-它在 **Settings → General → Input & Editing**(设置 → 常规 → 输入与编辑) 里。每种聊天模式各有一个开关。
+它在 **Settings → General → Input & Editing**(设置 → 常规 → 输入与编辑) 里。每种聊天模式各有一个开关。设置保存在你修改它的设备上，所以手机和电脑可以不同。
 
 | 聊天模式 | 默认 | 关闭时 |
 | --- | --- | --- |

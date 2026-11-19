@@ -64,7 +64,7 @@ Jeśli skanowanie znajdzie postacie, pojawiają się dwie dodatkowe opcje:
 **Imported regex scripts** (domyślnie **Character only**):
 
 - **Character only** stosuje skrypty do każdej postaci osobno.
-- **Global** dodaje je do **Presets → Regexes** (presety, regexy) dla każdego czatu.
+- **Global** dodaje je do **Presets → Regexes** (presety, regexy), gdzie możesz zarządzać skryptami działającymi w różnych czatach. Zobacz [Skrypty regex](../extending/regex-scripts.md#manage-your-scripts).
 
 Jeśli to nie zadziałało:
 

@@ -72,7 +72,7 @@ A aba **Metadata** guarda os dados de identidade e organização. Eles ajudam a 
 
 - **Character ID**. Somente leitura. Aparece depois que o card é salvo. Clique em **Copy** para copiá-lo.
 - **Name**. O nome exibido. Nos prompts, ele é `{{char}}`, um marcador que Marinara substitui pelo nome do personagem.
-- **Other names** (outros nomes). Apelidos, nomes completos ou títulos pelos quais o personagem também é conhecido, como `Clark Kent, Kal-El, Mr. Kent`. Separe os nomes por vírgulas e pressione <kbd>Enter</kbd> ou clique em **Add** (adicionar). Nos chats de Roleplay, eles podem aparecer na cor do nome. Veja [Cores do personagem](colors-and-stats.md#the-three-colors).
+- **Other names** (outros nomes). Apelidos, nomes completos ou títulos pelos quais o personagem também é conhecido, como `Clark Kent, Kal-El, Mr. Kent`. Separe os nomes por vírgulas e pressione <kbd>Enter</kbd> ou clique em **Add** (adicionar). Nos chats de Roleplay, eles podem aparecer na cor do nome. O Character Tracker também vincula ao card um personagem que acompanha por um desses nomes. Veja [Cores do personagem](colors-and-stats.md#the-three-colors).
 - **Creator**. Quem fez o card, para dar os créditos quando você compartilhar.
 - **Version**. Um número de versão definido por você, como `1.0`. O botão liga/desliga **Automatic versioning** (versionamento automático), ao lado, guarda as versões anteriores e aumenta esse número quando o card muda. O histórico de versões só salva instantâneos enquanto esse botão liga/desliga estiver ativado.
 - **Talkativeness**. Um controle deslizante de 0 a 100 por cento. Ele define com que frequência este personagem fala nos chats em grupo. O padrão é 50 por cento.
@@ -97,6 +97,9 @@ A aba **Card** é o espaço principal de escrita. Os links no topo levam a qualq
 | **Backstory** | História, origem, relações importantes. | Sim |
 | **Appearance** | Aparência física, roupas, detalhes visuais. Também serve de base para o prompt de avatar gerado por IA. | Sim |
 | **Scenario** | O cenário padrão dos chats novos com este personagem. | Sim |
+| **Public Face** (face pública) | O card sem as partes privadas. | Só quando uma macro ou configuração pedir |
+
+**Public Face** é o que os outros personagens podem ver ou saber sobre o personagem: aparência, jeito, papel, reputação e relacionamentos que não são segredo. Deixe de fora segredos, pensamentos íntimos, histórico privado e instruções de interpretação. Esse campo nunca é enviado como parte do card. Um prompt só o lê onde você coloca a macro `{{publicFace}}`, ou `{{personaPublicFace}}` para a sua persona. Veja [Macros de prompt](../prompts/macros.md#identity-character-and-persona-macros). Em um chat de grupo de Roleplay no modo Individual, **Others' Public Faces** envia o conteúdo aos turnos dos outros personagens. Veja [Mais configurações de Individual](../chats/group-chats.md#more-individual-settings). Um agente cuja fonte **Characters** ou **Persona** está definida como **Public Face** lê o campo no lugar do card. Veja [Outras configurações](../agents/custom-agents.md#other-settings). Com **Send Public Faces** ativado, o Impersonate em Roleplay lê esse campo no lugar do card. Veja [Configurações do Impersonate](../chats/guided-and-impersonate.md#the-impersonate-settings).
 
 A opção **Image Appearance Override** (aparência alternativa para imagens) fica abaixo de **Appearance** e vem desativada por padrão. Ative-a para mostrar uma segunda caixa para tags curtas de imagem, como a palavra-gatilho de uma LoRA (uma palavra-chave que ativa um estilo de imagem personalizado). Enquanto a opção estiver ativada e a caixa estiver preenchida, os prompts de imagem usam essas tags exatamente como estão escritas, com **Appearance** mantido como contexto. O prompt de avatar gerado por IA também parte dessas tags. O narrador sempre vê o texto completo de **Appearance**.
 
@@ -118,13 +121,13 @@ As saudações e as mensagens de exemplo podem mostrar imagens da Gallery do per
 
 ### Escreva um campo do card com a varinha
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** e cada **Alternate Greeting** têm um botão só com o ícone de varinha acima do campo. A dica do botão mostra o nome do campo que ele escreve.
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message** e cada **Alternate Greeting** têm um botão só com o ícone de varinha acima do campo. A dica do botão mostra o nome do campo que ele escreve.
 
 Antes de começar: configure uma conexão de texto que funcione. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
 1. Escreva no campo as ideias que deseja manter, como `smart, scientist, handsome`, ou deixe-o vazio.
 2. Preencha os outros campos do card que a IA deve usar como referência. Você não precisa salvar antes.
-3. Clique na varinha do campo. Marinara pede de 100 a 300 palavras para esse campo, usando o seu texto como ponto de partida. Example Dialogue pede trocas de exemplo. **First Message** e cada **Alternate Greeting** pedem uma mensagem de abertura que deixa a sua resposta em aberto.
+3. Clique na varinha do campo. Marinara pede de 100 a 300 palavras para esse campo, usando o seu texto como ponto de partida. Example Dialogue pede trocas de exemplo. **First Message** e cada **Alternate Greeting** pedem uma mensagem de abertura que deixa a sua resposta em aberto. O **Public Face** não tem faixa de palavras: a varinha reescreve o restante do card sem as partes privadas, então o tamanho depende do card.
 4. Edite o resultado e clique em **Save**.
 
 A varinha usa a sua conexão de texto padrão para agentes ou, se não houver uma, a sua conexão de texto padrão. Uma conexão de reserva de agentes configurada continua valendo.
@@ -159,11 +162,11 @@ O tamanho da imagem vem do tamanho de imagem **Portraits**, nas configurações 
 
 A aba **Voice** define como o personagem soa quando o Text to Speech lê as falas dele em voz alta.
 
-- **Voice**. A voz deste personagem. Uma mudança é salva na hora, sem **Save**. É a mesma configuração da linha deste personagem em **Connections → Text to Speech** (Conexões → Text to Speech). Deixe em branco para usar a voz padrão. Quando um card com nome correspondente tem uma voz, como o original de uma cópia AU, o campo vazio mostra o nome dessa voz, porque este card também a usa.
+- **Voice**. A voz deste personagem. Uma mudança é salva na hora, sem **Save**. É a mesma configuração da linha deste personagem nas configurações da tarefa **Voice** em **Connections**. Deixe em branco para usar a voz padrão. Quando um card com nome correspondente tem uma voz, como o original de uma cópia AU, o campo vazio mostra o nome dessa voz, porque este card também a usa.
 - **Preview** (ouvir). Toca uma frase curta com essa voz. A frase diz o nome do personagem, ou o **Phonetic name**, quando houver um definido.
 - **Phonetic name**. Uma grafia opcional, usada apenas para corrigir a pronúncia. Ele faz parte do card, então clique em **Save** para mantê-lo.
 
-Se o Text to Speech estiver desligado, ou se todos os personagens compartilharem uma única voz, uma observação curta substitui o campo **Voice**. Com uma única voz compartilhada, a observação oferece **Use a voice per character** (usar uma voz por personagem). **Open Text to Speech settings** (abrir as configurações de Text to Speech) abre Connections. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md).
+Se o Text to Speech estiver desligado, ou se todos os personagens compartilharem uma única voz, uma observação curta substitui o campo **Voice**. Com uma única voz compartilhada, a observação oferece **Use a voice per character** (usar uma voz por personagem). **Open Text to Speech settings** (abrir as configurações de Text to Speech) abre as configurações da tarefa **Voice** em **Connections**. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md).
 
 ## A aba Advanced
 

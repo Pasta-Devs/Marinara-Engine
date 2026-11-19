@@ -71,6 +71,12 @@ globalThis.__MARINARA_HOST__ = {
 | `modules` | 库模块，以裸模块说明符为键（见下文）。 |
 | `queryClient` | Engine 渲染时使用的那一个 React Query `QueryClient`。 |
 | `components.Modal` | Engine 的 `Modal`，带有它的覆盖层顺序、Escape 键和返回键处理。 |
+| `components.Switch`, `components.Checkbox` | 从 Capability API 1.830 起提供 Engine 共用的开关和复选框，让包的外观与宿主应用一致。 |
+| `components.Spinner` | 从 Capability API 1.830 起提供 Engine 共用的环形加载指示器。默认对屏幕阅读器隐藏，传入 `label` 后就会成为状态区域。 |
+| `components.Tabs` | 从 Capability API 1.832 起提供 Engine 共用的标签栏。`variant="pill"` 是用于切换视图的分段控件；`variant="underline"` 是在面板或对话框内切换区块的文字标签。方向键、Home 和 End 可以在标签间移动。 |
+| `components.SearchInput` | 从 Capability API 1.832 起提供 Engine 的搜索框。传入 `value`、`onChange` 和供屏幕阅读器使用的 `label`。搜索框有清除按钮，按 Escape 会先清除文字。`resultCount` 显示“4 found”，`busy` 显示加载指示器，`size="compact"` 适合紧凑的工具栏，`slashShortcut` 让“/”键可以聚焦搜索框。 |
+| `components.showConfirmDialog` | 从 Capability API 1.830 起提供 Engine 的确认对话框，与 `services.dialogs.showConfirmDialog` 是同一个函数。 |
+| `components.Select` | 从 Capability API 1.831 起提供 Engine 的下拉选择控件。传入 `value`（字符串或 `null`）、`options`（`{ value, label, description?, icon?, group?, disabledReason? }`）、`onChange(next)` 和 `label`。可选属性包括 `placeholder`、`disabled`、`id`、`title`、`aria-describedby`、`className`、`searchable` 和 `buttonRef`。它在桌面端打开浮层，在手机上打开面板，有八个及以上选项时可搜索。用它代替原生 `<select>`。 |
 | `data.emojiCatalog` | `lib/emoji-catalog.generated.ts` 模块。 |
 | `api` | `lib/api-client.ts` 模块（`api`、`ApiError`、`getApiErrorMessage` 等）。 |
 
@@ -1368,7 +1374,7 @@ Engine 用 `view="widget"` 挂载包的客户端元素。除常见的 `packageId
 - `llm.withFallback(...)` 包装同一包宿主创建的服务商，保留 Engine 的准入、回退通知和服务商选择行为。
 - `images.generate(...)` 和 `videos.generate(...)` 使用当前 Engine 实现，包括取消、请求日志、网络检查和媒体队列。调用方提供 `signal` 和 UI `debugMode` 时，请转发。从 1.816 起，图像请求的 `animation` 会请求生成循环播放的 GIF(见 [Capability API 1.816](#capability-api-1816-animated-gif-images))。
 - `images.save`、`images.remove`、`images.stage` 和 `images.sweepStaged` 复用图库安全写入和暂存文件生命周期。`videos.save` 与 `videos.remove` 复用视频存储路径。`images.resolveNovelAiRequestSize` 复用宿主的 NovelAI 尺寸规范化。视频时长和公开参考上传规范化也可通过 `videos.resolveDuration` 与 `videos.resolveReferenceUpload` 使用。
-- `speech.transcribe(audio, { filename, mimeType, signal })` 把录制的音频发送到用户在 **Connections → Speech to Text**(连接 → 语音识别) 中设置的语音识别服务器，并返回转写文本；该服务器关闭时返回 `null`，包据此继续使用自己的转写。它应用宿主的 URL 策略（`STT_LOCAL_URLS_ENABLED`）以及大小和时间限制，且从不暴露已保存的密钥。`speech` 是可选的，不需要更高版本的能力 API：检查 `typeof api.runtime.integrations?.speech?.transcribe === "function"`，在旧 Engine 上回退。
+- `speech.transcribe(audio, { filename, mimeType, signal })` 把录制的音频发送到用户在 **Connections** 的 **Dictation** 工作设置中指定的语音识别服务器，并返回转写文本；该服务器关闭时返回 `null`，包据此继续使用自己的转写。它应用宿主的 URL 策略（`STT_LOCAL_URLS_ENABLED`）以及大小和时间限制，且从不暴露已保存的密钥。`speech` 是可选的，不需要更高版本的能力 API：检查 `typeof api.runtime.integrations?.speech?.transcribe === "function"`，在旧 Engine 上回退。
 
 共享请求和结果类型由 `@marinara-engine/shared` 导出。包专属的提示词构建和流程编排应保留在包内；服务商 I/O 请调用这些宿主入口，而不要复制 Engine 服务实现。纯辅助函数和类型仍可打包。
 

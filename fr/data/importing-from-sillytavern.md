@@ -64,7 +64,7 @@ Si l'analyse trouve des personnages, deux options de plus apparaissent :
 **Imported regex scripts** (par défaut **Character only**) :
 
 - **Character only** applique les scripts au personnage.
-- **Global** les ajoute à **Presets → Regexes** pour chaque personnage.
+- **Global** : les ajoute à **Presets → Regexes**, où tu peux gérer les scripts qui s'exécutent dans plusieurs chats. Voir [Scripts regex](../extending/regex-scripts.md#manage-your-scripts).
 
 Si ça n'a pas marché :
 

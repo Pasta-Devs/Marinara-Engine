@@ -42,6 +42,8 @@
 - Send 开关开启时，如果已知模型支持，**Off** 会要求服务关闭思考。有些模型关不掉思考，仍然可能返回推理内容。确实不能有思考过程时，就换一个不带推理的模型。
 - Send 开关关闭时，不会发送任何推理偏好，服务使用它自己的默认值。
 
+NanoGPT 上的 MiniMax M3.1 Flash 始终会推理。它支持从 **Low** 到 **Max** 的档位。没有收到档位时，NanoGPT 使用 **Max**；如果之前保存的是 **Off**，Marinara 会发送 **Low**。
+
 **Verbosity**(详细度) 设定回复应该多长、多详细：**None**、**Low**、**Medium** 或 **High**。只有部分模型会用到它。
 
 ## 调参技巧
@@ -156,7 +158,9 @@ Marinara 按下面的顺序确定每个参数。后面的项会覆盖前面的�
 
 ## 智能体参数
 
-智能体调用使用其运行账号上保存的 **Chat defaults**：智能体自己有账号就用它的，没有就用聊天的账号。Send 开关和模型限制的规则与聊天回复相同。除了下面的温度规则，预设和聊天的 **Advanced Parameters** 都不会改变智能体调用。
+智能体调用使用其运行账号上保存的 **Chat defaults**：智能体自己有账号就用它的，没有就用聊天的账号。Send 开关和模型限制的规则与聊天回复相同。下面的规则说明智能体何时使用聊天的 **Advanced Parameters**。
+
+在 Roleplay 中，聊天的 **Reasoning Effort** 和对应的 Send 开关也适用于 Illustrator 的 **Prompt Model**。设置后，自动插图、叙述者命令和手动插图都会使用这个聊天设置。备用模型有自己保存的档位时，会使用自己的档位。
 
 - **发送给智能体的设置**：Temperature、Top P、Top K、Frequency、Presence、Reasoning Effort、Verbosity、Service Tier、Custom Parameters、自定义请求头，以及依次打开 **Settings**(设置)、**Advanced**(高级)、**Parameters** 后添加的额外参数（例如 Top A 或种子）。Send 开关关闭的参数不会发送。
 - **不发送给智能体的设置**：Max Output Tokens、停止序列、预填、Thinking Tags 和其他提示词格式设置。每个智能体保留自己的 **Max Output Tokens**。

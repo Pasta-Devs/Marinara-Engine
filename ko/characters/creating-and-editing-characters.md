@@ -59,7 +59,7 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 
 - **Character ID**(캐릭터 ID). 읽기 전용이며 카드를 저장한 뒤에 나타납니다. **Copy**(복사)를 클릭하면 복사됩니다.
 - **Name**(이름). 화면에 표시되는 이름입니다. 프롬프트에서는 `{{char}}`로 쓰입니다. `{{char}}`는 Marinara가 캐릭터 이름으로 바꿔 넣는 자리 표시자입니다.
-- **Other names**(다른 이름). `Clark Kent, Kal-El, Mr. Kent`처럼 캐릭터가 쓰는 별명, 전체 이름, 호칭을 입력합니다. 여러 이름을 쉼표로 구분하고 <kbd>Enter</kbd>를 누르거나 **Add**(추가)를 클릭하세요. Roleplay 채팅에서는 이 이름에도 이름 색상을 적용할 수 있습니다. [캐릭터 색상](colors-and-stats.md#the-three-colors)을 참고하세요.
+- **Other names**(다른 이름). `Clark Kent, Kal-El, Mr. Kent`처럼 캐릭터가 쓰는 별명, 전체 이름, 호칭을 입력합니다. 여러 이름을 쉼표로 구분하고 <kbd>Enter</kbd>를 누르거나 **Add**(추가)를 클릭하세요. Roleplay 채팅에서는 이 이름에도 이름 색상을 적용할 수 있습니다. Character Tracker는 이 이름 중 하나로 추적하는 캐릭터를 카드에 연결합니다. [캐릭터 색상](colors-and-stats.md#the-three-colors)을 참고하세요.
 - **Creator**(제작자). 카드를 만든 사람입니다. 공유할 때 제작자를 밝히는 데 씁니다.
 - **Version**(버전). `1.0`처럼 직접 정하는 버전 번호입니다. 옆의 **Automatic versioning**(자동 버전 관리) 스위치를 켜면 이전 버전을 보관하고, 카드가 바뀔 때 이 번호를 올립니다. 버전 히스토리는 이 스위치가 켜져 있을 때만 스냅샷을 저장합니다.
 - **Talkativeness**(수다스러움). 0에서 100퍼센트까지의 슬라이더입니다. 그룹 채팅에서 이 캐릭터가 얼마나 자주 말할지 정합니다. 기본값은 50퍼센트입니다.
@@ -84,6 +84,9 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 | **Backstory**(배경 이야기) | 지나온 이력, 출신, 중요한 인간관계입니다. | 예 |
 | **Appearance**(모양) | 외모, 옷차림, 시각적 특징입니다. AI 아바타 프롬프트의 바탕으로도 쓰입니다. | 예 |
 | **Scenario**(시나리오) | 이 캐릭터로 새 채팅을 시작할 때 쓰는 기본 상황입니다. | 예 |
+| **Public Face** | 카드에서 비공개 내용을 뺀 정보입니다. | 매크로나 설정으로 요청한 곳에서만 전송 |
+
+**Public Face**에는 다른 등장인물이 이 캐릭터에 대해 보거나 알 수 있는 내용을 적습니다. 외모, 태도, 역할, 평판, 공개된 관계 등이 해당합니다. 비밀, 속마음, 비공개 과거와 캐릭터를 연기하는 방법에 관한 지침은 빼세요. 이 필드는 캐릭터 카드의 일부로 전송되지 않습니다. 프롬프트는 `{{publicFace}}` 매크로를 넣은 곳에서만 이를 읽으며, 내 페르소나에는 `{{personaPublicFace}}`를 씁니다. [프롬프트 매크로](../prompts/macros.md#identity-character-and-persona-macros)를 참고하세요. Individual Roleplay 그룹 채팅에서 **Others' Public Faces**를 켜면 다른 캐릭터의 턴에 이 필드를 보냅니다. [추가 Individual 설정](../chats/group-chats.md#more-individual-settings)을 참고하세요. **Characters**(캐릭터) 또는 **Persona**(페르소나) 소스가 **Public Face**인 에이전트는 카드 대신 이 필드를 읽습니다. [그 밖의 설정](../agents/custom-agents.md#other-settings)을 참고하세요. **Send Public Faces**를 켜면 Roleplay에서 Impersonate도 카드 대신 이 필드를 읽습니다. [Impersonate 설정](../chats/guided-and-impersonate.md#the-impersonate-settings)을 참고하세요.
 
 **Image Appearance Override**(이미지 외모 재정의)는 **Appearance** 아래에 있으며 기본값은 꺼짐입니다. 켜면 LoRA 트리거 단어(사용자 지정 이미지 스타일을 켜는 키워드)처럼 짧은 이미지 태그를 넣을 두 번째 상자가 나타납니다. 켜 두고 내용을 채우면 이미지 프롬프트는 그 태그를 적힌 그대로 쓰고, **Appearance**는 배경 정보로 남겨 둡니다. AI 아바타 프롬프트도 이 태그를 바탕으로 채워집니다. 내레이터는 항상 **Appearance**의 전체 내용을 봅니다.
 
@@ -105,13 +108,13 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 
 ### 마법봉으로 카드 필드 작성하기
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message**와 각 **Alternate Greeting** 필드 위에는 아이콘만 있는 마법봉 버튼이 있습니다. 툴팁에 그 버튼이 작성할 필드가 표시됩니다.
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message**와 각 **Alternate Greeting** 필드 위에는 아이콘만 있는 마법봉 버튼이 있습니다. 툴팁에 그 버튼이 작성할 필드가 표시됩니다.
 
 시작하기 전에: 작동하는 텍스트 연결을 설정하세요. [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)를 참고하세요.
 
 1. 필드에 `smart, scientist, handsome`처럼 유지할 아이디어를 적거나 비워 두세요.
 2. AI가 참고할 다른 카드 필드를 채우세요. 먼저 저장할 필요는 없습니다.
-3. 해당 필드의 마법봉을 클릭하세요. Marinara는 입력한 텍스트를 시작 정보로 삼아 그 필드를 100–300단어로 작성하도록 요청합니다. Example Dialogue는 대화 예시를 요청합니다. **First Message**와 각 **Alternate Greeting**은 사용자의 답변 여지를 남겨 두는 첫 메시지 하나를 요청합니다.
+3. 해당 필드의 마법봉을 클릭하세요. Marinara는 입력한 텍스트를 시작 정보로 삼아 그 필드를 100–300단어로 작성하도록 요청합니다. Example Dialogue는 대화 예시를 요청합니다. **First Message**와 각 **Alternate Greeting**은 사용자의 답변 여지를 남겨 두는 첫 메시지 하나를 요청합니다. **Public Face**에는 단어 수 범위가 없습니다. 마법봉이 카드의 나머지 내용을 비공개 부분 없이 다시 쓰므로 길이는 카드에 따라 달라집니다.
 4. 결과를 수정한 다음 **Save**를 클릭하세요.
 
 마법봉은 기본 에이전트 텍스트 연결을 사용하고, 없으면 기본 텍스트 연결을 사용합니다. 설정한 에이전트 대체 연결도 그대로 적용됩니다.
@@ -159,11 +162,11 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 
 **Voice** 탭에서는 Text to Speech(음성 합성)가 이 캐릭터를 소리 내어 읽을 때 어떤 목소리로 들릴지 정합니다.
 
-- **Voice**. 이 캐릭터의 목소리입니다. 바꾸면 **Save**를 누르지 않아도 바로 저장됩니다. **Connections → Text to Speech**(연결 → TTS)에 있는 이 캐릭터의 행과 같은 설정입니다. 비워 두면 기본 목소리를 씁니다. AU 사본의 원본처럼 이름이 같은 카드에 목소리가 있으면, 이 카드도 그 목소리를 쓰기 때문에 빈 입력란에 그 목소리 이름이 표시됩니다.
+- **Voice**. 이 캐릭터의 목소리입니다. 바꾸면 **Save**를 누르지 않아도 바로 저장됩니다. **Connections**(연결)의 **Voice** 작업 설정에 있는 이 캐릭터의 행과 같은 설정입니다. 비워 두면 기본 목소리를 씁니다. AU 사본의 원본처럼 이름이 같은 카드에 목소리가 있으면, 이 카드도 그 목소리를 쓰기 때문에 빈 입력란에 그 목소리 이름이 표시됩니다.
 - **Preview**(미리 듣기). 그 목소리로 짧은 문장을 재생합니다. 문장에는 캐릭터 이름이 들어가고, **Phonetic name**(발음 표기 이름)을 설정했다면 그 이름이 들어갑니다.
 - **Phonetic name**. 발음을 바로잡을 때만 쓰는 선택 항목입니다. 카드의 일부이므로 유지하려면 **Save**를 클릭하세요.
 
-Text to Speech가 꺼져 있거나 모든 캐릭터가 한 목소리를 함께 쓰면 **Voice** 입력란 대신 짧은 안내 문구가 표시됩니다. 한 목소리를 함께 쓰는 경우에는 안내 문구에 **Use a voice per character**(캐릭터별 음성 사용)가 함께 나옵니다. **Open Text to Speech settings**(TTS 설정 열기)를 누르면 Connections가 열립니다. [Text to Speech(TTS) 설정](../media/tts-setup.md)을 참고하세요.
+Text to Speech가 꺼져 있거나 모든 캐릭터가 한 목소리를 함께 쓰면 **Voice** 입력란 대신 짧은 안내 문구가 표시됩니다. 한 목소리를 함께 쓰는 경우에는 안내 문구에 **Use a voice per character**(캐릭터별 음성 사용)가 함께 나옵니다. **Open Text to Speech settings**(TTS 설정 열기)를 누르면 **Connections**에서 **Voice** 작업 설정이 열립니다. [Text to Speech(TTS) 설정](../media/tts-setup.md)을 참고하세요.
 
 ## Advanced 탭
 

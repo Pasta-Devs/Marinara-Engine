@@ -26,7 +26,7 @@
 名前と説明の決まりは次のとおりです。
 
 - 名前は1文字から100文字までです。説明は1文字から500文字までです。
-- 2つのツールが同じ名前を持つことはできません。また、`roll_dice`、`update_game_state`、`set_expression`、`trigger_event`、`search_lorebook`、`web_search`、`update_about_me`などの組み込みの名前も使えません。名前が重なると、`"your_name" is a reserved built-in tool name.`のようなメッセージが表示されます。
+- 2つのツールが同じ名前を持つことはできません。また、`roll_dice`、`update_game_state`、`set_expression`、`trigger_event`、`search_lorebook`、`web_search`、`web_fetch`、`update_about_me`などの組み込みの名前も使えません。名前が重なると、`"your_name" is a reserved built-in tool name.`のようなメッセージが表示されます。
 - 保存していない変更を残したままエディターを離れると、**Keep editing**、**Discard**、**Save & close**を選べるバナーが表示されます。
 
 **Tools**タブの上部に次のボタンがあります。
@@ -179,6 +179,8 @@ AIが`x`に2、`y`に3を入れて呼び出すと、ツールは合計の5を返
 4. 動作を確認します。`store_hours`の例なら「営業時間は?」のように、ツールが答えられることをAIに尋ねます。返信にはツールの文章が使われるはずです。
 
 **Enable Tool Use**がオンで、その下に何も追加していない場合、そのチャットは、対応している全体で有効なツールをすべて使えます。組み込みツールと、**Tools**でスイッチがオンになっている各カスタムツールです。Gameチャットで`search_lorebook`を使うには、**Let the GM search lore**(GMによるロア検索を許可)も必要です。
+
+> **注:** **Enable Tool Use**がオンでも、チェックを付けるまでオフのままの組み込みツールがあります。`web_fetch`ではAIが読むWebアドレスを選べるため、この扱いになります。Spotifyのツールも同様です。
 
 チャットで使うツールを限定するには、次の手順に従います。
 

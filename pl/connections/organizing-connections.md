@@ -29,7 +29,7 @@ Kliknij **⋯** w wierszu konta:
 | **Edit account** (edycja konta) | Otwiera jego ustawienia, w tym **Name** (nazwa), **Address** (adres), **API key** (klucz API) i **Use this account** (używanie tego konta). |
 | **Replace key** (zastąpienie klucza) | Pozwala wkleić nowy klucz. Jeśli stary klucz jest też na innych kontach, Marinara pyta, czy zaktualizować również je. |
 | **Test** (test) | Sprawdza klucz i pokazuje wynik. |
-| **Add model** (dodanie modelu) | Otwiera listę modeli konta. **Add image model** (dodanie modelu obrazów) pojawia się przy usługach, które tworzą też obrazy. |
+| **Add model** (dodanie modelu) | Otwiera listę modeli konta. |
 | **Select models** (zaznaczanie modeli) | Pozwala przenieść albo usunąć kilka modeli naraz. |
 | **Duplicate** (duplikowanie) | Dodaje kopię konta razem z kopiami jego modeli. |
 | **Turn off** (wyłączenie) / **Turn on** (włączenie) | Wstrzymuje albo wznawia korzystanie z konta przez aplikację Marinara Engine. |
@@ -57,7 +57,7 @@ Kliknij **⋯** w wierszu modelu:
 
 | Działanie | Co robi |
 | --- | --- |
-| **Make default for…** (ustawienie jako domyślny) | Przydziela modelowi zadanie, tak samo jak wybranie go w sekcji **Jobs**. |
+| **Use for…** | Otwiera listę zadań. Kliknij zadanie, aby przypisać je modelowi tak samo jak w sekcji **Jobs**. Znacznik wskazuje przypisane już zadania. |
 | **Edit model** (edycja modelu) | Otwiera jego ustawienia. Kliknięcie wiersza modelu działa tak samo. |
 | **Move to account…** (przeniesienie do konta) | Przenosi model do innego konta. Model używa wtedy klucza tamtego konta. |
 | **Folder** (folder) | Umieszcza model w folderze. |

@@ -124,29 +124,31 @@ Prawdopodobieństwa tak/nie ogólnego modelu czatu nadają się do porównania z
 
 Jeśli twój model czatu działa na serwerze Ollama, LM Studio, llama.cpp albo innym serwerze zgodnym z OpenAI, może odpowiadać na pytania decyzyjne bez ładowania drugiej kopii przez aplikację Marinara.
 
-1. Kliknij **⋯** przy tym modelu w panelu **Connections** i wybierz **Use this model for decisions** (używaj tego modelu do decyzji). Otworzy się okno **Add account** (dodanie konta) na kroku decyzji, z tym samym adresem, modelem i kluczem.
-2. Wybierz model, a potem kliknij **Test decision** (test decyzji). Udany test podaje, czy serwer zwrócił logarytmy prawdopodobieństw i czy model musiał najpierw rozumować. Kliknij **Done** (gotowe).
+1. Kliknij wiersz **Decision** w grupie **Behind the scenes** w sekcji **Jobs**. Selektor pokazuje modele ze wszystkich kont, w tym twój model czatu. Możesz też kliknąć **⋯** przy modelu i wybrać **Use for…** → **Decision**.
+2. Kliknij koło zębate w wierszu **Decision**, a potem **Test**. Udany test podaje, czy serwer zwrócił logarytmy prawdopodobieństw i czy model musiał najpierw rozumować. Kliknij **Done**.
 Możesz też utworzyć je samodzielnie. Użyj konta Decision ze źródłem **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)** (model czatu zgodny z OpenAI), tym samym adresem co konto czatu (na przykład `http://localhost:11434/v1` dla serwera Ollama) i nazwą modelu, której używa serwer.
 
 Odpytywanie wygląda tak samo jak przy modelu wbudowanym: jedno słowo tak/nie na stwierdzenie. Stwierdzenia są wysyłane pojedynczo, bo Marinara nie może wiedzieć, ile żądań naraz obsługuje twój serwer. **Thinking** dla konta to zawsze **Auto** (automatycznie). Serwer na innym komputerze wymaga `PROVIDER_LOCAL_URLS_ENABLED`. Zobacz [Podłączanie modelu lokalnego lub samodzielnie hostowanego](local-self-hosted.md).
 
 <a id="set-up-a-decision-connection"></a>
 
-## Konfiguracja połączenia Decision
+<a id="set-up-a-decision-account"></a>
+
+## Konfiguracja konta Decision
 
 Hostowane konto Decision wysyła wybrane ostatnie wiadomości i stwierdzenia do usługi i może generować koszty. Smart response order wysyła też [listę postaci](#what-the-model-sees).
 
 1. Kliknij **Connections** na górnym pasku, a potem **Add** (dodaj).
 2. W filtrach typu kliknij **Decision**, a potem wybierz **TypeSafe** lub **Own decision server**. W przypadku NanoGPT zobacz [Przez usługę NanoGPT](#through-nanogpt). W przypadku OpenRouter lub Google Gemini zobacz [Przez usługę OpenRouter lub Google Gemini](#through-openrouter-or-google-gemini).
-3. Wpisz **API key** (klucz API), a przy **Own decision server** – **Server address** (adres serwera). Kliknij **Connect** (połącz). Okno się zamknie, a panel pokaże nowe konto.
-4. Kliknij wiersz **Decision** w grupie **Behind the scenes** i wybierz nowy model.
+3. Wpisz **API key** (klucz API), a przy **Own decision server** – **Server address** (adres serwera). Kliknij **Connect** (połącz).
+4. Pod **Found in TypeSafe — use it for:** zaznacz **Decision**, a potem kliknij **Done**. Wiersz **Decision** w grupie **Behind the scenes** w sekcji **Jobs** pokazuje teraz model.
 5. Żeby go przetestować, kliknij model w panelu, żeby otworzyć **Edit model**, a potem kliknij **Test provider** w sekcji **Provider tests** (testy dostawcy). Model **Own decision server** nie ma tam przycisku **Test provider**. Zamiast tego otwórz menu **⋯** konta w panelu i kliknij **Test**.
 
 Udany **Test provider** pokazuje prawdopodobieństwo, czas odpowiedzi i limit czasu konta. **Test** konta w menu **⋯** podaje tylko, czy się udało i ile to trwało. Test czeka co najmniej 10 sekund, a przy dłuższym limicie 5 sekund ponad niego. Jeśli odpowiedź przekroczyła limit, wynik to zaznacza: na czacie taka odpowiedź liczyłaby się jako brak odpowiedzi.
 
 Jeśli test się nie uda, zobacz [Rozwiązywanie problemów](#troubleshooting).
 
-Edytor Decision (**Edit model** przy modelu decyzyjnym) ma te pola:
+Model decyzyjny ma poniższe pola. Kliknij model w panelu, aby otworzyć **Edit model**, lub kliknij koło zębate przy **Decision** w sekcji **Jobs**, aby otworzyć **Decision settings** aktywnego modelu.
 
 | Pole | Działanie |
 | --- | --- |

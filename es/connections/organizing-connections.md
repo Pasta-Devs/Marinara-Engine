@@ -29,7 +29,7 @@ Haz clic en **⋯** en la fila de una cuenta:
 | **Edit account** (Editar cuenta) | Abre sus ajustes, incluidos **Name** (Nombre), **Address** (Dirección), **API key** (clave de API) y **Use this account** (Usar esta cuenta). |
 | **Replace key** (Reemplazar clave) | Pega una clave nueva. Si la clave antigua está en otras cuentas, Marinara pregunta si también quieres actualizarlas. |
 | **Test** (Probar) | Comprueba la clave y muestra el resultado. |
-| **Add model** (Añadir modelo) | Abre la lista de modelos de la cuenta. **Add image model** (Añadir modelo de imagen) aparece con los servicios que también crean imágenes. |
+| **Add model** (Añadir modelo) | Abre la lista de modelos de la cuenta. |
 | **Select models** (Seleccionar modelos) | Te permite mover o borrar varios modelos a la vez. |
 | **Duplicate** (Duplicar) | Añade una copia de la cuenta con copias de sus modelos. |
 | **Turn off** (Desactivar) / **Turn on** (Activar) | Hace que Marinara deje de usar la cuenta o vuelva a usarla. |
@@ -57,7 +57,7 @@ Haz clic en **⋯** en una fila de modelo:
 
 | Acción | Qué hace |
 | --- | --- |
-| **Make default for…** (Hacer predeterminado para…) | Le da una tarea al modelo, igual que elegirlo en el cuadro **Jobs**. |
+| **Use for…** (Usar para…) | Abre la lista de tareas. Haz clic en una para asignársela al modelo, igual que en el cuadro **Jobs**. Una marca indica las tareas ya asignadas. |
 | **Edit model** (Editar modelo) | Abre sus ajustes. Hacer clic en la fila del modelo hace lo mismo. |
 | **Move to account…** (Mover a la cuenta…) | Mueve el modelo a otra cuenta. Después usa la clave de esa cuenta. |
 | **Folder** (Carpeta) | Pone el modelo en una carpeta. |

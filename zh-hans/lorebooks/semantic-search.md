@@ -16,10 +16,10 @@
 
 方案一：使用带嵌入模型的账号。
 
-1. 打开 **Connections**(连接) 面板，打开一个账号进行编辑。
-2. 打开 **Advanced**(高级)，再打开 **More**(更多)，找到 **Semantic search (embeddings)**(语义搜索与嵌入)。
+1. 打开 **Connections**(连接)，点击模型，打开 **Edit model**(编辑模型)。
+2. 点击 **More**(更多)，找到 **Semantic search (embeddings)**(语义搜索与嵌入)。
 3. 填入嵌入模型的名称，比如 `text-embedding-3-small`。如果不确定名称，查一下服务的文档，或者改用内置模型。
-4. 保存这个账号。
+4. 保存模型。
 5. 点击 **Test embedding**(测试嵌入) 检查。Marinara 会先保存，再把一小段示例文本转成嵌入，然后显示向量维度，比如“1536 dimensions”，或者显示服务返回的错误。
 
 想通过另一个账号的密钥和地址发送嵌入请求，就在 **Embedding provider**(嵌入服务商) 下选择那个账号。默认是 **Same as this provider**(与此服务商相同)。如果所选账号有自己的嵌入模型，Marinara 就用它；否则使用这里填写的模型名称。

@@ -55,6 +55,7 @@ Commands sind Aktionen, die der Charakter selbst auszuführen beschließt. Du ti
 | **8-Ball Pool** | Eine Partie Pool aufbauen. | 8-Ball Pool |
 | **Tic-Tac-Toe** | Eine Tic-Tac-Toe-Partie annehmen. | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | Eine Partie annehmen. | Rock-Paper-Scissors |
+| Weitere Spiele, nach dem Spiel benannt | Eine Partie starten oder annehmen. | Das jeweilige Spiel, etwa Blackjack oder Wordle |
 
 Zu **Influence** und **Notes** siehe [Eine Conversation mit einem Roleplay oder Game verknüpfen](../chats/connected-chats.md). Die letzte Spalte nennt den Agenten, den du im **Agent Organizer** installierst.
 

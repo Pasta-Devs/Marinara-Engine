@@ -71,7 +71,7 @@ No Android, essa configuração já vem ativada quando você não a define.
 
 ## Usar o modelo para decisões
 
-O mesmo modelo pode responder às perguntas de decisão, como as verificações de ativação de agentes, sem carregar uma segunda cópia. Clique em **⋯** no modelo, no painel, e escolha **Use this model for decisions** (usar este modelo para decisões). Essa opção aparece para um modelo OpenAI-compatible que tem um nome de modelo. Veja [Modelos de decisão](decision-models.md#on-a-server-you-already-run).
+O mesmo modelo pode responder às perguntas de decisão, como as verificações de ativação de agentes, sem carregar uma segunda cópia. Clique em **⋯** no modelo, no painel, e escolha **Use for…** → **Decision**. Essa opção aparece para um modelo OpenAI-compatible que tem um nome de modelo. Veja [Modelos de decisão](decision-models.md#on-a-server-you-already-run).
 
 ## As requisições seguem a ordem das tarefas
 

@@ -125,6 +125,8 @@ Agent może przechowywać kilka wariantów promptu, dzięki czemu każdy czat mo
 
 Gdy ktoś doda agenta do czatu, lista rozwijana **Prompt Mode** (tryb promptu) pokazuje twoje warianty. Bez nich widać tylko prompt domyślny.
 
+<a id="other-settings"></a>
+
 ## Inne ustawienia
 
 - **Model override** (zastąpienie modelu): używa dla tego agenta innego modelu, na przykład tańszego. Zostaw puste, żeby agent korzystał z modelu czatu. Agent wysyła parametry generowania zapisane w tym połączeniu. Zobacz [Parametry agentów](../prompts/generation-parameters.md#parameters-for-agents).

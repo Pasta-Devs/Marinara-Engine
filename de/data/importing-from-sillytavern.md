@@ -61,7 +61,7 @@ Findet die Suche Charaktere, erscheinen zwei weitere Optionen:
   - **Existing only** behält nur Tags, die du schon hast.
 - **Imported regex scripts** (Standard **Character only**):
   - **Character only** wendet die Skripte auf den jeweiligen Charakter an.
-  - **Global** fügt sie für jeden Charakter zu **Presets → Regexes** hinzu.
+  - **Global**: fügt sie zu **Presets → Regexes** hinzu. Dort verwaltest du Skripte, die chatübergreifend laufen. Siehe [Regex-Skripte](../extending/regex-scripts.md#manage-your-scripts).
 
 Wenn es nicht funktioniert hat:
 

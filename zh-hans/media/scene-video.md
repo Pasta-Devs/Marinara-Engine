@@ -37,7 +37,7 @@ Game Mode 和 **Animate illustration**(让插图动起来) 始终从图片开始
 
 ### 设为默认视频模型
 
-想让没有自己视频模型的聊天也能用某个视频模型，就在 **Connections** 面板顶部的 **Defaults**(默认值) 下设置 **Video** 这项工作。Chat Settings(聊天设置) 里显示为 **Default video provider**(默认视频服务商)。既没有聊天模型也没有默认模型时，视频操作会提示你先选一个。
+想让没有自己视频模型的聊天也能用某个视频模型，就在 **Connections** 面板顶部的 **Jobs**(分工) 区域里设置 **Video** 工作。Chat Settings(聊天设置) 里显示为 **Default video provider**(默认视频服务商)。既没有聊天模型也没有默认模型时，视频操作会提示你先选一个。
 
 ### 视频提示词指令
 

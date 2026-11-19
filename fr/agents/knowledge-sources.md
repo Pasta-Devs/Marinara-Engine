@@ -70,7 +70,7 @@ Quand tu choisis des lorebooks source pour l'agent Router, une étiquette de cou
 Knowledge Router peut aussi repérer des entrées candidates par le sens, et pas seulement par mot-clé. Il s'appuie pour cela sur un embedder, un petit modèle qui transforme le texte en nombres pour que Marinara puisse comparer le sens. L'agent Router fonctionne sans lui.
 
 1. Ouvre l'éditeur de lorebook et repère **Semantic search (embeddings)** (recherche sémantique).
-2. Choisis un compte qui dispose d'un modèle d'embedding. Si tu as défini une valeur par défaut **Embeddings** dans **Connections → Defaults** (Connexions → Valeurs par défaut), elle est sélectionnée pour toi, sauf si tu as déjà choisi une autre source.
+2. Choisis un compte qui dispose d'un modèle d'embedding. Si tu as défini la tâche **Embeddings** dans l'encadré **Jobs** (tâches) de **Connections** (Connexions), elle est sélectionnée pour toi, sauf si tu as déjà choisi une autre source.
 3. Utilise la même source d'embeddings que ton compte de chat. Les vecteurs d'une taille différente sont ignorés.
 4. Clique sur le bouton de vectorisation. Il indique combien d'entrées n'ont pas encore de vecteurs. **Re-vectorize all** (tout revectoriser) refait toutes les entrées.
 

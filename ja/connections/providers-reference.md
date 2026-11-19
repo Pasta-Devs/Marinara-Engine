@@ -161,7 +161,7 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI、Googleの画像と動画�
 
 ソースごとに、デフォルトのアドレスとモデルが入力されます。**Default voice**(デフォルトの声)は、キャラクターごとの声など、より細かい指定がないときに使われる声です。**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)は、Marinaraが読み上げる1行を待つ時間です。音声サーバーが遅い場合は値を大きくしてください。
 
-Marinaraがデフォルトで使う読み上げ用のアカウントを選ぶには、**Jobs**(役割)ボックスの**Voice (Text to Speech)**(音声合成)の行をクリックします。そのアカウントでメッセージを読み上げるには、**Text to Speech**(音声合成)カードの**Source**(音声の提供元)でそのアカウントを選びます。[Text to Speech (TTS)の設定](../media/tts-setup.md)と[音声の接続を使う](../media/tts-setup.md#use-a-voice-model-from-an-account)を参照してください。
+Marinaraがデフォルトで使う音声アカウントを選ぶには、**Jobs**(役割)ボックスの**Voice**(音声)の行をクリックします。アカウントを使ってメッセージを読み上げるには、**Voice**の行でアカウントのモデルを選びます。[Text to Speech (TTS)の設定](../media/tts-setup.md)と[音声の接続を使う](../media/tts-setup.md#use-a-voice-model-from-an-account)を参照してください。
 
 <a id="music--sound-effects"></a>
 
@@ -189,7 +189,7 @@ Marinaraがデフォルトで使う読み上げ用のアカウントを選ぶに
 
 ## 埋め込み
 
-埋め込みは、テキストを数値の並びに変換し、Marinaraが関連するテキストを見つけられるようにする仕組みです。ロアブックのセマンティック検索とMemory Recallを支えています。ほとんどのチャットサービスでは、モデルエディターの**Semantic search (embeddings)**(埋め込みによるセマンティック検索)で、埋め込みモデルと、任意の**Embedding endpoint URL**(埋め込みエンドポイントのURL)を設定できます。
+埋め込みは、テキストを数値の並びに変換し、Marinaraが関連するテキストを見つけられるようにする仕組みです。ロアブックのセマンティック検索とMemory Recallを支えています。ほとんどのチャットサービスでは、モデルの**Edit model**(モデルの編集)で**More**(その他) → **Semantic search (embeddings)**(埋め込みによるセマンティック検索)を開き、埋め込みモデルと、必要なら**Embedding endpoint URL**(埋め込みのエンドポイントURL)を設定できます。
 
 **Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)**、**Grok CLI (Subscription)**は埋め込みを作れません。これらを使う場合は、**Embedding provider**(埋め込み用のプロバイダー)ドロップダウンで、OpenAI互換のアカウント、**Google Gemini**、**Built-in model**(内蔵モデル)など、ほかのアカウントを借ります。
 

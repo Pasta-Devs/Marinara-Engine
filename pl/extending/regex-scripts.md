@@ -46,6 +46,8 @@ Nagłówek sekcji ma trzy przyciski z ikonami: **Create regex**, **Import regexe
 
 Aby znaleźć skrypt, wpisz tekst w polu **Search regexes** (szukaj skryptów regex). Wyszukiwanie obejmuje nazwy i wzorce skryptów oraz otwiera foldery z pasującymi skryptami. Podczas wyszukiwania nie da się przeciągać skryptów, aby zmienić ich kolejność.
 
+<a id="organize-scripts-in-folders"></a>
+
 #### Porządkowanie skryptów w folderach
 
 1. Kliknij **New Folder** (nowy folder) i nazwij folder.
@@ -54,7 +56,15 @@ Aby znaleźć skrypt, wpisz tekst w polu **Search regexes** (szukaj skryptów re
 
 Kliknij nazwę folderu, żeby go rozwinąć lub zwinąć. Wyłącz przełącznik folderu, żeby wstrzymać jego skrypty we wszystkich czatach. Nagłówek pokazuje **Paused** (wstrzymane). Każdy skrypt zachowuje zapisane ustawienie przełącznika. Włączony skrypt we wstrzymanym folderze ma szary przełącznik i etykietę **Paused by folder** (wstrzymane przez folder). Usunięcie folderu przenosi skrypty na poziom główny, gdzie działają zgodnie z własnymi przełącznikami.
 
-Foldery grupują skrypty bez zmiany kolejności ich uruchamiania. Kliknij **Execution order** (kolejność wykonania), żeby zobaczyć pełną listę w kolejności uruchamiania. Przeciągnij skrypt za uchwyt, żeby zmienić kolejność. Jeśli nie ma folderów, lista jest już w tej kolejności.
+Foldery grupują skrypty bez zmiany kolejności ich uruchamiania. Kliknij **Execution order** (kolejność wykonania), żeby zobaczyć pełną listę w kolejności uruchamiania. Przeciągnij skrypt za uchwyt, żeby zmienić kolejność. Jeśli nie ma folderów, lista jest już w tej kolejności. W tym widoku ikona pauzy oznacza włączony skrypt, którego folder jest wstrzymany.
+
+### Zmienianie kilku skryptów naraz
+
+1. Kliknij **Select regex scripts**.
+2. Zaznacz skrypty, które chcesz zmienić.
+3. Kliknij **Enable selected** (włącz zaznaczone), **Disable selected** (wyłącz zaznaczone) lub **Move to folder**. Możesz też wyeksportować albo usunąć zaznaczone skrypty.
+
+**Enable selected** zmienia przełączniki poszczególnych skryptów. Wznów wstrzymany folder, żeby włączone skrypty mogły znowu działać.
 
 <a id="editor-fields"></a>
 
@@ -95,7 +105,7 @@ Opcjonalna lista zwykłych fragmentów tekstu (przycinanych ciągów), które s�
 
 ### Sekcja **Live Test**
 
-Wklej przykładowy tekst, a wynik pojawi się pod **Result:**. Live Test sprawdza tylko logikę wyszukiwania, zamiany i przycinania. Miejsce działania, stan włączenia, zasięg postaci i głębokość są oceniane w prawdziwym czacie. We wzorcu, w tekście zamiany i w przycinanych ciągach możesz używać makr takich jak `{{user}}` i `{{char}}`. W Live Test przyjmują wartości przykładowe. Zobacz [Makra](../prompts/macros.md).
+Wklej przykładowy tekst, a wynik pojawi się pod **Result:**. **Live Test** sprawdza tylko logikę wyszukiwania, zamiany i przycinania. Wypróbuj skrypt na czacie, żeby sprawdzić miejsce działania, wstrzymanie folderu, stan przełączników, zakres postaci lub głębokość. We wzorcu, w tekście zamiany i w przycinanych ciągach możesz używać makr takich jak `{{user}}` i `{{char}}`. W **Live Test** przyjmują wartości przykładowe. Zobacz [Makra](../prompts/macros.md).
 
 <a id="choose-where-a-script-runs"></a>
 
@@ -122,7 +132,7 @@ W przypadku twoich własnych wiadomości skrypt **User Input** w trybie **Only D
 
 Oba ustawienia są w sekcji **Advanced Options**.
 
-- **Execution Order** (kolejność wykonania) to liczba. Niższe liczby działają pierwsze, co ma znaczenie, gdy do tego samego tekstu może pasować kilka skryptów. Nowy skrypt startuje od 0, a przy zapisie aplikacja przydziela kolejną wolną liczbę. Możesz też przeciągać wiersze na liście **Regexes**.
+- **Execution Order** (kolejność wykonania) to liczba. Niższe liczby działają pierwsze, co ma znaczenie, gdy do tego samego tekstu może pasować kilka skryptów. Nowy skrypt startuje od 0, a przy zapisie aplikacja przydziela kolejną wolną liczbę. Aby zmienić kolejność z panelu, zobacz [Organizowanie skryptów w folderach](#organize-scripts-in-folders).
 - **Depth Range** (zakres głębokości) ogranicza, jak daleko wstecz działa skrypt, za pomocą pól **Min** i **Max**. Najnowsza wiadomość ma głębokość 0, poprzednia głębokość 1 i tak dalej. Zostaw oba pola puste, żeby skrypt działał na każdej głębokości. Zapis jest zablokowany, gdy **Min** jest większe od **Max**.
 
 ### Czaty grupowe
@@ -165,6 +175,8 @@ Skrypty przypisane do postaci nie działają same z siebie w każdym czacie. Ste
 
 Pod trybami panel wypisuje przypisane skrypty każdej postaci, każdy z własnym przełącznikiem. To przełącznik samego skryptu, więc zmienia skrypt we wszystkich czatach. Tryb steruje skryptami działającymi po stronie widoku. Skrypty promptu zawsze idą za postacią, która generuje odpowiedź.
 
+<a id="import-and-replace-scripts"></a>
+
 ## Import i zastępowanie skryptów
 
 ### Import z aplikacji SillyTavern
@@ -172,16 +184,19 @@ Pod trybami panel wypisuje przypisane skrypty każdej postaci, każdy z własnym
 Marinara odczytuje skrypty regex dołączone do karty postaci z aplikacji SillyTavern. Przy imporcie karty sekcja **Imported regex scripts** (zaimportowane skrypty regex) oferuje dwie możliwości:
 
 - **Character only** (tylko postać; domyślnie): skrypty pozostają przypisane do tej postaci.
-- **Global** (globalnie): skrypty trafiają do panelu **Presets** i działają w każdym czacie.
+- **Global** (globalnie): skrypty trafiają do **Presets → Regexes** i mogą działać w różnych czatach.
 
 Ten wybór pojawia się w oknie importu pojedynczej postaci i w zbiorczym imporcie **Import from SillyTavern Folder**. Skrypty z pustym wzorcem albo ze wzorcem, który nie przechodzi kontroli bezpieczeństwa, są pomijane. Żeby zaimportować zwykły plik JSON ze skryptami, użyj **Import regexes from JSON** w sekcji **Regexes**. Zobacz [Importowanie z SillyTavern](../data/importing-from-sillytavern.md).
+
+**Export regexes to JSON** zapisuje wszystkie globalne skrypty do jednego pliku. Podczas zaznaczania skryptów użyj **Export**, żeby zapisać tylko zaznaczone. Eksport regexów do JSON zachowuje ustawienia pojedynczych skryptów. Użyj **Export Profile** w formacie **Marinara Native**, aby zachować także przypisanie do folderów i ustawienia wstrzymania. Zobacz [Eksport profilu](../data/backup-and-restore.md#export-a-profile). Skrypty importowane z JSON pojawiają się na poziomie głównym. Po imporcie możesz przenieść je do folderu.
 
 ### Zastępowanie pakietu regexów
 
 1. W **Presets → Regexes** (presety, skrypty regex) wybierz **Select regex scripts** (wybierz skrypty regex).
-2. Zaznacz wpisy starego pakietu albo wybierz **Select all regex scripts** (zaznacz wszystkie skrypty regex).
-3. Użyj **Export** (eksportuj) lub **Delete** (usuń) na pasku akcji. Usuwanie wymaga jednego potwierdzenia i jest nieodwracalne.
+2. Zaznacz wpisy starego pakietu. **Select all regex scripts** (zaznacz wszystkie skrypty regex) zaznacza całą bibliotekę, w tym skrypty w zwiniętych folderach.
+3. Kliknij **Delete** (usuń) na pasku akcji. Marinara poprosi o potwierdzenie. Żeby najpierw zachować kopię, kliknij **Export** (eksportuj) przed usunięciem.
 4. Zaimportuj zaktualizowany pakiet.
+5. Jeśli pakiet ma własny folder, przenieś do niego nowe skrypty.
 
 Wpisy, których nie udało się usunąć, pozostają zaznaczone, żeby można było ponowić próbę. Niezaznaczone skrypty pozostają na miejscu. Przypisania do presetów nadal są dostępne w edytorze regexów.
 

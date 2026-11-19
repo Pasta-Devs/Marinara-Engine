@@ -73,6 +73,8 @@ Tracker-Agenten überschreiben die HUD-Werte nach jedem Zug. Mit dem Sperrmodus 
 
 Zum Entsperren klickst du dieselbe Schaltfläche erneut (**Unlock field**). Um den Sperrmodus zu verlassen, klick erneut auf den Schalter oben (**Exit lock mode**). Der Sperrmodus gilt für das gesamte HUD: Schaltest du ihn in einem Tracker ein, erscheinen die Schloss-Schaltflächen überall.
 
+Erhält ein Charakter, den der Tracker bisher als Nebencharakter geführt hat, im Chat eine eigene Charakterkarte, verschiebt der Tracker beim nächsten Lauf den Eintrag samt Sperren und ausgeblendeten Feldern auf die Karte. Die Karte behält ihr eigenes Porträt. Steht ein kürzerer Name unter **Other names** (Weitere Namen), verknüpft der Tracker ihn mit der Karte und zeigt weiter den Namen aus der Geschichte an.
+
 ## Einen Tracker erneut laufen lassen
 
 Um einen Tracker sofort zu aktualisieren, statt auf die nächste Nachricht zu warten, klick auf die Schaltfläche mit dem Pfeil im Kreis darin. Sie lässt nur diesen Tracker für den letzten Zug erneut laufen. Der Tooltip nennt den Tracker, zum Beispiel **Re-run world state tracker only**.

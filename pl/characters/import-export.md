@@ -36,7 +36,7 @@ Jeśli to nie zadziałało: przeczytaj czerwony komunikat obok pliku. Pozostałe
 | | **No tags**: pominięcie tagów. |
 | | **Existing only**: zachowanie tylko tych tagów, które już są w twojej bibliotece. |
 | **Imported regex scripts** (importowane skrypty regex) | **Character only** (domyślnie): reguły działają dla tej postaci. |
-| | **Global**: reguły trafiają do sekcji **Presets → Regexes** (presety, regexy) i działają w każdym czacie. |
+| | **Global**: reguły trafiają do sekcji **Presets → Regexes** (presety, regexy) i mogą działać w różnych czatach. |
 | **Split description into fields** (podział opisu na pola) | Domyślnie wyłączona. Zaznacz ją, żeby teksty opatrzone etykietami, takie jak osobowość czy wygląd, przenieść z pola **Description** (opis) do osobnych pól. |
 
 Skrypty regex to małe reguły zamiany tekstu. Zostaw **Character only**, chyba że reguły mają działać wszędzie. Podział nie zmienia kart narratora, kart świata ani kart z wieloma postaciami.

@@ -54,6 +54,8 @@ Cada ejecución necesita espacio libre para una copia completa más, porque la c
 
 > **Consejo:** guarda una segunda copia fuera de la carpeta de datos. Un disco perdido o una app borrada también eliminan las copias de seguridad automáticas.
 
+<a id="export-a-profile"></a>
+
 ## Exportar un perfil
 
 1. Abre **Settings → Advanced → Backup & Export**.
@@ -67,6 +69,8 @@ Cada ejecución necesita espacio libre para una copia completa más, porque la c
 Un perfil nativo se descarga como `marinara-profile.json`. Si es demasiado grande, Marinara ofrece un archivo ZIP en su lugar. Haz clic en **Export ZIP** para descargar `marinara-profile.zip`.
 
 Un perfil nativo conserva el código de Personal Extension, pero no si está activada ni aprobada. Cada extensión restaurada llega desactivada. Revísala de nuevo en **Settings → Addons**.
+
+Un perfil nativo conserva los scripts de regex, sus carpetas y el ajuste de pausa de cada carpeta. Para compartir scripts individuales como JSON, consulta [Scripts de regex](../extending/regex-scripts.md#import-and-replace-scripts).
 
 ## Restaurar con Import Profile
 

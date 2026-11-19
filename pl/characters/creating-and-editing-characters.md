@@ -72,7 +72,7 @@ Zakładka **Metadata** zbiera dane o tożsamości karty i jej porządkowaniu. Po
 
 - **Character ID**. Wartość tylko do odczytu. Pojawia się po zapisaniu karty. Kliknij **Copy** (kopiowanie), żeby ją skopiować.
 - **Name**. Wyświetlana nazwa. W promptach to `{{char}}`, symbol zastępczy, który Marinara zamienia na nazwę postaci.
-- **Other names** (inne nazwy). Przezwiska, pełne imiona i nazwiska lub tytuły, których używa postać, np. `Clark Kent, Kal-El, Mr. Kent`. Wpisz je po przecinku i naciśnij <kbd>Enter</kbd> albo kliknij **Add** (dodaj). W czatach Roleplay mogą przybierać kolor imienia. Zobacz [Kolory postaci](colors-and-stats.md#the-three-colors).
+- **Other names** (inne nazwy). Przezwiska, pełne imiona i nazwiska lub tytuły, których używa postać, np. `Clark Kent, Kal-El, Mr. Kent`. Wpisz je po przecinku i naciśnij <kbd>Enter</kbd> albo kliknij **Add** (dodaj). W czatach Roleplay mogą przybierać kolor imienia. Character Tracker powiąże też z kartą postać śledzoną pod jedną z tych nazw. Zobacz [Kolory postaci](colors-and-stats.md#the-three-colors).
 - **Creator**. Osoba, która stworzyła kartę, podawana jako autor przy udostępnianiu.
 - **Version**. Numer wersji, który ustawiasz samodzielnie, na przykład `1.0`. Przełącznik **Automatic versioning** (automatyczne wersjonowanie) obok niego zachowuje wcześniejsze wersje i podnosi ten numer, gdy karta się zmienia. Historia wersji zapisuje migawki tylko wtedy, gdy ten przełącznik jest włączony.
 - **Talkativeness**. Suwak od 0 do 100 procent. Decyduje o tym, jak często ta postać odzywa się na czatach grupowych. Domyślnie 50 procent.
@@ -97,6 +97,9 @@ Zakładka **Card** to główne miejsce pisania. Odnośniki u góry przeskakują 
 | **Backstory** | Historia, pochodzenie, ważne relacje. | Tak |
 | **Appearance** | Wygląd, ubiór, szczegóły wizualne. Służy też jako zalążek promptu do awatara AI. | Tak |
 | **Scenario** | Domyślna sytuacja wyjściowa nowych czatów z tą postacią. | Tak |
+| **Public Face** (publiczny wizerunek) | Karta bez prywatnych informacji. | Tylko na żądanie makra lub ustawienia |
+
+**Public Face** to wszystko, co inne postacie mogą zobaczyć lub wiedzieć o tej postaci: wygląd, sposób bycia, rola, reputacja i jawne relacje. Pomiń sekrety, myśli, prywatną przeszłość i instrukcje odgrywania postaci. To pole nigdy nie jest wysyłane w ramach jej karty. Prompt odczytuje je tylko tam, gdzie umieścisz makro `{{publicFace}}`, a w przypadku persony `{{personaPublicFace}}`. Zobacz [Makra promptów](../prompts/macros.md#identity-character-and-persona-macros). W grupowym czacie Roleplay w trybie Individual opcja **Others' Public Faces** wysyła je w turach pozostałych postaci. Zobacz [Dodatkowe ustawienia trybu Individual](../chats/group-chats.md#more-individual-settings). Agent ze źródłem **Characters** lub **Persona** ustawionym na **Public Face** czyta to pole zamiast karty. Zobacz [Inne ustawienia](../agents/custom-agents.md#other-settings). Przy włączonym **Send Public Faces** funkcja Impersonate w Roleplay czyta to pole zamiast karty. Zobacz [Ustawienia Impersonate](../chats/guided-and-impersonate.md#the-impersonate-settings).
 
 Przełącznik **Image Appearance Override** (osobny opis wyglądu do obrazów) znajduje się pod polem **Appearance** i domyślnie jest wyłączony. Włącz go, żeby pokazać drugie pole na krótkie tagi obrazu, na przykład słowo wyzwalające LoRA (słowo kluczowe, które włącza własny styl obrazu). Gdy przełącznik jest włączony, a pole wypełnione, prompty obrazów używają tych tagów dokładnie w zapisanej formie, a treść **Appearance** zostaje jako kontekst w tle. Z tego pola wypełnia się też wstępnie prompt awatara AI. Narrator zawsze widzi pełny tekst z **Appearance**.
 
@@ -118,13 +121,13 @@ Powitania i przykładowe wiadomości mogą pokazywać obrazy z galerii postaci. 
 
 ### Generowanie pola karty różdżką
 
-Nad polami **Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Example Dialogue**, **First Message** i każdym **Alternate Greeting** znajduje się przycisk z samą ikoną różdżki. Jego podpowiedź podaje nazwę pola, które wypełnia.
+Nad polami **Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message** i każdym **Alternate Greeting** znajduje się przycisk z samą ikoną różdżki. Jego podpowiedź podaje nazwę pola, które wypełnia.
 
 Zanim zaczniesz: skonfiguruj działające połączenie tekstowe. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
 1. Wpisz w polu pomysły, które chcesz zachować, na przykład `smart, scientist, handsome`, albo zostaw je puste.
 2. Uzupełnij inne pola karty, które AI ma wykorzystać jako punkt odniesienia. Nie musisz najpierw zapisywać.
-3. Kliknij różdżkę danego pola. Marinara prosi o 100–300 słów dla tego pola, traktując twój tekst jako punkt wyjścia. Dla pola Example Dialogue prosi o przykładowe wymiany zdań. **First Message** i każde **Alternate Greeting** proszą o jedną wiadomość otwierającą, która zostawia ci miejsce na odpowiedź.
+3. Kliknij różdżkę danego pola. Marinara prosi o 100–300 słów dla tego pola, traktując twój tekst jako punkt wyjścia. Dla pola Example Dialogue prosi o przykładowe wymiany zdań. **First Message** i każde **Alternate Greeting** proszą o jedną wiadomość otwierającą, która zostawia ci miejsce na odpowiedź. W polu **Public Face** nie ma limitu słów. Różdżka przepisuje resztę karty, pomijając prywatne informacje, więc długość zależy od karty.
 4. Popraw wynik, a potem kliknij **Save**.
 
 Różdżka używa domyślnego połączenia tekstowego agentów, a jeśli go nie ma, domyślnego połączenia tekstowego. Skonfigurowane zapasowe połączenie agentów nadal obowiązuje.
@@ -159,11 +162,11 @@ Rozmiar obrazka pochodzi z rozmiaru obrazów **Portraits** (portrety) w ustawien
 
 Zakładka **Voice** (głos) ustala, jak brzmi postać, kiedy funkcja Text to Speech (synteza mowy) czyta jej wypowiedzi na głos.
 
-- **Voice**. Głos tej postaci. Zmiana zapisuje się od razu, bez klikania **Save**. To samo ustawienie co wiersz tej postaci w sekcji **Connections → Text to Speech** (połączenia, synteza mowy). Puste pole oznacza głos domyślny. Jeśli karta o pasującej nazwie, na przykład oryginał kopii AU, ma głos, w pustym polu widać nazwę tego głosu, bo ta karta również z niego korzysta.
+- **Voice**. Głos tej postaci. Zmiana zapisuje się od razu, bez klikania **Save**. To samo ustawienie co wiersz tej postaci w ustawieniach zadania **Voice** w panelu **Connections**. Puste pole oznacza głos domyślny. Jeśli karta o pasującej nazwie, na przykład oryginał kopii AU, ma głos, w pustym polu widać nazwę tego głosu, bo ta karta również z niego korzysta.
 - **Preview** (Odsłuchaj). Odtwarza krótką kwestię tym głosem. Pada w niej nazwa postaci albo, jeśli jest ustawiona, nazwa z pola **Phonetic name** (nazwa fonetyczna).
 - **Phonetic name**. Opcjonalny zapis, który służy wyłącznie do poprawienia wymowy. Należy do karty, więc kliknij **Save**, żeby go zachować.
 
-Kiedy funkcja Text to Speech jest wyłączona albo wszystkie postacie mają jeden wspólny głos, w miejscu pola **Voice** pojawia się krótka uwaga. Przy jednym wspólnym głosie uwaga proponuje przycisk **Use a voice per character** (osobny głos dla każdej postaci). Przycisk **Open Text to Speech settings** (otwarcie ustawień syntezy mowy) otwiera panel Connections. Zobacz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md).
+Kiedy funkcja Text to Speech jest wyłączona albo wszystkie postacie mają jeden wspólny głos, w miejscu pola **Voice** pojawia się krótka uwaga. Przy jednym wspólnym głosie uwaga proponuje przycisk **Use a voice per character** (osobny głos dla każdej postaci). Przycisk **Open Text to Speech settings** (otwarcie ustawień syntezy mowy) otwiera ustawienia zadania **Voice** w panelu **Connections**. Zobacz [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md).
 
 ## Zakładka Advanced
 

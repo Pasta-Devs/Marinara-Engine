@@ -64,7 +64,7 @@ SillyTavernのデータをMarinara Engineに取り込みます。ファイルを
 **Imported regex scripts**(デフォルトは**Character only**)
 
 - **Character only**は、スクリプトを各キャラクターに適用します。
-- **Global**は、すべてのチャットに適用するために、**Presets → Regexes**へ追加します。
+- **Global**は**Presets → Regexes**に追加します。そこでは、複数のチャットで動くスクリプトを管理できます。[正規表現スクリプト](../extending/regex-scripts.md#manage-your-scripts)を参照してください。
 
 うまくいかなかった場合:
 

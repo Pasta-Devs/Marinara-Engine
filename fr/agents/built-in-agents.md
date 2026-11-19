@@ -16,6 +16,14 @@ Avec un intervalle d'exécution, un agent s'exécute une fois tous les quelques 
 
 En Roleplay, l'intervalle d'exécution d'Illustrator se règle chat par chat, dans sa carte de **Chat Settings**. La valeur de sa configuration sert de valeur par défaut aux chats qui n'ont pas la leur. Illustrator accepte aussi **0** : il ne s'exécute alors jamais automatiquement et reste disponible pour les actions de Gallery.
 
+<a id="activation-keywords-and-questions"></a>
+
+### Mots-clés et questions d'activation
+
+La plupart des agents du pipeline ont la même section **Activation Keywords** (mots-clés d'activation) que les [agents personnalisés](custom-agents.md#activation-keywords). Remplis-la pour ignorer l'agent quand il n'a rien à faire. Par exemple, donne à Prose Guardian les mêmes mots que dans sa liste **Banned Words** (mots interdits), puis règle **Scan Depth** (profondeur d'analyse) sur 1. L'agent ne s'exécute alors que si l'un d'eux figure dans la nouvelle réponse. Les mots-clés sont reconnus même au milieu d'un mot et sans tenir compte de la casse. Par exemple, `voss` correspond aussi à `Vossberg`, ce qui ne coûte qu'une exécution de plus. Une [question d'activation](custom-agents.md#activation-questions) peut à la place faire dépendre l'exécution de la réponse de ton modèle de décision à une question à laquelle il répond par oui ou non.
+
+Si tu laisses la section vide, l'agent s'exécute comme avant. Un tracker qui saute un tour garde son dernier état jusqu'à sa prochaine exécution. Storyboard, Illustrator, Knowledge Retrieval et Knowledge Router ont leurs propres règles d'activation et n'affichent pas la section.
+
 ## Apps
 
 Les Apps ont leur propre onglet dans **Home**. Tu les utilises de façon autonome au lieu de les ajouter à un chat. Chacune demande un redémarrage après son installation.
