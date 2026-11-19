@@ -77,6 +77,7 @@ import { utilitySidecarService } from "../../services/utility-sidecar/utility-si
 import { buildUtilitySidecarEntry } from "../../services/utility-sidecar/utility-sidecar.provider.js";
 import {
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
+  normalizeNameAliases,
   parseDecisionPromptQuestionLimit,
   readImageAppearanceOverride,
   UTILITY_SIDECAR_CONNECTION_ID,
@@ -1126,6 +1127,7 @@ async function buildRetryAgentContext(args: {
     charInfo.push({
       id: cid,
       name: (charData.name as string | undefined) ?? "Unknown",
+      nameAliases: normalizeNameAliases(extensions.nameAliases),
       world: cardPromptText(extensions.world) || undefined,
       description: cardPromptText(charData.description),
       personality: cardPromptText(charData.personality) || undefined,
@@ -3393,7 +3395,7 @@ async function applyRetryResultEffects(args: {
       gameNpcs: Array.isArray(chatMeta.gameNpcs) ? (chatMeta.gameNpcs as GameNpc[]) : [],
       settings: resolvedAgents.find((entry) => entry.resolved.type === "character-tracker")?.resolved.settings ?? null,
       loadBaseline: loadRetryTargetGameStateSnapshot,
-      save: (presentCharacters) => updateRetryTargetGameStateSnapshot({ presentCharacters }),
+      save: (presentCharacters, movedKeys) => updateRetryTargetGameStateSnapshot({ presentCharacters, ...movedKeys }),
       // The portraits finish after this route has answered and its signal has fired, so these skip the abort checks.
       loadForBackgroundSave: () =>
         retryMessageId

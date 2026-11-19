@@ -13900,12 +13900,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             resolvedAgents.find((agent) => agent.type === "character-tracker")?.settings ?? null;
           const generateTrackerEffects = (messageId: string, targetSwipeIndex: number): TrackerEffectTarget => {
             const readTargetRow = () => gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex);
-            const saveCharacters = (presentCharacters: Array<Record<string, unknown>>) =>
+            const saveCharacters = (
+              presentCharacters: Array<Record<string, unknown>>,
+              movedKeys?: { fieldLocks: Record<string, boolean>; hiddenTrackerFields: Record<string, boolean> },
+            ) =>
               gameStateStore.updateByMessage(
                 messageId,
                 targetSwipeIndex,
                 input.chatId,
-                { presentCharacters } as any,
+                { presentCharacters, ...movedKeys } as any,
                 undefined,
                 {
                   baseSnapshot: trackerBaseGameStateSnapshot,

@@ -8,12 +8,21 @@ import {
   normalizeChatSummaryEntries,
   type ChatSummaryEntry,
   applyTrackerFieldLocksToGameStatePatch,
+  characterCustomFieldTrackerLockKey,
+  characterStatTrackerLockKey,
   characterTrackerLockPrefix,
   customTrackerFieldLockPrefix,
   generationParametersSchema,
   normalizeInventoryTrackerRows,
   normalizeGroupChatMode,
+  normalizeTrackerFieldLocks,
   normalizeTrackerFieldLocksForState,
+  normalizeTrackerHiddenFields,
+  renameTrackerFieldLockPrefix,
+  trackerIdentitySlug,
+  isTrackerFieldLocked,
+  type TrackerFieldLocks,
+  type TrackerHiddenFields,
   extractCharacterCardCastMembers,
   findTrackerCharacterRowByDriftedId,
   isGamePartyNpcId,
@@ -1853,6 +1862,8 @@ type TrackerCharacterCardIdentity = CharacterCardCastSource & {
   name: string;
   avatarPath?: string | null;
   avatarCrop?: unknown;
+  /** The card's Other names (`extensions.nameAliases`). */
+  nameAliases?: readonly string[] | null;
 };
 
 function getExplicitNameAliases(value: unknown): string[] {
@@ -1913,6 +1924,34 @@ export function canonicalizeGamePartySpeakerLabels(content: string, canonicalNam
   );
 }
 
+/**
+ * Cards by exact name and by Other names (`nameAliases`). A name two cards share links to neither; an alias counts
+ * only when no other card goes by it and it isn't another card's own name.
+ */
+function indexTrackerCardNames(cards: readonly TrackerCharacterCardIdentity[]) {
+  const cardsByName = new Map<string, TrackerCharacterCardIdentity>();
+  const duplicateNames = new Set<string>();
+  for (const card of cards) {
+    const name = normalizeTextForMatch(card.name);
+    if (!name) continue;
+    if (cardsByName.has(name)) duplicateNames.add(name);
+    else cardsByName.set(name, card);
+  }
+  for (const name of duplicateNames) cardsByName.delete(name);
+  const cardsByAlias = new Map<string, TrackerCharacterCardIdentity>();
+  const sharedAliases = new Set<string>();
+  for (const card of cards) {
+    for (const alias of Array.isArray(card.nameAliases) ? card.nameAliases : []) {
+      const key = normalizeTextForMatch(alias);
+      if (!key) continue;
+      if (cardsByAlias.has(key) && cardsByAlias.get(key) !== card) sharedAliases.add(key);
+      else cardsByAlias.set(key, card);
+    }
+  }
+  for (const key of [...sharedAliases, ...duplicateNames, ...cardsByName.keys()]) cardsByAlias.delete(key);
+  return { cardsByName, cardsByAlias };
+}
+
 const TRACKER_CAST_ID_SEPARATOR = ":cast:";
 
 /**
@@ -1959,16 +1998,19 @@ export function applyTrackerCharacterCardIdentity(
   options: { previousCharacters?: ReadonlyArray<Record<string, unknown>> } = {},
 ): Set<string> {
   const cardsById = new Map(cards.map((card) => [card.id.trim().toLowerCase(), card]));
-  const cardsByName = new Map<string, TrackerCharacterCardIdentity>();
-  const duplicateNames = new Set<string>();
-  for (const card of cards) {
-    const name = normalizeTextForMatch(card.name);
-    if (!name) continue;
-    if (cardsByName.has(name)) duplicateNames.add(name);
-    else cardsByName.set(name, card);
-  }
-  for (const name of duplicateNames) cardsByName.delete(name);
+  const { cardsByName, cardsByAlias } = indexTrackerCardNames(cards);
   const canonicalCardNamesByKey = new Map([...cardsByName].map(([key, card]) => [key, card.name]));
+  // A card row remembers the NPC id it took over (#9556): a model still writing that id means the card.
+  const cardsByStoredIdAlias = new Map<string, TrackerCharacterCardIdentity>();
+  for (const previous of options.previousCharacters ?? []) {
+    const card = cardsById.get(trackerCharacterIdKey(previous));
+    if (!card || !Array.isArray(previous.idAliases)) continue;
+    for (const alias of previous.idAliases) {
+      // Keyed by slug, the form drifted ids are compared in (as incremental updates do), so "mara_vex" finds "Mara Vex".
+      const key = trackerIdentitySlug(alias);
+      if (key) cardsByStoredIdAlias.set(key, card);
+    }
+  }
 
   // Cards whose text lists a cast are multi-character from the first turn on,
   // and a bare member name (no id) links to its card through this map.
@@ -1981,7 +2023,7 @@ export function applyTrackerCharacterCardIdentity(
     declaredCastCardIds.add(card.id);
     for (const member of members) {
       const key = normalizeTextForMatch(member);
-      if (!key || cardsByName.has(key)) continue;
+      if (!key || cardsByName.has(key) || cardsByAlias.has(key)) continue;
       if (cardsByCastMember.has(key) && cardsByCastMember.get(key) !== card) ambiguousCastMembers.add(key);
       else cardsByCastMember.set(key, card);
     }
@@ -2007,9 +2049,17 @@ export function applyTrackerCharacterCardIdentity(
     }
 
     const explicitCanonicalName = resolveExplicitCanonicalName(character.name, canonicalCardNamesByKey);
+    const idSlug = trackerIdentitySlug(character.characterId);
+    const storedAliasCard =
+      cardsById.has(trackerCharacterIdKey(character)) || !idSlug ? undefined : cardsByStoredIdAlias.get(idSlug);
+    // Rows the user made by hand and Game party rows keep their own ids; an Other name doesn't turn them into the card.
+    const ownsItsId =
+      isManualTrackerCharacterId(character.characterId) || isGamePartyNpcId(trackerCharacterIdKey(character));
     const card =
       cardsById.get(trackerCharacterIdKey(character)) ??
+      storedAliasCard ??
       cardsByName.get(nameKey) ??
+      (ownsItsId ? undefined : cardsByAlias.get(nameKey)) ??
       (explicitCanonicalName ? cardsByName.get(normalizeTextForMatch(explicitCanonicalName)) : undefined);
     if (!card) {
       const castCard =
@@ -2022,6 +2072,8 @@ export function applyTrackerCharacterCardIdentity(
     const isCardName =
       !nameKey ||
       nameKey === cardNameKey ||
+      (!ownsItsId && cardsByAlias.get(nameKey) === card) ||
+      storedAliasCard === card ||
       (!!explicitCanonicalName && normalizeTextForMatch(explicitCanonicalName) === cardNameKey);
     return { character, card, isCardName, castNameKey: isCardName ? "" : nameKey, viaCastId: false };
   });
@@ -2061,6 +2113,7 @@ export function applyTrackerCharacterCardIdentity(
   };
 
   for (const { character, card, isCardName, castNameKey } of resolved) {
+    const nameKey = trackerCharacterNameKey(character);
     if (!card) {
       canonicalCharacters.push(character);
       continue;
@@ -2087,10 +2140,12 @@ export function applyTrackerCharacterCardIdentity(
       continue;
     }
 
+    // The card id carries the identity, so a row may go by one of the card's Other names ("Mara" for "Mara Vex").
+    const keepsOtherName = typeof character.name === "string" && !!nameKey && cardsByAlias.get(nameKey) === card;
     pushOrMerge(`card:${card.id}`, {
       ...character,
       characterId: card.id,
-      name: card.name,
+      name: keepsOtherName ? (character.name as string).trim() : card.name,
       avatarPath: card.avatarPath ?? null,
       avatarCrop: card.avatarCrop ?? null,
     });
@@ -2113,6 +2168,17 @@ export function applyTrackerCharacterCardIdentity(
  * 4. nothing: a new `npc-…` id. An id unrelated to every stored row means a new character, as before.
  * Ids already stored are kept as they are, so existing locks need no migration.
  */
+/** A tracked row the server ids as an NPC: not a chat card, a cast member, a hand-made row or a Game party row. */
+function isTrackerNpcRow(row: Record<string, unknown>, cardIds: ReadonlySet<string>): boolean {
+  const id = typeof row.characterId === "string" ? row.characterId.trim() : "";
+  return (
+    !cardIds.has(id.toLowerCase()) &&
+    !parseTrackerCastCharacterId(id) &&
+    !isManualTrackerCharacterId(id) &&
+    !isGamePartyNpcId(id)
+  );
+}
+
 export function assignTrackerCharacterIds(
   characters: Array<Record<string, unknown>>,
   options: {
@@ -2123,15 +2189,7 @@ export function assignTrackerCharacterIds(
   },
 ): void {
   const cardIds = new Set([...options.cardIds].map((id) => id.trim().toLowerCase()));
-  const isNpcRow = (row: Record<string, unknown>) => {
-    const id = typeof row.characterId === "string" ? row.characterId.trim() : "";
-    return (
-      !cardIds.has(id.toLowerCase()) &&
-      !parseTrackerCastCharacterId(id) &&
-      !isManualTrackerCharacterId(id) &&
-      !isGamePartyNpcId(id)
-    );
-  };
+  const isNpcRow = (row: Record<string, unknown>) => isTrackerNpcRow(row, cardIds);
   const npcIdOf = (row: Record<string, unknown>) => (typeof row.characterId === "string" ? row.characterId.trim() : "");
   const mintId = options.mintId ?? (() => `${TRACKER_NPC_ID_PREFIX}${newId()}`);
 
@@ -2180,9 +2238,15 @@ export function assignTrackerCharacterIds(
   }
   // ...then in earlier turns (which may hold other swipes), never reusing an id a stored or current row has: a
   // renamed NPC can be in history under its old name while the stored list has it under the new one.
+  // An NPC id a card row took over (#9556) counts as used too, or history would hand it out again.
+  const handedOverIds = options.previousCharacters.flatMap((row) =>
+    cardIds.has(npcIdOf(row).toLowerCase()) && Array.isArray(row.idAliases)
+      ? row.idAliases.filter((alias): alias is string => typeof alias === "string")
+      : [],
+  );
   const usedIds = new Set(
-    [...previous.map(npcIdOf), ...characters.map((row) => assigned.get(row) ?? npcIdOf(row))]
-      .map((id) => id.toLowerCase())
+    [...previous.map(npcIdOf), ...handedOverIds, ...characters.map((row) => assigned.get(row) ?? npcIdOf(row))]
+      .map((id) => id.trim().toLowerCase())
       .filter(Boolean),
   );
   for (const row of nameOnly) {
@@ -2201,8 +2265,20 @@ export function assignTrackerCharacterIds(
   }
   // 4. Everyone left is someone new.
   for (const row of unassigned()) assigned.set(row, mintId());
-  // Card and cast rows have ids of their own: an alias carried over from an NPC row it replaced means nothing there.
-  for (const row of characters) if (!isNpcRow(row)) delete row.idAliases;
+  // Card rows keep only the old ids their stored row has, the NPC ids a handover gave them (#9556), so a model still
+  // writing one finds the card. Cast, manual and party rows have ids of their own.
+  const storedCardAliases = new Map<string, unknown[]>();
+  for (const stored of options.previousCharacters) {
+    const id = npcIdOf(stored).toLowerCase();
+    if (cardIds.has(id) && Array.isArray(stored.idAliases)) storedCardAliases.set(id, stored.idAliases);
+  }
+  for (const row of characters) {
+    if (isNpcRow(row)) continue;
+    const id = npcIdOf(row).toLowerCase();
+    const aliases = cardIds.has(id) ? withTrackerIdAlias(storedCardAliases.get(id), undefined, id) : undefined;
+    if (aliases) row.idAliases = aliases;
+    else delete row.idAliases;
+  }
 
   for (const [row, id] of assigned) {
     if (id) row.characterId = id;
@@ -2221,6 +2297,239 @@ export function assignTrackerCharacterIds(
     if (aliases) row.idAliases = aliases;
     else delete row.idAliases;
   }
+}
+
+/** The NPC's own picture and its framing; a card with a picture of its own doesn't take them over. */
+const TRACKER_HANDOVER_PORTRAIT_FIELDS = [
+  "avatarPath",
+  "avatarCrop",
+  "portraitFocusX",
+  "portraitFocusY",
+  "portraitZoom",
+] as const;
+const TRACKER_HANDOVER_TEXT_FIELDS = ["emoji", "name", "mood", "appearance", "outfit", "thoughts"] as const;
+
+type LockRef = Parameters<typeof characterTrackerLockPrefix>[0];
+/** A stat as its lock key names it: by name, or by position when it has none. */
+const statLockRef = (stat: Record<string, unknown>) => ({ name: typeof stat.name === "string" ? stat.name : "" });
+
+/**
+ * Folding an NPC row into a card row: the card row's stats and custom fields win, except one the user locked on the
+ * NPC row and not on the card row, which keeps the NPC's value. Stats and custom fields only the NPC had are kept.
+ * Runs before the lock keys move, so the NPC's keys are still under its own prefix.
+ */
+function foldLockedNpcValues(
+  merged: Record<string, unknown>,
+  npc: Record<string, unknown>,
+  locks: TrackerFieldLocks,
+  { npcRef, cardRef, index }: { npcRef: LockRef; cardRef: LockRef; index: number },
+) {
+  if (Array.isArray(npc.stats)) {
+    const stats = (Array.isArray(merged.stats) ? merged.stats : []).map((stat) =>
+      isPlainRecord(stat) ? { ...stat } : stat,
+    ) as Array<Record<string, unknown>>;
+    const cardHadStats = Array.isArray(merged.stats) && merged.stats !== npc.stats;
+    npc.stats.forEach((npcStat, statIndex) => {
+      if (!isPlainRecord(npcStat)) return;
+      const name = normalizeTextForMatch(npcStat.name);
+      const targetIndex = name ? stats.findIndex((stat) => normalizeTextForMatch(stat?.name) === name) : -1;
+      if (targetIndex < 0) {
+        if (cardHadStats) stats.push({ ...npcStat });
+        return;
+      }
+      const target = stats[targetIndex]!;
+      for (const field of ["name", "value", "max"] as const) {
+        const npcKey = characterStatTrackerLockKey(npcRef, index, statLockRef(npcStat), field, statIndex);
+        const cardKey = characterStatTrackerLockKey(cardRef, index, statLockRef(target), field, targetIndex);
+        if (isTrackerFieldLocked(locks, npcKey) && !isTrackerFieldLocked(locks, cardKey) && field in npcStat) {
+          target[field] = npcStat[field];
+        }
+      }
+    });
+    merged.stats = stats;
+  }
+  if (isPlainRecord(npc.customFields)) {
+    const fields: Record<string, unknown> = isPlainRecord(merged.customFields) ? { ...merged.customFields } : {};
+    for (const [name, value] of Object.entries(npc.customFields)) {
+      const npcLocked = (["name", "value"] as const).some((field) =>
+        isTrackerFieldLocked(locks, characterCustomFieldTrackerLockKey(npcRef, index, name, field)),
+      );
+      const cardLocked = isTrackerFieldLocked(locks, characterCustomFieldTrackerLockKey(cardRef, index, name, "value"));
+      if (!(name in fields) || (npcLocked && !cardLocked)) fields[name] = value;
+    }
+    merged.customFields = fields;
+  }
+}
+
+/**
+ * A character card that joins the chat later takes over the NPC row the tracker already kept for that person (#9556).
+ *
+ * Runs on the stored rows before the new result merges onto them, so every later step (incremental updates, card
+ * identity, UI fields, locks) sees one row under the card id. Without it a locked NPC row stayed behind next to the
+ * card row, and its locks and hidden fields stayed on an id nothing reported any more.
+ *
+ * Which NPC row is which card: `npc-X` for a card with id `X` (an NPC promoted to a card keeping its id), else the
+ * NPC's name equals the card's name or one of its Other names. Two NPC rows for one card hand over neither.
+ * The row takes the card's id and name and remembers its old id in `idAliases`; its lock and hidden keys move to
+ * the card id. When the snapshot already holds a card row too, the NPC row folds into it: the card row's values win,
+ * except a field locked on the NPC row that isn't locked on the card row.
+ */
+export function handOverTrackerNpcsToCards(input: {
+  previousCharacters: ReadonlyArray<Record<string, unknown>>;
+  history?: ReadonlyArray<Record<string, unknown>>;
+  fieldLocks: TrackerFieldLocks | null | undefined;
+  hiddenFields: TrackerHiddenFields | null | undefined;
+  cards: readonly TrackerCharacterCardIdentity[];
+}): {
+  previousCharacters: Array<Record<string, unknown>>;
+  history: Array<Record<string, unknown>>;
+  fieldLocks: TrackerFieldLocks;
+  hiddenFields: TrackerHiddenFields;
+  handedOver: Array<{ from: string; to: string }>;
+  /** Lock-key prefixes that moved, to re-apply to the maps as they are at save time. */
+  renamedLockPrefixes: Array<{ from: string; to: string }>;
+  ambiguousCardIds: string[];
+} {
+  const idOf = (row: Record<string, unknown>) => (typeof row.characterId === "string" ? row.characterId.trim() : "");
+  let rows = input.previousCharacters.map((row) => ({ ...row }));
+  let history = (input.history ?? []).map((row) => ({ ...row }));
+  let fieldLocks = normalizeTrackerFieldLocks(input.fieldLocks);
+  let hiddenFields = normalizeTrackerHiddenFields(input.hiddenFields);
+  const handedOver: Array<{ from: string; to: string }> = [];
+  const renamedLockPrefixes: Array<{ from: string; to: string }> = [];
+  const ambiguousCardIds: string[] = [];
+
+  const cardsById = new Map(input.cards.map((card) => [card.id.trim().toLowerCase(), card]));
+  const { cardsByName, cardsByAlias } = indexTrackerCardNames(input.cards);
+  const canonicalCardNamesByKey = new Map([...cardsByName].map(([key, card]) => [key, card.name]));
+  const cardIds = new Set(cardsById.keys());
+  const isNpcRow = (row: Record<string, unknown>) => isTrackerNpcRow(row, cardIds);
+  const cardFor = (row: Record<string, unknown>) => {
+    const id = idOf(row);
+    if (id.toLowerCase().startsWith(TRACKER_NPC_ID_PREFIX)) {
+      const promoted = cardsById.get(id.slice(TRACKER_NPC_ID_PREFIX.length).trim().toLowerCase());
+      if (promoted) return { card: promoted, byId: true };
+    }
+    const name = trackerCharacterNameKey(row);
+    // The same name tiers card identity uses: exact name, Other name, then a quoted or bracketed alias ('Marisol "Mari"').
+    const explicit = resolveExplicitCanonicalName(row.name, canonicalCardNamesByKey);
+    const card = name
+      ? (cardsByName.get(name) ??
+        cardsByAlias.get(name) ??
+        (explicit ? cardsByName.get(normalizeTextForMatch(explicit)) : undefined))
+      : undefined;
+    return card ? { card, byId: false } : null;
+  };
+  const withoutNpcPortrait = (row: Record<string, unknown>, card: TrackerCharacterCardIdentity) => {
+    // An NPC known by one of the card's Other names keeps that name; any other name becomes the card's.
+    const name = cardsByAlias.get(trackerCharacterNameKey(row)) === card ? row.name : card.name;
+    const next: Record<string, unknown> = { ...row, characterId: card.id, name };
+    // A card without a picture keeps the NPC's until it gets one.
+    if (typeof card.avatarPath === "string" && card.avatarPath.trim()) {
+      for (const field of TRACKER_HANDOVER_PORTRAIT_FIELDS) delete next[field];
+    }
+    return next;
+  };
+
+  const candidates = new Map<TrackerCharacterCardIdentity, { byId: number[]; byName: number[] }>();
+  rows.forEach((row, index) => {
+    if (!isNpcRow(row)) return;
+    const match = cardFor(row);
+    if (!match) return;
+    const entry = candidates.get(match.card) ?? { byId: [], byName: [] };
+    (match.byId ? entry.byId : entry.byName).push(index);
+    candidates.set(match.card, entry);
+  });
+
+  const removed = new Set<number>();
+  for (const [card, entry] of candidates) {
+    const indexes = [...entry.byId, ...entry.byName];
+    if (indexes.length !== 1) {
+      ambiguousCardIds.push(card.id);
+      continue;
+    }
+    const index = indexes[0]!;
+    const npc = rows[index]!;
+    const from = idOf(npc);
+    const fromPrefix = characterTrackerLockPrefix(npc as LockRef, index);
+    const toPrefix = characterTrackerLockPrefix({ characterId: card.id, name: card.name } as LockRef, index);
+    const cardKey = card.id.trim().toLowerCase();
+    const cardIndex = rows.findIndex((row, i) => i !== index && !removed.has(i) && idOf(row).toLowerCase() === cardKey);
+    const cardRow = cardIndex >= 0 ? rows[cardIndex]! : null;
+
+    const merged = withoutNpcPortrait(npc, card);
+    if (cardRow) {
+      for (const [key, value] of Object.entries(cardRow))
+        if (value !== undefined && value !== null) merged[key] = value;
+      foldLockedNpcValues(merged, npc, fieldLocks, {
+        npcRef: npc as LockRef,
+        cardRef: { characterId: card.id, name: card.name } as LockRef,
+        index,
+      });
+    }
+    // A field locked on the NPC row (and not on the card row) keeps the NPC value, the name included: a locked
+    // nickname stays.
+    for (const field of TRACKER_HANDOVER_TEXT_FIELDS) {
+      if (
+        npc[field] !== undefined &&
+        isTrackerFieldLocked(fieldLocks, `${fromPrefix}.${field}`) &&
+        !isTrackerFieldLocked(fieldLocks, `${toPrefix}.${field}`)
+      ) {
+        merged[field] = npc[field];
+      }
+    }
+    const aliases = withTrackerIdAlias(
+      [
+        ...(Array.isArray(cardRow?.idAliases) ? cardRow.idAliases : []),
+        ...(Array.isArray(npc.idAliases) ? npc.idAliases : []),
+      ],
+      from,
+      card.id,
+    );
+    if (aliases) merged.idAliases = aliases;
+    else delete merged.idAliases;
+
+    if (cardRow) {
+      rows[cardIndex] = merged;
+      removed.add(index);
+    } else {
+      rows[index] = merged;
+    }
+    fieldLocks = renameTrackerFieldLockPrefix(fieldLocks, fromPrefix, toPrefix);
+    hiddenFields = renameTrackerFieldLockPrefix(hiddenFields, fromPrefix, toPrefix);
+    handedOver.push({ from, to: card.id });
+    renamedLockPrefixes.push({ from: fromPrefix, to: toPrefix });
+  }
+  rows = rows.filter((_row, index) => !removed.has(index));
+
+  // Earlier turns still hold the NPC row, on every run after the handover too (history is committed snapshots only):
+  // re-key it by the old ids the card rows remember, so its portrait framing and id can't come back through the
+  // history fallbacks (UI fields by name, ids by name).
+  const cardsByOldId = new Map<string, TrackerCharacterCardIdentity>();
+  for (const row of rows) {
+    const card = cardsById.get(idOf(row).toLowerCase());
+    if (!card || !Array.isArray(row.idAliases)) continue;
+    for (const alias of row.idAliases) {
+      const key = trackerIdentitySlug(alias);
+      if (key) cardsByOldId.set(key, card);
+    }
+  }
+  if (cardsByOldId.size > 0) {
+    history = history.map((row) => {
+      if (!isNpcRow(row)) return row;
+      const card = cardsByOldId.get(trackerIdentitySlug(idOf(row)));
+      return card ? withoutNpcPortrait(row, card) : row;
+    });
+  }
+  return {
+    previousCharacters: rows,
+    history,
+    fieldLocks,
+    hiddenFields,
+    handedOver,
+    renamedLockPrefixes,
+    ambiguousCardIds,
+  };
 }
 
 export function preserveTrackerCharacterUiFields(
