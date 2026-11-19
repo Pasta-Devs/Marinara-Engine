@@ -14,6 +14,7 @@
 //   covered      a button is under something else, so a tap lands on the wrong thing
 //   greeting     Home's buttons sit beside the greeting (over the hero's art) instead of under it
 //   off-center   an icon tile's icon is off the tile's middle (Things to try with large text)
+//   heading      a Library table's column heading is off its column's middle (Connections' Models, Nov 19)
 //
 // Every finding names the element (a short CSS path) and the numbers, so a report reads without a screenshot.
 // An element (and everything in it) is skipped when it or an ancestor has data-ui-check="ignore"; pass
@@ -385,6 +386,25 @@ export function detectLayoutProblems(options = {}) {
     const dy = box.top + box.height / 2 - (rect.top + rect.height / 2);
     if (Math.max(Math.abs(dx), Math.abs(dy)) > Math.max(3, rect.width * 0.1))
       add("off-center", el, `its icon sits ${Math.round(dx)}px across, ${Math.round(dy)}px down from the middle`, rect);
+  }
+
+  // ── heading: a Library table's column heading off the middle of its column ──
+  // Every Library table centers its headings (Nov 19); a page rule aligning a column's cells must not catch the
+  // heading too (Connections' MODELS sat at the left of its column).
+  for (const th of scope.querySelectorAll(".ov-table th")) {
+    if (!th.textContent.trim() || ignored(th, "heading") || !shown(th)) continue;
+    const range = document.createRange();
+    range.selectNodeContents(th);
+    const text = range.getBoundingClientRect();
+    if (text.width < 1) continue;
+    const rect = th.getBoundingClientRect();
+    const style = styleOf(th);
+    const left = rect.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
+    const right = rect.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
+    // A heading wider than its column can't be centered; that's a width problem, not this one.
+    if (text.width >= right - left) continue;
+    const dx = text.left + text.width / 2 - (left + right) / 2;
+    if (Math.abs(dx) > 3) add("heading", th, `the heading sits ${Math.round(dx)}px from its column's middle`, rect);
   }
 
   // Duplicates (the same box reported twice through two of its children) read as noise.

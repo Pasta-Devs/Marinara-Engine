@@ -288,6 +288,10 @@ export function BuiltinEmbeddingDetail() {
             {describe(active ?? choice)}
           </span>
         </FactRow>
+        {/* Its own row, like the voice page's (Nov 19). Both models were trained on 100+ languages. */}
+        <FactRow label={t("connections.builtinTts.languages")}>
+          {t("connections.builtinEmbedding.languagesMany")}
+        </FactRow>
         <FactRow label={t("connections.device.fact.memory")}>
           {data.running && data.memoryBytes
             ? t("connections.builtinEmbedding.memoryNow", {

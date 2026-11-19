@@ -548,12 +548,16 @@ export function DecisionModelModal() {
             {selected && capabilities(selected)}
             {selected?.preflight.reason ? (
               <span className="mt-1 block text-[0.6875rem] text-[var(--warning)]">{selected.preflight.reason}</span>
-            ) : selected ? (
+            ) : selected?.licenses.length ? (
               <span className="mt-1 block text-[0.6875rem] text-[var(--muted-foreground)]">
-                {[selected.languages, selected.licenses.join(", ")].filter(Boolean).join(" · ")}
+                {selected.licenses.join(", ")}
               </span>
             ) : null}
           </FactRow>
+          {/* Its own row, like the voice page's (Nov 19). */}
+          {selected?.languages && (
+            <FactRow label={localizeUi("connections.builtinTts.languages")}>{selected.languages}</FactRow>
+          )}
           {shown && <FactRow label={localizeUi("connections.device.fact.memory")}>{memoryLine(shown)}</FactRow>}
           <FactRow label={localizeUi("connections.device.fact.usedBy")}>
             {isDefault ? localizeUi("connections.decision.label") : localizeUi("connections.device.usedBy.none")}

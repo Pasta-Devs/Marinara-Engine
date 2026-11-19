@@ -538,7 +538,6 @@ export function MariComposer({
                     >
                       <ChevronDown aria-hidden="true" />
                     </button>
-                    <Sparkles size="0.875rem" aria-hidden="true" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <CompactMarkdown content={suggestionQuestion} />
@@ -549,6 +548,14 @@ export function MariComposer({
           ) : null}
           {omnibarMode || !suggestionsCollapsed ? (
             <div id={suggestionsBodyId} className="mari-workspace-answer-strip">
+              {/* Her sparkle leads the chips' line, under the fold (Nov 19: not a row of its own). */}
+              {!omnibarMode ? (
+                <span className="mari-suggestion-chip mari-workspace-answer-strip__mark" aria-hidden="true">
+                  <Sparkles size="0.875rem" />
+                  {/* A chip's line of text, unseen, so the mark is a chip tall. */}
+                  <span className="w-0 overflow-hidden">{"\u200b"}</span>
+                </span>
+              ) : null}
               <MariSuggestionChips
                 chips={chipRowChips}
                 // N4 covers the next-step cards; the starter and plan/approval chips still draft.

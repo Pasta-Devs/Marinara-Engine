@@ -9965,7 +9965,7 @@ input.ov-edhead__title:focus {
 .ov-conn__table .ov-conn__fill {
   width: 30%;
 }
-.ov-conn__table .ov-conn__num {
+.ov-conn__table td.ov-conn__num {
   width: 7rem;
   text-align: left;
 }
@@ -11416,7 +11416,6 @@ input.ov-edhead__title:focus {
   white-space: nowrap;
 }
 .ov-devpage {
-  max-width: 46rem;
   padding-top: 0.5rem;
 }
 
@@ -11663,10 +11662,7 @@ input.ov-edhead__title:focus {
   padding: 1rem 1.5rem 2rem;
   font-size: 0.8125rem;
 }
-/* The page scrolls across the whole pane (scroll bar at the pane's edge); its content keeps the width. */
-.ov-vw__main > .ov-devpage > * {
-  max-width: 45rem;
-}
+/* The page fills the pane and grows with it (Nov 19, her call); it scrolls at the pane's edge. */
 .ov-devpage .mari-chrome-control {
   font-size: 0.75rem;
   min-height: 1.75rem;
@@ -11791,9 +11787,6 @@ input.ov-edhead__title:focus {
 .ov-vw__main > .ov-acctpage {
   padding: 1rem 1.5rem 2rem;
   font-size: 0.8125rem;
-}
-.ov-vw__main > .ov-acctpage > * {
-  max-width: 41rem;
 }
 .ov-acctpage__head {
   display: flex;

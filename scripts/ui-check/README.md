@@ -14,6 +14,7 @@ Vivaldi and in real WebKit (Safari's engine), and fails when a layout is broken:
 | `covered`     | A button you can see part of, with something lying over its middle                   | Buttons hidden under a bar or panel                          |
 | `greeting`    | Home's buttons sit beside the greeting, out over the hero's art, instead of under it | MARI to the Moon's buttons over the rocket (Nov 19)          |
 | `off-center`  | An icon tile's icon is off the tile's middle                                         | Things to try icons riding high with large text (Nov 19)     |
+| `heading`     | A Library table's column heading is off the middle of its column                     | Connections' MODELS heading at the column's left (Nov 19)    |
 | `unstable`    | (Vivaldi, Home) a widget that keeps changing height                                  | Home widgets shaking in Vivaldi (Nov 17)                     |
 
 ## Run it
