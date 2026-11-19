@@ -220,7 +220,6 @@ export function ChatImageLightbox({
     >
       {editing && canRegenerate ? (
         <ImageRegeneratePanel
-          key={image.id}
           image={image}
           regenerator={regenerator}
           record={record}
@@ -241,7 +240,9 @@ export function ChatImageLightbox({
           onCancel={closeEditing}
           onRegenerated={(next) => {
             setImage(next);
-            closeEditing();
+            setMaskDataUrl(null);
+            setMaskState({ strokeCount: 0, hasMask: false });
+            maskControlsRef.current?.clear();
           }}
         />
       ) : loadingDetails ? (

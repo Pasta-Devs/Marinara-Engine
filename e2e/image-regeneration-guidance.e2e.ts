@@ -172,7 +172,7 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await expect(dialog.getByText(displayPrompt, { exact: true })).toHaveCount(0);
 
     const preview = dialog.getByRole("img");
-    const copyPrompt = dialog.getByRole("button", { name: "Copy Prompt", exact: true });
+    const copyPrompt = dialog.getByRole("button", { name: "Copy Positive prompt", exact: true });
     await expect.poll(() => preview.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(640);
     await expect
       .poll(async () => {
@@ -193,6 +193,9 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     const revise = dialog.getByRole("button", { name: "Revise prompt", exact: true });
     const generate = dialog.getByRole("button", { name: "Generate image", exact: true });
     const combined = dialog.getByRole("button", { name: "Revise & generate", exact: true });
+    const cancel = dialog.getByRole("button", { name: "Cancel", exact: true });
+    await expect(generate).toBeVisible();
+    await expect(combined).toHaveCount(0);
     await expect(prompt).toHaveValue(original.prompt);
     await expect(negative).toHaveValue(original.negativePrompt);
     await expect(mira).toHaveValue(original.characterPrompts[0]!.prompt);
@@ -250,6 +253,8 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await yPosition.fill("0.65");
     await yPosition.blur();
     await generate.click();
+    await expect(prompt).toHaveValue("Manual harbor edit");
+    await cancel.click();
     await expect(regenerate).toBeVisible();
     expect(requests).toEqual([
       {
@@ -285,11 +290,14 @@ test("gallery regeneration preserves structured prompts and can revise, generate
 
     await prompt.fill("Harbor sketch, low angle");
     await guidance.fill("Change the scene to sunrise and make Mira's coat yellow.");
+    await expect(combined).toBeVisible();
+    await expect(generate).toHaveCount(0);
     failImage = true;
     await combined.click();
     await expect(dialog.getByRole("alert")).toContainText("Image provider unavailable");
     await expect(prompt).toHaveValue(revised.prompt);
     await expect(miraNegative).toHaveValue(revised.characterPrompts[0]!.negativePrompt!);
+    await expect(generate).toBeVisible();
     expect(requests.slice(2)).toEqual([
       {
         action: "revise",
@@ -308,6 +316,8 @@ test("gallery regeneration preserves structured prompts and can revise, generate
 
     failImage = false;
     await generate.click();
+    await expect(prompt).toHaveValue(revised.prompt);
+    await cancel.click();
     await expect(regenerate).toBeVisible();
     expect(requests.slice(4)).toEqual([{ action: "generate", body: expect.objectContaining(revised) }]);
     expect(generatedPrompt).toBe(revised.prompt);

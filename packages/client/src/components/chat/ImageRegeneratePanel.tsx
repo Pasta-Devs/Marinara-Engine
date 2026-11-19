@@ -26,6 +26,7 @@ import { cn } from "../../lib/utils";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { Checkbox } from "../ui/Checkbox";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import { HelpTooltip } from "../ui/HelpTooltip";
 import { MAX_MASK_BRUSH_PX, MIN_MASK_BRUSH_PX, type MaskTool } from "../ui/ImageMaskCanvas";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import { Spinner } from "../ui/Spinner";
@@ -278,6 +279,45 @@ function PlacementFields({
   );
 }
 
+function MaskBrushSlider({
+  maskControls,
+  disabled,
+  sliderId,
+  compact = false,
+}: {
+  maskControls: ImageMaskControls;
+  disabled: boolean;
+  sliderId?: string;
+  compact?: boolean;
+}) {
+  const { t } = useUiTranslation();
+
+  return (
+    <div className={cn("flex items-center gap-2", compact && "min-w-0 flex-1 sm:max-w-56")}>
+      {!compact && (
+        <label htmlFor={sliderId} className="shrink-0 text-xs text-[var(--muted-foreground)]">
+          {t("ui.imagemaskcanvas.brushSize")}
+        </label>
+      )}
+      <input
+        id={compact ? undefined : sliderId}
+        type="range"
+        min={MIN_MASK_BRUSH_PX}
+        max={MAX_MASK_BRUSH_PX}
+        step={2}
+        value={maskControls.brushSizePx}
+        disabled={disabled}
+        aria-label={compact ? t("ui.imagemaskcanvas.brushSize") : undefined}
+        onChange={(event) => maskControls.onBrushSizeChange(Number(event.target.value))}
+        className="min-h-11 min-w-0 flex-1 cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
+      />
+      <span className="w-11 shrink-0 text-right text-xs tabular-nums text-[var(--foreground)]">
+        {t("ui.imagemaskcanvas.brushSizeValue", { size: maskControls.brushSizePx })}
+      </span>
+    </div>
+  );
+}
+
 export function ImageRegeneratePanel({
   image,
   regenerator,
@@ -305,6 +345,7 @@ export function ImageRegeneratePanel({
   const titleId = useId();
   const connectionFieldId = useId();
   const brushSizeFieldId = useId();
+  const collapsedBrushSizeFieldId = useId();
   const strengthFieldId = useId();
   const noiseFieldId = useId();
   const original: ImagePromptDraft = {
@@ -325,9 +366,24 @@ export function ImageRegeneratePanel({
   const [error, setError] = useState("");
   const busy = phase !== null;
   const promptMissing = !draft.prompt.trim();
+  const hasGuidance = Boolean(guidance.trim());
   const references = record?.references;
   const hasReferences =
     !!references && (references.characterIds.length > 0 || !!references.personaId || !!references.locationImageId);
+
+  const imageSyncKey = `${image.id}:${image.generation ?? ""}:${image.prompt}`;
+  const prevImageSyncKeyRef = useRef(imageSyncKey);
+  const latestSyncRef = useRef({ original, connectionId: record?.connectionId });
+  latestSyncRef.current = { original, connectionId: record?.connectionId };
+
+  useEffect(() => {
+    if (prevImageSyncKeyRef.current === imageSyncKey) return;
+    prevImageSyncKeyRef.current = imageSyncKey;
+    const next = latestSyncRef.current;
+    setDraft(next.original);
+    setError("");
+    if (next.connectionId) setConnectionId(next.connectionId);
+  }, [imageSyncKey]);
 
   const isNativeNovelAi = useMemo(() => {
     const rows = (connectionRows ?? []).filter(
@@ -406,6 +462,7 @@ export function ImageRegeneratePanel({
         );
         characterPrompts.push(...input.characterPrompts.slice(revisedIndex));
         setDraft({ ...input, characterPrompts });
+        setGuidance("");
         if (action === "revise") {
           toast.success(t("ui.chat.imageregeneratepanel.revised"));
           return;
@@ -460,6 +517,11 @@ export function ImageRegeneratePanel({
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
+      {showCollapsedMaskBar && maskControls && (
+        <div className="border-b border-[var(--border)] px-3 py-0.5 sm:hidden">
+          <MaskBrushSlider maskControls={maskControls} disabled={busy} sliderId={collapsedBrushSizeFieldId} />
+        </div>
+      )}
       <div
         className={cn(
           "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
@@ -471,8 +533,8 @@ export function ImageRegeneratePanel({
           ref={titleRef}
           tabIndex={-1}
           className={cn(
-            "min-w-0 truncate text-base font-semibold focus:outline-none",
-            showCollapsedMaskBar && "max-sm:sr-only",
+            "min-w-0 shrink-0 truncate text-base font-semibold focus:outline-none",
+            showCollapsedMaskBar && "max-md:sr-only",
           )}
         >
           {t("ui.chat.chatimagelightbox.regenerateImage")}
@@ -480,11 +542,14 @@ export function ImageRegeneratePanel({
         <div
           className={cn(
             "flex shrink-0 items-center gap-1.5",
-            showCollapsedMaskBar && "max-sm:min-w-0 max-sm:flex-1 max-sm:justify-between",
+            showCollapsedMaskBar && "min-w-0 flex-1 justify-between md:justify-end md:gap-2",
           )}
         >
           {showCollapsedMaskBar && maskControls && (
             <>
+              <div className="hidden min-w-0 flex-1 items-center sm:flex sm:max-w-56">
+                <MaskBrushSlider maskControls={maskControls} disabled={busy} compact />
+              </div>
               <MaskToolButtons maskControls={maskControls} disabled={busy} compact />
               <span
                 role="status"
@@ -579,39 +644,35 @@ export function ImageRegeneratePanel({
                             : "border-[var(--border)] text-[var(--muted-foreground)]",
                         )}
                       >
-                        {t(hasMask ? "ui.imagemaskcanvas.modeInpainting" : "ui.imagemaskcanvas.modeImg2Img")}
+                        {t(hasMask ? "ui.imagemaskcanvas.modeInpainting" : "ui.imagemaskcanvas.modeInpaintingShort")}
                       </span>
                     </div>
                     <MaskToolButtons maskControls={maskControls} disabled={busy} />
-                    <div className="flex items-center gap-2">
-                      <label htmlFor={brushSizeFieldId} className="shrink-0 text-xs text-[var(--muted-foreground)]">
-                        {t("ui.imagemaskcanvas.brushSize")}
-                      </label>
-                      <input
-                        id={brushSizeFieldId}
-                        type="range"
-                        min={MIN_MASK_BRUSH_PX}
-                        max={MAX_MASK_BRUSH_PX}
-                        step={2}
-                        value={maskControls.brushSizePx}
-                        disabled={busy}
-                        onChange={(event) => maskControls.onBrushSizeChange(Number(event.target.value))}
-                        className="min-h-11 min-w-0 flex-1 cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
-                      />
-                      <span className="w-11 shrink-0 text-right text-xs tabular-nums text-[var(--foreground)]">
-                        {t("ui.imagemaskcanvas.brushSizeValue", { size: maskControls.brushSizePx })}
-                      </span>
-                    </div>
+                    <MaskBrushSlider maskControls={maskControls} disabled={busy} sliderId={brushSizeFieldId} />
                   </div>
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <label htmlFor={strengthFieldId} className="flex flex-col gap-1.5">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.strength")}</span>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <label htmlFor={strengthFieldId} className={LABEL_CLASS}>
+                          {t("ui.chat.imageregeneratepanel.strength")}
+                        </label>
+                        <HelpTooltip
+                          text={t(
+                            hasMask
+                              ? "ui.chat.imageregeneratepanel.infillStrengthHelp"
+                              : "ui.chat.imageregeneratepanel.img2imgStrengthHelp",
+                          )}
+                          ariaLabel={t("ui.chat.imageregeneratepanel.strengthHelpLabel")}
+                          size="0.875rem"
+                          wide
+                        />
+                      </div>
                       <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
                         {activeStrength.toFixed(2)}
                       </span>
-                    </span>
+                    </div>
                     <input
                       id={strengthFieldId}
                       type="range"
@@ -627,15 +688,25 @@ export function ImageRegeneratePanel({
                       }}
                       className="min-h-11 w-full cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
                     />
-                  </label>
+                  </div>
                   {!hasMask && (
-                    <label htmlFor={noiseFieldId} className="flex flex-col gap-1.5">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.noise")}</span>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <label htmlFor={noiseFieldId} className={LABEL_CLASS}>
+                            {t("ui.chat.imageregeneratepanel.noise")}
+                          </label>
+                          <HelpTooltip
+                            text={t("ui.chat.imageregeneratepanel.noiseHelp")}
+                            ariaLabel={t("ui.chat.imageregeneratepanel.noiseHelpLabel")}
+                            size="0.875rem"
+                            wide
+                          />
+                        </div>
                         <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
                           {img2imgNoise.toFixed(2)}
                         </span>
-                      </span>
+                      </div>
                       <input
                         id={noiseFieldId}
                         type="range"
@@ -647,7 +718,7 @@ export function ImageRegeneratePanel({
                         onChange={(event) => setImg2imgNoise(Number(event.target.value))}
                         className="min-h-11 w-full cursor-pointer accent-[var(--primary)] disabled:cursor-not-allowed"
                       />
-                    </label>
+                    </div>
                   )}
                 </div>
                 <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
@@ -799,29 +870,27 @@ export function ImageRegeneratePanel({
               </button>
               <button
                 type="button"
-                onClick={() => void run("generate")}
-                disabled={busy || promptMissing}
-                className={SECONDARY_BUTTON_CLASS}
-              >
-                <RefreshCw size="1rem" aria-hidden />
-                {t(
-                  effectiveMode === "edit"
-                    ? hasMask
-                      ? "ui.chat.imageregeneratepanel.inpaint"
-                      : "ui.chat.imageregeneratepanel.applyEdit"
-                    : "ui.chat.imageregeneratepanel.generate",
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => void run("both")}
+                onClick={() => void run(hasGuidance ? "both" : "generate")}
                 disabled={busy || promptMissing}
                 className={cn(
                   BUTTON_CLASS,
                   "bg-[var(--primary)] font-semibold text-[var(--primary-foreground)] hover:opacity-90",
                 )}
               >
-                {t("ui.chat.imageregeneratepanel.reviseAndGenerate")}
+                {hasGuidance ? <Sparkles size="1rem" aria-hidden /> : <RefreshCw size="1rem" aria-hidden />}
+                {t(
+                  hasGuidance
+                    ? effectiveMode === "edit"
+                      ? hasMask
+                        ? "ui.chat.imageregeneratepanel.reviseAndInpaint"
+                        : "ui.chat.imageregeneratepanel.reviseAndEdit"
+                      : "ui.chat.imageregeneratepanel.reviseAndGenerate"
+                    : effectiveMode === "edit"
+                      ? hasMask
+                        ? "ui.chat.imageregeneratepanel.inpaint"
+                        : "ui.chat.imageregeneratepanel.applyEdit"
+                      : "ui.chat.imageregeneratepanel.generate",
+                )}
               </button>
             </div>
           </div>

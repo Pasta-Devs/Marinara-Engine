@@ -1,4 +1,5 @@
-import { Copy } from "lucide-react";
+import { useId, useState } from "react";
+import { ChevronDown, ChevronUp, Copy } from "lucide-react";
 import { toast } from "sonner";
 import type { SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
 import { cn, copyToClipboard } from "../../lib/utils";
@@ -52,52 +53,83 @@ export function ImagePromptPanel({
   className,
 }: ImagePromptPanelProps) {
   const { t } = useUiTranslation();
+  const [collapsed, setCollapsed] = useState(false);
+  const headingId = useId();
   const hasPrompts = !!(prompt?.trim() || negativePrompt?.trim() || characterPrompts.length);
   if (!hasPrompts && !meta?.trim()) return null;
 
   return (
-    <div
+    <section
+      aria-labelledby={headingId}
       className={cn(
-        "min-h-0 overflow-y-auto overscroll-contain rounded-xl border border-[var(--border)] bg-[var(--sidebar)] px-4 py-3 text-left text-[var(--foreground)] shadow-2xl",
+        "flex min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--sidebar)] text-left text-[var(--foreground)] shadow-2xl",
         NEUTRAL_SURFACE_VARIABLES,
         className,
       )}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
-      {hasPrompts && (
-        <div className="space-y-3">
-          <SavedPrompt label={t("ui.agents.customagentrepositoriesmodal.prompt")} value={prompt} />
-          <SavedPrompt label={t("ui.agents.agenteditor.negativePrompt")} value={negativePrompt} />
-          {characterPrompts.length > 0 && (
-            <div className="space-y-2 border-t border-[var(--border)] pt-3">
-              <h3 className="text-sm font-semibold">{t("ui.chat.imageregeneratepanel.characterPrompts")}</h3>
-              {characterPrompts.map((character, index) => (
-                <div key={`${character.name}-${index}`} className="space-y-2">
-                  <SavedPrompt
-                    label={t("ui.chat.imagepromptpanel.characterPrompt", { name: character.name })}
-                    value={character.prompt}
-                  />
-                  <SavedPrompt
-                    label={t("ui.chat.imagepromptpanel.characterNegativePrompt", { name: character.name })}
-                    value={character.negativePrompt}
-                  />
+      <div
+        className={cn(
+          "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
+          !collapsed && "border-b border-[var(--border)]",
+        )}
+      >
+        <h2 id={headingId} className="min-w-0 truncate text-base font-semibold">
+          {t(hasPrompts ? "ui.agents.customagentrepositoriesmodal.prompt" : "ui.chat.imagepromptpanel.details")}
+        </h2>
+        <button
+          type="button"
+          onClick={() => setCollapsed((current) => !current)}
+          aria-expanded={!collapsed}
+          aria-label={t(
+            collapsed ? "ui.chat.imageregeneratepanel.expandPanel" : "ui.chat.imageregeneratepanel.collapsePanel",
+          )}
+          title={t(
+            collapsed ? "ui.chat.imageregeneratepanel.expandPanel" : "ui.chat.imageregeneratepanel.collapsePanel",
+          )}
+          className="inline-flex min-h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+        >
+          {collapsed ? <ChevronUp size="1.125rem" aria-hidden /> : <ChevronDown size="1.125rem" aria-hidden />}
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+          {hasPrompts && (
+            <div className="space-y-3">
+              <SavedPrompt label={t("ui.chat.imagepromptpanel.positivePrompt")} value={prompt} />
+              <SavedPrompt label={t("ui.agents.agenteditor.negativePrompt")} value={negativePrompt} />
+              {characterPrompts.length > 0 && (
+                <div className="space-y-2 border-t border-[var(--border)] pt-3">
+                  <h3 className="text-sm font-semibold">{t("ui.chat.imageregeneratepanel.characterPrompts")}</h3>
+                  {characterPrompts.map((character, index) => (
+                    <div key={`${character.name}-${index}`} className="space-y-2">
+                      <SavedPrompt
+                        label={t("ui.chat.imagepromptpanel.characterPrompt", { name: character.name })}
+                        value={character.prompt}
+                      />
+                      <SavedPrompt
+                        label={t("ui.chat.imagepromptpanel.characterNegativePrompt", { name: character.name })}
+                        value={character.negativePrompt}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
+          )}
+          {meta?.trim() && (
+            <p
+              className={cn(
+                "break-words text-xs text-[var(--muted-foreground)]",
+                hasPrompts && "mt-3 border-t border-[var(--border)] pt-3",
+              )}
+            >
+              {meta}
+            </p>
           )}
         </div>
       )}
-      {meta?.trim() && (
-        <p
-          className={cn(
-            "break-words text-xs text-[var(--muted-foreground)]",
-            hasPrompts && "mt-3 border-t border-[var(--border)] pt-3",
-          )}
-        >
-          {meta}
-        </p>
-      )}
-    </div>
+    </section>
   );
 }
