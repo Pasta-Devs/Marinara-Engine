@@ -4,13 +4,13 @@
   "files": [
     {
       "path": "CONFIGURATION.md",
-      "sha256": "9c1bbe2934dcc61db1c59339df35ff0155ac335b68c875729328fb115bb4a152",
-      "bytes": 96224
+      "sha256": "b18a59cbbe19041ec6895f18bdf5673cf970692b8d3f72f47a61322db5d3690b",
+      "bytes": 95752
     },
     {
       "path": "FAQ.md",
-      "sha256": "154b84c0c21f90491860b6ea56f21ef6f88132bb02e434b5d26793e3d3bb426a",
-      "bytes": 25521
+      "sha256": "db03ea2082fdd577226ec5c9615eb49bac35b3f3e1a8372070e066e26d484ca5",
+      "bytes": 25531
     },
     {
       "path": "INSTALLATION.md",
@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "4d89a81212aaaa4f9d6fa070d639cf9a4c51685f1205af9482a43ee4681e8537",
-      "bytes": 72721
+      "sha256": "9366df19c6697d7af812f799b481452f3deeece80e5798ace0c7e90af3abd48d",
+      "bytes": 72826
     },
     {
       "path": "agents/custom-agents.md",
@@ -124,8 +124,8 @@
     },
     {
       "path": "characters/creating-and-editing-characters.md",
-      "sha256": "31cdee61b6b449ad28b5362976efea23698bfbd2b3927257e94e6c9e0359ac28",
-      "bytes": 44620
+      "sha256": "62907db69b1f2e27282e6376d094006de5bf0f66787d1cc3b5dea31b560f278b",
+      "bytes": 44415
     },
     {
       "path": "characters/galleries.md",
@@ -204,8 +204,8 @@
     },
     {
       "path": "chats/sending-and-streaming.md",
-      "sha256": "b2bfacf2c542f5f20eee5f36241d4a6ec6b256d823f698a62d415ec1e61f4f23",
-      "bytes": 16006
+      "sha256": "197ef6c855aee94faa0a689f8b40ad256cbaf1505bb2fd7815d6725c2c6b160a",
+      "bytes": 15736
     },
     {
       "path": "chats/settings-profiles.md",
@@ -274,8 +274,8 @@
     },
     {
       "path": "conversation/getting-started.md",
-      "sha256": "ecc25c8fb5e9996d59a927586e5bb512fd5493f6f8ba7f282b2c5ef209b4f40f",
-      "bytes": 15762
+      "sha256": "77dda4e8588b807b5e318df83942b39e48d3ed5527f1e5c829f9912b18959bf4",
+      "bytes": 15552
     },
     {
       "path": "conversation/profiles.md",
@@ -294,8 +294,8 @@
     },
     {
       "path": "conversation/table-games.md",
-      "sha256": "9a44bdb8b346b862cf0e8b030dce4e52f827ec8e3729c09417a6dea378cdec55",
-      "bytes": 18070
+      "sha256": "2377c0032804292f1444afdd321e7dd2cf2040bcd8b83f03a13fa959ae68edc3",
+      "bytes": 17902
     },
     {
       "path": "data/backup-and-restore.md",
@@ -319,8 +319,8 @@
     },
     {
       "path": "development/antigravity-cli-qualification.md",
-      "sha256": "467bcca5c75ac68d3270e6deaef5a2d8f776548d1dc9f8bc3b7af720e41f377d",
-      "bytes": 31075
+      "sha256": "8981ebcf0a58735273538a4c8701ac8aea86205496b67eddbf8f203e55274602",
+      "bytes": 31084
     },
     {
       "path": "development/architecture-map.md",
@@ -394,8 +394,8 @@
     },
     {
       "path": "development/optional-agent-packages.md",
-      "sha256": "a4665b5a3aa1791b560482ddd79035d42de3afc7999ac693c930b1a56f53724e",
-      "bytes": 351177
+      "sha256": "e8a66ab4d757611e20ce4bd458805b3cc49169af8ce9fd2199d8c8777e732ffc",
+      "bytes": 351203
     },
     {
       "path": "development/personal-extensions.md",
@@ -554,8 +554,8 @@
     },
     {
       "path": "home/professor-mari.md",
-      "sha256": "352e9eb2d7b01bc67e48a93a07de9e83e685750e510759b773e2d69170433f45",
-      "bytes": 59583
+      "sha256": "5649318cfeb38ae4463ca1fa607b821918f9923a797261c013f0c3cc3c5f3ce0",
+      "bytes": 58971
     },
     {
       "path": "home/tutorial.md",
@@ -684,8 +684,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "f6a258b12d22762f766f16714771c7216edbd5f48900dbb9440b4a7c55f92672",
-      "bytes": 46699
+      "sha256": "883ebfe6a95057a0f8bab15d957aed069c8cadcb49b4aa7ecfcd13e93c441181",
+      "bytes": 46729
     },
     {
       "path": "prompts/conditional-prompts.md",
@@ -734,8 +734,8 @@
     },
     {
       "path": "roleplay/hud-and-trackers.md",
-      "sha256": "ae9f4e1b0a4f63ba028e4d92dc04e7beb106af496791a5901a2b94f6273970de",
-      "bytes": 36043
+      "sha256": "7b5ab487d48bef317605108772e3f7e836a9468023778e45b6e448371bc3e0ee",
+      "bytes": 35171
     },
     {
       "path": "roleplay/narrative-director.md",

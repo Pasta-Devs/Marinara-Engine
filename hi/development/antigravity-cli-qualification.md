@@ -56,7 +56,7 @@ commandExecutionPolicy: off
 
 आधिकारिक [कस्टम एजेंट फ़्रंटमैटर रेफ़रेंस](https://antigravity.google/docs/subagents/) में `mainAgent`, `subagent`, `tools` और `commandExecutionPolicy` दर्ज हैं। इनहेरिटेंस और बाहर रखने वाले कंट्रोल का ज़िक्र ऊपर की प्लगइन गाइड और चेंजलॉग में है। इन सेटिंग्स को एक साथ जाँचा गया। एजेंट का सफल चुनाव साबित नहीं करता कि हर फ़ील्ड अलग-अलग लागू हुई।
 
-जनरेशन में `--settings <session-settings-json> --agent me-isolation-probe --model gemini-4-neon-high --disable-slash-commands --print-timeout 40s --output-format stream-json -p <prompt>` इस्तेमाल हुआ। सबप्रोसेस के लिए अलग 55 सेकंड की सीमा थी। इनलाइन JSON सेटिंग्स ने अस्थायी वर्कस्पेस पर भरोसा किया, डिफ़ॉल्ट एजेंट मोड चुना, कस्टम स्टेटस और टाइटल स्क्रिप्ट बंद कीं और नीचे का परमिशन मोड चुना। कोई परमिशन स्किप नहीं की गई।
+जनरेशन में `--settings <session-settings-json> --agent me-isolation-probe --model gemini-4-neon-high --disable-slash-commands --print-timeout 40s --output-format stream-json -p <prompt>` इस्तेमाल हुआ। सबप्रोसेस के लिए अलग 55 सेकंड की सीमा थी। इनलाइन JSON सेटिंग्स ने अस्थायी वर्कस्पेस पर भरोसा किया, डिफ़ॉल्ट एजेंट मोड चुना, कस्टम स्टेटस और टाइटल स्क्रिप्ट बंद कीं और नीचे का परमिशन मोड चुना। परमिशन की सभी जाँचें लागू रहीं।
 
 सेटिंग्स ऑब्जेक्ट का रूप यह था। `<temporary-workspace>` की जगह टेस्ट डायरेक्टरी और `toolPermission` में पंक्ति का परमिशन मोड रखा गया:
 
