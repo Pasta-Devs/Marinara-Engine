@@ -125,6 +125,7 @@ Marinara trzyma dane w zwykłych plikach JSON, więc kopie zapasowe można kopio
 | `LOG_LEVEL` | `warn` | Poziom opisany wyżej. |
 | `LOG_PRESET` | `default` | `prompt-connections` pokazuje te same szczegóły promptu i modelu co `debug`, ale ukrywa rutynowe linie żądań w rodzaju `GET /api/chats`. |
 | `LOG_DISABLE_REQUEST_LOGGING` | `false` | `true` ukrywa rutynowe linie żądań i zachowuje wybrany poziom. Wymaga restartu. |
+| `LOG_INLINE_MEDIA` | `short` | `short` wypisuje obrazy i inne pliki base64 w danych diagnostycznych jako krótki znacznik z typem i rozmiarem. `full` wypisuje je w całości, co może dać kilka MB na prompt. |
 | `LOG_FORMAT` | automatycznie | `pretty` wszędzie wypisuje czytelne linie, na przykład żeby czytać w `docker logs` prompty zapisywane przez **Debug mode** (tryb diagnostyczny). `json` wypisuje jeden obiekt JSON na linię. Wymaga restartu. |
 
 W terminalu serwer wypisuje czytelne linie. W innych miejscach, na przykład w logach kontenera Docker, serwer produkcyjny wypisuje linie JSON. Program uruchamiający dla środowiska Termux żąda czytelnych linii. Logowanie po stronie przeglądarki jest osobne i `LOG_LEVEL` nim nie steruje.

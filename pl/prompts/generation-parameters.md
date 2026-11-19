@@ -42,6 +42,8 @@ Każdy parametr liczbowy ma pole do wpisania wartości i przełącznik Send (zob
 - Przy włączonym przełączniku Send wartość **Off** prosi usługę o wyłączenie myślenia, o ile wiadomo, że model to obsługuje. Część modeli nie potrafi wyłączyć myślenia i nadal może zwracać rozumowanie. Gdy myślenia ma nie być, wybierz model, który nie rozumuje.
 - Przy wyłączonym przełączniku Send nie jest wysyłana żadna preferencja co do rozumowania, a usługa używa własnego ustawienia domyślnego.
 
+MiniMax M3.1 Flash w usłudze NanoGPT zawsze rozumuje. Obsługuje poziomy od **Low** do **Max**. NanoGPT stosuje **Max**, gdy nie otrzyma poziomu, a Marinara wysyła **Low**, jeśli wcześniej zapisano **Off**.
+
 **Verbosity** ustala, jak długie i szczegółowe mają być odpowiedzi: **None**, **Low**, **Medium** albo **High**. Korzystają z tego tylko niektóre modele.
 
 ## Wskazówki dotyczące dostrajania
@@ -156,7 +158,9 @@ Wiersz **Effective** obok parametru pokazuje wartość, która wygrywa, i warstw
 
 ## Parametry agentów
 
-Wywołania agentów korzystają z **Chat defaults** zapisanych w koncie, na którym działają: własnym koncie agenta albo koncie czatu, gdy agent nie ma własnego. Przełączniki Send i limity modeli działają tak samo jak przy odpowiedzi na czacie. Presety i **Advanced Parameters** czatu nie zmieniają wywołań agentów, z wyjątkiem opisanej niżej reguły temperatury.
+Wywołania agentów korzystają z **Chat defaults** zapisanych w koncie, na którym działają: własnym koncie agenta albo koncie czatu, gdy agent nie ma własnego. Przełączniki Send i limity modeli działają tak samo jak przy odpowiedzi na czacie. Zasady poniżej wyjaśniają, kiedy agenci korzystają z **Advanced Parameters** czatu.
+
+W trybie Roleplay opcja **Reasoning Effort** czatu i jej przełącznik Send dotyczą również **Prompt Model** agenta Illustrator. Jeśli ustawisz tę opcję, korzystają z niej automatyczne ilustracje, polecenia narratora i ilustracje tworzone ręcznie. Model zapasowy korzysta z własnego zapisanego poziomu, jeśli go ma.
 
 - **Wysyłane do agentów:** Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, własne nagłówki oraz dodatkowe parametry, takie jak Top A albo ziarno losowości, dodane w **Settings** (Ustawienia), potem **Advanced** (zaawansowane), a następnie **Parameters**. Parametr z wyłączonym przełącznikiem Send nie jest wysyłany.
 - **Niewysyłane do agentów:** Max Output Tokens, sekwencje zatrzymania, prefille, Thinking Tags i inne ustawienia formatu promptu. Każdy agent zachowuje własne **Max Output Tokens**.

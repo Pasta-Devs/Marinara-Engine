@@ -35,15 +35,15 @@ Memory Recall potrzebuje modelu, który tworzy odciski palca. Jeśli nic nie ust
 
 Zanim zaczniesz: potrzebujesz konta, które oferuje embeddingi. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
-1. Otwórz **Connections** (Połączenia) i przejdź do edycji konta.
-2. Znajdź sekcję **Semantic search (embeddings)** (wyszukiwanie semantyczne).
+1. Otwórz **Connections** (Połączenia) i kliknij model, aby otworzyć **Edit model** (edycja modelu).
+2. Kliknij **More** (więcej) i znajdź **Semantic search (embeddings)** (wyszukiwanie semantyczne).
 3. Wpisz nazwę modelu embeddingów, na przykład `text-embedding-3-small`.
 4. Opcjonalnie: ustaw **Embedding endpoint URL** (adres URL endpointu embeddingów), żeby zmienić adres.
 5. Opcjonalnie: użyj **Embedding provider** (dostawca embeddingów), żeby pożyczyć klucz i adres z innego konta. **Same as this provider** (ten sam dostawca) zachowuje własny klucz i adres tego konta.
 
 Część usług nie oferuje embeddingów. Marinara prosi wtedy o wybranie osobnego konta do embeddingów, na przykład konta zgodnego z OpenAI, konta Google albo wbudowanego modelu.
 
-Żeby używać jednego źródła wszędzie, wybierz je w polu **Embeddings** (embeddingi) w **Connections → Defaults** (połączenia, ustawienia domyślne). Korzystają z niego konta, które nie mają własnego modelu embeddingów. Własne ustawienie konta nadal ma pierwszeństwo.
+Żeby używać jednego źródła wszędzie, wybierz je dla zadania **Embeddings** (embeddingi) w bloku **Jobs** (zadania) panelu **Connections**. Korzystają z niego konta, które nie mają własnego modelu embeddingów. Własne ustawienie konta nadal ma pierwszeństwo.
 
 Gdy nie ma konta do embeddingów ani domyślnego ustawienia **Embeddings**, Marinara przechodzi na wbudowany model embeddingów. Pobiera go jeden raz i uruchamia na twoim komputerze, bez klucza API. Zobacz [Konfiguracja modelu wbudowanego](../connections/local-model.md).
 

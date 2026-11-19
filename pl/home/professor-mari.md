@@ -11,7 +11,7 @@ Professor Mari to wbudowana asystentka na ekranie głównym. Wyjaśnia działani
 
 Otworzy się jej okno. Możesz do niej dotrzeć też z każdego ekranu: wpisz coś w wyszukiwarce Search i wybierz **Ask Prof. Mari** (zapytaj Professor Mari), naciśnij <kbd>Ctrl</kbd>+<kbd>J</kbd> (<kbd>⌘</kbd>+<kbd>J</kbd> na Macu) albo na telefonie pociągnij w dół od górnego paska. Jej nagłówek pokazuje **Ready to help**, kiedy czeka, i **Working on it...**, kiedy pracuje.
 
-Wpisz wiadomość zwykłym językiem i naciśnij <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> dodaje nową linię. Jeśli w jej ustawieniach wyłączysz **Enter sends to Professor Mari** (wysyłanie do Professor Mari klawiszem Enter), <kbd>Enter</kbd> doda nową linię, a wiadomość wyśle <kbd>Ctrl</kbd>+<kbd>Enter</kbd>. Pierwsza wiadomość odblokowuje osiągnięcie **Hello World**.
+Wpisz wiadomość zwykłym językiem i naciśnij <kbd>Enter</kbd>. <kbd>Shift</kbd>+<kbd>Enter</kbd> dodaje nową linię. Jeśli w jej ustawieniach wyłączysz **Enter sends to Professor Mari** (wysyłanie do Professor Mari klawiszem Enter), <kbd>Enter</kbd> doda nową linię, a wiadomość wyśle <kbd>Ctrl</kbd>+<kbd>Enter</kbd>. Wiadomość wyślesz też przyciskiem wysyłania. Stan przełącznika zapisuje się osobno na każdym urządzeniu, więc możesz go wyłączyć na telefonie i pozostawić włączony na komputerze. Pierwsza wiadomość odblokowuje osiągnięcie **Hello World**.
 
 Wszystkie jej ustawienia są w **Settings → General → Search and Professor Mari settings → Open** (ustawienia, ogólne, ustawienia wyszukiwarki i asystentki Professor Mari, otwarcie) albo pod ikoną zębatki w wyszukiwarce Search. Na komputerze rozmiar jej okna zmieniają suwaki **Height** (wysokość) i **Width** (szerokość) w sekcji **Professor Mari window** (okno Professor Mari). Na telefonie jej okno wypełnia cały ekran.
 
@@ -39,7 +39,7 @@ Zanim coś edytuje, najpierw to czyta, a gdy prośba jest niejasna, dopytuje.
 - Utworzenie lub edycja motywu, agenta, presetu promptu albo szkicu rozszerzenia Personal Extension. Szkic pozostaje wyłączony, dopóki nie przeczytasz jego kodu i nie zatwierdzisz go w **Settings → Addons** (ustawienia, dodatki).
 - Edycja jednej sekcji presetu na miejscu, bez podmieniania całego presetu.
 - Porównanie agentów do pobrania i podpowiedź, które pasują do twojego celu. Do instalacji asystentka kieruje cię do **Agents → Agent Organizer** (agenci, organizowanie agentów). Zobacz [Agenci do pobrania: przegląd pakietów](../agents/built-in-agents.md).
-- Tworzenie lub przypisywanie obrazów, takich jak awatary, sprite'y i tła. Najpierw potrzebne jest konto do generowania obrazów. Asystentka sama go nie utworzy.
+- Tworzenie lub przypisywanie obrazów, takich jak awatary, sprite'y i tła. Najpierw potrzebne jest konto do generowania obrazów. Asystentka sama go nie utworzy. Kliknij utworzony przez nią obraz, aby otworzyć go w pełnym rozmiarze, przeczytać prompt, pobrać obraz albo zmienić prompt i wygenerować obraz ponownie. Nowy obraz zastąpi poprzedni w jej odpowiedzi.
 - Wyszukiwanie publicznych stron wiki Fandom, gdy zbierasz informacje o postaci albo świecie.
 
 ### Zacznij od kafelka

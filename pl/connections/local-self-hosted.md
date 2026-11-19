@@ -71,7 +71,7 @@ W systemie Android to ustawienie jest domyślnie włączone, gdy go nie ustawisz
 
 ## Używanie modelu do decyzji
 
-Ten sam model może odpowiadać na pytania decyzyjne, na przykład przy sprawdzaniu aktywacji agentów, bez wczytywania drugiej kopii. Kliknij **⋯** na modelu w panelu i wybierz **Use this model for decisions** (używaj tego modelu do decyzji). Ta opcja pojawia się przy modelu OpenAI-compatible, który ma nazwę modelu. Zobacz [Modele decyzyjne](decision-models.md#on-a-server-you-already-run).
+Ten sam model może odpowiadać na pytania decyzyjne, na przykład przy sprawdzaniu aktywacji agentów, bez wczytywania drugiej kopii. Kliknij **⋯** na modelu w panelu i wybierz **Use for…** → **Decision**. Ta opcja pojawia się przy modelu OpenAI-compatible, który ma nazwę modelu. Zobacz [Modele decyzyjne](decision-models.md#on-a-server-you-already-run).
 
 ## Żądania w kolejności zadań
 

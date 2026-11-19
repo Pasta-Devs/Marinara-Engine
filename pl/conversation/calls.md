@@ -42,14 +42,13 @@ Główny przełącznik **Commands** w tej samej sekcji musi być włączony, aby
 
 ### Konfiguracja Text to Speech
 
-Text to Speech decyduje, które postacie mogą mówić i jakim głosem. Pełny opis znajdziesz w [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md). W skrócie: otwórz **Connections**, kliknij **Add account** i wybierz **Text to speech**. Jeśli to konto jest już na liście w sekcji **On this device**, otwórz je stamtąd. Potem:
+Text to Speech decyduje, które postacie mogą mówić i jakim głosem. Pełny opis znajdziesz w [Konfiguracja syntezy mowy (TTS)](../media/tts-setup.md). W skrócie:
 
-1. Włącz Text to Speech.
-2. Wybierz źródło: **OpenAI-compatible**, **ElevenLabs**, **PocketTTS** lub **xAI Voice**.
-3. Wpisz klucz API albo adres lokalnego serwera dla tego źródła.
-4. Wybierz model i głos.
-5. Ustaw **Voice option** na **One voice for all** albo **Selected per character or persona**. Osobne głosy postaci ułatwiają śledzenie rozmów grupowych.
-6. Zapisz, a potem użyj przycisku podglądu, aby sprawdzić, czy słychać dźwięk.
+1. Otwórz **Connections** i kliknij wiersz **Voice** w sekcji **Jobs**.
+2. Wybierz model głosowy albo usługę głosową. Ten wybór włącza syntezę mowy. Konto modelu udostępnia klucz i adres.
+3. Kliknij koło zębate w wierszu **Voice**, aby otworzyć **Voice settings** (ustawienia głosu).
+4. W **Who speaks** (kto mówi) wybierz **Shared voice** (wspólny głos) albo przypisz postaciom i personom ich własne głosy w **Character and persona voices** (głosy postaci i person). Osobne głosy ułatwiają śledzenie rozmów grupowych.
+5. Kliknij **Preview** (Odsłuchaj), aby sprawdzić, czy słychać dźwięk.
 
 Jeśli postać nie ma głosu, który aplikacja potrafi ustalić, ta postać jest w rozmowie tylko tekstowa.
 
@@ -130,8 +129,8 @@ Local Whisper zamienia twoją mowę na tekst na komputerze, na którym działa a
 
 Zanim zaczniesz: zainstaluj pakiet Calls. Bez niego ta sekcja jest ukryta.
 
-1. Otwórz **Connections** i znajdź **Speech to text** w sekcji **On this device**. Jeśli go nie ma na liście, kliknij **Add account** i wybierz **Speech to text**.
-2. Znajdź **Local speech model** na tej stronie.
+1. Otwórz **Connections** i znajdź **Local speech model** (lokalny model mowy) na karcie **On this device** (na tym urządzeniu).
+2. Kliknij **Local speech model** na tej karcie.
 3. Wybierz model:
    - **Whisper Tiny (Multilingual)**: około 180 MB do pobrania i 350 MB pamięci. Najlepszy dla telefonów i starszych komputerów.
    - **Whisper Base (Multilingual)**: około 320 MB do pobrania i 650 MB pamięci. Lepiej radzi sobie z niewyraźną mową.
@@ -148,7 +147,7 @@ Jeśli to nie zadziałało: w wersji Lite aplikacji Marinara Engine zobaczysz ko
 
 Jeśli Local Whisper słabo radzi sobie z twoim językiem lub akcentem, wyślij głos do innego serwera zamiany mowy na tekst. Działa każdy serwer, który przyjmuje format OpenAI do zamiany mowy na tekst (adres `/audio/transcriptions`), niezależnie od tego, czy uruchamiasz go sam, czy korzystasz z usługi takiej jak OpenAI lub Groq.
 
-1. Otwórz **Connections** i otwórz **Speech to text** w sekcji **On this device**. Jeśli go nie ma na liście, kliknij **Add account** i wybierz **Speech to text**. Jest ukryty, dopóki pakiet Calls nie jest zainstalowany.
+1. Otwórz **Connections** i kliknij koło zębate przy **Dictation** (dyktowanie) w sekcji **Jobs**. Znajdziesz tam ustawienia serwera **Speech to text** (zamiana mowy na tekst). Są ukryte, dopóki pakiet Calls nie jest zainstalowany.
 2. Wpisz **Server URL**, na przykład `http://localhost:8000/v1`.
 3. Wpisz **API key**, jeśli serwer go wymaga. Jest zapisywany w postaci zaszyfrowanej i pokazywany zamaskowany.
 4. Wpisz nazwę **Model** używaną przez twój serwer. Zostaw puste, aby wysyłać `whisper-1`.

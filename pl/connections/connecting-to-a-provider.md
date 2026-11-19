@@ -15,12 +15,14 @@ Zanim zaczniesz, zdobądź klucz API w usłudze, z której chcesz korzystać. Ok
 Większość usług wymaga rejestracji, a niektóre także doładowania środków, zanim klucz zacznie działać. Inne usługi opisuje przewodnik [Obsługiwani dostawcy AI](providers-reference.md). Żeby użyć modelu na własnym komputerze bez klucza, zobacz [Konfiguracja modelu wbudowanego](local-model.md).
 
 1. Kliknij **Connections** (Połączenia) na górnym pasku. Panel otwiera się po prawej stronie. Jeśli nie masz jeszcze żadnych kont, pyta **Where do your models come from?** (skąd pochodzą twoje modele?) i pokazuje kilka usług. Kliknij usługę, ale nie **Built-in model** (model wbudowany). Okno **Add account** otwiera się na kroku z kluczem. Przejdź do kroku 4.
-2. Kliknij **Add** (dodaj). Otwiera się okno **Add account**.
-3. Kliknij wybraną usługę. Żeby ją znaleźć, wpisz tekst w polu **Search providers** (wyszukiwanie dostawców). Lista ma sekcje **Chat** (czat), **Images & video** (obrazy i wideo), **Voice** (głos) i **Decisions** (decyzje). Zwykłego modelu czatu szukaj w sekcji **Chat**.
+2. Kliknij **Add** (dodaj). Otwiera się okno **Add account** z jedną listą usług.
+3. Kliknij wybraną usługę. Wpisz jej nazwę w polu **Search providers** (wyszukiwanie dostawców) albo użyj filtra **Text** (tekst), **Image** (obraz), **Video** (wideo) lub **Voice** (głos). Kafelki pokazują typy obsługiwane przez każdą usługę.
 4. Kliknij **API key** (klucz API) i wklej klucz. Kliknij przycisk z ikoną oka, żeby sprawdzić, czy wkleił się cały.
 5. Kliknij **Connect** (połącz). Marinara testuje klucz. Gdy działa, widzisz **Connected** z liczbą znalezionych modeli.
-6. Dalszy przebieg zależy od tego, czy masz już model Main. Main to zadanie pisania odpowiedzi w twoich czatach.
+6. Pod **Found in … — use it for:** każdy wiersz to zadanie, np. **Main** lub **Images**. Zaznacz zadania dla znalezionego modelu. Jeśli usługa nie podaje listy modeli, wpisz identyfikator modelu w wierszu. Kliknij **Done**. Jeśli chcesz zachować konto bez przypisywania modelu do zadania, kliknij **Skip**.
+7. Dalszy przebieg zależy od tego, czy masz już model Main. Main to zadanie pisania odpowiedzi w twoich czatach.
    - **Nie masz jeszcze modelu Main albo okno Add otwarto z nowego czatu:** okno pokazuje modele usługi. Modele **Recommended** (zalecane) są na górze. Kliknij model, żeby go dodać, albo wpisz nazwę w polu **Search or enter model ID…** (wyszukiwanie lub wpisanie identyfikatora modelu). Jeśli nie wiesz, który wybrać, weź jeden z modeli **Recommended**. Możesz to później zmienić. Zostaw zaznaczone **Make … my Main model** (ustaw jako mój model główny). Ta opcja pojawia się tylko wtedy, gdy nie masz modelu Main. Gdy okno Add otwarto z nowego czatu, a model Main już masz, zamiast niej pojawia się przycisk **Set … as Main** (ustaw jako model główny). Potem kliknij **Done** (gotowe) albo, w nowym czacie, **Start chatting** (rozpocznij czat).
+   - **Okno Add otwarto z selektora zadania:** okno się zamyka, a Marinara wraca do zadania z nowym modelem na liście.
    - **Masz już model Main:** okno się zamyka, a komunikat informuje, że konto zostało dodane, i podaje liczbę jego modeli. Żeby dodać więcej modeli, kliknij **⋯** na koncie i wybierz **Add model** (dodanie modelu).
 
 Panel pokazuje twoje konto. **Connected** w kroku 5 już oznacza, że klucz działa. Jeśli nowy model jest twoim modelem Main, rozpocznij czat i wyślij wiadomość: odpowiedź oznacza, że wszystko działa. Jeśli model Main był już wcześniej ustawiony, nowe czaty nadal go używają. Żeby korzystać z nowego konta, dodaj do niego model (**⋯** → **Add model**), a potem wybierz ten model dla czatu albo zadania (zobacz [Wybór modelu do każdego zadania](#choosing-the-model-for-each-job)).
@@ -68,12 +70,12 @@ Zadanie to coś, co model robi dla ciebie. Sekcja **Jobs** wymienia zadania w cz
 | --- | --- |
 | **Chat** | **Main** (główny) pisze odpowiedzi w twoich czatach. **Agents** (agenci) uruchamia agentów pomocniczych. **Impersonate** (pisanie za ciebie) pisze w twoim imieniu. |
 | **Omnibar** (wyszukiwarka) | **Professor Mari** i **Quick answers** (szybkie odpowiedzi). |
-| **Pictures & sound** (obrazy i dźwięk) | **Images** (obrazy), **Video** (wideo), **Voice (Text to Speech)** (głos, synteza mowy) i **Dictation (Speech to Text)** (dyktowanie, zamiana mowy na tekst), gdy jest dostępne. |
+| **Pictures & sound** (obrazy i dźwięk) | **Images** (obrazy), **Video** (wideo), **Voice** (głos, synteza mowy) i **Dictation** (dyktowanie, zamiana mowy na tekst), gdy jest dostępne. |
 | **Behind the scenes** (za kulisami) | **Decision** (decyzje), **Embeddings** (embeddingi) i **Image reading** (odczytywanie obrazów). |
 
-Każdy wiersz pokazuje model, który wykonuje dane zadanie, albo to, co zadanie robi bez modelu, na przykład **Follows Main** albo **Off**. Zadanie, które wymaga modelu, pokazuje **Choose a model** (wybór modelu). Kliknij **Jobs**, żeby zwinąć sekcję.
+Każdy wiersz pokazuje model, który wykonuje dane zadanie, albo to, co zadanie robi bez modelu, na przykład **Follows Main** albo **Off**. Zadanie bez modelu pokazuje **N models found** (znalezione modele) i **Pick** (wybierz) albo **None in your accounts** (brak na twoich kontach) i **Add**. Selektor pokazuje pasujące modele ze wszystkich kont. **Add** otwiera okno **Add account**, po czym wraca do zadania. Kliknij **Jobs**, żeby zwinąć sekcję.
 
-Żeby zmienić model zadania, kliknij jego wiersz. Otwiera się okno **Model for** (model dla) tego zadania, z wyjątkiem trzech wierszy. **Decision** i **Embeddings** otwierają własne kontrolki (zobacz [Modele decyzyjne](decision-models.md) i [Obsługiwani dostawcy AI](providers-reference.md#embeddings)). **Dictation (Speech to Text)** otwiera konfigurację mowy.
+Żeby zmienić model zadania, kliknij jego wiersz. Otwiera się okno **Model for** (model dla) tego zadania, z wyjątkiem trzech wierszy. **Decision** i **Embeddings** otwierają własne kontrolki (zobacz [Modele decyzyjne](decision-models.md) i [Obsługiwani dostawcy AI](providers-reference.md#embeddings)). **Dictation** otwiera konfigurację mowy. Wiersze **Voice** i **Dictation** mają też koło zębate otwierające okno ustawień. Wybór modelu w **Voice** włącza syntezę mowy.
 
 W oknie **Model for**:
 

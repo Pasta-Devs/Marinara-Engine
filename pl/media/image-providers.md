@@ -7,14 +7,14 @@ Na generowaniu obrazów opierają się ilustracje scen, selfie, tła scen oraz g
 Klucz API to tajny kod od usługi, dzięki któremu Marinara może korzystać z twojego konta. Marinara sama wpisuje adres internetowy każdej usługi, więc rzadko trzeba go wpisywać.
 
 1. Kliknij **Connections** (Połączenia) na górnym pasku, a potem **Add** (dodaj). Otwiera się okno **Add account** (dodanie konta).
-2. Znajdź usługę. Lista ma sekcję **Images & video** (obrazy i wideo), a pole **Search providers** (wyszukiwanie dostawców) pomaga ją odnaleźć.
+2. Znajdź usługę. Kliknij filtr typu **Image** (obraz) albo wpisz tekst w **Search providers** (wyszukiwanie dostawców).
 3. Wklej klucz w pole **API key** (klucz API). Usługi darmowe i lokalne go nie potrzebują. Przy serwerze, który uruchamiasz u siebie, wypełnij pole adresu.
 4. Kliknij **Connect** (połącz). Marinara testuje konto.
-5. Wybierz model obrazów z listy albo wpisz identyfikator modelu. To jest twój model obrazów. Pojawia się pod kontem w panelu **Connections**.
+5. Pod **Found in … — use it for:** zaznacz **Images** (obrazy). Jeśli usługa nie ma listy modeli, wpisz identyfikator modelu w wierszu. Kliknij **Done** (gotowe).
 6. Otwórz model obrazów i kliknij **Test image** (test obrazu). Marinara tworzy mały obrazek testowy.
-7. Żeby aplikacja używała tego modelu do obrazów, ustaw zadanie **Images** (obrazy) w sekcji **Defaults** (ustawienia domyślne) u góry panelu **Connections**.
+7. Zaznaczenie **Images** w kroku 5 ustawia też zadanie **Images** w bloku **Jobs** (zadania) u góry panelu **Connections**. Aby później je zmienić, kliknij wiersz **Images**.
 
-Aby dodać kolejny model obrazów do konta, otwórz jego menu **⋯** (trzy kropki) i kliknij **Add image model** (dodanie modelu obrazów). Pełny opis tego okna znajdziesz w przewodniku [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+Aby dodać kolejny model obrazów do konta, kliknij **⋯** w wierszu konta i wybierz **Add model** (dodanie modelu). Pełny opis tego okna znajdziesz w przewodniku [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
 Jeśli się nie udało: **Test image** kończy się błędem, gdy klucz lub adres jest nieprawidłowy. Najpierw sprawdź oba. **Test provider** (test dostawcy) sprawdza tylko, czy Marinara może połączyć się z usługą. **Test image** tworzy prawdziwy obraz i może zużywać kredyty.
 

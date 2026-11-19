@@ -34,7 +34,7 @@ Każda kategoria usuwa tylko to, co wymienia jej wiersz, z wyjątkiem folderu ga
 | **Lorebooks** (lorebooki) | Wszystkie lorebooki, wpisy i foldery. |
 | **Presets** (presety) | Wszystkie presety promptów i foldery presetów, oprócz wbudowanego presetu standardowego. |
 | **Connections** (połączenia) | Wszystkie zapisane konta oraz powiązane z nimi wybory modeli i ustawienia głosu. |
-| **Automation & Addons** (automatyzacja i dodatki) | Wszystkie ustawienia agentów, własne narzędzia, skrypty regex i zsynchronizowane motywy. Nie dotyczy to Personal Extensions ani External Extensions. |
+| **Automation & Addons** (automatyzacja i dodatki) | Wszystkie ustawienia agentów, własne narzędzia, skrypty regex wraz z folderami i zsynchronizowane motywy. Nie dotyczy to Personal Extensions ani External Extensions. |
 | **Media & Assets** (multimedia i zasoby) | Pliki teł, awatarów, sprite'ów, galerii, filmów scen, czcionek i źródeł wiedzy. |
 
 Więcej szczegółów:

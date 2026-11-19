@@ -109,6 +109,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 
 Przełącznik debugowania interfejsu nadal działa przez `logDebugOverride`. To przewidziany sposób oglądania promptów, gdy `LOG_LEVEL` ukrywa debug.
 
+Media osadzone w tekście trafiają do logu w skróconej postaci. `debugJson` zastępuje każde dane base64 znacznikiem takim jak `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`. Zawiera on ich typ, rozmiar oraz pierwsze i ostatnie 16 znaków. Dotyczy to adresów `data:` (samodzielnych ciągów znaków lub fragmentów tekstu) oraz pól `data` bez prefiksu w częściach multimedialnych Anthropic i Google, również gdy base64 rozbito na kilka wierszy. Serializer `msg` robi to samo z adresami `data:` w zwykłych wpisach `%s` i `%j`. Pola `data` bez prefiksu skraca tylko `debugJson`. Zmienia się wyłącznie wypisana kopia, a przekazana wartość pozostaje bez zmian. Opcja `LOG_INLINE_MEDIA=full` w pliku `.env` przywraca wypisywanie pełnych danych. Obejmuje to test regresji `log-inline-media`.
+
 <a id="checks"></a>
 
 ## Konsola w aplikacji
