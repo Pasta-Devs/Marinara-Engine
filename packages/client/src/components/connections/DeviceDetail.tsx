@@ -534,7 +534,14 @@ function LocalModelDetail() {
 
       <section className={DETAIL_CARD_CLASS}>
         <FactRow label={localizeUi("connections.device.fact.model")}>
-          <span className="block">{modelDisplayName ?? localizeUi("connections.device.state.notDownloaded")}</span>
+          {/* The header already says it isn't downloaded, so name the model it will download instead. */}
+          <span className="block">
+            {modelDisplayName ??
+              (variants.find((variant) => variant.quantization === config.quantization) ?? variants[0])?.label.split(
+                " — ",
+              )[0] ??
+              localizeUi("connections.device.state.notDownloaded")}
+          </span>
           {variants.length > 1 && (
             <span className="mt-1 flex flex-wrap gap-1">
               {variants.map((variant) => {

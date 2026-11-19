@@ -3,6 +3,7 @@ import {
   type ChatMemoryRecallExportPayload,
   type ChatMemoryChunk,
   estimateTextTokens,
+  looksMostlyNonEnglish,
 } from "@marinara-engine/shared";
 import { isRecord } from "./lib/is-record";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -13,13 +14,15 @@ import {
   useRefreshChatMemories,
   useExportChatMemories,
   useImportChatMemories,
+  useChatMemoryEmbeddingSource,
 } from "../../hooks/use-chats";
+import { useUIStore } from "../../stores/ui.store";
 import { useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { Modal } from "../../components/ui/Modal";
-import { Upload, Download, RefreshCw, Trash2 } from "lucide-react";
+import { Upload, Download, RefreshCw, Trash2, Languages } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { formatMemoryDate } from "./lib/memory-format";
 
@@ -66,6 +69,18 @@ export function MemoryRecallMemoriesModal({
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const memories = useMemo(() => memoriesQuery.data ?? [], [memoriesQuery.data]);
   const totalTokens = useMemo(() => estimateMemoryTokens(memories), [memories]);
+  const embeddingSourceQuery = useChatMemoryEmbeddingSource(chatId, open && memories.length > 0);
+  // Marinara's own search was trained on English; memories in another language match poorly with it.
+  const showLanguageNotice = useMemo(
+    () =>
+      embeddingSourceQuery.data?.ownSearch === true && looksMostlyNonEnglish(memories.map((memory) => memory.content)),
+    [embeddingSourceQuery.data?.ownSearch, memories],
+  );
+
+  const openBuiltinEmbeddings = () => {
+    onClose();
+    useUIStore.getState().openConnectionsPanelPage("device:local-model#BuiltinEmbeddingDetail");
+  };
 
   const handleExport = async () => {
     if (memories.length === 0) {
@@ -253,6 +268,25 @@ export function MemoryRecallMemoriesModal({
             </button>
           </div>
         </div>
+
+        {showLanguageNotice && (
+          <div
+            role="status"
+            className="rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2.5 text-[0.6875rem] max-sm:text-[13px]"
+          >
+            <p className="flex items-start gap-1.5 text-[var(--foreground)]">
+              <Languages size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
+              <span>{localizeUi("ui.chat.memoryrecallmemoriesmodal.nonEnglishNotice")}</span>
+            </p>
+            <button
+              type="button"
+              onClick={openBuiltinEmbeddings}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] active:scale-[0.98] max-sm:min-h-11"
+            >
+              {localizeUi("ui.chat.memoryrecallmemoriesmodal.openBuiltinEmbeddings")}
+            </button>
+          </div>
+        )}
 
         {memoriesQuery.isLoading && (
           <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs max-sm:text-[13px] text-[var(--muted-foreground)]">

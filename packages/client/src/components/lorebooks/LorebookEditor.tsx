@@ -21,7 +21,7 @@ import {
   type ReactNode,
   type TouchEvent as ReactTouchEvent,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -3730,14 +3730,32 @@ function VectorizeSection({
     }
   };
 
-  const handleVectorize = async (mode: "missing" | "all") => {
-    if (!selectedConnectionId) return;
+  // Entries vectorized by a model other than the Embeddings default: chats on the default skip them.
+  const vectorStatusQuery = useQuery({
+    queryKey: ["lorebooks", lorebookId, "vector-status", defaultEmbedding?.connectionId ?? null, storedVectorCount],
+    queryFn: () =>
+      api.get<{ defaultSource: { connectionId: string; model: string } | null; staleCount: number }>(
+        `/lorebooks/${lorebookId}/vector-status`,
+      ),
+    enabled: !excludeFromVectorization && storedVectorCount > 0,
+    staleTime: 30_000,
+  });
+  const staleDefault =
+    !excludeFromVectorization && storedVectorCount > 0 && vectorStatusQuery.data?.defaultSource
+      ? { ...vectorStatusQuery.data.defaultSource, count: vectorStatusQuery.data.staleCount }
+      : null;
+
+  /** `connectionOverride` re-vectorizes with that source (the notice's button) and makes it the picked one. */
+  const handleVectorize = async (mode: "missing" | "all", connectionOverride?: string) => {
+    const connectionId = connectionOverride ?? selectedConnectionId;
+    if (!connectionId) return;
     if (mode === "missing" && missingCount === 0) return;
     if (vectorizeInFlightRef.current) return;
     vectorizeInFlightRef.current = true;
     try {
-      const conn = embeddingConnections.find((c) => c.id === selectedConnectionId);
-      if (mode === "all" && storedVectorCount > 0) {
+      const conn = embeddingConnections.find((c) => c.id === connectionId);
+      // The notice already says what the button does, so it doesn't ask again.
+      if (mode === "all" && storedVectorCount > 0 && !connectionOverride) {
         const confirmed = await showConfirmDialog({
           title: localizeUi("ui.lorebooks.vectorizesection.reVectorizeAllEntries"),
           message: localizeUi("ui.lorebooks.vectorizesection.reVectorizeAllEntriesWithConnection", {
@@ -3751,16 +3769,18 @@ function VectorizeSection({
         if (!confirmed) return;
       }
       if (hasUnsavedChanges && !(await onBeforeVectorize())) return;
+      if (connectionOverride && connectionOverride !== selectedConnectionId) handleConnectionChange(connectionOverride);
 
       setVectorizingMode(mode);
       setResult(null);
       try {
         const res = await api.post(`/lorebooks/${lorebookId}/vectorize`, {
-          connectionId: selectedConnectionId,
+          connectionId,
           onlyMissing: mode === "missing",
         });
         const data = res as { vectorized: number; total?: number; skipped?: number };
         await queryClient.invalidateQueries({ queryKey: lorebookKeys.entries(lorebookId) });
+        await queryClient.invalidateQueries({ queryKey: ["lorebooks", lorebookId, "vector-status"] });
         setResult({
           success: true,
           message:
@@ -3845,6 +3865,35 @@ function VectorizeSection({
           </span>
         )}
       </div>
+      {staleDefault && staleDefault.count > 0 && (
+        <div
+          role="status"
+          className="rounded-lg border border-[var(--warning)]/30 bg-[var(--warning)]/10 p-2.5 text-[0.6875rem]"
+        >
+          <p className="flex items-start gap-1.5 text-[var(--foreground)]">
+            <AlertTriangle size="0.75rem" className="mt-0.5 shrink-0 text-[var(--warning)]" />
+            <span>
+              {localizeUi("ui.lorebooks.vectorizesection.staleDefault", {
+                count: staleDefault.count,
+                model: staleDefault.model,
+              })}
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleVectorize("all", staleDefault.connectionId)}
+            disabled={vectorizing || vectorizableEntryCount === 0}
+            className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] active:scale-[0.98] disabled:opacity-50 max-sm:min-h-11"
+          >
+            {vectorizingMode === "all" ? <Spinner size="sm" /> : <RefreshCw size="0.75rem" className="shrink-0" />}
+            <span className="truncate">
+              {vectorizingMode === "all"
+                ? localizeUi("ui.lorebooks.vectorizesection.reVectorizing")
+                : localizeUi("ui.lorebooks.vectorizesection.reVectorizeWithModel", { model: staleDefault.model })}
+            </span>
+          </button>
+        </div>
+      )}
       <SettingsSwitch
         label={localizeUi("ui.lorebooks.vectorizesection.includeCharacterContext")}
         description={localizeUi("ui.lorebooks.vectorizesection.includeCharacterContextHint")}

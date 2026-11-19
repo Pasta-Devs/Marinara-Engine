@@ -240,6 +240,7 @@ import {
   resetMemoryRecallVectorizerCache,
   resolveMemoryRecallEmbeddingSource,
 } from "../services/memory-recall-embedding.js";
+import { isLocalEmbedderAvailable } from "../services/local-embedder.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
 import { npcAvatarSlug, sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
 import { buildCommittedTrackerContextBlock } from "../services/generation/committed-tracker-context.js";
@@ -2792,6 +2793,21 @@ export async function chatsRoutes(app: FastifyInstance) {
   });
 
   // List memory-recall chunks for this chat only.
+  /**
+   * Which model embeds this chat's memories. `ownSearch` is Marinara's own small English search model, used when
+   * no Embeddings default or chat/connection embedding setting applies; the client then checks the memories'
+   * language and suggests the multilingual built-in model.
+   */
+  app.get<{ Params: { id: string } }>("/:id/memories/embedding-source", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return notFound(reply, "Chat not found");
+    const source = await resolveMemoryRecallEmbeddingSource(app.db, {
+      chatMetadata: chat.metadata,
+      connectionId: chat.connectionId,
+    });
+    return { ownSearch: !source && isLocalEmbedderAvailable(), model: source?.model ?? null };
+  });
+
   app.get<{ Params: { id: string } }>("/:id/memories", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat) return notFound(reply, "Chat not found");

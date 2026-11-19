@@ -763,6 +763,8 @@ export interface UIState {
   trackerPanelCollapsedSections: TrackerPanelCollapsedSections;
   trackerPanelSectionOrder: TrackerPanelSectionOrder;
   settingsTab: string;
+  /** A page of the Connections panel ("device:local-model", ...) that a button elsewhere asked to open. Not saved. */
+  connectionsPanelPage: string | null;
   /** Transient control id that the Settings panel should reveal and focus. */
   settingsTargetControlId: string | null;
   /** A settings section to scroll to, when the jump names a section rather than one control. */
@@ -1387,6 +1389,9 @@ export interface UIState {
   setTrackerPanelSectionOrder: (order: TrackerPanelSectionOrder) => void;
   toggleTrackerPanelSectionCollapsed: (section: TrackerDataPanelSection) => void;
   openRightPanel: (panel: Panel) => void;
+  /** Opens the Connections panel on one of its own pages, such as a built-in model under On this device. */
+  openConnectionsPanelPage: (key: string) => void;
+  clearConnectionsPanelPage: () => void;
   closeRightPanel: () => void;
   toggleRightPanel: (panel: Panel) => void;
   setSettingsTab: (tab: string) => void;
@@ -2451,6 +2456,7 @@ export const useUIStore = create<UIState>()(
         trackerPanelCollapsedSections: {},
         trackerPanelSectionOrder: [...TRACKER_DATA_PANEL_SECTIONS],
         settingsTab: "general",
+        connectionsPanelPage: null,
         activeEditorField: null,
         connectionTestFailures: {},
         connectionTestErrorCodes: {},
@@ -2867,6 +2873,19 @@ export const useUIStore = create<UIState>()(
             dismissChatFloatingUiForMobilePanel(true);
             return { rightPanelOpen: true, rightPanel: panel, sidebarOpen: false, sidebarHiddenForFight: false };
           }),
+        // Device pages live inside the Connections panel, not on the connection editor surface, so they open here.
+        openConnectionsPanelPage: (key) =>
+          set(() => {
+            dismissChatFloatingUiForMobilePanel(true);
+            return {
+              rightPanelOpen: true,
+              rightPanel: "connections" as Panel,
+              sidebarOpen: false,
+              sidebarHiddenForFight: false,
+              connectionsPanelPage: key,
+            };
+          }),
+        clearConnectionsPanelPage: () => set({ connectionsPanelPage: null }),
         // Chats and a panel share the sidebar, so closing the panel closes it, even when a synced sidebarOpen from an
         // older client or another device arrived beside the panel.
         closeRightPanel: () => set((s) => (s.rightPanelOpen ? { rightPanelOpen: false, sidebarOpen: false } : {})),

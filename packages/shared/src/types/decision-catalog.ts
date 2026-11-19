@@ -273,7 +273,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     id: "jevk5-4b",
     label: "JevK5 4B",
     description:
-      "An open Jev alternative that runs on almost any computer: NVIDIA, AMD, Intel or Apple graphics, or the processor alone. Uses the same llama.cpp server as Marinara's built-in chat model. English only.",
+      "An open Jev alternative that works with NVIDIA, AMD, Intel or Apple graphics, or the processor alone. Uses the same llama.cpp server as Marinara's built-in chat model.",
     runtime: "llama_letters",
     artifacts: [
       {
@@ -307,7 +307,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     id: "liquid-d1-3b",
     label: "Liquid d1 3B",
     description:
-      "Liquid AI's decision model, trained for 16 languages including Japanese, Chinese, Korean, German, Spanish and Russian. Runs on almost any computer. Free for people and for companies under $10 million a year in revenue.",
+      "Liquid AI's decision model. Runs on almost any computer. Free for people and for companies under $10 million a year in revenue.",
     runtime: "llama_systemone",
     artifacts: [
       {
@@ -331,7 +331,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     // French, Korean and Russian (2026-11-18, CPU, Q4_K_M): yes 0.66 to 0.99, no 0.011 to
     // 0.063. All 20 correct at any threshold from 0.07 to 0.65.
     calibration: { defaultThreshold: 0.3, questionShape: "text" },
-    languages: "16 languages",
+    languages: "16 languages, including Japanese, Chinese, Korean, German, Spanish and Russian",
     questionTypes: ["noul", "choice", "score"],
     // Measured with the projector (2026-11-18, CPU): a picture scaled to 512 px costs about
     // 550 tokens; sea 0.94, snowy forest 0.017, time of day "sunset" on a beach at sunset.
@@ -343,7 +343,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     id: "jevk5-2b",
     label: "JevK5 2B",
     description:
-      "The smaller JevK5: faster on a processor or a small graphics card, a little less accurate. Same server as the built-in chat model. English only.",
+      "The smaller JevK5: faster on a processor or a small graphics card, a little less accurate. Same server as the built-in chat model.",
     runtime: "llama_letters",
     artifacts: [
       {
@@ -373,7 +373,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     id: "valen-decision-1.5-4b",
     label: "Valen-Decision 1.5 4B",
     description:
-      "Valen's decision model in its compact GGUF form: reads the chat and its pictures. Its published runtime is for Linux on a 64-bit Intel or AMD processor, and it runs on the processor, not the graphics card. For video, pick its full release.",
+      "Valen's decision model in its compact GGUF form. Its published runtime is for Linux on a 64-bit Intel or AMD processor. For video, pick its full release.",
     runtime: "valen_gguf",
     artifacts: [
       {
@@ -413,7 +413,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     id: "valen-decision-1.5-2b-full",
     label: "Valen-Decision 1.5 2B (full release)",
     description:
-      "Valen's full release: reads the chat, pictures and video clips. Runs on the processor on Windows, macOS (Apple silicon) and Linux, through Valen's own software rather than PyTorch.",
+      "Valen's full release, through Valen's own software rather than PyTorch. Works on Windows, macOS (Apple silicon) and Linux.",
     runtime: "valen_onnx",
     artifacts: [
       {
@@ -466,7 +466,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     id: "valen-decision-1.5-4b-full",
     label: "Valen-Decision 1.5 4B (full release)",
     description:
-      "The larger full release: reads the chat, pictures and video clips, more accurate than 2B, and slower. Runs on the processor on Windows, macOS (Apple silicon) and Linux, and needs about 12 GB of memory.",
+      "The larger full release: more accurate than 2B, and slower. Works on Windows, macOS (Apple silicon) and Linux.",
     runtime: "valen_onnx",
     artifacts: [
       {
@@ -514,7 +514,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     id: "winnow-e4b",
     label: "Winnow E4B",
     description:
-      "A Gemma 4 decision model that scored 80.5% on JevBench's public set, and reads pictures. Its published runtime only runs on Linux, on a processor with AVX-512 (such as AMD Ryzen 7000 or 9000; current Intel laptop and desktop chips lack it), with an NVIDIA RTX 50-series card and the CUDA 13 libraries installed, and needs about 11 GB of graphics memory.",
+      "A Gemma 4 decision model that scored 80.5% on JevBench's public set. Its published runtime only runs on Linux, on a processor with AVX-512 (such as AMD Ryzen 7000 or 9000; current Intel laptop and desktop chips lack it), with an NVIDIA RTX 50-series card and the CUDA 13 libraries installed.",
     runtime: "winnow_cuda",
     artifacts: [
       {
@@ -557,7 +557,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     id: "open-jev-2b",
     label: "Open-Jev 2B",
     description:
-      "An independent research model that answers yes/no questions without writing a reply. Faster and a little smaller than a general local model, but less accurate on roleplay.",
+      "An independent research model that decides without writing a reply. Faster and a little smaller than a general local model, but less accurate on roleplay.",
     runtime: "open_jev_torch",
     artifacts: [
       { repoId: "ZefanCai/Open-Jev-2B", revision: "0c7aa498b1627be8da4acf34c863ff0ee0a92785", paths: ["package/"] },
@@ -597,7 +597,7 @@ export const SIDECAR_DECISION_MODELS: SidecarDecisionModelInfo[] = [
     id: "open-jev-9b",
     label: "Open-Jev 9B",
     description:
-      "The larger Open-Jev: more accurate than 2B in our tests, but it needs about 22 GB of GPU memory, so on a 24 GB card nothing else fits beside it, and it takes about a second per question.",
+      "The larger Open-Jev: more accurate than 2B in our tests, but on a 24 GB graphics card nothing else fits beside it, and it takes about a second per question.",
     runtime: "open_jev_torch",
     artifacts: [
       { repoId: "ZefanCai/Open-Jev-9B", revision: "47e966881e489511c0c7f5633a9e1960a676a551", paths: ["package/"] },
