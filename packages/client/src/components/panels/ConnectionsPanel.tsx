@@ -527,8 +527,12 @@ export function ConnectionsPanel() {
   // A button elsewhere (Memories, Defaults) asked for one of this panel's pages. "#Name" after the key scrolls to
   // that part of the page (data-component="Name"), such as the embedding model further down the built-in model page.
   const requestedPage = useUIStore((s) => s.connectionsPanelPage);
+  // The running scroll loop, if any: a newer request or unmounting the panel stops it.
+  const stopPageScrollRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopPageScrollRef.current?.(), []);
   useEffect(() => {
     if (!requestedPage) return;
+    stopPageScrollRef.current?.();
     const [key, part] = requestedPage.split("#");
     select(key ?? null);
     useUIStore.getState().clearConnectionsPanelPage();
@@ -555,9 +559,11 @@ export function ConnectionsPanel() {
     function stop() {
       window.clearInterval(timer);
       for (const name of userEvents) window.removeEventListener(name, stop, true);
+      if (stopPageScrollRef.current === stop) stopPageScrollRef.current = null;
     }
     for (const name of userEvents) window.addEventListener(name, stop, { capture: true, passive: true });
-    // No cleanup: clearing the request above re-runs this effect, and the page still has to be scrolled.
+    stopPageScrollRef.current = stop;
+    // No cleanup here: clearing the request above re-runs this effect, and the page still has to be scrolled.
   }, [requestedPage, select]);
   // Drill-in moves focus to "‹ Connections", so a keyboard user lands on the new page; going back focuses its row.
   useEffect(() => {
