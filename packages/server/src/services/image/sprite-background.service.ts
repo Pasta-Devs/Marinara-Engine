@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Sprite background contracts and matte cleanup
 // ──────────────────────────────────────────────
+import { NOVELAI_TRANSPARENCY_TAGS } from "@marinara-engine/shared";
 import { getBackgroundRemoverStatus, tryRemoveBackgroundWithBackgroundRemover } from "./background-remover.service.js";
 import { clampByte, clampUnit, getSharp, type RgbColor } from "./sharp-runtime.js";
 
@@ -75,14 +76,22 @@ export function spriteChromaMatteInstruction(matte: SpriteChromaMatte): string {
 
 export function applySpriteBackgroundInstruction(
   prompt: string,
-  options: { matte: SpriteChromaMatte; nativeTransparentPng: boolean; removeBackground: boolean },
+  options: {
+    matte: SpriteChromaMatte;
+    nativeTransparentPng: boolean;
+    removeBackground: boolean;
+    /** NovelAI: ask with its transparency tags, and no flat-colour fallback for it to paint. */
+    transparencyTags?: boolean;
+  },
 ): string {
   if (!options.nativeTransparentPng && !options.removeBackground) return prompt;
 
   const chromaFallback = spriteChromaMatteInstruction(options.matte);
-  const replacement = options.nativeTransparentPng
-    ? `no background, transparent PNG format. If native transparency is unsupported, ${chromaFallback}`
-    : chromaFallback;
+  const replacement = !options.nativeTransparentPng
+    ? chromaFallback
+    : options.transparencyTags
+      ? `${NOVELAI_TRANSPARENCY_TAGS}, no background`
+      : `no background, transparent PNG format. If native transparency is unsupported, ${chromaFallback}`;
   const updated = prompt.replace(
     /\b(?:(?:solid|plain) white(?: studio)? background|white studio background|white background)\b/giu,
     () => replacement,
@@ -96,8 +105,11 @@ export function spriteBackgroundContract(options: {
   matte: SpriteChromaMatte;
   nativeTransparentPng: boolean;
   removeBackground: boolean;
+  transparencyTags?: boolean;
 }): string {
   if (!options.nativeTransparentPng && !options.removeBackground) return "";
+  // The tags already ask; the contract's colour fallback and its "transparency" negatives would undo them.
+  if (options.nativeTransparentPng && options.transparencyTags) return "";
   const matteInstruction = spriteChromaMatteInstruction(options.matte);
   return options.nativeTransparentPng
     ? `MANDATORY BACKGROUND CONTRACT: output native transparency with no backdrop. If the provider cannot return alpha transparency, ${matteInstruction}.`
@@ -835,6 +847,12 @@ export async function removeSpriteBackgroundPng(
   cleanupStrength = 35,
   engine: SpriteCleanupEngine = "auto",
 ): Promise<{ buffer: Buffer; engine: UsedSpriteCleanupEngine; fallback?: true }> {
+  // A picture that is already see-through keeps its own edges: the remover would only soften good alpha. An
+  // engine picked by hand still runs, since the user asked for it.
+  if (engine === "auto" && (await hasSpriteTransparency(input))) {
+    const sharp = await getSharp();
+    return { buffer: await sharp(input).png().toBuffer(), engine: "builtin" };
+  }
   const configuredEngine = engine === "auto" ? getBackgroundRemoverStatus().engine : engine;
   if (configuredEngine === "backgroundremover") {
     const aiOutput = await tryRemoveBackgroundWithBackgroundRemover(input, {
@@ -862,4 +880,21 @@ export async function removeSpriteBackgroundPng(
   }
 
   return { buffer: matteOutput.buffer, engine: "builtin", fallback: true };
+}
+
+/**
+ * What happens to one generated sprite's background, by its own pixels:
+ * - already see-through: kept exactly as it came, whatever was asked;
+ * - drawn by a Model that was asked for a see-through picture but came back solid: left as it is and marked
+ *   `opaque`, so the review step says so and offers the clean-up instead of changing it unasked;
+ * - otherwise: the flat chroma colour is removed when `clean` is on.
+ */
+export async function settleSpriteBackground(
+  input: Buffer,
+  options: { askedForTransparency: boolean; clean: boolean; cleanupStrength: number },
+): Promise<{ buffer: Buffer; opaque?: true }> {
+  if (await hasSpriteTransparency(input)) return { buffer: input };
+  if (options.askedForTransparency) return { buffer: input, opaque: true };
+  if (!options.clean) return { buffer: input };
+  return { buffer: (await removeSpriteBackgroundPng(input, options.cleanupStrength)).buffer };
 }

@@ -122,6 +122,8 @@ export const apiConnections = fileTable("api_connections", {
   decisionTimeoutMs: integer("decision_timeout_ms"),
   /** Whether this chat Model reads images: "reads", "text", or null (Automatic: its catalog decides). */
   imageInput: text("image_input"),
+  /** Whether this image Model draws see-through pictures: "supported", "unsupported", or null (Automatic). */
+  imageTransparency: text("image_transparency"),
   /** Default voice id/name for speech synthesis on this audio connection. */
   audioVoice: text("audio_voice"),
   /** How long a speech request on this audio connection may take, in milliseconds; null uses the default. */

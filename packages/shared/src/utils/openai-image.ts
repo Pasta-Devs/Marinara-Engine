@@ -67,6 +67,70 @@ export function supportsOpenAITransparentBackground(model?: string | null): bool
   return isOpenAIGptImage25Model(model) || /^gpt-image-(?:1|1\.5)(?:$|-)/i.test(model?.trim() ?? "");
 }
 
+/** A Model's "Transparent backgrounds" setting: null is Automatic. */
+export type ImageTransparencySetting = "supported" | "unsupported" | null | undefined;
+
+/**
+ * Whether an image connection draws see-through pictures, so a sprite or sticker can ask for one instead of a flat
+ * colour Marinara removes afterwards. The Model's own setting wins; Automatic says yes only for the models known to
+ * return alpha: GPT Image 1, 1.5, 2.5 and 2.6 on OpenAI (not ToAPIs), OpenRouter and ChatGPT (Codex login).
+ * GPT Image 2 has no alpha. NovelAI V5 (Full or Curated) on NovelAI's own host draws real alpha when its prompt carries
+ * the transparency tags (see imageConnectionUsesTransparencyTags). The connection is given as the routes map a row (see
+ * imageConnectionMakesAnimatedGif).
+ */
+export function imageConnectionMakesTransparentPicture(connection: {
+  source: string;
+  baseUrl: string;
+  serviceHint: string;
+  model?: string;
+  imageTransparency?: ImageTransparencySetting;
+}): boolean {
+  if (connection.imageTransparency === "supported") return true;
+  if (connection.imageTransparency === "unsupported") return false;
+  const backend = resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model);
+  const model = (connection.model ?? "").trim().replace(/^openai\//i, "");
+  if (backend === "openai") return !isToAPIsMediaUrl(connection.baseUrl) && supportsOpenAITransparentBackground(model);
+  if (backend === "openrouter" || backend === "codex_chatgpt") return supportsOpenAITransparentBackground(model);
+  if (backend === "novelai") return isNativeNovelAiImageUrl(connection.baseUrl) && isNovelAiV5ImageModel(model);
+  return false;
+}
+
+/** NovelAI V5 Full or Curated. */
+export function isNovelAiV5ImageModel(model?: string | null): boolean {
+  return /^nai-diffusion-5(?:-(?:curated|full))?$/i.test(model?.trim() ?? "");
+}
+
+function isNativeNovelAiImageUrl(baseUrl: string): boolean {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase().replace(/\.$/, "");
+    return host === "novelai.net" || host.endsWith(".novelai.net");
+  } catch {
+    return false;
+  }
+}
+
+/** The tags that make NovelAI draw a see-through picture. */
+export const NOVELAI_TRANSPARENCY_TAGS = "transparent background, alpha transparency";
+
+/**
+ * Whether a see-through request to this connection is written as NovelAI's transparency tags instead of a sentence
+ * with a flat-colour fallback: a tag model reads "green background" in that fallback as something to draw. Only
+ * NovelAI V5 on NovelAI's own host honours the tags; a proxy or an older model keeps the sentence and its fallback.
+ */
+export function imageConnectionUsesTransparencyTags(connection: {
+  source: string;
+  baseUrl: string;
+  serviceHint: string;
+  model?: string;
+}): boolean {
+  return (
+    resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model) ===
+      "novelai" &&
+    isNativeNovelAiImageUrl(connection.baseUrl) &&
+    isNovelAiV5ImageModel(connection.model)
+  );
+}
+
 export function resolveOpenAIImageQuality(value: unknown, model?: string | null): ImageGenerationQuality {
   if (value === "low" || value === "medium" || value === "high") return value;
   // OpenRouter uses the same IDs with an OpenAI namespace.

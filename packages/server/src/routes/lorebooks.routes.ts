@@ -86,6 +86,8 @@ import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../services/llm/lo
 import {
   createMemoryRecallEmbeddingSpaceId,
   formatMemoryRecallEmbeddingTexts,
+  readDefaultEmbeddingConnectionId,
+  resolveDefaultEmbeddingSource,
   resolveMemoryRecallEmbeddingSource,
   resolvePseudoEmbeddingSource,
 } from "../services/memory-recall-embedding.js";
@@ -1441,6 +1443,31 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       app.db,
       entries.map((entry) => entry.id),
     );
+  });
+
+  // ── Vector status: entries whose vectors came from a model other than the Embeddings default ──
+  // Chats that use the default skip those entries when matching by meaning, so the editor offers a re-vectorize.
+  app.get<{ Params: { id: string } }>("/:id/vector-status", async (req, reply) => {
+    const lorebook = await storage.getById(req.params.id);
+    if (!lorebook) return notFound(reply, "Lorebook not found");
+    const defaultConnectionId = await readDefaultEmbeddingConnectionId(app.db);
+    const defaultSource = defaultConnectionId ? await resolveDefaultEmbeddingSource(app.db) : null;
+    if (!defaultConnectionId || !defaultSource?.spaceId) return { defaultSource: null, staleCount: 0 };
+    const entries = (await storage.listEntries(req.params.id)) as Array<Record<string, unknown>>;
+    const staleCount =
+      (lorebook as Record<string, unknown>).excludeFromVectorization === true
+        ? 0
+        : entries.filter(
+            (entry) =>
+              entry.excludeFromVectorization !== true &&
+              Array.isArray(entry.embedding) &&
+              entry.embedding.length > 0 &&
+              entry.embeddingSpaceId !== defaultSource.spaceId,
+          ).length;
+    return {
+      defaultSource: { connectionId: defaultConnectionId, model: defaultSource.model ?? defaultSource.label },
+      staleCount,
+    };
   });
 
   // ── Vectorize: generate embeddings for all entries in a lorebook ──

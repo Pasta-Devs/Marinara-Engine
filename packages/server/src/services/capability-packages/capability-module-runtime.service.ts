@@ -66,6 +66,7 @@ import {
 } from "./capability-prompt-context.service.js";
 import { registerCapabilityTool, type CapabilityToolRegistration } from "./capability-tool-registry.service.js";
 import { registerCapabilitySceneOrigin } from "./capability-scene-origin.service.js";
+import { createCapabilitySpriteHost } from "./capability-sprites.service.js";
 import { failInjectFastDuring } from "../../lib/fastify-inject-gate.js";
 
 /**
@@ -171,6 +172,7 @@ async function createCapabilityRuntimeHost(
     decisions: createCapabilityDecisionHost(app.db),
     persistence: createCapabilityPersistenceHost(app.db, permissions),
     resources: createCapabilityResourceHost(app.db, permissions),
+    sprites: createCapabilitySpriteHost(),
     services: Object.freeze({
       // Agent runtime hooks, Mari actions and services registered with `hostOnly` are read only by the Engine
       // itself, so a package can't call another package's hooks through this lookup.

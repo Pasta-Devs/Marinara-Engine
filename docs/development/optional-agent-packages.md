@@ -97,26 +97,26 @@ update, for example), each package shows its existing load error and the rest of
 TypeScript type is `MarinaraHostV1` in `packages/client/src/lib/marinara-host-contract.ts`, together with the lists on
 this page. Package builds declare matching structural types instead of importing Engine source.
 
-| Member                    | Value                                                                                                                                                                                    |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `version`                 | `1`. It changes only when the shape breaks.                                                                                                                                              |
-| `capabilityApi`           | The Engine's `supportedCapabilityApi`, for example `{ major: 1, minor: 341 }`.                                                                                                           |
-| `stores`                  | The live zustand stores `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` and `backfill`. `chat` includes the pending spatial transition slice.            |
-| `services.tts`            | The `lib/tts-service.ts` module (`ttsService`, `playWhenAvailable`, ...).                                                                                                                |
-| `services.audio`          | From capability API 1.381, the `lib/audio-service.ts` module: independent music/SFX players, the shared asset manifest and default music selection. See [Package audio](#package-audio). |
-| `services.dialogs`        | The `lib/app-dialogs.ts` module (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`).                                                                        |
-| `services.imageDownloads` | From capability API 1.385, the gallery's existing `downloadUrlToDevice`, `shouldUseIosImageShare`, `prepareImageSave` and `savePreparedImageToDevice` helpers.                           |
-| `modules`                 | Library modules, keyed by bare specifier (below).                                                                                                                                        |
-| `queryClient`             | The one React Query `QueryClient` the Engine renders with.                                                                                                                               |
-| `components.Modal`        | The Engine's `Modal`, with its overlay order, Escape and back-button handling.                                                                                                           |
-| `components.Switch`, `components.Checkbox` | From capability API 1.830, the Engine's shared switch and checkbox, so a package matches the host look. |
-| `components.Spinner` | From capability API 1.830, the Engine's shared loading ring. It is hidden from screen readers unless you pass a `label`, which makes it a status region. |
-| `components.Tabs` | From capability API 1.832, the Engine's shared tab bar. `variant="pill"` is the segmented track for switching views; `variant="underline"` is text tabs for sections inside a sheet or dialog. Arrow keys, Home and End move between tabs. |
-| `components.SearchInput` | From capability API 1.832, the Engine's search field. Pass `value`, `onChange` and a screen-reader `label`. It has a clear button, and Escape clears the text first. `resultCount` shows "4 found", `busy` shows a spinner, `size="compact"` fits dense toolbars, and `slashShortcut` lets "/" focus the field. |
-| `components.showConfirmDialog` | From capability API 1.830, the Engine's confirm dialog, the same function as `services.dialogs.showConfirmDialog`. |
-| `components.Select` | From capability API 1.831, the Engine's dropdown: pass `value` (a string or `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` and a `label`; optional `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` and `buttonRef`. It opens a popover on desktop and a sheet on phones, with search from eight options. Use it instead of a native `<select>`. |
-| `data.emojiCatalog`       | The `lib/emoji-catalog.generated.ts` module.                                                                                                                                             |
-| `api`                     | The `lib/api-client.ts` module (`api`, `ApiError`, `getApiErrorMessage`, ...).                                                                                                           |
+| Member                                     | Value                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `version`                                  | `1`. It changes only when the shape breaks.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `capabilityApi`                            | The Engine's `supportedCapabilityApi`, for example `{ major: 1, minor: 341 }`.                                                                                                                                                                                                                                                                                                                                                                   |
+| `stores`                                   | The live zustand stores `ui`, `chat`, `agent`, `sidecar`, `dialog`, `gallery`, `encounter`, `gameState` and `backfill`. `chat` includes the pending spatial transition slice.                                                                                                                                                                                                                                                                    |
+| `services.tts`                             | The `lib/tts-service.ts` module (`ttsService`, `playWhenAvailable`, ...).                                                                                                                                                                                                                                                                                                                                                                        |
+| `services.audio`                           | From capability API 1.381, the `lib/audio-service.ts` module: independent music/SFX players, the shared asset manifest and default music selection. See [Package audio](#package-audio).                                                                                                                                                                                                                                                         |
+| `services.dialogs`                         | The `lib/app-dialogs.ts` module (`showAlertDialog`, `showConfirmDialog`, `showPromptDialog`, `showChoiceDialog`).                                                                                                                                                                                                                                                                                                                                |
+| `services.imageDownloads`                  | From capability API 1.385, the gallery's existing `downloadUrlToDevice`, `shouldUseIosImageShare`, `prepareImageSave` and `savePreparedImageToDevice` helpers.                                                                                                                                                                                                                                                                                   |
+| `modules`                                  | Library modules, keyed by bare specifier (below).                                                                                                                                                                                                                                                                                                                                                                                                |
+| `queryClient`                              | The one React Query `QueryClient` the Engine renders with.                                                                                                                                                                                                                                                                                                                                                                                       |
+| `components.Modal`                         | The Engine's `Modal`, with its overlay order, Escape and back-button handling.                                                                                                                                                                                                                                                                                                                                                                   |
+| `components.Switch`, `components.Checkbox` | From capability API 1.830, the Engine's shared switch and checkbox, so a package matches the host look.                                                                                                                                                                                                                                                                                                                                          |
+| `components.Spinner`                       | From capability API 1.830, the Engine's shared loading ring. It is hidden from screen readers unless you pass a `label`, which makes it a status region.                                                                                                                                                                                                                                                                                         |
+| `components.Tabs`                          | From capability API 1.832, the Engine's shared tab bar. `variant="pill"` is the segmented track for switching views; `variant="underline"` is text tabs for sections inside a sheet or dialog. Arrow keys, Home and End move between tabs.                                                                                                                                                                                                       |
+| `components.SearchInput`                   | From capability API 1.832, the Engine's search field. Pass `value`, `onChange` and a screen-reader `label`. It has a clear button, and Escape clears the text first. `resultCount` shows "4 found", `busy` shows a spinner, `size="compact"` fits dense toolbars, and `slashShortcut` lets "/" focus the field.                                                                                                                                  |
+| `components.showConfirmDialog`             | From capability API 1.830, the Engine's confirm dialog, the same function as `services.dialogs.showConfirmDialog`.                                                                                                                                                                                                                                                                                                                               |
+| `components.Select`                        | From capability API 1.831, the Engine's dropdown: pass `value` (a string or `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` and a `label`; optional `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` and `buttonRef`. It opens a popover on desktop and a sheet on phones, with search from eight options. Use it instead of a native `<select>`. |
+| `data.emojiCatalog`                        | The `lib/emoji-catalog.generated.ts` module.                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `api`                                      | The `lib/api-client.ts` module (`api`, `ApiError`, `getApiErrorMessage`, ...).                                                                                                                                                                                                                                                                                                                                                                   |
 
 A package reads a member only after checking it, for example
 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
@@ -1269,7 +1269,7 @@ reads the world from it, exactly as it was made, so a pack keeps working across 
 the files from a game's or library world's **Download** (or `GET /api/game/:chatId/world/file`), which
 include it. A pack file is at most 8 MB, the largest share file the Engine reads (a tile pack keeps its
 own smaller limits), so a world whose file is larger (a very big world's snapshot) cannot ship in a pack. A world whose story sets an `intro`
-needs Capability API 1.339 (see [The intro message](../extending/writing-story-scripts.md#the-intro-message)).
+needs Capability API 1.339 (see [The intro message](writing-story-scripts.md#the-intro-message)).
 `tiles` may be an image tile pack (tile pack version 2: PNG sheets on a grid of cells, with sprites of
 several cells), which needs Capability API 1.80; the Engine decodes and checks its sheets once per
 package version. With the Experience on, a new game is locked
@@ -1312,7 +1312,7 @@ names the Experience's tracks and when they play:
 Each track is also a declared asset, and every track id named is one of `tracks`. A place in `places` is
 a place of one of the pack's worlds, by id. Out of a fight, the game plays the place's track, else the
 track of the nearest place it is inside that has one, else `default`; in a fight, `combat`. A story's
-`music` action (see [Writing Game Mode Story Scripts](../extending/writing-story-scripts.md)) cues one
+`music` action (see [Writing Game Mode Story Scripts](writing-story-scripts.md)) cues one
 of the tracks over all of these until it hands back. With none of these, the Engine's own music plays.
 A player who has picked their own music source (the Music DJ, Spotify) hears that instead: their choice
 always wins.
@@ -1417,7 +1417,7 @@ audio sizes) are all reported; the files' checks stop at the first problem, as a
 #### Capability API 1.351: held seasons
 
 A world's story may hold places at a season whatever the date (`seasons`, and the `season` action: see
-[writing story scripts](../extending/writing-story-scripts.md#seasons)), and a world's battlefields may be
+[writing story scripts](writing-story-scripts.md#seasons)), and a world's battlefields may be
 painted with seasons (`seasons` rows and `seasonKeys`). A map pack with either needs 1.351. The overworld
 reads held places as `seasons` (place id to season, `*` for the whole world) from
 `GET /api/game/:chatId/overworld`; a made battlefield carries its tiles' starting seasons as `seasons`,
@@ -1507,7 +1507,7 @@ number flag of one of the pack's stories. A map pack with `storyUses` needs 1.35
 
 A story fight's variants may be for parties above six, or open-ended (`"party": { "min": 7 }`), and a
 story condition may ask the party's size (`{ "partySize": { "is": ">=", "value": 7 } }`; see
-[writing story scripts](../extending/writing-story-scripts.md#conditions)).
+[writing story scripts](writing-story-scripts.md#conditions)).
 
 A companion of the people file may never fight:
 
@@ -1552,7 +1552,7 @@ Pixelforge's Experience tab writes it. Every key is optional, and the player may
 - Text limits: `setting` 4,000 characters, `language` 100, `playerGoals` and `preferences` 2,000, `gameSpecialInstructions` 2,000, `artStylePrompt` 500.
 
 `intro` is the Game Master's intro message (1.339), with the same rules as a story script's `intro`
-(see [Writing story scripts](../extending/writing-story-scripts.md#the-intro-message)). It is the only
+(see [Writing story scripts](writing-story-scripts.md#the-intro-message)). It is the only
 value that locks. A locked intro shows read-only in the wizard, and the game opens with it whatever the
 setup sends. The game keeps the intro as it was when the game began (`chat.metadata.gameExperienceIntro`).
 It is read before the story's own `intro`. A setup-file import keeps its own values, and turning the
@@ -1870,6 +1870,45 @@ connection's cache time applies.
 
 Older Engines ignore the option, so a package can always pass it. Declare 1.815 when the package relies on it.
 
+### Capability API 1.835: prepare voice clips ahead
+
+`services.tts.ttsService.prepareAudio(text, options?)` makes a line's clip into the shared audio cache without playing it. Call it with the same text and options a later `speak` or `speakSequence` will use: `cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone` and `audioConnectionId`. That call then starts playing at once, with no second synthesis.
+
+- A clip already cached, or being made by another call, is not made again.
+- Playback is never stopped or changed, so a package can prepare the next lines while one plays.
+- A line without text or a `cacheKey` is skipped, since nothing could find its clip.
+- `options.signal` stops only the wait. The synthesis already sent goes on and is cached, unless `abortCacheGenerationOnAbort` is set.
+
+It needs no permission. Older Engines leave the method out, so check `typeof ttsService.prepareAudio === "function"` and keep voicing lines as they appear. Declare 1.835 only when the package cannot work without it.
+
+### Capability API 1.834: saved sprites and the artwork rule
+
+`api.runtime.sprites` reads a character's or persona's saved sprites, so a package uses the art the user already has before it draws new art. It needs no permission. Older Engines leave it out, so check for it.
+
+- `list(ownerId)`: every saved sprite as `{ handle, kind, name, label, folder, url, mimeType }`. `kind` is `"expression"` (a face) or `"full-body"`. `folder` is the sprite folder it is filed in, which users often name for an outfit. SVG sprites are left out, since no image model reads them.
+- `resolve(ownerId, { kind, expression?, outfit?, selected?, maxReferences? })`: the artwork rule, in this order.
+  1. `selected`: a saved sprite's handle the user chose, such as the picture of an equipped outfit. It wins while it exists: `{ source: "selected", sprite }`.
+  2. A saved sprite that already shows the request: `{ source: "library", sprite, match }`. The expression (or pose, for full body) must match by name, and the outfit by folder name or a name facet (`happy_winter_coat`, see [name variants](../characters/sprites.md#name-variants)). With no expression, the outfit's resting picture (neutral, idle, default) matches. The right face in another outfit is not a match.
+  3. Saved sprites to draw it from: `{ source: "reference", references }`, up to `maxReferences` (1 to 4, default 4), best first: the outfit's own pictures, the expression in another outfit, then the resting face and the resting full body. Read them with `read` and pass them as `referenceImages` to `integrations.images.generate`.
+  4. `{ source: "none" }`: draw from the character's description.
+- `read(ownerId, handle)`: `{ base64, mimeType, transparent }`, or null when the sprite is gone. `transparent` says the picture already has a see-through background, so keep it as it is: don't send it through background removal.
+
+Art the package itself keeps for an explicit choice, such as Otome Hearth outfits or Life Sim seasonal clothing, comes before all of this and needs no call. A client view gets the same answer from `GET /api/sprites/:ownerId/match?kind=expression&expression=happy&outfit=winter%20coat`.
+
+```ts
+const sprites = context.api.runtime.sprites;
+const pick = sprites ? await sprites.resolve(characterId, { kind: "full-body", expression: "wave", outfit }) : null;
+if (pick?.source === "selected" || pick?.source === "library") return pick.sprite.url;
+const references =
+  pick?.source === "reference"
+    ? (await Promise.all(pick.references.map((entry) => sprites!.read(characterId, entry.handle))))
+        .filter((picture) => picture !== null)
+        .map((picture) => picture.base64)
+    : [];
+// Generate with `referenceImages: references`, and ask for a see-through picture only on a connection that draws
+// one (its Transparent backgrounds setting).
+```
+
 ### Capability API 1.816: animated GIF images
 
 `images.generate` takes `animation: { frameCount?, frameDurationMs? }` on the request and then returns one looping GIF: `mimeType: "image/gif"`, `ext: "gif"`, which `images.save` stores as a `.gif` file. `{}` uses the Engine defaults, 9 frames of 200 ms. The Engine clamps `frameCount` to 2 to 12 and `frameDurationMs` to 20 to 2000 in steps of 10, and chooses the frame size itself: the smallest valid frame in the shape of `width` and `height`, such as 816x816 for a square or 608x1088 for 9:16. Twelve frames of that size stay under OpenAI's documented 8,294,400 pixels.
@@ -1917,11 +1956,11 @@ it is missing. No permission is needed.
 
 `api.runtime.embeddingsFor(connectionId)` resolves embeddings from a source the package's own setting names, instead of the agent connection that `resolveEmbeddings()` follows. Unlike `resolveEmbeddings()`, it never falls back to the app-wide **Embeddings** default.
 
-| `connectionId` | Resolves |
-| --- | --- |
-| `null` | The built-in local MiniLM embedder. |
-| A connection id | That connection's own embedding source: its **Embedding provider**, **Embedding endpoint URL** and embedding model, as **Test embedding** resolves them. |
-| An id that names no connection, or a connection without a usable embedding source | `null`. It logs and resolves; it does not throw. |
+| `connectionId`                                                                    | Resolves                                                                                                                                                 |
+| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `null`                                                                            | The built-in local MiniLM embedder.                                                                                                                      |
+| A connection id                                                                   | That connection's own embedding source: its **Embedding provider**, **Embedding endpoint URL** and embedding model, as **Test embedding** resolves them. |
+| An id that names no connection, or a connection without a usable embedding source | `null`. It logs and resolves; it does not throw.                                                                                                         |
 
 The returned host is the same shape as `resolveEmbeddings()`: `spaceId`, `label` and `embed(texts, signal?, inputType?)`, with the same limits (128 texts, 200,000 combined characters) and the 1.68 input type. `embed` resolves `null` when the call fails. Each source has its own `spaceId`, so re-embed stored vectors when the setting changes.
 
@@ -2384,6 +2423,8 @@ An unknown, deleted, quarantined or non-speech `audioConnectionId` is ignored an
 resolution runs: the saved speech selection, then the default/fallback connection, then legacy settings.
 If the saved speech selection itself is unavailable, playback refuses rather than borrowing another
 connection. Packages that require a particular connection should validate the saved ID before playback.
+
+To make voice clips before their lines play, see [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead).
 
 - `createPlayer()` returns an independent player with `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,

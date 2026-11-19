@@ -107,6 +107,7 @@ import {
   SPICYAPI_IMAGE_MODELS,
   VIDEO_GENERATION_SOURCES,
   inferImageSource,
+  imageConnectionMakesTransparentPicture,
   isOpenAIGptImageModel,
   isOpenAIGptImage25Model,
   resolveOpenAIImageQuality,
@@ -526,6 +527,7 @@ export function ConnectionEditor({
   const [localMaxTokensOverride, setLocalMaxTokensOverride] = useState<number | null>(null);
   /** "" = Automatic (the catalog decides), else "reads" or "text". */
   const [localImageInput, setLocalImageInput] = useState<"" | "reads" | "text">("");
+  const [localImageTransparency, setLocalImageTransparency] = useState<"" | "supported" | "unsupported">("");
   const [localClaudeFastMode, setLocalClaudeFastMode] = useState(false);
   const [localTreatAsLocalEndpoint, setLocalTreatAsLocalEndpoint] = useState(false);
   const [localDefaultParametersEnabled, setLocalDefaultParametersEnabled] = useState(false);
@@ -715,6 +717,9 @@ export function ConnectionEditor({
     setLocalAudioGenerationFormat(c.audioGenerationFormat === "chat_completions" ? "chat_completions" : "binary");
     setLocalMaxTokensOverride(typeof c.maxTokensOverride === "number" ? (c.maxTokensOverride as number) : null);
     setLocalImageInput(c.imageInput === "reads" || c.imageInput === "text" ? c.imageInput : "");
+    setLocalImageTransparency(
+      c.imageTransparency === "supported" || c.imageTransparency === "unsupported" ? c.imageTransparency : "",
+    );
     setLocalClaudeFastMode(c.claudeFastMode === "true" || c.claudeFastMode === true);
     setLocalTreatAsLocalEndpoint(c.treatAsLocalEndpoint === "true" || c.treatAsLocalEndpoint === true);
     const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(c.defaultParameters);
@@ -851,6 +856,15 @@ export function ConnectionEditor({
   const supportsGptImageQuality =
     localProvider === "image_generation" && selectedImageService === "openai" && isOpenAIGptImageModel(localModel);
   const effectiveImageGenerationQuality = resolveOpenAIImageQuality(localImageGenerationQuality, localModel);
+  /** What Automatic means for this Model: whether it is one known to draw see-through pictures. */
+  const imageTransparencyAutomatic =
+    localProvider === "image_generation" &&
+    imageConnectionMakesTransparentPicture({
+      source: selectedImageService || localModel,
+      baseUrl: localBaseUrl,
+      serviceHint: selectedImageService || localModel,
+      model: localModel,
+    });
   const selectedVideoService =
     localProvider === "video_generation"
       ? localVideoGenerationSource || localVideoService || effectiveVideoGenerationSource
@@ -1091,6 +1105,7 @@ export function ConnectionEditor({
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
       videoPromptInstructions: isVideoProvider ? normalizeVideoPromptInstructions(localVideoPromptInstructions) : null,
       imageGenerationQuality: isImageProvider ? effectiveImageGenerationQuality : "auto",
+      imageTransparency: isImageProvider ? localImageTransparency || null : null,
       videoGenerationSource: isVideoProvider ? selectedVideoProvider || null : null,
       videoService: isVideoProvider
         ? selectedVideoProvider === "swarmui"
@@ -1292,6 +1307,7 @@ export function ConnectionEditor({
     effectiveImageGenerationQuality,
     localMaxTokensOverride,
     localImageInput,
+    localImageTransparency,
     localClaudeFastMode,
     localTreatAsLocalEndpoint,
     localDefaultParametersEnabled,
@@ -1469,6 +1485,7 @@ export function ConnectionEditor({
       imagePromptInstructions: isImageProvider ? normalizeImagePromptInstructions(localImagePromptInstructions) : null,
       videoPromptInstructions: isVideoProvider ? normalizeVideoPromptInstructions(localVideoPromptInstructions) : null,
       imageGenerationQuality: isImageProvider ? effectiveImageGenerationQuality : "auto",
+      imageTransparency: isImageProvider ? localImageTransparency || null : null,
       comfyuiWorkflow:
         isImageProvider || (isVideoProvider && (videoProvider === "comfyui" || videoProvider === "swarmui"))
           ? localComfyuiWorkflow || null
@@ -1522,6 +1539,7 @@ export function ConnectionEditor({
     localImagePromptInstructions,
     localVideoPromptInstructions,
     effectiveImageGenerationQuality,
+    localImageTransparency,
     localComfyuiWorkflow,
     localClaudeFastMode,
     selectedImageDefaultsService,
@@ -3818,6 +3836,36 @@ export function ConnectionEditor({
             </FieldGroup>
           )}
 
+          {/* ── Transparent backgrounds ── */}
+          {localProvider === "image_generation" && (
+            <FieldGroup
+              label={t("connections.editor.imageTransparency.label")}
+              help={t("connections.editor.imageTransparency.help")}
+            >
+              <Select
+                label={t("connections.editor.imageTransparency.label")}
+                value={localImageTransparency}
+                onChange={(next) => {
+                  setLocalImageTransparency((next ?? "") as "" | "supported" | "unsupported");
+                  markDirty();
+                }}
+                className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                options={[
+                  {
+                    value: "",
+                    label: t(
+                      imageTransparencyAutomatic
+                        ? "connections.editor.imageTransparency.autoSupported"
+                        : "connections.editor.imageTransparency.autoUnsupported",
+                    ),
+                  },
+                  { value: "supported", label: t("connections.editor.imageTransparency.supported") },
+                  { value: "unsupported", label: t("connections.editor.imageTransparency.unsupported") },
+                ]}
+              />
+            </FieldGroup>
+          )}
+
           {localProvider === "image_generation" &&
             !["comfyui", "swarmui", "runpod_comfyui", "automatic1111", "drawthings", "pollinations"].includes(
               selectedImageService,
@@ -4797,6 +4845,14 @@ function ImageGenerationDefaultsPanel({
                   )}
                   checked={novelai.dynamicResolutionBySubjectCount}
                   onChange={(checked) => updateNovelAi({ dynamicResolutionBySubjectCount: checked })}
+                  className="border border-[var(--border)] px-3 py-2"
+                  labelClassName="text-[var(--foreground)]"
+                />
+                <SettingsCheckbox
+                  label={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDataset")}
+                  description={localizeUi("ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDatasetHelp")}
+                  checked={novelai.backgroundDataset}
+                  onChange={(checked) => updateNovelAi({ backgroundDataset: checked })}
                   className="border border-[var(--border)] px-3 py-2"
                   labelClassName="text-[var(--foreground)]"
                 />

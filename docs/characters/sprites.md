@@ -48,11 +48,11 @@ If it did not work: a failed or partial import reports the failure instead of a 
 
 ### Name variants
 
-| File name | What it means |
-| --- | --- |
-| `happy_01.png`, `happy_blush.png` | Two happy pictures. Start both names with `happy_`. |
-| `happy_pajamas.png` | Happy, in pajamas. Put the mood first, then the outfit. |
-| `angry_formalwear_soaked_01.png` | Angry, formal wear, soaked. A trailing number only marks another version of the same picture. |
+| File name                         | What it means                                                                                 |
+| --------------------------------- | --------------------------------------------------------------------------------------------- |
+| `happy_01.png`, `happy_blush.png` | Two happy pictures. Start both names with `happy_`.                                           |
+| `happy_pajamas.png`               | Happy, in pajamas. Put the mood first, then the outfit.                                       |
+| `angry_formalwear_soaked_01.png`  | Angry, formal wear, soaked. A trailing number only marks another version of the same picture. |
 
 The Expression Engine sees both the expression (`happy`) and the full name (`happy_pajamas`). If no sprite matches every word, the last word is dropped first, so a missing `happy_pajamas_wounded` falls back to `happy_pajamas`, then to any happy sprite.
 
@@ -98,9 +98,9 @@ Before you start: add an image-generation connection. For animated sprites you a
 1. Open **Add sprites** and click **Generate Sprite**. In the persona editor, the button is in **Add Sprite**. The **Generate Sprites** window opens.
 2. Choose a source at the top: **Expressions (Portrait)** or **Full-body**.
 3. Pick an **Image Generation Connection**.
-4. Optionally add up to four **Reference Images**, or tick the box to use the current avatar as a reference.
+4. Optionally add up to four **Reference Images**, or tick a box to use the current avatar or the character sheet as a reference. When the character already has sprites, **Use a saved sprite as a reference image** is on: its resting face (neutral when there is one) goes with the request, so the new sprites look like the ones you have.
 5. Write an **Appearance Description**. It is required.
-6. Optionally turn on **Transparent sprite background**. Marinara makes the background see-through. If the service cannot do that, Marinara draws a plain green, magenta or cyan background that differs from your **Appearance Description** colors, then removes it.
+6. Optionally turn on **Transparent sprite background**. Marinara makes the background see-through. A model that draws see-through pictures is asked for one, and its edges are kept exactly as drawn. Any other model draws a plain green, magenta or cyan background that differs from your **Appearance Description** colors, and Marinara removes it. The line under the box says which applies. Which models draw see-through pictures is set on the connection: see [Transparent backgrounds](../media/image-providers.md#transparent-backgrounds).
 7. Set **Expression Count** (or **Pose Count** for full-body) and pick which expressions or poses to make.
 8. Optional, for expressions: tick **Flag faces that don't match their expression**. A [decision model that reads pictures](../connections/decision-models.md#features-that-look-at-pictures) looks at each face after it is drawn and marks any that may not show its expression with **Check**, so you can untick or redraw it. Each face takes a moment. Without such a model the box is greyed out.
 9. Click **Generate**.
@@ -117,7 +117,9 @@ On the **Expressions (Portrait)** source, **Generate animated portraits** makes 
 
 ## Clean up sprite backgrounds
 
-A sprite looks best when only the character shows. Generated sprites use native transparency when the service supports it. Otherwise Marinara removes a flat adaptive background color with a soft edge and cleans that color out of hair, fabric and other partly see-through pixels. Older white-background sprites still work.
+A sprite looks best when only the character shows. Generated sprites use native transparency when the model supports it. Otherwise Marinara removes a flat adaptive background color with a soft edge and cleans that color out of hair, fabric and other partly see-through pixels. Older white-background sprites still work.
+
+A picture that already has a see-through background is never cleaned again: background removal would only soften good edges. When a model that draws see-through pictures sends one back with a solid background anyway, Marinara leaves it as drawn and says so in the review step. Click **Apply cleanup** to remove that background, or keep the pictures as they are.
 
 ### Clean one sprite by hand
 

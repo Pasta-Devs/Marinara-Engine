@@ -2173,6 +2173,8 @@ function FolderRow({
     <Reorder.Item
       {...folderDragBindings}
       value={folder.id}
+      // framer-motion 14.6+ makes each item a tab stop with its own keys; the folder header is the stop here.
+      tabIndex={-1}
       layout="position"
       data-chat-folder-id={folder.id}
       dragListener={false}

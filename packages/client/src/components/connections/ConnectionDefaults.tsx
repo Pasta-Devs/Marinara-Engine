@@ -304,7 +304,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
             short: t("connections.defaults.notDownloadedShort"),
             fix: {
               label: t("connections.defaults.setUp"),
-              run: () => useUIStore.getState().openConnectionDetail("device:local-model"),
+              run: () => useUIStore.getState().openConnectionsPanelPage("device:local-model"),
             },
           },
     });
