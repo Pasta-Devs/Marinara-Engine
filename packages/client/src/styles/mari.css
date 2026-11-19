@@ -5025,9 +5025,23 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   gap: 0.125rem;
 }
 
-/* A wide composer keeps one line: the text first, then attach, link, the mode and Send at its end. They sit
-   on the last line of the text as it grows. Narrow composers (phones, the docked panel) keep the toolbar
-   on its own row under the text, where it has the room. */
+/* Attach and the connection come first in the markup (before the text, as in the chat composer) and the Permissions
+   Mode sits just before Send. A narrow composer (phones, the docked panel) shows the text on its own row on top,
+   with attach and the connection at the start of the row under it and the mode beside Send. */
+.mari-workspace-composer > .mari-workspace-composer__context {
+  order: -2;
+}
+
+.mari-workspace-composer > .mari-workspace-composer__text-row {
+  order: -1;
+}
+
+.mari-composer-mode {
+  flex: none;
+}
+
+/* A wide composer keeps one line: attach and the connection, the text, then the mode and Send, which sit on the
+   text's last line as it grows. */
 @container (min-width: 36rem) {
   .mari-workspace-composer {
     align-items: flex-end;
@@ -5035,11 +5049,22 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
 
   .mari-workspace-composer > .mari-workspace-composer__text-row {
     flex: 1 1 0;
+    order: 0;
   }
 
   .mari-workspace-composer > .mari-composer-toolbar {
     flex: none;
+    margin-inline-end: 0.125rem;
+  }
+
+  .mari-workspace-composer > .mari-composer-mode {
     margin-inline-start: 0.25rem;
+  }
+
+  /* The mode's menu opens from its right edge, so it stays inside the composer. */
+  .mari-composer-mode .mari-composer-menu__popover {
+    right: 0;
+    left: auto;
   }
 
   .mari-workspace-composer > .mari-workspace-composer__send,
