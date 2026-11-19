@@ -11,11 +11,11 @@
 
 ## 음성 합성 켜기
 
-**Voice**(음성) 작업에 모델을 고르면 음성 합성이 켜집니다. 메시지마다 **Speak**(읽어 주기) 버튼이 생기고 **Auto-play**(자동 재생) 옵션이 표시됩니다. 무엇을 언제 읽을지는 직접 고릅니다.
+**Voice** 작업에 모델을 고르면 음성 합성이 켜집니다. 메시지마다 **Speak** 버튼이 생기고 **Auto-play**(자동 재생) 옵션이 표시됩니다. 무엇을 언제 읽을지는 직접 고릅니다.
 
-1. 상단 바에서 **Connections**(연결)를 클릭하세요. **Jobs**(작업) 상자의 **Pictures & sound**(이미지 및 사운드) 아래에서 **Voice** 행을 찾으세요.
+1. 상단 바에서 **Connections**를 클릭하세요. **Jobs** 상자의 **Pictures & sound**(이미지 및 사운드) 아래에서 **Voice** 행을 찾으세요.
 2. 행을 클릭하고 음성 모델이나 음성 서비스를 고르세요. 행에 선택한 항목이 표시됩니다.
-3. 행의 톱니바퀴를 클릭해 음성 설정을 여세요. 음성 계정이 없으면 행의 **Add**(추가)를 클릭하거나 빠른 시작 절차대로 추가하세요.
+3. 행의 톱니바퀴를 클릭해 음성 설정을 여세요. 음성 계정이 없으면 행의 **Add**를 클릭하거나 빠른 시작 절차대로 추가하세요.
 4. 음성 합성을 끄려면 행을 클릭하고 **Turn voice off**를 고르세요. 행에 **Off**(꺼짐)가 표시되며 소리 내어 읽지 않습니다.
 
 음성 서비스는 오디오를 생성합니다. Marinara는 다음 서비스를 지원합니다.
@@ -33,9 +33,9 @@ Marinara는 음성 서비스마다 키, 주소, 모델, 목소리, 파라미터�
 
 ### 계정의 Voice 모델 사용하기
 
-이미 **Audio**(오디오) 계정을 추가했다면([지원하는 AI 제공자](../connections/providers-reference.md#audio) 참고) 세부 정보를 다시 입력할 필요가 없습니다. 그 계정의 음성 모델이 **Voice**(음성) 선택기에 나타납니다.
+이미 **Audio**(오디오) 계정을 추가했다면([지원하는 AI 제공자](../connections/providers-reference.md#audio) 참고) 세부 정보를 다시 입력할 필요가 없습니다. 그 계정의 음성 모델이 **Voice** 선택기에 나타납니다.
 
-1. **Jobs**(작업) 상자의 **Voice** 행을 클릭하고 모델을 고르세요.
+1. **Jobs** 상자의 **Voice** 행을 클릭하고 모델을 고르세요.
 2. 행의 톱니바퀴를 클릭하세요. 목소리와 나머지 설정을 고르세요.
 
 Marinara는 계정의 주소, 키, 모델과 **Request timeout (seconds)**(요청 제한 시간, 초)를 쓰므로 음성 설정에 해당 필드가 표시되지 않습니다. 키는 계정에 남으며, 음성 설정에 복사하거나 브라우저로 보내지 않습니다. 새 키처럼 계정에 적용한 변경은 즉시 반영됩니다.
@@ -46,7 +46,7 @@ Marinara는 계정의 주소, 키, 모델과 **Request timeout (seconds)**(요�
 
 ## 주소, 키, 모델 설정하기
 
-**Add account**(계정 추가) 창에서는 키나 주소만 묻습니다. 나중에 바꾸려면 **Connections**(연결)의 계정에서 **⋯**을 클릭한 뒤 **Edit account**(계정 편집)를 여세요. Audio 계정을 골랐다면 이 단계는 건너뛰세요. 해당 계정에서 이 값을 가져옵니다.
+**Add account**(계정 추가) 창에서는 키나 주소만 묻습니다. 나중에 바꾸려면 **Connections**의 계정에서 **⋯**을 클릭한 뒤 **Edit account**(계정 편집)를 여세요. Audio 계정을 골랐다면 이 단계는 건너뛰세요. 해당 계정에서 이 값을 가져옵니다.
 
 1. **Address**(주소)를 확인하세요. 서비스마다 아래 표의 기본값을 채웁니다. 프록시나 직접 운영하는 서버에만 값을 바꾸세요.
 2. **API key**에 키를 붙여넣으세요. 기존 키를 유지하려면 가림 표시된 점을 그대로 두세요. 키를 지우려면 입력란을 비우세요.
@@ -63,15 +63,15 @@ Marinara는 계정의 주소, 키, 모델과 **Request timeout (seconds)**(요�
 
 ### PocketTTS
 
-PocketTTS는 Marinara에 내장되어 있지 않습니다. [공식 PocketTTS 서버](https://github.com/kyutai-labs/pocket-tts)를 따로 설치하고 `uvx pocket-tts serve`로 시작하세요. Marinara가 대신 다운로드하거나 관리하지 않습니다. 공식 서버는 `http://localhost:8000`을 사용합니다. 호스트나 포트를 바꾸지 않았다면 **Address**을 그대로 두세요. Marinara는 공식 multipart `/tts` API를 감지합니다. [OpenAI 호환 PocketTTS 래퍼](https://github.com/teddybear082/pocket-tts-openai_streaming_server)용 사용자 지정 URL도 계속 작동합니다.
+PocketTTS는 Marinara에 내장되어 있지 않습니다. [공식 PocketTTS 서버](https://github.com/kyutai-labs/pocket-tts)를 따로 설치하고 `uvx pocket-tts serve`로 시작하세요. Marinara가 대신 다운로드하거나 관리하지 않습니다. 공식 서버는 `http://localhost:8000`을 사용합니다. 호스트나 포트를 바꾸지 않았다면 **Address**를 그대로 두세요. Marinara는 공식 multipart `/tts` API를 감지합니다. [OpenAI 호환 PocketTTS 래퍼](https://github.com/teddybear082/pocket-tts-openai_streaming_server)용 사용자 지정 URL도 계속 작동합니다.
 
 <a id="request-timeout"></a>
 
 ### 요청 타임아웃
 
-Marinara는 읽어 줄 문장마다 최대 60초를 기다립니다. 컴퓨터, 특히 노트북에서 실행하는 음성 서버는 긴 문장에 시간이 더 걸릴 수 있습니다. **Voice settings**의 **More**(더보기)에서 **Request timeout (seconds)**(요청 제한 시간, 초)를 늘리세요. **Jobs**(작업) 상자의 **Voice**(음성) 행에 있는 톱니바퀴로 이 설정을 엽니다. 범위는 10~3,600초입니다.
+Marinara는 읽어 줄 문장마다 최대 60초를 기다립니다. 컴퓨터, 특히 노트북에서 실행하는 음성 서버는 긴 문장에 시간이 더 걸릴 수 있습니다. **Voice settings**의 **More**(더보기)에서 **Request timeout (seconds)**(요청 제한 시간, 초)를 늘리세요. **Jobs** 상자의 **Voice** 행에 있는 톱니바퀴로 이 설정을 엽니다. 범위는 10~3,600초입니다.
 
-Audio 계정에는 별도의 **Request timeout (seconds)**가 있습니다. 모델의 **Edit model**(모델 편집) 창에서 **Default voice** 아래에 있으며 **Voice settings**에도 있습니다. **Voice** 작업에 지정한 계정을 포함해 Audio 계정으로 읽어 주는 채팅은 그 제한을 적용합니다. **Voice settings**의 제한은 **Preview**(미리 듣기) 등 해당 설정에서 생성하는 오디오에 적용됩니다. 너무 오래 걸리면 오류에 Marinara가 기다린 시간과 늘려야 할 설정이 표시됩니다.
+Audio 계정에는 별도의 **Request timeout (seconds)**가 있습니다. 모델의 **Edit model**(모델 편집) 창에서 **Default voice** 아래에 있으며 **Voice settings**에도 있습니다. **Voice** 작업에 지정한 계정을 포함해 Audio 계정으로 읽어 주는 채팅은 그 제한을 적용합니다. **Voice settings**의 제한은 **Preview** 등 해당 설정에서 생성하는 오디오에 적용됩니다. 너무 오래 걸리면 오류에 Marinara가 기다린 시간과 늘려야 할 설정이 표시됩니다.
 
 ## 목소리 고르기
 
@@ -130,7 +130,7 @@ Audio 계정에는 별도의 **Request timeout (seconds)**가 있습니다. 모�
 
 ## 자동 재생
 
-**Auto-play**(자동 재생) 토글은 각각 한 종류의 새 메시지를 생성이 끝나는 대로 읽어 줍니다. **Voice** 작업에 모델이 필요합니다. 처음에는 모두 꺼져 있습니다.
+**Auto-play** 토글은 각각 한 종류의 새 메시지를 생성이 끝나는 대로 읽어 줍니다. **Voice** 작업에 모델이 필요합니다. 처음에는 모두 꺼져 있습니다.
 
 - **Roleplay messages**(롤플레이 메시지): 새 Roleplay 답변을 읽습니다.
 - **Conversation messages**(대화 메시지): 새 Conversation 답변을 읽습니다.
@@ -154,7 +154,7 @@ Roleplay에서는 주 답변이 저장되는 즉시 음성 준비를 시작합�
 
 ## 메시지 하나 읽기
 
-**Voice** 작업에 모델을 지정하면 각 캐릭터나 내레이터 메시지 아래 도구 모음에 **Speak**(읽어 주기) 버튼이 마이크 아이콘으로 표시됩니다.
+**Voice** 작업에 모델을 지정하면 각 캐릭터나 내레이터 메시지 아래 도구 모음에 **Speak** 버튼이 마이크 아이콘으로 표시됩니다.
 
 - **Speak**를 클릭하면 메시지를 읽습니다. 음성을 받아 오는 동안 버튼이 로딩 상태로 표시됩니다.
 - 재생 중에 다시 클릭하면 멈춥니다. 툴팁에는 **Stop speaking**(말하기 중지)이라고 표시됩니다.
@@ -166,7 +166,7 @@ Roleplay에서는 주 답변이 저장되는 즉시 음성 준비를 시작합�
 
 ## 캐시된 클립
 
-Marinara는 같은 줄을 두 번 생성하지 않도록 생성한 오디오를 브라우저에 저장합니다. **Voice settings**의 **Cached clips** 구역에는 현재 개수와 전체 용량이 실시간으로 표시됩니다. **Export cached TTS clips**(캐시된 TTS 클립 내보내기) 버튼(다운로드 아이콘)을 클릭하면 캐시된 클립을 모두 별도의 오디오 파일로 저장합니다. 캐시는 가장 오래된 클립부터 알아서 정리합니다. 앱에는 캐시를 비우는 버튼이 없습니다. 비우려면 브라우저 데이터를 삭제하세요.
+Marinara는 같은 줄을 두 번 생성하지 않도록 생성한 오디오를 브라우저에 저장합니다. **Voice settings**의 **Cached clips**(캐시된 클립) 구역에는 현재 개수와 전체 용량이 실시간으로 표시됩니다. **Export cached TTS clips**(캐시된 TTS 클립 내보내기) 버튼(다운로드 아이콘)을 클릭하면 캐시된 클립을 모두 별도의 오디오 파일로 저장합니다. 캐시는 가장 오래된 클립부터 알아서 정리합니다. 앱에는 캐시를 비우는 버튼이 없습니다. 비우려면 브라우저 데이터를 삭제하세요.
 
 ## 채팅 모드별 TTS
 
@@ -182,7 +182,7 @@ Marinara는 같은 줄을 두 번 생성하지 않도록 생성한 오디오를 
 
 ## 문제 해결
 
-- **아무것도 읽어 주지 않음**: **Jobs**(작업) 상자의 **Voice**(음성) 행이 **Off**(꺼짐)인지 확인하세요. 알맞은 **Auto-play**(자동 재생) 토글을 확인하거나 메시지에서 **Speak**(읽어 주기)를 쓰세요.
+- **아무것도 읽어 주지 않음**: **Jobs** 상자의 **Voice** 행이 **Off**가 아닌지 확인하세요. 알맞은 **Auto-play** 토글을 확인하거나 메시지에서 **Speak**를 쓰세요.
 - **Voice 행에 The voice account is missing이 표시됨**: 음성 모델의 계정이 삭제되었거나 쓸 수 없습니다. 다른 음성 모델을 고르세요. [계정의 Voice 모델 사용하기](#use-a-voice-model-from-an-account)를 참고하세요.
 - **목록에 목소리가 없음**: **Voice** 행에 모델과 올바른 키가 있는지 확인한 다음 **Refresh voices from provider**를 클릭하세요. 공식 PocketTTS 서버는 Marinara의 내장 목록을 씁니다. 호환 PocketTTS 래퍼의 경우 `<Base URL>/v1/voices`가 응답하는지 확인하세요.
 - **ElevenLabs가 말하지 않을 때**: "Select an ElevenLabs voice" 플레이스홀더가 아니라 실제 목소리를 고르세요. **Model**이 ID에 `ttv`가 들어간 목소리 디자인 모델이 아니라 음성 합성 모델인지 확인하세요.
@@ -219,7 +219,9 @@ Marinara는 같은 줄을 두 번 생성하지 않도록 생성한 오디오를 
 
 ### Gacha Forge 대화와 오디오
 
-Gacha Forge 1.11.0 이상은 **Voice** 작업에서 고른 계정과 캐릭터별 목소리 설정을 사용합니다. - **Read character dialogue**(캐릭터 대사 읽기)를 켜면 목소리가 지정된 가져온 캐릭터의 대사를 읽습니다. 이 옵션은 새 월드의 **Lore**(배경 설정) 설정 단계에 있고, 기존 월드라면 Gacha Forge 자체의 월드 설정에 있습니다. 내레이션, 생각, Engine 캐릭터 ID가 없는 생성 유닛, 목소리가 없는 캐릭터는 소리를 내지 않습니다. 이름만으로 다른 캐릭터의 목소리를 빌려 쓰는 일은 없습니다.
+Gacha Forge 1.11.0 이상은 **Voice** 작업에서 고른 계정과 캐릭터별 목소리 설정을 사용합니다.
+
+- **Read character dialogue**(캐릭터 대사 읽기)를 켜면 목소리가 지정된 가져온 캐릭터의 대사를 읽습니다. 이 옵션은 새 월드의 **Lore**(배경 설정) 설정 단계에 있고, 기존 월드라면 Gacha Forge 자체의 월드 설정에 있습니다. 내레이션, 생각, Engine 캐릭터 ID가 없는 생성 유닛, 목소리가 없는 캐릭터는 소리를 내지 않습니다. 이름만으로 다른 캐릭터의 목소리를 빌려 쓰는 일은 없습니다.
 - **Voice** 작업이 **Off**가 아니면 선택한 Audio 계정을 쓸 수 있습니다.
 - 기본 제공 Game 음악과 효과음에는 생성 계정이 필요 없습니다. 새 트랙을 작곡하려면 Gacha Forge에서 **Generate music and sound effects**(음악과 효과음 생성)를 켜고 **Audio connection**(오디오 연결)에서 Music & Sound Effects 계정을 고르세요. 이 항목은 생성을 켜면 나타납니다. 홈, 전투, 보스, 스토리 장면, 캐릭터 스토리 트랙은 처음 필요할 때 생성된 뒤 재사용됩니다. 이 요청은 내 서비스 계정을 사용합니다.
 - 오른쪽 위 음소거 버튼은 음악, 대사, 효과음을 함께 끕니다. Gacha Forge의 화면 설정에는 이 세 가지의 개별 음량 조절(0 포함)과 자동 재생 대기 시간(기본값 **3초**, 텍스트 표시와 음성 대사가 끝난 뒤 시작)이 있습니다. 선택지는 여전히 플레이어를 기다립니다. 장면을 떠나면 음성 대사가 취소됩니다. 월드를 떠나면 그 월드의 오디오가 멈춥니다.

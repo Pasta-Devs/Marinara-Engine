@@ -71,7 +71,7 @@ Android에서는 이 설정을 따로 지정하지 않으면 기본적으로 켜
 
 ## 판정에 모델 사용하기
 
-같은 모델이 두 번째 사본을 불러오지 않고도 에이전트 활성화 확인 같은 판정 질문에 답할 수 있습니다. 패널에서 그 모델의 **⋯**을 클릭하고 **Use for…** → **Decision**(판단)를 고르세요. 이 항목은 모델 이름이 있는 OpenAI 호환 모델에 표시됩니다. [Decision 모델](decision-models.md#on-a-server-you-already-run)을 참고하세요.
+같은 모델이 두 번째 사본을 불러오지 않고도 에이전트 활성화 확인 같은 판정 질문에 답할 수 있습니다. 패널에서 그 모델의 **⋯**을 클릭하고 **Use for…** → **Decision**(판단)을 고르세요. 이 항목은 모델 이름이 있는 OpenAI 호환 모델에 표시됩니다. [Decision 모델](decision-models.md#on-a-server-you-already-run)을 참고하세요.
 
 ## 작업 순서에 따른 요청 처리
 

@@ -49,8 +49,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "0641c72dccd3b1bdc2af8e1a040878b56a7833379a1c8667294b3bea0519df6b",
-      "bytes": 40113
+      "sha256": "3bc0e4a9e7425268fa40ca8801538d6a46954e03d76e4d52c96f876b5e204aee",
+      "bytes": 40151
     },
     {
       "path": "agents/custom-agents.md",
@@ -224,8 +224,8 @@
     },
     {
       "path": "connections/connecting-to-a-provider.md",
-      "sha256": "cd34586539d419ad4901738185f928c154da6c2536219fcf347f091d5cd8c438",
-      "bytes": 15410
+      "sha256": "46902ac37751abdd7275a2b7a2ad32f50ded2eb15ee5011465aab477070b23a6",
+      "bytes": 15417
     },
     {
       "path": "connections/decision-models.md",
@@ -239,7 +239,7 @@
     },
     {
       "path": "connections/local-self-hosted.md",
-      "sha256": "e4422010751f22e72086014706e1a88f53368721187d16119bfbbfa9aaa25ca0",
+      "sha256": "1172e6be67599df8f3dc6c46bb21d7777a4206e90ef7c9f4a146c50f69816c4a",
       "bytes": 9354
     },
     {
@@ -264,8 +264,8 @@
     },
     {
       "path": "conversation/calls.md",
-      "sha256": "ba164ffc868f88819099a637750fe01627d8f4519f1838d90a960f9d2ba824d9",
-      "bytes": 21287
+      "sha256": "fdd1f35c2ba19c3d4e33f5be8c02c6e2acd13f4688256077df9e6e3632f7aa18",
+      "bytes": 21280
     },
     {
       "path": "conversation/emoji-stickers-gifs.md",
@@ -274,8 +274,8 @@
     },
     {
       "path": "conversation/getting-started.md",
-      "sha256": "7ffc43b37dad8c997af462ffbd1784ed81797a78a05edc9c7dc6f9bfc1896490",
-      "bytes": 9272
+      "sha256": "4d40aef8ba03ee98c592c90bd4ef56bf95c72e489af60cb0a1527ef03e161857",
+      "bytes": 9276
     },
     {
       "path": "conversation/profiles.md",
@@ -674,8 +674,8 @@
     },
     {
       "path": "media/scene-video.md",
-      "sha256": "8fee76c472e01bf61300dc047289dd84ce60e300ecbb44f6fe9f01bede52cbe6",
-      "bytes": 23549
+      "sha256": "b8f70003fda5e2700ca71e7acfd4210dc5fd887724d79af1490f1425dda77736",
+      "bytes": 23536
     },
     {
       "path": "media/style-profiles.md",
@@ -684,8 +684,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "58beb2bad0bb74cdde34602ed02e6b1cd3859834d48a47584ea2471b8feb0665",
-      "bytes": 26756
+      "sha256": "89c0106bfe0d6cad78bae1106399c4bef5fea1add449cdebc2864793fb060172",
+      "bytes": 26596
     },
     {
       "path": "prompts/conditional-prompts.md",

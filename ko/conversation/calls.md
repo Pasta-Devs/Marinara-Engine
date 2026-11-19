@@ -48,7 +48,7 @@ Text to Speech는 어떤 캐릭터가 어떤 목소리로 말할 수 있는지 �
 2. 음성 모델이나 음성 서비스를 고르세요. 고르면 음성 합성이 켜집니다. 키와 주소는 모델의 계정에서 가져옵니다.
 3. **Voice** 행에서 톱니바퀴를 클릭해 **Voice settings**를 여세요.
 4. **Who speaks**에서 **Shared voice**를 고르거나 **Character and persona voices**에서 캐릭터와 페르소나마다 목소리를 지정하세요. 목소리가 다르면 그룹 통화에서 누가 말하는지 알아듣기 쉽습니다.
-5. **Preview**(미리보기)를 클릭해 소리가 들리는지 확인하세요.
+5. **Preview**(미리 듣기)를 클릭해 소리가 들리는지 확인하세요.
 
 Marinara가 찾을 수 있는 음성이 없는 캐릭터는 이번 통화에서 텍스트로만 참여합니다.
 
@@ -147,7 +147,7 @@ Local Whisper는 Marinara를 실행하는 컴퓨터에서 내 음성을 텍스�
 
 Local Whisper가 내 언어나 억양을 잘 알아듣지 못하면 음성을 다른 음성 인식 서버로 보내세요. OpenAI 음성 인식 형식(`/audio/transcriptions` 주소)을 받는 서버라면 직접 운영하든 OpenAI나 Groq 같은 서비스를 쓰든 상관없이 작동합니다.
 
-1. **Connections**를 열고 **Jobs**(작업) 상자의 **Dictation**(받아쓰기) 행에서 톱니바퀴를 클릭하세요. **Speech to text**(음성 인식) 서버 설정이 여기에 있습니다. Calls를 설치하지 않았으면 숨겨집니다.
+1. **Connections**를 열고 **Jobs** 상자의 **Dictation**(받아쓰기) 행에서 톱니바퀴를 클릭하세요. **Speech to text**(음성 인식) 서버 설정이 여기에 있습니다. Calls를 설치하지 않았으면 숨겨집니다.
 2. **Server URL**(서버 URL)을 입력하세요. 예를 들면 `http://localhost:8000/v1`입니다.
 3. 서버가 요구하면 **API key**(API 키)를 입력하세요. 암호화해서 저장하며 가려진 채로 표시됩니다.
 4. 서버가 쓰는 **Model**(모델) 이름을 입력하세요. 비워 두면 `whisper-1`을 보냅니다.

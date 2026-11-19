@@ -57,7 +57,7 @@
 | **8-Ball Pool** | 포켓볼 한 게임을 준비합니다. | 8-Ball Pool |
 | **Tic-Tac-Toe** | 틱택토 도전을 수락합니다. | Tic-Tac-Toe |
 | **Rock-Paper-Scissors** | 가위바위보 대결을 수락합니다. | Rock-Paper-Scissors |
-| 게임 이름이 붙은 다른 게임 | 해당 게임을 시작하거나 제안을 수락합니다. | Blackjack이나 Wordle 등 해당 게임 |
+| 기타 게임(게임 이름으로 호출) | 해당 게임을 시작하거나 제안을 수락합니다. | Blackjack이나 Wordle 등 해당 게임 |
 
 **Influence**와 **Notes**는 [Conversation을 Roleplay나 Game에 연결하기](../chats/connected-chats.md)를 참고하세요. 마지막 열은 **Agent Organizer**에서 설치할 에이전트 이름입니다.
 

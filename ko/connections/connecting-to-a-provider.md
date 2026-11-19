@@ -75,7 +75,7 @@
 
 각 행에는 작업을 맡은 모델이 표시됩니다. 모델이 없으면 **Follows Main**(메인 따름)이나 **Off**(꺼짐)처럼 모델이 없을 때의 동작이 표시됩니다. 빈 작업에는 **N models found**와 **Pick** 또는 **None in your accounts**와 **Add**가 표시됩니다. 선택기에는 모든 계정에서 해당 작업에 적합한 모델이 나옵니다. **Add**를 누르면 **Add account** 창이 열리고, 추가 후 같은 작업으로 돌아갑니다. **Jobs**를 클릭하면 상자가 접힙니다.
 
-작업의 모델을 바꾸려면 그 행을 클릭하세요. 세 행을 빼면 그 작업의 **Model for**(용도별 모델) 창이 열립니다. **Decision**과 **Embeddings**는 각자의 컨트롤을 엽니다([Decision 모델](decision-models.md)과 [지원하는 AI 제공자](providers-reference.md#embeddings) 참고). **Dictation**는 음성 설정을 엽니다. **Voice**와 **Dictation**의 톱니바퀴를 클릭하면 각각의 설정 창이 열립니다. **Voice** 모델을 고르면 음성 합성이 켜집니다.
+작업의 모델을 바꾸려면 그 행을 클릭하세요. 세 행을 빼면 그 작업의 **Model for**(용도별 모델) 창이 열립니다. **Decision**과 **Embeddings**는 각자의 컨트롤을 엽니다([Decision 모델](decision-models.md)과 [지원하는 AI 제공자](providers-reference.md#embeddings) 참고). **Dictation**은 음성 입력 설정을 엽니다. **Voice**와 **Dictation**의 톱니바퀴를 클릭하면 각각의 설정 창이 열립니다. **Voice** 모델을 고르면 음성 합성이 켜집니다.
 
 **Model for** 창에서는 다음과 같이 하세요.
 
