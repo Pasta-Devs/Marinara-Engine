@@ -1870,6 +1870,17 @@ connection's cache time applies.
 
 Older Engines ignore the option, so a package can always pass it. Declare 1.815 when the package relies on it.
 
+### Capability API 1.835: prepare voice clips ahead
+
+`services.tts.ttsService.prepareAudio(text, options?)` makes a line's clip into the shared audio cache without playing it. Call it with the same text and options a later `speak` or `speakSequence` will use: `cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone` and `audioConnectionId`. That call then starts playing at once, with no second synthesis.
+
+- A clip already cached, or being made by another call, is not made again.
+- Playback is never stopped or changed, so a package can prepare the next lines while one plays.
+- A line without text or a `cacheKey` is skipped, since nothing could find its clip.
+- `options.signal` stops only the wait. The synthesis already sent goes on and is cached, unless `abortCacheGenerationOnAbort` is set.
+
+It needs no permission. Older Engines leave the method out, so check `typeof ttsService.prepareAudio === "function"` and keep voicing lines as they appear. Declare 1.835 only when the package cannot work without it.
+
 ### Capability API 1.834: saved sprites and the artwork rule
 
 `api.runtime.sprites` reads a character's or persona's saved sprites, so a package uses the art the user already has before it draws new art. It needs no permission. Older Engines leave it out, so check for it.
@@ -2412,6 +2423,8 @@ An unknown, deleted, quarantined or non-speech `audioConnectionId` is ignored an
 resolution runs: the saved speech selection, then the default/fallback connection, then legacy settings.
 If the saved speech selection itself is unavailable, playback refuses rather than borrowing another
 connection. Packages that require a particular connection should validate the saved ID before playback.
+
+To make voice clips before their lines play, see [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead).
 
 - `createPlayer()` returns an independent player with `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,
