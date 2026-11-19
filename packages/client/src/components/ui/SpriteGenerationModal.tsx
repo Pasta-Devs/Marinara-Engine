@@ -813,7 +813,7 @@ export function SpriteGenerationModal({
     setReferenceImages((prev) =>
       prev.length > maxUploadedReferenceImages ? prev.slice(0, Math.max(0, maxUploadedReferenceImages)) : prev,
     );
-  }, [maxUploadedReferenceImages]);
+  }, [maxUploadedReferenceImages, referenceImages.length]);
   const effectiveReferenceImages = useMemo(
     () =>
       [

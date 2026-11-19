@@ -642,4 +642,18 @@ console.info("Sprite background regression passed.");
   );
   const fittedCutout = await decodeRaw(await fitSpriteToSize(cutoutPng, size, size + 16));
   assert.equal(pixelAt(fittedCutout.data, size, 1, 1).alpha, 0, "a see-through picture gets see-through bars");
+
+  // Clear only at its corners (too little for the ratio test): still padded with see-through bars.
+  const cornersOnly = solidImage(size, size, [200, 40, 40, 255]);
+  for (const [cx, cy] of [
+    [0, 0],
+    [size - 1, 0],
+    [0, size - 1],
+    [size - 1, size - 1],
+  ])
+    setPixel(cornersOnly, size, cx, cy, [0, 0, 0, 0]);
+  const fittedCorners = await decodeRaw(
+    await fitSpriteToSize(await encodeRaw(cornersOnly, size, size), size, size + 16),
+  );
+  assert.equal(pixelAt(fittedCorners.data, size, 1, 1).alpha, 0, "a clear corner keeps the padding see-through");
 }
