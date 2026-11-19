@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Sprite background contracts and matte cleanup
 // ──────────────────────────────────────────────
+import { NOVELAI_TRANSPARENCY_TAGS } from "@marinara-engine/shared";
 import { getBackgroundRemoverStatus, tryRemoveBackgroundWithBackgroundRemover } from "./background-remover.service.js";
 import { clampByte, clampUnit, getSharp, type RgbColor } from "./sharp-runtime.js";
 
@@ -73,15 +74,23 @@ export function spriteChromaMatteInstruction(matte: SpriteChromaMatte): string {
   ].join(", ");
 }
 
-export function applySpriteBackgroundInstruction(
-  prompt: string,
-  options: { matte: SpriteChromaMatte; nativeTransparentPng: boolean; removeBackground: boolean },
-): string {
+/** Background options for a sprite prompt. `transparencyTags` is for tag-prompted models that draw real alpha
+ *  (NovelAI V5): they get the tags that switch it on, and no chroma fallback, which they would draw literally. */
+export type SpriteBackgroundOptions = {
+  matte: SpriteChromaMatte;
+  nativeTransparentPng: boolean;
+  removeBackground: boolean;
+  transparencyTags?: boolean;
+};
+
+export function applySpriteBackgroundInstruction(prompt: string, options: SpriteBackgroundOptions): string {
   if (!options.nativeTransparentPng && !options.removeBackground) return prompt;
 
   const chromaFallback = spriteChromaMatteInstruction(options.matte);
   const replacement = options.nativeTransparentPng
-    ? `no background, transparent PNG format. If native transparency is unsupported, ${chromaFallback}`
+    ? options.transparencyTags
+      ? `${NOVELAI_TRANSPARENCY_TAGS}, no background`
+      : `no background, transparent PNG format. If native transparency is unsupported, ${chromaFallback}`
     : chromaFallback;
   const updated = prompt.replace(
     /\b(?:(?:solid|plain) white(?: studio)? background|white studio background|white background)\b/giu,
@@ -92,12 +101,10 @@ export function applySpriteBackgroundInstruction(
   return `${updated}, ${replacement}`;
 }
 
-export function spriteBackgroundContract(options: {
-  matte: SpriteChromaMatte;
-  nativeTransparentPng: boolean;
-  removeBackground: boolean;
-}): string {
+export function spriteBackgroundContract(options: SpriteBackgroundOptions): string {
   if (!options.nativeTransparentPng && !options.removeBackground) return "";
+  // The tags already in the prompt are the whole instruction for a tag-prompted model.
+  if (options.nativeTransparentPng && options.transparencyTags) return "";
   const matteInstruction = spriteChromaMatteInstruction(options.matte);
   return options.nativeTransparentPng
     ? `MANDATORY BACKGROUND CONTRACT: output native transparency with no backdrop. If the provider cannot return alpha transparency, ${matteInstruction}.`

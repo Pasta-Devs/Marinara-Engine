@@ -73,7 +73,8 @@ export type ImageTransparencySetting = "supported" | "unsupported" | null | unde
 /**
  * Whether an image connection draws see-through pictures, so a sprite or sticker can ask for one instead of a flat
  * colour Marinara removes afterwards. The Model's own setting wins; Automatic says yes only for the models known to
- * return alpha: GPT Image 1, 1.5, 2.5 and 2.6 on OpenAI (not ToAPIs), OpenRouter and ChatGPT (Codex login).
+ * return alpha: GPT Image 1, 1.5, 2.5 and 2.6 on OpenAI (not ToAPIs), OpenRouter and ChatGPT (Codex login), and NovelAI V5
+ * on NovelAI's own host.
  * GPT Image 2 has no alpha. The connection is given as the routes map a row (see imageConnectionMakesAnimatedGif).
  */
 export function imageConnectionMakesTransparentPicture(connection: {
@@ -89,8 +90,42 @@ export function imageConnectionMakesTransparentPicture(connection: {
   const model = (connection.model ?? "").trim().replace(/^openai\//i, "");
   if (backend === "openai") return !isToAPIsMediaUrl(connection.baseUrl) && supportsOpenAITransparentBackground(model);
   if (backend === "openrouter" || backend === "codex_chatgpt") return supportsOpenAITransparentBackground(model);
+  if (backend === "novelai") return novelAiDrawsTransparency(connection.baseUrl, model);
   return false;
 }
+
+/** NovelAI V5 (diffusion 5, full or curated) on NovelAI's own host draws real alpha when asked with tags. */
+export function isNovelAiV5ImageModel(model?: string | null): boolean {
+  return /^nai-diffusion-5(?:-(?:curated|full))?$/i.test(model?.trim() ?? "");
+}
+
+function novelAiDrawsTransparency(baseUrl: string, model: string): boolean {
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase().replace(/\.$/, "");
+    return (host === "novelai.net" || host.endsWith(".novelai.net")) && isNovelAiV5ImageModel(model);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a see-through request to this connection is written as tags rather than a sentence. NovelAI reads
+ * comma-separated tags: it needs "transparent background, alpha transparency" and no flat-colour fallback, since a
+ * named backdrop colour is a tag it would paint.
+ */
+export function imageConnectionAsksTransparencyWithTags(connection: {
+  source: string;
+  baseUrl: string;
+  serviceHint: string;
+  model?: string;
+}): boolean {
+  return (
+    resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model) === "novelai"
+  );
+}
+
+/** The tags that ask NovelAI V5 for a see-through picture. */
+export const NOVELAI_TRANSPARENCY_TAGS = "transparent background, alpha transparency";
 
 export function resolveOpenAIImageQuality(value: unknown, model?: string | null): ImageGenerationQuality {
   if (value === "low" || value === "medium" || value === "high") return value;

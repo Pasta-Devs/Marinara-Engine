@@ -29,7 +29,9 @@ import {
   isEmptyCharacterTagEdit,
   GREETING_IMAGE_BAKE_MAX_PER_REQUEST,
   restoreBakedGreetingImages,
+  imageConnectionAsksTransparencyWithTags,
   imageConnectionMakesTransparentPicture,
+  NOVELAI_TRANSPARENCY_TAGS,
   resolveOpenAIGifAnimation,
   gallerySheetGrid,
   parseGallerySheetNames,
@@ -648,11 +650,37 @@ function gallerySheetWantsTransparency(
   });
 }
 
+/** How a see-through sheet is asked for: false (not at all), true (an instruction with a green-screen fallback),
+ *  or "tags" for a tag-prompted model that draws real alpha (NovelAI V5), which would paint the fallback literally. */
+function gallerySheetSeeThrough(
+  purpose: AvatarGenerationBody["purpose"],
+  conn: Parameters<typeof gallerySheetWantsTransparency>[1],
+): boolean | "tags" {
+  if (!gallerySheetWantsTransparency(purpose, conn)) return false;
+  const model = conn.model || "";
+  const source = conn.imageGenerationSource || model;
+  const tags = imageConnectionAsksTransparencyWithTags({
+    source,
+    baseUrl: conn.baseUrl || "https://image.pollinations.ai",
+    serviceHint: conn.imageService || source,
+    model,
+  });
+  return tags ? "tags" : true;
+}
+
 /** Ask for a see-through sheet, keeping the green screen as the fallback the gallery keys out when the service
- *  paints a backdrop anyway. A prompt edited so it no longer names the green screen gets the request added. */
-export function withGallerySheetTransparency(prompt: string): string {
+ *  paints a backdrop anyway. With `tags` (NovelAI V5) the green screen is swapped for the tags that switch real
+ *  alpha on, with no fallback. A prompt edited so it no longer names the green screen gets the request added. */
+export function withGallerySheetTransparency(prompt: string, tags = false): string {
   const greenScreen =
     /Plain flat solid pure green \(#00FF00\) background everywhere, like a green screen, (with no green in the [^;.]+?)(;|\.)/iu;
+  if (tags) {
+    const request = `${NOVELAI_TRANSPARENCY_TAGS}, no background`;
+    if (greenScreen.test(prompt)) {
+      return prompt.replace(greenScreen, (_match, _noGreen: string, end: string) => `${request}${end}`);
+    }
+    return `${prompt.trimEnd()} ${request}.`;
+  }
   if (greenScreen.test(prompt)) {
     return prompt.replace(
       greenScreen,
@@ -667,7 +695,7 @@ async function buildAvatarGenerationPrompt(
   promptOverridesStorage: ReturnType<typeof createPromptOverridesStorage>,
   body: AvatarGenerationBody,
   profile: Pick<ImageStyleProfile, "promptMode" | "subjectTags">,
-  seeThrough = false,
+  seeThrough: boolean | "tags" = false,
 ): Promise<string> {
   const name = body.name?.trim() || (body.purpose === "cover" ? "Lorebook" : "Character");
   const appearance = body.appearance?.trim() || name;
@@ -689,7 +717,7 @@ async function buildAvatarGenerationPrompt(
       body.purpose === "emoji-sheet" ? CHARACTERS_EMOJI_SHEET : CHARACTERS_STICKER_SHEET,
       { name, appearance, count: stickers.length, cols, rows, expressions: stickers.join(", ") },
     );
-    return seeThrough ? withGallerySheetTransparency(sheetPrompt) : sheetPrompt;
+    return seeThrough ? withGallerySheetTransparency(sheetPrompt, seeThrough === "tags") : sheetPrompt;
   }
   return buildAvatarPortraitLeadPrompt({
     name,
@@ -1730,7 +1758,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         promptOverridesStorage,
         body,
         avatarStyleProfile,
-        gallerySheetWantsTransparency(body.purpose, resolved.conn),
+        gallerySheetSeeThrough(body.purpose, resolved.conn),
       ),
       userPositive: purposeInfo.kind === "avatar" ? body.appearance : undefined,
       styleProfiles: imageSettings.styleProfiles,
@@ -1815,7 +1843,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
     );
     const imageFallback = await resolveImageConnectionFallback(connections, conn.id);
-    const seeThrough = gallerySheetWantsTransparency(body.purpose, conn);
+    const seeThrough = gallerySheetSeeThrough(body.purpose, conn);
     const compiled = promptOverride
       ? {
           prompt: promptOverride.prompt,
@@ -1862,6 +1890,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         quality: resolveConnectionImageQuality(conn),
         // A see-through sheet keeps its alpha: no WebP re-encode, and the gallery skips keying a sheet already clear.
         ...(seeThrough ? { transparentBackground: true, preserveProviderOutput: true } : {}),
+        ...(body.purpose === "background" ? { sceneBackground: true } : {}),
         animation:
           body.animation && typeof body.animation === "object" ? resolveOpenAIGifAnimation(body.animation) : undefined,
         debugMode: debugOverrideEnabled,

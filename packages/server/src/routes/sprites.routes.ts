@@ -5,6 +5,7 @@ import { decryptCustomHeaders } from "../utils/stored-secrets.js";
 import type { FastifyInstance } from "fastify";
 import {
   isOpenAIGptImageModel,
+  imageConnectionAsksTransparencyWithTags,
   imageConnectionMakesTransparentPicture,
   normalizeSpriteExpressionKey,
   supportsOpenAIImageCustomSize,
@@ -233,6 +234,8 @@ type SpritePromptPlan = {
   prompt: string;
   matte: SpriteChromaMatte;
   nativeTransparentPng: boolean;
+  /** NovelAI V5: asked for transparency with tags, never with a chroma fallback it would draw. */
+  transparencyTags: boolean;
   backgroundContract: string;
   talkingHeadFaces: boolean;
   sheetWidth: number;
@@ -328,6 +331,22 @@ export function resolveSpriteNativeTransparency(
       connection.imageTransparency === "supported" || connection.imageTransparency === "unsupported"
         ? connection.imageTransparency
         : null,
+  });
+}
+
+/** Whether a see-through sprite is asked for with tags (NovelAI V5) rather than an instruction with a chroma fallback. */
+export function resolveSpriteTransparencyTags(
+  connection: SpriteTransparencyConnection | null | undefined,
+  nativeTransparentPng: boolean,
+): boolean {
+  if (!nativeTransparentPng || !connection) return false;
+  const model = connection.model || "";
+  const source = connection.imageGenerationSource || model;
+  return imageConnectionAsksTransparencyWithTags({
+    source,
+    baseUrl: connection.baseUrl || "https://image.pollinations.ai",
+    serviceHint: connection.imageService || source,
+    model,
   });
 }
 
@@ -629,6 +648,18 @@ function withSpriteSheetLayoutContract(
 }
 
 function withSpriteBackgroundContract(prompt: SpriteCompiledPrompt, plan: SpritePromptPlan): SpriteCompiledPrompt {
+  if (plan.nativeTransparentPng && plan.transparencyTags) {
+    // Tag-prompted alpha (NovelAI V5): keep backdrops out, but never negate the words that switch transparency on.
+    return {
+      prompt: prompt.prompt,
+      negativePrompt: [
+        prompt.negativePrompt,
+        "white background, gray background, checkerboard, textured background, gradient background, scenery, floor line, cast shadow, visible grid lines, panel borders, separator lines",
+      ]
+        .filter(Boolean)
+        .join(", "),
+    };
+  }
   if (!plan.backgroundContract) return prompt;
 
   return {
@@ -1333,11 +1364,13 @@ async function buildSpritePromptPlan(
   const promptOverridesStorage = createPromptOverridesStorage(db);
   const trimmedAppearance = body.appearance?.trim() || "";
   const nativeTransparentPng = resolveSpriteNativeTransparency(connection, body.nativeTransparentPng === true);
+  const transparencyTags = resolveSpriteTransparencyTags(connection, nativeTransparentPng);
   const matte = selectSpriteChromaMatte(trimmedAppearance);
   const backgroundOptions = {
     matte,
     nativeTransparentPng,
     removeBackground: body.noBackground === true,
+    transparencyTags,
   };
   const { sheetWidth, sheetHeight, cellWidth, cellHeight } = resolveSpriteSheetCanvas({
     cols,
@@ -1407,6 +1440,7 @@ async function buildSpritePromptPlan(
     prompt,
     matte,
     nativeTransparentPng,
+    transparencyTags,
     backgroundContract: spriteBackgroundContract(backgroundOptions),
     talkingHeadFaces: body.talkingHeadFaces === true && body.spriteType !== "full-body",
     sheetWidth,
@@ -1441,6 +1475,7 @@ async function buildIndividualFullBodyExpressionRequest({
     matte: plan.matte,
     nativeTransparentPng: plan.nativeTransparentPng,
     removeBackground: body.noBackground === true,
+    transparencyTags: plan.transparencyTags,
   });
 
   const compiledPrompt = compileSpritePrompt(sourcePrompt, {
@@ -2242,6 +2277,7 @@ export async function spritesRoutes(app: FastifyInstance) {
             matte: plan.matte,
             nativeTransparentPng: plan.nativeTransparentPng,
             removeBackground: body.noBackground === true,
+            transparencyTags: plan.transparencyTags,
           });
           const compiledPrompt = compileSpritePrompt(expressionPrompt, {
             appearance: plan.appearance,
@@ -2704,6 +2740,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                   matte: plan.matte,
                   nativeTransparentPng,
                   removeBackground: body.noBackground === true,
+                  transparencyTags: plan.transparencyTags,
                 });
                 const compiledExpressionPrompt = compileSpritePrompt(expressionPrompt, {
                   appearance: plan.appearance,

@@ -1321,6 +1321,7 @@ export async function generateBackground(req: BackgroundGenRequest): Promise<str
         fallback: req.imgFallback,
         signal: req.signal,
         preserveProviderOutput: true,
+        sceneBackground: true,
       },
     );
 
@@ -1394,6 +1395,7 @@ export async function generateChatBackground(req: ChatBackgroundGenRequest): Pro
         fallback: req.imgFallback,
         signal: req.signal,
         preserveProviderOutput: true,
+        sceneBackground: true,
       },
     );
 
@@ -1694,6 +1696,7 @@ export async function generateChatBackgroundWeatherVersion(
         referenceImage: reference,
         referenceIsCanvas: true,
         preserveProviderOutput: true,
+        sceneBackground: true,
       });
     const { result } = await generateCheckedPicture({
       mode: req.pictureCheck?.mode ?? "off",
