@@ -3970,25 +3970,27 @@ export function ConnectionEditor({
             label={t("connections.editor.imageTransparency.label")}
             help={t("connections.editor.imageTransparency.help")}
           >
-            <select
+            <Select
+              label={t("connections.editor.imageTransparency.label")}
               value={localImageTransparency}
-              aria-label={t("connections.editor.imageTransparency.label")}
-              onChange={(event) => {
-                setLocalImageTransparency(event.target.value as "" | "supported" | "unsupported");
+              onChange={(next) => {
+                setLocalImageTransparency(next as "" | "supported" | "unsupported");
                 markDirty();
               }}
               className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-            >
-              <option value="">
-                {t(
-                  imageTransparencyAutomatic
-                    ? "connections.editor.imageTransparency.autoSupported"
-                    : "connections.editor.imageTransparency.autoUnsupported",
-                )}
-              </option>
-              <option value="supported">{t("connections.editor.imageTransparency.supported")}</option>
-              <option value="unsupported">{t("connections.editor.imageTransparency.unsupported")}</option>
-            </select>
+              options={[
+                {
+                  value: "",
+                  label: t(
+                    imageTransparencyAutomatic
+                      ? "connections.editor.imageTransparency.autoSupported"
+                      : "connections.editor.imageTransparency.autoUnsupported",
+                  ),
+                },
+                { value: "supported", label: t("connections.editor.imageTransparency.supported") },
+                { value: "unsupported", label: t("connections.editor.imageTransparency.unsupported") },
+              ]}
+            />
           </FieldGroup>
         )}
 

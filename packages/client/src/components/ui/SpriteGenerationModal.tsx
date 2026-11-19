@@ -2376,8 +2376,7 @@ export function SpriteGenerationModal({
               )}
               {hasCharacterSheetReference && (
                 <label className="mb-2 flex items-center gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={useCharacterSheetReference}
                     onChange={(e) => setUseCharacterSheetReference(e.target.checked)}
                     className="accent-[var(--primary)]"
