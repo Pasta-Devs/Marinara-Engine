@@ -367,7 +367,7 @@ En cas d'erreur, une exception `ApiError` est levée ; elle porte les propriét�
 
 ## Sélecteurs et menus déroulants
 
-Chaque contrôle de sélection ouvre une fenêtre de sélection commune. Modifie la surface, les lignes ou la largeur dans les composants partagés ci-dessous. Évite les `<select>` natifs et les listes dans un menu flottant propre à une fonctionnalité. L'application n'en utilise plus.
+Chaque contrôle de sélection ouvre une fenêtre de sélection commune. Modifie la surface, les lignes ou la largeur uniquement dans les composants partagés ci-dessous, jamais dans une fonctionnalité. N'utilise pas de `<select>` natif et ne crée pas ta propre liste dans un menu flottant. L'application n'en utilise plus.
 
 | Couche | Fichier | Rôle |
 | --- | --- | --- |
