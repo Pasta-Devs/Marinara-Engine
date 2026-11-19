@@ -36,7 +36,7 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 
 | 步骤 | 设置内容 |
 | --- | --- |
-| **Connection**(连接) | **Game Name**(游戏名称)、运行 GM 的 **Model**，以及可选的 **Scene effects model**。**Game Mode**(游戏玩法) 卡片目前只显示 **VN**(见 [VN 还是 Overworld](#vn-or-overworld))。 |
+| **Connection**(连接) | **Game Name**(游戏名称)、运行 GM 的 **Model**，以及可选的 **Scene effects model**。**Game Mode**(游戏玩法) 卡片目前只显示 **VN**。 |
 | **World**(世界) | 类型、背景、基调、难度、内容分级、故事风格、暴力程度、内容边界和语言。**Combat Preference**(战斗偏好) 为 **Turn-Based**(回合制) 或 **Tactical**(网格战斗)。所有新游戏都采用 **MRPG**(Marinara RPG) 职业（见 [MRPG 职业](mrpg-classes.md)）。安装了规则集时，会出现 **Rules**(规则) 选项（见[选择规则](#choose-rules)）。 |
 | **Party**(队伍) | 你的用户角色（你扮演的角色）、**Game Master Mode**、队伍成员和 **GM intro message**(GM 开场消息)（见 [GM 开场消息](#the-gm-intro-message)）。每位成员的 MRPG 起始树来自其卡片的 **Game Mode** 区块（见[选择角色的树](mrpg-classes.md#choose-a-characters-trees)）。 |
 | **Goals**(目标) | 你想从这场冒险里得到什么。 |
@@ -54,7 +54,7 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 
 | 设置项 | 默认值 | 说明 |
 | --- | --- | --- |
-| Genre | Fantasy | 可多选，也能自己加。先选的设定包会设定它自己的类型。 |
+| Genre | Fantasy | 可多选，也能自己加。|
 | Tone | Heroic | 可多选。 |
 | Difficulty | Normal | **Casual**、**Normal**、**Hard** 或 **Brutal**。设置越高，战斗越难：MRPG 游戏会出现更多、更强的敌人（见 [MRPG 游戏中的战斗](combat.md#battles-in-an-mrpg-game)），Legacy 游戏中的敌人则会打得更重（见[难度缩放](combat.md#difficulty-scaling)）。 |
 | Content Rating (sexual content)(内容分级（性内容）) | SFW | **SFW** 或 **NSFW**。只涉及性内容。NSFW 只是允许，不会强制出现。 |
@@ -157,7 +157,7 @@ Game Mode 是三种聊天模式之一（Conversation(对话模式)、Roleplay(�
 
 | 控件 | 内容 |
 | --- | --- |
-| **Game controls**(游戏控制)（游戏手柄） | **Retry turn**、**Retry scene analysis**、Music DJ 负责播放音乐时的 **Retry Music DJ**，以及 **Retry assets image generation**。分镜作为背景时，还有重播、播放/暂停和静音。在有这些视图的游戏里，**Show the scene**(显示场景)、**Show the overworld**(显示大地图) 和 **Show the map**(显示地图) 用来切换视图。**Edit game data**(编辑游戏数据) 可以手动修正保存的数据（见[手动编辑游戏数据](sessions-and-saves.md#editing-game-data-by-hand)）。**Checkpoints**(检查点) 可以回到更早的某个时刻（见[游戏如何保存](sessions-and-saves.md#how-your-game-saves)）。 |
+| **Game controls**(游戏控制)（游戏手柄） | **Retry turn**、**Retry scene analysis**、Music DJ 负责播放音乐时的 **Retry Music DJ**，以及 **Retry assets image generation**。分镜作为背景时，还有重播、播放/暂停和静音。**Edit game data**(编辑游戏数据) 可以手动修正保存的数据（见[手动编辑游戏数据](sessions-and-saves.md#editing-game-data-by-hand)）。**Checkpoints**(检查点) 可以回到更早的某个时刻（见[游戏如何保存](sessions-and-saves.md#how-your-game-saves)）。|
 | **Session**(会话)（羽毛） | 会话历史、日志和会话控制。见 [Game Mode：会话与存档](sessions-and-saves.md)。 |
 | **Volume**(音量)（扬声器） | **Master**、**Music**、**Sound Effects**、**TTS** 和 **Ambient** 的音量。 |
 | **Game Assets**(游戏素材)（文件夹） | 场景媒体和 Asset Browser。见[游戏素材](game-assets.md)。 |
@@ -251,60 +251,3 @@ Claude 和 Grok 订阅账号不支持原生工具调用。相关控件会说明�
 - [游戏素材](game-assets.md)：音乐、音效、立绘和背景素材库。
 - [Storyboard 智能体指南](storyboard.md)：Game Mode 和 Roleplay 的分镜。
 - [Roleplay 模式：入门](../roleplay/getting-started.md)：作者注释在这里的用法也一样。
-
-## Overworld
-
-下面几节介绍 **Overworld** 游戏，它目前还不可用。只有你的服务器开启了它时才需要看。
-
-<a id="vn-or-overworld"></a>
-
-### VN 还是 Overworld
-
-新游戏以两种玩法之一进行，在第一步选定，并在这局游戏的所有会话中保持不变：
-
-- **Overworld** 是一个为你的背景打造的世界，在大地图上行走，有城镇、可以探索的地方和地下城。它需要一个设定包和一个世界。在你选定设定包之前，会采用与你第一个类型对应的设定包（类型没有对应设定包时用高奇幻），并为它随机生成一个世界。
-- **VN** 是 Game Mode 一直以来的玩法，像视觉小说一样讲述故事：一个场景接一个场景地进行，有场景地图和战斗，没有设定包、世界、大地图、城镇或地下城地图。
-
-除非服务器所有者设置了 `MARINARA_OVERWORLD_GAMES`，否则 Overworld 处于锁定状态。锁定时，它的卡片是灰色的，并附有说明“Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games.”这时每个新游戏都是 VN 游戏，设定包和世界选项也不会出现。在有这个选项之前创建的游戏会照原样继续：有世界的是 Overworld 游戏，没有世界的是 VN 游戏。
-
-<a id="choosing-a-setting-kit"></a>
-
-### 选择设定包
-
-**Setting kit**(设定包) 给 GM 提供书写你这类世界所用的词汇：地名和聚落规模、团体的类型、人们怎样出行、一年和一天叫什么、各个民族怎样给自己起名、货币和商品、元素、战斗场所，以及它使用哪一系的美术和音乐（见[游戏素材](game-assets.md#a-settings-own-art-and-music)）。它还规定世界允许哪些类型的变化，比如竞争、犯罪、战争或灾难，以及世界变化的速度。关闭的类型绝不会被引入，所以一场争吵可以始终只是争吵。
-
-一共有八个设定包：高奇幻、武侠与仙侠、现代、现代超自然、1920 年代、赛博朋克、太空歌剧和末日废土。现代设定包默认很温和，没有犯罪、冲突或灾难，节奏缓慢。
-
-- 在选择类型之前先选设定包，会设定与之相符的类型。你自己选的类型保持不变。
-- **Write it for my setting**(按我的背景改写) 会请你的 GM 模型按你的类型、背景和基调改写设定包。如果结果前后不一致，会附上原因再请求模型一次。如果仍然失败，向导会告诉你哪里出了问题，并保留你原来的设定包。
-- **Change its words**(修改用词) 会打开设定包里的每一个词。列表写在一行里，用逗号分隔。有问题的设定包，比如名称为空或没有聚落，会说明哪里有错，修好之前游戏无法开始。
-- **Download this kit**(下载这个设定包) 会保存一个 `.worldkit.json` 文件以便分享。**Import a kit file**(导入设定包文件) 则把文件读回来。
-
-游戏会保留创建时的设定包，共享的设置文件也带着它。Experience 可以自带地图包（一个设定包、现成的地图和图块）。开启那个 Experience 后，设置界面会把它的设定包显示为已设定；如果它带有地图，还会提供可供挑选的 **Map**。关闭这个 Experience，你自己的选择就会回来。
-
-<a id="making-a-world"></a>
-
-### 创建世界
-
-选好设定包后，**Your world**(你的世界) 会在游戏开始前用设定包的词汇铺开一个世界：地区、各种大小的聚落、每个地方以什么闻名，以及它们之间的通路（道路、河流、海上航线、跃迁航道），并标明每段旅程要走多少天。
-
-世界由 **World seed**(世界种子) 生成。相同的种子、设定包和纲要总会生成相同的世界。**Roll**(随机) 会给你另一个世界，把数字输回去就能找回原来那个。预览会显示一张画出地面和聚落的小地图、队伍的出发地点，以及按地区列出的聚落。
-
-- **Start from this lore**(以这些设定为起点) 会读取你勾选的世界书，提取其中写明的地点和带日期的事件，严格按原文保留。**Build around the lore**(围绕设定扩建) 会在它们周围把世界补充完整。**Only the lore's places**(只用设定里的地点) 则除此之外什么都不生成。
-- **Write the world's brief**(撰写世界纲要) 会请你的 GM 模型写出当下局势、主要地点、当下局势所围绕的团体（各自想要什么、盟友和对手是谁），以及符合各民族自己发音的地名和人名。无论模型写什么，设定里的地点都会保留。不符合设定包的内容会被去掉并计数。**Change the brief**(修改纲要) 会打开纲要的文字，包括每个民族的名字和姓氏。没有纲要时，地点会以编号命名，人物以职业相称。
-
-**世界有过去。** 游戏开始之前，世界会从建立之初逐年向前推演。聚落成长，团体成立，更换领袖，彼此结交或反目。在有这些变化的世界里，盗匪、战争和饥荒会留下痕迹。严重的变化只会在酝酿一段时间之后才发生，而且只属于设定包允许的类型。你的设定或纲要里带日期的事件，会在它们所说的时间和地点发生。相同的种子和纲要会给出相同的过去。
-
-**GM 知道什么。** GM 总是知道队伍在哪里、从那里能去哪里，以及每条路要走多久。它会获知过去最值得注意的事件、谁领导当前地点，以及这个地点的历史。至于其他任何地点或团体，它都可以询问，并在下一回合得到答案。它用地点标签指明队伍去往何处。世界列出的地点保持世界给它的规模。世界没有列出的地点，比如一座农舍，保留 GM 给它起的名字。每个聚落都有居民，在队伍抵达时由种子生成：出自自己文化的名字、与这个地方相符的职业、性格、说话方式和外貌。GM 叫出全名的人会加入被追踪的角色。
-
-**队伍做过的事会一直生效。** 当队伍帮助或妨碍某个团体、改变两个团体对彼此的态度、夺取或毁掉某个地方，或者扶某人当上团体首领时，GM 会在回复中记下这件事。每项变化都会对照世界检查。属于设定包已关闭类型的变化，或者提到世界里没有的地点或团体的变化，都会被拒绝。从那以后，GM 得知的就是故事留下的世界。故事加入的地点就是队伍可以前往的地点。备选回复、重新生成或删除消息会连同那条回复一起撤回变化。
-
-**没有队伍，世界也会继续运转。** 当 GM 说时间流逝时，世界会以一周为单位向前推进，而且只发生设定包里有的变化类型。灾难绝不会自行发生：只有 GM 能讲述灾难，如果这类变化已关闭，就会被拒绝。队伍所在之处不会自动定下任何结果。消息会传播：远方的变化要等道路所需的天数过去之后，GM 才会听说。队伍名声越大，所作所为的分量越重。
-
-**手动编辑。** 在世界编辑器里，你可以重命名或移动地点、绘制地面、添加地点和人物、绘制某个地点的战术战场（见[战斗](combat.md#tactical-battles-and-terrain)），以及布置一座城镇（见[城镇](map-time-weather.md#the-town)）。游戏的每个部分都会立刻看到这些编辑。改名的地点仍然认得它的旧名。编辑只改变世界从现在起的样子，绝不改变它的过去。城镇保留它的布局，所以你添加的地点和人物会放在它下一块空闲的建筑用地和下一间空闲的住宅里。
-
-**世界文件。** **Your world** 下的 **Download this world**(下载这个世界) 会保存你正在制作的世界，游戏 World 标签页上的 **Download the world**(下载世界) 会把这局游戏的世界连同手动编辑一起保存成 `.world.json` 文件。设定包旁边的 **Import a world file**(导入世界文件) 会把文件读进新游戏的设置：它会选用文件里的设定包，并生成文件里的世界。**Your worlds**(你的世界库) 对你资料库里的世界做同样的事。文件还可以带上世界的故事：创作者编写的事件和场景。故事的场景会按原样出现在 GM 回复之前的叙述里，任务目标会列在日志 World 标签页的 **Story**(故事) 下。想自己编写，见[编写 Game Mode 故事脚本](../extending/writing-story-scripts.md)。手动编辑和故事属于那个种子和纲要，所以只要更改其中任何一个，它们就会被去掉。无法读取的文件会被拒绝，向导会说明原因。内容不符合设定包的文件会被去掉一部分，向导会说明去掉了什么。
-
-**事后添加与保存。** 没有世界的游戏，以后可以在日志的 **World** 标签页用 **Make a world for this game**(为这局游戏创建世界) 获得一个世界。世界从下一回合开始生效，过去的回合、地图和人物保持原样。Overworld RPG 锁定时，这个按钮是灰色的。游戏会保留世界生成时的样子，所以新会话、分支和导出的聊天都保留同一个世界。由更早版本的生成器生成的世界会继续玩下去，但无法再编辑。
-
-有世界的游戏会在**大地图**上打开。大地图是一张像素地图，你可以带队伍在聚落之间行走并进入城镇。见[大地图](map-time-weather.md#the-overworld)。

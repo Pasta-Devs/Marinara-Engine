@@ -36,7 +36,7 @@ Si ça n'a pas marché, voir [La génération du monde échoue avec une erreur J
 
 | Étape | Ce que tu définis |
 | --- | --- |
-| **Connection** (connexion) | **Game Name** (nom de la partie), le **Model** qui fait tourner le GM et un **Scene effects model** facultatif. L'encart **Game Mode** n'affiche que **VN** pour l'instant (voir [VN ou Overworld](#vn-or-overworld)). |
+| **Connection** (connexion) | **Game Name** (nom de la partie), le **Model** qui fait tourner le GM et un **Scene effects model** facultatif. L'encart **Game Mode** n'affiche que **VN** pour l'instant. |
 | **World** (monde) | Le genre, le cadre, le ton, la difficulté, la classification du contenu, le style de l'histoire, la violence, les limites de contenu et la langue. **Combat Preference** (préférence de combat) se règle sur **Turn-Based** ou **Tactical**. Chaque nouvelle partie utilise les classes **MRPG** (Marinara RPG) (voir [Classes MRPG](mrpg-classes.md)). Quand un ensemble de règles est installé, un choix **Rules** (règles) apparaît (voir [Choisir les règles](#choose-rules)). |
 | **Party** (équipe) | Ton persona (le personnage que tu incarnes), le **Game Master Mode**, les membres de l'équipe et le **GM intro message** (message d'introduction du GM). Voir [Le message d'introduction du GM](#the-gm-intro-message). L'arbre MRPG de départ de chaque membre vient de la section **Game Mode** de sa fiche (voir [Choisir les arbres d'un personnage](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** (objectifs) | Ce que tu attends de l'aventure. |
@@ -54,7 +54,7 @@ Avec l'agent **Hierarchical Maps** téléchargé (désormais appelé World Maps,
 
 | Réglage | Par défaut | Notes |
 | --- | --- | --- |
-| Genre | Fantasy | Choix multiple, avec tes propres entrées. Un kit d'univers choisi en premier définit le sien. |
+| Genre | Fantasy | Choix multiple, avec tes propres entrées. |
 | Tone | Heroic | Choix multiple. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** ou **Brutal**. Plus le niveau est élevé, plus les combats sont difficiles : des ennemis plus nombreux et plus puissants dans une partie MRPG (voir [Batailles dans une partie MRPG](combat.md#battles-in-an-mrpg-game)), et des ennemis qui frappent plus fort dans une partie Legacy (voir [L'ajustement selon la difficulté](combat.md#difficulty-scaling)). |
 | Content Rating (sexual content) (classification du contenu (contenu sexuel)) | SFW | **SFW** ou **NSFW**. Concerne uniquement le contenu sexuel. NSFW l'autorise, sans l'imposer. |
@@ -157,7 +157,7 @@ Sur ordinateur, les contrôles s'ouvrent avec les boutons près du coin supérie
 
 | Contrôle | Ce qu'il contient |
 | --- | --- |
-| **Game controls** (contrôles du jeu, icône de manette) | **Retry turn** (relancer le tour), **Retry scene analysis** (relancer l'analyse de scène), **Retry Music DJ** (relancer Music DJ, quand Music DJ joue la musique) et **Retry assets image generation** (relancer la génération des images des ressources). Pour un arrière-plan de storyboard, aussi relecture, lecture/pause et coupure du son. **Show the scene** (afficher la scène), **Show the overworld** (afficher la carte du monde) et **Show the map** (afficher la carte) changent de vue dans les parties qui en ont. **Edit game data** (modifier les données de jeu) corrige à la main les données enregistrées (voir [Modifier les données de la partie à la main](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** (points de contrôle) ramène la partie à un moment antérieur (voir [Comment ta partie s'enregistre](sessions-and-saves.md#how-your-game-saves)). |
+| **Game controls** (contrôles du jeu, icône de manette) | **Retry turn** (relancer le tour), **Retry scene analysis** (relancer l'analyse de scène), **Retry Music DJ** (relancer Music DJ, quand Music DJ joue la musique) et **Retry assets image generation** (relancer la génération des images des ressources). Pour un arrière-plan de storyboard, aussi relecture, lecture/pause et coupure du son. **Edit game data** (modifier les données de jeu) corrige à la main les données enregistrées (voir [Modifier les données de la partie à la main](sessions-and-saves. md#editing-game-data-by-hand)). **Checkpoints** (points de contrôle) ramène la partie à un moment antérieur (voir [Comment ta partie s'enregistre](sessions-and-saves. md#how-your-game-saves)). |
 | **Session** (icône de plume) | L'historique des sessions, le journal et les contrôles de session. Voir [Game Mode : sessions et sauvegardes](sessions-and-saves.md). |
 | **Volume** (icône de haut-parleur) | Le volume de **Master** (général), **Music** (musique), **Sound Effects** (effets sonores), **TTS** (synthèse vocale) et **Ambient** (ambiance). |
 | **Game Assets** (ressources de jeu, icône de dossier) | Les médias de scène et l'Asset Browser. Voir [Ressources de jeu](game-assets.md). |
@@ -251,60 +251,3 @@ Une notification affiche **The model declined this request** lorsque le modèle 
 - [Ressources de jeu](game-assets.md) : la bibliothèque de musiques, de sons, de sprites et d'arrière-plans.
 - [Guide de l'agent Storyboard](storyboard.md) : les storyboards pour Game Mode et Roleplay.
 - [Mode Roleplay : premiers pas](../roleplay/getting-started.md) : les Author's Notes (notes de l'auteur) fonctionnent ici de la même façon.
-
-## Overworld
-
-Les sections ci-dessous décrivent les parties **Overworld**, qui ne sont pas encore disponibles. Ne les lis que si ton serveur les a activées.
-
-<a id="vn-or-overworld"></a>
-
-### VN ou Overworld
-
-Une nouvelle partie se joue dans l'un de deux modes de jeu, choisi à la première étape et conservé pour toutes ses sessions :
-
-- **Overworld** : un monde créé pour ton univers, parcouru sur une carte du monde, avec des villes, des lieux à explorer et des donjons. Il lui faut un kit d'univers et un monde. Tant que tu n'as pas choisi de kit, celui de ton premier genre est pris (High fantasy si le genre n'en a pas), et un monde est tiré au sort pour lui.
-- **VN** : Game Mode tel qu'il a toujours été, raconté comme un roman visuel, scène par scène, avec la carte de scène et les combats, et sans kit d'univers, monde, carte du monde, villes ni cartes de donjon.
-
-Overworld est verrouillé tant que la personne qui exploite le serveur ne définit pas `MARINARA_OVERWORLD_GAMES`. Tant qu'il est verrouillé, son encart est grisé avec la note "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games." Toute nouvelle partie est alors une partie VN, et les choix de kit d'univers et de monde n'apparaissent pas. Une partie créée avant l'existence de ce choix continue de se jouer comme avant : avec un monde, c'est une partie Overworld ; sans monde, une partie VN.
-
-<a id="choosing-a-setting-kit"></a>
-
-### Choisir un kit d'univers
-
-Un **Setting kit** (kit d'univers) donne au GM les mots dans lesquels s'écrit ton type de monde : les noms de lieux et les tailles d'agglomération, les types de groupes, la façon dont on voyage, le nom d'une année et d'un jour, la façon dont les peuples se nomment, la monnaie et les marchandises, les éléments, les lieux de combat et la famille d'illustrations et de musiques qu'il utilise (voir [Ressources de jeu](game-assets.md#a-settings-own-art-and-music)). Il indique aussi quels types de changements le monde autorise, comme les rivalités, le crime, les guerres ou les catastrophes, et à quelle vitesse il change. Un type désactivé n'est jamais introduit : une querelle peut donc rester une querelle.
-
-Il y a huit kits : high fantasy, wuxia et xianxia, époque moderne, moderne surnaturel, années 1920, cyberpunk, space opera et post-apocalyptique. L'époque moderne est paisible par défaut, sans crime, conflit ni catastrophe, à un rythme lent.
-
-- Choisir un kit avant un genre définit le genre qui lui correspond. Un genre que tu as choisi toi-même reste tel quel.
-- **Write it for my setting** (l'écrire pour mon univers) demande à ton modèle de GM de réécrire le kit pour le genre, le cadre et le ton que tu as choisis. Si le résultat ne tient pas debout, la demande est refaite une fois au modèle avec les raisons. Si cela échoue encore, l'assistant t'indique ce qui n'allait pas et garde le kit que tu avais.
-- **Change its words** (modifier ses mots) ouvre chaque mot du kit. Tape une liste sur une seule ligne, avec des virgules entre les éléments. Un kit qui a un problème, comme un nom vide ou aucune agglomération, indique ce qui ne va pas, et la partie ne peut pas commencer tant qu'il n'est pas corrigé.
-- **Download this kit** (télécharger ce kit) enregistre un fichier `.worldkit.json` à partager. **Import a kit file** (importer un fichier de kit) en relit un.
-
-La partie garde le kit avec lequel elle a été créée, et un fichier de configuration partagé l'inclut. Une Experience peut fournir son propre pack de carte (un kit, des cartes toutes prêtes et des tuiles). Avec cette Experience activée, la configuration affiche son kit comme déjà défini et, si elle fournit des cartes, une **Map** à choisir. Désactiver l'Experience te rend tes choix.
-
-<a id="making-a-world"></a>
-
-### Créer un monde
-
-Une fois un kit choisi, **Your world** (ton monde) dispose un monde dans les mots du kit avant le début de la partie : les régions, les agglomérations de toutes les tailles, ce pour quoi chaque lieu est connu et les chemins qui les relient (routes, rivières, voies maritimes, couloirs de saut), avec la durée de chaque trajet en jours.
-
-Un monde se crée à partir d'une **World seed** (graine du monde). La même graine, le même kit et le même brief donnent toujours le même monde. **Roll** (tirer) en donne un autre, et ressaisir un nombre en fait revenir un. L'aperçu montre une petite carte du sol et des agglomérations, le point de départ de l'équipe et la liste des agglomérations par région.
-
-- **Start from this lore** (partir de ce lore) lit les lorebooks cochés pour y trouver les lieux et les événements datés qu'ils indiquent, conservés exactement tels qu'ils sont écrits. **Build around the lore** (construire autour du lore) complète le monde autour d'eux. **Only the lore's places** (seulement les lieux du lore) ne crée rien d'autre.
-- **Write the world's brief** (écrire le brief du monde) demande à ton modèle de GM le présent, les lieux majeurs, les groupes autour desquels tourne le présent (ce que veut chacun, ses alliés et ses rivaux) et des noms pour les lieux et les personnes, dans la sonorité propre à chaque peuple. Les lieux du lore sont conservés quoi qu'écrive le modèle. Tout ce qui ne correspond pas au kit est écarté et compté. **Change the brief** (modifier le brief) ouvre ses mots, y compris les prénoms et les noms de famille de chaque peuple. Sans brief, les lieux sont numérotés et les gens sont désignés par leur métier.
-
-**Un monde a un passé.** Avant le début de la partie, le monde avance année après année depuis sa fondation. Les agglomérations grandissent, et les groupes sont fondés, prennent et perdent des chefs, se rapprochent et se brouillent entre eux. Là où le monde en a, les bandits, les guerres et les famines laissent leur marque. Un changement grave ne survient qu'après avoir couvé, et seulement dans les types que le kit autorise. Les événements datés de ton lore ou du brief se produisent quand et où ils le disent. La même graine et le même brief donnent le même passé.
-
-**Ce que sait le GM.** Le GM sait toujours où se trouve l'équipe, où elle peut aller et combien de temps prend chaque chemin. Il apprend les événements les plus notables du passé, qui dirige le lieu actuel et le passé de ce lieu. Pour tout autre lieu ou groupe, il peut demander, et reçoit la réponse à son tour suivant. Il nomme l'endroit où va l'équipe avec une balise de lieu. Un lieu que liste le monde garde la taille que le monde lui a donnée. Un lieu que le monde ne liste pas, comme une ferme, garde le nom que lui donne le GM. Chaque agglomération a ses habitants, tirés par la graine quand l'équipe y arrive : un nom issu de leur culture, un métier adapté au lieu, un tempérament, une façon de parler et une apparence. Quand le GM nomme quelqu'un en entier, cette personne rejoint les personnages suivis.
-
-**Ce que fait l'équipe reste fait.** Quand l'équipe aide ou gêne un groupe, change ce que deux groupes pensent l'un de l'autre, prend ou ruine un lieu, ou met quelqu'un à la tête d'un groupe, le GM l'enregistre dans sa réponse. Chaque changement est vérifié par rapport au monde. Un changement d'un type que le kit désactive, ou qui nomme un lieu ou un groupe que le monde n'a pas, est refusé. Dès lors, le GM reçoit le monde tel que l'histoire l'a laissé. Un lieu ajouté par l'histoire est un lieu où l'équipe peut aller. Un swipe (une réponse alternative), une régénération ou un message supprimé annule un changement avec sa réponse.
-
-**Le monde continue sans l'équipe.** Quand le GM dit que le temps passe, le monde avance d'une semaine à la fois, seulement dans les types de changements qu'autorise le kit. Les catastrophes ne viennent jamais d'elles-mêmes : seul le GM peut en narrer une, et elle est refusée si son type est désactivé. Rien n'est décidé là où se trouve l'équipe. Les nouvelles voyagent : le GM apprend un changement lointain une fois écoulés les jours que prennent les routes. Les actes de l'équipe comptent davantage à mesure qu'elle se fait connaître.
-
-**Modifications manuelles.** Dans un éditeur de monde, tu peux renommer ou déplacer des lieux, peindre le sol, ajouter des lieux et des habitants, peindre le champ de bataille tactique d'un lieu (voir [Combat](combat.md#tactical-battles-and-terrain)) et disposer une ville (voir [La ville](map-time-weather.md#the-town)). Tous les éléments du jeu voient aussitôt les modifications. Un lieu renommé répond toujours à son ancien nom. Les modifications changent le monde à partir de maintenant, jamais son passé. Une ville garde sa disposition : les lieux et les habitants que tu ajoutes vont donc sur ses prochaines parcelles libres et dans ses prochains logements libres.
-
-**Fichiers de monde.** **Download this world** (télécharger ce monde), sous **Your world**, enregistre le monde que tu es en train de créer, et **Download the world** (télécharger le monde), dans l'onglet World d'une partie, enregistre le monde de cette partie, modifications manuelles comprises, dans un fichier `.world.json`. **Import a world file** (importer un fichier de monde), à côté du kit d'univers, en lit un dans la configuration d'une nouvelle partie : il choisit le kit du fichier et crée son monde. **Your worlds** (tes mondes) fait de même avec un monde de ta bibliothèque. Un fichier peut aussi contenir l'histoire du monde : les événements et les scènes que son créateur a écrits. Les scènes d'une histoire apparaissent dans la narration avant la réponse du GM, exactement telles qu'elles ont été écrites, et ses objectifs de quête sont listés sous **Story** (histoire) dans l'onglet World du journal. Pour en écrire une, voir [Écrire des scripts d'histoire Game Mode](../extending/writing-story-scripts.md). Les modifications manuelles et l'histoire appartiennent à cette graine et à ce brief : elles sont donc écartées si tu changes l'un ou l'autre. Un fichier illisible est refusé, et l'assistant dit pourquoi. Si le contenu d'un fichier ne correspond pas au kit, il est en partie écarté, et l'assistant indique ce qui l'a été.
-
-**Plus tard, et ce qui est enregistré.** Une partie créée sans monde peut en recevoir un plus tard depuis l'onglet **World** du journal, avec **Make a world for this game** (créer un monde pour cette partie). Le monde commence au tour suivant, et les tours passés, la carte et les personnages restent. Le bouton est grisé tant qu'Overworld RPG est verrouillé. Une partie garde son monde tel qu'il a été créé : une nouvelle session, une branche et un chat exporté gardent donc le même monde. Un monde créé par une version antérieure du générateur continue de se jouer, mais ne peut plus être modifié.
-
-Une partie avec un monde s'ouvre sur l'**overworld**, la carte du monde en pixels où tu fais marcher l'équipe d'une agglomération à l'autre et où tu entres dans les villes. Voir [La carte du monde](map-time-weather.md#the-overworld).

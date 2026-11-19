@@ -137,18 +137,6 @@ Un chat en Game Mode peut se limiter à une partie de tes dossiers de ressources
 
 Une barre indique "All folders included" ou le nombre de dossiers exclus. **Reset to all** (tout réinclure) inclut de nouveau tous les dossiers. Le choix n'est enregistré que pour ce chat. Il modifie les dossiers dans lesquels Game Mode peut puiser, et ne supprime ni ne masque aucun fichier.
 
-<a id="a-settings-own-art-and-music"></a>
-
-### Les visuels et la musique propres à un univers
-
-Une partie lancée avec un kit d'univers a une famille artistique, affichée sous **Art and music** (visuels et musique) quand tu modifies les mots du kit : `fantasy`, `scifi`, `modern`, `wuxia`, `jazz_age`, `wasteland`, ou une famille propre au kit. La partie utilise les dossiers qui portent le nom de sa famille et tous les dossiers qui ne portent le nom d'aucune famille, et laisse de côté les dossiers des autres familles. Une partie cyberpunk ne joue jamais de musique de bataille fantasy et n'affiche jamais la forêt enchantée. Quand rien ne convient dans sa famille ni dans les dossiers partagés, rien n'est joué, plutôt qu'une piste d'une autre famille. Une partie sans kit d'univers utilise tous les dossiers.
-
-- **Music** : place les pistes de l'univers dans `music/<state>/<family>/<intensity>`, par exemple `combat/wuxia/intense`. Elles passent avant les pistes partagées.
-- **Backgrounds** : `backgrounds/<family>`. Les arrière-plans générés dans une partie avec un kit d'univers y sont aussi enregistrés.
-- **Sons de combat** : un son placé dans `sfx/combat/<family>` qui porte le même nom qu'un son fourni, comme `sword-swing`, le remplace dans les parties de cette famille. Les sons de combat fournis sont de style fantasy : les combats des autres familles restent donc silencieux tant que tu n'ajoutes pas les leurs.
-
-Les arrière-plans de départ fournis comptent comme partagés, sauf ceux de fantasy (`ancient_library`, `castle_cliff`, `enchanted_forest`) et `city_night`, de la famille modern. Un kit d'univers enregistré avant l'arrivée des familles artistiques fonctionne toujours : un kit créé à partir d'un kit de départ utilise la famille de ce kit de départ, et tout autre kit utilise tous les dossiers jusqu'à ce que tu choisisses une famille sous **Art and music**. La barre de sélection décrite plus haut indique la famille de la partie ouverte.
-
 <a id="generated-sound-effects-and-music"></a>
 
 ## Effets sonores et musique générés

@@ -84,7 +84,6 @@ Game 설정 과정에서 World Maps를 고른 다음, 설정 방식을 하나 �
 - **Create with AI**는 생성된 계층을 검토용으로 준비합니다.
 - **Use template**은 Game을 만들기 전에 세계 라이브러리를 엽니다.
 - **Build manually**는 편집할 수 있는 빈 계층에서 시작합니다.
-- **From the world**는 Game이 세계를 만들 때 나타납니다([세계 만들기](../game/getting-started.md#making-a-world) 참고). 그 세계를 지도로 펼쳐 놓습니다. 지역, 정착지, 장소, 그리고 그 사이를 잇는 길과 이동 시간이 들어갑니다. 저장하기 전에 검토할 수 있습니다. AI 생성이 필요 없으며, 지도의 장소가 곧 세계의 장소입니다. 플레이 중에는 둘이 함께 맞춰집니다. Game Master와 시장은 지도에서 파티가 있는 장소를 씁니다. Game Master가 세계의 장소를 언급하면 지도가 파티를 그곳으로 옮깁니다. World Maps 1.6.0 이상에서는 가장 짧은 경로로 이동합니다. 이전 버전은 안쪽 장소, 그 장소를 둘러싼 장소, 길로 이어진 장소 중 한 곳으로 한 단계만 이동합니다.
 
 **Use template**을 고르면 선택 창에 **Shared worlds**가 먼저, **Independent templates**가 그다음에 나옵니다.
 

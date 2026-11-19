@@ -36,7 +36,7 @@ Wenn es nicht funktioniert hat, siehe [Die Weltgenerierung scheitert mit einem J
 
 | Schritt | Was du festlegst |
 | --- | --- |
-| **Connection** | **Game Name** (Spielname), das **Model**, auf dem der GM läuft, und optional ein **Scene effects model**. Die Karte **Game Mode** zeigt vorerst nur **VN** (siehe [VN oder Overworld](#vn-or-overworld)). |
+| **Connection** | **Game Name** (Spielname), das **Model**, auf dem der GM läuft, und optional ein **Scene effects model**. Die Karte **Game Mode** zeigt vorerst nur **VN**. |
 | **World** | Genre, Schauplatz, Ton, Schwierigkeit, Inhaltsfreigabe, Erzählstil, Gewalt, inhaltliche Grenzen und Sprache. **Combat Preference** (bevorzugte Kampfart) ist **Turn-Based** oder **Tactical**. Jedes neue Spiel nutzt **MRPG**-Klassen (Marinara RPG; siehe [MRPG-Klassen](mrpg-classes.md)). Ist ein Regelsatz installiert, erscheint eine Auswahl **Rules** (Regeln). Siehe [Regeln auswählen](#choose-rules). |
 | **Party** | Deine Persona (der Charakter, den du spielst), **Game Master Mode**, Partymitglieder und **GM intro message** (Intro-Nachricht des GM). Siehe [Die Intro-Nachricht des GM](#the-gm-intro-message). Der MRPG-Startbaum jedes Mitglieds stammt aus dem Abschnitt **Game Mode** seiner Karte (siehe [Die Bäume eines Charakters wählen](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** | Was du dir vom Abenteuer wünschst. |
@@ -54,7 +54,7 @@ Ist der Agent **Hierarchical Maps** heruntergeladen (er heißt jetzt World Maps,
 
 | Einstellung | Standard | Hinweise |
 | --- | --- | --- |
-| Genre | Fantasy | Mehrfachauswahl, eigene Einträge möglich. Ein zuerst gewähltes Setting-Kit setzt sein eigenes. |
+| Genre | Fantasy | Mehrfachauswahl, eigene Einträge möglich. |
 | Tone | Heroic | Mehrfachauswahl. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** oder **Brutal**. Höhere Stufen machen Kämpfe schwieriger: In einem MRPG-Spiel gibt es mehr und stärkere Gegner (siehe [Kämpfe in einem MRPG-Spiel](combat.md#battles-in-an-mrpg-game)), in einem Legacy-Spiel treffen Gegner härter (siehe [Skalierung nach Schwierigkeit](combat.md#difficulty-scaling)). |
 | Content Rating (sexual content) | SFW | **SFW** oder **NSFW**. Gilt nur für sexuelle Inhalte. NSFW erlaubt sie, erzwingt sie aber nicht. |
@@ -157,7 +157,7 @@ Am Computer öffnen sich die Bedienelemente über Schaltflächen nahe der oberen
 
 | Bedienelement | Was es enthält |
 | --- | --- |
-| **Game controls** (Spielsteuerung, der Gamecontroller) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (wenn Music DJ die Musik spielt) und **Retry assets image generation**. Bei einem Storyboard-Hintergrund außerdem Wiederholung, Wiedergabe/Pause und Stummschaltung. **Show the scene** (Szene zeigen), **Show the overworld** (Oberwelt zeigen) und **Show the map** (Karte zeigen) wechseln in Spielen, die diese Ansichten haben, die Ansicht. **Edit game data** (Spieldaten bearbeiten) korrigiert gespeicherte Daten von Hand (siehe [Spieldaten von Hand bearbeiten](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** kehrt zu einem früheren Moment zurück (siehe [Wie das Spiel speichert](sessions-and-saves.md#how-your-game-saves)). |
+| **Game controls** (Spielsteuerung, der Gamecontroller) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (wenn Music DJ die Musik spielt) und **Retry assets image generation**. Bei einem Storyboard-Hintergrund außerdem Wiederholung, Wiedergabe/Pause und Stummschaltung. **Edit game data** (Spieldaten bearbeiten) korrigiert gespeicherte Daten von Hand (siehe [Spieldaten von Hand bearbeiten](sessions-and-saves. md#editing-game-data-by-hand)). **Checkpoints** kehrt zu einem früheren Moment zurück (siehe [Wie das Spiel speichert](sessions-and-saves. md#how-your-game-saves)). |
 | **Session** (Sitzung, die Feder) | Sitzungsverlauf, Journal und Sitzungssteuerung. Siehe [Game Mode: Sitzungen und Spielstände](sessions-and-saves.md). |
 | **Volume** (Lautstärke, der Lautsprecher) | Lautstärke für **Master**, **Music**, **Sound Effects**, **TTS** und **Ambient**. |
 | **Game Assets** (Spielressourcen, der Ordner) | Szenenmedien und der Asset Browser. Siehe [Game-Assets](game-assets.md). |
@@ -251,60 +251,3 @@ Die Toast-Meldung **The model declined this request** erscheint, wenn das Modell
 - [Game-Assets](game-assets.md): die Bibliothek für Musik, Sound, Sprites und Hintergründe.
 - [Anleitung zum Storyboard-Agenten](storyboard.md): Storyboards für Game Mode und Roleplay.
 - [Roleplay Mode: Erste Schritte](../roleplay/getting-started.md): Author's Notes funktionieren hier genauso.
-
-## Overworld
-
-Die folgenden Abschnitte beschreiben **Overworld**-Spiele, die noch nicht verfügbar sind. Lies sie nur, wenn dein Server sie eingeschaltet hat.
-
-<a id="vn-or-overworld"></a>
-
-### VN oder Overworld
-
-Ein neues Spiel läuft in einem von zwei Game Modes, die du im ersten Schritt wählst und die für alle seine Sitzungen gelten:
-
-- **Overworld** ist eine für dein Setting gemachte Welt, die du auf einer Oberweltkarte durchwanderst, mit Städten, Orten zum Erkunden und Dungeons. Dafür braucht es ein Setting-Kit und eine Welt. Solange du kein Kit wählst, wird das für dein erstes Genre genommen (High Fantasy, wenn das Genre keines hat), und dafür wird eine Welt ausgewürfelt.
-- **VN** ist Game Mode, wie er immer war, erzählt wie eine Visual Novel: Szene für Szene, mit der Szenenkarte und Kämpfen und ohne Setting-Kit, Welt, Oberwelt, Städte oder Dungeon-Karten.
-
-Overworld ist gesperrt, solange der Server-Betreiber nicht `MARINARA_OVERWORLD_GAMES` setzt. Solange es gesperrt ist, ist seine Karte ausgegraut, mit dem Hinweis „Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games.“ Jedes neue Spiel ist dann ein VN-Spiel, und die Auswahl für Setting-Kit und Welt erscheint nicht. Ein Spiel, das angelegt wurde, bevor es diese Wahl gab, läuft weiter wie bisher: mit einer Welt als Overworld-Spiel, ohne als VN-Spiel.
-
-<a id="choosing-a-setting-kit"></a>
-
-### Ein Setting-Kit wählen
-
-Ein **Setting kit** (Setting-Kit) gibt dem GM die Wörter, in denen deine Art von Welt geschrieben ist: Ortsnamen und Siedlungsgrößen, Arten von Gruppen, wie die Leute reisen, Namen für ein Jahr und einen Tag, wie sich Völker selbst benennen, Geld und Waren, Elemente, Kampforte und welche Familie von Grafik und Musik es nutzt (siehe [Game-Assets](game-assets.md#a-settings-own-art-and-music)). Es legt außerdem fest, welche Arten von Veränderung die Welt erlaubt, etwa Rivalitäten, Verbrechen, Kriege oder Katastrophen, und wie schnell sie sich verändert. Eine ausgeschaltete Art wird nie eingebracht, sodass ein Streit ein Streit bleiben kann.
-
-Es gibt acht Kits: High Fantasy, Wuxia und Xianxia, Gegenwart, übernatürliche Gegenwart, die 1920er-Jahre, Cyberpunk, Space Opera und Postapokalypse. Die Gegenwart ist standardmäßig sanft, ohne Verbrechen, Konflikte oder Katastrophen und in gemächlichem Tempo.
-
-- Wählst du ein Kit vor einem Genre, setzt es das passende Genre. Ein Genre, das du selbst gewählt hast, bleibt.
-- **Write it for my setting** (für mein Setting umschreiben) bittet dein GM-Modell, das Kit für dein Genre, deinen Schauplatz und deinen Ton umzuschreiben. Passt das Ergebnis nicht zusammen, wird das Modell noch einmal mit den Gründen gefragt. Scheitert es erneut, sagt dir der Assistent, was nicht stimmte, und behält dein bisheriges Kit.
-- **Change its words** (Wörter ändern) öffnet jedes Wort des Kits. Tipp eine Liste in eine Zeile, durch Kommas getrennt. Ein Kit mit einem Problem, etwa einem leeren Namen oder ohne Siedlungen, sagt, was nicht stimmt, und das Spiel kann erst starten, wenn es behoben ist.
-- **Download this kit** (dieses Kit herunterladen) speichert eine `.worldkit.json`-Datei zum Teilen. **Import a kit file** (Kit-Datei importieren) liest eine wieder ein.
-
-Das Spiel behält das Kit, mit dem es angelegt wurde, und eine geteilte Setup-Datei bringt es mit. Eine Experience kann ihr eigenes Kartenpaket mitliefern (ein Kit, fertige Karten und Tiles). Ist diese Experience an, zeigt die Einrichtung ihr Kit als festgelegt und, falls sie Karten mitliefert, eine **Map** zur Auswahl. Schaltest du die Experience aus, bekommst du deine Entscheidungen zurück.
-
-<a id="making-a-world"></a>
-
-### Eine Welt erstellen
-
-Ist ein Kit gewählt, legt **Your world** (deine Welt) vor Spielbeginn eine Welt in den Wörtern des Kits an: Regionen, Siedlungen jeder Größe, wofür jeder Ort bekannt ist, und die Wege zwischen ihnen (Straßen, Flüsse, Seewege, Sprungrouten) samt Reisedauer in Tagen.
-
-Eine Welt entsteht aus einem **World seed** (Welt-Seed). Derselbe Seed, dasselbe Kit und dieselbe Vorgabe ergeben immer dieselbe Welt. **Roll** (würfeln) gibt dir eine andere, und eine wieder eingetippte Zahl holt eine zurück. Die Vorschau zeigt eine kleine Karte des Geländes und der Siedlungen, den Startpunkt der Party und eine Liste der Siedlungen nach Region.
-
-- **Start from this lore** (von dieser Lore ausgehen) liest in den angehakten Lorebooks die Orte und datierten Ereignisse, die sie nennen, genau so, wie sie geschrieben sind. **Build around the lore** (um die Lore herum bauen) füllt die Welt um sie herum auf. **Only the lore's places** (nur die Orte der Lore) erschafft nichts daneben.
-- **Write the world's brief** (Vorgabe der Welt schreiben) bittet dein GM-Modell um die Gegenwart, die wichtigsten Orte, die Gruppen, um die sich die Gegenwart dreht (was jede will und wer ihre Verbündeten und Rivalen sind), und Namen für Orte und Menschen im eigenen Klang jedes Volkes. Die Orte der Lore bleiben erhalten, was das Modell auch schreibt. Alles, was nicht zum Kit passt, wird weggelassen und gezählt. **Change the brief** (Vorgabe ändern) öffnet ihre Wörter, einschließlich der Vor- und Familiennamen jedes Volkes. Ohne Vorgabe sind Orte nummeriert, und Menschen heißen nach ihrem Beruf.
-
-**Eine Welt hat eine Vergangenheit.** Vor Spielbeginn läuft die Welt Jahr für Jahr ab ihrer Gründung vorwärts. Siedlungen wachsen, Gruppen werden gegründet, bekommen und verlieren Anführer und verbünden oder entzweien sich. Wo es sie in der Welt gibt, hinterlassen Banditen, Kriege und Hungersnöte ihre Spuren. Eine schwere Veränderung kommt erst, nachdem sie sich angebahnt hat, und nur in den Arten, die das Kit erlaubt. Datierte Ereignisse aus deiner Lore oder der Vorgabe geschehen dann und dort, wo sie es sagen. Derselbe Seed und dieselbe Vorgabe ergeben dieselbe Vergangenheit.
-
-**Was der GM weiß.** Der GM weiß immer, wo die Party ist, wohin sie gehen kann und wie lange jeder Weg dauert. Er erfährt die bemerkenswertesten Ereignisse der Vergangenheit, wer den aktuellen Ort anführt und die Geschichte dieses Ortes. Nach jedem anderen Ort und jeder anderen Gruppe kann er fragen und bekommt die Antwort in seinem nächsten Zug. Wohin die Party geht, benennt er mit einem Orts-Tag. Ein Ort, den die Welt aufführt, behält die Größe, die die Welt ihm gegeben hat. Ein Ort, den die Welt nicht aufführt, etwa ein Bauernhof, behält den Namen, den der GM ihm gibt. Jede Siedlung hat Bewohner, die der Seed auswürfelt, wenn die Party ankommt: mit einem Namen aus ihrer Kultur, einem Beruf, der zum Ort passt, einem Temperament, einer Sprechweise und einem Aussehen. Nennt der GM jemanden mit vollem Namen, wird diese Person in die verfolgten Charaktere aufgenommen.
-
-**Was die Party tut, bleibt bestehen.** Hilft oder schadet die Party einer Gruppe, ändert sie, wie zwei Gruppen zueinander stehen, nimmt oder ruiniert sie einen Ort oder setzt sie jemanden an die Spitze einer Gruppe, hält der GM das in seiner Antwort fest. Jede Änderung wird gegen die Welt geprüft. Eine Änderung einer Art, die das Kit ausgeschaltet hat, oder eine, die einen Ort oder eine Gruppe nennt, die es in der Welt nicht gibt, wird abgelehnt. Von da an erfährt der GM die Welt so, wie die Geschichte sie hinterlassen hat. Ein Ort, den die Geschichte hinzugefügt hat, ist ein Ort, zu dem die Party gehen kann. Ein Swipe, eine Neugenerierung oder eine gelöschte Nachricht nimmt eine Änderung mit ihrer Antwort zurück.
-
-**Die Welt dreht sich ohne die Party weiter.** Sagt der GM, dass Zeit vergeht, macht die Welt Schritte von jeweils einer Woche, nur in den Arten von Veränderung, die das Kit kennt. Katastrophen kommen nie von selbst: Nur der GM kann eine erzählen, und sie wird abgelehnt, wenn ihre Art ausgeschaltet ist. Dort, wo die Party ist, wird nichts entschieden. Nachrichten verbreiten sich: Der GM erfährt von einer fernen Veränderung, sobald die Tage vergangen sind, die die Wege brauchen. Die Taten der Party zählen umso mehr, je bekannter sie wird.
-
-**Änderungen von Hand.** In einem Welteditor kannst du Orte umbenennen oder verschieben, das Gelände bemalen, Orte und Bewohner hinzufügen, das taktische Schlachtfeld eines Ortes bemalen (siehe [Kampf](combat.md#tactical-battles-and-terrain)) und eine Stadt anlegen (siehe [Die Stadt](map-time-weather.md#the-town)). Jeder Teil des Spiels sieht die Änderungen sofort. Ein umbenannter Ort hört weiterhin auf seinen alten Namen. Änderungen verändern die Welt ab jetzt, nie ihre Vergangenheit. Eine Stadt behält ihre Anlage, sodass Orte und Bewohner, die du hinzufügst, auf ihre nächsten freien Baugrundstücke und in ihre nächsten freien Wohnungen kommen.
-
-**Weltdateien.** **Download this world** (diese Welt herunterladen, unter **Your world**) speichert die Welt, die du gerade erstellst, und **Download the world** (Welt herunterladen) auf dem Tab World eines Spiels speichert dessen Welt samt Änderungen von Hand als `.world.json`-Datei. **Import a world file** (Weltdatei importieren, neben dem Setting-Kit) liest eine in die Einrichtung eines neuen Spiels ein: Es wählt das Kit der Datei und erstellt ihre Welt. **Your worlds** (deine Welten) macht dasselbe mit einer Welt aus deiner Bibliothek. Eine Datei kann auch die Story der Welt mitbringen: Ereignisse und Szenen, die ihr Ersteller geschrieben hat. Die Szenen einer Story erscheinen in der Erzählung vor der Antwort des GM, genau so, wie sie geschrieben sind, und ihre Questziele stehen unter **Story** auf dem Tab World des Journals. Wie du eine schreibst, steht unter [Story-Skripte für Game Mode schreiben](../extending/writing-story-scripts.md). Änderungen von Hand und die Story gehören zu diesem Seed und dieser Vorgabe, sie fallen also weg, wenn du eines davon änderst. Eine Datei, die sich nicht lesen lässt, wird abgelehnt, und der Assistent sagt, warum. Passt der Inhalt einer Datei nicht zum Kit, wird er teilweise weggelassen, und der Assistent sagt, was.
-
-**Später und gespeichert.** Ein Spiel, das ohne Welt angelegt wurde, kann später über den Tab **World** (Welt) des Journals mit **Make a world for this game** (eine Welt für dieses Spiel erstellen) eine bekommen. Die Welt beginnt mit dem nächsten Zug; die bisherigen Züge, die Karte und die Bewohner bleiben. Solange Overworld RPG gesperrt ist, ist die Schaltfläche ausgegraut. Ein Spiel behält seine Welt so, wie sie erstellt wurde, sodass eine neue Sitzung, eine Verzweigung und ein exportierter Chat dieselbe Welt behalten. Eine Welt, die eine frühere Version des Generators erstellt hat, läuft weiter, lässt sich aber nicht mehr bearbeiten.
-
-Ein Spiel mit Welt öffnet sich auf der **Oberwelt**, einer Pixelkarte, auf der du die Party zwischen Siedlungen wandern lässt und Städte betrittst. Siehe [Die Oberwelt](map-time-weather.md#the-overworld).

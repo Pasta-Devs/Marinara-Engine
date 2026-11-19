@@ -716,7 +716,7 @@ Game 마법사로 설정하는 `game-surface` 패키지(`gameSurface.setup`, 1.1
 }
 ```
 
-`worlds`(최대 32개)와 `tiles`는 선택 사항입니다. 월드 파일에는 그 월드의 스토리 스크립트(worldgen W10)가 들어 있을 수 있으며, 스토리 스크립트는 지도의 일부로 함께 배포됩니다. 버전 2 월드 파일에는 월드를 만든 당시 모습인 `snapshot`(W11)도 들어 있습니다. 그 뒤로 월드 생성기가 바뀐 Engine도 이 스냅샷에서 월드를 만든 그대로 읽으므로, 팩은 Engine을 업데이트해도 계속 동작합니다. 파일은 게임이나 라이브러리 월드의 **Download**(또는 `GET /api/game/:chatId/world/file`)로 만드세요. 이렇게 만든 파일에는 스냅샷이 들어 있습니다. 팩 파일은 최대 8 MB로, Engine이 읽는 가장 큰 공유 파일 크기입니다(타일 팩은 자체적으로 더 작은 한도를 유지합니다). 따라서 파일이 그보다 큰 월드(아주 큰 월드의 스냅샷)는 팩에 넣어 배포할 수 없습니다. 스토리에서 `intro`를 설정하는 월드는 Capability API 1.339가 필요합니다([도입 메시지](../extending/writing-story-scripts.md#the-intro-message) 참고). `tiles`는 이미지 타일 팩(타일 팩 버전 2: 셀 격자 위의 PNG 시트이며, 여러 셀에 걸친 스프라이트를 포함할 수 있음)일 수도 있으며, 이 경우 Capability API 1.80이 필요합니다. Engine은 패키지 버전마다 한 번 시트를 디코딩하고 검사합니다. Experience를 켜면 새 게임은 팩의 키트로 고정됩니다. 팩에 월드가 있으면 플레이어는 그중 하나를(스토리 포함) 고르고 다른 월드는 만들지 않습니다. Experience를 끄면 플레이어가 다시 직접 고를 수 있습니다. `POST /api/game/create`도 게임에 같은 고정을 적용합니다. 게임은 여느 게임처럼 키트와 월드를 보관하므로 패키지를 제거해도 계속 플레이할 수 있고, 패키지가 설치되어 있는 동안에는 오버월드와 마을을 팩의 타일로 그립니다.
+`worlds`(최대 32개)와 `tiles`는 선택 사항입니다. 월드 파일에는 그 월드의 스토리 스크립트(worldgen W10)가 들어 있을 수 있으며, 스토리 스크립트는 지도의 일부로 함께 배포됩니다. 버전 2 월드 파일에는 월드를 만든 당시 모습인 `snapshot`(W11)도 들어 있습니다. 그 뒤로 월드 생성기가 바뀐 Engine도 이 스냅샷에서 월드를 만든 그대로 읽으므로, 팩은 Engine을 업데이트해도 계속 동작합니다. 파일은 게임이나 라이브러리 월드의 **Download**(또는 `GET /api/game/:chatId/world/file`)로 만드세요. 이렇게 만든 파일에는 스냅샷이 들어 있습니다. 팩 파일은 최대 8 MB로, Engine이 읽는 가장 큰 공유 파일 크기입니다(타일 팩은 자체적으로 더 작은 한도를 유지합니다). 따라서 파일이 그보다 큰 월드(아주 큰 월드의 스냅샷)는 팩에 넣어 배포할 수 없습니다. 스토리에서 `intro`를 설정하는 월드는 Capability API 1.339가 필요합니다([도입 메시지](writing-story-scripts.md#the-intro-message) 참고). `tiles`는 이미지 타일 팩(타일 팩 버전 2: 셀 격자 위의 PNG 시트이며, 여러 셀에 걸친 스프라이트를 포함할 수 있음)일 수도 있으며, 이 경우 Capability API 1.80이 필요합니다. Engine은 패키지 버전마다 한 번 시트를 디코딩하고 검사합니다. Experience를 켜면 새 게임은 팩의 키트로 고정됩니다. 팩에 월드가 있으면 플레이어는 그중 하나를(스토리 포함) 고르고 다른 월드는 만들지 않습니다. Experience를 끄면 플레이어가 다시 직접 고를 수 있습니다. `POST /api/game/create`도 게임에 같은 고정을 적용합니다. 게임은 여느 게임처럼 키트와 월드를 보관하므로 패키지를 제거해도 계속 플레이할 수 있고, 패키지가 설치되어 있는 동안에는 오버월드와 마을을 팩의 타일로 그립니다.
 
 Engine은 검증된 에셋 경로로 파일을 읽고(파일마다 선언 크기 최대 8 MB, 해시 재확인), 공유 파일을 검사하는 방식 그대로 검사합니다. 파일을 읽을 수 없거나, 월드가 다른 키트로 만들어졌거나 키트에 맞지 않거나, 바이트가 설치된 것과 다르면 팩 전체를 이유와 함께 거부합니다. 그러면 그 Experience로는 게임을 시작할 수 없습니다. 규칙 집합은 지도 팩에 절대 들어가지 않습니다. 자체 규칙이 필요한 Experience는 별도의 규칙 집합 패키지를 배포합니다.
 
@@ -741,7 +741,7 @@ Engine은 검증된 에셋 경로로 파일을 읽고(파일마다 선언 크기
 }
 ```
 
-각 트랙도 선언된 에셋이며, 지정한 모든 트랙 ID는 `tracks` 중 하나여야 합니다. `places`의 장소는 팩의 월드 중 하나에 있는 장소를 ID로 지정합니다. 전투 밖에서는 해당 장소의 트랙, 없으면 파티가 속한 가장 가까운 상위 장소의 트랙, 그것도 없으면 `default`를 재생합니다. 전투 중에는 `combat`을 재생합니다. 스토리의 `music` 동작([Game Mode 스토리 스크립트 작성하기](../extending/writing-story-scripts.md) 참고)은 이 모든 음악보다 우선해 트랙 하나를 재생하며, 제어를 돌려줄 때까지 유지됩니다. 해당 설정이 모두 없으면 Engine 자체 음악을 재생합니다. 플레이어가 직접 음악 소스(Music DJ, Spotify)를 골랐다면 그것을 듣습니다. 플레이어의 선택이 항상 우선합니다.
+각 트랙도 선언된 에셋이며, 지정한 모든 트랙 ID는 `tracks` 중 하나여야 합니다. `places`의 장소는 팩의 월드 중 하나에 있는 장소를 ID로 지정합니다. 전투 밖에서는 해당 장소의 트랙, 없으면 파티가 속한 가장 가까운 상위 장소의 트랙, 그것도 없으면 `default`를 재생합니다. 전투 중에는 `combat`을 재생합니다. 스토리의 `music` 동작([Game Mode 스토리 스크립트 작성하기](writing-story-scripts.md) 참고)은 이 모든 음악보다 우선해 트랙 하나를 재생하며, 제어를 돌려줄 때까지 유지됩니다. 해당 설정이 모두 없으면 Engine 자체 음악을 재생합니다. 플레이어가 직접 음악 소스(Music DJ, Spotify)를 골랐다면 그것을 듣습니다. 플레이어의 선택이 항상 우선합니다.
 
 #### Capability API 1.346: 인물
 
@@ -817,7 +817,7 @@ POST /api/game/experience/check
 
 #### Capability API 1.351: 계절 고정
 
-월드의 스토리는 날짜와 무관하게 장소를 특정 계절로 고정할 수 있으며(`seasons`와 `season` 동작: [스토리 스크립트 작성하기](../extending/writing-story-scripts.md#seasons) 참고), 월드의 전장에도 계절을 칠할 수 있습니다(`seasons` 행과 `seasonKeys`). 어느 쪽이든 지도 팩에 있으면 1.351이 필요합니다. 오버월드는 `GET /api/game/:chatId/overworld`에서 고정된 장소를 `seasons`로 읽습니다(장소 ID에서 계절로의 매핑이며 월드 전체는 `*`). 만들어진 전장은 타일의 시작 계절을 `"x,y"`를 키로 하는 `seasons`에 담습니다.
+월드의 스토리는 날짜와 무관하게 장소를 특정 계절로 고정할 수 있으며(`seasons`와 `season` 동작: [스토리 스크립트 작성하기](writing-story-scripts.md#seasons) 참고), 월드의 전장에도 계절을 칠할 수 있습니다(`seasons` 행과 `seasonKeys`). 어느 쪽이든 지도 팩에 있으면 1.351이 필요합니다. 오버월드는 `GET /api/game/:chatId/overworld`에서 고정된 장소를 `seasons`로 읽습니다(장소 ID에서 계절로의 매핑이며 월드 전체는 `*`). 만들어진 전장은 타일의 시작 계절을 `"x,y"`를 키로 하는 `seasons`에 담습니다.
 
 <a id="capability-api-1355-ruleset-overlays"></a>
 
@@ -882,7 +882,7 @@ Experience에서 직접 만든 지도는 라이브러리의 동굴, 지하 묘�
 
 #### Capability API 1.360: 6명을 넘는 파티와 전투하지 않는 동료
 
-스토리 전투의 변형은 6명을 넘는 파티용이거나 상한이 없을 수 있으며(`"party": { "min": 7 }`), 스토리 조건으로 파티 규모를 확인할 수 있습니다(`{ "partySize": { "is": ">=", "value": 7 } }`. [스토리 스크립트 작성하기](../extending/writing-story-scripts.md#conditions) 참고).
+스토리 전투의 변형은 6명을 넘는 파티용이거나 상한이 없을 수 있으며(`"party": { "min": 7 }`), 스토리 조건으로 파티 규모를 확인할 수 있습니다(`{ "partySize": { "is": ">=", "value": 7 } }`. [스토리 스크립트 작성하기](writing-story-scripts.md#conditions) 참고).
 
 인물 파일의 동료를 전투에 전혀 참여하지 않게 할 수 있습니다.
 
@@ -923,7 +923,7 @@ Experience에서 직접 만든 지도는 라이브러리의 동굴, 지하 묘�
 - `combatStyle`: `classic` 또는 `tactical`입니다.
 - 텍스트 제한: `setting` 4,000자, `language` 100자, `playerGoals`와 `preferences` 2,000자, `gameSpecialInstructions` 2,000자, `artStylePrompt` 500자입니다.
 
-`intro`는 Game Master의 도입 메시지(1.339)이며 스토리 스크립트의 `intro`와 같은 규칙을 따릅니다([스토리 스크립트 작성하기](../extending/writing-story-scripts.md#the-intro-message) 참고). 잠기는 값은 이것뿐입니다. 잠긴 도입 메시지는 마법사에서 읽기 전용으로 표시되고 설정에서 무엇을 보내든 이 메시지로 게임을 시작합니다. 게임은 시작 당시의 도입 메시지를 보관합니다(`chat.metadata.gameExperienceIntro`). 스토리 자체의 `intro`보다 먼저 읽습니다. 설정 파일을 가져오면 파일 자체의 값을 유지하고, Experience를 꺼도 채워진 값은 그대로 둡니다.
+`intro`는 Game Master의 도입 메시지(1.339)이며 스토리 스크립트의 `intro`와 같은 규칙을 따릅니다([스토리 스크립트 작성하기](writing-story-scripts.md#the-intro-message) 참고). 잠기는 값은 이것뿐입니다. 잠긴 도입 메시지는 마법사에서 읽기 전용으로 표시되고 설정에서 무엇을 보내든 이 메시지로 게임을 시작합니다. 게임은 시작 당시의 도입 메시지를 보관합니다(`chat.metadata.gameExperienceIntro`). 스토리 자체의 `intro`보다 먼저 읽습니다. 설정 파일을 가져오면 파일 자체의 값을 유지하고, Experience를 꺼도 채워진 값은 그대로 둡니다.
 
 ### Capability API 1.373: Experience 파일
 

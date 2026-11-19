@@ -161,11 +161,8 @@ Manche Angriffe und Fertigkeiten tragen ein Element. Das erste Element, das ein 
 Welche Elemente es gibt, gehört zum Setting:
 
 - Kein Setting-Kit oder ein Kit, das keine nennt: die klassischen sechs (Feuer, Eis, Blitz, Gift, Heiliges, Schatten).
-- Wuxia: die fünf Wandlungsphasen (Holz, Feuer, Erde, Metall, Wasser), von denen jede die nächste überwindet.
-- Cyberpunk und Space Opera: kinetisch, thermisch, EM sowie chemisch oder Plasma.
-- Gegenwart und 1920er-Jahre: keine.
 
-Regen und Sturm auf offenem Gelände dämpfen feuerartige Elemente und stärken blitzartige. In einem taktischen Kampf trifft ein Element härter gegen eines, das es schlägt, und schwächer gegen eines, von dem es geschlagen wird. Die Elemente und Reaktionen eines Kits kannst du unter **Change its words** (Wörter ändern) ändern. Siehe [Ein Setting-Kit wählen](getting-started.md#choosing-a-setting-kit).
+Regen und Sturm auf offenem Gelände dämpfen feuerartige Elemente und stärken blitzartige. In einem taktischen Kampf trifft ein Element härter gegen eines, das es schlägt, und schwächer gegen eines, von dem es geschlagen wird.
 
 ## Boss-Mechaniken und Beute
 
@@ -173,7 +170,7 @@ Starke Gegner können Boss-Mechaniken haben, Sonderregeln, die der GM für genau
 
 Gewinnst du, lassen die Gegner Beute fallen, die direkt in den Taschen der Party landet. Gegenstände haben eine Seltenheit, von common über uncommon, rare und epic bis legendary. Höhere Schwierigkeit verschiebt die Beute zu selteneren Gegenständen und wirft etwas mehr davon ab. Eine Benachrichtigung nennt, was gefallen ist, und der GM erfährt, dass es schon in deinen Taschen ist.
 
-Was fällt, gehört zu deinem Setting. Ein Spiel mit Setting-Kit wirft die eigene Beute des Kits ab (ein Spiel in der Gegenwart eine Geschenkkarte oder ein Erste-Hilfe-Set, nie ein verzaubertes Schwert), und du kannst diese Begriffe unter **Change its words** ändern. Ein Spiel ohne Kit wirft ab, was sein Genre üblicherweise hat. Ein Genre ohne Starter-Kit, etwa Steampunk, wirft schlichte Dinge ab, die zu keinem Setting gehören. In einem Spiel, dessen Regelsatz eigene Beutetabellen hat, werfen die Gegner stattdessen die Gegenstände des Regelsatzes ab, und ein Regelsatz, der die eigenen Gegenstände von Game Mode abschaltet, wirft nur seine eigenen ab.
+Was fällt, gehört zu deinem Setting. In einem Spiel, dessen Regelsatz eigene Beutetabellen hat, werfen die Gegner stattdessen die Gegenstände des Regelsatzes ab, und ein Regelsatz, der die eigenen Gegenstände von Game Mode abschaltet, wirft nur seine eigenen ab.
 
 ## Referenz: taktische Kämpfe
 
@@ -186,14 +183,6 @@ Beim Erstellen eines Spiels gibt es keine Schlachtfeldeinstellungen auszufüllen
 Marinara prüft Vorgabe und Aufbau. Das angeforderte Gelände bleibt erhalten, und die Begegnung bleibt zugleich erreichbar.
 
 Lassen sich die Bedingungen nicht vereinbaren, meldet der Kampf das Problem. **Use generated terrain** (generiertes Gelände verwenden) startet dann ohne die abgelehnten Geländeelemente. Stillschweigend entfernt werden sie nie.
-
-Eine Welt kann auch handgemachte Schlachtfelder haben: Spielfelder, die Feld für Feld für einen ihrer Orte gemalt wurden, mit einem Welteditor wie Pixelforge. Beginnt ein Kampf an diesem Ort oder an einem Ort darin, nutzt er eines dieser Spielfelder statt eines generierten.
-
-- Das Spielfeld wird genau so verwendet, wie es gemalt wurde. Hat der Ort mehrere, entscheidet der Seed des Kampfes, eine Zahl, die eines davon auswählt.
-- Die Geländevorgabe des GM wird dort nicht genutzt, seine Formation entscheidet aber weiterhin, wo jede Seite startet. Der GM erfährt, dass das Spielfeld für diesen Ort gemacht wurde.
-- Ein handgemachtes Spielfeld muss drei Regeln folgen: Es hat eine der drei Spielfeldgrößen, die beiden Spalten an jeder Seite, an denen sich die Seiten aufstellen, sind Ebenen, und jedes Feld, auf dem ein Kämpfer stehen kann, ist mit dem Rest verbunden. Der Editor lehnt ein Spielfeld ab, das eine Regel verletzt, und sagt, warum.
-
-Diese Spielfelder werden mit den Änderungen von Hand an der Welt gespeichert und reisen so in Weltdateien, Kartenpaketen und der Bibliothek mit.
 
 | Gelände | Gehen | Verteidigung und Ausweichen |
 | --- | --- | --- |
@@ -216,7 +205,7 @@ Beide Sonderbewegungen nutzen das aktuelle Bewegungsbudget und die gerade (nicht
 
 Ein Tactical-Kampf verteilt die Züge auf eine von zwei Arten:
 
-- **One at a time, by initiative** (einzeln nach Initiative): Jede Einheit bekommt einen Platz in einer ausgewürfelten Reihenfolge, und nur die Einheit, die am Zug ist, kann handeln. Das Spielfeld zeigt die Reihenfolge. Neue Overworld-Spiele nutzen diese Art.
+- **One at a time, by initiative** (einzeln nach Initiative): Jede Einheit bekommt einen Platz in einer ausgewürfelten Reihenfolge, und nur die Einheit, die am Zug ist, kann handeln. Das Spielfeld zeigt die Reihenfolge.
 - **Your whole party, then the enemies** (erst die ganze Party, dann die Gegner): Jede Einheit der Party kann handeln, dann folgt die Gegnerphase. VN-Spiele nutzen diese Art.
 
 Zum Ändern öffne **Chat Settings**, klapp **Combat Style** auf und wähle eine **Turn order**. Die Option erscheint, solange das **Battle system** auf Tactical steht, außer wenn der Regelsatz des Spiels seine Kämpfe selbst führt. Die Änderung gilt ab dem nächsten Kampf. Ein laufender Kampf behält seine Reihenfolge.
@@ -227,11 +216,11 @@ Zum Ändern öffne **Chat Settings**, klapp **Combat Style** auf und wähle eine
 
 - **Sicht.** Wände und Berge blockieren die Sicht. Eine Einheit kann nur dann angreifen, eine Fertigkeit oder einen Gegenstand einsetzen, wenn sie das Ziel sieht.
 - **Deckung.** Etwas zwischen Angreifer und Ziel schützt das Ziel. Ein Wald- oder Ruinenfeld dazwischen oder eine Wand oder ein Berg, die einen Teil der Sicht versperren, geben halbe Deckung. Eine Wand oder ein Berg, die den größten Teil der Sicht versperren, geben Dreivierteldeckung. Halbe Deckung zieht 15 Prozentpunkte von der Trefferchance ab, Dreivierteldeckung 30. Der Bonus des Feldes, auf dem das Ziel steht, und seine Deckung addieren sich nicht: Es zählt der bessere Wert.
-- **Höhe.** Auf einem Spielfeld mit Bergen ist ein Berg zwei Stufen hoch und der Boden um ihn herum eine Stufe. Eine Stufe hinaufzugehen kostet einen Bewegungspunkt mehr, hinunterzugehen kostet nichts. Ein Absatz von zwei oder mehr Stufen ist eine Klippe, über die niemand gehen kann. Höheres Gelände blockiert außerdem die Sicht zwischen zwei niedrigeren Feldern. Ein Angriff von höherem Gelände nach unten erhöht die Trefferchance um 10, ein Fernangriff von höherem Gelände reicht ein Feld weiter, und niedrige Deckung wie ein Wald verbirgt ein Ziel nicht vor einem Angriff von oben. Handgemachte Schlachtfelder können eigene Klippen haben.
+- **Höhe. ** Auf einem Spielfeld mit Bergen ist ein Berg zwei Stufen hoch und der Boden um ihn herum eine Stufe. Eine Stufe hinaufzugehen kostet einen Bewegungspunkt mehr, hinunterzugehen kostet nichts. Ein Absatz von zwei oder mehr Stufen ist eine Klippe, über die niemand gehen kann. Höheres Gelände blockiert außerdem die Sicht zwischen zwei niedrigeren Feldern. Ein Angriff von höherem Gelände nach unten erhöht die Trefferchance um 10, ein Fernangriff von höherem Gelände reicht ein Feld weiter, und niedrige Deckung wie ein Wald verbirgt ein Ziel nicht vor einem Angriff von oben.
 
 ### Schlachtfeldszenen
 
-Ein taktisches Spielfeld ist wie der Ort angelegt, an dem der Kampf stattfindet: Ein Wald hat Bäume zum Verstecken, ein Dungeon Wände und Korridore, eine Stadt Straßen. Ein Spiel mit Setting-Kit benennt seine eigenen Szenen in seinen Worten, sodass ein Cyberpunk-Kampf auf einem Dach oder im Korridor eines Megablocks stattfindet und ein Wuxia-Kampf in einem Bambuswald oder einem Teehaus. Auch die Felder des Spielfelds tragen die Begriffe des Settings (Deckung und Trümmer statt Wald und Ruinen). Die Szenen und Feldbegriffe eines Kits kannst du unter **Change its words** ändern.
+Ein taktisches Spielfeld ist wie der Ort angelegt, an dem der Kampf stattfindet: Ein Wald hat Bäume zum Verstecken, ein Dungeon Wände und Korridore, eine Stadt Straßen.
 
 ## Verwandte Anleitungen
 

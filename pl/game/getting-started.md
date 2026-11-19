@@ -36,7 +36,7 @@ Jeśli coś nie zadziałało, zajrzyj do sekcji [Generowanie świata kończy si�
 
 | Krok | Co ustawiasz |
 | --- | --- |
-| **Connection** (połączenie) | **Game Name** (nazwa gry), **Model**, który obsługuje postać GM, oraz opcjonalny **Scene effects model**. Karta **Game Mode** pokazuje na razie tylko **VN** (zobacz [VN czy Overworld](#vn-or-overworld)). |
+| **Connection** (połączenie) | **Game Name** (nazwa gry), **Model**, który obsługuje postać GM, oraz opcjonalny **Scene effects model**. Karta **Game Mode** pokazuje na razie tylko **VN**. |
 | **World** (świat) | Gatunek, realia, ton, poziom trudności, klasyfikacja treści, styl historii, przemoc, granice treści i język. **Combat Preference** (preferowany rodzaj walki) to **Turn-Based** albo **Tactical**. Każda nowa gra korzysta z klas **MRPG** (Marinara RPG) (zobacz [Klasy MRPG](mrpg-classes.md)). Gdy jest zainstalowany zestaw zasad, pojawia się wybór **Rules** (zasady) (zobacz [Wybór zasad](#choose-rules)). |
 | **Party** (drużyna) | Twoja persona (postać, w którą się wcielasz), **Game Master Mode**, członkowie drużyny i **GM intro message** (wiadomość otwierająca GM; zobacz [Wiadomość otwierająca GM](#the-gm-intro-message)). Początkowe drzewko MRPG każdego członka wynika z sekcji **Game Mode** na jego karcie (zobacz [Wybieranie drzewek postaci](mrpg-classes.md#choose-a-characters-trees)). |
 | **Goals** (cele) | Czego oczekujesz od przygody. |
@@ -54,7 +54,7 @@ Gdy agent **Hierarchical Maps** jest pobrany (teraz nazywa się World Maps, zoba
 
 | Ustawienie | Domyślnie | Uwagi |
 | --- | --- | --- |
-| Genre | Fantasy | Można wybrać kilka, a także dopisać własne. Zestaw settingu wybrany wcześniej ustawia własny gatunek. |
+| Genre | Fantasy | Można wybrać kilka, a także dopisać własne. |
 | Tone | Heroic | Można wybrać kilka. |
 | Difficulty | Normal | **Casual**, **Normal**, **Hard** albo **Brutal**. Wyższe ustawienia utrudniają walki: w grze MRPG dodają liczniejszych i silniejszych przeciwników (zobacz [Walki w grze MRPG](combat.md#battles-in-an-mrpg-game)), a w grze Legacy zwiększają obrażenia zadawane przez wrogów (zobacz [Skalowanie trudności](combat.md#difficulty-scaling)). |
 | Content Rating (sexual content) (Kategoria treści (treści seksualne)) | SFW | **SFW** albo **NSFW**. Dotyczy wyłącznie treści seksualnych. NSFW dopuszcza je, ale ich nie wymusza. |
@@ -157,7 +157,7 @@ Na komputerze kontrolki otwierają się przyciskami blisko prawego górnego rogu
 
 | Kontrolka | Co zawiera |
 | --- | --- |
-| **Game controls** (Kontrolki gry, ikona kontrolera do gier) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (gdy Music DJ odtwarza muzykę) i **Retry assets image generation**. Przy tle ze storyboardu także ponowne odtwarzanie, odtwarzanie/pauza i wyciszenie. **Show the scene** (pokazanie sceny), **Show the overworld** (pokazanie mapy świata) i **Show the map** (pokazanie mapy) przełączają widoki w grach, które je mają. **Edit game data** (edycja danych gry) pozwala ręcznie poprawić zapisane dane (zobacz [Ręczna edycja danych gry](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** (punkty kontrolne) cofa grę do wcześniejszego momentu (zobacz [Jak gra zapisuje postępy](sessions-and-saves.md#how-your-game-saves)). |
+| **Game controls** (Kontrolki gry, ikona kontrolera do gier) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (gdy Music DJ odtwarza muzykę) i **Retry assets image generation**. Przy tle ze storyboardu także ponowne odtwarzanie, odtwarzanie/pauza i wyciszenie. **Edit game data** (edycja danych gry) pozwala ręcznie poprawić zapisane dane (zobacz [Ręczna edycja danych gry](sessions-and-saves. md#editing-game-data-by-hand)). **Checkpoints** (punkty kontrolne) cofa grę do wcześniejszego momentu (zobacz [Jak gra zapisuje postępy](sessions-and-saves. md#how-your-game-saves)). |
 | **Session** (sesja, ikona pióra) | Historia sesji, dziennik i kontrolki sesji. Zobacz [Game Mode: sesje i zapisy gry](sessions-and-saves.md). |
 | **Volume** (głośność, ikona głośnika) | Głośność **Master**, **Music**, **Sound Effects**, **TTS** i **Ambient**. |
 | **Game Assets** (zasoby gry, ikona folderu) | Multimedia sceny i Asset Browser. Zobacz [Zasoby gry](game-assets.md). |
@@ -251,60 +251,3 @@ Powiadomienie **The model declined this request** informuje, że model odmówił
 - [Zasoby gry](game-assets.md): biblioteka muzyki, dźwięków, sprite'ów i teł.
 - [Przewodnik po agencie Storyboard](storyboard.md): storyboardy w trybach Game Mode i Roleplay.
 - [Tryb Roleplay: pierwsze kroki](../roleplay/getting-started.md): funkcja Author's Notes (notatki autora) działa tu tak samo.
-
-## Overworld
-
-Sekcje poniżej opisują gry **Overworld**, które nie są jeszcze dostępne. Czytaj je tylko wtedy, gdy twój serwer je włączył.
-
-<a id="vn-or-overworld"></a>
-
-### VN czy Overworld
-
-Nowa gra toczy się w jednym z dwóch trybów gry, wybieranym w pierwszym kroku i zachowywanym we wszystkich jej sesjach:
-
-- **Overworld** to świat stworzony dla twojego settingu, przemierzany na mapie świata, z miastami, miejscami do zbadania i lochami. Wymaga zestawu settingu i świata. Dopóki nie wybierzesz zestawu, używany jest zestaw dla pierwszego wybranego gatunku (High fantasy, jeśli gatunek nie ma własnego), a świat jest dla niego losowany.
-- **VN** to Game Mode w dotychczasowej postaci, opowiadany jak powieść wizualna: scena po scenie, z mapą sceny i walkami, bez zestawu settingu, świata, mapy świata, miast i map lochów.
-
-Overworld jest zablokowany, dopóki właściciel serwera nie ustawi `MARINARA_OVERWORLD_GAMES`. Gdy jest zablokowany, jego karta jest wyszarzona z informacją "Overworld games, with a setting kit and a generated world, are not ready yet. New games start as VN games." Każda nowa gra jest wtedy grą VN, a wybory zestawu settingu i świata się nie pojawiają. Gra utworzona, zanim pojawił się ten wybór, działa tak jak dotąd: ze światem jest grą Overworld, bez świata – grą VN.
-
-<a id="choosing-a-setting-kit"></a>
-
-### Wybór zestawu settingu
-
-**Setting kit** (zestaw settingu) daje postaci GM słownictwo, którym opisany jest twój rodzaj świata: nazwy miejsc i wielkości osad, rodzaje grup, sposoby podróżowania, nazwy roku i dnia, to, jak ludy nazywają same siebie, pieniądze i towary, żywioły, miejsca walk oraz rodzinę grafiki i muzyki, z której korzysta (zobacz [Zasoby gry](game-assets.md#a-settings-own-art-and-music)). Określa też, jakie rodzaje zmian dopuszcza świat, na przykład rywalizacje, przestępczość, wojny albo katastrofy, i jak szybko się zmienia. Wyłączony rodzaj zmian nigdy się nie pojawia, więc kłótnia może pozostać kłótnią.
-
-Jest osiem zestawów: high fantasy, wuxia i xianxia, współczesność, współczesność z elementami nadprzyrodzonymi, lata dwudzieste XX wieku, cyberpunk, space opera i postapokalipsa. Współczesność jest domyślnie łagodna, bez przestępczości, konfliktów i katastrof, w wolnym tempie.
-
-- Wybór zestawu przed wyborem gatunku ustawia pasujący gatunek. Gatunek wybrany samodzielnie pozostaje bez zmian.
-- **Write it for my setting** (dopasowanie do mojego settingu) prosi twój model GM o przepisanie zestawu pod wybrany gatunek, realia i ton. Jeśli wynik nie jest spójny, model dostaje jeszcze jedną prośbę z podanymi powodami. Jeśli i wtedy się nie uda, kreator informuje, co było nie tak, i zachowuje dotychczasowy zestaw.
-- **Change its words** (zmiana słownictwa) otwiera do edycji każde słowo zestawu. Listę wpisuje się w jednej linii, oddzielając elementy przecinkami. Zestaw z problemem, na przykład z pustą nazwą albo bez osad, informuje, co jest nie tak, a gry nie da się rozpocząć, dopóki problem nie zostanie naprawiony.
-- **Download this kit** (pobranie zestawu) zapisuje plik `.worldkit.json` do udostępnienia. **Import a kit file** (import pliku zestawu) wczytuje go z powrotem.
-
-Gra zachowuje zestaw, z którym ją utworzono, a udostępniony plik konfiguracji go zawiera. Experience może dostarczać własny pakiet map (zestaw settingu, gotowe mapy i kafelki). Gdy to Experience jest włączone, konfiguracja pokazuje jego zestaw jako ustawiony, a jeśli dostarcza mapy – pole **Map** do wyboru. Wyłączenie Experience przywraca twoje wybory.
-
-<a id="making-a-world"></a>
-
-### Tworzenie świata
-
-Po wybraniu zestawu sekcja **Your world** (twój świat) rozkłada przed startem gry świat w słownictwie zestawu: regiony, osady każdej wielkości, to, z czego słynie każde miejsce, oraz szlaki między nimi (drogi, rzeki, szlaki morskie, korytarze skokowe) wraz z czasem podróży w dniach.
-
-Świat powstaje z pola **World seed** (ziarno świata). To samo ziarno, zestaw i opis świata zawsze dają ten sam świat. **Roll** (losowanie) daje inny, a wpisanie liczby z powrotem przywraca dawny. Podgląd pokazuje małą mapę terenu i osad, miejsce startu drużyny oraz listę osad według regionów.
-
-- **Start from this lore** (rozpoczęcie od tego lore) odczytuje z zaznaczonych lorebooków podane w nich miejsca i datowane wydarzenia, zachowane dokładnie tak, jak je zapisano. **Build around the lore** (budowanie świata wokół lore) uzupełnia świat wokół nich. **Only the lore's places** (tylko miejsca z lore) nie tworzy niczego poza nimi.
-- **Write the world's brief** (napisanie opisu świata) prosi twój model GM o teraźniejszość, najważniejsze miejsca, grupy, wokół których toczy się teraźniejszość (czego chce każda z nich, kto jest jej sojusznikiem, a kto rywalem), oraz nazwy miejsc i ludzi zgodne z brzmieniem nazw każdego ludu. Miejsca z lore zostają zachowane bez względu na to, co napisze model. Wszystko, co nie pasuje do zestawu, jest pomijane i liczone. **Change the brief** (zmiana opisu świata) otwiera jego słowa do edycji, łącznie z imionami i nazwiskami każdego ludu. Bez opisu świata miejsca są numerowane, a ludzie występują pod nazwą swojego zajęcia.
-
-**Świat ma przeszłość.** Przed rozpoczęciem gry świat przewija się rok po roku od swojego założenia. Osady rosną, grupy powstają, zyskują i tracą przywódców, zbliżają się do siebie i skłócają. Tam, gdzie świat je ma, bandyci, wojny i klęski głodu zostawiają ślady. Poważna zmiana przychodzi dopiero wtedy, gdy przez jakiś czas narastała, i tylko w rodzajach, na które pozwala zestaw. Datowane wydarzenia z twojego lore albo z opisu świata dzieją się wtedy i tam, gdzie mówią. To samo ziarno i opis dają tę samą przeszłość.
-
-**Co wie postać GM.** Postać GM zawsze wie, gdzie jest drużyna, dokąd może się udać i ile trwa każda droga. Dowiaduje się o najważniejszych wydarzeniach z przeszłości, o tym, kto przewodzi bieżącemu miejscu, i o historii tego miejsca. O każde inne miejsce albo grupę może zapytać i dostaje odpowiedź w następnej turze. Miejsce, do którego idzie drużyna, wskazuje znacznikiem miejsca. Miejsce wymienione przez świat zachowuje wielkość nadaną mu przez świat. Miejsce, którego świat nie wymienia, na przykład zagroda, zachowuje nazwę nadaną przez postać GM. Każda osada ma mieszkańców losowanych z ziarna, gdy drużyna tam dotrze: z imieniem z własnej kultury, zajęciem pasującym do miejsca, temperamentem, sposobem mówienia i wyglądem. Gdy postać GM nazwie kogoś pełnym imieniem, ta osoba dołącza do śledzonych postaci.
-
-**To, co zrobi drużyna, pozostaje.** Gdy drużyna pomaga jakiejś grupie albo jej szkodzi, zmienia stosunek dwóch grup do siebie, zdobywa albo rujnuje jakieś miejsce lub stawia kogoś na czele grupy, postać GM zapisuje to w swojej odpowiedzi. Każda zmiana jest sprawdzana względem świata. Zmiana rodzaju wyłączonego w zestawie albo zmiana dotycząca miejsca lub grupy, których świat nie ma, jest odrzucana. Od tej chwili postać GM dostaje świat w stanie, w jakim zostawiła go opowieść. Miejsce dodane przez opowieść jest miejscem, do którego drużyna może się udać. Swipe, ponowne wygenerowanie albo usunięta wiadomość cofają zmianę razem z jej odpowiedzią.
-
-**Świat żyje też bez drużyny.** Gdy postać GM mówi, że mija czas, świat wykonuje kroki po tygodniu naraz, tylko w rodzajach zmian, które ma zestaw. Katastrofy nigdy nie przychodzą same: tylko postać GM może opowiedzieć o katastrofie, a ta jest odrzucana, jeśli jej rodzaj jest wyłączony. Nic nie rozstrzyga się tam, gdzie jest drużyna. Wieści podróżują: postać GM dowiaduje się o odległej zmianie, gdy miną dni potrzebne na drogę. Czyny drużyny ważą tym więcej, im bardziej jest znana.
-
-**Ręczne zmiany.** W edytorze świata możesz zmieniać nazwy miejsc i je przenosić, malować teren, dodawać miejsca i ludzi, namalować taktyczne pole bitwy dla miejsca (zobacz [Game Mode: walka](combat.md#tactical-battles-and-terrain)) i ułożyć miasto (zobacz [Miasto](map-time-weather.md#the-town)). Każda część gry widzi zmiany od razu. Miejsce o zmienionej nazwie nadal reaguje na starą nazwę. Zmiany wpływają na świat od teraz, nigdy na jego przeszłość. Miasto zachowuje swój układ, więc dodane przez ciebie miejsca i ludzie trafiają na jego następne wolne działki i do następnych wolnych domów.
-
-**Pliki świata.** **Download this world** (pobranie tego świata; w sekcji **Your world**) zapisuje tworzony świat, a **Download the world** (pobranie świata) na zakładce World gry zapisuje świat tej gry razem z ręcznymi zmianami jako plik `.world.json`. **Import a world file** (import pliku świata; obok zestawu settingu) wczytuje taki plik do konfiguracji nowej gry: wybiera zestaw settingu z pliku i tworzy jego świat. **Your worlds** (twoje światy) robi to samo ze światem z twojej biblioteki. Plik może też zawierać fabułę świata: wydarzenia i sceny napisane przez twórcę. Sceny fabuły pojawiają się w narracji przed odpowiedzią postaci GM, dokładnie tak, jak je napisano, a cele zadań z fabuły są wymienione w sekcji **Story** (opowieść) na zakładce World dziennika. Jak napisać fabułę, opisuje przewodnik [Pisanie skryptów fabuły Game Mode](../extending/writing-story-scripts.md). Ręczne zmiany i fabuła należą do określonego ziarna i opisu świata, więc są pomijane, jeśli zmienisz którekolwiek z nich. Plik, którego nie da się odczytać, jest odrzucany, a kreator podaje powód. Z pliku, którego treść nie pasuje do zestawu, część zostaje pominięta, a kreator mówi, co to było.
-
-**Dodawanie świata później i zapis.** Grze utworzonej bez świata można później dodać świat na zakładce **World** (świat) dziennika przyciskiem **Make a world for this game** (utworzenie świata dla tej gry). Świat działa od następnej tury, a wcześniejsze tury, mapa i ludzie pozostają. Przycisk jest wyszarzony, dopóki Overworld RPG jest zablokowany. Gra zachowuje swój świat w postaci, w jakiej powstał, więc nowa sesja, gałąź i wyeksportowany czat zachowują ten sam świat. Świat utworzony przez wcześniejszą wersję generatora działa dalej, ale nie da się go już edytować.
-
-Gra ze światem otwiera się na **mapie świata** (overworld), czyli mapie pikselowej, na której prowadzisz drużynę od osady do osady i wchodzisz do miast. Zobacz [Mapa świata](map-time-weather.md#the-overworld).

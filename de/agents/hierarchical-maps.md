@@ -84,7 +84,6 @@ Wähl während der Game-Einrichtung World Maps aus und danach eine seiner Einric
 - **Create with AI** bereitet eine generierte Hierarchie zur Prüfung vor.
 - **Use template** öffnet die Weltbibliothek, bevor das Game entsteht.
 - **Build manually** startet mit einer leeren, bearbeitbaren Hierarchie.
-- **From the world** erscheint, wenn das Game eine Welt erstellt (siehe [Eine Welt erstellen](../game/getting-started.md#making-a-world)). Es legt diese Welt als Karte an: ihre Regionen, Siedlungen und Orte sowie die Wege dazwischen mit ihren Reisezeiten. Du prüfst die Karte, bevor sie gespeichert wird. Eine KI-Generierung ist nicht nötig, und die Orte der Karte sind die Orte der Welt. Im Spiel bleiben beide im Gleichschritt. Der Game Master und die Märkte nutzen den Ort, an dem die Karte die Party verortet. Nennt der Game Master einen Ort der Welt, bewegt die Karte die Party dorthin. Ab World Maps 1.6.0 nimmt sie dabei den kürzesten Weg. Frühere Versionen gehen nur einen Schritt: zu einem Ort darin, zum Ort darum herum oder zu einem Ort, mit dem ein Weg verbindet.
 
 Nach **Use template** zeigt das Auswahlfenster zuerst **Shared worlds** und danach **Independent templates**:
 

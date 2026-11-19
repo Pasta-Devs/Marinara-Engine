@@ -84,7 +84,6 @@ Durante a configuração do Game, escolha World Maps e depois selecione um dos c
 - **Create with AI** prepara uma hierarquia gerada para você revisar.
 - **Use template** abre a biblioteca de mundos antes de o Game ser criado.
 - **Build manually** começa com uma hierarquia em branco e editável.
-- **From the world** (a partir do mundo) aparece quando o Game cria um mundo (veja [Criar um mundo](../game/getting-started.md#making-a-world)). Ele dispõe esse mundo como o mapa: as regiões, os assentamentos e os lugares dele, e os caminhos entre eles com os tempos de viagem. Você revisa o resultado antes de ele ser salvo. Não precisa de geração por IA, e os lugares do mapa são os lugares do mundo. Durante o jogo, os dois andam juntos. O Game Master e os mercados usam o lugar onde o mapa coloca a equipe. Quando o Game Master cita um lugar do mundo, o mapa leva a equipe até lá. Com o World Maps 1.6.0 ou posterior, ele faz o caminho mais curto. Versões anteriores avançam só um passo: um lugar dentro do atual, o lugar ao redor dele ou um lugar ligado a ele por um caminho.
 
 Depois de escolher **Use template**, o seletor mostra primeiro a seção **Shared worlds** e depois **Independent templates**:
 

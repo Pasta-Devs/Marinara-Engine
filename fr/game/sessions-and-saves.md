@@ -50,7 +50,7 @@ Une fois une session conclue, le même bouton de sa ligne devient **New Session*
 1. Ouvre **Session** et va sur **Session History**.
 2. Sur la ligne de la session en cours, clique sur **New Session** (l'icône de lecture).
 
-Le GM reprend l'histoire à partir du dernier résumé et de la note que tu as éventuellement écrite en terminant la session. Dans une partie avec un monde généré, le monde reprend là où il en était : les jours écoulés, les exploits et la réputation de l'équipe, les lieux et les groupes ajoutés par l'histoire, et les endroits où l'équipe est allée.
+Le GM reprend l'histoire à partir du dernier résumé et de la note que tu as éventuellement écrite en terminant la session.
 
 ## Relire les sessions passées
 

@@ -161,11 +161,8 @@ Algunos ataques y habilidades llevan un elemento. El primer elemento que golpea 
 Qué elementos existen depende de la ambientación:
 
 - Sin kit de ambientación, o con un kit que no nombra ninguno: los seis clásicos (fuego, hielo, rayo, veneno, sagrado, sombra).
-- Wuxia: las cinco fases (madera, fuego, tierra, metal, agua), y cada una vence a la siguiente.
-- Cyberpunk y ópera espacial: cinético, térmico, EM, y químico o plasma.
-- Época actual y años veinte: ninguno.
 
-La lluvia y las tormentas en terreno abierto debilitan los elementos parecidos al fuego y refuerzan los parecidos al rayo. En un combate táctico, un elemento golpea más fuerte contra uno al que vence y más débil contra uno que lo vence. Puedes cambiar los elementos y las reacciones de un kit en **Change its words** (Cambiar sus palabras). Consulta [Elegir un kit de ambientación](getting-started.md#choosing-a-setting-kit).
+La lluvia y las tormentas en terreno abierto debilitan los elementos parecidos al fuego y refuerzan los parecidos al rayo. En un combate táctico, un elemento golpea más fuerte contra uno al que vence y más débil contra uno que lo vence.
 
 ## Mecánicas de jefe y botín
 
@@ -173,7 +170,7 @@ Los enemigos fuertes pueden tener mecánicas de jefe, reglas especiales que el G
 
 Cuando ganas, los enemigos sueltan botín, que va directamente a las bolsas del grupo. Los objetos tienen una rareza, que va de common a uncommon, rare, epic y legendary. Una dificultad más alta inclina los objetos que caen hacia los más raros y reparte un poco más de ellos. Una notificación indica lo que cayó, y al GM se le dice que ya está en tus bolsas.
 
-Lo que cae depende de tu ambientación. Una partida con kit de ambientación suelta el botín propio del kit (una partida de la época actual suelta una tarjeta regalo o un botiquín, nunca una espada encantada), y puedes cambiar esas palabras en **Change its words**. Una partida sin kit suelta lo que suele tener su género. Un género sin kit inicial, como Steampunk, suelta cosas sencillas que no pertenecen a ninguna ambientación. En una partida cuyo conjunto de reglas tiene sus propias tablas de botín, los enemigos sueltan en su lugar los objetos del conjunto, y un conjunto que desactiva los objetos propios de Game Mode suelta solo los suyos.
+Lo que cae depende de tu ambientación. En una partida cuyo conjunto de reglas tiene sus propias tablas de botín, los enemigos sueltan en su lugar los objetos del conjunto, y un conjunto que desactiva los objetos propios de Game Mode suelta solo los suyos.
 
 ## Referencia: batallas tácticas
 
@@ -186,14 +183,6 @@ No hay ajustes del campo de batalla que completar al crear una partida. Cada pel
 Marinara comprueba la descripción y la distribución. Conserva el terreno solicitado sin dejar de garantizar que el encuentro sea accesible.
 
 Si las restricciones no encajan entre sí, la batalla informa del problema. Entonces **Use generated terrain** (Usar terreno generado) empieza sin los elementos de terreno rechazados. Nunca los borra en silencio.
-
-Un mundo también puede tener campos de batalla hechos a mano: tableros pintados casilla a casilla para uno de sus lugares con un editor de mundos como Pixelforge. Cuando una pelea empieza en ese lugar, o dentro de él, usa uno de esos tableros en vez de uno generado.
-
-- El tablero se usa exactamente como se pintó. Si el lugar tiene varios, elige la semilla de la pelea (un número que escoge uno).
-- La descripción del terreno del GM no se usa ahí, pero su formación sigue decidiendo dónde empieza cada bando. Al GM se le dice que el tablero se hizo para este lugar.
-- Un tablero hecho a mano debe cumplir tres reglas: tiene uno de los tres tamaños de tablero, las dos columnas de cada lado son llanura, donde se forman los bandos, y cada casilla en la que puede estar un luchador conecta con las demás. El creador rechaza un tablero que incumple una regla y dice por qué.
-
-Estos tableros se guardan con las ediciones a mano del mundo, así que viajan en los archivos de mundo, los paquetes de mapas y la biblioteca.
 
 | Terreno | Caminar | Defensa y evasión |
 | --- | --- | --- |
@@ -216,7 +205,7 @@ Ambos modos especiales usan la capacidad de movimiento actual y la distancia en 
 
 Una batalla Tactical reparte los turnos de una de dos formas:
 
-- **One at a time, by initiative** (Uno a uno, por iniciativa): cada unidad recibe un puesto en un orden tirado, y solo puede actuar la unidad a la que le toca. El tablero muestra el orden. Las partidas Overworld nuevas usan este modo.
+- **One at a time, by initiative** (Uno a uno, por iniciativa): cada unidad recibe un puesto en un orden tirado, y solo puede actuar la unidad a la que le toca. El tablero muestra el orden.
 - **Your whole party, then the enemies** (Todo tu grupo y luego los enemigos): cada unidad del grupo puede actuar y luego se juega la fase enemiga. Las partidas VN usan este modo.
 
 Para cambiarlo, abre **Chat Settings**, expande **Combat Style** y elige un **Turn order**. Aparece mientras el **Battle system** es Tactical, salvo que el conjunto de reglas de la partida resuelva sus propias peleas. El cambio se aplica a partir de la siguiente batalla. Una batalla en curso conserva su orden.
@@ -227,11 +216,11 @@ Para cambiarlo, abre **Chat Settings**, expande **Combat Style** y elige un **Tu
 
 - **Visión.** Los muros y las montañas bloquean la visión. Una unidad solo puede atacar, usar una habilidad o usar un objeto sobre un objetivo que puede ver.
 - **Cobertura.** Algo entre el atacante y el objetivo protege al objetivo. Una casilla de bosque o de ruinas en medio, o un muro o una montaña que tapa parte de la vista, da media cobertura. Un muro o una montaña que tapa la mayor parte de la vista da cobertura de tres cuartos. La media cobertura resta 15 puntos porcentuales a la probabilidad de acierto, y la de tres cuartos, 30. La bonificación de la casilla del propio objetivo y su cobertura no se suman: cuenta la mejor.
-- **Altura.** En un tablero con montañas, una montaña tiene dos niveles de altura y el terreno que la rodea, uno. Subir un nivel caminando cuesta un punto de movimiento más, y bajar no cuesta nada. Un escalón de dos niveles o más es un acantilado, por el que nadie puede caminar. El terreno elevado también bloquea la visión entre dos casillas más bajas. Atacar hacia abajo desde un terreno elevado suma 10 a la probabilidad de acierto, un ataque a distancia desde un terreno elevado llega una casilla más lejos, y una cobertura baja, como un bosque, no oculta a un objetivo visto desde arriba. Los campos de batalla hechos a mano pueden tener sus propios acantilados.
+- **Altura. ** En un tablero con montañas, una montaña tiene dos niveles de altura y el terreno que la rodea, uno. Subir un nivel caminando cuesta un punto de movimiento más, y bajar no cuesta nada. Un escalón de dos niveles o más es un acantilado, por el que nadie puede caminar. El terreno elevado también bloquea la visión entre dos casillas más bajas. Atacar hacia abajo desde un terreno elevado suma 10 a la probabilidad de acierto, un ataque a distancia desde un terreno elevado llega una casilla más lejos, y una cobertura baja, como un bosque, no oculta a un objetivo visto desde arriba.
 
 ### Escenas del campo de batalla
 
-Un tablero táctico se distribuye como el tipo de lugar en el que ocurre la pelea: un bosque tiene árboles entre los que esconderse, una mazmorra tiene muros y pasillos, una ciudad tiene calles. Una partida con kit de ambientación nombra sus propias escenas con sus palabras, así que una pelea cyberpunk ocurre en una azotea o en el pasillo de un megabloque, y una pelea wuxia en un bosque de bambú o en una casa de té. Las casillas del tablero también usan las palabras de la ambientación (cobertura y escombros en vez de bosque y ruinas). Puedes cambiar las escenas de un kit y las palabras de sus casillas en **Change its words**.
+Un tablero táctico se distribuye como el tipo de lugar en el que ocurre la pelea: un bosque tiene árboles entre los que esconderse, una mazmorra tiene muros y pasillos, una ciudad tiene calles.
 
 ## Guías relacionadas
 

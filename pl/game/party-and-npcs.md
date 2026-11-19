@@ -114,9 +114,6 @@ Panel Adventure Journal to bieżąca kronika kampanii. Powstaje z zapisanych zda
 | **Items** | Rejestr przedmiotów zdobytych, użytych, zgubionych i usuniętych. |
 | **Library** (biblioteka) | Notatki i księgi ze świata gry, które pokazał ci GM, zapisane do ponownego czytania. |
 | **Notes** (notatki) | Twój własny notatnik. |
-| **World** (świat) | W grze z wygenerowanym światem: świat taki, jakim zna go twoja drużyna. |
-
-Zakładka **World** pokazuje, gdzie jesteś i jak dobrze znana jest drużyna, jej pozycję wobec każdej grupy, czego dokonała, wieści, które do niej dotarły (plotki są oznaczone), nadciągające kłopoty, o których słyszała, oraz przeszłość, o której opowiedziałby każdy miejscowy. Pokazuje tylko to, co drużyna mogła wiedzieć. Sekrety znane tylko GM pozostają ukryte. Podąża za opowieścią przez swipe'y i gałęzie.
 
 ### Notatki gracza
 
@@ -149,7 +146,7 @@ Przy pierwszej grze wybierz **Standalone GM**.
 
 ## Informacje: ekwipunek w grach z zestawem zasad
 
-Te części dotyczą tylko gier, które korzystają z zestawu zasad albo z zestawu settingu z pieniędzmi. Zobacz [Gra z zestawem zasad](rulesets.md).
+Zobacz [Gra z zestawem zasad](rulesets. md).
 
 ### Przedmioty z zestawu zasad
 
@@ -192,8 +189,6 @@ Zestaw może też mieć rynki, więc to, co można kupić, zależy od miejsca, w
 - Gdy kupujesz, Marinara wylicza cenę z kosztu przedmiotu i tego, czy transakcja jest tania, czy droga, pobiera ją z sakiewki kupującego i wkłada przedmiot do jego torby. Za nocleg, przejazd i inne usługi tylko się płaci.
 - Zakup, na który nie pozwala miejsce, sprzedawca albo sakiewka, zostaje odrzucony, a GM dowiaduje się dlaczego.
 - Zestaw może sprawić, że każdy dzień w danym miejscu jest inny: miejsce może mieć tylko kilka sztuk czegoś rzadkiego, sprzedawca może trafić na coś nietypowego, a rzeczy możesz odsprzedać za część ceny, dopóki sprzedawcy nie wydadzą tego, co wypłacają w ciągu dnia. Nowy dzień w tym samym miejscu, który GM rozpoczyna, gdy drużyna zostaje dłużej, znów zapełnia półki i sakiewki.
-
-Gra bez zestawu zasad też ma pieniądze i rynek, gdy ma je jej zestaw settingu. Ma je każdy startowy zestaw settingu, na przykład miedź, srebro i złoto w high fantasy, miedziane monety i taele srebra w wuxia, dolary i centy we współczesności oraz kredyty w cyberpunku i space operze. Sklep zestawu settingu wymienia codzienne towary z ceną i najmniejszym miejscem, w którym sprzedaje się każdy z nich, więc wioska ma kawiarnię, ale apteczkę ma dopiero miasteczko. Pieniądze i sklep możesz zmienić w opcji **Change its words** (zmiana słownictwa) zestawu albo usunąć pieniądze. Zobacz [Wybór zestawu settingu](getting-started.md#choosing-a-setting-kit).
 
 ## Powiązane przewodniki
 

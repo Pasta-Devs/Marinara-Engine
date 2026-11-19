@@ -161,11 +161,8 @@ Certaines attaques et compétences portent un élément. Le premier élément qu
 Les éléments qui existent dépendent de l'univers :
 
 - Sans kit d'univers, ou avec un kit qui n'en nomme aucun : les six classiques (feu, glace, foudre, poison, sacré, ombre).
-- Wuxia : les cinq phases (bois, feu, terre, métal, eau), chacune l'emportant sur la suivante.
-- Cyberpunk et space opera : cinétique, thermique, EM, et chimique ou plasma.
-- Époque moderne et années 1920 : aucun.
 
-La pluie et les orages en terrain découvert affaiblissent les éléments de type feu et renforcent ceux de type foudre. Dans un combat tactique, un élément frappe plus fort contre un élément qu'il domine et moins fort contre un élément qui le domine. Tu peux changer les éléments d'un kit et ses réactions sous **Change its words** (modifier ses termes). Consulte [Choisir un kit d'univers](getting-started.md#choosing-a-setting-kit).
+La pluie et les orages en terrain découvert affaiblissent les éléments de type feu et renforcent ceux de type foudre. Dans un combat tactique, un élément frappe plus fort contre un élément qu'il domine et moins fort contre un élément qui le domine.
 
 ## Les mécaniques de boss et le butin
 
@@ -173,7 +170,7 @@ Les ennemis puissants peuvent avoir des mécaniques de boss, des règles spécia
 
 Quand tu gagnes, les ennemis lâchent du butin, qui va directement dans les sacs de l'équipe. Les objets ont une rareté : commun, peu commun, rare, épique et légendaire. Une difficulté plus élevée oriente le butin vers les objets plus rares et en donne un peu plus. Une notification indique ce qui est tombé, et le GM est informé que c'est déjà dans tes sacs.
 
-Ce qui tombe dépend de ton univers. Une partie avec un kit d'univers fait tomber le butin propre au kit (une partie à l'époque moderne donne une carte cadeau ou une trousse de premiers secours, jamais une épée enchantée), et tu peux changer ces mots sous **Change its words**. Une partie sans kit fait tomber ce que son genre propose d'habitude. Un genre sans kit de départ, comme Steampunk, fait tomber des objets ordinaires qui n'appartiennent à aucun univers. Dans une partie dont l'ensemble de règles a ses propres tables de butin, les ennemis lâchent plutôt les objets de l'ensemble de règles, et un ensemble de règles qui désactive les objets propres à Game Mode ne fait tomber que les siens.
+Ce qui tombe dépend de ton univers. Dans une partie dont l'ensemble de règles a ses propres tables de butin, les ennemis lâchent plutôt les objets de l'ensemble de règles, et un ensemble de règles qui désactive les objets propres à Game Mode ne fait tomber que les siens.
 
 ## Référence : les combats tactiques
 
@@ -186,14 +183,6 @@ Il n'y a aucun réglage de champ de bataille à remplir à la création d'une pa
 Marinara vérifie la description et la disposition. Il conserve le terrain demandé tout en gardant la rencontre accessible.
 
 Si les contraintes ne peuvent pas coexister, le combat signale le problème. **Use generated terrain** (utiliser un terrain généré) démarre alors sans les éléments de terrain refusés. Il ne les efface jamais en silence.
-
-Un monde peut aussi avoir des champs de bataille faits à la main : des plateaux peints case par case pour l'un de ses lieux, avec un éditeur de monde comme Pixelforge. Quand un combat commence dans ce lieu, ou dans un lieu qu'il contient, il utilise l'un de ces plateaux au lieu d'un plateau généré.
-
-- Le plateau est utilisé exactement tel qu'il a été peint. Si le lieu en a plusieurs, c'est la graine du combat (un nombre qui en désigne un) qui choisit.
-- La description de terrain du GM n'y est pas utilisée, mais sa formation décide toujours où chaque camp commence. Le GM est informé que le plateau a été fait pour ce lieu.
-- Un plateau fait à la main doit respecter trois règles : il a l'une des trois tailles de plateau, les deux colonnes de chaque côté sont des plaines où les camps se mettent en place, et chaque case où un combattant peut se tenir est reliée aux autres. L'outil de création refuse un plateau qui enfreint une règle et explique pourquoi.
-
-Ces plateaux sont conservés avec les modifications manuelles du monde : ils voyagent donc dans les fichiers de monde, les packs de carte et la bibliothèque.
 
 | Terrain | Marche | Défense et esquive |
 | --- | --- | --- |
@@ -216,7 +205,7 @@ Ces deux modes spéciaux utilisent le budget de déplacement actuel et la distan
 
 Une bataille Tactical se joue tour par tour de l'une de ces deux façons :
 
-- **One at a time, by initiative** : chaque unité reçoit une place dans un ordre tiré aux dés, et seule l'unité dont c'est le tour peut agir. Le plateau affiche l'ordre. Les nouvelles parties Overworld utilisent ce mode.
+- **One at a time, by initiative** : chaque unité reçoit une place dans un ordre tiré aux dés, et seule l'unité dont c'est le tour peut agir. Le plateau affiche l'ordre.
 - **Your whole party, then the enemies** : chaque unité de l'équipe peut agir, puis la phase ennemie se joue. Les parties VN utilisent ce mode.
 
 Pour le changer, ouvre **Chat Settings**, déplie **Combat Style** et choisis un **Turn order**. Ce réglage apparaît tant que le **Battle system** est sur Tactical, sauf si l'ensemble de règles de la partie gère ses propres combats. Le changement s'applique à partir de la bataille suivante. Une bataille en cours garde son ordre.
@@ -227,11 +216,11 @@ Pour le changer, ouvre **Chat Settings**, déplie **Combat Style** et choisis un
 
 - **Ligne de vue.** Les murs et les montagnes bloquent la ligne de vue. Une unité ne peut attaquer, utiliser une compétence ou utiliser un objet que sur une cible qu'elle voit.
 - **Couvert.** Ce qui se trouve entre l'attaquant et la cible protège la cible. Une case de forêt ou de ruines sur le trajet, ou un mur ou une montagne qui bloque une partie de la vue, donne un demi-couvert. Un mur ou une montagne qui bloque la plus grande partie de la vue donne un couvert aux trois quarts. Un demi-couvert retire 15 points de pourcentage aux chances de toucher, et un couvert aux trois quarts en retire 30. Le bonus de la case de la cible et son couvert ne s'additionnent pas : seul le meilleur compte.
-- **Hauteur.** Sur un plateau avec des montagnes, une montagne s'élève sur deux niveaux et le sol qui l'entoure sur un niveau. Monter d'un niveau coûte un point de déplacement de plus, et descendre ne coûte rien. Une différence de deux niveaux ou plus est une falaise, que personne ne peut franchir à pied. Les hauteurs bloquent aussi la ligne de vue entre deux cases plus basses. Attaquer vers le bas depuis une hauteur ajoute 10 aux chances de toucher, une attaque à distance depuis une hauteur porte une case plus loin, et un couvert bas comme une forêt ne cache pas une cible vue d'en haut. Les champs de bataille faits à la main peuvent avoir leurs propres falaises.
+- **Hauteur. ** Sur un plateau avec des montagnes, une montagne s'élève sur deux niveaux et le sol qui l'entoure sur un niveau. Monter d'un niveau coûte un point de déplacement de plus, et descendre ne coûte rien. Une différence de deux niveaux ou plus est une falaise, que personne ne peut franchir à pied. Les hauteurs bloquent aussi la ligne de vue entre deux cases plus basses. Attaquer vers le bas depuis une hauteur ajoute 10 aux chances de toucher, une attaque à distance depuis une hauteur porte une case plus loin, et un couvert bas comme une forêt ne cache pas une cible vue d'en haut.
 
 ### Les scènes de champ de bataille
 
-Un plateau tactique est disposé comme le type de lieu où se déroule le combat : une forêt a des arbres derrière lesquels se cacher, un donjon des murs et des couloirs, une ville des rues. Une partie avec un kit d'univers nomme ses propres scènes dans ses mots : un combat cyberpunk se déroule ainsi sur un toit ou dans un couloir de mégabloc, et un combat wuxia dans une forêt de bambous ou une maison de thé. Les cases du plateau utilisent elles aussi les mots de l'univers (abri et débris plutôt que forêt et ruines). Tu peux changer les scènes d'un kit et les mots de ses cases sous **Change its words**.
+Un plateau tactique est disposé comme le type de lieu où se déroule le combat : une forêt a des arbres derrière lesquels se cacher, un donjon des murs et des couloirs, une ville des rues.
 
 ## Guides associés
 

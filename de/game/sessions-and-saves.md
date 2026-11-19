@@ -50,7 +50,7 @@ Ist eine Sitzung abgeschlossen, heißt dieselbe Schaltfläche in ihrer Zeile **N
 1. Öffne **Session** und wechsle zu **Session History**.
 2. Klick in der Zeile der aktuellen Sitzung auf **New Session** (das Play-Symbol).
 
-Der GM setzt die Geschichte mit der letzten Zusammenfassung fort und mit der Notiz, die du gegebenenfalls beim Beenden der Sitzung geschrieben hast. In einem Spiel mit generierter Welt geht die Welt dort weiter, wo sie zurückgelassen wurde: die vergangenen Tage, die Taten und das Ansehen der Party, die Orte und Gruppen, die die Geschichte hinzugefügt hat, und wohin die Party gezogen ist.
+Der GM setzt die Geschichte mit der letzten Zusammenfassung fort und mit der Notiz, die du gegebenenfalls beim Beenden der Sitzung geschrieben hast.
 
 ## Frühere Sitzungen nachlesen
 

@@ -161,11 +161,8 @@ Część ataków i umiejętności niesie żywioł. Pierwszy żywioł, który tra
 To, jakie żywioły istnieją, zależy od settingu:
 
 - Brak zestawu settingu albo zestaw, który żadnych nie wymienia: klasyczna szóstka (ogień, lód, błyskawica, trucizna, świętość, cień).
-- Wuxia: pięć faz (drewno, ogień, ziemia, metal, woda), z których każda pokonuje następną.
-- Cyberpunk i space opera: żywioł kinetyczny, termiczny, EM oraz chemiczny lub plazmowy.
-- Współczesność i lata dwudzieste XX wieku: brak.
 
-Deszcz i burze na otwartym terenie osłabiają żywioły podobne do ognia i wzmacniają te podobne do błyskawicy. W walce taktycznej żywioł uderza mocniej w żywioł, który pokonuje, i słabiej w taki, który pokonuje jego. Żywioły i reakcje zestawu zmienisz w opcji **Change its words** (zmiana słownictwa). Zobacz [Wybór zestawu settingu](getting-started.md#choosing-a-setting-kit).
+Deszcz i burze na otwartym terenie osłabiają żywioły podobne do ognia i wzmacniają te podobne do błyskawicy. W walce taktycznej żywioł uderza mocniej w żywioł, który pokonuje, i słabiej w taki, który pokonuje jego.
 
 ## Mechaniki bossów i łupy
 
@@ -173,7 +170,7 @@ Silni przeciwnicy mogą mieć mechaniki bossa, czyli zasady specjalne, które GM
 
 Po wygranej przeciwnicy zostawiają łupy, które trafiają prosto do toreb drużyny. Przedmioty mają rzadkość: od common przez uncommon, rare i epic po legendary. Wyższa trudność przesuwa łupy w stronę rzadszych przedmiotów i daje ich nieco więcej. Powiadomienie podaje, co wypadło, a GM dowiaduje się, że łup jest już w twoich torbach.
 
-To, co wypada, zależy od settingu. Gra z zestawem settingu daje łupy z tego zestawu (gra współczesna daje kartę podarunkową albo apteczkę, nigdy zaczarowany miecz), a te słowa zmienisz w opcji **Change its words**. Gra bez zestawu daje to, co zwykle ma jej gatunek. Gatunek bez startowego zestawu, taki jak Steampunk, daje zwykłe rzeczy, które nie należą do żadnego settingu. W grze, której zestaw zasad ma własne tabele łupów, przeciwnicy zostawiają zamiast tego przedmioty zestawu zasad, a zestaw zasad, który wyłącza własne przedmioty trybu Game Mode, daje tylko własne.
+To, co wypada, zależy od settingu. W grze, której zestaw zasad ma własne tabele łupów, przeciwnicy zostawiają zamiast tego przedmioty zestawu zasad, a zestaw zasad, który wyłącza własne przedmioty trybu Game Mode, daje tylko własne.
 
 ## Informacje: walka taktyczna
 
@@ -186,14 +183,6 @@ Przy tworzeniu gry nie ma ustawień pola bitwy do wypełnienia. Każda walka dos
 Marinara sprawdza opis i układ. Zachowuje żądany teren, a jednocześnie dba o to, żeby uczestnicy starcia mogli do siebie dotrzeć.
 
 Jeśli ograniczeń nie da się pogodzić, walka zgłasza problem. Wtedy **Use generated terrain** (użycie wygenerowanego terenu) rozpoczyna walkę bez odrzuconych elementów terenu. Nigdy nie usuwa ich po cichu.
-
-Świat może też mieć ręcznie wykonane pola bitwy: plansze malowane pole po polu dla jednego z jego miejsc w edytorze świata, takim jak Pixelforge. Gdy walka zaczyna się w tym miejscu albo wewnątrz niego, korzysta z jednej z tych plansz zamiast z wygenerowanej.
-
-- Plansza jest używana dokładnie tak, jak ją namalowano. Jeśli miejsce ma kilka plansz, wybiera ziarno walki (liczba, która wskazuje jedną z nich).
-- Opis terenu od GM nie jest wtedy używany, ale formacja nadal decyduje, gdzie zaczyna każda ze stron. GM dowiaduje się, że plansza powstała dla tego miejsca.
-- Ręcznie wykonana plansza musi spełniać trzy zasady: ma jeden z trzech rozmiarów plansz, dwie kolumny po każdej stronie to równiny, na których ustawiają się strony, a każde pole, na którym może stanąć walczący, łączy się z resztą. Edytor odrzuca planszę łamiącą którąś z zasad i podaje powód.
-
-Te plansze są przechowywane razem z ręcznymi zmianami świata, więc wędrują w plikach świata, pakietach map i bibliotece.
 
 | Teren | Ruch pieszy | Obrona i uniki |
 | --- | --- | --- |
@@ -216,7 +205,7 @@ Oba specjalne rodzaje ruchu korzystają z bieżącej puli ruchu i odległości l
 
 Bitwa Tactical rozgrywa tury na jeden z dwóch sposobów:
 
-- **One at a time, by initiative** (po kolei, według inicjatywy): każda jednostka dostaje miejsce w wylosowanej kolejności i działać może tylko ta jednostka, której jest tura. Plansza pokazuje kolejność. Tak działają nowe gry Overworld.
+- **One at a time, by initiative** (po kolei, według inicjatywy): każda jednostka dostaje miejsce w wylosowanej kolejności i działać może tylko ta jednostka, której jest tura. Plansza pokazuje kolejność.
 - **Your whole party, then the enemies** (najpierw cała drużyna, potem wrogowie): każda jednostka drużyny może działać, a potem rozgrywa się faza wroga. Tak działają gry VN.
 
 Aby to zmienić, otwórz **Chat Settings**, rozwiń sekcję **Combat Style** i wybierz **Turn order**. To ustawienie pojawia się, gdy **Battle system** to Tactical, chyba że zestaw zasad gry prowadzi własne walki. Zmiana obowiązuje od następnej bitwy. Trwająca bitwa zachowuje swoją kolejność.
@@ -227,11 +216,11 @@ Aby to zmienić, otwórz **Chat Settings**, rozwiń sekcję **Combat Style** i w
 
 - **Widzenie.** Ściany i góry blokują widzenie. Jednostka może zaatakować, użyć umiejętności albo przedmiotu tylko wobec celu, który widzi.
 - **Osłona.** Coś między atakującym a celem chroni cel. Osłonę połowiczną daje pole lasu lub ruin na linii ataku oraz ściana lub góra, która zasłania część widoku. Ściana lub góra, która zasłania większość widoku, daje osłonę w trzech czwartych. Osłona połowiczna odejmuje od szansy trafienia 15 punktów procentowych, a osłona w trzech czwartych 30. Premia z pola, na którym stoi cel, i jego osłona się nie sumują: liczy się lepsza z nich.
-- **Wysokość.** Na planszy z górami góra ma dwa poziomy wysokości, a teren wokół niej jeden. Wejście o jeden poziom wyżej kosztuje jeden dodatkowy punkt ruchu, a zejście nic nie kosztuje. Różnica dwóch poziomów lub więcej to urwisko, którego nikt nie pokona pieszo. Wyższy teren blokuje też widzenie między dwoma niższymi polami. Atak z wyższego terenu w dół dodaje 10 do szansy trafienia, atak dystansowy z wyższego terenu sięga o jedno pole dalej, a niska osłona, taka jak las, nie ukrywa celu przed atakiem z góry. Ręcznie wykonane pola bitwy mogą mieć własne urwiska.
+- **Wysokość. ** Na planszy z górami góra ma dwa poziomy wysokości, a teren wokół niej jeden. Wejście o jeden poziom wyżej kosztuje jeden dodatkowy punkt ruchu, a zejście nic nie kosztuje. Różnica dwóch poziomów lub więcej to urwisko, którego nikt nie pokona pieszo. Wyższy teren blokuje też widzenie między dwoma niższymi polami. Atak z wyższego terenu w dół dodaje 10 do szansy trafienia, atak dystansowy z wyższego terenu sięga o jedno pole dalej, a niska osłona, taka jak las, nie ukrywa celu przed atakiem z góry.
 
 ### Sceny pól bitwy
 
-Plansza walki taktycznej jest ułożona jak miejsce, w którym toczy się walka: las ma drzewa, wśród których można się ukryć, loch ma ściany i korytarze, a miasto ulice. Gra z zestawem settingu nazywa własne sceny jego słowami, więc walka cyberpunkowa toczy się na dachu albo w korytarzu megabloku, a walka wuxia w bambusowym lesie albo w herbaciarni. Pola planszy też noszą nazwy ze słownictwa settingu (osłona i gruz zamiast lasu i ruin). Sceny zestawu i nazwy pól zmienisz w opcji **Change its words**.
+Plansza walki taktycznej jest ułożona jak miejsce, w którym toczy się walka: las ma drzewa, wśród których można się ukryć, loch ma ściany i korytarze, a miasto ulice.
 
 ## Powiązane przewodniki
 

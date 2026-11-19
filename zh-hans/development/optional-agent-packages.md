@@ -686,7 +686,7 @@ Engine 托管两个虚拟形象智能体：`2d-avatars`(PNGTuber 立绘和网格
 }
 ```
 
-`worlds`(最多 32 个) 和 `tiles` 是可选的。世界文件可以带上它的世界故事脚本（worldgen W10），这个脚本作为地图的一部分随地图一起发布。版本 2 的世界文件还带有世界的 `snapshot`，也就是世界生成时的原样（W11）：世界生成器此后有所变化的 Engine 会从中读取世界，并完全按生成时的样子还原，因此地图包在 Engine 更新后依然可用。请通过游戏或资料库世界的 **Download**(下载)（或 `GET /api/game/:chatId/world/file`）写出这些文件，它们包含快照。地图包里的单个文件最大 8 MB，这是 Engine 读取的共享文件的最大尺寸（图块包保留自己更小的上限），所以文件更大的世界（非常大的世界快照）无法放进地图包。故事设置了 `intro` 的世界需要 Capability API 1.339(见[开场消息](../extending/writing-story-scripts.md#the-intro-message))。`tiles` 可以是图像图块包（图块包版本 2：网格单元上的 PNG 图集，精灵可以占据多个单元），这需要 Capability API 1.80；Engine 对每个包版本只解码并检查一次图集。开启这个 Experience 后，新游戏会锁定为地图包的设定包；如果地图包附带世界，玩家只能从中选择一个（含故事），不能另做世界。关闭这个 Experience，玩家自己的选择就会回来。`POST /api/game/create` 对游戏施加同样的锁定。游戏像任何游戏一样保留它的设定包和世界，所以即使移除了包也能继续玩；只要包仍然安装，就会用地图包的图块绘制它的大地图和城镇。
+`worlds`(最多 32 个) 和 `tiles` 是可选的。世界文件可以带上它的世界故事脚本（worldgen W10），这个脚本作为地图的一部分随地图一起发布。版本 2 的世界文件还带有世界的 `snapshot`，也就是世界生成时的原样（W11）：世界生成器此后有所变化的 Engine 会从中读取世界，并完全按生成时的样子还原，因此地图包在 Engine 更新后依然可用。请通过游戏或资料库世界的 **Download**(下载)（或 `GET /api/game/:chatId/world/file`）写出这些文件，它们包含快照。地图包里的单个文件最大 8 MB，这是 Engine 读取的共享文件的最大尺寸（图块包保留自己更小的上限），所以文件更大的世界（非常大的世界快照）无法放进地图包。故事设置了 `intro` 的世界需要 Capability API 1.339(见[开场消息](writing-story-scripts.md#the-intro-message))。`tiles` 可以是图像图块包（图块包版本 2：网格单元上的 PNG 图集，精灵可以占据多个单元），这需要 Capability API 1.80；Engine 对每个包版本只解码并检查一次图集。开启这个 Experience 后，新游戏会锁定为地图包的设定包；如果地图包附带世界，玩家只能从中选择一个（含故事），不能另做世界。关闭这个 Experience，玩家自己的选择就会回来。`POST /api/game/create` 对游戏施加同样的锁定。游戏像任何游戏一样保留它的设定包和世界，所以即使移除了包也能继续玩；只要包仍然安装，就会用地图包的图块绘制它的大地图和城镇。
 
 Engine 通过经过验证的资源路径读取这些文件（每个文件声明的大小最多 8 MB，并重新检查哈希），并像检查共享文件一样检查它们。只要有一个文件读不了、某个世界是用另一个设定包生成的或与设定包不符，或者文件字节不是已安装的那些，整个地图包就会被拒绝，并说明原因；这时这个 Experience 就无法开始游戏。规则集绝不会是地图包的一部分：需要自己规则的 Experience 要单独发布一个规则集包。
 
@@ -711,7 +711,7 @@ Engine 通过经过验证的资源路径读取这些文件（每个文件声明�
 }
 ```
 
-每首曲目也都是已声明资源，所有指定的曲目 ID 都必须属于 `tracks`。`places` 中的地点按 ID 指定，必须属于包中的某个世界。战斗之外，游戏播放该地点的曲目；没有则取包含该地点且设有曲目的最近一层地点，再没有则取 `default`；战斗中播放 `combat`。故事的 `music` 动作（见[编写 Game Mode 故事脚本](../extending/writing-story-scripts.md)）会用指定曲目覆盖以上所有选择，直到交还控制。以上均未设置时，播放 Engine 自己的音乐。玩家若选择了自己的音乐来源（Music DJ、Spotify），则播放该来源：玩家的选择始终优先。
+每首曲目也都是已声明资源，所有指定的曲目 ID 都必须属于 `tracks`。`places` 中的地点按 ID 指定，必须属于包中的某个世界。战斗之外，游戏播放该地点的曲目；没有则取包含该地点且设有曲目的最近一层地点，再没有则取 `default`；战斗中播放 `combat`。故事的 `music` 动作（见[编写 Game Mode 故事脚本](writing-story-scripts.md)）会用指定曲目覆盖以上所有选择，直到交还控制。以上均未设置时，播放 Engine 自己的音乐。玩家若选择了自己的音乐来源（Music DJ、Spotify），则播放该来源：玩家的选择始终优先。
 
 #### Capability API 1.346：人物
 
@@ -787,7 +787,7 @@ POST /api/game/experience/check
 
 #### Capability API 1.351：固定季节
 
-世界的故事可以无视日期，将地点固定在某个季节（`seasons` 和 `season` 动作，见[编写故事脚本](../extending/writing-story-scripts.md#seasons)），世界的战场也可以绘制季节（`seasons` 行和 `seasonKeys`）。带有任一种的地图包都需要 1.351。大地图通过 `GET /api/game/:chatId/overworld` 的 `seasons` 读取被固定的地点（地点 ID 映射到季节，`*` 表示整个世界）；制作的战场则在 `seasons` 中携带地块的初始季节，以 `"x,y"` 为键。
+世界的故事可以无视日期，将地点固定在某个季节（`seasons` 和 `season` 动作，见[编写故事脚本](writing-story-scripts.md#seasons)），世界的战场也可以绘制季节（`seasons` 行和 `seasonKeys`）。带有任一种的地图包都需要 1.351。大地图通过 `GET /api/game/:chatId/overworld` 的 `seasons` 读取被固定的地点（地点 ID 映射到季节，`*` 表示整个世界）；制作的战场则在 `seasons` 中携带地块的初始季节，以 `"x,y"` 为键。
 
 <a id="capability-api-1355-ruleset-overlays"></a>
 
@@ -852,7 +852,7 @@ Experience 的手绘地图可以采用自己的外观，不限于库中的洞穴
 
 #### Capability API 1.360：超过六人的队伍，以及永不参战的同伴
 
-故事战斗的变体可以面向超过六人的队伍，或不设上限（`"party": { "min": 7 }`），故事条件也可以检查队伍人数（`{ "partySize": { "is": ">=", "value": 7 } }`；见[编写故事脚本](../extending/writing-story-scripts.md#conditions)）。
+故事战斗的变体可以面向超过六人的队伍，或不设上限（`"party": { "min": 7 }`），故事条件也可以检查队伍人数（`{ "partySize": { "is": ">=", "value": 7 } }`；见[编写故事脚本](writing-story-scripts.md#conditions)）。
 
 人物文件中的同伴可以永不参战：
 
@@ -893,7 +893,7 @@ Experience 的手绘地图可以采用自己的外观，不限于库中的洞穴
 - `combatStyle`：`classic` 或 `tactical`。
 - 文本上限：`setting` 4,000 个字符，`language` 100 个，`playerGoals` 和 `preferences` 2,000 个，`gameSpecialInstructions` 2,000 个，`artStylePrompt` 500 个。
 
-`intro` 是 Game Master 的开场消息（1.339），规则与故事脚本的 `intro` 相同（见[编写故事脚本](../extending/writing-story-scripts.md#the-intro-message)）。只有这个值可以锁定。锁定的开场消息在向导中只读，无论设置提交什么，游戏都会用它开场。游戏保留开始时的开场消息（`chat.metadata.gameExperienceIntro`）。它优先于故事自身的 `intro`。导入设置文件时保留文件自己的值，关闭 Experience 也不会清空已填入的值。
+`intro` 是 Game Master 的开场消息（1.339），规则与故事脚本的 `intro` 相同（见[编写故事脚本](writing-story-scripts.md#the-intro-message)）。只有这个值可以锁定。锁定的开场消息在向导中只读，无论设置提交什么，游戏都会用它开场。游戏保留开始时的开场消息（`chat.metadata.gameExperienceIntro`）。它优先于故事自身的 `intro`。导入设置文件时保留文件自己的值，关闭 Experience 也不会清空已填入的值。
 
 ### Capability API 1.373：Experience 文件
 
