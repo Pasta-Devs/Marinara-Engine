@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   applySpriteBackgroundInstruction,
   removeUniformSpriteBackgroundPng,
+  spriteBackgroundContract,
   selectSpriteChromaMatte,
   SPRITE_CLEANUP_REVISION,
 } from "../../../packages/server/src/services/image/sprite-background.service.js";
@@ -12,6 +13,7 @@ import {
   buildFullBodyReferenceContract,
   resolveSpriteNativeTransparency,
   resolveSpriteSheetCanvas,
+  resolveSpriteTransparencyTags,
   spritesRoutes,
 } from "../../../packages/server/src/routes/sprites.routes.js";
 import type { ImageGenerationDefaultsProfile } from "../../../packages/shared/src/types/image-generation-defaults.js";
@@ -43,6 +45,37 @@ const chromaOnlyPrompt = applySpriteBackgroundInstruction("full-body character o
 assert.match(chromaOnlyPrompt, /chroma green #00FF00/iu);
 assert.doesNotMatch(chromaOnlyPrompt, /solid white background/iu);
 assert.match(chromaOnlyPrompt, /never a painted transparency checkerboard/iu);
+// NovelAI is asked with its transparency tags and no flat-colour fallback: a tag model paints "green background".
+const novelAiOptions = {
+  matte: selectSpriteChromaMatte("black hair"),
+  nativeTransparentPng: true,
+  removeBackground: true,
+};
+const novelAiPrompt = applySpriteBackgroundInstruction("portrait on a solid white background", {
+  ...novelAiOptions,
+  transparencyTags: true,
+});
+assert.equal(novelAiPrompt, "portrait on a transparent background, alpha transparency, no background");
+assert.doesNotMatch(novelAiPrompt, /green|#00FF00|transparent PNG/iu);
+assert.equal(spriteBackgroundContract({ ...novelAiOptions, transparencyTags: true }), "");
+assert.match(spriteBackgroundContract(novelAiOptions), /MANDATORY BACKGROUND CONTRACT/u);
+const novelAi = (model: string, baseUrl = "https://image.novelai.net") => ({
+  model,
+  baseUrl,
+  imageGenerationSource: "novelai",
+  imageService: "novelai",
+});
+assert.equal(resolveSpriteNativeTransparency(novelAi("nai-diffusion-5-full"), true), true);
+assert.equal(resolveSpriteNativeTransparency(novelAi("nai-diffusion-5-curated"), true), true);
+assert.equal(resolveSpriteNativeTransparency(novelAi("nai-diffusion-4-5-full"), true), false, "V4.5 draws no alpha");
+assert.equal(
+  resolveSpriteNativeTransparency(novelAi("nai-diffusion-5-full", "https://proxy.example.com/v1"), true),
+  false,
+  "a proxy is not NovelAI's own service",
+);
+assert.equal(resolveSpriteTransparencyTags(novelAi("nai-diffusion-5-full")), true);
+assert.equal(resolveSpriteTransparencyTags({ model: "gpt-image-1", baseUrl: "https://api.openai.com/v1" }), false);
+
 // A Model is asked for a see-through sprite only when it draws one: its Transparent backgrounds setting, else
 // the models known to (Automatic). Any other Model gets the flat chroma colour, never "transparent PNG".
 const openAI = (model: string) => ({ model, baseUrl: "https://api.openai.com/v1" });
