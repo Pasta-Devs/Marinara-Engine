@@ -334,18 +334,15 @@ export function ImageMaskCanvas({ src, alt, disabled = false, onMaskChange, clas
 
   return (
     <div
-      className={cn("flex size-full min-h-0 flex-col items-center justify-center gap-2", className)}
+      className={cn("flex size-full min-h-0 flex-col items-center justify-center gap-2 overflow-hidden", className)}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
-      <div
-        ref={stageHostRef}
-        className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden"
-      >
+      <div ref={stageHostRef} className="relative min-h-0 w-full flex-1 overflow-hidden">
         <div
           className={cn(
-            "relative overflow-hidden rounded-lg shadow-2xl",
-            fittedSize ? "shrink-0" : "max-h-full max-w-full",
+            "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg shadow-2xl",
+            !fittedSize && "max-h-full max-w-full",
           )}
           style={fittedSize ?? undefined}
         >
@@ -411,7 +408,7 @@ export function ImageMaskCanvas({ src, alt, disabled = false, onMaskChange, clas
 
         <label
           htmlFor={sizeSliderId}
-          className="flex min-h-11 items-center gap-2 border-l border-[var(--border)] pl-2.5 pr-1 text-xs text-[var(--muted-foreground)]"
+          className="flex min-h-11 items-center gap-2 px-1 text-xs text-[var(--muted-foreground)] sm:border-l sm:border-[var(--border)] sm:pl-2.5"
         >
           <span className="shrink-0">{t("ui.imagemaskcanvas.brushSize")}</span>
           <input
