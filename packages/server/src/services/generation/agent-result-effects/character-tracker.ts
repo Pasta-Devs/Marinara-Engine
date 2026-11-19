@@ -65,6 +65,37 @@ function portraitKey(chatId: string, character: TrackedCharacter): string {
     .toLowerCase()}`;
 }
 
+/**
+ * Row fields the server and the UI own: avatar, crop, portrait framing and id aliases. The model
+ * never sees them (#9555), so a value it sends is a guess; dropping it before the merge keeps the
+ * stored, card or server-resolved value, exactly as when the model leaves the field out.
+ */
+const SERVER_OWNED_CHARACTER_FIELDS = [
+  "avatarPath",
+  "avatarCrop",
+  "portraitFocusX",
+  "portraitFocusY",
+  "portraitZoom",
+  "idAliases",
+] as const;
+
+function withoutServerOwnedFields(row: unknown): unknown {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return row;
+  if (!SERVER_OWNED_CHARACTER_FIELDS.some((field) => field in row)) return row;
+  const next = { ...(row as Record<string, unknown>) };
+  for (const field of SERVER_OWNED_CHARACTER_FIELDS) delete next[field];
+  return next;
+}
+
+/** Strips server-owned fields from full-array output and from incremental `updates` rows. */
+export function stripServerOwnedCharacterFields(presentCharacters: unknown): unknown {
+  if (Array.isArray(presentCharacters)) return presentCharacters.map(withoutServerOwnedFields);
+  if (isTrackerRowsUpdate(presentCharacters) && Array.isArray(presentCharacters.updates)) {
+    return { ...presentCharacters, updates: presentCharacters.updates.map(withoutServerOwnedFields) };
+  }
+  return presentCharacters;
+}
+
 /** Character Tracker agent: merges the present characters into this message's snapshot. */
 export async function applyCharacterTrackerResult(result: AgentResult, deps: AgentResultEffectDeps): Promise<void> {
   if (!deps.trackers.canEditTrackers(result)) return;
@@ -143,8 +174,12 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
       );
     }
     let characters =
-      resolveTrackerGroupUpdate(data.presentCharacters, previousCharacters, lockState, "presentCharacters") ??
-      previousCharacters;
+      resolveTrackerGroupUpdate(
+        stripServerOwnedCharacterFields(data.presentCharacters),
+        previousCharacters,
+        lockState,
+        "presentCharacters",
+      ) ?? previousCharacters;
     const cardCharacterIds = applyTrackerCharacterCardIdentity(characters, target.cards, {
       previousCharacters: [...previousCharacters, ...history],
     });
