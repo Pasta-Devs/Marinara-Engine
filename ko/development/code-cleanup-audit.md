@@ -228,7 +228,7 @@ export한 선언은 일반적인 미사용 지역 변수 검사에서 빠집니�
 
 ### 6.3 복잡도가 높은 활성 지점
 
-현재 가장 큰 활성 모듈은 `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/components/chat/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts`, `client/components/panels/SettingsPanel.tsx`입니다. 삭제 후보는 아닙니다. 해당 기능을 이미 손대고 있을 때에 한해 라우트 핸들러, 도메인 서비스, 드로어 구역, 순수 헬퍼를 조금씩 빼내세요. "전부 쪼개기" PR을 따로 만들면 동작을 확실히 검증하지도 못한 채 변경만 늘어납니다.
+현재 가장 큰 활성 모듈은 `server/routes/game.routes.ts`, `client/components/game/GameSurface.tsx`, `client/features/chat-settings/ChatSettingsDrawer.tsx`, `server/routes/generate.routes.ts`, `client/components/panels/SettingsPanel.tsx`입니다. 삭제 후보는 아닙니다. 해당 기능을 이미 손대고 있을 때에 한해 라우트 핸들러, 도메인 서비스, 드로어 구역, 순수 헬퍼를 조금씩 빼내세요. "전부 쪼개기" PR을 따로 만들면 동작을 확실히 검증하지도 못한 채 변경만 늘어납니다. Chat Settings Drawer는 예외여서 PR 하나당 섹션 하나씩 분리했습니다(#9119). 폴더 규칙은 `packages/client/.instructions.md`의 Chat Settings 섹션에 있습니다.
 
 ## 7. 정리 대상에서 일부러 제외한 항목
 

@@ -26,7 +26,7 @@
 이름과 설명의 규칙은 다음과 같습니다.
 
 - 이름은 1자에서 100자까지, 설명은 1자에서 500자까지입니다.
-- 두 도구가 같은 이름을 쓸 수 없고, `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`, `update_about_me` 같은 기본 제공 이름도 쓸 수 없습니다. 이름이 겹치면 `"your_name" is a reserved built-in tool name.` 같은 메시지가 나옵니다.
+- 두 도구가 같은 이름을 쓸 수 없고, `roll_dice`, `update_game_state`, `set_expression`, `trigger_event`, `search_lorebook`, `web_search`, `web_fetch`, `update_about_me` 같은 기본 제공 이름도 쓸 수 없습니다. 이름이 겹치면 `"your_name" is a reserved built-in tool name.` 같은 메시지가 나옵니다.
 - 저장하지 않은 변경 사항을 남긴 채 편집기를 벗어나면 **Keep editing**(계속 편집), **Discard**(변경 취소), **Save & close**(저장 & 닫기)를 고르는 배너가 나타납니다.
 
 **Tools** 탭 상단에 다음 버튼이 있습니다.
@@ -179,6 +179,8 @@ AI가 `x`를 2로, `y`를 3으로 지정해 호출하면 도구는 합계 5를 �
 4. 작동하는지 확인하세요. `store_hours` 예제라면 "What are your store hours?"처럼 도구가 답할 수 있는 질문을 AI에게 하세요. 답변에 도구의 문구가 쓰여야 합니다.
 
 **Enable Tool Use**를 켜고 그 아래에 아무것도 추가하지 않으면, 채팅은 지원하는 전역 활성화 도구를 모두 사용할 수 있습니다. 기본 제공 도구와, **Tools**에서 스위치를 켠 모든 사용자 지정 도구입니다. Game 채팅에서 `search_lorebook`을 쓰려면 **Let the GM search lore**(게임 마스터의 로어 검색 허용)도 필요합니다.
+
+> **참고:** **Enable Tool Use**를 켜도 직접 체크할 때까지 꺼져 있는 기본 제공 도구가 있습니다. `web_fetch`는 AI가 읽을 웹 주소를 고르게 하므로 여기에 해당합니다. Spotify 도구도 같은 방식으로 작동합니다.
 
 채팅에서 쓸 도구를 골라 제한하려면 다음과 같이 하세요.
 

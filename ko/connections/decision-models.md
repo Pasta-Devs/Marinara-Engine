@@ -130,23 +130,25 @@ Marinara는 모델에 예/아니요 질문 하나를 보내 토큰 하나를 쓰
 
 질문 방식은 내장 모델과 같습니다. 판정문마다 예/아니요 한 단어를 요청합니다. Marinara는 서버가 동시에 처리하는 요청 수를 알 수 없으므로 판정문을 하나씩 보냅니다. 계정의 **Thinking**은 항상 **Auto**입니다. 다른 컴퓨터에 있는 서버에는 `PROVIDER_LOCAL_URLS_ENABLED`가 필요합니다. [로컬 모델 또는 자체 호스팅 모델 연결하기](local-self-hosted.md)를 참고하세요.
 
+<a id="set-up-a-decision-account"></a>
+
 <a id="set-up-a-decision-connection"></a>
 
-## Decision 연결 설정하기
+## Decision 계정 설정하기
 
 호스팅된 Decision 계정은 선택한 최근 메시지와 판정문을 서비스로 보내며 비용이 발생할 수 있습니다. Smart 응답 순서는 [캐릭터 명단](#what-the-model-sees)도 보냅니다.
 
 1. 상단 바에서 **Connections**를 클릭한 다음 **Add**(추가)를 클릭하세요.
-2. 유형 버튼에서 **Decision**(판단)을 클릭한 다음 **TypeSafe** 또는 **Own decision server**를 클릭하세요. NanoGPT는 [NanoGPT로 연결하기](#through-nanogpt)를, OpenRouter나 Google Gemini는 [OpenRouter 또는 Google Gemini로 연결하기](#through-openrouter-or-google-gemini)를 참고하세요.
-3. **API key**(API 키)를 입력하세요. **Own decision server**라면 **Server address**(서버 주소)를 입력하세요. **Connect**(연결)를 클릭하세요. 창이 닫히고 패널에 새 계정이 표시됩니다.
-4. **Behind the scenes** 아래의 **Decision** 행을 클릭하고 새 모델을 고르세요.
+2. **TypeSafe** 또는 **Own decision server**를 검색하거나 유형 칩에서 **Text**(텍스트)를 클릭하세요. OpenRouter를 쓰려면 **OpenRouter**를 클릭하세요.
+3. **API key**(API 키)를 입력하세요. **Own decision server**를 쓰려면 **Server address**(서버 주소)를 입력하세요. **Connect**(연결)를 클릭하세요.
+4. **Found in TypeSafe — use it for:** 아래의 **Decision**을 체크하고 **Done**(완료)을 클릭하세요. **Jobs**(작업) 상자의 **Behind the scenes**(무대 뒤) 아래에 있는 **Decision** 행에 모델이 표시됩니다.
 5. 테스트하려면 패널에서 모델을 클릭해 **Edit model**을 연 다음 **Provider tests**(연결 테스트) 카드의 **Test provider**를 클릭하세요. **Own decision server** 모델에는 그곳에 **Test provider** 버튼이 없습니다. 대신 패널에서 계정의 **⋯** 메뉴를 열고 **Test**를 클릭하세요.
 
 **Test provider**가 성공하면 확률, 답하는 데 걸린 시간, 계정의 시간 제한이 표시됩니다. **⋯** 메뉴에 있는 계정의 **Test**는 작동 여부와 걸린 시간만 알려 줍니다. 테스트는 최소 10초를 기다리며, 시간 제한이 그보다 길면 제한보다 5초 더 기다립니다. 답이 제한보다 오래 걸렸다면 결과에 그렇게 표시됩니다. 채팅에서는 그 답이 답 없음으로 처리됩니다.
 
 실패했다면 [문제 해결](#troubleshooting)을 참고하세요.
 
-Decision 편집기(Decision 모델의 **Edit model**)에는 다음 필드가 있습니다.
+판단 모델에는 다음 필드가 있습니다. 패널에서 모델을 클릭해 **Edit model**(모델 편집)을 열거나, **Jobs** 상자의 **Decision** 행에서 톱니바퀴를 클릭해 현재 모델의 **Decision settings**(판단 설정)를 여세요.
 
 | 필드 | 하는 일 |
 | --- | --- |

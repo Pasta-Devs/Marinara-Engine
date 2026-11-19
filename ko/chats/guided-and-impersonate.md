@@ -61,6 +61,8 @@ Impersonate는 내 다음 메시지를 모델이 페르소나의 말투로 대�
 
 짧은 별칭은 `/imp`입니다. Impersonate가 쓴 메시지에도 **Regenerate**가 작동하므로 다른 버전을 받을 수 있습니다.
 
+<a id="the-impersonate-settings"></a>
+
 ### Impersonate 설정
 
 이 설정은 모든 채팅의 모든 `/impersonate`에 적용됩니다. Roleplay 채팅에서 **Chat Settings**(채팅 설정)를 열고 **Impersonate** 섹션을 찾으세요. 패널을 여는 방법은 [채팅 설정](chat-settings.md)을 참고하세요.
@@ -71,6 +73,7 @@ Impersonate는 내 다음 메시지를 모델이 페르소나의 말투로 대�
 | **Preset**(프리셋) | Impersonate 답변에만 쓰는 프롬프트 프리셋입니다. 기본값: **Use chat default**(채팅 기본값 사용). [Preset Editor와 프롬프트 관리](../prompts/presets.md)를 참고하세요. |
 | **Connection**(연결) | Impersonate 답변에 쓸 모델로, 더 저렴하거나 빠른 모델을 지정할 수 있습니다. 기본값: **Use chat default**. **Random**(무작위)도 고를 수 있습니다. [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)를 참고하세요. |
 | **Skip agents**(에이전트 생략) | Impersonate 중에는 에이전트(트래커, 로어북 라우터 같은 보조 기능)를 건너뜁니다. 그래서 Impersonate가 빠르고 세계 상태도 바뀌지 않습니다. 기본값은 꺼짐입니다. [에이전트](../agents/agents-overview.md)를 참고하세요. |
+| **Send Public Faces** | Roleplay 채팅에서 **Public Face**가 있는 캐릭터는 이름과 Public Face만 Impersonate 프롬프트에 들어갑니다. 따라서 나의 답장은 내가 알 수 있는 정보만 바탕으로 작성됩니다. 그 밖에 카드에서 보내는 Description, Personality, Backstory, Appearance, Scenario, System Prompt, 대화 예시, RPG 속성, Post-History Instructions, Depth Prompt는 이 정보로 대체됩니다. Public Face가 비어 있으면 전체 카드를 유지합니다. Impersonate 프리셋이나 프롬프트 템플릿에 넣은 `{{description}}` 같은 매크로는 지정한 내용을 그대로 보냅니다. **Regenerate**(재생성)에서는 원래 메시지를 작성할 때의 설정을 적용합니다. 기본값은 꺼짐입니다. [Card 탭](../characters/creating-and-editing-characters.md#card-tab)을 참고하세요. |
 | **Use CYOA as direction**(CYOA를 지침으로 사용) | CYOA(choose your own adventure) 선택지를 클릭하면 그 내용을 올리지 않고 Impersonate 방향으로 씁니다. 기본값은 꺼짐입니다. **Settings → General → Input & Editing**에서 **Add CYOA choices to the message box instead of sending them**(CYOA 선택지를 전송하지 않고 메시지 입력란에 추가)이 켜져 있으면, 클릭해도 텍스트가 메시지 입력란에 추가되기만 하고 이 설정은 효과가 없습니다. |
 
 ### 한 채팅에만 프롬프트 지정하기

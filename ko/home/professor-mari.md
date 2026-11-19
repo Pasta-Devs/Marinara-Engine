@@ -11,7 +11,7 @@ Professor Mari는 홈 화면에 있는 내장 어시스턴트입니다. 앱을 �
 
 Professor Mari의 창이 열립니다. 어느 화면에서든 부를 수도 있습니다. Search(검색)에 입력하고 **Ask Prof. Mari**를 고르거나, <kbd>Ctrl</kbd>+<kbd>J</kbd>(Mac에서는 <kbd>⌘</kbd>+<kbd>J</kbd>)를 누르거나, 휴대폰에서는 상단 바에서 아래로 당기세요. 창 머리글에는 대기 중일 때 **Ready to help**(도움말 준비됨), 작업 중일 때 **Working on it...**(처리 중...)이라고 표시됩니다.
 
-평소 쓰는 말로 메시지를 입력하고 <kbd>Enter</kbd>를 누르세요. <kbd>Shift</kbd>+<kbd>Enter</kbd>는 줄바꿈을 넣습니다. Professor Mari 설정에서 **Enter sends to Professor Mari**(Enter로 Professor Mari에게 전송)를 끄면 <kbd>Enter</kbd>는 줄바꿈을 넣고 <kbd>Ctrl</kbd>+<kbd>Enter</kbd>로 보냅니다. 첫 메시지를 보내면 **Hello World** 업적이 열립니다.
+평소 쓰는 말로 메시지를 입력하고 <kbd>Enter</kbd>를 누르세요. <kbd>Shift</kbd>+<kbd>Enter</kbd>는 줄바꿈을 넣습니다. Professor Mari 설정에서 **Enter sends to Professor Mari**(Enter로 Professor Mari에게 전송)를 끄면 <kbd>Enter</kbd>는 줄바꿈을 넣고 <kbd>Ctrl</kbd>+<kbd>Enter</kbd>나 보내기 버튼으로 보냅니다. 토글은 기기별로 저장되므로 휴대폰에서는 끄고 컴퓨터에서는 켜 둘 수 있습니다. 첫 메시지를 보내면 **Hello World** 업적이 열립니다.
 
 Professor Mari의 설정은 모두 **Settings → General → Search and Professor Mari settings → Open**(설정 → 일반 → 검색 및 Professor Mari 설정 → 열기)이나 Search의 톱니바퀴에 있습니다. 컴퓨터에서는 **Professor Mari window**(Professor Mari 창) 아래의 **Height**(높이)와 **Width**(너비) 슬라이더로 창 크기를 바꿀 수 있습니다. 휴대폰에서는 창이 화면을 가득 채웁니다.
 
@@ -39,7 +39,7 @@ Professor Mari는 항목을 편집하기 전에 먼저 읽고, 요청이 모호�
 - 테마, 에이전트, 프롬프트 프리셋, Personal Extension(개인 확장) 초안 만들기와 편집하기. 초안은 코드를 직접 읽고 **Settings → Addons**(설정 → 애드온)에서 승인하기 전까지 꺼져 있습니다.
 - 프리셋 전체를 갈아 끼우지 않고 프리셋의 한 섹션만 그 자리에서 편집하기.
 - 다운로드 가능한 에이전트를 비교하고 목적에 맞는 것을 알려 주기. 설치는 **Agents → Agent Organizer**(에이전트 → Agent Organizer)로 안내합니다. [다운로드 가능한 에이전트 레퍼런스](../agents/built-in-agents.md)를 참고하세요.
-- 아바타, 스프라이트, 배경 같은 이미지 만들기와 지정하기. 먼저 이미지 생성 계정이 있어야 합니다. 계정을 대신 만들어 주지는 않습니다.
+- 아바타, 스프라이트, 배경 같은 이미지 만들기와 지정하기. 먼저 이미지 생성 계정이 있어야 합니다. 계정을 대신 만들어 주지는 않습니다. 만든 이미지를 클릭하면 원래 크기로 열어 프롬프트를 읽거나 이미지를 다운로드하거나 프롬프트를 수정해 다시 생성할 수 있습니다. 새 이미지가 답변 속 기존 이미지를 대체합니다.
 - 캐릭터나 세계관을 조사할 때 공개된 Fandom 위키 문서 찾아보기.
 
 ### 칩으로 시작하기
@@ -136,7 +136,7 @@ Professor Mari가 캐릭터, 페르소나, 로어북, 프리셋을 만들거나 
 
 ### 명령 사용하기(/)
 
-줄 맨 앞에서 `/` 문자를 입력하면 Professor Mari의 명령 목록이 열립니다. 계속 입력해 목록을 거른 다음 <kbd>Enter</kbd>를 누르세요. 목록에는 내 스킬과 기억도 표시됩니다. 그중 하나를 고르면 `@`처럼 링크됩니다.
+줄 맨 앞이나 공백 뒤에 `/`를 입력하면 Professor Mari의 명령 목록이 열립니다. 한 메시지에서 여러 명령을 쓸 수 있습니다. 계속 입력해 목록을 거른 다음 <kbd>Enter</kbd>를 누르세요. 목록에는 내 스킬과 기억도 표시됩니다. 그중 하나를 고르면 `@`처럼 링크됩니다.
 
 | 명령 | 동작 |
 | --- | --- |

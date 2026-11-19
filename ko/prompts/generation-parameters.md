@@ -44,6 +44,8 @@
 
 **Verbosity**(상세도)는 답변의 길이와 자세함을 정합니다. 선택지는 **None**, **Low**, **Medium**, **High**입니다. 이 설정을 쓰는 모델은 일부뿐입니다.
 
+NanoGPT의 MiniMax M3.1 Flash는 항상 추론합니다. **Low**(낮음)부터 **Max**(최대)까지 고를 수 있습니다. 추론 강도를 받지 못하면 NanoGPT는 **Max**를 쓰며, 이전에 저장한 **Off**에는 Marinara가 **Low**를 보냅니다.
+
 ## 조정 요령
 
 무엇이 효과가 있었는지 알 수 있도록 한 번에 하나씩만 바꾸세요. 이것은 경험에서 나온 요령이며, 모델마다 다릅니다.
@@ -156,7 +158,9 @@ Marinara는 각 파라미터를 다음 목록 순서로 결정합니다. 뒤의 
 
 ## 에이전트용 파라미터
 
-에이전트 호출은 실행에 쓰는 계정에 저장된 **Chat defaults**를 따릅니다. 에이전트 자체 계정을 쓰며, 에이전트에 계정이 없으면 채팅의 계정을 씁니다. 전송 스위치와 모델 한도는 채팅 답변과 똑같이 적용됩니다. 아래의 온도 규칙을 제외하면, 프리셋과 채팅의 **Advanced Parameters**는 에이전트 호출을 바꾸지 않습니다.
+에이전트 호출에서는 실행 계정에 저장된 **Chat defaults**를 씁니다. 에이전트 자체 계정이 있으면 그 계정을 쓰고, 없으면 채팅 계정을 씁니다. 전송 스위치와 모델 한도는 채팅 답변과 동일하게 적용됩니다. 아래 규칙은 에이전트가 채팅의 **Advanced Parameters**를 언제 쓰는지 설명합니다.
+
+Roleplay에서 채팅의 **Reasoning Effort**(추론 강도)와 전송 스위치는 Illustrator의 **Prompt Model**에도 적용됩니다. 설정하면 자동 일러스트, 내레이터 명령, 수동 일러스트에 채팅 설정을 씁니다. 대체 모델에는 자체 추론 강도가 저장되어 있으면 그 값을 씁니다.
 
 - **에이전트에 전송하는 설정:** Temperature, Top P, Top K, Frequency, Presence, Reasoning Effort, Verbosity, Service Tier, Custom Parameters, 사용자 지정 헤더, 그리고 **Settings**(설정), **Advanced**(고급), **Parameters** 순서로 열어 추가한 추가 파라미터(Top A나 시드 등)입니다. 전송 스위치가 꺼진 파라미터는 전송하지 않습니다.
 - **에이전트에 전송하지 않는 설정:** Max Output Tokens, 정지 시퀀스, 프리필, Thinking Tags와 그 밖의 프롬프트 형식 설정입니다. 각 에이전트는 자신의 **Max Output Tokens**를 유지합니다.

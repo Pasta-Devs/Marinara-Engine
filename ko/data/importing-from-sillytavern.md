@@ -64,7 +64,7 @@ SillyTavern 데이터를 Marinara Engine으로 가져옵니다. 파일을 하나
 **Imported regex scripts**(기본값 **Character only**):
 
 - **Character only**는 스크립트를 각 캐릭터에만 적용합니다.
-- **Global**은 모든 채팅에 적용되도록 **Presets -> Regexes**에 추가합니다.
+- **Global**은 스크립트를 **Presets → Regexes**에 추가합니다. 여기에서 여러 채팅에서 실행되는 스크립트를 관리할 수 있습니다. [정규식 스크립트](../extending/regex-scripts.md#manage-your-scripts)를 참고하세요.
 
 가져오기가 되지 않았다면 다음을 확인하세요.
 

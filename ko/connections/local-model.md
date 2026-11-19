@@ -147,7 +147,7 @@ Marinara는 현재 릴리스에 승인된 llama.cpp, MLX, uv 버전만 다운로
 
 **Local speech model**(로컬 음성 모델)은 Conversation(대화) 통화에서 내 목소리를 내 컴퓨터 안에서 직접 텍스트로 바꿉니다. 말을 텍스트로 바꾸는 음성 인식 모델인 Whisper 모델입니다. **Calls** 에이전트 패키지가 필요하며, 이 패키지는 **Agents → Agent Organizer**(에이전트 → Agent Organizer)에서 설치합니다.
 
-1. **Connections** 패널을 열고 **On this device**(이 기기) 아래의 **Speech to text**(음성 인식) 항목을 클릭하세요.
+1. **Connections** 패널을 열고 **On this device**(이 기기) 카드에서 **Local speech model**(로컬 음성 모델)을 클릭하세요.
 2. **Local speech model** 아래의 드롭다운에서 모델을 고르세요.
 3. **Download Whisper**(Whisper 다운로드)를 클릭하세요.
 4. **Ready**가 표시될 때까지 기다리세요. Calls를 쓰기 전에 Marinara를 완전히 다시 시작하세요.

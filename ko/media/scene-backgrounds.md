@@ -34,7 +34,7 @@ Roleplay에서는 **Illustrator** 에이전트를 설치하기만 하면 **Backg
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-해결하려면 **Connections**(연결) 패널의 **Defaults**(기본값)에서 **Images**(이미지) 작업을 지정하거나, **Illustrator** 에이전트에 이미지 모델을 따로 지정하세요.
+해결하려면 **Connections**(연결) 패널의 **Jobs**(작업) 상자에서 **Images**(이미지) 작업을 지정하거나, **Illustrator** 에이전트에 이미지 모델을 따로 지정하세요.
 
 ## Gallery 섹션
 
