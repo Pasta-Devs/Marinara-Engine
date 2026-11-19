@@ -195,6 +195,8 @@ Every service has a **Seed** field. -1 keeps each image random. Any other number
 
 Each service also has **Prompt prefix** and **Negative prefix** fields. Text there is added to the front of every prompt on this model. AUTOMATIC1111 / Forge and ComfyUI have a **Clip skip** field. AUTOMATIC1111 / Forge adds a **Restore faces** toggle. ComfyUI adds a toggle to upload a 1x1 placeholder when no reference image is given, which matters only for custom workflows with reference placeholders. NovelAI adds **Guidance rescale** and **UC preset**.
 
+NovelAI also has **Background dataset for backgrounds**, off by default. When it is on, background pictures (Character and Persona Gallery backgrounds, chat and Illustrator scene backgrounds, chat gallery location pictures and game backgrounds) start with NovelAI's `background dataset` tag on V4.5 and V5 models. NovelAI's background dataset leans photographic, so leave it off if your backgrounds should match an anime-style chat.
+
 ## Transparent backgrounds
 
 Sprites and sticker or emoji sheets look best with a see-through background. Each image model has a **Transparent backgrounds** setting that says whether it can draw one:

@@ -37,6 +37,7 @@ import {
   type ImageGenerationDefaultsProfile,
   type NovelAiDefaults,
   type SceneIllustrationCharacterPrompt,
+  NOVELAI_TRANSPARENCY_TAGS,
 } from "@marinara-engine/shared";
 import {
   isNativeNovelAiHost,
@@ -2690,6 +2691,48 @@ function isNovelAiV5Model(model: string): boolean {
   return /^nai-diffusion-5(?:-(?:curated|full))?$/i.test(model.trim());
 }
 
+/**
+ * NovelAI V5 draws real alpha when the prompt carries its transparency tags. A request that asks for a see-through
+ * picture gets those tags (unless they are already there), and the negative prompt loses any term that would
+ * cancel them, such as "fake transparency". Other models and opaque requests are left as they are.
+ */
+export function withNovelAiTransparencyTags(
+  prompt: string,
+  negativePrompt: string,
+  model: string,
+  transparentBackground: boolean | undefined,
+): { prompt: string; negativePrompt: string } {
+  if (!transparentBackground || !isNovelAiV5Model(model)) return { prompt, negativePrompt };
+  const missing = NOVELAI_TRANSPARENCY_TAGS.split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => !prompt.toLowerCase().includes(tag.toLowerCase()));
+  const tagged = missing.length ? [prompt.trimEnd(), missing.join(", ")].filter(Boolean).join(", ") : prompt;
+  const cleanedNegative = negativePrompt
+    .split(",")
+    .filter((term) => !/transparen|\balpha\b/i.test(term))
+    .join(",")
+    .replace(/^\s+/, "");
+  return { prompt: tagged, negativePrompt: cleanedNegative };
+}
+
+/** NovelAI's "background dataset" tag, which works on V4.5 and later and must open the base prompt. */
+export const NOVELAI_BACKGROUND_DATASET_TAG = "background dataset";
+
+/** Start a background picture with NovelAI's dataset tag when the model's "Background dataset" option is on. */
+export function withNovelAiBackgroundDataset(
+  prompt: string,
+  model: string,
+  sceneBackground: boolean | undefined,
+  enabled: boolean,
+): string {
+  if (!sceneBackground || !enabled || !/^nai-diffusion-(?:4-5|5)(?:-(?:curated|full))?$/i.test(model.trim())) {
+    return prompt;
+  }
+  const rest = prompt.trimStart();
+  if (rest.toLowerCase().startsWith(NOVELAI_BACKGROUND_DATASET_TAG)) return prompt;
+  return rest ? `${NOVELAI_BACKGROUND_DATASET_TAG}, ${rest}` : NOVELAI_BACKGROUND_DATASET_TAG;
+}
+
 function isNovelAiPreciseReferenceModel(model: string): boolean {
   return /^nai-diffusion-(?:4-5)(?:-(?:curated|full))?$/i.test(model.trim());
 }
@@ -2969,13 +3012,19 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
   const model = request.model || "nai-diffusion-4-5-full";
   const isV4 = isNovelAiV4Model(model);
   const defaults = resolveNovelAiDefaults(request);
-  const mergedPrompt = mergePromptPrefix(defaults.promptPrefix, request.prompt);
-  const prompt = prepareNovelAiPrompt(mergedPrompt, "prompt", model);
-  const negativePrompt = prepareNovelAiPrompt(
+  const transparency = withNovelAiTransparencyTags(
+    withNovelAiBackgroundDataset(
+      mergePromptPrefix(defaults.promptPrefix, request.prompt),
+      model,
+      request.sceneBackground,
+      defaults.backgroundDataset,
+    ),
     mergeNegativePrompt(defaults.negativePromptPrefix, request.negativePrompt),
-    "negative prompt",
     model,
+    request.transparentBackground,
   );
+  const prompt = prepareNovelAiPrompt(transparency.prompt, "prompt", model);
+  const negativePrompt = prepareNovelAiPrompt(transparency.negativePrompt, "negative prompt", model);
   const seed = resolveSeed(request.imageDefaults);
   const styleReferenceImage =
     isNovelAiPreciseReferenceModel(model) && defaults.styleReferenceImage

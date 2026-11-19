@@ -12908,6 +12908,8 @@
   "ui.connections.imagegenerationdefaultspanel.localImageDefaults": "Local image defaults",
   "ui.connections.imagegenerationdefaultspanel.negativePrefix": "Negative prefix",
   "ui.connections.imagegenerationdefaultspanel.noiseSchedule": "Noise schedule",
+  "ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDataset": "Background dataset for backgrounds",
+  "ui.connections.imagegenerationdefaultspanel.novelaiBackgroundDatasetHelp": "Starts background pictures (gallery, chat, Illustrator and game backgrounds) with NovelAI's \"background dataset\" tag on V4.5 and V5 models. That dataset leans photographic, so it may not match an anime-style chat.",
   "ui.connections.imagegenerationdefaultspanel.novelaiGenerationSetup": "NovelAI generation setup",
   "ui.connections.imagegenerationdefaultspanel.novelaiStylePlatePreview": "NovelAI style plate preview",
   "ui.connections.imagegenerationdefaultspanel.novelaiV45StylePlate": "NovelAI V4.5 style plate",
