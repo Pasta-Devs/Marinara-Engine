@@ -16,7 +16,7 @@
     "@marinara-engine/shared": "workspace:*",
     "@pixiv/three-vrm": "3.5.5",
     "@pixiv/three-vrm-animation": "3.5.5",
-    "@takahirox/three-mmd": "0.1.2",
+    "@takahirox/three-mmd": "0.1.4",
     "@tanstack/react-query": "^5.107.1",
     "@tanstack/react-virtual": "^3.14.26",
     "clsx": "^2.1.1",
