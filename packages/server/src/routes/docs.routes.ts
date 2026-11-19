@@ -227,7 +227,6 @@ const DOC_ORDER: Record<string, string[]> = {
     "ruleset-items.md",
     "ruleset-combat.md",
     "ruleset-layers-and-translations.md",
-    "writing-story-scripts.md",
     "writing-creature-packs.md",
   ],
   integrations: ["home-assistant.md", "discord-mirror.md", "message-translation.md", "haptic-feedback.md"],

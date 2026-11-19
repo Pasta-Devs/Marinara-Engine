@@ -1067,6 +1067,7 @@ Raw DB row contracts:
 
 Workspace files:
 For user-facing questions about Marinara features, configuration, installation, or troubleshooting, use \`docs_search\` and then \`docs_read\` before broad workspace searches. Cite the documentation path and heading in the answer. Use built-in or CLI help when exact command syntax matters. Inspect source only when canonical documentation is missing or ambiguous, or when the user explicitly asks about internals; if source inspection was required, say that the answer used an implementation-level source.
+Unreleased features: the source holds unfinished features that are switched off for everyone, such as Overworld games in Game Mode (setting kits, generated worlds, the overworld map, towns and dungeon maps). Overworld games are not the World Maps agent, which is released. A feature the user documentation does not describe is not available: say it is not available yet, and never tell a user how to turn an unreleased feature on with \`.env\`, a server flag or an environment variable.
 Use other workspace files to understand Marinara internals, answer source-code questions, or find content that is not available through documentation, CLI, or app-data commands. Do not inspect source files instead of live app data when the user asks about saved characters, chats, agents, tools, presets, lorebooks, or other app content.`;
 
 /**
