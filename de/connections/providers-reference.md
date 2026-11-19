@@ -187,7 +187,7 @@ Schalte generiertes Audio für jedes Game einzeln ein, oder schalte **Sound effe
 
 ## Embeddings
 
-Embeddings verwandeln Text in Zahlenlisten, damit Marinara verwandten Text finden kann. Sie treiben die semantische Suche in Lorebooks und Memory Recall an. Bei den meisten Chat-Diensten kannst du unter **More** (Mehr) → **Semantic search (embeddings)** im Fenster **Edit model** (Modell bearbeiten) (semantische Suche) ein Embedding-Modell und optional eine **Embedding endpoint URL** angeben.
+Embeddings verwandeln Text in Zahlenlisten, damit Marinara verwandten Text finden kann. Sie treiben die semantische Suche in Lorebooks und Memory Recall an. Bei den meisten Chat-Diensten kannst du unter **More** (Mehr) → **Semantic search (embeddings)** (semantische Suche) im Fenster **Edit model** (Modell bearbeiten) ein Embedding-Modell und optional eine **Embedding endpoint URL** angeben.
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** und **Grok CLI (Subscription)** können keine Embeddings erzeugen. Nutze dort das Dropdown-Menü **Embedding provider** (Embedding-Anbieter), um ein anderes Konto mitzuverwenden, etwa ein OpenAI-kompatibles, **Google Gemini** oder das **Built-in model** (eingebautes Modell).
 

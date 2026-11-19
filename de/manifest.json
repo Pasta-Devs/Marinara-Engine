@@ -54,8 +54,8 @@
     },
     {
       "path": "agents/custom-agents.md",
-      "sha256": "b6044b86d5714ff43a41161021f58cdaff5a75a845b500e27ceb669c371874cc",
-      "bytes": 20896
+      "sha256": "b7670146f115ebf5bc0ede2a48e145c6072f40aad77870e71a8b197b8a28ad7f",
+      "bytes": 20933
     },
     {
       "path": "agents/hierarchical-maps.md",
@@ -249,7 +249,7 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "3e94c955be574066fa803d03f6666bdd4b4fc611a973ca351e4e87a6d72ad38b",
+      "sha256": "2bfefb066b14dccc1243a1f0020f689bbc921825ca103c4b52562aa02f263519",
       "bytes": 19245
     },
     {
@@ -459,8 +459,8 @@
     },
     {
       "path": "extending/ruleset-sheets.md",
-      "sha256": "3e76ebb14d19403e9b087ed2cd11c394c8ebc88b7ed13b820e3bf0e6d53dc00e",
-      "bytes": 45285
+      "sha256": "b29498d666b9f1716bff62558e6e90543dfc82c1f2ced56f62511f136afa9d6d",
+      "bytes": 45278
     },
     {
       "path": "extending/writing-creature-packs.md",
@@ -684,8 +684,8 @@
     },
     {
       "path": "media/tts-setup.md",
-      "sha256": "03558a29b71ba742ae81fbeb20be56567bbb8e604b8a738c30b47f2573e838fb",
-      "bytes": 25134
+      "sha256": "96ea06ce0f7d254200a53f09b751a851978e9e698a25e3912b3a6b6a8f828286",
+      "bytes": 25144
     },
     {
       "path": "prompts/conditional-prompts.md",

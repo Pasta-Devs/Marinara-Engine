@@ -166,7 +166,7 @@ Wenn es nicht funktioniert hat, sieh unter [Fehlerbehebung](#troubleshooting) na
 
 ## Zwischengespeicherte Clips
 
-Marinara legt generiertes Audio in deinem Browser ab, damit dieselbe Zeile nicht zweimal generiert wird. Der Abschnitt **Cached clips** in **Voice settings** (zwischengespeicherte Clips) zeigt Anzahl und Gesamtgröße in Echtzeit. Klick auf **Export cached TTS clips** (zwischengespeicherte TTS-Clips exportieren, das Download-Symbol), um alle zwischengespeicherten Clips als einzelne Audiodateien zu sichern. Der Cache entfernt seine ältesten Clips von selbst. Eine Schaltfläche zum Leeren gibt es in der App nicht. Lösch deine Browserdaten, um ihn zu leeren.
+Marinara legt generiertes Audio in deinem Browser ab, damit dieselbe Zeile nicht zweimal generiert wird. Der Abschnitt **Cached clips** (zwischengespeicherte Clips) in **Voice settings** zeigt Anzahl und Gesamtgröße in Echtzeit. Klick auf **Export cached TTS clips** (zwischengespeicherte TTS-Clips exportieren, das Download-Symbol), um alle zwischengespeicherten Clips als einzelne Audiodateien zu sichern. Der Cache entfernt seine ältesten Clips von selbst. Eine Schaltfläche zum Leeren gibt es in der App nicht. Lösch deine Browserdaten, um ihn zu leeren.
 
 ## TTS in den einzelnen Chat-Modi
 
@@ -188,7 +188,7 @@ Spricht die Stimme einen Charakter- oder Persona-Namen falsch aus, füge einen *
 - **ElevenLabs spricht nicht**: Wähl eine echte Stimme, nicht den Platzhalter „Select an ElevenLabs voice“. Prüf, ob das Modell ein Sprachmodell ist und kein Voice-Design-Modell, dessen ID `ttv` enthält.
 - **Eine Zeile bricht mit „No audio after 60 s“ ab**: Der Sprachserver braucht mehr Zeit. Erhöhe **Request timeout (seconds)** dort, wo die Meldung es angibt. Siehe [Zeitlimit für Anfragen](#request-timeout).
 - **Ein selbst gehosteter Server auf einer lokalen Adresse wird blockiert**: Schalte `TTS_LOCAL_URLS_ENABLED` in `.env` ein. Damit erreicht Marinara lokale oder private Adressen für OpenAI-kompatible oder ElevenLabs-artige Server. PocketTTS braucht das nicht. Siehe [Referenz zur Server-Konfiguration](../CONFIGURATION.md).
-- **Schnell testen**: Klick in der Karte auf **Preview**, um mit deinen aktuellen Einstellungen eine kurze Hörprobe abzuspielen.
+- **Schnell testen**: Klick in **Voice settings** auf **Preview**, um mit deinen aktuellen Einstellungen eine kurze Hörprobe abzuspielen.
 
 ## Referenz: Musik, Soundeffekte und Gacha Forge
 
@@ -219,7 +219,9 @@ Generierte Kontextmusik wird einmal pro Gebiet oder Begegnungsstufe komponiert u
 
 ### Dialoge und Audio in Gacha Forge
 
-Gacha Forge ab Version 1.11.0 verwendet das für die Aufgabe **Voice** gewählte Konto und dessen Stimmenzuweisungen pro Charakter. - Schalte **Read character dialogue** (Charakterdialoge vorlesen) ein, um Dialoge importierter Charaktere mit zugewiesener Stimme vorlesen zu lassen. Die Option steht bei einer neuen Welt im Einrichtungsschritt **Lore** (Hintergrundwissen) und bei einer bestehenden Welt in den eigenen Welteinstellungen von Gacha Forge. Erzähltext, Gedanken, generierte Einheiten ohne Engine-Charakter-ID und Charaktere ohne Stimme bleiben stumm. Ein Name allein übernimmt nie die Stimme eines anderen Charakters.
+Gacha Forge ab Version 1.11.0 verwendet das für die Aufgabe **Voice** gewählte Konto und dessen Stimmenzuweisungen pro Charakter.
+
+- Schalte **Read character dialogue** (Charakterdialoge vorlesen) ein, um Dialoge importierter Charaktere mit zugewiesener Stimme vorlesen zu lassen. Die Option steht bei einer neuen Welt im Einrichtungsschritt **Lore** (Hintergrundwissen) und bei einer bestehenden Welt in den eigenen Welteinstellungen von Gacha Forge. Erzähltext, Gedanken, generierte Einheiten ohne Engine-Charakter-ID und Charaktere ohne Stimme bleiben stumm. Ein Name allein übernimmt nie die Stimme eines anderen Charakters.
 
 - Ein gewähltes Audio-Konto lässt sich verwenden, wenn die Aufgabe **Voice** nicht auf **Off** steht.
 - Die mitgelieferte Game-Musik und die Soundeffekte brauchen kein Generierungskonto. Um neue Titel zu komponieren, schalte in Gacha Forge **Generate music and sound effects** (Musik und Soundeffekte generieren) ein und wähle unter **Audio connection** (Audioverbindung) ein Konto für Music & Sound Effects. Diese Auswahl erscheint, wenn die Generierung eingeschaltet ist. Titel für Home, Kampf, Boss, Story-Szenen und Charaktergeschichten werden beim ersten Bedarf erzeugt und danach wiederverwendet. Diese Anfragen laufen über dein Konto bei dem jeweiligen Dienst.
