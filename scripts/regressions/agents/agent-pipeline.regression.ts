@@ -732,6 +732,20 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         tracker as any,
         makeRegressionAgentContext({
           gameState: gameState as any,
+          characterTrackerHistory: [
+            {
+              ...gameState.presentCharacters[0]!,
+              mood: "HIDDEN_HISTORY_MOOD",
+            },
+            {
+              characterId: "npc-tobin",
+              name: "Old Tobin",
+              mood: "grumpy",
+              avatarPath: "/api/avatars/npc/chat-sections/tobin-history.png",
+              avatarCrop: { srcX: 0.1, srcY: 0.1, srcWidth: 0.5, srcHeight: 0.5 },
+              idAliases: ["tobin-history-alias"],
+            },
+          ] as any,
           recentMessages: [
             { role: "user", content: "We wait at the gate." },
             { role: "assistant", content: "Mira keeps watch.", gameState: gameState as any },
@@ -742,6 +756,10 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       const request = capture.calls[0]!.map((message) => message.content).join("\n");
       assert.match(request, /<committed_tracker_state>/u);
+      assert.match(request, /<character_tracker_history>/u);
+      assert.match(request, /Old Tobin/u);
+      assert.doesNotMatch(request, /tobin-history/u);
+      assert.doesNotMatch(request, /HIDDEN_HISTORY_MOOD/u);
       assert.match(request, /<current_game_state>/u);
       assert.match(request, /Travel cloak/u);
       for (const leaked of [

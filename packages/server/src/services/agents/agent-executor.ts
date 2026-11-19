@@ -3517,7 +3517,18 @@ function buildAgentExtras(
     parts.push(
       "Latest known state for recurring characters, including characters currently absent. Use it for continuity when someone returns; this list does not mean everyone is present now.",
     );
-    parts.push(JSON.stringify(context.characterTrackerHistory));
+    // The same row allowlist as <current_game_state>: the merge still reads the full history rows
+    // (avatars, crops, aliases), only the prompt copy is stripped.
+    const hiddenFields = normalizeTrackerHiddenFields(
+      isRecord(context.gameState) ? context.gameState.hiddenTrackerFields : undefined,
+    );
+    parts.push(
+      JSON.stringify(
+        allowlistCharacterRowsForContext(
+          compactPresentCharactersForHiddenFields(context.characterTrackerHistory, hiddenFields),
+        ),
+      ),
+    );
     parts.push(`</character_tracker_history>`);
   }
 
