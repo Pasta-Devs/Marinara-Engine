@@ -31,6 +31,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  useId,
   type KeyboardEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -46,6 +47,7 @@ import {
 } from "../../../lib/composer-triggers";
 import type { MariCommandId } from "../../../lib/mari-commands";
 import { cn } from "../../../lib/utils";
+import { useUIStore } from "../../../stores/ui.store";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { openAddConnection } from "../../../lib/add-connection";
 import { ConnectionSwitcherBody } from "../../connections/ConnectionSwitcherBody";
@@ -255,6 +257,10 @@ export function MariComposer({
   const localize = useLocalizedUiText();
   const { t: localizeUi } = useTranslation();
   const { t } = useTranslation();
+  // Folding the suggestions box is remembered (and follows you to every window and device).
+  const suggestionsCollapsed = useUIStore((state) => state.professorMariSuggestionsCollapsed);
+  const setSuggestionsCollapsed = useUIStore((state) => state.setProfessorMariSuggestionsCollapsed);
+  const suggestionsBodyId = useId();
   // While she works, Send opens this choice of now or after her answer. It only exists while she works.
   const [sendMenuOpen, setSendMenuOpen] = useState(false);
   const sendMenuRef = useRef<HTMLDivElement | null>(null);
@@ -496,23 +502,55 @@ export function MariComposer({
         ) : null}
       </AnimatePresence>
       {showSuggestionPrompt && !showNextStepCards && suggestionQuestion && (!omnibarMode || messages.length > 0) ? (
-        <div className="mari-workspace-question-dock mb-2">
+        <div
+          className="mari-workspace-question-dock mb-2"
+          data-collapsible={!omnibarMode || undefined}
+          data-collapsed={(!omnibarMode && suggestionsCollapsed) || undefined}
+        >
           {!omnibarMode ? (
             <div className="mari-workspace-question-dock__prompt">
-              <Sparkles size="0.875rem" aria-hidden="true" />
-              <div className="min-w-0 flex-1">
-                <CompactMarkdown content={suggestionQuestion} />
+              {/* The fold sits top left with her sparkle beneath it; folded, the box is one quiet line. */}
+              <div className="mari-workspace-question-dock__rail">
+                <button
+                  type="button"
+                  className="mari-workspace-question-dock__toggle"
+                  onClick={() => setSuggestionsCollapsed(!suggestionsCollapsed)}
+                  aria-expanded={!suggestionsCollapsed}
+                  aria-controls={suggestionsBodyId}
+                  aria-label={t(suggestionsCollapsed ? "mari.suggestions.show" : "mari.suggestions.hide")}
+                  title={t(suggestionsCollapsed ? "mari.suggestions.show" : "mari.suggestions.hide")}
+                >
+                  <ChevronDown aria-hidden="true" />
+                </button>
+                {!suggestionsCollapsed ? <Sparkles size="0.875rem" aria-hidden="true" /> : null}
               </div>
+              {suggestionsCollapsed ? (
+                <button
+                  type="button"
+                  className="mari-workspace-question-dock__folded"
+                  onClick={() => setSuggestionsCollapsed(false)}
+                  aria-hidden="true"
+                  tabIndex={-1}
+                >
+                  {t("mari.suggestions.folded")}
+                </button>
+              ) : (
+                <div className="min-w-0 flex-1">
+                  <CompactMarkdown content={suggestionQuestion} />
+                </div>
+              )}
             </div>
           ) : null}
-          <div className="mari-workspace-answer-strip">
-            <MariSuggestionChips
-              chips={chipRowChips}
-              // N4 covers the next-step cards; the starter and plan/approval chips still draft.
-              onSelect={(chip) => handleSuggestionSelect(chip, true)}
-              disabled={isBusy}
-            />
-          </div>
+          {omnibarMode || !suggestionsCollapsed ? (
+            <div id={suggestionsBodyId} className="mari-workspace-answer-strip">
+              <MariSuggestionChips
+                chips={chipRowChips}
+                // N4 covers the next-step cards; the starter and plan/approval chips still draft.
+                onSelect={(chip) => handleSuggestionSelect(chip, true)}
+                disabled={isBusy}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
       <input
@@ -593,7 +631,7 @@ export function MariComposer({
           </div>
         ) : null}
 
-        <div className="relative flex min-w-0 flex-1 basis-full">
+        <div className="mari-workspace-composer__text-row relative flex min-w-0 flex-1 basis-full">
           <InlineDraftOverlay
             value={draft}
             suffix={linkHintText || (ghostAvailable && !pickerOpen ? draftSuffix : "")}
@@ -666,7 +704,7 @@ export function MariComposer({
             className="mari-workspace-composer__text mari-workspace-composer__input"
           />
         </div>
-        {/* Under the text, like Claude's: attach, the connection and the Permissions Mode. */}
+        {/* Under the text, like Claude's: attach, the connection and the Permissions Mode (beside it when wide). */}
         <div className="mari-composer-toolbar">
           <div className="mari-workspace-composer__attach mari-composer-menu">
             <MariAttachButton
