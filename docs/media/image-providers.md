@@ -34,30 +34,30 @@ Marinara fills in each service's address for you. Cloud services need an account
 
 **Easiest start:** choose **Pollinations**. It is free and needs no account or key. Pick a stronger service later if you want better pictures.
 
-| Service | API key | Where it runs |
-| --- | --- | --- |
-| OpenAI (DALL-E) | Yes | Cloud |
-| ChatGPT (Codex login) | No, uses `codex login` | Cloud |
-| Stability AI | Yes | Cloud |
-| Together AI | Yes | Cloud |
-| Arli AI | Yes | Cloud |
-| NovelAI | Yes | Cloud |
-| OpenRouter Images | Yes | Cloud |
-| xAI / Grok Imagine | Yes | Cloud |
-| Venice.ai | Yes | Cloud |
-| Z.AI | Yes | Cloud |
-| Atlas Cloud | Yes | Cloud |
-| fal.ai | Yes | Cloud |
-| SpicyAPI | Yes | Cloud |
-| NanoGPT | Yes | Cloud |
-| Block Entropy | Yes | Cloud |
-| RunPod Serverless (ComfyUI) | Yes | Cloud |
-| Pollinations | No | Free cloud |
-| Stable Horde | Optional | Free cloud |
-| SD Web UI (AUTOMATIC1111 / Forge) | No | Local |
-| ComfyUI | No | Local |
-| SwarmUI | Optional | Local |
-| Draw Things | No | Local |
+| Service                           | API key                | Where it runs |
+| --------------------------------- | ---------------------- | ------------- |
+| OpenAI (DALL-E)                   | Yes                    | Cloud         |
+| ChatGPT (Codex login)             | No, uses `codex login` | Cloud         |
+| Stability AI                      | Yes                    | Cloud         |
+| Together AI                       | Yes                    | Cloud         |
+| Arli AI                           | Yes                    | Cloud         |
+| NovelAI                           | Yes                    | Cloud         |
+| OpenRouter Images                 | Yes                    | Cloud         |
+| xAI / Grok Imagine                | Yes                    | Cloud         |
+| Venice.ai                         | Yes                    | Cloud         |
+| Z.AI                              | Yes                    | Cloud         |
+| Atlas Cloud                       | Yes                    | Cloud         |
+| fal.ai                            | Yes                    | Cloud         |
+| SpicyAPI                          | Yes                    | Cloud         |
+| NanoGPT                           | Yes                    | Cloud         |
+| Block Entropy                     | Yes                    | Cloud         |
+| RunPod Serverless (ComfyUI)       | Yes                    | Cloud         |
+| Pollinations                      | No                     | Free cloud    |
+| Stable Horde                      | Optional               | Free cloud    |
+| SD Web UI (AUTOMATIC1111 / Forge) | No                     | Local         |
+| ComfyUI                           | No                     | Local         |
+| SwarmUI                           | Optional               | Local         |
+| Draw Things                       | No                     | Local         |
 
 Notes for the simple services:
 
@@ -82,15 +82,15 @@ The model plans each picture before it draws. To make it plan less, add `{"compl
 
 GPT Image 2.6 can also make a short looping GIF. Marinara asks for one only where a feature or a downloaded agent offers GIFs:
 
-| Limit | Value |
-| --- | --- |
-| Account | **OpenAI (DALL-E)** with an API key |
-| Models | GPT Image 2.6 Flare or Sunburst |
-| Frames | 2 to 12, 9 by default |
-| Frame length | 20 to 2000 ms, 200 ms by default |
-| Frame size | About 0.66 MP: 816x816 square, 608x1088 portrait |
-| Pictures sent | None. A GIF is drawn from the prompt alone |
-| Transparent background | No |
+| Limit                  | Value                                            |
+| ---------------------- | ------------------------------------------------ |
+| Account                | **OpenAI (DALL-E)** with an API key              |
+| Models                 | GPT Image 2.6 Flare or Sunburst                  |
+| Frames                 | 2 to 12, 9 by default                            |
+| Frame length           | 20 to 2000 ms, 200 ms by default                 |
+| Frame size             | About 0.66 MP: 816x816 square, 608x1088 portrait |
+| Pictures sent          | None. A GIF is drawn from the prompt alone       |
+| Transparent background | No                                               |
 
 OpenAI allows more frames but does not publish how many pixels one GIF may have, so Marinara keeps to 12 small frames. **ChatGPT (Codex login)**, **OpenRouter Images**, **NanoGPT**, ToAPIs and other services can't make GIFs. Marinara refuses those requests before it sends anything, so you pay nothing. An **OpenAI-compatible** account is tried like OpenAI.
 
@@ -177,42 +177,54 @@ A **Local image defaults** panel appears on an image model for **SD Web UI (AUTO
 
 Every service has a **Seed** field. -1 keeps each image random. Any other number reuses that seed every time. The other fields depend on the service.
 
-| Service | Field | Default |
-| --- | --- | --- |
-| AUTOMATIC1111 / Forge | Steps | 20 |
-| AUTOMATIC1111 / Forge | CFG scale | 7 |
-| AUTOMATIC1111 / Forge | Sampler | Euler a |
-| AUTOMATIC1111 / Forge | Img2img denoise | 0.6 |
-| ComfyUI | Steps | 20 |
-| ComfyUI | CFG scale | 7 |
-| ComfyUI | Sampler | euler_ancestral |
-| ComfyUI | Scheduler | normal |
-| ComfyUI | Denoise | 1 |
-| NovelAI | Steps | 28 |
-| NovelAI | Prompt guidance | 6 |
-| NovelAI | Sampler | k_euler_ancestral |
-| NovelAI | Noise schedule | karras |
+| Service               | Field           | Default           |
+| --------------------- | --------------- | ----------------- |
+| AUTOMATIC1111 / Forge | Steps           | 20                |
+| AUTOMATIC1111 / Forge | CFG scale       | 7                 |
+| AUTOMATIC1111 / Forge | Sampler         | Euler a           |
+| AUTOMATIC1111 / Forge | Img2img denoise | 0.6               |
+| ComfyUI               | Steps           | 20                |
+| ComfyUI               | CFG scale       | 7                 |
+| ComfyUI               | Sampler         | euler_ancestral   |
+| ComfyUI               | Scheduler       | normal            |
+| ComfyUI               | Denoise         | 1                 |
+| NovelAI               | Steps           | 28                |
+| NovelAI               | Prompt guidance | 6                 |
+| NovelAI               | Sampler         | k_euler_ancestral |
+| NovelAI               | Noise schedule  | karras            |
 
 Each service also has **Prompt prefix** and **Negative prefix** fields. Text there is added to the front of every prompt on this model. AUTOMATIC1111 / Forge and ComfyUI have a **Clip skip** field. AUTOMATIC1111 / Forge adds a **Restore faces** toggle. ComfyUI adds a toggle to upload a 1x1 placeholder when no reference image is given, which matters only for custom workflows with reference placeholders. NovelAI adds **Guidance rescale** and **UC preset**.
+
+## Transparent backgrounds
+
+Sprites and sticker or emoji sheets look best with a see-through background. Each image model has a **Transparent backgrounds** setting that says whether it can draw one:
+
+- **Automatic** (the default) uses what Marinara knows about the model. It shows **Automatic (supported)** for GPT Image 1, 1.5, 2.5 and 2.6 on OpenAI, OpenRouter or ChatGPT (Codex login), and **Automatic (not supported)** for everything else, including GPT Image 2.
+- **Supported**: the model or workflow returns pictures with a real see-through background, for example a ComfyUI workflow that removes the background before it saves.
+- **Not supported**: always use the flat color Marinara removes, even on a model that could do better.
+
+When the model draws see-through pictures, sprites and sheets ask it for one and keep the result exactly as drawn. Otherwise the model is asked for a flat green, magenta or cyan background, and Marinara removes it. Whatever the setting, a picture that comes back see-through is never cleaned again. A picture a supported model sends back with a solid background is left as drawn and marked in the sprite review step, where **Apply cleanup** removes it.
+
+An OpenAI-compatible server that needs its own option for transparency can get it from **Custom parameters**, for example `"background": "transparent"`.
 
 ## Reference image support varies by service
 
 A reference image is an existing picture you send with your prompt, so the new image keeps a character's face or an art style.
 
-| Service | Reference images |
-| --- | --- |
-| OpenAI (DALL-E) | Up to 16, GPT Image models only. None for a GIF |
-| ChatGPT (Codex login) | Up to 16 |
-| NovelAI | Up to 16, V4.5 model only |
-| xAI / Grok Imagine | Up to 3 |
-| NanoGPT | Up to 3 |
-| ComfyUI, RunPod Serverless (ComfyUI), SwarmUI | Up to 4, through workflow placeholders |
-| Stability AI, Arli AI, SD Web UI, Draw Things | First image only, as image to image |
-| Atlas Cloud | First image, for compatible image-to-image, edit or Kontext model IDs |
-| SpicyAPI | Edit models only, up to the model's limit, shrunk to fit |
-| OpenRouter Images | Supported, no fixed limit |
-| Venice.ai, Z.AI | Not supported for text-to-image |
-| Together AI, Pollinations, Stable Horde, fal.ai | Not supported |
+| Service                                         | Reference images                                                      |
+| ----------------------------------------------- | --------------------------------------------------------------------- |
+| OpenAI (DALL-E)                                 | Up to 16, GPT Image models only. None for a GIF                       |
+| ChatGPT (Codex login)                           | Up to 16                                                              |
+| NovelAI                                         | Up to 16, V4.5 model only                                             |
+| xAI / Grok Imagine                              | Up to 3                                                               |
+| NanoGPT                                         | Up to 3                                                               |
+| ComfyUI, RunPod Serverless (ComfyUI), SwarmUI   | Up to 4, through workflow placeholders                                |
+| Stability AI, Arli AI, SD Web UI, Draw Things   | First image only, as image to image                                   |
+| Atlas Cloud                                     | First image, for compatible image-to-image, edit or Kontext model IDs |
+| SpicyAPI                                        | Edit models only, up to the model's limit, shrunk to fit              |
+| OpenRouter Images                               | Supported, no fixed limit                                             |
+| Venice.ai, Z.AI                                 | Not supported for text-to-image                                       |
+| Together AI, Pollinations, Stable Horde, fal.ai | Not supported                                                         |
 
 NovelAI precise reference works only on a V4.5 model such as `nai-diffusion-4-5-full`. NovelAI has not released Precise Reference for V5. If you ask for references on another model, Marinara renders without them and logs a warning on the server.
 

@@ -150,6 +150,7 @@ export type CreateConnectionPayload = {
   promptPresetId?: string | null;
   maxTokensOverride?: number | null;
   imageInput?: "reads" | "text" | null;
+  imageTransparency?: "supported" | "unsupported" | null;
   maxParallelJobs?: number;
   maxRequestsPerMinute?: number | null;
   treatAsLocalEndpoint?: boolean;
