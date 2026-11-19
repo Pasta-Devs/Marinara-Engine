@@ -264,6 +264,9 @@ export type ConnectionAdmissionMode =
    */
   | { kind: "none" };
 
+/** Native NovelAI image edit action sent to `/ai/generate-image`. */
+export type NovelAiEditMode = "img2img" | "infill";
+
 /** A looping GIF's timing. The Engine clamps it to 2..12 frames of 20..2000 ms (see resolveOpenAIGifAnimation). */
 export interface ImageAnimation {
   frameCount?: number;
@@ -295,6 +298,20 @@ export interface ImageGenRequest {
   /** The reference image already is the requested canvas (an in-place edit such as a blink picture), so
    *  providers must keep its framing rather than compose a new picture around it. */
   referenceIsCanvas?: boolean;
+  /** Native NovelAI img2img / inpainting mode (`action: "img2img" | "infill"`). */
+  editMode?: NovelAiEditMode;
+  /** Base64 or data-URL source canvas for native NovelAI `img2img` / `infill` edits. */
+  sourceImage?: string;
+  /** Base64 or data-URL binary mask (white = redraw, black = keep) for native NovelAI `infill`. */
+  maskImage?: string;
+  /** Denoising strength for native NovelAI `img2img` (`0.01..0.99`) or `infill` (`0.01..1`). */
+  strength?: number;
+  /** Extra noise injected before denoising in native NovelAI `img2img` (`0..0.99`). */
+  noise?: number;
+  /** Explicit seed used instead of resolving from connection defaults or random generation. */
+  seedOverride?: number;
+  /** Whether NovelAI `infill` preserves unmasked regions directly from the original image (default `true`). */
+  addOriginalImage?: boolean;
   /** Optional structured per-character prompts. NovelAI V4/V4.5 maps these to native character captions. */
   characterPrompts?: SceneIllustrationCharacterPrompt[];
   /**
@@ -345,6 +362,12 @@ export interface ImageGenResult {
   mimeType: string;
   /** File extension without dot */
   ext: string;
+  /** Provider seed used for this generation when known (e.g. native NovelAI). */
+  seed?: number;
+  /** Actual pixel width sent/produced by the provider when adjusted (e.g. NovelAI edit canvas). */
+  width?: number;
+  /** Actual pixel height sent/produced by the provider when adjusted (e.g. NovelAI edit canvas). */
+  height?: number;
   /** The provider-specific prompt used when a fallback connection rendered the image. */
   effectivePrompt?: string;
   effectiveNegativePrompt?: string;
