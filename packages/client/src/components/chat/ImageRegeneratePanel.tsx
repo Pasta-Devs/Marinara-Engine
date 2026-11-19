@@ -851,13 +851,13 @@ export function ImageRegeneratePanel({
             )}
           </div>
 
-          <div className="shrink-0 border-t border-[var(--border)] px-2.5 py-1.5 sm:px-4 sm:py-3">
+          <div className="shrink-0 border-t border-[var(--border)] px-2 py-1.5 sm:px-4 sm:py-3">
             {error && (
               <p role="alert" className="mb-2 max-h-20 overflow-y-auto break-words text-sm text-[var(--destructive)]">
                 {error}
               </p>
             )}
-            <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
               {phase && (
                 <p
                   role="status"
@@ -875,7 +875,10 @@ export function ImageRegeneratePanel({
                 type="button"
                 onClick={onCancel}
                 disabled={busy}
-                className={cn(BUTTON_CLASS, "px-2 text-xs hover:bg-[var(--accent)] sm:px-3 sm:text-sm")}
+                className={cn(
+                  BUTTON_CLASS,
+                  "whitespace-nowrap px-2 text-xs hover:bg-[var(--accent)] sm:px-3 sm:text-sm",
+                )}
               >
                 {t("chat.delete.dialog.cancel")}
               </button>
@@ -883,9 +886,12 @@ export function ImageRegeneratePanel({
                 type="button"
                 onClick={() => void run("revise")}
                 disabled={busy || promptMissing}
-                className={cn(SECONDARY_BUTTON_CLASS, "gap-1.5 px-2.5 text-xs sm:gap-2 sm:px-3 sm:text-sm")}
+                className={cn(
+                  SECONDARY_BUTTON_CLASS,
+                  "gap-1.5 whitespace-nowrap px-2.5 text-xs sm:gap-2 sm:px-3 sm:text-sm",
+                )}
               >
-                <Sparkles size="1rem" aria-hidden />
+                <Sparkles size="1rem" className="max-sm:hidden" aria-hidden />
                 {t("ui.chat.imageregeneratepanel.revise")}
               </button>
               <button
@@ -894,10 +900,14 @@ export function ImageRegeneratePanel({
                 disabled={busy || promptMissing}
                 className={cn(
                   BUTTON_CLASS,
-                  "gap-1.5 bg-[var(--primary)] px-3 text-xs font-semibold text-[var(--primary-foreground)] hover:opacity-90 sm:gap-2 sm:px-3 sm:text-sm",
+                  "gap-1.5 whitespace-nowrap bg-[var(--primary)] px-2.5 text-xs font-semibold text-[var(--primary-foreground)] hover:opacity-90 sm:gap-2 sm:px-3 sm:text-sm",
                 )}
               >
-                {hasGuidance ? <Sparkles size="1rem" aria-hidden /> : <RefreshCw size="1rem" aria-hidden />}
+                {hasGuidance ? (
+                  <Sparkles size="1rem" className="max-sm:hidden" aria-hidden />
+                ) : (
+                  <RefreshCw size="1rem" className="max-sm:hidden" aria-hidden />
+                )}
                 {t(
                   hasGuidance
                     ? effectiveMode === "edit"
