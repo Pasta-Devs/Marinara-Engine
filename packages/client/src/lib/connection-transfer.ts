@@ -116,6 +116,7 @@ export type ConnectionTransferRow = {
   imageEndpointId?: unknown;
   imagePromptInstructions?: unknown;
   imageGenerationQuality?: unknown;
+  imageTransparency?: unknown;
   comfyuiWorkflow?: unknown;
   treatAsLocalEndpoint?: unknown;
   claudeFastMode?: unknown;
@@ -170,6 +171,7 @@ export type SafeConnectionExport = {
   imageEndpointId: string | null;
   imagePromptInstructions: string | null;
   imageGenerationQuality: ImageGenerationQuality;
+  imageTransparency: "supported" | "unsupported" | null;
   comfyuiWorkflow: string | null;
   treatAsLocalEndpoint: boolean;
   claudeFastMode: boolean;
@@ -321,6 +323,7 @@ export function normalizeImportedConnectionEntry(value: unknown): ConnectionImpo
       imageEndpointId: asNullableString(value.imageEndpointId),
       imagePromptInstructions: normalizeImagePromptInstructions(value.imagePromptInstructions),
       imageGenerationQuality: resolveOpenAIImageQuality(value.imageGenerationQuality, asString(value.model)),
+      imageTransparency: asImageTransparency(value.imageTransparency),
       videoGenerationSource: provider === "video_generation" ? asNullableString(value.videoGenerationSource) : null,
       videoService,
       videoPromptInstructions:
@@ -441,10 +444,15 @@ function serializeConnectionForExport(connection: ConnectionTransferRow): SafeCo
     imageEndpointId: asNullableString(connection.imageEndpointId),
     imagePromptInstructions: normalizeImagePromptInstructions(connection.imagePromptInstructions),
     imageGenerationQuality: resolveOpenAIImageQuality(connection.imageGenerationQuality, asString(connection.model)),
+    imageTransparency: asImageTransparency(connection.imageTransparency),
     comfyuiWorkflow: asNullableString(connection.comfyuiWorkflow),
     treatAsLocalEndpoint: asBoolean(connection.treatAsLocalEndpoint),
     claudeFastMode: asBoolean(connection.claudeFastMode),
   };
+}
+
+function asImageTransparency(value: unknown): "supported" | "unsupported" | null {
+  return value === "supported" || value === "unsupported" ? value : null;
 }
 
 function asGenerativeAudioSource(value: unknown): GenerativeAudioSource | null {

@@ -25,8 +25,9 @@ for (const model of models) {
   for (const id of [model, `${model}-2026-09-08`]) {
     assert.ok(isOpenAIGptImageModel(id));
     assert.ok(isOpenAIGptImage25Model(id));
-    assert.equal(resolveSpriteNativeTransparency(id, true), true);
-    assert.equal(resolveSpriteNativeTransparency(id, false), false);
+    const openai = { model: id, baseUrl: "https://api.openai.com/v1" };
+    assert.equal(resolveSpriteNativeTransparency(openai, true), true);
+    assert.equal(resolveSpriteNativeTransparency(openai, false), false);
     assert.deepEqual(resolveSpriteSheetCanvas({ cols: 3, rows: 2, spriteType: "portrait", model: id }), {
       sheetWidth: 1536,
       sheetHeight: 1024,

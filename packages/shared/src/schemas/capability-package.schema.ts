@@ -1637,7 +1637,11 @@ const capabilityPackageManifestBaseSchema = z
 //        swipe, in message order (`getGameState` still returns only the newest). Read-only, behind `chat-read`.
 //        Soft seam: an older Engine leaves it undefined, so a package feature-detects it and declares 1.833
 //        only when it cannot work without it.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 833 } as const);
+// 1.834: `runtime.sprites` lists a character's or persona's saved sprites, applies the artwork rule (selected
+//        sprite, a saved sprite that already shows the request, saved sprites as references, nothing) and reads
+//        one sprite's bytes. Read-only. Soft seam: an older Engine leaves it undefined, so a package
+//        feature-detects it and declares 1.834 only when it cannot work without it. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 834 } as const);
 
 const capabilityApiVersionSchema = z
   .object({
