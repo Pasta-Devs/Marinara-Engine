@@ -1074,6 +1074,19 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 旧版 Engine 会忽略此选项，因此包始终可以传入它。包依赖此选项时，请声明 1.815。
 
+<a id="capability-api-1835-prepare-voice-clips-ahead"></a>
+
+### Capability API 1.835：提前准备语音片段
+
+`services.tts.ttsService.prepareAudio(text, options?)` 会把一句台词的音频片段生成到共享音频缓存中，但不播放。调用时使用之后 `speak` 或 `speakSequence` 会用到的相同文本和选项：`cacheKey`、`cacheAliases`、`voice`、`speaker`、`tone` 和 `audioConnectionId`。这样那次调用会立即开始播放，无需再次合成。
+
+- 已缓存或正被其他调用生成的片段不会重复生成。
+- 它从不停止或改变播放，因此包可以在一句台词播放时准备后面的台词。
+- 没有文本或没有 `cacheKey` 的台词会被跳过，因为没有办法找到它的片段。
+- `options.signal` 只停止等待。已发出的合成会继续并写入缓存，除非设置了 `abortCacheGenerationOnAbort`。
+
+不需要任何权限。旧版 Engine 没有这个方法，因此请检查 `typeof ttsService.prepareAudio === "function"`，并保留台词出现时再配音的做法。只有包离不开它时，才声明 1.835。
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816：动态 GIF 图像
@@ -1385,6 +1398,8 @@ Engine 用 `view="widget"` 挂载包的客户端元素。除常见的 `packageId
 从 Capability API **1.381** 起，`__MARINARA_HOST__.services.audio` 提供由 Engine 管理的播放和素材选择。在包清单中声明该次版本，并随包一同更新 Engine。语音仍使用 `services.tts`，音乐和音效使用 `services.audio`。从 1.381 起，`services.tts.ttsService.speakSequence(requests, id?, options?)` 接受 `options.audioConnectionId`，将选中的语音连接应用到每个片段，同时保留各请求的声音。不设置时使用常规默认值；传入 `""` 可明确使用旧 TTS 设置。
 
 未知、已删除、被隔离或不属于语音的 `audioConnectionId` 会被忽略，并执行正常的语音解析：先使用已保存的语音选择，再尝试默认/回退连接，最后使用旧设置。如果已保存的语音选择本身不可用，就会拒绝播放，而不会借用另一个连接。要求使用特定连接的包应在播放前验证保存的 ID。
+
+如需在台词播放前生成语音片段，请参阅 [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead)。
 
 - `createPlayer()` 返回独立的播放器，具有 `unlock()`、`playMusic(tag, assets?)`、`stopMusic(immediate?)`、`playSfx(tag, assets?, loopCount?)`、`setVolumes({ music, sfx })`、`setMuted(boolean)` 和 `dispose()`。音量范围是 0 到 1。`assets` 是以标签为键的记录，条目格式为 `{ path: string, url?: string }`；路径使用现有的 Game 素材服务器，`url` 则可指向包自己的素材。播放复用 Engine 的交叉淡化、自动播放重试和音效池。开始播放音频时，在用户操作中直接调用 `unlock()`；浏览器的自动播放规则仍然适用。
 - 为已挂载的包界面保留一个播放器，卸载时调用 `dispose()`。这会永久停止该播放器的音频，释放其上下文和手势监听器，并使之后的调用不再生效。它不会停止 Game 或另一个包的播放器。界面重新挂载时，创建新播放器。

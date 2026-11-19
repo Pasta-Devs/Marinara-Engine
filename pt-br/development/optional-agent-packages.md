@@ -1112,6 +1112,19 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 Engines mais antigos ignoram a opção, então um pacote sempre pode passá-la. Declare 1.815 quando o pacote depender dela.
 
+<a id="capability-api-1835-prepare-voice-clips-ahead"></a>
+
+### Capability API 1.835: preparar clipes de voz com antecedência
+
+`services.tts.ttsService.prepareAudio(text, options?)` cria o clipe de uma fala no cache de áudio compartilhado sem tocá-lo. Chame-o com o mesmo texto e as mesmas opções que um `speak` ou `speakSequence` posterior vai usar: `cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone` e `audioConnectionId`. Essa chamada então começa a tocar na hora, sem uma segunda síntese.
+
+- Um clipe que já está no cache, ou que outra chamada está criando, não é criado de novo.
+- A reprodução nunca é parada nem alterada, então um pacote pode preparar as próximas falas enquanto uma toca.
+- Uma fala sem texto ou sem `cacheKey` é ignorada, já que nada conseguiria encontrar o clipe dela.
+- `options.signal` interrompe só a espera. A síntese já enviada continua e vai para o cache, a menos que `abortCacheGenerationOnAbort` esteja definido.
+
+Não precisa de permissão. Engines mais antigos não têm o método, então verifique `typeof ttsService.prepareAudio === "function"` e continue dando voz às falas conforme elas aparecem. Declare 1.835 só quando o pacote não funcionar sem ele.
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: imagens GIF animadas
@@ -1423,6 +1436,8 @@ Pacotes do servidor podem usar `api.runtime.integrations` para acessar os servi�
 A partir da Capability API **1.381**, `__MARINARA_HOST__.services.audio` fornece reprodução e seleção de recursos pelo Engine. Declare essa versão secundária no manifesto do pacote e atualize o Engine junto com o pacote. A fala continua em `services.tts`; música e efeitos sonoros usam `services.audio`. `services.tts.ttsService.speakSequence(requests, id?, options?)` aceita `options.audioConnectionId` desde a versão 1.381, aplicando a conexão de fala selecionada a cada trecho e mantendo a voz de cada solicitação. Deixe o valor indefinido para usar o padrão normal ou passe `""` para usar explicitamente as configurações antigas de TTS.
 
 Um `audioConnectionId` desconhecido, excluído, em quarentena ou que não seja de fala é ignorado, e a resolução normal de fala é executada: primeiro a seleção de fala salva, depois a conexão padrão/de fallback e, por fim, as configurações antigas. Se a própria seleção de fala salva estiver indisponível, a reprodução é recusada em vez de usar outra conexão. Pacotes que exigem uma conexão específica devem validar o ID salvo antes da reprodução.
+
+Para criar clipes de voz antes que as falas toquem, veja [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead).
 
 - `createPlayer()` retorna um player independente com `unlock()`, `playMusic(tag, assets?)`, `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`, `setMuted(boolean)` e `dispose()`. Os volumes vão de 0 a 1. `assets` é um registro indexado por tag, cujas entradas têm `{ path: string, url?: string }`; os caminhos usam o servidor de recursos existente de Game, enquanto `url` pode apontar para um recurso do pacote. A reprodução reutiliza o crossfade, a nova tentativa de reprodução automática e o pool de efeitos sonoros do Engine. Chame `unlock()` diretamente em uma interação do usuário ao iniciar o áudio; as regras de reprodução automática do navegador continuam valendo.
 - Mantenha um player para a interface montada do pacote e chame `dispose()` ao desmontá-la. A limpeza para permanentemente o áudio daquele player, libera o contexto e os listeners de gestos e torna inertes as chamadas posteriores. Não para o Game nem o player de outro pacote. Crie outro player quando a interface for montada de novo.

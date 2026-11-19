@@ -1305,6 +1305,19 @@ dans l'heure. Un appel sans message marqué ignore l'option, tout comme les four
 Les anciens moteurs ignorent l'option : un package peut donc toujours la transmettre. Déclare 1.815 quand le package en
 dépend.
 
+<a id="capability-api-1835-prepare-voice-clips-ahead"></a>
+
+### Capability API 1.835 : préparer des clips de voix à l'avance
+
+`services.tts.ttsService.prepareAudio(text, options?)` crée le clip d'une réplique dans le cache audio partagé sans le lire. Appelle-la avec le même texte et les mêmes options qu'un futur `speak` ou `speakSequence` : `cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone` et `audioConnectionId`. Cet appel commence alors la lecture tout de suite, sans seconde synthèse.
+
+- Un clip déjà en cache, ou en cours de création par un autre appel, n'est pas recréé.
+- La lecture n'est jamais arrêtée ni modifiée : un package peut donc préparer les répliques suivantes pendant qu'une autre est lue.
+- Une réplique sans texte ou sans `cacheKey` est ignorée, car rien ne pourrait retrouver son clip.
+- `options.signal` arrête seulement l'attente. La synthèse déjà envoyée continue et est mise en cache, sauf si `abortCacheGenerationOnAbort` est défini.
+
+Aucune permission n'est nécessaire. Les anciens moteurs n'ont pas cette méthode : vérifie donc `typeof ttsService.prepareAudio === "function"` et continue à faire lire les répliques à mesure qu'elles apparaissent. Déclare 1.835 uniquement si le package ne peut pas fonctionner sans elle.
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816 : images GIF animées
@@ -1651,6 +1664,8 @@ Une `audioConnectionId` inconnue, supprimée, en quarantaine ou ne correspondant
 la sélection de source vocale enregistrée, puis la connexion par défaut/de secours, puis les anciens réglages.
 Si la sélection vocale enregistrée est elle-même indisponible, la lecture est refusée au lieu d'emprunter une autre connexion.
 Les paquets qui exigent une connexion précise devraient vérifier l'identifiant enregistré avant la lecture.
+
+Pour créer des clips de voix avant la lecture de leurs répliques, consulte [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead).
 
 - `createPlayer()` renvoie un lecteur indépendant avec `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,

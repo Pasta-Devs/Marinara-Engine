@@ -1102,6 +1102,19 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 Starsze wersje silnika ignorują tę opcję, więc pakiet może ją zawsze przekazywać. Zadeklaruj wersję 1.815, gdy pakiet na niej polega.
 
+<a id="capability-api-1835-prepare-voice-clips-ahead"></a>
+
+### Capability API 1.835: przygotowanie klipów głosowych z wyprzedzeniem
+
+`services.tts.ttsService.prepareAudio(text, options?)` tworzy klip kwestii we wspólnej pamięci podręcznej audio, nie odtwarzając go. Wywołaj ją z tym samym tekstem i opcjami, których użyje późniejsze `speak` lub `speakSequence`: `cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone` i `audioConnectionId`. To wywołanie zacznie wtedy odtwarzanie od razu, bez drugiej syntezy.
+
+- Klip, który jest już w pamięci podręcznej albo właśnie tworzy go inne wywołanie, nie jest tworzony ponownie.
+- Odtwarzanie nigdy nie jest zatrzymywane ani zmieniane, więc pakiet może przygotowywać kolejne kwestie, gdy jedna jest odtwarzana.
+- Kwestia bez tekstu lub bez `cacheKey` jest pomijana, bo nic nie mogłoby znaleźć jej klipu.
+- `options.signal` zatrzymuje tylko czekanie. Wysłana już synteza trwa dalej i trafia do pamięci podręcznej, chyba że ustawiono `abortCacheGenerationOnAbort`.
+
+Nie wymaga żadnego uprawnienia. Starsze wersje silnika nie mają tej metody, więc sprawdź `typeof ttsService.prepareAudio === "function"` i nadal odtwarzaj głos kwestii, gdy się pojawiają. Zadeklaruj wersję 1.835 tylko wtedy, gdy pakiet nie może bez niej działać.
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: animowane obrazy GIF
@@ -1451,6 +1464,8 @@ niż połączenie mowy, silnik go ignoruje i stosuje zwykłą kolejność wyboru
 następnie połączenie domyślne/zapasowe, a na końcu dawne ustawienia. Jeśli samo zapisane połączenie
 mowy jest niedostępne, odtwarzanie jest odrzucane zamiast korzystać z innego połączenia. Pakiety
 wymagające konkretnego połączenia powinny sprawdzać zapisany identyfikator przed odtwarzaniem.
+
+Jak tworzyć klipy głosowe, zanim ich kwestie zostaną odtworzone, opisuje [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead).
 
 - `createPlayer()` zwraca niezależny odtwarzacz z metodami `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,

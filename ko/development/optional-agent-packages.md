@@ -1104,6 +1104,19 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 이전 Engine은 이 옵션을 무시하므로 패키지는 언제든 이 옵션을 넘길 수 있습니다. 패키지가 이 옵션에 의존한다면 1.815를 선언하세요.
 
+<a id="capability-api-1835-prepare-voice-clips-ahead"></a>
+
+### Capability API 1.835: 음성 클립 미리 준비하기
+
+`services.tts.ttsService.prepareAudio(text, options?)`는 한 줄의 클립을 재생하지 않고 공유 오디오 캐시에 만듭니다. 나중에 `speak`나 `speakSequence`가 쓸 것과 같은 텍스트와 옵션(`cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone`, `audioConnectionId`)으로 호출하세요. 그러면 그 호출은 두 번째 합성 없이 바로 재생을 시작합니다.
+
+- 이미 캐시에 있거나 다른 호출이 만들고 있는 클립은 다시 만들지 않습니다.
+- 재생을 멈추거나 바꾸지 않으므로, 한 줄이 재생되는 동안 패키지가 다음 줄을 준비할 수 있습니다.
+- 텍스트나 `cacheKey`가 없는 줄은 그 클립을 찾을 방법이 없으므로 건너뜁니다.
+- `options.signal`은 기다림만 멈춥니다. `abortCacheGenerationOnAbort`를 설정하지 않으면 이미 보낸 합성은 계속되고 캐시에 저장됩니다.
+
+권한은 필요 없습니다. 이전 Engine에는 이 메서드가 없으므로 `typeof ttsService.prepareAudio === "function"`을 확인하고, 줄이 나타날 때 음성을 내는 방식도 유지하세요. 패키지가 이 메서드 없이 동작할 수 없을 때만 1.835를 선언하세요.
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: 애니메이션 GIF 이미지
@@ -1422,6 +1435,8 @@ Capability API **1.381**부터 `__MARINARA_HOST__.services.audio`는 Engine이 �
 저장된 음성 선택, 기본/대체 연결, 기존 설정 순으로 결정합니다.
 저장된 음성 선택 자체를 사용할 수 없으면 다른 연결을 빌려 쓰지 않고 재생을 거부합니다.
 특정 연결이 필요한 패키지는 재생 전에 저장된 ID를 검증하세요.
+
+줄이 재생되기 전에 음성 클립을 만들려면 [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead)를 참고하세요.
 
 - `createPlayer()`는 `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,

@@ -1103,6 +1103,19 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 古いEngineはこのオプションを無視するため、パッケージはいつでも渡せます。このオプションに依存するパッケージは、1.815を宣言してください。
 
+<a id="capability-api-1835-prepare-voice-clips-ahead"></a>
+
+### Capability API 1.835: 音声クリップを先に用意する
+
+`services.tts.ttsService.prepareAudio(text, options?)`は、行のクリップを再生せずに共有の音声キャッシュへ作ります。あとで`speak`または`speakSequence`が使うものと同じテキストとオプション(`cacheKey`、`cacheAliases`、`voice`、`speaker`、`tone`、`audioConnectionId`)で呼び出してください。その呼び出しは、2回目の合成なしですぐに再生を始めます。
+
+- キャッシュ済みのクリップや、ほかの呼び出しが作成中のクリップは、もう一度作られません。
+- 再生を止めたり変えたりすることはないため、1行を再生している間に次の行を用意できます。
+- テキストや`cacheKey`がない行は、そのクリップを見つける手段がないため飛ばされます。
+- `options.signal`が止めるのは待機だけです。`abortCacheGenerationOnAbort`を設定しない限り、送信済みの合成は続き、キャッシュされます。
+
+権限は必要ありません。古いEngineにはこのメソッドがないため、`typeof ttsService.prepareAudio === "function"`を確認し、行が表示されたときに読み上げる方法も残してください。パッケージがこれなしでは動かない場合にだけ、1.835を宣言してください。
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: アニメーションGIF画像
@@ -1421,6 +1434,8 @@ Capability API **1.381**以降では、`__MARINARA_HOST__.services.audio`がEngi
 保存済みの読み上げ用の選択、デフォルト/フォールバック接続、従来の設定の順に解決します。
 保存済みの選択自体が使えない場合は、ほかの接続を借りずに再生を拒否します。
 特定の接続を必要とするパッケージは、再生前に保存済みのIDを検証してください。
+
+行の再生前に音声クリップを作るには、[Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead)を参照してください。
 
 - `createPlayer()`は、`unlock()`、`playMusic(tag, assets?)`、
   `stopMusic(immediate?)`、`playSfx(tag, assets?, loopCount?)`、`setVolumes({ music, sfx })`、

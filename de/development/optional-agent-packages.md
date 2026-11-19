@@ -1117,6 +1117,19 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 Ältere Engines ignorieren die Option, ein Paket kann sie also immer übergeben. Deklariere 1.815, wenn das Paket darauf angewiesen ist.
 
+<a id="capability-api-1835-prepare-voice-clips-ahead"></a>
+
+### Capability API 1.835: Sprachclips vorab erstellen
+
+`services.tts.ttsService.prepareAudio(text, options?)` erstellt den Clip einer Zeile im gemeinsamen Audio-Cache, ohne ihn abzuspielen. Rufe es mit demselben Text und denselben Optionen auf, die ein späteres `speak` oder `speakSequence` verwendet: `cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone` und `audioConnectionId`. Dieser Aufruf spielt dann sofort ab, ohne zweite Synthese.
+
+- Ein Clip, der schon im Cache liegt oder gerade von einem anderen Aufruf erstellt wird, wird nicht noch einmal erstellt.
+- Die Wiedergabe wird nie gestoppt oder verändert, ein Paket kann also die nächsten Zeilen vorbereiten, während eine läuft.
+- Eine Zeile ohne Text oder ohne `cacheKey` wird übersprungen, denn nichts könnte ihren Clip finden.
+- `options.signal` beendet nur das Warten. Die bereits gesendete Synthese läuft weiter und wird zwischengespeichert, außer `abortCacheGenerationOnAbort` ist gesetzt.
+
+Dafür ist keine Berechtigung nötig. Ältere Engines haben die Methode nicht, prüfe also `typeof ttsService.prepareAudio === "function"` und vertone Zeilen weiterhin, sobald sie erscheinen. Deklariere 1.835 nur, wenn das Paket ohne sie nicht funktioniert.
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: animierte GIF-Bilder
@@ -1461,6 +1474,8 @@ Eine unbekannte, gelöschte, unter Quarantäne stehende oder nicht für Sprachau
 zuerst die gespeicherte Auswahl für Sprachausgabe, dann die Standard-/Ersatzverbindung, dann die bisherigen Einstellungen.
 Ist die gespeicherte Auswahl selbst nicht verfügbar, startet die Wiedergabe nicht und weicht nicht auf eine andere Verbindung aus.
 Pakete, die eine bestimmte Verbindung brauchen, sollten die gespeicherte ID vor der Wiedergabe prüfen.
+
+Wie du Sprachclips erstellst, bevor ihre Zeilen abgespielt werden, steht unter [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead).
 
 - `createPlayer()` liefert einen unabhängigen Player mit `unlock()`, `playMusic(tag, assets?)`,
   `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`,
