@@ -528,6 +528,94 @@ try {
       },
     },
     {
+      name: "avatar, crop, portrait framing and id aliases stay the server's: omitted ones survive, model-written ones are ignored (#9555)",
+      run: async () => {
+        for (const origin of ["generate", "retry"] as const) {
+          const tracker = await trackerChat();
+          const turn = (presentCharacters: unknown) =>
+            applyAgentResultEffect(
+              result({ ...characterResult, data: { presentCharacters } }),
+              fakeDeps({ origin }, { chatId: tracker.chatId }).deps,
+            );
+          await turn([
+            { name: "Alice", mood: "calm" },
+            { name: "Garrick Thum", mood: "calm" },
+          ]);
+          const [, first] = await presentCharactersOf(tracker);
+          const garrickId = String(first!.characterId);
+          const crop = { srcX: 0.1, srcY: 0.2, srcWidth: 0.5, srcHeight: 0.6 };
+          const storedAvatar = `/api/avatars/npc/${tracker.chatId}/garrick-portrait.png`;
+          const stored = (await presentCharactersOf(tracker)).map((row) =>
+            row.name === "Garrick Thum"
+              ? {
+                  ...row,
+                  avatarPath: storedAvatar,
+                  avatarCrop: crop,
+                  portraitFocusX: 40,
+                  portraitFocusY: 20,
+                  portraitZoom: 1.5,
+                  idAliases: ["garrick-old"],
+                }
+              : row,
+          );
+          await gameStates.updateByMessage("msg-1", 0, tracker.chatId, { presentCharacters: stored } as never);
+
+          const assertServerOwned = async (label: string) => {
+            const rows = await presentCharactersOf(tracker);
+            const alice = rows.find((row) => row.name === "Alice");
+            const garrick = rows.find((row) => row.name === "Garrick Thum");
+            assert.equal(alice!.avatarPath, "/api/avatars/alice.png", `${origin} ${label}: card avatar`);
+            assert.equal(garrick!.characterId, garrickId, `${origin} ${label}: id`);
+            assert.equal(garrick!.avatarPath, storedAvatar, `${origin} ${label}: avatar`);
+            assert.deepEqual(garrick!.avatarCrop, crop, `${origin} ${label}: crop`);
+            assert.equal(garrick!.portraitFocusX, 40, `${origin} ${label}: focus x`);
+            assert.equal(garrick!.portraitFocusY, 20, `${origin} ${label}: focus y`);
+            assert.equal(garrick!.portraitZoom, 1.5, `${origin} ${label}: zoom`);
+            assert.ok((garrick!.idAliases as string[]).includes("garrick-old"), `${origin} ${label}: aliases kept`);
+            assert.ok(!(garrick!.idAliases as string[]).includes("bogus"), `${origin} ${label}: no model alias`);
+            return rows;
+          };
+
+          // Full-array output without the fields, as the model now sees the rows.
+          await turn([
+            { characterId: "card-alice", name: "Alice", mood: "calm" },
+            { characterId: garrickId, name: "Garrick Thum", mood: "tired" },
+          ]);
+          await assertServerOwned("omitted");
+
+          // Full-array output with guessed values.
+          const guessed = {
+            avatarPath: "/evil.png",
+            avatarCrop: { srcX: 0, srcY: 0, srcWidth: 0.9, srcHeight: 0.9 },
+            portraitFocusX: 99,
+            portraitFocusY: 99,
+            portraitZoom: 9,
+            idAliases: ["bogus"],
+          };
+          await turn([
+            { characterId: "card-alice", name: "Alice", ...guessed },
+            { characterId: garrickId, name: "Garrick Thum", mood: "angry", ...guessed },
+          ]);
+          const afterFull = await assertServerOwned("full array");
+          assert.equal(afterFull.find((row) => row.name === "Garrick Thum")!.mood, "angry", origin);
+
+          // Incremental output with guessed values, plus a new arrival with a guessed avatar.
+          await turn({
+            updates: [
+              { characterId: garrickId, name: "Garrick Thum", mood: "wary", ...guessed },
+              { name: "Pell", mood: "curious", appearance: "short", avatarPath: "/evil.png" },
+            ],
+          });
+          const afterUpdate = await assertServerOwned("incremental");
+          assert.equal(afterUpdate.find((row) => row.name === "Garrick Thum")!.mood, "wary", origin);
+          const pell = afterUpdate.find((row) => row.name === "Pell");
+          assert.ok(pell, origin);
+          assert.notEqual(pell!.avatarPath, "/evil.png", origin);
+          assert.equal(pell!.idAliases === undefined || !(pell!.idAliases as string[]).includes("bogus"), true);
+        }
+      },
+    },
+    {
       name: "World State from generate: every field, missing ones from the previous row, saved and sent to the HUD",
       run: async () => {
         const tracker = await worldChat({ location: "Harbor", weather: "rain", time: "dawn" });
