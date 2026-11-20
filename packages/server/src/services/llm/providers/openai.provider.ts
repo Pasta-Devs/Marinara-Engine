@@ -1024,6 +1024,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       ...(this.extraHeaders ?? {}),
     };
+    // The ChatGPT (Codex) backend takes a request's cache affinity from its `session-id` header, which the Codex CLI
+    // sets to its prompt cache key; with `prompt_cache_key` alone, a repeated 5k-token prompt cached nothing.
+    const sessionKey = this.isOpenAIChatGPTProvider() ? chatCacheKey() : undefined;
+    if (sessionKey) h["session-id"] = sessionKey;
     return h;
   }
 
