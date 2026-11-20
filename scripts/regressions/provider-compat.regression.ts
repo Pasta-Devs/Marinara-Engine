@@ -911,20 +911,20 @@ assert.deepEqual(resolveGeminiThinkingConfig("gemini-2.5-flash", { reasoningEffo
   thinkingBudget: 0,
   includeThoughts: false,
 });
-assert.equal(
-  resolveGeminiThinkingConfig("gemini-2.5-pro", { reasoningEffort: "none" }, 4096),
-  undefined,
+assert.deepEqual(
+  resolveGeminiThinkingConfig("gemini-2.5-pro", { reasoningEffort: "none" }, 32768),
+  { thinkingBudget: 8192, includeThoughts: true },
   "Gemini 2.5 Pro does not support disabling thinking",
 );
-assert.equal(
+assert.deepEqual(
   resolveGeminiThinkingConfig("gemini-3.5-flash", { reasoningEffort: "none" }, 4096),
-  undefined,
+  { thinkingLevel: "medium", includeThoughts: true },
   "reasoning-mandatory Gemini 3 models must not receive an unsupported off value",
 );
-assert.equal(
+assert.deepEqual(
   resolveGeminiThinkingConfig("gemini-4-argon", { reasoningEffort: "none" }, 4096),
-  undefined,
-  "Argon cannot turn thinking off, so Off sends nothing and Google's default level applies",
+  { thinkingLevel: "medium", includeThoughts: true },
+  "Argon cannot turn thinking off, so Off names the default level",
 );
 // Hydrogen and Neon add xhigh; the rest of the family stops at high.
 // https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen
@@ -954,7 +954,7 @@ assert.deepEqual(findKnownModel("google", "gemini-4-hydrogen"), {
   context: 1_048_576,
   maxOutput: 65_536,
 });
-assert.equal(findKnownModel("google_vertex", "gemini-4-hydrogen"), undefined, "Google lists no Vertex location");
+assert.equal(findKnownModel("google_vertex", "gemini-4-hydrogen")?.id, "gemini-4-hydrogen");
 assert.equal(
   findKnownModel("google_vertex", "gemini-4-argon")?.id,
   "gemini-4-argon",
@@ -968,15 +968,15 @@ for (const provider of ["google", "google_vertex"] as const) {
     `${provider} lists Neon`,
   );
 }
-// Vertex lists Neon, so it names Neon's default level; Hydrogen is unknown there and names none.
+// Vertex lists Hydrogen and Neon with the same default level.
 assert.equal(
   resolveProviderReasoningEffort({ provider: "google_vertex", model: "gemini-4-neon", reasoningEffort: undefined }),
   "high",
 );
 assert.equal(
   resolveProviderReasoningEffort({ provider: "google_vertex", model: "gemini-4-hydrogen", reasoningEffort: undefined }),
-  null,
-  "Hydrogen on Vertex is an unknown model: no level and no thinking room",
+  "high",
+  "Hydrogen on Vertex uses the documented default",
 );
 assert.equal(isGeminiHydrogenOrNeonModel("google/gemini-4-hydrogen"), true);
 assert.equal(isGeminiHydrogenOrNeonModel("gemini-4-hydrogenous"), false);
@@ -3373,9 +3373,10 @@ try {
     for (const [kind, baseUrl, modelsUrl] of hosts) {
       const provider = new GoogleProvider(baseUrl, "test", undefined, undefined, undefined, kind);
 
-      // Every effort maps to one of Argon's three levels. Off sends no thinking config, so Google's default applies.
+      // Every effort maps to one of Argon's three levels. Argon cannot turn thinking off, so Off sends Google's default,
+      // medium.
       const efforts = [
-        ["none", null],
+        ["none", "medium"],
         ["low", "low"],
         ["medium", "medium"],
         ["high", "high"],
@@ -3481,7 +3482,11 @@ try {
       assert.equal(requests[0]?.url, `${modelsUrl}/gemini-4-argon:streamGenerateContent?alt=sse`);
       assert.deepEqual(body(0), {
         contents: [{ role: "user", parts: [{ text: "test" }] }],
-        generationConfig: { maxOutputTokens: 4096 },
+        generationConfig: {
+          maxOutputTokens: 4096,
+          // Off on Argon sends Google's default level, since thinking cannot be turned off.
+          thinkingConfig: { thinkingLevel: "medium", includeThoughts: true },
+        },
         safety_settings: [...ownSafety, ...safetySettings.slice(1)],
       });
       // Both spellings at once are sent exactly as the user wrote them, so nothing contradicts either list.
@@ -3493,29 +3498,30 @@ try {
       });
       assert.deepEqual(body(1), {
         contents: [{ role: "user", parts: [{ text: "test" }] }],
-        generationConfig: { maxOutputTokens: 4096 },
+        generationConfig: { maxOutputTokens: 4096, thinkingConfig: { thinkingLevel: "medium", includeThoughts: true } },
         safety_settings: ownSafety,
         safetySettings: ownCamelSafety,
       });
 
       // Gemini 3 is unchanged, byte for byte, apart from the safety settings every Gemini request now carries:
       // samplers, penalties, its trailing model turn and its levels all stay.
+      // (3.1 Flash-Lite: 3.5 Flash is now routed to 3.6 Flash on the Gemini API and gets the strict rules below.)
       requests.length = 0;
       await collectProviderOutputForMessages(provider, prefilled, {
-        model: "gemini-3.5-flash",
+        model: "gemini-3.1-flash-lite",
         stream: true,
         ...samplers,
         reasoningEffort: "high",
         enableThinking: true,
       });
       await collectProviderOutput(provider, {
-        model: "gemini-3.5-flash",
+        model: "gemini-3.1-flash-lite",
         stream: false,
         ...samplers,
         reasoningEffort: "none",
       });
       await provider.chatComplete([{ role: "user", content: "test" }], {
-        model: "gemini-3.5-flash",
+        model: "gemini-3.1-flash-lite",
         ...samplers,
         reasoningEffort: "medium",
         enableThinking: true,
@@ -3526,10 +3532,13 @@ try {
         [requests[0]?.url, requests[2]?.url],
         kind === "google"
           ? [
-              `${modelsUrl}/gemini-3.5-flash:streamGenerateContent?alt=sse`,
-              `${modelsUrl}/gemini-3.5-flash:streamGenerateContent?alt=sse`,
+              `${modelsUrl}/gemini-3.1-flash-lite:streamGenerateContent?alt=sse`,
+              `${modelsUrl}/gemini-3.1-flash-lite:streamGenerateContent?alt=sse`,
             ]
-          : [`${modelsUrl}/gemini-3.5-flash:generateContent`, `${modelsUrl}/gemini-3.5-flash:generateContent`],
+          : [
+              `${modelsUrl}/gemini-3.1-flash-lite:generateContent`,
+              `${modelsUrl}/gemini-3.1-flash-lite:generateContent`,
+            ],
         `${kind} Gemini 3 thinking turns keep their endpoint`,
       );
       assert.deepEqual(

@@ -1,15 +1,20 @@
 import {
   capabilityModelId,
+  bareCapabilityModelId,
+  hasFixedCompatibleSampling,
+  lacksCompatibleReasoningEffort,
+  isOpenAIAlwaysNoSamplingModel,
+  isClaudeManualThinkingModel,
+  isCohereReasoningModel,
+  supportsGeminiThinking,
+  usesGeminiMinimalDefault,
   impliesProxyThinking,
   isClaudeNoSamplingModel,
   isGeminiSamplingIgnoredModel,
-  isGeminiThinkingLevelModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
   isNanoGptMiniMaxM31FlashModel,
   isOpenAIAlwaysReasoningGpt5Model,
-  isOpenAIGpt56Model,
-  isOpenAIGpt6AlwaysReasoningModel,
   isOpenAIGpt6Model,
   isXaiAutoReasoningModel,
   isXaiConfigurableReasoningModel,
@@ -189,7 +194,7 @@ const NEVER_SENT: Record<string, GenerationParameterKey[]> = {
   google_vertex: ["verbosity", "serviceTier", "assistantReasoningPrefill"],
   local_sidecar: ["verbosity", "serviceTier", "assistantReasoningPrefill"],
   xai: ["topK", "serviceTier"],
-  openai: ["topK", "serviceTier"],
+  openai: ["topK", "serviceTier", "assistantReasoningPrefill"],
   openrouter: ["topK"],
   nanogpt: ["topK"],
   // Mistral has no field for prefilled reasoning.
@@ -203,10 +208,18 @@ const NEVER_SENT: Record<string, GenerationParameterKey[]> = {
   // requires DeepSeek's /beta endpoint and a `prefix: true` flag (see
   // supportsAssistantReasoningPrefill). A visible prefill control here would build
   // a request the default /v1 endpoint rejects.
-  deepseek: ["verbosity", "topK", "frequencyPenalty", "presencePenalty", "serviceTier", "assistantReasoningPrefill"],
+  deepseek: [
+    "verbosity",
+    "topK",
+    "frequencyPenalty",
+    "presencePenalty",
+    "serviceTier",
+    "assistantPrefill",
+    "assistantReasoningPrefill",
+  ],
   // Z.AI's chat API takes temperature, top_p, max_tokens, thinking and reasoning_effort; it has no top_k, penalties or
   // verbosity. https://docs.z.ai/api-reference/llm/chat-completion
-  zai: ["topK", "frequencyPenalty", "presencePenalty", "verbosity", "serviceTier"],
+  zai: ["topK", "verbosity", "frequencyPenalty", "presencePenalty", "serviceTier"],
   custom: ["serviceTier"],
 };
 
@@ -215,6 +228,7 @@ const RESPONSES_ONLY_SUFFIXES = ["-codex", "-codex-max", "-codex-mini"];
 const XAI_MULTI_AGENT_MODEL = "grok-4.20-multi-agent";
 
 function isOpenAIReasoningModel(model: string): boolean {
+  model = bareCapabilityModelId(model);
   return /^(o1|o3|o4)/.test(model) || model.startsWith("gpt-5") || isOpenAIGpt6Model(model);
 }
 
@@ -240,7 +254,7 @@ function hasActiveEffort(effort: StoredEffortLevel | null | undefined): boolean 
 
 /** Anthropic models where "off" really turns thinking off (anthropic.provider.ts supportsAnthropicThinkingDisable). */
 export function supportsClaudeThinkingDisable(model: string): boolean {
-  return /claude-(?:opus|sonnet)-5(?:$|[-.])/u.test(model.toLowerCase());
+  return /claude-(?:opus|sonnet)-(?:5(?:$|[-.])|4[.-][678](?:$|-))/u.test(model.toLowerCase());
 }
 
 /** The settings worth showing for this provider, model, current effort and live capabilities. */
@@ -249,8 +263,11 @@ export function relevantGenerationParameters(context: GenerationParameterContext
   if (!rawProvider) return new Set(ALL.filter((key) => key !== "serviceTier"));
   const provider = KNOWN_PROVIDERS.has(rawProvider) ? rawProvider : "custom";
   const model = capabilityModelId(String(context.model ?? ""));
+  const bare = bareCapabilityModelId(model);
   const caps = context.capabilities ?? null;
-  const effortActive = hasActiveEffort(context.reasoningEffort);
+  const effortActive =
+    hasActiveEffort(context.reasoningEffort) ||
+    !!resolveProviderReasoningEffort({ provider, model, reasoningEffort: context.reasoningEffort });
   const hidden = new Set<GenerationParameterKey>(NEVER_SENT[provider] ?? []);
   const hide = (...keys: GenerationParameterKey[]) => keys.forEach((key) => hidden.add(key));
 
@@ -277,7 +294,7 @@ export function relevantGenerationParameters(context: GenerationParameterContext
     if (provider === "openai_chatgpt" && !isOpenAIReasoningModel(model)) hide("reasoningEffort");
 
     if (provider === "google" || provider === "google_vertex") {
-      if (!isGeminiThinkingLevelModel(model) && !/gemini-2\.5|gemini-2\.0-flash-thinking/.test(model)) {
+      if (!supportsGeminiThinking(model)) {
         hide("reasoningEffort");
       }
     }
@@ -288,28 +305,37 @@ export function relevantGenerationParameters(context: GenerationParameterContext
 
     if (provider === "custom") {
       // Custom endpoints keep sampling unless the model is GPT-5.5 or 5.6, which reject it.
-      if (model.startsWith("gpt-5.5") || isOpenAIGpt56Model(model) || isOpenAIAlwaysReasoningGpt5Model(model))
+      if (
+        isOpenAIAlwaysNoSamplingModel(model) ||
+        isOpenAIAlwaysReasoningGpt5Model(model) ||
+        (isOpenAIGpt6Model(model) && effortActive)
+      )
         hide(...SAMPLING);
     }
 
+    if (hasFixedCompatibleSampling(model, provider)) {
+      hide("temperature", "topP");
+      if (/^kimi-/u.test(bare)) hide("frequencyPenalty", "presencePenalty");
+    }
+    if (lacksCompatibleReasoningEffort(model, provider)) hide("reasoningEffort");
+    if (provider === "claude_subscription" && isClaudeManualThinkingModel(model)) hide("reasoningEffort");
+
     if (OPENAI_COMPATIBLE.has(provider)) {
-      if (!model.startsWith("gpt-5") && !isOpenAIGpt6Model(model)) hide("verbosity");
+      if (!bare.startsWith("gpt-5") && !isOpenAIGpt6Model(model)) hide("verbosity");
 
       // GPT-6 samples only with effort "none"; Astra and 6.1 Sol cannot turn reasoning off.
       const noSampling =
-        /^(o1|o3|o4)/.test(model) ||
-        isOpenAIGpt56Model(model) ||
-        model.startsWith("gpt-5.5") ||
+        /^(o1|o3|o4)/.test(bare) ||
+        isOpenAIAlwaysNoSamplingModel(model) ||
         isOpenAIAlwaysReasoningGpt5Model(model) ||
-        isOpenAIGpt6AlwaysReasoningModel(model) ||
-        ((model.startsWith("gpt-5") || isOpenAIGpt6Model(model)) && effortActive) ||
-        (model.startsWith("gpt-5") && impliesProxyThinking(String(context.model ?? "")));
+        ((bare.startsWith("gpt-5") || isOpenAIGpt6Model(model)) && effortActive) ||
+        (bare.startsWith("gpt-5") && impliesProxyThinking(String(context.model ?? "")));
       if (noSampling) hide("temperature", "topP", "frequencyPenalty", "presencePenalty");
 
       // Responses API models never carry penalties. GPT-6 uses it everywhere but OpenRouter.
       if (
-        RESPONSES_ONLY_PREFIXES.some((prefix) => model.startsWith(prefix)) ||
-        RESPONSES_ONLY_SUFFIXES.some((suffix) => model.endsWith(suffix)) ||
+        RESPONSES_ONLY_PREFIXES.some((prefix) => bare.startsWith(prefix)) ||
+        RESPONSES_ONLY_SUFFIXES.some((suffix) => bare.endsWith(suffix)) ||
         (isOpenAIGpt6Model(model) && provider !== "openrouter")
       ) {
         hide("frequencyPenalty", "presencePenalty");
@@ -318,8 +344,11 @@ export function relevantGenerationParameters(context: GenerationParameterContext
       if (model === XAI_MULTI_AGENT_MODEL) hide("maxTokens");
 
       if (provider === "openrouter") {
-        // Grok on OpenRouter reasons automatically and rejects penalties.
-        if (model.startsWith("x-ai/grok-")) hide("reasoningEffort", "frequencyPenalty", "presencePenalty");
+        // Configurable Grok models keep effort on OpenRouter; all Grok models reject penalties.
+        if (model.startsWith("x-ai/grok-")) {
+          hide("frequencyPenalty", "presencePenalty");
+          if (!isXaiConfigurableReasoningModel(model)) hide("reasoningEffort");
+        }
       } else if (provider === "xai") {
         const xaiReasoningModel =
           model.startsWith("x-ai/grok-") ||
@@ -333,22 +362,26 @@ export function relevantGenerationParameters(context: GenerationParameterContext
           model.includes("glm") &&
           (provider === "nanogpt" ||
             // Z.AI's own API: thinking starts with GLM 4.5.
-            ((isNativeGlmHost(context.baseUrl) || (provider === "zai" && !context.baseUrl?.trim())) &&
+            ((isNativeGlmHost(context.baseUrl) || provider === "zai") &&
               /(?:^|\/)glm-(?:4\.[5-9]|[5-9])/u.test(model)));
         const mistralReasoning =
           provider === "mistral" && (isMistralAdjustableReasoningModel(model) || isMistralGlm53Model(model));
         // DeepSeek takes reasoning_effort for all of its chat models, so effort stays whatever the model id is.
         const deepseekReasoning = provider === "deepseek";
-        // DeepSeek's samplers are mode-specific: temperature does nothing while thinking runs, and top_p is fixed at
-        // 1.0 once thinking is off. Show the one that is live and hide the one the request drops, so a JSON agent with
-        // reasoning off still gets its low temperature, and a thinking chat still gets top_p.
-        if (deepseekReasoning) hide(effortActive ? "temperature" : "topP");
+        // Pro uses top_p without thinking; Flash uses it while thinking.
+        // https://api-docs.deepseek.com/guides/thinking_mode
+        if (deepseekReasoning) {
+          if (effortActive) hide("temperature");
+          if (bare.startsWith("deepseek-v4-pro") ? effortActive : !effortActive) hide("topP");
+        }
         if (
           provider !== "nanogpt" &&
           !deepseekReasoning &&
           !isOpenAIReasoningModel(model) &&
           !glm &&
-          !mistralReasoning
+          !mistralReasoning &&
+          !(provider === "cohere" && isCohereReasoningModel(model)) &&
+          !/^kimi-k3(?:$|[-:])/u.test(bare)
         ) {
           hide("reasoningEffort");
         }
@@ -386,8 +419,10 @@ export function reasoningEffortChoices(
   const model = capabilityModelId(String(context.model ?? ""));
   const caps = context.capabilities ?? null;
   // ChatGPT (Codex) has no off level; sending nothing keeps the model's own default.
-  const off: GenerationParameterChoice<null> =
-    provider === "openai_chatgpt"
+  const minimalDefault = (provider === "google" || provider === "google_vertex") && usesGeminiMinimalDefault(model);
+  const off: GenerationParameterChoice<null> = minimalDefault
+    ? { value: null, label: null, kind: "default", providerDefault: "minimal" }
+    : provider === "openai_chatgpt"
       ? {
           value: null,
           label: null,
@@ -399,14 +434,23 @@ export function reasoningEffortChoices(
       : { value: null, label: null };
 
   if (caps?.effortLevels && caps.effortLevels.length > 0) {
-    const levels = caps.effortLevels.map((level) => ({
-      value: level,
-      label: caps.effortLabels?.[level] ?? level,
-      ...(caps.effortDescriptions?.[level] ? { description: caps.effortDescriptions[level] } : {}),
-    }));
-    if (provider === "openai_chatgpt") return [off, ...levels];
+    const groups = new Map<string, GenerationParameterChoice<StoredEffortLevel>>();
+    for (const level of caps.effortLevels) {
+      const sent = resolveProviderReasoningEffort({ provider, model, reasoningEffort: level }) ?? level;
+      const unchanged = sent === level || (level === "maximum" && sent === "max");
+      if (!groups.has(sent) || context.selected === level)
+        groups.set(sent, {
+          value: level,
+          label: unchanged ? (caps.effortLabels?.[level] ?? sent) : sent,
+          ...(unchanged && caps.effortDescriptions?.[level] ? { description: caps.effortDescriptions[level] } : {}),
+        });
+    }
+    const levels = [...groups.values()];
+    const offSendsLevel = !!resolveProviderReasoningEffort({ provider, model, reasoningEffort: null });
+    if (provider === "openai_chatgpt") return offSendsLevel ? levels : [off, ...levels];
     // Adaptive-only Claude models keep thinking on; "off" only works where the model can disable it.
     const offWorks =
+      !offSendsLevel &&
       !(provider === "nanogpt" && isNanoGptMiniMaxM31FlashModel(model)) &&
       (!caps.adaptiveThinking || supportsClaudeThinkingDisable(model));
     return offWorks ? [off, ...levels] : levels;

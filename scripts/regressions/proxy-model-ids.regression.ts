@@ -232,7 +232,9 @@ try {
     assert.equal(body.model, model);
     assert.deepEqual(body.thinking, { type: "adaptive", display: "summarized" });
     assert.equal(body.output_config.effort, "high");
-    assert.equal(body.max_tokens, 32_000, "Opus 4.6 output limit applies");
+    // Opus 4.6 writes up to 128K tokens, so the 100K reply plus thinking headroom fits under its limit.
+    // https://platform.claude.com/docs/en/about-claude/models/overview
+    assert.ok(body.max_tokens > 100_000 && body.max_tokens <= 128_000, "Opus 4.6 output limit applies");
     for (const sampler of ["temperature", "top_k", "top_p"]) assert.equal(sampler in body, false, sampler);
 
     // Effort off: the proxy still thinks, so sampling and forced tool choice stay out.

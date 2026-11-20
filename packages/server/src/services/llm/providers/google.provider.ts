@@ -24,6 +24,8 @@ import {
   isGeminiStrictRequestModel,
   isGeminiSamplingIgnoredModel,
   isGeminiThinkingLevelModel,
+  supportsGeminiThinking,
+  resolveProviderReasoningEffort,
   shouldSuppressUnknownModelParameters,
   type GenerationParameterSendKey,
 } from "@marinara-engine/shared";
@@ -314,6 +316,13 @@ export function resolveGeminiThinkingConfig(
   options: Pick<ChatOptions, "enableThinking" | "reasoningEffort">,
   maxOutputTokens: number,
 ): Record<string, unknown> | undefined {
+  if (!supportsGeminiThinking(model)) return undefined;
+  const effort = resolveProviderReasoningEffort({
+    provider: "google",
+    model,
+    reasoningEffort: options.reasoningEffort,
+  });
+  if (effort) options = { ...options, reasoningEffort: effort };
   if (options.reasoningEffort === "none") {
     return supportsGeminiThinkingDisable(model) ? { thinkingBudget: 0, includeThoughts: false } : undefined;
   }
@@ -607,10 +616,10 @@ function formatGoogleContents(
  * Argon, Carbon and the newer Flash models reject a prefilled final model turn: keep it as history and ask for only the
  * rest of the reply. https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-argon
  */
-function withGeminiContinuation(model: string, contents: Array<{ role: string; parts: object[] }>) {
+function withGeminiContinuation(model: string, contents: Array<{ role: string; parts: object[] }>, provider?: string) {
   const last = contents.at(-1);
   if (
-    !isGeminiStrictRequestModel(model) ||
+    !isGeminiStrictRequestModel(model, provider) ||
     last?.role !== "model" ||
     last.parts.some((part) => "functionCall" in part)
   ) {
@@ -687,9 +696,7 @@ export class GoogleProvider extends BaseLLMProvider {
     const maxTokens = this.applyMaxTokensCap(contextFit.maxTokens ?? configuredMaxTokens);
     const model = options.model || "gemini-2.0-flash";
 
-    const supportsThinking =
-      !suppressModelParameters &&
-      (isGeminiThinkingLevelModel(model) || /gemini-2\.5|gemini-2\.0-flash-thinking/i.test(model));
+    const supportsThinking = !suppressModelParameters && supportsGeminiThinking(model);
     const thinkingConfig =
       this.shouldSendParameter(options, "reasoningEffort") && supportsThinking
         ? resolveGeminiThinkingConfig(model, options, maxTokens ?? 4096)
@@ -712,7 +719,7 @@ export class GoogleProvider extends BaseLLMProvider {
 
     const systemMessages = messages.filter((m) => m.role === "system" && m.content?.trim());
     const body: Record<string, unknown> = {
-      contents: withGeminiContinuation(model, formatGoogleContents(messages)),
+      contents: withGeminiContinuation(model, formatGoogleContents(messages), this.providerKind),
       generationConfig: {
         ...(!suppressModelParameters && this.shouldSendParameter(options, "temperature")
           ? { temperature: options.temperature ?? 1 }
@@ -931,9 +938,7 @@ export class GoogleProvider extends BaseLLMProvider {
 
     // Only models that actually support thinking should get thinkingConfig:
     // Gemini 3 and later (thinkingLevel), 2.5-flash/pro and 2.0-flash-thinking (thinkingBudget).
-    const supportsThinking =
-      !suppressModelParameters &&
-      (isGeminiThinkingLevelModel(model) || /gemini-2\.5|gemini-2\.0-flash-thinking/i.test(model));
+    const supportsThinking = !suppressModelParameters && supportsGeminiThinking(model);
 
     const thinkingConfig =
       this.shouldSendParameter(options, "reasoningEffort") && supportsThinking
@@ -996,7 +1001,7 @@ export class GoogleProvider extends BaseLLMProvider {
     }
 
     const body: Record<string, unknown> = {
-      contents: withGeminiContinuation(model, contents),
+      contents: withGeminiContinuation(model, contents, this.providerKind),
     };
 
     const outputMaxTokens = maxTokens ?? 4096;
