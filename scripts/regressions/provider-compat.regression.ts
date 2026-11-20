@@ -1609,6 +1609,25 @@ applyGlmThinkingParameters(glm52DisabledBody, {
 });
 assert.deepEqual(glm52DisabledBody, { thinking: { type: "disabled" } });
 
+// Z.AI's own API has no enable_thinking: GLM 4.5 to 5.1 switch thinking with thinking.type and take no effort, and
+// GLM older than 4.5 cannot think, so they get no thinking field. https://docs.z.ai/api-reference/llm/chat-completion
+for (const [model, enableThinking, expected] of [
+  ["glm-4.7", true, { thinking: { type: "enabled" } }],
+  ["glm-4.5-air", false, { thinking: { type: "disabled" } }],
+  ["glm-5.1", true, { thinking: { type: "enabled" } }],
+  ["glm-4-32b-0414-128k", true, {}],
+] as const) {
+  const body: Record<string, unknown> = {};
+  applyGlmThinkingParameters(body, {
+    model,
+    baseUrl: "https://api.z.ai/api/paas/v4",
+    providerKind: "zai",
+    enableThinking,
+    reasoningEffort: enableThinking ? "high" : "none",
+  });
+  assert.deepEqual(body, expected, `native Z.AI thinking for ${model}`);
+}
+
 assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.3-flash"), true);
 assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.3-flash:free"), true);
 assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.3"), true);
@@ -1825,7 +1844,8 @@ applyGlmThinkingParameters(legacyGlmBody, {
   providerKind: "custom",
   reasoningEffort: "high",
 });
-assert.deepEqual(legacyGlmBody, { enable_thinking: true });
+// Z.AI documents thinking.type, not enable_thinking, for every thinking GLM on its own API.
+assert.deepEqual(legacyGlmBody, { thinking: { type: "enabled" } });
 
 const unrelatedCustomBody: Record<string, unknown> = {};
 assert.equal(
@@ -3515,11 +3535,13 @@ try {
       assert.deepEqual(
         requests.map(({ raw }) => raw),
         [
-          '{"contents":[{"role":"user","parts":[{"text":"test"}]},{"role":"model","parts":[{"text":"Once"}]}],"generationConfig":{"maxOutputTokens":4096,"temperature":0.7,"topP":0.9,"topK":40,"frequencyPenalty":0.3,"presencePenalty":0.4,"thinkingConfig":{"thinkingLevel":"high","includeThoughts":true}},"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}]}',
-          '{"contents":[{"role":"user","parts":[{"text":"test"}]}],"generationConfig":{"maxOutputTokens":4096,"temperature":0.7,"topP":0.9,"topK":40,"frequencyPenalty":0.3,"presencePenalty":0.4},"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}]}',
-          '{"contents":[{"role":"user","parts":[{"text":"test"}]}],"generationConfig":{"temperature":0.7,"maxOutputTokens":4096,"topP":0.9,"topK":40,"frequencyPenalty":0.3,"presencePenalty":0.4,"thinkingConfig":{"thinkingLevel":"medium","includeThoughts":true}},"tools":[{"functionDeclarations":[{"name":"roll_dice","description":"Roll dice","parameters":{"type":"object","properties":{}}}]}],"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}],"toolConfig":{"functionCallingConfig":{"mode":"AUTO"}}}',
+          '{"contents":[{"role":"user","parts":[{"text":"test"}]},{"role":"model","parts":[{"text":"Once"}]}],"generationConfig":{"maxOutputTokens":4096,"thinkingConfig":{"thinkingLevel":"high","includeThoughts":true}},"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}]}',
+          '{"contents":[{"role":"user","parts":[{"text":"test"}]}],"generationConfig":{"maxOutputTokens":4096},"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}]}',
+          '{"contents":[{"role":"user","parts":[{"text":"test"}]}],"generationConfig":{"maxOutputTokens":4096,"thinkingConfig":{"thinkingLevel":"medium","includeThoughts":true}},"tools":[{"functionDeclarations":[{"name":"roll_dice","description":"Roll dice","parameters":{"type":"object","properties":{}}}]}],"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}],"toolConfig":{"functionCallingConfig":{"mode":"AUTO"}}}',
         ],
-        `${kind} Gemini 3 request bodies must not change`,
+        // Google: every general-use Gemini 3.x and 4.x model ignores temperature, top-k and top-p, and penalties are
+        // unsupported (https://firebase.google.com/docs/ai-logic/model-parameters), so none of them are sent.
+        `${kind} Gemini 3 request bodies leave out the samplers Gemini 3 ignores`,
       );
 
       // Gemini 3.5 Flash-Lite and 3.6 to 3.8 Flash reject a final model turn and both penalties and ignore temperature,
@@ -3723,8 +3745,8 @@ try {
       ...options,
     });
     assert.deepEqual(raws, [
-      '{"model":"google/gemini-3.5-flash","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"temperature":0.7,"top_p":0.9,"frequency_penalty":0.3,"presence_penalty":0.4,"reasoning":{"effort":"high"}}',
-      '{"model":"google/gemini-3.1-pro-preview","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"temperature":0.7,"top_p":0.9,"frequency_penalty":0.3,"presence_penalty":0.4,"reasoning":{"effort":"high"}}',
+      '{"model":"google/gemini-3.5-flash","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"reasoning":{"effort":"high"}}',
+      '{"model":"google/gemini-3.1-pro-preview","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"reasoning":{"effort":"high"}}',
       '{"model":"meta-llama/llama-3.3-70b-instruct","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"temperature":0.7,"top_p":0.9,"frequency_penalty":0.3,"presence_penalty":0.4,"reasoning":{"effort":"high"}}',
       '{"model":"meta-llama/llama-3.3-70b-instruct","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"A1"},{"role":"system","content":"note"},{"role":"user","content":"U2"},{"role":"system","content":"post"}],"stream":false,"max_tokens":4096,"temperature":0.7,"top_p":0.9,"frequency_penalty":0.3,"presence_penalty":0.4,"reasoning":{"effort":"high"}}',
     ]);
