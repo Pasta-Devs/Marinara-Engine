@@ -6,6 +6,7 @@ import {
   ACCESS_LOGIN_RATE_LIMIT,
   CONNECTION_TEST_RATE_LIMIT,
   EXPERIENCE_FILE_IMPORT_RATE_LIMIT,
+  GALLERY_IMAGE_REGENERATE_RATE_LIMIT,
   GAME_TILE_PACKS_RATE_LIMIT,
   GAME_WORLDS_RATE_LIMIT,
   GLOBAL_GALLERY_FILE_RATE_LIMIT,
@@ -58,6 +59,11 @@ app.get("/api/global-gallery/file/:filename", { config: { rateLimit: GLOBAL_GALL
 app.patch("/api/sprites/:characterId/:expression", { config: { rateLimit: SPRITE_RENAME_RATE_LIMIT } }, async () => ({
   ok: true,
 }));
+app.post(
+  "/api/gallery/:chatId/images/:imageId/regenerate",
+  { config: { rateLimit: GALLERY_IMAGE_REGENERATE_RATE_LIMIT } },
+  async () => ({ ok: true }),
+);
 
 type Method = "GET" | "HEAD" | "POST" | "PATCH";
 
@@ -116,6 +122,21 @@ try {
     fs.readFileSync(new URL("../../../packages/server/src/routes/global-gallery.routes.ts", import.meta.url), "utf8"),
   );
   assert.match(galleryRoute, /"\/file\/:filename",\s*\{ config: \{ rateLimit: GLOBAL_GALLERY_FILE_RATE_LIMIT \} \}/u);
+  await hitsWallAt(
+    ["/api/gallery/c1/images/i1/regenerate", "/api/gallery/c2/images/i2/regenerate"],
+    GALLERY_IMAGE_REGENERATE_RATE_LIMIT.max,
+  );
+  const chatGalleryRoute = await import("node:fs").then((fs) =>
+    fs.readFileSync(new URL("../../../packages/server/src/routes/gallery.routes.ts", import.meta.url), "utf8"),
+  );
+  assert.match(
+    chatGalleryRoute,
+    /"\/:chatId\/images\/:imageId\/regenerate",\s*\{ config: \{ rateLimit: GALLERY_IMAGE_REGENERATE_RATE_LIMIT \} \}/u,
+  );
+  assert.match(
+    chatGalleryRoute,
+    /"\/mari-images\/assets\/:assetId\/regenerate",\s*\{ config: \{ rateLimit: GALLERY_IMAGE_REGENERATE_RATE_LIMIT \} \}/u,
+  );
   const spriteRead = await app.inject({ method: "GET", url: "/api/sprites/c1/happy" });
   assert.equal(spriteRead.statusCode, 200, "the rename limit binds only the route that declares it");
   assert.equal(spriteRead.headers["ratelimit-limit"], "600");

@@ -4183,12 +4183,13 @@ async function applyRetryResultEffects(args: {
                 height: imgHeight,
                 generation: buildChatImageGenerationRecord({
                   prompt: promptSubmission.prompt,
-                  connectionId: imgConnFull.id,
+                  connectionId: imageResult.effectiveConnection?.connectionId ?? imgConnFull.id,
                   negativePrompt: promptSubmission.negativePrompt,
                   characterPrompts: illustratorCharacterPrompts,
                   referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
                   referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
                   locationImageId: spatialLocationReferenceImage ? retryOwnerSpatialProjection?.referenceImageId : null,
+                  seed: imageResult.seed,
                 }),
               });
               assertRetryActive();

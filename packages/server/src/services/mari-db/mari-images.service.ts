@@ -6,10 +6,13 @@ import { mkdir, readFile, readdir, unlink } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import {
   inferImageSource,
+  isNativeNovelAiUrl,
   isOpenAIGptImageModel,
+  resolveImageBackend,
   type ImageGenerationDefaultsProfile,
   type ImagePromptKind,
   type ImageStyleProfileSettings,
+  type NovelAiEditMode,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { flushDB } from "../../db/connection.js";
@@ -29,7 +32,12 @@ import {
   parseImageDataUrl,
   resolveInside,
 } from "../../utils/security.js";
-import { generateImage, type ImageGenResult } from "../image/image-generation.js";
+import {
+  NovelAiEditInputError,
+  generateImage,
+  readNovelAiPngSeed,
+  type ImageGenResult,
+} from "../image/image-generation.js";
 import { getSharp } from "../image/sharp-runtime.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
@@ -123,8 +131,12 @@ export type MariImageAsset = {
   serviceHint: string;
   model: string;
   sourceImage?: string | null;
+  nativeEditMode?: "img2img" | "infill";
+  seed?: number;
   createdAt: string;
 };
+
+export class MariImageValidationError extends Error {}
 
 type ResolvedImage = {
   label: string;
@@ -689,6 +701,19 @@ export async function findMariPreviewFile(
   }
 }
 
+/** Recover a preview asset's seed from its manifest record or embedded PNG metadata. */
+export async function readMariPreviewAssetSeed(asset: MariImageAsset): Promise<number | undefined> {
+  if (asset.seed !== undefined) return asset.seed;
+  try {
+    const file = await findMariPreviewFile(asset.filename);
+    if (!file) return undefined;
+    const buffer = await readFile(file.absolutePath);
+    return readNovelAiPngSeed(buffer) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** One preview asset's manifest record, or null once the manifest no longer lists it (it keeps the newest 200). */
 export async function getMariPreviewAsset(assetId: string): Promise<MariImageAsset | null> {
   return (await readManifest()).find((asset) => asset.id === assetId) ?? null;
@@ -807,6 +832,7 @@ async function savePreviewAsset(args: {
   connection: ImageConnection;
   capability: ImageCapability;
   sourceImage?: string | null;
+  nativeEditMode?: "img2img" | "infill";
 }) {
   // Read first, so a refused manifest leaves no unlisted image behind.
   const assets = await readManifest();
@@ -834,15 +860,17 @@ async function savePreviewAsset(args: {
     styleMode: args.style.mode,
     styleProfileId: args.style.profile?.id ?? null,
     styleProfileName: args.style.profile?.name ?? null,
-    width: args.width ?? null,
-    height: args.height ?? null,
-    connectionId: args.connection.id,
-    connectionName: args.connection.name,
-    provider: args.connection.provider,
+    width: args.result.width ?? args.width ?? null,
+    height: args.result.height ?? args.height ?? null,
+    connectionId: args.result.effectiveConnection?.connectionId ?? args.connection.id,
+    connectionName: args.result.effectiveConnection?.connectionName ?? args.connection.name,
+    provider: args.result.effectiveConnection?.provider ?? args.connection.provider,
     source: args.capability.source,
     serviceHint: args.capability.serviceHint,
-    model: args.connection.model || "",
+    model: args.result.effectiveConnection?.model || args.connection.model || "",
     sourceImage: args.sourceImage ?? null,
+    ...(args.nativeEditMode ? { nativeEditMode: args.nativeEditMode } : {}),
+    ...(args.result.seed !== undefined ? { seed: args.result.seed } : {}),
     createdAt: now(),
   };
   await writeManifest([asset, ...assets].slice(0, 200));
@@ -1288,36 +1316,189 @@ export class MariImagesService {
 
   /**
    * The lightbox's Regenerate: reruns one preview asset with an edited prompt and its saved kind, size and operation,
-   * as a new asset. Null when the manifest no longer lists it.
+   * or performs a native NovelAI img2img / inpainting edit from the displayed preview image. Null when the manifest no longer lists it.
    */
   async regeneratePreviewAsset(
     assetId: string,
-    input: { prompt: string; negativePrompt?: string; connectionId?: string },
+    input: {
+      prompt: string;
+      negativePrompt?: string;
+      connectionId?: string;
+      editMode?: NovelAiEditMode;
+      maskImage?: string;
+      strength?: number;
+      noise?: number;
+      reuseSeed?: boolean;
+      debugMode?: boolean;
+    },
   ): Promise<{ previous: MariImageAsset; asset: MariImageAsset } | null> {
     const previous = await getMariPreviewAsset(assetId);
     if (!previous) return null;
-    const flags = new Map<string, string | boolean>([
-      ["prompt", input.prompt],
-      // Left out keeps the saved one; an empty string clears it.
-      ["negative", input.negativePrompt ?? previous.negativePrompt ?? ""],
-      ["connection", input.connectionId?.trim() || previous.connectionId],
-      ["kind", previous.kind],
-      // The lightbox shows and edits the prompt the model got, so a style profile it used is already in it.
-      ["no-style", true],
-    ]);
-    if (previous.width) flags.set("width", String(previous.width));
-    if (previous.height) flags.set("height", String(previous.height));
-    if (previous.operation === "edit") {
+    if (input.maskImage && input.editMode !== "infill") {
+      throw new MariImageValidationError("A mask image is only valid for inpainting edits.");
+    }
+    const isLegacyReferenceEdit = previous.operation === "edit" && !previous.nativeEditMode;
+
+    if (!input.editMode && !input.reuseSeed) {
+      const flags = new Map<string, string | boolean>([
+        ["prompt", input.prompt],
+        // Left out keeps the saved one; an empty string clears it.
+        ["negative", input.negativePrompt ?? previous.negativePrompt ?? ""],
+        ["connection", input.connectionId?.trim() || previous.connectionId],
+        ["kind", previous.kind],
+        // The lightbox shows and edits the prompt the model got, so a style profile it used is already in it.
+        ["no-style", true],
+      ]);
+      if (previous.width) flags.set("width", String(previous.width));
+      if (previous.height) flags.set("height", String(previous.height));
+      if (isLegacyReferenceEdit) {
+        const source = mariSourceReference(previous.sourceImage);
+        if (!source) throw new Error("This image was edited from a picture that can't be read again.");
+        flags.set("source", source);
+      }
+      const result = await this.generateOrEdit(
+        isLegacyReferenceEdit ? "edit" : "generate",
+        { command: "mari images regenerate (lightbox)", sessionId: "mari-image-lightbox" },
+        flags,
+      );
+      const asset = (result.output as { asset: MariImageAsset }).asset;
+      return { previous, asset };
+    }
+
+    const prompt = input.prompt.trim();
+    if (!prompt) throw new MariImageValidationError("Missing prompt");
+    const negativePrompt = input.negativePrompt ?? previous.negativePrompt ?? "";
+    const connection = await this.getConnection(
+      input.connectionId?.trim() || previous.connectionId,
+      !input.editMode && isLegacyReferenceEdit,
+    );
+    const capability = capabilityForConnection(connection);
+    const imgModel = connection.model || "";
+    const imgBaseUrl = connection.baseUrl || "https://image.pollinations.ai";
+    const imgSource = connection.imageGenerationSource || imgModel;
+    const imgServiceHint = connection.imageService || imgSource;
+    const isNativeNovelAi =
+      resolveImageBackend(imgSource, imgBaseUrl, imgServiceHint, imgModel) === "novelai" &&
+      isNativeNovelAiUrl(imgBaseUrl);
+
+    if (input.editMode) {
+      if (!isNativeNovelAi) {
+        throw new MariImageValidationError("Image-to-image and inpainting edits require a native NovelAI connection.");
+      }
+      if (input.editMode === "infill" && !input.maskImage?.trim()) {
+        throw new MariImageValidationError("Inpainting requires a painted mask.");
+      }
+    }
+    if (input.reuseSeed && !isNativeNovelAi) {
+      throw new MariImageValidationError("Reusing the original seed requires a native NovelAI connection.");
+    }
+
+    let previewBuffer: Buffer | null = null;
+    if (input.editMode || (input.reuseSeed && previous.seed === undefined)) {
+      const previewFile = await findMariPreviewFile(previous.filename);
+      if (previewFile) {
+        try {
+          previewBuffer = await readFile(previewFile.absolutePath);
+        } catch {
+          previewBuffer = null;
+        }
+      }
+      if (input.editMode && !previewBuffer) {
+        throw new MariImageValidationError("The original image file is no longer available on disk.");
+      }
+    }
+
+    let seedOverride: number | undefined;
+    if (input.reuseSeed) {
+      const recovered = previous.seed ?? (previewBuffer ? readNovelAiPngSeed(previewBuffer) : null);
+      if (recovered === null) {
+        throw new MariImageValidationError("No original seed was found for this image.");
+      }
+      seedOverride = recovered;
+    }
+
+    let legacyEditSource: ResolvedImage | null = null;
+    if (!input.editMode && isLegacyReferenceEdit) {
       const source = mariSourceReference(previous.sourceImage);
       if (!source) throw new Error("This image was edited from a picture that can't be read again.");
-      flags.set("source", source);
+      const sourceFlags = new Map<string, string | boolean>([["source", source]]);
+      legacyEditSource = await this.resolveSourceImage(
+        sourceFlags,
+        null,
+        { command: "mari images regenerate (lightbox)", sessionId: "mari-image-lightbox" },
+        true,
+      );
     }
-    const result = await this.generateOrEdit(
-      previous.operation,
-      { command: "mari images regenerate (lightbox)", sessionId: "mari-image-lightbox" },
-      flags,
-    );
-    const asset = (result.output as { asset: MariImageAsset }).asset;
+
+    const imageSettings = await loadImageGenerationUserSettings(this.db);
+    const sizeFlags = new Map<string, string | boolean>();
+    if (previous.width) sizeFlags.set("width", String(previous.width));
+    if (previous.height) sizeFlags.set("height", String(previous.height));
+    const size = this.resolveSize(sizeFlags, previous.kind, imageSettings);
+    const imageDefaults = withoutPromptPrefixes(resolveConnectionImageDefaults(connection));
+    const resolvedFallback = await resolveImageConnectionFallback(createConnectionsStorage(this.db), connection.id);
+    const fallback = resolvedFallback
+      ? { ...resolvedFallback, imageDefaults: withoutPromptPrefixes(resolvedFallback.imageDefaults) }
+      : resolvedFallback;
+
+    let result: ImageGenResult;
+    try {
+      result = await generateImage(imgSource, imgBaseUrl, connection.apiKey || "", imgServiceHint, {
+        prompt,
+        negativePrompt: negativePrompt || undefined,
+        model: imgModel || undefined,
+        width: size.width,
+        height: size.height,
+        ...(input.editMode
+          ? {
+              editMode: input.editMode,
+              sourceImage: previewBuffer!.toString("base64"),
+              ...(input.editMode === "infill"
+                ? { maskImage: input.maskImage, addOriginalImage: true }
+                : { noise: input.noise }),
+              strength: input.strength,
+            }
+          : legacyEditSource
+            ? { referenceImage: legacyEditSource.base64 }
+            : {}),
+        ...(seedOverride !== undefined ? { seedOverride } : {}),
+        imageEndpointId: connection.imageEndpointId || undefined,
+        comfyWorkflow: connection.comfyuiWorkflow || undefined,
+        imageDefaults,
+        quality: resolveConnectionImageQuality(connection),
+        debugMode: input.debugMode,
+        fallback,
+      });
+    } catch (err) {
+      if (err instanceof NovelAiEditInputError) {
+        throw new MariImageValidationError(err.message);
+      }
+      throw err;
+    }
+
+    const operation = input.editMode ? "edit" : isLegacyReferenceEdit ? "edit" : "generate";
+    const asset = await savePreviewAsset({
+      result,
+      operation,
+      kind: previous.kind,
+      prompt,
+      negativePrompt,
+      style: {
+        mode: "none",
+        requestedPrompt: prompt,
+        requestedNegativePrompt: negativePrompt,
+      },
+      width: size.width,
+      height: size.height,
+      connection,
+      capability,
+      sourceImage: input.editMode
+        ? `asset:${previous.id}`
+        : isLegacyReferenceEdit
+          ? (previous.sourceImage ?? null)
+          : null,
+      nativeEditMode: input.editMode,
+    });
     return { previous, asset };
   }
 

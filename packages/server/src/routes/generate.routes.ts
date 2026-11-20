@@ -15138,7 +15138,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           height: imgHeight,
                           generation: buildChatImageGenerationRecord({
                             prompt: compiledPrompt.prompt,
-                            connectionId: imgConnFull.id,
+                            connectionId: imageResult.effectiveConnection?.connectionId ?? imgConnFull.id,
                             negativePrompt: finalNegativePrompt,
                             characterPrompts: illustratorCharacterPrompts,
                             referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
@@ -15146,6 +15146,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             locationImageId: spatialLocationReferenceImage
                               ? postReplySpatialProjection?.referenceImageId
                               : null,
+                            seed: imageResult.seed,
                           }),
                         });
                         firstGalleryImageId ??= (galleryEntry as { id?: string } | null)?.id ?? null;

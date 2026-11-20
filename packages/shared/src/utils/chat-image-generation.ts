@@ -37,6 +37,8 @@ export interface ChatImageGenerationRecord {
    * Nothing writes it yet: the first feature that saves a GIF to a chat also makes Regenerate forward it (#8870).
    */
   animation?: ImageAnimation;
+  /** Provider seed sent to generate the image when known (e.g. native NovelAI). */
+  seed?: number;
 }
 
 export type ChatImageReferenceSource = "character-sheet" | "avatar" | "sprite";
@@ -51,6 +53,7 @@ export type ChatImageGenerationRecordInput = {
   referencePersonaSource?: ChatImageReferenceSource | null;
   locationImageId?: string | null;
   animation?: ImageAnimation | null;
+  seed?: number | null;
 };
 
 function readReferenceSource(value: unknown): ChatImageReferenceSource | null {
@@ -100,9 +103,14 @@ function readIds(value: unknown): string[] {
   return [...new Set(value.map(readTrimmed).filter((id): id is string => id !== null))];
 }
 
+function readSeed(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : undefined;
+}
+
 /** Build the record a gallery row stores for a freshly generated image. */
 export function buildChatImageGenerationRecord(input: ChatImageGenerationRecordInput): ChatImageGenerationRecord {
   const animation = readAnimation(input.animation);
+  const seed = readSeed(input.seed);
   return {
     version: 1,
     prompt: readTrimmed(input.prompt),
@@ -120,6 +128,7 @@ export function buildChatImageGenerationRecord(input: ChatImageGenerationRecordI
           locationImageId: readTrimmed(input.locationImageId),
         },
     ...(animation ? { animation } : {}),
+    ...(seed !== undefined ? { seed } : {}),
   };
 }
 
@@ -153,5 +162,6 @@ export function parseChatImageGenerationRecord(value: unknown): ChatImageGenerat
     referencePersonaSource: readReferenceSource(references.personaSource),
     locationImageId: typeof references.locationImageId === "string" ? references.locationImageId : null,
     animation: readAnimation(record.animation),
+    seed: readSeed(record.seed),
   });
 }
