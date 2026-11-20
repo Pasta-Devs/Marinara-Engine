@@ -332,6 +332,24 @@ await assert.rejects(
   ),
   /reached its answer length before writing a description/u,
 );
+// The template opened the thinking and the limit hit before it closed: no tags at all, still not a description.
+await assert.rejects(
+  generateImageCaptionsForDataUrls(
+    [{ filename: "owl.png", imageDataUrl: dataUrl("owl") }],
+    { ...runtime, provider: new RecordingProvider("Okay, let me look at this picture. The user wants", "length") },
+    signal,
+  ),
+  /reached its answer length before writing a description/u,
+);
+// A description cut off by the limit is still a description.
+const [truncated] = await generateImageCaptionsForDataUrls(
+  [{ filename: "owl.png", imageDataUrl: dataUrl("owl") }],
+  { ...runtime, provider: new RecordingProvider("A brown owl perched on a mossy branch, its feathers", "length") },
+  signal,
+);
+assert.equal(truncated?.caption, "A brown owl perched on a mossy branch, its feathers");
+// Each caption carries the key of the prompt it was made with.
+assert.match(truncated?.promptKey ?? "", /^[0-9a-f]{16}$/u);
 setImageReadingSettings(DEFAULT_IMAGE_READING_SETTINGS);
 
 const abortedProvider = new CaptionProvider();

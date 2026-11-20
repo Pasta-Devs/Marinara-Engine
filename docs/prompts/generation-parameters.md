@@ -143,7 +143,7 @@ In the **Connections** panel, click the gear on the **Image reading** row of the
 - **Answer length (tokens)**: 700 by default. A thinking model spends part of it thinking, so give it more room (or turn its thinking off) if descriptions come back empty or cut off. A **Max output tokens** limit on the model still applies.
 - **Temperature**: 0.2 by default.
 
-Each box has a reset button that puts the built-in text back. If a local model describes a picture well when you ask it directly but not through Marinara, copy the system prompt and question you use directly into **Instructions** and **Request**. A model's inline thinking (`<think>…</think>`) is removed from the description.
+**Instructions** and **Request** have a reset button that puts the built-in text back. Clear **Answer length** or **Temperature** to use its built-in value again. If a local model describes a picture well when you ask it directly but not through Marinara, copy the system prompt and question you use directly into **Instructions** and **Request**. A model's inline thinking (`<think>…</think>`) is removed from the description.
 
 If it did not work: when captioning fails, because the captioning account is broken, deleted or returns nothing, the reply stops with an **Image captioning failed** error. Marinara does not send the image instead. Fix or change the captioning model, or turn **Image captioning** off.
 

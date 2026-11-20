@@ -23,7 +23,11 @@ export function useSetImageReadingSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Partial<ImageReadingSettings>) => api.put<ImageReadingSettings>(PATH, input),
-    onSuccess: (saved) => qc.setQueryData(KEY, saved),
+    onSuccess: (saved) => {
+      qc.setQueryData(KEY, saved);
+      // Refetch too, so a read that started before the save can't put the old values back.
+      return qc.invalidateQueries({ queryKey: KEY });
+    },
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : translate("connections.defaults.saveFailed")),
   });
