@@ -20,7 +20,8 @@ const { getDB, closeDB } = await import("../../../packages/server/src/db/connect
 const { generateRoutes } = await import("../../../packages/server/src/routes/generate.routes.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
 const { characterDataSchema } = await import("../../../packages/shared/dist/index.js");
 
@@ -122,7 +123,10 @@ try {
   });
   assert.ok(agent);
   for (const identitySource of ["character", "persona"] as const) {
-    for (const overrideState of ["enabled", "disabled", "blank", "attachment-off"] as const) {
+    for (const overrideState of ["enabled", "disabled", "blank", "attachment-off", "alternative"] as const) {
+      // #9605: an Appearance alternative with its own image tags, active in this chat, beats the main
+      // card's tags on the first run and on retry. Character cards only; persona rows are unit-tested.
+      if (overrideState === "alternative" && identitySource === "persona") continue;
       const enabled = overrideState !== "disabled";
       const attached = overrideState !== "attachment-off";
       const appearanceOverride = (name: string) => (overrideState === "blank" ? "   " : `IMAGE_${name}, silver coat`);
@@ -163,6 +167,26 @@ try {
         personaCharacterId: identitySource === "character" ? player.id : null,
       });
       assert.ok(chat);
+      if (overrideState === "alternative") {
+        for (const [entity, name] of [
+          [aster, "Aster"],
+          [briar, "Briar"],
+          [player, "Player"],
+        ] as const) {
+          await characters.updateExtensions(entity.id, {
+            cardFieldAlternatives: [
+              {
+                id: `alt-${name}`,
+                field: "appearance",
+                value: `ALT_PROSE_${name}, black armor`,
+                imageAppearance: `ALT_TAGS_${name}, black armor`,
+                imageAppearanceEnabled: true,
+                chatIds: [chat.id],
+              },
+            ],
+          });
+        }
+      }
       await chats.patchMetadata(chat.id, { enableAgents: true, activeAgentIds: [agent.type] });
       await chats.createMessage({ chatId: chat.id, role: "user", content: "We walk beside the lake." });
       const label = `${identitySource}/${overrideState}`;
@@ -189,11 +213,13 @@ try {
         );
         assert.ok(!image.input.includes("LORE_Aster") && !image.input.includes("IMAGE_Aster"), label);
         const usesOverride = enabled && overrideState !== "blank";
+        const sourcePrefixes = ["IMAGE", "LORE", "ALT_TAGS", "ALT_PROSE"];
+        const expectedPrefix = overrideState === "alternative" ? "ALT_TAGS" : usesOverride ? "IMAGE" : "LORE";
         for (const name of ["Briar", "Player"]) {
-          const expected = `${usesOverride ? "IMAGE" : "LORE"}_${name}`;
+          const expected = `${expectedPrefix}_${name}`;
           assert.equal(image.input.includes(expected), attached, `${label} retry=${retry}: ${image.input}`);
-          if (attached) assert.ok(!image.input.includes(`${usesOverride ? "LORE" : "IMAGE"}_${name}`), label);
-          else assert.ok(!image.input.includes(`LORE_${name}`) && !image.input.includes(`IMAGE_${name}`), label);
+          for (const prefix of sourcePrefixes.filter((prefix) => prefix !== (attached ? expectedPrefix : null)))
+            assert.ok(!image.input.includes(`${prefix}_${name}, `), `${label} retry=${retry}: ${image.input}`);
         }
         const appearanceReference = agentPrompts
           .at(-1)!
@@ -201,14 +227,16 @@ try {
         assert.equal(Boolean(appearanceReference), attached, `${label}: appearance attachment respects toggle`);
         if (attached) {
           for (const name of ["Aster", "Briar", "Player"]) {
-            assert.ok(appearanceReference!.includes(`${usesOverride ? "IMAGE" : "LORE"}_${name}`), label);
-            assert.ok(!appearanceReference!.includes(`${usesOverride ? "LORE" : "IMAGE"}_${name}`), label);
+            assert.ok(appearanceReference!.includes(`${expectedPrefix}_${name}`), `${label} retry=${retry}`);
+            for (const prefix of sourcePrefixes.filter((prefix) => prefix !== expectedPrefix))
+              assert.ok(!appearanceReference!.includes(`${prefix}_${name}, `), `${label} retry=${retry}`);
           }
         }
         if (!retry) {
           const narrator = narratorPrompts.at(-1)!;
-          for (const name of ["Aster", "Briar", "Player"]) assert.ok(narrator.includes(`LORE_${name}`), label);
-          assert.ok(!narrator.includes("IMAGE_"), "image overrides must not replace narrator lore");
+          const lorePrefix = overrideState === "alternative" ? "ALT_PROSE" : "LORE";
+          for (const name of ["Aster", "Briar", "Player"]) assert.ok(narrator.includes(`${lorePrefix}_${name}`), label);
+          assert.ok(!/(?<!ALT_)IMAGE_|ALT_TAGS_/.test(narrator), "image overrides must not replace narrator lore");
         }
       }
     }

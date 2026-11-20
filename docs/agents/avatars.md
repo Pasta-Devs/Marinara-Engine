@@ -148,7 +148,7 @@ On the **3D Avatars** page, pick the character or persona. Under **Get a 3D mode
 4. Export the model as VRM (1.0 or 0.0). Fill in the model's details and terms when asked.
 5. Open **3D Avatars** in **Agents**, pick the character or persona, and select **Import VRM** under **VRM model**. A VRoid Studio model already has every face, mouth shape and blink filled in.
 
-The prompt describes the character for tools that make a picture or 3D model from text: a full-body anime-style character in a T-pose, seen from the front on a plain background. The look comes from the **Appearance** field, from the **Image Appearance Override** tags when those are on, or from the description when there is no appearance. It holds the name and look only, nothing else from the card and nothing from your chats. It is in English. Change it as you like.
+The prompt describes the character for tools that make a picture or 3D model from text: a full-body anime-style character in a T-pose, seen from the front on a plain background. The look comes from the **Appearance** field, from the **Image tags** of **Appearance** when **Use for image prompts** is ticked, or from the description when there is no appearance. It holds the name and look only, nothing else from the card and nothing from your chats. It is in English. Change it as you like.
 
 A VRM from another tool may have fewer or no expressions. **Faces and mouth shapes** shows which it has. Some websites say they make a VRM with face expressions from a picture, but none could be confirmed in October 2026, so this guide does not recommend one. A model made earlier with the removed Tripo generator still loads and moves its body, but its face does not move.
 

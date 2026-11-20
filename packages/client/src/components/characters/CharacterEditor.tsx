@@ -1585,6 +1585,10 @@ export function CharacterEditor() {
                 variant="character"
                 entityKey={characterId}
                 onJump={scrollToSection}
+                onOpenAppearance={() => {
+                  const appearance = document.getElementById("character-card-appearance");
+                  if (appearance) scrollToElement(appearance);
+                }}
                 sheet={
                   <CharacterSheetSection
                     characterId={characterId}
@@ -1921,11 +1925,6 @@ function CharacterCardTab({
           onToggle: (enabled) => updateExtension("imageAppearanceEnabled", enabled),
           value: String(formData.extensions.imageAppearance ?? ""),
           onChange: (value) => updateExtension("imageAppearance", value),
-          toggleLabel: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          toggleHelp: localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp"),
-          title: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          subtitle: localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle"),
-          placeholder: localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder"),
         }}
         alternatives={alternatives}
         onAlternativesChange={(next) => updateExtension("cardFieldAlternatives", next)}

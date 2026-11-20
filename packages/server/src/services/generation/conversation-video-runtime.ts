@@ -204,8 +204,10 @@ export async function generateConversationVideo(args: {
         ...args.charInfo.map((character) => character.name),
         ...(args.persona ? [args.persona.name] : []),
       ];
+      const charactersStore = createCharactersStorage(args.db);
       const details = await resolveIllustratorCharacterReferences({
-        charactersStore: createCharactersStorage(args.db),
+        charactersStore,
+        chatProjection: { chatId: args.chatId, getById: charactersStore.getById },
         chatCharacters: args.charInfo.map((character) => ({
           id: character.id,
           name: character.name,
@@ -463,8 +465,10 @@ async function resolveVideoCharacters(
   );
   // The persona's appearance line joins only when the clip names them.
   const namedPersona = args.persona?.id && mentioned.has(args.persona.id) ? args.persona : null;
+  const charactersStore = createCharactersStorage(args.db);
   const resolution = await resolveIllustratorCharacterReferences({
-    charactersStore: createCharactersStorage(args.db),
+    charactersStore,
+    chatProjection: { chatId: args.chatId, getById: charactersStore.getById },
     chatCharacters: args.charInfo.map((character) => ({
       id: character.id,
       name: character.name,

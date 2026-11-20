@@ -5346,9 +5346,11 @@ export async function registerRetryAgentsRoute(
         const retryImageAppearanceOverrides: Record<string, string> = {};
         // Fetch concurrently: this runs inside the request path and each lookup
         // touches storage, so a sequential await per character adds up on a large
-        // cast. A miss or failure is a no-op (no override).
+        // cast. A miss or failure is a no-op (no override). Read chat-scoped, so a
+        // chat's Appearance alternative brings its own image tags (#9605), as on the
+        // first run (character-prompt-context.ts).
         const retryCharRows = await Promise.all(
-          agentContext.characters.map((character) => chars.getById(character.id).catch(() => null)),
+          agentContext.characters.map((character) => chars.getById(character.id, chatId).catch(() => null)),
         );
         agentContext.characters.forEach((character, index) => {
           const charRow = retryCharRows[index];
@@ -5387,7 +5389,7 @@ export async function registerRetryAgentsRoute(
           !retryImageAppearanceOverrides[retryIdentityIdForOverride] &&
           agentContext.memory._userIdentitySource === "character"
         ) {
-          const identityRow = await chars.getById(retryIdentityIdForOverride).catch(() => null);
+          const identityRow = await chars.getById(retryIdentityIdForOverride, chatId).catch(() => null);
           const identityData = identityRow ? (parseSettingsRecord(identityRow.data) as Record<string, unknown>) : {};
           const identityOverride = readImageAppearanceOverride(
             identityData.extensions && typeof identityData.extensions === "object"

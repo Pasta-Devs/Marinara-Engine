@@ -35,7 +35,7 @@ All of these live in **Illustrator Settings** and apply to the current chat only
 
 **Send Avatar References** and **Attach Card Appearance** each offer **Off**, **Images only**, **Videos only** and **Images and videos**.
 
-If the card or persona has **Image Appearance Override** on (under **Appearance** in the editor), Marinara sends that text instead of **Appearance**. Use it when **Appearance** is written for the story, not for pictures.
+If the card or persona has **Image tags** in use (the **Image tags** tab of **Appearance** in the editor, with **Use for image prompts** ticked), Marinara sends those instead of the **Appearance** prose. An Appearance alternative active in the chat uses its own tags or prose. Use it when **Appearance** is written for the story, not for pictures.
 
 ## Ask for a selfie by hand
 
