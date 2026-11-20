@@ -108,15 +108,24 @@ export function Popover({
     const below = viewBottom - a.bottom - gap - WINDOW_PADDING;
     const above = a.top - viewTop - gap - WINDOW_PADDING;
     const useTop = side === "top" ? height <= above || above > below : height > below && above > below;
-    const room = Math.max(0, useTop ? above : below);
     const top = Math.max(
       viewTop + WINDOW_PADDING,
-      Math.min(useTop ? a.top - gap - Math.min(height, room) : a.bottom + gap, viewBottom - WINDOW_PADDING),
+      Math.min(
+        useTop ? a.top - gap - Math.min(height, Math.max(0, above)) : a.bottom + gap,
+        viewBottom - WINDOW_PADDING,
+      ),
     );
+    // The room left below the clamped top, so an anchor scrolled out of view can't stretch the panel past the edge.
+    const room = Math.max(0, Math.min(useTop ? above : below, viewBottom - WINDOW_PADDING - top));
 
     const preferredLeft =
       align === "end" ? a.right - width : align === "center" ? a.left + a.width / 2 - width / 2 : a.left;
-    const left = Math.max(viewLeft + WINDOW_PADDING, Math.min(preferredLeft, viewRight - WINDOW_PADDING - width));
+    // A panel wider than the zoomed-in view is clamped to the whole page instead, so panning reaches its far edge
+    // rather than dragging the panel along.
+    const fitsView = width <= viewRight - viewLeft - WINDOW_PADDING * 2;
+    const minLeft = fitsView ? viewLeft : 0;
+    const maxRight = fitsView ? viewRight : view.innerWidth;
+    const left = Math.max(minLeft + WINDOW_PADDING, Math.min(preferredLeft, maxRight - WINDOW_PADDING - width));
 
     setPlacement((current) =>
       current &&

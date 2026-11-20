@@ -246,11 +246,13 @@ export function ConversationPresenceCard({
     };
     const handleResize = () => {
       // Mobile keyboards resize/pan the viewport when the activity editor gains focus.
-      if (popoverRef.current?.contains(document.activeElement)) return;
+      if (popoverRef.current?.contains(popoverRef.current.ownerDocument.activeElement)) return;
       setOpen(false);
     };
     const handleScroll = (event: Event) => {
-      if (event.target instanceof Node && popoverRef.current?.contains(event.target)) return;
+      // No `instanceof Node`: that is the main window's class, and a node from a popped-out window fails it.
+      const target = event.target as Node | null;
+      if (target && popoverRef.current?.contains(target)) return;
       handleResize();
     };
     const doc = buttonRef.current?.ownerDocument ?? document;
