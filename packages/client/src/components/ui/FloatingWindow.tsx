@@ -994,7 +994,7 @@ export function FloatingWindow({
         </span>
         <div className="mari-window__controls flex shrink-0 items-center">
           {headerControls}
-          {poppable && !minimizable && (poppedOut || !sheet) && (
+          {poppable && !minimizable && !sheet && (
             <button
               type="button"
               data-window-control="pop-out"

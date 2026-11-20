@@ -6,7 +6,7 @@
 // on a phone. It reads the server's in-memory buffer only while it is open (use-server-console-logs).
 // ──────────────────────────────────────────────
 import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, Copy, Download, Eraser, ExternalLink, Terminal } from "lucide-react";
+import { ArrowDown, Check, Copy, Download, Eraser, ExternalLink, Terminal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { FloatingWindow, PHONE_FULL_SHEET_CLASS, PHONE_SHEET_CLASS } from "../ui/FloatingWindow";
@@ -43,6 +43,8 @@ const DEFAULT_WIDTH_REM = 46;
 const DEFAULT_HEIGHT_REM = 30;
 /** Within this many pixels of the bottom counts as "at the bottom": new lines keep scrolling into view. */
 const STICK_TO_BOTTOM_PX = 24;
+/** How long the Copy button shows its result. */
+const COPY_RESULT_MS = 2000;
 
 /** Centred, and pinned so it stays up while the user works in the app; its close button still closes it. */
 function getServerConsoleDefaultLayout(bounds: WindowBounds): WindowLayout {
@@ -180,10 +182,17 @@ export function ServerConsoleWindow() {
   const getVisibleText = () =>
     visibleRows.map((row) => (row.kind === "gap" ? `-- ${t("serverConsole.gap")} --` : row.text)).join("\n");
 
+  // The result shows on the Copy button itself, not as a toast: toasts draw in the app's window, and a
+  // popped-out console sits in another one.
+  const [copyResult, setCopyResult] = useState<"copied" | "failed" | null>(null);
+  const copyResultTimerRef = useRef(0);
+  useEffect(() => () => window.clearTimeout(copyResultTimerRef.current), []);
   const handleCopy = async () => {
-    if (await copyToClipboard(getVisibleText(), scrollRef.current?.ownerDocument.defaultView ?? window))
-      toast.success(t("serverConsole.copied"));
-    else toast.error(t("serverConsole.copyFailed"));
+    window.clearTimeout(copyResultTimerRef.current);
+    setCopyResult(null);
+    const copied = await copyToClipboard(getVisibleText(), scrollRef.current?.ownerDocument.defaultView ?? window);
+    setCopyResult(copied ? "copied" : "failed");
+    copyResultTimerRef.current = window.setTimeout(() => setCopyResult(null), COPY_RESULT_MS);
   };
 
   const handleDownload = () => {
@@ -252,9 +261,35 @@ export function ServerConsoleWindow() {
           className="mari-chrome-field--compact min-w-0 flex-1 basis-32"
         />
         <div className="flex items-center gap-1">
-          <button type="button" onClick={() => void handleCopy()} className={toolbarButtonClass}>
-            <Copy size="0.75rem" className="shrink-0" />
-            <span>{t("serverConsole.copy")}</span>
+          <button
+            type="button"
+            data-copy-result={copyResult ?? undefined}
+            onClick={() => void handleCopy()}
+            className={toolbarButtonClass}
+          >
+            {copyResult === "copied" ? (
+              <Check size="0.75rem" className="shrink-0" />
+            ) : copyResult === "failed" ? (
+              <X size="0.75rem" className="shrink-0 text-[var(--destructive)]" />
+            ) : (
+              <Copy size="0.75rem" className="shrink-0" />
+            )}
+            <span>
+              {t(
+                copyResult === "copied"
+                  ? "serverConsole.copiedShort"
+                  : copyResult === "failed"
+                    ? "serverConsole.copyFailedShort"
+                    : "serverConsole.copy",
+              )}
+            </span>
+            <span role="status" className="sr-only">
+              {copyResult === "copied"
+                ? t("serverConsole.copied")
+                : copyResult === "failed"
+                  ? t("serverConsole.copyFailed")
+                  : ""}
+            </span>
           </button>
           <button type="button" onClick={handleDownload} className={toolbarButtonClass}>
             <Download size="0.75rem" className="shrink-0" />

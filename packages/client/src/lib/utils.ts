@@ -16,9 +16,11 @@ export function generateClientId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-/** Copy text to clipboard with fallback for insecure contexts (HTTP / Tailscale). */
-/** `targetWindow`: the window the user is in, for a surface popped out into a separate browser window
- *  (DetachedWindow); the clipboard refuses a write from a window without focus. */
+/**
+ * Copy text to clipboard with fallback for insecure contexts (HTTP / Tailscale). `targetWindow`: the window
+ * the user is in, for a surface popped out into a separate browser window (DetachedWindow); the clipboard
+ * refuses a write from a window without focus.
+ */
 export async function copyToClipboard(text: string, targetWindow: Window = window): Promise<boolean> {
   const { navigator, document } = targetWindow;
   if (navigator.clipboard?.writeText) {
