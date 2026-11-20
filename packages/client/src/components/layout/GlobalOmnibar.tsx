@@ -174,6 +174,7 @@ import { createOmnibarResultActions } from "./omnibar/omnibar-result-actions";
 import { useOmnibarLocalResults } from "./omnibar/use-omnibar-local-results";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { markThingTried } from "../../lib/things-to-try-progress";
 import { WindowTitle } from "../../lib/theme-slots";
 // Each pane only renders once the user opens it, so they stay out of the
@@ -345,6 +346,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     to: { top: number; left: number; width: number; height: number };
   } | null>(null);
   const [mariHeaderSlot, setMariHeaderSlot] = useState<HTMLDivElement | null>(null);
+  // A wide window (not docked beside an editor) has room for her destinations on her name's line, one
+  // header row like her full page's. Narrower windows keep them on a second row.
+  const wideMariWindow = useMatchMedia("(min-width: 40rem)");
   const [mariStatusSlot, setMariStatusSlot] = useState<HTMLSpanElement | null>(null);
   const [mariMenuSlot, setMariMenuSlot] = useState<HTMLSpanElement | null>(null);
   const mariReturnResultIdRef = useRef<string | null>(mariReturnResultId);
@@ -1071,6 +1075,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     setSnap: setSheetSnap,
     ...companionSize
   } = useMariCompanion(mariSurface, dialogRef);
+  const mariHeaderOneRow = wideMariWindow && !companion;
   const dockLabel = companionDesktop
     ? t("omnibar.companion.dock", "Keep Professor Mari beside the editor")
     : t("omnibar.companion.dockSheet", "Keep Professor Mari below the editor");
@@ -2234,7 +2239,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
             className={cn(
               "flex items-center",
               mariSurface
-                ? "mari-workspace-header h-12 px-2"
+                ? cn("mari-workspace-header h-12 px-2", mariHeaderOneRow && "mari-workspace-header--one-row")
                 : "h-16 gap-3 border-b border-[var(--border)] px-3 sm:h-14 sm:px-4",
             )}
           >
@@ -2284,7 +2289,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                     className="flex min-w-0 flex-1 flex-col justify-center px-1"
                   >
                     {/* Row 1: her name and live status, no portrait (she is in the transcript). The status text
-                      comes from her chat through `mariStatusSlot`; row 2 below holds the destinations. */}
+                      comes from her chat through `mariStatusSlot`. The destinations follow on this row in a
+                      wide window, or on row 2 below in a narrow or docked one. */}
                     <span className="truncate text-sm font-semibold leading-tight text-[var(--foreground)]">
                       {t("omnibar.categories.professor", "Professor Mari")}
                     </span>
@@ -2380,6 +2386,10 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                 held={appearance.portraits.drag}
               />
             ) : null}
+            {/* Wide windows: her destinations on this row, after her name (see wideMariWindow). */}
+            {mariSurface && mariHeaderOneRow ? (
+              <div ref={setMariHeaderSlot} className="mari-omnibar-header-slot mari-omnibar-header-inline" />
+            ) : null}
             {/* R11: while a phone keyboard is open her destinations fold into a menu here (one-line header). */}
             {mariSurface ? <span ref={setMariMenuSlot} className="mari-omnibar-header-compact-menu" /> : null}
             {companionAvailable ? (
@@ -2410,7 +2420,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
               </button>
             )}
           </div>
-          {mariSurface ? (
+          {mariSurface && !mariHeaderOneRow ? (
             <div ref={setMariHeaderSlot} className="mari-omnibar-header-slot mari-omnibar-header-row" />
           ) : null}
           {!mariSurface ? (

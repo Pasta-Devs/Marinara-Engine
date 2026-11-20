@@ -2500,6 +2500,49 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   min-height: 2.75rem;
 }
 
+/* A wide window puts the destinations on her name's line, at its end before settings and Close: one header
+   row, like her full page's. The hairline under the header moves to that one row, and the selected tab is a
+   plain highlight there (nothing below it to merge into). */
+.mari-workspace-header--one-row {
+  border-bottom: 1px solid color-mix(in srgb, var(--mari-workspace-blush) 18%, var(--border));
+}
+
+/* It only shows from 40rem (phones keep two rows), where everything fits, so it takes its full width and never scrolls (WebKit
+   sized the scrolling row a little short and hid New chat). Her name truncates first. */
+.mari-omnibar-header-inline {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.mari-omnibar-header-slot.mari-omnibar-header-inline .mari-omnibar-header-destinations {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  align-items: center;
+  overflow: visible;
+}
+
+.mari-omnibar-header-slot.mari-omnibar-header-inline
+  .mari-omnibar-header-destinations
+  > .mari-omnibar-header-tablist
+  > :first-child {
+  margin-inline-start: 0;
+}
+
+.mari-omnibar-header-slot.mari-omnibar-header-inline
+  .mari-omnibar-header-destinations
+  button[data-destination="chats"] {
+  margin-inline-start: 0.5rem;
+}
+
+.mari-omnibar-header-slot.mari-omnibar-header-inline
+  .mari-omnibar-header-destinations
+  button[role="tab"][data-active="true"] {
+  border-radius: 0.5rem;
+  background: var(--accent);
+  box-shadow: none;
+}
+
 /* R11: while a phone keyboard is open (or its menu is open) the header is one line: her name and status,
    with the destinations in a menu in the first row. Wider screens keep both rows. */
 .mari-omnibar-header-compact-menu {
@@ -2692,10 +2735,17 @@ html[data-marinara-effects-paused="true"] .mari-status-shimmer[data-active="true
   padding-inline: 0.55rem;
 }
 
-.mari-omnibar-header-destinations button:hover,
 .mari-omnibar-header-destinations button[data-active="true"] {
   color: var(--foreground);
   background: var(--accent);
+}
+
+/* Mouse only: a touch screen keeps no hover highlight on a tab after a tap. */
+@media (hover: hover) {
+  .mari-omnibar-header-destinations button:hover {
+    color: var(--foreground);
+    background: var(--accent);
+  }
 }
 
 /* Tabs, like a browser's: the selected tab takes the panel's own surface (--card, what the transcript
@@ -2710,8 +2760,10 @@ html[data-marinara-effects-paused="true"] .mari-status-shimmer[data-active="true
   background: transparent;
 }
 
-.mari-omnibar-header-destinations button[role="tab"]:hover {
-  background: color-mix(in srgb, var(--accent) 50%, transparent);
+@media (hover: hover) {
+  .mari-omnibar-header-destinations button[role="tab"]:hover {
+    background: color-mix(in srgb, var(--accent) 50%, transparent);
+  }
 }
 
 .mari-omnibar-header-destinations button[role="tab"][data-active="true"] {
