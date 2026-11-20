@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
 import { allowsDefaultChatModel } from "../llm/local-context-limit.js";
 import {
+  DEFAULT_IMAGE_CAPTIONING_MAX_TOKENS,
   DEFAULT_IMAGE_CAPTIONING_PROMPT,
+  DEFAULT_IMAGE_CAPTIONING_REQUEST,
+  DEFAULT_IMAGE_CAPTIONING_TEMPERATURE,
+  DEFAULT_IMAGE_READING_SETTINGS,
+  extractLeadingThinkingBlocks,
+  type ImageReadingSettings,
   LOCAL_SIDECAR_CONNECTION_ID,
   modelReadsImages,
   parseConnectionImageCaptioningDefaults,
@@ -96,10 +102,16 @@ function unavailableImageCaptioning(reason: string): ImageCaptioningRuntime {
   return { ...DISABLED_IMAGE_CAPTIONING, enabled: true, unavailableReason: reason };
 }
 
-const IMAGE_CAPTION_MAX_TOKENS = 700;
 const IMAGE_CAPTION_MAX_CHARS = 4_000;
 const IMAGE_CAPTION_MAX_GENERATIONS = 8;
 const IMAGE_CAPTION_CONCURRENCY = 2;
+
+/** Engine-wide Image reading settings, loaded from app settings at start and on every save. */
+let imageReadingSettings: ImageReadingSettings = DEFAULT_IMAGE_READING_SETTINGS;
+
+export function setImageReadingSettings(settings: ImageReadingSettings): void {
+  imageReadingSettings = settings;
+}
 
 type ImageCaptioningArgs = {
   chatMeta: Record<string, unknown>;
@@ -303,12 +315,39 @@ function normalizeImageCaptionText(value: unknown): string | null {
   return text.length > IMAGE_CAPTION_MAX_CHARS ? `${text.slice(0, IMAGE_CAPTION_MAX_CHARS).trim()}...` : text;
 }
 
+/** The chat's own prompt, then the engine-wide Image reading prompt, then the built-in one. */
 function effectiveCaptionPrompt(imageCaptioning: ImageCaptioningRuntime): string {
-  return imageCaptioning.prompt?.trim() || DEFAULT_IMAGE_CAPTIONING_PROMPT;
+  return imageCaptioning.prompt?.trim() || imageReadingSettings.prompt?.trim() || DEFAULT_IMAGE_CAPTIONING_PROMPT;
 }
 
-function captionPromptKey(prompt: string): string {
-  return createHash("sha256").update(prompt).digest("hex").slice(0, 16);
+function effectiveCaptionRequest(): string {
+  return imageReadingSettings.request?.trim() || DEFAULT_IMAGE_CAPTIONING_REQUEST;
+}
+
+/** The request sent with an image; `{{filename}}` becomes its name. */
+export function captionRequestFor(filename: string): string {
+  return effectiveCaptionRequest().replace(/\{\{\s*filename\s*\}\}/gi, () => filename);
+}
+
+/** Changes when the prompt or request does, so a new one makes new captions. The built-in request adds nothing. */
+function captionPromptKey(prompt: string, request = DEFAULT_IMAGE_CAPTIONING_REQUEST): string {
+  const source = request === DEFAULT_IMAGE_CAPTIONING_REQUEST ? prompt : `${prompt}\n\u0000${request}`;
+  return createHash("sha256").update(source).digest("hex").slice(0, 16);
+}
+
+/** A tag that opens a model's inline thinking; one left open means the answer was cut off while thinking. */
+const OPEN_THINKING = /^\s*(?:<(?:think|thinking|thought)>|<\|think\|>|\[(?:think|thinking|thought)\])/i;
+/** A closing tag with no opening one: the chat template opened the thinking itself. */
+const CLOSE_THINKING = /<\/(?:think|thinking|thought)>|<\|\/think\|>|\[\/(?:think|thinking|thought)\]/gi;
+
+/** The description without a thinking model's inline reasoning. Null when only reasoning came back. */
+export function stripCaptionThinking(text: string): string | null {
+  let content = extractLeadingThinkingBlocks(text).content;
+  if (OPEN_THINKING.test(content)) return null;
+  const closes = [...content.matchAll(CLOSE_THINKING)];
+  const last = closes.at(-1);
+  if (last?.index !== undefined) content = content.slice(last.index + last[0].length);
+  return content.trim() || null;
 }
 
 function readCachedImageCaption(attachment: PromptAttachment, imageCaptioning: ImageCaptioningRuntime): string | null {
@@ -320,7 +359,7 @@ function readCachedImageCaption(attachment: PromptAttachment, imageCaptioning: I
   // A changed prompt makes a new caption. Captions from before prompts were editable used the default.
   const prompt = effectiveCaptionPrompt(imageCaptioning);
   const cachedKey = attachment.imageCaptionPromptKey ?? captionPromptKey(DEFAULT_IMAGE_CAPTIONING_PROMPT);
-  if (cachedKey !== captionPromptKey(prompt)) return null;
+  if (cachedKey !== captionPromptKey(prompt, effectiveCaptionRequest())) return null;
   return caption;
 }
 
@@ -351,7 +390,7 @@ export async function generateImageCaptionForDataUrl(
     { role: "system" as const, content: effectiveCaptionPrompt(imageCaptioning) },
     {
       role: "user" as const,
-      content: `Describe this image attachment named "${filename}" for use inside a chat prompt. Return only the description.`,
+      content: captionRequestFor(filename),
       images: [imageDataUrl],
     },
   ];
@@ -365,8 +404,11 @@ export async function generateImageCaptionForDataUrl(
   const result = await imageCaptioning.provider
     .chatComplete(messages, {
       model: imageCaptioning.connection.model,
-      temperature: 0.2,
-      maxTokens: applyProviderMaxTokensOverride(imageCaptioning.provider, IMAGE_CAPTION_MAX_TOKENS),
+      temperature: imageReadingSettings.temperature ?? DEFAULT_IMAGE_CAPTIONING_TEMPERATURE,
+      maxTokens: applyProviderMaxTokensOverride(
+        imageCaptioning.provider,
+        imageReadingSettings.maxTokens ?? DEFAULT_IMAGE_CAPTIONING_MAX_TOKENS,
+      ),
       enableCaching: imageCaptioning.connection.enableCaching === "true",
       anthropicExtendedCacheTtl: imageCaptioning.connection.anthropicExtendedCacheTtl === "true",
       cachingAtDepth: imageCaptioning.connection.cachingAtDepth ?? 5,
@@ -377,8 +419,15 @@ export async function generateImageCaptionForDataUrl(
       if (signal.aborted) throw error;
       throw new Error(`Image captioning failed for "${filename}"`, { cause: error });
     });
-  const caption = normalizeImageCaptionText(result.content);
-  if (!caption) throw new Error(`Image captioning failed for "${filename}": the captioning model sent back no text`);
+  const caption = normalizeImageCaptionText(stripCaptionThinking(result.content ?? ""));
+  if (!caption) {
+    // A thinking model can spend the whole answer length reasoning and never write the description.
+    throw new Error(
+      result.finishReason === "length"
+        ? `Image captioning failed for "${filename}": the model reached its answer length before writing a description. Raise Answer length in Image reading settings (Connections panel, Jobs), or turn thinking off for that model`
+        : `Image captioning failed for "${filename}": the captioning model sent back no text`,
+    );
+  }
   return caption;
 }
 
@@ -449,7 +498,7 @@ export async function captionSentSelfies(args: {
         imageCaptionConnectionId: imageCaptioning.connectionId,
         imageCaptionModel: connection.model,
         imageCaptionProvider: connection.provider,
-        imageCaptionPromptKey: captionPromptKey(effectiveCaptionPrompt(imageCaptioning)),
+        imageCaptionPromptKey: captionPromptKey(effectiveCaptionPrompt(imageCaptioning), effectiveCaptionRequest()),
         imageCaptionedAt: new Date().toISOString(),
       };
     } catch (error) {
@@ -530,7 +579,7 @@ export async function resolvePromptAttachmentInputs(args: {
         imageCaptionConnectionId: imageCaptioning.connectionId,
         imageCaptionModel: captionConnection.model,
         imageCaptionProvider: captionConnection.provider,
-        imageCaptionPromptKey: captionPromptKey(effectiveCaptionPrompt(imageCaptioning)),
+        imageCaptionPromptKey: captionPromptKey(effectiveCaptionPrompt(imageCaptioning), effectiveCaptionRequest()),
         imageCaptionedAt: new Date().toISOString(),
       };
     }

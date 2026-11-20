@@ -201,6 +201,7 @@ export function ConnectionSelect({
   title,
   job,
   jobKey,
+  showJobSettings,
   className,
   scope,
   embedding,
@@ -236,6 +237,8 @@ export function ConnectionSelect({
   /** The job this slot is, for the window title: "Model for <job>". */
   job?: string;
   jobKey?: JobKey;
+  /** The picker's last row opens the job's own settings (Image reading). */
+  showJobSettings?: boolean;
   title?: string;
   className?: string;
   /** Where a picked Model is set, so the field can say so ("Set for this chat"). */
@@ -363,6 +366,7 @@ export function ConnectionSelect({
             title={jobName ? t("connections.picker.modelFor", { job: jobName }) : t("connections.switcher.chooseModel")}
             jobName={jobName || t("connections.picker.model")}
             jobKey={jobKey}
+            showJobSettings={showJobSettings}
             kind={kind}
             embedding={embedding}
             value={value}

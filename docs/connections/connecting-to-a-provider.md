@@ -73,7 +73,7 @@ A job is something a model does for you. The **Jobs** box lists them in four gro
 
 Each row shows the model doing that job, or what the job does without one, such as **Follows Main** or **Off**. An empty job shows **N models found** with **Pick**, or **None in your accounts** with **Add**. The picker lists the models of every account that fit the job. **Add** opens the **Add account** window and returns you to the job. Click **Jobs** to fold the box.
 
-To change the model for a job, click its row. **Model for** that job opens, except for three rows. **Decision** and **Embeddings** open their own controls (see [Decision Models](decision-models.md) and [Supported AI Providers](providers-reference.md#embeddings)). **Dictation** opens speech setup. **Voice** and **Dictation** also have a gear that opens their settings window. Picking a **Voice** model turns text to speech on.
+To change the model for a job, click its row. **Model for** that job opens, except for three rows. **Decision** and **Embeddings** open their own controls (see [Decision Models](decision-models.md) and [Supported AI Providers](providers-reference.md#embeddings)). **Dictation** opens speech setup. **Voice**, **Dictation** and **Image reading** also have a gear that opens their settings window; Image reading's holds what its model is asked (see [Image captioning](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Picking a **Voice** model turns text to speech on.
 
 In **Model for**:
 
