@@ -171,7 +171,7 @@ export function CardFieldsTab({
           placeholder={localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder")}
           rows={field.rows}
           textareaClassName={imageAppearance.enabled ? undefined : "opacity-60"}
-          actions={actions}
+          // No wand here: it writes the Appearance prose, which this tab hides.
           belowHeader={appearanceTabs}
           footer={
             <>
