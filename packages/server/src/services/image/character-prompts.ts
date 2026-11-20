@@ -1,4 +1,8 @@
-import { stripMacroComments, type SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
+import {
+  isNativeNovelAiHost,
+  stripMacroComments,
+  type SceneIllustrationCharacterPrompt,
+} from "@marinara-engine/shared";
 import { normalizeAvatarLookupName } from "../game/npc-avatar-utils.js";
 import { normalizeIllustratorAppearance } from "./illustrator-references.js";
 
@@ -11,8 +15,8 @@ export const NOVELAI_V4_MAX_CHARACTER_PROMPTS = 6;
 export const NOVELAI_V5_MAX_CHARACTER_PROMPTS = 22;
 
 const NOVELAI_CHARACTER_PROMPT_MODEL =
-  /^nai-diffusion-(?:4(?:-(?:curated-preview|full))?|4-5(?:-(?:curated|full))?|5(?:-(?:curated|full))?)$/i;
-const NOVELAI_V5_MODEL = /^nai-diffusion-5(?:-(?:curated|full))?$/i;
+  /^nai-diffusion-(?:4(?:-(?:curated-preview|curated|full))?|4-5(?:-(?:curated|full))?|5(?:-(?:curated|full))?)(?:-inpainting)?$/i;
+const NOVELAI_V5_MODEL = /^nai-diffusion-5(?:-(?:curated|full))?(?:-inpainting)?$/i;
 
 function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -36,10 +40,7 @@ export function resolveNovelAiCharacterPromptLimit(model: string): number {
   return NOVELAI_V5_MODEL.test(model.trim()) ? NOVELAI_V5_MAX_CHARACTER_PROMPTS : NOVELAI_V4_MAX_CHARACTER_PROMPTS;
 }
 
-export function isNativeNovelAiHost(hostname: string): boolean {
-  const normalized = hostname.toLowerCase().replace(/\.$/, "");
-  return normalized === "novelai.net" || normalized.endsWith(".novelai.net");
-}
+export { isNativeNovelAiHost };
 
 /**
  * Only a connection that talks to NovelAI's own image host receives the native

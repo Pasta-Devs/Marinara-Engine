@@ -40,6 +40,8 @@ function ToolButton({
   return (
     <Reorder.Item
       value={entry.id}
+      // framer-motion 14.6+ makes each item a tab stop with its own keys; the tool button is the stop here.
+      tabIndex={-1}
       dragListener={false}
       dragControls={dragControls}
       drag={locked ? false : "y"}

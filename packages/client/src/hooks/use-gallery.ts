@@ -3,7 +3,12 @@
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
-import type { GalleryTagKind, GeneratedSceneVideo, SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
+import type {
+  GalleryTagKind,
+  GeneratedSceneVideo,
+  NovelAiEditMode,
+  SceneIllustrationCharacterPrompt,
+} from "@marinara-engine/shared";
 import type { CustomTagPatch } from "../lib/custom-emoji";
 
 export interface ChatImage {
@@ -33,6 +38,11 @@ export interface RegenerateChatImageInput {
   characterPrompts?: SceneIllustrationCharacterPrompt[];
   connectionId?: string;
   messageId?: string;
+  editMode?: NovelAiEditMode;
+  maskImage?: string;
+  strength?: number;
+  noise?: number;
+  reuseSeed?: boolean;
   debugMode?: boolean;
 }
 

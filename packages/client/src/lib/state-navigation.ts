@@ -17,6 +17,18 @@ function trackWindow(event: AchievementEvent) {
   void trackAchievementEvent(event, { keepalive: true }).catch(() => undefined);
 }
 
+/**
+ * New layout: Ctrl+J (⌘J) opens Professor Mari's full chat page, as picking her tab does. Clicking her
+ * in Search and Ctrl+Enter there still open the small window. The classic layout has no page, so it
+ * keeps the small window. Returns false when the page is not available (classic layout).
+ */
+export function openProfessorMariChatPage(): boolean {
+  if (!isOverhaulLook()) return false;
+  useUIStore.getState().closeAllDetails();
+  useOverhaulStore.getState().openMari();
+  return true;
+}
+
 /** Leave the current chat or editor, show Home, then let Home open the surface. */
 function openHomeWith(request: HomeRequest) {
   const ui = useUIStore.getState();
