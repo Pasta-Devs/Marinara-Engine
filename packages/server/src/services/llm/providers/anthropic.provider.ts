@@ -38,7 +38,8 @@ const DEFAULT_CACHING_AT_DEPTH = 5;
 
 type AnthropicCacheControl = { type: "ephemeral"; ttl?: "1h" };
 
-function normalizeCachingAtDepth(value: unknown): number {
+/** A connection's **Cache depth**: how many messages back from the newest the history breakpoint goes (5 when unset). */
+export function normalizeCachingAtDepth(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return DEFAULT_CACHING_AT_DEPTH;
   return Math.floor(value);
 }
