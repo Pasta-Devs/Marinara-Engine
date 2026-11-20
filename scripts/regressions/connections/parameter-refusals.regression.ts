@@ -20,10 +20,10 @@ try {
     refusedGenerationParameters,
     refusedParameterFields,
     resetParameterRefusalsForTesting,
-  } = await import("../../packages/server/src/services/llm/parameter-refusals.js");
-  const { createLLMProvider } = await import("../../packages/server/src/services/llm/provider-registry.js");
+  } = await import("../../../packages/server/src/services/llm/parameter-refusals.js");
+  const { createLLMProvider } = await import("../../../packages/server/src/services/llm/provider-registry.js");
   const { relevantGenerationParameters } =
-    await import("../../packages/shared/src/constants/generation-parameter-relevance.js");
+    await import("../../../packages/shared/src/constants/generation-parameter-relevance.js");
 
   const sent = { temperature: 0.7, top_p: 0.9, top_k: 40, frequency_penalty: 0.3, presence_penalty: 0.2 };
   const detect = (error: unknown, body: Record<string, unknown> = sent) =>
@@ -135,7 +135,7 @@ try {
 
   // Survives a restart: a fresh module reads the saved file.
   const fresh = await import(
-    `../../packages/server/src/services/llm/parameter-refusals.js?fresh=${Date.now()}` as string
+    `../../../packages/server/src/services/llm/parameter-refusals.js?fresh=${Date.now()}` as string
   );
   assert.deepEqual(fresh.refusedParameterFields(service, "some-model"), ["frequency_penalty"]);
   console.log("parameter-refusals regression passed");
