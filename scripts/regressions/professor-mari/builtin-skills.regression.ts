@@ -254,6 +254,11 @@ try {
   );
   assert.match(piRuntimePrompt(4096), /output limit is small/u, "4096 is still small");
   assert.ok(!piRuntimePrompt(8192).includes("output limit is small"), "a large limit gets no split hint");
+  // Big jobs go in pieces on every connection, large limit or none.
+  for (const prompt of [piRuntimePrompt(128_000), piRuntimePrompt(), workspaceCommandProtocolPrompt()]) {
+    assert.match(prompt, /Big jobs go in pieces, whatever this connection's output limit/u);
+    assert.match(prompt, /at most 5 entries or records per reply/u);
+  }
   // The classic prompt carries the same knowledge clauses, so it must state the limit they depend on too.
   assert.match(workspaceCommandProtocolPrompt(2048), /output limit is small \(2048 tokens per reply\)/u);
   assert.ok(!workspaceCommandProtocolPrompt().includes("output limit is small"), "classic: no limit, no hint");

@@ -1086,7 +1086,7 @@ export function workspaceCommandKnowledgePrompt() {
 - Put write fields in \`data\` for creates and \`patch\` for updates. Use \`entryId\` for \`lorebook.updateEntry\`; use \`lorebookId\` only for a lorebook or for \`lorebook.addEntry\`.
 - Updates are patches: send only the changed fields and keep every other field as it was. Read the entity back. Claim completion only when every requested value matches.
 - New creates: use \`apply:true\` immediately for \`character.create\`, \`persona.create\`, \`lorebook.create\`, \`lorebook.addEntry\`, \`agent.create\`, \`preset.create\`, and \`theme.create\` when the user asked you to create it. The result's \`readBack\` confirms persistence; read back only when you need the created ids or content for the next step.
-- Lorebooks: read skill \`builtin-lorebook\` with \`skill.get\` BEFORE you create a book or entries, change an activation field, or explain why an entry fires too often or never. Only \`position\` \`0\` (or negative), \`1\`, \`2\` and \`7\` inject; any other number silently injects nothing — and a text edit leaves the stored vector describing the old text until the user re-vectorizes. Then save the entries with the book in one \`lorebook.create\` (on a small output limit, the first entries, then one \`lorebook.addEntry\` per reply), read with \`lorebook.entries\` (follow \`nextOffset\`) and \`lorebook.getEntry\`, write updates with \`apply:true\`, and diagnose activation with \`lorebook.testScan\`.
+- Lorebooks: read skill \`builtin-lorebook\` with \`skill.get\` BEFORE you create a book or entries, change an activation field, or explain why an entry fires too often or never. Only \`position\` \`0\` (or negative), \`1\`, \`2\` and \`7\` inject; any other number silently injects nothing — and a text edit leaves the stored vector describing the old text until the user re-vectorizes. Then save the entries with the book in its \`lorebook.create\` (on a small output limit, the first entries, then one \`lorebook.addEntry\` per reply), read with \`lorebook.entries\` (follow \`nextOffset\`) and \`lorebook.getEntry\`, write updates with \`apply:true\`, and diagnose activation with \`lorebook.testScan\`.
 - Lorebook folders are two things: \`lorebook.folder.*\` (with \`lorebookId\`; \`parentFolderId\` only for a nested folder) organizes entries inside one book, while \`lorebook.libraryFolder.*\` is the main Lorebooks panel.
 - Reply diagnosis and repair: read skill \`builtin-repair\` with \`skill.get\` before you diagnose a bad reply (cut off, empty, a character who forgets or ignores their card) or fix one. Never present a hand-written "corrected" reply as text: \`chat.updateMessage\` is the only repair path and it adds a swipe. The skill has the diagnose-first order, the finding codes and the repair rules.
 - Deleting a lorebook entry: use \`lorebook.deleteEntry\` with the entry's \`entryId\` and \`apply:true\` — it removes that one entry and shows a change card. NEVER delete a lorebook entry with a raw \`mari db delete\`: its \`--where\` selector can match and permanently remove far more rows than you intend. If a raw \`mari db delete\` is ever unavoidable, dry-run it first (omit \`--apply\`) and confirm the exact affected-row count before applying.
@@ -1116,6 +1116,17 @@ export function workspaceCommandKnowledgePrompt() {
 `;
 }
 
+/** At most this many entries or records go in one reply of a big job, whatever the output limit. */
+export const BIG_JOB_PIECE_SIZE = 5;
+
+/**
+ * Big jobs (a whole lorebook, the same change across many records) always go in pieces: one reply carrying the whole
+ * job is the one that gets cut at the output limit, and a cut write runs nothing. Unlike the small-limit rule below,
+ * this does not depend on the connection.
+ */
+const BIG_JOB_RULE = `
+- Big jobs go in pieces, whatever this connection's output limit: a lorebook with more than ${BIG_JOB_PIECE_SIZE} entries, or the same edit across more than ${BIG_JOB_PIECE_SIZE} entries, characters or other records. List the pieces in your to-do list first, then send at most ${BIG_JOB_PIECE_SIZE} entries or records per reply (create the book with its first ${BIG_JOB_PIECE_SIZE} entries, then add the rest a few per reply), read back each piece, and carry on to the next one without waiting to be asked. Say how far along you are in your final answer.`;
+
 /** At or under this output limit a large write is cut mid-call, so both runtime prompts ask for smaller calls up front. */
 export const SMALL_OUTPUT_LIMIT_TOKENS = 4096;
 
@@ -1143,7 +1154,7 @@ Keep the answer itself in plain assistant text.
 - Do not mention tapping, clicking, chips, quick replies or buttons unless you call \`suggestions\` or \`ask\` in the same turn.
 - If you say you will do something, make the tool call in the same turn; a turn with no tool call ends the run.
 - Your hidden reasoning/thinking is NEVER shown to the user, and Marinara may withhold a turn's text it could not accept (it will tell you when it does). Only your final turn's text is kept as your answer; text from a turn followed by more steps collapses into the step timeline. So when checks follow an answer or plan you already wrote, restate that whole answer or plan in your final text - never refer to it as already shown ("the plan above", "the original plan is still there").
-- Finish with your answer, including a suggestions call when you offer next steps.${smallOutputLimitRule(maxOutputTokens)}
+- Finish with your answer, including a suggestions call when you offer next steps.${BIG_JOB_RULE}${smallOutputLimitRule(maxOutputTokens)}
 
 ${workspaceCommandKnowledgePrompt()}
 </workspace_tools>`;
@@ -1192,7 +1203,7 @@ Field rules:
 - If you say you will do workspace/app-data work, include the command in the same JSON object.
 - Immediately after you successfully create or update something, offer 2-4 follow-up suggestions for a natural next step: refine a field, link it to something else, or open it for full editing. Lean toward refining or connecting what already exists rather than making new items — unless the user's task is itself about creating (for example, they asked you to help build a lorebook), in which case suggesting the next thing to create is welcome. Tag each with the relevant entity.
 - Do not mention tapping, clicking, choosing chips, quick replies, buttons, or examples unless \`suggestions\` or \`ask\` is present in the same JSON object. If you want the user to answer in plain chat, ask directly without referring to UI controls.
-- For vague create/edit requests, prefer one \`ask\` instead of interrogating the user turn by turn. Use \`suggestions\` only for simple quick replies or follow-up next steps, not as a hidden substitute for \`ask\`.${smallOutputLimitRule(maxOutputTokens)}
+- For vague create/edit requests, prefer one \`ask\` instead of interrogating the user turn by turn. Use \`suggestions\` only for simple quick replies or follow-up next steps, not as a hidden substitute for \`ask\`.${BIG_JOB_RULE}${smallOutputLimitRule(maxOutputTokens)}
 
 ${workspaceCommandKnowledgePrompt()}
 Examples:
