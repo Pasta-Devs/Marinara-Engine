@@ -2342,15 +2342,16 @@
 /* A label sharing its line with the buttons stops short of them and wraps: a long one ("Assistant
    Reasoning Prefill" in a theme with larger text) put its help "?" under the Expand button's tap
    area (Nov 19). Each button is 2.25rem wide with its pad, 0.375rem apart. Inline, not flex, so a
-   wrapped label keeps its "?" right after the last word. */
+   wrapped label keeps its "?" right after the last word, and balanced, so the "?" never wraps onto a
+   line of its own ("Assistant Reasoning / Prefill ?", Nov 20). */
 :root[data-overhaul="mobile"]
   span.inline-flex:has(
     + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col)
   ):not(#ovm-x) {
   display: inline-block;
   max-width: calc(100% - 2.375rem);
+  text-wrap: balance;
 }
-/* Wrapped, the help "?" follows the label's last word. */
 :root[data-overhaul="mobile"]
   span.inline-flex:has(
     + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col)
