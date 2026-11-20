@@ -25,6 +25,7 @@ import { resolveMessageMacros } from "../../lib/chat-macros";
 import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
 import { useTranslate } from "../../hooks/use-translate";
 import { useMessageSpeech } from "../../hooks/use-message-speech";
+import { useTTSConfig } from "../../hooks/use-tts";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { api } from "../../lib/api-client";
 import { chatKeys } from "../../hooks/use-chats";
@@ -401,12 +402,16 @@ export const ConversationMessage = memo(function ConversationMessage({
   );
 
   // Speak reads the message with its macros resolved like the display, so {{user}} is spoken as the name.
+  const { data: ttsConfig } = useTTSConfig();
+  const ttsEnabled = ttsConfig?.enabled ?? false;
   const spokenContent = useMemo(
     () =>
-      resolveMessageMacros(message.content, macroContext, {
-        randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}`,
-      }),
-    [macroContext, message.activeSwipeIndex, message.content, message.id],
+      ttsEnabled
+        ? resolveMessageMacros(message.content, macroContext, {
+            randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}`,
+          })
+        : message.content,
+    [macroContext, message.activeSwipeIndex, message.content, message.id, ttsEnabled],
   );
   const speech = useMessageSpeech(message, characterMap, personaInfo, spokenContent);
   const speechAction = speech.enabled

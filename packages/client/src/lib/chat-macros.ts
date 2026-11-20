@@ -271,13 +271,14 @@ export function resolveSpokenMessageMacros(
   const conversation = options.mode === "conversation";
   const allowed = options.chatCharacterIds?.length ? new Set(options.chatCharacterIds) : null;
   if (allowed && message.characterId) allowed.add(message.characterId);
-  const scoped = Array.from(options.characters).filter(([id]) => !allowed || allowed.has(id));
-  const ownCharacter = message.characterId ? scoped.find(([id]) => id === message.characterId)?.[1] : undefined;
-  const orderedIds = options.chatCharacterIds?.length ? options.chatCharacterIds : scoped.map(([id]) => id);
-  const firstChatCharacter = orderedIds
-    .map((id) => scoped.find(([candidate]) => candidate === id)?.[1])
-    .find((character): character is MacroCharacterData => !!character);
-  const primaryCharacter = ownCharacter ?? firstChatCharacter ?? scoped[0]?.[1];
+  const scoped = new Map(Array.from(options.characters).filter(([id]) => !allowed || allowed.has(id)));
+  // The message's own character, else the chat's first one (as the display picks {{char}}).
+  const orderedIds = options.chatCharacterIds?.length ? options.chatCharacterIds : scoped.keys();
+  let primaryCharacter = message.characterId ? scoped.get(message.characterId) : undefined;
+  for (const id of orderedIds) {
+    if (primaryCharacter) break;
+    primaryCharacter = scoped.get(id);
+  }
 
   let persona = options.persona ?? null;
   if (message.role === "user") {
@@ -294,8 +295,8 @@ export function resolveSpokenMessageMacros(
     if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) persona = snapshot as MacroPersonaData;
   }
   const userName = persona?.name ?? (conversation ? "User" : "You");
-  const characters = scoped.length
-    ? scoped.map(([id, character]) => ({ ...character, id }))
+  const characters = scoped.size
+    ? Array.from(scoped, ([id, character]) => ({ ...character, id }))
     : primaryCharacter
       ? [primaryCharacter]
       : [];
