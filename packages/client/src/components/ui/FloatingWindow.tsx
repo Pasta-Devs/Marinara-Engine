@@ -489,6 +489,7 @@ export function FloatingWindow({
   const [poppedOut, setPoppedOut] = useState<{ target: DetachedWindowTarget; host: HTMLElement } | null>(null);
   const poppedOutRef = useRef(poppedOut);
   const popOutPendingRef = useRef(false);
+  const mountedRef = useRef(false);
   // Popped out, it is a window in its own right, whatever the app's layout does meanwhile.
   const sheet = presentation === "sheet" && !poppedOut;
   const savedLayout = useFloatingWindowStore((state) => state.layouts[id]);
@@ -675,6 +676,11 @@ export function FloatingWindow({
         toast.error(t("window.controls.popOutBlocked"));
         return;
       }
+      // The window closed while its browser window was opening: nothing would ever close that one.
+      if (!mountedRef.current) {
+        closeDetachedWindow(target);
+        return;
+      }
       const host = target.popup.document.createElement("div");
       host.style.display = "contents";
       const next = { target, host };
@@ -706,15 +712,16 @@ export function FloatingWindow({
   }, []);
 
   // The window closing (or the app leaving it) takes its browser window along.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
       const current = poppedOutRef.current;
       if (!current) return;
       poppedOutRef.current = null;
       closeDetachedWindow(current.target);
-    },
-    [],
-  );
+    };
+  }, []);
 
   // The window opens where it was last left; its bubble's place is its own.
   const restoreFromBubble = (bubble: HTMLButtonElement) => {

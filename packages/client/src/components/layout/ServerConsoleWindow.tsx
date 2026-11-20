@@ -5,7 +5,7 @@
 // hand (NAS, VPS, Docker, a phone) can still see what the server logs. A window on a computer, a sheet
 // on a phone. It reads the server's in-memory buffer only while it is open (use-server-console-logs).
 // ──────────────────────────────────────────────
-import { memo, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Copy, Download, Eraser, ExternalLink, Terminal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -110,8 +110,18 @@ export function ServerConsoleWindow() {
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search).trim().toLowerCase();
   const [canOpenTermux, setCanOpenTermux] = useState(canOpenAndroidTermuxConsole);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickRef = useRef(true);
+  // Popping the window out (or putting it back) mounts a new log area; a reader who was at the bottom
+  // lands at the bottom there too. The next frame of the log's own window, once it is laid out there.
+  const attachScroll = useCallback((element: HTMLDivElement | null) => {
+    scrollRef.current = element;
+    const view = element?.ownerDocument.defaultView;
+    if (!element || !view) return;
+    view.requestAnimationFrame(() => {
+      if (stickRef.current) element.scrollTop = element.scrollHeight;
+    });
+  }, []);
   const [atBottom, setAtBottom] = useState(true);
 
   useEffect(() => {
@@ -259,7 +269,7 @@ export function ServerConsoleWindow() {
 
       <div className="relative min-h-0 flex-1">
         <div
-          ref={scrollRef}
+          ref={attachScroll}
           onScroll={handleScroll}
           className={cn(
             NEUTRAL_PANEL_SCROLL_AREA,
