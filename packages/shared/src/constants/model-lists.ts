@@ -369,6 +369,9 @@ export function resolveProviderReasoningEffort(args: {
   };
   if (isOpenAIGpt6AlwaysReasoningModel(model)) return nearest(["low", "medium", "high", "xhigh", "max"], "low");
   if (/^gpt-5\.[23]-codex(?:$|-)/u.test(bare)) return nearest(["low", "medium", "high", "xhigh"], "medium");
+  // Every Codex model always reasons; none of them takes "none". https://platform.openai.com/docs/models
+  if (/^gpt-5\.1-codex-max(?:$|-)/u.test(bare)) return nearest(["low", "medium", "high", "xhigh"], "medium");
+  if (isOpenAIAlwaysReasoningGpt5Model(bare)) return nearest(["low", "medium", "high"], "medium");
   if (/^gpt-5\.[45]-pro(?:$|-)/u.test(bare))
     return nearest(["medium", "high", "xhigh"], bare.startsWith("gpt-5.5") ? "high" : "medium");
   if (/^gpt-5(?:-(?:mini|nano))?(?:$|-\d)/u.test(bare)) return nearest(["low", "medium", "high"], "medium");

@@ -286,7 +286,11 @@ export function relevantGenerationParameters(context: GenerationParameterContext
     else if (isClaudeTemperatureOnlyModel(model)) {
       hide("topP", "frequencyPenalty", "presencePenalty");
       // Thinking refuses temperature and top_k on every route that reaches Anthropic, not only the native API.
-      if (effortActive || impliesProxyThinking(String(context.model ?? ""))) hide("temperature", "topK");
+      // An unset effort sends no thinking here, so only a stored level (or one the provider resolves) counts.
+      const thinkingSent =
+        context.reasoningEffort != null ||
+        !!resolveProviderReasoningEffort({ provider, model, reasoningEffort: context.reasoningEffort });
+      if (thinkingSent || impliesProxyThinking(String(context.model ?? ""))) hide("temperature", "topK");
     }
 
     // Claude thinking rejects temperature and top_k, so the request drops both (anthropic.provider.ts). A `-thinking`

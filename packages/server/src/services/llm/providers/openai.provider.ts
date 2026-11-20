@@ -1484,7 +1484,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   private supportsOpenAIReasoningDisable(model: string): boolean {
     const normalized = capabilityModelId(model).replace(/^openai\//, "");
-    if (normalized.includes("-pro") || /^gpt-5\.[23]-codex(?:$|-)/u.test(normalized)) return false;
+    if (normalized.includes("-pro") || isOpenAIAlwaysReasoningGpt5Model(normalized)) return false;
     if (isOpenAIGpt6Model(normalized)) return !isOpenAIGpt6AlwaysReasoningModel(normalized);
     const version = normalized.match(/^gpt-5\.(\d+)/)?.[1];
     return version !== undefined && Number(version) >= 1;

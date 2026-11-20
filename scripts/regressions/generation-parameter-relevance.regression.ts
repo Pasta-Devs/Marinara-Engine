@@ -654,6 +654,78 @@ try {
     assert.equal(body.effort, sent);
   }
 
+  // Claude (Subscription) 4.5 thinks with a fixed budget when thinking is on; Custom Parameters reach the SDK as set.
+  const sdkRaw = async (model: string, overrides: Record<string, unknown>) => {
+    sdkOptions = null;
+    try {
+      for await (const _chunk of new ClaudeSubscriptionProvider("", "").chat([{ role: "user", content: "test" }], {
+        model,
+        maxTokens: 4000,
+        stream: true,
+        ...overrides,
+      } as never)) {
+        // drain
+      }
+    } catch {
+      // The stub returns no content; only the SDK options matter.
+    }
+    return JSON.parse(sdkOptions ?? "{}");
+  };
+  {
+    const on = await sdkRaw("claude-opus-4-5", { enableThinking: true });
+    assert.deepEqual(on.thinking, { type: "enabled", budgetTokens: 4000 });
+    assert.equal(on.effort, undefined);
+    assert.equal((await sdkRaw("claude-sonnet-4-5", { enableThinking: false })).thinking, undefined);
+    assert.equal((await sdkRaw("claude-opus-4-5", { reasoningEffort: "none" })).thinking, undefined);
+    const custom = await sdkRaw("claude-opus-4-5", {
+      enableThinking: true,
+      customParameters: { maxThinkingTokens: 2000 },
+    });
+    assert.equal(custom.maxThinkingTokens, 2000);
+    assert.equal(custom.thinking, undefined);
+  }
+
+  // Codex models always reason: Off resolves to their default level, the panel offers no Off, and no "none" is sent.
+  for (const model of [
+    "gpt-5-codex",
+    "gpt-5.1-codex",
+    "gpt-5.1-codex-max",
+    "gpt-5.1-codex-mini",
+    "codex-mini-latest",
+  ]) {
+    assert.equal(resolveProviderReasoningEffort({ provider: "openai", model, reasoningEffort: null }), "medium", model);
+    assert.ok(
+      !reasoningEffortChoices({ provider: "openai", model }).some(
+        (choice: { value: unknown }) => choice.value === null,
+      ),
+      `${model} offers no Off`,
+    );
+    const body = JSON.parse(
+      await capture(
+        registry("openai", `${base}/v1`),
+        "openai",
+        model,
+        {
+          temperature: 0.7,
+          maxTokens: 777,
+          topP: 0.9,
+          topK: 40,
+          frequencyPenalty: 0,
+          presencePenalty: 0,
+          reasoningEffort: null,
+          verbosity: "low",
+          serviceTier: "flex",
+        },
+        false,
+      ),
+    );
+    assert.notEqual(body.reasoning?.effort ?? body.reasoning_effort, "none", `${model} sends no "none"`);
+  }
+  assert.equal(
+    resolveProviderReasoningEffort({ provider: "openai", model: "gpt-5.1-codex-max", reasoningEffort: "maximum" }),
+    "xhigh",
+  );
+
   // Claude 4.5/4.6 thinking refuses temperature and top_k on every route, not only the native API.
   for (const [provider, model] of [
     ["openrouter", "anthropic/claude-opus-4.5"],
@@ -663,6 +735,9 @@ try {
     const thinking = relevantGenerationParameters({ provider, model, reasoningEffort: "high" });
     assert.ok(!thinking.has("temperature") && !thinking.has("topK"), `${provider} ${model} thinking hides both`);
     const off = relevantGenerationParameters({ provider, model, reasoningEffort: null });
+    const unset = relevantGenerationParameters({ provider, model });
+    assert.ok(unset.has("temperature"), `${provider} ${model} with no stored effort keeps temperature`);
+    if (provider === "custom") assert.ok(unset.has("topK"), `${model} with no stored effort keeps top_k`);
     assert.ok(off.has("temperature"), `${provider} ${model} with thinking off keeps temperature`);
     if (provider === "custom") assert.ok(off.has("topK"), `${model} with thinking off keeps top_k`);
   }
