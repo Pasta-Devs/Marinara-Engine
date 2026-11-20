@@ -4,6 +4,7 @@
 import {
   applyRegexReplacement,
   isPatternSafe,
+  isRegexApplyMode,
   resolveRegexPatternLiteralMacros,
   type RegexApplyMode,
 } from "@marinara-engine/shared";
@@ -56,11 +57,7 @@ function isPromptOnly(value: unknown): boolean {
 }
 
 function getApplyMode(script: RegexScriptLike): RegexApplyMode {
-  return script.applyMode === "prompt" || script.applyMode === "display" || script.applyMode === "both"
-    ? script.applyMode
-    : isPromptOnly(script.promptOnly)
-      ? "prompt"
-      : "display";
+  return isRegexApplyMode(script.applyMode) ? script.applyMode : isPromptOnly(script.promptOnly) ? "prompt" : "display";
 }
 
 function parsePlacement(value: unknown): RegexPlacement[] {
@@ -136,11 +133,34 @@ export function applyRegexScriptsToPromptText(
   depth: number,
   options?: ApplyRegexScriptOptions,
 ): string {
+  return applyRegexScriptsForModes(text, scripts, placement, depth, ["prompt", "both"], options);
+}
+
+/**
+ * Rewrites a new message as it is saved, with the scripts set to change the saved message. They run
+ * once, on new messages only, like SillyTavern's scripts that alter neither display nor prompt.
+ */
+export function applyRegexScriptsToSavedMessage(
+  text: string,
+  scripts: RegexScriptLike[],
+  placement: RegexPlacement,
+  options?: ApplyRegexScriptOptions,
+): string {
+  return applyRegexScriptsForModes(text, scripts, placement, 0, ["message"], options);
+}
+
+function applyRegexScriptsForModes(
+  text: string,
+  scripts: RegexScriptLike[],
+  placement: RegexPlacement,
+  depth: number,
+  modes: RegexApplyMode[],
+  options?: ApplyRegexScriptOptions,
+): string {
   let result = text;
   for (const script of scripts) {
     if (!isEnabled(script.enabled)) continue;
-    const applyMode = getApplyMode(script);
-    if (applyMode !== "prompt" && applyMode !== "both") continue;
+    if (!modes.includes(getApplyMode(script))) continue;
     const placements = parsePlacement(script.placement);
     if (placements.length === 0) {
       warnInvalidPlacement(script);

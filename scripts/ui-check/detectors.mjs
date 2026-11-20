@@ -313,13 +313,15 @@ export function detectLayoutProblems(options = {}) {
       const x = rect.left + rect.width / 2;
       const y = rect.top + rect.height / 2;
       if (x < 0 || y < 0 || x >= vw || y >= vh) continue;
-      // Only what is inside its own scroller's visible part (a list scrolled past the edge is fine).
+      // Only what is inside its own scroller's visible part (a list scrolled past the edge is fine). A middle within
+      // a pixel of the scroller's edge is a row half scrolled out, not inside: the omnibar's last result, its middle exactly
+      // on the list's bottom edge at some scroll positions, read as covered by the panel below it (Nov 19).
       let inView = true;
       for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
         const style = styleOf(node);
         if (style.overflowX !== "visible" || style.overflowY !== "visible") {
           const r = node.getBoundingClientRect();
-          if (x < r.left || x > r.right || y < r.top || y > r.bottom) inView = false;
+          if (x < r.left + 1 || x > r.right - 1 || y < r.top + 1 || y > r.bottom - 1) inView = false;
         }
       }
       if (!inView) continue;
@@ -343,6 +345,24 @@ export function detectLayoutProblems(options = {}) {
         continue;
       // Something drawn over the button on purpose (a label wrapping it, its own tooltip).
       if (hit.closest("label")?.contains(el)) continue;
+      // Scrolled under its own scroller's sticky header (a chat's message under the chat's name pill): the header
+      // is that list's top edge, the same as a row scrolled past it. Only where the header itself is drawn: text
+      // spilling out of it over the list (a long name running out of the pill, Nov 19) still counts.
+      let sticky = hit;
+      let insideHeader = true;
+      while (sticky && sticky !== document.body && styleOf(sticky).position !== "sticky") {
+        const box = sticky.getBoundingClientRect();
+        if (x < box.left || x > box.right || y < box.top || y > box.bottom) insideHeader = false;
+        sticky = sticky.parentElement;
+      }
+      if (
+        sticky &&
+        sticky !== document.body &&
+        insideHeader &&
+        !sticky.contains(el) &&
+        sticky.parentElement?.contains(el)
+      )
+        continue;
       const over = hit.closest(
         "button, a, [role=button], [role=dialog], [role=menu], [role=listbox], header, nav, aside, section, div",
       );

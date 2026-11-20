@@ -62,6 +62,99 @@ import "../fixtures/regression-agent-definitions.js";
 
 const cases: RegressionCase[] = [
   {
+    name: "Off grammar bypasses copied-guidance cleanup and preserves an all-guidance prompt",
+    run() {
+      const guidance = "Use moody lighting and show long shadows in rain.";
+      const prompt = ` 1boy, ${guidance}\n1boy, black hair.  `;
+      assert.equal(removeCopiedPromptGuidance(prompt, [guidance], { promptMode: "off" }), prompt);
+      assert.equal(removeCopiedPromptGuidance(guidance, [guidance], { allowEmpty: true, promptMode: "off" }), guidance);
+      assert.equal(removeCopiedPromptGuidance(guidance, [guidance], { allowEmpty: true, promptMode: "hybrid" }), "");
+    },
+  },
+  {
+    name: "Off grammar preserves every source without cleanup for every image kind",
+    run() {
+      const styleProfiles = createDefaultImageStyleProfileSettings();
+      const profile = styleProfiles.profiles.find((candidate) => candidate.id === "off")!;
+      profile.promptMode = "off";
+      const prompt = " 2boys, 3girls, 1boy, black hair, 1boy, black hair,\n1girl, brown hair; no watermark.  ";
+      const negativePrompt = " bad hands, bad hands;\n[blurry:1.2]. ";
+      for (const kind of ["illustration", "portrait", "sprite", "selfie", "background", "avatar"] as const) {
+        const compiled = compileImagePrompt({
+          kind,
+          prompt,
+          negativePrompt,
+          styleProfiles,
+          styleProfileId: "off",
+          applyPromptModeToSourcePrompt: true,
+        });
+        assert.equal(compiled.prompt, prompt, kind);
+        assert.equal(compiled.negativePrompt, negativePrompt, kind);
+        assert.deepEqual(compiled.diagnostics, {
+          removedPositiveDuplicates: [],
+          removedNegativeDuplicates: [],
+          movedNegativeFragments: [],
+        });
+      }
+    },
+  },
+  {
+    name: "Off grammar assembles configured sources without dropping duplicates or reconciling tags",
+    run() {
+      const styleProfiles = normalizeImageStyleProfileSettings({
+        defaultProfileId: "raw",
+        profiles: [
+          {
+            id: "raw",
+            promptMode: "off",
+            positiveTags: "1boy, 1boy",
+            negativeTags: "bad hands, bad hands",
+            styleText: " House style. ",
+            subjectTags: { portrait: "1girl, woman" },
+          },
+        ],
+      });
+      assert.equal(styleProfiles.profiles.find((profile) => profile.id === "raw")?.promptMode, "off");
+      const input = {
+        kind: "portrait" as const,
+        prompt: "A man. He has black hair. He smiles.",
+        styleProfiles,
+        userPositive: "1boy, 1boy",
+        negativePrompt: "bad hands",
+        userNegative: "bad hands",
+        hardNegative: "bad hands",
+        imageDefaults: {
+          version: 1 as const,
+          service: "comfyui" as const,
+          seed: -1,
+          comfyui: { promptPrefix: "1boy, 1boy", negativePromptPrefix: "bad hands" },
+        } as NonNullable<Parameters<typeof compileImagePrompt>[0]["imageDefaults"]>,
+      };
+      const compiled = compileImagePrompt(input);
+      assert.equal(
+        compiled.prompt,
+        ["1boy, 1boy", "1boy, 1boy", "1girl, woman", " House style. ", input.prompt, "1boy, 1boy"].join(", "),
+      );
+      assert.equal(compiled.negativePrompt, "bad hands, bad hands, bad hands, bad hands, bad hands, bad hands");
+      const generated = compileImagePrompt({
+        ...input,
+        generatedStyle: "1boy, 1boy",
+        dedupeAgainstPrompt: "1boy, 1boy",
+        omitProfileSubjectTags: true,
+        omitProfileStyleText: true,
+      });
+      assert.equal(generated.prompt, ["1boy, 1boy", "1boy, 1boy", "1boy, 1boy", input.prompt, "1boy, 1boy"].join(", "));
+      const defaults = createDefaultImageStyleProfileSettings();
+      assert.equal(defaults.profiles.find((profile) => profile.id === "off")?.promptMode, "off");
+      const saved = normalizeImageStyleProfileSettings({ profiles: [{ id: "off", promptMode: "hybrid" }] });
+      assert.equal(saved.profiles.find((profile) => profile.id === "off")?.promptMode, "hybrid");
+      assert.equal(
+        compileImagePrompt({ kind: "illustration", prompt: "", styleProfiles: defaults, styleProfileId: "off" }).prompt,
+        "",
+      );
+    },
+  },
+  {
     name: "campaign art style controls and manual storyboard review remain wired end to end",
     run() {
       assert.equal(resolveGameSetupArtStylePrompt({ artStylePrompt: "  painterly fantasy  " }), "painterly fantasy");
@@ -288,11 +381,14 @@ const cases: RegressionCase[] = [
         "1girl, solo",
       );
 
-      // Every writer path cleans its own output before configured text is added.
+      // Writer paths pass the active grammar to cleanup before configured text is added.
       const routeSource = (path: string) =>
         readFileSync(new URL(`../../../packages/server/src/${path}`, import.meta.url), "utf8");
       const generateRoute = routeSource("routes/generate.routes.ts");
-      assert.match(generateRoute, /const writerPrompt = removeCopiedPromptGuidance\(imagePrompt, writerGuidance\);/u);
+      assert.match(
+        generateRoute,
+        /const writerPrompt = removeCopiedPromptGuidance\(imagePrompt, writerGuidance, \{ promptMode \}\);/u,
+      );
       assert.match(
         generateRoute,
         /let fullPrompt = writerStyle \? `\$\{writerStyle\}, \$\{writerPrompt\}` : writerPrompt;/u,
@@ -301,21 +397,21 @@ const cases: RegressionCase[] = [
       const retryRoute = routeSource("routes/generate/retry-agents-route.ts");
       assert.match(
         retryRoute,
-        /style: writerStyle,\s+imagePrompt: removeCopiedPromptGuidance\(imagePrompt, writerGuidance\),/u,
+        /style: writerStyle,\s+imagePrompt: removeCopiedPromptGuidance\(imagePrompt, writerGuidance, \{ promptMode \}\),/u,
       );
       assert.equal(retryRoute.match(/generatedStyle: writerStyle,/gu)?.length, 2);
       assert.match(
         routeSource("routes/gallery.routes.ts"),
-        /removeCopiedPromptGuidance\(\(promptResult\.content \?\? ""\)\.trim\(\), \[/u,
+        /removeCopiedPromptGuidance\(\s*\(promptResult\.content \?\? ""\)\.trim\(\),\s*\[styleGuidance, imageConn\.imagePromptInstructions, characterImageInstructions\],\s*\{ promptMode: findImageStyleProfile\(imageSettings\.styleProfiles, styleProfileId\)\.promptMode \},/u,
       );
       // The Conversation selfie writer strips leading reasoning first, then the copied guidance.
       assert.match(
         routeSource("services/generation/conversation-selfie-command-runtime.ts"),
-        /removeCopiedPromptGuidance\(answer, \[/u,
+        /removeCopiedPromptGuidance\(\s*answer,\s*\[styleGuidance, imgConnFull\.imagePromptInstructions, characterImageInstructions\],\s*\{ promptMode: findImageStyleProfile\(imageSettings\.styleProfiles, styleProfileId\)\.promptMode \},/u,
       );
       assert.match(
         routeSource("services/generation/illustrator-background-generation.ts"),
-        /sceneDescription: removeCopiedPromptGuidance\(plan\.prompt, \[styleInstruction, imagePromptInstructions\]\)/u,
+        /sceneDescription: removeCopiedPromptGuidance\(plan\.prompt, \[styleInstruction, imagePromptInstructions\], \{/u,
       );
 
       // Without a prompt writer, the profile's Style text still applies as written (#7318).
@@ -1304,11 +1400,16 @@ const cases: RegressionCase[] = [
     name: "image prompt compilation suppresses exact provider-visible duplicate inputs",
     run() {
       const styleProfiles = createDefaultImageStyleProfileSettings();
+      styleProfiles.profiles.push({
+        ...styleProfiles.profiles.find((profile) => profile.id === "off")!,
+        id: "saved-off",
+        promptMode: "hybrid",
+      });
       const generatedStyle = "Watercolor fantasy illustration, soft edges, warm palette";
       const appearance = "silver-furred fox-woman, persimmon kimono, debt-scroll tucked in her sleeve";
       const countValue = (prompt: string, value: string) => prompt.toLowerCase().split(value.toLowerCase()).length - 1;
 
-      for (const profile of styleProfiles.profiles) {
+      for (const profile of styleProfiles.profiles.filter((profile) => profile.promptMode !== "off")) {
         for (const kind of ["portrait", "background", "illustration"] as const) {
           const compiled = compileImagePrompt({
             kind,
@@ -1828,7 +1929,12 @@ const cases: RegressionCase[] = [
     name: "preserved image prompts keep positive sentences after inline negation (#8396)",
     run() {
       const styleProfiles = createDefaultImageStyleProfileSettings();
-      for (const profile of styleProfiles.profiles) {
+      styleProfiles.profiles.push({
+        ...styleProfiles.profiles.find((profile) => profile.id === "off")!,
+        id: "saved-off",
+        promptMode: "hybrid",
+      });
+      for (const profile of styleProfiles.profiles.filter((profile) => profile.promptMode !== "off")) {
         for (const kind of ["portrait", "sprite", "illustration", "background", "selfie"] as const) {
           for (const prompt of [
             "Blue eyes, no hat. Red coat",

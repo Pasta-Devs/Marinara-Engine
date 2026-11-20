@@ -35,6 +35,7 @@ import { resolveMessageMacros } from "../../lib/chat-macros";
 import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
 import { useTranslate } from "../../hooks/use-translate";
 import { useMessageSpeech } from "../../hooks/use-message-speech";
+import { useTTSConfig } from "../../hooks/use-tts";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { api } from "../../lib/api-client";
 import { chatKeys } from "../../hooks/use-chats";
@@ -237,16 +238,6 @@ export const ConversationMessage = memo(function ConversationMessage({
 
   // ── Translation ──
   const { translate, translations, translationSources, translating } = useTranslate();
-  const speech = useMessageSpeech(message, characterMap, personaInfo);
-  const speechAction = speech.enabled
-    ? {
-        speaking: speech.speaking,
-        loading: speech.loading,
-        hasContent: speech.hasContent,
-        disabled: !speech.hasContent || speech.busyElsewhere,
-        onToggle: speech.toggle,
-      }
-    : undefined;
   const translatedText = translations[message.id];
   const translationSource = translationSources[message.id];
   const isTranslating = !!translating[message.id];
@@ -467,6 +458,29 @@ export const ConversationMessage = memo(function ConversationMessage({
       scopedCharacterMap,
     ],
   );
+
+  // Speak reads the message with its macros resolved like the display, so {{user}} is spoken as the name.
+  const { data: ttsConfig } = useTTSConfig();
+  const ttsEnabled = ttsConfig?.enabled ?? false;
+  const spokenContent = useMemo(
+    () =>
+      ttsEnabled
+        ? resolveMessageMacros(message.content, macroContext, {
+            randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}`,
+          })
+        : message.content,
+    [macroContext, message.activeSwipeIndex, message.content, message.id, ttsEnabled],
+  );
+  const speech = useMessageSpeech(message, characterMap, personaInfo, spokenContent);
+  const speechAction = speech.enabled
+    ? {
+        speaking: speech.speaking,
+        loading: speech.loading,
+        hasContent: speech.hasContent,
+        disabled: !speech.hasContent || speech.busyElsewhere,
+        onToggle: speech.toggle,
+      }
+    : undefined;
 
   // #3164: seed display randomness by message identity — this site previously
   // passed no seed, so every {{random}}/{{roll}} re-rolled (Math.random) on

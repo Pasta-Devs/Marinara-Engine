@@ -14991,3 +14991,113 @@ input.ov-edhead__title:not(#ov-x) {
   line-height: 1.55;
   white-space: pre-wrap;
 }
+
+/* ─── Library > Settings profiles (2026-11-20): the list's mode filter, the New chats star, and the
+   profile editor's label-left rows (ProfilesViewer.tsx, ChatProfileBuilder's new-layout page). ─── */
+.ov-vw__filter {
+  flex: none;
+  height: 1.75rem;
+  max-width: 8.5rem;
+  padding: 0 0.375rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-vw__filter option {
+  background: var(--card);
+}
+.ov-prof-star {
+  display: inline-grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: 0.375rem;
+  color: var(--ov-dim);
+}
+.ov-prof-star.is-on {
+  color: var(--ov-accent-text);
+}
+.ov-prof-star.is-on svg {
+  fill: currentColor;
+}
+@media (hover: hover) {
+  .ov-prof-star:not(.is-on):hover {
+    color: var(--ov-text);
+  }
+}
+.ov-prof-ed__body {
+  display: grid;
+  width: 100%;
+  max-width: 46rem;
+  align-content: start;
+}
+.ov-prof-ed__body > .ov-eyebrow:first-child,
+.ov-prof-ed__group:first-child > .ov-eyebrow {
+  margin-top: 0.25rem;
+}
+.ov-prof-ed__field {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 12rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ov-prof-ed__field > :first-child {
+  min-width: 0;
+  flex: 1;
+}
+.ov-prof-ed__field > .ov-edbtn {
+  flex: none;
+}
+/* Agents, Tools, Lorebooks: the picked items list under the picker, Clear under them. */
+.ov-prof-ed__field.is-multi {
+  flex-direction: column;
+  align-items: stretch;
+}
+.ov-prof-ed__field.is-multi > .ov-edbtn {
+  align-self: flex-start;
+}
+.ov-prof-picker {
+  width: 100%;
+  min-width: 0;
+  min-height: 1.875rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--background) 70%, transparent);
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-prof-picker:focus-visible {
+  border-color: color-mix(in srgb, var(--ov-accent) 60%, var(--ov-line));
+  outline: none;
+}
+/* Connection and Persona pickers bring their own field classes; one height and corner for all rows. */
+.ov-prof-ed .ov-prof-picker.ov-prof-picker {
+  height: auto;
+  min-height: 1.875rem;
+  padding-block: 0;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+}
+:root[data-overhaul="mobile"] .ov-prof-ed .ov-prof-picker.ov-prof-picker {
+  min-height: 2.75rem;
+}
+.ov-prof-ed__summary {
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-prof-ed__summary.is-empty {
+  color: var(--ov-dim);
+}
+.ov-prof-ed__group > .ov-row__note {
+  margin: 0 0 0.25rem;
+}
+.ov-prof-ed__note {
+  margin: 0 0 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}

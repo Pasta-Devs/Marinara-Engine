@@ -98,9 +98,12 @@ const { createFileNativeDB } = await import("../../../packages/server/src/db/fil
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
+const { createAppSettingsStorage } = await import("../../../packages/server/src/services/storage/app-settings.storage.js");
 const {
+  CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
   characterDataSchema,
   createChatSummaryEntry,
+  DEFAULT_CHAT_SUMMARY_PROMPT,
   normalizeChatSummaryEntries,
   scopeCharacterSummary,
   resolveMacros,
@@ -221,7 +224,17 @@ try {
   assert(body.instructions?.includes('Omit "current situation", "open tensions"'));
   assert(body.max_output_tokens! >= 2048, "short retained memory does not starve reasoning of completion tokens");
   assert.equal(body.max_output_tokens, 8196, "automated summaries reserve at least 8,196 output tokens");
-  assert.match(body.instructions!, /Write 2–3 paragraphs/u);
+  assert(body.instructions?.includes(DEFAULT_CHAT_SUMMARY_PROMPT), "scene recaps send the default summary prompt");
+  assert.doesNotMatch(body.instructions!, /paragraph/u, "scene recaps ask for no fixed number of paragraphs");
+  assert(
+    body.instructions?.includes("Always return a recap, even when earlier summaries already cover these events."),
+    "a recap is required even when earlier summaries cover the scene",
+  );
+  assert(
+    !body.instructions?.includes('Return only valid JSON: {"summary":"historical recap"}') &&
+      body.instructions?.includes('Output: {"summary":"historical recap","audience":'),
+    "a scene recap states its JSON once, with the audience",
+  );
   assert.equal(
     body.reasoning?.effort,
     "low",
@@ -234,6 +247,21 @@ try {
     records.some((record) => record.kind === "excerpt" && record.content.includes("The frogs sang")),
     "only historical excerpts retain verbatim source text",
   );
+  // A prompt selected in Summaries is sent in place of the default.
+  const appSettings = createAppSettingsStorage(db);
+  const customPrompt = "CUSTOM_SUMMARY_PROMPT: recap the scene as a ballad.";
+  await appSettings.set(
+    CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
+    JSON.stringify({ templates: [{ id: "ballad", name: "Ballad", prompt: customPrompt }], activeTemplateId: "ballad" }),
+  );
+  const customStart = requests.length;
+  await memory.initialize((await createChat("Custom summary prompt")).id);
+  const customRequest = requests
+    .slice(customStart)
+    .find((item) => !item.instructions?.startsWith("Identify scene transitions"))!;
+  assert(customRequest.instructions?.includes(customPrompt), "scene recaps send the prompt selected in Summaries");
+  assert(!customRequest.instructions?.includes(DEFAULT_CHAT_SUMMARY_PROMPT), "a selected prompt replaces the default");
+  await appSettings.remove(CHAT_SUMMARY_PROMPT_SETTINGS_KEY);
   const sharedChat = await createChat("Two characters remember the same history");
   await chats.update(sharedChat.id, { characterIds: ["maukie", "powers"] });
   await chats.patchMetadata(sharedChat.id, {
@@ -305,7 +333,7 @@ try {
     const unrestrictedRequest = requests
       .slice(unrestrictedStart)
       .find((request) => !request.instructions?.startsWith("Identify scene transitions"))!;
-    assert(unrestrictedRequest.instructions?.includes("Summarize the supplied Roleplay events"));
+    assert(unrestrictedRequest.instructions?.includes(DEFAULT_CHAT_SUMMARY_PROMPT));
     assert(unrestrictedRequest.instructions?.includes("Write shared events as plain prose"));
     assert(!unrestrictedRequest.instructions?.includes("Keep character knowledge separate when POVs switch."));
   }
@@ -1430,7 +1458,7 @@ try {
     .flatMap((item) => (typeof item.content === "string" ? item.content : item.content.map((part) => part.text)))
     .join("\n");
   assert.equal(sceneInput, `#1 User: ${wholeScene}`, "the summary user message contains only its eligible scene");
-  assert.doesNotMatch(sceneSummaryRequest.instructions!, /appendable continuation|only NEW durable|ordered summaries/);
+  assert.doesNotMatch(sceneSummaryRequest.instructions!, /ordered summaries/, "one request has nothing to combine");
   assert.match(sceneSummaryRequest.instructions!, /Return only valid JSON/);
   assert(
     measureContextBudget(

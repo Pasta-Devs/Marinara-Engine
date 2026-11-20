@@ -7,6 +7,7 @@ import {
   applyRegexReplacement,
   formatTextQuotes,
   isPatternSafe,
+  isRegexApplyMode,
   resolveRegexPatternLiteralMacros,
   resolveScopedRegexMode,
   type RegexPlacement,
@@ -20,11 +21,7 @@ import { usePresets } from "./use-presets";
 /** How character-scoped regex scripts apply at display time (mirrors card CSS modes). */
 export type { ScopedRegexMode } from "@marinara-engine/shared";
 function getApplyMode(row: RegexScriptRow): RegexApplyMode {
-  return row.applyMode === "prompt" || row.applyMode === "display" || row.applyMode === "both"
-    ? row.applyMode
-    : row.promptOnly === "true"
-      ? "prompt"
-      : "display";
+  return isRegexApplyMode(row.applyMode) ? row.applyMode : row.promptOnly === "true" ? "prompt" : "display";
 }
 
 /**
@@ -119,22 +116,35 @@ function applyScripts(
     scopedMode?: ScopedRegexMode | null;
     characterId?: string | null;
     promptPresetId?: string | null;
+    /** An edited message being saved: only scripts that change the saved message run. */
+    savedMessage?: boolean;
   },
 ): string {
   let result = text;
   for (const script of scripts) {
     if (!script.enabledBool) continue;
     if (!script.placements.includes(placement)) continue;
-    // Prompt context is opt-in. Display context runs visual scripts only.
-    if (options?.promptOnly) {
+    // Prompt context is opt-in. Display context runs visual scripts only. User input runs once, as the
+    // message is sent and saved, so scripts that rewrite the saved message run there too; the server
+    // rewrites new AI replies, and an edited message runs them again here as it is saved.
+    if (options?.savedMessage) {
+      if (script.applyMode !== "message") continue;
+    } else if (options?.promptOnly) {
       if (script.applyMode !== "prompt" && script.applyMode !== "both") continue;
-    } else if (script.applyMode !== "display" && script.applyMode !== "both") {
+    } else if (
+      script.applyMode !== "display" &&
+      script.applyMode !== "both" &&
+      !(script.applyMode === "message" && placement === "user_input")
+    ) {
       continue;
     }
 
     if (options?.targetedOnly && script.targetCharacterIds.length === 0) continue;
     if (script.targetCharacterIds.length > 0) {
-      if (options?.promptOnly) {
+      if (options?.savedMessage) {
+        // An edited message: match the character who wrote it.
+        if (!options.characterId || !script.targetCharacterIds.includes(options.characterId)) continue;
+      } else if (options?.promptOnly) {
         // Prompt context: match the character whose prompt is being assembled.
         if (!options.targetCharacterId || !script.targetCharacterIds.includes(options.targetCharacterId)) continue;
       } else {
@@ -241,6 +251,25 @@ export function useApplyRegex() {
     [activePromptPresetId, parsedScripts, presetScopedRegexMode, quoteFormat],
   );
 
+  // An edited message, as it is saved: only the scripts that change the saved message, no quote formatting.
+  const applyToSavedMessage = useCallback(
+    (
+      text: string,
+      placement: RegexPlacement,
+      options?: { resolveMacros?: (value: string) => string; characterId?: string | null },
+    ) =>
+      applyScripts(text, parsedScripts, placement, {
+        ...options,
+        savedMessage: true,
+        promptPresetId: activePromptPresetId,
+      }),
+    [activePromptPresetId, parsedScripts],
+  );
+  const hasSavedMessageScripts = useMemo(
+    () => parsedScripts.some((script) => script.enabledBool && script.applyMode === "message"),
+    [parsedScripts],
+  );
+
   // Depth counts back from the newest message, so a new message changes it for every older one. Callers
   // that keep finished text per message only need to rebuild on a new message when some script uses it.
   const usesDepthRange = useMemo(
@@ -248,5 +277,5 @@ export function useApplyRegex() {
     [parsedScripts],
   );
 
-  return { applyToAIOutput, applyToUserInput, usesDepthRange };
+  return { applyToAIOutput, applyToUserInput, applyToSavedMessage, hasSavedMessageScripts, usesDepthRange };
 }

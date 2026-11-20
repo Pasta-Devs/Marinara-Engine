@@ -7,12 +7,44 @@ import {
   LEGACY_CLEAN_HTML_FIND_REGEX,
   shouldMigrateCleanHtmlPattern,
 } from "../../../packages/server/src/db/seed-regex.js";
-import { applyRegexScriptsToPromptText } from "../../../packages/server/src/services/regex/regex-application.js";
+import {
+  applyRegexScriptsToPromptText,
+  applyRegexScriptsToSavedMessage,
+} from "../../../packages/server/src/services/regex/regex-application.js";
 import { scopeIndividualGroupMessagesForTarget } from "../../../packages/server/src/services/generation/prompt-message-scope.js";
 import { type RegressionCase, runNamedCases } from "../fixtures/named-cases.js";
 import "../fixtures/regression-agent-definitions.js";
 
 const cases: RegressionCase[] = [
+  {
+    name: "Change the saved message scripts rewrite new messages once and skip prompt building",
+    run() {
+      const script = {
+        enabled: "true",
+        findRegex: "teh",
+        replaceString: "the",
+        flags: "g",
+        placement: '["ai_output"]',
+        applyMode: "message",
+      };
+      assert.equal(applyRegexScriptsToSavedMessage("teh cat", [script], "ai_output"), "the cat");
+      assert.equal(applyRegexScriptsToSavedMessage("teh cat", [script], "user_input"), "teh cat");
+      assert.equal(applyRegexScriptsToPromptText("teh cat", [script], "ai_output", 0), "teh cat");
+      assert.equal(
+        applyRegexScriptsToSavedMessage("teh cat", [{ ...script, applyMode: "both" }], "ai_output"),
+        "teh cat",
+      );
+      assert.equal(
+        createRegexScriptSchema.safeParse({
+          name: "fix",
+          findRegex: "teh",
+          placement: ["ai_output"],
+          applyMode: "message",
+        }).success,
+        true,
+      );
+    },
+  },
   {
     name: "regex safety accepts common patterns and rejects ambiguous quantified alternatives",
     run() {

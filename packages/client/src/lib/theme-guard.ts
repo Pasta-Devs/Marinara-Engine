@@ -1290,7 +1290,16 @@ export function checkProtectedChrome(sheets: HTMLStyleElement[]): ThemeGuardProb
     if (chatHost) points.set(chatHost, chatPoints);
     outset = outsetCovers(active, chatHost ? [...targets, { area: "chat", element: chatHost }] : targets, points);
   } finally {
+    // The measure revealed an auto-hidden top bar (F11). Hide it again in one step: with its usual slide-away
+    // transition it showed over the page for half a second after every check (Chat settings' Close button
+    // under it, Nov 19).
+    const autoHidden = document.querySelector('[data-component="TopBar"].is-autohide');
+    if (autoHidden) root.dataset.mariGuardSettle = "true";
     delete root.dataset.mariGuardMeasure;
+    if (autoHidden) {
+      void getComputedStyle(autoHidden).transform;
+      delete root.dataset.mariGuardSettle;
+    }
     if (tempPlates) delete root.dataset.mariTopBarArt;
     for (const [element, top, left] of scrolled) {
       if (element.scrollTop !== top) element.scrollTop = top;

@@ -1,7 +1,19 @@
 // ──────────────────────────────────────────────
 // UI overhaul: Library sections and how to open them
 // ──────────────────────────────────────────────
-import { BookOpen, FileText, Link, Puzzle, Regex, Settings, Sparkles, Users, VenetianMask, Wrench } from "lucide-react";
+import {
+  BookOpen,
+  FileText,
+  Link,
+  Puzzle,
+  Regex,
+  Settings,
+  SlidersHorizontal,
+  Sparkles,
+  Users,
+  VenetianMask,
+  Wrench,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useUIStore, type Panel } from "../../stores/ui.store";
 import { isOverhaulLook, useOverhaulStore, type LibrarySection } from "../../stores/overhaul.store";
@@ -20,6 +32,8 @@ export const LIBRARY_SECTIONS: readonly LibrarySectionEntry[] = [
   { id: "personas", label: "Personas", icon: VenetianMask, group: "library" },
   { id: "lorebooks", label: "Lorebooks", icon: BookOpen, group: "library" },
   { id: "presets", label: "Presets", icon: FileText, group: "library" },
+  // Chat settings profiles: kept and edited here, not only from inside an open chat.
+  { id: "profiles", label: "Settings profiles", icon: SlidersHorizontal, group: "library" },
   { id: "regex", label: "Regex scripts", icon: Regex, group: "library" },
   { id: "connections", label: "Connections", icon: Link, group: "library" },
   { id: "agents", label: "Agents", icon: Sparkles, group: "library" },
@@ -44,6 +58,7 @@ const CLOSED_EDITORS = {
   personaDetailId: null,
   lorebookDetailId: null,
   presetDetailId: null,
+  profileDetailId: null,
   connectionDetailId: null,
   agentDetailId: null,
   toolDetailId: null,
@@ -66,7 +81,8 @@ function showLibrarySection(section: LibrarySection) {
     overhaul.setLibraryPage(section);
   }
   // Keep the pane's highlight in step without reopening a closed pane.
-  if (section !== "regex" && section !== "tools") useUIStore.setState({ rightPanel: section as Panel });
+  if (section !== "regex" && section !== "tools" && section !== "profiles")
+    useUIStore.setState({ rightPanel: section as Panel });
 }
 
 /** The "Library" crumb: shows the Library pane beside whatever is open (nothing is closed). */

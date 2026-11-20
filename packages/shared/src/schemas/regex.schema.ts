@@ -6,7 +6,7 @@ import { partialInput } from "../utils/zod-input.js";
 import { isPatternSafe } from "../utils/regex-safety.js";
 
 export const regexPlacementSchema = z.enum(["ai_output", "user_input"]);
-export const regexApplyModeSchema = z.enum(["prompt", "display", "both"]);
+export const regexApplyModeSchema = z.enum(["prompt", "display", "both", "message"]);
 
 function hasValidRegexFlags(flags: string): boolean {
   try {

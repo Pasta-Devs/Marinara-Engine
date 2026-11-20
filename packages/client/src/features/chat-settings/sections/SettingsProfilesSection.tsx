@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { Download, Pencil, Plus, Save, Star, Trash2, Upload } from "lucide-react";
+import { Download, LibraryBig, Pencil, Plus, Save, Star, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
   chatFollowsChatPreset,
@@ -29,6 +29,8 @@ import { cn } from "../../../lib/utils";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
 import { ChatProfileBuilder } from "../../../components/chat/ChatProfileBuilder";
 import { ProfilePickerField } from "../../../components/chat/ProfilePickerField";
+import { useOverhaulLook } from "../../../stores/overhaul.store";
+import { openLibrarySection } from "../../../components/overhaul/library-navigation";
 
 interface SettingsProfilesSectionProps {
   order: number;
@@ -52,6 +54,7 @@ export function SettingsProfilesSection({
   setProfileBuilder,
 }: SettingsProfilesSectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const overhaul = useOverhaulLook();
   const { data: allChats } = useChats({ refetchOnMount: false });
 
   // ── Chat settings profiles (legacy API/type names still use "chat preset") ──
@@ -413,6 +416,21 @@ export function SettingsProfilesSection({
         >
           <Trash2 size="0.875rem" />
         </button>
+        {overhaul ? (
+          <>
+            <span className="mx-1 h-4 w-px shrink-0 bg-[var(--border)]" aria-hidden />
+            {/* New layout: every profile is listed and edited in Library > Settings profiles. */}
+            <button
+              type="button"
+              onClick={() => openLibrarySection("profiles")}
+              title={localizeUi("ui.overhaul.profiles.seeAllInLibrary")}
+              aria-label={localizeUi("ui.overhaul.profiles.seeAllInLibrary")}
+              className="flex-1 flex items-center justify-center rounded-md p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              <LibraryBig size="0.875rem" />
+            </button>
+          </>
+        ) : null}
       </div>
     </div>
   );

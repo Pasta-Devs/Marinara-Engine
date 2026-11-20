@@ -446,6 +446,17 @@ class TTSService {
   }
 
   /**
+   * Capability API 1.835: makes a line's clip into the shared audio cache without playing it, so a later speak or
+   * speakSequence with the same text, cacheKey, voice, speaker, tone and audioConnectionId starts at once. A clip
+   * already cached or being made is not made again, and playback is never touched. A line with no text or no cacheKey
+   * is skipped, since nothing could find its clip. `signal` stops only the wait unless abortCacheGenerationOnAbort.
+   */
+  async prepareAudio(text: string, options: TTSSpeakOptions = {}): Promise<void> {
+    if (!text.trim() || !options.cacheKey) return;
+    await this.getAudioBlob(text, options);
+  }
+
+  /**
    * Drop every cached clip belonging to these requests (primary keys and
    * aliases) so the next speak regenerates them instead of replaying audio
    * that was synthesized by an older provider or configuration.
