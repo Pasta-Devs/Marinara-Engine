@@ -2,6 +2,113 @@ import { clickTopbarPanel } from "./topbar-navigation.js";
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
+
+test("leaving an avatar preview while its image loads prevents a stale apply", async ({ page }) => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+    "base64",
+  );
+  const imageUrl = "/api/characters/avatar-owner/gallery/file/avatar.png";
+  let releaseBlob!: () => void;
+  let markRequested!: () => void;
+  const heldBlob = new Promise<void>((resolve) => {
+    releaseBlob = resolve;
+  });
+  const requestedBlob = new Promise<void>((resolve) => {
+    markRequested = resolve;
+  });
+  await page.route(`**${imageUrl}`, async (route) => {
+    if (route.request().resourceType() === "fetch") {
+      markRequested();
+      await heldBlob;
+    }
+    await route.fulfill({ contentType: "image/png", body: png });
+  });
+  await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+  await page.goto("/");
+  await prepareViteFixtureDependencies(page);
+  await page.evaluate(async (url) => {
+    const runtime = window as typeof window & {
+      __avatarApplyCalls?: number;
+      __avatarCloseCalls?: number;
+      __avatarApplySettled?: boolean;
+      __unmountAvatarEditFixture?: () => void;
+    };
+    const dependency = window.__viteFixtureDependencyUrl;
+    const { default: React } = await import(dependency("react"));
+    const { default: ReactDOM } = await import(dependency("react-dom_client"));
+    const { QueryClient, QueryClientProvider, MutationCache } = await import(dependency("@tanstack_react-query"));
+    const { EntityAvatarLightbox } = await import("/src/components/ui/EntityAvatarLightbox.tsx" as string);
+    runtime.__avatarApplyCalls = 0;
+    runtime.__avatarCloseCalls = 0;
+    runtime.__avatarApplySettled = false;
+    const mount = document.createElement("div");
+    document.body.append(mount);
+    const root = ReactDOM.createRoot(mount);
+    runtime.__unmountAvatarEditFixture = () => {
+      root.unmount();
+      mount.remove();
+    };
+    root.render(
+      React.createElement(
+        QueryClientProvider,
+        {
+          client: new QueryClient({
+            defaultOptions: { queries: { retry: false } },
+            mutationCache: new MutationCache({
+              onSettled: () => {
+                runtime.__avatarApplySettled = true;
+              },
+            }),
+          }),
+        },
+        React.createElement(EntityAvatarLightbox, {
+          owner: { kind: "character", id: "avatar-owner" },
+          image: {
+            id: "avatar-image",
+            filePath: "characters/avatar-owner/avatar.png",
+            url,
+            prompt: "",
+            provider: "",
+            model: "",
+            width: 1,
+            height: 1,
+            createdAt: "",
+            generation: null,
+          },
+          onUseAvatar: async () => {
+            runtime.__avatarApplyCalls! += 1;
+          },
+          onClose: () => {
+            runtime.__avatarCloseCalls! += 1;
+          },
+        }),
+      ),
+    );
+  }, imageUrl);
+  try {
+    await page.getByRole("button", { name: "Use as avatar", exact: true }).click();
+    await requestedBlob;
+    await page.evaluate(() => {
+      (window as typeof window & { __unmountAvatarEditFixture: () => void }).__unmountAvatarEditFixture();
+    });
+    releaseBlob();
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as typeof window & { __avatarApplySettled?: boolean }).__avatarApplySettled),
+      )
+      .toBe(true);
+    expect(
+      await page.evaluate(() => {
+        const runtime = window as typeof window & { __avatarApplyCalls?: number; __avatarCloseCalls?: number };
+        return { applied: runtime.__avatarApplyCalls, closed: runtime.__avatarCloseCalls };
+      }),
+    ).toEqual({ applied: 0, closed: 0 });
+  } finally {
+    releaseBlob();
+  }
+});
 
 test("sheet uploads persist on refresh without saving unrelated card drafts", async ({ page, request }) => {
   await page.route("**/api/app-settings/ui", (route) =>

@@ -159,6 +159,14 @@ let db = await getDB();
 const characters = createCharactersStorage(db);
 const characterGallery = createCharacterGalleryStorage(db);
 const personaGallery = createPersonaGalleryStorage(db);
+const { buildChatImageGenerationRecord, parseChatImageGenerationRecord } =
+  await import("../../packages/shared/dist/index.js");
+const galleryGeneration = buildChatImageGenerationRecord({
+  prompt: "generated gallery scene",
+  negativePrompt: "low quality",
+  connectionId: "image-connection",
+  seed: 98765,
+});
 const scratch: string[] = [];
 try {
   // ── Seed one character and one persona with ~64 MB galleries, a sprite and an avatar. ──
@@ -172,9 +180,18 @@ try {
   const twin = (await characters.create(characterDataSchema.parse({ name: "Big Export" })))!;
   const characterImages = await writeGallery("characters", character.id);
   scratch.push(characterImages.dir);
-  const firstImage = await characterGallery.create({ characterId: character.id, filePath: characterImages.paths[0]! });
+  const firstImage = await characterGallery.create({
+    characterId: character.id,
+    filePath: characterImages.paths[0]!,
+    generation: galleryGeneration,
+  });
   for (const filePath of characterImages.paths.slice(1)) {
-    await characterGallery.create({ characterId: character.id, filePath, prompt: "gallery prompt" });
+    await characterGallery.create({
+      characterId: character.id,
+      filePath,
+      prompt: "gallery prompt",
+      generation: galleryGeneration,
+    });
   }
   const storedData = JSON.parse(character.data);
   await characters.update(character.id, {
@@ -195,7 +212,8 @@ try {
   const persona = (await characters.createPersona("Big Persona", "Large persona gallery"))!;
   const personaImages = await writeGallery("personas", persona.id);
   scratch.push(personaImages.dir);
-  for (const filePath of personaImages.paths) await personaGallery.create({ personaId: persona.id, filePath });
+  for (const filePath of personaImages.paths)
+    await personaGallery.create({ personaId: persona.id, filePath, generation: galleryGeneration });
   await closeDB();
 
   // ── Control: holding every image at once, as the old exporter did, does not fit the heap. ──
@@ -290,6 +308,7 @@ try {
     ["happy.png"],
   );
   assertGallery(characterExport.data.gallery);
+  assert.deepEqual(characterExport.data.gallery[0].generation, galleryGeneration);
   assert.deepEqual(
     characterExport.data.gallery
       .filter((item: { isCharacterSheet?: boolean }) => item.isCharacterSheet)
@@ -304,6 +323,7 @@ try {
   assert.deepEqual(personaExport.data.spriteCatalog, { version: 1, folders: [], sprites: {} });
   assert.deepEqual(Object.keys(personaExport.data).slice(-2), ["gallery", "metadata"]);
   assertGallery(personaExport.data.gallery);
+  assert.deepEqual(personaExport.data.gallery[0].generation, galleryGeneration);
 
   const characterZip = new AdmZip(exports.characterZip!);
   assert.deepEqual(
@@ -342,6 +362,11 @@ try {
     assert.equal(galleryRows.length, IMAGE_COUNT, "import restores every gallery image");
     const folder = exported.type === "marinara_character" ? "characters" : "personas";
     for (const row of galleryRows) {
+      assert.deepEqual(
+        parseChatImageGenerationRecord(row.generation),
+        galleryGeneration,
+        "native imports retain the independent generation request",
+      );
       const bytes = await readFile(join(dataDir, "gallery", row.filePath));
       const filename = row.filePath.split("/").pop()!;
       assert.equal(sha(bytes), imageHashes.get(filename), `${filename} imports with its bytes`);

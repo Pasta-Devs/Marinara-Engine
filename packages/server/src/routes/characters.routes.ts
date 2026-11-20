@@ -5,6 +5,8 @@ import { embedCharacterBookImages, LOREBOOK_EXPORT_IMAGE_MAX_BYTES } from "../se
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
+  buildChatImageGenerationRecord,
+  parseChatImageGenerationRecord,
   canonicalizeLegacyPersonaInput,
   unassignCardFieldAlternatives,
   createCharacterSchema,
@@ -156,6 +158,7 @@ import {
   mutateAvatarReferencesAndCleanup,
   removeUnattachedAvatarFile,
 } from "../services/image/avatar-file-lifecycle.js";
+import { entityImageEditRoutes, resolveEntityImageGeneration } from "./entity-image-edit.routes.js";
 import { notFound } from "../utils/not-found.js";
 
 const CHARACTER_GALLERY_ROOT = join(DATA_DIR, "gallery", "characters");
@@ -939,6 +942,7 @@ async function copyGalleryImageToAvatar(
   entityKind: "character" | "persona",
   entityId: string,
   galleryFilePath: string,
+  sourceImageId: string,
 ): Promise<string> {
   const galleryRoot = join(DATA_DIR, "gallery");
   const sourcePath = resolveInside(galleryRoot, galleryFilePath);
@@ -947,7 +951,7 @@ async function copyGalleryImageToAvatar(
   if (!imageInfo) throw new Error("Unsupported or invalid gallery image");
 
   await mkdir(AVATAR_ROOT, { recursive: true });
-  const filename = `${entityKind}-${entityId}-${newId()}.${imageInfo.ext}`;
+  const filename = `${entityKind}-${entityId}.gallery.${sourceImageId}.${newId()}.${imageInfo.ext}`;
   const avatarFilePath = resolveInside(AVATAR_ROOT, filename);
   try {
     await writeFile(avatarFilePath, imageBuffer);
@@ -1027,6 +1031,9 @@ async function* galleryExportEntries(
       filename: storedFile.filename,
       data: dataUrl,
       prompt: img.prompt ?? "",
+      ...(parseChatImageGenerationRecord(img.generation)
+        ? { generation: parseChatImageGenerationRecord(img.generation) }
+        : {}),
       provider: img.provider ?? "",
       model: img.model ?? "",
       width: img.width ?? null,
@@ -1325,6 +1332,7 @@ export async function validateCharacterGalleryReferences<T extends Record<string
 }
 
 export async function charactersRoutes(app: FastifyInstance) {
+  await entityImageEditRoutes(app);
   const storage = createCharactersStorage(app.db);
   const catalog = createCharacterCatalog(app.db);
   const characterGallery = createCharacterGalleryStorage(app.db);
@@ -1905,7 +1913,17 @@ export async function charactersRoutes(app: FastifyInstance) {
       });
       return {
         image: `data:${result.mimeType};base64,${result.base64}`,
-        prompt: compiled.prompt,
+        prompt: result.effectivePrompt ?? compiled.prompt,
+        generation: buildChatImageGenerationRecord({
+          prompt: compiled.prompt,
+          negativePrompt: compiled.negativePrompt,
+          connectionId: result.effectiveConnection?.connectionId ?? conn.id,
+          seed: result.seed,
+        }),
+        width: result.width ?? width,
+        height: result.height ?? height,
+        provider: result.effectiveConnection?.provider ?? conn.provider,
+        model: result.effectiveConnection?.model || imgModel,
       };
     } catch (err) {
       if (err instanceof ImageAnimationUnsupportedError) {
@@ -2116,11 +2134,14 @@ export async function charactersRoutes(app: FastifyInstance) {
     const kept = isUnsafePathSegment(req.params.id)
       ? new Set<string>()
       : await listCleanUpOriginalIds(join(CHARACTER_GALLERY_ROOT, req.params.id));
-    return images.map((img) => ({
-      ...img,
-      hasCleanUpOriginal: kept.has(img.id),
-      url: `/api/characters/${req.params.id}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
-    }));
+    return Promise.all(
+      images.map(async (img) => ({
+        ...img,
+        generation: await resolveEntityImageGeneration(app.db, img),
+        hasCleanUpOriginal: kept.has(img.id),
+        url: `/api/characters/${req.params.id}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
+      })),
+    );
   });
 
   app.get<{ Params: { id: string } }>("/:id/gallery/clips", async (req, reply) => {
@@ -2512,12 +2533,20 @@ export async function charactersRoutes(app: FastifyInstance) {
     const prompt = fields?.prompt?.value ?? "";
     const provider = fields?.provider?.value ?? "";
     const model = fields?.model?.value ?? "";
+    const generationValue = fields?.generation?.value;
+    const generation =
+      generationValue && generationValue.length <= 800_000 ? parseChatImageGenerationRecord(generationValue) : null;
+    if (generationValue && !generation) {
+      await unlink(filePath).catch(() => undefined);
+      return reply.status(400).send({ error: "Invalid image generation metadata" });
+    }
     const width = fields?.width?.value ? parseInt(fields.width.value, 10) : undefined;
     const height = fields?.height?.value ? parseInt(fields.height.value, 10) : undefined;
 
     const image = await characterGallery.create({
       characterId: id,
       filePath: `characters/${id}/${filename}`,
+      generation,
       prompt,
       provider,
       model,
@@ -2651,7 +2680,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     let avatarPath: string | null = null;
     try {
-      avatarPath = await copyGalleryImageToAvatar("character", id, image.filePath);
+      avatarPath = await copyGalleryImageToAvatar("character", id, image.filePath, image.id);
       const updated = await storage.updateAvatar(id, avatarPath);
       if (!updated) {
         await removeUnattachedAvatarFile({ avatarPath });
@@ -3343,11 +3372,14 @@ export async function charactersRoutes(app: FastifyInstance) {
     const kept = isUnsafePathSegment(req.params.id)
       ? new Set<string>()
       : await listCleanUpOriginalIds(join(PERSONA_GALLERY_ROOT, req.params.id));
-    return images.map((img) => ({
-      ...img,
-      hasCleanUpOriginal: kept.has(img.id),
-      url: `/api/characters/personas/${req.params.id}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
-    }));
+    return Promise.all(
+      images.map(async (img) => ({
+        ...img,
+        generation: await resolveEntityImageGeneration(app.db, img),
+        hasCleanUpOriginal: kept.has(img.id),
+        url: `/api/characters/personas/${req.params.id}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
+      })),
+    );
   });
 
   app.get<{ Params: { id: string } }>("/personas/:id/gallery/clips", async (req, reply) => {
@@ -3743,6 +3775,13 @@ export async function charactersRoutes(app: FastifyInstance) {
     const prompt = fields?.prompt?.value ?? "";
     const provider = fields?.provider?.value ?? "";
     const model = fields?.model?.value ?? "";
+    const generationValue = fields?.generation?.value;
+    const generation =
+      generationValue && generationValue.length <= 800_000 ? parseChatImageGenerationRecord(generationValue) : null;
+    if (generationValue && !generation) {
+      await unlink(filePath).catch(() => undefined);
+      return reply.status(400).send({ error: "Invalid image generation metadata" });
+    }
     const width = fields?.width?.value ? parseInt(fields.width.value, 10) : undefined;
     const height = fields?.height?.value ? parseInt(fields.height.value, 10) : undefined;
 
@@ -3750,6 +3789,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       const image = await personaGallery.create({
         personaId: id,
         filePath: `personas/${id}/${filename}`,
+        generation,
         prompt,
         provider,
         model,
@@ -3819,7 +3859,7 @@ export async function charactersRoutes(app: FastifyInstance) {
 
     let avatarPath: string | null = null;
     try {
-      avatarPath = await copyGalleryImageToAvatar("persona", id, image.filePath);
+      avatarPath = await copyGalleryImageToAvatar("persona", id, image.filePath, image.id);
       // The previous crop was normalized against the old image's framing, so
       // it must not carry over to the replacement avatar.
       const updated = await enqueueUpdate(personaUpdateQueues, id, () =>

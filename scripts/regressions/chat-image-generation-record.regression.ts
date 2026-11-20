@@ -29,6 +29,11 @@ const { buildChatImageGenerationRecord, parseChatImageGenerationRecord } =
   await import("../../packages/shared/src/utils/chat-image-generation.js");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { galleryRoutes } = await import("../../packages/server/src/routes/gallery.routes.js");
+const { resolveEntityImageGeneration } = await import("../../packages/server/src/routes/entity-image-edit.routes.js");
+const { createCharacterGalleryStorage } =
+  await import("../../packages/server/src/services/storage/character-gallery.storage.js");
+const { createPersonaGalleryStorage } =
+  await import("../../packages/server/src/services/storage/persona-gallery.storage.js");
 const { readRecordedReferenceImages } =
   await import("../../packages/server/src/services/image/illustrator-references.js");
 const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
@@ -73,6 +78,8 @@ const db = await getDB();
 const app = Fastify();
 app.decorate("db", db);
 await app.register(galleryRoutes, { prefix: "/api/gallery" });
+const { charactersRoutes } = await import("../../packages/server/src/routes/characters.routes.js");
+await app.register(charactersRoutes, { prefix: "/api/characters" });
 
 try {
   // Builder trims, drops unusable character prompts and duplicate ids.
@@ -1174,10 +1181,183 @@ try {
     });
     assert.equal(pngSeedResp.statusCode, 200, pngSeedResp.body);
     assert.equal((novelAiRequests[2]?.parameters as Record<string, unknown>).seed, infillSavedRecord?.seed);
+
+    const nativeEntityOwner = await createCharactersStorage(db).create(
+      characterDataSchema.parse({ name: "Native edit owner" }),
+    );
+    assert.ok(nativeEntityOwner);
+    const nativeEntityGallery = createCharacterGalleryStorage(db);
+    const nativeEntitySource = await nativeEntityGallery.create({
+      characterId: nativeEntityOwner.id,
+      filePath: infillSavedRow.filePath,
+      prompt: "native source",
+      width: 1024,
+      height: 1024,
+      generation: buildChatImageGenerationRecord({ prompt: "native source", connectionId: novelAi.id, seed: 987 }),
+    });
+    assert.ok(nativeEntitySource);
+    const nativeEntityUrl = `/api/characters/${nativeEntityOwner.id}/gallery/${nativeEntitySource.id}/regenerate`;
+    const nativeEdit = await app.inject({
+      method: "POST",
+      url: nativeEntityUrl,
+      payload: { prompt: "native edit", editMode: "img2img", strength: 0.5, reuseSeed: true },
+    });
+    assert.equal(nativeEdit.statusCode, 200, nativeEdit.body);
+    assert.equal(novelAiRequests[3]?.action, "img2img");
+    assert.equal((novelAiRequests[3]?.parameters as Record<string, unknown>).seed, 987);
+    assert.equal(parseChatImageGenerationRecord(nativeEdit.json().generation)?.seed, 987);
+    const nativeInfill = await app.inject({
+      method: "POST",
+      url: nativeEntityUrl,
+      payload: {
+        prompt: "native inpaint",
+        editMode: "infill",
+        maskImage: `data:image/png;base64,${naiMask.toString("base64")}`,
+        strength: 0.9,
+      },
+    });
+    assert.equal(nativeInfill.statusCode, 200, nativeInfill.body);
+    assert.equal(novelAiRequests[4]?.action, "infill");
+    assert.equal((await nativeEntityGallery.listByCharacterId(nativeEntityOwner.id)).length, 3);
+    assert.equal((await nativeEntityGallery.getById(nativeEntitySource.id))?.prompt, "native source");
   } finally {
     fetchMock.mock.restore();
     dnsMock.mock.restore();
   }
+
+  // Entity galleries reuse the editor without replacing originals, active avatars, or chat attachments.
+  const entityCharacters = createCharactersStorage(db);
+  const entityCharacter = await entityCharacters.create(characterDataSchema.parse({ name: "Edit owner" }));
+  const entityPersona = await entityCharacters.createPersona("Edit persona", "A gallery owner");
+  assert.ok(entityCharacter && entityPersona);
+  const characterImages = createCharacterGalleryStorage(db);
+  const personaImages = createPersonaGalleryStorage(db);
+  const entityRecord = buildChatImageGenerationRecord({
+    prompt: "original scene",
+    negativePrompt: "bad hands",
+    connectionId: connection.id,
+    seed: 101,
+  });
+  const entitySource = await characterImages.create({
+    characterId: entityCharacter.id,
+    filePath: withRecord!.filePath,
+    prompt: "display scene",
+    generation: entityRecord,
+  });
+  assert.ok(entitySource);
+  const entityUrl = `/api/characters/${entityCharacter.id}/gallery/${entitySource.id}/regenerate`;
+  const wrongOwner = await app.inject({
+    method: "POST",
+    url: entityUrl.replace(entityCharacter.id, entityPersona.id),
+    payload: { prompt: "unrelated" },
+  });
+  assert.equal(wrongOwner.statusCode, 404);
+  const nonNativeEdit = await app.inject({
+    method: "POST",
+    url: entityUrl,
+    payload: { prompt: "edit scene", editMode: "img2img" },
+  });
+  assert.equal(nonNativeEdit.statusCode, 400);
+  const nonNativeSeed = await app.inject({
+    method: "POST",
+    url: entityUrl,
+    payload: { prompt: "edit scene", reuseSeed: true },
+  });
+  assert.equal(nonNativeSeed.statusCode, 400);
+  const strayEntityMask = await app.inject({
+    method: "POST",
+    url: entityUrl,
+    payload: { prompt: "edit scene", maskImage: png },
+  });
+  assert.equal(strayEntityMask.statusCode, 400);
+  const entityResponse = await app.inject({ method: "POST", url: entityUrl, payload: { prompt: "new entity scene" } });
+  assert.equal(entityResponse.statusCode, 200, entityResponse.body);
+  const editedEntity = entityResponse.json();
+  assert.notEqual(editedEntity.id, entitySource.id);
+  assert.equal(parseChatImageGenerationRecord(editedEntity.generation)?.negativePrompt, "bad hands");
+  assert.equal(parseChatImageGenerationRecord(editedEntity.generation)?.prompt, "new entity scene");
+  assert.equal((await characterImages.getById(entitySource.id))?.prompt, "display scene");
+  assert.equal((await entityCharacters.getById(entityCharacter.id))?.avatarPath, null);
+  assert.equal((await characterImages.listByCharacterId(entityCharacter.id)).length, 2);
+  const personaSource = await personaImages.create({
+    personaId: entityPersona.id,
+    filePath: editedEntity.filePath,
+    prompt: "persona original",
+    generation: entityRecord,
+  });
+  assert.ok(personaSource);
+  const personaResponse = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${entityPersona.id}/gallery/${personaSource.id}/regenerate`,
+    payload: { prompt: "persona edited" },
+  });
+  assert.equal(personaResponse.statusCode, 200, personaResponse.body);
+  assert.equal((await personaImages.listByPersonaId(entityPersona.id)).length, 2);
+  assert.equal((await entityCharacters.getPersona(entityPersona.id))?.avatarPath, null);
+  const personaApplied = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${entityPersona.id}/gallery/${personaSource.id}/avatar`,
+  });
+  assert.equal(personaApplied.statusCode, 200, personaApplied.body);
+  const appliedPersona = await entityCharacters.getPersona(entityPersona.id);
+  assert.ok(appliedPersona?.avatarPath?.includes(`.gallery.${personaSource.id}.`));
+  const reopenedAvatar = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${entityPersona.id}/avatar/edit-source`,
+  });
+  assert.equal(reopenedAvatar.statusCode, 200, reopenedAvatar.body);
+  assert.equal(
+    reopenedAvatar.json().id,
+    personaSource.id,
+    "reopening an applied gallery avatar reuses its source and generation settings",
+  );
+  assert.deepEqual(parseChatImageGenerationRecord(reopenedAvatar.json().generation), entityRecord);
+  assert.equal(
+    (await personaImages.listByPersonaId(entityPersona.id)).length,
+    2,
+    "reopening the same avatar does not add duplicate gallery rows",
+  );
+  const legacyEntity = await characterImages.create({
+    characterId: entityCharacter.id,
+    filePath: withRecord!.filePath,
+    sourceChatImageId: withRecord!.id,
+    prompt: "legacy",
+  });
+  assert.ok(legacyEntity);
+  assert.deepEqual(parseChatImageGenerationRecord(await resolveEntityImageGeneration(db, legacyEntity)), record);
+  assert.deepEqual(
+    parseChatImageGenerationRecord(await resolveEntityImageGeneration(db, editedEntity)),
+    parseChatImageGenerationRecord(editedEntity.generation),
+  );
+  assert.equal(await resolveEntityImageGeneration(db, { sourceChatImageId: "removed-source" }), null);
+  assert.equal(
+    parseChatImageGenerationRecord(await resolveEntityImageGeneration(db, editedEntity))?.negativePrompt,
+    "bad hands",
+  );
+
+  // Opening the current avatar for editing saves only a gallery source. It never applies an edit.
+  const avatarDirectory = join(fixtureDir, "avatars");
+  mkdirSync(avatarDirectory, { recursive: true });
+  const avatarBytes = await sharp({ create: { width: 64, height: 64, channels: 4, background: "#bb4488" } })
+    .png()
+    .toBuffer();
+  writeFileSync(join(avatarDirectory, "edit-source.png"), avatarBytes);
+  const avatarOwner = await entityCharacters.createPersona("Avatar owner", "", "/api/avatars/file/edit-source.png");
+  assert.ok(avatarOwner);
+  const bootstrap = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${avatarOwner.id}/avatar/edit-source`,
+  });
+  assert.equal(bootstrap.statusCode, 200, bootstrap.body);
+  const bootstrapImage = bootstrap.json();
+  assert.equal(bootstrapImage.width, 64);
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", bootstrapImage.filePath)), avatarBytes);
+  assert.equal((await entityCharacters.getPersona(avatarOwner.id))?.avatarPath, "/api/avatars/file/edit-source.png");
+  const noAvatar = await app.inject({
+    method: "POST",
+    url: `/api/characters/${entityCharacter.id}/avatar/edit-source`,
+  });
+  assert.equal(noAvatar.statusCode, 400);
 
   console.log("chat-image-generation-record: ok (record, storage round trip, regenerate route)");
 } finally {

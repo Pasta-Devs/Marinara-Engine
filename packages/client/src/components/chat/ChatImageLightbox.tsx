@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Download, Pin, RefreshCw } from "lucide-react";
 import { parseChatImageGenerationRecord, type GeneratedSceneVideo } from "@marinara-engine/shared";
 import { useGalleryImages, type ChatImage } from "../../hooks/use-gallery";
@@ -71,6 +71,9 @@ interface ChatImageLightboxProps {
   /** Opened from Professor Mari's window: the viewer joins her layer (the omnibar layer), above her window. */
   overMari?: boolean;
   onPin?: (image: ChatImage) => void;
+  /** Owner-specific actions follow the currently displayed result. */
+  actions?: (image: ChatImage) => ReactNode;
+  interactionDisabled?: boolean;
   onClose: () => void;
 }
 
@@ -85,6 +88,8 @@ export function ChatImageLightbox({
   extraMeta,
   overMari = false,
   onPin,
+  actions,
+  interactionDisabled = false,
   onClose,
 }: ChatImageLightboxProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -136,7 +141,7 @@ export function ChatImageLightbox({
   const loadingDetails = needsGalleryRow && gallery.isFetching && !gallery.data;
   const detailsFailed = needsGalleryRow && gallery.isError && !gallery.data;
   // Nothing to re-send for an upload without a prompt.
-  const canRegenerate = !!regenerate && !loadingDetails && !detailsFailed && !!prompt.trim();
+  const canRegenerate = !!regenerate && !loadingDetails && !detailsFailed && (!!prompt.trim() || !!regenerator);
   const galleryIndex = images?.findIndex((item) => item.id === activeImage.id) ?? -1;
 
   // Close is disabled while a regeneration runs, and the panel closes before `busy` clears: wait for
@@ -151,7 +156,7 @@ export function ChatImageLightbox({
       // Escape, back and outside taps first leave the regenerate panel, then the viewer.
       onClose={() => (editing ? closeEditing() : onClose())}
       onCloseButton={onClose}
-      closeDisabled={busy}
+      closeDisabled={busy || interactionDisabled}
       closeLabel={localizeUi("ui.chat.chatimagelightbox.closeImage")}
       closeButtonRef={closeButtonRef}
       overMari={overMari}
@@ -176,7 +181,7 @@ export function ChatImageLightbox({
         ) : undefined
       }
       items={
-        images && galleryIndex >= 0 && !editing && !busy
+        images && galleryIndex >= 0 && !editing && !busy && !interactionDisabled
           ? images.map((item) => ({
               url: item.url,
               alt: item.prompt || localizeUi("ui.chat.conversationmessagelightbox.expandedImage"),
@@ -192,9 +197,11 @@ export function ChatImageLightbox({
       }}
       actions={
         <>
+          {!editing && actions?.(image)}
           {canRegenerate && !editing && (
             <button
               type="button"
+              disabled={interactionDisabled}
               onClick={() => setEditing(true)}
               aria-label={localizeUi("ui.chat.chatimagelightbox.regenerateImage")}
               className={VIEWER_BUTTON_CLASS}

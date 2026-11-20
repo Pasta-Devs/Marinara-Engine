@@ -2,7 +2,7 @@
 // Storage: Character Gallery Images
 // ──────────────────────────────────────────────
 import { and, desc, eq, gte, isNull, lte } from "../../db/file-query.js";
-import type { GalleryTagKind } from "@marinara-engine/shared";
+import type { ChatImageGenerationRecord, GalleryTagKind } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { characterImages } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -12,6 +12,7 @@ export interface CreateCharacterImageInput {
   sourceChatImageId?: string | null;
   filePath: string;
   prompt?: string;
+  generation?: ChatImageGenerationRecord | null;
   provider?: string;
   model?: string;
   width?: number;
@@ -89,6 +90,7 @@ export function createCharacterGalleryStorage(db: DB) {
         sourceChatImageId: input.sourceChatImageId ?? null,
         filePath: input.filePath,
         prompt: input.prompt ?? "",
+        generation: input.generation ? JSON.stringify(input.generation) : null,
         provider: input.provider ?? "",
         model: input.model ?? "",
         width: input.width ?? null,

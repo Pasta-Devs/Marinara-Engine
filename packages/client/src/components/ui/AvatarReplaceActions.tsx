@@ -1,4 +1,4 @@
-import { Download, Wand2 } from "lucide-react";
+import { Download, Paintbrush, Wand2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Spinner } from "./Spinner";
 
@@ -8,6 +8,8 @@ interface AvatarReplaceActionsProps {
   generationAvailable: boolean;
   onUpload: () => void;
   onGenerate: () => void;
+  onEdit?: () => void;
+  editing?: boolean;
   /** "cover" words the buttons for a lorebook picture instead of an avatar. */
   kind?: "avatar" | "cover";
 }
@@ -18,6 +20,8 @@ export function AvatarReplaceActions({
   generationAvailable,
   onUpload,
   onGenerate,
+  onEdit,
+  editing = false,
   kind = "avatar",
 }: AvatarReplaceActionsProps) {
   const { t } = useTranslation();
@@ -75,6 +79,17 @@ export function AvatarReplaceActions({
           <span>{t("editor.avatar.generate")}</span>
         </button>
       </div>
+      {hasAvatar && onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={uploading || editing}
+          className="mari-chrome-control mari-chrome-control--small flex min-h-11 w-full items-center justify-center gap-1.5 text-xs disabled:opacity-60"
+        >
+          {editing ? <Spinner size="sm" /> : <Paintbrush size="0.875rem" />}
+          {t("images.entity.editAvatar")}
+        </button>
+      )}
     </section>
   );
 }

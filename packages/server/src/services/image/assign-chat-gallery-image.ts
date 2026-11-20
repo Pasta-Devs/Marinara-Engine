@@ -8,7 +8,7 @@
 // ──────────────────────────────────────────────
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { GalleryTagKind } from "@marinara-engine/shared";
+import { parseChatImageGenerationRecord, type GalleryTagKind } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import type { createCharacterGalleryStorage } from "../storage/character-gallery.storage.js";
 import type { createPersonaGalleryStorage } from "../storage/persona-gallery.storage.js";
@@ -18,6 +18,7 @@ import { readGalleryTagPayload } from "./gallery-tag-payload.js";
 export type ChatPictureToAssign = {
   filePath: string;
   prompt: string;
+  generation?: unknown;
   provider: string;
   model: string;
   width: number | null;
@@ -62,6 +63,7 @@ export async function assignChatPictureToGallery(input: {
       const fields = {
         filePath: image.filePath,
         prompt: image.prompt,
+        generation: parseChatImageGenerationRecord(image.generation),
         provider: image.provider,
         model: image.model,
         width: image.width ?? undefined,

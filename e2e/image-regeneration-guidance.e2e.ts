@@ -11,6 +11,141 @@ const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.u
 const requireServer = createRequire(new URL("../packages/server/package.json", import.meta.url));
 const sharp = requireServer("sharp");
 
+for (const owner of ["character", "persona"] as const) {
+  test(`${owner} gallery edits retain prompts and require explicit avatar selection`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    const collection = owner === "persona" ? "/api/characters/personas" : "/api/characters";
+    const fields = { name: `Quick edit ${owner}` };
+    const created = await request.post(collection, { data: owner === "character" ? { data: fields } : fields });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    const { id } = (await created.json()) as { id: string };
+    const path = `${collection}/${id}`;
+    try {
+      const png = await sharp({ create: { width: 320, height: 480, channels: 3, background: "#164e63" } })
+        .png()
+        .toBuffer();
+      const rows: ChatImage[] = [];
+      for (const prompt of ["Portrait before editing", "Portrait after editing"]) {
+        const uploaded = await request.post(`${path}/gallery/upload`, {
+          multipart: { prompt, file: { name: "portrait.png", mimeType: "image/png", buffer: png } },
+        });
+        expect(uploaded.ok()).toBeTruthy();
+        rows.push(await uploaded.json());
+      }
+      const [source, result] = rows as [ChatImage, ChatImage];
+      const generation = (prompt: string) =>
+        JSON.stringify(
+          buildChatImageGenerationRecord({
+            prompt,
+            connectionId: "entity-nai-e2e",
+            negativePrompt: "lowres",
+            seed: 123,
+          }),
+        );
+      source.generation = generation(source.prompt);
+      result.generation = generation(result.prompt);
+      expect((await request.post(`${path}/gallery/${source.id}/avatar`)).ok()).toBeTruthy();
+      const before = await (await request.get(path)).json();
+      await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+      await page.route("**/api/connections", (route) =>
+        route.fulfill({
+          json: [
+            {
+              id: "entity-nai-e2e",
+              name: "NovelAI test",
+              provider: "image_generation",
+              imageService: "novelai",
+              baseUrl: "https://image.novelai.net",
+              model: "nai-diffusion-5-full",
+              defaultForAgents: true,
+            },
+          ],
+        }),
+      );
+      await page.route(`**${path}/gallery`, (route) => route.fulfill({ json: [source] }));
+      const edits: Record<string, unknown>[] = [];
+      await page.route(`**${path}/gallery/${source.id}/regenerate`, async (route) => {
+        edits.push(route.request().postDataJSON());
+        await route.fulfill({ json: result });
+      });
+      await page.route(`**${path}/avatar/edit-source`, (route) => route.fulfill({ json: source }));
+      await seedUIState(page, {
+        hasCompletedOnboarding: true,
+        rightPanelOpen: false,
+        sidebarOpen: false,
+        appAccentPulseMode: false,
+      });
+      await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
+      await page.goto("/");
+      const openEditor = async (tab: string) => {
+        await page.evaluate(
+          async ({ owner, id, tab }) => {
+            const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+            if (owner === "persona") useUIStore.getState().openPersonaDetail(id, { initialTab: tab });
+            else useUIStore.getState().openCharacterDetail(id, { initialTab: tab });
+          },
+          { owner, id, tab },
+        );
+      };
+      await openEditor("gallery");
+      await page.locator(".mari-editor-shell").getByRole("img", { name: source.prompt, exact: true }).click();
+      const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+      await expect(viewer.getByText(source.prompt, { exact: true })).toBeVisible();
+      if (owner === "character") {
+        for (const visualTheme of ["default", "sillytavern"] as const) {
+          for (const theme of ["light", "dark"] as const) {
+            await page.evaluate(
+              async ({ visualTheme, theme }) => {
+                const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+                useUIStore.getState().setVisualTheme(visualTheme);
+                useUIStore.getState().setTheme(theme);
+              },
+              { visualTheme, theme },
+            );
+            await page.screenshot({
+              path: testInfo.outputPath(`entity-gallery-${visualTheme}-${theme}.png`),
+              animations: "disabled",
+            });
+          }
+        }
+      }
+      await viewer.getByRole("button", { name: "Regenerate image", exact: true }).click();
+      await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(source.prompt);
+      await viewer.getByRole("button", { name: "Edit image", exact: true }).click();
+      await expect(viewer.getByLabel("Inpainting mask brush canvas")).toBeVisible();
+      await viewer.getByRole("button", { name: "Apply edit", exact: true }).click();
+      await expect.poll(() => edits.length).toBe(1);
+      expect(edits[0]).toMatchObject({ prompt: source.prompt, editMode: "img2img", connectionId: "entity-nai-e2e" });
+      await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(result.prompt);
+      const unchanged = await (await request.get(path)).json();
+      expect(unchanged.avatarPath).toBe(before.avatarPath);
+      await page.keyboard.press("Escape");
+      const applied = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" && response.url().endsWith(`${path}/gallery/${result.id}/avatar`),
+      );
+      await viewer.getByRole("button", { name: "Use as avatar", exact: true }).click();
+      expect((await applied).ok()).toBeTruthy();
+      await expect.poll(async () => (await (await request.get(path)).json()).avatarPath).not.toBe(before.avatarPath);
+      await viewer.getByRole("button", { name: "Close image", exact: true }).click();
+      await openEditor("metadata");
+      // Both the header shortcut and Metadata action open a preview without applying anything.
+      const editAvatar = page.locator(".mari-editor-shell").getByRole("button", { name: "Edit avatar", exact: true });
+      await expect(editAvatar).toHaveCount(2);
+      for (const index of [0, 1]) {
+        await editAvatar.nth(index).click();
+        await expect(viewer.getByRole("button", { name: "Use as avatar", exact: true })).toBeVisible();
+        await viewer.getByRole("button", { name: "Close image", exact: true }).click();
+      }
+    } finally {
+      await request.delete(path);
+    }
+  });
+}
+
 const original = {
   prompt: "Harbor at dusk | fog along the pier",
   negativePrompt: "flat lighting, oversaturation",

@@ -121,8 +121,10 @@ import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { api, formatFirstApiValidationIssue } from "../../lib/api-client";
 import { downloadSpriteFile } from "../../lib/sprite-download";
 import { downloadUrlToDevice, shouldUseIosImageShare } from "../../lib/file-download";
-import { ImageDownloadButton } from "../ui/ImageDownloadButton";
-import { ImageViewer, VIEWER_BUTTON_CLASS } from "../ui/ImageViewer";
+import { EntityImageLightbox } from "../ui/EntityImageLightbox";
+import { EntityAvatarLightbox } from "../ui/EntityAvatarLightbox";
+import { usePrepareAvatarEdit, type EntityEditableImage } from "../../hooks/use-entity-image-edit";
+import type { GalleryImageUploadMetadata } from "../../hooks/use-characters";
 import { parseTrackerCardColorConfig, serializeTrackerCardColorConfig } from "../../lib/tracker-card-colors";
 import {
   getStatNameOccurrence,
@@ -495,7 +497,6 @@ function PersonaGalleryTab({
     leaveImageSelection,
     toggleImageSelection,
   } = useCardGallerySelection(images);
-  const lightboxIndex = images?.findIndex((item) => item.id === lightbox?.id) ?? -1;
 
   const handleUpload = useCallback(
     (files: File[]) => {
@@ -519,14 +520,14 @@ function PersonaGalleryTab({
       }
       try {
         await remove.mutateAsync(image.id);
-        if (lightbox?.id === image.id) setLightbox(null);
+        if (lightbox) setLightbox(null);
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : localizeUi("ui.personas.personagallerytab.failedToDeletePersonaImage"),
         );
       }
     },
-    [setLightbox, lightbox?.id, remove, localizeUi],
+    [setLightbox, lightbox, remove, localizeUi],
   );
 
   const handleDownloadImage = async (image: PersonaGalleryImage) => {
@@ -839,42 +840,14 @@ function PersonaGalleryTab({
       )}
 
       {lightbox && (
-        <ImageViewer
-          title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
+        <EntityImageLightbox
+          owner={{ kind: "persona", id: personaId }}
+          image={lightbox}
+          images={images}
           onClose={() => setLightbox(null)}
-          src={lightbox.url}
-          alt={lightbox.prompt || personaName || "Persona image"}
-          items={
-            images && lightboxIndex >= 0 ? images.map((item) => ({ url: item.url, alt: item.prompt || "" })) : undefined
-          }
-          index={lightboxIndex}
-          onIndexChange={(next) => images && setLightbox(images[next]!)}
-          actions={
-            <>
-              <button
-                type="button"
-                onClick={() => onSetAvatar(lightbox)}
-                disabled={editorBusy}
-                className={VIEWER_BUTTON_CLASS}
-                title={localizeUi("ui.personas.personagallerytab.setAsAvatar")}
-              >
-                {galleryAvatarPending ? <Spinner size="sm" /> : <User size="0.875rem" />}
-              </button>
-              <ImageDownloadButton
-                url={lightbox.url}
-                filename={lightbox.filePath.split(/[\\/]/).pop() || `gallery-${lightbox.id}.png`}
-              />
-              <button
-                type="button"
-                onClick={() => void handleDelete(lightbox)}
-                className={VIEWER_BUTTON_CLASS}
-                title={localizeUi("lorebook.editor.batch.delete")}
-                aria-label={localizeUi("lorebook.editor.batch.delete")}
-              >
-                <Trash2 size="0.875rem" />
-              </button>
-            </>
-          }
+          onUseImage={onSetAvatar}
+          onDelete={(image) => void handleDelete(image)}
+          busy={editorBusy}
         />
       )}
     </div>
@@ -1345,6 +1318,21 @@ export function PersonaEditor() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [avatarGeneratorOpen, setAvatarGeneratorOpen] = useState(false);
+  const [avatarEditImage, setAvatarEditImage] = useState<{ ownerId: string; image: EntityEditableImage } | null>(null);
+  const prepareAvatarEdit = usePrepareAvatarEdit({ kind: "persona", id: personaId ?? "" });
+  const openAvatarEditor = async () => {
+    if (!personaId || prepareAvatarEdit.isPending || mutationBusy) return;
+    const editingOwnerId = personaId;
+    const editingSession = editorSessionRef.current;
+    try {
+      const image = await prepareAvatarEdit.mutateAsync();
+      if (!isCurrentEditorSession(editingSession)) return;
+      setAvatarEditImage({ ownerId: editingOwnerId, image });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localizeUi("images.entity.openFailed"));
+    }
+  };
+
   const [characterSheetGeneratorOpen, setCharacterSheetGeneratorOpen] = useState(false);
   const [galleryCreateOpen, setGalleryCreateOpen] = useState(false);
   const tagGalleryCreation = useTagPersonaGalleryImage(personaId ?? "");
@@ -1539,14 +1527,14 @@ export function PersonaEditor() {
   );
 
   const handleGeneratedCharacterSheet = useCallback(
-    async (dataUrl: string) => {
+    async (dataUrl: string, metadata?: GalleryImageUploadMetadata) => {
       let file: File;
       try {
         file = dataImageUrlToFile(dataUrl, `${formData?.name || "persona"}-sheet`);
       } catch {
         throw new Error(localizeUi("ui.characters.charactersheet.generatedSaveFailed"));
       }
-      const uploaded = await uploadCharacterSheet.mutateAsync([file]);
+      const uploaded = await uploadCharacterSheet.mutateAsync({ files: [file], ...metadata });
       const image = uploaded[0];
       if (!image) throw new Error(localizeUi("ui.characters.charactersheet.generatedSaveFailed"));
       updateField("characterSheetImageId", image.id);
@@ -1762,7 +1750,7 @@ export function PersonaEditor() {
   };
 
   const handleGeneratedAvatar = useCallback(
-    async (avatarDataUrl: string) => {
+    async (avatarDataUrl: string, metadata?: GalleryImageUploadMetadata & { sourceImageId?: string }) => {
       if (!personaId) return;
       const mutationToken = beginMutation("avatar");
       // The generator modal can outlive the click that opened it, so a write that
@@ -1771,6 +1759,24 @@ export function PersonaEditor() {
       const uploadPersonaId = personaId;
       const session = editorSessionRef.current;
       try {
+        let sourceImageId = metadata?.sourceImageId;
+        if (!sourceImageId && metadata?.generation) {
+          const [saved] = await uploadCharacterSheet.mutateAsync({
+            files: [dataImageUrlToFile(avatarDataUrl, `persona-avatar`)],
+            ...metadata,
+          });
+          if (!saved) throw new Error(localizeUi("images.entity.openFailed"));
+          sourceImageId = saved.id;
+        }
+        if (!isCurrentEditorSession(session) || mutationTokenRef.current !== mutationToken) return;
+        if (sourceImageId) {
+          const updated = await setGalleryImageAsAvatar.mutateAsync(sourceImageId);
+          if (isCurrentEditorSession(session) && mutationTokenRef.current === mutationToken) {
+            adoptAuthoritativePersona(updated, { adoptAvatar: true });
+            toast.success(localizeUi("ui.personas.personaeditor.personaAvatarGenerated"));
+          }
+          return;
+        }
         const replaced = await replaceAvatar({
           avatar: avatarDataUrl,
           filename: `persona-${uploadPersonaId}-${Date.now()}.png`,
@@ -1785,7 +1791,19 @@ export function PersonaEditor() {
         finishMutation(mutationToken);
       }
     },
-    [formDataRef, avatarPreview, beginMutation, finishMutation, localizeUi, personaId, replaceAvatar],
+    [
+      formDataRef,
+      avatarPreview,
+      beginMutation,
+      finishMutation,
+      localizeUi,
+      personaId,
+      replaceAvatar,
+      uploadCharacterSheet,
+      setGalleryImageAsAvatar,
+      isCurrentEditorSession,
+      adoptAuthoritativePersona,
+    ],
   );
 
   /** Assigning a gallery image replaces the avatar, so it shares the editor mutex
@@ -2099,6 +2117,15 @@ export function PersonaEditor() {
           void api.download(`/characters/personas/${personaId}/export?format=${format}`);
         }}
       />
+      {avatarEditImage && avatarEditImage.ownerId === personaId && (
+        <EntityAvatarLightbox
+          key={`${personaId}-${avatarEditImage.image.id}`}
+          owner={{ kind: "persona", id: personaId! }}
+          image={avatarEditImage.image}
+          onUseAvatar={handleGeneratedAvatar}
+          onClose={() => setAvatarEditImage((current) => (current === avatarEditImage ? null : current))}
+        />
+      )}
       <AvatarGenerationModal
         open={avatarGeneratorOpen}
         title={localizeUi("ui.personas.personaeditor.generatePersonaAvatar")}
@@ -2160,6 +2187,8 @@ export function PersonaEditor() {
         avatarCropStyle={getAvatarCropStyle(formData.avatarCrop)}
         avatarActions={
           <EditorAvatarTileActions
+            onEdit={avatarPreview && personaId ? () => void openAvatarEditor() : undefined}
+            editing={prepareAvatarEdit.isPending || mutationBusy}
             generationAvailable={imageGenerationAvailable}
             onGenerate={() => {
               if (!mutationBusy) setAvatarGeneratorOpen(true);
@@ -2191,6 +2220,8 @@ export function PersonaEditor() {
               if (!mutationBusy) fileInputRef.current?.click();
             }}
             onRemoveAvatar={() => void handleAvatarRemove()}
+            onEditAvatar={avatarPreview && personaId ? () => void openAvatarEditor() : undefined}
+            avatarEditPreparing={prepareAvatarEdit.isPending}
             onGenerateAvatar={() => {
               if (!mutationBusy) setAvatarGeneratorOpen(true);
             }}
@@ -3451,6 +3482,8 @@ function PersonaMetadataTab({
   avatarPreview,
   onSelectAvatar,
   onGenerateAvatar,
+  onEditAvatar,
+  avatarEditPreparing,
   onRemoveAvatar,
   imageGenerationAvailable,
   avatarUploading,
@@ -3467,6 +3500,8 @@ function PersonaMetadataTab({
   avatarPreview: string | null;
   onSelectAvatar: () => void;
   onGenerateAvatar: () => void;
+  onEditAvatar?: () => void;
+  avatarEditPreparing: boolean;
   onRemoveAvatar: () => void;
   imageGenerationAvailable: boolean;
   avatarUploading: boolean;
@@ -3559,6 +3594,8 @@ function PersonaMetadataTab({
             generationAvailable={imageGenerationAvailable}
             onUpload={onSelectAvatar}
             onGenerate={onGenerateAvatar}
+            onEdit={onEditAvatar}
+            editing={avatarEditPreparing}
           />
         </fieldset>
       </div>
