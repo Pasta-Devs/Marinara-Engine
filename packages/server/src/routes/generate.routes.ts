@@ -14904,7 +14904,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       });
                       const writerPrompt = removeCopiedPromptGuidance(imagePrompt, writerGuidance, { promptMode });
                       const writerSources = buildIllustratorPromptSources({
-                        style: writerStyle,
+                        generatedStyle: writerStyle,
                         imagePrompt: writerPrompt,
                         imagePositivePrompt,
                         promptMode,

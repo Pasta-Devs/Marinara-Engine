@@ -62,6 +62,58 @@ import "../fixtures/regression-agent-definitions.js";
 
 const cases: RegressionCase[] = [
   {
+    name: "Illustrator injects the campaign style only when neither writer field carries it",
+    run() {
+      const styleProfiles = createDefaultImageStyleProfileSettings();
+      const profile = styleProfiles.profiles.find((entry) => entry.id === "off")!;
+      for (const mode of ["off", "hybrid"] as const) {
+        for (const [style, imagePrompt, gameArtStylePrompt, expectedPrompt, expectedCleanPrompt] of [
+          [
+            "ink wash",
+            " 1girl, WATERCOLOR WORLD. ",
+            "  watercolor world  ",
+            " 1girl, WATERCOLOR WORLD. ",
+            "1girl, WATERCOLOR WORLD.",
+          ],
+          [
+            "watercolor world, warm light",
+            " 1girl, sitting. ",
+            " watercolor world ",
+            " 1girl, sitting. ",
+            "1girl, sitting.",
+          ],
+          [
+            "ink wash",
+            " 1girl, sitting. ",
+            " watercolor world ",
+            "watercolor world,  1girl, sitting. ",
+            "watercolor world, 1girl, sitting.",
+          ],
+          ["ink wash", " 1girl, sitting. ", "   ", " 1girl, sitting. ", "1girl, sitting."],
+        ] as const) {
+          const sources = buildIllustratorPromptSources({
+            generatedStyle: style,
+            imagePrompt,
+            gameArtStylePrompt,
+            imagePositivePrompt: "",
+            promptMode: mode,
+          });
+          assert.equal(sources.generatedStyle, style);
+          assert.equal(sources.prompt, mode === "off" ? expectedPrompt : expectedCleanPrompt);
+          if (mode === "off") {
+            const compiled = compileImagePrompt({
+              kind: "illustration",
+              ...sources,
+              styleProfiles,
+              styleProfileId: profile.id,
+            });
+            assert.equal(compiled.prompt, `${style}, ${expectedPrompt}`);
+          }
+        }
+      }
+    },
+  },
+  {
     name: "Illustrator emits each writer field once while Off preserves authored repeats",
     run() {
       const styleProfiles = createDefaultImageStyleProfileSettings();
@@ -75,10 +127,10 @@ const cases: RegressionCase[] = [
         [style, prompt],
         [`${style}, ${style}`, prompt],
         [style, style],
-      ]) {
+      ] as const) {
         const sources = buildIllustratorPromptSources({
-          style: writerStyle!,
-          imagePrompt: imagePrompt!,
+          generatedStyle: writerStyle,
+          imagePrompt,
           imagePositivePrompt: "",
           promptMode: "off",
         });
@@ -92,6 +144,13 @@ const cases: RegressionCase[] = [
           compiled.prompt,
           [profile.positiveTags, profile.subjectTags.illustration, writerStyle, imagePrompt].join(", "),
         );
+        const fallback = compileImagePrompt({
+          kind: "illustration",
+          ...sources,
+          styleProfiles,
+          styleProfileId: "danbooru",
+        });
+        assert.equal(fallback.prompt.toLowerCase().split("emotionally charged atmosphere").length - 1, 1);
       }
     },
   },

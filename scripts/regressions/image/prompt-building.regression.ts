@@ -392,13 +392,13 @@ const cases: RegressionCase[] = [
       );
       assert.match(
         generateRoute,
-        /const writerSources = buildIllustratorPromptSources\(\{\s*style: writerStyle,\s*imagePrompt: writerPrompt,\s*imagePositivePrompt,\s*promptMode,\s*\}\);\s*let fullPrompt = writerSources\.prompt;/u,
+        /const writerSources = buildIllustratorPromptSources\(\{\s*generatedStyle: writerStyle,\s*imagePrompt: writerPrompt,\s*imagePositivePrompt,\s*promptMode,\s*\}\);\s*let fullPrompt = writerSources\.prompt;/u,
       );
       assert.equal(generateRoute.match(/generatedStyle: writerSources\.generatedStyle,/gu)?.length, 2);
       const retryRoute = routeSource("routes/generate/retry-agents-route.ts");
       assert.match(
         retryRoute,
-        /style: writerStyle,\s+imagePrompt: removeCopiedPromptGuidance\(imagePrompt, writerGuidance, \{ promptMode \}\),/u,
+        /generatedStyle: writerStyle,\s+imagePrompt: removeCopiedPromptGuidance\(imagePrompt, writerGuidance, \{ promptMode \}\),/u,
       );
       assert.equal(retryRoute.match(/generatedStyle: writerSources\.generatedStyle,/gu)?.length, 2);
       assert.match(

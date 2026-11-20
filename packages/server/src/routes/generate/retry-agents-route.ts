@@ -3851,7 +3851,7 @@ async function applyRetryResultEffects(args: {
             const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true, promptMode });
             const writerSources = buildIllustratorPromptSources({
               gameArtStylePrompt,
-              style: writerStyle,
+              generatedStyle: writerStyle,
               imagePrompt: removeCopiedPromptGuidance(imagePrompt, writerGuidance, { promptMode }),
               imagePositivePrompt,
               promptMode,

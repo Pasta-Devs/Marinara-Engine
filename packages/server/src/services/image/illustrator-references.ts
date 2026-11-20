@@ -187,23 +187,25 @@ export function illustratorPromptRequestsRenderedText(prompt: string): boolean {
 
 export function buildIllustratorPromptSources(args: {
   gameArtStylePrompt?: string;
-  style: string;
+  generatedStyle: string;
   imagePrompt: string;
   imagePositivePrompt: string;
   promptMode: ImagePromptMode;
 }): { prompt: string; generatedStyle: string } {
   const imagePrompt = args.promptMode === "off" ? args.imagePrompt : args.imagePrompt.trim();
-  const gameArtStyle = args.gameArtStylePrompt ?? "";
+  const gameArtStyle = (args.gameArtStylePrompt ?? "").trim();
+  const gameArtStyleKey = gameArtStyle.toLowerCase();
+  // Campaign style is a fallback instruction; the writer's own fields stay untouched in Off.
   const gameStylePrefix =
-    args.promptMode === "off"
-      ? gameArtStyle
-      : imagePrompt.toLowerCase().includes(gameArtStyle.trim().toLowerCase())
-        ? ""
-        : gameArtStyle.trim();
+    !gameArtStyle ||
+    imagePrompt.toLowerCase().includes(gameArtStyleKey) ||
+    args.generatedStyle.toLowerCase().includes(gameArtStyleKey)
+      ? ""
+      : gameArtStyle;
   return {
     prompt: [gameStylePrefix, imagePrompt, args.imagePositivePrompt].filter(Boolean).join(", "),
     // The compiler owns this source; embedding it in prompt would emit the field twice in Off.
-    generatedStyle: args.style,
+    generatedStyle: args.generatedStyle,
   };
 }
 
