@@ -500,7 +500,7 @@ export function ImageViewer({
           )}
         >
           {pictureActions && <div className="flex shrink-0 justify-center px-3 pb-2">{pictureActions}</div>}
-          {children && <div className="min-h-0 overflow-y-auto px-3 pb-2">{children}</div>}
+          {children && <div className="flex min-h-0 flex-col overflow-y-auto px-3 pb-2">{children}</div>}
         </div>
       )}
       {gallery && (

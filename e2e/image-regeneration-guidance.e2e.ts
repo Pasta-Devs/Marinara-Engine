@@ -164,6 +164,8 @@ for (const owner of ["character", "persona"] as const) {
       expect(applyButton && previewBounds && editPanelBounds).toBeTruthy();
       expect(applyButton!.y).toBeGreaterThanOrEqual(previewBounds!.y + previewBounds!.height);
       expect(applyButton!.y + applyButton!.height).toBeLessThanOrEqual(editPanelBounds!.y);
+      const editButtonBounds = await viewer.getByRole("button", { name: "Apply edit", exact: true }).boundingBox();
+      expect(editButtonBounds!.y + editButtonBounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
       await page.screenshot({ path: testInfo.outputPath("avatar-result-apply.png"), animations: "disabled" });
       const avatarApplied = page.waitForResponse(
         (response) =>
