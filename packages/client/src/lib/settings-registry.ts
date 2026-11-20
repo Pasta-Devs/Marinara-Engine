@@ -1763,6 +1763,16 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "always-show-message-buttons",
+    sectionId: "message-buttons",
+    labelKey: "ui.overhaul.messagebuttons.alwaysShow",
+    label: "Always show the buttons",
+    description: "Show every message's buttons all the time, not only when the mouse is over it.",
+    descriptionKey: "settings.search.alwaysShowMessageButtons.description",
+    aliases: ["hover", "hidden buttons", "message actions", "show buttons", "always visible", "mouse over"],
+    kind: "Toggle",
+  },
+  {
     id: "show-history-trim-notice",
     sectionId: "message-tools",
     labelKey: "settings.controls.showHistoryTrimNotice.label",

@@ -142,8 +142,11 @@ try {
   const prefill = "Sure! ";
 
   for (const [providerName, path, model, endsOnPrefill] of [
-    ["anthropic", "v1", "claude-sonnet-4-5", true],
-    ["google", "google", "gemini-3.5-flash", true],
+    // Thinking is on by default, and Claude 4.5 cannot prefill while thinking, so it asks for a continuation.
+    ["anthropic", "v1", "claude-sonnet-4-5", false],
+    ["google", "google", "gemini-3.1-flash-lite", true],
+    // The Gemini API routes 3.5 Flash to 3.6 Flash, which refuses a final model turn.
+    ["google", "google", "gemini-3.5-flash", false],
     ["openrouter", "openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct", true],
     ["anthropic", "v1", "claude-opus-5-5", false],
     ["google", "google", "gemini-4-argon", false],

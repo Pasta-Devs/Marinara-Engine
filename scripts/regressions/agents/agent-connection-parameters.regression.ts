@@ -582,9 +582,11 @@ try {
     const config = body.generationConfig ?? {};
     assert.equal(config.thinkingConfig?.thinkingLevel, "high");
     assert.equal(config.maxOutputTokens, 3000, "Gemini 3 counts thinking inside maxOutputTokens");
-    assert.equal(config.topP, 0.8);
-    assert.equal(config.topK, 40);
-    assert.equal(config.temperature, 0.3);
+    // Gemini 3 ignores temperature, top-p and top-k, so they are not sent.
+    // https://firebase.google.com/docs/ai-logic/model-parameters
+    assert.equal(config.topP, undefined);
+    assert.equal(config.topK, undefined);
+    assert.equal(config.temperature, undefined);
   }
 
   // ── Agents on the chat's own connection (Codex): the chat connection's saved level is sent ──────────────────────

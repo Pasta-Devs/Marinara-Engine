@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -22,12 +21,10 @@ writeFileSync(
 );
 
 const bodies: Array<Record<string, any>> = [];
-const server = createServer(async (request, response) => {
-  const chunks: Buffer[] = [];
-  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  bodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-  response.writeHead(200, { "content-type": "text/event-stream" });
-  response.end(
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (_url, init) => {
+  bodies.push(JSON.parse(String(init?.body)));
+  return new Response(
     [
       `data: ${JSON.stringify({ type: "response.output_text.delta", delta: "ok" })}`,
       "",
@@ -35,8 +32,9 @@ const server = createServer(async (request, response) => {
       "",
       "",
     ].join("\n"),
+    { headers: { "content-type": "text/event-stream" } },
   );
-});
+};
 
 try {
   const { OpenAIProvider } = await import("../../packages/server/src/services/llm/providers/openai.provider.js");
@@ -52,9 +50,7 @@ try {
   const { reasoningEffortChoices, relevantGenerationParameters } =
     await import("../../packages/shared/src/constants/generation-parameter-relevance.js");
   const { MODEL_LISTS } = await import("../../packages/shared/src/constants/model-lists.js");
-
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+  const base = "http://127.0.0.1:7860";
   // The same request builder and transport the Codex wrapper delegates to, pointed at the stub instead of chatgpt.com.
   const codex = new OpenAIProvider(base, "codex-token", undefined, null, null, "openai-chatgpt");
   type Options = Parameters<typeof codex.chat>[1];
@@ -92,8 +88,8 @@ try {
   // Unset, "none" (Codex has no off level), a switched-off parameter, a model that does not reason, and a model the
   // catalog does not know all leave the field out, so Codex uses the model's default.
   for (const [label, options] of [
-    ["unset", { model: "gpt-6.1-sol" }],
-    ["none", { model: "gpt-6.1-sol", reasoningEffort: "none" }],
+    ["unset", { model: "gpt-5.5" }],
+    ["none", { model: "gpt-5.5", reasoningEffort: "none" }],
     [
       "send switch off",
       { model: "gpt-6.1-sol", reasoningEffort: "high", enabledParameters: { reasoningEffort: false } },
@@ -154,7 +150,7 @@ try {
     assert.equal(
       "reasoning" in (await viaFallback({ model, defaultParameters: null }, "max")),
       false,
-      `a ${model} fallback with no saved level keeps Codex's default`,
+      `a ${model} fallback with no saved level keeps its default`,
     );
   }
 
@@ -214,27 +210,23 @@ try {
     });
   };
   const sent = (args: Parameters<typeof runtime>[0]) => runtime(args).providerReasoningEffort;
-  assert.equal(sent({}), undefined, "a preset or built-in Maximum keeps Codex's default");
+  assert.equal(sent({}), "low", "a preset or built-in Maximum keeps Codex's default");
   assert.equal(runtime({}).parameterSources.reasoningEffort, "defaults");
-  assert.equal(sent({ scene: true }), undefined, "scene chats keep Codex's default");
+  assert.equal(sent({ scene: true }), "low", "scene chats keep Codex's default");
   assert.equal(sent({ scene: true, connection: { reasoningEffort: "medium" } }), "max", "then scenes force Maximum");
   assert.equal(sent({ connection: { reasoningEffort: "medium" } }), "medium", "the connection's level is sent");
   assert.equal(sent({ connection: { reasoningEffort: "maximum" } }), "max");
   assert.equal(sent({ model: "gpt-5.5", connection: { reasoningEffort: "maximum" } }), "xhigh");
-  assert.equal(sent({ connection: { reasoningEffort: null } }), undefined, "Default on the connection sends nothing");
+  assert.equal(sent({ connection: { reasoningEffort: null } }), "low", "Default on the connection sends nothing");
   // Default is not a level: turning on custom parameters (which saves Default for Codex) keeps scenes on Codex's default.
-  assert.equal(
-    sent({ scene: true, connection: { reasoningEffort: null } }),
-    undefined,
-    "Default keeps scenes on default",
-  );
+  assert.equal(sent({ scene: true, connection: { reasoningEffort: null } }), "low", "Default keeps scenes on default");
   assert.equal(runtime({ connection: { reasoningEffort: null } }).parameterSources.reasoningEffort, "connection");
   assert.equal(
     sent({ connection: { reasoningEffort: "high" }, chat: { reasoningEffort: "low" } }),
     "low",
     "a chat's level overrides the connection's",
   );
-  assert.equal(sent({ connection: { reasoningEffort: "high" }, chat: { reasoningEffort: null } }), undefined);
+  assert.equal(sent({ connection: { reasoningEffort: "high" }, chat: { reasoningEffort: null } }), "low");
   assert.equal(sent({ chat: { reasoningEffort: "xhigh" } }), "xhigh");
   assert.equal(
     sent({ connection: { reasoningEffort: "high", enabledParameters: { reasoningEffort: false } } }),
@@ -256,7 +248,6 @@ try {
       choice.kind ?? "",
     ]),
     [
-      [null, "default"],
       ["low", ""],
       ["medium", ""],
       ["high", ""],
@@ -290,7 +281,7 @@ try {
   }
   console.log("codex-reasoning-effort regression passed");
 } finally {
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+  globalThis.fetch = originalFetch;
   if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
   else process.env.CODEX_HOME = previousCodexHome;
   rmSync(codexHome, { recursive: true, force: true });

@@ -18,9 +18,12 @@ import {
 } from "../base-provider.js";
 import {
   capabilityModelId,
+  rejectsClaudeAssistantPrefill,
+  resolveProviderReasoningEffort,
   findKnownModel,
   impliesProxyThinking,
   isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeNoSamplingModel,
   isClaudeOpus55Model,
   isClaudeSonnet55Model,
   isClaudeStrictRequestModel,
@@ -94,8 +97,15 @@ function clampAnthropicTemperature(value: number): number {
 }
 
 export function resolveAnthropicAdaptiveEffort(options: Pick<ChatOptions, "model" | "reasoningEffort">): string {
-  if (options.reasoningEffort === "none") return "low";
-  return options.reasoningEffort ?? (isClaudeOpus55Model(options.model) ? "medium" : "high");
+  if (options.reasoningEffort === undefined)
+    return isClaudeOpus55Model(options.model) || /claude-haiku-5[.-]5(?:$|-)/u.test(options.model) ? "medium" : "high";
+  return (
+    resolveProviderReasoningEffort({
+      provider: "anthropic",
+      model: options.model,
+      reasoningEffort: options.reasoningEffort,
+    }) ?? (options.reasoningEffort === "none" ? "low" : "high")
+  );
 }
 
 function resolveAdaptiveThinkingHeadroom(options: ChatOptions, visibleMaxTokens: number): number {
@@ -247,7 +257,7 @@ function formatAnthropicTools(tools: LLMToolDefinition[] | undefined): Array<Rec
   }));
 }
 
-function splitAnthropicSystemMessages(messages: ChatMessage[], model: string) {
+function splitAnthropicSystemMessages(messages: ChatMessage[], model: string, thinking = false) {
   const firstHistoryIndex = messages.findIndex((message) => message.role !== "system");
   const prefixEnd = firstHistoryIndex < 0 ? messages.length : firstHistoryIndex;
   const kept: ChatMessage[] = [];
@@ -298,7 +308,11 @@ function splitAnthropicSystemMessages(messages: ChatMessage[], model: string) {
   // Opus 5.5 and Sonnet 5.5 reject assistant prefill. Preserve the partial reply as history and
   // ask for only its continuation, which the caller appends to the same message.
   const lastMessage = chatMessages.at(-1);
-  if (isClaudeStrictRequestModel(model) && lastMessage?.role === "assistant" && !lastMessage.tool_calls?.length) {
+  if (
+    (rejectsClaudeAssistantPrefill(model) || thinking) &&
+    lastMessage?.role === "assistant" &&
+    !lastMessage.tool_calls?.length
+  ) {
     chatMessages.push({
       role: "user",
       content: ASSISTANT_CONTINUATION_PROMPT,
@@ -536,7 +550,11 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     // Internal streaming also keeps quiet tool rounds alive without a UI token sink.
     const useStream = options.stream ?? !!options.onToken;
-    const { systemMessages, chatMessages } = splitAnthropicSystemMessages(messages, options.model);
+    const { systemMessages, chatMessages } = splitAnthropicSystemMessages(
+      messages,
+      options.model,
+      options.enableThinking || impliesProxyThinking(options.model),
+    );
     // Marked messages replace the connection's own breakpoints, and cache even with its switch off.
     const marked = hasCacheBreakpoints([...systemMessages, ...chatMessages]);
     const enableCaching = (options.enableCaching ?? false) && !marked;
@@ -566,24 +584,34 @@ export class AnthropicProvider extends BaseLLMProvider {
     };
 
     const modelLower = options.model.toLowerCase();
-    const isAdaptiveOnly = isClaudeAdaptiveOnlyNoSamplingModel(options.model);
+    const isAdaptiveOnly =
+      isClaudeAdaptiveOnlyNoSamplingModel(options.model) || /claude-haiku-5[.-]5(?:$|-)/u.test(options.model);
     const shouldDisableThinking =
       this.shouldSendParameter(options, "reasoningEffort") &&
       options.reasoningEffort === "none" &&
       supportsAnthropicThinkingDisable(options.model);
-    if (isAdaptiveOnly || impliesProxyThinking(options.model)) stripAnthropicSamplingParameters(body);
+    if (isAdaptiveOnly || isClaudeNoSamplingModel(options.model) || impliesProxyThinking(options.model))
+      stripAnthropicSamplingParameters(body);
 
     if (shouldDisableThinking) {
       // Sonnet 5.5 rejects "disabled"; normalizeStrictClaudeParameters sends it as "between_tools".
       body.thinking = { type: "disabled" };
     } else if (
       this.shouldSendParameter(options, "reasoningEffort") &&
-      (options.enableThinking || (isAdaptiveOnly && options.captureReasoning) || isClaudeOpus55Model(options.model))
+      (options.enableThinking ||
+        isClaudeOpus55Model(options.model) ||
+        (isAdaptiveOnly &&
+          (options.captureReasoning ||
+            !!resolveProviderReasoningEffort({
+              provider: "anthropic",
+              model: options.model,
+              reasoningEffort: options.reasoningEffort,
+            }))))
     ) {
       if (isAdaptiveOnly) {
         applyAdaptiveThinkingConfig(body, options, maxTokens);
       } else {
-        const supportsAdaptive = /claude-(opus|sonnet)-4-[56]/.test(modelLower);
+        const supportsAdaptive = /claude-(opus|sonnet)-4[.-]6/.test(modelLower);
         if (supportsAdaptive) {
           applyAdaptiveThinkingConfig(body, options, maxTokens);
           stripAnthropicSamplingParameters(body);
@@ -839,7 +867,11 @@ export class AnthropicProvider extends BaseLLMProvider {
 
     const url = `${this.baseUrl}/messages`;
 
-    const { systemMessages, chatMessages } = splitAnthropicSystemMessages(messages, options.model);
+    const { systemMessages, chatMessages } = splitAnthropicSystemMessages(
+      messages,
+      options.model,
+      options.enableThinking || impliesProxyThinking(options.model),
+    );
 
     // Ensure alternating user/assistant pattern (Claude requirement), then
     // strip any trailing whitespace from the final assistant turn (Claude 400s
@@ -904,13 +936,17 @@ export class AnthropicProvider extends BaseLLMProvider {
     // Claude adaptive-only models reject sampling parameters (400 error).
     // Strip temperature, top_k, top_p regardless of thinking mode.
     const modelLower = options.model.toLowerCase();
-    const isAdaptiveOnly = isClaudeAdaptiveOnlyNoSamplingModel(options.model);
+    const isAdaptiveOnly =
+      isClaudeAdaptiveOnlyNoSamplingModel(options.model) || /claude-haiku-5[.-]5(?:$|-)/u.test(options.model);
     const shouldDisableThinking =
       !suppressModelParameters &&
       this.shouldSendParameter(options, "reasoningEffort") &&
       options.reasoningEffort === "none" &&
       supportsAnthropicThinkingDisable(options.model);
-    if ((isAdaptiveOnly || impliesProxyThinking(options.model)) && !suppressModelParameters) {
+    if (
+      (isAdaptiveOnly || isClaudeNoSamplingModel(options.model) || impliesProxyThinking(options.model)) &&
+      !suppressModelParameters
+    ) {
       stripAnthropicSamplingParameters(body);
     }
 
@@ -921,7 +957,15 @@ export class AnthropicProvider extends BaseLLMProvider {
     } else if (
       !suppressModelParameters &&
       this.shouldSendParameter(options, "reasoningEffort") &&
-      (options.enableThinking || (isAdaptiveOnly && options.captureReasoning) || isClaudeOpus55Model(options.model))
+      (options.enableThinking ||
+        isClaudeOpus55Model(options.model) ||
+        (isAdaptiveOnly &&
+          (options.captureReasoning ||
+            !!resolveProviderReasoningEffort({
+              provider: "anthropic",
+              model: options.model,
+              reasoningEffort: options.reasoningEffort,
+            }))))
     ) {
       const outputMaxTokens = maxTokens ?? 4096;
       if (isAdaptiveOnly) {
@@ -930,8 +974,8 @@ export class AnthropicProvider extends BaseLLMProvider {
         // can safely capture and render in View Thoughts.
         applyAdaptiveThinkingConfig(body, options, outputMaxTokens);
       } else {
-        // Opus/Sonnet 4.5 and 4.6: prefer adaptive thinking (budget_tokens deprecated).
-        const supportsAdaptive = /claude-(opus|sonnet)-4-[56]/.test(modelLower);
+        // Only Opus/Sonnet 4.6 take adaptive thinking; 4.5 uses a manual budget.
+        const supportsAdaptive = /claude-(opus|sonnet)-4[.-]6/.test(modelLower);
         if (supportsAdaptive) {
           applyAdaptiveThinkingConfig(body, options, outputMaxTokens);
           // Extended thinking rejects temperature and top_k

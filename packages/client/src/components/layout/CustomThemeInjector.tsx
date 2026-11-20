@@ -19,6 +19,7 @@ import { imageSamplesPending, preloadImageSamples, prepareThemeCss } from "../..
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { themeHasHtml, useThemeTemplates } from "../../lib/theme-template";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulStore } from "../../stores/overhaul.store";
 import { useThemeSlots } from "../../lib/theme-slots";
 import {
   detectThemeChatHooks,
@@ -167,6 +168,11 @@ export function CustomThemeInjector() {
   useEffect(() => {
     document.documentElement.dataset.phoneChatAvatars = phoneChatAvatars;
   }, [phoneChatAvatars]);
+  // Settings > Chatting > Message buttons > Always show (overhaul.css reads it; mouse only).
+  const messageButtonsAlways = useOverhaulStore((s) => s.messageButtonsAlways);
+  useEffect(() => {
+    document.documentElement.toggleAttribute("data-ov-msg-buttons-always", messageButtonsAlways);
+  }, [messageButtonsAlways]);
   // Security audit: text that pretends to be the app, an address outside the theme, an SVG with
   // code or a picture too big to open: the theme isn't applied at all (lib/theme-content-check.ts).
   const contentProblems = useMemo(() => {

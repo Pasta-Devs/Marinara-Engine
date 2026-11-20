@@ -1,6 +1,6 @@
 import {
   capabilityModelId,
-  isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeNoSamplingModel,
   normalizeThinkingTagPairs,
   resolveManagedGenerationParameters,
   resolveProviderReasoningEffort,
@@ -221,7 +221,7 @@ export function resolveGenerationParameters(args: GenerationParameterArgs): Reso
           ? undefined
           : "none"
         : (resolvedEffort ?? undefined);
-  const isClaudeNoSampling = isClaudeAdaptiveOnlyNoSamplingModel(modelLower);
+  const isClaudeNoSampling = isClaudeNoSamplingModel(modelLower);
   if (isClaudeNoSampling) {
     forceParameters("provider", {
       temperature: undefined,
@@ -236,7 +236,9 @@ export function resolveGenerationParameters(args: GenerationParameterArgs): Reso
     !isClaudeNoSampling &&
     (/claude-(opus|sonnet)-4-[56]/.test(modelLower) || /claude-(opus|sonnet)-4\.[56]/.test(modelLower));
   if (isClaudeTemperatureOnly) {
-    forceParameters("provider", { topP: undefined, topK: 0, frequencyPenalty: 0, presencePenalty: 0 });
+    // Opus/Sonnet 4.5 and 4.6 reject temperature and top_p together, so top_p goes. Top-k is still accepted with
+    // thinking off (https://platform.claude.com/docs/en/build-with-claude/extended-thinking); thinking drops it.
+    forceParameters("provider", { topP: undefined, frequencyPenalty: 0, presencePenalty: 0 });
   }
 
   const providerTopK = resolveProviderTopK(runtime.topK);

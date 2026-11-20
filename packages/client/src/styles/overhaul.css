@@ -5119,6 +5119,62 @@ input.ov-edhead__title:focus {
     pointer-events: auto;
   }
 }
+/* The bar under a reply hangs below the message's box, so the pointer can reach its lower part without being
+   over the message. Its buttons answer the pointer while hidden (the bar is only as wide as its buttons), so
+   pointing at any part of them shows them; a playtester could only bring them back from their top part. */
+@media (hover: hover) {
+  .ov-rpf.ov-rpf--below.ov-rpf--generate {
+    pointer-events: auto;
+  }
+}
+/* Settings > Chatting > Message buttons > "Always show the buttons": every message shows its buttons, not only
+   the one under the pointer (mouse only: phones and tablets use the hold menu). */
+@media (hover: hover) {
+  :root[data-ov-msg-buttons-always] .ov-rpf {
+    max-height: 2.5rem;
+    padding: 0.25rem 0 0.375rem;
+    border-top-color: color-mix(in srgb, currentColor 10%, transparent);
+    opacity: 1;
+  }
+  :root[data-ov-msg-buttons-always] .ov-rpf.ov-rpf--below {
+    max-height: none;
+    padding: 0.125rem 0.25rem 0;
+    border: 0;
+    pointer-events: auto;
+  }
+  :root[data-ov-msg-buttons-always] .ov-rpf.ov-rpf--tools {
+    padding: 0;
+    border: 0;
+  }
+  :root[data-ov-msg-buttons-always] :is(.ov-cvh, .ov-cvb) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* Conversation: the top icons sit flat on the message's first line (no pill on every message). */
+  :root[data-ov-msg-buttons-always] .ov-cvh {
+    /* Over a theme's own spot too (Dewglass lifts it above your balloons): shown on every message, a bar outside
+       the box lands on the line of the reply above's bottom icons and the two read as one jumbled row. */
+    top: var(--ov-follow-top, 0.125rem) !important;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+  :root[data-ov-msg-buttons-always] [data-message-id]:has(.ov-cvh) [data-mari-part="header"] {
+    padding-right: var(--ov-cvh-room, 0);
+  }
+  :root[data-ov-msg-buttons-always] [data-message-id]:has(.ov-cvh) [data-mari-part="header"] > [data-mari-part="time"] {
+    white-space: nowrap;
+  }
+  :root[data-ov-msg-buttons-always]
+    [data-message-id]:has(.ov-cvh):not(:has([data-mari-part="header"]))
+    .mari-message-content::before {
+    content: "";
+    float: right;
+    width: var(--ov-cvh-room, 0);
+    height: 1lh;
+  }
+}
 /* Hide the upstream always-on action row and number badge spacing in overhaul RP. */
 .ov-rpf-pop {
   position: fixed;
@@ -5255,7 +5311,8 @@ input.ov-edhead__title:focus {
 .ov-cvh {
   position: absolute;
   z-index: 20;
-  top: -0.875rem;
+  /* Desktop: on the message's first line, inside it (ConversationMessageActions placeTopBar). */
+  top: var(--ov-follow-top, -0.875rem);
   /* Lines up with the message's own box (lib/follow-bubble.ts), so bubble themes keep it on the bubble. */
   right: calc(var(--ov-follow-right, 1rem) + 0.25rem);
   display: flex;

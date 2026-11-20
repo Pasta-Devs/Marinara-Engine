@@ -58,6 +58,80 @@ export function capabilityModelId(model: string): string {
   return stripModifierSuffix(stripTagPrefix(model.trim().toLowerCase()));
 }
 
+/** Family checks ignore gateway vendor paths; requests keep the original id. */
+export function bareCapabilityModelId(model: string): string {
+  return capabilityModelId(model).replace(/^.*\//u, "");
+}
+
+/** Final assistant turns are rejected independently of sampling/thinking support.
+ * https://platform.claude.com/docs/en/build-with-claude/thinking */
+export function rejectsClaudeAssistantPrefill(model: string): boolean {
+  return (
+    isClaudeStrictRequestModel(model) ||
+    /claude-(?:(?:opus|sonnet)-4[.-][6-8]|(?:opus|sonnet|fable|mythos)-5|haiku-5[.-]5)(?:$|[-.:])/u.test(
+      capabilityModelId(model),
+    )
+  );
+}
+
+/** https://code.claude.com/docs/en/model-config */
+export function isClaudeManualThinkingModel(model: string): boolean {
+  const id = bareCapabilityModelId(model);
+  return (
+    id.startsWith("claude-") &&
+    !isClaudeAdaptiveOnlyNoSamplingModel(id) &&
+    !/claude-(?:opus|sonnet)-4[.-]6(?:$|-)|claude-haiku-5[.-]5(?:$|-)/u.test(id)
+  );
+}
+
+/** https://docs.cohere.com/docs/compatibility-api */
+export function isCohereReasoningModel(model: string): boolean {
+  return /^command-a-(?:reasoning|plus)-/u.test(bareCapabilityModelId(model));
+}
+
+/** These image models do not expose thinking configuration. https://ai.google.dev/gemini-api/docs/thinking */
+export function supportsGeminiThinking(model: string): boolean {
+  const id = capabilityModelId(model);
+  return (
+    !/gemini-(?:3-pro-image|2\.5-flash-image)/u.test(id) &&
+    (isGeminiThinkingLevelModel(id) || /gemini-2\.5|gemini-2\.0-flash-thinking/u.test(id))
+  );
+}
+
+export function usesGeminiMinimalDefault(model: string): boolean {
+  return /gemini-(?:3\.[15]-flash-lite|3\.1-flash-image)(?:$|[-:])/u.test(capabilityModelId(model));
+}
+
+/** https://developers.openai.com/api/docs/guides/latest-model */
+export function isOpenAIAlwaysNoSamplingModel(model: string): boolean {
+  const id = bareCapabilityModelId(model);
+  return (
+    /^gpt-5(?:-(?:mini|nano))?(?:$|-\d)/u.test(id) ||
+    id.startsWith("gpt-5.4-pro") ||
+    id.startsWith("gpt-5.5") ||
+    isOpenAIGpt56Model(id) ||
+    isOpenAIGpt6AlwaysReasoningModel(id)
+  );
+}
+
+/** Fixed samplers error on Kimi; MiMo Pro and MiniMax Flash ignore them.
+ * https://platform.kimi.ai/docs/api/models-overview */
+export function hasFixedCompatibleSampling(model: string, provider: string): boolean {
+  const id = bareCapabilityModelId(model);
+  return (
+    /^kimi-(?:k3|k2\.6)(?:$|[-:])/u.test(id) ||
+    /^mimo-v2\.5-pro(?:$|[-:])/u.test(id) ||
+    (provider === "nanogpt" && isNanoGptMiniMaxM31FlashModel(model))
+  );
+}
+
+export function lacksCompatibleReasoningEffort(model: string, provider?: string | null): boolean {
+  // NanoGPT turns reasoning_effort into each model's own thinking switch ("none" off, any other value on).
+  // https://docs.nano-gpt.com/api-reference/endpoint/chat-completion
+  if (String(provider ?? "").toLowerCase() === "nanogpt") return false;
+  return /^(?:kimi-k2\.6|mimo-v2\.5-pro)(?:$|[-:])/u.test(bareCapabilityModelId(model));
+}
+
 /**
  * Proxy ids that make the proxy turn thinking on whatever the request says: new-api's `-thinking`,
  * `-thinking-<budget>`, effort tails (`-high`) and `@thinking:<on|budget>`, AiHubMix `-think`, CLIProxyAPI
@@ -95,7 +169,8 @@ export function impliesProxyThinking(model: string): boolean {
   );
 }
 
-const CLAUDE_ADAPTIVE_ONLY_OPUS_RE = /claude-opus-4-(?:[7-9]|\d{2,})/;
+// Opus 4.7 and later Opus 4 releases, but not the dated Opus 4 id (claude-opus-4-20250514), which still samples.
+const CLAUDE_ADAPTIVE_ONLY_OPUS_RE = /claude-opus-4-(?:[7-9]|[1-9]\d)(?!\d)/;
 
 /** Native Claude ID and the dotted ID used by OpenRouter/compatible gateways. */
 export function isClaudeOpus55Model(model: string): boolean {
@@ -132,13 +207,39 @@ export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
   );
 }
 
-export function supportsXhighReasoningEffort(model: string): boolean {
+/**
+ * Claude models that answer non-default temperature, top-p or top-k with a 400 on every request: the adaptive-only
+ * models plus Haiku 5.5 and Mythos Preview. Only the sampling rules use this; thinking keeps its own checks.
+ * https://platform.claude.com/docs/en/build-with-claude/extended-thinking
+ */
+export function isClaudeNoSamplingModel(model: string): boolean {
   const normalized = capabilityModelId(model);
+  return (
+    isClaudeAdaptiveOnlyNoSamplingModel(normalized) ||
+    /claude-haiku-5(?:$|[-.])/u.test(normalized) ||
+    normalized.includes("claude-mythos-preview")
+  );
+}
+
+/**
+ * Claude Opus/Sonnet 4.5 and 4.6: temperature and top_p are refused together, so top_p goes. With thinking on they
+ * also refuse a non-default temperature and top_k, on every route that forwards the request to Anthropic.
+ * https://platform.claude.com/docs/en/build-with-claude/extended-thinking
+ */
+export function isClaudeTemperatureOnlyModel(model: string): boolean {
+  const normalized = capabilityModelId(model);
+  return !isClaudeNoSamplingModel(normalized) && /claude-(?:opus|sonnet)-4[-.][56](?!\d)/u.test(normalized);
+}
+
+export function supportsXhighReasoningEffort(model: string): boolean {
+  const normalized = bareCapabilityModelId(model);
   return (
     isOpenAIGpt6Model(normalized) ||
     normalized.startsWith("gpt-5.6") ||
     normalized.startsWith("gpt-5.5") ||
     normalized.startsWith("gpt-5.4") ||
+    normalized.startsWith("gpt-5.2") ||
+    normalized.startsWith("gpt-5.3-codex") ||
     /^grok-4\.[67](?:$|-)/.test(normalized.replace(/^x-ai\//, "")) ||
     normalized === "grok-4.20-multi-agent" ||
     isClaudeAdaptiveOnlyNoSamplingModel(normalized)
@@ -155,14 +256,14 @@ export function isZaiMaxReasoningEffortModel(model: string): boolean {
 }
 
 /**
- * Native Mistral models whose `reasoning_effort` can be set. They accept only "high" and "none". Other Mistral models
- * (Magistral, older releases) are not listed as taking it, so they get no effort and keep their own behaviour.
+ * Large 4 takes low/medium/high; Small 4 and Medium 3.5 take high/none. Other Mistral models keep their default.
  * https://docs.mistral.ai/capabilities/reasoning
  */
 export function isMistralAdjustableReasoningModel(model: string): boolean {
   const normalized = capabilityModelId(model);
   return (
     normalized === "mistral-small-latest" ||
+    /^mistral-small-26(?:0[3-9]|1[0-2])(?:$|-)/u.test(normalized) ||
     /^mistral-large-4(?:$|[-.])/u.test(normalized) ||
     /^mistral-medium-3[-.]5(?:$|[-.])/u.test(normalized)
   );
@@ -182,7 +283,7 @@ export function isNanoGptMiniMaxM31FlashModel(model: string): boolean {
 }
 
 export function isOpenAIGpt56Model(model: string): boolean {
-  return capabilityModelId(model).startsWith("gpt-5.6");
+  return bareCapabilityModelId(model).startsWith("gpt-5.6");
 }
 
 export function isOpenAIGpt6AstraModel(model: string): boolean {
@@ -208,6 +309,22 @@ export function isOpenAIGpt6AlwaysReasoningModel(model: string): boolean {
   );
 }
 
+/**
+ * OpenAI models that always reason and never take temperature or top-p: GPT-5, GPT-5 mini and GPT-5 nano ("older GPT-5
+ * models ... that include these fields will raise an error"), and the Codex models, which have no effort "none".
+ * GPT-5 Chat is a chat model and keeps sampling.
+ * https://developers.openai.com/api/docs/guides/latest-model
+ * https://developers.openai.com/api/docs/models/gpt-5.3-codex
+ */
+export function isOpenAIAlwaysReasoningGpt5Model(model: string): boolean {
+  const normalized = capabilityModelId(model).replace(/^openai\//u, "");
+  return (
+    /^gpt-5(?:-mini|-nano)?(?:-\d{4}-\d{2}-\d{2})?$/u.test(normalized) ||
+    /^gpt-5(?:\.\d+)?-codex(?:$|-)/u.test(normalized) ||
+    normalized.startsWith("codex-mini")
+  );
+}
+
 export function isOpenAIGpt56SolProAlias(model: string): boolean {
   return model.toLowerCase() === "gpt-5.6-sol-pro";
 }
@@ -225,71 +342,103 @@ export function resolveProviderReasoningEffort(args: {
   reasoningEffort: StoredReasoningEffort | undefined;
 }): ProviderReasoningEffort {
   const providerLower = args.provider.toLowerCase();
-  if (providerLower === "nanogpt" && isNanoGptMiniMaxM31FlashModel(args.model)) {
-    if (args.reasoningEffort === undefined) return null;
-    // MiniMax M3.1 Flash always reasons, so use Low for a saved Off.
-    if (args.reasoningEffort === null || args.reasoningEffort === "none") return "low";
-    return args.reasoningEffort === "maximum" ? "max" : args.reasoningEffort;
-  }
-  // Hydrogen and Neon cannot turn thinking off either. Their default is high, so no level names high; their top level is
-  // xhigh. Vertex lists only Neon: Hydrogen is an unknown model there and sends no parameters, so it names no level.
+  const model = capabilityModelId(args.model);
+  const bare = bareCapabilityModelId(model);
+  const effort = args.reasoningEffort;
+  // An omitted setting keeps existing provider defaults; null/none is a saved Off.
   if (
-    isGeminiHydrogenOrNeonModel(args.model) &&
-    (providerLower === "google" || (providerLower === "google_vertex" && !!findKnownModel("google_vertex", args.model)))
-  ) {
-    const effort = args.reasoningEffort;
-    if (!effort || effort === "none") return "high";
-    if (effort === "xhigh" || effort === "max" || effort === "maximum") return "xhigh";
-    return effort;
+    effort === undefined &&
+    !(
+      (providerLower === "google" || providerLower === "google_vertex") &&
+      (isGeminiArgonOrCarbonModel(model) || isGeminiHydrogenOrNeonModel(model))
+    )
+  )
+    return null;
+  const off = !effort || effort === "none";
+  // Nearest documented level, with ties going upwards. https://platform.claude.com/docs/en/build-with-claude/effort
+  const nearest = (
+    levels: Exclude<ProviderReasoningEffort, null>[],
+    defaultLevel: ProviderReasoningEffort = null,
+  ): ProviderReasoningEffort => {
+    if (off) return defaultLevel;
+    const order = ["low", "medium", "high", "xhigh", "max"];
+    const index = order.indexOf(effort === "maximum" ? "max" : effort);
+    return levels.reduce((best, level) =>
+      Math.abs(order.indexOf(level) - index) <= Math.abs(order.indexOf(best) - index) ? level : best,
+    );
+  };
+  if (isOpenAIGpt6AlwaysReasoningModel(model)) return nearest(["low", "medium", "high", "xhigh", "max"], "low");
+  if (/^gpt-5\.[23]-codex(?:$|-)/u.test(bare)) return nearest(["low", "medium", "high", "xhigh"], "medium");
+  if (/^gpt-5\.[45]-pro(?:$|-)/u.test(bare))
+    return nearest(["medium", "high", "xhigh"], bare.startsWith("gpt-5.5") ? "high" : "medium");
+  if (/^gpt-5(?:-(?:mini|nano))?(?:$|-\d)/u.test(bare)) return nearest(["low", "medium", "high"], "medium");
+  // https://platform.kimi.ai/docs/api/models-overview
+  // Always thinks (default max); a saved Off keeps sending the lightest level, low.
+  if (/^kimi-k3(?:$|[-:])/u.test(bare)) return nearest(["low", "high", "max"], "low");
+  if (lacksCompatibleReasoningEffort(model)) {
+    // Only a thinking switch: NanoGPT gets one "on" level; elsewhere no effort is sent.
+    return providerLower === "nanogpt" && !off ? "high" : null;
   }
-  // Argon and Carbon cannot turn thinking off; without a level they think at Google's default, medium, so name that level.
-  if (
-    (!args.reasoningEffort || args.reasoningEffort === "none") &&
-    (providerLower === "google" || providerLower === "google_vertex") &&
-    isGeminiArgonOrCarbonModel(args.model)
-  ) {
-    return "medium";
+  if (providerLower === "local_sidecar") return off ? null : "high";
+  if (providerLower === "cohere" && isCohereReasoningModel(model)) return off ? null : "high";
+  if (providerLower === "nanogpt" && isNanoGptMiniMaxM31FlashModel(model)) {
+    return effort === undefined ? null : nearest(["low", "medium", "high", "xhigh", "max"], "low");
   }
-  if (!args.reasoningEffort || args.reasoningEffort === "none") return null;
-  const modelLower = capabilityModelId(args.model);
-
-  const xaiUsesAutoReasoning =
-    (providerLower === "xai" && isXaiAutoReasoningModel(modelLower)) ||
-    (providerLower === "openrouter" && modelLower.startsWith("x-ai/grok-"));
-  if (xaiUsesAutoReasoning) return null;
-  // Mistral reasoning models have a single level besides "none".
-  if (providerLower === "mistral" && isMistralAdjustableReasoningModel(modelLower)) return "high";
-  if (providerLower === "mistral" && isMistralGlm53Model(modelLower)) {
-    if (args.reasoningEffort === "low") return "low";
-    return args.reasoningEffort === "medium" || args.reasoningEffort === "high" ? "high" : "max";
+  if (providerLower === "google" || providerLower === "google_vertex") {
+    if (!supportsGeminiThinking(model)) return null;
+    if (isGeminiHydrogenOrNeonModel(model)) return nearest(["low", "medium", "high", "xhigh"], "high");
+    if (/gemini-3\.1-flash-(?:lite-)?image/u.test(model)) return off ? null : "high";
+    if (usesGeminiMinimalDefault(model)) return nearest(["low", "medium", "high"]);
+    if (isGeminiArgonOrCarbonModel(model) || /gemini-3\.[5-8]-flash(?:$|-)/u.test(model))
+      return nearest(["low", "medium", "high"], "medium");
+    if (/gemini-3\.1-pro|gemini-3-flash/u.test(model)) return nearest(["low", "medium", "high"], "high");
+    if (/gemini-2\.5-pro/u.test(model)) return nearest(["low", "medium", "high"], "medium");
+    return nearest(["low", "medium", "high"]);
   }
-
-  const isNativeAnthropicAdaptiveOnly =
-    (providerLower === "anthropic" || providerLower === "claude_subscription") &&
-    isClaudeAdaptiveOnlyNoSamplingModel(modelLower);
-  const supportsXhigh = supportsXhighReasoningEffort(modelLower);
+  if (providerLower === "anthropic" || providerLower === "claude_subscription") {
+    if (isClaudeManualThinkingModel(model)) return providerLower === "claude_subscription" || off ? null : "high";
+    if (/claude-(?:opus|sonnet)-4[.-]6(?:$|-)/u.test(model)) return nearest(["low", "medium", "high", "max"]);
+    if (/claude-haiku-5[.-]5(?:$|-)/u.test(model)) return nearest(["low", "medium", "high", "xhigh", "max"], "medium");
+    const noOff = isClaudeStrictRequestModel(model) && !(providerLower === "anthropic" && isClaudeSonnet55Model(model));
+    if (noOff) return nearest(["low", "medium", "high", "xhigh", "max"], "low");
+    // Off sends the lightest effort, as before: they cannot turn thinking off.
+    if (/claude-(?:fable|mythos)-5/u.test(model)) return nearest(["low", "medium", "high", "xhigh", "max"], "low");
+  }
+  // https://docs.x.ai/docs/guides/reasoning
+  if (providerLower === "xai" || (providerLower === "openrouter" && model.startsWith("x-ai/"))) {
+    if (bare === "grok-4.20-multi-agent")
+      return off ? "high" : effort === "low" || effort === "medium" ? "low" : "high";
+    if (/^grok-4\.[567](?:$|-)/u.test(bare))
+      return nearest(
+        supportsXhighReasoningEffort(bare) ? ["low", "medium", "high", "xhigh"] : ["low", "medium", "high"],
+        "high",
+      );
+    if (isXaiAutoReasoningModel(model)) return null;
+  }
+  // https://docs.mistral.ai/capabilities/reasoning
+  if (providerLower === "mistral") {
+    if (/^mistral-large-4/u.test(bare)) return nearest(["low", "medium", "high"], "high");
+    if (isMistralGlm53Model(model)) return nearest(["low", "high", "max"], "low");
+    if (isMistralAdjustableReasoningModel(model)) return off ? null : "high";
+  }
+  // https://docs.z.ai/api-reference/llm/chat-completion
+  if (providerLower === "zai" || providerLower === "nanogpt") {
+    if (/^glm-5\.3(?:$|[-:])/u.test(bare)) return nearest(["low", "high", "max"], "low");
+    if (providerLower === "zai" && /^glm-5\.2(?:$|[-:])/u.test(bare)) return nearest(["high", "max"]);
+    if (/^glm-(?:5(?:\.1)?|4\.[67])(?:$|[-:])/u.test(bare)) return off ? null : "high";
+  }
+  if (off) return null;
+  const supportsXhigh = supportsXhighReasoningEffort(model);
   const supportsMax =
-    isOpenAIGpt6Model(modelLower) ||
-    isOpenAIGpt56Model(modelLower) ||
-    isNativeAnthropicAdaptiveOnly ||
-    // DeepSeek takes max for every chat model; xhigh is not one of its levels, so maximum maps to max rather than
-    // collapsing to high.
-    providerLower === "deepseek" ||
-    (providerLower === "zai" && isZaiMaxReasoningEffortModel(modelLower));
-
-  if (args.reasoningEffort === "maximum") {
-    return supportsMax ? "max" : supportsXhigh ? "xhigh" : "high";
-  }
-  if (args.reasoningEffort === "max") {
-    return supportsMax ? "max" : supportsXhigh ? "xhigh" : "high";
-  }
-  if (args.reasoningEffort === "xhigh") {
-    return supportsXhigh ? "xhigh" : "high";
-  }
-  // DeepSeek accepts medium for compatibility but serves it as high, so mapping it here keeps the offered levels
-  // honest: without this, "Medium" and "High" would be two buttons that send a different value yet behave the same.
-  if (providerLower === "deepseek" && args.reasoningEffort === "medium") return "high";
-  return args.reasoningEffort;
+    isOpenAIGpt6Model(model) ||
+    isOpenAIGpt56Model(model) ||
+    ((providerLower === "anthropic" || providerLower === "claude_subscription") &&
+      isClaudeAdaptiveOnlyNoSamplingModel(model)) ||
+    providerLower === "deepseek";
+  if (effort === "maximum" || effort === "max") return supportsMax ? "max" : supportsXhigh ? "xhigh" : "high";
+  if (effort === "xhigh") return supportsXhigh ? "xhigh" : "high";
+  if (providerLower === "deepseek" && effort === "medium") return "high";
+  return effort;
 }
 
 /** Gemini 3 and later set thinking with `thinkingLevel`; Gemini 2.5 and older take `thinkingBudget`. */
@@ -314,8 +463,7 @@ export function isGeminiArgonOrCarbonModel(model: string): boolean {
  * Gemini 4 Hydrogen and Neon take thinking levels low, medium, high and xhigh, default to high, and reject minimal and
  * thinking_budget. They share Argon and Carbon's request schema: temperature, top_p and top_k are ignored, penalties and
  * a prefilled model turn rejected. Unlike Argon and Carbon they return up to 65,536 tokens per request, streamed or not.
- * Hydrogen is on the Gemini API (free and paid tiers) and Google lists no Vertex location for it. Neon is on the Gemini
- * API (paid tier) and on Vertex in the global, us and eu locations.
+ * Hydrogen and Neon are also available on Vertex in global, us and eu locations.
  * https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-4-neon
  */
@@ -336,10 +484,20 @@ export function isGeminiModel(model: string): boolean {
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-5-flash-lite
  * https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/guides/gemini-3-6-flash (also 3-7, 3-8)
  */
-export function isGeminiStrictRequestModel(model: string): boolean {
+export function isGeminiStrictRequestModel(model: string, provider?: string): boolean {
+  if (provider === "google" && /^gemini-3\.5-flash(?:$|-preview)/u.test(capabilityModelId(model))) return true;
   return /(?:^|\/)gemini-(?:4-(?:argon|carbon|hydrogen|neon)|3\.5-flash-lite|3\.[6-8]-flash)(?:$|[-:])/u.test(
     capabilityModelId(model),
   );
+}
+
+/**
+ * Gemini 3 and 4 models: Google says every general-use Gemini 3.x and 4.x model ignores temperature, top-k and top-p,
+ * and frequency and presence penalties are unsupported (some reject them with a 400). Gemma keeps its samplers.
+ * https://firebase.google.com/docs/ai-logic/model-parameters
+ */
+export function isGeminiSamplingIgnoredModel(model: string): boolean {
+  return /(?:^|\/)gemini-[34](?:$|[.-])/u.test(capabilityModelId(model));
 }
 
 export function isXaiConfigurableReasoningModel(model: string): boolean {
@@ -347,9 +505,24 @@ export function isXaiConfigurableReasoningModel(model: string): boolean {
   return /^grok-4\.[3567](?:$|-)/.test(normalized);
 }
 
+/**
+ * xAI reasoning models without an effort setting. Reasoning models reject presence and frequency penalties and stop
+ * sequences. Grok 4, Grok 4 Fast Reasoning, Grok Code Fast and Grok Build always reason; "-non-reasoning" ids do not.
+ * https://docs.x.ai/developers/model-capabilities/text/reasoning
+ */
 export function isXaiAutoReasoningModel(model: string): boolean {
   const normalized = capabilityModelId(model).replace(/^x-ai\//, "");
-  return normalized.startsWith("grok-4-1-fast");
+  if (normalized.includes("non-reasoning")) return false;
+  return (
+    normalized.startsWith("grok-4-1-fast") ||
+    /^grok-4(?:-0709|-latest)?$/u.test(normalized) ||
+    normalized === "grok-latest" ||
+    normalized === "grok-fast-latest" ||
+    normalized.startsWith("grok-4-fast-reasoning") ||
+    normalized.startsWith("grok-code-fast") ||
+    normalized.startsWith("grok-build") ||
+    (normalized.startsWith("grok-4.20") && !normalized.startsWith("grok-4.20-multi-agent"))
+  );
 }
 
 // ── OpenAI (from #model_openai_select) ──
@@ -471,6 +644,7 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
   { id: "claude-opus-5-5", name: "claude-opus-5-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-5", name: "claude-opus-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5-5", name: "claude-sonnet-5-5", context: 1000000, maxOutput: 128000 },
+  { id: "claude-haiku-5-5", name: "Claude Haiku 5.5", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-5", name: "claude-sonnet-5", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5-2", name: "claude-fable-5-2", context: 1000000, maxOutput: 128000 },
   { id: "claude-fable-5-1", name: "claude-fable-5-1", context: 1000000, maxOutput: 128000 },
@@ -480,12 +654,12 @@ export const ANTHROPIC_MODELS: KnownModel[] = [
   { id: "claude-mythos-5", name: "claude-mythos-5 (limited access)", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-8", name: "claude-opus-4-8", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-7", name: "claude-opus-4-7", context: 1000000, maxOutput: 128000 },
-  { id: "claude-opus-4-6", name: "claude-opus-4-6", context: 1000000, maxOutput: 32000 },
+  { id: "claude-opus-4-6", name: "claude-opus-4-6", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-4-6", name: "claude-sonnet-4-6", context: 1000000, maxOutput: 64000 },
-  { id: "claude-opus-4-5", name: "claude-opus-4-5", context: 1000000, maxOutput: 32000 },
-  { id: "claude-opus-4-5-20251101", name: "claude-opus-4-5-20251101", context: 1000000, maxOutput: 32000 },
-  { id: "claude-sonnet-4-5", name: "claude-sonnet-4-5", context: 1000000, maxOutput: 16000 },
-  { id: "claude-sonnet-4-5-20250929", name: "claude-sonnet-4-5-20250929", context: 1000000, maxOutput: 16000 },
+  { id: "claude-opus-4-5", name: "claude-opus-4-5", context: 200000, maxOutput: 64000 },
+  { id: "claude-opus-4-5-20251101", name: "claude-opus-4-5-20251101", context: 200000, maxOutput: 64000 },
+  { id: "claude-sonnet-4-5", name: "claude-sonnet-4-5", context: 200000, maxOutput: 64000 },
+  { id: "claude-sonnet-4-5-20250929", name: "claude-sonnet-4-5-20250929", context: 200000, maxOutput: 64000 },
   { id: "claude-haiku-4-5", name: "claude-haiku-4-5", context: 200000, maxOutput: 64000 },
   { id: "claude-haiku-4-5-20251001", name: "claude-haiku-4-5-20251001", context: 200000, maxOutput: 64000 },
   { id: "claude-opus-4-1", name: "claude-opus-4-1", context: 200000, maxOutput: 32000 },
@@ -523,10 +697,10 @@ export const CLAUDE_SUBSCRIPTION_MODELS: KnownModel[] = [
   { id: "claude-fable-5", name: "Claude Fable 5", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-8", name: "Claude Opus 4.8", context: 1000000, maxOutput: 128000 },
   { id: "claude-opus-4-7", name: "Claude Opus 4.7", context: 1000000, maxOutput: 128000 },
-  { id: "claude-opus-4-6", name: "Claude Opus 4.6", context: 1000000, maxOutput: 32000 },
+  { id: "claude-opus-4-6", name: "Claude Opus 4.6", context: 1000000, maxOutput: 128000 },
   { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6", context: 1000000, maxOutput: 64000 },
-  { id: "claude-opus-4-5", name: "Claude Opus 4.5", context: 1000000, maxOutput: 32000 },
-  { id: "claude-sonnet-4-5", name: "Claude Sonnet 4.5", context: 1000000, maxOutput: 16000 },
+  { id: "claude-opus-4-5", name: "Claude Opus 4.5", context: 200000, maxOutput: 64000 },
+  { id: "claude-sonnet-4-5", name: "Claude Sonnet 4.5", context: 200000, maxOutput: 64000 },
   { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", context: 200000, maxOutput: 64000 },
 ];
 
@@ -569,7 +743,7 @@ export const GOOGLE_MODELS: KnownModel[] = [
   // Gemini 4. Argon and Carbon need a paid tier and, on Vertex, the global, us or eu location.
   { id: "gemini-4-argon", name: "gemini-4-argon", context: 1000000, maxOutput: 65536 },
   { id: "gemini-4-carbon", name: "gemini-4-carbon", context: 1000000, maxOutput: 65536 },
-  // Hydrogen is on the Gemini API only, free and paid tiers (left out of the Vertex list below).
+  // https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen
   { id: "gemini-4-hydrogen", name: "gemini-4-hydrogen", context: 1048576, maxOutput: 65536 },
   // Neon needs a paid tier and, on Vertex, the global, us or eu location.
   { id: "gemini-4-neon", name: "gemini-4-neon", context: 1048576, maxOutput: 65536 },
@@ -710,7 +884,7 @@ export const MISTRAL_MODELS: KnownModel[] = [];
 
 export const COHERE_MODELS: KnownModel[] = [
   // Command A family
-  { id: "command-a-plus-08-2025", name: "command-a-plus-08-2025", context: 128000, maxOutput: 64000 },
+  { id: "command-a-plus-05-2026", name: "command-a-plus-05-2026", context: 128000, maxOutput: 64000 },
   { id: "command-a-reasoning-08-2025", name: "command-a-reasoning-08-2025", context: 256000, maxOutput: 32000 },
   { id: "command-a-translate-08-2025", name: "command-a-translate-08-2025", context: 8192, maxOutput: 8192 },
   { id: "command-a-03-2025", name: "command-a-03-2025", context: 256000, maxOutput: 8192 },
@@ -760,6 +934,8 @@ export const XAI_MODELS: KnownModel[] = [
   { id: "grok-fast-latest", name: "Grok Fast Latest", context: 2000000, maxOutput: 0 },
   // Multi-agent research model; uses Responses API and reasoning.effort for 4 vs 16 agents.
   { id: "grok-4.20-multi-agent", name: "Grok 4.20 Multi-Agent", context: 2000000, maxOutput: 0 },
+  { id: "grok-4.20-0309-reasoning", name: "Grok 4.20 Reasoning", context: 1000000, maxOutput: 0 },
+  { id: "grok-4.20-0309-non-reasoning", name: "Grok 4.20 Non-Reasoning", context: 1000000, maxOutput: 0 },
   // Specialized xAI API models.
   { id: "grok-build-0.1", name: "Grok Build 0.1", context: 256000, maxOutput: 0 },
   { id: "grok-build-latest", name: "Grok Build Latest", context: 256000, maxOutput: 0 },
@@ -1471,8 +1647,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   claude_subscription: CLAUDE_SUBSCRIPTION_MODELS,
   grok_subscription: GROK_SUBSCRIPTION_MODELS,
   google: GOOGLE_MODELS,
-  // Google lists no Vertex location for Gemini 4 Hydrogen.
-  google_vertex: GOOGLE_MODELS.filter((model) => model.id !== "gemini-4-hydrogen"),
+  google_vertex: GOOGLE_MODELS,
   mistral: MISTRAL_MODELS,
   cohere: COHERE_MODELS,
   openrouter: OPENROUTER_MODELS,
@@ -1533,6 +1708,7 @@ export function catalogModelId(modelId: string): string {
  * `[次]claude-opus-4-6-thinking` is `claude-opus-4-6`.
  */
 export function findKnownModel(provider: APIProvider, modelId: string): KnownModel | undefined {
+  if (provider === "cohere" && modelId === "command-a-plus-08-2025") modelId = "command-a-plus-05-2026";
   const exact = MODEL_LISTS[provider]?.find((model) => model.id === modelId);
   if (exact) return exact;
 
