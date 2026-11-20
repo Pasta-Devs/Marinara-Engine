@@ -395,7 +395,7 @@ import {
   normalizeAgentPromptTemplateOptions,
   getDefaultAgentPrompt,
   resolveAgentPromptTemplate,
-  isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeNoSamplingModel,
   scoreMusic,
   musicAreaSlug,
   scoreAmbient,
@@ -3586,7 +3586,7 @@ export function gameGenOptions(
       enabledParameters: options.enabledParameters,
     };
   }
-  if (isClaudeAdaptiveOnlyNoSamplingModel(model)) {
+  if (isClaudeNoSamplingModel(model)) {
     delete options.temperature;
     delete options.topP;
     delete options.topK;

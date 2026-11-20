@@ -12,6 +12,11 @@ export function isGlmModel(model: string): boolean {
   return model.toLowerCase().includes("glm");
 }
 
+/** GLM 4.5 and later, which can think. */
+export function isGlmThinkingModel(model: string): boolean {
+  return /(?:^|\/)glm-(?:4\.[5-9]|[5-9])/u.test(model.toLowerCase());
+}
+
 export function isGlm52Model(model: string): boolean {
   return /(?:^|\/)glm-5\.2(?:$|[-:])/u.test(model.toLowerCase());
 }
@@ -89,9 +94,13 @@ export function applyGlmThinkingParameters(body: Record<string, unknown>, option
     return true;
   }
 
-  if (nativeEndpoint && isGlm52Model(options.model)) {
+  if (nativeEndpoint) {
+    // Thinking starts with GLM 4.5; older GLM models on Z.AI get no thinking field at all.
+    if (!isGlmThinkingModel(options.model)) return true;
+    // Z.AI's own API turns thinking on and off with `thinking.type` and has no `enable_thinking` field; only GLM 5.2
+    // and later take an effort. https://docs.z.ai/api-reference/llm/chat-completion
     body.thinking = { type: thinkingEnabled ? "enabled" : "disabled" };
-    const effort = glm52ReasoningEffort(options.reasoningEffort);
+    const effort = isGlm52Model(options.model) ? glm52ReasoningEffort(options.reasoningEffort) : null;
     if (thinkingEnabled && effort) body.reasoning_effort = effort;
     return true;
   }
