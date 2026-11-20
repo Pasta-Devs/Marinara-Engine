@@ -40,6 +40,7 @@ import {
   applyRegexReplacement,
   formatTextQuotes,
   isPatternSafe,
+  isRegexApplyMode,
   resolveRegexPatternLiteralMacros,
   resolveMacros,
   type MacroContext,
@@ -81,7 +82,9 @@ const REGEX_FLAG_TITLES: Record<string, string> = {
   d: "Indices: record match positions",
 };
 
-const APPLY_MODE_META: Record<RegexApplyMode, { label: string; description: string }> = {
+type RegexViewApplyMode = Exclude<RegexApplyMode, "message">;
+
+const APPLY_MODE_META: Record<RegexViewApplyMode, { label: string; description: string }> = {
   display: {
     label: "ui.agents.regexscripteditor.applyModeDisplay",
     description: "ui.agents.regexscripteditor.applyModeDisplayHint",
@@ -99,7 +102,7 @@ const APPLY_MODE_META: Record<RegexApplyMode, { label: string; description: stri
 function deriveRegexApplyMode(
   row: Pick<RegexScriptRow, "applyMode" | "promptOnly"> | null | undefined,
 ): RegexApplyMode {
-  if (row?.applyMode === "prompt" || row?.applyMode === "display" || row?.applyMode === "both") {
+  if (isRegexApplyMode(row?.applyMode)) {
     return row.applyMode;
   }
   return row?.promptOnly === "true" ? "prompt" : "display";
@@ -261,6 +264,18 @@ export function RegexScriptEditor() {
   const [localPlacement, setLocalPlacement] = useState<RegexPlacement[]>(["ai_output"]);
   const [localFlags, setLocalFlags] = useState("gi");
   const [localApplyMode, setLocalApplyMode] = useState<RegexApplyMode>("display");
+  // The mode a script goes back to when "Change the saved message" is switched off again.
+  const [lastViewApplyMode, setLastViewApplyMode] = useState<RegexViewApplyMode>("both");
+  const savesMessage = localApplyMode === "message";
+  const toggleSavesMessage = (next: boolean) => {
+    if (next) {
+      if (localApplyMode !== "message") setLastViewApplyMode(localApplyMode);
+      setLocalApplyMode("message");
+    } else {
+      setLocalApplyMode(lastViewApplyMode);
+    }
+    markDirty();
+  };
   const [localCharacterScopeEnabled, setLocalCharacterScopeEnabled] = useState(false);
   const [localTargetCharacterIds, setLocalTargetCharacterIds] = useState<string[]>([]);
   const [localPromptPresetScopeEnabled, setLocalPromptPresetScopeEnabled] = useState(false);
@@ -809,20 +824,37 @@ export function RegexScriptEditor() {
               </OvRow>
               <OvRow
                 label={localizeUi("ui.agents.regexscripteditor.applyMode_a59c9c4")}
-                hint={localizeUi(APPLY_MODE_META[localApplyMode].description)}
+                hint={savesMessage ? undefined : localizeUi(APPLY_MODE_META[localApplyMode].description)}
               >
-                <OvSeg
-                  label={localizeUi("ui.agents.regexscripteditor.applyMode_a59c9c4")}
-                  value={localApplyMode}
-                  options={[
-                    { value: "prompt", label: "Prompt" },
-                    { value: "display", label: "Display" },
-                    { value: "both", label: "Both" },
-                  ]}
-                  onChange={(next) => {
-                    setLocalApplyMode(next);
-                    markDirty();
-                  }}
+                {savesMessage ? (
+                  <span className="ov-row__note">
+                    {localizeUi("ui.agents.regexscripteditor.applyModeSavedMessageNote")}
+                  </span>
+                ) : (
+                  <OvSeg
+                    label={localizeUi("ui.agents.regexscripteditor.applyMode_a59c9c4")}
+                    value={localApplyMode}
+                    options={[
+                      { value: "prompt", label: "Prompt" },
+                      { value: "display", label: "Display" },
+                      { value: "both", label: "Both" },
+                    ]}
+                    onChange={(next) => {
+                      setLocalApplyMode(next);
+                      markDirty();
+                    }}
+                  />
+                )}
+              </OvRow>
+              <OvRow
+                label={localizeUi("ui.agents.regexscripteditor.savedMessage")}
+                hint={localizeUi("ui.agents.regexscripteditor.applyModeMessageHint")}
+              >
+                <OvToggle
+                  label={localizeUi("ui.agents.regexscripteditor.applyModeMessage")}
+                  title={localizeUi("ui.agents.regexscripteditor.applyModeMessageHint")}
+                  on={savesMessage}
+                  onChange={toggleSavesMessage}
                 />
               </OvRow>
               <OvRow
@@ -1340,34 +1372,46 @@ export function RegexScriptEditor() {
               {/* Apply mode */}
               <div className="space-y-2">
                 <div className="text-xs font-medium">{localizeUi("ui.agents.regexscripteditor.applyMode")}</div>
-                <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1">
-                  {(Object.entries(APPLY_MODE_META) as [RegexApplyMode, { label: string; description: string }][]).map(
-                    ([mode, meta]) => {
-                      const active = localApplyMode === mode;
-                      return (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => {
-                            setLocalApplyMode(mode);
-                            markDirty();
-                          }}
-                          className={cn(
-                            "flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-center text-xs ring-1 transition-all",
-                            active
-                              ? REGEX_ACTIVE_OPTION_CLASS
-                              : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                          )}
-                        >
-                          <span className="font-medium">{localizeUi(meta.label)}</span>
-                          <span className="text-[0.5625rem] leading-snug opacity-70">
-                            {localizeUi(meta.description)}
-                          </span>
-                        </button>
-                      );
-                    },
-                  )}
+                <div className={cn("grid grid-cols-3 gap-2 max-sm:grid-cols-1", savesMessage && "opacity-50")}>
+                  {(
+                    Object.entries(APPLY_MODE_META) as [RegexViewApplyMode, { label: string; description: string }][]
+                  ).map(([mode, meta]) => {
+                    const active = localApplyMode === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          setLocalApplyMode(mode);
+                          markDirty();
+                        }}
+                        className={cn(
+                          "flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-center text-xs ring-1 transition-all",
+                          active
+                            ? REGEX_ACTIVE_OPTION_CLASS
+                            : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                        )}
+                      >
+                        <span className="font-medium">{localizeUi(meta.label)}</span>
+                        <span className="text-[0.5625rem] leading-snug opacity-70">{localizeUi(meta.description)}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+                <label className="flex items-start gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={savesMessage}
+                    onChange={(event) => toggleSavesMessage(event.target.checked)}
+                  />
+                  <span>
+                    <span className="font-medium">{localizeUi("ui.agents.regexscripteditor.applyModeMessage")}</span>
+                    <span className="block text-[0.625rem] leading-snug opacity-70">
+                      {localizeUi("ui.agents.regexscripteditor.applyModeMessageHint")}
+                    </span>
+                  </span>
+                </label>
               </div>
 
               {/* Order */}

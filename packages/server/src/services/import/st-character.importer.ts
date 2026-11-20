@@ -16,6 +16,7 @@ import {
   containsDecisionStatements,
   dropUnreadableOnboarding,
   isPatternSafe,
+  isRegexApplyMode,
   ONBOARDING_MAX_QUESTIONS,
   splitCharacterDescription,
   botBrowserSourceTag,
@@ -28,6 +29,7 @@ import type {
   CharacterBookEntryRole,
   CharacterData,
   CreateRegexScriptInput,
+  RegexApplyMode,
   RegexPlacement,
 } from "@marinara-engine/shared";
 import { existsSync, mkdirSync } from "fs";
@@ -226,8 +228,8 @@ function readBooleanFlag(value: unknown): boolean {
   return value === true || value === "true" || value === 1 || value === "1";
 }
 
-function convertStRegexApplyMode(s: Record<string, unknown>): "prompt" | "display" | "both" {
-  if (s.applyMode === "prompt" || s.applyMode === "display" || s.applyMode === "both") return s.applyMode;
+function convertStRegexApplyMode(s: Record<string, unknown>): RegexApplyMode {
+  if (isRegexApplyMode(s.applyMode)) return s.applyMode;
   const promptOnly =
     readBooleanFlag(s.promptOnly) || readBooleanFlag(s.prompt_only) || readBooleanFlag(s.onlyFormatPrompt);
   const markdownOnly =

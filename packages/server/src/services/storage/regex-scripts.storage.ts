@@ -5,14 +5,12 @@ import { eq, asc, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { regexScripts } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
-import type { CreateRegexScriptInput, RegexApplyMode } from "@marinara-engine/shared";
+import { isRegexApplyMode, type CreateRegexScriptInput, type RegexApplyMode } from "@marinara-engine/shared";
 
 import { createLibraryFoldersStorage } from "./library-folders.storage.js";
 
 function deriveApplyMode(input: { applyMode?: RegexApplyMode; promptOnly?: boolean }): RegexApplyMode {
-  if (input.applyMode === "prompt" || input.applyMode === "display" || input.applyMode === "both") {
-    return input.applyMode;
-  }
+  if (isRegexApplyMode(input.applyMode)) return input.applyMode;
   return input.promptOnly === true ? "prompt" : "display";
 }
 

@@ -7,6 +7,7 @@ import {
   applyRegexReplacement,
   formatTextQuotes,
   isPatternSafe,
+  isRegexApplyMode,
   resolveRegexPatternLiteralMacros,
   resolveScopedRegexMode,
   type RegexPlacement,
@@ -20,11 +21,7 @@ import { usePresets } from "./use-presets";
 /** How character-scoped regex scripts apply at display time (mirrors card CSS modes). */
 export type { ScopedRegexMode } from "@marinara-engine/shared";
 function getApplyMode(row: RegexScriptRow): RegexApplyMode {
-  return row.applyMode === "prompt" || row.applyMode === "display" || row.applyMode === "both"
-    ? row.applyMode
-    : row.promptOnly === "true"
-      ? "prompt"
-      : "display";
+  return isRegexApplyMode(row.applyMode) ? row.applyMode : row.promptOnly === "true" ? "prompt" : "display";
 }
 
 /**
@@ -125,10 +122,16 @@ function applyScripts(
   for (const script of scripts) {
     if (!script.enabledBool) continue;
     if (!script.placements.includes(placement)) continue;
-    // Prompt context is opt-in. Display context runs visual scripts only.
+    // Prompt context is opt-in. Display context runs visual scripts only. User input runs once, as the
+    // message is sent and saved, so scripts that rewrite the saved message run there too; the server
+    // rewrites saved AI replies.
     if (options?.promptOnly) {
       if (script.applyMode !== "prompt" && script.applyMode !== "both") continue;
-    } else if (script.applyMode !== "display" && script.applyMode !== "both") {
+    } else if (
+      script.applyMode !== "display" &&
+      script.applyMode !== "both" &&
+      !(script.applyMode === "message" && placement === "user_input")
+    ) {
       continue;
     }
 
