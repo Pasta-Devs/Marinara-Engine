@@ -10,7 +10,7 @@ export type ImageStyleBase =
   | "z_image_turbo"
   | "custom";
 
-export type ImagePromptMode = "natural" | "tagged" | "danbooru" | "hybrid";
+export type ImagePromptMode = "off" | "natural" | "tagged" | "danbooru" | "hybrid";
 
 export type ImagePromptDedupeStrength = "light" | "normal" | "strict";
 
