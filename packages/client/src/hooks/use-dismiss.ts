@@ -36,8 +36,11 @@ export function useDismiss(
   { outsideClick = true, escape = true, back = true, openerRef }: DismissOptions = {},
 ) {
   const dismissRef = useRef(onDismiss);
+  // Options are read at event time, so changing them never re-registers an open layer above its submenu.
+  const optionsRef = useRef({ outsideClick, escape, openerRef });
   useEffect(() => {
     dismissRef.current = onDismiss;
+    optionsRef.current = { outsideClick, escape, openerRef };
   });
 
   useBackDismiss(open && back, () => dismissRef.current());
@@ -57,7 +60,7 @@ export function useDismiss(
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!escape || event.key !== "Escape" || event.isComposing) return;
+      if (!optionsRef.current.escape || event.key !== "Escape" || event.isComposing) return;
       if (!layer.isTopmost() || isBrowserExtensionUi(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -66,7 +69,7 @@ export function useDismiss(
 
     // A press on the opener only closes; without this, the click that follows would open the layer again.
     const swallowNextClickOnOpener = (target: EventTarget | null) => {
-      if (!openerRef?.current?.contains(target as Node)) return;
+      if (!optionsRef.current.openerRef?.current?.contains(target as Node)) return;
       const swallow = (click: MouseEvent) => {
         if (click.detail === 0) return; // keyboard / programmatic click: let it through
         click.stopPropagation();
@@ -81,6 +84,7 @@ export function useDismiss(
 
     let touchStartedOutside = false;
     const onPointerDown = (event: PointerEvent) => {
+      if (!optionsRef.current.outsideClick) return;
       if (event.pointerType === "touch") {
         touchStartedOutside = isOutside(event.target);
         return;
@@ -93,7 +97,7 @@ export function useDismiss(
       touchStartedOutside = false;
     };
     const onPointerUp = (event: PointerEvent) => {
-      if (event.pointerType !== "touch" || !touchStartedOutside) return;
+      if (event.pointerType !== "touch" || !touchStartedOutside || !optionsRef.current.outsideClick) return;
       touchStartedOutside = false;
       if (!isOutside(event.target)) return;
       swallowNextClickOnOpener(event.target);
@@ -103,7 +107,6 @@ export function useDismiss(
     view.addEventListener("keydown", onKeyDown, true);
     // Wait a frame, so the press that opened the layer does not close it.
     const frame = view.requestAnimationFrame(() => {
-      if (!outsideClick) return;
       view.addEventListener("pointerdown", onPointerDown, true);
       view.addEventListener("pointercancel", onPointerCancel, true);
       view.addEventListener("pointerup", onPointerUp, true);
@@ -116,5 +119,5 @@ export function useDismiss(
       view.removeEventListener("pointerup", onPointerUp, true);
       layer.release();
     };
-  }, [open, outsideClick, escape, openerRef, ref]);
+  }, [open, ref]);
 }

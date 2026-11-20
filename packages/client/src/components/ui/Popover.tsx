@@ -7,6 +7,7 @@
 // ──────────────────────────────────────────────
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -69,46 +70,65 @@ export function Popover({
   "aria-label": ariaLabel,
   dismiss,
 }: PopoverProps) {
+  // The outer layer is placed and clamped to the room beside the anchor; the panel inside keeps the caller's
+  // classes, so a caller's own max-h-* still applies and the panel scrolls within whichever limit is smaller.
   const ref = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const [placement, setPlacement] = useState<Placement | null>(null);
-  useDismiss(ref, open, onClose, { openerRef: anchorRef, ...dismiss });
+  // The anchor's document, read after commit: the anchor may attach in the same render that opens the popover.
+  const [body, setBody] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setBody(open ? (anchorRef.current?.ownerDocument.body ?? null) : null);
+  }, [open, anchorRef]);
+  const mounted = open && !!body;
+  useDismiss(ref, mounted, onClose, { openerRef: anchorRef, ...dismiss });
 
   const place = useCallback(() => {
     const anchor = anchorRef.current;
-    const popover = ref.current;
+    const panel = panelRef.current;
     const view = anchor?.ownerDocument.defaultView;
-    if (!anchor || !popover || !view) return;
+    if (!anchor || !panel || !view) return;
     const a = anchor.getBoundingClientRect();
-    const width = Math.max(popover.offsetWidth, matchAnchorWidth ? a.width : 0);
-    const height = popover.scrollHeight;
-    const viewHeight = view.visualViewport?.height ?? view.innerHeight;
-    const viewWidth = view.innerWidth;
+    // The visible part of the window: on a phone, pinch zoom and the keyboard shrink it.
+    const visual = view.visualViewport;
+    const viewTop = visual?.offsetTop ?? 0;
+    const viewLeft = visual?.offsetLeft ?? 0;
+    const viewBottom = viewTop + (visual?.height ?? view.innerHeight);
+    const viewRight = viewLeft + (visual?.width ?? view.innerWidth);
 
-    const below = viewHeight - a.bottom - gap - WINDOW_PADDING;
-    const above = a.top - gap - WINDOW_PADDING;
+    const minWidth = matchAnchorWidth ? Math.min(a.width, viewRight - viewLeft - WINDOW_PADDING * 2) : undefined;
+    const width = Math.max(panel.offsetWidth, minWidth ?? 0);
+    // Its natural height, capped by the caller's own max-height (the panel carries no inline one).
+    const ownMax = Number.parseFloat(view.getComputedStyle(panel).maxHeight);
+    const height = Math.min(
+      panel.scrollHeight + (panel.offsetHeight - panel.clientHeight),
+      Number.isFinite(ownMax) ? ownMax : Infinity,
+    );
+
+    const below = viewBottom - a.bottom - gap - WINDOW_PADDING;
+    const above = a.top - viewTop - gap - WINDOW_PADDING;
     const useTop = side === "top" ? height <= above || above > below : height > below && above > below;
     const room = Math.max(0, useTop ? above : below);
-    const shown = Math.min(height, room);
-    const top = useTop ? a.top - gap - shown : a.bottom + gap;
+    const top = useTop ? a.top - gap - Math.min(height, room) : a.bottom + gap;
 
     const preferredLeft =
       align === "end" ? a.right - width : align === "center" ? a.left + a.width / 2 - width / 2 : a.left;
-    const left = Math.max(WINDOW_PADDING, Math.min(preferredLeft, viewWidth - WINDOW_PADDING - width));
+    const left = Math.max(viewLeft + WINDOW_PADDING, Math.min(preferredLeft, viewRight - WINDOW_PADDING - width));
 
     setPlacement((current) =>
       current &&
       current.top === top &&
       current.left === left &&
       current.maxHeight === room &&
-      current.minWidth === (matchAnchorWidth ? a.width : undefined)
+      current.minWidth === minWidth
         ? current
-        : { top, left, maxHeight: room, minWidth: matchAnchorWidth ? a.width : undefined },
+        : { top, left, maxHeight: room, minWidth },
     );
   }, [anchorRef, side, align, gap, matchAnchorWidth]);
 
   // Measured before paint, then kept in place while the page scrolls, the window resizes or the content changes.
   useLayoutEffect(() => {
-    if (!open) {
+    if (!mounted) {
       setPlacement(null);
       return;
     }
@@ -125,7 +145,7 @@ export function Popover({
     view.visualViewport?.addEventListener("resize", schedule);
     view.visualViewport?.addEventListener("scroll", schedule);
     const observer = typeof view.ResizeObserver === "function" ? new view.ResizeObserver(schedule) : null;
-    if (ref.current) observer?.observe(ref.current);
+    if (panelRef.current) observer?.observe(panelRef.current);
     if (anchorRef.current) observer?.observe(anchorRef.current);
     return () => {
       view.cancelAnimationFrame(frame);
@@ -135,32 +155,49 @@ export function Popover({
       view.visualViewport?.removeEventListener("scroll", schedule);
       observer?.disconnect();
     };
-  }, [open, place, anchorRef]);
+  }, [mounted, place, anchorRef]);
 
-  const body = anchorRef.current?.ownerDocument.body;
-  if (!open || !body) return null;
+  // Closing with focus inside (Escape, or a row that closes it) hands focus back to the anchor. A press elsewhere
+  // already moved focus where the user wanted it, so it is left there.
+  useEffect(() => {
+    if (!mounted) return;
+    const layer = ref.current;
+    const anchor = anchorRef.current;
+    return () => {
+      const active = anchor?.ownerDocument.activeElement;
+      if (anchor?.isConnected && (!active || active === anchor.ownerDocument.body || layer?.contains(active))) {
+        anchor.focus({ preventScroll: true });
+      }
+    };
+  }, [mounted, anchorRef]);
+
+  if (!mounted) return null;
   return createPortal(
     <div
       ref={ref}
-      role={role}
-      aria-label={ariaLabel}
       data-component="Popover"
-      className={cn(
-        "fixed max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-xl animate-fade-in-up",
-        className,
-      )}
+      className="fixed flex flex-col"
       style={{
-        ...style,
         zIndex: POPOVER_Z_INDEX,
         top: placement?.top ?? 0,
         left: placement?.left ?? 0,
-        maxHeight: placement ? Math.min(placement.maxHeight, Number(style?.maxHeight) || Infinity) : undefined,
-        minWidth: placement?.minWidth ?? style?.minWidth,
+        maxHeight: placement?.maxHeight,
         // Hidden until measured, so it never paints at the corner first.
-        visibility: placement ? style?.visibility : "hidden",
+        visibility: placement ? undefined : "hidden",
       }}
     >
-      {children}
+      <div
+        ref={panelRef}
+        role={role}
+        aria-label={ariaLabel}
+        className={cn(
+          "min-h-0 max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-xl animate-fade-in-up",
+          className,
+        )}
+        style={{ ...style, minWidth: placement?.minWidth ?? style?.minWidth }}
+      >
+        {children}
+      </div>
     </div>,
     body,
   );
@@ -213,7 +250,14 @@ export function moveMenuFocus(
           : (at + move + buttons.length) % buttons.length;
   event.preventDefault();
   event.stopPropagation();
-  buttons[next].focus({ preventScroll: true });
+  const row = buttons[next];
+  if (!row) return;
+  row.focus({ preventScroll: true });
+  // preventScroll keeps the page still (a page scroll closes a ContextMenu); scroll only the menu to the row.
+  const box = menu.getBoundingClientRect();
+  const rowBox = row.getBoundingClientRect();
+  if (rowBox.top < box.top) menu.scrollTop -= box.top - rowBox.top;
+  else if (rowBox.bottom > box.bottom) menu.scrollTop += rowBox.bottom - box.bottom;
 }
 
 /** The rows of a menu: icon, label, optional hint and check. `sheet` gives phone-sized rows. */
