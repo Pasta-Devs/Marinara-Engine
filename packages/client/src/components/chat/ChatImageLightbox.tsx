@@ -166,6 +166,7 @@ export function ChatImageLightbox({
       src={image.url}
       alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
       childrenMaxHeightClass={editing ? "max-h-[64%] [@media(max-height:520px)]:max-h-[82%] sm:max-h-[48%]" : undefined}
+      pictureActions={editing ? editActions?.(image, busy || interactionDisabled) : undefined}
       media={
         editing && editSurfaceActive ? (
           <ImageMaskCanvas
@@ -258,7 +259,6 @@ export function ChatImageLightbox({
           onBusyChange={setBusy}
           onCancel={closeEditing}
           disabled={interactionDisabled}
-          footerActions={editActions?.(image, busy || interactionDisabled)}
           onRegenerated={(next) => {
             setImage(next);
             resetMask();

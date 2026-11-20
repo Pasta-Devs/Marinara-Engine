@@ -1580,6 +1580,7 @@ export function CharacterEditor() {
               onSelectAvatar={() => fileInputRef.current?.click()}
               onEditAvatar={avatarPreview && characterId ? () => void openAvatarEditor() : undefined}
               avatarEditPreparing={prepareAvatarEdit.isPending}
+              onOpenGallery={characterId ? () => scrollToSection("gallery") : undefined}
               onGenerateAvatar={() => setAvatarGeneratorOpen(true)}
               imageGenerationAvailable={imageGenerationAvailable}
               avatarUploading={avatarUploading}
@@ -2639,6 +2640,7 @@ function MetadataTab({
   onGenerateAvatar,
   onEditAvatar,
   avatarEditPreparing,
+  onOpenGallery,
   imageGenerationAvailable,
   avatarUploading,
   onRemoveAvatar,
@@ -2662,6 +2664,7 @@ function MetadataTab({
   onGenerateAvatar: () => void;
   onEditAvatar?: () => void;
   avatarEditPreparing: boolean;
+  onOpenGallery?: () => void;
   imageGenerationAvailable: boolean;
   avatarUploading: boolean;
   onRemoveAvatar: () => void;
@@ -2765,6 +2768,7 @@ function MetadataTab({
           onGenerate={onGenerateAvatar}
           onEdit={onEditAvatar}
           editing={avatarEditPreparing}
+          onOpenGallery={onOpenGallery}
         />
       </div>
 

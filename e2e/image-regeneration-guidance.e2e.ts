@@ -95,6 +95,8 @@ for (const owner of ["character", "persona"] as const) {
       await openEditor("gallery");
       await page.locator(".mari-editor-shell").getByRole("img", { name: source.prompt, exact: true }).click();
       const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+      await expect(viewer.getByText(source.prompt, { exact: true })).toHaveCount(0);
+      await viewer.getByRole("button", { name: "Expand panel", exact: true }).click();
       await expect(viewer.getByText(source.prompt, { exact: true })).toBeVisible();
       if (owner === "character") {
         for (const visualTheme of ["default", "sillytavern"] as const) {
@@ -134,6 +136,11 @@ for (const owner of ["character", "persona"] as const) {
       await expect.poll(async () => (await (await request.get(path)).json()).avatarPath).not.toBe(before.avatarPath);
       await viewer.getByRole("button", { name: "Close image", exact: true }).click();
       await openEditor("metadata");
+      await page.locator(".mari-editor-shell").getByRole("button", { name: "Go to Gallery", exact: true }).click();
+      await expect(
+        page.locator(".mari-editor-shell").getByRole("img", { name: source.prompt, exact: true }),
+      ).toBeVisible();
+      await openEditor("metadata");
       // Avatar editing lives in Metadata; the initial preview cannot reapply an unchanged image.
       const editAvatar = page.locator(".mari-editor-shell").getByRole("button", { name: "Edit avatar", exact: true });
       await expect(editAvatar).toHaveCount(1);
@@ -149,6 +156,14 @@ for (const owner of ["character", "persona"] as const) {
       await expect(promptField).toHaveValue(result.prompt);
       // Apply the saved result directly from the open editor, without Cancel or another upload.
       await expect(viewer.getByRole("button", { name: "Use as avatar", exact: true })).toBeVisible();
+      const applyButton = await viewer.getByRole("button", { name: "Use as avatar", exact: true }).boundingBox();
+      const previewBounds = await viewer.getByRole("img").boundingBox();
+      const editPanelBounds = await viewer
+        .getByRole("heading", { name: "Regenerate image", exact: true })
+        .boundingBox();
+      expect(applyButton && previewBounds && editPanelBounds).toBeTruthy();
+      expect(applyButton!.y).toBeGreaterThanOrEqual(previewBounds!.y + previewBounds!.height);
+      expect(applyButton!.y + applyButton!.height).toBeLessThanOrEqual(editPanelBounds!.y);
       await page.screenshot({ path: testInfo.outputPath("avatar-result-apply.png"), animations: "disabled" });
       const avatarApplied = page.waitForResponse(
         (response) =>
@@ -300,6 +315,8 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     const regenerate = dialog.getByRole("button", { name: "Regenerate image", exact: true });
 
     await openGalleryImage(drawer, legacy.prompt);
+    await expect(dialog.getByText(legacy.prompt, { exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Expand panel", exact: true }).click();
     await expect(dialog.getByText(legacy.prompt, { exact: true })).toBeVisible();
     const originalViewport = page.viewportSize();
     const originalFontSize = await page.evaluate(() => {
@@ -359,6 +376,8 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await dialog.getByRole("button", { name: "Close image", exact: true }).click();
 
     await openGalleryImage(drawer, displayPrompt);
+    await expect(dialog.getByText(original.prompt, { exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Expand panel", exact: true }).click();
     for (const text of [
       original.prompt,
       original.negativePrompt,
@@ -523,6 +542,8 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await expect(regenerate).toBeVisible();
     expect(requests.slice(4)).toEqual([{ action: "generate", body: expect.objectContaining(revised) }]);
     expect(generatedPrompt).toBe(`${revised.prompt} (synced)`);
+    await expect(dialog.getByText(`${revised.prompt} (synced)`, { exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Expand panel", exact: true }).click();
     await expect(dialog.getByText(`${revised.prompt} (synced)`, { exact: true })).toBeVisible();
   } finally {
     await request.delete(`/api/chats/${chatId}`);

@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -74,7 +74,6 @@ interface ImageRegeneratePanelProps {
   onRegenerated: (image: ChatImage) => void;
   className?: string;
   disabled?: boolean;
-  footerActions?: ReactNode;
 }
 
 // Same field as InlineChatCardEditor: the chat chrome input tokens follow every theme and chat style,
@@ -388,7 +387,6 @@ export function ImageRegeneratePanel({
   onRegenerated,
   className,
   disabled = false,
-  footerActions,
 }: ImageRegeneratePanelProps) {
   const { t } = useUiTranslation();
   const debugMode = useUIStore((s) => s.debugMode);
@@ -889,7 +887,6 @@ export function ImageRegeneratePanel({
               {error}
             </p>
           )}
-          {footerActions && <div className="mb-2 flex justify-end">{footerActions}</div>}
           <div className="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
             {phase && (
               <p

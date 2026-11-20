@@ -276,6 +276,8 @@ interface ImageViewerProps {
   onIndexChange?: (index: number) => void;
   /** Buttons in the top-right toolbar, left of Close. */
   actions?: ReactNode;
+  /** Saved-result actions immediately below the picture, outside its drawing surface. */
+  pictureActions?: ReactNode;
   /** Caption area under the picture (prompt, file info, ...). */
   children?: ReactNode;
   /** Optional max-height Tailwind class for the bottom children slot (defaults to `max-h-[45dvh]`). */
@@ -298,6 +300,7 @@ export function ImageViewer({
   index = 0,
   onIndexChange,
   actions,
+  pictureActions,
   children,
   childrenMaxHeightClass,
   closeButtonRef,
@@ -489,14 +492,15 @@ export function ImageViewer({
           </div>
         </div>
       </div>
-      {children && (
+      {(children || pictureActions) && (
         <div
           className={cn(
-            "mx-auto flex w-full max-w-3xl shrink-0 flex-col overflow-y-auto px-3 pb-2",
+            "mx-auto flex w-full max-w-3xl shrink-0 flex-col overflow-hidden",
             childrenMaxHeightClass ?? "max-h-[45dvh]",
           )}
         >
-          {children}
+          {pictureActions && <div className="flex shrink-0 justify-center px-3 pb-2">{pictureActions}</div>}
+          {children && <div className="min-h-0 overflow-y-auto px-3 pb-2">{children}</div>}
         </div>
       )}
       {gallery && (

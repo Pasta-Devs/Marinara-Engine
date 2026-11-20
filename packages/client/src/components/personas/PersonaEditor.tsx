@@ -2220,6 +2220,7 @@ export function PersonaEditor() {
             onRemoveAvatar={() => void handleAvatarRemove()}
             onEditAvatar={avatarPreview && personaId ? () => void openAvatarEditor() : undefined}
             avatarEditPreparing={prepareAvatarEdit.isPending}
+            onOpenGallery={personaId ? () => scrollToSection("gallery") : undefined}
             onGenerateAvatar={() => {
               if (!mutationBusy) setAvatarGeneratorOpen(true);
             }}
@@ -3482,6 +3483,7 @@ function PersonaMetadataTab({
   onGenerateAvatar,
   onEditAvatar,
   avatarEditPreparing,
+  onOpenGallery,
   onRemoveAvatar,
   imageGenerationAvailable,
   avatarUploading,
@@ -3500,6 +3502,7 @@ function PersonaMetadataTab({
   onGenerateAvatar: () => void;
   onEditAvatar?: () => void;
   avatarEditPreparing: boolean;
+  onOpenGallery?: () => void;
   onRemoveAvatar: () => void;
   imageGenerationAvailable: boolean;
   avatarUploading: boolean;
@@ -3594,6 +3597,7 @@ function PersonaMetadataTab({
             onGenerate={onGenerateAvatar}
             onEdit={onEditAvatar}
             editing={avatarEditPreparing}
+            onOpenGallery={onOpenGallery}
           />
         </fieldset>
       </div>
