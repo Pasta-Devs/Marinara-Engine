@@ -56,6 +56,21 @@ try {
     ["top_p"],
     "two samplers refused together drop only top_p",
   );
+  assert.deepEqual(
+    detect({ error: { message: "temperature and top_p are not supported together; only one of them may be set." } }),
+    ["top_p"],
+    "the temperature + top_p pair, both named, still drops only top_p",
+  );
+  assert.deepEqual(
+    detect({ error: { message: "top_p and frequency_penalty are both not supported" } }).sort(),
+    ["frequency_penalty", "top_p"],
+    "together wording about other fields keeps every field it names",
+  );
+  assert.deepEqual(
+    detect({ error: { message: "temperature, top_p and top_k are all not supported together for this model" } }).sort(),
+    ["temperature", "top_k", "top_p"],
+    "three fields refused together are all dropped",
+  );
   // Not refusals of a setting: a value out of range, a refusal about something else, a field that was not sent.
   assert.deepEqual(detect({ error: { message: "temperature must be between 0 and 1" } }), []);
   assert.deepEqual(detect({ error: { message: "messages: role 'tool' is not supported" } }), []);

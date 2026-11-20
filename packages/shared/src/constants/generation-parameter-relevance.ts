@@ -10,6 +10,7 @@ import {
   usesGeminiMinimalDefault,
   impliesProxyThinking,
   isClaudeNoSamplingModel,
+  isClaudeTemperatureOnlyModel,
   isGeminiSamplingIgnoredModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
@@ -282,8 +283,10 @@ export function relevantGenerationParameters(context: GenerationParameterContext
 
     // The generation route clears sampling for Claude model ids on every provider.
     if (isClaudeNoSamplingModel(model)) hide(...SAMPLING);
-    else if (/claude-(opus|sonnet)-4-[56]/.test(model) || /claude-(opus|sonnet)-4\.[56]/.test(model)) {
+    else if (isClaudeTemperatureOnlyModel(model)) {
       hide("topP", "frequencyPenalty", "presencePenalty");
+      // Thinking refuses temperature and top_k on every route that reaches Anthropic, not only the native API.
+      if (effortActive || impliesProxyThinking(String(context.model ?? ""))) hide("temperature", "topK");
     }
 
     // Claude thinking rejects temperature and top_k, so the request drops both (anthropic.provider.ts). A `-thinking`

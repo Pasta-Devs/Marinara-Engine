@@ -221,6 +221,16 @@ export function isClaudeNoSamplingModel(model: string): boolean {
   );
 }
 
+/**
+ * Claude Opus/Sonnet 4.5 and 4.6: temperature and top_p are refused together, so top_p goes. With thinking on they
+ * also refuse a non-default temperature and top_k, on every route that forwards the request to Anthropic.
+ * https://platform.claude.com/docs/en/build-with-claude/extended-thinking
+ */
+export function isClaudeTemperatureOnlyModel(model: string): boolean {
+  const normalized = capabilityModelId(model);
+  return !isClaudeNoSamplingModel(normalized) && /claude-(?:opus|sonnet)-4[-.][56](?!\d)/u.test(normalized);
+}
+
 export function supportsXhighReasoningEffort(model: string): boolean {
   const normalized = bareCapabilityModelId(model);
   return (
