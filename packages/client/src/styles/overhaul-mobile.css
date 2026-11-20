@@ -2339,6 +2339,38 @@
   position: relative;
   margin-top: 0.25rem;
 }
+/* A label sharing its line with the buttons stops short of them: a long one ("Assistant Reasoning
+   Prefill" in a theme with larger text) put its help "?" under the Expand button's tap area
+   (Nov 19). The buttons on a label's line get a narrower 1.75rem pad (below) so the label keeps its
+   one line with its "?" (Nov 20); only a label too long even for that wraps, inline so the "?" stays
+   right after the last word. */
+:root[data-overhaul="mobile"]
+  span.inline-flex:has(
+    + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col)
+  ):not(#ovm-x) {
+  display: inline-block;
+  max-width: calc(100% - 1.875rem);
+}
+:root[data-overhaul="mobile"]
+  span.inline-flex:has(
+    + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col)
+  ):not(#ovm-x)
+  > span.inline-flex {
+  margin-left: 0.25rem;
+  vertical-align: -0.125em;
+}
+:root[data-overhaul="mobile"]
+  span.inline-flex:has(
+    + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col) > :nth-child(2)
+  ):not(#ovm-x) {
+  max-width: calc(100% - 4rem);
+}
+:root[data-overhaul="mobile"]
+  span.inline-flex:has(
+    + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col) > :nth-child(3)
+  ):not(#ovm-x) {
+  max-width: calc(100% - 6.125rem);
+}
 /* Character / Persona field labels (DESCRIPTION...) sit right on the box so the buttons share
    their line. */
 :root[data-overhaul="mobile"]
@@ -2369,6 +2401,14 @@
   min-width: 0 !important;
   min-height: 0 !important;
   padding: 0;
+}
+/* On a label's line the pads are 1.75rem wide, so the label keeps its line (see above). */
+:root[data-overhaul="mobile"]
+  :is(span.inline-flex, .ov-lf > span, .mari-editor-panel > .mb-4)
+  + :is([data-macro-field], .relative)
+  > :is([data-macro-tools], textarea + .absolute.flex-col)
+  > :is(button, a):not(#ovm-x):not(#ovm-y):not(#ovm-z) {
+  width: 1.75rem;
 }
 
 /* Choice pills (Service Tier, Reasoning Effort, Verbosity and other on/off picks in a

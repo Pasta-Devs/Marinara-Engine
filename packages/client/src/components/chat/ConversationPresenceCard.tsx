@@ -599,7 +599,7 @@ export function ConversationPresenceCard({
               />
             </div>
             <div className="flex min-w-0 flex-1 flex-col items-start text-left leading-tight">
-              <span className="truncate text-[0.75rem] font-semibold text-[var(--foreground)]/90">
+              <span className="block w-full truncate text-[0.75rem] font-semibold text-[var(--foreground)]/90">
                 {characters[0].name}
               </span>
               <span className="block w-full truncate text-[0.5625rem] text-[var(--foreground)]/50">
