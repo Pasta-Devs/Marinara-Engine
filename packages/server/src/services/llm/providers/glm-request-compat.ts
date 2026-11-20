@@ -74,7 +74,7 @@ export function glm53ReasoningEffort(reasoningEffort?: string | null): "low" | "
 
 export function applyGlmThinkingParameters(body: Record<string, unknown>, options: GlmThinkingOptions): boolean {
   if (!isGlmModel(options.model)) return false;
-  const nativeEndpoint = isNativeGlmEndpoint(options.baseUrl);
+  const nativeEndpoint = options.providerKind === "zai" || isNativeGlmEndpoint(options.baseUrl);
   if (!nativeEndpoint && options.providerKind !== "nanogpt") return false;
   const thinkingEnabled = options.enableThinking === true || hasActiveReasoningEffort(options.reasoningEffort);
 
@@ -96,7 +96,10 @@ export function applyGlmThinkingParameters(body: Record<string, unknown>, option
     return true;
   }
 
-  body.enable_thinking = thinkingEnabled;
+  // Native Z.ai uses thinking.type; gateway hosts retain their own switch.
+  // https://docs.z.ai/api-reference/llm/chat-completion
+  if (nativeEndpoint) body.thinking = { type: thinkingEnabled ? "enabled" : "disabled" };
+  else body.enable_thinking = thinkingEnabled;
   // NanoGPT documents reasoning_effort "none" as the way to turn reasoning off. enable_thinking alone
   // left GLM thinking at its default, so an explicit Off is sent the documented way too (#6961).
   if (!nativeEndpoint && !thinkingEnabled && options.reasoningEffort === "none") body.reasoning_effort = "none";

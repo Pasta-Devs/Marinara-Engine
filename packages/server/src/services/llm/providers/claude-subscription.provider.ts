@@ -28,6 +28,8 @@ import {
   isClaudeAdaptiveOnlyNoSamplingModel,
   isClaudeSonnet55Model,
   isClaudeStrictRequestModel,
+  isClaudeManualThinkingModel,
+  resolveProviderReasoningEffort,
   shouldSuppressUnknownModelParameters,
 } from "@marinara-engine/shared";
 import {
@@ -507,11 +509,15 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
     if (
       !suppressModelParameters &&
       options.reasoningEffort === "none" &&
-      supportsAnthropicThinkingDisable(options.model) &&
+      (supportsAnthropicThinkingDisable(options.model) || /claude-opus-4[.-][78](?:$|-)/u.test(options.model)) &&
       !isClaudeSonnet55Model(options.model)
     ) {
       sdkOptions.thinking = { type: "disabled" };
-    } else if (!suppressModelParameters && (options.enableThinking || isAdaptiveOnly)) {
+    } else if (
+      !suppressModelParameters &&
+      !isClaudeManualThinkingModel(options.model) &&
+      (options.enableThinking || isAdaptiveOnly || /claude-haiku-5[.-]5(?:$|-)/u.test(options.model))
+    ) {
       sdkOptions.thinking = {
         type: "adaptive",
         ...(options.captureReasoning ? { display: "summarized" as const } : {}),
@@ -524,7 +530,11 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
         this.shouldSendParameter(options, "reasoningEffort") &&
         (activeEffort || options.enableThinking || isClaudeStrictRequestModel(options.model))
       ) {
-        sdkOptions.effort = resolveAnthropicAdaptiveEffort(options) as "low" | "medium" | "high" | "xhigh" | "max";
+        sdkOptions.effort = (resolveProviderReasoningEffort({
+          provider: "claude_subscription",
+          model: options.model,
+          reasoningEffort: options.reasoningEffort,
+        }) ?? resolveAnthropicAdaptiveEffort(options)) as "low" | "medium" | "high" | "xhigh" | "max";
       }
     }
 
@@ -562,6 +572,11 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       if (Object.prototype.hasOwnProperty.call(customGenerationOptions, key)) {
         sdkOptionRecord[key] = customGenerationOptions[key];
       }
+    }
+    if (isClaudeManualThinkingModel(options.model)) {
+      delete sdkOptions.thinking;
+      delete sdkOptions.effort;
+      delete sdkOptions.maxThinkingTokens;
     }
     if (isClaudeStrictRequestModel(options.model)) {
       sdkOptions.thinking = {
