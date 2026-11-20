@@ -2852,19 +2852,21 @@ export const ChatMessage = memo(function ChatMessage({
   );
   const displayContent = useMemo(() => formatDisplayContent(message.content), [formatDisplayContent, message.content]);
 
-  // Text to speech reads what the message shows: {{user}}, {{char}} and the other macros resolved with the
-  // same context and seed as the display, so "Hello {{user}}" is read as "Hello You", not "Hello user".
-  const spokenContent = useMemo(
-    () =>
-      resolveMessageMacros(message.content, displayMacroContext, {
-        randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}`,
-      }),
-    [displayMacroContext, message.activeSwipeIndex, message.content, message.id],
-  );
-
   // TTS
   const { data: ttsConfig } = useTTSConfig();
   const ttsEnabled = ttsConfig?.enabled ?? false;
+  // Text to speech reads what the message shows: {{user}}, {{char}} and the other macros resolved with the
+  // same context and seed as the display, so "Hello {{user}}" is read as "Hello You", not "Hello user".
+  // Only while text to speech is on: otherwise nothing reads it.
+  const spokenContent = useMemo(
+    () =>
+      ttsEnabled
+        ? resolveMessageMacros(message.content, displayMacroContext, {
+            randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}`,
+          })
+        : message.content,
+    [displayMacroContext, message.activeSwipeIndex, message.content, message.id, ttsEnabled],
+  );
   const ttsPersona = useMemo(() => resolveTTSMessagePersona(message, personaInfo), [message, personaInfo]);
   const mappedUserPersona = message.role === "user" && ttsConfig && getTTSPersonaVoice(ttsConfig, ttsPersona);
   const ttsFallbackId =
