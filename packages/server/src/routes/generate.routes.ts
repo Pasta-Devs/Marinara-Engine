@@ -1057,7 +1057,10 @@ import { injectCommittedTrackerContext } from "../services/generation/committed-
 import { loadPriorBeholderState } from "../services/agents/beholder-state.js";
 import { gameGmPromptDecisionTexts, injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
 import { mergeConversationCharacterMemories } from "../services/generation/conversation-memory-context.js";
-import { injectMemoryRecallContext } from "../services/generation/memory-recall-context.js";
+import {
+  injectMemoryRecallContext,
+  type MemoryRecallPromptWindow,
+} from "../services/generation/memory-recall-context.js";
 import {
   applyIllustratorChatRunInterval,
   automaticVideoAllowed,
@@ -6220,7 +6223,26 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           customAgentHasCapability(agent.settings, "access_vectors"),
         );
         let recalledAgentVectorMemories: string[] = [];
-        let memoryRecallAttempted = false;
+        // Agents with vector access read memories from the whole chat. The prompt's own recall serves them too
+        // only when it also searches the whole chat.
+        let agentVectorMemoriesRecalled = false;
+        // By default the prompt recalls only messages it will not send: none while the whole chat fits.
+        const enableMemoryRecallWholeChat = chatMeta.enableMemoryRecallWholeChat === true;
+        const memoryRecallPromptWindow = (): MemoryRecallPromptWindow<GenerationPromptMessage> | undefined =>
+          enableMemoryRecallWholeChat
+            ? undefined
+            : {
+                prompt: finalMessages,
+                messageCreatedAt: new Map(allChatMessages.map((message) => [message.id, message.createdAt])),
+                // The fit this request gets below. Tool definitions are not known yet; reserving for them would
+                // only make the request drop more history, which then waits a turn or two to be recalled.
+                fit: (messages) =>
+                  fitMessagesForModelAccess({
+                    messages: limitPastReasoningMetadata(messages, chatMeta),
+                    policy: { ...modelAccessPolicy, effectiveMaxContext },
+                    maxTokens,
+                  }).messages,
+              };
         // An active Long-term memory package replaces built-in recall in the main prompt (#8359).
         const conversationMemoriesSlot = chatMode === "conversation" && conversationContextMacroSlots.memories;
         const memoryRecallPolicy = resolveMemoryRecallPolicy({
@@ -6231,7 +6253,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         if (conversationMemoriesSlot) {
           const memoryRecallMessages: GenerationPromptMessage[] = [];
           if (memoryRecallPolicy.builtInRecall && enableMemoryRecall && memoryRecallVectorizerAvailable) {
-            memoryRecallAttempted = true;
+            agentVectorMemoriesRecalled = enableMemoryRecallWholeChat;
             recalledAgentVectorMemories = await injectMemoryRecallContext({
               db: app.db,
               messages: memoryRecallMessages,
@@ -6240,6 +6262,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               embeddingSource: memoryRecallEmbeddingSource,
               excludeFromMessageAt: regenerateContextCutoff,
               contextLimit: suppressModelParameters ? undefined : (effectiveMaxContext ?? connectionMaxContext),
+              promptWindow: memoryRecallPromptWindow(),
               sendProgress,
               signal: generationSignal,
               resolveMacros: (value) => resolveMacros(value, promptMacroContext, { trimResult: false }),
@@ -6283,7 +6306,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           enableMemoryRecall &&
           memoryRecallVectorizerAvailable
         ) {
-          memoryRecallAttempted = true;
+          agentVectorMemoriesRecalled = enableMemoryRecallWholeChat;
           recalledAgentVectorMemories = await injectMemoryRecallContext({
             db: app.db,
             messages: finalMessages,
@@ -6292,6 +6315,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             embeddingSource: memoryRecallEmbeddingSource,
             excludeFromMessageAt: regenerateContextCutoff,
             contextLimit: suppressModelParameters ? undefined : (effectiveMaxContext ?? connectionMaxContext),
+            promptWindow: memoryRecallPromptWindow(),
             sendProgress,
             signal: generationSignal,
             resolveMacros: (value) => resolveMacros(value, promptMacroContext, { trimResult: false }),
@@ -6302,7 +6326,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           !advancedMemoryEnabled &&
           customAgentVectorAccessEnabled &&
           memoryRecallVectorizerAvailable &&
-          !memoryRecallAttempted
+          !agentVectorMemoriesRecalled
         ) {
           recalledAgentVectorMemories = await injectMemoryRecallContext({
             db: app.db,

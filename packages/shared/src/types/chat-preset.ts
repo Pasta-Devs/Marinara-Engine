@@ -372,6 +372,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   "longTermMemoryMaxChunks", // Long-term memory: most memories per reply
   // Memory and summaries
   "enableMemoryRecall", // Memory Recall on or off
+  "enableMemoryRecallWholeChat", // Memory Recall: also recall messages the prompt still sends
   "advancedMemory", // Advanced Memory settings; each chat keeps its own knowledge anchors and narrator
   "summaryConnectionId", // Summary connection
   "summaryMaxTokens", // Summary length
