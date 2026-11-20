@@ -157,6 +157,7 @@ import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia
 import { RoleplayRulesetCheckCard } from "./RoleplayRulesetCheckCard";
 import { extractRoleplayRulesetRecords } from "../../lib/roleplay-ruleset-records";
 import { Spinner } from "../ui/Spinner";
+import { Popover } from "../ui/Popover";
 
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
@@ -413,58 +414,21 @@ function AIVisibilityRecipientAvatars({
   );
 }
 
-function useMessageActionMenu(align: "left" | "right") {
+function useMessageActionMenu() {
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
 
-  useLayoutEffect(() => {
-    if (!open) return;
-    const update = () => {
-      const button = buttonRef.current;
-      const menu = menuRef.current;
-      if (!button || !menu) return;
-      const rect = button.getBoundingClientRect();
-      const left = align === "right" ? rect.right - menu.offsetWidth : rect.left;
-      setPosition({
-        top: Math.max(8, rect.top - menu.offsetHeight - 7),
-        left: Math.max(8, Math.min(left, window.innerWidth - menu.offsetWidth - 8)),
-      });
-    };
-    update();
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
-    const observer = new ResizeObserver(update);
-    if (menuRef.current) observer.observe(menuRef.current);
-    return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
-      observer.disconnect();
-    };
-  }, [align, open]);
+  // Escape hands focus back to the button; a click elsewhere keeps the focus it moved to.
+  const close = useCallback(() => {
+    setOpen(false);
+    const button = buttonRef.current;
+    const active = button?.ownerDocument.activeElement;
+    if (button && (!active || active === button.ownerDocument.body || active.closest("[data-component='Popover']"))) {
+      button.focus({ preventScroll: true });
+    }
+  }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!buttonRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-        buttonRef.current?.focus({ preventScroll: true });
-      }
-    };
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
-  return { open, setOpen, buttonRef, menuRef, position };
+  return { open, setOpen, buttonRef, close };
 }
 
 function HideFromAIAction({
@@ -483,7 +447,7 @@ function HideFromAIAction({
   align?: "left" | "right";
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const { open, setOpen, buttonRef, menuRef, position } = useMessageActionMenu(align);
+  const { open, setOpen, buttonRef, close } = useMessageActionMenu();
   const isGroupChat = characters.length > 1;
   const hasRestriction = hiddenFromAll || hiddenCharacterIds.length > 0;
 
@@ -527,64 +491,63 @@ function HideFromAIAction({
         ariaPressed={hasRestriction}
       />
 
-      {open &&
-        isGroupChat &&
-        createPortal(
-          <div
-            ref={menuRef}
-            style={position}
-            role="menu"
-            aria-label={localizeUi("ui.chat.hidefromaiaction.chooseWhichCharactersCannotSeeThisMessage")}
+      <Popover
+        open={open && isGroupChat}
+        onClose={close}
+        anchorRef={buttonRef}
+        side="top"
+        align={align === "right" ? "end" : "start"}
+        gap={7}
+        role="menu"
+        aria-label={localizeUi("ui.chat.hidefromaiaction.chooseWhichCharactersCannotSeeThisMessage")}
+        className="marinara-chat-popover mari-chat-style-surface mari-chat-action-panel max-h-36 w-max overflow-x-hidden rounded-xl border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)]"
+      >
+        <div className="flex max-w-[min(22rem,calc(100vw-1rem))] flex-wrap items-center gap-1.5 p-2">
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={hiddenFromAll}
+            aria-label={localizeUi("ui.chat.hidefromaiaction.hideFromAllCharacters")}
+            title={localizeUi("ui.chat.hidefromaiaction.allCharacters")}
+            onClick={() => onToggle(messageId, hiddenFromAll)}
             className={cn(
-              "marinara-chat-popover mari-chat-style-surface mari-chat-action-panel fixed z-[9999] flex max-h-36 w-max max-w-[min(22rem,calc(100vw-1rem))] flex-wrap items-center gap-1.5 overflow-x-hidden overflow-y-auto rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-2 shadow-xl",
+              "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+              hiddenFromAll
+                ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)]"
+                : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
             )}
           >
-            <button
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={hiddenFromAll}
-              aria-label={localizeUi("ui.chat.hidefromaiaction.hideFromAllCharacters")}
-              title={localizeUi("ui.chat.hidefromaiaction.allCharacters")}
-              onClick={() => onToggle(messageId, hiddenFromAll)}
-              className={cn(
-                "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
-                hiddenFromAll
-                  ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)]"
-                  : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
-              )}
-            >
-              <AIVisibilityGroupAvatar characters={characters} className="h-[72%] w-[72%]" />
-            </button>
+            <AIVisibilityGroupAvatar characters={characters} className="h-[72%] w-[72%]" />
+          </button>
 
-            <span aria-hidden="true" className="h-7 w-px bg-[var(--marinara-chat-chrome-panel-divider)]" />
+          <span aria-hidden="true" className="h-7 w-px bg-[var(--marinara-chat-chrome-panel-divider)]" />
 
-            {characters.map((character) => {
-              const selected = !hiddenFromAll && hiddenCharacterIds.includes(character.id);
-              return (
-                <button
-                  key={character.id}
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={selected}
-                  aria-label={localizeUi("ui.chat.hidefromaiaction.hideFromValue1", { value1: character.name })}
-                  title={character.name}
-                  onClick={() => toggleCharacter(character.id)}
-                  className={cn(
-                    "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
-                    selected
-                      ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)] brightness-110"
-                      : hiddenFromAll
-                        ? "opacity-35 hover:opacity-80"
-                        : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
-                  )}
-                >
-                  <AIVisibilityAvatar character={character} className="h-[72%] w-[72%] text-[0.625rem]" />
-                </button>
-              );
-            })}
-          </div>,
-          document.body,
-        )}
+          {characters.map((character) => {
+            const selected = !hiddenFromAll && hiddenCharacterIds.includes(character.id);
+            return (
+              <button
+                key={character.id}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={selected}
+                aria-label={localizeUi("ui.chat.hidefromaiaction.hideFromValue1", { value1: character.name })}
+                title={character.name}
+                onClick={() => toggleCharacter(character.id)}
+                className={cn(
+                  "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+                  selected
+                    ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)] brightness-110"
+                    : hiddenFromAll
+                      ? "opacity-35 hover:opacity-80"
+                      : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
+                )}
+              >
+                <AIVisibilityAvatar character={character} className="h-[72%] w-[72%] text-[0.625rem]" />
+              </button>
+            );
+          })}
+        </div>
+      </Popover>
     </>
   );
 }
@@ -605,7 +568,7 @@ function ConversationStartAction({
   align?: "left" | "right";
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const { open, setOpen, buttonRef, menuRef, position } = useMessageActionMenu(align);
+  const { open, setOpen, buttonRef, close } = useMessageActionMenu();
   const isGroupChat = characters.length > 1;
   const hasStart = sharedStart || characterIds.length > 0;
 
@@ -642,64 +605,63 @@ function ConversationStartAction({
         ariaPressed={hasStart}
       />
 
-      {open &&
-        isGroupChat &&
-        createPortal(
-          <div
-            ref={menuRef}
-            style={position}
-            role="menu"
-            aria-label={localizeUi("ui.chat.conversationstartaction.chooseWhoStartsHere")}
+      <Popover
+        open={open && isGroupChat}
+        onClose={close}
+        anchorRef={buttonRef}
+        side="top"
+        align={align === "right" ? "end" : "start"}
+        gap={7}
+        role="menu"
+        aria-label={localizeUi("ui.chat.conversationstartaction.chooseWhoStartsHere")}
+        className="marinara-chat-popover mari-chat-style-surface mari-chat-action-panel max-h-36 w-max overflow-x-hidden rounded-xl border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)]"
+      >
+        <div className="flex max-w-[min(22rem,calc(100vw-1rem))] flex-wrap items-center gap-1.5 p-2">
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={sharedStart}
+            aria-label={localizeUi("ui.chat.conversationstartaction.newStartForAllCharacters")}
+            title={localizeUi("ui.chat.hidefromaiaction.allCharacters")}
+            onClick={() => onToggle(messageId, !sharedStart, characterIds)}
             className={cn(
-              "marinara-chat-popover mari-chat-style-surface mari-chat-action-panel fixed z-[9999] flex max-h-36 w-max max-w-[min(22rem,calc(100vw-1rem))] flex-wrap items-center gap-1.5 overflow-x-hidden overflow-y-auto rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-2 shadow-xl",
+              "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+              sharedStart
+                ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)]"
+                : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
             )}
           >
-            <button
-              type="button"
-              role="menuitemcheckbox"
-              aria-checked={sharedStart}
-              aria-label={localizeUi("ui.chat.conversationstartaction.newStartForAllCharacters")}
-              title={localizeUi("ui.chat.hidefromaiaction.allCharacters")}
-              onClick={() => onToggle(messageId, !sharedStart, characterIds)}
-              className={cn(
-                "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
-                sharedStart
-                  ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)]"
-                  : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
-              )}
-            >
-              <AIVisibilityGroupAvatar characters={characters} className="h-[72%] w-[72%]" />
-            </button>
+            <AIVisibilityGroupAvatar characters={characters} className="h-[72%] w-[72%]" />
+          </button>
 
-            <span aria-hidden="true" className="h-7 w-px bg-[var(--marinara-chat-chrome-panel-divider)]" />
+          <span aria-hidden="true" className="h-7 w-px bg-[var(--marinara-chat-chrome-panel-divider)]" />
 
-            {characters.map((character) => {
-              const selected = characterIds.includes(character.id);
-              return (
-                <button
-                  key={character.id}
-                  type="button"
-                  role="menuitemcheckbox"
-                  aria-checked={selected}
-                  aria-label={localizeUi("ui.chat.conversationstartaction.newStartForValue1", {
-                    value1: character.name,
-                  })}
-                  title={character.name}
-                  onClick={() => toggleCharacter(character.id)}
-                  className={cn(
-                    "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
-                    selected
-                      ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)] brightness-110"
-                      : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
-                  )}
-                >
-                  <AIVisibilityAvatar character={character} className="h-[72%] w-[72%] text-[0.625rem]" />
-                </button>
-              );
-            })}
-          </div>,
-          document.body,
-        )}
+          {characters.map((character) => {
+            const selected = characterIds.includes(character.id);
+            return (
+              <button
+                key={character.id}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={selected}
+                aria-label={localizeUi("ui.chat.conversationstartaction.newStartForValue1", {
+                  value1: character.name,
+                })}
+                title={character.name}
+                onClick={() => toggleCharacter(character.id)}
+                className={cn(
+                  "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+                  selected
+                    ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)] brightness-110"
+                    : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
+                )}
+              >
+                <AIVisibilityAvatar character={character} className="h-[72%] w-[72%] text-[0.625rem]" />
+              </button>
+            );
+          })}
+        </div>
+      </Popover>
     </>
   );
 }
@@ -5234,14 +5196,17 @@ function MessageAudioMenu({
   dark?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const { open, setOpen, buttonRef, menuRef, position } = useMessageActionMenu(align);
+  const { open, setOpen, buttonRef, close } = useMessageActionMenu();
+  const contentRef = useRef<HTMLDivElement>(null);
   const label = localizeUi("ui.chat.chatmessage.voiceControls");
 
   useEffect(() => {
     if (!open) return;
-    const frame = requestAnimationFrame(() => menuRef.current?.querySelector("button")?.focus({ preventScroll: true }));
+    const frame = requestAnimationFrame(() =>
+      contentRef.current?.querySelector("button")?.focus({ preventScroll: true }),
+    );
     return () => cancelAnimationFrame(frame);
-  }, [menuRef, open]);
+  }, [open]);
 
   return (
     <>
@@ -5255,24 +5220,26 @@ function MessageAudioMenu({
           open ? (dark ? MESSAGE_CHROME_ACTIVE_ICON_CLASS : "bg-[var(--accent)] text-[var(--foreground)]") : undefined
         }
       />
-      {open &&
-        createPortal(
-          <div
-            ref={menuRef}
-            style={position}
-            role="dialog"
-            aria-label={label}
-            className={cn(
-              "marinara-chat-popover mari-chat-style-surface mari-chat-action-panel fixed z-[9999] flex max-w-[calc(100vw-1.5rem)] flex-row flex-wrap items-center gap-1 rounded-lg border p-1.5 shadow-xl",
-              dark
-                ? "border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-title)] shadow-black/30"
-                : "border-[var(--border)] bg-[var(--popover)] text-[var(--popover-foreground)] shadow-black/20",
-            )}
-          >
-            {children}
-          </div>,
-          document.body,
+      <Popover
+        open={open}
+        onClose={close}
+        anchorRef={buttonRef}
+        side="top"
+        align={align === "right" ? "end" : "start"}
+        gap={7}
+        role="dialog"
+        aria-label={label}
+        className={cn(
+          "marinara-chat-popover mari-chat-style-surface mari-chat-action-panel rounded-lg p-1.5 shadow-xl",
+          dark
+            ? "border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] text-[var(--marinara-chat-chrome-panel-title)] shadow-black/30"
+            : "border-[var(--border)] bg-[var(--popover)] text-[var(--popover-foreground)] shadow-black/20",
         )}
+      >
+        <div ref={contentRef} className="flex flex-row flex-wrap items-center gap-1">
+          {children}
+        </div>
+      </Popover>
     </>
   );
 }

@@ -26,6 +26,7 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { isDesktopShellNavigationTarget } from "../../lib/chat-floating-ui-events";
+import { Popover } from "../ui/Popover";
 import type { CharacterMap } from "./chat-area.types";
 import {
   CHAT_TOOLBAR_IDENTITY_PILL_SIZE_CLASS,
@@ -152,12 +153,7 @@ export function ConversationPresenceCard({
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const statusButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const activityFieldRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
-  const statusMenuRef = useRef<HTMLDivElement | null>(null);
-  const [statusMenuPosition, setStatusMenuPosition] = useState<{ top: number; left: number; width: number }>({
-    top: 0,
-    left: 0,
-    width: 180,
-  });
+  const statusAnchorRef = useRef<HTMLButtonElement | null>(null);
   const [position, setPosition] = useState<{ top: number; left: number; width: number }>({
     top: 0,
     left: 0,
@@ -225,33 +221,6 @@ export function ConversationPresenceCard({
     });
   }, [open]);
 
-  useLayoutEffect(() => {
-    if (!statusMenuCharacterId) return;
-
-    const updateMenuPosition = () => {
-      const button = statusButtonRefs.current[statusMenuCharacterId];
-      if (!button) return;
-
-      const rect = button.getBoundingClientRect();
-      const viewportPadding = 12;
-      const width = Math.min(180, window.innerWidth - viewportPadding * 2);
-      const left = Math.min(
-        Math.max(rect.left, viewportPadding),
-        Math.max(viewportPadding, window.innerWidth - width - viewportPadding),
-      );
-      const top = rect.bottom + 6;
-      setStatusMenuPosition({ top, left, width });
-    };
-
-    updateMenuPosition();
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
-    return () => {
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
-    };
-  }, [statusMenuCharacterId]);
-
   useEffect(() => {
     if (!open) return;
     const handleMouseDown = (event: MouseEvent) => {
@@ -260,8 +229,7 @@ export function ConversationPresenceCard({
       if (
         buttonRef.current?.contains(target) ||
         popoverRef.current?.contains(target) ||
-        statusMenuRef.current?.contains(target) ||
-        (target instanceof HTMLElement && target.closest('[data-component="Modal"]'))
+        (target as Element | null)?.closest?.('[data-component="Popover"], [data-component="Modal"]')
       ) {
         return;
       }
@@ -269,10 +237,6 @@ export function ConversationPresenceCard({
     };
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (statusMenuCharacterId) {
-        setStatusMenuCharacterId(null);
-        return;
-      }
       if (editingCharacterId) {
         setEditingCharacterId(null);
         setDraftActivity("");
@@ -282,38 +246,28 @@ export function ConversationPresenceCard({
     };
     const handleResize = () => {
       // Mobile keyboards resize/pan the viewport when the activity editor gains focus.
-      if (popoverRef.current?.contains(document.activeElement)) return;
+      if (popoverRef.current?.contains(popoverRef.current.ownerDocument.activeElement)) return;
       setOpen(false);
     };
     const handleScroll = (event: Event) => {
-      if (event.target instanceof Node && popoverRef.current?.contains(event.target)) return;
+      // No `instanceof Node`: that is the main window's class, and a node from a popped-out window fails it.
+      const target = event.target as Node | null;
+      if (target && popoverRef.current?.contains(target)) return;
       handleResize();
     };
-    document.addEventListener("mousedown", handleMouseDown);
-    document.addEventListener("keydown", handleEscape);
-    window.addEventListener("resize", handleResize);
-    window.addEventListener("scroll", handleScroll, true);
+    const doc = buttonRef.current?.ownerDocument ?? document;
+    const view = doc.defaultView ?? window;
+    doc.addEventListener("mousedown", handleMouseDown);
+    doc.addEventListener("keydown", handleEscape);
+    view.addEventListener("resize", handleResize);
+    view.addEventListener("scroll", handleScroll, true);
     return () => {
-      document.removeEventListener("mousedown", handleMouseDown);
-      document.removeEventListener("keydown", handleEscape);
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("scroll", handleScroll, true);
+      doc.removeEventListener("mousedown", handleMouseDown);
+      doc.removeEventListener("keydown", handleEscape);
+      view.removeEventListener("resize", handleResize);
+      view.removeEventListener("scroll", handleScroll, true);
     };
-  }, [draftActivity, editingCharacterId, open, statusMenuCharacterId]);
-
-  useEffect(() => {
-    if (!statusMenuCharacterId) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (statusButtonRefs.current[statusMenuCharacterId]?.contains(target) || statusMenuRef.current?.contains(target))
-        return;
-      setStatusMenuCharacterId(null);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => document.removeEventListener("pointerdown", handlePointerDown);
-  }, [statusMenuCharacterId]);
+  }, [draftActivity, editingCharacterId, open]);
 
   useLayoutEffect(() => {
     for (const field of Object.values(activityFieldRefs.current)) resizeActivityField(field);
@@ -790,9 +744,10 @@ export function ConversationPresenceCard({
                                 "inline-flex min-h-[2rem] items-center justify-center gap-1 px-2 text-[0.6875rem] font-medium transition-colors hover:bg-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
                                 isStatusMenuOpen && "bg-[var(--accent)]",
                               )}
-                              onClick={() =>
-                                setStatusMenuCharacterId((current) => (current === character.id ? null : character.id))
-                              }
+                              onClick={(event) => {
+                                statusAnchorRef.current = event.currentTarget;
+                                setStatusMenuCharacterId((current) => (current === character.id ? null : character.id));
+                              }}
                             >
                               <span className={cn("h-2 w-2 rounded-full", statusDotClass(character.status))} />
                               <ChevronDown size="0.625rem" className="shrink-0 opacity-60" />
@@ -866,52 +821,43 @@ export function ConversationPresenceCard({
                       )}
                     </div>
 
-                    {isStatusMenuOpen &&
-                      createPortal(
-                        <div
-                          ref={statusMenuRef}
-                          role="menu"
-                          aria-label={localizeUi("ui.chat.conversationpresencecard.chooseConversationStatus")}
-                          className="fixed z-[10000] rounded-lg border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--popover-foreground)] shadow-xl ring-1 ring-[var(--border)]"
-                          style={{
-                            left: statusMenuPosition.left,
-                            top: statusMenuPosition.top,
-                            width: statusMenuPosition.width,
-                          }}
-                          onClick={(event) => event.stopPropagation()}
-                          onPointerDown={(event) => event.stopPropagation()}
-                        >
-                          {STATUS_OPTIONS.map((option) => {
-                            const selected = (pendingStatuses[character.id] ?? character.status) === option.status;
-                            return (
-                              <button
-                                key={option.status}
-                                type="button"
-                                role="menuitemradio"
-                                aria-checked={selected}
-                                disabled={updateMeta.isPending}
-                                onClick={() => void selectStatus(character, option.status)}
-                                className={cn(
-                                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[0.6875rem] transition-colors disabled:opacity-60",
-                                  selected
-                                    ? "bg-[var(--accent)] text-[var(--foreground)]"
-                                    : "text-[var(--popover-foreground)] hover:bg-[var(--accent)]",
-                                )}
-                              >
-                                <span className={cn("h-2 w-2 shrink-0 rounded-full", statusDotClass(option.status))} />
-                                <span>{option.label}</span>
-                              </button>
-                            );
-                          })}
-                        </div>,
-                        document.body,
-                      )}
+                    <Popover
+                      open={isStatusMenuOpen}
+                      onClose={() => setStatusMenuCharacterId(null)}
+                      anchorRef={statusAnchorRef}
+                      role="menu"
+                      aria-label={localizeUi("ui.chat.conversationpresencecard.chooseConversationStatus")}
+                      className="w-[180px] rounded-lg bg-[var(--popover)] p-1 text-[var(--popover-foreground)] ring-1 ring-[var(--border)]"
+                    >
+                      {STATUS_OPTIONS.map((option) => {
+                        const selected = (pendingStatuses[character.id] ?? character.status) === option.status;
+                        return (
+                          <button
+                            key={option.status}
+                            type="button"
+                            role="menuitemradio"
+                            aria-checked={selected}
+                            disabled={updateMeta.isPending}
+                            onClick={() => void selectStatus(character, option.status)}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[0.6875rem] transition-colors disabled:opacity-60",
+                              selected
+                                ? "bg-[var(--accent)] text-[var(--foreground)]"
+                                : "text-[var(--popover-foreground)] hover:bg-[var(--accent)]",
+                            )}
+                          >
+                            <span className={cn("h-2 w-2 shrink-0 rounded-full", statusDotClass(option.status))} />
+                            <span>{option.label}</span>
+                          </button>
+                        );
+                      })}
+                    </Popover>
                   </div>
                 );
               })}
             </div>
           </div>,
-          document.body,
+          buttonRef.current?.ownerDocument.body ?? document.body,
         )}
     </>
   );

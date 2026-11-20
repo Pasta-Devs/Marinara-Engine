@@ -71,6 +71,7 @@ import {
 import { MariReferencePicker, type MariReferencePickerProps } from "./MariReferencePicker";
 import { MariRuntimeRecovery } from "./MariRuntimeRecovery";
 import { CompactMarkdown, ProfessorMariAttachmentPreviews } from "./MariReplyContent";
+import { useDismiss } from "../../../hooks/use-dismiss";
 import { useInDialogFocusScope } from "../../../hooks/use-in-dialog-focus-scope";
 
 /** R11 (composer v5): her composer dock: the question strip, context chips, the field, attach, connection and mode menus, and Send/Stop. */
@@ -268,14 +269,7 @@ export function MariComposer({
     () => setSendMenuOpen(false),
     sendMenuVisible,
   );
-  useEffect(() => {
-    if (!sendMenuVisible) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (!sendMenuRef.current?.contains(event.target as Node)) setSendMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [sendMenuVisible]);
+  useDismiss(sendMenuRef, sendMenuVisible, () => setSendMenuOpen(false));
   // Where the caret sits in the draft, so a live `@` / `/` token can be found.
   const [caret, setCaret] = useState(draft.length);
   const liveToken = activeToken(draft, Math.min(caret, draft.length));
