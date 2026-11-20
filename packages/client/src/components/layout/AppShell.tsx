@@ -934,6 +934,9 @@ export function AppShell({
     if (!sidebarOpen) sidebarOpenAtLoadRef.current = false;
     if (!sidebarOpen || (!overhaulActive && !overhaulMobile)) return;
     const ui = useUIStore.getState();
+    // Already handed over (React's development double run of this effect): running it again would take the
+    // load's "open" for a new one and open the Chats page over Home on phones.
+    if (!ui.sidebarOpen) return;
     ui.setSidebarOpen(false);
     const overhaul = useOverhaulStore.getState();
     overhaul.setSidePane("chats");

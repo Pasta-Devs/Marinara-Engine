@@ -345,6 +345,24 @@ export function detectLayoutProblems(options = {}) {
         continue;
       // Something drawn over the button on purpose (a label wrapping it, its own tooltip).
       if (hit.closest("label")?.contains(el)) continue;
+      // Scrolled under its own scroller's sticky header (a chat's message under the chat's name pill): the header
+      // is that list's top edge, the same as a row scrolled past it. Only where the header itself is drawn: text
+      // spilling out of it over the list (a long name running out of the pill, Nov 19) still counts.
+      let sticky = hit;
+      let insideHeader = true;
+      while (sticky && sticky !== document.body && styleOf(sticky).position !== "sticky") {
+        const box = sticky.getBoundingClientRect();
+        if (x < box.left || x > box.right || y < box.top || y > box.bottom) insideHeader = false;
+        sticky = sticky.parentElement;
+      }
+      if (
+        sticky &&
+        sticky !== document.body &&
+        insideHeader &&
+        !sticky.contains(el) &&
+        sticky.parentElement?.contains(el)
+      )
+        continue;
       const over = hit.closest(
         "button, a, [role=button], [role=dialog], [role=menu], [role=listbox], header, nav, aside, section, div",
       );
