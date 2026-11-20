@@ -726,8 +726,35 @@ try {
     "xhigh",
   );
 
+  // With no stored effort the native request leaves thinking off and keeps both samplers, as the panel shows.
+  {
+    const body = JSON.parse(
+      await capture(
+        registry("anthropic", base),
+        "anthropic",
+        "claude-opus-4-5",
+        {
+          temperature: 0.7,
+          maxTokens: 777,
+          topP: 0.9,
+          topK: 40,
+          frequencyPenalty: 0,
+          presencePenalty: 0,
+          reasoningEffort: undefined as never,
+          verbosity: "low",
+          serviceTier: "flex",
+        },
+        false,
+      ),
+    );
+    assert.equal(body.thinking, undefined);
+    assert.equal(body.temperature, 0.7);
+    assert.equal(body.top_k, 40);
+  }
   // Claude 4.5/4.6 thinking refuses temperature and top_k on every route, not only the native API.
   for (const [provider, model] of [
+    ["anthropic", "claude-opus-4-5"],
+    ["anthropic", "claude-sonnet-4-6"],
     ["openrouter", "anthropic/claude-opus-4.5"],
     ["custom", "claude-opus-4-5"],
     ["custom", "claude-sonnet-4-6"],
@@ -737,9 +764,9 @@ try {
     const off = relevantGenerationParameters({ provider, model, reasoningEffort: null });
     const unset = relevantGenerationParameters({ provider, model });
     assert.ok(unset.has("temperature"), `${provider} ${model} with no stored effort keeps temperature`);
-    if (provider === "custom") assert.ok(unset.has("topK"), `${model} with no stored effort keeps top_k`);
+    if (provider !== "openrouter") assert.ok(unset.has("topK"), `${model} with no stored effort keeps top_k`);
     assert.ok(off.has("temperature"), `${provider} ${model} with thinking off keeps temperature`);
-    if (provider === "custom") assert.ok(off.has("topK"), `${model} with thinking off keeps top_k`);
+    if (provider !== "openrouter") assert.ok(off.has("topK"), `${model} with thinking off keeps top_k`);
   }
 
   // Live data only narrows: OpenRouter's per-model list hides what the model ignores upstream.
