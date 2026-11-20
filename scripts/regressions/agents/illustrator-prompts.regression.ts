@@ -68,6 +68,9 @@ const cases: RegressionCase[] = [
       const profile = styleProfiles.profiles.find((entry) => entry.id === "off")!;
       for (const mode of ["off", "hybrid"] as const) {
         for (const [style, imagePrompt, gameArtStylePrompt, expectedPrompt, expectedCleanPrompt] of [
+          ["pink lighting", " 1girl, sitting. ", "ink", "ink,  1girl, sitting. ", "ink, 1girl, sitting."],
+          ["warm light", " pink lighting ", "ink", "ink,  pink lighting ", "ink, pink lighting"],
+          ["ink (wash), warm light", " 1girl ", "ink (wash)", " 1girl ", "1girl"],
           [
             "ink wash",
             " 1girl, WATERCOLOR WORLD. ",

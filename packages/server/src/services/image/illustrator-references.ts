@@ -194,12 +194,13 @@ export function buildIllustratorPromptSources(args: {
 }): { prompt: string; generatedStyle: string } {
   const imagePrompt = args.promptMode === "off" ? args.imagePrompt : args.imagePrompt.trim();
   const gameArtStyle = (args.gameArtStylePrompt ?? "").trim();
-  const gameArtStyleKey = gameArtStyle.toLowerCase();
+  const gameArtStylePattern = new RegExp(
+    `(?<![\\p{L}\\p{N}_])${gameArtStyle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}_])`,
+    "iu",
+  );
   // Campaign style is a fallback instruction; the writer's own fields stay untouched in Off.
   const gameStylePrefix =
-    !gameArtStyle ||
-    imagePrompt.toLowerCase().includes(gameArtStyleKey) ||
-    args.generatedStyle.toLowerCase().includes(gameArtStyleKey)
+    !gameArtStyle || gameArtStylePattern.test(imagePrompt) || gameArtStylePattern.test(args.generatedStyle)
       ? ""
       : gameArtStyle;
   return {
