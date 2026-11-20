@@ -166,7 +166,8 @@ export function AdvancedParametersSection({
       ? metadata.imageCaptioningPrompt
       : "";
   // Without the chat's own prompt, the engine-wide Image reading prompt (Library › Connections) is used.
-  const imageReadingSettings = useImageReadingSettings().data;
+  const imageReadingQuery = useImageReadingSettings();
+  const imageReadingSettings = imageReadingQuery.data;
   const engineCaptioningPrompt = imageReadingSettings?.prompt?.trim() || DEFAULT_IMAGE_CAPTIONING_PROMPT;
   // Automatic captioning (an Image reading model, switch never touched here) reads with this prompt too.
   const imageReadingDefaultSet = !!useFeatureModels().data?.visionConnectionId;
@@ -424,8 +425,20 @@ export function AdvancedParametersSection({
             {localizeUi("chatSettings.advanced.imageCaptioningAutomatic")}
           </p>
         )}
+        {showCaptioningPrompt && !imageReadingSettings && !customCaptioningPrompt && imageReadingQuery.isError && (
+          <p className="flex items-center gap-2 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+            {localizeUi("chatSettings.advanced.imageCaptioningPromptLoadFailed")}
+            <button
+              type="button"
+              onClick={() => void imageReadingQuery.refetch()}
+              className="rounded-lg bg-[var(--secondary)] px-2 py-1 ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              {localizeUi("chatSettings.advanced.imageCaptioningPromptRetry")}
+            </button>
+          </p>
+        )}
         {/* Waits for the engine prompt, so a box focused early can't save the built-in text as this chat's own. */}
-        {showCaptioningPrompt && imageReadingSettings && (
+        {showCaptioningPrompt && (imageReadingSettings || customCaptioningPrompt) && (
           <div className="space-y-1 px-1">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">

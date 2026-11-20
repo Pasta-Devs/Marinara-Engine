@@ -348,6 +348,12 @@ const [truncated] = await generateImageCaptionsForDataUrls(
   signal,
 );
 assert.equal(truncated?.caption, "A brown owl perched on a mossy branch, its feathers");
+const [screenshot] = await generateImageCaptionsForDataUrls(
+  [{ filename: "app.png", imageDataUrl: dataUrl("app") }],
+  { ...runtime, provider: new RecordingProvider("The user interface shows a sidebar and a chart", "length") },
+  signal,
+);
+assert.equal(screenshot?.caption, "The user interface shows a sidebar and a chart");
 // Each caption carries the key of the prompt it was made with.
 assert.match(truncated?.promptKey ?? "", /^[0-9a-f]{16}$/u);
 setImageReadingSettings(DEFAULT_IMAGE_READING_SETTINGS);
