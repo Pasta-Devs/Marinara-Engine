@@ -403,12 +403,12 @@ const cases: RegressionCase[] = [
       assert.equal(retryRoute.match(/generatedStyle: writerStyle,/gu)?.length, 2);
       assert.match(
         routeSource("routes/gallery.routes.ts"),
-        /removeCopiedPromptGuidance\(\s*\(promptResult\.content \?\? ""\)\.trim\(\),/u,
+        /removeCopiedPromptGuidance\(\s*\(promptResult\.content \?\? ""\)\.trim\(\),\s*\[styleGuidance, imageConn\.imagePromptInstructions, characterImageInstructions\],\s*\{ promptMode: findImageStyleProfile\(imageSettings\.styleProfiles, styleProfileId\)\.promptMode \},/u,
       );
       // The Conversation selfie writer strips leading reasoning first, then the copied guidance.
       assert.match(
         routeSource("services/generation/conversation-selfie-command-runtime.ts"),
-        /removeCopiedPromptGuidance\(\s*answer,/u,
+        /removeCopiedPromptGuidance\(\s*answer,\s*\[styleGuidance, imgConnFull\.imagePromptInstructions, characterImageInstructions\],\s*\{ promptMode: findImageStyleProfile\(imageSettings\.styleProfiles, styleProfileId\)\.promptMode \},/u,
       );
       assert.match(
         routeSource("services/generation/illustrator-background-generation.ts"),
@@ -1401,6 +1401,11 @@ const cases: RegressionCase[] = [
     name: "image prompt compilation suppresses exact provider-visible duplicate inputs",
     run() {
       const styleProfiles = createDefaultImageStyleProfileSettings();
+      styleProfiles.profiles.push({
+        ...styleProfiles.profiles.find((profile) => profile.id === "off")!,
+        id: "saved-off",
+        promptMode: "hybrid",
+      });
       const generatedStyle = "Watercolor fantasy illustration, soft edges, warm palette";
       const appearance = "silver-furred fox-woman, persimmon kimono, debt-scroll tucked in her sleeve";
       const countValue = (prompt: string, value: string) => prompt.toLowerCase().split(value.toLowerCase()).length - 1;
@@ -1925,6 +1930,11 @@ const cases: RegressionCase[] = [
     name: "preserved image prompts keep positive sentences after inline negation (#8396)",
     run() {
       const styleProfiles = createDefaultImageStyleProfileSettings();
+      styleProfiles.profiles.push({
+        ...styleProfiles.profiles.find((profile) => profile.id === "off")!,
+        id: "saved-off",
+        promptMode: "hybrid",
+      });
       for (const profile of styleProfiles.profiles.filter((profile) => profile.promptMode !== "off")) {
         for (const kind of ["portrait", "sprite", "illustration", "background", "selfie"] as const) {
           for (const prompt of [
