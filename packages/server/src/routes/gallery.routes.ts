@@ -1826,11 +1826,11 @@ export async function galleryRoutes(app: FastifyInstance) {
           },
         );
         // A sentence of the guidance the writer copied word for word is not image-model text (#7357).
-        imagePrompt = removeCopiedPromptGuidance((promptResult.content ?? "").trim(), [
-          styleGuidance,
-          imageConn.imagePromptInstructions,
-          characterImageInstructions,
-        ]);
+        imagePrompt = removeCopiedPromptGuidance(
+          (promptResult.content ?? "").trim(),
+          [styleGuidance, imageConn.imagePromptInstructions, characterImageInstructions],
+          { promptMode: findImageStyleProfile(imageSettings.styleProfiles, styleProfileId).promptMode },
+        );
       } catch (err) {
         logger.warn(err, "[gallery/selfie] Failed to build selfie image prompt for chat %s", chatId);
         const message = err instanceof Error ? err.message : "Failed to build selfie prompt";

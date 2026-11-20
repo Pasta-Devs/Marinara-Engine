@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
   BUILT_IN_AGENTS,
+  findImageStyleProfile,
   DEFAULT_AGENT_TOOLS,
   getCustomAgentResultCapability,
   customAgentHasCapability,
@@ -3865,11 +3866,15 @@ async function applyRetryResultEffects(args: {
               imgConnFull.imagePromptInstructions,
             ];
             // A style that was only the copied Style text is dropped; the prompt keeps the subject.
-            const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true });
+            const promptMode = findImageStyleProfile(
+              imageSettings.styleProfiles,
+              styleProfileId || imageDefaults?.styleProfileId,
+            ).promptMode;
+            const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true, promptMode });
             let fullPrompt = buildIllustratorImagePrompt({
               gameArtStylePrompt,
               style: writerStyle,
-              imagePrompt: removeCopiedPromptGuidance(imagePrompt, writerGuidance),
+              imagePrompt: removeCopiedPromptGuidance(imagePrompt, writerGuidance, { promptMode }),
               imagePositivePrompt,
             });
             const requestedNegativePrompt = [negativePrompt, savedNegativePrompt].filter(Boolean).join(", ");
@@ -4001,9 +4006,11 @@ async function applyRetryResultEffects(args: {
                 typeof agentContext.memory._illustratorImageStyleInstruction === "string",
               omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                 imagePromptAgent?.resolved.promptTemplate ?? "",
+                promptMode,
               ),
             });
             const finalNegativePrompt = mergeIllustratorNegativePrompt(
+              compiledPrompt.profile.promptMode,
               compiledPrompt.prompt,
               compiledPrompt.negativePrompt,
               requestedNegativePrompt,
@@ -4028,6 +4035,10 @@ async function applyRetryResultEffects(args: {
                     typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                   omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                     imagePromptAgent?.resolved.promptTemplate ?? "",
+                    findImageStyleProfile(
+                      imageSettings.styleProfiles,
+                      styleProfileId || imageFallback.imageDefaults?.styleProfileId,
+                    ).promptMode,
                   ),
                 })
               : null;
@@ -4036,6 +4047,7 @@ async function applyRetryResultEffects(args: {
                 ? resolveIllustratorPromptSubmission({
                     generatedPrompt: fallbackCompiledPrompt.prompt,
                     generatedNegativePrompt: mergeIllustratorNegativePrompt(
+                      fallbackCompiledPrompt.profile.promptMode,
                       fallbackCompiledPrompt.prompt,
                       fallbackCompiledPrompt.negativePrompt,
                       requestedNegativePrompt,

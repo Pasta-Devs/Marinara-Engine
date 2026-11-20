@@ -414,7 +414,9 @@ async function prepareIllustratorSceneBackground(
   const request: ChatBackgroundGenRequest = {
     chatId: args.chatId,
     locationSlug: plan.locationName,
-    sceneDescription: removeCopiedPromptGuidance(plan.prompt, [styleInstruction, imagePromptInstructions]),
+    sceneDescription: removeCopiedPromptGuidance(plan.prompt, [styleInstruction, imagePromptInstructions], {
+      promptMode: findImageStyleProfile(imageSettings.styleProfiles, styleProfileId).promptMode,
+    }),
     genre: readTrimmedString(setupConfig.genre) || undefined,
     setting: readTrimmedString(setupConfig.setting) || undefined,
     currentLocation: args.gameState?.location ?? null,

@@ -61,6 +61,45 @@ import "../fixtures/regression-agent-definitions.js";
 
 const cases: RegressionCase[] = [
   {
+    name: "Off grammar retains configured Illustration tags despite template composition hints",
+    run() {
+      const styleProfiles = createDefaultImageStyleProfileSettings();
+      const profile = styleProfiles.profiles.find((entry) => entry.id === "off")!;
+      profile.subjectTags.illustration = " 1boy, 1boy, custom framing. ";
+      for (const template of [
+        "you can optionally do multi-panels",
+        "you can optionally do multiple panels",
+        "Create a single illustration. No panels or speech bubbles.",
+      ]) {
+        assert.equal(illustratorPromptTemplateOwnsComposition(template, "hybrid"), true);
+        assert.equal(illustratorPromptTemplateOwnsComposition(template, "off"), false);
+        const prompt = "1boy, black hair, 1boy, brown hair.";
+        const compiled = compileImagePrompt({
+          kind: "illustration",
+          prompt,
+          styleProfiles,
+          styleProfileId: profile.id,
+          omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(template, profile.promptMode),
+        });
+        assert.equal(compiled.prompt, `${profile.subjectTags.illustration}, ${prompt}`);
+      }
+    },
+  },
+  {
+    name: "Off grammar preserves Illustrator negatives after compilation for every provider",
+    run() {
+      const negative = " text, text;\nwatermark, watermark.  ";
+      for (const provider of [undefined, { imageService: "novelai" }, { imageService: "comfyui" }]) {
+        assert.equal(
+          mergeIllustratorNegativePrompt("off", "comic panels with captions", negative, "", provider),
+          negative,
+        );
+        assert.equal(mergeIllustratorNegativePrompt("off", "a scene", "", "", provider), "");
+      }
+      assert.notEqual(mergeIllustratorNegativePrompt("hybrid", "a scene", negative), negative);
+    },
+  },
+  {
     name: "Illustrator combines every image style with the selected prompt format without replacing its composition",
     run() {
       const comicPrompt = [
@@ -105,7 +144,11 @@ const cases: RegressionCase[] = [
           );
         }
 
-        const mergedNegative = mergeIllustratorNegativePrompt(compiled.prompt, compiled.negativePrompt);
+        const mergedNegative = mergeIllustratorNegativePrompt(
+          profile.promptMode,
+          compiled.prompt,
+          compiled.negativePrompt,
+        );
         assert.equal(
           mergedNegative
             .split(",")
@@ -131,9 +174,17 @@ const cases: RegressionCase[] = [
       for (const source of [generateRouteSource, retryRouteSource]) {
         assert.match(
           source,
-          /mergeIllustratorNegativePrompt\(\s*compiledPrompt\.prompt,\s*compiledPrompt\.negativePrompt/,
+          /mergeIllustratorNegativePrompt\(\s*compiledPrompt\.profile\.promptMode,\s*compiledPrompt\.prompt,\s*compiledPrompt\.negativePrompt/,
         );
         assert.match(source, /omitProfileSubjectTags:\s*illustratorPromptTemplateOwnsComposition\(/);
+        assert.match(
+          source,
+          /illustratorPromptTemplateOwnsComposition\(\s*imagePromptAgent\?\.(?:resolved\.)?promptTemplate \?\? "",\s*promptMode,/u,
+        );
+        assert.match(
+          source,
+          /illustratorPromptTemplateOwnsComposition\(\s*imagePromptAgent\?\.(?:resolved\.)?promptTemplate \?\? "",\s*findImageStyleProfile\(\s*imageSettings\.styleProfiles,\s*styleProfileId \|\| imageFallback\.imageDefaults\?\.styleProfileId,\s*\)\.promptMode,/u,
+        );
         assert.doesNotMatch(source, /ILLUSTRATOR_TEXT_NEGATIVE_PROMPT/);
       }
 
@@ -145,20 +196,25 @@ const cases: RegressionCase[] = [
         "Expressive lettering and clean readable speech bubbles.",
       ].join(" ");
       assert.equal(illustratorPromptRequestsRenderedText(comicPrompt), true);
-      const comicNegative = mergeIllustratorNegativePrompt(comicPrompt, "unreadable text, broken lettering");
+      const comicNegative = mergeIllustratorNegativePrompt("hybrid", comicPrompt, "unreadable text, broken lettering");
       assert.equal(comicNegative, "unreadable text, broken lettering, watermark, logo, signature");
       assert.doesNotMatch(comicNegative, /dialogue boxes|word balloons|captions|SFX lettering|subtitles/iu);
       assert.equal(
-        mergeIllustratorNegativePrompt(comicPrompt, "text, low quality, unreadable text, watermark", "unreadable text"),
+        mergeIllustratorNegativePrompt(
+          "hybrid",
+          comicPrompt,
+          "text, low quality, unreadable text, watermark",
+          "unreadable text",
+        ),
         "low quality, unreadable text, watermark, logo, signature",
       );
 
       const ordinaryPrompt = "cinematic lakeside portrait, cold moonlight, reeds, detailed faces";
       assert.equal(illustratorPromptRequestsRenderedText(ordinaryPrompt), false);
-      assert.match(mergeIllustratorNegativePrompt(ordinaryPrompt), /speech bubbles/iu);
-      assert.match(mergeIllustratorNegativePrompt(ordinaryPrompt), /SFX lettering/iu);
+      assert.match(mergeIllustratorNegativePrompt("hybrid", ordinaryPrompt), /speech bubbles/iu);
+      assert.match(mergeIllustratorNegativePrompt("hybrid", ordinaryPrompt), /SFX lettering/iu);
       assert.equal(
-        mergeIllustratorNegativePrompt(ordinaryPrompt, "low quality, text, low quality", "text", {
+        mergeIllustratorNegativePrompt("hybrid", ordinaryPrompt, "low quality, text, low quality", "text", {
           imageService: "novelai",
         }),
         "low quality, text",
@@ -167,14 +223,14 @@ const cases: RegressionCase[] = [
       for (const source of [generateRouteSource, retryRouteSource]) {
         assert.match(
           source,
-          /mergeIllustratorNegativePrompt\([\s\S]*?requestedNegativePrompt,\s*imgConnFull,\s*\)/u,
+          /mergeIllustratorNegativePrompt\(\s*compiledPrompt\.profile\.promptMode,[\s\S]*?requestedNegativePrompt,\s*imgConnFull,\s*\)/u,
           "every Illustrator route should identify NovelAI when merging the negative prompt",
         );
         assert.match(source, /imageDefaults:\s*imageFallback\.imageDefaults/u);
         assert.match(source, /fallback:\s*providerAwareImageFallback/u);
         assert.match(
           source,
-          /mergeIllustratorNegativePrompt\([\s\S]{0,500}?requestedNegativePrompt,\s*imageFallback,\s*\)/u,
+          /mergeIllustratorNegativePrompt\(\s*fallbackCompiledPrompt\.profile\.promptMode,[\s\S]{0,500}?requestedNegativePrompt,\s*imageFallback,\s*\)/u,
           "every Illustrator route should compile a provider-aware prompt for its fallback connection",
         );
       }
@@ -197,8 +253,8 @@ const cases: RegressionCase[] = [
       const comicTemplate =
         "Build the prompt as a complete comic page with panel composition, speech bubbles, captions, and SFX lettering.";
 
-      assert.equal(illustratorPromptTemplateOwnsComposition(illustrationTemplate), false);
-      assert.equal(illustratorPromptTemplateOwnsComposition(comicTemplate), true);
+      assert.equal(illustratorPromptTemplateOwnsComposition(illustrationTemplate, profile.promptMode), false);
+      assert.equal(illustratorPromptTemplateOwnsComposition(comicTemplate, profile.promptMode), true);
 
       const compiled = compileImagePrompt({
         kind: "illustration",
@@ -206,7 +262,7 @@ const cases: RegressionCase[] = [
         styleProfiles,
         styleProfileId: profile.id,
         omitProfileStyleText: true,
-        omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(illustrationTemplate),
+        omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(illustrationTemplate, profile.promptMode),
       });
       const subjectTags = profile.subjectTags.illustration ?? "";
       assert.match(compiled.prompt, /^masterpiece, best quality, absurdres, anime screencap, detailed eyes,/u);

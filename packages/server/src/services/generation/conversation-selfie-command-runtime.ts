@@ -10,6 +10,7 @@ import {
 } from "../decision/picture-decisions.js";
 import {
   buildChatImageGenerationRecord,
+  findImageStyleProfile,
   extractLeadingThinkingBlocks,
   readImageAppearanceOverride,
 } from "@marinara-engine/shared";
@@ -292,11 +293,11 @@ async function generateSelfie(
     // sentence of them it copied word for word is not image-model text (#7357).
     imagePrompt = /^<(?:think|thinking|reasoning)\b/iu.test(answer)
       ? ""
-      : removeCopiedPromptGuidance(answer, [
-          styleGuidance,
-          imgConnFull.imagePromptInstructions,
-          characterImageInstructions,
-        ]);
+      : removeCopiedPromptGuidance(
+          answer,
+          [styleGuidance, imgConnFull.imagePromptInstructions, characterImageInstructions],
+          { promptMode: findImageStyleProfile(imageSettings.styleProfiles, styleProfileId).promptMode },
+        );
     // An empty prompt used to end the selfie without a word; say why instead.
     if (!imagePrompt) {
       throw new Error(

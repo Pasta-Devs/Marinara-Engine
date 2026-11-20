@@ -20,7 +20,7 @@ Terms used below:
 
 The built-in profiles are:
 
-- **Off**: adds no house style. Your prompt is sent almost as you wrote it.
+- **Off**: adds no house style and defaults to **Off** grammar, which preserves assembled prompt text without cleanup. If you have a saved version of this profile, select **Off** under **Prompt grammar** or use **Reset** to get the new default.
 - **Auto**: infers a consistent look from the character, game, scene, and selected image model. This is the default profile.
 - **Anime**: general anime-style tags for clean character art.
 - **Danbooru / Illustrious**: Danbooru-style tags aimed at SDXL anime checkpoints such as Illustrious, Pony, and NovelAI.
@@ -67,6 +67,23 @@ Two buttons help you manage profiles:
 - **Danbooru tags**: short comma-separated Danbooru-style tags. Best for anime SDXL checkpoints like Illustrious, Pony, and NovelAI.
 - **Tags**: short comma-separated keywords, without the Danbooru convention.
 - **Natural language**: plain sentences. Best for models that read prose, such as DALL-E and Z-Image Turbo models.
+- **Off**: keeps assembled prompt text in its original order, including repeated tags. Choose this when your image model needs exact tag sequences.
+
+### Prompt grammar: Off
+
+Choose **Off** to disable grammar processing and prompt cleanup for any style profile. Marinara does not split or rewrite the supplied text, remove duplicates, reconcile gender tags, or move phrases such as `no watermark` into the negative prompt. Spaces, line breaks and punctuation inside each source stay as supplied.
+
+For example, this sequence keeps every participant marker next to its description:
+
+```text
+2boys, 3girls, 1boy, black hair, 1boy, brown hair, 1girl, long hair, 1girl, short hair, 1girl, red hair
+```
+
+Marinara still assembles configured sources, such as connection prefixes, profile tags, generated text and your appearance overrides. It adds a comma and space between sources. **Off** also disables removal of copied style guidance from image prompt writers. It does not control what the prompt-writing model generates.
+
+With **Off**, Illustrator keeps your configured **Illustration** tags even when its prompt template mentions panels or comic layouts. It also leaves the assembled negative prompt unchanged instead of removing repeated negatives or adding default text bans.
+
+You can select **Off** grammar on a profile that adds style tags. The built-in **Off** profile also leaves its style fields empty. Your saved profiles keep their existing grammar until you change it.
 
 ## The Test bench
 
@@ -80,7 +97,7 @@ The Test bench also shows a short note about cleanup. When it changes nothing, i
 
 ## How Marinara cleans the prompt
 
-Before any image request leaves Marinara, it compiles your prompt with the active profile. The compiler:
+Before any image request leaves Marinara, it compiles your prompt with the active profile. With **Off** grammar, it assembles sources without cleanup. With the other grammar modes, the compiler:
 
 - removes near-duplicate tags, such as a repeated quality tag;
 - moves simple negative phrases like "avoid text" or "no watermark" into the negative prompt;

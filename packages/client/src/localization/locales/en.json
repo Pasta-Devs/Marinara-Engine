@@ -16890,6 +16890,8 @@
   "ui.panels.imagestyleprofileseditor.perImageTags": "Per-image tags",
   "ui.panels.imagestyleprofileseditor.positiveTags": "Positive tags",
   "ui.panels.imagestyleprofileseditor.promptGrammar": "Prompt grammar",
+  "ui.panels.imagestyleprofileseditor.promptGrammarOff": "Off",
+  "ui.panels.imagestyleprofileseditor.promptGrammarOffHelp": "Preserve prompt text and repeated tags in order. Configured sources are still added, with no grammar or cleanup processing.",
   "ui.panels.imagestyleprofileseditor.reset": "Reset",
   "ui.panels.imagestyleprofileseditor.sampleInput": "Sample input",
   "ui.panels.imagestyleprofileseditor.styleText": "Style text",
