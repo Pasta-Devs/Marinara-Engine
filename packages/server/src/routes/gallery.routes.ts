@@ -883,6 +883,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const mentioned = namesMentionedByPart(withoutQuotedSpeech(promptText), members);
     const cast = await resolveIllustratorCharacterReferences({
       charactersStore: characters,
+      chatProjection: { chatId: chat.id, getById: characters.getById },
       chatCharacters,
       persona,
       requestedNames: members.filter(({ id }) => mentioned.has(id)).map(({ name }) => name),
@@ -1859,6 +1860,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (selfieUseAvatarReferences || selfieIncludeCharacterAppearance) {
       const referenceResolution = await resolveIllustratorCharacterReferences({
         charactersStore: characters,
+        chatProjection: { chatId, getById: characters.getById },
         characterGallery,
         chatCharacters: [
           {
