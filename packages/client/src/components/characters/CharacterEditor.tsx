@@ -1585,6 +1585,10 @@ export function CharacterEditor() {
                 variant="character"
                 entityKey={characterId}
                 onJump={scrollToSection}
+                onOpenAppearance={() => {
+                  const appearance = document.getElementById("character-card-appearance");
+                  if (appearance) scrollToElement(appearance);
+                }}
                 sheet={
                   <CharacterSheetSection
                     characterId={characterId}

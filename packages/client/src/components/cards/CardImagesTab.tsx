@@ -29,6 +29,7 @@ export function CardImagesTab({
   sprites,
   gallery,
   onJump,
+  onOpenAppearance,
 }: {
   variant: "character" | "persona";
   /** The edited card's id: lazy sections remount per card, like the editor's other media sections. */
@@ -40,6 +41,8 @@ export function CardImagesTab({
   gallery: ReactNode;
   /** The editor's anchored scroll; Sprites and Gallery grow as they load, which a plain jump would overshoot. */
   onJump: (id: string) => void;
+  /** Scrolls to the Card tab's Appearance field, where the image tags live (#9605). */
+  onOpenAppearance: () => void;
 }) {
   const { t } = useTranslation();
   const jumps = [
@@ -58,7 +61,17 @@ export function CardImagesTab({
         title={t("editor.tabs.images")}
         subtitle={t(variant === "persona" ? "ui.cards.imagesTab.subtitlePersona" : "ui.cards.imagesTab.subtitle")}
       />
-      <EditorSectionJumps items={jumps} onJump={onJump} className="mb-6" />
+      <EditorSectionJumps items={jumps} onJump={onJump} className="mb-3" />
+      <p className="mb-6 text-xs text-[var(--muted-foreground)]">
+        {t("ui.cards.imagesTab.imageTagsNote")}{" "}
+        <button
+          type="button"
+          onClick={onOpenAppearance}
+          className="rounded font-medium text-[var(--foreground)] underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+        >
+          {t("ui.cards.imagesTab.openAppearance")}
+        </button>
+      </p>
       <div className="mari-editor-images-sections space-y-10">
         <LazyEditorSection key={`sheet:${entityKey}`} id={CARD_IMAGES_SUBSECTIONS.sheet} nested>
           {sheet}

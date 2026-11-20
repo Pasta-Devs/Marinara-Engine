@@ -2223,6 +2223,10 @@ export function PersonaEditor() {
               variant="persona"
               entityKey={personaId}
               onJump={scrollToSection}
+              onOpenAppearance={() => {
+                const appearance = document.getElementById("persona-card-appearance");
+                if (appearance) scrollToElement(appearance);
+              }}
               sheet={
                 <PersonaCharacterSheetSection
                   personaId={personaId}
