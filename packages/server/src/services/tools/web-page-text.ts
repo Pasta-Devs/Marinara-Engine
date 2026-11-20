@@ -54,6 +54,12 @@ const ALWAYS_DROPPED_TAGS = new Set([
   "head",
 ]);
 
+/**
+ * htmlparser2 12 parses <noframes> and <noembed> as raw text, so a frameset page's only prose reached the model as
+ * markup. Renamed to an unknown tag first, their content is parsed as HTML again, as it was before.
+ */
+const RAW_TEXT_FALLBACK_TAG = /<(\/?)(noframes|noembed)(?=[\s/>])/giu;
+
 /** Removed only when a real content container was found, never from a bare <body> fallback. */
 const CHROME_DROPPED_TAGS = new Set(["form", "select", "button", "nav", "footer"]);
 
@@ -486,7 +492,10 @@ function extractTitle(flat: FlatEntry[]): string {
 
 export function extractReadableText(html: string, options: ExtractReadableTextOptions = {}): ExtractedWebPage {
   const maxChars = options.maxChars ?? DEFAULT_MAX_CHARS;
-  const bounded = truncateDeepNesting(html.slice(0, MAX_EXTRACTED_HTML_CHARS));
+  // Renamed before the nesting scan, which would otherwise count none of their content.
+  const bounded = truncateDeepNesting(
+    html.slice(0, MAX_EXTRACTED_HTML_CHARS).replace(RAW_TEXT_FALLBACK_TAG, "<$1x-$2"),
+  );
   const document = parseDocument(bounded);
   const flat = flatten(document);
   const title = extractTitle(flat);

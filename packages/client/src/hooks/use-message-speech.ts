@@ -21,8 +21,16 @@ type SpeakableMessage = Pick<Message, "id" | "chatId" | "role" | "characterId" |
 /**
  * The Speak button of a message: the same voices and cache keys as autoplay (ChatArea), so a message that
  * autoplayed replays from cache. `enabled` is false while text to speech is off, and the button stays hidden.
+ * `spokenContent` is the message text with its macros resolved as the message shows them ({{user}} → the name);
+ * without it the stored text is read.
  */
-export function useMessageSpeech(message: SpeakableMessage, characterMap?: CharacterMap, personaInfo?: PersonaInfo) {
+export function useMessageSpeech(
+  message: SpeakableMessage,
+  characterMap?: CharacterMap,
+  personaInfo?: PersonaInfo,
+  spokenContent?: string,
+) {
+  const text = spokenContent ?? message.content;
   const { data: ttsConfig } = useTTSConfig();
   const enabled = ttsConfig?.enabled ?? false;
   const ttsLineVolume = useUIStore((s) => s.ttsLineVolume);
@@ -44,7 +52,7 @@ export function useMessageSpeech(message: SpeakableMessage, characterMap?: Chara
           : undefined;
     const fallbackId = ownUserMessage ? (mappedUserPersona ? persona?.id : undefined) : message.characterId;
     const built = buildTTSVoiceRequests(
-      message.content,
+      text,
       ttsConfig,
       fallbackSpeaker,
       fallbackId,
@@ -53,7 +61,7 @@ export function useMessageSpeech(message: SpeakableMessage, characterMap?: Chara
       (speaker) => isTTSSpeakerAmbiguous(speaker, characterMap ?? [], persona),
     );
     return withTTSVoiceRequestCacheKeys(built, ttsConfig, message.id);
-  }, [characterMap, message.characterId, message.content, message.id, message.role, persona, ttsConfig]);
+  }, [characterMap, message.characterId, message.id, message.role, persona, text, ttsConfig]);
 
   const [state, setState] = useState(ttsService.getState());
   const [activeId, setActiveId] = useState<string | null>(ttsService.getActiveId());

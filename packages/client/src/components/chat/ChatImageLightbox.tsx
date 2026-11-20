@@ -1,9 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Pin, RefreshCw } from "lucide-react";
 import { parseChatImageGenerationRecord, type GeneratedSceneVideo } from "@marinara-engine/shared";
 import { useGalleryImages, type ChatImage } from "../../hooks/use-gallery";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { ImageDownloadButton } from "../ui/ImageDownloadButton";
+import {
+  DEFAULT_MASK_BRUSH_PX,
+  ImageMaskCanvas,
+  type ImageMaskCanvasHandle,
+  type ImageMaskState,
+  type MaskTool,
+} from "../ui/ImageMaskCanvas";
 import { ImageViewer, VIEWER_BUTTON_CLASS } from "../ui/ImageViewer";
 import { cn } from "../../lib/utils";
 import { ImagePromptPanel } from "./ImagePromptPanel";
@@ -42,6 +49,8 @@ export function getSceneVideoDownloadName(video: Pick<GeneratedSceneVideo, "file
   const fromUrl = video.url.split("?")[0]?.split("/").pop();
   return fromUrl || `scene-video-${video.id}.mp4`;
 }
+
+const EMPTY_MASK_STATE: ImageMaskState = { strokeCount: 0, hasMask: false, isDrawing: false };
 
 interface ChatImageLightboxProps {
   image: ChatImage;
@@ -84,7 +93,36 @@ export function ChatImageLightbox({
   // A regeneration swaps in the new image so the user sees the result right away.
   const [activeImage, setImage] = useState(initialImage);
   const [editing, setEditing] = useState(false);
+  const [editSurfaceActive, setEditSurfaceActive] = useState(false);
+  const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
+  const [maskTool, setMaskTool] = useState<MaskTool>("brush");
+  const [maskBrushSize, setMaskBrushSize] = useState(DEFAULT_MASK_BRUSH_PX);
+  const [maskState, setMaskState] = useState<ImageMaskState>(EMPTY_MASK_STATE);
+  const maskControlsRef = useRef<ImageMaskCanvasHandle | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const resetMask = useCallback((options?: { resetToolAndBrush?: boolean }) => {
+    setMaskDataUrl(null);
+    setMaskState(EMPTY_MASK_STATE);
+    if (options?.resetToolAndBrush) {
+      setMaskTool("brush");
+      setMaskBrushSize(DEFAULT_MASK_BRUSH_PX);
+    }
+  }, []);
+
+  const closeEditing = () => {
+    setEditing(false);
+    setEditSurfaceActive(false);
+    resetMask({ resetToolAndBrush: true });
+  };
+
+  const handleEditSurfaceChange = useCallback(
+    (active: boolean) => {
+      setEditSurfaceActive(active);
+      if (!active) resetMask({ resetToolAndBrush: true });
+    },
+    [resetMask],
+  );
   // Lightweight message and storyboard images omit the generation record. Resolve
   // it once here so viewing and editing use the same saved request.
   const needsGalleryRow = !!regenerate && activeImage.generation === undefined;
@@ -111,7 +149,7 @@ export function ChatImageLightbox({
     <ImageViewer
       title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
       // Escape, back and outside taps first leave the regenerate panel, then the viewer.
-      onClose={() => (editing ? setEditing(false) : onClose())}
+      onClose={() => (editing ? closeEditing() : onClose())}
       onCloseButton={onClose}
       closeDisabled={busy}
       closeLabel={localizeUi("ui.chat.chatimagelightbox.closeImage")}
@@ -119,6 +157,24 @@ export function ChatImageLightbox({
       overMari={overMari}
       src={image.url}
       alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+      childrenMaxHeightClass={editing ? "max-h-[64%] [@media(max-height:520px)]:max-h-[82%] sm:max-h-[48%]" : undefined}
+      media={
+        editing && editSurfaceActive ? (
+          <ImageMaskCanvas
+            key={image.id}
+            src={image.url}
+            alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+            disabled={busy}
+            tool={maskTool}
+            brushSizePx={maskBrushSize}
+            hideToolbar
+            onBackdropClick={busy ? undefined : closeEditing}
+            onMaskChange={setMaskDataUrl}
+            onMaskStateChange={setMaskState}
+            controlsRef={maskControlsRef}
+          />
+        ) : undefined
+      }
       items={
         images && galleryIndex >= 0 && !editing && !busy
           ? images.map((item) => ({
@@ -128,7 +184,12 @@ export function ChatImageLightbox({
           : undefined
       }
       index={galleryIndex}
-      onIndexChange={(next) => images && setImage(images[next]!)}
+      onIndexChange={(next) => {
+        if (!images) return;
+        setImage(images[next]!);
+        setEditSurfaceActive(false);
+        resetMask({ resetToolAndBrush: true });
+      }}
       actions={
         <>
           {canRegenerate && !editing && (
@@ -142,7 +203,7 @@ export function ChatImageLightbox({
               <RefreshCw size="0.875rem" />
             </button>
           )}
-          {pinEnabled && (
+          {pinEnabled && !editing && (
             <button
               type="button"
               disabled={busy}
@@ -158,7 +219,7 @@ export function ChatImageLightbox({
               <Pin size="0.875rem" />
             </button>
           )}
-          {downloadEnabled && (
+          {downloadEnabled && !editing && (
             <ImageDownloadButton url={image.url} filename={downloadName} className={VIEWER_BUTTON_CLASS} />
           )}
         </>
@@ -166,16 +227,30 @@ export function ChatImageLightbox({
     >
       {editing && canRegenerate ? (
         <ImageRegeneratePanel
-          key={image.id}
           image={image}
           regenerator={regenerator}
           record={record}
           messageId={regenerate.messageId}
+          maskDataUrl={maskDataUrl}
+          maskControls={{
+            tool: maskTool,
+            onToolChange: setMaskTool,
+            brushSizePx: maskBrushSize,
+            onBrushSizeChange: setMaskBrushSize,
+            strokeCount: maskState.strokeCount,
+            hasMask: maskState.hasMask,
+            isDrawing: Boolean(maskState.isDrawing),
+            onInvert: () => maskControlsRef.current?.invert(),
+            onUndo: () => maskControlsRef.current?.undo(),
+            onClear: () => maskControlsRef.current?.clear(),
+          }}
+          onEditSurfaceChange={handleEditSurfaceChange}
           onBusyChange={setBusy}
-          onCancel={() => setEditing(false)}
+          onCancel={closeEditing}
           onRegenerated={(next) => {
             setImage(next);
-            setEditing(false);
+            resetMask();
+            maskControlsRef.current?.clear();
           }}
         />
       ) : loadingDetails ? (

@@ -4694,7 +4694,11 @@ function VectorizeSection({
         {embeddingConnections.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}
-            {c.embeddingModel?.trim() && c.embeddingModel.trim() !== c.name ? ` (${c.embeddingModel})` : ""}
+            {c.embeddingModel?.trim() && c.embeddingModel.trim() !== c.name ? (
+              <> {localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })}</>
+            ) : (
+              ""
+            )}
           </option>
         ))}
       </>
