@@ -124,7 +124,7 @@ The sound plays on every device connected to this server. You can preview, repla
 | **Guide swipes/regens with chat input** | Editing & Swipes | Uses your draft as direction when you regenerate. |
 | **Always show swipe menu in Conversation** / **in Roleplay** | Editing & Swipes | Keeps the swipe arrows visible instead of only on hover. |
 
-The **Responses** section has **Type out replies as they arrive (streaming)**, **Streaming speed**, **Trim incomplete sentences from the response**, **Add a new line before /continue text** (on by default) and **Messages per page**. See [Sending and Streaming Messages](../chats/sending-and-streaming.md). **Thinking** has **Show Thinking In Messages** and **Don't Collapse Thinking**. For message actions, see [Message Actions](../chats/messages.md).
+The **Responses** section has **Type out replies as they arrive (streaming)**, **Streaming speed**, **Trim incomplete sentences from the response**, **Add a new line before Continue text** (on by default) and **Messages per page**. See [Sending and Streaming Messages](../chats/sending-and-streaming.md). **Thinking** has **Show Thinking In Messages** and **Don't Collapse Thinking**. For message actions, see [Message Actions](../chats/messages.md).
 
 ### Text Formatting
 

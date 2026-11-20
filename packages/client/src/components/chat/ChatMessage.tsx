@@ -87,6 +87,7 @@ import {
   EyeOff,
   Shield,
   Loader2,
+  FastForward,
 } from "lucide-react";
 import { decodeEncodedSpeakerTags, formatTextQuotes, type Message, type QuoteFormat } from "@marinara-engine/shared";
 import type { GameTurnStoryboard, GameTurnStoryboardKeyframe } from "@marinara-engine/shared";
@@ -164,6 +165,7 @@ import { OvMobileMessageSheet, useLongPress } from "../overhaul/MobileMessageShe
 import { OvRpMessageFooter } from "../overhaul/RpMessageFooter";
 import { OvThinkingText, OvThinkingToggle, useThinkingToggle } from "./OvThinking";
 import { useMessageButtons, type MessageButtonId } from "../overhaul/message-buttons";
+import { useContinueMessage } from "../../stores/continue-message.store";
 import { SwipeCountChip } from "../overhaul/SwipeCountChip";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { toast } from "sonner";
@@ -2091,6 +2093,8 @@ export const ChatMessage = memo(function ChatMessage({
   const overhaulMobile = useOverhaulTouchMessages();
   // Settings > Chatting > Message buttons: which buttons sit on the message (the rest wait in ⋯).
   const rpShownButtons = useMessageButtons("roleplay");
+  // Continue: only the chat's last message, when it is an AI reply and nothing is generating.
+  const onContinueMessage = useContinueMessage(message.chatId, message.id);
   const alwaysDisplaySwipeMenu = useUIStore((state) =>
     isRoleplay
       ? state.alwaysDisplayRoleplaySwipeMenu
@@ -4395,6 +4399,13 @@ export const ChatMessage = memo(function ChatMessage({
           />
         )}
         {onMessage.has("regenerate") ? null : <GuidedRegenerateActionBtn onClick={() => onRegenerate?.(message.id)} />}
+        {onContinueMessage && !onMessage.has("continue") ? (
+          <ActionBtn
+            icon={<FastForward size={MESSAGE_ACTION_ICON_SIZE} />}
+            onClick={onContinueMessage}
+            title={localizeUi("ui.chat.chatmessage.continue")}
+          />
+        ) : null}
         {onMessage.has("marks") ? null : (
           <MessageMarksAction message={message} align={isUser ? "right" : "left"} noteSharing={noteSharing} />
         )}
@@ -4575,18 +4586,33 @@ export const ChatMessage = memo(function ChatMessage({
           ) : null}
         </>
       ) : null;
-    const rpGenerateExtra = rpShows("translate") ? (
-      <ActionBtn
-        className="ov-rpf__btn"
-        icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
-        onClick={() => translate(message.id, message.content, message.chatId)}
-        title={
-          translatedText
-            ? localizeUi("ui.chat.chatmessage.hideTranslation")
-            : localizeUi("ui.chat.chatmessage.translate")
-        }
-      />
-    ) : null;
+    const rpContinueOnBar = !!onContinueMessage && rpShows("continue");
+    const rpGenerateExtra =
+      rpShows("translate") || rpContinueOnBar ? (
+        <>
+          {rpShows("translate") ? (
+            <ActionBtn
+              className="ov-rpf__btn"
+              icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
+              onClick={() => translate(message.id, message.content, message.chatId)}
+              title={
+                translatedText
+                  ? localizeUi("ui.chat.chatmessage.hideTranslation")
+                  : localizeUi("ui.chat.chatmessage.translate")
+              }
+            />
+          ) : null}
+          {/* Beside Regenerate: both ask the AI for more of this reply. */}
+          {rpContinueOnBar ? (
+            <ActionBtn
+              className="ov-rpf__btn"
+              icon={<FastForward size={MESSAGE_ACTION_ICON_SIZE} />}
+              onClick={onContinueMessage}
+              title={localizeUi("ui.chat.chatmessage.continue")}
+            />
+          ) : null}
+        </>
+      ) : null;
     // What the bars on this message show, so ⋯ leaves it out (the bottom bar stays up while ⋯ is open).
     const rpOnBars = buttonsWhere({
       edit: rpShows("edit"),
@@ -4598,6 +4624,7 @@ export const ChatMessage = memo(function ChatMessage({
       speak: !isUser && ttsEnabled && rpShows("speak"),
       translate: rpShows("translate"),
       regenerate: !isUser && !!onRegenerate && rpShows("regenerate"),
+      continue: rpContinueOnBar,
       // The "Thought for Ns" toggle by the name (picked, or opened once from ⋯).
       thinking: ovThinkingShown && !isGrouped,
     });
@@ -4612,7 +4639,8 @@ export const ChatMessage = memo(function ChatMessage({
       (["copy", "translate", "edit", "regenerate", "marks", "delete"] as const).every((id) => rpOnBars.has(id)) &&
       (!onToggleHiddenFromAI || rpOnBars.has("hide")) &&
       (!showThinkingAction || rpOnBars.has("thinking")) &&
-      (!onBranch || rpOnBars.has("branch"));
+      (!onBranch || rpOnBars.has("branch")) &&
+      (!onContinueMessage || rpOnBars.has("continue"));
     // The hold menu's big buttons (Regenerate, Edit, Copy, Branch) are not repeated in its list either.
     const rpOnSheet = buttonsWhere({
       regenerate: !isUser && !!onRegenerate,

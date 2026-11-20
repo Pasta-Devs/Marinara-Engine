@@ -17,11 +17,11 @@ If it did not work: with no model set for the chat, the reply fails at once with
 
 Find it in **Settings → Chatting → Message Box**. There is one toggle per chat mode, saved on the device you set it on, so a phone and a computer can differ.
 
-| Chat mode | Default | When off |
-| --- | --- | --- |
-| Roleplay | Off | <kbd>Enter</kbd> adds a new line. Click **Send**. |
-| Conversations | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
-| Game | On | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
+| Chat mode     | Default | When off                                                                         |
+| ------------- | ------- | -------------------------------------------------------------------------------- |
+| Roleplay      | Off     | <kbd>Enter</kbd> adds a new line. Click **Send**.                                |
+| Conversations | On      | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
+| Game          | On      | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
 
 Roleplay is off by default because roleplay messages are often long and need line breaks. Professor Mari has her own toggle, **Enter sends to Professor Mari**, in **Settings → General → Professor Mari**.
 
@@ -51,11 +51,11 @@ For a character's own gallery, use the portable form `card://self/gallery/<filen
 
 Streaming shows the reply word by word instead of all at once. These settings are in **Settings → Chatting → Responses**.
 
-| Setting | Default | What it does |
-| --- | --- | --- |
-| **Enable streaming** | On | Shows the reply as it is written. When off, the whole reply appears when the model finishes. |
-| **Streaming speed** | 50 | Slider from 1 to 100. Lower is a slower typewriter effect. It does not change how fast the model writes. |
-| **Trim incomplete sentences from the response** | Off | Removes an unfinished last sentence before the reply is saved. Complete replies and command-style endings stay as they are. |
+| Setting                                         | Default | What it does                                                                                                                |
+| ----------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Enable streaming**                            | On      | Shows the reply as it is written. When off, the whole reply appears when the model finishes.                                |
+| **Streaming speed**                             | 50      | Slider from 1 to 100. Lower is a slower typewriter effect. It does not change how fast the model writes.                    |
+| **Trim incomplete sentences from the response** | Off     | Removes an unfinished last sentence before the reply is saved. Complete replies and command-style endings stay as they are. |
 
 ## Typing and progress indicators
 
@@ -85,19 +85,19 @@ Click the stop button, which is the **Send** button while a reply streams. Text 
 
 If the last message is yours and the AI never replied, leave the input box empty and click **Send** (or press <kbd>Enter</kbd>). Marinara starts a new reply and adds no duplicate message. In Conversation, the button shows a circular arrow in this state. If the box holds a draft, **Send** sends the draft instead.
 
-In Roleplay, an empty **Send** also starts a brand new reply after the AI already answered. It does not add to the previous reply. To extend the previous reply, use `/continue`. See [Message Actions](messages.md).
+In Roleplay, an empty **Send** also starts a brand new reply after the AI already answered. It does not add to the previous reply. To extend the previous reply, use **Continue** in its **⋯** menu, or `/continue`. See [Message Actions](messages.md).
 
 ## When a generation error appears
 
 A failed reply shows a toast (a short pop-up message) at the bottom of the screen for about 15 seconds. You can copy its text. Marinara rewrites some errors into a next step:
 
-| Cause | What the toast tells you |
-| --- | --- |
+| Cause                                             | What the toast tells you                                                               |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | The model rejects a parameter it does not support | Open **Chat Settings → Advanced Parameters** and turn off **Send** for that parameter. |
-| The model requires a parameter that is off | Turn **Send** back on in the same place. |
-| The reply came back empty | Send your message again. |
-| A reply is already generating | Wait, or stop it with the stop button. |
-| No connection is configured | Set one up for the chat. |
+| The model requires a parameter that is off        | Turn **Send** back on in the same place.                                               |
+| The reply came back empty                         | Send your message again.                                                               |
+| A reply is already generating                     | Wait, or stop it with the stop button.                                                 |
+| No connection is configured                       | Set one up for the chat.                                                               |
 
 If an error keeps happening, see [Troubleshooting](../TROUBLESHOOTING.md).
 

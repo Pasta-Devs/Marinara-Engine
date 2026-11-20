@@ -16,6 +16,7 @@ import {
   Trash2,
   Volume2,
   VolumeX,
+  FastForward,
 } from "lucide-react";
 import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet } from "../overhaul/MobileMessageSheet";
@@ -33,6 +34,7 @@ import { OvMarksMenuContext } from "../overhaul/marks-menu-context";
 import { Spinner } from "../ui/Spinner";
 import { useFollowBubble } from "../../lib/follow-bubble";
 import { useMessageButtons, type MessageButtonId } from "../overhaul/message-buttons";
+import { useContinueMessage } from "../../stores/continue-message.store";
 
 // Where the Convo bottom bar sits, one fixed spot per theme (never moving from message to message):
 // - themes that draw a bubble around the text (narrower than the row): just beneath the bubble;
@@ -238,6 +240,15 @@ export function ConversationMessageActions({
   // Settings > Chatting > Message buttons: the picked buttons sit on the message, the rest wait in More.
   const shownButtons = useMessageButtons("conversation");
   const show = (id: MessageButtonId) => shownButtons.includes(id);
+  // Continue: only the chat's last message, when it is an AI reply and nothing is generating.
+  const onContinueMessage = useContinueMessage(message.chatId, message.id);
+  const continueAction = onContinueMessage ? (
+    <MsgAction
+      icon={<FastForward size={MESSAGE_ACTION_ICON_SIZE} />}
+      onClick={onContinueMessage}
+      title={localizeUi("ui.chat.chatmessage.continue")}
+    />
+  ) : null;
   const translateAction = (
     <MsgAction
       icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
@@ -262,12 +273,14 @@ export function ConversationMessageActions({
   const ovBars = () => {
     const bottomSpeak = show("speak") ? speakAction : null;
     const bottomRegenerate = show("regenerate") ? regenerateAction : null;
-    const hasBottom = !!bottomSpeak || show("translate") || !!bottomRegenerate;
+    const bottomContinue = show("continue") ? continueAction : null;
+    const hasBottom = !!bottomSpeak || show("translate") || !!bottomContinue || !!bottomRegenerate;
     // ⋯ lists only what is not already a button on the bars; with nothing left, it goes too.
     const menuEmpty =
       show("reply") &&
       (show("react") || !onPickReaction) &&
       (show("regenerate") || !regenerateAction) &&
+      (show("continue") || !continueAction) &&
       (show("speak") || !speakAction) &&
       ["copy", "marks", "translate", "edit"].every((id) => show(id as MessageButtonId)) &&
       (show("hide") || !onToggleHiddenFromAI) &&
@@ -404,6 +417,7 @@ export function ConversationMessageActions({
                   </span>
                 ) : null}
                 {!show("regenerate") ? regenerateAction : null}
+                {!show("continue") ? continueAction : null}
                 {!show("speak") ? speakAction : null}
                 {!show("copy") ? (
                   <MsgAction
@@ -490,6 +504,7 @@ export function ConversationMessageActions({
           <div ref={bottomBarRef} className={cn("ov-cvb", (visible || moreAnchor) && "is-on")} data-mari-part="actions">
             {bottomSpeak}
             {show("translate") ? translateAction : null}
+            {bottomContinue}
             {bottomRegenerate}
           </div>
         ) : null}
@@ -546,6 +561,7 @@ export function ConversationMessageActions({
                   : localizeUi("ui.chat.chatmessage.translate")
               }
             />
+            {continueAction}
             {onToggleHiddenFromAI && (
               <MsgAction
                 icon={

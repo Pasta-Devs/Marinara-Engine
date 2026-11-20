@@ -24,6 +24,7 @@ export type MessageButtonId =
   | "swipes"
   | "speak"
   | "translate"
+  | "continue"
   | "thinking";
 
 export type MessageButtonInfo = {
@@ -69,6 +70,13 @@ export const MESSAGE_BUTTONS: MessageButtonInfo[] = [
   {
     id: "translate",
     labelKey: "ui.overhaul.messagebuttons.button.translate",
+    bar: "bottom",
+    modes: ["roleplay", "conversation"],
+  },
+  // Only on the chat's last message when it is an AI reply (stores/continue-message.store.ts).
+  {
+    id: "continue",
+    labelKey: "ui.overhaul.messagebuttons.button.continue",
     bar: "bottom",
     modes: ["roleplay", "conversation"],
   },

@@ -16,6 +16,7 @@ import {
   Clock,
   Copy,
   EyeOff,
+  FastForward,
   GitBranch,
   Languages,
   MessageSquareReply,
@@ -53,6 +54,7 @@ const ICONS: Record<MessageButtonId, ReactNode> = {
   delete: <Trash2 size={14} aria-hidden="true" />,
   speak: <Volume2 size={14} aria-hidden="true" />,
   translate: <Languages size={14} aria-hidden="true" />,
+  continue: <FastForward size={14} aria-hidden="true" />,
   regenerate: <RefreshCw size={14} aria-hidden="true" />,
   swipes: <ArrowLeftRight size={14} aria-hidden="true" />,
 };

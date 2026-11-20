@@ -38,6 +38,7 @@ import {
 import { useSavedMessageRegex } from "../../hooks/use-saved-message-regex";
 
 import { getCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
+import { useContinueMessageStore } from "../../stores/continue-message.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
 import { readChatMetadata } from "../../lib/chat-wizard-defaults";
 import { useChatWindowLayout } from "../../hooks/use-chat-window-layout";
@@ -3227,6 +3228,27 @@ const LocalChatArea = memo(function LocalChatArea({
     }
     return null;
   }, [messages]);
+
+  // Continue (⋯, the hold menu, or its button under the message): the same request /continue sends. Only the
+  // chat's last message, when it is an AI reply, so the new text never lands above a later message.
+  const continuableMessageId =
+    !isStreaming && chatMode !== "game" && messages?.length && messages[messages.length - 1]!.role === "assistant"
+      ? messages[messages.length - 1]!.id
+      : null;
+  const handleContinue = useCallback(
+    (messageId: string) => {
+      if (!activeChatId || useChatStore.getState().isStreaming) return;
+      // Error toasts come from the generate hook.
+      void generate({ chatId: activeChatId, connectionId: null, continueMessageId: messageId }).catch(() => {});
+    },
+    [activeChatId, generate],
+  );
+  useEffect(() => {
+    if (!activeChatId || !continuableMessageId) return;
+    const store = useContinueMessageStore.getState();
+    store.set(activeChatId, { messageId: continuableMessageId, onContinue: handleContinue });
+    return () => store.set(activeChatId, null);
+  }, [activeChatId, continuableMessageId, handleContinue]);
 
   const latestAssistantMessageForSwipes = useMemo(() => {
     if (!messages) return null;
