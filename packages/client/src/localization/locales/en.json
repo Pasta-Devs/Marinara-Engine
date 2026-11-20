@@ -17667,7 +17667,7 @@
   "ui.overhaul.kit.showingFolders": "Showing folders. Turn off to list everything together",
   "ui.overhaul.library": "Library",
   "ui.overhaul.macroSyntax": "Syntax",
-  "ui.overhaul.messagebuttons.allOnMessage": "Every button sits on the message (⋯ lists them too).",
+  "ui.overhaul.messagebuttons.allOnMessage": "Every button sits on the message. ⋯ keeps only the extras, such as Peek prompt.",
   "ui.overhaul.messagebuttons.bottomBar": "Under the message",
   "ui.overhaul.messagebuttons.bottomBarNote": "Asks the AI or a voice or translation service, so it can cost money",
   "ui.overhaul.messagebuttons.button.branch": "Branch from here",

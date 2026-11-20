@@ -4,8 +4,8 @@
 // One thin line at the bottom of a reply: swipe arrows and counter on the
 // left, Regenerate / Edit / Copy / Branch and More on the right. It shows on
 // hover (or while one of its menus is open). The counter opens a
-// swipe list you can read before picking; More opens every other action
-// (the upstream action buttons, shown as a labelled menu).
+// swipe list you can read before picking; More opens every action not already
+// on the message (the upstream action buttons, shown as a labelled menu).
 // ──────────────────────────────────────────────
 import { useArmedAfterPaint } from "../../lib/idle-batch";
 import { useFollowBubble } from "../../lib/follow-bubble";
@@ -220,7 +220,7 @@ export function OvRpMessageFooter({
   onEdit: () => void;
   onCopy: () => void;
   onBranch?: () => void;
-  /** Every other action, rendered inside the More menu. */
+  /** Every action not on the bars, rendered inside the More menu; null hides More. */
   more: ReactNode;
   /** The bookmark / pin / note form, shown in place of the More menu when its row is picked. */
   marksPanel?: (controls: { back: () => void; done: () => void }) => ReactNode;
@@ -407,16 +407,18 @@ export function OvRpMessageFooter({
               {toolsExtra}
             </OvMarksMenuContext.Provider>
           ) : null}
-          <button
-            type="button"
-            className={cn("ov-rpf__btn", (open?.kind === "more" || open?.kind === "marks") && "is-on")}
-            title={localizeUi("connections.accounts.header.more")}
-            aria-label={localizeUi("connections.accounts.header.more")}
-            aria-expanded={open?.kind === "more" || open?.kind === "marks"}
-            onClick={(event) => openAt("more", event.currentTarget)}
-          >
-            <MoreHorizontal size={15} />
-          </button>
+          {more || swipesInMenu ? (
+            <button
+              type="button"
+              className={cn("ov-rpf__btn", (open?.kind === "more" || open?.kind === "marks") && "is-on")}
+              title={localizeUi("connections.accounts.header.more")}
+              aria-label={localizeUi("connections.accounts.header.more")}
+              aria-expanded={open?.kind === "more" || open?.kind === "marks"}
+              onClick={(event) => openAt("more", event.currentTarget)}
+            >
+              <MoreHorizontal size={15} />
+            </button>
+          ) : null}
         </>
       ) : null}
       {open?.kind === "more" ? (

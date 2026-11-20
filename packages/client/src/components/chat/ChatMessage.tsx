@@ -163,7 +163,7 @@ import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overha
 import { OvMobileMessageSheet, useLongPress } from "../overhaul/MobileMessageSheet";
 import { OvRpMessageFooter } from "../overhaul/RpMessageFooter";
 import { OvThinkingText, OvThinkingToggle, useThinkingToggle } from "./OvThinking";
-import { useMessageButtons } from "../overhaul/message-buttons";
+import { useMessageButtons, type MessageButtonId } from "../overhaul/message-buttons";
 import { SwipeCountChip } from "../overhaul/SwipeCountChip";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { toast } from "sonner";
@@ -181,6 +181,12 @@ import { RoleplayRulesetCheckCard } from "./RoleplayRulesetCheckCard";
 import { extractRoleplayRulesetRecords } from "../../lib/roleplay-ruleset-records";
 import { Spinner } from "../ui/Spinner";
 
+/** The full ⋯ menu: no action is showing as its own button (the classic layout's always-on row). */
+const NOTHING_ON_MESSAGE: ReadonlySet<MessageButtonId> = new Set();
+/** The buttons whose flag is on. */
+function buttonsWhere(flags: Partial<Record<MessageButtonId, boolean>>): ReadonlySet<MessageButtonId> {
+  return new Set((Object.keys(flags) as MessageButtonId[]).filter((id) => flags[id]));
+}
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
 const MESSAGE_CHROME_ACTIVE_ICON_CLASS =
@@ -4333,7 +4339,9 @@ export const ChatMessage = memo(function ChatMessage({
       );
     }
 
-    const rpActionsRow = (
+    // The ⋯ menu (and the hold menu) lists every action that is not already its own button on the message:
+    // `onMessage` names the ones showing there right now, so they are not repeated (2026-11-20).
+    const rpActionsRowWithout = (onMessage: ReadonlySet<MessageButtonId>) => (
       <div
         data-mari-part="actions"
         onClickCapture={() => {
@@ -4346,27 +4354,33 @@ export const ChatMessage = memo(function ChatMessage({
             "opacity-100 [&>button:not([data-message-thinking-action])]:invisible [&>div]:invisible",
         )}
       >
-        <ActionBtn
-          icon={copied ? <Check size={MESSAGE_ACTION_ICON_SIZE} /> : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
-          onClick={handleCopy}
-          title={localizeUi("lorebook.editor.batch.copy")}
-        />
+        {onMessage.has("copy") ? null : (
+          <ActionBtn
+            icon={copied ? <Check size={MESSAGE_ACTION_ICON_SIZE} /> : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
+            onClick={handleCopy}
+            title={localizeUi("lorebook.editor.batch.copy")}
+          />
+        )}
         {/* Phones and tablets list it above Translate in the long-press menu. */}
-        {speakAction}
-        <ActionBtn
-          icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
-          onClick={() => translate(message.id, message.content, message.chatId)}
-          title={
-            translatedText
-              ? localizeUi("ui.chat.chatmessage.hideTranslation")
-              : localizeUi("ui.chat.chatmessage.translate")
-          }
-        />
-        <ActionBtn
-          icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />}
-          onClick={startEditing}
-          title={localizeUi("ui.noodle.noodlepostcard.edit")}
-        />
+        {onMessage.has("speak") ? null : speakAction}
+        {onMessage.has("translate") ? null : (
+          <ActionBtn
+            icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
+            onClick={() => translate(message.id, message.content, message.chatId)}
+            title={
+              translatedText
+                ? localizeUi("ui.chat.chatmessage.hideTranslation")
+                : localizeUi("ui.chat.chatmessage.translate")
+            }
+          />
+        )}
+        {onMessage.has("edit") ? null : (
+          <ActionBtn
+            icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />}
+            onClick={startEditing}
+            title={localizeUi("ui.noodle.noodlepostcard.edit")}
+          />
+        )}
         {hasRewriteVersions && (
           <ActionBtn
             icon={switchingRewriteVersion ? <Spinner size="md" /> : <Shield size={MESSAGE_ACTION_ICON_SIZE} />}
@@ -4380,8 +4394,10 @@ export const ChatMessage = memo(function ChatMessage({
             disabled={switchingRewriteVersion}
           />
         )}
-        <GuidedRegenerateActionBtn onClick={() => onRegenerate?.(message.id)} />
-        <MessageMarksAction message={message} align={isUser ? "right" : "left"} noteSharing={noteSharing} />
+        {onMessage.has("regenerate") ? null : <GuidedRegenerateActionBtn onClick={() => onRegenerate?.(message.id)} />}
+        {onMessage.has("marks") ? null : (
+          <MessageMarksAction message={message} align={isUser ? "right" : "left"} noteSharing={noteSharing} />
+        )}
         {onToggleConversationStart && (
           <ConversationStartAction
             messageId={message.id}
@@ -4392,7 +4408,7 @@ export const ChatMessage = memo(function ChatMessage({
             align={isUser ? "right" : "left"}
           />
         )}
-        {onToggleHiddenFromAI && (
+        {onToggleHiddenFromAI && !onMessage.has("hide") && (
           <HideFromAIAction
             messageId={message.id}
             hiddenFromAll={isHiddenFromAllAI}
@@ -4416,7 +4432,7 @@ export const ChatMessage = memo(function ChatMessage({
             title={localizeUi("ui.chat.chatmessage.storedGuidance")}
           />
         )}
-        {showThinkingAction && (
+        {showThinkingAction && !onMessage.has("thinking") && (
           <ActionBtn
             icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
             onClick={openThinking}
@@ -4427,7 +4443,7 @@ export const ChatMessage = memo(function ChatMessage({
             buttonRef={thinkingButtonRef}
           />
         )}
-        {onBranch && (
+        {onBranch && !onMessage.has("branch") && (
           <ActionBtn
             icon={<GitBranch size={MESSAGE_ACTION_ICON_SIZE} />}
             onClick={() => onBranch(message.id)}
@@ -4442,14 +4458,17 @@ export const ChatMessage = memo(function ChatMessage({
             disabled={isCloneSceneFromHereDisabled}
           />
         )}
-        <ActionBtn
-          icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
-          onClick={() => onDelete?.(message.id)}
-          title={localizeUi("lorebook.editor.batch.delete")}
-        />
+        {onMessage.has("delete") ? null : (
+          <ActionBtn
+            icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
+            onClick={() => onDelete?.(message.id)}
+            title={localizeUi("lorebook.editor.batch.delete")}
+          />
+        )}
         {roleplayTtsControls}
       </div>
     );
+    const rpActionsRow = rpActionsRowWithout(NOTHING_ON_MESSAGE);
 
     // Window-title themes (e.g. Petal OS) name the speaker in the title bar, so the phone mini
     // picture rides there too: before a character's name, after yours.
@@ -4568,6 +4587,39 @@ export const ChatMessage = memo(function ChatMessage({
         }
       />
     ) : null;
+    // What the bars on this message show, so ⋯ leaves it out (the bottom bar stays up while ⋯ is open).
+    const rpOnBars = buttonsWhere({
+      edit: rpShows("edit"),
+      copy: rpShows("copy"),
+      branch: !!onBranch && rpShows("branch"),
+      marks: rpShows("marks"),
+      hide: !!onToggleHiddenFromAI && rpShows("hide"),
+      delete: !!onDelete && rpShows("delete"),
+      speak: !isUser && ttsEnabled && rpShows("speak"),
+      translate: rpShows("translate"),
+      regenerate: !isUser && !!onRegenerate && rpShows("regenerate"),
+      // The "Thought for Ns" toggle by the name (picked, or opened once from ⋯).
+      thinking: ovThinkingShown && !isGrouped,
+    });
+    // Every button picked: ⋯ would open an empty menu, so it goes too.
+    const rpMenuEmpty =
+      !onToggleConversationStart &&
+      !(isLastAssistantMessage && !isUser) &&
+      !generationReplay &&
+      !hasRewriteVersions &&
+      !onCloneSceneFromHere &&
+      !ttsEnabled &&
+      (["copy", "translate", "edit", "regenerate", "marks", "delete"] as const).every((id) => rpOnBars.has(id)) &&
+      (!onToggleHiddenFromAI || rpOnBars.has("hide")) &&
+      (!showThinkingAction || rpOnBars.has("thinking")) &&
+      (!onBranch || rpOnBars.has("branch"));
+    // The hold menu's big buttons (Regenerate, Edit, Copy, Branch) are not repeated in its list either.
+    const rpOnSheet = buttonsWhere({
+      regenerate: !isUser && !!onRegenerate,
+      edit: !!onEdit && !isStreaming,
+      copy: true,
+      branch: !!onBranch,
+    });
     const rpActions = (part: "tools" | "generate") =>
       overhaulActive && !editing ? (
         <OvRpMessageFooter
@@ -4588,7 +4640,7 @@ export const ChatMessage = memo(function ChatMessage({
           onEdit={startEditing}
           onCopy={handleCopy}
           onBranch={onBranch ? () => onBranch(message.id) : undefined}
-          more={rpActionsRow}
+          more={rpMenuEmpty ? null : rpActionsRowWithout(rpOnBars)}
           speak={!isUser && ttsEnabled && rpShows("speak") ? ovSpeakButton : undefined}
           marksPanel={({ back, done }) => (
             <OvMessageMarksPanel message={message} noteSharing={noteSharing} onBack={back} onDone={done} />
@@ -4973,7 +5025,7 @@ export const ChatMessage = memo(function ChatMessage({
                   onEdit={onEdit && !isStreaming ? startEditing : undefined}
                   onCopy={handleCopy}
                   onBranch={onBranch ? () => onBranch(message.id) : undefined}
-                  more={rpActionsRow}
+                  more={rpActionsRowWithout(rpOnSheet)}
                   onClose={closeMobileSheet}
                 />
               )}

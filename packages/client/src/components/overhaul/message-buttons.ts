@@ -1,10 +1,11 @@
 // ──────────────────────────────────────────────
 // UI overhaul: which buttons sit on a message (Settings > Chatting > Message buttons)
 //
-// Every action is always in the message's ⋯ menu (and the long-press menu on
-// phones and tablets). The person picks which ones also sit on the message:
-// buttons that send a request to the AI (and can cost money) go on the bar
-// under the message; everything else goes on the bar at the top of the message.
+// The person picks which actions sit on the message: buttons that send a
+// request to the AI (and can cost money) go on the bar under the message;
+// everything else goes on the bar at the top of the message. The ⋯ menu (and
+// the long-press menu on phones and tablets) lists only what is not already a
+// button there, so nothing shows twice (2026-11-20).
 // ──────────────────────────────────────────────
 import { useOverhaulStore } from "../../stores/overhaul.store";
 

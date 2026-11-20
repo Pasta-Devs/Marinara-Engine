@@ -263,6 +263,19 @@ export function ConversationMessageActions({
     const bottomSpeak = show("speak") ? speakAction : null;
     const bottomRegenerate = show("regenerate") ? regenerateAction : null;
     const hasBottom = !!bottomSpeak || show("translate") || !!bottomRegenerate;
+    // ⋯ lists only what is not already a button on the bars; with nothing left, it goes too.
+    const menuEmpty =
+      show("reply") &&
+      (show("react") || !onPickReaction) &&
+      (show("regenerate") || !regenerateAction) &&
+      (show("speak") || !speakAction) &&
+      ["copy", "marks", "translate", "edit"].every((id) => show(id as MessageButtonId)) &&
+      (show("hide") || !onToggleHiddenFromAI) &&
+      !(isLastAssistantMessage && !isUser && onPeekPrompt) &&
+      (show("branch") || !onBranch) &&
+      !generationReplay &&
+      (show("thinking") || !hasReasoning || isUser) &&
+      (show("delete") || !onDelete);
     return (
       <>
         <div
@@ -348,17 +361,19 @@ export function ConversationMessageActions({
               title={localizeUi("lorebook.editor.batch.delete")}
             />
           ) : null}
-          <MsgAction
-            icon={<MoreHorizontal size={MESSAGE_ACTION_ICON_SIZE} />}
-            title={localizeUi("connections.accounts.header.more")}
-            onClick={() => {
-              setMarksOpen(false);
-              if (moreAnchor) return setMoreAnchor(null);
-              const rect = barRef.current?.getBoundingClientRect();
-              if (rect)
-                setMoreAnchor({ left: rect.right - 240, top: rect.top, bottom: rect.bottom, right: rect.right });
-            }}
-          />
+          {menuEmpty ? null : (
+            <MsgAction
+              icon={<MoreHorizontal size={MESSAGE_ACTION_ICON_SIZE} />}
+              title={localizeUi("connections.accounts.header.more")}
+              onClick={() => {
+                setMarksOpen(false);
+                if (moreAnchor) return setMoreAnchor(null);
+                const rect = barRef.current?.getBoundingClientRect();
+                if (rect)
+                  setMoreAnchor({ left: rect.right - 240, top: rect.top, bottom: rect.bottom, right: rect.right });
+              }}
+            />
+          )}
           {moreAnchor && marksOpen ? (
             <FooterPopover
               anchor={moreAnchor}
@@ -390,29 +405,27 @@ export function ConversationMessageActions({
                 ) : null}
                 {!show("regenerate") ? regenerateAction : null}
                 {!show("speak") ? speakAction : null}
-                <MsgAction
-                  icon={copied ? "✓" : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={onCopy}
-                  title={localizeUi("lorebook.editor.batch.copy")}
-                />
-                <OvMarksMenuContext.Provider value={() => setMarksOpen(true)}>
-                  <MessageMarksAction message={message} align="right" stopPropagation />
-                </OvMarksMenuContext.Provider>
-                <MsgAction
-                  icon={<Languages size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={onTranslate}
-                  title={
-                    translatedText
-                      ? localizeUi("ui.chat.chatmessage.hideTranslation")
-                      : localizeUi("ui.chat.chatmessage.translate")
-                  }
-                />
-                <MsgAction
-                  icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />}
-                  onClick={onEdit}
-                  title={localizeUi("ui.noodle.noodlepostcard.edit")}
-                />
-                {onToggleHiddenFromAI && (
+                {!show("copy") ? (
+                  <MsgAction
+                    icon={copied ? "✓" : <Copy size={MESSAGE_ACTION_ICON_SIZE} />}
+                    onClick={onCopy}
+                    title={localizeUi("lorebook.editor.batch.copy")}
+                  />
+                ) : null}
+                {!show("marks") ? (
+                  <OvMarksMenuContext.Provider value={() => setMarksOpen(true)}>
+                    <MessageMarksAction message={message} align="right" stopPropagation />
+                  </OvMarksMenuContext.Provider>
+                ) : null}
+                {!show("translate") ? translateAction : null}
+                {!show("edit") ? (
+                  <MsgAction
+                    icon={<Pencil size={MESSAGE_ACTION_ICON_SIZE} />}
+                    onClick={onEdit}
+                    title={localizeUi("ui.noodle.noodlepostcard.edit")}
+                  />
+                ) : null}
+                {onToggleHiddenFromAI && !show("hide") && (
                   <MsgAction
                     icon={
                       isHiddenFromAI ? (
@@ -436,7 +449,7 @@ export function ConversationMessageActions({
                     title={localizeUi("ui.chat.chatmessage.peekPrompt")}
                   />
                 )}
-                {onBranch && (
+                {onBranch && !show("branch") && (
                   <MsgAction
                     icon={<GitBranch size={MESSAGE_ACTION_ICON_SIZE} />}
                     onClick={onBranch}
@@ -450,7 +463,7 @@ export function ConversationMessageActions({
                     title={localizeUi("ui.chat.chatmessage.storedGuidance")}
                   />
                 )}
-                {hasReasoning && !isUser && (
+                {hasReasoning && !isUser && !show("thinking") && (
                   <MsgAction
                     icon={<Brain size={MESSAGE_ACTION_ICON_SIZE} />}
                     onClick={onShowThinking}
@@ -462,7 +475,7 @@ export function ConversationMessageActions({
                     buttonRef={thinkingButtonRef}
                   />
                 )}
-                {onDelete && (
+                {onDelete && !show("delete") && (
                   <MsgAction
                     icon={<Trash2 size={MESSAGE_ACTION_ICON_SIZE} />}
                     onClick={onDelete}

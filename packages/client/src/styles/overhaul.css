@@ -5018,6 +5018,8 @@ input.ov-edhead__title:focus {
 }
 .ov-rpf.is-open,
 .group:hover .ov-rpf,
+/* ⋯ leaves out what the bars show, so both bars stay up while its menu is open (2026-11-20). */
+[data-message-id]:has(.ov-rpf.is-open) .ov-rpf,
 .ov-rpf:focus-within {
   max-height: 2.5rem;
   padding: 0.25rem 0 0.375rem;
@@ -5105,6 +5107,7 @@ input.ov-edhead__title:focus {
 }
 .ov-rpf.ov-rpf--below.is-open,
 .group:hover .ov-rpf.ov-rpf--below,
+[data-message-id]:has(.ov-rpf.is-open) .ov-rpf.ov-rpf--below,
 .ov-rpf.ov-rpf--below:focus-within {
   max-height: none;
   padding: 0.125rem 0.25rem 0;
