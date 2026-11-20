@@ -64,6 +64,21 @@ export function useDismiss(
       dismissRef.current();
     };
 
+    // A press on the opener only closes; without this, the click that follows would open the layer again.
+    const swallowNextClickOnOpener = (target: EventTarget | null) => {
+      if (!openerRef?.current?.contains(target as Node)) return;
+      const swallow = (click: MouseEvent) => {
+        if (click.detail === 0) return; // keyboard / programmatic click: let it through
+        click.stopPropagation();
+        click.preventDefault();
+      };
+      view.addEventListener("click", swallow, { capture: true, once: true });
+      view.addEventListener("pointerdown", () => view.removeEventListener("click", swallow, true), {
+        capture: true,
+        once: true,
+      });
+    };
+
     let touchStartedOutside = false;
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType === "touch") {
@@ -71,19 +86,7 @@ export function useDismiss(
         return;
       }
       if (!isOutside(event.target)) return;
-      // A press on the opener only closes; without this, its click would open the layer again.
-      if (event.button === 0 && openerRef?.current?.contains(event.target as Node)) {
-        const swallow = (click: MouseEvent) => {
-          if (click.detail === 0) return; // keyboard / programmatic click: let it through
-          click.stopPropagation();
-          click.preventDefault();
-        };
-        view.addEventListener("click", swallow, { capture: true, once: true });
-        view.addEventListener("pointerdown", () => view.removeEventListener("click", swallow, true), {
-          capture: true,
-          once: true,
-        });
-      }
+      if (event.button === 0) swallowNextClickOnOpener(event.target);
       dismissRef.current();
     };
     const onPointerCancel = () => {
@@ -92,7 +95,9 @@ export function useDismiss(
     const onPointerUp = (event: PointerEvent) => {
       if (event.pointerType !== "touch" || !touchStartedOutside) return;
       touchStartedOutside = false;
-      if (isOutside(event.target)) dismissRef.current();
+      if (!isOutside(event.target)) return;
+      swallowNextClickOnOpener(event.target);
+      dismissRef.current();
     };
 
     view.addEventListener("keydown", onKeyDown, true);

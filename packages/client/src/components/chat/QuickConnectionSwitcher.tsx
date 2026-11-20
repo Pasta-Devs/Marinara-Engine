@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { Dices, Link, X } from "lucide-react";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { cn } from "../../lib/utils";
 import { isQuickPickerShortcut } from "../../lib/keyboard-shortcuts";
 import { isModalOverlayOpen } from "../../lib/layer-stack";
@@ -62,18 +63,11 @@ export function QuickConnectionSwitcher({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // A press outside closes it. Escape stays below: it first steps back out of a pane.
+  useDismiss(menuRef, open, () => setOpen(false), { escape: false, openerRef: btnRef });
   useEffect(() => {
     if (!open) return;
-    const handler = (e: PointerEvent) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(e.target as Node) &&
-        btnRef.current &&
-        !btnRef.current.contains(e.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
+    const doc = btnRef.current?.ownerDocument ?? document;
     // Escape closes the menu wherever focus is: Safari does not focus a tapped or clicked button.
     const onKeyDown = (event: KeyboardEvent) => {
       // Escape while an input method is composing cancels the composition, not the menu.
@@ -88,12 +82,8 @@ export function QuickConnectionSwitcher({
       setOpen(false);
       btnRef.current?.focus();
     };
-    document.addEventListener("pointerdown", handler);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handler);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    doc.addEventListener("keydown", onKeyDown);
+    return () => doc.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
   const hasContextBudget = Boolean(contextBudget);
@@ -236,7 +226,7 @@ export function QuickConnectionSwitcher({
               }
             />
           </div>,
-          document.body,
+          btnRef.current?.ownerDocument.body ?? document.body,
         )
       : null;
 

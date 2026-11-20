@@ -25,6 +25,7 @@ import {
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { useConnections } from "../../hooks/use-connections";
 import { useChat } from "../../hooks/use-chats";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import {
   filterLanguageGenerationConnections,
@@ -371,6 +372,7 @@ export function CharacterScheduleEditorModal({
   const [dayGuidance, setDayGuidance] = useState<Record<string, string>>({});
   const [dayGenerationStatus, setDayGenerationStatus] = useState<Record<string, string>>({});
   const [openStatusMenu, setOpenStatusMenu] = useState<string | null>(null);
+  const statusMenuRef = useRef<HTMLDivElement | null>(null);
   const [tuningOpen, setTuningOpen] = useState(false);
   const [weekGuideOpen, setWeekGuideOpen] = useState(false);
   const [weekDraftMode, setWeekDraftMode] = useState<WeekDraftMode>(() => (schedule ? "adjust" : "rewrite"));
@@ -440,26 +442,7 @@ export function CharacterScheduleEditorModal({
     setGeneratingDay(null);
   }, [characterId, open]);
 
-  useEffect(() => {
-    if (!openStatusMenu) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (target instanceof HTMLElement && target.closest("[data-schedule-status-menu]")) return;
-      setOpenStatusMenu(null);
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenStatusMenu(null);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [openStatusMenu]);
+  useDismiss(statusMenuRef, openStatusMenu !== null, () => setOpenStatusMenu(null));
 
   const markSummaryStale = () => {
     if (draftRef.current.routineSummary.trim()) setSummaryStale(true);
@@ -1352,7 +1335,7 @@ export function CharacterScheduleEditorModal({
                               {localizeUi("ui.chat.characterscheduleeditormodal.statusTimeActivity")}
                             </div>
                             <div
-                              data-schedule-status-menu
+                              ref={isStatusMenuOpen ? statusMenuRef : undefined}
                               className="relative flex w-full min-w-0 items-stretch overflow-visible rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)] transition-colors hover:ring-[var(--border)]/80 focus-within:ring-[var(--primary)]/50"
                             >
                               <button

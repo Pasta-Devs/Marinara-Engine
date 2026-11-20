@@ -146,7 +146,7 @@ export function Popover({
       aria-label={ariaLabel}
       data-component="Popover"
       className={cn(
-        "fixed overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-xl animate-fade-in-up",
+        "fixed max-w-[calc(100vw-1rem)] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--card)] shadow-xl animate-fade-in-up",
         className,
       )}
       style={{
@@ -156,7 +156,6 @@ export function Popover({
         left: placement?.left ?? 0,
         maxHeight: placement ? Math.min(placement.maxHeight, Number(style?.maxHeight) || Infinity) : undefined,
         minWidth: placement?.minWidth ?? style?.minWidth,
-        maxWidth: `calc(100vw - ${WINDOW_PADDING * 2}px)`,
         // Hidden until measured, so it never paints at the corner first.
         visibility: placement ? style?.visibility : "hidden",
       }}
