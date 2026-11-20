@@ -43,6 +43,8 @@ import { ResultTypeIcon } from "../../command-center/ResultTypeIcon";
 import { chatResultType, resourceResultType } from "../../../lib/command-icons";
 import { MacroTextarea } from "../../ui/MacroTextarea";
 import { MariList, MariNote, MariRow } from "../mari-primitives";
+import { MariOutputLimitNote } from "./MariOutputLimitNote";
+import { withoutMariOutputLimitNote } from "../../../lib/mari-output-limit-note";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { formatReferenceToken } from "../../../lib/composer-triggers";
 import { getProfessorMariAttachments, formatMariMessageTime, toMessageExtra } from "./mari-chat-helpers";
@@ -422,6 +424,8 @@ export function MariWorkTimelineOutcome({
           {localizeUi("mari.reply.nothingChanged")}
         </MariNote>
       ) : null}
+      {/* Her "kept hitting the output limit" note is lifted out of her words to here, with its button. */}
+      <MariOutputLimitNote content={content} />
       <MariOutcomeGroup
         changed={reviews?.changed ?? []}
         needsOk={reviews?.needsOk ?? []}
@@ -682,7 +686,7 @@ export const CompactMariMessage = memo(function CompactMariMessage({
             <p className="mari-reply-filler">{content}</p>
           ) : (
             <CompactMarkdown
-              content={splitMariAnswerWhy(stripProfessorMariSpeakerPrefix(content)).answer}
+              content={withoutMariOutputLimitNote(splitMariAnswerWhy(stripProfessorMariSpeakerPrefix(content)).answer)}
               links={buildMariReplyLinks(content, [], actionResults, characterPreviews, lorebookPreviews)}
               onOpenLink={onOpenResource}
             />

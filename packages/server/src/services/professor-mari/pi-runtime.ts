@@ -99,8 +99,16 @@ const NOTHING_HELD = "I did not make or hold any change. Ask me again if you wan
 export const MAX_OUTPUT_LIMIT_REPAIRS = 2;
 const OUTPUT_LIMIT_RETRY =
   "The reply was too long for this model's output limit, so Professor Mari is redoing it in smaller steps.";
-const OUTPUT_LIMIT_STOP =
-  "Professor Mari's replies kept hitting this model's output limit, so she stopped. Raise Max Output Tokens on the connection, or ask for a smaller piece.";
+/**
+ * Ends a run whose replies kept hitting the output limit. It names the limit and the one field that raises it; the
+ * chat shows a button to that field beside it (mari-output-limit-note.ts in the client matches this wording).
+ */
+export function outputLimitStopNote(maxOutputTokens?: number, raisable = true): string {
+  const size = maxOutputTokens ? ` (${maxOutputTokens.toLocaleString("en-US")} tokens)` : "";
+  return raisable
+    ? `Professor Mari's replies kept hitting this connection's output limit${size}, so she stopped. Raise Max output tokens in the connection's settings, or ask for a smaller piece.`
+    : `Professor Mari's replies kept hitting her output limit${size}, so she stopped. Ask for a smaller piece.`;
+}
 /** About half a reply's budget in characters (~3 characters per token): room for one call with words around it. */
 const CUT_TARGET_CHARS_PER_TOKEN = 1.5;
 const HELD_WITHOUT_WORDS = "I have changes ready. Review them below and accept to apply them; nothing was applied yet.";
@@ -144,6 +152,8 @@ export type PiRunInput = {
   maxToolRounds?: number;
   /** The output token limit the run's requests use now, when known; the output-limit recovery quotes it. */
   maxOutputTokens?: () => number | undefined;
+  /** Whether raising the connection's Max output tokens would lift that limit (not OpenRouter's cap or a credit limit). */
+  outputLimitRaisable?: () => boolean;
   /** Called once the session exists, with the tools it really has active. The regression inspects the boundary here. */
   /** #5740: the understood-request record. `record` runs once per round with mutating calls; `settle` after they ran. */
   understood?: {
@@ -801,7 +811,10 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         state.nothingChanged = false;
         emitRoundText(trace, current.text, onEvent);
       }
-      return stopTruncated(current, OUTPUT_LIMIT_STOP);
+      return stopTruncated(
+        current,
+        outputLimitStopNote(input.maxOutputTokens?.(), input.outputLimitRaisable?.() ?? true),
+      );
     }
     const questions = questionsIn(current);
     const asking = questions.length > 0;

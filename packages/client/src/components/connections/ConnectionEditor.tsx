@@ -1,3 +1,4 @@
+import { revealConnectionField, takeConnectionFieldFocus } from "../../lib/connection-field-focus";
 import {
   DECISION_CONNECTION_TIMEOUT_BOUNDS_MS,
   DECISION_TIMEOUT_MS,
@@ -399,6 +400,12 @@ export function ConnectionEditor({
   const [useForMenu, setUseForMenu] = useState<MenuAt | null>(null);
   const modelStar = useModelStar();
   const contentRef = useRef<HTMLDivElement>(null);
+  // A button elsewhere (Professor Mari's cut-off note) can open this editor at one field.
+  useEffect(() => {
+    if (!conn || part) return;
+    const field = takeConnectionFieldFocus(connectionDetailId);
+    if (field) revealConnectionField(field, contentRef.current);
+  }, [conn, connectionDetailId, part]);
   const openModal = useUIStore((s) => s.openModal);
   const { data: connectionAccounts } = useConnectionAccounts();
   const accountId = (conn as { accountId?: string | null } | undefined)?.accountId ?? null;
@@ -4080,31 +4087,41 @@ export function ConnectionEditor({
             </div>
           </FieldGroup>
         )}
-        {/* ── Max Output Tokens Override ── */}
+        {/* ── Max output tokens: the connection's output ceiling; Professor Mari's cut-off note opens it here ── */}
         {!isMediaGenerationProvider && !isLocalAuthProvider && (
-          <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxOutputTokensOverride")}>
-            <div className="flex items-center gap-3">
-              <DraftNumberInput
-                allowEmpty
-                value={localMaxTokensOverride}
-                min={0}
-                selectOnFocus
-                placeholder={t("connections.editor.maxOutputAutomatic")}
-                onCommit={(nextValue) => {
-                  setLocalMaxTokensOverride(nextValue && nextValue > 0 ? nextValue : null);
-                  markDirty();
-                }}
-                className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
-              />
-              {localMaxTokensOverride ? (
+          <div data-connection-field="maxOutputTokens" className="-m-2 rounded-lg p-2">
+            <FieldGroup
+              label={t("connections.editor.maxOutputTokens")}
+              help={t("connections.editor.maxOutputTokensHelp")}
+            >
+              <div className="flex items-center gap-3">
+                <DraftNumberInput
+                  allowEmpty
+                  value={localMaxTokensOverride}
+                  min={0}
+                  selectOnFocus
+                  placeholder={t("connections.editor.maxOutputAutomatic")}
+                  onCommit={(nextValue) => {
+                    setLocalMaxTokensOverride(nextValue && nextValue > 0 ? nextValue : null);
+                    markDirty();
+                  }}
+                  ariaLabel={t("connections.editor.maxOutputTokens")}
+                  className="mari-chrome-field h-11 w-40 px-3 text-xs md:h-9"
+                />
                 <span className="text-xs text-[var(--muted-foreground)]">
-                  {localizeUi("ui.connections.connectioneditor.value1TokensMax", {
-                    value1: localMaxTokensOverride.toLocaleString(),
-                  })}
+                  {localMaxTokensOverride
+                    ? localizeUi("ui.connections.connectioneditor.value1TokensMax", {
+                        value1: localMaxTokensOverride.toLocaleString(),
+                      })
+                    : selectedModelInfo?.maxOutput && selectedModelInfo.maxOutput > 0
+                      ? t("connections.editor.maxOutputAutomaticModel", {
+                          value: formatContext(selectedModelInfo.maxOutput),
+                        })
+                      : t("connections.editor.maxOutputAutomaticUnknown")}
                 </span>
-              ) : null}
-            </div>
-          </FieldGroup>
+              </div>
+            </FieldGroup>
+          </div>
         )}
       </>
 
