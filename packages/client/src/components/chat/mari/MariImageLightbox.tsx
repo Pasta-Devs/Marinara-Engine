@@ -30,6 +30,7 @@ export interface MariImageAsset {
   /** The image service that drew it (novelai, comfyui...); `provider` is the connection type. */
   source?: string;
   model: string;
+  seed?: number;
   createdAt: string;
 }
 
@@ -67,6 +68,7 @@ export function mariAssetToChatImage(asset: MariImageAsset): ChatImage {
     negativePrompt: asset.negativePrompt ?? "",
     characterPrompts: [],
     references: { characterIds: [], personaId: null, personaSource: null, locationImageId: null },
+    ...(asset.seed !== undefined ? { seed: asset.seed } : {}),
   };
   return {
     id: asset.id,
@@ -133,10 +135,34 @@ function MariImageLightbox({
       defaultConnectionLabel: t("ui.chat.mariimagelightbox.sameConnection"),
       // Her pictures have no chat gallery: the old one stays in her image list.
       regeneratedMessage: t("ui.chat.mariimagelightbox.regenerated"),
-      regenerate: async ({ imageId, prompt, negativePrompt, connectionId, messageId: replyId, debugMode }) => {
+      regenerate: async ({
+        imageId,
+        prompt,
+        negativePrompt,
+        connectionId,
+        messageId: replyId,
+        editMode,
+        maskImage,
+        strength,
+        noise,
+        reuseSeed,
+        debugMode,
+      }) => {
         const result = await api.post<MariImageRecord & { replacedMessages: MariReplacedMessage[] }>(
           `${assetPath(imageId)}/regenerate`,
-          { prompt, negativePrompt, connectionId, debugMode, chatId, ...(replyId ? { messageId: replyId } : {}) },
+          {
+            prompt,
+            negativePrompt,
+            connectionId,
+            debugMode,
+            chatId,
+            ...(replyId ? { messageId: replyId } : {}),
+            ...(editMode ? { editMode } : {}),
+            ...(maskImage ? { maskImage } : {}),
+            ...(strength !== undefined ? { strength } : {}),
+            ...(noise !== undefined ? { noise } : {}),
+            ...(reuseSeed ? { reuseSeed } : {}),
+          },
         );
         qc.setQueryData(["mari-image-asset", result.asset.id], {
           asset: result.asset,

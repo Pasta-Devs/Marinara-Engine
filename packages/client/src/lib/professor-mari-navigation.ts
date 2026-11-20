@@ -16,7 +16,8 @@ export type ProfessorMariNavigationTarget =
   | { kind: "chat"; chatId: string }
   | {
       kind: "panel";
-      panel: "characters" | "personas" | "lorebooks" | "presets" | "connections" | "agents" | "extensions";
+      /** "profiles": Library > Settings profiles (the classic layout's Presets panel holds them). */
+      panel: "characters" | "personas" | "lorebooks" | "presets" | "profiles" | "connections" | "agents" | "extensions";
     }
   | { kind: "settings"; tab: ProfessorMariSettingsTab; controlId?: string; sectionId?: SettingsSectionId }
   | {

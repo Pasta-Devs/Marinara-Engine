@@ -693,7 +693,7 @@ export function LorebookEntryRow({
 
       {overhaul ? (
         <div
-          className="group ov-lrow"
+          className={cn("group ov-lrow", !localEnabled && "is-disabled")}
           onClick={handleHeaderClick}
           onMouseDown={(e) => {
             if (selectionMode && e.shiftKey && !isHeaderInlineControlTarget(e.target)) e.preventDefault();

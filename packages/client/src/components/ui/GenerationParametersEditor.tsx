@@ -241,6 +241,20 @@ export function getEditableGenerationParameters(
   };
 }
 
+/** Settings the "not sent to this model" line can name, with their field labels, in the order the fields appear. */
+const UNUSED_PARAMETER_LABELS: Array<[GenerationParameterKey, string]> = [
+  ["temperature", "ui.ui.generationparametersfields.temperature"],
+  ["maxTokens", "ui.agents.agenteditor.maxOutputTokens"],
+  ["topP", "ui.ui.generationparametersfields.topP"],
+  ["topK", "ui.ui.generationparametersfields.topK"],
+  ["frequencyPenalty", "ui.ui.generationparametersfields.frequency"],
+  ["presencePenalty", "ui.ui.generationparametersfields.presence"],
+  ["assistantPrefill", "ui.ui.generationparametersfields.assistantPrefill"],
+  ["assistantReasoningPrefill", "ui.ui.generationparametersfields.assistantReasoningPrefill"],
+  ["reasoningEffort", "ui.ui.generationparametersfields.reasoningEffort"],
+  ["verbosity", "ui.ui.generationparametersfields.verbosity"],
+];
+
 export function GenerationParametersFields({
   value,
   onChange,
@@ -254,6 +268,7 @@ export function GenerationParametersFields({
   baseUrl,
   modelCapabilities,
   enabledParametersFallback = LEGACY_PARAMETER_SEND_DEFAULTS,
+  modelNote,
 }: {
   value: EditableGenerationParameters;
   onChange: (next: EditableGenerationParameters) => void;
@@ -268,6 +283,8 @@ export function GenerationParametersFields({
   baseUrl?: string | null;
   modelCapabilities?: ModelParameterCapabilities | null;
   enabledParametersFallback?: GenerationParameterSendMap;
+  /** One short line on which model these settings are for (Chat settings: "Uses your Main model, …"). */
+  modelNote?: string;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const effectiveHint = (key: string, displayValue?: string) => {
@@ -312,9 +329,20 @@ export function GenerationParametersFields({
     reasoningEffort: value.reasoningEffort,
   };
   const relevant = provider === undefined ? null : relevantGenerationParameters(context);
+  // Settings this model never receives stay hidden, but the line below names them and can show them anyway.
+  const [showUnused, setShowUnused] = useState(false);
+  const unused = relevant
+    ? UNUSED_PARAMETER_LABELS.filter(([key]) => !relevant.has(key) && (showTokenLimits || key !== "maxTokens"))
+    : [];
+  const isUnused = (key: GenerationParameterKey) => unused.some(([unusedKey]) => unusedKey === key);
   const show = (key: GenerationParameterKey) =>
     (showTokenLimits || key !== "maxTokens") &&
-    (relevant ? relevant.has(key) : key !== "serviceTier" || showOpenRouterServiceTier);
+    (relevant
+      ? relevant.has(key) || (showUnused && isUnused(key))
+      : key !== "serviceTier" || showOpenRouterServiceTier);
+  // A shown-anyway setting says it is not sent, in place of its effective value.
+  const unusedNote = (key: GenerationParameterKey) =>
+    showUnused && isUnused(key) ? localizeUi("generationParameters.unused.fieldNote") : undefined;
   const effortChoices = reasoningEffortChoices({ ...context, selected: value.reasoningEffort }).filter(
     (choice) => choice.value !== null || !isClaudeOpus55Model(model ?? ""),
   );
@@ -348,6 +376,22 @@ export function GenerationParametersFields({
 
   return (
     <div className="space-y-3">
+      {(unused.length > 0 || modelNote) && (
+        // Which model these are for, and a way to show the settings it ignores.
+        <div className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]" data-unused-parameters="">
+          {modelNote && <p>{modelNote}</p>}
+          {unused.length > 0 && (
+            <button
+              type="button"
+              className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+              aria-expanded={showUnused}
+              onClick={() => setShowUnused((current) => !current)}
+            >
+              {localizeUi(showUnused ? "generationParameters.unused.hide" : "generationParameters.unused.show")}
+            </button>
+          )}
+        </div>
+      )}
       {showSamplingGrid && (
         <div className="grid grid-cols-2 gap-2">
           {show("temperature") && (
@@ -358,7 +402,7 @@ export function GenerationParametersFields({
               )}
               value={value.temperature}
               onChange={(nextValue) => set("temperature", nextValue)}
-              effective={effectiveHint("temperature")}
+              effective={unusedNote("temperature") ?? effectiveHint("temperature")}
               sendEnabled={isSendEnabled("temperature")}
               onSendChange={(enabled) => setSend("temperature", enabled)}
               min={0}
@@ -372,7 +416,7 @@ export function GenerationParametersFields({
               help={localizeUi("ui.ui.generationparametersfields.theMaximumNumberOfTokensTheModelCanGenerate")}
               value={value.maxTokens}
               onChange={(nextValue) => set("maxTokens", nextValue)}
-              effective={effectiveHint("maxTokens")}
+              effective={unusedNote("maxTokens") ?? effectiveHint("maxTokens")}
               sendEnabled={isSendEnabled("maxTokens")}
               onSendChange={(enabled) => setSend("maxTokens", enabled)}
               min={1}
@@ -387,7 +431,7 @@ export function GenerationParametersFields({
               )}
               value={value.topP}
               onChange={(nextValue) => set("topP", nextValue)}
-              effective={effectiveHint("topP")}
+              effective={unusedNote("topP") ?? effectiveHint("topP")}
               sendEnabled={isSendEnabled("topP")}
               onSendChange={(enabled) => setSend("topP", enabled)}
               min={0}
@@ -401,7 +445,7 @@ export function GenerationParametersFields({
               help={localizeUi("ui.ui.generationparametersfields.limitsTheModelToOnlyConsiderTheTopK")}
               value={value.topK}
               onChange={(nextValue) => set("topK", nextValue)}
-              effective={effectiveHint("topK")}
+              effective={unusedNote("topK") ?? effectiveHint("topK")}
               sendEnabled={isSendEnabled("topK")}
               onSendChange={(enabled) => setSend("topK", enabled)}
               min={0}
@@ -419,7 +463,7 @@ export function GenerationParametersFields({
               help={localizeUi("ui.ui.generationparametersfields.penalizesTokensBasedOnHowOftenTheyVeAlready")}
               value={value.frequencyPenalty}
               onChange={(nextValue) => set("frequencyPenalty", nextValue)}
-              effective={effectiveHint("frequencyPenalty")}
+              effective={unusedNote("frequencyPenalty") ?? effectiveHint("frequencyPenalty")}
               sendEnabled={isSendEnabled("frequencyPenalty")}
               onSendChange={(enabled) => setSend("frequencyPenalty", enabled)}
               min={-2}
@@ -433,7 +477,7 @@ export function GenerationParametersFields({
               help={localizeUi("ui.ui.generationparametersfields.penalizesTokensThatHaveAppearedAtAllRegardlessOf")}
               value={value.presencePenalty}
               onChange={(nextValue) => set("presencePenalty", nextValue)}
-              effective={effectiveHint("presencePenalty")}
+              effective={unusedNote("presencePenalty") ?? effectiveHint("presencePenalty")}
               sendEnabled={isSendEnabled("presencePenalty")}
               onSendChange={(enabled) => setSend("presencePenalty", enabled)}
               min={-2}

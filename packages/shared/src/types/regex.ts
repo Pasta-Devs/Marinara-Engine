@@ -12,8 +12,15 @@ export function isBuiltInRegexScript(id: string): boolean {
 /** Where a regex script is applied. */
 export type RegexPlacement = "ai_output" | "user_input";
 
-/** Which runtime contexts a regex script applies to. */
-export type RegexApplyMode = "prompt" | "display" | "both";
+/**
+ * Which runtime contexts a regex script applies to. "message" rewrites a new message once, as it is
+ * saved (SillyTavern's scripts with neither "Alter Chat Display" nor "Alter Outgoing Prompt").
+ */
+export type RegexApplyMode = "prompt" | "display" | "both" | "message";
+
+export function isRegexApplyMode(value: unknown): value is RegexApplyMode {
+  return value === "prompt" || value === "display" || value === "both" || value === "message";
+}
 
 /** How character-scoped scripts affect displayed messages. */
 export type ScopedRegexMode = "disabled" | "exclusive" | "chat";

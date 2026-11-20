@@ -35,6 +35,7 @@ import {
   chatKeys,
   type ChatExportFormat,
 } from "../../hooks/use-chats";
+import { useSavedMessageRegex } from "../../hooks/use-saved-message-regex";
 
 import { getCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
@@ -73,7 +74,9 @@ import { useKeepLatestChatMessageVisible } from "../../hooks/use-visual-viewport
 import { useChatOpeningScroll } from "../../hooks/use-chat-opening-scroll";
 import { api, ApiError, isRequestTimeoutError } from "../../lib/api-client";
 import { getChatDisplayName, getConnectedChatDisplayName, parseChatMetadata } from "../../lib/chat-display";
-import { getChatCharacterIds } from "../../lib/chat-macros";
+import { getChatCharacterIds, resolveSpokenMessageMacros } from "../../lib/chat-macros";
+import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
+import { usePresetVariablesResolver } from "../../hooks/use-message-preset-variables";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
@@ -3001,20 +3004,23 @@ const LocalChatArea = memo(function LocalChatArea({
     [activeChatId, setActiveSwipe, refreshVisibleGameState, shouldRefreshGameStateOnSwipe, localizeUi],
   );
 
+  const applySavedMessageRegex = useSavedMessageRegex(activeChatId);
   const handleEdit = useCallback(
     (messageId: string, content: string) => {
-      updateMessage({ messageId, content });
+      const message = messages?.find((entry) => entry.id === messageId);
+      updateMessage({ messageId, content: applySavedMessageRegex(message, content) });
       if (messageId === failedReplyMessageId) setDismissedFailedReplyId(messageId);
     },
-    [updateMessage, failedReplyMessageId],
+    [applySavedMessageRegex, messages, updateMessage, failedReplyMessageId],
   );
 
   const handleRoleplayEdit = useCallback(
     async (messageId: string, content: string) => {
-      await updateMessageAsync({ messageId, content });
+      const message = messages?.find((entry) => entry.id === messageId);
+      await updateMessageAsync({ messageId, content: applySavedMessageRegex(message, content) });
       if (messageId === failedReplyMessageId) setDismissedFailedReplyId(messageId);
     },
-    [updateMessageAsync, failedReplyMessageId],
+    [applySavedMessageRegex, messages, updateMessageAsync, failedReplyMessageId],
   );
 
   const handleToggleConversationStart = useCallback(
@@ -3778,6 +3784,7 @@ const LocalChatArea = memo(function LocalChatArea({
     window.addEventListener("marinara:generation-error", handleGenerationError);
     return () => window.removeEventListener("marinara:generation-error", handleGenerationError);
   }, []);
+  const resolvePresetVariables = usePresetVariablesResolver();
   const runTTSAutoplayMessage = useCallback(
     async (
       lastMsg: TTSAutoplayMessage,
@@ -3823,7 +3830,19 @@ const LocalChatArea = memo(function LocalChatArea({
         const visualNovel =
           mode === "roleplay" &&
           (chatMeta.roleplayDisplayStyle ?? useUIStore.getState().roleplayDisplayStyle) === "visual-novel";
+        const chatMetadata = (chat as unknown as { metadata?: unknown } | null)?.metadata;
+        const chatVariables = readChatVariables(chatMetadata);
         const requestsFor = async (message: TTSAutoplayMessage) => {
+          // Read the message as the chat shows it: {{user}}, {{char}} and the other macros resolved.
+          const text = resolveSpokenMessageMacros(message, {
+            mode,
+            characters: characterMap,
+            chatCharacterIds: chatCharIds,
+            persona: personaInfo,
+            chatMetadata,
+            chatVariables,
+            presetVariables: resolvePresetVariables(`${message.id}:${message.activeSwipeIndex ?? 0}`),
+          });
           const persona = resolveTTSMessagePersona(message, personaInfo);
           const ownUserMessage = message.role === "user";
           const fallbackSpeaker = ownUserMessage
@@ -3841,7 +3860,7 @@ const LocalChatArea = memo(function LocalChatArea({
           if (mode === "roleplay" && cfg.roleplaySpeakerExtractorEnabled && !ownUserMessage) {
             try {
               const extracted = await extractRoleplayTTSSpeakers({
-                message: filterTTSText(message.content, cfg),
+                message: filterTTSText(text, cfg),
                 group: getChatDisplayName(chat) || characterNames.join(", "),
                 user: personaInfo?.name || "User",
                 characters: characterNames,
@@ -3860,7 +3879,7 @@ const LocalChatArea = memo(function LocalChatArea({
             } catch (error) {
               console.warn("[TTS] Roleplay speaker extractor failed; using standard autoplay.", error);
               requests = buildTTSVoiceRequests(
-                message.content,
+                text,
                 cfg,
                 fallbackSpeaker,
                 fallbackId,
@@ -3871,7 +3890,7 @@ const LocalChatArea = memo(function LocalChatArea({
             }
           } else {
             requests = buildTTSVoiceRequests(
-              message.content,
+              text,
               cfg,
               fallbackSpeaker,
               fallbackId,
@@ -3880,7 +3899,7 @@ const LocalChatArea = memo(function LocalChatArea({
               ambiguousSpeaker,
             );
           }
-          return visualNovel ? withRoleplayTTSParagraphs(requests, message.content, cfg) : requests;
+          return visualNovel ? withRoleplayTTSParagraphs(requests, text, cfg) : requests;
         };
         // A reply split at scene breaks (#7481) is read part by part, in order, as one sequence. Its parts are
         // prepared at once so playback doesn't wait one round trip per part.
@@ -3921,7 +3940,16 @@ const LocalChatArea = memo(function LocalChatArea({
         announceVoice(false);
       }
     },
-    [characterMap, characterNames, chat, chatMeta.roleplayDisplayStyle, personaInfo, ttsLineVolume],
+    [
+      characterMap,
+      characterNames,
+      chat,
+      chatCharIds,
+      chatMeta.roleplayDisplayStyle,
+      personaInfo,
+      resolvePresetVariables,
+      ttsLineVolume,
+    ],
   );
   const speakTTSAutoplayMessage = useCallback(
     (

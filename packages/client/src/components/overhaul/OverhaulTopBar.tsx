@@ -45,6 +45,7 @@ import { resolveLiveConversationStatus } from "../../lib/conversation-presence-s
 import { useDocsIndex } from "../../hooks/use-docs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { MariTopbarStatus } from "../layout/MariTopbarStatus";
 import { useMariEdgeGlow } from "../../hooks/use-mari-presence";
 import {
@@ -96,6 +97,7 @@ type CurrentTabInputs = {
   agentDetailId: string | null;
   regexDetailId: string | null;
   toolDetailId: string | null;
+  profileDetailId: string | null;
   characterLibraryOpen: boolean;
   cardLibraryKind: string;
   libraryPage: LibrarySection | null;
@@ -113,6 +115,7 @@ function currentTabFrom(v: CurrentTabInputs): OverhaulTab | null {
   // Regex scripts, Connections and Agents open in one viewer per section, so they share its Library tab.
   if (v.regexDetailId) return { kind: "library", id: "regex" };
   if (v.toolDetailId) return { kind: "library", id: "tools" };
+  if (v.profileDetailId) return { kind: "library", id: "profiles" };
   if (real(v.personaDetailId)) return { kind: "persona", id: v.personaDetailId! };
   if (v.agentDetailId) return { kind: "library", id: "agents" };
   if (v.connectionDetailId) return { kind: "library", id: "connections" };
@@ -141,6 +144,7 @@ export function currentTabNow(): OverhaulTab | null {
     agentDetailId: ui.agentDetailId,
     regexDetailId: ui.regexDetailId,
     toolDetailId: ui.toolDetailId,
+    profileDetailId: ui.profileDetailId,
     characterLibraryOpen: ui.characterLibraryOpen,
     cardLibraryKind: ui.cardLibraryKind,
     libraryPage: overhaul.libraryPage,
@@ -162,6 +166,7 @@ export function useCurrentTab(): OverhaulTab | null {
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
+  const profileDetailId = useUIStore((s) => s.profileDetailId);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
   const libraryPage = useOverhaulStore((s) => s.libraryPage);
@@ -181,6 +186,7 @@ export function useCurrentTab(): OverhaulTab | null {
         agentDetailId,
         regexDetailId,
         toolDetailId,
+        profileDetailId,
         characterLibraryOpen,
         cardLibraryKind,
         libraryPage,
@@ -204,6 +210,7 @@ export function useCurrentTab(): OverhaulTab | null {
       lorebookDetailId,
       personaDetailId,
       presetDetailId,
+      profileDetailId,
       regexDetailId,
       toolDetailId,
     ],
@@ -301,7 +308,7 @@ export function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: 
   const list = Array.isArray(connections) ? (connections as Array<Record<string, unknown>>) : [];
   const connection = chat.connectionId
     ? list.find((item) => item.id === chat.connectionId)
-    : list.find((item) => item.isDefault === true);
+    : list.find((item) => isConnectionFlagTrue(item.isDefault));
   const parts = [fallback, nameOf(connection)].filter(Boolean);
   return <small>{parts.join(" · ")}</small>;
 }

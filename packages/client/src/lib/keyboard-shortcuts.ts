@@ -11,6 +11,8 @@ export interface KeyboardShortcut {
   keys: string[][];
   /** Localization key of the description. */
   labelKey: string;
+  /** The description in the new layout, when the binding does something else there. */
+  overhaulLabelKey?: string;
 }
 
 export interface KeyboardShortcutGroup {
@@ -26,8 +28,13 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
     shortcuts: [
       // GlobalOmnibarHost (not while another dialog is open)
       { keys: [["Mod", "K"]], labelKey: "shortcuts.general.omnibar" },
-      // GlobalOmnibarHost while the omnibar is shut, GlobalOmnibar's own listener while it is open
-      { keys: [["Mod", "J"]], labelKey: "shortcuts.general.askMari" },
+      // GlobalOmnibarHost while the omnibar is shut, GlobalOmnibar's own listener while it is open.
+      // New layout: openProfessorMariChatPage (her full chat page).
+      {
+        keys: [["Mod", "J"]],
+        labelKey: "shortcuts.general.askMari",
+        overhaulLabelKey: "shortcuts.general.openMariChat",
+      },
       // GlobalOmnibar result list
       { keys: [["↑"], ["↓"], ["Enter"]], labelKey: "shortcuts.general.omnibarNavigate" },
       // GlobalOmnibar ghost completion

@@ -68,8 +68,9 @@ export function resolveImageStyleGuidanceText(
 export function removeCopiedPromptGuidance(
   text: string,
   guidance: ReadonlyArray<string | null | undefined>,
-  { allowEmpty = false }: { allowEmpty?: boolean } = {},
+  { allowEmpty = false, promptMode }: { allowEmpty?: boolean; promptMode?: ImageStyleProfile["promptMode"] } = {},
 ): string {
+  if (promptMode === "off") return text;
   const tokens = Array.from(text.matchAll(/[\p{L}\p{N}]+/gu), (match) => ({
     word: match[0].toLowerCase(),
     start: match.index,
@@ -140,7 +141,46 @@ function isBuiltInAutoStyleInstruction(profile: ImageStyleProfile): boolean {
 }
 
 export function compileImagePrompt(input: CompileImagePromptInput): CompiledImagePrompt {
-  const initial = compileImagePromptPass(input, false, false);
+  const profile = findImageStyleProfile(
+    input.styleProfiles,
+    input.styleProfileId || input.imageDefaults?.styleProfileId || input.styleProfiles.defaultProfileId,
+  );
+  if (profile.promptMode === "off") {
+    // Assemble whole sources before any fragment parsing, cleanup, or duplicate comparison.
+    const profileStyleText =
+      input.omitProfileStyleText || input.generatedStyle || isBuiltInAutoStyleInstruction(profile)
+        ? ""
+        : profile.styleText;
+    return {
+      prompt: [
+        imagePromptPrefixFromDefaults(input.imageDefaults),
+        profile.positiveTags,
+        input.omitProfileSubjectTags ? "" : profile.subjectTags[input.kind],
+        profileStyleText,
+        input.generatedStyle,
+        input.prompt,
+        input.userPositive,
+      ]
+        .filter(Boolean)
+        .join(", "),
+      negativePrompt: [
+        imageNegativePromptPrefixFromDefaults(input.imageDefaults),
+        profile.negativeTags,
+        input.negativePrompt,
+        input.userNegative,
+        input.hardNegative,
+      ]
+        .filter(Boolean)
+        .join(", "),
+      profile,
+      diagnostics: {
+        removedPositiveDuplicates: [],
+        removedNegativeDuplicates: [],
+        movedNegativeFragments: [],
+      },
+    };
+  }
+  const initial = compileImagePromptPass(input, profile, false, false);
   const generatedStyle = input.generatedStyle?.trim() ?? "";
   const userPositive = input.userPositive?.trim() ?? "";
   if (!generatedStyle && !userPositive) return initial;
@@ -156,18 +196,15 @@ export function compileImagePrompt(input: CompileImagePromptInput): CompiledImag
     Boolean(userPositive) && !promptContainsPositiveNormalizedValue(providerVisiblePrompt, userPositive, fragmentMode);
   if (!protectGeneratedStyle && !protectUserPositive) return initial;
 
-  return compileImagePromptPass(input, protectGeneratedStyle, protectUserPositive);
+  return compileImagePromptPass(input, profile, protectGeneratedStyle, protectUserPositive);
 }
 
 function compileImagePromptPass(
   input: CompileImagePromptInput,
+  profile: ImageStyleProfile,
   protectGeneratedStyle: boolean,
   protectUserPositive: boolean,
 ): CompiledImagePrompt {
-  const profile = findImageStyleProfile(
-    input.styleProfiles,
-    input.styleProfileId || input.imageDefaults?.styleProfileId || input.styleProfiles.defaultProfileId,
-  );
   const promptMode = profile.promptMode;
   const positiveDiagnostics: string[] = [];
   const negativeDiagnostics: string[] = [];

@@ -1815,7 +1815,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       target?.focus();
     });
   };
-  // UI overhaul: Home opens her in her own tab; ⌘J still opens the popover.
+  // UI overhaul: Home opens her in her own tab, as ⌘J does.
   const openProfessor = () => {
     if (isOverhaulLook()) useOverhaulStore.getState().openMari();
     else requestProfessorMariOpen();
