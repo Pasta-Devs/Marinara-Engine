@@ -41,6 +41,7 @@ import {
   isOpenAIGpt56Model,
   isOpenAIGpt56SolProAlias,
   isOpenAIGpt6AlwaysReasoningModel,
+  isOpenAIGpt62OrLaterModel,
   isOpenAIGpt6Model,
   isXaiAutoReasoningModel,
   isXaiConfigurableReasoningModel,
@@ -3111,7 +3112,13 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.include = ["reasoning.encrypted_content"];
     }
 
-    if (instructions || isOpenAIChatGPT) {
+    if (instructions && isOpenAIGpt62OrLaterModel(options.model)) {
+      // GPT-6.2 and later append top-level instructions after the input and bill them uncached even on a cache hit,
+      // so the system prompt leads the input as a developer message, where it is part of the cached prefix. The
+      // ChatGPT backend still needs instructions of its own.
+      (body.input as Array<Record<string, unknown>>).unshift({ role: "developer", content: instructions });
+      if (isOpenAIChatGPT) body.instructions = "Follow the developer messages.";
+    } else if (instructions || isOpenAIChatGPT) {
       body.instructions = instructions || "You are a helpful assistant.";
     }
 
