@@ -574,9 +574,19 @@ export class ClaudeSubscriptionProvider extends BaseLLMProvider {
       }
     }
     if (isClaudeManualThinkingModel(options.model)) {
-      delete sdkOptions.thinking;
-      delete sdkOptions.effort;
-      delete sdkOptions.maxThinkingTokens;
+      // Claude 4.5 and older think with a fixed budget, not adaptive thinking or effort
+      // (https://platform.claude.com/docs/en/build-with-claude/extended-thinking). Values set through Custom
+      // Parameters reach the SDK unchanged.
+      const custom = (key: string) => Object.prototype.hasOwnProperty.call(customGenerationOptions, key);
+      if (!custom("effort")) delete sdkOptions.effort;
+      if (!custom("thinking") && !custom("maxThinkingTokens")) {
+        delete sdkOptions.maxThinkingTokens;
+        if (!suppressModelParameters && options.enableThinking) {
+          sdkOptions.thinking = { type: "enabled", budgetTokens: Math.max(1024, Math.min(configuredMaxTokens, 16000)) };
+        } else {
+          delete sdkOptions.thinking;
+        }
+      }
     }
     if (isClaudeStrictRequestModel(options.model)) {
       sdkOptions.thinking = {
