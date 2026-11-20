@@ -13,10 +13,15 @@ import type { CardFieldAlternative, CardFieldDraft, CardFieldKey } from "@marina
 
 import { CardFieldAlternatives } from "../characters/CardFieldAlternatives";
 import { CardFieldWand } from "../characters/CardFieldWand";
-import { SettingsCheckbox } from "../panels/settings/SettingControls";
 import { EditorSectionAnchor } from "../ui/EditorSectionJumps";
-import { Tabs } from "../ui/Tabs";
 import { useCardFieldGeneration } from "../../hooks/use-card-field-generation";
+import {
+  AppearanceTabHint,
+  AppearanceTabs,
+  changeImageTags,
+  type AppearanceImageTagsState,
+  type AppearanceTab,
+} from "./AppearanceImageTags";
 import { CardProseDescription, CardProseTextarea, type CardProseVariant } from "./CardProse";
 
 export type CardFieldsTabLabels = ReturnType<typeof useCardFieldGeneration>["labels"];
@@ -54,11 +59,7 @@ export type CardFieldsTabCustomField = CardFieldsTabFieldBase & {
 export type CardFieldsTabField = CardFieldsTabProseField | CardFieldsTabCustomField;
 
 /** The Appearance field's image tags (#7053), shown as its second tab (#9605). */
-export type CardFieldsTabImageAppearance = {
-  enabled: boolean;
-  onToggle: (enabled: boolean) => void;
-  value: string;
-  onChange: (value: string) => void;
+export type CardFieldsTabImageAppearance = AppearanceImageTagsState & {
   /** Persona stores this flat; character leaves it unset. */
   mariField?: string;
 };
@@ -129,6 +130,7 @@ export function CardFieldsTab({
           card={card}
           alternatives={alternatives}
           onChange={onAlternativesChange}
+          imageAppearance={field.key === "appearance" ? imageAppearance : undefined}
         />
       </>
     );
@@ -165,12 +167,7 @@ export function CardFieldsTab({
           helpText={field.helpText}
           textareaLabel={localizeUi("ui.cards.appearanceImageTags.textareaLabel")}
           value={imageAppearance.value}
-          onChange={(next) => {
-            // Typing into empty tags ticks the checkmark, or filled-in tags would silently do nothing.
-            if (!imageAppearance.enabled && !imageAppearance.value.trim() && next.trim())
-              imageAppearance.onToggle(true);
-            imageAppearance.onChange(next);
-          }}
+          onChange={(next) => changeImageTags(imageAppearance, next)}
           placeholder={localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder")}
           rows={field.rows}
           textareaClassName={imageAppearance.enabled ? undefined : "opacity-60"}
@@ -178,7 +175,7 @@ export function CardFieldsTab({
           belowHeader={appearanceTabs}
           footer={
             <>
-              <AppearanceTabHint tab="imageTags" config={imageAppearance} />
+              <AppearanceTabHint tab="imageTags" state={imageAppearance} />
               {footer}
             </>
           }
@@ -204,7 +201,7 @@ export function CardFieldsTab({
         footer={
           field.key === "appearance" ? (
             <>
-              <AppearanceTabHint tab="prose" config={imageAppearance} />
+              <AppearanceTabHint tab="prose" state={imageAppearance} />
               {footer}
             </>
           ) : (
@@ -215,39 +212,7 @@ export function CardFieldsTab({
     );
   };
 
-  const imageTagsInUse = imageAppearance.enabled && imageAppearance.value.trim() !== "";
-  const appearanceTabs = (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-      <Tabs
-        variant="underline"
-        label={localizeUi("ui.cards.appearanceImageTags.tabs")}
-        value={appearanceTab}
-        onChange={setAppearanceTab}
-        className="min-w-0"
-        items={[
-          { id: "prose", label: localizeUi("ui.cards.appearanceImageTags.prose") },
-          {
-            id: "imageTags",
-            label: localizeUi("ui.cards.appearanceImageTags.imageTags"),
-            badge: imageTagsInUse ? (
-              <span
-                aria-label={localizeUi("ui.cards.appearanceImageTags.inUse")}
-                className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]"
-              />
-            ) : undefined,
-          },
-        ]}
-      />
-      {appearanceTab === "imageTags" && (
-        <SettingsCheckbox
-          label={localizeUi("ui.cards.appearanceImageTags.useForImagePrompts")}
-          checked={imageAppearance.enabled}
-          onChange={imageAppearance.onToggle}
-          className="py-1"
-        />
-      )}
-    </div>
-  );
+  const appearanceTabs = <AppearanceTabs tab={appearanceTab} onTabChange={setAppearanceTab} state={imageAppearance} />;
 
   return (
     <>
@@ -261,21 +226,4 @@ export function CardFieldsTab({
       </div>
     </>
   );
-}
-
-type AppearanceTab = "prose" | "imageTags";
-
-/** One line under the Appearance textarea saying who reads what is on screen. */
-function AppearanceTabHint({ tab, config }: { tab: AppearanceTab; config: CardFieldsTabImageAppearance }) {
-  const { t: localizeUi } = useUiTranslation();
-  const inUse = config.enabled && config.value.trim() !== "";
-  const key =
-    tab === "prose"
-      ? inUse
-        ? "ui.cards.appearanceImageTags.proseHintTagsInUse"
-        : "ui.cards.appearanceImageTags.proseHint"
-      : config.enabled
-        ? "ui.characters.charactercardtab.imageAppearanceSubtitle"
-        : "ui.cards.appearanceImageTags.imageTagsHintOff";
-  return <p className="text-xs text-[var(--muted-foreground)]">{localizeUi(key)}</p>;
 }

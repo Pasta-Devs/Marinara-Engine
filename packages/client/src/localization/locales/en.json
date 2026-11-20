@@ -9367,6 +9367,7 @@
   "ui.cardFields.publicFace.subtitle": "What the rest of the cast could see or know about them: the card minus its private parts.",
   "ui.cardFields.seedPlaceholder": "Anything prewritten here will be used as a base for the AI generation with the wand button above.",
   "ui.cardLibrary.sections.openingMessage": "Opening Message",
+  "ui.cards.appearanceImageTags.alternativeTextareaLabel": "{{name}}: image tags",
   "ui.cards.appearanceImageTags.imageTags": "Image tags",
   "ui.cards.appearanceImageTags.imageTagsHintOff": "Kept, but not used. Image prompts fall back to Prose.",
   "ui.cards.appearanceImageTags.inUse": "In use",
