@@ -45,7 +45,9 @@ export function AppearanceTabs({
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+    // The shared Tabs underline and SettingsCheckbox paint with --primary, which stays on the default accent in the
+    // editor while its newer controls follow the chrome accent; rescoped as MacroTextarea does.
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 [--primary:var(--marinara-editor-accent)]">
       <Tabs
         variant="underline"
         label={localizeUi("ui.cards.appearanceImageTags.tabs")}
