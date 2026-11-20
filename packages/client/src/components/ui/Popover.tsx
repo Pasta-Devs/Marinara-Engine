@@ -20,6 +20,7 @@ import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useDismiss, type DismissOptions } from "../../hooks/use-dismiss";
+import { placePopover, POPOVER_WINDOW_PADDING } from "../../lib/popover-placement";
 
 /** Above a modal (z 10000), so a popover opened inside a dialog shows. */
 export const POPOVER_Z_INDEX = 10001;
@@ -45,8 +46,6 @@ export interface PopoverProps {
   /** Overrides for `useDismiss`, such as `{ outsideClick: false }`. */
   dismiss?: DismissOptions;
 }
-
-const WINDOW_PADDING = 8;
 
 interface Placement {
   top: number;
@@ -96,7 +95,9 @@ export function Popover({
     const viewBottom = viewTop + (visual?.height ?? view.innerHeight);
     const viewRight = viewLeft + (visual?.width ?? view.innerWidth);
 
-    const minWidth = matchAnchorWidth ? Math.min(a.width, viewRight - viewLeft - WINDOW_PADDING * 2) : undefined;
+    const minWidth = matchAnchorWidth
+      ? Math.min(a.width, viewRight - viewLeft - POPOVER_WINDOW_PADDING * 2)
+      : undefined;
     const width = Math.max(panel.offsetWidth, minWidth ?? 0);
     // Its natural height, capped by the caller's own max-height (the panel carries no inline one).
     const ownMax = Number.parseFloat(view.getComputedStyle(panel).maxHeight);
@@ -105,27 +106,20 @@ export function Popover({
       Number.isFinite(ownMax) ? ownMax : Infinity,
     );
 
-    const below = viewBottom - a.bottom - gap - WINDOW_PADDING;
-    const above = a.top - viewTop - gap - WINDOW_PADDING;
-    const useTop = side === "top" ? height <= above || above > below : height > below && above > below;
-    const top = Math.max(
-      viewTop + WINDOW_PADDING,
-      Math.min(
-        useTop ? a.top - gap - Math.min(height, Math.max(0, above)) : a.bottom + gap,
-        viewBottom - WINDOW_PADDING,
-      ),
-    );
-    // The room left below the clamped top, so an anchor scrolled out of view can't stretch the panel past the edge.
-    const room = Math.max(0, Math.min(useTop ? above : below, viewBottom - WINDOW_PADDING - top));
-
-    const preferredLeft =
-      align === "end" ? a.right - width : align === "center" ? a.left + a.width / 2 - width / 2 : a.left;
-    // A panel wider than the zoomed-in view is clamped to the whole page instead, so panning reaches its far edge
-    // rather than dragging the panel along.
-    const fitsView = width <= viewRight - viewLeft - WINDOW_PADDING * 2;
-    const minLeft = fitsView ? viewLeft : 0;
-    const maxRight = fitsView ? viewRight : view.innerWidth;
-    const left = Math.max(minLeft + WINDOW_PADDING, Math.min(preferredLeft, maxRight - WINDOW_PADDING - width));
+    const {
+      top,
+      left,
+      maxHeight: room,
+    } = placePopover({
+      anchor: a,
+      width,
+      height,
+      view: { top: viewTop, left: viewLeft, bottom: viewBottom, right: viewRight },
+      pageWidth: view.innerWidth,
+      side,
+      align,
+      gap,
+    });
 
     setPlacement((current) =>
       current &&
