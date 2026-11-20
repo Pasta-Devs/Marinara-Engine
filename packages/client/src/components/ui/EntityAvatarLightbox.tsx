@@ -53,6 +53,7 @@ export function EntityAvatarLightbox({
       image={image}
       onClose={onClose}
       busy={apply.isPending}
+      applyEditedOnly
       onUseImage={(selected) => apply.mutate(selected)}
     />
   );

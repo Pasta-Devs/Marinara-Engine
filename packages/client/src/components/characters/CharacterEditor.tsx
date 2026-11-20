@@ -1532,8 +1532,6 @@ export function CharacterEditor() {
           avatarCropStyle={getAvatarCropStyle(normalizeAvatarCrop(formData.extensions.avatarCrop))}
           avatarActions={
             <EditorAvatarTileActions
-              onEdit={avatarPreview && characterId ? () => void openAvatarEditor() : undefined}
-              editing={prepareAvatarEdit.isPending || avatarUploading || saving}
               generationAvailable={imageGenerationAvailable}
               onGenerate={() => setAvatarGeneratorOpen(true)}
             />

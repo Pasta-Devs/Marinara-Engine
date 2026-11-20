@@ -116,6 +116,14 @@ export function createCharacterGalleryStorage(db: DB) {
       return this.getById(id);
     },
 
+    async setGeneration(id: string, generation: ChatImageGenerationRecord) {
+      await db
+        .update(characterImages)
+        .set({ generation: JSON.stringify(generation) })
+        .where(eq(characterImages.id, id));
+      return this.getById(id);
+    },
+
     async setTag(
       id: string,
       patch: { customKind: GalleryTagKind | null; customName: string | null; width?: number; height?: number },

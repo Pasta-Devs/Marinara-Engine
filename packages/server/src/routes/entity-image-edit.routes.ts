@@ -10,6 +10,9 @@ import {
   resolveImageBackend,
 } from "@marinara-engine/shared";
 import type { DB } from "../db/connection.js";
+import { inArray } from "../db/file-query.js";
+import { chatImages } from "../db/schema/index.js";
+import { resolveInside } from "../utils/security.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { newId } from "../utils/id-generator.js";
 import { validateImageAssetFile } from "../utils/media-file-security.js";
@@ -39,12 +42,40 @@ import { logger, logDebugOverride, debugJson } from "../lib/logger.js";
 export async function resolveEntityImageGeneration(
   db: DB,
   image: { generation?: string | null; sourceChatImageId?: string | null },
+  sources?: ReadonlyMap<string, string | null>,
 ): Promise<string | null> {
   const own = parseChatImageGenerationRecord(image.generation);
   if (own) return JSON.stringify(own);
+  if (sources) return image.sourceChatImageId ? (sources.get(image.sourceChatImageId) ?? null) : null;
   const source = image.sourceChatImageId ? await createGalleryStorage(db).getById(image.sourceChatImageId) : null;
   const record = parseChatImageGenerationRecord(source?.generation);
   return record ? JSON.stringify(record) : null;
+}
+
+/** Resolve legacy source records in one scan for a whole owner gallery. */
+export async function loadEntityImageGenerationSources(
+  db: DB,
+  images: readonly { generation?: string | null; sourceChatImageId?: string | null }[],
+): Promise<ReadonlyMap<string, string | null>> {
+  const ids = [
+    ...new Set(
+      images
+        .filter((image) => !parseChatImageGenerationRecord(image.generation))
+        .flatMap((image) => (image.sourceChatImageId ? [image.sourceChatImageId] : [])),
+    ),
+  ];
+  const rows = ids.length ? await db.select().from(chatImages).where(inArray(chatImages.id, ids)) : [];
+  return new Map(
+    rows.map((row) => {
+      const generation = parseChatImageGenerationRecord(row.generation);
+      return [row.id, generation ? JSON.stringify(generation) : null];
+    }),
+  );
+}
+
+function entityGalleryDirectory(folder: string, id: string): string {
+  if (!id || id.includes("..") || id === "." || /[\\/\0]/.test(id)) throw new Error("Invalid gallery owner id");
+  return resolveInside(join(DATA_DIR, "gallery", folder), id);
 }
 
 export async function entityImageEditRoutes(app: FastifyInstance) {
@@ -70,6 +101,7 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
     app.post<{ Params: { id: string } }>(`${prefix}/avatar/edit-source`, rateLimit, async (req, reply) => {
       const entity = await owner(req.params.id);
       if (!entity) return reply.status(404).send({ error: "Image owner not found" });
+      const dir = entityGalleryDirectory(folder, entity.id);
       const filename = /^\/api\/avatars\/file\/([A-Za-z0-9_.-]+)(?:\?.*)?$/.exec(entity.avatarPath ?? "")?.[1];
       if (!filename || filename === "." || filename === "..") {
         return reply.status(400).send({ error: "No saved avatar is available to edit." });
@@ -82,7 +114,10 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
       } finally {
         await asset.handle.close();
       }
-      const sourceId = /\.gallery\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.exec(filename)?.[1];
+      const encodedSourceId = /\.gallery64\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.exec(filename)?.[1];
+      const sourceId = encodedSourceId
+        ? Buffer.from(encodedSourceId, "base64url").toString("utf8")
+        : /\.gallery\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+\.[A-Za-z0-9]+$/.exec(filename)?.[1];
       const sourceImage = sourceId ? await gallery.getById(sourceId) : null;
       if (owns(sourceImage, entity.id)) {
         const file = resolveStoredGalleryFile(sourceImage!.filePath);
@@ -97,12 +132,12 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
       }
       const sharp = await getSharp();
       const dimensions = await sharp(bytes).metadata();
-      const dir = join(DATA_DIR, "gallery", folder, entity.id);
       await mkdir(dir, { recursive: true });
       const outputName = `${newId()}${extname(filename)}`;
       const path = join(dir, outputName);
-      await writeFile(path, bytes);
+      let committed = false;
       try {
+        await writeFile(path, bytes);
         const fields = {
           filePath: `${folder}/${entity.id}/${outputName}`,
           width: dimensions.width,
@@ -113,9 +148,10 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
             ? await characterGallery.create({ characterId: entity.id, ...fields })
             : await personaGallery.create({ personaId: entity.id, ...fields });
         if (!image) throw new Error("Avatar edit source could not be saved");
+        committed = true;
         return present(image, entity.id);
       } catch (error) {
-        await unlink(path).catch(() => undefined);
+        if (!committed) await unlink(path).catch(() => undefined);
         throw error;
       }
     });
@@ -151,9 +187,11 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
           resolveGalleryImageTarget,
           resolveRegenerationImageConnection,
         } = await import("./gallery.routes.js");
+        const signal = createResponseAbortSignal(reply, 10 * 60_000, "Entity image regeneration");
         const entity = await owner(req.params.id);
         const original = await gallery.getById(req.params.imageId);
         if (!entity || !owns(original, entity.id)) return reply.status(404).send({ error: "Gallery image not found" });
+        const dir = entityGalleryDirectory(folder, entity.id);
         const input = regenerateGalleryImageSchema.parse(req.body);
         const record = parseChatImageGenerationRecord(await resolveEntityImageGeneration(app.db, original!));
         const connection = await resolveRegenerationImageConnection(
@@ -230,9 +268,10 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
           negativePrompt,
           debugJson(characterPrompts),
         );
-        const signal = createResponseAbortSignal(reply, 10 * 60_000, "Entity image regeneration");
         let savedPath: string | undefined;
         try {
+          const fallback = await resolveImageConnectionFallback(connections, connection.id);
+          signal.throwIfAborted();
           const generated = await generateImage(imageSource, imageBaseUrl, connection.apiKey || "", imageServiceHint, {
             prompt: input.prompt,
             negativePrompt,
@@ -257,14 +296,14 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
             ...(seed != null ? { seedOverride: seed } : {}),
             signal,
             debugMode: debug,
-            fallback: await resolveImageConnectionFallback(connections, connection.id),
+            fallback,
           });
           signal.throwIfAborted();
-          const dir = join(DATA_DIR, "gallery", folder, entity.id);
           await mkdir(dir, { recursive: true });
           const filename = `${newId()}.${generated.ext}`;
           savedPath = join(dir, filename);
           await writeFile(savedPath, Buffer.from(generated.base64, "base64"));
+          signal.throwIfAborted();
           const tag = readGalleryTagPayload(
             { customKind: original!.customKind, customName: original!.customName },
             { allowBackground: true },
@@ -276,7 +315,10 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
             model: generated.effectiveConnection?.model || imageModel || "unknown",
             width: generated.width ?? width,
             height: generated.height ?? height,
-            ...("error" in tag ? {} : tag.patch),
+            // Named stickers and emoji must keep the original mapping until explicitly relabeled.
+            ...("error" in tag || tag.patch.customKind === "sticker" || tag.patch.customKind === "emoji"
+              ? {}
+              : tag.patch),
             generation: buildChatImageGenerationRecord({
               prompt: input.prompt,
               negativePrompt,

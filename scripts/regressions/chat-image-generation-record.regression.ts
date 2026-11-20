@@ -77,6 +77,7 @@ const provider = createServer(async (request, response) => {
 const db = await getDB();
 const app = Fastify();
 app.decorate("db", db);
+await app.register(requireServer("@fastify/multipart"));
 await app.register(galleryRoutes, { prefix: "/api/gallery" });
 const { charactersRoutes } = await import("../../packages/server/src/routes/characters.routes.js");
 await app.register(charactersRoutes, { prefix: "/api/characters" });
@@ -1243,6 +1244,8 @@ try {
     filePath: withRecord!.filePath,
     prompt: "display scene",
     generation: entityRecord,
+    customKind: "sticker",
+    customName: "wave",
   });
   assert.ok(entitySource);
   const entityUrl = `/api/characters/${entityCharacter.id}/gallery/${entitySource.id}/regenerate`;
@@ -1274,6 +1277,8 @@ try {
   assert.equal(entityResponse.statusCode, 200, entityResponse.body);
   const editedEntity = entityResponse.json();
   assert.notEqual(editedEntity.id, entitySource.id);
+  assert.equal(editedEntity.customName, null);
+  assert.equal((await characterImages.getById(entitySource.id))?.customName, "wave");
   assert.equal(parseChatImageGenerationRecord(editedEntity.generation)?.negativePrompt, "bad hands");
   assert.equal(parseChatImageGenerationRecord(editedEntity.generation)?.prompt, "new entity scene");
   assert.equal((await characterImages.getById(entitySource.id))?.prompt, "display scene");
@@ -1300,7 +1305,7 @@ try {
   });
   assert.equal(personaApplied.statusCode, 200, personaApplied.body);
   const appliedPersona = await entityCharacters.getPersona(entityPersona.id);
-  assert.ok(appliedPersona?.avatarPath?.includes(`.gallery.${personaSource.id}.`));
+  assert.ok(appliedPersona?.avatarPath?.includes(`.gallery64.${Buffer.from(personaSource.id).toString("base64url")}.`));
   const reopenedAvatar = await app.inject({
     method: "POST",
     url: `/api/characters/personas/${entityPersona.id}/avatar/edit-source`,
@@ -1342,6 +1347,30 @@ try {
     .png()
     .toBuffer();
   writeFileSync(join(avatarDirectory, "edit-source.png"), avatarBytes);
+  const largeGeneration = buildChatImageGenerationRecord({
+    prompt: "\u754c".repeat(190_000),
+    negativePrompt: "\u8a9e".repeat(190_000),
+    seed: 23,
+  });
+  const multipartBoundary = "metadata-regression-boundary";
+  const multipartPayload = Buffer.concat([
+    Buffer.from(
+      `--${multipartBoundary}\r\nContent-Disposition: form-data; name="generation"\r\n\r\n${JSON.stringify(largeGeneration)}\r\n--${multipartBoundary}\r\nContent-Disposition: form-data; name="file"; filename="large.png"\r\nContent-Type: image/png\r\n\r\n`,
+    ),
+    avatarBytes,
+    Buffer.from(`\r\n--${multipartBoundary}--\r\n`),
+  ]);
+  for (const path of [`${entityCharacter.id}`, `personas/${entityPersona.id}`]) {
+    const uploaded = await app.inject({
+      method: "POST",
+      url: `/api/characters/${path}/gallery/upload`,
+      headers: { "content-type": `multipart/form-data; boundary=${multipartBoundary}` },
+      payload: multipartPayload,
+    });
+    assert.equal(uploaded.statusCode, 200, uploaded.body);
+    assert.deepEqual(parseChatImageGenerationRecord(uploaded.json().generation), largeGeneration);
+  }
+
   const avatarOwner = await entityCharacters.createPersona("Avatar owner", "", "/api/avatars/file/edit-source.png");
   assert.ok(avatarOwner);
   const bootstrap = await app.inject({

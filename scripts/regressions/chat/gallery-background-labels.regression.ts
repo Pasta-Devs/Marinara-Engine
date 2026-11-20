@@ -10,6 +10,10 @@ import {
   isGalleryTagKind,
   normalizeGalleryBackgroundPlaces,
 } from "../../../packages/shared/src/utils/gallery-tags.js";
+import {
+  buildChatImageGenerationRecord,
+  parseChatImageGenerationRecord,
+} from "../../../packages/shared/src/utils/chat-image-generation.js";
 import { readGalleryTagPayload } from "../../../packages/server/src/services/image/gallery-tag-payload.js";
 
 const storageRoot = mkdtempSync(join(tmpdir(), "marinara-gallery-labels-storage-"));
@@ -140,8 +144,9 @@ try {
 
   // The chat picture's label was removed: re-assigning keeps the gallery's own label and says so
   // (the toast must not claim a label update).
+  const reassignedGeneration = buildChatImageGenerationRecord({ prompt: "restored request", seed: 91 });
   const unlabeledAgain = await assignChatPictureToGallery({
-    image: { ...tagged!, customKind: null, customName: null },
+    image: { ...tagged!, customKind: null, customName: null, generation: reassignedGeneration },
     target: { type: "character", id: "john" },
     characterGallery,
     personaGallery,
@@ -152,6 +157,7 @@ try {
   const keptRows = await characterGallery.listByCharacterId("john");
   assert.equal(keptRows.length, 1, "still one row on that file");
   assert.equal(keptRows[0]?.customKind, "background", "the gallery keeps its own label");
+  assert.deepEqual(parseChatImageGenerationRecord(keptRows[0]?.generation), reassignedGeneration);
 
   const toPersona = await assignChatPictureToGallery({
     image: { ...picture, customKind: null, customName: null },

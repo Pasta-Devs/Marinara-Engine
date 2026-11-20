@@ -14,7 +14,7 @@ export function entityImagePath(owner: EntityImageOwner) {
   return `/characters/${owner.kind === "persona" ? "personas/" : ""}${encodeURIComponent(owner.id)}`;
 }
 
-export function useEntityImageRegenerator(owner: EntityImageOwner): ImageRegenerator {
+export function useEntityImageRegenerator(owner: EntityImageOwner, avatarPreview = false): ImageRegenerator {
   const qc = useQueryClient();
   const { t } = useTranslation();
   const path = entityImagePath(owner);
@@ -41,11 +41,11 @@ export function useEntityImageRegenerator(owner: EntityImageOwner): ImageRegener
   return useMemo(
     () => ({
       defaultConnectionLabel: t("images.entity.sameConnection"),
-      regeneratedMessage: t("images.entity.savedEdit"),
+      regeneratedMessage: t(avatarPreview ? "images.entity.avatarEditSaved" : "images.entity.savedEdit"),
       regenerate: async (input) => ({ ...(await regenerate(input)), chatId: "" }),
       revise,
     }),
-    [regenerate, revise, t],
+    [regenerate, revise, t, avatarPreview],
   );
 }
 

@@ -5840,6 +5840,7 @@
   "home.widgets.save": "Save changes",
   "home.widgets.show": "Show {{widget}}",
   "home.widgets.whatsNew": "What's New",
+  "images.entity.avatarEditSaved": "Saved to the gallery. Select Use as avatar to apply it.",
   "images.entity.editAvatar": "Edit avatar",
   "images.entity.openFailed": "Could not open the image editor. Try again.",
   "images.entity.sameConnection": "Original or default image connection",

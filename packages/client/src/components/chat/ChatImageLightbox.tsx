@@ -73,6 +73,8 @@ interface ChatImageLightboxProps {
   onPin?: (image: ChatImage) => void;
   /** Owner-specific actions follow the currently displayed result. */
   actions?: (image: ChatImage) => ReactNode;
+  /** Actions for a saved result while its editing panel remains open. */
+  editActions?: (image: ChatImage, busy: boolean) => ReactNode;
   interactionDisabled?: boolean;
   onClose: () => void;
 }
@@ -89,6 +91,7 @@ export function ChatImageLightbox({
   overMari = false,
   onPin,
   actions,
+  editActions,
   interactionDisabled = false,
   onClose,
 }: ChatImageLightboxProps) {
@@ -140,7 +143,7 @@ export function ChatImageLightbox({
   const downloadName = getChatImageDownloadName(image);
   const loadingDetails = needsGalleryRow && gallery.isFetching && !gallery.data;
   const detailsFailed = needsGalleryRow && gallery.isError && !gallery.data;
-  // Nothing to re-send for an upload without a prompt.
+  // Entity adapters can start from a blank prompt; ordinary chat uploads need one to resend.
   const canRegenerate = !!regenerate && !loadingDetails && !detailsFailed && (!!prompt.trim() || !!regenerator);
   const galleryIndex = images?.findIndex((item) => item.id === activeImage.id) ?? -1;
 
@@ -169,11 +172,11 @@ export function ChatImageLightbox({
             key={image.id}
             src={image.url}
             alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
-            disabled={busy}
+            disabled={busy || interactionDisabled}
             tool={maskTool}
             brushSizePx={maskBrushSize}
             hideToolbar
-            onBackdropClick={busy ? undefined : closeEditing}
+            onBackdropClick={busy || interactionDisabled ? undefined : closeEditing}
             onMaskChange={setMaskDataUrl}
             onMaskStateChange={setMaskState}
             controlsRef={maskControlsRef}
@@ -254,6 +257,8 @@ export function ChatImageLightbox({
           onEditSurfaceChange={handleEditSurfaceChange}
           onBusyChange={setBusy}
           onCancel={closeEditing}
+          disabled={interactionDisabled}
+          footerActions={editActions?.(image, busy || interactionDisabled)}
           onRegenerated={(next) => {
             setImage(next);
             resetMask();

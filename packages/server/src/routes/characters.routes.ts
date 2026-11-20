@@ -158,7 +158,12 @@ import {
   mutateAvatarReferencesAndCleanup,
   removeUnattachedAvatarFile,
 } from "../services/image/avatar-file-lifecycle.js";
-import { entityImageEditRoutes, resolveEntityImageGeneration } from "./entity-image-edit.routes.js";
+import type { DB } from "../db/connection.js";
+import {
+  entityImageEditRoutes,
+  resolveEntityImageGeneration,
+  loadEntityImageGenerationSources,
+} from "./entity-image-edit.routes.js";
 import { notFound } from "../utils/not-found.js";
 
 const CHARACTER_GALLERY_ROOT = join(DATA_DIR, "gallery", "characters");
@@ -951,7 +956,7 @@ async function copyGalleryImageToAvatar(
   if (!imageInfo) throw new Error("Unsupported or invalid gallery image");
 
   await mkdir(AVATAR_ROOT, { recursive: true });
-  const filename = `${entityKind}-${entityId}.gallery.${sourceImageId}.${newId()}.${imageInfo.ext}`;
+  const filename = `${entityKind}-${entityId}.gallery64.${Buffer.from(sourceImageId).toString("base64url")}.${newId()}.${imageInfo.ext}`;
   const avatarFilePath = resolveInside(AVATAR_ROOT, filename);
   try {
     await writeFile(avatarFilePath, imageBuffer);
@@ -1013,10 +1018,13 @@ async function readSpritesForId(
 // Read each gallery image for an owner (metadata row + binary on disk) as it is
 // written, so a large gallery is never held in memory at once (#7115).
 async function* galleryExportEntries(
+  db: DB,
   images: any[],
   characterSheetImageId: string | null,
 ): AsyncGenerator<Record<string, unknown>> {
+  const sources = await loadEntityImageGenerationSources(db, images);
   for (const img of images) {
+    const generation = parseChatImageGenerationRecord(await resolveEntityImageGeneration(db, img, sources));
     // img.filePath is stored relative to data/gallery/ — usually
     // "characters/<id>/<filename>", but GENERATED images keep their canonical
     // chat-scoped or "shared/<filename>" path. Resolve through the same helper
@@ -1031,9 +1039,7 @@ async function* galleryExportEntries(
       filename: storedFile.filename,
       data: dataUrl,
       prompt: img.prompt ?? "",
-      ...(parseChatImageGenerationRecord(img.generation)
-        ? { generation: parseChatImageGenerationRecord(img.generation) }
-        : {}),
+      ...(generation ? { generation } : {}),
       provider: img.provider ?? "",
       model: img.model ?? "",
       width: img.width ?? null,
@@ -1068,6 +1074,7 @@ async function* spriteExportEntries(id: string): AsyncGenerator<{ filename: stri
 type NativeExport = { envelope: ExportEnvelope; slot: string; parts: JsonSlotPart[] };
 
 function nativeExportImageParts(
+  db: DB,
   avatarPath: string | null | undefined,
   ownerId: string,
   gallery: any[],
@@ -1076,7 +1083,7 @@ function nativeExportImageParts(
   return [
     { key: "avatar", value: () => readAvatarDataUrl(avatarPath) },
     { key: "sprites", items: spriteExportEntries(ownerId) },
-    { key: "gallery", items: galleryExportEntries(gallery, characterSheetImageId) },
+    { key: "gallery", items: galleryExportEntries(db, gallery, characterSheetImageId) },
   ];
 }
 
@@ -1096,6 +1103,7 @@ function cardFieldAlternativesForExport(value: unknown) {
 }
 
 async function buildNativeCharacterExport(
+  db: DB,
   char: { id: string; createdAt: string; updatedAt: string; comment?: string | null; avatarPath?: string | null },
   data: any,
   galleryStorage: { listByCharacterId: (id: string) => Promise<any[]> },
@@ -1131,7 +1139,7 @@ async function buildNativeCharacterExport(
       },
     },
     slot,
-    parts: nativeExportImageParts(char.avatarPath, char.id, gallery, characterSheetImageId),
+    parts: nativeExportImageParts(db, char.avatarPath, char.id, gallery, characterSheetImageId),
   };
 }
 
@@ -1181,6 +1189,7 @@ export function buildCompatibleCharacterExport(
 }
 
 async function buildNativePersonaExport(
+  db: DB,
   persona: Record<string, unknown>,
   galleryStorage: { listByPersonaId: (id: string) => Promise<any[]> },
 ): Promise<NativeExport> {
@@ -1215,6 +1224,7 @@ async function buildNativePersonaExport(
     },
     slot,
     parts: nativeExportImageParts(
+      db,
       typeof avatarPath === "string" ? avatarPath : null,
       personaId,
       gallery,
@@ -2134,10 +2144,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     const kept = isUnsafePathSegment(req.params.id)
       ? new Set<string>()
       : await listCleanUpOriginalIds(join(CHARACTER_GALLERY_ROOT, req.params.id));
+    const generationSources = await loadEntityImageGenerationSources(app.db, images);
     return Promise.all(
       images.map(async (img) => ({
         ...img,
-        generation: await resolveEntityImageGeneration(app.db, img),
+        generation: await resolveEntityImageGeneration(app.db, img, generationSources),
         hasCleanUpOriginal: kept.has(img.id),
         url: `/api/characters/${req.params.id}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
       })),
@@ -2510,7 +2521,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const char = await storage.getById(id);
     if (!char) return notFound(reply, "Character not found");
 
-    const data = await req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES } });
+    const data = await req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES, fieldSize: 3_200_000 } });
     if (!data) {
       return reply.status(400).send({ error: "No file uploaded" });
     }
@@ -2761,7 +2772,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       `attachment; filename="${encodeURIComponent(charData.name || "character")}.${compatible ? "json" : "marinara.json"}"`,
     );
     if (compatible) return reply.send(buildCompatibleCharacterExport(charData));
-    const nativeExport = await buildNativeCharacterExport(char, charData, characterGallery);
+    const nativeExport = await buildNativeCharacterExport(app.db, char, charData, characterGallery);
     return reply.type("application/json; charset=utf-8").send(toByteStream(streamNativeExport(nativeExport)));
   });
 
@@ -2791,7 +2802,7 @@ export async function charactersRoutes(app: FastifyInstance) {
           content:
             format === "compatible"
               ? singleChunk(JSON.stringify(buildCompatibleCharacterExport(charData), null, 2))
-              : streamNativeExport(await buildNativeCharacterExport(char, charData, characterGallery), 2),
+              : streamNativeExport(await buildNativeCharacterExport(app.db, char, charData, characterGallery), 2),
         };
       }
     })();
@@ -3372,10 +3383,11 @@ export async function charactersRoutes(app: FastifyInstance) {
     const kept = isUnsafePathSegment(req.params.id)
       ? new Set<string>()
       : await listCleanUpOriginalIds(join(PERSONA_GALLERY_ROOT, req.params.id));
+    const generationSources = await loadEntityImageGenerationSources(app.db, images);
     return Promise.all(
       images.map(async (img) => ({
         ...img,
-        generation: await resolveEntityImageGeneration(app.db, img),
+        generation: await resolveEntityImageGeneration(app.db, img, generationSources),
         hasCleanUpOriginal: kept.has(img.id),
         url: `/api/characters/personas/${req.params.id}/gallery/file/${encodeURIComponent(img.filePath.split("/").pop()!)}`,
       })),
@@ -3752,7 +3764,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const persona = await storage.getPersona(id);
     if (!persona) return notFound(reply, "Persona not found");
 
-    const data = await req.file();
+    const data = await req.file({ limits: { fieldSize: 3_200_000 } });
     if (!data) {
       return reply.status(400).send({ error: "No file uploaded" });
     }
@@ -3949,7 +3961,7 @@ export async function charactersRoutes(app: FastifyInstance) {
         `attachment; filename="${encodeURIComponent(toSafeExportName(canonical.usesFallbackName ? "" : String(canonical.row.name), "unnamed-persona"))}.${compatible ? "json" : "marinara.json"}"`,
       );
       if (compatible) return reply.send(buildCompatiblePersonaExport(canonical.row));
-      const nativeExport = await buildNativePersonaExport(canonical.row, personaGallery);
+      const nativeExport = await buildNativePersonaExport(app.db, canonical.row, personaGallery);
       return reply.type("application/json; charset=utf-8").send(toByteStream(streamNativeExport(nativeExport)));
     },
   );
@@ -3982,7 +3994,7 @@ export async function charactersRoutes(app: FastifyInstance) {
           content:
             format === "compatible"
               ? singleChunk(JSON.stringify(buildCompatiblePersonaExport(canonical.row), null, 2))
-              : streamNativeExport(await buildNativePersonaExport(canonical.row, personaGallery), 2),
+              : streamNativeExport(await buildNativePersonaExport(app.db, canonical.row, personaGallery), 2),
         };
       }
     })();

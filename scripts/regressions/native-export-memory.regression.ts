@@ -180,10 +180,16 @@ try {
   const twin = (await characters.create(characterDataSchema.parse({ name: "Big Export" })))!;
   const characterImages = await writeGallery("characters", character.id);
   scratch.push(characterImages.dir);
+  const { createGalleryStorage } = await import("../../packages/server/src/services/storage/gallery.storage.js");
+  const legacySource = await createGalleryStorage(await getDB()).create({
+    chatId: "legacy-export-source",
+    filePath: characterImages.paths[0]!,
+    generation: galleryGeneration,
+  });
   const firstImage = await characterGallery.create({
     characterId: character.id,
     filePath: characterImages.paths[0]!,
-    generation: galleryGeneration,
+    sourceChatImageId: legacySource!.id,
   });
   for (const filePath of characterImages.paths.slice(1)) {
     await characterGallery.create({

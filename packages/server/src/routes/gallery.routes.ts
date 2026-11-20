@@ -610,6 +610,7 @@ export function createResponseAbortSignal(reply: FastifyReply, timeoutMs: number
 
   reply.raw.once("finish", onFinish);
   reply.raw.once("close", onClose);
+  if (reply.raw.destroyed && !reply.raw.writableFinished) onClose();
   return controller.signal;
 }
 
@@ -679,6 +680,7 @@ export async function reviseImagePromptDraft(
   recordedConnectionId: string | null | undefined,
   options: { captions: boolean } = { captions: true },
 ) {
+  const signal = createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting");
   const chatId = chat.id;
   const metadata = parseChatMetadata(chat.metadata);
   const connections = createConnectionsStorage(app.db);
@@ -796,6 +798,7 @@ export async function reviseImagePromptDraft(
   ];
   let result;
   try {
+    signal.throwIfAborted();
     result = await runtime.provider.chatComplete(messages, {
       model: runtime.model,
       ...(runtime.suppressModelParameters ? {} : runtime.resolveAgentPromptOptions(visibleMaxTokens, messages, 0.55)),
@@ -803,7 +806,7 @@ export async function reviseImagePromptDraft(
       preserveContext: true,
       enableCaching: runtime.enableCaching,
       anthropicExtendedCacheTtl: runtime.anthropicExtendedCacheTtl,
-      signal: createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting"),
+      signal,
     });
   } catch {
     return rejectRewrite("The Prompt Model request failed. Try again or check its connection.");

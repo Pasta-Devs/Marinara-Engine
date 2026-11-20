@@ -39,6 +39,7 @@ interface ImageControlBounds {
   top: number;
   width: number;
   height: number;
+  stageHeight: number;
 }
 
 interface ZoomStageProps {
@@ -50,10 +51,11 @@ interface ZoomStageProps {
   /** A tap on the empty space around the picture. */
   onBackgroundTap: () => void;
   onFitChange: (src: string, bounds: ImageControlBounds) => void;
+  controlSize: number;
 }
 
 /** The picture itself: double-tap, wheel and pinch zoom, drag to pan. Remount it (key) to reset the zoom. */
-function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap, onFitChange }: ZoomStageProps) {
+function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap, onFitChange, controlSize }: ZoomStageProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [view, setView] = useState({ s: 1, x: 0, y: 0 });
@@ -80,12 +82,12 @@ function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap, onFitChan
     const measure = () => {
       if (!image.naturalWidth || !image.offsetWidth) return;
       // Use the fitted size, not the transformed zoom/pan rectangle, so tools stay put while zooming.
-      const width = Math.min(stage.clientWidth, Math.max(320, image.offsetWidth + 104));
       onFitChange(src, {
-        left: (stage.clientWidth - width) / 2,
+        left: image.offsetLeft - controlSize - 16,
         top: image.offsetTop,
-        width,
-        height: Math.max(44, image.offsetHeight),
+        width: image.offsetWidth + 2 * (controlSize + 16),
+        height: image.offsetHeight,
+        stageHeight: stage.clientHeight,
       });
     };
     const observer = new ResizeObserver(measure);
@@ -97,7 +99,7 @@ function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap, onFitChan
       observer.disconnect();
       image.removeEventListener("load", measure);
     };
-  }, [src, onFitChange]);
+  }, [src, onFitChange, controlSize]);
 
   const apply = (scale: number, x: number, y: number) => {
     const s = clamp(scale, 1, MAX_ZOOM);
@@ -236,7 +238,7 @@ function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap, onFitChan
         decoding="async"
         draggable={false}
         className={cn(
-          "max-h-full max-w-full rounded-lg object-contain shadow-2xl",
+          "max-h-full max-w-[calc(100%_-_5.5rem_-_48px)] rounded-lg object-contain shadow-2xl",
           smooth && "transition-transform duration-150 motion-reduce:transition-none",
         )}
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}
@@ -306,10 +308,26 @@ export function ImageViewer({
   // Keyed by picture so a swap (gallery step, regenerate) never leaves the arrows stuck off.
   const [zoomedSrc, setZoomedSrc] = useState<string | null>(null);
   const filmstripSelectedRef = useRef<HTMLButtonElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarHeight, setToolbarHeight] = useState(0);
+  const [controlSize, setControlSize] = useState(0);
   const [controlBounds, setControlBounds] = useState<{ src: string; bounds: ImageControlBounds } | null>(null);
   const onFitChange = useCallback((imageSrc: string, bounds: ImageControlBounds) => {
     setControlBounds({ src: imageSrc, bounds });
   }, []);
+
+  useEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (!toolbar) return;
+    const measure = () => {
+      setToolbarHeight(toolbar.scrollHeight);
+      setControlSize(toolbar.offsetWidth);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(toolbar);
+    measure();
+    return () => observer.disconnect();
+  }, [actions, media]);
 
   useEffect(() => {
     if (media) setZoomedSrc(null);
@@ -343,7 +361,27 @@ export function ImageViewer({
     filmstripSelectedRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [index, gallery]);
 
-  const arrowClass = cn(VIEWER_BUTTON_CLASS, "absolute top-1/2 z-10 -translate-y-1/2");
+  const fitted = !media && controlBounds?.src === shownSrc ? controlBounds.bounds : null;
+  const toolbarTop = fitted ? Math.min(fitted.top, Math.max(0, fitted.stageHeight - 2 * controlSize - 16)) : 0;
+  const arrowTop = fitted
+    ? Math.min(
+        Math.max(fitted.top + fitted.height / 2 - controlSize / 2, toolbarTop + toolbarHeight + 16),
+        Math.max(0, fitted.stageHeight - controlSize),
+      )
+    : 0;
+  const arrowClass = cn(VIEWER_BUTTON_CLASS, "absolute z-10");
+  const closeButton = (
+    <button
+      type="button"
+      ref={closeRef}
+      onClick={onCloseButton ?? onClose}
+      disabled={closeDisabled}
+      aria-label={closeLabel ?? t("ui.chat.chatimagelightbox.closeImage")}
+      className={VIEWER_BUTTON_CLASS}
+    >
+      <X size="0.875rem" />
+    </button>
+  );
 
   return (
     <Modal
@@ -380,20 +418,28 @@ export function ImageViewer({
             onSwipe={gallery ? (direction) => go(index + direction) : undefined}
             onBackgroundTap={() => !closeDisabled && onClose()}
             onFitChange={onFitChange}
+            controlSize={controlSize}
           />
         )}
         <div
           className="pointer-events-none absolute inset-0 [&_button]:pointer-events-auto"
           style={
-            !media && controlBounds?.src === shownSrc
-              ? { ...controlBounds.bounds, bottom: "auto", right: "auto" }
+            fitted
+              ? {
+                  left: fitted.left,
+                  top: 0,
+                  width: fitted.width,
+                  height: fitted.stageHeight,
+                  bottom: "auto",
+                  right: "auto",
+                }
               : undefined
           }
         >
           {gallery && (
             <span
               role="status"
-              className="absolute left-2 top-2 z-10 rounded-lg bg-black/60 px-2.5 py-1.5 text-sm tabular-nums text-white"
+              className="absolute left-0 top-2 z-10 rounded-lg bg-black/60 px-2.5 py-1.5 text-sm tabular-nums text-white"
             >
               {t("ui.imageviewer.position", { current: index + 1, total: count })}
             </span>
@@ -402,7 +448,8 @@ export function ImageViewer({
             <>
               <button
                 type="button"
-                className={cn(arrowClass, "left-2")}
+                className={cn(arrowClass, "left-0")}
+                style={{ top: arrowTop }}
                 onClick={() => go(index - 1)}
                 disabled={zoomed || index <= 0}
                 aria-label={t("ui.imageviewer.previousImage")}
@@ -411,7 +458,8 @@ export function ImageViewer({
               </button>
               <button
                 type="button"
-                className={cn(arrowClass, "right-2")}
+                className={cn(arrowClass, "right-0")}
+                style={{ top: arrowTop }}
                 onClick={() => go(index + 1)}
                 disabled={zoomed || index >= count - 1}
                 aria-label={t("ui.imageviewer.nextImage")}
@@ -420,18 +468,24 @@ export function ImageViewer({
               </button>
             </>
           )}
-          <div className="absolute right-2 top-2 z-10 flex gap-2">
+          <div
+            ref={toolbarRef}
+            className={cn(
+              "pointer-events-auto absolute z-10 flex gap-2",
+              media ? "right-2 top-2" : "right-0 w-11 flex-col overflow-y-auto overscroll-contain",
+            )}
+            style={
+              fitted
+                ? {
+                    top: toolbarTop,
+                    maxHeight: gallery ? Math.max(0, arrowTop - toolbarTop - 16) : fitted.stageHeight - toolbarTop,
+                  }
+                : undefined
+            }
+          >
+            {!media && closeButton}
             {actions}
-            <button
-              type="button"
-              ref={closeRef}
-              onClick={onCloseButton ?? onClose}
-              disabled={closeDisabled}
-              aria-label={closeLabel ?? t("ui.chat.chatimagelightbox.closeImage")}
-              className={VIEWER_BUTTON_CLASS}
-            >
-              <X size="0.875rem" />
-            </button>
+            {media && closeButton}
           </div>
         </div>
       </div>

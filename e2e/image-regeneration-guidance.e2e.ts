@@ -71,7 +71,9 @@ for (const owner of ["character", "persona"] as const) {
         edits.push(route.request().postDataJSON());
         await route.fulfill({ json: result });
       });
-      await page.route(`**${path}/avatar/edit-source`, (route) => route.fulfill({ json: source }));
+      await page.route(`**${path}/avatar/edit-source`, (route) =>
+        route.fulfill({ json: { ...source, prompt: "", generation: null } }),
+      );
       await seedUIState(page, {
         hasCompletedOnboarding: true,
         rightPanelOpen: false,
@@ -132,14 +134,30 @@ for (const owner of ["character", "persona"] as const) {
       await expect.poll(async () => (await (await request.get(path)).json()).avatarPath).not.toBe(before.avatarPath);
       await viewer.getByRole("button", { name: "Close image", exact: true }).click();
       await openEditor("metadata");
-      // Both the header shortcut and Metadata action open a preview without applying anything.
+      // Avatar editing lives in Metadata; the initial preview cannot reapply an unchanged image.
       const editAvatar = page.locator(".mari-editor-shell").getByRole("button", { name: "Edit avatar", exact: true });
-      await expect(editAvatar).toHaveCount(2);
-      for (const index of [0, 1]) {
-        await editAvatar.nth(index).click();
-        await expect(viewer.getByRole("button", { name: "Use as avatar", exact: true })).toBeVisible();
-        await viewer.getByRole("button", { name: "Close image", exact: true }).click();
-      }
+      await expect(editAvatar).toHaveCount(1);
+      await editAvatar.click();
+      await expect(viewer.getByRole("button", { name: "Use as avatar", exact: true })).toHaveCount(0);
+      await viewer.getByRole("button", { name: "Regenerate image", exact: true }).click();
+      const promptField = viewer.getByRole("textbox", { name: "Prompt", exact: true });
+      await expect(promptField).toHaveValue("");
+      await promptField.fill(source.prompt);
+      await viewer.getByRole("button", { name: "Edit image", exact: true }).click();
+      await viewer.getByRole("button", { name: "Apply edit", exact: true }).click();
+      await expect.poll(() => edits.length).toBe(2);
+      await expect(promptField).toHaveValue(result.prompt);
+      // Apply the saved result directly from the open editor, without Cancel or another upload.
+      await expect(viewer.getByRole("button", { name: "Use as avatar", exact: true })).toBeVisible();
+      await page.screenshot({ path: testInfo.outputPath("avatar-result-apply.png"), animations: "disabled" });
+      const avatarApplied = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" && response.url().endsWith(`${path}/gallery/${result.id}/avatar`),
+      );
+      await viewer.getByRole("button", { name: "Use as avatar", exact: true }).click();
+      expect((await avatarApplied).ok()).toBeTruthy();
+      await expect(viewer).toHaveCount(0);
+      expect(await (await request.get(`${path}/gallery`)).json()).toHaveLength(2);
     } finally {
       await request.delete(path);
     }
@@ -284,21 +302,49 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await openGalleryImage(drawer, legacy.prompt);
     await expect(dialog.getByText(legacy.prompt, { exact: true })).toBeVisible();
     const originalViewport = page.viewportSize();
-    await page.setViewportSize({ width: 1600, height: 900 });
-    await expect
-      .poll(async () => {
-        const imageBounds = await dialog.getByRole("img").first().boundingBox();
-        const closeBounds = await dialog.getByRole("button", { name: "Close image", exact: true }).boundingBox();
-        const previousBounds = await dialog.getByRole("button", { name: "Previous image", exact: true }).boundingBox();
-        if (!imageBounds || !closeBounds || !previousBounds) return false;
-        return (
-          Math.abs(closeBounds.x + closeBounds.width - (imageBounds.x + imageBounds.width)) <= 60 &&
-          Math.abs(closeBounds.y - imageBounds.y) <= 12 &&
-          Math.abs(previousBounds.x + previousBounds.width - imageBounds.x) <= 60
-        );
-      })
-      .toBe(true);
-    if (originalViewport) await page.setViewportSize(originalViewport);
+    const originalFontSize = await page.evaluate(() => {
+      const previous = document.documentElement.style.fontSize;
+      document.documentElement.style.fontSize = "20px";
+      return previous;
+    });
+    try {
+      for (const viewport of [
+        { width: 1600, height: 900 },
+        { width: 390, height: 844 },
+        { width: 640, height: 360 },
+      ]) {
+        await page.setViewportSize(viewport);
+        await expect
+          .poll(async () => {
+            const imageBounds = await dialog.getByRole("img").first().boundingBox();
+            const toolbarBounds = await dialog
+              .getByRole("button", { name: "Close image", exact: true })
+              .locator("..")
+              .boundingBox();
+            const previousBounds = await dialog
+              .getByRole("button", { name: "Previous image", exact: true })
+              .boundingBox();
+            const nextBounds = await dialog.getByRole("button", { name: "Next image", exact: true }).boundingBox();
+            if (!imageBounds || !toolbarBounds || !previousBounds || !nextBounds) return false;
+            const right = imageBounds.x + imageBounds.width;
+            return (
+              Math.abs(toolbarBounds.x - right - 16) <= 1 &&
+              Math.abs(nextBounds.x - right - 16) <= 1 &&
+              Math.abs(imageBounds.x - (previousBounds.x + previousBounds.width) - 16) <= 1 &&
+              toolbarBounds.y + toolbarBounds.height + 15 <= nextBounds.y &&
+              Math.abs(previousBounds.y - nextBounds.y) <= 1 &&
+              toolbarBounds.x + toolbarBounds.width <= viewport.width &&
+              nextBounds.y + nextBounds.height <= viewport.height
+            );
+          })
+          .toBe(true);
+      }
+    } finally {
+      await page.evaluate((size) => {
+        document.documentElement.style.fontSize = size;
+      }, originalFontSize);
+      if (originalViewport) await page.setViewportSize(originalViewport);
+    }
     await expect(dialog.getByRole("button", { name: "Copy Negative prompt", exact: true })).toHaveCount(0);
     await regenerate.click();
     await expect(dialog.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(legacy.prompt);
@@ -592,8 +638,12 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
       }),
     );
 
+    await expect(maskCanvas).toHaveClass(/\bcursor-crosshair\b/);
+    await expect.poll(() => maskCanvas.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBe(640);
     const box = await maskCanvas.boundingBox();
     expect(box).toBeTruthy();
+    // The success toast can cover this point briefly on phones; wait for a clear paint target.
+    await maskCanvas.hover({ position: { x: box!.width * 0.4, y: box!.height * 0.4 } });
     await page.mouse.move(box!.x + box!.width * 0.4, box!.y + box!.height * 0.4);
     await page.mouse.down();
     await page.mouse.move(box!.x + box!.width * 0.6, box!.y + box!.height * 0.6, { steps: 5 });

@@ -1,19 +1,12 @@
-import { Camera, Paintbrush, Wand2 } from "lucide-react";
+import { Camera, Wand2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface EditorAvatarTileActionsProps {
   generationAvailable: boolean;
   onGenerate: () => void;
-  onEdit?: () => void;
-  editing?: boolean;
 }
 
-export function EditorAvatarTileActions({
-  generationAvailable,
-  onGenerate,
-  onEdit,
-  editing,
-}: EditorAvatarTileActionsProps) {
+export function EditorAvatarTileActions({ generationAvailable, onGenerate }: EditorAvatarTileActionsProps) {
   const { t } = useTranslation();
 
   return (
@@ -21,21 +14,6 @@ export function EditorAvatarTileActions({
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
         <Camera size="0.75rem" className="text-white" />
       </div>
-      {onEdit && (
-        <button
-          type="button"
-          disabled={editing}
-          onClick={(event) => {
-            event.stopPropagation();
-            onEdit();
-          }}
-          className="absolute bottom-0 right-0 inline-flex min-h-6 min-w-6 items-center justify-center rounded-md bg-[var(--card)] text-[var(--primary)] ring-1 ring-[var(--border)] max-sm:min-h-8 max-sm:min-w-8"
-          title={t("images.entity.editAvatar")}
-          aria-label={t("images.entity.editAvatar")}
-        >
-          <Paintbrush size="0.75rem" />
-        </button>
-      )}
       {generationAvailable && (
         <button
           type="button"

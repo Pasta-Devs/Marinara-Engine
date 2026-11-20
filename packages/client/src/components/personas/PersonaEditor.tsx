@@ -2187,8 +2187,6 @@ export function PersonaEditor() {
         avatarCropStyle={getAvatarCropStyle(formData.avatarCrop)}
         avatarActions={
           <EditorAvatarTileActions
-            onEdit={avatarPreview && personaId ? () => void openAvatarEditor() : undefined}
-            editing={prepareAvatarEdit.isPending || mutationBusy}
             generationAvailable={imageGenerationAvailable}
             onGenerate={() => {
               if (!mutationBusy) setAvatarGeneratorOpen(true);
