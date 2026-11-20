@@ -29,6 +29,7 @@ import {
   impliesProxyThinking,
   isClaudeAdaptiveOnlyNoSamplingModel,
   isClaudeNoSamplingModel,
+  isClaudeTemperatureOnlyModel,
   isGeminiSamplingIgnoredModel,
   isOpenAIAlwaysReasoningGpt5Model,
   isClaudeStrictRequestModel,
@@ -1385,6 +1386,18 @@ export class OpenAIProvider extends BaseLLMProvider {
       for (const key of dropped)
         if (!explicit || !Object.prototype.hasOwnProperty.call(explicit, key)) delete body[key];
       return;
+    }
+    if (
+      isClaudeTemperatureOnlyModel(options.model) &&
+      (this.hasActiveReasoningEffort(options.reasoningEffort) ||
+        options.enableThinking === true ||
+        impliesProxyThinking(options.model))
+    ) {
+      // Claude 4.5/4.6 thinking refuses temperature and top_k on every route that forwards to Anthropic.
+      // https://platform.claude.com/docs/en/build-with-claude/extended-thinking
+      const explicit = options.customParameters;
+      for (const key of ["temperature", "top_k"])
+        if (!explicit || !Object.prototype.hasOwnProperty.call(explicit, key)) delete body[key];
     }
     // GPT-6 Sol/Luna allow sampling only when the dispatched request explicitly
     // disables reasoning; an omitted/disabled parameter uses the model default.

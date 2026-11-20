@@ -53,7 +53,10 @@ export function detectRefusedParameterFields(errorText: string, body: Record<str
     }
     return false;
   });
-  if (named.includes("top_p") && sent.includes("temperature") && TOGETHER_WORDING.test(text)) return ["top_p"];
+  // "temperature and top_p cannot both be set" names exactly those two: dropping top_p alone is the fix. Any other set
+  // of fields was refused on its own.
+  const pairOnly = named.length === 2 && named.includes("top_p") && named.includes("temperature");
+  if (pairOnly && TOGETHER_WORDING.test(text)) return ["top_p"];
   return named;
 }
 

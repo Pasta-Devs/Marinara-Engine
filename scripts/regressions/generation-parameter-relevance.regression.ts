@@ -337,7 +337,15 @@ try {
     {
       provider: "custom",
       baseUrl: `${base}/v1`,
-      models: ["llama-3.3-70b", "gpt-5.5", "glm-4.6", "claude-opus-5", "gemini-3.8-flash"],
+      models: [
+        "llama-3.3-70b",
+        "gpt-5.5",
+        "glm-4.6",
+        "claude-opus-5",
+        "claude-opus-4-5",
+        "claude-sonnet-4-6",
+        "gemini-3.8-flash",
+      ],
       make: registry("custom", `${base}/v1`),
     },
     {
@@ -644,6 +652,19 @@ try {
     const body = await sdkBody("claude-haiku-5-5", level);
     assert.equal(body.thinking.type, "adaptive");
     assert.equal(body.effort, sent);
+  }
+
+  // Claude 4.5/4.6 thinking refuses temperature and top_k on every route, not only the native API.
+  for (const [provider, model] of [
+    ["openrouter", "anthropic/claude-opus-4.5"],
+    ["custom", "claude-opus-4-5"],
+    ["custom", "claude-sonnet-4-6"],
+  ] as const) {
+    const thinking = relevantGenerationParameters({ provider, model, reasoningEffort: "high" });
+    assert.ok(!thinking.has("temperature") && !thinking.has("topK"), `${provider} ${model} thinking hides both`);
+    const off = relevantGenerationParameters({ provider, model, reasoningEffort: null });
+    assert.ok(off.has("temperature"), `${provider} ${model} with thinking off keeps temperature`);
+    if (provider === "custom") assert.ok(off.has("topK"), `${model} with thinking off keeps top_k`);
   }
 
   // Live data only narrows: OpenRouter's per-model list hides what the model ignores upstream.
