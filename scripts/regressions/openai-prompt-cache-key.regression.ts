@@ -74,6 +74,30 @@ try {
   const compatible = await send(custom, "gpt-4.1", "chat-a");
   assert.equal(compatible.prompt_cache_key, undefined);
   assert.equal(compatible.sessionHeader, undefined);
+
+  // GPT-6.2 and later append top-level instructions after the input and bill them uncached, so the system prompt
+  // leads the input as a developer message there. Earlier models keep it in instructions.
+  const withSystem = async (model: string) => {
+    bodies.length = 0;
+    await inChat("chat-a", () =>
+      codex
+        .chatComplete(
+          [
+            { role: "system", content: "Stable rules" },
+            { role: "user", content: "hi" },
+          ],
+          { model, stream: false },
+        )
+        .catch(() => undefined),
+    );
+    return bodies[0] as { instructions?: unknown; input?: Array<Record<string, unknown>> };
+  };
+  const late = await withSystem("gpt-6.2-sol");
+  assert.deepEqual(late.input?.[0], { role: "developer", content: "Stable rules" });
+  assert.equal(late.instructions, "Follow the developer messages.");
+  const early = await withSystem("gpt-6.1-sol");
+  assert.equal(early.instructions, "Stable rules");
+  assert.ok(!JSON.stringify(early.input).includes("Stable rules"));
 } finally {
   server.close();
 }
