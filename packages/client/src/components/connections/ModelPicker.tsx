@@ -32,7 +32,9 @@ import type { JobKey } from "../../lib/connection-jobs";
 import { mediaRowFor, mediaSources, type MediaKind } from "../../lib/media-source";
 import { isDecisionCatalogModel } from "../../lib/connection-model-selection";
 import { NATIVE_DECISION_SOURCE, type ServiceId } from "../modals/create-connection/shared";
-import { ConnectionSwitcherBody } from "./ConnectionSwitcherBody";
+import { ConnectionSwitcherBody, ROW_CLASS } from "./ConnectionSwitcherBody";
+import { ImageReadingSettingsWindow } from "./ImageReadingSettings";
+import { SlidersHorizontal } from "lucide-react";
 import { Tabs } from "../ui/Tabs";
 import { ProviderIcon } from "./ProviderIcon";
 
@@ -50,6 +52,7 @@ function ModelPickerSlot({
   title,
   jobName,
   jobKey,
+  showJobSettings = false,
   kind,
   value,
   onChange,
@@ -70,6 +73,8 @@ function ModelPickerSlot({
   /** Names the job in the toast: "<job> now uses <model>". */
   jobName: string;
   jobKey?: JobKey;
+  /** The last row opens the job's own settings: Image reading's prompt, request and limits. */
+  showJobSettings?: boolean;
   kind: ConnectionPickerKind;
   /** A Model row id, `null` (follows the default) or one of `extraOptions`. */
   value: string | null;
@@ -363,6 +368,18 @@ function ModelPickerSlot({
         ? { connectionId: value }
         : null;
 
+  // Image reading keeps what its Model is asked (prompt, request, limits) one row under the list.
+  const [readingSettingsOpen, setReadingSettingsOpen] = useState(false);
+  const readingSettingsLabel = t("connections.imageReading.open");
+  const footer = showJobSettings ? (
+    <div className="shrink-0 border-t border-foreground/10 px-1 py-1">
+      <button type="button" data-picker-job-settings onClick={() => setReadingSettingsOpen(true)} className={ROW_CLASS}>
+        <SlidersHorizontal size="0.875rem" aria-hidden className="mx-[0.3125rem] shrink-0 text-foreground/55" />
+        <span className="min-w-0 flex-1 truncate">{readingSettingsLabel}</span>
+      </button>
+      {readingSettingsOpen && <ImageReadingSettingsWindow onClose={() => setReadingSettingsOpen(false)} />}
+    </div>
+  ) : undefined;
   const onAdd = () => {
     known.current = new Set((accounts ?? []).map((account) => account.id));
     openAddConnection(jobKey ? { job: jobKey, assign: onChangeRef.current, previous: value } : undefined);
@@ -478,6 +495,7 @@ function ModelPickerSlot({
             : undefined
         }
         onAdd={onAdd}
+        listFooter={footer}
         firstAccountId={firstAccountId}
         autoFocusSearch={typeof window !== "undefined" && !!window.matchMedia?.("(pointer: fine)").matches}
         className="flex min-h-0 flex-1 flex-col"

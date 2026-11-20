@@ -211,7 +211,7 @@ const runsKey = (choice: ChatModelChoice, rows: readonly SwitcherRow[]) => {
   return `${row?.accountId ?? choice.connectionId}\n${choice.model ?? row?.model ?? ""}`;
 };
 
-const ROW_CLASS =
+export const ROW_CLASS =
   "relative flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs outline-none transition-colors hover:bg-foreground/10 focus-visible:bg-foreground/10 focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait max-md:min-h-11 [@media(pointer:coarse)]:min-h-11";
 
 /** The accent bar at the left edge of the selected pane and the current model. */
