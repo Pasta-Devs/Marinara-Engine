@@ -67,4 +67,11 @@ assert.equal(
 );
 assert.equal(hasOwnModelSettings({ provider: "custom", model: "llama-3-8b", name: "My llama" }, null), true);
 
+// Prompt caching is a setting of the Model's own only where it differs from its service's default: on for OpenRouter.
+const cachingRow = (provider: string, enableCaching: string) => ({ provider, model: "m", name: "m", enableCaching });
+assert.equal(hasOwnModelSettings(cachingRow("openrouter", "true"), null), false);
+assert.equal(hasOwnModelSettings(cachingRow("openrouter", "false"), null), true);
+assert.equal(hasOwnModelSettings(cachingRow("anthropic", "true"), null), true);
+assert.equal(hasOwnModelSettings(cachingRow("anthropic", "false"), null), false);
+
 console.log("default-loaded-model: ok");
