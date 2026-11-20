@@ -168,7 +168,11 @@ Installed agent packages follow the same account values. A value the account sav
 
 ## Some models ignore some parameters
 
-Not every model accepts every parameter. When Marinara knows a model rejects a setting, it leaves it out of the request. The control still shows, but changing it has no effect. This is common with reasoning models, which refuse sampling settings such as temperature. With an auto-routing model that changes which model answers each time, parameters can behave differently from turn to turn. Pin one model to keep behavior steady.
+Not every model accepts every parameter. When Marinara knows a model ignores or rejects a setting, it leaves it out of the request and hides its control. This is common with reasoning models, which refuse sampling settings such as temperature. For example, Gemini 3 and Gemini 4 models take no **Temperature**, **Top P**, **Top K**, **Frequency** or **Presence**.
+
+Some services also block a setting whatever the model itself accepts. OpenRouter lists what each model takes, and Marinara hides the rest. Other services only say so by refusing a request. When a refusal names one of these settings, Marinara sends the message again without it, so the reply still arrives, and leaves that setting out for that service and model from then on. Its control is hidden like the others. Marinara remembers this for 30 days. A setting you add yourself under Custom Parameters is always sent as written.
+
+With an auto-routing model that changes which model answers each time, parameters can behave differently from turn to turn. Pin one model to keep behavior steady.
 
 ## Related guides
 

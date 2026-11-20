@@ -13,7 +13,7 @@ import {
   DECISION_PROMPT_QUESTION_LIMIT_SETTINGS_KEY,
   parseDecisionPromptQuestionLimit,
   LOCAL_SIDECAR_CONNECTION_ID,
-  isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeNoSamplingModel,
   isStockMarinaraUniversalPreset,
   resolveProviderReasoningEffort,
   resolveMacros,
@@ -2404,7 +2404,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const modelLc = (conn.model ?? "").toLowerCase();
 
     // Claude adaptive-only models: ALL sampling params removed except max_tokens (provider returns 400 otherwise).
-    const isClaudeNoSampling = isClaudeAdaptiveOnlyNoSamplingModel(modelLc);
+    const isClaudeNoSampling = isClaudeNoSamplingModel(modelLc);
     if (isClaudeNoSampling) {
       temperature = undefined;
       topP = undefined;
@@ -2417,9 +2417,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const isClaudeTemperatureOnly =
       !isClaudeNoSampling &&
       (/claude-(opus|sonnet)-4-[56]/.test(modelLc) || /claude-(opus|sonnet)-4\.[56]/.test(modelLc));
+    // Claude Opus/Sonnet 4.5 and 4.6 reject temperature and top_p together, so top_p goes; top_k is still accepted.
     if (isClaudeTemperatureOnly) {
       topP = undefined;
-      topK = 0;
       frequencyPenalty = 0;
       presencePenalty = 0;
     }

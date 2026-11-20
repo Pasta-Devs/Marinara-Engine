@@ -5,7 +5,7 @@ import { z } from "zod";
 import {
   BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
-  isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeNoSamplingModel,
   resolveProviderReasoningEffort,
   type ChatMLMessage,
   type GenerationParameterSendMap,
@@ -228,7 +228,7 @@ export async function registerRawRoute(app: FastifyInstance) {
           : (resolvedEffort ?? undefined);
 
     const modelLower = conn.model.toLowerCase();
-    const isClaudeNoSampling = isClaudeAdaptiveOnlyNoSamplingModel(modelLower);
+    const isClaudeNoSampling = isClaudeNoSamplingModel(modelLower);
     if (isClaudeNoSampling) {
       temperature = undefined;
       topP = undefined;
@@ -240,9 +240,9 @@ export async function registerRawRoute(app: FastifyInstance) {
     const isClaudeTemperatureOnly =
       !isClaudeNoSampling &&
       (/claude-(opus|sonnet)-4-[56]/.test(modelLower) || /claude-(opus|sonnet)-4\.[56]/.test(modelLower));
+    // Claude Opus/Sonnet 4.5 and 4.6 reject temperature and top_p together, so top_p goes; top_k is still accepted.
     if (isClaudeTemperatureOnly) {
       topP = undefined;
-      topK = 0;
       frequencyPenalty = 0;
       presencePenalty = 0;
     }

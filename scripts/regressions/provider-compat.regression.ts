@@ -911,20 +911,20 @@ assert.deepEqual(resolveGeminiThinkingConfig("gemini-2.5-flash", { reasoningEffo
   thinkingBudget: 0,
   includeThoughts: false,
 });
-assert.equal(
-  resolveGeminiThinkingConfig("gemini-2.5-pro", { reasoningEffort: "none" }, 4096),
-  undefined,
+assert.deepEqual(
+  resolveGeminiThinkingConfig("gemini-2.5-pro", { reasoningEffort: "none" }, 32768),
+  { thinkingBudget: 8192, includeThoughts: true },
   "Gemini 2.5 Pro does not support disabling thinking",
 );
-assert.equal(
+assert.deepEqual(
   resolveGeminiThinkingConfig("gemini-3.5-flash", { reasoningEffort: "none" }, 4096),
-  undefined,
+  { thinkingLevel: "medium", includeThoughts: true },
   "reasoning-mandatory Gemini 3 models must not receive an unsupported off value",
 );
-assert.equal(
+assert.deepEqual(
   resolveGeminiThinkingConfig("gemini-4-argon", { reasoningEffort: "none" }, 4096),
-  undefined,
-  "Argon cannot turn thinking off, so Off sends nothing and Google's default level applies",
+  { thinkingLevel: "medium", includeThoughts: true },
+  "Argon cannot turn thinking off, so Off names the default level",
 );
 // Hydrogen and Neon add xhigh; the rest of the family stops at high.
 // https://aistudio.google.com/docs/whats-new-gemini-4-hydrogen
@@ -954,7 +954,7 @@ assert.deepEqual(findKnownModel("google", "gemini-4-hydrogen"), {
   context: 1_048_576,
   maxOutput: 65_536,
 });
-assert.equal(findKnownModel("google_vertex", "gemini-4-hydrogen"), undefined, "Google lists no Vertex location");
+assert.equal(findKnownModel("google_vertex", "gemini-4-hydrogen")?.id, "gemini-4-hydrogen");
 assert.equal(
   findKnownModel("google_vertex", "gemini-4-argon")?.id,
   "gemini-4-argon",
@@ -968,15 +968,15 @@ for (const provider of ["google", "google_vertex"] as const) {
     `${provider} lists Neon`,
   );
 }
-// Vertex lists Neon, so it names Neon's default level; Hydrogen is unknown there and names none.
+// Vertex lists Hydrogen and Neon with the same default level.
 assert.equal(
   resolveProviderReasoningEffort({ provider: "google_vertex", model: "gemini-4-neon", reasoningEffort: undefined }),
   "high",
 );
 assert.equal(
   resolveProviderReasoningEffort({ provider: "google_vertex", model: "gemini-4-hydrogen", reasoningEffort: undefined }),
-  null,
-  "Hydrogen on Vertex is an unknown model: no level and no thinking room",
+  "high",
+  "Hydrogen on Vertex uses the documented default",
 );
 assert.equal(isGeminiHydrogenOrNeonModel("google/gemini-4-hydrogen"), true);
 assert.equal(isGeminiHydrogenOrNeonModel("gemini-4-hydrogenous"), false);
@@ -1609,6 +1609,25 @@ applyGlmThinkingParameters(glm52DisabledBody, {
 });
 assert.deepEqual(glm52DisabledBody, { thinking: { type: "disabled" } });
 
+// Z.AI's own API has no enable_thinking: GLM 4.5 to 5.1 switch thinking with thinking.type and take no effort, and
+// GLM older than 4.5 cannot think, so they get no thinking field. https://docs.z.ai/api-reference/llm/chat-completion
+for (const [model, enableThinking, expected] of [
+  ["glm-4.7", true, { thinking: { type: "enabled" } }],
+  ["glm-4.5-air", false, { thinking: { type: "disabled" } }],
+  ["glm-5.1", true, { thinking: { type: "enabled" } }],
+  ["glm-4-32b-0414-128k", true, {}],
+] as const) {
+  const body: Record<string, unknown> = {};
+  applyGlmThinkingParameters(body, {
+    model,
+    baseUrl: "https://api.z.ai/api/paas/v4",
+    providerKind: "zai",
+    enableThinking,
+    reasoningEffort: enableThinking ? "high" : "none",
+  });
+  assert.deepEqual(body, expected, `native Z.AI thinking for ${model}`);
+}
+
 assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.3-flash"), true);
 assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.3-flash:free"), true);
 assert.equal(isGlm53MandatoryReasoningModel("z-ai/glm-5.3"), true);
@@ -1825,7 +1844,8 @@ applyGlmThinkingParameters(legacyGlmBody, {
   providerKind: "custom",
   reasoningEffort: "high",
 });
-assert.deepEqual(legacyGlmBody, { enable_thinking: true });
+// Z.AI documents thinking.type, not enable_thinking, for every thinking GLM on its own API.
+assert.deepEqual(legacyGlmBody, { thinking: { type: "enabled" } });
 
 const unrelatedCustomBody: Record<string, unknown> = {};
 assert.equal(
@@ -3353,9 +3373,10 @@ try {
     for (const [kind, baseUrl, modelsUrl] of hosts) {
       const provider = new GoogleProvider(baseUrl, "test", undefined, undefined, undefined, kind);
 
-      // Every effort maps to one of Argon's three levels. Off sends no thinking config, so Google's default applies.
+      // Every effort maps to one of Argon's three levels. Argon cannot turn thinking off, so Off sends Google's default,
+      // medium.
       const efforts = [
-        ["none", null],
+        ["none", "medium"],
         ["low", "low"],
         ["medium", "medium"],
         ["high", "high"],
@@ -3461,7 +3482,11 @@ try {
       assert.equal(requests[0]?.url, `${modelsUrl}/gemini-4-argon:streamGenerateContent?alt=sse`);
       assert.deepEqual(body(0), {
         contents: [{ role: "user", parts: [{ text: "test" }] }],
-        generationConfig: { maxOutputTokens: 4096 },
+        generationConfig: {
+          maxOutputTokens: 4096,
+          // Off on Argon sends Google's default level, since thinking cannot be turned off.
+          thinkingConfig: { thinkingLevel: "medium", includeThoughts: true },
+        },
         safety_settings: [...ownSafety, ...safetySettings.slice(1)],
       });
       // Both spellings at once are sent exactly as the user wrote them, so nothing contradicts either list.
@@ -3473,29 +3498,30 @@ try {
       });
       assert.deepEqual(body(1), {
         contents: [{ role: "user", parts: [{ text: "test" }] }],
-        generationConfig: { maxOutputTokens: 4096 },
+        generationConfig: { maxOutputTokens: 4096, thinkingConfig: { thinkingLevel: "medium", includeThoughts: true } },
         safety_settings: ownSafety,
         safetySettings: ownCamelSafety,
       });
 
       // Gemini 3 is unchanged, byte for byte, apart from the safety settings every Gemini request now carries:
       // samplers, penalties, its trailing model turn and its levels all stay.
+      // (3.1 Flash-Lite: 3.5 Flash is now routed to 3.6 Flash on the Gemini API and gets the strict rules below.)
       requests.length = 0;
       await collectProviderOutputForMessages(provider, prefilled, {
-        model: "gemini-3.5-flash",
+        model: "gemini-3.1-flash-lite",
         stream: true,
         ...samplers,
         reasoningEffort: "high",
         enableThinking: true,
       });
       await collectProviderOutput(provider, {
-        model: "gemini-3.5-flash",
+        model: "gemini-3.1-flash-lite",
         stream: false,
         ...samplers,
         reasoningEffort: "none",
       });
       await provider.chatComplete([{ role: "user", content: "test" }], {
-        model: "gemini-3.5-flash",
+        model: "gemini-3.1-flash-lite",
         ...samplers,
         reasoningEffort: "medium",
         enableThinking: true,
@@ -3506,20 +3532,25 @@ try {
         [requests[0]?.url, requests[2]?.url],
         kind === "google"
           ? [
-              `${modelsUrl}/gemini-3.5-flash:streamGenerateContent?alt=sse`,
-              `${modelsUrl}/gemini-3.5-flash:streamGenerateContent?alt=sse`,
+              `${modelsUrl}/gemini-3.1-flash-lite:streamGenerateContent?alt=sse`,
+              `${modelsUrl}/gemini-3.1-flash-lite:streamGenerateContent?alt=sse`,
             ]
-          : [`${modelsUrl}/gemini-3.5-flash:generateContent`, `${modelsUrl}/gemini-3.5-flash:generateContent`],
+          : [
+              `${modelsUrl}/gemini-3.1-flash-lite:generateContent`,
+              `${modelsUrl}/gemini-3.1-flash-lite:generateContent`,
+            ],
         `${kind} Gemini 3 thinking turns keep their endpoint`,
       );
       assert.deepEqual(
         requests.map(({ raw }) => raw),
         [
-          '{"contents":[{"role":"user","parts":[{"text":"test"}]},{"role":"model","parts":[{"text":"Once"}]}],"generationConfig":{"maxOutputTokens":4096,"temperature":0.7,"topP":0.9,"topK":40,"frequencyPenalty":0.3,"presencePenalty":0.4,"thinkingConfig":{"thinkingLevel":"high","includeThoughts":true}},"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}]}',
-          '{"contents":[{"role":"user","parts":[{"text":"test"}]}],"generationConfig":{"maxOutputTokens":4096,"temperature":0.7,"topP":0.9,"topK":40,"frequencyPenalty":0.3,"presencePenalty":0.4},"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}]}',
-          '{"contents":[{"role":"user","parts":[{"text":"test"}]}],"generationConfig":{"temperature":0.7,"maxOutputTokens":4096,"topP":0.9,"topK":40,"frequencyPenalty":0.3,"presencePenalty":0.4,"thinkingConfig":{"thinkingLevel":"medium","includeThoughts":true}},"tools":[{"functionDeclarations":[{"name":"roll_dice","description":"Roll dice","parameters":{"type":"object","properties":{}}}]}],"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}],"toolConfig":{"functionCallingConfig":{"mode":"AUTO"}}}',
+          '{"contents":[{"role":"user","parts":[{"text":"test"}]},{"role":"model","parts":[{"text":"Once"}]}],"generationConfig":{"maxOutputTokens":4096,"thinkingConfig":{"thinkingLevel":"high","includeThoughts":true}},"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}]}',
+          '{"contents":[{"role":"user","parts":[{"text":"test"}]}],"generationConfig":{"maxOutputTokens":4096},"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}]}',
+          '{"contents":[{"role":"user","parts":[{"text":"test"}]}],"generationConfig":{"maxOutputTokens":4096,"thinkingConfig":{"thinkingLevel":"medium","includeThoughts":true}},"tools":[{"functionDeclarations":[{"name":"roll_dice","description":"Roll dice","parameters":{"type":"object","properties":{}}}]}],"safetySettings":[{"category":"HARM_CATEGORY_HARASSMENT","threshold":"OFF"},{"category":"HARM_CATEGORY_HATE_SPEECH","threshold":"OFF"},{"category":"HARM_CATEGORY_SEXUALLY_EXPLICIT","threshold":"OFF"},{"category":"HARM_CATEGORY_DANGEROUS_CONTENT","threshold":"OFF"}],"toolConfig":{"functionCallingConfig":{"mode":"AUTO"}}}',
         ],
-        `${kind} Gemini 3 request bodies must not change`,
+        // Google: every general-use Gemini 3.x and 4.x model ignores temperature, top-k and top-p, and penalties are
+        // unsupported (https://firebase.google.com/docs/ai-logic/model-parameters), so none of them are sent.
+        `${kind} Gemini 3 request bodies leave out the samplers Gemini 3 ignores`,
       );
 
       // Gemini 3.5 Flash-Lite and 3.6 to 3.8 Flash reject a final model turn and both penalties and ignore temperature,
@@ -3723,8 +3754,8 @@ try {
       ...options,
     });
     assert.deepEqual(raws, [
-      '{"model":"google/gemini-3.5-flash","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"temperature":0.7,"top_p":0.9,"frequency_penalty":0.3,"presence_penalty":0.4,"reasoning":{"effort":"high"}}',
-      '{"model":"google/gemini-3.1-pro-preview","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"temperature":0.7,"top_p":0.9,"frequency_penalty":0.3,"presence_penalty":0.4,"reasoning":{"effort":"high"}}',
+      '{"model":"google/gemini-3.5-flash","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"reasoning":{"effort":"high"}}',
+      '{"model":"google/gemini-3.1-pro-preview","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"reasoning":{"effort":"high"}}',
       '{"model":"meta-llama/llama-3.3-70b-instruct","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"<last_message>A1</last_message>"}],"stream":false,"max_tokens":4096,"temperature":0.7,"top_p":0.9,"frequency_penalty":0.3,"presence_penalty":0.4,"reasoning":{"effort":"high"}}',
       '{"model":"meta-llama/llama-3.3-70b-instruct","messages":[{"role":"system","content":"main"},{"role":"user","content":"U1"},{"role":"assistant","content":"A1"},{"role":"system","content":"note"},{"role":"user","content":"U2"},{"role":"system","content":"post"}],"stream":false,"max_tokens":4096,"temperature":0.7,"top_p":0.9,"frequency_penalty":0.3,"presence_penalty":0.4,"reasoning":{"effort":"high"}}',
     ]);
