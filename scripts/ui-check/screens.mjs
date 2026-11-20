@@ -204,6 +204,23 @@ export function screenList(ids) {
     { id: "profiles", run: open.library("profiles") },
     { id: "regex", run: open.library("regex") },
     { id: "connections", group: "core", run: open.library("connections") },
+    {
+      // The Image reading job's settings window (from its picker): its prompt, request and answer limits.
+      id: "image-reading-settings",
+      run: open.library("connections"),
+      then: async (page) => {
+        const tile = page.locator(".ov-conn-defaults__cell", { hasText: "Image reading" }).first();
+        const row = page.locator("[data-picker-job-settings]").filter({ visible: true }).first();
+        // Phones: the tile sits low in a long page and its sheet slides up, so try again once it has settled.
+        for (let attempt = 0; attempt < 3 && !(await row.count()); attempt++) {
+          await tile.scrollIntoViewIfNeeded();
+          await tile.click({ timeout: 10_000 }).catch(() => {});
+          await row.waitFor({ timeout: 5_000 }).catch(() => {});
+        }
+        await row.click();
+        await page.getByRole("textbox", { name: "Instructions", exact: true }).waitFor();
+      },
+    },
     { id: "agents", run: open.library("agents") },
     { id: "tools", run: open.library("tools") },
     { id: "extensions", run: open.library("extensions") },

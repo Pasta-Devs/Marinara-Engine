@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 
-import { DEFAULT_IMAGE_CAPTIONING_PROMPT } from "../../packages/shared/src/index.js";
+import {
+  DEFAULT_IMAGE_CAPTIONING_PROMPT,
+  DEFAULT_IMAGE_READING_SETTINGS,
+  parseImageReadingSettings,
+} from "../../packages/shared/src/index.js";
 import {
   generateImageCaptionsForDataUrls,
   redactImageCaptionMessagesForLog,
   resolveImageCaptioningRuntime,
   resolvePromptAttachmentInputs,
+  setImageReadingSettings,
+  stripCaptionThinking,
   type ImageCaptionConnection,
   type ImageCaptioningRuntime,
 } from "../../packages/server/src/services/generation/image-captioning-runtime.js";
@@ -262,6 +268,71 @@ for (const imageCaptioningPrompt of ["  Describe every detail.  ", "   "]) {
   );
 }
 assert.deepEqual(promptProvider.systemPrompts, ["Describe every detail.", DEFAULT_IMAGE_CAPTIONING_PROMPT]);
+
+// The engine-wide Image reading settings: prompt (a chat's own still wins), request with {{filename}}, limits.
+class RecordingProvider extends BaseLLMProvider {
+  requests: Array<{ system: string; user: string; maxTokens?: number; temperature?: number }> = [];
+  constructor(
+    private readonly reply: string,
+    private readonly finishReason = "stop",
+  ) {
+    super("", "");
+  }
+  async *chat(messages: ChatMessage[], options: ChatOptions) {
+    this.requests.push({
+      system: messages[0]!.content,
+      user: messages[1]!.content,
+      maxTokens: options.maxTokens,
+      temperature: options.temperature,
+    });
+    yield this.reply;
+    return { promptTokens: 0, completionTokens: 0, totalTokens: 0, finishReason: this.finishReason };
+  }
+}
+setImageReadingSettings(
+  parseImageReadingSettings({
+    prompt: "Engine prompt.",
+    request: "Look at {{ filename }} closely.",
+    maxTokens: 2048,
+    temperature: 0.7,
+  }),
+);
+const engineProvider = new RecordingProvider("an owl");
+await generateImageCaptionsForDataUrls(
+  [{ filename: "owl.png", imageDataUrl: dataUrl("owl") }],
+  { ...runtime, provider: engineProvider },
+  signal,
+);
+await generateImageCaptionsForDataUrls(
+  [{ filename: "owl.png", imageDataUrl: dataUrl("owl") }],
+  { ...runtime, provider: engineProvider, prompt: "Chat prompt." },
+  signal,
+);
+assert.deepEqual(engineProvider.requests, [
+  { system: "Engine prompt.", user: "Look at owl.png closely.", maxTokens: 2048, temperature: 0.7 },
+  { system: "Chat prompt.", user: "Look at owl.png closely.", maxTokens: 2048, temperature: 0.7 },
+]);
+// Blank or out-of-range stored values fall back to the built-in ones.
+assert.deepEqual(
+  parseImageReadingSettings({ prompt: "  ", request: "", maxTokens: 5, temperature: 9 }),
+  DEFAULT_IMAGE_READING_SETTINGS,
+);
+
+// A thinking model's inline reasoning never becomes the description; reasoning cut off by the limit says so.
+assert.equal(stripCaptionThinking("<think>hmm</think>\n\nAn owl on a branch."), "An owl on a branch.");
+assert.equal(stripCaptionThinking("the template opened it</think>An owl."), "An owl.");
+assert.equal(stripCaptionThinking("<think>still thinking when the limit hit"), null);
+assert.equal(stripCaptionThinking("An owl."), "An owl.");
+const thinkingProvider = new RecordingProvider("<think>still thinking", "length");
+await assert.rejects(
+  generateImageCaptionsForDataUrls(
+    [{ filename: "owl.png", imageDataUrl: dataUrl("owl") }],
+    { ...runtime, provider: thinkingProvider },
+    signal,
+  ),
+  /reached its answer length before writing a description/u,
+);
+setImageReadingSettings(DEFAULT_IMAGE_READING_SETTINGS);
 
 const abortedProvider = new CaptionProvider();
 const abortedRuntime = { ...runtime, provider: abortedProvider };
