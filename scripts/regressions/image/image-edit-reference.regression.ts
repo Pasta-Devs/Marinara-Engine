@@ -8,7 +8,9 @@
  *     (maintainer request, 2026-10-19; avatar-variant-composite.regression.ts covers the set);
  *   - a fallback connection that would drop the picture is skipped for an edit, one that takes it is used;
  *   - SpicyAPI, whose model's input schema decides, refuses an edit before a task is created;
- *   - Stability v2 uploads a reference's own bytes and type, whether it arrives as a data URL or as bare base64.
+ *   - Stability v2 uploads a reference's own bytes and type, whether it arrives as a data URL or as bare base64;
+ *   - AUTOMATIC1111 and Draw Things img2img get the reference as plain base64 in `init_images`, from a data URL
+ *     too: Draw Things answers a data URL with 422 "not valid Base64" (#9598).
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -211,6 +213,8 @@ const picture = await sharp({ create: { width: 64, height: 64, channels: 3, back
 const requests: string[] = [];
 /** Each Stability request's multipart body, with its content type, to read back the uploaded picture. */
 const stabilityBodies: Array<{ body: Buffer; type: string }> = [];
+/** Each SD Web UI API request's JSON body, to read back `init_images`. */
+const sdApiBodies: Array<{ init_images?: unknown }> = [];
 const server = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(chunk as Buffer);
@@ -220,6 +224,12 @@ const server = createServer(async (request, response) => {
     stabilityBodies.push({ body: Buffer.concat(chunks), type: String(request.headers["content-type"]) });
     response.setHeader("content-type", "image/png");
     response.end(picture);
+    return;
+  }
+  if (url.startsWith("/sd/")) {
+    sdApiBodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8")) as { init_images?: unknown });
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ images: [picture.toString("base64")] }));
     return;
   }
   response.setHeader("content-type", "application/json");
@@ -371,6 +381,35 @@ try {
     assert.ok(Buffer.from(await image.arrayBuffer()).equals(picture), `${label}: the picture's own bytes`);
     assert.equal(image.type, "image/png", label);
     assert.equal(form.get("mode"), "image-to-image", label);
+  }
+
+  // A1111 and Draw Things img2img: plain base64 in init_images, whatever form the reference came in. Draw Things
+  // also gets the picture resized to the asked size, which it needs to match exactly.
+  for (const service of ["automatic1111", "drawthings"]) {
+    for (const [label, reference] of [
+      ["a data URL", { referenceImage: dataUrl }],
+      ["a data URL among several", { referenceImages: [dataUrl] }],
+      ["bare base64", { referenceImage: picture.toString("base64") }],
+    ] as const) {
+      sdApiBodies.length = 0;
+      await generateImage("", `${base}/sd`, "", service, {
+        prompt: "A portrait by the window.",
+        width: 64,
+        height: 96,
+        allowLocalUrls: true,
+        ...reference,
+      });
+      assert.equal(sdApiBodies.length, 1, `${service}, ${label}`);
+      const init = (sdApiBodies[0]!.init_images as string[] | undefined)?.[0] ?? "";
+      assert.match(init, /^[A-Za-z0-9+/]+=*$/u, `${service}, ${label}: plain base64`);
+      const sent = Buffer.from(init, "base64");
+      if (service === "automatic1111") {
+        assert.ok(sent.equals(picture), `${service}, ${label}: the picture's own bytes`);
+      } else {
+        const { format, width, height } = await sharp(sent).metadata();
+        assert.deepEqual({ format, width, height }, { format: "png", width: 64, height: 96 }, `${service}, ${label}`);
+      }
+    }
   }
 } finally {
   (logger as { warn: unknown }).warn = warn;
