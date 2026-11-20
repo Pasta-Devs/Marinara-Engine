@@ -11,7 +11,7 @@ import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import { isQuickPickerShortcut } from "../../lib/keyboard-shortcuts";
-import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { isModalOverlayOpen } from "../../lib/layer-stack";
 import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { ProfessorMariContextBudget } from "../../lib/professor-mari-context-budget";

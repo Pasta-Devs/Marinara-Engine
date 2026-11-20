@@ -22,7 +22,7 @@ import {
   isModalOverlayOpen,
   registerModalOverlay,
   __resetModalOverlayRegistryForTests,
-} from "../../../packages/client/src/lib/modal-overlay-registry.js";
+} from "../../../packages/client/src/lib/layer-stack.js";
 
 // ── 1. The registry's bookkeeping ──
 __resetModalOverlayRegistryForTests();

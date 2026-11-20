@@ -54,7 +54,7 @@ import {
   type RulesetStartingGearSelection,
 } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
-import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { isModalOverlayOpen } from "../../lib/layer-stack";
 import { GAME_SECTION_CLASS } from "../../lib/chat-widget-colors";
 import { defaultInventorySplitSize, parseInventoryAmount, parseInventoryCount } from "../../lib/game-inventory-amount";
 import { useTranslation as useUiTranslation } from "react-i18next";

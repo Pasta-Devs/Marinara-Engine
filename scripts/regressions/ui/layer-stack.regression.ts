@@ -1,0 +1,73 @@
+// One layer stack for dialogs and menus, kept per window (soup step 7, #9623).
+//
+// `useDismiss` and `Modal` both register here, and each asks at event time whether it is the topmost layer in its
+// own window. Three things must hold, or Escape and outside presses close the wrong layer:
+//   - a menu opened inside a dialog is above it, so Escape closes the menu and the dialog stays;
+//   - a menu inside a popped-out window is topmost in that window, without hiding the main window's dialog;
+//   - a press inside a layer opened later (a submenu) is not "outside" the layer below it.
+// Plus the `isModalOverlayOpen()` contract the full-page screens rely on: only dialogs count.
+import assert from "node:assert/strict";
+import {
+  isModalOverlayOpen,
+  registerLayer,
+  registerModalOverlay,
+  __resetModalOverlayRegistryForTests,
+} from "../../../packages/client/src/lib/layer-stack.js";
+
+const fakeElement = (...children: object[]) => ({ contains: (node: object) => children.includes(node) }) as Element;
+
+__resetModalOverlayRegistryForTests();
+
+// ── 1. A menu inside a dialog is above it ──
+const dialog = registerModalOverlay();
+const menu = registerLayer({ kind: "popover" });
+assert.equal(menu.isTopmost(), true, "The menu opened inside the dialog takes Escape");
+assert.equal(dialog.isTopmost(), false, "The dialog under the menu must not close on the same press");
+menu.release();
+assert.equal(dialog.isTopmost(), true, "Once the menu closes, Escape is the dialog's again");
+
+// ── 2. Menus don't count as dialogs for full-page screens ──
+dialog.release();
+const loneMenu = registerLayer({ kind: "popover" });
+assert.equal(isModalOverlayOpen(), false, "A menu stops the Escape it takes; screens must not stand down for it");
+loneMenu.release();
+
+// ── 3. One order per window ──
+const popOutDoc = {} as Document;
+const mainDialog = registerModalOverlay();
+const popOutMenu = registerLayer({ kind: "popover", doc: popOutDoc });
+assert.equal(popOutMenu.isTopmost(), true, "The pop-out's menu is topmost in the pop-out");
+assert.equal(mainDialog.isTopmost(), true, "A menu in another window must not take the main window's Escape");
+popOutMenu.release();
+mainDialog.release();
+
+// ── 4. Inside a layer opened later is not outside ──
+const insideSubmenu = {};
+const parent = registerLayer({ kind: "popover", getElement: () => fakeElement() });
+const submenu = registerLayer({ kind: "popover", getElement: () => fakeElement(insideSubmenu) });
+assert.equal(parent.isInsideLayerAbove(insideSubmenu as Node), true, "A press in the submenu keeps the parent open");
+assert.equal(parent.isInsideLayerAbove({} as Node), false, "A press elsewhere is outside the parent");
+assert.equal(submenu.isInsideLayerAbove(insideSubmenu as Node), false, "Nothing is above the submenu");
+const otherWindowLayer = registerLayer({
+  kind: "popover",
+  doc: popOutDoc,
+  getElement: () => fakeElement(insideSubmenu),
+});
+submenu.release();
+assert.equal(
+  parent.isInsideLayerAbove(insideSubmenu as Node),
+  false,
+  "A layer in another window is never above this one",
+);
+otherWindowLayer.release();
+
+// ── 5. Release is idempotent ──
+parent.release();
+parent.release();
+assert.equal(parent.isTopmost(), false, "A released layer is never topmost");
+const next = registerLayer({ kind: "popover" });
+assert.equal(next.isTopmost(), true, "A double release must not disturb the next layer");
+next.release();
+
+__resetModalOverlayRegistryForTests();
+console.log("layer-stack: ok");
