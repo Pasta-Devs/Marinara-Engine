@@ -81,6 +81,8 @@ For example, this sequence keeps every participant marker next to its descriptio
 
 Marinara still assembles configured sources, such as connection prefixes, profile tags, generated text and your appearance overrides. It adds a comma and space between sources. **Off** also disables removal of copied style guidance from image prompt writers. It does not control what the prompt-writing model generates.
 
+With **Off**, Illustrator keeps your configured **Illustration** tags even when its prompt template mentions panels or comic layouts. It also leaves the assembled negative prompt unchanged instead of removing repeated negatives or adding default text bans.
+
 You can select **Off** grammar on a profile that adds style tags. The built-in **Off** profile also leaves its style fields empty. Your saved profiles keep their existing grammar until you change it.
 
 ## The Test bench

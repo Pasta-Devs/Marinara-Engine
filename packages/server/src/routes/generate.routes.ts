@@ -15030,6 +15030,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         omitProfileStyleText: typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                         omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                           imagePromptAgent?.promptTemplate ?? "",
+                          promptMode,
                         ),
                       });
                       const finalNegativePrompt = mergeIllustratorNegativePrompt(
@@ -15037,6 +15038,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         compiledPrompt.negativePrompt,
                         requestedNegativePrompt,
                         imgConnFull,
+                        promptMode,
                       );
                       const fallbackCompiledPrompt = imageFallback
                         ? compileImagePrompt({
@@ -15051,6 +15053,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                               typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                             omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                               imagePromptAgent?.promptTemplate ?? "",
+                              findImageStyleProfile(
+                                imageSettings.styleProfiles,
+                                styleProfileId || imageFallback.imageDefaults?.styleProfileId,
+                              ).promptMode,
                             ),
                           })
                         : null;
@@ -15065,6 +15071,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                                   fallbackCompiledPrompt.negativePrompt,
                                   requestedNegativePrompt,
                                   imageFallback,
+                                  fallbackCompiledPrompt.profile.promptMode,
                                 ) || null,
                             }
                           : undefined;

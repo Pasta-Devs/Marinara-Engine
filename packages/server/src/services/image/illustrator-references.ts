@@ -1,4 +1,4 @@
-import { readImageAppearanceOverride, stripMacroComments } from "@marinara-engine/shared";
+import { readImageAppearanceOverride, stripMacroComments, type ImagePromptMode } from "@marinara-engine/shared";
 import { readPreferredFullBodySpriteBase64 } from "../game/sprite.service.js";
 import { readAvatarBase64 } from "../game/game-asset-generation.js";
 import { readFile } from "node:fs/promises";
@@ -188,9 +188,13 @@ export function illustratorPromptRequestsRenderedText(prompt: string): boolean {
 /**
  * Dedicated comic/manga prompt templates own their framing and must not inherit
  * the generic Illustration composition. Ordinary Illustration templates should
- * still receive the selected profile's per-image tags.
+ * still receive the selected profile's per-image tags. Off always keeps those tags.
  */
-export function illustratorPromptTemplateOwnsComposition(promptTemplate: string): boolean {
+export function illustratorPromptTemplateOwnsComposition(
+  promptTemplate: string,
+  promptMode?: ImagePromptMode,
+): boolean {
+  if (promptMode === "off") return false;
   return (
     illustratorPromptRequestsRenderedText(promptTemplate) ||
     /\b(?:comic page|manga (?:illustration|page|scene|beat)|panel(?:led|s?\b|-inspired| layout| composition| flow| language))\b/iu.test(
@@ -203,13 +207,16 @@ export function illustratorPromptTemplateOwnsComposition(promptTemplate: string)
  * Preserve the default ban on accidental image text for ordinary illustrations,
  * but do not contradict comic pages or other prompts that explicitly request
  * lettering. User- and agent-authored negative prompts remain intact.
+ * Off bypasses this pass and keeps the compiled negative prompt as supplied.
  */
 export function mergeIllustratorNegativePrompt(
   prompt: string,
   negativePrompt?: string | null,
   authoredNegativePrompt?: string | null,
   provider?: ReferencePromptImageProvider | null,
+  promptMode?: ImagePromptMode,
 ): string {
+  if (promptMode === "off") return negativePrompt ?? "";
   if (provider && isNovelAiImageConnection(provider)) {
     const seen = new Set<string>();
     return (negativePrompt ?? "")

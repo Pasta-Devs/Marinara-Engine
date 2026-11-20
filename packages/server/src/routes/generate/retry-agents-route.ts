@@ -4006,6 +4006,7 @@ async function applyRetryResultEffects(args: {
                 typeof agentContext.memory._illustratorImageStyleInstruction === "string",
               omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                 imagePromptAgent?.resolved.promptTemplate ?? "",
+                promptMode,
               ),
             });
             const finalNegativePrompt = mergeIllustratorNegativePrompt(
@@ -4013,6 +4014,7 @@ async function applyRetryResultEffects(args: {
               compiledPrompt.negativePrompt,
               requestedNegativePrompt,
               imgConnFull,
+              promptMode,
             );
             const promptSubmission = resolveIllustratorPromptSubmission({
               generatedPrompt: compiledPrompt.prompt,
@@ -4033,6 +4035,10 @@ async function applyRetryResultEffects(args: {
                     typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                   omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                     imagePromptAgent?.resolved.promptTemplate ?? "",
+                    findImageStyleProfile(
+                      imageSettings.styleProfiles,
+                      styleProfileId || imageFallback.imageDefaults?.styleProfileId,
+                    ).promptMode,
                   ),
                 })
               : null;
@@ -4045,6 +4051,7 @@ async function applyRetryResultEffects(args: {
                       fallbackCompiledPrompt.negativePrompt,
                       requestedNegativePrompt,
                       imageFallback,
+                      fallbackCompiledPrompt.profile.promptMode,
                     ),
                     reviewOverride: illustratorPromptReviewOverride,
                   })
