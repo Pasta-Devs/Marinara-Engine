@@ -274,6 +274,7 @@ import {
   validateSpriteExpressionEntries,
 } from "./expression-agent-utils.js";
 import {
+  buildIllustratorPromptSources,
   suppressesReferencePromptLine,
   mergeIllustratorNegativePrompt,
   illustratorPromptTemplateOwnsComposition,
@@ -615,29 +616,6 @@ function getGameImageStylePrompt(chat: any, chatMeta: Record<string, unknown>): 
   if (((chat as any).mode ?? "conversation") !== "game") return "";
   const setupConfig = parseSettingsRecord(chatMeta.gameSetupConfig);
   return resolveGameSetupArtStylePrompt(setupConfig);
-}
-
-function buildIllustratorImagePrompt(args: {
-  gameArtStylePrompt: string;
-  style: string;
-  imagePrompt: string;
-  imagePositivePrompt: string;
-}): string {
-  const imagePrompt = args.imagePrompt.trim();
-  const imagePromptLower = imagePrompt.toLowerCase();
-  const prefixParts: string[] = [];
-  const seen = new Set<string>();
-
-  for (const part of [args.gameArtStylePrompt, args.style]) {
-    const trimmed = part.trim();
-    const key = trimmed.toLowerCase();
-    if (!trimmed || seen.has(key) || imagePromptLower.includes(key)) continue;
-    seen.add(key);
-    prefixParts.push(trimmed);
-  }
-
-  const fullPrompt = [...prefixParts, imagePrompt].join(", ");
-  return args.imagePositivePrompt ? `${fullPrompt}, ${args.imagePositivePrompt}` : fullPrompt;
 }
 
 async function resolveManualIllustratorStyleInstruction(args: {
@@ -3871,12 +3849,14 @@ async function applyRetryResultEffects(args: {
               styleProfileId || imageDefaults?.styleProfileId,
             ).promptMode;
             const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true, promptMode });
-            let fullPrompt = buildIllustratorImagePrompt({
+            const writerSources = buildIllustratorPromptSources({
               gameArtStylePrompt,
-              style: writerStyle,
+              generatedStyle: writerStyle,
               imagePrompt: removeCopiedPromptGuidance(imagePrompt, writerGuidance, { promptMode }),
               imagePositivePrompt,
+              promptMode,
             });
+            let fullPrompt = writerSources.prompt;
             const requestedNegativePrompt = [negativePrompt, savedNegativePrompt].filter(Boolean).join(", ");
 
             // Collect optional character visual context. Prefer avatar portraits
@@ -4000,7 +3980,7 @@ async function applyRetryResultEffects(args: {
               styleProfiles: imageSettings.styleProfiles,
               styleProfileId,
               imageDefaults,
-              generatedStyle: writerStyle,
+              generatedStyle: writerSources.generatedStyle,
               omitProfileStyleText:
                 illData._styleProfileInstructionApplied === true ||
                 typeof agentContext.memory._illustratorImageStyleInstruction === "string",
@@ -4029,7 +4009,7 @@ async function applyRetryResultEffects(args: {
                   styleProfiles: imageSettings.styleProfiles,
                   styleProfileId,
                   imageDefaults: imageFallback.imageDefaults,
-                  generatedStyle: writerStyle,
+                  generatedStyle: writerSources.generatedStyle,
                   omitProfileStyleText:
                     illData._styleProfileInstructionApplied === true ||
                     typeof agentContext.memory._illustratorImageStyleInstruction === "string",

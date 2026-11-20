@@ -346,7 +346,7 @@ const cases: RegressionCase[] = [
       const configuredPositive = "Write everything in capital letters";
       const written = compileImagePrompt({
         kind: "illustration",
-        prompt: [writerStyle, writerPrompt, configuredPositive].filter(Boolean).join(", "),
+        prompt: [writerPrompt, configuredPositive].filter(Boolean).join(", "),
         generatedStyle: writerStyle,
         styleProfiles,
         styleProfileId: "danbooru",
@@ -392,15 +392,15 @@ const cases: RegressionCase[] = [
       );
       assert.match(
         generateRoute,
-        /let fullPrompt = writerStyle \? `\$\{writerStyle\}, \$\{writerPrompt\}` : writerPrompt;/u,
+        /const writerSources = buildIllustratorPromptSources\(\{\s*generatedStyle: writerStyle,\s*imagePrompt: writerPrompt,\s*imagePositivePrompt,\s*promptMode,\s*\}\);\s*let fullPrompt = writerSources\.prompt;/u,
       );
-      assert.equal(generateRoute.match(/generatedStyle: writerStyle,/gu)?.length, 2);
+      assert.equal(generateRoute.match(/generatedStyle: writerSources\.generatedStyle,/gu)?.length, 2);
       const retryRoute = routeSource("routes/generate/retry-agents-route.ts");
       assert.match(
         retryRoute,
-        /style: writerStyle,\s+imagePrompt: removeCopiedPromptGuidance\(imagePrompt, writerGuidance, \{ promptMode \}\),/u,
+        /generatedStyle: writerStyle,\s+imagePrompt: removeCopiedPromptGuidance\(imagePrompt, writerGuidance, \{ promptMode \}\),/u,
       );
-      assert.equal(retryRoute.match(/generatedStyle: writerStyle,/gu)?.length, 2);
+      assert.equal(retryRoute.match(/generatedStyle: writerSources\.generatedStyle,/gu)?.length, 2);
       assert.match(
         routeSource("routes/gallery.routes.ts"),
         /removeCopiedPromptGuidance\(\s*\(promptResult\.content \?\? ""\)\.trim\(\),\s*\[styleGuidance, imageConn\.imagePromptInstructions, characterImageInstructions\],\s*\{ promptMode: findImageStyleProfile\(imageSettings\.styleProfiles, styleProfileId\)\.promptMode \},/u,
