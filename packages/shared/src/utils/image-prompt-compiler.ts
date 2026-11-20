@@ -68,8 +68,9 @@ export function resolveImageStyleGuidanceText(
 export function removeCopiedPromptGuidance(
   text: string,
   guidance: ReadonlyArray<string | null | undefined>,
-  { allowEmpty = false }: { allowEmpty?: boolean } = {},
+  { allowEmpty = false, promptMode }: { allowEmpty?: boolean; promptMode?: ImageStyleProfile["promptMode"] } = {},
 ): string {
+  if (promptMode === "off") return text;
   const tokens = Array.from(text.matchAll(/[\p{L}\p{N}]+/gu), (match) => ({
     word: match[0].toLowerCase(),
     start: match.index,

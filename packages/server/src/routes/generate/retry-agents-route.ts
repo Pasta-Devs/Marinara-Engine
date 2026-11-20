@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
   BUILT_IN_AGENTS,
+  findImageStyleProfile,
   DEFAULT_AGENT_TOOLS,
   getCustomAgentResultCapability,
   customAgentHasCapability,
@@ -3865,11 +3866,15 @@ async function applyRetryResultEffects(args: {
               imgConnFull.imagePromptInstructions,
             ];
             // A style that was only the copied Style text is dropped; the prompt keeps the subject.
-            const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true });
+            const promptMode = findImageStyleProfile(
+              imageSettings.styleProfiles,
+              styleProfileId || imageDefaults?.styleProfileId,
+            ).promptMode;
+            const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true, promptMode });
             let fullPrompt = buildIllustratorImagePrompt({
               gameArtStylePrompt,
               style: writerStyle,
-              imagePrompt: removeCopiedPromptGuidance(imagePrompt, writerGuidance),
+              imagePrompt: removeCopiedPromptGuidance(imagePrompt, writerGuidance, { promptMode }),
               imagePositivePrompt,
             });
             const requestedNegativePrompt = [negativePrompt, savedNegativePrompt].filter(Boolean).join(", ");

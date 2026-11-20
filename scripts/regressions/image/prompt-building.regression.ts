@@ -62,6 +62,16 @@ import "../fixtures/regression-agent-definitions.js";
 
 const cases: RegressionCase[] = [
   {
+    name: "Off grammar bypasses copied-guidance cleanup and preserves an all-guidance prompt",
+    run() {
+      const guidance = "Use moody lighting and show long shadows in rain.";
+      const prompt = ` 1boy, ${guidance}\n1boy, black hair.  `;
+      assert.equal(removeCopiedPromptGuidance(prompt, [guidance], { promptMode: "off" }), prompt);
+      assert.equal(removeCopiedPromptGuidance(guidance, [guidance], { allowEmpty: true, promptMode: "off" }), guidance);
+      assert.equal(removeCopiedPromptGuidance(guidance, [guidance], { allowEmpty: true, promptMode: "hybrid" }), "");
+    },
+  },
+  {
     name: "Off grammar preserves every source without cleanup for every image kind",
     run() {
       const styleProfiles = createDefaultImageStyleProfileSettings();
@@ -372,11 +382,14 @@ const cases: RegressionCase[] = [
         "1girl, solo",
       );
 
-      // Every writer path cleans its own output before configured text is added.
+      // Writer paths pass the active grammar to cleanup before configured text is added.
       const routeSource = (path: string) =>
         readFileSync(new URL(`../../../packages/server/src/${path}`, import.meta.url), "utf8");
       const generateRoute = routeSource("routes/generate.routes.ts");
-      assert.match(generateRoute, /const writerPrompt = removeCopiedPromptGuidance\(imagePrompt, writerGuidance\);/u);
+      assert.match(
+        generateRoute,
+        /const writerPrompt = removeCopiedPromptGuidance\(imagePrompt, writerGuidance, \{ promptMode \}\);/u,
+      );
       assert.match(
         generateRoute,
         /let fullPrompt = writerStyle \? `\$\{writerStyle\}, \$\{writerPrompt\}` : writerPrompt;/u,
@@ -385,21 +398,21 @@ const cases: RegressionCase[] = [
       const retryRoute = routeSource("routes/generate/retry-agents-route.ts");
       assert.match(
         retryRoute,
-        /style: writerStyle,\s+imagePrompt: removeCopiedPromptGuidance\(imagePrompt, writerGuidance\),/u,
+        /style: writerStyle,\s+imagePrompt: removeCopiedPromptGuidance\(imagePrompt, writerGuidance, \{ promptMode \}\),/u,
       );
       assert.equal(retryRoute.match(/generatedStyle: writerStyle,/gu)?.length, 2);
       assert.match(
         routeSource("routes/gallery.routes.ts"),
-        /removeCopiedPromptGuidance\(\(promptResult\.content \?\? ""\)\.trim\(\), \[/u,
+        /removeCopiedPromptGuidance\(\s*\(promptResult\.content \?\? ""\)\.trim\(\),/u,
       );
       // The Conversation selfie writer strips leading reasoning first, then the copied guidance.
       assert.match(
         routeSource("services/generation/conversation-selfie-command-runtime.ts"),
-        /removeCopiedPromptGuidance\(answer, \[/u,
+        /removeCopiedPromptGuidance\(\s*answer,/u,
       );
       assert.match(
         routeSource("services/generation/illustrator-background-generation.ts"),
-        /sceneDescription: removeCopiedPromptGuidance\(plan\.prompt, \[styleInstruction, imagePromptInstructions\]\)/u,
+        /sceneDescription: removeCopiedPromptGuidance\(plan\.prompt, \[styleInstruction, imagePromptInstructions\], \{/u,
       );
 
       // Without a prompt writer, the profile's Style text still applies as written (#7318).

@@ -6,6 +6,7 @@ import {
 } from "../services/sidecar/local-model-priority.js";
 import {
   applyClockCommandTags,
+  findImageStyleProfile,
   rulesetChargesStart,
   normalizeVideoGenerationUserSettings,
   TTS_SETTINGS_KEY,
@@ -14892,8 +14893,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         imgConnFull.imagePromptInstructions,
                       ];
                       // A style that was only the copied Style text is dropped; the prompt keeps the subject.
-                      const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true });
-                      const writerPrompt = removeCopiedPromptGuidance(imagePrompt, writerGuidance);
+                      const promptMode = findImageStyleProfile(
+                        imageSettings.styleProfiles,
+                        styleProfileId || imageDefaults?.styleProfileId,
+                      ).promptMode;
+                      const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, {
+                        allowEmpty: true,
+                        promptMode,
+                      });
+                      const writerPrompt = removeCopiedPromptGuidance(imagePrompt, writerGuidance, { promptMode });
                       // Prepend style to the prompt for better results
                       let fullPrompt = writerStyle ? `${writerStyle}, ${writerPrompt}` : writerPrompt;
                       if (imagePositivePrompt) {

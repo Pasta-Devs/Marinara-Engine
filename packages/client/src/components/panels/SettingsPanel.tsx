@@ -948,11 +948,19 @@ function ImageStyleProfilesEditor({
           </span>
           <Select
             value={selected.promptMode}
-            options={IMAGE_PROMPT_MODE_OPTIONS}
+            options={[
+              { value: "off", label: localizeUi("ui.panels.imagestyleprofileseditor.promptGrammarOff") },
+              ...IMAGE_PROMPT_MODE_OPTIONS,
+            ]}
             onChange={(promptMode) => updateSelected({ promptMode })}
             label={localizeUi("ui.panels.imagestyleprofileseditor.promptGrammar")}
             className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
           />
+          {selected.promptMode === "off" && (
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              {localizeUi("ui.panels.imagestyleprofileseditor.promptGrammarOffHelp")}
+            </p>
+          )}
         </div>
       </div>
 
