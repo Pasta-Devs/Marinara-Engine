@@ -18,6 +18,7 @@ import { omnibarScopePrefix } from "../../../lib/omnibar-scope";
 import { isApplePlatform, type CommandCenterCategoryFilter } from "../../../lib/command-center";
 import type { OmnibarScopeId } from "../../../lib/omnibar-scope";
 import { formatShortcutKey } from "../../../lib/keyboard-shortcuts";
+import { useOverhaulStore } from "../../../stores/overhaul.store";
 
 // UX-16: chips are drawn at 34px; on touch the hit area grows into the strip's padding to 44px.
 const CHIP_TOUCH_HIT =
@@ -38,6 +39,8 @@ export function OmnibarMariDoor({
   held: string;
 }) {
   const { t } = useTranslation();
+  // New layout: ⌘J opens her full chat page, not this window, so her head names no shortcut there.
+  const overhaul = useOverhaulStore((state) => state.enabled);
   // Slice 85: press and hold her head to lift her; a tap still opens Mari.
   return (
     <MariHold heldSrc={held}>
@@ -46,10 +49,14 @@ export function OmnibarMariDoor({
         onClick={onClick}
         // Slice 79b: her head is the door to her (the footer pill is gone), so it says so.
         aria-label={t("commandCenter.askMariDoor", "Ask Professor Mari")}
-        aria-keyshortcuts={isApplePlatform() ? "Meta+J" : "Control+J"}
-        title={t("commandCenter.askMariDoorTooltip", "Ask Professor Mari ({{shortcut}})", {
-          shortcut: isApplePlatform() ? "⌘J" : "Ctrl+J",
-        })}
+        aria-keyshortcuts={overhaul ? undefined : isApplePlatform() ? "Meta+J" : "Control+J"}
+        title={
+          overhaul
+            ? t("commandCenter.askMariDoor", "Ask Professor Mari")
+            : t("commandCenter.askMariDoorTooltip", "Ask Professor Mari ({{shortcut}})", {
+                shortcut: isApplePlatform() ? "⌘J" : "Ctrl+J",
+              })
+        }
         data-component="GlobalOmnibar.ProfessorMariButton"
         data-mari-glow={working ? "true" : "false"}
         className="group relative -mb-px flex h-14 w-[4.25rem] shrink-0 self-end items-end justify-end rounded-t-lg pb-2 pl-8 transition-colors [--mari-glow-size:3.4rem] [--mari-glow-top:0.05rem] hover:bg-[color-mix(in_srgb,var(--primary)_8%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)] active:bg-[color-mix(in_srgb,var(--primary)_14%,transparent)] max-[30rem]:w-11 max-[30rem]:pl-0"
@@ -299,6 +306,8 @@ export function OmnibarFooter({
   openSettings: () => void;
 }) {
   const { t } = useTranslation();
+  // New layout: ⌘J opens her full chat page; ⌘↵ and her head open the small window.
+  const overhaul = useOverhaulStore((state) => state.enabled);
   return (
     <footer className="flex min-h-10 shrink-0 items-center justify-between gap-3 border-t border-[var(--border)] px-3 text-[0.6875rem] text-[var(--muted-foreground)]">
       {/* The conditional hints group to the left so the two permanent
@@ -329,9 +338,13 @@ export function OmnibarFooter({
       </span>
       <span className="flex min-w-0 items-center gap-3">
         <span className="mari-kbd-hint hidden sm:inline">
-          {t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Professor Mari", {
-            mod: formatShortcutKey("Mod"),
-          })}
+          {overhaul
+            ? t("commandCenter.keyboard.openMariChat", "{{mod}}+J Open Professor Mari chat", {
+                mod: formatShortcutKey("Mod"),
+              })
+            : t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Professor Mari", {
+                mod: formatShortcutKey("Mod"),
+              })}
         </span>
         {!idle ? (
           <span className="mari-kbd-hint hidden sm:inline">{t("commandCenter.keyboard.escape", "Esc close")}</span>

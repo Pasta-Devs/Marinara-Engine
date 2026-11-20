@@ -159,8 +159,11 @@ export function OvViewer({
   children,
   onSection,
   kit,
+  findExtra,
 }: {
   kit?: OvViewerKit;
+  /** Beside the list's search box (Settings profiles' mode filter). */
+  findExtra?: ReactNode;
   title: string;
   /** The section's landing page (Library > Connections). Without it the crumb only names the section. */
   onSection?: () => void;
@@ -258,6 +261,7 @@ export function OvViewer({
             <Search size={13} aria-hidden="true" />
             <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder={searchPlaceholder} />
           </label>
+          {findExtra}
         </div>
         <div className="ov-vw__tools ov-vw__tools--list">
           {landing

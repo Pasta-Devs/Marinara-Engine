@@ -35,6 +35,7 @@ import {
   chatKeys,
   type ChatExportFormat,
 } from "../../hooks/use-chats";
+import { useSavedMessageRegex } from "../../hooks/use-saved-message-regex";
 
 import { getCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
 import { hasActiveTextSelection } from "../../lib/text-selection";
@@ -3003,20 +3004,23 @@ const LocalChatArea = memo(function LocalChatArea({
     [activeChatId, setActiveSwipe, refreshVisibleGameState, shouldRefreshGameStateOnSwipe, localizeUi],
   );
 
+  const applySavedMessageRegex = useSavedMessageRegex(activeChatId);
   const handleEdit = useCallback(
     (messageId: string, content: string) => {
-      updateMessage({ messageId, content });
+      const message = messages?.find((entry) => entry.id === messageId);
+      updateMessage({ messageId, content: applySavedMessageRegex(message, content) });
       if (messageId === failedReplyMessageId) setDismissedFailedReplyId(messageId);
     },
-    [updateMessage, failedReplyMessageId],
+    [applySavedMessageRegex, messages, updateMessage, failedReplyMessageId],
   );
 
   const handleRoleplayEdit = useCallback(
     async (messageId: string, content: string) => {
-      await updateMessageAsync({ messageId, content });
+      const message = messages?.find((entry) => entry.id === messageId);
+      await updateMessageAsync({ messageId, content: applySavedMessageRegex(message, content) });
       if (messageId === failedReplyMessageId) setDismissedFailedReplyId(messageId);
     },
-    [updateMessageAsync, failedReplyMessageId],
+    [applySavedMessageRegex, messages, updateMessageAsync, failedReplyMessageId],
   );
 
   const handleToggleConversationStart = useCallback(

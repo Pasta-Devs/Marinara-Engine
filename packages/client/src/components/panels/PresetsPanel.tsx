@@ -87,6 +87,7 @@ import {
   isPatternSafe,
   isStockMarinaraUniversalPreset,
   isTokenSort,
+  isRegexApplyMode as isSharedRegexApplyMode,
   type RegexApplyMode,
 } from "@marinara-engine/shared";
 import { BuiltInPresetBadge } from "./BuiltInPresetBadge";
@@ -175,7 +176,7 @@ function parseNullableNumber(value: unknown): number | null {
 }
 
 function isRegexApplyMode(value: unknown): value is RegexApplyMode {
-  return value === "prompt" || value === "display" || value === "both";
+  return isSharedRegexApplyMode(value);
 }
 
 function looksLikeSillyTavernRegex(entry: Record<string, unknown>): boolean {

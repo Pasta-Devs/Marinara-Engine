@@ -155,6 +155,7 @@ import {
   useUpdateChatMetadata,
   useUpdateMessage,
 } from "../../hooks/use-chats";
+import { useSavedMessageRegex } from "../../hooks/use-saved-message-regex";
 import { useConnections } from "../../hooks/use-connections";
 import { useAgentConfigs } from "../../hooks/use-agents";
 import {
@@ -8893,12 +8894,14 @@ function GameSurfaceComponent({
     [activeChatId],
   );
 
+  const applySavedMessageRegex = useSavedMessageRegex(activeChatId);
   const handleEditMessage = useCallback(
     (messageId: string, content: string) => {
       invalidateTranslation(messageId);
-      updateMessage.mutate({ messageId, content });
+      const message = messages.find((entry) => entry.id === messageId);
+      updateMessage.mutate({ messageId, content: applySavedMessageRegex(message, content) });
     },
-    [updateMessage],
+    [applySavedMessageRegex, messages, updateMessage],
   );
 
   const [gameInputFocusToken, setGameInputFocusToken] = useState(0);

@@ -66,6 +66,17 @@ export async function seedFixtures(api) {
       staticResult: "ok",
     })
   ).id;
+  // Settings profiles: a long-named one in a folder, so the list shows a folder, both modes and the built-ins.
+  ids.profile = (
+    await api.post("/api/chat-presets", {
+      name: LONG_NAME,
+      mode: "roleplay",
+      settings: { metadata: { activeToolIds: ["roll_dice"], enableTools: true } },
+    })
+  ).id;
+  await api.post("/api/chat-presets", { name: "Harbour texting", mode: "conversation", settings: {} });
+  const profileFolder = await api.post("/api/library-folders/profiles", { name: LONG_NAME });
+  await api.post("/api/library-folders/profiles/move", { itemIds: [ids.profile], folderId: profileFolder.id });
   const account = await api.post("/api/connection-accounts", {
     provider: "openai",
     name: `UI check ${LONG_NAME}`,
@@ -190,6 +201,7 @@ export function screenList(ids) {
     { id: "personas", run: open.library("personas") },
     { id: "lorebooks", run: open.library("lorebooks") },
     { id: "presets", run: open.library("presets") },
+    { id: "profiles", run: open.library("profiles") },
     { id: "regex", run: open.library("regex") },
     { id: "connections", group: "core", run: open.library("connections") },
     { id: "agents", run: open.library("agents") },
@@ -207,6 +219,8 @@ export function screenList(ids) {
     { id: "preset-editor", run: open.detail("openPresetDetail", ids.preset) },
     { id: "regex-editor", run: open.detail("openRegexDetail", ids.regex) },
     { id: "tool-editor", run: open.detail("openToolDetail", ids.tool) },
+    { id: "profile-editor", run: open.detail("openProfileDetail", ids.profile) },
+    { id: "profile-new", run: open.detail("openProfileDetail", "new:roleplay") },
     { id: "connection-editor", run: open.detail("openConnectionDetail", ids.connection) },
     { id: "agent-editor", run: open.detail("openAgentDetail", "illustrator") },
     { id: "conversation-chat", group: "core", run: open.chat(ids.conversationChat) },

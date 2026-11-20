@@ -494,7 +494,10 @@ import { gameTtsEmotionIndicatorsEnabled } from "../services/tts-emotion-guidanc
 import { createAgentConcurrencyLimiter } from "../services/agents/agent-concurrency.js";
 import { getCustomAgentImportPolicy } from "../services/agents/custom-agent-import-policy.service.js";
 import { buildLorebookSemanticEmbeddingsById, warmLorebookEntryEmbeddings } from "../services/lorebook/embeddings.js";
-import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
+import {
+  applyRegexScriptsToPromptMessages,
+  applyRegexScriptsToSavedMessage,
+} from "../services/regex/regex-application.js";
 import {
   filterRelevantLorebooks,
   processLorebooks,
@@ -11246,6 +11249,25 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
             }
           };
+
+          // Scripts set to change the saved message rewrite the new reply once, before it is saved.
+          if (fullResponse) {
+            const savedMessageText = applyRegexScriptsToSavedMessage(
+              fullResponse,
+              await getPromptRegexScripts(),
+              input.impersonate ? "user_input" : "ai_output",
+              {
+                resolveMacros: (value, randomSeed) =>
+                  resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+                targetCharacterId: targetCharId,
+                targetPromptPresetId: presetId ?? null,
+              },
+            );
+            if (savedMessageText !== fullResponse) {
+              fullResponse = savedMessageText;
+              contentReplaced = true;
+            }
+          }
 
           if (contentReplaced) {
             if (!holdForTextRewrite) {

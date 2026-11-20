@@ -208,6 +208,10 @@
           top: 0 !important;
           margin: 0 !important;
         }
+        /* After the chrome guard's measure the auto-hidden bar goes back in one step, not sliding away. */
+        html[data-mari-guard-settle] [data-component="TopBar"].is-autohide {
+          transition: none !important;
+        }
         /* The top bar can carry art (--mari-top-bar-bg, or its own ::before/::after), but the art
            stays under the tabs and icons and never takes their clicks. */
         [data-component="TopBar"]::before,
@@ -331,11 +335,17 @@
         html[data-mari-guard-pierce] :is([data-mari-part="app-backdrop"], [data-mari-part="ambient"]):not(#mari-pierce-x) {
           pointer-events: none !important;
         }
-        /* The chrome guard measures with and without the theme in one task; nothing may animate. */
+        /* The chrome guard measures with and without the theme in one task; nothing may animate.
+           Frosted glass is off too: a theme's backdrop-filter switching on and off with the sheet,
+           on a window inside a frosted window, left Chrome unable to hit-test the page (every
+           point answered <html>), so the guard took Dewglass for covering the top bar and switched
+           it off with Chat settings open (Nov 19). The guard reads styles and hits, not pixels. */
         html[data-mari-guard-measure] *,
         html[data-mari-guard-measure] *::before,
         html[data-mari-guard-measure] *::after {
           transition: none !important;
+          -webkit-backdrop-filter: none !important;
+          backdrop-filter: none !important;
         }
       }
     </style>
