@@ -5088,6 +5088,7 @@ export function ChatSettingsDrawer({
               forceOpen={initialSection === "advanced-parameters"}
               metadata={metadata}
               isConversation={isConversation}
+              chatId={chat.id}
               connectionId={chat.connectionId ?? null}
               connections={chatGenerationConnectionsList}
               contextMessageLimit={metadata.contextMessageLimit as number | null | undefined}
