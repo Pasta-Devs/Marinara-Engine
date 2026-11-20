@@ -846,13 +846,9 @@ export function RegexScriptEditor() {
                   />
                 )}
               </OvRow>
-              <OvRow
-                label={localizeUi("ui.agents.regexscripteditor.savedMessage")}
-                hint={localizeUi("ui.agents.regexscripteditor.applyModeMessageHint")}
-              >
+              <OvRow label={localizeUi("ui.agents.regexscripteditor.savedMessage")}>
                 <OvToggle
                   label={localizeUi("ui.agents.regexscripteditor.applyModeMessage")}
-                  title={localizeUi("ui.agents.regexscripteditor.applyModeMessageHint")}
                   on={savesMessage}
                   onChange={toggleSavesMessage}
                 />
@@ -1405,12 +1401,7 @@ export function RegexScriptEditor() {
                     checked={savesMessage}
                     onChange={(event) => toggleSavesMessage(event.target.checked)}
                   />
-                  <span>
-                    <span className="font-medium">{localizeUi("ui.agents.regexscripteditor.applyModeMessage")}</span>
-                    <span className="block text-[0.625rem] leading-snug opacity-70">
-                      {localizeUi("ui.agents.regexscripteditor.applyModeMessageHint")}
-                    </span>
-                  </span>
+                  <span className="font-medium">{localizeUi("ui.agents.regexscripteditor.applyModeMessage")}</span>
                 </label>
               </div>
 

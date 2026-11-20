@@ -9967,7 +9967,6 @@
   "ui.agents.regexscripteditor.applyModeDisplay": "Only Display",
   "ui.agents.regexscripteditor.applyModeDisplayHint": "Change what appears in chat only.",
   "ui.agents.regexscripteditor.applyModeMessage": "Change the saved message",
-  "ui.agents.regexscripteditor.applyModeMessageHint": "Rewrites new messages once, as they are saved. Older messages stay as they are.",
   "ui.agents.regexscripteditor.applyModePrompt": "Only Prompt",
   "ui.agents.regexscripteditor.applyModePromptHint": "Change what the model receives only.",
   "ui.agents.regexscripteditor.applyModeSavedMessageNote": "Not needed. The saved message itself is changed.",

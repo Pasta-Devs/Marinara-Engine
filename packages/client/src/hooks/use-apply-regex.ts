@@ -116,6 +116,8 @@ function applyScripts(
     scopedMode?: ScopedRegexMode | null;
     characterId?: string | null;
     promptPresetId?: string | null;
+    /** An edited message being saved: only scripts that change the saved message run. */
+    savedMessage?: boolean;
   },
 ): string {
   let result = text;
@@ -124,8 +126,10 @@ function applyScripts(
     if (!script.placements.includes(placement)) continue;
     // Prompt context is opt-in. Display context runs visual scripts only. User input runs once, as the
     // message is sent and saved, so scripts that rewrite the saved message run there too; the server
-    // rewrites saved AI replies.
-    if (options?.promptOnly) {
+    // rewrites new AI replies, and an edited message runs them again here as it is saved.
+    if (options?.savedMessage) {
+      if (script.applyMode !== "message") continue;
+    } else if (options?.promptOnly) {
       if (script.applyMode !== "prompt" && script.applyMode !== "both") continue;
     } else if (
       script.applyMode !== "display" &&
@@ -137,7 +141,10 @@ function applyScripts(
 
     if (options?.targetedOnly && script.targetCharacterIds.length === 0) continue;
     if (script.targetCharacterIds.length > 0) {
-      if (options?.promptOnly) {
+      if (options?.savedMessage) {
+        // An edited message: match the character who wrote it.
+        if (!options.characterId || !script.targetCharacterIds.includes(options.characterId)) continue;
+      } else if (options?.promptOnly) {
         // Prompt context: match the character whose prompt is being assembled.
         if (!options.targetCharacterId || !script.targetCharacterIds.includes(options.targetCharacterId)) continue;
       } else {
@@ -244,6 +251,25 @@ export function useApplyRegex() {
     [activePromptPresetId, parsedScripts, presetScopedRegexMode, quoteFormat],
   );
 
+  // An edited message, as it is saved: only the scripts that change the saved message, no quote formatting.
+  const applyToSavedMessage = useCallback(
+    (
+      text: string,
+      placement: RegexPlacement,
+      options?: { resolveMacros?: (value: string) => string; characterId?: string | null },
+    ) =>
+      applyScripts(text, parsedScripts, placement, {
+        ...options,
+        savedMessage: true,
+        promptPresetId: activePromptPresetId,
+      }),
+    [activePromptPresetId, parsedScripts],
+  );
+  const hasSavedMessageScripts = useMemo(
+    () => parsedScripts.some((script) => script.enabledBool && script.applyMode === "message"),
+    [parsedScripts],
+  );
+
   // Depth counts back from the newest message, so a new message changes it for every older one. Callers
   // that keep finished text per message only need to rebuild on a new message when some script uses it.
   const usesDepthRange = useMemo(
@@ -251,5 +277,5 @@ export function useApplyRegex() {
     [parsedScripts],
   );
 
-  return { applyToAIOutput, applyToUserInput, usesDepthRange };
+  return { applyToAIOutput, applyToUserInput, applyToSavedMessage, hasSavedMessageScripts, usesDepthRange };
 }
