@@ -337,6 +337,9 @@ try {
 
   const anthropic = await addAccount({ provider: "anthropic", apiKey: "fixture-anthropic-key-8888" });
   const router = await addAccount({ provider: "openrouter", apiKey: "fixture-router-key-9999" });
+  // A new Model starts with prompt caching on for OpenRouter and off for other services.
+  assert.equal((await rowOf(router.row)).enableCaching, "true");
+  assert.equal((await rowOf(anthropic.row)).enableCaching, "false");
   assert(
     await connections.saveModelListIfUnchanged(await rowOf(router.row), [
       { id: "openai/gpt-5", name: "GPT-5" },

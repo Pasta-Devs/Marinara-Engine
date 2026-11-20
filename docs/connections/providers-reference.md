@@ -81,7 +81,7 @@ An aggregator is a service where one key reaches models from many companies. Ope
 **OpenRouter** is an aggregator with two extra options in the model editor:
 
 - **Preferred provider** forces routing to one named backend. The name must match the one on the OpenRouter models page. Leave it empty for automatic routing.
-- **Enable prompt caching** marks the parts of the prompt that the model can reuse for your next message, so long chats cost less. What it marks depends on the model:
+- **Enable prompt caching** marks the parts of the prompt that the model can reuse for your next message, so long chats cost less. It starts on for each model you add to an OpenRouter account. What it marks depends on the model:
 
 | Model | What is cached | How long |
 | --- | --- | --- |
