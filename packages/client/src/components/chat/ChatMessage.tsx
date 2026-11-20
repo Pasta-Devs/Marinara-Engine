@@ -102,7 +102,7 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { chatKeys, rememberRecentMessageContentEdit } from "../../hooks/use-chats";
 import { useShallow } from "zustand/react/shallow";
-import { createMessageMacroResolver } from "../../lib/chat-macros";
+import { createMessageMacroResolver, resolveMessageMacros } from "../../lib/chat-macros";
 import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-source";
 import { HIGHLIGHT_CLASS, highlightAnswerValues } from "../../lib/onboarding-preview-highlight";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
@@ -2231,163 +2231,6 @@ export const ChatMessage = memo(function ChatMessage({
       : undefined;
   const isTranslating = !!translating[message.id];
 
-  // TTS
-  const { data: ttsConfig } = useTTSConfig();
-  const ttsEnabled = ttsConfig?.enabled ?? false;
-  const ttsPersona = useMemo(() => resolveTTSMessagePersona(message, personaInfo), [message, personaInfo]);
-  const mappedUserPersona = message.role === "user" && ttsConfig && getTTSPersonaVoice(ttsConfig, ttsPersona);
-  const ttsFallbackId =
-    message.role === "user" ? (mappedUserPersona ? ttsPersona?.id : undefined) : message.characterId;
-  const ttsSpeakerName = mappedUserPersona
-    ? ttsPersona?.name
-    : message.role === "narrator"
-      ? "Narrator"
-      : message.characterId
-        ? characterMap?.get(message.characterId)?.name
-        : undefined;
-  // Same lookup as autoplay in ChatArea, so replaying a message uses the voice it autoplayed with.
-  const resolveTTSCharacterId = useCallback(
-    (speaker?: string | null) => findTTSCharacterIdBySpeakerName(speaker, characterMap ?? [], ttsPersona),
-    [characterMap, ttsPersona],
-  );
-  const ambiguousTTSSpeaker = useCallback(
-    (speaker?: string | null) => isTTSSpeakerAmbiguous(speaker, characterMap ?? [], ttsPersona),
-    [characterMap, ttsPersona],
-  );
-  const ttsVoiceRequests = useMemo(() => {
-    if (!ttsConfig) return [];
-    const requests = buildTTSVoiceRequests(
-      message.content,
-      ttsConfig,
-      ttsSpeakerName,
-      ttsFallbackId,
-      resolveTTSCharacterId,
-      message.role === "user" && !mappedUserPersona ? undefined : ttsPersona,
-      ambiguousTTSSpeaker,
-    );
-    return withTTSVoiceRequestCacheKeys(
-      visualNovel || followSpeechParagraphs
-        ? withRoleplayTTSParagraphs(requests, message.content, ttsConfig)
-        : requests,
-      ttsConfig,
-      message.id,
-    );
-  }, [
-    message.content,
-    message.id,
-    ambiguousTTSSpeaker,
-    resolveTTSCharacterId,
-    ttsConfig,
-    ttsSpeakerName,
-    ttsFallbackId,
-    ttsPersona,
-    mappedUserPersona,
-    message.role,
-    visualNovel,
-    followSpeechParagraphs,
-  ]);
-  const hasTTSContent = ttsVoiceRequests.length > 0;
-  const [ttsState, setTTSState] = useState(ttsService.getState());
-  const [ttsActiveId, setTTSActiveId] = useState<string | null>(ttsService.getActiveId());
-  const [clearingTTS, setClearingTTS] = useState(false);
-  useEffect(
-    () =>
-      ttsService.subscribe((state, id) => {
-        setTTSState(state);
-        setTTSActiveId(id);
-      }),
-    [],
-  );
-  const ttsBusy = ttsState === "loading" || ttsState === "playing" || ttsState === "paused" || ttsState === "blocked";
-  const isSpeakingThis = ttsActiveId === message.id;
-  const isLoadingThis = isSpeakingThis && ttsState === "loading";
-  const isPausedThis = isSpeakingThis && ttsState === "paused";
-  const ttsLinePlaybackVolume = ttsLineVolume / 100;
-
-  useEffect(() => {
-    if (ttsActiveId !== message.id) return;
-    ttsService.setCurrentPlaybackVolume(ttsLinePlaybackVolume);
-  }, [message.id, ttsActiveId, ttsLinePlaybackVolume, ttsState]);
-
-  const handleTTSLineVolumeChange = useCallback(
-    (volume: number) => {
-      setTTSLineVolume(volume);
-      ttsService.setCurrentPlaybackVolume(volume / 100);
-    },
-    [setTTSLineVolume],
-  );
-
-  const handleSpeak = useCallback(() => {
-    // Read directly from the singleton so we never act on stale React state
-    const liveState = ttsService.getState();
-    const liveActiveId = ttsService.getActiveId();
-    const liveBusy =
-      liveState === "loading" || liveState === "playing" || liveState === "paused" || liveState === "blocked";
-    const liveIsThis = liveActiveId === message.id;
-    if (liveBusy && !liveIsThis) return;
-    if (liveIsThis) {
-      ttsService.stop();
-    } else {
-      if (!hasTTSContent) return;
-      void ttsService.speakSequence(ttsVoiceRequests, message.id, {
-        chatId: message.chatId,
-        progressive: ttsConfig?.progressivePlayback,
-        volume: ttsLinePlaybackVolume,
-        onChunkStart: (_request, index) =>
-          notifyRoleplayTTSParagraph(message.chatId, message.id, ttsVoiceRequests, index),
-      });
-    }
-  }, [
-    hasTTSContent,
-    message.chatId,
-    message.id,
-    ttsConfig?.progressivePlayback,
-    ttsLinePlaybackVolume,
-    ttsVoiceRequests,
-  ]);
-
-  const handlePauseResumeTTS = useCallback(() => {
-    if (ttsService.getActiveId() !== message.id) return;
-    if (ttsService.getState() === "paused") {
-      ttsService.resume();
-    } else {
-      ttsService.pause();
-    }
-  }, [message.id]);
-
-  const handleRestartTTS = useCallback(() => {
-    if (ttsService.getActiveId() === message.id) {
-      ttsService.restart();
-    }
-  }, [message.id]);
-
-  // Drop this message's cached clips (primary keys and text aliases) so the
-  // next Speak regenerates them instead of replaying audio synthesized by an
-  // older provider or configuration. Deliberately does NOT re-speak: awaiting
-  // a full speakSequence parked the spinner until the reply finished playing,
-  // and auto-playing audio the user never asked for.
-  const handleClearCachedVoice = useCallback(() => {
-    if (!hasTTSContent || clearingTTS) return;
-    const liveState = ttsService.getState();
-    const liveActiveId = ttsService.getActiveId();
-    const liveBusy =
-      liveState === "loading" || liveState === "playing" || liveState === "paused" || liveState === "blocked";
-    if (liveBusy && liveActiveId !== message.id) return;
-
-    ttsService.stop();
-    setClearingTTS(true);
-    void (async () => {
-      try {
-        await ttsService.clearCachedAudio(ttsVoiceRequests);
-      } catch (err) {
-        console.warn("[TTS] Clearing the cached voice failed:", err);
-        toast.error(localizeUi("ui.chat.chatmessage.clearCachedVoiceFailed"));
-      } finally {
-        setClearingTTS(false);
-      }
-    })();
-  }, [clearingTTS, hasTTSContent, localizeUi, message.id, ttsVoiceRequests]);
-
   const startEditing = useCallback(() => {
     if (!onEdit || isStreaming) return;
     const sp = msgRef.current?.closest("[class*='overflow-y']") as HTMLElement | null;
@@ -2846,29 +2689,47 @@ export const ChatMessage = memo(function ChatMessage({
     return charName ? [{ name: charName }] : [];
   }, [charName, scopedCharacterMap]);
 
+  const displayMacroContext = useMemo(
+    () => ({
+      variables: presetVariables,
+      chatVariables,
+      userName,
+      persona: {
+        name: userName,
+        description: personaDescription,
+        personality: personaPersonality,
+        backstory: personaBackstory,
+        appearance: personaAppearance,
+        scenario: personaScenario,
+      },
+      primaryCharacter: primaryCharInfo ?? { name: charName },
+      characters: macroCharacters,
+      inactiveCharacterIds: isRoleplay ? parseChatMetadata(activeChatMetadata).inactiveCharacterIds : undefined,
+    }),
+    [
+      activeChatMetadata,
+      charName,
+      chatVariables,
+      isRoleplay,
+      macroCharacters,
+      personaAppearance,
+      personaBackstory,
+      personaDescription,
+      personaPersonality,
+      personaScenario,
+      presetVariables,
+      primaryCharInfo,
+      userName,
+    ],
+  );
+
   const formatDisplayContent = useCallback(
     (content: string) => {
-      const macroContext = {
-        variables: presetVariables,
-        chatVariables,
-        userName,
-        persona: {
-          name: userName,
-          description: personaDescription,
-          personality: personaPersonality,
-          backstory: personaBackstory,
-          appearance: personaAppearance,
-          scenario: personaScenario,
-        },
-        primaryCharacter: primaryCharInfo ?? { name: charName },
-        characters: macroCharacters,
-        inactiveCharacterIds: isRoleplay ? parseChatMetadata(activeChatMetadata).inactiveCharacterIds : undefined,
-      };
       // #3164: seed display randomness by message identity, not content — a
       // content-based seed re-rolls every {{random}}/{{roll}} on each streamed
       // chunk (visible churn) and on every edit. Swipes keep distinct picks.
       const macroRandomSeed = `${message.id}:${message.activeSwipeIndex ?? 0}`;
-      const resolveDisplayMacros = createMessageMacroResolver(macroContext, { randomSeed: macroRandomSeed });
+      const resolveDisplayMacros = createMessageMacroResolver(displayMacroContext, { randomSeed: macroRandomSeed });
       const text =
         isUser || isSystem
           ? content
@@ -2881,30 +2742,185 @@ export const ChatMessage = memo(function ChatMessage({
       return resolveDisplayMacros(text);
     },
     [
-      activeChatMetadata,
-      isRoleplay,
       applyToAIOutput,
-      scopedRegexMode,
-      presetVariables,
-      chatVariables,
-      message.characterId,
-      charName,
+      displayMacroContext,
       isSystem,
       isUser,
-      macroCharacters,
       message.activeSwipeIndex,
-      messageDepth,
+      message.characterId,
       message.id,
-      personaAppearance,
-      personaBackstory,
-      personaDescription,
-      personaPersonality,
-      personaScenario,
-      primaryCharInfo,
-      userName,
+      messageDepth,
+      scopedRegexMode,
     ],
   );
   const displayContent = useMemo(() => formatDisplayContent(message.content), [formatDisplayContent, message.content]);
+
+  // TTS
+  const { data: ttsConfig } = useTTSConfig();
+  const ttsEnabled = ttsConfig?.enabled ?? false;
+  // Text to speech reads what the message shows: {{user}}, {{char}} and the other macros resolved with the
+  // same context and seed as the display, so "Hello {{user}}" is read as "Hello You", not "Hello user".
+  // Only while text to speech is on: otherwise nothing reads it.
+  const spokenContent = useMemo(
+    () =>
+      ttsEnabled
+        ? resolveMessageMacros(message.content, displayMacroContext, {
+            randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}`,
+          })
+        : message.content,
+    [displayMacroContext, message.activeSwipeIndex, message.content, message.id, ttsEnabled],
+  );
+  const ttsPersona = useMemo(() => resolveTTSMessagePersona(message, personaInfo), [message, personaInfo]);
+  const mappedUserPersona = message.role === "user" && ttsConfig && getTTSPersonaVoice(ttsConfig, ttsPersona);
+  const ttsFallbackId =
+    message.role === "user" ? (mappedUserPersona ? ttsPersona?.id : undefined) : message.characterId;
+  const ttsSpeakerName = mappedUserPersona
+    ? ttsPersona?.name
+    : message.role === "narrator"
+      ? "Narrator"
+      : message.characterId
+        ? characterMap?.get(message.characterId)?.name
+        : undefined;
+  // Same lookup as autoplay in ChatArea, so replaying a message uses the voice it autoplayed with.
+  const resolveTTSCharacterId = useCallback(
+    (speaker?: string | null) => findTTSCharacterIdBySpeakerName(speaker, characterMap ?? [], ttsPersona),
+    [characterMap, ttsPersona],
+  );
+  const ambiguousTTSSpeaker = useCallback(
+    (speaker?: string | null) => isTTSSpeakerAmbiguous(speaker, characterMap ?? [], ttsPersona),
+    [characterMap, ttsPersona],
+  );
+  const ttsVoiceRequests = useMemo(() => {
+    if (!ttsConfig) return [];
+    const requests = buildTTSVoiceRequests(
+      spokenContent,
+      ttsConfig,
+      ttsSpeakerName,
+      ttsFallbackId,
+      resolveTTSCharacterId,
+      message.role === "user" && !mappedUserPersona ? undefined : ttsPersona,
+      ambiguousTTSSpeaker,
+    );
+    return withTTSVoiceRequestCacheKeys(
+      visualNovel || followSpeechParagraphs ? withRoleplayTTSParagraphs(requests, spokenContent, ttsConfig) : requests,
+      ttsConfig,
+      message.id,
+    );
+  }, [
+    spokenContent,
+    message.id,
+    ambiguousTTSSpeaker,
+    resolveTTSCharacterId,
+    ttsConfig,
+    ttsSpeakerName,
+    ttsFallbackId,
+    ttsPersona,
+    mappedUserPersona,
+    message.role,
+    visualNovel,
+    followSpeechParagraphs,
+  ]);
+  const hasTTSContent = ttsVoiceRequests.length > 0;
+  const [ttsState, setTTSState] = useState(ttsService.getState());
+  const [ttsActiveId, setTTSActiveId] = useState<string | null>(ttsService.getActiveId());
+  const [clearingTTS, setClearingTTS] = useState(false);
+  useEffect(
+    () =>
+      ttsService.subscribe((state, id) => {
+        setTTSState(state);
+        setTTSActiveId(id);
+      }),
+    [],
+  );
+  const ttsBusy = ttsState === "loading" || ttsState === "playing" || ttsState === "paused" || ttsState === "blocked";
+  const isSpeakingThis = ttsActiveId === message.id;
+  const isLoadingThis = isSpeakingThis && ttsState === "loading";
+  const isPausedThis = isSpeakingThis && ttsState === "paused";
+  const ttsLinePlaybackVolume = ttsLineVolume / 100;
+
+  useEffect(() => {
+    if (ttsActiveId !== message.id) return;
+    ttsService.setCurrentPlaybackVolume(ttsLinePlaybackVolume);
+  }, [message.id, ttsActiveId, ttsLinePlaybackVolume, ttsState]);
+
+  const handleTTSLineVolumeChange = useCallback(
+    (volume: number) => {
+      setTTSLineVolume(volume);
+      ttsService.setCurrentPlaybackVolume(volume / 100);
+    },
+    [setTTSLineVolume],
+  );
+
+  const handleSpeak = useCallback(() => {
+    // Read directly from the singleton so we never act on stale React state
+    const liveState = ttsService.getState();
+    const liveActiveId = ttsService.getActiveId();
+    const liveBusy =
+      liveState === "loading" || liveState === "playing" || liveState === "paused" || liveState === "blocked";
+    const liveIsThis = liveActiveId === message.id;
+    if (liveBusy && !liveIsThis) return;
+    if (liveIsThis) {
+      ttsService.stop();
+    } else {
+      if (!hasTTSContent) return;
+      void ttsService.speakSequence(ttsVoiceRequests, message.id, {
+        chatId: message.chatId,
+        progressive: ttsConfig?.progressivePlayback,
+        volume: ttsLinePlaybackVolume,
+        onChunkStart: (_request, index) =>
+          notifyRoleplayTTSParagraph(message.chatId, message.id, ttsVoiceRequests, index),
+      });
+    }
+  }, [
+    hasTTSContent,
+    message.chatId,
+    message.id,
+    ttsConfig?.progressivePlayback,
+    ttsLinePlaybackVolume,
+    ttsVoiceRequests,
+  ]);
+
+  const handlePauseResumeTTS = useCallback(() => {
+    if (ttsService.getActiveId() !== message.id) return;
+    if (ttsService.getState() === "paused") {
+      ttsService.resume();
+    } else {
+      ttsService.pause();
+    }
+  }, [message.id]);
+
+  const handleRestartTTS = useCallback(() => {
+    if (ttsService.getActiveId() === message.id) {
+      ttsService.restart();
+    }
+  }, [message.id]);
+
+  // Drop this message's cached clips (primary keys and text aliases) so the
+  // next Speak regenerates them instead of replaying audio synthesized by an
+  // older provider or configuration. Deliberately does NOT re-speak: awaiting
+  // a full speakSequence parked the spinner until the reply finished playing,
+  // and auto-playing audio the user never asked for.
+  const handleClearCachedVoice = useCallback(() => {
+    if (!hasTTSContent || clearingTTS) return;
+    const liveState = ttsService.getState();
+    const liveActiveId = ttsService.getActiveId();
+    const liveBusy =
+      liveState === "loading" || liveState === "playing" || liveState === "paused" || liveState === "blocked";
+    if (liveBusy && liveActiveId !== message.id) return;
+
+    ttsService.stop();
+    setClearingTTS(true);
+    void (async () => {
+      try {
+        await ttsService.clearCachedAudio(ttsVoiceRequests);
+      } catch (err) {
+        console.warn("[TTS] Clearing the cached voice failed:", err);
+        toast.error(localizeUi("ui.chat.chatmessage.clearCachedVoiceFailed"));
+      } finally {
+        setClearingTTS(false);
+      }
+    })();
+  }, [clearingTTS, hasTTSContent, localizeUi, message.id, ttsVoiceRequests]);
 
   useEffect(() => {
     if (

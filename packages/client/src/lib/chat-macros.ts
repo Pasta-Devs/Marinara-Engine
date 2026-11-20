@@ -239,6 +239,89 @@ export function resolveMessageMacros(
  */
 const VARIABLE_OP_MACRO_RE = /\{\{\s*(?:setvar|addvar|addnumvar|incvar|decvar|getvar)\b/i;
 /** Macros that change a chat variable. Only the server saves a chat variable's new value. */
+/** What resolves a message's macros for text to speech when the message itself isn't the one reading it. */
+export interface SpokenMessageMacroOptions {
+  mode: string | null | undefined;
+  /** The chat's characters, by id (CharacterMap). */
+  characters: ReadonlyMap<string, MacroCharacterData>;
+  chatCharacterIds?: readonly string[];
+  persona?: MacroPersonaData | null;
+  chatMetadata?: unknown;
+  chatVariables?: Record<string, string>;
+  presetVariables?: Record<string, string>;
+}
+
+/**
+ * Resolve a message's macros the way the chat shows it (ChatMessage in roleplay and game, ConversationMessage in
+ * conversations): same user name and fallback, the message's own character first, the persona the user message
+ * was sent as, and the same random seed, so autoplay speaks "Hello You" where the chat shows it, never "Hello user".
+ */
+export function resolveSpokenMessageMacros(
+  message: {
+    id: string;
+    role: string;
+    content: string;
+    characterId?: string | null;
+    activeSwipeIndex?: number | null;
+    extra?: unknown;
+  },
+  options: SpokenMessageMacroOptions,
+): string {
+  if (!message.content.includes("{{")) return message.content;
+  const conversation = options.mode === "conversation";
+  const allowed = options.chatCharacterIds?.length ? new Set(options.chatCharacterIds) : null;
+  if (allowed && message.characterId) allowed.add(message.characterId);
+  const scoped = new Map(Array.from(options.characters).filter(([id]) => !allowed || allowed.has(id)));
+  // The message's own character, else the chat's first one (as the display picks {{char}}).
+  const orderedIds = options.chatCharacterIds?.length ? options.chatCharacterIds : scoped.keys();
+  let primaryCharacter = message.characterId ? scoped.get(message.characterId) : undefined;
+  for (const id of orderedIds) {
+    if (primaryCharacter) break;
+    primaryCharacter = scoped.get(id);
+  }
+
+  let persona = options.persona ?? null;
+  if (message.role === "user") {
+    let extra: unknown = message.extra;
+    if (typeof extra === "string") {
+      try {
+        extra = JSON.parse(extra);
+      } catch {
+        extra = null;
+      }
+    }
+    const snapshot =
+      extra && typeof extra === "object" ? (extra as { personaSnapshot?: unknown }).personaSnapshot : null;
+    if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) persona = snapshot as MacroPersonaData;
+  }
+  const userName = persona?.name ?? (conversation ? "User" : "You");
+  const characters = scoped.size
+    ? Array.from(scoped, ([id, character]) => ({ ...character, id }))
+    : primaryCharacter
+      ? [primaryCharacter]
+      : [];
+
+  return resolveMessageMacros(
+    message.content,
+    {
+      variables: options.presetVariables,
+      chatVariables: options.chatVariables,
+      userName,
+      persona: { ...persona, name: userName },
+      // With no character at all, the display uses the name in the message header.
+      primaryCharacter: primaryCharacter ?? {
+        name: conversation && message.role === "user" ? (persona?.name ?? "You") : "Assistant",
+      },
+      characters,
+      inactiveCharacterIds:
+        conversation || options.mode === "roleplay"
+          ? parseChatMetadata(options.chatMetadata).inactiveCharacterIds
+          : undefined,
+    },
+    { randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}` },
+  );
+}
+
 export const VARIABLE_WRITE_MACRO_RE = /\{\{\s*(?:setvar|addvar|addnumvar|incvar|decvar)\b/i;
 /** Only short templates (regex replacements, trims, patterns) are worth caching. */
 const RESOLVER_CACHE_MAX_TEMPLATE_LENGTH = 2048;
