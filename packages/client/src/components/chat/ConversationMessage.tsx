@@ -215,16 +215,6 @@ export const ConversationMessage = memo(function ConversationMessage({
 
   // ── Translation ──
   const { translate, translations, translationSources, translating } = useTranslate();
-  const speech = useMessageSpeech(message, characterMap, personaInfo);
-  const speechAction = speech.enabled
-    ? {
-        speaking: speech.speaking,
-        loading: speech.loading,
-        hasContent: speech.hasContent,
-        disabled: !speech.hasContent || speech.busyElsewhere,
-        onToggle: speech.toggle,
-      }
-    : undefined;
   const translatedText = translations[message.id];
   const translationSource = translationSources[message.id];
   const isTranslating = !!translating[message.id];
@@ -409,6 +399,25 @@ export const ConversationMessage = memo(function ConversationMessage({
       scopedCharacterMap,
     ],
   );
+
+  // Speak reads the message with its macros resolved like the display, so {{user}} is spoken as the name.
+  const spokenContent = useMemo(
+    () =>
+      resolveMessageMacros(message.content, macroContext, {
+        randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}`,
+      }),
+    [macroContext, message.activeSwipeIndex, message.content, message.id],
+  );
+  const speech = useMessageSpeech(message, characterMap, personaInfo, spokenContent);
+  const speechAction = speech.enabled
+    ? {
+        speaking: speech.speaking,
+        loading: speech.loading,
+        hasContent: speech.hasContent,
+        disabled: !speech.hasContent || speech.busyElsewhere,
+        onToggle: speech.toggle,
+      }
+    : undefined;
 
   // #3164: seed display randomness by message identity — this site previously
   // passed no seed, so every {{random}}/{{roll}} re-rolled (Math.random) on
