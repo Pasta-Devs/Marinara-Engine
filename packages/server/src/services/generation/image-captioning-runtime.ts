@@ -340,6 +340,13 @@ const OPEN_THINKING = /^\s*(?:<(?:think|thinking|thought)>|<\|think\|>|\[(?:thin
 /** A closing tag with no opening one: the chat template opened the thinking itself. */
 const CLOSE_THINKING = /<\/(?:think|thinking|thought)>|<\|\/think\|>|\[\/(?:think|thinking|thought)\]/gi;
 
+/**
+ * How a thinking model's reasoning starts when its chat template opened the thinking and the answer length ran out
+ * before the closing tag, so the text has no tags at all. A description of a picture doesn't start like this.
+ */
+const UNTAGGED_REASONING_START =
+  /^\s*(?:okay|ok|alright|hmm+|let me|let's|i need to|i should|i'll|i will|i'm going to|first,|the user)\b/i;
+
 /** The description without a thinking model's inline reasoning. Null when only reasoning came back. */
 export function stripCaptionThinking(text: string): string | null {
   let content = extractLeadingThinkingBlocks(text).content;
@@ -385,9 +392,22 @@ export async function generateImageCaptionForDataUrl(
   signal: AbortSignal,
   debugMode = false,
 ): Promise<string | null> {
-  if (!imageCaptioning.provider || !imageCaptioning.connection) return null;
+  return (await generateKeyedImageCaption(filename, imageDataUrl, imageCaptioning, signal, debugMode)).caption;
+}
+
+/** The caption plus the cache key of the prompt and request it was made with (settings can change while it runs). */
+async function generateKeyedImageCaption(
+  filename: string,
+  imageDataUrl: string,
+  imageCaptioning: ImageCaptioningRuntime,
+  signal: AbortSignal,
+  debugMode = false,
+): Promise<{ caption: string | null; promptKey: string }> {
+  const prompt = effectiveCaptionPrompt(imageCaptioning);
+  const promptKey = captionPromptKey(prompt, effectiveCaptionRequest());
+  if (!imageCaptioning.provider || !imageCaptioning.connection) return { caption: null, promptKey };
   const messages = [
-    { role: "system" as const, content: effectiveCaptionPrompt(imageCaptioning) },
+    { role: "system" as const, content: prompt },
     {
       role: "user" as const,
       content: captionRequestFor(filename),
@@ -419,16 +439,23 @@ export async function generateImageCaptionForDataUrl(
       if (signal.aborted) throw error;
       throw new Error(`Image captioning failed for "${filename}"`, { cause: error });
     });
-  const caption = normalizeImageCaptionText(stripCaptionThinking(result.content ?? ""));
+  const raw = result.content ?? "";
+  const cutOff = result.finishReason === "length";
+  // Cut off with no tags at all: reasoning whose opening tag was in the chat template, or a long description.
+  const untaggedReasoning =
+    cutOff &&
+    !/<\/?(?:think|thinking|thought)>|<\|\/?think\|>|\[\/?(?:think|thinking|thought)\]/i.test(raw) &&
+    UNTAGGED_REASONING_START.test(raw);
+  const caption = untaggedReasoning ? null : normalizeImageCaptionText(stripCaptionThinking(raw));
   if (!caption) {
     // A thinking model can spend the whole answer length reasoning and never write the description.
     throw new Error(
-      result.finishReason === "length"
+      cutOff
         ? `Image captioning failed for "${filename}": the model reached its answer length before writing a description. Raise Answer length in Library › Connections › Image reading, or turn thinking off for that model`
         : `Image captioning failed for "${filename}": the captioning model sent back no text`,
     );
   }
-  return caption;
+  return { caption, promptKey };
 }
 
 export async function generateImageCaptionsForDataUrls<T extends { filename: string; imageDataUrl: string }>(
@@ -436,8 +463,8 @@ export async function generateImageCaptionsForDataUrls<T extends { filename: str
   imageCaptioning: ImageCaptioningRuntime,
   signal: AbortSignal,
   debugMode = false,
-): Promise<Array<{ input: T; caption: string | null }>> {
-  const results = new Array<{ input: T; caption: string | null }>(inputs.length);
+): Promise<Array<{ input: T; caption: string | null; promptKey: string }>> {
+  const results = new Array<{ input: T; caption: string | null; promptKey: string }>(inputs.length);
   let nextIndex = 0;
   const workers = Array.from({ length: Math.min(IMAGE_CAPTION_CONCURRENCY, inputs.length) }, async () => {
     while (nextIndex < inputs.length) {
@@ -446,13 +473,7 @@ export async function generateImageCaptionsForDataUrls<T extends { filename: str
       const input = inputs[index]!;
       results[index] = {
         input,
-        caption: await generateImageCaptionForDataUrl(
-          input.filename,
-          input.imageDataUrl,
-          imageCaptioning,
-          signal,
-          debugMode,
-        ),
+        ...(await generateKeyedImageCaption(input.filename, input.imageDataUrl, imageCaptioning, signal, debugMode)),
       };
     }
   });
@@ -483,7 +504,7 @@ export async function captionSentSelfies(args: {
       const imageDataUrl = await args.readImageDataUrl(attachment);
       if (!imageDataUrl) continue;
       const filename = getAttachmentFilename(attachment);
-      const caption = await generateImageCaptionForDataUrl(
+      const { caption, promptKey } = await generateKeyedImageCaption(
         filename,
         imageDataUrl,
         imageCaptioning,
@@ -498,7 +519,7 @@ export async function captionSentSelfies(args: {
         imageCaptionConnectionId: imageCaptioning.connectionId,
         imageCaptionModel: connection.model,
         imageCaptionProvider: connection.provider,
-        imageCaptionPromptKey: captionPromptKey(effectiveCaptionPrompt(imageCaptioning), effectiveCaptionRequest()),
+        imageCaptionPromptKey: promptKey,
         imageCaptionedAt: new Date().toISOString(),
       };
     } catch (error) {
@@ -570,7 +591,7 @@ export async function resolvePromptAttachmentInputs(args: {
     signal,
     args.debugMode,
   );
-  for (const { input, caption } of generatedCaptions) {
+  for (const { input, caption, promptKey } of generatedCaptions) {
     input.result.caption = caption;
     if (caption) {
       input.result.updatedAttachment = {
@@ -579,7 +600,7 @@ export async function resolvePromptAttachmentInputs(args: {
         imageCaptionConnectionId: imageCaptioning.connectionId,
         imageCaptionModel: captionConnection.model,
         imageCaptionProvider: captionConnection.provider,
-        imageCaptionPromptKey: captionPromptKey(effectiveCaptionPrompt(imageCaptioning), effectiveCaptionRequest()),
+        imageCaptionPromptKey: promptKey,
         imageCaptionedAt: new Date().toISOString(),
       };
     }
