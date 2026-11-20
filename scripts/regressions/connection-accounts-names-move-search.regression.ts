@@ -452,8 +452,8 @@ try {
   );
   assert.deepEqual(
     [moved2.claudeFastMode, moved2.anthropicExtendedCacheTtl, moved2.openrouterProvider],
-    ["false", "false", null],
-    "service-only fields are reset",
+    ["false", "true", null],
+    "service-only fields are reset; the 1-hour cache stays, since Claude on OpenRouter takes it too",
   );
   assert.deepEqual(
     JSON.parse(moved2.defaultParameters!),

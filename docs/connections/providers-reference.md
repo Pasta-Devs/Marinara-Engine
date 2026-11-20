@@ -81,7 +81,20 @@ An aggregator is a service where one key reaches models from many companies. Ope
 **OpenRouter** is an aggregator with two extra options in the model editor:
 
 - **Preferred provider** forces routing to one named backend. The name must match the one on the OpenRouter models page. Leave it empty for automatic routing.
-- **Enable prompt caching** sends caching hints for Claude models routed through OpenRouter. Most other models cache on their own.
+- **Enable prompt caching** marks the parts of the prompt that the model can reuse for your next message, so long chats cost less. What it marks depends on the model:
+
+| Model | What is cached | How long |
+| --- | --- | --- |
+| Claude | The system prompt, the chat history up to **Cache depth**, and the newest message | 5 minutes, or 1 hour with **Extended token caching (1 hour)** |
+| Qwen | The system prompt and the chat history up to **Cache depth** | 5 minutes |
+| Gemini | The system prompt | 5 minutes |
+| GPT, DeepSeek, Grok, Kimi and others | The service caches on its own, with or without the switch | Set by the service |
+
+Marinara also asks OpenRouter to keep each chat on one backend, so the cache from your last message is still there. This works with the switch off too. A **Preferred provider** pins the backend instead.
+
+Caching saves the most when the start of the prompt stays the same between messages. See [Prompt caching](../prompts/conditional-prompts.md#prompt-caching).
+
+> **Note:** Writing to the cache costs more than regular input, for example 1.25 times for Claude's 5-minute cache and 2 times for its 1-hour cache. Reading from it costs much less. See OpenRouter's [prompt caching guide](https://openrouter.ai/docs/guides/best-practices/prompt-caching).
 
 ### NanoGPT
 

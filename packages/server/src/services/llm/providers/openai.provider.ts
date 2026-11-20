@@ -59,6 +59,7 @@ import {
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { getOpenCodeSessionId } from "../../../utils/opencode-session.js";
 import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
+import { normalizeCachingAtDepth } from "./anthropic.provider.js";
 import {
   applyGlmThinkingParameters,
   glm53CustomGatewayReasoningEffort,
@@ -291,11 +292,15 @@ export function isCustomGatewayReasoningModel(model: string): boolean {
 
 type ChatCompletionsWireMessage = Record<string, unknown> & { role?: unknown; content?: unknown };
 
+/** A message's content as content parts: a string becomes one text part, and an empty one none. */
+function wireContentParts(content: unknown): unknown[] {
+  if (Array.isArray(content)) return content;
+  return typeof content === "string" && content ? [{ type: "text", text: content }] : [];
+}
+
 function joinWireContent(first: unknown, second: unknown): unknown {
   if (typeof first === "string" && typeof second === "string") return [first, second].filter(Boolean).join("\n\n");
-  const parts = (content: unknown) =>
-    Array.isArray(content) ? content : typeof content === "string" && content ? [{ type: "text", text: content }] : [];
-  return [...parts(first), ...parts(second)];
+  return [...wireContentParts(first), ...wireContentParts(second)];
 }
 
 /**
@@ -410,6 +415,90 @@ function anthropicSafeWireMessages(
 /** The wire messages for an endpoint that refuses the `tool` role in history: every tool round is retold as text. */
 function toolRoleSafeWireMessages(messages: ChatCompletionsWireMessage[]): ChatCompletionsWireMessage[] {
   return anthropicSafeWireMessages(messages, true);
+}
+
+/**
+ * A chat's cache key: `marinara-` and 32 hex characters of a hash of the chat id, so the chat id itself never leaves
+ * the server. A request outside any chat has nothing to share a cache with and gets none.
+ */
+function chatCacheKey(): string | undefined {
+  const session = getOpenCodeSessionId();
+  return session.startsWith("marinara-chat-")
+    ? `marinara-${session.slice("marinara-chat-".length, "marinara-chat-".length + 32)}`
+    : undefined;
+}
+
+type OpenRouterCacheControl = { type: "ephemeral"; ttl?: "1h" };
+type OpenRouterCacheFamily = "claude" | "qwen" | "gemini" | "automatic";
+
+/**
+ * How OpenRouter caches a model (https://openrouter.ai/docs/guides/best-practices/prompt-caching):
+ * - `claude`: the top-level `cache_control` caches up to the last block and moves forward as the chat grows. Block
+ *   breakpoints (four at most, the top-level one included) keep the system prompt and older history cached when a
+ *   later part changes. Entries last 5 minutes, or 1 hour with `ttl: "1h"`.
+ * - `qwen`: Alibaba caches only the blocks a request marks, in Anthropic's syntax, for 5 minutes.
+ * - `gemini`: only the last marked block counts, and a mark in the first system message caches the whole system
+ *   prompt. A second mark makes OpenRouter bill the prompt twice, so a request carries exactly one.
+ * - `automatic`: OpenAI, DeepSeek, Grok, Kimi, GLM and the rest cache on their own.
+ */
+function openRouterCacheFamily(model: string): OpenRouterCacheFamily {
+  if (looksLikeClaudeModel(model)) return "claude";
+  if (isGeminiModel(model)) return "gemini";
+  return capabilityModelId(model).startsWith("qwen/") ? "qwen" : "automatic";
+}
+
+/** The content with `cache_control` on its last text part, or undefined when it has no text to mark. */
+function contentWithCacheBreakpoint(content: unknown, cacheControl: OpenRouterCacheControl): unknown[] | undefined {
+  const parts = wireContentParts(content);
+  for (let index = parts.length - 1; index >= 0; index--) {
+    const part = parts[index];
+    if (typeof part !== "object" || part === null) continue;
+    const { type, text } = part as Record<string, unknown>;
+    if (type === "text" && typeof text === "string" && text) {
+      return parts.map((item, itemIndex) => (itemIndex === index ? { ...part, cache_control: cacheControl } : item));
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The messages with OpenRouter's block cache breakpoints for `family`. Claude and Qwen get two, where the Anthropic
+ * provider puts them: the end of the system prompt, and the newest user or assistant text at least `cachingAtDepth`
+ * messages back from the newest message. Gemini gets one, at the end of the system prompt; its leading system messages
+ * become one message first, so the mark sits in the first system message as OpenRouter's guide shows.
+ */
+function withOpenRouterCacheBreakpoints(
+  messages: ChatCompletionsWireMessage[],
+  family: Exclude<OpenRouterCacheFamily, "automatic">,
+  cacheControl: OpenRouterCacheControl,
+  cachingAtDepth: number,
+): ChatCompletionsWireMessage[] {
+  const result = [...messages];
+  const firstTurn = result.findIndex((message) => message.role !== "system" && message.role !== "developer");
+  const systemCount = firstTurn < 0 ? result.length : firstTurn;
+  if (family === "gemini") {
+    if (systemCount === 0) return result;
+    // Joined as the role-alternation retry joins them: text with a blank line between, other parts kept.
+    const joined = result
+      .slice(0, systemCount)
+      .reduce<unknown>((content, message) => joinWireContent(content, message.content), "");
+    const content = contentWithCacheBreakpoint(joined, cacheControl);
+    if (content) result.splice(0, systemCount, { ...result[0], content });
+    return result;
+  }
+  const mark = (index: number) => {
+    const content = contentWithCacheBreakpoint(result[index]!.content, cacheControl);
+    if (content) result[index] = { ...result[index]!, content };
+    return !!content;
+  };
+  for (let index = systemCount - 1; index >= 0 && !mark(index); index--);
+  const newest = result.length - 1;
+  for (let index = Math.max(systemCount, newest - cachingAtDepth); index >= systemCount && index <= newest; index--) {
+    const message = result[index]!;
+    // A tool round's shape is the provider's to convert, so the history mark goes on plain text turns only.
+    if ((message.role === "user" || message.role === "assistant") && !message.tool_calls && mark(index)) break;
+  }
+  return result;
 }
 
 type ResponsesUsagePayload = {
@@ -953,22 +1042,21 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   /**
-   * OpenAI sends a request to the machine that already holds its prefix by this key. Without one,
+   * OpenAI sends a request to the machine that already holds its prefix by `prompt_cache_key`. Without one,
    * the turns of a chat land on different machines and the ChatGPT (Codex) route reports no cached
    * tokens at all, so every request of a chat carries the same key. Only OpenAI's own endpoints
    * get it: a compatible endpoint may refuse a field it does not know.
+   *
+   * OpenRouter keeps a chat on the provider that holds its cache by `session_id`, from the first turn and for every
+   * model. Without one it sticks only after it sees a cache hit, and tells chats apart by their first system and user
+   * messages, which can change between turns
+   * (https://openrouter.ai/docs/guides/best-practices/prompt-caching#provider-sticky-routing).
    */
-  private promptCacheKey(): string | undefined {
-    if (!openAIPromptCacheKeyAccepted(this.providerKind, this.baseUrl)) return undefined;
-    const session = getOpenCodeSessionId();
-    return session.startsWith("marinara-chat-")
-      ? `marinara-${session.slice("marinara-chat-".length, "marinara-chat-".length + 32)}`
-      : undefined;
-  }
-
   private applyPromptCacheKey(body: Record<string, unknown>): void {
-    const key = this.promptCacheKey();
-    if (key) body.prompt_cache_key = key;
+    const key = chatCacheKey();
+    if (!key) return;
+    if (openAIPromptCacheKeyAccepted(this.providerKind, this.baseUrl)) body.prompt_cache_key = key;
+    else if (this.isOpenRouterEndpoint()) body.session_id = key;
   }
 
   private chatCompletionsErrorLabel(): string {
@@ -1877,18 +1965,27 @@ export class OpenAIProvider extends BaseLLMProvider {
     );
   }
 
-  private shouldUseOpenRouterPromptCaching(options: ChatOptions): boolean {
-    return (
-      (this.providerKind === "openrouter" ||
-        (!this.isGenericCustomProvider() && this.baseUrl.includes("openrouter.ai"))) &&
-      !!options.enableCaching
-    );
-  }
-
+  /** Marks what OpenRouter caches for the model's family (see `openRouterCacheFamily`) when the connection caches. */
   private applyOpenRouterPromptCaching(body: Record<string, unknown>, options: ChatOptions): void {
-    if (!this.shouldUseOpenRouterPromptCaching(options)) return;
-    body.cache_control = { type: "ephemeral" };
-    logger.debug("[OpenAI] Enabling OpenRouter prompt caching for model=%s", options.model);
+    if (!this.isOpenRouterEndpoint() || !options.enableCaching) return;
+    const family = openRouterCacheFamily(options.model);
+    // Only Claude takes the 1-hour cache. Every mark of a request gets the same lifetime: Anthropic refuses a top-level
+    // lifetime that differs from the last block's, and a shorter one before a longer one.
+    const cacheControl: OpenRouterCacheControl =
+      family === "claude" && options.anthropicExtendedCacheTtl
+        ? { type: "ephemeral", ttl: "1h" }
+        : { type: "ephemeral" };
+    // Models that cache on their own keep the top-level field they always had; Gemini and Qwen take block marks only.
+    if (family === "claude" || family === "automatic") body.cache_control = cacheControl;
+    if (family !== "automatic" && Array.isArray(body.messages)) {
+      body.messages = withOpenRouterCacheBreakpoints(
+        body.messages as ChatCompletionsWireMessage[],
+        family,
+        cacheControl,
+        normalizeCachingAtDepth(options.cachingAtDepth),
+      );
+    }
+    logger.debug("[OpenAI] Enabling OpenRouter prompt caching (%s) for model=%s", family, options.model);
   }
 
   private supportsGpt5Verbosity(model: string): boolean {

@@ -336,7 +336,9 @@ async function moveAcrossServices(
       pinnedModels,
       // Service-only settings: OpenRouter routing, Anthropic flags, the old host's embeddings, media fields.
       openrouterProvider: null,
-      ...(provider === "anthropic" ? {} : { claudeFastMode: "false", anthropicExtendedCacheTtl: "false" }),
+      ...(provider === "anthropic" ? {} : { claudeFastMode: "false" }),
+      // Claude on OpenRouter takes the 1-hour cache too.
+      ...(provider === "anthropic" || provider === "openrouter" ? {} : { anthropicExtendedCacheTtl: "false" }),
       embeddingModel: null,
       embeddingBaseUrl: null,
       comfyuiWorkflow: null,
