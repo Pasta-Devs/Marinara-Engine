@@ -129,6 +129,9 @@ const OverhaulMariPage = preloadedLazy(() => import("../overhaul/MariPage").then
 const OverhaulDocsPage = preloadedLazy(() => import("../overhaul/DocsPage").then((module) => module.OverhaulDocsPage));
 const OvRegexViewer = preloadedLazy(() => import("../overhaul/LibraryViewers").then((module) => module.OvRegexViewer));
 const OvToolsViewer = preloadedLazy(() => import("../overhaul/LibraryViewers").then((module) => module.OvToolsViewer));
+const OvProfilesViewer = preloadedLazy(() =>
+  import("../overhaul/ProfilesViewer").then((module) => module.OvProfilesViewer),
+);
 const OvConnectionsViewer = preloadedLazy(() =>
   import("../overhaul/LibraryViewers").then((module) => module.OvConnectionsViewer),
 );
@@ -339,6 +342,7 @@ export function AppShell({
         AgentCatalogView,
         OvRegexViewer,
         OvToolsViewer,
+        OvProfilesViewer,
         OvConnectionsViewer,
         OverhaulDocsPage,
       ]) {
@@ -809,6 +813,7 @@ export function AppShell({
         AgentCatalogView.preload(),
         OvRegexViewer.preload(),
         OvToolsViewer.preload(),
+        OvProfilesViewer.preload(),
         OvConnectionsViewer.preload(),
       ]).then(() => {
         for (const editor of [
@@ -1359,27 +1364,34 @@ export function AppShell({
     agentCatalogOpen ||
     lorebookDetailId,
   );
-  const ovViewer: "regex" | "tools" | "connections" | "agents" | null = !overhaulActive
+  const ovViewer: "regex" | "tools" | "profiles" | "connections" | "agents" | null = !overhaulActive
     ? // Phones have no Custom tools table, so the viewer is its page there too (it was blank).
       overhaulMobile && !ovOtherDetail && (toolDetailId || overhaulLibraryPage === "tools")
       ? "tools"
-      : null
+      : // Settings profiles: the list, then the open profile as its own page (ov-vw--drill).
+        overhaulMobile && !ovOtherDetail && (profileDetailId || overhaulLibraryPage === "profiles")
+        ? "profiles"
+        : null
     : regexDetailId
       ? "regex"
       : toolDetailId
         ? "tools"
-        : connectionDetailId
-          ? "connections"
-          : agentDetailId
-            ? selectedFeatureAgent
-              ? null
-              : "agents"
-            : !ovOtherDetail &&
-                // Connections opens on its accounts table (board "ConnList"); a Model opens the viewer.
-                // Agents opens on the Agent Organizer (it lists installed agents too); an agent opens its settings.
-                (overhaulLibraryPage === "regex" || overhaulLibraryPage === "tools")
-              ? overhaulLibraryPage
-              : null;
+        : profileDetailId
+          ? "profiles"
+          : connectionDetailId
+            ? "connections"
+            : agentDetailId
+              ? selectedFeatureAgent
+                ? null
+                : "agents"
+              : !ovOtherDetail &&
+                  // Connections opens on its accounts table (board "ConnList"); a Model opens the viewer.
+                  // Agents opens on the Agent Organizer (it lists installed agents too); an agent opens its settings.
+                  (overhaulLibraryPage === "regex" ||
+                    overhaulLibraryPage === "tools" ||
+                    overhaulLibraryPage === "profiles")
+                ? overhaulLibraryPage
+                : null;
 
   // Professor Mari's tab stays mounted once opened (rendered below, hidden while another page or Home shows):
   // remounting her whole chat on every visit cost ~0.5-2 s of long frames and 8 requests on an iPad (Nov 15).
@@ -1397,6 +1409,8 @@ export function AppShell({
       <OvRegexViewer>{regexDetailId ? <RegexScriptEditor key={regexDetailId} /> : null}</OvRegexViewer>
     ) : ovViewer === "tools" ? (
       <OvToolsViewer>{toolDetailId ? <ToolEditor key={toolDetailId} /> : null}</OvToolsViewer>
+    ) : ovViewer === "profiles" ? (
+      <OvProfilesViewer>{profileDetailId ? <ProfileEditor key={profileDetailId} /> : null}</OvProfilesViewer>
     ) : ovViewer === "connections" ? (
       <OvConnectionsViewer>
         {connectionDetailId ? <ConnectionEditor key={connectionDetailId} /> : null}

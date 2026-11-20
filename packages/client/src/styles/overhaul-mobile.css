@@ -5604,3 +5604,9 @@
 :root[data-overhaul="mobile"] .ov-mem {
   font-size: 0.9375rem;
 }
+
+/* Library > Settings profiles on phones: "Settings profiles" and + New share the first line; Import and
+   New folder start the next one (+ New is shorter than Extensions' Ask Professor Mari). */
+:root[data-overhaul="mobile"] .ov-vw--profiles .ov-vw__top > h1:not(#ovm-x) {
+  flex-basis: calc(100% - 6rem);
+}

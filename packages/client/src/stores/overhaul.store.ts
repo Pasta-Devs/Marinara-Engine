@@ -40,6 +40,7 @@ export type LibrarySection =
   | "personas"
   | "lorebooks"
   | "presets"
+  | "profiles"
   | "regex"
   | "connections"
   | "agents"

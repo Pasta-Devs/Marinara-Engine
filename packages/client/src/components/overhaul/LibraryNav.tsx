@@ -13,6 +13,8 @@ import { usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
 import { useRegexScripts } from "../../hooks/use-regex-scripts";
 import { useCustomTools } from "../../hooks/use-custom-tools";
+import { useChatPresets } from "../../hooks/use-chat-presets";
+import { isProfileMode } from "../presets/profile-detail-id";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
@@ -31,6 +33,8 @@ export function LibraryNav() {
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
   const customTools = useCustomTools();
+  const profiles = useChatPresets();
+  const profileDetailId = useUIStore((s) => s.profileDetailId);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
   const characterDetailId = useUIStore((s) => s.characterDetailId);
@@ -46,6 +50,9 @@ export function LibraryNav() {
     personas: Array.isArray(personas.data) ? personas.data.length : undefined,
     lorebooks: Array.isArray(lorebooks.data) ? lorebooks.data.length : undefined,
     presets: Array.isArray(presets.data) ? presets.data.length : undefined,
+    profiles: Array.isArray(profiles.data)
+      ? profiles.data.filter((profile) => isProfileMode(profile.mode)).length
+      : undefined,
     connections: Array.isArray(connections.data) ? connections.data.length : undefined,
     regex: Array.isArray(regexScripts.data) ? regexScripts.data.length : undefined,
     tools: Array.isArray(customTools.data) ? customTools.data.length : undefined,
@@ -63,15 +70,17 @@ export function LibraryNav() {
           ? "lorebooks"
           : presetDetailId
             ? "presets"
-            : connectionDetailId
-              ? "connections"
-              : agentDetailId
-                ? "agents"
-                : regexDetailId
-                  ? "regex"
-                  : toolDetailId
-                    ? "tools"
-                    : libraryPage;
+            : profileDetailId
+              ? "profiles"
+              : connectionDetailId
+                ? "connections"
+                : agentDetailId
+                  ? "agents"
+                  : regexDetailId
+                    ? "regex"
+                    : toolDetailId
+                      ? "tools"
+                      : libraryPage;
 
   return (
     <nav

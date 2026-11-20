@@ -78,6 +78,11 @@ export const FEATURE_FINDER_ENTRIES: readonly FeatureEntry[] = [
         label: "Start a roleplay from a profile",
         step: { kind: "start-chat", mode: "roleplay", profile: true },
       },
+      {
+        id: "seeProfiles",
+        label: "See and edit your profiles",
+        step: { kind: "target", target: { kind: "panel", panel: "profiles" } },
+      },
     ],
   }),
   feature({

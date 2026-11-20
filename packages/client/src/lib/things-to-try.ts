@@ -328,7 +328,14 @@ const TRAIL_ROWS: Record<DiscoveryTrailId, Row[]> = {
       "chats/settings-profiles.md",
       { kind: "start-chat", mode: "roleplay", profile: true },
     ],
-    ["M3", "Star a profile as the default for its mode", "M1", "data", "chats/settings-profiles.md"],
+    [
+      "M3",
+      "Star a profile as the default for its mode",
+      "M1",
+      "data",
+      "chats/settings-profiles.md",
+      { kind: "target", target: { kind: "panel", panel: "profiles" } },
+    ],
     ["M4", "Open a preset and change one section", "C3", "hand", "prompts/presets.md", lib("presets")],
     [
       "M5",
