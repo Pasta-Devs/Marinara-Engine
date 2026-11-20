@@ -46,6 +46,7 @@ import {
 } from "../../../packages/server/src/services/generation/illustrator-manual-prompt-generation.js";
 import { buildLegacyDefaultAgentConfigUpdate } from "../../../packages/server/src/services/agents/default-prompt-migration.js";
 import {
+  buildIllustratorPromptSources,
   illustratorPromptRequestsRenderedText,
   illustratorPromptTemplateOwnsComposition,
   mergeIllustratorNegativePrompt,
@@ -60,6 +61,40 @@ import {
 import "../fixtures/regression-agent-definitions.js";
 
 const cases: RegressionCase[] = [
+  {
+    name: "Illustrator emits each writer field once while Off preserves authored repeats",
+    run() {
+      const styleProfiles = createDefaultImageStyleProfileSettings();
+      const profile = styleProfiles.profiles.find((entry) => entry.id === "off")!;
+      profile.positiveTags = "permanent style tags, permanent style tags";
+      profile.subjectTags.illustration = "illustration image tags";
+      const style =
+        "2::pov::, 2::over-the-shoulder::, soft dramatic lighting, contrast between warm skin tones and cool dorm lighting, cinematic soft focus, close-up framing, emotionally charged atmosphere, moody shadows, depth of field, bokeh, intimate";
+      const prompt = " 1girl, sitting on mattress, 1girl, sitting on mattress. ";
+      for (const [writerStyle, imagePrompt] of [
+        [style, prompt],
+        [`${style}, ${style}`, prompt],
+        [style, style],
+      ]) {
+        const sources = buildIllustratorPromptSources({
+          style: writerStyle!,
+          imagePrompt: imagePrompt!,
+          imagePositivePrompt: "",
+          promptMode: "off",
+        });
+        const compiled = compileImagePrompt({
+          kind: "illustration",
+          ...sources,
+          styleProfiles,
+          styleProfileId: profile.id,
+        });
+        assert.equal(
+          compiled.prompt,
+          [profile.positiveTags, profile.subjectTags.illustration, writerStyle, imagePrompt].join(", "),
+        );
+      }
+    },
+  },
   {
     name: "Off grammar retains configured Illustration tags despite template composition hints",
     run() {

@@ -185,6 +185,28 @@ export function illustratorPromptRequestsRenderedText(prompt: string): boolean {
   return ILLUSTRATOR_RENDERED_TEXT_REQUEST_PATTERNS.some((pattern) => pattern.test(prompt));
 }
 
+export function buildIllustratorPromptSources(args: {
+  gameArtStylePrompt?: string;
+  style: string;
+  imagePrompt: string;
+  imagePositivePrompt: string;
+  promptMode: ImagePromptMode;
+}): { prompt: string; generatedStyle: string } {
+  const imagePrompt = args.promptMode === "off" ? args.imagePrompt : args.imagePrompt.trim();
+  const gameArtStyle = args.gameArtStylePrompt ?? "";
+  const gameStylePrefix =
+    args.promptMode === "off"
+      ? gameArtStyle
+      : imagePrompt.toLowerCase().includes(gameArtStyle.trim().toLowerCase())
+        ? ""
+        : gameArtStyle.trim();
+  return {
+    prompt: [gameStylePrefix, imagePrompt, args.imagePositivePrompt].filter(Boolean).join(", "),
+    // The compiler owns this source; embedding it in prompt would emit the field twice in Off.
+    generatedStyle: args.style,
+  };
+}
+
 /**
  * Dedicated comic/manga prompt templates own their framing and must not inherit
  * the generic Illustration composition. Ordinary Illustration templates should
