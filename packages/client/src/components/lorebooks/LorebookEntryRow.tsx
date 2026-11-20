@@ -147,11 +147,6 @@ interface Props {
 
 /** Row-owned fields the overhaul drawer edits (they live on the row header in the classic layout). */
 type OvEntryControls = {
-  enabled: boolean;
-  setEnabled: (next: boolean) => void;
-  /** Chat-scope editor: the entry is off in the shared lorebook, so this chat can't turn it on. */
-  enabledLocked: boolean;
-  enabledTitle: string;
   name: string;
   setName: (name: string) => void;
   commitName: () => void;
@@ -629,15 +624,6 @@ export function LorebookEntryRow({
           ? {
               name: localName,
               setName: setLocalName,
-              enabled: localEnabled,
-              setEnabled: handleEnabledChange,
-              enabledLocked: !!chatEnabled && !entry.enabled,
-              enabledTitle:
-                chatEnabled && !entry.enabled
-                  ? localizeUi("chat.settings.inlineLorebook.globallyDisabled")
-                  : chatEnabled
-                    ? localizeUi("chat.settings.inlineLorebook.chatScope")
-                    : localizeUi("ui.lorebooks.expandeddrawer.enabledHint"),
               commitName: handleNameCommit,
               status: localStatus,
               setStatus: handleStatusChange,
@@ -779,11 +765,6 @@ export function LorebookEntryRow({
               title={STATUS_LABEL[localStatus]}
             />
             <span className="truncate">{localName || localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}</span>
-            {!localEnabled ? (
-              <small className="ov-lrow__off" title={localizeUi("ui.lorebooks.lorebookentryrow.entryDisabled")}>
-                {localizeUi("ui.lorebooks.expandeddrawer.enabledOff")}
-              </small>
-            ) : null}
             {entry.locked ? (
               <Lock size="0.6875rem" aria-label={localizeUi("ui.lorebooks.expandeddrawer.locked")} />
             ) : null}
@@ -2395,20 +2376,6 @@ function ExpandedDrawer({
                   placeholder={localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry")}
                 />
               </label>
-              <div className="ov-lf ov-lentry__onoff">
-                <span>{localizeUi("ui.lorebooks.expandeddrawer.enabled")}</span>
-                <OvToggle
-                  className="ov-lentry__onoff-switch"
-                  label={localizeUi(
-                    ov.enabled ? "ui.lorebooks.expandeddrawer.enabledOn" : "ui.lorebooks.expandeddrawer.enabledOff",
-                  )}
-                  ariaLabel={localizeUi("ui.lorebooks.expandeddrawer.enabled")}
-                  on={ov.enabled}
-                  disabled={ov.enabledLocked}
-                  onChange={ov.setEnabled}
-                  title={ov.enabledTitle}
-                />
-              </div>
               <div className="ov-lf">
                 <span>{localizeUi("ui.lorebooks.expandeddrawer.entryType")}</span>
                 <OvSeg

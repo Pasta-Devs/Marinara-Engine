@@ -115,27 +115,19 @@ export function OvToggle({
   on,
   onChange,
   title,
-  disabled,
-  ariaLabel,
-  className,
 }: {
   label: ReactNode;
   on: boolean;
   onChange: (next: boolean) => void;
   title?: string;
-  disabled?: boolean;
-  ariaLabel?: string;
-  className?: string;
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
-      aria-label={ariaLabel}
       title={title}
-      disabled={disabled}
-      className={cn("ov-ltoggle", className)}
+      className="ov-ltoggle"
       onClick={() => onChange(!on)}
     >
       <span className={cn("ov-switch", on && "is-on")}>

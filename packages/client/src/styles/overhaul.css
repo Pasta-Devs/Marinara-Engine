@@ -6890,8 +6890,7 @@ input.ov-edhead__title:focus {
 .ov-lv__left .ov-lrow__pos,
 .ov-lv__left .ov-lrow__order,
 .ov-lv__left .ov-lrow__tokens,
-.ov-lv__left .ov-lrow__acts,
-.ov-lv__left .ov-lrow .ov-switch {
+.ov-lv__left .ov-lrow__acts {
   display: none !important;
 }
 .ov-lv__left .mari-editor-toolbar {
@@ -6920,8 +6919,8 @@ input.ov-edhead__title:focus {
 }
 .ov-lv__left .ov-lrow {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-areas: "grip name" "grip keys";
+  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-areas: "grip switch name" "grip . keys";
   row-gap: 0;
   column-gap: 0.375rem;
   padding: 0.25rem 0.5rem;
@@ -6936,6 +6935,15 @@ input.ov-edhead__title:focus {
 }
 .ov-lv__left .ov-lrow__name {
   grid-area: name;
+}
+/* Each entry's on/off switch sits before its name, like a folder's (2026-11-20). */
+.ov-lv__left .ov-lrow__check {
+  grid-area: grip;
+}
+.ov-lv__left .ov-lrow > .ov-switch {
+  grid-area: switch;
+  align-self: center;
+  margin-right: 0.5rem;
 }
 .ov-lv__left .ov-lrow__keys {
   grid-area: keys;
@@ -12731,33 +12739,11 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-overhaul="on"] .ov-lentry__row--name > :last-child {
   flex: none;
 }
-/* Entry on/off (2026-11-20): sits between Name and Entry type so turning an entry off is one tap from the
-   top of the editor, not buried in Behavior or behind Select mode. Same height as the Entry type pills. */
-:root[data-overhaul] .ov-lentry__row--name > .ov-lentry__onoff {
-  flex: none;
-}
-.ov-lentry__onoff-switch {
-  min-height: 1.875rem;
-}
-.ov-lentry__onoff-switch:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-/* An off entry reads as off in the list: name and keys dimmed, plus a small "Off" tag after the name. */
+/* An off entry reads as off in the list: name, type dot and keys dimmed beside its switch. */
 .ov-lrow.is-disabled .ov-lrow__name > .truncate,
 .ov-lrow.is-disabled .ov-lrow__dot,
 .ov-lrow.is-disabled .ov-lrow__keys {
   opacity: 0.45;
-}
-.ov-lrow__off {
-  flex: none;
-  padding: 0 0.375rem;
-  border: 1px solid var(--ov-line);
-  border-radius: 999px;
-  color: var(--ov-muted);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  line-height: 1.125rem;
 }
 :root[data-overhaul] .ov-chipbox {
   min-width: 0;
