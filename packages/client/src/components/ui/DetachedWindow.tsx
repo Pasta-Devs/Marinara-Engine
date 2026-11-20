@@ -1,3 +1,13 @@
+// ──────────────────────────────────────────────
+// Detached window: an app surface in its own OS window, beside the browser
+//
+// The Tracker panel (detach) and floating windows that opt in (pop out) render into a second window
+// through a React portal: same JS realm, live state, no reload. Document Picture-in-Picture gives an
+// always-on-top window with the slimmest frame the browser allows (Chromium 116+, Firefox 151+ desktop);
+// a normal popup stands in where it is missing, or when a tab's one Picture-in-Picture window is
+// already taken. The browser's frame (the site's address, its close button) is browser chrome: no
+// page can style or hide it. The opener's stylesheets and <html> attributes (theme) are mirrored live.
+// ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect } from "react";
 
 const DETACHED_STYLE_ATTRIBUTE = "data-mari-detached-style";
@@ -9,13 +19,15 @@ interface DocumentPictureInPictureController {
     preferInitialWindowPlacement?: boolean;
     width?: number;
   }) => Promise<Window>;
+  /** The tab's open Picture-in-Picture window, or null. A tab has at most one. */
+  readonly window?: Window | null;
 }
 
 type WindowWithDocumentPictureInPicture = Window & {
   documentPictureInPicture?: DocumentPictureInPictureController;
 };
 
-export interface TrackerPanelWindowTarget {
+export interface DetachedWindowTarget {
   popup: Window & typeof globalThis;
   removeOpenerPageHideListener: () => void;
   title: string;
@@ -89,7 +101,7 @@ function mirrorStyles(
   }
 }
 
-function prepareTrackerPanelWindow(popup: Window & typeof globalThis, title: string): TrackerPanelWindowTarget {
+function prepareDetachedWindow(popup: Window & typeof globalThis, title: string): DetachedWindowTarget {
   const popupDocument = popup.document;
   popupDocument.title = title;
   popupDocument.head.replaceChildren();
@@ -109,17 +121,24 @@ function prepareTrackerPanelWindow(popup: Window & typeof globalThis, title: str
   };
 }
 
-export async function openTrackerPanelWindow({
+/**
+ * Opens the second window. Call it straight from a click: Picture-in-Picture needs the click's user
+ * activation. Null when the browser blocked the popup.
+ */
+export async function openDetachedWindow({
   title,
   width,
+  height = Math.min(900, Math.max(520, window.screen.availHeight - 96)),
 }: {
   title: string;
   width: number;
-}): Promise<TrackerPanelWindowTarget | null> {
-  const height = Math.min(900, Math.max(520, window.screen.availHeight - 96));
+  height?: number;
+}): Promise<DetachedWindowTarget | null> {
   const documentPictureInPicture = (window as WindowWithDocumentPictureInPicture).documentPictureInPicture;
 
-  if (documentPictureInPicture) {
+  // A second request would close the tab's open Picture-in-Picture window (another surface's), so that
+  // one stays and this one takes a popup.
+  if (documentPictureInPicture && !documentPictureInPicture.window) {
     const pictureInPictureWindow = await documentPictureInPicture
       .requestWindow({
         disallowReturnToOpener: true,
@@ -129,7 +148,7 @@ export async function openTrackerPanelWindow({
       })
       .catch(() => null);
     if (pictureInPictureWindow) {
-      return prepareTrackerPanelWindow(pictureInPictureWindow as Window & typeof globalThis, title);
+      return prepareDetachedWindow(pictureInPictureWindow as Window & typeof globalThis, title);
     }
   }
 
@@ -140,22 +159,26 @@ export async function openTrackerPanelWindow({
   ) as (Window & typeof globalThis) | null;
   if (!popup) return null;
 
-  return prepareTrackerPanelWindow(popup, title);
+  return prepareDetachedWindow(popup, title);
 }
 
-export function closeTrackerPanelWindow(target: TrackerPanelWindowTarget) {
+export function closeDetachedWindow(target: DetachedWindowTarget) {
   target.removeOpenerPageHideListener();
   if (!target.popup.closed) target.popup.close();
 }
 
-export function TrackerPanelDetachedWindow({
+/**
+ * Keeps the second window dressed like the app while it is open: moves `host` into its body, mirrors
+ * the stylesheets and the theme, and calls `onClosed` when the user closes it.
+ */
+export function DetachedWindow({
   host,
   onClosed,
   target,
 }: {
   host: HTMLElement;
-  onClosed: (target: TrackerPanelWindowTarget) => void;
-  target: TrackerPanelWindowTarget;
+  onClosed: (target: DetachedWindowTarget) => void;
+  target: DetachedWindowTarget;
 }) {
   useLayoutEffect(() => {
     target.popup.document.body.appendChild(host);
