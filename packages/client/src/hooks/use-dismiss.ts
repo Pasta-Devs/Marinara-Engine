@@ -62,7 +62,8 @@ export function useDismiss(
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (!optionsRef.current.escape || event.key !== "Escape" || event.isComposing) return;
-      if (!layer.isTopmost() || isBrowserExtensionUi(event.target)) return;
+      // A layer whose element already left the page (its open state outlived it) never takes the press.
+      if (!ref.current?.isConnected || !layer.isTopmost() || isBrowserExtensionUi(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
       dismissRef.current();

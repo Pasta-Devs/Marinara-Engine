@@ -70,7 +70,10 @@ export function registerLayer(options: {
   };
   openLayers = [...openLayers, entry];
   let released = false;
-  const sameWindow = () => openLayers.filter((other) => sameDoc(other.doc, entry.doc) && isLive(other));
+  // A layer always counts itself: an unmounting dialog's cleanups run after React cleared its ref, and asking
+  // "am I topmost?" there (to hand focus back) must still say yes.
+  const sameWindow = () =>
+    openLayers.filter((other) => sameDoc(other.doc, entry.doc) && (other === entry || isLive(other)));
   return {
     release: () => {
       if (released) return;

@@ -77,8 +77,10 @@ const underDialog = registerModalOverlay(() => fakeElement());
 const ghost = registerLayer({ kind: "popover", getElement: () => menuElement });
 assert.equal(ghost.isTopmost(), true, "A mounted menu is topmost");
 menuElement = null;
-assert.equal(ghost.isTopmost(), false, "An unmounted menu never takes Escape");
 assert.equal(underDialog.isTopmost(), true, "The dialog under an unmounted menu takes Escape again");
+// The layer itself still counts: an unmounting dialog asks this from its cleanups, after React cleared its ref, to
+// decide whether to hand focus back. (useDismiss checks its own element before taking Escape.)
+assert.equal(ghost.isTopmost(), true, "A layer whose element is gone is still topmost to itself");
 ghost.release();
 underDialog.release();
 
