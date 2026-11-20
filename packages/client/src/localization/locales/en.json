@@ -18824,6 +18824,11 @@
   "window.controls.move": "Move window with the arrow keys",
   "window.controls.pin": "Pin window",
   "window.controls.pinHint": "Keep this window open when you click elsewhere.",
+  "window.controls.popOut": "Open in a separate browser window",
+  "window.controls.popOutBlocked": "Your browser blocked the new window. Allow popups for Marinara and try again.",
+  "window.controls.popOutFailed": "The window could not be opened. Check this site's picture-in-picture permission and try again.",
+  "window.controls.popOutHint": "Open this window in a separate browser window, to keep it beside Marinara or on another screen.",
+  "window.controls.putBack": "Put back into Marinara",
   "window.controls.resize": "Resize window with the arrow keys",
   "window.controls.unlockHint": "Let this window move and resize, and its button move again.",
   "window.controls.unpinHint": "Let this window close when you click elsewhere."
