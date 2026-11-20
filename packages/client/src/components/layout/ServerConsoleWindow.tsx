@@ -95,11 +95,14 @@ function formatFilenameStamp(date: Date): string {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
 }
 
-const TOOLBAR_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem] max-md:min-h-11!";
+// Phone sizing follows the app's phone layout, not this window's width: popped out into a narrow
+// browser window, the console is still a desktop window.
+const TOOLBAR_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
 
 export function ServerConsoleWindow() {
   const { t } = useTranslation();
   const phoneLayout = useMatchMedia(PHONE_LAYOUT_QUERY);
+  const toolbarButtonClass = cn(TOOLBAR_BUTTON_CLASS, phoneLayout && "min-h-11!");
   const debugMode = useUIStore((s) => s.debugMode);
   const setDebugMode = useUIStore((s) => s.setDebugMode);
   const { rows, logLevel, error, loaded, clear } = useServerConsoleLogs(true);
@@ -168,7 +171,8 @@ export function ServerConsoleWindow() {
     visibleRows.map((row) => (row.kind === "gap" ? `-- ${t("serverConsole.gap")} --` : row.text)).join("\n");
 
   const handleCopy = async () => {
-    if (await copyToClipboard(getVisibleText())) toast.success(t("serverConsole.copied"));
+    if (await copyToClipboard(getVisibleText(), scrollRef.current?.ownerDocument.defaultView ?? window))
+      toast.success(t("serverConsole.copied"));
     else toast.error(t("serverConsole.copyFailed"));
   };
 
@@ -199,6 +203,7 @@ export function ServerConsoleWindow() {
       titleIcon={<Terminal size="0.8125rem" className="mari-chrome-accent-icon shrink-0" />}
       closeLabel={t("serverConsole.close")}
       presentation={phoneLayout ? "sheet" : "window"}
+      poppable={{ title: t("serverConsole.title") }}
       layer="top"
       sheetClassName={cn(PHONE_SHEET_CLASS, PHONE_FULL_SHEET_CLASS, "z-[calc(var(--mari-layer-omnibar)_+_1)]")}
       getDefaultLayout={getServerConsoleDefaultLayout}
@@ -223,7 +228,7 @@ export function ServerConsoleWindow() {
               type="button"
               aria-pressed={enabledLevels.has(level)}
               onClick={() => toggleLevel(level)}
-              className={cn(TOOLBAR_BUTTON_CLASS, "mari-chrome-control--chip max-md:px-3")}
+              className={cn(toolbarButtonClass, "mari-chrome-control--chip", phoneLayout && "px-3")}
             >
               {t(`serverConsole.level.${level}`)}
             </button>
@@ -237,15 +242,15 @@ export function ServerConsoleWindow() {
           className="mari-chrome-field--compact min-w-0 flex-1 basis-32"
         />
         <div className="flex items-center gap-1">
-          <button type="button" onClick={() => void handleCopy()} className={TOOLBAR_BUTTON_CLASS}>
+          <button type="button" onClick={() => void handleCopy()} className={toolbarButtonClass}>
             <Copy size="0.75rem" className="shrink-0" />
             <span>{t("serverConsole.copy")}</span>
           </button>
-          <button type="button" onClick={handleDownload} className={TOOLBAR_BUTTON_CLASS}>
+          <button type="button" onClick={handleDownload} className={toolbarButtonClass}>
             <Download size="0.75rem" className="shrink-0" />
             <span>{t("serverConsole.download")}</span>
           </button>
-          <button type="button" onClick={clear} className={TOOLBAR_BUTTON_CLASS}>
+          <button type="button" onClick={clear} className={toolbarButtonClass}>
             <Eraser size="0.75rem" className="shrink-0" />
             <span>{t("serverConsole.clear")}</span>
           </button>
@@ -285,7 +290,7 @@ export function ServerConsoleWindow() {
           <button
             type="button"
             onClick={jumpToLatest}
-            className={cn(TOOLBAR_BUTTON_CLASS, "absolute bottom-3 right-4 shadow-lg")}
+            className={cn(toolbarButtonClass, "absolute bottom-3 right-4 shadow-lg")}
           >
             <ArrowDown size="0.75rem" className="shrink-0" />
             <span>{t("serverConsole.jumpToLatest")}</span>
@@ -305,7 +310,7 @@ export function ServerConsoleWindow() {
             {logLevel ? t("serverConsole.logLevel", { level: logLevel }) : ""}
           </span>
           {canOpenTermux && (
-            <button type="button" onClick={handleOpenTermux} className={TOOLBAR_BUTTON_CLASS}>
+            <button type="button" onClick={handleOpenTermux} className={toolbarButtonClass}>
               <ExternalLink size="0.75rem" className="shrink-0" />
               <span>{t("serverConsole.openTermux")}</span>
             </button>

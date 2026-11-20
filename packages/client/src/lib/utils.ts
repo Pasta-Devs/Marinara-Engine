@@ -17,7 +17,10 @@ export function generateClientId(): string {
 }
 
 /** Copy text to clipboard with fallback for insecure contexts (HTTP / Tailscale). */
-export async function copyToClipboard(text: string): Promise<boolean> {
+/** `targetWindow`: the window the user is in, for a surface popped out into a separate browser window
+ *  (DetachedWindow); the clipboard refuses a write from a window without focus. */
+export async function copyToClipboard(text: string, targetWindow: Window = window): Promise<boolean> {
+  const { navigator, document } = targetWindow;
   if (navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text);
