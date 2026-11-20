@@ -148,6 +148,22 @@ test("gallery regeneration preserves structured prompts and can revise, generate
 
     await openGalleryImage(drawer, legacy.prompt);
     await expect(dialog.getByText(legacy.prompt, { exact: true })).toBeVisible();
+    const originalViewport = page.viewportSize();
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await expect
+      .poll(async () => {
+        const imageBounds = await dialog.getByRole("img").first().boundingBox();
+        const closeBounds = await dialog.getByRole("button", { name: "Close image", exact: true }).boundingBox();
+        const previousBounds = await dialog.getByRole("button", { name: "Previous image", exact: true }).boundingBox();
+        if (!imageBounds || !closeBounds || !previousBounds) return false;
+        return (
+          Math.abs(closeBounds.x + closeBounds.width - (imageBounds.x + imageBounds.width)) <= 60 &&
+          Math.abs(closeBounds.y - imageBounds.y) <= 12 &&
+          Math.abs(previousBounds.x + previousBounds.width - imageBounds.x) <= 60
+        );
+      })
+      .toBe(true);
+    if (originalViewport) await page.setViewportSize(originalViewport);
     await expect(dialog.getByRole("button", { name: "Copy Negative prompt", exact: true })).toHaveCount(0);
     await regenerate.click();
     await expect(dialog.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(legacy.prompt);

@@ -3,6 +3,7 @@
 // Zoom + pan, optional gallery (arrows, swipe, filmstrip), toolbar and caption slots.
 // ──────────────────────────────────────────────
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -33,6 +34,13 @@ const isTopModal = (el: Element | null) => {
   return !!el && modals[modals.length - 1] === el.closest(".mari-modal");
 };
 
+interface ImageControlBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 interface ZoomStageProps {
   src: string;
   alt: string;
@@ -41,10 +49,11 @@ interface ZoomStageProps {
   onSwipe?: (direction: 1 | -1) => void;
   /** A tap on the empty space around the picture. */
   onBackgroundTap: () => void;
+  onFitChange: (src: string, bounds: ImageControlBounds) => void;
 }
 
 /** The picture itself: double-tap, wheel and pinch zoom, drag to pan. Remount it (key) to reset the zoom. */
-function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap }: ZoomStageProps) {
+function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap, onFitChange }: ZoomStageProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [view, setView] = useState({ s: 1, x: 0, y: 0 });
@@ -63,6 +72,32 @@ function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap }: ZoomSta
     lastTapX: 0,
     lastTapY: 0,
   });
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    const image = imgRef.current;
+    if (!stage || !image) return;
+    const measure = () => {
+      if (!image.naturalWidth || !image.offsetWidth) return;
+      // Use the fitted size, not the transformed zoom/pan rectangle, so tools stay put while zooming.
+      const width = Math.min(stage.clientWidth, Math.max(320, image.offsetWidth + 104));
+      onFitChange(src, {
+        left: (stage.clientWidth - width) / 2,
+        top: image.offsetTop,
+        width,
+        height: Math.max(44, image.offsetHeight),
+      });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(stage);
+    observer.observe(image);
+    image.addEventListener("load", measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      image.removeEventListener("load", measure);
+    };
+  }, [src, onFitChange]);
 
   const apply = (scale: number, x: number, y: number) => {
     const s = clamp(scale, 1, MAX_ZOOM);
@@ -271,6 +306,10 @@ export function ImageViewer({
   // Keyed by picture so a swap (gallery step, regenerate) never leaves the arrows stuck off.
   const [zoomedSrc, setZoomedSrc] = useState<string | null>(null);
   const filmstripSelectedRef = useRef<HTMLButtonElement>(null);
+  const [controlBounds, setControlBounds] = useState<{ src: string; bounds: ImageControlBounds } | null>(null);
+  const onFitChange = useCallback((imageSrc: string, bounds: ImageControlBounds) => {
+    setControlBounds({ src: imageSrc, bounds });
+  }, []);
 
   useEffect(() => {
     if (media) setZoomedSrc(null);
@@ -340,50 +379,60 @@ export function ImageViewer({
             onZoomChange={(isZoomed) => setZoomedSrc(isZoomed ? shownSrc : null)}
             onSwipe={gallery ? (direction) => go(index + direction) : undefined}
             onBackgroundTap={() => !closeDisabled && onClose()}
+            onFitChange={onFitChange}
           />
         )}
-        {gallery && (
-          <span
-            role="status"
-            className="absolute left-2 top-2 z-10 rounded-lg bg-black/60 px-2.5 py-1.5 text-sm tabular-nums text-white"
-          >
-            {t("ui.imageviewer.position", { current: index + 1, total: count })}
-          </span>
-        )}
-        {gallery && (
-          <>
+        <div
+          className="pointer-events-none absolute inset-0 [&_button]:pointer-events-auto"
+          style={
+            !media && controlBounds?.src === shownSrc
+              ? { ...controlBounds.bounds, bottom: "auto", right: "auto" }
+              : undefined
+          }
+        >
+          {gallery && (
+            <span
+              role="status"
+              className="absolute left-2 top-2 z-10 rounded-lg bg-black/60 px-2.5 py-1.5 text-sm tabular-nums text-white"
+            >
+              {t("ui.imageviewer.position", { current: index + 1, total: count })}
+            </span>
+          )}
+          {gallery && (
+            <>
+              <button
+                type="button"
+                className={cn(arrowClass, "left-2")}
+                onClick={() => go(index - 1)}
+                disabled={zoomed || index <= 0}
+                aria-label={t("ui.imageviewer.previousImage")}
+              >
+                <ChevronLeft size="1.25rem" />
+              </button>
+              <button
+                type="button"
+                className={cn(arrowClass, "right-2")}
+                onClick={() => go(index + 1)}
+                disabled={zoomed || index >= count - 1}
+                aria-label={t("ui.imageviewer.nextImage")}
+              >
+                <ChevronRight size="1.25rem" />
+              </button>
+            </>
+          )}
+          <div className="absolute right-2 top-2 z-10 flex gap-2">
+            {actions}
             <button
               type="button"
-              className={cn(arrowClass, "left-2")}
-              onClick={() => go(index - 1)}
-              disabled={zoomed || index <= 0}
-              aria-label={t("ui.imageviewer.previousImage")}
+              ref={closeRef}
+              onClick={onCloseButton ?? onClose}
+              disabled={closeDisabled}
+              aria-label={closeLabel ?? t("ui.chat.chatimagelightbox.closeImage")}
+              className={VIEWER_BUTTON_CLASS}
             >
-              <ChevronLeft size="1.25rem" />
+              <X size="0.875rem" />
             </button>
-            <button
-              type="button"
-              className={cn(arrowClass, "right-2")}
-              onClick={() => go(index + 1)}
-              disabled={zoomed || index >= count - 1}
-              aria-label={t("ui.imageviewer.nextImage")}
-            >
-              <ChevronRight size="1.25rem" />
-            </button>
-          </>
-        )}
-        <div className="absolute right-2 top-2 z-10 flex gap-2">
-          {actions}
-          <button
-            type="button"
-            ref={closeRef}
-            onClick={onCloseButton ?? onClose}
-            disabled={closeDisabled}
-            aria-label={closeLabel ?? t("ui.chat.chatimagelightbox.closeImage")}
-            className={VIEWER_BUTTON_CLASS}
-          >
-            <X size="0.875rem" />
-          </button>
+          </div>
         </div>
       </div>
       {children && (
