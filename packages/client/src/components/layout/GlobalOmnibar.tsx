@@ -348,7 +348,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const [mariHeaderSlot, setMariHeaderSlot] = useState<HTMLDivElement | null>(null);
   // A wide window (not docked beside an editor) has room for her destinations on her name's line, one
   // header row like her full page's. Narrower windows keep them on a second row.
-  const wideMariWindow = useMatchMedia("(min-width: 48rem)");
+  const wideMariWindow = useMatchMedia("(min-width: 40rem)");
   const [mariStatusSlot, setMariStatusSlot] = useState<HTMLSpanElement | null>(null);
   const [mariMenuSlot, setMariMenuSlot] = useState<HTMLSpanElement | null>(null);
   const mariReturnResultIdRef = useRef<string | null>(mariReturnResultId);

@@ -2507,7 +2507,7 @@ html[data-marinara-effects-paused="true"] .mari-pull-overlay[data-mari-edge] .ma
   border-bottom: 1px solid color-mix(in srgb, var(--mari-workspace-blush) 18%, var(--border));
 }
 
-/* It only shows from 48rem, where everything fits, so it takes its full width and never scrolls (WebKit
+/* It only shows from 40rem (phones keep two rows), where everything fits, so it takes its full width and never scrolls (WebKit
    sized the scrolling row a little short and hid New chat). Her name truncates first. */
 .mari-omnibar-header-inline {
   display: flex;
