@@ -126,10 +126,15 @@ test("gallery regeneration preserves structured prompts and can revise, generate
         await route.fulfill({ status: 502, json: { error: "Image provider unavailable" } });
         return;
       }
-      generatedPrompt = body.prompt;
+      const returnedPrompt = `${body.prompt} (synced)`;
+      generatedPrompt = returnedPrompt;
       await route.fulfill({
         json: {
-          image: { ...image, prompt: body.prompt, generation: JSON.stringify(buildChatImageGenerationRecord(body)) },
+          image: {
+            ...image,
+            prompt: returnedPrompt,
+            generation: JSON.stringify(buildChatImageGenerationRecord({ ...body, prompt: returnedPrompt })),
+          },
           replacedMessageIds: [],
           replacedKeyframeIds: [],
         },
@@ -172,7 +177,7 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await expect(dialog.getByText(displayPrompt, { exact: true })).toHaveCount(0);
 
     const preview = dialog.getByRole("img");
-    const copyPrompt = dialog.getByRole("button", { name: "Copy Prompt", exact: true });
+    const copyPrompt = dialog.getByRole("button", { name: "Copy Positive prompt", exact: true });
     await expect.poll(() => preview.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(640);
     await expect
       .poll(async () => {
@@ -193,6 +198,9 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     const revise = dialog.getByRole("button", { name: "Revise prompt", exact: true });
     const generate = dialog.getByRole("button", { name: "Generate image", exact: true });
     const combined = dialog.getByRole("button", { name: "Revise & generate", exact: true });
+    const cancel = dialog.getByRole("button", { name: "Cancel", exact: true });
+    await expect(generate).toBeVisible();
+    await expect(combined).toHaveCount(0);
     await expect(prompt).toHaveValue(original.prompt);
     await expect(negative).toHaveValue(original.negativePrompt);
     await expect(mira).toHaveValue(original.characterPrompts[0]!.prompt);
@@ -250,6 +258,8 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await yPosition.fill("0.65");
     await yPosition.blur();
     await generate.click();
+    await expect(prompt).toHaveValue("Manual harbor edit (synced)");
+    await cancel.click();
     await expect(regenerate).toBeVisible();
     expect(requests).toEqual([
       {
@@ -264,7 +274,7 @@ test("gallery regeneration preserves structured prompts and can revise, generate
         }),
       },
     ]);
-    expect(generatedPrompt).toBe("Manual harbor edit");
+    expect(generatedPrompt).toBe("Manual harbor edit (synced)");
 
     await dialog.getByRole("button", { name: "Close image", exact: true }).click();
     await openGalleryImage(drawer, displayPrompt);
@@ -285,11 +295,14 @@ test("gallery regeneration preserves structured prompts and can revise, generate
 
     await prompt.fill("Harbor sketch, low angle");
     await guidance.fill("Change the scene to sunrise and make Mira's coat yellow.");
+    await expect(combined).toBeVisible();
+    await expect(generate).toHaveCount(0);
     failImage = true;
     await combined.click();
     await expect(dialog.getByRole("alert")).toContainText("Image provider unavailable");
     await expect(prompt).toHaveValue(revised.prompt);
     await expect(miraNegative).toHaveValue(revised.characterPrompts[0]!.negativePrompt!);
+    await expect(generate).toBeVisible();
     expect(requests.slice(2)).toEqual([
       {
         action: "revise",
@@ -308,10 +321,149 @@ test("gallery regeneration preserves structured prompts and can revise, generate
 
     failImage = false;
     await generate.click();
+    await expect(prompt).toHaveValue(`${revised.prompt} (synced)`);
+    await cancel.click();
     await expect(regenerate).toBeVisible();
     expect(requests.slice(4)).toEqual([{ action: "generate", body: expect.objectContaining(revised) }]);
-    expect(generatedPrompt).toBe(revised.prompt);
-    await expect(dialog.getByText(revised.prompt, { exact: true })).toBeVisible();
+    expect(generatedPrompt).toBe(`${revised.prompt} (synced)`);
+    await expect(dialog.getByText(`${revised.prompt} (synced)`, { exact: true })).toBeVisible();
+  } finally {
+    await request.delete(`/api/chats/${chatId}`);
+  }
+});
+
+test("novelai edit mode supports img2img, painted mask infill, seed reuse, and stays open on edit", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  const response = await request.post("/api/chats", {
+    data: { name: "NovelAI harbor", mode: "roleplay", characterIds: [], connectionId: "synthetic" },
+  });
+  expect(response.ok()).toBeTruthy();
+  const { id: chatId } = (await response.json()) as { id: string };
+
+  try {
+    const png = await sharp({ create: { width: 640, height: 360, channels: 3, background: "#164e63" } })
+      .png()
+      .toBuffer();
+    const recordInput = {
+      prompt: "1girl, harbor at dusk",
+      negativePrompt: "lowres",
+      connectionId: "nai-edit-e2e",
+      seed: 424242,
+    };
+    const image = await upload(request, chatId, recordInput.prompt, png);
+
+    await page.route("**/api/connections", (route) =>
+      route.fulfill({
+        json: [
+          {
+            id: "nai-edit-e2e",
+            name: "NovelAI E2E",
+            provider: "image_generation",
+            baseUrl: "https://image.novelai.net",
+            imageService: "novelai",
+            model: "nai-diffusion-5-full",
+            defaultForAgents: true,
+          },
+        ],
+      }),
+    );
+
+    await page.route(`**/api/gallery/${chatId}`, async (route) => {
+      const upstream = await route.fetch();
+      const rows = (await upstream.json()) as ChatImage[];
+      await route.fulfill({
+        response: upstream,
+        json: rows.map((row) =>
+          row.id === image.id
+            ? { ...row, generation: JSON.stringify(buildChatImageGenerationRecord(recordInput)) }
+            : row,
+        ),
+      });
+    });
+
+    const editRequests: Array<Record<string, unknown>> = [];
+    await page.route(`**/api/gallery/${chatId}/images/${image.id}/regenerate`, async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      editRequests.push(body);
+      const syncedPrompt = `${String(body.prompt ?? "")} (step ${editRequests.length})`;
+      await route.fulfill({
+        json: {
+          image: {
+            ...image,
+            prompt: syncedPrompt,
+            generation: JSON.stringify(
+              buildChatImageGenerationRecord({
+                prompt: syncedPrompt,
+                negativePrompt: String(body.negativePrompt ?? ""),
+                connectionId: "nai-edit-e2e",
+                seed: 424242,
+              }),
+            ),
+          },
+          replacedMessageIds: [],
+          replacedKeyframeIds: [],
+        },
+      });
+    });
+
+    await openChat(page, chatId);
+    const drawer = await openChatSettingsTool(page, "gallery");
+    const dialog = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await openGalleryImage(drawer, image.prompt);
+    await dialog.getByRole("button", { name: "Regenerate image", exact: true }).click();
+
+    const editModeBtn = dialog.getByRole("button", { name: "Edit image", exact: true });
+    await expect(editModeBtn).toBeVisible();
+    await editModeBtn.click();
+
+    const maskCanvas = dialog.getByLabel("Inpainting mask brush canvas");
+    await expect(maskCanvas).toBeVisible();
+    await expect(dialog.getByText("Img2Img", { exact: true })).toBeVisible();
+    const invertBtn = dialog.getByRole("button", { name: "Invert mask", exact: true });
+    await expect(invertBtn).toBeDisabled();
+    await dialog.getByRole("checkbox", { name: /Reuse original seed/ }).check();
+
+    const applyEdit = dialog.getByRole("button", { name: "Apply edit", exact: true });
+    await applyEdit.click();
+
+    const promptField = dialog.getByRole("textbox", { name: "Prompt", exact: true });
+    await expect(promptField).toHaveValue("1girl, harbor at dusk (step 1)");
+    expect(editRequests[0]).toEqual(
+      expect.objectContaining({
+        editMode: "img2img",
+        strength: 0.7,
+        noise: 0,
+        reuseSeed: true,
+        connectionId: "nai-edit-e2e",
+      }),
+    );
+
+    const box = await maskCanvas.boundingBox();
+    expect(box).toBeTruthy();
+    await page.mouse.move(box!.x + box!.width * 0.4, box!.y + box!.height * 0.4);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width * 0.6, box!.y + box!.height * 0.6, { steps: 5 });
+    await page.mouse.up();
+
+    await expect(dialog.getByText("Inpainting mask active", { exact: true })).toBeVisible();
+    await expect(invertBtn).toBeEnabled();
+    await invertBtn.click();
+
+    const inpaintBtn = dialog.getByRole("button", { name: "Inpaint image", exact: true });
+    await expect(inpaintBtn).toBeVisible();
+    await inpaintBtn.click();
+    await expect(promptField).toHaveValue("1girl, harbor at dusk (step 1) (step 2)");
+    expect(editRequests[1]).toEqual(
+      expect.objectContaining({
+        editMode: "infill",
+        strength: 1,
+        connectionId: "nai-edit-e2e",
+      }),
+    );
+    expect(String(editRequests[1]?.maskImage ?? "")).toMatch(/^data:image\/png;base64,/);
   } finally {
     await request.delete(`/api/chats/${chatId}`);
   }

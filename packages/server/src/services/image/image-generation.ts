@@ -9,7 +9,7 @@ import { sleep } from "../../utils/sleep.js";
 import { createHash, createHmac, randomBytes, randomUUID } from "crypto";
 import { existsSync, mkdirSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
-import { inflateRawSync } from "zlib";
+import { inflateRawSync, inflateSync } from "zlib";
 import { WebSocket } from "undici";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { newId } from "../../utils/id-generator.js";
@@ -24,6 +24,7 @@ import {
   mergeNegativePrompt,
   mergePromptPrefix,
   imageConnectionMakesAnimatedGif,
+  isNativeNovelAiUrl,
   isOpenAIGptImageModel,
   isOpenAIGptImage2Model,
   isOpenAIGptImage25Model,
@@ -249,6 +250,10 @@ export const IMAGE_ANIMATION_REFERENCE_MESSAGE =
 /** Shown when a GIF request comes back as a still, which is never saved in its place. */
 export const IMAGE_ANIMATION_STILL_MESSAGE = "The image service sent back a still picture instead of a GIF.";
 
+export class NovelAiEditInputError extends Error {}
+
+const NOVELAI_EDIT_NATIVE_ONLY_MESSAGE = "Image-to-image and inpainting edits require a native NovelAI connection.";
+
 /** A GIF request generateImage refuses before any paid call; routes answer it with 400 and its `code`. */
 export class ImageAnimationUnsupportedError extends Error {
   readonly code = "animation-unsupported";
@@ -316,6 +321,17 @@ export async function generateImage(
   request: ImageGenRequest,
 ): Promise<ImageGenResult> {
   const resolvedSource = resolveImageBackend(source, baseUrl, serviceHint, request.model);
+  const normalizedBaseUrl = normalizeImageUrl(baseUrl);
+  const isNativeNovelAiTarget = resolvedSource === "novelai" && isNativeNovelAiUrl(normalizedBaseUrl);
+  if (request.editMode && !isNativeNovelAiTarget) {
+    throw new NovelAiEditInputError(NOVELAI_EDIT_NATIVE_ONLY_MESSAGE);
+  }
+  if (request.maskImage && request.editMode !== "infill") {
+    throw new NovelAiEditInputError("A mask image is only valid for inpainting edits.");
+  }
+  if (request.seedOverride !== undefined && !isNativeNovelAiTarget) {
+    throw new NovelAiEditInputError("Reusing the original seed requires a native NovelAI connection.");
+  }
   if (request.animation) {
     // Refused before any queue slot or paid call. An empty reference list or field is no picture.
     if (!imageConnectionMakesAnimatedGif({ source, baseUrl, serviceHint, model: request.model })) {
@@ -325,7 +341,6 @@ export async function generateImage(
       throw new ImageAnimationUnsupportedError(IMAGE_ANIMATION_REFERENCE_MESSAGE);
     }
   }
-  const normalizedBaseUrl = normalizeImageUrl(baseUrl);
   // Providers without native captions still need the identities and current outfits
   // the prompt writer put there, including when a NovelAI request falls back.
   const flattenedPrompt =
@@ -456,12 +471,25 @@ export async function generateImage(
       : storedResult;
   } catch (error) {
     const fallback = request.fallback;
-    if (error instanceof ToAPIsSubmittedTaskError) throw error;
+    if (error instanceof ToAPIsSubmittedTaskError || error instanceof NovelAiEditInputError) throw error;
     // The deadline races the worker, so it can arrive before the worker wraps its aborted task.
     if (error instanceof ImageGenerationDeadlineError && toAPIsSubmissionStarted) {
       throw new ToAPIsSubmittedTaskError(error);
     }
     if (!fallback || request.signal?.aborted || isConnectionAdmissionFailure(error)) throw error;
+    if (
+      (request.editMode || request.seedOverride !== undefined) &&
+      (resolveImageBackend(fallback.source, fallback.baseUrl, fallback.serviceHint, fallback.model) !== "novelai" ||
+        !isNativeNovelAiUrl(fallback.baseUrl))
+    ) {
+      logger.warn(
+        error,
+        "[illustrator-fallback] Primary NovelAI %s failed; skipped non-NovelAI fallback connection %s",
+        request.editMode ? "edit" : "seed-reuse generation",
+        fallback.connectionId,
+      );
+      throw error;
+    }
     // An edit drawn without its picture is a new picture, so a fallback that drops the picture is not tried.
     if (request.referenceIsCanvas && !imageConnectionTakesReferencePicture(fallback)) {
       logger.warn(
@@ -2625,6 +2653,39 @@ function clampNovelAiDimension(value: number): number {
   return Math.max(NOVELAI_MIN_DIMENSION, Math.min(NOVELAI_MAX_DIMENSION, rounded));
 }
 
+export function clampNovelAiCanvasSize(rawWidth: number, rawHeight: number): { width: number; height: number } {
+  const safeWidth = Number.isFinite(rawWidth) && rawWidth > 0 ? rawWidth : NOVELAI_MIN_DIMENSION;
+  const safeHeight = Number.isFinite(rawHeight) && rawHeight > 0 ? rawHeight : NOVELAI_MIN_DIMENSION;
+  // Apply one shared scale factor before rounding to 64 px multiples so oversized non-square
+  // sources keep their aspect ratio instead of collapsing to a square.
+  const scale = Math.min(
+    NOVELAI_MAX_DIMENSION / safeWidth,
+    NOVELAI_MAX_DIMENSION / safeHeight,
+    Math.sqrt(NOVELAI_MAX_PIXELS / (safeWidth * safeHeight)),
+    1,
+  );
+  if (scale < 1) {
+    const width = Math.max(
+      NOVELAI_MIN_DIMENSION,
+      Math.min(NOVELAI_MAX_DIMENSION, Math.floor((safeWidth * scale) / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE),
+    );
+    const height = Math.max(
+      NOVELAI_MIN_DIMENSION,
+      Math.min(NOVELAI_MAX_DIMENSION, Math.floor((safeHeight * scale) / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE),
+    );
+    return { width, height };
+  }
+
+  const width = clampNovelAiDimension(safeWidth);
+  const height = clampNovelAiDimension(safeHeight);
+  if (width * height <= NOVELAI_MAX_PIXELS) return { width, height };
+
+  return {
+    width: Math.max(NOVELAI_MIN_DIMENSION, Math.floor(safeWidth / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE),
+    height: Math.max(NOVELAI_MIN_DIMENSION, Math.floor(safeHeight / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE),
+  };
+}
+
 export function detectNovelAiSubjectCount(prompt: string): number | null {
   const [baseFragment = ""] = prompt.split("|", 1);
   const subjectTokens = baseFragment.matchAll(/\b(\d+)\s*(?:girls?|boys?|others?)\b/gi);
@@ -2651,18 +2712,7 @@ export function resolveNovelAiSize(
     if (subjectCount !== null && subjectCount >= 3) return { width: 1216, height: 832 };
   }
 
-  let width = clampNovelAiDimension(request.width ?? 832);
-  let height = clampNovelAiDimension(request.height ?? 1216);
-  const pixels = width * height;
-  if (pixels <= NOVELAI_MAX_PIXELS) return { width, height };
-
-  const scale = Math.sqrt(NOVELAI_MAX_PIXELS / pixels);
-  width = Math.max(NOVELAI_MIN_DIMENSION, Math.floor((width * scale) / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE);
-  height = Math.max(
-    NOVELAI_MIN_DIMENSION,
-    Math.floor((height * scale) / NOVELAI_SIZE_MULTIPLE) * NOVELAI_SIZE_MULTIPLE,
-  );
-  return { width, height };
+  return clampNovelAiCanvasSize(request.width ?? 832, request.height ?? 1216);
 }
 
 /** Resolve the native NovelAI request size from scene content only, excluding the connection Prompt Prefix. */
@@ -2681,14 +2731,21 @@ export function resolveNovelAiStyleReferenceSecondaryStrength(fidelity: number):
   return 1 - Math.max(0, Math.min(1, fidelity));
 }
 
+export function resolveNovelAiInpaintingModel(model: string): string {
+  const trimmed = model.trim() || "nai-diffusion-4-5-full";
+  if (/-inpainting$/i.test(trimmed)) return trimmed;
+  if (/^nai-diffusion-4-curated-preview$/i.test(trimmed)) return "nai-diffusion-4-curated-inpainting";
+  return `${trimmed}-inpainting`;
+}
+
 function isNovelAiV4Model(model: string): boolean {
-  return /^nai-diffusion-(?:4(?:-(?:curated-preview|full))?|4-5(?:-(?:curated|full))?|5(?:-(?:curated|full))?)$/i.test(
+  return /^nai-diffusion-(?:4(?:-(?:curated-preview|curated|full))?|4-5(?:-(?:curated|full))?|5(?:-(?:curated|full))?)(?:-inpainting)?$/i.test(
     model.trim(),
   );
 }
 
 function isNovelAiV5Model(model: string): boolean {
-  return /^nai-diffusion-5(?:-(?:curated|full))?$/i.test(model.trim());
+  return /^nai-diffusion-5(?:-(?:curated|full))?(?:-inpainting)?$/i.test(model.trim());
 }
 
 /**
@@ -2725,7 +2782,11 @@ export function withNovelAiBackgroundDataset(
   sceneBackground: boolean | undefined,
   enabled: boolean,
 ): string {
-  if (!sceneBackground || !enabled || !/^nai-diffusion-(?:4-5|5)(?:-(?:curated|full))?$/i.test(model.trim())) {
+  if (
+    !sceneBackground ||
+    !enabled ||
+    !/^nai-diffusion-(?:4-5|5)(?:-(?:curated|full))?(?:-inpainting)?$/i.test(model.trim())
+  ) {
     return prompt;
   }
   const rest = prompt.trimStart();
@@ -2734,7 +2795,130 @@ export function withNovelAiBackgroundDataset(
 }
 
 function isNovelAiPreciseReferenceModel(model: string): boolean {
-  return /^nai-diffusion-(?:4-5)(?:-(?:curated|full))?$/i.test(model.trim());
+  return /^nai-diffusion-(?:4-5)(?:-(?:curated|full))?(?:-inpainting)?$/i.test(model.trim());
+}
+
+/** Normalize the edit source canvas and optional 8x8 binary infill mask to matching PNG dimensions. */
+export async function prepareNovelAiEditInputs(
+  sourceImage: string,
+  maskImage?: string,
+): Promise<{ width: number; height: number; imageBase64: string; maskBase64?: string }> {
+  let sourceBuffer: Buffer;
+  try {
+    sourceBuffer = Buffer.from(decodeReferenceImage(sourceImage).base64, "base64");
+  } catch (err) {
+    const detail = err instanceof Error ? ` ${err.message}` : "";
+    throw new NovelAiEditInputError(`NovelAI edit source image could not be decoded.${detail}`);
+  }
+
+  const sharpFn = await tryLoadSharp();
+  if (!sharpFn) {
+    throw new Error(
+      "NovelAI image editing requires server image preprocessing, but the optional sharp dependency is unavailable.",
+    );
+  }
+
+  let metadata: { width?: number; height?: number };
+  try {
+    metadata = await sharpFn(sourceBuffer, { limitInputPixels: NOVELAI_REFERENCE_MAX_INPUT_PIXELS }).metadata();
+  } catch (err) {
+    const detail = err instanceof Error ? ` ${err.message}` : "";
+    throw new NovelAiEditInputError(`NovelAI edit source image could not be read.${detail}`);
+  }
+  if (!metadata.width || !metadata.height) {
+    throw new NovelAiEditInputError("NovelAI edit source image dimensions could not be read.");
+  }
+
+  const size = clampNovelAiCanvasSize(metadata.width, metadata.height);
+  let preparedSource: Buffer;
+  try {
+    preparedSource = await sharpFn(sourceBuffer, {
+      limitInputPixels: NOVELAI_REFERENCE_MAX_INPUT_PIXELS,
+    })
+      .resize(size.width, size.height, { fit: "fill" })
+      .png()
+      .toBuffer();
+  } catch (err) {
+    const detail = err instanceof Error ? ` ${err.message}` : "";
+    throw new NovelAiEditInputError(`Source image could not be processed.${detail}`);
+  }
+
+  if (maskImage === undefined) {
+    return {
+      width: size.width,
+      height: size.height,
+      imageBase64: preparedSource.toString("base64"),
+    };
+  }
+
+  let maskBuffer: Buffer;
+  try {
+    maskBuffer = Buffer.from(decodeReferenceImage(maskImage).base64, "base64");
+  } catch (err) {
+    const detail = err instanceof Error ? ` ${err.message}` : "";
+    throw new NovelAiEditInputError(`Inpainting mask could not be decoded.${detail}`);
+  }
+
+  const gridW = Math.max(1, Math.floor(size.width / 8));
+  const gridH = Math.max(1, Math.floor(size.height / 8));
+  let fullMask: { data: Buffer; info: { channels: number } };
+  try {
+    fullMask = await sharpFn(maskBuffer, { limitInputPixels: NOVELAI_REFERENCE_MAX_INPUT_PIXELS })
+      .resize(size.width, size.height, { fit: "fill" })
+      .flatten({ background: { r: 0, g: 0, b: 0 } })
+      .greyscale()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+  } catch (err) {
+    const detail = err instanceof Error ? ` ${err.message}` : "";
+    throw new NovelAiEditInputError(`Inpainting mask could not be processed.${detail}`);
+  }
+
+  const channels = Math.max(1, fullMask.info.channels || 1);
+  const pixelCount = gridW * gridH;
+  const binary = Buffer.alloc(pixelCount);
+  let hasWhitePixel = false;
+  for (let gy = 0; gy < gridH; gy++) {
+    for (let gx = 0; gx < gridW; gx++) {
+      let paintedBlock = false;
+      const baseY = gy * 8;
+      const baseX = gx * 8;
+      for (let dy = 0; dy < 8 && !paintedBlock; dy++) {
+        const rowOffset = (baseY + dy) * size.width;
+        for (let dx = 0; dx < 8; dx++) {
+          const luma = fullMask.data[(rowOffset + baseX + dx) * channels] ?? 0;
+          if (luma > 155) {
+            paintedBlock = true;
+            break;
+          }
+        }
+      }
+      const blockIndex = gy * gridW + gx;
+      if (paintedBlock) {
+        binary[blockIndex] = 255;
+        hasWhitePixel = true;
+      } else {
+        binary[blockIndex] = 0;
+      }
+    }
+  }
+  if (!hasWhitePixel) {
+    throw new NovelAiEditInputError("Inpainting mask is empty. Paint over an area of the image to edit.");
+  }
+
+  const preparedMask: Buffer = await sharpFn(binary, {
+    raw: { width: gridW, height: gridH, channels: 1 },
+  })
+    .resize(size.width, size.height, { fit: "fill", kernel: "nearest" })
+    .png()
+    .toBuffer();
+
+  return {
+    width: size.width,
+    height: size.height,
+    imageBase64: preparedSource.toString("base64"),
+    maskBase64: preparedMask.toString("base64"),
+  };
 }
 
 function collectNovelAiReferenceImages(request: ImageGenRequest): string[] {
@@ -2841,6 +3025,12 @@ function cloneNovelAiRequestForMetadata(body: Record<string, unknown>): Record<s
     }
     if (Array.isArray(parameters.reference_image_multiple)) {
       parameters.reference_image_multiple = parameters.reference_image_multiple.map(() => "[omitted]");
+    }
+    if (typeof parameters.image === "string") {
+      parameters.image = "[omitted]";
+    }
+    if (typeof parameters.mask === "string") {
+      parameters.mask = "[omitted]";
     }
   }
   return metadataBody;
@@ -3002,6 +3192,7 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
   const nativeUrl = new URL(baseUrl);
   const isNativeNovelAI = isNativeNovelAiHost(nativeUrl.hostname);
   if (!isNativeNovelAI) {
+    if (request.editMode) throw new NovelAiEditInputError(NOVELAI_EDIT_NATIVE_ONLY_MESSAGE);
     return generateViaChatCompletions(baseUrl, apiKey, request);
   }
 
@@ -3009,50 +3200,74 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
     throw new Error("Native NovelAI image connections require HTTPS.");
   }
   const url = `${baseUrl.replace(/\/+$/, "")}/ai/generate-image`;
-  const model = request.model || "nai-diffusion-4-5-full";
-  const isV4 = isNovelAiV4Model(model);
+  const baseModel = request.model || "nai-diffusion-4-5-full";
+  const editMode = request.editMode;
+  const requestModel = editMode === "infill" ? resolveNovelAiInpaintingModel(baseModel) : baseModel;
+  const isV4 = isNovelAiV4Model(baseModel);
+  const isV5 = isNovelAiV5Model(baseModel);
   const defaults = resolveNovelAiDefaults(request);
   const transparency = withNovelAiTransparencyTags(
     withNovelAiBackgroundDataset(
       mergePromptPrefix(defaults.promptPrefix, request.prompt),
-      model,
+      baseModel,
       request.sceneBackground,
       defaults.backgroundDataset,
     ),
     mergeNegativePrompt(defaults.negativePromptPrefix, request.negativePrompt),
-    model,
+    baseModel,
     request.transparentBackground,
   );
-  const prompt = prepareNovelAiPrompt(transparency.prompt, "prompt", model);
-  const negativePrompt = prepareNovelAiPrompt(transparency.negativePrompt, "negative prompt", model);
-  const seed = resolveSeed(request.imageDefaults);
-  const styleReferenceImage =
-    isNovelAiPreciseReferenceModel(model) && defaults.styleReferenceImage
-      ? collectNovelAiReferenceImages({
-          ...request,
-          referenceImage: defaults.styleReferenceImage,
-          referenceImages: [],
-        })[0]
-      : undefined;
-  const characterReferenceImages = collectNovelAiReferenceImages(request)
-    .filter((reference) => reference !== styleReferenceImage)
-    .slice(0, styleReferenceImage ? 15 : 16);
-  let referenceImages = styleReferenceImage
-    ? [styleReferenceImage, ...characterReferenceImages]
-    : characterReferenceImages;
-  if (referenceImages.length > 0 && !isNovelAiPreciseReferenceModel(model)) {
-    // NovelAI only ships Precise Reference on V4.5; V5 support is still pending upstream.
-    // Render without the references rather than failing the whole illustration.
-    logger.warn(
-      "[novelai] Dropping %d reference image(s): precise reference requires a V4.5 model, got %s",
-      referenceImages.length,
-      model,
+  const prompt = prepareNovelAiPrompt(transparency.prompt, "prompt", baseModel);
+  const negativePrompt = prepareNovelAiPrompt(transparency.negativePrompt, "negative prompt", baseModel);
+  const explicitSeedOverride = readValidSeedNumber(request.seedOverride);
+  const seed = explicitSeedOverride ?? resolveSeed(request.imageDefaults);
+
+  let editInputs: Awaited<ReturnType<typeof prepareNovelAiEditInputs>> | null = null;
+  let styleReferenceImage: string | undefined;
+  let directorReferenceImages: string[] = [];
+  if (editMode) {
+    if (!request.sourceImage?.trim()) {
+      throw new NovelAiEditInputError("Image edit requires a source image.");
+    }
+    if (editMode === "infill" && !request.maskImage?.trim()) {
+      throw new NovelAiEditInputError("Inpainting requires a painted mask.");
+    }
+    editInputs = await prepareNovelAiEditInputs(
+      request.sourceImage,
+      editMode === "infill" ? request.maskImage : undefined,
     );
-    referenceImages = [];
+  } else {
+    styleReferenceImage =
+      isNovelAiPreciseReferenceModel(baseModel) && defaults.styleReferenceImage
+        ? collectNovelAiReferenceImages({
+            ...request,
+            referenceImage: defaults.styleReferenceImage,
+            referenceImages: [],
+          })[0]
+        : undefined;
+    const characterReferenceImages = collectNovelAiReferenceImages(request)
+      .filter((reference) => reference !== styleReferenceImage)
+      .slice(0, styleReferenceImage ? 15 : 16);
+    let referenceImages = styleReferenceImage
+      ? [styleReferenceImage, ...characterReferenceImages]
+      : characterReferenceImages;
+    if (referenceImages.length > 0 && !isNovelAiPreciseReferenceModel(baseModel)) {
+      // NovelAI only ships Precise Reference on V4.5; V5 support is still pending upstream.
+      // Render without the references rather than failing the whole illustration.
+      logger.warn(
+        "[novelai] Dropping %d reference image(s): precise reference requires a V4.5 model, got %s",
+        referenceImages.length,
+        baseModel,
+      );
+      referenceImages = [];
+    }
+    directorReferenceImages = await prepareNovelAiDirectorReferenceImages(referenceImages);
   }
-  const directorReferenceImages = await prepareNovelAiDirectorReferenceImages(referenceImages);
-  const characterPromptPayload = buildNovelAiV4CharacterPromptPayload(request.characterPrompts, model);
-  const size = resolveNovelAiRequestSize(request, defaults);
+
+  const characterPromptPayload = buildNovelAiV4CharacterPromptPayload(request.characterPrompts, baseModel);
+  const size = editInputs
+    ? { width: editInputs.width, height: editInputs.height }
+    : resolveNovelAiRequestSize(request, defaults);
 
   const parameters: Record<string, unknown> = {
     width: size.width,
@@ -3105,16 +3320,103 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
       index < styleReferenceOffset ? resolveNovelAiStyleReferenceSecondaryStrength(defaults.styleReferenceFidelity) : 0,
     );
   }
+  if (editMode === "img2img" && editInputs) {
+    const strength = Math.round(Math.min(0.99, Math.max(0.01, request.strength ?? 0.7)) * 1000) / 1000;
+    const noise = Math.round(Math.min(0.99, Math.max(0, request.noise ?? 0)) * 1000) / 1000;
+    parameters.image = editInputs.imageBase64;
+    parameters.strength = strength;
+    parameters.noise = noise;
+    parameters.extra_noise_seed = seed;
+    parameters.color_correct = true;
+  } else if (editMode === "infill" && editInputs) {
+    const strength = Math.round(Math.min(1, Math.max(0.01, request.strength ?? 1)) * 1000) / 1000;
+    parameters.image = editInputs.imageBase64;
+    parameters.mask = editInputs.maskBase64;
+    parameters.add_original_image = request.addOriginalImage ?? true;
+    parameters.strength = strength;
+    parameters.noise = 0;
+    parameters.extra_noise_seed = seed;
+    parameters.color_correct = true;
+    parameters.img2img = {
+      strength,
+      noise: 0,
+      extra_noise_seed: seed,
+      color_correct: true,
+    };
+  }
 
-  const body = withImageCustomParameters(request, {
+  const rawBody = withImageCustomParameters(request, {
     input: prompt,
-    model,
-    action: "generate",
+    model: requestModel,
+    action: editMode ?? "generate",
     parameters,
     use_new_shared_trial: true,
   });
+  const customBodyParams =
+    rawBody.parameters && typeof rawBody.parameters === "object" && !Array.isArray(rawBody.parameters)
+      ? (rawBody.parameters as Record<string, unknown>)
+      : {};
+  const mergedBodyParams: Record<string, unknown> = { ...parameters, ...customBodyParams };
+  const finalSeed = explicitSeedOverride ?? readValidSeedNumber(mergedBodyParams.seed) ?? seed;
+  let finalWidth =
+    typeof mergedBodyParams.width === "number" && Number.isFinite(mergedBodyParams.width)
+      ? mergedBodyParams.width
+      : size.width;
+  let finalHeight =
+    typeof mergedBodyParams.height === "number" && Number.isFinite(mergedBodyParams.height)
+      ? mergedBodyParams.height
+      : size.height;
+  const body: Record<string, unknown> = editMode
+    ? {
+        ...rawBody,
+        model: requestModel,
+        action: editMode,
+        parameters: {
+          ...mergedBodyParams,
+          width: size.width,
+          height: size.height,
+          seed: finalSeed,
+          image: editInputs!.imageBase64,
+          strength: parameters.strength,
+          noise: parameters.noise,
+          color_correct: true,
+          extra_noise_seed: finalSeed,
+          ...(editMode === "infill"
+            ? {
+                mask: editInputs!.maskBase64,
+                add_original_image: parameters.add_original_image,
+                img2img: {
+                  strength: parameters.strength,
+                  noise: 0,
+                  extra_noise_seed: finalSeed,
+                  color_correct: true,
+                },
+              }
+            : {}),
+        },
+      }
+    : {
+        ...rawBody,
+        parameters: {
+          ...mergedBodyParams,
+          seed: finalSeed,
+          width: finalWidth,
+          height: finalHeight,
+        },
+      };
+  if (editMode) {
+    finalWidth = size.width;
+    finalHeight = size.height;
+  }
   const metadataBody = cloneNovelAiRequestForMetadata(body);
   const effectivePrompt = getNovelAiDisplayPrompt(body);
+  logDebugOverride(
+    request.debugMode === true,
+    "[debug/image/novelai] action=%s model=%s request:\n%s",
+    String(body.action ?? "generate"),
+    String(body.model ?? requestModel),
+    debugJson(metadataBody),
+  );
 
   const hasReferences = directorReferenceImages.length > 0;
   const resp = await retryOnProviderBusy(
@@ -3137,7 +3439,7 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "Unknown error");
-    const hint = isV4 ? ` ${isNovelAiV5Model(model) ? NOVELAI_V5_PROMPT_HINT : NOVELAI_V4_PROMPT_HINT}` : "";
+    const hint = isV4 ? ` ${isV5 ? NOVELAI_V5_PROMPT_HINT : NOVELAI_V4_PROMPT_HINT}` : "";
     const referenceDetail = hasReferences ? ` with ${directorReferenceImages.length} precise reference image(s)` : "";
     throw new Error(
       `NovelAI image generation failed (${resp.status})${referenceDetail}: ${sanitizeErrorText(errText)}${hint}`,
@@ -3154,7 +3456,15 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
     if (extracted) {
       const imageBytes = appendNovelAiGenerationMetadata(Buffer.from(extracted), metadataBody);
       const base64 = imageBytes.toString("base64");
-      return { base64, mimeType: "image/png", ext: "png", effectivePrompt };
+      return {
+        base64,
+        mimeType: "image/png",
+        ext: "png",
+        effectivePrompt,
+        seed: finalSeed,
+        width: finalWidth,
+        height: finalHeight,
+      };
     }
   }
 
@@ -3162,7 +3472,15 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
   if (bytes[0] === 0x89 && bytes[1] === 0x50) {
     const imageBytes = appendNovelAiGenerationMetadata(Buffer.from(bytes), metadataBody);
     const base64 = imageBytes.toString("base64");
-    return { base64, mimeType: "image/png", ext: "png", effectivePrompt };
+    return {
+      base64,
+      mimeType: "image/png",
+      ext: "png",
+      effectivePrompt,
+      seed: finalSeed,
+      width: finalWidth,
+      height: finalHeight,
+    };
   }
 
   // Try parsing as JSON (some proxies return JSON with base64)
@@ -3170,12 +3488,128 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
     const text = new TextDecoder().decode(bytes);
     const json = JSON.parse(text);
     const b64 = json.data?.[0]?.b64_json ?? json.output?.[0] ?? json.image;
-    if (b64) return { base64: b64, mimeType: "image/png", ext: "png", effectivePrompt };
+    if (b64) {
+      return {
+        base64: b64,
+        mimeType: "image/png",
+        ext: "png",
+        effectivePrompt,
+        seed: finalSeed,
+        width: finalWidth,
+        height: finalHeight,
+      };
+    }
   } catch {
     /* not JSON */
   }
 
   throw new Error("Could not parse NovelAI image response");
+}
+
+const NOVELAI_PNG_METADATA_MAX_CHUNK_BYTES = 256 * 1024;
+const NOVELAI_PNG_METADATA_MAX_TOTAL_BYTES = 512 * 1024;
+
+function readValidSeedNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 0xffffffff ? value : null;
+}
+
+function decodePngTextChunk(
+  chunkType: string,
+  data: Buffer,
+  maxBytes: number,
+): { keyword: string; text: string; byteLength: number } | null {
+  if (maxBytes <= 0) return null;
+  const keywordEnd = data.indexOf(0);
+  if (keywordEnd <= 0) return null;
+  const keyword = data.subarray(0, keywordEnd).toString("latin1");
+  if (keyword !== "marinara_novelai_request" && keyword !== "Comment") return null;
+
+  if (chunkType === "tEXt") {
+    const payload = data.subarray(keywordEnd + 1);
+    if (payload.length > maxBytes) return null;
+    return { keyword, text: payload.toString("utf8"), byteLength: payload.length };
+  }
+  if (chunkType === "zTXt") {
+    if (keywordEnd + 2 > data.length || data[keywordEnd + 1] !== 0) return null;
+    try {
+      const inflated = inflateSync(data.subarray(keywordEnd + 2), { maxOutputLength: maxBytes });
+      if (inflated.length > maxBytes) return null;
+      return { keyword, text: inflated.toString("utf8"), byteLength: inflated.length };
+    } catch {
+      return null;
+    }
+  }
+  if (chunkType === "iTXt") {
+    if (keywordEnd + 3 > data.length) return null;
+    const compressionFlag = data[keywordEnd + 1];
+    const compressionMethod = data[keywordEnd + 2];
+    const languageEnd = data.indexOf(0, keywordEnd + 3);
+    if (languageEnd === -1) return null;
+    const translatedEnd = data.indexOf(0, languageEnd + 1);
+    if (translatedEnd === -1) return null;
+    const payload = data.subarray(translatedEnd + 1);
+    if (compressionFlag === 1) {
+      if (compressionMethod !== 0) return null;
+      try {
+        const inflated = inflateSync(payload, { maxOutputLength: maxBytes });
+        if (inflated.length > maxBytes) return null;
+        return { keyword, text: inflated.toString("utf8"), byteLength: inflated.length };
+      } catch {
+        return null;
+      }
+    }
+    if (compressionFlag !== 0 || payload.length > maxBytes) return null;
+    return { keyword, text: payload.toString("utf8"), byteLength: payload.length };
+  }
+  return null;
+}
+
+/** Read the generation seed from Marinara or native NovelAI PNG text chunks when present. */
+export function readNovelAiPngSeed(png: Buffer): number | null {
+  if (png.length < 8 || png.subarray(0, 8).compare(PNG_SIGNATURE) !== 0) return null;
+  let offset = 8;
+  let fallbackCommentSeed: number | null = null;
+  let remainingBudget = NOVELAI_PNG_METADATA_MAX_TOTAL_BYTES;
+
+  while (offset + 12 <= png.length) {
+    const chunkLen = png.readUInt32BE(offset);
+    if (chunkLen > png.length - offset - 12) break;
+    const chunkType = png.subarray(offset + 4, offset + 8).toString("ascii");
+    const data = png.subarray(offset + 8, offset + 8 + chunkLen);
+    offset += 12 + chunkLen;
+
+    if (chunkType === "iTXt" || chunkType === "tEXt" || chunkType === "zTXt") {
+      if (remainingBudget <= 0) continue;
+      const decoded = decodePngTextChunk(
+        chunkType,
+        data,
+        Math.min(NOVELAI_PNG_METADATA_MAX_CHUNK_BYTES, remainingBudget),
+      );
+      if (!decoded) continue;
+      remainingBudget -= decoded.byteLength;
+      if (decoded.keyword === "marinara_novelai_request") {
+        try {
+          const parsed = JSON.parse(decoded.text) as { request?: { parameters?: { seed?: unknown } } };
+          const seed = readValidSeedNumber(parsed?.request?.parameters?.seed);
+          if (seed !== null) return seed;
+        } catch {
+          // Malformed metadata chunk; keep scanning fallback chunks.
+        }
+      } else if (decoded.keyword === "Comment" && fallbackCommentSeed === null) {
+        try {
+          const parsed = JSON.parse(decoded.text) as { seed?: unknown };
+          const seed = readValidSeedNumber(parsed?.seed);
+          if (seed !== null) fallbackCommentSeed = seed;
+        } catch {
+          // Non-JSON PNG Comment chunk.
+        }
+      }
+    } else if (chunkType === "IEND") {
+      break;
+    }
+  }
+
+  return fallbackCommentSeed;
 }
 
 function appendNovelAiGenerationMetadata(image: Buffer, body: Record<string, unknown>): Buffer {

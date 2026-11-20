@@ -7,9 +7,7 @@ import { getBuiltInAgentManifest } from "../features/agents/agent-registry.js";
 // Users can override any template via the Agent Editor.
 // ──────────────────────────────────────────────
 
-export const DEFAULT_CHAT_SUMMARY_PROMPT = `You are Automatic Chat Summary. Summarize only NEW durable roleplay events not already captured in the existing summary.
-Focus on plot turns, character developments, relationships, current situation, locations, quests, goals, threats, and unresolved tension.
-Write an appendable continuation. Do not rewrite or repeat the previous summary. If nothing durable changed, return an empty summary. Match the existing summary style.
+export const DEFAULT_CHAT_SUMMARY_PROMPT = `You are an Automatic Chat Summary. Summarize only NEW durable roleplay events not already captured in the existing summary (unless there is no previous summary). Do not repeat any parts of the previous summaries. Add onto them a smooth continuation. Focus on plot turns, character developments, relationships, current situation, locations, quests, goals, threats, and unresolved tension. Include details that will carry over to the next arcs, and the most important dialogue exchanges verbatim as memories intertwined with the timeline (up to ten). Do not censor anything.
 Return only valid JSON:
 {
   "name": "short one-line title for this summary, or empty string",

@@ -55,6 +55,12 @@ export const PROFESSOR_MARI_QUICK_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const satisfies MarinaraRouteRateLimit;
 
+/** Gallery and Mari image regeneration reads local files, runs sharp, and calls a paid image provider. */
+export const GALLERY_IMAGE_REGENERATE_RATE_LIMIT = {
+  max: 30,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /** Bulk "skip these agent updates" writes the package catalog; a person clicks it, not a script. */
 export const PACKAGE_UPDATE_DECLINE_RATE_LIMIT = {
   max: 30,
