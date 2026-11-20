@@ -172,7 +172,11 @@ Installierte Agentenpakete folgen denselben Kontowerten. Ein Wert, den das Konto
 
 ## Manche Modelle ignorieren manche Parameter
 
-Nicht jedes Modell akzeptiert jeden Parameter. Weiß Marinara, dass ein Modell eine Einstellung ablehnt, lässt es sie aus der Anfrage heraus. Das Bedienelement bleibt sichtbar, eine Änderung daran bewirkt aber nichts. Häufig ist das bei Reasoning-Modellen, die Sampling-Einstellungen wie Temperature verweigern. Bei einem Auto-Routing-Modell, bei dem jedes Mal ein anderes Modell antworten kann, verhalten sich Parameter womöglich von Zug zu Zug unterschiedlich. Leg dich auf ein Modell fest, damit das Verhalten stabil bleibt.
+Nicht jedes Modell akzeptiert jeden Parameter. Weiß Marinara, dass ein Modell eine Einstellung ignoriert oder ablehnt, lässt es sie aus der Anfrage heraus und blendet ihr Bedienelement aus. Häufig ist das bei Reasoning-Modellen, die Sampling-Einstellungen wie Temperature verweigern. Beispielsweise akzeptieren Modelle von Gemini 3 und Gemini 4 weder **Temperature** noch **Top P**, **Top K**, **Frequency** oder **Presence**.
+
+Manche Dienste blockieren eine Einstellung auch dann, wenn das Modell selbst sie akzeptiert. OpenRouter listet auf, was jedes Modell annimmt, und Marinara blendet den Rest aus. Andere Dienste teilen das erst mit, indem sie eine Anfrage ablehnen. Nennt die Ablehnung eine dieser Einstellungen, sendet Marinara die Nachricht noch einmal ohne sie, damit die Antwort trotzdem ankommt. Für diesen Dienst und dieses Modell lässt Marinara die Einstellung ab dann weg. Ihr Bedienelement wird wie die anderen ausgeblendet. Marinara merkt sich das 30 Tage lang. Eine Einstellung, die du selbst unter Custom Parameters hinzufügst, wird immer so gesendet, wie du sie eingetragen hast.
+
+Bei einem Auto-Routing-Modell, bei dem jedes Mal ein anderes Modell antworten kann, verhalten sich Parameter womöglich von Zug zu Zug unterschiedlich. Leg dich auf ein Modell fest, damit das Verhalten stabil bleibt.
 
 ## Verwandte Anleitungen
 

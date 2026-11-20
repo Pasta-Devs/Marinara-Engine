@@ -172,7 +172,11 @@ Os pacotes de agentes instalados seguem os mesmos valores da conta. Um valor que
 
 ## Alguns modelos ignoram alguns parâmetros
 
-Nem todo modelo aceita todo parâmetro. Quando Marinara sabe que um modelo rejeita uma configuração, ele a deixa fora da requisição. O controle continua aparecendo, mas mudá-lo não tem efeito. Isso é comum em modelos de raciocínio, que recusam configurações de amostragem como a temperatura. Com um modelo de roteamento automático, que muda qual modelo responde a cada vez, os parâmetros podem se comportar de forma diferente de um turno para outro. Fixe um modelo para manter o comportamento estável.
+Nem todo modelo aceita todo parâmetro. Quando Marinara sabe que um modelo ignora ou rejeita uma configuração, ele a deixa fora da requisição e oculta seu controle. Isso é comum em modelos de raciocínio, que recusam configurações de amostragem como a temperatura. Por exemplo, os modelos Gemini 3 e Gemini 4 não aceitam **Temperature**, **Top P**, **Top K**, **Frequency** nem **Presence**.
+
+Alguns serviços também bloqueiam uma configuração mesmo que o próprio modelo a aceite. O OpenRouter informa o que cada modelo aceita, e Marinara oculta o restante. Outros serviços só avisam ao recusar uma requisição. Quando a recusa menciona uma dessas configurações, Marinara envia a mensagem de novo sem ela para que a resposta chegue mesmo assim, e passa a omitir essa configuração para aquele serviço e modelo. Seu controle fica oculto como os demais. Marinara se lembra disso por 30 dias. Uma configuração que você adiciona em Custom Parameters é sempre enviada exatamente como foi escrita.
+
+Com um modelo de roteamento automático, que muda qual modelo responde a cada vez, os parâmetros podem se comportar de forma diferente de um turno para outro. Fixe um modelo para manter o comportamento estável.
 
 ## Guias relacionados
 

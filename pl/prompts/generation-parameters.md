@@ -172,7 +172,11 @@ Zainstalowane pakiety agentów korzystają z tych samych wartości konta. Warto�
 
 ## Część modeli ignoruje część parametrów
 
-Nie każdy model przyjmuje każdy parametr. Gdy Marinara wie, że model odrzuca dane ustawienie, pomija je w żądaniu. Kontrolka nadal jest widoczna, ale jej zmiana nic nie daje. Zdarza się to często przy modelach rozumujących, które odrzucają ustawienia próbkowania, takie jak temperatura. Przy modelu z automatycznym routingiem, który za każdym razem zmienia model udzielający odpowiedzi, parametry mogą zachowywać się inaczej z tury na turę. Wybierz jeden stały model, żeby zachowanie było stabilne.
+Nie każdy model przyjmuje każdy parametr. Gdy Marinara wie, że model ignoruje lub odrzuca dane ustawienie, pomija je w żądaniu i ukrywa jego kontrolkę. Zdarza się to często przy modelach rozumujących, które odrzucają ustawienia próbkowania, takie jak temperatura. Na przykład modele Gemini 3 i Gemini 4 nie przyjmują **Temperature**, **Top P**, **Top K**, **Frequency** ani **Presence**.
+
+Niektóre usługi blokują też ustawienie, nawet jeśli sam model je przyjmuje. OpenRouter podaje, co przyjmuje każdy model, a Marinara ukrywa resztę. Inne usługi informują o tym dopiero przez odrzucenie żądania. Jeśli odmowa wskazuje jedno z tych ustawień, Marinara wysyła wiadomość ponownie bez niego, żeby odpowiedź mimo wszystko dotarła, i od tej pory pomija to ustawienie dla tej usługi i tego modelu. Jego kontrolka jest ukryta tak jak pozostałe. Marinara pamięta o tym przez 30 dni. Ustawienie dodane samodzielnie w Custom Parameters jest zawsze wysyłane dokładnie w zapisanej postaci.
+
+Przy modelu z automatycznym routingiem, który za każdym razem zmienia model udzielający odpowiedzi, parametry mogą zachowywać się inaczej z tury na turę. Wybierz jeden stały model, żeby zachowanie było stabilne.
 
 ## Powiązane przewodniki
 
