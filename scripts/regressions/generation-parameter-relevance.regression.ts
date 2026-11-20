@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 // The parameter panel only shows settings that change the request for the selected provider and model. This test is
 // the source of truth for those rules: it changes one setting at a time and records which changes alter the request.
-// Most providers use a local HTTP stub; ChatGPT uses its production Responses body builder before transport, and the
+// Most providers use a fetch stub after request construction; ChatGPT uses its production Responses body builder before transport, and the
 // subscription provider uses an SDK stub.
 // The shared rules must match exactly, for effort on and effort off, so a provider change that makes a hidden setting
 // matter (or a shown one stop mattering) fails here instead of silently misleading the panel.
+const originalFetch = globalThis.fetch;
 const root = mkdtempSync(join(tmpdir(), "marinara-param-relevance-"));
 const previousCodexHome = process.env.CODEX_HOME;
 process.env.DATA_DIR = root;
@@ -87,16 +87,14 @@ try {
     "an unrecognized OpenRouter parameter list does not hide all controls",
   );
   let firstBody: string | null = null;
-  const server = createServer(async (request, response) => {
-    const chunks: Buffer[] = [];
-    for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    if (firstBody === null) firstBody = Buffer.concat(chunks).toString("utf8");
-    response.writeHead(400, { "content-type": "application/json" });
-    response.end(JSON.stringify({ error: { message: "stub", type: "invalid_request_error" } }));
-  });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const port = (server.address() as { port: number }).port;
-  const base = `http://127.0.0.1:${port}`;
+  globalThis.fetch = async (_url, init) => {
+    if (firstBody === null) firstBody = String(init?.body ?? "");
+    return new Response(JSON.stringify({ error: { message: "stub", type: "invalid_request_error" } }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  const base = "http://127.0.0.1:7860";
 
   let sdkOptions: string | null = null;
   __setSdkForTesting({
@@ -133,7 +131,7 @@ try {
     topK: number;
     frequencyPenalty: number;
     presencePenalty: number;
-    reasoningEffort: "low" | "high" | null;
+    reasoningEffort: "low" | "medium" | "high" | "xhigh" | "maximum" | null;
     verbosity: string;
     serviceTier: string;
   };
@@ -161,7 +159,7 @@ try {
     const resolved = resolveProviderReasoningEffort({
       provider,
       model: lower,
-      reasoningEffort: values.reasoningEffort ?? undefined,
+      reasoningEffort: values.reasoningEffort,
     });
     return {
       model,
@@ -411,6 +409,104 @@ try {
     },
   ];
 
+  const auditedModels: Record<string, string[]> = {
+    openai: ["gpt-5-mini", "gpt-5-nano", "gpt-5.2", "gpt-5.2-codex", "gpt-5.3-codex", "gpt-5.4-pro", "gpt-5.5-pro"],
+    openai_chatgpt: ["gpt-5.2-codex", "gpt-5.3-codex", "gpt-5.4-pro", "gpt-5.5-pro"],
+    anthropic: [
+      "claude-opus-4-5",
+      "claude-sonnet-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-8",
+      "claude-opus-5-5",
+      "claude-haiku-5-5",
+      "claude-fable-5",
+      "claude-fable-5-1",
+      "claude-fable-5-2",
+      "claude-mythos-5",
+      "claude-mythos-5-1",
+      "claude-mythos-5-2",
+    ],
+    claude_subscription: [
+      "claude-opus-4-5",
+      "claude-sonnet-4-5",
+      "claude-opus-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-8",
+      "claude-opus-5-5",
+      "claude-haiku-5-5",
+      "claude-fable-5",
+      "claude-fable-5-2",
+      "claude-mythos-5",
+      "claude-mythos-5-1",
+      "claude-mythos-5-2",
+    ],
+    google: [
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.5-flash",
+      "gemini-3.1-pro-preview",
+      "gemini-3.1-pro-preview-customtools",
+      "gemini-3.1-pro",
+      "gemini-3-flash-preview",
+      "gemini-3-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-3.1-flash-image",
+      "gemini-3.1-flash-image-preview",
+      "gemini-3.1-flash-lite-image",
+      "gemini-3-pro-image",
+      "gemini-3-pro-image-preview",
+      "gemini-2.5-flash-image",
+      "gemini-2.5-flash-image-preview",
+    ],
+    google_vertex: [
+      "gemini-4-hydrogen",
+      "gemini-3.5-flash",
+      "gemini-3.1-flash-image",
+      "gemini-3-pro-image",
+      "gemini-2.5-flash-image",
+      "gemini-2.5-pro",
+    ],
+    xai: ["grok-4.5-latest", "grok-4.6", "grok-4.7"],
+    openrouter: [
+      "x-ai/grok-4.5",
+      "x-ai/grok-4.6",
+      "x-ai/grok-4.7",
+      "openai/gpt-5.5",
+      "openai/gpt-5.6-sol",
+      "moonshotai/kimi-k3",
+      "moonshotai/kimi-k2.6",
+      "xiaomi/mimo-v2.5-pro",
+    ],
+    nanogpt: [
+      "openai/gpt-5.5",
+      "openai/gpt-5.6-sol",
+      "moonshotai/kimi-k3",
+      "moonshotai/kimi-k2.6",
+      "xiaomi/mimo-v2.5-pro",
+      "minimax/minimax-m3.1-flash",
+    ],
+    custom: [
+      "gpt-6-astra",
+      "gpt-6.1-sol",
+      "gpt-6.2-sol",
+      "gpt-6.2-astra",
+      "gpt-6-sol",
+      "gpt-6-luna",
+      "kimi-k3",
+      "kimi-k2.6",
+      "mimo-v2.5-pro",
+    ],
+    cohere: ["command-a-reasoning-08-2025", "command-a-plus-05-2026", "command-a-plus-08-2025"],
+    mistral: ["mistral-small-2603"],
+  };
+  for (const testCase of cases) testCase.models.push(...(auditedModels[testCase.provider] ?? []));
+  cases.push({
+    provider: "zai",
+    baseUrl: `${base}/v1`,
+    make: registry("zai", `${base}/v1`),
+    models: ["glm-5.3", "glm-5.3-flash", "glm-5.2", "glm-5.1", "glm-5", "glm-4.7", "glm-4.6", "glm-5.3-flashx"],
+  });
+
   const mismatches: string[] = [];
   for (const effort of ["high", null] as const) {
     const baseline: Values = {
@@ -432,20 +528,22 @@ try {
       ["frequencyPenalty", 0.6],
       ["presencePenalty", 0.8],
       ["reasoningEffort", "low"],
+      ["reasoningEffort", "maximum"],
       ["reasoningEffort", effort === null ? "high" : null],
       ["verbosity", "high"],
       ["serviceTier", "priority"],
     ];
     for (const testCase of cases) {
       for (const model of testCase.models) {
-        const before = await capture(testCase.make, testCase.provider, model, baseline, !!testCase.sdk);
+        const modelBaseline = model.startsWith("gemini-2.5-pro") ? { ...baseline, maxTokens: 32768 } : baseline;
+        const before = await capture(testCase.make, testCase.provider, model, modelBaseline, !!testCase.sdk);
         const sent = new Set<ProbedKey>();
         for (const [key, value] of changes) {
           const after = await capture(
             testCase.make,
             testCase.provider,
             model,
-            { ...baseline, [key]: value } as Values,
+            { ...modelBaseline, [key]: value } as Values,
             !!testCase.sdk,
           );
           if (after !== before) sent.add(key);
@@ -467,6 +565,59 @@ try {
     }
   }
   assert.deepEqual(mismatches, [], `panel rules disagree with the providers:\n${mismatches.join("\n")}`);
+
+  // Check SDK fields as well as the request-difference probe: adaptive is invalid on 4.5, and Off on 4.7/4.8 must disable.
+  const sdkCase = cases.find((testCase) => testCase.provider === "claude_subscription")!;
+  const sdkBody = async (model: string, reasoningEffort: Values["reasoningEffort"]) =>
+    JSON.parse(
+      await capture(
+        sdkCase.make,
+        sdkCase.provider,
+        model,
+        {
+          temperature: 0.7,
+          maxTokens: 777,
+          topP: 0.9,
+          topK: 40,
+          frequencyPenalty: 0,
+          presencePenalty: 0,
+          reasoningEffort,
+          verbosity: "low",
+          serviceTier: "flex",
+        },
+        true,
+      ),
+    );
+  for (const model of ["claude-opus-4-7", "claude-opus-4-8"]) {
+    assert.deepEqual((await sdkBody(model, null)).thinking, { type: "disabled" });
+    assert.equal(
+      reasoningEffortChoices({
+        provider: "claude_subscription",
+        model,
+        capabilities: { adaptiveThinking: true, effortLevels: ["low", "high", "maximum"] },
+      })[0]?.value,
+      null,
+    );
+  }
+  for (const model of ["claude-opus-4-5", "claude-sonnet-4-5", "claude-haiku-4-5"]) {
+    for (const level of [null, "low", "maximum"] as const) {
+      const body = await sdkBody(model, level);
+      assert.equal(body.thinking, undefined);
+      assert.equal(body.effort, undefined);
+    }
+  }
+  for (const [level, sent] of [
+    [null, "medium"],
+    ["low", "low"],
+    ["medium", "medium"],
+    ["high", "high"],
+    ["xhigh", "xhigh"],
+    ["maximum", "max"],
+  ] as const) {
+    const body = await sdkBody("claude-haiku-5-5", level);
+    assert.equal(body.thinking.type, "adaptive");
+    assert.equal(body.effort, sent);
+  }
 
   // Live data only narrows: OpenRouter's per-model list hides what the model ignores upstream.
   const openRouterGpt5 = relevantGenerationParameters({
@@ -536,14 +687,15 @@ try {
       choice.label,
     ]),
     [
-      [null, null],
+      ["low", "low"],
+      ["medium", "medium"],
       ["xhigh", "high"],
     ],
-    "Mistral reasoning models offer Off and high only",
+    "Mistral Large 4 offers low, medium and high without Off",
   );
   assert.deepEqual(
     reasoningEffortChoices({ provider: "mistral", model: "zai-glm-5-3" }).map((choice) => choice.label),
-    [null, "low", "high", "max"],
+    ["low", "high", "max"],
     "GLM 5.3 on Mistral offers its low, high and max levels",
   );
   assert.ok(
@@ -589,7 +741,11 @@ try {
       for (const key of ["topK", "verbosity", "frequencyPenalty", "presencePenalty"] as const) {
         assert.ok(!set.has(key), `${model} hides ${key} with effort ${reasoningEffort ?? "off"}`);
       }
-      assert.equal(set.has("topP"), reasoningEffort === "high", `${model} shows topP only while thinking`);
+      assert.equal(
+        set.has("topP"),
+        model === "deepseek-v4-pro" ? reasoningEffort === null : reasoningEffort === "high",
+        `${model} shows topP only in its documented mode`,
+      );
       assert.equal(
         set.has("temperature"),
         reasoningEffort === null,
@@ -710,12 +866,12 @@ try {
   assert.ok(withThinkingHeadroom(4096, miniMaxOff.generation, miniMaxOff.enabledParameters) > 4096);
 
   // Hydrogen and Neon cannot turn thinking off either. Their default is high and they add xhigh, so the panel offers four
-  // levels, a saved Off or no level sends high, and Max or Maximum sends xhigh. Hydrogen is on the Gemini API only; Neon
-  // is on Vertex too.
+  // levels, a saved Off or no level sends high, and Max or Maximum sends xhigh on Google and Vertex.
   for (const [provider, model] of [
     ["google", "gemini-4-hydrogen"],
     ["google", "gemini-4-neon"],
     ["google_vertex", "gemini-4-neon"],
+    ["google_vertex", "gemini-4-hydrogen"],
   ] as const) {
     assert.deepEqual(
       reasoningEffortChoices({ provider, model }).map(({ value, label }) => [value, label]),
@@ -983,9 +1139,10 @@ try {
   );
 
   __setSdkForTesting(null);
-  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+
   console.log("generation-parameter-relevance regression passed");
 } finally {
+  globalThis.fetch = originalFetch;
   if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
   else process.env.CODEX_HOME = previousCodexHome;
   rmSync(root, { recursive: true, force: true });

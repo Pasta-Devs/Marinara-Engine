@@ -46,7 +46,7 @@ const level = (args: Partial<Parameters<typeof resolveReasoningMacroValue>[0]> =
   });
 
 assert.equal(level(), "medium");
-assert.equal(level({ baseReasoningEffort: null }), "off");
+assert.equal(level({ baseReasoningEffort: null }), "low");
 // Maximum is named by what the model is sent: Opus takes max, older GPT models top out lower.
 assert.equal(level({ baseReasoningEffort: "maximum" }), "max");
 assert.equal(
@@ -63,7 +63,7 @@ assert.equal(
   }),
   "low",
 );
-assert.equal(level({ chatParameters: { reasoningEffort: null } }), "off");
+assert.equal(level({ chatParameters: { reasoningEffort: null } }), "low");
 // Scenes always run at the top level.
 assert.equal(level({ isSceneChat: true, baseReasoningEffort: null }), "max");
 

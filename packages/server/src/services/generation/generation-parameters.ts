@@ -4,6 +4,8 @@ import {
   MIN_AGENT_MAX_TOKENS,
   generationParametersSchema,
   isClaudeStrictRequestModel,
+  capabilityModelId,
+  rejectsClaudeAssistantPrefill,
   isGeminiStrictRequestModel,
   resolveProviderReasoningEffort,
 } from "@marinara-engine/shared";
@@ -274,7 +276,7 @@ export function appendRoundGeminiParts(
  * not just this allowlist.
  */
 export function supportsAssistantReasoningPrefill(provider: string): boolean {
-  return ["openai", "openrouter", "nanogpt", "xai", "cohere", "arli", "zai", "custom"].includes(provider);
+  return ["openrouter", "nanogpt", "xai", "cohere", "arli", "zai", "custom"].includes(provider);
 }
 
 /**
@@ -284,7 +286,15 @@ export function supportsAssistantReasoningPrefill(provider: string): boolean {
  * Prefill goes into the chat history for them instead (endPromptOnAssistantPrefill).
  */
 export function rejectsFinalAssistantMessage(provider: string, model: string): boolean {
-  return provider === "claude_subscription" || isClaudeStrictRequestModel(model) || isGeminiStrictRequestModel(model);
+  return (
+    provider === "claude_subscription" ||
+    (provider === "anthropic" && rejectsClaudeAssistantPrefill(model)) ||
+    // Claude 4.5 cannot prefill while thinking, and the prompt is built before the effort is known, so its prefill
+    // always goes into the history. https://platform.claude.com/docs/en/build-with-claude/thinking
+    (provider === "anthropic" && /claude-(?:opus|sonnet|haiku)-4[.-]5(?:$|[-:])/u.test(capabilityModelId(model))) ||
+    isClaudeStrictRequestModel(model) ||
+    isGeminiStrictRequestModel(model, provider)
+  );
 }
 
 /**

@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
 import {
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
@@ -21,18 +20,16 @@ const thinkChunk = (text: string) => ({ type: "thinking", thinking: [{ type: "te
 type SentMessage = { role: string; tool_call_id?: string; tool_calls?: Array<{ id: string }> };
 
 const bodies: Array<Record<string, unknown>> = [];
-const server = createServer(async (request, response) => {
-  let input = "";
-  for await (const chunk of request) input += chunk;
-  const body = JSON.parse(input) as Record<string, unknown>;
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async (_url, init) => {
+  const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
   bodies.push(body);
   const reasons = body.reasoning_effort === "high";
   const last = (body.messages as Array<Record<string, unknown>>).at(-1);
   // The stub repeats only the fixed PREFILL; any other prefix is answered without a repeat.
   const echo = last?.prefix === true && last.content === PREFILL ? PREFILL : "";
   if (!body.stream) {
-    response.writeHead(200, { "content-type": "application/json" });
-    response.end(
+    return new Response(
       JSON.stringify({
         choices: [
           {
@@ -45,8 +42,8 @@ const server = createServer(async (request, response) => {
         ],
         usage,
       }),
+      { headers: { "content-type": "application/json" } },
     );
-    return;
   }
   // The repeated prefix arrives split across deltas, and across the thinking-to-answer switch.
   const text = echo
@@ -60,19 +57,17 @@ const server = createServer(async (request, response) => {
         ...text.slice(1).map((content) => ({ content })),
       ]
     : text.map((content, index) => (index === 0 ? { role: "assistant", content } : { content }));
-  response.writeHead(200, { "content-type": "text/event-stream", connection: "close" });
-  for (const delta of deltas) response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta }] })}\n\n`);
+  const chunks = deltas.map((delta) => `data: ${JSON.stringify({ choices: [{ index: 0, delta }] })}\n\n`);
   // Mistral reports usage on its last chunk without stream_options.
-  response.end(
-    `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: "" }, finish_reason: "stop" }], usage })}\n\ndata: [DONE]\n\n`,
+  return new Response(
+    chunks.join("") +
+      `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: "" }, finish_reason: "stop" }], usage })}\n\ndata: [DONE]\n\n`,
+    { headers: { "content-type": "text/event-stream" } },
   );
-});
-await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+};
 
 try {
-  const address = server.address();
-  assert.ok(address && typeof address === "object");
-  const baseUrl = `http://127.0.0.1:${address.port}/v1`;
+  const baseUrl = "http://127.0.0.1:7860/v1";
   const mistral = createLLMProvider("mistral", baseUrl, "fixture");
   const lastBody = () => {
     const body = bodies.at(-1);
@@ -104,13 +99,13 @@ try {
   for (const level of ["low", "medium", "high", "xhigh", "maximum"] as const) {
     assert.equal(
       resolveProviderReasoningEffort({ provider: "mistral", model: "mistral-large-4-0", reasoningEffort: level }),
-      "high",
-      `${level} becomes Mistral's only level`,
+      level === "low" || level === "medium" ? level : "high",
+      `${level} maps to a documented Mistral Large 4 level`,
     );
   }
   assert.equal(
     resolveProviderReasoningEffort({ provider: "mistral", model: "mistral-large-4-0", reasoningEffort: "none" }),
-    null,
+    "high",
   );
   // GLM 5.3 on Mistral always reasons and takes "low", "high" or "max".
   assert.equal(isMistralGlm53Model("zai-glm-5-3"), true);
@@ -187,8 +182,8 @@ try {
     await mistral.chatComplete(user, { model, stream: false, reasoningEffort });
     return lastBody().reasoning_effort;
   };
-  assert.equal(await sentEffort("mistral-large-4-0", "low"), "high");
-  assert.equal(await sentEffort("mistral-large-4-0", "none"), "none", "Off and JSON agents turn reasoning off");
+  assert.equal(await sentEffort("mistral-large-4-0", "low"), "low");
+  assert.equal(await sentEffort("mistral-large-4-0", "none"), "high", "Off resolves to the documented default");
   assert.equal(await sentEffort("mistral-large-4-0", undefined), undefined, "no level leaves Mistral's default");
   assert.equal(await sentEffort("magistral-medium-latest", "high"), undefined);
   assert.equal(await sentEffort("magistral-medium-latest", "none"), undefined);
@@ -257,7 +252,7 @@ try {
     ["prefix", history],
   ] as const) {
     for (const reasoningEffort of ["high", "none"] as const) {
-      const expectedThinking = reasoningEffort === "high" ? THINKING : "";
+      const expectedThinking = THINKING;
       for (const stream of [true, false]) {
         let thinking = "";
         let streamed = "";
@@ -408,6 +403,5 @@ try {
 
   console.info("Mistral Large 4 requests, reasoning levels, prefixes, tool ids and ThinkChunk replies passed.");
 } finally {
-  server.closeAllConnections();
-  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  globalThis.fetch = originalFetch;
 }

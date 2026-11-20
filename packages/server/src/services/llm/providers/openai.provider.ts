@@ -21,6 +21,11 @@ import {
 import { parseTextualToolCalls, stripTextualToolCalls } from "../textual-tool-call-parser.js";
 import {
   capabilityModelId,
+  bareCapabilityModelId,
+  isOpenAIAlwaysNoSamplingModel,
+  hasFixedCompatibleSampling,
+  lacksCompatibleReasoningEffort,
+  isCohereReasoningModel,
   impliesProxyThinking,
   isClaudeAdaptiveOnlyNoSamplingModel,
   isClaudeStrictRequestModel,
@@ -868,8 +873,8 @@ export class OpenAIProvider extends BaseLLMProvider {
     model?: string,
     hasToolCalls = false,
   ): Record<string, unknown> {
-    // Mistral messages have no reasoning_content or partial field, so reasoning saved from another provider stays out.
-    if (!providerMetadata || this.providerKind === "mistral") return {};
+    // OpenAI and Mistral have no reasoning_content or partial fields in their message schema.
+    if (!providerMetadata || this.providerKind === "mistral" || this.providerKind === "openai") return {};
     const metadata = OpenAIProvider.extractReasoningMetadata(providerMetadata);
     if (model && !this.shouldReplayChatCompletionsReasoning(model)) {
       // OpenRouter Gemini needs a tool call's reasoning_details (its thought signatures) back in the same tool loop.
@@ -1182,18 +1187,15 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private isGpt55Model(model: string): boolean {
-    return capabilityModelId(model).startsWith("gpt-5.5");
+    return bareCapabilityModelId(model).startsWith("gpt-5.5");
   }
 
   private isOpenAINoSamplingModel(model: string): boolean {
-    const normalized = capabilityModelId(model);
-    return (
-      normalized.startsWith("gpt-5.5") || isOpenAIGpt56Model(normalized) || isOpenAIGpt6AlwaysReasoningModel(normalized)
-    );
+    return isOpenAIAlwaysNoSamplingModel(model);
   }
 
   private isResponsesStreamingUnsupportedModel(model: string): boolean {
-    const normalized = model.toLowerCase();
+    const normalized = bareCapabilityModelId(model);
     // GPT-5.6 Pro mode is an execution mode that returns a single final answer;
     // only our app-level Sol Pro alias opts into it automatically.
     return normalized.startsWith("gpt-5.5-pro") || isOpenAIGpt56SolProAlias(normalized);
@@ -1203,7 +1205,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   private isReasoningModel(model: string): boolean {
     if (isOpenAIGpt6Model(model)) return true;
     if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model)) return false;
-    const m = capabilityModelId(model);
+    const m = bareCapabilityModelId(model);
     return /^(o1|o3|o4)/.test(m) || m.startsWith("gpt-5") || isOpenAIGpt6AlwaysReasoningModel(m);
   }
 
@@ -1269,6 +1271,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     // Flash models reject them; a custom endpoint keeps them, as it keeps their samplers.
     return (
       this.providerKind !== "deepseek" &&
+      this.providerKind !== "zai" &&
       !this.isXAIReasoningModel(model) &&
       (this.isGenericCustomProvider() || !isGeminiStrictRequestModel(model))
     );
@@ -1283,10 +1286,16 @@ export class OpenAIProvider extends BaseLLMProvider {
    * an omitted effort uses the model's reasoning default and rejects sampling.
    */
   private isNoTemperatureModel(model: string, reasoningEffort?: string): boolean {
+    reasoningEffort =
+      resolveProviderReasoningEffort({
+        provider: this.providerKind,
+        model,
+        reasoningEffort: reasoningEffort as ChatOptions["reasoningEffort"],
+      }) ?? reasoningEffort;
     if (isOpenAIGpt6Model(model)) return isOpenAIGpt6AlwaysReasoningModel(model) || reasoningEffort !== "none";
     if (this.isGenericCustomProvider() && !this.isOpenAINoSamplingModel(model) && !isClaudeStrictRequestModel(model))
       return false;
-    const m = capabilityModelId(model);
+    const m = bareCapabilityModelId(model);
     if (/^(o1|o3|o4)/.test(m)) return true;
     if (this.isOpenAINoSamplingModel(m)) return true;
     if (m.startsWith("gpt-5") && ((reasoningEffort && reasoningEffort !== "none") || impliesProxyThinking(model)))
@@ -1299,19 +1308,43 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private stripUnsupportedSamplerParameters(body: Record<string, unknown>, options: ChatOptions): void {
+    if (this.providerKind === "zai") {
+      delete body.frequency_penalty;
+      delete body.presence_penalty;
+    }
+    if (lacksCompatibleReasoningEffort(options.model, this.providerKind)) {
+      delete body.reasoning_effort;
+      delete body.reasoning;
+    }
+    if (hasFixedCompatibleSampling(options.model, this.providerKind)) {
+      delete body.temperature;
+      delete body.top_p;
+      if (/^kimi-/u.test(bareCapabilityModelId(options.model))) {
+        delete body.frequency_penalty;
+        delete body.presence_penalty;
+      }
+      return;
+    }
+
     if (this.providerKind === "deepseek") {
-      // DeepSeek's two samplers belong to different modes, so only one of them is live at a time: temperature has no
-      // effect while thinking runs, and top_p is fixed at 1.0 whenever thinking is off. Strip the ignored one and let
-      // the working sampler reach the API. Unlike the GPT-5 case below, this is not "no sampling at all".
+      // Temperature is ignored while thinking; top_p depends on the model.
       // Read the mode from the body, because customParameters are applied before this runs and can override
       // reasoning_effort: picking the sampler from options alone would strip temperature while the request ships
       // reasoning_effort "none", leaving a non-thinking request with the sampler that only works while thinking.
       const reasoningEffort =
         typeof body.reasoning_effort === "string" ? body.reasoning_effort : options.reasoningEffort;
       const thinkingOff = this.hasExplicitReasoningDisable(reasoningEffort);
-      const dropped = thinkingOff ? "top_p" : "temperature";
+      // Pro's top_p works only without thinking; Flash's works only with it.
+      // https://api-docs.deepseek.com/guides/thinking_mode
+      const dropped = [
+        ...(!thinkingOff ? ["temperature"] : []),
+        ...((bareCapabilityModelId(options.model).startsWith("deepseek-v4-pro") ? !thinkingOff : thinkingOff)
+          ? ["top_p"]
+          : []),
+      ];
       const explicit = options.customParameters;
-      if (!explicit || !Object.prototype.hasOwnProperty.call(explicit, dropped)) delete body[dropped];
+      for (const key of dropped)
+        if (!explicit || !Object.prototype.hasOwnProperty.call(explicit, key)) delete body[key];
       return;
     }
     // GPT-6 Sol/Luna allow sampling only when the dispatched request explicitly
@@ -1375,6 +1408,12 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (
       suppressModelParameters ||
       isClaudeStrictRequestModel(options.model) ||
+      lacksCompatibleReasoningEffort(options.model, this.providerKind) ||
+      !!resolveProviderReasoningEffort({
+        provider: this.providerKind,
+        model: options.model,
+        reasoningEffort: "none",
+      }) ||
       !this.isGenericCustomProvider() ||
       !this.shouldSendParameter(options, "reasoningEffort") ||
       !this.hasExplicitReasoningDisable(options.reasoningEffort) ||
@@ -1393,7 +1432,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   private supportsOpenAIReasoningDisable(model: string): boolean {
     const normalized = capabilityModelId(model).replace(/^openai\//, "");
-    if (normalized.includes("-pro")) return false;
+    if (normalized.includes("-pro") || /^gpt-5\.[23]-codex(?:$|-)/u.test(normalized)) return false;
     if (isOpenAIGpt6Model(normalized)) return !isOpenAIGpt6AlwaysReasoningModel(normalized);
     const version = normalized.match(/^gpt-5\.(\d+)/)?.[1];
     return version !== undefined && Number(version) >= 1;
@@ -1459,6 +1498,14 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private applyChatCompletionsReasoning(body: Record<string, unknown>, options: ChatOptions): void {
+    const resolved = resolveProviderReasoningEffort({
+      provider: this.providerKind,
+      model: options.model,
+      reasoningEffort: options.reasoningEffort,
+    });
+    if (resolved) options = { ...options, reasoningEffort: resolved };
+    if (lacksCompatibleReasoningEffort(options.model, this.providerKind)) return;
+
     if (this.providerKind === "deepseek") {
       // DeepSeek carries the effort in reasoning_effort itself: "none" turns thinking off, and low/high/max set the
       // level. It also accepts a thinking {type} object, but sending both would duplicate the same decision.
@@ -1469,10 +1516,19 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
       return;
     }
+    if (this.providerKind === "cohere" && isCohereReasoningModel(options.model)) {
+      if (options.reasoningEffort) body.reasoning_effort = options.reasoningEffort === "none" ? "none" : "high";
+      return;
+    }
+    if (/^kimi-k3(?:$|[-:])/u.test(bareCapabilityModelId(options.model))) {
+      if (!resolved) return;
+      if (this.isOpenRouterEndpoint()) body.reasoning = { effort: resolved };
+      else body.reasoning_effort = resolved;
+      return;
+    }
     if (this.providerKind === "mistral") {
-      // Mistral reasoning models take only "high" or "none", and GLM 5.3 only "low", "high" or "max"; other Mistral
-      // models are not listed as taking reasoning_effort. prompt_mode is never sent because Mistral rejects it alongside
-      // reasoning_effort.
+      // The shared resolver maps each Mistral family to its accepted effort levels.
+      // https://docs.mistral.ai/capabilities/reasoning
       if (isMistralGlm53Model(options.model)) {
         const effort = glm53ReasoningEffort(options.reasoningEffort);
         if (effort) body.reasoning_effort = effort;
@@ -1480,7 +1536,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
       if (!isMistralAdjustableReasoningModel(options.model)) return;
       if (this.hasExplicitReasoningDisable(options.reasoningEffort)) body.reasoning_effort = "none";
-      else if (this.hasActiveReasoningEffort(options.reasoningEffort)) body.reasoning_effort = "high";
+      else if (this.hasActiveReasoningEffort(options.reasoningEffort)) body.reasoning_effort = resolved;
       return;
     }
     if (isClaudeStrictRequestModel(options.model)) {
@@ -1496,7 +1552,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       else body.reasoning_effort = "low";
       return;
     }
-    if (this.isNativeXAIConfigurableReasoningModel(options.model)) {
+    if (
+      this.isNativeXAIConfigurableReasoningModel(options.model) ||
+      (this.isOpenRouterEndpoint() && isXaiConfigurableReasoningModel(options.model))
+    ) {
       const effort = this.resolveXAIReasoningEffort(options.model, options.reasoningEffort);
       if (effort && (effort !== "none" || this.supportsXAIReasoningDisable(options.model))) {
         body.reasoning_effort = effort;
@@ -1668,6 +1727,15 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private applyResponsesReasoning(body: Record<string, unknown>, options: ChatOptions): void {
+    const requestedOff = this.hasExplicitReasoningDisable(options.reasoningEffort);
+    const resolved = resolveProviderReasoningEffort({
+      provider: this.providerKind,
+      model: options.model,
+      reasoningEffort: options.reasoningEffort,
+    });
+    if (resolved) options = { ...options, reasoningEffort: resolved };
+    if (lacksCompatibleReasoningEffort(options.model, this.providerKind)) return;
+
     if (this.isXAIMultiAgentModel(options.model)) {
       if (this.hasActiveReasoningEffort(options.reasoningEffort)) {
         body.reasoning = { effort: options.reasoningEffort };
@@ -1675,7 +1743,10 @@ export class OpenAIProvider extends BaseLLMProvider {
       return;
     }
 
-    if (this.isNativeXAIConfigurableReasoningModel(options.model)) {
+    if (
+      this.isNativeXAIConfigurableReasoningModel(options.model) ||
+      (this.isOpenRouterEndpoint() && isXaiConfigurableReasoningModel(options.model))
+    ) {
       const effort = this.resolveXAIReasoningEffort(options.model, options.reasoningEffort);
       if (effort && (effort !== "none" || this.supportsXAIReasoningDisable(options.model))) {
         body.reasoning = { effort };
@@ -1728,7 +1799,7 @@ export class OpenAIProvider extends BaseLLMProvider {
     ) {
       reasoning.context = options.excludePastReasoning ? "current_turn" : "all_turns";
     }
-    if (!this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+    if (!requestedOff) {
       reasoning.summary = "auto";
     }
     if (Object.keys(reasoning).length > 0) {
@@ -1744,8 +1815,8 @@ export class OpenAIProvider extends BaseLLMProvider {
     // (max_completion_tokens, temperature suppression) still apply via
     // isReasoningModel / isNoTemperatureModel which have their own GPT-5.5 gates.
     if (this.isGenericCustomProvider()) return false;
-    if (this.isGpt55Model(model) || (isOpenAIGpt6Model(model) && !this.isOpenRouterEndpoint())) return true;
-    const m = capabilityModelId(model);
+    if ((this.isGpt55Model(model) || isOpenAIGpt6Model(model)) && !this.isOpenRouterEndpoint()) return true;
+    const m = this.providerKind === "nanogpt" ? bareCapabilityModelId(model) : capabilityModelId(model);
     return (
       this.isXAIMultiAgentModel(model) ||
       (!!options?.captureReasoning && this.isXAIReasoningModel(model)) ||
@@ -1770,7 +1841,9 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   private supportsGpt5Verbosity(model: string): boolean {
     if (this.isOpenAIChatGPTProvider()) return false;
-    return this.isGenericCustomProvider() || capabilityModelId(model).startsWith("gpt-5") || isOpenAIGpt6Model(model);
+    return (
+      this.isGenericCustomProvider() || bareCapabilityModelId(model).startsWith("gpt-5") || isOpenAIGpt6Model(model)
+    );
   }
 
   private applyResponsesTextOptions(body: Record<string, unknown>, options: ChatOptions): void {
@@ -1846,7 +1919,7 @@ export class OpenAIProvider extends BaseLLMProvider {
    */
   private usesDeveloperRole(model: string): boolean {
     if (this.isGenericCustomProvider()) return false;
-    const m = capabilityModelId(model);
+    const m = bareCapabilityModelId(model);
     return (
       m.startsWith("gpt-5") || isOpenAIGpt6Model(m) || m.startsWith("o1") || m.startsWith("o3") || m.startsWith("o4")
     );
@@ -1994,7 +2067,10 @@ export class OpenAIProvider extends BaseLLMProvider {
     const effectiveStream = options.stream ?? true;
 
     const body: Record<string, unknown> = {
-      model: options.model,
+      model:
+        this.providerKind === "cohere" && options.model === "command-a-plus-08-2025"
+          ? "command-a-plus-05-2026"
+          : options.model,
       messages: formatted,
     };
     this.applyPromptCacheKey(body);
@@ -2286,7 +2362,10 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
 
     const body: Record<string, unknown> = {
-      model: options.model,
+      model:
+        this.providerKind === "cohere" && options.model === "command-a-plus-08-2025"
+          ? "command-a-plus-05-2026"
+          : options.model,
       messages: formatted,
     };
     this.applyPromptCacheKey(body);

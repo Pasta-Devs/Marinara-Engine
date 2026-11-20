@@ -161,9 +161,9 @@ try {
     const native = provider as unknown as {
       buildResponsesBody(messages: ChatMessage[], options: Record<string, unknown>): Record<string, unknown>;
     };
-    assert.equal(
+    assert.deepEqual(
       native.buildResponsesBody([], { model, reasoningEffort: "none" }).reasoning,
-      undefined,
+      { effort: "high" },
       "mandatory reasoning is never disabled on the wire",
     );
   }
