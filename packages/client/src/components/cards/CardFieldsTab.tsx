@@ -119,19 +119,22 @@ export function CardFieldsTab({
         field={field.key}
       />
     );
+    const alternativesFooter = (
+      <CardFieldAlternatives
+        kind={variant}
+        entityId={entityId}
+        field={field.key}
+        label={generation.labels[field.key]}
+        card={card}
+        alternatives={alternatives}
+        onChange={onAlternativesChange}
+        imageAppearance={field.key === "appearance" ? imageAppearance : undefined}
+      />
+    );
     const footer = (
       <>
         {renderFooter?.(field.key)}
-        <CardFieldAlternatives
-          kind={variant}
-          entityId={entityId}
-          field={field.key}
-          label={generation.labels[field.key]}
-          card={card}
-          alternatives={alternatives}
-          onChange={onAlternativesChange}
-          imageAppearance={field.key === "appearance" ? imageAppearance : undefined}
-        />
+        {alternativesFooter}
       </>
     );
     if ("render" in field) return field.render({ value, onChange, card, actions, footer });
@@ -176,7 +179,8 @@ export function CardFieldsTab({
           footer={
             <>
               <AppearanceTabHint tab="imageTags" state={imageAppearance} />
-              {footer}
+              {/* No variable chips: they insert into the Appearance prose, which this tab hides. */}
+              {alternativesFooter}
             </>
           }
         />

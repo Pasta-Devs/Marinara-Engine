@@ -146,7 +146,7 @@ export function applyPersonaCardFieldAlternatives<
   if (!Object.keys(values).length) return persona;
   const imageTags = appearanceAlternativeImageTags(persona.cardFieldAlternatives, chatId);
   if (!imageTags) return { ...persona, ...values };
-  // Stored persona rows keep the flag as "true"/"false"; projected personas use a boolean.
+  // Stored persona rows keep the flag as "true"/"false"; a persona already parsed to a boolean keeps a boolean.
   const enabled =
     typeof persona.imageAppearanceEnabled === "boolean"
       ? imageTags.imageAppearanceEnabled
