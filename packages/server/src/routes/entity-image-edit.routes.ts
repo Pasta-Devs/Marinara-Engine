@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { createHash } from "node:crypto";
 import { mkdir, writeFile, unlink } from "node:fs/promises";
 import { basename, join, extname } from "node:path";
 import { getSharp } from "../services/image/sharp-runtime.js";
@@ -21,7 +22,7 @@ import { createCharacterGalleryStorage } from "../services/storage/character-gal
 import { createPersonaGalleryStorage } from "../services/storage/persona-gallery.storage.js";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
-import { resolveStoredGalleryFile } from "../services/image/gallery-file-lifecycle.js";
+import { resolveStoredGalleryFile, withGalleryFileLifecycleLock } from "../services/image/gallery-file-lifecycle.js";
 import { generateImage, NovelAiEditInputError, readNovelAiPngSeed } from "../services/image/image-generation.js";
 import {
   resolveConnectionImageDefaults,
@@ -130,30 +131,45 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
           }
         }
       }
-      const sharp = await getSharp();
-      const dimensions = await sharp(bytes).metadata();
-      await mkdir(dir, { recursive: true });
-      const outputName = `${newId()}${extname(filename)}`;
-      const path = join(dir, outputName);
-      let committed = false;
-      try {
-        await writeFile(path, bytes);
-        const fields = {
-          filePath: `${folder}/${entity.id}/${outputName}`,
-          width: dimensions.width,
-          height: dimensions.height,
-        };
-        const image =
+      const outputName = `avatar-source-${createHash("sha256").update(bytes).digest("hex")}${extname(filename).toLowerCase()}`;
+      const filePath = `${folder}/${entity.id}/${outputName}`;
+      return withGalleryFileLifecycleLock(filePath, async () => {
+        const images =
           kind === "character"
-            ? await characterGallery.create({ characterId: entity.id, ...fields })
-            : await personaGallery.create({ personaId: entity.id, ...fields });
-        if (!image) throw new Error("Avatar edit source could not be saved");
-        committed = true;
-        return present(image, entity.id);
-      } catch (error) {
-        if (!committed) await unlink(path).catch(() => undefined);
-        throw error;
-      }
+            ? await characterGallery.listByCharacterId(entity.id)
+            : await personaGallery.listByPersonaId(entity.id);
+        const existing = images.find((image) => image.filePath === filePath);
+        const path = join(dir, outputName);
+        if (existing) {
+          const saved = await validateImageAssetFile(path, outputName);
+          if (saved) {
+            try {
+              if ((await saved.handle.readFile()).equals(bytes)) return present(existing, entity.id);
+            } finally {
+              await saved.handle.close();
+            }
+          }
+        }
+        const sharp = await getSharp();
+        const dimensions = await sharp(bytes).metadata();
+        await mkdir(dir, { recursive: true });
+        let committed = false;
+        try {
+          await writeFile(path, bytes);
+          const fields = { filePath, width: dimensions.width, height: dimensions.height };
+          const image =
+            existing ??
+            (kind === "character"
+              ? await characterGallery.create({ characterId: entity.id, ...fields })
+              : await personaGallery.create({ personaId: entity.id, ...fields }));
+          if (!image) throw new Error("Avatar edit source could not be saved");
+          committed = true;
+          return present(image, entity.id);
+        } catch (error) {
+          if (!committed) await unlink(path).catch(() => undefined);
+          throw error;
+        }
+      });
     });
 
     app.post<{ Params: { id: string; imageId: string } }>(

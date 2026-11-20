@@ -1382,6 +1382,59 @@ try {
   assert.equal(bootstrapImage.width, 64);
   assert.deepEqual(readFileSync(join(fixtureDir, "gallery", bootstrapImage.filePath)), avatarBytes);
   assert.equal((await entityCharacters.getPersona(avatarOwner.id))?.avatarPath, "/api/avatars/file/edit-source.png");
+  const repeatBootstraps = await Promise.all(
+    [1, 2].map(() =>
+      app.inject({
+        method: "POST",
+        url: `/api/characters/personas/${avatarOwner.id}/avatar/edit-source`,
+      }),
+    ),
+  );
+  for (const repeated of repeatBootstraps) {
+    assert.equal(repeated.statusCode, 200, repeated.body);
+    assert.equal(repeated.json().id, bootstrapImage.id, "opening an unchanged avatar reuses its saved source");
+  }
+  assert.equal((await personaImages.listByPersonaId(avatarOwner.id)).length, 1);
+  const otherAvatarOwner = await entityCharacters.createPersona(
+    "Other avatar owner",
+    "",
+    "/api/avatars/file/edit-source.png",
+  );
+  assert.ok(otherAvatarOwner);
+  const concurrentFirstOpens = await Promise.all(
+    [1, 2].map(() =>
+      app.inject({
+        method: "POST",
+        url: `/api/characters/personas/${otherAvatarOwner.id}/avatar/edit-source`,
+      }),
+    ),
+  );
+  for (const opened of concurrentFirstOpens) assert.equal(opened.statusCode, 200, opened.body);
+  assert.equal(
+    concurrentFirstOpens[0]!.json().id,
+    concurrentFirstOpens[1]!.json().id,
+    "concurrent first opens save one source",
+  );
+  assert.notEqual(concurrentFirstOpens[0]!.json().id, bootstrapImage.id, "another owner gets its own source row");
+  assert.equal((await personaImages.listByPersonaId(otherAvatarOwner.id)).length, 1);
+  const changedAvatarBytes = await sharp({ create: { width: 64, height: 64, channels: 4, background: "#1188bb" } })
+    .png()
+    .toBuffer();
+  writeFileSync(join(avatarDirectory, "edit-source.png"), changedAvatarBytes);
+  const changedBootstrap = await app.inject({
+    method: "POST",
+    url: `/api/characters/personas/${avatarOwner.id}/avatar/edit-source`,
+  });
+  assert.equal(changedBootstrap.statusCode, 200, changedBootstrap.body);
+  assert.notEqual(changedBootstrap.json().id, bootstrapImage.id, "changed pixels get a separate source");
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", changedBootstrap.json().filePath)), changedAvatarBytes);
+  assert.deepEqual(
+    readFileSync(join(fixtureDir, "gallery", bootstrapImage.filePath)),
+    avatarBytes,
+    "the previous source remains unchanged",
+  );
+  assert.equal((await personaImages.listByPersonaId(avatarOwner.id)).length, 2);
+
   const noAvatar = await app.inject({
     method: "POST",
     url: `/api/characters/${entityCharacter.id}/avatar/edit-source`,
