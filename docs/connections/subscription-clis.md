@@ -64,7 +64,7 @@ Use **Diagnose model routing** when you asked for a large model such as Opus but
 
 ## OpenAI (ChatGPT)
 
-This service uses your ChatGPT account through the Codex CLI. Marinara reads the local Codex login file and refreshes the session when it can.
+This service uses your ChatGPT account through the Codex CLI. Marinara reads the local Codex login file and refreshes the session when it can. Every request in a chat carries the same cache key, so the service can reuse the unchanged start of your prompt, which spends less of your plan.
 
 To set how long Codex thinks before it answers, open **Edit model**, turn on **Use custom defaults for this model**, and pick a **Reasoning Effort**. It starts at **Default**, which keeps Codex's own level for the model. A chat can pick its own level in **Advanced Parameters**. The level in a preset does not change it. A Codex model used as a fallback follows only its own level, and agents on the model use the model's level. The levels you see match the ones available for the model you chose.
 
@@ -76,6 +76,8 @@ This service runs the Grok CLI on the Marinara computer. Two things differ from 
 - Its context window defaults to 32,000 tokens. Tokens are small pieces of text that models count. Large prompts can hit the CLI's own turn limit, so the default stays low. You can set a larger **Max Context Window** on the model.
 
 In the model editor, **Use the Grok CLI default** leaves the model empty so the CLI picks its own. The editor names `grok-composer-2.5-fast` as usually the safest model for roleplay, because Marinara runs the CLI headless, with Grok's own tools, memory, web search, plans, and subagents turned off.
+
+Marinara also keeps out what the CLI would load from your home folder for coding work: Claude Code and Cursor rules, `CLAUDE.md` files, skills, hooks, and MCP servers. Your chat requests to xAI don't carry them, and each request is smaller. Token counts for Grok replies come from the CLI itself, including the tokens xAI read from its cache.
 
 ## Plan usage
 
