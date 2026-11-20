@@ -1136,6 +1136,14 @@
 :root[data-mari-focus-frame] [data-mari-frame-clip] {
   border-image-outset: 0 !important;
 }
+/* A dialog keeps its ring where the theme drew it and only the part above its top edge is cut off.
+   Pulled in whole, the ring landed on the dialog's own contents: Bramble Cottage's stitch ran
+   through the Chat settings title, its rows and the bottom of its scrolling list (Nov 20). */
+:root[data-mari-focus-frame]:not([data-mari-focus-frame-fill]) [role="dialog"][data-mari-frame-clip] {
+  border-image-outset: min(var(--mari-focus-frame-outset, 0px), 2rem) !important;
+  clip-path: inset(0 -2rem -2rem -2rem);
+  padding-bottom: 0.5rem;
+}
 
 /* Window titles (--mari-window-title, lib/theme-slots.ts): the row is a plain flex line; the theme
    does the rest. */
