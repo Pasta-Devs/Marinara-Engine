@@ -249,39 +249,28 @@ export function AdvancedParametersSection({
       id="advanced-parameters"
       title={localizeUi("ui.chatSettings.advancedparameterssection.advancedParameters")}
       icon={<Gauge size="0.875rem" />}
-      help={localizeUi(
-        "ui.chatSettings.advancedparameterssection.overrideGenerationParametersForThisChatOnlyChangeThese",
-      )}
+      // The how-it-works notes live in the ? tip (and the docs), so the section opens straight on its settings.
+      help={[
+        localizeUi("ui.chatSettings.advancedparameterssection.overrideGenerationParametersForThisChatOnlyChangeThese"),
+        localizeUi("generationParameters.effective.hint"),
+        localizeUi("settings.customGenerationParameters.availabilityHint"),
+      ].join(" ")}
       open={expanded}
       onOpenChange={setExpanded}
       bodyClassName="pt-3 space-y-3"
       rootAttributes={{ "data-chat-settings-section": "advanced-parameters" }}
     >
-      <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-        {localizeUi("settings.customGenerationParameters.availabilityHint")}
-      </p>
-      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-        {localizeUi(
-          preview.isError
-            ? "generationParameters.effective.unavailable"
-            : awaitingDefaults
-              ? "generationParameters.effective.loading"
-              : "generationParameters.effective.hint",
-        )}
-      </p>
+      {(preview.isError || awaitingDefaults) && (
+        <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+          {localizeUi(
+            preview.isError ? "generationParameters.effective.unavailable" : "generationParameters.effective.loading",
+          )}
+        </p>
+      )}
       {preview.isError && (
         <AgentSettingsActionButton type="button" onClick={() => void preview.refetch()}>
           {localizeUi("generationParameters.effective.retry")}
         </AgentSettingsActionButton>
-      )}
-      {(isShuffle || (mainConn && effectiveModel?.followsMain)) && (
-        <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]" data-parameters-model="">
-          {isShuffle
-            ? localizeUi("generationParameters.model.shuffle")
-            : localizeUi("generationParameters.model.followsMain", {
-                model: effectiveModel?.title || filterModel || "",
-              })}
-        </p>
       )}
       <fieldset disabled={awaitingDefaults} className="min-w-0 disabled:opacity-60">
         <GenerationParametersFields
@@ -293,6 +282,15 @@ export function AdvancedParametersSection({
           modelCapabilities={connectionModelCapabilities}
           enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
           onChange={setParameters}
+          modelNote={
+            isShuffle
+              ? localizeUi("generationParameters.model.shuffle")
+              : mainConn && effectiveModel?.followsMain
+                ? localizeUi("generationParameters.model.followsMain", {
+                    model: effectiveModel?.title || filterModel || "",
+                  })
+                : undefined
+          }
         />
       </fieldset>
       <div className="space-y-2 pt-3">

@@ -268,6 +268,7 @@ export function GenerationParametersFields({
   baseUrl,
   modelCapabilities,
   enabledParametersFallback = LEGACY_PARAMETER_SEND_DEFAULTS,
+  modelNote,
 }: {
   value: EditableGenerationParameters;
   onChange: (next: EditableGenerationParameters) => void;
@@ -282,6 +283,8 @@ export function GenerationParametersFields({
   baseUrl?: string | null;
   modelCapabilities?: ModelParameterCapabilities | null;
   enabledParametersFallback?: GenerationParameterSendMap;
+  /** One short line on which model these settings are for (Chat settings: "Uses your Main model, …"). */
+  modelNote?: string;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const effectiveHint = (key: string, displayValue?: string) => {
@@ -373,26 +376,20 @@ export function GenerationParametersFields({
 
   return (
     <div className="space-y-3">
-      {unused.length > 0 && (
+      {(unused.length > 0 || modelNote) && (
+        // Which model these are for, and a way to show the settings it ignores.
         <div className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]" data-unused-parameters="">
-          <p>
-            {localizeUi(
-              model?.trim() ? "generationParameters.unused.summary" : "generationParameters.unused.summaryNoModel",
-              {
-                model: model?.trim() ?? "",
-                list: unused.map(([, labelKey]) => localizeUi(labelKey)).join(", "),
-              },
-            )}
-          </p>
-          {/* Its own line: a phone's taller tap target would otherwise stretch the sentence's last line. */}
-          <button
-            type="button"
-            className="mt-1 font-medium text-[var(--primary)] underline-offset-2 hover:underline"
-            aria-expanded={showUnused}
-            onClick={() => setShowUnused((current) => !current)}
-          >
-            {localizeUi(showUnused ? "generationParameters.unused.hide" : "generationParameters.unused.show")}
-          </button>
+          {modelNote && <p>{modelNote}</p>}
+          {unused.length > 0 && (
+            <button
+              type="button"
+              className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"
+              aria-expanded={showUnused}
+              onClick={() => setShowUnused((current) => !current)}
+            >
+              {localizeUi(showUnused ? "generationParameters.unused.hide" : "generationParameters.unused.show")}
+            </button>
+          )}
         </div>
       )}
       {showSamplingGrid && (

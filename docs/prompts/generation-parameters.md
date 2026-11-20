@@ -20,7 +20,7 @@ To override parameters for one chat:
 4. Find the parameter, for example **Temperature**, and type a new value.
 5. Check the small switch beside its name. If it is off, turn it on. A parameter whose switch is off is not sent, so your change does nothing. **Temperature** starts with its switch off (see [The Send switch](#the-send-switch)).
 
-You see a note: "Change generation settings for this chat only. Leave these alone unless you know what they do." **Advanced Parameters** is available in Conversation, Roleplay and Game chats.
+The **?** beside the section title explains it: changes apply to this chat only, the **Effective** line under each parameter shows the value that wins (see [How defaults layer and override](#how-defaults-layer-and-override)), and extra parameters such as Top A are added under **Settings**, then **Advanced**, then **Parameters**. Settings the chat's model doesn't use are hidden (see [Some models ignore some parameters](#some-models-ignore-some-parameters)). **Advanced Parameters** is available in Conversation, Roleplay and Game chats.
 
 ## Each parameter in plain language
 
@@ -168,7 +168,16 @@ Installed agent packages follow the same account values. A value the account sav
 
 ## Some models ignore some parameters
 
-Not every model accepts every parameter. When Marinara knows a model rejects a setting, it leaves it out of the request. The control still shows, but changing it has no effect. This is common with reasoning models, which refuse sampling settings such as temperature. With an auto-routing model that changes which model answers each time, parameters can behave differently from turn to turn. Pin one model to keep behavior steady.
+Not every model accepts every parameter. When Marinara knows a model ignores or rejects a setting, it leaves it out of the request and hides its control, so **Advanced Parameters** and an account's **Chat defaults** only show what the model really receives. This is common with reasoning models, which refuse sampling settings such as temperature. For example, Gemini 4 Argon, Carbon, Hydrogen and Neon, and Gemini 3.6 to 3.8 Flash, take no **Temperature**, **Top P**, **Top K**, **Frequency** or **Presence**, and a model Marinara doesn't know on a provider with a built-in model list gets only **Max Output Tokens** and Custom Parameters.
+
+Click **Show unsupported parameters** to see the hidden controls anyway. Each says **Not sent to this model**, and changing it has no effect while this model answers.
+
+The list depends on the model that will answer the chat:
+
+- A chat with its own model uses that model, including a model picked from the account's model list for this chat only.
+- A chat with no model of its own answers with your Main model, so it shows Main's settings, and Advanced Parameters says so ("This chat has no model of its own, so it uses your Main model…").
+- A chat set to **Shuffle** shows every setting, because each reply can come from a different model. Each model ignores the settings it doesn't use.
+ With an auto-routing model that changes which model answers each time, parameters can behave differently from turn to turn. Pin one model to keep behavior steady.
 
 ## Related guides
 
