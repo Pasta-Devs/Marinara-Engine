@@ -172,7 +172,11 @@ Les packages d'agents installés suivent les mêmes valeurs du compte. Une valeu
 
 ## Certains modèles ignorent certains paramètres
 
-Tous les modèles n'acceptent pas tous les paramètres. Quand Marinara sait qu'un modèle rejette un réglage, il l'omet de la requête. Le contrôle reste affiché, mais le modifier n'a aucun effet. C'est fréquent avec les modèles de raisonnement, qui refusent les réglages d'échantillonnage comme la température. Avec un modèle à routage automatique, qui change de modèle répondant à chaque fois, les paramètres peuvent réagir différemment d'un tour à l'autre. Épingle un seul modèle pour garder un comportement stable.
+Tous les modèles n'acceptent pas tous les paramètres. Quand Marinara sait qu'un modèle ignore ou rejette un réglage, il l'omet de la requête et masque son contrôle. C'est fréquent avec les modèles de raisonnement, qui refusent les réglages d'échantillonnage comme la température. Par exemple, les modèles Gemini 3 et Gemini 4 n'acceptent ni **Temperature**, ni **Top P**, ni **Top K**, ni **Frequency**, ni **Presence**.
+
+Certains services bloquent aussi un réglage même si le modèle lui-même l'accepte. OpenRouter indique ce que chaque modèle accepte, et Marinara masque le reste. D'autres services ne le signalent qu'en refusant une requête. Si le refus nomme l'un de ces réglages, Marinara renvoie le message sans lui pour que la réponse arrive quand même, puis omet ce réglage pour ce service et ce modèle à partir de ce moment. Son contrôle est masqué comme les autres. Marinara s'en souvient pendant 30 jours. Un réglage que tu ajoutes toi-même dans Custom Parameters est toujours envoyé tel que tu l'as écrit.
+
+Avec un modèle à routage automatique, qui change de modèle répondant à chaque fois, les paramètres peuvent réagir différemment d'un tour à l'autre. Épingle un seul modèle pour garder un comportement stable.
 
 ## Guides associés
 
