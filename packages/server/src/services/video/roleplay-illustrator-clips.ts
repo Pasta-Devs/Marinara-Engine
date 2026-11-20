@@ -60,7 +60,9 @@ export function createRoleplayClipTools(args: {
   characterNames: string[];
   /** Who the Illustrator can show: the chat's characters (and a character used as the user) and the persona. */
   cast: () => { chatCharacters: IllustratorChatCharacterReference[]; persona: IllustratorPersonaReference | null };
-  charactersStore: ReferenceArgs["charactersStore"];
+  charactersStore: ReferenceArgs["charactersStore"] & {
+    getById: NonNullable<ReferenceArgs["chatProjection"]>["getById"];
+  };
   characterGallery?: ReferenceArgs["characterGallery"];
   personaGallery?: ReferenceArgs["personaGallery"];
   debugMode?: boolean;
@@ -72,6 +74,7 @@ export function createRoleplayClipTools(args: {
     const resolve = (requestedNames: string[], text: string, opts: { avatars: boolean; fallback: boolean }) =>
       resolveIllustratorCharacterReferences({
         charactersStore: args.charactersStore,
+        chatProjection: { chatId: args.chatId, getById: args.charactersStore.getById },
         characterGallery: args.characterGallery,
         personaGallery: args.personaGallery,
         ...args.cast(),
@@ -107,6 +110,7 @@ export function createRoleplayClipTools(args: {
     ];
     const resolution = await resolveIllustratorCharacterReferences({
       charactersStore: args.charactersStore,
+      chatProjection: { chatId: args.chatId, getById: args.charactersStore.getById },
       characterGallery: args.characterGallery,
       personaGallery: args.personaGallery,
       ...cast,

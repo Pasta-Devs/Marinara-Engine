@@ -70,7 +70,7 @@ Two settings on the card help characters look the same across pictures. Both sta
 - **Videos only**: a clip gets the appearance text of the characters it shows. This matters most for a **Prompt only** clip, which has no picture.
 - **Images and videos**: both.
 
-When it is on, a card or persona with **Image Appearance Override** turned on sends that override instead of its **Appearance** text. Use it when **Appearance** is written for the narrator but reads badly to an image model. Keep the full description in **Appearance** and put a shorter, tag-style version in the override. With the override off or empty, image prompts use **Appearance**. The narrator always sees the full **Appearance**. The switch is under **Appearance** in the Character and Persona editors.
+When it is on, a card or persona with **Image tags** in use sends those tags instead of its **Appearance** prose. Use them when the prose is written for the narrator but reads badly to an image model. Keep the full description on the **Prose** tab of **Appearance** and put a shorter, tag-style version on its **Image tags** tab, with **Use for image prompts** ticked. With the tags unticked or empty, image prompts use the prose. The narrator always sees the prose. An Appearance alternative active in the chat uses its own tags or prose.
 
 **Send Avatar References** sends character and persona avatars, or their sprites, to the image service as reference images, so the model can copy a face or outfit. Not every service accepts them. In a Roleplay chat it is a list like **Attach Card Appearance**. With videos included, a clip whose **First frame** is **Prompt only** starts from the character's avatar or sprite, and the choice reads **Prompt only (avatar from Send Avatar References)**.
 

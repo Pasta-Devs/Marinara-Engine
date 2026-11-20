@@ -2223,6 +2223,10 @@ export function PersonaEditor() {
               variant="persona"
               entityKey={personaId}
               onJump={scrollToSection}
+              onOpenAppearance={() => {
+                const appearance = document.getElementById("persona-card-appearance");
+                if (appearance) scrollToElement(appearance);
+              }}
               sheet={
                 <PersonaCharacterSheetSection
                   personaId={personaId}
@@ -4398,11 +4402,6 @@ function PersonaCardTab({
           onToggle: (enabled) => updateField("imageAppearanceEnabled", enabled),
           value: formData.imageAppearance,
           onChange: (value) => updateField("imageAppearance", value),
-          toggleLabel: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          toggleHelp: localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp"),
-          title: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          subtitle: localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle"),
-          placeholder: localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder"),
           mariField: "imageAppearance",
         }}
         alternatives={formData.cardFieldAlternatives}

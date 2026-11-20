@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import {
   applyCharacterCardFieldAlternatives,
+  applyPersonaCardFieldAlternatives,
   assignCardFieldAlternative,
   cardEntityBelongsToChat,
   cardFieldAlternativesSchema,
+  readImageAppearanceOverride,
 } from "../../../packages/shared/src/index.js";
 
 const alternative = { id: "alt-1", field: "description" as const, value: "A CHAT DESCRIPTION", chatIds: ["chat-a"] };
@@ -54,6 +56,67 @@ assert.equal(projected.extensions.backstory, "");
 assert.equal(projected.backstory, "");
 assert.equal(JSON.stringify(card), before);
 assert.equal(applyCharacterCardFieldAlternatives(card, "chat-b"), card);
+// Appearance alternatives carry their own image tags (#9605): a ticked alternative's tags win,
+// an alternative without them falls back to its own prose, and the main tags never leak in.
+const taggedAlternatives = [
+  {
+    id: "alter",
+    field: "appearance" as const,
+    value: "ALTER PROSE",
+    imageAppearance: " alter, tags ",
+    imageAppearanceEnabled: true,
+    chatIds: ["chat-a"],
+  },
+  { id: "plain", field: "appearance" as const, value: "PLAIN PROSE", chatIds: ["chat-b"] },
+  {
+    id: "unticked",
+    field: "appearance" as const,
+    value: "UNTICKED PROSE",
+    imageAppearance: "parked, tags",
+    imageAppearanceEnabled: false,
+    chatIds: ["chat-d"],
+  },
+];
+assert.equal(cardFieldAlternativesSchema.safeParse(taggedAlternatives).success, true);
+const taggedCard = {
+  name: "T",
+  extensions: {
+    appearance: "MAIN PROSE",
+    imageAppearance: "main, tags",
+    imageAppearanceEnabled: true,
+    cardFieldAlternatives: taggedAlternatives,
+  },
+};
+const taggedBefore = JSON.stringify(taggedCard);
+const imageAppearanceIn = (chatId: string) => {
+  const projectedCard = applyCharacterCardFieldAlternatives(taggedCard, chatId);
+  return readImageAppearanceOverride(projectedCard.extensions, projectedCard.extensions.appearance);
+};
+assert.equal(imageAppearanceIn("chat-a"), "alter, tags");
+assert.equal(imageAppearanceIn("chat-b"), "PLAIN PROSE");
+assert.equal(imageAppearanceIn("chat-d"), "UNTICKED PROSE");
+assert.equal(imageAppearanceIn("chat-c"), "main, tags");
+assert.equal(JSON.stringify(taggedCard), taggedBefore);
+// Stored persona rows keep the flag as a string and the alternatives serialized.
+const personaRow = {
+  appearance: "MAIN PROSE",
+  imageAppearance: "main, tags",
+  imageAppearanceEnabled: "true",
+  cardFieldAlternatives: JSON.stringify(taggedAlternatives),
+};
+const alterRow = applyPersonaCardFieldAlternatives(personaRow, "chat-a");
+assert.equal(alterRow.imageAppearance, " alter, tags ");
+assert.equal(alterRow.imageAppearanceEnabled, "true");
+const plainRow = applyPersonaCardFieldAlternatives(personaRow, "chat-b");
+assert.equal(plainRow.appearance, "PLAIN PROSE");
+assert.equal(plainRow.imageAppearanceEnabled, "false");
+assert.equal(plainRow.imageAppearance, "");
+assert.equal(applyPersonaCardFieldAlternatives(personaRow, "chat-c"), personaRow);
+// A projected persona object keeps a boolean flag.
+assert.equal(
+  applyPersonaCardFieldAlternatives({ ...personaRow, imageAppearanceEnabled: true }, "chat-b").imageAppearanceEnabled,
+  false,
+);
 assert.equal(cardEntityBelongsToChat({ personaId: "p", characterIds: ["c"] }, "persona", "p"), true);
 assert.equal(cardEntityBelongsToChat({ personaId: "p", personaCharacterId: "c" }, "persona", "p"), false);
 assert.equal(cardEntityBelongsToChat({ personaCharacterId: "c" }, "character", "c"), true);
@@ -166,6 +229,24 @@ try {
   assert.equal(JSON.parse((await storage.getById(character.id, firstChat.id))!.data).description, "A CHAT DESCRIPTION");
   assert.equal(JSON.parse((await storage.getById(character.id, secondChat.id))!.data).description, "BASE DESCRIPTION");
   assert.equal(JSON.parse((await storage.getById(character.id, unrelated.id))!.data).description, "BASE DESCRIPTION");
+  // An Appearance alternative's image tags survive the API and reach the chat-scoped read.
+  await request("PATCH", `/api/characters/${character.id}`, {
+    data: {
+      extensions: {
+        cardFieldAlternatives: [
+          characterAlternatives[0],
+          { ...characterAlternatives[1], imageAppearance: "second, tags", imageAppearanceEnabled: true },
+        ],
+      },
+    },
+  });
+  const secondScoped = JSON.parse((await storage.getById(character.id, secondChat.id))!.data);
+  assert.equal(secondScoped.extensions.appearance, "SECOND APPEARANCE");
+  assert.equal(
+    readImageAppearanceOverride(secondScoped.extensions, secondScoped.extensions.appearance),
+    "second, tags",
+  );
+  assert.equal(JSON.parse((await storage.getById(character.id))!.data).extensions.imageAppearance, undefined);
   assert.equal((await storage.getPersona(persona.id, firstChat.id))!.description, "CHAT PERSONA");
   assert.equal((await storage.getPersona(persona.id, secondChat.id))!.description, "BASE PERSONA");
   assert.equal((await storage.getPersona(persona.id))!.description, "BASE PERSONA");

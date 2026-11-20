@@ -13,6 +13,12 @@ export const cardFieldAlternativeSchema = z.object({
     .optional(),
   value: z.string(),
   chatIds: z.array(z.string().trim().min(1)),
+  /**
+   * Appearance alternatives only: this look's image tags and their checkmark, the
+   * per-alternative twin of the card's Image Appearance Override. Ignored on other fields.
+   */
+  imageAppearance: z.string().optional(),
+  imageAppearanceEnabled: z.boolean().optional(),
 });
 
 /** An entity has at most one replacement for each field in any given chat. */

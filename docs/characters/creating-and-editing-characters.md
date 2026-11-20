@@ -96,7 +96,7 @@ The **Card** tab is the main writing workspace. Jump links at the top skip to an
 
 **Public Face** is what the rest of the cast could see or know about the character: looks, manner, role, reputation, and relationships that are no secret. Leave out secrets, inner thoughts, private history and instructions on how to play the character. It is never sent as part of this character's card. A prompt reads it only where you place the `{{publicFace}}` macro, or `{{personaPublicFace}}` for your persona. See [Prompt Macros](../prompts/macros.md#identity-character-and-persona-macros). In an Individual Roleplay group chat, **Others' Public Faces** sends it to the other characters' turns. See [More Individual settings](../chats/group-chats.md#more-individual-settings). An agent whose **Characters** or **Persona** source is set to **Public Face** reads it instead of the card. See [Other settings](../agents/custom-agents.md#other-settings). With **Send Public Faces** on, Impersonate in Roleplay reads it instead of the card. See [The Impersonate settings](../chats/guided-and-impersonate.md#the-impersonate-settings).
 
-**Image Appearance Override** sits under **Appearance** and is off by default. Turn it on to show a second box for short image tags, such as a LoRA trigger word (a keyword that switches on a custom image style). While it is on and filled, image prompts use those tags exactly as written, with **Appearance** kept as background. An AI avatar prompt is seeded from it too. The narrator always sees the full **Appearance** text.
+**Appearance** has two tabs, **Prose** and **Image tags**. **Prose** is the appearance text itself. **Image tags** holds short tags for image prompts, such as a LoRA trigger word (a keyword that switches on a custom image style). Typing tags ticks **Use for image prompts**, and a dot on the tab shows they are in use. While it is ticked and the tags are filled, image prompts use those tags exactly as written, with the prose kept as background. Untick it to keep the tags without using them: image prompts then fall back to **Prose**. An AI avatar prompt is seeded from the tags too. The narrator always sees the **Prose** text. The **Images** tab links here with **Go to Appearance**.
 
 The **Dialogue & Greetings** section sets how a chat opens and how the character sounds:
 
@@ -144,7 +144,7 @@ Before you start: add an image-generation connection. The AI avatar button appea
 
 1. Hover the avatar tile and click the wand button. The **Generate Character Avatar** window opens.
 2. Pick an **Image Generation Connection**.
-3. Check or edit the **Avatar Prompt**. It starts from **Image Appearance Override** when that is on and filled. Otherwise it uses **Appearance**, then **Description**, then **Personality**, whichever has text first.
+3. Check or edit the **Avatar Prompt**. It starts from the **Image tags** of **Appearance** when **Use for image prompts** is ticked and they are filled. Otherwise it uses **Appearance**, then **Description**, then **Personality**, whichever has text first.
 4. If the card already has an avatar, you can tick **Use current avatar as a reference**.
 5. Click **Generate**. To try again, click **Regenerate**.
 6. Click **Use Avatar** when you like the result.
@@ -188,6 +188,7 @@ Rules:
 - A chat can use only one alternative per field. Ticking a chat in another alternative, or picking another one in Chat Settings, moves it there.
 - With no chats ticked, the alternative stays inactive for later.
 - An empty alternative clears that field in its chats.
+- An **Appearance** alternative has its own **Prose** and **Image tags** tabs. In its chats, its tags replace the card's. With its tags empty or unticked, image prompts use the alternative's prose, never the card's tags. A new alternative copies the card's tags too.
 - Chat-specific scenario and image appearance overrides still win.
 - **Summary** alternatives stay metadata and are not sent to the AI.
 - If the character leaves a chat, its assignment pauses and resumes when you add the character again.

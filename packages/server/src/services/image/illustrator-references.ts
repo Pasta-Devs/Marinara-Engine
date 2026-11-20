@@ -562,11 +562,34 @@ export async function readRecordedReferenceImages(args: {
   return images;
 }
 
+/** The library rows with the chat's own characters swapped for their chat-scoped rows (a failed read keeps the row). */
+async function projectChatRows(
+  rows: CharacterRowLike[],
+  chatIds: ReadonlySet<string>,
+  projection: { chatId: string; getById: (id: string, chatId: string) => Promise<CharacterRowLike | null> } | undefined,
+): Promise<CharacterRowLike[]> {
+  if (!projection) return rows;
+  return Promise.all(
+    rows.map(async (row) =>
+      chatIds.has(row.id) ? ((await projection.getById(row.id, projection.chatId).catch(() => null)) ?? row) : row,
+    ),
+  );
+}
+
 export async function resolveIllustratorCharacterReferences(args: {
   charactersStore: { list: () => Promise<CharacterRowLike[]> };
   chatScope?: {
     chatId: string;
     characterIds: readonly string[];
+    getById: (id: string, chatId: string) => Promise<CharacterRowLike | null>;
+  };
+  /**
+   * Without `chatScope`: re-read the chat's own characters as they are in this chat, so an Appearance alternative's
+   * image tags (or, unticked, its prose) win over the main card's tags (#9605). Any library character can still be
+   * named, unlike `chatScope`.
+   */
+  chatProjection?: {
+    chatId: string;
     getById: (id: string, chatId: string) => Promise<CharacterRowLike | null>;
   };
   chatCharacters: IllustratorChatCharacterReference[];
@@ -589,7 +612,7 @@ export async function resolveIllustratorCharacterReferences(args: {
           chatScope.getById(id, chatScope.chatId).catch(() => null),
         ),
       )
-    : await charactersStore.list().catch(() => []);
+    : await projectChatRows(await charactersStore.list().catch(() => []), chatIds, args.chatProjection);
   const allSources = allRows
     .map((row, index) => (row ? characterRowToSource(row, index + args.chatCharacters.length) : null))
     .filter((source): source is CharacterReferenceSource => Boolean(source));

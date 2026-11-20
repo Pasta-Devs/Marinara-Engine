@@ -93,7 +93,7 @@ The **Card** tab holds the fields that describe you to the AI. Each has a live t
 | **Public Face** | The card minus its private parts. | Only through `{{personaPublicFace}}`, or an agent's **Persona** source set to **Public Face** |
 | **Example Dialogue** | Sample exchanges. Separate them with `<START>`. Use `{{user}}` for your persona and `{{char}}` for the other character. | Yes |
 
-**Image Appearance Override**, under **Appearance**, and **Public Face** work as they do for characters. See [Card tab](creating-and-editing-characters.md#card-tab). The text boxes support macros.
+The **Image tags** tab of **Appearance** and **Public Face** work as they do for characters. See [Card tab](creating-and-editing-characters.md#card-tab). The text boxes support macros.
 
 These features work the same as on characters, with the persona as the subject:
 

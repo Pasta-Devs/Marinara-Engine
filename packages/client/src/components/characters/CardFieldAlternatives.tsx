@@ -13,7 +13,14 @@ import {
 import { useCardFieldGeneration } from "../../hooks/use-card-field-generation";
 import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
-import { generateClientId } from "../../lib/utils";
+import { cn, generateClientId } from "../../lib/utils";
+import {
+  AppearanceTabHint,
+  AppearanceTabs,
+  shouldAutoTick,
+  type AppearanceImageTagsState,
+  type AppearanceTab,
+} from "../cards/AppearanceImageTags";
 import { useUIStore } from "../../stores/ui.store";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -29,6 +36,8 @@ type Props = {
   card: CardFieldDraft;
   alternatives: CardFieldAlternative[];
   onChange: (alternatives: CardFieldAlternative[]) => void;
+  /** Appearance only: the card's image tags, copied into a new alternative with its prose (#9605). */
+  imageAppearance?: Pick<AppearanceImageTagsState, "enabled" | "value">;
 };
 
 /** An alternative's author-given name, or "{field} alternative {n}" counted among that field's alternatives. */
@@ -79,7 +88,18 @@ export function CardFieldAlternatives(props: Props) {
         onClick={() =>
           props.onChange([
             ...props.alternatives,
-            { id: generateClientId(), field: props.field, value: props.card[props.field], chatIds: [] },
+            {
+              id: generateClientId(),
+              field: props.field,
+              value: props.card[props.field],
+              chatIds: [],
+              ...(props.imageAppearance && props.imageAppearance.value.trim()
+                ? {
+                    imageAppearance: props.imageAppearance.value,
+                    imageAppearanceEnabled: props.imageAppearance.enabled,
+                  }
+                : {}),
+            },
           ])
         }
       >
@@ -163,6 +183,24 @@ function AlternativeField({
     }
   };
   const selected = chats.filter((chat) => alternative.chatIds.includes(chat.id)).length;
+  // Appearance alternatives get the card's Prose | Image tags pair, with their own tags (#9605).
+  const [tab, setTab] = useState<AppearanceTab>("prose");
+  const imageTags: AppearanceImageTagsState | null =
+    props.field === "appearance"
+      ? {
+          enabled: alternative.imageAppearanceEnabled === true,
+          value: alternative.imageAppearance ?? "",
+          onToggle: (enabled) => update({ imageAppearanceEnabled: enabled }),
+          onChange: (value) => update({ imageAppearance: value }),
+        }
+      : null;
+  // One write: two `update`s in a row map the same list, so the second would drop the first.
+  const changeTags = (value: string) =>
+    update({
+      imageAppearance: value,
+      ...(imageTags && shouldAutoTick(imageTags, value) ? { imageAppearanceEnabled: true } : {}),
+    });
+  const showImageTags = imageTags !== null && tab === "imageTags";
   return (
     <section
       aria-label={title}
@@ -187,13 +225,16 @@ function AlternativeField({
           />
         </h4>
         <div className="flex shrink-0 items-center gap-1">
-          <CardFieldWand
-            label={title}
-            field={props.field}
-            onGenerate={() => void generation.generate(props.field)}
-            disabled={!props.entityId || generation.isPending}
-            loading={generation.isPending}
-          />
+          {/* The wand writes the alternative's prose, so it stays off the Image tags tab. */}
+          {!showImageTags && (
+            <CardFieldWand
+              label={title}
+              field={props.field}
+              onGenerate={() => void generation.generate(props.field)}
+              disabled={!props.entityId || generation.isPending}
+              loading={generation.isPending}
+            />
+          )}
           <button
             type="button"
             onClick={() => void remove()}
@@ -205,18 +246,28 @@ function AlternativeField({
           </button>
         </div>
       </div>
+      {imageTags && <AppearanceTabs tab={tab} onTabChange={setTab} state={imageTags} />}
       <MacroTextarea
-        value={alternative.value}
-        onChange={changeValue}
+        key={showImageTags ? "image-tags" : "prose"}
+        value={showImageTags ? imageTags.value : alternative.value}
+        onChange={showImageTags ? changeTags : changeValue}
         rows={5}
         title={title}
-        ariaLabel={title}
-        placeholder={t("ui.cardFields.seedPlaceholder")}
+        ariaLabel={showImageTags ? t("ui.cards.appearanceImageTags.alternativeTextareaLabel", { name: title }) : title}
+        placeholder={
+          showImageTags
+            ? t("ui.characters.charactercardtab.imageAppearancePlaceholder")
+            : t("ui.cardFields.seedPlaceholder")
+        }
         showMarkdownPreview
         showTokenCount
         selfCharacterId={props.kind === "character" ? props.entityId : undefined}
-        className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+        className={cn(
+          "w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20",
+          showImageTags && !imageTags.enabled && "opacity-60",
+        )}
       />
+      {imageTags && <AppearanceTabHint tab={tab} state={imageTags} />}
       <details
         className="group/chats rounded-lg border border-[var(--border)] text-xs"
         onToggle={(event) => {
