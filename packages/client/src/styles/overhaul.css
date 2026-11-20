@@ -5149,6 +5149,9 @@ input.ov-edhead__title:focus {
   }
   /* Conversation: the top icons sit flat on the message's first line (no pill on every message). */
   :root[data-ov-msg-buttons-always] .ov-cvh {
+    /* Over a theme's own spot too (Dewglass lifts it above your balloons): shown on every message, a bar outside
+       the box lands on the line of the reply above's bottom icons and the two read as one jumbled row. */
+    top: var(--ov-follow-top, 0.125rem) !important;
     padding: 0;
     border-color: transparent;
     background: transparent;
