@@ -45,6 +45,7 @@ import { resolveLiveConversationStatus } from "../../lib/conversation-presence-s
 import { useDocsIndex } from "../../hooks/use-docs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
+import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { MariTopbarStatus } from "../layout/MariTopbarStatus";
 import { useMariEdgeGlow } from "../../hooks/use-mari-presence";
 import {
@@ -307,7 +308,7 @@ export function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: 
   const list = Array.isArray(connections) ? (connections as Array<Record<string, unknown>>) : [];
   const connection = chat.connectionId
     ? list.find((item) => item.id === chat.connectionId)
-    : list.find((item) => item.isDefault === true);
+    : list.find((item) => isConnectionFlagTrue(item.isDefault));
   const parts = [fallback, nameOf(connection)].filter(Boolean);
   return <small>{parts.join(" · ")}</small>;
 }

@@ -20,7 +20,12 @@ import {
   useSaveConnectionDefaults,
 } from "../../../hooks/use-connections";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
-import { isLanguageGenerationConnection, type ConnectionProviderLike } from "../../../lib/connection-filters";
+import {
+  isConnectionFlagTrue,
+  isLanguageGenerationConnection,
+  type ConnectionProviderLike,
+} from "../../../lib/connection-filters";
+import { useEffectiveChatModel } from "../../../components/connections/ConnectionSwitcherBody";
 import { cn } from "../../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { DEFAULT_IMAGE_CAPTIONING_PROMPT, parseConnectionImageCaptioningDefaults } from "@marinara-engine/shared";
@@ -52,6 +57,8 @@ interface AdvancedParametersSectionProps {
   forceOpen?: boolean;
   metadata: Record<string, unknown>;
   isConversation: boolean;
+  /** The chat, so the settings shown follow the model it really runs (its own pick, or Main when it has none). */
+  chatId: string;
   connectionId: string | null;
   connections: AdvancedConnection[];
   contextMessageLimit: number | null | undefined;
@@ -79,6 +86,7 @@ export function AdvancedParametersSection({
   forceOpen,
   metadata,
   isConversation,
+  chatId,
   connectionId,
   connections,
   contextMessageLimit,
@@ -99,7 +107,36 @@ export function AdvancedParametersSection({
     enabledParameters: STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS,
   };
   const conn = connectionId ? connections.find((connection) => connection.id === connectionId) : null;
-  const connectionModelCapabilities = useModelParameterCapabilities(conn);
+  // A chat without a Model of its own answers through the Main model (generate.routes.ts), so its settings, defaults
+  // and hidden parameters come from Main. Without this it showed every parameter, even ones Main never sends.
+  const mainConn = connectionId
+    ? null
+    : (connections.find((connection) => isConnectionFlagTrue(connection.isDefault)) ?? null);
+  const generationConn = conn ?? mainConn;
+  const generationConnectionId = connectionId ?? (typeof mainConn?.id === "string" ? mainConn.id : null);
+  // The effective model also carries the chat's own catalog pick and the Connection's provider.
+  const effectiveModel = useEffectiveChatModel(chatId);
+  const isShuffle = connectionId === "random";
+  const filterProvider = isShuffle
+    ? null
+    : effectiveModel?.kind === "model"
+      ? (effectiveModel.provider ?? generationConn?.provider ?? null)
+      : (generationConn?.provider ?? null);
+  const filterModel =
+    effectiveModel?.kind === "model"
+      ? (effectiveModel.model ?? generationConn?.model ?? null)
+      : (generationConn?.model ?? null);
+  const filterBaseUrl =
+    effectiveModel?.kind === "model" && effectiveModel.baseUrl
+      ? effectiveModel.baseUrl
+      : typeof generationConn?.baseUrl === "string"
+        ? generationConn.baseUrl
+        : null;
+  const connectionModelCapabilities = useModelParameterCapabilities(
+    isShuffle || !generationConnectionId
+      ? null
+      : { id: generationConnectionId, provider: filterProvider, model: filterModel },
+  );
   const canSaveConnectionDefaults = !!connectionId && connectionId !== "random" && conn?.isLocalSidecar !== true;
   const imageCaptioningDefaults = parseConnectionImageCaptioningDefaults(conn?.defaultParameters);
   const saveDefaults = useSaveConnectionDefaults();
@@ -109,11 +146,11 @@ export function AdvancedParametersSection({
     if (forceOpen) setExpanded(true);
   }, [forceOpen]);
   const contentVisible = useDrawerContentVisible("advanced-parameters", expanded);
-  const preview = useEffectiveGenerationParameters(connectionId, contentVisible);
+  const preview = useEffectiveGenerationParameters(generationConnectionId, contentVisible);
   const awaitingDefaults = preview.canPreview && !preview.data;
   const defaults = getEditableGenerationParameters(
     strictModeDefaults,
-    preview.data?.inheritedParameters ?? conn?.defaultParameters,
+    preview.data?.inheritedParameters ?? generationConn?.defaultParameters,
   );
   const params = (metadata.chatParameters as Record<string, unknown>) ?? {};
   const effectiveParams = getEditableGenerationParameters(defaults, params);
@@ -212,26 +249,24 @@ export function AdvancedParametersSection({
       id="advanced-parameters"
       title={localizeUi("ui.chatSettings.advancedparameterssection.advancedParameters")}
       icon={<Gauge size="0.875rem" />}
-      help={localizeUi(
-        "ui.chatSettings.advancedparameterssection.overrideGenerationParametersForThisChatOnlyChangeThese",
-      )}
+      // The how-it-works notes live in the ? tip (and the docs), so the section opens straight on its settings.
+      help={[
+        localizeUi("ui.chatSettings.advancedparameterssection.overrideGenerationParametersForThisChatOnlyChangeThese"),
+        localizeUi("generationParameters.effective.hint"),
+        localizeUi("settings.customGenerationParameters.availabilityHint"),
+      ].join(" ")}
       open={expanded}
       onOpenChange={setExpanded}
       bodyClassName="pt-3 space-y-3"
       rootAttributes={{ "data-chat-settings-section": "advanced-parameters" }}
     >
-      <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-        {localizeUi("settings.customGenerationParameters.availabilityHint")}
-      </p>
-      <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-        {localizeUi(
-          preview.isError
-            ? "generationParameters.effective.unavailable"
-            : awaitingDefaults
-              ? "generationParameters.effective.loading"
-              : "generationParameters.effective.hint",
-        )}
-      </p>
+      {(preview.isError || awaitingDefaults) && (
+        <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+          {localizeUi(
+            preview.isError ? "generationParameters.effective.unavailable" : "generationParameters.effective.loading",
+          )}
+        </p>
+      )}
       {preview.isError && (
         <AgentSettingsActionButton type="button" onClick={() => void preview.refetch()}>
           {localizeUi("generationParameters.effective.retry")}
@@ -241,12 +276,21 @@ export function AdvancedParametersSection({
         <GenerationParametersFields
           effectiveParameters={preview.data?.parameters}
           value={effectiveParams}
-          provider={conn?.provider ?? null}
-          model={conn?.model ?? null}
-          baseUrl={typeof conn?.baseUrl === "string" ? conn.baseUrl : null}
+          provider={filterProvider}
+          model={filterModel}
+          baseUrl={filterBaseUrl}
           modelCapabilities={connectionModelCapabilities}
           enabledParametersFallback={STRICT_CONNECTION_PARAMETER_SEND_DEFAULTS}
           onChange={setParameters}
+          modelNote={
+            isShuffle
+              ? localizeUi("generationParameters.model.shuffle")
+              : mainConn && effectiveModel?.followsMain
+                ? localizeUi("generationParameters.model.followsMain", {
+                    model: effectiveModel?.title || filterModel || "",
+                  })
+                : undefined
+          }
         />
       </fieldset>
       <div className="space-y-2 pt-3">
