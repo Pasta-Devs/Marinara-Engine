@@ -1,12 +1,13 @@
 import {
   capabilityModelId,
   impliesProxyThinking,
-  isClaudeAdaptiveOnlyNoSamplingModel,
-  isGeminiStrictRequestModel,
+  isClaudeNoSamplingModel,
+  isGeminiSamplingIgnoredModel,
   isGeminiThinkingLevelModel,
   isMistralAdjustableReasoningModel,
   isMistralGlm53Model,
   isNanoGptMiniMaxM31FlashModel,
+  isOpenAIAlwaysReasoningGpt5Model,
   isOpenAIGpt56Model,
   isOpenAIGpt6AlwaysReasoningModel,
   isOpenAIGpt6Model,
@@ -70,6 +71,8 @@ export interface ModelParameterCapabilities {
   logprobs?: boolean;
   /** The exact settings the provider lists for this model (OpenRouter). Settings missing from it are ignored upstream. */
   supportedParameters?: GenerationParameterKey[];
+  /** Settings this service refused for this model, which the Engine now leaves out (parameter-refusals.ts). */
+  refusedParameters?: GenerationParameterKey[];
 }
 
 export interface GenerationParameterContext {
@@ -116,7 +119,17 @@ export const GENERATION_PARAMETER_KEYS: readonly GenerationParameterKey[] = ALL;
 const SAMPLING: GenerationParameterKey[] = ["temperature", "topP", "topK", "frequencyPenalty", "presencePenalty"];
 
 /** Ids sent through OpenAIProvider under their own provider kind (provider-registry.ts). */
-const OPENAI_COMPATIBLE = new Set(["openai", "openrouter", "nanogpt", "xai", "mistral", "cohere", "arli", "deepseek"]);
+const OPENAI_COMPATIBLE = new Set([
+  "openai",
+  "openrouter",
+  "nanogpt",
+  "xai",
+  "mistral",
+  "cohere",
+  "arli",
+  "deepseek",
+  "zai",
+]);
 const KNOWN_PROVIDERS = new Set([
   ...OPENAI_COMPATIBLE,
   "custom",
@@ -191,6 +204,9 @@ const NEVER_SENT: Record<string, GenerationParameterKey[]> = {
   // supportsAssistantReasoningPrefill). A visible prefill control here would build
   // a request the default /v1 endpoint rejects.
   deepseek: ["verbosity", "topK", "frequencyPenalty", "presencePenalty", "serviceTier", "assistantReasoningPrefill"],
+  // Z.AI's chat API takes temperature, top_p, max_tokens, thinking and reasoning_effort; it has no top_k, penalties or
+  // verbosity. https://docs.z.ai/api-reference/llm/chat-completion
+  zai: ["topK", "frequencyPenalty", "presencePenalty", "verbosity", "serviceTier"],
   custom: ["serviceTier"],
 };
 
@@ -248,9 +264,9 @@ export function relevantGenerationParameters(context: GenerationParameterContext
     }
 
     // The generation route clears sampling for Claude model ids on every provider.
-    if (isClaudeAdaptiveOnlyNoSamplingModel(model)) hide(...SAMPLING);
+    if (isClaudeNoSamplingModel(model)) hide(...SAMPLING);
     else if (/claude-(opus|sonnet)-4-[56]/.test(model) || /claude-(opus|sonnet)-4\.[56]/.test(model)) {
-      hide("topP", "topK", "frequencyPenalty", "presencePenalty");
+      hide("topP", "frequencyPenalty", "presencePenalty");
     }
 
     // Claude thinking rejects temperature and top_k, so the request drops both (anthropic.provider.ts). A `-thinking`
@@ -266,13 +282,14 @@ export function relevantGenerationParameters(context: GenerationParameterContext
       }
     }
 
-    // Argon, Carbon and the newer Gemini Flash models ignore temperature, top-p and top-k and reject penalties, so every
-    // request but a custom endpoint's leaves them out, including OpenRouter's and NanoGPT's.
-    if (isGeminiStrictRequestModel(model) && provider !== "custom") hide(...SAMPLING);
+    // Gemini 3 and 4 ignore temperature, top-p and top-k and do not support penalties, so every request but a custom
+    // endpoint's leaves them out, including OpenRouter's and NanoGPT's.
+    if (isGeminiSamplingIgnoredModel(model) && provider !== "custom") hide(...SAMPLING);
 
     if (provider === "custom") {
       // Custom endpoints keep sampling unless the model is GPT-5.5 or 5.6, which reject it.
-      if (model.startsWith("gpt-5.5") || isOpenAIGpt56Model(model)) hide(...SAMPLING);
+      if (model.startsWith("gpt-5.5") || isOpenAIGpt56Model(model) || isOpenAIAlwaysReasoningGpt5Model(model))
+        hide(...SAMPLING);
     }
 
     if (OPENAI_COMPATIBLE.has(provider)) {
@@ -283,6 +300,7 @@ export function relevantGenerationParameters(context: GenerationParameterContext
         /^(o1|o3|o4)/.test(model) ||
         isOpenAIGpt56Model(model) ||
         model.startsWith("gpt-5.5") ||
+        isOpenAIAlwaysReasoningGpt5Model(model) ||
         isOpenAIGpt6AlwaysReasoningModel(model) ||
         ((model.startsWith("gpt-5") || isOpenAIGpt6Model(model)) && effortActive) ||
         (model.startsWith("gpt-5") && impliesProxyThinking(String(context.model ?? "")));
@@ -311,7 +329,12 @@ export function relevantGenerationParameters(context: GenerationParameterContext
         if (xaiReasoningModel) hide("frequencyPenalty", "presencePenalty");
         if (!isXaiConfigurableReasoningModel(model) && model !== XAI_MULTI_AGENT_MODEL) hide("reasoningEffort");
       } else {
-        const glm = model.includes("glm") && (provider === "nanogpt" || isNativeGlmHost(context.baseUrl));
+        const glm =
+          model.includes("glm") &&
+          (provider === "nanogpt" ||
+            // Z.AI's own API: thinking starts with GLM 4.5.
+            ((isNativeGlmHost(context.baseUrl) || (provider === "zai" && !context.baseUrl?.trim())) &&
+              /(?:^|\/)glm-(?:4\.[5-9]|[5-9])/u.test(model)));
         const mistralReasoning =
           provider === "mistral" && (isMistralAdjustableReasoningModel(model) || isMistralGlm53Model(model));
         // DeepSeek takes reasoning_effort for all of its chat models, so effort stays whatever the model id is.
@@ -334,6 +357,7 @@ export function relevantGenerationParameters(context: GenerationParameterContext
   }
 
   if (caps?.samplingRejected) hide("temperature", "topP", "topK");
+  if (caps?.refusedParameters?.length) hide(...caps.refusedParameters);
   if (caps?.effortLevels && caps.effortLevels.length === 0) hide("reasoningEffort");
   if (caps?.verbosity && !caps.verbosity.supported) hide("verbosity");
   if (caps?.supportedParameters && caps.supportedParameters.length > 0) {

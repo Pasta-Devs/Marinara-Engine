@@ -102,6 +102,8 @@ import {
 } from "../services/memory-recall-embedding.js";
 import { withLongTermMemoryEmbeddingChange } from "../services/generation/long-term-memory-runtime.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
+import { parameterRefusalService, refusedGenerationParameters } from "../services/llm/parameter-refusals.js";
+import { resolveBaseUrl } from "../services/generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../services/generation/generation-parameters.js";
 import { describeEmptyModelResponse, sentOutputBudget } from "../services/generation/empty-response-reason.js";
 import { isGlm53MandatoryReasoningModel } from "../services/llm/providers/glm-request-compat.js";
@@ -765,6 +767,20 @@ export async function connectionsRoutes(app: FastifyInstance) {
     // Mask key in response
     return maskConnection(conn);
   });
+
+  /** Settings the Model's service refused for a model (see parameter-refusals.ts), for Advanced Parameters to hide. */
+  app.get<{ Params: { id: string }; Querystring: { model?: string } }>(
+    "/:id/refused-parameters",
+    async (req, reply) => {
+      const conn = await storage.getById(req.params.id);
+      if (!conn) return notFound(reply, "Connection not found");
+      const model = (typeof req.query.model === "string" ? req.query.model : (conn.model ?? "")).trim();
+      const providerKind = PARAMETER_REFUSAL_PROVIDER_KINDS.has(conn.provider) ? conn.provider : "custom";
+      return {
+        parameters: refusedGenerationParameters(parameterRefusalService(providerKind, resolveBaseUrl(conn)), model),
+      };
+    },
+  );
 
   app.post("/", async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;
@@ -2663,6 +2679,19 @@ interface RemoteModel extends CatalogModelMetadata {
   /** How many input tokens this model consumes per token of quota. */
   inputTokenMultiplier?: number;
 }
+
+/** Providers sent through OpenAIProvider under their own kind (provider-registry.ts); any other text provider is custom. */
+const PARAMETER_REFUSAL_PROVIDER_KINDS = new Set([
+  "openai",
+  "openrouter",
+  "nanogpt",
+  "xai",
+  "mistral",
+  "arli",
+  "zai",
+  "deepseek",
+  "cohere",
+]);
 
 /** OpenRouter names each model's accepted request fields; map the ones the parameter panel controls. */
 const OPENROUTER_PARAMETER_FIELDS: Record<string, GenerationParameterKey> = {

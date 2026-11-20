@@ -168,7 +168,9 @@ Installed agent packages follow the same account values. A value the account sav
 
 ## Some models ignore some parameters
 
-Not every model accepts every parameter. When Marinara knows a model ignores or rejects a setting, it leaves it out of the request and hides its control, so **Advanced Parameters** and an account's **Chat defaults** only show what the model really receives. This is common with reasoning models, which refuse sampling settings such as temperature. For example, Gemini 4 Argon, Carbon, Hydrogen and Neon, and Gemini 3.6 to 3.8 Flash, take no **Temperature**, **Top P**, **Top K**, **Frequency** or **Presence**, and a model Marinara doesn't know on a provider with a built-in model list gets only **Max Output Tokens** and Custom Parameters.
+Not every model accepts every parameter. When Marinara knows a model ignores or rejects a setting, it leaves it out of the request and hides its control, so **Advanced Parameters** and an account's **Chat defaults** only show what the model really receives. This is common with reasoning models, which refuse sampling settings such as temperature. For example, Gemini 3 and Gemini 4 models take no **Temperature**, **Top P**, **Top K**, **Frequency** or **Presence**, and a model Marinara doesn't know on a provider with a built-in model list gets only **Max Output Tokens** and Custom Parameters.
+
+Some services also block a setting whatever the model itself accepts. OpenRouter lists what each model takes, and Marinara hides the rest. Other services only say so by refusing a request. When a refusal names one of these settings, Marinara sends the message again without it, so the reply still arrives, and leaves that setting out for that service and model from then on. Its control is hidden like the others. Marinara remembers this for 30 days. A setting you add yourself under Custom Parameters is always sent as written.
 
 Click **Show unsupported parameters** to see the hidden controls anyway. Each says **Not sent to this model**, and changing it has no effect while this model answers.
 

@@ -21,6 +21,7 @@ import {
   findKnownModel,
   impliesProxyThinking,
   isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeNoSamplingModel,
   isClaudeOpus55Model,
   isClaudeSonnet55Model,
   isClaudeStrictRequestModel,
@@ -571,7 +572,8 @@ export class AnthropicProvider extends BaseLLMProvider {
       this.shouldSendParameter(options, "reasoningEffort") &&
       options.reasoningEffort === "none" &&
       supportsAnthropicThinkingDisable(options.model);
-    if (isAdaptiveOnly || impliesProxyThinking(options.model)) stripAnthropicSamplingParameters(body);
+    if (isAdaptiveOnly || isClaudeNoSamplingModel(options.model) || impliesProxyThinking(options.model))
+      stripAnthropicSamplingParameters(body);
 
     if (shouldDisableThinking) {
       // Sonnet 5.5 rejects "disabled"; normalizeStrictClaudeParameters sends it as "between_tools".
@@ -910,7 +912,10 @@ export class AnthropicProvider extends BaseLLMProvider {
       this.shouldSendParameter(options, "reasoningEffort") &&
       options.reasoningEffort === "none" &&
       supportsAnthropicThinkingDisable(options.model);
-    if ((isAdaptiveOnly || impliesProxyThinking(options.model)) && !suppressModelParameters) {
+    if (
+      (isAdaptiveOnly || isClaudeNoSamplingModel(options.model) || impliesProxyThinking(options.model)) &&
+      !suppressModelParameters
+    ) {
       stripAnthropicSamplingParameters(body);
     }
 
