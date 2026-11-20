@@ -1921,11 +1921,6 @@ function CharacterCardTab({
           onToggle: (enabled) => updateExtension("imageAppearanceEnabled", enabled),
           value: String(formData.extensions.imageAppearance ?? ""),
           onChange: (value) => updateExtension("imageAppearance", value),
-          toggleLabel: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          toggleHelp: localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp"),
-          title: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          subtitle: localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle"),
-          placeholder: localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder"),
         }}
         alternatives={alternatives}
         onAlternativesChange={(next) => updateExtension("cardFieldAlternatives", next)}

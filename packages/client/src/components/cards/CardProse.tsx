@@ -75,7 +75,10 @@ export type CardProseTextareaProps = {
   actions?: ReactNode;
   /** The field id Prof. Mari knows this field by (see lib/mari-editor-fields). */
   mariField?: string;
-  /** Passed through for MacroTextarea's self-reference preview when present. */
+  /** Shown between the header and the textarea, e.g. the Appearance Prose | Image tags tabs. */
+  belowHeader?: ReactNode;
+  /** The textarea's accessible name when it differs from the section title. */
+  textareaLabel?: string;
 };
 
 export function CardProseTextarea({
@@ -93,6 +96,8 @@ export function CardProseTextarea({
   footer,
   actions,
   mariField,
+  belowHeader,
+  textareaLabel,
 }: CardProseTextareaProps) {
   const { t: localizeUi } = useUiTranslation();
   const persona = variant === "persona";
@@ -104,9 +109,10 @@ export function CardProseTextarea({
         <CardProseSectionHeader variant={variant} title={title} subtitle={subtitle} helpText={helpText} />
         {actions}
       </div>
+      {belowHeader}
       <MariFieldReview field={mariField ?? ""}>
         <MacroTextarea
-          ariaLabel={title}
+          ariaLabel={textareaLabel ?? title}
           textareaRef={textareaRef}
           onFocus={onFocus}
           showTokenCount={!persona}

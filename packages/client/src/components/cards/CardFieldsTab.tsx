@@ -6,14 +6,16 @@
  * role-only bodies (the character summary and greeting/onboarding dialogue)
  * through a field's `render`; variable chips stay at the callsite.
  */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useTranslation as useUiTranslation } from "react-i18next";
 import { CARD_FIELD_KEYS } from "@marinara-engine/shared";
 import type { CardFieldAlternative, CardFieldDraft, CardFieldKey } from "@marinara-engine/shared";
 
 import { CardFieldAlternatives } from "../characters/CardFieldAlternatives";
 import { CardFieldWand } from "../characters/CardFieldWand";
-import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { SettingsCheckbox } from "../panels/settings/SettingControls";
 import { EditorSectionAnchor } from "../ui/EditorSectionJumps";
+import { Tabs } from "../ui/Tabs";
 import { useCardFieldGeneration } from "../../hooks/use-card-field-generation";
 import { CardProseDescription, CardProseTextarea, type CardProseVariant } from "./CardProse";
 
@@ -51,16 +53,12 @@ export type CardFieldsTabCustomField = CardFieldsTabFieldBase & {
 
 export type CardFieldsTabField = CardFieldsTabProseField | CardFieldsTabCustomField;
 
+/** The Appearance field's image tags (#7053), shown as its second tab (#9605). */
 export type CardFieldsTabImageAppearance = {
   enabled: boolean;
   onToggle: (enabled: boolean) => void;
   value: string;
   onChange: (value: string) => void;
-  toggleLabel: string;
-  toggleHelp: string;
-  title: string;
-  subtitle: string;
-  placeholder: string;
   /** Persona stores this flat; character leaves it unset. */
   mariField?: string;
 };
@@ -73,7 +71,7 @@ export type CardFieldsTabProps = {
   onFieldChange: (key: CardFieldKey, value: string) => void;
   /** Array order is the rendered order. */
   fields: CardFieldsTabField[];
-  /** Rendered after the appearance field. */
+  /** The appearance field's Image tags tab. */
   imageAppearance: CardFieldsTabImageAppearance;
   alternatives: CardFieldAlternative[];
   onAlternativesChange: (alternatives: CardFieldAlternative[]) => void;
@@ -105,6 +103,8 @@ export function CardFieldsTab({
   const card = { name } as CardFieldDraft;
   for (const key of CARD_FIELD_KEYS) card[key] = values[key];
   const generation = useCardFieldGeneration(variant, entityId, card, onFieldChange);
+  const { t: localizeUi } = useUiTranslation();
+  const [appearanceTab, setAppearanceTab] = useState<AppearanceTab>("prose");
 
   const renderField = (field: CardFieldsTabField) => {
     const value = values[field.key];
@@ -154,8 +154,40 @@ export function CardFieldsTab({
         />
       );
     }
+    if (field.key === "appearance" && appearanceTab === "imageTags") {
+      return (
+        <CardProseTextarea
+          key="appearance-image-tags"
+          variant={variant}
+          mariField={imageAppearance.mariField}
+          title={field.title}
+          subtitle={field.subtitle}
+          helpText={field.helpText}
+          textareaLabel={localizeUi("ui.cards.appearanceImageTags.textareaLabel")}
+          value={imageAppearance.value}
+          onChange={(next) => {
+            // Typing into empty tags ticks the checkmark, or filled-in tags would silently do nothing.
+            if (!imageAppearance.enabled && !imageAppearance.value.trim() && next.trim())
+              imageAppearance.onToggle(true);
+            imageAppearance.onChange(next);
+          }}
+          placeholder={localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder")}
+          rows={field.rows}
+          textareaClassName={imageAppearance.enabled ? undefined : "opacity-60"}
+          actions={actions}
+          belowHeader={appearanceTabs}
+          footer={
+            <>
+              <AppearanceTabHint tab="imageTags" config={imageAppearance} />
+              {footer}
+            </>
+          }
+        />
+      );
+    }
     return (
       <CardProseTextarea
+        key={field.key === "appearance" ? "appearance-prose" : undefined}
         variant={variant}
         mariField={field.mariField}
         title={field.title}
@@ -168,10 +200,54 @@ export function CardFieldsTab({
         textareaRef={textareaRef}
         onFocus={onFocus}
         actions={actions}
-        footer={footer}
+        belowHeader={field.key === "appearance" ? appearanceTabs : undefined}
+        footer={
+          field.key === "appearance" ? (
+            <>
+              <AppearanceTabHint tab="prose" config={imageAppearance} />
+              {footer}
+            </>
+          ) : (
+            footer
+          )
+        }
       />
     );
   };
+
+  const imageTagsInUse = imageAppearance.enabled && imageAppearance.value.trim() !== "";
+  const appearanceTabs = (
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+      <Tabs
+        variant="underline"
+        label={localizeUi("ui.cards.appearanceImageTags.tabs")}
+        value={appearanceTab}
+        onChange={setAppearanceTab}
+        className="min-w-0"
+        items={[
+          { id: "prose", label: localizeUi("ui.cards.appearanceImageTags.prose") },
+          {
+            id: "imageTags",
+            label: localizeUi("ui.cards.appearanceImageTags.imageTags"),
+            badge: imageTagsInUse ? (
+              <span
+                aria-label={localizeUi("ui.cards.appearanceImageTags.inUse")}
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--primary)]"
+              />
+            ) : undefined,
+          },
+        ]}
+      />
+      {appearanceTab === "imageTags" && (
+        <SettingsCheckbox
+          label={localizeUi("ui.cards.appearanceImageTags.useForImagePrompts")}
+          checked={imageAppearance.enabled}
+          onChange={imageAppearance.onToggle}
+          className="py-1"
+        />
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -180,7 +256,6 @@ export function CardFieldsTab({
         {fields.map((field) => (
           <EditorSectionAnchor key={field.key} id={field.sectionId}>
             {renderField(field)}
-            {field.key === "appearance" && <ImageAppearanceBlock config={imageAppearance} variant={variant} />}
           </EditorSectionAnchor>
         ))}
       </div>
@@ -188,39 +263,19 @@ export function CardFieldsTab({
   );
 }
 
-function ImageAppearanceBlock({
-  config,
-  variant,
-}: {
-  config: CardFieldsTabImageAppearance;
-  variant: CardProseVariant;
-}) {
-  return (
-    <>
-      <div className="mt-3">
-        <SettingsSwitch
-          label={<span className="font-medium">{config.toggleLabel}</span>}
-          description={config.toggleHelp}
-          checked={config.enabled}
-          onChange={config.onToggle}
-          labelPosition="start"
-          className="justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] p-4"
-        />
-      </div>
-      {config.enabled && (
-        <div className="mt-3">
-          <CardProseTextarea
-            variant={variant}
-            mariField={config.mariField}
-            title={config.title}
-            subtitle={config.subtitle}
-            value={config.value}
-            onChange={config.onChange}
-            placeholder={config.placeholder}
-            rows={6}
-          />
-        </div>
-      )}
-    </>
-  );
+type AppearanceTab = "prose" | "imageTags";
+
+/** One line under the Appearance textarea saying who reads what is on screen. */
+function AppearanceTabHint({ tab, config }: { tab: AppearanceTab; config: CardFieldsTabImageAppearance }) {
+  const { t: localizeUi } = useUiTranslation();
+  const inUse = config.enabled && config.value.trim() !== "";
+  const key =
+    tab === "prose"
+      ? inUse
+        ? "ui.cards.appearanceImageTags.proseHintTagsInUse"
+        : "ui.cards.appearanceImageTags.proseHint"
+      : config.enabled
+        ? "ui.characters.charactercardtab.imageAppearanceSubtitle"
+        : "ui.cards.appearanceImageTags.imageTagsHintOff";
+  return <p className="text-xs text-[var(--muted-foreground)]">{localizeUi(key)}</p>;
 }
