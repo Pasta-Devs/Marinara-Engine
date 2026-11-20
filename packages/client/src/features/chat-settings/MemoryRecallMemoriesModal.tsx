@@ -217,12 +217,23 @@ export function MemoryRecallMemoriesModal({
         <div className="ov-mem">
           <div className="ov-mem__bar">
             <span className="ov-mem__count">
-              {memories.length === 1
-                ? `1 ${localizeUi("ui.chat.memoryrecallmemoriesmodal.memoryChunk")}`
-                : `${memories.length.toLocaleString()} ${localizeUi("ui.chat.memoryrecallmemoriesmodal.memoryChunks")}`}
-              {memories.length > 0
-                ? ` · ~${totalTokens.toLocaleString()} ${localizeUi("ui.agents.agenteditor.tokens")}`
-                : ""}
+              {localizeUi("ui.chat.scheduletimeline.value1Value2", {
+                value1: memories.length.toLocaleString(),
+                value2: localizeUi(
+                  memories.length === 1
+                    ? "ui.chat.memoryrecallmemoriesmodal.memoryChunk"
+                    : "ui.chat.memoryrecallmemoriesmodal.memoryChunks",
+                ),
+              })}
+              {memories.length > 0 && (
+                <>
+                  {" · ~"}
+                  {localizeUi("ui.chat.scheduletimeline.value1Value2", {
+                    value1: totalTokens.toLocaleString(),
+                    value2: localizeUi("ui.agents.agenteditor.tokens"),
+                  })}
+                </>
+              )}
             </span>
             <span className="ov-mem__actions">
               {importInput}
@@ -297,7 +308,10 @@ export function MemoryRecallMemoriesModal({
                     <span className="ov-mem__headline">
                       <span
                         className="ov-mem__when"
-                        title={`${localizeUi("ui.chat.memoryrecallmemoriesmodal.created")} ${formatMemoryDate(memory.createdAt)}`}
+                        title={localizeUi("ui.chat.scheduletimeline.value1Value2", {
+                          value1: localizeUi("ui.chat.memoryrecallmemoriesmodal.created"),
+                          value2: formatMemoryDate(memory.createdAt),
+                        })}
                       >
                         {formatMemoryDate(memory.firstMessageAt)} – {formatMemoryDate(memory.lastMessageAt)}
                       </span>

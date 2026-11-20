@@ -8,6 +8,7 @@ import {
   LOCATION_BACKGROUND_PIN_SHOWN_KEY,
   type LocationBackgroundPin,
   applyClockCommandTags,
+  findImageStyleProfile,
   rulesetChargesStart,
   normalizeVideoGenerationUserSettings,
   TTS_SETTINGS_KEY,
@@ -15256,8 +15257,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         imgConnFull.imagePromptInstructions,
                       ];
                       // A style that was only the copied Style text is dropped; the prompt keeps the subject.
-                      const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true });
-                      const writerPrompt = removeCopiedPromptGuidance(imagePrompt, writerGuidance);
+                      const promptMode = findImageStyleProfile(
+                        imageSettings.styleProfiles,
+                        styleProfileId || imageDefaults?.styleProfileId,
+                      ).promptMode;
+                      const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, {
+                        allowEmpty: true,
+                        promptMode,
+                      });
+                      const writerPrompt = removeCopiedPromptGuidance(imagePrompt, writerGuidance, { promptMode });
                       // Prepend style to the prompt for better results
                       let fullPrompt = writerStyle ? `${writerStyle}, ${writerPrompt}` : writerPrompt;
                       if (imagePositivePrompt) {
@@ -15386,9 +15394,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         omitProfileStyleText: typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                         omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                           imagePromptAgent?.promptTemplate ?? "",
+                          promptMode,
                         ),
                       });
                       const finalNegativePrompt = mergeIllustratorNegativePrompt(
+                        compiledPrompt.profile.promptMode,
                         compiledPrompt.prompt,
                         compiledPrompt.negativePrompt,
                         requestedNegativePrompt,
@@ -15407,6 +15417,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                               typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                             omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                               imagePromptAgent?.promptTemplate ?? "",
+                              findImageStyleProfile(
+                                imageSettings.styleProfiles,
+                                styleProfileId || imageFallback.imageDefaults?.styleProfileId,
+                              ).promptMode,
                             ),
                           })
                         : null;
@@ -15417,6 +15431,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                               prompt: fallbackCompiledPrompt.prompt,
                               negativePrompt:
                                 mergeIllustratorNegativePrompt(
+                                  fallbackCompiledPrompt.profile.promptMode,
                                   fallbackCompiledPrompt.prompt,
                                   fallbackCompiledPrompt.negativePrompt,
                                   requestedNegativePrompt,
@@ -15502,7 +15517,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           height: imgHeight,
                           generation: buildChatImageGenerationRecord({
                             prompt: compiledPrompt.prompt,
-                            connectionId: imgConnFull.id,
+                            connectionId: imageResult.effectiveConnection?.connectionId ?? imgConnFull.id,
                             negativePrompt: finalNegativePrompt,
                             characterPrompts: illustratorCharacterPrompts,
                             referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
@@ -15510,6 +15525,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             locationImageId: spatialLocationReferenceImage
                               ? postReplySpatialProjection?.referenceImageId
                               : null,
+                            seed: imageResult.seed,
                           }),
                         });
                         firstGalleryImageId ??= (galleryEntry as { id?: string } | null)?.id ?? null;

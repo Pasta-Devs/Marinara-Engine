@@ -1722,6 +1722,7 @@ export function ConnectionEditor({
     localImagePromptInstructions,
     localVideoPromptInstructions,
     effectiveImageGenerationQuality,
+    localImageTransparency,
     localComfyuiWorkflow,
     localClaudeFastMode,
     selectedImageDefaultsService,
