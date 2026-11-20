@@ -313,13 +313,15 @@ export function detectLayoutProblems(options = {}) {
       const x = rect.left + rect.width / 2;
       const y = rect.top + rect.height / 2;
       if (x < 0 || y < 0 || x >= vw || y >= vh) continue;
-      // Only what is inside its own scroller's visible part (a list scrolled past the edge is fine).
+      // Only what is inside its own scroller's visible part (a list scrolled past the edge is fine). A middle within
+      // a pixel of the scroller's edge is a row half scrolled out, not inside: the omnibar's last result, its middle exactly
+      // on the list's bottom edge at some scroll positions, read as covered by the panel below it (Nov 19).
       let inView = true;
       for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
         const style = styleOf(node);
         if (style.overflowX !== "visible" || style.overflowY !== "visible") {
           const r = node.getBoundingClientRect();
-          if (x < r.left || x > r.right || y < r.top || y > r.bottom) inView = false;
+          if (x < r.left + 1 || x > r.right - 1 || y < r.top + 1 || y > r.bottom - 1) inView = false;
         }
       }
       if (!inView) continue;

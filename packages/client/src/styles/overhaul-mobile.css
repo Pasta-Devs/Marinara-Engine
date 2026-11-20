@@ -2339,6 +2339,38 @@
   position: relative;
   margin-top: 0.25rem;
 }
+/* A label sharing its line with the buttons stops short of them and wraps: a long one ("Assistant
+   Reasoning Prefill" in a theme with larger text) put its help "?" under the Expand button's tap
+   area (Nov 19). Each button is 2.25rem wide with its pad, 0.375rem apart. Inline, not flex, so a
+   wrapped label keeps its "?" right after the last word. */
+:root[data-overhaul="mobile"]
+  span.inline-flex:has(
+    + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col)
+  ):not(#ovm-x) {
+  display: inline-block;
+  max-width: calc(100% - 2.375rem);
+}
+/* Wrapped, the help "?" follows the label's last word. */
+:root[data-overhaul="mobile"]
+  span.inline-flex:has(
+    + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col)
+  ):not(#ovm-x)
+  > span.inline-flex {
+  margin-left: 0.25rem;
+  vertical-align: -0.125em;
+}
+:root[data-overhaul="mobile"]
+  span.inline-flex:has(
+    + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col) > :nth-child(2)
+  ):not(#ovm-x) {
+  max-width: calc(100% - 5rem);
+}
+:root[data-overhaul="mobile"]
+  span.inline-flex:has(
+    + :is([data-macro-field], .relative) > :is([data-macro-tools], textarea + .absolute.flex-col) > :nth-child(3)
+  ):not(#ovm-x) {
+  max-width: calc(100% - 7.625rem);
+}
 /* Character / Persona field labels (DESCRIPTION...) sit right on the box so the buttons share
    their line. */
 :root[data-overhaul="mobile"]
