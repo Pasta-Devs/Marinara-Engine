@@ -16,6 +16,8 @@ import {
   Link,
   Palette,
   SlidersHorizontal,
+  Upload,
+  Users,
   VenetianMask,
   Wrench,
 } from "lucide-react";
@@ -68,6 +70,9 @@ import {
   useUpdateChatPreset,
 } from "../../hooks/use-chat-presets";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
+import { OvEditorHead, OvEyebrow, OvRow } from "../overhaul/EditorChrome";
+import { OvSeg } from "../overhaul/LoreEntryParts";
 import { Checkbox } from "../ui/Checkbox";
 
 type SlotKey = "conn" | "preset" | "agent" | "tool" | "persona" | "bg" | "lore" | "img" | "params" | "mem" | "lang";
@@ -196,6 +201,9 @@ interface ChatProfileBuilderProps {
   variant?: "modal" | "page";
   /** The page's editor-leave key (`profileDetailId:<id>`), so leaving saves first like the other editors. */
   leaveKey?: string;
+  /** New layout's page: the Library's Export and Delete for this profile (⋯ menu and header). */
+  onExport?: () => void;
+  onDelete?: () => void;
 }
 
 /** Saves on leave and reports dirty state, like the other center editors. Only mounted by the page variant. */
@@ -237,8 +245,14 @@ function ChatProfileBuilderBody({
   onSaved,
   variant = "modal",
   leaveKey,
+  onExport,
+  onDelete,
 }: ChatProfileBuilderProps) {
   const { t } = useTranslation();
+  // New layout, Library > Settings profiles: the shared editor header, Save only saves, and choosing
+  // chats is its own "Use in chats" step instead of following every Save.
+  const overhaulPage = useOverhaulLook() && variant === "page";
+  const overhaulMobile = useOverhaulMobile();
   const fieldId = useId();
   const canDrag = !window.matchMedia("(pointer: coarse), (max-width: 639px)").matches;
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles.profiles);
@@ -411,7 +425,7 @@ function ChatProfileBuilderBody({
   };
   // On the page, leave without the save-on-leave the back button does: Cancel discards, and Done (step 2)
   // comes after the save, while busy is still set, which the leave guard would refuse.
-  const leave = () => (variant === "page" ? leaveWithoutSaving(onClose) : onClose());
+  const leave = () => (overhaulPage ? setSaved(null) : variant === "page" ? leaveWithoutSaving(onClose) : onClose());
   const handleSave = async () => {
     if (!trimmedName || busy) return;
     setBusy(true);
@@ -419,7 +433,7 @@ function ChatProfileBuilderBody({
       const result = await persist();
       onSaved?.(result);
       if (saveOnly) onClose();
-      else setSaved(result);
+      else if (!overhaulPage) setSaved(result);
     } catch {
       toast.error(t("chat.settingsProfile.saveFailed"));
     } finally {
@@ -500,8 +514,10 @@ function ChatProfileBuilderBody({
     const meta = SLOT_META[key];
     const ariaLabel = label(key);
     const pickOne = (id: string) => setSlot(key, id ? [id] : []);
-    const fieldClass =
-      "min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm font-normal text-[var(--foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+    const fieldClass = overhaulPage
+      ? // The new layout's field look (overhaul.css), like the other Library editors' selects.
+        "ov-prof-picker"
+      : "min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm font-normal text-[var(--foreground)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
     if (key === "preset")
       return (
         <PresetPickerField
@@ -839,6 +855,148 @@ function ChatProfileBuilderBody({
       </div>
     </div>
   );
+
+  if (overhaulPage) {
+    // Label-left rows under small headings, like the other Library editors (no slot cards).
+    const savePage = async () => {
+      if (!trimmedName || busy) return;
+      await handleSave();
+    };
+    const openUseInChats = async () => {
+      if (busy) return;
+      // Choosing chats works from what's saved, so unsaved edits are saved first.
+      if (dirty || !(profile ?? createdRef.current)) {
+        if (!trimmedName) return;
+        setBusy(true);
+        try {
+          const result = await persist();
+          onSaved?.(result);
+          setSaved(result);
+        } catch {
+          toast.error(t("chat.settingsProfile.saveFailed"));
+        } finally {
+          setBusy(false);
+        }
+        return;
+      }
+      setSaved(profile ?? createdRef.current);
+    };
+    const modeText = t(`chat.settingsProfile.builder.mode.${mode}`);
+    const filledText = t("chat.settingsProfile.builder.filled", { filled, total: slots.length }).replace(/\.$/, "");
+    return (
+      <div data-settings-profile-editor className="mari-editor-shell flex min-h-0 flex-1 flex-col overflow-hidden">
+        {leaveKey && <PageLeaveGuard leaveKey={leaveKey} dirty={dirty} save={saveOnLeave} busy={busy} />}
+        <div className="ov-ed ov-prof-ed">
+          <OvEditorHead
+            section="profiles"
+            sectionLabel="Settings profiles"
+            title={name}
+            titlePlaceholder={t("chat.settingsProfile.builder.nameLabel")}
+            onTitleChange={setName}
+            meta={profile ? `${modeText} · ${filledText}` : filledText}
+            save={{
+              dirty: dirty || !(profile ?? createdRef.current),
+              saving: busy,
+              disabled: !trimmedName,
+              onSave: savePage,
+            }}
+            actions={
+              <>
+                <button type="button" className="ov-edbtn" disabled={busy || !trimmedName} onClick={openUseInChats}>
+                  <Users size={13} aria-hidden="true" />
+                  {t("ui.overhaul.profiles.useInChats")}
+                </button>
+                {/* Phones: Export moves to ⋯ so Use in chats and Save share one line. */}
+                {onExport && profile && !overhaulMobile ? (
+                  <button type="button" className="ov-edbtn" onClick={onExport}>
+                    <Upload size={13} aria-hidden="true" />
+                    {t("chat.advancedMemory.export")}
+                  </button>
+                ) : null}
+              </>
+            }
+            menu={[
+              { label: "Back to Settings profiles", onSelect: onClose },
+              ...(onExport && profile && overhaulMobile ? [{ label: "Export", onSelect: onExport }] : []),
+              ...(onDelete && profile ? [{ label: "Delete profile", danger: true, onSelect: onDelete }] : []),
+            ]}
+          />
+          <div className="ov-prof-ed__body">
+            {GROUPS.map((group, groupIndex) => {
+              const keys = group.rows.flat().filter((key) => slots.includes(key));
+              if (!keys.length) return null;
+              const summaryGroup = keys.every((key) => SUMMARY_KEYS[key]);
+              return (
+                <section key={group.label} className="ov-prof-ed__group">
+                  <OvEyebrow>{t(group.label)}</OvEyebrow>
+                  {/* Parameters, memory and translation come from a chat (Save into profile), so one note says so. */}
+                  {summaryGroup ? (
+                    <p className="ov-row__note">{t("chat.settingsProfile.builder.summaryHelp")}</p>
+                  ) : null}
+                  {groupIndex === 0 && !profile ? (
+                    <OvRow label={t("chat.settingsProfile.builder.modeLabel")}>
+                      <OvSeg
+                        value={mode as (typeof PROFILE_MODES)[number]}
+                        label={t("chat.settingsProfile.builder.modeLabel")}
+                        options={PROFILE_MODES.map((value) => ({
+                          value,
+                          label: t(`chat.settingsProfile.builder.mode.${value}`),
+                        }))}
+                        onChange={(value) => {
+                          if (value === mode || busy) return;
+                          // Keep the slots both modes share; drop only what the new mode can't hold.
+                          setMode(value);
+                          setSettings((prev) => keepForMode(prev, value));
+                        }}
+                      />
+                    </OvRow>
+                  ) : null}
+                  {keys.map((key) => {
+                    const ids = slotIds(key, settings);
+                    const summary = !!SUMMARY_KEYS[key];
+                    const clear =
+                      ids.length > 0 && (summary || SLOT_META[key].multi) ? (
+                        <button
+                          type="button"
+                          className="ov-edbtn"
+                          aria-describedby={`${fieldId}-${key}`}
+                          onClick={() => setSettings((prev) => withSlot(key, prev, []))}
+                        >
+                          {t("chat.settingsProfile.builder.clear")}
+                        </button>
+                      ) : null;
+                    return (
+                      <OvRow
+                        key={key}
+                        label={<span id={`${fieldId}-${key}`}>{label(key)}</span>}
+                        top={!summary && !!SLOT_META[key].multi}
+                      >
+                        <div className={cn("ov-prof-ed__field", !summary && SLOT_META[key].multi && "is-multi")}>
+                          {summary ? (
+                            <span className={cn("ov-prof-ed__summary", !ids.length && "is-empty")}>
+                              {t(
+                                ids.length
+                                  ? "chat.settingsProfile.builder.savedSettings"
+                                  : "ui.overhaul.profiles.notSaved",
+                              )}
+                            </span>
+                          ) : (
+                            renderPicker(key, ids)
+                          )}
+                          {clear}
+                        </div>
+                      </OvRow>
+                    );
+                  })}
+                </section>
+              );
+            })}
+          </div>
+        </div>
+        {stepTwo}
+      </div>
+    );
+  }
 
   if (variant === "page") {
     // PresetEditor's center shell: back button, icon tile and the name as the title.

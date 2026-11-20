@@ -58,7 +58,7 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
   } else if (target.kind === "panel") {
     // New layout: a Library section is a page of its own, not just the highlighted pane entry.
     if (isOverhaulLook()) openLibrarySection(target.panel);
-    else ui.openRightPanel(target.panel);
+    else ui.openRightPanel(target.panel === "profiles" ? "presets" : target.panel);
   } else if (target.kind === "settings" && isOmnibarSettingsTarget(target)) {
     // Q2: these live in the omnibar's settings view, which keeps the omnibar open.
     ui.openOmnibarSettings(target.controlId ?? null);
