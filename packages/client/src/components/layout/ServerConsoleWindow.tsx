@@ -283,14 +283,16 @@ export function ServerConsoleWindow() {
                     : "serverConsole.copy",
               )}
             </span>
-            <span role="status" className="sr-only">
-              {copyResult === "copied"
-                ? t("serverConsole.copied")
-                : copyResult === "failed"
-                  ? t("serverConsole.copyFailed")
-                  : ""}
-            </span>
           </button>
+          {/* Outside the button: a button's children are presentational, so a status inside it is never
+              announced and only lengthens the button's name. */}
+          <span role="status" className="sr-only">
+            {copyResult === "copied"
+              ? t("serverConsole.copied")
+              : copyResult === "failed"
+                ? t("serverConsole.copyFailed")
+                : ""}
+          </span>
           <button type="button" onClick={handleDownload} className={toolbarButtonClass}>
             <Download size="0.75rem" className="shrink-0" />
             <span>{t("serverConsole.download")}</span>
