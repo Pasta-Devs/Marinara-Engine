@@ -747,7 +747,7 @@ export function buildOmnibarSearchResults({
   // frecency boost - "never moves Mari's row" means never decides it either.
   // bestMatchScore/directResult/clearDirect are computed from the pre-boost
   // scores below; the boost is applied only afterwards, to final ordering.
-  // UX-01: typing her name opens her, as Ctrl+J does.
+  // UX-01: typing her name opens her (in Search; Ctrl+J opens her full page in the new layout).
   const openMariRows: OmnibarResult[] = OPEN_MARI_QUERIES.has(normalizeTextForMatch(trimmedQuery))
     ? [
         {

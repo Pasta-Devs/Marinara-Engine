@@ -10,6 +10,7 @@ import {
   readCommandCenterSessionState,
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
+import { openProfessorMariChatPage } from "../../lib/state-navigation";
 import { isShortcutsHelpKey, shortcutKeyTypesText, takesLetterKeys } from "../../lib/keyboard-shortcuts";
 import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
@@ -164,6 +165,8 @@ export function GlobalOmnibar() {
         // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8). #9129: not while a
         // field is being typed in - there Ctrl+J is the IME's own key (SKK's on switch), so the field keeps it.
         event.preventDefault();
+        // New layout: ⌘J opens her full chat page; her head and ⌘↵ in Search open the small window.
+        if (openProfessorMariChatPage()) return;
         captureMariFieldDraft();
         requestProfessorMariOpen();
       } else if (

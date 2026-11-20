@@ -2,7 +2,7 @@
 // UI overhaul: Professor Mari as a tab
 //
 // Her full chat in the main area, so you can keep a thread with her open
-// beside your chats. ⌘J and the omnibar still open her in the popover.
+// beside your chats. ⌘J opens this page; her head in Search and ⌘↵ there open the popover.
 // ──────────────────────────────────────────────
 import { HomeProfessorMariChat } from "../chat/HomeProfessorMariChat";
 
