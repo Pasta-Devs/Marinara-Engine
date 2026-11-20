@@ -21,7 +21,7 @@ for (const editorSource of [characterEditorSource, personaEditorSource]) {
   assert.match(editorSource, /<CardEditor\b/u);
   assert.match(editorSource, /<CardColors\b/u);
   assert.match(editorSource, /grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4/u);
-  assert.match(editorSource, /onClick=\{\(\) => void handleDelete\(lightbox\)\}/u);
+  assert.match(editorSource, /onDelete=\{\(image\) => void handleDelete\(image\)\}/u);
   assert.match(editorSource, /loading="lazy"\s+decoding="async"/u);
   assert.match(editorSource, /group-\[&:focus-within\]:opacity-100/u);
 }
@@ -62,3 +62,4 @@ assert.equal(
   1,
   "The shared header avatar inside its upload target must not intercept page clicks",
 );
+
