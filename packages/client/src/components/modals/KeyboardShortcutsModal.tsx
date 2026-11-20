@@ -6,10 +6,12 @@ import { useTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { isApplePlatform } from "../../lib/command-center";
 import { formatShortcutKey, KEYBOARD_SHORTCUT_GROUPS } from "../../lib/keyboard-shortcuts";
+import { useOverhaulStore } from "../../stores/overhaul.store";
 
 export function KeyboardShortcutsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const apple = useMemo(() => isApplePlatform(), []);
+  const overhaul = useOverhaulStore((state) => state.enabled);
 
   return (
     <Modal open={open} onClose={onClose} title={t("shortcuts.title")} width="max-w-2xl" mobileFullscreen>
@@ -24,7 +26,9 @@ export function KeyboardShortcutsModal({ open, onClose }: { open: boolean; onClo
               <dl className="divide-y divide-[var(--border)]/50 rounded-lg ring-1 ring-[var(--border)]/70">
                 {group.shortcuts.map((shortcut) => (
                   <div key={shortcut.labelKey} className="flex items-center justify-between gap-3 px-2.5 py-1.5">
-                    <dt className="min-w-0 text-xs text-[var(--foreground)]">{t(shortcut.labelKey)}</dt>
+                    <dt className="min-w-0 text-xs text-[var(--foreground)]">
+                      {t((overhaul && shortcut.overhaulLabelKey) || shortcut.labelKey)}
+                    </dt>
                     <dd className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                       {shortcut.keys.map((combo, comboIndex) => (
                         <Fragment key={combo.join("+")}>

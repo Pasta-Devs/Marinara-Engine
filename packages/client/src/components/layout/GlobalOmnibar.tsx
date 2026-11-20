@@ -120,7 +120,7 @@ import {
   type ProfessorMariOpenDetail,
 } from "../../lib/professor-mari-open";
 import type { ProfessorMariNavigationTarget } from "../../lib/professor-mari-navigation";
-import { executeStateNavigation } from "../../lib/state-navigation";
+import { executeStateNavigation, openProfessorMariChatPage } from "../../lib/state-navigation";
 import { isPullHandoffPending, takePullHandoff } from "../../lib/pull-to-open";
 import { measureOmnibarFirstResultPaint } from "../../lib/omnibar-open-timing";
 import { confirmEditorLeave } from "../../lib/editor-leave";
@@ -130,7 +130,7 @@ import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { isOverhaulLook, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { MARI_WINDOW_HEIGHT_MIN_REM, useUIStore } from "../../stores/ui.store";
 import { InlineGhostText } from "../ui/InlineGhostText";
 import {
@@ -204,6 +204,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const overhaulMobile = useOverhaulMobile();
+  const overhaulLook = useOverhaulStore((state) => state.enabled);
   const mariWindowHeightRem = useUIStore((state) => state.mariWindowHeightRem);
   const mariWindowViewportHeight = Math.min(88, (80 * mariWindowHeightRem) / MARI_WINDOW_HEIGHT_MIN_REM);
   const mariWindowWidthRem = useUIStore((state) => state.mariWindowWidthRem);
@@ -1668,9 +1669,15 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   };
-  // M18: ⌘J asks Mari about this screen; with her already open it goes back to the search. The host
+  // M18 (classic layout): ⌘J asks Mari about this screen; with her already open it goes back to the search. The host
   // opens the omnibar for it while it is shut; from here on this listener owns the shortcut.
   const toggleMariPane = useEffectEvent(() => {
+    // New layout: ⌘J leaves Search for her full chat page (her head and ⌘↵ keep the small window).
+    if (isOverhaulLook()) {
+      onClose();
+      openProfessorMariChatPage();
+      return;
+    }
     // Beside an editor ⌘J keeps her there: refresh the screen context (focused field) and go to her composer.
     if (pane === "mari" && companion) {
       captureMariFieldDraft();
@@ -2242,15 +2249,18 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                       ? t("commandCenter.backToFind", "Back to search")
                       : t("commandCenter.backToResults", "Back to results")
                   }
-                  // M18: ⌘J goes back to the search from Mari, so the button says so.
+                  // M18: ⌘J goes back to the search from Mari, so the button says so (classic layout only:
+                  // in the new layout ⌘J opens her full chat page instead).
                   title={
-                    mariSurface
+                    mariSurface && !overhaulLook
                       ? t("commandCenter.keyboard.backToSearch", "Back to search ({{mod}}+J)", {
                           mod: formatShortcutKey("Mod"),
                         })
                       : undefined
                   }
-                  aria-keyshortcuts={mariSurface ? (isApplePlatform() ? "Meta+J" : "Control+J") : undefined}
+                  aria-keyshortcuts={
+                    mariSurface && !overhaulLook ? (isApplePlatform() ? "Meta+J" : "Control+J") : undefined
+                  }
                   className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] sm:size-9"
                 >
                   <ChevronLeft size={18} />
