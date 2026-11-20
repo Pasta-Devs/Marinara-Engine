@@ -689,7 +689,9 @@
                 .mari-window-snap-guide (the line shown while a bubble snaps)
    Attributes:  [data-window="<id>"], [data-drawer="<id>"], [data-pinned],
                 [data-locked], [data-detached], [data-presentation="window|sheet"],
-                [data-window-control="pin|lock|close"], [data-edge],
+                [data-window-control="pop-out|pin|lock|close"], [data-edge],
+                [data-popped-out="true"] on a window moved into a separate
+                browser window (it fills that window, with no frame of its own),
                 [data-minimized="true"] with [data-window] on a bubble, [data-axis="x|y"]
                 on a snap guide,
                 [data-drawer-control="pop-out"], [data-drawer-host="<id>"] and
@@ -774,6 +776,13 @@
     );
     -webkit-backdrop-filter: var(--mari-widget-shell-backdrop-filter, var(--mari-window-backdrop-filter, blur(12px)));
     backdrop-filter: var(--mari-widget-shell-backdrop-filter, var(--mari-window-backdrop-filter, blur(12px)));
+  }
+
+  /* Popped out, the window is its browser window's whole page: the browser draws the frame. */
+  .mari-window[data-popped-out="true"] {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .mari-window__header {

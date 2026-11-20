@@ -46,11 +46,11 @@ import { openGlobalSearch } from "../../lib/chat-insights";
 import { requestChatSummaryOpen } from "../../lib/chat-floating-ui-events";
 import { resolveTrackerPanelContentScale, resolveTrackerPanelDesktopWidth } from "../../lib/tracker-panel-layout";
 import {
-  closeTrackerPanelWindow,
-  openTrackerPanelWindow,
-  TrackerPanelDetachedWindow,
-  type TrackerPanelWindowTarget,
-} from "../../features/tracker-panel/components/TrackerPanelDetachedWindow";
+  closeDetachedWindow,
+  openDetachedWindow,
+  DetachedWindow,
+  type DetachedWindowTarget,
+} from "../ui/DetachedWindow";
 import { TrackerWindowProvider } from "../../features/tracker-panel/components/TrackerWindowContext";
 import { usePersonaPortraitSaveCoordinator } from "../../features/tracker-panel/hooks/use-persona-portrait-save";
 import { motion, AnimatePresence } from "framer-motion";
@@ -547,9 +547,9 @@ export function AppShell({
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
   const [trackerPanelResolvedWidth, setTrackerPanelResolvedWidth] = useState(trackerPanelWidth);
   const [trackerPanelWidthMeasured, setTrackerPanelWidthMeasured] = useState(false);
-  const [trackerPanelWindowTarget, setTrackerPanelWindowTarget] = useState<TrackerPanelWindowTarget | null>(null);
-  const trackerPanelWindowTargetRef = useRef<TrackerPanelWindowTarget | null>(null);
-  const trackerPanelDockingPopupRef = useRef<TrackerPanelWindowTarget["popup"] | null>(null);
+  const [trackerPanelWindowTarget, setDetachedWindowTarget] = useState<DetachedWindowTarget | null>(null);
+  const trackerPanelWindowTargetRef = useRef<DetachedWindowTarget | null>(null);
+  const trackerPanelDockingPopupRef = useRef<DetachedWindowTarget["popup"] | null>(null);
   const detachTrackerPanelPendingRef = useRef(false);
   const [trackerPanelHost] = useState(() => {
     const host = document.createElement("div");
@@ -1011,10 +1011,10 @@ export function AppShell({
     const target = trackerPanelWindowTargetRef.current;
     if (target) {
       trackerPanelDockingPopupRef.current = target.popup;
-      closeTrackerPanelWindow(target);
+      closeDetachedWindow(target);
       trackerPanelWindowTargetRef.current = null;
     }
-    setTrackerPanelWindowTarget(null);
+    setDetachedWindowTarget(null);
   }, []);
 
   const detachTrackerPanel = useCallback(async () => {
@@ -1023,7 +1023,7 @@ export function AppShell({
     detachTrackerPanelPendingRef.current = true;
 
     try {
-      const target = await openTrackerPanelWindow({
+      const target = await openDetachedWindow({
         title: localizeUi("ui.layout.appshell.detachedTrackerPanelTitle"),
         width: trackerPanelWidth,
       });
@@ -1032,7 +1032,7 @@ export function AppShell({
         return;
       }
       trackerPanelWindowTargetRef.current = target;
-      setTrackerPanelWindowTarget(target);
+      setDetachedWindowTarget(target);
     } catch {
       toast.error(localizeUi("ui.layout.appshell.trackerPanelWindowFailed"));
     } finally {
@@ -1040,14 +1040,14 @@ export function AppShell({
     }
   }, [localizeUi, trackerPanelWidth]);
 
-  const handleTrackerPanelWindowClosed = useCallback((closedTarget: TrackerPanelWindowTarget) => {
+  const handleTrackerPanelWindowClosed = useCallback((closedTarget: DetachedWindowTarget) => {
     if (trackerPanelDockingPopupRef.current === closedTarget.popup) {
       trackerPanelDockingPopupRef.current = null;
       return;
     }
     if (trackerPanelWindowTargetRef.current?.popup !== closedTarget.popup) return;
     trackerPanelWindowTargetRef.current = null;
-    setTrackerPanelWindowTarget(null);
+    setDetachedWindowTarget(null);
     closeTrackerPanel();
   }, []);
 
@@ -1068,9 +1068,9 @@ export function AppShell({
   }, [activeChat?.mode, activeChatId, setTrackerPanelOpen, trackerPanelModeAvailable, trackerPanelOpen]);
   useEffect(() => {
     if (!trackerPanelWindowTarget || (trackerPanelActive && trackerPanelModeAvailable)) return;
-    closeTrackerPanelWindow(trackerPanelWindowTarget);
+    closeDetachedWindow(trackerPanelWindowTarget);
     trackerPanelWindowTargetRef.current = null;
-    setTrackerPanelWindowTarget(null);
+    setDetachedWindowTarget(null);
   }, [trackerPanelActive, trackerPanelModeAvailable, trackerPanelWindowTarget]);
   useEffect(() => {
     if (trackerPanelVisible) {
@@ -1557,7 +1557,7 @@ export function AppShell({
       </AnimatePresence>
 
       {trackerPanelWindowTarget && trackerPanelActive && trackerPanelModeAvailable && (
-        <TrackerPanelDetachedWindow
+        <DetachedWindow
           host={trackerPanelHost}
           target={trackerPanelWindowTarget}
           onClosed={handleTrackerPanelWindowClosed}
