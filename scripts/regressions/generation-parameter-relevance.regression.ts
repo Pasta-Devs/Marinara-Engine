@@ -61,7 +61,7 @@ try {
     await import("../../packages/server/src/services/llm/providers/claude-subscription.provider.js");
   const {
     MODEL_LISTS,
-    isClaudeAdaptiveOnlyNoSamplingModel,
+    isClaudeNoSamplingModel,
     isGeminiArgonOrCarbonModel,
     resolveProviderReasoningEffort,
     shouldSuppressUnknownModelParameters,
@@ -144,7 +144,7 @@ try {
     let topK = values.topK;
     let frequencyPenalty = values.frequencyPenalty;
     let presencePenalty = values.presencePenalty;
-    if (isClaudeAdaptiveOnlyNoSamplingModel(lower)) {
+    if (isClaudeNoSamplingModel(lower)) {
       temperature = undefined;
       topP = undefined;
       topK = 0;
@@ -152,7 +152,6 @@ try {
       presencePenalty = 0;
     } else if (/claude-(opus|sonnet)-4-[56]/.test(lower) || /claude-(opus|sonnet)-4\.[56]/.test(lower)) {
       topP = undefined;
-      topK = 0;
       frequencyPenalty = 0;
       presencePenalty = 0;
     }
@@ -226,6 +225,10 @@ try {
         "gpt-4.1",
         "o3",
         "gpt-5",
+        "gpt-5-mini-2025-08-07",
+        "gpt-5-chat-latest",
+        "gpt-5.1",
+        "gpt-5.3-codex",
         "gpt-5.4",
         "gpt-5.6-sol",
         "gpt-6-astra",
@@ -250,6 +253,7 @@ try {
         "meta-llama/llama-3.3-70b-instruct",
         "x-ai/grok-4.3",
         "google/gemini-3.5-flash",
+        "google/gemini-3.1-pro",
         "google/gemini-4-argon",
         "google/gemini-4-argon:online",
         "google/gemini-4-carbon",
@@ -277,7 +281,19 @@ try {
     {
       provider: "xai",
       baseUrl: `${base}/api.x.ai/v1`,
-      models: ["grok-4.3", "grok-4.5", "grok-4-1-fast", "grok-3", "grok-4.20-multi-agent"],
+      models: [
+        "grok-4.3",
+        "grok-4.5",
+        "grok-4-1-fast",
+        "grok-3",
+        "grok-4.20-multi-agent",
+        "grok-4",
+        "grok-4-fast-reasoning",
+        "grok-4-fast-non-reasoning",
+        "grok-code-fast-1",
+        "grok-4.20-0309-reasoning",
+        "grok-4.20-0309-non-reasoning",
+      ],
       make: registry("xai", `${base}/api.x.ai/v1`),
     },
     {
@@ -293,6 +309,12 @@ try {
         "zai-glm-5-3",
       ],
       make: registry("mistral", `${base}/v1`),
+    },
+    {
+      provider: "zai",
+      baseUrl: `${base}/api.z.ai/api/paas/v4`,
+      models: ["glm-5.3", "glm-5.2", "glm-4.7", "glm-4.5-air", "glm-4-32b-0414-128k"],
+      make: registry("zai", `${base}/api.z.ai/api/paas/v4`),
     },
     {
       provider: "cohere",
@@ -334,6 +356,9 @@ try {
         "claude-opus-5",
         "claude-sonnet-5-5",
         "claude-3-7-sonnet-20250219",
+        "claude-opus-4-20250514",
+        "claude-opus-4-7",
+        "claude-haiku-5-5",
         "claude-unknown-9",
       ],
       make: registry("anthropic", base),
@@ -345,6 +370,8 @@ try {
         "gemini-2.5-pro",
         "gemini-2.5-flash",
         "gemini-3-pro-preview",
+        "gemini-3.5-flash",
+        "gemini-3.1-pro",
         "gemini-4-argon",
         "gemini-4-carbon",
         "gemini-4-hydrogen",

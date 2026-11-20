@@ -28,6 +28,9 @@ import {
   isCohereReasoningModel,
   impliesProxyThinking,
   isClaudeAdaptiveOnlyNoSamplingModel,
+  isClaudeNoSamplingModel,
+  isGeminiSamplingIgnoredModel,
+  isOpenAIAlwaysReasoningGpt5Model,
   isClaudeStrictRequestModel,
   isGeminiModel,
   isGeminiStrictRequestModel,
@@ -46,6 +49,12 @@ import {
   supportsXhighReasoningEffort,
 } from "@marinara-engine/shared";
 import { debugJson, logger, logDebugOverride } from "../../../lib/logger.js";
+import {
+  detectRefusedParameterFields,
+  parameterRefusalService,
+  refusedParameterFields,
+  rememberRefusedParameterFields,
+} from "../parameter-refusals.js";
 import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
 import { getOpenCodeSessionId } from "../../../utils/opencode-session.js";
 import { isLocalInferenceBaseUrl } from "../../../middleware/ip-allowlist.js";
@@ -1042,6 +1051,13 @@ export class OpenAIProvider extends BaseLLMProvider {
       "[debug/openai] chat request messages:\n%s",
       debugJson(body.messages),
     );
+    // A setting this service refused for this model before is left out, unless Custom Parameters set it on purpose.
+    const refusalService = parameterRefusalService(this.providerKind, this.baseUrl);
+    const explicitParameters = options.customParameters ?? {};
+    const isExplicit = (field: string) => Object.prototype.hasOwnProperty.call(explicitParameters, field);
+    for (const field of refusedParameterFields(refusalService, options.model)) {
+      if (!isExplicit(field)) delete body[field];
+    }
     const send = () =>
       llmFetch(url, {
         method: "POST",
@@ -1147,6 +1163,28 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
       errorText = await response.text();
     }
+    if (response.status === 400 || response.status === 422) {
+      // A service that blocks a setting for this model (whatever the model itself takes) says so only by refusing it.
+      // Send once more without the settings the refusal names, and remember them for this service and model so later
+      // requests leave them out and Advanced Parameters hides them. Settings sent through Custom Parameters are the
+      // user's own, so their refusal is reported as before.
+      const refused = detectRefusedParameterFields(errorText, body).filter((field) => !isExplicit(field));
+      if (refused.length > 0) {
+        logger.warn(
+          "[OpenAI] %s refused %s for %s; retrying without it and leaving it out from now on",
+          this.chatCompletionsErrorLabel(),
+          refused.join(", "),
+          options.model,
+        );
+        for (const field of refused) delete body[field];
+        response = await send();
+        if (response.ok) {
+          rememberRefusedParameterFields(refusalService, options.model, refused);
+          return response;
+        }
+        errorText = await response.text();
+      }
+    }
     if (response.status === 400) {
       // A bare "invalid request" says nothing about which part was refused. The shape of what was sent (roles,
       // the fields each message carried, the request's own parameters) without any of its text is what finds it.
@@ -1191,7 +1229,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private isOpenAINoSamplingModel(model: string): boolean {
-    return isOpenAIAlwaysNoSamplingModel(model);
+    return isOpenAIAlwaysNoSamplingModel(model) || isOpenAIAlwaysReasoningGpt5Model(model);
   }
 
   private isResponsesStreamingUnsupportedModel(model: string): boolean {
@@ -1267,13 +1305,14 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private shouldSendPenaltyParams(model: string): boolean {
-    // DeepSeek marks both penalties deprecated and states they no longer take effect. Argon, Carbon and the newer Gemini
-    // Flash models reject them; a custom endpoint keeps them, as it keeps their samplers.
+    // DeepSeek marks both penalties deprecated and states they no longer take effect. Gemini 3 and 4 do not support
+    // them; a custom endpoint keeps them, as it keeps their samplers.
     return (
       this.providerKind !== "deepseek" &&
+      // Z.AI documents no penalties. https://docs.z.ai/api-reference/llm/chat-completion
       this.providerKind !== "zai" &&
       !this.isXAIReasoningModel(model) &&
-      (this.isGenericCustomProvider() || !isGeminiStrictRequestModel(model))
+      (this.isGenericCustomProvider() || !isGeminiSamplingIgnoredModel(model))
     );
   }
 
@@ -1300,10 +1339,10 @@ export class OpenAIProvider extends BaseLLMProvider {
     if (this.isOpenAINoSamplingModel(m)) return true;
     if (m.startsWith("gpt-5") && ((reasoningEffort && reasoningEffort !== "none") || impliesProxyThinking(model)))
       return true;
-    // Claude adaptive-only models forbid all sampling params (covers reverse proxies).
-    if (isClaudeAdaptiveOnlyNoSamplingModel(m)) return true;
-    // Argon, Carbon and the newer Gemini Flash models ignore sampling and reject penalties (OpenRouter, NanoGPT).
-    if (isGeminiStrictRequestModel(m)) return true;
+    // Claude models that reject non-default sampling (covers reverse proxies).
+    if (isClaudeNoSamplingModel(m)) return true;
+    // Gemini 3 and 4 ignore sampling and do not support penalties (OpenRouter, NanoGPT).
+    if (isGeminiSamplingIgnoredModel(m)) return true;
     return false;
   }
 

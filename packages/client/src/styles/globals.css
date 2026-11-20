@@ -9485,7 +9485,9 @@ html[data-marinara-reduced-effects="true"] .mari-window {
 [data-message-id] {
   content-visibility: auto;
   contain-intrinsic-size: auto 6rem;
-  overflow-clip-margin: 0.75rem;
+  /* Wide enough for the buttons that hang under a message (.ov-rpf--below): paint containment clips the
+     pointer too, so a narrower margin left their lower part unable to show them. */
+  overflow-clip-margin: 2rem;
 }
 [data-message-id]:is(.mari-roleplay-message-row, .mari-message-narrator) {
   contain-intrinsic-size: auto 12rem;

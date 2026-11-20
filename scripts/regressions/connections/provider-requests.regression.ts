@@ -338,7 +338,8 @@ const cases: RegressionCase[] = [
           for (const provider of ["google", "google_vertex"]) {
             const body = await request(provider, "gemini-3.5-flash", "none", tools);
             assert.equal(body.contents.at(-1).role, provider === "google" ? "user" : "model");
-            assert.equal(body.generationConfig.temperature, provider === "google" ? undefined : 0.4);
+            // Gemini 3 and 4 ignore sampling on both services.
+            assert.equal(body.generationConfig.temperature, undefined);
           }
           for (const model of ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5.4-pro", "gpt-5.5-pro"]) {
             const body = await request("openai", model, "none", tools);

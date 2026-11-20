@@ -169,7 +169,8 @@ export function impliesProxyThinking(model: string): boolean {
   );
 }
 
-const CLAUDE_ADAPTIVE_ONLY_OPUS_RE = /claude-opus-4-(?:[7-9]|\d{2,})/;
+// Opus 4.7 and later Opus 4 releases, but not the dated Opus 4 id (claude-opus-4-20250514), which still samples.
+const CLAUDE_ADAPTIVE_ONLY_OPUS_RE = /claude-opus-4-(?:[7-9]|[1-9]\d)(?!\d)/;
 
 /** Native Claude ID and the dotted ID used by OpenRouter/compatible gateways. */
 export function isClaudeOpus55Model(model: string): boolean {
@@ -203,6 +204,20 @@ export function isClaudeAdaptiveOnlyNoSamplingModel(model: string): boolean {
     /claude-(?:opus|sonnet)-5(?:$|[-.])/u.test(normalized) ||
     normalized.includes("claude-fable-5") ||
     normalized.includes("claude-mythos-5")
+  );
+}
+
+/**
+ * Claude models that answer non-default temperature, top-p or top-k with a 400 on every request: the adaptive-only
+ * models plus Haiku 5.5 and Mythos Preview. Only the sampling rules use this; thinking keeps its own checks.
+ * https://platform.claude.com/docs/en/build-with-claude/extended-thinking
+ */
+export function isClaudeNoSamplingModel(model: string): boolean {
+  const normalized = capabilityModelId(model);
+  return (
+    isClaudeAdaptiveOnlyNoSamplingModel(normalized) ||
+    /claude-haiku-5(?:$|[-.])/u.test(normalized) ||
+    normalized.includes("claude-mythos-preview")
   );
 }
 
@@ -281,6 +296,22 @@ export function isOpenAIGpt6AlwaysReasoningModel(model: string): boolean {
   return (
     isOpenAIGpt6AstraModel(model) ||
     /^(?:openai\/)?gpt-6\.(?:1-sol|2-(?:sol|astra))(?:$|[-:])/u.test(capabilityModelId(model))
+  );
+}
+
+/**
+ * OpenAI models that always reason and never take temperature or top-p: GPT-5, GPT-5 mini and GPT-5 nano ("older GPT-5
+ * models ... that include these fields will raise an error"), and the Codex models, which have no effort "none".
+ * GPT-5 Chat is a chat model and keeps sampling.
+ * https://developers.openai.com/api/docs/guides/latest-model
+ * https://developers.openai.com/api/docs/models/gpt-5.3-codex
+ */
+export function isOpenAIAlwaysReasoningGpt5Model(model: string): boolean {
+  const normalized = capabilityModelId(model).replace(/^openai\//u, "");
+  return (
+    /^gpt-5(?:-mini|-nano)?(?:-\d{4}-\d{2}-\d{2})?$/u.test(normalized) ||
+    /^gpt-5(?:\.\d+)?-codex(?:$|-)/u.test(normalized) ||
+    normalized.startsWith("codex-mini")
   );
 }
 
@@ -450,14 +481,38 @@ export function isGeminiStrictRequestModel(model: string, provider?: string): bo
   );
 }
 
+/**
+ * Gemini 3 and 4 models: Google says every general-use Gemini 3.x and 4.x model ignores temperature, top-k and top-p,
+ * and frequency and presence penalties are unsupported (some reject them with a 400). Gemma keeps its samplers.
+ * https://firebase.google.com/docs/ai-logic/model-parameters
+ */
+export function isGeminiSamplingIgnoredModel(model: string): boolean {
+  return /(?:^|\/)gemini-[34](?:$|[.-])/u.test(capabilityModelId(model));
+}
+
 export function isXaiConfigurableReasoningModel(model: string): boolean {
   const normalized = capabilityModelId(model).replace(/^x-ai\//, "");
   return /^grok-4\.[3567](?:$|-)/.test(normalized);
 }
 
+/**
+ * xAI reasoning models without an effort setting. Reasoning models reject presence and frequency penalties and stop
+ * sequences. Grok 4, Grok 4 Fast Reasoning, Grok Code Fast and Grok Build always reason; "-non-reasoning" ids do not.
+ * https://docs.x.ai/developers/model-capabilities/text/reasoning
+ */
 export function isXaiAutoReasoningModel(model: string): boolean {
   const normalized = capabilityModelId(model).replace(/^x-ai\//, "");
-  return normalized.startsWith("grok-4-1-fast");
+  if (normalized.includes("non-reasoning")) return false;
+  return (
+    normalized.startsWith("grok-4-1-fast") ||
+    /^grok-4(?:-0709|-latest)?$/u.test(normalized) ||
+    normalized === "grok-latest" ||
+    normalized === "grok-fast-latest" ||
+    normalized.startsWith("grok-4-fast-reasoning") ||
+    normalized.startsWith("grok-code-fast") ||
+    normalized.startsWith("grok-build") ||
+    (normalized.startsWith("grok-4.20") && !normalized.startsWith("grok-4.20-multi-agent"))
+  );
 }
 
 // ── OpenAI (from #model_openai_select) ──
@@ -869,6 +924,8 @@ export const XAI_MODELS: KnownModel[] = [
   { id: "grok-fast-latest", name: "Grok Fast Latest", context: 2000000, maxOutput: 0 },
   // Multi-agent research model; uses Responses API and reasoning.effort for 4 vs 16 agents.
   { id: "grok-4.20-multi-agent", name: "Grok 4.20 Multi-Agent", context: 2000000, maxOutput: 0 },
+  { id: "grok-4.20-0309-reasoning", name: "Grok 4.20 Reasoning", context: 1000000, maxOutput: 0 },
+  { id: "grok-4.20-0309-non-reasoning", name: "Grok 4.20 Non-Reasoning", context: 1000000, maxOutput: 0 },
   // Specialized xAI API models.
   { id: "grok-build-0.1", name: "Grok Build 0.1", context: 256000, maxOutput: 0 },
   { id: "grok-build-latest", name: "Grok Build Latest", context: 256000, maxOutput: 0 },

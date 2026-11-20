@@ -12,6 +12,7 @@ import {
   MAX_PINNED_MODELS,
   parsePinnedModels,
   type ConnectionBilling,
+  type GenerationParameterKey,
   type ModelParameterCapabilities,
   type PlanUsage,
 } from "@marinara-engine/shared";
@@ -778,8 +779,47 @@ export function useModelParameterCapabilities(
   const provider = connection?.provider ?? "";
   const enabled = !!id && id !== "random" && LIVE_CAPABILITY_PROVIDERS.has(provider);
   const { data } = useConnectionModels(id, enabled);
-  if (!enabled || !connection?.model) return null;
-  return data?.models?.find((model) => model.id === connection.model)?.capabilities ?? null;
+  const refused = useRefusedParameters(connection);
+  const listed =
+    enabled && connection?.model
+      ? (data?.models?.find((model) => model.id === connection.model)?.capabilities ?? null)
+      : null;
+  if (!refused?.length) return listed;
+  return { ...(listed ?? {}), refusedParameters: refused };
+}
+
+/** Providers whose requests can learn refused settings (the OpenAI-compatible request path). */
+const NO_REFUSAL_MEMORY_PROVIDERS = new Set([
+  "anthropic",
+  "claude_subscription",
+  "google",
+  "google_vertex",
+  "grok_subscription",
+  "openai_chatgpt",
+  "local_sidecar",
+]);
+
+/**
+ * Settings this Model's service refused for the model: the Engine resent the request without them and now leaves them
+ * out, so the panel hides them too. Rechecked whenever the panel opens, since a refusal can happen in any chat.
+ */
+function useRefusedParameters(
+  connection: { id?: string | null; provider?: string | null; model?: string | null } | null | undefined,
+): GenerationParameterKey[] | null {
+  const id = connection?.id ?? "";
+  const model = connection?.model ?? "";
+  const enabled = !!id && id !== "random" && !!model && !NO_REFUSAL_MEMORY_PROVIDERS.has(connection?.provider ?? "");
+  const { data } = useQuery({
+    queryKey: [...connectionKeys.all, "refused-parameters", id, model] as const,
+    queryFn: () =>
+      api.get<{ parameters?: GenerationParameterKey[] }>(
+        `/connections/${encodeURIComponent(id)}/refused-parameters?model=${encodeURIComponent(model)}`,
+      ),
+    enabled,
+    staleTime: 30_000,
+    retry: false,
+  });
+  return enabled ? (data?.parameters ?? null) : null;
 }
 
 /** The editor's Fetch Models button: always asks the provider, and the result replaces the saved list. */

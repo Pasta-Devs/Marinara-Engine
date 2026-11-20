@@ -22,6 +22,7 @@ import {
   isGeminiArgonOrCarbonModel,
   isGeminiHydrogenOrNeonModel,
   isGeminiStrictRequestModel,
+  isGeminiSamplingIgnoredModel,
   isGeminiThinkingLevelModel,
   supportsGeminiThinking,
   resolveProviderReasoningEffort,
@@ -680,7 +681,7 @@ export class GoogleProvider extends BaseLLMProvider {
 
   // Argon, Carbon and the newer Flash models ignore temperature, top-p and top-k and reject both penalties with HTTP 400.
   protected override shouldSendParameter(options: ChatOptions, key: GenerationParameterSendKey): boolean {
-    if (isGeminiStrictRequestModel(options.model, this.providerKind) && GEMINI_STRICT_UNSENT.has(key)) return false;
+    if (isGeminiSamplingIgnoredModel(options.model) && GEMINI_STRICT_UNSENT.has(key)) return false;
     return super.shouldSendParameter(options, key);
   }
 
