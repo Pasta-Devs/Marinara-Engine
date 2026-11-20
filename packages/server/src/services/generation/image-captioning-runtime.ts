@@ -345,7 +345,7 @@ const CLOSE_THINKING = /<\/(?:think|thinking|thought)>|<\|\/think\|>|\[\/(?:thin
  * before the closing tag, so the text has no tags at all. A description of a picture doesn't start like this.
  */
 const UNTAGGED_REASONING_START =
-  /^\s*(?:okay|ok|alright|hmm+|let me|let's|i need to|i should|i'll|i will|i'm going to|first,|the user)\b/i;
+  /^\s*(?:okay|ok|alright|hmm+|let me|let's|i need to|i should|i'll|i will|i'm going to|first,|the user (?:wants|is asking|asked|has (?:sent|shared|uploaded)|sent|shared|uploaded))\b/i;
 
 /** The description without a thinking model's inline reasoning. Null when only reasoning came back. */
 export function stripCaptionThinking(text: string): string | null {
