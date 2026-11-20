@@ -15034,11 +15034,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         ),
                       });
                       const finalNegativePrompt = mergeIllustratorNegativePrompt(
+                        compiledPrompt.profile.promptMode,
                         compiledPrompt.prompt,
                         compiledPrompt.negativePrompt,
                         requestedNegativePrompt,
                         imgConnFull,
-                        promptMode,
                       );
                       const fallbackCompiledPrompt = imageFallback
                         ? compileImagePrompt({
@@ -15067,11 +15067,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                               prompt: fallbackCompiledPrompt.prompt,
                               negativePrompt:
                                 mergeIllustratorNegativePrompt(
+                                  fallbackCompiledPrompt.profile.promptMode,
                                   fallbackCompiledPrompt.prompt,
                                   fallbackCompiledPrompt.negativePrompt,
                                   requestedNegativePrompt,
                                   imageFallback,
-                                  fallbackCompiledPrompt.profile.promptMode,
                                 ) || null,
                             }
                           : undefined;

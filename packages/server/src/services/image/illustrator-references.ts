@@ -190,10 +190,7 @@ export function illustratorPromptRequestsRenderedText(prompt: string): boolean {
  * the generic Illustration composition. Ordinary Illustration templates should
  * still receive the selected profile's per-image tags. Off always keeps those tags.
  */
-export function illustratorPromptTemplateOwnsComposition(
-  promptTemplate: string,
-  promptMode?: ImagePromptMode,
-): boolean {
+export function illustratorPromptTemplateOwnsComposition(promptTemplate: string, promptMode: ImagePromptMode): boolean {
   if (promptMode === "off") return false;
   return (
     illustratorPromptRequestsRenderedText(promptTemplate) ||
@@ -210,11 +207,11 @@ export function illustratorPromptTemplateOwnsComposition(
  * Off bypasses this pass and keeps the compiled negative prompt as supplied.
  */
 export function mergeIllustratorNegativePrompt(
+  promptMode: ImagePromptMode,
   prompt: string,
   negativePrompt?: string | null,
   authoredNegativePrompt?: string | null,
   provider?: ReferencePromptImageProvider | null,
-  promptMode?: ImagePromptMode,
 ): string {
   if (promptMode === "off") return negativePrompt ?? "";
   if (provider && isNovelAiImageConnection(provider)) {

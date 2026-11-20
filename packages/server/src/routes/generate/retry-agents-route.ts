@@ -4010,11 +4010,11 @@ async function applyRetryResultEffects(args: {
               ),
             });
             const finalNegativePrompt = mergeIllustratorNegativePrompt(
+              compiledPrompt.profile.promptMode,
               compiledPrompt.prompt,
               compiledPrompt.negativePrompt,
               requestedNegativePrompt,
               imgConnFull,
-              promptMode,
             );
             const promptSubmission = resolveIllustratorPromptSubmission({
               generatedPrompt: compiledPrompt.prompt,
@@ -4047,11 +4047,11 @@ async function applyRetryResultEffects(args: {
                 ? resolveIllustratorPromptSubmission({
                     generatedPrompt: fallbackCompiledPrompt.prompt,
                     generatedNegativePrompt: mergeIllustratorNegativePrompt(
+                      fallbackCompiledPrompt.profile.promptMode,
                       fallbackCompiledPrompt.prompt,
                       fallbackCompiledPrompt.negativePrompt,
                       requestedNegativePrompt,
                       imageFallback,
-                      fallbackCompiledPrompt.profile.promptMode,
                     ),
                     reviewOverride: illustratorPromptReviewOverride,
                   })
