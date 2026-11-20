@@ -87,7 +87,17 @@ const MASK_ACTION_BUTTON_CLASS =
   "inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-45";
 type CharacterPrompt = ImagePromptDraft["characterPrompts"][number];
 
-function MaskModeBadge({ hasMask, label, className }: { hasMask: boolean; label: string; className?: string }) {
+function MaskModeBadge({
+  hasMask,
+  compact = false,
+  className,
+}: {
+  hasMask: boolean;
+  compact?: boolean;
+  className?: string;
+}) {
+  const { t } = useUiTranslation();
+
   return (
     <span
       role="status"
@@ -99,7 +109,13 @@ function MaskModeBadge({ hasMask, label, className }: { hasMask: boolean; label:
         className,
       )}
     >
-      {label}
+      {t(
+        hasMask
+          ? compact
+            ? "ui.imagemaskcanvas.modeInpaintingShort"
+            : "ui.imagemaskcanvas.modeInpainting"
+          : "ui.imagemaskcanvas.modeImg2Img",
+      )}
     </span>
   );
 }
@@ -487,24 +503,9 @@ export function ImageRegeneratePanel({
         negativePrompt: draft.negativePrompt,
         characterPrompts: draft.characterPrompts.filter((entry) => entry.prompt.trim()),
       };
-      const resolvedConnectionId = hasSelectedConnection
-        ? connectionId
-        : effectiveMode === "edit" || effectiveReuseSeed
-          ? effectiveConnectionId
-          : "";
-      const connection =
-        resolvedConnectionId &&
-        connectionRows?.some(
-          (row) =>
-            !!row &&
-            typeof row === "object" &&
-            "id" in row &&
-            row.id === resolvedConnectionId &&
-            "provider" in row &&
-            row.provider === "image_generation",
-        )
-          ? { connectionId: resolvedConnectionId }
-          : {};
+      const resolvedConnectionId =
+        hasSelectedConnection || effectiveMode === "edit" || effectiveReuseSeed ? effectiveConnectionId : "";
+      const connection = resolvedConnectionId ? { connectionId: resolvedConnectionId } : {};
       if (action !== "generate") {
         input = await revise({ imageId: image.id, ...input, guidance, ...connection, debugMode });
         // Merge revisions into the sent fields, keep cleared fields for reset, and append newly extracted captions.
@@ -574,10 +575,7 @@ export function ImageRegeneratePanel({
           <div className="min-w-0 flex-1">
             <MaskBrushSlider maskControls={maskControls} disabled={busy} sliderId={collapsedBrushSizeFieldId} />
           </div>
-          <MaskModeBadge
-            hasMask={hasMask}
-            label={t(hasMask ? "ui.imagemaskcanvas.modeInpaintingShort" : "ui.imagemaskcanvas.modeImg2Img")}
-          />
+          <MaskModeBadge hasMask={hasMask} compact />
         </div>
       )}
       <div
@@ -620,11 +618,7 @@ export function ImageRegeneratePanel({
                   <MaskBrushSlider maskControls={maskControls} disabled={busy} compact />
                 </div>
                 <MaskToolButtons maskControls={maskControls} disabled={busy} compact />
-                <MaskModeBadge
-                  hasMask={hasMask}
-                  label={t(hasMask ? "ui.imagemaskcanvas.modeInpaintingShort" : "ui.imagemaskcanvas.modeImg2Img")}
-                  className="py-1 max-sm:hidden"
-                />
+                <MaskModeBadge hasMask={hasMask} compact className="py-1 max-sm:hidden" />
               </>
             )}
             <div
@@ -698,10 +692,7 @@ export function ImageRegeneratePanel({
                 <div className="space-y-2 border-b border-[var(--border)] pb-3">
                   <div className="flex items-center justify-between gap-2">
                     <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.maskTools")}</span>
-                    <MaskModeBadge
-                      hasMask={hasMask}
-                      label={t(hasMask ? "ui.imagemaskcanvas.modeInpainting" : "ui.imagemaskcanvas.modeImg2Img")}
-                    />
+                    <MaskModeBadge hasMask={hasMask} />
                   </div>
                   <MaskToolButtons maskControls={maskControls} disabled={busy} />
                   <MaskBrushSlider maskControls={maskControls} disabled={busy} sliderId={brushSizeFieldId} />
