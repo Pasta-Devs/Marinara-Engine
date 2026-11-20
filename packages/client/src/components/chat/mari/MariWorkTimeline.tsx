@@ -1,4 +1,5 @@
 // Mari's work timeline: the live headline and sprite, her steps by phase, and the done marks.
+import { withoutMariOutputLimitNote } from "../../../lib/mari-output-limit-note";
 import { useMariAppearancePack } from "../../../hooks/use-mari-appearance-pack";
 import { useMariSpriteSource } from "../../../lib/mari-sprite-ready";
 import { MariStorySprite } from "../MariStorySprite";
@@ -491,7 +492,14 @@ export function MariWorkTimeline({
         <CompactMarkdown
           key={block.id}
           // A finished answer's trailing "Why" list folds into one line under the outcome.
-          content={!active && block === lastBlock ? splitMariAnswerWhy(block.content).answer : block.content}
+          // Her output-limit note shows under her words with its button (MariWorkTimelineOutcome), not in them.
+          content={
+            active
+              ? block.content
+              : withoutMariOutputLimitNote(
+                  block === lastBlock ? splitMariAnswerWhy(block.content).answer : block.content,
+                )
+          }
           streaming={active && block === lastBlock}
           links={answerBlocks.includes(block) ? replyLinks : undefined}
           onOpenLink={onOpenResource}

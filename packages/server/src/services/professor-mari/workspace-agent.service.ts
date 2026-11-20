@@ -124,7 +124,7 @@ import type {
   ProfessorMariQuickEditApplyResponse,
   ProfessorMariQuickEditProposal,
 } from "@marinara-engine/shared";
-import { MARI_DRY_RUN_SENTINEL, modelReadsImages } from "@marinara-engine/shared";
+import { isLocalAuthProvider, MARI_DRY_RUN_SENTINEL, modelReadsImages } from "@marinara-engine/shared";
 import { getMariDbService, isMariCodeHelpArgs, normalizeAppDataActionName } from "../mari-db/mari-db.service.js";
 import { describeReceived, noteArgument } from "../mari-db/tool-error.js";
 import { isMariReviewVisibleInChat } from "./mari-session.js";
@@ -1596,32 +1596,49 @@ export function isLocalSidecarConnection(connection: WorkspaceConnection): boole
   return connection.isLocalSidecar === true || connection.id === LOCAL_SIDECAR_CONNECTION_ID;
 }
 
-/** The output limit Mari works under: the connection's Max Output Tokens while it is sent, else the model's known limit. */
+/**
+ * The output limit Mari works under. The connection's Max output tokens wins when it is set: it is the one field her
+ * cut-off note sends people to, and its provider cap would hold anything larger anyway. Without it, the connection's
+ * own chat defaults Max Tokens while it is sent, else the model's known limit (8,192 when the model is unknown).
+ */
 export function mariMaxOutputTokens(connection: WorkspaceConnection) {
+  return mariOutputLimit(connection).limit;
+}
+
+/** Mari's output limit, and whether raising the connection's Max output tokens would raise it. */
+export function mariOutputLimit(connection: WorkspaceConnection): { limit: number; raisable: boolean } {
   const defaultParameters = parseJsonObject(connection.defaultParameters);
   // A value the send map switches off never reaches the provider, so it is not the limit.
   const sent = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters)?.maxTokens !== false;
+  const override =
+    connection.maxTokensOverride && connection.maxTokensOverride > 0
+      ? Math.floor(connection.maxTokensOverride)
+      : undefined;
   const configured =
-    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ?? resolveMariMaxOutputTokens(connection);
+    override ??
+    (sent ? normalizeMariMaxTokens(defaultParameters?.maxTokens) : undefined) ??
+    resolveMariMaxOutputTokens(connection);
   const provider = normalizeCatalogProvider(connection.provider);
   const known = provider ? findKnownModel(provider, connection.model.trim()) : undefined;
   // A Max Tokens that is most of the model's window (~1M for some models) was copied from it: hold it to the model's
   // known max output. The catalog's max output lags some models (GLM 4.5/4.6, Claude 4.5/4.6), so a smaller value,
   // the user's or the provider's own, is kept as set.
-  const limit =
-    known?.context && configured * 2 >= known.context
-      ? clampGenerationMaxOutputTokens({ provider, model: connection.model, maxTokens: configured })
-      : configured;
+  const heldToModel = Boolean(known?.context && configured * 2 >= known.context);
+  const limit = heldToModel
+    ? clampGenerationMaxOutputTokens({ provider, model: connection.model, maxTokens: configured })
+    : configured;
   // OpenRouter reserves credits for every requested output token, so a large
   // budget fails with 402 before she can act. Direct providers keep their
   // limit: hidden reasoning shares it there.
-  return connection.provider === "openrouter" ? Math.min(limit, MARI_MAX_OUTPUT_TOKENS) : limit;
+  if (connection.provider === "openrouter" && limit >= MARI_MAX_OUTPUT_TOKENS) {
+    return { limit: MARI_MAX_OUTPUT_TOKENS, raisable: false };
+  }
+  // The built-in model and subscription sign-ins have no Max output tokens field to raise.
+  const hasField = !isLocalSidecarConnection(connection) && !isLocalAuthProvider(connection.provider);
+  return { limit, raisable: hasField && !(heldToModel && limit < configured) };
 }
 
 function resolveMariMaxOutputTokens(connection: WorkspaceConnection) {
-  if (connection.maxTokensOverride && connection.maxTokensOverride > 0) {
-    return Math.floor(connection.maxTokensOverride);
-  }
   if (isLocalSidecarConnection(connection)) return sidecarModelService.getConfig().maxTokens;
   const provider = normalizeCatalogProvider(connection.provider);
   const knownModel = provider ? findKnownModel(provider, connection.model.trim()) : undefined;
@@ -4571,6 +4588,9 @@ export class ProfessorMariWorkspaceService {
             onEvent: args.onEvent,
             // Read when a repair quotes it, so a limit learned from a 402 mid-run is the one she is told.
             maxOutputTokens: () => runMaxOutputTokens(controller.signal, baseOptions.maxTokens),
+            // A limit learned from a credit error mid-run is not one the connection's field can lift.
+            outputLimitRaisable: () =>
+              mariOutputLimit(connection).raisable && learnedRunLimits.get(controller.signal)?.maxTokens === undefined,
             steers: {
               waiting: () => {
                 syncFromPi();

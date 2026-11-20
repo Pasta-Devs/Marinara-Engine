@@ -236,6 +236,8 @@ import { useMariChatHistoryActions } from "./mari/use-mari-chat-history-actions"
 import { useMariMessageActions } from "./mari/use-mari-message-actions";
 import { useMariWorkspaceRun } from "./mari/use-mari-workspace-run";
 import { MariOmnibarHeaderChrome } from "./mari/MariOmnibarHeaderChrome";
+import { MariOpenOutputLimitContext } from "./mari/MariOutputLimitNote";
+import { requestConnectionFieldFocus } from "../../lib/connection-field-focus";
 
 type HomeProfessorMariChatProps = {
   pageActive?: boolean;
@@ -3554,6 +3556,16 @@ export function HomeProfessorMariChat({
     [closeChatWindow, invalidateActionResult, localizeUi, omnibarMode],
   );
 
+  // Her "kept hitting the output limit" note opens the connection she is using at its Max output tokens field.
+  const openOutputLimit = useMemo(() => {
+    if (!effectiveConnectionId || effectiveConnectionId === LOCAL_SIDECAR_CONNECTION_ID) return null;
+    return () => {
+      requestConnectionFieldFocus(effectiveConnectionId, "maxOutputTokens");
+      useUIStore.getState().openConnectionDetail(effectiveConnectionId);
+      if (omnibarMode) closeChatWindow();
+    };
+  }, [closeChatWindow, effectiveConnectionId, omnibarMode]);
+
   const openReferencedResource = useCallback(
     (resource: MariReferencedResource) => {
       const target = mariReferenceTarget(resource, getOmnibarSettingsDestinations());
@@ -4093,75 +4105,77 @@ export function HomeProfessorMariChat({
                             data-glow={composerGlowTone}
                           />
                         ) : null}
-                        <MariTranscript
-                          activeRunError={activeRunError}
-                          activeTurnMessages={activeTurnMessages}
-                          activeTurnRef={activeTurnRef}
-                          appendedArrival={appendedArrival}
-                          appendedArrivalNodeRef={appendedArrivalNodeRef}
-                          arrival={arrival}
-                          arrivalChoiceChatId={arrivalChoiceChatId}
-                          arrivalThread={arrivalThread}
-                          characterPreviewById={characterPreviewById}
-                          chatId={chatId}
-                          chipRowChips={chipRowChips}
-                          emptyStateReady={emptyStateReady}
-                          focusedCharacter={focusedCharacter}
-                          focusedLorebook={focusedLorebook}
-                          handleDeleteMessage={handleDeleteMessage}
-                          handleNewAboutContext={handleNewAboutContext}
-                          handleRegenerateMessage={handleRegenerateMessage}
-                          handleSuggestionSelect={handleSuggestionSelect}
-                          handleTranscriptScroll={handleTranscriptScroll}
-                          heldCardNode={heldCardNode}
-                          todoListNode={todoListNode}
-                          isBusy={isBusy}
-                          lastAssistantId={lastAssistantId}
-                          lastUserMessage={lastUserMessage}
-                          latestActionResults={latestActionResults}
-                          latestMessage={latestMessage}
-                          latestTurnHasTrace={latestTurnHasTrace}
-                          latestTurnRestStory={latestTurnRestStory}
-                          // Also while her chat is not known yet (connections still loading), so the skeleton, not a blank.
-                          // A cached thread (mari-thread-cache) stays on screen while the first load refreshes it.
-                          loadingHistory={
-                            loadedMessagesChatId !== chatId || (loadingHistory && loadedMessagesChatId === null)
-                          }
-                          lorebookPreviewById={lorebookPreviewById}
-                          mariPresentationState={mariPresentationState}
-                          messages={messages}
-                          omnibarMode={omnibarMode}
-                          openActionResult={openActionResult}
-                          openReferencedResource={openReferencedResource}
-                          renderArrival={renderArrival}
-                          renderDisplayMessage={renderDisplayMessage}
-                          renderGoal={renderGoal}
-                          renderRunErrorCard={renderRunErrorCard}
-                          renderTurnPrompt={renderTurnPrompt}
-                          renderTurnReviews={renderTurnReviews}
-                          restingStory={restingStory}
-                          reviewsByTurn={reviewsByTurn}
-                          setArrivalChoiceChatId={setArrivalChoiceChatId}
-                          setTranscriptScrollNode={setTranscriptScrollNode}
-                          setTranscriptStackNode={setTranscriptStackNode}
-                          showConnectionFirstHint={showConnectionFirstHint}
-                          showJumpToLatest={showJumpToLatest}
-                          showNextStepCards={showNextStepCards}
-                          // A review being opened can sit in an older turn: then the whole history shows.
-                          transcriptHeadMessages={
-                            requestedReviewId ? transcriptHeadMessages : transcriptHeadMessages.slice(-headWindow)
-                          }
-                          hiddenHeadCount={
-                            requestedReviewId ? 0 : Math.max(0, transcriptHeadMessages.length - headWindow)
-                          }
-                          onShowOlderHead={showOlderHead}
-                          workspaceRunClock={workspaceRunClock}
-                          workspaceStatus={workspaceStatus}
-                          workspaceTimeline={workspaceTimeline}
-                          workspaceTimelineActive={workspaceTimelineActive}
-                          workspaceTimelineVisible={workspaceTimelineVisible}
-                          workspaceToolsIssue={workspaceToolsIssue}
-                        />
+                        <MariOpenOutputLimitContext.Provider value={openOutputLimit}>
+                          <MariTranscript
+                            activeRunError={activeRunError}
+                            activeTurnMessages={activeTurnMessages}
+                            activeTurnRef={activeTurnRef}
+                            appendedArrival={appendedArrival}
+                            appendedArrivalNodeRef={appendedArrivalNodeRef}
+                            arrival={arrival}
+                            arrivalChoiceChatId={arrivalChoiceChatId}
+                            arrivalThread={arrivalThread}
+                            characterPreviewById={characterPreviewById}
+                            chatId={chatId}
+                            chipRowChips={chipRowChips}
+                            emptyStateReady={emptyStateReady}
+                            focusedCharacter={focusedCharacter}
+                            focusedLorebook={focusedLorebook}
+                            handleDeleteMessage={handleDeleteMessage}
+                            handleNewAboutContext={handleNewAboutContext}
+                            handleRegenerateMessage={handleRegenerateMessage}
+                            handleSuggestionSelect={handleSuggestionSelect}
+                            handleTranscriptScroll={handleTranscriptScroll}
+                            heldCardNode={heldCardNode}
+                            todoListNode={todoListNode}
+                            isBusy={isBusy}
+                            lastAssistantId={lastAssistantId}
+                            lastUserMessage={lastUserMessage}
+                            latestActionResults={latestActionResults}
+                            latestMessage={latestMessage}
+                            latestTurnHasTrace={latestTurnHasTrace}
+                            latestTurnRestStory={latestTurnRestStory}
+                            // Also while her chat is not known yet (connections still loading), so the skeleton, not a blank.
+                            // A cached thread (mari-thread-cache) stays on screen while the first load refreshes it.
+                            loadingHistory={
+                              loadedMessagesChatId !== chatId || (loadingHistory && loadedMessagesChatId === null)
+                            }
+                            lorebookPreviewById={lorebookPreviewById}
+                            mariPresentationState={mariPresentationState}
+                            messages={messages}
+                            omnibarMode={omnibarMode}
+                            openActionResult={openActionResult}
+                            openReferencedResource={openReferencedResource}
+                            renderArrival={renderArrival}
+                            renderDisplayMessage={renderDisplayMessage}
+                            renderGoal={renderGoal}
+                            renderRunErrorCard={renderRunErrorCard}
+                            renderTurnPrompt={renderTurnPrompt}
+                            renderTurnReviews={renderTurnReviews}
+                            restingStory={restingStory}
+                            reviewsByTurn={reviewsByTurn}
+                            setArrivalChoiceChatId={setArrivalChoiceChatId}
+                            setTranscriptScrollNode={setTranscriptScrollNode}
+                            setTranscriptStackNode={setTranscriptStackNode}
+                            showConnectionFirstHint={showConnectionFirstHint}
+                            showJumpToLatest={showJumpToLatest}
+                            showNextStepCards={showNextStepCards}
+                            // A review being opened can sit in an older turn: then the whole history shows.
+                            transcriptHeadMessages={
+                              requestedReviewId ? transcriptHeadMessages : transcriptHeadMessages.slice(-headWindow)
+                            }
+                            hiddenHeadCount={
+                              requestedReviewId ? 0 : Math.max(0, transcriptHeadMessages.length - headWindow)
+                            }
+                            onShowOlderHead={showOlderHead}
+                            workspaceRunClock={workspaceRunClock}
+                            workspaceStatus={workspaceStatus}
+                            workspaceTimeline={workspaceTimeline}
+                            workspaceTimelineActive={workspaceTimelineActive}
+                            workspaceTimelineVisible={workspaceTimelineVisible}
+                            workspaceToolsIssue={workspaceToolsIssue}
+                          />
+                        </MariOpenOutputLimitContext.Provider>
 
                         <MariComposer
                           pendingMessages={pendingMessages ?? []}

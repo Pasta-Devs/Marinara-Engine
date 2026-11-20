@@ -41,6 +41,7 @@ try {
     MARI_MAX_OUTPUT_TOKENS,
     MARI_WITHHELD_REPLY_NOTICE,
     mariMaxOutputTokens,
+    mariOutputLimit,
     withWithheldNotice,
     nextOptionsAfterLimitError,
     parseAffordableMaxTokens,
@@ -178,6 +179,21 @@ try {
       16_384,
       "a custom GLM 4.5 Air keeps its Max Tokens",
     );
+    // The field her cut-off note names wins over the chat defaults' Max Tokens (8,192 by default), so raising it works.
+    const glm = (fields: Record<string, unknown>) =>
+      connection({
+        provider: "custom",
+        model: "glm-5",
+        defaultParameters: JSON.stringify({ maxTokens: 8_192 }),
+        ...fields,
+      });
+    assert.equal(mariMaxOutputTokens(glm({ maxTokensOverride: 32_000 })), 32_000, "Max output tokens wins");
+    assert.deepEqual(mariOutputLimit(glm({})), { limit: 8_192, raisable: true });
+    // OpenRouter's cap is not lifted by the field, so the note does not send people there.
+    assert.deepEqual(mariOutputLimit(connection({ maxTokensOverride: 65_536 })), {
+      limit: MARI_MAX_OUTPUT_TOKENS,
+      raisable: false,
+    });
   }
 
   // ── Withheld-reply guidance in both runtime prompts ──

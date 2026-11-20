@@ -1576,7 +1576,11 @@ try {
     const cutAlways = await start("pi cut always", [cutWrite, cutWrite, cutWrite, reply("never")]);
     await cutAlways.done;
     assert.equal(requests.length, MAX_OUTPUT_LIMIT_REPAIRS + 1, "the recovery budget is spent, then the run stops");
-    assert.ok(statusTexts(cutAlways.events).some((text) => /kept hitting this model's output limit/u.test(text)));
+    assert.ok(
+      statusTexts(cutAlways.events).some((text) =>
+        /kept hitting this connection's output limit \(\d[\d,]* tokens\).*Raise Max output tokens/u.test(text),
+      ),
+    );
     assert.ok(
       JSON.stringify(cutAlways.events).includes("Continue the task."),
       "a cut-off change offers a continue chip",

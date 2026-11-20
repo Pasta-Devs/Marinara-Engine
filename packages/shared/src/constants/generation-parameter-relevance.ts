@@ -269,6 +269,10 @@ export function relevantGenerationParameters(context: GenerationParameterContext
   const effortActive =
     hasActiveEffort(context.reasoningEffort) ||
     !!resolveProviderReasoningEffort({ provider, model, reasoningEffort: context.reasoningEffort });
+  // Claude thinking: an unset effort sends none, so only a stored level (or one the provider resolves) counts.
+  const thinkingSent =
+    context.reasoningEffort != null ||
+    !!resolveProviderReasoningEffort({ provider, model, reasoningEffort: context.reasoningEffort });
   const hidden = new Set<GenerationParameterKey>(NEVER_SENT[provider] ?? []);
   const hide = (...keys: GenerationParameterKey[]) => keys.forEach((key) => hidden.add(key));
 
@@ -286,12 +290,12 @@ export function relevantGenerationParameters(context: GenerationParameterContext
     else if (isClaudeTemperatureOnlyModel(model)) {
       hide("topP", "frequencyPenalty", "presencePenalty");
       // Thinking refuses temperature and top_k on every route that reaches Anthropic, not only the native API.
-      if (effortActive || impliesProxyThinking(String(context.model ?? ""))) hide("temperature", "topK");
+      if (thinkingSent || impliesProxyThinking(String(context.model ?? ""))) hide("temperature", "topK");
     }
 
     // Claude thinking rejects temperature and top_k, so the request drops both (anthropic.provider.ts). A `-thinking`
     // proxy id thinks even with effort off.
-    if (provider === "anthropic" && (effortActive || impliesProxyThinking(String(context.model ?? ""))))
+    if (provider === "anthropic" && (thinkingSent || impliesProxyThinking(String(context.model ?? ""))))
       hide("temperature", "topK");
 
     if (provider === "openai_chatgpt" && !isOpenAIReasoningModel(model)) hide("reasoningEffort");
