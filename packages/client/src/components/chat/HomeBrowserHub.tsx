@@ -1331,7 +1331,12 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     [],
   );
 
-  useHeaderMenuDismiss(mobileBookmarksOpen, setMobileBookmarksOpen, mobileBookmarksRef, mobileBookmarksTriggerRef);
+  useHeaderMenuDismiss(
+    mobileShell && activeTab === "home" && mobileBookmarksOpen,
+    setMobileBookmarksOpen,
+    mobileBookmarksRef,
+    mobileBookmarksTriggerRef,
+  );
   useHeaderMenuDismiss(tabMenuOpen, setTabMenuOpen, tabMenuRef, tabMenuTriggerRef);
 
   // Tabs that do not fit fold into one menu instead of scrolling; Home always stays a tab. Any change to the

@@ -109,7 +109,10 @@ export function Popover({
     const above = a.top - viewTop - gap - WINDOW_PADDING;
     const useTop = side === "top" ? height <= above || above > below : height > below && above > below;
     const room = Math.max(0, useTop ? above : below);
-    const top = useTop ? a.top - gap - Math.min(height, room) : a.bottom + gap;
+    const top = Math.max(
+      viewTop + WINDOW_PADDING,
+      Math.min(useTop ? a.top - gap - Math.min(height, room) : a.bottom + gap, viewBottom - WINDOW_PADDING),
+    );
 
     const preferredLeft =
       align === "end" ? a.right - width : align === "center" ? a.left + a.width / 2 - width / 2 : a.left;

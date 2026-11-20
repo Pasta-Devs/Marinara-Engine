@@ -40,6 +40,13 @@ interface LayerEntry {
   kind: LayerKind;
   doc: Document | null;
   getElement: () => Element | null;
+  /** False for a registration without an element (a Modal that predates its panel ref): always counted. */
+  hasElement: boolean;
+}
+
+/** A layer whose element left the page (it unmounted while its owner still thinks it is open) no longer counts. */
+function isLive(entry: LayerEntry) {
+  return !entry.hasElement || entry.getElement()?.isConnected === true;
 }
 
 let openLayers: LayerEntry[] = [];
@@ -59,10 +66,11 @@ export function registerLayer(options: {
     kind: options.kind,
     doc: options.doc ?? null,
     getElement: options.getElement ?? (() => null),
+    hasElement: !!options.getElement,
   };
   openLayers = [...openLayers, entry];
   let released = false;
-  const sameWindow = () => openLayers.filter((other) => sameDoc(other.doc, entry.doc));
+  const sameWindow = () => openLayers.filter((other) => sameDoc(other.doc, entry.doc) && isLive(other));
   return {
     release: () => {
       if (released) return;
@@ -88,8 +96,8 @@ function sameDoc(a: Document | null, b: Document | null) {
  * Registers one open `Modal`. Called by `Modal` while `open` is true; the returned registration is released from
  * effect cleanup and consulted at Escape time so only the topmost dialog acts on a press.
  */
-export function registerModalOverlay(): ModalOverlayRegistration {
-  return registerLayer({ kind: "modal" });
+export function registerModalOverlay(getElement?: () => Element | null): ModalOverlayRegistration {
+  return registerLayer({ kind: "modal", getElement });
 }
 
 /**

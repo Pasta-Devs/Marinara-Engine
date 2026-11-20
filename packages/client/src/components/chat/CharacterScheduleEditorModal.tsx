@@ -442,7 +442,7 @@ export function CharacterScheduleEditorModal({
     setGeneratingDay(null);
   }, [characterId, open]);
 
-  useDismiss(statusMenuRef, openStatusMenu !== null, () => setOpenStatusMenu(null));
+  useDismiss(statusMenuRef, open && openStatusMenu !== null, () => setOpenStatusMenu(null));
 
   const markSummaryStale = () => {
     if (draftRef.current.routineSummary.trim()) setSummaryStale(true);
@@ -1257,7 +1257,10 @@ export function CharacterScheduleEditorModal({
               <section key={day} className="rounded-lg bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
                 <button
                   type="button"
-                  onClick={() => setExpandedDay(expanded ? null : day)}
+                  onClick={() => {
+                    setOpenStatusMenu(null);
+                    setExpandedDay(expanded ? null : day);
+                  }}
                   className="grid w-full gap-3 text-left md:grid-cols-[8rem_minmax(0,1fr)] md:items-center"
                 >
                   <div className="flex min-w-0 items-center gap-2">

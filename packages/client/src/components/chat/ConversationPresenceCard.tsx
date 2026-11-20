@@ -229,7 +229,7 @@ export function ConversationPresenceCard({
       if (
         buttonRef.current?.contains(target) ||
         popoverRef.current?.contains(target) ||
-        (target instanceof HTMLElement && target.closest('[data-component="Popover"], [data-component="Modal"]'))
+        (target as Element | null)?.closest?.('[data-component="Popover"], [data-component="Modal"]')
       ) {
         return;
       }

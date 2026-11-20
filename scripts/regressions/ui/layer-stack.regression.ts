@@ -14,7 +14,8 @@ import {
   __resetModalOverlayRegistryForTests,
 } from "../../../packages/client/src/lib/layer-stack.js";
 
-const fakeElement = (...children: object[]) => ({ contains: (node: object) => children.includes(node) }) as Element;
+const fakeElement = (...children: object[]) =>
+  ({ isConnected: true, contains: (node: object) => children.includes(node) }) as unknown as Element;
 
 __resetModalOverlayRegistryForTests();
 
@@ -68,6 +69,30 @@ assert.equal(parent.isTopmost(), false, "A released layer is never topmost");
 const next = registerLayer({ kind: "popover" });
 assert.equal(next.isTopmost(), true, "A double release must not disturb the next layer");
 next.release();
+
+// ── 6. A layer whose element left the page doesn't count ──
+// (A menu can unmount while its owner's open state stays true; it must not swallow the next Escape.)
+let menuElement: Element | null = fakeElement();
+const underDialog = registerModalOverlay(() => fakeElement());
+const ghost = registerLayer({ kind: "popover", getElement: () => menuElement });
+assert.equal(ghost.isTopmost(), true, "A mounted menu is topmost");
+menuElement = null;
+assert.equal(ghost.isTopmost(), false, "An unmounted menu never takes Escape");
+assert.equal(underDialog.isTopmost(), true, "The dialog under an unmounted menu takes Escape again");
+ghost.release();
+underDialog.release();
+
+// ── 7. A dialog opened above a menu is a layer above it ──
+const insideConfirm = {};
+const menuUnderConfirm = registerLayer({ kind: "popover", getElement: () => fakeElement() });
+const confirm = registerModalOverlay(() => fakeElement(insideConfirm));
+assert.equal(
+  menuUnderConfirm.isInsideLayerAbove(insideConfirm as Node),
+  true,
+  "A press in a confirm opened above a menu must not close the menu",
+);
+confirm.release();
+menuUnderConfirm.release();
 
 __resetModalOverlayRegistryForTests();
 console.log("layer-stack: ok");

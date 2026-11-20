@@ -238,7 +238,7 @@ export function Modal({
   // since every open Modal hears the same keypress and none stops propagation.
   useEffect(() => {
     if (!open) return;
-    const registration = registerModalOverlay();
+    const registration = registerModalOverlay(() => panelRef.current);
     overlayRegistrationRef.current = registration;
     return () => {
       registration.release();

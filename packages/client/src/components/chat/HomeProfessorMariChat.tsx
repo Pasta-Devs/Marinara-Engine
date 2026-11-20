@@ -2111,6 +2111,7 @@ export function HomeProfessorMariChat({
 
   const closeChatWindow = useCallback(() => {
     setConnectionMenuOpen(false);
+    setPermissionsMenuOpen(false);
     setWorkspaceDestination("chat");
     setMobileFocusMode(false);
     setChatWindowOpen(false);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { isBrowserExtensionUi } from "../lib/chat-floating-ui-events";
+import { registerBackLayer } from "../lib/back-navigation";
 import { registerLayer } from "../lib/layer-stack";
-import { useBackDismiss } from "./use-back-dismiss";
 
 export interface DismissOptions {
   /** Close on a press outside the layer. Off for layers that stay while you work elsewhere (a pinned window). */
@@ -37,13 +37,11 @@ export function useDismiss(
 ) {
   const dismissRef = useRef(onDismiss);
   // Options are read at event time, so changing them never re-registers an open layer above its submenu.
-  const optionsRef = useRef({ outsideClick, escape, openerRef });
+  const optionsRef = useRef({ outsideClick, escape, back, openerRef });
   useEffect(() => {
     dismissRef.current = onDismiss;
-    optionsRef.current = { outsideClick, escape, openerRef };
+    optionsRef.current = { outsideClick, escape, back, openerRef };
   });
-
-  useBackDismiss(open && back, () => dismissRef.current());
 
   useEffect(() => {
     if (!open) return;
@@ -51,6 +49,9 @@ export function useDismiss(
     const view = doc.defaultView;
     if (!view) return;
     const layer = registerLayer({ kind: "popover", doc, getElement: () => ref.current });
+    // Back pops the main window's history, so a layer in a popped-out window stays out of its stack.
+    const releaseBack =
+      optionsRef.current.back && view === window ? registerBackLayer(() => dismissRef.current()) : null;
 
     const isOutside = (target: EventTarget | null) => {
       const element = ref.current;
@@ -118,6 +119,7 @@ export function useDismiss(
       view.removeEventListener("pointercancel", onPointerCancel, true);
       view.removeEventListener("pointerup", onPointerUp, true);
       layer.release();
+      releaseBack?.();
     };
   }, [open, ref]);
 }
