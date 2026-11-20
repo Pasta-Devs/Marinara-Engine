@@ -17,7 +17,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulStore, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet } from "../overhaul/MobileMessageSheet";
 import { FooterPopover, closeAfterAction } from "../overhaul/RpMessageFooter";
 import { ReplyToMessageButton } from "./MessageReplyPreview";
@@ -72,6 +72,27 @@ function placeBottomBar(bar: HTMLElement, bubble: HTMLElement): number | null {
   row.style.setProperty("--ov-cvb-room", `${room}px`);
   const inner = b.bottom - (parseFloat(getComputedStyle(box).borderBottomWidth) || 0);
   return inner - bar.offsetHeight - 2;
+}
+
+// The top icons sit on the message's first line (its name line, or the first line of text), at the right,
+// inside the message. A pill hanging over the message above (Discord's spot) covered the lower part of that
+// message's bottom icons, so pointing there showed this message's pill instead of them (playtester report).
+// --ov-cvh-room is their width: with "Always show the buttons" that line keeps room for them, so a long name
+// or the text wraps before it would run under them.
+function placeTopBar(bar: HTMLElement, bubble: HTMLElement): number | null {
+  const row = bar.closest<HTMLElement>("[data-message-id]");
+  if (!row) return null;
+  row.style.setProperty("--ov-cvh-room", `${Math.round(bar.offsetWidth + 6)}px`);
+  const header = bubble.querySelector<HTMLElement>('[data-mari-part="header"]');
+  const line = header && header.offsetHeight > 0 ? header : bubble.querySelector<HTMLElement>(".mari-message-content");
+  if (!line) return null;
+  // The first line only: a long name can wrap onto a second line.
+  const name = header === line ? line.querySelector<HTMLElement>(".mari-message-name")?.getClientRects()[0] : null;
+  const r = line.getBoundingClientRect();
+  const top = name?.top ?? r.top;
+  const lineHeight = name?.height ?? (parseFloat(getComputedStyle(line).lineHeight) || 24);
+  // Never above the message's own top edge, where the message above has its bottom icons.
+  return Math.max(row.getBoundingClientRect().top + 1, top + (lineHeight - bar.offsetHeight) / 2);
 }
 
 export interface ConversationMessageActionsProps {
@@ -199,8 +220,17 @@ export function ConversationMessageActions({
   const bottomBarRef = useRef<HTMLDivElement>(null);
   const findMessageBox = (bar: HTMLElement) =>
     bar.closest("[data-message-id]")?.querySelector<HTMLElement>(".mari-message-body") ?? null;
-  const followTrigger = `${visible}-${mobileSheetOpen}-${thinkingOnly}`;
-  useFollowBubble(barRef, findMessageBox, overhaulActive || overhaulMobile, followTrigger);
+  // "Always show the buttons" changes the room the first line keeps, so the bar lines up again.
+  const alwaysShown = useOverhaulStore((state) => state.messageButtonsAlways);
+  const followTrigger = `${visible}-${mobileSheetOpen}-${thinkingOnly}-${overhaulActive}-${alwaysShown}`;
+  useFollowBubble(
+    barRef,
+    findMessageBox,
+    overhaulActive || overhaulMobile,
+    followTrigger,
+    undefined,
+    overhaulActive ? placeTopBar : undefined,
+  );
   // Like Roleplay's: the bottom bar's last button sits under the top bar's ⋯.
   useFollowBubble(
     bottomBarRef,

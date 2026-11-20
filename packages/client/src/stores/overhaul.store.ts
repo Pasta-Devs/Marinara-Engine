@@ -77,7 +77,9 @@ interface OverhaulState {
   /** Buttons shown on messages per chat mode (null: the defaults); the rest wait in the ⋯ menu. */
   messageButtons: Partial<Record<MessageButtonMode, MessageButtonId[]>> | null;
   setMessageButtons: (mode: MessageButtonMode, ids: MessageButtonId[] | null) => void;
-  /** Phones and tablets: also show the picked buttons on the newest reply and on a tapped message. */
+  /** With a mouse: the message buttons always show, instead of only while the pointer is over a message. */
+  messageButtonsAlways: boolean;
+  setMessageButtonsAlways: (always: boolean) => void;
   /** The one sidebar (right side): which view it shows, Chats or the Library sections. */
   sidePane: OverhaulSidePane;
   setSidePane: (sidePane: OverhaulSidePane) => void;
@@ -418,6 +420,8 @@ export const useOverhaulStore = create<OverhaulState>()(
           else delete next[mode];
           return { messageButtons: Object.keys(next).length ? next : null };
         }),
+      messageButtonsAlways: false,
+      setMessageButtonsAlways: (messageButtonsAlways) => set({ messageButtonsAlways }),
       sidePane: "chats",
       setSidePane: (sidePane) => set({ sidePane }),
       mobileSidePageOpen: false,
@@ -451,6 +455,7 @@ export const useOverhaulStore = create<OverhaulState>()(
         galleryListView: state.galleryListView,
         libraryFlatPages: state.libraryFlatPages,
         messageButtons: state.messageButtons,
+        messageButtonsAlways: state.messageButtonsAlways,
         sidePane: state.sidePane,
         split: state.split,
       }),

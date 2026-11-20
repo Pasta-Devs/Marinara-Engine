@@ -29,6 +29,7 @@ import {
 import { cn } from "../../lib/utils";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { Checkbox } from "../ui/Checkbox";
+import { ToggleSetting } from "../panels/settings/SettingControls";
 import {
   DEFAULT_MESSAGE_BUTTONS,
   MESSAGE_BUTTONS,
@@ -186,6 +187,8 @@ export function MessageButtonsSettings() {
   const [mode, setMode] = useState<MessageButtonMode>("roleplay");
   const shown = useMessageButtons(mode);
   const setButtons = useOverhaulStore((state) => state.setMessageButtons);
+  const always = useOverhaulStore((state) => state.messageButtonsAlways);
+  const setAlways = useOverhaulStore((state) => state.setMessageButtonsAlways);
   const buttons = messageButtonsFor(mode);
   const toggle = (id: MessageButtonId, on: boolean) => {
     const next = new Set(shown);
@@ -224,6 +227,14 @@ export function MessageButtonsSettings() {
   );
   return (
     <div className="ov-mbs" data-component="MessageButtonsSettings">
+      {/* Both chat modes, with a mouse: phones and tablets keep the hold menu. */}
+      <ToggleSetting
+        anchorId="settings-control-always-show-message-buttons"
+        label={t("ui.overhaul.messagebuttons.alwaysShow")}
+        checked={always}
+        onChange={setAlways}
+        help={t("ui.overhaul.messagebuttons.alwaysShowHelp")}
+      />
       <div className="ov-mbs__tools">
         <div className="ov-seg" role="group" aria-label={t("ui.overhaul.messagebuttons.chatMode")}>
           {(["roleplay", "conversation"] as const).map((item) => (
