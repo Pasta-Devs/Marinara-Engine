@@ -296,7 +296,16 @@ export type {
 type ContextFitOptions = Pick<
   ChatOptions,
   "maxContext" | "maxTokens" | "tools" | "responseFormat" | "suppressModelParameters" | "preserveContext"
->;
+> & {
+  /**
+   * When history must be dropped, drop it in steps of a fifth of the context window counted from the oldest message,
+   * so the start of the history stays the same across turns. Memory Recall turns it on and recalls what was dropped.
+   */
+  stableHistoryCut?: boolean;
+};
+
+/** Size of one step of a stable history cut, as a share of the context window. */
+const STABLE_HISTORY_CUT_SHARE = 0.2;
 
 const MESSAGE_OVERHEAD_TOKENS = 6;
 const IMAGE_TOKEN_ESTIMATE = 256;
@@ -592,6 +601,33 @@ export function fitMessagesToContext(
     const block = findOldestRemovableConversationBlock(fittedMessages, "history");
     if (!block) break;
     estimatedTokensAfter -= estimateMessagesTokens(fittedMessages.splice(block.start, block.deleteCount));
+  }
+
+  // Trimmed to the exact limit, the oldest history sent moves forward every turn, and the prompt changes right after
+  // its fixed start: no provider can reuse its cached history. A stable cut drops history in steps measured from the
+  // oldest message, so the first message sent stays the same until the chat has grown by a step.
+  let droppedHistoryTokens = estimatedTokensBefore - estimatedTokensAfter;
+  if (options.stableHistoryCut && droppedHistoryTokens > 0 && estimatedTokensAfter <= inputBudget) {
+    const step = Math.max(1, Math.round(maxContext * STABLE_HISTORY_CUT_SHARE));
+    const target = Math.ceil(droppedHistoryTokens / step) * step;
+    const historyIndexes = fittedMessages.flatMap((message, index) =>
+      message.contextKind === "history" ? [index] : [],
+    );
+    let keptHistoryTokens = estimateMessagesTokens(historyIndexes.map((index) => fittedMessages[index]!));
+    // Never leave less than half of the history that would fit, nor the newest history message.
+    const keptHistoryFloor = keptHistoryTokens / 2;
+    let newestHistoryIndex = historyIndexes.at(-1) ?? -1;
+    while (droppedHistoryTokens < target) {
+      const block = findOldestRemovableConversationBlock(fittedMessages, "history");
+      if (!block || block.start + block.deleteCount > newestHistoryIndex) break;
+      const blockTokens = estimateMessagesTokens(fittedMessages.slice(block.start, block.start + block.deleteCount));
+      if (keptHistoryTokens - blockTokens < keptHistoryFloor) break;
+      fittedMessages.splice(block.start, block.deleteCount);
+      newestHistoryIndex -= block.deleteCount;
+      estimatedTokensAfter -= blockTokens;
+      droppedHistoryTokens += blockTokens;
+      keptHistoryTokens -= blockTokens;
+    }
   }
 
   // Some legacy/manual prompt paths do not annotate chat turns. Only treat

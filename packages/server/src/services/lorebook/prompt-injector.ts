@@ -118,6 +118,20 @@ export function getDepthInjectedEntries(activatedEntries: ActivatedEntry[]): Arr
 }
 
 /**
+ * Insert a block that changes every turn (lorebook entries, recalled memories) right after the newest chat history
+ * message. Everything before it, the system prompt and the history, then stays the same from one turn to the next, so
+ * a provider's prompt cache can reuse it. Without history, the block goes at the end.
+ */
+export function insertAfterHistory<T extends { contextKind?: PromptMessage["contextKind"] }>(
+  messages: T[],
+  message: T,
+): void {
+  let index = messages.length;
+  while (index > 0 && messages[index - 1]!.contextKind !== "history") index--;
+  messages.splice(index > 0 ? index : messages.length, 0, message);
+}
+
+/**
  * Inject depth-based entries into a message array.
  * Depth 0 = after the latest message, depth 1 = before the last message, etc.
  */
