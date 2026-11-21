@@ -25,11 +25,13 @@ export const cardFieldGenerationSchema = z.object({
     publicFace: z.string().default(""),
     mes_example: z.string(),
     first_mes: z.string().optional(),
+    // The Appearance image tags (#9640); clients from before the tags wand do not send them.
+    imageAppearance: z.string().optional(),
   }),
   debugMode: z.boolean().optional(),
 });
 
-type FieldInstructionKey = Exclude<CardFieldGenerationKey, "publicFace">;
+type FieldInstructionKey = Exclude<CardFieldGenerationKey, "publicFace" | "imageAppearance">;
 
 const FIELD_INSTRUCTIONS: Record<FieldInstructionKey, string> = {
   summary: "Summarize their identity, role, central premise, and defining traits in third-person prose.",
@@ -70,6 +72,31 @@ function buildPublicFaceMessages(kind: "character" | "persona", card: CardFieldG
   ];
 }
 
+/**
+ * The Appearance field's Image tags (#9640): Danbooru-style tags drawn from what the draft states, never invented.
+ * No word range (the line follows the prose), and English tags whatever the draft's language. Tags the prose does
+ * not explain (LoRA triggers, the author's picks) are kept, so regenerating never drops a trigger.
+ */
+function buildImageTagsMessages(kind: "character" | "persona", card: CardFieldGenerationDraft) {
+  return [
+    {
+      role: "system" as const,
+      content: [
+        `Write only the image tags for the Appearance of a ${kind} card: one line of tags that image models read instead of the Appearance text.`,
+        "Return only the tag line, with no heading, code fence, or commentary.",
+        "Use Danbooru-style tags: lowercase English, spaces instead of underscores, separated by a comma and a space.",
+        `Start with one count tag for this ${kind}: 1girl, 1boy, or 1other. Then list fixed traits in this order: body and build, hair, eyes, skin, face, markings, and other distinguishing features.`,
+        "Every tag must come from something the draft states, mainly its appearance field. When the draft is unclear about a trait, leave it out; never guess or add traits the draft does not state.",
+        "Prefer plain descriptive tags (grey hair, streaked hair) over specific named tags you are not sure exist. Use a character or series tag only when the draft names that character or series.",
+        "Leave out clothing, accessories, expressions, poses, and settings that change from scene to scene.",
+        "The imageAppearance field holds the author's current tags. Keep every tag there that the draft's prose does not explain, such as LoRA trigger words or the author's own picks, exactly as written and at the start of the line. Do not repeat a tag.",
+        SHARED_DRAFT_RULES[0],
+      ].join("\n"),
+    },
+    { role: "user" as const, content: JSON.stringify({ selectedField: "imageAppearance", card }) },
+  ];
+}
+
 /** Instructions stay separate from the author's draft, which is reference data. */
 export function buildCardFieldMessages(
   kind: "character" | "persona",
@@ -77,6 +104,7 @@ export function buildCardFieldMessages(
   card: CardFieldGenerationDraft,
 ) {
   if (field === "publicFace") return buildPublicFaceMessages(kind, card);
+  if (field === "imageAppearance") return buildImageTagsMessages(kind, card);
   return [
     {
       role: "system" as const,
@@ -138,6 +166,14 @@ export async function generateCardField(args: {
   const text = (result.content ?? "").trim();
   if (!text) throw new Error("Card field generation returned no text. Your original field was kept.");
   if (args.field === "publicFace") return text;
+  // One tag line: a model that breaks it over lines still gives one comma-separated list.
+  if (args.field === "imageAppearance") {
+    return text
+      .split(/\s*\n+\s*/)
+      .map((line) => line.replace(/^[,\s]+|[,\s]+$/g, ""))
+      .filter(Boolean)
+      .join(", ");
+  }
   const words = countCardFieldWords(text);
   if (words < 100 || words > 300) {
     throw new Error(
