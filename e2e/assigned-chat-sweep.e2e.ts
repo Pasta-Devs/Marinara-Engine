@@ -427,7 +427,7 @@ test("Character-sheet resolution migrates once and remains independent after a s
     const openImageSettings = async () =>
       page.evaluate(async () => {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        // Picture sizes live on the Image settings window's Canvases tab.
+        // Picture sizes live in Library > Settings profiles > Image settings > Canvases.
         useUIStore.getState().openImageSettings("canvases");
       });
     await openImageSettings();

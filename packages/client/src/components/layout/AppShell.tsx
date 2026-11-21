@@ -147,9 +147,6 @@ const TrackerDataSidebar = lazy(() =>
 const ChatNotificationBubbles = lazy(() =>
   import("../chat/ChatNotificationBubbles").then((module) => ({ default: module.ChatNotificationBubbles })),
 );
-const ImageSettingsWindow = lazy(() =>
-  import("../image-settings/ImageSettingsWindow").then((module) => ({ default: module.ImageSettingsWindow })),
-);
 const SplitSide = lazy(() => import("../overhaul/SplitView").then((module) => ({ default: module.SplitSide })));
 const SplitDropOverlay = lazy(() =>
   import("../overhaul/SplitView").then((module) => ({ default: module.SplitDropOverlay })),
@@ -1094,7 +1091,6 @@ export function AppShell({
   const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
   const presetDetailId = useUIStore((s) => s.presetDetailId);
   const profileDetailId = useUIStore((s) => s.profileDetailId);
-  const imageSettingsOpen = useUIStore((s) => s.imageSettingsTab !== null);
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
@@ -2446,11 +2442,6 @@ export function AppShell({
         </Suspense>
       )}
       <GlobalOmnibar />
-      {imageSettingsOpen && (
-        <Suspense fallback={null}>
-          <ImageSettingsWindow />
-        </Suspense>
-      )}
       <div data-component="MobileMusicWidgetLayer" className="contents">
         {isMobile && musicDjInstalled ? (
           <>

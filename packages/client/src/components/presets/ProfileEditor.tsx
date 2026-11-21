@@ -5,7 +5,7 @@
 // New layout: Library > Settings profiles opens it beside the list, and a
 // built-in Default opens as a short read-only page instead of closing.
 // ──────────────────────────────────────────────
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Copy, Star } from "lucide-react";
@@ -17,7 +17,7 @@ import {
   useDuplicateChatPreset,
   useSetActiveChatPreset,
 } from "../../hooks/use-chat-presets";
-import { useUIStore } from "../../stores/ui.store";
+import { IMAGE_SETTINGS_PROFILE_ID, useUIStore } from "../../stores/ui.store";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { OvEditorHead } from "../overhaul/EditorChrome";
@@ -25,7 +25,23 @@ import { kitDelete } from "../overhaul/LibraryKit";
 import { exportProfiles } from "../overhaul/ProfilesViewer";
 import { NEW_PROFILE_PREFIX, readNewProfileMode } from "./profile-detail-id";
 
+const ImageSettingsPage = lazy(() =>
+  import("../image-settings/ImageSettingsPage").then((module) => ({ default: module.ImageSettingsPage })),
+);
+
 export function ProfileEditor() {
+  const profileDetailId = useUIStore((s) => s.profileDetailId);
+  // Image settings sits in this list too: one engine-wide page, not a saved profile.
+  if (profileDetailId === IMAGE_SETTINGS_PROFILE_ID)
+    return (
+      <Suspense fallback={null}>
+        <ImageSettingsPage />
+      </Suspense>
+    );
+  return <SavedProfileEditor />;
+}
+
+function SavedProfileEditor() {
   const profileDetailId = useUIStore((s) => s.profileDetailId);
   const closeProfileDetail = useUIStore((s) => s.closeProfileDetail);
   const openProfileDetail = useUIStore((s) => s.openProfileDetail);

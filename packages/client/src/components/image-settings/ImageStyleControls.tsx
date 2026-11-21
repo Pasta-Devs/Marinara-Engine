@@ -92,13 +92,23 @@ export function ImageDimensionRow({
 export function ImageStyleProfilesEditor({
   value,
   onChange,
+  selectedId: controlledId,
+  onSelect,
+  hideList = false,
 }: {
   value: ImageStyleProfileSettings;
   onChange: (settings: ImageStyleProfileSettings) => void;
+  /** With `onSelect`, the page keeps which profile is open (its list sits in the page's left column). */
+  selectedId?: string | null;
+  onSelect?: (id: string) => void;
+  /** Leave out the list beside the editor; phones still get the dropdown. */
+  hideList?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const settings = normalizeImageStyleProfileSettings(value);
-  const [selectedId, setSelectedId] = useState(settings.defaultProfileId);
+  const [ownId, setOwnId] = useState(settings.defaultProfileId);
+  const selectedId = controlledId ?? ownId;
+  const setSelectedId = onSelect ?? setOwnId;
   const [previewKind, setPreviewKind] = useState<ImagePromptKind>("portrait");
   const [part, setPart] = useState<"general" | "perImage" | "testBench">("general");
   const [tagKind, setTagKind] = useState<ImagePromptKind>("illustration");
@@ -125,7 +135,7 @@ export function ImageStyleProfilesEditor({
     if (!settings.profiles.some((profile) => profile.id === selectedId)) {
       setSelectedId(settings.defaultProfileId);
     }
-  }, [selectedId, settings.defaultProfileId, settings.profiles]);
+  }, [selectedId, settings.defaultProfileId, settings.profiles, setSelectedId]);
 
   const commit = useCallback(
     (next: ImageStyleProfileSettings) => {
@@ -158,7 +168,7 @@ export function ImageStyleProfilesEditor({
     const clone = { ...selected, id, name: `${selected.name} Custom`, builtIn: false };
     commit({ ...settings, profiles: [...settings.profiles, clone], defaultProfileId: id });
     setSelectedId(id);
-  }, [commit, selected, settings]);
+  }, [commit, selected, settings, setSelectedId]);
 
   const resetSelected = useCallback(() => {
     const builtIn = DEFAULT_IMAGE_STYLE_PROFILES.find((profile) => profile.id === selected.id);
@@ -175,7 +185,7 @@ export function ImageStyleProfilesEditor({
     const defaultProfileId = settings.defaultProfileId === selected.id ? profiles[0]!.id : settings.defaultProfileId;
     commit({ profiles, defaultProfileId });
     setSelectedId(defaultProfileId);
-  }, [commit, selected.builtIn, selected.id, settings]);
+  }, [commit, selected.builtIn, selected.id, settings, setSelectedId]);
 
   const setDefaultProfileId = useCallback(
     (defaultProfileId: string) => {
@@ -192,7 +202,7 @@ export function ImageStyleProfilesEditor({
 
   // The profiles as a list beside the selected one's editor; its parts sit under General, Per-image tags and Test bench.
   return (
-    <div className="grid gap-3 md:grid-cols-[minmax(10rem,13rem)_minmax(0,1fr)]">
+    <div className={cn("grid gap-3", !hideList && "md:grid-cols-[minmax(10rem,13rem)_minmax(0,1fr)]")}>
       {/* Phones and tablets: a dropdown instead of the long list. */}
       <div className="flex items-end gap-2 md:hidden">
         <div className="min-w-0 flex-1">
@@ -216,44 +226,46 @@ export function ImageStyleProfilesEditor({
           {localizeUi("ui.panels.imagestyleprofileseditor.clone")}
         </button>
       </div>
-      <nav
-        aria-label={localizeUi("imageSettings.styles.profiles")}
-        data-style-profile-list
-        className="hidden min-w-0 flex-col md:flex md:max-h-[min(34rem,60vh)] md:overflow-y-auto md:pe-1"
-      >
-        <p className="px-2 pb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-          {localizeUi("imageSettings.styles.profiles")}
-        </p>
-        {settings.profiles.map((profile) => (
-          <button
-            key={profile.id}
-            type="button"
-            onClick={() => setSelectedId(profile.id)}
-            aria-current={profile.id === selected.id ? "true" : undefined}
-            className={cn(
-              "flex min-h-8 items-center gap-2 rounded-md px-2 text-start text-xs transition-colors",
-              profile.id === selected.id
-                ? "bg-[var(--primary)]/12 text-[var(--foreground)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]",
-            )}
-          >
-            <span className="min-w-0 flex-1 truncate">{profile.name}</span>
-            {profile.id === settings.defaultProfileId && (
-              <span className="shrink-0 rounded-full bg-[var(--primary)]/15 px-1.5 py-px text-[0.5625rem] font-semibold text-[var(--primary)]">
-                {localizeUi("imageSettings.styles.default")}
-              </span>
-            )}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={cloneSelected}
-          className="mt-1 flex min-h-8 items-center gap-2 rounded-md px-2 text-start text-xs text-[var(--primary)] transition-colors hover:bg-[var(--secondary)]"
+      {!hideList && (
+        <nav
+          aria-label={localizeUi("imageSettings.styles.profiles")}
+          data-style-profile-list
+          className="hidden min-w-0 flex-col md:flex md:max-h-[min(34rem,60vh)] md:overflow-y-auto md:pe-1"
         >
-          <Plus size="0.75rem" aria-hidden />
-          {localizeUi("imageSettings.styles.newFrom", { name: selected.name })}
-        </button>
-      </nav>
+          <p className="px-2 pb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            {localizeUi("imageSettings.styles.profiles")}
+          </p>
+          {settings.profiles.map((profile) => (
+            <button
+              key={profile.id}
+              type="button"
+              onClick={() => setSelectedId(profile.id)}
+              aria-current={profile.id === selected.id ? "true" : undefined}
+              className={cn(
+                "flex min-h-8 items-center gap-2 rounded-md px-2 text-start text-xs transition-colors",
+                profile.id === selected.id
+                  ? "bg-[var(--primary)]/12 text-[var(--foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]",
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{profile.name}</span>
+              {profile.id === settings.defaultProfileId && (
+                <span className="shrink-0 rounded-full bg-[var(--primary)]/15 px-1.5 py-px text-[0.5625rem] font-semibold text-[var(--primary)]">
+                  {localizeUi("imageSettings.styles.default")}
+                </span>
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={cloneSelected}
+            className="mt-1 flex min-h-8 items-center gap-2 rounded-md px-2 text-start text-xs text-[var(--primary)] transition-colors hover:bg-[var(--secondary)]"
+          >
+            <Plus size="0.75rem" aria-hidden />
+            {localizeUi("imageSettings.styles.newFrom", { name: selected.name })}
+          </button>
+        </nav>
+      )}
 
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -267,6 +279,12 @@ export function ImageStyleProfilesEditor({
             </button>
           )}
           <span className="flex-1" />
+          {hideList && (
+            <button type="button" onClick={cloneSelected} className={cn(SETTINGS_BUTTON_CLASS, "max-md:!hidden")}>
+              <Plus size="0.75rem" aria-hidden />
+              {localizeUi("ui.panels.imagestyleprofileseditor.clone")}
+            </button>
+          )}
           <button
             type="button"
             onClick={resetSelected}
@@ -450,5 +468,45 @@ export function ImageStyleProfilesEditor({
         )}
       </div>
     </div>
+  );
+}
+
+/** The style profiles as a list (the page's left column), the default one marked. */
+export function StyleProfileList({
+  value,
+  selectedId,
+  onSelect,
+}: {
+  value: ImageStyleProfileSettings;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const settings = normalizeImageStyleProfileSettings(value);
+  const current = selectedId ?? settings.defaultProfileId;
+  return (
+    <nav aria-label={localizeUi("imageSettings.styles.profiles")} data-style-profile-list className="flex flex-col">
+      {settings.profiles.map((profile) => (
+        <button
+          key={profile.id}
+          type="button"
+          onClick={() => onSelect(profile.id)}
+          aria-current={profile.id === current ? "true" : undefined}
+          className={cn(
+            "flex min-h-9 items-center gap-2 rounded-md px-2 text-start text-sm transition-colors",
+            profile.id === current
+              ? "bg-[var(--primary)]/12 text-[var(--foreground)]"
+              : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]",
+          )}
+        >
+          <span className="min-w-0 flex-1 truncate">{profile.name}</span>
+          {profile.id === settings.defaultProfileId && (
+            <span className="shrink-0 rounded-full bg-[var(--primary)]/15 px-1.5 py-px text-[0.5625rem] font-semibold text-[var(--primary)]">
+              {localizeUi("imageSettings.styles.default")}
+            </span>
+          )}
+        </button>
+      ))}
+    </nav>
   );
 }

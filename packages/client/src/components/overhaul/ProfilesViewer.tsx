@@ -15,7 +15,7 @@ import { CheckSquare, Copy, Download, FolderPlus, Star, Trash2, Upload } from "l
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import type { ChatPreset } from "@marinara-engine/shared";
-import { useUIStore } from "../../stores/ui.store";
+import { IMAGE_SETTINGS_PROFILE_ID, useUIStore } from "../../stores/ui.store";
 import {
   useChatPresets,
   useDeleteChatPreset,
@@ -125,8 +125,16 @@ export function OvProfilesViewer({ children }: { children: ReactNode }) {
     trail: <NewChatsStar profile={profile} onSet={() => setActiveProfile.mutate(profile.id)} />,
   });
 
-  // Your folders first (they can mix modes), then the loose profiles under their chat mode.
+  // Image settings first: every chat's picture defaults (styles, sizes, templates), opened as its own page.
   const groups: OvViewerGroup[] = [];
+  const imageLabel = t("imageSettings.title");
+  if (modeFilter === "all" && (!needle || imageLabel.toLowerCase().includes(needle)))
+    groups.push({
+      id: "images",
+      label: t("imageSettings.group"),
+      rows: [{ id: IMAGE_SETTINGS_PROFILE_ID, name: imageLabel, sub: t("imageSettings.rowSub") }],
+    });
+  // Your folders, which can mix modes, then the loose profiles under their chat mode.
   const filed = new Set<string>();
   const filtering = !!needle || modeFilter !== "all";
   for (const folder of folders.folders) {
@@ -158,7 +166,9 @@ export function OvProfilesViewer({ children }: { children: ReactNode }) {
     });
   }
 
-  const visibleIds = groups.flatMap((group) => group.rows.map((row) => row.id));
+  const visibleIds = groups
+    .flatMap((group) => group.rows.map((row) => row.id))
+    .filter((id) => id !== IMAGE_SETTINGS_PROFILE_ID);
   // The built-in Defaults can't be deleted, so Select skips them.
   const selection = useKitSelection(visibleIds.filter((id) => !byId.get(id)?.isDefault));
   const menu = useKitMenu();
