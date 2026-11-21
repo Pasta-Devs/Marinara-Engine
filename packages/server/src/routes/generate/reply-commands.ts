@@ -1,4 +1,5 @@
 import type { RoleplayCommandActivity } from "@marinara-engine/shared";
+import { resolveSelfieImageConnectionId } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import {
   parseCharacterCommands,
@@ -31,6 +32,8 @@ export function parseConversationReplyCommands(
     /** Merged group conversations attribute each command to its speaker. */
     speakerAttribution: boolean;
     latestUserMessage?: string | null;
+    /** The Images default, when selfies follow it (see selfieFollowsImagesDefault). */
+    selfieImagesDefaultId?: string | null;
   },
 ) {
   let changed = false;
@@ -72,8 +75,7 @@ export function parseConversationReplyCommands(
     latestUserMessage: o.latestUserMessage,
     imageGenerationEnabled:
       isConversationCommandEnabled(o.chatMeta, "selfie") &&
-      typeof o.chatMeta.imageGenConnectionId === "string" &&
-      o.chatMeta.imageGenConnectionId.trim().length > 0,
+      resolveSelfieImageConnectionId(o.chatMeta, o.selfieImagesDefaultId ?? null).length > 0,
     existingCommands: commands,
   });
   if (recoveredSelfieCommand) {

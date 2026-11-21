@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
-import { parseLorebookWriterOrder, partialInput } from "@marinara-engine/shared";
+import { mergeBuiltInAgentSettings, parseLorebookWriterOrder, partialInput } from "@marinara-engine/shared";
 import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
 import { prepareJsonResponse } from "../middleware/compress-json.js";
@@ -131,6 +131,8 @@ import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { withAvatarFileLifecycleLock } from "../services/image/avatar-file-lifecycle.js";
 import { isFeatureEnabled } from "../services/features/feature-settings.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { resolveChatImagePlan } from "../services/image/chat-image-plan.js";
+import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { createConnectionAccountsStorage, pickLimits } from "../services/storage/connection-accounts.storage.js";
 import { applyChatModelOverride, readChatModelOverride } from "../services/generation/connection-resolution.js";
 import { notifyLongTermMemoryChatBranched } from "../services/generation/long-term-memory-runtime.js";
@@ -2664,6 +2666,34 @@ export async function chatsRoutes(app: FastifyInstance) {
     await storage.deleteInfluencesForChat(req.params.id);
     await storage.deleteNotesForChat(req.params.id);
     return { disconnected: true };
+  });
+
+  // "Next image in this chat": the image model, fallback, prompt writer, style and reference pictures the next
+  // Illustrator picture (or Conversation selfie) uses, and where each comes from. Read-only; names, never keys.
+  app.get<{ Params: { id: string } }>("/:id/image-plan", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return notFound(reply, "Chat not found");
+    const connections = createConnectionsStorage(app.db);
+    const illustratorRow = await createAgentsStorage(app.db).getByType("illustrator");
+    const imageSettings = await loadImageGenerationUserSettings(app.db);
+    return resolveChatImagePlan({
+      chatMode: String(chat.mode ?? ""),
+      chatMetadata: parseChatMetadata(chat.metadata),
+      chatConnectionId: typeof chat.connectionId === "string" ? chat.connectionId : null,
+      illustrator: illustratorRow
+        ? {
+            connectionId: typeof illustratorRow.connectionId === "string" ? illustratorRow.connectionId : null,
+            settings: mergeBuiltInAgentSettings("illustrator", illustratorRow.settings),
+          }
+        : null,
+      connections: {
+        getUsable: (id) => connections.getWithKey(id),
+        getDefaultForImageGeneration: () => connections.getDefaultForImageGeneration(),
+        getFallbackForImageGeneration: () => connections.getFallbackForImageGeneration(),
+        getDefault: () => connections.getDefault(),
+      },
+      styleProfiles: imageSettings.styleProfiles,
+    });
   });
 
   // List pending OOC influences for a chat

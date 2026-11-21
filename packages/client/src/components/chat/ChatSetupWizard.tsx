@@ -1345,7 +1345,6 @@ function ConversationQuickSetup({
       selfieCommandAvailable: availableConversationCommandIds.has("selfie"),
       currentConnectionId: metadata.imageGenConnectionId,
       selfieCommandEnabled,
-      connections: connectionOptions,
     });
     await updateMeta.mutateAsync({
       id: chat.id,
@@ -1399,7 +1398,6 @@ function ConversationQuickSetup({
     conversationSystemPromptDraft,
     baseConversationPrompt,
     availableConversationCommandIds,
-    connectionOptions,
     metadata.imageGenConnectionId,
     metadata.multiplayerSetup,
   ]);

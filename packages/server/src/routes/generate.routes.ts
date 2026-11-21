@@ -17,6 +17,7 @@ import {
   VIDEO_GENERATION_SETTINGS_KEY,
   type RulesetClocks,
   marinaraGameWorldKit,
+  selfieFollowsImagesDefault,
 } from "@marinara-engine/shared";
 import {
   GAME_STARTING_GEAR_TAKEN_KEY,
@@ -10380,6 +10381,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               targetCharId,
               speakerAttribution: isGroupChat && groupChatMode === "merged" && chatMode === "conversation",
               latestUserMessage: input.userMessage,
+              selfieImagesDefaultId: selfieFollowsImagesDefault(chatMeta)
+                ? ((await connections.getDefaultForImageGeneration())?.id ?? null)
+                : null,
             });
             parsedRawCommandCount += parsed.rawCount;
             parsedCommands = parsed.commands;

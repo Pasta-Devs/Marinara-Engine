@@ -75,6 +75,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { ServiceRow } from "./ServiceRow";
+import { ComfyWorkflowCheck } from "./ComfyWorkflowCheck";
 import { confirmModelDelete, useUseFor, type ConnectionRowData } from "./ConnectionRow";
 import { menuAt, type MenuAt } from "./ModelRow";
 import { Modal } from "../ui/Modal";
@@ -3889,6 +3890,15 @@ export function ConnectionEditor({
                     )}
                   </span>
                 </p>
+              )}
+            {localProvider === "image_generation" &&
+              localComfyuiWorkflow.trim() &&
+              !comfyWorkflowValidation?.parseError && (
+                <ComfyWorkflowCheck
+                  workflow={localComfyuiWorkflow}
+                  blanksFilled={localImageDefaults?.comfyui?.uploadPlaceholderOnMissingReference === true}
+                  imagePlaceholdersOnly={selectedImageService === "swarmui"}
+                />
               )}
             <p className="text-[0.55rem] text-[var(--muted-foreground)] mt-1">
               {localizeUi("ui.connections.connectioneditor.exportYourWorkflowFromComfyuiUsing")}{" "}

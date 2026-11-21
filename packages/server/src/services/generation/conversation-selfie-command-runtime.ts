@@ -13,6 +13,8 @@ import {
   findImageStyleProfile,
   extractLeadingThinkingBlocks,
   readImageAppearanceOverride,
+  resolveSelfieImageConnectionId,
+  selfieFollowsImagesDefault,
 } from "@marinara-engine/shared";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
@@ -60,6 +62,7 @@ type ChatsStore = {
 };
 
 type ConnectionsStore = IllustratorPromptConnectionsStore & {
+  getDefaultForImageGeneration(): Promise<{ id: string } | null>;
   getFallbackForImageGeneration(): Promise<Record<string, any> | null>;
 };
 
@@ -136,14 +139,18 @@ export async function handleConversationSelfieCommand(args: {
   if (args.command.type !== "selfie") return false;
   const command = args.command as SelfieCommand;
 
-  const imgConnId = typeof args.chatMeta.imageGenConnectionId === "string" ? args.chatMeta.imageGenConnectionId : "";
+  // The chat's own Selfie model, else the Images default once Generated Selfies is on.
+  const imgConnId = resolveSelfieImageConnectionId(
+    args.chatMeta,
+    selfieFollowsImagesDefault(args.chatMeta) ? (await args.connections.getDefaultForImageGeneration())?.id : null,
+  );
   if (!imgConnId) {
-    logger.warn("[commands] Selfie requested but no imageGenConnectionId set on chat metadata");
+    logger.warn("[commands] Selfie requested but this chat has no Selfie model and there is no Images default");
     args.sendEvent({
       type: "selfie_error",
       data: {
         characterId: args.characterId,
-        error: "No image generation connection configured for this chat. Set one in Chat Settings.",
+        error: "No image model for selfies. Choose one in Chat Settings, or set the Images default under Connections.",
       },
     });
     return true;

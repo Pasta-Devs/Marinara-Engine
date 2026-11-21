@@ -6,6 +6,8 @@ import {
   parseAgentSettingsRecord,
   type GeneratedSceneVideo,
   type VideoReferenceImage,
+  resolveSelfieImageConnectionId,
+  selfieFollowsImagesDefault,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
@@ -83,16 +85,19 @@ type FirstFramePlan =
   | { kind: "selfie"; avatarFallback: boolean };
 
 /**
- * Whether this chat takes selfies: Generated Selfies on and a Selfie Connection set, the same test as the
- * Chat Settings drawer. With selfies off, the Selfie Connection is hidden there, so it must not be used here.
+ * Whether this chat takes selfies: Generated Selfies on and an image model to draw them, the chat's own Selfie model
+ * or the Images default (passed in by the caller). With selfies off the Selfie model is hidden in Chat Settings, so
+ * it must not be used here.
  */
-export function conversationSelfiesAvailable(chatMeta: Record<string, unknown>): boolean {
+export function conversationSelfiesAvailable(
+  chatMeta: Record<string, unknown>,
+  imagesDefaultId: string | null = null,
+): boolean {
   const toggles = parseRecord(chatMeta.conversationCommandToggles);
   return (
     chatMeta.characterCommands !== false &&
     toggles.selfie !== false &&
-    typeof chatMeta.imageGenConnectionId === "string" &&
-    chatMeta.imageGenConnectionId.trim().length > 0
+    resolveSelfieImageConnectionId(chatMeta, imagesDefaultId).length > 0
   );
 }
 
@@ -411,12 +416,17 @@ async function planFirstFrame(
     // readable one it stays a prompt-only clip.
     return readAvatarFrame(args).catch(() => ({ kind: "none" as const, image: undefined, tag: null, path: null }));
   }
-  const selfiesOn = conversationSelfiesAvailable(args.chatMeta);
-  // Selfies off or no Selfie Connection is a setting to fix, not a failed request.
+  const selfiesOn = conversationSelfiesAvailable(
+    args.chatMeta,
+    selfieFollowsImagesDefault(args.chatMeta)
+      ? ((await createConnectionsStorage(args.db).getDefaultForImageGeneration())?.id ?? null)
+      : null,
+  );
+  // Selfies off or no image model for them is a setting to fix, not a failed request.
   if (mode === "picture" && !selfiesOn) {
     throw new ChatVideoError(
       400,
-      "Turn on Generated Selfies and choose a Selfie Connection in Chat Settings, or pick another first frame.",
+      "Turn on Generated Selfies in Chat Settings and give selfies an image model (the chat's own or the Images default), or pick another first frame.",
     );
   }
   if (mode === "picture" || (mode === "picture_or_avatar" && selfiesOn)) {

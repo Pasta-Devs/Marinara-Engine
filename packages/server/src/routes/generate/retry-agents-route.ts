@@ -150,6 +150,7 @@ import {
   SPATIAL_LOCATION_REFERENCE_PROMPT_LINE,
 } from "../../services/image/spatial-location-reference.js";
 import { persistGeneratedImageToEntityGalleries } from "../../services/image/generated-image-entity-gallery.js";
+import { describeDrawnBy, describeReviewReferences } from "../../services/image/review-references.js";
 import { resolveImageConnectionFallback } from "../../services/generation/media-connection-fallback.js";
 import type { GenerationFallbackNotifier } from "../../services/generation/fallback-notification.js";
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
@@ -4077,6 +4078,22 @@ async function applyRetryResultEffects(args: {
                 height: imgHeight,
                 imageDefaults,
               });
+              // Which model draws, and where each reference picture goes (ComfyUI placeholders included).
+              const reviewReferences = await describeReviewReferences({
+                connection: imgConnFull,
+                images: referenceImages ?? [],
+                labels: [
+                  ...(spatialLocationReferenceImage ? [{ name: "", from: "location" as const }] : []),
+                  ...(useAvatarRefs
+                    ? referenceResolution.referenceNames.map((name, index) => ({
+                        name,
+                        from: referenceResolution.referenceSources[index] ?? ("avatar" as const),
+                      }))
+                    : []),
+                ],
+                blanksFilled: imageDefaults?.comfyui?.uploadPlaceholderOnMissingReference === true,
+              });
+              const reviewStyleId = styleProfileId || imageDefaults?.styleProfileId || null;
               assertRetryActive();
               sendSseEvent(reply, {
                 type: "image_prompt_review",
@@ -4090,6 +4107,14 @@ async function applyRetryResultEffects(args: {
                     ...(promptSubmission.negativePrompt ? { negativePrompt: promptSubmission.negativePrompt } : {}),
                     width: previewSize.width,
                     height: previewSize.height,
+                    drawnBy: describeDrawnBy({
+                      connection: imgConnFull,
+                      fallback: imageFallback,
+                      styleName: reviewStyleId
+                        ? findImageStyleProfile(imageSettings.styleProfiles, reviewStyleId).name
+                        : null,
+                    }),
+                    ...(reviewReferences ? { references: reviewReferences } : {}),
                     ...(illustratorCharacterPrompts.length > 0
                       ? { characterPrompts: illustratorCharacterPrompts }
                       : {}),

@@ -50,6 +50,7 @@ import {
 import { CapabilityElement } from "../../../components/capabilities/CapabilityElement";
 import { CardEvolutionAuditorSettings } from "./CardEvolutionAuditorSettings";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
+import { NextImageSummary } from "./NextImageSummary";
 import { DirectorSettings } from "./DirectorSettings";
 import { EchoChamberSettings } from "./EchoChamberSettings";
 import { ExpressionSpriteSettings } from "./ExpressionSpriteSettings";
@@ -979,6 +980,7 @@ export function RoleplayAgentsSection({
                   order={getRoleplayAgentSettingsOrder("illustrator")}
                   onRemove={getRoleplayAgentMenuRemoveHandler("illustrator", illustratorAgentMeta.name)}
                 >
+                  <NextImageSummary chat={chat} />
                   {renderAgentLorebookAttachment("illustrator")}
                   {renderAgentPromptTemplateSelect("illustrator")}
                   {renderIllustratorPromptConnectionSelect()}
@@ -1257,24 +1259,8 @@ export function RoleplayAgentsSection({
                     }
                   />
                   {renderIllustratorPromptConnectionSelect()}
-                  <label className="flex flex-col gap-1">
-                    <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
-                      {localizeUi("ui.chat.chatsettingsdrawer.imageConnection")}
-                    </span>
-                    <ConnectionSelect
-                      job={t("connections.picker.job.images")}
-                      value={(metadata.gameImageConnectionId as string) || null}
-                      onChange={(connectionId) =>
-                        updateMeta.mutate({ id: chat.id, gameImageConnectionId: connectionId })
-                      }
-                      kind="image"
-                      defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.selectImageConnection")}
-                      inherits="main"
-                    />
-                  </label>
-                  {renderIllustratorImageStyleSelect({
-                    emptyOptionLabel: "Use global or connection default",
-                  })}
+                  {renderIllustratorImageConnectionSelect("gameImageConnectionId")}
+                  {renderIllustratorImageStyleSelect()}
                   {renderIllustratorImagesPerGeneration()}
                   <AgentSettingsToggle
                     label={localizeUi("ui.chat.chatsettingsdrawer.useCampaignArtStyle")}

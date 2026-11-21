@@ -17,6 +17,8 @@ import {
   resolveGameSetupArtStylePrompt,
   VIDEO_GENERATION_SETTINGS_KEY,
   normalizeVideoGenerationUserSettings,
+  resolveSelfieImageConnectionId,
+  selfieFollowsImagesDefault,
 } from "@marinara-engine/shared";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
 import { listSpriteCatalog } from "../services/sprites/sprite-catalog.js";
@@ -513,7 +515,13 @@ async function resolveRegenerationImageConnection(
   if (selectedId) return null;
 
   // Conversation selfies use the image connection configured for the chat.
-  const conversationId = chatMode === "conversation" ? readTrimmedString(metadata.imageGenConnectionId) : null;
+  const conversationId =
+    chatMode === "conversation"
+      ? resolveSelfieImageConnectionId(
+          metadata,
+          selfieFollowsImagesDefault(metadata) ? (await connections.getDefaultForImageGeneration())?.id : null,
+        ) || null
+      : null;
   const conversation = conversationId ? await connections.getWithKey(conversationId) : null;
   if (conversation?.provider === "image_generation") return conversation;
   return (await resolveGalleryImageConnection(app, chatMode, metadata)).connection;
@@ -1721,13 +1729,17 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!character) return notFound(reply, "Character not found");
 
     const meta = parseChatMetadata(chat.metadata);
-    const imageConnectionId = readTrimmedString(meta.imageGenConnectionId);
+    const connections = createConnectionsStorage(app.db);
+    // The chat's own Selfie model, else the Images default once Generated Selfies is on.
+    const imageConnectionId = resolveSelfieImageConnectionId(
+      meta,
+      selfieFollowsImagesDefault(meta) ? (await connections.getDefaultForImageGeneration())?.id : null,
+    );
     if (!imageConnectionId) {
       return reply.status(400).send({
-        error: "No image generation connection configured for this chat. Set one in Conversation Chat Settings.",
+        error: "No image model for selfies. Choose one in Chat Settings, or set the Images default under Connections.",
       });
     }
-    const connections = createConnectionsStorage(app.db);
     const imageConn = await connections.getWithKey(imageConnectionId);
     if (!imageConn) return notFound(reply, "Image generation connection not found.");
     if (imageConn.provider !== "image_generation") {

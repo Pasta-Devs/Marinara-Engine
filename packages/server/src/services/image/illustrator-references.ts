@@ -61,11 +61,15 @@ export type IllustratorChatCharacterReference = {
   appearanceOverride?: string | null;
 };
 
+export type IllustratorReferencePictureSource = "character-sheet" | "avatar" | "sprite";
+
 export type IllustratorReferenceResolution = {
   characterIds: string[];
   personaId: string | null;
   referenceImages: string[];
   referenceNames: string[];
+  /** Which picture each reference is, in the same order as referenceImages: a sheet, an avatar or a sprite. */
+  referenceSources: IllustratorReferencePictureSource[];
   referenceLine: string | null;
   appearanceNames: string[];
   appearanceSources: Array<{ name: string; appearance: string }>;
@@ -393,15 +397,13 @@ async function readBestReferenceImage(
   >,
   gallery: CharacterGalleryReferenceStore | undefined,
 ) {
-  return (
-    await readPreferredCharacterReferenceImage({
-      characterId: source.id,
-      avatarPath: source.avatarPath,
-      characterSheetImageId: source.characterSheetImageId,
-      useCharacterSheetAsReference: source.useCharacterSheetAsReference,
-      characterGallery: gallery,
-    })
-  )?.base64;
+  return readPreferredCharacterReferenceImage({
+    characterId: source.id,
+    avatarPath: source.avatarPath,
+    characterSheetImageId: source.characterSheetImageId,
+    useCharacterSheetAsReference: source.useCharacterSheetAsReference,
+    characterGallery: gallery,
+  });
 }
 
 export async function readPreferredCharacterReferenceImage(args: {
@@ -667,6 +669,7 @@ export async function resolveIllustratorCharacterReferences(args: {
   const orderedSources = orderedSelectedSources.slice(0, maxReferences);
   const referenceImages: string[] = [];
   const referenceNames: string[] = [];
+  const referenceSources: IllustratorReferencePictureSource[] = [];
   const appearanceSources: IllustratorReferenceResolution["appearanceSources"] = [];
   const appearanceNames: string[] = [];
 
@@ -683,10 +686,11 @@ export async function resolveIllustratorCharacterReferences(args: {
 
   for (const source of orderedSources) {
     if (args.includeReferenceImages === false) continue;
-    const b64 = await readBestReferenceImage(source, args.characterGallery);
-    if (!b64) continue;
-    referenceImages.push(b64);
+    const best = await readBestReferenceImage(source, args.characterGallery);
+    if (!best?.base64) continue;
+    referenceImages.push(best.base64);
     referenceNames.push(source.name);
+    referenceSources.push(best.source);
   }
 
   if (
@@ -708,6 +712,7 @@ export async function resolveIllustratorCharacterReferences(args: {
     if (preferred?.base64 || fallbackAvatar) {
       referenceImages.push(preferred?.base64 ?? fallbackAvatar!);
       referenceNames.push(args.persona.name);
+      referenceSources.push(preferred?.source ?? "avatar");
     }
   }
   if (args.persona && personaRequested) {
@@ -729,6 +734,7 @@ export async function resolveIllustratorCharacterReferences(args: {
     personaId: args.persona && personaRequested ? args.persona.id : null,
     referenceImages,
     referenceNames,
+    referenceSources,
     referenceLine:
       referenceNames.length > 0
         ? `Attached are reference images of ${referenceNames.join(", ")}. Use them only to preserve character likeness and visual identity; the written scene prompt is authoritative for composition, setting, action, mood, framing, and whether any text appears.`

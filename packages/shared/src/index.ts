@@ -262,6 +262,8 @@ export * from "./utils/quest-state.js";
 export * from "./utils/quote-format.js";
 export * from "./utils/image-prompt-compiler.js";
 export * from "./utils/image-appearance.js";
+export * from "./utils/comfy-workflow-check.js";
+export * from "./utils/conversation-selfie-model.js";
 export * from "./utils/chat-image-generation.js";
 export * from "./utils/novelai.js";
 export * from "./utils/game-art-style.js";
