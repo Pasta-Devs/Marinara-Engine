@@ -75,7 +75,8 @@ export async function assignChatPictureToGallery(input: {
       // Assigning the same picture again only refreshes its label. An unlabeled chat picture leaves
       // the gallery's own label (for example an emoji set in the character's gallery) as it is.
       const finish = async (
-        existing: { id: string; customKind?: string | null; customName?: string | null } | undefined,
+        existing:
+          { id: string; customKind?: string | null; customName?: string | null; generation?: unknown } | undefined,
         setTag: (id: string, patch: typeof label) => Promise<unknown>,
         create: () => Promise<unknown>,
         setGeneration: (id: string, generation: NonNullable<typeof fields.generation>) => Promise<unknown>,
@@ -85,8 +86,11 @@ export async function assignChatPictureToGallery(input: {
           !existing ||
           (!!label.customKind &&
             ((existing.customKind ?? null) !== label.customKind || (existing.customName ?? null) !== label.customName));
+        const generationChanged =
+          fields.generation &&
+          JSON.stringify(fields.generation) !== JSON.stringify(parseChatImageGenerationRecord(existing?.generation));
         const refreshed =
-          existing && fields.generation ? await setGeneration(existing.id, fields.generation) : existing;
+          existing && generationChanged ? await setGeneration(existing.id, fields.generation!) : existing;
         const row = existing ? (labelUpdated ? await setTag(existing.id, label) : refreshed) : await create();
         return row
           ? ({ ok: true, image: row, alreadyThere: !!existing, labelUpdated } as const)

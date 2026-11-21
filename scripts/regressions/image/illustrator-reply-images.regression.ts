@@ -46,11 +46,24 @@ replaceBuiltInAgentDefinitions([
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 // Every request to the image service: which image connection it reached, the prompt and the size.
+let failIllustrator = false;
+const fallbackRequests: Array<{ prompt: string; negative_prompt: string }> = [];
 const images: Array<{ url: string; prompt: string; size: string }> = [];
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+  if (request.url?.includes("/fallback/")) {
+    fallbackRequests.push(body);
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ images: [png] }));
+    return;
+  }
+  if (failIllustrator && request.url?.startsWith("/illustrator/")) {
+    response.writeHead(500, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "primary fixture unavailable" }));
+    return;
+  }
   if (request.url?.endsWith("/images/generations")) {
     images.push({ url: request.url, prompt: String(body.prompt), size: String(body.size) });
     response.writeHead(200, { "content-type": "application/json" });
@@ -206,6 +219,68 @@ try {
   const gamePictures = byConnection();
   assert.deepEqual(Object.keys(gamePictures), ["painter"]);
   assert.equal(gamePictures.painter!.size, "1792x1024", "Game uses the landscape Game scene size");
+  // A differently compiled fallback must save its own request for later regeneration.
+  const fallback = await connections.create({
+    name: "Fallback pictures",
+    provider: "image_generation",
+    baseUrl: `${origin}/fallback`,
+    model: "sdxl",
+    imageService: "automatic1111",
+    imageGenerationSource: "automatic1111",
+    apiKey: "fixture",
+    fallbackForAgents: true,
+  });
+  assert.ok(fallback);
+  await connections.updateDefaultParameters(fallback.id, {
+    imageGeneration: {
+      version: 1,
+      service: "automatic1111",
+      seed: -1,
+      automatic1111: { promptPrefix: "FALLBACK_POSITIVE", negativePromptPrefix: "FALLBACK_NEGATIVE" },
+    },
+  });
+  assert.equal((await connections.getFallbackForImageGeneration())?.id, fallback.id);
+  const { createGalleryStorage } = await import("../../../packages/server/src/services/storage/gallery.storage.js");
+  const { parseChatImageGenerationRecord } = await import("../../../packages/shared/dist/index.js");
+  const gallery = createGalleryStorage(db);
+  const primaryRows = await gallery.listByChatId(roleplay.id);
+  assert.ok(
+    primaryRows.some((row) => parseChatImageGenerationRecord(row.generation)?.connectionId === illustratorImages.id),
+  );
+  assert.ok(
+    primaryRows.every((row) => !parseChatImageGenerationRecord(row.generation)?.prompt?.includes("FALLBACK_POSITIVE")),
+    "successful primary requests keep their original prompt",
+  );
+  failIllustrator = true;
+  // A fresh chat exercises generation directly, without the earlier reply's Illustrator cadence checkpoint.
+  const fallbackChat = await chats.create({
+    name: "Fallback pictures",
+    mode: "roleplay",
+    characterIds: [brin.id],
+    connectionId: text.id,
+    promptPresetId: null,
+  });
+  assert.ok(fallbackChat);
+  await chats.patchMetadata(fallbackChat.id, {
+    enableAgents: true,
+    activeAgentIds: ["illustrator"],
+    automaticSummaryEnabled: false,
+  });
+  await run("/api/generate/", {
+    chatId: fallbackChat.id,
+    userMessage: "Brin watches the rain again.",
+    streaming: false,
+  });
+  assert.equal(fallbackRequests.length, 1);
+  assert.match(fallbackRequests[0]!.prompt, /FALLBACK_POSITIVE/u);
+  assert.match(fallbackRequests[0]!.negative_prompt, /FALLBACK_NEGATIVE/u);
+  const fallbackRow = (await gallery.listByChatId(fallbackChat.id)).find(
+    (row) => parseChatImageGenerationRecord(row.generation)?.connectionId === fallback.id,
+  );
+  assert.ok(fallbackRow, "the result records the fallback connection");
+  const fallbackRecord = parseChatImageGenerationRecord(fallbackRow.generation);
+  assert.equal(fallbackRecord?.prompt, fallbackRequests[0]!.prompt);
+  assert.equal(fallbackRecord?.negativePrompt, fallbackRequests[0]!.negative_prompt);
   console.info("Reply pictures follow their own agent, the latest user message and the mode's canvas size.");
 } finally {
   provider.closeAllConnections();

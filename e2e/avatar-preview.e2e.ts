@@ -153,6 +153,121 @@ test("leaving an avatar preview while its image loads prevents a stale apply", a
   }
 });
 
+for (const owner of ["character", "persona"] as const) {
+  test(`${owner} avatar preparation and previews expire when leaving the owner`, async ({ page, request }) => {
+    const collection = owner === "persona" ? "/api/characters/personas" : "/api/characters";
+    const ids: string[] = [];
+    const names = [`Avatar session A ${owner}`, `Avatar session B ${owner}`];
+    const png = readFileSync(new URL("../packages/client/public/sprites/mari/safari/pose-greet.webp", import.meta.url));
+    let releasePreparation!: () => void;
+    const heldPreparation = new Promise<void>((resolve) => {
+      releasePreparation = resolve;
+    });
+    let markPreparationRequested!: () => void;
+    const preparationRequested = new Promise<void>((resolve) => {
+      markPreparationRequested = resolve;
+    });
+    try {
+      for (const name of names) {
+        const created = await request.post(collection, { data: owner === "character" ? { data: { name } } : { name } });
+        expect(created.ok(), await created.text()).toBeTruthy();
+        const { id } = (await created.json()) as { id: string };
+        ids.push(id);
+        const uploaded = await request.post(`${collection}/${id}/gallery/upload`, {
+          multipart: { file: { name: "avatar.webp", mimeType: "image/webp", buffer: png } },
+        });
+        expect(uploaded.ok()).toBeTruthy();
+        const image = (await uploaded.json()) as { id: string };
+        expect((await request.post(`${collection}/${id}/gallery/${image.id}/avatar`)).ok()).toBeTruthy();
+      }
+      const preparedImage = {
+        id: "prepared-session-avatar",
+        filePath: "avatar.webp",
+        url: "/avatar-session-fixture.webp",
+        prompt: "Prepared avatar",
+        provider: "",
+        model: "",
+        width: 1,
+        height: 1,
+        createdAt: "",
+        generation: null,
+      };
+      await page.route("**/avatar-session-fixture.webp", (route) =>
+        route.fulfill({ contentType: "image/webp", body: png }),
+      );
+      let preparations = 0;
+      await page.route(`**${collection}/${ids[0]}/avatar/edit-source`, async (route) => {
+        preparations += 1;
+        if (preparations === 1) {
+          markPreparationRequested();
+          await heldPreparation;
+        }
+        await route.fulfill({ json: preparedImage });
+      });
+      await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+      await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+      await page.addInitScript(
+        (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
+        JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version,
+      );
+      await page.goto("/");
+      const editor = page.locator(".mari-editor-shell");
+      const openOwner = async (index: number) => {
+        await page.evaluate(
+          async ({ owner, id }) => {
+            const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+            if (owner === "persona") useUIStore.getState().openPersonaDetail(id, { initialTab: "metadata" });
+            else useUIStore.getState().openCharacterDetail(id, { initialTab: "metadata" });
+          },
+          { owner, id: ids[index]! },
+        );
+        await expect
+          .poll(() =>
+            editor
+              .locator("input")
+              .evaluateAll(
+                (inputs, name) => inputs.some((input) => (input as HTMLInputElement).value === name),
+                names[index],
+              ),
+          )
+          .toBe(true);
+      };
+      const edit = editor.getByRole("button", { name: "Edit avatar", exact: true });
+      const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+      await openOwner(0);
+      await edit.click();
+      await preparationRequested;
+      await openOwner(1);
+      await openOwner(0);
+      releasePreparation();
+      await expect
+        .poll(() =>
+          page.evaluate(async () => {
+            const { queryClient } = await import("/src/lib/query-client.ts" as string);
+            return queryClient.isMutating();
+          }),
+        )
+        .toBe(0);
+      await expect(edit).toBeEnabled();
+      await expect(viewer).toHaveCount(0);
+
+      // A fresh preparation still opens, but an already open preview must not reappear on returning to A.
+      await edit.click();
+      await expect(viewer).toBeVisible();
+      await openOwner(1);
+      await expect(viewer).toHaveCount(0);
+      await openOwner(0);
+      await expect(viewer).toHaveCount(0);
+      await edit.click();
+      await expect(viewer).toBeVisible();
+      await viewer.getByRole("button", { name: "Close image", exact: true }).click();
+    } finally {
+      releasePreparation();
+      for (const id of ids) await request.delete(`${collection}/${id}`);
+    }
+  });
+}
+
 test("sheet uploads persist on refresh without saving unrelated card drafts", async ({ page, request }) => {
   await page.route("**/api/app-settings/ui", (route) =>
     route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),

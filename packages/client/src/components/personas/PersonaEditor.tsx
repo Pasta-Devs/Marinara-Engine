@@ -1329,6 +1329,7 @@ export function PersonaEditor() {
       if (!isCurrentEditorSession(editingSession)) return;
       setAvatarEditImage({ ownerId: editingOwnerId, image });
     } catch (error) {
+      if (!isCurrentEditorSession(editingSession)) return;
       toast.error(error instanceof Error ? error.message : localizeUi("images.entity.openFailed"));
     }
   };
@@ -1504,6 +1505,7 @@ export function PersonaEditor() {
   // local identity so an in-flight completion can still update shared caches through
   // the hooks but can no longer write this editor's state.
   useLayoutEffect(() => {
+    setAvatarEditImage(null);
     return () => {
       editorSessionRef.current = generateClientId();
       loadedPersonaIdRef.current = null;

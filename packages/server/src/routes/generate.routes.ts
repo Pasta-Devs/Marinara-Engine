@@ -15145,6 +15145,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           imageResult.effectiveConnection?.provider ?? imgConnFull.provider ?? "image_generation";
                         const effectiveImageModel = imageResult.effectiveConnection?.model || imgModel || "unknown";
 
+                        // Keep the fallback's raw request separate from its display prompt, which may include captions.
+                        const renderedByFallback =
+                          imageResult.effectiveConnection?.connectionId === providerAwareImageFallback?.connectionId &&
+                          !!providerAwareImageFallback;
                         // Save to gallery
                         const galleryEntry = await galleryStore.create({
                           chatId: input.chatId,
@@ -15155,9 +15159,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           width: imgWidth,
                           height: imgHeight,
                           generation: buildChatImageGenerationRecord({
-                            prompt: compiledPrompt.prompt,
+                            prompt: renderedByFallback ? providerAwareImageFallback.prompt : compiledPrompt.prompt,
                             connectionId: imageResult.effectiveConnection?.connectionId ?? imgConnFull.id,
-                            negativePrompt: finalNegativePrompt,
+                            negativePrompt: renderedByFallback
+                              ? (imageResult.effectiveNegativePrompt ?? providerAwareImageFallback.negativePrompt ?? "")
+                              : finalNegativePrompt,
                             characterPrompts: illustratorCharacterPrompts,
                             referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
                             referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,

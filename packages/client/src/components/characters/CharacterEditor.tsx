@@ -550,15 +550,24 @@ export function CharacterEditor() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [avatarGeneratorOpen, setAvatarGeneratorOpen] = useState(false);
   const [avatarEditImage, setAvatarEditImage] = useState<{ ownerId: string; image: EntityEditableImage } | null>(null);
+  const avatarEditSessionRef = useRef(0);
+  useLayoutEffect(() => {
+    setAvatarEditImage(null);
+    return () => {
+      avatarEditSessionRef.current += 1;
+    };
+  }, [characterId]);
   const prepareAvatarEdit = usePrepareAvatarEdit({ kind: "character", id: characterId ?? "" });
   const openAvatarEditor = async () => {
     if (!characterId || prepareAvatarEdit.isPending || avatarUploading || saving) return;
     const editingOwnerId = characterId;
+    const editingSession = avatarEditSessionRef.current;
     try {
       const image = await prepareAvatarEdit.mutateAsync();
-      if (activeCharacterIdRef.current !== editingOwnerId) return;
+      if (avatarEditSessionRef.current !== editingSession) return;
       setAvatarEditImage({ ownerId: editingOwnerId, image });
     } catch (error) {
+      if (avatarEditSessionRef.current !== editingSession) return;
       toast.error(error instanceof Error ? error.message : localizeUi("images.entity.openFailed"));
     }
   };

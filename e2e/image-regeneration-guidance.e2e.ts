@@ -120,10 +120,24 @@ for (const owner of ["character", "persona"] as const) {
       await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(source.prompt);
       await viewer.getByRole("button", { name: "Edit image", exact: true }).click();
       await expect(viewer.getByLabel("Inpainting mask brush canvas")).toBeVisible();
+      await page.evaluate(async () => {
+        const { queryClient } = await import("/src/lib/query-client.ts" as string);
+        const { characterKeys } = await import("/src/hooks/use-characters.ts" as string);
+        queryClient.setQueryData(characterKeys.galleryBackgrounds(), []);
+      });
       await viewer.getByRole("button", { name: "Apply edit", exact: true }).click();
       await expect.poll(() => edits.length).toBe(1);
       expect(edits[0]).toMatchObject({ prompt: source.prompt, editMode: "img2img", connectionId: "entity-nai-e2e" });
       await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(result.prompt);
+      await expect
+        .poll(() =>
+          page.evaluate(async () => {
+            const { queryClient } = await import("/src/lib/query-client.ts" as string);
+            const { characterKeys } = await import("/src/hooks/use-characters.ts" as string);
+            return queryClient.getQueryState(characterKeys.galleryBackgrounds())?.isInvalidated;
+          }),
+        )
+        .toBe(owner === "character");
       const unchanged = await (await request.get(path)).json();
       expect(unchanged.avatarPath).toBe(before.avatarPath);
       await page.keyboard.press("Escape");
@@ -253,6 +267,61 @@ async function screenshot(page: Page, info: TestInfo, name: string) {
     animations: "disabled",
   });
 }
+
+test("gallery navigation remains usable after the first image fails to load", async ({ page, request }) => {
+  const created = await request.post("/api/chats", {
+    data: { name: "Failed gallery image", mode: "roleplay", characterIds: [], connectionId: "synthetic" },
+  });
+  expect(created.ok()).toBeTruthy();
+  const { id: chatId } = (await created.json()) as { id: string };
+  try {
+    const png = await sharp({ create: { width: 640, height: 360, channels: 3, background: "#164e63" } })
+      .png()
+      .toBuffer();
+    const broken = await upload(request, chatId, "Broken first picture", png);
+    const loaded = await upload(request, chatId, "Loaded second picture", png);
+    await page.route(`**/api/gallery/${chatId}`, (route) => route.fulfill({ json: [broken, loaded] }));
+    await page.route(`**${broken.url}`, (route) => route.abort());
+    await openChat(page, chatId);
+    const drawer = await openChatSettingsTool(page, "gallery");
+    await openGalleryImage(drawer, broken.prompt);
+    const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await expect
+      .poll(() => viewer.getByRole("img").evaluate((image: HTMLImageElement) => image.complete && !image.naturalWidth))
+      .toBe(true);
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 640, height: 360 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect
+        .poll(async () => {
+          const toolbar = await viewer
+            .getByRole("button", { name: "Close image", exact: true })
+            .locator("..")
+            .boundingBox();
+          const next = await viewer.getByRole("button", { name: "Next image", exact: true }).boundingBox();
+          return (
+            !!toolbar && !!next && toolbar.y + toolbar.height + 15 <= next.y && next.y + next.height <= viewport.height
+          );
+        })
+        .toBe(true);
+    }
+    await viewer.getByRole("button", { name: "Next image", exact: true }).click();
+    await expect
+      .poll(() => viewer.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBe(640);
+    await expect
+      .poll(async () => {
+        const image = await viewer.getByRole("img").boundingBox();
+        const next = await viewer.getByRole("button", { name: "Next image", exact: true }).boundingBox();
+        return !!image && !!next && Math.abs(next.x - image.x - image.width - 16) <= 1;
+      })
+      .toBe(true);
+  } finally {
+    await request.delete(`/api/chats/${chatId}`);
+  }
+});
 
 test("gallery regeneration preserves structured prompts and can revise, generate, or retry independently", async ({
   page,

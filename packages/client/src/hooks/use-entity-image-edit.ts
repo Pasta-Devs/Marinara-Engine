@@ -25,6 +25,9 @@ export function useEntityImageRegenerator(owner: EntityImageOwner, avatarPreview
       void qc.invalidateQueries({
         queryKey: owner.kind === "persona" ? characterKeys.personaGallery(owner.id) : characterKeys.gallery(owner.id),
       });
+      if (owner.kind === "character") {
+        void qc.invalidateQueries({ queryKey: characterKeys.galleryBackgrounds() });
+      }
     },
   });
   const { mutateAsync: revise } = useMutation({

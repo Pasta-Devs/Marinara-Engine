@@ -159,6 +159,60 @@ try {
   assert.equal(keptRows[0]?.customKind, "background", "the gallery keeps its own label");
   assert.deepEqual(parseChatImageGenerationRecord(keptRows[0]?.generation), reassignedGeneration);
 
+  for (const [type, id] of [
+    ["character", "john"],
+    ["persona", "alyssa"],
+  ] as const) {
+    const target = { type, id };
+    await assignChatPictureToGallery({
+      image: { ...picture, generation: reassignedGeneration },
+      target,
+      characterGallery,
+      personaGallery,
+      galleryRoot,
+    });
+    const gallery = type === "character" ? characterGallery : personaGallery;
+    const originalSetGeneration = gallery.setGeneration;
+    const originalSetTag = gallery.setTag;
+    let generationWrites = 0;
+    let labelWrites = 0;
+    gallery.setGeneration = async (...args) => {
+      generationWrites++;
+      return originalSetGeneration.apply(gallery, args);
+    };
+    gallery.setTag = async (...args) => {
+      labelWrites++;
+      return originalSetTag.apply(gallery, args);
+    };
+    try {
+      const same = await assignChatPictureToGallery({
+        image: { ...picture, generation: JSON.stringify({ ...reassignedGeneration, prompt: "  restored request  " }) },
+        target,
+        characterGallery,
+        personaGallery,
+        galleryRoot,
+      });
+      assert.equal(same.ok && same.alreadyThere, true);
+      assert.equal(
+        generationWrites,
+        0,
+        "an equal normalized record must not enter the gallery writer or reread the row",
+      );
+      assert.equal(labelWrites, 0, "an unlabeled reassignment keeps the existing label without a write");
+      await assignChatPictureToGallery({
+        image: { ...picture, generation: { ...reassignedGeneration, seed: 92 } },
+        target,
+        characterGallery,
+        personaGallery,
+        galleryRoot,
+      });
+      assert.equal(generationWrites, 1, "a different record refreshes the existing row");
+    } finally {
+      gallery.setGeneration = originalSetGeneration;
+      gallery.setTag = originalSetTag;
+    }
+  }
+
   const toPersona = await assignChatPictureToGallery({
     image: { ...picture, customKind: null, customName: null },
     target: { type: "persona", id: "alyssa" },

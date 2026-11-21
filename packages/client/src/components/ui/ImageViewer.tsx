@@ -452,7 +452,7 @@ export function ImageViewer({
               <button
                 type="button"
                 className={cn(arrowClass, "left-0")}
-                style={{ top: arrowTop }}
+                style={{ top: fitted ? arrowTop : "calc(100% - 2.75rem)" }}
                 onClick={() => go(index - 1)}
                 disabled={zoomed || index <= 0}
                 aria-label={t("ui.imageviewer.previousImage")}
@@ -462,7 +462,7 @@ export function ImageViewer({
               <button
                 type="button"
                 className={cn(arrowClass, "right-0")}
-                style={{ top: arrowTop }}
+                style={{ top: fitted ? arrowTop : "calc(100% - 2.75rem)" }}
                 onClick={() => go(index + 1)}
                 disabled={zoomed || index >= count - 1}
                 aria-label={t("ui.imageviewer.nextImage")}
@@ -483,7 +483,9 @@ export function ImageViewer({
                     top: toolbarTop,
                     maxHeight: gallery ? Math.max(0, arrowTop - toolbarTop - 16) : fitted.stageHeight - toolbarTop,
                   }
-                : undefined
+                : gallery
+                  ? { maxHeight: "calc(100% - 2.75rem - 16px)" }
+                  : undefined
             }
           >
             {!media && closeButton}
