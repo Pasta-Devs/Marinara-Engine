@@ -70,7 +70,7 @@ type GrokCliJsonUsage = {
 /**
  * The text and usage of the CLI's headless JSON result (`--output-format json`). The CLI reports uncached input, cache
  * reads and cache writes as separate buckets; the prompt count here includes all three, as on OpenAI-compatible
- * routes. Returns null for output that is not that JSON object.
+ * routes. Returns null for output that is not that envelope.
  */
 export function parseGrokCliJsonResult(stdout: string): { text: string; usage?: LLMUsage } | null {
   const trimmed = stripAnsi(stdout).trim();
@@ -80,7 +80,16 @@ export function parseGrokCliJsonResult(stdout: string): { text: string; usage?: 
   } catch {
     return null;
   }
-  if (!parsed || typeof parsed !== "object" || typeof (parsed as { text?: unknown }).text !== "string") return null;
+  // Only the CLI's own envelope (it carries sessionId and stopReason): a plain reply that merely contains a JSON
+  // object with a text field is returned whole by the caller.
+  const envelope = parsed as { text?: unknown; sessionId?: unknown; stopReason?: unknown } | null;
+  if (
+    !envelope ||
+    typeof envelope !== "object" ||
+    typeof envelope.text !== "string" ||
+    (typeof envelope.sessionId !== "string" && typeof envelope.stopReason !== "string")
+  )
+    return null;
   const { text, usage, stopReason } = parsed as { text: string; usage?: GrokCliJsonUsage; stopReason?: unknown };
   if (!usage || typeof usage !== "object") return { text };
   const count = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0);

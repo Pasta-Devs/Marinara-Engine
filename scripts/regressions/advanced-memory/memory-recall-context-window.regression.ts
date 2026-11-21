@@ -213,6 +213,32 @@ const unitCases = [
     },
   },
   {
+    name: "a chat that only just fits recalls nothing of its own, even when a memories block would not fit beside it",
+    async run() {
+      // Every message fits with nothing to spare, so a block of any size would push out the oldest ones. Reserving
+      // room first used to make chunk A eligible and then drop M0-M4 for it.
+      const fixture = await windowFixture(20, 800, { chunkSize: 5 * 800 });
+      const fit = charFit(50 + 20 * 800);
+      assert.equal(fit(fixture.prompt).length, fixture.prompt.length, "the whole chat fits");
+      const calls = embedCalls;
+      const lines = await recallInto(fixture, fit);
+      assert.deepEqual(lines, []);
+      assert.equal(embedCalls, calls, "nothing to recall, so the query is not embedded");
+      assert.equal(fixture.prompt.filter((message) => message.contextKind === "history").length, 20);
+    },
+  },
+  {
+    name: "a chat that only just fits still recalls imported memories",
+    async run() {
+      const fixture = await windowFixture(20, 800, {
+        chunkSize: 5 * 800,
+        imported: [{ content: "IMPORTED memory from another chat." }],
+      });
+      const lines = await recallInto(fixture, charFit(50 + 20 * 800));
+      assert.deepEqual(lines, ["IMPORTED memory from another chat."]);
+    },
+  },
+  {
     name: "trimmed history: only chunks outside the sent window, and history the memories push out is recallable",
     async run() {
       // Without memories the fit drops M0-M4. The block needs room, so M5-M9 go too, and chunk B can come back.

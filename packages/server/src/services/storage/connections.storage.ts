@@ -478,6 +478,10 @@ export function hasOwnModelSettings(
   if ([row.imagePath, row.icon, row.embeddingModel, row.embeddingConnectionId].some(set)) return true;
   // Caching is a setting of the Model's own only where it differs from its service's default.
   if (set(row.enableCaching) && on(row.enableCaching) !== cachesByDefault(row.provider)) return true;
+  // The cache lifetime and depth count where caching applies to the Model, and only away from their defaults.
+  const cachingApplies = on(row.enableCaching) && (row.provider === "anthropic" || row.provider === "openrouter");
+  if ((cachingApplies || row.provider === "claude_subscription") && on(row.anthropicExtendedCacheTtl)) return true;
+  if (cachingApplies && typeof row.cachingAtDepth === "number" && row.cachingAtDepth !== 5) return true;
   if (on(row.claudeFastMode)) return true;
   if (typeof row.maxParallelJobs === "number" && row.maxParallelJobs !== 1) return true;
   // Limits count only where the catalog tells what the model's own limit is.
