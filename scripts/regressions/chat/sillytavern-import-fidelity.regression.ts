@@ -29,6 +29,9 @@ assert.equal(parseTrustedTimestamp("March 1, 2025 13:00"), local(2025, 2, 1, 13,
 assert.equal(parseTrustedTimestamp("2025-03-01@12h00m00s"), local(2025, 2, 1, 12, 0), "ST's create_date");
 assert.equal(parseTrustedTimestamp("February 31, 2024 1:00pm"), null, "no roll-over into March");
 assert.equal(parseTrustedTimestamp("March 1, 2025 13:00pm"), null, "13 pm is not a time");
+assert.equal(parseTrustedTimestamp("March 1, 2025 1:99pm"), null, "no minute roll-over");
+assert.equal(parseTrustedTimestamp("March 1, 2025 1:05:60pm"), null, "no second roll-over");
+assert.equal(parseTrustedTimestamp("February 31, 2024 1:00 PM"), null, "not handed to new Date() either");
 assert.equal(parseTrustedTimestamp("2024-05-02T10:00:00.000Z"), "2024-05-02T10:00:00.000Z", "ISO still works");
 
 // ── Preset samplers ──
@@ -138,6 +141,11 @@ try {
   const offMeta = await metadataOf(off.chatId!);
   assert.equal(offMeta.authorNotes, undefined, "a note turned off in ST is not switched on");
   assert.deepEqual(off.importNotes, [{ kind: "authorsNoteOff" }], "the default 'User' name is not reported");
+
+  // SillyTavern 1.16 writes "unused" in the header; the user's own messages name them.
+  const unused = await importSTChat(jsonl({ user_name: "unused", character_name: "Alice" }, sampleMessages), db, {});
+  assert.ok("chatId" in unused && unused.chatId);
+  assert.equal((await chats.getById(unused.chatId!))?.personaId, sam!.id, '"unused" falls back to the messages');
 
   // An explicit persona (a chat imported into an existing group) is kept, even when it is none.
   const explicit = await importSTChat(jsonl({ user_name: "Sam", character_name: "Alice" }, sampleMessages), db, {

@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import { randomUUID } from "node:crypto";
 import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
+import { realpathSync } from "fs";
 import { readdir, stat } from "fs/promises";
 import { resolve as pathResolve } from "path";
 import { containsDecisionStatements, normalizeTextForMatch, type ChatMode } from "@marinara-engine/shared";
@@ -115,9 +116,20 @@ function resolveImportFolder(body: {
   if (!rawPath) return { ok: false, error: "folderPath or folderToken is required" };
   const resolved = pathResolve(rawPath);
   // A typed path gets what Browse already reaches: the home folder, unless IMPORT_ALLOWED_ROOTS names others.
-  const allowed = getImportAllowedRoots().length > 0 ? isAllowedImportRoot(resolved) : isHomeContained(resolved);
+  // Links are followed first, so a link inside the home folder can't lead the import outside it.
+  const real = realPathOrSelf(resolved);
+  const roots = getImportAllowedRoots().length > 0 ? getImportAllowedRoots() : [homedir()];
+  const allowed = roots.some((root) => isUnderRoot(real, realPathOrSelf(pathResolve(root))));
   if (!allowed) return { ok: false, error: describeImportFolderLimit() };
-  return { ok: true, path: resolved };
+  return { ok: true, path: real };
+}
+
+function realPathOrSelf(pathValue: string): string {
+  try {
+    return realpathSync(pathValue);
+  } catch {
+    return pathValue;
+  }
 }
 
 function describeImportFolderLimit() {

@@ -15246,6 +15246,7 @@
   "ui.modals.stbulkimportmodal.alreadyImported": "Already imported",
   "ui.modals.stbulkimportmodal.browse": "Browse",
   "ui.modals.stbulkimportmodal.browseForFolder": "Browse for folder",
+  "ui.modals.stbulkimportmodal.browseOpenedHome": "Marinara can only browse folders inside your home folder, so the browser opened there. Move the SillyTavern folder into it if it isn't.",
   "ui.modals.stbulkimportmodal.builtIn": "Built-in",
   "ui.modals.stbulkimportmodal.builtInPreset": "built-in preset",
   "ui.modals.stbulkimportmodal.builtInPresetsDetectedAndUnchecked_one": "{{count}} built-in preset was detected and left unchecked by default, so only likely custom presets come across unless you opt in.",

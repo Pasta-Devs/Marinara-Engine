@@ -233,45 +233,47 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const [browserFolders, setBrowserFolders] = useState<string[]>([]);
   const [browserLoading, setBrowserLoading] = useState(false);
 
-  const loadDirectory = useCallback(async (dirPath?: string) => {
-    setBrowserLoading(true);
-    try {
-      const res = await api.raw("/import/list-directory", {
-        method: "POST",
-        body: JSON.stringify({ path: dirPath || "" }),
-      });
-      const { data, raw } = await readJsonResponse<{
-        success: boolean;
-        path?: string;
-        folderToken?: string;
-        folders?: string[];
-        error?: string;
-      }>(res);
-      if (!res.ok || !data?.success || !data.path) {
-        // A typed path outside the home folder can't be browsed: open the home folder instead of a dead end.
-        if (dirPath && res.ok) {
-          await loadDirectory(undefined);
-          setError(
-            "Marinara can only browse folders inside your home folder, so the browser opened there. Move the SillyTavern folder into it if it isn't.",
-          );
-          return;
+  const loadDirectory = useCallback(
+    async (dirPath?: string): Promise<boolean> => {
+      setBrowserLoading(true);
+      try {
+        const res = await api.raw("/import/list-directory", {
+          method: "POST",
+          body: JSON.stringify({ path: dirPath || "" }),
+        });
+        const { data, raw } = await readJsonResponse<{
+          success: boolean;
+          path?: string;
+          folderToken?: string;
+          folders?: string[];
+          error?: string;
+        }>(res);
+        if (!res.ok || !data?.success || !data.path) {
+          // A typed path outside the home folder can't be browsed: open the home folder instead of a dead end.
+          if (dirPath && res.ok && (await loadDirectory(undefined))) {
+            setError(localizeUi("ui.modals.stbulkimportmodal.browseOpenedHome"));
+            return false;
+          }
+          setBrowserFolders([]);
+          setFolderToken(null);
+          setError(describeResponseError(res, data, raw, "Unable to list directories"));
+          return false;
         }
+        setBrowserPath(data.path);
+        setFolderToken(data.folderToken ?? null);
+        setBrowserFolders(data.folders ?? []);
+        return true;
+      } catch (err) {
         setBrowserFolders([]);
         setFolderToken(null);
-        setError(describeResponseError(res, data, raw, "Unable to list directories"));
-        return;
+        setError(err instanceof Error ? err.message : "Unable to list directories");
+        return false;
+      } finally {
+        setBrowserLoading(false);
       }
-      setBrowserPath(data.path);
-      setFolderToken(data.folderToken ?? null);
-      setBrowserFolders(data.folders ?? []);
-    } catch (err) {
-      setBrowserFolders([]);
-      setFolderToken(null);
-      setError(err instanceof Error ? err.message : "Unable to list directories");
-    } finally {
-      setBrowserLoading(false);
-    }
-  }, []);
+    },
+    [localizeUi],
+  );
 
   const handleBrowse = useCallback(async () => {
     setPicking(true);
