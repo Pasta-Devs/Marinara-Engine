@@ -2,7 +2,7 @@
 
 Some server behaviours are optional. Every switch starts off, so a server where nobody turns them on behaves exactly as before. They sit in different places in **Settings**:
 
-- **Stable lorebook picks** and **Lorebook activation stats**: **Settings → Advanced → Lorebooks**.
+- **Stable lorebook picks**, **Lorebook activation stats** and **Vectors on for new lorebooks**: **Settings → Advanced → Lorebooks**.
 - **Retry failed provider calls**: **Settings → Advanced → Timeouts & Retries**.
 - **Recover deleted chat messages**: **Settings → Data → Backup & Restore**.
 
@@ -18,6 +18,7 @@ A change applies straight away. You do not need to restart the server or reload 
 | **Retry failed provider calls**   | `providerRetry`            | Off     | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
 | **Lorebook activation stats**     | `usageAndActivationStats`  | Off     | none                              |
 | **Recover deleted chat messages** | `messageTrash`             | Off     | none                              |
+| **Vectors on for new lorebooks**  | `newLorebookVectors`       | Off     | `LOREBOOK_NEW_BOOK_VECTORS`       |
 
 Searching settings for a switch's name takes you to it.
 
@@ -63,16 +64,27 @@ On: deleted chat messages go to the **Trash** tab in chat search. Use **Restore*
 
 Off: deleted messages are removed right away.
 
+### Vectors on for new lorebooks
+
+Setting key: `newLorebookVectors`. Environment variable: `LOREBOOK_NEW_BOOK_VECTORS`.
+
+On: a new lorebook starts with **Vectors** on, so its entries can be vectorized and found by meaning straight away.
+
+Off: a new lorebook starts with **Vectors** off. Keywords still work, and you can turn on **Vectors** in the lorebook later.
+
+It decides only the starting value for lorebooks created without one: **Create lorebook** (which shows the switch, so you can change it for that book), imports whose file has no setting of its own, and books made by Game Mode or the Lorebook Keeper. Existing lorebooks keep their own setting. Lorebooks Professor Mari creates already start with **Vectors** on.
+
 ## Precedence
 
 1. **Environment variable.** When the switch's variable is set, it wins over the saved switch, both on and off, and Settings shows the switch locked with the variable's name. A blank variable counts as unset.
 2. **Saved switch.** The value saved in Settings > Advanced > Lorebooks.
 3. **Default.** Off.
 
-| Variable                          | Controls                    | Values                                                               |
-| --------------------------------- | --------------------------- | -------------------------------------------------------------------- |
-| `LOREBOOK_STABLE_GROUP_WINNERS`   | Stable lorebook picks       | `true`, `1`, `yes` or `on` turn it on. Any other value turns it off. |
-| `PROVIDER_RETRY_TRANSIENT_ERRORS` | Retry failed provider calls | `true`, `1`, `yes` or `on` turn it on. Any other value turns it off. |
+| Variable                          | Controls                     | Values                                                               |
+| --------------------------------- | ---------------------------- | -------------------------------------------------------------------- |
+| `LOREBOOK_STABLE_GROUP_WINNERS`   | Stable lorebook picks        | `true`, `1`, `yes` or `on` turn it on. Any other value turns it off. |
+| `PROVIDER_RETRY_TRANSIENT_ERRORS` | Retry failed provider calls  | `true`, `1`, `yes` or `on` turn it on. Any other value turns it off. |
+| `LOREBOOK_NEW_BOOK_VECTORS`       | Vectors on for new lorebooks | `true`, `1`, `yes` or `on` turn it on. Any other value turns it off. |
 
 Environment variables are read on every check, so a `.env` change applies without a restart.
 

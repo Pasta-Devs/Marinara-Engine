@@ -12,6 +12,7 @@ import {
   lorebookPersonaLinks,
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { defaultNewLorebookExcludeFromVectorization } from "../features/feature-settings.js";
 import {
   DEFAULT_LOREBOOK_WRITER_ORDER,
   compareTokenEstimates,
@@ -641,7 +642,9 @@ export function createLorebooksStorage(db: DB) {
           entryLimit: normalizeLorebookEntryLimit(input.entryLimit),
           recursiveScanning: String(input.recursiveScanning ?? false),
           maxRecursionDepth: input.maxRecursionDepth ?? 3,
-          excludeFromVectorization: String(input.excludeFromVectorization ?? true),
+          excludeFromVectorization: String(
+            input.excludeFromVectorization ?? defaultNewLorebookExcludeFromVectorization(),
+          ),
           vectorQueryDepth: normalizeLorebookVectorQueryDepth(input.vectorQueryDepth),
           vectorIncludeAssistant: String(input.vectorIncludeAssistant ?? false),
           vectorScoreThreshold: normalizeLorebookVectorScoreThreshold(input.vectorScoreThreshold),
