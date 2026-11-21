@@ -3432,6 +3432,11 @@
 :root[data-overhaul] .mari-home-widget--recent .ov-recent {
   grid-template-columns: minmax(0, 1fr) !important;
 }
+/* Recent is a two-row card, sized for upstream's picture gallery. A list of one or two chats (or none yet) needs
+   one row: the card fits its rows instead of standing mostly empty (QC IA17). Home packs the widgets below up. */
+:root[data-overhaul] .mari-home-feed-grid > .mari-home-widget--recent:has([data-recent-short]) {
+  --home-widget-rows: 1 !important;
+}
 :root[data-overhaul] .mari-home-feed-grid :is(h2, h3) {
   font-family: var(--mari-home-widget-title-font, var(--ov-serif));
   font-size: var(--mari-home-widget-title-size, 1.375rem);

@@ -167,6 +167,11 @@ const ALLOWED_GALLERY_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", 
 const ALLOWED_GALLERY_VIDEO_EXTS = new Set([".mp4", ".webm", ".mov"]);
 const CHARACTER_CARD_PNG_KEYWORDS = new Set(["chara", "ccv3"]);
 const PATH_SAFE_ID_RE = /^[A-Za-z0-9_-]+$/;
+/** Card writing (Generate Description and the other wands) uses the Main model; its errors say so, not "chat summary". */
+const CARD_FIELD_CONNECTION_ERRORS = {
+  missing: "No model is set for Main. Pick one in Library > Connections.",
+  unusable: "Main has no model that can write text. Pick a text model for Main in Library > Connections.",
+};
 const CALL_VIDEO_CLIP_LABELS = {
   idle: "Idle",
   talking: "Talking",
@@ -1535,6 +1540,7 @@ export async function charactersRoutes(app: FastifyInstance) {
           defaultConnectionId: defaultConnection?.id,
           connections,
           resolveBaseUrl,
+          errors: CARD_FIELD_CONNECTION_ERRORS,
         });
         controller.signal.throwIfAborted();
         if (!connection.ok) return reply.status(400).send({ error: connection.error });
@@ -1588,6 +1594,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       defaultConnectionId: defaultConnection?.id,
       connections,
       resolveBaseUrl,
+      errors: CARD_FIELD_CONNECTION_ERRORS,
     });
     if (!resolved.ok) return reply.status(400).send({ error: resolved.error });
 
@@ -1693,6 +1700,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       defaultConnectionId: defaultConnection?.id,
       connections,
       resolveBaseUrl,
+      errors: CARD_FIELD_CONNECTION_ERRORS,
     });
     if (!resolved.ok) return reply.status(400).send({ error: resolved.error });
 

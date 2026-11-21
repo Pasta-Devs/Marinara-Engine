@@ -399,6 +399,8 @@ export function OvSaveButton({
 }) {
   const { t } = useUiTranslation();
   const shortcut = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? "") ? "⌘S" : "Ctrl+S";
+  // A touch screen has no keyboard to press it on, so its tooltip (and VoiceOver) just say Save.
+  const keyboardHint = globalThis.matchMedia?.("(hover: hover) and (pointer: fine)").matches ?? true;
   return (
     <>
       {error || (!quiet && (dirty || saving)) ? (
@@ -420,10 +422,14 @@ export function OvSaveButton({
             .catch(() => undefined)
         }
         disabled={!dirty || saving || disabled}
-        title={t("ui.layout.personalextensiontopbarbuttons.value1Value2", {
-          value1: t("ui.noodle.noodlehome.save"),
-          value2: shortcut,
-        })}
+        title={
+          keyboardHint
+            ? t("ui.layout.personalextensiontopbarbuttons.value1Value2", {
+                value1: t("ui.noodle.noodlehome.save"),
+                value2: shortcut,
+              })
+            : t("ui.noodle.noodlehome.save")
+        }
         data-ov-save=""
       >
         <Save size={14} aria-hidden="true" />

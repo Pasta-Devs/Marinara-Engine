@@ -93,6 +93,8 @@ export async function resolveChatSummaryConnection(args: {
   chatMetadata: Record<string, unknown>;
   connections: ConnectionsStorage;
   resolveBaseUrl: (connection: Pick<ConnectionWithKey, "baseUrl" | "provider">) => string;
+  /** What to say when no connection works, for callers that aren't chat summaries (character card fields). */
+  errors?: { missing: string; unusable: string };
 }): Promise<ResolvedChatSummaryConnection> {
   const warnings: string[] = [];
   const candidates: SummaryConnectionCandidate[] = [];
@@ -120,7 +122,7 @@ export async function resolveChatSummaryConnection(args: {
   pushUniqueCandidate(candidates, args.chatConnectionId ? { id: args.chatConnectionId, source: "chat" } : null);
 
   if (candidates.length === 0) {
-    return { ok: false, error: "No API connection configured for chat summary", warnings };
+    return { ok: false, error: args.errors?.missing ?? "No API connection configured for chat summary", warnings };
   }
 
   for (const candidate of candidates) {
@@ -188,7 +190,7 @@ export async function resolveChatSummaryConnection(args: {
 
   return {
     ok: false,
-    error: "No usable text generation connection configured for chat summary",
+    error: args.errors?.unusable ?? "No usable text generation connection configured for chat summary",
     warnings,
   };
 }

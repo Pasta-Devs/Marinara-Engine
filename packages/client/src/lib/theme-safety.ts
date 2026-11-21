@@ -222,12 +222,18 @@ function escapeWouldClose() {
 /**
  * Escape three times within 1.2 s turns custom themes off for this tab. A theme can hide every
  * button, but it cannot take the keyboard away. An Escape that closes something (Ctrl+K, a menu,
- * a dialog) doesn't count, so closing things quickly never switches a good theme off.
+ * a dialog) doesn't count, so closing things quickly never switches a good theme off. Without a
+ * custom theme on screen, Escape never does this.
  */
-export function installSafeModeShortcut(): () => void {
+export function installSafeModeShortcut(customThemeShowing: () => boolean): () => void {
   let presses: number[] = [];
   const onKey = (event: KeyboardEvent) => {
     if (event.key !== "Escape" || event.repeat) return;
+    // With no custom theme on screen there is nothing to switch off: Escapes pressed "to get out" do nothing.
+    if (!customThemeShowing()) {
+      presses = [];
+      return;
+    }
     if (escapeWouldClose()) {
       presses = [];
       return;

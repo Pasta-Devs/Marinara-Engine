@@ -1,7 +1,13 @@
 // ──────────────────────────────────────────────
 // Zustand Store: UI Slice
 // ──────────────────────────────────────────────
-import { markAllModeWalkthroughsSeen, markModeWalkthroughSeen } from "../lib/walkthroughs";
+import {
+  markAllModeWalkthroughsSeen,
+  markDeviceWalkthroughSeen,
+  markModeWalkthroughSeen,
+  resetDeviceWalkthrough,
+  type WalkthroughDevice,
+} from "../lib/walkthroughs";
 import { create } from "zustand";
 import { isOverhaulLook, useOverhaulStore } from "./overhaul.store";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -1436,6 +1442,11 @@ export interface UIState {
   hasCompletedOnboarding: boolean;
   /** Chat modes whose first-chat help overlay has already been dismissed. */
   chatHelpSeenModes: ChatModeShortcut[];
+  /** Kinds of device (computer, tablet, phone) whose walkthrough was finished in any browser, so a new
+   *  browser on the same kind of device does not show it again. */
+  walkthroughDevicesSeen: WalkthroughDevice[];
+  /** "New to AI chat?" was answered (or the welcome tour skipped) in some browser: no other browser asks again. */
+  aiBasicsOfferAnswered: boolean;
   /** Removes the chat Help button and suppresses automatic help overlays. */
   chatHelpButtonHidden: boolean;
   /** One-line tips that name a feature where it lives, once each (lib/feature-tips.ts). */
@@ -1870,6 +1881,10 @@ export interface UIState {
   clearLegacyCustomThemes: () => void;
   setHasCompletedOnboarding: (v: boolean) => void;
   markChatHelpSeen: (mode: ChatModeShortcut) => void;
+  /** This kind of device finished its walkthrough: in this browser and in the synced settings. */
+  markWalkthroughDeviceSeen: (device: WalkthroughDevice) => void;
+  /** Settings > Replay: show this kind of device's walkthrough again (in every browser). */
+  resetWalkthroughDevice: (device: WalkthroughDevice) => void;
   setChatHelpButtonHidden: (v: boolean) => void;
   dismissLinkApiBanner: () => void;
   dismissConnectionsUpgradeNote: () => void;
@@ -2280,6 +2295,8 @@ export function pickSyncedSettings(state: UIState) {
     weatherEffects: state.weatherEffects,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     chatHelpSeenModes: state.chatHelpSeenModes,
+    walkthroughDevicesSeen: state.walkthroughDevicesSeen,
+    aiBasicsOfferAnswered: state.aiBasicsOfferAnswered,
     chatHelpButtonHidden: state.chatHelpButtonHidden,
     featureTipsEnabled: state.featureTipsEnabled,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
@@ -2589,6 +2606,8 @@ export function pickPersistedUIState(state: UIState) {
     customThemes: state.customThemes,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     chatHelpSeenModes: state.chatHelpSeenModes,
+    walkthroughDevicesSeen: state.walkthroughDevicesSeen,
+    aiBasicsOfferAnswered: state.aiBasicsOfferAnswered,
     chatHelpButtonHidden: state.chatHelpButtonHidden,
     featureTipsEnabled: state.featureTipsEnabled,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
@@ -2985,6 +3004,8 @@ export const useUIStore = create<UIState>()(
         hasMigratedCustomThemesToServer: false,
         hasCompletedOnboarding: false,
         chatHelpSeenModes: [],
+        walkthroughDevicesSeen: [],
+        aiBasicsOfferAnswered: false,
         chatHelpButtonHidden: false,
         featureTipsEnabled: true,
         linkApiBannerDismissed: false,
@@ -3990,6 +4011,19 @@ export const useUIStore = create<UIState>()(
         setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
         clearLegacyCustomThemes: () => set({ customThemes: [], activeCustomTheme: null }),
         setHasCompletedOnboarding: (v) => set({ hasCompletedOnboarding: v }),
+        markWalkthroughDeviceSeen: (device) => {
+          markDeviceWalkthroughSeen(device);
+          set((state) => {
+            const seen = state.walkthroughDevicesSeen ?? [];
+            return seen.includes(device) ? state : { walkthroughDevicesSeen: [...seen, device] };
+          });
+        },
+        resetWalkthroughDevice: (device) => {
+          resetDeviceWalkthrough(device);
+          set((state) => ({
+            walkthroughDevicesSeen: (state.walkthroughDevicesSeen ?? []).filter((d) => d !== device),
+          }));
+        },
         markChatHelpSeen: (mode) =>
           set((state) => {
             // Also per device kind, so the same mode's help still opens once on a phone or tablet.

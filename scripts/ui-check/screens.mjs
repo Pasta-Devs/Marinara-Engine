@@ -256,6 +256,24 @@ export function screenList(ids) {
     { id: "character-editor", group: "core", run: open.detail("openCharacterDetail", ids.character) },
     { id: "persona-editor", run: open.detail("openPersonaDetail", ids.persona) },
     { id: "lorebook-editor", group: "core", run: open.detail("openLorebookDetail", ids.lorebook) },
+    {
+      // One entry open: on a 375px phone its Normal / Constant / Selective row once ran 8px past the screen.
+      id: "lorebook-entry",
+      run: open.detail("openLorebookDetail", ids.lorebook),
+      then: async (page) => {
+        const row = page
+          .locator("[data-lorebook-entry-row-id]")
+          // Entry 3: entry 2's long unbroken key fills its row, and a tap there opens the keyword panel instead.
+          .filter({ visible: true, hasText: /^Harbour entry 3(?!\d)/ })
+          .first();
+        if (!(await row.count())) return "no entry row to open";
+        // Phones and tablets open an entry on a tap (a mouse click there only selects the row).
+        const box = await row.boundingBox();
+        const at = { x: box.x + Math.min(120, box.width * 0.3), y: box.y + box.height / 2 };
+        await page.touchscreen.tap(at.x, at.y).catch(() => page.mouse.click(at.x, at.y));
+        await page.locator(".ov-lentry").first().waitFor({ state: "visible", timeout: 8000 });
+      },
+    },
     { id: "preset-editor", run: open.detail("openPresetDetail", ids.preset) },
     { id: "regex-editor", run: open.detail("openRegexDetail", ids.regex) },
     { id: "tool-editor", run: open.detail("openToolDetail", ids.tool) },

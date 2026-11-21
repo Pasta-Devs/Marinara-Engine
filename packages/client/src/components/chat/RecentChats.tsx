@@ -223,7 +223,10 @@ export function RecentChats() {
 
   if (recentChats.length === 0) {
     return (
-      <div className="flex h-full min-h-36 flex-col justify-end rounded-2xl border border-dashed border-[var(--border)]/70 p-4">
+      <div
+        className="flex h-full min-h-36 flex-col justify-end rounded-2xl border border-dashed border-[var(--border)]/70 p-4"
+        data-recent-short=""
+      >
         <MessageSquare className="mb-3 text-[var(--mari-mode-conversation)]" size="1.25rem" aria-hidden="true" />
         <p className="text-sm font-semibold text-[var(--foreground)]">{t("home.recentChats.emptyTitle")}</p>
         <p className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]">
@@ -247,7 +250,14 @@ export function RecentChats() {
     const more = rows.length > limit;
     const shown = rows.slice(0, more ? Math.max(1, limit - 1) : limit);
     return (
-      <ul ref={listRef} className="ov-recent" data-component="RecentChats" data-variant="list">
+      <ul
+        ref={listRef}
+        className="ov-recent"
+        data-component="RecentChats"
+        data-variant="list"
+        // One or two chats fit a one-row card; Home shrinks the widget to that (overhaul.css, QC IA17).
+        data-recent-short={rows.length <= 2 ? "" : undefined}
+      >
         {shown.map(({ chat }) => {
           const mode = MODE_BADGE[chat.mode];
           const characterId = chat.characterIds.find((id) => characterLookup.has(id)) ?? null;
