@@ -4247,10 +4247,30 @@
   [data-ov-settings-sections]
   section[id^="settings-section-"]
   > div:last-child:not(#ovm-x) {
-  padding: 0 1rem !important;
+  /* Room above and below, so a button, slider or note that starts or ends the box stays off its edge. */
+  padding: 0.5rem 1rem !important;
   border: 0;
   border-radius: 0.75rem;
   background: var(--ovm-raised);
+}
+/* A list of rows already pads itself: its first and last row take the box's room instead. */
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  > .flex-col
+  > :first-child:not(.mari-chrome-control):not(#ovm-x) {
+  padding-top: 0;
+}
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  > .flex-col
+  > :last-child:not(.mari-chrome-control):not(#ovm-x) {
+  padding-bottom: 0;
 }
 :root[data-overhaul="mobile"]
   .ovm-settings
@@ -4372,6 +4392,12 @@
 :root[data-overhaul="mobile"] .ovm-settings:not([data-ovm-android]) #settings-control-android-status-bar,
 :root[data-overhaul="mobile"] .ovm-settings:not([data-ovm-android]) #settings-section-layout,
 :root[data-overhaul="mobile"] .ovm-settings [data-ov-settings-sections] .cursor-not-allowed.opacity-60,
+/* A hidden switch takes its warning with it (third-party extensions, when the server does not allow them). */
+:root[data-overhaul="mobile"]
+  .ovm-settings
+  [data-ov-settings-sections]
+  .cursor-not-allowed.opacity-60
+  + [data-settings-toggle-warning],
 :root[data-overhaul="mobile"]
   .ovm-settings
   [data-ov-settings-sections]

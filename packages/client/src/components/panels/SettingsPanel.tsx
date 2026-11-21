@@ -8740,7 +8740,10 @@ function AdvancedSettings({ withMessageSections = true }: { withMessageSections?
             disabled={agentImportPolicyLoading || setAgentImportsEnabled.isPending}
             help={t("settings.agentImports.toggle.help")}
           />
-          <div className="flex items-start gap-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]">
+          <div
+            data-settings-toggle-warning
+            className="flex items-start gap-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]"
+          >
             <ShieldAlert size="0.875rem" className="mt-0.5 shrink-0" />
             <p>{t("settings.agentImports.warning")}</p>
           </div>
@@ -8760,7 +8763,10 @@ function AdvancedSettings({ withMessageSections = true }: { withMessageSections?
                 : t("settings.externalExtensions.toggle.locked")
             }
           />
-          <div className="flex items-start gap-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]">
+          <div
+            data-settings-toggle-warning
+            className="flex items-start gap-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]"
+          >
             <ShieldAlert size="0.875rem" className="mt-0.5 shrink-0" />
             <p>{t("settings.externalExtensions.warning")}</p>
           </div>
