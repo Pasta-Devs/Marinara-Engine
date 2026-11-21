@@ -621,6 +621,11 @@ export interface ChatMetadata {
   manualTrackerAgentTypes?: Record<string, boolean>;
   /** Whether to recall memories from this chat during generation. Default: true for conversation/scenes, false for roleplay. */
   enableMemoryRecall?: boolean;
+  /**
+   * Memory Recall searches the whole chat, also messages the prompt still sends. Default false: it recalls only
+   * messages that no longer fit, so it adds nothing while the whole chat fits.
+   */
+  enableMemoryRecallWholeChat?: boolean;
   /** Discord webhook URL to mirror messages to a Discord channel. */
   discordWebhookUrl?: string;
   /** When true, Noodle timeline refreshes may include this chat's recent messages as generation context. */
