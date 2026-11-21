@@ -586,11 +586,12 @@ export function fitMessagesToContext(
   let estimatedTokensAfter = estimateMessagesTokens(fittedMessages);
   const hasAnnotatedHistory = hasRemovableHistory;
 
+  // The estimate is a sum over messages, so subtract what each pass removes. Recounting the whole prompt after every
+  // removal took over a minute for a chat of a few thousand messages far over its window.
   while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {
     const block = findOldestRemovableConversationBlock(fittedMessages, "history");
     if (!block) break;
-    fittedMessages.splice(block.start, block.deleteCount);
-    estimatedTokensAfter = estimateMessagesTokens(fittedMessages);
+    estimatedTokensAfter -= estimateMessagesTokens(fittedMessages.splice(block.start, block.deleteCount));
   }
 
   // Some legacy/manual prompt paths do not annotate chat turns. Only treat
@@ -600,8 +601,7 @@ export function fitMessagesToContext(
     while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {
       const block = findOldestRemovableConversationBlock(fittedMessages);
       if (!block) break;
-      fittedMessages.splice(block.start, block.deleteCount);
-      estimatedTokensAfter = estimateMessagesTokens(fittedMessages);
+      estimatedTokensAfter -= estimateMessagesTokens(fittedMessages.splice(block.start, block.deleteCount));
     }
   }
 
@@ -618,15 +618,13 @@ export function fitMessagesToContext(
   while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {
     const block = findOldestRemovableConversationBlock(fittedMessages);
     if (!block) break;
-    fittedMessages.splice(block.start, block.deleteCount);
-    estimatedTokensAfter = estimateMessagesTokens(fittedMessages);
+    estimatedTokensAfter -= estimateMessagesTokens(fittedMessages.splice(block.start, block.deleteCount));
   }
 
   while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {
     const removableSystemIndex = findOldestRemovableSystemMessage(fittedMessages);
     if (removableSystemIndex < 0) break;
-    fittedMessages.splice(removableSystemIndex, 1);
-    estimatedTokensAfter = estimateMessagesTokens(fittedMessages);
+    estimatedTokensAfter -= estimateMessagesTokens(fittedMessages.splice(removableSystemIndex, 1));
   }
 
   // Keep the usual history/output passes above. Before cutting core system instructions, shorten

@@ -887,6 +887,8 @@
   "chat.kaomoji.empty": "No kaomoji found.",
   "chat.kaomoji.search": "Search kaomoji…",
   "chat.kaomoji.title": "Kaomoji picker",
+  "chat.memoryRecall.wholeChat.description": "Off: recalls only older messages that no longer fit in the prompt, and adds nothing while the whole chat fits. On: may also recall messages the prompt already holds.",
+  "chat.memoryRecall.wholeChat.label": "Recall from the whole chat",
   "chat.message.thinking": "Thinking…",
   "chat.message.thoughts.close": "Close thoughts",
   "chat.message.thoughts.collapse": "Collapse thoughts",
