@@ -38,19 +38,34 @@ export function useOverlayFocus(ref: RefObject<HTMLElement | null>, options: Opt
 
   useLayoutEffect(() => {
     if (!active || !modal) return;
+
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const root = ref.current;
-    if (root && !root.contains(document.activeElement)) {
-      const wanted = initialFocus ? root.querySelector<HTMLElement>(initialFocus) : null;
-      const target = wanted ?? focusableIn(root)[0] ?? root;
-      if (target === root && !root.hasAttribute("tabindex")) root.setAttribute("tabindex", "-1");
+    const focusIn = () => {
+      const current = ref.current;
+      // Not drawn yet (it waits for its spot or animates in): try again next frame.
+      if (!current) return false;
+      if (current.contains(document.activeElement)) return true;
+      const wanted = initialFocus ? current.querySelector<HTMLElement>(initialFocus) : null;
+      const target = wanted ?? focusableIn(current)[0] ?? current;
+      if (target === current && !current.hasAttribute("tabindex")) current.setAttribute("tabindex", "-1");
       target.focus({ preventScroll: true });
-    }
+      return current.contains(document.activeElement);
+    };
+    // A card that fades or slides in (or waits for its spot) may not take focus at once: retry a few frames.
+    let frame = 0;
+    let tries = 20;
+    const retry = () => {
+      if (!focusIn() && tries-- > 0) frame = requestAnimationFrame(retry);
+    };
+    if (!focusIn()) frame = requestAnimationFrame(retry);
     return () => {
+      cancelAnimationFrame(frame);
       // Closed with focus inside (or lost with it): back to where the person was.
       const now = document.activeElement;
+      const shown = ref.current ?? root;
       if (!previous?.isConnected) return;
-      if (!now || now === document.body || !now.isConnected || root?.contains(now))
+      if (!now || now === document.body || !now.isConnected || shown?.contains(now))
         previous.focus({ preventScroll: true });
     };
   }, [active, focusKey, initialFocus, modal, ref]);

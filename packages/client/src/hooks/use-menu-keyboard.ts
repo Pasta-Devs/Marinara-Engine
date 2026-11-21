@@ -125,12 +125,22 @@ export function useMenuKeyboard<TMenu extends HTMLElement = HTMLDivElement>({
 
   useLayoutEffect(() => {
     if (!open) return;
-    const menu = menuRef.current;
-    if (!menu) return;
-    markItems(menu);
+    if (menuRef.current) markItems(menuRef.current);
     const which = focusOnOpen.current ?? initialFocusRef.current;
     focusOnOpen.current = null;
-    if (which) focusMenuItem(menu, which);
+    // A menu that places itself first (hidden until measured, or fading in), or that is drawn a moment later,
+    // cannot take focus yet: try for a few frames until it can.
+    let frame = 0;
+    let tries = 10;
+    const attempt = () => {
+      const current = menuRef.current;
+      if (current) markItems(current);
+      if (!which) return;
+      if (current) focusMenuItem(current, which);
+      if (!current?.contains(document.activeElement) && tries-- > 0) frame = requestAnimationFrame(attempt);
+    };
+    frame = requestAnimationFrame(attempt);
+    return () => cancelAnimationFrame(frame);
   }, [open]);
 
   useEffect(() => {
