@@ -10024,6 +10024,38 @@ input.ov-edhead__title:focus {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* What each job is for: the tooltip says it with a mouse (and screen readers read it); touch screens show it. */
+.ov-conn-defaults__purpose {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (hover: none) {
+  .ov-conn-defaults__cell {
+    height: auto;
+    min-height: 2.75rem;
+    padding-block: 0.25rem;
+  }
+  .ov-conn-defaults__job {
+    display: flex;
+    flex-direction: column;
+    white-space: normal;
+  }
+  .ov-conn-defaults__purpose {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    color: var(--ov-muted);
+    font-size: 0.6875rem;
+    line-height: 1.25;
+    white-space: normal;
+  }
+}
 .ov-conn-defaults__value.is-unset {
   color: var(--ov-muted);
 }
@@ -10295,6 +10327,12 @@ input.ov-edhead__title:focus {
 .mari-modal-panel.ov-add-drop--list {
   height: min(70dvh, 34rem);
 }
+/* Opened away from the Connections button (Home's "Connect a model", a job's Add): the same menu, centred. */
+.mari-modal-panel.ov-add-drop--centre {
+  top: max(1rem, calc(50dvh - 17rem));
+  left: max(0.5rem, calc(50vw - 11.5rem));
+  max-height: calc(100dvh - 2rem) !important;
+}
 /* The list is the whole menu: no title bar over the search field. */
 .mari-modal-panel.ov-add-drop--list > :first-child {
   display: none;
@@ -10406,6 +10444,34 @@ input.ov-edhead__title:focus {
 }
 .ov-add-list__tag.is-good {
   color: color-mix(in srgb, var(--color-emerald-500) 80%, var(--ov-text) 20%);
+}
+/* One plain line under a tab whose name is jargon (Decision). */
+.ov-add-list__note {
+  padding: 0.5rem 0.75rem 0;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+/* The first-run short list's way to everything else. */
+.ov-add-list__more {
+  display: flex;
+  width: 100%;
+  min-height: 1.875rem;
+  align-items: center;
+  margin-top: 0.25rem;
+  padding: 0 0.75rem;
+  color: var(--ov-accent);
+  font-size: 0.8125rem;
+  text-align: left;
+}
+.ov-add-list__more:focus-visible {
+  background: var(--ov-hover);
+  outline: none;
+}
+@media (hover: hover) {
+  .ov-add-list__more:hover {
+    background: var(--ov-hover);
+  }
 }
 .ov-add-list__empty {
   display: flex;

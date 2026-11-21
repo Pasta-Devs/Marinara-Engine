@@ -118,6 +118,7 @@ function AccountBalance({ account }: { account: ConnectionAccountListItem }) {
 }
 
 function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
+  const { t } = useTranslation();
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const tiles = useConnectionDefaults(connectionsList);
@@ -157,15 +158,26 @@ function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[
         <div className="ov-conn-defaults__grid">
           {tiles.map((tile) => {
             const unset = !!tile.muted && !tile.follows;
+            // What the job is for, in plain words: a tooltip with a mouse, a second line on touch screens.
+            const purpose = t(`connections.defaults.purpose.${tile.key}`);
+            // An optional step (a built-in model not downloaded yet) says so beside the name instead of only
+            // in the tooltip, so "Quick answers: Built-in model" never reads as ready when it is not.
+            const quiet = tile.warning?.quiet ? tile.warning : null;
             return (
               <button
                 key={tile.key}
                 type="button"
                 className="ov-conn-defaults__cell"
                 onClick={() => click(tile)}
-                title={tile.warning?.text ?? [tile.follows, tile.value, tile.hint].filter(Boolean).join(" · ")}
+                title={[
+                  purpose,
+                  tile.warning?.text ?? [tile.follows, tile.value, tile.hint].filter(Boolean).join(" · "),
+                ].join("\n")}
               >
-                <span className="ov-conn-defaults__job">{tile.title}</span>
+                <span className="ov-conn-defaults__job">
+                  {tile.title}
+                  <span className="ov-conn-defaults__purpose">{purpose}</span>
+                </span>
                 <span
                   className={cn(
                     "ov-conn-defaults__value",
@@ -181,6 +193,7 @@ function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[
                       {tile.value}
                     </>
                   )}
+                  {quiet?.short ? <span className="ov-conn__dim"> · {quiet.short}</span> : null}
                 </span>
               </button>
             );
