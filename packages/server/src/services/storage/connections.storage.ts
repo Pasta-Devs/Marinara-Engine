@@ -336,7 +336,9 @@ async function moveAcrossServices(
       pinnedModels,
       // Service-only settings: OpenRouter routing, Anthropic flags, the old host's embeddings, media fields.
       openrouterProvider: null,
-      ...(provider === "anthropic" ? {} : { claudeFastMode: "false", anthropicExtendedCacheTtl: "false" }),
+      ...(provider === "anthropic" ? {} : { claudeFastMode: "false" }),
+      // Claude on OpenRouter takes the 1-hour cache too.
+      ...(provider === "anthropic" || provider === "openrouter" ? {} : { anthropicExtendedCacheTtl: "false" }),
       embeddingModel: null,
       embeddingBaseUrl: null,
       comfyuiWorkflow: null,
@@ -445,6 +447,14 @@ async function retargetChatPicks(
   return counts;
 }
 
+/**
+ * Whether a new Model of this service starts with prompt caching on. OpenRouter's routes to Claude, Gemini and Qwen
+ * cache only what a request marks, and its other models cache on their own either way.
+ */
+function cachesByDefault(provider: unknown): boolean {
+  return provider === "openrouter";
+}
+
 /** API responses never carry the saved model list; `/connections/:id/models` serves it. */
 /**
  * Whether a saved Model has settings of its own (decision 30): a name, tuning or limits the user set. Such a Model
@@ -466,7 +476,9 @@ export function hasOwnModelSettings(
   if (set(params) && params !== "{}" && params !== "null") return true;
   if ([row.promptPresetId, row.openrouterProvider, row.maxStateTokens, row.maxRequestsPerMinute].some(set)) return true;
   if ([row.imagePath, row.icon, row.embeddingModel, row.embeddingConnectionId].some(set)) return true;
-  if (on(row.enableCaching) || on(row.claudeFastMode)) return true;
+  // Caching is a setting of the Model's own only where it differs from its service's default.
+  if (set(row.enableCaching) && on(row.enableCaching) !== cachesByDefault(row.provider)) return true;
+  if (on(row.claudeFastMode)) return true;
   if (typeof row.maxParallelJobs === "number" && row.maxParallelJobs !== 1) return true;
   // Limits count only where the catalog tells what the model's own limit is.
   if (typeof entry?.context === "number" && row.maxContext !== entry.context) return true;
@@ -853,7 +865,7 @@ export function createConnectionsStorage(db: DB) {
         useForRandom: String(takesMainDefaults(input.provider) && (input.useForRandom ?? false)),
         defaultForAgents: String(input.defaultForAgents ?? false),
         fallbackForAgents: String(takesChatDefaults(input.provider) && (input.fallbackForAgents ?? false)),
-        enableCaching: String(input.enableCaching ?? false),
+        enableCaching: String(input.enableCaching ?? cachesByDefault(input.provider)),
         anthropicExtendedCacheTtl: String(input.anthropicExtendedCacheTtl ?? false),
         cachingAtDepth: input.cachingAtDepth ?? 5,
         maxParallelJobs: input.maxParallelJobs ?? 1,

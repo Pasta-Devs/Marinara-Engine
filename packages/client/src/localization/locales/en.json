@@ -12807,7 +12807,7 @@
   "ui.connections.connectioneditor.npmIGOpenaiCodex": "npm i -g @openai/codex",
   "ui.connections.connectioneditor.oneAgentJobAtATime": "One agent job at a time",
   "ui.connections.connectioneditor.onlyUseUrlsFromProvidersYouTrustAMalicious": "Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API keys.",
-  "ui.connections.connectioneditor.onOpenrouterAddsCacheControlForModelsThatSupportExplicitCaching": "On OpenRouter, this adds top-level cache_control for compatible models. Cache pricing and behavior depend on the selected provider model.",
+  "ui.connections.connectioneditor.onOpenrouterAddsCacheControlForModelsThatSupportExplicitCaching": "On OpenRouter, Claude and Qwen models cache the system prompt and the chat history up to the cache depth, and Gemini models cache the system prompt. Other models cache on their own. The one-hour cache applies to Claude only, and cache writes can cost more than regular input.",
   "ui.connections.connectioneditor.onOpenrouterThisCurrentlyTargetsClaudeModelsByAdding": "On OpenRouter, this currently targets Claude models by adding top-level cache_control. Cache reads are much cheaper than normal prompt tokens, while the first cache write costs more.",
   "ui.connections.connectioneditor.openaiOrAnyCompatibleAudioSpeechEndpoint": "OpenAI or any compatible /v1/audio/speech endpoint.",
   "ui.connections.connectioneditor.optional": "Optional",
