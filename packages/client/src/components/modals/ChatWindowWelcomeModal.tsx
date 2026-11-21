@@ -6,6 +6,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { CHAT_SETTINGS_WINDOW_ID } from "../../stores/floating-window.store";
 import { Modal } from "../ui/Modal";
+import { claimFirstRunSlot, releaseFirstRunSlot } from "../../lib/first-run-queue";
 import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
 
 /** Keeps a tip this far from every screen edge. */
@@ -117,6 +118,11 @@ export function ChatWindowWelcomeModal({
     onOpenChange?.(open);
     return () => onOpenChange?.(false);
   }, [onOpenChange, open]);
+  // Holds the one first-run slot while it shows, so the chat help or the hold tip waits for it.
+  useEffect(() => {
+    if (!open || !claimFirstRunSlot("chat-settings-tip")) return;
+    return () => releaseFirstRunSlot("chat-settings-tip");
+  }, [open]);
 
   // The new layout never shows the desktop drag-and-drop video: phones and tablets get the same small tip.
   const overhaulLook = useOverhaulLook();

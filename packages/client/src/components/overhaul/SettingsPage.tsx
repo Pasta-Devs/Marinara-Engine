@@ -6,6 +6,7 @@
 // behaviour. Chips under the tabs jump to a section; search covers all tabs.
 // ──────────────────────────────────────────────
 import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { APP_VERSION, SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shared";
@@ -320,6 +321,8 @@ function OverhaulSettingsPhone() {
     setEditing(false);
     setLevel(next);
   };
+  // Safari's back and the left-edge swipe go up one level, the same as the page's own ‹ button (QC Nov 21, MOB1).
+  useBackDismiss(level !== "root", () => go(level === "section" ? "tab" : "root", true));
   // Phone: a picked setting opens its section's page (a small tab is one page: open the tab there).
   useSettingsJumpTarget((target, controlId) => {
     const tabEntry = OVERHAUL_SETTINGS_TABS.find((item) => item.sections.includes(target));

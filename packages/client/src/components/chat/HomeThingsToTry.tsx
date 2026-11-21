@@ -260,7 +260,7 @@ export function ThingsToTrySeeAll({ onOpen }: { onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="relative z-[2] shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+      className="ov-hit-y relative z-[2] shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
     >
       {things.ready
         ? t("thingsToTry.seeAllCount", "See all ({{done}}/{{total}})", { done: things.doneCount, total: things.total })

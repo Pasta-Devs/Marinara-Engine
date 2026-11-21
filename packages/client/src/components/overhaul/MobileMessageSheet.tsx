@@ -19,10 +19,14 @@ import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { closeAfterAction } from "./RpMessageFooter";
 import { isKeyboardContextMenu } from "../../hooks/use-menu-keyboard";
 import { useOverlayFocus } from "../../hooks/use-overlay-focus";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 // Close to the system long-press: a thumb resting before a scroll must not open the sheet (panel IR9).
 const LONG_PRESS_MS = 550;
+
+/** Fired when a hold opens a message's sheet. */
+export const MESSAGE_HOLD_EVENT = "marinara:message-hold";
 
 /** Where the last long-press happened; the desktop layout on a touch tablet opens the menu there. */
 let lastPressPoint: { x: number; y: number } | null = null;
@@ -49,6 +53,8 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
     window.getSelection()?.removeAllRanges();
     navigator.vibrate?.(8);
     onLongPress();
+    // The first hold is what the one-time hold tip teaches: it has done its job (MOB3).
+    window.dispatchEvent(new Event(MESSAGE_HOLD_EVENT));
   }, [clear, onLongPress]);
   if (!enabled) return {};
   return {
@@ -217,6 +223,8 @@ export function OvMobileMessageSheet({
 
   // Focus moves into the sheet, Tab stays in it, Escape closes it and focus goes back to the message (A11Y20).
   useOverlayFocus(sheetRef, { onEscape: onClose });
+  // Back (Safari's swipe, Android's button) closes the sheet, not the chat under it.
+  useBackDismiss(true, onClose);
 
   const run = (action?: () => void) => () => {
     onClose();

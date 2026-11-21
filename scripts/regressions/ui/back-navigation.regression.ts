@@ -1,38 +1,53 @@
 import assert from "node:assert/strict";
 
-// The back-navigation sentinel is what makes the Android hardware/gesture back
-// button dismiss an overlay instead of backgrounding the app. Its whole job is
-// bookkeeping — keep exactly one history entry alive while something is open,
-// and never mistake our own cleanup pop for a user press. These checks pin that
+// The back-navigation entries are what make the Android hardware/gesture back
+// button and Safari's swipe dismiss an overlay instead of leaving the app. Their
+// whole job is bookkeeping — keep one history entry per open layer, and never
+// mistake our own cleanup pop for a user press. These checks pin that
 // bookkeeping; the failure modes it guards against (double-pop, stack leak) are
 // invisible in a browser until the back stack is already wrong.
 
-type Listener = () => void;
-
 class FakeHistory {
-  depth = 0;
+  /** History entries' states; index 0 is the page's own entry. */
+  entries: unknown[] = [null];
+  index = 0;
   pushes = 0;
   private queue: Array<() => void> = [];
-  private listeners = new Set<Listener>();
+  private listeners = new Set<(event: { state: unknown }) => void>();
 
-  pushState() {
-    this.depth += 1;
+  get depth() {
+    return this.index;
+  }
+
+  get state() {
+    return this.entries[this.index] ?? null;
+  }
+
+  pushState(state: unknown) {
+    this.entries = [...this.entries.slice(0, this.index + 1), state];
+    this.index += 1;
     this.pushes += 1;
   }
 
-  /** `history.back()` is asynchronous — the popstate lands on a later task. */
-  back() {
-    this.queue.push(() => {
-      if (this.depth > 0) this.depth -= 1;
-      for (const listener of [...this.listeners]) listener();
-    });
+  private move(delta: number) {
+    this.index = Math.max(0, Math.min(this.entries.length - 1, this.index + delta));
+    for (const listener of [...this.listeners]) listener({ state: this.state });
   }
 
-  addListener(listener: Listener) {
+  /** `history.back()` / `go()` are asynchronous — the popstate lands on a later task. */
+  back() {
+    this.go(-1);
+  }
+
+  go(delta: number) {
+    this.queue.push(() => this.move(delta));
+  }
+
+  addListener(listener: (event: { state: unknown }) => void) {
     this.listeners.add(listener);
   }
 
-  removeListener(listener: Listener) {
+  removeListener(listener: (event: { state: unknown }) => void) {
     this.listeners.delete(listener);
   }
 
@@ -52,23 +67,35 @@ class FakeHistory {
 
   /** A user pressing back: pop and notify, synchronously. */
   userBack() {
-    if (this.depth > 0) this.depth -= 1;
-    for (const listener of [...this.listeners]) listener();
+    if (this.index === 0) return;
+    this.move(-1);
+    this.flush();
+  }
+
+  /** A user pressing forward. */
+  userForward() {
+    this.move(1);
     this.flush();
   }
 }
 
 let history = new FakeHistory();
 
+type PopListener = (event: { state: unknown }) => void;
+
 const fakeWindow = {
   history: {
-    pushState: (...args: unknown[]) => history.pushState(),
+    pushState: (state: unknown) => history.pushState(state),
     back: () => history.back(),
+    go: (delta: number) => history.go(delta),
+    get state() {
+      return history.state;
+    },
   },
-  addEventListener: (type: string, listener: Listener) => {
+  addEventListener: (type: string, listener: PopListener) => {
     if (type === "popstate") history.addListener(listener);
   },
-  removeEventListener: (type: string, listener: Listener) => {
+  removeEventListener: (type: string, listener: PopListener) => {
     if (type === "popstate") history.removeListener(listener);
   },
 };
@@ -122,13 +149,15 @@ syncBackNavigation();
 assert.equal(history.pushes, 1, "sync is idempotent");
 assert.equal(history.depth, 1);
 
-// ── 3. Back closes the layer and does not re-arm ──
+// ── 3. Back closes the layer and pushes nothing ──
 const sidebar = openLayer("second"); // stack: sidebar, second
+assert.equal(history.depth, 2, "one entry per layer");
 history.userBack();
 assert.equal(sidebar.closed, 1, "topmost layer closed");
 assert.equal(getBackLayerStack().length, 1, "only the topmost closes");
-// ── 4. …and re-arms while something is still open ──
-assert.equal(history.depth, 1, "sentinel re-armed for the remaining layer");
+// ── 4. …and the remaining layer keeps its own entry, pushed when it opened ──
+assert.equal(history.depth, 1, "the remaining layer is still covered");
+assert.equal(history.pushes, 2, "no entry re-pushed after a press (Safari skips those)");
 
 // ── 5. Closing through the UI consumes the sentinel without closing a layer ──
 reset();
@@ -144,7 +173,7 @@ assert.equal(history.depth, 0, "sentinel consumed, not leaked");
 reset();
 for (let cycle = 0; cycle < 5; cycle += 1) {
   openLayer(`cycle-${cycle}`);
-  assert.equal(history.depth, 1, "at most one sentinel is ever alive");
+  assert.equal(history.depth, 1, "one entry for the one layer");
   storeLayers = [];
   syncBackNavigation();
   history.flush();
@@ -162,7 +191,7 @@ assert.equal(ignored.closed, 0);
 reset();
 openLayer("a");
 openLayer("b");
-assert.equal(history.depth, 1);
+assert.equal(history.depth, 2);
 storeLayers = [];
 syncBackNavigation();
 history.flush();
@@ -229,5 +258,32 @@ history.flush();
 assert.equal(history.depth, 1, "the follow-up layer is armed after cleanup finishes");
 history.userBack();
 assert.equal(followUp.closed, 1, "back closes the follow-up layer instead of exiting");
+
+// ── 14. Quick presses, one after another, close one layer each and never leave ──
+reset();
+const outer = openLayer("page");
+const middle = openLayer("sheet");
+const inner = openLayer("sheet-page");
+history.userBack();
+history.userBack();
+assert.equal(inner.closed, 1);
+assert.equal(middle.closed, 1);
+assert.equal(outer.closed, 0, "the second press closed only the second layer");
+assert.equal(history.depth, 1, "the last layer still has its entry");
+history.userBack();
+assert.equal(outer.closed, 1);
+assert.equal(history.depth, 0);
+assert.equal(history.pushes, 3, "entries were only pushed when layers opened");
+
+// ── 15. Forward over our own entry closes nothing ──
+reset();
+const kept = openLayer("kept");
+const gone = openLayer("gone");
+history.userBack();
+assert.equal(gone.closed, 1);
+history.userForward();
+assert.equal(kept.closed, 0, "forward is not a back press");
+history.flush();
+assert.equal(history.depth, 1, "forward is undone so entries match the open layers");
 
 console.log("back-navigation regression checks passed");

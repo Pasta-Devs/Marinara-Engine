@@ -13,6 +13,11 @@ import { dismissActiveDialog, showConfirmDialog } from "./app-dialogs";
 import { translate } from "../localization/i18n";
 import type { BackLayer } from "./back-navigation";
 import { hasEditorLeaveHandler } from "./editor-leave";
+import { useOverhaulStore } from "../stores/overhaul.store";
+import { useChatStore } from "../stores/chat.store";
+import { CHAT_SETTINGS_WINDOW_ID } from "../stores/floating-window.store";
+import { useMobileChatSettingsNav } from "../features/chat-settings/mobile-nav";
+import { SPLIT_PANE } from "./split-view-env";
 
 /**
  * The shell docks the sidebar / right panel / tracker panel on a desktop-sized
@@ -66,10 +71,64 @@ export function requestCloseAllSurfaces() {
   return requestSurfaceClose(() => useUIStore.getState().closeAllDetails());
 }
 
+/**
+ * New layout on a phone or tablet in portrait: something other than Home fills the screen (a chat, Docs, Professor
+ * Mari, an app, a Library page). Safari's back and the left-edge swipe go there one level up, like every iOS app,
+ * instead of leaving the app (QC panel Nov 21, MOB1). The desktop shell never gets this layer, so a desktop browser's
+ * back is never trapped.
+ */
+function phonePageLayers(layers: BackLayer[]) {
+  const overhaul = useOverhaulStore.getState();
+  if (!overhaul.enabled || overhaul.desktop || SPLIT_PANE) return;
+  const awayFromHome =
+    !!useChatStore.getState().activeChatId ||
+    !!overhaul.activeDocsTab ||
+    overhaul.activeMari ||
+    overhaul.activeSchedules ||
+    !!overhaul.activeApp;
+  if (awayFromHome)
+    layers.push({
+      id: "phone-home",
+      close: () => {
+        window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
+        const state = useOverhaulStore.getState();
+        state.leaveDocs();
+        state.setLibraryPage(null);
+        useChatStore.getState().setActiveChatId(null);
+      },
+    });
+  // A Library section's page (Settings among them) sits over whatever was on screen: back shows that again.
+  if (overhaul.libraryPage)
+    layers.push({ id: "library-page", close: () => useOverhaulStore.getState().setLibraryPage(null) });
+}
+
+/** The phone's Chats / Library page and All tabs grid: both slide over the page, so back closes them. */
+function phoneSheetLayers(layers: BackLayer[]) {
+  const overhaul = useOverhaulStore.getState();
+  if (!overhaul.enabled || overhaul.desktop) return;
+  if (overhaul.mobileSidePageOpen)
+    layers.push({ id: "side-page", close: () => useOverhaulStore.getState().setMobileSidePageOpen(false) });
+  if (overhaul.allTabsOpen)
+    layers.push({ id: "all-tabs", close: () => useOverhaulStore.getState().setAllTabsOpen(false) });
+  // Chat settings as a sheet: back goes from a section's page to the list it came from, then closes the sheet.
+  if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID] === true)
+    layers.push({
+      id: "chat-settings",
+      close: () => {
+        const nav = useMobileChatSettingsNav.getState();
+        if (nav.view === "page") nav.goBack();
+        else if (nav.view === "all") nav.showQuick();
+        else useFloatingWindowStore.getState().closeWindow(CHAT_SETTINGS_WINDOW_ID);
+      },
+    });
+}
+
 export function getStoreBackLayers(): BackLayer[] {
   const ui = useUIStore.getState();
   const dialog = useDialogStore.getState();
   const layers: BackLayer[] = [];
+
+  phonePageLayers(layers);
 
   if (isShellOverlayMode()) {
     if (selectSidebarShown(ui))
@@ -90,6 +149,8 @@ export function getStoreBackLayers(): BackLayer[] {
         void requestCloseDetails();
       },
     });
+
+  phoneSheetLayers(layers);
 
   // Store-driven modals also register themselves through `Modal`; the two
   // handful that render their own shell are only reachable via this entry.

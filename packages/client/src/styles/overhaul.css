@@ -12831,6 +12831,17 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-overhaul] .ov-swipe-chip .is-off {
   opacity: 0.35;
 }
+/* A tap on the chip opens the message's hold sheet, where its versions are (QC Nov 21, MOB4). */
+:root[data-overhaul] .ov-swipe-chip--button {
+  border: 0;
+  font: inherit;
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+:root[data-overhaul] .ov-swipe-chip--button:focus-visible {
+  outline: 2px solid var(--ov-accent, var(--primary));
+  outline-offset: 2px;
+}
 
 /* A roleplay with no messages yet (panel 3, round-1 #16): a quiet note instead of a blank page. */
 :root[data-overhaul] .ov-rp-empty {
@@ -15513,4 +15524,166 @@ input.ov-edhead__title:not(#ov-x) {
 :root[data-overhaul="mobile"] .ov-setup__close {
   width: 2.75rem;
   height: 2.75rem;
+}
+
+/* ─── Touch screens: every small control gets a 44 px hit area, without changing how it looks ───
+   QC panel Nov 21 (MOB7, A11Y14). Keyed on the device rather than `(pointer: coarse)`, because an iPad with a
+   keyboard or trackpad attached reports a fine pointer but is still tapped with a finger. The hit area is an
+   invisible ::after centred on the control: `min(0px, (100% - 44px) / 2)` grows a small control to 44 px and
+   leaves a big one alone. Controls that sit side by side in a row only grow up and down, so no two hit areas
+   overlap. */
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is(
+    .cursor-help,
+    .ov-help,
+    .ov-tab__close,
+    .mari-workspace-question-dock__toggle,
+    .mari-omnibar-header-menu__trigger,
+    .mari-mini-avatar,
+    .ov-swipe-chip--button,
+    .mari-workspace-context-chip__remove,
+    .mari-pending-queue__remove,
+    :is(.ov-lv, .ov-ed, .ov-gallery, .ov-edpage, .ovm-settings, .ovm-preset)
+      span
+      > button:has(> svg:only-child):not(.ov-btn, .mari-chrome-control--primary)
+  ):not(#ov-hit),
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is(
+    .ov-topbar :is(.ov-icon-btn, .ov-text-btn, .ov-tab:not(.is-drop-after)),
+    .ov-sideswitch__btn,
+    .ov-icon-btn--sm,
+    .ov-new-pill,
+    .ov-chip,
+    .ov-rpf__btn,
+    .ovm-lp-view > button,
+    .mari-things-to-try__icon-button,
+    .mari-chrome-control--small,
+    .mari-chat-option-switch,
+    .mari-suggestion-chip,
+    .mari-composer-icon,
+    .mari-composer-menu__trigger,
+    .mari-workspace-composer__send,
+    .mari-workspace-composer__stop,
+    .mari-chrome-control--compact,
+    .mari-chrome-segmented__button,
+    .mari-editor-action,
+    .ov-btn,
+    .ov-savebtn,
+    .ov-edbtn,
+    .ov-switch,
+    .ov-seg > button,
+    .ov-tab__main,
+    .ov-crumbs__item > button,
+    .ov-vw__tools > button,
+    [data-macro-field] > [data-macro-tools] > button,
+    .ov-hit-y
+  ):not(#ov-hit) {
+  position: relative;
+}
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is(
+    .cursor-help,
+    .ov-help,
+    .ov-tab__close,
+    .mari-workspace-question-dock__toggle,
+    .mari-omnibar-header-menu__trigger,
+    .mari-mini-avatar,
+    .ov-swipe-chip--button,
+    .mari-workspace-context-chip__remove,
+    .mari-pending-queue__remove,
+    :is(.ov-lv, .ov-ed, .ov-gallery, .ov-edpage, .ovm-settings, .ovm-preset)
+      span
+      > button:has(> svg:only-child):not(.ov-btn, .mari-chrome-control--primary)
+  ):not(#ov-hit)::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - 2.75rem) / 2));
+}
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is(
+    .ov-topbar :is(.ov-icon-btn, .ov-text-btn, .ov-tab:not(.is-drop-after)),
+    .ov-sideswitch__btn,
+    .ov-icon-btn--sm,
+    .ov-new-pill,
+    .ov-chip,
+    .ov-rpf__btn,
+    .ovm-lp-view > button,
+    .mari-things-to-try__icon-button,
+    .mari-chrome-control--small,
+    .mari-chat-option-switch,
+    .mari-suggestion-chip,
+    .mari-composer-icon,
+    .mari-composer-menu__trigger,
+    .mari-workspace-composer__send,
+    .mari-workspace-composer__stop,
+    .mari-chrome-control--compact,
+    .mari-chrome-segmented__button,
+    .mari-editor-action,
+    .ov-btn,
+    .ov-savebtn,
+    .ov-edbtn,
+    .ov-switch,
+    .ov-seg > button,
+    .ov-tab__main,
+    .ov-crumbs__item > button,
+    .ov-vw__tools > button,
+    [data-macro-field] > [data-macro-tools] > button,
+    .ov-hit-y
+  ):not(#ov-hit)::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - 2.75rem) / 2)) 0;
+}
+
+/* Preview / Expand / Macro buttons on a touch screen in the tablet layout: stacked inside the box they were 21 px
+   apart, too close for a finger and with no room to grow. As on phones (overhaul-mobile.css), they leave the box
+   and sit in one row above it on the right, sharing a plain label's line when there is one; the row then grows
+   its hit areas up and down like every other row (above). */
+:root[data-overhaul="on"][data-marinara-touch-device="true"] [data-macro-field]:has(> [data-macro-tools]):not(#ov-hit) {
+  display: flex;
+  flex-direction: column;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"] [data-macro-field] > [data-macro-tools]:not(#ov-hit) {
+  position: static;
+  order: -1;
+  translate: none;
+  transform: none;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 0;
+  margin: 0 0 0.125rem;
+  padding: 0;
+  opacity: 1;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"]
+  :is(span.inline-flex, .ov-lf > span, .mari-editor-panel > .mb-4)
+  + [data-macro-field]
+  > [data-macro-tools]:not(#ov-hit):not(#ov-hit2) {
+  position: absolute;
+  top: auto;
+  bottom: 100%;
+  right: 0;
+  margin: 0;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"]
+  :is(span.inline-flex, .ov-lf > span, .mari-editor-panel > .mb-4)
+  + [data-macro-field]:not(#ov-hit) {
+  position: relative;
+  margin-top: 0.25rem;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"]
+  [data-macro-field]
+  > [data-macro-tools]
+  > :is(button, a):not(#ov-hit) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 1.75rem;
+  padding: 0;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"]
+  [data-macro-field]
+  > :is(textarea, [role="region"]):not(#ov-hit) {
+  padding-right: 0.75rem !important;
 }
