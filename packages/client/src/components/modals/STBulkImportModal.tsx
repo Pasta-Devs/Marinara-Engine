@@ -251,6 +251,8 @@ export function STBulkImportModal({ open, onClose }: Props) {
         if (!res.ok || !data?.success || !data.path) {
           // A typed path outside the home folder can't be browsed: open the home folder instead of a dead end.
           if (dirPath && res.ok && (await loadDirectory(undefined))) {
+            // The typed path is still the one a scan sends, so it must not carry the home folder's token.
+            setFolderToken(null);
             setError(localizeUi("ui.modals.stbulkimportmodal.browseOpenedHome"));
             return false;
           }

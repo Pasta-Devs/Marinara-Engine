@@ -254,7 +254,7 @@ function sillyTavernUserName(header: STChatHeader, lines: string[]): string | nu
   // SillyTavern 1.16+ writes "unused" in the header; the user's name then lives on their messages.
   const headerName = typeof header.user_name === "string" ? header.user_name.trim() : "";
   if (headerName && headerName.toLowerCase() !== "unused") return headerName;
-  for (let index = 1; index < Math.min(lines.length, 200); index++) {
+  for (let index = 1; index < lines.length; index++) {
     try {
       const message = JSON.parse(lines[index]!) as STChatMessage;
       if (message.is_user && typeof message.name === "string" && message.name.trim()) return message.name.trim();
