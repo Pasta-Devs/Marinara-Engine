@@ -51,7 +51,7 @@ import { resolveImageConnectionFallback } from "./media-connection-fallback.js";
 import { resolveBaseUrl } from "./connection-base-url.js";
 
 type CharactersStore = {
-  getById(id: string, chatId?: string): Promise<{ data: unknown } | null>;
+  getById(id: string, chatId?: string): Promise<{ id: string; data: unknown; avatarPath?: string | null } | null>;
   list(): Promise<Array<{ id: string; data: unknown; avatarPath?: string | null }>>;
 };
 
@@ -341,6 +341,7 @@ async function generateSelfie(
     });
     const referenceResolution = await resolveIllustratorCharacterReferences({
       charactersStore: args.chars,
+      chatProjection: { chatId: args.chatId, getById: args.chars.getById },
       characterGallery: createCharacterGalleryStorage(args.db),
       chatCharacters: args.charInfo.map((character) => ({
         id: character.id,

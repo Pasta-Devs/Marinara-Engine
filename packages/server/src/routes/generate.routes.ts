@@ -624,6 +624,7 @@ import {
 } from "../services/game/game-asset-generation.js";
 import { parseDirectMessageCommands, type CharacterCommand } from "../services/conversation/character-commands.js";
 import {
+  buildIllustratorPromptSources,
   suppressesReferencePromptLine,
   mergeIllustratorNegativePrompt,
   illustratorPromptTemplateOwnsComposition,
@@ -15292,11 +15293,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         promptMode,
                       });
                       const writerPrompt = removeCopiedPromptGuidance(imagePrompt, writerGuidance, { promptMode });
-                      // Prepend style to the prompt for better results
-                      let fullPrompt = writerStyle ? `${writerStyle}, ${writerPrompt}` : writerPrompt;
-                      if (imagePositivePrompt) {
-                        fullPrompt = `${fullPrompt}, ${imagePositivePrompt}`;
-                      }
+                      const writerSources = buildIllustratorPromptSources({
+                        generatedStyle: writerStyle,
+                        imagePrompt: writerPrompt,
+                        imagePositivePrompt,
+                        promptMode,
+                      });
+                      let fullPrompt = writerSources.prompt;
                       const requestedNegativePrompt = [negativePrompt, savedNegativePrompt].filter(Boolean).join(", ");
 
                       logger.debug(`[illustrator] Starting image generation (${imgWidth}x${imgHeight})...`);
@@ -15416,7 +15419,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         styleProfiles: imageSettings.styleProfiles,
                         styleProfileId,
                         imageDefaults,
-                        generatedStyle: writerStyle,
+                        generatedStyle: writerSources.generatedStyle,
                         omitProfileStyleText: typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                         omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
                           imagePromptAgent?.promptTemplate ?? "",
@@ -15438,7 +15441,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             styleProfiles: imageSettings.styleProfiles,
                             styleProfileId,
                             imageDefaults: imageFallback.imageDefaults,
-                            generatedStyle: writerStyle,
+                            generatedStyle: writerSources.generatedStyle,
                             omitProfileStyleText:
                               typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                             omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(

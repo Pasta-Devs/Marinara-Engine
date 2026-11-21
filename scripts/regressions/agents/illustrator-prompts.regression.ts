@@ -46,6 +46,7 @@ import {
 } from "../../../packages/server/src/services/generation/illustrator-manual-prompt-generation.js";
 import { buildLegacyDefaultAgentConfigUpdate } from "../../../packages/server/src/services/agents/default-prompt-migration.js";
 import {
+  buildIllustratorPromptSources,
   illustratorPromptRequestsRenderedText,
   illustratorPromptTemplateOwnsComposition,
   mergeIllustratorNegativePrompt,
@@ -60,6 +61,102 @@ import {
 import "../fixtures/regression-agent-definitions.js";
 
 const cases: RegressionCase[] = [
+  {
+    name: "Illustrator injects the campaign style only when neither writer field carries it",
+    run() {
+      const styleProfiles = createDefaultImageStyleProfileSettings();
+      const profile = styleProfiles.profiles.find((entry) => entry.id === "off")!;
+      for (const mode of ["off", "hybrid"] as const) {
+        for (const [style, imagePrompt, gameArtStylePrompt, expectedPrompt, expectedCleanPrompt] of [
+          ["pink lighting", " 1girl, sitting. ", "ink", "ink,  1girl, sitting. ", "ink, 1girl, sitting."],
+          ["warm light", " pink lighting ", "ink", "ink,  pink lighting ", "ink, pink lighting"],
+          ["ink (wash), warm light", " 1girl ", "ink (wash)", " 1girl ", "1girl"],
+          [
+            "ink wash",
+            " 1girl, WATERCOLOR WORLD. ",
+            "  watercolor world  ",
+            " 1girl, WATERCOLOR WORLD. ",
+            "1girl, WATERCOLOR WORLD.",
+          ],
+          [
+            "watercolor world, warm light",
+            " 1girl, sitting. ",
+            " watercolor world ",
+            " 1girl, sitting. ",
+            "1girl, sitting.",
+          ],
+          [
+            "ink wash",
+            " 1girl, sitting. ",
+            " watercolor world ",
+            "watercolor world,  1girl, sitting. ",
+            "watercolor world, 1girl, sitting.",
+          ],
+          ["ink wash", " 1girl, sitting. ", "   ", " 1girl, sitting. ", "1girl, sitting."],
+        ] as const) {
+          const sources = buildIllustratorPromptSources({
+            generatedStyle: style,
+            imagePrompt,
+            gameArtStylePrompt,
+            imagePositivePrompt: "",
+            promptMode: mode,
+          });
+          assert.equal(sources.generatedStyle, style);
+          assert.equal(sources.prompt, mode === "off" ? expectedPrompt : expectedCleanPrompt);
+          if (mode === "off") {
+            const compiled = compileImagePrompt({
+              kind: "illustration",
+              ...sources,
+              styleProfiles,
+              styleProfileId: profile.id,
+            });
+            assert.equal(compiled.prompt, `${style}, ${expectedPrompt}`);
+          }
+        }
+      }
+    },
+  },
+  {
+    name: "Illustrator emits each writer field once while Off preserves authored repeats",
+    run() {
+      const styleProfiles = createDefaultImageStyleProfileSettings();
+      const profile = styleProfiles.profiles.find((entry) => entry.id === "off")!;
+      profile.positiveTags = "permanent style tags, permanent style tags";
+      profile.subjectTags.illustration = "illustration image tags";
+      const style =
+        "2::pov::, 2::over-the-shoulder::, soft dramatic lighting, contrast between warm skin tones and cool dorm lighting, cinematic soft focus, close-up framing, emotionally charged atmosphere, moody shadows, depth of field, bokeh, intimate";
+      const prompt = " 1girl, sitting on mattress, 1girl, sitting on mattress. ";
+      for (const [writerStyle, imagePrompt] of [
+        [style, prompt],
+        [`${style}, ${style}`, prompt],
+        [style, style],
+      ] as const) {
+        const sources = buildIllustratorPromptSources({
+          generatedStyle: writerStyle,
+          imagePrompt,
+          imagePositivePrompt: "",
+          promptMode: "off",
+        });
+        const compiled = compileImagePrompt({
+          kind: "illustration",
+          ...sources,
+          styleProfiles,
+          styleProfileId: profile.id,
+        });
+        assert.equal(
+          compiled.prompt,
+          [profile.positiveTags, profile.subjectTags.illustration, writerStyle, imagePrompt].join(", "),
+        );
+        const fallback = compileImagePrompt({
+          kind: "illustration",
+          ...sources,
+          styleProfiles,
+          styleProfileId: "danbooru",
+        });
+        assert.equal(fallback.prompt.toLowerCase().split("emotionally charged atmosphere").length - 1, 1);
+      }
+    },
+  },
   {
     name: "Off grammar retains configured Illustration tags despite template composition hints",
     run() {

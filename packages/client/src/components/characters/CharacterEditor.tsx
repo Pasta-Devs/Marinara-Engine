@@ -1548,7 +1548,8 @@ export function CharacterEditor() {
     summary: overhaulHasText(formData.summary),
     personality: overhaulHasText(formData.personality),
     backstory: overhaulHasText(overhaulExt.backstory),
-    appearance: overhaulHasText(overhaulExt.appearance),
+    // Image tags live on the Appearance field's second tab, so they keep it shown too.
+    appearance: overhaulHasText(overhaulExt.appearance) || overhaulHasText(overhaulExt.imageAppearance),
     scenario: overhaulHasText(formData.scenario),
     publicFace: overhaulHasText(overhaulExt.publicFace),
     mes_example: overhaulHasText(formData.mes_example),
@@ -1891,6 +1892,12 @@ export function CharacterEditor() {
                   variant="character"
                   entityKey={characterId}
                   onJump={scrollToSection}
+                  onOpenAppearance={() => {
+                    // The overhaul hides an empty Appearance until it is added; adding it also scrolls there.
+                    if (overhaulActive) return addOverhaulField("appearance");
+                    const appearance = document.getElementById("character-card-appearance");
+                    if (appearance) scrollToElement(appearance);
+                  }}
                   sheet={
                     <CharacterSheetSection
                       characterId={characterId}
@@ -2267,11 +2274,6 @@ function CharacterCardTab({
           onToggle: (enabled) => updateExtension("imageAppearanceEnabled", enabled),
           value: String(formData.extensions.imageAppearance ?? ""),
           onChange: (value) => updateExtension("imageAppearance", value),
-          toggleLabel: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          toggleHelp: localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp"),
-          title: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          subtitle: localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle"),
-          placeholder: localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder"),
         }}
         alternatives={alternatives}
         onAlternativesChange={(next) => updateExtension("cardFieldAlternatives", next)}
