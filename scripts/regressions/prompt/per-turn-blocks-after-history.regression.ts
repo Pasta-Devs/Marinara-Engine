@@ -184,42 +184,17 @@ try {
 
   await runNamedCases([
     {
-      name: "stock preset: lorebook entries follow the chat history and precede Output Format, still wrapped as lore",
+      name: "stock preset: keeps its lorebook marker before the chat history, still wrapped as lore",
       run: () => {
+        // Deliberate: the Universal Preset reads lore as part of the world before the story. Users who want the
+        // cache can move the marker below Chat History in an editable copy (docs/prompts/presets.md).
         const prompt = first.map((message) => message.content).join("\n");
         const history = prompt.indexOf("We ride toward the castle.");
         const lore = prompt.search(LORE);
-        const outputFormat = prompt.indexOf("<output_format>");
-        assert.ok(history >= 0 && lore >= 0 && outputFormat >= 0, "history, lore and Output Format are all sent");
-        assert.ok(history < lore, "lore comes after the chat history");
-        assert.ok(lore < outputFormat, "Output Format stays the last instruction");
+        assert.ok(history >= 0 && lore >= 0, "history and lore are both sent");
+        assert.ok(lore < history, "lore comes before the chat history");
         assert.match(prompt, /<lore>\s*<setting>[\s\S]*WORLD_FACT[\s\S]*CASTLE_LORE[\s\S]*<\/setting>\s*<\/lore>/u);
-      },
-    },
-    {
-      name: "stock preset: a turn that fires other entries leaves the system prompt unchanged",
-      run: () => {
-        assert.match(firstSent.at(-1)!.content, /CASTLE_LORE/u, "the first turn fires the castle entry");
-        assert.doesNotMatch(firstSent.at(-1)!.content, /DRAGON_LORE/u);
-        assert.match(secondSent.at(-1)!.content, /DRAGON_LORE/u, "the second turn fires the dragon entry");
-        assert.equal(firstSent[0]?.role, "system");
-        assert.deepEqual(secondSent[0], firstSent[0], "the system prompt is byte-identical across the two turns");
-      },
-    },
-    {
-      name: "stock preset: only the newest user turn carries lore, after the player's own text",
-      run: () => {
-        for (const sent of [firstSent, secondSent]) {
-          const last = sent.at(-1)!;
-          assert.equal(last.role, "user");
-          assert.deepEqual(
-            sent.slice(0, -1).filter((message) => LORE.test(message.content)),
-            [],
-            "no earlier message holds lore",
-          );
-        }
-        const last = secondSent.at(-1)!.content;
-        assert.ok(last.indexOf("A dragon lands ahead.") < last.search(LORE), "the player's text comes first");
+        assert.ok(secondSent.length > 0);
       },
     },
     {

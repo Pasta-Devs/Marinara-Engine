@@ -228,8 +228,11 @@ const unitCases = [
       assert.ok(lines.some((line) => line.startsWith("CHUNK_A")));
       assertNoRepeats(fixture, lines, fit);
       const blockIndex = fixture.prompt.findIndex((message) => message.content.includes("recalled fragments"));
-      assert.equal(blockIndex, 1, "memories go right before the chat history");
-      assert.equal(fixture.prompt[blockIndex + 1]?.contextKind, "history");
+      assert.equal(fixture.prompt[blockIndex - 1]?.contextKind, "history", "memories go right after the chat history");
+      assert.ok(
+        fixture.prompt.slice(blockIndex + 1).every((message) => message.contextKind !== "history"),
+        "no history follows the memories",
+      );
     },
   },
   {
@@ -350,8 +353,11 @@ async function generateAndRead() {
   const sent = prompts.at(-1)!;
   const block = sent.find((message) => message.content.includes("recalled fragments"));
   const markers = (text: string) => new Set([...text.matchAll(/HISTORY_(\d+)_/g)].map((match) => Number(match[1])));
+  // Memories go right after the newest message; a provider that merges a trailing system message into the user
+  // turn sends both in one message, so split it where the memories start.
+  const memoriesAt = block ? block.content.indexOf("recalled fragments") : -1;
   const historyMarkers = new Set(
-    sent.filter((message) => message !== block).flatMap((message) => [...markers(message.content)]),
+    sent.flatMap((message) => [...markers(message === block ? message.content.slice(0, memoriesAt) : message.content)]),
   );
   // Remove the reply this generation saved, so every case starts from the same chat.
   const saved = (await chats.listMessages(chat!.id)).at(-1)!;
@@ -361,7 +367,7 @@ async function generateAndRead() {
   return {
     block,
     contextFit,
-    recalled: block ? markers(block.content) : new Set<number>(),
+    recalled: block ? markers(block.content.slice(memoriesAt)) : new Set<number>(),
     historyMarkers,
     queried: queryEmbeddings.length - queriesBefore,
   };
