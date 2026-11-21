@@ -8621,7 +8621,7 @@ function AdvancedSettings() {
       >
         <FeatureSwitchesSettings
           anchorId={getSettingsControlAnchorId(FEATURE_SWITCHES_CONTROL_ID)}
-          switches={["stableLorebookGroupPicks", "usageAndActivationStats"]}
+          switches={["stableLorebookGroupPicks", "usageAndActivationStats", "newLorebookVectors"]}
         />
       </SettingsSection>
 

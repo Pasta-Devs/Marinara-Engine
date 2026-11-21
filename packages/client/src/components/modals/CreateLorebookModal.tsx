@@ -12,6 +12,8 @@ import type { LorebookCategory, LorebookScope } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
+import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { useFeatureEnabled } from "../../hooks/use-feature-settings";
 
 const LOREBOOK_CATEGORIES: Array<{ id: LorebookCategory; label: string }> = [
   { id: "world", label: "World" },
@@ -43,16 +45,24 @@ export function CreateLorebookModal({
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
   const [form, setForm] = useState({ name: defaultName, description: "", category: defaultCategory });
+  // null follows Settings > Advanced > Lorebooks > "Vectors on for new lorebooks" until the user flips it here.
+  const [vectorsChoice, setVectorsChoice] = useState<boolean | null>(null);
+  const newLorebookVectors = useFeatureEnabled("newLorebookVectors");
+  const vectors = vectorsChoice ?? newLorebookVectors;
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setForm((current) => ({ ...current, name: defaultName, category: defaultCategory }));
+    if (open) {
+      setForm((current) => ({ ...current, name: defaultName, category: defaultCategory }));
+      setVectorsChoice(null);
+    }
   }
 
   const createLorebook = useMutation({
     mutationFn: (data: { name: string; description: string; category: LorebookCategory }) =>
       api.post("/lorebooks", {
         ...data,
+        excludeFromVectorization: !vectors,
         ...(characterId ? { characterIds: [characterId] } : {}),
         ...(personaId ? { personaIds: [personaId] } : {}),
         ...(defaultScope ? { scope: defaultScope } : {}),
@@ -140,6 +150,16 @@ export function CreateLorebookModal({
             options={LOREBOOK_CATEGORIES.map((category) => ({ value: category.id, label: category.label }))}
           />
         </div>
+
+        <SettingsSwitch
+          label={localizeUi("ui.lorebooks.lorebookeditor.vectors")}
+          help={localizeUi("ui.modals.createlorebookmodal.vectorsHelp")}
+          helpPosition="label"
+          labelPosition="start"
+          checked={vectors}
+          onChange={setVectorsChoice}
+          className="justify-between rounded-lg bg-[var(--secondary)] px-3 py-2"
+        />
 
         {createLorebook.isError && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--destructive)]/10 p-2.5 text-xs text-[var(--destructive)]">
