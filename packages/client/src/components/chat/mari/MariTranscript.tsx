@@ -184,7 +184,7 @@ export const MariTranscript = memo(function MariTranscript({
         "min-h-0 flex-1 overflow-y-auto px-3 py-4 pb-5 text-left sm:px-7",
         omnibarMode
           ? "mari-workspace-transcript bg-transparent"
-          : "bg-[radial-gradient(circle_at_12%_8%,color-mix(in_srgb,var(--mari-mode-conversation)_6%,transparent),transparent_26%),radial-gradient(circle_at_88%_12%,color-mix(in_srgb,var(--mari-home-pink)_7%,transparent),transparent_28%)]",
+          : "mari-page-transcript bg-[radial-gradient(circle_at_12%_8%,color-mix(in_srgb,var(--mari-mode-conversation)_6%,transparent),transparent_26%),radial-gradient(circle_at_88%_12%,color-mix(in_srgb,var(--mari-home-pink)_7%,transparent),transparent_28%)]",
       )}
     >
       <div

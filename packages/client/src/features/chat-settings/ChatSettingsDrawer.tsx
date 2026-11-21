@@ -2881,7 +2881,8 @@ export function ChatSettingsDrawer({
           </div>
         )}
 
-        <ChatButtonLayoutSettings />
+        {/* Arranges the classic chat's floating buttons, which the new layout never shows. */}
+        {!overhaulActive && <ChatButtonLayoutSettings />}
 
         <div
           ref={setOvScrollEl}

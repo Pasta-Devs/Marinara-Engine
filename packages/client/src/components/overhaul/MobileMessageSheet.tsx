@@ -74,7 +74,11 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
       const target = event.target as HTMLElement;
       if (target.closest("input, textarea, [contenteditable='true']")) return;
       event.preventDefault();
-      if (!fired.current) fire();
+      if (fired.current) return;
+      // A right-click (iPad trackpad or mouse) opens the menu at the pointer, never at an older finger spot.
+      // The context-menu key has no pointer, so it gets the sheet.
+      lastPressPoint = event.clientX || event.clientY ? { x: event.clientX, y: event.clientY } : null;
+      fire();
     },
     onClickCapture: (event: React.MouseEvent) => {
       if (!fired.current) return;
@@ -169,6 +173,10 @@ export function OvMobileMessageSheet({
   // Desktop layout (a tablet in landscape): a menu beside the finger instead of a bottom sheet.
   const [popover] = useState(() => document.documentElement.dataset.overhaul === "on" && lastPressPoint !== null);
   const [anchor] = useState(() => lastPressPoint);
+  // The spot is used once: the next sheet starts from its own press.
+  useEffect(() => {
+    lastPressPoint = null;
+  }, []);
   const [popoverPos, setPopoverPos] = useState<{ left: number; top: number } | null>(null);
   useLayoutEffect(() => {
     if (!popover || !anchor || !sheetRef.current) return;

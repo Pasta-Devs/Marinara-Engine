@@ -23,6 +23,7 @@ export type ChatHelpTargetId =
   | "settings"
   | "help"
   | "window-title"
+  | "window-title-docked"
   | "window-pin"
   | "window-lock"
   | "window-close"
@@ -77,7 +78,17 @@ const TARGETS = {
   settings: chatHelpTarget("settings", "settings"),
   // The ? beside the Chat Settings title (a phone closes Chat Settings to show the guide).
   help: chatHelpTarget("help", "help"),
-  "window-title": chatHelpTarget("window-title", "windowTitle", `${CHAT_SETTINGS_WINDOW} .mari-window__title`),
+  // A window you can drag (classic, or the new layout's Float). Docked, it is a pane beside the chat instead.
+  "window-title": chatHelpTarget(
+    "window-title",
+    "windowTitle",
+    `${CHAT_SETTINGS_WINDOW}:not(.ov-cs--docked) .mari-window__title`,
+  ),
+  "window-title-docked": chatHelpTarget(
+    "window-title-docked",
+    "windowTitleDocked",
+    `${CHAT_SETTINGS_WINDOW}.ov-cs--docked .mari-window__title`,
+  ),
   // Controls with their own tooltip reuse its sentence.
   "window-pin": {
     ...chatHelpTarget("window-pin", "windowPin", `${CHAT_SETTINGS_WINDOW} [data-window-control="pin"]`),
@@ -134,6 +145,7 @@ const CHAT_SETTINGS_TARGETS: ChatHelpTargetDefinition[] = [
   TARGETS.settings,
   TARGETS.help,
   TARGETS["window-title"],
+  TARGETS["window-title-docked"],
   TARGETS["window-pin"],
   TARGETS["window-lock"],
   TARGETS["window-close"],
