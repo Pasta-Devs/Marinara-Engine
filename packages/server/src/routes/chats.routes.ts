@@ -176,7 +176,7 @@ import { addGamePartyCards, syncGamePartyIds } from "../services/game/game-party
 import type { Journal } from "../services/game/journal.service.js";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
 import { filterRelevantLorebooks, processLorebooks } from "../services/lorebook/index.js";
-import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
+import { injectAtDepth, insertAfterHistory } from "../services/lorebook/prompt-injector.js";
 import {
   resolveChatSummaryConnection,
   resolveChatSummaryTemperatureOptions,
@@ -4400,13 +4400,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               .join("\n");
             if (loreContent) {
               const loreBlock = `<lore>\n${loreContent}\n</lore>`;
-              const firstHistoryIndex = messages.findIndex(
-                (message) => message.role === "user" || message.role === "assistant",
-              );
-              messages.splice(firstHistoryIndex >= 0 ? firstHistoryIndex : messages.length, 0, {
-                role: "system",
-                content: loreBlock,
-              });
+              insertAfterHistory(messages, { role: "system", content: loreBlock, contextKind: "injection" });
             }
             if (lorebookResult.depthEntries.length > 0) {
               messages = injectAtDepth(messages, lorebookResult.depthEntries);

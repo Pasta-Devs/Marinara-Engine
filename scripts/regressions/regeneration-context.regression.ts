@@ -428,6 +428,36 @@ try {
     !rebuiltEditedChunk.content.includes(originalLine),
     "rebuilt Memory Recall context must not contain the superseded message version",
   );
+
+  // Recalled memories change every turn, so they go right after the newest history message: the system prompt and
+  // the history before them stay the same from one turn to the next, and a provider's prompt cache can reuse them.
+  const placedMessages: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+    contextKind?: "prompt" | "history" | "injection";
+  }> = [
+    { role: "system", content: "rules" },
+    { role: "user", content: "Older user prompt", contextKind: "history" },
+    { role: "assistant", content: "Older reply", contextKind: "history" },
+    { role: "user", content: "Latest user prompt", contextKind: "history" },
+    { role: "system", content: "post-history instructions", contextKind: "prompt" },
+  ];
+  const placedLines = await injectMemoryRecallContext({
+    db,
+    messages: placedMessages,
+    currentInputMessages: [{ role: "user", content: "Latest user prompt" }],
+    chatId: "regen-chat",
+    embeddingSource,
+    contextLimit: undefined,
+    sendProgress: () => {},
+    wrapFormat: "none",
+  });
+  assert.ok(placedLines.length > 0, "memories are recalled for the placement check");
+  assert.deepEqual(
+    placedMessages.map((message) => message.contextKind ?? "unmarked"),
+    ["unmarked", "history", "history", "history", "injection", "prompt"],
+    "recalled memories follow the newest history message and precede post-history instructions",
+  );
 } finally {
   await db._fileStore.close();
   rmSync(storageDir, { recursive: true, force: true });

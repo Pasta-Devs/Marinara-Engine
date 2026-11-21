@@ -2,6 +2,7 @@ import type { WrapFormat } from "@marinara-engine/shared";
 
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
+import { insertAfterHistory } from "../lorebook/prompt-injector.js";
 import { recallMemories } from "../memory-recall.js";
 import type { MemoryRecallEmbeddingSource } from "../memory-recall.js";
 import { wrapContent } from "../prompt/format-engine.js";
@@ -11,6 +12,7 @@ import { packRecalledMemories } from "./memory-recall-pack.js";
 type PromptMessage = {
   role: "system" | "user" | "assistant";
   content: string;
+  contextKind?: "prompt" | "history" | "injection";
 };
 
 export function buildMemoryRecallBlock(
@@ -84,9 +86,7 @@ export async function injectMemoryRecallContext({
       packedRecall.trimmed ? " after trimming" : "",
     );
 
-    const firstUserIdx = messages.findIndex((message) => message.role === "user" || message.role === "assistant");
-    const insertAt = firstUserIdx >= 0 ? firstUserIdx : messages.length;
-    messages.splice(insertAt, 0, { role: "system", content: memoriesBlock });
+    insertAfterHistory(messages, { role: "system", content: memoriesBlock, contextKind: "injection" });
     return resolvedLines;
   } catch (err) {
     logger.error(err, "[memory-recall] Recall failed, skipping");

@@ -5,7 +5,7 @@
 // anyway and send only the trailing instruction, which reaches the model as a request with no
 // content to work from — and no error anywhere.
 import assert from "node:assert/strict";
-import { fitMessagesToContext } from "../../packages/server/src/services/llm/base-provider.js";
+import { estimateMessagesTokens, fitMessagesToContext } from "../../packages/server/src/services/llm/base-provider.js";
 import type { ChatMessage } from "../../packages/server/src/services/llm/base-provider.js";
 
 const filler = (approximateTokens: number) => "word ".repeat(approximateTokens);
@@ -71,5 +71,48 @@ assert.equal(floored.requestedMaxTokens, 1000, "the floor must still report what
 const unbounded = fitMessagesToContext(singleShotPrompt, { maxTokens: 32768 });
 assert.equal(unbounded.trimmed, false);
 assert.equal(unbounded.messages.length, 3);
+
+// A stable cut (Memory Recall) keeps the first history message sent the same while the chat grows, so the start of
+// the prompt stays cacheable; trimmed to the exact limit, it moves with every new message.
+const growingChat = (count: number): ChatMessage[] => [
+  { role: "system", content: filler(2000) },
+  ...Array.from({ length: count }, (_, index): ChatMessage => ({
+    role: index % 2 ? "assistant" : "user",
+    content: `M${index} ${filler(120)}`,
+    contextKind: "history",
+  })),
+  { role: "system", content: "Post-history instructions." },
+];
+const firstSent = (fit: { messages: ChatMessage[] }) =>
+  Number(/^M(\d+) /.exec(fit.messages.find((message) => message.contextKind === "history")!.content)![1]);
+const exactStarts = new Set<number>();
+const stableStarts = new Set<number>();
+for (let count = 120; count < 132; count++) {
+  const exact = fitMessagesToContext(growingChat(count), { maxContext: 16_000, maxTokens: 1024 });
+  const stable = fitMessagesToContext(growingChat(count), {
+    maxContext: 16_000,
+    maxTokens: 1024,
+    stableHistoryCut: true,
+  });
+  exactStarts.add(firstSent(exact));
+  stableStarts.add(firstSent(stable));
+  assert.ok(stable.estimatedTokensAfter <= stable.inputBudget!, "a stable cut still fits");
+  assert.ok(firstSent(stable) >= firstSent(exact), "a stable cut never sends more than fits");
+  assert.equal(stable.messages.at(-1)!.content, "Post-history instructions.");
+  assert.match(stable.messages.at(-2)!.content, new RegExp(`^M${count - 1} `), "the newest message stays");
+  // One step is a fifth of the window: the cut drops at most that much more than the exact limit needs.
+  assert.ok(
+    exact.estimatedTokensAfter - stable.estimatedTokensAfter <=
+      16_000 * 0.2 + estimateMessagesTokens([growingChat(1)[1]!]),
+  );
+}
+assert.equal(exactStarts.size, 12, "trimmed to the exact limit, the first message sent moves every turn");
+assert.ok(stableStarts.size <= 2, `a stable cut moved ${stableStarts.size - 1} times in 12 turns`);
+const roomyStable = fitMessagesToContext(growingChat(10), {
+  maxContext: 16_000,
+  maxTokens: 1024,
+  stableHistoryCut: true,
+});
+assert.equal(roomyStable.trimmed, false, "a stable cut drops nothing while the chat fits");
 
 process.stdout.write("Context fit regression passed.\n");
