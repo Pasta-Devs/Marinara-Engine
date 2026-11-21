@@ -10,6 +10,7 @@
 //   • My order: drag rows into your own order (no grip handle: the whole row)
 // Folder data stays where the classic panels keep it, so both layouts agree.
 // ──────────────────────────────────────────────
+import { isKeyboardContextMenu } from "../../hooks/use-menu-keyboard";
 import {
   useCallback,
   useEffect,
@@ -96,17 +97,31 @@ function isTouchScreen() {
  */
 export function useKitMenu() {
   const localize = useLocalizedUiText();
-  const [menu, setMenu] = useState<{ title: string; actions: KitAction[]; x: number; y: number } | null>(null);
-  const open = useCallback((title: string, actions: KitAction[], at: { x: number; y: number }) => {
-    if (actions.length) setMenu({ title, actions, x: at.x, y: at.y });
+  const [menu, setMenu] = useState<{
+    title: string;
+    actions: KitAction[];
+    x: number;
+    y: number;
+    keyboard?: boolean;
+  } | null>(null);
+  const open = useCallback((title: string, actions: KitAction[], at: { x: number; y: number }, keyboard = false) => {
+    if (actions.length) setMenu({ title, actions, x: at.x, y: at.y, keyboard });
   }, []);
   const openFromEvent = useCallback(
     (event: MouseEvent<HTMLElement>, title: string, actions: KitAction[], anchor: "pointer" | "button" = "pointer") => {
       event.preventDefault();
       event.stopPropagation();
-      if (anchor === "button") {
+      // A11Y3: opened from the keyboard (Enter on ⋯, Shift+F10 or the menu key on a row), focus starts on the
+      // first item and comes back when the menu closes.
+      const keyboard = event.type === "contextmenu" ? isKeyboardContextMenu(event) : event.detail === 0;
+      if (anchor === "button" || keyboard) {
         const rect = event.currentTarget.getBoundingClientRect();
-        open(title, actions, { x: rect.right - 200, y: rect.bottom + 4 });
+        open(
+          title,
+          actions,
+          anchor === "button" ? { x: rect.right - 200, y: rect.bottom + 4 } : { x: rect.left + 16, y: rect.bottom },
+          keyboard,
+        );
       } else open(title, actions, { x: event.clientX, y: event.clientY });
     },
     [open],
@@ -151,6 +166,7 @@ export function useKitMenu() {
         key={menu.title}
         x={menu.x}
         y={menu.y}
+        autoFocus={menu.keyboard}
         onClose={close}
         items={menu.actions.map((action): ContextMenuItem => ({
           label: action.submenu ? `${localize(action.label)} ›` : localize(action.label),

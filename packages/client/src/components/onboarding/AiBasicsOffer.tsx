@@ -14,6 +14,7 @@ import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due"
 import { startGuideQuest } from "../../stores/guide-card.store";
 import { useUIStore } from "../../stores/ui.store";
 import { Modal } from "../ui/Modal";
+import { claimFirstRunSlot, releaseFirstRunSlot, useFirstRunSlotTaken } from "../../lib/first-run-queue";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_SECONDARY } from "../ui/neutral-surface-styles";
 
 export function AiBasicsOffer({
@@ -31,6 +32,8 @@ export function AiBasicsOffer({
   const state = useGuideQuestsState();
   const answeredElsewhere = useUIStore((s) => s.aiBasicsOfferAnswered);
   const [open, setOpen] = useState(false);
+  // One first-run surface at a time: it waits while the chat help or a tip shows (MOB12).
+  const slotTaken = useFirstRunSlotTaken("ai-basics-offer");
   const teachRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -43,7 +46,8 @@ export function AiBasicsOffer({
       !settingsSyncReady
     )
       return;
-    if (!tipsEnabled || walkthroughDue) return;
+    if (!tipsEnabled || walkthroughDue || slotTaken) return;
+    if (!claimFirstRunSlot("ai-basics-offer")) return;
     setOpen(true);
   }, [
     answeredElsewhere,
@@ -51,10 +55,14 @@ export function AiBasicsOffer({
     open,
     presentationAllowed,
     settingsSyncReady,
+    slotTaken,
     state.offer,
     tipsEnabled,
     walkthroughDue,
   ]);
+  useEffect(() => {
+    if (!open) releaseFirstRunSlot("ai-basics-offer");
+  }, [open]);
 
   useEffect(() => {
     onOpenChange?.(open);

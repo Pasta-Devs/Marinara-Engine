@@ -221,6 +221,27 @@ export function screenList(ids) {
     { id: "profiles", run: open.library("profiles") },
     { id: "regex", run: open.library("regex") },
     { id: "connections", group: "core", run: open.library("connections") },
+    // The Add account menu as Home's "Connect a model" opens it (centred, not the old tile grid), and its key step
+    // for a service at an address that already has an account ("You already have …").
+    {
+      id: "add-connection",
+      run: hook(() => window.__marinaraUiCheck.ui.getState().openModal("create-connection")),
+      ready: "[data-add-connection-step]",
+    },
+    {
+      id: "add-connection-existing",
+      run: needsData(
+        // The fixture's OpenAI account (ids.account) sits at this address; the id only marks the data as needed.
+        hook(
+          () =>
+            window.__marinaraUiCheck.ui
+              .getState()
+              .openModal("create-connection", { service: "openai", baseUrl: "http://127.0.0.1:9/v1" }),
+          ids.account,
+        ),
+      ),
+      ready: "[data-add-connection-existing]",
+    },
     {
       // The Image reading job's settings window (from its picker): its prompt, request and answer limits.
       id: "image-reading-settings",

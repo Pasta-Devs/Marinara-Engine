@@ -1330,7 +1330,11 @@ export const ConversationMessage = memo(function ConversationMessage({
         </div>
         <div className="px-4">
           {overhaulMobile && !overhaulDesktopShell && isLastAssistantMessage && !isUser ? (
-            <SwipeCountChip index={message.activeSwipeIndex ?? 0} count={message.swipeCount ?? 1} />
+            <SwipeCountChip
+              index={message.activeSwipeIndex ?? 0}
+              count={message.swipeCount ?? 1}
+              onOpen={openMobileSheet}
+            />
           ) : null}
           <MessageMarkIndicators message={message} className="px-1" />
           <GenerationFallbackMarker fallback={fallback} className="flex w-fit px-1" />

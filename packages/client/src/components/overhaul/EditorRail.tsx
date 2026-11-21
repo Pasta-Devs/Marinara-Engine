@@ -5,6 +5,7 @@
 // them is the jump list of the sections this item actually uses, with
 // a "+ Name" row for each section not in use yet. The editor's sections scroll on the right.
 // ──────────────────────────────────────────────
+import { menuOpenerFromClick, useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 import {
   useId,
   useLayoutEffect,
@@ -452,7 +453,16 @@ export function RailMoreMenu({
   trigger?: string;
 }) {
   const localize = useLocalizedUiText();
-  const ref = useRef<HTMLDivElement>(null);
+  // A11Y3: the ⋯ that opened it, read when it opens; from the keyboard focus starts on the first item.
+  const [opener, setOpener] = useState<ReturnType<typeof menuOpenerFromClick> | null>(null);
+  useLayoutEffect(() => setOpener(open ? menuOpenerFromClick() : null), [open]);
+  const keys = useMenuKeyboard({
+    open: open && opener !== null,
+    onClose,
+    trigger: opener?.opener?.closest(trigger) ? opener.opener : null,
+    initialFocus: opener?.keyboard ? "first" : null,
+  });
+  const ref = keys.menuRef;
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: PointerEvent) => {
@@ -460,16 +470,9 @@ export function RailMoreMenu({
       if (!target || ref.current?.contains(target) || target.closest(trigger)) return;
       onClose();
     };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
     document.addEventListener("pointerdown", onPointer, true);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onPointer, true);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open, onClose, trigger]);
+    return () => document.removeEventListener("pointerdown", onPointer, true);
+  }, [open, onClose, ref, trigger]);
   if (!open) return null;
   return (
     <div

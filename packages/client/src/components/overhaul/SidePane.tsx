@@ -7,6 +7,7 @@
 // that slides over from the right (the Library button at the top right), with
 // Settings, Docs and All Tabs pinned at the bottom of its Library view.
 // ──────────────────────────────────────────────
+import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CircleHelp, Layers, MessageCircle, Settings } from "lucide-react";
@@ -29,13 +30,19 @@ function SidePaneSwitch() {
     { id: "library", label: "Library", Icon: Layers, tour: "library-switch" },
   ];
   return (
-    <div className="ov-sideswitch" role="tablist" aria-label={localize("Sidebar")}>
+    <div
+      className="ov-sideswitch"
+      role="tablist"
+      aria-label={localize("Sidebar")}
+      onKeyDown={(event) => onRovingTabsKeyDown(event)}
+    >
       {options.map(({ id, label, Icon, tour }) => (
         <button
           key={id}
           type="button"
           role="tab"
           aria-selected={view === id}
+          tabIndex={view === id ? 0 : -1}
           className={cn("ov-sideswitch__btn", view === id && "is-on")}
           onClick={() => setView(id)}
           data-tour={tour}

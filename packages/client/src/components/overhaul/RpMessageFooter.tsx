@@ -32,22 +32,45 @@ import { cn } from "../../lib/utils";
 import { OvMarksMenuContext } from "./marks-menu-context";
 import { DEFAULT_MESSAGE_BUTTONS, type MessageButtonId } from "./message-buttons";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { menuOpenerFromClick, useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 
-type Anchor = { left: number; top: number; bottom: number; right: number; alignRight?: boolean };
+type Anchor = {
+  left: number;
+  top: number;
+  bottom: number;
+  right: number;
+  alignRight?: boolean;
+  /** The button that opened it: Escape and a run item hand focus back to it. */
+  opener?: HTMLElement | null;
+  /** Opened from the keyboard: focus starts on the first item (A11Y1). */
+  keyboard?: boolean;
+};
 
 /** A popover in a portal, so the bubble's overflow cannot clip it. Opens above the button when there is no room below. */
 export function FooterPopover({
   anchor,
   onClose,
   className,
+  menu = false,
+  label,
   children,
 }: {
   anchor: Anchor;
   onClose: () => void;
   className?: string;
+  /** A list of actions (the ⋯ menu): announced as a menu, its buttons as menu items. */
+  menu?: boolean;
+  label?: string;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement | null>(null);
+  // One keyboard behaviour for every menu (hooks/use-menu-keyboard): arrows move, Escape returns to ⋯.
+  const keys = useMenuKeyboard({
+    open: true,
+    onClose,
+    trigger: anchor.opener ?? null,
+    initialFocus: anchor.keyboard ? "first" : null,
+  });
+  const ref = keys.menuRef;
   const [style, setStyle] = useState<React.CSSProperties>({
     left: anchor.left,
     top: anchor.bottom + 4,
@@ -66,7 +89,7 @@ export function FooterPopover({
     const wanted = anchor.alignRight ? anchor.right - rect.width : anchor.left;
     const left = Math.max(8, Math.min(wanted, maxRight - rect.width));
     setStyle({ left, top });
-  }, [anchor]);
+  }, [anchor, ref]);
   useEffect(() => {
     const close = (event: Event) => {
       if (event.target instanceof Node && ref.current?.contains(event.target)) return;
@@ -90,9 +113,15 @@ export function FooterPopover({
       document.removeEventListener("keydown", onKey);
       window.removeEventListener("resize", onClose);
     };
-  }, [onClose]);
+  }, [onClose, ref]);
   return createPortal(
-    <div ref={ref} className={cn("ov-rpf-pop", className)} style={style}>
+    <div
+      ref={ref}
+      className={cn("ov-rpf-pop", className)}
+      style={style}
+      role={menu ? "menu" : "dialog"}
+      aria-label={label}
+    >
       {children}
     </div>,
     document.body,
@@ -253,12 +282,14 @@ export function OvRpMessageFooter({
         : { kind: "marks", anchor: { left: r.right - 240, top: r.top, bottom: r.bottom, right: r.right } },
     );
   };
-  const openAt = (kind: "more" | "swipes", el: HTMLElement) => {
+  const openAt = (kind: "more" | "swipes", el: HTMLElement, keyboard = false) => {
     if (open?.kind === kind || (kind === "more" && open?.kind === "marks")) return setOpen(null);
     const r = el.getBoundingClientRect();
     setOpen({
       kind,
       anchor: {
+        opener: el,
+        keyboard,
         left: kind === "more" ? r.right - 240 : r.left,
         top: r.top,
         bottom: r.bottom,
@@ -328,7 +359,7 @@ export function OvRpMessageFooter({
             aria-label={localizeUi("ui.overhaul.ovrpmessagefooter.showAllSwipes")}
             title={localizeUi("ui.overhaul.ovrpmessagefooter.showAllSwipes")}
             aria-expanded={open?.kind === "swipes"}
-            onClick={(event) => openAt("swipes", event.currentTarget)}
+            onClick={(event) => openAt("swipes", event.currentTarget, event.detail === 0)}
           >
             {swipeIndex + 1} / {count}
             <ChevronDown size={11} />
@@ -414,7 +445,8 @@ export function OvRpMessageFooter({
               title={localizeUi("connections.accounts.header.more")}
               aria-label={localizeUi("connections.accounts.header.more")}
               aria-expanded={open?.kind === "more" || open?.kind === "marks"}
-              onClick={(event) => openAt("more", event.currentTarget)}
+              aria-haspopup="menu"
+              onClick={(event) => openAt("more", event.currentTarget, event.detail === 0)}
             >
               <MoreHorizontal size={15} />
             </button>
@@ -422,8 +454,16 @@ export function OvRpMessageFooter({
         </>
       ) : null}
       {open?.kind === "more" ? (
-        <FooterPopover anchor={open.anchor} onClose={() => setOpen(null)} className="ov-rpf-menu">
-          <p className="ov-rpf-pop__label">{localizeUi("ui.overhaul.ovrpmessagefooter.messageActions")}</p>
+        <FooterPopover
+          anchor={open.anchor}
+          onClose={() => setOpen(null)}
+          className="ov-rpf-menu"
+          menu
+          label={localizeUi("ui.overhaul.ovrpmessagefooter.messageActions")}
+        >
+          <p className="ov-rpf-pop__label" aria-hidden="true">
+            {localizeUi("ui.overhaul.ovrpmessagefooter.messageActions")}
+          </p>
           {swipesInMenu ? (
             <div className="mari-message-actions">
               <button
@@ -438,7 +478,15 @@ export function OvRpMessageFooter({
           ) : null}
           <div className="contents" onClickCapture={closeAfterAction(() => setOpen(null))}>
             <OvMarksMenuContext.Provider
-              value={marksPanel ? () => setOpen({ kind: "marks", anchor: { ...open.anchor } }) : null}
+              value={
+                marksPanel
+                  ? () =>
+                      setOpen({
+                        kind: "marks",
+                        anchor: { ...open.anchor, keyboard: menuOpenerFromClick().keyboard },
+                      })
+                  : null
+              }
             >
               {more}
             </OvMarksMenuContext.Provider>
@@ -448,7 +496,7 @@ export function OvRpMessageFooter({
       {open?.kind === "marks" && marksPanel ? (
         <FooterPopover anchor={open.anchor} onClose={() => setOpen(null)} className="ov-rpf-menu ov-marks-pop">
           {marksPanel({
-            back: () => setOpen({ kind: "more", anchor: { ...open.anchor } }),
+            back: () => setOpen({ kind: "more", anchor: { ...open.anchor, keyboard: menuOpenerFromClick().keyboard } }),
             done: () => setOpen(null),
           })}
         </FooterPopover>

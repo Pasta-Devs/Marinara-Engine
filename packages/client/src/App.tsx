@@ -60,6 +60,9 @@ import { loadOverhaulStyles } from "./lib/overhaul-styles";
 import { normalizeUiStyleOverride } from "./lib/ui-style-overrides";
 import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
+import { useChatStore } from "./stores/chat.store";
+import { useFloatingWindowStore } from "./stores/floating-window.store";
+import { useMobileChatSettingsNav } from "./features/chat-settings/mobile-nav";
 import { api, requestTimeoutSignal } from "./lib/api-client";
 import { forceRefreshSpa, reloadBrowser } from "./lib/browser-runtime";
 import { recordClientError } from "./lib/client-runtime-diagnostics";
@@ -785,12 +788,21 @@ export function App() {
     syncBackNavigation();
     const unsubscribeUI = useUIStore.subscribe(syncBackNavigation);
     const unsubscribeDialog = useDialogStore.subscribe(syncBackNavigation);
+    // New layout on phones: pages, the Chats / Library page and the Chat settings sheet are back layers too.
+    const unsubscribeOverhaul = useOverhaulStore.subscribe(syncBackNavigation);
+    const unsubscribeChat = useChatStore.subscribe(syncBackNavigation);
+    const unsubscribeWindows = useFloatingWindowStore.subscribe(syncBackNavigation);
+    const unsubscribeChatSettingsNav = useMobileChatSettingsNav.subscribe(syncBackNavigation);
     // Whether a shell panel counts as an overlay depends on the viewport.
     const shellQuery = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
     shellQuery.addEventListener("change", syncBackNavigation);
     return () => {
       unsubscribeUI();
       unsubscribeDialog();
+      unsubscribeOverhaul();
+      unsubscribeChat();
+      unsubscribeWindows();
+      unsubscribeChatSettingsNav();
       shellQuery.removeEventListener("change", syncBackNavigation);
     };
   }, []);

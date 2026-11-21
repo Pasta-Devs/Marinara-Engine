@@ -234,6 +234,7 @@ import { MariWindowHeader } from "./mari/MariWindowHeader";
 import { useMariSkillMemoryActions } from "./mari/use-mari-skill-memory-actions";
 import { useMariChatHistoryActions } from "./mari/use-mari-chat-history-actions";
 import { useMariMessageActions } from "./mari/use-mari-message-actions";
+import { invalidateMariRefreshScope, mariRefreshScopeForTables } from "./mari/mari-refresh-scope";
 import { useMariWorkspaceRun } from "./mari/use-mari-workspace-run";
 import { MariOmnibarHeaderChrome } from "./mari/MariOmnibarHeaderChrome";
 import { MariOpenOutputLimitContext } from "./mari/MariOutputLimitNote";
@@ -1436,13 +1437,17 @@ export function HomeProfessorMariChat({
         console.error("[Professor Mari] Failed to start Keep this theme? after her theme change", error);
       });
     }
-    void invalidateWorkspaceData().catch((error) => {
-      console.error("[Professor Mari] Failed to refresh app data after workspace change", error);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariAppliedAWorkspaceChangeButAppData"), {
-        description: describeProfessorMariError(error),
-        duration: 12_000,
-      });
-    });
+    // Only the lists those changes touched (a new lorebook refetches lorebooks, not every query in the app).
+    const changedTables = appliedChanges.flatMap((entry) => Object.keys(entry.affectedTables ?? {}));
+    void invalidateMariRefreshScope(qc, mariRefreshScopeForTables(changedTables), invalidateWorkspaceData).catch(
+      (error) => {
+        console.error("[Professor Mari] Failed to refresh app data after workspace change", error);
+        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariAppliedAWorkspaceChangeButAppData"), {
+          description: describeProfessorMariError(error),
+          duration: 12_000,
+        });
+      },
+    );
   }, [invalidateWorkspaceData, workspaceStatus, localizeUi, qc, tryThemeSwitchedByMari]);
 
   useEffect(() => {

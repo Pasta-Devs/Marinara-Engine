@@ -2,6 +2,7 @@
 // Home "Things to try": the next three tasks in the Field notes widget, and the full list by trail
 // (See all). Show me opens the spot; a task ticks itself when Marinara sees it done, or by hand.
 // ──────────────────────────────────────────────
+import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
 import { useState, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -259,7 +260,7 @@ export function ThingsToTrySeeAll({ onOpen }: { onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="relative z-[2] shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+      className="ov-hit-y relative z-[2] shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
     >
       {things.ready
         ? t("thingsToTry.seeAllCount", "See all ({{done}}/{{total}})", { done: things.doneCount, total: things.total })
@@ -400,6 +401,7 @@ export function ThingsToTryList({ onClose, links }: { onClose: () => void; links
       <div
         role="tablist"
         aria-label={t("thingsToTry.windowTitle", "Things to try")}
+        onKeyDown={(event) => onRovingTabsKeyDown(event)}
         className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1"
       >
         {tabs.map((entry) => (
@@ -408,6 +410,7 @@ export function ThingsToTryList({ onClose, links }: { onClose: () => void; links
             type="button"
             role="tab"
             aria-selected={tab === entry.id}
+            tabIndex={tab === entry.id ? 0 : -1}
             data-see-all-tab={entry.id}
             onClick={() => setTab(entry.id)}
             className={cn(

@@ -8,6 +8,7 @@
 // flow has been replaced so users can edit row-level params without leaving
 // the list. Inspired by SillyTavern's World Info layout.
 // ──────────────────────────────────────────────
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { estimateTextTokens } from "@marinara-engine/shared";
 import { useBuiltinEmbeddingOption } from "../connections/BuiltinEmbeddingDetail";
 import {
@@ -500,6 +501,11 @@ export function LorebookEditor() {
     const i = scrollToEntryId ? list.findIndex((entry) => entry.id === scrollToEntryId) : -1;
     return i >= 0 ? i : undefined;
   };
+  // The open entry's row stays mounted: on phones its editor is portaled into the detail pane while the list is hidden.
+  const expandedIndexIn = (list: { id: string }[]) => {
+    const i = expandedEntryId ? list.findIndex((entry) => entry.id === expandedEntryId) : -1;
+    return i >= 0 ? i : undefined;
+  };
   useEffect(() => {
     const id = newlyCreatedEntryRef.current;
     if (!id) return;
@@ -663,6 +669,11 @@ export function LorebookEditor() {
   const [ovBookOpen, setOvBookOpen] = useState(true);
   // Overhaul viewer: which tool panel sits above the entry on the right, and where the entry editor renders.
   const [ovPanel, setOvPanel] = useState<"book" | "check" | "keyword" | null>(null);
+  // Phones: Safari's back and the left-edge swipe go from the open entry or tool back to the book (MOB1).
+  useBackDismiss(overhaulMobile && ovmDetail, () => {
+    setOvmDetail(false);
+    setOvPanel(null);
+  });
   const openOvPanel = (id: "book" | "check" | "keyword") => {
     const next = overhaulMobile ? id : ovPanel === id ? null : id;
     setOvPanel(next);
@@ -2249,6 +2260,7 @@ export function LorebookEditor() {
               pinnedIndex={
                 dragSourceContainer === folder.id && draggingEntryIdx !== null ? draggingEntryIdx : undefined
               }
+              keepMountedIndex={expandedIndexIn(folderEntries)}
               scrollToIndex={revealIndexIn(folderEntries)}
               renderRow={(eIdx) => {
                 const entry = folderEntries[eIdx]!;
@@ -3360,6 +3372,7 @@ export function LorebookEditor() {
               estimateSize={ENTRY_ROW_ESTIMATE}
               gap={6}
               pinnedIndex={dragSourceContainer === null && draggingEntryIdx !== null ? draggingEntryIdx : undefined}
+              keepMountedIndex={expandedIndexIn(entriesByContainer.get(null) ?? [])}
               scrollToIndex={revealIndexIn(entriesByContainer.get(null) ?? [])}
               renderRow={(idx) => {
                 const rootList = entriesByContainer.get(null) ?? [];
@@ -3449,6 +3462,7 @@ export function LorebookEditor() {
             getItemKey={(i) => filteredEntries[i]!.id}
             estimateSize={ENTRY_ROW_ESTIMATE}
             gap={6}
+            keepMountedIndex={expandedIndexIn(filteredEntries)}
             scrollToIndex={revealIndexIn(filteredEntries)}
             renderRow={(i) => {
               const entry = filteredEntries[i]!;
@@ -3783,6 +3797,8 @@ export function LorebookEditor() {
                                 }}
                               >
                                 <ChevronLeft size={26} aria-hidden="true" />
+                                {/* One bar per page: the book's own header steps aside, and its name is the way back (MOB13). */}
+                                <span className="ovm-lv-head__parent">{lorebook.name}</span>
                               </button>
                               <span className="ovm-drill-page__title">{ovmDetailTitle}</span>
                               {/* The book header (with Save) scrolls away; this header stays, so Save comes along. */}

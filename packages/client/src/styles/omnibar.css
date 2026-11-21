@@ -467,3 +467,9 @@ html[data-marinara-reduced-effects="true"] .omnibar-row-expansion {
     display: none !important;
   }
 }
+
+/* QC Nov 21 IA16: while the arrow keys move the selection, a row the resting mouse happens to sit over is not a
+   second highlight. The next real mouse move hands the highlight back to the pointer. */
+#global-omnibar-results[data-keyboard-nav] [data-command-center-result-row]:not([data-selected]):hover {
+  background-color: transparent;
+}

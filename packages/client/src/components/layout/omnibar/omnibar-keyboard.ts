@@ -85,6 +85,7 @@ export function createOmnibarKeyHandlers({
   const moveSelection = (index: number) => {
     const next = results[index];
     autoSelectionRef.current = false;
+    listRef.current?.setAttribute("data-keyboard-nav", "");
     setActiveResultId(next?.id ?? null);
     if (expandedPreviewId) setExpandedPreviewId(next && isRichResult(next) ? next.id : null);
   };

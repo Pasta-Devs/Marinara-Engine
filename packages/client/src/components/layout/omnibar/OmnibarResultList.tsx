@@ -82,6 +82,7 @@ export function OmnibarResultList({
       <div
         ref={listRef}
         id="global-omnibar-results"
+        role="listbox"
         aria-label={t("omnibar.results", "Search results")}
         data-component="GlobalOmnibar.Results"
         aria-busy={held || undefined}
@@ -119,6 +120,7 @@ export function OmnibarResultList({
           return (
             <section
               key={group.id}
+              role="group"
               aria-labelledby={group.id === "now" ? undefined : `omnibar-group-${group.id}`}
               aria-label={group.id === "now" ? t("commandCenter.groups.now", "Needs you now") : undefined}
             >
@@ -136,6 +138,7 @@ export function OmnibarResultList({
                 </span>
               </div>
               <ul
+                role="presentation"
                 className={cn(
                   "space-y-0.5 px-1",
                   // Slice 78: Continue is a strip of three cards on wider screens, plain rows on a phone.

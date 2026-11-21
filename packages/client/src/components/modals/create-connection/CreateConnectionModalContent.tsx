@@ -196,6 +196,8 @@ export function CreateConnectionModalContent({
   const [makeMain, setMakeMain] = useState<boolean | null>(null);
   const [useInChat, setUseInChat] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  // The user chose a second account of a service at an address that already has one.
+  const [addAnother, setAddAnother] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const keyRef = useRef<HTMLInputElement>(null);
 
@@ -425,16 +427,22 @@ export function CreateConnectionModalContent({
     if (target && (picks.length > 0 || mediaSaved)) flashConnectionCard(target.accountId);
   };
 
+  // "Found in … use it for": closing goes through the step, which fills an empty Main first.
+  const useForSkip = useRef<(() => Promise<void>) | null>(null);
   const requestClose = () => {
     if (closeBlocked) return;
+    if (step === 3 && useForSkip.current) return void useForSkip.current();
     void close();
   };
 
   // New layout: picking a service and giving its key happen in a menu under "Add account"; models stay a window.
   const dropdown = ovDesktop && !!anchor && !modelsFor && (step === 1 || step === 2) && anchorBox !== null;
+  // Opened from anywhere else (Home's "Connect a model", a job picker's Add): the same short menu, centred. The
+  // old tile grid of every provider stays for the classic layout only, so there is one picker in the new one.
+  const centred = ovDesktop && !anchor && !modelsFor && (step === 1 || step === 2);
   // On phones the same short list and key step open as a bottom sheet.
   const sheet = ovMobile && !modelsFor && (step === 1 || step === 2);
-  const compact = dropdown || sheet;
+  const compact = dropdown || centred || sheet;
   useLayoutEffect(() => {
     if (!ovDesktop || !anchor || !open) return;
     const measure = () => {
@@ -487,6 +495,7 @@ export function CreateConnectionModalContent({
     setMediaSaved(false);
     setMediaCreating(false);
     setJobTest(null);
+    setAddAnother(false);
   };
 
   // Step 3 opens on the kind of the model chosen in the search, else the kind chosen in the list, else the first.
@@ -900,9 +909,39 @@ export function CreateConnectionModalContent({
   const failure =
     tested && !tested.success && provider ? failureReason(provider, tested.message ?? "", tested.errorCode) : null;
   const requiresAccessKey = !keyless && !isLocal && (!isMedia || !!selectedMedia);
-  const connectDisabled = busy || (isLocal && !baseUrl.trim()) || (requiresAccessKey && !apiKey.trim());
   const canContinueAnyway = !!failure && (!requiresAccessKey || !!apiKey.trim()) && (!isLocal || !!baseUrl.trim());
   const resetTest = () => setTested(null);
+  // The same service at the same address is already an account: offer it before making a silent twin (two
+  // "Custom · 127.0.0.1:7950", each with its own Default). "Add another" still makes a second one, as for a
+  // second key.
+  const sameAddress = (url: string | undefined) => (url ?? "").trim().replace(/\/+$/, "").toLowerCase();
+  const existingAccount =
+    step === 2 && !target && !addAnother && provider && !isMedia && !selectedMedia
+      ? accounts?.find(
+          (account) =>
+            account.provider === provider &&
+            sameAddress(account.baseUrl) === sameAddress(accountFields().baseUrl) &&
+            allRows.some((row) => row.accountId === account.id),
+        )
+      : undefined;
+  const connectDisabled =
+    busy || (isLocal && !baseUrl.trim()) || (requiresAccessKey && !apiKey.trim()) || !!existingAccount;
+  const chooseExisting = (accountId: string) => {
+    const linked = allRows.filter((row) => row.accountId === accountId);
+    const row = starAnchorOf(linked) ?? linked[0];
+    if (!row) return;
+    openUseFor({ accountId, connectionId: row.id, fresh: false });
+  };
+  const addAnotherAccount = (existingName: string) => {
+    setAddAnother(true);
+    // A key gives the twin its own name (the key's end); a server without one is numbered.
+    if (!name.trim() && !apiKey.trim()) {
+      const taken = new Set((accounts ?? []).map((account) => account.name));
+      let n = 2;
+      while (taken.has(`${existingName} (${n})`)) n += 1;
+      setName(`${existingName} (${n})`);
+    }
+  };
 
   // ── Step 3: star models ──
   const accountRows = (accountId: string) => allRows.filter((row) => row.accountId === accountId);
@@ -1053,15 +1092,16 @@ export function CreateConnectionModalContent({
     "flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 text-sm hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)]";
   // On sm+ the top sits where the tall panel's centred top is, so the short cards screen grows downward
   // and the search field stays under the caret when typing switches to the tall results.
-  const panelClass = dropdown
-    ? cn("mari-connection-scope ov-add-drop", step === 1 && "ov-add-drop--list")
-    : sheet
-      ? cn("mari-connection-scope ov-add-sheet", step === 1 && "ov-add-sheet--list")
-      : cn(
-          "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
-          // The key step fits its content; the lists keep the tall frame.
-          step === 2 || useForStep ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
-        );
+  const panelClass =
+    dropdown || centred
+      ? cn("mari-connection-scope ov-add-drop", step === 1 && "ov-add-drop--list", centred && "ov-add-drop--centre")
+      : sheet
+        ? cn("mari-connection-scope ov-add-sheet", step === 1 && "ov-add-sheet--list")
+        : cn(
+            "mari-connection-scope sm:mt-[max(0px,calc((100dvh_-_min(90dvh,44rem))_/_2_-_1rem))] sm:self-start",
+            // The key step fits its content; the lists keep the tall frame.
+            step === 2 || useForStep ? "sm:h-auto" : "sm:h-[min(90dvh,44rem)]",
+          );
   const dropStyle: CSSProperties | undefined =
     dropdown && anchorBox
       ? ({ "--ov-drop-top": `${anchorBox.top}px`, "--ov-drop-left": `${anchorBox.left}px` } as CSSProperties)
@@ -1132,7 +1172,37 @@ export function CreateConnectionModalContent({
               serviceName={serviceName}
               compact={compact}
               kind={kindFilter}
+              firstRun={!!rows && chatRows.length === 0 && !builtInMain}
             />
+          )}
+          {step === 2 && existingAccount && (
+            <div
+              data-add-connection-existing
+              role="status"
+              className="flex shrink-0 flex-col gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2.5 text-sm"
+            >
+              <span className="min-w-0 [overflow-wrap:anywhere]">
+                {t("connections.add.existing", { name: existingAccount.name })}
+              </span>
+              <span className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  className={compact ? "ov-btn" : SECONDARY_CLASS}
+                  data-add-connection-add-another
+                  onClick={() => addAnotherAccount(existingAccount.name)}
+                >
+                  {t("connections.add.addAnother")}
+                </button>
+                <button
+                  type="button"
+                  className={compact ? "ov-btn ov-btn--primary" : PRIMARY_CLASS}
+                  data-add-connection-use-existing
+                  onClick={() => chooseExisting(existingAccount.id)}
+                >
+                  {t("connections.add.useExisting")}
+                </button>
+              </span>
+            </div>
           )}
           {step === 2 && (
             <AccessStep
@@ -1174,6 +1244,7 @@ export function CreateConnectionModalContent({
               job={job}
               serviceName={serviceName}
               onFinish={finishUseFor}
+              skipRef={useForSkip}
             />
           ) : (
             <ModelsStep

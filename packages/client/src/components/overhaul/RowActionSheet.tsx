@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import type { SwipeAction } from "./SwipeActionsRow";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 
 export function RowActionSheet({
   title,
@@ -23,6 +24,8 @@ export function RowActionSheet({
 }) {
   const { t } = useTranslation();
   const cancelRef = useRef<HTMLButtonElement | null>(null);
+  // Back (Safari's swipe, Android's button) closes the sheet instead of leaving the page under it.
+  useBackDismiss(true, onClose);
   useEffect(() => {
     cancelRef.current?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {

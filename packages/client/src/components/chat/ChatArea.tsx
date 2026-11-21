@@ -215,6 +215,8 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatResourceDropOverlay } from "./ChatResourceDropOverlay";
 import { ChatHelpOverlay } from "./ChatHelpOverlay";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
+import { useChatCovered, useFirstRunSlotTaken } from "../../lib/first-run-queue";
+import { HoldMessageTip } from "../overhaul/HoldMessageTip";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { readChatHelpMode } from "../../lib/chat-help-events";
 import { useStableCallback } from "../../hooks/use-stable-callback";
@@ -705,6 +707,13 @@ const LocalChatArea = memo(function LocalChatArea({
     activeChatId ? s.backgroundIllustrationChatIds.has(activeChatId) : false,
   );
   const isTextStreaming = isStreaming && !isBackgroundIllustration;
+  // Touch: the first reply that lands arms the one-time "Hold a message for more" tip (MOB3).
+  const [replyLandedChatId, setReplyLandedChatId] = useState<string | null>(null);
+  const wasTextStreamingRef = useRef(false);
+  useEffect(() => {
+    if (wasTextStreamingRef.current && !isTextStreaming && activeChatId) setReplyLandedChatId(activeChatId);
+    wasTextStreamingRef.current = isTextStreaming;
+  }, [activeChatId, isTextStreaming]);
   const isPageActive = usePageActivity();
   const regenerateMessageId = useChatStore((s) => s.regenerateMessageId);
   const chatBackground = useUIStore((s) => s.chatBackground);
@@ -712,6 +721,12 @@ const LocalChatArea = memo(function LocalChatArea({
   const chatWindowIntroDismissed = useUIStore((s) => s.chatWindowIntroDismissed);
   // One first-run popup per visit: when the intro tip shows, the help overlay waits for a later visit.
   const [introShownThisVisit] = useState(() => !useUIStore.getState().chatWindowIntroDismissed);
+  // Phones and tablets in portrait: the Chat settings tip is the help's first step instead of a popup of its own (MOB12).
+  const chatIntroInHelp = useOverhaulMobile();
+  // One first-run surface at a time, and never over a sheet, page or window (MOB12, ONB-2).
+  const chatCovered = useChatCovered();
+  const helpSlotTaken = useFirstRunSlotTaken("chat-help");
+  const introSlotTaken = useFirstRunSlotTaken("chat-settings-tip");
   const gameSetupActive = useGameModeStore((state) => state.isSetupActive);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
@@ -4342,6 +4357,9 @@ const LocalChatArea = memo(function LocalChatArea({
     <ChatWindowWelcomeModal
       presentationAllowed={
         chatWindowIntroAllowed &&
+        !chatIntroInHelp &&
+        !chatCovered &&
+        !introSlotTaken &&
         chat?.id === activeChatId &&
         !isLoading &&
         !wizardOpen &&
@@ -4368,10 +4386,15 @@ const LocalChatArea = memo(function LocalChatArea({
         activeChatId={chat.id}
         isFirstChat={(allChats ?? []).filter((candidate) => candidate.mode === chatMode).length === 1}
         autoOpenBlocked={
-          !chatWindowIntroDismissed ||
-          // One onboarding thing per visit: after the "Got it" tip the help waits for a later visit rather than
-          // popping up a moment later and swallowing the first tap (keyboard QC round 2, AC18).
-          introShownThisVisit ||
+          (!chatIntroInHelp &&
+            (!chatWindowIntroDismissed ||
+              // One onboarding thing per visit: after the "Got it" tip the help waits for a later visit rather than
+              // popping up a moment later and swallowing the first tap (keyboard QC round 2, AC18).
+              introShownThisVisit)) ||
+          // The app's own first-run windows (What's new, the AI basics offer...) go first.
+          !chatWindowIntroAllowed ||
+          chatCovered ||
+          helpSlotTaken ||
           wizardOpen ||
           settingsOpen ||
           !!pendingNewChatMode ||
@@ -4379,6 +4402,10 @@ const LocalChatArea = memo(function LocalChatArea({
           !!deleteDialogMessageId
         }
       />
+    ) : null;
+  const holdTip =
+    chat && overhaulTouch && chatMode !== "game" ? (
+      <HoldMessageTip armed={replyLandedChatId === chat.id} mode={chatMode} />
     ) : null;
 
   // ═══════════════════════════════════════════════
@@ -4454,6 +4481,7 @@ const LocalChatArea = memo(function LocalChatArea({
             onSelectAllBelowSelection={handleSelectAllBelowSelection}
           />
           {chatHelpOverlay}
+          {holdTip}
           {chatWindowIntro}
         </>
       </Suspense>
@@ -4562,6 +4590,7 @@ const LocalChatArea = memo(function LocalChatArea({
           onConfirm={confirmRoleplayVideoPromptReview}
         />
         {chatHelpOverlay}
+        {holdTip}
         {pendingNewChatMode && (
           <NewChatConnectionGate
             mode={pendingNewChatMode}
@@ -4726,6 +4755,7 @@ const LocalChatArea = memo(function LocalChatArea({
         onConfirm={confirmRoleplayVideoPromptReview}
       />
       {chatHelpOverlay}
+      {holdTip}
       {pendingNewChatMode && (
         <NewChatConnectionGate
           mode={pendingNewChatMode}

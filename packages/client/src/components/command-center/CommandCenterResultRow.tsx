@@ -121,6 +121,8 @@ export function CommandCenterResultRow({
     <li
       data-result-id={dataResultId}
       data-command-center-result-row
+      data-selected={selected || undefined}
+      role="presentation"
       onMouseEnter={onMouseEnter}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
@@ -136,6 +138,8 @@ export function CommandCenterResultRow({
       <button
         id={id}
         type="button"
+        role="option"
+        aria-selected={selected}
         data-selected={selected || undefined}
         onClick={onSelect}
         // The title names the row; the subtitle (often a long description) only describes it.

@@ -6,6 +6,7 @@
  *
  * `preview` stays a thunk everywhere: it is only invoked for the focused row.
  */
+import { isLibraryPageCommand } from "./library-section-commands";
 import {
   normalizeTextForMatch,
   type Chat,
@@ -768,6 +769,11 @@ export function buildOmnibarSearchResults({
     activeChatId: omnibarContext.activeChat?.id ?? null,
     t,
   });
+  // A feature row that opens a page ("Connections") already is that page's row: the page's own command
+  // would be a second row doing the same thing, so it gives way.
+  const featureTargets = new Set(
+    featureRows.flatMap((row) => (row.target?.kind === "panel" ? [`panel:${row.target.panel}`] : [])),
+  );
   const preBoostResults = [
     ...openMariRows,
     ...featureRows,
@@ -776,7 +782,12 @@ export function buildOmnibarSearchResults({
       controls: [...controls, ...chatControls, ...controlChoices],
       context: omnibarContext,
       contextLabels,
-    }),
+    }).filter(
+      (result) =>
+        !isLibraryPageCommand(result.id) ||
+        result.target?.kind !== "panel" ||
+        !featureTargets.has(`panel:${result.target.panel}`),
+    ),
   ]
     // A control's values were never part of the set this ranking was tuned on.
     // Damp them so they surface on a deliberate "gpt" and never crowd a real hit.
