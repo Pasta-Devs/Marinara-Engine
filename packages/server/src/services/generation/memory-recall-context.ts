@@ -29,6 +29,8 @@ export interface MemoryRecallPromptWindow<T extends MemoryRecallWindowMessage> {
   messageCreatedAt: ReadonlyMap<string, string>;
   /** The context fit the request gets (same window, reply space and estimate): what it keeps of `messages`. */
   fit(messages: T[]): ReadonlyArray<{ contextKind?: string }>;
+  /** Told which history messages recall removed from `prompt`, so the request can still report them as not sent. */
+  onHistoryLeftOut?(messages: T[]): void;
 }
 
 export function buildMemoryRecallBlock(
@@ -72,12 +74,14 @@ function measureSentHistory<T extends MemoryRecallWindowMessage>(
   return { droppedHistory, sentTimes: sentTimes.sort() };
 }
 
-function removeOldestHistory(messages: MemoryRecallWindowMessage[], count: number): void {
-  for (let removed = 0; removed < count; removed++) {
+function removeOldestHistory<T extends MemoryRecallWindowMessage>(messages: T[], count: number): T[] {
+  const removed: T[] = [];
+  while (removed.length < count) {
     const index = messages.findIndex((message) => message.contextKind === "history");
-    if (index < 0) return;
-    messages.splice(index, 1);
+    if (index < 0) break;
+    removed.push(...messages.splice(index, 1));
   }
+  return removed;
 }
 
 export async function injectMemoryRecallContext<T extends MemoryRecallWindowMessage = MemoryRecallWindowMessage>({
@@ -181,7 +185,10 @@ export async function injectMemoryRecallContext<T extends MemoryRecallWindowMess
 
     // The request's own fit would drop the same history. Dropping it now keeps it out even if the prompt later
     // shrinks, so a recalled message is never also sent as history.
-    if (promptWindow) removeOldestHistory(promptWindow.prompt, droppedHistory);
+    if (promptWindow) {
+      const leftOut = removeOldestHistory(promptWindow.prompt, droppedHistory);
+      if (leftOut.length > 0) promptWindow.onHistoryLeftOut?.(leftOut);
+    }
     insertBeforeHistory(messages, { role: "system", content: memoriesBlock });
     return selected.map(({ line }) => line);
   } catch (err) {
