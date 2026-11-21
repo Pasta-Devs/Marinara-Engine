@@ -5,6 +5,7 @@
 // sections themselves are the app's own components, so nothing loses
 // behaviour. Chips under the tabs jump to a section; search covers all tabs.
 // ──────────────────────────────────────────────
+import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { APP_VERSION, SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shared";
@@ -665,13 +666,21 @@ function OverhaulSettingsDesktop() {
         </div>
       </header>
       <div className="ov-settings__tabs">
-        <div role="tablist" aria-label={localize("Settings categories")}>
+        {/* A11Y11: one Tab stop; arrows move focus and Enter or Space opens the tab (manual: a tab takes a moment). */}
+        <div
+          role="tablist"
+          aria-label={localize("Settings categories")}
+          onKeyDown={(event) => onRovingTabsKeyDown(event, "manual")}
+        >
           {OVERHAUL_SETTINGS_TABS.map((item) => (
             <button
               key={item.id}
               type="button"
               role="tab"
+              id={`ov-settings-tab-${item.id}`}
+              aria-controls="ov-settings-panel"
               aria-selected={item.id === tab.id}
+              tabIndex={item.id === tab.id ? 0 : -1}
               className={cn(item.id === tab.id && "is-on")}
               onClick={() => setTab(item.id)}
             >
@@ -689,7 +698,13 @@ function OverhaulSettingsDesktop() {
           ))}
         </div>
       ) : null}
-      <div className="ov-settings__scroll" ref={setScrollEl}>
+      <div
+        className="ov-settings__scroll"
+        ref={setScrollEl}
+        id="ov-settings-panel"
+        role="tabpanel"
+        aria-labelledby={`ov-settings-tab-${tab.id}`}
+      >
         <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
           <OverhaulSettingsSections key={tab.id} sectionIds={tab.sections} />
         </Suspense>

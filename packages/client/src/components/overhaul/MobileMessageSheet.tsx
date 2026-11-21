@@ -17,6 +17,8 @@ import { chatKeys } from "../../hooks/use-chats";
 import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { closeAfterAction } from "./RpMessageFooter";
+import { isKeyboardContextMenu } from "../../hooks/use-menu-keyboard";
+import { useOverlayFocus } from "../../hooks/use-overlay-focus";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 // Close to the system long-press: a thumb resting before a scroll must not open the sheet (panel IR9).
@@ -51,6 +53,21 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
   if (!enabled) return {};
   return {
     "data-ovm-longpress": "true",
+    // A11Y20: the phone layout also runs on a laptop at 200% zoom or in a narrow window, where the message
+    // actions are only behind this hold. There the message is a Tab stop, and Enter (or Shift+F10 and the menu
+    // key, through onContextMenu below) opens the same sheet. Real phones never show the focus ring.
+    tabIndex: 0,
+    "aria-keyshortcuts": "Enter Shift+F10",
+    onKeyDown: (event: React.KeyboardEvent) => {
+      if (event.key !== "Enter" || event.target !== event.currentTarget) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      lastPressPoint = { x: rect.left + 24, y: rect.top + 24 };
+      fire();
+      // No click follows a key press, so none is waiting to be swallowed.
+      fired.current = false;
+    },
     onPointerDown: (event: React.PointerEvent) => {
       fired.current = false;
       if (event.pointerType === "mouse") return;
@@ -74,6 +91,14 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
       const target = event.target as HTMLElement;
       if (target.closest("input, textarea, [contenteditable='true']")) return;
       event.preventDefault();
+      // From the keyboard the event has no pointer spot: open by the message instead of an old finger spot.
+      if (isKeyboardContextMenu(event)) {
+        const rect = event.currentTarget.getBoundingClientRect();
+        lastPressPoint = { x: rect.left + 24, y: rect.top + 24 };
+        fire();
+        fired.current = false;
+        return;
+      }
       if (!fired.current) fire();
     },
     onClickCapture: (event: React.MouseEvent) => {
@@ -184,13 +209,8 @@ export function OvMobileMessageSheet({
   const count = Math.max(1, swipeCount);
   const showSwipes = Boolean(onSetSwipe) && (swipeCount > 1 || Boolean(onCreateSwipe));
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Focus moves into the sheet, Tab stays in it, Escape closes it and focus goes back to the message (A11Y20).
+  useOverlayFocus(sheetRef, { onEscape: onClose });
 
   const run = (action?: () => void) => () => {
     onClose();

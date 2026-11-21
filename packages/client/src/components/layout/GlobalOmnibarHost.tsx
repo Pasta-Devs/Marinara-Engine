@@ -1,4 +1,4 @@
-import { Component, Suspense, useEffect, type ErrorInfo, type ReactNode } from "react";
+import { Component, Suspense, useEffect, useLayoutEffect, type ErrorInfo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { professorMariChatsQuery } from "../../hooks/use-chats";
@@ -11,7 +11,7 @@ import {
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
 import { openProfessorMariChatPage } from "../../lib/state-navigation";
-import { isShortcutsHelpKey, shortcutKeyTypesText, takesLetterKeys } from "../../lib/keyboard-shortcuts";
+import { askMariKeyStaysInField, isShortcutsHelpKey, takesLetterKeys } from "../../lib/keyboard-shortcuts";
 import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import { parseOmnibarScope } from "../../lib/omnibar-scope";
@@ -26,6 +26,7 @@ import { useMariPresence } from "../../hooks/use-mari-presence";
 import { warmMariSprite } from "../../lib/mari-sprite-ready";
 import { mariAssetUrls } from "../../lib/mari-work-animations";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { startOmnibarKeyBuffer, stopOmnibarKeyBuffer } from "../../lib/omnibar-key-buffer";
 import { useUIStore } from "../../stores/ui.store";
 
 // The dialog carries the whole Command Center (search, browse, Mari panes), so it
@@ -113,12 +114,31 @@ export function GlobalOmnibar() {
         // Her pane's code too, so the first ⌘J does not fetch and run it before her chat can load.
         .then((module) => module.OmnibarMariPane.preload())
         .catch(() => undefined);
+    // Also on the first sign of a person at the keyboard or mouse, not only at idle: a busy start
+    // never goes idle before the first Ctrl+K (QC Nov 21 A11Y10). Runs once, whichever comes first.
+    let done = false;
+    const once = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("pointermove", once);
+      window.removeEventListener("keydown", once);
+      preload();
+    };
+    window.addEventListener("pointermove", once, { passive: true });
+    window.addEventListener("keydown", once);
+    let cancelIdle: () => void;
     if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(preload, { timeout: 5_000 });
-      return () => window.cancelIdleCallback(id);
+      const id = window.requestIdleCallback(once, { timeout: 5_000 });
+      cancelIdle = () => window.cancelIdleCallback(id);
+    } else {
+      const timer = window.setTimeout(once, 2_000);
+      cancelIdle = () => window.clearTimeout(timer);
     }
-    const timer = window.setTimeout(preload, 2_000);
-    return () => window.clearTimeout(timer);
+    return () => {
+      cancelIdle();
+      window.removeEventListener("pointermove", once);
+      window.removeEventListener("keydown", once);
+    };
   }, [queryClient]);
 
   // M16 tier 2: once the page has loaded, warm the selected pack's omnibar sprites at idle, so the
@@ -159,9 +179,13 @@ export function GlobalOmnibar() {
         const dialog = event.target instanceof Element ? event.target.closest('[aria-modal="true"]') : null;
         if (ui.omnibarOpen && dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
         event.preventDefault();
-        if (!ui.omnibarOpen) captureMariFieldDraft();
+        if (!ui.omnibarOpen) {
+          captureMariFieldDraft();
+          // Keys typed before the search field exists go into it, not to the page (A11Y10).
+          startOmnibarKeyBuffer();
+        }
         setOpen(!ui.omnibarOpen);
-      } else if (isAskMariShortcut(event) && !ui.omnibarOpen && !shortcutKeyTypesText(event)) {
+      } else if (isAskMariShortcut(event) && !ui.omnibarOpen && !askMariKeyStaysInField(event)) {
         // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8). #9129: not while a
         // field is being typed in - there Ctrl+J is the IME's own key (SKK's on switch), so the field keeps it.
         event.preventDefault();
@@ -216,6 +240,12 @@ export function GlobalOmnibar() {
     window.addEventListener(PROFESSOR_MARI_OPEN_EVENT, openProfessorMari);
     return () => window.removeEventListener(PROFESSOR_MARI_OPEN_EVENT, openProfessorMari);
   }, [setOpen]);
+
+  // Opened another way (the top bar's Search, a pull): same buffering. Closed before it showed: give keys back.
+  useLayoutEffect(() => {
+    if (open) startOmnibarKeyBuffer();
+    else stopOmnibarKeyBuffer();
+  }, [open]);
 
   if (!open) return null;
   return (

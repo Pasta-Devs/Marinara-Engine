@@ -4,6 +4,7 @@
 // says which Model each job uses. Model rows open the Model editor; the account name opens
 // the account editor. Add account opens the add window anchored under its button.
 // ──────────────────────────────────────────────
+import { useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 import { Fragment, useMemo, useState, type MouseEvent } from "react";
 import {
   BadgeCheck,
@@ -344,6 +345,8 @@ export function ConnectionsLanding() {
   const [sort, setSort] = useState<SortKey>("name");
   const [openIds, setOpenIds] = useState<string[] | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  // A11Y3: arrows move through the account menu; Escape closes it and returns to its ⋯.
+  const menuKeys = useMenuKeyboard({ open: menu !== null, onClose: () => setMenu(null) });
   // Model actions (the classic list's ⋯): Move, Folder, Duplicate, Shuffle, Make default for, Remove.
   const modelMenu = useKitMenu();
   const duplicateConnection = useDuplicateConnection();
@@ -762,6 +765,7 @@ export function ConnectionsLanding() {
 
   const openMenu = (event: MouseEvent<HTMLButtonElement>, id: string) => {
     event.stopPropagation();
+    menuKeys.noteOpener(event);
     const rect = event.currentTarget.getBoundingClientRect();
     setMenu((current) => (current?.id === id ? null : { id, x: rect.right, y: rect.bottom + 4 }));
   };
@@ -1016,7 +1020,12 @@ export function ConnectionsLanding() {
       {menu ? (
         <>
           <div className="ov-conn__menu-scrim" onClick={() => setMenu(null)} />
-          <div className="ov-menu ov-conn__menu" role="menu" style={{ top: menu.y, left: menu.x }}>
+          <div
+            ref={menuKeys.menuRef}
+            className="ov-menu ov-conn__menu"
+            role="menu"
+            style={{ top: menu.y, left: menu.x }}
+          >
             <button
               type="button"
               role="menuitem"

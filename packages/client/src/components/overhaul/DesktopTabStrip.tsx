@@ -9,6 +9,7 @@
 // second) lights it up and dropping then groups them. Shift groups at once, and the
 // right-click menu has Add to group too.
 // ──────────────────────────────────────────────
+import { isKeyboardContextMenu, useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 import { editorLeaveKeyForTab } from "../../lib/editor-leave";
 import { useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
 import { toast } from "sonner";
@@ -87,6 +88,21 @@ export function DesktopTabStrip({
   const [drop, setDrop] = useState<DropSpot | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
+  // A11Y3: both menus move focus with the arrows and give it back on Escape (hooks/use-menu-keyboard).
+  const menuKeyboardRef = useRef(false);
+  const menuOpenerRef = useRef<HTMLElement | null>(null);
+  const tabMenuKeys = useMenuKeyboard({
+    open: menu !== null,
+    onClose: () => setMenu(null),
+    trigger: menuOpenerRef.current,
+    initialFocus: menuKeyboardRef.current ? "first" : null,
+    anywhere: true,
+  });
+  const overflowKeys = useMenuKeyboard({
+    open: overflowOpen,
+    onOpen: () => setOverflowOpen(true),
+    onClose: () => setOverflowOpen(false),
+  });
   // Where the "More tabs" menu opens. It's portalled out of the top bar, which clips everything
   // below its one row (audit H1: the menu opened invisibly).
   const [overflowAt, setOverflowAt] = useState<{ top: number; right: number } | null>(null);
@@ -270,6 +286,7 @@ export function DesktopTabStrip({
         timer: setTimeout(() => {
           press.current = null;
           setOverflowOpen(false);
+          menuKeyboardRef.current = false;
           setMenu({ ...value, x, y });
           heldMenuAt.current = { x, y };
         }, 500),
@@ -459,7 +476,12 @@ export function DesktopTabStrip({
   const openMenu = (event: React.MouseEvent, value: MenuTarget) => {
     event.preventDefault();
     setOverflowOpen(false);
-    setMenu({ ...value, x: event.clientX, y: event.clientY });
+    // Shift+F10 or the menu key: the menu opens under the tab, on its first item (A11Y3).
+    const keyboard = isKeyboardContextMenu(event);
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    menuKeyboardRef.current = keyboard;
+    menuOpenerRef.current = event.target instanceof HTMLElement ? event.target.closest("button") : null;
+    setMenu({ ...value, x: keyboard ? rect.left : event.clientX, y: keyboard ? rect.bottom + 4 : event.clientY });
   };
 
   const overflowItems = items.filter((item) => clipped.has(item.itemKey));
@@ -624,10 +646,11 @@ export function DesktopTabStrip({
           <button
             type="button"
             className={cn("ov-icon-btn ov-tabs-more__btn", overflowOpen && "is-on")}
-            aria-expanded={overflowOpen}
+            {...overflowKeys.triggerProps}
             title={localize("More tabs")}
             aria-label={localize("More tabs")}
             onClick={(event) => {
+              overflowKeys.noteOpener(event);
               setMenu(null);
               const rect = event.currentTarget.getBoundingClientRect();
               setOverflowAt({ top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) });
@@ -640,6 +663,7 @@ export function DesktopTabStrip({
           {overflowOpen && overflowAt
             ? createPortal(
                 <div
+                  ref={overflowKeys.menuRef}
                   className="ov-menu ov-tabs-more__menu"
                   role="menu"
                   data-ov-tabmenu
@@ -706,6 +730,7 @@ export function DesktopTabStrip({
       {menu
         ? createPortal(
             <div
+              ref={tabMenuKeys.menuRef}
               className="ov-menu ov-tabctx"
               role="menu"
               data-ov-tabmenu

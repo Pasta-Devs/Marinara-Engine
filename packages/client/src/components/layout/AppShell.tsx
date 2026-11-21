@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Layout: Main App Shell (Discord-like three-column)
 // ──────────────────────────────────────────────
+import { useKeepFocusOnPage } from "../../hooks/use-keep-focus-on-page";
 import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
 import { useCenterPageOpen } from "../../hooks/use-chat-theme";
 import { useQueryClient } from "@tanstack/react-query";
@@ -301,6 +302,8 @@ export function AppShell({
   chatWindowIntroAllowed?: boolean;
   onChatWindowIntroOpenChange?: (open: boolean) => void;
 }) {
+  // A11Y19: a page change never leaves keyboard focus on <body>.
+  useKeepFocusOnPage();
   // Load the chat view and right panel while idle, so the first chat or panel open does not wait for code.
   useEffect(() => {
     const preload = () => {

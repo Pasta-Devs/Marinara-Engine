@@ -33,6 +33,13 @@
   --mari-selected-bg: color-mix(in srgb, var(--mari-selected-tint) 10%, transparent);
   --mari-selected-ring: color-mix(in srgb, var(--mari-selected-tint) 18%, transparent);
 }
+/* QC Nov 21 A11Y12: the faint text colour let the page show through it, which took small grey text under 4.5:1
+   on light looks (3.97 on Light, about 3.5-3.8 on SillyTavern and Stage light) and on SillyTavern dark (4.38).
+   There it is the solid muted colour; size and weight keep the hierarchy. Dark looks that pass keep the softer one. */
+:root[data-theme="light"],
+:root[data-visual-theme="sillytavern"] {
+  --ov-dim: var(--muted-foreground);
+}
 @supports (color: oklch(from red l c h)) {
   /* OKLCH lightness caps: 0.52 reads at about 5:1 on a light page, 0.68 at about 5:1 on a dark one.
      Accents already inside the cap are unchanged. */

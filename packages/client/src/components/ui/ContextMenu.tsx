@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { BOTTOM_SHEET_CLASS } from "./neutral-surface-styles";
+import { moveMenuFocus } from "../../hooks/use-menu-keyboard";
 
 export interface ContextMenuItem {
   label: string;
@@ -122,32 +123,20 @@ export function ContextMenu({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") {
         // Arrow keys, Home and End move between enabled items (wrapping). Enter and Space are the buttons' own.
-        const move = { ArrowDown: 1, ArrowUp: -1, Home: 0, End: 0 }[e.key];
+        // The same moves as every other menu (hooks/use-menu-keyboard).
         const menu = ref.current;
         const active = document.activeElement;
-        if (move === undefined || !menu || e.altKey || e.ctrlKey || e.metaKey) return;
+        if (!menu || e.altKey || e.ctrlKey || e.metaKey) return;
         // Never take keys from a text field outside the menu.
         const typing =
           active instanceof HTMLElement &&
           !menu.contains(active) &&
           active.matches("input, textarea, select, [contenteditable]");
         if (typing) return;
-        const buttons = Array.from(menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
-        if (buttons.length === 0) return;
-        const at = buttons.findIndex((button) => button === active);
-        const next =
-          e.key === "Home"
-            ? 0
-            : e.key === "End"
-              ? buttons.length - 1
-              : at < 0
-                ? move > 0
-                  ? 0
-                  : buttons.length - 1
-                : (at + move + buttons.length) % buttons.length;
-        e.preventDefault();
-        e.stopPropagation();
-        buttons[next].focus({ preventScroll: true });
+        if (moveMenuFocus(menu, e.key)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
         return;
       }
       e.preventDefault();

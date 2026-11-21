@@ -1,7 +1,8 @@
 // ──────────────────────────────────────────────
 // Onboarding Tutorial — first-time guided tour
 // ──────────────────────────────────────────────
-import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useOverlayFocus } from "../../hooks/use-overlay-focus";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { APP_VERSION } from "@marinara-engine/shared";
@@ -759,10 +760,10 @@ function TourCardContent({
 
         {/* Buttons */}
         <div className="flex items-center justify-between">
-          <button onClick={onSkip} className={TUTORIAL_SECONDARY_BUTTON_CLASS}>
+          <button type="button" onClick={onSkip} className={TUTORIAL_SECONDARY_BUTTON_CLASS}>
             {localize(step === 0 ? "Skip Tutorial" : "Skip")}
           </button>
-          <button onClick={onNext} className={TUTORIAL_PRIMARY_BUTTON_CLASS}>
+          <button type="button" data-tour-primary="" onClick={onNext} className={TUTORIAL_PRIMARY_BUTTON_CLASS}>
             {localize(isLast ? "Get Started" : "Next")}
             {!isLast && <ChevronRight size="0.75rem" />}
           </button>
@@ -1023,14 +1024,6 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
     trackAchievement.mutate("tutorial_completed");
   }, [device, kind, setCompleted, trackAchievement]);
 
-  const handleTutorialKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLElement>) => {
-      if (event.key !== "Escape" || event.defaultPrevented || useUIStore.getState().modal) return;
-      finish();
-    },
-    [finish],
-  );
-
   // "Get Started" on the final step commits the docs-language pick; Skip never does.
   const next = useCallback(() => {
     if (isLast) {
@@ -1070,6 +1063,18 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
   const tooltipStyle = targetRect ? computeTooltipStyle(targetRect, currentStep) : lastTooltipStyleRef.current;
   if (!isCentered && targetRect) lastTooltipStyleRef.current = tooltipStyle;
   if (isCentered) lastTooltipStyleRef.current = null;
+
+  // A11Y4: the card takes focus (its Next button) on every step, Tab stays in it (the page behind is dimmed),
+  // and Escape ends the tour from anywhere, as Skip does. A window opened above the tour keeps its own Escape.
+  useOverlayFocus(cardRef, {
+    active: !holdingForTarget,
+    initialFocus: "[data-tour-primary]",
+    focusKey: `${step}:${isCentered}`,
+    onEscape: () => {
+      if (useUIStore.getState().modal) return false;
+      finish();
+    },
+  });
 
   // Mari turns toward the highlighted control, wherever the card ended up beside (or, on a phone, below) it.
   const [cardBox, setCardBox] = useState<Rect | null>(null);
@@ -1177,7 +1182,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
             className={TUTORIAL_CARD_CLASS}
             ref={cardRef}
             role="dialog"
-            onKeyDown={handleTutorialKeyDown}
+            aria-modal="true"
             aria-label={dialogLabel}
             data-component="OnboardingTutorial.Card"
             style={{
@@ -1209,7 +1214,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
           className={TUTORIAL_CARD_CLASS}
           ref={cardRef}
           role="dialog"
-          onKeyDown={handleTutorialKeyDown}
+          aria-modal="true"
           aria-label={dialogLabel}
           data-component="OnboardingTutorial.Card"
           style={{

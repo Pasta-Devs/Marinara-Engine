@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useOverlayFocus } from "../../hooks/use-overlay-focus";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useUIStore } from "../../stores/ui.store";
@@ -69,11 +70,15 @@ function OvChatSettingsTip({ onDismiss }: { onDismiss: () => void }) {
       document.documentElement.removeAttribute("data-ov-topbar-pinned");
     };
   }, []);
+  // A11Y5: a tip, not a window. It never takes focus, says itself out loud, and Escape closes it like Got it.
+  useOverlayFocus(tipRef, { modal: false, onEscape: onDismiss });
   return createPortal(
     <div
       ref={tipRef}
       data-chat-window-intro
       role="dialog"
+      aria-modal="false"
+      aria-live="polite"
       aria-labelledby="ov-cs-tip-title"
       className="ov-cs-tip"
       style={{ top: pos.top, left: pos.left }}

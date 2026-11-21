@@ -165,7 +165,8 @@
 
   /* Font: Noto Sans is SillyTavern's house font, but respect user's custom font choice */
   --font-y2k:
-    "Straight Quotes", var(--font-user, "Figtree Variable", "Figtree"), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    "Straight Quotes", var(--font-user, "Figtree Variable", "Figtree"), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
   --app-font-size: 0.875rem;
 }
 
@@ -184,7 +185,7 @@
   --marinara-conversation-gradient-from: var(--secondary);
   --marinara-conversation-gradient-to: var(--secondary);
   --muted: #e6dccc;
-  --muted-foreground: #6e6070;
+  --muted-foreground: #645666; /* A11Y12: 4.5:1 on its sidebar too */
   --accent: #e8dccb;
   --accent-foreground: #22182b;
   --destructive: #b0303f;
@@ -253,25 +254,20 @@
 :where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] button),
 :where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-pointer),
 :where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-grab),
-:where(
-  :root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] label[class*="cursor-pointer"]
-),
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] label[class*="cursor-pointer"]),
 :where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] input[type="color"]) {
   cursor: pointer !important;
 }
 :where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-not-allowed),
 :where(
-  :root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"]
-    .disabled\:cursor-not-allowed:disabled
+  :root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .disabled\:cursor-not-allowed:disabled
 ) {
   cursor: not-allowed !important;
 }
 :where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-grab) {
   cursor: grab !important;
 }
-:where(
-  :root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .active\:cursor-grabbing:active
-) {
+:where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .active\:cursor-grabbing:active) {
   cursor: grabbing !important;
 }
 :where(:root:not([data-marinara-custom-cursor="enabled"])[data-visual-theme="stage"] .cursor-help) {

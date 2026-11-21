@@ -28,6 +28,9 @@ export function KeyboardShortcutsModal({ open, onClose }: { open: boolean; onClo
                   <div key={shortcut.labelKey} className="flex items-center justify-between gap-3 px-2.5 py-1.5">
                     <dt className="min-w-0 text-xs text-[var(--foreground)]">
                       {t((overhaul && shortcut.overhaulLabelKey) || shortcut.labelKey)}
+                      {shortcut.notWhileTypingOffApple && !apple
+                        ? ` ${t("shortcuts.notWhileTyping", "(not while typing in a box)")}`
+                        : null}
                     </dt>
                     <dd className="flex shrink-0 flex-wrap items-center justify-end gap-1">
                       {shortcut.keys.map((combo, comboIndex) => (

@@ -82,6 +82,7 @@ import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { isSetupKeptForLater, isUnfinishedSetup } from "../../hooks/use-setup-drafts";
 import { ChatRowPeek } from "./ChatRowPeek";
+import { useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 import { Fragment, lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
@@ -430,6 +431,12 @@ export function ChatSidebar() {
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   // New layout on phones: sort, select, new folder, import and message search live in one ⋯ menu.
   const [ovmListMenuOpen, setOvmListMenuOpen] = useState(false);
+  // A11Y3: same keys as every other menu (arrows, Escape back to ⋯).
+  const ovmListMenuKeys = useMenuKeyboard({
+    open: ovmListMenuOpen,
+    onOpen: () => setOvmListMenuOpen(true),
+    onClose: () => setOvmListMenuOpen(false),
+  });
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
   const [isImportingChat, setIsImportingChat] = useState(false);
 
@@ -2217,13 +2224,17 @@ export function ChatSidebar() {
                 type="button"
                 className="mari-chrome-control ovm-chats-more__btn"
                 aria-label={localize("More chat list options")}
-                aria-expanded={ovmListMenuOpen}
-                onClick={() => setOvmListMenuOpen((open) => !open)}
+                {...ovmListMenuKeys.triggerProps}
+                onClick={(event) => {
+                  ovmListMenuKeys.noteOpener(event);
+                  setOvmListMenuOpen((open) => !open);
+                }}
               >
                 <MoreHorizontal size={20} />
               </button>
               {ovmListMenuOpen ? (
                 <div
+                  ref={ovmListMenuKeys.menuRef}
                   className="ov-menu ovm-chats-menu"
                   role="menu"
                   aria-label={localize("Chat list options")}

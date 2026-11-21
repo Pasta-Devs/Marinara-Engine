@@ -1,4 +1,5 @@
 import type { AddJob } from "./add-connection";
+import { isLibraryPageCommand, libraryPageCommandFor } from "./library-section-commands";
 import {
   normalizeProfessorMariNavigationQuery,
   type ProfessorMariBrowserTab,
@@ -598,6 +599,16 @@ function scoreContainedText(query: string, values: readonly string[]) {
   }, -1);
 }
 
+/** Above everything a word can only appear in (feature rows sit at 900), like Open Mari's 1000. */
+const PAGE_NAME_SCORE = 1000;
+
+/** The whole query is the page's name or one of its words, with an optional "open"/"go to" in front. */
+function pageNameMatches(query: string, command: { title: string; aliases?: readonly string[] }) {
+  const bare = query.replace(/^(?:open|show|go\s+to)\s+/, "").trim();
+  if (!bare) return false;
+  return [command.title, ...(command.aliases ?? [])].some((value) => normalizeCandidate(value) === bare);
+}
+
 function scoreIntent(
   intent: OmnibarIntent | null,
   result: Pick<OmnibarResult, "id" | "category" | "kind" | "availability" | "control">,
@@ -699,7 +710,17 @@ export function searchOmnibar(query: string, data: OmnibarSearchData): OmnibarRe
     const contextualRepair =
       intent?.kind === "repair" &&
       (command.availability?.status === "requires-capability" || data.context?.error?.resultIds.includes(command.id));
-    if (score >= 0 || contextualRepair)
+    // A Library page named outright ("presets", "open presets", "regex") leads the list, above guides and FAQ
+    // answers that only mention the word (IA14). It names itself the Top hit, like typing Mari's name does.
+    const namesPage =
+      isLibraryPageCommand(command.id) &&
+      (pageNameMatches(fullQuery, command) ||
+        pageNameMatches(searchQuery, command) ||
+        (intent?.kind === "navigate" &&
+          !intent.targetQuery &&
+          intent.objectCategory !== undefined &&
+          libraryPageCommandFor(intent.objectCategory) === command.id));
+    if (score >= 0 || contextualRepair || namesPage)
       results.push(
         finishResult(
           {
@@ -708,8 +729,9 @@ export function searchOmnibar(query: string, data: OmnibarSearchData): OmnibarRe
             kind: command.kind,
             icon: command.icon,
             availability: command.availability,
-            score: contextualRepair ? Math.max(score, 80) : score,
-            matchKind: score >= 0 ? (score < 100 ? "fuzzy" : "literal") : undefined,
+            score: namesPage ? PAGE_NAME_SCORE : contextualRepair ? Math.max(score, 80) : score,
+            matchKind: namesPage || score >= 100 ? "literal" : score >= 0 ? "fuzzy" : undefined,
+            ...(namesPage ? { group: "top-hit" as const } : {}),
           },
           intent,
           data,
@@ -798,7 +820,15 @@ export function searchOmnibar(query: string, data: OmnibarSearchData): OmnibarRe
         ),
       );
   }
-  return (intent?.objectCategory ? results.filter((item) => item.category === intent.objectCategory) : results)
+  // "new character" / "open presets" narrow to that kind of item, but keep the commands that act on the kind
+  // itself: its Create/Import command and its Library page (QC Nov 21 IA13).
+  const objectCategory = intent?.objectCategory;
+  const keepForKind = (item: OmnibarResult) =>
+    item.category === objectCategory ||
+    item.id === `create-${objectCategory}` ||
+    item.id === `import-${objectCategory}` ||
+    (objectCategory !== undefined && item.id === libraryPageCommandFor(objectCategory));
+  return (objectCategory ? results.filter(keepForKind) : results)
     .map((item) => withMatchRanges(item, [searchQuery, fullQuery]))
     .sort(
       (a, b) =>

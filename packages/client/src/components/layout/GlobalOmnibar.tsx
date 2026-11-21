@@ -173,6 +173,7 @@ import { useOmnibarScreenContext } from "./omnibar/use-omnibar-screen-context";
 import { createOmnibarResultActions } from "./omnibar/omnibar-result-actions";
 import { useOmnibarLocalResults } from "./omnibar/use-omnibar-local-results";
 import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
+import { applyOmnibarBufferedKeys, takeOmnibarKeyBuffer } from "../../lib/omnibar-key-buffer";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { markThingTried } from "../../lib/things-to-try-progress";
@@ -248,6 +249,8 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // writing that pane and then opening; resetting it on read would kill that.
   const [session, setSession] = useState<CommandCenterSessionState>(() => readCommandCenterSessionState());
   const initialQueryRef = useRef(session.query);
+  /** The query an Enter typed before the field existed was meant for (A11Y10). */
+  const pendingEnterRef = useRef<string | null>(null);
   const { query, filter, activeResultId, mariReturnResultId, mariHandoff } = session;
   const pane = session.pane;
   const mariFinished = mariHandoff?.status === "finished";
@@ -1156,6 +1159,16 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const loading = sourceQueries.some((item) => item.isLoading) || docs.isSearching;
   const failed = sourceQueries.some((item) => item.isError) || docs.isError;
 
+  // An Enter typed before the field existed (A11Y10) runs once that text's results are in and settled,
+  // exactly as if it had been pressed in the field.
+  useEffect(() => {
+    const pending = pendingEnterRef.current;
+    if (pending === null || pane !== "results") return;
+    if (query !== pending || rawDeferredQuery !== pending || loading || !activeResult) return;
+    pendingEnterRef.current = null;
+    inputRef.current?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+  }, [activeResult, loading, pane, query, rawDeferredQuery]);
+
   // Persist the session, but debounced: writing JSON to localStorage on every
   // keystroke is pure jank. A ref holds the latest session so the unmount-only
   // effect can flush it on close without losing the final edit.
@@ -1210,7 +1223,13 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     // user has not moved the selection since this query started, the selection
     // must follow that new top row too, not just on the keystroke that changed
     // the query - otherwise Enter still lands on the no-longer-first Mari row.
-    const topCandidateId = firstCurrentWorkId ?? results[0]?.id ?? null;
+    // QC Nov 21 IA16: Enter never sends the search to Professor Mari on its own while a real match is listed:
+    // her row is only the first pick when nothing else matched by name. She is still one arrow press away.
+    const firstRow =
+      results[0]?.id === "ask-professor-mari"
+        ? (results.find((result) => result.id !== "ask-professor-mari" && (result.score ?? 0) >= 200) ?? results[0])
+        : results[0];
+    const topCandidateId = firstCurrentWorkId ?? firstRow?.id ?? null;
     const next = reconcileActiveResultId(
       queryChanged
         ? null
@@ -1227,11 +1246,20 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     restoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     requestAnimationFrame(() => {
+      // Keys typed between Ctrl+K and now (the code was still loading) belong in the field (A11Y10).
+      const typed = takeOmnibarKeyBuffer();
       // The settings sheet owns focus when it opens the omnibar directly
       // (Settings > Open, a Settings-search jump); focusing the hidden
       // search input underneath it would steal focus from the sheet.
       if (useUIStore.getState().omnibarSettings) return;
       inputRef.current?.focus();
+      if (typed.length > 0 && sessionRef.current.pane === "results") {
+        const { query: typedQuery, enter } = applyOmnibarBufferedKeys(initialQueryRef.current, typed);
+        setSession((current) => ({ ...current, query: typedQuery }));
+        // An Enter typed ahead runs once the results for that text are in (see the effect below).
+        if (enter) pendingEnterRef.current = typedQuery;
+        return;
+      }
       if (initialQueryRef.current) inputRef.current?.select();
     });
     const panel = panelRef.current;
@@ -1640,6 +1668,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     const previous = pointerRef.current;
     pointerRef.current = { x: event.clientX, y: event.clientY };
     if (previous && previous.x === event.clientX && previous.y === event.clientY) return;
+    listRef.current?.removeAttribute("data-keyboard-nav");
     autoSelectionRef.current = false;
     setActiveResultId(result.id);
     // The preview renders for whatever is highlighted, and hover moves the
@@ -2335,6 +2364,10 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
                       autoCapitalize="off"
                       spellCheck={false}
                       aria-label={t("omnibar.inputLabel", "Search Marinara")}
+                      // A11Y9: an editable combobox over the result listbox, so the selected row is read out.
+                      role="combobox"
+                      aria-expanded={listVisible}
+                      aria-autocomplete="list"
                       // Focus stays in the field while the arrows move the selection,
                       // so point screen readers at the selected row.
                       aria-controls={listVisible ? "global-omnibar-results" : undefined}

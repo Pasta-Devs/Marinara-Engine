@@ -6,6 +6,7 @@
 // tools (volume, assets, game data, checkpoints, retries, ending the session)
 // moved into Chat settings > Game.
 // ──────────────────────────────────────────────
+import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { avatarInitial } from "../../lib/avatar-initial";
 import { BookOpen, Backpack, History, Map as MapIcon, Users, X } from "lucide-react";
@@ -450,13 +451,14 @@ export function OvGamePane({
           <X size={14} />
         </button>
       </div>
-      <div className="ov-gpane__tabs" role="tablist">
+      <div className="ov-gpane__tabs" role="tablist" onKeyDown={(event) => onRovingTabsKeyDown(event)}>
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
             type="button"
             role="tab"
             aria-selected={tab === id}
+            tabIndex={tab === id ? 0 : -1}
             className={cn(tab === id && "is-on")}
             onClick={() => setTab(id)}
           >

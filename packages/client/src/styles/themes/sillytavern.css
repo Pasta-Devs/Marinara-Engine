@@ -184,7 +184,7 @@
   --marinara-conversation-gradient-from: var(--secondary);
   --marinara-conversation-gradient-to: var(--secondary);
   --muted: #d0d0da;
-  --muted-foreground: #606078;
+  --muted-foreground: #55556b; /* A11Y12: 4.5:1 on its sidebar too */
   --accent: #d4d4de;
   --accent-foreground: #1a1a24;
   --destructive: #a83248;

@@ -4,6 +4,7 @@ import {
   type CommandCenterTitleSource,
   type DeclarativeCommandDefinition,
 } from "./command-center-definitions";
+import { LIBRARY_SECTION_COMMANDS } from "./library-section-commands";
 
 const AVAILABLE = { status: "available" } as const;
 
@@ -371,6 +372,53 @@ export function createSettingsCommandDefinitions(source: CommandCenterTitleSourc
   ];
 }
 
+/**
+ * Every Library page has a command (lib/library-section-commands.ts): a page that already had one gets the
+ * table's words added to its aliases, any other gets one made here.
+ */
+function withLibraryPageCommands(
+  definitions: DeclarativeCommandDefinition[],
+  source: CommandCenterTitleSource,
+): DeclarativeCommandDefinition[] {
+  const title = resolveCommandCenterTitles(source);
+  const generated = {
+    presets: { title: title.presetsPage, icon: "preset", panel: "presets" },
+    profiles: { title: title.profilesPage, icon: "settings", panel: "profiles" },
+    regex: { title: title.regexPage, icon: "command", panel: "regex" },
+    agents: { title: title.agentsPage, icon: "agent", panel: "agents" },
+    tools: { title: title.toolsPage, icon: "command", panel: "tools" },
+  } as const;
+  const byId = new Map(definitions.map((definition) => [definition.id, definition]));
+  const pages: DeclarativeCommandDefinition[] = [];
+  for (const [section, entry] of Object.entries(LIBRARY_SECTION_COMMANDS)) {
+    const existing = byId.get(entry.commandId);
+    if (existing) {
+      byId.set(entry.commandId, {
+        ...existing,
+        aliases: [...new Set([...(existing.aliases ?? []), ...entry.aliases])],
+      });
+      continue;
+    }
+    const page = generated[section as keyof typeof generated];
+    if (!page) throw new Error(`Library section "${section}" has no page command`);
+    pages.push(
+      defineCommand({
+        id: entry.commandId,
+        title: page.title,
+        kind: "navigation",
+        icon: page.icon,
+        aliases: entry.aliases,
+        availability: AVAILABLE,
+        action: { kind: "navigate", target: { kind: "panel", panel: page.panel } },
+      }),
+    );
+  }
+  return [...definitions.map((definition) => byId.get(definition.id) ?? definition), ...pages];
+}
+
 export function createSystemCommandDefinitions(source: CommandCenterTitleSource): DeclarativeCommandDefinition[] {
-  return [...createResourceCommandDefinitions(source), ...createSettingsCommandDefinitions(source)];
+  return withLibraryPageCommands(
+    [...createResourceCommandDefinitions(source), ...createSettingsCommandDefinitions(source)],
+    source,
+  );
 }

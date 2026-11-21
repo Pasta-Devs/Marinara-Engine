@@ -21,6 +21,7 @@ import {
 import { useOverhaulActive, useOverhaulStore, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet } from "../overhaul/MobileMessageSheet";
 import { FooterPopover, closeAfterAction } from "../overhaul/RpMessageFooter";
+import { menuOpenerFromClick } from "../../hooks/use-menu-keyboard";
 import { ReplyToMessageButton } from "./MessageReplyPreview";
 import type { Message, MessageExtra } from "@marinara-engine/shared";
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -215,9 +216,14 @@ export function ConversationMessageActions({
   const overhaulActive = useOverhaulActive();
   const overhaulMobile = useOverhaulTouchMessages();
   const [marksOpen, setMarksOpen] = useState(false);
-  const [moreAnchor, setMoreAnchor] = useState<null | { left: number; top: number; bottom: number; right: number }>(
-    null,
-  );
+  const [moreAnchor, setMoreAnchor] = useState<null | {
+    left: number;
+    top: number;
+    bottom: number;
+    right: number;
+    opener?: HTMLElement | null;
+    keyboard?: boolean;
+  }>(null);
   // Both pills line up with the message's own box (a bubble in bubble themes), not the full row.
   const bottomBarRef = useRef<HTMLDivElement>(null);
   const findMessageBox = (bar: HTMLElement) =>
@@ -373,7 +379,13 @@ export function ConversationMessageActions({
                 const rect = barRef.current?.getBoundingClientRect();
                 if (!rect) return;
                 setMarksOpen(true);
-                setMoreAnchor({ left: rect.right - 240, top: rect.top, bottom: rect.bottom, right: rect.right });
+                setMoreAnchor({
+                  left: rect.right - 240,
+                  top: rect.top,
+                  bottom: rect.bottom,
+                  right: rect.right,
+                  ...menuOpenerFromClick(),
+                });
               }}
             >
               <MessageMarksAction
@@ -413,7 +425,14 @@ export function ConversationMessageActions({
                 if (moreAnchor) return setMoreAnchor(null);
                 const rect = barRef.current?.getBoundingClientRect();
                 if (rect)
-                  setMoreAnchor({ left: rect.right - 240, top: rect.top, bottom: rect.bottom, right: rect.right });
+                  setMoreAnchor({
+                    left: rect.right - 240,
+                    top: rect.top,
+                    bottom: rect.bottom,
+                    right: rect.right,
+                    // A11Y1: Escape and a run item hand focus back to ⋯; from the keyboard it opens on item one.
+                    ...menuOpenerFromClick(),
+                  });
               }}
             />
           )}
@@ -436,8 +455,16 @@ export function ConversationMessageActions({
               />
             </FooterPopover>
           ) : moreAnchor ? (
-            <FooterPopover anchor={moreAnchor} onClose={() => setMoreAnchor(null)} className="ov-rpf-menu">
-              <p className="ov-rpf-pop__label">{localizeUi("ui.chat.conversationmessageactions.messageActions")}</p>
+            <FooterPopover
+              anchor={moreAnchor}
+              onClose={() => setMoreAnchor(null)}
+              className="ov-rpf-menu"
+              menu
+              label={localizeUi("ui.chat.conversationmessageactions.messageActions")}
+            >
+              <p className="ov-rpf-pop__label" aria-hidden="true">
+                {localizeUi("ui.chat.conversationmessageactions.messageActions")}
+              </p>
               <div className="mari-message-actions" onClickCapture={closeAfterAction(() => setMoreAnchor(null))}>
                 {/* Left off the bars in Settings: still one click away here. */}
                 {!show("reply") ? <ReplyToMessageButton message={message} name={name} /> : null}
