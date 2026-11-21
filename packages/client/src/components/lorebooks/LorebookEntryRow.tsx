@@ -155,6 +155,9 @@ type OvEntryControls = {
   setPosition: (position: LorebookEntry["position"]) => void;
   depth: number;
   setDepth: (depth: number) => void;
+  /** Insertion order: the list row shows it, and the open entry needs it too (the row is a name rail then). */
+  order: number;
+  setOrder: (order: number) => void;
   probability: number;
   setProbability: (probability: number) => void;
   folderId: string | null;
@@ -635,6 +638,11 @@ export function LorebookEntryRow({
               setDepth: (n) => {
                 setLocalDepth(n);
                 patch({ depth: n });
+              },
+              order: localOrder,
+              setOrder: (n) => {
+                setLocalOrder(n);
+                patch({ order: n });
               },
               probability: localProbability,
               setProbability: (n) => {
@@ -2036,6 +2044,14 @@ function ExpandedDrawer({
               />
             </label>
           ) : null}
+          <label className="ov-lf" data-ov-entry-order="">
+            <span>{localizeUi("ui.lorebooks.lorebookentryrow.order")}</span>
+            <OvNum
+              label={localizeUi("ui.lorebooks.lorebookentryrow.order")}
+              value={ov.order}
+              onCommit={(n) => n !== null && ov.setOrder(n)}
+            />
+          </label>
         </div>
         <div className="ov-lentry__row ov-lentry__row--3">
           <label className="ov-lf">
@@ -2328,7 +2344,10 @@ function ExpandedDrawer({
       </>
     );
     const placementDrill = (
-      <OvmDrill title={localizeUi("ui.lorebooks.expandeddrawer.placement")} summary={positionLabel}>
+      <OvmDrill
+        title={localizeUi("ui.lorebooks.expandeddrawer.placement")}
+        summary={`${positionLabel} · ${localizeUi("ui.lorebooks.lorebookentryrow.order")} ${ov.order}`}
+      >
         {placementBlock}
       </OvmDrill>
     );

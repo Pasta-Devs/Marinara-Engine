@@ -119,7 +119,7 @@ import React, { Activity, Fragment, useRef, useState, useCallback, useEffect, us
 import type { TFunction } from "i18next";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { resetDeviceWalkthrough, resetModeWalkthroughs, useWalkthroughDevice } from "../../lib/walkthroughs";
+import { resetModeWalkthroughs, useWalkthroughDevice } from "../../lib/walkthroughs";
 import {
   APP_VERSION,
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
@@ -1740,7 +1740,7 @@ function WalkthroughSettings() {
             data-walkthrough-replay="device"
             onClick={() => {
               leaveSettingsForTour();
-              resetDeviceWalkthrough(device);
+              useUIStore.getState().resetWalkthroughDevice(device);
             }}
           >
             {localizeUi("settings.walkthroughs.replayDevice", { device: deviceLabel })}
@@ -3826,11 +3826,11 @@ function AppearanceSettings({
 
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("overhaul-layout")}
-                label={localize("New layout (UI overhaul preview)")}
+                label={localize("New layout")}
                 checked={overhaulLayoutEnabled}
                 onChange={setOverhaulLayoutEnabled}
                 help={localize(
-                  "One tab bar on top, the Library on the right and Library pages in the middle. Desktop only; phones keep the standard layout.",
+                  "One tab bar on top, the Library on the right and Library pages in the middle, with a touch layout on phones and tablets. Turn it off for the classic layout.",
                 )}
               />
 

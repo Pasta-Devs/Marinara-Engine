@@ -6720,9 +6720,10 @@ strong {
   overflow: hidden;
 }
 
+/* Rows are visible on their own; the fade only runs on top ("backwards" holds the start frame during each
+   row's delay). A skipped or cancelled animation leaves the list showing, never blank. */
 .stagger-children > * {
-  opacity: 0;
-  animation: fade-in-up 0.25s ease-out forwards;
+  animation: fade-in-up 0.25s ease-out backwards;
 }
 
 .stagger-children > *:nth-child(1) {

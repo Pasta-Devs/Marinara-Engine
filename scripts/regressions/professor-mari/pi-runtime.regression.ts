@@ -1843,19 +1843,13 @@ try {
     assert.match(system, /peek-prompt/u);
     assert.match(system, /named subject/u);
     assert.doesNotMatch(system, /workspace_command_protocol/u);
-    // #8375: the per-turn lines (currentTime, this turn's message id) come after every stable block, so a new chat
-    // or a new turn re-sends only them uncached.
-    const contextAt = system.indexOf("<workspace_context>");
-    assert.ok(contextAt > system.indexOf("</workspace_tools>"), "workspace_context follows the tool rules");
-    assert.ok(
-      contextAt > system.indexOf("</professor_mari_custom_skills>"),
-      "workspace_context follows the skill index",
-    );
-    assert.match(
-      system.slice(contextAt),
-      /<\/workspace_context>(?:\n\n<cwd>\n[^\n]*\n<\/cwd>)?$/u,
-      "only pi's own <cwd> line comes after workspace_context",
-    );
+    // #8375: the per-turn lines (currentTime, this turn's decisions) are not in the system prompt: they follow this
+    // run's message, after the history, so the system prompt and the history stay a cached start from turn to turn.
+    assert.doesNotMatch(system, /<workspace_context>/u, "the system prompt is the same every turn");
+    const turnAt = requests[0]!.messages.findIndex((message) => message.content === "Do the thing.");
+    const turnContext = requests[0]!.messages[turnAt + 1];
+    assert.equal(turnContext?.role, "system");
+    assert.match(turnContext?.content ?? "", /^<workspace_context>\nworkspaceRoot: [\s\S]*currentTime: /u);
     const history = requests[0]!.messages.filter((message) => message.role !== "system");
     assert.deepEqual(
       history.map((message) => [message.role, message.content]),
@@ -1877,13 +1871,15 @@ try {
     extraInjection = null;
     provider = "custom";
     const textualSystem = requests[0]!.messages.find((message) => message.role === "system")?.content ?? "";
-    assert.match(
-      textualSystem,
-      /<\/text_tool_calls>\n\n<workspace_context>\nworkspaceRoot: /u,
-      "text_tool_calls sits right before the real workspace_context",
-    );
-    assert.ok(textualSystem.includes(quoted), "the quoted tag in the injection is left whole");
+    assert.match(textualSystem, /<\/text_tool_calls>/u, "the text tool block is part of the cached system prompt");
+    assert.doesNotMatch(textualSystem, /<workspace_context>/u);
     assert.equal(textualSystem.split("<text_tool_calls>").length, 2, "one text tool block");
+    const lateSystem = requests[0]!.messages
+      .slice(1)
+      .filter((message) => message.role === "system")
+      .map((message) => message.content);
+    assert.ok(lateSystem.includes(quoted), "the injection, quoted tag and all, goes with this turn's context");
+    assert.ok(lateSystem.some((content) => content.startsWith("<workspace_context>\nworkspaceRoot: ")));
   }
 
   // `ask` ends the turn and saves its card, on both runtimes.

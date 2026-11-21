@@ -506,7 +506,8 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
 function embeddedBookAsWorldInfo(characterName: string, rawEmbeddedLorebook: unknown): Record<string, unknown> {
   const bookRaw = rawEmbeddedLorebook as Record<string, unknown>;
   return {
-    name: `${characterName}'s Lorebook`,
+    // The book keeps its own name when the card gives one (QC ONB-27); otherwise it's named after the character.
+    name: (typeof bookRaw.name === "string" && bookRaw.name.trim()) || `${characterName}'s Lorebook`,
     entries: bookRaw.entries ?? {},
     description: bookRaw.description,
     scan_depth: bookRaw.scan_depth,

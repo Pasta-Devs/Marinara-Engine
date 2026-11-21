@@ -116,6 +116,7 @@ import { sortPanelFolders } from "../../lib/panel-sort";
 import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolution";
 import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
+import { describeChatImportNotes, type STChatImportNote } from "../../lib/st-import-report";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -951,6 +952,7 @@ export function ChatSidebar() {
           chatId?: string;
           error?: string;
           messagesImported?: number;
+          importNotes?: STChatImportNote[];
         }>("/import/st-chat", formData);
         if (data.success === false || data.error) {
           toast.error(
@@ -961,8 +963,11 @@ export function ChatSidebar() {
           return;
         }
 
+        // What came along (Author's Note, persona) and what didn't, so nothing is lost silently.
+        const notes = describeChatImportNotes(data.importNotes, localizeUi);
         toast.success(
           localizeUi("ui.layout.chatsidebar.importedValue1Messages", { value1: data.messagesImported ?? 0 }),
+          notes.length > 0 ? { description: notes.join(" "), duration: 8000 } : undefined,
         );
         await refetchChats();
         if (data.chatId) setActiveChatId(data.chatId);

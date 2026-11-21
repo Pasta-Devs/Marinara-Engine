@@ -8,7 +8,7 @@ Start with **Memory Recall**. It works with no extra setup, because Marinara can
 
 | Feature | What it does | Works in |
 | --- | --- | --- |
-| **Memory Recall** | Searches older messages for the parts related to what you just said and adds them to the prompt. | Every mode |
+| **Memory Recall** | Searches older messages that no longer fit in the prompt for the parts related to what you just said, and adds them. | Every mode |
 | **Chat Summary** | Replaces old messages with short recaps. | Roleplay |
 | **Automatic Summarization** | Summarizes each day, then each week. Always on. | Conversation |
 | **Advanced Memory Recall** | Manages the live history, scene summaries and recalled excerpts together. Optional. | Roleplay and Game Mode |
@@ -68,6 +68,19 @@ The toolbar has icons to export, import, rebuild and clear memories.
 - The clear-all icon opens **Clear Memories**. Confirm with **Clear**. This removes recall memories, not your chat messages.
 - The refresh icon rebuilds every chunk from the current messages. Use it after you change the embedding model.
 - Export saves a `.marinara.json` file. Import accepts `.json` or `.marinara` files and merges them in.
+
+### What Memory Recall adds
+
+Memory Recall brings back only messages the prompt no longer holds. While the whole chat fits in the context window, it adds nothing, because the AI already reads every message. Once older messages are left out to make the prompt fit, recall searches those.
+
+- A chunk is recalled only when none of its messages are in the prompt.
+- Memories take room too. When they are added, the oldest messages that would still fit can be left out to make that room. Recall can bring those back as well.
+- Messages left out by **Context message limit** count as outside the prompt.
+- Memories imported from another chat can be recalled at any time.
+
+To let recall pick any earlier message, turn on **Recall from the whole chat** below **Enable Memory Recall**. Memories then often repeat messages the prompt already holds. The repeats cost tokens, and because the memories sit before the chat history and change every turn, the service's prompt cache cannot reuse the history.
+
+The live preview in [Peek Prompt](../chats/peek-prompt.md) does not run Memory Recall. With recall on, it can list more history than a reply gets.
 
 ### How Memory Recall behaves
 
@@ -293,6 +306,7 @@ Game Mode chats turn on Advanced Memory Recall in **Chat Settings → Memory Rec
 | Memory Recall recalls nothing | Check that an embedding source is set up. If chunks show **Embedding unavailable**, set a **Semantic search (embeddings)** model or use the built-in model. See [Built-in Model Setup](../connections/local-model.md). |
 | Chunks show **Waiting for vector** | Give them time. Fingerprints are built after replies. |
 | Nothing seems related | Recall adds only closely related memories. Adding nothing is normal. |
+| Memory Recall adds nothing while the chat is short | Expected. Recall adds only messages that no longer fit in the context window. See [What Memory Recall adds](#what-memory-recall-adds). |
 | Recall got worse after switching embedding models | Use the rebuild icon in **Memories for This Chat**. |
 | Summaries are not generating | The chat needs a working text account. Chat Summary uses **Summary Provider**. If none works, generation is skipped. |
 | AI summaries never appear | **Review Agent Outputs** may be waiting for your approval. |

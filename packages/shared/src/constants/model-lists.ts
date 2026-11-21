@@ -290,6 +290,17 @@ export function isOpenAIGpt6AstraModel(model: string): boolean {
   return /^(?:openai\/)?gpt-6-astra(?:$|[-:])/u.test(capabilityModelId(model));
 }
 
+/**
+ * GPT-6.2 and later. On the Responses API they append top-level `instructions` after the input and bill those tokens
+ * uncached even on a cache hit, so reusable instructions belong in the first developer message.
+ * https://developers.openai.com/api/docs/guides/prompt-caching
+ */
+export function isOpenAIGpt62OrLaterModel(model: string): boolean {
+  return /^(?:openai\/)?gpt-(?:6\.(?:[2-9]|[1-9]\d)|(?:[7-9]|[1-9]\d)(?:\.\d+)?)(?:$|[-:])/u.test(
+    capabilityModelId(model),
+  );
+}
+
 export function isOpenAIGpt6Model(model: string): boolean {
   return /^(?:openai\/)?gpt-6(?:-(?:astra|sol|luna)|\.1-sol|\.2-(?:sol|astra))(?:$|[-:])/u.test(
     capabilityModelId(model),

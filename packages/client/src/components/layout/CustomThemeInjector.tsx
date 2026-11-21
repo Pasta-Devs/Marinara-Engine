@@ -195,7 +195,9 @@ export function CustomThemeInjector() {
       useThemeSafetyStore.getState().blockTheme(activeTheme.id, activeTheme.name, contentProblems);
   }, [activeTheme, contentProblems]);
 
-  useEffect(() => installSafeModeShortcut(), []);
+  const customThemeShowingRef = useRef(allowed);
+  customThemeShowingRef.current = allowed;
+  useEffect(() => installSafeModeShortcut(() => customThemeShowingRef.current), []);
 
   // The theme's message templates, only when the user allows themes with HTML (lib/theme-template.ts).
   const templates = allowed && allowThemeHtml && themeHasHtml(activeTheme?.meta) ? activeTheme!.meta!.templates! : null;

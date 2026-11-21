@@ -24,7 +24,8 @@ import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { WHATS_NEW_SEEN_VERSION_KEY } from "../modals/WhatsNewModal";
 import { LanguagePicker } from "../ui/LanguagePicker";
 import { useOverhaulStore, type OverhaulSettingsTab } from "../../stores/overhaul.store";
-import { markDeviceWalkthroughSeen, useWalkthroughDevice, type WalkthroughDevice } from "../../lib/walkthroughs";
+import { useWalkthroughDevice, type WalkthroughDevice } from "../../lib/walkthroughs";
+import { answerAiBasicsOffer } from "../../lib/guide-quests-progress";
 import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
 
 // ─── Step definitions ─────────────────────────
@@ -1004,31 +1005,42 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
     return () => cancelAnimationFrame(rafRef.current);
   }, [updateRect]);
 
-  const finish = useCallback(() => {
-    // Phones and tablets: a step may have slid the sidebar page open; the tour leaves the screen clear.
-    useOverhaulStore.getState().setMobileSidePageOpen(false);
-    if (tourSettingsTabRef.current) {
-      useOverhaulStore.getState().setSettingsTab(tourSettingsTabRef.current);
-      tourSettingsTabRef.current = null;
-    }
-    // A new user has just met this release in the tour, so What's New must not open right after it.
-    try {
-      window.localStorage.setItem(WHATS_NEW_SEEN_VERSION_KEY, APP_VERSION);
-    } catch {
-      // Storage may be unavailable in private or restricted browser contexts.
-    }
-    // Either tour shows where things live on this kind of device, so its own walkthrough is done too.
-    if (useOverhaulStore.getState().enabled) markDeviceWalkthroughSeen(device);
-    if (kind === "device") return;
-    setCompleted(true);
-    trackAchievement.mutate("tutorial_completed");
-  }, [device, kind, setCompleted, trackAchievement]);
+  // Skip (and Escape) end the tour without its achievement, and do not follow it with the "New to AI chat?"
+  // offer: the AI basics tour stays in Home's Things to try.
+  const finish = useCallback(
+    (skipped: boolean) => {
+      // Phones and tablets: a step may have slid the sidebar page open; the tour leaves the screen clear.
+      useOverhaulStore.getState().setMobileSidePageOpen(false);
+      if (tourSettingsTabRef.current) {
+        useOverhaulStore.getState().setSettingsTab(tourSettingsTabRef.current);
+        tourSettingsTabRef.current = null;
+      }
+      // A new user has just met this release in the tour, so What's New must not open right after it.
+      try {
+        window.localStorage.setItem(WHATS_NEW_SEEN_VERSION_KEY, APP_VERSION);
+      } catch {
+        // Storage may be unavailable in private or restricted browser contexts.
+      }
+      // Either tour shows where things live on this kind of device, so its own walkthrough is done too.
+      if (useOverhaulStore.getState().enabled) useUIStore.getState().markWalkthroughDeviceSeen(device);
+      if (kind === "device") return;
+      setCompleted(true);
+      if (skipped) {
+        answerAiBasicsOffer("skipped");
+        useUIStore.setState({ aiBasicsOfferAnswered: true });
+        return;
+      }
+      trackAchievement.mutate("tutorial_completed");
+    },
+    [device, kind, setCompleted, trackAchievement],
+  );
+  const skip = useCallback(() => finish(true), [finish]);
 
   // "Get Started" on the final step commits the docs-language pick; Skip never does.
   const next = useCallback(() => {
     if (isLast) {
       commitDocsLanguage();
-      finish();
+      finish(false);
     } else {
       setStep((s) => s + 1);
     }
@@ -1072,7 +1084,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
     focusKey: `${step}:${isCentered}`,
     onEscape: () => {
       if (useUIStore.getState().modal) return false;
-      finish();
+      skip();
     },
   });
 
@@ -1197,7 +1209,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
               currentStep={currentStep}
               isLast={isLast}
               onNext={next}
-              onSkip={finish}
+              onSkip={skip}
               pickerSlot={pickerSlot}
               device={device}
               sprite={aimedSprite}
@@ -1229,7 +1241,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
             currentStep={currentStep}
             isLast={isLast}
             onNext={next}
-            onSkip={finish}
+            onSkip={skip}
             pickerSlot={pickerSlot}
             device={device}
             sprite={aimedSprite}

@@ -540,6 +540,13 @@
   animation: ovm-sheet-up 180ms cubic-bezier(0.16, 1, 0.3, 1);
   touch-action: pan-y;
 }
+/* The desktop layout (a tablet held sideways) opens the sheet too, from a right-click or the context-menu
+   key, and has no [data-overhaul="mobile"] colours: give it the same ones, so it is never see-through. */
+:root[data-overhaul="on"] .ovm-sheet {
+  --ovm-surface: var(--marinara-shell-surface, var(--marinara-page-backing, var(--background)));
+  --ovm-raised: color-mix(in srgb, var(--foreground) 5%, var(--ovm-surface));
+  --ovm-line: color-mix(in srgb, var(--foreground) 12%, transparent);
+}
 @media (min-width: 600px) {
   .ovm-sheet {
     right: auto;
@@ -1967,6 +1974,14 @@
 :root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry__row--name {
   grid-template-columns: minmax(0, 1fr);
   grid-auto-flow: row;
+}
+/* The main column is as wide as the screen, not as wide as Normal / Constant / Selective (8px past a 375px phone). */
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry__main {
+  grid-template-columns: minmax(0, 1fr);
+}
+:root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry .ov-seg {
+  min-width: 0;
+  max-width: 100%;
 }
 :root[data-overhaul="mobile"] .ov-lv[data-ovm-lv] .ov-lentry input[type="number"] {
   height: 2.5rem;

@@ -29,6 +29,7 @@ import { ImportTagChecks, useImportTagChoice } from "./ImportTagChecks";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { ImportOptionPicker } from "./ImportOptionPicker";
 import { Spinner } from "../ui/Spinner";
+import { describeBulkImportReport, type STBulkImportReport } from "../../lib/st-import-report";
 import { Checkbox } from "../ui/Checkbox";
 
 interface Props {
@@ -70,6 +71,8 @@ interface ImportResult {
   };
   /** Left out because this Engine already had them. */
   skipped?: { characters: number; chats: number; groupChats: number };
+  /** What came along beyond the counts (Author's Notes, personas, preset settings), and what didn't. */
+  report?: STBulkImportReport;
   errors: string[];
 }
 
@@ -174,7 +177,8 @@ async function readJsonResponse<T>(res: Response): Promise<{ data: T | null; raw
 }
 
 function describeResponseError(res: Response, data: ApiErrorPayload | null, raw: string, fallback: string): string {
-  const status = [res.status, res.statusText].filter(Boolean).join(" ");
+  // The server answers refusals with 200 and success: false, so the status only says something when it failed.
+  const status = res.ok ? "" : [res.status, res.statusText].filter(Boolean).join(" ");
   const detail =
     typeof data?.error === "string" ? data.error : typeof data?.message === "string" ? data.message : raw.trim();
 
@@ -291,37 +295,49 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const [browserFolders, setBrowserFolders] = useState<string[]>([]);
   const [browserLoading, setBrowserLoading] = useState(false);
 
-  const loadDirectory = useCallback(async (dirPath?: string) => {
-    setBrowserLoading(true);
-    try {
-      const res = await api.raw("/import/list-directory", {
-        method: "POST",
-        body: JSON.stringify({ path: dirPath || "" }),
-      });
-      const { data, raw } = await readJsonResponse<{
-        success: boolean;
-        path?: string;
-        folderToken?: string;
-        folders?: string[];
-        error?: string;
-      }>(res);
-      if (!res.ok || !data?.success || !data.path) {
+  const loadDirectory = useCallback(
+    async (dirPath?: string): Promise<boolean> => {
+      setBrowserLoading(true);
+      try {
+        const res = await api.raw("/import/list-directory", {
+          method: "POST",
+          body: JSON.stringify({ path: dirPath || "" }),
+        });
+        const { data, raw } = await readJsonResponse<{
+          success: boolean;
+          path?: string;
+          folderToken?: string;
+          folders?: string[];
+          error?: string;
+        }>(res);
+        if (!res.ok || !data?.success || !data.path) {
+          // A typed path outside the home folder can't be browsed: open the home folder instead of a dead end.
+          if (dirPath && res.ok && (await loadDirectory(undefined))) {
+            // The typed path is still the one a scan sends, so it must not carry the home folder's token.
+            setFolderToken(null);
+            setError(localizeUi("ui.modals.stbulkimportmodal.browseOpenedHome"));
+            return false;
+          }
+          setBrowserFolders([]);
+          setFolderToken(null);
+          setError(describeResponseError(res, data, raw, "Unable to list directories"));
+          return false;
+        }
+        setBrowserPath(data.path);
+        setFolderToken(data.folderToken ?? null);
+        setBrowserFolders(data.folders ?? []);
+        return true;
+      } catch (err) {
         setBrowserFolders([]);
         setFolderToken(null);
-        setError(describeResponseError(res, data, raw, "Unable to list directories"));
-        return;
+        setError(err instanceof Error ? err.message : "Unable to list directories");
+        return false;
+      } finally {
+        setBrowserLoading(false);
       }
-      setBrowserPath(data.path);
-      setFolderToken(data.folderToken ?? null);
-      setBrowserFolders(data.folders ?? []);
-    } catch (err) {
-      setBrowserFolders([]);
-      setFolderToken(null);
-      setError(err instanceof Error ? err.message : "Unable to list directories");
-    } finally {
-      setBrowserLoading(false);
-    }
-  }, []);
+    },
+    [localizeUi],
+  );
 
   const handleBrowse = useCallback(async () => {
     setPicking(true);
@@ -1265,6 +1281,14 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   count={importResult.imported.personas}
                 />
               </div>
+            )}
+
+            {importResult.success && describeBulkImportReport(importResult.report, localizeUi).length > 0 && (
+              <ul className="flex list-disc flex-col gap-1 pl-4 text-xs text-[var(--muted-foreground)]">
+                {describeBulkImportReport(importResult.report, localizeUi).map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
             )}
 
             {importResult.errors.length > 0 && (
