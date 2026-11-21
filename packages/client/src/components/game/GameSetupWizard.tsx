@@ -835,13 +835,19 @@ export function GameSetupWizard({
   const [pickedSetupEntries, setPickedSetupEntries] = useState<Record<string, EligibleLorebookEntry>>({});
   const entryQuery = useEligibleLorebookEntries(activeLorebookEntryIds);
   const importedEntryQuery = useEligibleLorebookEntries(importedLorebookEntryIds ?? []);
+  // Once the check for exactly these picks has answered, its answer alone decides: an entry it left out
+  // (an off folder, say) is not brought back from an opened book. Until then, picks made here stand in.
+  const entryCheckAnswered = entryQuery.isSuccess && !entryQuery.isPlaceholderData;
   const usableSetupEntries = useMemo(() => {
     const byId = new Map<string, EligibleLorebookEntry>();
-    for (const entry of [...(entryQuery.data ?? []), ...Object.values(pickedSetupEntries)]) {
+    const known = entryCheckAnswered
+      ? (entryQuery.data ?? [])
+      : [...(entryQuery.data ?? []), ...Object.values(pickedSetupEntries)];
+    for (const entry of known) {
       if (isUsableSetupEntry(entry)) byId.set(entry.id, entry);
     }
     return byId;
-  }, [entryQuery.data, pickedSetupEntries, isUsableSetupEntry]);
+  }, [entryCheckAnswered, entryQuery.data, pickedSetupEntries, isUsableSetupEntry]);
   const selectedSetupEntries = useMemo(
     () =>
       [...new Set(activeLorebookEntryIds)]
@@ -854,15 +860,16 @@ export function GameSetupWizard({
   // Known when every pick was picked here, or the check for exactly these picks has answered. A book
   // list still loading would read every pick as gone, so it waits for that too.
   const eligibleEntries =
-    lorebooksList !== undefined &&
-    (activeLorebookEntryIds.every((id) => pickedSetupEntries[id]) ||
-      (entryQuery.isSuccess && !entryQuery.isPlaceholderData))
+    lorebooksList !== undefined && (activeLorebookEntryIds.every((id) => pickedSetupEntries[id]) || entryCheckAnswered)
       ? selectedSetupEntries
       : undefined;
   // Imported picks are dropped silently when the entry no longer exists on this machine. The count is
   // taken only once the check for them has answered, so a pending or failed check never reports them gone.
   const missingImportedEntryCount =
-    importedLorebookEntryIds?.length && importedEntryQuery.isSuccess && lorebooksList !== undefined
+    importedLorebookEntryIds?.length &&
+    importedEntryQuery.isSuccess &&
+    !importedEntryQuery.isPlaceholderData &&
+    lorebooksList !== undefined
       ? new Set(
           importedLorebookEntryIds.filter((id) => {
             const entry = importedEntryQuery.data?.find((candidate) => candidate.id === id);
@@ -1245,8 +1252,12 @@ export function GameSetupWizard({
   // A kit or a world that does not hold together is never quietly left out of a downloaded setup.
   // An intro the server would refuse (1.339): fixed before the game starts or its setup is saved.
   const introProblem = gameIntroProblem(gameIntro);
+  // Picked lore entries are checked first too, so a pending or failed check never drops them from the file.
   const setupDownloadBlocked =
-    Boolean(checkedWorldKit && !checkedWorldKit.ok) || Boolean(checkedWorld && !checkedWorld.ok) || !!introProblem;
+    Boolean(checkedWorldKit && !checkedWorldKit.ok) ||
+    Boolean(checkedWorld && !checkedWorld.ok) ||
+    !!introProblem ||
+    (activeLorebookEntryIds.length > 0 && !eligibleEntries);
   const canStart =
     (!multiplayerPlayers || multiplayerPlayers.every((player) => player.personaName?.trim())) &&
     !experienceSeedInvalid &&
@@ -3583,7 +3594,7 @@ export function GameSetupWizard({
                         </p>
                         {entryQuery.isError && (
                           <div className="space-y-2">
-                            <p role="alert" className="text-xs text-[var(--destructive)]">
+                            <p role="alert" className="text-xs text-[var(--marinara-app-accent-static)]">
                               {localizeUi("game.setupLore.error")}
                             </p>
                             <button
@@ -3605,7 +3616,9 @@ export function GameSetupWizard({
                           books={eligibleBooks}
                           selectedEntries={selectedSetupEntries}
                           isUsable={isUsableSetupEntry}
-                          disabled={isLoading}
+                          // Picks from a file still being checked hold their places, so no new pick is
+                          // taken until the check answers (it could push one past the limit unseen).
+                          disabled={isLoading || !eligibleEntries}
                           onPick={pickSetupEntry}
                           onUnpick={unpickSetupEntry}
                         />
