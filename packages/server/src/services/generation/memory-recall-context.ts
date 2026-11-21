@@ -2,7 +2,6 @@ import { sliceTextToTokenBudget, type WrapFormat } from "@marinara-engine/shared
 
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
-import { insertAfterHistory } from "../lorebook/prompt-injector.js";
 import { chunkCoversSentMessage, recallMemories } from "../memory-recall.js";
 import type { MemoryRecallEmbeddingSource, RecalledMemory } from "../memory-recall.js";
 import { wrapContent } from "../prompt/format-engine.js";
@@ -12,7 +11,6 @@ import { memoryRecallBudgetTokens, packRecalledMemories } from "./memory-recall-
 type PromptMessage = {
   role: "system" | "user" | "assistant";
   content: string;
-  contextKind?: "prompt" | "history" | "injection";
 };
 
 /** A prompt message as generation holds it: chat history is marked `contextKind: "history"` and carries its id. */
@@ -191,7 +189,7 @@ export async function injectMemoryRecallContext<T extends MemoryRecallWindowMess
       const leftOut = removeOldestHistory(promptWindow.prompt, droppedHistory);
       if (leftOut.length > 0) promptWindow.onHistoryLeftOut?.(leftOut);
     }
-    insertAfterHistory(messages, { role: "system", content: memoriesBlock, contextKind: "injection" });
+    insertBeforeHistory(messages, { role: "system", content: memoriesBlock });
     return selected.map(({ line }) => line);
   } catch (err) {
     logger.error(err, "[memory-recall] Recall failed, skipping");

@@ -89,8 +89,6 @@ The live preview in [Peek Prompt](../chats/peek-prompt.md) does not run Memory R
 - Weak matches are skipped, so recall can return nothing even when memories exist. Only a small part of the prompt is used for recalled memories.
 - After you change the embedding model, old chunks no longer match. Rebuild them.
 - Deleting a chat's messages also deletes its chunks.
-- Recalled memories change every turn, so they go right after the newest message. Everything before them stays the same from one turn to the next, and a service's prompt cache can reuse it. In a Conversation prompt, the `{{memories}}` macro still places them where you put it.
-- While Memory Recall is on and a chat no longer fits in the context window, older messages leave the prompt in steps of a fifth of the window, not one or two every turn. The first message sent then stays the same for many turns, so the cache keeps working. Right after a step, the prompt holds up to a fifth of the window less history than would fit.
 
 ## Chat Summary (Roleplay)
 

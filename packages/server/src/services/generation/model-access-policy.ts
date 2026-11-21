@@ -68,8 +68,6 @@ export function fitMessagesToModelAccessContext(args: {
   maxTokens?: number;
   tools?: ChatOptions["tools"];
   responseFormat?: ChatOptions["responseFormat"];
-  /** Drop history in fixed steps so its start stays the same across turns (Memory Recall). */
-  stableHistoryCut?: boolean;
 }): ContextFitResult {
   return fitMessagesToContext(
     args.messages,
@@ -79,7 +77,6 @@ export function fitMessagesToModelAccessContext(args: {
       tools: args.tools,
       responseFormat: args.responseFormat,
       suppressModelParameters: false,
-      ...(args.stableHistoryCut ? { stableHistoryCut: true } : {}),
     },
     args.policy.connectionMaxContext,
   );
@@ -109,7 +106,6 @@ export function fitMessagesForModelAccess(args: {
   maxTokens?: number;
   tools?: ChatOptions["tools"];
   responseFormat?: ChatOptions["responseFormat"];
-  stableHistoryCut?: boolean;
 }): { messages: ChatMessage[]; maxTokensForSend?: number; contextFit: ContextFitSummary } {
   const fit = fitMessagesToModelAccessContext(args);
   return {
