@@ -12,8 +12,8 @@ import {
   importSTCharacter,
   type STCharacterTagImportMode,
 } from "./st-character.importer.js";
-import { importSTChat } from "./st-chat.importer.js";
-import { importSTPreset } from "./st-prompt.importer.js";
+import { buildPersonaLookup, importSTChat, personaLookupKey, type STChatImportNote } from "./st-chat.importer.js";
+import { importSTPreset, type STPresetLeftOut } from "./st-prompt.importer.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
 import { characters as charactersTable, chats as chatsTable } from "../../db/schema/index.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
@@ -549,8 +549,41 @@ export interface STBulkImportResult {
   };
   /** Left out because this Engine already had them (skipAlreadyImported). */
   skipped?: { characters: number; chats: number; groupChats: number };
+  /** What came along beyond the counts, and what could not. */
+  report?: STBulkImportReport;
   errors: string[];
 }
+
+export interface STBulkImportReport {
+  /** Chats whose Author's Note came in as is. */
+  authorsNotes: number;
+  /** Chats whose Author's Note came in but SillyTavern placed it differently (frequency, position or role). */
+  authorsNotesPlacement: number;
+  /** Chats whose Author's Note SillyTavern had turned off; kept in metadata, still off. */
+  authorsNotesOff: number;
+  /** Chats linked to a persona by the SillyTavern user's name or persona lock. */
+  personasLinked: number;
+  /** SillyTavern user names with no persona of that name here (up to 20). */
+  missingPersonas: string[];
+  /** Presets that brought sampler settings along. */
+  presetsWithSettings: number;
+  /** Preset settings with no place in a Marinara preset. */
+  presetSettingsLeftOut: STPresetLeftOut[];
+}
+
+function emptyBulkImportReport(): STBulkImportReport {
+  return {
+    authorsNotes: 0,
+    authorsNotesPlacement: 0,
+    authorsNotesOff: 0,
+    personasLinked: 0,
+    missingPersonas: [],
+    presetsWithSettings: 0,
+    presetSettingsLeftOut: [],
+  };
+}
+
+const MAX_REPORTED_MISSING_PERSONAS = 20;
 
 /** Progress event emitted during bulk import */
 export interface ImportProgress {
@@ -666,6 +699,18 @@ export async function runSTBulkImport(
     tagImportMode === "existing" && selectedCharacters.length > 0 ? await getExistingCharacterTagKeys(db) : undefined;
   const skipAlreadyImported = options.skipAlreadyImported !== false;
   const skipped = { characters: 0, chats: 0, groupChats: 0 };
+  const report = emptyBulkImportReport();
+  const missingPersonas = new Set<string>();
+  const presetLeftOut = new Set<STPresetLeftOut>();
+  const noteChatImport = (notes: STChatImportNote[] | undefined) => {
+    for (const note of notes ?? []) {
+      if (note.kind === "authorsNote") report.authorsNotes++;
+      else if (note.kind === "authorsNotePlacement") report.authorsNotesPlacement++;
+      else if (note.kind === "authorsNoteOff") report.authorsNotesOff++;
+      else if (note.kind === "persona") report.personasLinked++;
+      else if (note.kind === "personaMissing") missingPersonas.add(note.name);
+    }
+  };
   let chatsWritten = 0;
   const releaseWrittenChats = async () => {
     if (++chatsWritten % IMPORT_TRIM_EVERY_CHATS !== 0) return;
@@ -774,6 +819,59 @@ export async function runSTBulkImport(
     }
   }
 
+  // Import personas first, so the chats below can be linked to them.
+  const importedPersonaAvatars = new Map<string, string>();
+  if (selectedPersonas.length > 0) {
+    const storage = createCharactersStorage(db);
+    const AVATAR_DIR = join(DATA_DIR, "avatars");
+    if (!existsSync(AVATAR_DIR)) {
+      await mkdir(AVATAR_DIR, { recursive: true });
+    }
+    const total = selectedPersonas.length;
+    let idx = 0;
+    for (const p of selectedPersonas) {
+      idx++;
+      onProgress?.({ category: "Personas", item: p.name, current: idx, total, imported });
+      try {
+        // Copy avatar image
+        const ext = extname(p.path).toLowerCase();
+        const destName = `${randomUUID()}${ext}`;
+        await copyFile(p.path, join(AVATAR_DIR, destName));
+        const avatarPath = `/api/avatars/file/${destName}`;
+        const fileInfo = await stat(p.path);
+        const persona = await storage.createPersona(
+          p.name,
+          p.description,
+          avatarPath,
+          undefined,
+          getFileTimestampOverrides(fileInfo),
+        );
+        if (persona) importedPersonaAvatars.set(basename(p.path), persona.id);
+        imported.personas++;
+      } catch (err) {
+        errors.push(`Persona "${p.name}": ${(err as Error).message}`);
+      }
+    }
+  }
+
+  // Chats are linked to the persona SillyTavern spoke as: its persona lock (avatar file), else the user's name.
+  let personaLookup: Map<string, string> | undefined;
+  if (selectedChats.length > 0 || selectedGroupChats.length > 0) {
+    try {
+      personaLookup = await buildPersonaLookup(db);
+      for (const [avatar, id] of importedPersonaAvatars) personaLookup.set(`avatar:${avatar}`, id);
+      // A persona already here from an earlier import keeps its SillyTavern name, so a lock finds it by name.
+      for (const p of scanResult.personas) {
+        const id = personaLookup.get(personaLookupKey(p.name));
+        const avatar = `avatar:${basename(p.path)}`;
+        if (id && !personaLookup.has(avatar)) personaLookup.set(avatar, id);
+      }
+    } catch (err) {
+      logger.warn(err, "[import] Could not read personas; chats import without one");
+      personaLookup = new Map();
+    }
+  }
+
   // Import chats (with character linking)
   // Group chats by character, but preserve each imported file's name as a branch label.
   if (selectedChats.length > 0) {
@@ -814,7 +912,8 @@ export async function runSTBulkImport(
           charGroupIds.set(groupKey, groupId);
         }
 
-        await importSTChat(content, db, {
+        const chatResult = await importSTChat(content, db, {
+          personaLookup,
           characterId: charId,
           chatName: ct.characterName,
           branchName,
@@ -822,6 +921,7 @@ export async function runSTBulkImport(
           sourceFingerprint: fingerprint,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
         });
+        if ("importNotes" in chatResult) noteChatImport(chatResult.importNotes);
 
         imported.chats++;
         await releaseWrittenChats();
@@ -866,7 +966,8 @@ export async function runSTBulkImport(
         if (!gcGroupIds.has(groupKey)) {
           gcGroupIds.set(groupKey, randomUUID());
         }
-        await importSTChat(content, db, {
+        const chatResult = await importSTChat(content, db, {
+          personaLookup,
           chatName: gc.groupName,
           speakerMap,
           mode: "roleplay",
@@ -874,6 +975,7 @@ export async function runSTBulkImport(
           sourceFingerprint: fingerprint,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
         });
+        if ("importNotes" in chatResult) noteChatImport(chatResult.importNotes);
         imported.groupChats++;
         await releaseWrittenChats();
       } catch (err) {
@@ -892,7 +994,11 @@ export async function runSTBulkImport(
       try {
         const raw = JSON.parse(await readFile(pr.path, "utf-8"));
         const fileInfo = await stat(pr.path);
-        await importSTPreset(raw, db, pr.name, { timestampOverrides: getFileTimestampOverrides(fileInfo) });
+        const presetResult = await importSTPreset(raw, db, pr.name, {
+          timestampOverrides: getFileTimestampOverrides(fileInfo),
+        });
+        if ((presetResult.parametersImported?.length ?? 0) > 0) report.presetsWithSettings++;
+        for (const key of presetResult.parametersLeftOut ?? []) presetLeftOut.add(key);
         imported.presets++;
       } catch (err) {
         errors.push(`Preset "${pr.name}": ${(err as Error).message}`);
@@ -943,32 +1049,7 @@ export async function runSTBulkImport(
     }
   }
 
-  // Import personas
-  if (selectedPersonas.length > 0) {
-    const storage = createCharactersStorage(db);
-    const AVATAR_DIR = join(DATA_DIR, "avatars");
-    if (!existsSync(AVATAR_DIR)) {
-      await mkdir(AVATAR_DIR, { recursive: true });
-    }
-    const total = selectedPersonas.length;
-    let idx = 0;
-    for (const p of selectedPersonas) {
-      idx++;
-      onProgress?.({ category: "Personas", item: p.name, current: idx, total, imported });
-      try {
-        // Copy avatar image
-        const ext = extname(p.path).toLowerCase();
-        const destName = `${randomUUID()}${ext}`;
-        await copyFile(p.path, join(AVATAR_DIR, destName));
-        const avatarPath = `/api/avatars/file/${destName}`;
-        const fileInfo = await stat(p.path);
-        await storage.createPersona(p.name, p.description, avatarPath, undefined, getFileTimestampOverrides(fileInfo));
-        imported.personas++;
-      } catch (err) {
-        errors.push(`Persona "${p.name}": ${(err as Error).message}`);
-      }
-    }
-  }
-
-  return { success: true, imported, ...(skipAlreadyImported ? { skipped } : {}), errors };
+  report.missingPersonas = [...missingPersonas].slice(0, MAX_REPORTED_MISSING_PERSONAS);
+  report.presetSettingsLeftOut = [...presetLeftOut];
+  return { success: true, imported, ...(skipAlreadyImported ? { skipped } : {}), report, errors };
 }
