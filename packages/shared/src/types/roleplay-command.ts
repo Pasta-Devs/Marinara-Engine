@@ -276,6 +276,37 @@ export function getRoleplayCommandNoticeDisplay(
   return value === "collapse" || value === "hide" ? value : "show";
 }
 
+export interface RoleplayCommandNoticeVisibility {
+  /** Indices into `activity` that should render as command notice boxes. */
+  noticeIndices: number[];
+  /** Whether `noticeIndices` should be grouped inside a single expandable wrapper. */
+  collapsed: boolean;
+  /** Whether the collapsed wrapper should start expanded (e.g. a failed private tag). */
+  startExpanded: boolean;
+}
+
+export function getRoleplayCommandNoticeVisibility(
+  activity: readonly RoleplayCommandActivity[],
+  display: RoleplayCommandNoticeDisplay,
+): RoleplayCommandNoticeVisibility {
+  const noticeIndices: number[] = [];
+  for (let index = 0; index < activity.length; index++) {
+    const item = activity[index];
+    if (!item) continue;
+    if (item.command.type === "whisper" && !item.error) continue;
+    if (display === "hide" && !item.error) continue;
+    noticeIndices.push(index);
+  }
+  const collapsed = display === "collapse" && noticeIndices.length > 1;
+  const startExpanded =
+    collapsed &&
+    noticeIndices.some((index) => {
+      const item = activity[index];
+      return !!item?.error && (item.command.type === "whisper" || item.command.type === "notes");
+    });
+  return { noticeIndices, collapsed, startExpanded };
+}
+
 export function roleplayCommandsEnabled(metadata: Record<string, unknown>): boolean {
   // Preserve an existing explicit DM opt-in. New chats have no enabled commands.
   return (
