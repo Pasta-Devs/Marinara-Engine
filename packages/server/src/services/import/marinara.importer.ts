@@ -823,7 +823,9 @@ async function importLorebookPayload(data: unknown, db: DB) {
         entryLimit: Number(lb.entryLimit ?? 100),
         recursiveScanning: Boolean(lb.recursiveScanning),
         maxRecursionDepth: Number(lb.maxRecursionDepth ?? 3),
-        excludeFromVectorization: Boolean(lb.excludeFromVectorization),
+        // A file without the flag gets the new-lorebook default (Settings > Advanced > Features).
+        excludeFromVectorization:
+          lb.excludeFromVectorization == null ? undefined : Boolean(lb.excludeFromVectorization),
         vectorQueryDepth: Number(lb.vectorQueryDepth ?? 10),
         vectorIncludeAssistant: lb.vectorIncludeAssistant === true,
         vectorScoreThreshold: Number(lb.vectorScoreThreshold ?? 0.3),
