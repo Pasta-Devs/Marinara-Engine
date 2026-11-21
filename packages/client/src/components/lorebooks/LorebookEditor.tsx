@@ -501,6 +501,11 @@ export function LorebookEditor() {
     const i = scrollToEntryId ? list.findIndex((entry) => entry.id === scrollToEntryId) : -1;
     return i >= 0 ? i : undefined;
   };
+  // The open entry's row stays mounted: on phones its editor is portaled into the detail pane while the list is hidden.
+  const expandedIndexIn = (list: { id: string }[]) => {
+    const i = expandedEntryId ? list.findIndex((entry) => entry.id === expandedEntryId) : -1;
+    return i >= 0 ? i : undefined;
+  };
   useEffect(() => {
     const id = newlyCreatedEntryRef.current;
     if (!id) return;
@@ -2255,6 +2260,7 @@ export function LorebookEditor() {
               pinnedIndex={
                 dragSourceContainer === folder.id && draggingEntryIdx !== null ? draggingEntryIdx : undefined
               }
+              keepMountedIndex={expandedIndexIn(folderEntries)}
               scrollToIndex={revealIndexIn(folderEntries)}
               renderRow={(eIdx) => {
                 const entry = folderEntries[eIdx]!;
@@ -3366,6 +3372,7 @@ export function LorebookEditor() {
               estimateSize={ENTRY_ROW_ESTIMATE}
               gap={6}
               pinnedIndex={dragSourceContainer === null && draggingEntryIdx !== null ? draggingEntryIdx : undefined}
+              keepMountedIndex={expandedIndexIn(entriesByContainer.get(null) ?? [])}
               scrollToIndex={revealIndexIn(entriesByContainer.get(null) ?? [])}
               renderRow={(idx) => {
                 const rootList = entriesByContainer.get(null) ?? [];
@@ -3455,6 +3462,7 @@ export function LorebookEditor() {
             getItemKey={(i) => filteredEntries[i]!.id}
             estimateSize={ENTRY_ROW_ESTIMATE}
             gap={6}
+            keepMountedIndex={expandedIndexIn(filteredEntries)}
             scrollToIndex={revealIndexIn(filteredEntries)}
             renderRow={(i) => {
               const entry = filteredEntries[i]!;

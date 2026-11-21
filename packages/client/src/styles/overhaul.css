@@ -15222,6 +15222,7 @@ input.ov-edhead__title:not(#ov-x) {
     .ov-tab__main,
     .ov-crumbs__item > button,
     .ov-vw__tools > button,
+    [data-macro-field] > [data-macro-tools] > button,
     .ov-hit-y
   ):not(#ov-hit) {
   position: relative;
@@ -15273,9 +15274,63 @@ input.ov-edhead__title:not(#ov-x) {
     .ov-tab__main,
     .ov-crumbs__item > button,
     .ov-vw__tools > button,
+    [data-macro-field] > [data-macro-tools] > button,
     .ov-hit-y
   ):not(#ov-hit)::after {
   content: "";
   position: absolute;
   inset: min(0px, calc((100% - 2.75rem) / 2)) 0;
+}
+
+/* Preview / Expand / Macro buttons on a touch screen in the tablet layout: stacked inside the box they were 21 px
+   apart, too close for a finger and with no room to grow. As on phones (overhaul-mobile.css), they leave the box
+   and sit in one row above it on the right, sharing a plain label's line when there is one; the row then grows
+   its hit areas up and down like every other row (above). */
+:root[data-overhaul="on"][data-marinara-touch-device="true"] [data-macro-field]:has(> [data-macro-tools]):not(#ov-hit) {
+  display: flex;
+  flex-direction: column;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"] [data-macro-field] > [data-macro-tools]:not(#ov-hit) {
+  position: static;
+  order: -1;
+  translate: none;
+  transform: none;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 0;
+  margin: 0 0 0.125rem;
+  padding: 0;
+  opacity: 1;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"]
+  :is(span.inline-flex, .ov-lf > span, .mari-editor-panel > .mb-4)
+  + [data-macro-field]
+  > [data-macro-tools]:not(#ov-hit):not(#ov-hit2) {
+  position: absolute;
+  top: auto;
+  bottom: 100%;
+  right: 0;
+  margin: 0;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"]
+  :is(span.inline-flex, .ov-lf > span, .mari-editor-panel > .mb-4)
+  + [data-macro-field]:not(#ov-hit) {
+  position: relative;
+  margin-top: 0.25rem;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"]
+  [data-macro-field]
+  > [data-macro-tools]
+  > :is(button, a):not(#ov-hit) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 1.75rem;
+  padding: 0;
+}
+:root[data-overhaul="on"][data-marinara-touch-device="true"]
+  [data-macro-field]
+  > :is(textarea, [role="region"]):not(#ov-hit) {
+  padding-right: 0.75rem !important;
 }
