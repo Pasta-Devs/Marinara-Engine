@@ -10,8 +10,9 @@ import {
   sanitizeMariTodos,
 } from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
-import { RefObject, Dispatch, SetStateAction, useCallback } from "react";
+import { RefObject, Dispatch, SetStateAction, useCallback, useRef } from "react";
 import { professorMariWorkspaceStatusKeys } from "../../../hooks/use-professor-mari-workspace-status";
+import { createMariRefreshScope, invalidateMariRefreshScope, type MariRefreshScopeBuilder } from "./mari-refresh-scope";
 import { api, isPassiveStreamDisconnect } from "../../../lib/api-client";
 import { awaitMariPermissionsModeWrites } from "../../../lib/mari-permissions-write-chain";
 import { describeProfessorMariError } from "../../../lib/professor-mari-errors";
@@ -103,6 +104,8 @@ export function useMariWorkspaceRun({
   workspaceTextThrottle,
 }: MariWorkspaceRunInput) {
   const qc = useQueryClient();
+  // What each run may have changed, read by its refresh when it ends (newest few runs only).
+  const runRefreshScopesRef = useRef(new Map<number, MariRefreshScopeBuilder>());
   const failRun = useCallback(
     (
       error: unknown,
@@ -147,6 +150,9 @@ export function useMariWorkspaceRun({
       await awaitMariPermissionsModeWrites();
       setCancelledChatId(null);
       const runId = ++workspaceRunIdRef.current;
+      const refreshScope = createMariRefreshScope();
+      runRefreshScopesRef.current.set(runId, refreshScope);
+      for (const id of runRefreshScopesRef.current.keys()) if (id < runId - 4) runRefreshScopesRef.current.delete(id);
       const controller = new AbortController();
       workspaceAbortRef.current = controller;
       workspaceTextThrottle.cancel();
@@ -280,6 +286,7 @@ export function useMariWorkspaceRun({
           } else if (event.type === "tool_start") {
             const data = asRecord(event.data);
             const name = typeof data?.name === "string" ? data.name : "tool";
+            refreshScope.noteTool(name, data?.input);
             const toolCall: WorkspaceToolCall = {
               id: getToolCallId(data, name),
               name,
@@ -384,6 +391,8 @@ export function useMariWorkspaceRun({
           }
         }
         if (!sawDone && !controller.signal.aborted) {
+          // The rest of the run happened out of sight: its tools are unknown.
+          refreshScope.markAll();
           // The stream closed CLEANLY without her "done" — mobile browsers and
           // proxies can shut a socket down without an error while the server
           // keeps running (#5719), also after her first round already spoke.
@@ -396,6 +405,7 @@ export function useMariWorkspaceRun({
       } catch (error) {
         if (error instanceof MariWorkspaceRunError) throw error;
         if (!isPassiveStreamDisconnect(error, pageWasHiddenDuringStream, controller.signal)) throw error;
+        refreshScope.markAll();
         // Detached by backgrounding (the resume watchdog, or the browser
         // killing the hidden tab's socket outright), not a failure — the run
         // continues and persists server-side. Wait for it to actually settle
@@ -470,10 +480,16 @@ export function useMariWorkspaceRun({
         refreshWorkspaceStatus(
           () => workspaceRunIdRef.current === runId && activeChatIdRef.current === completedChatId,
         ),
-        invalidateWorkspaceData(),
+        // Only what her tools could have changed: an answer that just read things refetches nothing.
+        invalidateMariRefreshScope(
+          qc,
+          runRefreshScopesRef.current.get(runId)?.result() ?? { all: true },
+          invalidateWorkspaceData,
+        ),
       ]);
+      runRefreshScopesRef.current.delete(runId);
     },
-    [activeChatIdRef, invalidateWorkspaceData, loadMessages, refreshWorkspaceStatus, workspaceRunIdRef],
+    [activeChatIdRef, invalidateWorkspaceData, loadMessages, qc, refreshWorkspaceStatus, workspaceRunIdRef],
   );
 
   return { failRun, sendWorkspaceMessage, refreshAfterWorkspaceRun };

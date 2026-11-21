@@ -246,6 +246,7 @@ import {
   SettingsIntro,
   SettingsSection,
   SettingsSwitch,
+  SettingsVisibleSectionsContext,
   ToggleSetting,
 } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
@@ -7695,16 +7696,15 @@ function ManualUpdateCommand({ command }: { command: string }) {
   );
 }
 
-function AdvancedSettings() {
+/**
+ * Message info and Message buttons. In the classic layout they sit in Advanced; the new layout shows them in
+ * Settings > Chatting on their own, so that tab no longer mounts the whole Advanced group (backups, multiplayer,
+ * access...) and its requests just to show two switch lists.
+ */
+function MessageDisplaySettings() {
   const { t: localizeUi } = useUiTranslation();
   // Message buttons only exist in the new layout (Settings > Chatting there).
   const overhaulEnabled = useOverhaulStore((s) => s.enabled);
-  const { t } = useTranslation();
-  const activeChatId = useChatStore((state) => state.activeChatId);
-  const { data: activeChat, isLoading: isActiveChatLoading } = useChat(activeChatId);
-  const { data: rawConnections, isLoading: isConnectionsLoading } = useConnections();
-  const loadRemoteMessageImages = useUIStore((s) => s.loadRemoteMessageImages);
-  const setLoadRemoteMessageImages = useUIStore((s) => s.setLoadRemoteMessageImages);
   const showTimestamps = useUIStore((s) => s.showTimestamps);
   const setShowTimestamps = useUIStore((s) => s.setShowTimestamps);
   const showModelName = useUIStore((s) => s.showModelName);
@@ -7717,6 +7717,82 @@ function AdvancedSettings() {
   const setShowMessageNumbers = useUIStore((s) => s.setShowMessageNumbers);
   const showHistoryTrimNotice = useUIStore((s) => s.showHistoryTrimNotice);
   const setShowHistoryTrimNotice = useUIStore((s) => s.setShowHistoryTrimNotice);
+  return (
+    <>
+      <SettingsSection
+        title={localizeUi("ui.panels.advancedsettings.messageInfo")}
+        description={localizeUi("ui.panels.advancedsettings.whatEachMessageShowsTimeModelTokensAndNumbers")}
+        icon={<MessageCircle size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("message-tools")}
+      >
+        <div className="flex flex-col gap-2.5">
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-message-timestamps")}
+            label={localizeUi("settings.controls.showTimestamps.label")}
+            checked={showTimestamps}
+            onChange={setShowTimestamps}
+            help={localizeUi("settings.controls.showTimestamps.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-model-name")}
+            label={localizeUi("settings.controls.showModelName.label")}
+            checked={showModelName}
+            onChange={setShowModelName}
+            help={localizeUi("settings.controls.showModelName.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-token-usage")}
+            label={localizeUi("settings.controls.showTokenUsage.label")}
+            checked={showTokenUsage}
+            onChange={setShowTokenUsage}
+            help={localizeUi("settings.controls.showTokenUsage.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-context-usage")}
+            label={localizeUi("settings.controls.showContextUsage.label")}
+            checked={showContextUsage}
+            onChange={setShowContextUsage}
+            help={localizeUi("settings.controls.showContextUsage.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-message-numbers")}
+            label={localizeUi("settings.controls.showMessageNumbers.label")}
+            checked={showMessageNumbers}
+            onChange={setShowMessageNumbers}
+            help={localizeUi("settings.controls.showMessageNumbers.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-history-trim-notice")}
+            label={localizeUi("settings.controls.showHistoryTrimNotice.label")}
+            checked={showHistoryTrimNotice}
+            onChange={setShowHistoryTrimNotice}
+            help={localizeUi("settings.controls.showHistoryTrimNotice.help")}
+          />
+        </div>
+      </SettingsSection>
+
+      {overhaulEnabled ? (
+        <SettingsSection
+          title={localizeUi("ui.overhaul.messagebuttons.title")}
+          description={localizeUi("ui.overhaul.messagebuttons.description")}
+          icon={<MousePointerClick size="0.875rem" />}
+          {...getSettingsSectionAnchorProps("message-buttons")}
+        >
+          <MessageButtonsSettings />
+        </SettingsSection>
+      ) : null}
+    </>
+  );
+}
+
+function AdvancedSettings({ withMessageSections = true }: { withMessageSections?: boolean }) {
+  const { t: localizeUi } = useUiTranslation();
+  const { t } = useTranslation();
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const { data: activeChat, isLoading: isActiveChatLoading } = useChat(activeChatId);
+  const { data: rawConnections, isLoading: isConnectionsLoading } = useConnections();
+  const loadRemoteMessageImages = useUIStore((s) => s.loadRemoteMessageImages);
+  const setLoadRemoteMessageImages = useUIStore((s) => s.setLoadRemoteMessageImages);
   const includeReasoningInExports = useUIStore((s) => s.includeReasoningInExports);
   const setIncludeReasoningInExports = useUIStore((s) => s.setIncludeReasoningInExports);
   const includePrivateNotesInExports = useUIStore((s) => s.includePrivateNotesInExports);
@@ -8752,68 +8828,7 @@ function AdvancedSettings() {
         </div>
       </SettingsSection>
 
-      <SettingsSection
-        title={localizeUi("ui.panels.advancedsettings.messageInfo")}
-        description={localizeUi("ui.panels.advancedsettings.whatEachMessageShowsTimeModelTokensAndNumbers")}
-        icon={<MessageCircle size="0.875rem" />}
-        {...getSettingsSectionAnchorProps("message-tools")}
-      >
-        <div className="flex flex-col gap-2.5">
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-message-timestamps")}
-            label={localizeUi("settings.controls.showTimestamps.label")}
-            checked={showTimestamps}
-            onChange={setShowTimestamps}
-            help={localizeUi("settings.controls.showTimestamps.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-model-name")}
-            label={localizeUi("settings.controls.showModelName.label")}
-            checked={showModelName}
-            onChange={setShowModelName}
-            help={localizeUi("settings.controls.showModelName.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-token-usage")}
-            label={localizeUi("settings.controls.showTokenUsage.label")}
-            checked={showTokenUsage}
-            onChange={setShowTokenUsage}
-            help={localizeUi("settings.controls.showTokenUsage.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-context-usage")}
-            label={localizeUi("settings.controls.showContextUsage.label")}
-            checked={showContextUsage}
-            onChange={setShowContextUsage}
-            help={localizeUi("settings.controls.showContextUsage.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-message-numbers")}
-            label={localizeUi("settings.controls.showMessageNumbers.label")}
-            checked={showMessageNumbers}
-            onChange={setShowMessageNumbers}
-            help={localizeUi("settings.controls.showMessageNumbers.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-history-trim-notice")}
-            label={localizeUi("settings.controls.showHistoryTrimNotice.label")}
-            checked={showHistoryTrimNotice}
-            onChange={setShowHistoryTrimNotice}
-            help={localizeUi("settings.controls.showHistoryTrimNotice.help")}
-          />
-        </div>
-      </SettingsSection>
-
-      {overhaulEnabled ? (
-        <SettingsSection
-          title={localizeUi("ui.overhaul.messagebuttons.title")}
-          description={localizeUi("ui.overhaul.messagebuttons.description")}
-          icon={<MousePointerClick size="0.875rem" />}
-          {...getSettingsSectionAnchorProps("message-buttons")}
-        >
-          <MessageButtonsSettings />
-        </SettingsSection>
-      ) : null}
+      {withMessageSections ? <MessageDisplaySettings /> : null}
 
       <SettingsSection
         title={localizeUi("ui.panels.advancedsettings.backupRestore")}
@@ -9239,6 +9254,9 @@ function AdvancedSettings() {
 // and hides every other section, so each control keeps its real behaviour
 // while the overhaul's Settings page arranges them into its own tabs.
 // ──────────────────────────────────────────────
+/** Shown by MessageDisplaySettings, not the Advanced group, in the new layout. */
+const MESSAGE_DISPLAY_SECTIONS = new Set<SettingsSectionId>(["message-tools", "message-buttons"]);
+
 export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly SettingsSectionId[] }) {
   // Each part renders once, in the order its first section appears in the tab, so the
   // sections (and the jump buttons read from them) follow the tab's own order.
@@ -9251,10 +9269,21 @@ export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly 
     if (id === "theme-library" && cssThemesAfterTheme) continue;
     const meta = SETTINGS_SECTIONS.find((section) => section.id === id);
     if (!meta) continue;
-    const part = meta.tab === "appearance" ? `appearance:${appearanceGroupForSection(id)}` : meta.tab;
+    const part =
+      meta.tab === "appearance"
+        ? `appearance:${appearanceGroupForSection(id)}`
+        : MESSAGE_DISPLAY_SECTIONS.has(id)
+          ? "messages"
+          : meta.tab;
     if (!parts.includes(part)) parts.push(part);
   }
   const visible = sectionIds.map((id) => `#${getSettingsSectionAnchorId(id)}`).join(", ");
+  // Sections outside this page render nothing (the CSS above still hides anything that isn't a SettingsSection).
+  const sectionKey = sectionIds.join(",");
+  const visibleAnchors = useMemo(
+    () => new Set(sectionKey.split(",").map((id) => getSettingsSectionAnchorId(id as SettingsSectionId))),
+    [sectionKey],
+  );
   const renderPart = (part: string) => {
     switch (part) {
       case "general":
@@ -9279,17 +9308,21 @@ export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly 
       case "import":
         return <ImportSettings />;
       case "advanced":
-        return <AdvancedSettings />;
+        return <AdvancedSettings withMessageSections={false} />;
+      case "messages":
+        return <MessageDisplaySettings />;
       default:
         return null;
     }
   };
   return (
-    <div className="ov-settings__sections" data-ov-settings-sections>
-      <style>{`[data-ov-settings-sections] [id^="settings-section-"]:not(${visible}) { display: none !important; }`}</style>
-      {parts.map((part) => (
-        <Fragment key={part}>{renderPart(part)}</Fragment>
-      ))}
-    </div>
+    <SettingsVisibleSectionsContext.Provider value={visibleAnchors}>
+      <div className="ov-settings__sections" data-ov-settings-sections>
+        <style>{`[data-ov-settings-sections] [id^="settings-section-"]:not(${visible}) { display: none !important; }`}</style>
+        {parts.map((part) => (
+          <Fragment key={part}>{renderPart(part)}</Fragment>
+        ))}
+      </div>
+    </SettingsVisibleSectionsContext.Provider>
   );
 }
