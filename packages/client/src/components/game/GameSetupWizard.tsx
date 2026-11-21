@@ -838,6 +838,20 @@ export function GameSetupWizard({
   // Once the check for exactly these picks has answered, its answer alone decides: an entry it left out
   // (an off folder, say) is not brought back from an opened book. Until then, picks made here stand in.
   const entryCheckAnswered = entryQuery.isSuccess && !entryQuery.isPlaceholderData;
+  // An entry the answered check left out is forgotten as a local pick too, so a later pick (whose check is
+  // still pending) can't bring it back from the opened book's copy.
+  useEffect(() => {
+    if (!entryCheckAnswered) return;
+    const asked = new Set(activeLorebookEntryIds);
+    const allowed = new Set((entryQuery.data ?? []).map((entry) => entry.id));
+    setPickedSetupEntries((known) => {
+      const rejected = Object.keys(known).filter((id) => asked.has(id) && !allowed.has(id));
+      if (rejected.length === 0) return known;
+      const next = { ...known };
+      for (const id of rejected) delete next[id];
+      return next;
+    });
+  }, [entryCheckAnswered, entryQuery.data, activeLorebookEntryIds]);
   const usableSetupEntries = useMemo(() => {
     const byId = new Map<string, EligibleLorebookEntry>();
     const known = entryCheckAnswered
