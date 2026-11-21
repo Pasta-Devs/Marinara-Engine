@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { Bell, BellRing, Play, Trash2, Upload, Volume2 } from "lucide-react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -50,6 +50,14 @@ export function SettingsIntro({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The section anchors (`settings-section-<id>`) a page shows. The new layout's Settings tabs mount a whole classic
+ * group (General, Advanced...) and used to hide the other sections with CSS, which still mounted them and ran their
+ * requests (Settings > Chatting fetched backups, multiplayer and access status on every visit). A section outside
+ * this set now renders nothing. Null (the classic layout) shows every section.
+ */
+export const SettingsVisibleSectionsContext = createContext<ReadonlySet<string> | null>(null);
+
 export function SettingsSection({
   title,
   description,
@@ -74,6 +82,8 @@ export function SettingsSection({
   tone?: "default" | "danger";
 }) {
   const localize = useLocalizedUiText();
+  const visibleSections = useContext(SettingsVisibleSectionsContext);
+  if (visibleSections && anchorId?.startsWith("settings-section-") && !visibleSections.has(anchorId)) return null;
   const localizedDescription = localizeStringNode(description, localize);
 
   return (
