@@ -2,7 +2,8 @@
 // Importer: SillyTavern Prompt Preset
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
-import type { MarkerConfig } from "@marinara-engine/shared";
+import type { GenerationParameters, MarkerConfig } from "@marinara-engine/shared";
+import { DEFAULT_GENERATION_PARAMS, generationParametersSchema } from "@marinara-engine/shared";
 import { createPromptsStorage } from "../storage/prompts.storage.js";
 import type { PromptVariableGroup } from "@marinara-engine/shared";
 import { withImportTags, type ImportTagOptions } from "@marinara-engine/shared";
@@ -44,10 +45,79 @@ interface STPreset {
   [key: string]: unknown;
 }
 
+/** A SillyTavern preset setting with no place in a Marinara preset, named for the import summary. */
+export type STPresetLeftOut = "maxTokens" | "maxContext" | "topA" | "repetitionPenalty" | "outOfRange";
+
+type ImportedSamplerKey = "temperature" | "topP" | "topK" | "minP" | "frequencyPenalty" | "presencePenalty";
+
+// Chat-completion preset names first, then the Text Completion ("TextGen Settings") names for the same setting.
+const ST_SAMPLER_KEYS: Array<[string[], ImportedSamplerKey]> = [
+  [["temperature", "temp"], "temperature"],
+  [["top_p"], "topP"],
+  [["top_k"], "topK"],
+  [["min_p"], "minP"],
+  [["frequency_penalty", "freq_pen"], "frequencyPenalty"],
+  [["presence_penalty", "presence_pen"], "presencePenalty"],
+];
+
+/** The first of these keys the preset has a number for. */
+function firstNumber(raw: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = finiteNumber(raw[key]);
+    if (value !== null) return value;
+  }
+  return null;
+}
+
+// SillyTavern's "auto" leaves the choice to the provider, which is what no value does here.
+const ST_REASONING_EFFORT: Record<string, GenerationParameters["reasoningEffort"]> = {
+  min: "low",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  max: "maximum",
+};
+
+function finiteNumber(value: unknown): number | null {
+  const numeric = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+/**
+ * The sampler settings a SillyTavern chat-completion preset carries, as a Marinara preset's own parameters
+ * ("Starting settings for chats using this preset"; a connection's or chat's own values still win). Values that
+ * match Marinara's defaults are left out so they don't read as preset choices. Output and context size belong to
+ * the connection here, and Top A and repetition penalty have no field, so those are reported instead.
+ */
+export function readSTPresetParameters(raw: Record<string, unknown>) {
+  const parameters: Partial<GenerationParameters> = {};
+  const leftOut = new Set<STPresetLeftOut>();
+  for (const [stKeys, key] of ST_SAMPLER_KEYS) {
+    const value = firstNumber(raw, stKeys);
+    if (value === null) continue;
+    const parsed = generationParametersSchema.shape[key].safeParse(value);
+    if (!parsed.success) {
+      leftOut.add("outOfRange");
+      continue;
+    }
+    if (parsed.data !== DEFAULT_GENERATION_PARAMS[key]) parameters[key] = parsed.data as number;
+  }
+  if (typeof raw.reasoning_effort === "string") {
+    const effort = ST_REASONING_EFFORT[raw.reasoning_effort.trim().toLowerCase()];
+    if (effort) parameters.reasoningEffort = effort;
+  }
+  if (firstNumber(raw, ["openai_max_tokens", "genamt", "max_new_tokens"]) !== null) leftOut.add("maxTokens");
+  if (firstNumber(raw, ["openai_max_context", "max_length"]) !== null) leftOut.add("maxContext");
+  const topA = finiteNumber(raw.top_a);
+  if (topA !== null && topA !== 0) leftOut.add("topA");
+  const repetitionPenalty = firstNumber(raw, ["repetition_penalty", "rep_pen"]);
+  if (repetitionPenalty !== null && repetitionPenalty !== 1) leftOut.add("repetitionPenalty");
+  return { parameters, leftOut: [...leftOut] };
+}
+
 /**
  * Import a SillyTavern prompt preset JSON.
- * Parses the prompt array and variable toggle groups. Generation parameters
- * are connection/chat-owned settings and are intentionally ignored.
+ * Parses the prompt array, variable toggle groups and the preset's own sampler settings (readSTPresetParameters).
  */
 export async function importSTPreset(
   raw: Record<string, unknown>,
@@ -66,6 +136,7 @@ export async function importSTPreset(
 
   // Detect variable toggle groups from naming patterns
   const variableGroups = detectVariableGroups(preset.prompts ?? []);
+  const samplers = readSTPresetParameters(raw);
 
   // Create the preset
   const created = await storage.create(
@@ -76,7 +147,7 @@ export async function importSTPreset(
       ...(options?.importTags ? { tags: withImportTags([], options.source ?? "st", options.importTags) } : {}),
       variableGroups,
       variableValues: {},
-      parameters: {},
+      parameters: samplers.parameters,
     },
     options?.timestampOverrides,
   );
@@ -183,6 +254,8 @@ export async function importSTPreset(
     sectionsImported: sectionsCreated,
     variableGroups: variableGroups.length,
     regexImported,
+    parametersImported: Object.keys(samplers.parameters),
+    parametersLeftOut: samplers.leftOut,
   };
 }
 

@@ -114,23 +114,23 @@ function resolveImportFolder(body: {
       return { ok: false, error: "Folder token does not match folderPath" };
     }
     if (getImportAllowedRoots().length > 0 && !isAllowedImportRoot(entry.path)) {
-      return {
-        ok: false,
-        error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.",
-      };
+      return { ok: false, error: describeImportFolderLimit() };
     }
     return { ok: true, path: entry.path };
   }
 
   if (!rawPath) return { ok: false, error: "folderPath or folderToken is required" };
   const resolved = pathResolve(rawPath);
-  if (!isAllowedImportRoot(resolved)) {
-    return {
-      ok: false,
-      error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.",
-    };
-  }
+  // A typed path gets what Browse already reaches: the home folder, unless IMPORT_ALLOWED_ROOTS names others.
+  const allowed = getImportAllowedRoots().length > 0 ? isAllowedImportRoot(resolved) : isHomeContained(resolved);
+  if (!allowed) return { ok: false, error: describeImportFolderLimit() };
   return { ok: true, path: resolved };
+}
+
+function describeImportFolderLimit() {
+  return getImportAllowedRoots().length > 0
+    ? "Marinara can only read folders inside the import folders this server allows (IMPORT_ALLOWED_ROOTS). Move the SillyTavern folder into one of them, or ask whoever runs the server to allow its location."
+    : `Marinara can only read folders inside your home folder (${homedir()}). Move the SillyTavern folder there, or ask whoever runs the server to allow its location (IMPORT_ALLOWED_ROOTS).`;
 }
 
 /**

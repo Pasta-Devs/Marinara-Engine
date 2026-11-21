@@ -34,6 +34,9 @@ export function parseTrustedTimestamp(value: unknown): string | null {
     }
   }
 
+  const sillyTavern = parseSillyTavernSendDate(raw);
+  if (sillyTavern) return sillyTavern;
+
   const parsed = new Date(raw);
   if (!Number.isNaN(parsed.getTime())) {
     return parsed.toISOString();
@@ -57,6 +60,51 @@ export function parseTrustedTimestamp(value: unknown): string | null {
   );
 
   return Number.isNaN(legacyDate.getTime()) ? null : legacyDate.toISOString();
+}
+
+const ENGLISH_MONTHS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+];
+
+/**
+ * SillyTavern writes each message's `send_date` as moment's "MMMM D, YYYY h:mma" ("March 1, 2025 12:00pm"),
+ * in the machine's local time. `new Date()` can't read the am/pm glued to the minutes, so without this every
+ * imported message got the import time. Seconds ("12:00:05pm") and a 24-hour clock are read too.
+ */
+function parseSillyTavernSendDate(raw: string): string | null {
+  const found = raw
+    .replace(/\s+/gu, " ")
+    .match(/^([a-z]+)\.? (\d{1,2}),? (\d{4}),? (\d{1,2}):(\d{2})(?::(\d{2}))?(?: ?([ap])\.?m\.?)?$/iu);
+  if (!found) return null;
+  const [, monthName, day, year, hourText, minute, second, meridiem] = found;
+  const lowerMonth = monthName!.toLowerCase();
+  const month = ENGLISH_MONTHS.findIndex(
+    (name) => name === lowerMonth || (lowerMonth.length >= 3 && name.startsWith(lowerMonth)),
+  );
+  if (month < 0) return null;
+  let hour = Number(hourText);
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    const pm = meridiem.toLowerCase() === "p";
+    hour = (hour % 12) + (pm ? 12 : 0);
+  } else if (hour > 23) {
+    return null;
+  }
+  const date = new Date(Number(year), month, Number(day), hour, Number(minute), Number(second ?? 0));
+  // Reject roll-overs such as "February 31".
+  if (Number.isNaN(date.getTime()) || date.getDate() !== Number(day) || date.getMonth() !== month) return null;
+  return date.toISOString();
 }
 
 export function normalizeTimestampOverrides(
