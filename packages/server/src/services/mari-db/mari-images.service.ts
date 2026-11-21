@@ -658,6 +658,12 @@ function parseCharacterPromptsFlag(flags: Map<string, string | boolean>, conn: I
   }
   const list = value && typeof value === "object" && !Array.isArray(value) ? (value as Json).characterPrompts : value;
   if (!Array.isArray(list)) throw new Error("--character-prompts takes a JSON array of character prompts.");
+  return sanitizeMariCharacterPrompts(list, conn);
+}
+
+// The Illustrator's sanitizer, with names taken from the entries (Mari has no scene character list) and the
+// connection's caption limit: no blank names or prompts, no repeated names, at most the limit.
+function sanitizeMariCharacterPrompts(list: unknown[], conn: ImageConnection) {
   const names = [
     ...new Set(
       list
@@ -707,7 +713,7 @@ function characterPromptReport(args: {
   const limit = nativeCaptionLimit(args.conn);
   const subjects = detectNovelAiSubjectCount(args.prompt) ?? 0;
   const showRules = limit > 0 && (args.rules === "always" || (args.entries.length === 0 && subjects >= 2));
-  if (args.entries.length === 0 && !showRules) return undefined;
+  if (args.entries.length === 0 && !showRules && args.dropped === 0) return undefined;
   return {
     ...(args.entries.length > 0
       ? {
@@ -1185,6 +1191,12 @@ export class MariImagesService {
     return rows.filter((row) => row.provider === "image_generation");
   }
 
+  private async connectionThatMade(result: ImageGenResult, connection: ImageConnection): Promise<ImageConnection> {
+    const id = result.effectiveConnection?.connectionId;
+    if (!id || id === connection.id) return connection;
+    return (await this.imageConnections()).find((conn) => conn.id === id) ?? connection;
+  }
+
   private async getConnection(selector: string | undefined, requireEdit: boolean): Promise<ImageConnection> {
     const connections = await this.imageConnections();
     if (connections.length === 0)
@@ -1440,9 +1452,15 @@ export class MariImagesService {
       sourceImage: sourceImage?.label ?? null,
       characterPrompts: captions.entries,
     });
-    const sent = sentImageSize(connection, styled, size);
+    // A fallback connection may have made the picture: report the size and captions for that one.
+    const made = await this.connectionThatMade(result, connection);
+    const sent = sentImageSize(
+      made,
+      made === connection ? styled : { ...styled, imageDefaults: fallback?.imageDefaults ?? styled.imageDefaults },
+      size,
+    );
     const characterPrompts = characterPromptReport({
-      conn: connection,
+      conn: made,
       prompt: styled.prompt,
       ...captions,
       rules: "when-missing",
@@ -1493,7 +1511,7 @@ export class MariImagesService {
       throw new MariImageValidationError("A mask image is only valid for inpainting edits.");
     }
     const isLegacyReferenceEdit = previous.operation === "edit" && !previous.nativeEditMode;
-    const characterPrompts = input.characterPrompts ?? previous.characterPrompts ?? [];
+    const requestedCharacterPrompts = input.characterPrompts ?? previous.characterPrompts ?? [];
 
     if (!input.editMode && !input.reuseSeed) {
       const flags = new Map<string, string | boolean>([
@@ -1507,7 +1525,8 @@ export class MariImagesService {
       ]);
       if (previous.width) flags.set("width", String(previous.width));
       if (previous.height) flags.set("height", String(previous.height));
-      if (characterPrompts.length > 0) flags.set("character-prompts", JSON.stringify(characterPrompts));
+      if (requestedCharacterPrompts.length > 0)
+        flags.set("character-prompts", JSON.stringify(requestedCharacterPrompts));
       if (isLegacyReferenceEdit) {
         const source = mariSourceReference(previous.sourceImage);
         if (!source) throw new Error("This image was edited from a picture that can't be read again.");
@@ -1530,6 +1549,7 @@ export class MariImagesService {
       !input.editMode && isLegacyReferenceEdit,
     );
     const capability = capabilityForConnection(connection);
+    const { entries: characterPrompts } = sanitizeMariCharacterPrompts(requestedCharacterPrompts, connection);
     const imgModel = connection.model || "";
     const imgBaseUrl = connection.baseUrl || "https://image.pollinations.ai";
     const imgSource = connection.imageGenerationSource || imgModel;

@@ -263,6 +263,22 @@ try {
     ]),
   );
   assert.equal(sent.at(-1)?.prompt, "two friends in a park\n\nAnn: red coat\n\nBen: green hat");
+  // Every caption dropped: the result still says so.
+  const allDroppedRun = await mari.executeCli({
+    argv: [
+      "images",
+      "generate",
+      "--prompt",
+      "a friend in a park",
+      "--character-prompts",
+      JSON.stringify([{ name: "Ann", prompt: "" }]),
+    ],
+    sessionId: "mari-image-lightbox",
+  });
+  assert.equal(allDroppedRun.ok, true, JSON.stringify(allDroppedRun));
+  const allDropped = allDroppedRun.output as { characterPrompts?: { dropped?: number; droppedNote?: string } };
+  assert.equal(allDropped.characterPrompts?.dropped, 1, "a dropped caption is reported even when none are left");
+  assert.match(String(allDropped.characterPrompts?.droppedNote), /dropped/);
   const badJson = await mari.executeCli({
     argv: ["images", "generate", "--prompt", "x", "--character-prompts", "[{name:"],
     sessionId: "mari-image-lightbox",
@@ -475,6 +491,30 @@ try {
         (entry) => entry.char_caption,
       ),
       ["girl, red scarf"],
+    );
+    // The lightbox's list goes through the same sanitizer: a repeated name doesn't push out a later character.
+    const repeated = await refuse(
+      {
+        prompt: "1girl, 1boy, cafe, night",
+        characterPrompts: [
+          { name: "Mari", prompt: "girl, red scarf" },
+          { name: "Mari", prompt: "girl, duplicate" },
+          { name: "Dottore", prompt: "boy, mask" },
+        ],
+      },
+      captioned.asset.id,
+    );
+    assert.equal(repeated.statusCode, 200, repeated.body);
+    assert.deepEqual(
+      (mariNaiRequests.at(-1)!.parameters as typeof captionedRequest).v4_prompt.caption.char_captions.map(
+        (entry) => entry.char_caption,
+      ),
+      ["girl, red scarf", "boy, mask"],
+    );
+    assert.equal(
+      (repeated.json() as { asset: { characterPrompts?: unknown[] } }).asset.characterPrompts?.length,
+      2,
+      "the saved asset keeps the list that was sent",
     );
     const record = (await app.inject(`/api/gallery/mari-images/assets/${captioned.asset.id}`)).json() as {
       asset: { characterPrompts?: unknown[] };
