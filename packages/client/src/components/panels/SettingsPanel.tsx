@@ -28,6 +28,7 @@ import {
   type TrackerPanelSizeProfile,
   type TrackerStatDisplayMode,
   type TrackerThoughtBubbleDisplay,
+  type ImageSettingsTab,
   type VisualTheme,
   selectChatChromeTextColor,
   selectChatFontColor,
@@ -122,7 +123,6 @@ import { resetDeviceWalkthrough, resetModeWalkthroughs, useWalkthroughDevice } f
 import {
   APP_VERSION,
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
-  DEFAULT_IMAGE_STYLE_PROFILES,
   VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX,
   VIDEO_PER_REPLY_MAX,
   VIDEO_PER_REPLY_MIN,
@@ -132,17 +132,11 @@ import {
   VIDEO_GENERATION_SETTINGS_KEY,
   VIDEO_SCENE_DURATION_MAX,
   VIDEO_SCENE_DURATION_MIN,
-  compileImagePrompt,
-  createImageStyleProfileId,
   normalizeImageStyleProfileSettings,
   normalizeVideoGenerationUserSettings,
   type AppSettingsResponse,
   type APIConnection,
   type ConversationCallCharacterVideoClipKind,
-  type ImagePromptKind,
-  type ImagePromptMode,
-  type ImageStyleProfile,
-  type ImageStyleProfileSettings,
   type QuoteFormat,
   type SidecarHealthSection,
   type Theme,
@@ -258,6 +252,7 @@ import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
 import { TrackerPanelPreview } from "./settings/TrackerPanelPreview";
 import { UiStyleSettings } from "./settings/UiStyleSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
+import { useImageCanvases, VIDEO_PROMPT_TEMPLATE_KEYS } from "../image-settings/image-canvases";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
 import { AccessStatusSettings, AdminSecretMaker } from "./settings/AccessStatusSettings";
 import { RequestTimeoutSettings } from "./settings/RequestTimeoutSettings";
@@ -749,21 +744,6 @@ const GAME_ASSET_CATEGORIES = [
   },
 ] as const;
 
-const VIDEO_PROMPT_TEMPLATE_KEYS = [
-  "game.video",
-  "roleplay.galleryVideoDirector",
-  "roleplay.clipDirector",
-  "conversation.video",
-  "conversation.callVideo.idle",
-  "conversation.callVideo.talking",
-  "conversation.callVideo.laughing",
-  "conversation.callVideo.angry",
-  "conversation.callVideo.crying",
-  "conversation.callVideo.sighing",
-  "conversation.callVideo.custom",
-  "sprites.animatedPortrait",
-] as const;
-
 const CONVERSATION_CALL_VIDEO_CLIP_LABELS: Record<ConversationCallCharacterVideoClipKind, string> = {
   idle: "Idle loop",
   talking: "Talking loop",
@@ -775,392 +755,6 @@ const CONVERSATION_CALL_VIDEO_CLIP_LABELS: Record<ConversationCallCharacterVideo
 
 type GameAssetCategoryId = (typeof GAME_ASSET_CATEGORIES)[number]["id"];
 const GAME_ASSET_CATEGORY_BY_ID = new Map(GAME_ASSET_CATEGORIES.map((category) => [category.id, category]));
-
-const IMAGE_STYLE_SUBJECT_KINDS: ImagePromptKind[] = [
-  "avatar",
-  "portrait",
-  "selfie",
-  "background",
-  "illustration",
-  "sprite",
-];
-const IMAGE_PROMPT_MODE_OPTIONS: Array<{ value: ImagePromptMode; label: string }> = [
-  { value: "hybrid", label: "Hybrid" },
-  { value: "danbooru", label: "Danbooru tags" },
-  { value: "tagged", label: "Tags" },
-  { value: "natural", label: "Natural language" },
-];
-
-function ImageDimensionRow({
-  label,
-  help,
-  width,
-  height,
-  onCommit,
-  controlId,
-}: {
-  label: string;
-  help: string;
-  width: number;
-  height: number;
-  onCommit: (width: number, height: number) => void;
-  controlId?: string;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  return (
-    <div
-      id={controlId ? getSettingsControlAnchorId(controlId) : undefined}
-      className="grid scroll-mt-3 gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-    >
-      <div className="min-w-0">
-        <div className="inline-flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
-          {label}
-          <HelpTooltip text={help} />
-        </div>
-        <div className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-          {localizeUi("ui.panels.imagedimensionrow.pixelsClampedFrom64To4096")}
-        </div>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 sm:w-40">
-        <DraftNumberInput
-          value={width}
-          ariaLabel={localizeUi("settings.imageDimensions.width", { label })}
-          min={64}
-          max={4096}
-          commitOnValidChange
-          onCommit={(nextWidth) => onCommit(nextWidth, height)}
-          className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
-        />
-        <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-          {localizeUi("ui.panels.imagedimensionrow.x")}
-        </span>
-        <DraftNumberInput
-          value={height}
-          ariaLabel={localizeUi("settings.imageDimensions.height", { label })}
-          min={64}
-          max={4096}
-          commitOnValidChange
-          onCommit={(nextHeight) => onCommit(width, nextHeight)}
-          className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
-        />
-      </div>
-    </div>
-  );
-}
-
-function ImageStyleProfilesEditor({
-  value,
-  onChange,
-}: {
-  value: ImageStyleProfileSettings;
-  onChange: (settings: ImageStyleProfileSettings) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const settings = normalizeImageStyleProfileSettings(value);
-  const [selectedId, setSelectedId] = useState(settings.defaultProfileId);
-  const [previewKind, setPreviewKind] = useState<ImagePromptKind>("portrait");
-  const [previewPrompt, setPreviewPrompt] = useState(
-    "Create a portrait of Mira, anime style, best quality, high quality, detailed eyes. Avoid blurry, text, watermark. no extra fingers",
-  );
-  const selected = settings.profiles.find((profile) => profile.id === selectedId) ?? settings.profiles[0]!;
-  const preview = useMemo(
-    () =>
-      compileImagePrompt({
-        kind: previewKind,
-        prompt: previewPrompt,
-        styleProfiles: { ...settings, defaultProfileId: selected.id },
-        styleProfileId: selected.id,
-      }),
-    [previewKind, previewPrompt, selected.id, settings],
-  );
-  const cleanupCount =
-    preview.diagnostics.removedPositiveDuplicates.length +
-    preview.diagnostics.removedNegativeDuplicates.length +
-    preview.diagnostics.movedNegativeFragments.length;
-
-  useEffect(() => {
-    if (!settings.profiles.some((profile) => profile.id === selectedId)) {
-      setSelectedId(settings.defaultProfileId);
-    }
-  }, [selectedId, settings.defaultProfileId, settings.profiles]);
-
-  const commit = useCallback(
-    (next: ImageStyleProfileSettings) => {
-      onChange(normalizeImageStyleProfileSettings(next));
-    },
-    [onChange],
-  );
-
-  const updateSelected = useCallback(
-    (patch: Partial<ImageStyleProfile>) => {
-      commit({
-        ...settings,
-        profiles: settings.profiles.map((profile) =>
-          profile.id === selected.id ? { ...profile, ...patch, id: selected.id } : profile,
-        ),
-      });
-    },
-    [commit, selected.id, settings],
-  );
-
-  const updateSubjectTags = useCallback(
-    (kind: ImagePromptKind, tags: string) => {
-      updateSelected({ subjectTags: { ...selected.subjectTags, [kind]: tags } });
-    },
-    [selected.subjectTags, updateSelected],
-  );
-
-  const cloneSelected = useCallback(() => {
-    const id = createImageStyleProfileId(selected.id, settings.profiles);
-    const clone = { ...selected, id, name: `${selected.name} Custom`, builtIn: false };
-    commit({ ...settings, profiles: [...settings.profiles, clone], defaultProfileId: id });
-    setSelectedId(id);
-  }, [commit, selected, settings]);
-
-  const resetSelected = useCallback(() => {
-    const builtIn = DEFAULT_IMAGE_STYLE_PROFILES.find((profile) => profile.id === selected.id);
-    if (!builtIn) return;
-    commit({
-      ...settings,
-      profiles: settings.profiles.map((profile) => (profile.id === selected.id ? { ...builtIn } : profile)),
-    });
-  }, [commit, selected.id, settings]);
-
-  const deleteSelected = useCallback(() => {
-    if (selected.builtIn || settings.profiles.length <= 1) return;
-    const profiles = settings.profiles.filter((profile) => profile.id !== selected.id);
-    const defaultProfileId = settings.defaultProfileId === selected.id ? profiles[0]!.id : settings.defaultProfileId;
-    commit({ profiles, defaultProfileId });
-    setSelectedId(defaultProfileId);
-  }, [commit, selected.builtIn, selected.id, settings]);
-
-  const setDefaultProfileId = useCallback(
-    (defaultProfileId: string) => {
-      commit({ ...settings, defaultProfileId });
-    },
-    [commit, settings],
-  );
-
-  return (
-    <div className="rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)]">
-      <div className="space-y-3">
-        <div className="grid gap-2">
-          <div className="min-w-0">
-            <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle")}
-            </span>
-            <Select
-              value={settings.defaultProfileId}
-              options={settings.profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
-              onChange={setDefaultProfileId}
-              label={localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle")}
-              className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-            />
-          </div>
-
-          <div className="min-w-0">
-            <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.imagestyleprofileseditor.editing")}
-            </span>
-            <Select
-              value={selected.id}
-              options={settings.profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
-              onChange={setSelectedId}
-              label={localizeUi("ui.panels.imagestyleprofileseditor.editing")}
-              className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          <button type="button" onClick={cloneSelected} className={SETTINGS_BUTTON_CLASS}>
-            <Plus size="0.75rem" />
-            {localizeUi("ui.panels.imagestyleprofileseditor.clone")}
-          </button>
-          <button
-            type="button"
-            onClick={resetSelected}
-            disabled={!selected.builtIn}
-            className={cn(SETTINGS_BUTTON_CLASS, "ovm-risky")}
-          >
-            <RotateCcw size="0.75rem" />
-            {localizeUi("ui.panels.imagestyleprofileseditor.reset")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              void showConfirmDialog({
-                title: localizeUi("lorebook.editor.batch.delete"),
-                message: localizeUi("ui.chat.gameprompttemplateselect.value1", { value1: selected.name }),
-                confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                cancelLabel: localizeUi("chat.delete.dialog.cancel"),
-              }).then((confirmed) => {
-                if (confirmed) deleteSelected();
-              });
-            }}
-            disabled={selected.builtIn || settings.profiles.length <= 1}
-            className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger ovm-risky")}
-          >
-            <Trash2 size="0.75rem" />
-            {localizeUi("lorebook.editor.batch.delete")}
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3">
-        <label className="min-w-0">
-          <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.imagestyleprofileseditor.name")}
-          </span>
-          <input
-            value={selected.name}
-            onChange={(event) => updateSelected({ name: event.target.value })}
-            className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-          />
-        </label>
-        <div className="min-w-0">
-          <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.imagestyleprofileseditor.promptGrammar")}
-          </span>
-          <Select
-            value={selected.promptMode}
-            options={[
-              { value: "off", label: localizeUi("ui.panels.imagestyleprofileseditor.promptGrammarOff") },
-              ...IMAGE_PROMPT_MODE_OPTIONS,
-            ]}
-            onChange={(promptMode) => updateSelected({ promptMode })}
-            label={localizeUi("ui.panels.imagestyleprofileseditor.promptGrammar")}
-            className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-          />
-          {selected.promptMode === "off" && (
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.imagestyleprofileseditor.promptGrammarOffHelp")}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <label className="mt-3 block">
-        <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-          {localizeUi("ui.panels.imagestyleprofileseditor.styleText")}
-        </span>
-        <textarea
-          value={selected.styleText}
-          onChange={(event) => updateSelected({ styleText: event.target.value })}
-          className="min-h-20 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs leading-relaxed"
-        />
-      </label>
-
-      <div className="mt-3 grid gap-3">
-        <label className="block">
-          <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.imagestyleprofileseditor.positiveTags")}
-          </span>
-          <textarea
-            value={selected.positiveTags}
-            onChange={(event) => updateSelected({ positiveTags: event.target.value })}
-            className="min-h-24 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs leading-relaxed"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.imagestyleprofileseditor.negativeTags")}
-          </span>
-          <textarea
-            value={selected.negativeTags}
-            onChange={(event) => updateSelected({ negativeTags: event.target.value })}
-            className="min-h-24 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs leading-relaxed"
-          />
-        </label>
-      </div>
-
-      <details className="mt-3 rounded-md bg-[var(--secondary)]/55 p-2.5 ring-1 ring-[var(--border)]">
-        <summary className="cursor-pointer text-xs font-medium text-[var(--foreground)]">
-          {localizeUi("ui.panels.imagestyleprofileseditor.perImageTags")}
-        </summary>
-        <div className="mt-2 grid gap-2">
-          {IMAGE_STYLE_SUBJECT_KINDS.map((kind) => (
-            <label key={kind} className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium capitalize text-[var(--muted-foreground)]">
-                {kind}
-              </span>
-              <textarea
-                value={selected.subjectTags[kind] ?? ""}
-                onChange={(event) => updateSubjectTags(kind, event.target.value)}
-                className="min-h-14 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs leading-relaxed"
-              />
-            </label>
-          ))}
-        </div>
-      </details>
-
-      <details className="mt-2 rounded-md bg-[var(--secondary)]/55 p-2 ring-1 ring-[var(--border)]">
-        <summary className="cursor-pointer text-xs font-medium text-[var(--foreground)]">
-          {localizeUi("ui.panels.imagestyleprofileseditor.testBench")}
-        </summary>
-        <div className="mt-2 grid gap-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="space-y-2">
-            <div className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.imagestyleprofileseditor.imageKind")}
-              </span>
-              <Select
-                value={previewKind}
-                options={IMAGE_STYLE_SUBJECT_KINDS.map((kind) => ({ value: kind, label: kind }))}
-                onChange={setPreviewKind}
-                label={localizeUi("ui.panels.imagestyleprofileseditor.imageKind")}
-                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-xs"
-              />
-            </div>
-            <label className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.imagestyleprofileseditor.sampleInput")}
-              </span>
-              <textarea
-                value={previewPrompt}
-                onChange={(event) => setPreviewPrompt(event.target.value)}
-                className="min-h-32 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs"
-                spellCheck={false}
-              />
-            </label>
-            <div className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {cleanupCount > 0
-                ? localizeUi("ui.panels.imagestyleprofileseditor.value1DuplicateOrMisplacedFragmentValue2Cleaned", {
-                    value1: cleanupCount,
-                    value2: cleanupCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-                  })
-                : localizeUi("ui.panels.imagestyleprofileseditor.noCleanupNeededForThisSample")}
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <label className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.imagestyleprofileseditor.finalPositivePrompt")}
-              </span>
-              <textarea
-                value={preview.prompt}
-                readOnly
-                className="min-h-32 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs"
-                spellCheck={false}
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.imagestyleprofileseditor.finalNegativePrompt")}
-              </span>
-              <textarea
-                value={preview.negativePrompt}
-                readOnly
-                className="min-h-20 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs"
-                spellCheck={false}
-              />
-            </label>
-          </div>
-        </div>
-      </details>
-    </div>
-  );
-}
 
 function TrackerPanelCardOrderSetting() {
   const { t: localizeUi } = useUiTranslation();
@@ -3070,30 +2664,29 @@ function OverallGenerationSettings() {
   );
 }
 
+/**
+ * Image generation lives in the Image settings window; this section says what is set and opens it on the right tab.
+ * Each line keeps its settings search id, so a search for a size or for style profiles still lands here.
+ */
 function ImageGenerationSettings() {
   const { t: localizeUi } = useUiTranslation();
-  const autoSaveToGalleries = useUIStore((s) => s.autoSaveGeneratedImagesToGalleries);
-  const setAutoSaveToGalleries = useUIStore((s) => s.setAutoSaveGeneratedImagesToGalleries);
-  const imageBackgroundWidth = useUIStore((s) => s.imageBackgroundWidth);
-  const imageBackgroundHeight = useUIStore((s) => s.imageBackgroundHeight);
-  const setImageBackgroundDimensions = useUIStore((s) => s.setImageBackgroundDimensions);
-  const imageIllustrationWidth = useUIStore((s) => s.imageIllustrationWidth);
-  const imageIllustrationHeight = useUIStore((s) => s.imageIllustrationHeight);
-  const setImageIllustrationDimensions = useUIStore((s) => s.setImageIllustrationDimensions);
-  const imageGameWidth = useUIStore((s) => s.imageGameWidth);
-  const imageGameHeight = useUIStore((s) => s.imageGameHeight);
-  const setImageGameDimensions = useUIStore((s) => s.setImageGameDimensions);
-  const imagePortraitWidth = useUIStore((s) => s.imagePortraitWidth);
-  const imagePortraitHeight = useUIStore((s) => s.imagePortraitHeight);
-  const setImagePortraitDimensions = useUIStore((s) => s.setImagePortraitDimensions);
-  const imageCharacterSheetWidth = useUIStore((s) => s.imageCharacterSheetWidth);
-  const imageCharacterSheetHeight = useUIStore((s) => s.imageCharacterSheetHeight);
-  const setImageCharacterSheetDimensions = useUIStore((s) => s.setImageCharacterSheetDimensions);
-  const imageSelfieWidth = useUIStore((s) => s.imageSelfieWidth);
-  const imageSelfieHeight = useUIStore((s) => s.imageSelfieHeight);
-  const setImageSelfieDimensions = useUIStore((s) => s.setImageSelfieDimensions);
+  const openImageSettings = useUIStore((s) => s.openImageSettings);
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles);
-  const setImageStyleProfiles = useUIStore((s) => s.setImageStyleProfiles);
+  const canvases = useImageCanvases();
+  const styles = normalizeImageStyleProfileSettings(imageStyleProfiles);
+  const defaultStyle = styles.profiles.find((profile) => profile.id === styles.defaultProfileId)?.name ?? "";
+  const line = (id: string | null, label: string, value: string, tab: ImageSettingsTab) => (
+    <button
+      key={id ?? label}
+      type="button"
+      id={id ? getSettingsControlAnchorId(id) : undefined}
+      onClick={() => openImageSettings(tab)}
+      className="grid min-h-8 scroll-mt-3 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 text-start text-xs transition-colors hover:bg-[var(--secondary)]"
+    >
+      <span className="min-w-0 truncate text-[var(--foreground)]">{label}</span>
+      <span className="truncate text-[var(--muted-foreground)]">{value}</span>
+    </button>
+  );
 
   return (
     <SettingsSection
@@ -3103,72 +2696,30 @@ function ImageGenerationSettings() {
       {...getSettingsSectionAnchorProps("image-generation")}
     >
       <div className="flex flex-col gap-2.5">
-        <ToggleSetting
-          label={localizeUi("settings.controls.autoSaveGeneratedImagesToGalleries.label")}
-          help={localizeUi("settings.controls.autoSaveGeneratedImagesToGalleries.help")}
-          checked={autoSaveToGalleries}
-          onChange={setAutoSaveToGalleries}
-        />
-        <ImageDimensionRow
-          controlId="image-background-size"
-          label={localizeUi("settings.controls.backgroundGeneration.label")}
-          help={localizeUi("settings.controls.backgroundGeneration.help")}
-          width={imageBackgroundWidth}
-          height={imageBackgroundHeight}
-          onCommit={setImageBackgroundDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-illustration-size"
-          label={localizeUi("settings.controls.illustrations.label")}
-          help={localizeUi("settings.controls.illustrations.help")}
-          width={imageIllustrationWidth}
-          height={imageIllustrationHeight}
-          onCommit={setImageIllustrationDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-game-size"
-          label={localizeUi("settings.controls.gameGeneration.label")}
-          help={localizeUi("settings.controls.gameGeneration.help")}
-          width={imageGameWidth}
-          height={imageGameHeight}
-          onCommit={setImageGameDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-portrait-size"
-          label={localizeUi("settings.controls.portraits.label")}
-          help={localizeUi("settings.controls.portraits.help")}
-          width={imagePortraitWidth}
-          height={imagePortraitHeight}
-          onCommit={setImagePortraitDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-character-sheet-size"
-          label={localizeUi("settings.controls.characterSheets.label")}
-          help={localizeUi("settings.controls.characterSheets.help")}
-          width={imageCharacterSheetWidth}
-          height={imageCharacterSheetHeight}
-          onCommit={setImageCharacterSheetDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-selfie-size"
-          label={localizeUi("settings.controls.selfies.label")}
-          help={localizeUi("settings.controls.selfies.help")}
-          width={imageSelfieWidth}
-          height={imageSelfieHeight}
-          onCommit={setImageSelfieDimensions}
-        />
-
-        <div id={getSettingsControlAnchorId("image-style-profiles")} className="mt-1 scroll-mt-3">
-          <div className="mb-2 flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
-            {localizeUi("ui.panels.imagegenerationsettings.styleProfiles")}
-            <HelpTooltip
-              text={localizeUi(
-                "ui.panels.imagegenerationsettings.definesWhatAnimeDanbooruRealisticAndCustomStylesMean",
-              )}
-            />
-          </div>
-          <ImageStyleProfilesEditor value={imageStyleProfiles} onChange={setImageStyleProfiles} />
+        <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+          {localizeUi("imageSettings.generations.intro")}
+        </p>
+        <div className="flex flex-col">
+          {line(
+            "image-style-profiles",
+            localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle"),
+            defaultStyle,
+            "styles",
+          )}
+          {canvases.map((canvas) =>
+            line(canvas.id, localizeUi(canvas.labelKey), `${canvas.width} × ${canvas.height}`, "canvases"),
+          )}
+          {line(
+            null,
+            localizeUi("imageSettings.tabs.prompts"),
+            localizeUi("imageSettings.generations.templates"),
+            "prompts",
+          )}
         </div>
+        <button type="button" onClick={() => openImageSettings()} className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}>
+          <SlidersHorizontal size="0.8125rem" />
+          {localizeUi("imageSettings.generations.open")}
+        </button>
       </div>
     </SettingsSection>
   );
@@ -5963,7 +5514,7 @@ function GenerationsSettings() {
                   {localizeUi("settings.sections.promptOverrides.title")}
                 </div>
                 <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("settings.sections.promptOverrides.description")}
+                  {localizeUi("imageSettings.generations.promptOverrides")}
                 </div>
               </div>
             </div>
@@ -5973,12 +5524,6 @@ function GenerationsSettings() {
               help={localizeUi("settings.prompts.video.help")}
               keys={VIDEO_PROMPT_TEMPLATE_KEYS}
               preferredKey="game.video"
-            />
-            <PromptOverridesEditor
-              title={localizeUi("settings.prompts.image.title")}
-              description={localizeUi("settings.prompts.image.description")}
-              help={localizeUi("settings.prompts.image.help")}
-              preferredKey="game.npcPortrait"
             />
           </div>
         </>

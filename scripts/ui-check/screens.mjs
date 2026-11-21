@@ -233,6 +233,13 @@ export function screenList(ids) {
         await page.getByRole("textbox", { name: "Instructions", exact: true }).waitFor();
       },
     },
+    // The Image settings window (Connections > Jobs > Images, Settings > Generations), one screen per tab.
+    ...["defaults", "styles", "canvases", "prompts"].map((tab) => ({
+      id: `image-settings-${tab}`,
+      group: tab === "defaults" ? "core" : undefined,
+      run: hook((tab) => window.__marinaraUiCheck.ui.getState().openImageSettings(tab), tab),
+      ready: '[data-component="ImageSettingsWindow"]',
+    })),
     { id: "agents", run: open.library("agents") },
     { id: "tools", run: open.library("tools") },
     { id: "extensions", run: open.library("extensions") },

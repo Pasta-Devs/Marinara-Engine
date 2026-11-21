@@ -172,6 +172,9 @@ export type TrackerStatDisplayMode = "bars" | "gauges";
 export type MusicPlayerSource = "spotify" | "youtube" | "custom";
 export const TRACKER_TEMPERATURE_UNITS = ["celsius", "fahrenheit"] as const;
 export type TrackerTemperatureUnit = (typeof TRACKER_TEMPERATURE_UNITS)[number];
+/** The Image settings window's tabs. */
+export type ImageSettingsTab = "defaults" | "styles" | "canvases" | "prompts";
+
 export { QUICK_REPLIES_SETTINGS_CONTROL_ID } from "../lib/settings-registry";
 export const TRACKER_PANEL_SIZE_PROFILES = ["compact", "standard", "expanded"] as const;
 export type TrackerPanelSizeProfile = (typeof TRACKER_PANEL_SIZE_PROFILES)[number];
@@ -850,6 +853,8 @@ export interface UIState {
   settingsTargetControlId: string | null;
   /** A settings section to scroll to, when the jump names a section rather than one control. */
   settingsTargetSectionId: string | null;
+  /** Not saved: the Image settings window's open tab, or null while it is closed. */
+  imageSettingsTab: ImageSettingsTab | null;
   /** Not saved: a Home surface to open once Home mounts (see `requestHome`). */
   homeRequest: HomeRequest | null;
   /**
@@ -1629,6 +1634,8 @@ export interface UIState {
   closePresetDetail: () => void;
   openProfileDetail: (id: string) => void;
   closeProfileDetail: () => void;
+  openImageSettings: (tab?: ImageSettingsTab) => void;
+  closeImageSettings: () => void;
   openConnectionDetail: (id: string) => void;
   closeConnectionDetail: () => void;
   openAgentDetail: (agentType: string) => void;
@@ -2695,6 +2702,7 @@ export const useUIStore = create<UIState>()(
         homeBrowserFullscreen: false,
         whatsNewRequested: false,
         settingsTargetSectionId: null,
+        imageSettingsTab: null,
         modal: null,
         advancedMemoryRequest: null,
         theme: "dark" as const,
@@ -3139,6 +3147,8 @@ export const useUIStore = create<UIState>()(
         requestWhatsNew: () => set({ whatsNewRequested: true }),
         consumeWhatsNewRequest: () => set({ whatsNewRequested: false }),
         setSettingsTargetSectionId: (sectionId) => set({ settingsTargetSectionId: sectionId }),
+        openImageSettings: (tab = "defaults") => set({ imageSettingsTab: tab }),
+        closeImageSettings: () => set({ imageSettingsTab: null }),
         openModal: (type, props) => {
           // UI overhaul: Docs open as a tab (the Docs page on phones) instead of a modal.
           if (type === "docs-viewer" && isOverhaulLook()) {

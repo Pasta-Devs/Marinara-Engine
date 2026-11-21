@@ -89,8 +89,7 @@ export function NextImageSummary({ chat }: { chat: Chat }) {
   const plan = useChatImagePlan(chat).data;
   const openConnectionDetail = useUIStore((s) => s.openConnectionDetail);
   const openAgentDetail = useUIStore((s) => s.openAgentDetail);
-  const setSettingsTab = useUIStore((s) => s.setSettingsTab);
-  const openRightPanel = useUIStore((s) => s.openRightPanel);
+  const openImageSettings = useUIStore((s) => s.openImageSettings);
   if (!plan) return null;
 
   // Where a source chip takes you: the Model's own page, the Illustrator setup, or the style profiles.
@@ -101,11 +100,7 @@ export function NextImageSummary({ chat }: { chat: Chat }) {
       modelId
     )
       return () => openConnectionDetail(modelId);
-    if (source === "styleDefault")
-      return () => {
-        setSettingsTab("generations");
-        openRightPanel("settings");
-      };
+    if (source === "styleDefault") return () => openImageSettings("styles");
     return undefined;
   };
 

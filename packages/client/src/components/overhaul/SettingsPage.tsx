@@ -196,7 +196,7 @@ const MOBILE_TABS: Partial<
 };
 
 /** Sections whose risky buttons (resets, deletes) only show after tapping Edit. */
-const EDIT_SECTIONS = new Set<SettingsSectionId>(["app-style", "image-generation", "danger-zone"]);
+const EDIT_SECTIONS = new Set<SettingsSectionId>(["app-style", "danger-zone"]);
 
 const IS_ANDROID = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
 /** Layout holds a computer-only setting and an Android-only one; elsewhere it would be empty. */

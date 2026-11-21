@@ -743,7 +743,7 @@ function overridesOf(key: JobKey, rows: readonly ConnectionRowData[]) {
 }
 
 /** Jobs with behaviour of their own: a gear opens the job's settings window. */
-const JOB_SETTINGS = new Set<JobKey>(["voice", "stt", "decision", "agents", "vision"]);
+const JOB_SETTINGS = new Set<JobKey>(["voice", "stt", "decision", "agents", "vision", "images"]);
 
 /** A titled box in the job settings window. */
 function JobSettingsSection({ title, children }: { title: string; children: ReactNode }) {
@@ -796,6 +796,7 @@ function DefaultsJobRow({
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const connectionSaving = useUIStore((s) => s.connectionSaving);
+  const openImageSettings = useUIStore((s) => s.openImageSettings);
   const embeddings = job.key === "embeddings";
   const decision = job.key === "decision";
   const hasSettings = JOB_SETTINGS.has(job.key as JobKey) || overrides.length > 0;
@@ -837,7 +838,8 @@ function DefaultsJobRow({
             {hasSettings && (
               <button
                 type="button"
-                onClick={() => setSettingsOpen(true)}
+                // Images keeps its settings in the Image settings window (styles, canvases, templates).
+                onClick={() => (job.key === "images" ? openImageSettings() : setSettingsOpen(true))}
                 aria-haspopup="dialog"
                 aria-label={t("connections.defaults.settingsFor", { role: title })}
                 // The panel's row-button look (quiet at rest, the shared accent hover), like the Connections rows.
@@ -856,14 +858,14 @@ function DefaultsJobRow({
           onOpenChange={setOpen}
           job={title}
           jobKey={job.key as JobKey}
-          showJobSettings={job.key === "vision"}
+          showJobSettings={job.key === "vision" || job.key === "images"}
           rowFilter={job.key === "vision" ? mayReadImages : undefined}
           {...model}
         />
       )}
       {embeddings && <EmbeddingDefaultControl open={open} onOpenChange={setOpen} />}
       {decision && <DecisionDefaultControl open={open} onOpenChange={setOpen} />}
-      {hasSettings && (
+      {hasSettings && job.key !== "images" && (
         <Modal
           open={settingsOpen}
           onClose={() => void closeIfClean(() => setSettingsOpen(false))}
@@ -961,9 +963,31 @@ export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => voi
       open
       onOpenChange={(open) => !open && onClose()}
       job={t(jobLabelKey(job))}
-      showJobSettings={job.key === "vision"}
+      jobKey={job.key as JobKey}
+      showJobSettings={job.key === "vision" || job.key === "images"}
       {...model}
     />
+  );
+}
+
+/** One job's row on its own (its Model and "If it fails"), opening that job's Model picker. */
+export function JobModelRow({ jobKey }: { jobKey: JobKey }) {
+  const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
+  const tile = useConnectionDefaults(connectionsList).find((candidate) => candidate.key === jobKey);
+  const [open, setOpen] = useState(false);
+  if (!tile) return null;
+  return (
+    <>
+      <JobRow
+        tile={tile}
+        onClick={() =>
+          tile.find?.count === 0 && !tile.find.unknown ? openAddConnection({ job: jobKey }) : setOpen(true)
+        }
+        aria-haspopup="dialog"
+        trailing={<ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
+      />
+      {open && <JobPickerWindow job={JOB[jobKey]} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 

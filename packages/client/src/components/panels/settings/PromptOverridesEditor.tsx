@@ -169,14 +169,25 @@ export function PromptOverridesEditor({
   );
 }
 
-function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly string[]; preferredKey: string }) {
+/** The template editor on its own; `split` lists the templates beside it, grouped by feature, for a wide window. */
+export function PromptOverridesEditorBody({
+  keys,
+  excludeKeys,
+  preferredKey = PREFERRED_PROMPT_KEY,
+  split = false,
+}: {
+  keys?: readonly string[];
+  excludeKeys?: readonly string[];
+  preferredKey?: string;
+  split?: boolean;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const { data: entries = [], isLoading: loadingEntries, isError: listFailed } = usePromptOverrides();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const keySet = useMemo(() => (keys ? new Set(keys) : null), [keys]);
   const filteredEntries = useMemo(
-    () => (keySet ? entries.filter((entry) => keySet.has(entry.key)) : entries),
-    [entries, keySet],
+    () => entries.filter((entry) => (!keySet || keySet.has(entry.key)) && !(excludeKeys ?? []).includes(entry.key)),
+    [entries, excludeKeys, keySet],
   );
   const selectedEntry = useMemo(
     () => filteredEntries.find((entry) => entry.key === selectedKey),
@@ -315,34 +326,84 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
     );
   }
 
-  return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex flex-col gap-1">
-        <span className="flex items-center justify-between gap-2">
-          <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.promptoverrideseditorbody.registeredPrompt")}
-          </span>
-          <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[0.5625rem] font-semibold", status.className)}>
-            {loadingEntries ? localizeUi("ui.panels.promptoverrideseditorbody.loading") : status.label}
-          </span>
+  // Split: the templates as a list beside the editor, under one heading per feature (the key before the dot).
+  const groups = split
+    ? [...new Set(filteredEntries.map((entry) => entry.key.split(".")[0]!))].map((group) => ({
+        group,
+        entries: filteredEntries.filter((entry) => entry.key.split(".")[0] === group),
+      }))
+    : [];
+  const picker = (
+    <div className="flex flex-col gap-1">
+      <span className="flex items-center justify-between gap-2">
+        <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+          {localizeUi("ui.panels.promptoverrideseditorbody.registeredPrompt")}
         </span>
-        <Select
-          value={selectedKey}
-          options={filteredEntries.map((entry) => ({ value: entry.key, label: localizedEntryLabel(entry) }))}
-          disabled={loadingEntries || filteredEntries.length === 0}
-          onChange={setSelectedKey}
-          label={localizeUi("ui.panels.promptoverrideseditorbody.registeredPrompt")}
-          placeholder={
-            loadingEntries
-              ? localizeUi("ui.panels.promptoverrideseditorbody.loadingPrompts")
-              : filteredEntries.length === 0
-                ? localizeUi("ui.panels.promptoverrideseditorbody.noRegisteredPrompts")
-                : undefined
-          }
-          className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)] disabled:opacity-60"
-        />
-      </div>
-
+        <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[0.5625rem] font-semibold", status.className)}>
+          {loadingEntries ? localizeUi("ui.panels.promptoverrideseditorbody.loading") : status.label}
+        </span>
+      </span>
+      <Select
+        value={selectedKey}
+        options={filteredEntries.map((entry) => ({ value: entry.key, label: localizedEntryLabel(entry) }))}
+        disabled={loadingEntries || filteredEntries.length === 0}
+        onChange={setSelectedKey}
+        label={localizeUi("ui.panels.promptoverrideseditorbody.registeredPrompt")}
+        placeholder={
+          loadingEntries
+            ? localizeUi("ui.panels.promptoverrideseditorbody.loadingPrompts")
+            : filteredEntries.length === 0
+              ? localizeUi("ui.panels.promptoverrideseditorbody.noRegisteredPrompts")
+              : undefined
+        }
+        className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] focus:ring-[var(--primary)] disabled:opacity-60"
+      />
+    </div>
+  );
+  const list = (
+    <nav
+      aria-label={localizeUi("ui.panels.promptoverrideseditorbody.registeredPrompt")}
+      data-prompt-template-list
+      className="hidden min-w-0 flex-col gap-2 md:flex md:max-h-[min(34rem,60vh)] md:overflow-y-auto md:pe-1"
+    >
+      {loadingEntries && <Spinner size="sm" />}
+      {groups.map(({ group, entries: groupEntries }) => (
+        <div key={group} className="flex flex-col">
+          <p className="px-2 pb-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            {humanizePromptKey(group)}
+          </p>
+          {groupEntries.map((entry) => (
+            <button
+              key={entry.key}
+              type="button"
+              onClick={() => setSelectedKey(entry.key)}
+              aria-current={entry.key === selectedKey ? "true" : undefined}
+              className={cn(
+                "flex min-h-8 items-center gap-2 rounded-md px-2 text-start text-xs transition-colors",
+                entry.key === selectedKey
+                  ? "bg-[var(--primary)]/12 text-[var(--foreground)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]",
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{localizedEntryLabel(entry)}</span>
+              {entry.hasOverride && (
+                <span
+                  aria-label={promptOverrideStatus(entry).label}
+                  title={promptOverrideStatus(entry).label}
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full",
+                    entry.enabled ? "bg-[var(--primary)]" : "bg-amber-400",
+                  )}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      ))}
+    </nav>
+  );
+  const editor = (
+    <>
       {selectedEntry && (
         <p className="rounded-lg bg-[var(--background)]/50 px-2.5 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/70">
           {selectedEntryDescription}
@@ -479,6 +540,28 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
           {localizeUi("chat.settings.inlineEditor.saved")} {new Date(detail.override.updatedAt).toLocaleString()}
         </div>
       )}
+    </>
+  );
+
+  if (split)
+    return (
+      <div className="grid gap-3 md:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)]">
+        {list}
+        <div className="flex min-w-0 flex-col gap-2.5">
+          {/* Phones and tablets: the dropdown instead of the long list. */}
+          <div className="md:hidden">{picker}</div>
+          <span className={cn("hidden self-start rounded-full px-2 py-0.5 text-[0.5625rem] font-semibold md:block", status.className)}>
+            {status.label}
+          </span>
+          {editor}
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {picker}
+      {editor}
     </div>
   );
 }

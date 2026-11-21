@@ -427,13 +427,11 @@ test("Character-sheet resolution migrates once and remains independent after a s
     const openImageSettings = async () =>
       page.evaluate(async () => {
         const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
-        const ui = useUIStore.getState();
-        ui.openRightPanel("settings");
-        ui.setSettingsTab("generations");
-        ui.setSettingsTargetControlId("image-character-sheet-size");
+        // Picture sizes live on the Image settings window's Canvases tab.
+        useUIStore.getState().openImageSettings("canvases");
       });
     await openImageSettings();
-    const sheets = page.locator("#settings-control-image-character-sheet-size input");
+    const sheets = page.locator("#image-canvas-image-character-sheet-size input");
     await expect(sheets.nth(0)).toHaveValue("1536");
     await expect(sheets.nth(1)).toHaveValue("1024");
     // Click before filling so edits start in the viewport after the Settings focus jump.
@@ -444,7 +442,7 @@ test("Character-sheet resolution migrates once and remains independent after a s
     await sheets.nth(1).fill("1152");
     await expect(sheets.nth(1)).toHaveValue("1152");
     await sheets.nth(1).blur();
-    const backgrounds = page.locator("#settings-control-image-background-size input");
+    const backgrounds = page.locator("#image-canvas-image-background-size input");
     await expect(backgrounds.nth(0)).toHaveValue("1536");
     await expect(backgrounds.nth(1)).toHaveValue("1024");
     await backgrounds.nth(0).click();

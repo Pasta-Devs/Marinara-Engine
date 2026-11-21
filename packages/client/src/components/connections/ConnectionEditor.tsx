@@ -367,7 +367,7 @@ interface ConnectionEditorProps {
   onBusyChange?: (busy: boolean) => void;
   closeRequestToken?: number;
   /** Only the fields one job owns, for that job's settings window. */
-  part?: "decision" | "voice" | "captioning" | "embeddings";
+  part?: "decision" | "voice" | "captioning" | "embeddings" | "imageDefaults";
 }
 
 // Several part editors can be open in one job window; the store flags stay true while any one of them is.
@@ -550,7 +550,7 @@ export function ConnectionEditor({
   const [localImageDefaults, setLocalImageDefaults] = useState<ImageGenerationDefaultsProfile | null>(null);
   const localImageDefaultsRef = useRef<ImageGenerationDefaultsProfile | null>(null);
   const [localVideoDefaults, setLocalVideoDefaults] = useState<VideoGenerationDefaultsProfile | null>(null);
-  const [imageDefaultsExpanded, setImageDefaultsExpanded] = useState(false);
+  const [imageDefaultsExpanded, setImageDefaultsExpanded] = useState(part === "imageDefaults");
   const [videoDefaultsExpanded, setVideoDefaultsExpanded] = useState(false);
 
   // Test results
@@ -2806,6 +2806,36 @@ export function ConnectionEditor({
       )}
     </>
   );
+  // The image model's own defaults (style, prompt prefixes, sampler); also the Image settings window's part.
+  const imageDefaultsFields = localProvider === "image_generation" &&
+    selectedImageDefaultsService &&
+    localImageDefaults && (
+      <ImageGenerationDefaultsPanel
+        service={selectedImageDefaultsService}
+        model={localModel}
+        source={selectedImageService}
+        value={localImageDefaults}
+        styleProfiles={imageStyleProfiles}
+        remoteLoras={remoteLoras}
+        expanded={imageDefaultsExpanded}
+        onExpandedChange={setImageDefaultsExpanded}
+        onChange={(next) => {
+          const current = localImageDefaultsRef.current;
+          if (!current) return;
+          const resolved = typeof next === "function" ? next(current) : next;
+          const sanitized = sanitizeImageGenerationProfile(resolved, selectedImageDefaultsService);
+          localImageDefaultsRef.current = sanitized;
+          setLocalImageDefaults(sanitized);
+          markDirty();
+        }}
+        onReset={() => {
+          const defaults = createDefaultImageGenerationProfile(selectedImageDefaultsService);
+          localImageDefaultsRef.current = defaults;
+          setLocalImageDefaults(defaults);
+          markDirty();
+        }}
+      />
+    );
   const testSection = isGenerativeAudioProvider ? musicTestSection : standardTestSection;
 
   if (part)
@@ -2815,6 +2845,7 @@ export function ConnectionEditor({
         {part === "voice" && voiceFields}
         {part === "captioning" && captioningFields}
         {part === "embeddings" && embeddingFields}
+        {part === "imageDefaults" && imageDefaultsFields}
         {saveError && <p className="text-xs text-[var(--destructive)]">{saveError}</p>}
         {dirty && (
           <button
@@ -4025,33 +4056,7 @@ export function ConnectionEditor({
             />
           )}
 
-        {localProvider === "image_generation" && selectedImageDefaultsService && localImageDefaults && (
-          <ImageGenerationDefaultsPanel
-            service={selectedImageDefaultsService}
-            model={localModel}
-            source={selectedImageService}
-            value={localImageDefaults}
-            styleProfiles={imageStyleProfiles}
-            remoteLoras={remoteLoras}
-            expanded={imageDefaultsExpanded}
-            onExpandedChange={setImageDefaultsExpanded}
-            onChange={(next) => {
-              const current = localImageDefaultsRef.current;
-              if (!current) return;
-              const resolved = typeof next === "function" ? next(current) : next;
-              const sanitized = sanitizeImageGenerationProfile(resolved, selectedImageDefaultsService);
-              localImageDefaultsRef.current = sanitized;
-              setLocalImageDefaults(sanitized);
-              markDirty();
-            }}
-            onReset={() => {
-              const defaults = createDefaultImageGenerationProfile(selectedImageDefaultsService);
-              localImageDefaultsRef.current = defaults;
-              setLocalImageDefaults(defaults);
-              markDirty();
-            }}
-          />
-        )}
+        {imageDefaultsFields}
 
         {localProvider === "video_generation" && localVideoDefaults && (
           <VideoGenerationDefaultsPanel
