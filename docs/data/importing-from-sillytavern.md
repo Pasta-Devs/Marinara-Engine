@@ -8,7 +8,7 @@ Bring your SillyTavern data into Marinara Engine. Import one file at a time, or 
 | --- | --- |
 | Characters | Characters |
 | Chats and group chats | Chats |
-| Presets | Presets (a saved bundle of generation settings) |
+| Presets | Presets (the prompt's sections and the preset's sampler settings) |
 | World Info | Lorebooks (notes the AI reads when certain words come up) |
 | Backgrounds | Chat backgrounds |
 | Personas | Personas (the profile that stands in for you) |
@@ -45,11 +45,11 @@ Before you start: the wizard reads files on the server computer. If SillyTavern 
 3. Choose your SillyTavern folder. Pick the main folder, usually the one that holds a `data/` or `public/` folder. Use one of these ways:
    - Click **Browse** and pick the folder.
    - If there is no folder chooser (a remote server), an in-app folder browser opens. It lists only folders inside the home folder of the user that runs the server. Click **Select This Folder**.
-   - Type the path in **SillyTavern Folder Path**, for example `/path/to/SillyTavern`. A typed path works only if the server's `IMPORT_ALLOWED_ROOTS` setting lists a folder that contains it.
+   - Type the path in **SillyTavern Folder Path**, for example `/home/you/SillyTavern`. A typed path works if it is inside the home folder of the user that runs the server. If the server's `IMPORT_ALLOWED_ROOTS` setting is set, it must be inside one of those folders instead.
 4. Click **Scan Folder**. Marinara shows how many items it found in each category.
 5. On **Choose exactly what to import**, check the items you want. Each category has **All** and **None** buttons and a **Show** or **Hide** toggle for the single items.
 6. Click **Import Selected**. A progress bar shows the current item and a count per category.
-7. When you see **Import complete!**, read the count for each category and click **Done**.
+7. When you see **Import complete!**, read the count for each category and click **Done**. Below the counts, a short list says how many chats kept their Author's Note and persona, which SillyTavern user names had no persona here, and which preset settings were left out.
 
 Most items start selected. Marinara leaves SillyTavern's stock presets unchecked, such as `deterministic`, `neutral` and the `universal-*` presets, and a banner says so. Leave them unchecked unless you want copies.
 
@@ -64,24 +64,28 @@ If the scan finds characters, two more options appear:
 **Imported regex scripts** (default **Character only**):
 
 - **Character only** applies the scripts to each character.
-- **Global** adds them to **Presets → Regexes**, where you can manage scripts that run across chats. See [Regex Scripts](../extending/regex-scripts.md#manage-your-scripts).
+- **Global** adds them to **Library → Regex scripts** (**Presets → Regexes** in the classic layout), where you can manage scripts that run across chats. See [Regex Scripts](../extending/regex-scripts.md#manage-your-scripts).
 
 If it did not work:
 
 - "Could not find SillyTavern data directory." means Marinara cannot read that folder. Pick the main SillyTavern folder.
-- "folderPath is not allowed" means the server refused the path. Click **Browse** and pick the folder instead. The server's owner can limit which folders may be imported with the `IMPORT_ALLOWED_ROOTS` setting. If it is set, even a picked folder must be inside one of those folders. Ask whoever runs the server, or see the [Server Configuration Reference](../CONFIGURATION.md).
+- "Marinara can only read folders inside your home folder" means the folder is outside the home folder of the user that runs the server. Move the SillyTavern folder into it, or ask whoever runs the server to allow its location with the `IMPORT_ALLOWED_ROOTS` setting. If that setting is set, even a picked folder must be inside one of its folders. See the [Server Configuration Reference](../CONFIGURATION.md).
+- If **Browse** gets a typed path outside the home folder, the folder browser opens at the home folder instead.
 - If one item fails, Marinara skips it, keeps going and lists it under warnings on the last step, for example `Character "Foo": error message`.
 
 ## What happens to your data
 
 - Chat files that belong to one character import as branches of one chat. A branch is a copy of a chat that you continue separately.
 - Group chats import as Roleplay chats.
-- Imported items keep the source file's last-changed date, not the date of the import.
+- Imported items keep the source file's last-changed date, not the date of the import. Each chat message keeps the date SillyTavern saved it with.
+- A chat's **Author's Note** comes along with its depth. If SillyTavern used another frequency, position or role for it, Marinara still adds it to every reply at that depth, and the import says so. A note that was turned off in SillyTavern stays off.
+- A chat is linked to the persona SillyTavern used: the persona it was locked to, else the persona with the same name as the chat's user. Import personas in the same run, or make one with that name first. When there is no match, the chat has no persona and the import names the missing persona.
+- A preset brings its sampler settings: temperature, Top P, Top K, Min P, frequency and presence penalty, and reasoning effort. They are the starting values for chats that use the preset; a connection's or chat's own values still win. Max response length and context size stay on your connection. Top A and repetition penalty have no setting here and are left out.
 - Characters, personas, lorebooks, presets and chats get the tags **Imported** and **ST**, unless you untick **Tag imported** or **Tag source** above **Import Selected**. Their names and descriptions stay as they were.
 
 ## What does not transfer
 
-The wizard reads only the categories in the first table. Other SillyTavern data, such as global app settings and quick replies, is not imported.
+The wizard reads only the categories in the first table. Other SillyTavern data, such as global app settings, quick replies, instruct and context templates, and connection profiles, is not imported. Chats imported before this fix got the import time as their message dates. To fix one, delete it and import its file again (in a folder import, untick **Skip what's already here**).
 
 ## Related guides
 

@@ -13,6 +13,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { ImportTagChecks, importTagsBody, OvImportDrop, useImportTagChoice } from "./ImportTagChecks";
 import { Spinner } from "../ui/Spinner";
+import { describePresetImport, type STPresetLeftOut } from "../../lib/st-import-report";
 
 interface Props {
   open: boolean;
@@ -23,7 +24,9 @@ export function ImportPresetModal({ open, onClose }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
-  const [results, setResults] = useState<Array<{ filename: string; success: boolean; message: string }>>([]);
+  const [results, setResults] = useState<
+    Array<{ filename: string; success: boolean; message: string; details?: string[] }>
+  >([]);
   const [dragOver, setDragOver] = useState(false);
   const qc = useQueryClient();
   const importTags = useImportTagChoice();
@@ -75,7 +78,12 @@ export function ImportPresetModal({ open, onClose }: Props) {
           continue;
         }
 
-        const data = await api.post<{ success: boolean; error?: string }>("/import/st-preset", {
+        const data = await api.post<{
+          success: boolean;
+          error?: string;
+          parametersImported?: string[];
+          parametersLeftOut?: STPresetLeftOut[];
+        }>("/import/st-preset", {
           ...json,
           ...importTagsBody(importTags.choice),
           __filename: file.name.replace(/\.json$/i, ""),
@@ -89,6 +97,8 @@ export function ImportPresetModal({ open, onClose }: Props) {
           filename: file.name,
           success: data.success,
           message: data.success ? "Imported preset" : (data.error ?? "Import failed"),
+          // Which SillyTavern settings came along, and which stay on the connection or have no field here.
+          ...(data.success ? { details: describePresetImport(data, localizeUi) } : {}),
         });
       } catch (error) {
         nextResults.push({
@@ -222,6 +232,11 @@ export function ImportPresetModal({ open, onClose }: Props) {
                   <div className="min-w-0">
                     <div className="truncate font-medium">{result.filename}</div>
                     <div className="text-[var(--muted-foreground)]">{result.message}</div>
+                    {result.details?.map((line) => (
+                      <div key={line} className="text-[var(--muted-foreground)]">
+                        {line}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

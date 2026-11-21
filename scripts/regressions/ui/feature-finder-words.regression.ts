@@ -23,4 +23,13 @@ assert.equal(matchFeatures("a").length, 0, "one letter matches nothing");
 assert.equal(matchFeatures("Tavern Night").length, 0, "a chat name that contains 'tavern' is not SillyTavern");
 assert.equal(matchFeatures("eliza").length, 0, "a character name matches nothing");
 assert.equal(normalizeFeatureText("Author’s Notes!"), "author note");
+// SillyTavern's chat completion preset is the prompt and sampler preset: Presets, not Settings profiles.
+assert.equal(first("chat completion preset")?.feature.id, "presets");
+assert.equal(first("AI Response Configuration")?.feature.id, "presets");
+assert.equal(first("samplers")?.feature.id, "presets");
+assert.equal(first("prompt manager")?.feature.id, "presets");
+assert.equal(first("regex")?.feature.id, "regexScripts");
+assert.equal(first("group chats")?.feature.id, "groupChats");
+assert.equal(first("instruct template")?.feature.id, "instruct");
+assert.equal(first("advanced formatting")?.feature.id, "instruct");
 console.log("feature finder words: OK");
