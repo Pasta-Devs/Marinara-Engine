@@ -834,8 +834,7 @@ try {
     "a gallery-only image replaces nothing",
   );
 
-  // A swap that fails partway is rolled back: the first message gets its old image back and the
-  // unused new row is removed, so a retry starts clean.
+  // Selection and all reference swaps roll back together if the transaction fails at commit.
   const sharedImage = await gallery.create({
     chatId: chat.id,
     filePath: `${chat.id}/shared.png`,
@@ -862,8 +861,10 @@ try {
   let transactionCalls = 0;
   db.transaction = ((fn: Parameters<typeof realTransaction>[0]) => {
     transactionCalls += 1;
-    if (transactionCalls === 2) return Promise.reject(new Error("simulated storage failure"));
-    return realTransaction(fn);
+    return realTransaction(async (tx) => {
+      await fn(tx);
+      throw new Error("simulated storage failure after reference updates");
+    });
   }) as typeof db.transaction;
   let failedSwap;
   try {
@@ -876,7 +877,7 @@ try {
     db.transaction = realTransaction as typeof db.transaction;
   }
   assert.equal(failedSwap.statusCode, 502, failedSwap.body);
-  assert.equal(transactionCalls, 3, "first swap applied, second failed, first undone");
+  assert.equal(transactionCalls, 1, "one transaction owns selection and all reference updates");
   for (const id of [firstShared.id, secondShared.id]) {
     const extra = (await chats.getMessage(id))?.extra;
     const attachments = (typeof extra === "string" ? JSON.parse(extra) : extra).attachments;
@@ -884,12 +885,11 @@ try {
   }
   assert.equal((await gallery.listByChatId(chat.id)).length, galleryCountBefore, "the unused new row is removed");
 
-  // If the undo itself fails, the first message still points at the new image, so it is kept.
+  // A transaction rejected before it starts also leaves every original intact.
   transactionCalls = 0;
-  db.transaction = ((fn: Parameters<typeof realTransaction>[0]) => {
+  db.transaction = ((_fn: Parameters<typeof realTransaction>[0]) => {
     transactionCalls += 1;
-    if (transactionCalls >= 2) return Promise.reject(new Error("simulated storage failure"));
-    return realTransaction(fn);
+    return Promise.reject(new Error("simulated storage failure before transaction"));
   }) as typeof db.transaction;
   let failedUndo;
   try {
@@ -905,8 +905,8 @@ try {
   const strandedExtra = (await chats.getMessage(firstShared.id))?.extra;
   const strandedId = (typeof strandedExtra === "string" ? JSON.parse(strandedExtra) : strandedExtra).attachments[0]
     .galleryId;
-  assert.notEqual(strandedId, sharedImage.id, "the failed undo left the first message on the new image");
-  assert.ok(await gallery.getById(strandedId, chat.id), "so the new image row is kept, not deleted");
+  assert.equal(strandedId, sharedImage.id, "a failed transaction never leaves a stranded reference");
+  assert.equal((await gallery.listByChatId(chat.id)).length, galleryCountBefore);
 
   // Rejections: a picked connection that is gone, an unknown image, an empty prompt.
   const missingConnection = await app.inject({
@@ -1179,7 +1179,90 @@ try {
     dnsMock.mock.restore();
   }
 
-  console.log("chat-image-generation-record: ok (record, storage round trip, regenerate route)");
+  // Version stacks retain originals and select from the whole group when an older version is edited.
+  const { groupChatImageVariants } = await import("../../packages/shared/src/utils/chat-image-variants.js");
+  const versionSource = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/version-original.png`,
+    prompt: "original version",
+    generation: buildChatImageGenerationRecord({
+      prompt: "original version",
+      connectionId: connection.id,
+      negativePrompt: "original negative",
+    }),
+  });
+  assert.ok(versionSource);
+  const regenerateVersion = (prompt: string) =>
+    app.inject({
+      method: "POST",
+      url: `/api/gallery/${chat.id}/images/${versionSource.id}/regenerate`,
+      payload: { prompt, connectionId: connection.id },
+    });
+  const versionMessage = await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    content: "Versions",
+    extra: { attachments: [{ type: "image", galleryId: versionSource.id, url: "original", caption: "keep caption" }] },
+  } as never);
+  const v2Response = await regenerateVersion("second version");
+  assert.equal(v2Response.statusCode, 200, v2Response.body);
+  const v2 = v2Response.json().image;
+  const v3Response = await regenerateVersion("edit original after second version");
+  assert.equal(v3Response.statusCode, 200, v3Response.body);
+  const v3 = v3Response.json().image;
+  const versionStack = groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+    stack.versions.some((row) => row.id === versionSource.id),
+  )!;
+  assert.equal(versionStack.versions.length, 3);
+  assert.equal(versionStack.selected.id, v3.id);
+  const attachmentIds = async () => JSON.parse((await chats.getMessage(versionMessage!.id))!.extra).attachments;
+  assert.equal((await attachmentIds())[0].galleryId, v3.id, "editing an older version selects its result in chat");
+  assert.equal((await attachmentIds())[0].caption, "keep caption");
+  const choose = await app.inject({ method: "POST", url: `/api/gallery/${chat.id}/images/${versionSource.id}/select` });
+  assert.equal(choose.statusCode, 200, choose.body);
+  assert.equal((await attachmentIds())[0].galleryId, versionSource.id);
+  assert.equal(parseChatImageGenerationRecord(choose.json().image.generation)?.negativePrompt, "original negative");
+  assert.equal(
+    parseChatImageGenerationRecord((await gallery.getById(v2.id, chat.id))!.generation)?.prompt,
+    "second version",
+  );
+  const otherVersionChat = await chats.create({ name: "Other version owner", mode: "roleplay", characterIds: [] });
+  const wrongOwner = await app.inject({
+    method: "POST",
+    url: `/api/gallery/${otherVersionChat!.id}/images/${v2.id}/select`,
+  });
+  assert.equal(wrongOwner.statusCode, 404, wrongOwner.body);
+  const removedOriginal = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=version`,
+  });
+  assert.equal(removedOriginal.statusCode, 200, removedOriginal.body);
+  assert.equal(removedOriginal.json().selectedImageId, v3.id);
+  assert.equal((await attachmentIds())[0].galleryId, v3.id);
+  assert.ok(await gallery.getById(v2.id, chat.id));
+  const removeOthers = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${v2.id}/versions?scope=others`,
+  });
+  assert.equal(removeOthers.statusCode, 200, removeOthers.body);
+  assert.equal((await attachmentIds())[0].galleryId, v2.id);
+  assert.equal(await gallery.getById(v3.id, chat.id), null);
+  const removeStack = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${v2.id}/versions?scope=stack`,
+  });
+  assert.equal(removeStack.statusCode, 200, removeStack.body);
+  assert.deepEqual(await attachmentIds(), []);
+  const legacyGroups = groupChatImageVariants([
+    { id: "one", chatId: "a", createdAt: "1" },
+    { id: "two", chatId: "a", createdAt: "2" },
+    { id: "other", chatId: "b", createdAt: "3", variantGroupId: "one" },
+  ]);
+  assert.equal(legacyGroups.length, 3, "legacy pictures and other owners never merge by accident");
+
+  console.log(
+    "chat-image-generation-record: ok (record, storage round trip, regenerate route, version selection and deletion)",
+  );
 } finally {
   await app.close();
   provider.closeAllConnections();
