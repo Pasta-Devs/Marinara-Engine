@@ -5588,6 +5588,16 @@ input.ov-edhead__title:focus {
   padding-top: 0.25rem !important;
   padding-bottom: 0.25rem !important;
 }
+/* New game > Select individual entries (#9645): the book list's dividers run edge to edge, and a book row holds
+   its own padding (its entries open under it). */
+.ov-gsw [data-component="GameSetupLoreEntryPicker.Books"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+.ov-gsw .space-y-4 [data-component="GameSetupLoreEntryPicker.Books"] > * {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
 /* Choice cards (title + description) become a segmented control; the description shows on hover. */
 .ov-gsw .space-y-4 :is(.flex.gap-2, .grid.gap-2) > button.rounded-lg {
   flex: none !important;

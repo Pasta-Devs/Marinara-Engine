@@ -53,6 +53,11 @@ export async function seedFixtures(api) {
       keys: i === 1 ? [UNBROKEN] : ["harbour", `entry${i}`, "lantern"],
     });
   }
+  // Enough books that the game setup's entry picker draws a page of them and offers "Show more" (#9645).
+  for (let i = 0; i < 45; i++) {
+    const shelf = await api.post("/api/lorebooks", { name: `Harbour shelf ${i + 1}` });
+    await api.post(`/api/lorebooks/${shelf.id}/entries`, { name: `Shelf note ${i + 1}`, content: PARAGRAPH, keys: [] });
+  }
   const presets = await api.get("/api/prompts");
   ids.preset = presets[0]?.id;
   ids.regex = (
@@ -351,6 +356,34 @@ export function screenList(ids) {
         await page.waitForSelector("[data-setup-page]", { timeout: 15_000 });
       },
     })),
+    {
+      // New game > Lorebooks with "Select individual entries" open and one book opened (#9645): a searchable list of
+      // books drawn a page at a time, each book's entries read only when it is opened.
+      id: "new-game-lore-entries",
+      run: null,
+      then: async (page) => {
+        const button = page.getByRole("button", { name: "Start a new game" }).filter({ visible: true });
+        if (!(await button.count())) return "not on this layout";
+        await button.first().click();
+        const wizard = page.locator('[data-component="GameSetupWizard"]');
+        await wizard.waitFor({ state: "visible", timeout: 20_000 });
+        // The step row jumps straight to Lorebooks; without it (a narrow screen), Next four times.
+        const tab = wizard.locator(".ov-gsw__steps button").filter({ hasText: "Lorebooks", visible: true });
+        if (await tab.count()) await tab.first().click();
+        else
+          for (let i = 0; i < 4; i++) {
+            await wizard.getByRole("button", { name: /^Next/ }).click();
+            await page.waitForTimeout(300);
+          }
+        await wizard.getByRole("button", { name: "Select individual entries", exact: true }).click();
+        const books = wizard.locator('[data-component="GameSetupLoreEntryPicker.Books"]');
+        // The long-named book with 24 entries; the shelves fill the first page, so it is found by search.
+        await wizard.getByPlaceholder("Search lorebooks…").last().fill("Ridiculously");
+        await books.getByRole("button").filter({ hasText: "Ridiculously" }).first().click();
+        await wizard.getByRole("checkbox").first().waitFor({ state: "visible", timeout: 8000 });
+        await wizard.getByRole("checkbox").first().check();
+      },
+    },
     {
       id: "omnibar",
       run: hook(() => window.__marinaraUiCheck.ui.getState().setOmnibarOpen(true)),
