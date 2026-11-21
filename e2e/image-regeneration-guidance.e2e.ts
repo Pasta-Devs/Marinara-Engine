@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { buildChatImageGenerationRecord, type SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
@@ -79,6 +80,174 @@ async function screenshot(page: Page, info: TestInfo, name: string) {
     animations: "disabled",
   });
 }
+
+test("chat image version stacks keep two navigation axes and persist the selected result", async ({
+  page,
+  request,
+  browserName,
+  isMobile,
+}, info) => {
+  test.setTimeout(120_000);
+  const png = await sharp({ create: { width: 640, height: 480, channels: 3, background: "#164e63" } })
+    .png()
+    .toBuffer();
+  const provider = createServer(async (incoming, outgoing) => {
+    for await (const _chunk of incoming) {
+      /* consume the request before replying */
+    }
+    outgoing.writeHead(200, { "content-type": "application/json" });
+    outgoing.end(JSON.stringify({ data: [{ b64_json: png.toString("base64") }] }));
+  });
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  const address = provider.address() as { port: number };
+  const connectionResponse = await request.post("/api/connections", {
+    data: {
+      name: "Version stack fixture",
+      provider: "image_generation",
+      imageGenerationSource: "openai",
+      imageService: "openai",
+      baseUrl: `http://127.0.0.1:${address.port}/v1`,
+      apiKey: "fixture",
+      model: "dall-e-3",
+    },
+  });
+  expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+  const connection = (await connectionResponse.json()) as { id: string };
+  const created = await request.post("/api/chats", {
+    data: { name: "Image version stacks", mode: "roleplay", characterIds: [] },
+  });
+  expect(created.ok()).toBeTruthy();
+  const { id: chatId } = (await created.json()) as { id: string };
+  try {
+    const other = await upload(request, chatId, "Separate gallery picture", png);
+    const original = await upload(request, chatId, "First stack version", png);
+    const messageResponse = await request.post(`/api/chats/${chatId}/messages`, {
+      data: {
+        role: "assistant",
+        content: "A picture with saved alternatives.",
+        extra: { attachments: [{ type: "image", galleryId: original.id, url: original.url }] },
+      },
+    });
+    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+    const generate = async (prompt: string) => {
+      const result = await request.post(`/api/gallery/${chatId}/images/${original.id}/regenerate`, {
+        data: { prompt, connectionId: connection.id },
+      });
+      expect(result.ok(), await result.text()).toBeTruthy();
+      return (await result.json()).image as ChatImage;
+    };
+    const second = await generate("Second stack version");
+    const third = await generate("Third stack version");
+    await openChat(page, chatId);
+    let drawer = await openChatSettingsTool(page, "gallery");
+    await expect(drawer.getByRole("button", { name: "Open gallery image", exact: true })).toHaveCount(2);
+    await openGalleryImage(drawer, third.prompt);
+    const dialog = page.getByRole("dialog", { name: "Image preview", exact: true });
+    const position = (n: number) => dialog.getByText(`Version ${n} of 3`, { exact: true });
+    await expect(position(3)).toBeVisible();
+    await dialog.getByRole("button", { name: "Previous image version", exact: true }).click();
+    await expect(position(2)).toBeVisible();
+    const rows = async () => (await request.get(`/api/gallery/${chatId}`)).json() as Promise<ChatImage[]>;
+    await expect.poll(async () => (await rows()).find((row) => row.variantSelected === 1)?.id).toBe(second.id);
+    await page.keyboard.press("ArrowDown");
+    await expect(position(3)).toBeVisible();
+    await page.keyboard.press("ArrowUp");
+    await expect(position(2)).toBeVisible();
+    const nextGallery = dialog.getByRole("button", { name: "Next image", exact: true });
+    const forward = await nextGallery.isEnabled();
+    await page.keyboard.press(forward ? "ArrowRight" : "ArrowLeft");
+    await expect(dialog.getByText(other.prompt, { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Previous image version", exact: true })).toHaveCount(0);
+    await page.keyboard.press(forward ? "ArrowLeft" : "ArrowRight");
+    await expect(position(2)).toBeVisible();
+
+    if (isMobile && browserName === "chromium") {
+      const picture = dialog.locator("img").first();
+      const rect = await picture.boundingBox();
+      expect(rect).not.toBeNull();
+      const touch = await page.context().newCDPSession(page);
+      try {
+        const x = rect!.x + rect!.width / 3;
+        const y = rect!.y + rect!.height / 2;
+        await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+        await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y - 80 }] });
+        await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await expect(position(3)).toBeVisible();
+        await page.keyboard.press("ArrowUp");
+        await expect(position(2)).toBeVisible();
+      } finally {
+        await touch.detach();
+      }
+    }
+    await page.keyboard.press("+");
+    await expect(dialog.getByRole("button", { name: "Next image version", exact: true })).toBeDisabled();
+    await page.keyboard.press("ArrowDown");
+    await expect(position(2)).toBeVisible();
+    await page.keyboard.press("0");
+    await expect(dialog.getByRole("button", { name: "Next image version", exact: true })).toBeEnabled();
+    const previousVersion = dialog.getByRole("button", { name: "Previous image version", exact: true });
+    const nextVersion = dialog.getByRole("button", { name: "Next image version", exact: true });
+    await expect
+      .poll(async () => {
+        const up = await previousVersion.boundingBox();
+        const down = await nextVersion.boundingBox();
+        const left = await dialog.getByRole("button", { name: "Previous image", exact: true }).boundingBox();
+        const right = await dialog.getByRole("button", { name: "Next image", exact: true }).boundingBox();
+        const picture = await dialog.locator("img").first().boundingBox();
+        if (!up || !down || !left || !right || !picture) return false;
+        const cx = (rect: { x: number; width: number }) => rect.x + rect.width / 2;
+        return (
+          Math.abs(cx(up) - cx(down)) < 1 &&
+          Math.abs(cx(up) - (cx(left) + cx(right)) / 2) < 1 &&
+          up.y + up.height <= picture.y + 1 &&
+          down.y >= picture.y + picture.height - 1
+        );
+      })
+      .toBe(true);
+    for (const [visualTheme, theme] of [
+      ["default", "light"],
+      ["default", "dark"],
+      ["sillytavern", "light"],
+      ["sillytavern", "dark"],
+    ] as const) {
+      await page.evaluate(
+        async ({ visualTheme, theme }) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          useUIStore.getState().setTheme(theme);
+          useUIStore.getState().setVisualTheme(visualTheme);
+        },
+        { visualTheme, theme },
+      );
+      await screenshot(page, info, `stack-${visualTheme}-${theme}`);
+    }
+    await page.reload();
+    drawer = await openChatSettingsTool(page, "gallery");
+    await openGalleryImage(drawer, second.prompt);
+    await expect(position(2)).toBeVisible();
+    const messageRows = await (await request.get(`/api/chats/${chatId}/messages`)).json();
+    expect(JSON.stringify(messageRows)).toContain(second.id);
+    await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
+    const chooser = page.getByRole("dialog", { name: "Delete image?", exact: true });
+    await screenshot(page, info, "stack-delete-chooser");
+    await chooser.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(await rows()).toHaveLength(4);
+    await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
+    await chooser.getByRole("button", { name: /Delete this version/ }).click();
+    await expect(dialog.getByText("Version 2 of 2", { exact: true })).toBeVisible();
+    await expect.poll(async () => (await rows()).find((row) => row.variantSelected === 1)?.id).toBe(third.id);
+    await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
+    await chooser.getByRole("button", { name: /Delete other version/ }).click();
+    await expect(dialog.getByRole("button", { name: "Previous image version", exact: true })).toHaveCount(0);
+    await expect.poll(async () => (await rows()).length).toBe(2);
+    await dialog.getByRole("button", { name: "Close image", exact: true }).click();
+    await expect(drawer.getByRole("button", { name: "Open gallery image", exact: true })).toHaveCount(2);
+  } finally {
+    await request.delete(`/api/chats/${chatId}`).catch(() => {});
+    await request.delete(`/api/connections/${connection.id}`).catch(() => {});
+    provider.closeAllConnections();
+    await new Promise<void>((resolve, reject) => provider.close((error) => (error ? reject(error) : resolve())));
+  }
+});
 
 test("gallery regeneration preserves structured prompts and can revise, generate, or retry independently", async ({
   page,
@@ -441,9 +610,12 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
       }),
     );
 
+    await expect(applyEdit).toBeEnabled();
+    await maskCanvas.scrollIntoViewIfNeeded();
     const box = await maskCanvas.boundingBox();
     expect(box).toBeTruthy();
-    await page.mouse.move(box!.x + box!.width * 0.4, box!.y + box!.height * 0.4);
+    // A regenerated result can resize the stage. Hover waits for its canvas to settle and receive input.
+    await maskCanvas.hover({ position: { x: box!.width * 0.4, y: box!.height * 0.4 } });
     await page.mouse.down();
     await page.mouse.move(box!.x + box!.width * 0.6, box!.y + box!.height * 0.6, { steps: 5 });
     await page.mouse.up();

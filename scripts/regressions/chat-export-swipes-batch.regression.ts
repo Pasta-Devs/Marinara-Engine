@@ -13,7 +13,7 @@ const { buildApp } = await import("../../packages/server/src/app.js");
 const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
 const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
 const { importSTChat } = await import("../../packages/server/src/services/import/st-chat.importer.js");
-const { messageSwipes } = await import("../../packages/server/src/db/schema/index.js");
+const { messageSwipes, chatImages } = await import("../../packages/server/src/db/schema/index.js");
 const { eq } = await import("../../packages/server/src/db/file-query.js");
 
 type Response = { statusCode: number; body: string };
@@ -136,6 +136,44 @@ try {
       expected.map((swipes) => swipes.map((swipe) => [swipe.index, swipe.content])),
     );
   }
+
+  // Branches own their image stack rows, including versions reachable only through a saved swipe.
+  const { createGalleryStorage } = await import("../../packages/server/src/services/storage/gallery.storage.js");
+  const { groupChatImageVariants } = await import("../../packages/shared/src/utils/chat-image-variants.js");
+  const gallery = createGalleryStorage(db);
+  const firstImage = (await gallery.create({
+    chatId: chat.id,
+    filePath: "shared/branch-first.png",
+    prompt: "first",
+    provider: "fixture",
+    model: "fixture",
+  }))!;
+  const secondImage = (await gallery.create({
+    chatId: chat.id,
+    filePath: "shared/branch-second.png",
+    prompt: "second",
+    provider: "fixture",
+    model: "fixture",
+  }))!;
+  await db
+    .update(chatImages)
+    .set({ variantGroupId: firstImage.id, variantSelected: 1 })
+    .where(eq(chatImages.id, firstImage.id));
+  await db.update(chatImages).set({ variantGroupId: firstImage.id }).where(eq(chatImages.id, secondImage.id));
+  await chats.appendMessageAttachment(target.id, { type: "image", url: "/first.png", galleryId: firstImage.id });
+  const imageBranch = JSON.parse(
+    (await injectOk({ method: "POST", url: `/api/chats/${chat.id}/branch`, payload: {} })).body,
+  );
+  const copiedImages = await gallery.listByChatId(imageBranch.id);
+  assert.equal(copiedImages.length, 2);
+  assert.equal(groupChatImageVariants(copiedImages).length, 1);
+  assert.equal(groupChatImageVariants(copiedImages)[0]!.selected.filePath, firstImage.filePath);
+  assert.ok(copiedImages.every((image) => image.id !== firstImage.id && image.id !== secondImage.id));
+  assert.ok(
+    (await chats.listMessages(imageBranch.id)).some((message) =>
+      message.extra.includes(groupChatImageVariants(copiedImages)[0]!.selected.id),
+    ),
+  );
 
   // ── A long chat takes a few swipe reads, not one per message ──
   // A bound well below the message count keeps an unrelated read from failing the check.

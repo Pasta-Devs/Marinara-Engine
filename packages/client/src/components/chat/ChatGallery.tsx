@@ -2,7 +2,6 @@
 // Chat Gallery — Image grid for per-chat generated images
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   Camera,
   Image,
@@ -41,7 +40,8 @@ import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
 import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
 import { useSaveGalleryDescription } from "../../hooks/use-gallery-descriptions";
 import { ContextMenu } from "../ui/ContextMenu";
-import { BACKGROUND_THUMBNAIL_WIDTH, type GeneratedSceneVideo } from "@marinara-engine/shared";
+import { groupChatImageVariants, BACKGROUND_THUMBNAIL_WIDTH, type GeneratedSceneVideo } from "@marinara-engine/shared";
+import { ChatImageDeleteDialog } from "./ChatImageDeleteDialog";
 import { ChatImagePreview } from "./ChatImagePreview";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { toast } from "sonner";
@@ -124,7 +124,13 @@ export function ChatGallery({
   assignTargets = [],
 }: ChatGalleryProps) {
   const { t: localizeUi } = useUiTranslation();
-  const { data: images, isLoading } = useGalleryImages(chatId);
+  const { data: allImages, isLoading } = useGalleryImages(chatId);
+  const stacks = useMemo(() => groupChatImageVariants(allImages ?? []), [allImages]);
+  const images = useMemo(() => stacks.map((stack) => stack.selected), [stacks]);
+  const versionCounts = useMemo(
+    () => new Map(stacks.map((stack) => [stack.selected.id, stack.versions.length])),
+    [stacks],
+  );
   const sceneVideosEnabled = mode === "game" || mode === "roleplay" || mode === "conversation";
   const sceneVideosQuery = useSceneVideos(chatId, sceneVideosEnabled);
   const sceneVideos = sceneVideosEnabled ? (sceneVideosQuery.data ?? EMPTY_SCENE_VIDEOS) : EMPTY_SCENE_VIDEOS;
@@ -166,7 +172,8 @@ export function ChatGallery({
   const setChatGeneratingStoryboard = useGalleryStore((s) => s.setChatGeneratingStoryboard);
   const assetSearchActive = assetSearch.trim().length > 0;
   const { data: assetItems, isLoading: assetsLoading } = useChatAssetBrowser(chatId, assetSearchActive);
-  const portalRoot = typeof document !== "undefined" ? document.body : null;
+  const deleteImage = allImages?.find((image) => image.id === confirmDeleteId);
+  const deleteStack = stacks.find((stack) => stack.versions.some((image) => image.id === confirmDeleteId));
   const filteredAssets = useMemo(() => {
     const query = assetSearch.trim().toLowerCase();
     const items = assetItems ?? [];
@@ -271,29 +278,6 @@ export function ChatGallery({
     },
     [upload],
   );
-
-  const handleDelete = (id: string) => {
-    const image = images?.find((item) => item.id === id) ?? null;
-    const wasPinned = useGalleryStore.getState().pinnedImages.some((item) => item.id === id);
-    unpinImage(id);
-    setConfirmDeleteId(null);
-    if (lightbox?.id === id) setLightbox(null);
-    // The image's own chatId is the owner (a Game-mode gallery shows sibling
-    // sessions' images too); fall back to the open chat only if the row is
-    // somehow not in the list.
-    remove.mutate(
-      { imageId: id, chatId: image?.chatId ?? chatId },
-      {
-        onSuccess: () => {
-          toast.success(localizeUi("ui.chat.chatgallery.imageDeleted"));
-        },
-        onError: (error) => {
-          if (wasPinned && image) pinImage({ ...image, chatId });
-          toast.error(error instanceof Error ? error.message : localizeUi("ui.chat.chatgallery.failedToDeleteImage"));
-        },
-      },
-    );
-  };
 
   const handleDownloadImage = useCallback(
     async (image: ChatImage) => {
@@ -1046,6 +1030,17 @@ export function ChatGallery({
                       selectedImageIds.has(img.id) ? "ring-2 ring-[var(--primary)]" : "ring-1 ring-transparent",
                     )}
                   >
+                    {(versionCounts.get(img.id) ?? 0) > 1 && (
+                      <span
+                        className="pointer-events-none absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-[var(--sidebar)] px-2 py-1 text-xs text-[var(--foreground)] shadow-sm"
+                        aria-label={localizeUi("chat.imageVersions.count", {
+                          count: versionCounts.get(img.id),
+                        })}
+                      >
+                        <Images size="0.875rem" />
+                        {versionCounts.get(img.id)}
+                      </span>
+                    )}
                     {selectingImages ? (
                       <span
                         aria-hidden="true"
@@ -1325,39 +1320,24 @@ export function ChatGallery({
       )}
 
       {/* Delete confirmation */}
-      {portalRoot &&
-        confirmDeleteId &&
-        createPortal(
-          <div
-            data-chat-floating-panel
-            className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm max-md:pt-[env(safe-area-inset-top)]"
-          >
-            <div className="mx-4 rounded-xl bg-[var(--background)] p-5 shadow-2xl ring-1 ring-[var(--border)]">
-              <p className="mb-4 text-sm font-medium">{localizeUi("ui.chat.chatgallery.deleteThisImage")}</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setConfirmDeleteId(null)}
-                  className="flex-1 rounded-lg bg-[var(--secondary)] px-4 py-2 text-xs transition-colors hover:bg-[var(--accent)]"
-                >
-                  {localizeUi("chat.delete.dialog.cancel")}
-                </button>
-                <button
-                  onClick={() => handleDelete(confirmDeleteId)}
-                  className="mari-chrome-accent-surface mari-accent-animated flex-1 rounded-lg border px-4 py-2 text-xs transition-colors"
-                >
-                  {localizeUi("lorebook.editor.batch.delete")}
-                </button>
-              </div>
-            </div>
-          </div>,
-          portalRoot,
-        )}
+      {deleteImage && deleteStack && (
+        <ChatImageDeleteDialog
+          image={deleteImage}
+          count={deleteStack.versions.length}
+          index={deleteStack.versions.findIndex((image) => image.id === deleteImage.id)}
+          onClose={() => setConfirmDeleteId(null)}
+          onDeleted={() => {
+            setConfirmDeleteId(null);
+            setLightbox(null);
+          }}
+        />
+      )}
 
       {/* Lightbox */}
       {lightbox && (
         <ChatImageLightbox
           image={lightbox}
-          images={images}
+          images={allImages}
           regenerate={{}}
           onPin={handlePinImage}
           onClose={() => setLightbox(null)}

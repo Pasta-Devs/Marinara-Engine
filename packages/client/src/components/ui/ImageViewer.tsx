@@ -10,7 +10,7 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { Modal } from "./Modal";
@@ -39,12 +39,22 @@ interface ZoomStageProps {
   onZoomChange: (zoomed: boolean) => void;
   /** Horizontal swipe at 1x: `1` for next, `-1` for previous. */
   onSwipe?: (direction: 1 | -1) => void;
+  onVerticalSwipe?: (direction: 1 | -1) => void;
+  reserveVersionControls?: boolean;
   /** A tap on the empty space around the picture. */
   onBackgroundTap: () => void;
 }
 
 /** The picture itself: double-tap, wheel and pinch zoom, drag to pan. Remount it (key) to reset the zoom. */
-function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap }: ZoomStageProps) {
+function ZoomStage({
+  src,
+  alt,
+  onZoomChange,
+  onSwipe,
+  onVerticalSwipe,
+  reserveVersionControls,
+  onBackgroundTap,
+}: ZoomStageProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [view, setView] = useState({ s: 1, x: 0, y: 0 });
@@ -167,6 +177,14 @@ function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap }: ZoomSta
         Math.abs(dx) > Math.abs(dy) * 1.5
       ) {
         onSwipe?.(dx < 0 ? 1 : -1);
+      } else if (
+        event.pointerType !== "mouse" &&
+        g.onImage &&
+        viewRef.current.s === 1 &&
+        Math.abs(dy) > SWIPE_PX &&
+        Math.abs(dy) > Math.abs(dx) * 1.5
+      ) {
+        onVerticalSwipe?.(dy < 0 ? 1 : -1);
       }
       return;
     }
@@ -186,7 +204,10 @@ function ZoomStage({ src, alt, onZoomChange, onSwipe, onBackgroundTap }: ZoomSta
   return (
     <div
       ref={stageRef}
-      className="absolute inset-0 flex touch-none select-none items-center justify-center overflow-hidden"
+      className={cn(
+        "absolute flex touch-none select-none items-center justify-center overflow-hidden",
+        reserveVersionControls ? "inset-x-0 bottom-14 top-28 sm:top-14" : "inset-0",
+      )}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -237,6 +258,8 @@ interface ImageViewerProps {
   /** Index of the shown gallery picture; pair with `onIndexChange`. */
   index?: number;
   onIndexChange?: (index: number) => void;
+  /** Independent vertical navigation for versions of the current gallery picture. */
+  versions?: { index: number; count: number; onIndexChange: (index: number) => void };
   /** Buttons in the top-right toolbar, left of Close. */
   actions?: ReactNode;
   /** Caption area under the picture (prompt, file info, ...). */
@@ -260,6 +283,7 @@ export function ImageViewer({
   items,
   index = 0,
   onIndexChange,
+  versions,
   actions,
   children,
   childrenMaxHeightClass,
@@ -278,22 +302,42 @@ export function ImageViewer({
 
   const count = items?.length ?? 0;
   const gallery = !media && count > 1;
+  const hasVersions = !media && !!versions && versions.count > 1;
   const current = gallery ? items![clamp(index, 0, count - 1)]! : null;
   const shownSrc = current?.url ?? src ?? "";
   const shownAlt = current?.alt ?? alt ?? "";
   const zoomed = !media && zoomedSrc === shownSrc;
 
   const go = (target: number) => {
-    if (!gallery || zoomed || target < 0 || target >= count) return;
+    if (!gallery || closeDisabled || zoomed || target < 0 || target >= count) return;
     onIndexChange?.(target);
+  };
+  const goVersion = (target: number) => {
+    if (!hasVersions || closeDisabled || zoomed || target < 0 || target >= versions.count) return;
+    versions.onIndexChange(target);
   };
 
   useEffect(() => {
-    if (!gallery) return;
+    if (!gallery && !hasVersions) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isTyping(event.target) || !isTopModal(closeRef.current)) return;
-      if (event.key === "ArrowLeft") go(index - 1);
-      else if (event.key === "ArrowRight") go(index + 1);
+      if (
+        event.defaultPrevented ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        isTyping(event.target) ||
+        !isTopModal(closeRef.current)
+      )
+        return;
+      if (gallery && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        event.preventDefault();
+        go(index + (event.key === "ArrowRight" ? 1 : -1));
+      } else if (hasVersions && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+        // Let the saved prompt scroll when keyboard focus is inside its caption.
+        if (event.target instanceof Element && event.target.closest("[data-image-viewer-caption]")) return;
+        event.preventDefault();
+        goVersion(versions.index + (event.key === "ArrowDown" ? 1 : -1));
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -339,6 +383,8 @@ export function ImageViewer({
             alt={shownAlt}
             onZoomChange={(isZoomed) => setZoomedSrc(isZoomed ? shownSrc : null)}
             onSwipe={gallery ? (direction) => go(index + direction) : undefined}
+            onVerticalSwipe={hasVersions ? (direction) => goVersion(versions.index + direction) : undefined}
+            reserveVersionControls={hasVersions}
             onBackgroundTap={() => !closeDisabled && onClose()}
           />
         )}
@@ -354,22 +400,52 @@ export function ImageViewer({
           <>
             <button
               type="button"
-              className={cn(arrowClass, "left-2")}
+              className={cn(arrowClass, "left-2", hasVersions && "max-sm:top-[calc(50%+1.75rem)]")}
               onClick={() => go(index - 1)}
-              disabled={zoomed || index <= 0}
+              disabled={closeDisabled || zoomed || index <= 0}
               aria-label={t("ui.imageviewer.previousImage")}
             >
               <ChevronLeft size="1.25rem" />
             </button>
             <button
               type="button"
-              className={cn(arrowClass, "right-2")}
+              className={cn(arrowClass, "right-2", hasVersions && "max-sm:top-[calc(50%+1.75rem)]")}
               onClick={() => go(index + 1)}
-              disabled={zoomed || index >= count - 1}
+              disabled={closeDisabled || zoomed || index >= count - 1}
               aria-label={t("ui.imageviewer.nextImage")}
             >
               <ChevronRight size="1.25rem" />
             </button>
+          </>
+        )}
+        {hasVersions && (
+          <>
+            <button
+              type="button"
+              className={cn(VIEWER_BUTTON_CLASS, "absolute left-1/2 top-16 z-10 -translate-x-1/2 sm:top-2")}
+              disabled={closeDisabled || zoomed || versions.index <= 0}
+              aria-label={t("chat.imageVersions.previous")}
+              onClick={() => goVersion(versions.index - 1)}
+            >
+              <ChevronUp size="1.25rem" />
+            </button>
+            <div className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2">
+              <button
+                type="button"
+                className={VIEWER_BUTTON_CLASS}
+                disabled={closeDisabled || zoomed || versions.index >= versions.count - 1}
+                aria-label={t("chat.imageVersions.next")}
+                onClick={() => goVersion(versions.index + 1)}
+              >
+                <ChevronDown size="1.25rem" />
+              </button>
+              <span
+                role="status"
+                className="absolute left-full top-1/2 ml-2 -translate-y-1/2 whitespace-nowrap rounded-lg bg-black/60 px-2 py-1 text-xs tabular-nums text-white"
+              >
+                {t("chat.imageVersions.position", { current: versions.index + 1, total: versions.count })}
+              </span>
+            </div>
           </>
         )}
         <div className="absolute right-2 top-2 z-10 flex gap-2">
@@ -388,6 +464,7 @@ export function ImageViewer({
       </div>
       {children && (
         <div
+          data-image-viewer-caption
           className={cn(
             "mx-auto flex w-full max-w-3xl shrink-0 flex-col overflow-y-auto px-3 pb-2",
             childrenMaxHeightClass ?? "max-h-[45dvh]",
@@ -404,7 +481,7 @@ export function ImageViewer({
               type="button"
               ref={i === index ? filmstripSelectedRef : undefined}
               onClick={() => go(i)}
-              disabled={zoomed}
+              disabled={closeDisabled || zoomed}
               aria-label={t("ui.imageviewer.showImageValue1", { value1: i + 1 })}
               aria-current={i === index ? "true" : undefined}
               className={cn(

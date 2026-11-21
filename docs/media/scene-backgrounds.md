@@ -72,7 +72,21 @@ You can make a generated image again without regenerating the reply it belongs t
 3. Change what you want in the boxes under the picture: **Prompt**, **Negative prompt**, a box for each character under **Character prompts** when the image had them, and the image model.
 4. Click **Generate image**, or **Cancel** to leave the image as it is.
 
-The new image replaces the old one in the message. The old one stays in the Gallery, so you can pin it again. Reference pictures are sent again from the characters' current avatars. Some older images did not save their negative prompt and character prompts; the editor says so when that is the case.
+The new image becomes the selected version in the message. Earlier results stay together in one Gallery tile with a version count. Each version keeps its own saved prompt and generation record. Reference pictures are sent again from the characters' current avatars. Some older images did not save their negative prompt and character prompts; the editor says so when that is the case.
+
+### Image versions
+
+Open a stacked image to choose a version. Left/right arrows, arrow keys and horizontal swipes move between Gallery tiles. Up/down controls, arrow keys and vertical swipes on the picture move between versions in the current stack. Zoom out before navigating. Scrolling the prompt does not change versions.
+
+The version you choose is saved and shown in the chat, including after a reload. Regenerating or editing an older version adds a new result to the same stack and keeps the later versions too. A branched chat has its own selection.
+
+Use **Delete gallery image** on the tile, or the delete button in the viewer, to choose what to remove:
+
+- **Delete this version** removes the displayed version. If it was selected, the newest remaining version is shown.
+- **Delete other versions** keeps the displayed version and removes the rest.
+- **Delete entire stack** removes every version and its image attachments from the chat.
+
+These choices permanently delete the saved versions. **Cancel** keeps them all.
 
 ## Reviewing a prompt before it is sent
 

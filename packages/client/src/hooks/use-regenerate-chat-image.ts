@@ -43,3 +43,39 @@ export function useReviseChatImagePrompt(chatId: string) {
       api.post<ImagePromptDraft>(`/gallery/${chatId}/images/${encodeURIComponent(imageId)}/regenerate/prompt`, input),
   });
 }
+
+export function useSelectChatImageVersion(chatId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (image: Pick<ChatImage, "id" | "chatId">) =>
+      api.post<{ image: ChatImage }>(`/gallery/${image.chatId}/images/${encodeURIComponent(image.id)}/select`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: galleryKeys.all });
+      qc.invalidateQueries({ queryKey: chatKeys.all });
+      qc.invalidateQueries({ queryKey: gameStoryboardKeys.chat(chatId) });
+    },
+  });
+}
+
+export function useDeleteChatImageVersions() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      image,
+      scope,
+    }: {
+      image: Pick<ChatImage, "id" | "chatId">;
+      scope: "version" | "others" | "stack";
+    }) =>
+      api.delete<{ deletedImageIds: string[]; selectedImageId: string | null }>(
+        `/gallery/${image.chatId}/images/${encodeURIComponent(image.id)}/versions?scope=${scope}`,
+      ),
+    onSuccess: (_result, { image }) => {
+      qc.invalidateQueries({ queryKey: galleryKeys.all });
+      qc.invalidateQueries({ queryKey: chatKeys.all });
+      qc.invalidateQueries({ queryKey: gameStoryboardKeys.chat(image.chatId) });
+      qc.invalidateQueries({ queryKey: ["characters", "gallery"] });
+      qc.invalidateQueries({ queryKey: ["persona-gallery"] });
+    },
+  });
+}

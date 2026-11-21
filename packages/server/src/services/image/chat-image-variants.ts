@@ -3,10 +3,11 @@ import { groupChatImageVariants } from "@marinara-engine/shared";
 import { and, eq, inArray } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { chatImages, chats, messages, messageSwipes } from "../../db/schema/index.js";
-import { withChatMessagePatchTransaction } from "../storage/chats.storage.js";
+import { createChatsStorage, withChatMessagePatchTransaction } from "../storage/chats.storage.js";
 import { createGalleryStorage } from "../storage/gallery.storage.js";
 import { createGameStoryboardsStorage } from "../storage/game-storyboards.storage.js";
 import { deleteChatGalleryImageEverywhere } from "./chat-gallery-cascade-deletion.js";
+import { newId } from "../../utils/id-generator.js";
 
 const queues = new Map<string, Promise<unknown>>();
 
@@ -56,14 +57,16 @@ async function replaceReferences(tx: DB, chatId: string, ids: string[], selected
     return changed ? JSON.stringify({ ...extra, attachments }) : null;
   };
   const replacedMessageIds: string[] = [];
-  for (const message of await tx.select().from(messages).where(eq(messages.chatId, chatId))) {
+  const chatMessages = await tx.select().from(messages).where(eq(messages.chatId, chatId));
+  const swipes = await createChatsStorage(tx).getSwipesByMessageId(chatMessages.map((message) => message.id));
+  for (const message of chatMessages) {
     let changed = false;
     const extra = swap(message.extra);
     if (extra) {
       await tx.update(messages).set({ extra }).where(eq(messages.id, message.id));
       changed = true;
     }
-    for (const swipe of await tx.select().from(messageSwipes).where(eq(messageSwipes.messageId, message.id))) {
+    for (const swipe of swipes.get(message.id) ?? []) {
       const swipeExtra = swap(swipe.extra);
       if (!swipeExtra) continue;
       await tx.update(messageSwipes).set({ extra: swipeExtra }).where(eq(messageSwipes.id, swipe.id));
@@ -138,7 +141,45 @@ export function deleteChatImageVersions(
     if (selected) await selectVersion(db, chatId, selected.id);
     else
       await withChatMessagePatchTransaction(db, chatId, (tx) => replaceReferences(tx, chatId, [...removedIds], null));
-    for (const image of removed) await deleteChatGalleryImageEverywhere({ db, image });
-    return { deletedImageIds: [...removedIds], selectedImageId: selected?.id ?? null };
+    const totals = { characterCopiesRemoved: 0, personaCopiesRemoved: 0, filesRemoved: 0 };
+    for (const image of removed) {
+      const deleted = await deleteChatGalleryImageEverywhere({ db, image });
+      totals.characterCopiesRemoved += deleted.characterCopiesRemoved;
+      totals.personaCopiesRemoved += deleted.personaCopiesRemoved;
+      totals.filesRemoved += deleted.filesRemoved;
+    }
+    return { deletedImageIds: [...removedIds], selectedImageId: selected?.id ?? null, ...totals };
   });
+}
+
+/** A branch owns its selection; shared files stay referenced without copying their bytes. */
+export async function copyChatImageVersionsForBranch(
+  db: DB,
+  sourceChatId: string,
+  targetChatId: string,
+  extras: Record<string, unknown>[],
+) {
+  return withChatImageVariantLock(sourceChatId, () =>
+    db.transaction(async (tx) => {
+      const attachments = extras
+        .flatMap((extra) => (Array.isArray(extra.attachments) ? extra.attachments : []))
+        .filter((value): value is Record<string, unknown> => !!value && typeof value === "object");
+      const mentioned = new Set(attachments.map((attachment) => attachment.galleryId));
+      const rows = await createGalleryStorage(tx).listByChatId(sourceChatId);
+      const copied = new Map<string, ImageRow>();
+      for (const stack of groupChatImageVariants(rows)) {
+        if (!stack.versions.some((row) => mentioned.has(row.id))) continue;
+        const groupId = stack.versions.length > 1 || stack.selected.variantGroupId ? newId() : null;
+        for (const source of stack.versions) {
+          const image = { ...source, id: newId(), chatId: targetChatId, variantGroupId: groupId };
+          await tx.insert(chatImages).values(image);
+          copied.set(source.id, image);
+        }
+      }
+      for (const attachment of attachments) {
+        const image = copied.get(String(attachment.galleryId));
+        if (image) Object.assign(attachment, { galleryId: image.id, url: chatImageVariantUrl(image) });
+      }
+    }),
+  );
 }

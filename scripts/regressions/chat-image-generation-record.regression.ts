@@ -29,6 +29,7 @@ const { buildChatImageGenerationRecord, parseChatImageGenerationRecord } =
   await import("../../packages/shared/src/utils/chat-image-generation.js");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { galleryRoutes } = await import("../../packages/server/src/routes/gallery.routes.js");
+const { backupRoutes } = await import("../../packages/server/src/routes/backup.routes.js");
 const { readRecordedReferenceImages } =
   await import("../../packages/server/src/services/image/illustrator-references.js");
 const { createAgentsStorage } = await import("../../packages/server/src/services/storage/agents.storage.js");
@@ -73,6 +74,8 @@ const db = await getDB();
 const app = Fastify();
 app.decorate("db", db);
 await app.register(galleryRoutes, { prefix: "/api/gallery" });
+await app.register(requireServer("@fastify/multipart"));
+await app.register(backupRoutes, { prefix: "/api/backup" });
 
 try {
   // Builder trims, drops unusable character prompts and duplicate ids.
@@ -1232,6 +1235,43 @@ try {
     url: `/api/gallery/${otherVersionChat!.id}/images/${v2.id}/select`,
   });
   assert.equal(wrongOwner.statusCode, 404, wrongOwner.body);
+  const { copyChatImageVersionsForBranch, selectChatImageVersion, deleteChatImageVersions } =
+    await import("../../packages/server/src/services/image/chat-image-variants.js");
+  const branchExtra = { attachments: [{ type: "image", galleryId: versionSource.id, url: "source URL" }] };
+  await copyChatImageVersionsForBranch(db, chat.id, otherVersionChat!.id, [branchExtra]);
+  const branchRows = await gallery.listByChatId(otherVersionChat!.id);
+  assert.equal(branchRows.length, 3, "a copied attachment brings the entire stack");
+  assert.notEqual(branchExtra.attachments[0]!.galleryId, versionSource.id);
+  assert.equal(groupChatImageVariants(branchRows)[0]!.selected.id, branchExtra.attachments[0]!.galleryId);
+  const branchV2 = branchRows.find((row) => row.filePath === v2.filePath)!;
+  assert.ok(branchV2);
+  await selectChatImageVersion(db, otherVersionChat!.id, branchV2.id);
+  assert.equal(
+    groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+      stack.versions.some((row) => row.id === versionSource.id),
+    )!.selected.id,
+    versionSource.id,
+    "branch selection cannot change its source chat",
+  );
+  await deleteChatImageVersions(db, otherVersionChat!.id, branchV2.id, "stack");
+  assert.ok(await gallery.getById(v2.id, chat.id), "deleting the branch stack retains source metadata");
+  assert.ok(
+    readFileSync(join(fixtureDir, "gallery", v2.filePath)).length,
+    "deleting a branch cannot unlink the source file",
+  );
+  const { sanitizeProfileTableRows } = await import("../../packages/server/src/routes/backup.routes.js");
+  const exportedVersions = JSON.parse(
+    JSON.stringify(sanitizeProfileTableRows("chat_images", await gallery.listByChatId(chat.id))),
+  );
+  assert.equal(
+    groupChatImageVariants(exportedVersions).find((stack) => stack.versions.some((row) => row.id === versionSource.id))!
+      .selected.id,
+    versionSource.id,
+    "profile row export keeps grouping and selection",
+  );
+  const profileResponse = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
+  assert.equal(profileResponse.statusCode, 200, profileResponse.body);
+  const exportedProfile = profileResponse.json();
   const removedOriginal = await app.inject({
     method: "DELETE",
     url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=version`,
@@ -1253,6 +1293,22 @@ try {
   });
   assert.equal(removeStack.statusCode, 200, removeStack.body);
   assert.deepEqual(await attachmentIds(), []);
+  const importedProfile = await app.inject({
+    method: "POST",
+    url: "/api/backup/import-profile",
+    payload: exportedProfile,
+  });
+  assert.equal(importedProfile.statusCode, 200, importedProfile.body);
+  const restoredStack = groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+    stack.versions.some((row) => row.id === versionSource.id),
+  );
+  assert.equal(restoredStack?.versions.length, 3, "native profile export/import restores every version");
+  assert.equal(
+    restoredStack?.selected.id,
+    versionSource.id,
+    "native profile export/import restores the saved selection",
+  );
+  assert.equal(restoredStack?.versions.find((row) => row.id === v2.id)?.generation, v2.generation);
   const legacyGroups = groupChatImageVariants([
     { id: "one", chatId: "a", createdAt: "1" },
     { id: "two", chatId: "a", createdAt: "2" },
@@ -1260,6 +1316,14 @@ try {
   ]);
   assert.equal(legacyGroups.length, 3, "legacy pictures and other owners never merge by accident");
 
+  const beforeReopen = groupChatImageVariants(await gallery.listByChatId(chat.id));
+  await closeDB();
+  const reopened = await getDB();
+  assert.deepEqual(
+    groupChatImageVariants(await createGalleryStorage(reopened).listByChatId(chat.id)),
+    beforeReopen,
+    "version metadata and saved requests survive an actual store close and reopen",
+  );
   console.log(
     "chat-image-generation-record: ok (record, storage round trip, regenerate route, version selection and deletion)",
   );

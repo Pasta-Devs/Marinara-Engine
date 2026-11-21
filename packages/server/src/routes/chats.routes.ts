@@ -133,6 +133,7 @@ import { isFeatureEnabled } from "../services/features/feature-settings.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createConnectionAccountsStorage, pickLimits } from "../services/storage/connection-accounts.storage.js";
 import { applyChatModelOverride, readChatModelOverride } from "../services/generation/connection-resolution.js";
+import { copyChatImageVersionsForBranch } from "../services/image/chat-image-variants.js";
 import { notifyLongTermMemoryChatBranched } from "../services/generation/long-term-memory-runtime.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
@@ -5850,6 +5851,14 @@ export async function chatsRoutes(app: FastifyInstance) {
       copied.activeSwipeIndex = swipeIndexes.get(copied.activeSwipeIndex ?? 0) ?? 0;
       sourceToCopiedSwipeIndexes.set(copiedSourceMessages[index]!.id, swipeIndexes);
     });
+    await copyChatImageVersionsForBranch(
+      app.db,
+      sourceChat.id,
+      newChat.id,
+      copiedMessageInputs
+        .flatMap((message) => [message.extra, ...(message.swipes ?? []).map((swipe) => swipe.extra)])
+        .filter((extra): extra is Record<string, unknown> => !!extra && typeof extra === "object"),
+    );
     const branchedMessageIds = await storage.createMessagesBatch(newChat.id, copiedMessageInputs);
     copiedSourceMessages.forEach((msg, index) => {
       const branchedId = branchedMessageIds[index];

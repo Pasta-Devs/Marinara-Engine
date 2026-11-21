@@ -66,7 +66,11 @@ import {
 import { buildBackgroundProviderPrompt } from "../services/game/game-asset-generation.js";
 import { generateIllustratorImageVariants } from "../services/image/illustrator-image-variants.js";
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
-import { deleteChatImageVersions, selectChatImageVersion } from "../services/image/chat-image-variants.js";
+import {
+  deleteChatImageVersions,
+  selectChatImageVersion,
+  withChatImageVariantLock,
+} from "../services/image/chat-image-variants.js";
 import { readGalleryTagPayload } from "../services/image/gallery-tag-payload.js";
 import { assignChatPictureToGallery } from "../services/image/assign-chat-gallery-image.js";
 import {
@@ -2723,19 +2727,23 @@ export async function galleryRoutes(app: FastifyInstance) {
         savedImageId = null;
         savedFilePath = null;
 
-        await persistGeneratedImageToEntityGalleries({
-          enabled: imageSettings.autoSaveToGalleries,
-          sourceFilePath: filePath,
-          sourceChatImageId: image.id,
-          characterIds: references.characterIds,
-          personaIds: references.personaId ? [references.personaId] : [],
-          characterGallery,
-          personaGallery,
-          prompt,
-          provider,
-          model,
-          width: savedWidth,
-          height: savedHeight,
+        await withChatImageVariantLock(chatId, async () => {
+          // Deletion may have won the queue after selection. Never recreate copies of a deleted version.
+          if (!(await storage.getById(image.id, chatId))) return;
+          await persistGeneratedImageToEntityGalleries({
+            enabled: imageSettings.autoSaveToGalleries,
+            sourceFilePath: filePath,
+            sourceChatImageId: image.id,
+            characterIds: references.characterIds,
+            personaIds: references.personaId ? [references.personaId] : [],
+            characterGallery,
+            personaGallery,
+            prompt,
+            provider,
+            model,
+            width: savedWidth,
+            height: savedHeight,
+          });
         }).catch((galleryErr) =>
           logger.warn(galleryErr, "[gallery/regenerate] Could not copy image %s to entity galleries", image.id),
         );
