@@ -398,6 +398,20 @@ export const MAX_VERIFICATION_REPAIR_ROUNDS = 2;
 export const MAX_MIDRUN_CLAIM_REPAIR_ROUNDS = 2;
 export const MAX_REPEATED_COMMAND_FAILURES = 3;
 const MAX_HISTORY_MESSAGES = 40;
+// Past MAX_HISTORY_MESSAGES the window's first row moves in steps of this many, not one turn at a time, so the
+// history a provider has cached stays the start of the next request for many turns.
+const HISTORY_WINDOW_STEP = 20;
+
+/**
+ * The stored rows Mari is sent: at most MAX_HISTORY_MESSAGES, starting on a step boundary so the first row stays put
+ * for HISTORY_WINDOW_STEP / 2 turns, and on a user row so the history never opens with an answer to a cut question.
+ */
+export function mariHistoryWindow<T extends { role: string }>(rows: readonly T[]): T[] {
+  if (rows.length <= MAX_HISTORY_MESSAGES) return [...rows];
+  let start = Math.ceil((rows.length - MAX_HISTORY_MESSAGES) / HISTORY_WINDOW_STEP) * HISTORY_WINDOW_STEP;
+  while (start < rows.length - 1 && rows[start]!.role !== "user") start += 1;
+  return rows.slice(start);
+}
 export const MAX_PARALLEL_READONLY_COMMANDS = 4;
 const RECENT_WORKSPACE_CONTINUITY_LIMIT = 4;
 export const COMMAND_OUTPUT_LIMIT = 32_000;
@@ -484,6 +498,9 @@ const MIN_AFFORDABLE_OUTPUT_TOKENS = 1_024;
 /** Each call retries at most this many times on a credit or context-window rejection. */
 const MAX_LIMIT_RETRIES = 2;
 const learnedRunLimits = new WeakMap<AbortSignal, { maxTokens?: number; maxContext?: number }>();
+// Runs on a local server (the sidecar, llama.cpp, Ollama, LM Studio, vLLM): their chat templates commonly accept one
+// system message, at index 0. Keyed by the run's abort signal, like learnedRunLimits.
+const singleSystemMessageRuns = new WeakSet<AbortSignal>();
 
 /** The output budget a run's requests use now: the run-start one, lowered by any limit learned from a rejection. */
 function runMaxOutputTokens(signal: AbortSignal | undefined, maxTokens: number | undefined) {
@@ -5226,7 +5243,7 @@ export class ProfessorMariWorkspaceService {
   }> {
     const chatStorage = createChatsStorage(this.app.db);
     const allMessages = await chatStorage.listMessages(chatId);
-    const history = allMessages.slice(-MAX_HISTORY_MESSAGES);
+    const history = mariHistoryWindow(allMessages);
     // #5725 Manual mode: arm silent command frames only when Mari's last
     // persisted turn was a deferral and the user answered it with Accept. The
     // deferral is a flag on the message's extra - persisted content is only
@@ -5346,9 +5363,6 @@ export class ProfessorMariWorkspaceService {
         contextKind: "prompt",
       });
     }
-    // #8375: last of the prompt blocks. It carries currentTime and this turn's message id, so anything after it
-    // is re-sent uncached on every turn and every new chat; everything before it stays a stable cached prefix.
-    messages.push({ role: "system", content: workspaceInfo, contextKind: "prompt" });
 
     // Same captioning as chats: the Model's own switch, else Automatic with the Image reading default.
     let imageCaptioning: ImageCaptioningRuntime | null = null;
@@ -5395,6 +5409,10 @@ export class ProfessorMariWorkspaceService {
     }
     // A Retry after a partial reply: her words stay in the history, and your message goes last again, as a turn must end.
     if (messages.at(-1)?.role === "assistant" && latestUserEntry) messages.push({ ...latestUserEntry });
+    // #8375: it carries currentTime and this turn's decisions, so it changes every turn. It goes after the history
+    // with the other per-turn blocks: the system prompt and the history before it stay the same from one turn to the
+    // next, and a provider's prefix cache reuses both.
+    messages.push({ role: "system", content: workspaceInfo, contextKind: "injection" });
     // #5073: user-attached reference context (chat-history slices). contextKind:'injection' so the
     // trimmer preserves it (unlike 'history'), keeping it readable regardless of message age; the
     // renderer self-bounds its total size. Placed before continuity so the latest turn stays closest.
@@ -5610,6 +5628,13 @@ export class ProfessorMariWorkspaceService {
     const defaultParameters = parseJsonObject(connection.defaultParameters);
     const customParameters = isRecord(defaultParameters?.customParameters) ? defaultParameters.customParameters : {};
     const enabledParameters = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters);
+    if (
+      isLocalSidecarConnection(connection) ||
+      bool(connection.treatAsLocalEndpoint) ||
+      isLocalInferenceBaseUrl(connection.baseUrl ?? "")
+    ) {
+      singleSystemMessageRuns.add(signal);
+    }
     // LOCAL custom providers are included (#5721): a reasoning-capable model
     // on a local OpenAI-compatible server otherwise does its substantive work
     // - plans, questions for the user - inside hidden reasoning, and the
@@ -5669,15 +5694,23 @@ export class ProfessorMariWorkspaceService {
     debugLog?: (message: string, ...values: unknown[]) => void,
     onFrame?: (chunk: string) => void,
   ): Promise<ChatCompletionResult> {
-    // Local chat templates commonly accept a single system message at index 0.
-    // Keep trusted context in that role, including context added after history,
-    // on every command round without modifying the stored conversation.
-    const systemMessages = messages.filter((message) => message.role === "system");
+    // The system messages before the history go as one. The per-turn ones after it (workspace context, continuity,
+    // @ links) stay where they are, so the system prompt and the history before them are the same from one turn to
+    // the next and a provider's prefix cache reuses both. Local chat templates commonly accept a single system
+    // message at index 0, so there every system message joins that one, without modifying the stored conversation.
+    const singleSystem = baseOptions.signal ? singleSystemMessageRuns.has(baseOptions.signal) : false;
+    const firstTurn = messages.findIndex((message) => message.role !== "system");
+    const leading = singleSystem
+      ? messages.filter((message) => message.role === "system")
+      : messages.slice(0, firstTurn < 0 ? messages.length : firstTurn);
+    const rest = singleSystem
+      ? messages.filter((message) => message.role !== "system")
+      : messages.slice(leading.length);
     messages = [
-      ...(systemMessages.length
-        ? [{ role: "system" as const, content: systemMessages.map((message) => message.content).join("\n\n") }]
+      ...(leading.length
+        ? [{ role: "system" as const, content: leading.map((message) => message.content).join("\n\n") }]
         : []),
-      ...messages.filter((message) => message.role !== "system"),
+      ...rest,
     ];
     // Limits learned from earlier provider rejections in this run. Keyed by the
     // run's abort signal, which every caller passes through unchanged (the pi
