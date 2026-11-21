@@ -8,7 +8,7 @@
 // ──────────────────────────────────────────────
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { GalleryTagKind } from "@marinara-engine/shared";
+import { parseChatImageGenerationRecord, type GalleryTagKind } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import type { createCharacterGalleryStorage } from "../storage/character-gallery.storage.js";
 import type { createPersonaGalleryStorage } from "../storage/persona-gallery.storage.js";
@@ -18,6 +18,7 @@ import { readGalleryTagPayload } from "./gallery-tag-payload.js";
 export type ChatPictureToAssign = {
   filePath: string;
   prompt: string;
+  generation?: unknown;
   provider: string;
   model: string;
   width: number | null;
@@ -62,6 +63,7 @@ export async function assignChatPictureToGallery(input: {
       const fields = {
         filePath: image.filePath,
         prompt: image.prompt,
+        generation: parseChatImageGenerationRecord(image.generation),
         provider: image.provider,
         model: image.model,
         width: image.width ?? undefined,
@@ -76,13 +78,16 @@ export async function assignChatPictureToGallery(input: {
         existing: { id: string; customKind?: string | null; customName?: string | null } | undefined,
         setTag: (id: string, patch: typeof label) => Promise<unknown>,
         create: () => Promise<unknown>,
+        setGeneration: (id: string, generation: NonNullable<typeof fields.generation>) => Promise<unknown>,
       ) => {
         // Only a label that differs from the stored one is written (and reported as updated).
         const labelUpdated =
           !existing ||
           (!!label.customKind &&
             ((existing.customKind ?? null) !== label.customKind || (existing.customName ?? null) !== label.customName));
-        const row = existing ? (labelUpdated ? await setTag(existing.id, label) : existing) : await create();
+        const refreshed =
+          existing && fields.generation ? await setGeneration(existing.id, fields.generation) : existing;
+        const row = existing ? (labelUpdated ? await setTag(existing.id, label) : refreshed) : await create();
         return row
           ? ({ ok: true, image: row, alreadyThere: !!existing, labelUpdated } as const)
           : ({ ok: false, reason: "not-created" } as const);
@@ -94,6 +99,7 @@ export async function assignChatPictureToGallery(input: {
           existing,
           (id, patch) => gallery.setTag(id, patch),
           () => gallery.create({ characterId: target.id, ...fields }),
+          (id, generation) => gallery.setGeneration(id, generation),
         );
       }
       const gallery = input.personaGallery;
@@ -102,6 +108,7 @@ export async function assignChatPictureToGallery(input: {
         existing,
         (id, patch) => gallery.setTag(id, patch),
         () => gallery.create({ personaId: target.id, ...fields }),
+        (id, generation) => gallery.setGeneration(id, generation),
       );
     },
     galleryRoot,

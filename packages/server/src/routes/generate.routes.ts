@@ -15172,6 +15172,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           enabled: imageSettings.autoSaveToGalleries,
                           sourceFilePath: filePath,
                           sourceChatImageId: galleryEntry?.id,
+                          generation: galleryEntry?.generation,
                           characterIds: referenceResolution.characterIds,
                           personaIds: referenceResolution.personaId ? [referenceResolution.personaId] : [],
                           characterGallery,

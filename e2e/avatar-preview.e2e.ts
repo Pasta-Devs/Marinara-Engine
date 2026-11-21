@@ -2,6 +2,156 @@ import { clickTopbarPanel } from "./topbar-navigation.js";
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
+
+test("leaving an avatar preview while its image loads prevents a stale apply", async ({ page }) => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+    "base64",
+  );
+  const imageUrl = "/api/characters/avatar-owner/gallery/file/avatar.png";
+  const editedImageUrl = "/api/characters/avatar-owner/gallery/file/edited-avatar.png";
+  let releaseBlob!: () => void;
+  let markRequested!: () => void;
+  const heldBlob = new Promise<void>((resolve) => {
+    releaseBlob = resolve;
+  });
+  const requestedBlob = new Promise<void>((resolve) => {
+    markRequested = resolve;
+  });
+  await page.route(`**${imageUrl}`, (route) => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route(`**${editedImageUrl}`, async (route) => {
+    if (route.request().resourceType() === "fetch") {
+      markRequested();
+      await heldBlob;
+    }
+    await route.fulfill({ contentType: "image/png", body: png });
+  });
+  await page.route("**/api/connections", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "avatar-nai-e2e",
+          name: "NovelAI test",
+          provider: "image_generation",
+          imageService: "novelai",
+          baseUrl: "https://image.novelai.net",
+          model: "nai-diffusion-5-full",
+          defaultForAgents: true,
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/characters/avatar-owner/gallery/avatar-image/regenerate", (route) =>
+    route.fulfill({
+      json: {
+        id: "edited-avatar-image",
+        filePath: "characters/avatar-owner/edited-avatar.png",
+        url: editedImageUrl,
+        prompt: "Edited avatar",
+        provider: "novelai",
+        model: "nai-diffusion-5-full",
+        width: 1,
+        height: 1,
+        createdAt: "",
+        generation: null,
+      },
+    }),
+  );
+  await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+  await page.goto("/");
+  await prepareViteFixtureDependencies(page);
+  await page.evaluate(async (url) => {
+    const runtime = window as typeof window & {
+      __avatarApplyCalls?: number;
+      __avatarCloseCalls?: number;
+      __avatarApplySettled?: boolean;
+      __unmountAvatarEditFixture?: () => void;
+    };
+    const dependency = window.__viteFixtureDependencyUrl;
+    const { default: React } = await import(dependency("react"));
+    const { default: ReactDOM } = await import(dependency("react-dom_client"));
+    const { QueryClient, QueryClientProvider, MutationCache } = await import(dependency("@tanstack_react-query"));
+    const { EntityAvatarLightbox } = await import("/src/components/ui/EntityAvatarLightbox.tsx" as string);
+    runtime.__avatarApplyCalls = 0;
+    runtime.__avatarCloseCalls = 0;
+    runtime.__avatarApplySettled = false;
+    const mount = document.createElement("div");
+    document.body.append(mount);
+    const root = ReactDOM.createRoot(mount);
+    runtime.__unmountAvatarEditFixture = () => {
+      root.unmount();
+      mount.remove();
+    };
+    root.render(
+      React.createElement(
+        QueryClientProvider,
+        {
+          client: new QueryClient({
+            defaultOptions: { queries: { retry: false } },
+            mutationCache: new MutationCache({
+              onSettled: () => {
+                runtime.__avatarApplySettled = true;
+              },
+            }),
+          }),
+        },
+        React.createElement(EntityAvatarLightbox, {
+          owner: { kind: "character", id: "avatar-owner" },
+          image: {
+            id: "avatar-image",
+            filePath: "characters/avatar-owner/avatar.png",
+            url,
+            prompt: "Original avatar",
+            provider: "",
+            model: "",
+            width: 1,
+            height: 1,
+            createdAt: "",
+            generation: null,
+          },
+          onUseAvatar: async () => {
+            runtime.__avatarApplyCalls! += 1;
+          },
+          onClose: () => {
+            runtime.__avatarCloseCalls! += 1;
+          },
+        }),
+      ),
+    );
+  }, imageUrl);
+  try {
+    const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await expect(viewer.getByRole("button", { name: "Use as avatar", exact: true })).toHaveCount(0);
+    await viewer.getByRole("button", { name: "Regenerate image", exact: true }).click();
+    await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue("Original avatar");
+    await viewer.getByRole("button", { name: "Edit image", exact: true }).click();
+    await viewer.getByRole("button", { name: "Apply edit", exact: true }).click();
+    await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue("Edited avatar");
+    await page.evaluate(() => {
+      (window as typeof window & { __avatarApplySettled?: boolean }).__avatarApplySettled = false;
+    });
+    await viewer.getByRole("button", { name: "Use as avatar", exact: true }).click();
+    await requestedBlob;
+    await page.evaluate(() => {
+      (window as typeof window & { __unmountAvatarEditFixture: () => void }).__unmountAvatarEditFixture();
+    });
+    releaseBlob();
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as typeof window & { __avatarApplySettled?: boolean }).__avatarApplySettled),
+      )
+      .toBe(true);
+    expect(
+      await page.evaluate(() => {
+        const runtime = window as typeof window & { __avatarApplyCalls?: number; __avatarCloseCalls?: number };
+        return { applied: runtime.__avatarApplyCalls, closed: runtime.__avatarCloseCalls };
+      }),
+    ).toEqual({ applied: 0, closed: 0 });
+  } finally {
+    releaseBlob();
+  }
+});
 
 test("sheet uploads persist on refresh without saving unrelated card drafts", async ({ page, request }) => {
   await page.route("**/api/app-settings/ui", (route) =>
@@ -350,6 +500,17 @@ test("avatar crop handles stay whole and draggable on a square image", async ({ 
     const frame = page.locator("[data-avatar-crop-frame]");
     await expect(frame).toBeVisible();
     await frame.evaluate((element) => element.scrollIntoView({ block: "center" }));
+
+    // Initial section anchoring can finish after the crop frame appears in WebKit.
+    await expect
+      .poll(async () => {
+        await frame.evaluate((element) => element.scrollIntoView({ block: "center" }));
+        return frame.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.top >= 0 && bounds.bottom <= window.innerHeight;
+        });
+      })
+      .toBe(true);
 
     // A square image starts with the crop on every image edge, where the handles were cut to a sliver (#7323).
     for (const pos of ["tl", "tr", "bl", "br"] as const) {
