@@ -6,7 +6,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { BookOpen, ChevronDown, Search, X } from "lucide-react";
-import { useLorebookEntries, type EligibleLorebookEntry } from "../../hooks/use-lorebooks";
+import { useLorebookEntries, useLorebookFolders, type EligibleLorebookEntry } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
 import { Checkbox } from "../ui/Checkbox";
 
@@ -186,13 +186,32 @@ function BookEntries({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const query = useLorebookEntries(bookId);
+  const folders = useLorebookFolders(bookId);
+  // An entry in a switched-off folder (or under one) is never read in play, so it isn't offered.
+  const offFolderIds = useMemo(() => {
+    const byId = new Map((folders.data ?? []).map((folder) => [folder.id, folder]));
+    const off = new Set<string>();
+    for (const folder of folders.data ?? []) {
+      const seen = new Set<string>();
+      for (let at = folder; at && !seen.has(at.id); at = byId.get(at.parentFolderId ?? "")!) {
+        seen.add(at.id);
+        if (!at.enabled) {
+          off.add(folder.id);
+          break;
+        }
+      }
+    }
+    return off;
+  }, [folders.data]);
   const entries = useMemo(
     () =>
-      (query.data ?? []).filter(isUsable).sort((a, b) => Number(b.constant) - Number(a.constant) || a.order - b.order),
-    [query.data, isUsable],
+      (query.data ?? [])
+        .filter((entry) => isUsable(entry) && !(entry.folderId && offFolderIds.has(entry.folderId)))
+        .sort((a, b) => Number(b.constant) - Number(a.constant) || a.order - b.order),
+    [query.data, isUsable, offFolderIds],
   );
 
-  if (query.isLoading) {
+  if (query.isLoading || folders.isLoading) {
     return (
       <p role="status" className="px-3 pb-2 text-xs text-[var(--muted-foreground)]">
         {localizeUi("game.setupLore.loading")}
@@ -202,7 +221,7 @@ function BookEntries({
   if (query.isError) {
     return (
       <div className="flex items-center gap-2 px-3 pb-2">
-        <p role="alert" className="flex-1 text-xs text-[var(--destructive)]">
+        <p role="alert" className="flex-1 text-xs text-[var(--marinara-app-accent-static)]">
           {localizeUi("game.setupLore.bookError")}
         </p>
         <button
