@@ -321,6 +321,18 @@ export function screenList(ids) {
       id: "professor-mari-folded",
       run: open.mari(true),
     },
+    // New-chat setup, the page in the new chat's own tab (last: each one leaves a draft chat behind).
+    ...["roleplay", "conversation"].map((mode) => ({
+      id: `new-${mode}-setup`,
+      group: mode === "roleplay" ? "core" : undefined,
+      run: null,
+      then: async (page) => {
+        const button = page.getByRole("button", { name: `Start a new ${mode}` }).filter({ visible: true });
+        if (!(await button.count())) return "not on this layout";
+        await button.first().click();
+        await page.waitForSelector("[data-setup-page]", { timeout: 15_000 });
+      },
+    })),
     {
       id: "omnibar",
       run: hook(() => window.__marinaraUiCheck.ui.getState().setOmnibarOpen(true)),

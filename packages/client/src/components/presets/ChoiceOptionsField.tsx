@@ -77,6 +77,7 @@ export function ChoiceOptionsField({
   allowBooleanToggle = true,
   ariaLabel,
   displayText,
+  placeholder,
 }: {
   variable: ChoiceFieldVariable;
   selection: string | string[] | undefined;
@@ -88,6 +89,8 @@ export function ChoiceOptionsField({
   ariaLabel?: string;
   /** How option text reads on screen (e.g. macros as words); the stored values stay as they are. */
   displayText?: (text: string) => string;
+  /** Text of the blank row a dropdown shows while nothing is picked. */
+  placeholder?: string;
 }) {
   const show = (text: string) => (displayText ? displayText(String(text ?? "")) : text);
   const presentedOptions = getPresentedOptions(variable);
@@ -128,7 +131,11 @@ export function ChoiceOptionsField({
         >
           {/* With nothing picked (e.g. "Write your own"), show a blank row instead of
               letting the browser display the first option as the answer. */}
-          {!presentedOptions.some((opt) => optionKey(opt) === selection) && <option value="" disabled />}
+          {!presentedOptions.some((opt) => optionKey(opt) === selection) && (
+            <option value="" disabled>
+              {placeholder ?? ""}
+            </option>
+          )}
           {presentedOptions.map((opt) => (
             <option key={opt.id} value={optionKey(opt)}>
               {show(opt.label)}
