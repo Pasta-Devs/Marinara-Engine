@@ -146,6 +146,22 @@ try {
   const unused = await importSTChat(jsonl({ user_name: "unused", character_name: "Alice" }, sampleMessages), db, {});
   assert.ok("chatId" in unused && unused.chatId);
   assert.equal((await chats.getById(unused.chatId!))?.personaId, sam!.id, '"unused" falls back to the messages');
+  const lateUser = await importSTChat(
+    jsonl({ user_name: "unused", character_name: "Alice" }, [
+      ...Array.from({ length: 199 }, (_, index) => ({
+        name: "Alice",
+        is_user: false,
+        send_date: "March 1, 2025 12:00pm",
+        mes: `Line ${index}.`,
+      })),
+      { name: "Sam", is_user: true, send_date: "March 1, 2025 12:05pm", mes: "Finally." },
+    ]),
+    db,
+    {},
+  );
+  assert.ok("chatId" in lateUser && lateUser.chatId);
+  assert.equal((await chats.getById(lateUser.chatId!))?.personaId, sam!.id, "a late first user message still counts");
+  assert.deepEqual(lateUser.importNotes, [{ kind: "persona", name: "Sam" }]);
 
   // An explicit persona (a chat imported into an existing group) is kept, even when it is none.
   const explicit = await importSTChat(jsonl({ user_name: "Sam", character_name: "Alice" }, sampleMessages), db, {
