@@ -390,11 +390,11 @@ const routeCases = [
       const oldestSent = Math.min(...historyMarkers);
       for (const index of recalled)
         assert.ok(index < oldestSent, `recalled HISTORY_${index} is also sent (oldest sent: ${oldestSent})`);
-      assert.equal(
-        contextFit?.droppedHistory,
-        0,
-        "recall already left out the history it made room for, so the request's own fit drops nothing more",
-      );
+      // Recall removes the history it makes room for before the request's own fit; the saved summary, which the
+      // reply checkup reads ("N older messages not sent"), still counts it.
+      assert.equal(contextFit?.trimmed, true);
+      assert.equal(contextFit?.droppedHistory, 30 - historyMarkers.size, "every history message not sent is counted");
+      assert.ok(contextFit.tokensBefore > contextFit.inputBudget, "the size reported is the prompt before trimming");
     },
   },
   {
