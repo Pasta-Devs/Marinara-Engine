@@ -13,9 +13,11 @@ interface EditorHeaderProps {
   /** Disables Back and Close while a save or upload runs. */
   busy?: boolean;
   /** What the icon tile shows: an icon, or the item's picture. */
-  icon: ReactNode;
+  icon?: ReactNode;
   /** Extra classes for the tile, such as a panel gradient. */
   iconClassName?: string;
+  /** Replaces the icon tile with the editor's own, such as the card editors' avatar upload. */
+  tile?: ReactNode;
   /** The name: the editor's name field (`mari-editor-title-input`) or a heading (`mari-editor-title`). */
   title: ReactNode;
   /** A short line under the name. */
@@ -25,6 +27,10 @@ interface EditorHeaderProps {
   nav?: ReactNode;
   /** Save, status and the editor's own buttons (`EditorSaveButton`, `EditorHeaderAction`). */
   actions?: ReactNode;
+  /** Header variants, such as the card editors' `mari-editor-header--card`. */
+  className?: string;
+  /** Classes for the Back/tile/name group (with tabs only), such as `mari-editor-header-main--identity`. */
+  mainClassName?: string;
 }
 
 /**
@@ -36,10 +42,13 @@ export function EditorHeader({
   busy = false,
   icon,
   iconClassName,
+  tile,
   title,
   meta,
   nav,
   actions,
+  className,
+  mainClassName,
 }: EditorHeaderProps) {
   const withNav = nav !== undefined;
   const identity = (
@@ -49,7 +58,7 @@ export function EditorHeader({
         disabled={busy}
         className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
       />
-      <div className={cn("mari-editor-icon-tile", iconClassName)}>{icon}</div>
+      {tile ?? <div className={cn("mari-editor-icon-tile", iconClassName)}>{icon}</div>}
       {meta === undefined ? (
         title
       ) : (
@@ -61,10 +70,10 @@ export function EditorHeader({
     </>
   );
   return (
-    <div className={cn("mari-editor-header", withNav && "mari-editor-header--with-nav")}>
+    <div className={cn("mari-editor-header", withNav && "mari-editor-header--with-nav", className)}>
       {/* With tabs, the density rules size this group against the tabs. Without, its parts sit in the header row
           itself, so on phones Close stays beside the name while the actions wrap below. */}
-      {withNav ? <div className="mari-editor-header-main">{identity}</div> : identity}
+      {withNav ? <div className={cn("mari-editor-header-main", mainClassName)}>{identity}</div> : identity}
       {nav}
       {actions && (
         <div
