@@ -156,7 +156,11 @@ try {
         assert.match(messages[0].content, /only the image tags for the Appearance of a (character|persona) card/);
         assert.match(messages[0].content, /1girl, 1boy, or 1other/);
         assert.match(messages[0].content, /never guess or add traits the draft does not state/);
-        assert.match(messages[0].content, /LoRA trigger words .* exactly as written and at the start of the line/);
+        assert.match(
+          messages[0].content,
+          /LoRA trigger words .* exactly as written and at the start of the line, before the count tag/,
+        );
+        assert.match(messages[0].content, /With no kept tags, the count tag starts the line/);
         assert.match(messages[0].content, /Leave out clothing/);
       } else {
         assert.equal(request.max_tokens, 2048);
@@ -226,6 +230,10 @@ try {
   output = "";
   response = await generate(characterPath, "imageAppearance");
   assert.equal(response.statusCode, 502, "empty tags still fail and keep the field");
+  output = ", ,\n,";
+  response = await generate(characterPath, "imageAppearance");
+  assert.equal(response.statusCode, 502, "a reply of only commas fails instead of clearing the tags");
+  assert.match(response.json().error, /returned no text/);
   // Public Face follows the card's length, so short and long results are both kept. Empty still fails.
   for (const words of [30, 500]) {
     output = "word ".repeat(words).trim();
