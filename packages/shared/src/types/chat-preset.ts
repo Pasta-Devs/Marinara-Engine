@@ -292,6 +292,7 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   // Roleplay commands
   "roleplayCommandsEnabled", // Roleplay commands on or off
   "roleplayDmCommandsEnabled", // Older switch for character DMs, read when roleplayCommandsEnabled is missing
+  "roleplayCommandNoticeDisplay", // How roleplay command notices are shown under messages
   "roleplayCommandToggles", // Which Roleplay commands are on
   "roleplaySoundConnectionId", // Connection for sound effects
   "roleplayIllustrateInline", // Illustrate command images shown where the command was written

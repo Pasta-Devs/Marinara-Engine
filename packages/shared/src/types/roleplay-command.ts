@@ -266,6 +266,16 @@ export function reanchorRoleplayCommandActivity(
   });
 }
 
+export const ROLEPLAY_COMMAND_NOTICE_DISPLAY_MODES = ["show", "collapse", "hide"] as const;
+export type RoleplayCommandNoticeDisplay = (typeof ROLEPLAY_COMMAND_NOTICE_DISPLAY_MODES)[number];
+
+export function getRoleplayCommandNoticeDisplay(
+  metadata: Record<string, unknown> | null | undefined,
+): RoleplayCommandNoticeDisplay {
+  const value = metadata?.roleplayCommandNoticeDisplay;
+  return value === "collapse" || value === "hide" ? value : "show";
+}
+
 export function roleplayCommandsEnabled(metadata: Record<string, unknown>): boolean {
   // Preserve an existing explicit DM opt-in. New chats have no enabled commands.
   return (
