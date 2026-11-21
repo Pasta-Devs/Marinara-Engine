@@ -552,6 +552,18 @@ export function RegexScriptEditor() {
         }
         actions={
           <>
+            <SettingsSwitch
+              ariaLabel={localEnabled ? "Disable regex script" : "Enable regex script"}
+              title={
+                localEnabled ? localizeUi("ui.noodle.noodlehome.enabled") : localizeUi("ui.agents.agenteditor.disabled")
+              }
+              checked={localEnabled}
+              onChange={(checked) => {
+                setLocalEnabled(checked);
+                markDirty();
+              }}
+              className="mari-editor-action inline-flex p-1.5 max-md:mr-auto hover:bg-[var(--accent)]"
+            />
             {saveError && (
               <span className="mari-editor-status mr-2 text-red-400">
                 <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.agenteditor.saveFailed")}
@@ -578,18 +590,6 @@ export function RegexScriptEditor() {
                 !!promptPresetScopeError ||
                 !!depthRangeError
               }
-            />
-            <SettingsSwitch
-              ariaLabel={localEnabled ? "Disable regex script" : "Enable regex script"}
-              title={
-                localEnabled ? localizeUi("ui.noodle.noodlehome.enabled") : localizeUi("ui.agents.agenteditor.disabled")
-              }
-              checked={localEnabled}
-              onChange={(checked) => {
-                setLocalEnabled(checked);
-                markDirty();
-              }}
-              className="mari-editor-action inline-flex p-1.5 hover:bg-[var(--accent)]"
             />
             <EditorHeaderAction
               icon={<Upload size="0.9375rem" />}
