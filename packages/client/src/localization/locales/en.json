@@ -2602,7 +2602,6 @@
   "connections.editor.maxOutputTokens": "Max output tokens",
   "connections.editor.maxOutputTokensHelp": "The longest reply this connection may write, in tokens. Automatic uses the model's own limit, or 8,192 tokens when Marinara doesn't know the model. A chat can ask for less in its Advanced Parameters, never more. Professor Mari writes up to this limit, so if her replies get cut off, raise it; 32000 suits most current models.",
   "connections.editor.modelName": "Model name",
-  "connections.editor.more": "More",
   "connections.editor.name": "Name",
   "connections.editor.section.advanced": "More",
   "connections.editor.section.chatDefaults": "Parameters",

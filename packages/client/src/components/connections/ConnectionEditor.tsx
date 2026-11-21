@@ -396,7 +396,6 @@ export function ConnectionEditor({
   const ovLook = useOverhaulLook();
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [useForMenu, setUseForMenu] = useState<MenuAt | null>(null);
   const modelStar = useModelStar();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -4384,106 +4383,101 @@ export function ConnectionEditor({
       {decisionFields}
       {isAudioProvider && voiceFields}
 
-      <EditorSection title={t("connections.editor.section.advanced")} advanced>
-        <div className="grid gap-6 empty:hidden sm:grid-cols-2">
-          {/* ── Agent Parallel Jobs ── */}
-          {!isMediaGenerationProvider && (
-            <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}>
-              <div className="flex items-center gap-3">
-                <DraftNumberInput
-                  value={localMaxParallelJobs}
-                  min={1}
-                  max={MAX_PARALLEL_JOBS}
-                  selectOnFocus
-                  onCommit={(nextValue) => {
-                    setLocalMaxParallelJobs(normalizeMaxParallelJobs(nextValue));
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-24 px-3 text-xs md:h-9"
-                />
-                <span className="text-xs text-[var(--muted-foreground)]">
-                  {localMaxParallelJobs === 1
-                    ? localizeUi("ui.connections.connectioneditor.oneAgentJobAtATime")
-                    : localizeUi("ui.connections.connectioneditor.value1AgentJobs", {
-                        value1: localMaxParallelJobs,
-                      })}
-                </span>
-              </div>
-            </FieldGroup>
-          )}
-
-          {/* ── Rate Limit (requests per minute) ── */}
-          {!isMediaGenerationProvider && (
-            <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}>
-              <div className="flex items-center gap-3">
-                <DraftNumberInput
-                  allowEmpty
-                  value={localMaxRequestsPerMinute}
-                  ariaLabel={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}
-                  min={0}
-                  max={600}
-                  selectOnFocus
-                  placeholder={localizeUi("ui.connections.connectioneditor.requestsPerMinuteUnlimited")}
-                  onCommit={(nextValue) => {
-                    setLocalMaxRequestsPerMinute(nextValue && nextValue > 0 ? Math.floor(nextValue) : null);
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
-                />
-                {localMaxRequestsPerMinute !== null && (
+      {/* Every field here is for text Models; image, video, voice and decision Models have none, so no card. */}
+      {!isMediaGenerationProvider && (
+        <EditorSection title={t("connections.editor.section.advanced")} advanced>
+          <div className="grid gap-6 empty:hidden sm:grid-cols-2">
+            {/* ── Agent Parallel Jobs ── */}
+            {!isMediaGenerationProvider && (
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}>
+                <div className="flex items-center gap-3">
+                  <DraftNumberInput
+                    value={localMaxParallelJobs}
+                    min={1}
+                    max={MAX_PARALLEL_JOBS}
+                    selectOnFocus
+                    onCommit={(nextValue) => {
+                      setLocalMaxParallelJobs(normalizeMaxParallelJobs(nextValue));
+                      markDirty();
+                    }}
+                    className="mari-chrome-field h-11 w-24 px-3 text-xs md:h-9"
+                  />
                   <span className="text-xs text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.value1RequestsPerMinute", {
-                      value1: localMaxRequestsPerMinute,
-                    })}
+                    {localMaxParallelJobs === 1
+                      ? localizeUi("ui.connections.connectioneditor.oneAgentJobAtATime")
+                      : localizeUi("ui.connections.connectioneditor.value1AgentJobs", {
+                          value1: localMaxParallelJobs,
+                        })}
                   </span>
-                )}
-              </div>
-            </FieldGroup>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => setMoreOpen((open) => !open)}
-          aria-expanded={moreOpen}
-          className="mari-chrome-control mari-chrome-control--small text-xs self-start"
-        >
-          <ChevronDown size="0.75rem" aria-hidden className={cn("transition-transform", moreOpen && "rotate-180")} />
-          {t("connections.editor.more")}
-        </button>
-        {moreOpen && (
-          <div className="space-y-6">
-            {canTreatAsLocalEndpoint && !accountLinked && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}>
-                <SettingsSwitch
-                  label={localizeUi("ui.connections.connectioneditor.treatAsLocalCustomEndpoint")}
-                  checked={localTreatAsLocalEndpoint}
-                  onChange={(checked) => {
-                    setLocalTreatAsLocalEndpoint(checked);
-                    markDirty();
-                  }}
-                />
+                </div>
               </FieldGroup>
             )}
 
-            {/* ── OpenRouter Provider Preference ── */}
-            {localProvider === "openrouter" && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.preferredProvider")}>
-                <input
-                  value={localOpenrouterProvider}
-                  onChange={(e) => {
-                    setLocalOpenrouterProvider(e.target.value);
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                  placeholder={localizeUi("ui.connections.connectioneditor.eGAnthropicGoogleAmazonBedrock")}
-                />
+            {/* ── Rate Limit (requests per minute) ── */}
+            {!isMediaGenerationProvider && (
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}>
+                <div className="flex items-center gap-3">
+                  <DraftNumberInput
+                    allowEmpty
+                    value={localMaxRequestsPerMinute}
+                    ariaLabel={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}
+                    min={0}
+                    max={600}
+                    selectOnFocus
+                    placeholder={localizeUi("ui.connections.connectioneditor.requestsPerMinuteUnlimited")}
+                    onCommit={(nextValue) => {
+                      setLocalMaxRequestsPerMinute(nextValue && nextValue > 0 ? Math.floor(nextValue) : null);
+                      markDirty();
+                    }}
+                    className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
+                  />
+                  {localMaxRequestsPerMinute !== null && (
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.value1RequestsPerMinute", {
+                        value1: localMaxRequestsPerMinute,
+                      })}
+                    </span>
+                  )}
+                </div>
               </FieldGroup>
             )}
           </div>
-        )}
-        {isChatProvider(localProvider) && captioningFields}
-        {embeddingFields}
-      </EditorSection>
+          {/* The card is already the collapsed "More"; its fields show straight away when opened. */}
+          {((canTreatAsLocalEndpoint && !accountLinked) || localProvider === "openrouter") && (
+            <div className="space-y-6">
+              {canTreatAsLocalEndpoint && !accountLinked && (
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}>
+                  <SettingsSwitch
+                    label={localizeUi("ui.connections.connectioneditor.treatAsLocalCustomEndpoint")}
+                    checked={localTreatAsLocalEndpoint}
+                    onChange={(checked) => {
+                      setLocalTreatAsLocalEndpoint(checked);
+                      markDirty();
+                    }}
+                  />
+                </FieldGroup>
+              )}
+
+              {/* ── OpenRouter Provider Preference ── */}
+              {localProvider === "openrouter" && (
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.preferredProvider")}>
+                  <input
+                    value={localOpenrouterProvider}
+                    onChange={(e) => {
+                      setLocalOpenrouterProvider(e.target.value);
+                      markDirty();
+                    }}
+                    className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                    placeholder={localizeUi("ui.connections.connectioneditor.eGAnthropicGoogleAmazonBedrock")}
+                  />
+                </FieldGroup>
+              )}
+            </div>
+          )}
+          {isChatProvider(localProvider) && captioningFields}
+          {embeddingFields}
+        </EditorSection>
+      )}
 
       {testSection}
     </div>

@@ -86,6 +86,18 @@ export async function seedFixtures(api) {
   });
   ids.connection = account.connectionId;
   ids.account = account.account?.id;
+  // An image Model: its editor has no "More" card (every field there is for text Models).
+  ids.imageConnection = (
+    await api.post("/api/connections", {
+      name: "UI check NovelAI",
+      provider: "image_generation",
+      imageGenerationSource: "novelai",
+      imageService: "novelai",
+      apiKey: "fixture-not-a-real-key",
+      baseUrl: "https://image.novelai.net",
+      model: "nai-diffusion-4-5-full",
+    })
+  ).id;
 
   for (const mode of ["conversation", "roleplay"]) {
     const chat = await api.post("/api/chats", {
@@ -239,6 +251,7 @@ export function screenList(ids) {
     { id: "profile-editor", run: open.detail("openProfileDetail", ids.profile) },
     { id: "profile-new", run: open.detail("openProfileDetail", "new:roleplay") },
     { id: "connection-editor", run: open.detail("openConnectionDetail", ids.connection) },
+    { id: "image-connection-editor", run: open.detail("openConnectionDetail", ids.imageConnection) },
     { id: "agent-editor", run: open.detail("openAgentDetail", "illustrator") },
     { id: "conversation-chat", group: "core", run: open.chat(ids.conversationChat) },
     { id: "roleplay-chat", group: "core", run: open.chat(ids.roleplayChat) },
