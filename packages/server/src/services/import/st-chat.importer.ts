@@ -257,7 +257,9 @@ function readSillyTavernAuthorsNote(meta: Record<string, unknown>) {
 
 /** The SillyTavern user's name: the header's, else the first user message's. */
 function sillyTavernUserName(header: STChatHeader, lines: string[]): string | null {
-  if (typeof header.user_name === "string" && header.user_name.trim()) return header.user_name.trim();
+  // SillyTavern 1.16+ writes "unused" in the header; the user's name then lives on their messages.
+  const headerName = typeof header.user_name === "string" ? header.user_name.trim() : "";
+  if (headerName && headerName.toLowerCase() !== "unused") return headerName;
   for (let index = 1; index < Math.min(lines.length, 200); index++) {
     try {
       const message = JSON.parse(lines[index]!) as STChatMessage;
