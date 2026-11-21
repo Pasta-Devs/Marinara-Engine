@@ -158,7 +158,7 @@ export function CreateLorebookModal({
           labelPosition="start"
           checked={vectors}
           onChange={setVectorsChoice}
-          className="justify-between rounded-lg bg-[var(--secondary)] px-3 py-2"
+          className="justify-between rounded-lg bg-[var(--secondary)] px-3 py-2 hover:bg-[var(--secondary)]"
         />
 
         {createLorebook.isError && (
