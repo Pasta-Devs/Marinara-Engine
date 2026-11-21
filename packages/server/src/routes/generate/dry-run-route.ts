@@ -96,7 +96,7 @@ import {
 import { buildImpersonateInstruction } from "../../services/conversation/impersonate-prompt.js";
 import { processLorebooks } from "../../services/lorebook/index.js";
 import { resolveLorebookScopeExclusions } from "../../services/lorebook/game-lorebook-scope.js";
-import { injectAtDepth, insertAfterHistory } from "../../services/lorebook/prompt-injector.js";
+import { injectAtDepth } from "../../services/lorebook/prompt-injector.js";
 import { createLLMProvider } from "../../services/llm/provider-registry.js";
 import {
   isMemoryRecallVectorizerAvailable,
@@ -2143,7 +2143,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         .join("\n");
       if (loreContent) {
         const loreBlock = wrapContent(loreContent, "Lore", wrapFormat);
-        insertAfterHistory(finalMessages, { role: "system", content: loreBlock, contextKind: "injection" });
+        const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
+        const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
+        finalMessages.splice(insertAt, 0, { role: "system", content: loreBlock });
       }
       if (lorebookResult.depthEntries.length > 0) {
         finalMessages = injectAtDepth(finalMessages as any, lorebookResult.depthEntries) as any;

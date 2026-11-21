@@ -163,7 +163,7 @@ A group wraps several sections in one container.
 2. Click the group's name to rename it.
 3. Expand a section and pick the group in its **Group** dropdown.
 
-With **XML**, a group becomes one parent tag. With **MARKDOWN**, it becomes one heading. Sections of one group that are not next to each other each get their own tag or heading. Deleting a group does not delete its sections. They only lose the group.
+With **XML**, a group becomes one parent tag. With **MARKDOWN**, it becomes one heading. Deleting a group does not delete its sections. They only lose the group.
 
 ### Position and depth
 
@@ -202,18 +202,6 @@ Below the dropdown, a badge shows where the prompt comes from.
 The text box shows the prompt in use. Edit it to make a chat-local copy. If your text matches the preset or default exactly, Marinara treats it as not customized. While a custom edit exists, a reset icon appears (tooltip **Reset to default prompt**).
 
 Game chats add more controls. **Story style**, **Violence**, **Content boundaries** and **Rating guidelines** set what the game's story may contain. See [Change them during a game](../game/getting-started.md#change-them-during-a-game). Two more shape the prompt. **GM prompt style** replaces only the Game prompt, and a chat-local edit still wins. **Extra instructions** adds text to the Game prompt, up to 2000 characters, such as "Write in the style of Terry Pratchett."
-
-## Order sections for prompt caching
-
-Prompt caching lets a service reuse the start of a prompt it has already read, so long chats cost less and answer sooner. The service reuses the prompt only up to the first text that changed since the last message. Keep sections that stay the same above **Chat History**, and put sections that change from turn to turn below it.
-
-Lorebook keyword entries change with almost every message. In front of the history, they keep the whole history out of the cache. The built-in **Marinara's Universal Preset** sends its **Setting** section, a **Lorebook Marker (All)**, before the history, so the lore reads as part of the world before the story. To trade that for caching:
-
-1. Open the preset in the **Preset Editor** and click **Create editable copy** (a preset you made yourself can be edited directly).
-2. Go to the **Sections** tab and drag the lorebook marker below **Chat History**.
-3. Click **Save**.
-
-Use [Peek Prompt](../chats/peek-prompt.md) to see where the entries land.
 
 ## Decision blocks and prompt caching
 
