@@ -280,6 +280,8 @@ export interface ImageGenRequest {
   negativePrompt?: string;
   width?: number;
   height?: number;
+  /** The caller chose width and height on purpose, so NovelAI's "Choose resolution from character count" keeps them. */
+  keepRequestedSize?: boolean;
   model?: string;
   /** For endpoint-based image services (e.g. RunPod): the endpoint/instance ID. */
   imageEndpointId?: string;

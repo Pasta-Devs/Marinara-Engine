@@ -145,21 +145,48 @@ export const NOVELAI_CHARACTER_PROMPT_RULES = [
   "position is the character's approximate normalized center: x=0 is left, x=1 is right, y=0 is top, y=1 is bottom. Keep positions consistent with camera composition and character order.",
 ] as const;
 
-/** System-prompt block appended for the roleplay Illustrator when its image connection is native NovelAI. */
-export function buildIllustratorCharacterPromptInstruction(limit: number): string {
-  if (limit <= 0) return "";
+/**
+ * Caption rules shared by the roleplay Illustrator and Professor Mari. `promptField` names where the base scene
+ * prompt goes: "prompt" in the Illustrator's JSON, --prompt on Mari's command line.
+ */
+function novelAiCaptionRuleLines(args: { limit: number; promptField: string; verb: "return" | "send" }): string[] {
   return [
-    "<illustrator_character_prompts>",
-    "The image connection is NovelAI with native multi-character prompting enabled for this request.",
-    'Extend the JSON you return with "characterPrompts": [ { "name": string, "prompt": string, "negativePrompt": string, "position": { "x": number, "y": number } } ].',
-    'When two or more named characters are visible, include exactly one characterPrompts entry for every name in "characters", using the exact same spelling. For zero or one visible character, return an empty characterPrompts array.',
-    `Never return more than ${limit} entries. If more characters are visible, keep the most important for this beat and treat the rest as unnamed background.`,
-    'Keep "prompt" as the base scene prompt: subject-count tags such as 1girl, 2girls, or 1boy, the shared interaction, camera, composition, environment, lighting, mood, and props. Put character-specific identity, appearance, hair, eyes, build, clothing, expression, pose, and role in that character\'s own prompt so traits never leak between characters.',
+    `Never ${args.verb} more than ${args.limit} entries. If more characters are visible, keep the most important for this beat and treat the rest as unnamed background.`,
+    `Keep ${args.promptField} as the base scene prompt: subject-count tags such as 1girl, 2girls, or 1boy, the shared interaction, camera, composition, environment, lighting, mood, and props. Put character-specific identity, appearance, hair, eyes, build, clothing, expression, pose, and role in that character's own prompt so traits never leak between characters.`,
     "Fixed traits come from that character's card or persona Appearance field. If the Appearance field is already written as Danbooru tags, copy those tags verbatim into the caption; if it is prose, convert it into Danbooru tags. Do not restate fixed traits in the base prompt.",
     "Clothing comes from the tracker's current outfit for that character when one is present, converted into Danbooru tags; otherwise use what the scene describes. Put the clothing tags in the caption, not the base prompt.",
     ...NOVELAI_CHARACTER_PROMPT_RULES,
+  ];
+}
+
+const CHARACTER_PROMPT_SHAPE =
+  '[ { "name": string, "prompt": string, "negativePrompt": string, "position": { "x": number, "y": number } } ]';
+
+/** System-prompt block appended for the roleplay Illustrator when its image connection is native NovelAI. */
+export function buildIllustratorCharacterPromptInstruction(limit: number): string {
+  if (limit <= 0) return "";
+  const [cap, ...rules] = novelAiCaptionRuleLines({ limit, promptField: '"prompt"', verb: "return" });
+  return [
+    "<illustrator_character_prompts>",
+    "The image connection is NovelAI with native multi-character prompting enabled for this request.",
+    `Extend the JSON you return with "characterPrompts": ${CHARACTER_PROMPT_SHAPE}.`,
+    'When two or more named characters are visible, include exactly one characterPrompts entry for every name in "characters", using the exact same spelling. For zero or one visible character, return an empty characterPrompts array.',
+    cap!,
+    ...rules,
     "</illustrator_character_prompts>",
   ].join("\n");
+}
+
+/**
+ * The same rules for Professor Mari, who sends captions as `mari images generate --character-prompts <json>`.
+ * Shown by `mari images connections`, and by preview and generate, when the image connection is native NovelAI.
+ */
+export function buildMariCharacterPromptRules(limit: number): string[] {
+  if (limit <= 0) return [];
+  return [
+    `This image connection is NovelAI with native multi-character prompting. When two or more named characters are visible, give each its own prompt: add --character-prompts '${CHARACTER_PROMPT_SHAPE}' with exactly one entry per visible character. For zero or one visible character, leave it out.`,
+    ...novelAiCaptionRuleLines({ limit, promptField: "--prompt", verb: "send" }),
+  ];
 }
 
 /** Read a prompt writer's characterPrompts field off its parsed JSON result. */
