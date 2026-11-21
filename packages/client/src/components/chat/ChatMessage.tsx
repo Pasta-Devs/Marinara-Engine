@@ -5099,7 +5099,7 @@ export const ChatMessage = memo(function ChatMessage({
             )}
 
             {overhaulMobile && !overhaulActive && isLastAssistantMessage && !isUser && !editing ? (
-              <SwipeCountChip index={message.activeSwipeIndex ?? 0} count={swipeCount} />
+              <SwipeCountChip index={message.activeSwipeIndex ?? 0} count={swipeCount} onOpen={openMobileSheet} />
             ) : null}
 
             <MessageMarkIndicators message={message} className="px-1" />

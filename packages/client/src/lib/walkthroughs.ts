@@ -144,6 +144,22 @@ export function resetModeWalkthroughs(device: WalkthroughDevice = detectWalkthro
   writeRecord({ ...record, modes: record.modes.filter((key) => !key.startsWith(`${device}:`)) });
 }
 
+/**
+ * The one-time "Hold a message for more" tip on touch (QC Nov 21, MOB3). It is kept with the modes, so Settings >
+ * Replay brings it back along with the chat help.
+ */
+const HOLD_TIP_KEY = "tip:hold-message";
+
+export function hasSeenHoldTip(device: WalkthroughDevice = detectWalkthroughDevice()) {
+  return record.modes.includes(`${device}:${HOLD_TIP_KEY}`);
+}
+
+export function markHoldTipSeen(device: WalkthroughDevice = detectWalkthroughDevice()) {
+  const key = `${device}:${HOLD_TIP_KEY}`;
+  if (record.modes.includes(key)) return;
+  writeRecord({ ...record, modes: [...record.modes, key] });
+}
+
 const EMPTY_RECORD: WalkthroughRecord = emptyRecord();
 
 function getSnapshot() {

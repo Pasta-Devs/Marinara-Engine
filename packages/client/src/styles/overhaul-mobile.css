@@ -1885,12 +1885,35 @@
 }
 .ov-lv[data-ovm-lv="list"] .ov-lv__right,
 .ov-lv[data-ovm-lv="detail"] .ov-lv__left,
-.ov-lv[data-ovm-lv="detail"] > .ov-bk-head {
+.ov-lv[data-ovm-lv="detail"] > .ov-bk-head,
+.ov-lv[data-ovm-lv="detail"] > .ov-edhead {
   display: none !important;
 }
+/* An open entry or tool has one bar, iOS style: "‹ Book" back, the entry's name, Save when there is something to save
+   (QC Nov 21, MOB13). The book's own header (≈190 px) steps aside while it is open. */
 .ovm-lv-head {
   margin: 0 -0.75rem 0.5rem;
-  grid-template-columns: 2.75rem minmax(0, 1fr) minmax(2.75rem, auto);
+  grid-template-columns: minmax(2.75rem, max-content) minmax(0, 1fr) minmax(2.75rem, auto);
+}
+.ovm-lv-head .ovm-drill-page__back {
+  display: inline-flex;
+  width: auto;
+  max-width: 8.5rem;
+  min-width: 2.75rem;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  padding-right: 0.25rem;
+}
+.ovm-lv-head .ovm-drill-page__back > svg {
+  flex-shrink: 0;
+}
+.ovm-lv-head__parent {
+  overflow: hidden;
+  min-width: 0;
+  font-size: 0.9375rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ovm-lv-head__save {
   justify-self: end;

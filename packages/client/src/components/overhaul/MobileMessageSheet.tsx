@@ -17,10 +17,14 @@ import { chatKeys } from "../../hooks/use-chats";
 import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { closeAfterAction } from "./RpMessageFooter";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 // Close to the system long-press: a thumb resting before a scroll must not open the sheet (panel IR9).
 const LONG_PRESS_MS = 550;
+
+/** Fired when a hold opens a message's sheet. */
+export const MESSAGE_HOLD_EVENT = "marinara:message-hold";
 
 /** Where the last long-press happened; the desktop layout on a touch tablet opens the menu there. */
 let lastPressPoint: { x: number; y: number } | null = null;
@@ -47,6 +51,8 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
     window.getSelection()?.removeAllRanges();
     navigator.vibrate?.(8);
     onLongPress();
+    // The first hold is what the one-time hold tip teaches: it has done its job (MOB3).
+    window.dispatchEvent(new Event(MESSAGE_HOLD_EVENT));
   }, [clear, onLongPress]);
   if (!enabled) return {};
   return {
@@ -184,6 +190,8 @@ export function OvMobileMessageSheet({
   const count = Math.max(1, swipeCount);
   const showSwipes = Boolean(onSetSwipe) && (swipeCount > 1 || Boolean(onCreateSwipe));
 
+  // Back (Safari's swipe, Android's button) closes the sheet, not the chat under it.
+  useBackDismiss(true, onClose);
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();

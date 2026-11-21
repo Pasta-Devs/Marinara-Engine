@@ -152,6 +152,27 @@ const SplitDropOverlay = lazy(() =>
   import("../overhaul/SplitView").then((module) => ({ default: module.SplitDropOverlay })),
 );
 const SplitPaneBar = lazy(() => import("../overhaul/SplitView").then((module) => ({ default: module.SplitPaneBar })));
+const DESKTOP_SIDEBAR_BEFORE_TOUCH_KEY = "marinara:desktop-sidebar-before-touch";
+
+/** What the desktop sidebar showed ("chats" or a panel) when the phone layout closed it. */
+function writeDesktopSidebarBeforeTouch(view: string) {
+  try {
+    window.localStorage.setItem(DESKTOP_SIDEBAR_BEFORE_TOUCH_KEY, view);
+  } catch {
+    // Restricted storage: rotating back then keeps today's closed sidebar.
+  }
+}
+
+function takeDesktopSidebarBeforeTouch(): string | null {
+  try {
+    const view = window.localStorage.getItem(DESKTOP_SIDEBAR_BEFORE_TOUCH_KEY);
+    window.localStorage.removeItem(DESKTOP_SIDEBAR_BEFORE_TOUCH_KEY);
+    return view;
+  } catch {
+    return null;
+  }
+}
+
 const OnboardingTutorial = lazy(() =>
   import("../onboarding/OnboardingTutorial").then((module) => ({ default: module.OnboardingTutorial })),
 );
@@ -856,6 +877,28 @@ export function AppShell({
   // that opens it lands on that section's Library page instead. A window shrinking into the phone
   // layout keeps the page it shows (a Docs guide, Mari, a chat): the desktop sidebar is always open,
   // so it only becomes the section's page when that pane was on its Library view beside plain Home.
+  // Turning an iPad from portrait (phone layout) to landscape (desktop layout) brought the desktop layout back
+  // without its sidebar: the phone layout closes the sidebar, and that closed state is what the desktop then read
+  // (QC Nov 21, MOB11). The phone layout notes what the desktop sidebar showed before it closed it (kept across a
+  // reload, so a portrait start works too), and growing back to the desktop layout puts it back.
+  const sidebarRestoreBeforeRef = useRef(overhaulMobile);
+  useEffect(() => {
+    const grew = !overhaulMobile && sidebarRestoreBeforeRef.current;
+    sidebarRestoreBeforeRef.current = overhaulMobile;
+    if (overhaulMobile) {
+      const ui = useUIStore.getState();
+      if (ui.rightPanelOpen || ui.sidebarOpen) {
+        writeDesktopSidebarBeforeTouch(ui.rightPanelOpen ? ui.rightPanel : "chats");
+      }
+      return;
+    }
+    if (!grew || !overhaulActive) return;
+    const saved = takeDesktopSidebarBeforeTouch();
+    const ui = useUIStore.getState();
+    if (!saved || ui.rightPanelOpen || ui.sidebarOpen) return;
+    if (saved === "chats") ui.setSidebarOpen(true);
+    else ui.openRightPanel(saved as Parameters<typeof ui.openRightPanel>[0]);
+  }, [overhaulActive, overhaulMobile]);
   const overhaulMobileBeforeRef = useRef(overhaulMobile);
   useEffect(() => {
     const shrank = overhaulMobile && !overhaulMobileBeforeRef.current;
@@ -2095,6 +2138,9 @@ export function AppShell({
               // New layout on phones/tablets: a page (Settings, an editor) covers Home or the chat completely, so
               // a theme's see-through page colour never shows them through it.
               data-under-page={pageCoversScreen ? "true" : undefined}
+              // Hidden under the page, so VoiceOver swipes and a keyboard's Tab can't land on its buttons either
+              // (QC Nov 21, MOB missed A). Painting is untouched: `inert` doesn't hide anything.
+              inert={pageCoversScreen || undefined}
               className={cn(
                 "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
                 (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) && "hidden",

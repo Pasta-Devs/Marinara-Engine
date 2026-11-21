@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { SplitPageCrumbs } from "./EditorRail";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 
 export function OvmDrill({
   title,
@@ -40,6 +41,9 @@ export function OvmDrill({
     else if (wasOpen.current) rowRef.current?.scrollIntoView({ block: "center" });
     wasOpen.current = open;
   }, [open]);
+
+  // Back (Safari's swipe, Android's button) closes the page like its ‹ button.
+  useBackDismiss(mobile && open, () => setOpen(false));
 
   if (!mobile) return <>{children}</>;
   if (!open) {
