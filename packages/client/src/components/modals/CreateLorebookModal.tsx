@@ -62,7 +62,8 @@ export function CreateLorebookModal({
     mutationFn: (data: { name: string; description: string; category: LorebookCategory }) =>
       api.post("/lorebooks", {
         ...data,
-        excludeFromVectorization: !vectors,
+        // Untouched, the server applies the saved default (the switch may still be loading here).
+        ...(vectorsChoice === null ? {} : { excludeFromVectorization: !vectorsChoice }),
         ...(characterId ? { characterIds: [characterId] } : {}),
         ...(personaId ? { personaIds: [personaId] } : {}),
         ...(defaultScope ? { scope: defaultScope } : {}),
