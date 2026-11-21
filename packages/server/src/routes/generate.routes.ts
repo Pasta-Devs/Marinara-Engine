@@ -490,7 +490,7 @@ import {
   resolveLorebookScopeExclusions,
 } from "../services/lorebook/game-lorebook-scope.js";
 import { lorebookEntryPassesContextFilters, type GameStateForScanning } from "../services/lorebook/keyword-scanner.js";
-import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
+import { injectAtDepth, insertAfterHistory } from "../services/lorebook/prompt-injector.js";
 import {
   resolveChatSummaryConnection,
   resolveChatSummaryTemperatureOptions,
@@ -4789,10 +4789,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 if (conversationContextMacroSlots.lorebook) {
                   replaceConversationContextMacro(finalMessages, "lorebook", loreBlock);
                 } else {
-                  // Inject before the awareness block (or before first user/assistant message)
-                  const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
-                  const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
-                  finalMessages.splice(insertAt, 0, { role: "system" as const, content: loreBlock });
+                  // Entries change every turn: after the history, the prompt start stays cacheable.
+                  insertAfterHistory(finalMessages, { role: "system", content: loreBlock, contextKind: "injection" });
                 }
               } else if (conversationContextMacroSlots.lorebook) {
                 replaceConversationContextMacro(finalMessages, "lorebook", "");
@@ -4857,9 +4855,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             .join("\n");
           if (loreContent) {
             const loreBlock = `<lore>\n${loreContent}\n</lore>`;
-            const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
-            const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
-            finalMessages.splice(insertAt, 0, { role: "system" as const, content: loreBlock });
+            insertAfterHistory(finalMessages, { role: "system", content: loreBlock, contextKind: "injection" });
           }
           if (lorebookResult.depthEntries.length > 0) {
             finalMessages = injectAtDepth(finalMessages, lorebookResult.depthEntries);
@@ -6247,6 +6243,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     messages: limitPastReasoningMetadata(messages, chatMeta),
                     policy: { ...modelAccessPolicy, effectiveMaxContext },
                     maxTokens,
+                    // Recall must see the same cut the request gets, or it skips messages the cut leaves out.
+                    stableHistoryCut: memoryRecallStableHistoryCut,
                   }).messages,
                 onHistoryLeftOut: (messages) => memoryRecallLeftOutHistory.push(...messages),
               };
@@ -6256,6 +6254,13 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           longTermMemoryActive,
           memoriesSlot: conversationMemoriesSlot,
         });
+        // While built-in recall serves the prompt, history leaves it in fixed steps, so the start of the prompt stays
+        // cacheable across turns; recall can bring back what was dropped.
+        const memoryRecallStableHistoryCut =
+          memoryRecallPolicy.builtInRecall &&
+          enableMemoryRecall &&
+          memoryRecallVectorizerAvailable &&
+          (conversationMemoriesSlot || !advancedMemoryEnabled);
         let slotLongTermMemoryRecall: Awaited<ReturnType<typeof recallLongTermMemory>> = null;
         if (conversationMemoriesSlot) {
           const memoryRecallMessages: GenerationPromptMessage[] = [];
@@ -8983,13 +8988,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           }));
 
           if (loreBlock && !conversationContextMacroSlots.lorebook) {
-            const firstUserIdx = prepared.findIndex(
-              (message) => message.role === "user" || message.role === "assistant",
-            );
-            prepared.splice(firstUserIdx >= 0 ? firstUserIdx : prepared.length, 0, {
-              role: "system" as const,
-              content: loreBlock,
-            });
+            insertAfterHistory(prepared, { role: "system", content: loreBlock, contextKind: "injection" });
           }
           if (lorebookResult.depthEntries.length > 0) {
             prepared = injectAtDepth(prepared, lorebookResult.depthEntries);
@@ -9650,6 +9649,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               policy: { ...modelAccessPolicy, effectiveMaxContext },
               maxTokens,
               tools: gameToolConnection ? undefined : responderToolDefs,
+              stableHistoryCut: memoryRecallStableHistoryCut,
             });
             finalPromptSent = fit.messages;
             effectiveMaxTokensForSend = fit.maxTokensForSend;
