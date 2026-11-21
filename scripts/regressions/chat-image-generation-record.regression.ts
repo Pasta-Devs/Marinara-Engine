@@ -860,6 +860,8 @@ try {
   } as never);
   assert.ok(firstShared?.id && secondShared?.id);
   const galleryCountBefore = (await gallery.listByChatId(chat.id)).length;
+  const galleryBeforeFailure = structuredClone(await gallery.listByChatId(chat.id));
+  const swipesBeforeFailure = structuredClone(await chats.listSwipesByMessageIds([firstShared.id, secondShared.id]));
   const realTransaction = db.transaction.bind(db);
   let transactionCalls = 0;
   db.transaction = ((fn: Parameters<typeof realTransaction>[0]) => {
@@ -887,6 +889,8 @@ try {
     assert.equal(attachments[0].galleryId, sharedImage.id, "every message is back on the original image");
   }
   assert.equal((await gallery.listByChatId(chat.id)).length, galleryCountBefore, "the unused new row is removed");
+  assert.deepEqual(await gallery.listByChatId(chat.id), galleryBeforeFailure);
+  assert.deepEqual(await chats.listSwipesByMessageIds([firstShared.id, secondShared.id]), swipesBeforeFailure);
 
   // A transaction rejected before it starts also leaves every original intact.
   transactionCalls = 0;
@@ -1195,6 +1199,7 @@ try {
     }),
   });
   assert.ok(versionSource);
+  writeFileSync(join(fixtureDir, "gallery", versionSource.filePath), naiCanvas);
   const regenerateVersion = (prompt: string) =>
     app.inject({
       method: "POST",
@@ -1238,6 +1243,7 @@ try {
   const { copyChatImageVersionsForBranch, selectChatImageVersion, deleteChatImageVersions } =
     await import("../../packages/server/src/services/image/chat-image-variants.js");
   const branchExtra = { attachments: [{ type: "image", galleryId: versionSource.id, url: "source URL" }] };
+  await selectChatImageVersion(db, chat.id, v3.id);
   await copyChatImageVersionsForBranch(db, chat.id, otherVersionChat!.id, [branchExtra]);
   const branchRows = await gallery.listByChatId(otherVersionChat!.id);
   assert.equal(branchRows.length, 3, "a copied attachment brings the entire stack");
@@ -1250,7 +1256,7 @@ try {
     groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
       stack.versions.some((row) => row.id === versionSource.id),
     )!.selected.id,
-    versionSource.id,
+    v3.id,
     "branch selection cannot change its source chat",
   );
   await deleteChatImageVersions(db, otherVersionChat!.id, branchV2.id, "stack");
@@ -1259,6 +1265,49 @@ try {
     readFileSync(join(fixtureDir, "gallery", v2.filePath)).length,
     "deleting a branch cannot unlink the source file",
   );
+  await selectChatImageVersion(db, chat.id, versionSource.id);
+  const staleDelete = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=others`,
+    payload: { versionIds: [versionSource.id, v2.id] },
+  });
+  assert.equal(staleDelete.statusCode, 409, staleDelete.body);
+  assert.ok(await gallery.getById(v3.id, chat.id), "a stale confirmation cannot remove a newly added version");
+  const beforeDeleteFailure = structuredClone(await gallery.listByChatId(chat.id));
+  const beforeDeleteAttachments = await attachmentIds();
+  let deletedRows = 0;
+  const { chatImages } = await import("../../packages/server/src/db/schema/index.js");
+  db.transaction = ((fn: Parameters<typeof realTransaction>[0]) =>
+    realTransaction(async (tx) => {
+      const originalDelete = tx.delete;
+      tx.delete = ((table: Parameters<typeof tx.delete>[0]) => {
+        if (table === chatImages && ++deletedRows === 2) throw new Error("simulated second version removal failure");
+        return originalDelete.call(tx, table);
+      }) as typeof tx.delete;
+      try {
+        return await fn(tx);
+      } finally {
+        tx.delete = originalDelete;
+      }
+    })) as typeof db.transaction;
+  try {
+    const failedDelete = await app.inject({
+      method: "DELETE",
+      url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=others`,
+      payload: { versionIds: [versionSource.id, v2.id, v3.id] },
+    });
+    assert.equal(failedDelete.statusCode, 500, failedDelete.body);
+  } finally {
+    db.transaction = realTransaction as typeof db.transaction;
+  }
+  assert.deepEqual(
+    await gallery.listByChatId(chat.id),
+    beforeDeleteFailure,
+    "a multi-version delete cannot partially commit",
+  );
+  assert.deepEqual(await attachmentIds(), beforeDeleteAttachments);
+  assert.ok(readFileSync(join(fixtureDir, "gallery", v2.filePath)).length);
+  assert.ok(readFileSync(join(fixtureDir, "gallery", v3.filePath)).length);
   const { sanitizeProfileTableRows } = await import("../../packages/server/src/routes/backup.routes.js");
   const exportedVersions = JSON.parse(
     JSON.stringify(sanitizeProfileTableRows("chat_images", await gallery.listByChatId(chat.id))),
@@ -1272,6 +1321,8 @@ try {
   const profileResponse = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
   assert.equal(profileResponse.statusCode, 200, profileResponse.body);
   const exportedProfile = profileResponse.json();
+  const zipProfileResponse = await app.inject({ method: "GET", url: "/api/backup/export-profile?format=zip" });
+  assert.equal(zipProfileResponse.statusCode, 200, zipProfileResponse.body);
   const removedOriginal = await app.inject({
     method: "DELETE",
     url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=version`,
@@ -1283,6 +1334,7 @@ try {
   const removeOthers = await app.inject({
     method: "DELETE",
     url: `/api/gallery/${chat.id}/images/${v2.id}/versions?scope=others`,
+    payload: { versionIds: [v2.id, v3.id] },
   });
   assert.equal(removeOthers.statusCode, 200, removeOthers.body);
   assert.equal((await attachmentIds())[0].galleryId, v2.id);
@@ -1290,6 +1342,7 @@ try {
   const removeStack = await app.inject({
     method: "DELETE",
     url: `/api/gallery/${chat.id}/images/${v2.id}/versions?scope=stack`,
+    payload: { versionIds: [v2.id] },
   });
   assert.equal(removeStack.statusCode, 200, removeStack.body);
   assert.deepEqual(await attachmentIds(), []);
@@ -1309,6 +1362,29 @@ try {
     "native profile export/import restores the saved selection",
   );
   assert.equal(restoredStack?.versions.find((row) => row.id === v2.id)?.generation, v2.generation);
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", versionSource.filePath)), naiCanvas);
+  await deleteChatImageVersions(db, chat.id, versionSource.id, "stack");
+  const boundary = "chat-image-version-profile";
+  const zipImport = await app.inject({
+    method: "POST",
+    url: "/api/backup/import-profile",
+    headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+    payload: Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="profile.zip"\r\nContent-Type: application/zip\r\n\r\n`,
+      ),
+      zipProfileResponse.rawPayload,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  assert.equal(zipImport.statusCode, 200, zipImport.body);
+  const zipStack = groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+    stack.versions.some((row) => row.id === versionSource.id),
+  );
+  assert.equal(zipStack?.versions.length, 3, "native profile ZIP restores every version");
+  assert.equal(zipStack?.selected.id, versionSource.id);
+  assert.equal(zipStack?.versions.find((row) => row.id === v2.id)?.generation, v2.generation);
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", versionSource.filePath)), naiCanvas);
   const legacyGroups = groupChatImageVariants([
     { id: "one", chatId: "a", createdAt: "1" },
     { id: "two", chatId: "a", createdAt: "2" },

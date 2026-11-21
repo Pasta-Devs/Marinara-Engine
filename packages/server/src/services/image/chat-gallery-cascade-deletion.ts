@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import type { DB } from "../../db/connection.js";
+import { eq } from "../../db/file-query.js";
+import { chatImages } from "../../db/schema/index.js";
 import { logger } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { createCharacterGalleryStorage } from "../storage/character-gallery.storage.js";
@@ -138,16 +140,24 @@ function legacyExactCopies(
  * intentionally does not use this path, so entity galleries remain available
  * when chat history is removed.
  */
-export async function deleteChatGalleryImageEverywhere(input: {
+export async function prepareChatGalleryImageDeletion(input: {
   db: DB;
   image: ChatGalleryImage;
   /** Test-only filesystem override. */
   galleryRoot?: string;
-}): Promise<ChatGalleryCascadeDeletionResult> {
+}) {
   const galleryRoot = input.galleryRoot ?? join(DATA_DIR, "gallery");
   const characterGallery = createCharacterGalleryStorage(input.db);
   const personaGallery = createPersonaGalleryStorage(input.db);
-  const legacyWindow = legacyCandidateWindow(input.image);
+  // A branch reuses these bytes. Legacy copies have no source ID, so a metadata/hash
+  // match cannot establish that they belong to the row being deleted.
+  const otherChatReferences = await input.db
+    .select({ chatId: chatImages.chatId })
+    .from(chatImages)
+    .where(eq(chatImages.filePath, input.image.filePath));
+  const legacyWindow = otherChatReferences.some((row) => row.chatId !== input.image.chatId)
+    ? null
+    : legacyCandidateWindow(input.image);
   const [linkedCharacterCopies, linkedPersonaCopies, legacyCharacterImages, legacyPersonaImages] = await Promise.all([
     characterGallery.listBySourceChatImageId(input.image.id),
     personaGallery.listBySourceChatImageId(input.image.id),
@@ -178,31 +188,34 @@ export async function deleteChatGalleryImageEverywhere(input: {
       );
   }
 
-  const filename = basename(input.image.filePath.replace(/\\/g, "/"));
-  const fallbackFilePath = `${input.image.chatId}/${filename}`;
-  await input.db.transaction(async (tx) => {
+  const removeMetadata = async (tx: DB) => {
     const txGallery = createGalleryStorage(tx);
     const txCharacterGallery = createCharacterGalleryStorage(tx);
     const txPersonaGallery = createPersonaGalleryStorage(tx);
     for (const copy of characterCopies) await txCharacterGallery.remove(copy.id);
     for (const copy of personaCopies) await txPersonaGallery.remove(copy.id);
-    await txGallery.removeByChatAndFilePath(input.image.chatId, input.image.filePath);
-    if (fallbackFilePath !== input.image.filePath) {
-      await txGallery.removeByChatAndFilePath(input.image.chatId, fallbackFilePath);
-    }
     await txGallery.remove(input.image.id);
-  });
-
-  let filesRemoved = 0;
-  for (const filePath of filePaths) {
-    if (await unlinkGalleryFileIfUnreferenced({ db: input.db, filePath, galleryRoot })) {
-      filesRemoved += 1;
-    }
-  }
-
-  return {
-    characterCopiesRemoved: characterCopies.length,
-    personaCopiesRemoved: personaCopies.length,
-    filesRemoved,
   };
+
+  const cleanupFiles = async () => {
+    let filesRemoved = 0;
+    for (const filePath of filePaths) {
+      try {
+        if (await unlinkGalleryFileIfUnreferenced({ db: input.db, filePath, galleryRoot })) filesRemoved += 1;
+      } catch (error) {
+        // Metadata has committed. An orphan file can be cleaned later; never report a rolled-back deletion.
+        logger.warn(error, "[gallery/delete] Could not clean unreferenced file for image %s", input.image.id);
+      }
+    }
+    return { characterCopiesRemoved: characterCopies.length, personaCopiesRemoved: personaCopies.length, filesRemoved };
+  };
+  return { removeMetadata, cleanupFiles };
+}
+
+export async function deleteChatGalleryImageEverywhere(
+  input: Parameters<typeof prepareChatGalleryImageDeletion>[0],
+): Promise<ChatGalleryCascadeDeletionResult> {
+  const plan = await prepareChatGalleryImageDeletion(input);
+  await input.db.transaction(plan.removeMetadata);
+  return plan.cleanupFiles();
 }

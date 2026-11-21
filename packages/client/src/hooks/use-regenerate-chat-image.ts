@@ -21,9 +21,10 @@ export function useRegenerateChatImage(chatId: string) {
     onSuccess: (result) => {
       // The prefix, not this chat's keys: a Game gallery lists sibling sessions' images, and
       // regenerating one of those must refresh whichever gallery is open.
-      qc.invalidateQueries({ queryKey: galleryKeys.all });
+      const refreshedGallery = qc.invalidateQueries({ queryKey: galleryKeys.all });
       if (result.replacedMessageIds.length > 0) qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
       if (result.replacedKeyframeIds.length > 0) qc.invalidateQueries({ queryKey: gameStoryboardKeys.chat(chatId) });
+      return refreshedGallery;
     },
   });
 }
@@ -49,11 +50,12 @@ export function useSelectChatImageVersion(chatId: string) {
   return useMutation({
     mutationFn: (image: Pick<ChatImage, "id" | "chatId">) =>
       api.post<{ image: ChatImage }>(`/gallery/${image.chatId}/images/${encodeURIComponent(image.id)}/select`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: galleryKeys.all });
-      qc.invalidateQueries({ queryKey: chatKeys.all });
-      qc.invalidateQueries({ queryKey: gameStoryboardKeys.chat(chatId) });
-    },
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: galleryKeys.all }),
+        qc.invalidateQueries({ queryKey: chatKeys.all }),
+        qc.invalidateQueries({ queryKey: gameStoryboardKeys.chat(chatId) }),
+      ]),
   });
 }
 
@@ -63,12 +65,15 @@ export function useDeleteChatImageVersions() {
     mutationFn: ({
       image,
       scope,
+      versionIds,
     }: {
       image: Pick<ChatImage, "id" | "chatId">;
       scope: "version" | "others" | "stack";
+      versionIds: string[];
     }) =>
       api.delete<{ deletedImageIds: string[]; selectedImageId: string | null }>(
         `/gallery/${image.chatId}/images/${encodeURIComponent(image.id)}/versions?scope=${scope}`,
+        { versionIds },
       ),
     onSuccess: (_result, { image }) => {
       qc.invalidateQueries({ queryKey: galleryKeys.all });
@@ -77,5 +82,6 @@ export function useDeleteChatImageVersions() {
       qc.invalidateQueries({ queryKey: ["characters", "gallery"] });
       qc.invalidateQueries({ queryKey: ["persona-gallery"] });
     },
+    onError: () => qc.invalidateQueries({ queryKey: galleryKeys.all }),
   });
 }

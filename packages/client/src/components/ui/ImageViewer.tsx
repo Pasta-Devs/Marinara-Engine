@@ -368,7 +368,7 @@ export function ImageViewer({
       panelClassName="sm:!h-full sm:!max-h-full !rounded-none !border-0 !bg-transparent ![box-shadow:none] !backdrop-blur-none"
       contentClassName="!flex !flex-col !overflow-hidden !p-0"
     >
-      <div className="relative min-h-0 flex-1">
+      <div className={cn("relative flex-1", hasVersions ? "min-h-64 sm:min-h-56" : "min-h-0")}>
         {media ? (
           <div
             className="flex size-full items-center justify-center p-2"
@@ -466,7 +466,8 @@ export function ImageViewer({
         <div
           data-image-viewer-caption
           className={cn(
-            "mx-auto flex w-full max-w-3xl shrink-0 flex-col overflow-y-auto px-3 pb-2",
+            "mx-auto flex w-full max-w-3xl flex-col overflow-y-auto px-3 pb-2",
+            hasVersions ? "min-h-0 shrink" : "shrink-0",
             childrenMaxHeightClass ?? "max-h-[45dvh]",
           )}
         >

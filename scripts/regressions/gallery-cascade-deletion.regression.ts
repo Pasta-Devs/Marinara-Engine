@@ -262,6 +262,24 @@ try {
   assert.equal(await unlinkGalleryFileIfUnreferenced({ db, filePath: finalReferencePath, galleryRoot }), true);
   assert.equal(existsSync(finalReferenceFile), false, "the final metadata release must remove the physical file");
 
+  const branchImage = await chatGallery.create({
+    chatId: "branch-chat",
+    filePath: sourceRelativePath,
+    ...sourceMetadata,
+  });
+  assert.ok(branchImage);
+  await deleteChatGalleryImageEverywhere({ db, image: branchImage, galleryRoot });
+  assert.ok(
+    await characterGallery.getById(legacyCharacter.id),
+    "deleting a branch must retain the source's legacy character copy",
+  );
+  assert.ok(
+    await personaGallery.getById(legacyPersona.id),
+    "deleting a branch must retain the source's legacy persona copy",
+  );
+  assert.ok(await chatGallery.getById(source.id));
+  assert.ok(existsSync(sourceFile));
+
   const deletion = await deleteChatGalleryImageEverywhere({ db, image: source, galleryRoot });
   assert.deepEqual(deletion, {
     characterCopiesRemoved: 4,

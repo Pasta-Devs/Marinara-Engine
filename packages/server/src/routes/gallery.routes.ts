@@ -2995,8 +2995,11 @@ export async function galleryRoutes(app: FastifyInstance) {
       const { chatId, imageId } = req.params;
       if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
       const { scope } = z.object({ scope: z.enum(["version", "others", "stack"]) }).parse(req.query);
+      const { versionIds } = z.object({ versionIds: z.array(z.string()).min(1).optional() }).parse(req.body ?? {});
+      if (scope !== "version" && !versionIds)
+        return reply.status(400).send({ error: "Version confirmation is required" });
       if (!(await storage.getById(imageId, chatId))) return notFound(reply, "Image not found");
-      return deleteChatImageVersions(app.db, chatId, imageId, scope);
+      return deleteChatImageVersions(app.db, chatId, imageId, scope, versionIds);
     },
   );
 

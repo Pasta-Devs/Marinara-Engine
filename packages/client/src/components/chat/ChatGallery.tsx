@@ -1032,6 +1032,7 @@ export function ChatGallery({
                   >
                     {(versionCounts.get(img.id) ?? 0) > 1 && (
                       <span
+                        id={`image-version-count-${img.id}`}
                         className="pointer-events-none absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-[var(--sidebar)] px-2 py-1 text-xs text-[var(--foreground)] shadow-sm"
                         aria-label={localizeUi("chat.imageVersions.count", {
                           count: versionCounts.get(img.id),
@@ -1059,6 +1060,9 @@ export function ChatGallery({
                       onClick={() => (selectingImages ? toggleImageSelection(img.id) : setLightbox(img))}
                       className="block w-full"
                       aria-pressed={selectingImages ? selectedImageIds.has(img.id) : undefined}
+                      aria-describedby={
+                        (versionCounts.get(img.id) ?? 0) > 1 ? `image-version-count-${img.id}` : undefined
+                      }
                       aria-label={
                         selectingImages
                           ? localizeUi("ui.gallery.batch.toggleImageNamed", {
@@ -1323,7 +1327,7 @@ export function ChatGallery({
       {deleteImage && deleteStack && (
         <ChatImageDeleteDialog
           image={deleteImage}
-          count={deleteStack.versions.length}
+          versionIds={deleteStack.versions.map((row) => row.id)}
           index={deleteStack.versions.findIndex((image) => image.id === deleteImage.id)}
           onClose={() => setConfirmDeleteId(null)}
           onDeleted={() => {

@@ -6,7 +6,7 @@ import { chatImages, chats, messages, messageSwipes } from "../../db/schema/inde
 import { createChatsStorage, withChatMessagePatchTransaction } from "../storage/chats.storage.js";
 import { createGalleryStorage } from "../storage/gallery.storage.js";
 import { createGameStoryboardsStorage } from "../storage/game-storyboards.storage.js";
-import { deleteChatGalleryImageEverywhere } from "./chat-gallery-cascade-deletion.js";
+import { prepareChatGalleryImageDeletion } from "./chat-gallery-cascade-deletion.js";
 import { newId } from "../../utils/id-generator.js";
 
 const queues = new Map<string, Promise<unknown>>();
@@ -84,40 +84,40 @@ async function replaceReferences(tx: DB, chatId: string, ids: string[], selected
   return { replacedMessageIds, replacedKeyframeIds };
 }
 
-async function selectVersion(db: DB, chatId: string, imageId: string, sourceId?: string) {
-  return withChatMessagePatchTransaction(db, chatId, async (tx) => {
-    if (!(await tx.select({ id: chats.id }).from(chats).where(eq(chats.id, chatId))).length)
-      throw new Error("Chat not found");
-    const storage = createGalleryStorage(tx);
-    const image = await storage.getById(imageId, chatId);
-    const source = sourceId ? await storage.getById(sourceId, chatId) : image;
-    if (!image || !source) throw new Error("Image not found");
-    if (sourceId) {
-      const groupId = source.variantGroupId || source.id;
-      await tx
-        .update(chatImages)
-        .set({ variantGroupId: groupId })
-        .where(and(eq(chatImages.chatId, chatId), inArray(chatImages.id, [source.id, image.id])));
-    }
-    const rows = await storage.listByChatId(chatId);
-    const stack = groupChatImageVariants(rows).find((group) => group.versions.some((row) => row.id === image.id))!;
-    const ids = stack.versions.map((row) => row.id);
+async function selectVersionInTransaction(tx: DB, chatId: string, imageId: string, sourceId?: string) {
+  if (!(await tx.select({ id: chats.id }).from(chats).where(eq(chats.id, chatId))).length)
+    throw new Error("Chat not found");
+  const storage = createGalleryStorage(tx);
+  const image = await storage.getById(imageId, chatId);
+  const source = sourceId ? await storage.getById(sourceId, chatId) : image;
+  if (!image || !source) throw new Error("Image not found");
+  if (sourceId) {
+    const groupId = source.variantGroupId || source.id;
     await tx
       .update(chatImages)
-      .set({ variantSelected: 0 })
-      .where(and(eq(chatImages.chatId, chatId), inArray(chatImages.id, ids)));
-    await tx
-      .update(chatImages)
-      .set({ variantSelected: 1 })
-      .where(and(eq(chatImages.chatId, chatId), eq(chatImages.id, image.id)));
-    const selected = (await storage.getById(image.id, chatId))!;
-    const replaced = await replaceReferences(tx, chatId, ids, selected);
-    return { image: { ...selected, url: chatImageVariantUrl(selected) }, ...replaced };
-  });
+      .set({ variantGroupId: groupId })
+      .where(and(eq(chatImages.chatId, chatId), inArray(chatImages.id, [source.id, image.id])));
+  }
+  const rows = await storage.listByChatId(chatId);
+  const stack = groupChatImageVariants(rows).find((group) => group.versions.some((row) => row.id === image.id))!;
+  const ids = stack.versions.map((row) => row.id);
+  await tx
+    .update(chatImages)
+    .set({ variantSelected: 0 })
+    .where(and(eq(chatImages.chatId, chatId), inArray(chatImages.id, ids)));
+  await tx
+    .update(chatImages)
+    .set({ variantSelected: 1 })
+    .where(and(eq(chatImages.chatId, chatId), eq(chatImages.id, image.id)));
+  const selected = (await storage.getById(image.id, chatId))!;
+  const replaced = await replaceReferences(tx, chatId, ids, selected);
+  return { image: { ...selected, url: chatImageVariantUrl(selected) }, ...replaced };
 }
 
 export function selectChatImageVersion(db: DB, chatId: string, imageId: string, sourceId?: string) {
-  return withChatImageVariantLock(chatId, () => selectVersion(db, chatId, imageId, sourceId));
+  return withChatImageVariantLock(chatId, () =>
+    withChatMessagePatchTransaction(db, chatId, (tx) => selectVersionInTransaction(tx, chatId, imageId, sourceId)),
+  );
 }
 
 export function deleteChatImageVersions(
@@ -125,11 +125,20 @@ export function deleteChatImageVersions(
   chatId: string,
   imageId: string,
   scope: "version" | "others" | "stack" = "version",
+  expectedVersionIds?: readonly string[],
 ) {
   return withChatImageVariantLock(chatId, async () => {
     const rows = await createGalleryStorage(db).listByChatId(chatId);
     const stack = groupChatImageVariants(rows).find((group) => group.versions.some((row) => row.id === imageId));
-    if (!stack) throw new Error("Image not found");
+    if (!stack) throw Object.assign(new Error("Image not found"), { statusCode: 404 });
+    if (
+      expectedVersionIds &&
+      (stack.versions.length !== expectedVersionIds.length ||
+        stack.versions.some((row) => !expectedVersionIds.includes(row.id)))
+    )
+      throw Object.assign(new Error("Image versions changed. Reopen the delete dialog and try again."), {
+        statusCode: 409,
+      });
     const removed = stack.versions.filter(
       (row) => scope === "stack" || (scope === "others" ? row.id !== imageId : row.id === imageId),
     );
@@ -138,12 +147,16 @@ export function deleteChatImageVersions(
     const selected =
       survivors.find((row) => row.id === (scope === "others" ? imageId : stack.selected.id)) ??
       survivors[survivors.length - 1];
-    if (selected) await selectVersion(db, chatId, selected.id);
-    else
-      await withChatMessagePatchTransaction(db, chatId, (tx) => replaceReferences(tx, chatId, [...removedIds], null));
+    const plans = [];
+    for (const image of removed) plans.push(await prepareChatGalleryImageDeletion({ db, image }));
+    await withChatMessagePatchTransaction(db, chatId, async (tx) => {
+      if (selected) await selectVersionInTransaction(tx, chatId, selected.id);
+      else await replaceReferences(tx, chatId, [...removedIds], null);
+      for (const plan of plans) await plan.removeMetadata(tx);
+    });
     const totals = { characterCopiesRemoved: 0, personaCopiesRemoved: 0, filesRemoved: 0 };
-    for (const image of removed) {
-      const deleted = await deleteChatGalleryImageEverywhere({ db, image });
+    for (const plan of plans) {
+      const deleted = await plan.cleanupFiles();
       totals.characterCopiesRemoved += deleted.characterCopiesRemoved;
       totals.personaCopiesRemoved += deleted.personaCopiesRemoved;
       totals.filesRemoved += deleted.filesRemoved;
@@ -170,11 +183,22 @@ export async function copyChatImageVersionsForBranch(
       for (const stack of groupChatImageVariants(rows)) {
         if (!stack.versions.some((row) => mentioned.has(row.id))) continue;
         const groupId = stack.versions.length > 1 || stack.selected.variantGroupId ? newId() : null;
+        const capturedId = attachments.find((attachment) =>
+          stack.versions.some((row) => row.id === attachment.galleryId),
+        )!.galleryId;
+        let selectedCopy: ImageRow | undefined;
         for (const source of stack.versions) {
-          const image = { ...source, id: newId(), chatId: targetChatId, variantGroupId: groupId };
+          const image = {
+            ...source,
+            id: newId(),
+            chatId: targetChatId,
+            variantGroupId: groupId,
+            variantSelected: source.id === capturedId ? 1 : 0,
+          };
           await tx.insert(chatImages).values(image);
-          copied.set(source.id, image);
+          if (source.id === capturedId) selectedCopy = image;
         }
+        for (const source of stack.versions) copied.set(source.id, selectedCopy!);
       }
       for (const attachment of attachments) {
         const image = copied.get(String(attachment.galleryId));

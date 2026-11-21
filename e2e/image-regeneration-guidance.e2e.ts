@@ -98,27 +98,31 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     outgoing.writeHead(200, { "content-type": "application/json" });
     outgoing.end(JSON.stringify({ data: [{ b64_json: png.toString("base64") }] }));
   });
-  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
-  const address = provider.address() as { port: number };
-  const connectionResponse = await request.post("/api/connections", {
-    data: {
-      name: "Version stack fixture",
-      provider: "image_generation",
-      imageGenerationSource: "openai",
-      imageService: "openai",
-      baseUrl: `http://127.0.0.1:${address.port}/v1`,
-      apiKey: "fixture",
-      model: "dall-e-3",
-    },
-  });
-  expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
-  const connection = (await connectionResponse.json()) as { id: string };
-  const created = await request.post("/api/chats", {
-    data: { name: "Image version stacks", mode: "roleplay", characterIds: [] },
-  });
-  expect(created.ok()).toBeTruthy();
-  const { id: chatId } = (await created.json()) as { id: string };
+  let cleanupConnectionId: string | undefined;
+  let cleanupChatId: string | undefined;
   try {
+    await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+    const address = provider.address() as { port: number };
+    const connectionResponse = await request.post("/api/connections", {
+      data: {
+        name: "Version stack fixture",
+        provider: "image_generation",
+        imageGenerationSource: "openai",
+        imageService: "openai",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "fixture",
+        model: "dall-e-3",
+      },
+    });
+    expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+    const connection = (await connectionResponse.json()) as { id: string };
+    cleanupConnectionId = connection.id;
+    const created = await request.post("/api/chats", {
+      data: { name: "Image version stacks", mode: "roleplay", characterIds: [] },
+    });
+    expect(created.ok()).toBeTruthy();
+    const { id: chatId } = (await created.json()) as { id: string };
+    cleanupChatId = chatId;
     const other = await upload(request, chatId, "Separate gallery picture", png);
     const original = await upload(request, chatId, "First stack version", png);
     const messageResponse = await request.post(`/api/chats/${chatId}/messages`, {
@@ -129,6 +133,7 @@ test("chat image version stacks keep two navigation axes and persist the selecte
       },
     });
     expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+    const savedMessage = (await messageResponse.json()) as { id: string };
     const generate = async (prompt: string) => {
       const result = await request.post(`/api/gallery/${chatId}/images/${original.id}/regenerate`, {
         data: { prompt, connectionId: connection.id },
@@ -149,6 +154,15 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await expect(position(2)).toBeVisible();
     const rows = async () => (await request.get(`/api/gallery/${chatId}`)).json() as Promise<ChatImage[]>;
     await expect.poll(async () => (await rows()).find((row) => row.variantSelected === 1)?.id).toBe(second.id);
+    await page.route(
+      `**/api/gallery/${chatId}/images/${original.id}/select`,
+      (route) => route.fulfill({ status: 503, json: { error: "Version selection unavailable" } }),
+      { times: 1 },
+    );
+    await dialog.getByRole("button", { name: "Previous image version", exact: true }).click();
+    await expect(page.getByText("Version selection unavailable", { exact: true })).toBeVisible();
+    await expect(position(2)).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Regenerate image", exact: true })).toBeEnabled();
     await page.keyboard.press("ArrowDown");
     await expect(position(3)).toBeVisible();
     await page.keyboard.press("ArrowUp");
@@ -185,6 +199,10 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await expect(position(2)).toBeVisible();
     await page.keyboard.press("0");
     await expect(dialog.getByRole("button", { name: "Next image version", exact: true })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Copy Positive prompt", exact: true }).focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(position(2)).toBeVisible();
+    await dialog.getByRole("button", { name: "Close image", exact: true }).focus();
     const previousVersion = dialog.getByRole("button", { name: "Previous image version", exact: true });
     const nextVersion = dialog.getByRole("button", { name: "Next image version", exact: true });
     await expect
@@ -204,6 +222,27 @@ test("chat image version stacks keep two navigation axes and persist the selecte
         );
       })
       .toBe(true);
+    const normalViewport = page.viewportSize()!;
+    await page.setViewportSize({ width: normalViewport.width, height: 390 });
+    await expect
+      .poll(async () => (await dialog.locator("img").first().boundingBox())?.height ?? 0)
+      .toBeGreaterThanOrEqual(64);
+    await expect
+      .poll(async () => {
+        const down = await nextVersion.boundingBox();
+        const caption = await dialog.locator("[data-image-viewer-caption]").boundingBox();
+        const filmstrip = await dialog.getByRole("button", { name: "Show image 1", exact: true }).boundingBox();
+        return (
+          !!down &&
+          !!caption &&
+          !!filmstrip &&
+          down.y + down.height <= caption.y + 1 &&
+          filmstrip.y + filmstrip.height <= 390
+        );
+      })
+      .toBe(true);
+    await screenshot(page, info, "stack-short-viewport");
+    await page.setViewportSize(normalViewport);
     for (const [visualTheme, theme] of [
       ["default", "light"],
       ["default", "dark"],
@@ -225,16 +264,26 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await openGalleryImage(drawer, second.prompt);
     await expect(position(2)).toBeVisible();
     const messageRows = await (await request.get(`/api/chats/${chatId}/messages`)).json();
-    expect(JSON.stringify(messageRows)).toContain(second.id);
+    const savedExtra = messageRows.find((row: { id: string }) => row.id === savedMessage.id).extra;
+    const attachments = (typeof savedExtra === "string" ? JSON.parse(savedExtra) : savedExtra).attachments;
+    expect(attachments[0].galleryId).toBe(second.id);
     await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
     const chooser = page.getByRole("dialog", { name: "Delete image?", exact: true });
     await screenshot(page, info, "stack-delete-chooser");
     await chooser.getByRole("button", { name: "Cancel", exact: true }).click();
     expect(await rows()).toHaveLength(4);
     await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
+    const fourth = await generate("Fourth stack version");
+    await chooser.getByRole("button", { name: /Delete other version/ }).click();
+    await expect(
+      page.getByText("The saved versions changed. Reopen the delete dialog to review them.", { exact: true }),
+    ).toBeVisible();
+    await expect(chooser).toHaveCount(0);
+    expect(await rows()).toHaveLength(5);
+    await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
     await chooser.getByRole("button", { name: /Delete this version/ }).click();
-    await expect(dialog.getByText("Version 2 of 2", { exact: true })).toBeVisible();
-    await expect.poll(async () => (await rows()).find((row) => row.variantSelected === 1)?.id).toBe(third.id);
+    await expect(dialog.getByText("Version 3 of 3", { exact: true })).toBeVisible();
+    await expect.poll(async () => (await rows()).find((row) => row.variantSelected === 1)?.id).toBe(fourth.id);
     await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
     await chooser.getByRole("button", { name: /Delete other version/ }).click();
     await expect(dialog.getByRole("button", { name: "Previous image version", exact: true })).toHaveCount(0);
@@ -242,10 +291,11 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await dialog.getByRole("button", { name: "Close image", exact: true }).click();
     await expect(drawer.getByRole("button", { name: "Open gallery image", exact: true })).toHaveCount(2);
   } finally {
-    await request.delete(`/api/chats/${chatId}`).catch(() => {});
-    await request.delete(`/api/connections/${connection.id}`).catch(() => {});
+    if (cleanupChatId) await request.delete(`/api/chats/${cleanupChatId}`).catch(() => {});
+    if (cleanupConnectionId) await request.delete(`/api/connections/${cleanupConnectionId}`).catch(() => {});
     provider.closeAllConnections();
-    await new Promise<void>((resolve, reject) => provider.close((error) => (error ? reject(error) : resolve())));
+    if (provider.listening)
+      await new Promise<void>((resolve, reject) => provider.close((error) => (error ? reject(error) : resolve())));
   }
 });
 

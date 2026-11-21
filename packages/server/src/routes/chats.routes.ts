@@ -5851,14 +5851,21 @@ export async function chatsRoutes(app: FastifyInstance) {
       copied.activeSwipeIndex = swipeIndexes.get(copied.activeSwipeIndex ?? 0) ?? 0;
       sourceToCopiedSwipeIndexes.set(copiedSourceMessages[index]!.id, swipeIndexes);
     });
-    await copyChatImageVersionsForBranch(
-      app.db,
-      sourceChat.id,
-      newChat.id,
-      copiedMessageInputs
-        .flatMap((message) => [message.extra, ...(message.swipes ?? []).map((swipe) => swipe.extra)])
-        .filter((extra): extra is Record<string, unknown> => !!extra && typeof extra === "object"),
-    );
+    try {
+      await copyChatImageVersionsForBranch(
+        app.db,
+        sourceChat.id,
+        newChat.id,
+        copiedMessageInputs
+          .flatMap((message) => [message.extra, ...(message.swipes ?? []).map((swipe) => swipe.extra)])
+          .filter((extra): extra is Record<string, unknown> => !!extra && typeof extra === "object"),
+      );
+    } catch (error) {
+      await storage.remove(newChat.id).catch((cleanup: unknown) => {
+        logger.error(cleanup, "Could not remove branch %s after its image copy failed", newChat.id);
+      });
+      throw error;
+    }
     const branchedMessageIds = await storage.createMessagesBatch(newChat.id, copiedMessageInputs);
     copiedSourceMessages.forEach((msg, index) => {
       const branchedId = branchedMessageIds[index];

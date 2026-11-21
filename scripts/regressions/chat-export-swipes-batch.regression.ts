@@ -160,7 +160,14 @@ try {
     .set({ variantGroupId: firstImage.id, variantSelected: 1 })
     .where(eq(chatImages.id, firstImage.id));
   await db.update(chatImages).set({ variantGroupId: firstImage.id }).where(eq(chatImages.id, secondImage.id));
-  await chats.appendMessageAttachment(target.id, { type: "image", url: "/first.png", galleryId: firstImage.id });
+  const imageMessage = (await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    content: "With image",
+    extra: { attachments: [{ type: "image", url: "/first.png", galleryId: firstImage.id }] },
+  }))!;
+  await chats.addSwipe(imageMessage.id, "Without image");
+  await chats.updateMessageExtra(imageMessage.id, { attachments: [] });
   const imageBranch = JSON.parse(
     (await injectOk({ method: "POST", url: `/api/chats/${chat.id}/branch`, payload: {} })).body,
   );
@@ -169,10 +176,14 @@ try {
   assert.equal(groupChatImageVariants(copiedImages).length, 1);
   assert.equal(groupChatImageVariants(copiedImages)[0]!.selected.filePath, firstImage.filePath);
   assert.ok(copiedImages.every((image) => image.id !== firstImage.id && image.id !== secondImage.id));
-  assert.ok(
-    (await chats.listMessages(imageBranch.id)).some((message) =>
-      message.extra.includes(groupChatImageVariants(copiedImages)[0]!.selected.id),
-    ),
+  const copiedImageMessage = (await chats.listMessages(imageBranch.id)).find(
+    (message) => message.content === "Without image",
+  )!;
+  assert.deepEqual(JSON.parse(copiedImageMessage.extra).attachments, []);
+  const savedImageSwipe = (await chats.getSwipes(copiedImageMessage.id)).find((swipe) => swipe.index === 0)!;
+  assert.equal(
+    JSON.parse(savedImageSwipe.extra).attachments[0].galleryId,
+    groupChatImageVariants(copiedImages)[0]!.selected.id,
   );
 
   // ── A long chat takes a few swipe reads, not one per message ──

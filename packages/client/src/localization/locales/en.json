@@ -856,6 +856,7 @@
   "chat.help.targets.windowPutBack.title": "Put back",
   "chat.help.targets.windowTitle.body": "Drag its title bar to move it, or an edge to resize it.",
   "chat.help.targets.windowTitle.title": "Settings window",
+  "chat.imageVersions.changed": "The saved versions changed. Reopen the delete dialog to review them.",
   "chat.imageVersions.count_one": "{{count}} version",
   "chat.imageVersions.count_other": "{{count}} versions",
   "chat.imageVersions.deleted_one": "Deleted {{count}} image version.",

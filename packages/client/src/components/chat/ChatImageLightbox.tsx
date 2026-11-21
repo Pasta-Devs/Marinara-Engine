@@ -152,7 +152,10 @@ export function ChatImageLightbox({
   );
   if (chatGallery) for (const row of gallery.data ?? []) rows.set(row.id, row);
   rows.set(image.id, image);
-  const stacks = groupChatImageVariants([...rows.values()]);
+  const suppliedIds = images ? new Set([...images.map((row) => row.id), activeImage.id]) : null;
+  const stacks = groupChatImageVariants([...rows.values()]).filter(
+    (group) => !suppliedIds || group.versions.some((row) => suppliedIds.has(row.id)),
+  );
   const galleryIndex = stacks.findIndex((stack) => stack.versions.some((row) => row.id === image.id));
   const stack = stacks[galleryIndex];
   const versionIndex = stack?.versions.findIndex((row) => row.id === image.id) ?? 0;
@@ -250,6 +253,7 @@ export function ChatImageLightbox({
               <button
                 type="button"
                 onClick={() => setEditing(true)}
+                disabled={busy || navigating}
                 aria-label={localizeUi("ui.chat.chatimagelightbox.regenerateImage")}
                 className={VIEWER_BUTTON_CLASS}
                 title={localizeUi("ui.chat.chatimagelightbox.regenerateImage")}
@@ -337,7 +341,7 @@ export function ChatImageLightbox({
       {deleting && (
         <ChatImageDeleteDialog
           image={image}
-          count={stack?.versions.length ?? 1}
+          versionIds={stack?.versions.map((row) => row.id) ?? [image.id]}
           index={versionIndex}
           onClose={() => setDeleting(false)}
           onDeleted={(result) => {
