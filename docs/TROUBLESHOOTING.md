@@ -221,7 +221,7 @@ The **Built-in model** runs on your computer with no API key. Some error message
 
 ### Memory Recall does not recall anything
 
-**Memory Recall** searches earlier messages and adds the most relevant ones back into the prompt.
+**Memory Recall** searches earlier messages that no longer fit in the prompt and adds the most relevant ones back. While the whole chat fits in the context window, it adds nothing. See [What Memory Recall adds](agents/memory.md#what-memory-recall-adds).
 
 1. Open **Chat Settings → Memory Recall** and confirm **Enable Memory Recall** is on.
 2. Open **Access memories for this chat**. In **Memories for This Chat**, look at each chunk's status.

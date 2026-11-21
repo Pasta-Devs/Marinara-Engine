@@ -1016,7 +1016,11 @@ import { clampGenerationMaxOutputTokens } from "../services/generation/output-to
 import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
-import { fitMessagesForModelAccess, resolveModelAccessPolicy } from "../services/generation/model-access-policy.js";
+import {
+  fitMessagesForModelAccess,
+  resolveModelAccessPolicy,
+  withHistoryLeftOutEarlier,
+} from "../services/generation/model-access-policy.js";
 import {
   promptPreviewForAgents,
   resolveCustomWritableLorebookIds,
@@ -6226,6 +6230,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         // Agents with vector access read memories from the whole chat. The prompt's own recall serves them too
         // only when it also searches the whole chat.
         let agentVectorMemoriesRecalled = false;
+        // History recall removed to make room; the request still reports it as not sent.
+        const memoryRecallLeftOutHistory: GenerationPromptMessage[] = [];
         // By default the prompt recalls only messages it will not send: none while the whole chat fits.
         const enableMemoryRecallWholeChat = chatMeta.enableMemoryRecallWholeChat === true;
         const memoryRecallPromptWindow = (): MemoryRecallPromptWindow<GenerationPromptMessage> | undefined =>
@@ -6242,6 +6248,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     policy: { ...modelAccessPolicy, effectiveMaxContext },
                     maxTokens,
                   }).messages,
+                onHistoryLeftOut: (messages) => memoryRecallLeftOutHistory.push(...messages),
               };
         // An active Long-term memory package replaces built-in recall in the main prompt (#8359).
         const conversationMemoriesSlot = chatMode === "conversation" && conversationContextMacroSlots.memories;
@@ -9646,7 +9653,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             });
             finalPromptSent = fit.messages;
             effectiveMaxTokensForSend = fit.maxTokensForSend;
-            lastContextFit = fit.contextFit;
+            lastContextFit = withHistoryLeftOutEarlier(fit.contextFit, memoryRecallLeftOutHistory);
             return fit.messages;
           };
 

@@ -80,6 +80,8 @@ Memory Recall brings back only messages the prompt no longer holds. While the wh
 
 To let recall pick any earlier message, turn on **Recall from the whole chat** below **Enable Memory Recall**. Memories then often repeat messages the prompt already holds. The repeats cost tokens, and because the memories sit before the chat history and change every turn, the service's prompt cache cannot reuse the history.
 
+The live preview in [Peek Prompt](../chats/peek-prompt.md) does not run Memory Recall. With recall on, it can list more history than a reply gets.
+
 ### How Memory Recall behaves
 
 - Marinara stores chunks in the background whenever an embedding source exists, even if **Enable Memory Recall** is off. The toggle controls only whether memories are added to the prompt.
