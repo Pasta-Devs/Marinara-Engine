@@ -131,10 +131,10 @@ The wand replaces only the chosen field in your unsaved draft. If generation fai
 
 The wand on the **Image tags** tab of **Appearance** writes the tags from your card's appearance text, mainly **Appearance** itself. It ticks **Use for image prompts**.
 
-- The tags are in English, lowercase, in the style image models know from Danbooru (an anime image site whose tags many models learned), separated by commas.
-- The line starts with `1girl`, `1boy` or `1other`, then lasting traits: body, hair, eyes, skin, face and markings.
-- It uses only traits your card states. Clothing, expressions, poses and places are left out, because they change from scene to scene.
-- Tags already in the box that your appearance text doesn't explain, such as a LoRA trigger word, stay as you wrote them, at the start of the line.
+- Tags already in the box that your appearance text doesn't explain, such as a LoRA trigger word, stay exactly as you wrote them, at the start of the line.
+- After them come the new tags: `1girl`, `1boy` or `1other`, then lasting traits: body, hair, eyes, skin, face and markings. With no tags kept, the line starts with `1girl`, `1boy` or `1other`.
+- The new tags are in English, lowercase, in the style image models know from Danbooru (an anime image site whose tags many models learned), separated by commas.
+- The new tags use only traits your card states. Clothing, expressions, poses and places are left out, because they change from scene to scene.
 
 The tags come from the model, not from a list of real Danbooru tags, so a tag can be worded in a way your image model doesn't know. Check the line and edit it before you save.
 
