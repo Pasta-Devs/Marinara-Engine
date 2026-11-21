@@ -73,5 +73,15 @@ assert.equal(hasOwnModelSettings(cachingRow("openrouter", "true"), null), false)
 assert.equal(hasOwnModelSettings(cachingRow("openrouter", "false"), null), true);
 assert.equal(hasOwnModelSettings(cachingRow("anthropic", "true"), null), true);
 assert.equal(hasOwnModelSettings(cachingRow("anthropic", "false"), null), false);
+// The cache lifetime and depth are settings of the Model's own where caching applies, away from their defaults.
+assert.equal(hasOwnModelSettings({ ...cachingRow("openrouter", "true"), cachingAtDepth: 5 }, null), false);
+assert.equal(hasOwnModelSettings({ ...cachingRow("openrouter", "true"), cachingAtDepth: 8 }, null), true);
+assert.equal(hasOwnModelSettings({ ...cachingRow("openrouter", "true"), anthropicExtendedCacheTtl: true }, null), true);
+assert.equal(hasOwnModelSettings({ ...cachingRow("openrouter", "false"), cachingAtDepth: 8 }, null), true);
+assert.equal(
+  hasOwnModelSettings({ ...cachingRow("custom", "false"), cachingAtDepth: 8, anthropicExtendedCacheTtl: true }, null),
+  false,
+  "where caching does not apply, its lifetime and depth are not settings",
+);
 
 console.log("default-loaded-model: ok");

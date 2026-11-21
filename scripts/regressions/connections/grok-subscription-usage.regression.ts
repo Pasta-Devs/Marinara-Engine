@@ -69,7 +69,14 @@ try {
     },
   });
   assert.equal(parseGrokCliJsonResult("A plain reply."), null, "plain text is not a JSON result");
-  assert.deepEqual(parseGrokCliJsonResult('{"text":"No usage"}'), { text: "No usage" });
+  assert.deepEqual(parseGrokCliJsonResult('{"text":"No usage","stopReason":"end_turn","sessionId":"s"}'), {
+    text: "No usage",
+  });
+  assert.equal(
+    parseGrokCliJsonResult('Here is the object: {"text":"Hello","language":"en"}'),
+    null,
+    "a plain reply holding a JSON object with a text field is not the CLI's envelope",
+  );
 
   stdout = JSON.stringify(measured);
   const result = await generate();

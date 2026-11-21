@@ -64,7 +64,7 @@ function measureSentHistory<T extends MemoryRecallWindowMessage>(
 ): { droppedHistory: number; sentTimes: string[] } {
   const history = window.prompt.filter((message) => message.contextKind === "history");
   const probe = [...window.prompt];
-  insertBeforeHistory(probe, { role: "system", content: block } as T);
+  if (block) insertBeforeHistory(probe, { role: "system", content: block } as T);
   const keptHistory = window.fit(probe).filter((message) => message.contextKind === "history").length;
   const droppedHistory = Math.max(0, history.length - keptHistory);
   const sentTimes = history.slice(droppedHistory).flatMap((message) => {
@@ -118,15 +118,19 @@ export async function injectMemoryRecallContext<T extends MemoryRecallWindowMess
     const lastUserMsg = [...currentInputMessages].reverse().find((message) => message.role === "user");
     if (!lastUserMsg?.content?.trim()) return [];
 
-    // Memories take room, so measure the history that still fits once a full block is in. The messages that make
-    // way for it can then be recalled too.
+    // While the whole chat fits, only imported memories can be recalled: measure the prompt as it is first, so room
+    // reserved for memories never makes this chat's own messages eligible. Once history is trimmed anyway, memories
+    // take room, so measure the history that still fits with a full block in; the messages that make way for it can
+    // then be recalled too.
     const budgetTokens = memoryRecallBudgetTokens(contextLimit);
-    const reservedWindow = promptWindow
-      ? measureSentHistory(
-          promptWindow,
-          buildMemoryRecallBlock([sliceTextToTokenBudget("x".repeat(budgetTokens * 8), budgetTokens)], wrapFormat),
-        )
-      : null;
+    const unreservedWindow = promptWindow ? measureSentHistory(promptWindow, "") : null;
+    const reservedWindow =
+      promptWindow && unreservedWindow && unreservedWindow.droppedHistory > 0
+        ? measureSentHistory(
+            promptWindow,
+            buildMemoryRecallBlock([sliceTextToTokenBudget("x".repeat(budgetTokens * 8), budgetTokens)], wrapFormat),
+          )
+        : unreservedWindow;
 
     const recalled = await recallMemories(db, lastUserMsg.content, [chatId], {
       embeddingSource,
@@ -158,8 +162,12 @@ export async function injectMemoryRecallContext<T extends MemoryRecallWindowMess
       // history now covers. Each pass only removes memories, so the block shrinks until nothing changes.
       for (;;) {
         const settled = measureSentHistory(promptWindow, memoriesBlock);
+        // A chunk stays only if neither the prompt as it is nor the prompt with memories sends any of its messages.
         const kept = selected.filter(
-          ({ memory }) => memory.imported || !chunkCoversSentMessage(memory, settled.sentTimes),
+          ({ memory }) =>
+            memory.imported ||
+            (!chunkCoversSentMessage(memory, settled.sentTimes) &&
+              !(unreservedWindow?.droppedHistory === 0 && chunkCoversSentMessage(memory, unreservedWindow.sentTimes))),
         );
         if (kept.length === selected.length) {
           droppedHistory = settled.droppedHistory;
