@@ -181,15 +181,13 @@ Game chats add more controls. **Story style**, **Violence**, **Content boundarie
 
 Prompt caching lets a service reuse the start of a prompt it has already read, so long chats cost less and answer sooner. The service reuses the prompt only up to the first text that changed since the last message. Keep sections that stay the same above **Chat History**, and put sections that change from turn to turn below it.
 
-The built-in **Marinara's Universal Preset** places its **Setting** section, a **Lorebook Marker (All)**, after **Chat History** and before **Output Format**. Keyword entries change with almost every message. In front of the history, they would keep the whole history out of the cache. **Characters**, **Dialogue Examples**, **Persona** and **Past Events** stay before the history. **Past Events** changes only when a summary entry is added or changed.
+Lorebook keyword entries change with almost every message. In front of the history, they keep the whole history out of the cache. The built-in **Marinara's Universal Preset** sends its **Setting** section, a **Lorebook Marker (All)**, before the history, so the lore reads as part of the world before the story. To trade that for caching:
 
-A preset you made or copied keeps its own order. To move the lorebook in your preset:
-
-1. Open the preset in the **Preset Editor** and go to the **Sections** tab.
-2. Drag the lorebook marker below **Chat History**.
+1. Open the preset in the **Preset Editor** and click **Create editable copy** (a preset you made yourself can be edited directly).
+2. Go to the **Sections** tab and drag the lorebook marker below **Chat History**.
 3. Click **Save**.
 
-To send lore before the history instead, click **Create editable copy** on the built-in preset and drag **Setting** back above **Characters**. Use [Peek Prompt](../chats/peek-prompt.md) to see where the entries land.
+Use [Peek Prompt](../chats/peek-prompt.md) to see where the entries land.
 
 ## Decision blocks and prompt caching
 
