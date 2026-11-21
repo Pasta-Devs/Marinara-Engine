@@ -218,7 +218,8 @@ function BookEntries({
       </p>
     );
   }
-  if (query.isError) {
+  // Both reads must succeed: without the folders, entries in a switched-off folder would look pickable.
+  if (query.isError || folders.isError) {
     return (
       <div className="flex items-center gap-2 px-3 pb-2">
         <p role="alert" className="flex-1 text-xs text-[var(--marinara-app-accent-static)]">
@@ -226,8 +227,11 @@ function BookEntries({
         </p>
         <button
           type="button"
-          onClick={() => void query.refetch()}
-          disabled={query.isFetching}
+          onClick={() => {
+            if (query.isError) void query.refetch();
+            if (folders.isError) void folders.refetch();
+          }}
+          disabled={query.isFetching || folders.isFetching}
           className="flex min-h-11 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-wait disabled:opacity-50"
         >
           {localizeUi("ui.game.gamesurfacecomponent.retry")}
@@ -235,6 +239,7 @@ function BookEntries({
       </div>
     );
   }
+  if (!query.data || !folders.data) return null;
   if (entries.length === 0) {
     return <p className="px-3 pb-2 text-xs text-[var(--muted-foreground)]">{localizeUi("game.setupLore.bookEmpty")}</p>;
   }
