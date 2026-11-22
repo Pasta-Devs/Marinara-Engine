@@ -2,7 +2,7 @@
 // Importer: SillyTavern Bulk Import (folder scan)
 // ──────────────────────────────────────────────
 import { readdir, readFile, stat, copyFile, mkdir } from "fs/promises";
-import { join, extname, basename, relative } from "path";
+import { join, extname, basename, relative, resolve, sep } from "path";
 import { existsSync, readdirSync } from "fs";
 import { createHash, randomUUID } from "crypto";
 import { inflateSync } from "node:zlib";
@@ -576,9 +576,11 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   // 9. What has no matching feature here: counted, so the import can name it instead of staying quiet.
   const unreadableFolders: string[] = [];
   const countJson = async (...folders: string[]) => {
+    const root = resolve(dataDir);
     for (const folder of folders) {
-      const dir = join(dataDir, folder);
-      if (!existsSync(dir)) continue;
+      // Stays inside the SillyTavern data folder (the names are fixed; the check keeps it that way).
+      const dir = resolve(root, folder);
+      if (!dir.startsWith(root + sep) || !existsSync(dir)) continue;
       // Only counted for the report: a folder that can't be read must not stop the import of what can.
       try {
         return (await listFiles(dir, ".json")).length;
