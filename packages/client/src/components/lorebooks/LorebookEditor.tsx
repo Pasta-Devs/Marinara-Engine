@@ -8,6 +8,7 @@
 // flow has been replaced so users can edit row-level params without leaving
 // the list. Inspired by SillyTavern's World Info layout.
 // ──────────────────────────────────────────────
+import { announce } from "../../lib/live-announcer";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { estimateTextTokens } from "@marinara-engine/shared";
 import { useBuiltinEmbeddingOption } from "../connections/BuiltinEmbeddingDetail";
@@ -883,6 +884,66 @@ export function LorebookEditor() {
   }, [collapsedFolderIds, entriesByContainer, filteredEntries, folderForest, showFolderGrouping]);
 
   const canReorderEntries = showFolderGrouping && entries.length > 1 && !reorderEntries.isPending;
+
+  // QC Nov 22 AX3: keyboard on an entry's name. Rows are windowed, so the target row is mounted first, then
+  // focused once it is there.
+  const focusEntryOpenButton = useCallback(
+    (entryId: string) => {
+      snapToEntryRef.current = false;
+      setScrollToEntryId(entryId);
+      let tries = 0;
+      const tryFocus = () => {
+        const button = contentRef.current?.querySelector<HTMLElement>(
+          `[data-lorebook-entry-open="${CSS.escape(entryId)}"]`,
+        );
+        const current = document.activeElement;
+        // Only while focus is on a row's name, in the search box, or was dropped (a moved row is re-inserted);
+        // never pull it back from somewhere else the user went.
+        const free =
+          !current ||
+          current === document.body ||
+          current.hasAttribute("data-lorebook-entry-open") ||
+          current.hasAttribute("data-lorebook-entry-search");
+        if (button && free && current !== button) button.focus();
+        if (++tries < 20 && (!button || document.activeElement !== button)) requestAnimationFrame(tryFocus);
+      };
+      requestAnimationFrame(tryFocus);
+    },
+    [contentRef],
+  );
+  const handleEntryKeyboardNavigate = useCallback(
+    (entryId: string, offset: -1 | 1, reorder: boolean) => {
+      if (!reorder) {
+        const at = displayedEntryIds.indexOf(entryId);
+        const next = at < 0 ? undefined : displayedEntryIds[at + offset];
+        if (next) focusEntryOpenButton(next);
+        return;
+      }
+      if (!lorebookId || !canReorderEntries) return;
+      const entry = entries.find((candidate) => candidate.id === entryId);
+      if (!entry) return;
+      const container = entry.folderId && entriesByContainer.has(entry.folderId) ? entry.folderId : null;
+      const ids = (entriesByContainer.get(container) ?? []).map((candidate) => candidate.id);
+      const from = ids.indexOf(entryId);
+      const to = from + offset;
+      if (from < 0 || to < 0 || to >= ids.length) return;
+      ids.splice(from, 1);
+      ids.splice(to, 0, entryId);
+      reorderEntries.mutate({ lorebookId, entryIds: ids, folderId: container });
+      focusEntryOpenButton(entryId);
+      announce(localizeUi("ui.presets.sectionstab.movedTo", { position: to + 1, total: ids.length }));
+    },
+    [
+      canReorderEntries,
+      displayedEntryIds,
+      entries,
+      entriesByContainer,
+      focusEntryOpenButton,
+      localizeUi,
+      lorebookId,
+      reorderEntries,
+    ],
+  );
   const canReorderFolders = showFolderGrouping && folders.length > 1 && !reorderFolders.isPending;
 
   // Keyword-test verdicts: for each entry, would the debounced preview text
@@ -1141,11 +1202,13 @@ export function LorebookEditor() {
   // Jump from a lint issue or test result to its entry: clear anything that
   // could hide the row, open its folder chain, expand it, and scroll to it.
   const jumpToEntry = useCallback(
-    (entryId: string, scroll = true) => {
+    (entryId: string, scroll = true, keepSearch = false) => {
       const target = entries.find((entry) => entry.id === entryId);
       if (!target) return;
-      setEntrySearch("");
-      setNeverFiredOnly(false);
+      if (!keepSearch) {
+        setEntrySearch("");
+        setNeverFiredOnly(false);
+      }
       if (lorebookId && target.folderId) {
         const parentById = new Map(folders.map((folder) => [folder.id, folder.parentFolderId ?? null]));
         setCollapsedFolderIds((prev) => {
@@ -1174,14 +1237,15 @@ export function LorebookEditor() {
     [entries, folders, lorebookId, overhaulMobile],
   );
 
-  // Open the entry an opener asked for once, e.g. one just made from selected chat text (#6899).
-  const initialEntryIdRef = useRef(useUIStore.getState().lorebookDetailInitialEntryId);
+  // Open the entry an opener asked for, e.g. one just made from selected chat text (#6899). Read from the store, not
+  // once at mount, so Ctrl+K to an entry (or "Add to lorebook") also works while this lorebook is already open
+  // (QC Nov 22 AX3).
+  const initialEntryId = useUIStore((s) => s.lorebookDetailInitialEntryId);
   useEffect(() => {
-    const entryId = initialEntryIdRef.current;
-    if (!entryId || isLoading || !entries.some((entry) => entry.id === entryId)) return;
-    initialEntryIdRef.current = null;
-    jumpToEntry(entryId);
-  }, [entries, isLoading, jumpToEntry]);
+    if (!initialEntryId || isLoading || !entries.some((entry) => entry.id === initialEntryId)) return;
+    useUIStore.getState().consumeLorebookInitialEntry();
+    jumpToEntry(initialEntryId);
+  }, [entries, initialEntryId, isLoading, jumpToEntry]);
   // F7: a deep link (e.g. the reply checkup's "lorebook budget" row) asked for a specific Overview field.
   const initialFieldRef = useRef(useUIStore.getState().lorebookDetailInitialField);
   useEffect(() => {
@@ -2328,6 +2392,7 @@ export function LorebookEditor() {
                       activationStat={activationStatsById.get(entry.id)}
                       mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
                       onUpdateEntry={handleEntryUpdate}
+                      onKeyboardNavigate={handleEntryKeyboardNavigate}
                     />
                     {showDropAfter && (
                       <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
@@ -3068,6 +3133,17 @@ export function LorebookEditor() {
             placeholder={localizeUi("chat.settings.inlineLorebook.search")}
             value={entrySearch}
             onChange={(e) => setEntrySearch(e.target.value)}
+            data-lorebook-entry-search=""
+            // QC Nov 22 AX3: Enter opens the first entry found and keeps the search.
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.nativeEvent.isComposing || !entrySearch.trim()) return;
+              const first = displayedEntryIds[0];
+              if (!first) return;
+              e.preventDefault();
+              jumpToEntry(first, true, true);
+              // Phones open the entry's page over the list; there is no row to focus.
+              if (!overhaulMobile) focusEntryOpenButton(first);
+            }}
             className="mari-editor-field w-full py-2.5 pl-8 pr-3 text-xs"
           />
         </div>
@@ -3441,6 +3517,7 @@ export function LorebookEditor() {
                       activationStat={activationStatsById.get(entry.id)}
                       mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
                       onUpdateEntry={handleEntryUpdate}
+                      onKeyboardNavigate={handleEntryKeyboardNavigate}
                     />
                     {showDropAfter && (
                       <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />

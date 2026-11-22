@@ -1,3 +1,6 @@
+import { isMariReviewWaiting } from "../../../lib/professor-mari-presentation";
+import { queueAnnouncement, replyAnnouncementText } from "../../../lib/reply-announcer";
+import { i18n, translate } from "../../../localization/i18n";
 import {
   ProfessorMariAskContext,
   MariWorkspaceActionResult,
@@ -476,7 +479,7 @@ export function useMariWorkspaceRun({
         // The saved row carries her list now; dropping the live one in the same tick leaves no flicker.
         useAgentStore.getState().setMariTodos(null, null);
       }
-      await Promise.allSettled([
+      const [statusResult] = await Promise.allSettled([
         refreshWorkspaceStatus(
           () => workspaceRunIdRef.current === runId && activeChatIdRef.current === completedChatId,
         ),
@@ -488,6 +491,13 @@ export function useMariWorkspaceRun({
         ),
       ]);
       runRefreshScopesRef.current.delete(runId);
+      // QC Nov 22 AX1: a screen reader hears that she answered (never the answer), and whether she is waiting on you.
+      if (messagesReloaded && workspaceRunIdRef.current === runId && activeChatIdRef.current === completedChatId) {
+        const needsAnswer =
+          statusResult.status === "fulfilled" &&
+          (statusResult.value?.pendingApprovals ?? []).some((approval) => isMariReviewWaiting(approval));
+        queueAnnouncement(replyAnnouncementText({ kind: "mari", needsAnswer }, i18n.language || "en", translate));
+      }
     },
     [activeChatIdRef, invalidateWorkspaceData, loadMessages, qc, refreshWorkspaceStatus, workspaceRunIdRef],
   );

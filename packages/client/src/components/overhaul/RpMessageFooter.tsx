@@ -234,7 +234,10 @@ export function OvRpMessageFooter({
   shown = DEFAULT_MESSAGE_BUTTONS.roleplay,
   toolsExtra,
   generateExtra,
+  id,
 }: {
+  /** The bar's element id (a message points aria-owns at its header tools, so they read after the text). */
+  id?: string;
   chatId: string;
   messageId: string;
   /** Always visible (the newest reply); otherwise only on hover. */
@@ -326,9 +329,10 @@ export function OvRpMessageFooter({
     pinned && "is-pinned",
     open && "is-open",
   );
-  if (!armed) return <div className={footerClassName} data-ov-rp-footer data-mari-part="actions" />;
+  if (!armed) return <div id={id} className={footerClassName} data-ov-rp-footer data-mari-part="actions" />;
   return (
     <div
+      id={id}
       ref={rootRef}
       className={footerClassName}
       data-ov-rp-footer

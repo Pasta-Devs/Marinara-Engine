@@ -1331,10 +1331,14 @@ export const ConversationMessage = memo(function ConversationMessage({
         data-message-role={message.role}
         onClick={handleMobileTap}
         {...longPress}
-        aria-label={
-          "data-ovm-longpress" in longPress ? localizeUi("chat.message.focusLabel", { name: displayName }) : undefined
-        }
+        role="article"
+        aria-label={localizeUi("chat.message.focusLabel", { name: displayName })}
       >
+        {/* QC Nov 22 AX4: one heading per message (screen readers jump message to message with H). Visually
+            hidden, so grouped follow-ups and your own bubbles (no name on screen) get one too. */}
+        <span role="heading" aria-level={3} className="sr-only">
+          {displayName}
+        </span>
         <div
           className={cn(
             "mari-message relative w-full min-w-0 max-w-full px-4 transition-colors",

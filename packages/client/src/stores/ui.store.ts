@@ -1645,6 +1645,8 @@ export interface UIState {
   closeCharacterDetail: () => void;
   openLorebookDetail: (id: string, options?: { initialTab?: string; entryId?: string; field?: string }) => void;
   closeLorebookDetail: () => void;
+  /** The lorebook editor opened the entry it was asked for (QC Nov 22 AX3). */
+  consumeLorebookInitialEntry: () => void;
   setLorebookLinkClipboard: (links: NonNullable<UIState["lorebookLinkClipboard"]>) => void;
   openPresetDetail: (id: string, options?: { initialTab?: string }) => void;
   closePresetDetail: () => void;
@@ -3386,6 +3388,7 @@ export const useUIStore = create<UIState>()(
             ...getMobileDetailReturnState(s),
           })),
         closeLorebookDetail: () => set((s) => leaveMainSurface(s, { lorebookDetailId: null })),
+        consumeLorebookInitialEntry: () => set({ lorebookDetailInitialEntryId: null }),
         openPresetDetail: (id, options) =>
           set((s) => ({
             ...enterMainSurface(s, { presetDetailId: id }),

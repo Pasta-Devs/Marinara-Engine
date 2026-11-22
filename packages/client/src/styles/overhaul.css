@@ -2721,7 +2721,8 @@
   cursor: pointer;
 }
 [data-ov-row]:hover > div:first-child > div:last-child > button,
-[data-ov-row="selected"] > div:first-child > div:last-child > button {
+[data-ov-row="selected"] > div:first-child > div:last-child > button,
+[data-ov-row]:focus-within > div:first-child > div:last-child > button {
   display: inline-flex;
 }
 [data-ov-row] > div:first-child > span.flex-1 {

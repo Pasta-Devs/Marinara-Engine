@@ -1,6 +1,8 @@
 // ──────────────────────────────────────────────
 // Zustand Store: Chat Slice
 // ──────────────────────────────────────────────
+import { queueAnnouncement } from "../lib/reply-announcer";
+import { translate } from "../localization/i18n";
 import { deferChatSwitch } from "../lib/chat-switch-gate";
 import { create } from "zustand";
 import type { AvatarCrop } from "@marinara-engine/shared";
@@ -613,6 +615,8 @@ export const useChatStore = create<ChatState>()(
       for (const targetChatId of new Set(targetIds)) {
         void abortGenerationForChat(targetChatId, abortControllers.get(targetChatId)).catch(() => {});
       }
+      // QC Nov 22 AX1: the user pressed Stop; a screen reader hears that the reply stopped.
+      if (targetIds.some((id) => abortControllers.has(id))) queueAnnouncement(translate("chat.announce.stopped"));
     },
     appendStreamBuffer: (text, chatId) =>
       set((state) => {

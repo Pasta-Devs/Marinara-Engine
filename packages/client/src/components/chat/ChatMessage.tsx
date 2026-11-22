@@ -3339,6 +3339,18 @@ export const ChatMessage = memo(function ChatMessage({
       : vnParagraphs.length - 1;
 
   const text = visualNovel ? (vnParagraphs.length > 0 ? (vnParagraphs[activeVnParagraphIndex] ?? "") : "") : fullText;
+  // QC Nov 22 AX1: the VN box is never live while text streams in (the reply announcer says "Wren replied").
+  // Paging to the next paragraph is the one read that is wanted, so the box is polite for 2 s after a page turn.
+  const [vnReadNewPage, setVnReadNewPage] = useState(false);
+  const vnLastPageRef = useRef(activeVnParagraphIndex);
+  useEffect(() => {
+    if (!visualNovel || vnLastPageRef.current === activeVnParagraphIndex) return;
+    vnLastPageRef.current = activeVnParagraphIndex;
+    if (isStreaming) return;
+    setVnReadNewPage(true);
+    const timer = window.setTimeout(() => setVnReadNewPage(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [activeVnParagraphIndex, isStreaming, visualNovel]);
   // VN text box: a fade at its foot while more of the paragraph is below (theme-tokens.css).
   const vnTextRef = useRef<HTMLDivElement>(null);
   const [vnMoreBelow, setVnMoreBelow] = useState(false);
@@ -4185,7 +4197,7 @@ export const ChatMessage = memo(function ChatMessage({
               tabIndex={0}
               role="region"
               aria-label={localizeUi("chat.roleplayVn.currentParagraph")}
-              aria-live="polite"
+              aria-live={vnReadNewPage && !isStreaming ? "polite" : "off"}
             >
               {isStreaming && streamingContent ? (
                 streamingContent(renderStreamingText)
@@ -4282,7 +4294,12 @@ export const ChatMessage = memo(function ChatMessage({
             onDoubleClick={handleRoleplayDoubleClick}
             // New layout on touch: hold the narration for its actions, like every other message.
             {...longPress}
+            role="article"
+            aria-label={localizeUi("chat.message.focusLabel", { name: localizeUi("ui.chat.chatmessage.narrator") })}
           >
+            <span role="heading" aria-level={3} className="sr-only">
+              {localizeUi("ui.chat.chatmessage.narrator")}
+            </span>
             <div className="flex gap-3">
               {multiSelectMode && (
                 <div className="flex flex-shrink-0 items-start pt-2">
@@ -4551,6 +4568,9 @@ export const ChatMessage = memo(function ChatMessage({
       <>
         {hiddenFromAIHeader}
         <span
+          // QC Nov 22 AX4: the speaker's name is a heading, so screen readers jump message to message (H).
+          role="heading"
+          aria-level={3}
           className={cn(
             "mari-message-name text-[0.75rem] font-bold tracking-tight",
             !msgNameColor && !isMergedGroup && (isUser ? "text-neutral-300" : "rpg-char-name"),
@@ -4689,6 +4709,13 @@ export const ChatMessage = memo(function ChatMessage({
       thinking: ovThinkingShown && !isGrouped,
     });
     // Every button picked: ⋯ would open an empty menu, so it goes too.
+    const rpToolsId = `mari-rp-tools-${message.id}`;
+    // A follow-up from the same speaker shows no name; screen readers still get one heading per message.
+    const rpGroupedHeading = isGrouped ? (
+      <span role="heading" aria-level={3} className="sr-only">
+        {displayName}
+      </span>
+    ) : null;
     const rpMenuEmpty =
       !onToggleConversationStart &&
       !(isLastAssistantMessage && !isUser) &&
@@ -4711,6 +4738,7 @@ export const ChatMessage = memo(function ChatMessage({
     const rpActions = (part: "tools" | "generate") =>
       overhaulActive && !editing ? (
         <OvRpMessageFooter
+          id={part === "tools" ? rpToolsId : undefined}
           part={part}
           placement={part === "generate" ? "below" : "footer"}
           shown={rpShownButtons}
@@ -4736,6 +4764,13 @@ export const ChatMessage = memo(function ChatMessage({
         />
       ) : null;
     const rpGenerateActions = rpActions("generate");
+    // QC Nov 22 AX4: the header tools sit beside the name on screen, but a screen reader reads them after the
+    // text (name, time, text, then Edit/Copy/…), through aria-owns on a marker after the content. Tab order and
+    // the look are unchanged.
+    const rpToolsAfterText =
+      overhaulActive && !editing && !overhaulMobile ? (
+        <div aria-owns={rpToolsId} data-mari-a11y-tools-after="" />
+      ) : null;
     /** New layout: name, time and the message tools inside the bubble, above a divider line. */
     const ovRpHead = overhaulActive ? (
       isGrouped ? (
@@ -4771,9 +4806,8 @@ export const ChatMessage = memo(function ChatMessage({
           onDoubleClick={handleRoleplayDoubleClick}
           style={{ ...roleplayAvatarScaleStyle, ...messageHookProps.style }}
           {...longPress}
-          aria-label={
-            "data-ovm-longpress" in longPress ? localizeUi("chat.message.focusLabel", { name: displayName }) : undefined
-          }
+          role="article"
+          aria-label={localizeUi("chat.message.focusLabel", { name: displayName })}
         >
           {/* Multi-select checkbox */}
           {multiSelectMode && (
@@ -4876,6 +4910,7 @@ export const ChatMessage = memo(function ChatMessage({
                   )}
                 >
                   <span
+                    aria-hidden="true"
                     className={cn("font-bold leading-none", isUser ? "text-white" : "text-current")}
                     style={{ fontSize: `calc(${compactAvatarIconSize} * 0.8)` }}
                   >
@@ -5049,6 +5084,7 @@ export const ChatMessage = memo(function ChatMessage({
                           )}
                         >
                           <span
+                            aria-hidden="true"
                             className={cn(
                               "text-lg font-bold leading-none",
                               isUser ? "text-white" : "text-[var(--primary-foreground)]",
@@ -5087,7 +5123,9 @@ export const ChatMessage = memo(function ChatMessage({
                         after={isUser ? titleMiniAvatar : undefined}
                       />
                       {ovRpHead}
+                      {rpGroupedHeading}
                       {roleplayBubbleContent}
+                      {rpToolsAfterText}
                     </div>
                   )}
                 </div>
@@ -5100,7 +5138,9 @@ export const ChatMessage = memo(function ChatMessage({
                     after={isUser ? titleMiniAvatar : undefined}
                   />
                   {ovRpHead}
+                  {rpGroupedHeading}
                   {roleplayBubbleContent}
+                  {rpToolsAfterText}
                 </div>
               ) : null}
               {overhaulMobile && mobileSheetOpen && !editing && (
