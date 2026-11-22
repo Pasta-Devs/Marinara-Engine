@@ -222,6 +222,7 @@ export function goHome() {
   window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
   useOverhaulStore.getState().leaveDocs();
   useOverhaulStore.getState().setLibraryPage(null);
+  useOverhaulStore.getState().setLibraryHubReturn(false);
   useChatStore.getState().setActiveChatId(null);
   useUIStore.getState().closeAllDetails();
 }
