@@ -324,7 +324,7 @@ try {
   assert.equal(shapedParameters.squashSystemMessages, false);
   assert.deepEqual(
     new Set(shaped.parametersLeftOut),
-    new Set(["impersonationPrompt", "namesBehavior", "formatTemplates"]),
+    new Set(["impersonationPrompt", "namesBehavior", "formatTemplates", "postHistoryRole"]),
     "a default new-chat prompt is not worth naming",
   );
   const shapedSections = await createPromptsStorage(db).listSections(shaped.presetId!);

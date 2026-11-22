@@ -52,7 +52,9 @@ export type STPresetLeftOut =
   | "continueNudge"
   | "newChatPrompts"
   | "namesBehavior"
-  | "formatTemplates";
+  | "formatTemplates"
+  // Post-History sent inside the last user message while Post-Processing Messages is Apply (the default).
+  | "postHistoryRole";
 
 // SillyTavern's own defaults for its utility prompts: a preset that still has them changed nothing worth naming.
 const ST_UTILITY_PROMPT_DEFAULTS: Array<[string, string, STPresetLeftOut]> = [
@@ -209,6 +211,7 @@ export async function importSTPreset(
   // Import each prompt entry as a section
   const prompts = preset.prompts ?? [];
   let sectionsCreated = 0;
+  let postHistoryAsUser = false;
 
   // Sort prompts by prompt_order so sections are created in the correct display order.
   // Prompts not listed in prompt_order are appended at the end.
@@ -284,6 +287,7 @@ export async function importSTPreset(
     });
     if (section) createdSectionIds.push(section.id);
     sectionsCreated++;
+    if (isPostHistoryEntry && role === "system" && enabled && (entry.content ?? "").trim()) postHistoryAsUser = true;
   }
 
   // Explicitly set the section order and injection orders to match prompt_order.
@@ -298,7 +302,7 @@ export async function importSTPreset(
     sectionsImported: sectionsCreated,
     variableGroups: variableGroups.length,
     parametersImported: Object.keys(samplers.parameters),
-    parametersLeftOut: samplers.leftOut,
+    parametersLeftOut: postHistoryAsUser ? [...samplers.leftOut, "postHistoryRole" as const] : samplers.leftOut,
   };
 }
 
