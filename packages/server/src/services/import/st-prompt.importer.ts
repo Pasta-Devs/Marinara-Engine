@@ -9,7 +9,7 @@ import type { PromptVariableGroup } from "@marinara-engine/shared";
 import { withImportTags, type ImportTagOptions } from "@marinara-engine/shared";
 import type { TimestampOverrides } from "./import-timestamps.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
-import { convertStRegexScripts, countStRegexScriptsSkippedByPlacement } from "./st-character.importer.js";
+import { convertStRegexScripts, countStRegexScriptsLeftOut } from "./st-character.importer.js";
 import { logger } from "../../lib/logger.js";
 
 /** Friendly display names for consolidated markers. */
@@ -307,7 +307,7 @@ export async function importSTPreset(
   const regexImported = await importPresetRegexScripts(raw, created.id, db);
   const presetExtensions =
     raw.extensions && typeof raw.extensions === "object" ? (raw.extensions as Record<string, unknown>) : null;
-  const regexSkipped = countStRegexScriptsSkippedByPlacement(presetExtensions?.regex_scripts);
+  const regexSkipped = countStRegexScriptsLeftOut(presetExtensions?.regex_scripts);
 
   return {
     success: true,

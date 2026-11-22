@@ -9,7 +9,6 @@ import { inflateSync } from "node:zlib";
 import type { DB } from "../../db/connection.js";
 import {
   convertStRegexScripts,
-  countStRegexScriptsSkippedByPlacement,
   getExistingCharacterTagKeys,
   importSTCharacter,
   type STCharacterTagImportMode,
@@ -505,8 +504,14 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
       for (const [index, script] of globalRegex.entries()) {
         if (!script || typeof script !== "object") continue;
         const name = (script as Record<string, unknown>).scriptName;
+        const findRegex = (script as Record<string, unknown>).findRegex;
+        // The id names the script, not only its place, so a pick still means the same script if the list moved.
+        const fingerprint = createHash("sha1")
+          .update(`${typeof name === "string" ? name : ""}\u0000${typeof findRegex === "string" ? findRegex : ""}`)
+          .digest("hex")
+          .slice(0, 12);
         regexScripts.push({
-          id: makeScanItemId("regexScripts", dataDir, `${settingsPath}#${index}`),
+          id: makeScanItemId("regexScripts", dataDir, `${settingsPath}#${index}:${fingerprint}`),
           path: settingsPath,
           name: typeof name === "string" && name.trim() ? name.trim() : `Regex ${index + 1}`,
           index,
@@ -1083,11 +1088,15 @@ export async function runSTBulkImport(
           continue;
         }
         // Build speaker→characterId map from member names
+        // Members first, in the group's own order (it decides who speaks first), then their other names.
         const speakerMap: Record<string, string> = {};
         const memberCharacterIds = new Set<string>();
         for (const memberName of gc.members) {
-          const cid = charNameToId.get(normalizeTextForMatch(memberName));
-          if (cid) memberCharacterIds.add(cid);
+          const key = normalizeTextForMatch(memberName);
+          const cid = charNameToId.get(key);
+          if (!cid) continue;
+          memberCharacterIds.add(cid);
+          if (!(key in speakerMap)) speakerMap[key] = cid;
         }
         for (const [alias, characterId] of charNameToId) {
           if (memberCharacterIds.has(characterId)) speakerMap[alias] = characterId;
@@ -1199,12 +1208,13 @@ export async function runSTBulkImport(
       const settings = JSON.parse(await readFile(selectedRegex[0]!.path, "utf-8"));
       const all = readSettingsRegexScripts(settings);
       const picked = selectedRegex.map((item) => all[item.index]).filter((script) => script !== undefined);
-      report.regexSkipped += countStRegexScriptsSkippedByPlacement(picked);
       const regexStorage = createRegexScriptsStorage(db);
       const existing = await regexStorage.list();
       const orderBase = existing.reduce((maximum, script) => Math.max(maximum, script.order), -1) + 1;
       imported.regexScripts = 0;
-      for (const input of convertStRegexScripts(picked, {}, orderBase)) {
+      const converted = convertStRegexScripts(picked, {}, orderBase);
+      report.regexSkipped += picked.length - converted.length;
+      for (const input of converted) {
         try {
           await regexStorage.create(input);
           imported.regexScripts++;
