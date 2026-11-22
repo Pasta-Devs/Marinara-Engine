@@ -64,6 +64,26 @@ export function isKeyboardContextMenu(event: {
  * Shift+F10 or the menu key on a message's buttons opens that message's ⋯ menu, focused on its first item
  * (QC Nov 22 K7). A right click with the mouse keeps the browser's own menu (copy, spelling).
  */
+/**
+ * The button that had focus when the menu key opened a message's ⋯ menu (Copy, say), so Escape and Tab carry on
+ * from there rather than from ⋯ (QC panel 3 AX5). Only for the ⋯ button it names.
+ */
+let menuKeyReturn: { trigger: HTMLElement; target: HTMLElement; at: number } | null = null;
+
+type MenuKeyReturn = typeof menuKeyReturn;
+
+/** The menu key's note, while it belongs to the menu that is opening now. */
+function freshMenuKeyReturn(): MenuKeyReturn {
+  return menuKeyReturn && Date.now() - menuKeyReturn.at < 1000 ? menuKeyReturn : null;
+}
+
+/** Where focus goes back to when the menu of `trigger` closes. */
+function menuReturnTarget(note: MenuKeyReturn, trigger: HTMLElement | null): HTMLElement | null {
+  const target = note && note.trigger === trigger ? note.target : null;
+  if (target?.isConnected && target.getClientRects().length > 0) return target;
+  return trigger;
+}
+
 export function openMessageMoreFromMenuKey(event: {
   nativeEvent: Event;
   clientX: number;
@@ -81,6 +101,11 @@ export function openMessageMoreFromMenuKey(event: {
   event.preventDefault();
   event.stopPropagation();
   if (more.getAttribute("aria-expanded") === "true") return;
+  const focused = document.activeElement;
+  menuKeyReturn =
+    focused instanceof HTMLElement && focused !== more && message.contains(focused)
+      ? { trigger: more, target: focused, at: Date.now() }
+      : null;
   // A click with detail 0 is the keyboard path: the menu opens with focus on its first item.
   more.click();
 }
@@ -204,6 +229,11 @@ export function useMenuKeyboard<TMenu extends HTMLElement = HTMLDivElement>({
   const initialFocusRef = useRef(initialFocus);
   initialFocusRef.current = initialFocus;
   const hadFocus = useRef(false);
+  // Read once per opening (React's dev double effects run it twice, so it isn't cleared on read).
+  const returnNote = useRef<MenuKeyReturn>(null);
+  useLayoutEffect(() => {
+    returnNote.current = open ? freshMenuKeyReturn() : null;
+  }, [open]);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
@@ -248,14 +278,14 @@ export function useMenuKeyboard<TMenu extends HTMLElement = HTMLDivElement>({
         event.stopPropagation();
         hadFocus.current = false;
         closeRef.current();
-        triggerRef.current?.focus({ preventScroll: true });
+        menuReturnTarget(returnNote.current, triggerRef.current)?.focus({ preventScroll: true });
         return;
       }
       if (event.key === "Tab") {
         if (!inside) return;
         // Tab leaves the menu: close it and carry on from its button, as if the menu were never there.
         hadFocus.current = false;
-        triggerRef.current?.focus({ preventScroll: true });
+        menuReturnTarget(returnNote.current, triggerRef.current)?.focus({ preventScroll: true });
         closeRef.current();
         return;
       }
@@ -282,7 +312,7 @@ export function useMenuKeyboard<TMenu extends HTMLElement = HTMLDivElement>({
         hadFocus.current = false;
         const active = document.activeElement;
         if (!active || active === document.body || !active.isConnected)
-          triggerRef.current?.focus({ preventScroll: true });
+          menuReturnTarget(returnNote.current, triggerRef.current)?.focus({ preventScroll: true });
       }
     };
   }, [anywhere, open]);
