@@ -18628,6 +18628,8 @@
   "ui.ui.generationparametersfields.frequency": "Frequency",
   "ui.ui.generationparametersfields.howMuchReasoningWorkTheProviderShouldSpendBefore": "How much the model should think before it answers. Off asks it not to think, where the model allows; some models always think. Turn off the switch to use the provider's default.",
   "ui.ui.generationparametersfields.limitsTheModelToOnlyConsiderTheTopK": "Limits the model to only consider the top K most likely tokens at each step. 0 disables this limit.",
+  "ui.ui.generationparametersfields.minP": "Min P",
+  "ui.ui.generationparametersfields.minPHelp": "Leaves out tokens less likely than this share of the most likely token. 0 turns it off. Sent to the built-in model and to OpenAI-compatible custom servers (llama.cpp, KoboldCpp and the like).",
   "ui.ui.generationparametersfields.nucleusSamplingOnlyConsidersTokensWhoseCumulativeProbabilityReaches": "Only lets the AI pick from its most likely next words, up to this total chance. Lower is more focused.",
   "ui.ui.generationparametersfields.optionalAssistantRoleTextAppendedAfterTheFinalUser": "Optional assistant-role text appended after the final user message. Use this only for models that support assistant prefill/continuation or need a specific opening tag.",
   "ui.ui.generationparametersfields.optionalOpenrouterRoutingTierDefaultSendsNoServiceTier": "Optional OpenRouter routing tier. Default sends no service_tier; Flex can be cheaper and slower, Priority can be faster and more expensive.",

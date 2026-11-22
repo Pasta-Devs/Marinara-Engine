@@ -4,7 +4,11 @@ import {
   withoutPresetTokenLimits,
   type GamePresetStorySettings,
 } from "@marinara-engine/shared";
-import { GenerationParametersFields, getEditableGenerationParameters } from "../ui/GenerationParametersEditor";
+import {
+  GenerationParametersFields,
+  getEditableGenerationParameters,
+  pickEditableGenerationParameters,
+} from "../ui/GenerationParametersEditor";
 // ──────────────────────────────────────────────
 // Full-Page Preset Editor
 // Tabs: Overview · Sections · Prompts · Regex
@@ -811,7 +815,10 @@ export function PresetEditor() {
               <h3 className="text-sm font-semibold">{localizeUi("generationParameters.preset.title")}</h3>
               <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("generationParameters.preset.hint")}</p>
               <GenerationParametersFields
-                value={getEditableGenerationParameters(DEFAULT_GENERATION_PARAMS, localParameters)}
+                value={getEditableGenerationParameters(
+                  pickEditableGenerationParameters(DEFAULT_GENERATION_PARAMS),
+                  localParameters,
+                )}
                 showServiceTier
                 showTokenLimits={false}
                 onChange={(next) => {
