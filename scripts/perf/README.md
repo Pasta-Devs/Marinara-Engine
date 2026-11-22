@@ -85,6 +85,8 @@ Use it for anything that touches the launcher, dependencies, the build or the st
 `--memory 4g` caps the container's memory like a phone's RAM. `start-termux.sh` sizes Node's heap from the RAM it
 sees, so the container also gets a `/proc/meminfo` that shows the cap. Through emulation the build needs more memory
 than on a phone, so read a failure under a cap from an ARM machine or the workflow.
+`--check-args` (with any other options) checks them and prints the `/proc/meminfo` a `--memory` cap would mount, then
+exits without Docker; the workflow runs it on every pull request.
 
 - Needs Docker only, no KVM, so it works in cloud containers. Termux's mirror (`packages-cf.termux.dev`) must be
   reachable; sandboxed cloud environments need it on their allowed hosts.

@@ -79,6 +79,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check the launcher options
+        # Runs the option and --memory code without Docker, so a shell error that only shows at run time (bash -n
+        # passes) fails here instead of silently skipping the memory cap.
+        env:
+          MEMORY: ${{ inputs.memory }}
+        run: |
+          scripts/perf/setup-termux.sh --check-args --memory 4g | grep -qx 'MemTotal: 4194304 kB'
+          scripts/perf/setup-termux.sh --check-args --memory 3072m | grep -qx 'MemTotal: 3145728 kB'
+          [ -z "$MEMORY" ] || scripts/perf/setup-termux.sh --check-args --memory "$MEMORY"
+
       - name: Run Marinara in Termux (${{ matrix.mode }})
         env:
           TERMUX_QC_TIMEOUT_MIN: "25"
