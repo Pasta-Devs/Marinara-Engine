@@ -4251,6 +4251,8 @@ export const ChatMessage = memo(function ChatMessage({
             data-card-css={message.characterId ?? undefined}
             onClick={handleMobileTap}
             onDoubleClick={handleRoleplayDoubleClick}
+            // New layout on touch: hold the narration for its actions, like every other message.
+            {...longPress}
           >
             <div className="flex gap-3">
               {multiSelectMode && (
@@ -4277,20 +4279,49 @@ export const ChatMessage = memo(function ChatMessage({
                 </div>
               )}
               <div className="mari-message-bubble mari-chat-style-surface relative flex-1 rounded-xl border border-amber-500/10 bg-black/40 px-5 py-4">
-                {/* Delete button */}
-                {!multiSelectMode && onDelete && (
+                {/* Delete button. Hidden, it takes no taps (it sat invisible in the corner on touch). The new layout
+                    on touch has no corner button: Delete is in the hold sheet. */}
+                {!multiSelectMode && onDelete && !overhaulMobile && (
                   <button
                     type="button"
                     onClick={() => onDelete(message.id)}
                     aria-label={localizeUi("chat.delete.dialog.title")}
                     className={cn(
                       "absolute right-2 top-2 rounded-md p-1 text-white/20 opacity-0 transition-all hover:bg-foreground/10 hover:text-foreground/70 group-hover:opacity-100",
-                      showActions && "opacity-100",
+                      showActions
+                        ? "pointer-events-auto opacity-100"
+                        : "pointer-events-none [@media(hover:hover)]:group-hover:pointer-events-auto",
                     )}
                     title={localizeUi("lorebook.editor.batch.delete")}
                   >
                     <Trash2 size="0.75rem" />
                   </button>
+                )}
+                {overhaulMobile && mobileSheetOpen && (
+                  <OvMobileMessageSheet
+                    chatId={message.chatId}
+                    messageId={message.id}
+                    swipeIndex={0}
+                    swipeCount={1}
+                    copied={copied}
+                    onCopy={handleCopy}
+                    more={
+                      onDelete ? (
+                        <div className="mari-message-actions grid">
+                          <button
+                            type="button"
+                            onClick={() => onDelete(message.id)}
+                            aria-label={localizeUi("chat.delete.dialog.title")}
+                            title={localizeUi("lorebook.editor.batch.delete")}
+                            className="flex items-center text-[var(--destructive)]"
+                          >
+                            <Trash2 size="0.875rem" />
+                          </button>
+                        </div>
+                      ) : null
+                    }
+                    onClose={closeMobileSheet}
+                  />
                 )}
                 <div className="mb-1 flex items-center gap-2 text-[0.625rem] font-semibold uppercase tracking-widest text-amber-400/70">
                   <span className="h-px flex-1 bg-amber-400/20" />
