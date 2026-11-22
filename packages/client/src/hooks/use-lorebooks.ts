@@ -1,7 +1,14 @@
 // ──────────────────────────────────────────────
 // React Query: Lorebook hooks
 // ──────────────────────────────────────────────
-import { useInfiniteQuery, useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+  useQueries,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api-client";
 import { forgetDeletedEditorItem } from "./use-editor-leave-save";
 import type {
@@ -291,6 +298,27 @@ export function useLorebookEntrySearch(query: string, enabled: boolean, limit = 
     queryFn: ({ signal }) =>
       api.get<LorebookEntry[]>(`/lorebooks/search/entries?q=${encodeURIComponent(query)}&limit=${limit}`, { signal }),
     enabled: enabled && query.length > 0,
+    staleTime: 30_000,
+  });
+}
+
+/** A picked entry as the eligible-entries lookup returns it: just enough to list and check it. */
+export type EligibleLorebookEntry = Pick<
+  LorebookEntry,
+  "id" | "lorebookId" | "name" | "enabled" | "constant" | "order"
+>;
+
+/**
+ * Entries picked by id, each only if play would read it (on, in an on folder and book), read without
+ * loading every book they might be in (#9645). Keeps the last answer while a changed pick is checked.
+ */
+export function useEligibleLorebookEntries(entryIds: string[]) {
+  const ids = Array.from(new Set(entryIds)).sort();
+  return useQuery({
+    queryKey: [...lorebookKeys.all, "eligible-entries", ids] as const,
+    queryFn: () => api.post<EligibleLorebookEntry[]>("/lorebooks/entries/eligible", { ids }),
+    enabled: ids.length > 0,
+    placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
 }
