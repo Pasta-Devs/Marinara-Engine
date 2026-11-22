@@ -32,9 +32,16 @@ import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
 import { Spinner } from "../ui/Spinner";
+import { scheduleBackgroundPreload } from "../../lib/background-preload";
 
 const loadChatSettingsDrawer = async () => {
-  const module = await import("../../features/chat-settings/ChatSettingsDrawer");
+  // The summary and the roleplay panels (Author's notes, active lorebook entries) come with it: opening
+  // Chat settings used to fetch them in a second round 3 s after the tap (QC panel 3, speed H3).
+  const [module] = await Promise.all([
+    import("../../features/chat-settings/ChatSettingsDrawer"),
+    import("./ChatSummaryPanel").catch(() => undefined),
+    import("./ChatRoleplayPanels").catch(() => undefined),
+  ]);
   return { default: module.ChatSettingsDrawer };
 };
 
@@ -52,12 +59,15 @@ export function preloadChatSettingsDrawer() {
   return chatSettingsDrawerLoadPromise;
 }
 
-/** Fetches Chat settings' code in the background (when a chat opens), so opening it never waits on it. */
+/**
+ * Fetches Chat settings' code in the background once a chat is on screen (never at app start), after the tap
+ * that opened the chat has settled (lib/background-preload.ts), so opening it never waits on it.
+ */
 export function preloadChatSettingsDrawerWhenIdle() {
   if (loadedChatSettingsDrawer || chatSettingsDrawerLoadPromise || typeof window === "undefined") return;
-  const run = () => void preloadChatSettingsDrawer().catch(() => (chatSettingsDrawerLoadPromise = null));
-  if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 2500 });
-  else setTimeout(run, 600);
+  scheduleBackgroundPreload("chat-settings", () =>
+    preloadChatSettingsDrawer().catch(() => (chatSettingsDrawerLoadPromise = null)),
+  );
 }
 
 const LazyChatSettingsDrawer = lazy(preloadChatSettingsDrawer);

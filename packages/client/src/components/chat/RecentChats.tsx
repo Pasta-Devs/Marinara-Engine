@@ -1,9 +1,11 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { avatarInitial } from "../../lib/avatar-initial";
 import { MessageCircleQuestion, MessageSquare, RefreshCw } from "lucide-react";
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useCharacterSpritePreviews, useCharacterSummaries, type SpriteInfo } from "../../hooks/use-characters";
 import { useHomeFeed } from "../../hooks/use-home-feed";
+import { scheduleBackgroundPreload } from "../../lib/background-preload";
+import { preloadChatSurface } from "./chat-surface-preload";
 import { useGameAssetManifest } from "../../hooks/use-game-assets";
 import { resolveAssetTag } from "../../lib/asset-fuzzy-match";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
@@ -100,6 +102,13 @@ export function RecentChats() {
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
   const prefetchChatMessages = usePrefetchChatMessages();
   const recentChats = useMemo(() => feed.data?.recentChats ?? [], [feed.data?.recentChats]);
+  // The last chat is the likeliest first tap: its surface's code comes right after the first paint (tier 0 of
+  // the background queue), so opening it needs no code download (QC panel 3, speed H1).
+  const lastChatMode = recentChats[0]?.chat.mode;
+  useEffect(() => {
+    if (lastChatMode)
+      scheduleBackgroundPreload(`chat-surface:${lastChatMode}`, () => preloadChatSurface(lastChatMode), 0);
+  }, [lastChatMode]);
   // New layout: as many rows as the widget has room for (it can be resized), so a tall widget isn't
   // left with an empty band under six rows.
   const listRef = useRef<HTMLUListElement | null>(null);

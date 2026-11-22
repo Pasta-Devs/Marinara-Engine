@@ -5,9 +5,14 @@
 // until the screen showed something and until it was smooth again, and how much
 // of that was waiting on the server. For finding what feels slow on a phone or
 // tablet where browser dev tools aren't at hand (iPad, Nov 14). This device only.
+//
+// Loads are split by kind (api, code, media), and code the background preload
+// queue fetched during the tap shows apart as "pre": a first tap used to read
+// 150+ loads that were not the tap's at all (QC panel 3, speed H2).
 // ──────────────────────────────────────────────
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { activeBackgroundPreloads } from "../../lib/background-preload";
 
 const STORAGE_KEY = "marinara-tap-timings";
 const CHANGE_EVENT = "marinara:tap-timings-change";
@@ -66,9 +71,16 @@ interface TapRow {
   longest: number;
   slowFrames: number;
   requests: number;
+  /** Of `requests`: server calls, code (scripts + stylesheets), pictures and fonts, background preload code. */
+  api: number;
+  code: number;
+  media: number;
+  preload: number;
   /** Tap to the moment the last request it started finished. */
   serverDone: number;
   finished: boolean;
+  /** The 8 s window ended the row, so "smooth" is a cap, not a real time. */
+  capped: boolean;
 }
 
 function labelFor(target: EventTarget | null) {
@@ -87,11 +99,74 @@ function labelFor(target: EventTarget | null) {
   return text.length > 26 ? `${text.slice(0, 25)}…` : text;
 }
 
-function apiRequestsSince(start: number) {
+function requestsSince(start: number) {
   if (typeof performance.getEntriesByType !== "function") return [];
   return (performance.getEntriesByType("resource") as PerformanceResourceTiming[]).filter(
     (entry) => entry.startTime >= start - 5,
   );
+}
+
+type LoadKind = "api" | "code" | "media" | "other";
+
+function loadKind(entry: PerformanceResourceTiming): LoadKind {
+  let path = entry.name;
+  try {
+    path = new URL(entry.name, location.href).pathname;
+  } catch {
+    /* keep the raw name */
+  }
+  if (path.includes("/api/")) return "api";
+  if (/\.(m?js|css)$/i.test(path) || entry.initiatorType === "script") return "code";
+  if (
+    /\.(png|jpe?g|gif|webp|avif|svg|ico|bmp|woff2?|ttf|otf)$/i.test(path) ||
+    entry.initiatorType === "img" ||
+    entry.initiatorType === "image"
+  )
+    return "media";
+  return "other";
+}
+
+/** Times when a background preload task was running, from its performance marks (lib/background-preload.ts). */
+function preloadWindows(since: number): Array<[number, number]> {
+  if (typeof performance.getEntriesByType !== "function") return [];
+  const starts = new Map<string, number>();
+  const windows: Array<[number, number]> = [];
+  for (const entry of performance.getEntriesByType("mark")) {
+    if (entry.name.startsWith("bg-preload:start:")) starts.set(entry.name.slice(17), entry.startTime);
+    else if (entry.name.startsWith("bg-preload:end:")) {
+      const name = entry.name.slice(15);
+      const begun = starts.get(name);
+      starts.delete(name);
+      if (begun !== undefined && entry.startTime >= since - 5) windows.push([begun, entry.startTime]);
+    }
+  }
+  // Still running: open until now.
+  for (const begun of starts.values()) windows.push([begun, Number.POSITIVE_INFINITY]);
+  return windows;
+}
+
+/**
+ * Splits the tap's loads by kind. Approximate on purpose: code the tap itself needed that starts while a
+ * preload task runs counts as "pre" too, and a preload's own chunks can start a moment after its task's
+ * import() resolves (then they count as code).
+ */
+function classify(entries: PerformanceResourceTiming[], start: number) {
+  const windows = preloadWindows(start);
+  const preloading = activeBackgroundPreloads() > 0 || windows.length > 0;
+  let api = 0;
+  let code = 0;
+  let media = 0;
+  let preload = 0;
+  for (const entry of entries) {
+    const kind = loadKind(entry);
+    if (kind === "api") api += 1;
+    else if (kind === "code") {
+      code += 1;
+      if (preloading && windows.some(([from, to]) => entry.startTime >= from - 5 && entry.startTime <= to + 5))
+        preload += 1;
+    } else if (kind === "media") media += 1;
+  }
+  return { api, code, media, preload };
 }
 
 export function TapTimings() {
@@ -139,8 +214,13 @@ export function TapTimings() {
         longest: 0,
         slowFrames: 0,
         requests: 0,
+        api: 0,
+        code: 0,
+        media: 0,
+        preload: 0,
         serverDone: 0,
         finished: false,
+        capped: false,
       };
       setRows((current) => [row, ...current].slice(0, ROWS));
       let last = performance.now();
@@ -149,8 +229,9 @@ export function TapTimings() {
       let stopped = false;
       let lastPublish = last;
       const publish = (finished: boolean) => {
-        const requests = apiRequestsSince(start);
+        const requests = requestsSince(start);
         row.requests = requests.length;
+        Object.assign(row, classify(requests, start));
         row.serverDone = requests.reduce((max, entry) => Math.max(max, entry.responseEnd - start), 0);
         row.finished = finished;
         setRows((current) => current.map((item) => (item.id === row.id ? { ...row } : item)));
@@ -173,9 +254,11 @@ export function TapTimings() {
         }
         // A request still loading keeps the tap open.
         if (pendingFetches > 0) lastActivity = now;
-        const over = now - lastActivity > QUIET_MS || now - start > MAX_WINDOW_MS;
+        const capped = now - start > MAX_WINDOW_MS;
+        const over = now - lastActivity > QUIET_MS || capped;
         if (over) {
           stopped = true;
+          row.capped = capped && now - lastActivity <= QUIET_MS;
           publish(true);
           return;
         }
@@ -237,7 +320,7 @@ export function TapTimings() {
         // Over every app overlay, but not over the omnibar or Mari (it never takes taps either way).
         zIndex: "calc(var(--mari-layer-omnibar) - 1)",
         pointerEvents: "none",
-        maxWidth: "min(22rem, calc(100vw - 1rem))",
+        maxWidth: "min(30rem, calc(100vw - 1rem))",
         padding: "0.375rem 0.5rem",
         borderRadius: "0.5rem",
         background: "rgb(0 0 0 / 0.78)",
@@ -247,19 +330,38 @@ export function TapTimings() {
         whiteSpace: "nowrap",
       }}
     >
-      <div style={{ opacity: 0.7 }}>{localizeUi("ui.layout.taptimings.tapShownSmoothLongestFrameServer")}</div>
+      <div style={{ opacity: 0.7 }}>{localizeUi("ui.layout.taptimings.tapShownSmoothLongestFrameLoads")}</div>
       {rows.length === 0 ? <div style={{ opacity: 0.7 }}>{localizeUi("ui.layout.taptimings.tapSomething")}</div> : null}
       {rows.map((row) => (
-        <div key={row.id} style={{ overflow: "hidden", textOverflow: "clip", opacity: row.finished ? 1 : 0.7 }}>
+        <div
+          key={row.id}
+          data-loads={row.requests}
+          data-api={row.api}
+          data-code={row.code}
+          data-media={row.media}
+          data-preload={row.preload}
+          data-capped={row.capped ? "true" : "false"}
+          style={{ overflow: "hidden", textOverflow: "clip", opacity: row.finished ? 1 : 0.7 }}
+        >
           <span style={{ color: "#9fd8ff" }}>{row.label}</span> {Math.round(row.first)} ·{" "}
-          <b style={{ color: row.done > 400 ? "#ffb4a2" : "#b8f2c4" }}>{Math.round(row.done)}</b> ·{" "}
-          {Math.round(row.longest)} ·{" "}
+          <b style={{ color: row.done > 400 ? "#ffb4a2" : "#b8f2c4" }}>
+            {row.capped ? localizeUi("ui.layout.taptimings.capped", { value: MAX_WINDOW_MS }) : Math.round(row.done)}
+          </b>{" "}
+          · {Math.round(row.longest)} ·{" "}
           {row.requests
             ? localizeUi("ui.layout.taptimings.value1Value2", {
                 value1: row.requests,
                 value2: Math.round(row.serverDone),
               })
             : "–"}
+          {row.requests ? " " : null}
+          {row.requests
+            ? row.media
+              ? localizeUi("ui.layout.taptimings.apiCodeMedia", { api: row.api, code: row.code, media: row.media })
+              : localizeUi("ui.layout.taptimings.apiCode", { api: row.api, code: row.code })
+            : null}
+          {row.preload ? " " : null}
+          {row.preload ? localizeUi("ui.layout.taptimings.preload", { count: row.preload }) : null}
           {row.finished ? "" : " …"}
         </div>
       ))}

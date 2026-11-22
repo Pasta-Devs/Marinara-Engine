@@ -6,6 +6,7 @@
 // contents at a readable width; dedicated list views come in a later slice.
 // ──────────────────────────────────────────────
 import { Suspense, type ComponentType, type CSSProperties } from "react";
+import { scheduleBackgroundPreload } from "../../lib/background-preload";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
 import { DelayedFallback } from "../ui/DelayedFallback";
 import type { LibrarySection } from "../../stores/overhaul.store";
@@ -100,20 +101,22 @@ const PAGES: Partial<Record<LibrarySection, ComponentType<PageProps>>> = {
   extensions: ExtensionsPage,
 };
 /**
- * Fetches every Library page's code (and Settings' sections) so opening one renders at once
- * instead of showing "Loading…" first (QC Nov 14 #2). The shell calls this while idle.
+ * Queues every Library page's code (and Settings' sections) in the background preload queue, one page per
+ * slice, so opening one renders at once instead of showing "Loading…" first (QC Nov 14 #2) without a burst of
+ * downloads in the way of the first tap (QC panel 3, speed H1).
  */
-export function preloadLibraryPages() {
-  return Promise.all([
-    TablesPage.preload(),
-    SettingsModulePage.preload(),
-    AgentsPage.preload(),
-    ExtensionsPage.preload(),
-    BackgroundsPage.preload(),
-    GameAssetsPage.preload(),
-    RulesetsPage.preload(),
-    loadSettings().then((m) => m.preloadOverhaulSettingsSections()),
-  ]).catch(() => undefined);
+export function queueLibraryPagePreloads() {
+  const pages = {
+    "library:tables": () => TablesPage.preload(),
+    "library:settings": () => SettingsModulePage.preload(),
+    "library:settings-sections": () => loadSettings().then((m) => m.preloadOverhaulSettingsSections()),
+    "library:agents-page": () => AgentsPage.preload(),
+    "library:extensions": () => ExtensionsPage.preload(),
+    "library:backgrounds": () => BackgroundsPage.preload(),
+    "library:game-assets": () => GameAssetsPage.preload(),
+    "library:rulesets": () => RulesetsPage.preload(),
+  };
+  for (const [name, run] of Object.entries(pages)) scheduleBackgroundPreload(name, run);
 }
 
 const SURFACES = {
