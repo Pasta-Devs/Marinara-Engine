@@ -56,9 +56,13 @@ import {
   CheckCircle2,
   ChevronDown,
   Timer,
-  Check,
 } from "lucide-react";
-import { useOverhaulActive } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
+import { SetupBlock, SetupMoreOptions, SetupPage, SetupSection, SetupTitleField } from "../chat/ChatSetupPage";
+import { OvRow } from "../overhaul/EditorChrome";
+import { OvIdeasMenu, OvMultiPick, type IdeaItem } from "../overhaul/OvMultiPick";
+import { Select } from "../ui/Select";
 import {
   ANIME_GAME_PROMPT_TEMPLATE_ID,
   ANIME_GAME_SYSTEM_PROMPT,
@@ -131,7 +135,7 @@ import {
   GAME_SETUP_INPUT_CLASS,
   GAME_SETUP_PRIMARY_BUTTON_CLASS,
 } from "./game-setup-classes";
-import { SettingsSwitchTrack } from "../panels/settings/SettingControls";
+import { SettingsSwitch, SettingsSwitchTrack } from "../panels/settings/SettingControls";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useEligibleLorebookEntries, useLorebooks, type EligibleLorebookEntry } from "../../hooks/use-lorebooks";
 import { GameSetupLoreEntryPicker, SETUP_LORE_ENTRY_LIMIT } from "./GameSetupLoreEntryPicker";
@@ -230,6 +234,9 @@ export interface GameSetupWizardProps {
   onCancel: (confirmed?: boolean | "later") => void;
   /** The last Create world failed: the wizard returns to its last step, where Create world is, with the choices kept. */
   setupFailed?: boolean;
+  /** New layout: why the last Create world failed, shown on the page above the Start bar. */
+  setupFailureMessage?: string | null;
+  onDismissSetupFailure?: () => void;
   /** Stops the world being generated, while it is. Absent when nothing can be stopped. */
   onStopGeneration?: () => void;
   isLoading: boolean;
@@ -543,6 +550,8 @@ export function GameSetupWizard({
   onComplete,
   onCancel,
   setupFailed = false,
+  setupFailureMessage,
+  onDismissSetupFailure,
   onStopGeneration,
   isLoading,
   isDraftingMap,
@@ -769,7 +778,8 @@ export function GameSetupWizard({
   const [importedSetupNotice, setImportedSetupNotice] = useState<string | null>(null);
   const setupImportInputRef = useRef<HTMLInputElement>(null);
   const ovImportInputRef = useRef<HTMLInputElement>(null);
-  const overhaulActive = useOverhaulActive();
+  // New layout: setup is the page in the game's own tab, not a stepper window.
+  const pageMode = useOverhaulLook();
   const pendingImportedGenerationParametersRef = useRef<Partial<EditableGenerationParameters> | null>(null);
   const importedGenerationParametersRef = useRef<Partial<GenerationParameters> | null>(null);
   const importedArtStyleSettingsRef = useRef<Pick<
@@ -1062,11 +1072,30 @@ export function GameSetupWizard({
   const skipDraftSaveRef = useRef(false);
   const stepRef = useRef(step);
   stepRef.current = step;
-  const draftHasInput = () => isNewGame && (gameNameRef.current.trim().length > 0 || stepRef.current > 0);
+  // The page has no steps: it counts what was typed or picked instead.
+  const draftHasInput = () =>
+    isNewGame &&
+    (gameNameRef.current.trim().length > 0 ||
+      (pageMode
+        ? setting.trim().length > 0 ||
+          genresChosenRef.current ||
+          tones.join("\n") !== "Heroic" ||
+          partyCharacterIds.length > initialPartyCharacterIds.length ||
+          (playerGoals.trim().length > 0 && playerGoals !== rememberedSetupText.playerGoals) ||
+          activeLorebookIds.length > 0
+        : stepRef.current > 0));
   const draftHasInputRef = useRef(draftHasInput);
   draftHasInputRef.current = draftHasInput;
   // Leaving by any other route (Ctrl+K, a tab, Home) asks this wizard whether there is work to keep.
   useEffect(() => registerSetupInputProbe(activeChatId, () => draftHasInputRef.current()), [activeChatId]);
+  // The page picks the only text model there is, so a one-model setup can start at once. Still `required`:
+  // with several models nothing is picked for the player (a weak model makes a poor world).
+  const gmPreselectedRef = useRef(false);
+  useEffect(() => {
+    if (!pageMode || !isNewGame || gmPreselectedRef.current || connectionsLoading) return;
+    gmPreselectedRef.current = true;
+    if (!gmConnectionId && languageConnections.length === 1) setGmConnectionId(languageConnections[0]!.id);
+  }, [pageMode, isNewGame, connectionsLoading, gmConnectionId, languageConnections]);
   const cancelSetup = useCallback(async () => {
     if (draftHasInputRef.current()) {
       // One question for every way out (user panel 3, PG4/PN1): dismissing it keeps setting up.
@@ -1088,6 +1117,10 @@ export function GameSetupWizard({
     }
     onCancel();
   }, [activeChatId, onCancel]);
+  // Phone and tablet in portrait: Safari's back and the edge swipe leave the page the way × does, through the
+  // same "Leave game setup?" question; "Keep setting up" stays (the back entry is put back).
+  const mobileShell = useOverhaulStore((state) => state.enabled && !state.desktop);
+  useBackDismiss(pageMode && mobileShell && !isLoading, () => void cancelSetup());
   // Esc leaves like Cancel. A picker, menu or dialog open on top handles Esc itself.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1115,9 +1148,17 @@ export function GameSetupWizard({
   }, [isLoading, cancelSetup]);
 
   // A failed Create world brings the player back to the GM step with their choices, not to step 1.
+  // On the page, Create world is in the Start bar: it takes the focus, with the reason shown above the bar.
   useEffect(() => {
-    if (setupFailed) setStep(steps.length - 1);
-  }, [setupFailed, steps.length]);
+    if (!setupFailed) return;
+    if (!pageMode) {
+      setStep(steps.length - 1);
+      return;
+    }
+    const start = document.querySelector<HTMLElement>('[data-setup-page="game"] [data-setup-start]');
+    start?.scrollIntoView?.({ block: "nearest" });
+    start?.focus({ preventScroll: true });
+  }, [setupFailed, steps.length, pageMode]);
   const learnedGenres = useMemo(
     () => filterLearnedOptions(learnedGameSetupOptions?.genres, [...GENRES, ...genres]),
     [genres, learnedGameSetupOptions?.genres],
@@ -2062,8 +2103,9 @@ export function GameSetupWizard({
   };
   const experienceIntro = experienceSetup?.defaults?.intro ?? worldDraft?.story?.intro;
 
-  if (activeExperience && !experienceSetup) {
-    return (
+  // An Experience without setup values keeps its own one-off window; on the page it opens over the page.
+  const legacyExperienceDialog =
+    activeExperience && !experienceSetup ? (
       <LegacyExperienceSetupDialog
         activeChatId={activeChatId}
         experience={activeExperience}
@@ -2072,8 +2114,19 @@ export function GameSetupWizard({
         onBack={() => setExperienceId(null)}
         restoreFocusRef={panelRef}
       />
-    );
-  }
+    ) : null;
+  if (legacyExperienceDialog && !pageMode) return legacyExperienceDialog;
+  const spatialTemplatePicker = spatialTemplatePickerOpen ? (
+    <CapabilityElement
+      packageId="hierarchical-maps"
+      view="setup"
+      capabilityProps={{
+        supportedSelectionKinds: ["template", "shared-world"],
+        onSelect: handleSpatialTemplateSelected,
+        onClose: () => setSpatialTemplatePickerOpen(false),
+      }}
+    />
+  ) : null;
 
   const multiplayerRoster = multiplayerPlayers ? (
     <section className="space-y-2" aria-label={localizeUi("multiplayer.game.players")}>
@@ -2116,12 +2169,7 @@ export function GameSetupWizard({
           ) : (
             <MultiplayerPrepareButton chatId={activeChatId} />
           )}
-          <div
-            className={cn(
-              "rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-3",
-              overhaulActive && "ov-gsw-import",
-            )}
-          >
+          <div className={cn("rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-3")}>
             <input
               ref={setupImportInputRef}
               type="file"
@@ -4096,7 +4144,7 @@ export function GameSetupWizard({
 
       {step === 6 && (
         <>
-          {multiplayerRoster}
+          {!pageMode && multiplayerRoster}
           <div>
             <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--foreground)]">
               <Sparkles size={12} />
@@ -4247,19 +4295,770 @@ export function GameSetupWizard({
     </>
   );
 
+  // ── New layout: setup is the page in the game's own tab, like chat setup (owner 2026-11-22) ──
+  const pageInput = GAME_SETUP_INPUT_CLASS;
+  const learnedIdeas = (
+    group: "settings" | "goals" | "preferences",
+    values: string[],
+    apply: (value: string) => void,
+  ): IdeaItem[] =>
+    values.map((value) => ({
+      value,
+      label: value,
+      group: localizeUi("game.setupPage.fromEarlierGames"),
+      onForget: () => forgetGameSetupOption(group, value),
+      forgetLabel: localizeUi("ui.game.learnedoptionchips.forgetValue1", { value1: value }),
+      onPick: () => apply(value),
+    }));
+  const suggestionIdeas = (values: string[]): IdeaItem[] =>
+    values.map((value) => ({
+      value,
+      label: value === SURPRISE_SUGGESTION ? localizeUi("game.setup.suggestions.surprise") : value,
+      icon: value === SURPRISE_SUGGESTION ? <Sparkles size={13} aria-hidden="true" /> : undefined,
+      group: localizeUi("game.setupPage.suggestions"),
+    }));
+  const combatStyleOptions = listCombatStyles()
+    .filter((id) => !combatStyles || combatStyles.includes(id))
+    .map((id) => ({
+      value: id,
+      label:
+        id === "classic"
+          ? localizeUi("ui.game.gamesetupwizard.classic")
+          : id === "tactical"
+            ? localizeUi("ui.game.gamesetupwizard.tactical")
+            : (getCombatStyle(id).label ?? id),
+    }));
+  const combatHint =
+    combatStyle === "classic"
+      ? localizeUi("game.combat.preference.classicDescription")
+      : combatStyle === "tactical"
+        ? localizeUi("game.combat.preference.tacticalDescription")
+        : undefined;
+  const pageSwitch = (props: {
+    label: string;
+    description?: string;
+    checked: boolean;
+    onChange: (value: boolean) => void;
+    disabled?: boolean;
+  }) => <SettingsSwitch className="ov-gsp__switch" labelPosition="start" labelClassName="flex-1" {...props} />;
+
+  const renderPageGame = () => (
+    <SetupSection title={localizeUi("game.setupPage.game")}>
+      {multiplayerPlayers ? <p className="ov-setup__sub">{localizeUi("multiplayer.game.preparationHelp")}</p> : null}
+      <OvRow
+        label={<label htmlFor={`${activeChatId}:gm-model`}>{localizeUi("game.setupPage.gmModel")}</label>}
+        hint={localizeUi("ui.game.gamesetupwizard.useAStrongModelForTheInitialWorldGeneration")}
+        top
+      >
+        <div className="ov-grow ov-setup__field">
+          {/* `required`: an empty GM Model means "not picked yet" (Create world stays off), never "follow Main". */}
+          <ConnectionSelect
+            required
+            id={`${activeChatId}:gm-model`}
+            job={localizeUi("connections.picker.job.gameMaster")}
+            value={gmConnectionId}
+            onChange={setGmConnectionId}
+            defaultLabel={localizeUi("ui.game.gamesetupwizard.selectAConnection")}
+            className={pageInput}
+          />
+          {languageConnections.length === 0 && <NeedsModelChip kind="chat" className="mt-1" />}
+        </div>
+      </OvRow>
+      <OvRow
+        label={localizeUi("ui.game.gamesetupwizard.sceneEffectsConnection")}
+        hint={localizeUi("ui.game.gamesetupwizard.handlesBackgroundsMusicWeatherAndCinematicEffectsAfterEach")}
+        top
+      >
+        <div className="ov-grow ov-setup__field">
+          <ConnectionSelect
+            job={localizeUi("connections.picker.job.sceneEffects")}
+            value={sceneModelValue === "local" ? LOCAL_SIDECAR_CONNECTION_ID : sceneConnectionId}
+            onChange={(id) => {
+              if (id === LOCAL_SIDECAR_CONNECTION_ID) {
+                setUseLocalScene(true);
+                setSceneConnectionId(null);
+              } else {
+                setUseLocalScene(false);
+                setSceneConnectionId(id);
+              }
+            }}
+            defaultLabel={localizeUi("ui.game.gamesetupwizard.skipUseInlineTagsFromGm")}
+            includeLocalSidecar={sidecarAvailable}
+            className={pageInput}
+          />
+        </div>
+      </OvRow>
+      {pageSwitch({
+        label: localizeUi("game.setupPage.customParameters"),
+        description: localizeUi("ui.game.gamesetupwizard.leaveThisOffToUseTheSelectedConnectionS"),
+        checked: customizeParameters,
+        onChange: setCustomizeParameters,
+      })}
+      {customizeParameters && (
+        <div className="ov-gsp__nested">
+          <GenerationParametersFields
+            value={generationParameters}
+            provider={selectedGmConnection?.provider ?? null}
+            model={selectedGmConnection?.model ?? null}
+            baseUrl={typeof selectedGmConnection?.baseUrl === "string" ? selectedGmConnection.baseUrl : null}
+            modelCapabilities={gmModelCapabilities}
+            onChange={setGenerationParameters}
+          />
+        </div>
+      )}
+      {isNewGame && !mapPack && (
+        <OvRow
+          label={localizeUi("game.style.label")}
+          hint={localizeUi(
+            !overworldEnabled
+              ? "game.style.classic.description"
+              : gameStyle === "overworld"
+                ? "game.style.overworld.description"
+                : "game.style.classic.description",
+          )}
+          top
+        >
+          <div className="ov-grow ov-setup__field" data-testid="game-style-chooser">
+            <Select
+              label={localizeUi("game.style.label")}
+              value={overworldEnabled ? gameStyle : "classic"}
+              options={[
+                {
+                  value: "overworld",
+                  label: localizeUi("game.style.overworld.title"),
+                  ...(overworldEnabled ? {} : { disabledReason: localizeUi("game.worldKit.setup.overworldLocked") }),
+                },
+                { value: "classic", label: localizeUi("game.style.classic.title") },
+              ]}
+              onChange={(style) => setGameStyle(style === "overworld" ? "overworld" : "classic")}
+              disabled={isLoading}
+              className={pageInput}
+            />
+          </div>
+        </OvRow>
+      )}
+      {isNewGame && !multiplayerPlayers && (
+        <NewGameExperienceChooser
+          experiences={experiences}
+          activeId={activeExperience?.id ?? null}
+          onSelect={selectExperience}
+          seed={experienceSeed}
+          onSeedChange={setExperienceSeed}
+          onRandomize={() => setExperienceSeed(String(crypto.getRandomValues(new Uint32Array(1))[0]))}
+          seedInvalid={experienceSeedInvalid}
+          launching={isLoading}
+        />
+      )}
+      {experienceImportNotice && (
+        <p role="status" className="ov-setup__sub">
+          {experienceImportNotice}
+        </p>
+      )}
+    </SetupSection>
+  );
+
+  const renderPageWorld = () => (
+    <SetupSection title={localizeUi("game.setupPage.world")}>
+      <OvRow label={localizeUi("game.setupPage.genre")}>
+        <div className="ov-grow ov-setup__field">
+          <OvMultiPick
+            label={localizeUi("game.setupPage.genre")}
+            options={GENRES}
+            learned={learnedGameSetupOptions?.genres ?? []}
+            value={genres}
+            onChange={(next) => {
+              genresChosenRef.current = true;
+              setGenres(next);
+            }}
+            onForget={(value) => forgetGameSetupOption("genres", value)}
+            placeholder={localizeUi("game.setupPage.pickGenres")}
+            addLabel={localizeUi("game.setupPage.addYourOwn")}
+            className={pageInput}
+          />
+        </div>
+      </OvRow>
+      <OvRow label={<label htmlFor={`${activeChatId}:setting`}>{localizeUi("ui.game.gamesetupwizard.setting")}</label>}>
+        <div className="ov-grow ov-setup__field ov-gsp__withideas">
+          <input
+            id={`${activeChatId}:setting`}
+            type="text"
+            value={setting}
+            onChange={(e) => setSetting(e.target.value)}
+            placeholder={localizeUi("ui.game.gamesetupwizard.describeYourWorld")}
+            className={pageInput}
+          />
+          <OvIdeasMenu
+            title={localizeUi("game.setupPage.settingIdeas")}
+            buttonLabel={localizeUi("game.setupPage.ideas")}
+            items={[...suggestionIdeas(settingSuggestions), ...learnedIdeas("settings", learnedSettings, setSetting)]}
+            onPick={(value) => applySuggestion(setSetting, value)}
+          />
+        </div>
+      </OvRow>
+      <OvRow label={localizeUi("game.setupPage.tone")}>
+        <div className="ov-grow ov-setup__field">
+          <OvMultiPick
+            label={localizeUi("game.setupPage.tone")}
+            options={TONES}
+            learned={learnedGameSetupOptions?.tones ?? []}
+            value={tones}
+            onChange={setTones}
+            onForget={(value) => forgetGameSetupOption("tones", value)}
+            placeholder={localizeUi("game.setupPage.pickTones")}
+            addLabel={localizeUi("game.setupPage.addYourOwn")}
+            className={pageInput}
+          />
+        </div>
+      </OvRow>
+      <OvRow label={localizeUi("ui.game.gamesetupwizard.difficulty")}>
+        <div className="ov-grow ov-setup__field">
+          <Select
+            label={localizeUi("ui.game.gamesetupwizard.difficulty")}
+            value={difficulty}
+            options={DIFFICULTIES.map((value) => ({ value, label: value }))}
+            onChange={setDifficulty}
+            className={pageInput}
+          />
+        </div>
+      </OvRow>
+      <OvRow
+        label={localizeUi("game.setupPage.combat")}
+        hint={
+          combatStyles && activeRuleset
+            ? localizeUi("game.ruleset.setup.combatStylesLimited", { name: activeRuleset.definition.name })
+            : combatHint
+        }
+        top
+      >
+        <div className="ov-grow ov-setup__field">
+          <Select
+            label={localizeUi("game.setupPage.combat")}
+            value={combatStyle}
+            options={combatStyleOptions}
+            onChange={(id) => setCombatStyle(id as GameCombatStyle)}
+            className={pageInput}
+          />
+        </div>
+      </OvRow>
+      <div className="ov-gsp__nested">
+        {pageSwitch({
+          label: localizeUi("game.combat.director.setupLabel"),
+          description: localizeUi("game.combat.director.setupHelp"),
+          checked: gmBossControl,
+          onChange: setGmBossControl,
+        })}
+        {gmBossControl &&
+          pageSwitch({
+            label: localizeUi("game.combat.director.namedLabel"),
+            description: localizeUi("game.combat.director.namedHelp"),
+            checked: gmNamedControl,
+            onChange: setGmNamedControl,
+          })}
+        {pageSwitch({
+          label: localizeUi("game.combat.director.companionsLabel"),
+          description: localizeUi("game.combat.director.companionsHelp"),
+          checked: companionsOnTheirOwn,
+          onChange: setCompanionsOnTheirOwn,
+        })}
+        {pageSwitch({
+          label: localizeUi("game.combat.director.cruelLabel"),
+          description: localizeUi("game.combat.director.cruelHelp"),
+          checked: cruelOpponents,
+          onChange: setCruelOpponents,
+        })}
+        {classicClasses &&
+          pageSwitch({
+            label: localizeUi("game.combat.director.permadeathLabel"),
+            description: localizeUi("game.combat.director.permadeathHelp"),
+            checked: permadeath,
+            onChange: setPermadeath,
+          })}
+      </div>
+      {!isNewGame && chatMetadata?.gameRuleset != null && (
+        <GameRulesetUpdate chatId={activeChatId} pin={chatMetadata.gameRuleset} variant="wizard" />
+      )}
+      {rulesets.length > 0 && (
+        <GameSetupRulesChooser
+          rulesets={rulesets}
+          activeId={activeRuleset?.definition.id ?? null}
+          combatStyle={combatStyle}
+          layerIds={activeLayerIds}
+          onSelect={(id) => {
+            setRulesetId(id);
+            setRulesetLayerIds([]);
+            setRulesetImportNotice(null);
+          }}
+          onToggleLayer={(layerId) =>
+            setRulesetLayerIds((current) =>
+              activeRuleset ? toggleRulesetLayer(activeRuleset.definition, current, layerId) : current,
+            )
+          }
+        />
+      )}
+      {rulesetImportNotice && (
+        <p role="status" className="ov-setup__sub">
+          {rulesetImportNotice}
+        </p>
+      )}
+      {isNewGame && (mapPack || mapPackUnreadable) && (
+        <MapPackLock
+          name={activeExperience?.manifest.name ?? ""}
+          pack={mapPack}
+          error={mapPackQuery.error instanceof Error ? mapPackQuery.error.message : null}
+          worldPath={mapPackWorld?.path ?? null}
+          onPickWorld={(path) => activeExperience && setMapPackPick({ experienceId: activeExperience.id, path })}
+        />
+      )}
+      {isNewGame && overworldChosen && !mapPack && !mapPackUnreadable && !mapPackPending && (
+        <GameSetupWorldKitChooser
+          required
+          kit={worldKit}
+          onChange={chooseWorldKit}
+          onImportWorld={(kit, world, story, snapshot) => {
+            chooseWorldKit(kit);
+            setWorldDraft(worldDraftFromWorld(world, story, snapshot));
+          }}
+          writeRequest={worldWriteRequest}
+        />
+      )}
+      {checkedWorldKit?.ok && !mapPackWorld && !mapPackUnreadable && !mapPackPending && (
+        <GameSetupWorldChooser
+          required
+          kit={checkedWorldKit.kit}
+          draft={worldDraft}
+          onChange={setWorldDraft}
+          lorebooks={lorebooks}
+          request={worldWriteRequest && { ...worldWriteRequest, playerGoals: playerGoals || undefined }}
+        />
+      )}
+      <OvRow
+        label={localizeUi("game.setupPage.rating")}
+        hint={
+          rating === "nsfw"
+            ? localizeUi("ui.game.gamesetupwizard.nsfwSexualContentOnlyHelp")
+            : localizeUi("ui.game.gamesetupwizard.sfwSexualContentOnlyHelp")
+        }
+        top
+      >
+        <div className="ov-grow ov-setup__field">
+          <Select
+            label={localizeUi("game.setupPage.rating")}
+            value={rating}
+            options={[
+              { value: "sfw", label: localizeUi("ui.game.gamesetupwizard.sfw") },
+              { value: "nsfw", label: localizeUi("ui.game.gamesetupwizard.nsfw") },
+            ]}
+            onChange={(value) => setRating(value === "nsfw" ? "nsfw" : "sfw")}
+            className={pageInput}
+          />
+          <details className="ov-gsp__details">
+            <summary>{localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}</summary>
+            <textarea
+              value={ratingGuidelinesDraft ?? defaultGameRatingGuidelines(rating, ratingOptions)}
+              onChange={(e) =>
+                // Text that matches the built-in guidelines stays unset, so it keeps following the rating.
+                setRatingGuidelinesDraft(
+                  e.target.value === defaultGameRatingGuidelines(rating, ratingOptions) ? null : e.target.value,
+                )
+              }
+              aria-label={localizeUi("ui.game.gamesetupwizard.editRatingGuidelines")}
+              maxLength={GAME_RATING_GUIDELINES_MAX_CHARS}
+              rows={7}
+              spellCheck={false}
+              className={cn(pageInput, "resize-y font-mono")}
+            />
+            <div className="ov-gsp__detailsfoot">
+              <span>{localizeUi("ui.game.gamesetupwizard.ratingGuidelinesHelp")}</span>
+              {ratingGuidelinesDraft !== null && (
+                <button type="button" className="ov-setup__btn" onClick={() => setRatingGuidelinesDraft(null)}>
+                  {localizeUi("ui.game.gamesetupwizard.resetRatingGuidelines")}
+                </button>
+              )}
+            </div>
+          </details>
+        </div>
+      </OvRow>
+      <div className="ov-gsp space-y-4">
+        <GameStoryBoundariesFields
+          compact
+          value={{ storyStyle, violence: ratingOptions.violence, contentBoundaries }}
+          onChange={(patch) => {
+            if (patch.storyStyle) setStoryStyle(patch.storyStyle);
+            if (patch.violence) setViolence(patch.violence);
+            if (patch.contentBoundaries !== undefined) setContentBoundaries(patch.contentBoundaries);
+          }}
+        />
+      </div>
+      <OvRow
+        label={<label htmlFor={`${activeChatId}:language`}>{localizeUi("settings.application.language.label")}</label>}
+        hint={localizeUi("ui.game.gamesetupwizard.allNarrationAndDialogueWillBeWrittenInThis")}
+        top
+      >
+        <div className="ov-grow ov-setup__field ov-gsp__withideas">
+          <input
+            id={`${activeChatId}:language`}
+            type="text"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            placeholder={localizeUi("ui.game.gamesetupwizard.english")}
+            className={pageInput}
+          />
+          <OvIdeasMenu
+            title={localizeUi("game.setupPage.languages")}
+            buttonLabel={localizeUi("game.setupPage.pick")}
+            icon={<Globe2 size={13} aria-hidden="true" />}
+            items={GAME_LANGUAGE_OPTIONS.map((option) => ({
+              value: option.label,
+              label: option.label === option.value ? option.label : `${option.label} (${option.value})`,
+            }))}
+            onPick={setLanguage}
+          />
+        </div>
+      </OvRow>
+      {pageSwitch({
+        label: localizeUi("ui.chatSettings.translationsection.autoTranslateResponses"),
+        description: autoTranslate ? undefined : localizeUi("game.setup.translation.help"),
+        checked: autoTranslate,
+        onChange: setAutoTranslate,
+      })}
+      {autoTranslate && (
+        <OvRow
+          label={
+            <label htmlFor={`${activeChatId}:my-language`}>
+              {localizeUi("ui.chatSettings.translationsection.myLanguage")}
+            </label>
+          }
+          hint={localizeUi("game.setup.translation.help")}
+          top
+        >
+          <div className="ov-grow ov-setup__field">
+            <input
+              id={`${activeChatId}:my-language`}
+              value={translationLanguage}
+              onChange={(event) => setTranslationLanguage(event.target.value)}
+              maxLength={100}
+              className={pageInput}
+            />
+          </div>
+        </OvRow>
+      )}
+    </SetupSection>
+  );
+
+  const renderPageParty = () => (
+    <SetupSection title={localizeUi("game.setupPage.party")}>
+      {!multiplayerPlayers && (
+        <OvRow label={localizeUi("chat.setupPage.yourPersona")} top>
+          <div className="ov-grow ov-setup__field">
+            <CharacterSelect
+              kind="persona"
+              allowNone
+              withCharacters={false}
+              value={personaId ? { persona: personaId } : null}
+              onChange={(next) => setPersonaId(next && "persona" in next ? next.persona : null)}
+            />
+          </div>
+        </OvRow>
+      )}
+      <OvRow
+        label={localizeUi("game.setupPage.gameMaster")}
+        hint={
+          gmMode === "standalone"
+            ? localizeUi("ui.game.gamesetupwizard.aSnarkyNarratorRunningTheShow")
+            : localizeUi("ui.game.gamesetupwizard.useAnExistingCharacterAsGm")
+        }
+        top
+      >
+        <div className="ov-grow ov-setup__field">
+          <Select
+            label={localizeUi("game.setupPage.gameMaster")}
+            value={gmMode}
+            options={[
+              { value: "standalone", label: localizeUi("ui.game.gamesetupwizard.standaloneGm") },
+              { value: "character", label: localizeUi("ui.game.gamesetupwizard.characterGm") },
+            ]}
+            onChange={(mode) => setGmMode(mode as GameGmMode)}
+            className={pageInput}
+          />
+        </div>
+      </OvRow>
+      {gmMode === "character" && (
+        <OvRow label={localizeUi("game.setupPage.gmCharacter")} top>
+          <div className="ov-grow ov-setup__field">
+            <CharacterSelect kind="character" allowNone value={gmCharacterId} onChange={setGmCharacterId} />
+          </div>
+        </OvRow>
+      )}
+      <OvRow
+        label={
+          multiplayerPlayers
+            ? localizeUi("multiplayer.game.aiCompanions", { count: partyCharacterIds.length })
+            : localizeUi("game.setupPage.partyMembers")
+        }
+        top
+      >
+        <div className="ov-grow ov-setup__field">
+          <CharacterSelect
+            kind="character"
+            multiple
+            value={partyCharacterIds}
+            onChange={setPartyCharacterIds}
+            exclude={gmCharacterId ? [gmCharacterId] : undefined}
+          />
+          {characterFolders.length > 0 && (
+            <div className="ov-gsp__folderadd">
+              <Select
+                label={localizeUi("ui.game.gamesetupwizard.addPartyMembersFromFolder")}
+                placeholder={localizeUi("ui.noodle.noodlehome.addFromFolder")}
+                value={null}
+                options={characterFolders.map((folder) => {
+                  const newCount = folder.characterIds.filter(
+                    (id) => validCharacterIds.has(id) && id !== gmCharacterId && !partyCharacterIds.includes(id),
+                  ).length;
+                  return {
+                    value: folder.id,
+                    label: folder.name,
+                    description:
+                      newCount > 0
+                        ? localizeUi("ui.game.gamesetupwizard.value1New", { value1: newCount })
+                        : localizeUi("ui.game.gamesetupwizard.allAdded"),
+                  };
+                })}
+                onChange={addPartyMembersFromFolder}
+                className={pageInput}
+              />
+            </div>
+          )}
+        </div>
+      </OvRow>
+      {activeRuleset && (
+        <GameSetupRulesetSheetStatus
+          ruleset={activeRuleset}
+          partyCharacterIds={partyCharacterIds}
+          personaId={personaId}
+        />
+      )}
+      <div className="ov-gsp space-y-4">
+        <GameSetupGmIntro
+          value={gameIntro}
+          onChange={setGameIntro}
+          {...(experienceIntro ? { experience: experienceIntro } : {})}
+        />
+      </div>
+      {multiplayerRoster}
+    </SetupSection>
+  );
+
+  const renderPageGoals = () => (
+    <SetupSection title={localizeUi("game.setupPage.goals")}>
+      <OvRow label={<label htmlFor={`${activeChatId}:goals`}>{localizeUi("game.setupPage.playerGoals")}</label>} top>
+        <div className="ov-grow ov-setup__field">
+          <div className="ov-gsp__withideas is-top">
+            <textarea
+              id={`${activeChatId}:goals`}
+              value={playerGoals}
+              onChange={(e) => setPlayerGoals(e.target.value)}
+              placeholder={localizeUi("ui.game.gamesetupwizard.whatDoYouWantToAchieve")}
+              rows={3}
+              className={cn(pageInput, "resize-y")}
+            />
+            <OvIdeasMenu
+              title={localizeUi("game.setupPage.goalIdeas")}
+              buttonLabel={localizeUi("game.setupPage.ideas")}
+              items={[...suggestionIdeas(goalSuggestions), ...learnedIdeas("goals", learnedGoals, setPlayerGoals)]}
+              onPick={(value) => applySuggestion(setPlayerGoals, value)}
+            />
+          </div>
+          {rememberedSetupText.playerGoals && playerGoals === rememberedSetupText.playerGoals && (
+            <RememberedTextNote onClear={() => setPlayerGoals("")} />
+          )}
+        </div>
+      </OvRow>
+      <OvRow
+        label={<label htmlFor={`${activeChatId}:preferences`}>{localizeUi("game.setupPage.preferences")}</label>}
+        hint={localizeUi("ui.game.gamesetupwizard.optional")}
+        top
+      >
+        <div className="ov-grow ov-setup__field">
+          <div className="ov-gsp__withideas is-top">
+            <textarea
+              id={`${activeChatId}:preferences`}
+              value={preferences}
+              onChange={(e) => setPreferences(e.target.value)}
+              placeholder={localizeUi("ui.game.gamesetupwizard.anyExtraDetailsForTheGm")}
+              rows={3}
+              className={cn(pageInput, "resize-y")}
+            />
+            <OvIdeasMenu
+              title={localizeUi("game.setupPage.preferenceIdeas")}
+              buttonLabel={localizeUi("game.setupPage.ideas")}
+              items={[
+                ...PREFERENCE_SUGGESTIONS.map((value) => ({
+                  value,
+                  label: value,
+                  group: localizeUi("game.setupPage.suggestions"),
+                })),
+                ...learnedIdeas("preferences", learnedPreferences, setPreferences),
+              ]}
+              onPick={(value) => setPreferences((prev) => (prev ? `${prev}, ${value.toLowerCase()}` : value))}
+            />
+          </div>
+          {rememberedSetupText.preferences && preferences === rememberedSetupText.preferences && (
+            <RememberedTextNote onClear={() => setPreferences("")} />
+          )}
+        </div>
+      </OvRow>
+    </SetupSection>
+  );
+
+  const pageMissing = !gmConnectionId ? localizeUi("game.setupPage.needsModel") : canStartMessage;
+  const pageFailure = setupFailureMessage ? (
+    <div role="alert" className="ov-gsp__failure">
+      <p>{setupFailureMessage}</p>
+      {onDismissSetupFailure && (
+        <button
+          type="button"
+          onClick={onDismissSetupFailure}
+          aria-label={localizeUi("ui.game.gamesurfacecomponent.setupFailureDismiss")}
+          className="ov-setup__close"
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  ) : null;
+
+  if (pageMode) {
+    return (
+      <>
+        <SetupPage
+          kind="game"
+          eyebrow={localizeUi("navigation.chatSidebar.new.game")}
+          title={
+            <SetupTitleField
+              name={gameName}
+              placeholder={localizeUi("ui.game.gamesetupwizard.nameYourAdventure")}
+              onRename={setGameName}
+            />
+          }
+          subtitle={localizeUi("game.setupPage.intro")}
+          onClose={() => void cancelSetup()}
+          inert={isLoading}
+          footer={pageFailure}
+          bar={
+            <>
+              <input
+                ref={ovImportInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={(event) => void handleImportSetupFile(event)}
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
+              />
+              {isLoading && onStopGeneration ? (
+                <button type="button" className="ov-setup__btn" onClick={onStopGeneration}>
+                  {localizeUi("game.setup.stopGeneration")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="ov-setup__btn"
+                  onClick={() => ovImportInputRef.current?.click()}
+                  disabled={isLoading || !setupImportResourcesReady}
+                  title={localizeUi("ui.game.gamesetupwizard.importASetupDownloadedFromAnotherCampaignYouCan")}
+                >
+                  <FileUp size={14} aria-hidden="true" />
+                  <span className="ov-setup__wide">{localizeUi("ui.game.gamesetupwizard.importSetup")}</span>
+                  <span className="ov-setup__narrow">{localizeUi("game.setupPage.import")}</span>
+                </button>
+              )}
+              <span className="ov-setup__status" role="status">
+                {isLoading
+                  ? `${
+                      isDraftingMap
+                        ? localizeUi("ui.game.gamesetupwizard.draftingMap")
+                        : isLinkingSharedWorld
+                          ? localizeUi("ui.game.gamesetupwizard.linkingWorld")
+                          : generationElapsedSeconds >= 60
+                            ? localizeUi("game.setup.stillWaiting")
+                            : localizeUi("game.setupPage.creating")
+                    } ${generationElapsedSeconds}${localizeUi("ui.noodle.stageprofileview.s")}`
+                  : pageMissing}
+              </span>
+              <button
+                type="button"
+                onClick={handleExportSetup}
+                disabled={isLoading || setupDownloadBlocked}
+                className="ov-setup__btn"
+                aria-label={localizeUi("ui.game.gamesetupsummary.downloadSetup")}
+                title={localizeUi("ui.game.gamesetupsummary.downloadSetup")}
+              >
+                <Download size={14} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                data-setup-start
+                onClick={handleComplete}
+                disabled={isLoading}
+                aria-disabled={!canStart || undefined}
+                className={cn("ov-setup__btn is-primary", !canStart && "is-waiting")}
+              >
+                {isLoading ? <Spinner size="sm" /> : <Wand2 size={14} aria-hidden="true" />}
+                <span className="ov-setup__wide">
+                  {localizeUi(multiplayerPlayers ? "multiplayer.game.review" : "ui.game.gamesetupwizard.createWorld")}
+                </span>
+                <span className="ov-setup__narrow">{localizeUi("chat.setupPage.start")}</span>
+              </button>
+            </>
+          }
+        >
+          {importedSetupNotice && (
+            <p className="ov-gsp__notice" role="status" aria-live="polite">
+              <CheckCircle2 size={13} aria-hidden="true" />
+              <span>{importedSetupNotice}</span>
+            </p>
+          )}
+          {missingImportedEntryCount > 0 && (
+            <p role="status" className="ov-setup__sub">
+              {localizeUi("game.setupLore.missingImport", { count: missingImportedEntryCount })}
+            </p>
+          )}
+          {renderPageGame()}
+          {renderPageWorld()}
+          {renderPageParty()}
+          {renderPageGoals()}
+          <SetupMoreOptions summary={localizeUi("game.setupPage.more")}>
+            {!multiplayerPlayers && <MultiplayerPrepareButton chatId={activeChatId} />}
+            <SetupBlock title={localizeUi("chat.setupPage.lorebooks")}>
+              <div className="ov-gsp space-y-4">{renderStep(4)}</div>
+            </SetupBlock>
+            <SetupBlock title={localizeUi("game.setupPage.features")}>
+              <div className="ov-gsp space-y-4">{renderStep(5)}</div>
+            </SetupBlock>
+            <SetupBlock title={localizeUi("game.setupPage.gmInstructions")}>
+              <div className="ov-gsp space-y-4">{renderStep(6)}</div>
+            </SetupBlock>
+          </SetupMoreOptions>
+        </SetupPage>
+        {legacyExperienceDialog}
+        {spatialTemplatePicker}
+      </>
+    );
+  }
+
   return (
     <>
       {/* Just under the body-level pickers it opens (Modal, z-[10000]). On iPhone WebKit the app shell is no
           stacking context, so a higher layer here would cover the "Model for …" and character pickers.
-          New layout: Cancel is the only way out, and the tab bar stays reachable above the dialog. */}
+          The new layout shows the setup page instead. */}
       <div
-        className={cn("fixed inset-0 z-[9998] bg-black/45 backdrop-blur-[2px]", overhaulActive && "ov-gsw-layer")}
-        onClick={isLoading || overhaulActive ? undefined : () => void cancelSetup()}
+        className="fixed inset-0 z-[9998] bg-black/45 backdrop-blur-[2px]"
+        onClick={isLoading ? undefined : () => void cancelSetup()}
       />
       <div
         className={cn(
           "fixed inset-0 z-[9999] flex items-center justify-center p-3 pointer-events-none max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))] sm:p-4",
-          overhaulActive && "ov-gsw-layer",
         )}
       >
         <AnimatePresence mode="wait">
@@ -4276,81 +5075,29 @@ export function GameSetupWizard({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.97 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className={cn(
-              GAME_SETUP_WIZARD_PANEL_CLASS,
-              adjustGameAssetsOpen && "max-w-5xl",
-              overhaulActive && "ov-gsw",
-            )}
+            className={cn(GAME_SETUP_WIZARD_PANEL_CLASS, adjustGameAssetsOpen && "max-w-5xl")}
           >
             <div className={cn(NEUTRAL_PANEL_HEADER, "flex shrink-0 items-center justify-between")}>
               <h3 id="game-setup-wizard-title" className={NEUTRAL_PANEL_TITLE}>
                 {localizeUi("navigation.chatSidebar.new.game")}
               </h3>
-              {overhaulActive && (
-                <>
-                  <span className="flex-1" />
-                  <input
-                    ref={ovImportInputRef}
-                    type="file"
-                    accept=".json,application/json"
-                    onChange={(event) => void handleImportSetupFile(event)}
-                    className="sr-only"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                  />
-                  <button
-                    type="button"
-                    className="ov-gsw__icon"
-                    onClick={() => ovImportInputRef.current?.click()}
-                    disabled={isLoading || !setupImportResourcesReady}
-                    title={localizeUi("ui.chat.quickreplymenu.value1Value2", {
-                      value1: localizeUi("ui.game.gamesetupwizard.reuseAGameSetup"),
-                      value2: localizeUi("ui.game.gamesetupwizard.importASetupDownloadedFromAnotherCampaignYouCan"),
-                    })}
-                    aria-label={localizeUi("ui.game.gamesetupwizard.importSetup")}
-                  >
-                    <FileUp size={15} />
-                  </button>
-                </>
-              )}
-              {/* The new layout closes setup with Cancel only. */}
-              {overhaulActive ? null : (
-                <button
-                  type="button"
-                  onClick={() => void cancelSetup()}
-                  disabled={isLoading}
-                  className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-wait disabled:opacity-40"
-                  aria-label={localizeUi("ui.game.gamesetupwizard.closeSetup")}
-                >
-                  <X size="0.875rem" />
-                </button>
-              )}
+
+              <button
+                type="button"
+                onClick={() => void cancelSetup()}
+                disabled={isLoading}
+                className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-wait disabled:opacity-40"
+                aria-label={localizeUi("ui.game.gamesetupwizard.closeSetup")}
+              >
+                <X size="0.875rem" />
+              </button>
             </div>
 
-            {overhaulActive && (
-              <nav className="ov-gsw__steps" aria-label={localizeUi("ui.game.gamesetupwizard.setupSteps")}>
-                {steps.map((item, i) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    aria-current={i === step ? "step" : undefined}
-                    disabled={isLoading}
-                    className={cn(i === step && "is-on", i < step && "is-done")}
-                    onClick={() => setStep(i)}
-                  >
-                    {i < step ? <Check size={13} aria-hidden="true" /> : <span>{i + 1}</span>}
-                    {item.title}
-                  </button>
-                ))}
-              </nav>
-            )}
             <div
               className={cn(NEUTRAL_PANEL_SCROLL_AREA, "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4")}
             >
-              {!overhaulActive && (
-                <h4 className="text-sm font-semibold text-[var(--foreground)]">{currentStep.title}</h4>
-              )}
-              <p className={cn(NEUTRAL_PANEL_SUBTITLE, overhaulActive ? "ov-gsw__hint" : "mb-4")}>{currentStep.body}</p>
+              <h4 className="text-sm font-semibold text-[var(--foreground)]">{currentStep.title}</h4>
+              <p className={cn(NEUTRAL_PANEL_SUBTITLE, "mb-4")}>{currentStep.body}</p>
               <div className="space-y-4">{renderStep(step)}</div>
             </div>
 
@@ -4408,7 +5155,7 @@ export function GameSetupWizard({
                   </div>
                 </div>
               )}
-              <div className={cn("mb-3 flex items-center justify-center gap-1.5", overhaulActive && "hidden")}>
+              <div className={"mb-3 flex items-center justify-center gap-1.5"}>
                 {steps.map((item, i) => (
                   <button
                     key={item.key}
@@ -4454,9 +5201,7 @@ export function GameSetupWizard({
                     className={GAME_SETUP_PRIMARY_BUTTON_CLASS}
                   >
                     {localizeUi("onboarding.actions.next")}
-                    {overhaulActive
-                      ? localizeUi("ui.modals.modeldownloadmodal.value1", { value1: steps[step + 1]?.title })
-                      : null}
+
                     <ArrowRight size={14} />
                   </button>
                 ) : (
@@ -4502,17 +5247,7 @@ export function GameSetupWizard({
           </motion.div>
         </AnimatePresence>
       </div>
-      {spatialTemplatePickerOpen && (
-        <CapabilityElement
-          packageId="hierarchical-maps"
-          view="setup"
-          capabilityProps={{
-            supportedSelectionKinds: ["template", "shared-world"],
-            onSelect: handleSpatialTemplateSelected,
-            onClose: () => setSpatialTemplatePickerOpen(false),
-          }}
-        />
-      )}
+      {spatialTemplatePicker}
     </>
   );
 }

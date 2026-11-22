@@ -378,6 +378,22 @@ export function screenList(ids) {
       },
     })),
     {
+      // New Game setup, the page in the game's own tab (E1, 2026-11-22): Game, World, Party, Goals, the Start bar.
+      id: "new-game-setup",
+      group: "core",
+      run: null,
+      then: async (page) => {
+        const button = page.getByRole("button", { name: "Start a new game" }).filter({ visible: true });
+        await button
+          .first()
+          .waitFor({ timeout: 10_000 })
+          .catch(() => {});
+        if (!(await button.count())) return "not on this layout";
+        await button.first().click();
+        await page.waitForSelector('[data-setup-page="game"]', { timeout: 20_000 });
+      },
+    },
+    {
       // New game > Lorebooks with "Select individual entries" open and one book opened (#9645): a searchable list of
       // books drawn a page at a time, each book's entries read only when it is opened.
       id: "new-game-lore-entries",
@@ -385,19 +401,16 @@ export function screenList(ids) {
       then: async (page) => {
         const button = page.getByRole("button", { name: "Start a new game" }).filter({ visible: true });
         // Home can still be drawing its shortcuts when the screen opens.
-        await button.first().waitFor({ timeout: 10_000 }).catch(() => {});
+        await button
+          .first()
+          .waitFor({ timeout: 10_000 })
+          .catch(() => {});
         if (!(await button.count())) return "not on this layout";
         await button.first().click();
-        const wizard = page.locator('[data-component="GameSetupWizard"]');
+        // The setup page in the game's own tab: Lorebooks are under "+ More options".
+        const wizard = page.locator('[data-setup-page="game"]');
         await wizard.waitFor({ state: "visible", timeout: 20_000 });
-        // The step row jumps straight to Lorebooks; without it (a narrow screen), Next four times.
-        const tab = wizard.locator(".ov-gsw__steps button").filter({ hasText: "Lorebooks", visible: true });
-        if (await tab.count()) await tab.first().click();
-        else
-          for (let i = 0; i < 4; i++) {
-            await wizard.getByRole("button", { name: /^Next/ }).click();
-            await page.waitForTimeout(300);
-          }
+        await wizard.getByRole("button", { name: /More options/ }).click();
         await wizard.getByRole("button", { name: "Select individual entries", exact: true }).click();
         const books = wizard.locator('[data-component="GameSetupLoreEntryPicker.Books"]');
         // The long-named book with 24 entries; the shelves fill the first page, so it is found by search.
