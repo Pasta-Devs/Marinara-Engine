@@ -325,7 +325,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     labelKey: "omnibar.settings.mariContextDepth.label",
     label: "Turn context placement",
     description:
-      "Where she reads this turn's context: the time, attached chats, @ links and notes from earlier turns. Above her last reply and your message keeps her on your task instead of carrying on a story she was shown. At the end she reads it last. Further back keeps less of the chat cached.",
+      "Where she reads this turn's context: the time, attached chats, @ links and notes from earlier turns. Above her last reply keeps her on your task instead of a story she was shown. Further back keeps less of the chat cached.",
     descriptionKey: "omnibar.settings.mariContextDepth.help",
     aliases: ["mari", "depth", "context depth", "injection", "workspace context", "prompt cache", "roleplay"],
     kind: "Select",

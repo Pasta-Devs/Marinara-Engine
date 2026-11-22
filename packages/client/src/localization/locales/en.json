@@ -7425,7 +7425,7 @@
   "omnibar.settings.label": "Search and Professor Mari settings",
   "omnibar.settings.mari.heading": "Professor Mari",
   "omnibar.settings.mariContextDepth.couldNotChange": "Could not change where her turn context goes.",
-  "omnibar.settings.mariContextDepth.help": "Where she reads this turn's context: the time, attached chats, @ links and notes from earlier turns. Above her last reply and your message keeps her on your task instead of carrying on a story she was shown. At the end she reads it last. Further back keeps less of the chat cached.",
+  "omnibar.settings.mariContextDepth.help": "Where she reads this turn's context: the time, attached chats, @ links and notes from earlier turns. Above her last reply keeps her on your task instead of a story she was shown. Further back keeps less of the chat cached.",
   "omnibar.settings.mariContextDepth.label": "Turn context placement",
   "omnibar.settings.mariContextDepth.option.back_one": "Above the last message",
   "omnibar.settings.mariContextDepth.option.back_other": "Above the last {{count}} messages",
