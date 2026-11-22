@@ -118,3 +118,13 @@ export async function seedUIState(
 export async function isolateSyncedUISettings(page: Page | BrowserContext) {
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
 }
+
+/**
+ * Turns the new layout off before the app loads. For cases that mount the game setup wizard on its own and
+ * drive its classic stepper: with the new layout on, setup is one page in the game's tab instead.
+ */
+export async function seedClassicLayout(page: Page | BrowserContext) {
+  await page.addInitScript(() =>
+    localStorage.setItem("marinara-overhaul-layout", JSON.stringify({ state: { enabled: false }, version: 3 })),
+  );
+}

@@ -14,7 +14,7 @@ import {
 import { openChatTool } from "./chat-settings-tools.js";
 import { downloadExport } from "./export-save.js";
 import { openGame } from "./game-ruleset-fight-fixture.js";
-import { seedUIState } from "./ui-state-fixture.js";
+import { seedUIState, seedClassicLayout } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { chooseOption, pickerLabels } from "./select-field.js";
 
@@ -79,6 +79,7 @@ async function mountWizard(page: Page, testInfo: TestInfo): Promise<Locator> {
     rightPanelOpen: false,
     theme: testInfo.project.name === "desktop-chromium" ? "light" : "dark",
   });
+  await seedClassicLayout(page);
   await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?", exact: true })).toBeVisible({
