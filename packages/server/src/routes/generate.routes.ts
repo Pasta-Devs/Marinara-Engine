@@ -9426,6 +9426,19 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           const providerMacroContext = targetCharacterProfile
             ? scopePromptMacroContextToCharacter(responderMacroContext, targetCharacterProfile)
             : responderMacroContext;
+          // Peek prompt's injected blocks get the same macro passes as this responder's messages, so a note with
+          // {{char}} still matches the text that was sent.
+          const responderPeekPromptBlocks = [...peekInjectedBlocks, ...responderPeekBlocks].map((block) => {
+            const deferred = deferredTargetCharacterProfile
+              ? resolveDeferredCharacterMacros(block.content, deferredTargetCharacterProfile, responderMacroContext)
+              : block.content;
+            const [resolved] = resolvePromptMessageMacros(
+              [{ role: "system" as const, content: deferred }],
+              providerMacroContext,
+              historyMacroProfilesById,
+            );
+            return { ...block, content: resolved?.content ?? deferred };
+          });
           const preparedMessagesForGen = resolvePromptMessageMacros(
             macroScopedMessagesForGen,
             providerMacroContext,
@@ -12305,15 +12318,14 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             }
             // Cache the final prompt (what was actually sent to the model) for Peek Prompt
             // `parts` names injected blocks merged into a message (Peek prompt only; never sent).
-            extraUpdate.cachedPrompt = labelInjectedParts(finalPromptSent, [
-              ...peekInjectedBlocks,
-              ...responderPeekBlocks,
-            ]).map(({ message: m, parts }) => ({
-              role: m.role,
-              content: m.content,
-              ...(parts.length > 0 ? { parts } : {}),
-              ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
-            }));
+            extraUpdate.cachedPrompt = labelInjectedParts(finalPromptSent, responderPeekPromptBlocks).map(
+              ({ message: m, parts }) => ({
+                role: m.role,
+                content: m.content,
+                ...(parts.length > 0 ? { parts } : {}),
+                ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
+              }),
+            );
             // Cache the lorebook scan that produced the prompt so Active Context
             // reflects the last generation instead of a best-effort rescan.
             extraUpdate.lorebookScan = lorebookScanSnapshot;
