@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import {
   labelInjectedParts,
+  peekBlocksForResponder,
   worldInfoPeekBlocks,
   type PeekInjectedBlock,
 } from "../services/prompt/peek-injected-parts.js";
@@ -9307,17 +9308,20 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             : responderMacroContext;
           // Peek prompt's injected blocks get the same macro passes as this responder's messages, so a note with
           // {{char}} still matches the text that was sent.
-          const responderPeekPromptBlocks = [...peekInjectedBlocks, ...responderPeekBlocks].map((block) => {
-            const deferred = deferredTargetCharacterProfile
-              ? resolveDeferredCharacterMacros(block.content, deferredTargetCharacterProfile, responderMacroContext)
-              : block.content;
-            const [resolved] = resolvePromptMessageMacros(
-              [{ role: "system" as const, content: deferred }],
-              providerMacroContext,
-              historyMacroProfilesById,
-            );
-            return { ...block, content: resolved?.content ?? deferred };
-          });
+          const responderPeekPromptBlocks = peekBlocksForResponder(
+            [...peekInjectedBlocks, ...responderPeekBlocks],
+            (text) => {
+              const deferred = deferredTargetCharacterProfile
+                ? resolveDeferredCharacterMacros(text, deferredTargetCharacterProfile, responderMacroContext)
+                : text;
+              const [resolved] = resolvePromptMessageMacros(
+                [{ role: "system" as const, content: deferred }],
+                providerMacroContext,
+                historyMacroProfilesById,
+              );
+              return resolved?.content ?? deferred;
+            },
+          );
           const preparedMessagesForGen = resolvePromptMessageMacros(
             macroScopedMessagesForGen,
             providerMacroContext,

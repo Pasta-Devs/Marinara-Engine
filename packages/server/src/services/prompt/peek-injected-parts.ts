@@ -89,6 +89,17 @@ export function labelInjectedParts<T extends { role: string; content: unknown }>
   }));
 }
 
+/**
+ * The blocks as one responder's prompt has them: `resolveText` applies the macro passes that responder's messages
+ * get (deferred {{char}} and the provider-boundary pass), so a block still matches the text that was sent.
+ */
+export function peekBlocksForResponder(
+  blocks: readonly PeekInjectedBlock[],
+  resolveText: (text: string) => string,
+): PeekInjectedBlock[] {
+  return blocks.map((block) => ({ ...block, content: resolveText(block.content) }));
+}
+
 /** Lorebook depth entries as Peek prompt blocks. */
 export function worldInfoPeekBlocks(entries: ReadonlyArray<{ content: string; depth: number }> | null | undefined) {
   return (entries ?? [])
