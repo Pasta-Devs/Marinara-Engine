@@ -14,6 +14,7 @@
  * list to update. `omnibar-settings.test.ts` fails if a row ever points at an
  * id this file does not define.
  */
+import { isMarinaraAndroidShell } from "./android-bridge";
 import {
   SETTINGS_SECTION_BY_ID,
   SETTINGS_SECTIONS,
@@ -1905,6 +1906,9 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
 ] as const;
 
+/** Settings that need the Android app (APK) bridge. */
+const ANDROID_APP_ONLY_CONTROLS = new Set<string>(["android-status-bar"]);
+
 export function searchSettings(
   query: string,
   localize: (englishText: string) => string,
@@ -1917,6 +1921,8 @@ export function searchSettings(
   const controlResults = SETTINGS_SEARCHABLE_CONTROLS.flatMap((control) => {
     const section = SETTINGS_SECTION_BY_ID.get(control.sectionId);
     if (!section) return [];
+    // The Android app's own settings only work inside the app (Chrome on Android has no bridge).
+    if (ANDROID_APP_ONLY_CONTROLS.has(control.id) && !isMarinaraAndroidShell()) return [];
     // Both the English and the translated copy match, so a query works in either language.
     const haystack = [
       control.label,

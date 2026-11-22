@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { isolateSyncedUISettings, seedUIState } from "./ui-state-fixture.js";
+import { isolateSyncedUISettings, seedUIState, seedClassicLayout } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { clickTopbarPanel } from "./topbar-navigation.js";
 import { chooseConnection } from "./connection-picker.js";
@@ -700,6 +700,7 @@ test("Game setup enables only the configured compatible audio capabilities", asy
   await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/capability-packages/agents", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/lorebooks", (route) => route.fulfill({ json: [] }));
+  await seedClassicLayout(page);
   await prepare(page, "dark");
   await prepareViteFixtureDependencies(page);
   await page.evaluate(async () => {

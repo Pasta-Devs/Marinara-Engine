@@ -74,6 +74,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
       <button
         type="button"
         ref={btnRef}
+        data-quick-switcher-trigger
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={open}

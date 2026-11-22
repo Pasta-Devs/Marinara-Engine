@@ -157,6 +157,29 @@
   font-size: 0.875rem;
   line-height: 1.15;
 }
+/* Narrow screens (Android's large font makes a 412px phone 317px wide): the same two-line title, so it isn't
+   "Storm a…" (QC panel 2, #12). */
+@media (max-width: 359px) {
+  :root[data-overhaul="mobile"] .ovm-title {
+    padding-inline: 0;
+  }
+  :root[data-overhaul="mobile"] .ovm-title__inner {
+    gap: 0.25rem;
+  }
+  :root[data-overhaul="mobile"] .ovm-title__text small {
+    display: none;
+  }
+  :root[data-overhaul="mobile"] .ovm-title__text :is(b, .ov-tab__label) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: break-word;
+    font-size: 0.875rem;
+    line-height: 1.15;
+  }
+}
 .ovm-stack-btn {
   display: flex;
   flex: none;
@@ -757,9 +780,82 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-:root[data-overhaul="mobile"] .ov-cs .mari-window__control {
-  width: 2.25rem;
-  height: 2.25rem;
+/* Header controls are full touch targets (44px). They sit in a row, so they grow rather than getting a hit area. */
+:root[data-overhaul="mobile"] .ov-cs > .mari-window__header .mari-window__control {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+}
+:root[data-overhaul="mobile"] .ov-cs > .mari-window__header {
+  padding: 0.25rem 0.25rem 0.25rem 1rem;
+  gap: 0;
+}
+:root[data-overhaul="mobile"] .ov-cs > .mari-window__header > .mari-window__controls {
+  margin-left: 0;
+}
+:root[data-overhaul="mobile"] .ov-cs .mari-window__title-row {
+  gap: 0.25rem;
+}
+:root[data-overhaul="mobile"] .ov-cs .ov-cs__head {
+  gap: 0;
+}
+:root[data-overhaul="mobile"] .ov-cs .ov-cs__edit-icon.is-on {
+  border-radius: 999px;
+  background: var(--ov-accent);
+  color: var(--background);
+}
+/* On the All settings list and a section's page the header is that page's: back, its name, its help. */
+:root[data-overhaul="mobile"] .ov-cs > .mari-window__header:has(.ovm-cs-head__back) {
+  padding-left: 0.25rem;
+}
+.ovm-cs-head__back {
+  flex-shrink: 0;
+}
+.ovm-cs-head__help {
+  margin-left: 0.125rem;
+}
+/* Narrow screens (Android's large font): the title keeps "Chat Settings" whole, and Connection's model goes under its
+   label instead of "Loca…" (QC panel 2, #12). */
+@media (max-width: 359px) {
+  :root[data-overhaul="mobile"] .ov-cs .mari-window__title {
+    font-size: 0.9375rem;
+  }
+  /* Large font grows rem: the controls stay a 44px target (not 57px) so the title fits beside them. */
+  :root[data-overhaul="mobile"] .ov-cs > .mari-window__header .mari-window__control {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+  :root[data-overhaul="mobile"] .ov-cs > .mari-window__header {
+    padding-left: 0.5rem;
+    padding-right: 0.125rem;
+  }
+  :root[data-overhaul="mobile"] .ov-cs .mari-window__title-row {
+    gap: 0;
+  }
+  .ov-cs.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 0.625rem !important;
+  }
+  .ov-cs.ov-cs.ov-cs.ov-cs
+    [data-ovm-cs-view]
+    .mari-drawer[data-chat-settings-section="connection"]
+    .mari-drawer__body
+    [data-chat-settings-model-field]
+    > button[type="button"][aria-expanded] {
+    justify-content: flex-start !important;
+    padding-left: 2rem !important;
+  }
+}
+/* New-chat setup on phones: picker text matches the labels (it was 12px under 17px labels, worse with large font). */
+:root[data-overhaul="mobile"] .ov-setup .mari-chrome-field {
+  font-size: 0.9375rem;
+}
+.ov-cs-edit__hidden-count {
+  margin: 0 0 0.5rem;
+  color: var(--ov-accent-text);
+  font-size: 0.875rem;
 }
 :root[data-overhaul="mobile"] .ov-cs .mari-drawer > [data-drawer-toggle],
 :root[data-overhaul="mobile"] .ov-cs .mari-drawer > div:first-child {
@@ -1249,6 +1345,18 @@
   height: auto !important;
   max-height: 80dvh !important;
 }
+/* Tablets upright: a section's page is a card as tall as its content too (one switch left a ~1000px empty panel). */
+@media (min-width: 640px) {
+  :root[data-overhaul="mobile"] .mari-window.ov-cs:has([data-ovm-cs-view="page"]) {
+    top: auto !important;
+    bottom: calc(0.5rem + env(safe-area-inset-bottom)) !important;
+    height: auto !important;
+    max-height: 80dvh !important;
+  }
+  :root[data-overhaul="mobile"] .mari-window.ov-cs:has([data-ovm-cs-view="page"]) [data-ovm-cs-view] {
+    flex: 0 1 auto;
+  }
+}
 /* Its loading pane: the same bottom sheet, as tall as the quick page was last time (QC Nov 14 #1). */
 :root[data-overhaul="mobile"] .mari-window.ov-cs.ov-cs--placeholder {
   top: auto !important;
@@ -1334,6 +1442,31 @@
   flex: none;
   color: var(--ov-dim);
 }
+/* A section whose page would hold one control shows that control on its row (Prompt Preset with none chosen). */
+.ov-cs.ov-cs .ovm-cs-row--inline > .ovm-cs-row__btn {
+  min-height: 3.25rem;
+  padding: 0 0.625rem 0 0.875rem !important;
+}
+.ovm-cs-row--inline .ovm-cs-row__control {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+}
+.ovm-cs-row--inline .ovm-cs-row__control > * {
+  min-width: 0;
+}
+.ov-cs.ov-cs .ovm-cs-row--inline .ovm-cs-row__control :is(button, select).mari-preset-native-select {
+  min-height: 2.75rem;
+  padding: 0 0.25rem 0 0.5rem !important;
+  margin: -0.25rem 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--ov-muted);
+  font-size: 0.9375rem;
+  justify-content: flex-end;
+}
 [data-ovm-cs-view="all"] > [data-ovm-quick] {
   margin-top: 1px;
   border-radius: var(--ov-cs-tile-radius, 0.75rem);
@@ -1364,7 +1497,7 @@
    padding would otherwise leave a strip where scrolled text shows through. Some sections (Advanced
    Parameters) sit in a wrapper that carries their order, so the page is not always a direct child. */
 .marinara-chat-popover__scroll:has(.ovm-cs-page[data-ovm-cs-current]) {
-  padding-top: 0 !important;
+  padding-top: 0.5rem !important;
 }
 .ovm-cs-page__head {
   position: sticky;

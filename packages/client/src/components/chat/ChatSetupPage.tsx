@@ -59,10 +59,11 @@ export function SetupPage({
   subtitle,
   children,
   bar,
+  footer,
   onClose,
   inert,
 }: {
-  kind: "roleplay" | "conversation";
+  kind: "roleplay" | "conversation" | "game";
   eyebrow: string;
   /** The chat's name, as an editable heading. */
   title: ReactNode;
@@ -70,6 +71,8 @@ export function SetupPage({
   children: ReactNode;
   /** The Start bar, in place of the message box. */
   bar: ReactNode;
+  /** Just above the Start bar, outside the scrolling page (a failed start's reason). */
+  footer?: ReactNode;
   onClose: () => void;
   inert?: boolean;
 }) {
@@ -91,7 +94,7 @@ export function SetupPage({
   return (
     <div
       ref={pageRef}
-      data-component="ChatSetupWizard"
+      data-component={kind === "game" ? "GameSetupWizard" : "ChatSetupWizard"}
       data-setup-page={kind}
       className={cn("ov-setup", `ov-setup--${kind}`)}
       inert={inert}
@@ -120,6 +123,7 @@ export function SetupPage({
           {children}
         </div>
       </div>
+      {footer}
       <div className="ov-setup__bar">
         <div className="ov-setup__barin">{bar}</div>
       </div>

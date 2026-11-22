@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Phone toast placement: below the header rows at the top of the screen
+// Toast placement: below the header rows at the top of the screen (phones, tablets and computers)
 // ──────────────────────────────────────────────
 // A phone toast sits top-centre, where windows, editors, the right panel, the chat list and the chat
 // put their header controls (the Chat Settings star, Save, Close). Sonner pauses a hovered or pressed
@@ -17,6 +17,13 @@ const PHONE_HEADER_ROWS = [
   ".mari-editor-header",
   "[data-chat-window-top-obstacle]",
   "[data-phone-toast-header]",
+  // New layout page headers holding Close, Save and the like (QC panel 2: toasts covered them on iPad and desktop).
+  ".ov-edhead",
+  ".ov-setup__head",
+  ".ov-vw__top",
+  ".ov-gallery__head",
+  ".ov-settings__head",
+  "[data-mari-window-header]",
 ].join(",");
 // A row starting this close below the rows above it belongs to the same stack (the chat's buttons sit
 // 8px under the top bar); anything further down, such as a chat button moved lower, does not.

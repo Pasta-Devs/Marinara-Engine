@@ -88,7 +88,7 @@ export function ChatTagsEditor({ chat }: { chat: Chat }) {
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] text-[var(--muted-foreground)] border border-dashed border-[var(--border)] hover:text-[var(--foreground)]"
+          className="ov-hit-y inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] text-[var(--muted-foreground)] border border-dashed border-[var(--border)] hover:text-[var(--foreground)]"
         >
           <Plus size="0.625rem" />
           {t("theming.tags.add", "Add tag")}

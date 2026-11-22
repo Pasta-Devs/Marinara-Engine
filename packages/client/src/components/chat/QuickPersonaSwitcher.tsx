@@ -51,6 +51,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
       <button
         type="button"
         ref={btnRef}
+        data-quick-persona-trigger
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={open}

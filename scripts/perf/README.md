@@ -14,7 +14,9 @@ It installs WebKitGTK's WebDriver and a virtual display the first time (about 20
 the running app as an iPhone (375x812) and an iPad mini (744x1133) with **Show tap timings** on, taps Library (Chats
 in the classic layout) and Home, saves screenshots to `/tmp/webkit-qc/smoke/` and prints the tap timings readings. Running it again only checks
 that everything is still up. `--restart` fixes a stuck driver ("Maximum number of active sessions"), `--stop` stops
-it all.
+it all. Both only touch this setup's own browsers (the ones started by the driver in this `WEBKIT_QC_DIR`), so two
+runs side by side with their own `WEBKIT_QC_DIR`, `WEBKIT_QC_DRIVER_PORT` and `WEBKIT_QC_PROXY_PORT` don't stop each
+other.
 
 Then drive your own checks:
 
