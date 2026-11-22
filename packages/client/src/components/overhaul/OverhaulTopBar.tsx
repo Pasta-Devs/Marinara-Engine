@@ -6,7 +6,10 @@
 // Chat settings, Help, Library and the Library pane toggle on the right.
 // Sidebar collapse controls live here, never over the chat background.
 // ──────────────────────────────────────────────
-import { requestCloseChatSettings, toggleChatSettings as toggleChatSettingsWindow } from "../../lib/chat-settings-close";
+import {
+  requestCloseChatSettings,
+  toggleChatSettings as toggleChatSettingsWindow,
+} from "../../lib/chat-settings-close";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   BookOpen,

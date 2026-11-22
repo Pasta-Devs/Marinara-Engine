@@ -26,7 +26,9 @@ function textFieldFocused(): boolean {
   const active = document.activeElement;
   if (!(active instanceof HTMLElement)) return false;
   if (active.isContentEditable || active instanceof HTMLTextAreaElement) return true;
-  return active instanceof HTMLInputElement && !/^(button|checkbox|radio|range|submit|reset|file|color)$/.test(active.type);
+  return (
+    active instanceof HTMLInputElement && !/^(button|checkbox|radio|range|submit|reset|file|color)$/.test(active.type)
+  );
 }
 
 /**

@@ -182,6 +182,24 @@ function phoneSheetLayers(layers: BackLayer[]) {
   if (chatSettingsOpen) chatSettingsLayers(layers, true);
 }
 
+/** How many Chat settings levels a page opened from Chat settings returns to (0: none, or Chat settings is open). */
+function chatSettingsReturnLevels(ui: ReturnType<typeof useUIStore.getState>): number {
+  // While the page is open, then for the moment between leaving it and Chat settings reopening.
+  const back = ui.hasAnyDetailOpen() ? ui.chatSettingsReturn : ui.chatSettingsRequest;
+  const overhaul = useOverhaulStore.getState();
+  if (!back || !overhaul.enabled || SPLIT_PANE) return 0;
+  if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID] === true) return 0;
+  if (useChatStore.getState().activeChatId !== back.chatId) return 0;
+  if (overhaul.desktop) return isTouchDevice() ? 1 : 0;
+  const place = back.mobileNav;
+  if (!place) return 1;
+  return (
+    1 +
+    (place.view === "all" || (place.view === "page" && place.back === "all") ? 1 : 0) +
+    (place.view === "page" ? 1 : 0)
+  );
+}
+
 /**
  * Chat settings, one back entry per level, so each back (and each Safari swipe) steps up exactly one: the sheet,
  * All settings, a section's page, an editor page (Chat Variables, Memories…). An entry pushed when a level opens
@@ -191,7 +209,9 @@ function phoneSheetLayers(layers: BackLayer[]) {
 function chatSettingsLayers(layers: BackLayer[], drill: boolean) {
   layers.push({ id: "chat-settings", close: () => void requestCloseChatSettings() });
   if (drill) {
-    const nav = useMobileChatSettingsNav.getState();
+    // Reopening on a remembered page (back from Agent Organizer): count its levels before the sheet shows it.
+    const state = useMobileChatSettingsNav.getState();
+    const nav = state.pendingPlace ?? state;
     if (nav.view === "all" || (nav.view === "page" && nav.back === "all"))
       layers.push({ id: "chat-settings-all", close: () => useMobileChatSettingsNav.getState().showQuick() });
     if (nav.view === "page")
@@ -223,6 +243,14 @@ export function getStoreBackLayers(): BackLayer[] {
   // One layer per full-page surface on the stack (Wren's editor over Characters is two), because back steps through
   // them one at a time. A single layer for the stack had to re-push its entry after each press without a tap, which
   // Safari and Chrome skip, so the next swipe left the app (QC Nov 22, the "unexplained exit").
+  // A page opened from Chat settings (Agent Organizer, a new agent): back from it reopens Chat settings where it was.
+  // Its levels keep their history entries underneath, so that reopening pushes nothing (an entry pushed without a
+  // tap is one Safari and Chrome skip).
+  {
+    const levels = chatSettingsReturnLevels(ui);
+    for (let index = 0; index < levels; index += 1)
+      layers.push({ id: index === 0 ? "chat-settings-return" : `chat-settings-return-${index}`, close: () => {} });
+  }
   if (ui.hasAnyDetailOpen()) {
     for (let index = 0; index <= ui.mainSurfaceHistory.length; index += 1)
       layers.push({
