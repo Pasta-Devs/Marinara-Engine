@@ -31,6 +31,7 @@ import { sanitizePromptLeaf } from "./prompt-escaping.js";
 import { ensureLorebookScan, expandMarker, type MarkerContext } from "./marker-expander.js";
 import { hasSamePromptAudience, mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js";
 import { injectAtDepth } from "../lorebook/prompt-injector.js";
+import { MEMORY_RECALL_SLOT_TOKEN, stripMemoryRecallSlot } from "./memory-recall-slot.js";
 import {
   ADVANCED_MEMORY_MARKER_TYPES,
   createAdvancedMemoryPlacement,
@@ -167,6 +168,8 @@ export interface AssemblerInput {
   advancedMemory?: AdvancedMemoryPromptParts;
   /** Leave opaque slots for per-responder finalization without repeating lorebook/macro side effects. */
   deferAdvancedMemory?: boolean;
+  /** Generation fills the Memory Recall marker's slot itself; otherwise the assembler drops it. */
+  deferMemoryRecall?: boolean;
   /** Whether agents are enabled for this chat */
   enableAgents?: boolean;
   /** Per-chat list of active agent type IDs (empty = use global enabled state) */
@@ -579,6 +582,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   let outletScanAttempted = false;
   const usedImageOutlets = new Set<string>();
   let idMacroCardMarkerSection: ResolvedSection | null = null;
+  let memoryRecallMarkerPlaced = false;
   const runtimeAgentTypesUsed = new Set<string>();
 
   for (const sectionId of sectionOrder) {
@@ -618,6 +622,24 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
         );
         continue;
       }
+    }
+
+    // Memory Recall marker: a slot generation fills with recalled memories. Only the first one counts.
+    if (section.isMarker === "true" && section.markerConfig && markerTypeOf(section) === "memory_recall") {
+      if (memoryRecallMarkerPlaced) continue;
+      memoryRecallMarkerPlaced = true;
+      const role = (section.role || "system") as ResolvedSection["role"];
+      const resolved: ResolvedSection = {
+        id: section.id,
+        groupId: null,
+        role,
+        depth: section.injectionDepth,
+        messages: [{ role, content: MEMORY_RECALL_SLOT_TOKEN, contextKind: "prompt" }],
+      };
+      (section.injectionPosition === "depth" && section.injectionDepth >= 0 ? depthSections : orderedSections).push(
+        resolved,
+      );
+      continue;
     }
 
     // Outlet macros can appear before a lorebook marker, or without one. Scan
@@ -851,6 +873,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   }
 
   // ── Final: Drop any messages with empty/whitespace-only content ──
+  if (!input.deferMemoryRecall) finalMessages = stripMemoryRecallSlot(finalMessages);
   finalMessages = finalMessages.filter((m) => m.content?.trim());
 
   return {
@@ -892,6 +915,15 @@ interface ResolvedSection {
   isChatHistory?: boolean;
   /** Placement placeholder for dynamically discovered character-ID macro cards. */
   isIdMacroCards?: boolean;
+}
+
+function markerTypeOf(section: { markerConfig?: string | null }): MarkerConfig["type"] | undefined {
+  if (!section.markerConfig) return undefined;
+  try {
+    return (JSON.parse(section.markerConfig) as MarkerConfig).type;
+  } catch {
+    return undefined;
+  }
 }
 
 interface ResolveSectionCtx {

@@ -335,6 +335,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Select",
   },
   {
+    id: "mari-context-depth",
+    sectionId: "omnibar",
+    labelKey: "omnibar.settings.mariContextDepth.label",
+    label: "Turn context placement",
+    description:
+      "Where she reads this turn's context: the time, attached chats, @ links and notes from earlier turns. Above her last reply keeps her on your task instead of a story she was shown. Further back keeps less of the chat cached.",
+    descriptionKey: "omnibar.settings.mariContextDepth.help",
+    aliases: ["mari", "depth", "context depth", "injection", "workspace context", "prompt cache", "roleplay"],
+    kind: "Select",
+  },
+  {
     id: "mari-window-height",
     sectionId: "omnibar",
     labelKey: "omnibar.settings.windowHeight.label",

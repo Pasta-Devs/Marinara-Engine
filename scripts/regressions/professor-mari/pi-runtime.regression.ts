@@ -1843,13 +1843,28 @@ try {
     assert.match(system, /peek-prompt/u);
     assert.match(system, /named subject/u);
     assert.doesNotMatch(system, /workspace_command_protocol/u);
-    // #8375: the per-turn lines (currentTime, this turn's decisions) are not in the system prompt: they follow this
-    // run's message, after the history, so the system prompt and the history stay a cached start from turn to turn.
+    // #8375: the per-turn lines (currentTime, this turn's decisions) are not in the system prompt: they go into the
+    // history at the context depth (default 2: above her last reply and this run's message), so the system prompt and
+    // the history before them stay a cached start from turn to turn, and the user's task still comes last.
     assert.doesNotMatch(system, /<workspace_context>/u, "the system prompt is the same every turn");
-    const turnAt = requests[0]!.messages.findIndex((message) => message.content === "Do the thing.");
-    const turnContext = requests[0]!.messages[turnAt + 1];
-    assert.equal(turnContext?.role, "system");
-    assert.match(turnContext?.content ?? "", /^<workspace_context>\nworkspaceRoot: [\s\S]*currentTime: /u);
+    const order = requests[0]!.messages.map((message) =>
+      message.role === "system"
+        ? message.content.startsWith("<workspace_context>")
+          ? "CONTEXT"
+          : "system"
+        : message.content,
+    );
+    const contextAt = order.indexOf("CONTEXT");
+    assert.deepEqual(order.slice(contextAt - 1, contextAt + 3), [
+      "Earlier question",
+      "CONTEXT",
+      "Earlier answer",
+      "Do the thing.",
+    ]);
+    assert.match(
+      requests[0]!.messages[contextAt]!.content,
+      /^<workspace_context>\nworkspaceRoot: [\s\S]*currentTime: /u,
+    );
     const history = requests[0]!.messages.filter((message) => message.role !== "system");
     assert.deepEqual(
       history.map((message) => [message.role, message.content]),
