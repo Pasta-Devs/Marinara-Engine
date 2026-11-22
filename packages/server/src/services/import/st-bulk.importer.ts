@@ -13,8 +13,15 @@ import {
   importSTCharacter,
   type STCharacterTagImportMode,
 } from "./st-character.importer.js";
-import { buildPersonaLookup, importSTChat, personaLookupKey, type STChatImportNote } from "./st-chat.importer.js";
-import { importSTPreset, type STPresetLeftOut } from "./st-prompt.importer.js";
+import {
+  buildPersonaLookup,
+  importSTChat,
+  personaLookupKey,
+  stChatFileFingerprint,
+  stChatNameFromFileName,
+  type STChatImportNote,
+} from "./st-chat.importer.js";
+import { importSTPreset, type STPresetLeftOut, type STPresetWorldInfo } from "./st-prompt.importer.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { characters as charactersTable, chats as chatsTable } from "../../db/schema/index.js";
@@ -179,6 +186,12 @@ function isPlaceholderChatName(value: unknown) {
   if (typeof value !== "string") return true;
   const name = value.trim().toLowerCase();
   return !name || name === "unused" || name === "new chat";
+}
+
+/** A folder chat's name: the file's, unless the file name is a placeholder ("New Chat", "unused"). */
+function folderChatName(fileName: string, characterName: string) {
+  const name = stChatNameFromFileName(fileName);
+  return name && !isPlaceholderChatName(name) ? name : characterName;
 }
 
 function isConfidentBuiltinPreset(filePath: string) {
@@ -624,7 +637,7 @@ export interface STBulkImportResult {
     regexScripts?: number;
   };
   /** Left out because this Engine already had them (skipAlreadyImported). */
-  skipped?: { characters: number; chats: number; groupChats: number };
+  skipped?: { characters: number; chats: number; groupChats: number; personas?: number };
   /** What came along beyond the counts, and what could not. */
   report?: STBulkImportReport;
   errors: string[];
@@ -659,6 +672,10 @@ export interface STBulkImportReport {
   presetsWithSettings: number;
   /** Preset settings with no place in a Marinara preset. */
   presetSettingsLeftOut: STPresetLeftOut[];
+  /** SillyTavern personas left out because a persona of that name is already here (chats link to it). Up to 20. */
+  personasAlreadyHere: string[];
+  /** Presets per World Info layout (before/after kept apart, one combined spot, or turned off). */
+  presetWorldInfo: Partial<Record<STPresetWorldInfo, number>>;
 }
 
 function emptyBulkImportReport(): STBulkImportReport {
@@ -677,6 +694,8 @@ function emptyBulkImportReport(): STBulkImportReport {
     notBroughtOver: { quickReplies: 0, instruct: 0, context: 0, systemPrompts: 0 },
     presetsWithSettings: 0,
     presetSettingsLeftOut: [],
+    presetWorldInfo: {},
+    personasAlreadyHere: [],
   };
 }
 
@@ -716,11 +735,6 @@ function characterImportSignature(data: unknown): string | null {
       `${name}\u0001${text(inner.description ?? record.description)}\u0001${text(inner.first_mes ?? record.first_mes)}`,
     )
     .digest("hex");
-}
-
-/** A chat file's own fingerprint, kept in the imported chat's metadata. */
-function chatFileFingerprint(content: string) {
-  return createHash("sha256").update(content.replace(/\r\n/g, "\n")).digest("hex");
 }
 
 /**
@@ -803,7 +817,7 @@ export async function runSTBulkImport(
   const existingTagKeys =
     tagImportMode === "existing" && selectedCharacters.length > 0 ? await getExistingCharacterTagKeys(db) : undefined;
   const skipAlreadyImported = options.skipAlreadyImported !== false;
-  const skipped = { characters: 0, chats: 0, groupChats: 0 };
+  const skipped = { characters: 0, chats: 0, groupChats: 0, personas: 0 };
   const report = emptyBulkImportReport();
   const missingPersonas = new Set<string>();
   const presetLeftOut = new Set<STPresetLeftOut>();
@@ -946,11 +960,22 @@ export async function runSTBulkImport(
     if (!existsSync(AVATAR_DIR)) {
       await mkdir(AVATAR_DIR, { recursive: true });
     }
+    // With "Skip what's already here", a persona of the same name (from a chat import or an earlier run)
+    // is used instead of a second, empty copy. Only personas from before this run count, so two
+    // SillyTavern personas sharing a name both come in.
+    const existingPersonas = skipAlreadyImported ? await buildPersonaLookup(db) : null;
     const total = selectedPersonas.length;
     let idx = 0;
     for (const p of selectedPersonas) {
       idx++;
       onProgress?.({ category: "Personas", item: p.name, current: idx, total, imported });
+      const existingId = existingPersonas?.get(personaLookupKey(p.name));
+      if (existingId) {
+        importedPersonaAvatars.set(basename(p.path), existingId);
+        skipped.personas++;
+        if (report.personasAlreadyHere.length < MAX_REPORTED_MISSING_PERSONAS) report.personasAlreadyHere.push(p.name);
+        continue;
+      }
       try {
         // Copy avatar image
         const ext = extname(p.path).toLowerCase();
@@ -1005,14 +1030,21 @@ export async function runSTBulkImport(
       try {
         const content = await readFile(ct.path, "utf-8");
         const fileInfo = await stat(ct.path);
-        const fingerprint = chatFileFingerprint(content);
+        const fingerprint = stChatFileFingerprint(content);
         const branchName = ct.chatName ?? basename(ct.path, ".jsonl");
-        const legacy = legacyChatSignature(
-          ct.characterName,
-          branchName,
-          parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt),
-        );
-        if (alreadyHave(known?.chats, `fp:${fingerprint}`, legacy && `legacy:${legacy}`)) {
+        const chatName = folderChatName(branchName, ct.characterName);
+        const fileCreatedAt = parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt);
+        // Older folder runs named the chat after the character; chats are named after the file now.
+        const legacy = legacyChatSignature(ct.characterName, branchName, fileCreatedAt);
+        const legacyByFile = legacyChatSignature(chatName, branchName, fileCreatedAt);
+        if (
+          alreadyHave(
+            known?.chats,
+            `fp:${fingerprint}`,
+            legacy && `legacy:${legacy}`,
+            legacyByFile && `legacy:${legacyByFile}`,
+          )
+        ) {
           skipped.chats++;
           continue;
         }
@@ -1034,7 +1066,9 @@ export async function runSTBulkImport(
         const chatResult = await importSTChat(content, db, {
           personaLookup,
           characterId: charId,
-          chatName: ct.characterName,
+          // Named after the SillyTavern file, as a single chat import is ("Ilse Marrow - Beach date").
+          // A placeholder file name falls back to the character's.
+          chatName,
           branchName,
           groupId,
           sourceFingerprint: fingerprint,
@@ -1061,7 +1095,7 @@ export async function runSTBulkImport(
       try {
         const content = await readFile(gc.path, "utf-8");
         const fileInfo = await stat(gc.path);
-        const fingerprint = chatFileFingerprint(content);
+        const fingerprint = stChatFileFingerprint(content);
         const legacy = legacyChatSignature(
           gc.groupName,
           null,
@@ -1125,6 +1159,9 @@ export async function runSTBulkImport(
         });
         if ((presetResult.parametersImported?.length ?? 0) > 0) report.presetsWithSettings++;
         if (pr.samplersOnly) report.samplersOnlyPresets++;
+        if (presetResult.worldInfo) {
+          report.presetWorldInfo[presetResult.worldInfo] = (report.presetWorldInfo[presetResult.worldInfo] ?? 0) + 1;
+        }
         for (const key of presetResult.parametersLeftOut ?? []) presetLeftOut.add(key);
         imported.presets++;
       } catch (err) {
