@@ -2565,7 +2565,21 @@ export function AgentEditor() {
       : "ui.agents.agenteditor.writePromptForTextResultExample",
   )}\n\n${customResultExample.value}`;
 
+  // An agent from the store that isn't installed (Image settings' Illustrator row, a Chat settings link) has no
+  // settings page yet: show its install page instead, in place, so Back returns to where the link was.
+  const replaceWithInstallPage = useUIStore((s) => s.replaceAgentDetailWithInstallPage);
+  const agentMissing = !!agentDetailId && agentDetailId !== "__new__" && !builtIn && !dbConfig;
+  const installPackageId = agentMissing
+    ? (capabilityCatalog.data?.packages.find((entry) => entry.manifest.id === agentDetailId)?.manifest.id ?? null)
+    : null;
+  useEffect(() => {
+    if (installPackageId) replaceWithInstallPage(installPackageId);
+  }, [installPackageId, replaceWithInstallPage]);
+
   // ── Loading / not found ──
+  if (agentMissing && (installPackageId || capabilityCatalog.isLoading)) {
+    return <div className="mari-editor-shell flex flex-1" aria-busy="true" />;
+  }
   if (!agentDetailId || (!builtIn && !dbConfig && agentDetailId !== "__new__")) {
     return (
       <div className="mari-editor-shell flex flex-1 items-center justify-center">
