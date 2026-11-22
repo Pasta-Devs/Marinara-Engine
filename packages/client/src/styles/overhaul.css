@@ -1984,7 +1984,8 @@
   white-space: nowrap;
 }
 [data-ov-settings-sections] section[id^="settings-section-"] > div:last-child {
-  padding: 0.25rem 0 0;
+  /* Room under the last thing in the card: a button, slider or note ended flush on the card's edge. */
+  padding: 0.5rem 0;
   border-top: 1px solid var(--ov-line);
 }
 
@@ -2000,8 +2001,34 @@
   border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 55%, transparent);
   border-radius: 0;
 }
+/* A list of rows already pads itself: its first and last row take the card's room instead. */
+[data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  > .flex-col
+  > :first-child:not(.mari-chrome-control) {
+  padding-top: 0;
+}
 [data-ov-settings-sections] section[id^="settings-section-"] > div:last-child > .flex-col > *:last-child {
+  padding-bottom: 0;
   border-bottom: 0;
+}
+/* A button right under a row sits off that row's line instead of doubling it with its own border. */
+[data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  > .flex-col
+  > :not(.mari-chrome-control)
+  + .mari-chrome-control {
+  margin-top: 0.5rem;
+}
+/* Every row already draws its own line, so a section's own divider line stacked a second one under it. */
+[data-ov-settings-sections]
+  section[id^="settings-section-"]
+  > div:last-child
+  > .flex-col
+  > div[class*="border-t"]:empty {
+  display: none;
 }
 [data-ov-settings-sections] section[id^="settings-section-"] .text-xs:not(.mari-chrome-control) {
   font-size: 0.8125rem;

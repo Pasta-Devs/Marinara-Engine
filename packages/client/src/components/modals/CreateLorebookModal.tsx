@@ -13,7 +13,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
-import { useFeatureEnabled } from "../../hooks/use-feature-settings";
+import { useFeatureEnabled, useFeatureSettings } from "../../hooks/use-feature-settings";
 
 const LOREBOOK_CATEGORIES: Array<{ id: LorebookCategory; label: string }> = [
   { id: "world", label: "World" },
@@ -48,6 +48,7 @@ export function CreateLorebookModal({
   // null follows Settings > Advanced > Lorebooks > "Vectors on for new lorebooks" until the user flips it here.
   const [vectorsChoice, setVectorsChoice] = useState<boolean | null>(null);
   const newLorebookVectors = useFeatureEnabled("newLorebookVectors");
+  const featureSettingsLoaded = useFeatureSettings().data !== undefined;
   const vectors = vectorsChoice ?? newLorebookVectors;
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -62,7 +63,8 @@ export function CreateLorebookModal({
     mutationFn: (data: { name: string; description: string; category: LorebookCategory }) =>
       api.post("/lorebooks", {
         ...data,
-        excludeFromVectorization: !vectors,
+        // Send what the switch shows; only while the default has not loaded yet does the server pick it.
+        ...(vectorsChoice === null && !featureSettingsLoaded ? {} : { excludeFromVectorization: !vectors }),
         ...(characterId ? { characterIds: [characterId] } : {}),
         ...(personaId ? { personaIds: [personaId] } : {}),
         ...(defaultScope ? { scope: defaultScope } : {}),
