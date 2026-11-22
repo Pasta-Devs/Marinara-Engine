@@ -751,6 +751,10 @@ export function GameAssetsBrowserView({
           onRescan={() => rescan.mutate()}
           rescanning={rescan.isPending}
           onOpenFolder={() => openFolder.mutate(selectedPath || undefined)}
+          guardLeave={(go) => {
+            if (editingFile && fileCloseRef.current) fileCloseRef.current(go);
+            else go();
+          }}
         />
       ) : (
         <Toolbar
@@ -822,7 +826,7 @@ export function GameAssetsBrowserView({
       )}
 
       {/* Folder Description (hidden when selections exist) */}
-      {selectedPaths.size === 0 && selectedNode?.type === "folder" && (
+      {selectedPaths.size === 0 && selectedNode?.type === "folder" && !(page && editingFile) && (
         <div className="flex min-h-[28px] items-center border-b border-[var(--border)]/40 bg-[var(--card)]/30 px-4 py-1">
           {editingDescription ? (
             <div className="flex w-full items-center gap-2">

@@ -29,7 +29,12 @@ import {
 } from "@marinara-engine/shared";
 import { Check, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Select } from "../ui/Select";
 import "../../styles/classic-card.css";
+
+/** Dropdown values for "no tree picked" (Auto) and "no weak stat". */
+const AUTO_TREE = "__auto__";
+const NO_WEAK = "__none__";
 
 type BuilderStep = "tree" | "strong" | "weak" | "story" | "review";
 
@@ -214,41 +219,46 @@ export function ClassicCardSection({
 
   const body =
     step === "tree" ? (
-      <div className="ov-classic__trees" role="radiogroup" aria-label={stepLabel("tree")}>
-        <button
-          type="button"
-          role="radio"
-          aria-checked={!classic.tree}
-          className="ov-classic__choice is-auto"
-          onClick={() => save({ ...classic, tree: undefined })}
-        >
-          <span className="ov-classic__choice-top">
-            <b>{t("game.combat.marinara.card.auto")}</b>
-            {!classic.tree ? <Check size={14} aria-hidden="true" /> : null}
-          </span>
-          <small>{autoNote}</small>
-        </button>
-        {MARINARA_ARCHETYPES.map((one) => (
-          <button
-            key={one}
-            type="button"
-            role="radio"
-            aria-checked={classic.tree === one}
-            className="ov-classic__choice"
-            onClick={() => save({ ...classic, tree: one })}
-          >
-            <span className="ov-classic__choice-top">
-              <b>{treeName(one)}</b>
-              {classic.tree === one ? <Check size={14} aria-hidden="true" /> : null}
-            </span>
-            <small>{t(`game.combat.marinara.card.role.${one}`)}</small>
-          </button>
-        ))}
+      // A dropdown (Auto, then the 8 trees with their place in the line), not a 9-card grid.
+      <div className="ov-classic__field">
+        <Select
+          className="ov-classic__select"
+          label={stepLabel("tree")}
+          value={classic.tree ?? AUTO_TREE}
+          onChange={(next) => save({ ...classic, tree: next === AUTO_TREE ? undefined : next })}
+          options={[
+            { value: AUTO_TREE, label: t("game.combat.marinara.card.auto"), description: autoNote },
+            ...MARINARA_ARCHETYPES.map((one) => ({
+              value: one,
+              label: treeName(one),
+              description: t(`game.combat.marinara.card.role.${one}`),
+            })),
+          ]}
+        />
       </div>
     ) : step === "strong" ? (
       <div className="ov-classic__choices">{statTiles("strong")}</div>
     ) : step === "weak" ? (
-      <div className="ov-classic__choices">{statTiles("weak")}</div>
+      // Pick one or none: a dropdown. A stat already picked as strong is greyed out.
+      <div className="ov-classic__field">
+        <Select
+          className="ov-classic__select"
+          label={stepLabel("weak")}
+          value={classic.weak ?? NO_WEAK}
+          onChange={(next) =>
+            next === NO_WEAK ? save({ ...classic, weak: undefined }) : toggleWeak(next as MarinaraStat)
+          }
+          options={[
+            { value: NO_WEAK, label: t("game.combat.marinara.card.nonePicked") },
+            ...MARINARA_STATS.map((stat) => ({
+              value: stat,
+              label: statName(stat),
+              description: t(`game.combat.marinara.card.statHint.${stat}`),
+              disabledReason: strong.includes(stat) ? t("game.combat.marinara.card.alreadyStrong") : undefined,
+            })),
+          ]}
+        />
+      </div>
     ) : step === "story" ? (
       <div className="ov-classic__story">{storyStats}</div>
     ) : (

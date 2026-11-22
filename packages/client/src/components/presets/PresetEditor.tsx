@@ -1154,12 +1154,14 @@ export function PresetEditor() {
         <div className="ov-preset__body">
           <aside className="ov-preset__left">
             <p className="ov-preset__eyebrow">{localizeUi("Preset")}</p>
-            <div className="ov-preset__chips">
+            {/* One row per page (never two lines of wrapping pills), like the Library lists. */}
+            <nav className="ov-preset__pages" aria-label={localizeUi("Preset")}>
               {pages.map((page) => (
                 <button
                   key={page.id}
                   type="button"
-                  className={cn("ov-chip", !ovSelected && ovPage === page.id && "is-on")}
+                  className={cn("ov-preset__page", !ovSelected && ovPage === page.id && "is-on")}
+                  aria-current={!ovSelected && ovPage === page.id ? "page" : undefined}
                   onClick={() => {
                     setOvPage(page.id);
                     setOvSelected(null);
@@ -1169,7 +1171,7 @@ export function PresetEditor() {
                   {localize(page.label)}
                 </button>
               ))}
-            </div>
+            </nav>
             <p className="ov-preset__eyebrow">
               {localizeUi("Prompt order")}
               <small>

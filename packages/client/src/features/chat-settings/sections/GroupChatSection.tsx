@@ -14,6 +14,27 @@ import { cn } from "../../../lib/utils";
 import { MacroTextarea } from "../../../components/ui/MacroTextarea";
 import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
 import { ChatSettingsSection } from "../ChatSettingsSection";
+import { OvSeg } from "../../../components/overhaul/LoreEntryParts";
+
+/** A label and a segmented control (radio group with arrow keys) on one row, wrapping when narrow. */
+function GroupChoiceRow<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange: (next: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+      <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{label}</span>
+      <OvSeg value={value} options={options} onChange={onChange} label={label} />
+    </div>
+  );
+}
 
 interface GroupChatSectionProps {
   sectionId: string;
@@ -76,54 +97,41 @@ export function GroupChatSection({
       }
     >
       {/* Mode selector */}
-      <div className="space-y-2">
-        <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-          {localizeUi("ui.chat.chatsettingsdrawer.mode")}
-        </label>
-        <div className="flex rounded-lg ring-1 ring-[var(--border)]">
-          <button
-            onClick={() => updateGroupChatModeMeta.mutate({ id: chat.id, groupChatMode: "merged" })}
-            className={cn(
-              "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-l-lg",
-              groupChatMode === "merged"
-                ? "bg-[var(--primary)] text-white"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-            )}
-          >
-            {isConversation
+      <GroupChoiceRow
+        label={localizeUi("ui.chat.chatsettingsdrawer.mode")}
+        value={groupChatMode}
+        onChange={(mode) => {
+          if (mode === groupChatMode) return;
+          if (mode === "merged") {
+            updateGroupChatModeMeta.mutate({ id: chat.id, groupChatMode: "merged" });
+            return;
+          }
+          updateGroupChatModeMeta.mutate({
+            id: chat.id,
+            groupChatMode: "individual",
+            ...(isConversation && metadata.groupResponseOrder === "manual"
+              ? { groupResponseOrder: "sequential" as const }
+              : {}),
+          });
+          if (isConversation) {
+            toast.warning(localizeUi("ui.chat.chatsettingsdrawer.individualRepliesCanUseManyTokens"), {
+              description: localizeUi(
+                "ui.chat.chatsettingsdrawer.eachRespondingCharacterUsesASeparateModelRequestLarge",
+              ),
+              duration: 12_000,
+            });
+          }
+        }}
+        options={[
+          {
+            value: "merged",
+            label: isConversation
               ? localizeUi("ui.chat.chatsettingsdrawer.grouped")
-              : localizeUi("ui.chat.chatsettingsdrawer.mergedNarrator")}
-          </button>
-          <button
-            onClick={() => {
-              if (groupChatMode === "individual") return;
-              updateGroupChatModeMeta.mutate({
-                id: chat.id,
-                groupChatMode: "individual",
-                ...(isConversation && metadata.groupResponseOrder === "manual"
-                  ? { groupResponseOrder: "sequential" as const }
-                  : {}),
-              });
-              if (isConversation) {
-                toast.warning(localizeUi("ui.chat.chatsettingsdrawer.individualRepliesCanUseManyTokens"), {
-                  description: localizeUi(
-                    "ui.chat.chatsettingsdrawer.eachRespondingCharacterUsesASeparateModelRequestLarge",
-                  ),
-                  duration: 12_000,
-                });
-              }
-            }}
-            className={cn(
-              "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-r-lg",
-              groupChatMode === "individual"
-                ? "bg-[var(--primary)] text-white"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-            )}
-          >
-            {localizeUi("ui.chat.chatsettingsdrawer.individual")}
-          </button>
-        </div>
-      </div>
+              : localizeUi("ui.chat.chatsettingsdrawer.mergedNarrator"),
+          },
+          { value: "individual", label: localizeUi("ui.chat.chatsettingsdrawer.individual") },
+        ]}
+      />
 
       {/* Merged mode: speaker color option */}
       {!isConversation && groupChatMode === "merged" && (
@@ -150,29 +158,15 @@ export function GroupChatSection({
       {/* Merged Roleplay: who keeps the active characters current. Same segmented control as Mode. */}
       {isRoleplayMode && groupChatMode === "merged" && (
         <div className="mt-2 space-y-2">
-          <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.label")}
-          </label>
-          <div className="flex rounded-lg ring-1 ring-[var(--border)]">
-            {(["off", "decision", "tracker"] as const).map((mode, index, modes) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setAutoActiveCharactersMode(mode)}
-                aria-pressed={autoActiveCharactersMode === mode}
-                className={cn(
-                  "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors",
-                  index === 0 && "rounded-l-lg",
-                  index === modes.length - 1 && "rounded-r-lg",
-                  autoActiveCharactersMode === mode
-                    ? "bg-[var(--primary)] text-white"
-                    : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                )}
-              >
-                {localizeUi(`ui.chat.chatsettingsdrawer.autoActiveCharacters.${mode}`)}
-              </button>
-            ))}
-          </div>
+          <GroupChoiceRow
+            label={localizeUi("ui.chat.chatsettingsdrawer.autoActiveCharacters.label")}
+            value={autoActiveCharactersMode}
+            onChange={setAutoActiveCharactersMode}
+            options={(["off", "decision", "tracker"] as const).map((mode) => ({
+              value: mode,
+              label: localizeUi(`ui.chat.chatsettingsdrawer.autoActiveCharacters.${mode}`),
+            }))}
+          />
           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             {autoActiveCharactersMode === "decision"
               ? hasDecisionModel
@@ -192,44 +186,16 @@ export function GroupChatSection({
       {/* Individual mode: response order */}
       {groupChatMode === "individual" && (
         <div className="mt-2 space-y-2">
-          <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.chat.chatsettingsdrawer.responseOrder")}
-          </label>
-          <div className="flex rounded-lg ring-1 ring-[var(--border)]">
-            <button
-              onClick={() => updateMeta.mutate({ id: chat.id, groupResponseOrder: "sequential" })}
-              className={cn(
-                "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-l-lg",
-                (metadata.groupResponseOrder ?? "sequential") === "sequential"
-                  ? "bg-[var(--primary)] text-white"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-              )}
-            >
-              {localizeUi("ui.chat.chatsettingsdrawer.sequential")}
-            </button>
-            <button
-              onClick={() => updateMeta.mutate({ id: chat.id, groupResponseOrder: "smart" })}
-              className={cn(
-                "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors",
-                metadata.groupResponseOrder === "smart"
-                  ? "bg-[var(--primary)] text-white"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-              )}
-            >
-              {localizeUi("ui.chat.chatsettingsdrawer.smart")}
-            </button>
-            <button
-              onClick={() => updateMeta.mutate({ id: chat.id, groupResponseOrder: "manual" })}
-              className={cn(
-                "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-r-lg",
-                metadata.groupResponseOrder === "manual"
-                  ? "bg-[var(--primary)] text-white"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-              )}
-            >
-              {localizeUi("ui.chat.chatsettingsdrawer.manual")}
-            </button>
-          </div>
+          <GroupChoiceRow
+            label={localizeUi("ui.chat.chatsettingsdrawer.responseOrder")}
+            value={(metadata.groupResponseOrder as "sequential" | "smart" | "manual" | undefined) ?? "sequential"}
+            onChange={(groupResponseOrder) => updateMeta.mutate({ id: chat.id, groupResponseOrder })}
+            options={[
+              { value: "sequential", label: localizeUi("ui.chat.chatsettingsdrawer.sequential") },
+              { value: "smart", label: localizeUi("ui.chat.chatsettingsdrawer.smart") },
+              { value: "manual", label: localizeUi("ui.chat.chatsettingsdrawer.manual") },
+            ]}
+          />
           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             {metadata.groupResponseOrder === "manual"
               ? isConversation

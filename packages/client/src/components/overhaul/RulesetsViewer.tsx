@@ -31,7 +31,7 @@ import { RulesetBuilderModal } from "../rulesets/RulesetBuilderModal";
 import { usePinRoleplayRuleset } from "../chat/RoleplayRuleset";
 import { useAgentImportFlow } from "../agents/useAgentImportFlow";
 import { OvEditorHead, OvEyebrow, OvRow } from "./EditorChrome";
-import { openLibraryPane } from "./library-navigation";
+import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { OvViewer, type OvViewerGroup, type OvViewerKit } from "./LibraryViewers";
 import { useKitMenu, useKitSelection, type KitAction } from "./LibraryKit";
 import type { RailCrumb } from "./EditorRail";
@@ -193,6 +193,15 @@ export function RulesetsViewer() {
 
   const crumbs: RailCrumb[] = [
     { label: localize("Library"), onClick: openLibraryPane },
+    {
+      label: t("library.sections.assets"),
+      onClick: async () => {
+        if (!(await askLeave())) return;
+        setBuilderDirty(false);
+        setSelectedId(null);
+        openLibrarySection("assets");
+      },
+    },
     { label: t("library.sections.rulesets"), onClick: () => void select(null) },
   ];
   const onSaved = (rulesetId: string) => {

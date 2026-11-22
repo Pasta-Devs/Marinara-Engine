@@ -1002,21 +1002,15 @@ function ChatHelpOverlayInner({
   }, [mobile, open, rootRect, targets]);
 
   if (!open || !rootRect || typeof document === "undefined") return null;
+  // Computers: a quiet text button beside the legend's Done. Phones put it inside the instruction callout.
   const hideHelpButtonControl = (
     <button
       type="button"
-      className={cn(
-        // New layout: a quiet text button beside the primary Done, so it never reads as the main action.
+      className={
         overhaulLook
-          ? cn(
-              "ov-btn is-quiet ov-help-hide pointer-events-auto min-h-7 px-2 text-[0.6875rem]",
-              // Phones: it floats over the chat beside Done, so it keeps a quiet surface to stay readable.
-              mobile && "ov-help-hide--floating",
-            )
-          : "mari-chrome-control pointer-events-auto min-h-7 px-2.5 text-[0.625rem] shadow-lg",
-        // Phones: as wide as the callout above it, label left-aligned with the eye icon beside it (GS9).
-        mobile && "min-h-11 min-w-0 flex-1 justify-start text-left",
-      )}
+          ? "ov-btn is-quiet ov-help-hide pointer-events-auto min-h-7 px-2 text-[0.6875rem]"
+          : "mari-chrome-control pointer-events-auto min-h-7 px-2.5 text-[0.625rem] shadow-lg"
+      }
       onPointerDown={(event) => event.stopPropagation()}
       onClick={hideHelpButton}
     >
@@ -1153,15 +1147,48 @@ function ChatHelpOverlayInner({
             transform: "translateX(-50%)",
           }}
         >
-          <button
-            type="button"
-            className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--card)] px-3 py-2 text-left text-xs font-semibold leading-4 text-[var(--foreground)] shadow-lg"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={dismiss}
-          >
-            <CircleHelp size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
-            <span>{t("chat.help.mobileInstruction")}</span>
-          </button>
+          {/* The callout holds the instruction and, on its own line, the quiet "hide for good" link;
+              Done sits alone beside it, so the link needs no floating surface of its own. */}
+          <div className="flex items-stretch gap-1.5">
+            <div
+              data-chat-help-callout
+              className="pointer-events-auto flex min-w-0 flex-1 flex-col rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--card)] shadow-lg"
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="flex items-center gap-2 px-3 pt-2 pb-1 text-left text-xs font-semibold leading-4 text-[var(--foreground)]"
+                onClick={dismiss}
+              >
+                <CircleHelp
+                  size="0.875rem"
+                  className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]"
+                />
+                <span>{t("chat.help.mobileInstruction")}</span>
+              </button>
+              <button
+                type="button"
+                data-chat-help-hide
+                className="flex min-h-11 items-center gap-1.5 px-3 text-left text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)] underline decoration-[color-mix(in_srgb,currentColor_45%,transparent)] underline-offset-2"
+                onClick={hideHelpButton}
+              >
+                <EyeOff size="0.6875rem" className="shrink-0" />
+                {t("chat.help.hidePermanently")}
+              </button>
+            </div>
+            <button
+              type="button"
+              data-chat-help-done
+              className={cn(
+                overhaulLook ? "ov-btn ov-btn--primary" : "mari-chrome-control shadow-lg",
+                "pointer-events-auto min-h-11 shrink-0 self-start px-4 text-xs font-semibold",
+              )}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={dismiss}
+            >
+              {t("chat.help.done")}
+            </button>
+          </div>
           {chatIntroInHelp ? (
             <div
               data-chat-help-chat-settings
@@ -1174,21 +1201,6 @@ function ChatHelpOverlayInner({
               </p>
             </div>
           ) : null}
-          <div className="flex items-stretch gap-1.5">
-            {hideHelpButtonControl}
-            <button
-              type="button"
-              data-chat-help-done
-              className={cn(
-                overhaulLook ? "ov-btn ov-btn--primary" : "mari-chrome-control shadow-lg",
-                "pointer-events-auto min-h-11 shrink-0 px-4 text-xs font-semibold",
-              )}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={dismiss}
-            >
-              {t("chat.help.done")}
-            </button>
-          </div>
         </div>
       )}
 
