@@ -13455,6 +13455,8 @@
   "ui.chat.peekpromptmodal.find.next": "Next match (Enter)",
   "ui.chat.peekpromptmodal.find.noMatches": "No matches",
   "ui.chat.peekpromptmodal.find.previous": "Previous match (Shift+Enter)",
+  "ui.chat.peekpromptmodal.injected.authorsNote": "Author's Note · sent inside your message",
+  "ui.chat.peekpromptmodal.injected.worldInfo": "World Info @depth {{depth}} · sent inside your message",
   "ui.chat.peekpromptmodal.lastRequestInput": "Last request input: {{tokens}} tokens (including cached input, excluding output).",
   "ui.chat.peekpromptmodal.middot": "· ~",
   "ui.chat.peekpromptmodal.note": "Note:",

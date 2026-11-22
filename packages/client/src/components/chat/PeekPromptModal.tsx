@@ -2,6 +2,7 @@
 // Peek Prompt Modal — collapsible section viewer
 // ──────────────────────────────────────────────
 import {
+  Fragment,
   useState,
   useMemo,
   useEffect,
@@ -71,7 +72,7 @@ interface PeekPromptModalProps {
   data: {
     chatId?: string;
     characterId?: string;
-    messages: Array<{ role: string; content: string }>;
+    messages: PeekMessage[];
     chatMode?: string;
     parameters: unknown;
     source?: "cached" | "live_preview" | "raw_messages";
@@ -106,16 +107,84 @@ function prettifyTag(tag: string): string {
 //  Section types for the final display list
 // ═══════════════════════════════════════════════
 
+/** A block injected at a depth that post-processing merged into a bigger message (from the server). */
+interface PeekInjectedPart {
+  start: number;
+  end: number;
+  label: "authorsNote" | "worldInfo";
+  depth: number;
+}
+
+interface PeekMessage {
+  role: string;
+  content: string;
+  parts?: PeekInjectedPart[];
+}
+
+/** One piece of a message: its injected block's name, and whether it continues the message before it. */
+interface PeekPiece {
+  role: string;
+  content: string;
+  /** "Author's Note · sent inside your message": shown above this piece. */
+  injected?: string;
+  /** Part of the same message as the piece before it, so it stays in that message's row. */
+  join?: boolean;
+}
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+function injectedPartName(part: PeekInjectedPart, localizeUi: Translate): string {
+  return part.label === "authorsNote"
+    ? localizeUi("ui.chat.peekpromptmodal.injected.authorsNote")
+    : localizeUi("ui.chat.peekpromptmodal.injected.worldInfo", { depth: part.depth });
+}
+
+/**
+ * Splits a message at its injected parts (the Author's Note or a World Info entry that post-processing sent inside
+ * it), so Peek prompt names them in place. The message's role stays: that is what the AI receives.
+ */
+function splitInjectedParts(messages: PeekMessage[], localizeUi: Translate): PeekPiece[] {
+  const pieces: PeekPiece[] = [];
+  for (const message of messages) {
+    const parts = (message.parts ?? [])
+      .filter((part) => part.start >= 0 && part.end > part.start && part.end <= message.content.length)
+      .sort((a, b) => a.start - b.start);
+    if (parts.length === 0) {
+      pieces.push({ role: message.role, content: message.content });
+      continue;
+    }
+    let cursor = 0;
+    let first = true;
+    const add = (content: string, injected?: string) => {
+      if (!content.trim()) return;
+      pieces.push({ role: message.role, content, ...(injected ? { injected } : {}), ...(first ? {} : { join: true }) });
+      first = false;
+    };
+    for (const part of parts) {
+      if (part.start < cursor) continue;
+      add(message.content.slice(cursor, part.start));
+      add(message.content.slice(part.start, part.end), injectedPartName(part, localizeUi));
+      cursor = part.end;
+    }
+    add(message.content.slice(cursor));
+  }
+  return pieces;
+}
+
 interface SectionBlock {
   kind: "section";
   label: string;
   role: string;
   content: string;
+  injected?: string;
+  join?: boolean;
 }
 
 interface ChatHistoryEntry {
   role: string;
   content: string;
+  injected?: string;
+  join?: boolean;
 }
 
 interface ChatHistoryBlock {
@@ -130,6 +199,8 @@ interface PromptSegment {
   role: string;
   content: string;
   inChatHistory: boolean;
+  injected?: string;
+  join?: boolean;
 }
 
 function isDisplayedChatHistoryRole(role: string): boolean {
@@ -218,17 +289,29 @@ function parseConversationRoleSections(segment: PromptSegment): SectionBlock[] {
   return parseConversationMarkdownSections(segment.content, segment.role);
 }
 
-function splitPromptSegments(messages: Array<{ role: string; content: string }>): PromptSegment[] {
+function splitPromptSegments(messages: PeekPiece[]): PromptSegment[] {
   const segments: PromptSegment[] = [];
   let inXmlChatHistory = false;
   let inMarkdownChatHistory = false;
+  let piece: PeekPiece | null = null;
+  let firstOfPiece = true;
 
   const pushSegment = (role: string, content: string, inChatHistory: boolean) => {
     if (!content.trim()) return;
-    segments.push({ role, content: content.trim(), inChatHistory });
+    // An injected piece is shown whole, under its own name.
+    segments.push({
+      role,
+      content: content.trim(),
+      inChatHistory,
+      ...(piece?.injected ? { injected: piece.injected } : {}),
+      ...(piece?.join && firstOfPiece ? { join: true } : {}),
+    });
+    firstOfPiece = false;
   };
 
   for (const message of messages) {
+    piece = message;
+    firstOfPiece = true;
     let remaining = message.content;
 
     while (remaining.length > 0) {
@@ -282,6 +365,29 @@ function splitPromptSegments(messages: Array<{ role: string; content: string }>)
 }
 
 function appendPromptSection(result: DisplaySection[], segment: PromptSegment) {
+  if (segment.injected) {
+    result.push({
+      kind: "section",
+      label: segment.injected,
+      role: segment.role,
+      content: segment.content,
+      injected: segment.injected,
+      ...(segment.join ? { join: true } : {}),
+    });
+    return;
+  }
+  if (segment.join) {
+    // The rest of a message an injected piece split: it keeps that message's row.
+    const before = result.length;
+    appendPromptSectionBlocks(result, segment);
+    const first = result[before];
+    if (first?.kind === "section") first.join = true;
+    return;
+  }
+  appendPromptSectionBlocks(result, segment);
+}
+
+function appendPromptSectionBlocks(result: DisplaySection[], segment: PromptSegment) {
   const openIdx = segment.content.search(/<last_message>/i);
   const closingIdx = segment.content.search(/<\/last_message>/i);
   if (openIdx >= 0 && closingIdx >= 0) {
@@ -317,10 +423,7 @@ function appendPromptSection(result: DisplaySection[], segment: PromptSegment) {
   for (const block of blocks) result.push(block);
 }
 
-function buildDisplaySections(
-  messages: Array<{ role: string; content: string }>,
-  groupAllChatRoles = false,
-): DisplaySection[] {
+function buildDisplaySections(messages: PeekPiece[], groupAllChatRoles = false): DisplaySection[] {
   const result: DisplaySection[] = [];
   const historyEntries: ChatHistoryEntry[] = [];
   const historyRawParts: string[] = [];
@@ -336,10 +439,12 @@ function buildDisplaySections(
     if (groupAllChatRoles && isDisplayedChatHistoryRole(segment.role)) {
       const roleBlocks = parseConversationRoleSections(segment);
       const hasPromptSections = roleBlocks.some((block) => block.label !== segment.role);
-      if (!hasPromptSections) {
+      if (!hasPromptSections || segment.injected) {
         historyEntries.push({
           role: conversationHistoryDisplayRole(segment.role, segment.content),
           content: segment.content,
+          ...(segment.injected ? { injected: segment.injected } : {}),
+          ...(segment.join ? { join: true } : {}),
         });
         historyRawParts.push(segment.content);
         continue;
@@ -366,6 +471,8 @@ function buildDisplaySections(
       historyEntries.push({
         role: conversationHistoryDisplayRole(segment.role, segment.content),
         content: segment.content,
+        ...(segment.injected ? { injected: segment.injected } : {}),
+        ...(segment.join ? { join: true } : {}),
       });
       historyRawParts.push(segment.content);
       continue;
@@ -388,11 +495,14 @@ function CollapsibleBlock({
   content,
   defaultOpen,
   roleColor,
+  plainLabel = false,
 }: {
   label: string;
   content: string;
   defaultOpen: boolean;
   roleColor: string;
+  /** Show the label as written (an injected block's name), not as a prettified tag. */
+  plainLabel?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(defaultOpen);
@@ -409,8 +519,14 @@ function CollapsibleBlock({
         ) : (
           <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
         )}
-        <span className={cn("rounded-md px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider", roleColor)}>
-          {prettifyTag(label)}
+        <span
+          className={cn(
+            "rounded-md px-2 py-0.5 text-[0.625rem] font-bold tracking-wider",
+            !plainLabel && "uppercase",
+            roleColor,
+          )}
+        >
+          {plainLabel ? label : prettifyTag(label)}
         </span>
         <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">
           ~{fmtTokens(tokens)} {localizeUi("ui.chat.collapsibleblock.token")}
@@ -509,6 +625,11 @@ function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; rol
         <span className={cn("rounded px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider", roleColor)}>
           {entry.role}
         </span>
+        {entry.injected ? (
+          <span className="shrink-0 text-[0.625rem] font-semibold text-[var(--muted-foreground)]">
+            {entry.injected}
+          </span>
+        ) : null}
         {!open && (
           <span className="min-w-0 flex-1 truncate text-[0.625rem] text-[var(--muted-foreground)]">{preview}</span>
         )}
@@ -536,6 +657,8 @@ interface PeekPart {
   label: string;
   content: string;
   tokens: number;
+  /** The injected block's name, shown above it inside the message it was sent in. */
+  injected?: string;
 }
 
 interface PeekRow {
@@ -558,7 +681,13 @@ function buildPeekRows(sections: DisplaySection[]): PeekRow[] {
   const rows: PeekRow[] = [];
   let n = 0;
   let historyStarted = false;
-  const push = (kind: PeekRoleKind, rawLabel: string, rawContent: string, inHistory: boolean) => {
+  const push = (
+    kind: PeekRoleKind,
+    rawLabel: string,
+    rawContent: string,
+    inHistory: boolean,
+    piece: { injected?: string; join?: boolean } = {},
+  ) => {
     const tokens = estimateTextTokens(rawContent);
     let label = rawLabel;
     let content = rawContent;
@@ -568,9 +697,19 @@ function buildPeekRows(sections: DisplaySection[]): PeekRow[] {
       label = wrapped[1]!;
       content = wrapped[2]!;
     }
-    const part: PeekPart = { id: `peek-part-${n++}`, label, content, tokens };
+    const part: PeekPart = {
+      id: `peek-part-${n++}`,
+      label,
+      content,
+      tokens,
+      ...(piece.injected ? { injected: piece.injected } : {}),
+    };
     const prev = rows[rows.length - 1];
-    if (kind === "system" && prev && prev.kind === "system" && prev.inHistory === inHistory && !inHistory) {
+    const sameMessage = piece.join && prev && prev.kind === kind && prev.inHistory === inHistory;
+    if (
+      sameMessage ||
+      (kind === "system" && prev && prev.kind === "system" && prev.inHistory === inHistory && !inHistory)
+    ) {
       prev.parts.push(part);
       prev.tokens += tokens;
       return;
@@ -581,10 +720,10 @@ function buildPeekRows(sections: DisplaySection[]): PeekRow[] {
   };
   for (const section of sections) {
     if (section.kind === "chat-history") {
-      for (const entry of section.entries) push(peekRoleKind(entry.role), entry.role, entry.content, true);
+      for (const entry of section.entries) push(peekRoleKind(entry.role), entry.role, entry.content, true, entry);
       historyStarted = false;
     } else {
-      push(peekRoleKind(section.role), section.label, section.content, false);
+      push(peekRoleKind(section.role), section.label, section.content, false, section);
     }
   }
   return rows;
@@ -641,8 +780,8 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
         : originalData;
   const backdropDismiss = useBackdropDismiss(onClose);
   const sections = useMemo(
-    () => buildDisplaySections(data.messages, data.chatMode === "conversation"),
-    [data.chatMode, data.messages],
+    () => buildDisplaySections(splitInjectedParts(data.messages, localizeUi), data.chatMode === "conversation"),
+    [data.chatMode, data.messages, localizeUi],
   );
   const peekRows = useMemo(() => buildPeekRows(sections), [sections]);
   const totalTokens = useMemo(() => estimateTextTokens(data.messages.map((m) => m.content).join("")), [data.messages]);
@@ -1178,7 +1317,8 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
                     );
                   }
                   for (const part of row.parts) {
-                    const name = row.kind === "system" ? prettifyTag(part.label) : peekPreview(part.content);
+                    const name =
+                      part.injected ?? (row.kind === "system" ? prettifyTag(part.label) : peekPreview(part.content));
                     items.push(
                       <button
                         key={part.id}
@@ -1282,10 +1422,22 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
                       </span>
                     </div>
                     {row.parts.map((part, index) => (
-                      <pre key={part.id} data-peek-id={index > 0 ? part.id : undefined} className="ov-peek__text">
-                        {row.parts.length > 1 ? <span className="ov-peek__tag">&lt;{part.label}&gt; </span> : null}
-                        {part.content}
-                      </pre>
+                      <Fragment key={part.id}>
+                        {part.injected ? (
+                          <p className="ov-peek__inject" data-peek-id={index > 0 ? part.id : undefined}>
+                            {part.injected}
+                          </p>
+                        ) : null}
+                        <pre
+                          data-peek-id={index > 0 && !part.injected ? part.id : undefined}
+                          className={cn("ov-peek__text", part.injected && "ov-peek__text--injected")}
+                        >
+                          {row.parts.length > 1 && row.kind === "system" ? (
+                            <span className="ov-peek__tag">&lt;{part.label}&gt; </span>
+                          ) : null}
+                          {part.content}
+                        </pre>
+                      </Fragment>
                     ))}
                   </div>
                 ))
@@ -1627,7 +1779,8 @@ export function PeekPromptModal({ data: originalData, onClose }: PeekPromptModal
                     label={s.label}
                     content={s.content}
                     defaultOpen={false}
-                    roleColor={sectionRoleColor(s.role, s.label)}
+                    roleColor={sectionRoleColor(s.role, s.injected ? s.role : s.label)}
+                    plainLabel={!!s.injected}
                   />
                 ),
               )}

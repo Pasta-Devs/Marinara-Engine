@@ -1,4 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
+import {
+  labelInjectedParts,
+  worldInfoPeekBlocks,
+  type PeekInjectedBlock,
+} from "../services/prompt/peek-injected-parts.js";
 import { sleep } from "../utils/sleep.js";
 import {
   lowerLocalModelPriorityAfterReply,
@@ -3567,6 +3572,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const lorebookScopeExclusions = resolveLorebookScopeExclusions(chatMode, chatMeta);
         let lorebookScanSnapshot: LorebookScanSnapshot = emptyLorebookScanSnapshot();
         let lorebookPromptScanResult: LorebookScanResult | null = null;
+        // Blocks injected at a depth, so Peek prompt can name them inside the message post-processing put them in.
+        const peekInjectedBlocks: PeekInjectedBlock[] = [];
         const scopedLorebookScansByCharacterId = new Map<string, Promise<LorebookScanResult>>();
         let presetHandledLorebooks = false;
         let characterAdvancedPromptsInjected = false;
@@ -4065,6 +4072,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             resolveDecisions: lorebookDecisions,
           });
           if (options.recordSnapshot !== false) lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
+          peekInjectedBlocks.push(...worldInfoPeekBlocks(lorebookResult.depthEntries));
           rememberKnowledgeRouterActivatedLorebookIds(
             knowledgeRouterActivatedLorebookEntryIds,
             knowledgeRouterExcludedLorebookEntryIds,
@@ -4301,6 +4309,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             ...assembled.macroAgentData,
           };
           lorebookPromptScanResult = assembled.lorebookScanResult ?? null;
+          peekInjectedBlocks.push(...worldInfoPeekBlocks(assembled.lorebookScanResult?.depthEntries));
           if (assembled.lorebookActivatedEntries || assembled.lorebookBudgetSkippedEntries) {
             lorebookScanSnapshot = {
               activatedEntries: assembled.lorebookActivatedEntries ?? [],
@@ -4866,6 +4875,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           });
           lorebookPromptScanResult = lorebookResult;
           lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
+          peekInjectedBlocks.push(...worldInfoPeekBlocks(lorebookResult.depthEntries));
           rememberKnowledgeRouterActivatedLorebookIds(
             knowledgeRouterActivatedLorebookEntryIds,
             knowledgeRouterExcludedLorebookEntryIds,
@@ -4916,6 +4926,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           finalMessages = injectAtDepth(finalMessages, [
             { content: authorNotes, role: "system", depth: authorNotesDepth },
           ]);
+          peekInjectedBlocks.push({ label: "authorsNote", depth: authorNotesDepth, content: authorNotes });
         }
 
         // Skip OOC injection entirely for scene chats — scenes are self-contained
@@ -5618,6 +5629,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             );
             lorebookPromptScanResult = lorebookResult;
             lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
+            peekInjectedBlocks.push(...worldInfoPeekBlocks(lorebookResult.depthEntries));
             rememberKnowledgeRouterActivatedLorebookIds(
               knowledgeRouterActivatedLorebookEntryIds,
               knowledgeRouterExcludedLorebookEntryIds,
@@ -12287,11 +12299,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               extraUpdate.diceRollResult = toolDiceRollResults.at(-1) ?? null;
             }
             // Cache the final prompt (what was actually sent to the model) for Peek Prompt
-            extraUpdate.cachedPrompt = finalPromptSent.map((m) => ({
-              role: m.role,
-              content: m.content,
-              ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
-            }));
+            // `parts` names injected blocks merged into a message (Peek prompt only; never sent).
+            extraUpdate.cachedPrompt = labelInjectedParts(finalPromptSent, peekInjectedBlocks).map(
+              ({ message: m, parts }) => ({
+                role: m.role,
+                content: m.content,
+                ...(parts.length > 0 ? { parts } : {}),
+                ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
+              }),
+            );
             // Cache the lorebook scan that produced the prompt so Active Context
             // reflects the last generation instead of a best-effort rescan.
             extraUpdate.lorebookScan = lorebookScanSnapshot;
