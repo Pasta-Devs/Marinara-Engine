@@ -8889,11 +8889,12 @@ input.ov-edhead__title:focus {
   padding-top: var(--mari-top-bar-height, 2.625rem);
 }
 /* Keyboard focus brings it back; a mouse click on a tab doesn't keep it out over the page it opened
-   (it used to stay over the page title until focus moved, theming round 4). */
+   (it used to stay over the page title until focus moved, theming round 4). An open menu keeps it out; an open
+   window (Chat settings) doesn't, or the bar would sit over the window's header. */
 .ov-topbar-hotzone:hover + .ov-topbar.is-autohide,
 .ov-topbar.is-autohide:hover,
 .ov-topbar.is-autohide:has(:focus-visible),
-.ov-topbar.is-autohide:has([aria-expanded="true"]) {
+.ov-topbar.is-autohide:has([aria-expanded="true"]:not([data-window-opener])) {
   transform: none;
   transition-delay: 0ms;
 }
