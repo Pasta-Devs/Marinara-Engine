@@ -10,6 +10,7 @@ export type SettingsTabId = "general" | "appearance" | "generations" | "addons" 
 
 export type SettingsSectionId =
   | "application"
+  | "home"
   | "omnibar"
   | "notifications"
   | "responses"
@@ -127,8 +128,17 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
     aliases: ["language", "delete", "confirm", "music", "achievements", "app"],
   },
   {
+    // New layout: which widgets show on Home (the classic layout keeps Home's Widgets window).
+    id: "home",
+    tab: "general",
+    label: "Home",
+    description: "Which widgets show on Home.",
+    aliases: ["home", "widgets", "home widgets", "dashboard", "clock", "calendar"],
+  },
+  {
     // Q2: lives in the omnibar's own settings view, not in this panel. General shows one row
     // that opens it, and every jump to this section or its controls opens the omnibar instead.
+    // The new layout keeps these rows in Settings › General itself; the omnibar's gear goes there.
     id: "omnibar",
     tab: "general",
     label: "Professor Mari",

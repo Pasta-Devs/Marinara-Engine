@@ -81,8 +81,9 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
               ? "settings"
               : target.panel,
       );
-  } else if (target.kind === "settings" && isOmnibarSettingsTarget(target)) {
+  } else if (target.kind === "settings" && isOmnibarSettingsTarget(target) && !isOverhaulLook()) {
     // Q2: these live in the omnibar's settings view, which keeps the omnibar open.
+    // The new layout keeps them in Settings › General instead (the branch below).
     ui.openOmnibarSettings(target.controlId ?? null);
     return true;
   } else if (target.kind === "settings") {
@@ -145,6 +146,9 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     } else if (target.window === "credits") {
       trackWindow("credits_viewed");
       openHomeWith({ kind: "credits" });
+    } else if (target.window === "widgets" && isOverhaulLook()) {
+      // New layout: Home's widgets are chosen in Settings › General › Home.
+      return executeStateNavigation({ kind: "settings", tab: "general", sectionId: "home" });
     } else if (target.window === "faq" || target.window === "widgets") openHomeWith({ kind: target.window });
   } else openHomeWith({ kind: "tab", tab: target.packageId });
   ui.setOmnibarOpen(false);

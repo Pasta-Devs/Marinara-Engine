@@ -486,8 +486,9 @@ export function StateEditor({
         ? localizeUi("ui.stateEditor.footer.changedSections", { count: changes.length })
         : localizeUi("ui.stateEditor.footer.noChanges");
 
+  // Container widths, not the screen's: inside the narrow Chat settings drawer it stacks like on a phone.
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="@container flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 border-b border-[var(--border)]/60 px-4 py-3">
         <SearchInput
           value={query}
@@ -499,21 +500,21 @@ export function StateEditor({
         {notice ? <div className="mt-3">{notice}</div> : null}
       </div>
 
-      <div className="flex min-h-0 flex-1 max-md:flex-col">
+      <div className="flex min-h-0 flex-1 @max-3xl:flex-col">
         {/* A single-section source (chat variables) has nothing to pick between. */}
         {sections.length > 1 ? (
           <nav
             aria-label={localizeUi("ui.stateEditor.sections.title")}
-            className="shrink-0 border-[var(--border)]/60 max-md:border-b md:w-52 md:overflow-y-auto md:border-r"
+            className="shrink-0 border-[var(--border)]/60 @max-3xl:border-b @3xl:w-52 @3xl:overflow-y-auto @3xl:border-r"
           >
-            <div className="hidden items-center justify-between px-4 pt-3 pb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)] md:flex">
+            <div className="hidden items-center justify-between px-4 pt-3 pb-1.5 text-[0.625rem] font-semibold uppercase tracking-wider text-[var(--muted-foreground)] @3xl:flex">
               <span>{localizeUi("ui.stateEditor.sections.title")}</span>
               <span className="tabular-nums">{sections.length}</span>
             </div>
-            <div className="flex gap-1.5 overflow-x-auto px-4 py-2 [scrollbar-width:none] md:hidden [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-1.5 overflow-x-auto px-4 py-2 [scrollbar-width:none] @3xl:hidden [&::-webkit-scrollbar]:hidden">
               {sections.map((section) => sectionNavItem(section, true))}
             </div>
-            <div className="hidden flex-col gap-0.5 px-2 pb-3 md:flex">
+            <div className="hidden flex-col gap-0.5 px-2 pb-3 @3xl:flex">
               {sections.map((section) => sectionNavItem(section, false))}
             </div>
           </nav>
@@ -535,7 +536,7 @@ export function StateEditor({
           </p>
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.stateEditor.footer.hint")}</p>
         </div>
-        <div className="flex items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1">
+        <div className="flex items-center gap-2 @max-2xl:w-full @max-2xl:[&>button]:flex-1">
           {view === "review" ? (
             <>
               <button type="button" onClick={() => setView("section")} disabled={saving} className={SECONDARY_BUTTON}>

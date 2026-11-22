@@ -40,6 +40,8 @@ import { Toggle, flag, parseList, useRegexFolders, useRegexImport, useRegexKitAc
 import { ImportRegexModal } from "../modals/ImportRegexModal";
 import { insertLibraryItems } from "../../lib/library-order";
 import { builtInFirst, DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
+import { JOB_SETTINGS_PREFIX, JobSettingsPage } from "../connections/ConnectionDefaults";
+import type { JobKey } from "../../lib/connection-jobs";
 import { ConnectionAccountEditor } from "../connections/ConnectionAccountEditor";
 import { ProviderIcon } from "../connections/ProviderIcon";
 import type { DeviceItem } from "../../hooks/use-device-setup";
@@ -938,6 +940,9 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       ? { id: selectedId.slice(ACCOUNT_KEY_PREFIX.length), replaceKey: true }
       : null;
   const device = selectedId?.startsWith(DEVICE_PREFIX) ? (selectedId.slice(DEVICE_PREFIX.length) as DeviceItem) : null;
+  const jobSettings = selectedId?.startsWith(JOB_SETTINGS_PREFIX)
+    ? (selectedId.slice(JOB_SETTINGS_PREFIX.length) as JobKey)
+    : null;
 
   const firstId = groups.find((group) => group.rows.length)?.rows[0]?.id;
   useAutoSelect("connections", selectedId, firstId, openConnectionDetail);
@@ -962,7 +967,9 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       emptyDetail={localize("Pick a model on the left, or add an account.")}
       onSection={() => openLibrarySection("connections")}
     >
-      {accountPage ? (
+      {jobSettings ? (
+        <JobSettingsPage key={jobSettings} jobKey={jobSettings} onClose={closeConnectionDetail} />
+      ) : accountPage ? (
         <ConnectionAccountEditor
           key={selectedId}
           embedded
@@ -1016,6 +1023,16 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
       ? (selectedId.slice(DEVICE_PREFIX.length) as DeviceItem)
       : null;
   const embeddingPage = selectedId === EMBEDDING_DEVICE_ID;
+  const jobSettings = selectedId?.startsWith(JOB_SETTINGS_PREFIX)
+    ? (selectedId.slice(JOB_SETTINGS_PREFIX.length) as JobKey)
+    : null;
+  // A job's settings bring the shared editor header (‹ back and the title), like an account page.
+  if (jobSettings)
+    return (
+      <section className="ov-ed ovm-connpage" data-component="OverhaulConnectionPage">
+        <JobSettingsPage key={jobSettings} jobKey={jobSettings} onClose={closeConnectionDetail} />
+      </section>
+    );
   if (!accountPage && !device && !embeddingPage && selectedId !== DECISION_DEVICE_ID) return <>{children}</>;
   const title = accountPage
     ? localize("Account")

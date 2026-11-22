@@ -39,6 +39,7 @@ import { useDeviceSetup, type DeviceItem } from "../../hooks/use-device-setup";
 import { useFollowVoiceJob, useMigrateVoiceJob, useTTSConfig } from "../../hooks/use-tts";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
+import { isOverhaulLook } from "../../stores/overhaul.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { i18n } from "../../localization/i18n";
 import { openAddConnection, type SetupItem } from "../../lib/add-connection";
@@ -48,6 +49,9 @@ import { ToggleSetting } from "../panels/settings/SettingControls";
 import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
 import { TTSConfigCard } from "../panels/settings/TTSConfigCard";
 import { Modal } from "../ui/Modal";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { OvEditorHead } from "../overhaul/EditorChrome";
+import { openLibraryPane, openLibrarySection } from "../overhaul/library-navigation";
 import { ConnectionSelect } from "./ConnectionSelect";
 import {
   FLAG_JOBS,
@@ -742,6 +746,9 @@ function overridesOf(key: JobKey, rows: readonly ConnectionRowData[]) {
   return [];
 }
 
+/** New layout: the Connections page id of a job's settings (`job-settings:voice`). */
+export const JOB_SETTINGS_PREFIX = "job-settings:";
+
 /** Jobs with behaviour of their own: a gear opens the job's settings window. */
 const JOB_SETTINGS = new Set<JobKey>(["voice", "stt", "decision", "agents", "vision", "images"]);
 
@@ -802,12 +809,17 @@ function DefaultsJobRow({
   const hasSettings = JOB_SETTINGS.has(job.key as JobKey) || overrides.length > 0;
   const model = embeddings || decision || job.device ? null : modelFor(job);
   const title = t(jobLabelKey(job));
+  // New layout: the settings are a Connections page; the classic layout keeps the window.
+  const openJobSettings = () =>
+    isOverhaulLook()
+      ? useUIStore.getState().openConnectionDetail(`${JOB_SETTINGS_PREFIX}${job.key}`)
+      : setSettingsOpen(true);
   const onClick = () => {
     if (tile.device) return onOpenDevice(tile.device);
     if (tile.find?.count === 0 && !tile.find.unknown) return openAddConnection({ job: job.key as JobKey });
     if (tile.setup?.item) return openAddConnection({ category: "device", item: tile.setup.item });
     // Dictation has no Model to pick: its row opens its settings.
-    if (job.device) return setSettingsOpen(true);
+    if (job.device) return openJobSettings();
     setOpen(true);
   };
   const chevron = <ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />;
@@ -839,7 +851,7 @@ function DefaultsJobRow({
               <button
                 type="button"
                 // Images keeps its settings in the Image settings window (styles, canvases, templates).
-                onClick={() => (job.key === "images" ? openImageSettings() : setSettingsOpen(true))}
+                onClick={() => (job.key === "images" ? openImageSettings() : openJobSettings())}
                 aria-haspopup="dialog"
                 aria-label={t("connections.defaults.settingsFor", { role: title })}
                 // The panel's row-button look (quiet at rest, the shared accent hover), like the Connections rows.
@@ -873,44 +885,124 @@ function DefaultsJobRow({
           title={t("connections.defaults.settingsFor", { role: title })}
           width="max-w-xl"
         >
-          <div className="flex flex-col gap-3">
-            {!job.device && (
-              <JobSettingsSection title={t("connections.jobSettings.model")}>
-                <JobRow tile={tile} onClick={() => setOpen(true)} aria-haspopup="dialog" trailing={chevron} />
-              </JobSettingsSection>
-            )}
-            {job.key === "voice" && <VoiceJobSettings />}
-            {job.key === "stt" && <DictationSettings />}
-            {decision && <DecisionDefaultControl settings />}
-            {decision && tile.source?.provider === "decision" && (
-              <Suspense fallback={null}>
-                <ConnectionEditor connectionId={tile.source.id} part="decision" />
-              </Suspense>
-            )}
-            {job.key === "vision" && (
-              <JobSettingsSection title={t("connections.imageReading.title")}>
-                <ImageReadingSettings />
-              </JobSettingsSection>
-            )}
-            {overrides.length > 0 && (
-              <JobSettingsSection title={t("connections.jobSettings.overrides")}>
-                {overrides.map((row) => (
-                  <div key={row.id} className="space-y-2">
-                    <p className="text-xs font-medium">{row.name}</p>
-                    <Suspense fallback={null}>
-                      <ConnectionEditor
-                        connectionId={row.id}
-                        part={job.key === "vision" ? "captioning" : "embeddings"}
-                      />
-                    </Suspense>
-                  </div>
-                ))}
-              </JobSettingsSection>
-            )}
-            {job.key === "agents" && <AgentsSettings />}
-          </div>
+          <JobSettingsBody job={job} tile={tile} overrides={overrides} onPickModel={() => setOpen(true)} />
         </Modal>
       )}
+    </div>
+  );
+}
+
+/** What a job's settings hold: its Model row, the job's own settings, and models that override it. */
+function JobSettingsBody({
+  job,
+  tile,
+  overrides,
+  onPickModel,
+}: {
+  job: Job;
+  tile: DefaultsTile;
+  overrides: readonly ConnectionRowData[];
+  onPickModel: () => void;
+}) {
+  const { t } = useTranslation();
+  const decision = job.key === "decision";
+  return (
+    <div className="flex flex-col gap-3">
+      {!job.device && (
+        <JobSettingsSection title={t("connections.jobSettings.model")}>
+          <JobRow
+            tile={tile}
+            onClick={onPickModel}
+            aria-haspopup="dialog"
+            trailing={<ChevronRight size="0.875rem" className="shrink-0 text-[var(--muted-foreground)]" />}
+          />
+        </JobSettingsSection>
+      )}
+      {job.key === "voice" && <VoiceJobSettings />}
+      {job.key === "stt" && <DictationSettings />}
+      {decision && <DecisionDefaultControl settings />}
+      {decision && tile.source?.provider === "decision" && (
+        <Suspense fallback={null}>
+          <ConnectionEditor connectionId={tile.source.id} part="decision" />
+        </Suspense>
+      )}
+      {job.key === "vision" && (
+        <JobSettingsSection title={t("connections.imageReading.title")}>
+          <ImageReadingSettings />
+        </JobSettingsSection>
+      )}
+      {overrides.length > 0 && (
+        <JobSettingsSection title={t("connections.jobSettings.overrides")}>
+          {overrides.map((row) => (
+            <div key={row.id} className="space-y-2">
+              <p className="text-xs font-medium">{row.name}</p>
+              <Suspense fallback={null}>
+                <ConnectionEditor connectionId={row.id} part={job.key === "vision" ? "captioning" : "embeddings"} />
+              </Suspense>
+            </div>
+          ))}
+        </JobSettingsSection>
+      )}
+      {job.key === "agents" && <AgentsSettings />}
+    </div>
+  );
+}
+
+/**
+ * New layout: a job's settings as a Connections page (Library › Connections › Settings for <job>) instead
+ * of a window. Opened from the job's sliders button, the Image reading picker and the voice and dictation
+ * pages. Leaving asks first while a model part inside holds unsaved edits.
+ */
+export function JobSettingsPage({ jobKey, onClose }: { jobKey: JobKey; onClose: () => void }) {
+  const { t } = useTranslation();
+  const localize = useLocalizedUiText();
+  const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
+  const tiles = useConnectionDefaults(connectionsList);
+  const modelFor = useJobModels(connectionsList);
+  const mayReadImages = useMayReadImages();
+  const [open, setOpen] = useState(false);
+  const job = JOB[jobKey];
+  const tile = tiles.find((entry) => entry.key === jobKey);
+  if (!job || !tile) return null;
+  const title = t(jobLabelKey(job));
+  const embeddings = job.key === "embeddings";
+  const decision = job.key === "decision";
+  const model = embeddings || decision || job.device ? null : modelFor(job);
+  const leave = () => void closeIfClean(onClose);
+  return (
+    <div className="ov-jobpage mari-connection-scope" data-component="JobSettingsPage" data-job={job.key}>
+      <OvEditorHead
+        section="connections"
+        sectionLabel="Connections"
+        onBack={leave}
+        crumbs={[
+          { label: t("ui.overhaul.oveditorhead.library"), onClick: openLibraryPane },
+          { label: localize("Connections"), onClick: () => void closeIfClean(() => openLibrarySection("connections")) },
+          { label: t("connections.defaults.settingsFor", { role: title }) },
+        ]}
+        title={t("connections.defaults.settingsFor", { role: title })}
+      />
+      <div className="ov-jobpage__body">
+        <JobSettingsBody
+          job={job}
+          tile={tile}
+          overrides={overridesOf(job.key, connectionsList)}
+          onPickModel={() => setOpen(true)}
+        />
+      </div>
+      {model && (
+        <ConnectionSelect
+          variant="controlled"
+          open={open}
+          onOpenChange={setOpen}
+          job={title}
+          jobKey={job.key as JobKey}
+          rowFilter={job.key === "vision" ? mayReadImages : undefined}
+          {...model}
+        />
+      )}
+      {embeddings && <EmbeddingDefaultControl open={open} onOpenChange={setOpen} />}
+      {decision && <DecisionDefaultControl open={open} onOpenChange={setOpen} />}
     </div>
   );
 }

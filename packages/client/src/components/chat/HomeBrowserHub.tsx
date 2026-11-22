@@ -16,7 +16,7 @@ import {
   type RefObject,
 } from "react";
 import { flushSync } from "react-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -45,15 +45,11 @@ import {
 } from "lucide-react";
 import {
   APP_VERSION,
-  BUILT_IN_AGENTS,
-  HOME_CUSTOM_WIDGETS_SETTINGS_KEY,
   isInstalledCapabilityReady,
   normalizeAvatarCrop,
   type AchievementEvent,
   type HomeCustomWidget,
-  type HomeCustomWidgetCatalog,
   type SceneFullPlan,
-  homeAgentWidgetsSchema,
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { useCoveredSurfaceFlag } from "../../hooks/use-covered-surface-flag";
@@ -69,13 +65,12 @@ import { isChatProvider } from "@marinara-engine/shared";
 import { useAllCharacterCatalog } from "../../hooks/use-characters";
 import {
   selectHomeBrowserPackages,
-  selectHomeWidgetPackages,
   useCapabilityCatalog,
   useInstalledCapabilityPackages,
 } from "../../hooks/use-capability-packages";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { achievementKeys, trackAchievementEvent } from "../../hooks/use-achievements";
-import { api, ApiError } from "../../lib/api-client";
+import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
 import {
@@ -104,6 +99,18 @@ import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
 import { isOverhaulLook, useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
 import { RecentChats } from "./RecentChats";
+import { useHomeWidgetCatalog } from "./use-home-widget-catalog";
+import {
+  customHomeWidgetId,
+  HOME_WIDGET_IDS,
+  isHomeWidgetId,
+  readHomeWidgetVisibility,
+  useHomeWidgetsStore,
+  HOME_WIDGET_MANAGER_LABEL_KEYS,
+  type AgentHomeWidget,
+  type BuiltInHomeWidgetId,
+  type HomeWidgetId,
+} from "../../stores/home-widgets.store";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 import { avatarPreviewSrc } from "../../lib/avatar-preview";
 import { ThingsToTryList, ThingsToTrySeeAll, ThingsToTryWidget } from "./HomeThingsToTry";
@@ -120,43 +127,7 @@ const HOME_CARD_ART_CLASS = "-right-5 -top-5 h-36 w-44 object-contain object-rig
 const NOODLE_REFRESH_SEEN_STORAGE_KEY = "marinara:home:noodle-refresh-seen:v1";
 const HOME_WIDGET_ORDER_STORAGE_KEY = "marinara:home:widget-order:v1";
 const HOME_WIDGET_LAYOUT_STORAGE_KEY = "marinara:home:widget-layout:v2";
-const HOME_WIDGET_VISIBILITY_STORAGE_KEY = "marinara:home:widget-visibility:v2";
-const LEGACY_HOME_WIDGET_VISIBILITY_STORAGE_KEY = "marinara:home:widget-visibility:v1";
 const HOME_CUSTOM_WIDGET_KNOWN_STORAGE_KEY = "marinara:home:custom-widget-known:v1";
-const HOME_WIDGET_IDS = [
-  "character-library",
-  "professor",
-  "whats-new",
-  "recent",
-  "learn",
-  "community",
-  "discovery",
-  "character",
-  "clock",
-  "achievements",
-] as const;
-type BuiltInHomeWidgetId = (typeof HOME_WIDGET_IDS)[number];
-type HomeWidgetId = BuiltInHomeWidgetId | `custom:${string}` | `agent:${string}`;
-type AgentHomeWidget = {
-  id: HomeWidgetId;
-  kind: "package" | "custom";
-  packageId?: string;
-  agentId?: string;
-  widgetId: string;
-  ownerName: string;
-  label: string;
-  description: string;
-  size: "compact" | "large";
-  icon?: string;
-  iconPath?: string;
-  accent?: "cyan" | "green" | "amber" | "orange" | "rose" | "violet";
-  surface?: "soft" | "solid" | "quiet";
-  header?: "standard" | "compact" | "banner";
-};
-
-function packageHomeWidgetId(packageId: string, widgetId: string): HomeWidgetId {
-  return `agent:package:${packageId}:${widgetId}`;
-}
 
 function CustomAgentHomeWidget({
   agentId,
@@ -237,15 +208,6 @@ function CustomAgentHomeWidget({
   );
 }
 
-function isHomeWidgetId(value: unknown): value is HomeWidgetId {
-  return (
-    typeof value === "string" &&
-    (HOME_WIDGET_IDS.includes(value as BuiltInHomeWidgetId) ||
-      /^custom:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ||
-      /^agent:(?:package|custom):[A-Za-z0-9_-]+:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))
-  );
-}
-
 function readSeenNoodleRefreshMarker(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -275,14 +237,6 @@ const DEFAULT_HOME_WIDGET_ORDER = [
   "clock",
   "achievements",
 ] as const satisfies readonly BuiltInHomeWidgetId[];
-const DEFAULT_VISIBLE_HOME_WIDGETS = [
-  "professor",
-  "whats-new",
-  "recent",
-  "learn",
-  "community",
-] as const satisfies readonly BuiltInHomeWidgetId[];
-const NEW_DEFAULT_HOME_WIDGET_IDS: readonly BuiltInHomeWidgetId[] = ["community", "clock"];
 type HomeGridColumns = 1 | 2 | 3 | 4;
 type HomeWidgetSlot = HomeWidgetId | null;
 type HomeWidgetLayouts = Record<HomeGridColumns, HomeWidgetSlot[]>;
@@ -297,18 +251,6 @@ const HOME_WIDGET_LABEL_KEYS: Record<BuiltInHomeWidgetId, string> = {
   community: "home.widgets.community",
   clock: "home.widgets.clock",
   achievements: "home.widgets.achievements",
-};
-const HOME_WIDGET_MANAGER_LABEL_KEYS: Record<BuiltInHomeWidgetId, { name: string; purpose: string }> = {
-  "character-library": { name: "home.widgets.characterLibrary", purpose: "home.characterLibrary.description" },
-  professor: { name: "home.professorMari.eyebrow", purpose: "home.widgets.professor" },
-  recent: { name: "home.recentChats.eyebrow", purpose: "home.recentChats.title" },
-  "whats-new": { name: "home.whatsNew.eyebrow", purpose: "home.widgets.whatsNew" },
-  discovery: { name: "home.discovery.eyebrow", purpose: "home.discovery.title" },
-  character: { name: "home.characterOfDay.eyebrow", purpose: "home.characterOfDay.title" },
-  learn: { name: "home.learn.eyebrow", purpose: "home.learn.title" },
-  community: { name: "home.community.eyebrow", purpose: "home.community.title" },
-  clock: { name: "home.clock.eyebrow", purpose: "home.clock.title" },
-  achievements: { name: "home.achievements.eyebrow", purpose: "home.achievements.title" },
 };
 const HOME_WIDGET_MIN_ROW_HEIGHT = 208;
 const HOME_WIDGET_MAX_ROW_HEIGHT = 640;
@@ -338,10 +280,6 @@ const HOME_CUSTOM_WIDGET_ICONS = {
   compass: Compass,
 } as const;
 
-function customHomeWidgetId(id: string): HomeWidgetId {
-  return `custom:${id}`;
-}
-
 const HOME_STARS = Array.from({ length: 42 }, (_, index) => ({
   x: (index * 37 + 7) % 100,
   y: (index * 53 + 11) % 100,
@@ -369,25 +307,6 @@ function readHomeWidgetOrder(): HomeWidgetId[] {
     return valid.length > 0 ? valid : [...DEFAULT_HOME_WIDGET_ORDER];
   } catch {
     return [...DEFAULT_HOME_WIDGET_ORDER];
-  }
-}
-
-function readHomeWidgetVisibility(): HomeWidgetId[] {
-  if (typeof window === "undefined") return [...DEFAULT_VISIBLE_HOME_WIDGETS];
-  try {
-    const current = window.localStorage.getItem(HOME_WIDGET_VISIBILITY_STORAGE_KEY);
-    if (current !== null) {
-      const parsed = JSON.parse(current) as unknown;
-      if (!Array.isArray(parsed)) return [...DEFAULT_VISIBLE_HOME_WIDGETS];
-      return parsed.filter((id, index): id is HomeWidgetId => isHomeWidgetId(id) && parsed.indexOf(id) === index);
-    }
-    const legacy = JSON.parse(
-      window.localStorage.getItem(LEGACY_HOME_WIDGET_VISIBILITY_STORAGE_KEY) ?? "null",
-    ) as unknown;
-    if (!Array.isArray(legacy)) return [...DEFAULT_VISIBLE_HOME_WIDGETS];
-    return HOME_WIDGET_IDS.filter((id) => legacy.includes(id) || NEW_DEFAULT_HOME_WIDGET_IDS.includes(id));
-  } catch {
-    return [...DEFAULT_VISIBLE_HOME_WIDGETS];
   }
 }
 
@@ -1168,56 +1087,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     { version: APP_VERSION },
   );
   const queryClient = useQueryClient();
-  const customWidgetsQuery = useQuery({
-    queryKey: ["home-custom-widgets"],
-    queryFn: () => api.get<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`),
-  });
-  const customWidgets = useMemo(() => customWidgetsQuery.data?.widgets ?? [], [customWidgetsQuery.data?.widgets]);
-  const customWidgetIds = useMemo(() => customWidgets.map((widget) => customHomeWidgetId(widget.id)), [customWidgets]);
-  const customWidgetsById = useMemo(
-    () => new Map(customWidgets.map((widget) => [customHomeWidgetId(widget.id), widget])),
-    [customWidgets],
-  );
-  const deleteCustomWidgetMutation = useMutation({
-    mutationFn: async (widgetId: string) => {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const catalog = await api.get<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`);
-        if (!catalog.widgets.some((widget) => widget.id === widgetId)) return catalog;
-        try {
-          return await api.put<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`, {
-            ...catalog,
-            widgets: catalog.widgets.filter((widget) => widget.id !== widgetId),
-          });
-        } catch (error) {
-          if (!(error instanceof ApiError) || error.status !== 409 || attempt > 0) throw error;
-        }
-      }
-      throw new Error("Home widget catalog changed repeatedly; try again.");
-    },
-    onSuccess: (catalog) => queryClient.setQueryData(["home-custom-widgets"], catalog),
-    onError: () => queryClient.invalidateQueries({ queryKey: ["home-custom-widgets"] }),
-  });
-  const updateCustomWidgetMutation = useMutation({
-    mutationFn: async (updated: HomeCustomWidget) => {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const catalog = await api.get<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`);
-        if (!catalog.widgets.some((widget) => widget.id === updated.id)) throw new Error("Widget no longer exists");
-        try {
-          return await api.put<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`, {
-            ...catalog,
-            widgets: catalog.widgets.map((widget) =>
-              widget.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : widget,
-            ),
-          });
-        } catch (error) {
-          if (!(error instanceof ApiError) || error.status !== 409 || attempt > 0) throw error;
-        }
-      }
-      throw new Error("Home widget catalog changed repeatedly; try again.");
-    },
-    onSuccess: (catalog) => queryClient.setQueryData(["home-custom-widgets"], catalog),
-    onError: () => queryClient.invalidateQueries({ queryKey: ["home-custom-widgets"] }),
-  });
+  const homeWidgetCatalog = useHomeWidgetCatalog();
   const installed = useInstalledCapabilityPackages();
   const catalog = useCapabilityCatalog();
   const characterCatalog = useAllCharacterCatalog();
@@ -1234,63 +1104,15 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   // but still gets compact tabs, with the URL bar and bookmark strip kept desktop-only.
   const mobileShell = useMatchMedia(useMobileShellMediaQuery());
   const browserPackages = useMemo(() => selectHomeBrowserPackages(installed.data), [installed.data]);
-  const agentWidgetGroups = useMemo(() => {
-    const packageGroups = selectHomeWidgetPackages(installed.data).map((pkg) => {
-      const display = resolveCapabilityPackageDisplay(pkg.manifest, i18n.resolvedLanguage ?? i18n.language);
-      return {
-        id: pkg.id,
-        name: display.name,
-        widgets: (display.homeWidgets ?? []).map((widget): AgentHomeWidget => ({
-          id: packageHomeWidgetId(pkg.id, widget.id),
-          kind: "package",
-          packageId: pkg.id,
-          widgetId: widget.id,
-          ownerName: display.name,
-          label: widget.label,
-          description: widget.description,
-          size: widget.size,
-          icon: widget.icon,
-          iconPath: widget.iconPath,
-          accent: widget.accent,
-          surface: widget.surface,
-          header: widget.header,
-        })),
-      };
-    });
-    const customGroups = (agents.data ?? []).flatMap((agent) => {
-      if (BUILT_IN_AGENTS.some((builtIn) => builtIn.id === agent.type)) return [];
-      const settings = (() => {
-        try {
-          return JSON.parse(agent.settings) as Record<string, unknown>;
-        } catch {
-          return {};
-        }
-      })();
-      const parsed = homeAgentWidgetsSchema.safeParse(settings.homeWidgets ?? []);
-      if (!parsed.success || parsed.data.length === 0) return [];
-      return [
-        {
-          id: agent.id,
-          name: agent.name,
-          widgets: parsed.data.map((widget): AgentHomeWidget => ({
-            id: `agent:custom:${agent.id}:${widget.id}`,
-            kind: "custom",
-            agentId: agent.id,
-            widgetId: widget.id,
-            ownerName: agent.name,
-            label: widget.title,
-            description: widget.description,
-            size: widget.size,
-            icon: widget.icon,
-            accent: widget.accent,
-            surface: widget.surface,
-            header: widget.header,
-          })),
-        },
-      ];
-    });
-    return [...packageGroups, ...customGroups];
-  }, [installed.data, agents.data, i18n.language, i18n.resolvedLanguage]);
+  const {
+    customWidgetsQuery,
+    customWidgets,
+    customWidgetIds,
+    customWidgetsById,
+    deleteCustomWidgetMutation,
+    updateCustomWidgetMutation,
+    agentWidgetGroups,
+  } = homeWidgetCatalog;
   const agentWidgets = useMemo(() => agentWidgetGroups.flatMap((group) => group.widgets), [agentWidgetGroups]);
   const agentWidgetsById = useMemo(() => new Map(agentWidgets.map((widget) => [widget.id, widget])), [agentWidgets]);
   const largeAgentWidgetIds = useMemo(
@@ -1446,7 +1268,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const [widgetManagerAgentId, setWidgetManagerAgentId] = useState<string | null>(null);
   const [focusedPackagePost, setFocusedPackagePost] = useState<{ packageId: string; postId: string } | null>(null);
   const [mobileBookmarksOpen, setMobileBookmarksOpen] = useState(false);
-  const [visibleWidgets, setVisibleWidgets] = useState<HomeWidgetId[]>(readHomeWidgetVisibility);
+  // Shared with Settings › General › Home, so a switch there changes Home at once.
+  const visibleWidgets = useHomeWidgetsStore((state) => state.visible);
+  const setVisibleWidgets = useHomeWidgetsStore((state) => state.setVisible);
   const [widgetLayouts, setWidgetLayouts] = useState<HomeWidgetLayouts>(() =>
     readHomeWidgetLayouts(readHomeWidgetVisibility()),
   );
@@ -1599,7 +1423,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     } catch {
       /* Local storage is optional; the current session still updates. */
     }
-  }, [customWidgets, customWidgetsQuery.isSuccess]);
+  }, [customWidgets, customWidgetsQuery.isSuccess, setVisibleWidgets]);
 
   useEffect(() => {
     if (!installed.isSuccess || !agents.isSuccess) return;
@@ -1616,7 +1440,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       });
       return next.length === current.length ? current : next;
     });
-  }, [agentWidgets, installed.data, installed.isSuccess, agents.isSuccess]);
+  }, [agentWidgets, installed.data, installed.isSuccess, agents.isSuccess, setVisibleWidgets]);
 
   useEffect(() => {
     if (!achievementsEnabled) setAchievementsOpen(false);
@@ -1744,7 +1568,6 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   useEffect(() => {
     try {
       window.localStorage.setItem(HOME_WIDGET_LAYOUT_STORAGE_KEY, JSON.stringify(widgetLayouts));
-      window.localStorage.setItem(HOME_WIDGET_VISIBILITY_STORAGE_KEY, JSON.stringify(visibleWidgets));
       window.localStorage.setItem(
         HOME_WIDGET_ORDER_STORAGE_KEY,
         JSON.stringify(widgetOrderFromSlots(activeWidgetSlots)),
@@ -1840,6 +1663,11 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     if (isOverhaulLook()) useOverhaulStore.getState().openMari();
     else requestProfessorMariOpen();
   };
+  // New layout: the widgets are chosen in Settings › General › Home; the classic layout keeps its window.
+  const openWidgetSettings = useCallback(() => {
+    if (overhaulActive) executeStateNavigation({ kind: "settings", tab: "general", sectionId: "home" });
+    else setWidgetManagerOpen(true);
+  }, [overhaulActive]);
   // The omnibar and Command Center ask Home for a surface through `requestHome`; Home opens it here.
   const homeRequest = useUIStore((state) => state.homeRequest);
   useEffect(() => {
@@ -1847,9 +1675,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     useUIStore.getState().consumeHomeRequest();
     if (homeRequest.kind === "tab") selectTab(homeRequest.tab);
     else if (homeRequest.kind === "faq") setFaqOpen(true);
-    else if (homeRequest.kind === "widgets") setWidgetManagerOpen(true);
+    else if (homeRequest.kind === "widgets") openWidgetSettings();
     else onOpenCredits();
-  }, [homeRequest, onOpenCredits, selectTab]);
+  }, [homeRequest, onOpenCredits, openWidgetSettings, selectTab]);
   const moveDraggedWidget = useCallback(
     (target: { kind: "widget"; id: HomeWidgetId } | { kind: "empty"; index: number }) => {
       const source = draggedWidgetIdRef.current;
@@ -2540,7 +2368,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     </BrowserBookmark>
                   ) : null}
                   <BrowserBookmark
-                    onClick={() => setWidgetManagerOpen(true)}
+                    onClick={openWidgetSettings}
                     icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
                     tone={HOME_MODULE_ACCENTS.violet}
                     tourTarget="home-widgets"
@@ -2642,7 +2470,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                   <MobileBrowserBookmark
                     onClick={() => {
                       setMobileBookmarksOpen(false);
-                      setWidgetManagerOpen(true);
+                      openWidgetSettings();
                     }}
                     icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
                     tone={HOME_MODULE_ACCENTS.violet}
@@ -2864,7 +2692,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             {display.homeBrowserTab?.label ?? display.name}
                           </button>
                         ))}
-                        <button type="button" className="ov-btn" onClick={() => setWidgetManagerOpen(true)}>
+                        <button type="button" className="ov-btn" onClick={openWidgetSettings}>
                           <SlidersHorizontal size={14} aria-hidden="true" />
                           {t("home.browser.widgets")}
                         </button>

@@ -15,7 +15,6 @@ import {
 import { useImageReadingSettings, useSetImageReadingSettings } from "../../hooks/use-image-reading-settings";
 import { DraftTextarea } from "../ui/DraftTextarea";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
-import { Modal } from "../ui/Modal";
 
 const LABEL = "text-xs font-medium text-[var(--muted-foreground)]";
 const HINT = "text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]";
@@ -138,15 +137,5 @@ export function ImageReadingSettings() {
       </div>
       <p className={HINT}>{t("connections.imageReading.limitsHint")}</p>
     </div>
-  );
-}
-
-/** The settings on their own, from the Image reading picker. */
-export function ImageReadingSettingsWindow({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <Modal open onClose={onClose} title={t("connections.imageReading.open")} width="max-w-xl">
-      <ImageReadingSettings />
-    </Modal>
   );
 }

@@ -210,6 +210,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "home-widgets",
+    sectionId: "home",
+    labelKey: "settings.controls.homeWidgets.label",
+    label: "Home widgets",
+    description:
+      "Choose which widgets live on Home. A restored widget returns to the first available place on your desk.",
+    descriptionKey: "home.browser.widgetsWindowDescription",
+    aliases: ["widgets", "home", "clock", "calendar", "community", "learn", "recent chats"],
+    kind: "Toggle",
+  },
+  {
     id: "achievements",
     sectionId: "extras",
     labelKey: "settings.controls.achievements.label",

@@ -55,7 +55,7 @@ import { parseStateDraft } from "../../../lib/state-editor/state-editor-json";
 import { StateJsonField } from "../../../components/ui/state-editor/StateJsonField";
 import { useUIStore } from "../../../stores/ui.store";
 import { useGameStateStore } from "../../../stores/game-state.store";
-import { Modal } from "../../../components/ui/Modal";
+import { ChatSettingsEditorSurface } from "../ChatSettingsEditorSurface";
 import { Select } from "../../../components/ui/Select";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ConnectionSelect } from "../../../components/connections/ConnectionSelect";
@@ -76,6 +76,8 @@ interface AgentSuiteModalProps {
   onClose: () => void;
   onCloseGuardChange?: (guard: (() => Promise<boolean>) | null) => void;
   agents: AgentSuiteAgent[];
+  /** New layout: a page inside Chat settings instead of a window. */
+  asPage?: boolean;
 }
 
 type ConnectionOption = {
@@ -482,7 +484,14 @@ function DataBlock({
 
 // ── Modal ──
 
-export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agents }: AgentSuiteModalProps) {
+export function AgentSuiteModal({
+  chat,
+  open,
+  onClose,
+  onCloseGuardChange,
+  agents,
+  asPage = false,
+}: AgentSuiteModalProps) {
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
 
@@ -596,6 +605,11 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
     onCloseGuardChange(open ? confirmDiscardDrafts : null);
     return () => onCloseGuardChange(null);
   }, [confirmDiscardDrafts, onCloseGuardChange, open]);
+
+  const leaveGuard = useMemo(
+    () => ({ isDirty: () => dirtyBlocksRef.current.size > 0, confirmLeave: confirmDiscardDrafts }),
+    [confirmDiscardDrafts],
+  );
 
   const guardedClose = useCallback(() => {
     if (closingRef.current) return;
@@ -895,193 +909,136 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
 
   // 5. Render
   return (
-    <Modal
+    <ChatSettingsEditorSurface
+      asPage={asPage}
+      leaveGuard={leaveGuard}
+      pageBodyClassName="px-4 py-3"
       open={open}
       onClose={guardedClose}
       title={localizeUi("ui.chat.agentsuitemodal.agentSuite")}
       width="max-w-3xl"
       chatFloatingPanel
     >
-      {agents.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-          {localizeUi("ui.chat.agentsuitemodal.noAgentsAreActiveInThisChatAddAgents")}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3 sm:flex-row">
-          {/* Agent picker — dropdown on mobile, rail on desktop */}
-          <div className="shrink-0 sm:w-44">
-            <Select
-              label={localizeUi("ui.chat.agentsuitemodal.agentSuite")}
-              value={effectiveAgentId}
-              options={agents.map((agent) => ({ value: agent.id, label: agent.name }))}
-              onChange={selectAgent}
-              className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40 sm:hidden"
-            />
-            <div className="hidden flex-col gap-1 sm:flex">
-              {agents.map((agent) => (
-                <button
-                  key={agent.id}
-                  type="button"
-                  onClick={() => selectAgent(agent.id)}
-                  className={cn(
-                    "flex w-full flex-col rounded-lg px-2.5 py-2 text-left transition-all",
-                    agent.id === effectiveAgentId
-                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-                  )}
-                >
-                  <span className="truncate text-[0.6875rem] max-sm:text-[13px] font-medium">{agent.name}</span>
-                  <span className="text-[0.5625rem] max-sm:text-[13px] uppercase tracking-wide text-[var(--muted-foreground)]">
-                    {CATEGORY_LABELS[agent.category] ?? agent.category}
-                  </span>
-                </button>
-              ))}
-            </div>
+      {/* Widths of the space it has, not the screen's: the Chat settings page is narrow on a computer too. */}
+      <div className="@container">
+        {agents.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-6 text-center text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+            {localizeUi("ui.chat.agentsuitemodal.noAgentsAreActiveInThisChatAddAgents")}
           </div>
+        ) : (
+          <div className="flex flex-col gap-3 @xl:flex-row">
+            {/* Agent picker — dropdown on mobile, rail on desktop */}
+            <div className="shrink-0 @xl:w-44">
+              <Select
+                label={localizeUi("ui.chat.agentsuitemodal.agentSuite")}
+                value={effectiveAgentId}
+                options={agents.map((agent) => ({ value: agent.id, label: agent.name }))}
+                onChange={selectAgent}
+                className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-[var(--border)] transition-shadow focus:ring-[var(--primary)]/40 @xl:hidden"
+              />
+              <div className="hidden flex-col gap-1 @xl:flex">
+                {agents.map((agent) => (
+                  <button
+                    key={agent.id}
+                    type="button"
+                    onClick={() => selectAgent(agent.id)}
+                    className={cn(
+                      "flex w-full flex-col rounded-lg px-2.5 py-2 text-left transition-all",
+                      agent.id === effectiveAgentId
+                        ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                        : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <span className="truncate text-[0.6875rem] max-sm:text-[13px] font-medium">{agent.name}</span>
+                    <span className="text-[0.5625rem] max-sm:text-[13px] uppercase tracking-wide text-[var(--muted-foreground)]">
+                      {CATEGORY_LABELS[agent.category] ?? agent.category}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          {/* Selected agent detail */}
-          <div className="min-w-0 flex-1 space-y-3">
-            {selectedAgent && (
-              <>
-                <div className="flex items-start gap-2">
-                  <Bot size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-xs font-semibold">{selectedAgent.name}</h3>
-                    <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                      {selectedAgent.description}
-                    </p>
-                  </div>
-                </div>
-
-                {isAgentProcessing && (
-                  <div className="flex items-center gap-1.5 rounded-lg bg-amber-400/10 px-2.5 py-2 text-[0.625rem] max-sm:text-[13px] text-amber-400/90 ring-1 ring-amber-400/30">
-                    <AlertTriangle size="0.75rem" className="shrink-0" />
-                    {localizeUi("ui.chat.agentsuitemodal.agentsAreCurrentlyRunningForThisChatSavingIs")}
-                  </div>
-                )}
-
-                {/* Stored memory */}
-                <section className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--muted-foreground)]">
-                      {localizeUi("ui.chat.agentsuitemodal.storedMemory")}
-                    </h4>
-                    <div className="flex items-center gap-1.5">
-                      {selectedAgent.id === "director" && memoryEntries.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setSpoilersRevealed((v) => !v)}
-                          className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
-                        >
-                          {spoilersRevealed ? <EyeOff size="0.625rem" /> : <Eye size="0.625rem" />}
-                          {spoilersRevealed
-                            ? localizeUi("ui.agents.secretplotpanel.hideSpoilers")
-                            : localizeUi("ui.chat.agentsuitemodal.revealSpoilers")}
-                        </button>
-                      )}
-                      {memoryEntries.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={clearAgentMemory}
-                          disabled={isAgentProcessing}
-                          className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[0.625rem] max-sm:text-[13px] text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <Trash2 size="0.625rem" />
-                          {localizeUi("ui.chat.agentsuitemodal.clearMemory")}
-                        </button>
-                      )}
+            {/* Selected agent detail */}
+            <div className="min-w-0 flex-1 space-y-3">
+              {selectedAgent && (
+                <>
+                  <div className="flex items-start gap-2">
+                    <Bot size="0.875rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-xs font-semibold">{selectedAgent.name}</h3>
+                      <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                        {selectedAgent.description}
+                      </p>
                     </div>
                   </div>
-                  {memoryQuery.isLoading && (
-                    <p className="py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                      {localizeUi("ui.chat.agentsuitemodal.loadingStoredMemory")}
-                    </p>
-                  )}
-                  {memoryQuery.isError && (
-                    <p className="rounded-md border border-[var(--destructive)]/25 bg-[var(--destructive)]/10 px-2 py-1.5 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--destructive)]">
-                      {localizeUi("ui.chat.agentsuitemodal.couldNotLoadThisAgentSMemory")}
-                    </p>
-                  )}
-                  {!memoryQuery.isLoading && !memoryQuery.isError && memoryEntries.length === 0 && (
-                    <p className="rounded-md border border-dashed border-[var(--border)] px-2 py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                      {localizeUi("ui.chat.agentsuitemodal.noStoredMemoryForThisAgentInThisChat")}
-                    </p>
-                  )}
-                  {hideSpoilers ? (
-                    <p className="rounded-md border border-dashed border-[var(--border)] px-2 py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                      {localizeUi("ui.chat.agentsuitemodal.containsHiddenNarrativeSpoilersUseRevealSpoilersToView")}
-                    </p>
-                  ) : (
-                    memoryEntries.map((entry) => (
-                      <DataBlock
-                        key={`${selectedAgent.id}:memory:${entry.key}`}
-                        blockId={`${selectedAgent.id}:memory:${entry.key}`}
-                        label={entry.key}
-                        mode={entry.mode}
-                        value={entry.serialized}
-                        onSave={(draftText) => saveMemoryKey(selectedAgent.id, entry.key, entry.mode, draftText)}
-                        onDirtyChange={handleBlockDirtyChange}
-                        disabled={isAgentProcessing}
-                        agentName={selectedAgent.name}
-                        connectionOptions={connectionOptions}
-                        rewriteConnectionId={effectiveRewriteConnectionId}
-                        onRewriteConnectionChange={setRewriteConnectionId}
-                        contextPicker={contextPicker}
-                        contextCount={selectedContextSources.length}
-                        contextOverLimit={contextOverLimit}
-                        buildContextSections={buildContextSections}
-                      />
-                    ))
-                  )}
-                </section>
 
-                {/* Tracker slice */}
-                {trackerSlice && (
+                  {isAgentProcessing && (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-amber-400/10 px-2.5 py-2 text-[0.625rem] max-sm:text-[13px] text-amber-400/90 ring-1 ring-amber-400/30">
+                      <AlertTriangle size="0.75rem" className="shrink-0" />
+                      {localizeUi("ui.chat.agentsuitemodal.agentsAreCurrentlyRunningForThisChatSavingIs")}
+                    </div>
+                  )}
+
+                  {/* Stored memory */}
                   <section className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <h4 className="text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.agentsuitemodal.trackerData")}
+                        {localizeUi("ui.chat.agentsuitemodal.storedMemory")}
                       </h4>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          useUIStore.getState().openModal("game-state-editor", {
-                            chatId: chat.id,
-                            // The selected agent's tracker is one section of the editor: open there.
-                            initialSectionId: selectedAgent?.id,
-                          })
-                        }
-                        className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 py-1 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
-                      >
-                        <Braces size="0.6875rem" />
-                        {localizeUi("ui.chat.agentsuitemodal.openStateEditor")}
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        {selectedAgent.id === "director" && memoryEntries.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSpoilersRevealed((v) => !v)}
+                            className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+                          >
+                            {spoilersRevealed ? <EyeOff size="0.625rem" /> : <Eye size="0.625rem" />}
+                            {spoilersRevealed
+                              ? localizeUi("ui.agents.secretplotpanel.hideSpoilers")
+                              : localizeUi("ui.chat.agentsuitemodal.revealSpoilers")}
+                          </button>
+                        )}
+                        {memoryEntries.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={clearAgentMemory}
+                            disabled={isAgentProcessing}
+                            className="inline-flex min-h-7 items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[0.625rem] max-sm:text-[13px] text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/15 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <Trash2 size="0.625rem" />
+                            {localizeUi("ui.chat.agentsuitemodal.clearMemory")}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {gameStateQuery.isLoading && (
+                    {memoryQuery.isLoading && (
                       <p className="py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.agentsuitemodal.loadingTrackerData")}
+                        {localizeUi("ui.chat.agentsuitemodal.loadingStoredMemory")}
                       </p>
                     )}
-                    {gameStateQuery.isError && (
+                    {memoryQuery.isError && (
                       <p className="rounded-md border border-[var(--destructive)]/25 bg-[var(--destructive)]/10 px-2 py-1.5 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--destructive)]">
-                        {localizeUi("ui.chat.agentsuitemodal.couldNotLoadTrackerData")}
+                        {localizeUi("ui.chat.agentsuitemodal.couldNotLoadThisAgentSMemory")}
                       </p>
                     )}
-                    {!gameStateQuery.isLoading && !gameStateQuery.isError && !gameStateQuery.data && (
+                    {!memoryQuery.isLoading && !memoryQuery.isError && memoryEntries.length === 0 && (
                       <p className="rounded-md border border-dashed border-[var(--border)] px-2 py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.agentsuitemodal.noTrackerDataRecordedForThisChatYet")}
+                        {localizeUi("ui.chat.agentsuitemodal.noStoredMemoryForThisAgentInThisChat")}
                       </p>
                     )}
-                    {gameStateQuery.data && (
-                      <>
+                    {hideSpoilers ? (
+                      <p className="rounded-md border border-dashed border-[var(--border)] px-2 py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                        {localizeUi("ui.chat.agentsuitemodal.containsHiddenNarrativeSpoilersUseRevealSpoilersToView")}
+                      </p>
+                    ) : (
+                      memoryEntries.map((entry) => (
                         <DataBlock
-                          key={`${selectedAgent.id}:tracker`}
-                          blockId={`${selectedAgent.id}:tracker`}
-                          label={trackerSlice.label}
-                          description={trackerSlice.description}
-                          mode="json"
-                          value={serializeValue(trackerSlice.getValue(gameStateQuery.data), "json")}
-                          onSave={(draftText) => saveTrackerSlice(selectedAgent.id, draftText)}
+                          key={`${selectedAgent.id}:memory:${entry.key}`}
+                          blockId={`${selectedAgent.id}:memory:${entry.key}`}
+                          label={entry.key}
+                          mode={entry.mode}
+                          value={entry.serialized}
+                          onSave={(draftText) => saveMemoryKey(selectedAgent.id, entry.key, entry.mode, draftText)}
                           onDirtyChange={handleBlockDirtyChange}
                           disabled={isAgentProcessing}
                           agentName={selectedAgent.name}
@@ -1093,57 +1050,57 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
                           contextOverLimit={contextOverLimit}
                           buildContextSections={buildContextSections}
                         />
-                        {selectedAgent.id === "world-state" && (gameStateQuery.data.recentEvents?.length ?? 0) > 0 && (
-                          <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2.5">
-                            <span className="text-[0.6875rem] max-sm:text-[13px] font-semibold">
-                              {localizeUi("ui.chat.agentsuitemodal.recentEvents")}
-                            </span>
-                            <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                              {localizeUi("ui.chat.agentsuitemodal.maintainedByTheAgentAndRewrittenOnEachRun")}
-                            </p>
-                            <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                              {gameStateQuery.data.recentEvents.map((event, index) => (
-                                <li key={index}>{event}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </>
+                      ))
                     )}
                   </section>
-                )}
 
-                {/* Custom agent outputs */}
-                {selectedAgent.category === "custom" && (
-                  <section className="space-y-2">
-                    <h4 className="text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--muted-foreground)]">
-                      {localizeUi("ui.chat.agentsuitemodal.recentOutputs")}
-                    </h4>
-                    {customRunsQuery.isLoading && (
-                      <p className="py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.agentsuitemodal.loadingOutputs")}
-                      </p>
-                    )}
-                    {!customRunsQuery.isLoading && customRuns.length === 0 && (
-                      <p className="rounded-md border border-dashed border-[var(--border)] px-2 py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                        {localizeUi("ui.chat.agentsuitemodal.noStoredOutputsFromThisAgentInThisChat")}
-                      </p>
-                    )}
-                    {customRuns.map((run) => {
-                      const mode: "text" | "json" = typeof run.resultData === "string" ? "text" : "json";
-                      return (
-                        <AgentOutputSpoiler key={run.id} hidden={run.hideOutput}>
+                  {/* Tracker slice */}
+                  {trackerSlice && (
+                    <section className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--muted-foreground)]">
+                          {localizeUi("ui.chat.agentsuitemodal.trackerData")}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            useUIStore.getState().openModal("game-state-editor", {
+                              chatId: chat.id,
+                              // The selected agent's tracker is one section of the editor: open there.
+                              initialSectionId: selectedAgent?.id,
+                            })
+                          }
+                          className="inline-flex min-h-7 items-center gap-1 rounded-md px-2 py-1 text-[0.625rem] max-sm:text-[13px] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--ring)]"
+                        >
+                          <Braces size="0.6875rem" />
+                          {localizeUi("ui.chat.agentsuitemodal.openStateEditor")}
+                        </button>
+                      </div>
+                      {gameStateQuery.isLoading && (
+                        <p className="py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                          {localizeUi("ui.chat.agentsuitemodal.loadingTrackerData")}
+                        </p>
+                      )}
+                      {gameStateQuery.isError && (
+                        <p className="rounded-md border border-[var(--destructive)]/25 bg-[var(--destructive)]/10 px-2 py-1.5 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--destructive)]">
+                          {localizeUi("ui.chat.agentsuitemodal.couldNotLoadTrackerData")}
+                        </p>
+                      )}
+                      {!gameStateQuery.isLoading && !gameStateQuery.isError && !gameStateQuery.data && (
+                        <p className="rounded-md border border-dashed border-[var(--border)] px-2 py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                          {localizeUi("ui.chat.agentsuitemodal.noTrackerDataRecordedForThisChatYet")}
+                        </p>
+                      )}
+                      {gameStateQuery.data && (
+                        <>
                           <DataBlock
-                            key={run.id}
-                            blockId={run.id}
-                            label={run.resultType.replace(/_/g, " ")}
-                            description={formatRunTimestamp(run.createdAt)}
-                            mode={mode}
-                            value={serializeValue(run.resultData, mode)}
-                            onSave={async (draftText) => {
-                              const parsed: unknown = mode === "json" ? JSON.parse(draftText) : draftText;
-                              await updateRunData.mutateAsync({ id: run.id, chatId: run.chatId, resultData: parsed });
-                            }}
+                            key={`${selectedAgent.id}:tracker`}
+                            blockId={`${selectedAgent.id}:tracker`}
+                            label={trackerSlice.label}
+                            description={trackerSlice.description}
+                            mode="json"
+                            value={serializeValue(trackerSlice.getValue(gameStateQuery.data), "json")}
+                            onSave={(draftText) => saveTrackerSlice(selectedAgent.id, draftText)}
                             onDirtyChange={handleBlockDirtyChange}
                             disabled={isAgentProcessing}
                             agentName={selectedAgent.name}
@@ -1155,16 +1112,80 @@ export function AgentSuiteModal({ chat, open, onClose, onCloseGuardChange, agent
                             contextOverLimit={contextOverLimit}
                             buildContextSections={buildContextSections}
                           />
-                        </AgentOutputSpoiler>
-                      );
-                    })}
-                  </section>
-                )}
-              </>
-            )}
+                          {selectedAgent.id === "world-state" &&
+                            (gameStateQuery.data.recentEvents?.length ?? 0) > 0 && (
+                              <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-2.5">
+                                <span className="text-[0.6875rem] max-sm:text-[13px] font-semibold">
+                                  {localizeUi("ui.chat.agentsuitemodal.recentEvents")}
+                                </span>
+                                <p className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                                  {localizeUi("ui.chat.agentsuitemodal.maintainedByTheAgentAndRewrittenOnEachRun")}
+                                </p>
+                                <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                                  {gameStateQuery.data.recentEvents.map((event, index) => (
+                                    <li key={index}>{event}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                        </>
+                      )}
+                    </section>
+                  )}
+
+                  {/* Custom agent outputs */}
+                  {selectedAgent.category === "custom" && (
+                    <section className="space-y-2">
+                      <h4 className="text-[0.6875rem] max-sm:text-[13px] font-semibold text-[var(--muted-foreground)]">
+                        {localizeUi("ui.chat.agentsuitemodal.recentOutputs")}
+                      </h4>
+                      {customRunsQuery.isLoading && (
+                        <p className="py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                          {localizeUi("ui.chat.agentsuitemodal.loadingOutputs")}
+                        </p>
+                      )}
+                      {!customRunsQuery.isLoading && customRuns.length === 0 && (
+                        <p className="rounded-md border border-dashed border-[var(--border)] px-2 py-2 text-center text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                          {localizeUi("ui.chat.agentsuitemodal.noStoredOutputsFromThisAgentInThisChat")}
+                        </p>
+                      )}
+                      {customRuns.map((run) => {
+                        const mode: "text" | "json" = typeof run.resultData === "string" ? "text" : "json";
+                        return (
+                          <AgentOutputSpoiler key={run.id} hidden={run.hideOutput}>
+                            <DataBlock
+                              key={run.id}
+                              blockId={run.id}
+                              label={run.resultType.replace(/_/g, " ")}
+                              description={formatRunTimestamp(run.createdAt)}
+                              mode={mode}
+                              value={serializeValue(run.resultData, mode)}
+                              onSave={async (draftText) => {
+                                const parsed: unknown = mode === "json" ? JSON.parse(draftText) : draftText;
+                                await updateRunData.mutateAsync({ id: run.id, chatId: run.chatId, resultData: parsed });
+                              }}
+                              onDirtyChange={handleBlockDirtyChange}
+                              disabled={isAgentProcessing}
+                              agentName={selectedAgent.name}
+                              connectionOptions={connectionOptions}
+                              rewriteConnectionId={effectiveRewriteConnectionId}
+                              onRewriteConnectionChange={setRewriteConnectionId}
+                              contextPicker={contextPicker}
+                              contextCount={selectedContextSources.length}
+                              contextOverLimit={contextOverLimit}
+                              buildContextSections={buildContextSections}
+                            />
+                          </AgentOutputSpoiler>
+                        );
+                      })}
+                    </section>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </Modal>
+        )}
+      </div>
+    </ChatSettingsEditorSurface>
   );
 }

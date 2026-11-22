@@ -58,6 +58,8 @@ function scrollToSection(id: SettingsSectionId, attempt = 0, controlId?: string 
   window.requestAnimationFrame(() => {
     const target =
       (controlId ? document.getElementById(`settings-control-${controlId}`) : null) ??
+      // Search and Professor Mari rows keep the anchors they had in the omnibar's settings view.
+      (controlId ? document.getElementById(`omnibar-setting-${controlId}`) : null) ??
       document.getElementById(`settings-section-${id}`);
     // The nearest box that really scrolls: on phones `.ov-settings__scroll` grows with its content and the
     // page around it scrolls instead, so the jump went nowhere (keyboard QC round 2, PN17).

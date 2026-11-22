@@ -182,7 +182,7 @@ export function ModalRenderer() {
       content = <ImportConnectionModal open onClose={closeModal} />;
       break;
     case "job-settings":
-      content = <JobSettingsWindow job={modal?.props?.job as "voice" | "stt"} onClose={closeModal} />;
+      content = <JobSettingsWindow job={modal?.props?.job as "voice" | "stt" | "vision"} onClose={closeModal} />;
       break;
     case "device-detail":
       content = <DeviceDetailWindow onClose={closeModal} />;

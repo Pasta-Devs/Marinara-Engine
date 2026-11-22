@@ -91,6 +91,12 @@ interface OverhaulState {
   /** Phones and tablets: the sidebar as a page that slides over from the right (the Library button). */
   mobileSidePageOpen: boolean;
   setMobileSidePageOpen: (open: boolean) => void;
+  /**
+   * Phones and tablets: the open Library section was picked from the Library list page, so back returns to that list
+   * (QC Nov 22). Cleared by any other way out. Not persisted.
+   */
+  libraryHubReturn: boolean;
+  setLibraryHubReturn: (libraryHubReturn: boolean) => void;
   setGalleryCardSize: (size: GalleryCardSize) => void;
   setGalleryListView: (list: boolean) => void;
   /** The person's choice; on by default on this branch. */
@@ -337,10 +343,24 @@ export const useOverhaulStore = create<OverhaulState>()(
         ),
       activeMari: false,
       openMari: () =>
-        set({ activeMari: true, activeSchedules: false, activeDocsTab: null, libraryPage: null, activeApp: null }),
+        set({
+          activeMari: true,
+          activeSchedules: false,
+          activeDocsTab: null,
+          libraryPage: null,
+          activeApp: null,
+          libraryHubReturn: false,
+        }),
       activeApp: null,
       openApp: (activeApp) =>
-        set({ activeApp, activeMari: false, activeSchedules: false, activeDocsTab: null, libraryPage: null }),
+        set({
+          activeApp,
+          activeMari: false,
+          activeSchedules: false,
+          activeDocsTab: null,
+          libraryPage: null,
+          libraryHubReturn: false,
+        }),
       activeSchedules: false,
       openSchedules: (characterId) =>
         set({
@@ -350,6 +370,7 @@ export const useOverhaulStore = create<OverhaulState>()(
           activeDocsTab: null,
           libraryPage: null,
           activeApp: null,
+          libraryHubReturn: false,
         }),
       schedulesCharacterId: null,
       setSchedulesCharacterId: (schedulesCharacterId) => set({ schedulesCharacterId }),
@@ -371,6 +392,7 @@ export const useOverhaulStore = create<OverhaulState>()(
             activeSchedules: false,
             activeApp: null,
             libraryPage: null,
+            libraryHubReturn: false,
           };
         }),
       setDocsPath: (tabId, path) => set((state) => ({ docsTabs: { ...state.docsTabs, [tabId]: path } })),
@@ -430,7 +452,10 @@ export const useOverhaulStore = create<OverhaulState>()(
       sidePane: "chats",
       setSidePane: (sidePane) => set({ sidePane }),
       mobileSidePageOpen: false,
-      setMobileSidePageOpen: (mobileSidePageOpen) => set({ mobileSidePageOpen }),
+      setMobileSidePageOpen: (mobileSidePageOpen) =>
+        set(mobileSidePageOpen ? { mobileSidePageOpen, libraryHubReturn: false } : { mobileSidePageOpen }),
+      libraryHubReturn: false,
+      setLibraryHubReturn: (libraryHubReturn) => set({ libraryHubReturn }),
     }),
     {
       name: "marinara-overhaul-layout",
