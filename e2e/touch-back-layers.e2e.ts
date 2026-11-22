@@ -20,6 +20,8 @@ test.beforeEach(async ({ page }, testInfo) => {
     hasCompletedOnboarding: true,
     chatHelpSeenModes: ["conversation", "roleplay", "game"],
     chatSettingsMoveTipDismissed: true,
+    // No phone, tablet or desktop tour: skipping one closes the page it covers.
+    walkthroughDevicesSeen: ["desktop", "tablet", "phone"],
   });
   // The phone and Library tours can open over a page a moment after it shows; they aren't what these tests check.
   await page.addLocatorHandler(
