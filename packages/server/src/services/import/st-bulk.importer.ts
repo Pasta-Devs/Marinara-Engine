@@ -239,6 +239,8 @@ export interface STBulkScanResult {
   regexScripts?: Array<STBulkScanItemBase & { index: number; fingerprint?: string }>;
   /** What the folder holds that Marinara has no matching feature for, counted so the import can say so. */
   notBroughtOver?: STNotBroughtOver;
+  /** Folders of things that have no feature here which couldn't be read, so they are missing from the counts. */
+  unreadableFolders?: string[];
 }
 
 export interface STNotBroughtOver {
@@ -572,11 +574,18 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   }
 
   // 9. What has no matching feature here: counted, so the import can name it instead of staying quiet.
+  const unreadableFolders: string[] = [];
   const countJson = async (...folders: string[]) => {
     for (const folder of folders) {
       const dir = join(dataDir, folder);
+      if (!existsSync(dir)) continue;
       // Only counted for the report: a folder that can't be read must not stop the import of what can.
-      if (existsSync(dir)) return (await listFiles(dir, ".json").catch(() => [])).length;
+      try {
+        return (await listFiles(dir, ".json")).length;
+      } catch {
+        unreadableFolders.push(folder);
+        return 0;
+      }
     }
     return 0;
   };
@@ -599,6 +608,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     personas,
     regexScripts,
     notBroughtOver,
+    ...(unreadableFolders.length > 0 ? { unreadableFolders } : {}),
   };
 }
 
@@ -1289,6 +1299,9 @@ export async function runSTBulkImport(
   }
 
   if (scanResult.notBroughtOver) report.notBroughtOver = scanResult.notBroughtOver;
+  for (const folder of scanResult.unreadableFolders ?? []) {
+    errors.push(`Folder "${folder}" couldn't be read, so it isn't counted under "Not brought over".`);
+  }
   report.missingPersonas = [...missingPersonas].slice(0, MAX_REPORTED_MISSING_PERSONAS);
   report.presetSettingsLeftOut = [...presetLeftOut];
   return { success: true, imported, ...(skipAlreadyImported ? { skipped } : {}), report, errors };
