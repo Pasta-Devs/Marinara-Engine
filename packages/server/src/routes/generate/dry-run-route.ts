@@ -1,5 +1,10 @@
 import { withLorebookImageCompatibility } from "../../services/llm/lorebook-image-provider.js";
 import {
+  labelInjectedParts,
+  worldInfoPeekBlocks,
+  type PeekInjectedBlock,
+} from "../../services/prompt/peek-injected-parts.js";
+import {
   appendLorebookImageMessages,
   type LorebookImageEntry,
 } from "../../services/generation/lorebook-image-prompt.js";
@@ -949,6 +954,11 @@ export async function registerDryRunRoute(app: FastifyInstance) {
 
     // Build prompt messages
     let finalMessages: DryRunPromptMessage[] = [];
+    // Blocks injected at a depth (World Info @depth, the Author's Note). Post-processing can merge them into a
+    // nearby user message; Peek prompt uses these to name them inside it. Never sent to the provider.
+    const injectedBlocks: PeekInjectedBlock[] = [];
+    const noteDepthEntries = (entries: Array<{ content: string; depth: number }>) =>
+      injectedBlocks.push(...worldInfoPeekBlocks(entries));
     let lorebookImageEntries: LorebookImageEntry[] = [];
     const trackerSectionTokens = new Map<string, RuntimeAgentSectionTokens>();
     const runtimeAgentSectionTypes = new Set<string>();
@@ -1837,6 +1847,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             finalMessages.some((m) => m.role === "user" || m.role === "assistant")
           ) {
             finalMessages = injectAtDepth(finalMessages as any, lorebookPayload.depthEntries) as any;
+            noteDepthEntries(lorebookPayload.depthEntries);
           }
           continue;
         }
@@ -2149,6 +2160,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       }
       if (lorebookResult.depthEntries.length > 0) {
         finalMessages = injectAtDepth(finalMessages as any, lorebookResult.depthEntries) as any;
+        noteDepthEntries(lorebookResult.depthEntries);
       }
     }
 
@@ -2183,6 +2195,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       finalMessages = injectAtDepth(finalMessages as any, [
         { content: authorNotes, role: "system", depth: authorNotesDepth },
       ]) as any;
+      injectedBlocks.push({ label: "authorsNote", depth: authorNotesDepth, content: authorNotes });
     }
 
     // Optional injection: tracker context (read-only snapshot)
@@ -2597,9 +2610,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       return reply.send({
         prompt: {
           ...(decisionDebug ? { decisionDebug } : {}),
-          messages: providerMessages.map((message) => ({
+          messages: labelInjectedParts(providerMessages, injectedBlocks).map(({ message, parts }) => ({
             role: message.role,
             content: message.content,
+            ...(parts.length > 0 ? { parts } : {}),
             ...(message.images?.length ? { images: message.images } : {}),
             ...(message.files?.length ? { files: message.files } : {}),
             ...(message.providerMetadata ? { providerMetadata: message.providerMetadata } : {}),
