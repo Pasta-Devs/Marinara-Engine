@@ -385,7 +385,10 @@ export function screenList(ids) {
       then: async (page) => {
         const button = page.getByRole("button", { name: "Start a new game" }).filter({ visible: true });
         // Home can still be drawing its shortcuts when the screen opens.
-        await button.first().waitFor({ timeout: 10_000 }).catch(() => {});
+        await button
+          .first()
+          .waitFor({ timeout: 10_000 })
+          .catch(() => {});
         if (!(await button.count())) return "not on this layout";
         await button.first().click();
         const wizard = page.locator('[data-component="GameSetupWizard"]');

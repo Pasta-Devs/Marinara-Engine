@@ -772,16 +772,18 @@ export function App() {
   const toasterHostRef = useRef<HTMLDivElement>(null);
   // Every shell: top toasts stay below the page headers too, so they never cover Close or Save (QC panel 2, #7).
   // The computer's omnibar keeps its toasts bottom right.
+  const overhaulEnabled = useOverhaulStore((state) => state.enabled);
   const phoneToastsAtTop = isMobileShell
     ? omnibarOpen || notificationPosition !== "bottom"
-    : !omnibarOpen && notificationPosition !== "bottom";
+    : overhaulEnabled && !omnibarOpen && notificationPosition !== "bottom";
   // Top toasts, such as the lasting update notice, stack under an app banner instead of over it.
   const belowAppBanner = `calc(var(${APP_BANNER_BOTTOM_VARIABLE}, 0px) + 8px)`;
-  const phoneToastOffsetTop = !isMobileShell
-    ? `max(4rem, var(${PHONE_TOAST_TOP_VARIABLE}, 0px), ${belowAppBanner})`
-    : omnibarOpen
-      ? "calc(env(safe-area-inset-top) + 5rem)"
-      : `max(calc(env(safe-area-inset-top) + 3.5rem), var(${PHONE_TOAST_TOP_VARIABLE}, 0px), ${belowAppBanner})`;
+  const phoneToastOffsetTop =
+    !isMobileShell && overhaulEnabled
+      ? `max(4rem, var(${PHONE_TOAST_TOP_VARIABLE}, 0px), ${belowAppBanner})`
+      : omnibarOpen
+        ? "calc(env(safe-area-inset-top) + 5rem)"
+        : `max(calc(env(safe-area-inset-top) + 3.5rem), var(${PHONE_TOAST_TOP_VARIABLE}, 0px), ${belowAppBanner})`;
   useLayoutEffect(() => {
     if (!phoneToastsAtTop || !toasterHostRef.current) return;
     return watchPhoneToastTop(toasterHostRef.current);

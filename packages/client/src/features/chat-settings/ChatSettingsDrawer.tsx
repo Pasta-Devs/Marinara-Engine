@@ -510,7 +510,8 @@ export function ChatSettingsDrawer({
   // New layout on phones and tablets: the sheet opens on its quick page; Edit mode keeps the classic sections.
   const mobileNavView = useMobileChatSettingsNav((state) => state.view);
   const mobileNavTitle = useMobileChatSettingsHeaderTitle();
-  const mobileDrillTitle = overhaulMobile && (mobileNavView === "all" || mobileNavView === "page") ? mobileNavTitle : null;
+  const mobileDrillTitle =
+    overhaulMobile && (mobileNavView === "all" || mobileNavView === "page") ? mobileNavTitle : null;
   const confirmMobileResourceRemoval = (event: ReactMouseEvent<HTMLDivElement>) => {
     const button = (event.target as Element | null)?.closest<HTMLElement>("[data-chat-settings-remove-resource]");
     if (!button) return;

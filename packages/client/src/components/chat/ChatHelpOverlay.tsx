@@ -915,8 +915,7 @@ function ChatHelpOverlayInner({
   // Touch behaviour (tap a callout, Done, closing when Chat settings opens) for any touch screen and the phone layout:
   // an iPad Pro upright (834px) and any iPad sideways got the computer's hover help with no Done (QC panel 2, #11).
   // Pure geometry stays on width.
-  const mobile =
-    typeof window !== "undefined" && (overhaulMobile || isTouchDevice() || window.innerWidth < 768);
+  const mobile = typeof window !== "undefined" && (overhaulMobile || isTouchDevice() || window.innerWidth < 768);
   const selectedTarget = targets.find((target) => target.id === selectedTargetId) ?? null;
   const hoveredTarget = targets.find((target) => target.id === hoveredTargetId) ?? null;
 
