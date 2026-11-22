@@ -1047,12 +1047,19 @@ export async function runSTBulkImport(
         const fileInfo = await stat(ct.path);
         const fingerprint = stChatFileFingerprint(content);
         const branchName = ct.chatName ?? basename(ct.path, ".jsonl");
-        const legacy = legacyChatSignature(
-          ct.characterName,
-          branchName,
-          parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt),
-        );
-        if (alreadyHave(known?.chats, `fp:${fingerprint}`, legacy && `legacy:${legacy}`)) {
+        const chatName = folderChatName(branchName, ct.characterName);
+        const fileCreatedAt = parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt);
+        // Older folder runs named the chat after the character; chats are named after the file now.
+        const legacy = legacyChatSignature(ct.characterName, branchName, fileCreatedAt);
+        const legacyByFile = legacyChatSignature(chatName, branchName, fileCreatedAt);
+        if (
+          alreadyHave(
+            known?.chats,
+            `fp:${fingerprint}`,
+            legacy && `legacy:${legacy}`,
+            legacyByFile && `legacy:${legacyByFile}`,
+          )
+        ) {
           skipped.chats++;
           continue;
         }
@@ -1076,7 +1083,7 @@ export async function runSTBulkImport(
           characterId: charId,
           // Named after the SillyTavern file, as a single chat import is ("Ilse Marrow - Beach date").
           // A placeholder file name falls back to the character's.
-          chatName: folderChatName(ct.chatName ?? basename(ct.path, ".jsonl"), ct.characterName),
+          chatName,
           branchName,
           groupId,
           sourceFingerprint: fingerprint,
