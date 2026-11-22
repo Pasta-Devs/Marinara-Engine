@@ -273,9 +273,9 @@ const cases: RegressionCase[] = [
         "Hello there  friend",
       );
       assert.equal(applyRegexScriptsToPromptText("No match here", [stripOoc], "ai_output", 0), "No match here");
-      // The same script with Marinara's rule trims the whole result, but only when it matched.
+      // The same script with Marinara's rule trims the whole result, matched or not, as it always has.
       const wholeResult = { ...stripOoc, trimScope: "result" };
-      assert.equal(applyRegexScriptsToPromptText("No match here", [wholeResult], "ai_output", 0), "No match here");
+      assert.equal(applyRegexScriptsToPromptText("No match here", [wholeResult], "ai_output", 0), "Nomatchhere");
       assert.equal(applyRegexScriptsToPromptText("Hello (OOC: hi) you", [wholeResult], "ai_output", 0), "Helloyou");
       // Left out = Marinara's rule.
       assert.equal(
@@ -304,6 +304,8 @@ const cases: RegressionCase[] = [
         "say [(OOC: hi)|(OOC: hi)| hi] ok",
       );
       assert.equal(applyRegexReplacement("ab", /b/g, "[{{MATCH}}]"), "a[b]");
+      // A digit after {{match}} stays a digit, not part of a capture number.
+      assert.equal(applyRegexReplacement("ab", /a(b)/g, "{{match}}1"), "ab1");
       assert.equal(applyRegexReplacement("ab", /(b)/g, "$$0"), "a$0");
     },
   },

@@ -252,7 +252,7 @@ function applyRegexReplacementTracked(
   filterCapture?: (value: string) => string,
 ): { text: string; matched: boolean } {
   const preparedReplacement = prepareLiteralMacroPlaceholders(
-    replacement.replace(MATCH_MACRO, "$$0"),
+    replacement.replace(MATCH_MACRO, "$$&"),
     resolveReplacement,
   );
   let matched = false;
@@ -290,7 +290,7 @@ export function applyRegexReplacement(
 /**
  * Where a regex script's trim strings apply. "match" is SillyTavern's rule: they are removed from the
  * captured text put back through $0, {{match}} or $n, only where the pattern matched. "result" removes
- * them from the whole text after the replacement, only when the pattern matched at least once.
+ * them from the whole text after the replacement, as Marinara always has, whether or not the pattern matched.
  */
 export type RegexTrimScope = "match" | "result";
 
@@ -320,6 +320,6 @@ export function applyRegexScriptReplacement(
     resolve,
     matchScope && trims.length > 0 ? removeTrims : undefined,
   );
-  if (matchScope || !replaced.matched || trims.length === 0) return replaced.text;
+  if (matchScope || trims.length === 0) return replaced.text;
   return removeTrims(replaced.text);
 }

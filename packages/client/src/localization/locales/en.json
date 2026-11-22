@@ -10221,7 +10221,7 @@
   "ui.agents.regexscripteditor.trimFromMatch": "Matched text (like SillyTavern)",
   "ui.agents.regexscripteditor.trimFromMatchHint": "Removed from the matched text before it is put back. Nothing changes where the pattern doesn't match.",
   "ui.agents.regexscripteditor.trimFromResult": "Whole result",
-  "ui.agents.regexscripteditor.trimFromResultHint": "Removed from the whole message after the replacement, only when the pattern matched.",
+  "ui.agents.regexscripteditor.trimFromResultHint": "Removed from the whole message after the replacement, even where the pattern doesn't match.",
   "ui.agents.regexscripteditor.trimStrings": "Trim Strings",
   "ui.agents.regexscripteditor.trimStrings_f0be26a": "Trim strings",
   "ui.agents.regexscripteditor.u1": "\\u$1",
