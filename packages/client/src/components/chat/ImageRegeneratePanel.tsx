@@ -78,8 +78,8 @@ interface ImageRegeneratePanelProps {
 // Same field as InlineChatCardEditor: the chat chrome input tokens follow every theme and chat style,
 // where raw --background turned into the default dark theme's navy.
 const FIELD_CLASS =
-  "min-h-11 w-full resize-y rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] px-3 py-2 text-sm leading-relaxed text-[var(--marinara-chat-chrome-panel-text)] outline-none transition-colors placeholder:text-[var(--marinara-chat-chrome-panel-muted)]/55 focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)] disabled:opacity-60";
-const LABEL_CLASS = "text-xs font-semibold text-[var(--foreground)]";
+  "img-panel__field min-h-11 w-full resize-y rounded-lg border border-[var(--marinara-chat-chrome-input-border)] bg-[var(--marinara-chat-chrome-input-bg)] px-3 py-2 text-sm leading-relaxed text-[var(--marinara-chat-chrome-panel-text)] outline-none transition-colors placeholder:text-[var(--marinara-chat-chrome-panel-muted)]/55 focus:border-[var(--marinara-chat-chrome-input-border-focus)] focus:ring-1 focus:ring-[var(--marinara-chat-chrome-focus-ring)] disabled:opacity-60";
+const LABEL_CLASS = "img-panel__label text-xs font-semibold text-[var(--foreground)]";
 const BUTTON_CLASS =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50";
 const SECONDARY_BUTTON_CLASS = `${BUTTON_CLASS} border border-[var(--border)] hover:bg-[var(--accent)]`;
@@ -249,7 +249,7 @@ function PromptField({
           disabled={disabled || value === original}
           className={cn(
             BUTTON_CLASS,
-            "-my-1.5 w-11 shrink-0 px-0 text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+            "img-panel__reset -my-1.5 w-11 shrink-0 px-0 text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
           )}
         >
           <RotateCcw size="1rem" aria-hidden />
@@ -563,7 +563,7 @@ export function ImageRegeneratePanel({
     <section
       aria-labelledby={titleId}
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--sidebar)] text-left text-[var(--foreground)] shadow-2xl",
+        "img-panel img-panel--regen flex min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--sidebar)] text-left text-[var(--foreground)] shadow-2xl",
         NEUTRAL_SURFACE_VARIABLES,
         className,
       )}
@@ -588,7 +588,7 @@ export function ImageRegeneratePanel({
       >
         <div
           className={cn(
-            "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
+            "img-panel__head flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
             !collapsed && "border-b border-[var(--border)]",
             !collapsed && isNativeNovelAi && "max-sm:contents",
           )}
@@ -598,7 +598,7 @@ export function ImageRegeneratePanel({
             ref={titleRef}
             tabIndex={-1}
             className={cn(
-              "min-w-0 shrink-0 truncate text-base font-semibold focus:outline-none",
+              "img-panel__title min-w-0 shrink-0 truncate text-base font-semibold focus:outline-none",
               showCollapsedMaskBar && "max-md:sr-only",
               !collapsed && isNativeNovelAi && "max-sm:sr-only",
             )}
@@ -637,7 +637,7 @@ export function ImageRegeneratePanel({
                 )}
                 className={cn(
                   BUTTON_CLASS,
-                  "w-11 shrink-0 px-0 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                  "img-panel__collapse w-11 shrink-0 px-0 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                 )}
               >
                 {collapsed ? <ChevronUp size="1.125rem" aria-hidden /> : <ChevronDown size="1.125rem" aria-hidden />}
@@ -649,7 +649,7 @@ export function ImageRegeneratePanel({
           <div
             role="group"
             aria-label={t("ui.chat.imageregeneratepanel.modeTablist")}
-            className="flex min-w-0 flex-1 gap-1 sm:shrink-0 sm:flex-initial sm:border-b sm:border-[var(--border)] sm:px-4 sm:py-1.5"
+            className="img-panel__modes flex min-w-0 flex-1 gap-1 sm:shrink-0 sm:flex-initial sm:border-b sm:border-[var(--border)] sm:px-4 sm:py-1.5"
           >
             <button
               type="button"
@@ -685,7 +685,7 @@ export function ImageRegeneratePanel({
         )}
       </div>
       <div className={cn("flex min-h-0 flex-1 flex-col", collapsed && "hidden")}>
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3">
+        <div className="img-panel__body min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3">
           {isNativeNovelAi && effectiveMode === "edit" && (
             <div className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--marinara-chat-chrome-input-bg)]/60 p-3">
               {maskControls && (
@@ -793,8 +793,10 @@ export function ImageRegeneratePanel({
           />
 
           {draft.characterPrompts.length > 0 && (
-            <div className="space-y-3 border-t border-[var(--border)] pt-3">
-              <h3 className="text-sm font-semibold">{t("ui.chat.imageregeneratepanel.characterPrompts")}</h3>
+            <div className="img-panel__group space-y-3 border-t border-[var(--border)] pt-3">
+              <h3 className="img-panel__sub text-sm font-semibold">
+                {t("ui.chat.imageregeneratepanel.characterPrompts")}
+              </h3>
               {draft.characterPrompts.map((character, index) => (
                 <div key={`${character.name}-${index}`} className="space-y-2">
                   <PromptField
@@ -822,7 +824,7 @@ export function ImageRegeneratePanel({
             </div>
           )}
 
-          <label className="flex flex-col gap-2 border-t border-[var(--border)] pt-3">
+          <label className="img-panel__group flex flex-col gap-2 border-t border-[var(--border)] pt-3">
             <span className={LABEL_CLASS}>{t("ui.chat.imageregeneratepanel.guidance")}</span>
             <textarea
               value={guidance}
@@ -879,7 +881,7 @@ export function ImageRegeneratePanel({
           )}
         </div>
 
-        <div className="shrink-0 border-t border-[var(--border)] px-2 py-1.5 sm:px-4 sm:py-3">
+        <div className="img-panel__foot shrink-0 border-t border-[var(--border)] px-2 py-1.5 sm:px-4 sm:py-3">
           {error && (
             <p role="alert" className="mb-2 max-h-20 overflow-y-auto break-words text-sm text-[var(--destructive)]">
               {error}
@@ -903,7 +905,10 @@ export function ImageRegeneratePanel({
               type="button"
               onClick={onCancel}
               disabled={busy}
-              className={cn(BUTTON_CLASS, "whitespace-nowrap px-2 text-xs hover:bg-[var(--accent)] sm:px-3 sm:text-sm")}
+              className={cn(
+                BUTTON_CLASS,
+                "img-panel__btn whitespace-nowrap px-2 text-xs hover:bg-[var(--accent)] sm:px-3 sm:text-sm",
+              )}
             >
               {t("chat.delete.dialog.cancel")}
             </button>
@@ -913,7 +918,7 @@ export function ImageRegeneratePanel({
               disabled={busy || promptMissing}
               className={cn(
                 SECONDARY_BUTTON_CLASS,
-                "gap-1.5 whitespace-nowrap px-2.5 text-xs sm:gap-2 sm:px-3 sm:text-sm",
+                "img-panel__btn img-panel__btn--line gap-1.5 whitespace-nowrap px-2.5 text-xs sm:gap-2 sm:px-3 sm:text-sm",
               )}
             >
               <Sparkles size="1rem" className="max-sm:hidden" aria-hidden />
@@ -925,7 +930,7 @@ export function ImageRegeneratePanel({
               disabled={busy || promptMissing || isMaskDrawing}
               className={cn(
                 BUTTON_CLASS,
-                "gap-1.5 whitespace-nowrap bg-[var(--primary)] px-2.5 text-xs font-semibold text-[var(--primary-foreground)] hover:opacity-90 sm:gap-2 sm:px-3 sm:text-sm",
+                "img-panel__btn img-panel__btn--accent gap-1.5 whitespace-nowrap bg-[var(--primary)] px-2.5 text-xs font-semibold text-[var(--primary-foreground)] hover:opacity-90 sm:gap-2 sm:px-3 sm:text-sm",
               )}
             >
               {hasGuidance ? (
