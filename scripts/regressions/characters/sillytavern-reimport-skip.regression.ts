@@ -74,7 +74,7 @@ try {
   const second = await runSTBulkImport(fixtureRoot, { ...everything }, db);
   assert.equal(second.imported.characters, 0, "unchanged cards are not imported twice");
   assert.equal(second.imported.chats, 0, "unchanged chat files are not imported twice");
-  assert.deepEqual(second.skipped, { characters: 2, chats: 6, groupChats: 0 });
+  assert.deepEqual(second.skipped, { characters: 2, chats: 6, groupChats: 0, personas: 0 });
   assert.deepEqual(await count(), afterFirst, "the second run adds nothing");
 
   // Chats from before fingerprints: drop the stored fingerprint and they still match.

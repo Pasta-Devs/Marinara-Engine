@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Routes: Chats
 // ──────────────────────────────────────────────
+import { readPeekPromptParts, type PeekPromptPart } from "../services/prompt/peek-injected-parts.js";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { mergeBuiltInAgentSettings, parseLorebookWriterOrder, partialInput } from "@marinara-engine/shared";
@@ -3935,7 +3936,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       extra: Record<string, unknown>,
       allowHistoricalCache = false,
     ): Promise<{
-      messages: Array<{ role: string; content: string }>;
+      messages: Array<{ role: string; content: string; parts?: PeekPromptPart[] }>;
       generationInfo?: Record<string, unknown>;
       gameToolPlanning?: GameToolPlanningInfo;
     } | null> => {
@@ -3945,9 +3946,10 @@ export async function chatsRoutes(app: FastifyInstance) {
               if (!isRecord(entry) || typeof entry.role !== "string" || typeof entry.content !== "string") {
                 return null;
               }
-              return { role: entry.role, content: entry.content };
+              const parts = readPeekPromptParts(entry.parts, entry.content.length);
+              return { role: entry.role, content: entry.content, ...(parts.length > 0 ? { parts } : {}) };
             })
-            .filter((entry): entry is { role: string; content: string } => entry !== null)
+            .filter((entry): entry is { role: string; content: string; parts?: PeekPromptPart[] } => entry !== null)
         : [];
       if (cachedPrompt.length === 0) return null;
       // A selected turn is a historical request, not memory being reused for a

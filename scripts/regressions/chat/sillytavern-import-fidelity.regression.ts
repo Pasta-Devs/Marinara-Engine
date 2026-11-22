@@ -7,7 +7,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { closeDB, getDB } from "../../../packages/server/src/db/connection.js";
 import { parseTrustedTimestamp } from "../../../packages/server/src/services/import/import-timestamps.js";
-import { importSTChat } from "../../../packages/server/src/services/import/st-chat.importer.js";
+import {
+  importSTChat,
+  stChatFileFingerprint,
+  stChatNameFromFileName,
+} from "../../../packages/server/src/services/import/st-chat.importer.js";
 import {
   importSTPreset,
   readSTPresetParameters,
@@ -397,6 +401,62 @@ try {
       },
     }),
   );
+
+  // ── Round 3: World Info (before) and (after) keep their own places ──
+  const wiPrompts = [
+    { identifier: "main", name: "Main Prompt", role: "system", content: "Main." },
+    { identifier: "worldInfoBefore", name: "World Info (before)", marker: true },
+    { identifier: "charDescription", name: "Char Description", marker: true },
+    { identifier: "scenario", name: "Scenario", marker: true },
+    { identifier: "worldInfoAfter", name: "World Info (after)", marker: true },
+    { identifier: "chatHistory", name: "Chat History", marker: true },
+  ];
+  const wiOrder = (afterEnabled: boolean, ids = wiPrompts.map((prompt) => prompt.identifier)) => [
+    {
+      character_id: 100001,
+      order: ids.map((identifier) => ({
+        identifier,
+        enabled: identifier === "worldInfoAfter" ? afterEnabled : true,
+      })),
+    },
+  ];
+  const sectionShape = async (presetId: string) =>
+    (await createPromptsStorage(db).listSections(presetId)).map((section) => [
+      section.name,
+      section.markerConfig ? (JSON.parse(String(section.markerConfig)) as { type: string }).type : null,
+      String(section.enabled) === "true",
+    ]);
+  const split = await importSTPreset({ name: "Split WI", prompts: wiPrompts, prompt_order: wiOrder(true) }, db);
+  assert.ok("presetId" in split && split.presetId);
+  assert.equal(split.worldInfo, "split");
+  assert.deepEqual(await sectionShape(split.presetId!), [
+    ["Main Prompt", null, true],
+    ["World Info (before)", "world_info_before", true],
+    ["Character Info", "character", true],
+    ["World Info (after)", "world_info_after", true],
+    ["Chat History", "chat_history", true],
+  ]);
+  const afterOff = await importSTPreset({ name: "After off", prompts: wiPrompts, prompt_order: wiOrder(false) }, db);
+  assert.ok("presetId" in afterOff && afterOff.presetId);
+  assert.equal(afterOff.worldInfo, "afterOff");
+  assert.deepEqual((await sectionShape(afterOff.presetId!))[3], ["World Info (after)", "world_info_after", false]);
+  // An older preset that lists only one World Info spot keeps one combined section, so no entries are lost.
+  const combined = await importSTPreset(
+    {
+      name: "One WI",
+      prompts: wiPrompts,
+      prompt_order: wiOrder(true, ["main", "worldInfoBefore", "charDescription", "scenario", "chatHistory"]),
+    },
+    db,
+  );
+  assert.ok("presetId" in combined && combined.presetId);
+  assert.equal(combined.worldInfo, "combined");
+  const combinedShape = await sectionShape(combined.presetId!);
+  assert.deepEqual(
+    combinedShape.filter(([, type]) => type === "lorebook" || String(type).startsWith("world_info")),
+    [["World Info", "lorebook", true]],
+  );
+
   const folder2 = await runSTBulkImport(
     join(scratch, "ST2"),
     {
@@ -417,6 +477,78 @@ try {
   assert.deepEqual(folder2.report?.notBroughtOver, { quickReplies: 1, instruct: 1, context: 0, systemPrompts: 0 });
   const stripOoc = (await createRegexScriptsStorage(db).list()).find((script) => script.name === "Strip OOC");
   assert.equal(stripOoc?.trimScope, "match", "SillyTavern scripts trim only the matched text");
+
+  // ── Round 3: a folder import after single imports doesn't copy what's already here ──
+  const dir3 = join(scratch, "ST3", "data", "default-user");
+  await mkdir(join(dir3, "chats", "Ilse Marrow"), { recursive: true });
+  await mkdir(join(dir3, "User Avatars"), { recursive: true });
+  await mkdir(join(dir3, "characters"), { recursive: true });
+  await writeFile(join(dir3, "User Avatars", "user-sam.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  await writeFile(join(dir3, "User Avatars", "user-wren.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+  await writeFile(
+    join(dir3, "settings.json"),
+    JSON.stringify({
+      power_user: { personas: { "user-sam.png": "Sam", "user-wren.png": "Wren" }, persona_descriptions: {} },
+    }),
+  );
+  const ilseHeader = { user_name: "Sam", character_name: "Ilse Marrow", chat_metadata: { persona: "user-sam.png" } };
+  const ilseFile = "Ilse Marrow - 2025-3-1@12h00m00s.jsonl";
+  const ilseText = jsonl(ilseHeader, sampleMessages);
+  await writeFile(join(dir3, "chats", "Ilse Marrow", ilseFile), ilseText);
+  await writeFile(
+    join(dir3, "chats", "Ilse Marrow", "Ilse Marrow - Beach date.jsonl"),
+    jsonl(ilseHeader, [{ name: "Ilse Marrow", is_user: false, mes: "The tide is out." }]),
+  );
+  await writeFile(
+    join(dir3, "chats", "Ilse Marrow", "New Chat.jsonl"),
+    jsonl(ilseHeader, [{ name: "Ilse Marrow", is_user: false, mes: "Hello again." }]),
+  );
+  // The single import (POST /import/st-chat) stores the file's fingerprint and names the chat after the file.
+  assert.equal(stChatNameFromFileName(ilseFile), "Ilse Marrow - 2025-3-1@12h00m00s");
+  const singleIlse = await importSTChat(ilseText.replace(/\n/g, "\r\n"), db, {
+    chatName: stChatNameFromFileName(ilseFile),
+    sourceFingerprint: stChatFileFingerprint(ilseText.replace(/\n/g, "\r\n")),
+  });
+  assert.ok("chatId" in singleIlse && singleIlse.chatId);
+  const personasBefore = (await characters.listPersonas()).filter((persona) => persona.name === "Sam").length;
+  const all3 = {
+    characters: true,
+    chats: true,
+    groupChats: true,
+    presets: true,
+    lorebooks: true,
+    backgrounds: true,
+    personas: true,
+  } as const;
+  const folder3 = await runSTBulkImport(join(scratch, "ST3"), all3, db);
+  assert.equal(folder3.success, true, JSON.stringify(folder3));
+  assert.deepEqual(folder3.errors, []);
+  assert.equal(folder3.skipped?.chats, 1, "the chat imported on its own (CRLF and all) is already here");
+  assert.equal(folder3.skipped?.personas, 1);
+  assert.deepEqual(folder3.report?.personasAlreadyHere, ["Sam"]);
+  assert.equal(folder3.imported.personas, 1, "Wren is new");
+  assert.equal(folder3.imported.chats, 2);
+  assert.equal(
+    (await characters.listPersonas()).filter((persona) => persona.name === "Sam").length,
+    personasBefore,
+    "no second Sam",
+  );
+  const chatNamed = async (name: string) => (await chats.list()).find((chat) => chat.name === name);
+  const beach = await chatNamed("Ilse Marrow - Beach date");
+  assert.ok(beach, "a folder chat is named after its SillyTavern file");
+  assert.equal(beach!.personaId, sam!.id, "the persona lock links to the Sam already here");
+  const placeholder = (await chats.list()).find(
+    (chat) => JSON.parse(String(chat.metadata ?? "{}")).branchName === "New Chat",
+  );
+  assert.equal(placeholder?.name, "Ilse Marrow", "a placeholder file name falls back to the character's");
+  // Running it again skips everything; with Skip off, everything comes in again.
+  const again3 = await runSTBulkImport(join(scratch, "ST3"), all3, db);
+  assert.equal(again3.skipped?.chats, 3);
+  assert.equal(again3.skipped?.personas, 2);
+  assert.equal(again3.imported.chats + again3.imported.personas, 0);
+  const noSkip3 = await runSTBulkImport(join(scratch, "ST3"), { ...all3, skipAlreadyImported: false }, db);
+  assert.equal(noSkip3.imported.chats, 3);
+  assert.equal(noSkip3.imported.personas, 2);
 
   console.log("sillytavern import fidelity: OK");
 } finally {

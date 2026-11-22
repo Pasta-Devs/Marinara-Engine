@@ -17,7 +17,7 @@ import {
   type ChatMode,
   type ImportTagOptions,
 } from "@marinara-engine/shared";
-import { importSTChat } from "../services/import/st-chat.importer.js";
+import { importSTChat, stChatFileFingerprint, stChatNameFromFileName } from "../services/import/st-chat.importer.js";
 import {
   importSTCharacter,
   importCharX,
@@ -688,12 +688,7 @@ export async function importRoutes(app: FastifyInstance) {
     if (rawMode !== undefined && mode === undefined) return invalidChatModeResponse();
 
     // Use the uploaded filename (minus extension) as chat name if available
-    const rawName = data.filename ?? "";
-    const chatName =
-      rawName
-        .replace(/\.jsonl$/i, "")
-        .replace(/_/g, " ")
-        .trim() || undefined;
+    const chatName = stChatNameFromFileName(data.filename);
 
     // Try to link the chat to a character by matching the JSONL header's character_name
     let characterId: string | null = null;
@@ -734,6 +729,8 @@ export async function importRoutes(app: FastifyInstance) {
       ...(mode ? { modeFallback: mode } : {}),
       ...(timestampOverrides ? { timestampOverrides } : {}),
       importTags: readMultipartImportTags(data as any),
+      // So a later folder import knows this file is already here.
+      sourceFingerprint: stChatFileFingerprint(text),
     });
   });
 
@@ -835,6 +832,7 @@ export async function importRoutes(app: FastifyInstance) {
       connectionId: targetChat.connectionId ?? null,
       promptPresetId: targetChat.promptPresetId ?? null,
       ...(timestampOverrides ? { timestampOverrides } : {}),
+      sourceFingerprint: stChatFileFingerprint(text),
     });
 
     return { ...result, groupId };

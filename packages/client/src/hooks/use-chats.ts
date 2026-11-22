@@ -65,6 +65,7 @@ import type {
   HomeFeedSnapshot,
   ChatPersonaAttributionsSummary,
   ReassignMessagePersonaInput,
+  PeekPromptMessage,
 } from "@marinara-engine/shared";
 
 import { useRollingBackfillStore } from "../stores/backfill.store";
@@ -2054,7 +2055,7 @@ export function usePeekPrompt() {
       const messageId = typeof request === "string" ? undefined : request.messageId;
       const current = typeof request !== "string" && request.current === true;
       return api.post<{
-        messages: Array<{ role: string; content: string }>;
+        messages: PeekPromptMessage[];
         chatMode?: string;
         parameters: unknown;
         source?: "cached" | "live_preview" | "raw_messages";

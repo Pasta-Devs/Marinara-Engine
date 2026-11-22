@@ -34,8 +34,8 @@ To bring your characters, chats, presets and World Info over, see [Importing fro
 
 - **No instruct or context templates.** Marinara sends chat messages, and the model's server applies the model's own template, so there is nothing to pick under SillyTavern's **Advanced Formatting**. A preset's sections take the place of the story string.
 - **Samplers.** A preset's settings are the starting values for chats that use it. Values set on the connection or in a chat win. Max response length and context size belong to the connection. Top A and repetition penalty have no setting here.
-- **Author's Note.** It goes into the chat at a depth, on every reply, as a system message. SillyTavern's frequency, position and role settings have no match here.
-- **Group chats.** In Roleplay, one narrator voices every character by default, which uses fewer tokens. To have each character reply in turn, like SillyTavern, open Chat Settings → **Group Chat** and switch the mode.
+- **Author's Note.** It goes into the chat at its depth on every reply. With **Post-processing messages** set to **Apply** (the default), it is sent inside the nearby user message. SillyTavern's frequency, position and role settings have no match here. **Peek prompt** marks where it went.
+- **Group chats.** In Roleplay, one narrator voices every character by default, which uses fewer tokens. To have each character reply in turn, like SillyTavern, open Chat Settings → **Group Chat** and switch the mode. Groups imported from SillyTavern already use **Individual** mode.
 - **Keys.** Enter adds a new line in a chat and **Ctrl+Enter** sends. Turn on **Send on Enter** in Settings → **Chatting** to send with Enter. The arrow keys move between swipes only after you turn on **Intuitive swipe navigation** in the same tab.
 - **Quick Replies.** Here they are the one-click actions next to **Send** (impersonate, guided replies). SillyTavern's Quick Reply sets do not import.
 

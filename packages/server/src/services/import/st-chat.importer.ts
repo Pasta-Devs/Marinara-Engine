@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Importer: SillyTavern Chat (JSONL)
 // ──────────────────────────────────────────────
+import { createHash } from "node:crypto";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
@@ -220,6 +221,25 @@ function normalizeImportedMode(value: unknown): ChatMode | null {
 
 function normalizeSpeakerKey(value: unknown): string {
   return typeof value === "string" ? normalizeTextForMatch(value.replace(/\.(png|json)$/i, "")) : "";
+}
+
+/**
+ * A SillyTavern chat file's own fingerprint, kept in the imported chat's metadata (importFingerprint).
+ * Every chat import stores it, so the folder import's "Skip what's already here" knows a file that came in
+ * one at a time (Settings, the chat list, a chat's branches) as well as one from an earlier folder run.
+ */
+export function stChatFileFingerprint(content: string) {
+  return createHash("sha256").update(content.replace(/\r\n/g, "\n")).digest("hex");
+}
+
+/** The chat name a SillyTavern chat file gives: its file name without .jsonl, underscores as spaces. */
+export function stChatNameFromFileName(fileName: string | null | undefined) {
+  return (
+    (fileName ?? "")
+      .replace(/\.jsonl$/i, "")
+      .replace(/_/g, " ")
+      .trim() || undefined
+  );
 }
 
 /** How a persona's name is matched: case, spacing and accents ignored. */
@@ -458,8 +478,16 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       (stUserName ? lookup.get(personaLookupKey(stUserName)) : undefined) ??
       null;
     if (stUserName && personaLookupKey(stUserName) !== personaLookupKey("User")) {
+      // Name the persona the chat is linked to; the avatar lock can point at another name than the header's.
+      const linked = personaId
+        ? await createCharactersStorage(db)
+            .getPersona(personaId)
+            .catch(() => null)
+        : null;
       importNotes.push(
-        personaId ? { kind: "persona", name: stUserName } : { kind: "personaMissing", name: stUserName },
+        personaId
+          ? { kind: "persona", name: (linked as { name?: string } | null)?.name || stUserName }
+          : { kind: "personaMissing", name: stUserName },
       );
     }
   }
@@ -495,14 +523,15 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     try {
       const stMsg = JSON.parse(lines[i]!) as STChatMessage;
 
-      const exportedRole = normalizeImportedRole(stMsg.role) ?? normalizeImportedRole(stMsg.extra?.marinara_role);
+      const exportedRole =
+        normalizeImportedRole(stMsg.role) ??
+        normalizeImportedRole(stMsg.extra?.marinara_role) ??
+        normalizeImportedRole(stMsg.extra?.type);
       // SillyTavern marks a message hidden from the AI with is_system; it is still the user's or the
       // character's message. Marinara's own exports write the role, and is_system there means a system message.
       const hiddenInSillyTavern = !exportedRole && stMsg.is_system === true;
       const role =
-        exportedRole ??
-        normalizeImportedRole(stMsg.extra?.type) ??
-        (stMsg.is_user ? "user" : stMsg.is_system && !hiddenInSillyTavern ? "system" : "assistant");
+        exportedRole ?? (stMsg.is_user ? "user" : stMsg.is_system && !hiddenInSillyTavern ? "system" : "assistant");
       const rawContent = typeof stMsg.mes === "string" ? stMsg.mes : "";
       const messageExtra = normalizeImportedExtra(stMsg.extra);
       if (hiddenInSillyTavern) {
@@ -633,8 +662,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     Object.keys(sillyTavernMetadata).length > 0 ||
     stGroupMode ||
     opts?.groupChatMode ||
-    importedBranchName ||
-    opts?.sourceFingerprint
+    importedBranchName
   ) {
     const existingMetadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const importedMetadata = sanitizeImportedMarinaraMetadata(
@@ -680,7 +708,6 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         // A mode picked at import time wins over what the file carried.
         ...(opts?.groupChatMode ? { groupChatMode: opts.groupChatMode } : {}),
         ...(importedBranchName ? { branchName: importedBranchName } : {}),
-        ...(opts?.sourceFingerprint ? { importFingerprint: opts.sourceFingerprint } : {}),
       },
       { touchUpdatedAt: false },
     );
@@ -702,6 +729,11 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   }
 
   const importedMessageIds = await storage.createMessagesBatch(chat.id, msgInputs, chatTimestamps);
+  // Remember the file only once its messages are saved: a chat left half-made by a failed import must not make
+  // "Skip what's already here" pass over the file on the next try.
+  if (opts?.sourceFingerprint) {
+    await storage.patchMetadata(chat.id, { importFingerprint: opts.sourceFingerprint }, { touchUpdatedAt: false });
+  }
   const sourceIdCounts = new Map<string, number>();
   for (const message of parsedMsgInputs)
     if (message.sourceMessageId) {

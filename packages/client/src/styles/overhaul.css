@@ -9683,6 +9683,17 @@ input.ov-edhead__title:focus {
 .ov-peek__tag {
   color: var(--ov-muted);
 }
+/* An injected block (Author's Note, World Info @depth) sent inside this message: named above its text. */
+.ov-peek__inject {
+  margin: 0.375rem 0 0;
+  color: var(--ov-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.ov-peek__text--injected {
+  border-left: 2px solid var(--ov-border, var(--border));
+  padding-left: 0.5rem;
+}
 .ov-peek mark {
   border-radius: 0.125rem;
   background: color-mix(in srgb, var(--ov-accent) 35%, transparent);
