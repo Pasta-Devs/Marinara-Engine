@@ -21,13 +21,14 @@ import {
   ArrowLeft,
   Folder,
   Check,
+  Regex,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "../ui/Spinner";
-import { describeBulkImportReport, type STBulkImportReport } from "../../lib/st-import-report";
+import { describeBulkImportReport, type STBulkImportReport, type STNotBroughtOver } from "../../lib/st-import-report";
 import { Checkbox } from "../ui/Checkbox";
 
 interface Props {
@@ -49,10 +50,14 @@ interface ScanResult {
   characters: Array<ScanItemBase & { format: string }>;
   chats: Array<ScanItemBase & { characterName: string; folderName: string }>;
   groupChats: Array<ScanItemBase & { groupName: string; members: string[] }>;
-  presets: Array<ScanItemBase & { isBuiltin?: boolean }>;
+  presets: Array<ScanItemBase & { isBuiltin?: boolean; samplersOnly?: boolean }>;
   lorebooks: ScanItemBase[];
   backgrounds: ScanItemBase[];
   personas: Array<ScanItemBase & { description: string }>;
+  /** Global regex scripts from settings.json. */
+  regexScripts?: Array<ScanItemBase & { index: number }>;
+  /** In the folder with no matching feature here, named so nothing goes quietly. */
+  notBroughtOver?: STNotBroughtOver;
 }
 
 interface ImportResult {
@@ -66,6 +71,7 @@ interface ImportResult {
     lorebooks: number;
     backgrounds: number;
     personas: number;
+    regexScripts?: number;
   };
   /** Left out because this Engine already had them. */
   skipped?: { characters: number; chats: number; groupChats: number };
@@ -87,7 +93,8 @@ interface ImportProgress {
 }
 
 type Phase = "input" | "scanning" | "preview" | "importing" | "done";
-type CategoryKey = "characters" | "chats" | "groupChats" | "presets" | "lorebooks" | "backgrounds" | "personas";
+type CategoryKey =
+  "characters" | "chats" | "groupChats" | "presets" | "lorebooks" | "backgrounds" | "personas" | "regexScripts";
 type SelectionState = Record<CategoryKey, string[]>;
 type TagImportMode = "all" | "none" | "existing";
 
@@ -136,6 +143,7 @@ function buildInitialSelection(scan: ScanResult): SelectionState {
     lorebooks: scan.lorebooks.map((item) => item.id),
     backgrounds: scan.backgrounds.map((item) => item.id),
     personas: scan.personas.map((item) => item.id),
+    regexScripts: (scan.regexScripts ?? []).map((item) => item.id),
   };
 }
 
@@ -166,6 +174,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
     lorebooks: [],
     backgrounds: [],
     personas: [],
+    regexScripts: [],
   });
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
@@ -188,6 +197,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
       lorebooks: [],
       backgrounds: [],
       personas: [],
+      regexScripts: [],
     });
     setImportResult(null);
     setProgress(null);
@@ -852,6 +862,12 @@ export function STBulkImportModal({ open, onClose }: Props) {
                       {item.isBuiltin
                         ? localizeUi("ui.modals.stbulkimportmodal.detectedBuiltInPreset")
                         : localizeUi("ui.modals.stbulkimportmodal.customOrUserPreset")}
+                      {item.samplersOnly ? (
+                        <>
+                          <span aria-hidden="true"> · </span>
+                          {localizeUi("ui.modals.stbulkimportmodal.samplersOnly")}
+                        </>
+                      ) : null}
                       {modifiedDetail(modified)}
                     </span>
                   );
@@ -935,6 +951,24 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   );
                 }}
               />
+
+              <SelectableImportCategory
+                icon={<Regex size="0.875rem" />}
+                label={localizeUi("ui.modals.stbulkimportmodal.regexScripts")}
+                items={scanResult.regexScripts ?? []}
+                selectedIds={selection.regexScripts}
+                onToggleItem={(itemId, checked) => toggleCategoryItem("regexScripts", itemId, checked)}
+                onSelectAll={() =>
+                  updateCategorySelection(
+                    "regexScripts",
+                    (scanResult.regexScripts ?? []).map((item) => item.id),
+                  )
+                }
+                onSelectNone={() => updateCategorySelection("regexScripts", [])}
+                renderDetails={() => <span>{localizeUi("ui.modals.stbulkimportmodal.regexScriptsDetail")}</span>}
+              />
+
+              <NotBroughtOver counts={scanResult.notBroughtOver} />
             </div>
 
             <SkipAlreadyImportedCheck value={skipAlreadyImported} onChange={setSkipAlreadyImported} />
@@ -1088,8 +1122,15 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   label={localizeUi("navigation.topbar.personas")}
                   count={importResult.imported.personas}
                 />
+                <StatCard
+                  icon={<Regex size="0.875rem" />}
+                  label={localizeUi("ui.modals.stbulkimportmodal.regexScripts")}
+                  count={importResult.imported.regexScripts ?? 0}
+                />
               </div>
             )}
+
+            {importResult.success ? <NotBroughtOver counts={importResult.report?.notBroughtOver} /> : null}
 
             {importResult.success && describeBulkImportReport(importResult.report, localizeUi).length > 0 && (
               <ul className="flex list-disc flex-col gap-1 pl-4 text-xs text-[var(--muted-foreground)]">
@@ -1249,6 +1290,39 @@ function StatCard({ icon, label, count }: { icon: React.ReactNode; label: string
       <div className="flex flex-col">
         <span className="text-sm font-bold">{count}</span>
         <span className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">{label}</span>
+      </div>
+    </div>
+  );
+}
+
+/** What the folder holds that Marinara has no feature for: counted and named, never dropped quietly. */
+function NotBroughtOver({ counts }: { counts?: STNotBroughtOver }) {
+  const { t: localizeUi } = useUiTranslation();
+  if (!counts) return null;
+  const rows = (
+    [
+      ["ui.modals.stbulkimportmodal.quickReplySets", counts.quickReplies],
+      ["ui.modals.stbulkimportmodal.instructTemplates", counts.instruct],
+      ["ui.modals.stbulkimportmodal.contextTemplates", counts.context],
+      ["ui.modals.stbulkimportmodal.systemPrompts", counts.systemPrompts],
+    ] as const
+  ).filter(([, count]) => count > 0);
+  if (rows.length === 0) return null;
+  return (
+    <div
+      className="rounded-lg p-2.5 text-xs ring-1 ring-[var(--border)]/70"
+      data-mari-part="st-import-not-brought-over"
+    >
+      <div className="font-medium">{localizeUi("ui.modals.stbulkimportmodal.notBroughtOver")}</div>
+      <p className="mt-0.5 text-[var(--muted-foreground)]">
+        {localizeUi("ui.modals.stbulkimportmodal.notBroughtOverHint")}
+      </p>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[var(--muted-foreground)]">
+        {rows.map(([labelKey, count]) => (
+          <span key={labelKey}>
+            {localizeUi(labelKey)} <span className="tabular-nums text-[var(--foreground)]">{count}</span>
+          </span>
+        ))}
       </div>
     </div>
   );

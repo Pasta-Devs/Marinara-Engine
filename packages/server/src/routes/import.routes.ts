@@ -703,7 +703,8 @@ export async function importRoutes(app: FastifyInstance) {
     return importSTChat(text, app.db, {
       ...(chatName ? { chatName } : {}),
       ...(characterId ? { characterId } : {}),
-      ...(mode ? { mode } : {}),
+      // The file's own mode wins; the picked one applies to a plain SillyTavern log.
+      ...(mode ? { modeFallback: mode } : {}),
       ...(timestampOverrides ? { timestampOverrides } : {}),
     });
   });
@@ -770,6 +771,21 @@ export async function importRoutes(app: FastifyInstance) {
       }
     }
 
+    // A group chat that already has a mode keeps it for the imported branch.
+    let targetMetadata: Record<string, unknown> = {};
+    try {
+      const parsed: unknown =
+        typeof targetChat.metadata === "string" ? JSON.parse(targetChat.metadata) : targetChat.metadata;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+        targetMetadata = parsed as Record<string, unknown>;
+    } catch {
+      targetMetadata = {};
+    }
+    const targetGroupChatMode =
+      targetMetadata.groupChatMode === "individual" || targetMetadata.groupChatMode === "merged"
+        ? targetMetadata.groupChatMode
+        : undefined;
+
     const rawName = file.filename ?? "";
     const branchName =
       rawName
@@ -785,6 +801,7 @@ export async function importRoutes(app: FastifyInstance) {
       ...(inheritedCharacterIds.length === 1 ? { characterId: inheritedCharacterIds[0] } : {}),
       ...(inheritedCharacterIds.length > 0 ? { characterIds: inheritedCharacterIds } : {}),
       ...(speakerMap ? { speakerMap } : {}),
+      ...(targetGroupChatMode ? { groupChatMode: targetGroupChatMode } : {}),
       personaId: targetChat.personaId ?? null,
       personaCharacterId: targetChat.personaCharacterId ?? null,
       connectionId: targetChat.connectionId ?? null,

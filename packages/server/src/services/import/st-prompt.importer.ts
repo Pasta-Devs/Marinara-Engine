@@ -42,7 +42,40 @@ interface STPreset {
 }
 
 /** A SillyTavern preset setting with no place in a Marinara preset, named for the import summary. */
-export type STPresetLeftOut = "maxTokens" | "maxContext" | "topA" | "repetitionPenalty" | "outOfRange";
+export type STPresetLeftOut =
+  | "maxTokens"
+  | "maxContext"
+  | "topA"
+  | "repetitionPenalty"
+  | "outOfRange"
+  | "impersonationPrompt"
+  | "continueNudge"
+  | "newChatPrompts"
+  | "namesBehavior"
+  | "formatTemplates";
+
+// SillyTavern's own defaults for its utility prompts: a preset that still has them changed nothing worth naming.
+const ST_UTILITY_PROMPT_DEFAULTS: Array<[string, string, STPresetLeftOut]> = [
+  [
+    "impersonation_prompt",
+    "[Write your next reply from the point of view of {{user}}, using the chat history so far as a guideline for the writing style of {{user}}. Don't write as {{char}} or system. Don't describe actions of {{char}}.]",
+    "impersonationPrompt",
+  ],
+  [
+    "continue_nudge_prompt",
+    "[Continue the following message. Do not include ANY parts of the original message. Use capitalization and punctuation as if your reply is a part of the original message: {{lastChatMessage}}]",
+    "continueNudge",
+  ],
+  ["new_chat_prompt", "[Start a new Chat]", "newChatPrompts"],
+  ["new_group_chat_prompt", "[Start a new group chat. Group members: {{group}}]", "newChatPrompts"],
+  ["new_example_chat_prompt", "[Example Chat]", "newChatPrompts"],
+  ["group_nudge_prompt", "[Write the next reply only as {{char}}.]", "newChatPrompts"],
+];
+const ST_FORMAT_DEFAULTS: Array<[string, string]> = [
+  ["wi_format", "{0}"],
+  ["scenario_format", "{{scenario}}"],
+  ["personality_format", "{{personality}}"],
+];
 
 type ImportedSamplerKey = "temperature" | "topP" | "topK" | "minP" | "frequencyPenalty" | "presencePenalty";
 
@@ -108,6 +141,30 @@ export function readSTPresetParameters(raw: Record<string, unknown>) {
   if (topA !== null && topA !== 0) leftOut.add("topA");
   const repetitionPenalty = firstNumber(raw, ["repetition_penalty", "rep_pen"]);
   if (repetitionPenalty !== null && repetitionPenalty !== 1) leftOut.add("repetitionPenalty");
+  // Settings with an exact match here, kept only when they differ from Marinara's default.
+  if (typeof raw.assistant_prefill === "string" && raw.assistant_prefill.trim()) {
+    parameters.assistantPrefill = raw.assistant_prefill;
+  }
+  if (
+    typeof raw.squash_system_messages === "boolean" &&
+    raw.squash_system_messages !== DEFAULT_GENERATION_PARAMS.squashSystemMessages
+  ) {
+    parameters.squashSystemMessages = raw.squash_system_messages;
+  }
+  // Prompts and switches with no matching setting: named so nobody wonders where they went.
+  for (const [key, stDefault, code] of ST_UTILITY_PROMPT_DEFAULTS) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim() && value.trim() !== stDefault) leftOut.add(code);
+  }
+  const namesBehavior = finiteNumber(raw.names_behavior);
+  if (namesBehavior !== null && namesBehavior !== 0) leftOut.add("namesBehavior");
+  if (
+    ST_FORMAT_DEFAULTS.some(
+      ([key, stDefault]) => typeof raw[key] === "string" && (raw[key] as string).trim() !== stDefault,
+    )
+  ) {
+    leftOut.add("formatTemplates");
+  }
   return { parameters, leftOut: [...leftOut] };
 }
 
@@ -136,6 +193,8 @@ export async function importSTPreset(
       variableGroups,
       variableValues: {},
       parameters: samplers.parameters,
+      // SillyTavern sends its prompts as plain text, without section tags.
+      wrapFormat: "none",
     },
     options?.timestampOverrides,
   );
@@ -185,7 +244,7 @@ export async function importSTPreset(
       emittedMarkerTypes.add(key);
     }
 
-    // Map ST role to our role
+    // Map ST role to our role (the file's role is kept, Post-History too; system when it names none)
     let role: "system" | "user" | "assistant" = "system";
     if (entry.role === "user") role = "user";
     if (entry.role === "assistant") role = "assistant";
@@ -195,7 +254,6 @@ export async function importSTPreset(
     const isPostHistoryEntry =
       entryOrderIndex > chatHistoryIndex &&
       /(?:jailbreak|post[_-]?history|posthistory)/i.test(`${entry.identifier} ${entry.name}`);
-    if (isPostHistoryEntry) role = "user";
     const injectionPosition =
       isPostHistoryEntry || entry.injection_position === 1 ? ("depth" as const) : ("ordered" as const);
 

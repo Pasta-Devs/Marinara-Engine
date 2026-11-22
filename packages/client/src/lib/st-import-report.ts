@@ -9,10 +9,33 @@ export type STChatImportNote =
   | { kind: "authorsNoteOff" }
   | { kind: "authorsNotePlacement" }
   | { kind: "persona"; name: string }
-  | { kind: "personaMissing"; name: string };
+  | { kind: "personaMissing"; name: string }
+  | { kind: "hiddenMessages"; count: number }
+  | { kind: "groupIndividual" };
 
 /** A preset setting with no place in a Marinara preset (STPresetLeftOut on the server). */
-export type STPresetLeftOut = "maxTokens" | "maxContext" | "topA" | "repetitionPenalty" | "outOfRange";
+export type STPresetLeftOut =
+  | "maxTokens"
+  | "maxContext"
+  | "topA"
+  | "repetitionPenalty"
+  | "outOfRange"
+  | "impersonationPrompt"
+  | "continueNudge"
+  | "newChatPrompts"
+  | "namesBehavior"
+  | "formatTemplates";
+
+/** A lorebook entry moved to the closest place (LorebookImportNote on the server). */
+export type LorebookImportNote = { kind: "positionMoved"; from: "authorsNote" | "exampleMessages"; count: number };
+
+/** What the folder holds with no matching feature here. */
+export interface STNotBroughtOver {
+  quickReplies: number;
+  instruct: number;
+  context: number;
+  systemPrompts: number;
+}
 
 /** The folder import's summary (STBulkImportReport on the server). */
 export interface STBulkImportReport {
@@ -21,6 +44,13 @@ export interface STBulkImportReport {
   authorsNotesOff: number;
   personasLinked: number;
   missingPersonas: string[];
+  hiddenMessages?: number;
+  groupChatsIndividual?: number;
+  lorebookEntriesMovedFromAuthorsNote?: number;
+  lorebookEntriesMovedFromExamples?: number;
+  regexSkipped?: number;
+  samplersOnlyPresets?: number;
+  notBroughtOver?: STNotBroughtOver;
   presetsWithSettings: number;
   presetSettingsLeftOut: STPresetLeftOut[];
 }
@@ -33,7 +63,17 @@ const PARAMETER_LABEL_KEYS: Record<string, string> = {
   frequencyPenalty: "ui.import.streport.param.frequencyPenalty",
   presencePenalty: "ui.import.streport.param.presencePenalty",
   reasoningEffort: "ui.import.streport.param.reasoningEffort",
+  assistantPrefill: "ui.ui.generationparametersfields.assistantPrefill",
+  squashSystemMessages: "ui.import.streport.param.squashSystemMessages",
 };
+
+const LEFT_OUT_LABEL_KEYS: Array<[STPresetLeftOut, string]> = [
+  ["impersonationPrompt", "ui.import.streport.leftOut.impersonationPrompt"],
+  ["continueNudge", "ui.import.streport.leftOut.continueNudge"],
+  ["newChatPrompts", "ui.import.streport.leftOut.newChatPrompts"],
+  ["namesBehavior", "ui.import.streport.leftOut.namesBehavior"],
+  ["formatTemplates", "ui.import.streport.leftOut.formatTemplates"],
+];
 
 export function describeChatImportNotes(notes: STChatImportNote[] | undefined, t: Translate): string[] {
   const lines: string[] = [];
@@ -43,8 +83,34 @@ export function describeChatImportNotes(notes: STChatImportNote[] | undefined, t
     else if (note.kind === "authorsNoteOff") lines.push(t("ui.import.streport.authorsNoteOff"));
     else if (note.kind === "persona") lines.push(t("ui.import.streport.persona", { name: note.name }));
     else if (note.kind === "personaMissing") lines.push(t("ui.import.streport.personaMissing", { name: note.name }));
+    else if (note.kind === "hiddenMessages") lines.push(t("ui.import.streport.hiddenMessages", { count: note.count }));
+    else if (note.kind === "groupIndividual") lines.push(t("ui.import.streport.groupIndividual"));
   }
   return lines;
+}
+
+/** The lorebook import's lines: entries in, and any moved to the closest place. */
+export function describeLorebookImport(
+  result: { entriesImported?: number; notes?: LorebookImportNote[] },
+  t: Translate,
+): string[] {
+  return [
+    ...(typeof result.entriesImported === "number"
+      ? [t("ui.import.streport.lorebookEntries", { count: result.entriesImported })]
+      : []),
+    ...describeLorebookNotes(
+      (result.notes ?? []).filter((note) => note.from === "authorsNote").reduce((sum, note) => sum + note.count, 0),
+      (result.notes ?? []).filter((note) => note.from === "exampleMessages").reduce((sum, note) => sum + note.count, 0),
+      t,
+    ),
+  ];
+}
+
+function describeLorebookNotes(authorsNote: number, examples: number, t: Translate): string[] {
+  return [
+    ...(authorsNote > 0 ? [t("ui.import.streport.lorebookAuthorsNote", { count: authorsNote })] : []),
+    ...(examples > 0 ? [t("ui.import.streport.lorebookExamples", { count: examples })] : []),
+  ];
 }
 
 function describeLeftOut(leftOut: STPresetLeftOut[] | undefined, t: Translate): string[] {
@@ -57,17 +123,20 @@ function describeLeftOut(leftOut: STPresetLeftOut[] | undefined, t: Translate): 
   ];
   if (unsupported.length > 0) lines.push(t("ui.import.streport.unsupported", { names: unsupported.join(", ") }));
   if (set.has("outOfRange")) lines.push(t("ui.import.streport.outOfRange"));
+  const noMatch = LEFT_OUT_LABEL_KEYS.filter(([code]) => set.has(code)).map(([, key]) => t(key));
+  if (noMatch.length > 0) lines.push(t("ui.import.streport.noMatchingSetting", { names: noMatch.join(", ") }));
   return lines;
 }
 
 export function describePresetImport(
-  result: { parametersImported?: string[]; parametersLeftOut?: STPresetLeftOut[] },
+  result: { parametersImported?: string[]; parametersLeftOut?: STPresetLeftOut[]; regexSkipped?: number },
   t: Translate,
 ): string[] {
   const imported = (result.parametersImported ?? []).map((key) => t(PARAMETER_LABEL_KEYS[key] ?? key));
   return [
     ...(imported.length > 0 ? [t("ui.import.streport.settingsImported", { names: imported.join(", ") })] : []),
     ...describeLeftOut(result.parametersLeftOut, t),
+    ...((result.regexSkipped ?? 0) > 0 ? [t("ui.import.streport.regexSkipped", { count: result.regexSkipped })] : []),
   ];
 }
 
@@ -85,9 +154,22 @@ export function describeBulkImportReport(report: STBulkImportReport | undefined,
   if (report.missingPersonas.length > 0) {
     lines.push(t("ui.import.streport.bulkPersonasMissing", { names: report.missingPersonas.join(", ") }));
   }
+  if ((report.hiddenMessages ?? 0) > 0) {
+    lines.push(t("ui.import.streport.hiddenMessages", { count: report.hiddenMessages }));
+  }
+  if ((report.groupChatsIndividual ?? 0) > 0) lines.push(t("ui.import.streport.groupIndividual"));
   if (report.presetsWithSettings > 0) {
     lines.push(t("ui.import.streport.bulkPresetSettings", { count: report.presetsWithSettings }));
   }
+  if ((report.samplersOnlyPresets ?? 0) > 0) lines.push(t("ui.import.streport.samplersOnlyPresets"));
   lines.push(...describeLeftOut(report.presetSettingsLeftOut, t));
+  lines.push(
+    ...describeLorebookNotes(
+      report.lorebookEntriesMovedFromAuthorsNote ?? 0,
+      report.lorebookEntriesMovedFromExamples ?? 0,
+      t,
+    ),
+  );
+  if ((report.regexSkipped ?? 0) > 0) lines.push(t("ui.import.streport.regexSkipped", { count: report.regexSkipped }));
   return lines;
 }
