@@ -1983,6 +1983,8 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       };
       finalMessages = assembled.messages;
       lorebookImageEntries = assembled.lorebookScanResult?.imageEntries ?? [];
+      // The assembler injects the preset's World Info @depth entries itself.
+      noteDepthEntries(assembled.lorebookScanResult?.depthEntries ?? []);
       advancedMemoryPlacements = assembled.advancedMemoryPlacements ?? [];
       if (!isStockMarinaraUniversalPreset(effectivePreset)) {
         temperature = assembled.parameters.temperature;

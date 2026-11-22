@@ -30,6 +30,8 @@ import {
   estimateTextTokens,
   type GameToolPlanningInfo,
   type DecisionDebugPreview,
+  type PeekPromptMessage,
+  type PeekPromptPart,
   type ReplyCheckupFinding,
   type ReplyCheckupLink,
 } from "@marinara-engine/shared";
@@ -72,7 +74,7 @@ interface PeekPromptModalProps {
   data: {
     chatId?: string;
     characterId?: string;
-    messages: PeekMessage[];
+    messages: PeekPromptMessage[];
     chatMode?: string;
     parameters: unknown;
     source?: "cached" | "live_preview" | "raw_messages";
@@ -107,20 +109,6 @@ function prettifyTag(tag: string): string {
 //  Section types for the final display list
 // ═══════════════════════════════════════════════
 
-/** A block injected at a depth that post-processing merged into a bigger message (from the server). */
-interface PeekInjectedPart {
-  start: number;
-  end: number;
-  label: "authorsNote" | "worldInfo";
-  depth: number;
-}
-
-interface PeekMessage {
-  role: string;
-  content: string;
-  parts?: PeekInjectedPart[];
-}
-
 /** One piece of a message: its injected block's name, and whether it continues the message before it. */
 interface PeekPiece {
   role: string;
@@ -133,7 +121,7 @@ interface PeekPiece {
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-function injectedPartName(part: PeekInjectedPart, localizeUi: Translate): string {
+function injectedPartName(part: PeekPromptPart, localizeUi: Translate): string {
   return part.label === "authorsNote"
     ? localizeUi("ui.chat.peekpromptmodal.injected.authorsNote")
     : localizeUi("ui.chat.peekpromptmodal.injected.worldInfo", { depth: part.depth });
@@ -143,7 +131,7 @@ function injectedPartName(part: PeekInjectedPart, localizeUi: Translate): string
  * Splits a message at its injected parts (the Author's Note or a World Info entry that post-processing sent inside
  * it), so Peek prompt names them in place. The message's role stays: that is what the AI receives.
  */
-function splitInjectedParts(messages: PeekMessage[], localizeUi: Translate): PeekPiece[] {
+function splitInjectedParts(messages: PeekPromptMessage[], localizeUi: Translate): PeekPiece[] {
   const pieces: PeekPiece[] = [];
   for (const message of messages) {
     const parts = (message.parts ?? [])
@@ -512,7 +500,7 @@ function CollapsibleBlock({
     <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="mari-chat-style-control flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]/50"
+        className="mari-chat-style-control flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]/50"
       >
         {open ? (
           <ChevronDown size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
@@ -521,7 +509,7 @@ function CollapsibleBlock({
         )}
         <span
           className={cn(
-            "rounded-md px-2 py-0.5 text-[0.625rem] font-bold tracking-wider",
+            "min-w-0 break-words rounded-md px-2 py-0.5 text-[0.625rem] font-bold tracking-wider",
             !plainLabel && "uppercase",
             roleColor,
           )}
@@ -556,6 +544,16 @@ function ChatHistorySection({
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
   const tokens = estimateTextTokens(rawContent);
+  // Pieces an injected block split off stay in their message: one row per message the provider got.
+  const messages = useMemo(() => {
+    const grouped: ChatHistoryEntry[][] = [];
+    for (const entry of entries) {
+      const last = grouped.at(-1);
+      if (entry.join && last) last.push(entry);
+      else grouped.push([entry]);
+    }
+    return grouped;
+  }, [entries]);
 
   const msgRoleColor = (role: string) => {
     if (role === "assistant") return PROMPT_TAG_ACTIVE_CLASS;
@@ -583,11 +581,11 @@ function ChatHistorySection({
         </span>
         <span className="text-[0.625rem] text-[var(--muted-foreground)]">
           {localizeUi("ui.chat.chathistorysection.value1Value2Value3", {
-            value1: entries.length,
+            value1: messages.length,
             value2: providerBlocks
               ? localizeUi("ui.chat.chathistorysection.providerBlock")
               : localizeUi("ui.chat.chathistorysection.message"),
-            value3: entries.length !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
+            value3: messages.length !== 1 ? localizeUi("ui.noodle.stageprofileview.s") : "",
           })}
         </span>
         <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">
@@ -597,8 +595,8 @@ function ChatHistorySection({
       </button>
       {open && (
         <div className="border-t border-[var(--border)]/50 p-2 space-y-1">
-          {entries.map((entry, i) => (
-            <ChatHistoryMessage key={i} entry={entry} roleColor={msgRoleColor(entry.role)} />
+          {messages.map((pieces, i) => (
+            <ChatHistoryMessage key={i} pieces={pieces} roleColor={msgRoleColor(pieces[0]!.role)} />
           ))}
         </div>
       )}
@@ -606,40 +604,56 @@ function ChatHistorySection({
   );
 }
 
-function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; roleColor: string }) {
+function ChatHistoryMessage({ pieces, roleColor }: { pieces: ChatHistoryEntry[]; roleColor: string }) {
   const [open, setOpen] = useState(false);
-  const tokens = estimateTextTokens(entry.content);
-  const preview = entry.content.split("\n")[0]?.slice(0, 80) ?? "";
+  const content = pieces.map((piece) => piece.content).join("\n\n");
+  const tokens = estimateTextTokens(content);
+  const preview = content.split("\n")[0]?.slice(0, 80) ?? "";
+  const injected = [...new Set(pieces.flatMap((piece) => (piece.injected ? [piece.injected] : [])))];
 
   return (
     <div className="rounded-md border border-[var(--border)]/30 bg-[var(--background)]/50 overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="mari-chat-style-control flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--accent)]/30"
+        className="mari-chat-style-control flex w-full flex-wrap items-center gap-x-2 gap-y-1 px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--accent)]/30"
       >
         {open ? (
           <ChevronDown size="0.625rem" className="shrink-0 text-[var(--muted-foreground)]" />
         ) : (
           <ChevronRight size="0.625rem" className="shrink-0 text-[var(--muted-foreground)]" />
         )}
-        <span className={cn("rounded px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider", roleColor)}>
-          {entry.role}
+        <span
+          className={cn(
+            "shrink-0 rounded px-1.5 py-0.5 text-[0.5625rem] font-bold uppercase tracking-wider",
+            roleColor,
+          )}
+        >
+          {pieces[0]!.role}
         </span>
-        {entry.injected ? (
-          <span className="shrink-0 text-[0.625rem] font-semibold text-[var(--muted-foreground)]">
-            {entry.injected}
+        {injected.map((name) => (
+          <span key={name} className="break-words text-[0.625rem] font-semibold text-[var(--muted-foreground)]">
+            {name}
           </span>
-        ) : null}
+        ))}
         {!open && (
           <span className="min-w-0 flex-1 truncate text-[0.625rem] text-[var(--muted-foreground)]">{preview}</span>
         )}
         <span className="shrink-0 ml-auto text-[0.5625rem] text-[var(--muted-foreground)]">~{fmtTokens(tokens)}</span>
       </button>
       {open && (
-        <div className="border-t border-[var(--border)]/30 px-2.5 py-1.5">
-          <pre className="mari-chat-style-text whitespace-pre-wrap break-words text-[0.6875rem] leading-relaxed text-[var(--foreground)]/80">
-            {entry.content}
-          </pre>
+        <div className="space-y-1.5 border-t border-[var(--border)]/30 px-2.5 py-1.5">
+          {pieces.map((piece, i) => (
+            <div key={i}>
+              {piece.injected && pieces.length > 1 ? (
+                <div className="break-words text-[0.625rem] font-semibold text-[var(--muted-foreground)]">
+                  {piece.injected}
+                </div>
+              ) : null}
+              <pre className="mari-chat-style-text whitespace-pre-wrap break-words text-[0.6875rem] leading-relaxed text-[var(--foreground)]/80">
+                {piece.content}
+              </pre>
+            </div>
+          ))}
         </div>
       )}
     </div>
