@@ -6845,8 +6845,7 @@ function ImportButton({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch(`/api${endpoint}`, { method: "POST", body: formData });
-      const data = await res.json();
+      const data = await api.upload<{ success?: boolean; error?: string }>(endpoint, formData);
       if (data.success) {
         if (onImported) {
           onImported(data);
@@ -6860,8 +6859,12 @@ function ImportButton({
           }),
         );
       }
-    } catch {
-      toast.error(localizeUi("chat.branches.importFailed"));
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError && error.message
+          ? localizeUi("ui.panels.importbutton.importFailedValue1", { value1: error.message })
+          : localizeUi("chat.branches.importFailed"),
+      );
     }
     e.target.value = "";
   };

@@ -767,7 +767,12 @@ async function existingImportSignatures(db: DB) {
     } catch {
       // no metadata: legacy signature with no label
     }
-    if (typeof metadata.importFingerprint === "string") chats.add(`fp:${metadata.importFingerprint}`);
+    // A chat that remembers its file matches only that file; name and time matching is for chats from older
+    // versions, which kept no fingerprint (two different files can share a label and a time).
+    if (typeof metadata.importFingerprint === "string") {
+      chats.add(`fp:${metadata.importFingerprint}`);
+      continue;
+    }
     const createdAt = parseTrustedTimestamp(row.createdAt);
     const branch = typeof metadata.branchName === "string" ? metadata.branchName : null;
     const legacy = legacyChatSignature(row.name, branch, createdAt);

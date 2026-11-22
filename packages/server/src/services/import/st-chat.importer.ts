@@ -647,8 +647,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     Object.keys(sillyTavernMetadata).length > 0 ||
     stGroupMode ||
     opts?.groupChatMode ||
-    importedBranchName ||
-    opts?.sourceFingerprint
+    importedBranchName
   ) {
     const existingMetadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const importedMetadata = sanitizeImportedMarinaraMetadata(
@@ -694,13 +693,17 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         // A mode picked at import time wins over what the file carried.
         ...(opts?.groupChatMode ? { groupChatMode: opts.groupChatMode } : {}),
         ...(importedBranchName ? { branchName: importedBranchName } : {}),
-        ...(opts?.sourceFingerprint ? { importFingerprint: opts.sourceFingerprint } : {}),
       },
       { touchUpdatedAt: false },
     );
   }
 
   const importedMessageIds = await storage.createMessagesBatch(chat.id, msgInputs, chatTimestamps);
+  // Remember the file only once its messages are saved: a chat left half-made by a failed import must not make
+  // "Skip what's already here" pass over the file on the next try.
+  if (opts?.sourceFingerprint) {
+    await storage.patchMetadata(chat.id, { importFingerprint: opts.sourceFingerprint }, { touchUpdatedAt: false });
+  }
   const sourceIdCounts = new Map<string, number>();
   for (const message of parsedMsgInputs)
     if (message.sourceMessageId) {
