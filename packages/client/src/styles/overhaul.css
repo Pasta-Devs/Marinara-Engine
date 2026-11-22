@@ -16240,9 +16240,6 @@ input.ov-edhead__title:not(#ov-x) {
 }
 /* Phones: the Assets title spreads into the page header, so the tabs take their own full row under
    "Assets" and the page's buttons keep their usual places. */
-:root[data-overhaul="mobile"] .ov-assets__title {
-  display: contents;
-}
 :root[data-overhaul="mobile"] .ov-assets__tabs {
   display: flex;
   order: 2;
@@ -16263,6 +16260,9 @@ input.ov-edhead__title:not(#ov-x) {
 }
 :root[data-overhaul="mobile"] .ov-vw__top:has(.ov-assets__tabs) h1 {
   flex: 1;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head:has(.ov-assets__tabs) > h1 {
+  flex: 1 1 auto;
 }
 /* Phones: Rulesets' Import and New stay beside "Assets"; the tabs take the next row. */
 :root[data-overhaul="mobile"] .ov-vw__top .ov-assets__tabs:not(#ovm-x) {
