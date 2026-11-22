@@ -80,6 +80,8 @@ Memory Recall brings back only messages the prompt no longer holds. While the wh
 
 To let recall pick any earlier message, turn on **Recall from the whole chat** below **Enable Memory Recall**. Memories then often repeat messages the prompt already holds. The repeats cost tokens, and because the memories sit before the chat history and change every turn, the service's prompt cache cannot reuse the history.
 
+Recalled memories go right before the chat history. To place them yourself, add a **Memory Recall** marker to the chat's preset. See [Order sections for prompt caching](../prompts/presets.md#order-sections-for-prompt-caching). In a Conversation prompt, the `{{memories}}` macro places them.
+
 The live preview in [Peek Prompt](../chats/peek-prompt.md) does not run Memory Recall. With recall on, it can list more history than a reply gets.
 
 ### How Memory Recall behaves
