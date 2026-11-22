@@ -484,7 +484,7 @@ export const useChatStore = create<ChatState>()(
         if (id) {
           // Opening a chat is meaningful recency even when the user only reads it.
           // The lightweight touch keeps Home's Continue Chatting shelf in visit order.
-          void api.post(`/chats/${encodeURIComponent(id)}/touch`).catch(() => undefined);
+          void api.post(`/chats/${encodeURIComponent(id)}/touch`, undefined, { sync: false }).catch(() => undefined);
         }
         // Background is NOT cleared here — it's managed by ChatArea's restore effect.
         // Clearing it would cause a black flash and wipe the background for new chats.

@@ -38,6 +38,15 @@ await page.close();
 
 Put the tap timings readings in every phone or tablet QC report.
 
+Reading a row: `Library 359 · 699 · 223 · 3× 665 (api 1 · code 2)` is tap to shown, to smooth, the longest frame
+(all ms), then how many loads started during the tap and when the last one finished, split into server calls (api),
+scripts and stylesheets (code) and pictures and fonts (media). `+150 pre` at the end means 150 of the code loads came
+from the background preload queue (`lib/background-preload.ts`), not from the tap; it is approximate (a chunk the tap
+needed that starts while a preload runs counts as pre too). A "first tap" reading in a QC report quotes both numbers:
+the total and the total minus pre. A smooth of `≥8000` means the box's 8 s window ended the row; it is a cap, not a
+real time. `webkit-qc.mjs`'s `tapTimings()` returns the split as fields (`loads`, `api`, `code`, `media`,
+`preload`, `capped`) read from the row's `data-*` attributes.
+
 How it works and its limits:
 
 - The page is reached through a small local proxy (port 7899) that adds a same-origin script telling the app it is on

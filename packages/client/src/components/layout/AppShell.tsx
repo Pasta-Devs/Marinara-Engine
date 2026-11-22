@@ -6,6 +6,7 @@ import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due"
 import { useCenterPageOpen } from "../../hooks/use-chat-theme";
 import { useQueryClient } from "@tanstack/react-query";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { prioritizeBackgroundPreloads, scheduleBackgroundPreload } from "../../lib/background-preload";
 import { DelayedFallback } from "../ui/DelayedFallback";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
@@ -328,6 +329,31 @@ function SidePanelFallback() {
   );
 }
 
+/**
+ * Queues the Library's viewers and editors in the background preload queue (tier 1), viewers first so a
+ * Library page never shows "Loading…", then the editors they open. Each is its own slice.
+ */
+function queueEditorPreloads() {
+  const views = {
+    "library:characters": CharacterLibraryView,
+    "library:agents": AgentCatalogView,
+    "library:regex": OvRegexViewer,
+    "library:tools": OvToolsViewer,
+    "library:profiles": OvProfilesViewer,
+    "library:connections": OvConnectionsViewer,
+    "editor:character": CharacterEditor,
+    "editor:persona": PersonaEditor,
+    "editor:lorebook": LorebookEditor,
+    "editor:preset": PresetEditor,
+    "editor:regex": RegexScriptEditor,
+    "editor:connection": ConnectionEditor,
+    "editor:agent": AgentEditor,
+    "editor:tool": ToolEditor,
+    "library:docs": OverhaulDocsPage,
+  };
+  for (const [name, view] of Object.entries(views)) scheduleBackgroundPreload(name, () => view.preload());
+}
+
 export function AppShell({
   chatWindowIntroAllowed = false,
   onChatWindowIntroOpenChange,
@@ -337,22 +363,22 @@ export function AppShell({
 }) {
   // A11Y19: a page change never leaves keyboard focus on <body>.
   useKeepFocusOnPage();
-  // Load the chat view and right panel while idle, so the first chat or panel open does not wait for code.
+  // The chat view and the Library landing page are what a first tap most likely opens: they come right after
+  // the first paint (tier 0). The right panel, Library pages and Settings wait until the first tap has settled
+  // (tier 1, lib/background-preload.ts), so they never compete with it (QC panel 3, speed H1).
   useEffect(() => {
-    const preload = () => {
-      // A failed preload only means the click loads the code; the lazy import reports real failures.
-      ChatArea.preload().catch(() => undefined);
-      RightPanel.preload().catch(() => undefined);
-      // Library pages and Settings open without a "Loading…" page first (QC Nov 14 #2).
-      LibraryLandingPage.preload().catch(() => undefined);
-      import("../overhaul/LibraryLandingPage").then((module) => module.preloadLibraryPages()).catch(() => undefined);
-    };
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(preload, { timeout: 5_000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const timer = window.setTimeout(preload, 2_000);
-    return () => window.clearTimeout(timer);
+    scheduleBackgroundPreload("chat-area", () => ChatArea.preload(), 0);
+    // Library pages and Settings open without a "Loading…" page first (QC Nov 14 #2): the landing page's
+    // module queues them (tier 1) once it is in.
+    scheduleBackgroundPreload(
+      "library:landing",
+      () =>
+        LibraryLandingPage.preload().then(() =>
+          import("../overhaul/LibraryLandingPage").then((module) => module.queueLibraryPagePreloads()),
+        ),
+      0,
+    );
+    scheduleBackgroundPreload("right-panel", () => RightPanel.preload());
   }, []);
   // Editors load once the Library is opened (or an editor tab is open), so opening or switching to an
   // editor never shows an empty frame or "Loading…" first (QC Nov 14 #2, #5).
@@ -363,34 +389,10 @@ export function AppShell({
       state.tabs.some((tab) => tab.kind !== "chat" && tab.kind !== "app"),
   );
   useEffect(() => {
-    if (!editorsWanted) return;
-    const preload = () => {
-      for (const editor of [
-        CharacterEditor,
-        CharacterLibraryView,
-        PersonaEditor,
-        LorebookEditor,
-        PresetEditor,
-        ConnectionEditor,
-        RegexScriptEditor,
-        AgentEditor,
-        ToolEditor,
-        AgentCatalogView,
-        OvRegexViewer,
-        OvToolsViewer,
-        OvProfilesViewer,
-        OvConnectionsViewer,
-        OverhaulDocsPage,
-      ]) {
-        editor.preload().catch(() => undefined);
-      }
-    };
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(preload, { timeout: 1_500 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const timer = window.setTimeout(preload, 300);
-    return () => window.clearTimeout(timer);
+    queueEditorPreloads();
+    // Opening the Library doesn't start a burst of downloads: it moves its pages and editors to the front of the
+    // background queue, which fetches them one at a time.
+    if (editorsWanted) prioritizeBackgroundPreloads(["library:", "editor:"]);
   }, [editorsWanted]);
   const { t: localizeUi } = useUiTranslation();
   const chatWindowIntroNavigationBlocked = useUIStore((state) => state.hasAnyDetailOpen());
@@ -857,11 +859,7 @@ export function AppShell({
   // its stylesheet still arrives, just after startup instead of in the way of it.
   useEffect(() => {
     if (overhaulEnabled) return;
-    const load = () => void loadOverhaulStyles("desktop").catch(() => undefined);
-    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
-      .requestIdleCallback;
-    if (idle) idle(load, { timeout: 4000 });
-    else window.setTimeout(load, 2000);
+    scheduleBackgroundPreload("styles:desktop", () => loadOverhaulStyles("desktop"));
   }, [overhaulEnabled]);
   useEffect(() => {
     useOverhaulStore.getState().setDesktop(!isMobile);
@@ -881,49 +879,18 @@ export function AppShell({
     // A touch screen can turn into the other shell at any moment: have the phone stylesheet ready, so the
     // first rotation doesn't show a blank frame while it downloads.
     if (!isMobile && overhaulEnabled && window.matchMedia?.("(hover: none) and (pointer: coarse)").matches) {
-      const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-      const load = () => void loadOverhaulStyles("mobile").catch(() => undefined);
-      if (idle) idle(load);
-      else window.setTimeout(load, 2000);
+      scheduleBackgroundPreload("styles:mobile", () => loadOverhaulStyles("mobile"));
     }
   }, [isMobile, overhaulEnabled]);
-  // New layout: fetch the Library pages in the background once the app is idle, so opening one
-  // from the Stack or a tab shows it straight away instead of "Loading…".
+  // New layout: the Library pages, the editors they open and the chat surfaces come in the background
+  // (tier 1, after the first tap has settled), so opening one shows it straight away instead of "Loading…".
+  // Chat settings' code waits for a chat to be on screen (ChatCommonOverlays), never app start.
   useEffect(() => {
     if (!overhaulEnabled) return;
-    const preload = () => {
-      // Library pages and viewers first, then the editors they open, so neither shows "Loading…".
-      void LibraryLandingPage.preload();
-      void Promise.all([
-        CharacterLibraryView.preload(),
-        AgentCatalogView.preload(),
-        OvRegexViewer.preload(),
-        OvToolsViewer.preload(),
-        OvProfilesViewer.preload(),
-        OvConnectionsViewer.preload(),
-      ]).then(() => {
-        for (const editor of [
-          CharacterEditor,
-          PersonaEditor,
-          LorebookEditor,
-          PresetEditor,
-          RegexScriptEditor,
-          ConnectionEditor,
-          AgentEditor,
-          ToolEditor,
-        ])
-          void editor.preload();
-      });
-      // Opening a chat is the next step almost every time: fetch the chat surfaces now, not on the click.
-      preloadChatSurface("roleplay");
-      preloadChatSurface("conversation");
-      // Chat settings mounts (hidden) with every chat: its code came in on the first chat tap, about half of that
-      // tap's downloads (QC panel 2, #17). Fetch it here instead.
-      void import("../chat/ChatCommonOverlays").then((module) => module.preloadChatSettingsDrawerWhenIdle());
-    };
-    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-    if (idle) idle(preload);
-    else window.setTimeout(preload, 1500);
+    queueEditorPreloads();
+    // Opening a chat is the next step almost every time; Home queues the last chat's mode in tier 0.
+    scheduleBackgroundPreload("chat-surface:roleplay", () => preloadChatSurface("roleplay"));
+    scheduleBackgroundPreload("chat-surface:conversation", () => preloadChatSurface("conversation"));
   }, [overhaulEnabled]);
   useEffect(() => {
     if (!overhaulActive && !overhaulMobile) return;
@@ -1032,37 +999,12 @@ export function AppShell({
   useEffect(() => {
     if (rightPanelOpen) setRightPanelEverOpened(true);
   }, [rightPanelOpen]);
-  // The editors and library views open from the right panel: a moment after it first opens (not during
-  // its own render), fetch their code while idle, so opening one renders at once without "Loading…".
+  // The editors and library views open from the right panel: once it has opened, they join the background
+  // queue (the Library opening moves them up), so opening one renders at once without "Loading…".
   useEffect(() => {
     if (!rightPanelEverOpened) return;
-    const preload = () => {
-      for (const view of [
-        CharacterEditor,
-        CharacterLibraryView,
-        PersonaEditor,
-        LorebookEditor,
-        PresetEditor,
-        ProfileEditor,
-        ConnectionEditor,
-        RegexScriptEditor,
-        AgentEditor,
-        ToolEditor,
-        AgentCatalogView,
-      ]) {
-        view.preload().catch(() => undefined);
-      }
-    };
-    let idleId = 0;
-    const timer = window.setTimeout(() => {
-      if (typeof window.requestIdleCallback === "function")
-        idleId = window.requestIdleCallback(preload, { timeout: 2_000 });
-      else preload();
-    }, 1_000);
-    return () => {
-      window.clearTimeout(timer);
-      if (idleId) window.cancelIdleCallback(idleId);
-    };
+    queueEditorPreloads();
+    scheduleBackgroundPreload("editor:profile", () => ProfileEditor.preload());
   }, [rightPanelEverOpened]);
 
   // New layout: Chats live in the one sidebar on the right, so the left chat list never shows. Anything

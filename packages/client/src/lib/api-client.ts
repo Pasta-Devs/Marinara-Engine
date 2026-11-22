@@ -7,11 +7,20 @@ import { toast } from "sonner";
 import { i18n } from "../localization/i18n";
 import { saveExportFile, showExportError, type ExportSaveStatus } from "./file-download";
 import { showGenerationFallbackHeader, showGenerationFallbackToast } from "./generation-fallback-notice";
+import { trackRequest } from "./network-activity";
 
 const BASE = "/api";
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-/** Fired on the window after a request that changed something on the server succeeds. */
+/**
+ * Fired on the window after a request that changed something on the server succeeds. The event is a
+ * CustomEvent whose detail says what was written ({ path, method }), so the split view's other side refreshes
+ * only that (components/overhaul/split-sync.ts). Bookkeeping writes pass `sync: false` and fire nothing.
+ */
 export const SERVER_SAVED_EVENT = "marinara:server-saved";
+export type ServerSavedDetail = { path: string; method: string };
+/** Request options: `sync: false` marks a bookkeeping write (last opened, achievement counters) that changes
+ * nothing another window shows, so it doesn't refresh the split view's other side. */
+export type ApiRequestInit = RequestInit & { sync?: boolean };
 export const ADMIN_SECRET_STORAGE_KEY = "marinara_admin_secret";
 
 function getAdminSecretHeader(): Record<string, string> {
@@ -268,7 +277,8 @@ export function isJsonRepairApiError(error: unknown): boolean {
   return getJsonRepairRequest(error) !== null;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, apiInit?: ApiRequestInit): Promise<T> {
+  const { sync = true, ...init } = apiInit ?? {};
   const res = await apiFetch(path, init);
   showGenerationFallbackHeader(res);
 
@@ -284,12 +294,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     toast.warning(i18n.t(`agents.longTermMemory.embeddingRefresh.${ltmRefresh}`));
   }
 
-  if (
-    UNSAFE_METHODS.has((init?.method ?? "GET").toUpperCase()) &&
-    !path.startsWith("/csrf") &&
-    typeof window !== "undefined"
-  )
-    window.dispatchEvent(new Event(SERVER_SAVED_EVENT));
+  const method = (init.method ?? "GET").toUpperCase();
+  if (sync && UNSAFE_METHODS.has(method) && !path.startsWith("/csrf") && typeof window !== "undefined")
+    window.dispatchEvent(new CustomEvent<ServerSavedDetail>(SERVER_SAVED_EVENT, { detail: { path, method } }));
 
   // 204 No Content
   if (res.status === 204) return undefined as T;
@@ -319,12 +326,14 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(`${BASE}${path}`, {
-    ...init,
-    headers,
-    // A caller may opt into revalidation ("no-cache") for a large read the server tags with an ETag.
-    cache: init?.cache ?? "no-store",
-  });
+  return trackRequest(
+    fetch(`${BASE}${path}`, {
+      ...init,
+      headers,
+      // A caller may opt into revalidation ("no-cache") for a large read the server tags with an ETag.
+      cache: init?.cache ?? "no-store",
+    }),
+  );
 }
 
 async function readDownloadFilename(res: Response, fallbackFilename: string) {
@@ -369,7 +378,7 @@ export const api = {
 
   get: <T>(path: string, init?: RequestInit) => request<T>(path, init),
 
-  post: <T>(path: string, body?: unknown, init?: RequestInit) =>
+  post: <T>(path: string, body?: unknown, init?: ApiRequestInit) =>
     request<T>(path, {
       ...init,
       method: "POST",
@@ -382,7 +391,7 @@ export const api = {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     }),
 
-  patch: <T>(path: string, body?: unknown, init?: RequestInit) =>
+  patch: <T>(path: string, body?: unknown, init?: ApiRequestInit) =>
     request<T>(path, {
       ...init,
       method: "PATCH",

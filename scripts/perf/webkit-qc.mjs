@@ -338,20 +338,41 @@ export function makePage({ sessionId, device, driver = DRIVER, touch = false }) 
       }
       return this.tapTimings();
     },
-    /** Rows of the tap timings box (last 6 taps) in tap order: tap -> shown · smooth · longest frame · server. */
+    /**
+     * Rows of the tap timings box (last 6 taps) in tap order: tap -> shown · smooth · longest frame · loads.
+     * Besides the text fields, each row has its loads split by kind from the row's data attributes: loads (all),
+     * api, code, media, preload (code the background preload queue fetched during the tap, part of code), and
+     * capped (the 8 s window ended the row, so smooth is a cap, shown as ">=8000").
+     */
     async tapTimings() {
       const rows = await run(`
         const box = document.querySelector('[data-component="TapTimings"]');
         if (!box) return [];
         // The box lists the newest tap first.
-        return [...box.children].filter((row) => row.querySelector('span')).map((row) => row.textContent).reverse();
+        return [...box.children].filter((row) => row.querySelector('span')).map((row) => ({
+          text: row.textContent,
+          data: { ...row.dataset },
+        })).reverse();
       `);
-      return rows.map((text) => {
+      return rows.map(({ text, data }) => {
         const final = !text.endsWith("…");
-        const match = /^(.*?) (\d+) · (\d+) · (\d+) · (.*?)(?: …)?$/.exec(text);
-        if (!match) return { text, final };
+        const counts = {};
+        for (const key of ["loads", "api", "code", "media", "preload"])
+          if (data[key] !== undefined) counts[key] = Number(data[key]);
+        if (data.capped !== undefined) counts.capped = data.capped === "true";
+        const match = /^(.*?) (\d+) · (≥?\d+) · (\d+) · (.*?)(?: …)?$/.exec(text);
+        if (!match) return { text, final, ...counts };
         const [, label, shown, smooth, longest, server] = match;
-        return { label, shown: +shown, smooth: +smooth, longest: +longest, server: server.trim(), text, final };
+        return {
+          label,
+          shown: +shown,
+          smooth: +smooth.replace("≥", ""),
+          longest: +longest,
+          server: server.trim(),
+          text,
+          final,
+          ...counts,
+        };
       });
     },
     async screenshot(file) {
@@ -377,7 +398,11 @@ export function formatTimings(rows) {
     .map((row) =>
       row.shown === undefined
         ? `  ${row.text}`
-        : `  ${row.label.padEnd(18)} shown ${String(row.shown).padStart(5)} ms · smooth ${String(row.smooth).padStart(5)} ms · longest frame ${String(row.longest).padStart(4)} ms · server ${row.server}`,
+        : `  ${row.label.padEnd(18)} shown ${String(row.shown).padStart(5)} ms · smooth ${(row.capped ? ">=" : "") + String(row.smooth).padStart(5)} ms · longest frame ${String(row.longest).padStart(4)} ms · loads ${row.server}${
+            row.loads === undefined
+              ? ""
+              : ` [loads=${row.loads} api=${row.api} code=${row.code} media=${row.media} preload=${row.preload}]`
+          }`,
     )
     .join("\n");
 }
@@ -418,7 +443,7 @@ async function smoke(appUrl, outDir) {
       const rows = await page.settled();
       console.log(`\n${device}: ${size[0]}x${size[1]} WebKit viewport, touch screen (as the page sees it): ${size[2]}`);
       console.log(`  screenshots: ${shot1}, ${shot2}`);
-      console.log("  tap timings (tap -> shown · smooth · longest frame · server):");
+      console.log("  tap timings (tap -> shown · smooth · longest frame · loads):");
       console.log(formatTimings(rows));
       if (!rows.some((row) => row.shown !== undefined)) throw new Error("tap timings box has no readings");
     } catch (error) {
@@ -459,7 +484,7 @@ async function main() {
     try {
       await sleep(1000);
       for (const target of options.tap) await page.tap(target);
-      console.log(`${device} tap timings (tap -> shown · smooth · longest frame · server):`);
+      console.log(`${device} tap timings (tap -> shown · smooth · longest frame · loads):`);
       console.log(formatTimings(await page.settled()));
       if (options.shot) console.log(`screenshot: ${await page.screenshot(options.shot)}`);
     } finally {

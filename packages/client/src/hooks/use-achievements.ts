@@ -50,7 +50,8 @@ export async function trackAchievementEvent(event: AchievementEvent, options: Tr
   const result = await api.post<AchievementTrackResponse>(
     "/achievements/track",
     { event },
-    options.keepalive ? { keepalive: true } : undefined,
+    // Counters only: nothing another window shows, so the split view's other side isn't refreshed.
+    options.keepalive ? { keepalive: true, sync: false } : { sync: false },
   );
   if (useUIStore.getState().achievementsEnabled) {
     showAchievementUnlockToasts(result.newlyUnlocked);

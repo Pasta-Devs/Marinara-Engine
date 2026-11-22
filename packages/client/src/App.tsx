@@ -66,7 +66,7 @@ import { useMobileChatSettingsNav } from "./features/chat-settings/mobile-nav";
 import { useChatSettingsSubpage } from "./features/chat-settings/subpage";
 import { api, requestTimeoutSignal } from "./lib/api-client";
 import { forceRefreshSpa, reloadBrowser } from "./lib/browser-runtime";
-import { recordClientError } from "./lib/client-runtime-diagnostics";
+import { isPageUnloading, recordClientError } from "./lib/client-runtime-diagnostics";
 import { showAppUpdatePrompt } from "./lib/app-update-prompt";
 import { UI_PERSISTENCE_HOST_COPY } from "./lib/ui-persistence";
 import { formatRuntimeBuild, getServerRuntimeBuild, isRuntimeBuildCurrent } from "./lib/runtime-build";
@@ -210,6 +210,8 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
+    // A reload in Firefox fails the code still loading: not the app's error, and the page is going anyway.
+    if (isPageUnloading()) return;
     recordClientError("render-error", error);
     console.error("[AppRecoveryBoundary] Unhandled render error", error, info.componentStack);
   }

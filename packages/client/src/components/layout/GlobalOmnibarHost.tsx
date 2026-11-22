@@ -1,4 +1,5 @@
 import { Component, Suspense, useEffect, useLayoutEffect, useRef, type ErrorInfo, type ReactNode } from "react";
+import { runBackgroundPreloadNow, scheduleBackgroundPreload } from "../../lib/background-preload";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { professorMariChatsQuery } from "../../hooks/use-chats";
@@ -101,41 +102,35 @@ export function GlobalOmnibar() {
   // The top-bar edge glow (useMariEdgeGlow) reads the same query.
   useMariPresence();
 
-  // Fetch the dialog's code once the app is idle, so the first ⌘K opens without
-  // waiting on the network. A failed preload is retried by the real open.
+  // Fetch the dialog's code in the background (tier 1: after the first tap has settled, lib/background-preload),
+  // so the first ⌘K opens without waiting on the network. A failed preload is retried by the real open.
+  // The split view's second side skips it (tier 1 doesn't run there); ⌘K in it loads on demand.
   const queryClient = useQueryClient();
   useEffect(() => {
-    const preload = () =>
-      void GlobalOmnibarDialog.preload()
+    scheduleBackgroundPreload("omnibar", () =>
+      GlobalOmnibarDialog.preload()
         // Search's Continue row lists her last conversation; fetched now it is there on the first open
         // instead of pushing the rows down once it arrives (QC Nov 14 #3).
         .then(() => queryClient.prefetchQuery(professorMariChatsQuery))
         .then(() => import("./GlobalOmnibar"))
         // Her pane's code too, so the first ⌘J does not fetch and run it before her chat can load.
-        .then((module) => module.OmnibarMariPane.preload())
-        .catch(() => undefined);
-    // Also on the first sign of a person at the keyboard or mouse, not only at idle: a busy start
-    // never goes idle before the first Ctrl+K (QC Nov 21 A11Y10). Runs once, whichever comes first.
+        .then((module) => module.OmnibarMariPane.preload()),
+    );
+    // Also on the first sign of a person at the keyboard or mouse, not only in the queue's turn: a busy start
+    // never settles before the first Ctrl+K (QC Nov 21 A11Y10). On touch screens a finger also sends pointer
+    // moves on every tap, so there only a key counts. Runs once, whichever comes first.
+    const touch = window.matchMedia?.("(hover: none) and (pointer: coarse)").matches ?? false;
     let done = false;
     const once = () => {
       if (done) return;
       done = true;
       window.removeEventListener("pointermove", once);
       window.removeEventListener("keydown", once);
-      preload();
+      runBackgroundPreloadNow("omnibar");
     };
-    window.addEventListener("pointermove", once, { passive: true });
+    if (!touch) window.addEventListener("pointermove", once, { passive: true });
     window.addEventListener("keydown", once);
-    let cancelIdle: () => void;
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(once, { timeout: 5_000 });
-      cancelIdle = () => window.cancelIdleCallback(id);
-    } else {
-      const timer = window.setTimeout(once, 2_000);
-      cancelIdle = () => window.clearTimeout(timer);
-    }
     return () => {
-      cancelIdle();
       window.removeEventListener("pointermove", once);
       window.removeEventListener("keydown", once);
     };
@@ -147,25 +142,11 @@ export function GlobalOmnibar() {
   const pack = useMariAppearancePack();
   useMariPackUnlocks();
   useEffect(() => {
-    let idleId: number | undefined;
-    let timer: number | undefined;
-    // Decoded, not just fetched: the first frame she draws is already a bitmap, not a late pop-in.
     // Decoded, not just fetched: a sheet counts as drawn only once it is decoded (mari-sprite-ready).
-    const prefetch = () => {
-      for (const url of mariAssetUrls(pack, 2)) void warmMariSprite(url);
-    };
-    const schedule = () => {
-      if (typeof window.requestIdleCallback === "function")
-        idleId = window.requestIdleCallback(prefetch, { timeout: 5_000 });
-      else timer = window.setTimeout(prefetch, 2_000);
-    };
-    if (document.readyState === "complete") schedule();
-    else window.addEventListener("load", schedule, { once: true });
-    return () => {
-      window.removeEventListener("load", schedule);
-      if (idleId !== undefined) window.cancelIdleCallback(idleId);
-      window.clearTimeout(timer);
-    };
+    // In the background queue (tier 1), so the pictures don't compete with the first tap's own loads.
+    const urls = mariAssetUrls(pack, 2);
+    if (urls.length)
+      scheduleBackgroundPreload(`mari-sprites:${urls[0]}`, () => Promise.all(urls.map((url) => warmMariSprite(url))));
   }, [pack]);
 
   useEffect(() => {
