@@ -89,7 +89,7 @@ import { useSeasonalTheme } from "./hooks/use-seasonal-theme";
 import { useCustomNotificationSoundStatus } from "./hooks/use-custom-notification-sound";
 import { useReducedAmbientEffects } from "./hooks/use-reduced-ambient-effects";
 import { installLongTaskWarner } from "./lib/perf-diagnostics";
-import { getStoreBackLayers } from "./lib/back-layers";
+import { getStoreBackLayers, watchLibraryHubReturn } from "./lib/back-layers";
 import { initBackNavigation, syncBackNavigation } from "./lib/back-navigation";
 import { setCustomNotificationSoundUrl } from "./lib/notification-sound";
 import { PHONE_TOAST_TOP_VARIABLE, watchPhoneToastTop } from "./lib/phone-toast-top";
@@ -793,6 +793,7 @@ export function App() {
     const unsubscribeChat = useChatStore.subscribe(syncBackNavigation);
     const unsubscribeWindows = useFloatingWindowStore.subscribe(syncBackNavigation);
     const unsubscribeChatSettingsNav = useMobileChatSettingsNav.subscribe(syncBackNavigation);
+    const unwatchLibraryHub = watchLibraryHubReturn();
     // Whether a shell panel counts as an overlay depends on the viewport.
     const shellQuery = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
     shellQuery.addEventListener("change", syncBackNavigation);
@@ -803,6 +804,7 @@ export function App() {
       unsubscribeChat();
       unsubscribeWindows();
       unsubscribeChatSettingsNav();
+      unwatchLibraryHub();
       shellQuery.removeEventListener("change", syncBackNavigation);
     };
   }, []);

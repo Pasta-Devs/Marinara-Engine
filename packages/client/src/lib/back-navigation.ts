@@ -40,6 +40,8 @@ let armedDepth = 0;
  */
 let pendingSelfPops = 0;
 let registrationSeq = 0;
+/** Open `batchBackLayers` calls: store changes inside one are synced once, at the end. */
+let batchDepth = 0;
 
 const STATE_KEY = "marinaraOverlay";
 
@@ -56,7 +58,7 @@ function depthOf(state: unknown): number {
 
 /** Push or pop entries until there is one per open layer. Idempotent — safe to over-call. */
 export function syncBackNavigation() {
-  if (!initialized) return;
+  if (!initialized || batchDepth > 0) return;
   // A cleanup pop cannot be cancelled once requested. Wait for its popstate
   // instead of pushing an entry that the in-flight pop would eat.
   if (pendingSelfPops > 0) return;
@@ -75,6 +77,21 @@ export function syncBackNavigation() {
     pendingSelfPops += 1;
     if (extra === 1) window.history.back();
     else window.history.go(-extra);
+  }
+}
+
+/**
+ * Runs several layer changes as one: history is lined up once, afterwards, with the net change. Swapping one layer for
+ * another (the Library list page for the section picked from it) then neither pops nor pushes, and a net push stays
+ * inside the tap that caused it, where Safari keeps it.
+ */
+export function batchBackLayers(run: () => void) {
+  batchDepth += 1;
+  try {
+    run();
+  } finally {
+    batchDepth -= 1;
+    if (batchDepth === 0) syncBackNavigation();
   }
 }
 
@@ -154,5 +171,6 @@ export function __resetBackNavigationForTests() {
   armedDepth = 0;
   pendingSelfPops = 0;
   registrationSeq = 0;
+  batchDepth = 0;
   if (typeof window !== "undefined") window.removeEventListener("popstate", handlePopState);
 }

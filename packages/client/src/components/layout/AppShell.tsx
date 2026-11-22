@@ -873,7 +873,10 @@ export function AppShell({
     return useChatStore.subscribe((state) => {
       if (state.activeChatId === previous) return;
       previous = state.activeChatId;
-      if (state.activeChatId) useOverhaulStore.getState().setLibraryPage(null);
+      if (state.activeChatId) {
+        useOverhaulStore.getState().setLibraryPage(null);
+        useOverhaulStore.getState().setLibraryHubReturn(false);
+      }
     });
   }, []);
   // New layout on phones: the old right panel (Connections, Presets... lists) never shows. Anything
@@ -919,7 +922,10 @@ export function AppShell({
         !overhaul.activeSchedules &&
         !overhaul.activeApp &&
         !overhaul.libraryPage &&
-        !useChatStore.getState().activeChatId;
+        !useChatStore.getState().activeChatId &&
+        // An open editor (or the Characters / Personas gallery) is not plain Home: reopening the section would pop
+        // it and lose a draft when an iPad turns to portrait mid-edit (QC Nov 22).
+        !ui.hasAnyDetailOpen();
       if (!onPlainHome) return;
     }
     if (LIBRARY_SECTIONS.some((section) => section.id === panel)) {
