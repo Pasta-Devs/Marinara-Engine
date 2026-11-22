@@ -442,30 +442,30 @@ export function screenList(ids) {
       id: "ruleset-builder",
       run: open.library("rulesets"),
       then: async (page) => {
+        // The builder needs Agents › custom imports on (test data only); then the page again.
+        await page.evaluate(() =>
+          fetch("/api/agents/import-policy", {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ enabled: true }),
+          }),
+        );
+        await page.reload();
+        await page.waitForFunction(() => window.__marinaraUiCheck, null, { timeout: 30_000 });
+        await page.evaluate(() => {
+          const h = window.__marinaraUiCheck;
+          h.openLibrarySection("rulesets");
+          if (!h.overhaul.getState().desktop) h.overhaul.getState().setMobileSidePageOpen(false);
+        });
         const newButton = () =>
-          page.getByRole("button", { name: "New", exact: true }).filter({ visible: true }).first();
+          page
+            .getByRole("button", { name: /^New( ruleset…)?$/ })
+            .filter({ visible: true })
+            .first();
         await newButton()
           .waitFor({ timeout: 10_000 })
           .catch(() => {});
         if (!(await newButton().count())) return "no New button on this layout";
-        if (await newButton().isDisabled()) {
-          // The builder needs Agents › custom imports on (test data only), then the page again.
-          await page.evaluate(() =>
-            fetch("/api/agents/import-policy", {
-              method: "PATCH",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ enabled: true }),
-            }),
-          );
-          await page.reload();
-          await page.waitForFunction(() => window.__marinaraUiCheck, null, { timeout: 30_000 });
-          await page.evaluate(() => {
-            const h = window.__marinaraUiCheck;
-            h.openLibrarySection("rulesets");
-            if (!h.overhaul.getState().desktop) h.overhaul.getState().setMobileSidePageOpen(false);
-          });
-          await newButton().waitFor({ timeout: 10_000 });
-        }
         await newButton().click();
         await page.locator('[data-component="RulesetBuilderPage"]').waitFor({ state: "visible", timeout: 10_000 });
       },

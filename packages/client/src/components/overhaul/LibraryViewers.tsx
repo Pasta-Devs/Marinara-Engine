@@ -156,6 +156,7 @@ export function OvViewer({
   selectedId,
   onSelect,
   emptyList,
+  detailOpen = false,
   emptyDetail,
   children,
   onSection,
@@ -191,6 +192,8 @@ export function OvViewer({
   selectedId: string | null;
   onSelect: (id: string) => void;
   emptyList: string;
+  /** An editor with no list row yet (a new item being made) is open: no landing or empty state. */
+  detailOpen?: boolean;
   emptyDetail: string;
   children: ReactNode;
 }) {
@@ -212,7 +215,7 @@ export function OvViewer({
   // With nothing open this is the section's landing page: it reads like the other Library landing pages
   // (no crumbs, title at the same spot, Import and + New as pills at the top right). Once an item is
   // open, its editor header takes the top and the list keeps Import / + New (audit D7).
-  const landing = !selectedId;
+  const landing = !selectedId && !detailOpen;
   const newButton = (
     <button
       type="button"

@@ -236,6 +236,7 @@ export function RulesetsViewer() {
       }}
       groups={groups}
       selectedId={selectedId === NEW_ID ? null : selectedId}
+      detailOpen={selectedId === NEW_ID}
       onSelect={(id) => void select(id)}
       kit={kit}
       emptyList={t("library.rulesets.empty")}
