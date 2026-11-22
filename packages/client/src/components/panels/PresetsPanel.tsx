@@ -684,7 +684,12 @@ export function PresetsPanel() {
           const normalized = normalizeRegexImportEntry(entry, orderBase + index);
           if (!normalized) {
             const skipReason = regexImportSkipReason(entry);
-            failed.push(`Entry ${index + 1}: ${skipReason ?? "missing name or find pattern."}`);
+            failed.push(
+              translate("ui.regex.importEntryRejected", {
+                number: index + 1,
+                reason: skipReason ?? translate("ui.regex.importEntryMissingFields"),
+              }),
+            );
             continue;
           }
           try {

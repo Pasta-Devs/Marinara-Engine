@@ -20008,6 +20008,8 @@
   "ui.presets.variablecard.variableName": "Variable name",
   "ui.presets.variablenameinput.variableName": "VARIABLE_NAME",
   "ui.presets.variablequestioninput.whatShouldTheUserChoose": "What should the user choose?",
+  "ui.regex.importEntryMissingFields": "missing name or find pattern.",
+  "ui.regex.importEntryRejected": "Entry {{number}}: {{reason}}",
   "ui.regex.importSkippedPlacement": "runs only on slash commands, World Info or reasoning, which regex scripts here don't cover.",
   "ui.regex.importUnsafePatternWarning": "Entry {{value1}} ({{value2}}) was imported, but its pattern triggered the safety warning and will not run until the pattern is made safe.",
   "ui.rulesets.builder.addAnother": "Add another ({{step}})",
