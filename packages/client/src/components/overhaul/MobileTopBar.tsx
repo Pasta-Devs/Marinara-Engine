@@ -8,7 +8,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowUp, Check, Home, Layers, Plus, Search, Settings2, X } from "lucide-react";
+import { ArrowUp, Check, ChevronLeft, Home, Layers, Plus, Search, Settings2, X } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -249,6 +249,10 @@ export function OverhaulMobileTopBar() {
   const allTabsOpen = useOverhaulStore((s) => s.allTabsOpen);
   const tabCount = useOverhaulStore((s) => s.tabs.length);
   const swipeGestures = useUIStore((s) => s.swipeGestures);
+  // Browse online covers the Characters or Lorebooks page: the bar names it and ‹ goes back to that page.
+  const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
+  const botBrowserKind = useUIStore((s) => s.botBrowserKind);
+  const browsingOnline = botBrowserOpen && !sidebarOpen;
   // Swiping the title moves through the open tabs in strip order (Home sits before the first).
   const tabSteps = (direction: SwipeDirection) => {
     const tabs = useOverhaulStore.getState().tabs;
@@ -300,18 +304,30 @@ export function OverhaulMobileTopBar() {
       <DocumentTitle tab={current} chats={chats} />
       {/* Three columns with equal sides, so the title sits in the true centre. */}
       <div className="ovm-topbar__side">
-        <button
-          type="button"
-          className={cn("ovm-icon-btn", !current && !sidebarOpen && "is-on")}
-          aria-label={localize("Home")}
-          title={localize("Home")}
-          onClick={() => {
-            closeMobilePanels();
-            goHome();
-          }}
-        >
-          <Home size={22} />
-        </button>
+        {browsingOnline ? (
+          <button
+            type="button"
+            className="ovm-icon-btn"
+            aria-label={localize(botBrowserKind === "lorebooks" ? "Lorebooks" : "Characters")}
+            title={localize(botBrowserKind === "lorebooks" ? "Lorebooks" : "Characters")}
+            onClick={() => useUIStore.getState().closeBotBrowser()}
+          >
+            <ChevronLeft size={24} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={cn("ovm-icon-btn", !current && !sidebarOpen && "is-on")}
+            aria-label={localize("Home")}
+            title={localize("Home")}
+            onClick={() => {
+              closeMobilePanels();
+              goHome();
+            }}
+          >
+            <Home size={22} />
+          </button>
+        )}
       </div>
       <button
         type="button"
@@ -324,6 +340,10 @@ export function OverhaulMobileTopBar() {
           {sidebarOpen ? (
             <span className="ovm-title__text">
               <b>{localize("Chats")}</b>
+            </span>
+          ) : browsingOnline ? (
+            <span className="ovm-title__text">
+              <b>{localize("Browse online")}</b>
             </span>
           ) : current?.kind === "chat" && activeChat ? (
             <>

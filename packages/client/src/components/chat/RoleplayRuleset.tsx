@@ -29,6 +29,9 @@ import { parseChatMetadata } from "../../lib/chat-display";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
 import { Select } from "../ui/Select";
+import { useOverhaulLook } from "../../stores/overhaul.store";
+import { rulesetRowKey, useRulesetPageRequest } from "../../lib/ruleset-page-request";
+import { openLibrarySection } from "../overhaul/library-navigation";
 
 // The builder's form loads when it opens, so Chat Settings and the tracker panel do not carry it.
 const RulesetBuilderModal = lazy(() =>
@@ -72,7 +75,7 @@ export function isBlankRoleplaySheet(definition: RulesetDefinition, stored: unkn
 }
 
 /** Pin a ruleset (or none), then read the chat again so everything sees the new pin and cards. */
-function usePinRoleplayRuleset(chatId: string) {
+export function usePinRoleplayRuleset(chatId: string) {
   const queryClient = useQueryClient();
   const { t: localizeUi } = useUiTranslation();
   const [busy, setBusy] = useState(false);
@@ -145,6 +148,22 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
       return null;
     }
   }, [editable, source.data]);
+
+  // New layout: the builder is a page in Library > Assets > Rulesets, not a window. Saving there still pins
+  // here (an edit always; a new ruleset only in a chat with none) and offers the way back to this chat.
+  const overhaulLook = useOverhaulLook();
+  const openBuilder = (kind: "new" | "edit") => {
+    if (!overhaulLook) {
+      setBuilder(kind);
+      return;
+    }
+    useRulesetPageRequest.getState().setRequest({
+      open: kind === "new" || !pinnedEntry ? "new" : rulesetRowKey(pinnedEntry),
+      chatId,
+      pinOnSave: kind === "edit" || !pinnedId,
+    });
+    openLibrarySection("rulesets");
+  };
 
   // Taking a removal back, then pinning again, which gives that member a sheet like any newcomer.
   const giveSheet = async (name: string) => {
@@ -287,7 +306,7 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
         <button
           type="button"
           disabled={busy || !installed.data || !canBuild}
-          onClick={() => setBuilder("new")}
+          onClick={() => openBuilder("new")}
           className={builderButton}
         >
           <Plus size="0.75rem" />
@@ -297,7 +316,7 @@ export function RoleplayRulesetSettings({ chatId, metadata }: { chatId: string; 
           <button
             type="button"
             disabled={busy || !canBuild}
-            onClick={() => setBuilder("edit")}
+            onClick={() => openBuilder("edit")}
             className={builderButton}
           >
             <PencilRuler size="0.75rem" />

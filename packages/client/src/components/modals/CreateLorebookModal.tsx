@@ -14,6 +14,7 @@ import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { useFeatureEnabled, useFeatureSettings } from "../../hooks/use-feature-settings";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 
 const LOREBOOK_CATEGORIES: Array<{ id: LorebookCategory; label: string }> = [
   { id: "world", label: "World" },
@@ -43,6 +44,7 @@ export function CreateLorebookModal({
   defaultName = "",
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulLook = useOverhaulLook();
   const qc = useQueryClient();
   const [form, setForm] = useState({ name: defaultName, description: "", category: defaultCategory });
   // null follows Settings > Advanced > Lorebooks > "Vectors on for new lorebooks" until the user flips it here.
@@ -101,18 +103,27 @@ export function CreateLorebookModal({
       }
     >
       <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-400/20">
-            <BookOpen size="1.375rem" className="text-white" />
+        {/* New layout: the window's title is its header, like Create character; no coloured tile (QC panel 2). */}
+        {overhaulLook ? (
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {localizeUi(
+              "ui.modals.createlorebookmodal.lorebooksInjectContextualWorldBuildingInformationIntoPromptsBased",
+            )}
+          </p>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-400/20">
+              <BookOpen size="1.375rem" className="text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi(
+                  "ui.modals.createlorebookmodal.lorebooksInjectContextualWorldBuildingInformationIntoPromptsBased",
+                )}
+              </p>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-xs text-[var(--muted-foreground)]">
-              {localizeUi(
-                "ui.modals.createlorebookmodal.lorebooksInjectContextualWorldBuildingInformationIntoPromptsBased",
-              )}
-            </p>
-          </div>
-        </div>
+        )}
 
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-[var(--muted-foreground)]">
