@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // File Browser — Asset grid / list view (with multi-select checkboxes)
 // ──────────────────────────────────────────────
+import { cn } from "../../lib/utils";
 import { useEffect, useState } from "react";
 import { Check, FileImage, Folder, FolderOpen, Minus, MoreHorizontal } from "lucide-react";
 import type { TreeNode } from "../../hooks/use-game-assets";
@@ -11,6 +12,7 @@ import { CATEGORY_ICONS } from "./constants";
 import { FileIcon, isImage } from "./utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Checkbox } from "../ui/Checkbox";
+import { KitFolderIcon } from "../overhaul/LibraryKit";
 
 const ASSET_GRID_PAGE_SIZE = 240;
 
@@ -42,6 +44,8 @@ export interface AssetGridProps {
   getFolderSelectionStatus?: (node: TreeNode) => GameAssetSelectionStatus;
   /** Open the per-game folder selection menu */
   onOpenFolderSelection?: (node: TreeNode, anchorEl: HTMLElement) => void;
+  /** New layout's Library page: folders draw as the Library's folder mark instead of a category icon square. */
+  kitFolders?: boolean;
 }
 
 /**
@@ -88,6 +92,7 @@ export function AssetGrid({
   assetSelectionMode = false,
   getFolderSelectionStatus,
   onOpenFolderSelection,
+  kitFolders = false,
 }: AssetGridProps) {
   const { t: localizeUi } = useUiTranslation();
   const [visibleCount, setVisibleCount] = useState(ASSET_GRID_PAGE_SIZE);
@@ -136,7 +141,13 @@ export function AssetGrid({
   if (viewMode === "grid") {
     return (
       <>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(clamp(6.75rem,18vmin,10rem),1fr))] gap-[clamp(0.5rem,1.4vmin,0.875rem)] p-[clamp(0.5rem,1.6vmin,0.875rem)]">
+        <div
+          className={
+            kitFolders
+              ? "ov-ga__grid"
+              : "grid grid-cols-[repeat(auto-fill,minmax(clamp(6.75rem,18vmin,10rem),1fr))] gap-[clamp(0.5rem,1.4vmin,0.875rem)] p-[clamp(0.5rem,1.6vmin,0.875rem)]"
+          }
+        >
           {visibleNodes.map((node) => {
             const isSelected = selectedPaths.has(node.path);
             const isFile = node.type === "file";
@@ -153,8 +164,12 @@ export function AssetGrid({
                   else onSelectFile(node);
                 }}
                 className={
-                  "group relative flex flex-col items-center gap-2 rounded-xl border bg-[var(--card)] p-[clamp(0.5rem,1.3vmin,0.875rem)] transition-all hover:border-[var(--foreground)]/25 hover:shadow-sm " +
-                  (isSelected ? "border-[var(--primary)]/45 ring-2 ring-[var(--primary)]/20" : "border-[var(--border)]")
+                  kitFolders
+                    ? cn("ov-ga__card group", isSelected && "is-selected", node.type === "folder" && "is-folder")
+                    : "group relative flex flex-col items-center gap-2 rounded-xl border bg-[var(--card)] p-[clamp(0.5rem,1.3vmin,0.875rem)] transition-all hover:border-[var(--foreground)]/25 hover:shadow-sm " +
+                      (isSelected
+                        ? "border-[var(--primary)]/45 ring-2 ring-[var(--primary)]/20"
+                        : "border-[var(--border)]")
                 }
               >
                 {/* Checkbox — files only, always visible */}
@@ -202,9 +217,16 @@ export function AssetGrid({
                   <MoreHorizontal size="0.875rem" />
                 </button>
 
-                <div className="flex aspect-square w-[clamp(3.5rem,13vmin,6.75rem)] max-w-full shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent)]">
+                <div
+                  className={
+                    kitFolders
+                      ? "ov-ga__art"
+                      : "flex aspect-square w-[clamp(3.5rem,13vmin,6.75rem)] max-w-full shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent)]"
+                  }
+                >
                   {node.type === "folder" ? (
                     (() => {
+                      if (kitFolders) return <KitFolderIcon folder={{ id: node.path, name: node.name, itemIds: [] }} />;
                       const CategoryIcon = CATEGORY_ICONS[node.name] || Folder;
                       return (
                         <CategoryIcon className="h-[52%] min-h-8 w-[52%] min-w-8 max-h-16 max-w-16 text-[var(--foreground)]/80" />
@@ -224,7 +246,13 @@ export function AssetGrid({
                     <FileIcon ext={node.ext} className="h-8 w-8 text-[var(--foreground)]/80" />
                   )}
                 </div>
-                <span className="w-full truncate text-center text-xs text-[var(--foreground)]">{node.name}</span>
+                <span
+                  className={
+                    kitFolders ? "ov-ga__name" : "w-full truncate text-center text-xs text-[var(--foreground)]"
+                  }
+                >
+                  {node.name}
+                </span>
               </div>
             );
           })}
@@ -300,6 +328,12 @@ export function AssetGrid({
 
             {node.type === "folder" ? (
               (() => {
+                if (kitFolders)
+                  return (
+                    <span className="ov-ga__rowfolder">
+                      <KitFolderIcon folder={{ id: node.path, name: node.name, itemIds: [] }} />
+                    </span>
+                  );
                 const CategoryIcon = CATEGORY_ICONS[node.name] || Folder;
                 return <CategoryIcon size="1rem" className="shrink-0 text-[var(--foreground)]/80" />;
               })()

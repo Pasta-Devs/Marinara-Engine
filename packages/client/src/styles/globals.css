@@ -326,9 +326,10 @@
   --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent);
   --marinara-chat-chrome-panel-text: color-mix(in srgb, var(--marinara-chat-chrome-text) 90%, transparent);
   --marinara-chat-chrome-panel-title: color-mix(in srgb, var(--marinara-chat-chrome-text) 96%, transparent);
+  /* 61%: small muted text ("23m ago", widget descriptions) passes 4.5:1 on the panels (QC Nov 22 K18). */
   --marinara-chat-chrome-panel-muted: var(
     --mari-chrome-muted,
-    color-mix(in srgb, var(--marinara-chat-chrome-text) 58%, transparent)
+    color-mix(in srgb, var(--marinara-chat-chrome-text) 61%, transparent)
   );
   --marinara-chat-chrome-panel-scrollbar: color-mix(in srgb, var(--marinara-chat-chrome-accent) 22%, transparent);
   --marinara-chat-message-action-text: var(
@@ -512,6 +513,12 @@
    ───────────────────────────────────────────── */
 [data-theme="light"] {
   color-scheme: light;
+  /* Dark text thinned over a near-white panel lands at 4.4:1 at 58%; 66% clears 4.5:1 for the 10-12px muted
+     lines (Home widget descriptions, "24m ago") (QC Nov 22 K18). */
+  --marinara-chat-chrome-panel-muted: var(
+    --mari-chrome-muted,
+    color-mix(in srgb, var(--marinara-chat-chrome-text) 66%, transparent)
+  );
 
   --background: #faf8ff;
   --marinara-app-background-paint: var(--background);
@@ -3972,8 +3979,26 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   }
   /* Dialogs focus their own panel (tabindex -1) when no control can take focus, such as a phone
      sheet with a hidden Close. Tab never lands there, so the browser's default ring (blue on iOS)
-     only drew a stray border around the whole sheet. */
-  [tabindex="-1"]:focus {
+     only drew a stray border around the whole sheet. Only containers: a control taken out of the Tab
+     order by roving focus (a Settings tab you arrow to, a menu item) still shows where focus is
+     (QC Nov 22 K4). */
+  [tabindex="-1"]:focus:not(
+      :is(
+        button,
+        a,
+        input,
+        select,
+        textarea,
+        [role="tab"],
+        [role="menuitem"],
+        [role="menuitemradio"],
+        [role="menuitemcheckbox"],
+        [role="option"],
+        [role="switch"],
+        [role="radio"],
+        [role="treeitem"]
+      )
+    ) {
     outline: none;
   }
 }

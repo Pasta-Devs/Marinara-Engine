@@ -36,7 +36,12 @@ export interface FileEditorModalProps {
  *
  * @param props - See {@link FileEditorModalProps}
  */
-export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEditorModalProps) {
+export function useGameAssetFileEditor({
+  node,
+  onClose,
+  initialMode = "edit",
+  closeOnSave = true,
+}: FileEditorModalProps & { closeOnSave?: boolean }) {
   const { t: localizeUi } = useUiTranslation();
   const { data, isLoading } = useGameAssetFileContent(node.path);
   const saveFile = useSaveGameAssetFile();
@@ -70,7 +75,8 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
     try {
       await saveFile.mutateAsync({ path: node.path, content });
       toast.success(localizeUi("ui.gameAssets.fileeditormodal.fileSaved"));
-      onClose();
+      if (closeOnSave) onClose();
+      return true;
     } catch (err) {
       toast.error(
         localizeUi("ui.gameAssets.fileeditormodal.saveFailedValue1", {
@@ -78,7 +84,8 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
         }),
       );
     }
-  }, [saveFile, node.path, content, onClose, localizeUi]);
+    return false;
+  }, [saveFile, node.path, content, onClose, localizeUi, closeOnSave]);
 
   const handleRequestClose = useCallback(async () => {
     if (isDirty) {
@@ -112,6 +119,116 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
   );
 
   const isMd = node.ext === ".md";
+  return {
+    localizeUi,
+    isLoading,
+    saveFile,
+    content,
+    setContent,
+    mode,
+    setMode,
+    textareaRef,
+    lineNumbersRef,
+    isDirty,
+    lineNumbers,
+    handleScroll,
+    handleSave,
+    handleRequestClose,
+    handleKeyDown,
+    isMd,
+  };
+}
+
+export type GameAssetFileEditorState = ReturnType<typeof useGameAssetFileEditor>;
+
+/** Markdown's Preview / Edit switch. */
+export function FileEditorModeSwitch({ editor }: { editor: GameAssetFileEditorState }) {
+  const { localizeUi, mode, setMode } = editor;
+  return (
+    <div className="flex items-center rounded-lg border border-[var(--border)] bg-[var(--background)] p-0.5 ov-ga-mode">
+      <button
+        onClick={() => setMode("preview")}
+        aria-pressed={mode === "preview"}
+        className={cn(
+          "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+          mode === "preview"
+            ? "bg-[var(--accent)] text-[var(--foreground)]/80"
+            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+        )}
+      >
+        {localizeUi("settings.notifications.customSound.actions.preview")}
+      </button>
+      <button
+        onClick={() => setMode("edit")}
+        aria-pressed={mode === "edit"}
+        className={cn(
+          "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+          mode === "edit"
+            ? "bg-[var(--accent)] text-[var(--foreground)]/80"
+            : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+        )}
+      >
+        {localizeUi("ui.noodle.noodlepostcard.edit")}
+      </button>
+    </div>
+  );
+}
+
+/** The editor itself: line numbers and the text, or the Markdown preview. */
+export function FileEditorBody({ editor }: { editor: GameAssetFileEditorState }) {
+  const {
+    localizeUi,
+    isLoading,
+    mode,
+    isMd,
+    content,
+    setContent,
+    lineNumbers,
+    lineNumbersRef,
+    textareaRef,
+    handleScroll,
+    handleKeyDown,
+  } = editor;
+  return (
+    <div className="flex-1 overflow-hidden">
+      {isLoading ? (
+        <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
+          {localizeUi("ui.characters.characterlibraryview.loading")}
+        </div>
+      ) : mode === "preview" && isMd ? (
+        <div className="h-full overflow-y-auto p-6">
+          <div className="mari-message-content whitespace-pre-wrap break-words text-sm text-[var(--foreground)]">
+            {renderMarkdownBlocks(content, applyInlineMarkdown, "editor-preview")}
+          </div>
+        </div>
+      ) : (
+        <div className="grid h-full grid-cols-[3rem_minmax(0,1fr)]">
+          <pre
+            ref={lineNumbersRef}
+            className="h-full overflow-hidden border-r border-[var(--border)]/40 bg-[var(--accent)]/30 py-3 pr-2 text-right font-mono text-xs leading-relaxed text-[var(--muted-foreground)]"
+          >
+            {lineNumbers}
+          </pre>
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onScroll={handleScroll}
+            onKeyDown={handleKeyDown}
+            spellCheck={false}
+            maxLength={MAX_TEXT_LENGTH}
+            className="h-full w-full resize-none bg-[var(--card)] p-3 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function FileEditorModal(props: FileEditorModalProps) {
+  const editor = useGameAssetFileEditor(props);
+  const { node } = props;
+  const { localizeUi, isDirty, isMd, content, saveFile, handleSave, handleRequestClose } = editor;
 
   return (
     <Modal
@@ -127,34 +244,7 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
               {isDirty && <span className="ml-1.5 text-[var(--muted-foreground)]">•</span>}
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            {isMd && (
-              <div className="flex items-center rounded-lg border border-[var(--border)] bg-[var(--background)] p-0.5">
-                <button
-                  onClick={() => setMode("preview")}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                    mode === "preview"
-                      ? "bg-[var(--accent)] text-[var(--foreground)]/80"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                  )}
-                >
-                  {localizeUi("settings.notifications.customSound.actions.preview")}
-                </button>
-                <button
-                  onClick={() => setMode("edit")}
-                  className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                    mode === "edit"
-                      ? "bg-[var(--accent)] text-[var(--foreground)]/80"
-                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                  )}
-                >
-                  {localizeUi("ui.noodle.noodlepostcard.edit")}
-                </button>
-              </div>
-            )}
-          </div>
+          <div className="flex items-center gap-2">{isMd && <FileEditorModeSwitch editor={editor} />}</div>
         </div>
       }
       width="max-w-4xl"
@@ -186,38 +276,7 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
         </div>
       }
     >
-      <div className="flex-1 overflow-hidden">
-        {isLoading ? (
-          <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
-            {localizeUi("ui.characters.characterlibraryview.loading")}
-          </div>
-        ) : mode === "preview" && isMd ? (
-          <div className="h-full overflow-y-auto p-6">
-            <div className="mari-message-content whitespace-pre-wrap break-words text-sm text-[var(--foreground)]">
-              {renderMarkdownBlocks(content, applyInlineMarkdown, "editor-preview")}
-            </div>
-          </div>
-        ) : (
-          <div className="grid h-full grid-cols-[3rem_minmax(0,1fr)]">
-            <pre
-              ref={lineNumbersRef}
-              className="h-full overflow-hidden border-r border-[var(--border)]/40 bg-[var(--accent)]/30 py-3 pr-2 text-right font-mono text-xs leading-relaxed text-[var(--muted-foreground)]"
-            >
-              {lineNumbers}
-            </pre>
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onScroll={handleScroll}
-              onKeyDown={handleKeyDown}
-              spellCheck={false}
-              maxLength={MAX_TEXT_LENGTH}
-              className="h-full w-full resize-none bg-[var(--card)] p-3 font-mono text-xs leading-relaxed text-[var(--foreground)] outline-none"
-            />
-          </div>
-        )}
-      </div>
+      <FileEditorBody editor={editor} />
     </Modal>
   );
 }

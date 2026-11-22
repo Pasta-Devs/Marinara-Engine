@@ -4,11 +4,53 @@
 // on one page: who is in it, how it's told, "+ More options" for the rest, and a
 // Start bar where the message box will be.
 // ──────────────────────────────────────────────
-import { useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Pencil, Plus, Minus, X } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { OvEyebrow } from "../overhaul/EditorChrome";
+
+const COVERED_CHAT_SELECTOR = '[data-mari-part="composer"], [data-chat-scroll]';
+
+/**
+ * The setup page lies over the chat (position: absolute), and the chat's message box and transcript
+ * sit before it in the page. Inert them while the page is up, so Tab, typing and VoiceOver cannot reach
+ * what you cannot see (QC Nov 22 K2). Only nodes this hook made inert are released again.
+ */
+function useCoveredChatInert(pageRef: { current: HTMLElement | null }) {
+  useLayoutEffect(() => {
+    const page = pageRef.current;
+    if (!page || typeof MutationObserver === "undefined") return;
+    // The nearest ancestor holding a message box is this chat's pane (split view has two).
+    let host: HTMLElement | null = page.parentElement;
+    while (host && host !== document.body) {
+      if (Array.from(host.querySelectorAll(COVERED_CHAT_SELECTOR)).some((node) => !page.contains(node))) break;
+      host = host.parentElement;
+    }
+    if (!host || host === document.body) host = page.parentElement;
+    if (!host) return;
+    const marked = new Set<HTMLElement>();
+    const apply = () => {
+      host!.querySelectorAll<HTMLElement>(COVERED_CHAT_SELECTOR).forEach((node) => {
+        if (page.contains(node) || marked.has(node) || node.inert) return;
+        node.inert = true;
+        node.setAttribute("data-setup-covered", "");
+        marked.add(node);
+      });
+    };
+    apply();
+    // The message box can mount after the page (lazy surfaces), so keep marking new ones.
+    const observer = new MutationObserver(apply);
+    observer.observe(host, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      marked.forEach((node) => {
+        node.inert = false;
+        node.removeAttribute("data-setup-covered");
+      });
+    };
+  }, [pageRef]);
+}
 
 export function SetupPage({
   kind,
@@ -35,17 +77,37 @@ export function SetupPage({
   inert?: boolean;
 }) {
   const { t } = useUiTranslation();
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  const kickerId = useId();
+  useCoveredChatInert(pageRef);
+  // Keyboard and screen-reader users start on the page, not on the main area behind it. The page
+  // itself takes focus, not the Name field, so iOS does not pop the keyboard; Tab goes on to Close.
+  useEffect(() => {
+    const page = pageRef.current;
+    if (!page || inert) return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && page.contains(active)) return;
+    page.focus({ preventScroll: true });
+    // Only on arrival: a later re-render must not pull focus back to the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <div
+      ref={pageRef}
       data-component={kind === "game" ? "GameSetupWizard" : "ChatSetupWizard"}
       data-setup-page={kind}
       className={cn("ov-setup", `ov-setup--${kind}`)}
       inert={inert}
+      tabIndex={-1}
+      role="region"
+      aria-labelledby={kickerId}
     >
       <div className="ov-setup__scroll">
         <div className="ov-setup__inner">
           <div className="ov-setup__head">
-            <p className="ov-setup__kicker">{eyebrow}</p>
+            <p id={kickerId} className="ov-setup__kicker">
+              {eyebrow}
+            </p>
             <button
               type="button"
               onClick={onClose}
