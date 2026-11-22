@@ -1,3 +1,5 @@
+import { useMobileChatSettingsNav } from "../../features/chat-settings/mobile-nav";
+import { requestCloseChatSettings } from "../../lib/chat-settings-close";
 import { notifyRoleplayTTSParagraph, withRoleplayTTSParagraphs } from "../../lib/roleplay-vn-tts";
 // ──────────────────────────────────────────────
 // Chat: Main chat area — mode-aware rendering
@@ -823,7 +825,7 @@ const LocalChatArea = memo(function LocalChatArea({
       setSettingsAnchor(nextOpen ? readFloatingPanelAnchor(event) : null);
       setSettingsInitialSection(nextOpen ? (options?.initialSection ?? null) : null);
       if (nextOpen) windows.openWindow(CHAT_SETTINGS_WINDOW_ID, event?.currentTarget ?? null);
-      else windows.dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
+      else void requestCloseChatSettings();
     },
     [readFloatingPanelAnchor],
   );
@@ -901,6 +903,7 @@ const LocalChatArea = memo(function LocalChatArea({
   useEffect(() => {
     if (!chatSettingsRequest || chatSettingsRequest.chatId !== chatDetail?.id || chatDetail.id !== activeChatId) return;
     if (!useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID]) {
+      useMobileChatSettingsNav.getState().setPendingPlace(chatSettingsRequest.mobileNav ?? null);
       handleOpenSettingsPanel(undefined, {
         initialSection: chatSettingsRequest.section as ChatSettingsInitialSection,
       });

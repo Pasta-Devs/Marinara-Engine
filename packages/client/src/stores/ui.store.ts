@@ -1948,7 +1948,12 @@ const MAIN_SURFACE_KEYS = [
 export type MainSurfaceKey = (typeof MAIN_SURFACE_KEYS)[number];
 
 /** The Chat Settings drawer a surface was opened from; `section` is the drawer's `initialSection`. */
-export type ChatSettingsReturn = { chatId: string; section: string | null };
+export type ChatSettingsReturn = {
+  chatId: string;
+  section: string | null;
+  /** Phones and tablets upright: the sheet's page to reopen on (see MobileChatSettingsPlace). */
+  mobileNav?: { view: "off" | "quick" | "all" | "page"; page: string | null; back: "quick" | "all" };
+};
 
 const CLOSED_MAIN_SURFACE = {
   regexDetailId: null,

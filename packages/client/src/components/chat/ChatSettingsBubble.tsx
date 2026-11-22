@@ -9,6 +9,7 @@
 // chat's agents run, and a steady accent dot while Advanced Memory needs attention.
 // A Roleplay chat shows a one-time tip beside it until dismissed.
 // ──────────────────────────────────────────────
+import { toggleChatSettings } from "../../lib/chat-settings-close";
 import { useId, useState } from "react";
 import { Settings2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -86,9 +87,7 @@ export function ChatSettingsBubble({
   const toggle = (button: HTMLButtonElement) => {
     announceChatToolbarAction("settings");
     void preloadChatSettingsDrawer();
-    const windows = useFloatingWindowStore.getState();
-    if (windows.open[CHAT_SETTINGS_WINDOW_ID]) windows.dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
-    else windows.openWindow(CHAT_SETTINGS_WINDOW_ID, button);
+    toggleChatSettings(button);
   };
 
   return (

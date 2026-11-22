@@ -22,6 +22,39 @@ import { MESSAGE_HOLD_EVENT } from "./MobileMessageSheet";
 
 const EDGE = 8;
 
+function textFieldFocused(): boolean {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement)) return false;
+  if (active.isContentEditable || active instanceof HTMLTextAreaElement) return true;
+  return active instanceof HTMLInputElement && !/^(button|checkbox|radio|range|submit|reset|file|color)$/.test(active.type);
+}
+
+/**
+ * Whether the on-screen keyboard is (probably) up: a text field has focus, or the visible viewport lost a fifth of the
+ * window's height. Browsers say nothing direct about the keyboard; these two cover iOS and Android.
+ */
+function useKeyboardOpen(): boolean {
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      const viewport = window.visualViewport;
+      setKeyboardOpen(textFieldFocused() || (!!viewport && viewport.height < window.innerHeight * 0.8));
+    };
+    // focusout fires before the next field takes focus: measure a frame later.
+    const checkSoon = () => window.requestAnimationFrame(check);
+    check();
+    document.addEventListener("focusin", check);
+    document.addEventListener("focusout", checkSoon);
+    window.visualViewport?.addEventListener("resize", check);
+    return () => {
+      document.removeEventListener("focusin", check);
+      document.removeEventListener("focusout", checkSoon);
+      window.visualViewport?.removeEventListener("resize", check);
+    };
+  }, []);
+  return keyboardOpen;
+}
+
 export function HoldMessageTip({ armed, mode }: { armed: boolean; mode: string }) {
   const { t } = useTranslation();
   // Re-read when Settings > Replay clears the record.
@@ -29,6 +62,9 @@ export function HoldMessageTip({ armed, mode }: { armed: boolean; mode: string }
   const seen = hasSeenHoldTip();
   const covered = useChatCovered();
   const slotTaken = useFirstRunSlotTaken("hold-tip");
+  // While typing, the tip would cover much of the little chat the keyboard leaves (QC panel 3): it waits until the
+  // keyboard goes down, and shows a moment after.
+  const keyboardOpen = useKeyboardOpen();
   const [open, setOpen] = useState(false);
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ bottom: number; left: number } | null>(null);
@@ -44,13 +80,13 @@ export function HoldMessageTip({ armed, mode }: { armed: boolean; mode: string }
   }, []);
 
   useEffect(() => {
-    if (open || seen || !armed || covered || slotTaken) return;
+    if (open || seen || !armed || covered || slotTaken || keyboardOpen) return;
     // A moment after the reply lands, so it never jumps in while the last words are still painting.
     const timer = window.setTimeout(() => {
       if (claimFirstRunSlot("hold-tip")) setOpen(true);
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [armed, covered, open, seen, slotTaken]);
+  }, [armed, covered, keyboardOpen, open, seen, slotTaken]);
 
   useEffect(() => {
     if (!open) return;
@@ -58,9 +94,10 @@ export function HoldMessageTip({ armed, mode }: { armed: boolean; mode: string }
   }, [open]);
 
   // A sheet or page over the chat hides it; it has not been read, so it comes back after.
+  // The keyboard coming up hides it the same way.
   useEffect(() => {
-    if (open && covered) setOpen(false);
-  }, [covered, open]);
+    if (open && (covered || keyboardOpen)) setOpen(false);
+  }, [covered, keyboardOpen, open]);
 
   const dismiss = () => {
     markHoldTipSeen();

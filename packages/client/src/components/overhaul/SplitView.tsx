@@ -7,6 +7,7 @@
 // on (its tab is marked in the tab bar), and the main window tells it what to
 // show when something is dropped on it. Saves in either one refresh the other.
 // ──────────────────────────────────────────────
+import { toggleChatSettings } from "../../lib/chat-settings-close";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, Columns2, Home, Maximize2, Settings2, X } from "lucide-react";
@@ -197,17 +198,20 @@ export function SplitSide({ split, size }: { split: OverhaulSplit; size: number 
     handle.setPointerCapture(event.pointerId);
     setResizing(true);
     let frame = 0;
+    const apply = (clientX: number) => {
+      const x = clientX - left;
+      const share = useOverhaulStore.getState().split?.side === "left" ? x / width : 1 - x / width;
+      const current = useOverhaulStore.getState().split;
+      if (current) useOverhaulStore.getState().setSplit({ ...current, size: clampSplitSize(share, width) });
+    };
     const move = (moveEvent: PointerEvent) => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const x = moveEvent.clientX - left;
-        const share = useOverhaulStore.getState().split?.side === "left" ? x / width : 1 - x / width;
-        const current = useOverhaulStore.getState().split;
-        if (current) useOverhaulStore.getState().setSplit({ ...current, size: clampSplitSize(share, width) });
-      });
+      frame = requestAnimationFrame(() => apply(moveEvent.clientX));
     };
-    const stop = () => {
+    const stop = (stopEvent: PointerEvent) => {
       cancelAnimationFrame(frame);
+      // A quick flick lets go before the last queued move ran: land where the pointer let go (Firefox QC, FF4).
+      if (stopEvent.type === "pointerup") apply(stopEvent.clientX);
       setResizing(false);
       handle.removeEventListener("pointermove", move);
       handle.removeEventListener("pointerup", stop);
@@ -509,9 +513,7 @@ export function SplitPaneBar({ phone = false }: { phone?: boolean }) {
           data-window-opener={CHAT_SETTINGS_WINDOW_ID}
           onClick={(event) => {
             void preloadChatSettingsDrawer();
-            const windows = useFloatingWindowStore.getState();
-            if (windows.open[CHAT_SETTINGS_WINDOW_ID]) windows.dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
-            else windows.openWindow(CHAT_SETTINGS_WINDOW_ID, event.currentTarget);
+            toggleChatSettings(event.currentTarget);
           }}
         >
           <Settings2 size={phone ? 14 : 15} aria-hidden="true" />

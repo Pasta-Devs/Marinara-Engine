@@ -24,7 +24,7 @@ import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
 import { Select } from "../../../components/ui/Select";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { cn } from "../../../lib/utils";
-import { useUIStore } from "../../../stores/ui.store";
+import { isMobileShellViewport, useUIStore } from "../../../stores/ui.store";
 import { type ChatConnectionOption } from "../sections/ConnectionSection";
 import { AgentLorebookAttachment } from "./AgentLorebookAttachment";
 import { AgentPromptTemplateSelect } from "./AgentPromptTemplateSelect";
@@ -540,7 +540,8 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
               onClick={() => {
                 closeForSurface();
                 const ui = useUIStore.getState();
-                ui.openRightPanel("agents");
+                // The phone's Agents panel would be where back lands instead of Chat settings.
+                if (!isMobileShellViewport()) ui.openRightPanel("agents");
                 ui.openAgentDetail("__new__");
               }}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"

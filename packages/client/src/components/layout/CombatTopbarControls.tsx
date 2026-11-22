@@ -2,6 +2,7 @@
 // and the two toggles that hide the log under the board and the combat pane beside it. The board
 // takes whatever room either leaves. Chat Settings opens from here too, since the fight puts its
 // bubble away (laptop playtest 2026-10-24: a connection that failed mid-fight could not be changed).
+import { toggleChatSettings } from "../../lib/chat-settings-close";
 import { PanelRight, ScrollText, Settings2, Swords } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
@@ -25,9 +26,7 @@ export function CombatTopbarControls() {
   if (round === null) return null;
   const toggleSettings = (button: HTMLButtonElement) => {
     announceChatToolbarAction("settings");
-    const windows = useFloatingWindowStore.getState();
-    if (windows.open[CHAT_SETTINGS_WINDOW_ID]) windows.dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
-    else windows.openWindow(CHAT_SETTINGS_WINDOW_ID, button);
+    toggleChatSettings(button);
   };
   return (
     <div data-component="TopBar.CombatControls" className="flex min-w-0 shrink-0 items-center gap-1">
