@@ -316,7 +316,7 @@ export function OvProfilesViewer({ children }: { children: ReactNode }) {
       searchPlaceholder={t("search.panels.profiles")}
       findExtra={
         <select
-          className="ov-vw__filter"
+          className="ov-select"
           value={modeFilter}
           onChange={(event) => setModeFilter(event.target.value as ModeFilter)}
           aria-label={t("chat.settingsProfile.builder.modeLabel")}

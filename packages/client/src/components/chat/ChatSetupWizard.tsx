@@ -81,6 +81,7 @@ import {
 } from "../presets/ChoiceSelectionModal";
 import { SetupBlock, SetupMoreOptions, SetupPage, SetupSection, SetupTitleField } from "./ChatSetupPage";
 import { OvRow } from "../overhaul/EditorChrome";
+import { openLibrarySection } from "../overhaul/library-navigation";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import {
   CharacterOnboardingModal,
@@ -1038,10 +1039,12 @@ function ConversationQuickSetup({
   const hasConversationCommands = availableConversationCommandOptions.length > 0;
   const hasInstalledAgents = installedAgentIds.size > 0;
   const openDownloadAgents = useCallback(() => {
-    onFinish();
+    // The setup page keeps the draft in its tab: leaving for the catalog must not start the chat without its
+    // choices (QC panel 2, D4).
+    if (!pageMode) onFinish();
     openRightPanel("agents");
     openAgentCatalog();
-  }, [onFinish, openAgentCatalog, openRightPanel]);
+  }, [onFinish, openAgentCatalog, openRightPanel, pageMode]);
 
   useEffect(() => {
     setSelectedPromptPresetId(chat.promptPresetId ?? null);
@@ -3168,6 +3171,282 @@ function RoleplaySetupWizard({
       : null;
     const agentsLoading = agentConfigsLoading || installedAgentsLoading;
 
+    const renderAgentPicker = () => (
+      <>
+        {agentAddPreview && (
+          <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
+            <div className="flex items-start gap-2">
+              <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-[var(--foreground)]">{agentAddPreview.agent.name}</p>
+                  <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.5625rem] uppercase tracking-wide text-[var(--muted-foreground)]">
+                    {agentAddPreview.agent.builtIn
+                      ? agentAddPreview.agent.category
+                      : localizeUi("ui.agents.toolcard.custom")}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+                  {agentAddPreview.agent.description || "No description available."}
+                </p>
+              </div>
+            </div>
+
+            {agentAddPreview.agent.execution === "feature" ? (
+              <p className="rounded-lg bg-[var(--accent)] px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                {localizeUi("ui.chat.roleplaysetupwizard.thisLetsCharactersInitiateTheDownloadedFeatureInThis")}
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1">
+                  <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                    {localizeUi("ui.agents.agenteditor.contextSize")}
+                  </span>
+                  <DraftNumberInput
+                    min={1}
+                    max={200}
+                    value={agentAddPreview.contextSize}
+                    onCommit={(value) => {
+                      setAgentAddPreview((current) =>
+                        current
+                          ? {
+                              ...current,
+                              contextSize: Math.max(1, Math.min(200, value)),
+                            }
+                          : current,
+                      );
+                    }}
+                    disabled={addingAgentToChat}
+                    selectOnFocus
+                    className={WIZARD_NUMBER_INPUT_CLASS}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                    {localizeUi("ui.agents.agenteditor.maxOutputTokens")}
+                  </span>
+                  <DraftNumberInput
+                    min={MIN_AGENT_MAX_TOKENS}
+                    value={agentAddPreview.maxTokens}
+                    onCommit={(value) => {
+                      setAgentAddPreview((current) =>
+                        current
+                          ? {
+                              ...current,
+                              maxTokens: normalizeAgentMaxTokensInputValue(value),
+                            }
+                          : current,
+                      );
+                    }}
+                    disabled={addingAgentToChat}
+                    selectOnFocus
+                    className={WIZARD_NUMBER_INPUT_CLASS}
+                  />
+                </label>
+              </div>
+            )}
+
+            {agentAddIntervalMeta && agentAddPreview.runInterval != null && (
+              <label className="space-y-1">
+                <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                  {localizeText(agentAddIntervalMeta.label)}
+                </span>
+                <DraftNumberInput
+                  min={agentAddIntervalMeta.min ?? 1}
+                  max={agentAddIntervalMeta.max}
+                  value={agentAddPreview.runInterval}
+                  onCommit={(value) => {
+                    setAgentAddPreview((current) =>
+                      current
+                        ? {
+                            ...current,
+                            runInterval: Math.max(
+                              agentAddIntervalMeta.min ?? 1,
+                              Math.min(agentAddIntervalMeta.max, value),
+                            ),
+                          }
+                        : current,
+                    );
+                  }}
+                  disabled={addingAgentToChat}
+                  selectOnFocus
+                  className={WIZARD_NUMBER_INPUT_CLASS}
+                />
+                <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
+                  {agentAddPreview.agent.id === "illustrator"
+                    ? localizeUi("agents.illustrator.chatRunIntervalHelp")
+                    : agentAddIntervalMeta.help}
+                </span>
+              </label>
+            )}
+
+            <AgentAddSetupFields
+              agentId={agentAddPreview.agent.id}
+              value={agentAddPreview.setup}
+              disabled={addingAgentToChat}
+              lorebooks={(lorebooks ?? []) as Lorebook[]}
+              promptOptions={getPromptOptionsForAgent(agentAddPreview.agent.id)}
+              spriteSubjects={agentAddSpriteSubjects}
+              allowSecretPlotControls={supportsNarrativeDirectorSecretPlot}
+              onChange={(patch) =>
+                setAgentAddPreview((current) =>
+                  current ? { ...current, setup: { ...current.setup, ...patch } } : current,
+                )
+              }
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setAgentAddPreview(null)}
+                disabled={addingAgentToChat}
+                className={WIZARD_GHOST_BUTTON_CLASS}
+              >
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmAddAgent()}
+                disabled={addingAgentToChat}
+                className={WIZARD_PRIMARY_BUTTON_CLASS}
+              >
+                {addingAgentToChat
+                  ? localizeUi("ui.chat.chatsettingsdrawer.adding")
+                  : localizeUi("ui.chat.chatsettingsdrawer.addAgent")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="overflow-hidden rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
+          <div className="flex items-center gap-2 px-3 py-2">
+            <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
+            <input
+              value={agentSearch}
+              onChange={(event) => setAgentSearch(event.target.value)}
+              placeholder={localizeUi("ui.agents.agentcatalogview.searchAgents")}
+              className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
+            />
+          </div>
+          <div className="max-h-56 overflow-y-auto border-t border-[var(--border)]">
+            {filteredAgentSections.map((section) => {
+              const activeCount = section.agents.filter((agent) => activeAgentIds.includes(agent.id)).length;
+              return (
+                <div key={section.category} className="border-b border-[var(--border)]/70 last:border-b-0">
+                  <div className="flex items-center justify-between bg-[var(--secondary)] px-3 py-1.5">
+                    <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                      {section.title}
+                    </span>
+                    <span className="rounded-full bg-[var(--background)]/70 px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                      {activeCount > 0
+                        ? localizeUi("ui.chat.roleplaysetupwizard.value1Value2", {
+                            value1: activeCount,
+                            value2: section.agents.length,
+                          })
+                        : section.agents.length}
+                    </span>
+                  </div>
+                  {section.agents.map((agent) => {
+                    const active = activeAgentIds.includes(agent.id);
+                    return (
+                      <button
+                        key={agent.id}
+                        type="button"
+                        onClick={() => (active ? removeAgentFromChat(agent.id) : openAgentAddPreview(agent))}
+                        className={cn(
+                          "flex w-full items-start gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
+                          active && "bg-[var(--primary)]/10",
+                        )}
+                      >
+                        <Sparkles size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
+                        <div className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-medium">{agent.name}</span>
+                          <span className="mt-0.5 line-clamp-2 block text-[0.625rem] leading-tight text-[var(--muted-foreground)]">
+                            {agent.description}
+                          </span>
+                        </div>
+                        <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+                          {active
+                            ? localizeUi("ui.chat.roleplaysetupwizard.added")
+                            : localizeUi("ui.characters.metadatatab.add")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+            {filteredAgentSections.length === 0 && (
+              <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
+                {availableAgents.length === 0
+                  ? localizeUi("ui.chat.roleplaysetupwizard.noAgentsAvailable")
+                  : localizeUi("ui.chat.roleplaysetupwizard.noMatchingAgents")}
+              </p>
+            )}
+          </div>
+        </div>
+      </>
+    );
+    const toggleAgents = () =>
+      updateMeta.mutate({
+        id: chat.id,
+        enableAgents: !agentsEnabled,
+        activeAgentIds: !agentsEnabled ? readLatestActiveAgentIds() : [],
+      });
+    // The setup page (QC panel 2, D4): no switch for helpers nobody has, and no padded cards. With none installed,
+    // one line points to Library > Agents; it keeps this draft in its tab instead of starting the chat.
+    if (pageMode) {
+      return (
+        <div className="space-y-3">
+          {agentsLoading ? (
+            <p className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+              <Spinner size="sm" />
+              {localizeUi("ui.chat.roleplaysetupwizard.loadingAgents")}
+            </p>
+          ) : availableAgents.length === 0 ? (
+            <p data-component="ChatSetupWizard.AgentsNone" className="text-xs text-[var(--muted-foreground)]">
+              {localizeUi("chat.setupPage.agentsNone", { link: "\u0000" })
+                .split("\u0000")
+                .map((part, index) =>
+                  index === 0 ? (
+                    part
+                  ) : (
+                    <span key={index}>
+                      <button type="button" className="ov-setup__link" onClick={() => openLibrarySection("agents")}>
+                        {localizeUi("chat.setupPage.agentsNoneLink")}
+                      </button>
+                      {part}
+                    </span>
+                  ),
+                )}
+            </p>
+          ) : (
+            <OvRow
+              label={localizeUi("ui.chat.chatsettingsdrawer.enableAgents")}
+              hint={localizeUi("ui.chat.roleplaysetupwizard.addOptionalHelpersToThisRoleplayYouCanEdit")}
+            >
+              <Switch
+                checked={agentsEnabled}
+                onCheckedChange={toggleAgents}
+                aria-label={localizeUi("ui.chat.chatsettingsdrawer.enableAgents")}
+              />
+            </OvRow>
+          )}
+          {import.meta.env.VITE_MARINARA_LITE !== "true" && (
+            <AdvancedMemorySettings
+              variant="page"
+              chatId={chat.id}
+              metadataSettings={metadata.advancedMemory}
+              individual={metadata.groupChatMode === "individual"}
+              characters={chatCharIds.map((id) => ({ id, name: charInfoMap.get(id)?.name ?? id }))}
+              hasHistory={!!chat.lastMessageAt}
+            />
+          )}
+          {!agentsLoading && availableAgents.length > 0 && agentsEnabled ? renderAgentPicker() : null}
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-3">
         <label
@@ -3182,16 +3461,7 @@ function RoleplaySetupWizard({
               {localizeUi("ui.chat.roleplaysetupwizard.addOptionalHelpersToThisRoleplayYouCanEdit")}
             </p>
           </div>
-          <Switch
-            checked={agentsEnabled}
-            onCheckedChange={() =>
-              updateMeta.mutate({
-                id: chat.id,
-                enableAgents: !agentsEnabled,
-                activeAgentIds: !agentsEnabled ? readLatestActiveAgentIds() : [],
-              })
-            }
-          />
+          <Switch checked={agentsEnabled} onCheckedChange={toggleAgents} />
         </label>
 
         {import.meta.env.VITE_MARINARA_LITE !== "true" && (
@@ -3232,222 +3502,7 @@ function RoleplaySetupWizard({
             </button>
           </div>
         )}
-        {!agentsLoading && availableAgents.length > 0 && agentsEnabled && (
-          <>
-            {agentAddPreview && (
-              <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 p-3">
-                <div className="flex items-start gap-2">
-                  <Sparkles size="0.875rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-[var(--foreground)]">{agentAddPreview.agent.name}</p>
-                      <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.5625rem] uppercase tracking-wide text-[var(--muted-foreground)]">
-                        {agentAddPreview.agent.builtIn
-                          ? agentAddPreview.agent.category
-                          : localizeUi("ui.agents.toolcard.custom")}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
-                      {agentAddPreview.agent.description || "No description available."}
-                    </p>
-                  </div>
-                </div>
-
-                {agentAddPreview.agent.execution === "feature" ? (
-                  <p className="rounded-lg bg-[var(--accent)] px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                    {localizeUi("ui.chat.roleplaysetupwizard.thisLetsCharactersInitiateTheDownloadedFeatureInThis")}
-                  </p>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="space-y-1">
-                      <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                        {localizeUi("ui.agents.agenteditor.contextSize")}
-                      </span>
-                      <DraftNumberInput
-                        min={1}
-                        max={200}
-                        value={agentAddPreview.contextSize}
-                        onCommit={(value) => {
-                          setAgentAddPreview((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  contextSize: Math.max(1, Math.min(200, value)),
-                                }
-                              : current,
-                          );
-                        }}
-                        disabled={addingAgentToChat}
-                        selectOnFocus
-                        className={WIZARD_NUMBER_INPUT_CLASS}
-                      />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                        {localizeUi("ui.agents.agenteditor.maxOutputTokens")}
-                      </span>
-                      <DraftNumberInput
-                        min={MIN_AGENT_MAX_TOKENS}
-                        value={agentAddPreview.maxTokens}
-                        onCommit={(value) => {
-                          setAgentAddPreview((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  maxTokens: normalizeAgentMaxTokensInputValue(value),
-                                }
-                              : current,
-                          );
-                        }}
-                        disabled={addingAgentToChat}
-                        selectOnFocus
-                        className={WIZARD_NUMBER_INPUT_CLASS}
-                      />
-                    </label>
-                  </div>
-                )}
-
-                {agentAddIntervalMeta && agentAddPreview.runInterval != null && (
-                  <label className="space-y-1">
-                    <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                      {localizeText(agentAddIntervalMeta.label)}
-                    </span>
-                    <DraftNumberInput
-                      min={agentAddIntervalMeta.min ?? 1}
-                      max={agentAddIntervalMeta.max}
-                      value={agentAddPreview.runInterval}
-                      onCommit={(value) => {
-                        setAgentAddPreview((current) =>
-                          current
-                            ? {
-                                ...current,
-                                runInterval: Math.max(
-                                  agentAddIntervalMeta.min ?? 1,
-                                  Math.min(agentAddIntervalMeta.max, value),
-                                ),
-                              }
-                            : current,
-                        );
-                      }}
-                      disabled={addingAgentToChat}
-                      selectOnFocus
-                      className={WIZARD_NUMBER_INPUT_CLASS}
-                    />
-                    <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
-                      {agentAddPreview.agent.id === "illustrator"
-                        ? localizeUi("agents.illustrator.chatRunIntervalHelp")
-                        : agentAddIntervalMeta.help}
-                    </span>
-                  </label>
-                )}
-
-                <AgentAddSetupFields
-                  agentId={agentAddPreview.agent.id}
-                  value={agentAddPreview.setup}
-                  disabled={addingAgentToChat}
-                  lorebooks={(lorebooks ?? []) as Lorebook[]}
-                  promptOptions={getPromptOptionsForAgent(agentAddPreview.agent.id)}
-                  spriteSubjects={agentAddSpriteSubjects}
-                  allowSecretPlotControls={supportsNarrativeDirectorSecretPlot}
-                  onChange={(patch) =>
-                    setAgentAddPreview((current) =>
-                      current ? { ...current, setup: { ...current.setup, ...patch } } : current,
-                    )
-                  }
-                />
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAgentAddPreview(null)}
-                    disabled={addingAgentToChat}
-                    className={WIZARD_GHOST_BUTTON_CLASS}
-                  >
-                    {localizeUi("chat.delete.dialog.cancel")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void confirmAddAgent()}
-                    disabled={addingAgentToChat}
-                    className={WIZARD_PRIMARY_BUTTON_CLASS}
-                  >
-                    {addingAgentToChat
-                      ? localizeUi("ui.chat.chatsettingsdrawer.adding")
-                      : localizeUi("ui.chat.chatsettingsdrawer.addAgent")}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="overflow-hidden rounded-lg bg-[var(--secondary)]/50 ring-1 ring-[var(--border)]">
-              <div className="flex items-center gap-2 px-3 py-2">
-                <Search size="0.75rem" className="text-[var(--muted-foreground)]" />
-                <input
-                  value={agentSearch}
-                  onChange={(event) => setAgentSearch(event.target.value)}
-                  placeholder={localizeUi("ui.agents.agentcatalogview.searchAgents")}
-                  className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
-                />
-              </div>
-              <div className="max-h-56 overflow-y-auto border-t border-[var(--border)]">
-                {filteredAgentSections.map((section) => {
-                  const activeCount = section.agents.filter((agent) => activeAgentIds.includes(agent.id)).length;
-                  return (
-                    <div key={section.category} className="border-b border-[var(--border)]/70 last:border-b-0">
-                      <div className="flex items-center justify-between bg-[var(--secondary)] px-3 py-1.5">
-                        <span className="text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                          {section.title}
-                        </span>
-                        <span className="rounded-full bg-[var(--background)]/70 px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                          {activeCount > 0
-                            ? localizeUi("ui.chat.roleplaysetupwizard.value1Value2", {
-                                value1: activeCount,
-                                value2: section.agents.length,
-                              })
-                            : section.agents.length}
-                        </span>
-                      </div>
-                      {section.agents.map((agent) => {
-                        const active = activeAgentIds.includes(agent.id);
-                        return (
-                          <button
-                            key={agent.id}
-                            type="button"
-                            onClick={() => (active ? removeAgentFromChat(agent.id) : openAgentAddPreview(agent))}
-                            className={cn(
-                              "flex w-full items-start gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]",
-                              active && "bg-[var(--primary)]/10",
-                            )}
-                          >
-                            <Sparkles size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
-                            <div className="min-w-0 flex-1">
-                              <span className="block truncate text-xs font-medium">{agent.name}</span>
-                              <span className="mt-0.5 line-clamp-2 block text-[0.625rem] leading-tight text-[var(--muted-foreground)]">
-                                {agent.description}
-                              </span>
-                            </div>
-                            <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                              {active
-                                ? localizeUi("ui.chat.roleplaysetupwizard.added")
-                                : localizeUi("ui.characters.metadatatab.add")}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-                {filteredAgentSections.length === 0 && (
-                  <p className="px-3 py-3 text-center text-[0.6875rem] text-[var(--muted-foreground)]">
-                    {availableAgents.length === 0
-                      ? localizeUi("ui.chat.roleplaysetupwizard.noAgentsAvailable")
-                      : localizeUi("ui.chat.roleplaysetupwizard.noMatchingAgents")}
-                  </p>
-                )}
-              </div>
-            </div>
-          </>
-        )}
+        {!agentsLoading && availableAgents.length > 0 && agentsEnabled && renderAgentPicker()}
       </div>
     );
   }
@@ -3663,7 +3718,16 @@ function RoleplaySetupWizard({
                 <span className="ov-setup__narrow">{localizeUi("chat.settingsProfile.label")}</span>
               </button>
               <span className="ov-setup__status" role="status">
-                {unansweredChoices > 0 ? localizeUi("chat.setupPage.choicesLeft", { count: unansweredChoices }) : null}
+                {unansweredChoices > 0 ? (
+                  // Jumps to the first choice still waiting (QC panel 2, D4).
+                  <button
+                    type="button"
+                    className="ov-setup__link"
+                    onClick={() => storyChoicesRef.current?.showFirstUnanswered()}
+                  >
+                    {localizeUi("chat.setupPage.choicesLeft", { count: unansweredChoices })}
+                  </button>
+                ) : null}
               </span>
               <span className="ov-setup__defaults">
                 {defaultsAction({ chatParameters: customizeParameters ? generationParameters : null })}
@@ -3686,6 +3750,27 @@ function RoleplaySetupWizard({
             <OvRow label={characterLabel} top>
               <div className="ov-grow ov-setup__field">{renderCharacters()}</div>
             </OvRow>
+            {chatCharIds.length > 1 ? (
+              // Groups: one narrator voice (fewer tokens, the default) or each character on its own (QC panel 2, D4).
+              <OvRow label={<label htmlFor={`setup-replies-${chat.id}`}>{localizeUi("chat.setupPage.replies")}</label>}>
+                <div className="ov-grow ov-setup__field">
+                  <select
+                    id={`setup-replies-${chat.id}`}
+                    value={metadata.groupChatMode === "individual" ? "individual" : "merged"}
+                    onChange={(event) =>
+                      updateMeta.mutate({
+                        id: chat.id,
+                        groupChatMode: event.target.value === "individual" ? "individual" : "merged",
+                      })
+                    }
+                    className={WIZARD_INPUT_CLASS}
+                  >
+                    <option value="merged">{localizeUi("chat.setupPage.replies.merged")}</option>
+                    <option value="individual">{localizeUi("chat.setupPage.replies.individual")}</option>
+                  </select>
+                </div>
+              </OvRow>
+            ) : null}
             <OvRow label={localizeUi("chat.setupPage.yourPersona")} top>
               <div className="ov-grow ov-setup__field">{renderPersona()}</div>
             </OvRow>
@@ -3736,7 +3821,27 @@ function RoleplaySetupWizard({
             </OvRow>
             <SetupBlock title={localizeUi("chat.setupPage.agents")}>{renderAgents()}</SetupBlock>
             <SetupBlock title={localizeUi("chat.setupPage.parameters")}>{renderParameters()}</SetupBlock>
-            <SetupBlock title={localizeUi("chat.roleplayVn.displayStyle")}>{renderDisplayStyle(false)}</SetupBlock>
+            <OvRow
+              label={<label htmlFor={`setup-display-${chat.id}`}>{localizeUi("chat.roleplayVn.displayStyle")}</label>}
+              hint={localizeUi("chat.roleplayVn.changeAnytime")}
+            >
+              <div className="ov-grow ov-setup__field">
+                <select
+                  id={`setup-display-${chat.id}`}
+                  value={String(metadata.roleplayDisplayStyle ?? defaultDisplayStyle)}
+                  onChange={(event) =>
+                    updateMeta.mutate({
+                      id: chat.id,
+                      roleplayDisplayStyle: event.target.value === "visual-novel" ? "visual-novel" : "classic",
+                    })
+                  }
+                  className={WIZARD_INPUT_CLASS}
+                >
+                  <option value="classic">{localizeUi("chat.roleplayVn.classic")}</option>
+                  <option value="visual-novel">{localizeUi("chat.roleplayVn.visualNovel")}</option>
+                </select>
+              </div>
+            </OvRow>
           </SetupMoreOptions>
         </SetupPage>
         {onboardingModal}

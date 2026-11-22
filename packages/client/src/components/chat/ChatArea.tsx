@@ -213,12 +213,14 @@ import {
 } from "../ui/ImagePromptReviewModal";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { ChatResourceDropOverlay } from "./ChatResourceDropOverlay";
-import { ChatHelpOverlay } from "./ChatHelpOverlay";
+import { ChatHelpOverlay, useChatHelpDue } from "./ChatHelpOverlay";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useChatCovered, useFirstRunSlotTaken } from "../../lib/first-run-queue";
 import { HoldMessageTip } from "../overhaul/HoldMessageTip";
 import { useCombatScreenStore } from "../../stores/combat-screen.store";
 import { readChatHelpMode } from "../../lib/chat-help-events";
+import { isMessageHiddenFromUser } from "../../lib/chat-message-visibility";
+import { findGroupGreetingIds, GroupGreetingIdsContext } from "../../lib/group-greetings";
 import { useStableCallback } from "../../hooks/use-stable-callback";
 import { Spinner } from "../ui/Spinner";
 
@@ -718,11 +720,10 @@ const LocalChatArea = memo(function LocalChatArea({
   const regenerateMessageId = useChatStore((s) => s.regenerateMessageId);
   const chatBackground = useUIStore((s) => s.chatBackground);
   const pendingNewChatSetupId = useChatStore((s) => s.pendingNewChatSetups[activeChatId ?? ""]?.id ?? null);
-  const chatWindowIntroDismissed = useUIStore((s) => s.chatWindowIntroDismissed);
-  // One first-run popup per visit: when the intro tip shows, the help overlay waits for a later visit.
-  const [introShownThisVisit] = useState(() => !useUIStore.getState().chatWindowIntroDismissed);
   // Phones and tablets in portrait: the Chat settings tip is the help's first step instead of a popup of its own (MOB12).
   const chatIntroInHelp = useOverhaulMobile();
+  const overhaulLayoutDesktop = useOverhaulActive();
+  const overhaulLayoutActive = overhaulLayoutDesktop || chatIntroInHelp;
   // One first-run surface at a time, and never over a sheet, page or window (MOB12, ONB-2).
   const chatCovered = useChatCovered();
   const helpSlotTaken = useFirstRunSlotTaken("chat-help");
@@ -994,6 +995,37 @@ const LocalChatArea = memo(function LocalChatArea({
     () => flattenLoadedMessagePages(msgData?.pages, messagePageSize),
     [messagePageSize, msgData?.pages],
   );
+  // First-run order in a chat (QC panel 2, D1): the mode's help goes first in a fresh chat, and the "This chat's
+  // settings live here" tip waits for a later visit; when the tip showed first, the help waits instead.
+  const chatIsFirstOfMode = (allChats ?? []).filter((candidate) => candidate.mode === chatMode).length === 1;
+  const chatHasUserMessages = useMemo(
+    () => (messages ?? []).some((message) => message.role === "user" && !isMessageHiddenFromUser(message)),
+    [messages],
+  );
+  const chatHelpDue = useChatHelpDue(readChatHelpMode(chatMode), chatIsFirstOfMode, chatHasUserMessages);
+  const [firstRunVisit, setFirstRunVisit] = useState<{ chatId: string | null; help: boolean; intro: boolean }>({
+    chatId: null,
+    help: false,
+    intro: false,
+  });
+  const visitOf = (current: typeof firstRunVisit) =>
+    current.chatId === activeChatId ? current : { chatId: activeChatId, help: false, intro: false };
+  useEffect(() => {
+    if (!activeChatId || isLoading || !messages || !chatHelpDue) return;
+    setFirstRunVisit((current) => (visitOf(current).help ? current : { ...visitOf(current), help: true }));
+    // visitOf only reads activeChatId.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChatId, chatHelpDue, isLoading, messages]);
+  const helpClaimsVisit = chatHelpDue || (firstRunVisit.chatId === activeChatId && firstRunVisit.help);
+  const chatIntroOpen = firstRunVisit.chatId === activeChatId && firstRunVisit.intro;
+  const handleChatWindowIntroOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) setFirstRunVisit((current) => ({ ...visitOf(current), intro: true }));
+      onChatWindowIntroOpenChange?.(open);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeChatId, onChatWindowIntroOpenChange],
+  );
   const newestMessagePageLength = getNewestLoadedMessagePageLength(msgData?.pages);
   useEffect(() => {
     if (!activeChatId || messagePageSize <= 0 || newestMessagePageLength <= messagePageSize) return;
@@ -1261,6 +1293,18 @@ const LocalChatArea = memo(function LocalChatArea({
   // other fields don't renew the array identity. [#3164]
   const chatCharacterIdsRaw = chat?.characterIds;
   const chatCharIds = useMemo(() => getChatCharacterIds({ characterIds: chatCharacterIdsRaw }), [chatCharacterIdsRaw]);
+  // A merged group's greetings each show their own character (QC panel 2, D5). Only once the chat's start is loaded.
+  const groupGreetingIds = useMemo(
+    () =>
+      hasNextPage
+        ? null
+        : findGroupGreetingIds(
+            messages,
+            chatCharIds,
+            (message) => message.role === "user" && !isMessageHiddenFromUser(message as MessageWithSwipes),
+          ),
+    [chatCharIds, hasNextPage, messages],
+  );
   const chatPersonaId = chat?.personaId ?? null;
   const { data: chatPersona } = usePersona(chatPersonaId);
 
@@ -3602,9 +3646,25 @@ const LocalChatArea = memo(function LocalChatArea({
       setWizardOpen(false);
       if (discarded) return;
       if (chatId) void finishSetupDraft(queryClient, chatId);
-      handleOpenSettingsPanel();
+      // The new layout lands on the greeting with the composer ready; Chat settings stays one click away in the
+      // top bar (QC panel 2, D1: Start opened it over the new chat, then the help on close). Classic keeps upstream.
+      if (!overhaulLayoutActive) {
+        handleOpenSettingsPanel();
+        return;
+      }
+      // Desktop only: on touch, focusing would pop the keyboard up over the greeting.
+      if (overhaulTouch) return;
+      let tries = 0;
+      const focusComposer = () => {
+        const composer = Array.from(
+          document.querySelectorAll<HTMLTextAreaElement>("[data-chat-mode] textarea.mari-chat-input-textarea"),
+        ).find((el) => el.getClientRects().length > 0 && !el.disabled);
+        if (composer) composer.focus({ preventScroll: true });
+        else if (++tries < 10) window.setTimeout(focusComposer, 120);
+      };
+      window.setTimeout(focusComposer, 60);
     },
-    [activeChatId, handleOpenSettingsPanel, queryClient, setWizardOpen],
+    [activeChatId, handleOpenSettingsPanel, overhaulLayoutActive, overhaulTouch, queryClient, setWizardOpen],
   );
   // A draft opened again (after a reload, or from its tab) goes straight back to its setup, once per visit.
   const chatIsDraft = chat?.mode !== "game" && (isUnfinishedSetup(chat) || isSetupKeptForLater(chat));
@@ -4358,6 +4418,7 @@ const LocalChatArea = memo(function LocalChatArea({
       presentationAllowed={
         chatWindowIntroAllowed &&
         !chatIntroInHelp &&
+        !helpClaimsVisit &&
         !chatCovered &&
         !introSlotTaken &&
         chat?.id === activeChatId &&
@@ -4375,7 +4436,7 @@ const LocalChatArea = memo(function LocalChatArea({
         (chatMode !== "game" ||
           (!gameSetupActive && Boolean(chatMeta.gameId) && chatMeta.gameSessionStatus !== "setup"))
       }
-      onOpenChange={onChatWindowIntroOpenChange}
+      onOpenChange={handleChatWindowIntroOpenChange}
     />
   );
   const chatHelpMode = readChatHelpMode(chatMode);
@@ -4384,13 +4445,12 @@ const LocalChatArea = memo(function LocalChatArea({
       <ChatHelpOverlay
         mode={chatHelpMode}
         activeChatId={chat.id}
-        isFirstChat={(allChats ?? []).filter((candidate) => candidate.mode === chatMode).length === 1}
+        isFirstChat={chatIsFirstOfMode}
+        hasUserMessages={chatHasUserMessages}
         autoOpenBlocked={
-          (!chatIntroInHelp &&
-            (!chatWindowIntroDismissed ||
-              // One onboarding thing per visit: after the "Got it" tip the help waits for a later visit rather than
-              // popping up a moment later and swallowing the first tap (keyboard QC round 2, AC18).
-              introShownThisVisit)) ||
+          // One onboarding thing per visit: the help goes first in a fresh chat; when the "Got it" tip already
+          // showed on this visit, the help waits for a later one rather than swallowing the first tap (AC18).
+          (!chatIntroInHelp && chatIntroOpen) ||
           // The app's own first-run windows (What's new, the AI basics offer...) go first.
           !chatWindowIntroAllowed ||
           chatCovered ||
@@ -4610,130 +4670,132 @@ const LocalChatArea = memo(function LocalChatArea({
       {scheduleModal}
       {resourceDropOverlay}
       <Suspense fallback={surfaceFallback}>
-        <ChatRoleplaySurface
-          activeChatId={activeChatId}
-          chat={chat}
-          allChats={chatList}
-          chatMeta={chatMeta}
-          chatMode={chatMode}
-          isRoleplay={isRoleplay}
-          centerCompact={centerCompact}
-          chatBackground={chatBackground}
-          weatherEffects={weatherEffects}
-          expressionAgentEnabled={expressionAgentEnabled}
-          combatAgentEnabled={combatAgentEnabled}
-          encounterActive={encounterActive}
-          spritePosition={spritePosition}
-          spriteCharacterIds={spriteCharacterIds}
-          spriteDisplayModes={visibleSpriteDisplayModes}
-          spriteExpressions={spriteExpressions}
-          visibleExpressionSpriteIds={
-            chatMeta.expressionOnlyActiveSprites === true ? visibleExpressionTurn?.characterIds : undefined
-          }
-          expressionAvatarResolver={expressionAvatarResolver}
-          spritePlacements={spritePlacements}
-          spriteScale={spriteScale}
-          expressionSpriteScale={expressionSpriteScale}
-          fullBodySpriteScale={fullBodySpriteScale}
-          spriteOpacity={spriteOpacity}
-          expressionSpriteOpacity={expressionSpriteOpacity}
-          fullBodySpriteOpacity={fullBodySpriteOpacity}
-          spriteArrangeMode={spriteArrangeMode}
-          enabledAgentTypes={enabledAgentTypes}
-          manualTrackersActive={hasManualTrackerAgents}
-          chatCharIds={chatCharIds}
-          characterMap={characterMap}
-          characterNames={characterNames}
-          personaInfo={personaInfo}
-          messages={messages}
-          msgPayload={msgPayload}
-          isLoading={isLoading}
-          hasNextPage={!!hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          isStreaming={isTextStreaming}
-          generationVisualsPaused={isStreaming || agentProcessing}
-          agentProcessing={agentProcessing}
-          regenerateMessageId={regenerateMessageId}
-          summaryContextSize={summaryContextSize}
-          totalMessageCount={totalMessageCount}
-          lastAssistantMessageId={lastAssistantMessageId}
-          settingsOpen={settingsOpen}
-          settingsAnchor={settingsAnchor}
-          settingsInitialSection={settingsInitialSection}
-          wizardOpen={wizardOpen}
-          peekPromptData={peekPromptData}
-          deleteDialogMessageId={deleteDialogMessageId}
-          deleteDialogCanDeleteSwipe={deleteDialogCanDeleteSwipe}
-          deleteDialogCanDeleteOtherSwipes={deleteDialogCanDeleteOtherSwipes}
-          deleteDialogActiveSwipeIndex={deleteDialogActiveSwipeIndex}
-          deleteDialogSwipeCount={deleteDialogSwipeCount}
-          multiSelectMode={multiSelectMode}
-          selectedMessageIds={selectedMessageIds}
-          groupChatMode={groupChatMode}
-          scrollRef={scrollRef}
-          messagesEndRef={messagesEndRef}
-          onLoadMore={handleLoadMore}
-          onDelete={handleDelete}
-          onRegenerate={handleRegenerate}
-          onEdit={handleRoleplayEdit}
-          failedReplyMessageId={failedReplyMessageId}
-          failedReplyReason={lastAppError?.message}
-          onRetryFailedReply={handleRetryFailedReply}
-          replyCheckupMessageId={replyCheckup?.messageId ?? null}
-          replyCheckup={replyCheckupNode}
-          onSetActiveSwipe={handleSetActiveSwipe}
-          onToggleConversationStart={handleToggleConversationStart}
-          onToggleHiddenFromAI={handleToggleHiddenFromAI}
-          onPeekPrompt={handlePeekPrompt}
-          onBranch={isSceneChat ? undefined : handleBranch}
-          onCloneSceneFromHere={isSceneChat ? handleCloneSceneFromHere : undefined}
-          isCloneSceneFromHereDisabled={isForking || isStreaming}
-          onToggleSelectMessage={handleToggleSelectMessage}
-          onRerunTrackers={handleRerunTrackers}
-          onRerunSingleTracker={handleRerunSingleTracker}
-          onStartEncounter={() => startEncounter()}
-          onConcludeScene={() => concludeScene(activeChatId)}
-          onAbandonScene={() => abandonScene(activeChatId)}
-          onForkScene={forkScene}
-          isForkingScene={isForking || isStreaming}
-          onCloseSettings={handleCloseSettingsPanel}
-          onOpenScheduleEditor={handleOpenScheduleEditor}
-          onIllustrate={handleIllustrate}
-          onIllustrateWithAgent={handleIllustrateWithAgent}
-          onHtml={handleHtml}
-          onGenerateBackground={handleGenerateRoleplayBackground}
-          // The Gallery's Video button makes a clip of the latest reply, like /video. The Gallery waits for it (its
-          // busy state blocks a second click) and shows any error.
-          onGenerateVideo={() => handleRoleplayVideo()}
-          onRoleplayVideo={handleRoleplayVideo}
-          onAnimateImage={(image) => handleGenerateRoleplaySceneVideo({ galleryImageId: image.id })}
-          onWizardFinish={handleWizardFinish}
-          onClosePeekPrompt={() => setPeekPromptData(null)}
-          onResetSpritePlacements={handleResetSpritePlacements}
-          onResetSpriteCharacterVisualSettings={handleResetSpriteCharacterVisualSettings}
-          onSpriteSideChange={handleSetSpritePosition}
-          onToggleSpriteArrange={() => setSpriteArrangeMode((prev) => !prev)}
-          spriteVisualSettings={effectiveSpriteVisualSettings}
-          onSpriteVisualSettingsChange={patchLocalSpriteVisualSettings}
-          onExpressionChange={handleExpressionChange}
-          onSpritePlacementChange={handleSpritePlacementChange}
-          onFinishSpritePlacement={() => setSpriteArrangeMode(false)}
-          avatarLayout={avatarLayout}
-          onAvatarsShown={handleStageAvatarsChange}
-          onDeleteConfirm={handleDeleteConfirm}
-          onDeleteSwipe={handleDeleteSwipe}
-          onDeleteOtherSwipes={handleDeleteOtherSwipes}
-          onDeleteMore={handleDeleteMore}
-          onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
-          onBulkDelete={exportSelection ? undefined : handleBulkDelete}
-          onExportSelected={exportSelection ? () => void handleExportSelection() : undefined}
-          multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
-          onCancelMultiSelect={handleCancelMultiSelect}
-          onUnselectAllMessages={handleUnselectAllMessages}
-          onSelectAllAboveSelection={handleSelectAllAboveSelection}
-          onSelectAllBelowSelection={handleSelectAllBelowSelection}
-          isGrouped={isGrouped}
-        />
+        <GroupGreetingIdsContext.Provider value={groupGreetingIds}>
+          <ChatRoleplaySurface
+            activeChatId={activeChatId}
+            chat={chat}
+            allChats={chatList}
+            chatMeta={chatMeta}
+            chatMode={chatMode}
+            isRoleplay={isRoleplay}
+            centerCompact={centerCompact}
+            chatBackground={chatBackground}
+            weatherEffects={weatherEffects}
+            expressionAgentEnabled={expressionAgentEnabled}
+            combatAgentEnabled={combatAgentEnabled}
+            encounterActive={encounterActive}
+            spritePosition={spritePosition}
+            spriteCharacterIds={spriteCharacterIds}
+            spriteDisplayModes={visibleSpriteDisplayModes}
+            spriteExpressions={spriteExpressions}
+            visibleExpressionSpriteIds={
+              chatMeta.expressionOnlyActiveSprites === true ? visibleExpressionTurn?.characterIds : undefined
+            }
+            expressionAvatarResolver={expressionAvatarResolver}
+            spritePlacements={spritePlacements}
+            spriteScale={spriteScale}
+            expressionSpriteScale={expressionSpriteScale}
+            fullBodySpriteScale={fullBodySpriteScale}
+            spriteOpacity={spriteOpacity}
+            expressionSpriteOpacity={expressionSpriteOpacity}
+            fullBodySpriteOpacity={fullBodySpriteOpacity}
+            spriteArrangeMode={spriteArrangeMode}
+            enabledAgentTypes={enabledAgentTypes}
+            manualTrackersActive={hasManualTrackerAgents}
+            chatCharIds={chatCharIds}
+            characterMap={characterMap}
+            characterNames={characterNames}
+            personaInfo={personaInfo}
+            messages={messages}
+            msgPayload={msgPayload}
+            isLoading={isLoading}
+            hasNextPage={!!hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            isStreaming={isTextStreaming}
+            generationVisualsPaused={isStreaming || agentProcessing}
+            agentProcessing={agentProcessing}
+            regenerateMessageId={regenerateMessageId}
+            summaryContextSize={summaryContextSize}
+            totalMessageCount={totalMessageCount}
+            lastAssistantMessageId={lastAssistantMessageId}
+            settingsOpen={settingsOpen}
+            settingsAnchor={settingsAnchor}
+            settingsInitialSection={settingsInitialSection}
+            wizardOpen={wizardOpen}
+            peekPromptData={peekPromptData}
+            deleteDialogMessageId={deleteDialogMessageId}
+            deleteDialogCanDeleteSwipe={deleteDialogCanDeleteSwipe}
+            deleteDialogCanDeleteOtherSwipes={deleteDialogCanDeleteOtherSwipes}
+            deleteDialogActiveSwipeIndex={deleteDialogActiveSwipeIndex}
+            deleteDialogSwipeCount={deleteDialogSwipeCount}
+            multiSelectMode={multiSelectMode}
+            selectedMessageIds={selectedMessageIds}
+            groupChatMode={groupChatMode}
+            scrollRef={scrollRef}
+            messagesEndRef={messagesEndRef}
+            onLoadMore={handleLoadMore}
+            onDelete={handleDelete}
+            onRegenerate={handleRegenerate}
+            onEdit={handleRoleplayEdit}
+            failedReplyMessageId={failedReplyMessageId}
+            failedReplyReason={lastAppError?.message}
+            onRetryFailedReply={handleRetryFailedReply}
+            replyCheckupMessageId={replyCheckup?.messageId ?? null}
+            replyCheckup={replyCheckupNode}
+            onSetActiveSwipe={handleSetActiveSwipe}
+            onToggleConversationStart={handleToggleConversationStart}
+            onToggleHiddenFromAI={handleToggleHiddenFromAI}
+            onPeekPrompt={handlePeekPrompt}
+            onBranch={isSceneChat ? undefined : handleBranch}
+            onCloneSceneFromHere={isSceneChat ? handleCloneSceneFromHere : undefined}
+            isCloneSceneFromHereDisabled={isForking || isStreaming}
+            onToggleSelectMessage={handleToggleSelectMessage}
+            onRerunTrackers={handleRerunTrackers}
+            onRerunSingleTracker={handleRerunSingleTracker}
+            onStartEncounter={() => startEncounter()}
+            onConcludeScene={() => concludeScene(activeChatId)}
+            onAbandonScene={() => abandonScene(activeChatId)}
+            onForkScene={forkScene}
+            isForkingScene={isForking || isStreaming}
+            onCloseSettings={handleCloseSettingsPanel}
+            onOpenScheduleEditor={handleOpenScheduleEditor}
+            onIllustrate={handleIllustrate}
+            onIllustrateWithAgent={handleIllustrateWithAgent}
+            onHtml={handleHtml}
+            onGenerateBackground={handleGenerateRoleplayBackground}
+            // The Gallery's Video button makes a clip of the latest reply, like /video. The Gallery waits for it (its
+            // busy state blocks a second click) and shows any error.
+            onGenerateVideo={() => handleRoleplayVideo()}
+            onRoleplayVideo={handleRoleplayVideo}
+            onAnimateImage={(image) => handleGenerateRoleplaySceneVideo({ galleryImageId: image.id })}
+            onWizardFinish={handleWizardFinish}
+            onClosePeekPrompt={() => setPeekPromptData(null)}
+            onResetSpritePlacements={handleResetSpritePlacements}
+            onResetSpriteCharacterVisualSettings={handleResetSpriteCharacterVisualSettings}
+            onSpriteSideChange={handleSetSpritePosition}
+            onToggleSpriteArrange={() => setSpriteArrangeMode((prev) => !prev)}
+            spriteVisualSettings={effectiveSpriteVisualSettings}
+            onSpriteVisualSettingsChange={patchLocalSpriteVisualSettings}
+            onExpressionChange={handleExpressionChange}
+            onSpritePlacementChange={handleSpritePlacementChange}
+            onFinishSpritePlacement={() => setSpriteArrangeMode(false)}
+            avatarLayout={avatarLayout}
+            onAvatarsShown={handleStageAvatarsChange}
+            onDeleteConfirm={handleDeleteConfirm}
+            onDeleteSwipe={handleDeleteSwipe}
+            onDeleteOtherSwipes={handleDeleteOtherSwipes}
+            onDeleteMore={handleDeleteMore}
+            onCloseDeleteDialog={() => setDeleteDialogMessageId(null)}
+            onBulkDelete={exportSelection ? undefined : handleBulkDelete}
+            onExportSelected={exportSelection ? () => void handleExportSelection() : undefined}
+            multiSelectHint={exportSelection ? localizeUi("chat.rangeExport.hint") : undefined}
+            onCancelMultiSelect={handleCancelMultiSelect}
+            onUnselectAllMessages={handleUnselectAllMessages}
+            onSelectAllAboveSelection={handleSelectAllAboveSelection}
+            onSelectAllBelowSelection={handleSelectAllBelowSelection}
+            isGrouped={isGrouped}
+          />
+        </GroupGreetingIdsContext.Provider>
         {chatWindowIntro}
       </Suspense>
       {agentInjectionReview && (

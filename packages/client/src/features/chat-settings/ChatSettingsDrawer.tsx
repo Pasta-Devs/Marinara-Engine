@@ -382,7 +382,7 @@ function getMusicProviderLabel(provider: MusicProvider): string {
 const MARINARA_UNIVERSAL_PRESET_NAME = "Marinara's Universal Preset";
 const MARINARA_UNIVERSAL_PRESET_AUTHOR = "Marinara";
 
-const CHAT_SETTINGS_ORDER = {
+const CLASSIC_CHAT_SETTINGS_ORDER = {
   settingsPresets: -1600,
   search: -1500,
   chatName: -1400,
@@ -414,6 +414,22 @@ const CHAT_SETTINGS_ORDER = {
   functionCalling: -200,
   translation: -100,
   gamePrompt: 0,
+} as const;
+
+/**
+ * The new layout opens on what people change most (QC panel 2, D8): Connection, Prompt preset, Persona,
+ * Characters, Lorebooks, then the rest as before; Chat name, Branches and Search messages move to the end (Ctrl+K
+ * searches messages too). The phone's quick page already leads this way. A saved Edit order still wins.
+ */
+const OVERHAUL_CHAT_SETTINGS_ORDER = {
+  ...CLASSIC_CHAT_SETTINGS_ORDER,
+  persona: -1190,
+  characters: -1180,
+  cardFieldAlternatives: -1175,
+  lorebooks: -1170,
+  search: 900,
+  chatName: 910,
+  chatBranches: 920,
 } as const;
 
 const DEFAULT_CUSTOM_LOREBOOK_BACKFILL_CHUNK_SIZE = 25;
@@ -504,6 +520,8 @@ export function ChatSettingsDrawer({
   // Overhaul look: the desktop drawer, and on phones/tablets the same look as a bottom sheet (never docked).
   const overhaulDesktop = useOverhaulActive() && !phoneLayout;
   const overhaulMobile = useOverhaulMobile();
+  const CHAT_SETTINGS_ORDER =
+    overhaulDesktop || overhaulMobile ? OVERHAUL_CHAT_SETTINGS_ORDER : CLASSIC_CHAT_SETTINGS_ORDER;
   const overhaulActive = overhaulDesktop || overhaulMobile;
   const ovFloating = useOverhaulStore((state) => state.chatSettingsFloating);
   const ovEditing = useOverhaulStore((state) => state.chatSettingsEditing) && overhaulActive;

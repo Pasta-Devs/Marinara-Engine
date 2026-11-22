@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Chat hooks
 // ──────────────────────────────────────────────
+import { rememberLocalSetupDraft } from "../lib/local-setup-drafts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { noteBulkDeleteForTips } from "../lib/feature-tips";
 import { create } from "zustand";
@@ -977,8 +978,9 @@ export function useCreateChat() {
       /** A New chat launcher's chat: a draft until its setup wizard finishes. */
       setupPending?: boolean;
     }) => api.post<Chat>("/chats", data),
-    onSuccess: (chat) => {
+    onSuccess: (chat, variables) => {
       if (chat) {
+        if (variables.setupPending) rememberLocalSetupDraft(chat.id);
         if (chat.characterIds.length === 0 && !chat.personaId && !chat.personaCharacterId) {
           useChatStore.getState().setPendingNewChatSetup(chat);
         }
@@ -1667,6 +1669,39 @@ export function useCreateMessage(chatId: string | null) {
   });
 }
 
+/**
+ * The "Moved to trash" toast's Undo: finds the trash entries of the messages just deleted (newest first) and
+ * restores them in place, swipes and all (QC panel 2, D6: a delete had no Undo).
+ */
+async function undoTrashedDelete(qc: QueryClient, chatId: string, messageIds: string[]) {
+  try {
+    const entries = await api.get<MessageTrashEntry[]>(`/chats/${chatId}/trash`);
+    const wanted = new Set(messageIds);
+    const entryIds = entries
+      .filter((entry) => wanted.has(entry.messageId))
+      .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
+      .filter((entry, index, all) => all.findIndex((other) => other.messageId === entry.messageId) === index)
+      .map((entry) => entry.id);
+    if (entryIds.length === 0) throw new Error(translate("ui.chat.messagetrash.restoreFailed"));
+    await api.post(`/chats/${chatId}/trash/restore`, { entryIds });
+    toast.success(translate("ui.chat.messagetrash.restored", { count: entryIds.length }));
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : translate("ui.chat.messagetrash.restoreFailed"));
+  } finally {
+    await invalidateAfterTrashChange(qc, chatId);
+  }
+}
+
+function showMovedToTrashToast(qc: QueryClient, chatId: string, count: number, messageIds: string[]) {
+  toast.success(translate("ui.chat.messagetrash.movedToTrash", { count }), {
+    description: translate("ui.chat.messagetrash.movedToTrashHint"),
+    action: {
+      label: translate("ui.chat.messagetrash.undo"),
+      onClick: () => void undoTrashedDelete(qc, chatId, messageIds),
+    },
+  });
+}
+
 export function useDeleteMessage(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
@@ -1689,9 +1724,7 @@ export function useDeleteMessage(chatId: string | null) {
         settleDeletedMessages(qc, chatId, deletedMessageIds(target));
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
-          toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: 1 }), {
-            description: translate("ui.chat.messagetrash.movedToTrashHint"),
-          });
+          showMovedToTrashToast(qc, chatId, 1, deletedMessageIds(target));
         }
         qc.invalidateQueries({ queryKey: ["chat-message-search", chatId] });
         qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) });
@@ -1724,9 +1757,7 @@ export function useDeleteMessages(chatId: string | null) {
         );
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
-          toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: result.trashedCount }), {
-            description: translate("ui.chat.messagetrash.movedToTrashHint"),
-          });
+          showMovedToTrashToast(qc, chatId, result.trashedCount, messageIds);
         }
         qc.invalidateQueries({ queryKey: ["chat-message-search", chatId] });
         qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) });
