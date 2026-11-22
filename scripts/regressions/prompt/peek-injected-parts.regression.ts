@@ -66,6 +66,40 @@ const echoed = labelInjectedParts(
 assert.deepEqual(echoed[0]!.parts, []);
 assert.equal(echoed[2]!.parts.length, 1);
 
+// A later message quoting the note: the copy at the note's depth is the injected one, not the quote.
+const quoted = postProcessMessages(
+  injectAtDepth(
+    [
+      ...history,
+      { role: "assistant" as const, content: "Nothing.", contextKind: "history" as const },
+      { role: "user" as const, content: `Your notes say "${note}" so?`, contextKind: "history" as const },
+    ],
+    [{ content: note, role: "system", depth: 3 }],
+  ) as never,
+  { strictRoleFormatting: true },
+);
+const quotedLabels = labelInjectedParts(quoted, [{ label: "authorsNote", depth: 3, content: note }]);
+const quotedHolder = quotedLabels.findIndex(({ parts }) => parts.length > 0);
+assert.ok(quotedHolder >= 0 && quotedHolder < quoted.length - 1, "the quote in the last message isn't labelled");
+assert.equal(quotedLabels.at(-1)!.parts.length, 0);
+
+// Two copies in one merged message: the one on its own lines is the injected one, not the one in a sentence.
+const twice = `I wrote ${note} on the wall.\n\n${note}`;
+const twiceLabels = labelInjectedParts(
+  [{ role: "user", content: twice }],
+  [{ label: "authorsNote", depth: 0, content: note }],
+);
+assert.equal(twiceLabels[0]!.parts[0]!.start, twice.lastIndexOf(note));
+
+// Prompt shaping collapses 3+ newlines to a blank line; the note is still found after it.
+const spaced = "First.\n\n\nSecond.";
+const spacedLabels = labelInjectedParts(
+  [{ role: "user", content: `Hi.\n\nFirst.\n\nSecond.` }],
+  [{ label: "authorsNote", depth: 0, content: spaced }],
+);
+assert.equal(spacedLabels[0]!.parts.length, 1, "a note with three newlines keeps its heading");
+assert.equal(spacedLabels[0]!.parts[0]!.start, "Hi.\n\n".length);
+
 // Saved parts are read back only when they fit the message.
 assert.deepEqual(readPeekPromptParts([{ start: 0, end: 4, label: "authorsNote", depth: 4 }], 10), [
   { start: 0, end: 4, label: "authorsNote", depth: 4 },
