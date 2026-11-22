@@ -253,7 +253,10 @@ export function GlobalOmnibar() {
         return;
       }
     }
-    if (open) startOmnibarKeyBuffer();
+    // The store, not this render's `open`: right after the boot request opened Search, an effect re-run that still
+    // saw the old `open` stopped the buffer and the restart dropped every key typed so far (QC panel 3 AX9: the
+    // first letters of a cold Ctrl+K went missing).
+    if (open || useUIStore.getState().omnibarOpen) startOmnibarKeyBuffer();
     else stopOmnibarKeyBuffer();
   }, [open, setOpen]);
 

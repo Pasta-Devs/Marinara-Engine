@@ -109,8 +109,22 @@ function isBootOmnibarKey(event: KeyboardEvent) {
   return apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 }
 
+type EarlyBootKeys = { open: boolean; keys: OmnibarBufferedKey[]; stop: (() => void) | null };
+
 export function installBootOmnibarShortcut() {
   if (removeBootListener || typeof window === "undefined") return;
+  // public/boot-keys.js ran before any of the app's code (QC panel 3 AX9): take over what it noted.
+  const early = (window as unknown as { __marinaraBootKeys?: EarlyBootKeys }).__marinaraBootKeys;
+  if (early) {
+    early.stop?.();
+    if (early.open) {
+      bootOpenRequested = true;
+      startOmnibarKeyBuffer();
+      buffered.push(...early.keys);
+    }
+    early.open = false;
+    early.keys = [];
+  }
   const onKey = (event: KeyboardEvent) => {
     if (!isBootOmnibarKey(event)) return;
     event.preventDefault();

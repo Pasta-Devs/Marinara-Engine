@@ -2265,6 +2265,7 @@ export function ChatSidebar() {
               }}
               className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
               title={localize("Sort chats")}
+              aria-label={localize("Sort chats")}
             >
               <option value="custom">{localizeUi("ui.layout.chatsidebar.customOrder")}</option>
               <option value="manual" title={localizeUi("dragDrop.manualOrderHelp")}>

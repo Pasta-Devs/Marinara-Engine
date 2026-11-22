@@ -19,7 +19,7 @@ export const AssetsTabContext = createContext<AssetTab | null>(null);
  * Each tab is its own page, so picking one from the keyboard remounts the title and the new page would
  * focus its heading (QC panel 3 AX11). The tab picked by keyboard takes focus back once the page shows.
  */
-let focusTabAfterSwitch: AssetTab | null = null;
+let focusTabAfterSwitch: { tab: AssetTab; until: number } | null = null;
 
 export function AssetsTitle({ children }: { children: ReactNode }) {
   const tab = useContext(AssetsTabContext);
@@ -27,12 +27,17 @@ export function AssetsTitle({ children }: { children: ReactNode }) {
   const mobile = useOverhaulMobile();
   const selectedRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
-    if (!tab || focusTabAfterSwitch !== tab) return;
-    focusTabAfterSwitch = null;
-    // After the page's own "focus the heading" rescue (two frames), so the tab keeps focus.
+    if (!tab || focusTabAfterSwitch?.tab !== tab || performance.now() > focusTabAfterSwitch.until) return;
+    // After the page's own "focus the heading" rescue (two frames), so the tab keeps focus. A page that shows a
+    // loading header first mounts this title twice; the flag stays until a mounted tab really took focus.
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(() => selectedRef.current?.focus({ preventScroll: true }));
+        frame = requestAnimationFrame(() => {
+          const button = selectedRef.current;
+          if (!button?.isConnected) return;
+          button.focus({ preventScroll: true });
+          if (document.activeElement === button) focusTabAfterSwitch = null;
+        });
       });
     });
     return () => cancelAnimationFrame(frame);
@@ -59,7 +64,7 @@ export function AssetsTitle({ children }: { children: ReactNode }) {
           onClick={(event) => {
             if (each === tab) return;
             // Enter or Space (detail 0): focus follows to the new page's tab.
-            if (event.detail === 0) focusTabAfterSwitch = each;
+            if (event.detail === 0) focusTabAfterSwitch = { tab: each, until: performance.now() + 4000 };
             openLibrarySection(each);
           }}
         >
