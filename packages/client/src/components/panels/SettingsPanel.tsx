@@ -3299,7 +3299,7 @@ function GameAssetsSettings() {
     return (
       <SettingsSection
         title={localizeUi("settings.sections.gameAssets.title")}
-        description={localizeUi("settings.sections.gameAssets.componentDescription")}
+        description={localizeUi("settings.sections.gameAssets.libraryDescription")}
         icon={<FolderOpen size="0.875rem" />}
         {...getSettingsSectionAnchorProps("game-assets")}
       >
@@ -5717,7 +5717,7 @@ function AppearanceSettings({
                     )}
                   />
                 </div>
-                <div className="mari-settings-boxed-group rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
+                <div className="mari-settings-boxed-group ov-flat-box rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                     <div className="flex h-20 w-full shrink-0 items-end justify-center gap-3 overflow-hidden rounded-md bg-black/30 p-2 ring-1 ring-[var(--border)]/70 sm:w-28">
                       <div
@@ -5740,7 +5740,7 @@ function AppearanceSettings({
                         id={getSettingsControlAnchorId("game-dialogue-portrait-scale")}
                         className="flex scroll-mt-3 min-w-0 flex-col gap-1"
                       >
-                        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                        <span className="text-xs font-medium text-[var(--foreground)]">
                           {localizeUi("ui.panels.appearancesettings.dialoguePortraitScale")}
                         </span>
                         <div className="flex items-center gap-2">
@@ -5762,7 +5762,7 @@ function AppearanceSettings({
                         id={getSettingsControlAnchorId("game-full-body-sprite-scale")}
                         className="flex scroll-mt-3 min-w-0 flex-col gap-1"
                       >
-                        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                        <span className="text-xs font-medium text-[var(--foreground)]">
                           {localizeUi("ui.panels.appearancesettings.fullBodySpriteScale")}
                         </span>
                         <div className="flex items-center gap-2">

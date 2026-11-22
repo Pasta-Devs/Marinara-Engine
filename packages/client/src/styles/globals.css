@@ -9789,3 +9789,16 @@ html[data-mari-ios-webkit][data-mari-software-keyboard-open] .mari-window.ov-cs-
     }
   }
 }
+
+/* Links in chat messages, Mari replies and Markdown previews follow the theme instead of a fixed blue.
+   The accent is mixed toward the surrounding text colour so it stays readable on dark-red or mid-tone message
+   backgrounds (Sanguine Keep, Under Sail). A theme can set --mari-link to pick its own link colour. */
+.mari-md-link {
+  color: var(--mari-link, color-mix(in oklab, var(--primary) 50%, currentColor));
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 0.15em;
+}
+.mari-md-link:hover {
+  text-decoration-color: currentColor;
+}

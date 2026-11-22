@@ -14,7 +14,14 @@ import { ASSET_TABS, openLibrarySection, type AssetTab } from "./library-navigat
 /** The Assets tab on screen; null outside the Assets page (the page then shows its own title). */
 export const AssetsTabContext = createContext<AssetTab | null>(null);
 
-export function AssetsTitle({ children }: { children: ReactNode }) {
+export function AssetsTitle({
+  children,
+  guardLeave,
+}: {
+  children: ReactNode;
+  /** Runs a tab switch, first asking about unsaved edits on the page (a Game assets file). */
+  guardLeave?: (go: () => void) => void;
+}) {
   const tab = useContext(AssetsTabContext);
   const { t } = useTranslation();
   const mobile = useOverhaulMobile();
@@ -34,7 +41,12 @@ export function AssetsTitle({ children }: { children: ReactNode }) {
           role="tab"
           aria-selected={each === tab}
           className={cn(each === tab && "is-on")}
-          onClick={() => each !== tab && openLibrarySection(each)}
+          onClick={() => {
+            if (each === tab) return;
+            const go = () => openLibrarySection(each);
+            if (guardLeave) guardLeave(go);
+            else go();
+          }}
         >
           {t(`library.sections.${each === "game-assets" ? "gameAssets" : each}`)}
         </button>

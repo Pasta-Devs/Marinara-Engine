@@ -8941,6 +8941,7 @@
   "settings.sections.features.title": "Features",
   "settings.sections.gameAssets.componentDescription": "Open existing asset folders, import new files, and refresh the server manifest.",
   "settings.sections.gameAssets.description": "Asset folders for music, ambience, sprites, and backgrounds.",
+  "settings.sections.gameAssets.libraryDescription": "Music, ambience, sprites and backgrounds for Game Mode. Browse, upload and rescan them in Library › Assets.",
   "settings.sections.gameAssets.title": "Game assets",
   "settings.sections.gamePlayback.description": "Game mode reading and navigation.",
   "settings.sections.gamePlayback.title": "Game playback",

@@ -1904,6 +1904,10 @@
   padding: 0.75rem 0;
 }
 .ov-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
   height: 1.75rem;
   padding: 0 0.75rem;
   border: 1px solid var(--ov-line);
@@ -16239,7 +16243,11 @@ input.ov-edhead__title:not(#ov-x) {
   padding: 0 2rem 0.625rem;
   border-bottom: 1px solid var(--ov-line);
 }
-.ov-ga.has-file > :is(.ov-ga__head, .ov-ga__tools, .ov-ga__crumbs) {
+/* An open file keeps the Assets title and tabs; search, upload and the folder crumbs don't apply to it.
+   Phones show only the editor's own header. */
+.ov-ga.has-file > :is(.ov-ga__tools, .ov-ga__crumbs),
+.ov-ga.has-file > .ov-ga__head > .ov-btn,
+:root[data-overhaul="mobile"] .ov-ga.has-file > .ov-ga__head {
   display: none;
 }
 .ov-ga__editor {
@@ -17217,13 +17225,6 @@ input.ov-edhead__title:not(#ov-x) {
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
   text-underline-offset: 0.2em;
-}
-.ov-btn.is-quiet.ov-help-hide--floating {
-  background: color-mix(in srgb, var(--card) 94%, transparent);
-  border-color: var(--ov-line, var(--border));
-  color: var(--ov-text);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
 }
 
 /* ── windows-to-pages E3: Omnibar settings inside Settings on phones ──
