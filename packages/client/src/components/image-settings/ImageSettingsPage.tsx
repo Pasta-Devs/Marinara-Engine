@@ -10,6 +10,7 @@
 import { lazy, Suspense, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, FileText, Image as ImageIcon, Palette, Ruler, ExternalLink } from "lucide-react";
+import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
 import { useConnections } from "../../hooks/use-connections";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
@@ -177,6 +178,12 @@ function DefaultsSection() {
   const autoSave = useUIStore((s) => s.autoSaveGeneratedImagesToGalleries);
   const setAutoSave = useUIStore((s) => s.setAutoSaveGeneratedImagesToGalleries);
   const rule = (key: string, part: "Rule" | "") => t(`imageSettings.defaults.uses.${key}${part}`);
+  // An agent that isn't installed opens its install page (AgentEditor swaps it in), so say Install, not Open setup.
+  const installedAgents = useCapabilityAgentRegistry().data;
+  const agentLinkLabel = (agent: string) =>
+    !installedAgents || installedAgents.some((entry) => entry.id === agent)
+      ? t("imageSettings.openSetup")
+      : t("imageSettings.installAgent");
 
   return (
     <>
@@ -207,7 +214,7 @@ function DefaultsSection() {
                     className="mt-1 text-xs text-[var(--primary)]"
                     onClick={() => openAgentDetail(picture.agent!)}
                   >
-                    {t("imageSettings.openSetup")}
+                    {agentLinkLabel(picture.agent)}
                   </button>
                 )}
               </div>
@@ -238,7 +245,7 @@ function DefaultsSection() {
                       {picture.agent ? (
                         <ChevronRight
                           size={14}
-                          aria-label={t("imageSettings.openSetup")}
+                          aria-label={agentLinkLabel(picture.agent)}
                           className="inline text-[var(--muted-foreground)]"
                         />
                       ) : null}

@@ -95,6 +95,7 @@ type CurrentTabInputs = {
   presetDetailId: string | null;
   connectionDetailId: string | null;
   agentDetailId: string | null;
+  agentCatalogOpen: boolean;
   regexDetailId: string | null;
   toolDetailId: string | null;
   profileDetailId: string | null;
@@ -117,7 +118,8 @@ function currentTabFrom(v: CurrentTabInputs): OverhaulTab | null {
   if (v.toolDetailId) return { kind: "library", id: "tools" };
   if (v.profileDetailId) return { kind: "library", id: "profiles" };
   if (real(v.personaDetailId)) return { kind: "persona", id: v.personaDetailId! };
-  if (v.agentDetailId) return { kind: "library", id: "agents" };
+  // The agent store page (an agent's install page) is part of Library > Agents too.
+  if (v.agentDetailId || v.agentCatalogOpen) return { kind: "library", id: "agents" };
   if (v.connectionDetailId) return { kind: "library", id: "connections" };
   if (real(v.presetDetailId)) return { kind: "preset", id: v.presetDetailId! };
   if (real(v.characterDetailId)) return { kind: "character", id: v.characterDetailId! };
@@ -143,6 +145,7 @@ export function currentTabNow(): OverhaulTab | null {
     presetDetailId: ui.presetDetailId,
     connectionDetailId: ui.connectionDetailId,
     agentDetailId: ui.agentDetailId,
+    agentCatalogOpen: ui.agentCatalogOpen,
     regexDetailId: ui.regexDetailId,
     toolDetailId: ui.toolDetailId,
     profileDetailId: ui.profileDetailId,
@@ -165,6 +168,7 @@ export function useCurrentTab(): OverhaulTab | null {
   const presetDetailId = useUIStore((s) => s.presetDetailId);
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
+  const agentCatalogOpen = useUIStore((s) => s.agentCatalogOpen);
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
   const profileDetailId = useUIStore((s) => s.profileDetailId);
@@ -185,6 +189,7 @@ export function useCurrentTab(): OverhaulTab | null {
         presetDetailId,
         connectionDetailId,
         agentDetailId,
+        agentCatalogOpen,
         regexDetailId,
         toolDetailId,
         profileDetailId,
@@ -202,6 +207,7 @@ export function useCurrentTab(): OverhaulTab | null {
       activeDocsTab,
       activeMari,
       activeSchedules,
+      agentCatalogOpen,
       agentDetailId,
       cardLibraryKind,
       characterDetailId,

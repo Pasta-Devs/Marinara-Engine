@@ -6590,6 +6590,7 @@
   "imageSettings.generations.promptOverrides": "Reusable video prompt templates. Image templates are in Library > Settings profiles > Image settings.",
   "imageSettings.generations.templates": "Image prompt templates",
   "imageSettings.group": "Images",
+  "imageSettings.installAgent": "Install",
   "imageSettings.kinds.avatar": "Avatar",
   "imageSettings.kinds.background": "Background",
   "imageSettings.kinds.illustration": "Illustration",

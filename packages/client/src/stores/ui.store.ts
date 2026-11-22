@@ -1679,6 +1679,8 @@ export interface UIState {
   openLorebookLibrary: () => void;
   closeCharacterLibrary: () => void;
   openAgentCatalog: (packageId?: string) => void;
+  /** An open agent page whose package is not installed becomes that package's install page, in place (Back skips it). */
+  replaceAgentDetailWithInstallPage: (packageId: string) => void;
   closeAgentCatalog: () => void;
   setAgentCatalogPage: (packageId: string | null) => void;
   openBotBrowser: () => void;
@@ -3502,6 +3504,17 @@ export const useUIStore = create<UIState>()(
             editorDirty: false,
             ...getMobileDetailReturnState(state),
           })),
+        replaceAgentDetailWithInstallPage: (packageId) =>
+          set((s) =>
+            s.agentDetailId
+              ? {
+                  ...CLOSED_MAIN_SURFACE,
+                  agentCatalogOpen: true,
+                  agentCatalogInitialPackageId: packageId,
+                  editorDirty: false,
+                }
+              : {},
+          ),
         closeAgentCatalog: () =>
           set((s) => leaveMainSurface(s, { agentCatalogOpen: false, agentCatalogInitialPackageId: null })),
         setAgentCatalogPage: (agentCatalogInitialPackageId) => set({ agentCatalogInitialPackageId }),
