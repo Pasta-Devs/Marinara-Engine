@@ -1,7 +1,6 @@
 /**
- * The chat's lorebook placement in a real turn: by default the preset's lorebook marker sits before the chat
- * history; with "Send inside the chat history" the entries go inside it at the chosen depth, wherever the preset puts
- * the marker. A preset's Memory Recall marker never reaches the provider when recall adds nothing.
+ * A preset's Memory Recall marker in a real turn: when recall adds nothing, the marker's slot never reaches the
+ * provider, and the rest of the prompt (lore before the history) is unchanged.
  */
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -10,7 +9,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const dir = mkdtempSync(join(tmpdir(), "marinara-lore-history-depth-"));
+const dir = mkdtempSync(join(tmpdir(), "marinara-memory-recall-marker-"));
 process.env.DATA_DIR = dir;
 process.env.FILE_STORAGE_DIR = join(dir, "storage");
 process.env.NODE_ENV = "test";
@@ -53,7 +52,7 @@ try {
   const address = provider.address();
   assert(address && typeof address === "object");
   const connection = await createConnectionsStorage(db).create({
-    name: "Lore depth fixture",
+    name: "Memory marker fixture",
     provider: "custom",
     baseUrl: `http://127.0.0.1:${address.port}/v1`,
     model: "fixture",
@@ -98,9 +97,9 @@ try {
   } as never);
 
   const chats = createChatsStorage(db);
-  const runChat = async (loreHistoryDepth: number | null) => {
+  const runChat = async () => {
     const chat = await chats.create({
-      name: `Depth ${loreHistoryDepth}`,
+      name: "Memory Recall marker",
       mode: "roleplay",
       characterIds: [],
       connectionId: connection.id,
@@ -111,7 +110,6 @@ try {
       activeLorebookIds: [world.id],
       enableAgents: false,
       enableMemoryRecall: false,
-      ...(loreHistoryDepth === null ? {} : { loreHistoryDepth }),
     });
     const prompts: Sent[] = [];
     for (const words of ["TURN_ONE", "TURN_TWO", "TURN_THREE"]) {
@@ -135,25 +133,12 @@ try {
     return index;
   };
 
-  // Default: the preset's order, lore before the history.
-  const [, , defaultPrompt] = await runChat(null);
-  assert.ok(indexOf(defaultPrompt!, "LORE_ENTRY") < indexOf(defaultPrompt!, "TURN_ONE"), "lore before the history");
-  assert.doesNotMatch(JSON.stringify(defaultPrompt), /MARINARA_MEMORY_RECALL/u, "unfilled recall marker is dropped");
-
-  // Depth 2: inside the history, before the newest reply and message.
-  const depthPrompts = await runChat(2);
-  const third = depthPrompts[2]!;
-  const lore = indexOf(third, "LORE_ENTRY");
-  assert.ok(lore > indexOf(third, "TURN_TWO"), "after the older history");
-  assert.ok(lore < indexOf(third, `REPLY_${replyNumber - 1}`), "before the newest reply");
-  assert.ok(lore < indexOf(third, "TURN_THREE"), "before the newest message");
-  assert.ok(indexOf(third, "STABLE_RULE") < indexOf(third, "TURN_ONE"));
-  assert.doesNotMatch(JSON.stringify(depthPrompts), /MARINARA_MEMORY_RECALL/u);
-
-  // Depth 0: after the newest message.
-  const [, , lastPrompt] = await runChat(0);
-  assert.ok(indexOf(lastPrompt!, "LORE_ENTRY") > indexOf(lastPrompt!, "TURN_THREE"), "after the newest message");
-  console.log("ok - lorebook placement follows the chat's history depth in a real turn");
+  const prompts = await runChat();
+  const last = prompts[2]!;
+  assert.ok(indexOf(last, "LORE_ENTRY") < indexOf(last, "TURN_ONE"), "lore stays before the history");
+  assert.ok(indexOf(last, "STABLE_RULE") < indexOf(last, "TURN_ONE"));
+  assert.doesNotMatch(JSON.stringify(prompts), /MARINARA_MEMORY_RECALL/u, "an unfilled recall marker is dropped");
+  console.log("ok - an unfilled Memory Recall marker never reaches the provider");
 } finally {
   await app.close();
   provider.close();

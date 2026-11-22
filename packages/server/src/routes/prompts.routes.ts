@@ -38,7 +38,6 @@ import { extensionFromImageMime, isAllowedImageBuffer, resolveInside } from "../
 import { logger } from "../lib/logger.js";
 import { forwardPromptPreview } from "./generate/prompt-preview.js";
 import { notFound } from "../utils/not-found.js";
-import { normalizeLoreHistoryDepth } from "../services/lorebook/prompt-injector.js";
 
 const PROMPT_IMAGES_DIR = join(DATA_DIR, "prompts", "images");
 const PROMPT_IMAGE_URL_PREFIX = "/api/prompts/images/file/";
@@ -554,7 +553,6 @@ export async function promptsRoutes(app: FastifyInstance) {
     const connection = stored ? applyChatModelOverride(stored, readChatModelOverride(chat)) : null;
     const assemblerInput: AssemblerInput = {
       db: app.db,
-      loreHistoryDepth: normalizeLoreHistoryDepth(chatMeta.loreHistoryDepth),
       model: connection?.model,
       reasoning: connection
         ? resolveReasoningMacroValue({

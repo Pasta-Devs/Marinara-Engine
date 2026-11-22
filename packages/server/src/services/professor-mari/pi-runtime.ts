@@ -402,9 +402,10 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
   // Decided once per connection: only these connections ever parse text as tool calls.
   const textualTools =
     isLocalSidecarConnection(input.connection) || !supportsNativeToolCalls(input.connection.provider);
-  // The system messages before the history are pi's system prompt, the same on every turn. The ones after it change
-  // every turn (workspace context with the time, continuity, @ links), so they go after the history, beside this
-  // run's message: the system prompt and the history stay the start of the next request, and its cache holds.
+  // The system messages before the history are pi's system prompt, the same on every turn. The others change every
+  // turn (workspace context with the time, continuity, @ links), so they go into the history where the prompt put
+  // them, that many conversation messages before the end (the user's context depth): the system prompt and the
+  // history before them stay the start of the next request, and its cache holds.
   const firstTurn = input.messages.findIndex((message) => message.role !== "system");
   const leadingSystem = input.messages
     .slice(0, firstTurn < 0 ? input.messages.length : firstTurn)
@@ -413,6 +414,13 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     .slice(leadingSystem.length)
     .filter((message) => message.role === "system")
     .map((message) => ({ role: "system", content: message.content, contextKind: "injection" }));
+  const firstTurnContext = input.messages.findIndex(
+    (message, index) => index >= leadingSystem.length && message.role === "system",
+  );
+  const turnContextDepth =
+    firstTurnContext < 0
+      ? 0
+      : input.messages.slice(firstTurnContext).filter((message) => message.role !== "system").length;
   const systemPrompt = leadingSystem.map((message) => message.content).join("\n\n");
   const history = input.messages.filter((message) => message.role !== "system");
   const last = history[history.length - 1];
@@ -499,20 +507,28 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       pendingImages = [];
     };
     // Seeded history rows carry timestamps 1..n; this run's own message is the first user message after them. The
-    // per-turn context follows it.
+    // per-turn context sits `turnContextDepth` messages back from it (0: right after it), counting this run's message.
     const runStart = (context.messages as Message[]).findIndex(
       (message) => message.role === "user" && message.timestamp > seededMessages,
     );
+    // Only user and assistant turns count toward the depth: pi can keep other entries (its own notes) between them.
+    let turnContextAt = runStart < 0 || turnContextDepth <= 0 ? -1 : runStart;
+    for (let back = turnContextDepth - 1; back > 0 && turnContextAt > 0;) {
+      turnContextAt -= 1;
+      const role = (context.messages as Message[])[turnContextAt]!.role;
+      if (role === "user" || role === "assistant") back -= 1;
+    }
     for (const [index, message] of (context.messages as Message[]).entries()) {
       if (message.role !== "toolResult") {
         lastResult = null;
         flushImages();
       }
+      if (index === turnContextAt && withTurnContext) out.push(...turnContext);
       if (message.role === "user") {
         const content = textOf(message.content as never);
         out.push({ role: "user", content, contextKind: "history", ...attachmentsByText.get(content) });
-        // Right after this run's message: the turn before it is unchanged next turn, so it stays cached.
-        if (index === runStart && withTurnContext) out.push(...turnContext);
+        // Depth 0: right after this run's message.
+        if (index === runStart && turnContextAt < 0 && withTurnContext) out.push(...turnContext);
       } else if (message.role === "assistant") {
         const toolCalls = message.content.flatMap((part) =>
           part.type === "toolCall"

@@ -11,8 +11,6 @@ import {
   type ActiveLorebookView,
 } from "../../../lib/chat-lorebooks";
 import { HelpTooltip } from "../../../components/ui/HelpTooltip";
-import { SettingsSwitch } from "../../../components/panels/settings/SettingControls";
-import { cn } from "../../../lib/utils";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { LibraryArt, LorebookPickerWindow } from "../../../components/ui/LibraryPickers";
 
@@ -85,20 +83,6 @@ export function LorebooksSection({
     updateMeta.mutate({ id: chatId, excludedLorebookIds: next });
   };
   const [tokenBudgetDraft, setTokenBudgetDraft] = useState(String(lorebookTokenBudget));
-  // Lorebook placement: unset keeps entries before the chat history; a depth puts them inside it.
-  const loreHistoryDepth =
-    typeof metadata.loreHistoryDepth === "number" && Number.isFinite(metadata.loreHistoryDepth)
-      ? Math.min(100, Math.max(0, Math.floor(metadata.loreHistoryDepth)))
-      : null;
-  const [historyDepthDraft, setHistoryDepthDraft] = useState(String(loreHistoryDepth ?? 2));
-  useEffect(() => {
-    if (loreHistoryDepth !== null) setHistoryDepthDraft(String(loreHistoryDepth));
-  }, [loreHistoryDepth]);
-  const commitHistoryDepth = () => {
-    const next = Math.min(100, Math.max(0, Math.floor(Number(historyDepthDraft) || 0)));
-    setHistoryDepthDraft(String(next));
-    if (next !== loreHistoryDepth) updateMeta.mutate({ id: chatId, loreHistoryDepth: next });
-  };
   // The picker lists every lorebook this chat may use; the ones pinned to the chat are checked,
   // like the characters already in it are in the character picker.
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -157,47 +141,6 @@ export function LorebooksSection({
           }}
           className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs ring-1 ring-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
         />
-      </div>
-
-      <div className="mb-2 space-y-2">
-        <SettingsSwitch
-          label={localizeUi("ui.chatSettings.lorebookssection.historyDepthLabel")}
-          description={localizeUi("ui.chatSettings.lorebookssection.historyDepthDescription")}
-          checked={loreHistoryDepth !== null}
-          onChange={(on) =>
-            updateMeta.mutate({
-              id: chatId,
-              loreHistoryDepth: on ? Math.min(100, Math.max(0, Math.floor(Number(historyDepthDraft) || 2))) : null,
-            })
-          }
-          labelPosition="start"
-          className={cn(
-            "justify-between rounded-md px-3 py-2.5 text-left",
-            loreHistoryDepth !== null
-              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-              : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-          )}
-          labelClassName="text-[0.6875rem] font-medium"
-        />
-        {loreHistoryDepth !== null && (
-          <label className="flex items-center justify-between gap-3 rounded-lg bg-[var(--secondary)]/70 px-3 py-2 text-xs font-medium ring-1 ring-[var(--border)]">
-            {localizeUi("ui.chatSettings.lorebookssection.historyDepth")}
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={historyDepthDraft}
-              onChange={(event) => {
-                if (/^\d*$/.test(event.target.value)) setHistoryDepthDraft(event.target.value);
-              }}
-              onBlur={commitHistoryDepth}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-              }}
-              className="w-16 rounded-lg bg-[var(--background)] px-2 py-1.5 text-right text-xs ring-1 ring-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-            />
-          </label>
-        )}
       </div>
 
       {activeLorebooks.length === 0 ? (

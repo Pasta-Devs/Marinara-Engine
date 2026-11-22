@@ -373,7 +373,6 @@ export const CHAT_PROFILE_FOLLOWER_SYNC_KEYS: readonly string[] = [
   // Memory and summaries
   "enableMemoryRecall", // Memory Recall on or off
   "enableMemoryRecallWholeChat", // Memory Recall: also recall messages the prompt still sends
-  "loreHistoryDepth", // Lorebook entries inside the chat history at this depth
   "advancedMemory", // Advanced Memory settings; each chat keeps its own knowledge anchors and narrator
   "summaryConnectionId", // Summary connection
   "summaryMaxTokens", // Summary length

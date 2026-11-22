@@ -56,7 +56,13 @@ try {
   const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
   const { createAppSettingsStorage } =
     await import("../../../packages/server/src/services/storage/app-settings.storage.js");
-  const { MARI_RUNTIME_SETTINGS_KEY } = await import("../../../packages/shared/src/constants/mari-runtime.js");
+  const { MARI_RUNTIME_SETTINGS_KEY, MARI_CONTEXT_DEPTH_SETTINGS_KEY, normalizeMariContextDepth } =
+    await import("../../../packages/shared/src/constants/mari-runtime.js");
+  // The stored depth: whole numbers from 0 to 10, anything else is the default 2.
+  assert.deepEqual(
+    [null, "", "abc", "3", 4, -1, 99, 1.5, "0"].map(normalizeMariContextDepth),
+    [2, 2, 2, 3, 4, 0, 10, 2, 0],
+  );
   const chats = createChatsStorage(db);
   const settings = createAppSettingsStorage(db);
 
@@ -88,9 +94,17 @@ try {
   const filler = (turn: number) =>
     `Answer ${turn}. ${"Here is a long and useful explanation of the setting. ".repeat(30)}`;
 
-  for (const runtime of ["pi", "classic"] as const) {
+  // Depth 2 (the default) puts the per-turn context above her last reply, so each turn re-sends that one exchange;
+  // depth 0 (after the user's message) re-sends only the newest one.
+  for (const [runtime, depth, floor] of [
+    ["pi", 2, 0.8],
+    ["classic", 2, 0.8],
+    ["pi", 0, 0.85],
+    ["classic", 0, 0.85],
+  ] as const) {
     await settings.set(MARI_RUNTIME_SETTINGS_KEY, runtime);
-    const chat = await chats.create({ name: `cache ${runtime}`, mode: "conversation", characterIds: [] });
+    await settings.set(MARI_CONTEXT_DEPTH_SETTINGS_KEY, String(depth));
+    const chat = await chats.create({ name: `cache ${runtime} ${depth}`, mode: "conversation", characterIds: [] });
     const turns: ChatMessage[][][] = [];
     for (let turn = 0; turn < 30; turn += 1) {
       requests = [];
@@ -120,15 +134,24 @@ try {
         assert.ok(after.startsWith(before.slice(0, before.lastIndexOf("}"))), `${runtime} turn ${turn} round ${round}`);
       }
     }
+    // The per-turn context sits `depth` conversation messages before the end of the turn's first request.
+    const lastFirst = turns.at(-1)![0]!;
+    const contextAt = lastFirst.findIndex((message) => message.content.startsWith("<workspace_context>"));
+    assert.ok(contextAt > 0, `${runtime} at depth ${depth}: the per-turn context is sent`);
+    assert.equal(
+      lastFirst.slice(contextAt).filter((message) => message.role !== "system").length,
+      depth,
+      `${runtime} at depth ${depth}: the per-turn context sits at the depth`,
+    );
     const late = shares.slice(-10);
     console.log(
-      `${runtime}: shared start of consecutive turns, last 10:`,
+      `${runtime} at depth ${depth}: shared start of consecutive turns, last 10:`,
       late.map((share) => `${Math.round(share * 100)}%`).join(" "),
     );
     // The history window moves one step every ten turns; every other turn reuses all but the newest exchange.
     assert.ok(
-      late.filter((share) => share > 0.85).length >= 9,
-      `${runtime}: a long chat reuses most of its prompt from the turn before`,
+      late.filter((share) => share > floor).length >= 9,
+      `${runtime} at depth ${depth}: a long chat reuses most of its prompt from the turn before`,
     );
   }
   // On the wire: the system prompt goes as one message and the per-turn context keeps its place after the history.

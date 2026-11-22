@@ -30,7 +30,7 @@ import { wrapContent, wrapGroup } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
 import { ensureLorebookScan, expandMarker, type MarkerContext } from "./marker-expander.js";
 import { hasSamePromptAudience, mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js";
-import { injectAtDepth, normalizeLoreHistoryDepth } from "../lorebook/prompt-injector.js";
+import { injectAtDepth } from "../lorebook/prompt-injector.js";
 import { MEMORY_RECALL_SLOT_TOKEN, stripMemoryRecallSlot } from "./memory-recall-slot.js";
 import {
   ADVANCED_MEMORY_MARKER_TYPES,
@@ -168,11 +168,6 @@ export interface AssemblerInput {
   advancedMemory?: AdvancedMemoryPromptParts;
   /** Leave opaque slots for per-responder finalization without repeating lorebook/macro side effects. */
   deferAdvancedMemory?: boolean;
-  /**
-   * The chat's lorebook placement: a depth puts lorebook markers inside the chat history, that many messages before
-   * its newest one, wherever the preset puts them. Null or unset keeps the preset's order.
-   */
-  loreHistoryDepth?: number | null;
   /** Generation fills the Memory Recall marker's slot itself; otherwise the assembler drops it. */
   deferMemoryRecall?: boolean;
   /** Whether agents are enabled for this chat */
@@ -588,7 +583,6 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const usedImageOutlets = new Set<string>();
   let idMacroCardMarkerSection: ResolvedSection | null = null;
   let memoryRecallMarkerPlaced = false;
-  const loreHistoryDepth = normalizeLoreHistoryDepth(input.loreHistoryDepth);
   const runtimeAgentTypesUsed = new Set<string>();
 
   for (const sectionId of sectionOrder) {
@@ -689,20 +683,12 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     }
 
     if (!resolved) continue;
-    const sectionMarkerType = section.isMarker === "true" ? markerTypeOf(section) : undefined;
-    const isLorebookMarker =
-      sectionMarkerType === "lorebook" ||
-      sectionMarkerType === "world_info_before" ||
-      sectionMarkerType === "world_info_after";
     if (resolved.isIdMacroCards && !idMacroCardMarkerSection) {
       idMacroCardMarkerSection = resolved;
     }
 
     if (!resolved.isChatHistory && section.injectionPosition === "depth" && section.injectionDepth >= 0) {
       depthSections.push(resolved);
-    } else if (isLorebookMarker && loreHistoryDepth !== null) {
-      // The chat's lorebook placement: inside the history at its depth, wherever the preset puts the marker.
-      depthSections.push({ ...resolved, depth: loreHistoryDepth });
     } else {
       orderedSections.push(resolved);
     }
