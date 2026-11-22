@@ -587,6 +587,12 @@ export function ImageRegeneratePanel({
         )}
       >
         <div
+          data-image-viewer-navigation
+          onPointerDown={(event) => {
+            if (!(event.target instanceof Element) || event.target.closest("input, select")) return;
+            const button = event.target.closest<HTMLElement>("button");
+            (button ?? titleRef.current)?.focus({ preventScroll: true });
+          }}
           className={cn(
             "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
             !collapsed && "border-b border-[var(--border)]",

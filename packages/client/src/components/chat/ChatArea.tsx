@@ -64,6 +64,7 @@ import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-
 import { usePresetVariablesResolver } from "../../hooks/use-message-preset-variables";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { parseCharacterDisplayData } from "../../lib/character-display";
+import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { parseMessageExtraRecord } from "../../lib/chat-message-extra";
 import { trimInactiveMessagePageCaches } from "../../lib/message-page-cache";
@@ -3321,7 +3322,7 @@ const LocalChatArea = memo(function LocalChatArea({
     if (!supportsMode) return;
 
     const handleArrowUp = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
+      if (event.defaultPrevented || isModalOverlayOpen()) return;
       if (event.key !== "ArrowUp") return;
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (!latestMessageForEdit) return;

@@ -36,10 +36,7 @@ assert.match(
   chatGallerySource,
   /handleDeleteVideo\(video\)[\s\S]{0,240}ui\.chat\.chatgallery\.deleteSceneVideo[\s\S]{0,240}mari-chrome-accent-surface/u,
 );
-assert.match(
-  chatGallerySource,
-  /onClick=\{\(\) => handleDelete\(confirmDeleteId\)\}[\s\S]{0,180}mari-chrome-accent-surface/u,
-);
+// Version deletion now uses ChatImageDeleteDialog; the image browser suite drives its choices and cancellation.
 
 // The scene-video delete route, on the runner's throwaway data folder: a video is deleted only through its own
 // chat (#5611), and deleting it removes both its row and its file.

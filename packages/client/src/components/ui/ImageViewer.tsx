@@ -259,7 +259,7 @@ interface ImageViewerProps {
   index?: number;
   onIndexChange?: (index: number) => void;
   /** Independent vertical navigation for versions of the current gallery picture. */
-  versions?: { index: number; count: number; onIndexChange: (index: number) => void };
+  versions?: { index: number; count: number; disabled?: boolean; onIndexChange: (index: number) => void };
   /** Buttons in the top-right toolbar, left of Close. */
   actions?: ReactNode;
   /** Caption area under the picture (prompt, file info, ...). */
@@ -302,7 +302,7 @@ export function ImageViewer({
 
   const count = items?.length ?? 0;
   const gallery = !media && count > 1;
-  const hasVersions = !media && !!versions && versions.count > 1;
+  const hasVersions = !!versions && versions.count > 1;
   const current = gallery ? items![clamp(index, 0, count - 1)]! : null;
   const shownSrc = current?.url ?? src ?? "";
   const shownAlt = current?.alt ?? alt ?? "";
@@ -313,30 +313,36 @@ export function ImageViewer({
     onIndexChange?.(target);
   };
   const goVersion = (target: number) => {
-    if (!hasVersions || closeDisabled || zoomed || target < 0 || target >= versions.count) return;
+    if (!hasVersions || versions.disabled || closeDisabled || zoomed || target < 0 || target >= versions.count) return;
     versions.onIndexChange(target);
   };
 
   useEffect(() => {
-    if (!gallery && !hasVersions) return;
     const onKey = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.ctrlKey ||
-        event.metaKey ||
-        event.altKey ||
-        isTyping(event.target) ||
-        !isTopModal(closeRef.current)
-      )
-        return;
+      if (!isTopModal(closeRef.current)) return;
+      // Arrow keys belong to the viewer, including at stack boundaries and in its prompt fields.
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) event.stopPropagation();
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target)) return;
       if (gallery && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
         event.preventDefault();
         go(index + (event.key === "ArrowRight" ? 1 : -1));
-      } else if (hasVersions && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
-        // Let the saved prompt scroll when keyboard focus is inside its caption.
-        if (event.target instanceof Element && event.target.closest("[data-image-viewer-caption]")) return;
+      } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+        const scrollArea =
+          event.target instanceof Element ? event.target.closest<HTMLElement>("[data-image-viewer-scroll]") : null;
+        if (scrollArea) {
+          event.preventDefault();
+          scrollArea.scrollBy({ top: event.key === "ArrowDown" ? 40 : -40, behavior: "instant" });
+          return;
+        }
+        // Other editor controls keep their own arrow behavior; disclosure headers select versions.
+        if (
+          event.target instanceof Element &&
+          event.target.closest("[data-image-viewer-caption]") &&
+          !event.target.closest("[data-image-viewer-navigation]")
+        )
+          return;
         event.preventDefault();
-        goVersion(versions.index + (event.key === "ArrowDown" ? 1 : -1));
+        if (hasVersions) goVersion(versions.index + (event.key === "ArrowDown" ? 1 : -1));
       }
     };
     document.addEventListener("keydown", onKey);
@@ -368,10 +374,21 @@ export function ImageViewer({
       panelClassName="sm:!h-full sm:!max-h-full !rounded-none !border-0 !bg-transparent ![box-shadow:none] !backdrop-blur-none"
       contentClassName="!flex !flex-col !overflow-hidden !p-0"
     >
-      <div className={cn("relative flex-1", hasVersions ? "min-h-64 sm:min-h-56" : "min-h-0")}>
+      <div
+        tabIndex={-1}
+        onPointerDownCapture={(event) => {
+          if (!(event.target instanceof Element) || event.target.closest("input, select, textarea, a")) return;
+          const button = event.target.closest<HTMLElement>("button");
+          (button ?? event.currentTarget).focus({ preventScroll: true });
+        }}
+        className={cn("relative flex-1 outline-none", hasVersions ? "min-h-64 sm:min-h-56" : "min-h-0")}
+      >
         {media ? (
           <div
-            className="flex size-full items-center justify-center p-2"
+            className={cn(
+              "flex items-center justify-center p-2",
+              hasVersions ? "absolute inset-x-0 bottom-14 top-28 sm:top-14" : "size-full",
+            )}
             onClick={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}
           >
             {media}
@@ -423,7 +440,7 @@ export function ImageViewer({
             <button
               type="button"
               className={cn(VIEWER_BUTTON_CLASS, "absolute left-1/2 top-16 z-10 -translate-x-1/2 sm:top-2")}
-              disabled={closeDisabled || zoomed || versions.index <= 0}
+              disabled={closeDisabled || versions.disabled || zoomed || versions.index <= 0}
               aria-label={t("chat.imageVersions.previous")}
               onClick={() => goVersion(versions.index - 1)}
             >
@@ -433,7 +450,7 @@ export function ImageViewer({
               <button
                 type="button"
                 className={VIEWER_BUTTON_CLASS}
-                disabled={closeDisabled || zoomed || versions.index >= versions.count - 1}
+                disabled={closeDisabled || versions.disabled || zoomed || versions.index >= versions.count - 1}
                 aria-label={t("chat.imageVersions.next")}
                 onClick={() => goVersion(versions.index + 1)}
               >

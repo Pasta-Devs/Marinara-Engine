@@ -211,13 +211,14 @@ export function ChatImageLightbox({
         }
         index={galleryIndex}
         versions={
-          chatGallery && stack && !editing && !busy
+          chatGallery && stack
             ? {
                 index: versionIndex,
                 count: stack.versions.length,
+                disabled: busy || maskState.hasMask || Boolean(maskState.isDrawing),
                 onIndexChange: (next) => {
                   const target = stack.versions[next];
-                  if (!target || navigating) return;
+                  if (!target || navigating || busy || maskState.hasMask || maskState.isDrawing) return;
                   void selectVersion
                     .mutateAsync(target)
                     .then((result) => setImage(result.image))
