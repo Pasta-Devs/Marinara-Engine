@@ -5,13 +5,13 @@ import { randomUUID } from "node:crypto";
 import { existsSync, lstatSync, readlinkSync, realpathSync } from "node:fs";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
 import type { FastifyInstance } from "fastify";
-import type {
+import {
   BaseLLMProvider,
-  ChatCompletionResult,
-  ChatMessage,
-  ChatOptions,
-  LLMToolDefinition,
-  LLMUsage,
+  type ChatCompletionResult,
+  type ChatMessage,
+  type ChatOptions,
+  type LLMToolDefinition,
+  type LLMUsage,
 } from "../llm/base-provider.js";
 import { resolveStoredChatOptions } from "../generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
@@ -1665,13 +1665,58 @@ function connectionSummary(connection: WorkspaceConnection | null): MariWorkspac
   };
 }
 
+function isLocalWorkspaceConnection(connection: WorkspaceConnection): boolean {
+  return (
+    isLocalSidecarConnection(connection) ||
+    bool(connection.treatAsLocalEndpoint) ||
+    isLocalInferenceBaseUrl(connection.baseUrl ?? "")
+  );
+}
+
+/** Joins every system message into one at index 0: local chat templates commonly accept only that. */
+export function joinSystemMessages(messages: ChatMessage[]): ChatMessage[] {
+  const system = messages.filter((message) => message.role === "system");
+  if (system.length <= 1 && (system.length === 0 || messages[0]?.role === "system")) return messages;
+  return [
+    { role: "system", content: system.map((message) => message.content).join("\n\n") },
+    ...messages.filter((message) => message.role !== "system"),
+  ];
+}
+
+/** A local fallback behind a remote Model gets the one-system-message form the remote request does not use. */
+class SingleSystemMessageProvider extends BaseLLMProvider {
+  constructor(private readonly provider: BaseLLMProvider) {
+    // This facade delegates all I/O; keep connection credentials confined to the wrapped provider.
+    super("", "", provider.maxContextValue ?? undefined, null, provider.maxTokensOverrideValue);
+  }
+
+  async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
+    return yield* this.provider.chat(joinSystemMessages(messages), options);
+  }
+
+  override chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+    return this.provider.chatComplete(joinSystemMessages(messages), options);
+  }
+
+  override embed(texts: string[], model: string, signal?: AbortSignal): Promise<number[][]> {
+    return this.provider.embed(texts, model, signal);
+  }
+}
+
 function createProviderForConnection(connection: WorkspaceConnection): BaseLLMProvider {
   if (isLocalSidecarConnection(connection)) return getLocalSidecarProvider();
   const primary = createBaseProviderForConnection(connection);
   const fallback = connection.jobFallback;
   if (!fallback) return primary;
+  const joinForFallback = isLocalWorkspaceConnection(fallback) && !isLocalWorkspaceConnection(connection);
   return withConnectionFallbackProvider({
     primary,
+    ...(joinForFallback
+      ? {
+          wrapProvider: (provider: BaseLLMProvider) =>
+            provider === primary ? provider : new SingleSystemMessageProvider(provider),
+        }
+      : {}),
     primaryConnectionId: connection.id,
     primaryConnectionName: connection.name,
     fallbackConnection: fallback,
@@ -5662,13 +5707,7 @@ export class ProfessorMariWorkspaceService {
     const defaultParameters = parseJsonObject(connection.defaultParameters);
     const customParameters = isRecord(defaultParameters?.customParameters) ? defaultParameters.customParameters : {};
     const enabledParameters = normalizeGenerationParameterSendMap(defaultParameters?.enabledParameters);
-    if (
-      isLocalSidecarConnection(connection) ||
-      bool(connection.treatAsLocalEndpoint) ||
-      isLocalInferenceBaseUrl(connection.baseUrl ?? "")
-    ) {
-      singleSystemMessageRuns.add(signal);
-    }
+    if (isLocalWorkspaceConnection(connection)) singleSystemMessageRuns.add(signal);
     // LOCAL custom providers are included (#5721): a reasoning-capable model
     // on a local OpenAI-compatible server otherwise does its substantive work
     // - plans, questions for the user - inside hidden reasoning, and the
@@ -5733,7 +5772,9 @@ export class ProfessorMariWorkspaceService {
     // the next and a provider's prefix cache reuses both. Local chat templates commonly accept a single system
     // message at index 0, so there every system message joins that one, without modifying the stored conversation.
     const singleSystem = baseOptions.signal ? singleSystemMessageRuns.has(baseOptions.signal) : false;
-    const firstTurn = messages.findIndex((message) => message.role !== "system");
+    // Per-turn blocks are injections: at a depth beyond the history they come before the first message, and still
+    // stay out of the joined system prompt.
+    const firstTurn = messages.findIndex((message) => message.role !== "system" || message.contextKind === "injection");
     const leading = singleSystem
       ? messages.filter((message) => message.role === "system")
       : messages.slice(0, firstTurn < 0 ? messages.length : firstTurn);

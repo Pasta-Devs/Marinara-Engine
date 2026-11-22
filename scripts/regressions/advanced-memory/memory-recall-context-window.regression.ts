@@ -279,6 +279,32 @@ const unitCases = [
       assertNoRepeats(fixture, lines, fit);
     },
   },
+  {
+    name: "with a Memory Recall marker, the fit is measured with the memories in the marker, not beside it",
+    async run() {
+      const { MEMORY_RECALL_SLOT_TOKEN } =
+        await import("../../../packages/server/src/services/prompt/memory-recall-slot.js");
+      // The same chat with and without a marker message must keep the same history at every limit: the marker is
+      // replaced by the block, so it takes no room of its own.
+      const differences: string[] = [];
+      for (let slack = 0; slack < 800; slack += 25) {
+        const kept: number[] = [];
+        for (const marker of [false, true]) {
+          const fixture = await windowFixture(20, 800, { chunkSize: 5 * 800 });
+          if (marker) fixture.prompt.splice(1, 0, { role: "system", content: MEMORY_RECALL_SLOT_TOKEN });
+          const fit = charFit(50 + 15 * 800 + slack);
+          await recallInto(fixture, fit);
+          kept.push(fixture.prompt.filter((message) => message.contextKind === "history").length);
+          if (marker) {
+            assert.ok(fixture.prompt[1]!.content.includes("recalled fragments"), "the memories fill the marker");
+            assert.ok(!fixture.prompt.some((message) => message.content.includes(MEMORY_RECALL_SLOT_TOKEN)));
+          }
+        }
+        if (kept[0] !== kept[1]) differences.push(`slack ${slack}: ${kept[0]} without, ${kept[1]} with the marker`);
+      }
+      assert.deepEqual(differences, []);
+    },
+  },
 ];
 
 // ── The same through the generate route, with a fake OpenAI-compatible service ──

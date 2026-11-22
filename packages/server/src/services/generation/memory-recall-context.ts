@@ -5,7 +5,7 @@ import { logger } from "../../lib/logger.js";
 import { chunkCoversSentMessage, recallMemories } from "../memory-recall.js";
 import type { MemoryRecallEmbeddingSource, RecalledMemory } from "../memory-recall.js";
 import { wrapContent } from "../prompt/format-engine.js";
-import { fillMemoryRecallSlot } from "../prompt/memory-recall-slot.js";
+import { fillMemoryRecallSlot, stripMemoryRecallSlot } from "../prompt/memory-recall-slot.js";
 import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { memoryRecallBudgetTokens, packRecalledMemories } from "./memory-recall-pack.js";
 
@@ -64,8 +64,11 @@ function measureSentHistory<T extends MemoryRecallWindowMessage>(
   block: string,
 ): { droppedHistory: number; sentTimes: string[] } {
   const history = window.prompt.filter((message) => message.contextKind === "history");
-  const probe = [...window.prompt];
-  if (block) insertBeforeHistory(probe, { role: "system", content: block } as T);
+  // Where the request will put it: in a preset's Memory Recall marker, else right before the history. Without a block
+  // the marker is measured as the request would send it without memories: gone.
+  let probe = window.prompt.map((message) => ({ ...message }));
+  if (!block) probe = stripMemoryRecallSlot(probe);
+  else if (!fillMemoryRecallSlot(probe, block)) insertBeforeHistory(probe, { role: "system", content: block } as T);
   const keptHistory = window.fit(probe).filter((message) => message.contextKind === "history").length;
   const droppedHistory = Math.max(0, history.length - keptHistory);
   const sentTimes = history.slice(droppedHistory).flatMap((message) => {

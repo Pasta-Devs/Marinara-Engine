@@ -48,7 +48,7 @@ const sharedStart = (a: string, b: string) => {
 
 try {
   const db = await getDB();
-  const { ProfessorMariWorkspaceService } =
+  const { ProfessorMariWorkspaceService, joinSystemMessages } =
     await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
   const { setSkillGateEnabled } =
     await import("../../../packages/server/src/services/professor-mari/workspace-commands.js");
@@ -214,6 +214,73 @@ try {
         baseUrl,
       );
     }
+  }
+
+  // A depth beyond the history puts the per-turn context before the first message; it still is not joined into the
+  // system prompt (remote), and a local server still gets one system message.
+  {
+    const fresh = new ProfessorMariWorkspaceService({ db } as never);
+    const sent: ChatMessage[][] = [];
+    const fakeProvider = {
+      chatComplete: async (messages: ChatMessage[]) => {
+        sent.push(messages);
+        return reply("ok");
+      },
+    };
+    const internals = fresh as unknown as {
+      baseChatOptions: (
+        connection: Record<string, unknown>,
+        signal: AbortSignal,
+        onThinking: () => void,
+      ) => ChatOptions;
+      chatCompleteWorkspace: (provider: unknown, messages: ChatMessage[], options: ChatOptions) => Promise<unknown>;
+    };
+    const early: ChatMessage[] = [
+      { role: "system", content: "Stable", contextKind: "prompt" },
+      { role: "system", content: "<workspace_context>\ncurrentTime: now", contextKind: "injection" },
+      { role: "user", content: "First", contextKind: "history" },
+    ];
+    const remote = { id: "w", name: "W", provider: "custom", model: "m", apiKey: "", maxContext: 0 };
+    await internals.chatCompleteWorkspace(
+      fakeProvider,
+      early,
+      internals.baseChatOptions(
+        { ...remote, baseUrl: "https://api.example.com/v1" },
+        new AbortController().signal,
+        () => {},
+      ),
+    );
+    assert.deepEqual(
+      sent.at(-1)!.map((message) => `${message.role}:${message.content.split("\n")[0]}`),
+      ["system:Stable", "system:<workspace_context>", "user:First"],
+      "the per-turn context stays its own message after the system prompt",
+    );
+    assert.deepEqual(
+      joinSystemMessages(early).map((message) => `${message.role}:${message.content.split("\n")[0]}`),
+      ["system:Stable", "user:First"],
+    );
+    assert.match(
+      joinSystemMessages(early)[0]!.content,
+      /<workspace_context>/u,
+      "a local fallback gets one system message",
+    );
+    const plain: ChatMessage[] = [{ role: "user", content: "Only" }];
+    assert.equal(joinSystemMessages(plain), plain, "nothing to join leaves the request as it is");
+
+    // pi with depth 10 in a new chat: the time is not in pi's system prompt.
+    await settings.set(MARI_RUNTIME_SETTINGS_KEY, "pi");
+    await settings.set(MARI_CONTEXT_DEPTH_SETTINGS_KEY, "10");
+    const chat = await chats.create({ name: "cache deep", mode: "conversation", characterIds: [] });
+    requests = [];
+    script = [reply("Hello.")];
+    await service.prompt({ chatId: chat.id, text: "Hi.", onEvent: () => {} });
+    const first = requests[0]!;
+    assert.doesNotMatch(first[0]!.content, /<workspace_context>/u, "pi's system prompt holds no per-turn context");
+    assert.ok(
+      first.some((message) => message.role === "system" && message.content.startsWith("<workspace_context>")),
+      "the per-turn context is still sent",
+    );
+    await settings.set(MARI_CONTEXT_DEPTH_SETTINGS_KEY, "2");
   }
 
   // A reply cut at the output limit is Marinara's to handle (redo smaller, then stop). pi must not also take it for a
