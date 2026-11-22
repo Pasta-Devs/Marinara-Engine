@@ -142,6 +142,8 @@ Professor Mari writes her image prompts herself, so her `mari images` command se
 
 Every image she makes records her original prompt, the profile used (if any) and the exact prompt sent, so she can show you what a style changed.
 
+On a NovelAI V4 or newer model she gives each character in the picture their own prompt, following the same rules as the Illustrator, so their looks don't mix. The size she asks for is kept even when the model's **Choose resolution from character count** setting is on; that setting only picks a size when she leaves it to the model.
+
 ## Related guides
 
 - [Image Generation Providers and Setup](image-providers.md)
