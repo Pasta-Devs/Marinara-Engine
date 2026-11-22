@@ -740,6 +740,16 @@ export function FloatingWindow({
     useFloatingWindowStore.getState().openWindow(id, bubble);
   };
 
+  // QC panel 3 AX12: a sheet (phones, iPad portrait) covers the page, so it is modal: what is behind it is
+  // inert for VoiceOver and Tab. The desktop window stays non-modal (owner decision). A layout effect, so the
+  // page is live again before the focus effect below hands focus back to the opener on close.
+  const modalSheet = modalWhenSheet && sheet && !hidden && !minimized;
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!modalSheet || !root) return;
+    return inertOutside(root);
+  }, [modalSheet]);
+
   // Focus moves into the window when it opens and back to its opener when it closes. A remount (a
   // chat switch, or the loading placeholder giving way) only takes focus if nothing else has it.
   // Hiding and showing a kept-mounted window count as closing and opening it.
@@ -749,7 +759,13 @@ export function FloatingWindow({
     const requested = takeFloatingWindowFocusRequest(id);
     const focusIsFree = !document.activeElement || document.activeElement === document.body;
     // A modal sheet takes focus on its root too (QC panel 3 AX12), never an input, so the iOS keyboard stays down.
-    if ((requested && (!sheet || phoneMenu || modalWhenSheet)) || (!sheet && autoFocus && focusIsFree)) {
+    // Everything behind a modal sheet is inert, so focus left on the page (the loading placeholder it replaced
+    // went away with it) belongs in the sheet.
+    if (
+      (requested && (!sheet || phoneMenu || modalWhenSheet)) ||
+      (!sheet && autoFocus && focusIsFree) ||
+      (sheet && modalWhenSheet && focusIsFree)
+    ) {
       rootRef.current?.focus({ preventScroll: true });
     }
     return () => {
@@ -802,15 +818,6 @@ export function FloatingWindow({
   }, [id, pinned, hidden, minimized, requestClose]);
 
   useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
-
-  // QC panel 3 AX12: a sheet (phones, iPad portrait) covers the page, so it is modal: what is behind it is
-  // inert for VoiceOver and Tab. The desktop window stays non-modal (owner decision).
-  const modalSheet = modalWhenSheet && sheet && !hidden && !minimized;
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!modalSheet || !root) return;
-    return inertOutside(root);
-  }, [modalSheet]);
 
   // Drag and keyboard pass geometry that is already clamped. Pin and lock keep the saved geometry, so a
   // window squeezed by a small viewport still returns to its place when the viewport grows again.

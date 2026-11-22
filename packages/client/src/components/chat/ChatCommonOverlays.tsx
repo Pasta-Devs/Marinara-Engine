@@ -527,6 +527,7 @@ function ChatSettingsLoadingFallback({
       id={CHAT_SETTINGS_WINDOW_ID}
       bodyRef={bodyRef}
       presentation={phoneLayout || overhaulMobile ? "sheet" : "window"}
+      modalSheet
       title={localizeUi("chat.toolbar.settings")}
       titleIcon={<Spinner size="sm" className="mari-chrome-accent-icon shrink-0" />}
       closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
