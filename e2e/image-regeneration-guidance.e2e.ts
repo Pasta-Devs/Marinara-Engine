@@ -163,6 +163,12 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await expect(page.getByText("Version selection unavailable", { exact: true })).toBeVisible();
     await expect(position(2)).toBeVisible();
     await expect(dialog.getByRole("button", { name: "Regenerate image", exact: true })).toBeEnabled();
+    await page
+      .locator("[data-sonner-toast]")
+      .filter({ hasText: "Version selection unavailable" })
+      .getByRole("button")
+      .click();
+    await expect(page.getByText("Version selection unavailable", { exact: true })).toBeHidden();
     await page.keyboard.press("ArrowDown");
     await expect(position(3)).toBeVisible();
     await page.keyboard.press("ArrowUp");
