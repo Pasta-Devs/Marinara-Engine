@@ -124,6 +124,7 @@ import { MobileChatsHomeButton, MobileLibraryButton } from "../overhaul/MobileTo
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { SwipeActionsRow, type SwipeAction } from "../overhaul/SwipeActionsRow";
 import { RowActionSheet } from "../overhaul/RowActionSheet";
+import { useKitMenu, type KitAction } from "../overhaul/LibraryKit";
 import { useChatRowPreviewSlot } from "../../lib/theme-slots";
 import { TagFilter, countItemTags, matchesPickedTags } from "../overhaul/TagFilter";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -329,6 +330,8 @@ export function ChatSidebar() {
   const [swipeOpenChatId, setSwipeOpenChatId] = useState<string | null>(null);
   const rowActionsRef = useRef(new Map<string, { title: string; actions: SwipeAction[] }>());
   const [rowSheet, setRowSheet] = useState<{ title: string; actions: SwipeAction[] } | null>(null);
+  // Right-click, Shift+F10 or the menu key on a row (computer, new layout): the row's actions as a menu.
+  const rowMenu = useKitMenu();
   const closeRowSheet = useCallback(() => setRowSheet(null), []);
   const updateChatMetadata = useUpdateChatMetadata();
   // The overhaul look (compact rows, previews, mode counts) applies to phones too.
@@ -1257,9 +1260,19 @@ export function ChatSidebar() {
   // ── Renaming a chat in place (desktop new layout: the hover pencil beside the name) ──
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  // Leaving the inline box by Enter or Escape puts focus back on the row, not on the page (QC Nov 22 K8).
+  const focusChatRow = (chatId: string) => {
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      // Focus already went somewhere on purpose (a click elsewhere): leave it there.
+      if (active && active !== document.body && !active.matches("main, #mari-main")) return;
+      document.querySelector<HTMLElement>(`[data-chat-row][data-chat-id="${CSS.escape(chatId)}"]`)?.focus();
+    });
+  };
   const commitRename = (chatId: string, currentName: string) => {
     if (renamingChatId !== chatId) return;
     setRenamingChatId(null);
+    focusChatRow(chatId);
     const next = renameDraft.trim();
     if (!next || next === currentName) return;
     renameChat.mutate(
@@ -1505,6 +1518,31 @@ export function ChatSidebar() {
               const row = event.currentTarget;
               activateRowFromKey(event, () => row.click());
             }}
+            onContextMenu={
+              overhaulActive && canHover && !multiSelectMode && renamingChatId !== chat.id
+                ? (event) => {
+                    if (event.target !== event.currentTarget && (event.target as HTMLElement).closest("input")) return;
+                    const actions = rowActions.map((action): KitAction => ({
+                      key: action.key,
+                      label: action.label,
+                      icon: action.icon,
+                      danger: action.tone === "danger",
+                      // On a computer, Rename edits the name in place. Started after the menu has handed
+                      // focus back to the row, so the box keeps it.
+                      onSelect:
+                        action.key === "rename" && overhaulDesktop
+                          ? () =>
+                              window.setTimeout(() => {
+                                setRenameDraft(chat.name);
+                                setRenamingChatId(chat.id);
+                              }, 0)
+                          : action.onSelect,
+                    }));
+                    rowMenu.openFromEvent(event, displayName, actions);
+                  }
+                : undefined
+            }
+            aria-current={isActive ? "true" : undefined}
             data-chat-row="true"
             data-selected={isActive && !(multiSelectMode && isSelected) ? "true" : undefined}
             className={cn(
@@ -1716,6 +1754,7 @@ export function ChatSidebar() {
                     } else if (event.key === "Escape") {
                       event.preventDefault();
                       setRenamingChatId(null);
+                      focusChatRow(chat.id);
                     }
                   }}
                   onBlur={() => commitRename(chat.id, chat.name)}
@@ -2575,6 +2614,7 @@ export function ChatSidebar() {
       )}
 
       {rowSheet ? <RowActionSheet title={rowSheet.title} actions={rowSheet.actions} onClose={closeRowSheet} /> : null}
+      {rowMenu.node}
 
       {/* ── Delete Branch Modal ── */}
       <Modal

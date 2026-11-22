@@ -107,23 +107,40 @@
       * {
       forced-color-adjust: auto !important;
     }
-    :is([data-settings-switch-track], .ov-switch) {
+    :is([data-settings-switch-track], .ov-switch, .mari-chat-option-switch) {
       forced-color-adjust: none !important;
       background: Canvas !important;
       border: 1px solid CanvasText !important;
     }
-    :is([data-settings-switch-thumb], .ov-switch span) {
+    :is([data-settings-switch-thumb], .ov-switch span, .mari-chat-option-switch > span) {
       forced-color-adjust: none !important;
       background: CanvasText !important;
       box-shadow: none !important;
     }
-    :is([data-settings-switch-track][data-checked], .ov-switch.is-on, .ov-switch[aria-checked="true"]) {
+    :is(
+      [data-settings-switch-track][data-checked],
+      .ov-switch.is-on,
+      .ov-switch[aria-checked="true"],
+      .mari-chat-option-switch[aria-checked="true"]
+    ) {
       background: Highlight !important;
       border-color: Highlight !important;
     }
-    :is([data-settings-switch-track][data-checked], .ov-switch.is-on, .ov-switch[aria-checked="true"])
+    :is(
+        [data-settings-switch-track][data-checked],
+        .ov-switch.is-on,
+        .ov-switch[aria-checked="true"],
+        .mari-chat-option-switch[aria-checked="true"]
+      )
       :is([data-settings-switch-thumb], span) {
       background: HighlightText !important;
+    }
+    /* Every tab's transparent underline turns into a system-colour line; only the selected one keeps it. */
+    [role="tab"]:not([aria-selected="true"]) {
+      border-bottom-color: Canvas !important;
+    }
+    [role="tab"][aria-selected="true"] {
+      border-bottom-color: Highlight !important;
     }
     input[type="range"] {
       forced-color-adjust: none !important;
