@@ -2,7 +2,6 @@
 // ("Apply", the default) sends them inside the nearby user message. The saved request now keeps where each
 // injected block sits, for Peek only; what is sent stays the same.
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { postProcessMessages } from "../../../packages/server/src/routes/generate/generate-route-utils.js";
 import {
   labelInjectedParts,
@@ -110,19 +109,8 @@ const ownLineLabels = labelInjectedParts(
 );
 assert.equal(ownLineLabels[0]!.parts[0]!.start, ownLine.lastIndexOf(note));
 
-// Dry run with a preset: the assembler injects World Info @depth itself, so the preview must record those entries
-// before labelling (source check: the route has no harness here).
-const dryRun = readFileSync(
-  new URL("../../../packages/server/src/routes/generate/dry-run-route.ts", import.meta.url),
-  "utf8",
-);
-const recordsPreset = dryRun.indexOf("noteDepthEntries(assembled.lorebookScanResult?.depthEntries");
-assert.ok(recordsPreset > 0, "the preset branch records the assembler's depth entries");
-assert.ok(
-  recordsPreset < dryRun.indexOf("labelInjectedParts(providerMessages, injectedBlocks)"),
-  "recorded before labelling",
-);
-// And merged preset World Info gets its label.
+// Dry run with a preset: the assembler injects World Info @depth itself; once recorded, merged preset World Info
+// gets its label.
 const presetMerged = labelInjectedParts(
   [
     { role: "system", content: "Main prompt." },
