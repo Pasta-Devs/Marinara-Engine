@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { applyRegexReplacement, createRegexScriptSchema, isPatternSafe } from "../../../packages/shared/src/index.js";
+import {
+  applyRegexReplacement,
+  applyRegexScriptReplacement,
+  createRegexScriptSchema,
+  isPatternSafe,
+} from "../../../packages/shared/src/index.js";
 import {
   CLEAN_HTML_FIND_REGEX,
   CLEAN_HTML_ID,
@@ -248,6 +253,58 @@ const cases: RegressionCase[] = [
       assert.equal(scoped.length, 2);
       assert.deepEqual(scoped[0]?.images, images);
       assert.deepEqual(scoped[1]?.files, files);
+    },
+  },
+  {
+    name: "SillyTavern trim strings touch only the matched text, and nothing when the pattern misses",
+    run() {
+      const stripOoc = {
+        enabled: "true",
+        findRegex: "\\(OOC:[^)]*\\)",
+        replaceString: "",
+        trimStrings: '[" "]',
+        trimScope: "match",
+        flags: "g",
+        placement: '["ai_output"]',
+        applyMode: "prompt",
+      };
+      assert.equal(
+        applyRegexScriptsToPromptText("Hello there (OOC: hi) friend", [stripOoc], "ai_output", 0),
+        "Hello there  friend",
+      );
+      assert.equal(applyRegexScriptsToPromptText("No match here", [stripOoc], "ai_output", 0), "No match here");
+      // The same script with Marinara's rule trims the whole result, but only when it matched.
+      const wholeResult = { ...stripOoc, trimScope: "result" };
+      assert.equal(applyRegexScriptsToPromptText("No match here", [wholeResult], "ai_output", 0), "No match here");
+      assert.equal(applyRegexScriptsToPromptText("Hello (OOC: hi) you", [wholeResult], "ai_output", 0), "Helloyou");
+      // Left out = Marinara's rule.
+      assert.equal(
+        applyRegexScriptReplacement("a *b* c *d*", /\*b\*/g, "<i>$&</i>", { trimStrings: ["*"] }),
+        "a <i>b</i> c d",
+      );
+      assert.equal(
+        applyRegexScriptReplacement("a *b* c *d*", /\*b\*/g, "<i>{{match}}</i>", {
+          trimStrings: ["*"],
+          trimScope: "match",
+        }),
+        "a <i>b</i> c *d*",
+      );
+      // Literal text typed in Replace With is never trimmed.
+      assert.equal(
+        applyRegexScriptReplacement("x *b*", /\*b\*/g, "*[$0]*", { trimStrings: ["*"], trimScope: "match" }),
+        "x *[b]*",
+      );
+    },
+  },
+  {
+    name: "$0 and {{match}} put back the whole match, like SillyTavern",
+    run() {
+      assert.equal(
+        applyRegexReplacement("say (OOC: hi) ok", /\(OOC:(.*?)\)/g, "[{{match}}|$0|$1]"),
+        "say [(OOC: hi)|(OOC: hi)| hi] ok",
+      );
+      assert.equal(applyRegexReplacement("ab", /b/g, "[{{MATCH}}]"), "a[b]");
+      assert.equal(applyRegexReplacement("ab", /(b)/g, "$$0"), "a$0");
     },
   },
 ];

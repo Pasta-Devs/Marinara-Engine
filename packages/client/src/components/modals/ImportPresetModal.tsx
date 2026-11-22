@@ -83,6 +83,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
           error?: string;
           parametersImported?: string[];
           parametersLeftOut?: STPresetLeftOut[];
+          regexSkipped?: number;
         }>("/import/st-preset", {
           ...json,
           ...importTagsBody(importTags.choice),
@@ -209,7 +210,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
             <div
               className={`flex items-center gap-2 rounded-lg p-3 text-xs ${
                 results.some((result) => result.success)
-                  ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                  ? "bg-emerald-500/10 text-emerald-400"
                   : "bg-[var(--destructive)]/10 text-[var(--destructive)]"
               }`}
             >
@@ -225,7 +226,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
                   className="flex items-start gap-2 border-b border-[var(--border)] px-3 py-2 text-xs last:border-b-0"
                 >
                   {result.success ? (
-                    <CheckCircle size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                    <CheckCircle size="0.8125rem" className="mt-0.5 shrink-0 text-emerald-400" />
                   ) : (
                     <XCircle size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--destructive)]" />
                   )}

@@ -68,6 +68,8 @@ import type {
 
 import { useRollingBackfillStore } from "../stores/backfill.store";
 import { homeFeedKeys } from "./use-home-feed";
+import { defaultNewChatPersonaId } from "../lib/new-chat-persona";
+import { personaCacheKeys } from "../lib/persona-cache";
 
 export const chatKeys = {
   all: ["chats"] as const,
@@ -976,10 +978,22 @@ export function useCreateChat() {
       promptPresetId?: string | null;
       /** A New chat launcher's chat: a draft until its setup wizard finishes. */
       setupPending?: boolean;
-    }) => api.post<Chat>("/chats", data),
-    onSuccess: (chat) => {
+    }) =>
+      api.post<Chat>("/chats", {
+        ...data,
+        // A launcher's new chat starts with the persona used last (F10), still changeable on its setup page.
+        ...(data.setupPending && data.personaId === undefined && !data.personaCharacterId
+          ? {
+              personaId: defaultNewChatPersonaId(
+                qc.getQueryData<Chat[]>(chatKeys.list()),
+                qc.getQueryData<Array<{ id: string }>>(personaCacheKeys.list),
+              ),
+            }
+          : {}),
+      }),
+    onSuccess: (chat, variables) => {
       if (chat) {
-        if (chat.characterIds.length === 0 && !chat.personaId && !chat.personaCharacterId) {
+        if (chat.characterIds.length === 0 && !chat.personaCharacterId && (!chat.personaId || variables.setupPending)) {
           useChatStore.getState().setPendingNewChatSetup(chat);
         }
         qc.setQueryData(chatKeys.detail(chat.id), chat);

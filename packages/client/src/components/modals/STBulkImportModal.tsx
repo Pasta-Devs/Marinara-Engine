@@ -20,6 +20,7 @@ import {
   ArrowLeft,
   Folder,
   Check,
+  Regex,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../../lib/utils";
@@ -29,7 +30,7 @@ import { ImportTagChecks, useImportTagChoice } from "./ImportTagChecks";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { ImportOptionPicker } from "./ImportOptionPicker";
 import { Spinner } from "../ui/Spinner";
-import { describeBulkImportReport, type STBulkImportReport } from "../../lib/st-import-report";
+import { describeBulkImportReport, type STBulkImportReport, type STNotBroughtOver } from "../../lib/st-import-report";
 import { Checkbox } from "../ui/Checkbox";
 
 interface Props {
@@ -51,10 +52,14 @@ interface ScanResult {
   characters: Array<ScanItemBase & { format: string }>;
   chats: Array<ScanItemBase & { characterName: string; folderName: string }>;
   groupChats: Array<ScanItemBase & { groupName: string; members: string[] }>;
-  presets: Array<ScanItemBase & { isBuiltin?: boolean }>;
+  presets: Array<ScanItemBase & { isBuiltin?: boolean; samplersOnly?: boolean }>;
   lorebooks: ScanItemBase[];
   backgrounds: ScanItemBase[];
   personas: Array<ScanItemBase & { description: string }>;
+  /** Global regex scripts from settings.json. */
+  regexScripts?: Array<ScanItemBase & { index: number }>;
+  /** In the folder with no matching feature here, named so nothing goes quietly. */
+  notBroughtOver?: STNotBroughtOver;
 }
 
 interface ImportResult {
@@ -68,6 +73,7 @@ interface ImportResult {
     lorebooks: number;
     backgrounds: number;
     personas: number;
+    regexScripts?: number;
   };
   /** Left out because this Engine already had them. */
   skipped?: { characters: number; chats: number; groupChats: number };
@@ -89,7 +95,8 @@ interface ImportProgress {
 }
 
 type Phase = "input" | "scanning" | "preview" | "importing" | "done";
-type CategoryKey = "characters" | "chats" | "groupChats" | "presets" | "lorebooks" | "backgrounds" | "personas";
+type CategoryKey =
+  "characters" | "chats" | "groupChats" | "presets" | "lorebooks" | "backgrounds" | "personas" | "regexScripts";
 type SelectionState = Record<CategoryKey, string[]>;
 type TagImportMode = "all" | "none" | "existing";
 
@@ -194,6 +201,7 @@ function buildInitialSelection(scan: ScanResult): SelectionState {
     lorebooks: scan.lorebooks.map((item) => item.id),
     backgrounds: scan.backgrounds.map((item) => item.id),
     personas: scan.personas.map((item) => item.id),
+    regexScripts: (scan.regexScripts ?? []).map((item) => item.id),
   };
 }
 
@@ -224,6 +232,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
     lorebooks: [],
     backgrounds: [],
     personas: [],
+    regexScripts: [],
   });
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [progress, setProgress] = useState<ImportProgress | null>(null);
@@ -249,6 +258,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
       lorebooks: [],
       backgrounds: [],
       personas: [],
+      regexScripts: [],
     });
     setImportResult(null);
     setProgress(null);
@@ -982,6 +992,12 @@ export function STBulkImportModal({ open, onClose }: Props) {
                       {item.isBuiltin
                         ? localizeUi("ui.modals.stbulkimportmodal.detectedBuiltInPreset")
                         : localizeUi("ui.modals.stbulkimportmodal.customOrUserPreset")}
+                      {item.samplersOnly ? (
+                        <>
+                          <span aria-hidden="true"> · </span>
+                          {localizeUi("ui.modals.stbulkimportmodal.samplersOnly")}
+                        </>
+                      ) : null}
                       {modifiedDetail(modified)}
                     </span>
                   );
@@ -1065,6 +1081,24 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   );
                 }}
               />
+
+              <SelectableImportCategory
+                icon={<Regex size="0.875rem" />}
+                label={localizeUi("ui.modals.stbulkimportmodal.regexScripts")}
+                items={scanResult.regexScripts ?? []}
+                selectedIds={selection.regexScripts}
+                onToggleItem={(itemId, checked) => toggleCategoryItem("regexScripts", itemId, checked)}
+                onSelectAll={() =>
+                  updateCategorySelection(
+                    "regexScripts",
+                    (scanResult.regexScripts ?? []).map((item) => item.id),
+                  )
+                }
+                onSelectNone={() => updateCategorySelection("regexScripts", [])}
+                renderDetails={() => <span>{localizeUi("ui.modals.stbulkimportmodal.regexScriptsDetail")}</span>}
+              />
+
+              <NotBroughtOver counts={scanResult.notBroughtOver} />
             </div>
 
             {overhaulActive && scanResult.characters.length > 0 && (
@@ -1233,55 +1267,26 @@ export function STBulkImportModal({ open, onClose }: Props) {
               </span>
             </div>
 
-            {importResult.success &&
-              importResult.skipped &&
-              importResult.skipped.characters + importResult.skipped.chats + importResult.skipped.groupChats > 0 && (
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  {localizeUi("ui.modals.stbulkimportmodal.skippedAlreadyImported", {
-                    characters: importResult.skipped.characters,
-                    chats: importResult.skipped.chats + importResult.skipped.groupChats,
-                  })}
-                </p>
-              )}
             {importResult.success && (
-              <div className="grid grid-cols-2 gap-2">
-                <StatCard
-                  icon={<Users size="0.875rem" />}
-                  label={localizeUi("navigation.topbar.characters")}
-                  count={importResult.imported.characters}
-                />
-                <StatCard
-                  icon={<MessageSquare size="0.875rem" />}
-                  label={localizeUi("navigation.common.chats")}
-                  count={importResult.imported.chats}
-                />
-                <StatCard
-                  icon={<Users size="0.875rem" />}
-                  label={localizeUi("ui.modals.stbulkimportmodal.groupChats")}
-                  count={importResult.imported.groupChats}
-                />
-                <StatCard
-                  icon={<FileText size="0.875rem" />}
-                  label={localizeUi("navigation.topbar.presets")}
-                  count={importResult.imported.presets}
-                />
-                <StatCard
-                  icon={<BookOpen size="0.875rem" />}
-                  label={localizeUi("navigation.topbar.lorebooks")}
-                  count={importResult.imported.lorebooks}
-                />
-                <StatCard
-                  icon={<Image size="0.875rem" />}
-                  label={localizeUi("settings.controls.backgroundGeneration.label")}
-                  count={importResult.imported.backgrounds}
-                />
-                <StatCard
-                  icon={<UserCircle size="0.875rem" />}
-                  label={localizeUi("navigation.topbar.personas")}
-                  count={importResult.imported.personas}
-                />
-              </div>
+              <ImportResultList
+                rows={[
+                  ["navigation.topbar.characters", importResult.imported.characters, importResult.skipped?.characters],
+                  ["navigation.common.chats", importResult.imported.chats, importResult.skipped?.chats],
+                  [
+                    "ui.modals.stbulkimportmodal.groupChats",
+                    importResult.imported.groupChats,
+                    importResult.skipped?.groupChats,
+                  ],
+                  ["navigation.topbar.presets", importResult.imported.presets],
+                  ["navigation.topbar.lorebooks", importResult.imported.lorebooks],
+                  ["settings.controls.backgroundGeneration.label", importResult.imported.backgrounds],
+                  ["navigation.topbar.personas", importResult.imported.personas],
+                  ["ui.modals.stbulkimportmodal.regexScripts", importResult.imported.regexScripts ?? 0],
+                ]}
+              />
             )}
+
+            {importResult.success ? <NotBroughtOver counts={importResult.report?.notBroughtOver} /> : null}
 
             {importResult.success && describeBulkImportReport(importResult.report, localizeUi).length > 0 && (
               <ul className="flex list-disc flex-col gap-1 pl-4 text-xs text-[var(--muted-foreground)]">
@@ -1502,13 +1507,61 @@ function SelectableImportCategory<T extends ScanItemBase>({
   );
 }
 
-function StatCard({ icon, label, count }: { icon: React.ReactNode; label: string; count: number }) {
+/** The result step: one dense row per kind, what came in and what was skipped as already here. */
+function ImportResultList({ rows }: { rows: Array<[labelKey: string, imported: number, skipped?: number]> }) {
+  const { t: localizeUi } = useUiTranslation();
   return (
-    <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-2.5">
-      <span className="text-[var(--primary)]">{icon}</span>
-      <div className="flex flex-col">
-        <span className="text-sm font-bold">{count}</span>
-        <span className="text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">{label}</span>
+    <div
+      className="divide-y divide-[var(--border)]/60 rounded-lg ring-1 ring-[var(--border)]/70"
+      data-mari-part="st-import-result"
+    >
+      {rows.map(([labelKey, imported, skipped]) => (
+        <div key={labelKey} className="flex items-center justify-between gap-3 px-2.5 py-1.5 text-xs">
+          <span className="min-w-0 truncate">{localizeUi(labelKey)}</span>
+          <span className="flex shrink-0 items-center gap-3 tabular-nums">
+            {skipped ? (
+              <span className="text-[var(--muted-foreground)]">
+                {localizeUi("ui.modals.stbulkimportmodal.resultSkipped", { count: skipped })}
+              </span>
+            ) : null}
+            <span className={cn(imported === 0 ? "text-[var(--muted-foreground)]" : "font-semibold")}>
+              {localizeUi("ui.modals.stbulkimportmodal.resultImported", { count: imported })}
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** What the folder holds that Marinara has no feature for: counted and named, never dropped quietly. */
+function NotBroughtOver({ counts }: { counts?: STNotBroughtOver }) {
+  const { t: localizeUi } = useUiTranslation();
+  if (!counts) return null;
+  const rows = (
+    [
+      ["ui.modals.stbulkimportmodal.quickReplySets", counts.quickReplies],
+      ["ui.modals.stbulkimportmodal.instructTemplates", counts.instruct],
+      ["ui.modals.stbulkimportmodal.contextTemplates", counts.context],
+      ["ui.modals.stbulkimportmodal.systemPrompts", counts.systemPrompts],
+    ] as const
+  ).filter(([, count]) => count > 0);
+  if (rows.length === 0) return null;
+  return (
+    <div
+      className="rounded-lg p-2.5 text-xs ring-1 ring-[var(--border)]/70"
+      data-mari-part="st-import-not-brought-over"
+    >
+      <div className="font-medium">{localizeUi("ui.modals.stbulkimportmodal.notBroughtOver")}</div>
+      <p className="mt-0.5 text-[var(--muted-foreground)]">
+        {localizeUi("ui.modals.stbulkimportmodal.notBroughtOverHint")}
+      </p>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[var(--muted-foreground)]">
+        {rows.map(([labelKey, count]) => (
+          <span key={labelKey}>
+            {localizeUi(labelKey)} <span className="tabular-nums text-[var(--foreground)]">{count}</span>
+          </span>
+        ))}
       </div>
     </div>
   );

@@ -12,6 +12,8 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 import { ImportTagChecks, OvImportDrop, useImportTagChoice, type ImportTagChoice } from "./ImportTagChecks";
 
+export type ImportChatMode = "roleplay" | "conversation";
+
 export function ImportChatModal({
   open,
   onClose,
@@ -21,29 +23,35 @@ export function ImportChatModal({
   open: boolean;
   onClose: () => void;
   busy: boolean;
-  /** Imports one chat file; the window closes once it is done. */
-  onImport: (file: File, importTags: ImportTagChoice) => Promise<void>;
+  /**
+   * Imports one chat file; the window closes once it is done. mode is the "Open as" pick for a file that doesn't
+   * say its own type (a SillyTavern log); Marinara exports keep theirs.
+   */
+  onImport: (file: File, importTags: ImportTagChoice, mode: ImportChatMode) => Promise<void>;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const importTags = useImportTagChoice();
+  // Never taken from the open Chats tab: importing from the Game tab used to make a game of a plain log.
+  const [mode, setMode] = useState<ImportChatMode>("roleplay");
 
   const close = () => {
     importTags.reset();
+    setMode("roleplay");
     onClose();
   };
 
   const run = async (files: File[]) => {
     const file = files[0];
     if (!file || busy) return;
-    await onImport(file, importTags.choice);
+    await onImport(file, importTags.choice, mode);
     close();
   };
 
   return (
     <Modal open={open} onClose={close} title={localizeUi("ui.modals.importtags.importChat")}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4" data-import-chat-modal="">
         <OvImportDrop
           types={localizeUi("ui.modals.importtags.typesJsonl")}
           single
@@ -63,6 +71,23 @@ export function ImportChatModal({
             void run(files);
           }}
         />
+        <div className="ov-imp__pick" data-mari-part="import-chat-mode">
+          <label className="ov-imp__label" htmlFor="import-chat-mode">
+            {localizeUi("ui.modals.importchat.openAs")}
+          </label>
+          <span className="ov-imp__choice">
+            <select
+              id="import-chat-mode"
+              className="ov-select"
+              value={mode}
+              onChange={(event) => setMode(event.target.value === "conversation" ? "conversation" : "roleplay")}
+            >
+              <option value="roleplay">{localizeUi("ui.modals.importchat.roleplay")}</option>
+              <option value="conversation">{localizeUi("ui.modals.importchat.conversation")}</option>
+            </select>
+            <p className="ov-imp__desc">{localizeUi("ui.modals.importchat.openAsHint")}</p>
+          </span>
+        </div>
         <ImportTagChecks value={importTags.choice} onChange={importTags.setChoice} sources={["ST", "Marinara"]} />
         {busy ? (
           <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">

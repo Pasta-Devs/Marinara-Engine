@@ -130,7 +130,7 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
-import { ImportChatModal } from "../modals/ImportChatModal";
+import { ImportChatModal, type ImportChatMode } from "../modals/ImportChatModal";
 import { appendImportTags, DEFAULT_IMPORT_TAGS, type ImportTagChoice } from "../modals/ImportTagChecks";
 import { avatarPreviewSrc } from "../../lib/avatar-preview";
 import { Spinner } from "../ui/Spinner";
@@ -940,16 +940,18 @@ export function ChatSidebar() {
   }, [handleNewChat, activeTab]);
 
   const importChatFile = useCallback(
-    async (file: File, importTags: ImportTagChoice = DEFAULT_IMPORT_TAGS) => {
+    async (file: File, importTags: ImportTagChoice = DEFAULT_IMPORT_TAGS, mode?: ImportChatMode) => {
       setIsImportingChat(true);
       try {
         const formData = new FormData();
         appendImportTags(formData, importTags);
-        formData.append("mode", activeTab);
+        // The file's own type wins on the server; this is only for a plain SillyTavern log (Roleplay unless picked).
+        if (mode) formData.append("mode", mode);
         formData.append("file", file);
         const data = await api.upload<{
           success?: boolean;
           chatId?: string;
+          mode?: "conversation" | "roleplay" | "game";
           error?: string;
           messagesImported?: number;
           importNotes?: STChatImportNote[];
@@ -970,6 +972,8 @@ export function ChatSidebar() {
           notes.length > 0 ? { description: notes.join(" "), duration: 8000 } : undefined,
         );
         await refetchChats();
+        // Show the tab the chat landed in, so it is in the list.
+        if (data.mode) setActiveTab(data.mode);
         if (data.chatId) setActiveChatId(data.chatId);
       } catch (error) {
         toast.error(
@@ -981,7 +985,7 @@ export function ChatSidebar() {
         setIsImportingChat(false);
       }
     },
-    [activeTab, refetchChats, setActiveChatId, localizeUi],
+    [refetchChats, setActiveChatId, localizeUi],
   );
   const handleImportChatFile = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {

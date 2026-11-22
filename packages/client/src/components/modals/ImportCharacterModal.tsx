@@ -588,7 +588,15 @@ export function ImportCharacterModal({ open, onClose }: Props) {
                       key={`${preview.filename}-${preview.name ?? ""}`}
                       className="flex items-center justify-between gap-3 border-b border-[var(--border)]/60 px-3 py-2 text-xs last:border-b-0"
                     >
-                      <span className="min-w-0 truncate font-medium">{preview.name ?? preview.filename}</span>
+                      <span className="min-w-0 truncate font-medium">
+                        {preview.name ?? preview.filename}
+                        {preview.embeddedLorebookName ? (
+                          <span className="font-normal text-[var(--muted-foreground)]">
+                            {" — "}
+                            {preview.embeddedLorebookName}
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="shrink-0 text-[var(--muted-foreground)]">
                         {preview.embeddedLorebookEntries}{" "}
                         {preview.embeddedLorebookEntries === 1

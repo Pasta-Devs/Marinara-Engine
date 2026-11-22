@@ -13,6 +13,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { ImportTagChecks, importTagsBody, OvImportDrop, useImportTagChoice } from "./ImportTagChecks";
 import { Spinner } from "../ui/Spinner";
+import { describeLorebookImport, type LorebookImportNote } from "../../lib/st-import-report";
 
 interface Props {
   open: boolean;
@@ -62,14 +63,23 @@ export function ImportLorebookModal({ open, onClose }: Props) {
               },
             };
 
-        const data = await api.post<{ success: boolean; error?: string }>(endpoint, {
+        const data = await api.post<{
+          success: boolean;
+          error?: string;
+          entriesImported?: number;
+          notes?: LorebookImportNote[];
+        }>(endpoint, {
           ...payload,
           ...importTagsBody(importTags.choice),
         });
+        // How many entries came in, and any SillyTavern placement moved to the closest one here.
+        const lines = data.success ? describeLorebookImport(data, localizeUi) : [];
         nextResults.push({
           filename: file.name,
           success: data.success,
-          message: data.success ? "Imported lorebook" : (data.error ?? "Import failed"),
+          message: data.success
+            ? lines.join(" ") || localizeUi("ui.modals.importlorebook.imported")
+            : (data.error ?? "Import failed"),
         });
       } catch (error) {
         nextResults.push({

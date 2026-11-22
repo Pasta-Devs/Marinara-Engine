@@ -8,6 +8,8 @@ import { createHash, randomUUID } from "crypto";
 import { inflateSync } from "node:zlib";
 import type { DB } from "../../db/connection.js";
 import {
+  convertStRegexScripts,
+  countStRegexScriptsSkippedByPlacement,
   getExistingCharacterTagKeys,
   importSTCharacter,
   type STCharacterTagImportMode,
@@ -15,6 +17,7 @@ import {
 import { buildPersonaLookup, importSTChat, personaLookupKey, type STChatImportNote } from "./st-chat.importer.js";
 import { importSTPreset, type STPresetLeftOut } from "./st-prompt.importer.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
+import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { characters as charactersTable, chats as chatsTable } from "../../db/schema/index.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
@@ -206,11 +209,23 @@ export interface STBulkScanResult {
   dataDir?: string;
   characters: Array<STBulkScanItemBase & { format: string }>;
   chats: Array<STBulkScanItemBase & { characterName: string; folderName: string; chatName: string }>;
-  groupChats: Array<STBulkScanItemBase & { groupName: string; members: string[] }>;
-  presets: Array<STBulkScanItemBase & { isBuiltin?: boolean }>;
+  groupChats: Array<STBulkScanItemBase & { groupName: string; members: string[]; activationStrategy?: number | null }>;
+  /** samplersOnly: a Text Completion preset ("TextGen Settings"), which holds samplers and no prompts. */
+  presets: Array<STBulkScanItemBase & { isBuiltin?: boolean; samplersOnly?: boolean }>;
   lorebooks: STBulkScanItemBase[];
   backgrounds: STBulkScanItemBase[];
   personas: Array<STBulkScanItemBase & { description: string }>;
+  /** Global regex scripts from settings.json (extension_settings.regex); index is the script's place there. */
+  regexScripts?: Array<STBulkScanItemBase & { index: number }>;
+  /** What the folder holds that Marinara has no matching feature for, counted so the import can say so. */
+  notBroughtOver?: STNotBroughtOver;
+}
+
+export interface STNotBroughtOver {
+  quickReplies: number;
+  instruct: number;
+  context: number;
+  systemPrompts: number;
 }
 
 export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> {
@@ -333,6 +348,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   // 3. Presets — JSON files in TextGen Settings/ and OpenAI Settings/
   for (const folder of ["TextGen Settings", "OpenAI Settings", "textgen settings", "openai settings"]) {
     const presetDir = join(dataDir, folder);
+    const samplersOnly = folder.toLowerCase() === "textgen settings";
     const files = await listFiles(presetDir, ".json");
     for (const f of files) {
       try {
@@ -345,6 +361,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
           name: String(name),
           modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
           ...(isConfidentBuiltinPreset(f) ? { isBuiltin: true } : {}),
+          ...(samplersOnly ? { samplersOnly: true } : {}),
         });
       } catch {
         // skip
@@ -401,7 +418,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   if (existsSync(groupsDir)) {
     // SillyTavern stores group chats as flat `<chatId>.jsonl` files and
     // associates them through each group's `chats` array.
-    const groupMetaMap = new Map<string, { name: string; members: string[] }>();
+    const groupMetaMap = new Map<string, { name: string; members: string[]; activationStrategy: number | null }>();
     const groupFiles = await listFiles(groupsDir, ".json");
     for (const f of groupFiles) {
       try {
@@ -414,7 +431,9 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
               .filter((member: unknown): member is string => typeof member === "string")
               .map((member: string) => member.replace(/\.(png|json)$/i, ""))
           : [];
-        const metadata = { name: String(gName), members };
+        // 0 natural, 1 list, 2 manual, 3 pooled: who answers next in SillyTavern.
+        const activationStrategy = typeof raw.activation_strategy === "number" ? raw.activation_strategy : null;
+        const metadata = { name: String(gName), members, activationStrategy };
         const chatIds = new Set<unknown>([gId, raw.chat_id, ...(Array.isArray(raw.chats) ? raw.chats : [])]);
         for (const chatId of chatIds) {
           if ((typeof chatId === "string" || typeof chatId === "number") && String(chatId).trim()) {
@@ -440,6 +459,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
             name: meta.name,
             groupName: meta.name,
             members: meta.members,
+            activationStrategy: meta.activationStrategy,
             modifiedAt: null,
           });
           continue;
@@ -459,6 +479,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
             name: meta.name,
             groupName: meta.name,
             members: meta.members,
+            activationStrategy: meta.activationStrategy,
             modifiedAt: parseTrustedTimestamp(fileInfo.mtime),
           });
         }
@@ -471,12 +492,27 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   // and descriptions in power_user.persona_descriptions within settings.json
   let stPersonaNames: Record<string, string> = {};
   let stPersonaDescs: Record<string, { description?: string } | string> = {};
+  const regexScripts: NonNullable<STBulkScanResult["regexScripts"]> = [];
   const settingsPath = join(dataDir, "settings.json");
   if (existsSync(settingsPath)) {
     try {
       const settings = JSON.parse(await readFile(settingsPath, "utf-8"));
       stPersonaNames = settings?.power_user?.personas ?? {};
       stPersonaDescs = settings?.power_user?.persona_descriptions ?? {};
+      // 8. Global regex scripts (SillyTavern's Regex extension, "Global scripts").
+      const globalRegex = readSettingsRegexScripts(settings);
+      const modifiedAt = parseTrustedTimestamp((await stat(settingsPath)).mtime);
+      for (const [index, script] of globalRegex.entries()) {
+        if (!script || typeof script !== "object") continue;
+        const name = (script as Record<string, unknown>).scriptName;
+        regexScripts.push({
+          id: makeScanItemId("regexScripts", dataDir, `${settingsPath}#${index}`),
+          path: settingsPath,
+          name: typeof name === "string" && name.trim() ? name.trim() : `Regex ${index + 1}`,
+          index,
+          modifiedAt,
+        });
+      }
     } catch {
       // skip – import avatars with filename-based names
     }
@@ -511,7 +547,39 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     break;
   }
 
-  return { success: true, dataDir, characters, chats, groupChats, presets, lorebooks, backgrounds, personas };
+  // 9. What has no matching feature here: counted, so the import can name it instead of staying quiet.
+  const countJson = async (...folders: string[]) => {
+    for (const folder of folders) {
+      const dir = join(dataDir, folder);
+      if (existsSync(dir)) return (await listFiles(dir, ".json")).length;
+    }
+    return 0;
+  };
+  const notBroughtOver: STNotBroughtOver = {
+    quickReplies: await countJson("QuickReplies", "quickreplies"),
+    instruct: await countJson("instruct", "Instruct"),
+    context: await countJson("context", "Context"),
+    systemPrompts: await countJson("sysprompt", "Sysprompt"),
+  };
+
+  return {
+    success: true,
+    dataDir,
+    characters,
+    chats,
+    groupChats,
+    presets,
+    lorebooks,
+    backgrounds,
+    personas,
+    regexScripts,
+    notBroughtOver,
+  };
+}
+
+function readSettingsRegexScripts(settings: unknown): unknown[] {
+  const extensionSettings = (settings as { extension_settings?: { regex?: unknown } } | null)?.extension_settings;
+  return Array.isArray(extensionSettings?.regex) ? extensionSettings.regex : [];
 }
 
 // ─── Bulk Import ───
@@ -526,6 +594,8 @@ export interface STBulkImportOptions {
   lorebooks: STBulkImportSelection;
   backgrounds: STBulkImportSelection;
   personas: STBulkImportSelection;
+  /** Global regex scripts from settings.json. */
+  regexScripts?: STBulkImportSelection;
   characterTagImportMode?: STCharacterTagImportMode;
   regexScriptScope?: "character" | "global";
   /** Import each card's embedded lorebook (on unless false). */
@@ -552,6 +622,7 @@ export interface STBulkImportResult {
     lorebooks: number;
     backgrounds: number;
     personas: number;
+    regexScripts?: number;
   };
   /** Left out because this Engine already had them (skipAlreadyImported). */
   skipped?: { characters: number; chats: number; groupChats: number };
@@ -571,6 +642,20 @@ export interface STBulkImportReport {
   personasLinked: number;
   /** SillyTavern user names with no persona of that name here (up to 20). */
   missingPersonas: string[];
+  /** Messages SillyTavern hid from the AI; they stay hidden. */
+  hiddenMessages: number;
+  /** Group chats set to Individual mode, as SillyTavern's groups answer. */
+  groupChatsIndividual: number;
+  /** Lorebook entries placed around SillyTavern's Author's Note, now at depth 4. */
+  lorebookEntriesMovedFromAuthorsNote: number;
+  /** Lorebook entries placed around SillyTavern's example messages, now after the character definitions. */
+  lorebookEntriesMovedFromExamples: number;
+  /** Regex scripts that run only on slash commands, World Info or reasoning, which have no regex here. */
+  regexSkipped: number;
+  /** Text Completion presets imported (samplers only). */
+  samplersOnlyPresets: number;
+  /** In the folder, with no matching feature here. */
+  notBroughtOver: STNotBroughtOver;
   /** Presets that brought sampler settings along. */
   presetsWithSettings: number;
   /** Preset settings with no place in a Marinara preset. */
@@ -584,6 +669,13 @@ function emptyBulkImportReport(): STBulkImportReport {
     authorsNotesOff: 0,
     personasLinked: 0,
     missingPersonas: [],
+    hiddenMessages: 0,
+    groupChatsIndividual: 0,
+    lorebookEntriesMovedFromAuthorsNote: 0,
+    lorebookEntriesMovedFromExamples: 0,
+    regexSkipped: 0,
+    samplersOnlyPresets: 0,
+    notBroughtOver: { quickReplies: 0, instruct: 0, context: 0, systemPrompts: 0 },
     presetsWithSettings: 0,
     presetSettingsLeftOut: [],
   };
@@ -691,7 +783,15 @@ export async function runSTBulkImport(
     };
   }
 
-  const imported = { characters: 0, chats: 0, groupChats: 0, presets: 0, lorebooks: 0, backgrounds: 0, personas: 0 };
+  const imported: STBulkImportResult["imported"] = {
+    characters: 0,
+    chats: 0,
+    groupChats: 0,
+    presets: 0,
+    lorebooks: 0,
+    backgrounds: 0,
+    personas: 0,
+  };
   const errors: string[] = [];
   const selectedCharacters = resolveSelectedItems(scanResult.characters, options.characters);
   const selectedChats = resolveSelectedItems(scanResult.chats, options.chats);
@@ -718,6 +818,16 @@ export async function runSTBulkImport(
       else if (note.kind === "authorsNoteOff") report.authorsNotesOff++;
       else if (note.kind === "persona") report.personasLinked++;
       else if (note.kind === "personaMissing") missingPersonas.add(note.name);
+      else if (note.kind === "hiddenMessages") report.hiddenMessages += note.count;
+      else if (note.kind === "groupIndividual") report.groupChatsIndividual++;
+    }
+  };
+  const noteCharacterImport = (result: Awaited<ReturnType<typeof importSTCharacter>>) => {
+    if (!result || !("regexSkipped" in result)) return;
+    report.regexSkipped += result.regexSkipped ?? 0;
+    for (const note of result.lorebook?.notes ?? []) {
+      if (note.from === "authorsNote") report.lorebookEntriesMovedFromAuthorsNote += note.count;
+      else report.lorebookEntriesMovedFromExamples += note.count;
     }
   };
   let chatsWritten = 0;
@@ -763,15 +873,17 @@ export async function runSTBulkImport(
             const b64 = buf.toString("base64");
             const dataUrl = `data:image/png;base64,${b64}`;
             (card as Record<string, unknown>)._avatarDataUrl = dataUrl;
-            await importSTCharacter(card as Record<string, unknown>, db, {
-              timestampOverrides,
-              tagImportMode,
-              existingTagKeys,
-              regexScriptScope,
-              importTags,
-              importEmbeddedLorebook,
-              hideEmbeddedLorebook,
-            });
+            noteCharacterImport(
+              await importSTCharacter(card as Record<string, unknown>, db, {
+                timestampOverrides,
+                tagImportMode,
+                existingTagKeys,
+                regexScriptScope,
+                importTags,
+                importEmbeddedLorebook,
+                hideEmbeddedLorebook,
+              }),
+            );
             imported.characters++;
           }
         } else {
@@ -780,15 +892,17 @@ export async function runSTBulkImport(
             skipped.characters++;
             continue;
           }
-          await importSTCharacter(raw, db, {
-            timestampOverrides,
-            tagImportMode,
-            existingTagKeys,
-            regexScriptScope,
-            importTags,
-            importEmbeddedLorebook,
-            hideEmbeddedLorebook,
-          });
+          noteCharacterImport(
+            await importSTCharacter(raw, db, {
+              timestampOverrides,
+              tagImportMode,
+              existingTagKeys,
+              regexScriptScope,
+              importTags,
+              importEmbeddedLorebook,
+              hideEmbeddedLorebook,
+            }),
+          );
           imported.characters++;
         }
       } catch (err) {
@@ -985,7 +1099,10 @@ export async function runSTBulkImport(
         const chatResult = await importSTChat(content, db, {
           personaLookup,
           chatName: gc.groupName,
+          // Each file shows under its own name, as character chats do (the group name stays the chat's name).
+          branchName: basename(gc.path, ".jsonl"),
           speakerMap,
+          stGroupActivationStrategy: gc.activationStrategy ?? null,
           mode: "roleplay",
           groupId: gcGroupIds.get(groupKey)!,
           sourceFingerprint: fingerprint,
@@ -1016,6 +1133,8 @@ export async function runSTBulkImport(
           importTags,
         });
         if ((presetResult.parametersImported?.length ?? 0) > 0) report.presetsWithSettings++;
+        if (pr.samplersOnly) report.samplersOnlyPresets++;
+        report.regexSkipped += presetResult.regexSkipped ?? 0;
         for (const key of presetResult.parametersLeftOut ?? []) presetLeftOut.add(key);
         imported.presets++;
       } catch (err) {
@@ -1034,11 +1153,15 @@ export async function runSTBulkImport(
       try {
         const raw = JSON.parse(await readFile(lb.path, "utf-8"));
         const fileInfo = await stat(lb.path);
-        await importSTLorebook(raw, db, {
+        const lorebookResult = await importSTLorebook(raw, db, {
           fallbackName: lb.name,
           timestampOverrides: getFileTimestampOverrides(fileInfo),
           importTags,
         });
+        for (const note of lorebookResult.notes) {
+          if (note.from === "authorsNote") report.lorebookEntriesMovedFromAuthorsNote += note.count;
+          else report.lorebookEntriesMovedFromExamples += note.count;
+        }
         imported.lorebooks++;
       } catch (err) {
         errors.push(`Lorebook "${lb.name}": ${(err as Error).message}`);
@@ -1068,6 +1191,33 @@ export async function runSTBulkImport(
     }
   }
 
+  // Global regex scripts from settings.json, after every script already here in run order.
+  const selectedRegex = resolveSelectedItems(scanResult.regexScripts ?? [], options.regexScripts);
+  if (selectedRegex.length > 0) {
+    onProgress?.({ category: "Regex scripts", item: "settings.json", current: 1, total: 1, imported });
+    try {
+      const settings = JSON.parse(await readFile(selectedRegex[0]!.path, "utf-8"));
+      const all = readSettingsRegexScripts(settings);
+      const picked = selectedRegex.map((item) => all[item.index]).filter((script) => script !== undefined);
+      report.regexSkipped += countStRegexScriptsSkippedByPlacement(picked);
+      const regexStorage = createRegexScriptsStorage(db);
+      const existing = await regexStorage.list();
+      const orderBase = existing.reduce((maximum, script) => Math.max(maximum, script.order), -1) + 1;
+      imported.regexScripts = 0;
+      for (const input of convertStRegexScripts(picked, {}, orderBase)) {
+        try {
+          await regexStorage.create(input);
+          imported.regexScripts++;
+        } catch (err) {
+          errors.push(`Regex script "${input.name}": ${(err as Error).message}`);
+        }
+      }
+    } catch (err) {
+      errors.push(`Regex scripts: ${(err as Error).message}`);
+    }
+  }
+
+  if (scanResult.notBroughtOver) report.notBroughtOver = scanResult.notBroughtOver;
   report.missingPersonas = [...missingPersonas].slice(0, MAX_REPORTED_MISSING_PERSONAS);
   report.presetSettingsLeftOut = [...presetLeftOut];
   return { success: true, imported, ...(skipAlreadyImported ? { skipped } : {}), report, errors };

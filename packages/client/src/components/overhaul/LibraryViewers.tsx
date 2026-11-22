@@ -37,6 +37,7 @@ import {
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { Toggle, flag, parseList, useRegexFolders, useRegexImport, useRegexKitActions } from "./LibraryTables";
+import { ImportRegexModal } from "../modals/ImportRegexModal";
 import { insertLibraryItems } from "../../lib/library-order";
 import { builtInFirst, DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
 import { ConnectionAccountEditor } from "../connections/ConnectionAccountEditor";
@@ -483,7 +484,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
   const handleImport = useRegexImport();
   const selectedId = useUIStore((s) => s.regexDetailId);
   const openRegexDetail = useUIStore((s) => s.openRegexDetail);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
 
   const scripts = useMemo(
@@ -602,7 +603,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
       title={localize("Regex scripts")}
       meta={`${scripts.length} ${localize(scripts.length === 1 ? "script" : "scripts")} · ${enabledCount} ${localize("enabled")}`}
       tools={[
-        { label: localize("Import"), icon: Download, onClick: () => fileRef.current?.click() },
+        { label: localize("Import"), icon: Download, onClick: () => setImportOpen(true) },
         { label: localize("New folder"), icon: FolderPlus, onClick: regexFolders.manual.create, compact: true },
       ]}
       listLabel={localize("Scripts")}
@@ -619,17 +620,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
       emptyList={localize("No regex scripts yet.")}
       emptyDetail={localize("Pick a script on the left, or make a new one.")}
     >
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".json,application/json"
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (file) void handleImport(file);
-        }}
-      />
+      <ImportRegexModal open={importOpen} onClose={() => setImportOpen(false)} onImport={handleImport} />
       {regexFolders.fileInput}
       {children}
     </OvViewer>

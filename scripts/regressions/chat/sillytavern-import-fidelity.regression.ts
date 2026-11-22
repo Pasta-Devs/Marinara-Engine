@@ -16,6 +16,9 @@ import { runSTBulkImport } from "../../../packages/server/src/services/import/st
 import { createChatsStorage } from "../../../packages/server/src/services/storage/chats.storage.js";
 import { createCharactersStorage } from "../../../packages/server/src/services/storage/characters.storage.js";
 import { createPromptsStorage } from "../../../packages/server/src/services/storage/prompts.storage.js";
+import { importSTLorebook } from "../../../packages/server/src/services/import/st-lorebook.importer.js";
+import { createLorebooksStorage } from "../../../packages/server/src/services/storage/lorebooks.storage.js";
+import { createRegexScriptsStorage } from "../../../packages/server/src/services/storage/regex-scripts.storage.js";
 
 // ── SillyTavern's dates, read in local time like SillyTavern wrote them ──
 const local = (...parts: [number, number, number, number, number, number?]) =>
@@ -237,6 +240,183 @@ try {
   assert.equal(folderChat!.personaId, robin!.id, "linked through SillyTavern's persona lock");
   const folderMessages = await chats.listMessages(folderChat!.id);
   assert.equal(folderMessages[0]!.createdAt, local(2025, 2, 1, 12, 0), "folder imports keep ST's dates too");
+
+  // ── Round 2: hidden messages stay hidden, and keep their speaker ──
+  const hidden = await importSTChat(
+    jsonl({ user_name: "Sam", character_name: "Alice" }, [
+      { name: "Alice", is_user: false, mes: "Seen." },
+      { name: "Alice", is_user: false, is_system: true, mes: "Hidden reply." },
+      { name: "Sam", is_user: true, is_system: true, mes: "Hidden note." },
+      // A Marinara export writes the role; is_system there is a real system message.
+      { name: "System", is_user: false, is_system: true, role: "system", mes: "Exported system line." },
+    ]),
+    db,
+    {},
+  );
+  assert.ok("chatId" in hidden && hidden.chatId);
+  const hiddenMessages = await chats.listMessages(hidden.chatId!);
+  const extraOf = (message: { extra?: unknown }) =>
+    (typeof message.extra === "string" ? JSON.parse(message.extra) : (message.extra ?? {})) as Record<string, unknown>;
+  assert.equal(hiddenMessages[1]!.role, "assistant", "a hidden AI reply stays the character's");
+  assert.equal(extraOf(hiddenMessages[1]!).hiddenFromAI, true);
+  assert.equal(hiddenMessages[2]!.role, "user", "a hidden user message stays the user's");
+  assert.equal(extraOf(hiddenMessages[2]!).hiddenFromAI, true);
+  assert.equal(hiddenMessages[3]!.role, "system", "an exported system message keeps its role");
+  assert.notEqual(extraOf(hiddenMessages[3]!).hiddenFromAI, true);
+  assert.ok(hidden.importNotes?.some((note) => note.kind === "hiddenMessages" && note.count === 2));
+
+  // ── Round 2: the file's own mode wins; a plain log never becomes a game ──
+  const asGame = await importSTChat(jsonl({ character_name: "Alice" }, sampleMessages), db, { modeFallback: "game" });
+  assert.equal("mode" in asGame && asGame.mode, "roleplay", "the Game tab can't make a game of a plain log");
+  const asConversation = await importSTChat(jsonl({ character_name: "Alice" }, sampleMessages), db, {
+    modeFallback: "conversation",
+  });
+  assert.equal("mode" in asConversation && asConversation.mode, "conversation", "the picked type applies");
+  const ownMode = await importSTChat(
+    jsonl({ character_name: "Alice", chat_metadata: { mode: "conversation" } }, sampleMessages),
+    db,
+    { modeFallback: "roleplay" },
+  );
+  assert.equal("mode" in ownMode && ownMode.mode, "conversation", "a file that names its mode keeps it");
+
+  // ── Round 2: a SillyTavern group answers one member at a time: Individual, in ST's order ──
+  const group = await importSTChat(jsonl({ character_name: "Group" }, sampleMessages), db, {
+    speakerMap: { Alice: "alice-id", Bob: "bob-id" },
+    stGroupActivationStrategy: 1,
+  });
+  assert.ok("chatId" in group && group.chatId);
+  const groupMeta = await metadataOf(group.chatId!);
+  assert.equal(groupMeta.groupChatMode, "individual");
+  assert.equal(groupMeta.groupResponseOrder, "sequential", "ST's list order goes in turn");
+  assert.ok(group.importNotes?.some((note) => note.kind === "groupIndividual"));
+
+  // ── Round 2: a SillyTavern preset keeps its shape and names what it can't keep ──
+  const shaped = await importSTPreset(
+    {
+      name: "Shaped",
+      assistant_prefill: "Sure,",
+      squash_system_messages: false,
+      impersonation_prompt: "[Write as {{user}}, tersely.]",
+      new_chat_prompt: "[Start a new Chat]",
+      names_behavior: 2,
+      wi_format: "[World: {0}]",
+      prompts: [
+        { identifier: "chatHistory", name: "Chat History", marker: true },
+        { identifier: "jailbreak", name: "Post-History Instructions", role: "system", content: "Stay in character." },
+      ],
+      prompt_order: [
+        {
+          character_id: 100001,
+          order: [
+            { identifier: "chatHistory", enabled: true },
+            { identifier: "jailbreak", enabled: true },
+          ],
+        },
+      ],
+    },
+    db,
+  );
+  assert.ok("presetId" in shaped && shaped.presetId);
+  const shapedRow = await createPromptsStorage(db).getById(shaped.presetId!);
+  assert.equal(shapedRow?.wrapFormat, "none", "SillyTavern sends plain text, no section tags");
+  const shapedParameters = JSON.parse(String(shapedRow?.parameters ?? "{}")) as Record<string, unknown>;
+  assert.equal(shapedParameters.assistantPrefill, "Sure,");
+  assert.equal(shapedParameters.squashSystemMessages, false);
+  assert.deepEqual(
+    new Set(shaped.parametersLeftOut),
+    new Set(["impersonationPrompt", "namesBehavior", "formatTemplates"]),
+    "a default new-chat prompt is not worth naming",
+  );
+  const shapedSections = await createPromptsStorage(db).listSections(shaped.presetId!);
+  const postHistory = shapedSections.find((section) => section.identifier === "jailbreak");
+  assert.equal(postHistory?.role, "system", "Post-History keeps the file's role");
+  assert.equal(postHistory?.injectionPosition, "depth");
+
+  // ── Round 2: World Info positions, recursion and tags ──
+  const book = await importSTLorebook(
+    {
+      name: "Saltmarsh",
+      entries: {
+        0: {
+          uid: 0,
+          key: ["smuggler"],
+          comment: "Smugglers",
+          content: "x",
+          position: 2,
+          order: 100,
+          depth: 1,
+          role: 1,
+        },
+        1: { uid: 1, key: ["tide"], comment: "Tides", content: "x", position: 3, order: 100 },
+        2: { uid: 2, key: ["example"], comment: "Example voice", content: "x", position: 5 },
+        3: { uid: 3, key: ["Lighthouse"], comment: "Lighthouse", content: "An old house by the sea.", position: 0 },
+        4: { uid: 4, key: ["guild"], comment: "Thieves' Guild", content: "x", position: 0, preventRecursion: true },
+      },
+    },
+    db,
+  );
+  assert.deepEqual(book.notes, [
+    { kind: "positionMoved", from: "authorsNote", count: 2 },
+    { kind: "positionMoved", from: "exampleMessages", count: 1 },
+  ]);
+  const entries = (await createLorebooksStorage(db).listEntries(book.lorebookId)) as unknown as Array<
+    Record<string, unknown>
+  >;
+  const entry = (name: string) => entries.find((candidate) => candidate.name === name)!;
+  assert.equal(entry("Smugglers").position, 2, "Before Author's Note goes in at depth");
+  assert.equal(entry("Smugglers").depth, 4, "at depth 4, where SillyTavern puts the note");
+  assert.equal(entry("Smugglers").role, "system");
+  assert.equal(entry("Tides").order, 101, "After Author's Note lands just behind Before");
+  assert.equal(entry("Example voice").position, 1, "around the examples: after the character definitions");
+  assert.equal(entry("Lighthouse").tag, "", "no faction guess from 'house' inside a word or the content");
+  assert.equal(entry("Thieves' Guild").tag, "faction");
+  assert.equal(Boolean(entry("Lighthouse").preventRecursion), false, "absent recursion stays off, as in ST");
+  assert.equal(Boolean(entry("Thieves' Guild").preventRecursion), true);
+
+  // ── Round 2: the folder brings global regex and names what has no counterpart ──
+  const dataDir2 = join(scratch, "ST2", "data", "default-user");
+  await mkdir(join(dataDir2, "QuickReplies"), { recursive: true });
+  await mkdir(join(dataDir2, "instruct"), { recursive: true });
+  await writeFile(join(dataDir2, "QuickReplies", "Set.json"), "{}");
+  await writeFile(join(dataDir2, "instruct", "ChatML.json"), "{}");
+  await mkdir(join(dataDir2, "characters"), { recursive: true });
+  await writeFile(
+    join(dataDir2, "settings.json"),
+    JSON.stringify({
+      extension_settings: {
+        regex: [
+          {
+            scriptName: "Strip OOC",
+            findRegex: "/\\(OOC:[^)]*\\)/g",
+            replaceString: "",
+            trimStrings: [" "],
+            placement: [2],
+          },
+          { scriptName: "Lore only", findRegex: "/x/g", replaceString: "", placement: [5] },
+        ],
+      },
+    }),
+  );
+  const folder2 = await runSTBulkImport(
+    join(scratch, "ST2"),
+    {
+      characters: true,
+      chats: true,
+      groupChats: true,
+      presets: true,
+      lorebooks: true,
+      backgrounds: true,
+      personas: true,
+      regexScripts: true,
+    },
+    db,
+  );
+  assert.equal(folder2.success, true, JSON.stringify(folder2));
+  assert.equal(folder2.imported.regexScripts, 1);
+  assert.equal(folder2.report?.regexSkipped, 1, "the World Info-only script is named, not dropped quietly");
+  assert.deepEqual(folder2.report?.notBroughtOver, { quickReplies: 1, instruct: 1, context: 0, systemPrompts: 0 });
+  const stripOoc = (await createRegexScriptsStorage(db).list()).find((script) => script.name === "Strip OOC");
+  assert.equal(stripOoc?.trimScope, "match", "SillyTavern scripts trim only the matched text");
 
   console.log("sillytavern import fidelity: OK");
 } finally {
