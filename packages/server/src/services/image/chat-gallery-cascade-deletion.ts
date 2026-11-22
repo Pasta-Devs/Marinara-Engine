@@ -2,14 +2,16 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
 import type { DB } from "../../db/connection.js";
-import { eq } from "../../db/file-query.js";
-import { chatImages } from "../../db/schema/index.js";
 import { logger } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { createCharacterGalleryStorage } from "../storage/character-gallery.storage.js";
 import { createGalleryStorage } from "../storage/gallery.storage.js";
 import { createPersonaGalleryStorage } from "../storage/persona-gallery.storage.js";
-import { resolveStoredGalleryFile, unlinkGalleryFileIfUnreferenced } from "./gallery-file-lifecycle.js";
+import {
+  chatImagesReferenceFile,
+  resolveStoredGalleryFile,
+  unlinkGalleryFileIfUnreferenced,
+} from "./gallery-file-lifecycle.js";
 
 const LEGACY_COPY_CREATION_WINDOW_MS = 60_000;
 
@@ -151,11 +153,7 @@ export async function prepareChatGalleryImageDeletion(input: {
   const personaGallery = createPersonaGalleryStorage(input.db);
   // A branch reuses these bytes. Legacy copies have no source ID, so a metadata/hash
   // match cannot establish that they belong to the row being deleted.
-  const otherChatReferences = await input.db
-    .select({ chatId: chatImages.chatId })
-    .from(chatImages)
-    .where(eq(chatImages.filePath, input.image.filePath));
-  const legacyWindow = otherChatReferences.some((row) => row.chatId !== input.image.chatId)
+  const legacyWindow = (await chatImagesReferenceFile(input.db, input.image.filePath, input.image.chatId))
     ? null
     : legacyCandidateWindow(input.image);
   const [linkedCharacterCopies, linkedPersonaCopies, legacyCharacterImages, legacyPersonaImages] = await Promise.all([

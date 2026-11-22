@@ -147,7 +147,7 @@ export function deleteChatImageVersions(
     const selected =
       survivors.find((row) => row.id === (scope === "others" ? imageId : stack.selected.id)) ??
       survivors[survivors.length - 1];
-    const plans = [];
+    const plans: Awaited<ReturnType<typeof prepareChatGalleryImageDeletion>>[] = [];
     for (const image of removed) plans.push(await prepareChatGalleryImageDeletion({ db, image }));
     await withChatMessagePatchTransaction(db, chatId, async (tx) => {
       if (selected) await selectVersionInTransaction(tx, chatId, selected.id);
@@ -202,7 +202,8 @@ export async function copyChatImageVersionsForBranch(
       }
       for (const attachment of attachments) {
         const image = copied.get(String(attachment.galleryId));
-        if (image) Object.assign(attachment, { galleryId: image.id, url: chatImageVariantUrl(image) });
+        if (image)
+          Object.assign(attachment, { galleryId: image.id, url: chatImageVariantUrl(image), prompt: image.prompt });
       }
     }),
   );

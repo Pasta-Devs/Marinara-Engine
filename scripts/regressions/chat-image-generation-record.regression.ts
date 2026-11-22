@@ -1242,13 +1242,16 @@ try {
   assert.equal(wrongOwner.statusCode, 404, wrongOwner.body);
   const { copyChatImageVersionsForBranch, selectChatImageVersion, deleteChatImageVersions } =
     await import("../../packages/server/src/services/image/chat-image-variants.js");
-  const branchExtra = { attachments: [{ type: "image", galleryId: versionSource.id, url: "source URL" }] };
+  const branchExtra = {
+    attachments: [{ type: "image", galleryId: versionSource.id, url: "source URL", prompt: "stale prompt" }],
+  };
   await selectChatImageVersion(db, chat.id, v3.id);
   await copyChatImageVersionsForBranch(db, chat.id, otherVersionChat!.id, [branchExtra]);
   const branchRows = await gallery.listByChatId(otherVersionChat!.id);
   assert.equal(branchRows.length, 3, "a copied attachment brings the entire stack");
   assert.notEqual(branchExtra.attachments[0]!.galleryId, versionSource.id);
   assert.equal(groupChatImageVariants(branchRows)[0]!.selected.id, branchExtra.attachments[0]!.galleryId);
+  assert.equal(branchExtra.attachments[0]!.prompt, versionSource.prompt);
   const branchV2 = branchRows.find((row) => row.filePath === v2.filePath)!;
   assert.ok(branchV2);
   await selectChatImageVersion(db, otherVersionChat!.id, branchV2.id);

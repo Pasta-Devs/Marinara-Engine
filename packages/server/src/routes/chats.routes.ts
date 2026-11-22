@@ -5693,14 +5693,29 @@ export async function chatsRoutes(app: FastifyInstance) {
     });
 
     if (!newChat) return reply.status(500).send({ error: "Failed to create branch" });
+    const cleanupIncompleteBranch = async () => {
+      try {
+        await storage.remove(newChat.id);
+      } catch (cleanupErr) {
+        logger.error(cleanupErr, "Failed to remove incomplete chat branch after copy failed");
+      }
+      if (!sourceChat.groupId) {
+        try {
+          const remainingGroupChats = await storage.listByGroup(groupId);
+          if (remainingGroupChats.every((chat) => chat.id === sourceChat.id)) {
+            await storage.update(sourceChat.id, { groupId: null });
+          }
+        } catch (restoreErr) {
+          logger.error(restoreErr, "Failed to restore source chat grouping after branch copy failed");
+        }
+      }
+    };
     // A branched game plays in the same world: its snapshot comes with it (worldgen W11). A branch that
     // cannot take it is not left behind without its world.
     try {
       await createGameWorldSnapshotsStorage(app.db).copy(sourceChat.id, newChat.id);
     } catch (err) {
-      await storage.remove(newChat.id).catch((cleanup: unknown) => {
-        logger.error(cleanup, "Could not remove branch %s after its world snapshot failed", newChat.id);
-      });
+      await cleanupIncompleteBranch();
       throw err;
     }
 
@@ -5861,9 +5876,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           .filter((extra): extra is Record<string, unknown> => !!extra && typeof extra === "object"),
       );
     } catch (error) {
-      await storage.remove(newChat.id).catch((cleanup: unknown) => {
-        logger.error(cleanup, "Could not remove branch %s after its image copy failed", newChat.id);
-      });
+      await cleanupIncompleteBranch();
       throw error;
     }
     const branchedMessageIds = await storage.createMessagesBatch(newChat.id, copiedMessageInputs);
@@ -6140,21 +6153,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       // was taken, handing the same ordinal to two rows in one counter space.
       await storage.raiseWriteOrdinalFloor(newChat.id, maxCopiedWriteOrdinal);
     } catch (err) {
-      try {
-        await storage.remove(newChat.id);
-      } catch (cleanupErr) {
-        logger.error(cleanupErr, "Failed to remove incomplete chat branch after state copy failed");
-      }
-      if (!sourceChat.groupId) {
-        try {
-          const remainingGroupChats = await storage.listByGroup(groupId);
-          if (remainingGroupChats.every((chat) => chat.id === sourceChat.id)) {
-            await storage.update(sourceChat.id, { groupId: null });
-          }
-        } catch (restoreErr) {
-          logger.error(restoreErr, "Failed to restore source chat grouping after branch copy failed");
-        }
-      }
+      await cleanupIncompleteBranch();
       throw err;
     }
 

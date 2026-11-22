@@ -264,7 +264,7 @@ try {
 
   const branchImage = await chatGallery.create({
     chatId: "branch-chat",
-    filePath: sourceRelativePath,
+    filePath: sourceRelativePath.replace(/\//g, "\\"),
     ...sourceMetadata,
   });
   assert.ok(branchImage);
@@ -315,6 +315,26 @@ try {
     true,
     "an unsafe stored path must never delete a file outside the gallery root",
   );
+  const duplicateFilePath = "shared/same-version-bytes.png";
+  const duplicateFile = writeGalleryFile(duplicateFilePath, "same-version-bytes");
+  const firstVersion = (await chatGallery.create({
+    chatId: "duplicate-chat",
+    filePath: duplicateFilePath,
+    prompt: "first",
+  }))!;
+  const secondVersion = (await chatGallery.create({
+    chatId: "duplicate-chat",
+    filePath: duplicateFilePath,
+    prompt: "second",
+  }))!;
+  await deleteChatGalleryImageEverywhere({ db, image: firstVersion, galleryRoot });
+  assert.ok(
+    await chatGallery.getById(secondVersion.id),
+    "deleting one version cannot remove another row sharing its bytes",
+  );
+  assert.ok(existsSync(duplicateFile));
+  await deleteChatGalleryImageEverywhere({ db, image: secondVersion, galleryRoot });
+  assert.equal(existsSync(duplicateFile), false);
 } finally {
   await db._fileStore.close();
   if (previousStorageRoot === undefined) delete process.env.FILE_STORAGE_DIR;

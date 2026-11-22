@@ -186,6 +186,51 @@ try {
     groupChatImageVariants(copiedImages)[0]!.selected.id,
   );
 
+  const failedSource = (await chats.create({ name: "Failed image branch", mode: "roleplay", characterIds: [] }))!;
+  const failedImage = (await gallery.create({
+    chatId: failedSource.id,
+    filePath: "shared/failed-branch.png",
+    prompt: "preserve source",
+  }))!;
+  await chats.createMessage({
+    chatId: failedSource.id,
+    role: "assistant",
+    content: "Keep this picture",
+    extra: { attachments: [{ type: "image", galleryId: failedImage.id, url: "/failed-branch.png" }] },
+  });
+  const realTransaction = db.transaction.bind(db);
+  let imageCopyAttempts = 0;
+  db.transaction = ((fn: Parameters<typeof realTransaction>[0]) =>
+    realTransaction(async (tx) => {
+      const originalInsert = tx.insert;
+      tx.insert = ((table: Parameters<typeof tx.insert>[0]) => {
+        if (table === chatImages) {
+          imageCopyAttempts++;
+          throw new Error("simulated branch image copy failure");
+        }
+        return originalInsert.call(tx, table);
+      }) as typeof tx.insert;
+      try {
+        return await fn(tx);
+      } finally {
+        tx.insert = originalInsert;
+      }
+    })) as typeof db.transaction;
+  try {
+    const failedBranch = await app.inject({ method: "POST", url: `/api/chats/${failedSource.id}/branch`, payload: {} });
+    assert.equal(failedBranch.statusCode, 500, failedBranch.body);
+  } finally {
+    db.transaction = realTransaction as typeof db.transaction;
+  }
+  assert.equal(imageCopyAttempts, 1);
+  assert.equal((await chats.getById(failedSource.id))!.groupId, null, "failed copying restores an ungrouped source");
+  assert.equal(
+    (await chats.list()).filter((row) => row.name === failedSource.name).length,
+    1,
+    "no failed branch remains",
+  );
+  assert.ok(await gallery.getById(failedImage.id, failedSource.id));
+
   // ── A long chat takes a few swipe reads, not one per message ──
   // A bound well below the message count keeps an unrelated read from failing the check.
   const swipeReads = async (run: () => Promise<unknown>) => {
