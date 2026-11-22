@@ -22,7 +22,7 @@ function SavedPrompt({ label, value }: { label: string; value?: string | null })
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-semibold text-[var(--foreground)]">{label}</div>
+        <div className="img-panel__label text-xs font-semibold text-[var(--foreground)]">{label}</div>
         <button
           type="button"
           aria-label={copyLabel}
@@ -35,12 +35,12 @@ function SavedPrompt({ label, value }: { label: string; value?: string | null })
               else toast.error(t("ui.chat.chatgallery.couldNotCopyPrompt"));
             });
           }}
-          className="inline-flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+          className="img-panel__copy inline-flex size-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
         >
           <Copy size="1rem" aria-hidden />
         </button>
       </div>
-      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{value}</p>
+      <p className="img-panel__value whitespace-pre-wrap break-words text-sm leading-relaxed">{value}</p>
     </div>
   );
 }
@@ -62,7 +62,7 @@ export function ImagePromptPanel({
     <section
       aria-labelledby={headingId}
       className={cn(
-        "flex min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--sidebar)] text-left text-[var(--foreground)] shadow-2xl",
+        "img-panel flex min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--sidebar)] text-left text-[var(--foreground)] shadow-2xl",
         NEUTRAL_SURFACE_VARIABLES,
         className,
       )}
@@ -71,11 +71,11 @@ export function ImagePromptPanel({
     >
       <div
         className={cn(
-          "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
+          "img-panel__head flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
           !collapsed && "border-b border-[var(--border)]",
         )}
       >
-        <h2 id={headingId} className="min-w-0 truncate text-base font-semibold">
+        <h2 id={headingId} className="img-panel__title min-w-0 truncate text-base font-semibold">
           {t(hasPrompts ? "ui.agents.customagentrepositoriesmodal.prompt" : "ui.chat.imagepromptpanel.details")}
         </h2>
         <button
@@ -88,20 +88,22 @@ export function ImagePromptPanel({
           title={t(
             collapsed ? "ui.chat.imageregeneratepanel.expandPanel" : "ui.chat.imageregeneratepanel.collapsePanel",
           )}
-          className="inline-flex min-h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
+          className="img-panel__collapse inline-flex min-h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-[var(--ring)]"
         >
           {collapsed ? <ChevronUp size="1.125rem" aria-hidden /> : <ChevronDown size="1.125rem" aria-hidden />}
         </button>
       </div>
       {!collapsed && (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+        <div className="img-panel__body min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
           {hasPrompts && (
             <div className="space-y-3">
               <SavedPrompt label={t("ui.chat.imagepromptpanel.positivePrompt")} value={prompt} />
               <SavedPrompt label={t("ui.agents.agenteditor.negativePrompt")} value={negativePrompt} />
               {characterPrompts.length > 0 && (
-                <div className="space-y-2 border-t border-[var(--border)] pt-3">
-                  <h3 className="text-sm font-semibold">{t("ui.chat.imageregeneratepanel.characterPrompts")}</h3>
+                <div className="img-panel__group space-y-2 border-t border-[var(--border)] pt-3">
+                  <h3 className="img-panel__sub text-sm font-semibold">
+                    {t("ui.chat.imageregeneratepanel.characterPrompts")}
+                  </h3>
                   {characterPrompts.map((character, index) => (
                     <div key={`${character.name}-${index}`} className="space-y-2">
                       <SavedPrompt
@@ -121,7 +123,7 @@ export function ImagePromptPanel({
           {meta?.trim() && (
             <p
               className={cn(
-                "break-words text-xs text-[var(--muted-foreground)]",
+                "img-panel__meta break-words text-xs text-[var(--muted-foreground)]",
                 hasPrompts && "mt-3 border-t border-[var(--border)] pt-3",
               )}
             >

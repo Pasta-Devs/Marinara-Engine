@@ -13,6 +13,7 @@ import {
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import { Modal } from "./Modal";
 
 /** The round button every viewer toolbar and arrow uses (44px touch target). */
@@ -266,6 +267,10 @@ export function ImageViewer({
   closeButtonRef,
 }: ImageViewerProps) {
   const { t } = useTranslation();
+  // The overhaul's viewer: the picture beside a side panel shaped like Chat settings (title, tools and close on
+  // top, flat sections), or above it on phones. Without a caption the classic floating toolbar stays.
+  const overhaul = useOverhaulLook();
+  const side = overhaul && !!children;
   const ownCloseRef = useRef<HTMLButtonElement>(null);
   const closeRef = closeButtonRef ?? ownCloseRef;
   // Keyed by picture so a swap (gallery step, regenerate) never leaves the arrows stuck off.
@@ -306,6 +311,48 @@ export function ImageViewer({
 
   const arrowClass = cn(VIEWER_BUTTON_CLASS, "absolute top-1/2 z-10 -translate-y-1/2");
 
+  const closeButton = (
+    <button
+      type="button"
+      ref={closeRef}
+      onClick={onCloseButton ?? onClose}
+      disabled={closeDisabled}
+      aria-label={closeLabel ?? t("ui.chat.chatimagelightbox.closeImage")}
+      className={side ? "ov-viewer__close" : VIEWER_BUTTON_CLASS}
+    >
+      <X size={side ? "1.125rem" : "0.875rem"} />
+    </button>
+  );
+
+  const filmstrip = gallery && (
+    <div className="ov-viewer__strip flex shrink-0 justify-start gap-2 overflow-x-auto px-3 py-2 motion-safe:scroll-smooth sm:justify-center">
+      {items!.map((item, i) => (
+        <button
+          key={`${i}-${item.url}`}
+          type="button"
+          ref={i === index ? filmstripSelectedRef : undefined}
+          onClick={() => go(i)}
+          disabled={zoomed}
+          aria-label={t("ui.imageviewer.showImageValue1", { value1: i + 1 })}
+          aria-current={i === index ? "true" : undefined}
+          className={cn(
+            "size-12 shrink-0 overflow-hidden rounded-md opacity-70 outline-offset-2 transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]",
+            i === index && "opacity-100 ring-2 ring-white",
+          )}
+        >
+          <img
+            src={item.url}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="size-full object-cover"
+          />
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <Modal
       open
@@ -321,10 +368,14 @@ export function ImageViewer({
       closeDisabled={closeDisabled}
       initialFocusRef={closeRef}
       width="max-w-none"
-      panelClassName="sm:!h-full sm:!max-h-full !rounded-none !border-0 !bg-transparent ![box-shadow:none] !backdrop-blur-none"
-      contentClassName="!flex !flex-col !overflow-hidden !p-0"
+      panelClassName={cn(
+        "sm:!h-full sm:!max-h-full !rounded-none !border-0 !bg-transparent ![box-shadow:none] !backdrop-blur-none",
+        side && "ov-viewer-panel",
+      )}
+      // The overhaul grid sets its own display; an !important utility would outrank it (layered beats unlayered).
+      contentClassName={side ? "ov-viewer !overflow-hidden !p-0" : "!flex !flex-col !overflow-hidden !p-0"}
     >
-      <div className="relative min-h-0 flex-1">
+      <div className={cn("relative min-h-0 flex-1", side && "ov-viewer__stage")}>
         {media ? (
           <div
             className="flex size-full items-center justify-center p-2"
@@ -372,57 +423,39 @@ export function ImageViewer({
             </button>
           </>
         )}
-        <div className="absolute right-2 top-2 z-10 flex gap-2">
-          {actions}
-          <button
-            type="button"
-            ref={closeRef}
-            onClick={onCloseButton ?? onClose}
-            disabled={closeDisabled}
-            aria-label={closeLabel ?? t("ui.chat.chatimagelightbox.closeImage")}
-            className={VIEWER_BUTTON_CLASS}
-          >
-            <X size="0.875rem" />
-          </button>
-        </div>
+        {!side && (
+          <div className="absolute right-2 top-2 z-10 flex gap-2">
+            {actions}
+            {closeButton}
+          </div>
+        )}
       </div>
-      {children && (
-        <div
-          className={cn(
-            "mx-auto flex w-full max-w-3xl shrink-0 flex-col overflow-y-auto px-3 pb-2",
-            childrenMaxHeightClass ?? "max-h-[45dvh]",
-          )}
-        >
-          {children}
-        </div>
-      )}
-      {gallery && (
-        <div className="flex shrink-0 justify-start gap-2 overflow-x-auto px-3 py-2 motion-safe:scroll-smooth sm:justify-center">
-          {items!.map((item, i) => (
-            <button
-              key={`${i}-${item.url}`}
-              type="button"
-              ref={i === index ? filmstripSelectedRef : undefined}
-              onClick={() => go(i)}
-              disabled={zoomed}
-              aria-label={t("ui.imageviewer.showImageValue1", { value1: i + 1 })}
-              aria-current={i === index ? "true" : undefined}
+      {side ? (
+        <>
+          {filmstrip}
+          <header className="ov-viewer__head">
+            <h2 className="ov-viewer__title">{title}</h2>
+            <div className="ov-viewer__tools">
+              {actions}
+              {closeButton}
+            </div>
+          </header>
+          <div className="ov-viewer__body">{children}</div>
+        </>
+      ) : (
+        <>
+          {children && (
+            <div
               className={cn(
-                "size-12 shrink-0 overflow-hidden rounded-md opacity-70 outline-offset-2 transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-[var(--ring)]",
-                i === index && "opacity-100 ring-2 ring-white",
+                "mx-auto flex w-full max-w-3xl shrink-0 flex-col overflow-y-auto px-3 pb-2",
+                childrenMaxHeightClass ?? "max-h-[45dvh]",
               )}
             >
-              <img
-                src={item.url}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                draggable={false}
-                className="size-full object-cover"
-              />
-            </button>
-          ))}
-        </div>
+              {children}
+            </div>
+          )}
+          {filmstrip}
+        </>
       )}
     </Modal>
   );
