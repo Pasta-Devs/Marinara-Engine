@@ -11,6 +11,7 @@ import {
   worldInfoPeekBlocks,
 } from "../../../packages/server/src/services/prompt/peek-injected-parts.js";
 import { injectAtDepth } from "../../../packages/server/src/services/lorebook/prompt-injector.js";
+import { cloneMacroContextForPreview } from "../../../packages/server/src/services/prompt/macro-context.js";
 
 const note = "[Ilse is hiding a letter.]";
 const lore = "The letter is sealed with green wax.";
@@ -155,6 +156,28 @@ for (const name of ["Ilse", "Bram"]) {
   assert.equal(sent[1]!.content.slice(part.start, part.end), sentNote, `${name}'s note is labelled`);
   assert.equal(JSON.stringify(sent), before, "provider messages stay as they were");
   assert.ok(!("parts" in resolved[1]!.message), "no Peek metadata on the message itself");
+}
+
+// A deferred card field with a variable write: the reply advances the variable once, and Peek labels the sent
+// text by resolving its own copy from the variables as they were before the message pass.
+{
+  const context = { ...macroContext, localVariables: { visits: "1" } as Record<string, string> };
+  const profile = { name: "Ilse", description: "visit {{incvar::visits}}{{getvar::visits}}" };
+  const deferred = resolveMacros("[{{description}}]", context, { deferCharacterMacros: "all" });
+  assert.equal(context.localVariables.visits, "1", "the field waits for the responder");
+  const peekContext = cloneMacroContextForPreview(context as never);
+  const sentNote = resolveDeferredCharacterMacros(deferred, profile, context);
+  assert.equal(sentNote, "[visit 22]");
+  const sent = [{ role: "user", content: `Hello.\n\n${sentNote}` }];
+  const labels = labelInjectedParts(
+    sent,
+    peekBlocksForResponder([{ label: "authorsNote", depth: 0, content: deferred }], (text) =>
+      resolveDeferredCharacterMacros(text, profile, cloneMacroContextForPreview(peekContext)),
+    ),
+  );
+  assert.equal(context.localVariables.visits, "2", "the variable advances once per reply");
+  const part = labels[0]!.parts[0]!;
+  assert.equal(sent[0]!.content.slice(part.start, part.end), sentNote, "Peek labels the text that was sent");
 }
 
 // Saved parts are read back only when they fit the message.
