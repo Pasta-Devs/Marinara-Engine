@@ -16076,6 +16076,11 @@ input.ov-edhead__title:not(#ov-x) {
   height: 100%;
   object-fit: cover;
 }
+/* List view: the table keeps its full height and the page scrolls (in the page's flex column it shrank and cut off its
+   last rows, more so with a picture open above it). */
+.ov-bglib__table {
+  flex-shrink: 0;
+}
 .ov-bglib__thumb {
   aspect-ratio: 16 / 10;
 }
