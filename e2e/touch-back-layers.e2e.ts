@@ -46,6 +46,15 @@ async function pressBack(page: Page) {
   await expect.poll(() => backDepth(page)).toBeLessThan(before);
 }
 
+/** Opens the app and lets the phone tour show and be skipped first: skipping it later would close the page it covers. */
+async function openApp(page: Page) {
+  await page.goto("/");
+  const skip = page.getByRole("button", { name: "Skip Tutorial" });
+  await skip.waitFor({ timeout: 4000 }).catch(() => {});
+  if (await skip.isVisible()) await skip.click();
+  await expect(skip).toBeHidden();
+}
+
 async function makeCharacter(page: Page, name: string) {
   const response = await page.request.post("/api/characters", { data: { data: { name } }, failOnStatusCode: true });
   return ((await response.json()) as { id: string }).id;
@@ -100,7 +109,7 @@ test.describe("phone", () => {
     const name = `List return ${Date.now()}`;
     const id = await makeCharacter(page, name);
     try {
-      await page.goto("/");
+      await openApp(page);
       await page.getByRole("button", { name: "Library", exact: true }).tap();
       const sidePage = page.locator(".ovm-sidepage");
       await sidePage
@@ -129,7 +138,7 @@ test.describe("phone", () => {
     const name = `Save in flight ${Date.now()}`;
     const id = await makeCharacter(page, name);
     try {
-      await page.goto("/");
+      await openApp(page);
       await page.getByRole("button", { name: "Library", exact: true }).tap();
       const sidePage = page.locator(".ovm-sidepage");
       await sidePage
