@@ -19,6 +19,12 @@ import { showChoiceDialog } from "../lib/app-dialogs";
 import { useChatStore } from "../stores/chat.store";
 import { chatKeys } from "./use-chats";
 import { homeFeedKeys } from "./use-home-feed";
+import {
+  forgetLocalSetupDraft,
+  isOrphanedLocalSetupDraft,
+  keepOnlyLocalSetupDrafts,
+  pruneLocalWindowBeats,
+} from "../lib/local-setup-drafts";
 
 /** Drafts left on another device or browser window are only cleared once they are this old. */
 const STALE_DRAFT_MS = 30 * 60 * 1000;
@@ -262,10 +268,17 @@ export function useSetupDraftJanitor(chats: Chat[] | undefined) {
     if (!chats?.length) return;
     const activeChatId = useChatStore.getState().activeChatId;
     const now = Date.now();
+    pruneLocalWindowBeats();
+    keepOnlyLocalSetupDrafts(new Set(chats.map((chat) => chat.id)));
     for (const chat of chats) {
-      if (chat.id === activeChatId || !isUnfinishedSetup(chat)) continue;
+      if (!isUnfinishedSetup(chat)) {
+        forgetLocalSetupDraft(chat.id);
+        continue;
+      }
+      if (chat.id === activeChatId) continue;
       const age = now - Date.parse(chat.updatedAt || chat.createdAt);
-      if (Number.isFinite(age) && age < STALE_DRAFT_MS) continue;
+      // A draft this browser made in a window that has closed goes now, not after 30 minutes (QC panel 2, D9).
+      if (Number.isFinite(age) && age < STALE_DRAFT_MS && !isOrphanedLocalSetupDraft(chat.id)) continue;
       // A draft with choices (a closed tab, a browser restart) is kept, never cleared as stale.
       if (setupDraftHasInput(chat)) void keepSetupForLater(queryClient, chat.id);
       else void discardUnfinishedSetup(queryClient, chat.id);

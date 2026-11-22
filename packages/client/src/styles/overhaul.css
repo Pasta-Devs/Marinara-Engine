@@ -16374,6 +16374,110 @@ input.ov-edhead__title:not(#ov-x) {
   flex: 1 1 0;
   justify-content: center;
 }
+/* Roleplay: the one-time "Enter starts a new line" tip above the composer (QC panel 2, D2). */
+.ov-rp-enter-tip {
+  width: 20rem;
+}
+.ov-rp-enter-tip__foot {
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.ov-rp-enter-tip__switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ov-text);
+  cursor: pointer;
+}
+
+/* Multi-pick character lists end with a Done row (QC panel 2, D4). */
+.ov-picker-done {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.5rem 0.625rem;
+  border-top: 1px solid var(--ov-line, var(--border));
+}
+.ov-picker-done .ov-btn {
+  min-height: 2rem;
+}
+:root[data-marinara-touch-device="true"] .ov-picker-done .ov-btn {
+  min-height: 2.75rem;
+  min-width: 6rem;
+}
+/* A text button inside a sentence on the setup page ("Library › Agents", "1 choice left"). */
+.ov-setup__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ov-accent-text, var(--primary));
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+:root[data-marinara-touch-device="true"] .ov-setup__link {
+  position: relative;
+}
+:root[data-marinara-touch-device="true"] .ov-setup__link::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - 2.75rem) / 2)) 0;
+}
+/* Setup page on touch: "Remember these choices" and the bar's buttons get 44 px hit areas (QC panel 2, D4). */
+:root[data-marinara-touch-device="true"] :is(.ov-setup__remember, .ov-setup__btn) {
+  position: relative;
+}
+:root[data-marinara-touch-device="true"] :is(.ov-setup__remember, .ov-setup__btn)::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - 2.75rem) / 2)) 0;
+}
+
+/* Settings > Message buttons: why Speak isn't on the messages yet (QC panel 2, D14). */
+.ov-mbs__note {
+  margin-left: auto;
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+}
+.ov-mbs__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ov-accent-text, var(--primary));
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* Thin neutral scrollbars in the new layout instead of the classic look's thick pink ones (QC panel 2, D15).
+   :where() keeps them as weak as the classic rule, so a theme's own scrollbar CSS still wins; a theme can also
+   just set --ov-scrollbar-thumb. */
+:root[data-overhaul] {
+  --ov-scrollbar-thumb: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+}
+:where(:root[data-overhaul]) * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ov-scrollbar-thumb) transparent;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--ov-scrollbar-thumb);
+  background-clip: padding-box;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+  background-clip: padding-box;
+}
 
 /* Game setup page (E1, 2026-11) */
 /* New Game setup is the page in the game's own tab, built on the chat setup page (.ov-setup). The blocks under

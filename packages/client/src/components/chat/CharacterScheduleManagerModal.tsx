@@ -189,10 +189,13 @@ export function CharacterScheduleManagerModal({ open, onClose, page = false }: P
   }, [page, requestedCharacterId]);
   // The desktop page always shows someone: the first character with a schedule, else the first one.
   // Phones show the list first and one character's editor after a tap, with a way back.
+  // Never over a requested character: both effects run in the same commit, and this one used to replace the
+  // character you came from with the first scheduled one (QC panel 2, D12).
   useEffect(() => {
-    if (!page || overhaulMobile || editingCharacterId || !characters.length) return;
-    setEditingCharacterId((characters.find((character) => character.schedule) ?? characters[0])!.id);
-  }, [characters, editingCharacterId, overhaulMobile, page]);
+    if (!page || overhaulMobile || editingCharacterId || requestedCharacterId || !characters.length) return;
+    const fallbackId = (characters.find((character) => character.schedule) ?? characters[0])!.id;
+    setEditingCharacterId((current) => current ?? fallbackId);
+  }, [characters, editingCharacterId, overhaulMobile, page, requestedCharacterId]);
 
   const toggle = (id: string) => {
     setSelected((current) => {

@@ -160,6 +160,22 @@ export function markHoldTipSeen(device: WalkthroughDevice = detectWalkthroughDev
   writeRecord({ ...record, modes: [...record.modes, key] });
 }
 
+/**
+ * The one-time "Enter starts a new line in Roleplay" tip on a computer (QC panel 2, D2). Kept with the modes, so
+ * Settings > Replay brings it back too.
+ */
+const RP_ENTER_TIP_KEY = "tip:rp-enter";
+
+export function hasSeenRpEnterTip(device: WalkthroughDevice = detectWalkthroughDevice()) {
+  return record.modes.includes(`${device}:${RP_ENTER_TIP_KEY}`);
+}
+
+export function markRpEnterTipSeen(device: WalkthroughDevice = detectWalkthroughDevice()) {
+  const key = `${device}:${RP_ENTER_TIP_KEY}`;
+  if (record.modes.includes(key)) return;
+  writeRecord({ ...record, modes: [...record.modes, key] });
+}
+
 const EMPTY_RECORD: WalkthroughRecord = emptyRecord();
 
 function getSnapshot() {
