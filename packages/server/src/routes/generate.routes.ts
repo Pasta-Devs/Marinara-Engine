@@ -571,6 +571,7 @@ import {
   resolveCharacterMacroData,
   resolveMacrosWithVariableSnapshot,
   resolveMacrosForPreview,
+  cloneMacroContextForPreview,
   resolvePromptIdleDuration,
   resolvePromptLastGenerationType,
   resolvePromptMessageMacros,
@@ -9414,6 +9415,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 convoFields: conversationMacroFieldsByCharacterId.get(targetCharId) ?? promptMacroContext.convoFields,
               }
             : promptMacroContext;
+          // Peek resolves its labels from the variables as they were before the message pass, on copies, so a
+          // variable write in a block (an incvar) still happens once per reply.
+          const peekMacroContext = cloneMacroContextForPreview(responderMacroContext);
           const macroScopedMessagesForGen = spatiallyScopedMessagesForGen.map((message) => ({
             ...message,
             content: (deferredTargetCharacterProfile
@@ -9432,12 +9436,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           const responderPeekPromptBlocks = peekBlocksForResponder(
             [...peekInjectedBlocks, ...responderPeekBlocks],
             (text) => {
+              const peekContext = cloneMacroContextForPreview(peekMacroContext);
               const deferred = deferredTargetCharacterProfile
-                ? resolveDeferredCharacterMacros(text, deferredTargetCharacterProfile, responderMacroContext)
+                ? resolveDeferredCharacterMacros(text, deferredTargetCharacterProfile, peekContext)
                 : text;
               const [resolved] = resolvePromptMessageMacros(
                 [{ role: "system" as const, content: deferred }],
-                providerMacroContext,
+                targetCharacterProfile
+                  ? scopePromptMacroContextToCharacter(peekContext, targetCharacterProfile)
+                  : peekContext,
                 historyMacroProfilesById,
               );
               return resolved?.content ?? deferred;
