@@ -68,9 +68,8 @@ export function isKeyboardContextMenu(event: {
  * The button that had focus when the menu key opened a message's ⋯ menu (Copy, say), so Escape and Tab carry on
  * from there rather than from ⋯ (QC panel 3 AX5). Only for the ⋯ button it names.
  */
-let menuKeyReturn: { trigger: HTMLElement; target: HTMLElement; at: number } | null = null;
-
-type MenuKeyReturn = typeof menuKeyReturn;
+type MenuKeyReturn = { trigger: HTMLElement; target: HTMLElement; at: number } | null;
+let menuKeyReturn: MenuKeyReturn = null;
 
 /** The menu key's note, while it belongs to the menu that is opening now. */
 function freshMenuKeyReturn(): MenuKeyReturn {
