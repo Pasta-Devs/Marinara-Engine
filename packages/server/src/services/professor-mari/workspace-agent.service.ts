@@ -17,6 +17,7 @@ import { resolveStoredChatOptions } from "../generation/generation-parameters.js
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { parseTextualToolCalls, textualCallMarkerIndex } from "../llm/textual-tool-call-parser.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
+import { RateLimitAwareProvider } from "../llm/rate-limit-aware-provider.js";
 import { GeminiNoContentError } from "../llm/providers/google.provider.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
@@ -1703,6 +1704,16 @@ class SingleSystemMessageProvider extends BaseLLMProvider {
   }
 }
 
+/**
+ * wrapProvider for a remote primary with a local fallback: only the fallback gets one system message. The fallback
+ * provider sees the primary's unwrapped leg (it drops the primary's own rate-limit layer), so both count as primary.
+ */
+export function localFallbackWrapper(primary: BaseLLMProvider): (provider: BaseLLMProvider) => BaseLLMProvider {
+  const primaryLeg = primary instanceof RateLimitAwareProvider ? primary.provider : primary;
+  return (provider) =>
+    provider === primary || provider === primaryLeg ? provider : new SingleSystemMessageProvider(provider);
+}
+
 function createProviderForConnection(connection: WorkspaceConnection): BaseLLMProvider {
   if (isLocalSidecarConnection(connection)) return getLocalSidecarProvider();
   const primary = createBaseProviderForConnection(connection);
@@ -1711,12 +1722,7 @@ function createProviderForConnection(connection: WorkspaceConnection): BaseLLMPr
   const joinForFallback = isLocalWorkspaceConnection(fallback) && !isLocalWorkspaceConnection(connection);
   return withConnectionFallbackProvider({
     primary,
-    ...(joinForFallback
-      ? {
-          wrapProvider: (provider: BaseLLMProvider) =>
-            provider === primary ? provider : new SingleSystemMessageProvider(provider),
-        }
-      : {}),
+    ...(joinForFallback ? { wrapProvider: localFallbackWrapper(primary) } : {}),
     primaryConnectionId: connection.id,
     primaryConnectionName: connection.name,
     fallbackConnection: fallback,

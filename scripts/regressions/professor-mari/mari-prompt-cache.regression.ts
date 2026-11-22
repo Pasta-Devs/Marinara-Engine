@@ -48,7 +48,7 @@ const sharedStart = (a: string, b: string) => {
 
 try {
   const db = await getDB();
-  const { ProfessorMariWorkspaceService, joinSystemMessages } =
+  const { ProfessorMariWorkspaceService, joinSystemMessages, localFallbackWrapper } =
     await import("../../../packages/server/src/services/professor-mari/workspace-agent.service.js");
   const { setSkillGateEnabled } =
     await import("../../../packages/server/src/services/professor-mari/workspace-commands.js");
@@ -266,6 +266,16 @@ try {
     );
     const plain: ChatMessage[] = [{ role: "user", content: "Only" }];
     assert.equal(joinSystemMessages(plain), plain, "nothing to join leaves the request as it is");
+
+    // The fallback layer unwraps a rate-limited primary before wrapping it: that leg is still the primary.
+    const { RateLimitAwareProvider } =
+      await import("../../../packages/server/src/services/llm/rate-limit-aware-provider.js");
+    const leg = fakeProvider as unknown as InstanceType<typeof RateLimitAwareProvider>["provider"];
+    const limited = new RateLimitAwareProvider(leg, "primary-connection");
+    const wrap = localFallbackWrapper(limited);
+    assert.equal(wrap(leg), leg, "the unwrapped primary leg keeps the cache-friendly form");
+    assert.equal(wrap(limited), limited);
+    assert.notEqual(wrap({ ...leg } as typeof leg), leg, "the fallback gets the one-system-message form");
 
     // pi with depth 10 in a new chat: the time is not in pi's system prompt.
     await settings.set(MARI_RUNTIME_SETTINGS_KEY, "pi");
