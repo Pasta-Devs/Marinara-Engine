@@ -250,6 +250,41 @@ try {
   for (const label of ["data-url", "base64", "C:\\Users\\me\\cat.png", "/etc/passwd", "gallery:no-file", "", null])
     assert.equal(mariSourceReference(label), null, `${label} is not re-readable`);
 
+  // Without native character prompts they are added to the end of her prompt, as for the Illustrator.
+  sent.length = 0;
+  await images(
+    "generate",
+    "--prompt",
+    "two friends in a park",
+    "--character-prompts",
+    JSON.stringify([
+      { name: "Ann", prompt: "red coat" },
+      { name: "Ben", prompt: "green hat" },
+    ]),
+  );
+  assert.equal(sent.at(-1)?.prompt, "two friends in a park\n\nAnn: red coat\n\nBen: green hat");
+  // Every caption dropped: the result still says so.
+  const allDroppedRun = await mari.executeCli({
+    argv: [
+      "images",
+      "generate",
+      "--prompt",
+      "a friend in a park",
+      "--character-prompts",
+      JSON.stringify([{ name: "Ann", prompt: "" }]),
+    ],
+    sessionId: "mari-image-lightbox",
+  });
+  assert.equal(allDroppedRun.ok, true, JSON.stringify(allDroppedRun));
+  const allDropped = allDroppedRun.output as { characterPrompts?: { dropped?: number; droppedNote?: string } };
+  assert.equal(allDropped.characterPrompts?.dropped, 1, "a dropped caption is reported even when none are left");
+  assert.match(String(allDropped.characterPrompts?.droppedNote), /dropped/);
+  const badJson = await mari.executeCli({
+    argv: ["images", "generate", "--prompt", "x", "--character-prompts", "[{name:"],
+    sessionId: "mari-image-lightbox",
+  });
+  assert.equal(badJson.ok, false, "unparsable character prompts are refused before any image is made");
+
   // 7. Native NovelAI img2img, infill, seed recovery and 400 validations on Mari preview assets.
   const sharp = await getSharp();
   assert.ok(sharp);
@@ -364,6 +399,127 @@ try {
     assert.equal(plainAsset.operation, "generate");
     assert.equal(plainAsset.sourceImage, null);
     assert.equal(mariNaiRequests[3]?.action, "generate");
+
+    // 8. NovelAI character prompts: she sends one prompt per character, as the Illustrator does, and the size she
+    // asks for beats "Choose resolution from character count" (on by default).
+    const cli = async (...args: string[]) => {
+      const result = await mari.executeCli({ argv: ["images", ...args], sessionId: "mari-image-lightbox" });
+      assert.equal(result.ok, true, `mari images ${args.join(" ")}\n${JSON.stringify(result)}`);
+      return result.output as Record<string, unknown> & { asset: Asset & { characterPrompts?: unknown[] } };
+    };
+    const listed = await cli("connections");
+    const naiListed = (listed.connections as Array<Record<string, unknown>>).find((c) => c.id === novelAiConn.id);
+    assert.deepEqual(naiListed?.characterPrompts, { native: true, maxEntries: 22 }, "V5 takes 22 character prompts");
+    const a1111Listed = (listed.connections as Array<Record<string, unknown>>).find((c) => c.id === connection.id);
+    assert.equal(a1111Listed?.characterPrompts, undefined, "A1111 has no native character prompts");
+    const rules = listed.characterPromptRules as string[];
+    assert.ok(
+      rules.some((line) => line.includes("--character-prompts")),
+      "the rules name her flag",
+    );
+    assert.ok(
+      rules.some((line) => line.includes("source#hug")),
+      "the Illustrator's NovelAI rules are passed on",
+    );
+
+    const pair = JSON.stringify([
+      {
+        name: "Mari",
+        prompt: "girl, brown hair, glasses",
+        negativePrompt: "blonde hair",
+        position: { x: 0.3, y: 0.5 },
+      },
+      { name: "Dottore", prompt: "boy, blue hair, mask", negativePrompt: "" },
+      { name: "Mari", prompt: "girl, duplicate" },
+    ]);
+    const captioned = await cli(
+      "generate",
+      "--connection",
+      novelAiConn.id,
+      "--width",
+      "832",
+      "--height",
+      "1216",
+      "--prompt",
+      "1girl, 1boy, cafe, sitting together",
+      "--character-prompts",
+      pair,
+    );
+    const captionedRequest = mariNaiRequests.at(-1)!.parameters as {
+      width: number;
+      height: number;
+      v4_prompt: { caption: { char_captions: Array<{ char_caption: string; centers: unknown[] }> } };
+      v4_negative_prompt: { caption: { char_captions: Array<{ char_caption: string }> } };
+    };
+    assert.deepEqual(
+      captionedRequest.v4_prompt.caption.char_captions.map((entry) => entry.char_caption),
+      ["girl, brown hair, glasses", "boy, blue hair, mask"],
+      "one native caption per character; the repeated name is dropped",
+    );
+    assert.equal(captionedRequest.v4_negative_prompt.caption.char_captions[0]?.char_caption, "blonde hair");
+    assert.deepEqual(captionedRequest.v4_prompt.caption.char_captions[0]?.centers, [{ x: 0.3, y: 0.5 }]);
+    assert.equal(captionedRequest.width, 832, "her --width is kept over the character-count resolution");
+    assert.equal(captionedRequest.height, 1216, "her --height is kept over the character-count resolution");
+    assert.equal(captioned.sizeNote, undefined);
+    assert.equal((captioned.characterPrompts as { count: number; dropped: number }).count, 2);
+    assert.equal((captioned.characterPrompts as { dropped: number }).dropped, 1);
+    assert.equal(captioned.asset.characterPrompts?.length, 2, "the asset keeps her character prompts");
+
+    // Without a size, the setting picks one and the result says so; no captions for a pair shows her the rules.
+    const uncaptioned = await cli("generate", "--connection", novelAiConn.id, "--prompt", "2girls, beach");
+    const uncaptionedRequest = mariNaiRequests.at(-1)!.parameters as { width: number; height: number };
+    assert.deepEqual([uncaptionedRequest.width, uncaptionedRequest.height], [1024, 1024]);
+    assert.match(String(uncaptioned.sizeNote), /Choose resolution from character count/);
+    assert.ok((uncaptioned.characterPrompts as { rules: string[] }).rules.length > 0);
+
+    // The lightbox reruns her character prompts, and can change them.
+    const captionedRegen = await refuse({ prompt: "1girl, 1boy, cafe, night" }, captioned.asset.id);
+    assert.equal(captionedRegen.statusCode, 200, captionedRegen.body);
+    const regenRequest = mariNaiRequests.at(-1)!.parameters as typeof captionedRequest;
+    assert.equal(regenRequest.v4_prompt.caption.char_captions.length, 2, "Regenerate keeps her character prompts");
+    assert.equal(regenRequest.width, 832, "Regenerate keeps the saved size");
+    const editedCaptions = await refuse(
+      {
+        prompt: "1girl, 1boy, cafe, night",
+        characterPrompts: [{ name: "Mari", prompt: "girl, red scarf" }],
+      },
+      captioned.asset.id,
+    );
+    assert.equal(editedCaptions.statusCode, 200, editedCaptions.body);
+    assert.deepEqual(
+      (mariNaiRequests.at(-1)!.parameters as typeof captionedRequest).v4_prompt.caption.char_captions.map(
+        (entry) => entry.char_caption,
+      ),
+      ["girl, red scarf"],
+    );
+    // The lightbox's list goes through the same sanitizer: a repeated name doesn't push out a later character.
+    const repeated = await refuse(
+      {
+        prompt: "1girl, 1boy, cafe, night",
+        characterPrompts: [
+          { name: "Mari", prompt: "girl, red scarf" },
+          { name: "Mari", prompt: "girl, duplicate" },
+          { name: "Dottore", prompt: "boy, mask" },
+        ],
+      },
+      captioned.asset.id,
+    );
+    assert.equal(repeated.statusCode, 200, repeated.body);
+    assert.deepEqual(
+      (mariNaiRequests.at(-1)!.parameters as typeof captionedRequest).v4_prompt.caption.char_captions.map(
+        (entry) => entry.char_caption,
+      ),
+      ["girl, red scarf", "boy, mask"],
+    );
+    assert.equal(
+      (repeated.json() as { asset: { characterPrompts?: unknown[] } }).asset.characterPrompts?.length,
+      2,
+      "the saved asset keeps the list that was sent",
+    );
+    const record = (await app.inject(`/api/gallery/mari-images/assets/${captioned.asset.id}`)).json() as {
+      asset: { characterPrompts?: unknown[] };
+    };
+    assert.equal(record.asset.characterPrompts?.length, 2, "the record route returns them to the lightbox");
   } finally {
     fetchMock.mock.restore();
     dnsMock.mock.restore();

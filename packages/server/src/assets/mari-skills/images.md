@@ -11,9 +11,9 @@ CLI: `mari images` (no `app_data` action). `generate` and `edit` save an unassig
 
 ## The flow
 
-1. `mari images connections` when you don't know which image model to use. `--connection <id|name>` picks one; without it the default image model is used.
+1. `mari images connections` once per chat, before your first image: it shows the image models, and for NovelAI the character prompt rules (below). `--connection <id|name>` picks one; without it the default image model is used.
 2. `mari images preview --prompt <text> [--kind <kind>] [--style …]` shows exactly what would be sent, without generating.
-3. `mari images generate --prompt <text> [--negative <text>] [--kind <kind>] [--width <n> --height <n>]`. Edit an image with `mari images edit --prompt <text> --source <asset-id|app-url>`.
+3. `mari images generate --prompt <text> [--negative <text>] [--kind <kind>] [--width <n> --height <n>] [--character-prompts <json>]`. Edit an image with `mari images edit --prompt <text> --source <asset-id|app-url>`.
 4. Check it: `mari images look <asset-id>` shows you the picture. Compare it with what the user asked for (hair, outfit, framing, a face cut off by the crop, text or extra limbs). If it is wrong, edit or generate again before you show it, and say what you fixed.
 5. Show it: put the result's `show` line (`![alt](asset.url)`) in your reply. The user sees the image and can open it.
 6. After the user approves: `mari images assign --asset <id> --target <target> … --apply` (see `mari images help` for targets).
@@ -38,6 +38,21 @@ To use the user's house style instead:
 - `--style` (or `--style default`) applies the default profile (or the image model's own, if it has one). `--style <id|name>` applies that profile.
 
 A style adds the profile's positive tags, its per-image tags for `--kind`, its style text and the connection's prompt prefix. Every result has a `style` block: the profile and why it was chosen, your `requestedPrompt`, the final `prompt`, what was `added`, `removedDuplicates`, `movedToNegative`, and `dropped`: the tags you wrote that didn't reach the image model. Check it before you show the image, and tell the user when a style changed or dropped part of the prompt.
+
+## NovelAI: one prompt per character
+
+When a connection in `mari images connections` has `characterPrompts.native`, it is NovelAI V4 or newer and takes a separate prompt for each character, so traits don't mix between them. For a picture with two or more named characters, follow its `characterPromptRules`:
+
+- `--prompt` is the base scene: subject counts (`2girls`, `1girl, 1boy`), the shared action, camera, setting, lighting, mood.
+- `--character-prompts` is a JSON array with one entry per visible character, in single quotes: `'[{"name":"Mari","prompt":"girl, brown hair, glasses, lab coat, smiling, looking at viewer","negativePrompt":"blonde hair","position":{"x":0.3,"y":0.5}},{"name":"Dottore","prompt":"boy, …","negativePrompt":"","position":{"x":0.7,"y":0.5}}]'`. `position` is the character's center, x and y from 0 to 1 (0,0 is top left); leave it out to spread them left to right.
+- Take fixed traits from the card's or persona's Appearance and clothing from the chat's tracker when there is one.
+- One character or none: leave `--character-prompts` out. At most `maxEntries` entries (6 on V4/V4.5, 22 on V5).
+
+The result's `characterPrompts` says how they were sent. Other image models take them too, added to the end of the prompt, but there one well-written prompt works better.
+
+## The size
+
+`--width` and `--height` are always kept. Without them NovelAI's "Choose resolution from character count" may pick the size from the subject count (portrait for one, square for two, landscape for three or more); the result's `sizeNote` says when it did.
 
 ## The kind
 
