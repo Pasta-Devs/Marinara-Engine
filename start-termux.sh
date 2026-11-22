@@ -698,15 +698,16 @@ fi
 # ── Start ──
 echo ""
 echo "  ══════════════════════════════════════════"
+if [ "$HOST" = "0.0.0.0" ] || [ "$HOST" = "::" ]; then
+echo "    Starting Marinara Engine (listening on all addresses, port ${PORT})"
+else
 echo "    Starting Marinara Engine on ${PROTOCOL}://${HOST}:${PORT}"
-if [ "$BROWSER_HOST" != "$HOST" ]; then
-echo "    Local browser URL: ${PROTOCOL}://${BROWSER_HOST}:${PORT}${LOCAL_BROWSER_PATH}"
-fi
-if [ -n "$LOCAL_IP" ]; then
-echo "    LAN access: ${PROTOCOL}://${LOCAL_IP}:${PORT}"
 fi
 echo ""
-echo "    Open the URL above in your mobile browser."
+echo "    Open ${PROTOCOL}://${BROWSER_HOST}:${PORT}${LOCAL_BROWSER_PATH} in Chrome on this phone."
+if [ -n "$LOCAL_IP" ]; then
+echo "    Other devices on your Wi-Fi: ${PROTOCOL}://${LOCAL_IP}:${PORT}"
+fi
 echo "    Press Ctrl+C to stop"
 echo "  ══════════════════════════════════════════"
 echo ""
