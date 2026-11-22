@@ -2,6 +2,7 @@
 // ("Apply", the default) sends them inside the nearby user message. The saved request now keeps where each
 // injected block sits, for Peek only; what is sent stays the same.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { postProcessMessages } from "../../../packages/server/src/routes/generate/generate-route-utils.js";
 import {
   labelInjectedParts,
@@ -99,6 +100,40 @@ const spacedLabels = labelInjectedParts(
 );
 assert.equal(spacedLabels[0]!.parts.length, 1, "a note with three newlines keeps its heading");
 assert.equal(spacedLabels[0]!.parts[0]!.start, "Hi.\n\n".length);
+
+// A copy on its own line inside the user's paragraph loses to the injected copy, which post-processing joins as its
+// own paragraph.
+const ownLine = `Remember:\n${note}\nok?\n\n${note}`;
+const ownLineLabels = labelInjectedParts(
+  [{ role: "user", content: ownLine }],
+  [{ label: "authorsNote", depth: 0, content: note }],
+);
+assert.equal(ownLineLabels[0]!.parts[0]!.start, ownLine.lastIndexOf(note));
+
+// Dry run with a preset: the assembler injects World Info @depth itself, so the preview must record those entries
+// before labelling (source check: the route has no harness here).
+const dryRun = readFileSync(
+  new URL("../../../packages/server/src/routes/generate/dry-run-route.ts", import.meta.url),
+  "utf8",
+);
+const recordsPreset = dryRun.indexOf("noteDepthEntries(assembled.lorebookScanResult?.depthEntries");
+assert.ok(recordsPreset > 0, "the preset branch records the assembler's depth entries");
+assert.ok(
+  recordsPreset < dryRun.indexOf("labelInjectedParts(providerMessages, injectedBlocks)"),
+  "recorded before labelling",
+);
+// And merged preset World Info gets its label.
+const presetMerged = labelInjectedParts(
+  [
+    { role: "system", content: "Main prompt." },
+    { role: "user", content: `Hello.\n\n${lore}\n\nWhat now?` },
+  ],
+  worldInfoPeekBlocks([{ content: lore, depth: 1 }]),
+);
+assert.deepEqual(
+  presetMerged[1]!.parts.map((part) => part.label),
+  ["worldInfo"],
+);
 
 // Saved parts are read back only when they fit the message.
 assert.deepEqual(readPeekPromptParts([{ start: 0, end: 4, label: "authorsNote", depth: 4 }], 10), [

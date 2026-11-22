@@ -22,9 +22,18 @@ function collapseBlankLines(text: string): string {
   return text.replace(/\n([ \t]*\n){2,}/g, "\n\n");
 }
 
-/** A block stands on its own lines when post-processing joins it to other text: not mid-sentence like a quote. */
-function onOwnLines(content: string, start: number, end: number): boolean {
-  return (start === 0 || content[start - 1] === "\n") && (end === content.length || content[end] === "\n");
+/**
+ * How a copy sits in its message, lower is likelier injected. Post-processing joins messages with a blank line, so
+ * an injected block is its own paragraph (0); a copy on its own lines (1) or inside a sentence like a quote (2) is
+ * less likely to be it.
+ */
+function placement(content: string, start: number, end: number): number {
+  const paragraph =
+    (start === 0 || content.slice(0, start).endsWith("\n\n")) &&
+    (end === content.length || content.startsWith("\n\n", end));
+  if (paragraph) return 0;
+  const ownLines = (start === 0 || content[start - 1] === "\n") && (end === content.length || content[end] === "\n");
+  return ownLines ? 1 : 2;
 }
 
 /**
@@ -34,7 +43,7 @@ function onOwnLines(content: string, start: number, end: number): boolean {
  *
  * Chat history can hold the same words (an older copy, or a later message quoting the note), so a copy is picked
  * by where the block was put: the message whose number of later chat messages is closest to its depth, then a
- * copy on its own lines over one inside a sentence.
+ * copy that is its own paragraph (how post-processing joins it) over one on its own lines or inside a sentence.
  */
 export function labelInjectedParts<T extends { role: string; content: unknown }>(
   messages: T[],
@@ -59,8 +68,8 @@ export function labelInjectedParts<T extends { role: string; content: unknown }>
         for (let start = content.indexOf(text); start >= 0; start = content.indexOf(text, start + 1)) {
           const end = start + text.length;
           if (taken[index]!.some(([from, to]) => start < to && end > from)) continue;
-          // Lower is better: distance from the depth first, then a copy inside a sentence.
-          const score = Math.abs(chatAfter[index]! - block.depth) * 2 + (onOwnLines(content, start, end) ? 0 : 1);
+          // Lower is better: distance from the depth first, then how the copy sits in its message.
+          const score = Math.abs(chatAfter[index]! - block.depth) * 3 + placement(content, start, end);
           // Ties keep the later message (searched first) and, inside it, the first copy.
           if (!best || score < best.score) best = { index, start, length: text.length, score };
         }
