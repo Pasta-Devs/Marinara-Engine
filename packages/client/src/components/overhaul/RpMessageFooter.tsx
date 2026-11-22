@@ -32,7 +32,7 @@ import { cn } from "../../lib/utils";
 import { OvMarksMenuContext } from "./marks-menu-context";
 import { DEFAULT_MESSAGE_BUTTONS, type MessageButtonId } from "./message-buttons";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { menuOpenerFromClick, useMenuKeyboard } from "../../hooks/use-menu-keyboard";
+import { menuOpenerFromClick, openMessageMoreFromMenuKey, useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 
 type Anchor = {
   left: number;
@@ -328,7 +328,13 @@ export function OvRpMessageFooter({
   );
   if (!armed) return <div className={footerClassName} data-ov-rp-footer data-mari-part="actions" />;
   return (
-    <div ref={rootRef} className={footerClassName} data-ov-rp-footer data-mari-part="actions">
+    <div
+      ref={rootRef}
+      className={footerClassName}
+      data-ov-rp-footer
+      data-mari-part="actions"
+      onContextMenu={openMessageMoreFromMenuKey}
+    >
       {part === "generate" ? speak : null}
       {part === "generate" ? generateExtra : null}
       {part === "generate" && regenerate ? (
@@ -446,6 +452,7 @@ export function OvRpMessageFooter({
               aria-label={localizeUi("connections.accounts.header.more")}
               aria-expanded={open?.kind === "more" || open?.kind === "marks"}
               aria-haspopup="menu"
+              data-message-more=""
               onClick={(event) => openAt("more", event.currentTarget, event.detail === 0)}
             >
               <MoreHorizontal size={15} />

@@ -37,6 +37,31 @@ export function isKeyboardContextMenu(event: { nativeEvent: Event; clientX: numb
   return event.clientX === 0 && event.clientY === 0;
 }
 
+/**
+ * Shift+F10 or the menu key on a message's buttons opens that message's ⋯ menu, focused on its first item
+ * (QC Nov 22 K7). A right click with the mouse keeps the browser's own menu (copy, spelling).
+ */
+export function openMessageMoreFromMenuKey(event: {
+  nativeEvent: Event;
+  clientX: number;
+  clientY: number;
+  currentTarget: EventTarget & HTMLElement;
+  preventDefault: () => void;
+  stopPropagation: () => void;
+}) {
+  if (!isKeyboardContextMenu(event)) return;
+  const message = event.currentTarget.closest<HTMLElement>("[data-message-id]") ?? event.currentTarget;
+  const more =
+    event.currentTarget.querySelector<HTMLButtonElement>("button[data-message-more]") ??
+    message.querySelector<HTMLButtonElement>("button[data-message-more]");
+  if (!more) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (more.getAttribute("aria-expanded") === "true") return;
+  // A click with detail 0 is the keyboard path: the menu opens with focus on its first item.
+  more.click();
+}
+
 const ITEM_SELECTOR =
   '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], button, a[href], input:not([type="hidden"])';
 

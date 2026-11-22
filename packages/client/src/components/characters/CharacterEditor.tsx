@@ -3155,6 +3155,7 @@ function MetadataTab({
             <input
               value={formData.character_version}
               onChange={(e) => updateField("character_version", e.target.value)}
+              aria-label={localizeUi("ui.characters.metadatatab.version")}
               disabled={formData.extensions.versioningEnabled === false}
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="1.0"

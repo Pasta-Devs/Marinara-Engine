@@ -57,7 +57,7 @@ import { BrowserPackageTabIcon } from "../chat/BrowserPackageTabIcon";
 import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
+import { isAssetTab, LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { editorLeaveKeyForTab, requestEditorClose } from "../../lib/editor-leave";
 import { showChoiceDialog } from "../../lib/app-dialogs";
 import { discardParkedDraft, useEditorDraftOfferStore, useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
@@ -124,7 +124,8 @@ function currentTabFrom(v: CurrentTabInputs): OverhaulTab | null {
   if (v.characterLibraryOpen)
     return { kind: "library", id: v.cardLibraryKind === "personas" ? "personas" : "characters" };
   if (real(v.lorebookDetailId)) return { kind: "lorebook", id: v.lorebookDetailId! };
-  if (v.libraryPage) return { kind: "library", id: v.libraryPage };
+  // Backgrounds, Game assets and Rulesets are tabs of one Assets page, so they share its tab.
+  if (v.libraryPage) return { kind: "library", id: isAssetTab(v.libraryPage) ? "assets" : v.libraryPage };
   if (v.activeChatId) return { kind: "chat", id: v.activeChatId };
   if (v.activeApp) return { kind: "app", id: v.activeApp };
   return null;
@@ -837,7 +838,7 @@ export function OverhaulTopBar() {
             <button
               type="button"
               className={cn("ov-text-btn", chatSettingsOpen && "is-on")}
-              aria-pressed={chatSettingsOpen}
+              aria-expanded={chatSettingsOpen}
               data-window-opener={CHAT_SETTINGS_WINDOW_ID}
               onClick={(event) => toggleChatSettings(event.currentTarget)}
             >

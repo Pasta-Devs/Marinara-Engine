@@ -34,7 +34,8 @@ import {
   selectChatFontColor,
   selectDefaultDialogueColor,
 } from "../../stores/ui.store";
-import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulLook, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { openLibrarySection } from "../overhaul/library-navigation";
 import { MessageButtonsSettings } from "../overhaul/MessageButtonsSettings";
 import { goHome } from "../overhaul/OverhaulTopBar";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
@@ -2989,6 +2990,7 @@ function VideoGenerationSettings() {
 
 function GameAssetsSettings() {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulLook = useOverhaulLook();
   const rescanGameAssets = useRescanGameAssets();
   const openGameAssetsFolder = useOpenGameAssetsFolder();
   const openGameAssetsBrowser = useUIStore((s) => s.openGameAssetsBrowser);
@@ -3081,6 +3083,26 @@ function GameAssetsSettings() {
       setAssetUploading(false);
     }
   };
+
+  // New layout: the browser, uploads, rescan and folder shortcuts live on Library > Assets > Game assets, so this
+  // section only points there instead of repeating them (QC panel 2, E2).
+  if (overhaulLook)
+    return (
+      <SettingsSection
+        title={localizeUi("settings.sections.gameAssets.title")}
+        description={localizeUi("settings.sections.gameAssets.componentDescription")}
+        icon={<FolderOpen size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("game-assets")}
+      >
+        <div className="ov-set-linkrow">
+          <span>{localizeUi("library.sections.gameAssets")}</span>
+          <button type="button" className="ov-btn" onClick={() => openLibrarySection("game-assets")}>
+            <FolderOpen size={14} aria-hidden="true" />
+            {localizeUi("settings.gameAssets.openLibrary")}
+          </button>
+        </div>
+      </SettingsSection>
+    );
 
   return (
     <SettingsSection

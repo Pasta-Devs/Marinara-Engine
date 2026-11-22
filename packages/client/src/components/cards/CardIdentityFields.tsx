@@ -77,6 +77,8 @@ export function CardIdentityFields({
                   }
                 : undefined
             }
+            // The wrapping label also holds the ? button, which a label names first, so name the field itself.
+            aria-label={label}
             placeholder={placeholder}
             className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           />

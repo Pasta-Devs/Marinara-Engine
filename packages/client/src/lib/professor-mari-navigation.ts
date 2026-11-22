@@ -25,6 +25,9 @@ export type ProfessorMariNavigationTarget =
         | "profiles"
         | "regex"
         | "tools"
+        | "assets"
+        | "rulesets"
+        | "backgrounds"
         | "connections"
         | "agents"
         | "extensions";

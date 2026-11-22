@@ -20,6 +20,7 @@ export function MessageActionButton({
   tabIndex,
   buttonRef,
   stopPropagation,
+  opensMenu,
 }: {
   icon: ReactNode;
   onClick: () => void;
@@ -31,6 +32,7 @@ export function MessageActionButton({
   tabIndex?: number;
   buttonRef?: Ref<HTMLButtonElement>;
   stopPropagation?: boolean;
+  opensMenu?: boolean;
 }) {
   return (
     <button
@@ -43,6 +45,8 @@ export function MessageActionButton({
       title={title}
       aria-label={title}
       aria-pressed={ariaPressed}
+      aria-haspopup={opensMenu ? "menu" : undefined}
+      data-message-more={opensMenu ? "" : undefined}
       data-message-thinking-action={thinkingAction || undefined}
       disabled={disabled}
       tabIndex={tabIndex}

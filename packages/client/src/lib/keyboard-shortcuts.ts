@@ -18,6 +18,10 @@ export interface KeyboardShortcut {
    * and the browser (Downloads). The list says so there (QC Nov 21 A11Y18).
    */
   notWhileTypingOffApple?: boolean;
+  /** The keys are pressed one after the other ("Esc, then Tab"), not as alternatives. */
+  sequence?: boolean;
+  /** Only works while this Settings switch is on; the list dims it and says where to turn it on. */
+  requiresSetting?: "intuitiveSwipeNavigation";
 }
 
 export interface KeyboardShortcutGroup {
@@ -74,7 +78,7 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
     titleKey: "shortcuts.groups.messages",
     shortcuts: [
       // ChatArea intuitive swipe navigation
-      { keys: [["←"], ["→"]], labelKey: "shortcuts.messages.swipe" },
+      { keys: [["←"], ["→"]], labelKey: "shortcuts.messages.swipe", requiresSetting: "intuitiveSwipeNavigation" },
       // ChatMessage edit textarea
       { keys: [["Mod", "Enter"]], labelKey: "shortcuts.messages.saveEdit" },
       { keys: [["Esc"]], labelKey: "shortcuts.messages.cancelEdit" },
@@ -97,8 +101,10 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
     shortcuts: [
       // textarea-editing handleTextareaTab (prompt, macro and file editors)
       { keys: [["Tab"], ["Shift", "Tab"]], labelKey: "shortcuts.editors.indent" },
-      // FileEditorModal
-      { keys: [["Mod", "S"]], labelKey: "shortcuts.editors.saveFile" },
+      // textarea-editing nextTabMode: Escape arms the next Tab to move on
+      { keys: [["Esc"], ["Tab"]], labelKey: "shortcuts.editors.leaveBox", sequence: true },
+      // useEditorSaveShortcut (every editor) and FileEditorModal
+      { keys: [["Mod", "S"]], labelKey: "shortcuts.editors.save" },
       // GameAssetsBrowserView
       { keys: [["Mod", "A"]], labelKey: "shortcuts.editors.selectAllAssets" },
       { keys: [["Esc"]], labelKey: "shortcuts.editors.clearAssetSelection" },

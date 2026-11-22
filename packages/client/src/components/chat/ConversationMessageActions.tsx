@@ -21,7 +21,7 @@ import {
 import { useOverhaulActive, useOverhaulStore, useOverhaulTouchMessages } from "../../stores/overhaul.store";
 import { OvMobileMessageSheet } from "../overhaul/MobileMessageSheet";
 import { FooterPopover, closeAfterAction } from "../overhaul/RpMessageFooter";
-import { menuOpenerFromClick } from "../../hooks/use-menu-keyboard";
+import { menuOpenerFromClick, openMessageMoreFromMenuKey } from "../../hooks/use-menu-keyboard";
 import { ReplyToMessageButton } from "./MessageReplyPreview";
 import type { Message, MessageExtra } from "@marinara-engine/shared";
 import { useEffect, useRef, useState, type RefObject } from "react";
@@ -332,6 +332,7 @@ export function ConversationMessageActions({
           className={cn("ov-cvh", (visible || moreAnchor) && "is-on")}
           data-component="ConversationMessage.Actions"
           data-mari-part="actions"
+          onContextMenu={openMessageMoreFromMenuKey}
         >
           {onPickReaction && show("react") ? (
             <span className="ov-cvh__quick">
@@ -420,6 +421,7 @@ export function ConversationMessageActions({
             <MsgAction
               icon={<MoreHorizontal size={MESSAGE_ACTION_ICON_SIZE} />}
               title={localizeUi("connections.accounts.header.more")}
+              opensMenu
               onClick={() => {
                 setMarksOpen(false);
                 if (moreAnchor) return setMoreAnchor(null);

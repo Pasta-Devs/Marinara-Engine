@@ -4,6 +4,7 @@
 import {
   BookOpen,
   FileText,
+  FolderOpen,
   Link,
   Puzzle,
   Regex,
@@ -38,6 +39,9 @@ export const LIBRARY_SECTIONS: readonly LibrarySectionEntry[] = [
   { id: "connections", label: "Connections", icon: Link, group: "library" },
   { id: "agents", label: "Agents", icon: Sparkles, group: "library" },
   { id: "tools", label: "Custom tools", icon: Wrench, group: "library" },
+  // One row for chat backgrounds, the game asset folders and Game Mode rulesets (tabs on the page), so the
+  // sidebar stays short (owner, 2026-11-22). They were windows or an old full page before (QC panel 2, E2).
+  { id: "assets", label: "Assets", icon: FolderOpen, group: "library" },
   { id: "settings", label: "Settings", icon: Settings, group: "app" },
   { id: "extensions", label: "Extensions", icon: Puzzle, group: "app" },
 ];
@@ -65,7 +69,27 @@ const CLOSED_EDITORS = {
   regexDetailId: null,
 };
 
-function showLibrarySection(section: LibrarySection) {
+/** Sections with no classic right panel of their own: the pane's highlight follows the page instead. */
+const PAGE_ONLY_SECTIONS = new Set<LibrarySection>([
+  "regex",
+  "tools",
+  "profiles",
+  "assets",
+  "rulesets",
+  "backgrounds",
+  "game-assets",
+]);
+
+/** The Assets row's tabs, each its own page id; the row reopens the tab used last. */
+export const ASSET_TABS = ["backgrounds", "game-assets", "rulesets"] as const;
+export type AssetTab = (typeof ASSET_TABS)[number];
+export const isAssetTab = (section: LibrarySection | null): section is AssetTab =>
+  !!section && (ASSET_TABS as readonly string[]).includes(section);
+let lastAssetTab: AssetTab = "backgrounds";
+
+function showLibrarySection(requested: LibrarySection) {
+  const section = requested === "assets" ? lastAssetTab : requested;
+  if (isAssetTab(section)) lastAssetTab = section;
   const ui = useUIStore.getState();
   const overhaul = useOverhaulStore.getState();
   // The one sidebar flips to its Library view, so the open section is highlighted there.
@@ -81,8 +105,7 @@ function showLibrarySection(section: LibrarySection) {
     overhaul.setLibraryPage(section);
   }
   // Keep the pane's highlight in step without reopening a closed pane.
-  if (section !== "regex" && section !== "tools" && section !== "profiles")
-    useUIStore.setState({ rightPanel: section as Panel });
+  if (!PAGE_ONLY_SECTIONS.has(section)) useUIStore.setState({ rightPanel: section as Panel });
 }
 
 /** The "Library" crumb: shows the Library pane beside whatever is open (nothing is closed). */

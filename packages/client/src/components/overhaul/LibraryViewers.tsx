@@ -48,6 +48,7 @@ import { BuiltinEmbeddingDetail, useBuiltinEmbeddingState } from "../connections
 import { EditorCrumbs, useSplitTouchCrumbs, type RailCrumb } from "./EditorRail";
 import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { OvEditorHeadSlot } from "./EditorChrome";
+import { AssetsTitle } from "./AssetsTabs";
 import {
   useCreateCustomTool,
   useCustomTools,
@@ -155,6 +156,7 @@ export function OvViewer({
   selectedId,
   onSelect,
   emptyList,
+  detailOpen = false,
   emptyDetail,
   children,
   onSection,
@@ -190,6 +192,8 @@ export function OvViewer({
   selectedId: string | null;
   onSelect: (id: string) => void;
   emptyList: string;
+  /** An editor with no list row yet (a new item being made) is open: no landing or empty state. */
+  detailOpen?: boolean;
   emptyDetail: string;
   children: ReactNode;
 }) {
@@ -211,7 +215,7 @@ export function OvViewer({
   // With nothing open this is the section's landing page: it reads like the other Library landing pages
   // (no crumbs, title at the same spot, Import and + New as pills at the top right). Once an item is
   // open, its editor header takes the top and the list keeps Import / + New (audit D7).
-  const landing = !selectedId;
+  const landing = !selectedId && !detailOpen;
   const newButton = (
     <button
       type="button"
@@ -239,7 +243,14 @@ export function OvViewer({
         <div className="ov-vw__slot" ref={setHeadSlot} />
         <header className={cn("ov-vw__top", !landing && "has-crumbs")}>
           {landing ? null : <EditorCrumbs items={crumbs} />}
-          <h1 data-mari-part="page-title">{title}</h1>
+          {/* Library > Assets' tabs take the title's place on its landing (AssetsTabs.tsx); an open item keeps its name. */}
+          {landing ? (
+            <AssetsTitle>
+              <h1 data-mari-part="page-title">{title}</h1>
+            </AssetsTitle>
+          ) : (
+            <h1 data-mari-part="page-title">{title}</h1>
+          )}
           <small>{meta}</small>
           {landing ? (
             <div className="ov-vw__actions">

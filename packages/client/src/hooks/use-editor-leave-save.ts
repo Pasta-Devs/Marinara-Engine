@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { create } from "zustand";
 import { editorLeaveKeyForTab, registerEditorLeaveHandler } from "../lib/editor-leave";
 import { showChoiceDialog } from "../lib/app-dialogs";
+import { announce } from "../lib/live-announcer";
 import { isOverhaulLook, useOverhaulStore } from "../stores/overhaul.store";
 import { useUIStore } from "../stores/ui.store";
 
@@ -388,9 +389,11 @@ export function useEditorLeaveSave(
 
 /** Ctrl+S / ⌘S saves the open editor instead of the browser's "Save page". */
 export function useEditorSaveShortcut(save: () => unknown, busy = false, off = false) {
-  const latest = useRef({ save, busy });
+  const { t } = useTranslation();
+  const savedText = t("chat.settings.inlineEditor.saved");
+  const latest = useRef({ save, busy, savedText });
   useLayoutEffect(() => {
-    latest.current = { save, busy };
+    latest.current = { save, busy, savedText };
   });
   useEffect(() => {
     if (off) return;
@@ -405,8 +408,13 @@ export function useEditorSaveShortcut(save: () => unknown, busy = false, off = f
         flushSync(() => focused.blur());
         focused.focus({ preventScroll: true });
       }
+      const { savedText: said } = latest.current;
       void Promise.resolve()
         .then(latest.current.save)
+        // A screen reader hears that Ctrl+S worked (QC Nov 22 K14); a save that says false did not.
+        .then((result) => {
+          if (result !== false) announce(said);
+        })
         .catch(() => undefined);
     };
     window.addEventListener("keydown", onKey);

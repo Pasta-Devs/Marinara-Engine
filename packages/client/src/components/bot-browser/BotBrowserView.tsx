@@ -81,6 +81,11 @@ import { SurfaceCloseButton, selectShowsSurfaceClose } from "../ui/SurfaceCloseB
 import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
+import { EditorCrumbs } from "../overhaul/EditorRail";
+import { openLibraryPane, openLibrarySection } from "../overhaul/library-navigation";
+import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import {
   CardUpdateChoices,
   defaultCardUpdateDecision,
@@ -1776,6 +1781,10 @@ export function BotBrowserView() {
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
   const browserKind = useUIStore((s) => s.botBrowserKind);
   const showsClose = useUIStore(selectShowsSurfaceClose);
+  // New layout: a Library page (crumbs, title, plain toolbar controls), not the gradient window header.
+  const overhaulLook = useOverhaulLook();
+  const overhaulMobile = useOverhaulMobile();
+  const localizeText = useLocalizedUiText();
 
   const browserRootRef = useRef<HTMLDivElement | null>(null);
   const [sourceId, setSourceId] = useState(() => defaultProviderId(useUIStore.getState().botBrowserKind));
@@ -2728,120 +2737,193 @@ export function BotBrowserView() {
     toast.info(localizeUi("ui.botBrowser.botbrowserview.loggedOutOfPygmalion"));
   };
 
+  const browseStatus = provider.unavailable
+    ? activeProviderName
+    : totalCount > 0
+      ? localizeUi(
+          browserKind === "lorebooks"
+            ? "ui.botBrowser.botbrowserview.value1LorebooksFromValue2"
+            : "ui.botBrowser.botbrowserview.value1CardsFromValue2",
+          { value1: totalCount.toLocaleString(), value2: activeProviderName },
+        )
+      : localizeUi("ui.botBrowser.botbrowserview.browsingValue1", { value1: activeProviderName });
+  const sourceMenu =
+    sourceOpen &&
+    sourceMenuPosition &&
+    createPortal(
+      <>
+        <button
+          type="button"
+          aria-label={localizeUi("ui.botBrowser.botbrowserview.closeProviderMenu")}
+          className="fixed inset-0 z-[9998] cursor-default"
+          onClick={() => setSourceOpen(false)}
+        />
+        <div
+          className="mari-chrome-token-scope mari-chrome-selection-bar mari-chrome-selection-bar--opaque fixed z-[9999] min-w-[180px] overflow-y-auto shadow-xl"
+          style={{
+            left: sourceMenuPosition.left,
+            top: sourceMenuPosition.top,
+            width: sourceMenuPosition.width,
+            maxHeight: sourceMenuPosition.maxHeight,
+          }}
+        >
+          {ALL_PROVIDERS.filter((p) => providerKind(p) === browserKind).map((p) => (
+            <button
+              key={p.id}
+              onClick={() => switchProvider(p.id)}
+              className={cn(
+                "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs transition-colors",
+                p.id === sourceId
+                  ? "mari-chrome-accent-surface mari-accent-animated font-semibold"
+                  : "hover:bg-[var(--accent)]",
+              )}
+            >
+              {/* A fixed-width icon column keeps every name aligned, whatever glyph a source uses. */}
+              <span className="inline-flex w-5 shrink-0 justify-center text-sm" aria-hidden="true">
+                {p.icon}
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span>{providerName(p)}</span>
+                {p.unavailable && (
+                  <span className="text-[0.6rem] opacity-70">
+                    {localizeUi("ui.botBrowser.providerUnavailable.badge")}
+                  </span>
+                )}
+              </span>
+              {p.id === sourceId && <span className="ml-auto text-[0.6rem]">✓</span>}
+            </button>
+          ))}
+        </div>
+      </>,
+      document.body,
+    );
+
   return (
     <div
       ref={browserRootRef}
       data-component="BotBrowserView"
-      className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_14%,transparent),_transparent_30%),radial-gradient(circle_at_top_right,_color-mix(in_srgb,var(--marinara-chat-chrome-text)_10%,transparent),_transparent_26%),var(--background)] text-[var(--marinara-chat-chrome-panel-text)]"
+      className={
+        overhaulLook
+          ? "mari-chrome-token-scope ov-bb flex h-full min-h-0 flex-col overflow-hidden bg-[var(--background)] text-[var(--ov-text)]"
+          : "mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_14%,transparent),_transparent_30%),radial-gradient(circle_at_top_right,_color-mix(in_srgb,var(--marinara-chat-chrome-text)_10%,transparent),_transparent_26%),var(--background)] text-[var(--marinara-chat-chrome-panel-text)]"
+      }
     >
       {/* ═══ Header ═══ */}
-      <header className="relative z-10 flex shrink-0 flex-col gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--card)]/85 px-3 py-2 backdrop-blur-xl md:px-6 md:py-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className={cn("flex min-w-0 items-center gap-3", showsClose && "max-lg:pr-12")}>
-          <SurfaceBackButton
-            className="mari-chrome-control h-9 w-9 shrink-0 rounded-2xl p-0 md:h-10 md:w-10"
-            iconSize="0.95rem"
-          />
-          <div className="min-w-0">
-            <p className="text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-[var(--marinara-chat-chrome-panel-muted)]">
-              {browserKind === "lorebooks"
-                ? localizeUi("ui.botBrowser.botbrowserview.lorebookDownloads")
-                : localizeUi("ui.botBrowser.botbrowserview.cardsLibrary")}
-            </p>
-            <h1 className="truncate text-base font-semibold text-[var(--marinara-chat-chrome-panel-title)] md:text-2xl">
-              {browserKind === "lorebooks"
-                ? localizeUi("ui.botBrowser.botbrowserview.browseLorebooksOnline")
-                : localizeUi("ui.botBrowser.botbrowserview.browseCharacterCardsOnline")}
-            </h1>
-            <p className="truncate text-xs text-[var(--marinara-chat-chrome-panel-muted)] md:text-sm">
-              {provider.unavailable
-                ? activeProviderName
-                : totalCount > 0
-                  ? localizeUi(
-                      browserKind === "lorebooks"
-                        ? "ui.botBrowser.botbrowserview.value1LorebooksFromValue2"
-                        : "ui.botBrowser.botbrowserview.value1CardsFromValue2",
-                      { value1: totalCount.toLocaleString(), value2: activeProviderName },
-                    )
-                  : localizeUi("ui.botBrowser.botbrowserview.browsingValue1", { value1: activeProviderName })}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:ml-auto lg:w-auto">
-          <div className="relative">
+      {overhaulLook ? (
+        <header className="ov-bb__head" data-component="OverhaulBotBrowserHead">
+          {overhaulMobile ? null : (
+            <EditorCrumbs
+              items={[
+                { label: localizeText("Library"), onClick: openLibraryPane },
+                {
+                  label: localizeText(browserKind === "lorebooks" ? "Lorebooks" : "Characters"),
+                  onClick: () => {
+                    useUIStore.getState().closeBotBrowser();
+                    openLibrarySection(browserKind === "lorebooks" ? "lorebooks" : "characters");
+                  },
+                },
+                { label: localizeText("Browse online") },
+              ]}
+            />
+          )}
+          <div className={overhaulMobile ? "ov-bb__bar" : "ov-gallery__head"}>
+            {overhaulMobile ? null : <h1 data-mari-part="page-title">{localizeText("Browse online")}</h1>}
+            <small className="ov-bb__status">{browseStatus}</small>
+            {sourceId === "pygmalion" && pygLoggedIn && (
+              <span className="ov-bb__auth">
+                <CheckCircle size={12} aria-hidden="true" /> {localizeUi("ui.botBrowser.botbrowserview.loggedIn")}
+              </span>
+            )}
             <button
               ref={sourceButtonRef}
+              type="button"
               onClick={() => setSourceOpen((v) => !v)}
-              className="mari-chrome-control h-9 px-3 text-xs md:h-10"
+              className={cn("ov-btn", sourceOpen && "is-on")}
+              aria-haspopup="menu"
+              aria-expanded={sourceOpen}
+              title={localizeText("Source")}
             >
-              <span>{provider.icon}</span>
+              <span aria-hidden="true">{provider.icon}</span>
               <span>{activeProviderName}</span>
-              <ChevronDown size="0.625rem" className={cn("transition-transform", sourceOpen && "rotate-180")} />
+              <ChevronDown
+                size={12}
+                aria-hidden="true"
+                className={cn("transition-transform", sourceOpen && "rotate-180")}
+              />
+            </button>
+            <button
+              type="button"
+              onClick={doSearch}
+              className="ov-btn ov-btn--icon"
+              title={localizeUi("ui.noodle.noodlehome.refresh")}
+              aria-label={localizeUi("ui.noodle.noodlehome.refresh")}
+            >
+              <RefreshCw size={14} aria-hidden="true" />
             </button>
           </div>
-          {sourceOpen &&
-            sourceMenuPosition &&
-            createPortal(
-              <>
-                <button
-                  type="button"
-                  aria-label={localizeUi("ui.botBrowser.botbrowserview.closeProviderMenu")}
-                  className="fixed inset-0 z-[9998] cursor-default"
-                  onClick={() => setSourceOpen(false)}
-                />
-                <div
-                  className="mari-chrome-token-scope mari-chrome-selection-bar mari-chrome-selection-bar--opaque fixed z-[9999] min-w-[180px] overflow-y-auto shadow-xl"
-                  style={{
-                    left: sourceMenuPosition.left,
-                    top: sourceMenuPosition.top,
-                    width: sourceMenuPosition.width,
-                    maxHeight: sourceMenuPosition.maxHeight,
-                  }}
-                >
-                  {ALL_PROVIDERS.filter((p) => providerKind(p) === browserKind).map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => switchProvider(p.id)}
-                      className={cn(
-                        "flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs transition-colors",
-                        p.id === sourceId
-                          ? "mari-chrome-accent-surface mari-accent-animated font-semibold"
-                          : "hover:bg-[var(--accent)]",
-                      )}
-                    >
-                      {/* A fixed-width icon column keeps every name aligned, whatever glyph a source uses. */}
-                      <span className="inline-flex w-5 shrink-0 justify-center text-sm" aria-hidden="true">
-                        {p.icon}
-                      </span>
-                      <span className="flex min-w-0 flex-col">
-                        <span>{providerName(p)}</span>
-                        {p.unavailable && (
-                          <span className="text-[0.6rem] opacity-70">
-                            {localizeUi("ui.botBrowser.providerUnavailable.badge")}
-                          </span>
-                        )}
-                      </span>
-                      {p.id === sourceId && <span className="ml-auto text-[0.6rem]">✓</span>}
-                    </button>
-                  ))}
-                </div>
-              </>,
-              document.body,
+          {sourceMenu}
+        </header>
+      ) : (
+        <header className="relative z-10 flex shrink-0 flex-col gap-2 border-b border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--card)]/85 px-3 py-2 backdrop-blur-xl md:px-6 md:py-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className={cn("flex min-w-0 items-center gap-3", showsClose && "max-lg:pr-12")}>
+            <SurfaceBackButton
+              className="mari-chrome-control h-9 w-9 shrink-0 rounded-2xl p-0 md:h-10 md:w-10"
+              iconSize="0.95rem"
+            />
+            <div className="min-w-0">
+              <p className="text-[0.625rem] font-semibold uppercase tracking-[0.28em] text-[var(--marinara-chat-chrome-panel-muted)]">
+                {browserKind === "lorebooks"
+                  ? localizeUi("ui.botBrowser.botbrowserview.lorebookDownloads")
+                  : localizeUi("ui.botBrowser.botbrowserview.cardsLibrary")}
+              </p>
+              <h1 className="truncate text-base font-semibold text-[var(--marinara-chat-chrome-panel-title)] md:text-2xl">
+                {browserKind === "lorebooks"
+                  ? localizeUi("ui.botBrowser.botbrowserview.browseLorebooksOnline")
+                  : localizeUi("ui.botBrowser.botbrowserview.browseCharacterCardsOnline")}
+              </h1>
+              <p className="truncate text-xs text-[var(--marinara-chat-chrome-panel-muted)] md:text-sm">
+                {provider.unavailable
+                  ? activeProviderName
+                  : totalCount > 0
+                    ? localizeUi(
+                        browserKind === "lorebooks"
+                          ? "ui.botBrowser.botbrowserview.value1LorebooksFromValue2"
+                          : "ui.botBrowser.botbrowserview.value1CardsFromValue2",
+                        { value1: totalCount.toLocaleString(), value2: activeProviderName },
+                      )
+                    : localizeUi("ui.botBrowser.botbrowserview.browsingValue1", { value1: activeProviderName })}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:ml-auto lg:w-auto">
+            <div className="relative">
+              <button
+                ref={sourceButtonRef}
+                onClick={() => setSourceOpen((v) => !v)}
+                className="mari-chrome-control h-9 px-3 text-xs md:h-10"
+              >
+                <span>{provider.icon}</span>
+                <span>{activeProviderName}</span>
+                <ChevronDown size="0.625rem" className={cn("transition-transform", sourceOpen && "rotate-180")} />
+              </button>
+            </div>
+            {sourceMenu}
+            {/* Auth indicator for login providers */}
+            {sourceId === "pygmalion" && pygLoggedIn && (
+              <span className="flex items-center gap-1 text-[0.65rem] text-emerald-400">
+                <CheckCircle size="0.625rem" /> {localizeUi("ui.botBrowser.botbrowserview.loggedIn")}
+              </span>
             )}
-          {/* Auth indicator for login providers */}
-          {sourceId === "pygmalion" && pygLoggedIn && (
-            <span className="flex items-center gap-1 text-[0.65rem] text-emerald-400">
-              <CheckCircle size="0.625rem" /> {localizeUi("ui.botBrowser.botbrowserview.loggedIn")}
-            </span>
-          )}
-        </div>
-        <SurfaceCloseButton
-          className="absolute right-3 top-2 md:right-6 md:top-3 lg:static lg:self-start"
-          buttonClassName="mari-chrome-control h-9 w-9 shrink-0 rounded-2xl p-0 md:h-10 md:w-10"
-          iconSize="0.95rem"
-          dividerClassName="max-lg:hidden"
-        />
-      </header>
+          </div>
+          <SurfaceCloseButton
+            className="absolute right-3 top-2 md:right-6 md:top-3 lg:static lg:self-start"
+            buttonClassName="mari-chrome-control h-9 w-9 shrink-0 rounded-2xl p-0 md:h-10 md:w-10"
+            iconSize="0.95rem"
+            dividerClassName="max-lg:hidden"
+          />
+        </header>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* ═══ Tag Sidebar ═══ */}
@@ -2982,7 +3064,10 @@ export function BotBrowserView() {
           </div>
         </div>
         {/* ═══ Main area ═══ */}
-        <div ref={mainScrollRef} className="flex-1 overflow-y-auto p-4">
+        <div
+          ref={mainScrollRef}
+          className={overhaulLook ? "ov-bb__main flex-1 overflow-y-auto" : "flex-1 overflow-y-auto p-4"}
+        >
           {provider.unavailable ? (
             <ProviderUnavailableNotice provider={provider} />
           ) : selectedCard ? (
@@ -3002,8 +3087,8 @@ export function BotBrowserView() {
           ) : (
             <div className="flex flex-col gap-4">
               {/* ═══ Toolbar ═══ */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative min-w-[200px] flex-1">
+              <div className={overhaulLook ? "ov-bb__tools" : "flex flex-wrap items-center gap-2"}>
+                <div className={overhaulLook ? "ov-bb__find" : "relative min-w-[200px] flex-1"}>
                   <Search
                     size="0.875rem"
                     className="mari-chrome-field-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
@@ -3020,7 +3105,9 @@ export function BotBrowserView() {
                         ? "search.panels.lorebooks"
                         : "ui.botBrowser.botbrowserview.searchCharacters",
                     )}
-                    className="mari-chrome-field h-10 w-full py-0 pl-9 pr-8 text-sm md:h-9"
+                    className={
+                      overhaulLook ? "ov-bb__query" : "mari-chrome-field h-10 w-full py-0 pl-9 pr-8 text-sm md:h-9"
+                    }
                   />
                   {query && (
                     <button
@@ -3040,7 +3127,7 @@ export function BotBrowserView() {
                   }}
                   label={localizeUi("ui.botBrowser.botbrowserview.sortBy")}
                   searchable={false}
-                  className="mari-chrome-field h-10 px-3 py-0 text-xs md:h-9"
+                  className={overhaulLook ? "ov-select ov-bb__sort" : "mari-chrome-field h-10 px-3 py-0 text-xs md:h-9"}
                   options={sortGroups.flatMap((group) =>
                     group.options.map((opt) => ({
                       value: opt.value,
@@ -3053,11 +3140,11 @@ export function BotBrowserView() {
                 <button
                   onClick={() => setShowTagPanel((v) => !v)}
                   className={cn(
-                    "mari-chrome-control h-10 px-3 py-0 text-xs md:h-9",
-                    showTagPanel || includeTags.length > 0 || excludeTags.length > 0
-                      ? "mari-chrome-control--selected"
-                      : "",
+                    overhaulLook ? "ov-btn" : "mari-chrome-control h-10 px-3 py-0 text-xs md:h-9",
+                    (showTagPanel || includeTags.length > 0 || excludeTags.length > 0) &&
+                      (overhaulLook ? "is-on" : "mari-chrome-control--selected"),
                   )}
+                  aria-pressed={overhaulLook ? showTagPanel : undefined}
                 >
                   <Tag size="0.75rem" /> {localizeUi("ui.characters.metadatatab.tags")}
                   {(includeTags.length > 0 || excludeTags.length > 0) && (
@@ -3074,9 +3161,11 @@ export function BotBrowserView() {
                   <button
                     onClick={() => setShowFiltersPanel((v) => !v)}
                     className={cn(
-                      "mari-chrome-control h-10 px-3 py-0 text-xs md:h-9",
-                      (showFiltersPanel || hasActiveFeatures) && "mari-chrome-control--selected",
+                      overhaulLook ? "ov-btn" : "mari-chrome-control h-10 px-3 py-0 text-xs md:h-9",
+                      (showFiltersPanel || hasActiveFeatures) &&
+                        (overhaulLook ? "is-on" : "mari-chrome-control--selected"),
                     )}
+                    aria-pressed={overhaulLook ? showFiltersPanel : undefined}
                   >
                     <SlidersHorizontal size="0.75rem" /> {localizeUi("ui.botBrowser.botbrowserview.filters")}
                     {hasActiveFeatures && (
@@ -3092,6 +3181,47 @@ export function BotBrowserView() {
                   const isLoginProvider = provider.nsfwMode === "login";
                   const isLoggedInForProvider = sourceId === "pygmalion" && pygLoggedIn;
                   const nsfwGreyedOut = isLoginProvider && isLoggedInForProvider;
+                  if (overhaulLook)
+                    return (
+                      <SettingsSwitch
+                        className="ov-bb__nsfw"
+                        label={localizeUi("ui.botBrowser.botbrowserview.nsfw")}
+                        checked={nsfwGreyedOut ? true : nsfw}
+                        disabled={nsfwGreyedOut}
+                        title={
+                          nsfwGreyedOut
+                            ? localizeUi("ui.botBrowser.botbrowserview.nsfwDependsOnYourAccountSettings")
+                            : effectiveNsfwAvailable
+                              ? providerKind(provider) === "lorebooks"
+                                ? localizeUi("ui.botBrowser.botbrowserview.unblurNsfwLorebookCovers")
+                                : localizeUi("ui.botBrowser.botbrowserview.toggleNsfwContent")
+                              : provider.nsfwHintKey
+                                ? localizeUi(provider.nsfwHintKey)
+                                : sourceId === "wyvern"
+                                  ? localizeUi("ui.botBrowser.botbrowserview.useThePopularNsfwSortOption")
+                                  : sourceId === "datacat"
+                                    ? localizeUi("ui.botBrowser.botbrowserview.datacatIsNsfwOnly_a49a06a")
+                                    : localizeUi("ui.botBrowser.botbrowserview.clickToLogInToValue1ForNsfwContent", {
+                                        value1: activeProviderName,
+                                      })
+                        }
+                        onChange={(next) => {
+                          if (nsfwGreyedOut) return;
+                          if (effectiveNsfwAvailable) {
+                            setNsfw(next);
+                            setPage(1);
+                          } else if (sourceId === "wyvern") {
+                            toast.info(
+                              localizeUi("ui.botBrowser.botbrowserview.useThePopularNsfwSortOptionToBrowseNsfw"),
+                            );
+                          } else if (isLoginProvider) {
+                            setShowLoginModal(true);
+                          } else if (provider.nsfwHintKey) {
+                            toast.info(localizeUi(provider.nsfwHintKey));
+                          }
+                        }}
+                      />
+                    );
                   return (
                     <label
                       className={cn(
@@ -3157,7 +3287,11 @@ export function BotBrowserView() {
                         onClick={() => {
                           if (sourceId === "pygmalion") handlePygmalionLogout();
                         }}
-                        className="mari-chrome-control mari-chrome-control--small px-2.5 py-2 text-[0.65rem] hover:text-[var(--destructive)]"
+                        className={
+                          overhaulLook
+                            ? "ov-btn"
+                            : "mari-chrome-control mari-chrome-control--small px-2.5 py-2 text-[0.65rem] hover:text-[var(--destructive)]"
+                        }
                         title={localizeUi("ui.botBrowser.botbrowserview.logOut")}
                       >
                         <LogOut size="0.625rem" /> {localizeUi("ui.botBrowser.botbrowserview.logout")}
@@ -3166,7 +3300,7 @@ export function BotBrowserView() {
                   ) : (
                     <button
                       onClick={() => setShowLoginModal(true)}
-                      className="mari-chrome-control h-10 px-3 py-0 text-xs md:h-9"
+                      className={overhaulLook ? "ov-btn" : "mari-chrome-control h-10 px-3 py-0 text-xs md:h-9"}
                     >
                       <LogIn size="0.75rem" /> {localizeUi("ui.botBrowser.botbrowserview.logIn")}
                     </button>
@@ -3177,13 +3311,16 @@ export function BotBrowserView() {
                   </span>
                 )}
 
-                <button
-                  onClick={doSearch}
-                  className="mari-chrome-control h-10 w-10 p-0 text-xs md:h-9 md:w-9"
-                  title={localizeUi("ui.noodle.noodlehome.refresh")}
-                >
-                  <RefreshCw size="0.75rem" />
-                </button>
+                {/* New layout: Refresh sits beside the source picker in the page header. */}
+                {overhaulLook ? null : (
+                  <button
+                    onClick={doSearch}
+                    className="mari-chrome-control h-10 w-10 p-0 text-xs md:h-9 md:w-9"
+                    title={localizeUi("ui.noodle.noodlehome.refresh")}
+                  >
+                    <RefreshCw size="0.75rem" />
+                  </button>
+                )}
               </div>
 
               {/* ═══ Filters panel ═══ */}

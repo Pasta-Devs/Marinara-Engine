@@ -16,6 +16,7 @@ import {
   getMergedAvatarBorderStyle,
   isLegacyAvatarCrop,
 } from "../../lib/utils";
+import { announce } from "../../lib/live-announcer";
 import {
   normalizeAvatarCrop,
   getRoleplayWhispers,
@@ -3733,6 +3734,7 @@ export const ChatMessage = memo(function ChatMessage({
   const handleCopy = () => {
     copyToClipboard(message.content);
     setCopied(true);
+    announce(localizeUi("markdown.copied"));
     setTimeout(() => setCopied(false), 1500);
   };
 
@@ -4738,6 +4740,9 @@ export const ChatMessage = memo(function ChatMessage({
           onDoubleClick={handleRoleplayDoubleClick}
           style={{ ...roleplayAvatarScaleStyle, ...messageHookProps.style }}
           {...longPress}
+          aria-label={
+            "data-ovm-longpress" in longPress ? localizeUi("chat.message.focusLabel", { name: displayName }) : undefined
+          }
         >
           {/* Multi-select checkbox */}
           {multiSelectMode && (
