@@ -1565,6 +1565,11 @@ export function AppShell({
   // Phones and tablets: a page covers the whole screen, so a theme's ambient layer (rising bubbles,
   // rain) holds still under it instead of repainting every frame where nobody sees it (battery).
   const pageCoversScreen = overhaulMobile && shellOverlayMode && hasDetailView;
+  // The Chats/Library page and the All tabs grid cover the whole screen too: what lies under them is out of reach
+  // for VoiceOver and Tab as well (QC panel 2, #21). Both live outside the covered part (a portal, the top bar).
+  const mobileSidePageOpen = useOverhaulStore((s) => s.mobileSidePageOpen);
+  const mobileAllTabsOpen = useOverhaulStore((s) => s.allTabsOpen);
+  const sheetCoversScreen = overhaulMobile && (mobileSidePageOpen || mobileAllTabsOpen);
   useEffect(() => {
     if (!pageCoversScreen) return;
     document.documentElement.setAttribute("data-mari-page-covers", "");
@@ -2171,7 +2176,7 @@ export function AppShell({
               data-under-page={pageCoversScreen ? "true" : undefined}
               // Hidden under the page, so VoiceOver swipes and a keyboard's Tab can't land on its buttons either
               // (QC Nov 21, MOB missed A). Painting is untouched: `inert` doesn't hide anything.
-              inert={pageCoversScreen || undefined}
+              inert={pageCoversScreen || sheetCoversScreen || undefined}
               className={cn(
                 "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
                 (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) && "hidden",

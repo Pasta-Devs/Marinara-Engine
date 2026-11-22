@@ -15685,9 +15685,12 @@ input.ov-edhead__title:not(#ov-x) {
     .ov-gallery__size > button,
     .mari-things-to-try__icon-button,
     .mari-chrome-control--small,
-    .ov-rpf__btn,
-    .ov-cs > .mari-window__header .mari-window__control
+    .ov-rpf__btn
   ):not(#ov-hit):not(#ov-hit2):not(#ov-hit3) {
+  min-width: 2.75rem;
+}
+/* iPad sideways: Chat settings' header buttons (phones size them in overhaul-mobile.css). */
+:root[data-overhaul="on"][data-marinara-touch-device="true"] .ov-cs > .mari-window__header .mari-window__control {
   min-width: 2.75rem;
 }
 :root[data-overhaul][data-marinara-touch-device="true"]

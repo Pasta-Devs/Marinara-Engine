@@ -157,6 +157,29 @@
   font-size: 0.875rem;
   line-height: 1.15;
 }
+/* Narrow screens (Android's large font makes a 412px phone 317px wide): the same two-line title, so it isn't
+   "Storm a…" (QC panel 2, #12). */
+@media (max-width: 359px) {
+  :root[data-overhaul="mobile"] .ovm-title {
+    padding-inline: 0;
+  }
+  :root[data-overhaul="mobile"] .ovm-title__inner {
+    gap: 0.25rem;
+  }
+  :root[data-overhaul="mobile"] .ovm-title__text small {
+    display: none;
+  }
+  :root[data-overhaul="mobile"] .ovm-title__text :is(b, .ov-tab__label) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: break-word;
+    font-size: 0.875rem;
+    line-height: 1.15;
+  }
+}
 .ovm-stack-btn {
   display: flex;
   flex: none;
@@ -791,6 +814,43 @@
 }
 .ovm-cs-head__help {
   margin-left: 0.125rem;
+}
+/* Narrow screens (Android's large font): the title keeps "Chat Settings" whole, and Connection's model goes under its
+   label instead of "Loca…" (QC panel 2, #12). */
+@media (max-width: 359px) {
+  :root[data-overhaul="mobile"] .ov-cs .mari-window__title {
+    font-size: 0.9375rem;
+  }
+  /* Large font grows rem: the controls stay a 44px target (not 57px) so the title fits beside them. */
+  :root[data-overhaul="mobile"] .ov-cs > .mari-window__header .mari-window__control {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+  :root[data-overhaul="mobile"] .ov-cs > .mari-window__header {
+    padding-left: 0.5rem;
+    padding-right: 0.125rem;
+  }
+  :root[data-overhaul="mobile"] .ov-cs .mari-window__title-row {
+    gap: 0;
+  }
+  .ov-cs.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 0.625rem !important;
+  }
+  .ov-cs.ov-cs.ov-cs.ov-cs
+    [data-ovm-cs-view]
+    .mari-drawer[data-chat-settings-section="connection"]
+    .mari-drawer__body
+    [data-chat-settings-model-field]
+    > button[type="button"][aria-expanded] {
+    justify-content: flex-start !important;
+    padding-left: 2rem !important;
+  }
+}
+/* New-chat setup on phones: picker text matches the labels (it was 12px under 17px labels, worse with large font). */
+:root[data-overhaul="mobile"] .ov-setup .mari-chrome-field {
+  font-size: 0.9375rem;
 }
 .ov-cs-edit__hidden-count {
   margin: 0 0 0.5rem;
