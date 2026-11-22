@@ -255,6 +255,8 @@ Under **Runtime** you can choose **Pi (experimental)**, the default, or **Classi
 
 **Read the handbook before the first write**, also under **Runtime**, is on by default. Her first change to an area with a built-in skill is turned back until she has read that skill. This helps smaller models. Only you can switch it off.
 
+**Turn context placement**, below **Runtime**, sets where she reads each turn's context: the current time, attached chats, @ links and her notes from earlier turns. The default, **Above the last 2 messages**, puts it above her last reply and your message, so your request comes after it and she is less likely to carry on a story she was shown. **At the end, after your message** has her read it last. Each step further back means a little less of the chat is reused from your provider's prompt cache. Her instructions always come first and do not move.
+
 ### What she can reach on your computer
 
 She can read and change Marinara's own program files and run sandboxed commands, so she can repair the app. Most people never need this.

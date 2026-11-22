@@ -931,17 +931,17 @@ function linuxReadRoots(workspaceRoot: string, env: NodeJS.ProcessEnv, codeCheck
   // symlinks into /usr. Bubblewrap starts with an empty root, so canonicalizing
   // those mount destinations would remove the aliases expected by shells and
   // ELF interpreters inside the sandbox.
+  const systemRoots = ["/usr", "/bin", "/sbin", "/lib", "/lib64", "/etc", "/nix/store"];
+  // A PATH folder inside one of those is already mounted with it. Mounting it again can fail: bubblewrap builds the
+  // mount point inside the new root, and a symlink on the way (such as /usr/local/go -> /usr/local/go1.24) points at
+  // a path that does not exist there yet, so the sandbox would not start at all.
+  const insideSystemRoot = (path: string) =>
+    systemRoots.some((root) => resolve(path) === root || resolve(path).startsWith(`${root}/`));
   return uniqueExistingMountPaths([
-    "/usr",
-    "/bin",
-    "/sbin",
-    "/lib",
-    "/lib64",
-    "/etc",
-    "/nix/store",
+    ...systemRoots,
     dirname(process.execPath),
     workspaceRoot,
-    ...pathRoots,
+    ...pathRoots.filter((path) => !insideSystemRoot(path)),
     ...(codeCheck ? pnpmReadRoots(env) : []),
   ]);
 }

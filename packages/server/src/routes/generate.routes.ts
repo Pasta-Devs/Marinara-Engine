@@ -511,6 +511,7 @@ import {
 } from "../services/lorebook/game-lorebook-scope.js";
 import { lorebookEntryPassesContextFilters, type GameStateForScanning } from "../services/lorebook/keyword-scanner.js";
 import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
+import { stripMemoryRecallSlot } from "../services/prompt/memory-recall-slot.js";
 import {
   resolveChatSummaryConnection,
   resolveChatSummaryTemperatureOptions,
@@ -4212,6 +4213,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           );
 
           const assemblerInput: AssemblerInput = {
+            deferMemoryRecall: true,
             worldState: promptMacroContext.worldState,
             model: conn.model,
             reasoning: promptReasoning,
@@ -6428,6 +6430,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             wrapFormat,
           });
         }
+        // A preset's Memory Recall marker that recall did not fill (off, nothing recalled) leaves the prompt.
+        finalMessages = stripMemoryRecallSlot(finalMessages);
 
         // ── Deferred relocation {{#if}} decode (#3448) ──
         // Every relocation value is now known: evaluate {{#if memories != ""}} /

@@ -184,7 +184,10 @@ assert.ok(
 );
 // The phone shell decides, not the `sm` width: a landscape phone is wider than `sm` and still gets the
 // compact button, never the fake URL bar or the full bookmarks bar.
-assert.match(browserHub, /const mobileShell = useMatchMedia\(MOBILE_SHELL_MEDIA_QUERY\);/u);
+assert.match(
+  browserHub,
+  /const mobileShell = useMatchMedia\((MOBILE_SHELL_MEDIA_QUERY|useMobileShellMediaQuery\(\))\);/u,
+);
 assert.ok(
   browserHubFlat.includes("{showHomeBrowserAddressBar && !mobileShell ? ("),
   "the fake URL bar is desktop-only",

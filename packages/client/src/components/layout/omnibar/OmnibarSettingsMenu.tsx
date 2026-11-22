@@ -22,9 +22,11 @@ import { useTranslation } from "react-i18next";
 import { Check, ChevronLeft, Lock, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  DEFAULT_MARI_CONTEXT_DEPTH,
   DEFAULT_MARI_PERMISSIONS_MODE,
   DEFAULT_MARI_RUNTIME,
   LOCAL_SIDECAR_CONNECTION_ID,
+  MAX_MARI_CONTEXT_DEPTH,
   MARI_PERMISSIONS_MODE_LABELS,
   MARI_PERMISSIONS_MODES,
   MARI_RUNTIMES,
@@ -301,6 +303,80 @@ function SkillGateRow() {
       checked={enabled}
       onChange={(next) => void change(next)}
     />
+  );
+}
+
+// Where her per-turn context (the time, attached chats, @ links, notes from earlier turns) goes: that many
+// messages before the end of the chat. Server-authoritative like the rows around it; read fresh on each run.
+function ContextDepthRow() {
+  const { t } = useTranslation();
+  const selectId = useId();
+  const helpId = useId();
+  const [depth, setDepth] = useState(DEFAULT_MARI_CONTEXT_DEPTH);
+  const writeSeqRef = useRef(0);
+  // What the server holds: a failed write goes back to it, not to a choice that was never saved.
+  const savedDepthRef = useRef(DEFAULT_MARI_CONTEXT_DEPTH);
+  // Counts successful saves, so a read that answers after a save cannot replace the value that save stored.
+  const savedSeqRef = useRef(0);
+  useEffect(() => {
+    let cancelled = false;
+    const seqAtStart = writeSeqRef.current;
+    const savedSeqAtStart = savedSeqRef.current;
+    api
+      .get<{ depth: number }>("/professor-mari/workspace/context-depth")
+      .then((response) => {
+        if (cancelled) return;
+        if (savedSeqRef.current === savedSeqAtStart) savedDepthRef.current = response.depth;
+        if (writeSeqRef.current === seqAtStart) setDepth(response.depth);
+      })
+      .catch(() => {
+        // The select keeps the default; a failed read is not worth a toast in a settings view.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const change = async (next: number) => {
+    const writeSeq = ++writeSeqRef.current;
+    setDepth(next);
+    try {
+      await enqueueMariPermissionsModeWrite(() => api.put("/professor-mari/workspace/context-depth", { depth: next }));
+      savedDepthRef.current = next;
+      savedSeqRef.current += 1;
+    } catch {
+      if (writeSeqRef.current !== writeSeq) return;
+      setDepth(savedDepthRef.current);
+      toast.error(t("omnibar.settings.mariContextDepth.couldNotChange"));
+    }
+  };
+  const optionLabel = (value: number) => {
+    const label =
+      value === 0
+        ? t("omnibar.settings.mariContextDepth.option.end")
+        : t("omnibar.settings.mariContextDepth.option.back", { count: value });
+    return value === DEFAULT_MARI_CONTEXT_DEPTH
+      ? t("omnibar.settings.mariContextDepth.option.default", { label })
+      : label;
+  };
+  return (
+    <div id={anchorId("mari-context-depth")} className="omnibar-settings-menu__row omnibar-settings-menu__row--stacked">
+      <div className="omnibar-settings-menu__label">{t("omnibar.settings.mariContextDepth.label")}</div>
+      <Select<string>
+        id={selectId}
+        label={t("omnibar.settings.mariContextDepth.label")}
+        aria-describedby={helpId}
+        className="mari-chrome-field omnibar-settings-sheet__select"
+        value={String(depth)}
+        options={Array.from({ length: MAX_MARI_CONTEXT_DEPTH + 1 }, (_, value) => ({
+          value: String(value),
+          label: optionLabel(value),
+        }))}
+        onChange={(value) => void change(Number(value))}
+      />
+      <span id={helpId} className="omnibar-settings-menu__description">
+        {t("omnibar.settings.mariContextDepth.help")}
+      </span>
+    </div>
   );
 }
 
@@ -830,6 +906,7 @@ export function OmnibarSettingsControls({
       <Section title={t("omnibar.settings.mari.heading", "Professor Mari")}>
         <PermissionsModeRow />
         <RuntimeRow />
+        <ContextDepthRow />
         <SkillGateRow />
         <SettingRow
           controlId="professor-mari-suggestions"
