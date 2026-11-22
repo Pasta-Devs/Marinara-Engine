@@ -780,12 +780,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Header controls are full touch targets (44px). They sit in a row, so they grow rather than getting a hit area. Sized
+/* Header controls are full touch targets (44px). They sit in a row, so they grow rather than getting a hit area. Capped
    in px, so a large Display size grows the title, not the four controls beside it (QC panel 3: "Ch…" at Huge). */
 :root[data-overhaul="mobile"] .ov-cs > .mari-window__header .mari-window__control {
-  width: 47px;
-  min-width: 47px;
-  height: 47px;
+  width: clamp(44px, 2.75rem, 47px);
+  min-width: clamp(44px, 2.75rem, 47px);
+  height: clamp(44px, 2.75rem, 47px);
   flex-shrink: 0;
 }
 :root[data-overhaul="mobile"] .ov-cs > .mari-window__header {
