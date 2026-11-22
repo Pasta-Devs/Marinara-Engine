@@ -744,20 +744,17 @@ export function ChatSettingsDrawer({
   const inheritsScopedRegexMode = metadata.scopedRegexMode == null;
   const scopedRegexMode = resolveScopedRegexMode(metadata.scopedRegexMode, presetScopedRegexMode);
   // A full-page surface opened from this drawer: Back from it reopens the drawer (see `chatSettingsReturn`).
-  const rememberSettingsReturn = useCallback(
-    () => {
-      // Phones and tablets upright: back comes to the same page of the sheet (Agents), not its Quick page.
-      const nav = useMobileChatSettingsNav.getState();
-      useUIStore.getState().setChatSettingsReturn({
-        chatId: chat.id,
-        section: initialSection ?? null,
-        ...(overhaulMobile && (nav.view === "all" || nav.view === "page")
-          ? { mobileNav: { view: nav.view, page: nav.page, back: nav.back } }
-          : {}),
-      });
-    },
-    [chat.id, initialSection, overhaulMobile],
-  );
+  const rememberSettingsReturn = useCallback(() => {
+    // Phones and tablets upright: back comes to the same page of the sheet (Agents), not its Quick page.
+    const nav = useMobileChatSettingsNav.getState();
+    useUIStore.getState().setChatSettingsReturn({
+      chatId: chat.id,
+      section: initialSection ?? null,
+      ...(overhaulMobile && (nav.view === "all" || nav.view === "page")
+        ? { mobileNav: { view: nav.view, page: nav.page, back: nav.back } }
+        : {}),
+    });
+  }, [chat.id, initialSection, overhaulMobile]);
   const closeForSurface = useCallback(() => {
     rememberSettingsReturn();
     onClose();

@@ -58,8 +58,7 @@ export const useChatSettingsSubpage = create<ChatSettingsSubpageState>()((set) =
       active instanceof HTMLElement && active !== document.body
         ? {
             element: active,
-            section:
-              active.closest<HTMLElement>("[data-chat-settings-section]")?.dataset.chatSettingsSection ?? null,
+            section: active.closest<HTMLElement>("[data-chat-settings-section]")?.dataset.chatSettingsSection ?? null,
           }
         : null;
     set({ subpage: { chatId, id, props } });
