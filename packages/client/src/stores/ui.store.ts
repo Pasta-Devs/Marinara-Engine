@@ -9,6 +9,7 @@ import {
   type WalkthroughDevice,
 } from "../lib/walkthroughs";
 import { create } from "zustand";
+import { openChatSettingsSubpage } from "../features/chat-settings/subpage";
 import { isOverhaulLook, useOverhaulStore } from "./overhaul.store";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { generateClientId } from "../lib/utils";
@@ -3184,6 +3185,22 @@ export const useUIStore = create<UIState>()(
             useOverhaulStore.getState().openDocs(initialDoc, { newTab: Boolean(props?.newTab) });
             return;
           }
+          // UI overhaul: Chat Variables' State editor is a page inside that chat's Chat settings.
+          if (type === "chat-variables-editor" && typeof props?.chatId === "string" && isOverhaulLook()) {
+            openChatSettingsSubpage(props.chatId, "variables");
+            return;
+          }
+          // UI overhaul: a job's settings and the built-in model are Connections pages, not windows.
+          if (type === "job-settings" && typeof props?.job === "string" && isOverhaulLook()) {
+            get().openConnectionDetail(`job-settings:${props.job}`);
+            return;
+          }
+          if (type === "device-detail" && isOverhaulLook()) {
+            get().openConnectionDetail(
+              import.meta.env.VITE_MARINARA_LITE === "true" ? "device:decision" : "device:local-model",
+            );
+            return;
+          }
           // UI overhaul: an account is a page (desktop: in the Connections viewer, beside its models).
           if (type === "connection-account" && typeof props?.accountId === "string") {
             const overhaul = useOverhaulStore.getState();
@@ -3575,6 +3592,19 @@ export const useUIStore = create<UIState>()(
           set(open ? { omnibarOpen: true } : { omnibarOpen: false, omnibarSettings: null, mariFieldDraft: null });
         },
         openOmnibarSettings: (controlId = null) => {
+          // New layout: Search and Professor Mari settings are rows in Settings › General, so every way in
+          // (the omnibar's gear, a search result, Mari's link) closes the omnibar and goes there instead.
+          if (isOverhaulLook()) {
+            set({ omnibarOpen: false, omnibarSettings: null, mariFieldDraft: null });
+            void import("../lib/state-navigation").then(({ executeStateNavigation }) =>
+              executeStateNavigation(
+                controlId
+                  ? { kind: "settings", tab: "general", controlId }
+                  : { kind: "settings", tab: "general", sectionId: "omnibar" },
+              ),
+            );
+            return;
+          }
           if (!get().omnibarOpen && get().debugMode) markOmnibarOpenStart();
           set({ omnibarOpen: true, omnibarSettings: { controlId } });
         },

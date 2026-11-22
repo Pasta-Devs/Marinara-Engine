@@ -12,7 +12,10 @@ import {
   useEffect,
   useMemo,
   useCallback,
+  useLayoutEffect,
+  type Dispatch,
   type MouseEvent as ReactMouseEvent,
+  type SetStateAction,
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,6 +33,7 @@ import {
   X,
   BookOpen,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ChevronUp,
   Check,
@@ -76,6 +80,7 @@ import { changedId } from "../../components/characters/CharacterSelect";
 import { PictureCheckFields } from "./PictureCheckFields";
 import { ChatSettingsDeferBodiesContext, ChatSettingsSection as Section } from "./ChatSettingsSection";
 import { useMobileChatSettingsNav } from "./mobile-nav";
+import { requestCloseChatSettingsSubpage, useChatSettingsSubpage, type ChatSettingsSubpageId } from "./subpage";
 import { MobileChatSettingsBack, MobileChatSettingsGroup, MobileChatSettingsQuick } from "./MobileChatSettingsNav";
 import { ActiveChatBackgroundPicker } from "../../components/panels/settings/BackgroundPicker";
 import { LocationBackgroundPins } from "./LocationBackgroundPins";
@@ -180,7 +185,6 @@ import { ChoiceSelectionModal } from "../../components/presets/ChoiceSelectionMo
 import { CharacterOnboardingModal } from "../../components/characters/CharacterOnboardingModal";
 import { SummariesEditorModal } from "./SummariesEditorModal";
 import { useAdvancedMemoryStatus } from "../../hooks/use-advanced-memory";
-import { AgentSuiteModal } from "./agents/AgentSuiteModal";
 import { RoleplayMessagePreview } from "../../components/chat/ChatMessage";
 import { resolveChatContextBudget } from "../../lib/professor-mari-context-budget";
 import { CHAT_SETTINGS_SURFACES } from "./chat-settings-surfaces";
@@ -316,6 +320,16 @@ const ActiveLorebookEntriesContent = lazy(() =>
   })),
 );
 const BeholderChatSettingsPanel = lazy(() => import("./agents/BeholderChatSettingsPanel"));
+// Agent Suite is large and rarely opened; it loads the first time it opens and then stays mounted.
+const AgentSuiteModal = lazy(() =>
+  import("./agents/AgentSuiteModal").then((module) => ({ default: module.AgentSuiteModal })),
+);
+// Chat Variables' State editor is large; it loads when its page first opens.
+const ChatVariablesEditorModal = lazy(() =>
+  import("../../components/modals/ChatVariablesEditorModal").then((module) => ({
+    default: module.ChatVariablesEditorModal,
+  })),
+);
 
 const DRAWER_WINDOW_SCROLL_AREA = cn(NEUTRAL_PANEL_SCROLL_AREA, "@container");
 
@@ -535,6 +549,8 @@ export function ChatSettingsDrawer({
   // the game instead: squeezing the scene and the game pane left the narration unreadable (user panel 2, N2).
   useChatSettingsReflow(panelRef, ovDocked && windowOpen && (chat as unknown as { mode?: unknown }).mode !== "game");
   const [ovScrollEl, setOvScrollEl] = useState<HTMLDivElement | null>(null);
+  // Where the list was scrolled, so coming back from an editor page lands there again.
+  const listScrollRef = useRef(0);
   const setOvGameSettingsSlot = useOverhaulStore((state) => state.setGameSettingsSlot);
   const [ovProfileSlot, setOvProfileSlot] = useState<HTMLDivElement | null>(null);
   const trackerPanelClearance = useTrackerPanelClearance(!phoneLayout);
@@ -1359,20 +1375,67 @@ export function ChatSettingsDrawer({
   const [showPersonaPicker, setShowPersonaPicker] = useState(false);
   const [showSummariesModal, setShowSummariesModal] = useState(false);
   const [showAgentSuiteModal, setShowAgentSuiteModal] = useState(false);
-  const [memoryView, setMemoryView] = useState<"advanced" | "standard" | null>(null);
+  const [agentSuiteLoaded, setAgentSuiteLoaded] = useState(false);
+  const [memoryView, setMemoryViewState] = useState<"advanced" | "standard" | null>(null);
   // Game chats keep their memory with the GM as its only reader.
   const advancedMemoryAvailable = isRoleplayMode || isGame;
   const advancedMemoryStatus = useAdvancedMemoryStatus(chat.id, open && advancedMemoryAvailable);
   const advancedMemoryEnabled =
     advancedMemoryAvailable &&
     (advancedMemoryStatus.data?.settings ?? normalizeAdvancedMemorySettings(metadata.advancedMemory)).enabled;
-  useEffect(() => setMemoryView(null), [advancedMemoryEnabled, chat.id]);
+  // New layout: the per-chat editors open as pages inside Chat settings instead of windows (see subpage.ts).
+  const subpageState = useChatSettingsSubpage((state) => state.subpage);
+  const openSubpage = useChatSettingsSubpage((state) => state.openSubpage);
+  const activeSubpage: ChatSettingsSubpageId | null =
+    overhaulActive && windowOpen && subpageState?.chatId === chat.id ? subpageState.id : null;
+  const closeSubpage = useChatSettingsSubpage((state) => state.closeSubpage);
+  const agentSuiteOpen = overhaulActive ? activeSubpage === "agent-suite" : showAgentSuiteModal;
+  if (agentSuiteOpen && !agentSuiteLoaded) setAgentSuiteLoaded(true);
+  useLayoutEffect(() => {
+    if (activeSubpage || !ovScrollEl) return;
+    ovScrollEl.scrollTop = listScrollRef.current;
+  }, [activeSubpage, ovScrollEl]);
+  const showSubpage = useCallback((id: ChatSettingsSubpageId) => openSubpage(chat.id, id), [chat.id, openSubpage]);
+  const setMemoryView = useCallback<Dispatch<SetStateAction<"advanced" | "standard" | null>>>(
+    (next) =>
+      setMemoryViewState((current) => {
+        const value = typeof next === "function" ? next(current) : next;
+        if (value !== "standard" || !overhaulActive) return value;
+        // Plain memories open as the Memories page; the list's own state stays where it was.
+        queueMicrotask(() => showSubpage("memories"));
+        return current;
+      }),
+    [overhaulActive, showSubpage],
+  );
+  const openSummariesEditor = useCallback(
+    (show: boolean) => {
+      if (overhaulActive) {
+        if (show) showSubpage("summaries");
+        else closeSubpage();
+      } else setShowSummariesModal(show);
+    },
+    [closeSubpage, overhaulActive, showSubpage],
+  );
+  const openAgentSuite = useCallback(
+    (show: boolean) => {
+      if (overhaulActive) {
+        if (show) showSubpage("agent-suite");
+        else closeSubpage();
+      } else setShowAgentSuiteModal(show);
+    },
+    [closeSubpage, overhaulActive, showSubpage],
+  );
+  useEffect(() => setMemoryViewState(null), [advancedMemoryEnabled, chat.id]);
+  // Leaving Chat settings leaves its editor page too (the next open starts on the list).
+  useEffect(() => {
+    if (!windowOpen && useChatSettingsSubpage.getState().subpage?.chatId === chat.id) closeSubpage();
+  }, [chat.id, closeSubpage, windowOpen]);
   // A scene number in the Fix box (or a notice) opens Access memories at that scene.
   const advancedMemorySceneRequest = useUIStore((state) =>
     state.advancedMemoryRequest?.chatId === chat.id ? state.advancedMemoryRequest.sceneId : undefined,
   );
   useEffect(() => {
-    if (advancedMemorySceneRequest && advancedMemoryEnabled) setMemoryView("advanced");
+    if (advancedMemorySceneRequest && advancedMemoryEnabled) setMemoryViewState("advanced");
   }, [advancedMemoryEnabled, advancedMemorySceneRequest]);
   const advancedMemoryNeedsReview = useMemo(() => {
     const problems = advancedMemoryStatus.data ? advancedMemoryProblems(advancedMemoryStatus.data) : null;
@@ -1940,6 +2003,8 @@ export function ChatSettingsDrawer({
         const canCloseAgentSuite =
           !showAgentSuiteModal || (await (agentSuiteCloseGuardRef.current?.() ?? Promise.resolve(true)));
         if (!canCloseAgentSuite) return false;
+        // An editor page with unsaved edits asks first; closing Chat settings leaves the page too.
+        if (!(await requestCloseChatSettingsSubpage())) return false;
         if (!(await flushProseGuardianDrafts())) return false;
         if (!(await (inlineCardFlushRef.current?.() ?? Promise.resolve(true)))) return false;
         setShowAgentSuiteModal(false);
@@ -2884,10 +2949,17 @@ export function ChatSettingsDrawer({
         {/* Arranges the classic chat's floating buttons, which the new layout never shows. */}
         {!overhaulActive && <ChatButtonLayoutSettings />}
 
+        {activeSubpage && <ChatSettingsSubpageFrame id={activeSubpage} />}
+
         {/* Desktop and iPad landscape: section bodies load as they near the visible list (not on a jump to one). */}
         <ChatSettingsDeferBodiesContext.Provider value={overhaulDesktop && !overhaulMobile && !initialSection}>
           <div
             ref={setOvScrollEl}
+            // An editor page covers the list; the list stays mounted so its sections and place survive.
+            hidden={!!activeSubpage}
+            onScroll={(event) => {
+              if (!activeSubpage) listScrollRef.current = event.currentTarget.scrollTop;
+            }}
             className={cn(
               NEUTRAL_PANEL_SCROLL_AREA,
               "@container flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[calc(1rem+var(--mari-safe-area-inset-bottom,env(safe-area-inset-bottom)))]",
@@ -3657,7 +3729,7 @@ export function ChatSettingsDrawer({
                       </button>
                     )}
                     <button
-                      onClick={() => setShowAgentSuiteModal(true)}
+                      onClick={() => openAgentSuite(true)}
                       className="flex w-full items-center justify-between gap-3 rounded-lg bg-[var(--secondary)] px-3 py-2.5 text-left transition-all hover:bg-[var(--accent)]"
                     >
                       <div className="min-w-0 flex-1">
@@ -5034,7 +5106,7 @@ export function ChatSettingsDrawer({
               <AutomaticSummarizationSection
                 chat={chat}
                 metadata={metadata}
-                setShowSummariesModal={setShowSummariesModal}
+                setShowSummariesModal={openSummariesEditor}
                 isGame={isGame}
               />
             )}
@@ -5218,25 +5290,43 @@ export function ChatSettingsDrawer({
         />
       )}
 
-      {/* Automatic summarization editor */}
-      <SummariesEditorModal chat={chat} open={showSummariesModal} onClose={() => setShowSummariesModal(false)} />
+      {/* Automatic summarization editor (new layout: a page inside Chat settings) */}
+      <SummariesEditorModal
+        chat={chat}
+        asPage={overhaulActive}
+        open={overhaulActive ? activeSubpage === "summaries" : showSummariesModal}
+        onClose={() => openSummariesEditor(false)}
+      />
 
       {/* Agent Suite — stored agent data viewer/editor */}
-      <AgentSuiteModal
-        chat={chat}
-        open={showAgentSuiteModal}
-        onClose={() => setShowAgentSuiteModal(false)}
-        onCloseGuardChange={handleAgentSuiteCloseGuardChange}
-        agents={agentSuiteAgents}
-      />
+      {agentSuiteLoaded && (
+        <Suspense fallback={null}>
+          <AgentSuiteModal
+            chat={chat}
+            asPage={overhaulActive}
+            open={agentSuiteOpen}
+            onClose={() => openAgentSuite(false)}
+            onCloseGuardChange={overhaulActive ? undefined : handleAgentSuiteCloseGuardChange}
+            agents={agentSuiteAgents}
+          />
+        </Suspense>
+      )}
 
       {/* Memory recall chunk viewer */}
       <MemoryRecallMemoriesModal
         chatId={chat.id}
-        open={memoryView === "standard"}
-        onClose={() => setMemoryView(null)}
+        asPage={overhaulActive}
+        open={overhaulActive ? activeSubpage === "memories" : memoryView === "standard"}
+        onClose={() => (overhaulActive ? closeSubpage() : setMemoryViewState(null))}
         chatFloatingPanel
       />
+
+      {/* New layout: Chat Variables' State editor as a page (the classic layout opens it as a window). */}
+      {overhaulActive && activeSubpage === "variables" && (
+        <Suspense fallback={null}>
+          <ChatVariablesEditorModal chatId={chat.id} asPage open onClose={closeSubpage} />
+        </Suspense>
+      )}
 
       <Modal
         open={!!agentAddPreview}
@@ -5672,6 +5762,44 @@ export function ChatSettingsDrawer({
         </div>
       )}
     </>
+  );
+}
+
+const SUBPAGE_TITLE_KEYS: Record<ChatSettingsSubpageId, string> = {
+  variables: "ui.stateEditor.chatVariables.title",
+  "agent-suite": "ui.chat.agentsuitemodal.agentSuite",
+  memories: "ui.chat.memoryrecallmemoriesmodal.memoriesForThisChat",
+  summaries: "ui.chat.chatsettingsdrawer.automaticSummarization",
+};
+
+/** The editor page's header (back to Chat settings, title, actions) and the slot its body renders into. */
+function ChatSettingsSubpageFrame({ id }: { id: ChatSettingsSubpageId }) {
+  const { t: localizeUi } = useUiTranslation();
+  const setSlot = useChatSettingsSubpage((state) => state.setSlot);
+  const setActionsSlot = useChatSettingsSubpage((state) => state.setActionsSlot);
+  const title = localizeUi(SUBPAGE_TITLE_KEYS[id]);
+  const backRef = useRef<HTMLButtonElement | null>(null);
+  // Focus starts on the way back, so keyboard users land on the new page and not behind it.
+  useEffect(() => {
+    backRef.current?.focus({ preventScroll: true });
+  }, [id]);
+  return (
+    <section className="ov-cs-sub" data-chat-settings-subpage={id} aria-label={title}>
+      <div className="ov-cs-sub__head">
+        <button
+          ref={backRef}
+          type="button"
+          className="ov-cs-sub__back"
+          onClick={() => void requestCloseChatSettingsSubpage()}
+        >
+          <ChevronLeft size="1rem" aria-hidden="true" />
+          <span>{localizeUi("chat.settings.subpage.back")}</span>
+        </button>
+        <h2 className="ov-cs-sub__title">{title}</h2>
+        <div ref={setActionsSlot} className="ov-cs-sub__actions" />
+      </div>
+      <div ref={setSlot} className="ov-cs-sub__slot" />
+    </section>
   );
 }
 

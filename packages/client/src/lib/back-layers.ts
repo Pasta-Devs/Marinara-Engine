@@ -17,6 +17,7 @@ import { useOverhaulStore } from "../stores/overhaul.store";
 import { useChatStore } from "../stores/chat.store";
 import { CHAT_SETTINGS_WINDOW_ID } from "../stores/floating-window.store";
 import { useMobileChatSettingsNav } from "../features/chat-settings/mobile-nav";
+import { requestCloseChatSettingsSubpage, useChatSettingsSubpage } from "../features/chat-settings/subpage";
 import { SPLIT_PANE } from "./split-view-env";
 
 /**
@@ -110,13 +111,16 @@ function phoneSheetLayers(layers: BackLayer[]) {
     layers.push({ id: "side-page", close: () => useOverhaulStore.getState().setMobileSidePageOpen(false) });
   if (overhaul.allTabsOpen)
     layers.push({ id: "all-tabs", close: () => useOverhaulStore.getState().setAllTabsOpen(false) });
-  // Chat settings as a sheet: back goes from a section's page to the list it came from, then closes the sheet.
+  // Chat settings as a sheet: back goes from an editor page to its section, from a section's page to the list
+  // it came from, then closes the sheet.
   if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID] === true)
     layers.push({
       id: "chat-settings",
       close: () => {
         const nav = useMobileChatSettingsNav.getState();
-        if (nav.view === "page") nav.goBack();
+        // An editor page (Chat Variables, Agent Suite…) goes back to the settings first, asking about unsaved edits.
+        if (useChatSettingsSubpage.getState().subpage) void requestCloseChatSettingsSubpage();
+        else if (nav.view === "page") nav.goBack();
         else if (nav.view === "all") nav.showQuick();
         else useFloatingWindowStore.getState().closeWindow(CHAT_SETTINGS_WINDOW_ID);
       },

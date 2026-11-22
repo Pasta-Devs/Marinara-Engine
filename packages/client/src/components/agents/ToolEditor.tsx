@@ -598,36 +598,64 @@ export function ToolEditor() {
             label={localizeUi("ui.agents.tooleditor.executionType")}
             icon={<Wrench size="0.875rem" className="text-[var(--primary)]" />}
           >
-            <div className="grid grid-cols-3 gap-2">
-              {EXEC_TYPES.map((et) => {
-                const isActive = localExecType === et.value;
-                const isDisabledScript = et.value === "script" && !scriptToolsEnabled && !isActive;
-                const Icon = et.icon;
-                return (
-                  <button
-                    key={et.value}
-                    type="button"
-                    disabled={isDisabledScript}
-                    title={isDisabledScript ? scriptToolsDisabledMessage : et.description}
-                    onClick={() => {
-                      if (isDisabledScript) return;
-                      setLocalExecType(et.value);
-                      markDirty();
-                    }}
-                    className={cn(
-                      "flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs ring-1 transition-all",
-                      isActive
-                        ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--primary)]"
-                        : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                      isDisabledScript && "cursor-not-allowed opacity-45 hover:bg-transparent",
-                    )}
-                  >
-                    <Icon size="1rem" />
-                    <span className="font-medium">{et.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+            {/* New layout: one dropdown (the picked type's description shows below the section), not a card grid. */}
+            {overhaulActive ? (
+              <>
+                <Select
+                  label={localizeUi("ui.agents.tooleditor.executionType")}
+                  value={localExecType}
+                  onChange={(next) => {
+                    if (next === "script" && !scriptToolsEnabled) return;
+                    setLocalExecType(next);
+                    markDirty();
+                  }}
+                  options={EXEC_TYPES.map((et) => {
+                    const Icon = et.icon;
+                    return {
+                      value: et.value,
+                      label: et.label,
+                      icon: <Icon size="0.875rem" />,
+                      disabledReason:
+                        et.value === "script" && !scriptToolsEnabled && localExecType !== "script"
+                          ? localizeUi("ui.agents.tooleditor.scriptToolsAreDisabledOnThisServer")
+                          : undefined,
+                    };
+                  })}
+                  className="w-full rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
+                />
+              </>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {EXEC_TYPES.map((et) => {
+                  const isActive = localExecType === et.value;
+                  const isDisabledScript = et.value === "script" && !scriptToolsEnabled && !isActive;
+                  const Icon = et.icon;
+                  return (
+                    <button
+                      key={et.value}
+                      type="button"
+                      disabled={isDisabledScript}
+                      title={isDisabledScript ? scriptToolsDisabledMessage : et.description}
+                      onClick={() => {
+                        if (isDisabledScript) return;
+                        setLocalExecType(et.value);
+                        markDirty();
+                      }}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs ring-1 transition-all",
+                        isActive
+                          ? "bg-[var(--primary)]/10 ring-[var(--primary)] text-[var(--primary)]"
+                          : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                        isDisabledScript && "cursor-not-allowed opacity-45 hover:bg-transparent",
+                      )}
+                    >
+                      <Icon size="1rem" />
+                      <span className="font-medium">{et.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {!scriptToolsEnabled && (
               <div className="mt-3 flex gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-amber-200">
                 <AlertCircle size="0.875rem" className="mt-0.5 shrink-0" />

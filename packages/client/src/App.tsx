@@ -63,6 +63,7 @@ import { useDialogStore } from "./stores/dialog.store";
 import { useChatStore } from "./stores/chat.store";
 import { useFloatingWindowStore } from "./stores/floating-window.store";
 import { useMobileChatSettingsNav } from "./features/chat-settings/mobile-nav";
+import { useChatSettingsSubpage } from "./features/chat-settings/subpage";
 import { api, requestTimeoutSignal } from "./lib/api-client";
 import { forceRefreshSpa, reloadBrowser } from "./lib/browser-runtime";
 import { recordClientError } from "./lib/client-runtime-diagnostics";
@@ -793,6 +794,7 @@ export function App() {
     const unsubscribeChat = useChatStore.subscribe(syncBackNavigation);
     const unsubscribeWindows = useFloatingWindowStore.subscribe(syncBackNavigation);
     const unsubscribeChatSettingsNav = useMobileChatSettingsNav.subscribe(syncBackNavigation);
+    const unsubscribeChatSettingsSubpage = useChatSettingsSubpage.subscribe(syncBackNavigation);
     // Whether a shell panel counts as an overlay depends on the viewport.
     const shellQuery = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
     shellQuery.addEventListener("change", syncBackNavigation);
@@ -803,6 +805,7 @@ export function App() {
       unsubscribeChat();
       unsubscribeWindows();
       unsubscribeChatSettingsNav();
+      unsubscribeChatSettingsSubpage();
       shellQuery.removeEventListener("change", syncBackNavigation);
     };
   }, []);

@@ -22,7 +22,7 @@ import { useRef, useMemo } from "react";
 import { toast } from "sonner";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
 import { showConfirmDialog } from "../../lib/app-dialogs";
-import { Modal } from "../../components/ui/Modal";
+import { ChatSettingsEditorSurface } from "./ChatSettingsEditorSurface";
 import { Upload, Download, RefreshCw, Trash2, Languages } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { formatMemoryDate } from "./lib/memory-format";
@@ -54,11 +54,14 @@ export function MemoryRecallMemoriesModal({
   open,
   onClose,
   chatFloatingPanel = false,
+  asPage = false,
 }: {
   chatId: string;
   open: boolean;
   onClose: () => void;
   chatFloatingPanel?: boolean;
+  /** New layout: a page inside Chat settings instead of a window. */
+  asPage?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const memoriesQuery = useChatMemories(chatId, open);
@@ -207,7 +210,9 @@ export function MemoryRecallMemoriesModal({
   if (overhaulActive) {
     // The new layout's window look: a summary row with labelled actions, a thin-line notice, one lined list.
     return (
-      <Modal
+      <ChatSettingsEditorSurface
+        asPage={asPage}
+        pageBodyClassName="px-4 py-3"
         open={open}
         onClose={onClose}
         title={localizeUi("ui.chat.memoryrecallmemoriesmodal.memoriesForThisChat")}
@@ -339,12 +344,14 @@ export function MemoryRecallMemoriesModal({
             </ul>
           )}
         </div>
-      </Modal>
+      </ChatSettingsEditorSurface>
     );
   }
 
   return (
-    <Modal
+    <ChatSettingsEditorSurface
+      asPage={asPage}
+      pageBodyClassName="px-4 py-3"
       open={open}
       onClose={onClose}
       title={localizeUi("ui.chat.memoryrecallmemoriesmodal.memoriesForThisChat")}
@@ -494,6 +501,6 @@ export function MemoryRecallMemoriesModal({
           </div>
         )}
       </div>
-    </Modal>
+    </ChatSettingsEditorSurface>
   );
 }

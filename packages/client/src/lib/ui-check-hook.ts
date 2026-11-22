@@ -9,6 +9,7 @@ import { useOverhaulStore } from "../stores/overhaul.store";
 import { useChatStore } from "../stores/chat.store";
 import { openLibrarySection } from "../components/overhaul/library-navigation";
 import { useMobileChatSettingsNav } from "../features/chat-settings/mobile-nav";
+import { openChatSettingsSubpage } from "../features/chat-settings/subpage";
 import { getBackLayerStack } from "./back-navigation";
 
 export function installUiCheckHook() {
@@ -24,6 +25,7 @@ export function installUiCheckHook() {
       chat: useChatStore,
       chatSettingsNav: useMobileChatSettingsNav,
       openLibrarySection,
+      openChatSettingsSubpage,
       backLayers: () => getBackLayerStack().map((layer) => layer.id),
     },
   });

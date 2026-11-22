@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Zustand Store: Chat Slice
 // ──────────────────────────────────────────────
+import { deferChatSwitch } from "../lib/chat-switch-gate";
 import { create } from "zustand";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -438,6 +439,8 @@ export const useChatStore = create<ChatState>()(
     setActiveChat: (chat) => set({ activeChat: chat }),
     setActiveChatId: (id) => {
       const prev = get().activeChatId;
+      // An editor page with unsaved edits (Chat settings' State editor…) asks before the chat changes under it.
+      if (id !== prev && deferChatSwitch(() => get().setActiveChatId(id))) return;
       if (id !== prev) {
         currentInputSnapshot = "";
         clearCurrentInputPresenceTimer();

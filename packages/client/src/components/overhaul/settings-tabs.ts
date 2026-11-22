@@ -16,8 +16,8 @@ export const OVERHAUL_SETTINGS_TABS: {
   {
     id: "general",
     label: "General",
-    blurb: "Language, confirmations, extras, Professor Mari and notifications",
-    sections: ["application", "confirmations-help", "extras", "omnibar", "notifications"],
+    blurb: "Language, Home widgets, confirmations, extras, Professor Mari and notifications",
+    sections: ["application", "home", "confirmations-help", "extras", "omnibar", "notifications"],
   },
   {
     id: "chatting",

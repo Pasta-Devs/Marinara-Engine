@@ -554,10 +554,25 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   if (mobile) {
     return (
       <>
-        {showPlayer && (
+        {/* The collapsed disc only shows while there is something to play or say (an idle disc over the chat
+            read as a stray button). The expanded panel and the video stay as they were. */}
+        {showPlayer && (!collapsed || hasPlayerContent) && (
           <div
             className="fixed z-[45] touch-none select-none md:hidden"
             style={mobileWidgetStyle}
+            role={collapsed ? "button" : undefined}
+            tabIndex={collapsed ? 0 : undefined}
+            aria-label={collapsed ? localizeUi("ui.chat.youtubeplayer.player") : undefined}
+            onKeyDown={
+              collapsed
+                ? (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setCollapsed(false);
+                    }
+                  }
+                : undefined
+            }
             onPointerDown={startDrag}
             onPointerMove={moveDrag}
             onPointerUp={endDrag}

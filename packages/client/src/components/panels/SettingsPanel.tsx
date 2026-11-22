@@ -34,7 +34,9 @@ import {
   selectChatFontColor,
   selectDefaultDialogueColor,
 } from "../../stores/ui.store";
-import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulLook, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { HomeWidgetsSettings } from "./settings/HomeWidgetsSettings";
+import { OmnibarSettingsInline } from "../layout/omnibar/OmnibarSettingsMenu";
 import { MessageButtonsSettings } from "../overhaul/MessageButtonsSettings";
 import { goHome } from "../overhaul/OverhaulTopBar";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
@@ -213,6 +215,7 @@ import {
   Square,
   CheckSquare,
   Loader2,
+  LayoutGrid,
 } from "lucide-react";
 import {
   useChat,
@@ -625,6 +628,24 @@ const CHAT_LIST_BACKGROUND_OPTIONS: Array<{ id: ChatListBackgroundMode; label: s
   },
   { id: "off", label: "Off", desc: "No banners. Chat rows keep the plain sidebar background." },
 ];
+
+const VISUAL_STYLE_OPTIONS = [
+  {
+    id: "default" as VisualTheme,
+    label: "Default (Marinara)",
+    desc: "Y2K / retro aesthetic with glow effects",
+  },
+  {
+    id: "sillytavern" as VisualTheme,
+    label: "SillyTavern",
+    desc: "Classic SillyTavern look — clean & minimal",
+  },
+  {
+    id: "stage" as VisualTheme,
+    label: "Stage",
+    desc: "Plum, brass and crimson from the UI overhaul",
+  },
+] as const;
 
 const GAME_DIALOGUE_DISPLAY_OPTIONS: Array<{ id: GameDialogueDisplayMode; label: string; desc: string }> = [
   {
@@ -1916,6 +1937,7 @@ function DocsLanguageSetting() {
 
 function GeneralSettings() {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulLook = useOverhaulLook();
   const { t, i18n: localization } = useTranslation();
   const localize = useLocalizedUiText();
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
@@ -2020,6 +2042,18 @@ function GeneralSettings() {
         </div>
       </SettingsSection>
 
+      {/* New layout: Home's widgets are chosen here (the classic layout keeps Home's Widgets window). */}
+      {overhaulLook ? (
+        <SettingsSection
+          title={localizeUi("settings.sections.home.title")}
+          description={localizeUi("settings.sections.home.description")}
+          icon={<LayoutGrid size="0.875rem" />}
+          {...getSettingsSectionAnchorProps("home")}
+        >
+          <HomeWidgetsSettings anchorId={getSettingsControlAnchorId("home-widgets")} />
+        </SettingsSection>
+      ) : null}
+
       <SettingsSection
         title={localizeUi("ui.panels.generalsettings.confirmationsHelp")}
         description={localizeUi("ui.panels.generalsettings.deleteConfirmationsAndTheChatHelpButton")}
@@ -2102,27 +2136,38 @@ function GeneralSettings() {
 
       <SettingsSection
         title={localizeUi("commandCenter.workTitle")}
-        description={localizeUi("ui.panels.generalsettings.searchQuickAnswersAndProfessorMariTheyOpenIn")}
+        description={localizeUi(
+          overhaulLook
+            ? "settings.sections.omnibar.descriptionInline"
+            : "ui.panels.generalsettings.searchQuickAnswersAndProfessorMariTheyOpenIn",
+        )}
         icon={<GraduationCap size="0.875rem" />}
         {...getSettingsSectionAnchorProps("omnibar")}
       >
         <div className="flex flex-col gap-2.5">
-          {/* Q2: every omnibar and Professor Mari setting lives in the omnibar; this row opens it. */}
-          <div className="flex scroll-mt-3 items-center justify-between gap-3 p-1.5">
-            <span className="flex min-w-0 items-center gap-1.5 text-xs">
-              <span id="settings-omnibar-row-label">{localizeUi("settings.controls.omnibarSettings.label")}</span>
-              <HelpTooltip text={localizeUi("settings.controls.omnibarSettings.help")} />
-            </span>
-            <button
-              type="button"
-              id="settings-omnibar-row-open"
-              aria-labelledby="settings-omnibar-row-open settings-omnibar-row-label"
-              className={SETTINGS_BUTTON_CLASS}
-              onClick={() => useUIStore.getState().openOmnibarSettings()}
-            >
-              {localizeUi("settings.controls.omnibarSettings.open")}
-            </button>
-          </div>
+          {/* New layout: every Search and Professor Mari setting is a row right here. */}
+          {overhaulLook ? (
+            <OmnibarSettingsInline />
+          ) : (
+            <>
+              {/* Q2: every omnibar and Professor Mari setting lives in the omnibar; this row opens it. */}
+              <div className="flex scroll-mt-3 items-center justify-between gap-3 p-1.5">
+                <span className="flex min-w-0 items-center gap-1.5 text-xs">
+                  <span id="settings-omnibar-row-label">{localizeUi("settings.controls.omnibarSettings.label")}</span>
+                  <HelpTooltip text={localizeUi("settings.controls.omnibarSettings.help")} />
+                </span>
+                <button
+                  type="button"
+                  id="settings-omnibar-row-open"
+                  aria-labelledby="settings-omnibar-row-open settings-omnibar-row-label"
+                  className={SETTINGS_BUTTON_CLASS}
+                  onClick={() => useUIStore.getState().openOmnibarSettings()}
+                >
+                  {localizeUi("settings.controls.omnibarSettings.open")}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </SettingsSection>
 
@@ -2567,23 +2612,42 @@ function GeneralSettings() {
                 text={localizeUi("ui.panels.appearancesettings.chooseWhetherGameModeUsesAClassicDialogueBox")}
               />
             </div>
-            <div
-              id={getSettingsControlAnchorId("game-dialogue-display")}
-              className="grid scroll-mt-3 grid-cols-1 gap-2 sm:grid-cols-2"
-            >
-              {GAME_DIALOGUE_DISPLAY_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  aria-pressed={gameDialogueDisplayMode === opt.id}
-                  onClick={() => setGameDialogueDisplayMode(opt.id)}
-                  className={SETTINGS_CHOICE_CARD_CLASS}
-                >
-                  <span className="font-semibold">{opt.label}</span>
-                  <span className="text-[0.625rem] leading-tight text-[var(--muted-foreground)]">{opt.desc}</span>
-                </button>
-              ))}
-            </div>
+            {/* New layout: a dropdown; the picked option's description is the hint under it. */}
+            {overhaulLook ? (
+              <div
+                id={getSettingsControlAnchorId("game-dialogue-display")}
+                className="flex scroll-mt-3 flex-col gap-1.5 text-xs"
+              >
+                <Select
+                  value={gameDialogueDisplayMode}
+                  options={GAME_DIALOGUE_DISPLAY_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+                  onChange={setGameDialogueDisplayMode}
+                  label={localizeUi("ui.panels.appearancesettings.gameDialogueDisplay")}
+                  className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)]"
+                />
+                <span className="text-[var(--muted-foreground)]">
+                  {GAME_DIALOGUE_DISPLAY_OPTIONS.find((opt) => opt.id === gameDialogueDisplayMode)?.desc}
+                </span>
+              </div>
+            ) : (
+              <div
+                id={getSettingsControlAnchorId("game-dialogue-display")}
+                className="grid scroll-mt-3 grid-cols-1 gap-2 sm:grid-cols-2"
+              >
+                {GAME_DIALOGUE_DISPLAY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    aria-pressed={gameDialogueDisplayMode === opt.id}
+                    onClick={() => setGameDialogueDisplayMode(opt.id)}
+                    className={SETTINGS_CHOICE_CARD_CLASS}
+                  >
+                    <span className="font-semibold">{opt.label}</span>
+                    <span className="text-[0.625rem] leading-tight text-[var(--muted-foreground)]">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("game-text-effects")}
@@ -3350,6 +3414,7 @@ function AppearanceSettings({
   afterTheme?: React.ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulLook = useOverhaulLook();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
   const themeAuto = useUIStore((s) => s.themeAuto);
@@ -3791,38 +3856,36 @@ function AppearanceSettings({
                     text={localizeUi("ui.panels.appearancesettings.chooseHowTheEntireAppLooksMarinaraUsesA")}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      {
-                        id: "default" as VisualTheme,
-                        label: "Default (Marinara)",
-                        desc: "Y2K / retro aesthetic with glow effects",
-                      },
-                      {
-                        id: "sillytavern" as VisualTheme,
-                        label: "SillyTavern",
-                        desc: "Classic SillyTavern look — clean & minimal",
-                      },
-                      {
-                        id: "stage" as VisualTheme,
-                        label: "Stage",
-                        desc: "Plum, brass and crimson from the UI overhaul",
-                      },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      aria-pressed={visualTheme === opt.id}
-                      onClick={() => setVisualTheme(opt.id)}
-                      className={SETTINGS_CHOICE_CARD_CLASS}
-                    >
-                      <span className="font-semibold">{opt.label}</span>
-                      <span className="text-[0.625rem] text-[var(--muted-foreground)] leading-tight">{opt.desc}</span>
-                    </button>
-                  ))}
-                </div>
+                {/* New layout: a dropdown; the picked style's description is the hint under it. */}
+                {overhaulLook ? (
+                  <>
+                    <Select
+                      value={visualTheme}
+                      options={VISUAL_STYLE_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+                      onChange={setVisualTheme}
+                      label={localizeUi("ui.panels.appearancesettings.visualStyle")}
+                      className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)]"
+                    />
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {VISUAL_STYLE_OPTIONS.find((opt) => opt.id === visualTheme)?.desc}
+                    </span>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {VISUAL_STYLE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        aria-pressed={visualTheme === opt.id}
+                        onClick={() => setVisualTheme(opt.id)}
+                        className={SETTINGS_CHOICE_CARD_CLASS}
+                      >
+                        <span className="font-semibold">{opt.label}</span>
+                        <span className="text-[0.625rem] text-[var(--muted-foreground)] leading-tight">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <ToggleSetting
@@ -4368,7 +4431,7 @@ function AppearanceSettings({
                     text={localizeUi("ui.panels.appearancesettings.importOneOrMoreCustomImagesOrChooseFrom")}
                   />
                 </span>
-                <label className="flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
+                <label className="mari-settings-boxed-slider flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
                   <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
                     {localizeUi("ui.panels.appearancesettings.backgroundBlur")}
                     <HelpTooltip
@@ -4394,7 +4457,7 @@ function AppearanceSettings({
                     </span>
                   </div>
                 </label>
-                <label className="flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
+                <label className="mari-settings-boxed-slider flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
                   <span className="text-[0.6875rem] font-medium">
                     {localizeUi("settings.controls.conversationBackgroundImageOpacity.label")}
                     <HelpTooltip
@@ -5387,7 +5450,7 @@ function AppearanceSettings({
                     )}
                   />
                 </div>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
+                <div className="mari-settings-boxed-group rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                     <div className="flex h-20 w-full shrink-0 items-end justify-center gap-3 overflow-hidden rounded-md bg-black/30 p-2 ring-1 ring-[var(--border)]/70 sm:w-28">
                       <div

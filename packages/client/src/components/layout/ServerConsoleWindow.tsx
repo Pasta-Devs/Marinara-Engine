@@ -38,6 +38,18 @@ import {
 } from "../../stores/floating-window.store";
 import { useUIStore } from "../../stores/ui.store";
 import { SearchInput } from "../ui/SearchInput";
+import { Select } from "../ui/Select";
+import { useOverhaulLook } from "../../stores/overhaul.store";
+import { executeStateNavigation } from "../../lib/state-navigation";
+
+/** The console's "Show" choices (new layout), each a set of log levels. */
+const SHOW_CHOICES = ["everything", "info", "warn", "error"] as const;
+const SHOW_LEVELS: Record<(typeof SHOW_CHOICES)[number], readonly LevelFilter[]> = {
+  everything: ["debug", "info", "warn", "error"],
+  info: ["info", "warn", "error"],
+  warn: ["warn", "error"],
+  error: ["error"],
+};
 
 const DEFAULT_WIDTH_REM = 46;
 const DEFAULT_HEIGHT_REM = 30;
@@ -171,6 +183,14 @@ export function ServerConsoleWindow() {
     if (element) element.scrollTop = element.scrollHeight;
   };
 
+  const overhaulLook = useOverhaulLook();
+  // Which "Show" choice the enabled levels match (a custom mix from the classic chips reads as Everything).
+  const showChoice =
+    SHOW_CHOICES.find(
+      (choice) =>
+        SHOW_LEVELS[choice].length === enabledLevels.size &&
+        SHOW_LEVELS[choice].every((level) => enabledLevels.has(level)),
+    ) ?? "everything";
   const toggleLevel = (level: LevelFilter) =>
     setEnabledLevels((previous) => {
       const next = new Set(previous);
@@ -240,19 +260,30 @@ export function ServerConsoleWindow() {
       }}
     >
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--border)] px-2 py-2">
-        <div role="group" aria-label={t("serverConsole.filters")} className="flex flex-wrap items-center gap-1">
-          {LEVEL_FILTERS.map((level) => (
-            <button
-              key={level}
-              type="button"
-              aria-pressed={enabledLevels.has(level)}
-              onClick={() => toggleLevel(level)}
-              className={cn(toolbarButtonClass, "mari-chrome-control--chip", phoneLayout && "px-3")}
-            >
-              {t(`serverConsole.level.${level}`)}
-            </button>
-          ))}
-        </div>
+        {/* New layout: one "Show" dropdown instead of four level chips. */}
+        {overhaulLook ? (
+          <Select
+            label={t("serverConsole.show.label")}
+            value={showChoice}
+            options={SHOW_CHOICES.map((choice) => ({ value: choice, label: t(`serverConsole.show.${choice}`) }))}
+            onChange={(choice) => setEnabledLevels(new Set(SHOW_LEVELS[choice]))}
+            className="ov-select"
+          />
+        ) : (
+          <div role="group" aria-label={t("serverConsole.filters")} className="flex flex-wrap items-center gap-1">
+            {LEVEL_FILTERS.map((level) => (
+              <button
+                key={level}
+                type="button"
+                aria-pressed={enabledLevels.has(level)}
+                onClick={() => toggleLevel(level)}
+                className={cn(toolbarButtonClass, "mari-chrome-control--chip", phoneLayout && "px-3")}
+              >
+                {t(`serverConsole.level.${level}`)}
+              </button>
+            ))}
+          </div>
+        )}
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -346,10 +377,28 @@ export function ServerConsoleWindow() {
       </div>
 
       <div className="flex shrink-0 flex-col gap-1 border-t border-[var(--border)] px-2 py-1.5">
-        <ToggleSetting label={t("serverConsole.debugMode")} checked={debugMode} onChange={setDebugMode} />
+        {/* New layout: Debug mode lives in Settings › Advanced › Troubleshooting only (no second switch here). */}
+        {!overhaulLook && (
+          <ToggleSetting label={t("serverConsole.debugMode")} checked={debugMode} onChange={setDebugMode} />
+        )}
         {showDebugHint && (
           <p className="px-1.5 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
             {t("serverConsole.debugHint")}
+            {overhaulLook && !debugMode && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className="font-medium text-[var(--foreground)] underline underline-offset-2"
+                  onClick={() => {
+                    useFloatingWindowStore.getState().dismissWindow(SERVER_CONSOLE_WINDOW_ID, { force: true });
+                    executeStateNavigation({ kind: "settings", tab: "advanced", controlId: "debug-mode" });
+                  }}
+                >
+                  {t("serverConsole.debugInSettings")}
+                </button>
+              </>
+            )}
           </p>
         )}
         <div className="flex flex-wrap items-center justify-between gap-2 px-1.5">

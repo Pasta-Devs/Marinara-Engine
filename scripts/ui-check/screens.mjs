@@ -203,13 +203,19 @@ export function screenList(ids) {
       run: hook(() => window.__marinaraUiCheck.ui.getState().setFontSize(20)),
     },
     {
-      id: "home-widgets-window",
-      run: null,
-      // Desktop and tablet: the Widgets button under the greeting. Phones keep it in Home's menu (not checked).
+      id: "settings-home-widgets",
+      // Settings › General › Home, where the new layout chooses Home's widgets (every size).
+      run: open.settings("general"),
       then: async (page) => {
-        const button = page.getByRole("button", { name: "Widgets", exact: true }).filter({ visible: true });
-        if (!(await button.count())) return "not on this layout";
-        await button.first().click();
+        const section = page.locator("#settings-section-home").first();
+        // Phones list the Settings tabs first; General opens as its own page.
+        if (!(await section.count())) {
+          const general = page.getByRole("button", { name: /^General\b/ }).filter({ visible: true });
+          if (await general.count()) await general.first().click();
+          await section.waitFor({ state: "attached", timeout: 10_000 }).catch(() => {});
+        }
+        if (!(await section.count())) return "not on this layout";
+        await section.scrollIntoViewIfNeeded();
       },
     },
     { id: "chats-list", group: "core", run: open.sidePane("chats") },
@@ -359,6 +365,23 @@ export function screenList(ids) {
         }, ids.roleplayChat),
       ),
     },
+    // New layout: Chat Variables, Agent Suite, Memories and Summaries as pages inside Chat settings.
+    ...["variables", "agent-suite", "memories", "summaries"].map((subpage) => ({
+      id: `chat-settings-${subpage}`,
+      group: subpage === "variables" ? "core" : undefined,
+      ready: ".ov-cs-sub__body",
+      run: needsData(
+        hook(
+          ([id, subpage]) => {
+            const h = window.__marinaraUiCheck;
+            h.chat.getState().setActiveChatId(id);
+            h.overhaul.getState().setMobileSidePageOpen(false);
+            setTimeout(() => h.openChatSettingsSubpage(id, subpage), 600);
+          },
+          [ids.roleplayChat, subpage],
+        ),
+      ),
+    })),
     // Professor Mari's own page: the suggestions box above her composer, open and folded, and the composer.
     { id: "professor-mari", group: "core", run: open.mari(false) },
     {
@@ -385,7 +408,10 @@ export function screenList(ids) {
       then: async (page) => {
         const button = page.getByRole("button", { name: "Start a new game" }).filter({ visible: true });
         // Home can still be drawing its shortcuts when the screen opens.
-        await button.first().waitFor({ timeout: 10_000 }).catch(() => {});
+        await button
+          .first()
+          .waitFor({ timeout: 10_000 })
+          .catch(() => {});
         if (!(await button.count())) return "not on this layout";
         await button.first().click();
         const wizard = page.locator('[data-component="GameSetupWizard"]');

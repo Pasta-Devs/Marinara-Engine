@@ -52,7 +52,7 @@ import { getChatHelpTargets, type ChatHelpTargetDefinition, type ChatHelpTargetI
 import { orderChatTools, useChatToolsMenuStore } from "../../stores/chat-tools-menu.store";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
-import { useOverhaulMobile } from "../../stores/overhaul.store";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
 import { releaseFirstRunSlot, useFirstRunQueue } from "../../lib/first-run-queue";
 import { useUIStore } from "../../stores/ui.store";
 import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
@@ -889,6 +889,7 @@ function ChatHelpOverlayInner({
   // New layout on phones and tablets: the Chat settings tip a computer shows on its own is part of the help
   // instead, so a first chat gets one surface rather than two in a row (QC Nov 21, MOB12).
   const overhaulMobile = useOverhaulMobile();
+  const overhaulLook = useOverhaulLook();
   const chatIntroDismissed = useUIStore((state) => state.chatWindowIntroDismissed);
   const dismissChatIntro = useUIStore((state) => state.dismissChatWindowIntro);
   const chatIntroInHelp = overhaulMobile && !chatIntroDismissed;
@@ -962,7 +963,14 @@ function ChatHelpOverlayInner({
     <button
       type="button"
       className={cn(
-        "mari-chrome-control pointer-events-auto min-h-7 px-2.5 text-[0.625rem] shadow-lg",
+        // New layout: a quiet text button beside the primary Done, so it never reads as the main action.
+        overhaulLook
+          ? cn(
+              "ov-btn is-quiet ov-help-hide pointer-events-auto min-h-7 px-2 text-[0.6875rem]",
+              // Phones: it floats over the chat beside Done, so it keeps a quiet surface to stay readable.
+              mobile && "ov-help-hide--floating",
+            )
+          : "mari-chrome-control pointer-events-auto min-h-7 px-2.5 text-[0.625rem] shadow-lg",
         // Phones: as wide as the callout above it, label left-aligned with the eye icon beside it (GS9).
         mobile && "min-h-11 min-w-0 flex-1 justify-start text-left",
       )}
@@ -1128,7 +1136,10 @@ function ChatHelpOverlayInner({
             <button
               type="button"
               data-chat-help-done
-              className="mari-chrome-control pointer-events-auto min-h-11 shrink-0 px-4 text-xs font-semibold shadow-lg"
+              className={cn(
+                overhaulLook ? "ov-btn ov-btn--primary" : "mari-chrome-control shadow-lg",
+                "pointer-events-auto min-h-11 shrink-0 px-4 text-xs font-semibold",
+              )}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={dismiss}
             >

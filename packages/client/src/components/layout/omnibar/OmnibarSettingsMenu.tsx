@@ -8,7 +8,16 @@
 // dialog, focus and Escape handling stay in one place. Open/closed lives in `ui.store`
 // (`omnibarSettings`) so the Settings panel and navigation targets can open it too.
 
-import { useEffect, useId, useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronLeft, Lock, Settings2 } from "lucide-react";
 import { toast } from "sonner";
@@ -50,7 +59,15 @@ import {
 import { seasonalThemeFor } from "../../../lib/seasonal-themes";
 import { useActivityOverview } from "../../../hooks/use-chat-insights";
 import { useFeatureModels, useSetFeatureModels } from "../../../hooks/use-connection-accounts";
-import { MARI_QUICK_CONNECTION, OMNIBAR_ASIDE_DELAY_CHOICES_MS } from "../../../lib/omnibar-aside-text";
+import {
+  MARI_QUICK_CONNECTION,
+  OMNIBAR_ASIDE_DELAY_CHOICES_MS,
+  marisConnectionFor,
+} from "../../../lib/omnibar-aside-text";
+import { useConnections } from "../../../hooks/use-connections";
+import { isLanguageGenerationConnection } from "../../../lib/connection-filters";
+import { clearOmnibarFrecencyHistory } from "../../../lib/omnibar-frecency";
+import { readCommandRankingState, writeCommandRankingState } from "../../../lib/command-center";
 import { useLocalizedUiText } from "../../../localization/use-localized-ui-text";
 import { cn } from "../../../lib/utils";
 import { ConnectionSelect } from "../../connections/ConnectionSelect";
@@ -512,48 +529,8 @@ export function OmnibarSettingsSheet({
 }) {
   const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
-  const connectionSelectId = useId();
-  const windowHeightRem = useUIStore((state) => state.mariWindowHeightRem);
-  const setWindowHeightRem = useUIStore((state) => state.setMariWindowHeightRem);
-  const windowWidthRem = useUIStore((state) => state.mariWindowWidthRem);
-  const setWindowWidthRem = useUIStore((state) => state.setMariWindowWidthRem);
-  const searchWindowHeightRem = useUIStore((state) => state.omnibarWindowHeightRem);
-  const setSearchWindowHeightRem = useUIStore((state) => state.setOmnibarWindowHeightRem);
-  const searchWindowWidthRem = useUIStore((state) => state.omnibarWindowWidthRem);
-  const setSearchWindowWidthRem = useUIStore((state) => state.setOmnibarWindowWidthRem);
   // Which window's sliders have focus. While one does, the sheet shrinks to that slider and the window resizes behind it.
   const [sizingGroup, setSizingGroup] = useState<"search" | "mari" | null>(null);
-  // Focus can move between a group's sliders and its Automatic button; the group stays active until focus leaves it.
-  const sizingFocus = (group: "search" | "mari") => ({
-    onFocus: () => setSizingGroup(group),
-    onBlur: (event: FocusEvent<HTMLDivElement>) => {
-      if (!event.currentTarget.contains(event.relatedTarget)) setSizingGroup(null);
-    },
-  });
-
-  const suggestionsEnabled = useUIStore((state) => state.omnibarSuggestionsEnabled);
-  const setSuggestionsEnabled = useUIStore((state) => state.setOmnibarSuggestionsEnabled);
-  const asideEnabled = useUIStore((state) => state.omnibarAsideEnabled);
-  const setAsideEnabled = useUIStore((state) => state.setOmnibarAsideEnabled);
-  const { data: featureModels } = useFeatureModels();
-  const setFeatureModels = useSetFeatureModels();
-  const asideConnectionId = featureModels?.omnibarAsideConnectionId ?? LOCAL_SIDECAR_CONNECTION_ID;
-  const setAsideConnectionId = (id: string) => {
-    setFeatureModels.mutate({ omnibarAsideConnectionId: id });
-  };
-  const asideDelayMs = useUIStore((state) => state.omnibarAsideDelayMs);
-  const setAsideDelayMs = useUIStore((state) => state.setOmnibarAsideDelayMs);
-  const editViewMode = useUIStore((state) => state.mariEditViewMode);
-  const setEditViewMode = useUIStore((state) => state.setMariEditViewMode);
-  const mariSuggestionsEnabled = useUIStore((state) => state.professorMariSuggestionsEnabled);
-  const setMariSuggestionsEnabled = useUIStore((state) => state.setProfessorMariSuggestionsEnabled);
-  const enterToSendMari = useUIStore((state) => state.enterToSendProfessorMari);
-  const setEnterToSendMari = useUIStore((state) => state.setEnterToSendProfessorMari);
-  const miniMariEnabled = useUIStore((state) => state.chibiProfessorMariEnabled);
-  const setMiniMariEnabled = useUIStore((state) => state.setChibiProfessorMariEnabled);
-  const localModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
-
-  const usesLocalModel = asideConnectionId === LOCAL_SIDECAR_CONNECTION_ID;
 
   // Focus moves in on open and back to whatever opened the sheet on close; Escape and Tab stay here.
   const onKeyDown = useInDialogFocusScope(cardRef, onClose);
@@ -595,253 +572,373 @@ export function OmnibarSettingsSheet({
           <h2 id="omnibar-settings-title">{t("omnibar.settings.label", "Search and Professor Mari settings")}</h2>
         </header>
 
-        <Section title={t("omnibar.settings.search.heading", "Search")}>
-          <SettingRow
-            controlId="omnibar-suggestions"
-            label={t("omnibar.settings.suggestions.label", "Offer to improve a field")}
-            description={t(
-              "omnibar.settings.suggestions.description",
-              "While you edit a field, Search offers to have Professor Mari improve it.",
-            )}
-            checked={suggestionsEnabled}
-            onChange={setSuggestionsEnabled}
-          />
-          <div id={anchorId("omnibar-search-history")} className="omnibar-settings-menu__row">
-            <SettingText
-              label={t("omnibar.settings.history.clear.label", "Search history")}
-              description={t(
-                "omnibar.settings.history.clear.description",
-                "Search lists the results you pick most first. Kept on this device only.",
-              )}
-            />
-            <button
-              type="button"
-              className="mari-chrome-control mari-chrome-control--compact"
-              aria-label={t("omnibar.settings.history.clear.action", "Clear search history")}
-              onClick={onClearSearchHistory}
-            >
-              {t("omnibar.settings.history.clear.button", "Clear")}
-            </button>
-          </div>
-        </Section>
-
-        <Section title={t("omnibar.settings.quickAnswers.heading", "Quick answers")}>
-          <SettingRow
-            controlId="quick-answers"
-            label={t("omnibar.settings.aside.label", "Quick answers in Search")}
-            description={t(
-              "omnibar.settings.aside.description",
-              "When you type a question, Professor Mari answers in up to three sentences from the docs. She sees only what you typed and changes nothing.",
-            )}
-            checked={asideEnabled}
-            onChange={setAsideEnabled}
-          />
-          <div
-            id={anchorId("quick-answer-model")}
-            className="omnibar-settings-menu__row omnibar-settings-menu__row--stacked"
-          >
-            <label htmlFor={connectionSelectId} className="min-w-0">
-              <span className="omnibar-settings-menu__label">
-                {t("omnibar.settings.aside.connection.label", "Answer with")}
-              </span>
-              <span className="omnibar-settings-menu__description">
-                {t(
-                  "omnibar.settings.aside.connection.description",
-                  "Gets only your search text, never your chats, memories or the field you edit.",
-                )}
-              </span>
-            </label>
-            <ConnectionSelect
-              job={t("connections.picker.job.search")}
-              id={connectionSelectId}
-              value={asideConnectionId}
-              disabled={!asideEnabled}
-              onChange={(id) => setAsideConnectionId(id ?? LOCAL_SIDECAR_CONNECTION_ID)}
-              includeLocalSidecar
-              extraOptions={
-                marisConnectionName
-                  ? [
-                      {
-                        value: MARI_QUICK_CONNECTION,
-                        label: t("omnibar.settings.aside.connection.mari", "Same as Professor Mari ({{name}})", {
-                          name: marisConnectionName,
-                        }),
-                      },
-                    ]
-                  : []
-              }
-            />
-            {asideEnabled && usesLocalModel && !localModelDownloaded ? (
-              <p className="omnibar-settings-sheet__note">
-                {t(
-                  "omnibar.settings.aside.localMissingNote",
-                  "No local model is downloaded, so quick answers are off. Download one or choose a connection.",
-                )}
-                {onSetUpLocalModel ? (
-                  <button
-                    type="button"
-                    onClick={onSetUpLocalModel}
-                    className="font-semibold underline underline-offset-2"
-                  >
-                    {t("omnibar.aside.setUpLocalModel", "Set up a local model")}
-                  </button>
-                ) : null}
-              </p>
-            ) : null}
-            {asideEnabled && !usesLocalModel ? (
-              <p className="omnibar-settings-sheet__note">
-                {t(
-                  "omnibar.settings.aside.remoteNote",
-                  "Each quick answer is one request to this connection and may cost money.",
-                )}
-              </p>
-            ) : null}
-          </div>
-          <div id={anchorId("quick-answer-delay")} className="omnibar-settings-menu__row">
-            <SettingText
-              label={t("omnibar.settings.aside.delay.label", "Wait after typing")}
-              description={t(
-                "omnibar.settings.aside.delay.description",
-                "How long Search waits before Professor Mari writes a quick answer.",
-              )}
-            />
-            <span className="omnibar-settings-menu__segmented">
-              {OMNIBAR_ASIDE_DELAY_CHOICES_MS.map((delayMs) => (
-                <button
-                  key={delayMs}
-                  type="button"
-                  aria-pressed={asideDelayMs === delayMs}
-                  disabled={!asideEnabled}
-                  onClick={() => setAsideDelayMs(delayMs)}
-                >
-                  {t("omnibar.settings.aside.delay.seconds", "{{seconds}} s", { seconds: delayMs / 1_000 })}
-                </button>
-              ))}
-            </span>
-          </div>
-        </Section>
-
-        <Section title={t("omnibar.settings.searchWindow.heading", "Search window")} className="hidden sm:block">
-          <div className="omnibar-settings-size-row" data-size-group="search" {...sizingFocus("search")}>
-            <WindowSizeSlider
-              anchor={anchorId("omnibar-window-height")}
-              label={t("omnibar.settings.searchWindowHeight.label", "Search window height")}
-              visibleLabel={t("omnibar.settings.windowSize.height", "Height")}
-              min={OMNIBAR_WINDOW_HEIGHT_MIN_REM}
-              max={OMNIBAR_WINDOW_HEIGHT_MAX_REM}
-              value={searchWindowHeightRem ?? OMNIBAR_WINDOW_HEIGHT_MIN_REM}
-              onChange={setSearchWindowHeightRem}
-              unset={searchWindowHeightRem === null}
-              action={
-                <button
-                  type="button"
-                  aria-pressed={searchWindowHeightRem === null}
-                  onClick={() => setSearchWindowHeightRem(null)}
-                  className="omnibar-settings-size__fit"
-                >
-                  {t("omnibar.settings.windowSize.automatic", "Automatic")}
-                </button>
-              }
-            />
-            <WindowSizeSlider
-              anchor={anchorId("omnibar-window-width")}
-              label={t("omnibar.settings.searchWindowWidth.label", "Search window width")}
-              visibleLabel={t("omnibar.settings.windowSize.width", "Width")}
-              min={OMNIBAR_WINDOW_WIDTH_MIN_REM}
-              max={OMNIBAR_WINDOW_WIDTH_MAX_REM}
-              value={searchWindowWidthRem}
-              onChange={setSearchWindowWidthRem}
-            />
-          </div>
-        </Section>
-
-        <Section title={t("omnibar.settings.mariWindow.heading", "Professor Mari window")} className="hidden sm:block">
-          <div className="omnibar-settings-size-row" data-size-group="mari" {...sizingFocus("mari")}>
-            <WindowSizeSlider
-              anchor={anchorId("mari-window-height")}
-              label={t("omnibar.settings.windowHeight.label", "Professor Mari window height")}
-              visibleLabel={t("omnibar.settings.windowSize.height", "Height")}
-              min={MARI_WINDOW_HEIGHT_MIN_REM}
-              max={MARI_WINDOW_HEIGHT_MAX_REM}
-              value={windowHeightRem}
-              onChange={setWindowHeightRem}
-            />
-            <WindowSizeSlider
-              anchor={anchorId("mari-window-width")}
-              label={t("omnibar.settings.windowWidth.label", "Professor Mari window width")}
-              visibleLabel={t("omnibar.settings.windowSize.width", "Width")}
-              min={MARI_WINDOW_WIDTH_MIN_REM}
-              max={MARI_WINDOW_WIDTH_MAX_REM}
-              value={windowWidthRem}
-              onChange={setWindowWidthRem}
-            />
-          </div>
-        </Section>
-
-        <Section title={t("omnibar.settings.mari.heading", "Professor Mari")}>
-          <PermissionsModeRow />
-          <RuntimeRow />
-          <SkillGateRow />
-          <SettingRow
-            controlId="professor-mari-suggestions"
-            label={t("settings.controls.professorMariSuggestions.label")}
-            description={t("settings.controls.professorMariSuggestions.help")}
-            checked={mariSuggestionsEnabled}
-            onChange={setMariSuggestionsEnabled}
-          />
-          <div id={anchorId("mari-edit-view")} className="omnibar-settings-menu__row">
-            <SettingText
-              label={t("omnibar.settings.editView.label", "Change cards open in")}
-              description={t("omnibar.settings.editView.description", "Easy shows a summary. Raw shows every field.")}
-            />
-            <span className="omnibar-settings-menu__segmented">
-              {(["easy", "raw"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  aria-pressed={editViewMode === mode}
-                  onClick={() => setEditViewMode(mode)}
-                >
-                  {mode === "easy"
-                    ? t("ui.chat.databaseworkspaceapprovalcard.easyView")
-                    : t("ui.chat.databaseworkspaceapprovalcard.rawView")}
-                </button>
-              ))}
-            </span>
-          </div>
-          <SettingRow
-            controlId="mari-send-on-enter"
-            label={t("omnibar.settings.sendOnEnter.label", "Enter sends to Professor Mari")}
-            description={t(
-              "omnibar.settings.sendOnEnter.description",
-              "When off, Enter adds a new line and Ctrl/Command+Enter sends. Saved on this device only.",
-            )}
-            checked={enterToSendMari}
-            onChange={setEnterToSendMari}
-          />
-        </Section>
-
-        <Section title={t("omnibar.settings.around.heading", "Around the app")}>
-          <SettingRow
-            controlId="mini-mari"
-            label={t("settings.controls.miniMari.label")}
-            description={t("settings.controls.miniMari.help")}
-            checked={miniMariEnabled}
-            onChange={setMiniMariEnabled}
-          />
-        </Section>
-
-        <Section
-          bare
-          title={t("omnibar.settings.appearance.heading", "Appearance")}
-          description={t(
-            "omnibar.settings.appearance.description",
-            "How Professor Mari looks in her chat, Search, Home and the top bar.",
-          )}
-        >
-          <AppearancePacks />
-        </Section>
+        <OmnibarSettingsControls
+          marisConnectionName={marisConnectionName}
+          onClearSearchHistory={onClearSearchHistory}
+          onSetUpLocalModel={onSetUpLocalModel}
+          onSizingGroupChange={setSizingGroup}
+        />
       </div>
+    </div>
+  );
+}
+
+/**
+ * Every Search and Professor Mari setting, as rows. The classic layout shows them in the omnibar's own
+ * settings view (the sheet above); the new layout shows them in Settings › General.
+ */
+export function OmnibarSettingsControls({
+  marisConnectionName,
+  onClearSearchHistory,
+  onSetUpLocalModel,
+  onSizingGroupChange,
+}: {
+  /** The connection Mari uses, which "Same as Mari" follows. Absent when she has none. */
+  marisConnectionName?: string | null;
+  /** O2: forgets the local frecency history (which results you run most, per surface). */
+  onClearSearchHistory: () => void;
+  /** Opens the local model setup. Absent where no local model can run. */
+  onSetUpLocalModel?: () => void;
+  /** The sheet shrinks to the window-size sliders while one has focus, so the window behind shows. */
+  onSizingGroupChange?: (group: "search" | "mari" | null) => void;
+}) {
+  const { t } = useTranslation();
+  const connectionSelectId = useId();
+  const windowHeightRem = useUIStore((state) => state.mariWindowHeightRem);
+  const setWindowHeightRem = useUIStore((state) => state.setMariWindowHeightRem);
+  const windowWidthRem = useUIStore((state) => state.mariWindowWidthRem);
+  const setWindowWidthRem = useUIStore((state) => state.setMariWindowWidthRem);
+  const searchWindowHeightRem = useUIStore((state) => state.omnibarWindowHeightRem);
+  const setSearchWindowHeightRem = useUIStore((state) => state.setOmnibarWindowHeightRem);
+  const searchWindowWidthRem = useUIStore((state) => state.omnibarWindowWidthRem);
+  const setSearchWindowWidthRem = useUIStore((state) => state.setOmnibarWindowWidthRem);
+  // Focus can move between a group's sliders and its Automatic button; the group stays active until focus leaves it.
+  const sizingFocus = (group: "search" | "mari") => ({
+    onFocus: () => onSizingGroupChange?.(group),
+    onBlur: (event: FocusEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget)) onSizingGroupChange?.(null);
+    },
+  });
+
+  const suggestionsEnabled = useUIStore((state) => state.omnibarSuggestionsEnabled);
+  const setSuggestionsEnabled = useUIStore((state) => state.setOmnibarSuggestionsEnabled);
+  const asideEnabled = useUIStore((state) => state.omnibarAsideEnabled);
+  const setAsideEnabled = useUIStore((state) => state.setOmnibarAsideEnabled);
+  const { data: featureModels } = useFeatureModels();
+  const setFeatureModels = useSetFeatureModels();
+  const asideConnectionId = featureModels?.omnibarAsideConnectionId ?? LOCAL_SIDECAR_CONNECTION_ID;
+  const setAsideConnectionId = (id: string) => {
+    setFeatureModels.mutate({ omnibarAsideConnectionId: id });
+  };
+  const asideDelayMs = useUIStore((state) => state.omnibarAsideDelayMs);
+  const setAsideDelayMs = useUIStore((state) => state.setOmnibarAsideDelayMs);
+  const editViewMode = useUIStore((state) => state.mariEditViewMode);
+  const setEditViewMode = useUIStore((state) => state.setMariEditViewMode);
+  const mariSuggestionsEnabled = useUIStore((state) => state.professorMariSuggestionsEnabled);
+  const setMariSuggestionsEnabled = useUIStore((state) => state.setProfessorMariSuggestionsEnabled);
+  const enterToSendMari = useUIStore((state) => state.enterToSendProfessorMari);
+  const setEnterToSendMari = useUIStore((state) => state.setEnterToSendProfessorMari);
+  const miniMariEnabled = useUIStore((state) => state.chibiProfessorMariEnabled);
+  const setMiniMariEnabled = useUIStore((state) => state.setChibiProfessorMariEnabled);
+  const localModelDownloaded = useSidecarStore((state) => state.modelDownloaded);
+
+  const usesLocalModel = asideConnectionId === LOCAL_SIDECAR_CONNECTION_ID;
+
+  return (
+    <>
+      <Section title={t("omnibar.settings.search.heading", "Search")}>
+        <SettingRow
+          controlId="omnibar-suggestions"
+          label={t("omnibar.settings.suggestions.label", "Offer to improve a field")}
+          description={t(
+            "omnibar.settings.suggestions.description",
+            "While you edit a field, Search offers to have Professor Mari improve it.",
+          )}
+          checked={suggestionsEnabled}
+          onChange={setSuggestionsEnabled}
+        />
+        <div id={anchorId("omnibar-search-history")} className="omnibar-settings-menu__row">
+          <SettingText
+            label={t("omnibar.settings.history.clear.label", "Search history")}
+            description={t(
+              "omnibar.settings.history.clear.description",
+              "Search lists the results you pick most first. Kept on this device only.",
+            )}
+          />
+          <button
+            type="button"
+            className="mari-chrome-control mari-chrome-control--compact"
+            aria-label={t("omnibar.settings.history.clear.action", "Clear search history")}
+            onClick={onClearSearchHistory}
+          >
+            {t("omnibar.settings.history.clear.button", "Clear")}
+          </button>
+        </div>
+      </Section>
+
+      <Section title={t("omnibar.settings.quickAnswers.heading", "Quick answers")}>
+        <SettingRow
+          controlId="quick-answers"
+          label={t("omnibar.settings.aside.label", "Quick answers in Search")}
+          description={t(
+            "omnibar.settings.aside.description",
+            "When you type a question, Professor Mari answers in up to three sentences from the docs. She sees only what you typed and changes nothing.",
+          )}
+          checked={asideEnabled}
+          onChange={setAsideEnabled}
+        />
+        <div
+          id={anchorId("quick-answer-model")}
+          className="omnibar-settings-menu__row omnibar-settings-menu__row--stacked"
+        >
+          <label htmlFor={connectionSelectId} className="min-w-0">
+            <span className="omnibar-settings-menu__label">
+              {t("omnibar.settings.aside.connection.label", "Answer with")}
+            </span>
+            <span className="omnibar-settings-menu__description">
+              {t(
+                "omnibar.settings.aside.connection.description",
+                "Gets only your search text, never your chats, memories or the field you edit.",
+              )}
+            </span>
+          </label>
+          <ConnectionSelect
+            job={t("connections.picker.job.search")}
+            id={connectionSelectId}
+            value={asideConnectionId}
+            disabled={!asideEnabled}
+            onChange={(id) => setAsideConnectionId(id ?? LOCAL_SIDECAR_CONNECTION_ID)}
+            includeLocalSidecar
+            extraOptions={
+              marisConnectionName
+                ? [
+                    {
+                      value: MARI_QUICK_CONNECTION,
+                      label: t("omnibar.settings.aside.connection.mari", "Same as Professor Mari ({{name}})", {
+                        name: marisConnectionName,
+                      }),
+                    },
+                  ]
+                : []
+            }
+          />
+          {asideEnabled && usesLocalModel && !localModelDownloaded ? (
+            <p className="omnibar-settings-sheet__note">
+              {t(
+                "omnibar.settings.aside.localMissingNote",
+                "No local model is downloaded, so quick answers are off. Download one or choose a connection.",
+              )}
+              {onSetUpLocalModel ? (
+                <button
+                  type="button"
+                  onClick={onSetUpLocalModel}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  {t("omnibar.aside.setUpLocalModel", "Set up a local model")}
+                </button>
+              ) : null}
+            </p>
+          ) : null}
+          {asideEnabled && !usesLocalModel ? (
+            <p className="omnibar-settings-sheet__note">
+              {t(
+                "omnibar.settings.aside.remoteNote",
+                "Each quick answer is one request to this connection and may cost money.",
+              )}
+            </p>
+          ) : null}
+        </div>
+        <div id={anchorId("quick-answer-delay")} className="omnibar-settings-menu__row">
+          <SettingText
+            label={t("omnibar.settings.aside.delay.label", "Wait after typing")}
+            description={t(
+              "omnibar.settings.aside.delay.description",
+              "How long Search waits before Professor Mari writes a quick answer.",
+            )}
+          />
+          <span className="omnibar-settings-menu__segmented">
+            {OMNIBAR_ASIDE_DELAY_CHOICES_MS.map((delayMs) => (
+              <button
+                key={delayMs}
+                type="button"
+                aria-pressed={asideDelayMs === delayMs}
+                disabled={!asideEnabled}
+                onClick={() => setAsideDelayMs(delayMs)}
+              >
+                {t("omnibar.settings.aside.delay.seconds", "{{seconds}} s", { seconds: delayMs / 1_000 })}
+              </button>
+            ))}
+          </span>
+        </div>
+      </Section>
+
+      <Section title={t("omnibar.settings.searchWindow.heading", "Search window")} className="hidden sm:block">
+        <div className="omnibar-settings-size-row" data-size-group="search" {...sizingFocus("search")}>
+          <WindowSizeSlider
+            anchor={anchorId("omnibar-window-height")}
+            label={t("omnibar.settings.searchWindowHeight.label", "Search window height")}
+            visibleLabel={t("omnibar.settings.windowSize.height", "Height")}
+            min={OMNIBAR_WINDOW_HEIGHT_MIN_REM}
+            max={OMNIBAR_WINDOW_HEIGHT_MAX_REM}
+            value={searchWindowHeightRem ?? OMNIBAR_WINDOW_HEIGHT_MIN_REM}
+            onChange={setSearchWindowHeightRem}
+            unset={searchWindowHeightRem === null}
+            action={
+              <button
+                type="button"
+                aria-pressed={searchWindowHeightRem === null}
+                onClick={() => setSearchWindowHeightRem(null)}
+                className="omnibar-settings-size__fit"
+              >
+                {t("omnibar.settings.windowSize.automatic", "Automatic")}
+              </button>
+            }
+          />
+          <WindowSizeSlider
+            anchor={anchorId("omnibar-window-width")}
+            label={t("omnibar.settings.searchWindowWidth.label", "Search window width")}
+            visibleLabel={t("omnibar.settings.windowSize.width", "Width")}
+            min={OMNIBAR_WINDOW_WIDTH_MIN_REM}
+            max={OMNIBAR_WINDOW_WIDTH_MAX_REM}
+            value={searchWindowWidthRem}
+            onChange={setSearchWindowWidthRem}
+          />
+        </div>
+      </Section>
+
+      <Section title={t("omnibar.settings.mariWindow.heading", "Professor Mari window")} className="hidden sm:block">
+        <div className="omnibar-settings-size-row" data-size-group="mari" {...sizingFocus("mari")}>
+          <WindowSizeSlider
+            anchor={anchorId("mari-window-height")}
+            label={t("omnibar.settings.windowHeight.label", "Professor Mari window height")}
+            visibleLabel={t("omnibar.settings.windowSize.height", "Height")}
+            min={MARI_WINDOW_HEIGHT_MIN_REM}
+            max={MARI_WINDOW_HEIGHT_MAX_REM}
+            value={windowHeightRem}
+            onChange={setWindowHeightRem}
+          />
+          <WindowSizeSlider
+            anchor={anchorId("mari-window-width")}
+            label={t("omnibar.settings.windowWidth.label", "Professor Mari window width")}
+            visibleLabel={t("omnibar.settings.windowSize.width", "Width")}
+            min={MARI_WINDOW_WIDTH_MIN_REM}
+            max={MARI_WINDOW_WIDTH_MAX_REM}
+            value={windowWidthRem}
+            onChange={setWindowWidthRem}
+          />
+        </div>
+      </Section>
+
+      <Section title={t("omnibar.settings.mari.heading", "Professor Mari")}>
+        <PermissionsModeRow />
+        <RuntimeRow />
+        <SkillGateRow />
+        <SettingRow
+          controlId="professor-mari-suggestions"
+          label={t("settings.controls.professorMariSuggestions.label")}
+          description={t("settings.controls.professorMariSuggestions.help")}
+          checked={mariSuggestionsEnabled}
+          onChange={setMariSuggestionsEnabled}
+        />
+        <div id={anchorId("mari-edit-view")} className="omnibar-settings-menu__row">
+          <SettingText
+            label={t("omnibar.settings.editView.label", "Change cards open in")}
+            description={t("omnibar.settings.editView.description", "Easy shows a summary. Raw shows every field.")}
+          />
+          <span className="omnibar-settings-menu__segmented">
+            {(["easy", "raw"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={editViewMode === mode}
+                onClick={() => setEditViewMode(mode)}
+              >
+                {mode === "easy"
+                  ? t("ui.chat.databaseworkspaceapprovalcard.easyView")
+                  : t("ui.chat.databaseworkspaceapprovalcard.rawView")}
+              </button>
+            ))}
+          </span>
+        </div>
+        <SettingRow
+          controlId="mari-send-on-enter"
+          label={t("omnibar.settings.sendOnEnter.label", "Enter sends to Professor Mari")}
+          description={t(
+            "omnibar.settings.sendOnEnter.description",
+            "When off, Enter adds a new line and Ctrl/Command+Enter sends. Saved on this device only.",
+          )}
+          checked={enterToSendMari}
+          onChange={setEnterToSendMari}
+        />
+      </Section>
+
+      <Section title={t("omnibar.settings.around.heading", "Around the app")}>
+        <SettingRow
+          controlId="mini-mari"
+          label={t("settings.controls.miniMari.label")}
+          description={t("settings.controls.miniMari.help")}
+          checked={miniMariEnabled}
+          onChange={setMiniMariEnabled}
+        />
+      </Section>
+
+      <Section
+        bare
+        title={t("omnibar.settings.appearance.heading", "Appearance")}
+        description={t(
+          "omnibar.settings.appearance.description",
+          "How Professor Mari looks in her chat, Search, Home and the top bar.",
+        )}
+      >
+        <AppearancePacks />
+      </Section>
+    </>
+  );
+}
+
+/**
+ * New layout: the same rows inside Settings › General, with what the omnibar used to hand the sheet worked
+ * out here (Mari's connection for "Same as Mari", clearing the search history, the local model setup).
+ */
+export function OmnibarSettingsInline() {
+  const connections = useConnections();
+  const { data: featureModels } = useFeatureModels();
+  const languageConnections = useMemo(
+    () =>
+      (connections.data ?? []).flatMap((value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+        const record = value as Record<string, unknown>;
+        if (typeof record.id !== "string" || typeof record.name !== "string") return [];
+        if (!isLanguageGenerationConnection({ provider: typeof record.provider === "string" ? record.provider : null }))
+          return [];
+        // `/connections` sends these as "true"/"false" strings.
+        return [
+          {
+            id: record.id,
+            name: record.name,
+            isDefault: String(record.isDefault) === "true",
+            defaultForAgents: String(record.defaultForAgents) === "true",
+          },
+        ];
+      }),
+    [connections.data],
+  );
+  const marisConnection = marisConnectionFor(languageConnections, featureModels?.mariConnectionId ?? null);
+  return (
+    <div className="omnibar-settings-inline" data-component="Settings.OmnibarSettings">
+      <OmnibarSettingsControls
+        marisConnectionName={marisConnection?.name ?? null}
+        onClearSearchHistory={() => {
+          clearOmnibarFrecencyHistory();
+          // The older ranking store (the "Recent" group) records the same uses, so both are cleared.
+          writeCommandRankingState({ ...readCommandRankingState(), recent: [] });
+        }}
+        onSetUpLocalModel={
+          import.meta.env.VITE_MARINARA_LITE === "true"
+            ? undefined
+            : () => useSidecarStore.getState().setShowDownloadModal(true)
+        }
+      />
     </div>
   );
 }
