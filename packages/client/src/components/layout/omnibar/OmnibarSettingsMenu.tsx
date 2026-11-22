@@ -316,14 +316,17 @@ function ContextDepthRow() {
   const writeSeqRef = useRef(0);
   // What the server holds: a failed write goes back to it, not to a choice that was never saved.
   const savedDepthRef = useRef(DEFAULT_MARI_CONTEXT_DEPTH);
+  // Counts successful saves, so a read that answers after a save cannot replace the value that save stored.
+  const savedSeqRef = useRef(0);
   useEffect(() => {
     let cancelled = false;
     const seqAtStart = writeSeqRef.current;
+    const savedSeqAtStart = savedSeqRef.current;
     api
       .get<{ depth: number }>("/professor-mari/workspace/context-depth")
       .then((response) => {
         if (cancelled) return;
-        savedDepthRef.current = response.depth;
+        if (savedSeqRef.current === savedSeqAtStart) savedDepthRef.current = response.depth;
         if (writeSeqRef.current === seqAtStart) setDepth(response.depth);
       })
       .catch(() => {
@@ -339,6 +342,7 @@ function ContextDepthRow() {
     try {
       await enqueueMariPermissionsModeWrite(() => api.put("/professor-mari/workspace/context-depth", { depth: next }));
       savedDepthRef.current = next;
+      savedSeqRef.current += 1;
     } catch {
       if (writeSeqRef.current !== writeSeq) return;
       setDepth(savedDepthRef.current);
