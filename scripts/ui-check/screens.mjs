@@ -60,9 +60,16 @@ export async function seedFixtures(api) {
   }
   const presets = await api.get("/api/prompts");
   ids.preset = presets[0]?.id;
-  ids.regex = (
-    await api.post("/api/regex-scripts", { name: LONG_NAME, findRegex: UNBROKEN, placement: ["ai_output"] })
-  ).id;
+  ids.regex = // A trim string, so the editor shows its "Trim from" row too.
+    (
+      await api.post("/api/regex-scripts", {
+        name: LONG_NAME,
+        findRegex: UNBROKEN,
+        placement: ["ai_output"],
+        trimStrings: ["(OOC:", ")"],
+        trimScope: "match",
+      })
+    ).id;
   ids.tool = (
     await api.post("/api/custom-tools", {
       name: `harbour_tide_table_${Date.now().toString(36)}`,
@@ -220,6 +227,60 @@ export function screenList(ids) {
     { id: "presets", run: open.library("presets") },
     { id: "profiles", run: open.library("profiles") },
     { id: "regex", run: open.library("regex") },
+    {
+      // The regex Import window: several files at once, results listed in the window.
+      id: "regex-import",
+      run: open.library("regex"),
+      then: async (page) => {
+        const button = page.getByRole("button", { name: "Import", exact: true }).filter({ visible: true });
+        if (!(await button.count())) return "not on this layout";
+        await button.first().click();
+        await page.locator("[data-import-regex-modal]").first().waitFor({ state: "visible", timeout: 8000 });
+      },
+    },
+    {
+      // The chat Import window with its "Open as" row (Roleplay or Conversation).
+      id: "chat-import",
+      run: open.sidePane("chats"),
+      then: async (page) => {
+        const name = "Import SillyTavern or Marinara chat JSONL";
+        const direct = page.getByRole("button", { name, exact: true }).filter({ visible: true });
+        // Phones and portrait tablets: it sits in the Chats list's menu.
+        const menu = page
+          .getByRole("button", { name: "More chat list options", exact: true })
+          .filter({ visible: true });
+        // The tablet shell can settle a moment after the list opens.
+        await direct
+          .or(menu)
+          .first()
+          .waitFor({ state: "visible", timeout: 8000 })
+          .catch(() => {});
+        if (await direct.count()) {
+          await direct.first().click();
+        } else {
+          if (!(await menu.count())) return "not on this layout";
+          await menu.first().click();
+          const item = page.getByRole("menuitem").filter({ hasText: "Import" }).filter({ visible: true });
+          await item
+            .first()
+            .waitFor({ state: "visible", timeout: 5000 })
+            .catch(() => {});
+          if (!(await item.count())) return "not on this layout";
+          await item.first().click();
+        }
+        await page.locator("[data-import-chat-modal]").first().waitFor({ state: "visible", timeout: 8000 });
+      },
+    },
+    {
+      // Settings > Import from SillyTavern folder: the window before a folder is picked.
+      id: "st-folder-import",
+      run: hook(() => window.__marinaraUiCheck.ui.getState().openModal("st-bulk-import")),
+    },
+    {
+      // The keyboard shortcuts list, with the ←/→ row dimmed while its setting is off.
+      id: "keyboard-shortcuts",
+      run: hook(() => window.__marinaraUiCheck.ui.getState().openModal("keyboard-shortcuts")),
+    },
     { id: "connections", group: "core", run: open.library("connections") },
     // The Add account menu as Home's "Connect a model" opens it (centred, not the old tile grid), and its key step
     // for a service at an address that already has an account ("You already have …").

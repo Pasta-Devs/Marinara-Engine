@@ -34,7 +34,7 @@ If a character card has a lorebook inside it, your browser asks whether to impor
 
 ### Import a chat into a mode you choose
 
-To pick the mode, use the import button at the top of the chat list. Its tooltip is **Import SillyTavern or Marinara chat JSONL**. It imports into the mode tab you have open (Conversation, Roleplay or Game). See [Exporting and Importing Chats](../chats/export-import.md).
+To pick the mode, use the import button at the top of the chat list. Its tooltip is **Import SillyTavern or Marinara chat JSONL**. In the window that opens, **Open as** sets Roleplay or Conversation for a SillyTavern file. A Marinara export keeps its own type. See [Exporting and Importing Chats](../chats/export-import.md).
 
 ## Import a SillyTavern folder
 

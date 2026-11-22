@@ -18,6 +18,7 @@ export interface RegexScriptRow {
   findRegex: string;
   replaceString: string;
   trimStrings: string;
+  trimScope?: string | null;
   placement: string;
   flags: string;
   promptOnly: string;

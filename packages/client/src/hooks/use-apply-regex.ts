@@ -4,7 +4,7 @@
 import { useCallback, useMemo } from "react";
 import { useRegexScripts, type RegexScriptRow } from "./use-regex-scripts";
 import {
-  applyRegexReplacement,
+  applyRegexScriptReplacement,
   formatTextQuotes,
   isPatternSafe,
   isRegexApplyMode,
@@ -179,14 +179,11 @@ function applyScripts(
       if (!re) continue;
       // A shared sticky pattern resumes from its last match, so every use starts at the beginning.
       re.lastIndex = 0;
-      result = applyRegexReplacement(result, re, script.replaceString, (value) =>
-        options?.resolveMacros ? options.resolveMacros(value) : value,
-      );
-      // Apply trim strings
-      for (const trim of script.trimStrings) {
-        const resolvedTrim = options?.resolveMacros ? options.resolveMacros(trim) : trim;
-        if (resolvedTrim) result = result.split(resolvedTrim).join("");
-      }
+      result = applyRegexScriptReplacement(result, re, script.replaceString, {
+        trimStrings: script.trimStrings,
+        trimScope: script.trimScope,
+        resolve: options?.resolveMacros,
+      });
     } catch {
       // Invalid regex — skip silently
     }

@@ -5,7 +5,11 @@ import {
   withoutPresetTokenLimits,
   type GamePresetStorySettings,
 } from "@marinara-engine/shared";
-import { GenerationParametersFields, getEditableGenerationParameters } from "../ui/GenerationParametersEditor";
+import {
+  GenerationParametersFields,
+  getEditableGenerationParameters,
+  pickEditableGenerationParameters,
+} from "../ui/GenerationParametersEditor";
 // ──────────────────────────────────────────────
 // Full-Page Preset Editor
 // Tabs: Overview · Sections · Prompts · Regex
@@ -85,7 +89,9 @@ import {
   ListOrdered,
   MessagesSquare,
   Variable,
-  SlidersHorizontal, Loader2 } from "lucide-react";
+  SlidersHorizontal,
+  Loader2,
+} from "lucide-react";
 import { cn } from "../../lib/utils";
 import { createPortal } from "react-dom";
 import { useOverhaulLook, useOverhaulMobile, useOverhaulTouchMessages } from "../../stores/overhaul.store";
@@ -877,7 +883,10 @@ export function PresetEditor() {
           </button>
         </div>
         <GenerationParametersFields
-          value={getEditableGenerationParameters(DEFAULT_GENERATION_PARAMS, localParameters)}
+          value={getEditableGenerationParameters(
+            pickEditableGenerationParameters(DEFAULT_GENERATION_PARAMS),
+            localParameters,
+          )}
           showServiceTier
           showTokenLimits={false}
           onChange={(next) => {

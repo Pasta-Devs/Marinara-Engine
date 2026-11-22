@@ -34,6 +34,7 @@ export type EditableGenerationParameters = Pick<
   | "maxTokens"
   | "topP"
   | "topK"
+  | "minP"
   | "frequencyPenalty"
   | "presencePenalty"
   | "reasoningEffort"
@@ -80,6 +81,7 @@ export const CHAT_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   maxTokens: 4096,
   topP: 1,
   topK: 0,
+  minP: 0,
   frequencyPenalty: 0,
   presencePenalty: 0,
   reasoningEffort: "maximum",
@@ -100,6 +102,7 @@ export const ROLEPLAY_PARAMETER_DEFAULTS: EditableGenerationParameters = {
   maxTokens: 8192,
   topP: 1,
   topK: 0,
+  minP: 0,
   frequencyPenalty: 0,
   presencePenalty: 0,
   reasoningEffort: "maximum",
@@ -157,6 +160,7 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
   if (typeof source.maxTokens === "number") next.maxTokens = source.maxTokens;
   if (typeof source.topP === "number") next.topP = source.topP;
   if (typeof source.topK === "number") next.topK = source.topK;
+  if (typeof source.minP === "number") next.minP = source.minP;
   if (typeof source.frequencyPenalty === "number") next.frequencyPenalty = source.frequencyPenalty;
   if (typeof source.presencePenalty === "number") next.presencePenalty = source.presencePenalty;
   if (
@@ -224,6 +228,19 @@ export function parseEditableGenerationParameters(raw: unknown): EditableGenerat
   if (enabledParameters) next.enabledParameters = enabledParameters;
 
   return Object.keys(next).length > 0 ? next : null;
+}
+
+/**
+ * Only the settings these fields edit, picked from a full parameter set. A preset's stored parameters hold more
+ * (Squash system messages, stop sequences, an imported Min P…), and the fields must never write defaults over them.
+ */
+export function pickEditableGenerationParameters(source: GenerationParameters): EditableGenerationParameters {
+  const picked: Record<string, unknown> = {};
+  for (const key of [...Object.keys(CHAT_PARAMETER_DEFAULTS), "customHeaders"]) {
+    const value = (source as unknown as Record<string, unknown>)[key];
+    if (value !== undefined) picked[key] = value;
+  }
+  return picked as EditableGenerationParameters;
 }
 
 export function getEditableGenerationParameters(
@@ -451,6 +468,19 @@ export function GenerationParametersFields({
               min={0}
               max={500}
               step={1}
+            />
+          )}
+          {/* Sent where Top K is (the built-in model and OpenAI-compatible custom servers); 0 sends nothing. */}
+          {show("topK") && (
+            <ParamInput
+              label={localizeUi("ui.ui.generationparametersfields.minP")}
+              help={localizeUi("ui.ui.generationparametersfields.minPHelp")}
+              value={value.minP ?? 0}
+              onChange={(nextValue) => set("minP", nextValue)}
+              effective={unusedNote("topK") ?? effectiveHint("minP")}
+              min={0}
+              max={1}
+              step={0.01}
             />
           )}
         </div>
@@ -1001,8 +1031,9 @@ function ParamInput({
   label: string;
   value: number;
   onChange: (next: number) => void;
-  sendEnabled: boolean;
-  onSendChange: (enabled: boolean) => void;
+  /** Left out for a setting with no send switch (Min P: 0 sends nothing). */
+  sendEnabled?: boolean;
+  onSendChange?: (enabled: boolean) => void;
   min: number;
   max?: number;
   step: number;
@@ -1077,8 +1108,8 @@ function ParameterHeader({
   label: string;
   help?: string;
   effective?: string;
-  sendEnabled: boolean;
-  onSendChange: (enabled: boolean) => void;
+  sendEnabled?: boolean;
+  onSendChange?: (enabled: boolean) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   return (
@@ -1088,18 +1119,20 @@ function ParameterHeader({
           <span className="truncate">{label}</span>
           {help && <HelpTooltip text={help} size="0.625rem" />}
         </span>
-        <SettingsSwitch
-          ariaLabel={`Send ${label} parameter`}
-          checked={sendEnabled}
-          onChange={onSendChange}
-          labelPosition="start"
-          className="!gap-0 !rounded-md !p-0 hover:!bg-transparent"
-          title={
-            sendEnabled
-              ? localizeUi("ui.ui.parameterheader.thisParameterIsSentToTheModel")
-              : localizeUi("ui.ui.parameterheader.thisParameterIsNotSentToTheModel")
-          }
-        />
+        {onSendChange ? (
+          <SettingsSwitch
+            ariaLabel={`Send ${label} parameter`}
+            checked={sendEnabled !== false}
+            onChange={onSendChange}
+            labelPosition="start"
+            className="!gap-0 !rounded-md !p-0 hover:!bg-transparent"
+            title={
+              sendEnabled
+                ? localizeUi("ui.ui.parameterheader.thisParameterIsSentToTheModel")
+                : localizeUi("ui.ui.parameterheader.thisParameterIsNotSentToTheModel")
+            }
+          />
+        ) : null}
       </div>
       {effective && (
         // One line like the label: wrapping would push this column's input below its neighbour's.

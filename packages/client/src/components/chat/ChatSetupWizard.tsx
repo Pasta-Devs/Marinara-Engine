@@ -1911,7 +1911,7 @@ function ConversationQuickSetup({
           <OvRow
             label={
               chatCharIds.length > 1
-                ? `${localizeUi("ui.chat.conversationquicksetup.groupChat")} ${chatCharIds.length}`
+                ? localizeUi("ui.chat.conversationquicksetup.groupChatCount", { count: chatCharIds.length })
                 : localizeUi("chat.setupPage.messaging")
             }
             top
