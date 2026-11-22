@@ -859,6 +859,9 @@ export function AppShell({
       // Opening a chat is the next step almost every time: fetch the chat surfaces now, not on the click.
       preloadChatSurface("roleplay");
       preloadChatSurface("conversation");
+      // Chat settings mounts (hidden) with every chat: its code came in on the first chat tap, about half of that
+      // tap's downloads (QC panel 2, #17). Fetch it here instead.
+      void import("../chat/ChatCommonOverlays").then((module) => module.preloadChatSettingsDrawerWhenIdle());
     };
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
     if (idle) idle(preload);

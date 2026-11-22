@@ -12972,6 +12972,7 @@
   "ui.chat.knowledgesourcefields.useChatActiveLorebooks": "Use chat-active lorebooks",
   "ui.chat.knowledgesourcefields.useTheLorebooksCurrentlyActiveForThisChatWhen": "Use the lorebooks currently active for this chat when no fixed source is selected.",
   "ui.chat.localmusicplayer.closePlayer": "Close player",
+  "ui.chat.localmusicplayer.customMusic": "Custom music",
   "ui.chat.localmusicplayer.customMusicVolume": "Custom music volume",
   "ui.chat.localmusicplayer.mood": "Scene mood: {{mood}}",
   "ui.chat.localmusicplayer.pause": "Pause",

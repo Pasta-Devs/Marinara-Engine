@@ -69,8 +69,14 @@ proxy_target() { curl -fsS -m 2 "http://127.0.0.1:$PROXY_PORT/__webkit-qc/target
 stop_driver() {
   kill_pidfile driver
   pkill -f "WebKitWebDriver --port=$DRIVER_PORT" 2>/dev/null || true
-  # Browsers left over from crashed sessions keep the "Maximum number of active sessions" error alive.
-  pkill -f "MiniBrowser.*--automation" 2>/dev/null || true
+  # Browsers left over from crashed sessions keep the "Maximum number of active sessions" error alive. Only this
+  # driver's own: they inherit its XDG_CONFIG_HOME, so another WEBKIT_QC_DIR's browsers (a parallel run) live on.
+  local pid
+  for pid in $(pgrep -f "MiniBrowser.*--automation" 2>/dev/null); do
+    if tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | grep -qxF "XDG_CONFIG_HOME=$STATE/xdg"; then
+      kill "$pid" 2>/dev/null || true
+    fi
+  done
   for _ in $(seq 20); do driver_up || break; sleep 0.1; done
 }
 

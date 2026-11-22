@@ -388,7 +388,9 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   );
 
   const hasPlayerContent = !!nowPlaying || loading || !!error;
-  const showPlayer = active;
+  // Phones: the floating disc shows only while there is music (loading, playing or an error) or while it is open,
+  // not as an empty disc over Home and every chat (QC panel 2, #18).
+  const showPlayer = active && (!mobile || hasPlayerContent || !collapsed);
   const displayTitle = loading ? "Finding a track..." : error ? error : (nowPlaying?.title ?? "YouTube");
   const displaySubtitle = loading
     ? "Searching YouTube"
@@ -565,6 +567,15 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           >
             {collapsed ? (
               <div
+                role="button"
+                tabIndex={0}
+                aria-label={[localizeUi("ui.chat.youtubeplayer.youtube"), nowPlaying?.title].filter(Boolean).join(": ")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setCollapsed(false);
+                  }
+                }}
                 className={cn(
                   "flex h-12 w-12 items-center justify-center rounded-full border shadow-lg backdrop-blur-xl",
                   MUSIC_NEUTRAL_SHELL_BORDER_CLASS,
