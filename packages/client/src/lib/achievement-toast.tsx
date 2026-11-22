@@ -6,6 +6,7 @@ import {
 } from "@marinara-engine/shared";
 import { translate } from "../localization/i18n";
 import { localizeAchievementTitle } from "./achievement-localization";
+import { useFirstRunQueue } from "./first-run-queue";
 
 // A package unlock is written server-side, so the client learns about it from a status refresh
 // rather than from the call that caused it. That refresh repeats every unlock it knows about, so
@@ -29,9 +30,31 @@ export function showAchievementUnlockToasts(
     // next refresh, which carries the definition, can name the badge properly.
     if (!achievement) continue;
     announcedIds.add(item.id);
-
-    toast.success(translate("ui.achievements.unlocked"), {
-      description: localizeAchievementTitle(translate, achievement),
-    });
+    announce(achievement);
   }
+}
+
+// One first-run thing at a time (QC panel 3, F6): an unlock while a first-run surface holds the slot (the "New to AI
+// chat?" offer right after the tour) waits until it closes.
+const waiting: AchievementDefinition[] = [];
+let unsubscribeQueue: (() => void) | null = null;
+
+function toastUnlock(achievement: AchievementDefinition) {
+  toast.success(translate("ui.achievements.unlocked"), {
+    description: localizeAchievementTitle(translate, achievement),
+  });
+}
+
+function announce(achievement: AchievementDefinition) {
+  if (useFirstRunQueue.getState().showing === null) {
+    toastUnlock(achievement);
+    return;
+  }
+  waiting.push(achievement);
+  unsubscribeQueue ??= useFirstRunQueue.subscribe((state) => {
+    if (state.showing !== null) return;
+    unsubscribeQueue?.();
+    unsubscribeQueue = null;
+    waiting.splice(0).forEach(toastUnlock);
+  });
 }

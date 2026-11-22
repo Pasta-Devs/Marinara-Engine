@@ -155,6 +155,11 @@ function readSetupOverrides(chatId: string): Record<string, string | string[]> {
   }
 }
 
+/** Whether the setup page's story choices hold a pick the person made (kept until the chat starts). */
+export function setupStoryChoicesPicked(chatId: string): boolean {
+  return Object.keys(readSetupOverrides(chatId)).length > 0;
+}
+
 function writeSetupOverrides(chatId: string, overrides: Record<string, string | string[]> | null) {
   try {
     if (overrides && Object.keys(overrides).length > 0) {

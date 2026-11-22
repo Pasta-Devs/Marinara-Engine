@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Chat hooks
 // ──────────────────────────────────────────────
+import { isChatScrolledToBottom, requestChatScrollToBottom } from "../lib/chat-scroll-events";
 import { rememberLocalSetupDraft } from "../lib/local-setup-drafts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { noteBulkDeleteForTips } from "../lib/feature-tips";
@@ -1687,7 +1688,7 @@ export function useCreateMessage(chatId: string | null) {
  * The "Moved to trash" toast's Undo: finds the trash entries of the messages just deleted (newest first) and
  * restores them in place, swipes and all (QC panel 2, D6: a delete had no Undo).
  */
-async function undoTrashedDelete(qc: QueryClient, chatId: string, messageIds: string[]) {
+async function undoTrashedDelete(qc: QueryClient, chatId: string, messageIds: string[], wasAtBottom = false) {
   try {
     const entries = await api.get<MessageTrashEntry[]>(`/chats/${chatId}/trash`);
     const wanted = new Set(messageIds);
@@ -1703,15 +1704,23 @@ async function undoTrashedDelete(qc: QueryClient, chatId: string, messageIds: st
     toast.error(error instanceof Error ? error.message : translate("ui.chat.messagetrash.restoreFailed"));
   } finally {
     await invalidateAfterTrashChange(qc, chatId);
+    // The restored messages land back at the end: keep the newest in view when the view was there (QC panel 3, F2).
+    if (wasAtBottom) requestChatScrollToBottom({ chatId, behavior: "auto" });
   }
 }
 
-function showMovedToTrashToast(qc: QueryClient, chatId: string, count: number, messageIds: string[]) {
+function showMovedToTrashToast(
+  qc: QueryClient,
+  chatId: string,
+  count: number,
+  messageIds: string[],
+  wasAtBottom = false,
+) {
   toast.success(translate("ui.chat.messagetrash.movedToTrash", { count }), {
     description: translate("ui.chat.messagetrash.movedToTrashHint"),
     action: {
       label: translate("ui.chat.messagetrash.undo"),
-      onClick: () => void undoTrashedDelete(qc, chatId, messageIds),
+      onClick: () => void undoTrashedDelete(qc, chatId, messageIds, wasAtBottom),
     },
   });
 }
@@ -1727,18 +1736,19 @@ export function useDeleteMessage(chatId: string | null) {
     },
     // While pending, useChatMessages hides the message; a failed delete simply shows it again.
     mutationKey: chatMessageDeleteKey(chatId),
+    onMutate: () => ({ wasAtBottom: chatId ? isChatScrolledToBottom(chatId) : false }),
     // A refused delete (for example already removed in another tab) refetches; the cache is never rewritten.
     onError: () => {
       if (!chatId) return;
       void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
       void qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
     },
-    onSuccess: (result, target) => {
+    onSuccess: (result, target, context) => {
       if (chatId) {
         settleDeletedMessages(qc, chatId, deletedMessageIds(target));
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
-          showMovedToTrashToast(qc, chatId, 1, deletedMessageIds(target));
+          showMovedToTrashToast(qc, chatId, 1, deletedMessageIds(target), context?.wasAtBottom);
         }
         qc.invalidateQueries({ queryKey: ["chat-message-search", chatId] });
         qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) });
@@ -1757,13 +1767,14 @@ export function useDeleteMessages(chatId: string | null) {
     mutationFn: (messageIds: string[]) =>
       api.post<{ trashed: boolean; trashedCount: number }>(`/chats/${chatId}/messages/bulk-delete`, { messageIds }),
     mutationKey: chatMessageDeleteKey(chatId),
+    onMutate: () => ({ wasAtBottom: chatId ? isChatScrolledToBottom(chatId) : false }),
     // A refused delete (for example already removed in another tab) refetches; the cache is never rewritten.
     onError: () => {
       if (!chatId) return;
       void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
       void qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
     },
-    onSuccess: (result, messageIds) => {
+    onSuccess: (result, messageIds, context) => {
       if (chatId) {
         settleDeletedMessages(qc, chatId, messageIds);
         noteBulkDeleteForTips(messageIds.length, () =>
@@ -1771,7 +1782,7 @@ export function useDeleteMessages(chatId: string | null) {
         );
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
-          showMovedToTrashToast(qc, chatId, result.trashedCount, messageIds);
+          showMovedToTrashToast(qc, chatId, result.trashedCount, messageIds, context?.wasAtBottom);
         }
         qc.invalidateQueries({ queryKey: ["chat-message-search", chatId] });
         qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) });

@@ -988,8 +988,13 @@
     display: none;
   }
   :root[data-overhaul="mobile"] .ov-docs__nav {
+    display: block;
     border-left: 0;
     padding: 1rem;
+  }
+  /* A phone keeps its guide-list pane with the search in it; the page header and outline are for wider screens. */
+  :root[data-overhaul="mobile"] :is(.ov-docs__head, .ov-docs__head-results, .ov-docs__toc) {
+    display: none;
   }
   :root[data-overhaul="mobile"] .ov-docs__nav li > button,
   :root[data-overhaul="mobile"] .ov-docs__nav a {

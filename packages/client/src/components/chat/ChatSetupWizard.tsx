@@ -62,7 +62,11 @@ import { useChatStore } from "../../stores/chat.store";
 import { useDialogStore } from "../../stores/dialog.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { api } from "../../lib/api-client";
-import { appendLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
+import {
+  appendLocalSidecarConnectionOption,
+  isConnectionFlagTrue,
+  isLanguageGenerationConnection,
+} from "../../lib/connection-filters";
 import { resolveConversationSelfieSetup } from "../../lib/conversation-selfie-setup";
 import {
   captureChatWizardDefaults,
@@ -77,6 +81,7 @@ import { addSilentGreetingSwipes } from "../../lib/message-swipes";
 import {
   ChoiceSelectionModal,
   InlineStoryChoices,
+  setupStoryChoicesPicked,
   type InlineStoryChoicesHandle,
 } from "../presets/ChoiceSelectionModal";
 import { SetupBlock, SetupMoreOptions, SetupPage, SetupSection, SetupTitleField } from "./ChatSetupPage";
@@ -98,6 +103,7 @@ import {
   resolveOnboardingGreeting,
   shouldFillGreetingFromPersona,
   CHAT_FOLLOWS_MAIN_KEY,
+  CHAT_MODEL_DELETED_KEY,
   DEFAULT_CONVERSATION_PROMPT,
   DEFAULT_AGENT_CONTEXT_SIZE,
   DEFAULT_AGENT_MAX_TOKENS,
@@ -285,6 +291,61 @@ type ConnectionSetupOption = {
   defaultParameters?: unknown;
   defaultForAgents?: boolean | string;
 };
+
+/** A Model write also sets the chat's follows-Main flag and clears its "Model was deleted" note. */
+const MODEL_WRITE_METADATA_KEYS = [CHAT_FOLLOWS_MAIN_KEY, CHAT_MODEL_DELETED_KEY];
+
+/**
+ * Writes the page makes by itself (the stock prompt preset, the only Model there is) are not choices: they move
+ * the draft's untouched baseline along, so leaving an untouched setup still leaves nothing behind (QC panel 3, S1).
+ */
+function useAutomaticSetupWrite(chatId: string) {
+  const updateChat = useUpdateChat();
+  const { mutateAsync } = updateChat;
+  return useCallback(
+    async (patch: { connectionId?: string | null; promptPresetId?: string | null }) => {
+      const response = await mutateAsync({ id: chatId, ...patch });
+      const store = useChatStore.getState();
+      const pending = store.pendingNewChatSetups[chatId];
+      if (response && pending?.id === chatId) {
+        const fields = Object.keys(patch) as Array<"connectionId" | "promptPresetId">;
+        // Changing the Model also writes the chat's follows-Main flag.
+        store.setPendingNewChatSetup(
+          advanceChatSetupDraft(pending, response, fields, "connectionId" in patch ? MODEL_WRITE_METADATA_KEYS : []),
+        );
+      }
+      return response;
+    },
+    [chatId, mutateAsync],
+  );
+}
+
+/**
+ * The setup page picks the only model there is, as Game setup does: a new draft with no Main, the built-in model
+ * not standing in as Main, and exactly one language connection gets it as its Model (QC panel 3, S4). It is an
+ * automatic write, so it isn't a choice.
+ */
+function useOnlyModelPrePick(
+  chat: Chat,
+  enabled: boolean,
+  connections: ReadonlyArray<{ id: string; provider?: string | null; isDefault?: unknown }> | undefined,
+  sidecarUseAsMainDefault: boolean,
+  write: ReturnType<typeof useAutomaticSetupWrite>,
+  onPicked?: (connectionId: string) => void,
+) {
+  const doneRef = useRef(false);
+  useEffect(() => {
+    if (doneRef.current || !enabled || !connections) return;
+    doneRef.current = true;
+    if (chat.connectionId || sidecarUseAsMainDefault || chat.metadata?.setupPending !== true) return;
+    if (connections.some((option) => isConnectionFlagTrue(option.isDefault))) return;
+    const language = connections.filter((option) => isLanguageGenerationConnection({ provider: option.provider }));
+    if (language.length !== 1) return;
+    const connectionId = language[0]!.id;
+    onPicked?.(connectionId);
+    void write({ connectionId }).catch(() => undefined);
+  }, [chat.connectionId, chat.metadata?.setupPending, connections, enabled, onPicked, sidecarUseAsMainDefault, write]);
+}
 
 /** The empty Connection choice: the chat follows Main, so name the Model that currently is Main. */
 function followMainLabel(
@@ -740,10 +801,27 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
           return mutation.state.status === "pending" && (variables?.id === chat.id || variables?.chatId === chat.id);
         });
       if (saving) return true;
+      // Story choices (Content and the rest) stay on the page until Start.
+      if (setupStoryChoicesPicked(chat.id)) return true;
       const current = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id));
-      const start = startRef.current;
+      // The live baseline: saved defaults and the page's own pre-picks move it along, so only what the person
+      // changed counts. After a reload there is none, and the first render's copy is all there is.
+      const baseline = useChatStore.getState().pendingNewChatSetups[chat.id];
+      const start = baseline
+        ? {
+            name: baseline.name,
+            connectionId: baseline.connectionId ?? null,
+            promptPresetId: baseline.promptPresetId ?? null,
+            cast: JSON.stringify((baseline as { characterIds?: unknown }).characterIds ?? []),
+          }
+        : startRef.current;
       if (!current || !start) return false;
+      const meta = (value: Chat | undefined, key: string) => JSON.stringify(value?.metadata?.[key] ?? null);
       return (
+        (!!baseline &&
+          ((current.personaId ?? null) !== (baseline.personaId ?? null) ||
+            (current.personaCharacterId ?? null) !== (baseline.personaCharacterId ?? null) ||
+            ["activeLorebookIds", "groupChatMode"].some((key) => meta(current, key) !== meta(baseline, key)))) ||
         current.name !== start.name ||
         (current.connectionId ?? null) !== start.connectionId ||
         (current.promptPresetId ?? null) !== start.promptPresetId ||
@@ -873,7 +951,7 @@ function SavedChatSetupWizard({
       advance(
         configured,
         ["connectionId", "promptPresetId", "personaId", "personaCharacterId", "characterIds"],
-        [CHAT_FOLLOWS_MAIN_KEY],
+        MODEL_WRITE_METADATA_KEYS,
       );
       const latest = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? chat;
       const configuredMetadata = await updateMeta.mutateAsync({
@@ -996,6 +1074,7 @@ function ConversationQuickSetup({
   const { data: allCharacters } = useCharacters();
   const { data: installedAgentManifests = [], isLoading: installedAgentsLoading } = useCapabilityAgentRegistry();
   const updateChat = useUpdateChat();
+  const writeAutomatically = useAutomaticSetupWrite(chat.id);
   const updateMeta = useUpdateChatMetadata();
   const queryClient = useQueryClient();
   const openRightPanel = useUIStore((s) => s.openRightPanel);
@@ -1018,6 +1097,18 @@ function ConversationQuickSetup({
   const selectedConnectionChatIdRef = useRef(chat.id);
   const latestChatConnectionIdRef = useRef(chat.connectionId);
   const [selectedConnectionId, setSelectedConnectionId] = useState(chat.connectionId ?? "");
+  const onOnlyModelPicked = useCallback((connectionId: string) => {
+    latestChatConnectionIdRef.current = connectionId;
+    setSelectedConnectionId(connectionId);
+  }, []);
+  useOnlyModelPrePick(
+    chat,
+    pageMode,
+    connections as Array<{ id: string; provider?: string | null; isDefault?: unknown }> | undefined,
+    sidecarUseAsMainDefault,
+    writeAutomatically,
+    onOnlyModelPicked,
+  );
   const installedAgentIds = useMemo(
     () => new Set(installedAgentManifests.map((agent) => agent.id)),
     [installedAgentManifests],
@@ -1293,7 +1384,7 @@ function ConversationQuickSetup({
     if (customConversationPromptEnabled) {
       setConversationSystemPromptDraft(resolveConversationPromptForPresetId(defaultId));
     }
-    updateChat.mutate({ id: chat.id, promptPresetId: defaultId });
+    void writeAutomatically({ promptPresetId: defaultId }).catch(() => undefined);
   }, [
     chat.id,
     chat.promptPresetId,
@@ -1301,7 +1392,7 @@ function ConversationQuickSetup({
     defaultPreset?.id,
     promptPresetTouched,
     resolveConversationPromptForPresetId,
-    updateChat,
+    writeAutomatically,
   ]);
 
   const setPersona = useCallback(
@@ -2037,6 +2128,7 @@ function RoleplaySetupWizard({
   }, [chat.id]);
 
   const updateChat = useUpdateChat();
+  const writeAutomatically = useAutomaticSetupWrite(chat.id);
   const updateMeta = useUpdateChatMetadata();
   const updateAgentConfig = useUpdateAgent();
   const createAgent = useCreateAgent();
@@ -2054,6 +2146,19 @@ function RoleplaySetupWizard({
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
   const { data: presets } = usePresets();
   const sidecarUseAsMainDefault = useSidecarStore((state) => state.config.useAsMainDefault && state.modelDownloaded);
+  useOnlyModelPrePick(
+    chat,
+    pageMode,
+    connections as Array<{ id: string; provider?: string | null; isDefault?: unknown }> | undefined,
+    sidecarUseAsMainDefault,
+    writeAutomatically,
+  );
+  // A chat without its own Model follows Main; with no Main either, the page can't start a chat that replies.
+  const pageHasModel =
+    !!chat.connectionId ||
+    sidecarUseAsMainDefault ||
+    !connections ||
+    (connections as Array<{ isDefault?: unknown }>).some((option) => isConnectionFlagTrue(option.isDefault));
   const { data: defaultPreset } = useDefaultPreset();
   const { data: allPersonas } = usePersonas();
   const { data: allCharacters } = useCharacters();
@@ -2329,7 +2434,7 @@ function RoleplaySetupWizard({
   // Auto-select the default preset for new chats
   useEffect(() => {
     if (!defaultsApplied && !chat.promptPresetId && defaultPreset?.id) {
-      updateChat.mutate({ id: chat.id, promptPresetId: defaultPreset.id });
+      void writeAutomatically({ promptPresetId: defaultPreset.id }).catch(() => undefined);
     }
   }, [defaultPreset?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -3606,6 +3711,10 @@ function RoleplaySetupWizard({
 
   const startFromPage = async () => {
     if (pageStarting) return;
+    if (!pageHasModel && metadata.multiplayerSetup !== true) {
+      document.getElementById(roleplayConnectionSelectId)?.focus();
+      return;
+    }
     if (unansweredChoices > 0) {
       storyChoicesRef.current?.showFirstUnanswered();
       return;
@@ -3718,7 +3827,15 @@ function RoleplaySetupWizard({
                 <span className="ov-setup__narrow">{localizeUi("chat.settingsProfile.label")}</span>
               </button>
               <span className="ov-setup__status" role="status">
-                {unansweredChoices > 0 ? (
+                {!pageHasModel && metadata.multiplayerSetup !== true ? (
+                  <button
+                    type="button"
+                    className="ov-setup__link"
+                    onClick={() => document.getElementById(roleplayConnectionSelectId)?.focus()}
+                  >
+                    {localizeUi("chat.setupPage.needsModel")}
+                  </button>
+                ) : unansweredChoices > 0 ? (
                   // Jumps to the first choice still waiting (QC panel 2, D4).
                   <button
                     type="button"
@@ -3736,8 +3853,8 @@ function RoleplaySetupWizard({
                 type="button"
                 onClick={() => void startFromPage()}
                 disabled={startDisabled}
-                aria-disabled={unansweredChoices > 0 || undefined}
-                className={cn("ov-setup__btn is-primary", unansweredChoices > 0 && "is-waiting")}
+                aria-disabled={unansweredChoices > 0 || !pageHasModel || undefined}
+                className={cn("ov-setup__btn is-primary", (unansweredChoices > 0 || !pageHasModel) && "is-waiting")}
               >
                 {pageStarting ? <Spinner size="sm" /> : null}
                 <span className="ov-setup__wide">{localizeUi("chat.setupPage.startRoleplay")}</span>

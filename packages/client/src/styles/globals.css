@@ -5448,12 +5448,14 @@ strong {
 /* ─────────────────────────────────────────────
    7. SCROLLBARS
    ───────────────────────────────────────────── */
-* {
+/* The classic look's pink scrollbars. :where() keeps the layout gate as weak as a plain `*`, so a theme's own
+   scrollbar CSS still wins. */
+:where(:root:not([data-overhaul])) * {
   scrollbar-width: thin;
   scrollbar-color: var(--y2k-pink) transparent;
 }
 
-::-webkit-scrollbar {
+:where(:root:not([data-overhaul])) ::-webkit-scrollbar {
   width: 0.625rem;
 }
 
@@ -5464,18 +5466,47 @@ strong {
   cursor: var(--marinara-custom-cursor) !important;
 }
 
-::-webkit-scrollbar-track {
+:where(:root:not([data-overhaul])) ::-webkit-scrollbar-track {
   background: #1a1a2e40;
 }
 
-::-webkit-scrollbar-thumb {
+:where(:root:not([data-overhaul])) ::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, var(--y2k-pink) 0%, var(--y2k-purple) 100%);
   border: 2px solid #0a0a0a66;
   border-radius: 0.5rem;
 }
 
-::-webkit-scrollbar-thumb:hover {
+:where(:root:not([data-overhaul])) ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, var(--pastel-rose) 0%, var(--y2k-lavender) 100%);
+}
+
+/* Thin neutral scrollbars in the new layout (QC panel 2, D15). They live here, not in overhaul.css: that sheet is
+   inserted before this one, so these equal-strength rules lost to the classic ones above on every page (QC panel 3,
+   F7). :where() keeps them weak, so a theme's own scrollbar CSS still wins; a theme can also just set
+   --ov-scrollbar-thumb. */
+:root[data-overhaul] {
+  --ov-scrollbar-thumb: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+}
+:where(:root[data-overhaul]) * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ov-scrollbar-thumb) transparent;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--ov-scrollbar-thumb);
+  background-clip: padding-box;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+  background-clip: padding-box;
 }
 
 .mari-tracker-panel-scroll {

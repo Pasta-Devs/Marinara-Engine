@@ -2755,6 +2755,13 @@ export async function chatsRoutes(app: FastifyInstance) {
           mode: z.enum(["conversation", "roleplay", "game"]),
           connectionId: z.string().nullable(),
           promptPresetId: z.string().nullable(),
+          // Saved setup defaults may already have picked these; matching them is still untouched.
+          personaId: z.string().nullable().optional(),
+          personaCharacterId: z.string().nullable().optional(),
+          characterIds: z
+            .union([z.array(z.string()), z.string()])
+            .nullable()
+            .optional(),
           metadata: z.record(z.string(), z.unknown()),
         }),
       })

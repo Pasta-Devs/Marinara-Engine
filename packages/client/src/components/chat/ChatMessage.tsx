@@ -192,6 +192,27 @@ const NOTHING_ON_MESSAGE: ReadonlySet<MessageButtonId> = new Set();
 function buttonsWhere(flags: Partial<Record<MessageButtonId, boolean>>): ReadonlySet<MessageButtonId> {
   return new Set((Object.keys(flags) as MessageButtonId[]).filter((id) => flags[id]));
 }
+// A merged reply whose members have no pictures: initials tiles in their name colours, or one neutral narrator
+// tile (an open book). Inline SVG, so every avatar slot that takes a picture takes these too (QC panel 3, F4).
+const TILE_FALLBACK_COLORS = ["#a78bfa", "#fb923c", "#4ade80", "#60a5fa", "#facc15", "#f472b6"];
+const svgTile = (body: string, background: string) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="${background}"/>${body}</svg>`,
+  )}`;
+function initialsTileUrl(name: string, nameColor: string, index: number): string {
+  const plainColor = /^(#[0-9a-f]{3,8}|rgba?\([^()]*\)|hsla?\([^()]*\))$/i.test(nameColor.trim());
+  const background = plainColor ? nameColor.trim() : TILE_FALLBACK_COLORS[index % TILE_FALLBACK_COLORS.length]!;
+  const letter = (Array.from(name.trim())[0] ?? "?").toUpperCase().replace(/[<>&"']/g, "?");
+  return svgTile(
+    `<text x="32" y="33" text-anchor="middle" dominant-baseline="central" font-family="system-ui,sans-serif" font-size="30" font-weight="600" fill="#fff" stroke="rgba(0,0,0,0.35)" stroke-width="1">${letter}</text>`,
+    background,
+  );
+}
+const NARRATOR_TILE_URL = svgTile(
+  '<path d="M14 20c6-3 12-3 18 1v25c-6-4-12-4-18-1zM50 20c-6-3-12-3-18 1v25c6-4 12-4 18-1z" fill="none" stroke="#e5e7eb" stroke-width="2.5" stroke-linejoin="round"/>',
+  "#4b5563",
+);
+
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
 const MESSAGE_CHROME_ACTIVE_ICON_CLASS =
@@ -982,10 +1003,15 @@ const EditTextarea = memo(function EditTextarea({
       const actions = actionsRef.current;
       const scroller = actions?.closest<HTMLElement>("[data-chat-scroll]");
       if (!actions || !scroller) return;
-      const composer = document.querySelector<HTMLElement>("[data-chat-mode] [data-chat-composer]");
+      // This chat's own composer box, not its textarea (which sits inside it) and not the other split pane's
+      // (QC panel 3, F1).
+      const root = actions.closest<HTMLElement>("[data-chat-mode]");
+      const composer =
+        root?.querySelector<HTMLElement>(".mari-chat-input-box") ??
+        root?.querySelector<HTMLElement>("[data-chat-composer]");
       const scrollerBox = scroller.getBoundingClientRect();
       const composerTop = composer?.getBoundingClientRect().top ?? scrollerBox.bottom;
-      const limit = Math.min(scrollerBox.bottom, composerTop) - 8;
+      const limit = Math.min(scrollerBox.bottom, composerTop) - 10;
       const overflow = actions.getBoundingClientRect().bottom - limit;
       if (overflow > 0) scroller.scrollBy({ top: overflow });
     });
@@ -3217,7 +3243,7 @@ export const ChatMessage = memo(function ChatMessage({
       "#60a5fa",
       "#facc15",
     ];
-    return mergedCharacterIds
+    const pictured = mergedCharacterIds
       .map((id, index) => {
         const info = characterMap.get(id);
         // Query placeholder data may belong to the previous swipe; only the
@@ -3239,7 +3265,32 @@ export const ChatMessage = memo(function ChatMessage({
       crop?: AvatarCrop | null;
       nameColor: string;
     }[];
-  }, [isMergedGroup, characterMap, mergedCharacterIds, expressionAvatarResolver, message, referencedAvatarCharacters]);
+    if (pictured.length > 0 || mergedCharacterIds.length === 0) return pictured;
+    // Nobody in the reply has a picture: never fall back to the first member's face (QC panel 3, F4). The members'
+    // initials take turns, or one neutral narrator tile stands for them when nothing cycles.
+    if (!cycleMergedNarratorAvatars) {
+      return [{ id: "narrator", url: NARRATOR_TILE_URL, crop: null, nameColor: fallbackPalette[0]! }];
+    }
+    return mergedCharacterIds.map((id, index) => {
+      const info = characterMap.get(id);
+      const reference = referencedAvatarCharacters?.find((character) => character.id === id);
+      const nameColor = info?.nameColor || fallbackPalette[index % fallbackPalette.length]!;
+      return {
+        id,
+        url: initialsTileUrl(info?.name ?? reference?.name ?? "?", nameColor, index),
+        crop: null,
+        nameColor,
+      };
+    });
+  }, [
+    isMergedGroup,
+    characterMap,
+    cycleMergedNarratorAvatars,
+    mergedCharacterIds,
+    expressionAvatarResolver,
+    message,
+    referencedAvatarCharacters,
+  ]);
   const mergedNameColors = useMemo(() => mergedAvatars.map((avatar) => avatar.nameColor), [mergedAvatars]);
   // Cycle index for merged group avatars/names — driven by a ref + 2s setInterval to avoid re-renders
   const cycleIndexRef = useRef(0);

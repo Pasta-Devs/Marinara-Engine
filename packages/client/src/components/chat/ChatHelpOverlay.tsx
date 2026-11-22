@@ -764,6 +764,10 @@ function ChatHelpOverlayInner({
     };
   }, [chatHelpButtonHidden, mode]);
 
+  const autoOpenBlockedRef = useRef(autoOpenBlocked);
+  autoOpenBlockedRef.current = autoOpenBlocked;
+  const hasUserMessagesRef = useRef(hasUserMessages);
+  hasUserMessagesRef.current = hasUserMessages;
   useEffect(() => {
     // Each kind of device shows a mode's help once. A computer keeps the original rule (the first chat of
     // that mode, or a replay from Settings); a phone or tablet shows it the first time that mode opens there,
@@ -789,6 +793,8 @@ function ChatHelpOverlayInner({
     let tries = 0;
     let timer = 0;
     const attempt = () => {
+      // Read again at open time: messages that finished loading during the wait cancel it (QC panel 3, H1).
+      if (autoOpenBlockedRef.current || (walkthroughDevice === "desktop" && hasUserMessagesRef.current)) return;
       const root = document.querySelector<HTMLElement>(`[data-chat-mode="${mode}"]`);
       if (!root || root.getBoundingClientRect().width <= 1) {
         if (++tries < 20) timer = window.setTimeout(attempt, 300);

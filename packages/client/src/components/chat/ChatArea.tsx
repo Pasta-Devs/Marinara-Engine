@@ -3673,6 +3673,9 @@ const LocalChatArea = memo(function LocalChatArea({
   const chatIsDraft = chat?.mode !== "game" && (isUnfinishedSetup(chat) || isSetupKeptForLater(chat));
   const draftWizardShownFor = useRef<string | null>(null);
   useEffect(() => {
+    // Leaving the draft ends its visit, so coming back from its tab, its row or the toast's Open shows the setup
+    // again (QC panel 3, S2).
+    if (draftWizardShownFor.current && draftWizardShownFor.current !== activeChatId) draftWizardShownFor.current = null;
     if (!chat?.id || !chatIsDraft || chat.id !== activeChatId) return;
     if (draftWizardShownFor.current === chat.id) return;
     draftWizardShownFor.current = chat.id;
@@ -4459,6 +4462,12 @@ const LocalChatArea = memo(function LocalChatArea({
           chatCovered ||
           helpSlotTaken ||
           wizardOpen ||
+          // Never over a setup draft: that would spend the mode's help before its first real chat (S2).
+          chatIsDraft ||
+          // Not until the chat has loaded: a long chat's messages can arrive after the help's wait (H1).
+          isLoading ||
+          !msgData ||
+          allChats === undefined ||
           settingsOpen ||
           !!pendingNewChatMode ||
           !!peekPromptData ||

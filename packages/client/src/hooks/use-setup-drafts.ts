@@ -62,12 +62,23 @@ function storedGameDraftHasInput(chatId: string): boolean {
     const stored = JSON.parse(localStorage.getItem(gameSetupDraftKey(chatId)) ?? "null") as {
       step?: unknown;
       gameName?: unknown;
+      hasInput?: unknown;
+      file?: { setup?: { config?: { setting?: unknown; playerGoals?: unknown } } };
     } | null;
     if (!stored) return false;
-    return (
+    if (stored.hasInput === true) return true;
+    if (
       (typeof stored.step === "number" && stored.step > 0) ||
       (typeof stored.gameName === "string" && stored.gameName.trim().length > 0)
-    );
+    )
+      return true;
+    // Drafts saved before `hasInput`: the setup page keeps a typed world and goals only inside the file. An empty
+    // setting is saved as "A <genre> world", so only something else counts as typed.
+    if (stored.hasInput !== undefined) return false;
+    const config = stored.file?.setup?.config;
+    const setting = typeof config?.setting === "string" ? config.setting.trim() : "";
+    const goals = typeof config?.playerGoals === "string" ? config.playerGoals.trim() : "";
+    return goals.length > 0 || (setting.length > 0 && !/^A [^ ]+ world$/i.test(setting));
   } catch {
     return false;
   }

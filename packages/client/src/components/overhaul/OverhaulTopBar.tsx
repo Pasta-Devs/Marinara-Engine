@@ -45,7 +45,13 @@ import { useCharacter, usePersona } from "../../hooks/use-characters";
 import { useLorebook } from "../../hooks/use-lorebooks";
 import { useConnection, useConnections } from "../../hooks/use-connections";
 import { usePresetFull } from "../../hooks/use-presets";
-import { getChatDisplayName, parseChatMetadata, stripChatDateSuffix } from "../../lib/chat-display";
+import {
+  getChatDisplayName,
+  getChatDisplayParts,
+  parseChatMetadata,
+  splitAtDisplaySuffix,
+  stripChatDateSuffix,
+} from "../../lib/chat-display";
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { useDocsIndex } from "../../hooks/use-docs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -352,17 +358,37 @@ export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   const { t } = useTranslation();
   const base = useTabLabelText(tab, chats);
   const key = overhaulTabKey(tab);
+  const chat = tab.kind === "chat" ? chats.find((entry) => entry.id === tab.id) : undefined;
   // Two tabs with the same name ("Luna" the character and "Luna" the chat) say which is which (QC panel 2, D15).
-  const kindKey = TAB_KIND_KEYS[tab.kind];
+  // Two chats say their mode, and two of the same mode their order by creation (QC panel 3, F3).
+  const kindKey = chat ? (CHAT_MODE_KIND_KEYS[chat.mode] ?? TAB_KIND_KEYS.chat) : TAB_KIND_KEYS[tab.kind];
   const kind = kindKey ? t(kindKey) : null;
-  useEffect(() => publishTabLabel(key, base), [base, key]);
-  const clashes = useSyncExternalStore(subscribeTabLabels, () => tabLabelClashes(key, base));
   const withKind = kind ? t("ui.overhaul.tab.labelWithKind", { name: base, kind }) : base;
-  const text = clashes ? withKind : base;
+  const order = chat?.createdAt ?? key;
+  useEffect(() => publishTabLabel(key, base, withKind, order), [base, key, order, withKind]);
+  const clash = useSyncExternalStore(subscribeTabLabels, () => tabLabelClash(key, base, withKind, order));
+  const numbered = kind && clash > 1 ? t("ui.overhaul.tab.labelWithKindN", { name: base, kind, n: clash }) : withKind;
+  const text = clash ? numbered : base;
+  // What tells the tab apart (a branch's "· branch N", a clash's "· roleplay 2") stays in view; the name in front of
+  // it is what gives way.
+  const [name] = splitAtDisplaySuffix(base, chat ? getChatDisplayParts(chat).suffix : "");
+  const head = text.startsWith(name) && text.length > name.length ? name : text;
+  const tail = head === text ? "" : text.slice(name.length).trim();
   // Short names keep their natural width; only long names give way when the strip is full.
   return (
-    <span className="ov-tab__label" data-short={text.length <= 10 ? "true" : undefined} title={withKind}>
-      {text}
+    <span
+      className={cn("ov-tab__label", tail && "ov-tab__label--split")}
+      data-short={text.length <= 10 ? "true" : undefined}
+      title={numbered}
+    >
+      {tail ? (
+        <>
+          <span className="ov-tab__label-head">{head}</span>
+          <span className="ov-tab__label-tail">{tail}</span>
+        </>
+      ) : (
+        text
+      )}
     </span>
   );
 }
@@ -386,18 +412,24 @@ const TAB_KIND_KEYS: Partial<Record<OverhaulTab["kind"], string>> = {
   lorebook: "ui.overhaul.tab.kindLorebook",
   preset: "ui.overhaul.tab.kindPreset",
 };
+const CHAT_MODE_KIND_KEYS: Partial<Record<string, string>> = {
+  roleplay: "ui.overhaul.tab.kindRoleplay",
+  conversation: "ui.overhaul.tab.kindConversation",
+  game: "ui.overhaul.tab.kindGame",
+};
 
-// Every shown tab's plain label, so a tab can tell when another one reads the same.
-const tabLabels = new Map<string, { label: string; count: number }>();
+// Every shown tab's plain label (and the label with its kind), so a tab can tell when another one reads the same.
+type PublishedTabLabel = { label: string; withKind: string; order: string; count: number };
+const tabLabels = new Map<string, PublishedTabLabel>();
 const tabLabelListeners = new Set<() => void>();
 function subscribeTabLabels(listener: () => void) {
   tabLabelListeners.add(listener);
   return () => tabLabelListeners.delete(listener);
 }
-function publishTabLabel(key: string, label: string) {
+function publishTabLabel(key: string, label: string, withKind: string, order: string) {
   const entry = tabLabels.get(key);
-  if (entry && entry.label === label) entry.count += 1;
-  else tabLabels.set(key, { label, count: 1 });
+  if (entry && entry.label === label && entry.withKind === withKind && entry.order === order) entry.count += 1;
+  else tabLabels.set(key, { label, withKind, order, count: 1 });
   tabLabelListeners.forEach((listener) => listener());
   return () => {
     const current = tabLabels.get(key);
@@ -407,13 +439,22 @@ function publishTabLabel(key: string, label: string) {
     tabLabelListeners.forEach((listener) => listener());
   };
 }
-function tabLabelClashes(key: string, label: string): boolean {
-  const wanted = label.trim().toLowerCase();
-  if (!wanted) return false;
+/** 0: no other tab reads the same. 1: show the kind. 2+: the kind clashes too, so this is its number by order. */
+function tabLabelClash(key: string, label: string, withKind: string, order: string): number {
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  if (!label.trim()) return 0;
+  let clashes = false;
+  let before = 0;
+  let kindTwin = false;
   for (const [otherKey, entry] of tabLabels) {
-    if (otherKey !== key && entry.label.trim().toLowerCase() === wanted) return true;
+    if (otherKey === key || !same(entry.label, label)) continue;
+    clashes = true;
+    if (!same(entry.withKind, withKind)) continue;
+    kindTwin = true;
+    if (entry.order < order || (entry.order === order && otherKey < key)) before += 1;
   }
-  return false;
+  if (!clashes) return 0;
+  return kindTwin ? before + 1 : 1;
 }
 
 /** The browser tab says which page or chat is open ("Smuggler's Run · Marinara Engine"), audit C23. */

@@ -1764,7 +1764,12 @@ export function GameSetupWizard({
         labels: buildSetupShareLabels(),
         connections: {},
       });
-      localStorage.setItem(setupDraftKey, JSON.stringify({ step, gameName, file, savedAt: Date.now() }));
+      // `hasInput` lets the draft janitor tell a typed world from an untouched one after this page is gone,
+      // since the page never leaves step 0 (QC panel 3, S3).
+      localStorage.setItem(
+        setupDraftKey,
+        JSON.stringify({ step, gameName, file, hasInput: draftHasInputRef.current(), savedAt: Date.now() }),
+      );
     } catch {
       /* storage full or blocked: the draft just isn't kept */
     }

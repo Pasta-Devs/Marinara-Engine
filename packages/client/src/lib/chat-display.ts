@@ -56,6 +56,26 @@ export function getChatDisplayName(chat: ChatDisplaySource | null | undefined): 
   return branchName || chat.name;
 }
 
+/**
+ * A chat's display name split so its "· branch N" end can stay visible while the name itself gives way
+ * (QC panel 3, F3). `suffix` is empty for every chat that isn't an unnamed branch.
+ */
+export function getChatDisplayParts(chat: ChatDisplaySource | null | undefined): { base: string; suffix: string } {
+  const full = getChatDisplayName(chat);
+  if (!chat) return { base: full, suffix: "" };
+  const metadata = parseChatMetadata(chat.metadata);
+  const placeholder = typeof metadata.branchName === "string" && metadata.branchName.trim() === PLACEHOLDER_BRANCH_NAME;
+  if (!placeholder || !full.startsWith(chat.name) || full === chat.name) return { base: full, suffix: "" };
+  return { base: chat.name, suffix: full.slice(chat.name.length).trim() };
+}
+
+/** Splits shown text at a kept-visible end (see `getChatDisplayParts`); the head is what may be cut short. */
+export function splitAtDisplaySuffix(text: string, suffix: string): [head: string, tail: string] {
+  const at = suffix ? text.lastIndexOf(suffix) : -1;
+  if (at <= 0) return [text, ""];
+  return [text.slice(0, at).trimEnd(), text.slice(at)];
+}
+
 export function getConnectedChatDisplayName(chat: ChatDisplaySource | null | undefined): string {
   if (!chat) return "";
   const metadata = parseChatMetadata(chat.metadata);

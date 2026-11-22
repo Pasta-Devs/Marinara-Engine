@@ -2164,8 +2164,12 @@ export function createChatsStorage(db: DB) {
       id: string,
       initial: Pick<Chat, "id" | "createdAt" | "name" | "mode" | "connectionId" | "promptPresetId"> & {
         metadata: Record<string, unknown>;
+        personaId?: string | null;
+        personaCharacterId?: string | null;
+        characterIds?: string[] | string | null;
       },
     ): Promise<boolean> {
+      const initialCast = JSON.stringify(parseCharacterIds(initial.characterIds ?? []));
       const galleryFilePaths = await db.transaction(async (tx) => {
         const [chat] = await tx.select().from(chats).where(eq(chats.id, id)).limit(1);
         if (
@@ -2175,9 +2179,9 @@ export function createChatsStorage(db: DB) {
           chat.name !== initial.name ||
           chat.mode !== initial.mode ||
           chat.connectionId !== initial.connectionId ||
-          chat.personaId ||
-          chat.personaCharacterId ||
-          parseCharacterIds(chat.characterIds).length ||
+          (chat.personaId ?? null) !== (initial.personaId ?? null) ||
+          (chat.personaCharacterId ?? null) !== (initial.personaCharacterId ?? null) ||
+          JSON.stringify(parseCharacterIds(chat.characterIds)) !== initialCast ||
           chat.groupId ||
           chat.folderId ||
           chat.connectedChatId ||

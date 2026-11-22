@@ -178,6 +178,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* What tells a tab apart (an unnamed branch's "· branch N", a clash's "· roleplay 2") stays whole; the name in front
+   of it gives way, down to a letter. Such a tab keeps room for that ("S… · conversation 2"), so a full strip moves
+   tabs into its overflow menu instead of cutting the tail (QC panel 3, F3). */
+.ov-tab:has(.ov-tab__label--split) {
+  min-width: 11rem;
+}
+.ov-tab__label--split {
+  display: inline-flex;
+  gap: 0.25em;
+}
+.ov-tab__label-head {
+  min-width: 1.25em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov-tab__label-tail {
+  flex: none;
+  white-space: nowrap;
+}
 .ov-tab__dot {
   width: 0.4375rem;
   height: 0.4375rem;
@@ -2851,7 +2870,89 @@
   display: grid;
   height: 100%;
   min-height: 0;
-  grid-template-columns: minmax(0, 1fr) 17rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+/* The guide list beside the page was a second right-hand column next to the one sidebar (QC panel 3, F8). On a
+   computer or tablet the landing is the list, search sits in the page's header and the outline folds under the
+   guide's title; the side list is only a phone's own pane (overhaul-mobile.css). */
+.ov-docs__nav {
+  display: none;
+}
+.ov-docs__head {
+  display: flex;
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+.ov-docs__head .ov-search {
+  width: min(100%, 24rem);
+}
+.ov-docs__empty .ov-docs__head {
+  margin: 0.75rem 0 0;
+}
+.ov-docs__head-results {
+  width: 100%;
+  margin-bottom: 1.25rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--ov-line);
+}
+.ov-docs__article .ov-docs__head-results {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.ov-docs__article > .ov-docs__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 0 0.5rem -0.25rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.375rem;
+  color: var(--ov-accent-text);
+  font-size: 0.8125rem;
+}
+@media (hover: hover) {
+  .ov-docs__article > .ov-docs__back:hover {
+    background: var(--ov-hover);
+  }
+}
+.ov-docs__toc {
+  margin: 0 0 1.25rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+}
+.ov-docs__toc > summary {
+  padding: 0.5rem 0.75rem;
+  color: var(--ov-accent-text);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.ov-docs__toc ul {
+  margin: 0;
+  padding: 0 0.5rem 0.5rem;
+  list-style: none;
+}
+.ov-docs__toc button {
+  display: block;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  text-align: left;
+}
+.ov-docs__toc button.is-sub {
+  padding-left: 1.25rem;
+}
+.ov-docs__toc button.is-on {
+  color: var(--ov-text);
+}
+@media (hover: hover) {
+  .ov-docs__toc button:hover {
+    background: var(--ov-hover);
+    color: var(--ov-text);
+  }
 }
 .ov-docs__reader {
   position: relative;
@@ -3533,6 +3634,20 @@
    one row: the card fits its rows instead of standing mostly empty (QC IA17). Home packs the widgets below up. */
 :root[data-overhaul] .mari-home-feed-grid > .mari-home-widget--recent:has([data-recent-short]) {
   --home-widget-rows: 1 !important;
+}
+/* Three or more chats: the card ends under its last row (RecentChats sets --recent-fit-height), never taller than its
+   standard size (QC panel 3, F5). */
+:root[data-overhaul] .mari-home-feed-grid > .mari-home-widget--recent {
+  grid-template-rows: minmax(
+    min(
+      calc(
+        var(--home-grid-row-height, 13rem) * var(--home-widget-rows, 1) + var(--home-feed-gap) *
+          (var(--home-widget-rows, 1) - 1)
+      ),
+      var(--recent-fit-height, 100000px)
+    ),
+    auto
+  );
 }
 :root[data-overhaul] .mari-home-feed-grid :is(h2, h3) {
   font-family: var(--mari-home-widget-title-font, var(--ov-serif));
@@ -8337,11 +8452,6 @@ input.ov-edhead__title:focus {
   .ov-mref__search {
     width: 9rem;
   }
-}
-
-/* Phones only (overhaul-mobile.css): the back button from a guide to the list. */
-.ov-docs__back {
-  display: none;
 }
 
 /* Search boxes draw their own clear button; hide the browser's built-in one so there is only one X. */
@@ -16667,34 +16777,6 @@ input.ov-edhead__title:not(#ov-x) {
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
-}
-
-/* Thin neutral scrollbars in the new layout instead of the classic look's thick pink ones (QC panel 2, D15).
-   :where() keeps them as weak as the classic rule, so a theme's own scrollbar CSS still wins; a theme can also
-   just set --ov-scrollbar-thumb. */
-:root[data-overhaul] {
-  --ov-scrollbar-thumb: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
-}
-:where(:root[data-overhaul]) * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--ov-scrollbar-thumb) transparent;
-}
-:where(:root[data-overhaul]) ::-webkit-scrollbar {
-  width: 0.5rem;
-  height: 0.5rem;
-}
-:where(:root[data-overhaul]) ::-webkit-scrollbar-track {
-  background: transparent;
-}
-:where(:root[data-overhaul]) ::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: var(--ov-scrollbar-thumb);
-  background-clip: padding-box;
-}
-:where(:root[data-overhaul]) ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
-  background-clip: padding-box;
 }
 
 /* Game setup page (E1, 2026-11) */
