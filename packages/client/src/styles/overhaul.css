@@ -15726,3 +15726,441 @@ input.ov-edhead__title:not(#ov-x) {
   > :is(textarea, [role="region"]):not(#ov-hit) {
   padding-right: 0.75rem !important;
 }
+
+/* ─── Library: Backgrounds, Game assets, Rulesets (E2) ───
+   One "Assets" row in the Library sidebar; its three pages carry the tabs in the title spot,
+   so the tabs don't add a row above the page's own header. */
+.ov-assets__title {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+.ov-gallery__head .ov-assets__title h1 {
+  flex: none;
+}
+.ov-vw__top .ov-assets__title + small {
+  flex: none;
+}
+.ov-assets__tabs button {
+  height: 1.75rem;
+}
+
+/* Backgrounds: Characters-style gallery with wide pictures. */
+.ov-bglib .ov-bglib__grid {
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+}
+.ov-bglib .ov-card__art {
+  aspect-ratio: 16 / 10;
+}
+.ov-bglib .ov-card__art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ov-bglib__fav,
+.ov-bglib__badge {
+  position: absolute;
+  bottom: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  height: 1.25rem;
+  padding: 0 0.4375rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.6);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+.ov-bglib__fav {
+  right: 0.375rem;
+  color: #fcd34d;
+}
+.ov-bglib__badge {
+  left: 0.375rem;
+}
+.ov-bglib__card.is-selected .ov-card__art {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 1px;
+}
+.ov-bglib__drop {
+  display: contents;
+}
+.ov-bglib__detail {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(10rem, 18rem) minmax(0, 1fr);
+  gap: 1rem;
+  margin: 0 0 1.25rem;
+  padding: 0.875rem 3rem 0.875rem 0.875rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+.ov-bglib__preview {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 0.5rem;
+  object-fit: cover;
+  background: var(--secondary);
+}
+.ov-bglib__fields {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.ov-bglib__line,
+.ov-bglib__tagform {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ov-bglib__line .ov-input,
+.ov-bglib__tagform .ov-input {
+  min-width: 0;
+  flex: 1;
+  max-width: 22rem;
+}
+.ov-bglib__title {
+  overflow: hidden;
+  margin: 0;
+  color: var(--ov-text);
+  font: 600 1.25rem/1.2 var(--ov-serif);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-bglib__meta {
+  margin: 0;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+}
+.ov-bglib__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+.ov-bglib__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+.ov-bglib__gap {
+  flex: 1;
+}
+.ov-bglib__close {
+  position: absolute;
+  top: 0.625rem;
+  right: 0.625rem;
+}
+.ov-bglib__owner + .ov-bglib__owner {
+  margin-top: 1.5rem;
+}
+.ov-bglib__rule {
+  margin: 0 0 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--ov-line);
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.ov-bglib__ownerhead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  color: var(--ov-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.ov-bglib__avatar {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--secondary);
+}
+.ov-bglib__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ov-bglib__thumb {
+  aspect-ratio: 16 / 10;
+}
+.ov-bglib__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ov-bglib__rowfav {
+  margin-right: 0.25rem;
+  color: #f59e0b;
+  vertical-align: -1px;
+}
+
+/* The chat's background picker: choose only; managing lives in Library › Assets › Backgrounds. */
+.ov-bgpick__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--ov-line);
+}
+.ov-bgpick__manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: auto;
+  color: var(--ov-accent-text);
+  font-size: 0.8125rem;
+}
+@media (hover: hover) {
+  .ov-bgpick__manage:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Game assets: Library header on top, folder tree left, files right; an open text file takes the
+   whole page like the other editors (the tree stays). */
+.ov-ga {
+  min-height: 0;
+}
+.ov-ga > .ov-ga__head {
+  padding: 1.5rem 2rem 0;
+}
+.ov-ga > .ov-ga__tools {
+  margin: 1rem 2rem 0.5rem;
+}
+.ov-ga__crumbs {
+  padding: 0 2rem 0.625rem;
+  border-bottom: 1px solid var(--ov-line);
+}
+.ov-ga.has-file > :is(.ov-ga__head, .ov-ga__tools, .ov-ga__crumbs) {
+  display: none;
+}
+.ov-ga__editor {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.ov-ga__rowfolder {
+  display: inline-flex;
+  width: 1.25rem;
+  flex: none;
+}
+.ov-ga__rowfolder .ov-folder-icon {
+  width: 100%;
+  height: auto;
+}
+.ov-ga-mode {
+  border-color: var(--ov-line) !important;
+  border-radius: 999px !important;
+  background: transparent !important;
+}
+.ov-ga-mode button {
+  border-radius: 999px !important;
+}
+
+/* Rulesets: builder and read-only summary as pages. */
+.ov-rsb {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+.ov-rsb__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.75rem 3rem;
+}
+.ov-rsb__body > * {
+  max-width: 52rem;
+}
+.ov-rsb__group + .ov-rsb__group {
+  margin-top: 0.75rem;
+}
+.ov-rsb__group > .ov-eyebrow {
+  justify-content: space-between;
+}
+.ov-rsb__help,
+.ov-rsb__note {
+  margin: 0 0 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.ov-rsb__note {
+  margin-top: 1.25rem;
+  color: var(--ov-dim);
+}
+.ov-btn--sm {
+  height: 1.5rem;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Settings › Game › Game assets: one line pointing at the Library page. */
+.ov-set-linkrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--ov-text);
+  font-size: 0.875rem;
+}
+
+/* Agents › Import window: the note that rulesets moved. */
+.ov-imp__note {
+  margin: 0.75rem 0 0;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.ov-linkbtn {
+  color: var(--ov-accent-text);
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .ov-linkbtn:hover {
+    text-decoration: underline;
+  }
+}
+
+@container mari-main (max-width: 44rem) {
+  .ov-bglib .ov-bglib__grid {
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  }
+  .ov-bglib__detail {
+    grid-template-columns: minmax(0, 1fr);
+    padding-right: 0.875rem;
+  }
+  .ov-bglib__close {
+    background: rgb(0 0 0 / 0.6);
+    color: #fff;
+  }
+  .ov-ga > .ov-ga__head {
+    padding: 1.25rem 1rem 0;
+  }
+  .ov-ga > .ov-ga__tools {
+    margin: 0.75rem 1rem 0.5rem;
+  }
+  .ov-ga__crumbs {
+    padding: 0 1rem 0.5rem;
+  }
+  .ov-rsb__body {
+    padding: 0.75rem 1rem 2.5rem;
+  }
+  .ov-gallery__head .ov-assets__title {
+    flex: 1 1 100%;
+  }
+}
+
+/* Library › Characters/Lorebooks › Browse online: the Library page header, plain toolbar controls. */
+.ov-bb__head {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 2rem 0.75rem;
+  border-bottom: 1px solid var(--ov-line);
+}
+.ov-bb__head .ov-gallery__head h1 {
+  flex: none;
+}
+.ov-bb__status {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--ov-muted);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-bb__auth {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-bb__main {
+  padding: 1rem 2rem 2.5rem;
+}
+.ov-bb__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ov-bb__find {
+  position: relative;
+  display: flex;
+  width: min(100%, 22rem);
+  align-items: center;
+}
+.ov-bb__find > svg {
+  position: absolute;
+  left: 0.75rem;
+  color: var(--ov-muted);
+  pointer-events: none;
+}
+.ov-bb__query {
+  width: 100%;
+  height: 2rem;
+  padding: 0 2rem 0 2.125rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--secondary) 60%, transparent);
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  outline: none;
+}
+.ov-bb__query:focus-visible {
+  border-color: var(--ov-accent);
+}
+.ov-bb__find > button {
+  position: absolute;
+  right: 0.25rem;
+}
+.ov-bb__sort {
+  min-width: 9rem;
+  max-width: 14rem;
+}
+.ov-bb__nsfw {
+  height: 2rem;
+  padding: 0 0.25rem;
+}
+.ov-bb .ov-btn > span.rounded-md {
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: var(--ov-active-bg);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+@container mari-main (max-width: 44rem) {
+  .ov-bb__head {
+    padding: 0.625rem 1rem 0.625rem;
+  }
+  .ov-bb__main {
+    padding: 0.75rem 1rem 2rem;
+  }
+  .ov-bb__find {
+    width: 100%;
+  }
+}
