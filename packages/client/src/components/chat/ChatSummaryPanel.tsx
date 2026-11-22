@@ -1715,7 +1715,8 @@ export function ChatSummaryPanel({
             scroll box inside the drawer's own scroll. */}
         <div className="mb-3 space-y-3">
           <div className="space-y-1">
-            <div className="flex items-center justify-between gap-3">
+            {/* Wraps under its heading when the drawer is narrow (phones, larger text). */}
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
               <p className={SUMMARY_GROUP_HEADING}>{localizeUi("ui.chat.summarypopover.summaryScope")}</p>
               <OvSeg
                 value={sourceMode}
