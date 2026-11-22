@@ -15817,3 +15817,266 @@ input.ov-edhead__title:not(#ov-x) {
   > :is(textarea, [role="region"]):not(#ov-hit) {
   padding-right: 0.75rem !important;
 }
+
+/* ─── Picture viewer (chat pictures, Professor Mari's, the gallery) ───
+   The picture on the left, a side panel shaped like Chat settings on the right: a serif title with the
+   picture's tools and Close, then flat sections (prompt, or the Regenerate editor) and its actions at the
+   bottom. Phones and narrow windows stack it: title row, picture, panel. ImageViewer adds these classes only
+   when the viewer has a caption; a bare picture keeps the floating toolbar. */
+:root[data-overhaul] .ov-viewer {
+  display: grid !important;
+  grid-template-areas:
+    "stage head"
+    "stage body"
+    "strip body";
+  grid-template-columns: minmax(0, 1fr) min(27rem, 42vw);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+:root[data-overhaul] .ov-viewer__stage {
+  grid-area: stage;
+  min-height: 0;
+  background: color-mix(in srgb, var(--background) 82%, black);
+}
+/* Room around the picture on desktop (the zoom stage fills the area, so the padding goes on it). */
+:root[data-overhaul="on"] .ov-viewer__stage > div {
+  padding: 1.25rem;
+}
+:root[data-overhaul] .ov-viewer__strip {
+  grid-area: strip;
+}
+:root[data-overhaul] .ov-viewer__head,
+:root[data-overhaul] .ov-viewer__body {
+  border-left: 1px solid var(--ov-line);
+  background: var(--background);
+}
+:root[data-overhaul] .ov-viewer__head {
+  display: flex;
+  min-height: 3rem;
+  grid-area: head;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
+  border-bottom: 1px solid var(--ov-line);
+}
+:root[data-overhaul] .ov-viewer__title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--ov-text);
+  font: 600 1.25rem/1.2 var(--ov-serif);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-overhaul] .ov-viewer__tools {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+}
+/* Regenerate, Pin and Download: quiet icon buttons, like the drawer's header controls. */
+:root[data-overhaul] .ov-viewer__tools > :is(button, a),
+:root[data-overhaul] .ov-viewer__close {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ov-muted);
+}
+@media (hover: hover) {
+  :root[data-overhaul] .ov-viewer__tools > :is(button, a):hover:not(:disabled),
+  :root[data-overhaul] .ov-viewer__close:hover:not(:disabled) {
+    background: var(--ov-hover);
+    color: var(--ov-text);
+  }
+}
+:root[data-overhaul] .ov-viewer__tools > :is(button, a):focus-visible,
+:root[data-overhaul] .ov-viewer__close:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+:root[data-overhaul] .ov-viewer__tools > :disabled {
+  opacity: 0.45;
+}
+:root[data-overhaul] .ov-viewer__body {
+  display: flex;
+  min-height: 0;
+  grid-area: body;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* The prompt and the Regenerate editor become the panel's own sections, not floating cards. */
+:root[data-overhaul] .ov-viewer .img-panel {
+  min-height: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ov-text);
+}
+:root[data-overhaul] .ov-viewer .img-panel__head {
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ov-line) 70%, transparent);
+}
+:root[data-overhaul] .ov-viewer .img-panel__title {
+  color: var(--ov-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+/* The side panel already has its own room; folding it only matters where it shares the screen. */
+:root[data-overhaul="on"] .ov-viewer .img-panel__collapse {
+  display: none;
+}
+:root[data-overhaul] .ov-viewer .img-panel__body {
+  padding: 0.75rem 1rem 1rem;
+}
+:root[data-overhaul] .ov-viewer .img-panel__label {
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+:root[data-overhaul] .ov-viewer .img-panel__value {
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .ov-viewer .img-panel__meta {
+  color: var(--ov-dim);
+}
+:root[data-overhaul] .ov-viewer .img-panel__group {
+  border-top-color: color-mix(in srgb, var(--ov-line) 70%, transparent);
+}
+/* Section titles inside the panel: the overhaul's accent eyebrow (Image settings' TEMPLATES). */
+:root[data-overhaul] .ov-viewer .img-panel__sub {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--ov-accent-text);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+:root[data-overhaul] .ov-viewer .img-panel__sub::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--ov-line);
+}
+:root[data-overhaul] .ov-viewer .img-panel__field {
+  min-height: 2.25rem;
+  border-color: var(--ov-line);
+  border-radius: var(--ov-cs-field-radius, 0.5rem);
+  background: transparent;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .ov-viewer .img-panel__field:focus {
+  border-color: var(--ov-accent);
+  box-shadow: none;
+}
+:root[data-overhaul] .ov-viewer .img-panel__reset,
+:root[data-overhaul] .ov-viewer .img-panel__copy {
+  width: 2rem;
+  min-height: 2rem;
+  height: 2rem;
+  color: var(--ov-dim);
+}
+:root[data-overhaul] .ov-viewer .img-panel__modes {
+  padding: 0.5rem 1rem;
+  border-bottom-color: color-mix(in srgb, var(--ov-line) 70%, transparent);
+}
+:root[data-overhaul] .ov-viewer .img-panel__foot {
+  padding: 0.625rem 1rem;
+  border-top-color: var(--ov-line);
+}
+/* Cancel, Revise prompt and Generate: the editors' pill buttons (.ov-edbtn), Generate in the accent. */
+:root[data-overhaul] .ov-viewer .img-panel__btn {
+  min-height: 2rem;
+  height: 2rem;
+  padding: 0 0.875rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+:root[data-overhaul] .ov-viewer .img-panel__btn--line {
+  border-color: var(--ov-line);
+  background: transparent;
+}
+:root[data-overhaul] .ov-viewer .img-panel__btn--accent {
+  background: var(--ov-accent);
+  color: var(--background);
+  font-weight: 600;
+}
+@media (hover: hover) {
+  :root[data-overhaul] .ov-viewer .img-panel__btn:hover:not(:disabled) {
+    background: var(--ov-hover);
+  }
+  :root[data-overhaul] .ov-viewer .img-panel__btn--accent:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ov-accent) 85%, transparent);
+  }
+}
+
+/* Phones, tablets held upright and narrow windows: title row on top, the picture, then the panel. */
+@media (max-width: 899px) {
+  :root[data-overhaul] .ov-viewer {
+    grid-template-areas:
+      "head"
+      "stage"
+      "strip"
+      "body";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1.35fr);
+  }
+  /* The Regenerate editor needs its fields in view: the picture shrinks to a smaller share. */
+  :root[data-overhaul] .ov-viewer:has(.img-panel--regen) {
+    grid-template-rows: auto minmax(0, 0.7fr) auto minmax(0, 1.6fr);
+  }
+  /* Folded panel: just its title row, so the picture gets the room. */
+  :root[data-overhaul] .ov-viewer:has(.img-panel__collapse[aria-expanded="false"]),
+  :root[data-overhaul] .ov-viewer:has(.img-panel--regen .img-panel__collapse[aria-expanded="false"]) {
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+  :root[data-overhaul] .ov-viewer__head,
+  :root[data-overhaul] .ov-viewer__body {
+    border-left: 0;
+  }
+  :root[data-overhaul] .ov-viewer__head {
+    padding-top: max(0.5rem, var(--mari-safe-area-inset-top, 0px));
+  }
+  :root[data-overhaul] .ov-viewer__body {
+    border-top: 1px solid var(--ov-line);
+    padding-bottom: var(--mari-safe-area-inset-bottom, 0px);
+  }
+}
+/* Small phones: Cancel, Revise prompt and Generate stay on one row. */
+@media (max-width: 420px) {
+  :root[data-overhaul] .ov-viewer .img-panel__foot {
+    padding-inline: 0.75rem;
+  }
+  :root[data-overhaul] .ov-viewer .img-panel__btn {
+    padding-inline: 0.625rem;
+  }
+}
+/* Touch screens keep 44px targets. */
+@media (pointer: coarse) {
+  :root[data-overhaul] .ov-viewer__tools > :is(button, a),
+  :root[data-overhaul] .ov-viewer__close,
+  :root[data-overhaul] .ov-viewer .img-panel__reset,
+  :root[data-overhaul] .ov-viewer .img-panel__copy,
+  :root[data-overhaul] .ov-viewer .img-panel__collapse {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+  :root[data-overhaul] .ov-viewer .img-panel__btn {
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
