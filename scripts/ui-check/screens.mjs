@@ -61,15 +61,15 @@ export async function seedFixtures(api) {
   const presets = await api.get("/api/prompts");
   ids.preset = presets[0]?.id;
   ids.regex = // A trim string, so the editor shows its "Trim from" row too.
-  (
-    await api.post("/api/regex-scripts", {
-      name: LONG_NAME,
-      findRegex: UNBROKEN,
-      placement: ["ai_output"],
-      trimStrings: ["(OOC:", ")"],
-      trimScope: "match",
-    })
-  ).id;
+    (
+      await api.post("/api/regex-scripts", {
+        name: LONG_NAME,
+        findRegex: UNBROKEN,
+        placement: ["ai_output"],
+        trimStrings: ["(OOC:", ")"],
+        trimScope: "match",
+      })
+    ).id;
   ids.tool = (
     await api.post("/api/custom-tools", {
       name: `harbour_tide_table_${Date.now().toString(36)}`,
@@ -244,18 +244,30 @@ export function screenList(ids) {
       run: open.sidePane("chats"),
       then: async (page) => {
         const name = "Import SillyTavern or Marinara chat JSONL";
-        let button = page.getByRole("button", { name, exact: true }).filter({ visible: true });
-        if (!(await button.count())) {
-          // Phones: it sits in the Chats list's menu.
-          const menu = page
-            .getByRole("button", { name: "More chat list options", exact: true })
-            .filter({ visible: true });
+        const direct = page.getByRole("button", { name, exact: true }).filter({ visible: true });
+        // Phones and portrait tablets: it sits in the Chats list's menu.
+        const menu = page
+          .getByRole("button", { name: "More chat list options", exact: true })
+          .filter({ visible: true });
+        // The tablet shell can settle a moment after the list opens.
+        await direct
+          .or(menu)
+          .first()
+          .waitFor({ state: "visible", timeout: 8000 })
+          .catch(() => {});
+        if (await direct.count()) {
+          await direct.first().click();
+        } else {
           if (!(await menu.count())) return "not on this layout";
           await menu.first().click();
-          button = page.getByRole("menuitem").filter({ hasText: "Import" }).filter({ visible: true });
-          if (!(await button.count())) return "not on this layout";
+          const item = page.getByRole("menuitem").filter({ hasText: "Import" }).filter({ visible: true });
+          await item
+            .first()
+            .waitFor({ state: "visible", timeout: 5000 })
+            .catch(() => {});
+          if (!(await item.count())) return "not on this layout";
+          await item.first().click();
         }
-        await button.first().click();
         await page.locator("[data-import-chat-modal]").first().waitFor({ state: "visible", timeout: 8000 });
       },
     },
