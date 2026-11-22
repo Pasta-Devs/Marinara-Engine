@@ -792,7 +792,7 @@ export function OverhaulTopBar() {
             <button
               type="button"
               className={cn("ov-text-btn", chatSettingsOpen && "is-on")}
-              aria-pressed={chatSettingsOpen}
+              aria-expanded={chatSettingsOpen}
               data-window-opener={CHAT_SETTINGS_WINDOW_ID}
               onClick={(event) => toggleChatSettings(event.currentTarget)}
             >

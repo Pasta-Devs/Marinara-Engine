@@ -375,7 +375,7 @@ export function OverhaulMobileTopBar() {
           <button
             type="button"
             className={cn("ovm-icon-btn", chatSettingsOpen && "is-on")}
-            aria-pressed={chatSettingsOpen}
+            aria-expanded={chatSettingsOpen}
             aria-label={localize("Chat settings")}
             title={localize("Chat settings")}
             data-window-opener={CHAT_SETTINGS_WINDOW_ID}

@@ -2118,6 +2118,7 @@ export const ChatInput = memo(function ChatInput({
         <textarea
           ref={textareaRef}
           data-chat-composer="true"
+          aria-label={t("chat.help.targets.composer.title")}
           data-chat-id={activeChatId}
           onInput={handleInput}
           onKeyDown={handleKeyDown}

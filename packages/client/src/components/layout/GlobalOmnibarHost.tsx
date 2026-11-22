@@ -1,4 +1,4 @@
-import { Component, Suspense, useEffect, useLayoutEffect, type ErrorInfo, type ReactNode } from "react";
+import { Component, Suspense, useEffect, useLayoutEffect, useRef, type ErrorInfo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { professorMariChatsQuery } from "../../hooks/use-chats";
@@ -26,7 +26,7 @@ import { useMariPresence } from "../../hooks/use-mari-presence";
 import { warmMariSprite } from "../../lib/mari-sprite-ready";
 import { mariAssetUrls } from "../../lib/mari-work-animations";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
-import { startOmnibarKeyBuffer, stopOmnibarKeyBuffer } from "../../lib/omnibar-key-buffer";
+import { startOmnibarKeyBuffer, stopOmnibarKeyBuffer, takeBootOmnibarOpenRequest } from "../../lib/omnibar-key-buffer";
 import { useUIStore } from "../../stores/ui.store";
 
 // The dialog carries the whole Command Center (search, browse, Mari panes), so it
@@ -242,10 +242,20 @@ export function GlobalOmnibar() {
   }, [setOpen]);
 
   // Opened another way (the top bar's Search, a pull): same buffering. Closed before it showed: give keys back.
+  // Ctrl+K pressed before this mounted (main.tsx's boot listener, K17): open now, and keep the key buffer it
+  // started running, so what was typed after it lands in the field.
+  const bootChecked = useRef(false);
   useLayoutEffect(() => {
+    if (!bootChecked.current) {
+      bootChecked.current = true;
+      if (takeBootOmnibarOpenRequest() && !open) {
+        setOpen(true);
+        return;
+      }
+    }
     if (open) startOmnibarKeyBuffer();
     else stopOmnibarKeyBuffer();
-  }, [open]);
+  }, [open, setOpen]);
 
   if (!open) return null;
   return (
