@@ -1,5 +1,7 @@
 // Split view: the second side's frame keeps where it is to itself (must run before any store loads).
 import { SPLIT_PANE } from "./lib/split-view-env";
+// Before any schema is used: no eval probe for the CSP to block (lib/zod-jitless.ts).
+import "./lib/zod-jitless";
 // Split view: only the side you clicked last plays sound. Installed before anything can start a sound.
 import "./lib/split-sound-gate";
 import { followSavedSettings } from "./lib/follow-saved-settings";

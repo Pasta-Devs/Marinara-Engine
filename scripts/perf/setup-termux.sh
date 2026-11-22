@@ -21,6 +21,8 @@
 #   scripts/perf/setup-termux.sh --fresh         start from a new Termux home (like a first install)
 #   scripts/perf/setup-termux.sh --shell         open a Termux shell in the container
 #   scripts/perf/setup-termux.sh --stop          stop the container (keeps the Termux home volume)
+#   scripts/perf/setup-termux.sh --check-args    check the options and print the /proc/meminfo that --memory would
+#                                                mount, then exit (no Docker; CI runs it to catch shell errors)
 #
 # Afterwards the server is a normal local server, so drive it with the phone/tablet checks:
 #   scripts/perf/setup-webkit.sh http://localhost:7861      (iPhone / iPad: WebKit)
@@ -59,13 +61,27 @@ while [ $# -gt 0 ]; do
     --fresh) FRESH=1 ;;
     --shell) ACTION=shell ;;
     --stop) ACTION=stop ;;
-    -h | --help) sed -n '2,34p' "$0"; exit 0 ;;
+    --check-args) ACTION=check ;;
+    -h | --help) sed -n '2,39p' "$0"; exit 0 ;;
     *) echo "Unknown option $1" >&2; exit 2 ;;
   esac
   shift
 done
 case "$ARCH" in aarch64 | x86_64 | arm | i686) ;; *) echo "--arch must be aarch64, x86_64, arm or i686" >&2; exit 2 ;; esac
 [ -z "$MEMORY" ] || [[ "$MEMORY" =~ ^[0-9]+[mMgG]$ ]] || { echo "--memory takes a size such as 4g or 3072m" >&2; exit 2; }
+# The /proc/meminfo the container gets with --memory (see below). The multiplier is worked out first: a case statement
+# inside $(( )) trips Bash 5.2's parser at run time ("4: command not found"), which bash -n doesn't catch.
+meminfo() {
+  local mult kib
+  case "${MEMORY: -1}" in [gG]) mult=1048576 ;; *) mult=1024 ;; esac
+  kib=$(( ${MEMORY%[mMgG]} * mult ))
+  printf 'MemTotal: %s kB\nMemFree: %s kB\nMemAvailable: %s kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n' "$kib" "$kib" "$kib"
+}
+if [ "$ACTION" = check ]; then
+  echo "arch=$ARCH port=$PORT from=${FROM:-none} memory=${MEMORY:-none}"
+  [ -z "$MEMORY" ] || meminfo
+  exit 0
+fi
 
 NAME="marinara-termux-$ARCH"
 VOLUME="marinara-termux-home-$ARCH"
@@ -146,9 +162,7 @@ if [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" != true ]; 
   if [ -n "$MEMORY" ]; then
     # In a container /proc/meminfo shows this machine's RAM, and start-termux.sh sizes Node's heap from it, so the
     # container gets one that shows the cap (Docker allows mounting over /proc/meminfo, as LXCFS does).
-    kib=$(( ${MEMORY%[mMgG]} * $(case "${MEMORY: -1}" in [gG]) echo 1048576 ;; *) echo 1024 ;; esac) ))
-    printf 'MemTotal: %s kB\nMemFree: %s kB\nMemAvailable: %s kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n' \
-      "$kib" "$kib" "$kib" >"$STATE/meminfo-$ARCH"
+    meminfo >"$STATE/meminfo-$ARCH"
     args+=(--memory "$MEMORY" --memory-swap "$MEMORY" -v "$STATE/meminfo-$ARCH:/proc/meminfo:ro")
   fi
   # Docker Hub limits anonymous downloads per IP (shared CI and cloud IPs hit it); Google's mirror of it doesn't.

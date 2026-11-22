@@ -54,6 +54,20 @@ let build = "unavailable";
 let storageAvailable = true;
 let stopListening: (() => void) | null = null;
 const seenErrors = new Set<string>();
+// While the page is being torn down (a reload, leaving), Firefox fails the code still loading and the renders still
+// running: those are not the app's errors, so they aren't kept (Firefox reviewer, FF2).
+let unloading = false;
+let unloadingTimer: ReturnType<typeof setTimeout> | undefined;
+/** True while the page is being torn down (after pagehide or beforeunload): errors then are the teardown's. */
+export function isPageUnloading() {
+  return unloading;
+}
+function markUnloading(clearAfterMs?: number) {
+  unloading = true;
+  clearTimeout(unloadingTimer);
+  // "Leave page?" can be answered with Stay: then the page goes on, and so does recording.
+  if (clearAfterMs !== undefined) unloadingTimer = setTimeout(() => (unloading = false), clearAfterMs);
+}
 
 function isOneOf<T extends string>(value: unknown, choices: readonly T[]): value is T {
   return typeof value === "string" && choices.includes(value as T);
@@ -159,6 +173,7 @@ export function recordClientError(
   kind: "javascript-error" | "promise-error" | "render-error" | "chunk-error",
   error: unknown,
 ) {
+  if (unloading) return;
   try {
     const nativeError = error instanceof Error ? error : null;
     const name = nativeError?.name;
@@ -196,14 +211,22 @@ export function registerClientRuntimeDiagnostics(clientBuild: string) {
   const onRejection = (event: PromiseRejectionEvent) => recordClientError("promise-error", event.reason);
   const onPreloadError = (event: Event) =>
     recordClientError("chunk-error", (event as Event & { payload?: unknown }).payload);
-  const onPageShow = () => append("page-show");
-  const onPageHide = () => append("page-hide");
+  const onPageShow = () => {
+    unloading = false;
+    append("page-show");
+  };
+  const onPageHide = () => {
+    markUnloading();
+    append("page-hide");
+  };
+  const onBeforeUnload = () => markUnloading(3000);
   const onVisibility = () => append(document.visibilityState === "visible" ? "visible" : "hidden");
   window.addEventListener("error", onError);
   window.addEventListener("unhandledrejection", onRejection);
   window.addEventListener("vite:preloadError", onPreloadError);
   window.addEventListener("pageshow", onPageShow);
   window.addEventListener("pagehide", onPageHide);
+  window.addEventListener("beforeunload", onBeforeUnload);
   document.addEventListener("visibilitychange", onVisibility);
   append("page-start");
   stopListening = () => {
@@ -212,6 +235,7 @@ export function registerClientRuntimeDiagnostics(clientBuild: string) {
     window.removeEventListener("vite:preloadError", onPreloadError);
     window.removeEventListener("pageshow", onPageShow);
     window.removeEventListener("pagehide", onPageHide);
+    window.removeEventListener("beforeunload", onBeforeUnload);
     document.removeEventListener("visibilitychange", onVisibility);
     stopListening = null;
     page = "";

@@ -1514,7 +1514,7 @@ export function ChatSidebar() {
               });
             }}
             onMouseDown={(event) => startMouseDrag(event, chat.id)}
-            onPointerEnter={() => preloadChatSurface(chat.mode)}
+            onPointerEnter={() => void preloadChatSurface(chat.mode)}
             onPointerDown={() => prefetchChatMessages(chat.id)}
             draggable={renamingChatId !== chat.id}
             onDragStart={(event) => {
