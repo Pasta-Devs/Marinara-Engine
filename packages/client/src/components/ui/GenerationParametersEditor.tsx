@@ -17,11 +17,11 @@ import {
   type ManagedGenerationParameterDefinition,
   type ThinkingTagPair,
 } from "@marinara-engine/shared";
-import { cn } from "../../lib/utils";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { MacroTextarea, type MacroTextareaProps } from "./MacroTextarea";
 import { HelpTooltip } from "./HelpTooltip";
 import { Select } from "./Select";
+import { OvSeg } from "../overhaul/LoreEntryParts";
 import { parseGenerationParameterDraft } from "../../lib/generation-parameter-draft";
 import { parseCustomParametersDraft } from "../../lib/generation-custom-parameters";
 import { generationLevelLabel } from "../../lib/generation-level-label";
@@ -55,9 +55,8 @@ type EditableGenerationParameterOverrides = Partial<EditableGenerationParameters
 
 const SERVICE_TIERS = [null, "flex", "priority"] as const;
 const THINKING_TAG_CONTENT_PLACEHOLDER = "{{thinking}}";
-const PARAM_CHOICE_ACTIVE_CLASS = "bg-[var(--primary)]/15 text-[var(--primary)] ring-1 ring-[var(--primary)]/30";
-const PARAM_CHOICE_IDLE_CLASS =
-  "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:bg-[var(--accent)]";
+/** Stands for "not set" (null) in a dropdown or segmented control, whose values are strings. */
+const UNSET_CHOICE = "__unset__";
 const PARAM_TEXTAREA_CLASS =
   "mari-chrome-field mt-1 w-full !rounded-md px-3 py-2 pr-8 text-xs leading-relaxed [text-indent:0] placeholder:[text-indent:0]";
 
@@ -642,21 +641,20 @@ export function GenerationParametersFields({
               {localizeUi("settings.generation.serviceTier.label")}
               <HelpTooltip text={localizeUi("settings.generation.serviceTier.help")} size="0.625rem" />
             </span>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {SERVICE_TIERS.map((tier) => (
-                <button
-                  key={tier ?? "default"}
-                  type="button"
-                  onClick={() => set("serviceTier", tier)}
-                  aria-pressed={value.serviceTier === tier}
-                  className={cn(
-                    "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
-                    value.serviceTier === tier ? PARAM_CHOICE_ACTIVE_CLASS : PARAM_CHOICE_IDLE_CLASS,
-                  )}
-                >
-                  {tier ? tier.charAt(0).toUpperCase() + tier.slice(1) : localizeUi("ui.noodle.noodlehome.default")}
-                </button>
-              ))}
+            <div className="mt-1">
+              <OvSeg
+                label={localizeUi("settings.generation.serviceTier.label")}
+                value={value.serviceTier ?? UNSET_CHOICE}
+                onChange={(next) =>
+                  set("serviceTier", next === UNSET_CHOICE ? null : (next as GenerationParameters["serviceTier"]))
+                }
+                options={SERVICE_TIERS.map((tier) => ({
+                  value: tier ?? UNSET_CHOICE,
+                  label: tier
+                    ? tier.charAt(0).toUpperCase() + tier.slice(1)
+                    : localizeUi("ui.noodle.noodlehome.default"),
+                }))}
+              />
             </div>
             {effectiveLine("serviceTier")}
           </div>
@@ -674,27 +672,24 @@ export function GenerationParametersFields({
               sendEnabled={isSendEnabled("reasoningEffort")}
               onSendChange={(enabled) => setSend("reasoningEffort", enabled)}
             />
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {effortChoices.map((choice) => (
-                <button
-                  key={choice.value ?? "none"}
-                  type="button"
-                  title={choiceTitle(choice)}
-                  onClick={() => set("reasoningEffort", choice.value)}
-                  aria-pressed={value.reasoningEffort === choice.value}
-                  className={cn(
-                    "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
-                    value.reasoningEffort === choice.value ? PARAM_CHOICE_ACTIVE_CLASS : PARAM_CHOICE_IDLE_CLASS,
-                  )}
-                >
-                  {choice.label !== null
+            <Select
+              label={localizeUi("ui.ui.generationparametersfields.reasoningEffort")}
+              className="mari-chrome-field mt-1 w-full rounded-md px-3 py-2 text-xs"
+              value={value.reasoningEffort ?? UNSET_CHOICE}
+              onChange={(next) =>
+                set("reasoningEffort", next === UNSET_CHOICE ? null : (next as GenerationParameters["reasoningEffort"]))
+              }
+              options={effortChoices.map((choice) => ({
+                value: choice.value ?? UNSET_CHOICE,
+                label:
+                  choice.label !== null
                     ? levelLabel(choice.label)
                     : choice.kind === "default"
                       ? localizeUi("ui.noodle.noodlehome.default")
-                      : localizeUi("ui.ui.generationparametersfields.reasoningOff")}
-                </button>
-              ))}
-            </div>
+                      : localizeUi("ui.ui.generationparametersfields.reasoningOff"),
+                description: choiceTitle(choice) || undefined,
+              }))}
+            />
           </div>
         )}
         {show("verbosity") && (
@@ -706,23 +701,20 @@ export function GenerationParametersFields({
               sendEnabled={isSendEnabled("verbosity")}
               onSendChange={(enabled) => setSend("verbosity", enabled)}
             />
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {verbosityOptions.map((choice) => (
-                <button
-                  key={choice.value ?? "none"}
-                  type="button"
-                  title={choiceTitle(choice)}
-                  onClick={() => set("verbosity", choice.value)}
-                  aria-pressed={value.verbosity === choice.value}
-                  className={cn(
-                    "rounded-md px-2 py-1 text-[0.625rem] font-medium transition-all",
-                    value.verbosity === choice.value ? PARAM_CHOICE_ACTIVE_CLASS : PARAM_CHOICE_IDLE_CLASS,
-                  )}
-                >
-                  {choice.label !== null ? levelLabel(choice.label) : localizeUi("ui.game.gamesurfacecomponent.none")}
-                </button>
-              ))}
-            </div>
+            <Select
+              label={localizeUi("ui.ui.generationparametersfields.verbosity")}
+              className="mari-chrome-field mt-1 w-full rounded-md px-3 py-2 text-xs"
+              value={value.verbosity ?? UNSET_CHOICE}
+              onChange={(next) =>
+                set("verbosity", next === UNSET_CHOICE ? null : (next as GenerationParameters["verbosity"]))
+              }
+              options={verbosityOptions.map((choice) => ({
+                value: choice.value ?? UNSET_CHOICE,
+                label:
+                  choice.label !== null ? levelLabel(choice.label) : localizeUi("ui.game.gamesurfacecomponent.none"),
+                description: choiceTitle(choice) || undefined,
+              }))}
+            />
           </div>
         )}
       </div>
@@ -1114,7 +1106,8 @@ function ParameterHeader({
   const { t: localizeUi } = useUiTranslation();
   return (
     <>
-      <div className="flex min-w-0 items-center justify-between gap-2">
+      {/* min-h-5: the send switch's height, so a field without one (Min P) lines up with its neighbours. */}
+      <div className="flex min-h-5 min-w-0 items-center justify-between gap-2">
         <span className="inline-flex min-w-0 items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
           <span className="truncate">{label}</span>
           {help && <HelpTooltip text={help} size="0.625rem" />}

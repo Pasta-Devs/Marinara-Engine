@@ -247,6 +247,7 @@ import {
   SETTINGS_ICON_BUTTON_CLASS,
   SETTINGS_PRIMARY_BUTTON_CLASS,
   SETTINGS_PRIMARY_FULL_BUTTON_CLASS,
+  SettingsChoiceRow,
   SettingsIntro,
   SettingsSection,
   SettingsSwitch,
@@ -254,6 +255,7 @@ import {
   ToggleSetting,
 } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
+import { OvSeg } from "../overhaul/LoreEntryParts";
 import { TrackerPanelPreview } from "./settings/TrackerPanelPreview";
 import { UiStyleSettings } from "./settings/UiStyleSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
@@ -802,7 +804,10 @@ function TrackerPanelCardOrderSetting() {
   };
 
   return (
-    <div className="mt-1.5 flex flex-col gap-1.5 rounded-lg bg-[var(--background)]/36 p-1.5 ring-1 ring-[var(--border)]">
+    <div
+      data-tracker-card-order=""
+      className="mt-1.5 flex flex-col gap-1.5 rounded-lg bg-[var(--background)]/36 p-1.5 ring-1 ring-[var(--border)]"
+    >
       <div className="ov-help-row flex min-h-5 items-center justify-between gap-2 px-0.5">
         <button
           type="button"
@@ -915,6 +920,146 @@ function TrackerPanelAppearanceDrawer() {
   const setTrackerTemperatureUnit = useUIStore((state) => state.setTrackerTemperatureUnit);
   const trackerStatDisplayMode = useUIStore((state) => state.trackerStatDisplayMode);
   const setTrackerStatDisplayMode = useUIStore((state) => state.setTrackerStatDisplayMode);
+  const overhaulLook = useOverhaulLook();
+
+  // New layout: a plain Settings section of rows (the boxed card with an icon tile is the classic look).
+  if (overhaulLook) {
+    return (
+      <SettingsSection
+        title={localizeUi("ui.panels.trackerpanelappearancedrawer.trackerPanel")}
+        description={localizeUi("ui.panels.trackerpanelappearancedrawer.shownInTheRoleplayHud")}
+        help={localizeUi("ui.panels.trackerpanelappearancedrawer.controlsTheRoleplayHudSidePanelForTheFixed")}
+        {...getSettingsSectionAnchorProps("roleplay-tracker")}
+      >
+        <div className="flex flex-col">
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-panel")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.showTrackerPanel")}
+            checked={trackerPanelEnabled}
+            onChange={setTrackerPanelEnabled}
+          />
+        </div>
+        <fieldset
+          disabled={!trackerPanelEnabled}
+          data-off={trackerPanelEnabled ? undefined : ""}
+          className="ov-trk-fieldset flex flex-col"
+        >
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-replace-hud-icons")}
+            label={localizeUi("settings.controls.replaceTrackerIcons.label")}
+            checked={trackerPanelHideHudWidgets}
+            onChange={setTrackerPanelHideHudWidgets}
+            help={localizeUi("settings.controls.replaceTrackerIcons.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-expression-sprites")}
+            label={localizeUi("settings.controls.useExpressionSprites.label")}
+            checked={trackerPanelUseExpressionSprites}
+            onChange={setTrackerPanelUseExpressionSprites}
+            help={localizeUi("settings.controls.useExpressionSprites.help")}
+          />
+          <div id={getSettingsControlAnchorId("tracker-panel-background")} className="scroll-mt-3">
+            <ColorPicker
+              value={trackerPanelBackgroundColor}
+              onChange={setTrackerPanelBackgroundColor}
+              gradient
+              compact
+              label={localizeUi("settings.controls.panelBackground.label")}
+              helpText="Pick the Tracker panel and tracker section background. CSS colors and gradients are accepted."
+              emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
+                value1: TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
+              })}
+              clearLabel="Reset"
+            />
+          </div>
+          <SettingsChoiceRow
+            kind="select"
+            anchorId={getSettingsControlAnchorId("tracker-desktop-size")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.desktopSize")}
+            help={localizeUi("ui.panels.trackerpanelappearancedrawer.chooseTheDesignedDesktopWidthForTheTrackerPanel")}
+            value={trackerPanelSizeProfile}
+            onChange={setTrackerPanelSizeProfile}
+            disabled={!trackerPanelEnabled}
+            options={TRACKER_PANEL_SIZE_PROFILE_OPTIONS.map((opt) => ({
+              value: opt.id,
+              label: opt.label,
+              description: localizeUi("ui.panels.trackerpanelappearancedrawer.sizePxDescription", {
+                px: getTrackerPanelWidthForProfile(opt.id),
+                description: opt.desc,
+              }),
+            }))}
+          />
+          <SettingsChoiceRow
+            anchorId={getSettingsControlAnchorId("tracker-thought-display-mode")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.thoughtDisplayMode")}
+            help={localizeUi(
+              "ui.panels.trackerpanelappearancedrawer.chooseWhetherFeaturedCharacterThoughtsOpenInsideTheTracker",
+            )}
+            value={trackerPanelThoughtBubbleDisplay}
+            onChange={setTrackerPanelThoughtBubbleDisplay}
+            disabled={!trackerPanelEnabled}
+            options={TRACKER_THOUGHT_BUBBLE_DISPLAY_OPTIONS.map((opt) => ({
+              value: opt.id,
+              label: opt.label,
+              description: opt.desc,
+            }))}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-docked-thoughts")}
+            label={localizeUi("settings.controls.alwaysShowDockedThoughts.label")}
+            checked={trackerPanelDockedThoughtsAlwaysVisible}
+            onChange={setTrackerPanelDockedThoughtsAlwaysVisible}
+            help={localizeUi("settings.controls.alwaysShowDockedThoughts.help")}
+          />
+          <SettingsChoiceRow
+            anchorId={getSettingsControlAnchorId("tracker-stat-display-mode")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.statDisplayMode")}
+            help={localizeUi("ui.panels.trackerpanelappearancedrawer.chooseBarsOrGaugesForTrackerStats")}
+            value={trackerStatDisplayMode}
+            onChange={setTrackerStatDisplayMode}
+            disabled={!trackerPanelEnabled}
+            options={TRACKER_STAT_DISPLAY_OPTIONS.map((option) => ({
+              value: option,
+              label: localizeUi(
+                option === "bars"
+                  ? "ui.panels.trackerpanelappearancedrawer.bars"
+                  : "ui.panels.trackerpanelappearancedrawer.gauges",
+              ),
+              description: localizeUi(
+                option === "bars"
+                  ? "ui.panels.trackerpanelappearancedrawer.barsDescription"
+                  : "ui.panels.trackerpanelappearancedrawer.gaugesDescription",
+              ),
+            }))}
+          />
+          <SettingsChoiceRow
+            anchorId={getSettingsControlAnchorId("tracker-temperature-unit")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.temperatureUnit")}
+            help={localizeUi(
+              "ui.panels.trackerpanelappearancedrawer.changesTrackerPanelAndRoleplayHudTemperatureDisplaysWithout",
+            )}
+            value={trackerTemperatureUnit}
+            onChange={setTrackerTemperatureUnit}
+            disabled={!trackerPanelEnabled}
+            options={[
+              {
+                value: "celsius",
+                label: localizeUi("ui.panels.trackerpanelappearancedrawer.c"),
+                title: localizeUi("ui.panels.trackerpanelappearancedrawer.celsius"),
+              },
+              {
+                value: "fahrenheit",
+                label: localizeUi("ui.panels.trackerpanelappearancedrawer.f"),
+                title: localizeUi("ui.panels.trackerpanelappearancedrawer.fahrenheit"),
+              },
+            ]}
+          />
+          <TrackerPanelCardOrderSetting />
+          <TrackerCardColorSettings />
+        </fieldset>
+      </SettingsSection>
+    );
+  }
 
   return (
     <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/34 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]">
@@ -3837,6 +3982,51 @@ function AppearanceSettings({
   const gameAvatarPreview = gameAvatarPreviewSize ?? gameAvatarPreviewBase;
   const gameFullBodyPreview = gameFullBodyPreviewSize ?? gameFullBodyPreviewBase;
 
+  // Conversation layout preview: rows or bubbles with the picked avatar shape (a picture, kept in both layouts).
+  const conversationLayoutPreview = (
+    <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--background)]/35 p-2.5 text-[0.6875rem]">
+      {conversationMessageStyle === "bubble" ? (
+        <div className="space-y-1.5">
+          <div className="flex justify-end">
+            <div className="mari-message-bubble texting-bubble texting-bubble-user max-w-[78%] rounded-2xl px-3 py-1.5 text-xs shadow-sm">
+              {localizeUi("ui.panels.appearancesettings.heyHowSItGoing")}
+            </div>
+          </div>
+          <div className="flex items-end gap-1.5 justify-start">
+            <div
+              className={cn(
+                "h-5 w-5 shrink-0 bg-[var(--accent)]",
+                conversationAvatarShape === "square" ? "rounded-[0.2rem]" : "rounded-full",
+              )}
+            />
+            <div className="mari-message-bubble texting-bubble texting-bubble-other max-w-[78%] rounded-2xl px-3 py-1.5 text-xs shadow-sm">
+              {localizeUi("ui.panels.appearancesettings.prettyGoodThanks")}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2 text-xs">
+          <div
+            className={cn(
+              "h-6 w-6 shrink-0 bg-[var(--accent)]",
+              conversationAvatarShape === "square" ? "rounded-[0.2rem]" : "rounded-full",
+            )}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="mb-0.5 flex items-baseline gap-2">
+              <span className="font-semibold">{localizeUi("ui.panels.appearancesettings.character")}</span>
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">12:45</span>
+            </div>
+            <div className="space-y-0.5 text-[var(--foreground)]/90">
+              <div>{localizeUi("ui.panels.appearancesettings.messagesAppearAsRows")}</div>
+              <div>{localizeUi("ui.panels.appearancesettings.groupedBySender")}</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <SettingsIntro>
@@ -4802,161 +4992,163 @@ function AppearanceSettings({
             icon={<MessageCircle size="0.875rem" />}
             {...getSettingsSectionAnchorProps("chat-display")}
           >
-            <div className="flex flex-col gap-3">
-              <div
-                id={getSettingsControlAnchorId("conversation-layout")}
-                className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
-              >
-                <div className="flex items-center gap-1.5">
-                  <MessageCircle size="0.75rem" className="text-[var(--muted-foreground)]" />
-                  <span className="text-xs font-medium">{localizeUi("ui.panels.appearancesettings.chatLayout")}</span>
+            {overhaulLook ? (
+              <div className="flex flex-col gap-3">
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("conversation-layout")}
+                  label={localizeUi("ui.panels.appearancesettings.chatLayout")}
+                  value={conversationMessageStyle}
+                  onChange={setConversationMessageStyle}
+                  options={[
+                    { value: "classic", label: "Linear", description: "Chat-style rows" },
+                    { value: "bubble", label: "Bubbles", description: "Messenger-style bubbles" },
+                  ]}
+                />
+                <div className="ov-convo-preview">{conversationLayoutPreview}</div>
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("conversation-avatar-shape")}
+                  label={localizeUi("ui.panels.appearancesettings.conversationAvatarShape")}
+                  hint={localizeUi("ui.panels.appearancesettings.conversationAvatarShapeDescription")}
+                  value={conversationAvatarShape}
+                  onChange={setConversationAvatarShape}
+                  options={[
+                    { value: "circle", label: localizeUi("ui.panels.appearancesettings.circularAvatars") },
+                    { value: "square", label: localizeUi("ui.panels.appearancesettings.squareAvatars") },
+                  ]}
+                />
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("phone-chat-avatars")}
+                  label={localizeUi("ui.panels.appearancesettings.phoneChatAvatars")}
+                  hint={localizeUi("ui.panels.appearancesettings.phoneChatAvatarsDescription")}
+                  value={phoneChatAvatars}
+                  onChange={setPhoneChatAvatars}
+                  options={[
+                    { value: "mini", label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsMini") },
+                    { value: "full", label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsFull") },
+                    { value: "off", label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsOff") },
+                  ]}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div
+                  id={getSettingsControlAnchorId("conversation-layout")}
+                  className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <MessageCircle size="0.75rem" className="text-[var(--muted-foreground)]" />
+                    <span className="text-xs font-medium">{localizeUi("ui.panels.appearancesettings.chatLayout")}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { id: "classic" as ConversationMessageStyle, label: "Linear", desc: "Chat-style rows" },
+                        { id: "bubble" as ConversationMessageStyle, label: "Bubbles", desc: "Messenger-style bubbles" },
+                      ] as const
+                    ).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setConversationMessageStyle(opt.id)}
+                        className={SETTINGS_CHOICE_CARD_CLASS}
+                        aria-pressed={conversationMessageStyle === opt.id}
+                      >
+                        <span className="font-semibold">{opt.label}</span>
+                        <span className="text-[0.625rem] leading-tight text-[var(--muted-foreground)]">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {conversationLayoutPreview}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      { id: "classic" as ConversationMessageStyle, label: "Linear", desc: "Chat-style rows" },
-                      { id: "bubble" as ConversationMessageStyle, label: "Bubbles", desc: "Messenger-style bubbles" },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setConversationMessageStyle(opt.id)}
-                      className={SETTINGS_CHOICE_CARD_CLASS}
-                      aria-pressed={conversationMessageStyle === opt.id}
-                    >
-                      <span className="font-semibold">{opt.label}</span>
-                      <span className="text-[0.625rem] leading-tight text-[var(--muted-foreground)]">{opt.desc}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--background)]/35 p-2.5 text-[0.6875rem]">
-                  {conversationMessageStyle === "bubble" ? (
-                    <div className="space-y-1.5">
-                      <div className="flex justify-end">
-                        <div className="mari-message-bubble texting-bubble texting-bubble-user max-w-[78%] rounded-2xl px-3 py-1.5 text-xs shadow-sm">
-                          {localizeUi("ui.panels.appearancesettings.heyHowSItGoing")}
-                        </div>
-                      </div>
-                      <div className="flex items-end gap-1.5 justify-start">
-                        <div
+                <div
+                  id={getSettingsControlAnchorId("conversation-avatar-shape")}
+                  className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
+                >
+                  <div>
+                    <div className="text-xs font-medium">
+                      {localizeUi("ui.panels.appearancesettings.conversationAvatarShape")}
+                    </div>
+                    <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.appearancesettings.conversationAvatarShapeDescription")}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        {
+                          id: "circle" as ConversationAvatarShape,
+                          label: localizeUi("ui.panels.appearancesettings.circularAvatars"),
+                          cornerClass: "rounded-full",
+                        },
+                        {
+                          id: "square" as ConversationAvatarShape,
+                          label: localizeUi("ui.panels.appearancesettings.squareAvatars"),
+                          cornerClass: "rounded-[0.2rem]",
+                        },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setConversationAvatarShape(option.id)}
+                        className={SETTINGS_BUTTON_CLASS}
+                        aria-pressed={conversationAvatarShape === option.id}
+                      >
+                        <span
                           className={cn(
-                            "h-5 w-5 shrink-0 bg-[var(--accent)]",
-                            conversationAvatarShape === "square" ? "rounded-[0.2rem]" : "rounded-full",
+                            "h-5 w-5 shrink-0 border border-current bg-[var(--accent)]",
+                            option.cornerClass,
                           )}
+                          data-avatar-shape-preview={option.id}
                         />
-                        <div className="mari-message-bubble texting-bubble texting-bubble-other max-w-[78%] rounded-2xl px-3 py-1.5 text-xs shadow-sm">
-                          {localizeUi("ui.panels.appearancesettings.prettyGoodThanks")}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2 text-xs">
-                      <div
-                        className={cn(
-                          "h-6 w-6 shrink-0 bg-[var(--accent)]",
-                          conversationAvatarShape === "square" ? "rounded-[0.2rem]" : "rounded-full",
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-0.5 flex items-baseline gap-2">
-                          <span className="font-semibold">{localizeUi("ui.panels.appearancesettings.character")}</span>
-                          <span className="text-[0.625rem] text-[var(--muted-foreground)]">12:45</span>
-                        </div>
-                        <div className="space-y-0.5 text-[var(--foreground)]/90">
-                          <div>{localizeUi("ui.panels.appearancesettings.messagesAppearAsRows")}</div>
-                          <div>{localizeUi("ui.panels.appearancesettings.groupedBySender")}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div
-                id={getSettingsControlAnchorId("conversation-avatar-shape")}
-                className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
-              >
-                <div>
-                  <div className="text-xs font-medium">
-                    {localizeUi("ui.panels.appearancesettings.conversationAvatarShape")}
+                        {option.label}
+                      </button>
+                    ))}
                   </div>
-                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.panels.appearancesettings.conversationAvatarShapeDescription")}
-                  </p>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      {
-                        id: "circle" as ConversationAvatarShape,
-                        label: localizeUi("ui.panels.appearancesettings.circularAvatars"),
-                        cornerClass: "rounded-full",
-                      },
-                      {
-                        id: "square" as ConversationAvatarShape,
-                        label: localizeUi("ui.panels.appearancesettings.squareAvatars"),
-                        cornerClass: "rounded-[0.2rem]",
-                      },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setConversationAvatarShape(option.id)}
-                      className={SETTINGS_BUTTON_CLASS}
-                      aria-pressed={conversationAvatarShape === option.id}
-                    >
-                      <span
-                        className={cn("h-5 w-5 shrink-0 border border-current bg-[var(--accent)]", option.cornerClass)}
-                        data-avatar-shape-preview={option.id}
-                      />
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div
-                id={getSettingsControlAnchorId("phone-chat-avatars")}
-                className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
-              >
-                <div>
-                  <div className="text-xs font-medium">
-                    {localizeUi("ui.panels.appearancesettings.phoneChatAvatars")}
+                <div
+                  id={getSettingsControlAnchorId("phone-chat-avatars")}
+                  className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
+                >
+                  <div>
+                    <div className="text-xs font-medium">
+                      {localizeUi("ui.panels.appearancesettings.phoneChatAvatars")}
+                    </div>
+                    <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.appearancesettings.phoneChatAvatarsDescription")}
+                    </p>
                   </div>
-                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.panels.appearancesettings.phoneChatAvatarsDescription")}
-                  </p>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(
-                    [
-                      {
-                        id: "mini" as PhoneChatAvatars,
-                        label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsMini"),
-                      },
-                      {
-                        id: "full" as PhoneChatAvatars,
-                        label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsFull"),
-                      },
-                      {
-                        id: "off" as PhoneChatAvatars,
-                        label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsOff"),
-                      },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setPhoneChatAvatars(option.id)}
-                      className={SETTINGS_BUTTON_CLASS}
-                      aria-pressed={phoneChatAvatars === option.id}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        {
+                          id: "mini" as PhoneChatAvatars,
+                          label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsMini"),
+                        },
+                        {
+                          id: "full" as PhoneChatAvatars,
+                          label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsFull"),
+                        },
+                        {
+                          id: "off" as PhoneChatAvatars,
+                          label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsOff"),
+                        },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setPhoneChatAvatars(option.id)}
+                        className={SETTINGS_BUTTON_CLASS}
+                        aria-pressed={phoneChatAvatars === option.id}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </SettingsSection>
 
           <SettingsSection
@@ -4982,24 +5174,39 @@ function AppearanceSettings({
                     />
                   </div>
                   {/* Scheme tabs */}
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setActiveGradientScheme("dark")}
-                      aria-pressed={activeGradientScheme === "dark"}
-                      className={SETTINGS_BUTTON_CLASS}
-                    >
-                      {localizeUi("ui.panels.appearancesettings.dark")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveGradientScheme("light")}
-                      aria-pressed={activeGradientScheme === "light"}
-                      className={SETTINGS_BUTTON_CLASS}
-                    >
-                      {localizeUi("ui.panels.appearancesettings.light")}
-                    </button>
-                  </div>
+                  {overhaulLook ? (
+                    <span className="inline-flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.imagestyleprofileseditor.editing")}
+                      <OvSeg
+                        value={activeGradientScheme}
+                        onChange={setActiveGradientScheme}
+                        label={localizeUi("ui.panels.appearancesettings.colorSchemeToEdit")}
+                        options={[
+                          { value: "dark", label: localizeUi("ui.panels.appearancesettings.dark") },
+                          { value: "light", label: localizeUi("ui.panels.appearancesettings.light") },
+                        ]}
+                      />
+                    </span>
+                  ) : (
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveGradientScheme("dark")}
+                        aria-pressed={activeGradientScheme === "dark"}
+                        className={SETTINGS_BUTTON_CLASS}
+                      >
+                        {localizeUi("ui.panels.appearancesettings.dark")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveGradientScheme("light")}
+                        aria-pressed={activeGradientScheme === "light"}
+                        className={SETTINGS_BUTTON_CLASS}
+                      >
+                        {localizeUi("ui.panels.appearancesettings.light")}
+                      </button>
+                    </div>
+                  )}
                 </div>
                 {/* Preview */}
                 <div
@@ -5028,7 +5235,7 @@ function AppearanceSettings({
                     commitConvoGradientField(activeGradientScheme, "from", defaults.from);
                     commitConvoGradientField(activeGradientScheme, "to", defaults.to);
                   }}
-                  className={cn(SETTINGS_BUTTON_CLASS, "self-start")}
+                  className={overhaulLook ? "ov-linkbtn self-start text-xs" : cn(SETTINGS_BUTTON_CLASS, "self-start")}
                 >
                   {localizeUi("ui.panels.imagestyleprofileseditor.reset")}{" "}
                   {activeGradientScheme === "dark"
@@ -5048,13 +5255,21 @@ function AppearanceSettings({
             {localizeUi("settings.appearance.groups.roleplay")}
           </h2>
 
-          <div
-            id={getSettingsSectionAnchorId("roleplay-tracker")}
-            className="ov-trk-settings flex scroll-mt-3 flex-col gap-3"
-          >
-            <TrackerPanelAppearanceDrawer />
-            {overhaulDesktop ? <TrackerPanelPreview /> : null}
-          </div>
+          {overhaulLook ? (
+            // Not a div: Settings flattens divs that hold a section, and this one lays the section out beside
+            // its preview. The section itself carries the anchor.
+            <article className="ov-trk-settings">
+              <TrackerPanelAppearanceDrawer />
+              {overhaulDesktop ? <TrackerPanelPreview /> : null}
+            </article>
+          ) : (
+            <div
+              id={getSettingsSectionAnchorId("roleplay-tracker")}
+              className="ov-trk-settings flex scroll-mt-3 flex-col gap-3"
+            >
+              <TrackerPanelAppearanceDrawer />
+            </div>
+          )}
 
           <SettingsSection
             title={localizeUi("ui.panels.appearancesettings.roleplayMessages")}
@@ -5063,35 +5278,50 @@ function AppearanceSettings({
             {...getSettingsSectionAnchorProps("roleplay-messages")}
           >
             <div className="flex flex-col gap-3">
-              <div id={getSettingsControlAnchorId("roleplay-chat-position")} className="grid scroll-mt-3 gap-1.5">
-                <span className="inline-flex items-center gap-1 text-xs font-medium">
-                  {localizeUi("settings.controls.roleplayChatPosition.label")}
-                  <HelpTooltip text={localizeUi("settings.controls.roleplayChatPosition.help")} />
-                </span>
-                <div
-                  role="group"
-                  aria-label={localizeUi("settings.controls.roleplayChatPosition.label")}
-                  className="grid grid-cols-3 gap-1"
-                >
-                  {ROLEPLAY_CHAT_POSITIONS.map((position) => {
-                    // An unknown synced value shows as Center, which is how the chat treats it.
-                    const selected =
-                      position ===
-                      (ROLEPLAY_CHAT_POSITIONS.includes(roleplayChatPosition) ? roleplayChatPosition : "center");
-                    return (
-                      <button
-                        key={position}
-                        type="button"
-                        onClick={() => setRoleplayChatPosition(position)}
-                        aria-pressed={selected}
-                        className={SETTINGS_BUTTON_CLASS}
-                      >
-                        {localizeUi(`settings.controls.roleplayChatPosition.${position}`)}
-                      </button>
-                    );
-                  })}
+              {overhaulLook ? (
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("roleplay-chat-position")}
+                  label={localizeUi("settings.controls.roleplayChatPosition.label")}
+                  help={localizeUi("settings.controls.roleplayChatPosition.help")}
+                  // An unknown synced value shows as Center, which is how the chat treats it.
+                  value={ROLEPLAY_CHAT_POSITIONS.includes(roleplayChatPosition) ? roleplayChatPosition : "center"}
+                  onChange={setRoleplayChatPosition}
+                  options={ROLEPLAY_CHAT_POSITIONS.map((position) => ({
+                    value: position,
+                    label: localizeUi(`settings.controls.roleplayChatPosition.${position}`),
+                  }))}
+                />
+              ) : (
+                <div id={getSettingsControlAnchorId("roleplay-chat-position")} className="grid scroll-mt-3 gap-1.5">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium">
+                    {localizeUi("settings.controls.roleplayChatPosition.label")}
+                    <HelpTooltip text={localizeUi("settings.controls.roleplayChatPosition.help")} />
+                  </span>
+                  <div
+                    role="group"
+                    aria-label={localizeUi("settings.controls.roleplayChatPosition.label")}
+                    className="grid grid-cols-3 gap-1"
+                  >
+                    {ROLEPLAY_CHAT_POSITIONS.map((position) => {
+                      // An unknown synced value shows as Center, which is how the chat treats it.
+                      const selected =
+                        position ===
+                        (ROLEPLAY_CHAT_POSITIONS.includes(roleplayChatPosition) ? roleplayChatPosition : "center");
+                      return (
+                        <button
+                          key={position}
+                          type="button"
+                          onClick={() => setRoleplayChatPosition(position)}
+                          aria-pressed={selected}
+                          className={SETTINGS_BUTTON_CLASS}
+                        >
+                          {localizeUi(`settings.controls.roleplayChatPosition.${position}`)}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
               <div id={getSettingsControlAnchorId("roleplay-chat-width")} className="grid scroll-mt-3 gap-2">
                 <ToggleSetting
                   label={localizeUi("settings.controls.roleplayChatWidth.enabled")}
@@ -5129,7 +5359,7 @@ function AppearanceSettings({
                 id={getSettingsControlAnchorId("roleplay-message-opacity")}
                 className="flex scroll-mt-3 flex-col gap-1"
               >
-                <span className="text-[0.6875rem] font-medium">
+                <span className="text-xs font-medium">
                   {localizeUi("ui.panels.appearancesettings.roleplayMessagesBackgroundOpacity")}
                 </span>
                 <div className="flex items-center gap-3">
@@ -5150,7 +5380,7 @@ function AppearanceSettings({
                   type="button"
                   onClick={() => setChatFontOpacity(90)}
                   disabled={chatFontOpacity === 90}
-                  className={cn(SETTINGS_BUTTON_CLASS, "self-start")}
+                  className={overhaulLook ? "ov-linkbtn self-start text-xs" : cn(SETTINGS_BUTTON_CLASS, "self-start")}
                 >
                   {localizeUi("ui.panels.appearancesettings.resetOpacityToDefault")}
                 </button>
@@ -5277,7 +5507,7 @@ function AppearanceSettings({
                   </button>
                 ))}
               </div>
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
+              <div className="ov-flat-box rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                   <div className="flex h-20 w-full shrink-0 items-end justify-center gap-3 overflow-hidden rounded-md bg-black/30 p-2 ring-1 ring-[var(--border)]/70 sm:w-28">
                     {roleplayAvatarStyle === "none" ? (
@@ -5319,7 +5549,7 @@ function AppearanceSettings({
                       id={getSettingsControlAnchorId("roleplay-avatar-scale")}
                       className="flex scroll-mt-3 min-w-0 flex-col gap-1"
                     >
-                      <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                      <span className="text-xs font-medium text-[var(--foreground)]">
                         {localizeUi("ui.panels.appearancesettings.messageAvatarScale")}
                       </span>
                       <div className="flex items-center gap-2">
@@ -5341,7 +5571,7 @@ function AppearanceSettings({
                       id={getSettingsControlAnchorId("roleplay-sprite-scale")}
                       className="flex scroll-mt-3 min-w-0 flex-col gap-1"
                     >
-                      <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                      <span className="text-xs font-medium text-[var(--foreground)]">
                         {localizeUi("ui.panels.appearancesettings.defaultSpriteScale")}
                       </span>
                       <div className="flex items-center gap-2">
@@ -5422,7 +5652,7 @@ function AppearanceSettings({
                   className="w-full accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </label>
-              <div className="grid gap-3 rounded-lg border border-[var(--border)] p-3 sm:grid-cols-2">
+              <div className="ov-flat-box ov-flat-box--rows grid gap-3 rounded-lg border border-[var(--border)] p-3 sm:grid-cols-2">
                 <label
                   id={getSettingsControlAnchorId("roleplay-vn-portrait-scale")}
                   className="flex scroll-mt-3 min-w-0 flex-col gap-2 text-xs"
@@ -7886,6 +8116,7 @@ function MessageDisplaySettings() {
 }
 
 function AdvancedSettings({ withMessageSections = true }: { withMessageSections?: boolean }) {
+  const overhaulLook = useOverhaulLook();
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   const activeChatId = useChatStore((state) => state.activeChatId);
@@ -8954,20 +9185,35 @@ function AdvancedSettings({ withMessageSections = true }: { withMessageSections?
                 onChange={(enabled) => updateAutomaticBackup({ enabled })}
                 disabled={automaticBackupMutation.isPending}
               />
-              <div className="mt-2 grid grid-cols-3 gap-1">
-                {(["daily", "weekly", "monthly"] as const).map((frequency) => (
-                  <button
-                    key={frequency}
-                    type="button"
-                    onClick={() => updateAutomaticBackup({ frequency })}
-                    disabled={automaticBackupMutation.isPending}
-                    aria-pressed={automaticBackupQuery.data.frequency === frequency}
-                    className={SETTINGS_BUTTON_CLASS}
-                  >
-                    {localizeUi(`ui.panels.advancedsettings.automaticBackupFrequency.${frequency}`)}
-                  </button>
-                ))}
-              </div>
+              {overhaulLook ? (
+                // A labelled row, greyed out while automatic backups are off.
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("automatic-backup-frequency")}
+                  label={localizeUi("ui.panels.advancedsettings.automaticBackupFrequency.label")}
+                  value={automaticBackupQuery.data.frequency}
+                  onChange={(frequency) => updateAutomaticBackup({ frequency })}
+                  disabled={automaticBackupMutation.isPending || !automaticBackupQuery.data.enabled}
+                  options={(["daily", "weekly", "monthly"] as const).map((frequency) => ({
+                    value: frequency,
+                    label: localizeUi(`ui.panels.advancedsettings.automaticBackupFrequency.${frequency}`),
+                  }))}
+                />
+              ) : (
+                <div className="mt-2 grid grid-cols-3 gap-1">
+                  {(["daily", "weekly", "monthly"] as const).map((frequency) => (
+                    <button
+                      key={frequency}
+                      type="button"
+                      onClick={() => updateAutomaticBackup({ frequency })}
+                      disabled={automaticBackupMutation.isPending}
+                      aria-pressed={automaticBackupQuery.data.frequency === frequency}
+                      className={SETTINGS_BUTTON_CLASS}
+                    >
+                      {localizeUi(`ui.panels.advancedsettings.automaticBackupFrequency.${frequency}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div
                 id={getSettingsControlAnchorId("automatic-backups-kept")}
                 className="mt-2 grid scroll-mt-3 gap-2 border-t border-[var(--border)]/60 pt-2 sm:grid-cols-[minmax(0,1fr)_5.5rem] sm:items-center"

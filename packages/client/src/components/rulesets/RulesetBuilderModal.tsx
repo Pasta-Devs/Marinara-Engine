@@ -47,6 +47,7 @@ import { cn } from "../../lib/utils";
 import { Checkbox } from "../ui/Checkbox";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { Select } from "../ui/Select";
+import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { OvEditorHead, OvEyebrow } from "../overhaul/EditorChrome";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import type { RailCrumb } from "../overhaul/EditorRail";
@@ -496,18 +497,17 @@ export function RulesetBuilderModal({
       >
         {/* New layout: a dropdown, like every other one-of-many pick there; the help line names the choice. */}
         {overhaulLook ? (
-          <select
-            aria-label={localizeUi("rulesetBuilder.dice")}
+          <Select
+            label={localizeUi("rulesetBuilder.dice")}
             value={draft.dice.preset}
-            onChange={(event) => choosePreset(event.target.value as RulesetBuilderDicePreset)}
+            onChange={choosePreset}
             className={INPUT}
-          >
-            {PRESETS.map((preset) => (
-              <option key={preset} value={preset}>
-                {localizeUi(`rulesetBuilder.presets.${presetKey(preset)}.label`)}
-              </option>
-            ))}
-          </select>
+            options={PRESETS.map((preset) => ({
+              value: preset,
+              label: localizeUi(`rulesetBuilder.presets.${presetKey(preset)}.label`),
+              description: localizeUi(`rulesetBuilder.presets.${presetKey(preset)}.help`),
+            }))}
+          />
         ) : (
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
             {PRESETS.map((preset) => (
@@ -805,10 +805,21 @@ export function RulesetBuilderModal({
             </div>
           )}
         </SortableRows>
-        <label className="flex items-center gap-2 pt-1 text-xs text-[var(--foreground)]">
-          <Checkbox checked={draft.practice === true} onChange={(event) => set({ practice: event.target.checked })} />
-          {localizeUi("rulesetBuilder.practice")}
-        </label>
+        {overhaulLook ? (
+          <SettingsSwitch
+            label={localizeUi("rulesetBuilder.practice")}
+            checked={draft.practice === true}
+            onChange={(practice) => set({ practice })}
+            labelPosition="start"
+            className="justify-between gap-3 px-0 py-1"
+            labelClassName="text-xs"
+          />
+        ) : (
+          <label className="flex items-center gap-2 pt-1 text-xs text-[var(--foreground)]">
+            <Checkbox checked={draft.practice === true} onChange={(event) => set({ practice: event.target.checked })} />
+            {localizeUi("rulesetBuilder.practice")}
+          </label>
+        )}
         <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
           {localizeUi("rulesetBuilder.practiceHelp")}
         </p>

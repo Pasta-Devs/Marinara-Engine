@@ -2014,18 +2014,21 @@ function ExpandedDrawer({
     const placementBlock = (
       <>
         <div className="ov-lentry__row ov-lentry__row--wide">
-          <label className="ov-lf">
+          <div className="ov-lf">
             <span>{localizeUi("ui.lorebooks.lorebookentryrow.position")}</span>
-            <select
-              value={String(position)}
-              onChange={(event) => ov.setPosition(Number(event.target.value) as LorebookEntry["position"])}
-            >
-              <option value="0">{localizeUi("ui.lorebooks.lorebookentryrow.beforeCharacter")}</option>
-              <option value="1">{localizeUi("ui.lorebooks.lorebookentryrow.afterCharacter")}</option>
-              <option value="2">{localizeUi("ui.lorebooks.lorebookentryrow.atDepth")}</option>
-              <option value="7">{localizeUi("ui.lorebooks.lorebookentryrow.outlet")}</option>
-            </select>
-          </label>
+            <Select
+              className="ov-lsel"
+              label={localizeUi("ui.lorebooks.lorebookentryrow.position")}
+              value={String(position) as "0" | "1" | "2" | "7"}
+              onChange={(next) => ov.setPosition(Number(next) as LorebookEntry["position"])}
+              options={[
+                { value: "0", label: localizeUi("ui.lorebooks.lorebookentryrow.beforeCharacter") },
+                { value: "1", label: localizeUi("ui.lorebooks.lorebookentryrow.afterCharacter") },
+                { value: "2", label: localizeUi("ui.lorebooks.lorebookentryrow.atDepth") },
+                { value: "7", label: localizeUi("ui.lorebooks.lorebookentryrow.outlet") },
+              ]}
+            />
+          </div>
           {position === 2 ? (
             <label className="ov-lf">
               <span>{localizeUi("ui.lorebooks.lorebookentryrow.depth")}</span>
@@ -2048,17 +2051,20 @@ function ExpandedDrawer({
           </label>
         </div>
         <div className="ov-lentry__row ov-lentry__row--3">
-          <label className="ov-lf">
+          <div className="ov-lf">
             <span>{localizeUi("ui.lorebooks.expandeddrawer.role")}</span>
-            <select
+            <Select
+              className="ov-lsel"
+              label={localizeUi("ui.lorebooks.expandeddrawer.role")}
               value={form.role ?? "system"}
-              onChange={(e) => update({ role: e.target.value as "system" | "user" | "assistant" })}
-            >
-              <option value="system">{localizeUi("ui.lorebooks.expandeddrawer.system")}</option>
-              <option value="user">{localizeUi("ui.lorebooks.expandeddrawer.user")}</option>
-              <option value="assistant">{localizeUi("ui.lorebooks.expandeddrawer.assistant")}</option>
-            </select>
-          </label>
+              onChange={(role) => update({ role })}
+              options={[
+                { value: "system", label: localizeUi("ui.lorebooks.expandeddrawer.system") },
+                { value: "user", label: localizeUi("ui.lorebooks.expandeddrawer.user") },
+                { value: "assistant", label: localizeUi("ui.lorebooks.expandeddrawer.assistant") },
+              ]}
+            />
+          </div>
           <label className="ov-lf">
             <span>{localizeUi("ui.lorebooks.lorebookentryrow.probability")} %</span>
             <OvNum
@@ -2086,17 +2092,19 @@ function ExpandedDrawer({
         </div>
         <div className="ov-lentry__row">
           {ov.folders.length > 0 ? (
-            <label className="ov-lf">
+            <div className="ov-lf">
               <span>{localizeUi("ui.lorebooks.lorebookentryrow.folder")}</span>
-              <select value={ov.folderId ?? ""} onChange={(event) => ov.setFolder(event.target.value || null)}>
-                <option value="">{localizeUi("ui.lorebooks.expandeddrawer.root")}</option>
-                {ov.folders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <Select
+                className="ov-lsel"
+                label={localizeUi("ui.lorebooks.lorebookentryrow.folder")}
+                value={ov.folderId ?? ""}
+                onChange={(next) => ov.setFolder(next || null)}
+                options={[
+                  { value: "", label: localizeUi("ui.lorebooks.expandeddrawer.root") },
+                  ...ov.folders.map((folder) => ({ value: folder.id, label: folder.name })),
+                ]}
+              />
+            </div>
           ) : null}
           {position === 7 ? (
             <label className="ov-lf">
@@ -2212,24 +2220,17 @@ function ExpandedDrawer({
             </span>
           ))}
           {restSources.length ? (
-            <select
-              className="ov-addselect"
-              value=""
-              aria-label={localizeUi("ui.lorebooks.expandeddrawer.addMatchingSource")}
-              onChange={(event) =>
-                event.target.value &&
-                update({
-                  additionalMatchingSources: [...sources, event.target.value as LorebookMatchingSource],
-                })
-              }
-            >
-              <option value="">{localizeUi("ui.characters.dialoguetab.add")}</option>
-              {restSources.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            // An "add one" picker: nothing stays picked, each pick adds a source.
+            <span className="ov-addselect-wrap">
+              <Select
+                className="ov-lsel ov-addselect"
+                label={localizeUi("ui.lorebooks.expandeddrawer.addMatchingSource")}
+                placeholder={localizeUi("ui.characters.dialoguetab.add")}
+                value={null}
+                onChange={(next) => update({ additionalMatchingSources: [...sources, next as LorebookMatchingSource] })}
+                options={restSources.map((option) => ({ value: option.value, label: option.label }))}
+              />
+            </span>
           ) : null}
         </div>
       </>
@@ -2257,26 +2258,24 @@ function ExpandedDrawer({
                     })
                   }
                 />
-                <select
+                <Select
+                  className="ov-lsel"
+                  label={localizeUi("ui.lorebooks.expandeddrawer.operator")}
                   value={condition.operator}
-                  aria-label={localizeUi("ui.lorebooks.expandeddrawer.operator")}
-                  onChange={(event) =>
+                  onChange={(operator) =>
                     update({
-                      activationConditions: conditions.map((item, i) =>
-                        i === index
-                          ? { ...item, operator: event.target.value as (typeof conditions)[number]["operator"] }
-                          : item,
-                      ),
+                      activationConditions: conditions.map((item, i) => (i === index ? { ...item, operator } : item)),
                     })
                   }
-                >
-                  <option value="equals">{localizeUi("ui.lorebooks.expandeddrawer.equals")}</option>
-                  <option value="not_equals">{localizeUi("ui.lorebooks.expandeddrawer.doesNotEqual")}</option>
-                  <option value="contains">{localizeUi("ui.lorebooks.expandeddrawer.contains")}</option>
-                  <option value="not_contains">{localizeUi("ui.lorebooks.expandeddrawer.doesNotContain")}</option>
-                  <option value="gt">{localizeUi("ui.lorebooks.expandeddrawer.greaterThan")}</option>
-                  <option value="lt">{localizeUi("ui.lorebooks.expandeddrawer.lessThan")}</option>
-                </select>
+                  options={[
+                    { value: "equals", label: localizeUi("ui.lorebooks.expandeddrawer.equals") },
+                    { value: "not_equals", label: localizeUi("ui.lorebooks.expandeddrawer.doesNotEqual") },
+                    { value: "contains", label: localizeUi("ui.lorebooks.expandeddrawer.contains") },
+                    { value: "not_contains", label: localizeUi("ui.lorebooks.expandeddrawer.doesNotContain") },
+                    { value: "gt", label: localizeUi("ui.lorebooks.expandeddrawer.greaterThan") },
+                    { value: "lt", label: localizeUi("ui.lorebooks.expandeddrawer.lessThan") },
+                  ]}
+                />
                 <input
                   value={condition.value}
                   placeholder={localizeUi("ui.chatSettings.chatvariablessection.value")}
@@ -2453,19 +2452,19 @@ function ExpandedDrawer({
             <OvmDrill title={localizeUi("ui.lorebooks.expandeddrawer.matchOptions")} summary={matchSummary}>
               {overhaulMobile ? secondaryKeysField : null}
               <div className="ov-lentry__inline">
-                <label className="ov-lf">
+                <div className="ov-lf">
                   <span>{localizeUi("ui.lorebooks.expandeddrawer.secondaryLogic")}</span>
-                  <select
-                    value={form.selectiveLogic === "or" ? "and" : (form.selectiveLogic ?? "and")}
-                    onChange={(event) => update({ selectiveLogic: event.target.value as SelectiveLogic })}
-                  >
-                    {SELECTIVE_LOGIC_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <Select
+                    className="ov-lsel"
+                    label={localizeUi("ui.lorebooks.expandeddrawer.secondaryLogic")}
+                    value={(form.selectiveLogic === "or" ? "and" : (form.selectiveLogic ?? "and")) as SelectiveLogic}
+                    onChange={(selectiveLogic) => update({ selectiveLogic })}
+                    options={SELECTIVE_LOGIC_OPTIONS.map((option) => ({
+                      value: option.value as SelectiveLogic,
+                      label: option.label,
+                    }))}
+                  />
+                </div>
                 <div className="ov-lentry__switches">
                   <OvToggle
                     label={localizeUi("ui.lorebooks.expandeddrawer.regexKeys")}

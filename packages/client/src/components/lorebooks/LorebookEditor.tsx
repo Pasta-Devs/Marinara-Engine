@@ -94,6 +94,7 @@ import {
   ArrowDown,
   ArrowLeft,
 } from "lucide-react";
+import { Select } from "../ui/Select";
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { CharacterSelect } from "../characters/CharacterSelect";
@@ -2565,22 +2566,19 @@ export function LorebookEditor() {
                 }}
               />
             </label>
-            <label className="ov-bk__field">
+            <div className="ov-bk__field">
               <span>{localizeUi("ui.lorebooks.lorebookeditor.category")}</span>
-              <select
+              <Select
+                className="ov-bk__select"
+                label={localizeUi("ui.lorebooks.lorebookeditor.category")}
                 value={formCategory}
-                onChange={(event) => {
-                  setFormCategory(event.target.value as LorebookCategory);
+                onChange={(next) => {
+                  setFormCategory(next);
                   markLorebookDirty();
                 }}
-              >
-                {CATEGORY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={CATEGORY_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+              />
+            </div>
             <div className="ov-bk__pair">
               {ovSwitch(
                 localizeUi("ui.noodle.noodlehome.enabled"),
@@ -3996,25 +3994,17 @@ export function LorebookEditor() {
                             <label htmlFor="lorebook-editor-category" className="mb-1.5 block text-xs font-medium">
                               {localizeUi("ui.lorebooks.lorebookeditor.category")}
                             </label>
-                            <div className="relative md:hidden">
-                              <select
+                            <div className="md:hidden">
+                              <Select
                                 id="lorebook-editor-category"
+                                label={localizeUi("ui.lorebooks.lorebookeditor.category")}
                                 value={formCategory}
-                                onChange={(event) => {
-                                  setFormCategory(event.target.value as LorebookCategory);
+                                onChange={(next) => {
+                                  setFormCategory(next);
                                   markLorebookDirty();
                                 }}
-                                className="mari-editor-field h-10 w-full min-w-0 appearance-none truncate px-3 py-0 pr-9 text-xs"
-                              >
-                                {CATEGORY_OPTIONS.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown
-                                size="0.75rem"
-                                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--marinara-editor-muted)]"
+                                options={CATEGORY_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                                className="mari-editor-field h-10 w-full min-w-0 px-3 py-0 text-xs"
                               />
                             </div>
                             <div className="hidden gap-2 md:flex">
@@ -4704,21 +4694,6 @@ function VectorizeSection({
   ) : null;
 
   if (overhaul) {
-    const pickerOptions = (
-      <>
-        <option value="">{localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch")}</option>
-        {embeddingConnections.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-            {c.embeddingModel?.trim() && c.embeddingModel.trim() !== c.name ? (
-              <> {localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })}</>
-            ) : (
-              ""
-            )}
-          </option>
-        ))}
-      </>
-    );
     return (
       <div className="ov-vec">
         <p className="ov-bk__note">
@@ -4739,12 +4714,24 @@ function VectorizeSection({
           </p>
         ) : (
           <div className="ov-vec__row">
-            <label className="ov-bk__field ov-vec__model">
+            <div className="ov-bk__field ov-vec__model">
               <span>{localizeUi("connections.embeddingDefault.label")}</span>
-              <select value={selectedConnectionId} onChange={(e) => handleConnectionChange(e.target.value)}>
-                {pickerOptions}
-              </select>
-            </label>
+              <Select
+                className="ov-bk__select"
+                label={localizeUi("connections.embeddingDefault.label")}
+                value={selectedConnectionId}
+                onChange={handleConnectionChange}
+                options={[
+                  { value: "", label: localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch") },
+                  ...embeddingConnections.map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                    description:
+                      c.embeddingModel?.trim() && c.embeddingModel.trim() !== c.name ? c.embeddingModel : undefined,
+                  })),
+                ]}
+              />
+            </div>
             <div className="ov-vec__actions">
               <button
                 type="button"
