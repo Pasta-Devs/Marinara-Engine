@@ -2,7 +2,7 @@ import { chooseConnection } from "./connection-picker.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { seedUIState } from "./ui-state-fixture.js";
+import { seedUIState, seedClassicLayout } from "./ui-state-fixture.js";
 import {
   WORLD_GENERATOR_VERSION,
   WORLD_STARTER_KITS,
@@ -74,6 +74,7 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
     rightPanelOpen: false,
     theme: options.theme ?? (testInfo.project.name === "desktop-chromium" ? "light" : "dark"),
   });
+  await seedClassicLayout(page);
   await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?", exact: true })).toBeVisible({

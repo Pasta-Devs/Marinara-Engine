@@ -57,7 +57,7 @@ If you set a different `PORT`, use that number. To get an app-like icon, use you
 
 ## Start and stop Marinara
 
-With the app, open it and tap **Install / Start Marinara** if the server is stopped. To switch between the app and your browser, use **Open in browser** on the launcher, then **Retry connection**. From inside the app, go back to the launcher with **Settings → Appearance → Layout → Open Android launcher (app or browser)**.
+With the app, open it and tap **Install / Start Marinara** if the server is stopped. To switch between the app and your browser, use **Open in browser** on the launcher, then **Retry connection**. From inside the app (Android app only), go back to the launcher with **Settings → Appearance → Layout → Open Android launcher (app or browser)**.
 
 With a manual install, open Termux and run:
 
@@ -71,6 +71,17 @@ To stop the server, press <kbd>Ctrl</kbd>+<kbd>C</kbd> in Termux.
 ## Update Marinara
 
 Each time you run `./start-termux.sh`, the launcher checks GitHub for a newer version and updates before it starts. To start without updating, add `--skip-update`. On a test branch, such as the UI overhaul playtest, the launcher follows that branch on GitHub. If the branch was rewritten there, your copy moves to the new version by itself, as long as you made no commits of your own. For more options and the APK update steps, see [Upgrading Marinara Engine](../UPGRADING.md#android-termux).
+
+To try the UI overhaul playtest: in Marinara open **Settings → Advanced → Updates → Release Channel → ui/kolacheee**, then **Switch to ui/kolacheee**. Or in Termux:
+
+```bash
+cd ~/Marinara-Engine
+git fetch origin "+refs/heads/ui/kolacheee:refs/remotes/origin/ui/kolacheee"
+git checkout -B ui/kolacheee origin/ui/kolacheee
+./start-termux.sh
+```
+
+The Android app (APK) always returns to its release, so use the Termux install for the playtest.
 
 The launcher also removes unused packages from its local pnpm cache during updates. This stops old releases from filling several gigabytes of storage. It does not touch your chats or settings.
 

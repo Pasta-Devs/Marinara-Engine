@@ -194,10 +194,31 @@ export function TapTimings() {
       };
     };
 
-    const listener = (event: Event) => onTap(event as PointerEvent);
+    // A click counts too: after a WebDriver pointer action WebKit sent clicks with no pointerup, so the readings
+    // froze in QC. A click right after a pointerup on the same spot is that tap, not a second one.
+    let lastUp: { target: EventTarget | null; at: number } | null = null;
+    const listener = (event: Event) => {
+      lastUp = { target: event.target, at: performance.now() };
+      onTap(event as PointerEvent);
+    };
+    const clickListener = (event: Event) => {
+      // The app's own .click() calls are not taps.
+      if (!event.isTrusted) return;
+      const target = event.target as Node | null;
+      const up = lastUp;
+      if (
+        up &&
+        performance.now() - up.at < 500 &&
+        (up.target === target || (up.target instanceof Node && target && up.target.contains(target)))
+      )
+        return;
+      onTap(event as MouseEvent);
+    };
     window.addEventListener("pointerup", listener, { capture: true, passive: true });
+    window.addEventListener("click", clickListener, { capture: true, passive: true });
     return () => {
       window.removeEventListener("pointerup", listener, { capture: true });
+      window.removeEventListener("click", clickListener, { capture: true });
       retired = true;
       if (window.fetch === countedFetch) window.fetch = originalFetch;
       stopCurrent?.();

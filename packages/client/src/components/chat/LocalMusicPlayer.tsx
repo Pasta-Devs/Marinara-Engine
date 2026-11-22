@@ -336,7 +336,8 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
   );
 
   const hasPlayerContent = !!nowPlaying || !!error;
-  const showPlayer = active;
+  // Phones: the floating disc shows only while there is music (or an error) or while it is open (QC panel 2, #18).
+  const showPlayer = active && (!mobile || hasPlayerContent || !collapsed);
   const displayTitle = error ? error : (nowPlaying?.title ?? "Custom Music");
   const displaySubtitle = error ? "Playback needs attention" : (nowPlaying?.mood ?? "Ready for Music DJ");
   const mobileWidgetStyle = useMemo(() => getMobileWidgetStyle(mobilePosition, collapsed), [collapsed, mobilePosition]);
@@ -463,6 +464,17 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
           >
             {collapsed ? (
               <div
+                role="button"
+                tabIndex={0}
+                aria-label={[localizeUi("ui.chat.localmusicplayer.customMusic"), nowPlaying?.title]
+                  .filter(Boolean)
+                  .join(": ")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setCollapsed(false);
+                  }
+                }}
                 className={cn(
                   "flex h-12 w-12 items-center justify-center rounded-full border shadow-lg backdrop-blur-xl",
                   MUSIC_NEUTRAL_SHELL_BORDER_CLASS,

@@ -346,7 +346,7 @@ import { readSetupDismissed, writeSetupDismissed } from "../../lib/game-setup-di
 import { GameStoryboardBackgroundVisual, GameStoryboardInlineViewer } from "./GameStoryboardViewer";
 import { GameVolumeMixer } from "./GameVolumeMixer";
 import { createPortal } from "react-dom";
-import { useOverhaulActive, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
 import { openLibrarySection } from "../overhaul/library-navigation";
 import { OvGamePane } from "../overhaul/GamePane";
 import { ChatSettingsSection } from "../../features/chat-settings/ChatSettingsSection";
@@ -2455,6 +2455,8 @@ function GameSurfaceComponent({
   avatarStage,
 }: GameSurfaceProps) {
   const overhaulActive = useOverhaulActive();
+  // New layout: New Game setup is the page in the game's own tab (owner 2026-11-22), not a window.
+  const setupAsPage = useOverhaulLook();
   const ovGameSettingsSlot = useOverhaulStore((state) => state.gameSettingsSlot);
   // A room the host shares plays the host as their room persona and lists every player's character,
   // each on the card the room made for them (room playtest 2026-10-27: the host's Game screen showed
@@ -13062,13 +13064,27 @@ function GameSurfaceComponent({
       }
     };
 
+    const setupFailureText =
+      setupFailure?.chatId === activeChatId && !gameSetup.isPending
+        ? setupFailure.running && setupFailure.message
+          ? setupFailure.message
+          : localizeUi("ui.game.gamesurfacecomponent.setupDidNotFinish", {
+              reason: setupFailure.message || localizeUi("ui.game.gamesurfacecomponent.setupNoReason"),
+            })
+        : null;
     const classicSetup = (
       <>
         <Suspense
           fallback={
-            <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-[var(--background)]/90">
-              <Spinner size="lg" className="text-[var(--primary)]" />
-            </div>
+            setupAsPage ? (
+              <div className="flex h-full items-center justify-center">
+                <Spinner size="lg" className="text-[var(--primary)]" />
+              </div>
+            ) : (
+              <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-[var(--background)]/90">
+                <Spinner size="lg" className="text-[var(--primary)]" />
+              </div>
+            )
           }
         >
           <GameSetupWizard
@@ -13193,6 +13209,8 @@ function GameSurfaceComponent({
             }}
             onCancel={dismissSetupWizard}
             setupFailed={setupFailure?.chatId === activeChatId && !setupFailure.running}
+            setupFailureMessage={setupAsPage ? setupFailureText : null}
+            onDismissSetupFailure={() => setSetupFailure(null)}
             onStopGeneration={gameSetup.isPending ? gameSetup.cancel : undefined}
             isLoading={
               createGame.isPending ||
@@ -13207,18 +13225,12 @@ function GameSurfaceComponent({
             characters={libraryCharacters}
             initialPartyCharacterIds={initialSetupPartyCharacterIds}
           />
-          {setupFailure?.chatId === activeChatId && !gameSetup.isPending && (
+          {!setupAsPage && setupFailureText && (
             <div
               role="alert"
               className="fixed left-1/2 top-3 z-[10002] flex w-[min(36rem,calc(100vw-2rem))] -translate-x-1/2 items-start gap-3 rounded-lg border border-red-400/40 bg-red-950/90 px-4 py-3 text-sm text-red-100 shadow-xl backdrop-blur"
             >
-              <p className="flex-1">
-                {setupFailure.running && setupFailure.message
-                  ? setupFailure.message
-                  : localizeUi("ui.game.gamesurfacecomponent.setupDidNotFinish", {
-                      reason: setupFailure.message || localizeUi("ui.game.gamesurfacecomponent.setupNoReason"),
-                    })}
-              </p>
+              <p className="flex-1">{setupFailureText}</p>
               <button
                 type="button"
                 onClick={() => setSetupFailure(null)}
@@ -13282,7 +13294,8 @@ function GameSurfaceComponent({
     );
     return (
       <>
-        {classicSetup}
+        {/* New layout: the setup page fills the game's own tab, under the top bar. */}
+        {setupAsPage ? <div className="relative h-full min-h-0 w-full flex-1">{classicSetup}</div> : classicSetup}
         {/* Shared by the normal wizard and legacy Experience setup. */}
         <GameJsonRepairModal
           request={jsonRepairRequest}

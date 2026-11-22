@@ -1,4 +1,5 @@
 import { WindowTitle } from "../../lib/theme-slots";
+import { isTouchDevice } from "../../lib/touch-device";
 import {
   Children,
   isValidElement,
@@ -2919,13 +2920,19 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             >
                               {(() => {
                                 // Phones and tablets have no Ctrl+K: their copy says to tap the title (audit C22).
+                                // A tablet sideways (computer layout) taps the search button instead (QC panel 2).
+                                // A seasonal pack without its own touch copy uses the plain touch copy, never ⌘K.
                                 const key = mariPackSeason
                                   ? `home.professorMari.${mariPackId}.widgetDescription`
                                   : "home.professorMari.widgetDescription";
-                                const touchKey = `${key}Touch`;
-                                return t(mobileShell && i18n.exists(touchKey) ? touchKey : key, {
-                                  mod: formatShortcutKey("Mod"),
-                                });
+                                const plain = "home.professorMari.widgetDescription";
+                                const touchSuffix = mobileShell ? "Touch" : isTouchDevice() ? "TouchSearch" : null;
+                                const pick = touchSuffix
+                                  ? i18n.exists(`${key}${touchSuffix}`)
+                                    ? `${key}${touchSuffix}`
+                                    : `${plain}${touchSuffix}`
+                                  : key;
+                                return t(pick, { mod: formatShortcutKey("Mod") });
                               })()}
                             </p>
                             <button

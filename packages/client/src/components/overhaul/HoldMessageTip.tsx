@@ -93,6 +93,31 @@ export function HoldMessageTip({ armed, mode }: { armed: boolean; mode: string }
     };
   }, [mode, open]);
 
+  // The tip sits over the bottom of the chat, which is the reply it talks about (QC panel 2, #23). While it shows,
+  // the chat gets that much room at its end and moves up by it, so the reply's last lines sit above the tip.
+  const placed = pos !== null;
+  useLayoutEffect(() => {
+    if (!open || !placed) return;
+    const root = document.querySelector<HTMLElement>(`[data-chat-mode="${mode}"]`);
+    const messages = root?.querySelectorAll<HTMLElement>("[data-message-id]");
+    let scroller = messages?.length ? messages[messages.length - 1].parentElement : null;
+    while (scroller && scroller !== root && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) {
+      scroller = scroller.parentElement;
+    }
+    const tip = tipRef.current;
+    if (!scroller || !tip) return;
+    const room = Math.round(tip.offsetHeight + 10);
+    const target = scroller;
+    const before = target.style.paddingBottom;
+    const base = parseFloat(getComputedStyle(target).paddingBottom) || 0;
+    target.style.paddingBottom = `${base + room}px`;
+    const nearEnd = target.scrollHeight - target.scrollTop - target.clientHeight < room + 200;
+    if (nearEnd) target.scrollBy({ top: room });
+    return () => {
+      target.style.paddingBottom = before;
+    };
+  }, [mode, open, placed]);
+
   if (!open || typeof document === "undefined") return null;
   return createPortal(
     <div

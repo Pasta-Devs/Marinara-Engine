@@ -5,6 +5,7 @@
 // sections themselves are the app's own components, so nothing loses
 // behaviour. Chips under the tabs jump to a section; search covers all tabs.
 // ──────────────────────────────────────────────
+import { isMarinaraAndroidShell } from "../../lib/android-bridge";
 import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -200,8 +201,10 @@ const MOBILE_TABS: Partial<
 /** Sections whose risky buttons (resets, deletes) only show after tapping Edit. */
 const EDIT_SECTIONS = new Set<SettingsSectionId>(["app-style", "danger-zone"]);
 
-const IS_ANDROID = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
-/** Layout holds a computer-only setting and an Android-only one; elsewhere it would be empty. */
+// The Android app (APK), not Chrome on Android: Layout's Android controls need the app's bridge, so in Chrome the
+// section was an empty page (QC panel 2, #13).
+const IS_ANDROID = isMarinaraAndroidShell();
+/** Layout holds a computer-only setting and an Android-app-only one; elsewhere it would be empty. */
 const HIDDEN_ON_DEVICE = new Set<SettingsSectionId>(IS_ANDROID ? [] : ["layout"]);
 
 const VISUAL_THEME_LABELS: Record<string, string> = { default: "Marinara", sillytavern: "SillyTavern", stage: "Stage" };

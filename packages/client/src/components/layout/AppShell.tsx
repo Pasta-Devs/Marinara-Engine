@@ -82,7 +82,7 @@ import {
   TRACKER_PANEL_BUBBLE_ID,
   useFloatingWindowStore,
 } from "../../stores/floating-window.store";
-import { useOverhaulStore } from "../../stores/overhaul.store";
+import { isOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../../lib/overhaul-styles";
 import { preloadChatSurface } from "../chat/chat-surface-preload";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
@@ -917,6 +917,9 @@ export function AppShell({
       // Opening a chat is the next step almost every time: fetch the chat surfaces now, not on the click.
       preloadChatSurface("roleplay");
       preloadChatSurface("conversation");
+      // Chat settings mounts (hidden) with every chat: its code came in on the first chat tap, about half of that
+      // tap's downloads (QC panel 2, #17). Fetch it here instead.
+      void import("../chat/ChatCommonOverlays").then((module) => module.preloadChatSettingsDrawerWhenIdle());
     };
     const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
     if (idle) idle(preload);
@@ -950,6 +953,9 @@ export function AppShell({
   // (QC Nov 21, MOB11). The phone layout notes what the desktop sidebar showed before it closed it (kept across a
   // reload, so a portrait start works too), and growing back to the desktop layout puts it back.
   const sidebarRestoreBeforeRef = useRef(overhaulMobile);
+  // Chat settings open while the window grows: it holds the docked slot, so the sidebar waits until it closes.
+  // Otherwise the restore took the slot and closed Chat settings on portrait-to-landscape only (QC panel 2, #6).
+  const pendingSidebarRestoreRef = useRef<string | null>(null);
   useEffect(() => {
     const grew = !overhaulMobile && sidebarRestoreBeforeRef.current;
     sidebarRestoreBeforeRef.current = overhaulMobile;
@@ -957,16 +963,37 @@ export function AppShell({
       const ui = useUIStore.getState();
       if (ui.rightPanelOpen || ui.sidebarOpen) {
         writeDesktopSidebarBeforeTouch(ui.rightPanelOpen ? ui.rightPanel : "chats");
+      } else if (pendingSidebarRestoreRef.current) {
+        writeDesktopSidebarBeforeTouch(pendingSidebarRestoreRef.current);
       }
+      pendingSidebarRestoreRef.current = null;
       return;
     }
     if (!grew || !overhaulActive) return;
     const saved = takeDesktopSidebarBeforeTouch();
     const ui = useUIStore.getState();
     if (!saved || ui.rightPanelOpen || ui.sidebarOpen) return;
+    if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID]) {
+      pendingSidebarRestoreRef.current = saved;
+      return;
+    }
     if (saved === "chats") ui.setSidebarOpen(true);
     else ui.openRightPanel(saved as Parameters<typeof ui.openRightPanel>[0]);
   }, [overhaulActive, overhaulMobile]);
+  useEffect(
+    () =>
+      useFloatingWindowStore.subscribe((state, previous) => {
+        if (state.open[CHAT_SETTINGS_WINDOW_ID] || !previous.open[CHAT_SETTINGS_WINDOW_ID]) return;
+        const saved = pendingSidebarRestoreRef.current;
+        pendingSidebarRestoreRef.current = null;
+        if (!saved || isOverhaulMobile()) return;
+        const ui = useUIStore.getState();
+        if (ui.rightPanelOpen || ui.sidebarOpen) return;
+        if (saved === "chats") ui.setSidebarOpen(true);
+        else ui.openRightPanel(saved as Parameters<typeof ui.openRightPanel>[0]);
+      }),
+    [],
+  );
   const overhaulMobileBeforeRef = useRef(overhaulMobile);
   useEffect(() => {
     const shrank = overhaulMobile && !overhaulMobileBeforeRef.current;
@@ -1605,7 +1632,11 @@ export function AppShell({
   // Phones and tablets: a page covers the whole screen, so a theme's ambient layer (rising bubbles,
   // rain) holds still under it instead of repainting every frame where nobody sees it (battery).
   const pageCoversScreen = overhaulMobile && shellOverlayMode && hasDetailView;
-  const mobileSidePageOpen = useOverhaulStore((state) => state.mobileSidePageOpen);
+  // The Chats/Library page and the All tabs grid cover the whole screen too: what lies under them is out of reach
+  // for VoiceOver and Tab as well (QC panel 2, #21). Both live outside the covered part (a portal, the top bar).
+  const mobileSidePageOpen = useOverhaulStore((s) => s.mobileSidePageOpen);
+  const mobileAllTabsOpen = useOverhaulStore((s) => s.allTabsOpen);
+  const sheetCoversScreen = overhaulMobile && (mobileSidePageOpen || mobileAllTabsOpen);
   useEffect(() => {
     if (!pageCoversScreen) return;
     document.documentElement.setAttribute("data-mari-page-covers", "");
@@ -2212,8 +2243,8 @@ export function AppShell({
               data-under-page={pageCoversScreen ? "true" : undefined}
               // Hidden under the page, so VoiceOver swipes and a keyboard's Tab can't land on its buttons either
               // (QC Nov 21, MOB missed A). Painting is untouched: `inert` doesn't hide anything.
-              // The Chats/Library page (MobileSidePage) covers it the same way (QC Nov 22 K6).
-              inert={pageCoversScreen || (overhaulMobile && mobileSidePageOpen) || undefined}
+              // The Chats/Library page (MobileSidePage) and All tabs cover it the same way (QC Nov 22 K6, #21).
+              inert={pageCoversScreen || sheetCoversScreen || undefined}
               className={cn(
                 "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
                 (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) && "hidden",

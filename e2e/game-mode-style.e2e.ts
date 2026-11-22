@@ -2,7 +2,7 @@ import { chooseConnection } from "./connection-picker.js";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { WORLD_STARTER_KITS, parseWorldKit } from "@marinara-engine/shared";
-import { seedUIState } from "./ui-state-fixture.js";
+import { seedUIState, seedClassicLayout } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 
 /**
@@ -39,6 +39,7 @@ async function mountWizard(page: Page, testInfo: TestInfo): Promise<Locator> {
     rightPanelOpen: false,
     theme: testInfo.project.name === "desktop-chromium" ? "light" : "dark",
   });
+  await seedClassicLayout(page);
   await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?", exact: true })).toBeVisible({
