@@ -81,7 +81,12 @@ import { PictureCheckFields } from "./PictureCheckFields";
 import { ChatSettingsDeferBodiesContext, ChatSettingsSection as Section } from "./ChatSettingsSection";
 import { registerChatSettingsCloser } from "../../lib/chat-settings-close";
 import { useMobileChatSettingsNav } from "./mobile-nav";
-import { requestCloseChatSettingsSubpage, useChatSettingsSubpage, type ChatSettingsSubpageId } from "./subpage";
+import {
+  requestCloseChatSettingsSubpage,
+  takeChatSettingsSubpageOpener,
+  useChatSettingsSubpage,
+  type ChatSettingsSubpageId,
+} from "./subpage";
 import {
   MobileChatSettingsGroup,
   MobileChatSettingsHeaderBack,
@@ -1434,9 +1439,28 @@ export function ChatSettingsDrawer({
     subpageInSheetHeader && activeSubpage ? localizeUi(SUBPAGE_TITLE_KEYS[activeSubpage]) : mobileDrillTitle;
   const agentSuiteOpen = overhaulActive ? activeSubpage === "agent-suite" : showAgentSuiteModal;
   if (agentSuiteOpen && !agentSuiteLoaded) setAgentSuiteLoaded(true);
+  const hadSubpageRef = useRef(false);
   useLayoutEffect(() => {
+    const hadSubpage = hadSubpageRef.current;
+    hadSubpageRef.current = !!activeSubpage;
     if (activeSubpage || !ovScrollEl) return;
     ovScrollEl.scrollTop = listScrollRef.current;
+    // Leaving an editor page puts focus back on the button that opened it (QC panel 3 AX10), or on its
+    // section's header when that button is gone; never when focus already went elsewhere on purpose.
+    if (!hadSubpage) return;
+    const opener = takeChatSettingsSubpageOpener();
+    const active = document.activeElement;
+    const pane = ovScrollEl.closest<HTMLElement>(".mari-window");
+    if (active && active !== document.body && !pane?.contains(active)) return;
+    const visible = (element: HTMLElement | null | undefined) =>
+      !!element && element.isConnected && element.getClientRects().length > 0;
+    const sectionToggle = opener?.section
+      ? ovScrollEl.querySelector<HTMLElement>(
+          `[data-chat-settings-section="${CSS.escape(opener.section)}"] [data-drawer-toggle]`,
+        )
+      : null;
+    const target = visible(opener?.element) ? opener!.element : visible(sectionToggle) ? sectionToggle : null;
+    target?.focus({ preventScroll: true });
   }, [activeSubpage, ovScrollEl]);
   const showSubpage = useCallback((id: ChatSettingsSubpageId) => openSubpage(chat.id, id), [chat.id, openSubpage]);
   const setMemoryView = useCallback<Dispatch<SetStateAction<"advanced" | "standard" | null>>>(
@@ -2966,7 +2990,13 @@ export function ChatSettingsDrawer({
           ovEditing && "is-editing",
         )}
         bodyRef={panelRef}
-        onRequestClose={() => requestClose()}
+        onRequestClose={(reason) =>
+          // Escape on an editor page goes back one page (asking about unsaved edits); a second Escape closes
+          // Chat settings (QC panel 3 AX10). Returning false keeps the window open.
+          reason === "escape" && useChatSettingsSubpage.getState().subpage
+            ? requestCloseChatSettingsSubpage().then(() => false)
+            : requestClose()
+        }
       >
         {/* Desktop-only: drag-and-drop hint (sidebar drag is disabled on mobile overlays) */}
         {overhaulActive && <OvChatSettingsStyle mode={chatMode} />}

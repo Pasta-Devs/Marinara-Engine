@@ -34,12 +34,36 @@ interface ChatSettingsSubpageState {
   setGuard: (guard: ChatSettingsSubpageGuard | null) => void;
 }
 
+/**
+ * The button that opened the page, so leaving it puts focus back there (QC panel 3 AX10), and the Chat settings
+ * section it sat in, for when that button is gone by then.
+ */
+let subpageOpener: { element: HTMLElement; section: string | null } | null = null;
+
+/** Hands over (once) where focus goes when the open page closes. */
+export function takeChatSettingsSubpageOpener(): { element: HTMLElement; section: string | null } | null {
+  const opener = subpageOpener;
+  subpageOpener = null;
+  return opener;
+}
+
 export const useChatSettingsSubpage = create<ChatSettingsSubpageState>()((set) => ({
   subpage: null,
   slot: null,
   actionsSlot: null,
   guard: null,
-  openSubpage: (chatId, id, props) => set({ subpage: { chatId, id, props } }),
+  openSubpage: (chatId, id, props) => {
+    const active = typeof document === "undefined" ? null : document.activeElement;
+    subpageOpener =
+      active instanceof HTMLElement && active !== document.body
+        ? {
+            element: active,
+            section:
+              active.closest<HTMLElement>("[data-chat-settings-section]")?.dataset.chatSettingsSection ?? null,
+          }
+        : null;
+    set({ subpage: { chatId, id, props } });
+  },
   closeSubpage: () => set({ subpage: null, guard: null }),
   setSlot: (slot) => set({ slot }),
   setActionsSlot: (actionsSlot) => set({ actionsSlot }),

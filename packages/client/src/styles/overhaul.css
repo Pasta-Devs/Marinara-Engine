@@ -17171,6 +17171,7 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-chat-row-main:focus-visible {
   outline: 2px solid var(--ov-accent, var(--primary));
   outline-offset: -2px;
+}
 /* QC panel 3 (Nov 22): on phones and tablets upright an editor page's header is the sheet's own; the page keeps
    only a row for its actions (Save and the like), and only while it has some. */
 :root .ov-cs-sub .ov-cs-sub__head.ov-cs-sub__head--actions {
