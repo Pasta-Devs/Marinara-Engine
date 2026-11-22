@@ -220,7 +220,16 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await expect(position(2)).toBeVisible();
     await page.keyboard.press("0");
     await expect(dialog.getByRole("button", { name: "Next image version", exact: true })).toBeEnabled();
-    await dialog.getByRole("button", { name: "Copy Positive prompt", exact: true }).click();
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: () => Promise.reject(new Error("Exercise clipboard fallback")) },
+      });
+    });
+    const copyPrompt = dialog.getByRole("button", { name: "Copy Positive prompt", exact: true });
+    await copyPrompt.click();
+    await expect(page.locator("[data-sonner-toast]")).toBeVisible();
+    await expect(copyPrompt).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(position(2)).toBeVisible();
     const scrollPrompt = dialog.locator("[data-image-viewer-scroll]");
@@ -355,6 +364,7 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await dialog.getByRole("heading", { name: "Regenerate image", exact: true }).click();
     await page.keyboard.press("ArrowDown");
     await expect(editPrompt).toHaveValue("Fifth stack version");
+    await screenshot(page, info, "stack-regeneration-controls");
     await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await dialog.getByRole("button", { name: "Close image", exact: true }).click();
     await expect(drawer.getByRole("button", { name: "Open gallery image", exact: true })).toHaveCount(2);
@@ -622,7 +632,7 @@ test("gallery regeneration preserves structured prompts and can revise, generate
 test("novelai edit mode supports img2img, painted mask infill, seed reuse, and stays open on edit", async ({
   page,
   request,
-}) => {
+}, info) => {
   test.setTimeout(90_000);
   const response = await request.post("/api/chats", {
     data: { name: "NovelAI harbor", mode: "roleplay", characterIds: [], connectionId: "synthetic" },
@@ -762,6 +772,7 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
       }),
     );
     expect(String(editRequests[1]?.maskImage ?? "")).toMatch(/^data:image\/png;base64,/);
+    await screenshot(page, info, "stack-inpainting-controls");
   } finally {
     await request.delete(`/api/chats/${chatId}`);
   }

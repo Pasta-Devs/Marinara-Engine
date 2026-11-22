@@ -30,7 +30,11 @@ function SavedPrompt({ label, value }: { label: string; value?: string | null })
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
+            const copyButton = event.currentTarget;
             void copyToClipboard(value).then((ok) => {
+              // The legacy clipboard textarea leaves focus on body when removed.
+              if (copyButton.isConnected && document.activeElement === document.body)
+                copyButton.focus({ preventScroll: true });
               if (ok) toast.success(t("ui.chat.chatgallery.promptCopied"));
               else toast.error(t("ui.chat.chatgallery.couldNotCopyPrompt"));
             });

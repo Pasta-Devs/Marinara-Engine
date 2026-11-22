@@ -78,6 +78,8 @@ The new image becomes the selected version in the message. Earlier results stay 
 
 Open a stacked image to choose a version. Left/right arrows, arrow keys and horizontal swipes move between Gallery tiles. Up/down controls, arrow keys and vertical swipes on the picture move between versions in the current stack. Zoom out before navigating. Scrolling the prompt does not change versions.
 
+Click the picture, prompt header or collapse button to use Up/Down for versions. Click prompt text or a copy button to use Up/Down for scrolling instead. Version controls also stay visible while regenerating or editing. Apply or clear a painted mask before switching versions; controls pause while generation runs.
+
 The version you choose is saved and shown in the chat, including after a reload. Regenerating or editing an older version adds a new result to the same stack and keeps the later versions too. A branched chat has its own selection.
 
 Use **Delete gallery image** on the tile, or the delete button in the viewer, to choose what to remove:

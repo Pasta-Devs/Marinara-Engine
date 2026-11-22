@@ -3322,7 +3322,8 @@ const LocalChatArea = memo(function LocalChatArea({
     if (!supportsMode) return;
 
     const handleArrowUp = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isModalOverlayOpen()) return;
+      if (event.defaultPrevented || (isModalOverlayOpen() && document.querySelector('.mari-modal[aria-modal="true"]')))
+        return;
       if (event.key !== "ArrowUp") return;
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       if (!latestMessageForEdit) return;
