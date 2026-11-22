@@ -5782,6 +5782,14 @@ strong {
   .mari-right-panel {
     background-color: var(--sidebar) !important;
   }
+
+  /* Ctrl+K sits over the page on a see-through --card. Firefox with software rendering (VMs, remote
+     desktop, many Linux GPUs) draws no backdrop blur, so the page showed through its rows (QC panel 3,
+     FF1). Lay the card over the opaque page colour instead. Professor Mari's panels already paint
+     their wash over --background (.mari-workspace-shell), so they keep their own look. */
+  [data-component="GlobalOmnibar.Panel"]:not(.mari-workspace-shell) {
+    background: linear-gradient(var(--card), var(--card)), var(--background) !important;
+  }
 }
 
 /* ─────────────────────────────────────────────

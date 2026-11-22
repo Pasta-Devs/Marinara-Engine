@@ -4305,6 +4305,12 @@ function AppearanceSettings({
                     {localizeUi("ui.panels.appearancesettings.folderToAddCustomFonts")}
                   </p>
                 )}
+                {/* Android: the server runs in Termux, where "data/fonts" can't be reached from a file manager. */}
+                {typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) ? (
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]" data-fonts-termux-hint>
+                    {localizeUi("ui.panels.appearancesettings.termuxFontsHint")}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   onClick={handleOpenFontsFolder}

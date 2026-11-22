@@ -18755,6 +18755,7 @@
   "ui.panels.appearancesettings.softensSelectedRoleplayAndGameModeBackgroundImagesBehind": "Softens selected Conversation, Roleplay and Game mode background images behind the chat UI. Set to 0px to keep backgrounds sharp.",
   "ui.panels.appearancesettings.squareAvatars": "Square",
   "ui.panels.appearancesettings.switchBetweenDarkAndLightModeDarkModeIs": "Switch between dark and light mode. Dark mode is easier on the eyes in low-light environments.",
+  "ui.panels.appearancesettings.termuxFontsHint": "On Android with Termux: run termux-setup-storage once, then copy the file with cp ~/storage/downloads/MyFont.ttf ~/Marinara-Engine/packages/server/data/fonts/ and reload the app. Or download a font by name from Google Fonts below.",
   "ui.panels.appearancesettings.textColors": "Text colors",
   "ui.panels.appearancesettings.textOutlineStroke": "Text outline / stroke",
   "ui.panels.appearancesettings.theLookOfTheChatSMovableButtonsWindows": "The look of the chat's movable buttons, windows and sections.",
