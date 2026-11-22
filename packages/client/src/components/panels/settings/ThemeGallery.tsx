@@ -82,7 +82,7 @@ export function ThemeGallery({ starterThemes }: { starterThemes: Theme[] }) {
 
   if (!open) {
     return (
-      <span className="mt-2 flex flex-col gap-2" data-theme-gallery="">
+      <span id="settings-control-theme-gallery" className="mt-2 flex scroll-mt-3 flex-col gap-2" data-theme-gallery="">
         <button type="button" onClick={() => setOpen(true)} className={cn(SETTINGS_BUTTON_CLASS, "w-full")}>
           <Download size="0.75rem" />
           <span>{localizeUi("theming.gallery.browse", { defaultValue: "Browse the theme gallery" })}</span>
@@ -97,7 +97,11 @@ export function ThemeGallery({ starterThemes }: { starterThemes: Theme[] }) {
   }
 
   return (
-    <span className="mt-2 flex flex-col gap-1.5" data-theme-gallery="open">
+    <span
+      id="settings-control-theme-gallery"
+      className="mt-2 flex scroll-mt-3 flex-col gap-1.5"
+      data-theme-gallery="open"
+    >
       <span className="flex items-center gap-2">
         <span className="text-xs font-medium">
           {localizeUi("theming.gallery.heading", { defaultValue: "Theme gallery" })}

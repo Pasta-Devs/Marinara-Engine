@@ -1,4 +1,6 @@
 import type { Chat } from "@marinara-engine/shared";
+import { translate } from "../localization/i18n";
+import { queryClient } from "./query-client";
 
 export type ChatDisplaySource = {
   name: string;
@@ -20,18 +22,47 @@ export function parseChatMetadata(raw: unknown): Record<string, any> {
   return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, any>) : {};
 }
 
+/**
+ * A branch nobody named is stored as "New Branch" (upstream), so every branch read the same (QC panel 2, D10). It
+ * shows as "<chat name> · branch N" instead: N is its place among the chat's branches by creation, the original
+ * being 1. The position comes from the loaded chat list; without it the number is left out.
+ */
+function placeholderBranchLabel(chat: ChatDisplaySource): string {
+  const source = chat as ChatDisplaySource & { id?: string; groupId?: string | null };
+  let n: number | null = null;
+  if (source.id && source.groupId) {
+    const chats = queryClient.getQueryData<Array<{ id: string; groupId?: string | null; createdAt?: string }>>([
+      "chats",
+      "list",
+    ]);
+    const group = (chats ?? [])
+      .filter((candidate) => candidate.groupId === source.groupId)
+      .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
+    const index = group.findIndex((candidate) => candidate.id === source.id);
+    if (index >= 0) n = index + 1;
+  }
+  return n === null
+    ? translate("chat.branch.autoNameNoNumber", { name: chat.name })
+    : translate("chat.branch.autoName", { name: chat.name, n });
+}
+
 export function getChatDisplayName(chat: ChatDisplaySource | null | undefined): string {
   if (!chat) return "";
   const metadata = parseChatMetadata(chat.metadata);
   if (typeof metadata.branchName !== "string") return chat.name;
 
   const branchName = metadata.branchName.trim();
+  if (branchName === PLACEHOLDER_BRANCH_NAME) return placeholderBranchLabel(chat);
   return branchName || chat.name;
 }
 
 export function getConnectedChatDisplayName(chat: ChatDisplaySource | null | undefined): string {
-  const displayName = getChatDisplayName(chat);
-  return displayName === PLACEHOLDER_BRANCH_NAME ? (chat?.name ?? "") : displayName;
+  if (!chat) return "";
+  const metadata = parseChatMetadata(chat.metadata);
+  if (typeof metadata.branchName === "string" && metadata.branchName.trim() === PLACEHOLDER_BRANCH_NAME) {
+    return chat.name;
+  }
+  return getChatDisplayName(chat);
 }
 
 // "pancatfan - 2025-11-25@19h22m33s" (SillyTavern's chat file name, kept on import) or a plain trailing

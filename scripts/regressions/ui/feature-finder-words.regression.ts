@@ -32,4 +32,8 @@ assert.equal(first("regex")?.feature.id, "regexScripts");
 assert.equal(first("group chats")?.feature.id, "groupChats");
 assert.equal(first("instruct template")?.feature.id, "instruct");
 assert.equal(first("advanced formatting")?.feature.id, "instruct");
+// QC panel 2, D11: plain questions find the starter guides.
+assert.equal(first("getting started")?.feature.id, "gettingStarted");
+assert.equal(first("how do i start")?.feature.id, "gettingStarted");
+assert.equal(first("tokens")?.feature.id, "aiBasics");
 console.log("feature finder words: OK");
