@@ -472,8 +472,16 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       (stUserName ? lookup.get(personaLookupKey(stUserName)) : undefined) ??
       null;
     if (stUserName && personaLookupKey(stUserName) !== personaLookupKey("User")) {
+      // Name the persona the chat is linked to; the avatar lock can point at another name than the header's.
+      const linked = personaId
+        ? await createCharactersStorage(db)
+            .getPersona(personaId)
+            .catch(() => null)
+        : null;
       importNotes.push(
-        personaId ? { kind: "persona", name: stUserName } : { kind: "personaMissing", name: stUserName },
+        personaId
+          ? { kind: "persona", name: (linked as { name?: string } | null)?.name || stUserName }
+          : { kind: "personaMissing", name: stUserName },
       );
     }
   }
@@ -509,14 +517,15 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     try {
       const stMsg = JSON.parse(lines[i]!) as STChatMessage;
 
-      const exportedRole = normalizeImportedRole(stMsg.role) ?? normalizeImportedRole(stMsg.extra?.marinara_role);
+      const exportedRole =
+        normalizeImportedRole(stMsg.role) ??
+        normalizeImportedRole(stMsg.extra?.marinara_role) ??
+        normalizeImportedRole(stMsg.extra?.type);
       // SillyTavern marks a message hidden from the AI with is_system; it is still the user's or the
       // character's message. Marinara's own exports write the role, and is_system there means a system message.
       const hiddenInSillyTavern = !exportedRole && stMsg.is_system === true;
       const role =
-        exportedRole ??
-        normalizeImportedRole(stMsg.extra?.type) ??
-        (stMsg.is_user ? "user" : stMsg.is_system && !hiddenInSillyTavern ? "system" : "assistant");
+        exportedRole ?? (stMsg.is_user ? "user" : stMsg.is_system && !hiddenInSillyTavern ? "system" : "assistant");
       const rawContent = typeof stMsg.mes === "string" ? stMsg.mes : "";
       const messageExtra = normalizeImportedExtra(stMsg.extra);
       if (hiddenInSillyTavern) {

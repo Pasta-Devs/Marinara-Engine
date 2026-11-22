@@ -215,6 +215,14 @@ interface STBulkScanItemBase {
   modifiedAt: string | null;
 }
 
+/** A global regex script's identity in settings.json: its name and pattern, not its place in the list. */
+function regexScriptFingerprint(name: unknown, findRegex: unknown) {
+  return createHash("sha1")
+    .update(`${typeof name === "string" ? name : ""}\u0000${typeof findRegex === "string" ? findRegex : ""}`)
+    .digest("hex")
+    .slice(0, 12);
+}
+
 export interface STBulkScanResult {
   success: boolean;
   error?: string;
@@ -228,7 +236,7 @@ export interface STBulkScanResult {
   backgrounds: STBulkScanItemBase[];
   personas: Array<STBulkScanItemBase & { description: string }>;
   /** Global regex scripts from settings.json (extension_settings.regex); index is the script's place there. */
-  regexScripts?: Array<STBulkScanItemBase & { index: number }>;
+  regexScripts?: Array<STBulkScanItemBase & { index: number; fingerprint?: string }>;
   /** What the folder holds that Marinara has no matching feature for, counted so the import can say so. */
   notBroughtOver?: STNotBroughtOver;
 }
@@ -519,15 +527,13 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
         const name = (script as Record<string, unknown>).scriptName;
         const findRegex = (script as Record<string, unknown>).findRegex;
         // The id names the script, not only its place, so a pick still means the same script if the list moved.
-        const fingerprint = createHash("sha1")
-          .update(`${typeof name === "string" ? name : ""}\u0000${typeof findRegex === "string" ? findRegex : ""}`)
-          .digest("hex")
-          .slice(0, 12);
+        const fingerprint = regexScriptFingerprint(name, findRegex);
         regexScripts.push({
           id: makeScanItemId("regexScripts", dataDir, `${settingsPath}#${index}:${fingerprint}`),
           path: settingsPath,
           name: typeof name === "string" && name.trim() ? name.trim() : `Regex ${index + 1}`,
           index,
+          fingerprint,
           modifiedAt,
         });
       }
@@ -569,7 +575,8 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   const countJson = async (...folders: string[]) => {
     for (const folder of folders) {
       const dir = join(dataDir, folder);
-      if (existsSync(dir)) return (await listFiles(dir, ".json")).length;
+      // Only counted for the report: a folder that can't be read must not stop the import of what can.
+      if (existsSync(dir)) return (await listFiles(dir, ".json").catch(() => [])).length;
     }
     return 0;
   };
@@ -1229,7 +1236,19 @@ export async function runSTBulkImport(
     try {
       const settings = JSON.parse(await readFile(selectedRegex[0]!.path, "utf-8"));
       const all = readSettingsRegexScripts(settings);
-      const picked = selectedRegex.map((item) => all[item.index]).filter((script) => script !== undefined);
+      // settings.json is read again here; take a pick only if it is still the script that was scanned.
+      const picked: unknown[] = [];
+      for (const item of selectedRegex) {
+        const script = all[item.index] as Record<string, unknown> | undefined;
+        if (
+          script &&
+          (!item.fingerprint || regexScriptFingerprint(script.scriptName, script.findRegex) === item.fingerprint)
+        ) {
+          picked.push(script);
+        } else {
+          errors.push(`Regex script "${item.name}": settings.json changed since the scan, so it was not imported.`);
+        }
+      }
       const regexStorage = createRegexScriptsStorage(db);
       const existing = await regexStorage.list();
       const orderBase = existing.reduce((maximum, script) => Math.max(maximum, script.order), -1) + 1;

@@ -286,7 +286,12 @@ export function CharacterRegexSection({
           const normalized = normalizeRegexImportEntry(entry, orderBase + index);
           if (!normalized) {
             const skipReason = regexImportSkipReason(entry);
-            failed.push(`Entry ${index + 1}: ${skipReason ?? "missing name or find pattern."}`);
+            failed.push(
+              localizeUi("ui.regex.importEntryRejected", {
+                number: index + 1,
+                reason: skipReason ?? localizeUi("ui.regex.importEntryMissingFields"),
+              }),
+            );
             continue;
           }
           try {
