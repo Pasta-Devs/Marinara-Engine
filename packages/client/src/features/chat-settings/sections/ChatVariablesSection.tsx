@@ -245,7 +245,7 @@ export function ChatVariablesSection({ sectionId, order, chatId, variables }: Ch
         <button
           type="button"
           onClick={() => setRows((current) => [...current, newDraftRow()])}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
+          className="ov-hit-y flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-xs text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--primary)]"
         >
           <Plus size="0.75rem" /> {localizeUi("ui.chatSettings.chatvariablessection.addVariable")}
         </button>

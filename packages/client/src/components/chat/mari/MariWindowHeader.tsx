@@ -8,6 +8,7 @@ import { CharacterPreviewModel } from "../../../lib/character-preview";
 import { LorebookPreviewModel } from "../../../lib/lorebook-preview";
 import { mariImgLoading, MARI_ASSET_TIER } from "../../../lib/mari-work-animations";
 import { cn } from "../../../lib/utils";
+import { useBackDismiss } from "../../../hooks/use-back-dismiss";
 import { professorMariContextCount } from "../../../lib/professor-mari-presentation";
 import { ProfessorMariContextControl } from "../ProfessorMariContextControl";
 
@@ -74,6 +75,8 @@ export function MariWindowHeader({
   // Phones: Chats, Skills, Memories, Context and New did not fit beside her name and ran off the
   // page, so below 640px they move into one ☰ menu (the omnibar's phone menu, same rows).
   const [menuOpen, setMenuOpen] = useState(false);
+  // Back (swipe, hardware back) closes the menu and stays with Professor Mari.
+  useBackDismiss(menuOpen, () => setMenuOpen(false));
   const [contextOpen, setContextOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);

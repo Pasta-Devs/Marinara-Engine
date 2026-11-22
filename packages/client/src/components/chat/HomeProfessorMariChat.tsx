@@ -1,4 +1,5 @@
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { MariStorySprite } from "./MariStorySprite";
 import {
   type ReactNode,
@@ -496,6 +497,8 @@ export function HomeProfessorMariChat({
   // menu keeps it compact (moving focus into the menu closes the keyboard); closing the menu restores it.
   const keyboardOpen = useChatKeyboardOpen();
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  // Back (swipe, hardware back) closes the ☰ menu and stays with Professor Mari.
+  useBackDismiss(headerMenuOpen, () => setHeaderMenuOpen(false));
   const headerMenuRef = useRef<HTMLDivElement>(null);
   const headerCompact = keyboardOpen || headerMenuOpen;
   const chatHistoryOpen = workspaceDestination === "chats";

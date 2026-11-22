@@ -212,7 +212,10 @@ export function AssetGrid({
                     e.stopPropagation();
                     onOpenActionMenu(node, e.currentTarget);
                   }}
-                  className="absolute right-1.5 top-1.5 rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                  type="button"
+                  aria-label={localizeUi("ui.gameAssets.assetgrid.moreActionsFor", { name: node.name })}
+                  title={localizeUi("ui.gameAssets.assetgrid.moreActionsFor", { name: node.name })}
+                  className="ov-ga__more absolute right-1.5 top-1.5 rounded-md p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                 >
                   <MoreHorizontal size="0.875rem" />
                 </button>

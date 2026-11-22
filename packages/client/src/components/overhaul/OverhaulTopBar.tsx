@@ -6,6 +6,7 @@
 // Chat settings, Help, Library and the Library pane toggle on the right.
 // Sidebar collapse controls live here, never over the chat background.
 // ──────────────────────────────────────────────
+import { requestCloseChatSettings, toggleChatSettings as toggleChatSettingsWindow } from "../../lib/chat-settings-close";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   BookOpen,
@@ -788,8 +789,12 @@ export function OverhaulTopBar() {
     if (!before.settings) {
       reopenLibraryRef.current = true;
       useUIStore.getState().closeRightPanel();
-    } else if (!before.library)
-      useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
+    } else if (!before.library) {
+      // An editor page with unsaved edits asks first; keeping them keeps Chat settings and closes the Library again.
+      void requestCloseChatSettings().then((closed) => {
+        if (!closed) useUIStore.getState().closeRightPanel();
+      });
+    }
   }, [chatSettingsFloating, chatSettingsOpen, rightPanelOpen]);
 
   useTabBookkeeping(current, chats);
@@ -798,9 +803,7 @@ export function OverhaulTopBar() {
   const chatOnScreen = current?.kind === "chat";
   const toggleChatSettings = (button: HTMLButtonElement) => {
     void preloadChatSettingsDrawer();
-    const windows = useFloatingWindowStore.getState();
-    if (windows.open[CHAT_SETTINGS_WINDOW_ID]) windows.dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
-    else windows.openWindow(CHAT_SETTINGS_WINDOW_ID, button);
+    toggleChatSettingsWindow(button);
   };
   const libraryOpen = rightPanelOpen;
   const modeLabel = activeChat

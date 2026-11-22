@@ -15913,8 +15913,10 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-assets__title {
   display: flex;
   min-width: 0;
-  flex: 1;
-  flex-wrap: wrap;
+  flex: 1 0 auto;
+  /* "Assets" and its tabs stay on one line on all three tabs: a tab whose header carries more tools moves its tools
+     to the next line, never its tabs, so the strip doesn't jump between rows (QC panel 3, iPad sideways). */
+  flex-wrap: nowrap;
   align-items: center;
   gap: 0.5rem 1rem;
 }
@@ -17125,4 +17127,65 @@ input.ov-edhead__title:not(#ov-x) {
 }
 :root[data-overhaul="mobile"] .omnibar-settings-inline .omnibar-settings-group > * + * {
   border-top: 1px solid var(--ov-line, var(--border));
+}
+
+/* QC panel 3 (Nov 22): on phones and tablets upright an editor page's header is the sheet's own; the page keeps
+   only a row for its actions (Save and the like), and only while it has some. */
+:root .ov-cs-sub .ov-cs-sub__head.ov-cs-sub__head--actions {
+  min-height: 0;
+  justify-content: flex-end;
+  padding: 0.375rem 0.75rem;
+}
+:root .ov-cs-sub .ov-cs-sub__head.ov-cs-sub__head--actions:has(> .ov-cs-sub__actions:empty) {
+  display: none;
+}
+
+/* ─── QC panel 3 (Nov 22, batch D): the touch targets still under 44 px ───
+   Same rule as above: 44 px in both directions on a touch device, as a size or as an invisible hit area. */
+/* iPad sideways: the top bar's tabs keep their look; their up-and-down hit area is no longer clipped by the strip
+   (it clips sideways only, where it hides overflowing tabs). */
+:root[data-overhaul][data-marinara-touch-device="true"] .ov-tabs:not(#ov-hit) {
+  overflow-x: clip;
+  overflow-y: visible;
+}
+/* Split view's divider stays a 6 px line, with a finger-wide grip around it. */
+:root[data-overhaul][data-marinara-touch-device="true"] .ov-split-divider::after {
+  content: "";
+  position: absolute;
+  inset: 0 -19px;
+}
+/* "+ tag", the field tools (Preview / Expand / Macro) and Professor Mari's composer buttons. */
+:root[data-overhaul][data-marinara-touch-device="true"] .ov-tag--add:not(#ov-hit) {
+  position: relative;
+}
+:root[data-overhaul][data-marinara-touch-device="true"] .ov-tag--add:not(#ov-hit)::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - 2.75rem) / 2)) 0;
+}
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is([data-macro-field] > [data-macro-tools] > :is(button, a), .mari-composer-icon):not(#ov-hit):not(#ov-hit2):not(
+    #ov-hit3
+  ) {
+  min-width: 2.75rem;
+}
+/* Professor Mari's ☰ menu rows. */
+:root[data-marinara-touch-device="true"] .mari-omnibar-header-menu__popover button:not(#ov-hit) {
+  min-height: 2.75rem;
+}
+/* Settings profiles' (and every viewer's) search box. */
+:root[data-overhaul][data-marinara-touch-device="true"] .ov-vw__search:not(#ov-hit) {
+  min-height: 2.75rem;
+}
+/* New-chat setup: its pickers and fields. */
+:root[data-overhaul][data-marinara-touch-device="true"]
+  .ov-setup
+  :is(.mari-chrome-field, input:not([type="checkbox"], [type="radio"], [type="range"]), select):not(#ov-hit) {
+  min-height: 2.75rem;
+}
+/* Game assets' ⋯ on a folder or file tile. */
+:root[data-marinara-touch-device="true"] .ov-ga__more::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - 2.75rem) / 2));
 }

@@ -29,7 +29,9 @@ import { useDocsFind } from "../../hooks/use-docs-find";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
-import { useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { useMatchMedia } from "../../hooks/use-match-media";
+import { useBackSteps } from "../../hooks/use-back-steps";
 import { dirLabel, prepareDocMarkdown } from "../modals/DocsViewerModal";
 import { splitDocAtShots, type DocShot } from "./docs-shots";
 import { useFeatureShow } from "../../hooks/use-feature-show";
@@ -94,6 +96,11 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
   const localize = useLocalizedUiText();
   const path = useOverhaulStore((s) => s.docsTabs[tabId] ?? null);
   const setDocsPath = useOverhaulStore((s) => s.setDocsPath);
+  // Phones show one pane at a time (the guide replaces the list, with its own back): back goes to the list first
+  // (QC panel 3: Android's back skipped it).
+  const overhaulMobile = useOverhaulMobile();
+  const phoneWidth = useMatchMedia("(max-width: 767px)");
+  useBackSteps(path && overhaulMobile && phoneWidth ? 1 : 0, () => setDocsPath(tabId, null));
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);

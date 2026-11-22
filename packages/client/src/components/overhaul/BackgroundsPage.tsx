@@ -69,6 +69,8 @@ export function BackgroundsPage() {
   const defaultRoleplayBackground = useUIStore((s) => s.defaultRoleplayBackground);
   const setDefaultRoleplayBackground = useUIStore((s) => s.setDefaultRoleplayBackground);
   const [picked, setPicked] = useState<Picked>(null);
+  const pickedRef = useRef<Picked>(null);
+  pickedRef.current = picked;
   const [pickedTags, setPickedTags] = useState<string[]>([]);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [listView, setListView] = useState(false);
@@ -123,8 +125,12 @@ export function BackgroundsPage() {
   const menu = useKitMenu();
   const source = sourceFilter as Source;
   const openFolder = folders.find((folder) => folder.id === folderFilter) ?? null;
-  // Back (mouse, browser, swipe) leaves an open folder for the page's folder list.
-  useBackSteps(openFolder ? 1 : 0, () => setFolderFilter("all"));
+  // Back (mouse, browser, swipe) closes an open picture first, then leaves an open folder for the page's folder list
+  // (QC panel 3: back from an open picture skipped the grid).
+  useBackSteps((openFolder ? 1 : 0) + (picked ? 1 : 0), () => {
+    if (pickedRef.current) setPicked(null);
+    else setFolderFilter("all");
+  });
   const searching = !!searchQuery.trim() || pickedTags.length > 0 || favoritesOnly;
   const tagCounts = useMemo(() => countItemTags(backgrounds), [backgrounds]);
   const shown = visibleBackgrounds.filter(

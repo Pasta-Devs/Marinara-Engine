@@ -79,6 +79,7 @@ import { type ChatToolbarFloatingPanelAnchor } from "../../components/chat/ChatT
 import { changedId } from "../../components/characters/CharacterSelect";
 import { PictureCheckFields } from "./PictureCheckFields";
 import { ChatSettingsDeferBodiesContext, ChatSettingsSection as Section } from "./ChatSettingsSection";
+import { registerChatSettingsCloser } from "../../lib/chat-settings-close";
 import { useMobileChatSettingsNav } from "./mobile-nav";
 import { requestCloseChatSettingsSubpage, useChatSettingsSubpage, type ChatSettingsSubpageId } from "./subpage";
 import {
@@ -235,7 +236,7 @@ import { getCharacterTitle, parseCharacterDisplayData } from "../../lib/characte
 import { extractCreatorNotesCss } from "../../lib/creator-notes-css";
 import { isLorebookScopeActiveForChat } from "../../lib/lorebook-scope";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
-import { ROLEPLAY_AVATAR_STYLES, useUIStore } from "../../stores/ui.store";
+import { isMobileShellViewport, ROLEPLAY_AVATAR_STYLES, useUIStore } from "../../stores/ui.store";
 import { blurActiveChatFloatingUiControl } from "../../lib/chat-floating-ui-events";
 import { requestChatHelp } from "../../lib/chat-help-events";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
@@ -569,7 +570,7 @@ export function ChatSettingsDrawer({
   useEffect(() => {
     const nav = useMobileChatSettingsNav.getState();
     if (!overhaulMobile || ovEditing) nav.turnOff();
-    else if (windowOpen) nav.showQuick();
+    else if (windowOpen) nav.showOnOpen();
   }, [overhaulMobile, ovEditing, windowOpen]);
   const ovDocked = overhaulDesktop && !ovFloating;
   // Docked Chat settings narrows the chat beside it instead of covering it. In Game Mode it slides over
@@ -739,8 +740,18 @@ export function ChatSettingsDrawer({
   const scopedRegexMode = resolveScopedRegexMode(metadata.scopedRegexMode, presetScopedRegexMode);
   // A full-page surface opened from this drawer: Back from it reopens the drawer (see `chatSettingsReturn`).
   const rememberSettingsReturn = useCallback(
-    () => useUIStore.getState().setChatSettingsReturn({ chatId: chat.id, section: initialSection ?? null }),
-    [chat.id, initialSection],
+    () => {
+      // Phones and tablets upright: back comes to the same page of the sheet (Agents), not its Quick page.
+      const nav = useMobileChatSettingsNav.getState();
+      useUIStore.getState().setChatSettingsReturn({
+        chatId: chat.id,
+        section: initialSection ?? null,
+        ...(overhaulMobile && (nav.view === "all" || nav.view === "page")
+          ? { mobileNav: { view: nav.view, page: nav.page, back: nav.back } }
+          : {}),
+      });
+    },
+    [chat.id, initialSection, overhaulMobile],
   );
   const closeForSurface = useCallback(() => {
     rememberSettingsReturn();
@@ -1416,6 +1427,11 @@ export function ChatSettingsDrawer({
   const activeSubpage: ChatSettingsSubpageId | null =
     overhaulActive && windowOpen && subpageState?.chatId === chat.id ? subpageState.id : null;
   const closeSubpage = useChatSettingsSubpage((state) => state.closeSubpage);
+  // Phones and tablets upright: an editor page takes over the sheet's header (back, its name, close), so the page
+  // shows one header, not the sheet's and its own (QC panel 3, Nov 22).
+  const subpageInSheetHeader = overhaulMobile && mobileNavView !== "off" && !!activeSubpage;
+  const mobileHeaderTitle =
+    subpageInSheetHeader && activeSubpage ? localizeUi(SUBPAGE_TITLE_KEYS[activeSubpage]) : mobileDrillTitle;
   const agentSuiteOpen = overhaulActive ? activeSubpage === "agent-suite" : showAgentSuiteModal;
   if (agentSuiteOpen && !agentSuiteLoaded) setAgentSuiteLoaded(true);
   useLayoutEffect(() => {
@@ -1453,10 +1469,6 @@ export function ChatSettingsDrawer({
     [closeSubpage, overhaulActive, showSubpage],
   );
   useEffect(() => setMemoryViewState(null), [advancedMemoryEnabled, chat.id]);
-  // Leaving Chat settings leaves its editor page too (the next open starts on the list).
-  useEffect(() => {
-    if (!windowOpen && useChatSettingsSubpage.getState().subpage?.chatId === chat.id) closeSubpage();
-  }, [chat.id, closeSubpage, windowOpen]);
   // A scene number in the Fix box (or a notice) opens Access memories at that scene.
   const advancedMemorySceneRequest = useUIStore((state) =>
     state.advancedMemoryRequest?.chatId === chat.id ? state.advancedMemoryRequest.sceneId : undefined,
@@ -2043,6 +2055,8 @@ export function ChatSettingsDrawer({
     },
     [flushProseGuardianDrafts, onClose, showAgentSuiteModal],
   );
+  // Every other Chat settings closer (top-bar and toolbar buttons, back) runs this same guarded close.
+  useEffect(() => registerChatSettingsCloser(() => requestClose(true)), [requestClose]);
   // The onboarding template whose questions window is open, picked from the
   // persona picker. A character, not a persona: nothing exists until Create.
   const [onboardingTemplateId, setOnboardingTemplateId] = useState<string | null>(null);
@@ -2385,7 +2399,8 @@ export function ChatSettingsDrawer({
               onClick={() => {
                 closeForSurface();
                 const ui = useUIStore.getState();
-                ui.openRightPanel("agents");
+                // The phone's Agents panel would be where back lands instead of Chat settings.
+                if (!isMobileShellViewport()) ui.openRightPanel("agents");
                 ui.openAgentDetail("__new__");
               }}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
@@ -2916,16 +2931,16 @@ export function ChatSettingsDrawer({
         }}
         presentation={phoneLayout || overhaulMobile ? "sheet" : "window"}
         // Phones and tablets: on the list and on a section's page the header is that page's own (back, name, help).
-        title={mobileDrillTitle ?? localizeUi("chat.toolbar.settings")}
+        title={mobileHeaderTitle ?? localizeUi("chat.toolbar.settings")}
         titleIcon={
-          mobileDrillTitle ? (
+          mobileHeaderTitle ? (
             <MobileChatSettingsHeaderBack />
           ) : (
             <Settings2 size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
           )
         }
         titleAccessory={
-          mobileDrillTitle ? (
+          mobileHeaderTitle ? (
             <MobileChatSettingsPageHelp />
           ) : overhaulActive ? (
             <OvChatSettingsHeader mode={chatMode} />
@@ -2935,7 +2950,7 @@ export function ChatSettingsDrawer({
         }
         // Docked keeps a quiet header; Edit still offers Reset View there. A page on phones and tablets keeps only back,
         // its name, its help and close, so a long page name stays whole (themes may refuse to shorten it).
-        headerControls={ovDocked ? (ovEditing ? resetViewButton : null) : mobileDrillTitle ? null : headerControls}
+        headerControls={ovDocked ? (ovEditing ? resetViewButton : null) : mobileHeaderTitle ? null : headerControls}
         closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
         {...windowProps}
         // Sidebar presses belong to the modeless profile editor while it is open.
@@ -2992,7 +3007,7 @@ export function ChatSettingsDrawer({
         {/* Arranges the classic chat's floating buttons, which the new layout never shows. */}
         {!overhaulActive && <ChatButtonLayoutSettings />}
 
-        {activeSubpage && <ChatSettingsSubpageFrame id={activeSubpage} />}
+        {activeSubpage && <ChatSettingsSubpageFrame id={activeSubpage} inSheetHeader={subpageInSheetHeader} />}
 
         {/* Desktop and iPad landscape: section bodies load as they near the visible list (not on a jump to one). */}
         <ChatSettingsDeferBodiesContext.Provider value={overhaulDesktop && !overhaulMobile && !initialSection}>
@@ -5814,8 +5829,12 @@ const SUBPAGE_TITLE_KEYS: Record<ChatSettingsSubpageId, string> = {
   summaries: "ui.chat.chatsettingsdrawer.automaticSummarization",
 };
 
-/** The editor page's header (back to Chat settings, title, actions) and the slot its body renders into. */
-function ChatSettingsSubpageFrame({ id }: { id: ChatSettingsSubpageId }) {
+/**
+ * The editor page's header (back to Chat settings, title, actions) and the slot its body renders into. On phones and
+ * tablets upright the sheet's header is the page's header already (`inSheetHeader`): only a row for the page's
+ * actions stays, and only while it has some.
+ */
+function ChatSettingsSubpageFrame({ id, inSheetHeader }: { id: ChatSettingsSubpageId; inSheetHeader: boolean }) {
   const { t: localizeUi } = useUiTranslation();
   const setSlot = useChatSettingsSubpage((state) => state.setSlot);
   const setActionsSlot = useChatSettingsSubpage((state) => state.setActionsSlot);
@@ -5825,6 +5844,15 @@ function ChatSettingsSubpageFrame({ id }: { id: ChatSettingsSubpageId }) {
   useEffect(() => {
     backRef.current?.focus({ preventScroll: true });
   }, [id]);
+  if (inSheetHeader)
+    return (
+      <section className="ov-cs-sub" data-chat-settings-subpage={id} aria-label={title}>
+        <div className="ov-cs-sub__head ov-cs-sub__head--actions">
+          <div ref={setActionsSlot} className="ov-cs-sub__actions" />
+        </div>
+        <div ref={setSlot} className="ov-cs-sub__slot" />
+      </section>
+    );
   return (
     <section className="ov-cs-sub" data-chat-settings-subpage={id} aria-label={title}>
       <div className="ov-cs-sub__head">

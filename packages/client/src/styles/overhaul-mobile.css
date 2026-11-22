@@ -780,11 +780,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Header controls are full touch targets (44px). They sit in a row, so they grow rather than getting a hit area. */
+/* Header controls are full touch targets (44px). They sit in a row, so they grow rather than getting a hit area. Sized
+   in px, so a large Display size grows the title, not the four controls beside it (QC panel 3: "Ch…" at Huge). */
 :root[data-overhaul="mobile"] .ov-cs > .mari-window__header .mari-window__control {
-  width: 2.75rem;
-  min-width: 2.75rem;
-  height: 2.75rem;
+  width: 47px;
+  min-width: 47px;
+  height: 47px;
   flex-shrink: 0;
 }
 :root[data-overhaul="mobile"] .ov-cs > .mari-window__header {
@@ -839,6 +840,39 @@
     padding-top: 0.625rem !important;
   }
   .ov-cs.ov-cs.ov-cs.ov-cs
+    [data-ovm-cs-view]
+    .mari-drawer[data-chat-settings-section="connection"]
+    .mari-drawer__body
+    [data-chat-settings-model-field]
+    > button[type="button"][aria-expanded] {
+    justify-content: flex-start !important;
+    padding-left: 2rem !important;
+  }
+}
+/* Large Display size on a phone (Large, Huge): the same narrow-screen rules as above, since 22px text on a 375px
+   iPhone leaves the room of a 300px screen (QC panel 3, issue 6). */
+@media (max-width: 479px) {
+  :root[data-mari-large-text][data-overhaul="mobile"] .ov-cs .mari-window__title {
+    font-size: 0.9375rem;
+  }
+  :root[data-mari-large-text][data-overhaul="mobile"] .ov-cs > .mari-window__header .mari-window__control {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+  :root[data-mari-large-text][data-overhaul="mobile"] .ov-cs > .mari-window__header {
+    padding-left: 0.5rem;
+    padding-right: 0.125rem;
+  }
+  :root[data-mari-large-text][data-overhaul="mobile"] .ov-cs .mari-window__title-row {
+    gap: 0;
+  }
+  :root[data-mari-large-text] .ov-cs.ov-cs.ov-cs [data-ovm-cs-view] .mari-drawer[data-chat-settings-section="connection"] {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 0.625rem !important;
+  }
+  :root[data-mari-large-text]
+    .ov-cs.ov-cs.ov-cs.ov-cs
     [data-ovm-cs-view]
     .mari-drawer[data-chat-settings-section="connection"]
     .mari-drawer__body

@@ -8,6 +8,22 @@
 
 export const PHONE_TOAST_TOP_VARIABLE = "--mari-phone-toast-top";
 
+// Page headers: a page's own head can start a little lower under the top bar (padding, a setup page's inset), so it
+// counts as stacked within PAGE_STACK_GAP_PX, not STACK_GAP_PX.
+const PAGE_HEAD_ROWS = [
+  "[data-page-head]",
+  ".ovm-drill-page__head",
+  ".ovm-lv-head",
+  ".ov-libpage__head",
+  ".ov-org-gallery__head",
+  ".ov-org-detail__head",
+  ".ov-cs-sub__head",
+  ".ov-docs__back",
+  ".ov-setup__head",
+  ".ov-settings__head",
+];
+const PAGE_HEAD_SELECTOR = PAGE_HEAD_ROWS.join(",");
+
 // The chat's buttons, a window or sheet, the right panel, the chat list, an editor and custom headers.
 const PHONE_HEADER_ROWS = [
   ".mari-window-bubble",
@@ -24,10 +40,14 @@ const PHONE_HEADER_ROWS = [
   ".ov-gallery__head",
   ".ov-settings__head",
   "[data-mari-window-header]",
+  // QC panel 3: page headers the list missed (phone drill pages, lore entry, Library landing pages, Agent Organizer,
+  // Chat settings editor pages, a Docs guide's back). `data-page-head` marks any other.
+  ...PAGE_HEAD_ROWS,
 ].join(",");
 // A row starting this close below the rows above it belongs to the same stack (the chat's buttons sit
 // 8px under the top bar); anything further down, such as a chat button moved lower, does not.
 const STACK_GAP_PX = 16;
+const PAGE_STACK_GAP_PX = 32;
 const TOAST_GAP_PX = 8;
 const TOP_BAR = '[data-component="TopBar"]';
 const HEADERS = `${TOP_BAR},${PHONE_HEADER_ROWS}`;
@@ -37,7 +57,18 @@ export function phoneToastTop(): number {
   let bottom = document.querySelector(TOP_BAR)?.getBoundingClientRect().bottom ?? 0;
   const rows = Array.from(document.querySelectorAll(PHONE_HEADER_ROWS))
     .filter((row) => getComputedStyle(row).visibility === "visible")
-    .map((row) => row.getBoundingClientRect())
+    .map((row) => {
+      const rect = row.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        width: rect.width,
+        height: rect.height,
+        gap: row.matches(PAGE_HEAD_SELECTOR) ? PAGE_STACK_GAP_PX : STACK_GAP_PX,
+      };
+    })
     .filter(
       (rect) =>
         rect.width > 0 &&
@@ -49,7 +80,7 @@ export function phoneToastTop(): number {
     )
     .sort((a, b) => a.top - b.top);
   for (const rect of rows) {
-    if (rect.top <= bottom + STACK_GAP_PX) bottom = Math.max(bottom, rect.bottom);
+    if (rect.top <= bottom + rect.gap) bottom = Math.max(bottom, rect.bottom);
   }
   return Math.round(bottom + TOAST_GAP_PX);
 }

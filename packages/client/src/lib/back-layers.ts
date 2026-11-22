@@ -19,6 +19,7 @@ import { CHAT_SETTINGS_WINDOW_ID } from "../stores/floating-window.store";
 import { useMobileChatSettingsNav } from "../features/chat-settings/mobile-nav";
 import { requestCloseChatSettingsSubpage, useChatSettingsSubpage } from "../features/chat-settings/subpage";
 import { SPLIT_PANE } from "./split-view-env";
+import { requestCloseChatSettings } from "./chat-settings-close";
 import { isTouchDevice } from "./touch-device";
 
 /**
@@ -164,14 +165,12 @@ function phonePageLayers(layers: BackLayer[]) {
 function phoneSheetLayers(layers: BackLayer[]) {
   const overhaul = useOverhaulStore.getState();
   if (!overhaul.enabled) return;
+  const chatSettingsOpen = useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID] === true;
   if (overhaul.desktop) {
     // Touch desktop shell (a tablet held sideways): Chat settings is one accordion with no drill views, so back closes
-    // it. Kept in the same place as the phone sheet's layer, so rotating with it open pushes and pops nothing.
-    if (isTouchDevice() && !SPLIT_PANE && useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID] === true)
-      layers.push({
-        id: "chat-settings",
-        close: () => useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true }),
-      });
+    // it, or first its editor page. Kept in the same place as the phone sheet's layer, so rotating with it open
+    // pushes and pops nothing.
+    if (isTouchDevice() && !SPLIT_PANE && chatSettingsOpen) chatSettingsLayers(layers, false);
     return;
   }
   if (overhaul.mobileSidePageOpen)
@@ -180,18 +179,26 @@ function phoneSheetLayers(layers: BackLayer[]) {
     layers.push({ id: "all-tabs", close: () => useOverhaulStore.getState().setAllTabsOpen(false) });
   // Chat settings as a sheet: back goes from an editor page to its section, from a section's page to the list
   // it came from, then closes the sheet.
-  if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID] === true)
-    layers.push({
-      id: "chat-settings",
-      close: () => {
-        const nav = useMobileChatSettingsNav.getState();
-        // An editor page (Chat Variables, Agent Suite…) goes back to the settings first, asking about unsaved edits.
-        if (useChatSettingsSubpage.getState().subpage) void requestCloseChatSettingsSubpage();
-        else if (nav.view === "page") nav.goBack();
-        else if (nav.view === "all") nav.showQuick();
-        else useFloatingWindowStore.getState().closeWindow(CHAT_SETTINGS_WINDOW_ID);
-      },
-    });
+  if (chatSettingsOpen) chatSettingsLayers(layers, true);
+}
+
+/**
+ * Chat settings, one back entry per level, so each back (and each Safari swipe) steps up exactly one: the sheet,
+ * All settings, a section's page, an editor page (Chat Variables, Memories…). An entry pushed when a level opens
+ * stays inside the tap that opened it, where Safari keeps it. Unsaved edits on an editor page are asked about
+ * before leaving it, and closing the sheet goes through the same question (QC panel 3, Nov 22).
+ */
+function chatSettingsLayers(layers: BackLayer[], drill: boolean) {
+  layers.push({ id: "chat-settings", close: () => void requestCloseChatSettings() });
+  if (drill) {
+    const nav = useMobileChatSettingsNav.getState();
+    if (nav.view === "all" || (nav.view === "page" && nav.back === "all"))
+      layers.push({ id: "chat-settings-all", close: () => useMobileChatSettingsNav.getState().showQuick() });
+    if (nav.view === "page")
+      layers.push({ id: "chat-settings-page", close: () => useMobileChatSettingsNav.getState().goBack() });
+  }
+  if (useChatSettingsSubpage.getState().subpage)
+    layers.push({ id: "chat-settings-sub", close: () => void requestCloseChatSettingsSubpage() });
 }
 
 export function getStoreBackLayers(): BackLayer[] {

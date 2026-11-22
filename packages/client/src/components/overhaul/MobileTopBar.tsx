@@ -6,6 +6,7 @@
 // message composer. Tabs are not shown in the bar; they live in a
 // Safari-style All Tabs viewer, opened from the Stack menu.
 // ──────────────────────────────────────────────
+import { toggleChatSettings as toggleChatSettingsWindow } from "../../lib/chat-settings-close";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, Check, ChevronLeft, Home, Layers, Plus, Search, Settings2, X } from "lucide-react";
@@ -285,9 +286,7 @@ export function OverhaulMobileTopBar() {
 
   const toggleChatSettings = (button: HTMLButtonElement) => {
     void preloadChatSettingsDrawer();
-    const windows = useFloatingWindowStore.getState();
-    if (windows.open[CHAT_SETTINGS_WINDOW_ID]) windows.dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
-    else windows.openWindow(CHAT_SETTINGS_WINDOW_ID, button);
+    toggleChatSettingsWindow(button);
   };
 
   return (

@@ -10,6 +10,13 @@ import { create } from "zustand";
 
 export type MobileChatSettingsView = "off" | "quick" | "all" | "page";
 
+/** Where the sheet was (a section's page, the list): a surface opened from it comes back to the same place. */
+export interface MobileChatSettingsPlace {
+  view: MobileChatSettingsView;
+  page: string | null;
+  back: "quick" | "all";
+}
+
 interface MobileChatSettingsNavState {
   view: MobileChatSettingsView;
   /** The section shown while `view` is "page". */
@@ -27,7 +34,14 @@ interface MobileChatSettingsNavState {
   showPage: (id: string) => void;
   goBack: () => void;
   turnOff: () => void;
+  /** The place the sheet shows the next time it opens (back from Agent Organizer and the like). */
+  pendingPlace: MobilePlaceOrNull;
+  setPendingPlace: (place: MobilePlaceOrNull) => void;
+  /** Opens the sheet where `pendingPlace` says, or on its Quick page. */
+  showOnOpen: () => void;
 }
+
+type MobilePlaceOrNull = MobileChatSettingsPlace | null;
 
 function scrollContainer(): HTMLElement | null {
   return typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-ovm-cs-view]");
@@ -68,4 +82,13 @@ export const useMobileChatSettingsNav = create<MobileChatSettingsNavState>()((se
     requestAnimationFrame(() => requestAnimationFrame(() => scrollContainer()?.scrollTo({ top: restore })));
   },
   turnOff: () => set({ view: "off", page: null }),
+  pendingPlace: null,
+  setPendingPlace: (pendingPlace) => set({ pendingPlace }),
+  showOnOpen: () => {
+    const place = get().pendingPlace;
+    if (place?.view === "page" && place.page)
+      set({ view: "page", page: place.page, back: place.back, pageTitle: null, pageHelp: null, pendingPlace: null });
+    else if (place?.view === "all") set({ view: "all", page: null, pendingPlace: null });
+    else set({ view: "quick", page: null, pendingPlace: null });
+  },
 }));
