@@ -2850,8 +2850,9 @@ export function ChatSettingsDrawer({
             helpLayoutButton
           )
         }
-        // Docked keeps a quiet header; Edit still offers Reset View there.
-        headerControls={ovDocked ? (ovEditing ? resetViewButton : null) : headerControls}
+        // Docked keeps a quiet header; Edit still offers Reset View there. A page on phones and tablets keeps only back,
+        // its name, its help and close, so a long page name stays whole (themes may refuse to shorten it).
+        headerControls={ovDocked ? (ovEditing ? resetViewButton : null) : mobileDrillTitle ? null : headerControls}
         closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
         {...windowProps}
         // Sidebar presses belong to the modeless profile editor while it is open.
