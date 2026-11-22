@@ -22,6 +22,7 @@ import {
   Sparkles,
   Users,
   VenetianMask,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
@@ -362,6 +363,18 @@ export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
   );
 }
 
+/** A tab's ✕, named after its tab: "Close Storm at Gull Point", not one "Close tab" per tab (QC panel 3 AX16). */
+export function TabCloseButton({ tab, chats, onClose }: { tab: OverhaulTab; chats: Chat[]; onClose: () => void }) {
+  const { t } = useTranslation();
+  const name = useTabLabelText(tab, chats);
+  const label = t("ui.tabs.closeNamed", { name });
+  return (
+    <button type="button" draggable className="ov-tab__close" aria-label={label} title={label} onClick={onClose}>
+      <X size={12} />
+    </button>
+  );
+}
+
 const TAB_KIND_KEYS: Partial<Record<OverhaulTab["kind"], string>> = {
   character: "ui.overhaul.tab.kindCharacter",
   chat: "ui.overhaul.tab.kindChat",
@@ -414,7 +427,7 @@ export function DocumentTitle({ tab, chats }: { tab: OverhaulTab | null; chats: 
 }
 const HOME_TITLE_TAB = { kind: "library", id: "" } as OverhaulTab;
 
-function useTabLabelText(tab: OverhaulTab, chats: Chat[]): string {
+export function useTabLabelText(tab: OverhaulTab, chats: Chat[]): string {
   const localize = useLocalizedUiText();
   const character = useCharacter(tab.kind === "character" ? tab.id : null);
   const persona = usePersona(tab.kind === "persona" ? tab.id : null);

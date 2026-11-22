@@ -24,6 +24,7 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
+import { inertOutside } from "../../lib/inert-outside";
 import { Lock, PictureInPicture2, Pin, Unlock, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -134,6 +135,8 @@ export interface FloatingWindowProps {
   className?: string;
   sheetClassName?: string;
   sheetStyle?: CSSProperties;
+  /** As a sheet, the window is modal: the page behind it is inert and it says aria-modal (QC panel 3 AX12). */
+  modalSheet?: boolean;
   headerClassName?: string;
   titleClassName?: string;
   bodyClassName?: string;
@@ -475,6 +478,7 @@ export function FloatingWindow({
   className,
   sheetClassName,
   sheetStyle,
+  modalSheet: modalWhenSheet = false,
   headerClassName,
   titleClassName,
   bodyClassName,
@@ -744,7 +748,8 @@ export function FloatingWindow({
     restoreFocusOnUnmountRef.current = false;
     const requested = takeFloatingWindowFocusRequest(id);
     const focusIsFree = !document.activeElement || document.activeElement === document.body;
-    if ((requested && (!sheet || phoneMenu)) || (!sheet && autoFocus && focusIsFree)) {
+    // A modal sheet takes focus on its root too (QC panel 3 AX12), never an input, so the iOS keyboard stays down.
+    if ((requested && (!sheet || phoneMenu || modalWhenSheet)) || (!sheet && autoFocus && focusIsFree)) {
       rootRef.current?.focus({ preventScroll: true });
     }
     return () => {
@@ -797,6 +802,15 @@ export function FloatingWindow({
   }, [id, pinned, hidden, minimized, requestClose]);
 
   useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
+
+  // QC panel 3 AX12: a sheet (phones, iPad portrait) covers the page, so it is modal: what is behind it is
+  // inert for VoiceOver and Tab. The desktop window stays non-modal (owner decision).
+  const modalSheet = modalWhenSheet && sheet && !hidden && !minimized;
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!modalSheet || !root) return;
+    return inertOutside(root);
+  }, [modalSheet]);
 
   // Drag and keyboard pass geometry that is already clamped. Pin and lock keep the saved geometry, so a
   // window squeezed by a small viewport still returns to its place when the viewport grows again.
@@ -957,7 +971,7 @@ export function FloatingWindow({
     <div
       ref={rootRef}
       role="dialog"
-      aria-modal="false"
+      aria-modal={modalSheet ? "true" : "false"}
       aria-labelledby={titleId}
       tabIndex={-1}
       hidden={hidden || minimized}

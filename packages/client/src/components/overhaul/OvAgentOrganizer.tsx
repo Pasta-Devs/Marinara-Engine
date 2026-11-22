@@ -504,6 +504,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={localize("Search agents")}
+              aria-label={localize("Search agents")}
             />
           </label>
           <nav>
@@ -642,6 +643,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={localize("Search agents")}
+              aria-label={localize("Search agents")}
             />
           </label>
           <select

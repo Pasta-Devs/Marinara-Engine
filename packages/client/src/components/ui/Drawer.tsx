@@ -430,24 +430,27 @@ export function Drawer({
           windowId && "select-none",
         )}
       >
-        <button
-          type="button"
-          role="button"
-          data-drawer-toggle
-          aria-expanded={open}
-          aria-controls={open ? bodyId : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
-        >
-          {icon && <span className="mari-drawer__icon">{icon}</span>}
-          <span className="mari-drawer__title flex-1 text-xs font-semibold">{title}</span>
-        </button>
+        {/* A real heading (QC panel 3 AX14), so a screen reader's heading keys move section to section. */}
+        <h3 className="mari-drawer__heading m-0 flex min-w-0 flex-1">
+          <button
+            type="button"
+            role="button"
+            data-drawer-toggle
+            aria-expanded={open}
+            aria-controls={open ? bodyId : undefined}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          >
+            {icon && <span className="mari-drawer__icon">{icon}</span>}
+            <span className="mari-drawer__title flex-1 text-xs font-semibold">{title}</span>
+          </button>
+        </h3>
         {summary && !open && <span className="mari-drawer__summary flex shrink-0 items-center">{summary}</span>}
         {count != null && count > 0 && (
           <span className="mari-drawer__count rounded-full px-1.5 py-0.5 text-[0.625rem] font-medium">{count}</span>
         )}
         {help && (
           <span className="mari-drawer__help" onClick={(event) => event.stopPropagation()}>
-            <HelpTooltip text={help} side="left" />
+            <HelpTooltip text={help} side="left" topic={typeof title === "string" ? title : undefined} />
           </span>
         )}
         {(actions || canPopOut) && (
@@ -591,7 +594,11 @@ function DetachedDrawerWindow({
             id={windowId}
             title={title}
             titleIcon={icon ? <span className="mari-drawer__icon flex shrink-0">{icon}</span> : undefined}
-            titleAccessory={help ? <HelpTooltip text={help} side="bottom" /> : undefined}
+            titleAccessory={
+              help ? (
+                <HelpTooltip text={help} side="bottom" topic={typeof title === "string" ? title : undefined} />
+              ) : undefined
+            }
             headerControls={headerControls}
             closeLabel={t("window.controls.close")}
             closeAccessory={

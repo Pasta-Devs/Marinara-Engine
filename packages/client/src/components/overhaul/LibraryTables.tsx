@@ -395,7 +395,12 @@ function ListPage<T extends { id: string }>({
       <div className="ov-gallery__tools">
         <label className="ov-search">
           <Search size={14} aria-hidden="true" />
-          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder={searchPlaceholder} />
+          <input
+            value={search}
+            onChange={(event) => onSearch(event.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+          />
         </label>
         {searchExtra}
         {!mobile && chipsAsSelect ? chipSelect : null}
@@ -538,11 +543,11 @@ export function ViewSwitch({
   }
   return (
     <div className="ov-seg" role="group" aria-label={localize("View")}>
-      <button type="button" className={cn(!gallery && "is-on")} onClick={() => onChange(false)}>
+      <button type="button" className={cn(!gallery && "is-on")} aria-pressed={!gallery} onClick={() => onChange(false)}>
         <List size={13} aria-hidden="true" />
         {localize("List")}
       </button>
-      <button type="button" className={cn(gallery && "is-on")} onClick={() => onChange(true)}>
+      <button type="button" className={cn(gallery && "is-on")} aria-pressed={gallery} onClick={() => onChange(true)}>
         <LayoutGrid size={13} aria-hidden="true" />
         {localize("Gallery")}
       </button>

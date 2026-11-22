@@ -392,6 +392,7 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
               }
             }}
             placeholder={localize("Search all guides")}
+            aria-label={localize("Search all guides")}
           />
           {query ? (
             <button type="button" onClick={clearSearch} aria-label={localize("Clear search")}>

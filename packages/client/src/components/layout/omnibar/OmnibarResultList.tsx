@@ -127,13 +127,14 @@ export function OmnibarResultList({
               {/* Slice 78: the Now row speaks for itself; a heading over one row is noise. */}
               <div className={cn("flex items-center gap-1.5 px-3 pb-1 pt-3", group.id === "now" && "hidden")}>
                 <GroupIcon size={12} className="text-[var(--primary)]" aria-hidden="true" />
-                <h3
+                {/* Not a heading: a listbox may only hold groups and options (QC panel 3 AX17). It names the group. */}
+                <div
                   id={`omnibar-group-${group.id}`}
                   className="text-[0.6875rem] font-bold uppercase tracking-[0.08em] text-[var(--muted-foreground)]"
                 >
                   {groupLabels[group.id]}
-                </h3>
-                <span className="text-[0.625rem] text-[var(--muted-foreground)]/70">
+                </div>
+                <span className="text-[0.625rem] text-[var(--muted-foreground)]/70" aria-hidden="true">
                   {group.total ?? group.results.length}
                 </span>
               </div>

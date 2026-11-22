@@ -119,6 +119,7 @@ export function GameAssetsPageHead({
             value={search}
             onChange={(event) => onSearch(event.target.value)}
             placeholder={t("library.gameAssets.searchFolder")}
+            aria-label={t("library.gameAssets.searchFolder")}
           />
         </label>
         <span className="ov-gallery__spacer" />

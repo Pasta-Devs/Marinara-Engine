@@ -105,9 +105,9 @@ export function SetupPage({
       <div className="ov-setup__scroll">
         <div className="ov-setup__inner">
           <div className="ov-setup__head">
-            <p id={kickerId} className="ov-setup__kicker">
+            <h2 id={kickerId} className="ov-setup__kicker">
               {eyebrow}
-            </p>
+            </h2>
             <button
               type="button"
               onClick={onClose}
@@ -172,7 +172,7 @@ export function SetupTitleField({
 export function SetupSection({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
     <section className="ov-setup__section">
-      <OvEyebrow>{title}</OvEyebrow>
+      <OvEyebrow as="h3">{title}</OvEyebrow>
       {children}
     </section>
   );
@@ -198,7 +198,7 @@ export function SetupMoreOptions({ summary, children }: { summary: string; child
 export function SetupBlock({ title, children }: { title: ReactNode; children: ReactNode }) {
   return (
     <div className="ov-setup__block">
-      <h3>{title}</h3>
+      <h4>{title}</h4>
       {children}
     </div>
   );

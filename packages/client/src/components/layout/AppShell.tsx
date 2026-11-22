@@ -2279,7 +2279,9 @@ export function AppShell({
               discards component-local unsaved form state. */}
             <AnimatePresence mode="wait">
               {detailView && (
-                <motion.aside
+                // A plain container, not a landmark (QC panel 3 AX17): the page inside has its own heading, and a
+                // "complementary" region inside main made every Library page sound like a sidebar.
+                <motion.div
                   key="detail-editor"
                   // No slide: the sheet sits between the camera strips, and any sideways travel crosses one.
                   // Phones and tablets: no fade either. iOS Safari painted the page, dropped it for a couple of
@@ -2293,7 +2295,6 @@ export function AppShell({
                   // Every full page (Library pages, viewers, editors, Settings, Docs) sits in here, so a
                   // theme paints one readable surface for all of them on this hook.
                   data-mari-part="page"
-                  aria-label={localizeUi("ui.layout.appshell.detailEditor")}
                   tabIndex={-1}
                   className={cn(
                     "mari-detail-editor-surface mari-app-background-paint flex min-h-0 flex-1 flex-col overflow-hidden",
@@ -2307,16 +2308,15 @@ export function AppShell({
                   )}
                 >
                   <Suspense fallback={<MainPaneFallback />}>{detailView}</Suspense>
-                </motion.aside>
+                </motion.div>
               )}
             </AnimatePresence>
             {mariPageMounted && (
               // Professor Mari's tab: the same page surface as the sheet above, kept mounted and hidden
               // (inline display so no theme rule can show it) while she isn't the open tab.
-              <aside
+              <div
                 data-component={mariPageActive ? (shellOverlayMode ? "MobileDetailSheet" : "DetailEditor") : undefined}
                 data-mari-part={mariPageActive ? "page" : undefined}
-                aria-label={localizeUi("ui.layout.appshell.detailEditor")}
                 aria-hidden={mariPageActive ? undefined : true}
                 inert={!mariPageActive}
                 tabIndex={-1}
@@ -2335,7 +2335,7 @@ export function AppShell({
                 <Suspense fallback={<MainPaneFallback />}>
                   <OverhaulMariPage active={mariPageActive} />
                 </Suspense>
-              </aside>
+              </div>
             )}
           </div>
           {/* Floating avatar notification bubbles (right edge) */}

@@ -2915,6 +2915,7 @@ export function ChatSettingsDrawer({
             : undefined,
         }}
         presentation={phoneLayout || overhaulMobile ? "sheet" : "window"}
+        modalSheet
         // Phones and tablets: on the list and on a section's page the header is that page's own (back, name, help).
         title={mobileDrillTitle ?? localizeUi("chat.toolbar.settings")}
         titleIcon={

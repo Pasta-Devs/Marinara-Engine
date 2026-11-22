@@ -16,13 +16,14 @@ import { toast } from "sonner";
 import { translate } from "../../localization/i18n";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Home, Layers, X } from "lucide-react";
+import { ChevronDown, Home, Layers } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
 import { overhaulTabKey, useOverhaulStore, type OverhaulTab } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import {
   TabIcon,
+  TabCloseButton,
   TabLabel,
   TabPresence,
   TabDraftDot,
@@ -460,16 +461,7 @@ export function DesktopTabStrip({
         <TabDraftDot tab={entry.tab} current={entry.key === currentKey} />
         {extra?.compact ? null : <TabPresence tab={entry.tab} chats={chats} dotOnly />}
       </button>
-      <button
-        type="button"
-        draggable
-        className="ov-tab__close"
-        aria-label={localize("Close tab")}
-        title={localize("Close tab")}
-        onClick={() => closeTab(entry.tab)}
-      >
-        <X size={12} />
-      </button>
+      <TabCloseButton tab={entry.tab} chats={chats} onClose={() => closeTab(entry.tab)} />
     </>
   );
 

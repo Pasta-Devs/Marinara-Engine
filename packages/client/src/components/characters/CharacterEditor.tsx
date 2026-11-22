@@ -3000,6 +3000,7 @@ function MetadataTab({
   const [tagCatalogRequested, setTagCatalogRequested] = useState(false);
   const { data: allCharacters } = useAllCharacterCatalog(tagCatalogRequested);
   const tagListboxId = useId();
+  const talkativenessId = useId();
   const tagSuggestionsContainerRef = useRef<HTMLDivElement>(null);
   const tagSuggestionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const existingTagCounts = useMemo(() => {
@@ -3179,24 +3180,26 @@ function MetadataTab({
             {localizeUi("ui.characters.metadatatab.splitDescription")}
           </button>
         </div>
-        <label className="space-y-1.5">
+        <div className="space-y-1.5">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.characters.metadatatab.talkativeness")}{" "}
+            <label htmlFor={talkativenessId}>{localizeUi("ui.characters.metadatatab.talkativeness")}</label>{" "}
             <HelpTooltip text={localizeUi("ui.characters.metadatatab.howOftenThisCharacterSpeaksInGroupChats0")} />
           </span>
           <input
+            id={talkativenessId}
             type="range"
             min={0}
             max={1}
             step={0.05}
+            aria-valuetext={`${Math.round(formData.extensions.talkativeness * 100)}%`}
             value={formData.extensions.talkativeness}
             onChange={(e) => updateExtension("talkativeness", parseFloat(e.target.value))}
             className="w-full accent-[var(--primary)]"
           />
-          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+          <span className="text-[0.625rem] text-[var(--muted-foreground)]" aria-hidden="true">
             {Math.round(formData.extensions.talkativeness * 100)}%
           </span>
-        </label>
+        </div>
       </div>
 
       {/* Tags */}

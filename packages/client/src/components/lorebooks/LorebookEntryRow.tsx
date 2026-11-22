@@ -1968,6 +1968,7 @@ function ExpandedDrawer({
       <div className="ov-lf">
         <span>{localizeUi("ui.lorebooks.expandeddrawer.secondaryKeys")}</span>
         <OvChipInput
+          label={localizeUi("ui.lorebooks.expandeddrawer.secondaryKeys")}
           values={form.secondaryKeys ?? []}
           onChange={(keys) => update({ secondaryKeys: keys })}
           parse={appendLorebookActivationKeys}
@@ -2312,6 +2313,7 @@ function ExpandedDrawer({
             <div className="ov-lf">
               <span>{localizeUi("ui.lorebooks.expandeddrawer.activeTimes")}</span>
               <OvChipInput
+                label={localizeUi("ui.lorebooks.expandeddrawer.activeTimes")}
                 values={schedule.activeTimes}
                 onChange={(activeTimes) => setSchedule({ activeTimes })}
                 placeholder={localizeUi("ui.lorebooks.expandeddrawer.time")}
@@ -2320,6 +2322,7 @@ function ExpandedDrawer({
             <div className="ov-lf">
               <span>{localizeUi("ui.lorebooks.expandeddrawer.activeDates")}</span>
               <OvChipInput
+                label={localizeUi("ui.lorebooks.expandeddrawer.activeDates")}
                 values={schedule.activeDates}
                 onChange={(activeDates) => setSchedule({ activeDates })}
                 placeholder={localizeUi("ui.lorebooks.expandeddrawer.date")}
@@ -2328,6 +2331,7 @@ function ExpandedDrawer({
             <div className="ov-lf">
               <span>{localizeUi("ui.lorebooks.expandeddrawer.activeLocations")}</span>
               <OvChipInput
+                label={localizeUi("ui.lorebooks.expandeddrawer.activeLocations")}
                 values={schedule.activeLocations}
                 onChange={(activeLocations) => setSchedule({ activeLocations })}
                 placeholder={localizeUi("ui.lorebooks.expandeddrawer.location_2302a51")}
@@ -2441,6 +2445,7 @@ function ExpandedDrawer({
               <div className="ov-lf">
                 <span>{localizeUi("ui.lorebooks.expandeddrawer.primaryKeys")}</span>
                 <OvChipInput
+                  label={localizeUi("ui.lorebooks.expandeddrawer.primaryKeys")}
                   values={form.keys ?? []}
                   onChange={(keys) => update({ keys })}
                   parse={appendLorebookActivationKeys}

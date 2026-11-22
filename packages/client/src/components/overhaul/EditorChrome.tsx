@@ -447,16 +447,19 @@ export function OvEyebrow({
   children,
   aside,
   className,
+  as: Tag = "p",
 }: {
   children: ReactNode;
   aside?: ReactNode;
   className?: string;
+  /** A section title that is a real heading (QC panel 3 AX14); the look stays the same. */
+  as?: "p" | "h2" | "h3";
 }) {
   return (
-    <p className={cn("ov-eyebrow", className)}>
+    <Tag className={cn("ov-eyebrow", className)}>
       <span>{children}</span>
       {aside ? <small>{aside}</small> : null}
-    </p>
+    </Tag>
   );
 }
 

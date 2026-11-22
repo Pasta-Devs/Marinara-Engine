@@ -12,7 +12,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { toast } from "sonner";
 import type {
   ChatMode,
@@ -190,6 +190,12 @@ const OmnibarAside = lazy(() => import("./omnibar/OmnibarAside").then((m) => ({ 
 const PROFESSOR_MARI_DRAFT_KEY = "__home_professor_mari__";
 /** How long loading sources may hold an Enter pressed before the list caught up (QC Nov 22 K3). */
 const RESULTS_LOADING_WAIT_MS = 1500;
+/**
+ * QC panel 3 AX9: an Enter typed before the field existed, or within this long of Search opening, only
+ * runs rows that go somewhere (pages, chats, characters, entries). On a toggle, setting or choice row it
+ * just selects; a fresh Enter runs it. A cold Ctrl+K once flipped a setting with the typed-ahead Enter.
+ */
+const EARLY_ENTER_MS = 1000;
 
 /**
  * K5's last flip, kept past the dialog's unmount so Mari's arrival in Settings can offer the same Undo
@@ -255,6 +261,11 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const pendingEnterRef = useRef<string | null>(null);
   /** The held Enter was Ctrl/Cmd+Enter (ask Mari about the selection). */
   const pendingEnterModRef = useRef(false);
+  /** The held Enter was typed before the field existed (cold Ctrl+K), not pressed in the field. */
+  const pendingEnterTypedAheadRef = useRef(false);
+  /** True while that typed-ahead Enter is being replayed. */
+  const replayingTypedAheadEnterRef = useRef(false);
+  const openedAtRef = useRef(performance.now());
   const { query, filter, activeResultId, mariReturnResultId, mariHandoff } = session;
   const pane = session.pane;
   const mariFinished = mariHandoff?.status === "finished";
@@ -1214,16 +1225,22 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     pendingEnterRef.current = null;
     const withModifier = pendingEnterModRef.current;
     pendingEnterModRef.current = false;
+    replayingTypedAheadEnterRef.current = pendingEnterTypedAheadRef.current;
+    pendingEnterTypedAheadRef.current = false;
     const apple = isApplePlatform();
-    inputRef.current?.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "Enter",
-        bubbles: true,
-        cancelable: true,
-        ctrlKey: withModifier && !apple,
-        metaKey: withModifier && apple,
-      }),
-    );
+    try {
+      inputRef.current?.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: withModifier && !apple,
+          metaKey: withModifier && apple,
+        }),
+      );
+    } finally {
+      replayingTypedAheadEnterRef.current = false;
+    }
     // resultsStale reads refs; settleTick re-runs this when they change without a render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeResult, loading, pane, query, rawDeferredQuery, settleTick]);
@@ -1306,25 +1323,46 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     restoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    requestAnimationFrame(() => {
-      // Keys typed between Ctrl+K and now (the code was still loading) belong in the field (A11Y10).
-      const typed = takeOmnibarKeyBuffer();
+    let frame = 0;
+    const handOver = () => {
       // The settings sheet owns focus when it opens the omnibar directly
       // (Settings > Open, a Settings-search jump); focusing the hidden
       // search input underneath it would steal focus from the sheet.
-      if (useUIStore.getState().omnibarSettings) return;
-      inputRef.current?.focus();
-      if (typed.length > 0 && sessionRef.current.pane === "results") {
-        const { query: typedQuery, enter } = applyOmnibarBufferedKeys(initialQueryRef.current, typed);
-        setSession((current) => ({ ...current, query: typedQuery }));
-        // An Enter typed ahead runs once the results for that text are in (see the effect below).
-        if (enter) pendingEnterRef.current = typedQuery;
+      if (useUIStore.getState().omnibarSettings) {
+        takeOmnibarKeyBuffer();
         return;
       }
-      if (initialQueryRef.current) inputRef.current?.select();
-    });
+      const input = inputRef.current;
+      // QC panel 3 AX9: the buffer keeps recording until the field can really take the keys.
+      if (!input || !input.isConnected) {
+        frame = requestAnimationFrame(handOver);
+        return;
+      }
+      // Keys typed between Ctrl+K and now (the code was still loading) belong in the field (A11Y10).
+      const typed = takeOmnibarKeyBuffer();
+      if (typed.length > 0 && sessionRef.current.pane === "results") {
+        const { query: typedQuery, enter } = applyOmnibarBufferedKeys(initialQueryRef.current, typed);
+        // AX9 cause: the typed text was only a pending state update when the field took focus. On a busy cold
+        // start the next key reached the field first, its onChange read the field's old value ("" + that key),
+        // and the first letters were gone. Commit the text, then focus, so every later key appends to it.
+        flushSync(() => setSession((current) => ({ ...current, query: typedQuery })));
+        input.value = typedQuery;
+        input.focus();
+        input.setSelectionRange(typedQuery.length, typedQuery.length);
+        // An Enter typed ahead runs once the results for that text are in (see the effect below).
+        if (enter) {
+          pendingEnterRef.current = typedQuery;
+          pendingEnterTypedAheadRef.current = true;
+        }
+        return;
+      }
+      input.focus();
+      if (initialQueryRef.current) input.select();
+    };
+    frame = requestAnimationFrame(handOver);
     const panel = panelRef.current;
     return () => {
+      cancelAnimationFrame(frame);
       // Companion mode is not modal: if the user moved on to another field, leave focus there.
       const active = document.activeElement;
       if (!active || active === document.body || panel?.contains(active)) {
@@ -2214,7 +2252,10 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
     cancelHeldEnter: () => {
       pendingEnterRef.current = null;
       pendingEnterModRef.current = false;
+      pendingEnterTypedAheadRef.current = false;
     },
+    enterTooEarly: () =>
+      replayingTypedAheadEnterRef.current || performance.now() - openedAtRef.current < EARLY_ENTER_MS,
     panelRef,
     listRef,
     inputRef,

@@ -29,6 +29,19 @@ export function openProfessorMariChatPage(): boolean {
   return true;
 }
 
+/**
+ * New layout: an open editor, Library page, Docs, Mari or app page covers the chat, so they step aside
+ * (unsaved editor edits wait in their tab), as picking the chat's tab does. Otherwise a chat opened from
+ * Ctrl+K stayed unseen behind the page (QC panel 3 AX8).
+ */
+export function revealChatSurface() {
+  if (!isOverhaulLook()) return;
+  useUIStore.getState().closeAllDetails();
+  const overhaul = useOverhaulStore.getState();
+  overhaul.leaveDocs();
+  overhaul.setLibraryPage(null);
+}
+
 /** Leave the current chat or editor, show Home, then let Home open the surface. */
 function openHomeWith(request: HomeRequest) {
   const ui = useUIStore.getState();
@@ -63,9 +76,7 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     if (isMobileShellViewport()) ui.setSidebarOpen(false);
     else ui.setSidebarOpen(true);
     ui.closeRightPanel();
-    // New layout: an open editor page covers the chat, so it steps aside (its unsaved edits wait in its
-    // tab), like picking the chat's tab does. Otherwise the chat opened unseen behind the editor.
-    if (isOverhaulLook()) ui.closeAllDetails();
+    revealChatSurface();
     useChatStore.getState().setActiveChatId(target.chatId);
   } else if (target.kind === "panel") {
     // New layout: a Library section is a page of its own, not just the highlighted pane entry.

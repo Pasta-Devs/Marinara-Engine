@@ -1270,7 +1270,9 @@ export function ChatSidebar() {
       const active = document.activeElement;
       // Focus already went somewhere on purpose (a click elsewhere): leave it there.
       if (active && active !== document.body && !active.matches("main, #mari-main")) return;
-      document.querySelector<HTMLElement>(`[data-chat-row][data-chat-id="${CSS.escape(chatId)}"]`)?.focus();
+      document
+        .querySelector<HTMLElement>(`[data-chat-row][data-chat-id="${CSS.escape(chatId)}"] > [data-chat-row-main]`)
+        ?.focus();
     });
   };
   const commitRename = (chatId: string, currentName: string) => {
@@ -1405,6 +1407,34 @@ export function ChatSidebar() {
     // New layout: "Generating…" stands in for the time on the same line, so a row doesn't grow 6px and push
     // the list down and back for every reply (audit H14). Typing and the rest keep their own line.
     const liveInTimeSlot = overhaulActive && isGenerating && !typingCharacter;
+    const unreadCount = signalRows
+      ? signalRows.reduce((sum, row) => sum + (unreadCounts.get(row.chat.id) ?? 0), 0)
+      : unreadCounts.get(chat.id) || 0;
+    const multiplayer = chat.metadata?.multiplayer as { role?: string; status?: string } | undefined;
+    const multiplayerLabel = multiplayer
+      ? localizeUi(
+          multiplayer.role === "host"
+            ? multiplayer.status === "ended"
+              ? "multiplayer.sidebar.stopped"
+              : "multiplayer.sidebar.hosting"
+            : multiplayer.status === "joined"
+              ? "multiplayer.sidebar.joined"
+              : "multiplayer.sidebar.disconnected",
+        )
+      : null;
+    // What the row shows besides its name, read as the row button's description (QC panel 3 AX15).
+    const rowDescription = [
+      isChatPinned(chat) ? localizeUi("ui.layout.chatsidebar.pinned") : null,
+      multiplayerLabel,
+      subtitle,
+      rowPreview && !(subtitle && !liveInTimeSlot)
+        ? `${rowPreviewWho ? `${rowPreviewWho} ` : ""}${rowPreview.text}`
+        : null,
+      !liveInTimeSlot ? relativeTime : null,
+      unreadCount > 0 && !isActive ? localizeUi("ui.layout.chatsidebar.unreadCount", { count: unreadCount }) : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
     // Same precedence as the subtitle: whatever the line says is what the icon marks.
     const SubtitleIcon =
       typingCharacter || isGenerating
@@ -1472,12 +1502,9 @@ export function ChatSidebar() {
           actions={rowActions}
         >
           <div
-            role="button"
-            tabIndex={0}
             data-chat-id={chat.id}
             title={displayName}
             data-drag-id={chat.id}
-            aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
             data-drag-kind="chat"
             data-drag-order-id={chat.groupId ?? chat.id}
             data-drag-folder={chat.folderId ?? ""}
@@ -1516,12 +1543,6 @@ export function ChatSidebar() {
               }
               await openChat(chat.id);
             }}
-            // Enter/Space go through the click handler, so multi-select and the touch-drag guard
-            // apply to the keyboard too.
-            onKeyDown={(event) => {
-              const row = event.currentTarget;
-              activateRowFromKey(event, () => row.click());
-            }}
             onContextMenu={
               overhaulActive && canHover && !multiSelectMode && renamingChatId !== chat.id
                 ? (event) => {
@@ -1546,7 +1567,6 @@ export function ChatSidebar() {
                   }
                 : undefined
             }
-            aria-current={isActive ? "true" : undefined}
             data-chat-row="true"
             data-selected={isActive && !(multiSelectMode && isSelected) ? "true" : undefined}
             className={cn(
@@ -1560,6 +1580,24 @@ export function ChatSidebar() {
               draggedChatId === chat.id && "opacity-50",
             )}
           >
+            {/* The row's one button (QC panel 3 AX15). It lies under the row's text, over its whole area, so
+                Rename, Tags and the branch toggle are its neighbours, not buttons inside a button. A click
+                anywhere on the row still reaches the row's own click handler; Enter and Space click this
+                button, so multi-select and the touch-drag guard apply to the keyboard too. */}
+            <button
+              type="button"
+              data-chat-row-main=""
+              aria-label={displayName}
+              aria-describedby={`chat-row-desc-${chat.id}`}
+              aria-current={isActive ? "true" : undefined}
+              aria-pressed={multiSelectMode ? isSelected : undefined}
+              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+              tabIndex={renamingChatId === chat.id ? -1 : 0}
+              className="ov-chat-row-main absolute inset-0 -z-[5] cursor-[inherit] rounded-[inherit] border-0 bg-transparent p-0"
+            />
+            <span id={`chat-row-desc-${chat.id}`} hidden>
+              {rowDescription}
+            </span>
             {/* Multi-select checkbox */}
             {multiSelectMode && (
               <div className="mari-chrome-accent-icon mari-accent-animated shrink-0">
@@ -1605,8 +1643,8 @@ export function ChatSidebar() {
               />
             )}
 
-            {/* Chat avatar(s) or mode icon fallback — with unread badge overlay */}
-            <div className="relative flex-shrink-0">
+            {/* Chat avatar(s) or mode icon fallback — with unread badge overlay. Read through the row button. */}
+            <div className="relative flex-shrink-0" aria-hidden="true">
               {(() => {
                 const avatars = charIds
                   .slice(0, 3)
@@ -1728,9 +1766,7 @@ export function ChatSidebar() {
 
               {/* Unread count badge */}
               {(() => {
-                const count = signalRows
-                  ? signalRows.reduce((sum, row) => sum + (unreadCounts.get(row.chat.id) ?? 0), 0)
-                  : unreadCounts.get(chat.id) || 0;
+                const count = unreadCount;
                 if (count === 0 || isActive) return null;
                 return (
                   <span className="absolute -top-1 -right-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-md bg-red-500 px-1 text-[0.5625rem] font-bold leading-none text-white shadow-sm ring-2 ring-[var(--sidebar-background)]">
@@ -1770,6 +1806,7 @@ export function ChatSidebar() {
               ) : (
                 <span className="flex min-w-0 items-center gap-1">
                   <span
+                    aria-hidden="true"
                     className={cn(
                       "block min-w-0 truncate text-sm",
                       isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
@@ -1778,11 +1815,7 @@ export function ChatSidebar() {
                     {displayName}
                   </span>
                   {isChatPinned(chat) ? (
-                    <Pin
-                      size="0.6875rem"
-                      className="shrink-0 text-[var(--muted-foreground)]"
-                      aria-label={localizeUi("ui.layout.chatsidebar.pinned")}
-                    />
+                    <Pin size="0.6875rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden="true" />
                   ) : null}
                   {overhaulDesktop && canHover && !multiSelectMode ? (
                     <button
@@ -1820,7 +1853,7 @@ export function ChatSidebar() {
                 </span>
               )}
               {chat.metadata?.multiplayer && (
-                <span className="mari-chrome-accent-text-muted block truncate text-[0.6875rem]">
+                <span className="mari-chrome-accent-text-muted block truncate text-[0.6875rem]" aria-hidden="true">
                   {localizeUi(
                     (chat.metadata.multiplayer as { role?: string; status?: string }).role === "host"
                       ? (chat.metadata.multiplayer as { status?: string }).status === "ended"
@@ -1833,7 +1866,10 @@ export function ChatSidebar() {
                 </span>
               )}
               {subtitle && !liveInTimeSlot && (
-                <span className="mari-chrome-accent-text-muted flex items-center gap-1 truncate text-[0.6875rem] leading-tight">
+                <span
+                  className="mari-chrome-accent-text-muted flex items-center gap-1 truncate text-[0.6875rem] leading-tight"
+                  aria-hidden="true"
+                >
                   {SubtitleIcon && (
                     <SubtitleIcon
                       className={cn(
@@ -1847,6 +1883,7 @@ export function ChatSidebar() {
               )}
               {rowPreview && !(subtitle && !liveInTimeSlot) && (
                 <span
+                  aria-hidden="true"
                   data-mari-part="chat-row-preview"
                   data-role={rowPreview.role}
                   className="mari-chrome-accent-text-muted block truncate text-[0.6875rem] leading-tight"
@@ -1888,7 +1925,10 @@ export function ChatSidebar() {
               </button>
             ) : (
               branchCount > 1 && (
-                <span className="mari-chrome-muted-badge flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem]">
+                <span
+                  className="mari-chrome-muted-badge flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem]"
+                  aria-hidden="true"
+                >
                   <GitBranch size="0.625rem" />
                   {branchCount}
                 </span>
@@ -1900,12 +1940,13 @@ export function ChatSidebar() {
               <span
                 className="mari-chrome-accent-text-muted flex shrink-0 items-center gap-1 text-[0.625rem]"
                 title={subtitle ?? undefined}
+                aria-hidden="true"
               >
                 <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden="true" />
                 {subtitle}
               </span>
             ) : relativeTime ? (
-              <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">
+              <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums" aria-hidden="true">
                 {relativeTime}
               </span>
             ) : null}
@@ -2676,20 +2717,6 @@ export function ChatSidebar() {
   );
 }
 
-/**
- * Enter/Space activation for a `role="button"` row. Keys aimed at a button inside the row stay
- * that button's, modified keys stay free for shortcuts, and a held key activates once (its
- * repeats are still prevented, so a held Space does not scroll the list).
- */
-function activateRowFromKey(event: React.KeyboardEvent<HTMLElement>, activate: () => void) {
-  if (event.target !== event.currentTarget) return;
-  if (event.altKey || event.ctrlKey || event.metaKey) return;
-  if (event.key !== "Enter" && event.key !== " ") return;
-  event.preventDefault();
-  if (event.repeat) return;
-  activate();
-}
-
 /** Past this depth a branch still renders, but without another step of indent. */
 const MAX_BRANCH_NESTING = 4;
 /** A nested level: its line sits under the parent branch's name (the row's px-2). */
@@ -2731,15 +2758,11 @@ function BranchRow({
   const handleClick = multiSelectMode ? onToggleSelect : onSelect;
   return (
     <div
-      role="button"
-      tabIndex={0}
       data-chat-id={chatId}
-      aria-pressed={multiSelectMode ? isSelected : undefined}
       title={name}
       onClick={handleClick}
-      onKeyDown={(event) => activateRowFromKey(event, handleClick)}
       className={cn(
-        "group flex min-w-0 cursor-pointer items-center gap-2 rounded-md py-1.5 pr-3 pl-2 transition-colors max-md:min-h-11 [@media(pointer:coarse)]:min-h-11",
+        "group relative isolate flex min-w-0 cursor-pointer items-center gap-2 rounded-md py-1.5 pr-3 pl-2 transition-colors max-md:min-h-11 [@media(pointer:coarse)]:min-h-11",
         multiSelectMode && isSelected
           ? "mari-chrome-accent-surface mari-accent-animated"
           : isActive
@@ -2747,6 +2770,21 @@ function BranchRow({
             : "hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
       )}
     >
+      {/* The row's button lies under its text (QC panel 3 AX15), so Delete is a neighbour, not nested. */}
+      <button
+        type="button"
+        data-chat-row-main=""
+        aria-label={name}
+        aria-describedby={relativeTime ? `chat-branch-desc-${chatId}` : undefined}
+        aria-current={isActive ? "true" : undefined}
+        aria-pressed={multiSelectMode ? isSelected : undefined}
+        className="ov-chat-row-main absolute inset-0 -z-[5] cursor-[inherit] rounded-[inherit] border-0 bg-transparent p-0"
+      />
+      {relativeTime ? (
+        <span id={`chat-branch-desc-${chatId}`} hidden>
+          {relativeTime}
+        </span>
+      ) : null}
       {multiSelectMode && (
         <span className="mari-chrome-accent-icon mari-accent-animated shrink-0">
           {isSelected ? (
@@ -2757,6 +2795,7 @@ function BranchRow({
         </span>
       )}
       <span
+        aria-hidden="true"
         className={cn(
           "min-w-0 flex-1 truncate text-[0.8125rem]",
           isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
@@ -2771,7 +2810,9 @@ function BranchRow({
         </span>
       )}
       {relativeTime && (
-        <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">{relativeTime}</span>
+        <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums" aria-hidden="true">
+          {relativeTime}
+        </span>
       )}
       {!multiSelectMode && showDelete && (
         <button

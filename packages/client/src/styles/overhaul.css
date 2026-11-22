@@ -15259,7 +15259,7 @@ input.ov-edhead__title:not(#ov-x) {
   gap: 0.5rem;
   padding-bottom: 0.5rem;
 }
-.ov-setup__block h3 {
+.ov-setup__block h4 {
   margin: 0.5rem 0 0.5rem;
   color: var(--ov-muted);
   font-size: 0.8125rem;
@@ -17125,4 +17125,48 @@ input.ov-edhead__title:not(#ov-x) {
 }
 :root[data-overhaul="mobile"] .omnibar-settings-inline .omnibar-settings-group > * + * {
   border-top: 1px solid var(--ov-line, var(--border));
+}
+
+/* QC panel 3 AX7: text fields and pickers show a clear 2px accent ring while focused (WCAG 2.4.11), not only a
+   tinted border. The "Strong focus rings" accessibility option still wins (mari-protected, !important). */
+:root[data-overhaul]
+  :is(.ov-ed, .ov-setup, .ov-bk__field, .ov-cs, .ov-cs-sub)
+  :is(
+    input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"], [type="file"], [type="hidden"]),
+    select,
+    textarea
+  ):focus-visible,
+:root[data-overhaul] .ov-select:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -1px;
+}
+/* Search boxes are a label around a borderless input: the ring goes on the box. */
+:root[data-overhaul] .ov-search:has(input:focus-visible) {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -1px;
+}
+/* Editor buttons used the dim maroon ring; they get the same accent ring as everything else. */
+:root[data-overhaul] .ov-ed :is(button, [role="button"], a[href]):focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 1px;
+}
+/* Firefox FF5: Regenerate, the swipe arrows and the swipe count had only the browser's own ring. */
+:root[data-overhaul] :is(.ov-rpf__btn, .ov-rpf__swipes > button):focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 1px;
+}
+/* AX14: a section header's toggle sits in a real <h3>; the heading itself adds no look of its own. */
+.mari-drawer .mari-drawer__heading {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+}
+/* AX15: the chat row's button lies under the row's text; its focus ring is drawn inside the row (which clips). */
+.ov-chat-row-main:focus-visible {
+  outline: 2px solid var(--ov-accent, var(--primary));
+  outline-offset: -2px;
 }

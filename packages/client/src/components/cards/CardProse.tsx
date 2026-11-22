@@ -39,25 +39,33 @@ export function CardProseSectionHeader({
 }: CardProseSectionHeaderProps) {
   const persona = variant === "persona";
   const headingClass = cn("inline-flex items-center gap-1.5", persona ? "text-sm font-semibold" : "text-lg font-bold");
-  const content = (
-    <>
+  // The help button sits beside the heading, not inside it: the heading reads "Metadata", not
+  // "Metadata Show help" (QC panel 3 AX14).
+  const heading = persona ? (
+    <h3 className={headingClass} data-card-field-heading>
       {title}
-      {helpText && (
-        <HelpTooltip text={helpText} side="bottom" wide={helpWide} size={persona ? "0.8125rem" : "0.875rem"} />
-      )}
-    </>
+    </h3>
+  ) : (
+    <h2 className={headingClass} data-card-field-heading>
+      {title}
+    </h2>
   );
 
   return (
     <div className={cn("mb-4", className)}>
-      {persona ? (
-        <h3 className={headingClass} data-card-field-heading>
-          {content}
-        </h3>
+      {helpText ? (
+        <div className="inline-flex items-center gap-1.5">
+          {heading}
+          <HelpTooltip
+            text={helpText}
+            side="bottom"
+            wide={helpWide}
+            size={persona ? "0.8125rem" : "0.875rem"}
+            topic={typeof title === "string" ? title : undefined}
+          />
+        </div>
       ) : (
-        <h2 className={headingClass} data-card-field-heading>
-          {content}
-        </h2>
+        heading
       )}
       {subtitle && <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{subtitle}</p>}
     </div>

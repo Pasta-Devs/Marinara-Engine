@@ -243,11 +243,18 @@ function DefaultsSection() {
                     <td className="!whitespace-normal">{t(`imageSettings.defaults.${picture.writer}`)}</td>
                     <td className="w-8 text-end">
                       {picture.agent ? (
-                        <ChevronRight
-                          size={14}
+                        // The row's click for the keyboard (QC panel 3 AX17); the row click stays for the mouse.
+                        <button
+                          type="button"
+                          className="ov-table__open inline-flex rounded p-0.5 text-[var(--muted-foreground)]"
                           aria-label={agentLinkLabel(picture.agent)}
-                          className="inline text-[var(--muted-foreground)]"
-                        />
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openAgentDetail(picture.agent!);
+                          }}
+                        >
+                          <ChevronRight size={14} aria-hidden="true" />
+                        </button>
                       ) : null}
                     </td>
                   </tr>

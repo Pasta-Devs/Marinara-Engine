@@ -11,6 +11,8 @@ type OmnibarKeyHandlerInput = {
   holdEnter: (withModifier: boolean) => void;
   /** Typing more drops a held Enter. */
   cancelHeldEnter: () => void;
+  /** True for an Enter typed ahead of the field or pressed right after Search opened (AX9). */
+  enterTooEarly: () => boolean;
   panelRef: RefObject<HTMLDivElement | null>;
   listRef: RefObject<HTMLDivElement | null>;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -43,11 +45,21 @@ type OmnibarKeyHandlerInput = {
   resolveCurrentResult: (result: RankedOmnibarResult | null) => RankedOmnibarResult | null;
 };
 
+/** Rows whose Enter writes a setting (toggles, choices and their options) rather than going somewhere. */
+export function changesSomething(result: Pick<RankedOmnibarResult, "id" | "category" | "control">): boolean {
+  if (readChoiceOptionId(result.id)) return true;
+  const type = (result.control as { type?: string } | undefined)?.type;
+  // A preset row's toggle is "Set default", but Enter on it opens the preset.
+  if (type === "toggle") return result.category !== "preset";
+  return type === "choice";
+}
+
 /** The search field's keys (arrows, Enter, Tab, Escape) and the dialog's focus trap. */
 export function createOmnibarKeyHandlers({
   resultsStale,
   holdEnter,
   cancelHeldEnter,
+  enterTooEarly,
   panelRef,
   listRef,
   inputRef,
@@ -187,6 +199,8 @@ export function createOmnibarKeyHandlers({
       });
     } else if (pane === "results" && event.key === "Enter" && activeResult) {
       event.preventDefault();
+      // AX9: an early Enter never changes a setting; it leaves the row selected for a fresh Enter.
+      if (enterTooEarly() && changesSomething(activeResult)) return;
       if (chooseChoiceOption(activeResult)) return;
       // A preset row opens the preset; its "Set default preset" button is the toggle (user panel 2, N8).
       if (activeResult.category === "preset" && activeResult.control?.type === "toggle") choose(activeResult);

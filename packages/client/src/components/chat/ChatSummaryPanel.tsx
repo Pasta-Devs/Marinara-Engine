@@ -2005,7 +2005,13 @@ export function ChatSummaryPanel({
                   </div>
 
                   {!templateEditorOpen && (
-                    <div className="h-36 overflow-y-auto whitespace-pre-wrap rounded-md bg-[var(--background)]/25 px-2 py-1.5 font-mono text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                    // A scrolling preview: keyboard users can reach it to scroll it (QC panel 3 AX16).
+                    <div
+                      tabIndex={0}
+                      role="region"
+                      aria-label={localizeUi("ui.chat.summarypopover.summaryPromptTemplate")}
+                      className="h-36 overflow-y-auto whitespace-pre-wrap rounded-md bg-[var(--background)]/25 px-2 py-1.5 font-mono text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]"
+                    >
                       {activeSummaryPrompt}
                     </div>
                   )}

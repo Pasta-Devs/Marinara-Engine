@@ -76,16 +76,52 @@ export function menuItems(menu: HTMLElement | null): HTMLElement[] {
   );
 }
 
+/**
+ * An on/off button in a menu ("Hide from AI", "Mark as new start") is a checkbox item: aria-pressed is not
+ * allowed on a menu item, and screen readers dropped the state (QC panel 3 AX13).
+ */
+function markCheckboxItem(item: HTMLElement) {
+  const pressed = item.getAttribute("aria-pressed");
+  if (pressed === null) return;
+  item.setAttribute("role", "menuitemcheckbox");
+  item.setAttribute("aria-checked", pressed === "true" ? "true" : "false");
+  item.removeAttribute("aria-pressed");
+}
+
 /** Plain buttons in a menu are its items: screen readers then say "menu item, 2 of 5". */
 function markItems(menu: HTMLElement) {
   for (const item of menuItems(menu)) {
-    if (item instanceof HTMLButtonElement && !item.hasAttribute("role")) item.setAttribute("role", "menuitem");
+    if (!(item instanceof HTMLButtonElement)) continue;
+    const role = item.getAttribute("role");
+    if (item.hasAttribute("aria-pressed") && (role === null || role === "menuitem" || role === "menuitemcheckbox"))
+      markCheckboxItem(item);
+    else if (role === null) item.setAttribute("role", "menuitem");
   }
+}
+
+/** Some menus stay open after a toggle and React writes aria-pressed again: keep converting it. */
+function watchCheckboxItems(menu: HTMLElement): () => void {
+  if (typeof MutationObserver === "undefined") return () => undefined;
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      if (record.target instanceof HTMLButtonElement && record.target.hasAttribute("aria-pressed"))
+        markCheckboxItem(record.target);
+      for (const node of Array.from(record.addedNodes)) if (node instanceof HTMLElement) markItems(menu);
+    }
+  });
+  observer.observe(menu, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-pressed"] });
+  return () => observer.disconnect();
 }
 
 export function focusMenuItem(menu: HTMLElement | null, which: "first" | "last") {
   const items = menuItems(menu);
-  const checked = which === "first" ? items.find((item) => item.getAttribute("aria-checked") === "true") : undefined;
+  // Only a radio group's picked option takes focus first; an on checkbox item ("Hide from AI") does not.
+  const checked =
+    which === "first"
+      ? items.find(
+          (item) => item.getAttribute("role") === "menuitemradio" && item.getAttribute("aria-checked") === "true",
+        )
+      : undefined;
   (checked ?? (which === "first" ? items[0] : items[items.length - 1]))?.focus({ preventScroll: true });
 }
 
@@ -165,7 +201,11 @@ export function useMenuKeyboard<TMenu extends HTMLElement = HTMLDivElement>({
       if (!current?.contains(document.activeElement) && tries-- > 0) frame = requestAnimationFrame(attempt);
     };
     frame = requestAnimationFrame(attempt);
-    return () => cancelAnimationFrame(frame);
+    const unwatch = menuRef.current ? watchCheckboxItems(menuRef.current) : null;
+    return () => {
+      cancelAnimationFrame(frame);
+      unwatch?.();
+    };
   }, [open]);
 
   useEffect(() => {

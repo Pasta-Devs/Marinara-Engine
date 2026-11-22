@@ -18,6 +18,7 @@ import {
   type CommandCenterPresentableResult,
 } from "../../packages/client/src/lib/command-center.js";
 import { createSystemCommandDefinitions } from "../../packages/client/src/lib/command-center-system-commands.js";
+import { changesSomething } from "../../packages/client/src/components/layout/omnibar/omnibar-keyboard.js";
 import {
   formatShortcutKey,
   isQuickPickerShortcut,
@@ -4686,4 +4687,35 @@ console.info("Command Center regression checks passed.");
   assert.equal(opened.results.length, 12);
   assert.equal(opened.results[COMMAND_CENTER_GROUP_LIMIT]!.id, "chat:8");
   assert.equal(presentCommandCenterResults(rows, { query: "moon" }).results.length, 12, "no row builder, no cap");
+}
+
+{
+  // QC panel 3 AX17: an exact title is the Top hit over a longer title it only starts, even ranked lower.
+  const rows = [
+    { id: "nav:settings-profiles", title: "Settings profiles", category: "navigation", score: 260 },
+    { id: "chat:1", title: "Storm at Gull Point", category: "chat", score: 0 },
+    { id: "nav:settings", title: "Settings", category: "navigation", score: 250 },
+  ] as CommandCenterPresentableResult[];
+  assert.equal(presentCommandCenterResults(rows, { query: "settings" }).results[0]?.id, "nav:settings");
+  // Without an exact title, the best-ranked prefix match still leads.
+  assert.equal(presentCommandCenterResults(rows, { query: "sett" }).results[0]?.id, "nav:settings-profiles");
+  const storm = [
+    { id: "nav:presets", title: "Presets", category: "navigation", score: 300 },
+    { id: "chat:storm", title: "Storm at Gull Point", category: "chat", score: 220 },
+  ] as CommandCenterPresentableResult[];
+  assert.equal(presentCommandCenterResults(storm, { query: "storm" }).results[0]?.id, "chat:storm");
+  assert.equal(presentCommandCenterResults(storm, { query: "presets" }).results[0]?.id, "nav:presets");
+}
+
+{
+  // QC panel 3 AX9: an early Enter (typed ahead of a cold Ctrl+K) never runs a row that changes a setting.
+  assert.equal(changesSomething({ id: "settings-control:x", category: "settings", control: { type: "toggle" } }), true);
+  assert.equal(changesSomething({ id: "settings-control:y", category: "settings", control: { type: "choice" } }), true);
+  assert.equal(
+    changesSomething({ id: "preset:1", category: "preset", control: { type: "toggle" } }),
+    false,
+    "Enter on a preset row opens it",
+  );
+  assert.equal(changesSomething({ id: "nav:settings", category: "navigation" }), false);
+  assert.equal(changesSomething({ id: "chat:1", category: "chat" }), false);
 }

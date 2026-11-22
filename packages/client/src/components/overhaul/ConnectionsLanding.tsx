@@ -866,6 +866,7 @@ export function ConnectionsLanding() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={localize("Search accounts and models")}
+            aria-label={localize("Search accounts and models")}
           />
         </label>
         <select

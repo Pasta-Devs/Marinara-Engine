@@ -393,6 +393,7 @@ export function BackgroundsPage() {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             placeholder={t("ui.panels.backgroundpicker.searchBackgrounds")}
+            aria-label={t("ui.panels.backgroundpicker.searchBackgrounds")}
           />
         </label>
         <select

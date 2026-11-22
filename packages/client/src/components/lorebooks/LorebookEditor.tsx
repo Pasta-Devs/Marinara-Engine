@@ -3079,6 +3079,7 @@ export function LorebookEditor() {
           <select
             value={entrySort}
             onChange={(e) => setEntrySort(e.target.value as EntrySortKey)}
+            aria-label={localizeUi("lorebook.editor.sortEntries")}
             className="mari-editor-field h-full appearance-none py-2.5 pl-8 pr-6 text-xs"
           >
             {SORT_OPTIONS.map((opt) => (

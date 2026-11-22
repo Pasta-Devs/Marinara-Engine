@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Modal: Create Character (avatar + name only)
 // ──────────────────────────────────────────────
-import { useState, useRef } from "react";
+import { useId, useState, useRef } from "react";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -19,6 +19,7 @@ interface Props {
 
 export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props) {
   const { t: localizeUi } = useUiTranslation();
+  const nameId = useId();
   const createCharacter = useCreateCharacter();
   const uploadAvatar = useUploadAvatar();
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
@@ -135,6 +136,7 @@ export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props)
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
+          aria-label={localizeUi("ui.modals.createcharactermodal.chooseAvatar")}
           className="mari-chrome-accent-tile mari-accent-animated group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full transition-transform hover:scale-105"
         >
           {avatarDataUrl ? (
@@ -150,10 +152,11 @@ export function CreateCharacterModal({ open, onClose, defaultName = "" }: Props)
 
         {/* Name */}
         <div className="w-full">
-          <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
+          <label htmlFor={nameId} className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
             {localizeUi("ui.modals.createcharactermodal.name")}
           </label>
           <input
+            id={nameId}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={localizeUi("ui.modals.createcharactermodal.characterName")}

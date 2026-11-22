@@ -17,10 +17,13 @@ export function OvChipInput({
   placeholder,
   parse,
   mono = true,
+  label,
 }: {
   values: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
+  /** The field's name (its visible heading); the placeholder alone is not a name (QC panel 3 AX16). */
+  label?: string;
   /** Turns typed text into the next list; defaults to comma split with de-dupe. */
   parse?: (current: string[], text: string) => string[];
   mono?: boolean;
@@ -75,6 +78,7 @@ export function OvChipInput({
           }
         }}
         placeholder={placeholder}
+        aria-label={label}
       />
     </div>
   );

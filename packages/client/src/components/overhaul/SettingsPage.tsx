@@ -565,6 +565,7 @@ function OverhaulSettingsDesktop({ tablet = false }: { tablet?: boolean }) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={localize("Search all settings")}
+              aria-label={localize("Search all settings")}
             />
           </label>
           {results.length ? (

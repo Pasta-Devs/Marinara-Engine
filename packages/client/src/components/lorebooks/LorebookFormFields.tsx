@@ -65,6 +65,7 @@ export function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys
             {key}
             <button
               type="button"
+              aria-label={localizeUi("ui.agents.regexscripteditor.removeValue1", { value1: key })}
               onClick={() => onChange(keys.filter((_, j) => j !== i))}
               className="ml-0.5 rounded-sm text-[var(--marinara-editor-muted)] hover:text-[var(--destructive)]"
             >
