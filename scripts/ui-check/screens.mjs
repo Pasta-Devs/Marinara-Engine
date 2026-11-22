@@ -385,7 +385,10 @@ export function screenList(ids) {
       then: async (page) => {
         const button = page.getByRole("button", { name: "Start a new game" }).filter({ visible: true });
         // Home can still be drawing its shortcuts when the screen opens.
-        await button.first().waitFor({ timeout: 10_000 }).catch(() => {});
+        await button
+          .first()
+          .waitFor({ timeout: 10_000 })
+          .catch(() => {});
         if (!(await button.count())) return "not on this layout";
         await button.first().click();
         const wizard = page.locator('[data-component="GameSetupWizard"]');
@@ -412,5 +415,92 @@ export function screenList(ids) {
       run: hook(() => window.__marinaraUiCheck.ui.getState().setOmnibarOpen(true)),
       then: async (page) => page.keyboard.type("set"),
     },
+    // Library › Assets: Backgrounds, Game assets and Rulesets are tabs of one Library row.
+    { id: "library-backgrounds", run: open.library("backgrounds") },
+    { id: "library-game-assets", run: open.library("game-assets") },
+    { id: "library-rulesets", run: open.library("rulesets") },
+    {
+      // A new text file opens in the page's right pane with the shared editor header (no window).
+      id: "game-asset-file-editor",
+      run: open.library("game-assets"),
+      then: async (page) => {
+        const head = page.locator('[data-ov-anchor="game-assets-new"]').filter({ visible: true });
+        await head.first().waitFor({ timeout: 10_000 });
+        await head.first().click();
+        await page
+          .locator("button, [role=menuitem]", { hasText: /text file/i })
+          .filter({ visible: true })
+          .first()
+          .click();
+        await page.locator("input").filter({ visible: true }).last().fill(`ui-check-${Date.now()}`);
+        await page.keyboard.press("Enter");
+        await page.locator('[data-component="GameAssetFileEditor"]').waitFor({ state: "visible", timeout: 10_000 });
+      },
+    },
+    {
+      // Rulesets › New: the builder as a page (needs imports on; otherwise New is off and there is nothing to open).
+      id: "ruleset-builder",
+      run: open.library("rulesets"),
+      then: async (page) => {
+        const newButton = () =>
+          page.getByRole("button", { name: "New", exact: true }).filter({ visible: true }).first();
+        await newButton()
+          .waitFor({ timeout: 10_000 })
+          .catch(() => {});
+        if (!(await newButton().count())) return "no New button on this layout";
+        if (await newButton().isDisabled()) {
+          // The builder needs Agents › custom imports on (test data only), then the page again.
+          await page.evaluate(() =>
+            fetch("/api/agents/import-policy", {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ enabled: true }),
+            }),
+          );
+          await page.reload();
+          await page.waitForFunction(() => window.__marinaraUiCheck, null, { timeout: 30_000 });
+          await page.evaluate(() => {
+            const h = window.__marinaraUiCheck;
+            h.openLibrarySection("rulesets");
+            if (!h.overhaul.getState().desktop) h.overhaul.getState().setMobileSidePageOpen(false);
+          });
+          await newButton().waitFor({ timeout: 10_000 });
+        }
+        await newButton().click();
+        await page.locator('[data-component="RulesetBuilderPage"]').waitFor({ state: "visible", timeout: 10_000 });
+      },
+    },
+    {
+      // The chat's background picker (choose only; managing lives in Library › Assets › Backgrounds).
+      id: "background-picker",
+      // From the new roleplay's setup page (its Background field), like the new-chat setup screens above.
+      run: null,
+      then: async (page) => {
+        const start = page.getByRole("button", { name: "Start a new roleplay" }).filter({ visible: true });
+        if (!(await start.count())) return "not on this layout";
+        await start.first().click();
+        await page.waitForSelector("[data-setup-page]", { timeout: 15_000 });
+        const button = page.getByRole("button", { name: /Browse library/ }).filter({ visible: true });
+        await button
+          .first()
+          .waitFor({ timeout: 10_000 })
+          .catch(() => {});
+        if (!(await button.count())) return "no background picker on this layout";
+        await button.first().scrollIntoViewIfNeeded();
+        await button.first().click();
+        await page.locator(".ov-bgpick__bar").first().waitFor({ state: "visible", timeout: 8000 });
+      },
+    },
+    {
+      // Library › Characters › Browse online (offline here, so it shows the Retry state too).
+      id: "characters-browse-online",
+      run: hook(() => {
+        const h = window.__marinaraUiCheck;
+        h.ui.getState().openBotBrowser();
+        if (!h.overhaul.getState().desktop) h.overhaul.getState().setMobileSidePageOpen(false);
+      }),
+      ready: '[data-component="BotBrowserView"]',
+    },
+    { id: "create-lorebook", run: hook(() => window.__marinaraUiCheck.ui.getState().openModal("create-lorebook")) },
   ];
 }

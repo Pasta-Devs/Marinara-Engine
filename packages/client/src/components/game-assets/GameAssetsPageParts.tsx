@@ -7,7 +7,7 @@
 // right pane with the shared editor header and Save, not in a window.
 // ──────────────────────────────────────────────
 import { useEffect, type MutableRefObject } from "react";
-import { FilePlus, FolderOpen, FolderPlus, Plus, RefreshCw, Search, Upload } from "lucide-react";
+import { ChevronLeft, FilePlus, FolderOpen, FolderPlus, Plus, RefreshCw, Search, Upload } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { TreeNode } from "../../hooks/use-game-assets";
 import { isHostDeviceBrowser } from "../../lib/host-device";
@@ -147,9 +147,21 @@ export function GameAssetsPageHead({
         ) : null}
         <ViewSwitch gallery={viewMode === "grid"} onChange={(gallery) => onViewMode(gallery ? "grid" : "list")} />
       </div>
-      <div className="ov-ga__crumbs">
-        <EditorCrumbs items={trail} />
-      </div>
+      {mobile ? (
+        // Phones: the top bar already leads back to the Library; inside a folder, one step up to its parent.
+        crumbs.length > 1 ? (
+          <div className="ov-ga__crumbs">
+            <button type="button" className="ov-btn" onClick={() => onCrumb(crumbs.length - 2)}>
+              <ChevronLeft size={14} aria-hidden="true" />
+              {crumbs.length === 2 ? t("library.sections.gameAssets") : crumbs[crumbs.length - 2]}
+            </button>
+          </div>
+        ) : null
+      ) : (
+        <div className="ov-ga__crumbs">
+          <EditorCrumbs items={trail} />
+        </div>
+      )}
       {menu.node}
     </>
   );

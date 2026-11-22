@@ -2826,7 +2826,7 @@ export function BotBrowserView() {
               ]}
             />
           )}
-          <div className="ov-gallery__head">
+          <div className={overhaulMobile ? "ov-bb__bar" : "ov-gallery__head"}>
             {overhaulMobile ? null : <h1 data-mari-part="page-title">{localizeText("Browse online")}</h1>}
             <small className="ov-bb__status">{browseStatus}</small>
             {sourceId === "pygmalion" && pygLoggedIn && (

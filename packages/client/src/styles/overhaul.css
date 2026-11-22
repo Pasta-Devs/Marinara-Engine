@@ -16164,3 +16164,112 @@ input.ov-edhead__title:not(#ov-x) {
     width: 100%;
   }
 }
+
+/* Game assets tiles in the Library page: Characters-style cards (no tinted tiles), Library folder icons. */
+.ov-ga__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.25rem, 9.75rem));
+  gap: 1.25rem 0.75rem;
+  padding: 1rem 1.5rem 2rem;
+}
+.ov-ga__card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.375rem;
+  cursor: pointer;
+}
+.ov-ga__art {
+  display: grid;
+  aspect-ratio: 1;
+  width: 100%;
+  overflow: hidden;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  border-radius: 0.75rem;
+  background: var(--secondary);
+  color: var(--ov-muted);
+}
+.ov-ga__card.is-folder .ov-ga__art {
+  border-color: transparent;
+  background: transparent;
+}
+.ov-ga__card.is-folder .ov-folder-icon {
+  width: 72%;
+  height: auto;
+}
+.ov-ga__card.is-selected .ov-ga__art {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: 1px;
+}
+@media (hover: hover) {
+  .ov-ga__card:hover .ov-ga__art {
+    border-color: color-mix(in srgb, var(--foreground) 22%, transparent);
+  }
+}
+.ov-ga__name {
+  overflow: hidden;
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-ga__card > button:not(.ov-ga__art) {
+  z-index: 1;
+  background: rgb(0 0 0 / 0.55);
+  color: #fff;
+}
+@container mari-main (max-width: 44rem) {
+  .ov-ga__grid {
+    grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+    padding: 0.75rem 1rem 2rem;
+  }
+}
+
+/* Phones: Browse online's source row (the top bar already names the page). */
+.ov-bb__bar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ov-bb__bar .ov-btn {
+  height: 2.5rem;
+}
+/* Phones: the Assets title spreads into the page header, so the tabs take their own full row under
+   "Assets" and the page's buttons keep their usual places. */
+:root[data-overhaul="mobile"] .ov-assets__title {
+  display: contents;
+}
+:root[data-overhaul="mobile"] .ov-assets__tabs {
+  display: flex;
+  order: 2;
+  flex: 1 1 100%;
+}
+:root[data-overhaul="mobile"] .ov-assets__tabs button {
+  flex: 1 1 0;
+  justify-content: center;
+  height: 2.25rem;
+  padding: 0 0.5rem;
+  white-space: nowrap;
+}
+:root[data-overhaul="mobile"] .ov-gallery__head:has(.ov-assets__tabs)::after {
+  display: none;
+}
+:root[data-overhaul="mobile"] .ov-vw__top:has(.ov-assets__tabs) {
+  flex-wrap: wrap;
+}
+:root[data-overhaul="mobile"] .ov-vw__top:has(.ov-assets__tabs) h1 {
+  flex: 1;
+}
+/* Phones: Rulesets' Import and New stay beside "Assets"; the tabs take the next row. */
+:root[data-overhaul="mobile"] .ov-vw__top .ov-assets__tabs:not(#ovm-x) {
+  order: 3;
+}
+/* Phones: Backgrounds' search gets its own full row like Characters. */
+:root[data-overhaul="mobile"] .ov-bglib .ov-gallery__tools > .ov-search {
+  flex: 1 1 100%;
+  width: auto;
+}

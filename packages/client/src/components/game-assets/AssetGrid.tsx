@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // File Browser — Asset grid / list view (with multi-select checkboxes)
 // ──────────────────────────────────────────────
+import { cn } from "../../lib/utils";
 import { useEffect, useState } from "react";
 import { Check, FileImage, Folder, FolderOpen, Minus, MoreHorizontal } from "lucide-react";
 import type { TreeNode } from "../../hooks/use-game-assets";
@@ -140,7 +141,13 @@ export function AssetGrid({
   if (viewMode === "grid") {
     return (
       <>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(clamp(6.75rem,18vmin,10rem),1fr))] gap-[clamp(0.5rem,1.4vmin,0.875rem)] p-[clamp(0.5rem,1.6vmin,0.875rem)]">
+        <div
+          className={
+            kitFolders
+              ? "ov-ga__grid"
+              : "grid grid-cols-[repeat(auto-fill,minmax(clamp(6.75rem,18vmin,10rem),1fr))] gap-[clamp(0.5rem,1.4vmin,0.875rem)] p-[clamp(0.5rem,1.6vmin,0.875rem)]"
+          }
+        >
           {visibleNodes.map((node) => {
             const isSelected = selectedPaths.has(node.path);
             const isFile = node.type === "file";
@@ -157,8 +164,12 @@ export function AssetGrid({
                   else onSelectFile(node);
                 }}
                 className={
-                  "group relative flex flex-col items-center gap-2 rounded-xl border bg-[var(--card)] p-[clamp(0.5rem,1.3vmin,0.875rem)] transition-all hover:border-[var(--foreground)]/25 hover:shadow-sm " +
-                  (isSelected ? "border-[var(--primary)]/45 ring-2 ring-[var(--primary)]/20" : "border-[var(--border)]")
+                  kitFolders
+                    ? cn("ov-ga__card group", isSelected && "is-selected", node.type === "folder" && "is-folder")
+                    : "group relative flex flex-col items-center gap-2 rounded-xl border bg-[var(--card)] p-[clamp(0.5rem,1.3vmin,0.875rem)] transition-all hover:border-[var(--foreground)]/25 hover:shadow-sm " +
+                      (isSelected
+                        ? "border-[var(--primary)]/45 ring-2 ring-[var(--primary)]/20"
+                        : "border-[var(--border)]")
                 }
               >
                 {/* Checkbox — files only, always visible */}
@@ -206,7 +217,13 @@ export function AssetGrid({
                   <MoreHorizontal size="0.875rem" />
                 </button>
 
-                <div className="flex aspect-square w-[clamp(3.5rem,13vmin,6.75rem)] max-w-full shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent)]">
+                <div
+                  className={
+                    kitFolders
+                      ? "ov-ga__art"
+                      : "flex aspect-square w-[clamp(3.5rem,13vmin,6.75rem)] max-w-full shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent)]"
+                  }
+                >
                   {node.type === "folder" ? (
                     (() => {
                       if (kitFolders) return <KitFolderIcon folder={{ id: node.path, name: node.name, itemIds: [] }} />;
@@ -229,7 +246,13 @@ export function AssetGrid({
                     <FileIcon ext={node.ext} className="h-8 w-8 text-[var(--foreground)]/80" />
                   )}
                 </div>
-                <span className="w-full truncate text-center text-xs text-[var(--foreground)]">{node.name}</span>
+                <span
+                  className={
+                    kitFolders ? "ov-ga__name" : "w-full truncate text-center text-xs text-[var(--foreground)]"
+                  }
+                >
+                  {node.name}
+                </span>
               </div>
             );
           })}
