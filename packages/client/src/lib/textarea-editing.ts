@@ -146,13 +146,140 @@ export function insertTextAtCaret(textarea: HTMLTextAreaElement, text: string) {
 }
 
 /**
+ * Tab-indenting boxes must never trap keyboard users. Two ways out, with no setting and no visible text:
+ * - Arriving by Tab (or Shift+Tab): Tab keeps moving focus until you type, click or select text in the box.
+ * - Escape, then Tab: the next Tab or Shift+Tab leaves the box instead of indenting.
+ * `nextTabMode` is the pure state machine (scripts/regressions/ui/textarea-tab-exit.regression.ts);
+ * the document listeners below feed it.
+ */
+export interface TabMode {
+  /** Focus arrived by Tab and nothing was typed, clicked or selected in the box yet. */
+  passThrough: boolean;
+  /** Escape was pressed; the next Tab leaves. */
+  exitArmed: boolean;
+}
+
+export type TabModeEvent =
+  | { type: "focus"; byTab: boolean }
+  | { type: "input" }
+  | { type: "pointerdown" }
+  | { type: "escape" }
+  | { type: "key" }
+  | { type: "tab"; hasSelection: boolean }
+  | { type: "blur" };
+
+export const IDLE_TAB_MODE: TabMode = { passThrough: false, exitArmed: false };
+/** A focusin this soon after a Tab keydown counts as arriving by Tab. */
+export const TAB_ARRIVAL_WINDOW_MS = 300;
+
+/** Next state, and for a "tab" event whether that Tab should move focus (true) or indent (false). */
+export function nextTabMode(state: TabMode, event: TabModeEvent): { state: TabMode; leave: boolean } {
+  switch (event.type) {
+    case "focus":
+      return { state: { passThrough: event.byTab, exitArmed: false }, leave: false };
+    case "input":
+    case "pointerdown":
+      return { state: { passThrough: false, exitArmed: false }, leave: false };
+    case "escape":
+      return { state: { ...state, exitArmed: true }, leave: false };
+    case "key":
+      return { state: { ...state, exitArmed: false }, leave: false };
+    case "tab": {
+      const leave = state.exitArmed || (state.passThrough && !event.hasSelection);
+      // A Tab that indents (a selection while passing through) means you are editing now.
+      return { state: leave ? state : { passThrough: false, exitArmed: false }, leave };
+    }
+    case "blur":
+      return { state: IDLE_TAB_MODE, leave: false };
+  }
+}
+
+const tabModes = new WeakMap<HTMLTextAreaElement, TabMode>();
+let lastTabKeyAt = Number.NEGATIVE_INFINITY;
+
+const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "AltGraph", "CapsLock", "Fn", "OS"]);
+
+function textareaTarget(target: EventTarget | null): HTMLTextAreaElement | null {
+  return typeof HTMLTextAreaElement !== "undefined" && target instanceof HTMLTextAreaElement ? target : null;
+}
+
+function step(textarea: HTMLTextAreaElement, event: TabModeEvent) {
+  const result = nextTabMode(tabModes.get(textarea) ?? IDLE_TAB_MODE, event);
+  tabModes.set(textarea, result.state);
+  return result;
+}
+
+function installTabModeListeners() {
+  if (typeof document === "undefined" || typeof window === "undefined") return;
+  const marker = window as unknown as { __marinaraTextareaTabMode?: boolean };
+  if (marker.__marinaraTextareaTabMode) return;
+  marker.__marinaraTextareaTabMode = true;
+  const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "Tab") {
+        lastTabKeyAt = now();
+        return;
+      }
+      const textarea = textareaTarget(event.target);
+      if (!textarea || MODIFIER_KEYS.has(event.key)) return;
+      step(textarea, event.key === "Escape" ? { type: "escape" } : { type: "key" });
+    },
+    true,
+  );
+  document.addEventListener(
+    "focusin",
+    (event) => {
+      const textarea = textareaTarget(event.target);
+      if (textarea) step(textarea, { type: "focus", byTab: now() - lastTabKeyAt < TAB_ARRIVAL_WINDOW_MS });
+    },
+    true,
+  );
+  document.addEventListener(
+    "focusout",
+    (event) => {
+      const textarea = textareaTarget(event.target);
+      if (textarea) step(textarea, { type: "blur" });
+    },
+    true,
+  );
+  document.addEventListener(
+    "input",
+    (event) => {
+      const textarea = textareaTarget(event.target);
+      if (textarea) step(textarea, { type: "input" });
+    },
+    true,
+  );
+  document.addEventListener(
+    "pointerdown",
+    (event) => {
+      const textarea = textareaTarget(event.target);
+      if (textarea) step(textarea, { type: "pointerdown" });
+    },
+    true,
+  );
+}
+
+installTabModeListeners();
+
+/** Screen-reader hint id for boxes where Tab indents (see `TextareaTabHint`). */
+export const TEXTAREA_TAB_HINT_ID = "marinara-textarea-tab-hint";
+
+/**
  * Applies editor-style Tab and Shift+Tab behavior without discarding the
- * browser's native undo transaction.
+ * browser's native undo transaction. Returns false, without touching the
+ * event, when this Tab should move focus instead (see `nextTabMode`).
  */
 export function handleTextareaTab(event: TextareaTabEvent): boolean {
   if (event.defaultPrevented || event.key !== "Tab" || event.altKey || event.ctrlKey || event.metaKey) {
     return false;
   }
+
+  const textarea = event.currentTarget;
+  const { leave } = step(textarea, { type: "tab", hasSelection: textarea.selectionStart !== textarea.selectionEnd });
+  if (leave) return false;
 
   event.preventDefault();
   const edit = createTabEdit(event.currentTarget, event.shiftKey);

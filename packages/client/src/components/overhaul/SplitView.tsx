@@ -505,7 +505,7 @@ export function SplitPaneBar({ phone = false }: { phone?: boolean }) {
           className={cn(phone ? "ov-icon-btn ov-icon-btn--sm" : "ov-text-btn", chatSettingsOpen && "is-on")}
           title={phone ? localize("Chat settings") : undefined}
           aria-label={phone ? localize("Chat settings") : undefined}
-          aria-pressed={chatSettingsOpen}
+          aria-expanded={chatSettingsOpen}
           data-window-opener={CHAT_SETTINGS_WINDOW_ID}
           onClick={(event) => {
             void preloadChatSettingsDrawer();

@@ -21,6 +21,7 @@ import { formatRuntimeBuild, runningBuildIsServed } from "./lib/runtime-build";
 import { recordClientReload, registerClientRuntimeDiagnostics } from "./lib/client-runtime-diagnostics";
 import { isIosWebKitBrowser } from "./lib/generation-stream-policy";
 import { installUiCheckHook } from "./lib/ui-check-hook";
+import { installBootOmnibarShortcut } from "./lib/omnibar-key-buffer";
 import "@fontsource/gloock/400.css";
 import "@fontsource-variable/figtree";
 import "./styles/globals.css";
@@ -33,6 +34,8 @@ Object.assign(globalThis, { React, ReactDOM });
 
 registerClientRuntimeDiagnostics(formatRuntimeBuild(APP_VERSION, __MARINARA_BUILD_COMMIT__));
 installUiCheckHook();
+// Ctrl+K before the app has drawn still opens Search, with what you type after it (QC Nov 22 K17).
+installBootOmnibarShortcut();
 // Phones and tablets: Home's stars hold still (battery). Set once before the first render, because the
 // media query alone missed iPads with a keyboard or trackpad attached (they report hover and a fine pointer).
 if (

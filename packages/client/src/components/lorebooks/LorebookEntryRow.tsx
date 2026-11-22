@@ -755,7 +755,11 @@ export function LorebookEntryRow({
             role="switch"
             aria-checked={localEnabled}
             disabled={!!chatEnabled && !entry.enabled}
-            aria-label={localizeUi(
+            // Named after the entry; on/off is aria-checked alone, so it is not read twice (QC Nov 22 K10).
+            aria-label={localizeUi("ui.lorebooks.lorebookentryrow.useEntry", {
+              name: entry.name?.trim() || localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry"),
+            })}
+            title={localizeUi(
               localEnabled ? "ui.lorebooks.lorebookentryrow.disableEntry" : "ui.lorebooks.lorebookentryrow.enableEntry",
             )}
             className={cn("ov-switch", localEnabled && "is-on")}
@@ -932,19 +936,9 @@ export function LorebookEntryRow({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <SettingsSwitch
-              ariaLabel={
-                chatEnabled
-                  ? localizeUi(
-                      localEnabled
-                        ? "chat.settings.inlineLorebook.disableForChat"
-                        : "chat.settings.inlineLorebook.enableForChat",
-                    )
-                  : localizeUi(
-                      localEnabled
-                        ? "ui.lorebooks.lorebookentryrow.disableEntry"
-                        : "ui.lorebooks.lorebookentryrow.enableEntry",
-                    )
-              }
+              ariaLabel={localizeUi("ui.lorebooks.lorebookentryrow.useEntry", {
+                name: entry.name?.trim() || localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry"),
+              })}
               title={
                 chatEnabled && !entry.enabled
                   ? localizeUi("chat.settings.inlineLorebook.globallyDisabled")

@@ -145,10 +145,8 @@ function WindowSizeSlider({
         max={max}
         step={1}
         value={value}
-        className={cn(
-          "min-h-11 w-full accent-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]",
-          unset && "opacity-40",
-        )}
+        data-unset={unset || undefined}
+        className="min-h-11 w-full accent-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
         onChange={(event) => onChange(Number(event.target.value))}
       />
     </div>

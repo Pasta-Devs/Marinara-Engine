@@ -63,9 +63,11 @@ export function useLongPress(onLongPress: () => void, enabled: boolean) {
     // actions are only behind this hold. There the message is a Tab stop, and Enter (or Shift+F10 and the menu
     // key, through onContextMenu below) opens the same sheet. Real phones never show the focus ring.
     tabIndex: 0,
-    "aria-keyshortcuts": "Enter Shift+F10",
+    // A named stop (aria-label at the call site, "Message from …"), not an unnamed generic div (QC Nov 22 K19).
+    role: "group",
+    "aria-keyshortcuts": "Enter Space Shift+F10",
     onKeyDown: (event: React.KeyboardEvent) => {
-      if (event.key !== "Enter" || event.target !== event.currentTarget) return;
+      if ((event.key !== "Enter" && event.key !== " ") || event.target !== event.currentTarget) return;
       if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
       event.preventDefault();
       const rect = event.currentTarget.getBoundingClientRect();

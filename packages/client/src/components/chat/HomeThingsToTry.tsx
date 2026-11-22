@@ -330,6 +330,7 @@ function TaskRow({
           <button
             type="button"
             onClick={() => onShow(task)}
+            aria-label={t("thingsToTry.showMeNamed", "Show me: {{task}}", { task: title(task) })}
             className="rounded-lg px-2 py-1 text-xs font-bold text-[var(--marinara-app-accent-text,var(--primary))] hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] pointer-coarse:min-h-9"
           >
             {t("thingsToTry.showMe", "Show me")}

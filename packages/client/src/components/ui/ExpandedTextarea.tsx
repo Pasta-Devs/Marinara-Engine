@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Expanded Textarea — Fullscreen editing overlay
 // ──────────────────────────────────────────────
-import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Minimize2 } from "lucide-react";
@@ -44,6 +44,7 @@ export function ExpandedTextarea({
   overlayStyle,
 }: ExpandedTextareaProps) {
   const { t: localizeUi } = useUiTranslation();
+  const tabHintId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isChatSurface = surface === "chat";
 
@@ -130,6 +131,8 @@ export function ExpandedTextarea({
               onChange={(e) => onChange(e.target.value)}
               readOnly={readOnly}
               onKeyDown={readOnly ? undefined : handleTextareaTab}
+              aria-keyshortcuts={readOnly ? undefined : "Escape Tab"}
+              aria-describedby={readOnly ? undefined : tabHintId}
               placeholder={placeholder}
               className={cn(
                 "h-full w-full resize-none rounded-xl bg-[var(--sidebar)] p-5 text-sm leading-relaxed outline-none transition-colors",
@@ -139,6 +142,11 @@ export function ExpandedTextarea({
                 readOnly && "cursor-text text-[var(--muted-foreground)]",
               )}
             />
+            {!readOnly && (
+              <span id={tabHintId} hidden>
+                {localizeUi("ui.macroTextarea.tabHint")}
+              </span>
+            )}
           </div>
           {footer ? (
             <div
