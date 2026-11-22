@@ -2651,9 +2651,10 @@ assert.ok(!("mariDetailId" in mariSession));
       "chat-tool:summary:chat-1",
       "chat-tool:advanced-parameters:chat-1",
       "chat-tool:memory-recall:chat-1",
+      "chat-tool:peek-prompt:chat-1",
       "chat-tool:regenerate:chat-1",
     ],
-    "roleplay on the chat surface gets all six tool rows, Summary and the two settings rows included",
+    "roleplay on the chat surface gets all seven tool rows, Summary, Peek prompt and the two settings rows included",
   );
   const summaryRow = roleplayOnChatSurface.find((row) => row.id === "chat-tool:summary:chat-1");
   assert.deepEqual(summaryRow?.action, { kind: "open-chat-tool", chatId: "chat-1", tool: "summary" });
@@ -2670,6 +2671,7 @@ assert.ok(!("mariDetailId" in mariSession));
       "chat-tool:lorebook:chat-1",
       "chat-tool:advanced-parameters:chat-1",
       "chat-tool:memory-recall:chat-1",
+      "chat-tool:peek-prompt:chat-1",
       "chat-tool:regenerate:chat-1",
     ],
     "conversation mode has no Summary feature, so no Summary row",
@@ -2686,8 +2688,8 @@ assert.ok(!("mariDetailId" in mariSession));
   });
   assert.deepEqual(
     toolIds(gameOnChatSurface),
-    ["chat-tool:lorebook:chat-1"],
-    "game mode gets only the lorebook tool row, not search or regenerate",
+    ["chat-tool:lorebook:chat-1", "chat-tool:peek-prompt:chat-1"],
+    "game mode gets the lorebook and Peek prompt rows (the chat view behind a game answers Peek prompt), not search or regenerate",
   );
 
   // R2 (slice 61): a reply finding puts "Fix: Check the last reply" first in the chat's rows; a
@@ -3002,7 +3004,7 @@ assert.ok(!("mariDetailId" in mariSession));
     "the open custom agent leads, then the focused-field row",
   );
   assert.equal(customRows[0]?.title, "Editing Scene Critic");
-  assert.equal(customRows[1]?.title, "Improve Prompt Template with Prof. Mari");
+  assert.equal(customRows[1]?.title, "Improve Prompt Template with Professor Mari");
   const builtInRows = buildOmnibarContextResults({ ...input, openAgentId: "illustrator" });
   assert.equal(builtInRows[0]?.id, "agent:illustrator", "a built-in opened by type gets its Editing row");
 
@@ -3090,6 +3092,8 @@ assert.ok(!("mariDetailId" in mariSession));
     "components/layout/PersonalExtensionContributionsMenu.tsx",
     "components/layout/PersonalExtensionInjector.tsx",
     "hooks/use-touch-folder-drag.ts",
+    // The keyboard skip links show only while focused, and must then sit over everything, the omnibar included.
+    "styles/accessibility.css",
   ]);
   // Slice 82: the end-of-run sprite puff (.mari-sprite-ghost, the one exempt CSS value) had no user
   // left and was deleted, so any z-index at or above the layer in a stylesheet now fails this check.
