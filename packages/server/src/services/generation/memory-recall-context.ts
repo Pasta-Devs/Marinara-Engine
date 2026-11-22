@@ -5,6 +5,7 @@ import { logger } from "../../lib/logger.js";
 import { chunkCoversSentMessage, recallMemories } from "../memory-recall.js";
 import type { MemoryRecallEmbeddingSource, RecalledMemory } from "../memory-recall.js";
 import { wrapContent } from "../prompt/format-engine.js";
+import { fillMemoryRecallSlot } from "../prompt/memory-recall-slot.js";
 import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { memoryRecallBudgetTokens, packRecalledMemories } from "./memory-recall-pack.js";
 
@@ -197,7 +198,10 @@ export async function injectMemoryRecallContext<T extends MemoryRecallWindowMess
       const leftOut = removeOldestHistory(promptWindow.prompt, droppedHistory);
       if (leftOut.length > 0) promptWindow.onHistoryLeftOut?.(leftOut);
     }
-    insertBeforeHistory(messages, { role: "system", content: memoriesBlock });
+    // A preset's Memory Recall marker decides where memories go; without one, right before the chat history.
+    if (!fillMemoryRecallSlot(messages, memoriesBlock)) {
+      insertBeforeHistory(messages, { role: "system", content: memoriesBlock });
+    }
     return selected.map(({ line }) => line);
   } catch (err) {
     logger.error(err, "[memory-recall] Recall failed, skipping");

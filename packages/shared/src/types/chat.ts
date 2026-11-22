@@ -611,6 +611,13 @@ export interface ChatMetadata {
    * messages that no longer fit, so it adds nothing while the whole chat fits.
    */
   enableMemoryRecallWholeChat?: boolean;
+  /**
+   * Send activated lorebook entries inside the chat history, this many messages before its newest one (0 = after
+   * it), instead of before the history. Everything before the entries then stays the same from turn to turn, so a
+   * provider's prompt cache can reuse the history. Unset (the default) keeps them before the history: lore read
+   * before the story keeps replies more coherent. Where a preset puts its lorebook markers no longer matters then.
+   */
+  loreHistoryDepth?: number | null;
   /** Discord webhook URL to mirror messages to a Discord channel. */
   discordWebhookUrl?: string;
   /** When true, Noodle timeline refreshes may include this chat's recent messages as generation context. */

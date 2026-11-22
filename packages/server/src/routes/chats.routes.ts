@@ -176,7 +176,11 @@ import { addGamePartyCards, syncGamePartyIds } from "../services/game/game-party
 import type { Journal } from "../services/game/journal.service.js";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
 import { filterRelevantLorebooks, processLorebooks } from "../services/lorebook/index.js";
-import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
+import {
+  injectAtDepth,
+  normalizeLoreHistoryDepth,
+  placeLorebookContent,
+} from "../services/lorebook/prompt-injector.js";
 import {
   resolveChatSummaryConnection,
   resolveChatSummaryTemperatureOptions,
@@ -4398,19 +4402,12 @@ export async function chatsRoutes(app: FastifyInstance) {
             const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
               .filter(Boolean)
               .join("\n");
-            if (loreContent) {
-              const loreBlock = `<lore>\n${loreContent}\n</lore>`;
-              const firstHistoryIndex = messages.findIndex(
-                (message) => message.role === "user" || message.role === "assistant",
-              );
-              messages.splice(firstHistoryIndex >= 0 ? firstHistoryIndex : messages.length, 0, {
-                role: "system",
-                content: loreBlock,
-              });
-            }
-            if (lorebookResult.depthEntries.length > 0) {
-              messages = injectAtDepth(messages, lorebookResult.depthEntries);
-            }
+            messages = placeLorebookContent(
+              messages,
+              loreContent ? `<lore>\n${loreContent}\n</lore>` : null,
+              lorebookResult.depthEntries,
+              normalizeLoreHistoryDepth(chatMeta.loreHistoryDepth),
+            );
             return {
               messages: toPeekPromptMessages(injectOwnerSpatialPrompt(messages, ownerSpatialProjection)),
               chatMode,
@@ -4431,6 +4428,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
           const assembled = await assemblePrompt({
             db: app.db,
+            loreHistoryDepth: normalizeLoreHistoryDepth(chatMeta.loreHistoryDepth),
             worldState: promptMacroContext.worldState,
             model: connection?.model,
             reasoning: promptReasoning,
