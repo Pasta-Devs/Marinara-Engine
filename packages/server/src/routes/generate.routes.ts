@@ -510,11 +510,7 @@ import {
   resolveLorebookScopeExclusions,
 } from "../services/lorebook/game-lorebook-scope.js";
 import { lorebookEntryPassesContextFilters, type GameStateForScanning } from "../services/lorebook/keyword-scanner.js";
-import {
-  injectAtDepth,
-  normalizeLoreHistoryDepth,
-  placeLorebookContent,
-} from "../services/lorebook/prompt-injector.js";
+import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
 import { stripMemoryRecallSlot } from "../services/prompt/memory-recall-slot.js";
 import {
   resolveChatSummaryConnection,
@@ -1999,10 +1995,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         logger.warn(err, "[generate] Failed to record autonomous accounting for chat %s", input.chatId);
       }
     };
-
-    // The chat's lorebook placement: null keeps entries before the history (default); a depth puts them inside it,
-    // so the prompt before them stays cacheable.
-    const loreHistoryDepth = normalizeLoreHistoryDepth(chatMeta.loreHistoryDepth);
 
     // ── SSE progress helper: tells the client what phase we're in ──
     const sendProgress = (phase: string) => {
@@ -4221,7 +4213,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           );
 
           const assemblerInput: AssemblerInput = {
-            loreHistoryDepth,
             deferMemoryRecall: true,
             worldState: promptMacroContext.worldState,
             model: conn.model,
@@ -4824,19 +4815,24 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
                 .filter(Boolean)
                 .join("\n");
-              const loreBlock = loreContent ? wrapContent(loreContent, "Lore", wrapFormat) : "";
-              if (loreBlock) conversationLorebookBlockValue = loreBlock;
-              if (conversationContextMacroSlots.lorebook) {
-                replaceConversationContextMacro(finalMessages, "lorebook", loreBlock);
+              if (loreContent) {
+                const loreBlock = wrapContent(loreContent, "Lore", wrapFormat);
+                conversationLorebookBlockValue = loreBlock;
+                if (conversationContextMacroSlots.lorebook) {
+                  replaceConversationContextMacro(finalMessages, "lorebook", loreBlock);
+                } else {
+                  // Inject before the awareness block (or before first user/assistant message)
+                  const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
+                  const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
+                  finalMessages.splice(insertAt, 0, { role: "system" as const, content: loreBlock });
+                }
+              } else if (conversationContextMacroSlots.lorebook) {
+                replaceConversationContextMacro(finalMessages, "lorebook", "");
               }
-              // Without a {{lorebook}} macro: before the awareness block and the first chat message, or after the
-              // history if the chat says so. Then the depth-based entries.
-              finalMessages = placeLorebookContent(
-                finalMessages,
-                conversationContextMacroSlots.lorebook ? null : loreBlock,
-                lorebookResult.depthEntries,
-                loreHistoryDepth,
-              );
+              // Inject depth-based lorebook entries into the message array
+              if (lorebookResult.depthEntries.length > 0) {
+                finalMessages = injectAtDepth(finalMessages, lorebookResult.depthEntries);
+              }
             }
           }
         }
@@ -4891,12 +4887,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
             .filter(Boolean)
             .join("\n");
-          finalMessages = placeLorebookContent(
-            finalMessages,
-            loreContent ? `<lore>\n${loreContent}\n</lore>` : null,
-            lorebookResult.depthEntries,
-            loreHistoryDepth,
-          );
+          if (loreContent) {
+            const loreBlock = `<lore>\n${loreContent}\n</lore>`;
+            const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
+            const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
+            finalMessages.splice(insertAt, 0, { role: "system" as const, content: loreBlock });
+          }
+          if (lorebookResult.depthEntries.length > 0) {
+            finalMessages = injectAtDepth(finalMessages, lorebookResult.depthEntries);
+          }
         }
 
         if (chatMode !== "game") {
@@ -9073,12 +9072,18 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             content: message.content.split(INDIVIDUAL_CONVERSATION_LOREBOOK_TOKEN).join(loreBlock),
           }));
 
-          prepared = placeLorebookContent(
-            prepared,
-            conversationContextMacroSlots.lorebook ? null : loreBlock,
-            lorebookResult.depthEntries,
-            loreHistoryDepth,
-          );
+          if (loreBlock && !conversationContextMacroSlots.lorebook) {
+            const firstUserIdx = prepared.findIndex(
+              (message) => message.role === "user" || message.role === "assistant",
+            );
+            prepared.splice(firstUserIdx >= 0 ? firstUserIdx : prepared.length, 0, {
+              role: "system" as const,
+              content: loreBlock,
+            });
+          }
+          if (lorebookResult.depthEntries.length > 0) {
+            prepared = injectAtDepth(prepared, lorebookResult.depthEntries);
+          }
 
           decodeDeferredRelocationConditionals(
             prepared,

@@ -28,3 +28,17 @@ export function isDryRunOutput(output: string | null | undefined): boolean {
 // surface's built-in skill. On unless the user turns it off; "false" is the only stored off value.
 // Written only by PUT /api/professor-mari/workspace/skill-gate. Read fresh on every app_data call.
 export const MARI_SKILL_GATE_SETTINGS_KEY = "mari-skill-gate";
+
+// Where Professor Mari's per-turn context (the time, attached chats, @ links, continuity) goes: this many of the
+// newest conversation messages come after it. 2 puts it above the user's message and her last reply, so the task
+// stays last and the conversation before it stays cached. Written only by PUT /api/professor-mari/workspace/context-depth.
+export const MARI_CONTEXT_DEPTH_SETTINGS_KEY = "mari-context-depth";
+export const DEFAULT_MARI_CONTEXT_DEPTH = 2;
+export const MAX_MARI_CONTEXT_DEPTH = 10;
+
+/** A stored context depth as a whole number from 0 to the maximum, or the default for junk and absence. */
+export function normalizeMariContextDepth(value: unknown): number {
+  const parsed = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
+  if (typeof parsed !== "number" || !Number.isInteger(parsed)) return DEFAULT_MARI_CONTEXT_DEPTH;
+  return Math.min(MAX_MARI_CONTEXT_DEPTH, Math.max(0, parsed));
+}

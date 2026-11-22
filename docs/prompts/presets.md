@@ -206,14 +206,9 @@ Game chats add more controls. **Story style**, **Violence**, **Content boundarie
 
 ## Order sections for prompt caching
 
-Prompt caching lets a service reuse the start of a prompt it has already read, so long chats cost less and answer sooner. The service reuses the prompt only up to the first text that changed since the last message. Lorebook entries and recalled memories change with almost every message, so in front of the chat history they keep the whole history out of the cache.
+Prompt caching lets a service reuse the start of a prompt it has already read, so long chats cost less and answer sooner. The service reuses the prompt only up to the first text that changed since the last message. Recalled memories change with almost every message, so in front of the chat history they keep the whole history out of the cache.
 
-Both stay before the history by default, because the model then reads the lore as part of the world before the story, and replies follow it more closely. To trade some of that for caching:
-
-- **Lorebook entries:** in the chat's settings, open **Lorebooks** and turn on **Send inside the chat history**. Set **Depth** to how many of the newest messages come after the entries. The default, 2, puts them above your last message and the reply before it, so the newest exchange still comes last. This applies wherever the preset puts its lorebook markers.
-- **Recalled memories:** add a **Memory Recall** marker to the preset. Drag it below **Chat History**, or set its **Position** to **Depth (from end of chat)** to put it inside the history.
-
-Use [Peek Prompt](../chats/peek-prompt.md) to see where lorebook entries land.
+To place them yourself, add a **Memory Recall** marker to the preset. Drag it below **Chat History**, or set its **Position** to **Depth (from end of chat)** to put it inside the history. Memories read before the story keep replies closer to them, so the default stays before the history.
 
 ## Decision blocks and prompt caching
 

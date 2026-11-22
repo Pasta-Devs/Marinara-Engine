@@ -96,11 +96,7 @@ import {
 import { buildImpersonateInstruction } from "../../services/conversation/impersonate-prompt.js";
 import { processLorebooks } from "../../services/lorebook/index.js";
 import { resolveLorebookScopeExclusions } from "../../services/lorebook/game-lorebook-scope.js";
-import {
-  injectAtDepth,
-  normalizeLoreHistoryDepth,
-  placeLorebookContent,
-} from "../../services/lorebook/prompt-injector.js";
+import { injectAtDepth } from "../../services/lorebook/prompt-injector.js";
 import { createLLMProvider } from "../../services/llm/provider-registry.js";
 import {
   isMemoryRecallVectorizerAvailable,
@@ -680,8 +676,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     if (!baseUrl) return reply.status(400).send({ error: "No base URL configured for this connection" });
 
     const chatMeta = parseExtra(chat.metadata) as Record<string, unknown>;
-    // The chat's lorebook placement: before the history (null) or inside it at a depth.
-    const loreHistoryDepth = normalizeLoreHistoryDepth(chatMeta.loreHistoryDepth);
     const modelAccessPolicy = resolveModelAccessPolicy({
       provider: conn.provider,
       model: conn.model,
@@ -1830,14 +1824,20 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         }
         if (key === "lorebook") {
           if (!lorebookPayload.loreBlock) continue;
+          const insertChunks: Array<{ role: "system"; content: string }> = [
+            { role: "system", content: lorebookPayload.loreBlock },
+          ];
+
+          const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
+          const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
+          finalMessages.splice(insertAt, 0, ...insertChunks);
           // Depth entries only make sense if there are chat messages already present.
-          const hasChat = finalMessages.some((m) => m.role === "user" || m.role === "assistant");
-          finalMessages = placeLorebookContent(
-            finalMessages as any,
-            lorebookPayload.loreBlock,
-            hasChat ? lorebookPayload.depthEntries : [],
-            loreHistoryDepth,
-          ) as any;
+          if (
+            lorebookPayload.depthEntries.length > 0 &&
+            finalMessages.some((m) => m.role === "user" || m.role === "assistant")
+          ) {
+            finalMessages = injectAtDepth(finalMessages as any, lorebookPayload.depthEntries) as any;
+          }
           continue;
         }
         if (key === "trackers") {
@@ -1883,7 +1883,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       );
 
       const assemblerInput: AssemblerInput = {
-        loreHistoryDepth,
         worldState: promptMacroContext.worldState,
         model: conn.model,
         reasoning: promptReasoning,
@@ -2142,12 +2141,15 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
         .filter((content): content is string => typeof content === "string" && content.length > 0)
         .join("\n");
-      finalMessages = placeLorebookContent(
-        finalMessages as any,
-        loreContent ? wrapContent(loreContent, "Lore", wrapFormat) : null,
-        lorebookResult.depthEntries,
-        loreHistoryDepth,
-      ) as any;
+      if (loreContent) {
+        const loreBlock = wrapContent(loreContent, "Lore", wrapFormat);
+        const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
+        const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
+        finalMessages.splice(insertAt, 0, { role: "system", content: loreBlock });
+      }
+      if (lorebookResult.depthEntries.length > 0) {
+        finalMessages = injectAtDepth(finalMessages as any, lorebookResult.depthEntries) as any;
+      }
     }
 
     if (usePromptParts || !effectivePresetId) {

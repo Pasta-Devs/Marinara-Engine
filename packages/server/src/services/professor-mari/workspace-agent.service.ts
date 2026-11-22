@@ -85,6 +85,9 @@ import {
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIME_SETTINGS_KEY,
   MARI_SKILL_GATE_SETTINGS_KEY,
+  MARI_CONTEXT_DEPTH_SETTINGS_KEY,
+  DEFAULT_MARI_CONTEXT_DEPTH,
+  normalizeMariContextDepth,
   DEFAULT_MARI_RUNTIME,
   isMariRuntime,
   type MariRuntime,
@@ -2792,6 +2795,30 @@ export async function readStoredMariRuntime(storage: {
   }
 }
 
+/** Where her per-turn context goes (newest conversation messages after it); the default for junk and absence. */
+export async function readStoredMariContextDepth(storage: {
+  get(key: string): Promise<string | null>;
+}): Promise<number> {
+  try {
+    return normalizeMariContextDepth(await storage.get(MARI_CONTEXT_DEPTH_SETTINGS_KEY));
+  } catch {
+    return DEFAULT_MARI_CONTEXT_DEPTH;
+  }
+}
+
+/**
+ * Put this turn's context blocks into the prompt so that `depth` of the newest conversation messages come after them
+ * (0 = after the newest). Above the user's message and her last reply (depth 2), the task stays the last thing she
+ * reads, so attached chats and @ links read as reference rather than a scene to continue, and everything before the
+ * blocks is the same as last turn, so a provider's prefix cache reuses it.
+ */
+export function insertMariTurnContext(messages: ChatMessage[], blocks: ChatMessage[], depth: number): void {
+  if (blocks.length === 0) return;
+  const history = messages.flatMap((message, index) => (message.contextKind === "history" ? [index] : []));
+  const at = depth <= 0 || history.length === 0 ? messages.length : history[Math.max(0, history.length - depth)]!;
+  messages.splice(at, 0, ...blocks);
+}
+
 /** The "read the handbook first" gate, on unless the user stored "false"; tolerates junk and absence. */
 export async function readStoredMariSkillGate(storage: { get(key: string): Promise<string | null> }): Promise<boolean> {
   try {
@@ -5440,24 +5467,31 @@ export class ProfessorMariWorkspaceService {
     }
     // A Retry after a partial reply: her words stay in the history, and your message goes last again, as a turn must end.
     if (messages.at(-1)?.role === "assistant" && latestUserEntry) messages.push({ ...latestUserEntry });
-    // #8375: it carries currentTime and this turn's decisions, so it changes every turn. It goes after the history
-    // with the other per-turn blocks: the system prompt and the history before it stay the same from one turn to the
-    // next, and a provider's prefix cache reuses both.
-    messages.push({ role: "system", content: workspaceInfo, contextKind: "injection" });
+    // #8375: it carries currentTime and this turn's decisions, so it changes every turn. It goes into the history
+    // with the other per-turn blocks, at the user's context depth (2: above her last reply and the user's message):
+    // the system prompt and the history before it stay the same from one turn to the next, and a provider's prefix
+    // cache reuses both.
+    const turnContext: ChatMessage[] = [];
+    turnContext.push({ role: "system", content: workspaceInfo, contextKind: "injection" });
     // #5073: user-attached reference context (chat-history slices). contextKind:'injection' so the
     // trimmer preserves it (unlike 'history'), keeping it readable regardless of message age; the
     // renderer self-bounds its total size. Placed before continuity so the latest turn stays closest.
     if (attachedContextPrompt) {
-      messages.push({ role: "system", content: attachedContextPrompt, contextKind: "injection" });
+      turnContext.push({ role: "system", content: attachedContextPrompt, contextKind: "injection" });
     }
     if (handoffContextPrompt) {
-      messages.push({ role: "system", content: handoffContextPrompt, contextKind: "injection" });
+      turnContext.push({ role: "system", content: handoffContextPrompt, contextKind: "injection" });
     }
     // The composer's @ links: this turn's payloads and a ledger of earlier ones, after the handoff, before continuity.
     if (linkedReferencesPrompt) {
-      messages.push({ role: "system", content: linkedReferencesPrompt, contextKind: "injection" });
+      turnContext.push({ role: "system", content: linkedReferencesPrompt, contextKind: "injection" });
     }
-    if (continuityPrompt) messages.push({ role: "system", content: continuityPrompt, contextKind: "injection" });
+    if (continuityPrompt) turnContext.push({ role: "system", content: continuityPrompt, contextKind: "injection" });
+    insertMariTurnContext(
+      messages,
+      turnContext,
+      await readStoredMariContextDepth(createAppSettingsStorage(this.app.db)),
+    );
     logger.debug(
       "Professor Mari prompt: %d messages, %d prompt chars, %d history chars, %d injection chars, %d tools",
       messages.length,

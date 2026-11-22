@@ -117,59 +117,6 @@ export function getDepthInjectedEntries(activatedEntries: ActivatedEntry[]): Arr
     });
 }
 
-/** Clamp a chat's lorebook history depth setting: a whole number of messages, or null for "before the history". */
-export function normalizeLoreHistoryDepth(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  return Math.min(Math.max(0, Math.floor(value)), 100);
-}
-
-/**
- * Insert a block that changes every turn (lorebook entries, recalled memories): before the first chat message when
- * `historyDepth` is null (the default), or inside the history with `historyDepth` of its newest messages after it
- * (0 = after the newest). Everything before the block then stays the same from one turn to the next, so a provider's
- * prompt cache can reuse the history before it. History is found by `contextKind: "history"`, or by its user and
- * assistant messages when nothing is marked.
- */
-export function insertPerTurnBlock<T extends { role: string; contextKind?: PromptMessage["contextKind"] }>(
-  messages: T[],
-  message: T,
-  historyDepth: number | null,
-): void {
-  if (historyDepth !== null) {
-    const marked = messages.flatMap((entry, index) => (entry.contextKind === "history" ? [index] : []));
-    const history =
-      marked.length > 0
-        ? marked
-        : messages.flatMap((entry, index) => (entry.role === "user" || entry.role === "assistant" ? [index] : []));
-    let index = messages.length;
-    if (history.length > 0) {
-      index = historyDepth === 0 ? history.at(-1)! + 1 : history[Math.max(0, history.length - historyDepth)]!;
-    }
-    // Marked as an injection, so context fitting never trims it as the oldest history.
-    messages.splice(index, 0, { ...message, contextKind: "injection" } as T);
-    return;
-  }
-  const firstChatIndex = messages.findIndex((entry) => entry.role === "user" || entry.role === "assistant");
-  messages.splice(firstChatIndex >= 0 ? firstChatIndex : messages.length, 0, message);
-}
-
-/**
- * Add a scan's lorebook block (or none, when a macro already placed it) and its @ Depth entries. Inside the history,
- * the depth entries go in first, so they still count chat messages only and not the lore block.
- */
-export function placeLorebookContent(
-  messages: PromptMessage[],
-  loreBlock: string | null,
-  depthEntries: Array<{ content: string; role: LorebookRole; depth: number }>,
-  historyDepth: number | null,
-): PromptMessage[] {
-  let result = messages;
-  if (historyDepth !== null && depthEntries.length > 0) result = injectAtDepth(result, depthEntries);
-  if (loreBlock) insertPerTurnBlock(result, { role: "system", content: loreBlock }, historyDepth);
-  if (historyDepth === null && depthEntries.length > 0) result = injectAtDepth(result, depthEntries);
-  return result;
-}
-
 /**
  * Inject depth-based entries into a message array.
  * Depth 0 = after the latest message, depth 1 = before the last message, etc.
