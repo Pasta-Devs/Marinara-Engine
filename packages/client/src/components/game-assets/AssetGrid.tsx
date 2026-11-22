@@ -11,6 +11,7 @@ import { CATEGORY_ICONS } from "./constants";
 import { FileIcon, isImage } from "./utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Checkbox } from "../ui/Checkbox";
+import { KitFolderIcon } from "../overhaul/LibraryKit";
 
 const ASSET_GRID_PAGE_SIZE = 240;
 
@@ -42,6 +43,8 @@ export interface AssetGridProps {
   getFolderSelectionStatus?: (node: TreeNode) => GameAssetSelectionStatus;
   /** Open the per-game folder selection menu */
   onOpenFolderSelection?: (node: TreeNode, anchorEl: HTMLElement) => void;
+  /** New layout's Library page: folders draw as the Library's folder mark instead of a category icon square. */
+  kitFolders?: boolean;
 }
 
 /**
@@ -88,6 +91,7 @@ export function AssetGrid({
   assetSelectionMode = false,
   getFolderSelectionStatus,
   onOpenFolderSelection,
+  kitFolders = false,
 }: AssetGridProps) {
   const { t: localizeUi } = useUiTranslation();
   const [visibleCount, setVisibleCount] = useState(ASSET_GRID_PAGE_SIZE);
@@ -205,6 +209,7 @@ export function AssetGrid({
                 <div className="flex aspect-square w-[clamp(3.5rem,13vmin,6.75rem)] max-w-full shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent)]">
                   {node.type === "folder" ? (
                     (() => {
+                      if (kitFolders) return <KitFolderIcon folder={{ id: node.path, name: node.name, itemIds: [] }} />;
                       const CategoryIcon = CATEGORY_ICONS[node.name] || Folder;
                       return (
                         <CategoryIcon className="h-[52%] min-h-8 w-[52%] min-w-8 max-h-16 max-w-16 text-[var(--foreground)]/80" />
@@ -300,6 +305,12 @@ export function AssetGrid({
 
             {node.type === "folder" ? (
               (() => {
+                if (kitFolders)
+                  return (
+                    <span className="ov-ga__rowfolder">
+                      <KitFolderIcon folder={{ id: node.path, name: node.name, itemIds: [] }} />
+                    </span>
+                  );
                 const CategoryIcon = CATEGORY_ICONS[node.name] || Folder;
                 return <CategoryIcon size="1rem" className="shrink-0 text-[var(--foreground)]/80" />;
               })()

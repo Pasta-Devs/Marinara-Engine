@@ -4,8 +4,10 @@
 // Shared by the classic Agents panel and the new layout's Agents page: the file
 // pickers, the permission review for imported agents and the ruleset review.
 // ──────────────────────────────────────────────
-import { useCallback, useRef, useState, type ChangeEvent } from "react";
-import { ShieldCheck, TriangleAlert } from "lucide-react";
+import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { Download, ShieldCheck, TriangleAlert } from "lucide-react";
+import { useOverhaulLook } from "../../stores/overhaul.store";
+import { openLibrarySection } from "../overhaul/library-navigation";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   communityRulesetId,
@@ -107,6 +109,9 @@ export function useAgentImportFlow({ toasts = false }: { toasts?: boolean } = {}
     [toasts],
   );
   const agentImportsEnabled = agentImportPolicy?.enabled === true;
+  const overhaulLook = useOverhaulLook();
+  const [importWindowOpen, setImportWindowOpen] = useState(false);
+  const [importDragOver, setImportDragOver] = useState(false);
   const agentImportsDisabledHelp = localizeUi("settings.agentImports.enableFirst");
 
   const openAgentImportPicker = useCallback(
@@ -123,6 +128,12 @@ export function useAgentImportFlow({ toasts = false }: { toasts?: boolean } = {}
   );
 
   const chooseAgentImportSource = useCallback(async () => {
+    // New layout: a small Import window like Import character (drop zone, Browse files, Choose folder), with
+    // the disabled-imports help inside it. Rulesets import in Library > Assets > Rulesets instead.
+    if (overhaulLook) {
+      setImportWindowOpen(true);
+      return;
+    }
     if (!agentImportsEnabled) {
       openAgentImportPicker("file");
       return;
@@ -138,7 +149,7 @@ export function useAgentImportFlow({ toasts = false }: { toasts?: boolean } = {}
       ],
     });
     if (source === "file" || source === "folder" || source === "ruleset") openAgentImportPicker(source);
-  }, [agentImportsEnabled, localizeUi, openAgentImportPicker]);
+  }, [agentImportsEnabled, localizeUi, openAgentImportPicker, overhaulLook]);
 
   const prepareAgentEntries = useCallback(
     (entries: FolderPackageImportEntry[], source: "file" | "folder", skippedFunctionCount = 0) => {
@@ -507,8 +518,74 @@ export function useAgentImportFlow({ toasts = false }: { toasts?: boolean } = {}
     </>
   );
 
+  const pickFromWindow = (kind: "file" | "folder") => {
+    setImportWindowOpen(false);
+    openAgentImportPicker(kind);
+  };
+  const handleImportDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setImportDragOver(false);
+    const files = event.dataTransfer.files;
+    if (!files.length || !agentImportsEnabled) return;
+    setImportWindowOpen(false);
+    // One file reads like Browse files; several (a dropped folder's files) read like Choose folder.
+    const fakeEvent = { target: { files, value: "" } } as unknown as ChangeEvent<HTMLInputElement>;
+    if (files.length === 1) void handleImportAgents(fakeEvent);
+    else void handleImportAgentFolder(fakeEvent);
+  };
+  const importWindow = overhaulLook ? (
+    <Modal
+      open={importWindowOpen}
+      onClose={() => setImportWindowOpen(false)}
+      title={localizeUi("ui.panels.agentspanel.importAgents")}
+      width="max-w-md"
+    >
+      <div className="ov-imp" data-component="ImportAgentsWindow">
+        {agentImportsEnabled ? (
+          <div
+            onDrop={handleImportDrop}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setImportDragOver(true);
+            }}
+            onDragLeave={() => setImportDragOver(false)}
+            className={cn("ov-imp__drop", importDragOver && "is-over")}
+          >
+            <Download size={16} aria-hidden="true" className="ov-imp__dropicon" />
+            <span className="ov-imp__droptext">
+              {localizeUi("agents.import.dropHere")}
+              <span className="ov-imp__types"> .json .zip .marinara</span>
+            </span>
+            <button type="button" className="ov-btn" onClick={() => pickFromWindow("file")}>
+              {localizeUi("agents.import.browseFiles")}
+            </button>
+            <button type="button" className="ov-btn" onClick={() => pickFromWindow("folder")}>
+              {localizeUi("agents.import.chooseFolder")}
+            </button>
+          </div>
+        ) : (
+          <p className="ov-imp__note">{agentImportsDisabledHelp}</p>
+        )}
+        <p className="ov-imp__note">
+          {localizeUi("agents.import.rulesetsMoved")}{" "}
+          <button
+            type="button"
+            className="ov-linkbtn"
+            onClick={() => {
+              setImportWindowOpen(false);
+              openLibrarySection("rulesets");
+            }}
+          >
+            {localizeUi("agents.import.rulesetsMovedLink")}
+          </button>
+        </p>
+      </div>
+    </Modal>
+  ) : null;
+
   const dialogs = (
     <>
+      {importWindow}
       <Modal
         open={pendingAgentImport !== null}
         onClose={() => {
@@ -651,6 +728,8 @@ export function useAgentImportFlow({ toasts = false }: { toasts?: boolean } = {}
 
   return {
     choose: chooseAgentImportSource,
+    /** Library > Assets > Rulesets' Import: straight to the ruleset file picker. */
+    chooseRuleset: () => openAgentImportPicker("ruleset"),
     enabled: agentImportsEnabled,
     policyLoading: agentImportPolicyLoading,
     disabledHelp: agentImportsDisabledHelp,

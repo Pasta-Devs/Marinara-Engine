@@ -72,7 +72,14 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     if (isOverhaulLook()) openLibrarySection(target.panel);
     else
       ui.openRightPanel(
-        target.panel === "profiles" || target.panel === "regex" || target.panel === "tools" ? "presets" : target.panel,
+        target.panel === "profiles" || target.panel === "regex" || target.panel === "tools"
+          ? "presets"
+          : // The classic layout keeps rulesets in the Agents panel and the background library in Settings.
+            target.panel === "rulesets"
+            ? "agents"
+            : target.panel === "backgrounds" || target.panel === "assets"
+              ? "settings"
+              : target.panel,
       );
   } else if (target.kind === "settings" && isOmnibarSettingsTarget(target)) {
     // Q2: these live in the omnibar's settings view, which keeps the omnibar open.
@@ -117,7 +124,8 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
         useOverhaulStore.getState().openSchedules();
         if (isOverhaulMobile()) ui.setSidebarOpen(false);
       } else ui.setSidebarOpen(true);
-    } else ui.openGameAssetsBrowser();
+    } else if (isOverhaulLook()) openLibrarySection("game-assets");
+    else ui.openGameAssetsBrowser();
   } else if (target.kind === "resource") {
     if (target.resource === "character") ui.openCharacterDetail(target.id);
     else if (target.resource === "persona") ui.openPersonaDetail(target.id);
