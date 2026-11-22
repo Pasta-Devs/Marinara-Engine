@@ -55,6 +55,24 @@ function feature(
 }
 
 export const FEATURE_FINDER_ENTRIES: readonly FeatureEntry[] = [
+  // QC panel 2, D11: "getting started" ranked a ruleset doc first, and "how do i start" found only Ask Mari.
+  feature({
+    id: "gettingStarted",
+    name: "Getting started",
+    summary: "The Home screen and the steps to your first chat.",
+    sillyTavern: [],
+    plain: ["getting started", "how do i start", "start here", "first steps"],
+    guide: "home/welcome.md",
+  }),
+  // "tokens" buried AI Basics under pages that only mention the word.
+  feature({
+    id: "aiBasics",
+    name: "AI basics: models, tokens and context",
+    summary: "The few words the other guides use: models, tokens, context and what they cost.",
+    sillyTavern: [],
+    plain: ["tokens", "token", "context window", "what is a model"],
+    guide: "home/ai-basics.md",
+  }),
   feature({
     id: "settingsProfiles",
     name: "Settings profiles",

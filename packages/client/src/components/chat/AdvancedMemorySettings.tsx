@@ -1,3 +1,4 @@
+import { cn } from "../../lib/utils";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -55,7 +56,8 @@ export function AdvancedMemorySettings({
   individual: boolean;
   characters: MemoryCharacterOption[];
   hasHistory?: boolean;
-  variant?: "drawer" | "wizard";
+  /** "page": the new-chat setup page, a plain switch row with no card (QC panel 2, D4). */
+  variant?: "drawer" | "wizard" | "page";
 }) {
   const { t } = useTranslation();
   const excerptHelpId = useId();
@@ -209,17 +211,23 @@ export function AdvancedMemorySettings({
   };
 
   return (
-    <div className="space-y-3 border-t border-[var(--border)] pt-3" data-component="AdvancedMemorySettings">
+    <div
+      className={cn("space-y-3", variant !== "page" && "border-t border-[var(--border)] pt-3")}
+      data-component="AdvancedMemorySettings"
+    >
       <SettingsSwitch
-        label={t(variant === "wizard" ? "chat.advancedMemory.wizardTitle" : "chat.advancedMemory.title")}
+        label={t(variant !== "drawer" ? "chat.advancedMemory.wizardTitle" : "chat.advancedMemory.title")}
         description={t(
-          variant === "wizard" ? "chat.advancedMemory.wizardDescription" : "chat.advancedMemory.description",
+          variant !== "drawer" ? "chat.advancedMemory.wizardDescription" : "chat.advancedMemory.description",
         )}
         checked={settings.enabled}
         disabled={action.isPending || (!settings.enabled && numberInputsDisabled)}
         onChange={(enabled) => save({ enabled })}
         labelPosition="start"
-        className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
+        className={cn(
+          "justify-between text-left",
+          variant === "page" ? "px-0 py-1 hover:bg-transparent" : "rounded-md bg-[var(--secondary)] px-3 py-2.5",
+        )}
         labelClassName="text-xs font-medium"
       />
       {gameMode && (
@@ -364,7 +372,10 @@ export function AdvancedMemorySettings({
             disabled={disabled}
             onChange={(decisionEnabled) => save({ decisionEnabled })}
             labelPosition="start"
-            className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
+            className={cn(
+              "justify-between text-left",
+              variant === "page" ? "px-0 py-1 hover:bg-transparent" : "rounded-md bg-[var(--secondary)] px-3 py-2.5",
+            )}
             labelClassName="text-xs font-medium"
           />
           {settings.decisionEnabled && (
@@ -534,7 +545,10 @@ export function AdvancedMemorySettings({
                 })
               }
               labelPosition="start"
-              className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
+              className={cn(
+                "justify-between text-left",
+                variant === "page" ? "px-0 py-1 hover:bg-transparent" : "rounded-md bg-[var(--secondary)] px-3 py-2.5",
+              )}
               labelClassName="text-xs font-medium"
             />
           )}
@@ -579,7 +593,10 @@ export function AdvancedMemorySettings({
               disabled={disabled}
               onChange={(autoMessageVisibility) => save({ autoMessageVisibility })}
               labelPosition="start"
-              className="justify-between rounded-md bg-[var(--secondary)] px-3 py-2.5 text-left"
+              className={cn(
+                "justify-between text-left",
+                variant === "page" ? "px-0 py-1 hover:bg-transparent" : "rounded-md bg-[var(--secondary)] px-3 py-2.5",
+              )}
               labelClassName="text-xs font-medium"
             />
           )}

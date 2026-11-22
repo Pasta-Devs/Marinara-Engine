@@ -1514,6 +1514,8 @@ export interface UIState {
   omnibarSettings: { controlId: string | null } | null;
   /** Transient: Mari's pane in the omnibar is open and showing her, so her result counts as seen (P3). */
   mariPaneVisible: boolean;
+  /** Transient: her full chat (the Mari page or tab) is the page on screen; her result counts as seen there too. */
+  mariPageVisible: boolean;
 
   // Actions
   setShowHomeBrowserAddressBar: (visible: boolean) => void;
@@ -1841,6 +1843,7 @@ export interface UIState {
   openOmnibarSettings: (controlId?: string | null) => void;
   closeOmnibarSettings: () => void;
   setMariPaneVisible: (visible: boolean) => void;
+  setMariPageVisible: (visible: boolean) => void;
   setVisualTheme: (v: VisualTheme) => void;
   setConvoGradientField: (scheme: "dark" | "light", field: "from" | "to", value: string) => void;
   resetAppearanceSettings: () => void;
@@ -3030,6 +3033,7 @@ export const useUIStore = create<UIState>()(
         omnibarOpen: false,
         omnibarSettings: null,
         mariPaneVisible: false,
+        mariPageVisible: false,
 
         // Impersonate settings defaults
         impersonatePromptTemplate: "",
@@ -3610,6 +3614,7 @@ export const useUIStore = create<UIState>()(
         },
         closeOmnibarSettings: () => set({ omnibarSettings: null }),
         setMariPaneVisible: (visible) => set({ mariPaneVisible: visible }),
+        setMariPageVisible: (visible) => set({ mariPageVisible: visible }),
 
         // Settings actions
         setFontSize: (size) => set({ fontSize: size }),

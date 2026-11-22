@@ -115,6 +115,8 @@ function manualChunks(id: string) {
   // from board, icon and portrait packs is shared by several screens: each is its own chunk rather than
   // weight on GameSurface's budget.
   if (id.endsWith("/components/game/GameRulesetSheet.tsx")) return "game-ruleset-sheet";
+  // The bookmarks, notes and deleted-messages lists are their own chunk rather than weight on Chat settings' budget.
+  if (id.endsWith("/components/chat/ChatMessageMarksPanels.tsx")) return "chat-message-marks";
   if (/\/lib\/(?:board-art|board-art-cells|art-pack)\.ts$/u.test(id) || id.endsWith("/components/game/ArtIcon.tsx"))
     return "game-art";
   // Rolldown otherwise coalesces the shared package's unassigned exports into

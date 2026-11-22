@@ -15,7 +15,7 @@ import { useDialogStore } from "../stores/dialog.store";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../stores/floating-window.store";
 
 /** Surfaces that open by themselves. */
-export type FirstRunSurface = "chat-settings-tip" | "chat-help" | "hold-tip" | "ai-basics-offer";
+export type FirstRunSurface = "chat-settings-tip" | "chat-help" | "hold-tip" | "rp-enter-tip" | "ai-basics-offer";
 
 export const useFirstRunQueue = create<{ showing: FirstRunSurface | null }>(() => ({ showing: null }));
 

@@ -47,6 +47,23 @@ export const LIBRARY_SECTION_COMMANDS: Readonly<Record<LibraryPageSection, Libra
     commandId: "library-section:tools",
     aliases: ["custom tools", "custom tool", "tools", "function calling", "functions"],
   },
+  assets: {
+    commandId: "library-section:assets",
+    aliases: ["assets", "asset library"],
+  },
+  rulesets: {
+    commandId: "library-section:rulesets",
+    aliases: ["rulesets", "ruleset", "game rules", "dice rules"],
+  },
+  backgrounds: {
+    commandId: "library-section:backgrounds",
+    aliases: ["backgrounds", "background", "wallpapers"],
+  },
+  // The existing "Game assets" command opens it (state-navigation sends it to this page in the new layout).
+  "game-assets": {
+    commandId: "game-assets",
+    aliases: ["game assets", "assets", "music", "sound effects", "sprites folder"],
+  },
   settings: { commandId: "settings", aliases: ["settings"], category: "settings" },
   extensions: { commandId: "extensions", aliases: ["extensions", "extension"] },
 };

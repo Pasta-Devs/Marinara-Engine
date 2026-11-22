@@ -106,6 +106,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
+import { useDocumentVisible } from "../../hooks/use-document-visible";
 import {
   DeleteReviewCard,
   MariHeldChangeCard,
@@ -969,6 +970,16 @@ export function HomeProfessorMariChat({
   }, [chatHistory, chatHistoryQuery, chatHistorySortMode]);
   const desktopChatWindowOpen = controlledChatWindowOpen ?? internalChatWindowOpen;
   const chatWindowOpen = desktopChatWindowOpen || mobileFocusMode;
+  // Her page (or tab) on screen, with the window in front, counts as reading her (QC panel 2, D3). The omnibar pane
+  // reports its own visibility.
+  const showsFullSize = !omnibarMode && pageActive && (embeddedTab || chatWindowOpen);
+  const documentVisible = useDocumentVisible();
+  useEffect(() => {
+    if (!showsFullSize || !documentVisible) return;
+    const { setMariPageVisible } = useUIStore.getState();
+    setMariPageVisible(true);
+    return () => setMariPageVisible(false);
+  }, [documentVisible, showsFullSize]);
   const setChatWindowOpen = useCallback(
     (open: boolean) => {
       setInternalChatWindowOpen(open);

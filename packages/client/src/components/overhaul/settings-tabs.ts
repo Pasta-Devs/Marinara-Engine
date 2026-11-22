@@ -119,3 +119,9 @@ export function overhaulSettingsTabForClassicTab(tab: string): OverhaulSettingsT
   }
   return null;
 }
+
+/** The new layout's tab label for a settings section ("Chatting" for Message buttons), or null. */
+export function overhaulSettingsTabLabelFor(sectionId: string | null | undefined): string | null {
+  const id = overhaulSettingsTabFor(sectionId);
+  return id ? (OVERHAUL_SETTINGS_TABS.find((tab) => tab.id === id)?.label ?? null) : null;
+}

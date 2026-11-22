@@ -676,15 +676,34 @@ function measurementsSignature(rootRect: Rect | null, surfaces: Rect[], targets:
   ]);
 }
 
+/**
+ * Whether a mode's help would open by itself in this chat (QC panel 2, D1). It opens at most once, right after a
+ * chat starts: on a computer only in a chat you have not written in yet (a long-running chat never gets it), and on
+ * a phone or tablet the first time the mode opens there. ChatArea uses this so the "settings live here" tip waits
+ * for a later visit instead of taking the help's place.
+ */
+export function useChatHelpDue(mode: ChatMode | null, isFirstChat: boolean, hasUserMessages: boolean): boolean {
+  const seenModes = useUIStore((state) => state.chatHelpSeenModes ?? []);
+  const hidden = useUIStore((state) => state.chatHelpButtonHidden ?? false);
+  const device = useWalkthroughDevice();
+  useWalkthroughRecord();
+  if (!mode || hidden || hasSeenModeWalkthrough(mode, device)) return false;
+  if (device !== "desktop") return true;
+  return !hasUserMessages && (isFirstChat || !seenModes.includes(mode));
+}
+
 function ChatHelpOverlayInner({
   mode,
   activeChatId,
   isFirstChat,
+  hasUserMessages,
   autoOpenBlocked,
 }: {
   mode: ChatMode;
   activeChatId: string;
   isFirstChat: boolean;
+  /** The chat already holds a message you wrote: on a computer the help no longer opens by itself. */
+  hasUserMessages: boolean;
   autoOpenBlocked: boolean;
 }) {
   const { t } = useTranslation();
@@ -712,6 +731,21 @@ function ChatHelpOverlayInner({
   // whatever you are doing (it popped over a character editor: keyboard QC round 2, TP13).
   const firstWalkthroughDeviceRef = useRef(walkthroughDevice);
   const maskId = `chat-help-mask-${useId().replace(/:/gu, "")}`;
+  // Typing in this chat's composer (or sending) on this visit means you are busy: the help never pops up over that
+  // (QC panel 2, D1: it opened after about 20 messages in a long session).
+  const [actedInChat, setActedInChat] = useState<string | null>(null);
+  const actedThisVisit = actedInChat === activeChatId;
+  useEffect(() => {
+    if (actedThisVisit) return;
+    const handleInput = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches("textarea, input, [contenteditable='true']")) return;
+      if (!target.closest(`[data-chat-mode="${mode}"]`)) return;
+      setActedInChat(activeChatId);
+    };
+    document.addEventListener("input", handleInput, true);
+    return () => document.removeEventListener("input", handleInput, true);
+  }, [actedThisVisit, activeChatId, mode]);
 
   useEffect(() => {
     const handleOpen = (event: Event) => {
@@ -733,11 +767,14 @@ function ChatHelpOverlayInner({
     // Each kind of device shows a mode's help once. A computer keeps the original rule (the first chat of
     // that mode, or a replay from Settings); a phone or tablet shows it the first time that mode opens there,
     // so someone who has used the mode on a PC for months still learns where its controls sit on touch.
+    // A computer leaves out chats you have already written in, without marking the help seen, so your next new
+    // chat of this mode still gets it (QC panel 2, D1).
     const seenHere = hasSeenModeWalkthrough(mode, walkthroughDevice);
-    const due = walkthroughDevice !== "desktop" || isFirstChat || !seenModes.includes(mode);
+    const due = walkthroughDevice !== "desktop" || (!hasUserMessages && (isFirstChat || !seenModes.includes(mode)));
     if (
       chatHelpButtonHidden ||
       autoOpenBlocked ||
+      actedThisVisit ||
       walkthroughDevice !== firstWalkthroughDeviceRef.current ||
       deviceTourDue ||
       seenHere ||
@@ -773,8 +810,10 @@ function ChatHelpOverlayInner({
     return () => window.clearTimeout(timer);
   }, [
     activeChatId,
+    actedThisVisit,
     autoOpenBlocked,
     chatHelpButtonHidden,
+    hasUserMessages,
     deviceTourDue,
     isFirstChat,
     markChatHelpSeen,

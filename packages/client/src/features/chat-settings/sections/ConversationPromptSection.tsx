@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { FileText, RotateCcw } from "lucide-react";
+import { FileText, Pencil, RotateCcw } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
-import { DEFAULT_CONVERSATION_PROMPT } from "@marinara-engine/shared";
+import { DEFAULT_CONVERSATION_PROMPT, estimateTextTokens } from "@marinara-engine/shared";
 import { MacroTextarea } from "../../../components/ui/MacroTextarea";
 import { ChatSettingsSection } from "../ChatSettingsSection";
 import { PresetPickerField, type LibraryPreset } from "../../../components/ui/LibraryPickers";
@@ -47,6 +47,9 @@ export function ConversationPromptSection({
     setDraft(basePrompt);
   };
 
+  // The prompt itself (raw {{charName}} macros) stays folded until asked for (QC panel 2, D8).
+  const [editing, setEditing] = useState(false);
+
   const sourceLabel = customPrompt
     ? localizeUi("settings.notifications.customSound.status.custom")
     : promptPresetId
@@ -80,41 +83,76 @@ export function ConversationPromptSection({
           />
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
-            {localizeUi("ui.chatSettings.conversationpromptsection.conversationPrompt")}
-          </span>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span className="rounded-full bg-[var(--background)] px-2 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-              {sourceLabel}
+        {!editing ? (
+          <div className="flex items-center justify-between gap-2" data-conversation-prompt-summary>
+            <span className="min-w-0 truncate text-[0.6875rem] text-[var(--muted-foreground)]">
+              {customPrompt
+                ? localizeUi("ui.chatSettings.conversationpromptsection.editedLine")
+                : localizeUi("ui.chatSettings.conversationpromptsection.presetPromptLine", {
+                    count: estimateTextTokens(basePrompt),
+                  })}
             </span>
-            {customPrompt && (
+            <div className="flex shrink-0 items-center gap-1.5">
+              {customPrompt && (
+                <button
+                  type="button"
+                  onClick={resetPrompt}
+                  className="flex items-center justify-center rounded-lg bg-[var(--secondary)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                  title={localizeUi("ui.chatSettings.conversationpromptsection.resetToDefaultPrompt")}
+                  aria-label={localizeUi("ui.chatSettings.conversationpromptsection.resetToDefaultPrompt")}
+                >
+                  <RotateCcw size="0.625rem" />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={resetPrompt}
-                className="flex items-center justify-center rounded-lg bg-[var(--secondary)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                title={localizeUi("ui.chatSettings.conversationpromptsection.resetToDefaultPrompt")}
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-1 rounded-lg bg-[var(--secondary)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
               >
-                <RotateCcw size="0.625rem" />
+                <Pencil size="0.625rem" />
+                {localizeUi("ui.chatSettings.conversationpromptsection.editPrompt")}
               </button>
-            )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                {localizeUi("ui.chatSettings.conversationpromptsection.conversationPrompt")}
+              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="rounded-full bg-[var(--background)] px-2 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                  {sourceLabel}
+                </span>
+                {customPrompt && (
+                  <button
+                    type="button"
+                    onClick={resetPrompt}
+                    className="flex items-center justify-center rounded-lg bg-[var(--secondary)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                    title={localizeUi("ui.chatSettings.conversationpromptsection.resetToDefaultPrompt")}
+                  >
+                    <RotateCcw size="0.625rem" />
+                  </button>
+                )}
+              </div>
+            </div>
 
-        <div className="mari-quick-preset-editor">
-          <MacroTextarea
-            showTokenCount
-            value={draft}
-            onChange={setDraft}
-            onBlur={commitDraft}
-            onExpandedClose={commitDraft}
-            title={localizeUi("ui.chatSettings.conversationpromptsection.editConversationPrompt")}
-            placeholder={localizeUi("ui.chatSettings.conversationpromptsection.enterYourCustomConversationPrompt")}
-            rows={6}
-            className="mari-editor-field min-h-[9rem] w-full p-3 font-mono text-xs"
-            spellCheck={false}
-          />
-        </div>
+            <div className="mari-quick-preset-editor">
+              <MacroTextarea
+                showTokenCount
+                value={draft}
+                onChange={setDraft}
+                onBlur={commitDraft}
+                onExpandedClose={commitDraft}
+                title={localizeUi("ui.chatSettings.conversationpromptsection.editConversationPrompt")}
+                placeholder={localizeUi("ui.chatSettings.conversationpromptsection.enterYourCustomConversationPrompt")}
+                rows={6}
+                className="mari-editor-field min-h-[9rem] w-full p-3 font-mono text-xs"
+                spellCheck={false}
+              />
+            </div>
+          </>
+        )}
       </div>
     </ChatSettingsSection>
   );

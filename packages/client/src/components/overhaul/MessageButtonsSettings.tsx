@@ -5,6 +5,8 @@
 // ask the AI (and can cost money) go on the bar under the message, everything else
 // on the bar at its top. A sample message above the choices shows the result live.
 // ──────────────────────────────────────────────
+import { useTTSConfig } from "../../hooks/use-tts";
+import { openAddConnection } from "../../lib/add-connection";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -186,6 +188,9 @@ function SampleMessage({ mode, shown }: { mode: MessageButtonMode; shown: readon
 
 export function MessageButtonsSettings() {
   const { t } = useTranslation();
+  // Speak only shows once text to speech is on; the row says so instead of a ticked box that never shows (D14).
+  const { data: ttsConfig, isSuccess: ttsLoaded } = useTTSConfig();
+  const speakWaitsForTts = ttsLoaded && ttsConfig?.enabled !== true;
   const [mode, setMode] = useState<MessageButtonMode>("roleplay");
   const shown = useMessageButtons(mode);
   const setButtons = useOverhaulStore((state) => state.setMessageButtons);
@@ -223,6 +228,21 @@ export function MessageButtonsSettings() {
             />
             <span className="ov-mbs__icon">{ICONS[button.id]}</span>
             <span>{t(button.labelKey)}</span>
+            {button.id === "speak" && speakWaitsForTts ? (
+              <span className="ov-mbs__note">
+                {t("ui.overhaul.messagebuttons.speakNeedsTts")} ·{" "}
+                <button
+                  type="button"
+                  className="ov-mbs__link"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    openAddConnection({ category: "device", item: "tts" });
+                  }}
+                >
+                  {t("ui.overhaul.messagebuttons.setUp")}
+                </button>
+              </span>
+            ) : null}
           </label>
         ))}
     </fieldset>
