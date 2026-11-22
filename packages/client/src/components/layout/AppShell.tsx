@@ -2179,6 +2179,7 @@ export function AppShell({
               data-under-page={pageCoversScreen ? "true" : undefined}
               // Hidden under the page, so VoiceOver swipes and a keyboard's Tab can't land on its buttons either
               // (QC Nov 21, MOB missed A). Painting is untouched: `inert` doesn't hide anything.
+              // The Chats/Library page (MobileSidePage) and All tabs cover it the same way (QC Nov 22 K6, #21).
               inert={pageCoversScreen || sheetCoversScreen || undefined}
               className={cn(
                 "mari-app-background-paint flex flex-1 flex-col overflow-hidden",

@@ -91,3 +91,41 @@ export function applyOmnibarBufferedKeys(
   }
   return { query, enter };
 }
+
+// ── Before the app has started (QC Nov 22 K17) ──
+// GlobalOmnibarHost listens for Ctrl+K only once React has mounted it. On a cold load that can be a
+// second or more after the page appears, and a Ctrl+K pressed then did nothing (and "wren" went nowhere).
+// main.tsx installs this tiny listener before the first render; the host takes the request when it mounts.
+
+let bootOpenRequested = false;
+let removeBootListener: (() => void) | null = null;
+
+function isBootOmnibarKey(event: KeyboardEvent) {
+  if (event.altKey || event.shiftKey || event.repeat || event.isComposing) return false;
+  const key = event.key.toLowerCase();
+  // Non-Latin layouts report their own letter; the physical K key still counts (as in isOmnibarShortcut).
+  if (key !== "k" && !(!/^[a-z]$/u.test(key) && event.code === "KeyK")) return false;
+  const apple = /Mac|iPhone|iPad|iPod/u.test(navigator.platform) || navigator.userAgent.includes("Mac OS");
+  return apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+}
+
+export function installBootOmnibarShortcut() {
+  if (removeBootListener || typeof window === "undefined") return;
+  const onKey = (event: KeyboardEvent) => {
+    if (!isBootOmnibarKey(event)) return;
+    event.preventDefault();
+    bootOpenRequested = true;
+    startOmnibarKeyBuffer();
+  };
+  window.addEventListener("keydown", onKey, true);
+  removeBootListener = () => window.removeEventListener("keydown", onKey, true);
+}
+
+/** Called once by GlobalOmnibarHost on mount: stops the boot listener; true when Ctrl+K was pressed before. */
+export function takeBootOmnibarOpenRequest(): boolean {
+  removeBootListener?.();
+  removeBootListener = null;
+  const requested = bootOpenRequested;
+  bootOpenRequested = false;
+  return requested;
+}

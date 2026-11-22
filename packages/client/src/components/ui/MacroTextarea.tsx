@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -98,6 +99,7 @@ function ExpandedMacroEditor({
   macroCompletion,
 }: ExpandedMacroEditorProps) {
   const { t: localizeUi } = useUiTranslation();
+  const tabHintId = useId();
   const [localValue, setLocalValue] = useState(value);
   const {
     textareaRef,
@@ -209,6 +211,8 @@ function ExpandedMacroEditor({
               onScroll={refreshCompletion}
               onFocus={refreshCompletion}
               onBlur={clearCompletion}
+              aria-keyshortcuts={readOnly ? undefined : "Escape Tab"}
+              aria-describedby={readOnly ? undefined : tabHintId}
               placeholder={placeholder}
               readOnly={readOnly}
               maxLength={maxLength}
@@ -219,6 +223,11 @@ function ExpandedMacroEditor({
               spellCheck={false}
             />
             <MacroCompletionGhost completion={completion} onAccept={insertCompletion} />
+            {!readOnly && (
+              <span id={tabHintId} hidden>
+                {localizeUi("ui.macroTextarea.tabHint")}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -500,7 +509,7 @@ export function MacroTextarea({
   onExpandedClose,
   onKeyDown,
   rows = 6,
-  title = "Edit text",
+  title: titleProp,
   ariaLabel,
   ariaInvalid,
   placeholder,
@@ -524,6 +533,8 @@ export function MacroTextarea({
   textareaRef,
 }: MacroTextareaProps) {
   const { t: localizeUi } = useUiTranslation();
+  const tabHintId = useId();
+  const title = titleProp ?? "Edit text";
   const [expanded, setExpanded] = useState(false);
   const [showMacroRef, setShowMacroRef] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -666,8 +677,11 @@ export function MacroTextarea({
             onSelect={refreshCompletion}
             onScroll={refreshCompletion}
             rows={rows}
-            aria-label={ariaLabel}
+            // A field named only by its placeholder reads badly; the editor title names it (QC Nov 22 K9).
+            aria-label={ariaLabel ?? titleProp}
             aria-invalid={ariaInvalid || undefined}
+            aria-keyshortcuts={readOnly ? undefined : "Escape Tab"}
+            aria-describedby={readOnly ? undefined : tabHintId}
             placeholder={placeholder}
             spellCheck={spellCheck}
             readOnly={readOnly}
@@ -680,6 +694,11 @@ export function MacroTextarea({
           />
         )}
         <MacroCompletionGhost completion={completion} onAccept={insertCompletion} />
+        {!readOnly && (
+          <span id={tabHintId} hidden>
+            {localizeUi("ui.macroTextarea.tabHint")}
+          </span>
+        )}
         {(showExpand || showMacroReference || showMarkdownPreview || toolbarExtra) && (
           <div
             ref={toolsRef}

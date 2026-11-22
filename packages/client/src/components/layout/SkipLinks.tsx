@@ -32,6 +32,12 @@ export function SkipLinks() {
         className="mari-skip-link"
         onClick={(event) => {
           event.preventDefault();
+          // While the new-chat setup page covers the chat, its composer is inert: go to the page's first field.
+          if (document.querySelector(".ov-setup:not([inert])")) {
+            if (!focusTarget(".ov-setup:not([inert]) :is(input, select, textarea):not([disabled])"))
+              focusTarget(".ov-setup:not([inert])");
+            return;
+          }
           if (!focusTarget('[data-mari-part="composer"] textarea')) focusTarget("#mari-main");
         }}
       >
