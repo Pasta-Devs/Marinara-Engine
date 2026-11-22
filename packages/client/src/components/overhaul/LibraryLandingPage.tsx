@@ -11,9 +11,8 @@ import { DelayedFallback } from "../ui/DelayedFallback";
 import type { LibrarySection } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
-import { useTranslation } from "react-i18next";
-import { cn } from "../../lib/utils";
-import { ASSET_TABS, isAssetTab, LIBRARY_SECTIONS, openLibrarySection, type AssetTab } from "./library-navigation";
+import { isAssetTab, LIBRARY_SECTIONS } from "./library-navigation";
+import { AssetsTabContext } from "./AssetsTabs";
 
 // One lazy wrapper per module (not per section): once a module has loaded, switching between
 // its sections renders straight away instead of flashing "Loading…" again. Both modules are also
@@ -142,40 +141,12 @@ const SELF_HEADED = new Set<LibrarySection>([
   "rulesets",
 ]);
 
-/**
- * Library > Assets: Backgrounds, Game assets and Rulesets share one sidebar row (owner, 2026-11-22), so the
- * page opens with their tabs. Each tab's own toolbar follows under them; its title line gives way to the tabs.
- */
-function AssetsTabs({ section }: { section: AssetTab }) {
-  const { t } = useTranslation();
-  return (
-    <header className="ov-assets__head">
-      <h1 data-mari-part="page-title">{t("library.sections.assets")}</h1>
-      <div className="ov-seg ov-assets__tabs" role="tablist" aria-label={t("library.sections.assets")}>
-        {ASSET_TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            role="tab"
-            aria-selected={tab === section}
-            className={cn(tab === section && "is-on")}
-            onClick={() => tab !== section && openLibrarySection(tab)}
-          >
-            {t(`library.sections.${tab === "game-assets" ? "gameAssets" : tab}`)}
-          </button>
-        ))}
-      </div>
-    </header>
-  );
-}
-
 export function LibraryLandingPage({ section }: { section: LibrarySection }) {
   const localize = useLocalizedUiText();
   const Page = PAGES[section];
   if (Page && isAssetTab(section)) {
     return (
-      <section className="ov-assets" data-component="OverhaulAssetsPage" data-tab={section}>
-        <AssetsTabs section={section} />
+      <AssetsTabContext.Provider value={section}>
         <Suspense
           fallback={
             <DelayedFallback>
@@ -185,7 +156,7 @@ export function LibraryLandingPage({ section }: { section: LibrarySection }) {
         >
           <Page section={section} />
         </Suspense>
-      </section>
+      </AssetsTabContext.Provider>
     );
   }
   if (Page && SELF_HEADED.has(section)) {

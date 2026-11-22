@@ -44,6 +44,7 @@ import {
 } from "../panels/settings/use-background-library";
 import { countItemTags, matchesPickedTags, TagFilter } from "./TagFilter";
 import { ViewSwitch } from "./LibraryTables";
+import { AssetsTitle } from "./AssetsTabs";
 import {
   KitEmpty,
   KitFolderCrumb,
@@ -364,7 +365,9 @@ export function BackgroundsPage() {
       data-view={listView ? "list" : "grid"}
     >
       <header className="ov-gallery__head">
-        <h1 data-mari-part="page-title">{t("library.sections.backgrounds")}</h1>
+        <AssetsTitle>
+          <h1 data-mari-part="page-title">{t("library.sections.backgrounds")}</h1>
+        </AssetsTitle>
         <button
           type="button"
           className={cn("ov-btn", mobile && "ov-btn--icon")}

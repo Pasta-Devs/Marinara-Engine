@@ -20,6 +20,7 @@ import { OvEditorHead } from "../overhaul/EditorChrome";
 import { openLibraryPane, openLibrarySection } from "../overhaul/library-navigation";
 import { ViewSwitch } from "../overhaul/LibraryTables";
 import { useKitMenu } from "../overhaul/LibraryKit";
+import { AssetsTitle } from "../overhaul/AssetsTabs";
 import { FileEditorBody, FileEditorModeSwitch, useGameAssetFileEditor } from "./FileEditorModal";
 
 type NewKind = "create-folder" | "new-text-file" | "new-markdown-file";
@@ -66,7 +67,9 @@ export function GameAssetsPageHead({
   return (
     <>
       <header className="ov-gallery__head ov-ga__head">
-        <h1 data-mari-part="page-title">{t("library.sections.gameAssets")}</h1>
+        <AssetsTitle>
+          <h1 data-mari-part="page-title">{t("library.sections.gameAssets")}</h1>
+        </AssetsTitle>
         <button
           type="button"
           className={cn("ov-btn", mobile && "ov-btn--icon")}

@@ -48,6 +48,7 @@ import { BuiltinEmbeddingDetail, useBuiltinEmbeddingState } from "../connections
 import { EditorCrumbs, useSplitTouchCrumbs, type RailCrumb } from "./EditorRail";
 import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { OvEditorHeadSlot } from "./EditorChrome";
+import { AssetsTitle } from "./AssetsTabs";
 import {
   useCreateCustomTool,
   useCustomTools,
@@ -239,7 +240,14 @@ export function OvViewer({
         <div className="ov-vw__slot" ref={setHeadSlot} />
         <header className={cn("ov-vw__top", !landing && "has-crumbs")}>
           {landing ? null : <EditorCrumbs items={crumbs} />}
-          <h1 data-mari-part="page-title">{title}</h1>
+          {/* Library > Assets' tabs take the title's place on its landing (AssetsTabs.tsx); an open item keeps its name. */}
+          {landing ? (
+            <AssetsTitle>
+              <h1 data-mari-part="page-title">{title}</h1>
+            </AssetsTitle>
+          ) : (
+            <h1 data-mari-part="page-title">{title}</h1>
+          )}
           <small>{meta}</small>
           {landing ? (
             <div className="ov-vw__actions">
