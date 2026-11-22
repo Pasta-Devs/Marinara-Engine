@@ -11,16 +11,24 @@ import { api } from "../../lib/api-client";
 import { getFolderImportEntries, getFolderManifestConfig } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
-import { ImportTagChecks, importTagsBody, OvImportDrop, useImportTagChoice } from "./ImportTagChecks";
+import {
+  ImportTagChecks,
+  importTagsBody,
+  OvImportDrop,
+  useImportTagChoice,
+  type ImportTagChoice,
+} from "./ImportTagChecks";
 import { Spinner } from "../ui/Spinner";
-import { describePresetImport, type STPresetLeftOut } from "../../lib/st-import-report";
+import { describePresetImport, type STPresetLeftOut, type STPresetWorldInfo } from "../../lib/st-import-report";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** The opener's Tag imported / Tag source choice (Settings › Data); both on when left out. */
+  importTags?: ImportTagChoice;
 }
 
-export function ImportPresetModal({ open, onClose }: Props) {
+export function ImportPresetModal({ open, onClose, importTags: initialImportTags }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
@@ -29,7 +37,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
   >([]);
   const [dragOver, setDragOver] = useState(false);
   const qc = useQueryClient();
-  const importTags = useImportTagChoice();
+  const importTags = useImportTagChoice(initialImportTags);
   const overhaulActive = useOverhaulLook();
 
   const handleFiles = async (files: File[]) => {
@@ -84,6 +92,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
           parametersImported?: string[];
           parametersLeftOut?: STPresetLeftOut[];
           regexSkipped?: number;
+          worldInfo?: STPresetWorldInfo;
         }>("/import/st-preset", {
           ...json,
           ...importTagsBody(importTags.choice),

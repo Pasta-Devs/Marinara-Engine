@@ -15,9 +15,12 @@ export type ImportTagChoice = Required<ImportTagOptions>;
 
 export const DEFAULT_IMPORT_TAGS: ImportTagChoice = { imported: true, source: true };
 
-/** The checkboxes' state; `reset` puts both back on when the window closes. */
-export function useImportTagChoice() {
-  const [choice, setChoice] = useState<ImportTagChoice>(DEFAULT_IMPORT_TAGS);
+/**
+ * The checkboxes' state; `reset` puts both back on when the window closes. `initial` is the choice of
+ * whatever opened the window (Settings › Data keeps its own checks above its import buttons).
+ */
+export function useImportTagChoice(initial: ImportTagChoice = DEFAULT_IMPORT_TAGS) {
+  const [choice, setChoice] = useState<ImportTagChoice>(initial);
   return { choice, setChoice, reset: () => setChoice(DEFAULT_IMPORT_TAGS) };
 }
 

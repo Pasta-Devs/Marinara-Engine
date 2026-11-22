@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Importer: SillyTavern Chat (JSONL)
 // ──────────────────────────────────────────────
+import { createHash } from "node:crypto";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
@@ -220,6 +221,25 @@ function normalizeImportedMode(value: unknown): ChatMode | null {
 
 function normalizeSpeakerKey(value: unknown): string {
   return typeof value === "string" ? normalizeTextForMatch(value.replace(/\.(png|json)$/i, "")) : "";
+}
+
+/**
+ * A SillyTavern chat file's own fingerprint, kept in the imported chat's metadata (importFingerprint).
+ * Every chat import stores it, so the folder import's "Skip what's already here" knows a file that came in
+ * one at a time (Settings, the chat list, a chat's branches) as well as one from an earlier folder run.
+ */
+export function stChatFileFingerprint(content: string) {
+  return createHash("sha256").update(content.replace(/\r\n/g, "\n")).digest("hex");
+}
+
+/** The chat name a SillyTavern chat file gives: its file name without .jsonl, underscores as spaces. */
+export function stChatNameFromFileName(fileName: string | null | undefined) {
+  return (
+    (fileName ?? "")
+      .replace(/\.jsonl$/i, "")
+      .replace(/_/g, " ")
+      .trim() || undefined
+  );
 }
 
 /** How a persona's name is matched: case, spacing and accents ignored. */

@@ -13,6 +13,7 @@ import {
   type ScenePromptPreferences,
 } from "@marinara-engine/shared";
 import type { GameCheckpoint } from "@marinara-engine/shared";
+import type { ImportTagChoice } from "../modals/ImportTagChecks";
 
 const CreateCharacterModal = lazy(() =>
   import("../modals/CreateCharacterModal").then((module) => ({ default: module.CreateCharacterModal })),
@@ -131,7 +132,13 @@ export function ModalRenderer() {
       );
       break;
     case "import-character":
-      content = <ImportCharacterModal open onClose={closeModal} />;
+      content = (
+        <ImportCharacterModal
+          open
+          onClose={closeModal}
+          importTags={(modal?.props?.importTags as ImportTagChoice | undefined) ?? undefined}
+        />
+      );
       break;
     case "create-lorebook":
       content = (
@@ -147,7 +154,13 @@ export function ModalRenderer() {
       );
       break;
     case "import-lorebook":
-      content = <ImportLorebookModal open onClose={closeModal} />;
+      content = (
+        <ImportLorebookModal
+          open
+          onClose={closeModal}
+          importTags={(modal?.props?.importTags as ImportTagChoice | undefined) ?? undefined}
+        />
+      );
       break;
     case "create-preset":
       content = (
@@ -159,7 +172,13 @@ export function ModalRenderer() {
       );
       break;
     case "import-preset":
-      content = <ImportPresetModal open onClose={closeModal} />;
+      content = (
+        <ImportPresetModal
+          open
+          onClose={closeModal}
+          importTags={(modal?.props?.importTags as ImportTagChoice | undefined) ?? undefined}
+        />
+      );
       break;
     case "import-persona":
       content = <ImportPersonaModal open onClose={closeModal} />;
