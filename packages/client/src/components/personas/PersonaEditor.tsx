@@ -4031,6 +4031,7 @@ function PersonaMetadataTab({
           <input
             value={formData.personaVersion}
             onChange={(e) => updateField("personaVersion", e.target.value)}
+            aria-label={localizeUi("ui.personas.personametadatatab.version")}
             disabled={!formData.versioningEnabled}
             className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="1.0"

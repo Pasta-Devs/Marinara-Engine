@@ -1834,6 +1834,13 @@
   border-bottom-color: var(--ov-accent);
   color: var(--ov-text);
 }
+/* Arrowing along the tabs moves focus without selecting (manual roving), so the focused tab needs its own ring. */
+.ov-settings__tabs [role="tab"]:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -2px;
+  border-radius: 0.25rem;
+  color: var(--ov-text);
+}
 /* When the nine tabs don't fit (a tablet with the Library open) they wrap onto a second row instead
    of hiding "Advanced" behind a scroll with no scrollbar (theming round 4). */
 :root:not([data-overhaul="mobile"]) .ov-settings__tabs [role="tablist"] {
@@ -5294,6 +5301,13 @@ input.ov-edhead__title:focus {
     background: var(--ov-hover) !important;
   }
 }
+/* Keyboard focus in the message ⋯ menu: a clear accent ring, not the theme's thin dark line (QC Nov 22 K18). */
+.ov-rpf-menu :is([role="menuitem"], [role="menuitemcheckbox"], .mari-message-actions button):focus-visible {
+  outline: 2px solid var(--ov-accent) !important;
+  outline-offset: -2px;
+  background: var(--ov-hover) !important;
+  box-shadow: none !important;
+}
 .ov-rpf-menu .mari-message-actions > button[title]:last-of-type:has(svg.lucide-trash2, svg.lucide-trash-2) {
   color: var(--destructive) !important;
 }
@@ -7986,6 +8000,10 @@ input.ov-edhead__title:focus {
   background: transparent;
   box-shadow: none;
 }
+/* The flat row drops the card shadow, not the keyboard ring (Delete message: Cancel, Select more; QC Nov 22 K4). */
+:root[data-overhaul="on"] .mari-chrome-control.w-full.justify-start:not(.mari-chrome-control--primary):focus-visible {
+  box-shadow: 0 0 0 0.125rem var(--marinara-chat-chrome-focus-ring);
+}
 @media (hover: hover) {
   :root[data-overhaul="on"]
     .mari-chrome-control.w-full.justify-start:not(.mari-chrome-control--primary):is(
@@ -8025,11 +8043,14 @@ input.ov-edhead__title:focus {
 [data-overhaul="on"] [data-component="ChatModeSelectorModal"] > button > span:last-child > span + span {
   margin-top: 0.0625rem;
 }
-:root[data-overhaul="on"] .mari-modal-panel .marinara-chat-popover__header > button:focus {
+:root[data-overhaul="on"] .mari-modal-panel .marinara-chat-popover__header > button:focus:not(:focus-visible) {
   outline: none;
 }
+/* Keyboard focus on a window's Close gets the same accent ring as the window's other buttons (QC Nov 22 K4). */
 :root[data-overhaul="on"] .mari-modal-panel .marinara-chat-popover__header > button:focus-visible {
   background: var(--ov-hover);
+  outline: 2px solid var(--ov-accent, var(--primary));
+  outline-offset: 2px;
 }
 :root[data-overhaul="on"] .ov-stscan {
   align-self: flex-start;
@@ -12501,6 +12522,13 @@ input.ov-edhead__title:not(#ov-x) {
   [data-component="MessageDeleteActions"]
   > button.mari-chat-style-control.mari-chrome-control[data-tone="destructive"] {
   border-color: color-mix(in srgb, var(--destructive) 40%, var(--border));
+}
+
+/* Keyboard focus in windows (Delete message?, confirms): one clear accent ring on every button, including
+   the red Delete one whose own border already looked "focused" and the header's Close (QC Nov 22 K4). */
+:root[data-overhaul] :is(.mari-modal, .mari-chat-action-panel) button:focus-visible {
+  outline: 2px solid var(--ov-accent, var(--primary));
+  outline-offset: 2px;
 }
 
 /* ─── Touch screens in the desktop layout (tablets held sideways), user panel 2 ───

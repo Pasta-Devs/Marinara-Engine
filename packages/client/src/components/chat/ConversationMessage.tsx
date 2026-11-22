@@ -29,6 +29,7 @@ import {
 } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import { useUIStore, type ConversationMessageStyle, selectChatFontColor } from "../../stores/ui.store";
+import { announce } from "../../lib/live-announcer";
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { resolveMessageMacros } from "../../lib/chat-macros";
@@ -850,6 +851,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const handleCopy = useCallback(() => {
     copyToClipboard(displayedContent);
     setCopied(true);
+    announce(localizeUi("markdown.copied"));
     setTimeout(() => setCopied(false), 1500);
   }, [displayedContent]);
 
@@ -1298,6 +1300,9 @@ export const ConversationMessage = memo(function ConversationMessage({
         data-message-role={message.role}
         onClick={handleMobileTap}
         {...longPress}
+        aria-label={
+          "data-ovm-longpress" in longPress ? localizeUi("chat.message.focusLabel", { name: displayName }) : undefined
+        }
       >
         <div
           className={cn(

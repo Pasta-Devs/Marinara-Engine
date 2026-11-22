@@ -2353,6 +2353,7 @@ export function ConversationInput({
         <textarea
           ref={textareaRef}
           data-chat-composer="true"
+          aria-label={t("chat.help.targets.composer.title")}
           data-chat-id={activeChatId}
           placeholder={themedPlaceholder}
           rows={1}

@@ -124,6 +124,7 @@ export function MessageMarksAction({
       <button
         type="button"
         title={localizeUi("ui.chat.messagemarks.menuTitle")}
+        aria-label={localizeUi("ui.chat.messagemarks.menuTitle")}
         data-ovm-keep-open
         className={cn("ov-marks-row", className, marks.any && "is-on")}
         onClick={(event) => {
