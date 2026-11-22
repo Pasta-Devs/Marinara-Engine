@@ -96,7 +96,7 @@ An optional list of plain strings to remove. Click **Add trim string** to add a 
 
 Once a script has a trim string, **Trim from** decides where they are removed:
 
-- **Whole result**: from the whole message after the replacement, only when the pattern matched at least once. New scripts start here.
+- **Whole result**: from the whole message after the replacement, even where the pattern doesn't match. New scripts start here.
 - **Matched text (like SillyTavern)**: only from the matched text that `$0`, `{{match}}` or `$1` put back. Text you typed in **Replace With** and the rest of the message stay as they are, and nothing changes where the pattern doesn't match.
 
 Scripts imported from SillyTavern use **Matched text**. Scripts imported before this option existed used **Whole result**; if one of them now removes too much, import it again or switch it to **Matched text**.
