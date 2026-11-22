@@ -4974,17 +4974,25 @@ export function GameSetupWizard({
                 </button>
               )}
               <span className="ov-setup__status" role="status">
-                {isLoading
-                  ? `${
-                      isDraftingMap
+                {isLoading ? (
+                  <>
+                    <span>
+                      {isDraftingMap
                         ? localizeUi("ui.game.gamesetupwizard.draftingMap")
                         : isLinkingSharedWorld
                           ? localizeUi("ui.game.gamesetupwizard.linkingWorld")
                           : generationElapsedSeconds >= 60
                             ? localizeUi("game.setup.stillWaiting")
-                            : localizeUi("game.setupPage.creating")
-                    } ${generationElapsedSeconds}${localizeUi("ui.noodle.stageprofileview.s")}`
-                  : pageMissing}
+                            : localizeUi("game.setupPage.creating")}
+                    </span>
+                    <span className="tabular-nums">
+                      {generationElapsedSeconds}
+                      {localizeUi("ui.noodle.stageprofileview.s")}
+                    </span>
+                  </>
+                ) : (
+                  pageMissing
+                )}
               </span>
               <button
                 type="button"
