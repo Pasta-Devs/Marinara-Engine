@@ -854,6 +854,7 @@ async function addCharacterRowIllustrationAssets(
   character: { id: string; data: string; avatarPath?: string | null },
   characterGallery: ReturnType<typeof createCharacterGalleryStorage>,
   resolveAppearance?: IllustrationAppearanceResolver,
+  options: { includeReferenceImage?: boolean } = {},
 ): Promise<string | null> {
   try {
     const parsed = JSON.parse(character.data) as Record<string, unknown> & { name?: string };
@@ -864,14 +865,19 @@ async function addCharacterRowIllustrationAssets(
       parsed.extensions && typeof parsed.extensions === "object" && !Array.isArray(parsed.extensions)
         ? (parsed.extensions as Record<string, unknown>)
         : {};
-    const preferredReference = await readPreferredCharacterReferenceImage({
-      characterId: character.id,
-      avatarPath: character.avatarPath,
-      characterSheetImageId:
-        typeof extensions.characterSheetImageId === "string" ? extensions.characterSheetImageId : null,
-      useCharacterSheetAsReference: extensions.useCharacterSheetAsReference === true,
-      characterGallery,
-    });
+    // #9673: reading the picture is the expensive part (a whole file as base64), so skip it
+    // when the caller will not send reference images anyway.
+    const preferredReference =
+      options.includeReferenceImage === false
+        ? null
+        : await readPreferredCharacterReferenceImage({
+            characterId: character.id,
+            avatarPath: character.avatarPath,
+            characterSheetImageId:
+              typeof extensions.characterSheetImageId === "string" ? extensions.characterSheetImageId : null,
+            useCharacterSheetAsReference: extensions.useCharacterSheetAsReference === true,
+            characterGallery,
+          });
     if (preferredReference) {
       addNameLookupEntry(maps.charReferenceByName, name, preferredReference.base64);
       addNameLookupEntry(maps.charReferenceSourceByName, name, preferredReference.source);
@@ -902,16 +908,80 @@ async function addCharacterRowsIllustrationAssets(
   characters: Array<{ id: string; data: string; avatarPath?: string | null }>,
   characterGallery: ReturnType<typeof createCharacterGalleryStorage>,
   resolveAppearance?: IllustrationAppearanceResolver,
+  options: { includeReferenceImage?: boolean } = {},
 ): Promise<void> {
   let nextIndex = 0;
   const runWorker = async () => {
     while (nextIndex < characters.length) {
       const character = characters[nextIndex++];
-      if (character) await addCharacterRowIllustrationAssets(maps, character, characterGallery, resolveAppearance);
+      if (character)
+        await addCharacterRowIllustrationAssets(maps, character, characterGallery, resolveAppearance, options);
     }
   };
   const workerCount = Math.min(GAME_ASSET_REFERENCE_LOOKUP_CONCURRENCY, characters.length);
   await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+}
+
+type IllustrationLibraryCharacterRow = { id: string; data: string; avatarPath?: string | null };
+
+function readCharacterRowName(character: IllustrationLibraryCharacterRow): string | null {
+  try {
+    const parsed = JSON.parse(character.data) as { name?: unknown };
+    return typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Library characters an illustration's character names could resolve to (#9673).
+ *
+ * The illustration lookups used to load every character in the library, reading each one's
+ * reference picture as base64, so a big library pulled tens of GB into memory for one scene.
+ * Only a character whose name the lookup would match for one of the requested names can end
+ * up in the picture, so only those are worth loading. Matching runs through the same
+ * `findCharAvatarFuzzy` the lookup uses, one character at a time, so the result for each name
+ * is the same as with the whole library loaded (characters that match no name never affect it).
+ */
+export function selectIllustrationCandidateCharacters<T extends IllustrationLibraryCharacterRow>(
+  characters: readonly T[],
+  requestedNames: readonly string[],
+): T[] {
+  const names = Array.from(new Set(requestedNames.map((name) => name.trim()).filter(Boolean)));
+  if (!names.length) return [];
+  const matches: T[] = [];
+  for (const character of characters) {
+    const characterName = readCharacterRowName(character);
+    if (!characterName) continue;
+    const probe = new Map<string, string>();
+    addNameLookupEntry(probe, characterName, character.id);
+    if (names.some((name) => findCharAvatarFuzzy(name, probe) === character.id)) matches.push(character);
+  }
+  return matches;
+}
+
+/**
+ * Loads the library characters matching `requestedNames` into `maps`, skipping ones already
+ * loaded (tracked in `loadedIds`) so a second call with the names after narration adds only
+ * the new matches.
+ */
+async function addRequestedCharacterIllustrationAssets(args: {
+  maps: IllustrationCharacterAssetMaps;
+  characters: readonly IllustrationLibraryCharacterRow[];
+  requestedNames: readonly string[];
+  loadedIds: Set<string>;
+  characterGallery: ReturnType<typeof createCharacterGalleryStorage>;
+  resolveAppearance?: IllustrationAppearanceResolver;
+  includeReferenceImage: boolean;
+}): Promise<number> {
+  const candidates = selectIllustrationCandidateCharacters(args.characters, args.requestedNames).filter(
+    (character) => !args.loadedIds.has(character.id),
+  );
+  for (const character of candidates) args.loadedIds.add(character.id);
+  await addCharacterRowsIllustrationAssets(args.maps, candidates, args.characterGallery, args.resolveAppearance, {
+    includeReferenceImage: args.includeReferenceImage,
+  });
+  return candidates.length;
 }
 
 export async function addPersonaIllustrationAssets(
@@ -15757,12 +15827,19 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           setupConfig: setupCfg,
           worldState: latestImageState,
         });
-        await addCharacterRowsIllustrationAssets(
-          illustrationCharacterAssets,
-          allChars,
-          characterGallery,
-          resolveAppearance,
-        );
+        // #9673: load only the library characters the illustration names, not the whole library.
+        const loadedIllustrationCharacterIds = new Set<string>();
+        const loadNamedIllustrationCharacters = (requestedNames: readonly string[]) =>
+          addRequestedCharacterIllustrationAssets({
+            maps: illustrationCharacterAssets,
+            characters: allChars,
+            requestedNames,
+            loadedIds: loadedIllustrationCharacterIds,
+            characterGallery,
+            resolveAppearance,
+            includeReferenceImage: useAvatarReferences,
+          });
+        await loadNamedIllustrationCharacters((input.illustration as SceneIllustrationRequest).characters ?? []);
         // #7053: the preview route previews the same prompt the real route sends,
         // so it must resolve the persona identically or the preview understates
         // the appearance a frame will actually carry.
@@ -15808,6 +15885,8 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
           narration: input.illustrationNarration,
           characterAppearanceContextBlock,
         });
+        // Narration can name characters the request did not; load just those as well.
+        await loadNamedIllustrationCharacters(illustration.characters ?? []);
         resolvedIllustration = {
           prompt: illustration.prompt,
           characters: illustration.characters,
@@ -16199,12 +16278,19 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
             setupConfig: setupCfg,
             worldState: latestImageState,
           });
-          await addCharacterRowsIllustrationAssets(
-            illustrationCharacterAssets,
-            allChars,
-            characterGallery,
-            resolveAppearance,
-          );
+          // #9673: load only the library characters the illustration names, not the whole library.
+          const loadedIllustrationCharacterIds = new Set<string>();
+          const loadNamedIllustrationCharacters = (requestedNames: readonly string[]) =>
+            addRequestedCharacterIllustrationAssets({
+              maps: illustrationCharacterAssets,
+              characters: allChars,
+              requestedNames,
+              loadedIds: loadedIllustrationCharacterIds,
+              characterGallery,
+              resolveAppearance,
+              includeReferenceImage: useAvatarReferences,
+            });
+          await loadNamedIllustrationCharacters((input.illustration as SceneIllustrationRequest).characters ?? []);
           // #7053: the chat persona is a visible participant like any character,
           // but only character rows were loaded here, so the persona never reached
           // `charDescriptionByName` and produced no appearance line at all.
@@ -16252,6 +16338,15 @@ export async function gameRoutes(app: FastifyInstance, options: GameRouteOptions
             debugLog: debugLogsEnabled ? debugLog : undefined,
             signal: assetAbortSignal,
           });
+          // Narration can name characters the request did not; load just those as well.
+          await loadNamedIllustrationCharacters(illustration.characters ?? []);
+          if (debugLogsEnabled) {
+            debugLog(
+              "[debug/game/illustration-references] library characters loaded=%d of %d",
+              loadedIllustrationCharacterIds.size,
+              allChars.length,
+            );
+          }
           const promptOverride = promptOverrideById.get(gameImagePromptReviewId("illustration", illustrationReviewKey));
           const referenceImageLimit = resolveSceneIllustrationReferenceImageLimit({
             imgSource,
