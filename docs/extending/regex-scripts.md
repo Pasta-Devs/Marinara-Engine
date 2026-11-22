@@ -67,7 +67,7 @@ The search pattern. Write only the pattern, without a slash at the start or end.
 
 ### Replace With
 
-The text that replaces each match. Leave it empty to delete the match. Reuse captured text with `$1`, `$2` and so on. These case changes work before a capture:
+The text that replaces each match. Leave it empty to delete the match. Reuse captured text with `$1`, `$2` and so on. `$0`, `$&` and `{{match}}` put back the whole match, as in SillyTavern. These case changes work before a capture:
 
 | Write | Result |
 | --- | --- |
@@ -92,7 +92,14 @@ Toggle buttons that change how the pattern matches. A new script starts with `g`
 
 ### Trim Strings
 
-An optional list of plain strings removed after the replacement runs. Click **Add trim string** to add a row and the **X** button to remove one. Use it for a fixed piece of text that is easier to type than to match with a pattern.
+An optional list of plain strings to remove. Click **Add trim string** to add a row and the **X** button to remove one. Use it for a fixed piece of text that is easier to type than to match with a pattern.
+
+Once a script has a trim string, **Trim from** decides where they are removed:
+
+- **Whole result**: from the whole message after the replacement, only when the pattern matched at least once. New scripts start here.
+- **Matched text (like SillyTavern)**: only from the matched text that `$0`, `{{match}}` or `$1` put back. Text you typed in **Replace With** and the rest of the message stay as they are, and nothing changes where the pattern doesn't match.
+
+Scripts imported from SillyTavern use **Matched text**. Scripts imported before this option existed used **Whole result**; if one of them now removes too much, import it again or switch it to **Matched text**.
 
 ### Live Test
 
