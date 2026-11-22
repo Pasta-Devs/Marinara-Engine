@@ -3,8 +3,10 @@
 // injected block sits, for Peek only; what is sent stays the same.
 import assert from "node:assert/strict";
 import { postProcessMessages } from "../../../packages/server/src/routes/generate/generate-route-utils.js";
+import { resolveDeferredCharacterMacros, resolveMacros } from "../../../packages/shared/src/utils/macro-engine.js";
 import {
   labelInjectedParts,
+  peekBlocksForResponder,
   readPeekPromptParts,
   worldInfoPeekBlocks,
 } from "../../../packages/server/src/services/prompt/peek-injected-parts.js";
@@ -122,6 +124,38 @@ assert.deepEqual(
   presetMerged[1]!.parts.map((part) => part.label),
   ["worldInfo"],
 );
+
+// Individual group replies: the note keeps {{char}} deferred until each responder's prompt is built. Each responder
+// labels its own resolved copy, and the messages sent to the provider carry no Peek metadata.
+const macroContext = {
+  user: "Mari",
+  char: "Ilse",
+  characters: ["Ilse", "Bram"],
+  variables: {},
+  localVariables: {} as Record<string, string>,
+};
+const deferredNote = resolveMacros("[{{char}} is hiding a letter.]", macroContext, { deferCharacterMacros: "all" });
+for (const name of ["Ilse", "Bram"]) {
+  const sentNote = resolveDeferredCharacterMacros(deferredNote, { name }, macroContext);
+  assert.equal(sentNote, `[${name} is hiding a letter.]`);
+  const sent = [
+    { role: "system", content: "Main prompt." },
+    { role: "user", content: `Hello.\n\n${sentNote}\n\nWhat now?` },
+  ];
+  const before = JSON.stringify(sent);
+  const unresolved = labelInjectedParts(sent, [{ label: "authorsNote", depth: 0, content: deferredNote }]);
+  assert.equal(unresolved[1]!.parts.length, 0, "the deferred text alone can't be found");
+  const resolved = labelInjectedParts(
+    sent,
+    peekBlocksForResponder([{ label: "authorsNote", depth: 0, content: deferredNote }], (text) =>
+      resolveDeferredCharacterMacros(text, { name }, macroContext),
+    ),
+  );
+  const part = resolved[1]!.parts[0]!;
+  assert.equal(sent[1]!.content.slice(part.start, part.end), sentNote, `${name}'s note is labelled`);
+  assert.equal(JSON.stringify(sent), before, "provider messages stay as they were");
+  assert.ok(!("parts" in resolved[1]!.message), "no Peek metadata on the message itself");
+}
 
 // Saved parts are read back only when they fit the message.
 assert.deepEqual(readPeekPromptParts([{ start: 0, end: 4, label: "authorsNote", depth: 4 }], 10), [
