@@ -46,6 +46,8 @@ export function PromptPresetSection({
       label={localizeUi("ui.chatSettings.conversationpromptsection.promptPreset")}
       icon={<FileText size="0.875rem" />}
       summary={presets.find((preset) => preset.id === promptPresetId)?.name}
+      // With no preset chosen the page would hold the picker alone: it sits on the row instead.
+      mobileInline={!promptPresetId && !showLorebookMarkerWarning}
       help={localizeUi("ui.chatSettings.promptpresetsection.presetsControlHowTheSystemPromptIsStructuredAnd")}
     >
       <div className="flex items-center gap-1.5">

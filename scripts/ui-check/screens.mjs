@@ -348,7 +348,7 @@ export function screenList(ids) {
             // The chats list can come back over the chat while it opens.
             h.overhaul.getState().setMobileSidePageOpen(false);
             if (!document.querySelector('.ov-cs [data-drawer="advanced-parameters"]')) return;
-            const head = document.querySelector(".ovm-cs-page__head");
+            const head = document.querySelector(".ovm-cs-page[data-ovm-cs-current] .ovm-cs-page__body");
             if (!head) return h.chatSettingsNav.getState().showPage("advanced-parameters");
             let scroller = head.parentElement;
             while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY))

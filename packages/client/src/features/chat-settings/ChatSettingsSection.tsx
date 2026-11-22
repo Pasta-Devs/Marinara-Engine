@@ -74,6 +74,8 @@ interface ChatSettingsSectionProps {
   count?: number;
   /** Short current value (a persona's name), shown on the section's row in the phone list. */
   summary?: string;
+  /** Phones and tablets: the section's single control sits on its row in the list (see Drawer `mobileInline`). */
+  mobileInline?: boolean;
   help?: string;
   style?: CSSProperties;
   initialOpen?: boolean;
@@ -94,6 +96,7 @@ export function ChatSettingsSection({
   icon,
   count,
   summary,
+  mobileInline,
   help,
   style,
   initialOpen = false,
@@ -133,6 +136,7 @@ export function ChatSettingsSection({
       icon={icon}
       count={count}
       rowValue={summary}
+      mobileInline={mobileInline}
       help={help}
       open={open}
       onOpenChange={setOpenRemembered}

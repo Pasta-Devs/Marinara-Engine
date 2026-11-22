@@ -72,7 +72,7 @@ export function ChatNameSection({
             if (copied) toast.success(localizeUi("ui.chatSettings.chatnamesection.chatIdCopied"));
             else toast.error(localizeUi("ui.chatSettings.chatnamesection.couldNotCopyChatId"));
           }}
-          className="group flex w-full min-w-0 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--secondary)]/50 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          className="ov-hit-y group flex w-full min-w-0 items-center gap-2 rounded-md border border-[var(--border)] bg-[var(--secondary)]/50 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           title={localizeUi("ui.chatSettings.chatnamesection.copyChatId")}
           aria-label={localizeUi("ui.chatSettings.chatnamesection.copyChatId")}
         >

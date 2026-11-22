@@ -77,8 +77,12 @@ import {
 } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { SkipLinks } from "./SkipLinks";
-import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
-import { useOverhaulStore } from "../../stores/overhaul.store";
+import {
+  CHAT_SETTINGS_WINDOW_ID,
+  TRACKER_PANEL_BUBBLE_ID,
+  useFloatingWindowStore,
+} from "../../stores/floating-window.store";
+import { isOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../../lib/overhaul-styles";
 import { preloadChatSurface } from "../chat/chat-surface-preload";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
@@ -885,6 +889,9 @@ export function AppShell({
   // (QC Nov 21, MOB11). The phone layout notes what the desktop sidebar showed before it closed it (kept across a
   // reload, so a portrait start works too), and growing back to the desktop layout puts it back.
   const sidebarRestoreBeforeRef = useRef(overhaulMobile);
+  // Chat settings open while the window grows: it holds the docked slot, so the sidebar waits until it closes.
+  // Otherwise the restore took the slot and closed Chat settings on portrait-to-landscape only (QC panel 2, #6).
+  const pendingSidebarRestoreRef = useRef<string | null>(null);
   useEffect(() => {
     const grew = !overhaulMobile && sidebarRestoreBeforeRef.current;
     sidebarRestoreBeforeRef.current = overhaulMobile;
@@ -892,16 +899,37 @@ export function AppShell({
       const ui = useUIStore.getState();
       if (ui.rightPanelOpen || ui.sidebarOpen) {
         writeDesktopSidebarBeforeTouch(ui.rightPanelOpen ? ui.rightPanel : "chats");
+      } else if (pendingSidebarRestoreRef.current) {
+        writeDesktopSidebarBeforeTouch(pendingSidebarRestoreRef.current);
       }
+      pendingSidebarRestoreRef.current = null;
       return;
     }
     if (!grew || !overhaulActive) return;
     const saved = takeDesktopSidebarBeforeTouch();
     const ui = useUIStore.getState();
     if (!saved || ui.rightPanelOpen || ui.sidebarOpen) return;
+    if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID]) {
+      pendingSidebarRestoreRef.current = saved;
+      return;
+    }
     if (saved === "chats") ui.setSidebarOpen(true);
     else ui.openRightPanel(saved as Parameters<typeof ui.openRightPanel>[0]);
   }, [overhaulActive, overhaulMobile]);
+  useEffect(
+    () =>
+      useFloatingWindowStore.subscribe((state, previous) => {
+        if (state.open[CHAT_SETTINGS_WINDOW_ID] || !previous.open[CHAT_SETTINGS_WINDOW_ID]) return;
+        const saved = pendingSidebarRestoreRef.current;
+        pendingSidebarRestoreRef.current = null;
+        if (!saved || isOverhaulMobile()) return;
+        const ui = useUIStore.getState();
+        if (ui.rightPanelOpen || ui.sidebarOpen) return;
+        if (saved === "chats") ui.setSidebarOpen(true);
+        else ui.openRightPanel(saved as Parameters<typeof ui.openRightPanel>[0]);
+      }),
+    [],
+  );
   const overhaulMobileBeforeRef = useRef(overhaulMobile);
   useEffect(() => {
     const shrank = overhaulMobile && !overhaulMobileBeforeRef.current;

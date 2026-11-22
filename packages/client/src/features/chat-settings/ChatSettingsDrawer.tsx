@@ -76,7 +76,13 @@ import { changedId } from "../../components/characters/CharacterSelect";
 import { PictureCheckFields } from "./PictureCheckFields";
 import { ChatSettingsDeferBodiesContext, ChatSettingsSection as Section } from "./ChatSettingsSection";
 import { useMobileChatSettingsNav } from "./mobile-nav";
-import { MobileChatSettingsBack, MobileChatSettingsGroup, MobileChatSettingsQuick } from "./MobileChatSettingsNav";
+import {
+  MobileChatSettingsGroup,
+  MobileChatSettingsHeaderBack,
+  MobileChatSettingsPageHelp,
+  MobileChatSettingsQuick,
+  useMobileChatSettingsHeaderTitle,
+} from "./MobileChatSettingsNav";
 import { ActiveChatBackgroundPicker } from "../../components/panels/settings/BackgroundPicker";
 import { LocationBackgroundPins } from "./LocationBackgroundPins";
 import { AdvancedParametersSection } from "./sections/AdvancedParametersSection";
@@ -503,6 +509,8 @@ export function ChatSettingsDrawer({
   const ovEditing = useOverhaulStore((state) => state.chatSettingsEditing) && overhaulActive;
   // New layout on phones and tablets: the sheet opens on its quick page; Edit mode keeps the classic sections.
   const mobileNavView = useMobileChatSettingsNav((state) => state.view);
+  const mobileNavTitle = useMobileChatSettingsHeaderTitle();
+  const mobileDrillTitle = overhaulMobile && (mobileNavView === "all" || mobileNavView === "page") ? mobileNavTitle : null;
   const confirmMobileResourceRemoval = (event: ReactMouseEvent<HTMLDivElement>) => {
     const button = (event.target as Element | null)?.closest<HTMLElement>("[data-chat-settings-remove-resource]");
     if (!button) return;
@@ -2823,9 +2831,24 @@ export function ChatSettingsDrawer({
             : undefined,
         }}
         presentation={phoneLayout || overhaulMobile ? "sheet" : "window"}
-        title={localizeUi("chat.toolbar.settings")}
-        titleIcon={<Settings2 size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />}
-        titleAccessory={overhaulActive ? <OvChatSettingsHeader mode={chatMode} /> : helpLayoutButton}
+        // Phones and tablets: on the list and on a section's page the header is that page's own (back, name, help).
+        title={mobileDrillTitle ?? localizeUi("chat.toolbar.settings")}
+        titleIcon={
+          mobileDrillTitle ? (
+            <MobileChatSettingsHeaderBack />
+          ) : (
+            <Settings2 size="0.8125rem" className="shrink-0 text-[var(--muted-foreground)]" />
+          )
+        }
+        titleAccessory={
+          mobileDrillTitle ? (
+            <MobileChatSettingsPageHelp />
+          ) : overhaulActive ? (
+            <OvChatSettingsHeader mode={chatMode} />
+          ) : (
+            helpLayoutButton
+          )
+        }
         // Docked keeps a quiet header; Edit still offers Reset View there.
         headerControls={ovDocked ? (ovEditing ? resetViewButton : null) : headerControls}
         closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
@@ -2964,7 +2987,6 @@ export function ChatSettingsDrawer({
                     },
                   ]}
                 />
-                <MobileChatSettingsBack order={CHAT_SETTINGS_ORDER.settingsPresets - 100} />
                 <MobileChatSettingsGroup
                   order={CHAT_SETTINGS_ORDER.connection - 1}
                   label={localizeUi("chat.settings.groups.model", { defaultValue: "Model" })}

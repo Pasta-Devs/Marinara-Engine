@@ -15674,6 +15674,94 @@ input.ov-edhead__title:not(#ov-x) {
   inset: min(0px, calc((100% - 2.75rem) / 2)) 0;
 }
 
+/* QC panel 2 (Nov 22, touch F5/F6): the small controls the first pass missed. Rows grow sideways to 44 px on a touch
+   device (bigger targets are fine on touch) and keep the up-and-down hit area above; lone controls get both. */
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is(
+    .ov-topbar .ov-icon-btn,
+    .ov-icon-btn--sm,
+    .ov-btn--icon,
+    .ovm-lp-view > button,
+    .ov-gallery__size > button,
+    .mari-things-to-try__icon-button,
+    .mari-chrome-control--small,
+    .ov-rpf__btn,
+    .ov-cs > .mari-window__header .mari-window__control
+  ):not(#ov-hit):not(#ov-hit2):not(#ov-hit3) {
+  min-width: 2.75rem;
+}
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is([data-quick-switcher-trigger], [data-quick-persona-trigger], [data-branch-action]):not(#ov-hit) {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+:root[data-overhaul][data-marinara-touch-device="true"] [data-quick-persona-trigger]:not(#ov-hit) {
+  /* The persona picture keeps its size; the ring around it is the target. */
+  border-width: 0.375rem;
+  border-color: transparent;
+}
+:root[data-overhaul][data-marinara-touch-device="true"] .ov-libnav__item:not(#ov-hit),
+:root[data-overhaul][data-marinara-touch-device="true"] .ov-select:not(#ov-hit),
+:root[data-overhaul][data-marinara-touch-device="true"] .ov-vw__filter:not(#ov-hit) {
+  min-height: 2.75rem;
+}
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is(.ov-rpf__swipes > button, .ov-kit-more:not(.ov-card__more), .ov-prof-star):not(#ov-hit) {
+  position: relative;
+}
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is(
+    .ov-rpf__swipes > button,
+    .ov-card__more,
+    .ov-kit-more,
+    .ov-prof-star,
+    .mari-home-widget__drag-handle,
+    [data-sonner-toast] [data-close-button]
+  ):not(#ov-hit)::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - 2.75rem) / 2));
+}
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is(
+    .ov-cs [data-drawer-toggle],
+    .ov-cb-io__btn,
+    .ov-card__name,
+    .mari-home-widget-shortcut,
+    .ov-vw__ghead,
+    .ov-vw__gopen,
+    .ov-cs [data-window-control],
+    .ov-cs [data-chat-message-search] > :first-child button,
+    .ov-cs [data-branch-row],
+    .ov-cs [data-chat-settings-model-field] > button
+  ):not(#ov-hit) {
+  position: relative;
+}
+:root[data-overhaul][data-marinara-touch-device="true"]
+  :is(
+    .ov-cs [data-drawer-toggle],
+    .ov-cb-io__btn,
+    .ov-card__name,
+    .mari-home-widget-shortcut,
+    .ov-vw__ghead,
+    .ov-vw__gopen,
+    .ov-cs [data-window-control],
+    .ov-cs [data-chat-message-search] > :first-child button,
+    .ov-cs [data-branch-row],
+    .ov-cs [data-chat-settings-model-field] > button
+  ):not(#ov-hit)::after {
+  content: "";
+  position: absolute;
+  inset: min(0px, calc((100% - 2.75rem) / 2)) 0;
+}
+/* Toasts: the close stays visible on touch (no hover to reveal it). */
+:root[data-marinara-touch-device="true"] [data-sonner-toast] [data-close-button] {
+  opacity: 1 !important;
+}
+
 /* Preview / Expand / Macro buttons on a touch screen in the tablet layout: stacked inside the box they were 21 px
    apart, too close for a finger and with no room to grow. As on phones (overhaul-mobile.css), they leave the box
    and sit in one row above it on the right, sharing a plain label's line when there is one; the row then grows
