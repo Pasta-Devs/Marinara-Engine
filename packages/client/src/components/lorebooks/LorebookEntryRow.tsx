@@ -136,6 +136,8 @@ interface Props {
    * = the entry activates regardless (no keys required). `undefined` = no
    * preview active. Adds a side accent + chip; does not change behavior.
    */
+  /** Up/Down on the name (QC Nov 22 AX3): move focus to the next row, or with Alt move the entry itself. */
+  onKeyboardNavigate?: (entryId: string, offset: -1 | 1, reorder: boolean) => void;
   previewMatch?: "matched" | "constant";
   mapBacklinks?: Array<{ chatId: string; locationId: string; locationName: string }>;
   /** How often this entry fired in real generations (absent = never). */
@@ -307,6 +309,7 @@ export function LorebookEntryRow({
   mapBacklinks = [],
   onUpdateEntry,
   chatEnabled,
+  onKeyboardNavigate,
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const overhaul = useOverhaulLook();
@@ -710,6 +713,9 @@ export function LorebookEntryRow({
           {!compact ? (
             <button
               type="button"
+              // Mouse and touch only: the keyboard moves a row with Alt+Up/Down on its name (QC Nov 22 AX3).
+              tabIndex={-1}
+              aria-hidden="true"
               className={cn("ov-lrow__grip", !draggable && "is-off")}
               title={
                 draggable
@@ -770,7 +776,35 @@ export function LorebookEntryRow({
           >
             <span />
           </button>
-          <span className="ov-lrow__name">
+          {/* QC Nov 22 AX3: the name is the row's keyboard stop (Enter opens the entry, Up/Down move between rows,
+              Alt+Up/Down reorder). A span with role="button" so the row still drags by its name. */}
+          <span
+            className="ov-lrow__name"
+            role="button"
+            tabIndex={0}
+            data-lorebook-entry-open={entry.id}
+            aria-current={!selectionMode && isExpanded ? "true" : undefined}
+            aria-pressed={selectionMode ? !!isSelected : undefined}
+            aria-keyshortcuts={onKeyboardNavigate ? "ArrowUp ArrowDown Alt+ArrowUp Alt+ArrowDown" : undefined}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (selectionMode) onToggleSelected?.(e);
+              else onToggleExpand();
+            }}
+            onKeyDown={(e) => {
+              if ((e.key === "Enter" || e.key === " ") && !e.altKey && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                if (selectionMode) onToggleSelected?.(e);
+                else onToggleExpand();
+                return;
+              }
+              if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                if (!onKeyboardNavigate) return;
+                e.preventDefault();
+                onKeyboardNavigate(entry.id, e.key === "ArrowUp" ? -1 : 1, e.altKey);
+              }
+            }}
+          >
             <span
               className={cn("ov-lrow__dot", STATUS_DOT_COLOR[localStatus])}
               data-status={localStatus}

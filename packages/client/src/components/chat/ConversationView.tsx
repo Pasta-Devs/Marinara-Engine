@@ -13,6 +13,7 @@ import {
   useEffect,
   useLayoutEffect,
   useCallback,
+  useId,
   useMemo,
   useState,
   type CSSProperties,
@@ -460,7 +461,6 @@ export function ConversationView({
   }, [characterMap, characterNames, chatCharIds, isGroupConversation, streamingCharacterId, typingCharacterName]);
   const liveTypingVerb =
     isGroupConversation || liveTypingName.includes(",") || liveTypingName.includes(" & ") ? "are" : "is";
-  const liveTypingLabel = `${liveTypingName} ${liveTypingVerb} typing`;
   const liveTypingText = `${liveTypingName} ${liveTypingVerb} typing...`;
   const delayedDisplayName = useMemo(() => {
     if (!delayedCharacterInfo) return "";
@@ -540,6 +540,8 @@ export function ConversationView({
     }
     return { background: `linear-gradient(135deg, ${g.from}, ${g.to})` };
   }, [convoGradient, theme]);
+  const transcriptHeadingId = useId();
+  const transcriptName = useChatStore((s) => (s.activeChat?.id === chatId ? s.activeChat.name : null));
   const hasAutonomousMessaging = !!chatMeta.autonomousMessages || !!chatMeta.characterExchanges;
   const callsPackage = installedCapabilities.find(
     (item) =>
@@ -1322,8 +1324,14 @@ export function ConversationView({
         ref={scrollRef}
         data-chat-scroll
         data-chat-resource-drop-surface
+        role="region"
+        aria-labelledby={transcriptHeadingId}
         className="mari-messages-scroll flex-1 scroll-pt-16 overflow-y-auto overflow-x-hidden"
       >
+        {/* QC Nov 22 AX4: a named region under a heading, not a live log (replies are announced once, by name). */}
+        <h1 id={transcriptHeadingId} className="sr-only">
+          {transcriptName?.trim() || localizeUi("chat.transcript.label")}
+        </h1>
         {/* Floating header — character info + action buttons */}
         {renderHeader()}
 
@@ -1559,12 +1567,7 @@ export function ConversationView({
             data-typing-name={liveTypingName}
             data-card-css={typingCardCssId}
           >
-            <PendingTypingDots
-              className="mari-typing-dots gap-0.5"
-              dotClassName="bg-[var(--text-secondary)]"
-              label={liveTypingLabel}
-              small
-            />
+            <PendingTypingDots className="mari-typing-dots gap-0.5" dotClassName="bg-[var(--text-secondary)]" small />
             <span className="mari-typing-text italic">{liveTypingText}</span>
           </div>
         )}
@@ -1652,15 +1655,10 @@ export function ConversationView({
 
       {/* UI overhaul: the typing line sits right above the input, like Discord, and keeps its space so nothing jumps. */}
       {overhaulActive && (
-        <div className="ov-typing" aria-live="polite">
+        <div className="ov-typing" aria-live="polite" aria-atomic="true">
           {hasLiveStream && !delayedCharacterInfo && !streamBuffer ? (
             <>
-              <PendingTypingDots
-                className="mari-typing-dots gap-0.5"
-                dotClassName="bg-[var(--text-secondary)]"
-                label={liveTypingLabel}
-                small
-              />
+              <PendingTypingDots className="mari-typing-dots gap-0.5" dotClassName="bg-[var(--text-secondary)]" small />
               <span>
                 <b>{liveTypingName}</b> {liveTypingVerb} {localizeUi("ui.chat.conversationview.typing")}
               </span>

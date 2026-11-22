@@ -2207,6 +2207,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/Spinner";
+import { ReplyWritingStatus } from "@/components/chat/ReplyWritingStatus";
 
 /** Randomly sample up to `max` items from an array (Fisher-Yates shuffle). */
 function sampleTags(tags: string[], max: number): string[] {
@@ -14181,6 +14182,8 @@ function GameSurfaceComponent({
         )}
         data-chat-mode="game"
       >
+        {/* QC Nov 22 AX1: screen readers hear "Writing a reply…" on a long turn, then "… replied" from the announcer. */}
+        <ReplyWritingStatus streaming={isStreaming} name={null} />
         <GameTransitionManager gameState={gameState} location={gameSnapshot?.location ?? null}>
           <DirectionEngine
             directions={activeDirections}

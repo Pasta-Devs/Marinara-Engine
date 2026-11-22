@@ -1,3 +1,4 @@
+import { useDomOrderFollowsCss } from "../../lib/dom-order-follows-css";
 import { ChatButtonLayoutSettings } from "./ChatButtonLayoutSettings";
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
@@ -604,6 +605,9 @@ export function ChatSettingsDrawer({
       : "roleplay";
   const isConversation = chatMode === "conversation";
   const isGame = chatMode === "game";
+  // QC Nov 22 AX6: Tab and screen readers follow the order on screen (built-in order, then a saved Edit order).
+  const savedSectionOrder = useOverhaulStore((state) => state.chatSettingsLayouts[chatMode]?.order);
+  useDomOrderFollowsCss(ovScrollEl, `${overhaulActive}:${isGame}:${savedSectionOrder?.join(",") ?? ""}`);
   const isRoleplayMode = chatMode === "roleplay";
   const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[chatMode];
   const metadata = useMemo(

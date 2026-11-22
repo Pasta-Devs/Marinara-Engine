@@ -30,9 +30,32 @@ export function menuOpenerFromClick() {
   return lastClick;
 }
 
+// When Shift+F10 or the menu key was last pressed. Chromium, Firefox and WebKit each describe the contextmenu
+// event that follows differently, so the key press itself is the surest sign (QC Nov 22 AX5).
+let menuKeyAt = 0;
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) menuKeyAt = Date.now();
+    },
+    true,
+  );
+}
+
 /** A context menu asked for from the keyboard (Shift+F10, the menu key) rather than a right click. */
-export function isKeyboardContextMenu(event: { nativeEvent: Event; clientX: number; clientY: number }) {
-  const native = event.nativeEvent as Partial<PointerEvent>;
+export function isKeyboardContextMenu(event: {
+  nativeEvent: Event;
+  clientX: number;
+  clientY: number;
+  button?: number;
+}) {
+  const native = event.nativeEvent as Partial<PointerEvent> & { button?: number };
+  // Chromium sends Shift+F10 / the menu key as a "mouse" PointerEvent with button -1, placed on the element.
+  // A right click is button 2 and a touch long-press is pointerType "touch", so both stay pointer menus.
+  const button = typeof event.button === "number" ? event.button : native.button;
+  if (button === -1) return true;
+  if (Date.now() - menuKeyAt < 500) return true;
   if (typeof native.pointerType === "string") return native.pointerType === "";
   return event.clientX === 0 && event.clientY === 0;
 }

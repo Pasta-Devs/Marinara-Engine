@@ -30,6 +30,7 @@ import {
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useReadOnlySubtree } from "../../hooks/use-read-only-subtree";
+import { announce } from "../../lib/live-announcer";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -2102,6 +2103,20 @@ function PromptsTab({
 //  Sections Tab (with drag-reorder, groups management, choice editing)
 // ═══════════════════════════════════════════════
 
+/** After a keyboard move the row re-renders in its new place (once the save lands); keep focus on its name
+ *  (QC Nov 22 AX2). */
+function focusPresetSectionAfterMove(sectionId: string) {
+  let tries = 0;
+  const refocus = () => {
+    const button = document.querySelector<HTMLElement>(`[data-preset-section-open="${CSS.escape(sectionId)}"]`);
+    // Only when the move dropped focus (the row was re-inserted); never pull it back from where the user went.
+    const lost = !document.activeElement || document.activeElement === document.body;
+    if (button && lost) button.focus();
+    if (++tries < 20) window.setTimeout(refocus, 50);
+  };
+  requestAnimationFrame(refocus);
+}
+
 function SectionsTab({
   presetId,
   sections,
@@ -2770,6 +2785,10 @@ function SectionsTab({
               <button
                 type="button"
                 data-preset-section-enable
+                // QC Nov 22 AX2: a named switch with its state. As a switch, the read-only built-in preset locks it.
+                role="switch"
+                aria-checked={isEnabled}
+                aria-label={localizeUi("ui.presets.sectionstab.useSection", { name: section.name })}
                 onClick={() =>
                   onUpdateSection.mutate({
                     presetId,
@@ -2892,7 +2911,11 @@ function SectionsTab({
                       </button>
                     </div>
                     <button
+                      type="button"
                       data-preset-section-toggle
+                      // The name button does the same; one stop per row (QC Nov 22 AX2).
+                      tabIndex={-1}
+                      aria-hidden="true"
                       onClick={() => toggleExpanded(section.id)}
                       className="shrink-0 rounded p-0.5 hover:bg-[var(--accent)]"
                     >
@@ -2907,12 +2930,44 @@ function SectionsTab({
                     {!masterDetail || role !== "system" ? (
                       <RoleIcon size="0.875rem" className={cn("shrink-0", ROLE_COLORS[role])} />
                     ) : null}
+                    {/* QC Nov 22 AX2: the name is the row's keyboard stop. Enter/Space opens it like a click on the
+                        row; Alt+Up/Down moves it (the keys chat rows use). A span with role="button", not a <button>,
+                        so dragging the row by its name keeps working in every browser. */}
                     <span
+                      role="button"
+                      tabIndex={0}
+                      data-preset-section-open={section.id}
+                      // Phones in edit mode: holding the name still drags the row.
+                      data-drag-surface={touchLayout && touchEditing ? "" : undefined}
+                      aria-current={masterDetail && isExpanded ? "true" : undefined}
+                      aria-expanded={masterDetail ? undefined : isExpanded}
+                      aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
                       className={cn(
-                        "min-w-0 flex-1 cursor-pointer truncate font-medium",
+                        "min-w-0 flex-1 cursor-pointer truncate rounded-sm font-medium",
                         compact ? "text-xs" : "text-sm",
                       )}
-                      onClick={masterDetail ? undefined : () => toggleExpanded(section.id)}
+                      onClick={() => toggleExpanded(section.id)}
+                      onKeyDown={(event) => {
+                        if ((event.key === "Enter" || event.key === " ") && !event.altKey && !event.ctrlKey) {
+                          event.preventDefault();
+                          toggleExpanded(section.id);
+                          return;
+                        }
+                        if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+                        event.preventDefault();
+                        if (event.currentTarget.closest('[data-ov-readonly="true"]')) return;
+                        const offset = event.key === "ArrowUp" ? -1 : 1;
+                        const target = idx + offset;
+                        if (target < 0 || target >= sections.length || onReorderSections.isPending) return;
+                        moveSectionByOffset(idx, offset);
+                        focusPresetSectionAfterMove(section.id);
+                        announce(
+                          localizeUi("ui.presets.sectionstab.movedTo", {
+                            position: target + 1,
+                            total: sections.length,
+                          }),
+                        );
+                      }}
                     >
                       {markerConfig?.type === "recalled_messages" && section.name === "Recalled messages"
                         ? markerLabel("recalled_scenes")

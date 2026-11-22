@@ -123,6 +123,9 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
               {ctx.onOpenAboutMe ? (
                 <button
                   type="button"
+                  // The name beside it opens the same card; one stop per message is enough (QC Nov 22 AX4).
+                  tabIndex={-1}
+                  aria-hidden="true"
                   onClick={(e) => ctx.onOpenAboutMe?.(e.currentTarget.getBoundingClientRect())}
                   aria-label={localizeUi("ui.chat.conversationmessagebubble.viewValue1SAboutMe", {
                     value1: displayName,
@@ -314,10 +317,7 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
                       galleryIndex={galleryIndex}
                     />
                   )}
-                  <PendingTypingDots
-                    label={localizeUi("ui.chat.conversationmessagebubble.stillTyping")}
-                    dotClassName="bg-[var(--muted-foreground)]/60"
-                  />
+                  <PendingTypingDots dotClassName="bg-[var(--muted-foreground)]/60" />
                 </div>
               ) : diceRollReplacesMessageContent(message.role, extra.diceRollResult) ? (
                 <DiceMessageContent diceRollResult={extra.diceRollResult} createdAt={message.createdAt} />
