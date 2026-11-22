@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { chooseConnection } from "./connection-picker.js";
-import { seedUIState } from "./ui-state-fixture.js";
+import { seedClassicLayout, seedUIState } from "./ui-state-fixture.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 
 /**
@@ -19,7 +19,18 @@ const LAST_PREFERENCES = "slow-burn mystery";
  * A fresh new-game setup wizard, on its own, opened after a game that kept its goals and preferences.
  * Its lorebook list answers once `lorebooksAnswered` settles: empty, or with an error when it rejects.
  */
-async function mountWizard(page: Page, testInfo: TestInfo, lorebooksAnswered: Promise<void>): Promise<Locator> {
+type Layout = "page" | "steps";
+
+async function mountWizard(
+  page: Page,
+  testInfo: TestInfo,
+  lorebooksAnswered: Promise<void>,
+  layout: Layout,
+): Promise<Locator> {
+  // The new layout shows setup as one page; with it off the classic stepper stays.
+  if (layout === "steps") {
+    await seedClassicLayout(page);
+  }
   await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
   await page.route("**/api/capability-packages/installed", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/capability-packages/agents", (route) => route.fulfill({ json: [] }));
@@ -83,8 +94,14 @@ async function mountWizard(page: Page, testInfo: TestInfo, lorebooksAnswered: Pr
   return wizard;
 }
 
-/** Walks on with Next to the step whose heading is `title`. */
-async function stepTo(wizard: Locator, title: string) {
+/** Walks on with Next to the step whose heading is `title`. On the page, Lorebooks sit under More options. */
+async function stepTo(wizard: Locator, title: string, layout: Layout) {
+  if (layout === "page") {
+    if (title !== "Lorebooks") return;
+    const more = wizard.getByRole("button", { name: /More options/ });
+    if (await more.count()) await more.click();
+    return;
+  }
   const heading = wizard.getByRole("heading", { level: 4 }).first();
   for (let guard = 0; guard < 8 && (await heading.innerText()) !== title; guard++) {
     const previous = await heading.innerText();
@@ -94,47 +111,51 @@ async function stepTo(wizard: Locator, title: string) {
   await expect(heading).toHaveText(title);
 }
 
-test("goals and preferences kept from the last game say so and can be cleared", async ({ page }, testInfo) => {
-  let answerLorebooks = () => {};
-  const wizard = await mountWizard(page, testInfo, new Promise((resolve) => (answerLorebooks = resolve)));
-  await stepTo(wizard, "Goals");
-  const goals = wizard.getByPlaceholder("What do you want to achieve?");
-  const preferences = wizard.locator("textarea").nth(1);
-  await expect(goals).toHaveValue(LAST_GOALS);
-  await expect(preferences).toHaveValue(LAST_PREFERENCES);
-  const notes = wizard.getByText("From your last game.", { exact: true });
-  await expect(notes).toHaveCount(2);
-  if (testInfo.project.name === "desktop-chromium") {
-    await wizard.screenshot({ path: testInfo.outputPath("remembered-goals.png") });
-  }
+for (const layout of ["page", "steps"] as const) {
+  test(`goals and preferences kept from the last game say so and can be cleared (${layout})`, async ({
+    page,
+  }, testInfo) => {
+    let answerLorebooks = () => {};
+    const wizard = await mountWizard(page, testInfo, new Promise((resolve) => (answerLorebooks = resolve)), layout);
+    await stepTo(wizard, "Goals", layout);
+    const goals = wizard.getByPlaceholder("What do you want to achieve?");
+    const preferences = wizard.getByPlaceholder("Any extra details for the GM?");
+    await expect(goals).toHaveValue(LAST_GOALS);
+    await expect(preferences).toHaveValue(LAST_PREFERENCES);
+    const notes = wizard.getByText("From your last game.", { exact: true });
+    await expect(notes).toHaveCount(2);
+    if (testInfo.project.name === "desktop-chromium") {
+      await wizard.screenshot({ path: testInfo.outputPath(`remembered-goals-${layout}.png`) });
+    }
 
-  // Clear empties the field, and the note goes with the old text.
-  await wizard.getByRole("button", { name: "Clear", exact: true }).first().click();
-  await expect(goals).toHaveValue("");
-  await expect(notes).toHaveCount(1);
-  // Text the player writes is their own: no note.
-  await preferences.fill(`${LAST_PREFERENCES}, no romance`);
-  await expect(notes).toHaveCount(0);
+    // Clear empties the field, and the note goes with the old text.
+    await wizard.getByRole("button", { name: "Clear", exact: true }).first().click();
+    await expect(goals).toHaveValue("");
+    await expect(notes).toHaveCount(1);
+    // Text the player writes is their own: no note.
+    await preferences.fill(`${LAST_PREFERENCES}, no romance`);
+    await expect(notes).toHaveCount(0);
 
-  // While the list is still loading it claims nothing; with no lorebooks at all it says so, instead of
-  // "All lorebooks already added".
-  await stepTo(wizard, "Lorebooks");
-  await expect(wizard.getByPlaceholder("Search lorebooks…")).toBeVisible();
-  await expect(wizard.getByText("No lorebooks yet", { exact: true })).toHaveCount(0);
-  answerLorebooks();
-  await expect(wizard.getByText("No lorebooks yet", { exact: true })).toBeVisible();
-  await expect(wizard.getByText("All lorebooks already added.", { exact: true })).toHaveCount(0);
-});
+    // While the list is still loading it claims nothing; with no lorebooks at all it says so, instead of
+    // "All lorebooks already added".
+    await stepTo(wizard, "Lorebooks", layout);
+    await expect(wizard.getByPlaceholder("Search lorebooks…")).toBeVisible();
+    await expect(wizard.getByText("No lorebooks yet", { exact: true })).toHaveCount(0);
+    answerLorebooks();
+    await expect(wizard.getByText("No lorebooks yet", { exact: true })).toBeVisible();
+    await expect(wizard.getByText("All lorebooks already added.", { exact: true })).toHaveCount(0);
+  });
 
-test("a lorebook list that failed to load claims nothing", async ({ page }, testInfo) => {
-  const unavailable = Promise.reject(new Error("unavailable"));
-  unavailable.catch(() => {});
-  const wizard = await mountWizard(page, testInfo, unavailable);
-  await stepTo(wizard, "Lorebooks");
-  await expect(wizard.getByPlaceholder("Search lorebooks…")).toBeVisible();
-  await expect(wizard.getByText("No lorebooks yet", { exact: true })).toHaveCount(0);
-  await expect(wizard.getByText("All lorebooks already added.", { exact: true })).toHaveCount(0);
-});
+  test(`a lorebook list that failed to load claims nothing (${layout})`, async ({ page }, testInfo) => {
+    const unavailable = Promise.reject(new Error("unavailable"));
+    unavailable.catch(() => {});
+    const wizard = await mountWizard(page, testInfo, unavailable, layout);
+    await stepTo(wizard, "Lorebooks", layout);
+    await expect(wizard.getByPlaceholder("Search lorebooks…")).toBeVisible();
+    await expect(wizard.getByText("No lorebooks yet", { exact: true })).toHaveCount(0);
+    await expect(wizard.getByText("All lorebooks already added.", { exact: true })).toHaveCount(0);
+  });
+}
 
 test("Start Game starts the game, and the starting widgets sheet is optional", async ({ page, request }, testInfo) => {
   const chat = (await (

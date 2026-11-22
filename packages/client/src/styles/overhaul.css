@@ -5516,205 +5516,6 @@ input.ov-edhead__title:focus {
   color: var(--ov-dim);
 }
 
-/* ─── New game setup (mockup "New game B": compact stepper dialog) ─── */
-/* The New Game dialog sits under the tab bar, so another tab is always one click away. */
-.ov-gsw-layer {
-  top: var(--ov-topbar-height) !important;
-}
-.ov-gsw {
-  max-width: 40rem !important;
-  border-radius: 0.75rem !important;
-}
-.ov-gsw > div:first-child {
-  gap: 0.25rem;
-  padding: 0.5rem 0.5rem 0.5rem 1rem !important;
-}
-.ov-gsw__icon {
-  display: grid;
-  width: 1.875rem;
-  height: 1.875rem;
-  place-items: center;
-  border-radius: 0.4375rem;
-  color: var(--ov-muted);
-}
-@media (hover: hover) {
-  .ov-gsw__icon:hover:not(:disabled) {
-    background: var(--ov-hover);
-    color: var(--ov-text);
-  }
-}
-.ov-gsw__steps {
-  display: flex;
-  flex: none;
-  gap: 0.125rem;
-  overflow-x: auto;
-  padding: 0.375rem 0.625rem;
-  border-bottom: 1px solid var(--ov-line);
-  scrollbar-width: none;
-}
-.ov-gsw__steps button {
-  display: inline-flex;
-  height: 1.75rem;
-  flex: none;
-  align-items: center;
-  gap: 0.3125rem;
-  padding: 0 0.5625rem;
-  border-radius: 0.375rem;
-  color: var(--ov-dim);
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-@media (hover: hover) {
-  .ov-gsw__steps button:hover:not(:disabled) {
-    background: var(--ov-hover);
-    color: var(--ov-text);
-  }
-}
-.ov-gsw__steps button.is-done {
-  color: var(--ov-muted);
-}
-.ov-gsw__steps button.is-done svg {
-  color: var(--mari-status-online);
-}
-.ov-gsw__steps button.is-on {
-  background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
-  color: var(--ov-accent-text);
-}
-.ov-gsw__hint {
-  margin: -0.25rem 0 0.75rem !important;
-  color: var(--ov-dim) !important;
-  font-size: 0.75rem !important;
-}
-.ov-gsw .space-y-4 > :not(:last-child) {
-  margin-bottom: 0.5rem !important;
-}
-.ov-gsw .space-y-4 > * + * {
-  margin-top: 0 !important;
-}
-/* Label-left rows: the field label sits in a 8.5rem column, everything else in the second column. */
-.ov-gsw .space-y-4 > div:has(> :is(label, span).mb-1\.5:first-child) {
-  display: grid;
-  grid-template-columns: 7rem minmax(0, 1fr);
-  column-gap: 0.75rem;
-  align-items: start;
-}
-.ov-gsw .space-y-4 > div > :is(label, span).mb-1\.5:first-child {
-  grid-column: 1;
-  grid-row: 1 / span 12;
-  margin: 0 !important;
-  padding-top: 0.375rem;
-  color: var(--ov-muted);
-  font-size: 0.8125rem !important;
-  font-weight: 400 !important;
-}
-.ov-gsw .space-y-4 > div > :is(label, span).mb-1\.5:first-child ~ * {
-  grid-column: 2;
-}
-/* Flatten the inner cards. */
-.ov-gsw .space-y-4 :is(div, label, p).rounded-lg:is([class*="border"], [class*="ring-1"]),
-.ov-gsw .space-y-4 div.rounded-xl {
-  border-color: transparent !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  --tw-ring-shadow: 0 0 #0000 !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-.ov-gsw .space-y-4 div.rounded-lg:is([class*="ring-1"]):has(> div > input, > div > svg) {
-  border: 1px solid var(--ov-line) !important;
-  border-radius: 0.4375rem !important;
-}
-.ov-gsw
-  .space-y-4
-  div.rounded-lg:is([class*="ring-1"])
-  > div:is(:has(> input, > svg), :has(> input, > svg) ~ div, :has(~ div > input, ~ div > svg)) {
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
-}
-.ov-gsw .space-y-4 [class*="max-h-"] > * {
-  min-height: 1.875rem !important;
-  padding-top: 0.25rem !important;
-  padding-bottom: 0.25rem !important;
-}
-/* New game > Select individual entries (#9645): the book list's dividers run edge to edge, and a book row holds
-   its own padding (its entries open under it). */
-.ov-gsw [data-component="GameSetupLoreEntryPicker.Books"] {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-.ov-gsw .space-y-4 [data-component="GameSetupLoreEntryPicker.Books"] > * {
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-}
-/* Choice cards (title + description) become a segmented control; the description shows on hover. */
-.ov-gsw .space-y-4 :is(.flex.gap-2, .grid.gap-2) > button.rounded-lg {
-  flex: none !important;
-  width: auto !important;
-  min-height: 0 !important;
-  padding: 0.3125rem 0.75rem !important;
-  border-radius: 0.4375rem !important;
-  font-size: 0.78rem !important;
-}
-.ov-gsw .space-y-4 :is(.flex.gap-2, .grid.gap-2):has(> button.rounded-lg) {
-  display: flex !important;
-  flex-wrap: wrap;
-  gap: 0.25rem !important;
-}
-.ov-gsw
-  .space-y-4
-  :is(.flex.gap-2, .grid.gap-2)
-  > button.rounded-lg
-  :is(div, p, span)
-  + :is(div, p, span):not(:has(*)) {
-  display: none;
-}
-.ov-gsw .space-y-4 :is(.flex.gap-2, .grid.gap-2) > button.rounded-lg > svg {
-  width: 0.875rem;
-  height: 0.875rem;
-}
-.ov-gsw input:not([type="checkbox"], [type="radio"], .sr-only),
-.ov-gsw select {
-  min-height: 1.875rem !important;
-  padding-top: 0.25rem !important;
-  padding-bottom: 0.25rem !important;
-  border-radius: 0.4375rem !important;
-  font-size: 0.8125rem !important;
-}
-.ov-gsw textarea {
-  border-radius: 0.4375rem !important;
-  font-size: 0.8125rem !important;
-}
-.ov-gsw .space-y-4 button.min-h-11 {
-  min-height: 1.875rem !important;
-}
-.ov-gsw-import > div:first-of-type {
-  display: none !important;
-}
-.ov-gsw-import {
-  padding: 0 !important;
-}
-.ov-gsw-import:not(:has(> :nth-child(3))) {
-  display: none !important;
-}
-.ov-gsw > div:last-child {
-  padding: 0.5rem 0.75rem !important;
-}
-.ov-gsw .space-y-4 button.rounded-lg:has(> span.rounded-full, > span > span.rounded-full) {
-  padding: 0.25rem 0 !important;
-  border-color: transparent !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  --tw-ring-shadow: 0 0 #0000 !important;
-}
-.ov-gsw .space-y-4 div.border-b:has(> input) {
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-}
-.ov-gsw .space-y-4 div.border-b:has(> input) > input {
-  border: 0 !important;
-  background: transparent !important;
-}
-
 /* ─── Game Mode right pane (mockup "Game B") ─── */
 .ov-gwrap {
   display: flex;
@@ -12155,10 +11956,6 @@ input.ov-edhead__title:focus {
   }
 }
 
-/* New Game: one fixed height for every step, so the footer (Back / Next) never moves; the body scrolls. */
-.ov-gsw {
-  height: min(40rem, calc(100dvh - var(--ov-topbar-height, 2.75rem) - 2rem)) !important;
-}
 :root[data-overhaul="on"] [data-cs-docked="reflow"][data-cs-tracker="right"] {
   --tracker-panel-overlay-clearance: 0px;
   --tracker-panel-chat-clearance: 0px;
@@ -12421,8 +12218,8 @@ input.ov-edhead__title:not(#ov-x) {
   color: var(--ov-muted);
 }
 
-/* Native dropdowns in the game wizard and Chat settings look like the custom pickers beside them (panel M10). */
-:root[data-overhaul="on"] :is(.ov-gsw, .ov-cs) select:not([multiple]):not([size]) {
+/* Native dropdowns in the game setup page and Chat settings look like the custom pickers beside them (panel M10). */
+:root[data-overhaul="on"] :is(.ov-gsp, .ov-cs) select:not([multiple]):not([size]) {
   appearance: none;
   -webkit-appearance: none;
   padding-right: 2rem;
@@ -16771,4 +16568,253 @@ input.ov-edhead__title:not(#ov-x) {
 :where(:root[data-overhaul]) ::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
   background-clip: padding-box;
+}
+
+/* Game setup page (E1, 2026-11) */
+/* New Game setup is the page in the game's own tab, built on the chat setup page (.ov-setup). The blocks under
+   "+ More options" (.ov-gsp) keep the stepper's fields; these rules lay them out as the page's label-left rows. */
+.ov-setup--game .ov-setup__field > button[aria-haspopup]:not(.ov-ideas),
+.ov-setup--game .ov-setup__field > input,
+.ov-setup--game .ov-setup__field textarea,
+.ov-gsp input:not([type="checkbox"], [type="radio"], .sr-only),
+.ov-gsp select,
+.ov-gsp textarea {
+  min-height: 2.25rem;
+  border-radius: 0.4375rem !important;
+  font-size: 0.8125rem !important;
+}
+.ov-setup--game .ov-setup__field > button[aria-haspopup]:not(.ov-ideas) {
+  width: 100%;
+}
+.ov-setup--game .ov-setup__field textarea {
+  min-height: 4.5rem;
+}
+/* A text field with its small "Ideas" menu at the end. */
+.ov-gsp__withideas {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.ov-gsp__withideas.is-top {
+  align-items: flex-start;
+}
+.ov-gsp__withideas > :is(input, textarea) {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.ov-ideas {
+  display: inline-flex;
+  min-height: 2.25rem;
+  flex: none;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--ov-line);
+  border-radius: 0.4375rem;
+  background: none;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-ideas:disabled {
+  opacity: 0.5;
+}
+@media (hover: hover) {
+  .ov-ideas:not(:disabled):hover,
+  .ov-mpick__forget:hover {
+    background: var(--ov-hover);
+    color: var(--ov-text);
+  }
+}
+/* Switch rows: label left, switch right, no card around them. */
+.ov-setup--game .ov-gsp__switch {
+  margin: 0 -0.5rem;
+  padding: 0.375rem 0.5rem;
+}
+.ov-setup--game .ov-gsp__switch > span:first-child > span label {
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+}
+.ov-setup--game .ov-gsp__switch > span:first-child > label {
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+@media (hover: none) {
+  .ov-setup--game .ov-gsp__switch:hover {
+    background: none;
+  }
+}
+.ov-gsp__nested {
+  margin: 0.125rem 0 0.25rem 0.25rem;
+  padding-left: 0.875rem;
+  border-left: 2px solid var(--ov-line);
+}
+.ov-gsp__details {
+  margin-top: 0.375rem;
+}
+.ov-gsp__details summary {
+  cursor: pointer;
+  color: var(--ov-dim);
+  font-size: 0.75rem;
+}
+.ov-gsp__details textarea {
+  width: 100%;
+  margin-top: 0.375rem;
+}
+.ov-gsp__detailsfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  color: var(--ov-dim);
+  font-size: 0.6875rem;
+}
+.ov-gsp__folderadd {
+  margin-top: 0.375rem;
+}
+.ov-gsp__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin: 0.25rem 0 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-gsp__notice svg {
+  flex: none;
+  margin-top: 0.125rem;
+  color: var(--ov-accent-text);
+}
+/* A failed Create world: the reason sits just above the Start bar, on the page. */
+.ov-gsp__failure {
+  display: flex;
+  max-width: 44rem;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 auto -0.25rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.875rem;
+  border: 1px solid color-mix(in srgb, var(--destructive) 45%, var(--ov-line));
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--destructive) 10%, var(--background));
+  color: var(--ov-text);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  width: calc(100% - 2rem);
+}
+.ov-gsp__failure p {
+  flex: 1 1 auto;
+  margin: 0.25rem 0 0;
+}
+/* The More options blocks: the stepper's "label above field" pieces become label-left rows. */
+.ov-gsp.space-y-4 > :not(:last-child) {
+  margin-bottom: 0.5rem !important;
+}
+.ov-gsp.space-y-4 > * + * {
+  margin-top: 0 !important;
+}
+.ov-gsp.space-y-4 > div:has(> :is(label, span).mb-1\.5:first-child) {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr);
+  column-gap: 0.75rem;
+  align-items: start;
+}
+.ov-gsp.space-y-4 > div > :is(label, span).mb-1\.5:first-child {
+  grid-column: 1;
+  grid-row: 1 / span 12;
+  margin: 0 !important;
+  padding-top: 0.375rem;
+  color: var(--ov-muted);
+  font-size: 0.8125rem !important;
+  font-weight: 400 !important;
+}
+.ov-gsp.space-y-4 > div > :is(label, span).mb-1\.5:first-child ~ * {
+  grid-column: 2;
+}
+/* Flatten the stepper's inner cards. */
+.ov-gsp :is(div, label, p).rounded-lg:is([class*="border"], [class*="ring-1"]),
+.ov-gsp div.rounded-xl {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+.ov-gsp div.rounded-lg:is([class*="ring-1"]):has(> div > input, > div > svg) {
+  border: 1px solid var(--ov-line) !important;
+  border-radius: 0.4375rem !important;
+}
+.ov-gsp
+  div.rounded-lg:is([class*="ring-1"])
+  > div:is(:has(> input, > svg), :has(> input, > svg) ~ div, :has(~ div > input, ~ div > svg)) {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+.ov-gsp [class*="max-h-"] > * {
+  min-height: 2rem !important;
+}
+.ov-gsp [data-component="GameSetupLoreEntryPicker.Books"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+/* Feature toggles: a plain switch row, no tinted card. */
+.ov-gsp button[aria-pressed]:has([data-settings-switch-track]) {
+  padding: 0.375rem 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+.ov-gsp button[aria-pressed]:has([data-settings-switch-track]) > span > svg,
+.ov-gsp button[aria-pressed]:has([data-settings-switch-track]) > div > svg,
+.ov-gsp button[aria-pressed]:has([data-settings-switch-track]) > svg {
+  display: none;
+}
+.ov-gsp button[aria-pressed]:has([data-settings-switch-track]) :is(span, p).text-xs {
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+.ov-gsp :is(span, p):is(.text-\[0\.575rem\], .text-\[0\.55rem\]) {
+  font-size: 0.6875rem;
+  color: var(--ov-dim);
+}
+/* Two or three choices (story style, violence, GM intro): a compact segmented row, not wide cards. */
+.ov-gsp [role="radiogroup"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem !important;
+}
+.ov-gsp [role="radiogroup"] > button {
+  flex: none !important;
+  padding: 0.3125rem 0.75rem !important;
+  border-radius: 0.4375rem !important;
+  font-size: 0.78rem !important;
+}
+.ov-gsp div.border-b:has(> input) > input {
+  border: 0 !important;
+  background: transparent !important;
+}
+@container ov-setup (max-width: 36rem) {
+  .ov-gsp.space-y-4 > div:has(> :is(label, span).mb-1\.5:first-child) {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0.3125rem;
+  }
+  .ov-gsp.space-y-4 > div > :is(label, span).mb-1\.5:first-child {
+    grid-row: auto;
+    padding-top: 0;
+  }
+  .ov-gsp.space-y-4 > div > :is(label, span).mb-1\.5:first-child ~ * {
+    grid-column: 1;
+  }
+  .ov-gsp__failure {
+    width: calc(100% - 1.5rem);
+  }
+}
+:root[data-overhaul="mobile"] :is(.ov-ideas, .ov-setup--game .ov-setup__field > button[aria-haspopup]) {
+  min-height: 2.75rem;
+}
+:root[data-overhaul="mobile"] .ov-mpick__forget {
+  width: 2.75rem;
+  height: 2.75rem;
 }
