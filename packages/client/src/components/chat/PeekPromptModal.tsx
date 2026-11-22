@@ -614,7 +614,9 @@ function ChatHistoryMessage({ entry, roleColor }: { entry: ChatHistoryEntry; rol
           {entry.role}
         </span>
         {entry.injected ? (
-          <span className="shrink-0 text-[0.625rem] font-semibold text-[var(--muted-foreground)]">{entry.injected}</span>
+          <span className="shrink-0 text-[0.625rem] font-semibold text-[var(--muted-foreground)]">
+            {entry.injected}
+          </span>
         ) : null}
         {!open && (
           <span className="min-w-0 flex-1 truncate text-[0.625rem] text-[var(--muted-foreground)]">{preview}</span>
