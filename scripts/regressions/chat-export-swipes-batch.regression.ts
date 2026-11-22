@@ -11,7 +11,8 @@ process.env.AUTO_CREATE_DEFAULT_CONNECTION = "false";
 
 const { buildApp } = await import("../../packages/server/src/app.js");
 const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
-const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+const { createChatsStorage, withChatMetadataPatchQueue } =
+  await import("../../packages/server/src/services/storage/chats.storage.js");
 const { importSTChat } = await import("../../packages/server/src/services/import/st-chat.importer.js");
 const { messageSwipes, chatImages } = await import("../../packages/server/src/db/schema/index.js");
 const { eq } = await import("../../packages/server/src/db/file-query.js");
@@ -230,6 +231,31 @@ try {
     "no failed branch remains",
   );
   assert.ok(await gallery.getById(failedImage.id, failedSource.id));
+
+  const concurrentSource = (await chats.create({ name: "Concurrent branches", mode: "roleplay", characterIds: [] }))!;
+  let pendingBranches: Promise<Array<{ groupId: string }>>;
+  await withChatMetadataPatchQueue(concurrentSource.id, async () => {
+    pendingBranches = Promise.all(
+      [0, 1].map(async () =>
+        JSON.parse(
+          (await injectOk({ method: "POST", url: `/api/chats/${concurrentSource.id}/branch`, payload: {} })).body,
+        ),
+      ),
+    );
+    await Promise.race([pendingBranches, new Promise<void>((resolve) => setTimeout(resolve, 100))]);
+    assert.equal(
+      (await chats.getById(concurrentSource.id))!.groupId,
+      null,
+      "group creation waits for the source queue",
+    );
+  });
+  const concurrentBranches = await pendingBranches!;
+  const concurrentGroup = (await chats.getById(concurrentSource.id))!.groupId;
+  assert.ok(concurrentGroup);
+  assert.ok(
+    concurrentBranches.every((branch) => branch.groupId === concurrentGroup),
+    "simultaneous branches share the source's current group",
+  );
 
   // ── A long chat takes a few swipe reads, not one per message ──
   // A bound well below the message count keeps an unrelated read from failing the check.
