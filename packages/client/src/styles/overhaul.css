@@ -17233,3 +17233,12 @@ input.ov-edhead__title:not(#ov-x) {
   position: absolute;
   inset: min(0px, calc((100% - 2.75rem) / 2));
 }
+
+/* Assets on phones and tablets upright: the three tabs' headers start at the same height and keep the same gap above
+   the tab strip, so switching tabs never moves the strip (QC panel 3). */
+:root[data-overhaul="mobile"] :is(.ov-gallery__head, .ov-vw__top):has(.ov-assets__tabs):not(#ov-assets) {
+  row-gap: 0.75rem;
+}
+:root[data-overhaul="mobile"] .ov-ga__head:has(.ov-assets__tabs):not(#ov-assets) {
+  padding-top: 1rem;
+}

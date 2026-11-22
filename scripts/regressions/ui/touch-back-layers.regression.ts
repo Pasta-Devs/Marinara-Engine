@@ -75,9 +75,18 @@ const { useFloatingWindowStore, CHAT_SETTINGS_WINDOW_ID } =
 const { initBackNavigation, syncBackNavigation, batchBackLayers, getBackLayerStack, __resetBackNavigationForTests } =
   await import("../../../packages/client/src/lib/back-navigation.js");
 const { getStoreBackLayers, watchLibraryHubReturn } = await import("../../../packages/client/src/lib/back-layers.js");
+const { useChatSettingsSubpage } = await import("../../../packages/client/src/features/chat-settings/subpage.js");
+const { useMobileChatSettingsNav } = await import("../../../packages/client/src/features/chat-settings/mobile-nav.js");
+const { watchChatSettingsClose } = await import("../../../packages/client/src/lib/chat-settings-close.js");
 
 // The touch flag `main.tsx` sets; the document arrives after the imports (sonner styles itself into a real one).
-Object.defineProperty(globalThis, "document", { configurable: true, value: { documentElement: { dataset } } });
+Object.defineProperty(globalThis, "document", {
+  configurable: true,
+  value: { documentElement: { dataset }, querySelector: () => null },
+});
+// The Chat settings sheet's pages scroll to their top a frame after they open.
+globalThis.requestAnimationFrame ??= (callback: FrameRequestCallback) =>
+  setTimeout(() => callback(0), 0) as unknown as number;
 // Stores are imported without a `window` (their debounced storage would register browser listeners); the stub arrives
 // afterwards, which is all the navigation code reads.
 const shellQuery = { matches: false, addEventListener: () => {}, removeEventListener: () => {} };
@@ -180,6 +189,8 @@ useChatStore.setState({ activeChatId: "chat-1" });
 useFloatingWindowStore.setState({ open: { [CHAT_SETTINGS_WINDOW_ID]: true } });
 assert.deepEqual(ids(), ["phone-home", "chat-settings"]);
 assert.ok(history.userBack());
+// The close is the guarded one (it may ask about unsaved edits), so it lands a moment later.
+await settle();
 assert.notEqual(useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID], true, "back closed Chat settings");
 assert.equal(useChatStore.getState().activeChatId, "chat-1");
 reset({ desktop: true, touch: false });
@@ -275,6 +286,106 @@ overhaul().openDocs(null);
 assert.equal(overhaul().libraryHubReturn, false);
 assert.deepEqual(ids(), ["phone-home"]);
 await settle();
+
+// ── 9. Chat settings editor pages (QC panel 3): back leaves the page first and asks about unsaved edits ──
+reset({ desktop: true, touch: true });
+const subpage = () => useChatSettingsSubpage.getState();
+const stopCloseWatch = watchChatSettingsClose();
+unsubscribe.push(
+  useChatSettingsSubpage.subscribe(syncBackNavigation),
+  useMobileChatSettingsNav.subscribe(syncBackNavigation),
+);
+useChatStore.setState({ activeChatId: "chat-1" });
+useFloatingWindowStore.setState({ open: { [CHAT_SETTINGS_WINDOW_ID]: true } });
+subpage().openSubpage("chat-1", "variables");
+assert.deepEqual(ids(), ["phone-home", "chat-settings", "chat-settings-sub"], "an editor page is a level of its own");
+assert.equal(history.index, 3, "…with its own history entry");
+let answer = false;
+let asked = 0;
+subpage().setGuard({ isDirty: () => true, confirmLeave: async () => (asked++, answer) });
+assert.ok(history.userBack());
+await settle();
+assert.equal(asked, 1, "back asks about the unsaved edits");
+assert.equal(subpage().subpage?.id, "variables", "Keep editing keeps the page");
+assert.equal(useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID], true, "…and Chat settings");
+answer = true;
+assert.ok(history.userBack());
+await settle();
+assert.equal(subpage().subpage, null, "Discard leaves the page…");
+assert.equal(useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID], true, "…to the settings, still open");
+assert.ok(history.userBack());
+await settle();
+assert.notEqual(useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID], true, "the next back closes it");
+
+// A forced close (a chat switch, the drawer unmounting) still leaves no stale page for the next open.
+useFloatingWindowStore.setState({ open: { [CHAT_SETTINGS_WINDOW_ID]: true } });
+subpage().openSubpage("chat-1", "memories");
+useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
+assert.equal(subpage().subpage, null, "closing Chat settings by any path leaves its editor page");
+await settle();
+
+// ── 10. Phone sheet: one entry per level (sheet, All settings, a section's page, an editor page) ──
+reset({ desktop: false, touch: true });
+unsubscribe.push(
+  useChatSettingsSubpage.subscribe(syncBackNavigation),
+  useMobileChatSettingsNav.subscribe(syncBackNavigation),
+);
+const nav = () => useMobileChatSettingsNav.getState();
+useChatStore.setState({ activeChatId: "chat-1" });
+useFloatingWindowStore.setState({ open: { [CHAT_SETTINGS_WINDOW_ID]: true } });
+nav().showQuick();
+nav().showAll();
+nav().showPage("chat-variables");
+subpage().openSubpage("chat-1", "variables");
+assert.deepEqual(ids(), [
+  "phone-home",
+  "chat-settings",
+  "chat-settings-all",
+  "chat-settings-page",
+  "chat-settings-sub",
+]);
+assert.equal(history.index, 5);
+const pushesBeforeSheetBack = history.pushes;
+for (const expected of ["page", "all", "quick"] as const) {
+  assert.ok(history.userBack());
+  await settle();
+  assert.equal(nav().view, expected, `back steps up to ${expected}`);
+}
+assert.equal(subpage().subpage, null);
+assert.equal(history.pushes, pushesBeforeSheetBack, "no entry re-pushed between presses (Safari would skip it)");
+assert.ok(history.userBack());
+await settle();
+assert.notEqual(useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID], true, "then back closes the sheet");
+
+// ── 11. A page opened from Chat settings keeps Chat settings' entries under it, so back reopens it pushing nothing ──
+reset({ desktop: false, touch: true });
+unsubscribe.push(
+  useChatSettingsSubpage.subscribe(syncBackNavigation),
+  useMobileChatSettingsNav.subscribe(syncBackNavigation),
+);
+useChatStore.setState({ activeChatId: "chat-1" });
+useFloatingWindowStore.setState({ open: { [CHAT_SETTINGS_WINDOW_ID]: true } });
+nav().showAll();
+nav().showPage("roleplay-agents");
+assert.equal(history.index, 4);
+batchBackLayers(() => {
+  ui().setChatSettingsReturn({
+    chatId: "chat-1",
+    section: null,
+    mobileNav: { view: "page", page: "roleplay-agents", back: "all" },
+  });
+  useFloatingWindowStore.setState({ open: {} });
+  ui().openAgentCatalog();
+});
+assert.deepEqual(ids(), [
+  "phone-home",
+  "chat-settings-return",
+  "chat-settings-return-1",
+  "chat-settings-return-2",
+  "detail",
+]);
+assert.equal(history.index, 5, "opening Agent Organizer adds one entry");
+stopCloseWatch();
 
 for (const stop of unsubscribe) stop();
 console.log("touch back-layer regression checks passed");
