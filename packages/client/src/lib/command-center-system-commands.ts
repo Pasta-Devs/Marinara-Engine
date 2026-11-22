@@ -387,6 +387,9 @@ function withLibraryPageCommands(
     regex: { title: title.regexPage, icon: "command", panel: "regex" },
     agents: { title: title.agentsPage, icon: "agent", panel: "agents" },
     tools: { title: title.toolsPage, icon: "command", panel: "tools" },
+    assets: { title: title.assetsPage, icon: "command", panel: "assets" },
+    rulesets: { title: title.rulesetsPage, icon: "command", panel: "rulesets" },
+    backgrounds: { title: title.backgroundsPage, icon: "command", panel: "backgrounds" },
   } as const;
   const byId = new Map(definitions.map((definition) => [definition.id, definition]));
   const pages: DeclarativeCommandDefinition[] = [];
