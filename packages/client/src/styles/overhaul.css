@@ -16273,3 +16273,15 @@ input.ov-edhead__title:not(#ov-x) {
   flex: 1 1 100%;
   width: auto;
 }
+/* Import agents: two pick buttons, so the drop line takes its own row and the buttons sit under it. */
+[data-component="ImportAgentsWindow"] .ov-imp__drop {
+  flex-wrap: wrap;
+  padding: 0.875rem;
+}
+[data-component="ImportAgentsWindow"] .ov-imp__droptext {
+  flex: 1 1 calc(100% - 2rem);
+}
+[data-component="ImportAgentsWindow"] .ov-imp__drop > .ov-btn {
+  flex: 1 1 0;
+  justify-content: center;
+}
