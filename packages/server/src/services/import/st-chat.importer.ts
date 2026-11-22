@@ -524,7 +524,11 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         const swipeExtra =
           index === activeSwipeIndex
             ? { ...(storedSwipe?.extra ?? {}), ...(storedMessageExtra ?? {}) }
-            : (storedSwipe?.extra ?? {});
+            : {
+                ...(storedSwipe?.extra ?? {}),
+                // Hidden in SillyTavern means the whole message, whichever swipe is showing.
+                ...(hiddenInSillyTavern ? { hiddenFromAI: true } : {}),
+              };
         return {
           index,
           content: swipeContent,
@@ -622,6 +626,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     Object.keys(marinaraMetadata).length > 0 ||
     Object.keys(sillyTavernMetadata).length > 0 ||
     stGroupMode ||
+    opts?.groupChatMode ||
     importedBranchName ||
     opts?.sourceFingerprint
   ) {
@@ -666,6 +671,8 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
         ...sillyTavernMetadata,
         ...(stGroupMode ?? {}),
         ...importedMetadata,
+        // A mode picked at import time wins over what the file carried.
+        ...(opts?.groupChatMode ? { groupChatMode: opts.groupChatMode } : {}),
         ...(importedBranchName ? { branchName: importedBranchName } : {}),
         ...(opts?.sourceFingerprint ? { importFingerprint: opts.sourceFingerprint } : {}),
       },

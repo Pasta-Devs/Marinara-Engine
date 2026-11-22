@@ -216,16 +216,14 @@ function convertStPlacements(placement: unknown): RegexPlacement[] | null {
 }
 
 /**
- * SillyTavern scripts that run only on slash commands (3), World Info (5) or reasoning (6): regex scripts here
- * don't run there, so the importers skip them and report how many.
+ * How many SillyTavern regex scripts the importers leave out and report: ones that run only on slash commands (3),
+ * World Info (5) or reasoning (6), which regex scripts here don't cover, and ones whose pattern is empty, unsafe
+ * or won't compile.
  */
-export function countStRegexScriptsSkippedByPlacement(stScripts: unknown): number {
+export function countStRegexScriptsLeftOut(stScripts: unknown): number {
   if (!Array.isArray(stScripts)) return 0;
-  return stScripts.filter((entry) => {
-    if (!entry || typeof entry !== "object") return false;
-    const placement = (entry as Record<string, unknown>).placement;
-    return Array.isArray(placement) && placement.length > 0 && convertStPlacements(placement) === null;
-  }).length;
+  const scripts = stScripts.filter((entry) => entry && typeof entry === "object");
+  return scripts.length - convertStRegexScripts(scripts, "", "global").length;
 }
 
 function readBooleanFlag(value: unknown): boolean {
@@ -497,7 +495,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     },
     ...(lorebookResult ? { lorebook: lorebookResult } : {}),
     ...(descriptionSplit ? { descriptionSplit } : {}),
-    regexSkipped: countStRegexScriptsSkippedByPlacement(rawCardExtensions(raw).regex_scripts),
+    regexSkipped: countStRegexScriptsLeftOut(rawCardExtensions(raw).regex_scripts),
   };
 }
 
