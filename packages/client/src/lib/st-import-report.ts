@@ -24,7 +24,8 @@ export type STPresetLeftOut =
   | "continueNudge"
   | "newChatPrompts"
   | "namesBehavior"
-  | "formatTemplates";
+  | "formatTemplates"
+  | "postHistoryRole";
 
 /** A lorebook entry moved to the closest place (LorebookImportNote on the server). */
 export type LorebookImportNote = { kind: "positionMoved"; from: "authorsNote" | "exampleMessages"; count: number };
@@ -123,6 +124,7 @@ function describeLeftOut(leftOut: STPresetLeftOut[] | undefined, t: Translate): 
   ];
   if (unsupported.length > 0) lines.push(t("ui.import.streport.unsupported", { names: unsupported.join(", ") }));
   if (set.has("outOfRange")) lines.push(t("ui.import.streport.outOfRange"));
+  if (set.has("postHistoryRole")) lines.push(t("ui.import.streport.postHistoryRole"));
   const noMatch = LEFT_OUT_LABEL_KEYS.filter(([code]) => set.has(code)).map(([, key]) => t(key));
   if (noMatch.length > 0) lines.push(t("ui.import.streport.noMatchingSetting", { names: noMatch.join(", ") }));
   return lines;
