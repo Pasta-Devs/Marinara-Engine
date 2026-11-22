@@ -7,6 +7,8 @@
 //
 // Adding a page to the app? Add it here. Names stay long on purpose: long names are what break layouts.
 
+import { readFileSync } from "node:fs";
+
 export const LONG_NAME =
   "A Ridiculously Long Name That Goes On And On Because Nobody Could Decide What To Call It v12 FINAL final2";
 export const UNBROKEN = "Supercalifragilistic_OneUnbrokenWordWithNoSpacesAtAllThatKeepsGoingAndGoingAndGoing_v3";
@@ -127,8 +129,43 @@ export async function seedFixtures(api) {
       });
     }
   }
+  // A ruleset, so Library › Assets › Rulesets has a row to open. Imports are switched on only for the import.
+  await api.patch("/api/agents/import-policy", { enabled: true });
+  try {
+    const gravewatch = JSON.parse(
+      readFileSync(new URL("../../docs/examples/rulesets/gravewatch.json", import.meta.url), "utf8"),
+    );
+    gravewatch.id = "ui-check-gravewatch";
+    ids.ruleset = (await api.post("/api/game-rulesets/import", { definition: JSON.stringify(gravewatch) })).rulesetId;
+  } finally {
+    await api.patch("/api/agents/import-policy", { enabled: false });
+  }
   return ids;
 }
+
+/** Library › Assets: switches the page to List (or Gallery) view, when it has the switch. */
+async function pickView(page, label) {
+  const button = page.getByRole("button", { name: label, exact: true }).filter({ visible: true });
+  if (!(await button.count())) return false;
+  await button.first().click();
+  await page.waitForTimeout(300);
+  return true;
+}
+
+/**
+ * Opens an item on a Library › Assets page with a real click, in Gallery or List view. A click that crashes the app
+ * shows the "recoverable UI error" screen, which the check reports as a crash (Nov 22: clicking a background did).
+ */
+const openAsset =
+  ({ view, item, opened }) =>
+  async (page) => {
+    if (view && !(await pickView(page, view))) return `no ${view} view on this layout`;
+    const target = page.locator(item).filter({ visible: true }).first();
+    await target.waitFor({ timeout: 10_000 }).catch(() => {});
+    if (!(await target.count())) return "nothing to open";
+    await target.click();
+    await page.locator(`${opened}, [data-app-recovery]`).first().waitFor({ state: "visible", timeout: 10_000 });
+  };
 
 const hook = (fn, arg) => [fn.toString(), arg];
 /** A screen that opens a piece of test data: skipped when the data isn't there (--url without --seed). */
@@ -513,6 +550,57 @@ export function screenList(ids) {
     { id: "library-backgrounds", run: open.library("backgrounds") },
     { id: "library-game-assets", run: open.library("game-assets") },
     { id: "library-rulesets", run: open.library("rulesets") },
+    // Each Assets page with an item opened by a click, in both views (the Backgrounds click crashed the app, Nov 22).
+    {
+      id: "library-background-open",
+      run: open.library("backgrounds"),
+      walkTabs: false,
+      then: openAsset({
+        view: "Gallery",
+        item: "[data-component=OverhaulBackgroundsPage] .ov-bglib__card .ov-card__art",
+        opened: "[data-component=BackgroundDetail]",
+      }),
+    },
+    {
+      id: "library-background-open-list",
+      run: open.library("backgrounds"),
+      walkTabs: false,
+      then: openAsset({
+        view: "List",
+        item: "[data-component=OverhaulBackgroundsPage] tbody tr:not([data-background-folder-id])",
+        opened: "[data-component=BackgroundDetail]",
+      }),
+    },
+    {
+      // The bundled CREDITS.md at the top of Game assets: a text file opens in the right pane.
+      id: "library-game-asset-open",
+      run: open.library("game-assets"),
+      walkTabs: false,
+      then: openAsset({
+        view: "Gallery",
+        item: 'main :text-is("CREDITS.md")',
+        opened: '[data-component="GameAssetFileEditor"]',
+      }),
+    },
+    {
+      id: "library-game-asset-open-list",
+      run: open.library("game-assets"),
+      walkTabs: false,
+      then: openAsset({
+        view: "List",
+        item: 'main :text-is("CREDITS.md")',
+        opened: '[data-component="GameAssetFileEditor"]',
+      }),
+    },
+    {
+      id: "library-ruleset-open",
+      run: open.library("rulesets"),
+      walkTabs: false,
+      then: openAsset({
+        item: '.ov-vw__row[role=option]:has-text("Gravewatch")',
+        opened: '[data-component="RulesetSummary"]',
+      }),
+    },
     {
       // A new text file opens in the page's right pane with the shared editor header (no window).
       id: "game-asset-file-editor",

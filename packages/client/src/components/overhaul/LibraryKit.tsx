@@ -11,6 +11,7 @@
 // Folder data stays where the classic panels keep it, so both layouts agree.
 // ──────────────────────────────────────────────
 import { isKeyboardContextMenu } from "../../hooks/use-menu-keyboard";
+import { useBackSteps } from "../../hooks/use-back-steps";
 import {
   useCallback,
   useEffect,
@@ -999,6 +1000,8 @@ export function KitFolderHead({
 export function useOpenFolder(folders: KitFolders | null | undefined) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = openId ? (folders?.folders.find((folder) => folder.id === openId) ?? null) : null;
+  // Back (mouse, browser, swipe) closes the open folder, like its back line.
+  useBackSteps(open ? 1 : 0, () => setOpenId(null));
   return {
     open,
     openFolder: (folder: KitFolder) => setOpenId(folder.id),

@@ -247,6 +247,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
       <Translation>
         {(t) => (
           <div
+            data-app-recovery=""
             className="mari-chrome-token-scope flex min-h-screen items-center justify-center bg-[var(--background)] px-4 text-[var(--marinara-chat-chrome-panel-text)]"
             style={recoveryChromeStyle}
           >
@@ -257,7 +258,10 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
               <p className="mt-2 text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
                 {t("ui.app.recovery.description")}
               </p>
-              <pre className="mari-chrome-accent-text-muted mari-accent-animated mt-3 max-h-32 overflow-auto rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-2 text-xs">
+              <pre
+                data-app-recovery-message=""
+                className="mari-chrome-accent-text-muted mari-accent-animated mt-3 max-h-32 overflow-auto rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-2 text-xs"
+              >
                 {errorMessage}
               </pre>
               <div className="mt-4 flex flex-wrap gap-2">

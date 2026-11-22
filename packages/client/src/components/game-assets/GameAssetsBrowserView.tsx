@@ -2,6 +2,7 @@
 // View: File Browser (full-page overlay)
 // ──────────────────────────────────────────────
 import { useState, useMemo, useCallback, useRef, useEffect, type ReactNode } from "react";
+import { useBackSteps } from "../../hooks/use-back-steps";
 import { createPortal } from "react-dom";
 import { Check, Folder, Upload, Pencil, Info, FileText, Move, Copy, Minus, RotateCcw, Trash2, X } from "lucide-react";
 import {
@@ -115,6 +116,10 @@ export function GameAssetsBrowserView({
   const updateChatMetadata = useUpdateChatMetadata();
 
   const [selectedPath, setSelectedPath] = useState("");
+  // The Library page: Back (mouse, browser, swipe) goes up one folder at a time, back to Game assets.
+  useBackSteps(page && selectedPath ? selectedPath.split("/").length : 0, () =>
+    setSelectedPath((path) => path.split("/").slice(0, -1).join("/")),
+  );
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [expanded, setExpanded] = useState<Set<string>>(new Set(Object.keys(DEFAULT_DESCRIPTIONS)));

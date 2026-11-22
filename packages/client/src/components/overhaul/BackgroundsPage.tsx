@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { useBackSteps } from "../../hooks/use-back-steps";
 import { BACKGROUND_THUMBNAIL_WIDTH, CHAT_IMAGE_PREVIEW_WIDTH } from "@marinara-engine/shared";
 import { DEFAULT_ROLEPLAY_BACKGROUND_URL, useUIStore } from "../../stores/ui.store";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
@@ -72,6 +73,9 @@ export function BackgroundsPage() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [listView, setListView] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Declared before the hook: its options read the previous render's library through findById (a ref used before its
+  // line throws "Cannot access before initialization" as soon as a picture is open).
+  const libraryRef = useRef<BackgroundLibrary | null>(null);
   const library = useBackgroundLibrary({
     // The page has no chat: "selected" is the picture open in the strip. An upload opens the new picture.
     selected: picked?.kind === "library" ? (findById(picked.id)?.url ?? null) : null,
@@ -83,7 +87,6 @@ export function BackgroundsPage() {
     onDefaultChange: setDefaultRoleplayBackground,
     active: true,
   });
-  const libraryRef = useRef<BackgroundLibrary | null>(null);
   libraryRef.current = library;
   function findById(id: string) {
     return libraryRef.current?.backgrounds.find((background) => background.id === id) ?? null;
@@ -120,6 +123,8 @@ export function BackgroundsPage() {
   const menu = useKitMenu();
   const source = sourceFilter as Source;
   const openFolder = folders.find((folder) => folder.id === folderFilter) ?? null;
+  // Back (mouse, browser, swipe) leaves an open folder for the page's folder list.
+  useBackSteps(openFolder ? 1 : 0, () => setFolderFilter("all"));
   const searching = !!searchQuery.trim() || pickedTags.length > 0 || favoritesOnly;
   const tagCounts = useMemo(() => countItemTags(backgrounds), [backgrounds]);
   const shown = visibleBackgrounds.filter(

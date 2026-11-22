@@ -145,6 +145,7 @@ function apiClient(base) {
     get: (path) => call("GET", path),
     post: (path, body = {}) => call("POST", path, body),
     put: (path, body = {}) => call("PUT", path, body),
+    patch: (path, body = {}) => call("PATCH", path, body),
   };
 }
 
@@ -272,6 +273,20 @@ async function check(page, label) {
   await page.waitForTimeout(350);
   // Toasts ("Achievement unlocked", "Saved") come and go over whatever is under them; they are not the layout.
   await page.addStyleTag({ content: "[data-sonner-toaster]{display:none!important}" }).catch(() => undefined);
+  // The app's "recoverable UI error" screen: a render crash (a click that throws) is the worst layout of all.
+  const crash = await page.evaluate(() => {
+    const message = document.querySelector("[data-app-recovery-message]");
+    if (!document.querySelector("[data-app-recovery]")) return null;
+    const r = message?.getBoundingClientRect();
+    return {
+      check: "crash",
+      where: "app recovery screen",
+      text: (message?.textContent ?? "").trim().slice(0, 200),
+      detail: 'The app shell crashed while rendering (the "recoverable UI error" screen).',
+      rect: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : { x: 0, y: 0, w: 0, h: 0 },
+    };
+  });
+  if (crash) return [{ ...crash, at: label }];
   const findings = await page.evaluate(detectLayoutProblems, { allow: allow.checks ?? {} });
   return findings.map((f) => ({ ...f, at: label }));
 }
