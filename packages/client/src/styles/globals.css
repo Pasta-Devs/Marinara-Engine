@@ -5782,6 +5782,14 @@ strong {
   .mari-right-panel {
     background-color: var(--sidebar) !important;
   }
+
+  /* Ctrl+K sits over the page on a see-through --card. Firefox with software rendering (VMs, remote
+     desktop, many Linux GPUs) draws no backdrop blur, so the page showed through its rows (QC panel 3,
+     FF1). Lay the card over the opaque page colour instead. Professor Mari's panels already paint
+     their wash over --background (.mari-workspace-shell), so they keep their own look. */
+  [data-component="GlobalOmnibar.Panel"]:not(.mari-workspace-shell) {
+    background: linear-gradient(var(--card), var(--card)), var(--background) !important;
+  }
 }
 
 /* ─────────────────────────────────────────────
@@ -9788,4 +9796,17 @@ html[data-mari-ios-webkit][data-mari-software-keyboard-open] .mari-window.ov-cs-
       height: 2.75rem;
     }
   }
+}
+
+/* Links in chat messages, Mari replies and Markdown previews follow the theme instead of a fixed blue.
+   The accent is mixed toward the surrounding text colour so it stays readable on dark-red or mid-tone message
+   backgrounds (Sanguine Keep, Under Sail). A theme can set --mari-link to pick its own link colour. */
+.mari-md-link {
+  color: var(--mari-link, color-mix(in oklab, var(--primary) 50%, currentColor));
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 0.15em;
+}
+.mari-md-link:hover {
+  text-decoration-color: currentColor;
 }

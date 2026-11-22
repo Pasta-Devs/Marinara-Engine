@@ -17,6 +17,8 @@ export const ORGANIZER_SECTIONS: readonly OrganizerSectionId[] = [...CAPABILITY_
 export type OrganizerPage =
   | { kind: "home" }
   | { kind: "updates" }
+  /** New layout: Custom sources (GitHub agent repositories) as a page of its own. */
+  | { kind: "sources" }
   | { kind: "installed" }
   | { kind: "notInstalled" }
   | { kind: "section"; id: OrganizerSectionId }

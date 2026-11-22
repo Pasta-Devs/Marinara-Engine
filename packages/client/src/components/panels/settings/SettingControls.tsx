@@ -26,6 +26,8 @@ import { useOverhaulLook } from "../../../stores/overhaul.store";
 import { Spinner } from "../../ui/Spinner";
 import { Checkbox } from "../../ui/Checkbox";
 import { Switch } from "../../ui/Switch";
+import { Select } from "../../ui/Select";
+import { OvSeg } from "../../overhaul/LoreEntryParts";
 
 /** Secondary: buttons in a row, a header, next to a field or on a list item; also toggle and segmented items (aria-pressed). */
 export const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
@@ -565,6 +567,96 @@ export function ToggleSetting({
       switchClassName={switchClassName}
       endAction={endAction}
     />
+  );
+}
+
+export type SettingsChoiceOption<T extends string> = {
+  value: T;
+  label: string;
+  /** Second line in the dropdown, and the hint under the row while this option is picked. */
+  description?: string;
+  /** Hover text on a segment (°C -> "Celsius"). */
+  title?: string;
+};
+
+/**
+ * One-of-N setting as a plain row (new layout): label and ? on the left, the control on the right, and the picked
+ * option's description as a hint line under it. `seg` (2-3 short options) is a segmented control, `select` (4 or
+ * more, or options that need a description) the shared dropdown. Text-only button grids become this row; picture
+ * cards (avatar style, Chat widget style) stay cards.
+ */
+export function SettingsChoiceRow<T extends string>({
+  label,
+  help,
+  anchorId,
+  value,
+  options,
+  onChange,
+  kind = "seg",
+  hint,
+  disabled = false,
+  className,
+}: {
+  label: string;
+  help?: string;
+  anchorId?: string;
+  value: T;
+  options: readonly SettingsChoiceOption<T>[];
+  onChange: (next: T) => void;
+  kind?: "seg" | "select";
+  /** Line under the row; defaults to the picked option's description. Null hides it. */
+  hint?: ReactNode | null;
+  disabled?: boolean;
+  className?: string;
+}) {
+  const localize = useLocalizedUiText();
+  const labelId = useId();
+  const hintId = useId();
+  const picked = options.find((option) => option.value === value);
+  const hintText = hint === undefined ? picked?.description : hint;
+  return (
+    <div
+      id={anchorId}
+      data-settings-choice-row=""
+      className={cn("flex scroll-mt-3 flex-col gap-1 p-1.5", disabled && "opacity-60", className)}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <span id={labelId} className="inline-flex min-w-0 items-center gap-1.5 text-xs">
+          {localize(label)}
+          {help && <HelpTooltip text={localize(help)} />}
+        </span>
+        {kind === "seg" ? (
+          <OvSeg
+            value={value}
+            options={options.map((option) => ({ value: option.value, label: option.label, title: option.title }))}
+            onChange={onChange}
+            labelledBy={labelId}
+            disabled={disabled}
+          />
+        ) : (
+          <span className="w-full min-w-0 max-w-[14rem] sm:w-[14rem]">
+            <Select
+              value={value}
+              options={options.map((option) => ({
+                value: option.value,
+                label: localize(option.label),
+                description: option.description ? localize(option.description) : undefined,
+              }))}
+              onChange={onChange}
+              label={localize(label)}
+              disabled={disabled}
+              aria-describedby={hintText ? hintId : undefined}
+              className="ov-choice-select w-full rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs ring-1 ring-[var(--border)]"
+            />
+          </span>
+        )}
+      </div>
+      {hintText ? (
+        <span id={hintId} className="text-[0.625rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
+          {typeof hintText === "string" ? localize(hintText) : hintText}
+        </span>
+      ) : null}
+    </div>
   );
 }
 

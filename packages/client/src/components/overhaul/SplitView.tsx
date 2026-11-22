@@ -12,7 +12,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { createPortal } from "react-dom";
 import { ArrowLeftRight, Columns2, Home, Maximize2, Settings2, X } from "lucide-react";
 import { SPLIT_PANE, type SplitPage } from "../../lib/split-view-env";
-import { SERVER_SAVED_EVENT } from "../../lib/api-client";
+import { SERVER_SAVED_EVENT, type ServerSavedDetail } from "../../lib/api-client";
+import { EVERYTHING, familyOfPath, noteUnknownFamily, queryRootsFor, type SyncFamily } from "./split-sync";
 import { queryClient } from "../../lib/query-client";
 import { claimSoundOnPress, setSplitSideQuiet } from "../../lib/split-sound-gate";
 import { useUIStore } from "../../stores/ui.store";
@@ -58,30 +59,53 @@ const origin = () => window.location.origin;
 
 // ── Saves in one window refresh the other ──
 // Both windows read the same server; a save in one (a renamed chat, an edited card) refreshes what the
-// other shows. Other browser tabs of the app get the same nudge.
+// other shows, and only that: the broadcast names the families written (split-sync.ts). Other browser tabs
+// of the app get the same nudge.
 function startQuerySync() {
   if (typeof BroadcastChannel === "undefined") return () => {};
   const channel = new BroadcastChannel("marinara-split-sync");
   const self = Math.random().toString(36).slice(2);
   let timer: ReturnType<typeof setTimeout> | null = null;
-  const nudge = () => {
+  const families = new Set<SyncFamily>();
+  let lastSavedAt = -Infinity;
+  const nudge = (family: SyncFamily) => {
+    families.add(family);
     if (timer) return;
     timer = setTimeout(() => {
       timer = null;
-      channel.postMessage({ from: self });
+      channel.postMessage({ from: self, families: [...families] });
+      families.clear();
     }, 250);
   };
+  const onSaved = (event: Event) => {
+    lastSavedAt = performance.now();
+    const path = (event as CustomEvent<ServerSavedDetail | undefined>).detail?.path ?? "";
+    const family = familyOfPath(path);
+    if (family === EVERYTHING) noteUnknownFamily(path);
+    nudge(family);
+  };
+  // A mutation that saved through the API already announced what it wrote (onSaved). One that didn't (an
+  // upload, a stream) can't say what it touched: the other side refreshes everything, as before.
   const unsubscribe = queryClient.getMutationCache().subscribe((event) => {
-    if (event.type === "updated" && event.action.type === "success") nudge();
+    if (event.type === "updated" && event.action.type === "success" && performance.now() - lastSavedAt > 1500)
+      nudge(EVERYTHING);
   });
-  // Saves made without a mutation (a setting stored straight on the server) count too.
-  window.addEventListener(SERVER_SAVED_EVENT, nudge);
-  channel.onmessage = (event: MessageEvent<{ from?: string }>) => {
-    if (event.data?.from && event.data.from !== self) void queryClient.invalidateQueries();
+  window.addEventListener(SERVER_SAVED_EVENT, onSaved);
+  channel.onmessage = (event: MessageEvent<{ from?: string; families?: SyncFamily[] }>) => {
+    if (!event.data?.from || event.data.from === self) return;
+    const roots = Array.isArray(event.data.families) ? queryRootsFor(event.data.families) : null;
+    if (!roots) {
+      void queryClient.invalidateQueries();
+      return;
+    }
+    if (roots.size)
+      void queryClient.invalidateQueries({
+        predicate: (query) => typeof query.queryKey[0] === "string" && roots.has(query.queryKey[0]),
+      });
   };
   return () => {
     unsubscribe();
-    window.removeEventListener(SERVER_SAVED_EVENT, nudge);
+    window.removeEventListener(SERVER_SAVED_EVENT, onSaved);
     channel.close();
     if (timer) clearTimeout(timer);
   };

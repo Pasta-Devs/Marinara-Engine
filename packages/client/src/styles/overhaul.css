@@ -1904,6 +1904,10 @@
   padding: 0.75rem 0;
 }
 .ov-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
   height: 1.75rem;
   padding: 0 0.75rem;
   border: 1px solid var(--ov-line);
@@ -2052,6 +2056,27 @@
   padding: 0.25rem 0.125rem;
   border: 0;
   background: transparent;
+}
+
+/* Boxed sub-groups (avatar and sprite scale, VN art scale) sit flat in the section: their sliders are rows like
+   the rest. The preview tile beside the avatar sliders stays (it shows the size). */
+[data-ov-settings-sections] section[id^="settings-section-"] .ov-flat-box:not(#ov-x) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+[data-ov-settings-sections] section[id^="settings-section-"] .ov-flat-box--rows:not(#ov-x) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  padding-right: 0.125rem;
+  padding-left: 0.125rem;
+}
+[data-ov-settings-sections] .ov-flat-box--rows > * + * {
+  padding-top: 0.4375rem;
+  border-top: 1px solid color-mix(in srgb, var(--ov-line) 55%, transparent);
+}
+[data-ov-settings-sections] .ov-flat-box--rows > :not(:last-child) {
+  padding-bottom: 0.25rem;
 }
 
 /* ─── Game Mode sheet (persona / character) ─── */
@@ -2420,6 +2445,7 @@
 }
 .ov-bk__field input:not([type="checkbox"]),
 .ov-bk__field select,
+.ov-bk__field .ov-bk__select,
 .ov-bk__field textarea {
   width: 100%;
   min-height: 2.125rem;
@@ -2674,6 +2700,35 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.375rem;
+}
+.ov-preset__pages {
+  display: grid;
+  gap: 0.125rem;
+}
+.ov-preset__page {
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+  padding: 0.3125rem 0.625rem;
+  border-radius: 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.875rem;
+  text-align: left;
+}
+@media (hover: hover) {
+  .ov-preset__page:hover {
+    background: var(--ov-hover);
+    color: var(--ov-text);
+  }
+}
+.ov-preset__page.is-on {
+  background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
+  color: var(--ov-text);
+  font-weight: 600;
+}
+.ov-preset__page:focus-visible {
+  outline: 2px solid var(--ov-accent);
+  outline-offset: -2px;
 }
 /* Section list rows: flat, no bubbles. */
 .ov-preset__left [data-preset-section-root] > * {
@@ -3686,6 +3741,7 @@
 }
 .ov-lentry input:not([type="number"]),
 .ov-lentry select,
+.ov-lentry .ov-lsel,
 .ov-lentry__cond input {
   width: 100%;
   min-width: 0;
@@ -3862,6 +3918,24 @@
   padding: 0.1875rem 0.375rem 0.1875rem 0.5rem;
   border: 1px solid var(--ov-line);
   font-size: 0.8125rem;
+}
+/* The shared dropdown as an "add one" picker (matching sources, chip pickers): a quiet accent text button. */
+.ov-lentry .ov-lsel.ov-addselect,
+.ov-chipbox .ov-lsel.ov-chipbox__add {
+  width: auto;
+  height: 1.625rem;
+  padding: 0 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--ov-accent-text);
+  font-size: 0.8125rem;
+}
+.ov-lentry .ov-lsel.ov-addselect > span:first-child,
+.ov-chipbox .ov-lsel.ov-chipbox__add > span:first-child {
+  color: inherit;
+}
+.ov-chipbox .ov-lsel.ov-chipbox__add {
+  flex: none;
 }
 .ov-lentry select.ov-addselect {
   appearance: none;
@@ -8435,6 +8509,42 @@ input.ov-edhead__title:focus {
   align-items: start;
   gap: 1.25rem;
   margin-bottom: 1rem;
+}
+/* Settings › Roleplay › Tracker Panel: the rows after "Show Tracker Panel" sit in a fieldset that greys out
+   (and disables) while the panel is off. It is a second row list in the section, so it keeps the row line between. */
+.ov-trk-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--ov-line) 55%, transparent);
+}
+.ov-trk-fieldset[data-off] > * {
+  opacity: 0.45;
+}
+[data-ov-settings-sections] .ov-trk-fieldset:not(#ov-x) > :first-child {
+  padding-top: 0.4375rem;
+}
+/* Card order and Card colors drop their inset box: a row with its own label, like the rows around it. */
+[data-ov-settings-sections] .ov-trk-fieldset:not(#ov-x) > :is([data-tracker-card-order], [data-tracker-card-colors]) {
+  margin: 0;
+  background: none;
+  box-shadow: none;
+}
+[data-ov-settings-sections] .flex-col:has(+ .ov-trk-fieldset):not(#ov-x) > :last-child {
+  padding-bottom: 0.4375rem;
+}
+[data-ov-settings-sections] .ov-trk-fieldset [data-tracker-card-order] > :first-child button > .truncate,
+[data-ov-settings-sections] .ov-trk-fieldset [data-tracker-card-colors] > :first-child > span:first-child {
+  font-size: 0.8125rem;
+}
+[data-ov-settings-sections] .ov-trk-fieldset [data-tracker-card-colors] > :first-child svg {
+  display: none;
+}
+[data-ov-settings-sections] .ov-trk-fieldset [data-tracker-card-colors] > p {
+  padding: 0;
+  background: none;
+  font-size: 0.75rem;
 }
 .ov-trk-preview {
   position: sticky;
@@ -16147,7 +16257,11 @@ input.ov-edhead__title:not(#ov-x) {
   padding: 0 2rem 0.625rem;
   border-bottom: 1px solid var(--ov-line);
 }
-.ov-ga.has-file > :is(.ov-ga__head, .ov-ga__tools, .ov-ga__crumbs) {
+/* An open file keeps the Assets title and tabs; search, upload and the folder crumbs don't apply to it.
+   Phones show only the editor's own header. */
+.ov-ga.has-file > :is(.ov-ga__tools, .ov-ga__crumbs),
+.ov-ga.has-file > .ov-ga__head > .ov-btn,
+:root[data-overhaul="mobile"] .ov-ga.has-file > .ov-ga__head {
   display: none;
 }
 .ov-ga__editor {
@@ -16234,6 +16348,11 @@ input.ov-edhead__title:not(#ov-x) {
 .ov-linkbtn {
   color: var(--ov-accent-text);
   font-weight: 600;
+}
+.ov-linkbtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  text-decoration: none;
 }
 @media (hover: hover) {
   .ov-linkbtn:hover {
@@ -17121,13 +17240,6 @@ input.ov-edhead__title:not(#ov-x) {
   text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
   text-underline-offset: 0.2em;
 }
-.ov-btn.is-quiet.ov-help-hide--floating {
-  background: color-mix(in srgb, var(--card) 94%, transparent);
-  border-color: var(--ov-line, var(--border));
-  color: var(--ov-text);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
 
 /* ── windows-to-pages E3: Omnibar settings inside Settings on phones ──
    The phone Settings page already boxes each section, so the omnibar's own group cards would nest a box in a box. */
@@ -17252,4 +17364,21 @@ input.ov-edhead__title:not(#ov-x) {
 }
 :root[data-overhaul="mobile"] .ov-ga__head:has(.ov-assets__tabs):not(#ov-assets) {
   padding-top: 1rem;
+}
+
+/* ── QC panel 3 O11: Library › Agents › Custom sources as a page (was a window) ── */
+.ov-org-sources__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.75rem 2rem;
+}
+.ov-org-sources__body > * {
+  max-width: 48rem;
+}
+.ov-org-sources__body h3 {
+  font-size: 0.875rem;
+}
+:root[data-overhaul="mobile"] .ov-org-sources__body {
+  padding: 0.75rem 1rem 1.5rem;
 }

@@ -1,5 +1,6 @@
 import {
   createContext,
+  startTransition,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -22,6 +23,37 @@ export const ChatSettingsDeferBodiesContext = createContext(false);
 
 /** How far past the visible list a section body starts loading, so it is usually ready before it scrolls in. */
 const DEFER_MARGIN_PX = 900;
+
+// Bodies near the view (inside the margin, not on screen) mount after the first paint, one per slice, as
+// low-priority renders: mounting all of them in the frames right after opening made the open itself one
+// 1.4-2.5 s frame on an iPad sideways (QC panel 3, speed H3). A body that scrolls into view skips the line.
+const nearQueue: Array<() => void> = [];
+let nearScheduled = false;
+type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+function scheduleNearSlice() {
+  if (nearScheduled || !nearQueue.length) return;
+  nearScheduled = true;
+  const run = () => {
+    nearScheduled = false;
+    const next = nearQueue.shift();
+    if (next) startTransition(next);
+    scheduleNearSlice();
+  };
+  // After a frame, so a slice never lands inside the frame that shows the panel.
+  requestAnimationFrame(() => {
+    const idle = (window as IdleWindow).requestIdleCallback;
+    if (typeof idle === "function") idle(run, { timeout: 500 });
+    else window.setTimeout(run, 30);
+  });
+}
+function queueNearBody(mount: () => void) {
+  nearQueue.push(mount);
+  scheduleNearSlice();
+  return () => {
+    const index = nearQueue.indexOf(mount);
+    if (index >= 0) nearQueue.splice(index, 1);
+  };
+}
 
 /** Whether the placeholder shows in the list's visible part (or the window, outside a list). */
 function inView(placeholder: HTMLElement, root: HTMLElement | null) {
@@ -52,14 +84,31 @@ function DeferredSectionBody({ defer, children }: { defer: boolean; children: Re
       setReached(true);
       return;
     }
-    const observer = new IntersectionObserver(
+    let dequeue: (() => void) | null = null;
+    const mount = () => {
+      dequeue?.();
+      setReached(true);
+    };
+    // Near the view: wait for its slice. In view (scrolled to): show it now.
+    const near = new IntersectionObserver(
       ([entry]) => {
-        if (entry?.isIntersecting) setReached(true);
+        if (entry?.isIntersecting) dequeue ??= queueNearBody(() => setReached(true));
       },
       { root, rootMargin: `${DEFER_MARGIN_PX}px 0px` },
     );
-    observer.observe(placeholder);
-    return () => observer.disconnect();
+    const visible = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) mount();
+      },
+      { root },
+    );
+    near.observe(placeholder);
+    visible.observe(placeholder);
+    return () => {
+      near.disconnect();
+      visible.disconnect();
+      dequeue?.();
+    };
   }, [show]);
   if (show) return <>{children}</>;
   // A still block, never a shimmer (an endless animation off screen repaints the panel every frame).

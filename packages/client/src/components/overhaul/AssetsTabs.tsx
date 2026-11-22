@@ -21,7 +21,14 @@ export const AssetsTabContext = createContext<AssetTab | null>(null);
  */
 let focusTabAfterSwitch: { tab: AssetTab; until: number } | null = null;
 
-export function AssetsTitle({ children }: { children: ReactNode }) {
+export function AssetsTitle({
+  children,
+  guardLeave,
+}: {
+  children: ReactNode;
+  /** Runs a tab switch, first asking about unsaved edits on the page (a Game assets file). */
+  guardLeave?: (go: () => void) => void;
+}) {
   const tab = useContext(AssetsTabContext);
   const { t } = useTranslation();
   const mobile = useOverhaulMobile();
@@ -63,9 +70,14 @@ export function AssetsTitle({ children }: { children: ReactNode }) {
           className={cn(each === tab && "is-on")}
           onClick={(event) => {
             if (each === tab) return;
-            // Enter or Space (detail 0): focus follows to the new page's tab.
-            if (event.detail === 0) focusTabAfterSwitch = { tab: each, until: performance.now() + 4000 };
-            openLibrarySection(each);
+            const keyboard = event.detail === 0;
+            const go = () => {
+              // Enter or Space (detail 0): focus follows to the new page's tab.
+              if (keyboard) focusTabAfterSwitch = { tab: each, until: performance.now() + 4000 };
+              openLibrarySection(each);
+            };
+            if (guardLeave) guardLeave(go);
+            else go();
           }}
         >
           {t(`library.sections.${each === "game-assets" ? "gameAssets" : each}`)}

@@ -37,6 +37,7 @@ export function GameAssetsPageHead({
   onRescan,
   rescanning,
   onOpenFolder,
+  guardLeave,
 }: {
   /** "Game assets", then the open folder's path parts. */
   crumbs: string[];
@@ -50,6 +51,8 @@ export function GameAssetsPageHead({
   onRescan: () => void;
   rescanning: boolean;
   onOpenFolder: () => void;
+  /** Runs a navigation away from the page, first asking about an open file's unsaved edits. */
+  guardLeave?: (go: () => void) => void;
 }) {
   const { t } = useUiTranslation();
   const localize = useLocalizedUiText();
@@ -59,6 +62,7 @@ export function GameAssetsPageHead({
   const canOpenFolder = isHostDeviceBrowser();
   const trail: RailCrumb[] = [
     { label: localize("Library"), onClick: openLibraryPane },
+    { label: t("library.sections.assets"), onClick: () => openLibrarySection("assets") },
     ...crumbs.map((label, index) => ({
       label: index === 0 ? t("library.sections.gameAssets") : label,
       onClick: index < crumbs.length - 1 ? () => onCrumb(index) : undefined,
@@ -67,7 +71,7 @@ export function GameAssetsPageHead({
   return (
     <>
       <header className="ov-gallery__head ov-ga__head">
-        <AssetsTitle>
+        <AssetsTitle guardLeave={guardLeave}>
           <h1 data-mari-part="page-title">{t("library.sections.gameAssets")}</h1>
         </AssetsTitle>
         <button
@@ -212,6 +216,14 @@ export function GameAssetFileEditorPane({
   const folderParts = crumbs.slice(1);
   const trail: RailCrumb[] = [
     { label: localize("Library"), onClick: openLibraryPane },
+    {
+      label: t("library.sections.assets"),
+      onClick: () =>
+        void confirmLeave(() => {
+          onClose();
+          openLibrarySection("assets");
+        }),
+    },
     {
       label: t("library.sections.gameAssets"),
       onClick: () => void confirmLeave(() => openLibrarySection("game-assets")),
