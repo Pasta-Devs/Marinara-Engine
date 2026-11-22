@@ -27,6 +27,7 @@ import { translate } from "../../localization/i18n";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { EditorCrumbs } from "./EditorRail";
 import { openLibraryPane } from "./library-navigation";
+import { OvEditorHead } from "./EditorChrome";
 import { PHASE_LABEL, Thumb, ViewSwitch, swatch, useOvAgentRows, type OvAgentRow } from "./LibraryTables";
 import { useUIStore } from "../../stores/ui.store";
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
@@ -390,6 +391,8 @@ export interface OvAgentOrganizerProps {
   agentPage: ReactNode;
   /** The release-notes list for the Updates tab. */
   updatesPage: ReactNode;
+  /** Custom sources (GitHub agent repositories), when the server offers them. */
+  sourcesPage?: ReactNode;
   bulkNote: ReactNode;
   bulkBusy: boolean;
   onBack: () => void;
@@ -487,6 +490,25 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
     { label: localize("Agents"), onClick: () => go({ kind: "home" }) },
     { label: agentEntry?.manifest.name ?? "" },
   ];
+
+  if (page.kind === "sources" && props.sourcesPage) {
+    // A page of the Agents viewer, like an agent's own page: crumbs back to Agents, no window.
+    return (
+      <div className="ov-edpage ov-org-sources" data-component="CustomAgentSourcesPage">
+        <OvEditorHead
+          sectionLabel={localize("Agents")}
+          crumbs={[
+            { label: localize("Library"), onClick: openLibraryPane },
+            { label: localize("Agents"), onClick: () => go({ kind: "home" }) },
+            { label: localizeUi("ui.agents.agentcatalogview.customSources") },
+          ]}
+          onBack={() => go({ kind: "home" })}
+          title={localizeUi("ui.agents.agentcatalogview.customSources")}
+        />
+        <div className="ov-org-sources__body">{props.sourcesPage}</div>
+      </div>
+    );
+  }
 
   if (page.kind === "agent") {
     // The agent's page with its neighbours (same tab and filters) down the left.
