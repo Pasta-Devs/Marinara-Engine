@@ -314,13 +314,17 @@ function ContextDepthRow() {
   const helpId = useId();
   const [depth, setDepth] = useState(DEFAULT_MARI_CONTEXT_DEPTH);
   const writeSeqRef = useRef(0);
+  // What the server holds: a failed write goes back to it, not to a choice that was never saved.
+  const savedDepthRef = useRef(DEFAULT_MARI_CONTEXT_DEPTH);
   useEffect(() => {
     let cancelled = false;
     const seqAtStart = writeSeqRef.current;
     api
       .get<{ depth: number }>("/professor-mari/workspace/context-depth")
       .then((response) => {
-        if (!cancelled && writeSeqRef.current === seqAtStart) setDepth(response.depth);
+        if (cancelled) return;
+        savedDepthRef.current = response.depth;
+        if (writeSeqRef.current === seqAtStart) setDepth(response.depth);
       })
       .catch(() => {
         // The select keeps the default; a failed read is not worth a toast in a settings view.
@@ -330,14 +334,14 @@ function ContextDepthRow() {
     };
   }, []);
   const change = async (next: number) => {
-    const previous = depth;
     const writeSeq = ++writeSeqRef.current;
     setDepth(next);
     try {
       await enqueueMariPermissionsModeWrite(() => api.put("/professor-mari/workspace/context-depth", { depth: next }));
+      savedDepthRef.current = next;
     } catch {
       if (writeSeqRef.current !== writeSeq) return;
-      setDepth(previous);
+      setDepth(savedDepthRef.current);
       toast.error(t("omnibar.settings.mariContextDepth.couldNotChange"));
     }
   };

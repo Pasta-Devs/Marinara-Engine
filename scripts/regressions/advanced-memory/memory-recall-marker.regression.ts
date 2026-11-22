@@ -103,6 +103,99 @@ const cases: RegressionCase[] = [
       assert.match(order(stripped).join("\n"), /STABLE_RULE[\s\S]*LIVE_WORDS/u);
     },
   },
+  {
+    name: "a Memory Recall marker between sections of one group stays inside that group's container",
+    async run() {
+      const group = (id: string, name: string) => ({
+        id,
+        presetId: "memory-recall-marker",
+        name,
+        parentGroupId: null,
+        order: 0,
+        enabled: "true",
+        createdAt: "2026-01-01T00:00:00.000Z",
+      });
+      const groupedSections = (withRules: boolean) => [
+        ...(withRules
+          ? [promptSection({ id: "rule-a", identifier: "rule-a", name: "A", content: "RULE_A", groupId: "rules" })]
+          : []),
+        promptSection({
+          id: "recall",
+          identifier: "recall",
+          name: "Memory Recall",
+          isMarker: "true",
+          markerConfig: JSON.stringify({ type: "memory_recall" }),
+          groupId: "rules",
+        }),
+        ...(withRules
+          ? [promptSection({ id: "rule-b", identifier: "rule-b", name: "B", content: "RULE_B", groupId: "rules" })]
+          : []),
+        promptSection({
+          id: "history",
+          identifier: "history",
+          name: "Chat History",
+          isMarker: "true",
+          markerConfig: JSON.stringify({ type: "chat_history" }),
+        }),
+      ];
+      const assemble = (withRules: boolean) => {
+        const sections = groupedSections(withRules);
+        return assemblePrompt({
+          db: undefined as unknown as DB,
+          preset: {
+            id: "memory-recall-marker",
+            name: "Memory Recall marker",
+            sectionOrder: JSON.stringify(sections.map((section) => section.id)),
+            groupOrder: JSON.stringify(["rules"]),
+            wrapFormat: "xml",
+            parameters: JSON.stringify({}),
+            variableGroups: "[]",
+            variableValues: "{}",
+          },
+          sections,
+          groups: [group("rules", "House Rules")],
+          choiceBlocks: [],
+          chatChoices: {},
+          chatId: "memory-recall-marker",
+          characterIds: [],
+          personaName: "Mari",
+          personaDescription: "",
+          chatMessages: [{ role: "user", content: "LIVE_WORDS" }],
+          previewOnly: true,
+          deferMemoryRecall: true,
+        });
+      };
+
+      const grouped = await assemble(true);
+      const containers = grouped.messages.filter((message) => message.content.includes("<house_rules>"));
+      assert.equal(containers.length, 1, "one container for the whole group");
+      const filled = grouped.messages.map((message) => ({ ...message }));
+      fillMemoryRecallSlot(filled, "RECALLED");
+      const container = filled.find((message) => message.content.includes("<house_rules>"))!.content;
+      assert.match(container, /RULE_A[\s\S]*RECALLED[\s\S]*RULE_B[\s\S]*<\/house_rules>/u, "memories sit inside");
+      const empty = stripMemoryRecallSlot(grouped.messages);
+      const emptyContainer = empty.find((message) => message.content.includes("<house_rules>"))!.content;
+      assert.match(emptyContainer, /RULE_A[\s\S]*RULE_B/u, "with nothing recalled the group keeps its other sections");
+      assert.doesNotMatch(JSON.stringify(empty), /MARINARA_MEMORY_RECALL/u);
+
+      const alone = await assemble(false);
+      const aloneFilled = alone.messages.map((message) => ({ ...message }));
+      fillMemoryRecallSlot(aloneFilled, "RECALLED");
+      assert.match(order(aloneFilled).join("\n"), /<house_rules>\s*RECALLED\s*<\/house_rules>/u);
+      assert.doesNotMatch(JSON.stringify(aloneFilled), /MARINARA_MEMORY_RECALL/u);
+      const aloneEmpty = stripMemoryRecallSlot(alone.messages);
+      assert.doesNotMatch(
+        JSON.stringify(aloneEmpty),
+        /house_rules|MARINARA_MEMORY_RECALL/u,
+        "an empty group goes whole",
+      );
+      assert.match(order(aloneEmpty).join("\n"), /LIVE_WORDS/u);
+      assert.ok(
+        aloneEmpty.every((message) => message.content.trim().length > 0),
+        "no empty message is left",
+      );
+    },
+  },
 ];
 
 await runNamedCases(cases);

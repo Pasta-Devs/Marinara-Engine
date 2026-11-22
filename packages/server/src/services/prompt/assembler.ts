@@ -31,7 +31,7 @@ import { sanitizePromptLeaf } from "./prompt-escaping.js";
 import { ensureLorebookScan, expandMarker, type MarkerContext } from "./marker-expander.js";
 import { hasSamePromptAudience, mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js";
 import { injectAtDepth } from "../lorebook/prompt-injector.js";
-import { MEMORY_RECALL_SLOT_TOKEN, stripMemoryRecallSlot } from "./memory-recall-slot.js";
+import { MEMORY_RECALL_SLOT_TOKEN, markMemoryRecallOnlyGroup, stripMemoryRecallSlot } from "./memory-recall-slot.js";
 import {
   ADVANCED_MEMORY_MARKER_TYPES,
   createAdvancedMemoryPlacement,
@@ -631,7 +631,8 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       const role = (section.role || "system") as ResolvedSection["role"];
       const resolved: ResolvedSection = {
         id: section.id,
-        groupId: null,
+        // Like any section, it stays inside its group's container.
+        groupId: section.groupId,
         role,
         depth: section.injectionDepth,
         messages: [{ role, content: MEMORY_RECALL_SLOT_TOKEN, contextKind: "prompt" }],
@@ -726,7 +727,21 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       // Get group info for wrapping
       const group = groupMap.get(section.groupId);
       if (group) {
-        const groupMessages = buildGroupMessages(groupSections, group, wrapFormat);
+        let groupMessages = buildGroupMessages(groupSections, group, wrapFormat);
+        // A group with nothing but the Memory Recall marker goes whole when recall adds nothing.
+        const onlyMemoryRecall = groupSections.every((member) =>
+          member.messages.every((message) => {
+            const text = message.content.trim();
+            return text === "" || text === MEMORY_RECALL_SLOT_TOKEN;
+          }),
+        );
+        if (onlyMemoryRecall) {
+          groupMessages = groupMessages.map((message) =>
+            message.content.includes(MEMORY_RECALL_SLOT_TOKEN)
+              ? { ...message, content: markMemoryRecallOnlyGroup(message.content) }
+              : message,
+          );
+        }
         messages.push(
           ...(input.advancedMemory ? guardAdvancedMemoryGroup(groupMessages, advancedMemoryPlacements) : groupMessages),
         );

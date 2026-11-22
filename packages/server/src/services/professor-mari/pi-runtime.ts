@@ -417,7 +417,11 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
   // turn (workspace context with the time, continuity, @ links), so they go into the history where the prompt put
   // them, that many conversation messages before the end (the user's context depth): the system prompt and the
   // history before them stay the start of the next request, and its cache holds.
-  const firstTurn = input.messages.findIndex((message) => message.role !== "system");
+  // Per-turn blocks are injections: at a depth beyond the history they come before the first message, and still stay
+  // out of the system prompt.
+  const firstTurn = input.messages.findIndex(
+    (message) => message.role !== "system" || message.contextKind === "injection",
+  );
   const leadingSystem = input.messages
     .slice(0, firstTurn < 0 ? input.messages.length : firstTurn)
     .filter((message) => message.role === "system");
@@ -740,7 +744,14 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         // A cut reply ends as "stop": the round review above redoes it smaller or ends the run. Told "length", pi takes
         // it for a context overflow and, past its first keepRecentTokens, sends the whole conversation again in an
         // uncached summary request before retrying a run that has already stopped.
-        message.stopReason = workspaceCalls.length > 0 ? "toolUse" : "stop";
+        // A summary request (no tools) keeps the provider's length stop, so pi rejects a cut-off summary instead of
+        // saving it as the checkpoint. Agent turns report "stop": the round review redoes a cut reply.
+        message.stopReason =
+          workspaceCalls.length > 0
+            ? "toolUse"
+            : !isAgentTurn && isLengthFinishReason(result.finishReason)
+              ? "length"
+              : "stop";
         stream.push({ type: "done", reason: message.stopReason, message });
       } catch (error) {
         const aborted = signal.aborted;
