@@ -64,7 +64,7 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
       // ChatInput / ConversationInput / GameInput with "Send on Enter" on
       { keys: [["Enter"]], labelKey: "shortcuts.composer.send" },
       { keys: [["Shift", "Enter"]], labelKey: "shortcuts.composer.newline" },
-      // ConversationInput / GameInput / Professor Mari with "Send on Enter" off
+      // ChatInput / ConversationInput / GameInput / Professor Mari with "Send on Enter" off
       { keys: [["Mod", "Enter"]], labelKey: "shortcuts.composer.sendModifier" },
       // ChatArea handleArrowUp ("Up arrow edits last message")
       { keys: [["↑"]], labelKey: "shortcuts.composer.editLast" },

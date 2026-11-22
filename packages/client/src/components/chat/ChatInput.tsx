@@ -25,6 +25,9 @@ import { updateCurrentInputSnapshot, useChatStore } from "../../stores/chat.stor
 import { hasActiveTextSelection } from "../../lib/text-selection";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overhaul.store";
+import { isApplePlatform } from "../../lib/command-center";
+import { RpEnterTip } from "../overhaul/RpEnterTip";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useGenerate } from "../../hooks/use-generate";
 import { useThemedPlaceholder } from "../../hooks/use-themed-placeholder";
@@ -319,10 +322,22 @@ export const ChatInput = memo(function ChatInput({
     () => (activeChatCharacters ? activeChatCharacters.map((character) => character.name) : characterNames),
     [activeChatCharacters, characterNames],
   );
+  const overhaulComposer = useOverhaulActive();
+  const enterToSendRP = useUIStore((s) => s.enterToSendRP);
+  const touchComposer = useOverhaulTouchMessages();
+  const rpSendHintShown = overhaulComposer && !touchComposer && !enterToSendRP && !isMobileComposerViewport;
+  // The one-time "Enter starts a new line" tip (RpEnterTip): asked for by Enter, closed by a send.
+  const [enterTipRequested, setEnterTipRequested] = useState(false);
+  const closeEnterTip = useCallback(() => setEnterTipRequested(false), []);
   const inputPlaceholder = useMemo(() => {
     if (!activeChatId) return t("chat.input.selectChat");
     if (isMobileComposerViewport) {
       return t(mode === "roleplay" ? "chat.input.mobile.roleplay" : "chat.input.mobile.message");
+    }
+    // A computer in the new layout with Send on Enter off: say how to send, first, so a narrow pane cuts the
+    // commands part instead (QC panel 2, D2). Touch keeps its Send button as the way.
+    if (mode === "roleplay" && rpSendHintShown) {
+      return t("chat.input.roleplaySendHint", { mod: isApplePlatform() ? "⌘" : "Ctrl" });
     }
     if (mode === "roleplay") return t("chat.input.roleplay");
     if (activeCharacterNames.length > 1) {
@@ -332,7 +347,7 @@ export const ChatInput = memo(function ChatInput({
       return t("chat.input.messageCharacters", { names: `@${activeCharacterNames[0]}` });
     }
     return t("chat.input.default");
-  }, [activeCharacterNames, activeChatId, isMobileComposerViewport, mode, t]);
+  }, [activeCharacterNames, activeChatId, isMobileComposerViewport, mode, rpSendHintShown, t]);
   // A theme can set its own text with --mari-composer-placeholder (hooks/use-themed-placeholder.ts).
   const themedPlaceholder = useThemedPlaceholder("roleplay", inputPlaceholder);
   const queuedResponseOrder = useMemo(
@@ -926,6 +941,7 @@ export const ChatInput = memo(function ChatInput({
   const handleSend = useCallback(async () => {
     const raw = getValue();
     if (!activeChatId || isInputBusy) return;
+    setEnterTipRequested(false);
     if (isReadingAttachments) {
       toast.info(localizeUi("ui.chat.chatinput.stillReadingAttachedFilesSendWillBeReadyIn"));
       return;
@@ -1623,10 +1639,19 @@ export const ChatInput = memo(function ChatInput({
     }
 
     if (e.key === "Enter") {
+      const composing = e.nativeEvent.isComposing || e.keyCode === 229;
       if (enterToSend && !e.shiftKey) {
         e.preventDefault();
         handleSend();
+      } else if (!enterToSend && (e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && !composing) {
+        // Send on Enter off: Ctrl/⌘+Enter sends, like Conversation, Game and Professor Mari (QC panel 2, D2: Roleplay
+        // had no keyboard send at all).
+        e.preventDefault();
+        handleSend();
       } else {
+        if (rpSendHintShown && mode === "roleplay" && !composing && !e.shiftKey && getValue().trim()) {
+          setEnterTipRequested(true);
+        }
         const el = textareaRef.current;
         requestAnimationFrame(() => {
           if (el && textareaRef.current === el) resizeChatInputTextarea(el);
@@ -2135,6 +2160,10 @@ export const ChatInput = memo(function ChatInput({
           autoCorrect="on"
           className="mari-chat-input-textarea max-h-[12.5rem] min-w-0 flex-1 resize-none bg-transparent py-0 text-sm leading-normal text-foreground/90 placeholder:text-foreground/50 outline-none disabled:cursor-not-allowed disabled:opacity-40"
         />
+
+        {mode === "roleplay" && rpSendHintShown ? (
+          <RpEnterTip requested={enterTipRequested} composer={textareaRef.current} onClosed={closeEnterTip} />
+        ) : null}
 
         {showQuickRepliesMenu && quickReplyActions.length > 0 && (
           <QuickReplyMenu actions={quickReplyActions} disabled={!activeChatId || isInputBusy || isReadingAttachments} />

@@ -330,6 +330,15 @@ export function CharacterSelect(props: CharacterSelectProps) {
         >
           {props.header}
           {list}
+          {props.multiple ? (
+            // Several picks have no single click that ends them: a Done row closes the list (QC panel 2, D4; on a
+            // phone there is no outside to tap).
+            <div className="ov-picker-done">
+              <button type="button" className="ov-btn ov-btn--primary" onClick={close}>
+                {t("ui.characterselect.done")}
+              </button>
+            </div>
+          ) : null}
         </PickerWindow>
       )}
     </>

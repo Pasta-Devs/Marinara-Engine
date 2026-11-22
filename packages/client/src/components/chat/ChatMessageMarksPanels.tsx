@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Bookmarks and Trash lists shown inside the chat search panel
 // ──────────────────────────────────────────────
+import { useFeatureEnabled, useFeatureSettings, useSaveFeatureSettings } from "../../hooks/use-feature-settings";
 import {
   MESSAGE_TRASH_RETENTION_DAYS,
   readMessageBookmark,
@@ -224,6 +225,15 @@ export function ChatTrashList({ chatId, enabled }: { chatId: string; enabled: bo
   const { mutate: restore, isPending: restoring } = useRestoreTrashedMessages(chatId);
   const { mutate: deleteForever, isPending: deleting } = useDeleteTrashedMessages(chatId);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const trashOn = useFeatureEnabled("messageTrash");
+  const featureQuery = useFeatureSettings();
+  const saveFeatures = useSaveFeatureSettings();
+  const trashLockedBy = featureQuery.data?.envOverrides?.messageTrash ?? null;
+  const turnTrashOn = () =>
+    saveFeatures.mutate(
+      { ...(featureQuery.data?.settings ?? {}), messageTrash: true },
+      { onError: () => toast.error(localizeUi("settings.features.saveFailed")) },
+    );
   const speakerName = useSpeakerName(
     (entries ?? []).flatMap((entry) => (entry.characterId ? [entry.characterId] : [])),
   );
@@ -306,6 +316,28 @@ export function ChatTrashList({ chatId, enabled }: { chatId: string; enabled: bo
         >
           {localizeUi("ui.chat.chatmessagesearch.tryAgain")}
         </button>
+      </div>
+    );
+  }
+  if ((!entries || entries.length === 0) && !trashOn) {
+    // Trash off (the default): say deleted messages aren't kept, with the switch right here, instead of an
+    // "empty" trash that never fills (QC panel 2, D6).
+    return (
+      <div className={EMPTY_CLASS} data-component="ChatTrashList.Off">
+        <Trash2 size="1rem" className="mx-auto mb-2 opacity-60" />
+        <p>{localizeUi("ui.chat.messagetrash.offState")}</p>
+        {trashLockedBy ? (
+          <p className="mt-1 text-xs">{localizeUi("settings.features.envLocked", { name: trashLockedBy })}</p>
+        ) : (
+          <button
+            type="button"
+            disabled={!featureQuery.data || saveFeatures.isPending}
+            onClick={turnTrashOn}
+            className="mari-chrome-control mari-chrome-control--small mt-3 px-3"
+          >
+            {localizeUi("ui.chat.messagetrash.turnOn")}
+          </button>
+        )}
       </div>
     );
   }

@@ -11,7 +11,8 @@ import { DelayedFallback } from "../ui/DelayedFallback";
 import type { LibrarySection } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
-import { LIBRARY_SECTIONS } from "./library-navigation";
+import { isAssetTab, LIBRARY_SECTIONS } from "./library-navigation";
+import { AssetsTabContext } from "./AssetsTabs";
 
 // One lazy wrapper per module (not per section): once a module has loaded, switching between
 // its sections renders straight away instead of flashing "Loading…" again. Both modules are also
@@ -61,7 +62,35 @@ const AgentsPage = preloadedLazy(() =>
     return AgentsPage;
   }),
 );
+// Backgrounds, Game assets and Rulesets: managers that were windows or an old full page (QC panel 2, E2).
+const BackgroundsPage = preloadedLazy(() =>
+  import("./BackgroundsPage").then((m) => {
+    function BackgroundsLibraryPage(_props: PageProps) {
+      return <m.BackgroundsPage />;
+    }
+    return BackgroundsLibraryPage;
+  }),
+);
+const GameAssetsPage = preloadedLazy(() =>
+  import("./GameAssetsPage").then((m) => {
+    function GameAssetsLibraryPage(_props: PageProps) {
+      return <m.GameAssetsPage />;
+    }
+    return GameAssetsLibraryPage;
+  }),
+);
+const RulesetsPage = preloadedLazy(() =>
+  import("./RulesetsViewer").then((m) => {
+    function RulesetsLibraryPage(_props: PageProps) {
+      return <m.RulesetsViewer />;
+    }
+    return RulesetsLibraryPage;
+  }),
+);
 const PAGES: Partial<Record<LibrarySection, ComponentType<PageProps>>> = {
+  backgrounds: BackgroundsPage,
+  "game-assets": GameAssetsPage,
+  rulesets: RulesetsPage,
   lorebooks: TablesPage,
   presets: TablesPage,
   regex: TablesPage,
@@ -80,6 +109,9 @@ export function preloadLibraryPages() {
     SettingsModulePage.preload(),
     AgentsPage.preload(),
     ExtensionsPage.preload(),
+    BackgroundsPage.preload(),
+    GameAssetsPage.preload(),
+    RulesetsPage.preload(),
     loadSettings().then((m) => m.preloadOverhaulSettingsSections()),
   ]).catch(() => undefined);
 }
@@ -104,11 +136,29 @@ const SELF_HEADED = new Set<LibrarySection>([
   "agents",
   "settings",
   "extensions",
+  "backgrounds",
+  "game-assets",
+  "rulesets",
 ]);
 
 export function LibraryLandingPage({ section }: { section: LibrarySection }) {
   const localize = useLocalizedUiText();
   const Page = PAGES[section];
+  if (Page && isAssetTab(section)) {
+    return (
+      <AssetsTabContext.Provider value={section}>
+        <Suspense
+          fallback={
+            <DelayedFallback>
+              <div className="ov-libpage__loading">{localize("Loading…")}</div>
+            </DelayedFallback>
+          }
+        >
+          <Page section={section} />
+        </Suspense>
+      </AssetsTabContext.Provider>
+    );
+  }
   if (Page && SELF_HEADED.has(section)) {
     return (
       <Suspense

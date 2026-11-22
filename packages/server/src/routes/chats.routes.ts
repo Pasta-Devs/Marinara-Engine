@@ -411,6 +411,12 @@ function isSetupDraftChat(chat: { mode?: unknown; metadata?: unknown }) {
   return !metadata.gameSessionStatus || metadata.gameSessionStatus === "setup";
 }
 
+/** A draft kept for later ("Setup not finished"): the sidebar lists it, the home feed's Recent chats doesn't. */
+function isKeptSetupDraftChat(chat: { mode?: unknown; metadata?: unknown }) {
+  if (chat.mode === "game") return false;
+  return parseChatMetadata(chat.metadata).setupUnfinished === true;
+}
+
 function shouldHideProfessorMariChat(chat: { metadata?: unknown }) {
   return isHomeProfessorMariChat(chat);
 }
@@ -1176,8 +1182,14 @@ export async function chatsRoutes(app: FastifyInstance) {
       const page = await storage.listRecent(pageSize, offset);
       if (page.length === 0) break;
       for (const chat of page) {
-        // A new chat still in its setup is a draft, not a recent chat (stray "New Conversation", Nov 15).
-        if (!shouldHideProfessorMariChat(chat) && !isSetupDraftChat(chat) && !seenRecentChatIds.has(chat.id)) {
+        // A new chat still in its setup is a draft, not a recent chat (stray "New Conversation", Nov 15), and so is
+        // one kept for later: it read as an identical "New Roleplay" row (QC panel 2, D9).
+        if (
+          !shouldHideProfessorMariChat(chat) &&
+          !isSetupDraftChat(chat) &&
+          !isKeptSetupDraftChat(chat) &&
+          !seenRecentChatIds.has(chat.id)
+        ) {
           seenRecentChatIds.add(chat.id);
           recentChats.push(chat);
         }

@@ -14,10 +14,11 @@ import { useConnections } from "../../hooks/use-connections";
 import { useRegexScripts } from "../../hooks/use-regex-scripts";
 import { useCustomTools } from "../../hooks/use-custom-tools";
 import { useChatPresets } from "../../hooks/use-chat-presets";
+
 import { isProfileMode } from "../presets/profile-detail-id";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
-import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
+import { isAssetTab, LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { useOvAgentRows } from "./LibraryTables";
 import { splitDragProps } from "./split-view";
 
@@ -44,6 +45,8 @@ export function LibraryNav() {
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
   const libraryPage = useOverhaulStore((s) => s.libraryPage);
+  const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
+  const browserKind = useUIStore((s) => s.botBrowserKind);
 
   const counts: Partial<Record<string, number>> = {
     characters: Array.isArray(characters.data) ? characters.data.length : undefined,
@@ -51,7 +54,8 @@ export function LibraryNav() {
     lorebooks: Array.isArray(lorebooks.data) ? lorebooks.data.length : undefined,
     presets: Array.isArray(presets.data) ? presets.data.length : undefined,
     profiles: Array.isArray(profiles.data)
-      ? profiles.data.filter((profile) => isProfileMode(profile.mode)).length
+      ? // The page also lists the Image settings row, so the count does too (QC panel 2, D15: 2 shown as 3 rows).
+        profiles.data.filter((profile) => isProfileMode(profile.mode)).length + 1
       : undefined,
     connections: Array.isArray(connections.data) ? connections.data.length : undefined,
     regex: Array.isArray(regexScripts.data) ? regexScripts.data.length : undefined,
@@ -60,27 +64,34 @@ export function LibraryNav() {
   };
 
   // Which section the main area is showing (an editor counts as its section).
-  const activeSection = characterLibraryOpen
-    ? cardLibraryKind
-    : characterDetailId
-      ? "characters"
-      : personaDetailId
-        ? "personas"
-        : lorebookDetailId
-          ? "lorebooks"
-          : presetDetailId
-            ? "presets"
-            : profileDetailId
-              ? "profiles"
-              : connectionDetailId
-                ? "connections"
-                : agentDetailId
-                  ? "agents"
-                  : regexDetailId
-                    ? "regex"
-                    : toolDetailId
-                      ? "tools"
-                      : libraryPage;
+  // Browse online belongs to the page it was opened from: Characters, or Lorebooks for the lorebook browser.
+  const activeSection = botBrowserOpen
+    ? browserKind === "lorebooks"
+      ? "lorebooks"
+      : "characters"
+    : characterLibraryOpen
+      ? cardLibraryKind
+      : characterDetailId
+        ? "characters"
+        : personaDetailId
+          ? "personas"
+          : lorebookDetailId
+            ? "lorebooks"
+            : presetDetailId
+              ? "presets"
+              : profileDetailId
+                ? "profiles"
+                : connectionDetailId
+                  ? "connections"
+                  : agentDetailId
+                    ? "agents"
+                    : regexDetailId
+                      ? "regex"
+                      : toolDetailId
+                        ? "tools"
+                        : isAssetTab(libraryPage)
+                          ? "assets"
+                          : libraryPage;
 
   return (
     <nav

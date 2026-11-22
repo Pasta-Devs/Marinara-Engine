@@ -63,8 +63,9 @@ export function useMariRunSeenId(chatId: string | null | undefined): string | nu
 export function useMarkMariRunSeen(chatId: string | null, latestRun: MariWorkspaceLatestRun | null, working: boolean) {
   const queryClient = useQueryClient();
   const seenRunId = useMariRunSeenId(chatId);
-  // Her chat stays mounted behind the search list (Mari, then Search); only her pane on screen counts as seen.
-  const viewing = useUIStore((state) => state.mariPaneVisible);
+  // Her chat stays mounted behind the search list (Mari, then Search); only her pane or her page on screen counts as
+  // seen (QC panel 2, D3: the Done chip stayed after reading her answer on the Mari page).
+  const viewing = useUIStore((state) => state.mariPaneVisible || state.mariPageVisible);
   const markSeen = useMutation({
     mutationFn: (runId: string) =>
       api.put(`/app-settings/${professorMariSeenRunSettingsKey(chatId ?? "")}`, { value: runId }),

@@ -45,6 +45,10 @@ export type LibrarySection =
   | "connections"
   | "agents"
   | "tools"
+  | "assets"
+  | "rulesets"
+  | "backgrounds"
+  | "game-assets"
   | "settings"
   | "extensions"
   | "bot-browser";
