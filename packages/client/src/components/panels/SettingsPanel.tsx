@@ -1754,7 +1754,12 @@ function WalkthroughSettings() {
           onClick={() => {
             resetModeWalkthroughs(device);
             useUIStore.setState({ chatHelpSeenModes: [], chatHelpButtonHidden: false });
-            toast.success(localizeUi("settings.walkthroughs.modesReset"));
+            // On a computer the help opens by itself only in a chat you have not written in yet (QC panel 2, D1).
+            toast.success(
+              localizeUi(
+                device === "desktop" ? "settings.walkthroughs.modesResetDesktop" : "settings.walkthroughs.modesReset",
+              ),
+            );
           }}
         >
           {localizeUi("settings.walkthroughs.replayModes")}
@@ -2146,7 +2151,8 @@ function GeneralSettings() {
             ]}
             onChange={setNotificationPosition}
             label={localizeUi("settings.notifications.position.label")}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)]"
+            // The same box as the Language picker above it (QC panel 2, G).
+            className="min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/60"
           />
           <span className="text-[var(--muted-foreground)]">{localizeUi("settings.notifications.position.help")}</span>
         </div>
@@ -2369,14 +2375,14 @@ function GeneralSettings() {
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("conversation-always-display-swipe-menu")}
-            label={localize("Always show swipe menu in Conversation")}
+            label={localize("Show swipe arrows from the first reply (Conversation)")}
             checked={alwaysDisplayConversationSwipeMenu}
             onChange={setAlwaysDisplayConversationSwipeMenu}
             help={localizeUi("settings.controls.alwaysDisplaySwipeMenu.help")}
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("roleplay-always-display-swipe-menu")}
-            label={localize("Always show swipe menu in Roleplay")}
+            label={localize("Show swipe arrows from the first reply (Roleplay)")}
             checked={alwaysDisplayRoleplaySwipeMenu}
             onChange={setAlwaysDisplayRoleplaySwipeMenu}
             help={localizeUi("settings.controls.alwaysDisplaySwipeMenu.help")}
@@ -4435,7 +4441,16 @@ function AppearanceSettings({
                   <Select
                     id={getSettingsControlAnchorId("chat-list-backgrounds")}
                     value={chatListBackgrounds}
-                    options={CHAT_LIST_BACKGROUND_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+                    options={CHAT_LIST_BACKGROUND_OPTIONS.map((opt) => ({
+                      value: opt.id,
+                      // Touch screens have no hover, so that choice is just the active chat there (QC panel 2, G).
+                      label:
+                        opt.id === "hover" &&
+                        typeof window !== "undefined" &&
+                        window.matchMedia?.("(hover: none) and (any-pointer: coarse)").matches
+                          ? "Active chat"
+                          : opt.label,
+                    }))}
                     onChange={setChatListBackgrounds}
                     label={localizeUi("ui.panels.appearancesettings.chatListBackgrounds")}
                     className="h-7 min-w-0 flex-1 scroll-mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 text-xs"

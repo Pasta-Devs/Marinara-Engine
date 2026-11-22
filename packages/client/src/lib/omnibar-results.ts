@@ -58,6 +58,8 @@ import {
   localizeOmnibarSettingTitle,
 } from "./omnibar-settings";
 import { SETTINGS_SEARCHABLE_CONTROLS, settingsLocationPath } from "./settings-registry";
+import { overhaulSettingsTabLabelFor } from "../components/overhaul/settings-tabs";
+import { useOverhaulStore } from "../stores/overhaul.store";
 import { OMNIBAR_SETTINGS_TOGGLE_BINDINGS } from "./omnibar-settings-toggle-bindings";
 import type { ChatResourceDragKind } from "./chat-resource-drag";
 import { getSlashCompletions } from "./slash-commands";
@@ -413,6 +415,7 @@ export function buildOmnibarControlResults({
       "show-token-usage",
     ],
   ] as const satisfies readonly (readonly [string, string, string, boolean, (value: boolean) => void, string | null])[];
+  const overhaulLayout = useOverhaulStore.getState().enabled;
   const settingsDestinations = getOmnibarSettingsDestinations().map((setting) => {
     const binding = setting.controlId ? OMNIBAR_SETTINGS_TOGGLE_BINDINGS[setting.controlId] : undefined;
     const title = localizeOmnibarSettingTitle(setting, localize, t);
@@ -437,8 +440,14 @@ export function buildOmnibarControlResults({
       // repeating itself; same for a bare tab row.
       // A description that only repeats the title ("Theme" under Theme) is left out.
       description: (() => {
+        // The new layout moved sections between tabs (Message buttons lives in Chatting there), so its crumb names
+        // the tab the section is really on (QC panel 2, D11).
+        const overhaulTab = overhaulLayout ? overhaulSettingsTabLabelFor(setting.sectionId) : null;
         const path =
-          (setting.controlId && setting.sectionId ? settingsLocationPath(setting.sectionId, localize) : null) ??
+          (setting.controlId && setting.sectionId
+            ? settingsLocationPath(setting.sectionId, localize, overhaulTab)
+            : null) ??
+          (overhaulTab && setting.sectionId ? localize(overhaulTab) : null) ??
           localize(setting.sectionLabel);
         const explanation = localizeOmnibarSettingDescription(setting, localize, t);
         return explanation === title ? path : `${path} · ${explanation}`;
@@ -852,7 +861,14 @@ export function buildOmnibarSearchResults({
   return [
     ...askResults,
     ...faqResults,
-    ...docsResults
+    ...[...docsResults]
+      // A page whose title holds the whole query goes above pages that only mention it in the text ("getting
+      // started" listed a ruleset page first: QC panel 2, D11). The search's own order stays within each.
+      .sort(
+        (a, b) =>
+          Number(normalizeTextForMatch(b.title).includes(normalizeTextForMatch(normalizedQuery))) -
+          Number(normalizeTextForMatch(a.title).includes(normalizeTextForMatch(normalizedQuery))),
+      )
       // A short single word matches inside other words ("eli" in "reliable"), so
       // it needs a word start in the passage; longer queries keep the search's own ranking.
       .filter(

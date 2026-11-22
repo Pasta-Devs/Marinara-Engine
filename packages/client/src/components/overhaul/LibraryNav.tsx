@@ -51,7 +51,8 @@ export function LibraryNav() {
     lorebooks: Array.isArray(lorebooks.data) ? lorebooks.data.length : undefined,
     presets: Array.isArray(presets.data) ? presets.data.length : undefined,
     profiles: Array.isArray(profiles.data)
-      ? profiles.data.filter((profile) => isProfileMode(profile.mode)).length
+      ? // The page also lists the Image settings row, so the count does too (QC panel 2, D15: 2 shown as 3 rows).
+        profiles.data.filter((profile) => isProfileMode(profile.mode)).length + 1
       : undefined,
     connections: Array.isArray(connections.data) ? connections.data.length : undefined,
     regex: Array.isArray(regexScripts.data) ? regexScripts.data.length : undefined,

@@ -1,4 +1,5 @@
 import { WindowTitle } from "../../lib/theme-slots";
+import { GroupGreetingIdsContext } from "../../lib/group-greetings";
 import { dropMessageEditDraft, keepMessageEditDraft, readMessageEditDraft } from "../../lib/message-edit-drafts";
 import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 import { avatarInitial } from "../../lib/avatar-initial";
@@ -99,6 +100,7 @@ import {
   useRef,
   useEffect,
   useId,
+  useContext,
   useLayoutEffect,
   useCallback,
   cloneElement,
@@ -972,6 +974,23 @@ const EditTextarea = memo(function EditTextarea({
     }
   }, [autoResize, keptText]);
 
+  // Save and Cancel stay in view: editing the last message put them under the composer (QC panel 2, D13).
+  const actionsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const actions = actionsRef.current;
+      const scroller = actions?.closest<HTMLElement>("[data-chat-scroll]");
+      if (!actions || !scroller) return;
+      const composer = document.querySelector<HTMLElement>("[data-chat-mode] [data-chat-composer]");
+      const scrollerBox = scroller.getBoundingClientRect();
+      const composerTop = composer?.getBoundingClientRect().top ?? scrollerBox.bottom;
+      const limit = Math.min(scrollerBox.bottom, composerTop) - 8;
+      const overflow = actions.getBoundingClientRect().bottom - limit;
+      if (overflow > 0) scroller.scrollBy({ top: overflow });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   // An iPhone keyboard shrinks the transcript but not 60dvh. Keep the editor
   // and its Save row within the part between the top controls and the
   // composer, so scrolling inside it can always bring its last line into view.
@@ -1026,7 +1045,10 @@ const EditTextarea = memo(function EditTextarea({
         className="relative z-0 w-full resize-none overflow-y-auto overscroll-contain rounded-lg bg-black/30 px-3 py-2 text-white outline-none ring-1 ring-white/20 focus:ring-blue-400/50 max-md:max-h-[min(60dvh,32rem,var(--mari-message-editor-fit-height,100dvh))]"
         style={{ fontSize, lineHeight: 1.5 }}
       />
-      <div className="ov-edit-actions pointer-events-auto relative z-30 flex items-center justify-end gap-1.5">
+      <div
+        ref={actionsRef}
+        className="ov-edit-actions pointer-events-auto relative z-30 flex items-center justify-end gap-1.5"
+      >
         <button
           type="button"
           onClick={onCancel}
@@ -3084,7 +3106,12 @@ export const ChatMessage = memo(function ChatMessage({
     : isUser
       ? getAvatarCropStyle(personaAvatarCrop)
       : getAvatarCropStyle(resolvedCharacterInfo?.avatarCrop);
-  const isMergedGroup = groupChatMode === "merged" && !isUser && (chatCharacterIds?.length ?? 0) > 1;
+  // A greeting before your first message is one character's own, so it keeps that character's name and look
+  // (QC panel 2, D5); merged replies after it stay "Narrator".
+  const groupGreetingIds = useContext(GroupGreetingIdsContext);
+  const isGroupGreeting = groupGreetingIds?.has(message.id) ?? false;
+  const isMergedGroup =
+    groupChatMode === "merged" && !isUser && !isGroupGreeting && (chatCharacterIds?.length ?? 0) > 1;
 
   // Resolve colors: character colors for assistant, persona colors for user
   // Prefer per-message persona snapshot colors over current persona

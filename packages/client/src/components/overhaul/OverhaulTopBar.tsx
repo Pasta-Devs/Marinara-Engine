@@ -6,7 +6,7 @@
 // Chat settings, Help, Library and the Library pane toggle on the right.
 // Sidebar collapse controls live here, never over the chat background.
 // ──────────────────────────────────────────────
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   BookOpen,
   CalendarDays,
@@ -336,13 +336,59 @@ function useHomeApps() {
 
 /** Resolves a tab's label with the same queries the editors use, so it is usually cached already. */
 export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
-  const text = useTabLabelText(tab, chats);
+  const { t } = useTranslation();
+  const base = useTabLabelText(tab, chats);
+  const key = overhaulTabKey(tab);
+  // Two tabs with the same name ("Luna" the character and "Luna" the chat) say which is which (QC panel 2, D15).
+  const kindKey = TAB_KIND_KEYS[tab.kind];
+  const kind = kindKey ? t(kindKey) : null;
+  useEffect(() => publishTabLabel(key, base), [base, key]);
+  const clashes = useSyncExternalStore(subscribeTabLabels, () => tabLabelClashes(key, base));
+  const withKind = kind ? t("ui.overhaul.tab.labelWithKind", { name: base, kind }) : base;
+  const text = clashes ? withKind : base;
   // Short names keep their natural width; only long names give way when the strip is full.
   return (
-    <span className="ov-tab__label" data-short={text.length <= 10 ? "true" : undefined} title={text}>
+    <span className="ov-tab__label" data-short={text.length <= 10 ? "true" : undefined} title={withKind}>
       {text}
     </span>
   );
+}
+
+const TAB_KIND_KEYS: Partial<Record<OverhaulTab["kind"], string>> = {
+  character: "ui.overhaul.tab.kindCharacter",
+  chat: "ui.overhaul.tab.kindChat",
+  persona: "ui.overhaul.tab.kindPersona",
+  lorebook: "ui.overhaul.tab.kindLorebook",
+  preset: "ui.overhaul.tab.kindPreset",
+};
+
+// Every shown tab's plain label, so a tab can tell when another one reads the same.
+const tabLabels = new Map<string, { label: string; count: number }>();
+const tabLabelListeners = new Set<() => void>();
+function subscribeTabLabels(listener: () => void) {
+  tabLabelListeners.add(listener);
+  return () => tabLabelListeners.delete(listener);
+}
+function publishTabLabel(key: string, label: string) {
+  const entry = tabLabels.get(key);
+  if (entry && entry.label === label) entry.count += 1;
+  else tabLabels.set(key, { label, count: 1 });
+  tabLabelListeners.forEach((listener) => listener());
+  return () => {
+    const current = tabLabels.get(key);
+    if (!current) return;
+    current.count -= 1;
+    if (current.count <= 0) tabLabels.delete(key);
+    tabLabelListeners.forEach((listener) => listener());
+  };
+}
+function tabLabelClashes(key: string, label: string): boolean {
+  const wanted = label.trim().toLowerCase();
+  if (!wanted) return false;
+  for (const [otherKey, entry] of tabLabels) {
+    if (otherKey !== key && entry.label.trim().toLowerCase() === wanted) return true;
+  }
+  return false;
 }
 
 /** The browser tab says which page or chat is open ("Smuggler's Run · Marinara Engine"), audit C23. */

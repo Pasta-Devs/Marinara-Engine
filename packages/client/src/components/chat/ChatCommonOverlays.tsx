@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
+import { useFeatureEnabled } from "../../hooks/use-feature-settings";
 import { createPortal } from "react-dom";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -176,6 +177,8 @@ function DeleteConfirmationDialog({
 }: DeleteDialogProps) {
   const { t } = useTranslation();
   const sheet = useOverhaulMobile();
+  // With the trash off (the default) a delete is for good, so the dialog says so (QC panel 2, D6).
+  const trashOn = useFeatureEnabled("messageTrash");
 
   // New layout on phones: an action sheet along the bottom, with Cancel on its own.
   if (sheet) {
@@ -198,6 +201,7 @@ function DeleteConfirmationDialog({
             <div className="ovm-action-sheet__head">
               <strong>{t("chat.delete.dialog.title")}</strong>
               <span>{t("chat.delete.dialog.description")}</span>
+              {!trashOn ? <span>{t("chat.delete.dialog.permanent")}</span> : null}
             </div>
             <button type="button" className="is-danger" onClick={onConfirm}>
               {t("chat.delete.dialog.message")}
@@ -241,6 +245,12 @@ function DeleteConfirmationDialog({
     >
       <p className="mb-4 text-sm leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
         {t("chat.delete.dialog.description")}
+        {!trashOn ? (
+          <>
+            {" "}
+            <span data-delete-permanent>{t("chat.delete.dialog.permanent")}</span>
+          </>
+        ) : null}
       </p>
       <div className="grid gap-2" data-component="MessageDeleteActions">
         {canDeleteSwipe && (

@@ -24,7 +24,8 @@ export function MariTopbarStatus({ state }: { state: MariEdgeGlow }) {
   const { t } = useTranslation();
   const reduceMotion = useReducedMotion();
   const appearance = useMariAppearancePack();
-  const viewing = useUIStore((ui) => ui.mariPaneVisible);
+  // Hidden while her pane or her page is on screen: you are reading her there.
+  const viewing = useUIStore((ui) => ui.mariPaneVisible || ui.mariPageVisible);
   const shown = !viewing && state ? state : null;
   const text = shown ? t(`mari.topbarStatus.${shown}`) : "";
 

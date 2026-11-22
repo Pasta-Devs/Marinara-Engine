@@ -77,7 +77,11 @@ import {
 } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { SkipLinks } from "./SkipLinks";
-import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
+import {
+  CHAT_SETTINGS_WINDOW_ID,
+  TRACKER_PANEL_BUBBLE_ID,
+  useFloatingWindowStore,
+} from "../../stores/floating-window.store";
 import { useOverhaulStore } from "../../stores/overhaul.store";
 import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../../lib/overhaul-styles";
 import { preloadChatSurface } from "../chat/chat-surface-preload";
@@ -148,6 +152,14 @@ const TrackerDataSidebar = lazy(() =>
 const ChatNotificationBubbles = lazy(() =>
   import("../chat/ChatNotificationBubbles").then((module) => ({ default: module.ChatNotificationBubbles })),
 );
+
+/** The docked Chat settings pane's width (overhaul.css .ov-cs--docked: min(27rem, 100vw - 22rem)). */
+function dockedChatSettingsWidth(): number {
+  if (typeof window === "undefined") return 0;
+  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  return Math.max(0, Math.round(Math.min(27 * rem, window.innerWidth - 22 * rem)));
+}
+
 const SplitSide = lazy(() => import("../overhaul/SplitView").then((module) => ({ default: module.SplitSide })));
 const SplitDropOverlay = lazy(() =>
   import("../overhaul/SplitView").then((module) => ({ default: module.SplitDropOverlay })),
@@ -752,17 +764,38 @@ export function AppShell({
   // Split view (desktop only): a second page beside the main one, when both fit.
   const split = useOverhaulStore((s) => s.split);
   const splitDragging = useOverhaulStore((s) => s.splitDrag !== null);
-  const splitRoom = useSplitRoom(
+  // Docked Chat settings takes the Library pane's slot beside a split, instead of floating over the second side
+  // (QC panel 2, D7). Only while both sides still fit next to it; a narrower window lets it float as before.
+  const chatSettingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
+  const chatSettingsFloating = useOverhaulStore((s) => s.chatSettingsFloating);
+  const splitRoomBase = useSplitRoom(
     sidebarOpen && !overhaulActive ? liveSidebarWidth : 0,
     rightPanelOpen ? liveRightPanelWidth : 0,
   );
+  const chatSettingsSlot =
+    overhaulActive && !SPLIT_PANE && split !== null && chatSettingsOpen && !chatSettingsFloating && !rightPanelOpen
+      ? dockedChatSettingsWidth()
+      : 0;
+  const chatSettingsTakesSlot = chatSettingsSlot > 0 && splitRoomBase - chatSettingsSlot >= SPLIT_MIN_ROOM;
+  const splitRoom = chatSettingsTakesSlot ? splitRoomBase - chatSettingsSlot : splitRoomBase;
   const splitFits = overhaulActive && !SPLIT_PANE && splitRoom >= SPLIT_MIN_ROOM;
   const splitOn = splitFits && split !== null;
   const splitSize = split ? clampSplitSize(split.size, splitRoom) : 0.5;
   // Opening, closing or resizing the Library pane leaves the second side as wide as it was: the main side
   // takes the change. Sharing it made the second side cross its touch-layout width, so the page there
   // swapped layouts each time the pane opened or closed and looked like it reloaded (Nov 14 finding).
-  const splitWidthRef = useRef<{ px: number; size: number; room: number; viewport: number } | null>(null);
+  // Chat settings taking or giving back that slot (often swapping with the Library pane) keeps the divider where it
+  // is instead: the left side keeps its width and the right side takes the change (QC panel 2, D7: it jumped
+  // 320 px).
+  const splitWidthRef = useRef<{
+    px: number;
+    size: number;
+    room: number;
+    viewport: number;
+    csSlot: boolean;
+    /** When Chat settings last took or gave back the slot; the Library pane coming back right after is the swap. */
+    csChangedAt: number;
+  } | null>(null);
   useLayoutEffect(() => {
     if (!splitOn || !split) {
       splitWidthRef.current = null;
@@ -772,14 +805,43 @@ export function AppShell({
     const viewport = window.innerWidth;
     const last = splitWidthRef.current;
     if (last && last.size === split.size && last.viewport === viewport && last.room !== splitRoom) {
-      const size = clampSplitSize(last.px / usable, splitRoom);
-      splitWidthRef.current = { ...last, size, room: splitRoom };
+      let size: number;
+      const now = performance.now();
+      const csChanged = last.csSlot !== chatSettingsTakesSlot;
+      const csChangedAt = csChanged ? now : last.csChangedAt;
+      if (csChanged || now - last.csChangedAt < 600) {
+        const lastUsable = Math.max(1, last.room - SPLIT_DIVIDER);
+        const secondLeft = split.side === "left";
+        const leftPx = secondLeft ? last.px : lastUsable - last.px;
+        size = clampSplitSize(secondLeft ? leftPx / usable : 1 - leftPx / usable, splitRoom);
+      } else size = clampSplitSize(last.px / usable, splitRoom);
+      splitWidthRef.current = {
+        px: size * usable,
+        size,
+        room: splitRoom,
+        viewport,
+        csSlot: chatSettingsTakesSlot,
+        csChangedAt,
+      };
       if (size !== split.size) useOverhaulStore.getState().setSplit({ ...split, size });
       return;
     }
-    if (last && last.size === split.size && last.viewport === viewport && last.room === splitRoom) return;
-    splitWidthRef.current = { px: splitSize * usable, size: split.size, room: splitRoom, viewport };
-  }, [splitOn, split, splitRoom, splitSize]);
+    if (last && last.size === split.size && last.viewport === viewport && last.room === splitRoom) {
+      if (last.csSlot !== chatSettingsTakesSlot) {
+        last.csSlot = chatSettingsTakesSlot;
+        last.csChangedAt = performance.now();
+      }
+      return;
+    }
+    splitWidthRef.current = {
+      px: splitSize * usable,
+      size: split.size,
+      room: splitRoom,
+      viewport,
+      csSlot: chatSettingsTakesSlot,
+      csChangedAt: 0,
+    };
+  }, [chatSettingsTakesSlot, splitOn, split, splitRoom, splitSize]);
   useEffect(() => {
     document.documentElement.toggleAttribute("data-ov-split", splitOn);
     useOverhaulStore.setState({ splitShown: splitOn, splitRoom: splitFits });
@@ -2249,6 +2311,9 @@ export function AppShell({
           <Suspense fallback={null}>
             <SplitSide split={split} size={splitSize} />
           </Suspense>
+        ) : null}
+        {splitOn && chatSettingsTakesSlot ? (
+          <div aria-hidden="true" className="shrink-0" data-ov-cs-slot style={{ width: chatSettingsSlot }} />
         ) : null}
         {splitFits && splitDragging ? (
           <Suspense fallback={null}>
