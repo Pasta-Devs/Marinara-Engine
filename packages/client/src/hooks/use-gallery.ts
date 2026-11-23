@@ -22,6 +22,8 @@ export interface ChatImage {
   height: number | null;
   /** JSON ChatImageGenerationRecord (#7767); null for images saved before records existed. */
   generation?: string | null;
+  variantGroupId?: string | null;
+  variantSelected?: number | null;
   /** Gallery label (emoji, sticker or background); assigning the picture carries it along. */
   customKind?: GalleryTagKind | null;
   customName?: string | null;
@@ -200,6 +202,11 @@ export function useDeleteGalleryImage(chatId: string) {
       if (context?.previousAssets) qc.setQueryData(galleryKeys.assets(chatId), context.previousAssets);
     },
     onSettled: (_data, _error, variables) => {
+      // Version deletion can also change the image shown in messages and storyboards.
+      qc.invalidateQueries({ queryKey: ["chats"] });
+      qc.invalidateQueries({ queryKey: ["game", "storyboards"] });
+      qc.invalidateQueries({ queryKey: ["characters", "gallery"] });
+      qc.invalidateQueries({ queryKey: ["persona-gallery"] });
       qc.invalidateQueries({ queryKey: galleryKeys.chat(chatId) });
       qc.invalidateQueries({ queryKey: galleryKeys.assets(chatId) });
       // A Game-mode gallery can delete a sibling session's image; that

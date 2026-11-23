@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Download, Pin, RefreshCw } from "lucide-react";
-import { parseChatImageGenerationRecord, type GeneratedSceneVideo } from "@marinara-engine/shared";
+import { Download, Pin, RefreshCw, Trash2 } from "lucide-react";
+import {
+  groupChatImageVariants,
+  parseChatImageGenerationRecord,
+  type GeneratedSceneVideo,
+} from "@marinara-engine/shared";
+import { toast } from "sonner";
 import { useGalleryImages, type ChatImage } from "../../hooks/use-gallery";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { ImageDownloadButton } from "../ui/ImageDownloadButton";
@@ -14,6 +19,8 @@ import {
 import { ImageViewer, VIEWER_BUTTON_CLASS } from "../ui/ImageViewer";
 import { cn } from "../../lib/utils";
 import { ImagePromptPanel } from "./ImagePromptPanel";
+import { useSelectChatImageVersion } from "../../hooks/use-regenerate-chat-image";
+import { ChatImageDeleteDialog } from "./ChatImageDeleteDialog";
 import { ImageRegeneratePanel, type ImageRegenerator } from "./ImageRegeneratePanel";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -108,6 +115,8 @@ export function ChatImageLightbox({
   const [maskState, setMaskState] = useState<ImageMaskState>(EMPTY_MASK_STATE);
   const maskControlsRef = useRef<ImageMaskCanvasHandle | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const selectVersion = useSelectChatImageVersion(activeImage.chatId);
 
   const resetMask = useCallback((options?: { resetToolAndBrush?: boolean }) => {
     setMaskDataUrl(null);
@@ -133,10 +142,11 @@ export function ChatImageLightbox({
   );
   // Lightweight message and storyboard images omit the generation record. Resolve
   // it once here so viewing and editing use the same saved request.
-  const needsGalleryRow = !!regenerate && activeImage.generation === undefined;
-  const gallery = useGalleryImages(needsGalleryRow ? activeImage.chatId : undefined);
-  const galleryRow = needsGalleryRow ? gallery.data?.find((row) => row.id === activeImage.id) : undefined;
-  const image = galleryRow ?? activeImage;
+  const chatGallery = !!regenerate && !regenerator;
+  const needsGalleryRow = chatGallery && activeImage.generation === undefined;
+  const gallery = useGalleryImages(chatGallery ? activeImage.chatId : undefined);
+  const galleryRow = chatGallery ? gallery.data?.find((row) => row.id === activeImage.id) : undefined;
+  const image = activeImage.generation === undefined ? (galleryRow ?? activeImage) : activeImage;
   const record = parseChatImageGenerationRecord(image.generation);
   const prompt = record?.prompt ?? image.prompt;
   const meta = [formatChatImageMeta(image), extraMeta].filter(Boolean).join(" | ");
@@ -145,7 +155,20 @@ export function ChatImageLightbox({
   const detailsFailed = needsGalleryRow && gallery.isError && !gallery.data;
   // Entity adapters can start from a blank prompt; ordinary chat uploads need one to resend.
   const canRegenerate = !!regenerate && !loadingDetails && !detailsFailed && (!!prompt.trim() || !!regenerator);
-  const galleryIndex = images?.findIndex((item) => item.id === activeImage.id) ?? -1;
+  const rows = new Map(
+    (images ?? (chatGallery ? gallery.data : undefined) ?? [activeImage]).map((row) => [row.id, row]),
+  );
+  if (chatGallery) for (const row of gallery.data ?? []) rows.set(row.id, row);
+  rows.set(image.id, image);
+  const suppliedIds = images ? new Set([...images.map((row) => row.id), activeImage.id]) : null;
+  const stacks = groupChatImageVariants([...rows.values()]).filter(
+    (group) => !suppliedIds || group.versions.some((row) => suppliedIds.has(row.id)),
+  );
+  const galleryIndex = stacks.findIndex((stack) => stack.versions.some((row) => row.id === image.id));
+  const stack = stacks[galleryIndex];
+  const versionIndex = stack?.versions.findIndex((row) => row.id === image.id) ?? 0;
+  const galleryImages = stacks.map((group) => (group === stack ? image : group.selected));
+  const navigating = selectVersion.isPending;
 
   // Close is disabled while a regeneration runs, and the panel closes before `busy` clears: wait for
   // both, or focus falls to the page.
@@ -154,144 +177,194 @@ export function ChatImageLightbox({
   }, [editing, busy]);
 
   return (
-    <ImageViewer
-      title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
-      // Escape, back and outside taps first leave the regenerate panel, then the viewer.
-      onClose={() => (editing ? closeEditing() : onClose())}
-      onCloseButton={onClose}
-      closeDisabled={busy || interactionDisabled}
-      closeLabel={localizeUi("ui.chat.chatimagelightbox.closeImage")}
-      closeButtonRef={closeButtonRef}
-      overMari={overMari}
-      src={image.url}
-      alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
-      childrenMaxHeightClass={editing ? "max-h-[64%] [@media(max-height:520px)]:max-h-[82%] sm:max-h-[48%]" : undefined}
-      pictureActions={editing ? editActions?.(image, busy || interactionDisabled) : undefined}
-      media={
-        editing && editSurfaceActive ? (
-          <ImageMaskCanvas
-            key={image.id}
-            src={image.url}
-            alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
-            disabled={busy || interactionDisabled}
-            tool={maskTool}
-            brushSizePx={maskBrushSize}
-            hideToolbar
-            onBackdropClick={busy || interactionDisabled ? undefined : closeEditing}
-            onMaskChange={setMaskDataUrl}
-            onMaskStateChange={setMaskState}
-            controlsRef={maskControlsRef}
+    <>
+      <ImageViewer
+        title={localizeUi("ui.chat.chatimagelightbox.imagePreview")}
+        // Escape, back and outside taps first leave the regenerate panel, then the viewer.
+        onClose={() => (editing ? closeEditing() : onClose())}
+        onCloseButton={onClose}
+        closeDisabled={busy || navigating || interactionDisabled}
+        closeLabel={localizeUi("ui.chat.chatimagelightbox.closeImage")}
+        closeButtonRef={closeButtonRef}
+        overMari={overMari}
+        src={image.url}
+        alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+        childrenMaxHeightClass={
+          editing ? "max-h-[64%] [@media(max-height:520px)]:max-h-[82%] sm:max-h-[48%]" : undefined
+        }
+        pictureActions={editing ? editActions?.(image, busy || interactionDisabled) : undefined}
+        media={
+          editing && editSurfaceActive ? (
+            <ImageMaskCanvas
+              key={image.id}
+              src={image.url}
+              alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
+              disabled={busy || interactionDisabled}
+              tool={maskTool}
+              brushSizePx={maskBrushSize}
+              hideToolbar
+              onBackdropClick={busy || interactionDisabled ? undefined : closeEditing}
+              onMaskChange={setMaskDataUrl}
+              onMaskStateChange={setMaskState}
+              controlsRef={maskControlsRef}
+            />
+          ) : undefined
+        }
+        items={
+          galleryIndex >= 0 && !editing && !busy && !interactionDisabled
+            ? galleryImages.map((item) => ({
+                url: item.url,
+                alt: item.prompt || localizeUi("ui.chat.conversationmessagelightbox.expandedImage"),
+              }))
+            : undefined
+        }
+        index={galleryIndex}
+        versions={
+          chatGallery && stack
+            ? {
+                index: versionIndex,
+                count: stack.versions.length,
+                disabled: busy || maskState.hasMask || Boolean(maskState.isDrawing),
+                onIndexChange: (next) => {
+                  const target = stack.versions[next];
+                  if (!target || navigating || busy || maskState.hasMask || maskState.isDrawing) return;
+                  void selectVersion
+                    .mutateAsync(target)
+                    .then((result) => setImage(result.image))
+                    .catch((error) =>
+                      toast.error(
+                        error instanceof Error ? error.message : localizeUi("chat.imageVersions.selectFailed"),
+                      ),
+                    );
+                },
+              }
+            : undefined
+        }
+        onIndexChange={(next) => {
+          if (!galleryImages[next]) return;
+          setImage(galleryImages[next]);
+          setEditSurfaceActive(false);
+          resetMask({ resetToolAndBrush: true });
+        }}
+        actions={
+          <>
+            {!editing && actions?.(image)}
+            {chatGallery && !editing && (
+              <button
+                type="button"
+                disabled={busy || navigating}
+                className={VIEWER_BUTTON_CLASS}
+                aria-label={localizeUi("chat.imageVersions.deleteTitle")}
+                onClick={() => setDeleting(true)}
+              >
+                <Trash2 size="0.875rem" />
+              </button>
+            )}
+            {canRegenerate && !editing && (
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                disabled={busy || navigating || interactionDisabled}
+                aria-label={localizeUi("ui.chat.chatimagelightbox.regenerateImage")}
+                className={VIEWER_BUTTON_CLASS}
+                title={localizeUi("ui.chat.chatimagelightbox.regenerateImage")}
+              >
+                <RefreshCw size="0.875rem" />
+              </button>
+            )}
+            {pinEnabled && !editing && (
+              <button
+                type="button"
+                disabled={busy || navigating}
+                onClick={() => {
+                  if (onPin) onPin(image);
+                  else pinImage(image);
+                  onClose();
+                }}
+                aria-label={localizeUi("ui.chat.chatgallery.pinImageToChat")}
+                className={VIEWER_BUTTON_CLASS}
+                title={localizeUi("ui.chat.chatgallery.pinToChat")}
+              >
+                <Pin size="0.875rem" />
+              </button>
+            )}
+            {downloadEnabled && !editing && (
+              <ImageDownloadButton url={image.url} filename={downloadName} className={VIEWER_BUTTON_CLASS} />
+            )}
+          </>
+        }
+      >
+        {editing && canRegenerate ? (
+          <ImageRegeneratePanel
+            image={image}
+            regenerator={regenerator}
+            record={record}
+            messageId={regenerate.messageId}
+            maskDataUrl={maskDataUrl}
+            maskControls={{
+              tool: maskTool,
+              onToolChange: setMaskTool,
+              brushSizePx: maskBrushSize,
+              onBrushSizeChange: setMaskBrushSize,
+              strokeCount: maskState.strokeCount,
+              hasMask: maskState.hasMask,
+              isDrawing: Boolean(maskState.isDrawing),
+              onInvert: () => maskControlsRef.current?.invert(),
+              onUndo: () => maskControlsRef.current?.undo(),
+              onClear: () => maskControlsRef.current?.clear(),
+            }}
+            onEditSurfaceChange={handleEditSurfaceChange}
+            onBusyChange={setBusy}
+            onCancel={closeEditing}
+            disabled={interactionDisabled}
+            onRegenerated={(next) => {
+              setImage(next);
+              resetMask();
+              maskControlsRef.current?.clear();
+            }}
           />
-        ) : undefined
-      }
-      items={
-        images && galleryIndex >= 0 && !editing && !busy && !interactionDisabled
-          ? images.map((item) => ({
-              url: item.url,
-              alt: item.prompt || localizeUi("ui.chat.conversationmessagelightbox.expandedImage"),
-            }))
-          : undefined
-      }
-      index={galleryIndex}
-      onIndexChange={(next) => {
-        if (!images) return;
-        setImage(images[next]!);
-        setEditSurfaceActive(false);
-        resetMask({ resetToolAndBrush: true });
-      }}
-      actions={
-        <>
-          {!editing && actions?.(image)}
-          {canRegenerate && !editing && (
-            <button
-              type="button"
-              disabled={interactionDisabled}
-              onClick={() => setEditing(true)}
-              aria-label={localizeUi("ui.chat.chatimagelightbox.regenerateImage")}
-              className={VIEWER_BUTTON_CLASS}
-              title={localizeUi("ui.chat.chatimagelightbox.regenerateImage")}
-            >
-              <RefreshCw size="0.875rem" />
-            </button>
-          )}
-          {pinEnabled && !editing && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                if (onPin) onPin(image);
-                else pinImage(image);
-                onClose();
-              }}
-              aria-label={localizeUi("ui.chat.chatgallery.pinImageToChat")}
-              className={VIEWER_BUTTON_CLASS}
-              title={localizeUi("ui.chat.chatgallery.pinToChat")}
-            >
-              <Pin size="0.875rem" />
-            </button>
-          )}
-          {downloadEnabled && !editing && (
-            <ImageDownloadButton url={image.url} filename={downloadName} className={VIEWER_BUTTON_CLASS} />
-          )}
-        </>
-      }
-    >
-      {editing && canRegenerate ? (
-        <ImageRegeneratePanel
+        ) : loadingDetails ? (
+          <p
+            role="status"
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--sidebar)] px-4 py-3 text-sm text-[var(--foreground)]"
+          >
+            {localizeUi("ui.chat.chatimagelightbox.loadingPrompt")}
+          </p>
+        ) : (
+          <>
+            {detailsFailed && (
+              <button
+                type="button"
+                className={cn(VIEWER_BUTTON_CLASS, "w-auto px-3")}
+                onClick={() => void gallery.refetch()}
+              >
+                {localizeUi("ui.chat.chatimagelightbox.retryPrompt")}
+              </button>
+            )}
+            <ImagePromptPanel
+              prompt={prompt}
+              negativePrompt={record?.negativePrompt}
+              characterPrompts={record?.characterPrompts}
+              meta={meta}
+            />
+          </>
+        )}
+      </ImageViewer>
+      {deleting && (
+        <ChatImageDeleteDialog
           image={image}
-          regenerator={regenerator}
-          record={record}
-          messageId={regenerate.messageId}
-          maskDataUrl={maskDataUrl}
-          maskControls={{
-            tool: maskTool,
-            onToolChange: setMaskTool,
-            brushSizePx: maskBrushSize,
-            onBrushSizeChange: setMaskBrushSize,
-            strokeCount: maskState.strokeCount,
-            hasMask: maskState.hasMask,
-            isDrawing: Boolean(maskState.isDrawing),
-            onInvert: () => maskControlsRef.current?.invert(),
-            onUndo: () => maskControlsRef.current?.undo(),
-            onClear: () => maskControlsRef.current?.clear(),
-          }}
-          onEditSurfaceChange={handleEditSurfaceChange}
-          onBusyChange={setBusy}
-          onCancel={closeEditing}
-          disabled={interactionDisabled}
-          onRegenerated={(next) => {
-            setImage(next);
-            resetMask();
-            maskControlsRef.current?.clear();
+          versionIds={stack?.versions.map((row) => row.id) ?? [image.id]}
+          index={versionIndex}
+          onClose={() => setDeleting(false)}
+          onDeleted={(result) => {
+            setDeleting(false);
+            const selected = stack?.versions.find((row) => row.id === result.selectedImageId);
+            if (selected) setImage(selected);
+            else onClose();
           }}
         />
-      ) : loadingDetails ? (
-        <p
-          role="status"
-          className="w-full rounded-xl border border-[var(--border)] bg-[var(--sidebar)] px-4 py-3 text-sm text-[var(--foreground)]"
-        >
-          {localizeUi("ui.chat.chatimagelightbox.loadingPrompt")}
-        </p>
-      ) : (
-        <>
-          {detailsFailed && (
-            <button
-              type="button"
-              className={cn(VIEWER_BUTTON_CLASS, "w-auto px-3")}
-              onClick={() => void gallery.refetch()}
-            >
-              {localizeUi("ui.chat.chatimagelightbox.retryPrompt")}
-            </button>
-          )}
-          <ImagePromptPanel
-            prompt={prompt}
-            negativePrompt={record?.negativePrompt}
-            characterPrompts={record?.characterPrompts}
-            meta={meta}
-          />
-        </>
       )}
-    </ImageViewer>
+    </>
   );
 }
 

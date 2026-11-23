@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { buildChatImageGenerationRecord, type SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
@@ -241,6 +242,7 @@ async function openChat(page: Page, chatId: string) {
     rightPanelOpen: false,
     sidebarOpen: false,
     chatHelpSeenModes: ["conversation", "roleplay", "game"],
+    editLastMessageOnArrowUp: true,
   });
   await page.addInitScript(
     ({ chatId, version }) => {
@@ -267,6 +269,303 @@ async function screenshot(page: Page, info: TestInfo, name: string) {
     animations: "disabled",
   });
 }
+
+async function watchBackgroundMessageEdits(page: Page) {
+  await page.evaluate(() => {
+    document.body.dataset.imageViewerMessageEdits = "0";
+    window.addEventListener("marinara:start-edit-message", () => {
+      document.body.dataset.imageViewerMessageEdits = String(Number(document.body.dataset.imageViewerMessageEdits) + 1);
+    });
+  });
+}
+
+test("chat image version stacks keep two navigation axes and persist the selected result", async ({
+  page,
+  request,
+  browserName,
+  isMobile,
+}, info) => {
+  test.setTimeout(120_000);
+  const png = await sharp({ create: { width: 640, height: 480, channels: 3, background: "#164e63" } })
+    .png()
+    .toBuffer();
+  const provider = createServer(async (incoming, outgoing) => {
+    for await (const _chunk of incoming) {
+      /* consume the request before replying */
+    }
+    outgoing.writeHead(200, { "content-type": "application/json" });
+    outgoing.end(JSON.stringify({ data: [{ b64_json: png.toString("base64") }] }));
+  });
+  let cleanupConnectionId: string | undefined;
+  let cleanupChatId: string | undefined;
+  try {
+    await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+    const address = provider.address() as { port: number };
+    const connectionResponse = await request.post("/api/connections", {
+      data: {
+        name: "Version stack fixture",
+        provider: "image_generation",
+        imageGenerationSource: "openai",
+        imageService: "openai",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "fixture",
+        model: "dall-e-3",
+      },
+    });
+    expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+    const connection = (await connectionResponse.json()) as { id: string };
+    cleanupConnectionId = connection.id;
+    const created = await request.post("/api/chats", {
+      data: { name: "Image version stacks", mode: "roleplay", characterIds: [] },
+    });
+    expect(created.ok()).toBeTruthy();
+    const { id: chatId } = (await created.json()) as { id: string };
+    cleanupChatId = chatId;
+    const other = await upload(request, chatId, "Separate gallery picture", png);
+    const original = await upload(request, chatId, "First stack version", png);
+    const messageResponse = await request.post(`/api/chats/${chatId}/messages`, {
+      data: {
+        role: "assistant",
+        content: "A picture with saved alternatives.",
+        extra: { attachments: [{ type: "image", galleryId: original.id, url: original.url }] },
+      },
+    });
+    expect(messageResponse.ok(), await messageResponse.text()).toBeTruthy();
+    const savedMessage = (await messageResponse.json()) as { id: string };
+    const generate = async (prompt: string) => {
+      const result = await request.post(`/api/gallery/${chatId}/images/${original.id}/regenerate`, {
+        data: {
+          prompt,
+          connectionId: connection.id,
+          negativePrompt: Array.from({ length: 35 }, (_, index) => `Saved negative prompt line ${index}`).join("\n"),
+        },
+      });
+      expect(result.ok(), await result.text()).toBeTruthy();
+      return (await result.json()).image as ChatImage;
+    };
+    const second = await generate("Second stack version");
+    const third = await generate("Third stack version");
+    await openChat(page, chatId);
+    await watchBackgroundMessageEdits(page);
+    let drawer = await openChatSettingsTool(page, "gallery");
+    await expect(drawer.getByRole("button", { name: "Open gallery image", exact: true })).toHaveCount(2);
+    await openGalleryImage(drawer, third.prompt);
+    const dialog = page.getByRole("dialog", { name: "Image preview", exact: true });
+    const position = (n: number) => dialog.getByText(`Version ${n} of 3`, { exact: true });
+    await expect(position(3)).toBeVisible();
+    // The prompt panel opens collapsed; the prompt checks below need its text.
+    await dialog.getByRole("button", { name: "Expand panel", exact: true }).click();
+    await dialog.getByRole("button", { name: "Previous image version", exact: true }).click();
+    await expect(position(2)).toBeVisible();
+    const rows = async () => (await request.get(`/api/gallery/${chatId}`)).json() as Promise<ChatImage[]>;
+    await expect.poll(async () => (await rows()).find((row) => row.variantSelected === 1)?.id).toBe(second.id);
+    await page.route(
+      `**/api/gallery/${chatId}/images/${original.id}/select`,
+      (route) => route.fulfill({ status: 503, json: { error: "Version selection unavailable" } }),
+      { times: 1 },
+    );
+    await dialog.getByRole("button", { name: "Previous image version", exact: true }).click();
+    await expect(page.getByText("Version selection unavailable", { exact: true })).toBeVisible();
+    await expect(position(2)).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Regenerate image", exact: true })).toBeEnabled();
+    await page
+      .locator("[data-sonner-toast]")
+      .filter({ hasText: "Version selection unavailable" })
+      .getByRole("button")
+      .click();
+    await expect(page.getByText("Version selection unavailable", { exact: true })).toBeHidden();
+    await page.keyboard.press("ArrowDown");
+    await expect(position(3)).toBeVisible();
+    await page.keyboard.press("ArrowUp");
+    await expect(position(2)).toBeVisible();
+    const nextGallery = dialog.getByRole("button", { name: "Next image", exact: true });
+    const forward = await nextGallery.isEnabled();
+    await page.keyboard.press(forward ? "ArrowRight" : "ArrowLeft");
+    await expect(dialog.getByText(other.prompt, { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Previous image version", exact: true })).toHaveCount(0);
+    await page.keyboard.press(forward ? "ArrowLeft" : "ArrowRight");
+    await expect(position(2)).toBeVisible();
+
+    if (isMobile && browserName === "chromium") {
+      const picture = dialog.locator("img").first();
+      const rect = await picture.boundingBox();
+      expect(rect).not.toBeNull();
+      const touch = await page.context().newCDPSession(page);
+      try {
+        const x = rect!.x + rect!.width / 3;
+        const y = rect!.y + rect!.height / 2;
+        await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+        await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y - 80 }] });
+        await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        await expect(position(3)).toBeVisible();
+        await page.keyboard.press("ArrowUp");
+        await expect(position(2)).toBeVisible();
+      } finally {
+        await touch.detach();
+      }
+    }
+    await page.keyboard.press("+");
+    await expect(dialog.getByRole("button", { name: "Next image version", exact: true })).toBeDisabled();
+    await page.keyboard.press("ArrowDown");
+    await expect(position(2)).toBeVisible();
+    await page.keyboard.press("0");
+    await expect(dialog.getByRole("button", { name: "Next image version", exact: true })).toBeEnabled();
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: () => Promise.reject(new Error("Exercise clipboard fallback")) },
+      });
+    });
+    const copyPrompt = dialog.getByRole("button", { name: "Copy Positive prompt", exact: true });
+    await copyPrompt.click();
+    await expect(page.locator("[data-sonner-toast]")).toBeVisible();
+    await expect(copyPrompt).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(position(2)).toBeVisible();
+    const scrollPrompt = dialog.locator("[data-image-viewer-scroll]");
+    await expect.poll(() => scrollPrompt.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await page.keyboard.press("ArrowUp");
+    await expect.poll(() => scrollPrompt.evaluate((element) => element.scrollTop)).toBe(0);
+    await dialog.getByRole("button", { name: "Collapse panel", exact: true }).click();
+    await page.keyboard.press("ArrowUp");
+    await expect(position(1)).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(position(2)).toBeVisible();
+    await dialog.getByRole("button", { name: "Expand panel", exact: true }).click();
+    await page.keyboard.press("ArrowUp");
+    await expect(position(1)).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(position(2)).toBeVisible();
+    await dialog.getByRole("heading", { name: "Prompt", exact: true }).click();
+    await page.keyboard.press("ArrowUp");
+    await expect(position(1)).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(position(2)).toBeVisible();
+    await dialog.getByText(second.prompt, { exact: true }).click();
+    await page.keyboard.press("ArrowDown");
+    await expect.poll(() => scrollPrompt.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await dialog.locator("img").first().click();
+    await page.keyboard.press("ArrowUp");
+    await expect(position(1)).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await expect(position(2)).toBeVisible();
+    await expect(page.locator("body")).toHaveAttribute("data-image-viewer-message-edits", "0");
+    for (const closeToast of await page.locator("[data-sonner-toast] [data-close-button]").all())
+      await closeToast.click();
+    await dialog.getByRole("button", { name: "Close image", exact: true }).focus();
+    const previousVersion = dialog.getByRole("button", { name: "Previous image version", exact: true });
+    const nextVersion = dialog.getByRole("button", { name: "Next image version", exact: true });
+    await expect
+      .poll(async () => {
+        const up = await previousVersion.boundingBox();
+        const down = await nextVersion.boundingBox();
+        const left = await dialog.getByRole("button", { name: "Previous image", exact: true }).boundingBox();
+        const right = await dialog.getByRole("button", { name: "Next image", exact: true }).boundingBox();
+        const picture = await dialog.locator("img").first().boundingBox();
+        if (!up || !down || !left || !right || !picture) return false;
+        const cx = (rect: { x: number; width: number }) => rect.x + rect.width / 2;
+        return (
+          Math.abs(cx(up) - cx(down)) < 1 &&
+          Math.abs(cx(up) - (cx(left) + cx(right)) / 2) < 1 &&
+          up.y + up.height <= picture.y + 1 &&
+          down.y >= picture.y + picture.height - 1
+        );
+      })
+      .toBe(true);
+    const normalViewport = page.viewportSize()!;
+    await page.setViewportSize({ width: normalViewport.width, height: 390 });
+    await expect
+      .poll(async () => (await dialog.locator("img").first().boundingBox())?.height ?? 0)
+      .toBeGreaterThanOrEqual(64);
+    await expect
+      .poll(async () => {
+        const down = await nextVersion.boundingBox();
+        const caption = await dialog.locator("[data-image-viewer-caption]").boundingBox();
+        const filmstrip = await dialog.getByRole("button", { name: "Show image 1", exact: true }).boundingBox();
+        return (
+          !!down &&
+          !!caption &&
+          !!filmstrip &&
+          down.y + down.height <= caption.y + 1 &&
+          filmstrip.y + filmstrip.height <= 390
+        );
+      })
+      .toBe(true);
+    await screenshot(page, info, "stack-short-viewport");
+    await page.setViewportSize(normalViewport);
+    for (const [visualTheme, theme] of [
+      ["default", "light"],
+      ["default", "dark"],
+      ["sillytavern", "light"],
+      ["sillytavern", "dark"],
+    ] as const) {
+      await page.evaluate(
+        async ({ visualTheme, theme }) => {
+          const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+          useUIStore.getState().setTheme(theme);
+          useUIStore.getState().setVisualTheme(visualTheme);
+        },
+        { visualTheme, theme },
+      );
+      await screenshot(page, info, `stack-${visualTheme}-${theme}`);
+    }
+    await page.reload();
+    await watchBackgroundMessageEdits(page);
+    drawer = await openChatSettingsTool(page, "gallery");
+    await openGalleryImage(drawer, second.prompt);
+    await expect(position(2)).toBeVisible();
+    const messageRows = await (await request.get(`/api/chats/${chatId}/messages`)).json();
+    const savedExtra = messageRows.find((row: { id: string }) => row.id === savedMessage.id).extra;
+    const attachments = (typeof savedExtra === "string" ? JSON.parse(savedExtra) : savedExtra).attachments;
+    expect(attachments[0].galleryId).toBe(second.id);
+    await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
+    const chooser = page.getByRole("dialog", { name: "Delete image?", exact: true });
+    await page.keyboard.press("ArrowUp");
+    await expect(page.locator("body")).toHaveAttribute("data-image-viewer-message-edits", "0");
+    await screenshot(page, info, "stack-delete-chooser");
+    await chooser.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(await rows()).toHaveLength(4);
+    await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
+    const fourth = await generate("Fourth stack version");
+    await chooser.getByRole("button", { name: /Delete other version/ }).click();
+    await expect(
+      page.getByText("The saved versions changed. Reopen the delete dialog to review them.", { exact: true }),
+    ).toBeVisible();
+    await expect(chooser).toHaveCount(0);
+    expect(await rows()).toHaveLength(5);
+    await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
+    await chooser.getByRole("button", { name: /Delete this version/ }).click();
+    await expect(dialog.getByText("Version 3 of 3", { exact: true })).toBeVisible();
+    await expect.poll(async () => (await rows()).find((row) => row.variantSelected === 1)?.id).toBe(fourth.id);
+    await dialog.getByRole("button", { name: "Delete image?", exact: true }).click();
+    await chooser.getByRole("button", { name: /Delete other version/ }).click();
+    await expect(dialog.getByRole("button", { name: "Previous image version", exact: true })).toHaveCount(0);
+    await expect.poll(async () => (await rows()).length).toBe(2);
+    await dialog.getByRole("button", { name: "Regenerate image", exact: true }).click();
+    const editPrompt = dialog.getByRole("textbox", { name: "Prompt", exact: true });
+    await editPrompt.fill("");
+    await page.keyboard.press("ArrowUp");
+    await expect(page.locator("body")).toHaveAttribute("data-image-viewer-message-edits", "0");
+    await editPrompt.fill("Fifth stack version");
+    await dialog.getByRole("button", { name: "Generate image", exact: true }).click();
+    await expect(dialog.getByText("Version 2 of 2", { exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: "Previous image version", exact: true }).click();
+    await expect(editPrompt).toHaveValue("Fourth stack version");
+    await dialog.getByRole("heading", { name: "Regenerate image", exact: true }).click();
+    await page.keyboard.press("ArrowDown");
+    await expect(editPrompt).toHaveValue("Fifth stack version");
+    await screenshot(page, info, "stack-regeneration-controls");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await dialog.getByRole("button", { name: "Close image", exact: true }).click();
+    await expect(drawer.getByRole("button", { name: "Open gallery image", exact: true })).toHaveCount(2);
+  } finally {
+    if (cleanupChatId) await request.delete(`/api/chats/${cleanupChatId}`).catch(() => {});
+    if (cleanupConnectionId) await request.delete(`/api/connections/${cleanupConnectionId}`).catch(() => {});
+    provider.closeAllConnections();
+    if (provider.listening)
+      await new Promise<void>((resolve, reject) => provider.close((error) => (error ? reject(error) : resolve())));
+  }
+});
 
 test("gallery navigation remains usable after the first image fails to load", async ({ page, request }) => {
   const created = await request.post("/api/chats", {
@@ -628,7 +927,7 @@ test("gallery regeneration preserves structured prompts and can revise, generate
 test("novelai edit mode supports img2img, painted mask infill, seed reuse, and stays open on edit", async ({
   page,
   request,
-}) => {
+}, info) => {
   test.setTimeout(90_000);
   const response = await request.post("/api/chats", {
     data: { name: "NovelAI harbor", mode: "roleplay", characterIds: [], connectionId: "synthetic" },
@@ -646,6 +945,7 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
       connectionId: "nai-edit-e2e",
       seed: 424242,
     };
+    await upload(request, chatId, "Earlier NovelAI result", png);
     const image = await upload(request, chatId, recordInput.prompt, png);
 
     await page.route("**/api/connections", (route) =>
@@ -669,11 +969,12 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
       const rows = (await upstream.json()) as ChatImage[];
       await route.fulfill({
         response: upstream,
-        json: rows.map((row) =>
-          row.id === image.id
-            ? { ...row, generation: JSON.stringify(buildChatImageGenerationRecord(recordInput)) }
-            : row,
-        ),
+        json: rows.map((row) => ({
+          ...row,
+          variantGroupId: image.id,
+          variantSelected: row.id === image.id ? 1 : 0,
+          ...(row.id === image.id && { generation: JSON.stringify(buildChatImageGenerationRecord(recordInput)) }),
+        })),
       });
     });
 
@@ -686,6 +987,8 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
         json: {
           image: {
             ...image,
+            variantGroupId: image.id,
+            variantSelected: 1,
             prompt: syncedPrompt,
             generation: JSON.stringify(
               buildChatImageGenerationRecord({
@@ -714,6 +1017,8 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
 
     const maskCanvas = dialog.getByLabel("Inpainting mask brush canvas");
     await expect(maskCanvas).toBeVisible();
+    const previousVersion = dialog.getByRole("button", { name: "Previous image version", exact: true });
+    await expect(previousVersion).toBeEnabled();
     await expect(dialog.getByText("Img2Img", { exact: true })).toBeVisible();
     const invertBtn = dialog.getByRole("button", { name: "Invert mask", exact: true });
     await expect(invertBtn).toBeDisabled();
@@ -734,11 +1039,14 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
       }),
     );
 
+    await expect(applyEdit).toBeEnabled();
     await expect(maskCanvas).toHaveClass(/\bcursor-crosshair\b/);
     await expect.poll(() => maskCanvas.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBe(640);
+    await maskCanvas.scrollIntoViewIfNeeded();
     const box = await maskCanvas.boundingBox();
     expect(box).toBeTruthy();
-    // The success toast can cover this point briefly on phones; wait for a clear paint target.
+    // A regenerated result can resize the stage, and the success toast can cover this point briefly on phones.
+    // Hover waits for the canvas to settle and offer a clear paint target.
     await maskCanvas.hover({ position: { x: box!.width * 0.4, y: box!.height * 0.4 } });
     await page.mouse.move(box!.x + box!.width * 0.4, box!.y + box!.height * 0.4);
     await page.mouse.down();
@@ -746,6 +1054,7 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
     await page.mouse.up();
 
     await expect(dialog.getByText("Inpainting mask active", { exact: true })).toBeVisible();
+    await expect(previousVersion).toBeDisabled();
     await expect(invertBtn).toBeEnabled();
     await invertBtn.click();
 
@@ -753,6 +1062,7 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
     await expect(inpaintBtn).toBeVisible();
     await inpaintBtn.click();
     await expect(promptField).toHaveValue("1girl, harbor at dusk (step 1) (step 2)");
+    await expect(previousVersion).toBeEnabled();
     expect(editRequests[1]).toEqual(
       expect.objectContaining({
         editMode: "infill",
@@ -761,6 +1071,7 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
       }),
     );
     expect(String(editRequests[1]?.maskImage ?? "")).toMatch(/^data:image\/png;base64,/);
+    await screenshot(page, info, "stack-inpainting-controls");
   } finally {
     await request.delete(`/api/chats/${chatId}`);
   }

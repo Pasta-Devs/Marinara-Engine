@@ -30,7 +30,11 @@ function SavedPrompt({ label, value }: { label: string; value?: string | null })
           onClick={(event) => {
             event.preventDefault();
             event.stopPropagation();
+            const copyButton = event.currentTarget;
             void copyToClipboard(value).then((ok) => {
+              // The legacy clipboard textarea leaves focus on body when removed.
+              if (copyButton.isConnected && document.activeElement === document.body)
+                copyButton.focus({ preventScroll: true });
               if (ok) toast.success(t("ui.chat.chatgallery.promptCopied"));
               else toast.error(t("ui.chat.chatgallery.couldNotCopyPrompt"));
             });
@@ -70,6 +74,12 @@ export function ImagePromptPanel({
       onClick={(event) => event.stopPropagation()}
     >
       <div
+        data-image-viewer-navigation
+        tabIndex={-1}
+        onPointerDown={(event) => {
+          const button = event.target instanceof Element ? event.target.closest<HTMLElement>("button") : null;
+          (button ?? event.currentTarget).focus({ preventScroll: true });
+        }}
         className={cn(
           "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
           !collapsed && "border-b border-[var(--border)]",
@@ -94,7 +104,15 @@ export function ImagePromptPanel({
         </button>
       </div>
       {!collapsed && (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
+        <div
+          data-image-viewer-scroll
+          tabIndex={0}
+          onPointerDown={(event) => {
+            const button = event.target instanceof Element ? event.target.closest<HTMLElement>("button") : null;
+            (button ?? event.currentTarget).focus({ preventScroll: true });
+          }}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3"
+        >
           {hasPrompts && (
             <div className="space-y-3">
               <SavedPrompt label={t("ui.chat.imagepromptpanel.positivePrompt")} value={prompt} />
