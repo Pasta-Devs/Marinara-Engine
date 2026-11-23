@@ -656,7 +656,9 @@ export function AvatarGenerationModal({
       tabs={[
         {
           id: "own",
-          label: entityName.trim() || localizeUi("ui.ui.imagereferencepicker.galleryPicture"),
+          // First name only, so a long name still fits beside Gallery and Device (the tab truncates the rest).
+          label: entityName.trim().split(/\s+/)[0] || localizeUi("ui.ui.imagereferencepicker.galleryPicture"),
+          title: entityName.trim() || undefined,
           content: (
             <ImageReferenceGrid
               sources={ownSources}

@@ -335,7 +335,7 @@ export function ImageReferenceRow({
 /** A picture the chooser offers. */
 export type ImageReferenceSource = Omit<PickedImageReference, "role"> & { role: ImageReferenceRole };
 
-export type ImageReferenceChooserTab = { id: string; label: string; content: ReactNode };
+export type ImageReferenceChooserTab = { id: string; label: string; title?: string; content: ReactNode };
 
 /** The grid of pictures one chooser tab offers; selected ones show their add order. */
 export function ImageReferenceGrid({
@@ -471,14 +471,15 @@ export function ImageReferenceChooser({
       )}
       <div role="tablist" className="flex gap-1 rounded-lg bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
         {[
-          ...tabs.map((tab) => ({ id: tab.id, label: tab.label })),
-          { id: deviceTab, label: localizeUi("ui.ui.imagereferencepicker.tabDevice") },
+          ...tabs.map((tab) => ({ id: tab.id, label: tab.label, title: tab.title })),
+          { id: deviceTab, label: localizeUi("ui.ui.imagereferencepicker.tabDevice"), title: undefined },
         ].map((tab) => (
           <button
             key={tab.id}
             type="button"
             role="tab"
             aria-selected={activeTab === tab.id}
+            title={tab.title}
             onClick={() => onTabChange(tab.id)}
             className={cn(
               "min-h-8 min-w-0 flex-1 truncate rounded-md px-2 text-xs transition-colors max-sm:text-[13px] [@media(pointer:coarse)]:min-h-11",
