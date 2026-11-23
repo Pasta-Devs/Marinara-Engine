@@ -37,6 +37,8 @@ Options de **Resolution** : 512x512, 512x768, 768x768, 768x1024, 896x1152 et 102
 
 Si la fiche ou le persona utilise des **Tags d'image** (l'onglet **Tags d'image** de **Apparence** dans l'éditeur, avec **Utiliser pour les prompts d'image** coché), Marinara les envoie à la place de la prose de **Apparence**. Une alternative d'apparence active dans le chat utilise ses propres tags ou sa propre prose. Utilise cette option quand **Apparence** est écrit pour l'histoire, pas pour les images.
 
+Un selfie qu'un personnage envoie dans une réponse transmet aussi les images placées dans les **Reference images** (images de référence) des entrées de lorebook actives pour cette réponse, quand le service d'image accepte des images de référence. Aucun réglage ne les active. Stability AI, Arli AI, SD Web UI et Draw Things n'en reçoivent aucune, car ils partiraient de l'image de l'entrée pour créer le selfie. Le bouton **Selfie** de la Gallery n'en envoie aucune.
+
 ## Demander un selfie à la main
 
 1. Ouvre **Chat Settings** et déploie la section **Gallery**.

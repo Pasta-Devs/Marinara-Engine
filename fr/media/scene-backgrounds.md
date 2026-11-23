@@ -74,7 +74,7 @@ Tu peux refaire une image générée sans régénérer la réponse à laquelle e
 3. Modifie ce que tu veux dans les champs sous l'image : **Prompt**, **Negative prompt** (prompt négatif), un champ pour chaque personnage sous **Character prompts** (prompts de personnage) si l'image en avait, et le modèle d'image.
 4. Clique sur **Generate image** (générer l'image), ou sur **Cancel** pour laisser l'image telle quelle.
 
-La nouvelle image devient la version sélectionnée dans le message. Les résultats précédents restent regroupés dans une seule vignette de la galerie, avec un compteur de versions. Chaque version conserve son prompt, son prompt négatif et les autres détails de génération enregistrés. Les images de référence sont renvoyées à partir des avatars actuels des personnages. Certaines images plus anciennes n'ont pas enregistré leur prompt négatif ni leurs prompts de personnage ; l'éditeur l'indique le cas échéant.
+La nouvelle image devient la version sélectionnée dans le message. Les résultats précédents restent regroupés dans une seule vignette de la galerie, avec un compteur de versions. Chaque version conserve son prompt, son prompt négatif et les autres détails de génération enregistrés. Les images de référence sont renvoyées à partir des avatars actuels des personnages, suivies des images d'entrées de lorebook avec lesquelles l'image a été dessinée la première fois. Stability AI, Arli AI, SD Web UI et Draw Things ne reçoivent aucune image d'entrée. Certaines images plus anciennes n'ont pas enregistré leur prompt négatif ni leurs prompts de personnage ; l'éditeur l'indique le cas échéant.
 
 ### Versions d'image
 

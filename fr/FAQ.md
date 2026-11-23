@@ -62,7 +62,7 @@ Marinara prend en charge OpenAI, Anthropic, Google Gemini, OpenRouter et bien d'
 
 ## Faut-il payer pour utiliser Marinara ?
 
-Marinara est gratuit. Tu paies ce que facture ton service d'IA. Certaines options ne coûtent rien à l'essai : les images **Pollinations** ne demandent aucune clé, **Stable Horde** est gratuit, et le **Built-in model** tourne sur ton ordinateur. Les options par abonnement utilisent un forfait payant que tu as peut-être déjà.
+Marinara est gratuit. Tu paies ce que facture ton service d'IA. Certaines options ne coûtent rien à l'essai : les images **Pollinations** ne demandent aucune clé, les images **Stable Horde** sont gratuites, **AI Horde** et **BeaverNet** font tourner des modèles de chat gratuitement (voir [AI Horde](connections/providers-reference.md#ai-horde)), et le **Built-in model** tourne sur ton ordinateur. Les options par abonnement utilisent un forfait payant que tu as peut-être déjà.
 
 ## Mes clés API sont-elles en sécurité ?
 

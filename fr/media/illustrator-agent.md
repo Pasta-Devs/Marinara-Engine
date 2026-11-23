@@ -85,6 +85,8 @@ Avec **Send Avatar References** activé pour les images, **Reference pictures go
 
 Le modèle qui rédige le prompt permet de contourner les modèles d'image qui ignorent les images de référence, comme NovelAI V5. Il faut qu'il puisse lire les images. S'il les refuse, sa requête est renvoyée sans les images, et ce modèle n'en reçoit plus jusqu'au redémarrage du serveur. Un modèle de rédaction dont la connexion est marquée comme ne lisant pas les images n'en reçoit aucune. Lui envoyer des images coûte des tokens à chaque exécution. Au plus quatre images sont envoyées : celles des fiches nommées dans `[illustrate: characters="…"]`, ou, à défaut, celles des personnages actifs du chat et du persona. **What to carry over from the pictures** (ce qu'il faut reprendre des images) indique ce que le modèle de rédaction copie, par exemple seulement l'apparence et pas le style graphique. Un chat Roleplay peut définir son propre choix **Reference pictures go to** sous **Send Avatar References**.
 
+Dans un chat Roleplay, les images placées dans les **Reference images** (images de référence) d'une entrée de lorebook vont aussi au modèle d'image, quand l'entrée est active pour la réponse. Utilise-les pour un costume, un accessoire ou une pièce que l'image doit respecter. Aucun réglage ne les active. Seul un service d'images qui accepte les images de référence les reçoit. Stability AI, Arli AI, SD Web UI et Draw Things n'en reçoivent aucune, car ils partiraient de l'image de l'entrée pour créer l'image. Avec **Send Avatar References** activé, le choix **Prompt writer** les retient aussi. Elles passent après la **Location reference image** (image de référence du lieu) de [World Maps](../agents/hierarchical-maps.md) et les avatars, avec au plus six images en tout. Une entrée dont le champ **Position** vaut **Outlet** n'envoie ses images que quand son Outlet est utilisé, et jamais depuis le bouton **Illustrate** (illustrer) de la Gallery.
+
 ## Contrôler la fréquence des images
 
 La carte Illustrator a un bouton **Open Setup** qui ouvre l'écran de configuration complet. Tu y règles l'intervalle d'exécution par défaut et tu donnes à l'agent son propre modèle d'image.
@@ -93,7 +95,7 @@ Chaque chat Roleplay a son propre **Image Run Interval** (intervalle des images)
 
 Règle **Image Run Interval** sur **0** pour passer en mode manuel uniquement. Cela arrête les exécutions automatiques, y compris les arrière-plans de scène automatiques, mais garde l'agent disponible pour les actions de la Gallery. Indique un nombre positif pour reprendre.
 
-Pour créer une image tout de suite, ouvre **Chat Settings**, déplie **Gallery** et clique sur **Illustrate** (illustrer). L'agent Illustrator s'exécute une fois, sur-le-champ, et le bouton affiche **Generating...**.
+Pour créer une image tout de suite, ouvre **Chat Settings**, déplie **Gallery** et clique sur **Illustrate**. L'agent Illustrator s'exécute une fois, sur-le-champ, et le bouton affiche **Generating...**.
 
 ## Créer des clips
 
