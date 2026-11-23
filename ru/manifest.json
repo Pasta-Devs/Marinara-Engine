@@ -249,8 +249,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "6c8206bfbe26c9dc8c6ac13a62d0074e2a14ed270a0bc5e80e8173c81dfce5be",
-      "bytes": 33548
+      "sha256": "0269cd0fe13e348c94c1836d997ceb11a6c645af1729695463f08df8de4ff5eb",
+      "bytes": 33531
     },
     {
       "path": "connections/subscription-clis.md",
@@ -659,7 +659,7 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "c74d7dfbd9361db571a80d75c873d37313cb9f4cbd42ee429fdac89389498f05",
+      "sha256": "60b9a917887f0831ba246b106ce989175fb7a392e97b3270a2f284c7dfc3cbce",
       "bytes": 30994
     },
     {
