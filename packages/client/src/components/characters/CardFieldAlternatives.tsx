@@ -151,11 +151,12 @@ function AlternativeField({
     setNameDraft(name);
     update({ label: name.trim() || undefined });
   };
-  const generation = useCardFieldGeneration(
+  // The alternative's own prose and image tags are the draft; the Image tags wand writes the tags (#9640).
+  const generation = useCardFieldGeneration<CardFieldKey | "imageAppearance">(
     props.kind,
     props.entityId,
-    { ...props.card, [props.field]: alternative.value },
-    (_, text) => changeValue(text),
+    { ...props.card, [props.field]: alternative.value, imageAppearance: alternative.imageAppearance ?? "" },
+    (field, text) => (field === "imageAppearance" ? changeTags(text) : changeValue(text)),
   );
   // A chat uses one alternative for a field. Selecting it here moves an existing assignment.
   const selectChat = (chatId: string, checked: boolean) =>
@@ -225,8 +226,16 @@ function AlternativeField({
           />
         </h4>
         <div className="flex shrink-0 items-center gap-1">
-          {/* The wand writes the alternative's prose, so it stays off the Image tags tab. */}
-          {!showImageTags && (
+          {/* Each tab has its own wand: the prose wand would write the prose this tab hides. */}
+          {showImageTags ? (
+            <CardFieldWand
+              label={t("ui.cards.appearanceImageTags.alternativeTextareaLabel", { name: title })}
+              field="imageAppearance"
+              onGenerate={() => void generation.generate("imageAppearance")}
+              disabled={!props.entityId || generation.isPending}
+              loading={generation.isPending}
+            />
+          ) : (
             <CardFieldWand
               label={title}
               field={props.field}

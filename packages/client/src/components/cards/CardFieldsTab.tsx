@@ -9,7 +9,12 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { CARD_FIELD_KEYS } from "@marinara-engine/shared";
-import type { CardFieldAlternative, CardFieldDraft, CardFieldKey } from "@marinara-engine/shared";
+import type {
+  CardFieldAlternative,
+  CardFieldDraft,
+  CardFieldGenerationDraft,
+  CardFieldKey,
+} from "@marinara-engine/shared";
 
 import { CardFieldAlternatives } from "../characters/CardFieldAlternatives";
 import { CardFieldWand } from "../characters/CardFieldWand";
@@ -100,10 +105,17 @@ export function CardFieldsTab({
   onFieldFocus,
 }: CardFieldsTabProps) {
   // Only the card fields: persona passes its whole form as `values`, and this
-  // draft is posted with every generation request.
+  // draft is posted with every generation request. The image tags ride along for
+  // the Image tags wand (#9640), which keeps the author's own tags.
   const card = { name } as CardFieldDraft;
   for (const key of CARD_FIELD_KEYS) card[key] = values[key];
-  const generation = useCardFieldGeneration(variant, entityId, card, onFieldChange);
+  const generationDraft: CardFieldGenerationDraft = { ...card, imageAppearance: imageAppearance.value };
+  const generation = useCardFieldGeneration<CardFieldKey | "imageAppearance">(
+    variant,
+    entityId,
+    generationDraft,
+    (key, text) => (key === "imageAppearance" ? changeImageTags(imageAppearance, text) : onFieldChange(key, text)),
+  );
   const { t: localizeUi } = useUiTranslation();
   const [appearanceTab, setAppearanceTab] = useState<AppearanceTab>("prose");
 
@@ -174,7 +186,16 @@ export function CardFieldsTab({
           placeholder={localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder")}
           rows={field.rows}
           textareaClassName={imageAppearance.enabled ? undefined : "opacity-60"}
-          // No wand here: it writes the Appearance prose, which this tab hides.
+          // Its own wand: tags drawn from the prose; the prose wand would write the hidden prose.
+          actions={
+            <CardFieldWand
+              label={generation.labels.imageAppearance}
+              onGenerate={() => void generation.generate("imageAppearance")}
+              disabled={!entityId || generation.isPending}
+              loading={generation.pendingField === "imageAppearance"}
+              field="imageAppearance"
+            />
+          }
           belowHeader={appearanceTabs}
           footer={
             <>
