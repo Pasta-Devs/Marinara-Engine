@@ -864,6 +864,88 @@ try {
             autoRun.deps,
           );
           assert.deepEqual(autoRun.portraitCalls, [], `${origin}: scenePortraitPath suppresses auto-draw`);
+
+          // A scene portrait upload or revert landing while fillAvatars is awaiting survives target.save().
+          const concurrentChat = await trackerChat();
+          await gameStates.updateByMessage("msg-1", 0, concurrentChat.chatId, {
+            presentCharacters: [
+              {
+                characterId: "card-alice",
+                name: "Alice",
+                mood: "calm",
+                avatarPath: "/api/avatars/alice.png",
+              },
+            ],
+          } as never);
+          const concurrentUpload = fakeDeps({ origin }, { chatId: concurrentChat.chatId });
+          let baselineReads = 0;
+          const origLoadBaseline = concurrentUpload.deps.trackers.characters.loadBaseline;
+          concurrentUpload.deps.trackers.characters.loadBaseline = async () => {
+            baselineReads += 1;
+            if (baselineReads === 2) {
+              await gameStates.updateByMessage("msg-1", 0, concurrentChat.chatId, {
+                presentCharacters: [
+                  {
+                    characterId: "card-alice",
+                    name: "Alice",
+                    mood: "calm",
+                    avatarPath: "/api/avatars/alice.png",
+                    scenePortraitPath: scenePortrait,
+                    portraitFocusX: 40,
+                  },
+                ],
+              } as never);
+            }
+            return origLoadBaseline();
+          };
+          await applyAgentResultEffect(
+            result({
+              ...characterResult,
+              data: { presentCharacters: [{ characterId: "card-alice", name: "Alice", mood: "happy" }] },
+            }),
+            concurrentUpload.deps,
+          );
+          rows = await presentCharactersOf(concurrentChat);
+          assert.equal(
+            rows[0]!.scenePortraitPath,
+            scenePortrait,
+            `${origin}: concurrent upload during fillAvatars survives save`,
+          );
+          assert.equal(rows[0]!.portraitFocusX, 40, `${origin}: concurrent framing during fillAvatars survives save`);
+
+          let revertReads = 0;
+          const concurrentRevert = fakeDeps({ origin }, { chatId: concurrentChat.chatId });
+          const origRevertBaseline = concurrentRevert.deps.trackers.characters.loadBaseline;
+          concurrentRevert.deps.trackers.characters.loadBaseline = async () => {
+            revertReads += 1;
+            if (revertReads === 2) {
+              await gameStates.updateByMessage("msg-1", 0, concurrentChat.chatId, {
+                presentCharacters: [
+                  {
+                    characterId: "card-alice",
+                    name: "Alice",
+                    mood: "happy",
+                    avatarPath: "/api/avatars/alice.png",
+                    scenePortraitPath: null,
+                  },
+                ],
+              } as never);
+            }
+            return origRevertBaseline();
+          };
+          await applyAgentResultEffect(
+            result({
+              ...characterResult,
+              data: { presentCharacters: [{ characterId: "card-alice", name: "Alice", mood: "relieved" }] },
+            }),
+            concurrentRevert.deps,
+          );
+          rows = await presentCharactersOf(concurrentChat);
+          assert.equal(
+            rows[0]!.scenePortraitPath,
+            undefined,
+            `${origin}: concurrent revert during fillAvatars stays cleared`,
+          );
         }
 
         const compacted = compactGameStateForAgentContext(

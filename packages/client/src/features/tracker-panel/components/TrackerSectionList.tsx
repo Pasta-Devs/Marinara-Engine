@@ -49,7 +49,7 @@ export function TrackerSectionList({
   patchField,
   patchPlayerStats,
   patchPlayerStatsMany,
-  resolveCardCharacterId,
+  resolveCardCharacterStatus,
   resolveSpriteCharacterId,
   spriteExpressions,
   trackerPanelCollapsedSections,
@@ -87,7 +87,9 @@ export function TrackerSectionList({
       | Partial<NonNullable<GameState["playerStats"]>>
       | ((current: NonNullable<GameState["playerStats"]>) => Partial<NonNullable<GameState["playerStats"]>>),
   ) => void;
-  resolveCardCharacterId: (character: PresentCharacter) => string | null;
+  resolveCardCharacterStatus: (
+    character: PresentCharacter,
+  ) => { status: "card"; characterId: string } | { status: "npc" | "pending" };
   resolveSpriteCharacterId: (character: PresentCharacter) => string | null;
   spriteExpressions: Record<string, string>;
   trackerPanelCollapsedSections: TrackerPanelCollapsedSections;
@@ -168,7 +170,7 @@ export function TrackerSectionList({
     patchField,
     patchPlayerStats,
     removeFeaturedCharacterCard,
-    resolveCardCharacterId,
+    resolveCardCharacterStatus,
   });
   const isPanelCollapsed = (section: TrackerPanelSection) => trackerPanelCollapsedSections[section] === true;
   const toggleAutoGenerateCharacterAvatars = useCallback(() => {
@@ -284,6 +286,7 @@ export function TrackerSectionList({
             onUploadAvatar={openAvatarUpload}
             onGeneratePortrait={canGeneratePortraits ? generateAvatar : undefined}
             onRevertScenePortrait={revertScenePortrait}
+            isCardLookupPending={(character) => resolveCardCharacterStatus(character).status === "pending"}
             onToggleFeatured={toggleFeaturedCharacterCard}
             deleteMode={deleteMode}
             addMode={addMode}

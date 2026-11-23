@@ -72,7 +72,7 @@ export function useTrackerPanelModel({
   const { data: agentConfigs } = useAgentConfigs(characterTrackerLookupEnabled);
   const { data: activePersonaData } = usePersona(personaDataLookupEnabled ? chatPersonaId : null);
   const previewValues = useTrackerCardColorPreviews();
-  const { characterSpriteLookup, resolveSpriteCharacterId } = useTrackerSpriteLookup({
+  const { characterSpriteLookup, hasPendingCharacterLookups, resolveSpriteCharacterId } = useTrackerSpriteLookup({
     enabled: characterTrackerLookupEnabled,
     chatCharacterIds,
     presentCharacters,
@@ -113,15 +113,16 @@ export function useTrackerPanelModel({
       : activePersonaData;
   }, [activePersonaData, previewValues]);
   const expressionSpritesEnabled = trackerPanelUseExpressionSprites && expressionAgentEnabled;
-  const resolveCardCharacterId = useCallback(
-    (character: PresentCharacter) => {
+  const resolveCardCharacterStatus = useCallback(
+    (character: PresentCharacter): { status: "card"; characterId: string } | { status: "npc" | "pending" } => {
       const rawId = typeof character.characterId === "string" ? character.characterId.trim() : "";
-      if (rawId && characterSpriteLookup.knownIds.has(rawId)) return rawId;
-      if (!isSpriteLookupCharacterId(rawId) || rawId.includes(":cast:")) return null;
+      if (rawId && characterSpriteLookup.knownIds.has(rawId)) return { status: "card", characterId: rawId };
+      if (!isSpriteLookupCharacterId(rawId) || rawId.includes(":cast:")) return { status: "npc" };
       const matched = resolveSpriteCharacterId(character);
-      return matched && characterSpriteLookup.knownIds.has(matched) ? matched : null;
+      if (matched && characterSpriteLookup.knownIds.has(matched)) return { status: "card", characterId: matched };
+      return hasPendingCharacterLookups ? { status: "pending" } : { status: "npc" };
     },
-    [characterSpriteLookup.knownIds, resolveSpriteCharacterId],
+    [characterSpriteLookup.knownIds, hasPendingCharacterLookups, resolveSpriteCharacterId],
   );
 
   return {
@@ -134,7 +135,7 @@ export function useTrackerPanelModel({
     expressionSpritesEnabled,
     featuredCharacterCardKeys,
     orderedTrackerSections,
-    resolveCardCharacterId,
+    resolveCardCharacterStatus,
     resolveSpriteCharacterId,
     spriteExpressions,
   };

@@ -176,7 +176,7 @@ export function CharacterTrackerCard({
   deleteMode: boolean;
   addMode: boolean;
   onToggleFeatured: () => void;
-  onUploadAvatar: () => void;
+  onUploadAvatar?: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const {

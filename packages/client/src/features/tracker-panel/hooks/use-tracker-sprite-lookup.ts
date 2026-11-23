@@ -102,6 +102,7 @@ export function useTrackerSpriteLookup({
 
     return { knownIds, idByName, pictureById, profileColorsById };
   }, [characterQueries, previewValues]);
+  const hasPendingCharacterLookups = enabled && characterQueries.some((query) => query.isPending);
 
   const resolveSpriteCharacterId = useCallback(
     (character: PresentCharacter) => {
@@ -116,5 +117,5 @@ export function useTrackerSpriteLookup({
     [characterSpriteLookup],
   );
 
-  return { characterSpriteLookup, resolveSpriteCharacterId };
+  return { characterSpriteLookup, hasPendingCharacterLookups, resolveSpriteCharacterId };
 }

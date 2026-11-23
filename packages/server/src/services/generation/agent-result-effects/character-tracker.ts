@@ -22,6 +22,7 @@ import {
   assignTrackerCharacterIds,
   handOverTrackerNpcsToCards,
   isManualTrackerCharacterId,
+  mergeLiveTrackerPortraitChanges,
   parseGameStateRow,
   preserveTrackerCharacterUiFields,
   resolveTrackerGroupUpdate,
@@ -203,13 +204,26 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
     if (steps.fillAvatars) await fillAvatars(characters, cardCharacterIds, deps);
 
     deps.signal?.throwIfAborted();
-    // The lock and hidden maps as they are now, with only the handed-over keys moved: a lock the user clicked while
-    // this run was busy stays.
+    // Refresh after `fillAvatars` so concurrent scene-portrait changes, framing edits, and lock renames survive.
+    const current = await target.loadBaseline();
+    deps.signal?.throwIfAborted();
+    const currentState = current ? parseGameStateRow(current) : storedState;
+    if (current) {
+      const liveStored = readStoredCharacters(current.presentCharacters);
+      const liveCharacters =
+        handover.handedOver.length > 0
+          ? handOverTrackerNpcsToCards({
+              previousCharacters: liveStored.characters,
+              history: [],
+              fieldLocks: currentState?.fieldLocks,
+              hiddenFields: currentState?.hiddenTrackerFields,
+              cards: target.cards,
+            }).previousCharacters
+          : liveStored.characters;
+      mergeLiveTrackerPortraitChanges(characters, previousCharacters, liveCharacters);
+    }
     let movedKeys: { fieldLocks: Record<string, boolean>; hiddenTrackerFields: Record<string, boolean> } | undefined;
     if (handover.renamedLockPrefixes.length > 0) {
-      const current = await target.loadBaseline();
-      deps.signal?.throwIfAborted();
-      const currentState = current ? parseGameStateRow(current) : storedState;
       let fieldLocks = normalizeTrackerFieldLocks(currentState?.fieldLocks);
       let hiddenTrackerFields = normalizeTrackerHiddenFields(currentState?.hiddenTrackerFields);
       for (const { from, to } of handover.renamedLockPrefixes) {
@@ -360,8 +374,10 @@ function drawMissingPortraits(characters: TrackedCharacter[], deps: AgentResultE
         : characters;
       const merged = current.map((character) => {
         const avatarPath = drawn.get(portraitKey(deps.chatId, character));
-        // An avatar set meanwhile (by the user or another run) wins over the drawn one.
-        return avatarPath && !character.avatarPath ? { ...character, avatarPath } : character;
+        // An avatar or scene portrait set meanwhile (by the user or another run) wins over the drawn one.
+        return avatarPath && !character.avatarPath && !character.scenePortraitPath
+          ? { ...character, avatarPath }
+          : character;
       });
       const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ presentCharacters: merged }, latestState);
       const presentCharacters = Array.isArray(lockedPatch.presentCharacters) ? lockedPatch.presentCharacters : merged;

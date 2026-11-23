@@ -40,7 +40,7 @@ export function FeaturedCharacterPortrait({
   expressionSpritesEnabled: boolean;
   characterPicture?: string | null;
   outsideSide: TrackerProfileSide;
-  onUploadAvatar: () => void;
+  onUploadAvatar?: () => void;
   /** Set when the Character Tracker has an image connection. */
   onGeneratePortrait?: (includeOutfit: boolean) => Promise<void>;
   onRevertScenePortrait?: () => void;
@@ -132,7 +132,7 @@ export function FeaturedCharacterPortrait({
       placeholder={getCharacterPortraitFallback(character)}
       placeholderVariant="avatar"
       uploadAction={
-        canEditPortrait
+        canEditPortrait && onUploadAvatar
           ? {
               ariaLabel: media ? `Change ${characterName} tracker art` : `Upload ${characterName} tracker art`,
               onClick: onUploadAvatar,

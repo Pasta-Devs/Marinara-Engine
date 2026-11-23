@@ -2532,6 +2532,78 @@ export function handOverTrackerNpcsToCards(input: {
   };
 }
 
+function findMatchedTrackerCharacter(
+  character: Record<string, unknown>,
+  byKey: Map<string, Record<string, unknown>>,
+  byName: Map<string, Record<string, unknown>>,
+  nameCounts: Map<string, number>,
+): Record<string, unknown> | null {
+  const key = trackerCharacterKey(character);
+  if (key) {
+    const byId = byKey.get(key);
+    if (byId) return byId;
+  }
+  const name = trackerCharacterNameKey(character);
+  return name && nameCounts.get(name) === 1 ? (byName.get(name) ?? null) : null;
+}
+
+function buildTrackerCharacterLookup(characters: Array<Record<string, unknown>>) {
+  const byKey = new Map<string, Record<string, unknown>>();
+  const byName = new Map<string, Record<string, unknown>>();
+  const nameCounts = new Map<string, number>();
+  for (const character of characters) {
+    const key = trackerCharacterKey(character);
+    if (key) byKey.set(key, character);
+    const name = trackerCharacterNameKey(character);
+    if (name) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+    if (name) byName.set(name, character);
+  }
+  return (character: Record<string, unknown>) => findMatchedTrackerCharacter(character, byKey, byName, nameCounts);
+}
+
+const PORTRAIT_FRAMING_FIELDS = ["portraitFocusX", "portraitFocusY", "portraitZoom"] as const;
+
+function finitePortraitNumberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizedScenePortraitOrNull(row: Record<string, unknown> | null): string | null {
+  return row && isNpcTrackerAvatarPath(row.scenePortraitPath) ? row.scenePortraitPath.trim() : null;
+}
+
+/**
+ * Carries over concurrent `scenePortraitPath` and framing changes landed between the baseline read
+ * and the save after async avatar lookups (#9734).
+ */
+export function mergeLiveTrackerPortraitChanges(
+  characters: Array<Record<string, unknown>>,
+  initialBaseline: Array<Record<string, unknown>>,
+  liveBaseline: Array<Record<string, unknown>>,
+): void {
+  const findInitial = buildTrackerCharacterLookup(initialBaseline);
+  const findLive = buildTrackerCharacterLookup(liveBaseline);
+  for (const character of characters) {
+    const liveRow = findLive(character);
+    if (!liveRow) continue;
+    const preRow = findInitial(character);
+    const preScene = normalizedScenePortraitOrNull(preRow);
+    const liveScene = normalizedScenePortraitOrNull(liveRow);
+    const sceneChanged = liveScene !== preScene;
+    if (sceneChanged) {
+      if (liveScene) character.scenePortraitPath = liveScene;
+      else delete character.scenePortraitPath;
+    }
+    for (const field of PORTRAIT_FRAMING_FIELDS) {
+      const preVal = finitePortraitNumberOrNull(preRow?.[field]);
+      const liveVal = finitePortraitNumberOrNull(liveRow[field]);
+      if (sceneChanged || liveVal !== preVal) {
+        if (liveVal !== null) character[field] = liveVal;
+        else delete character[field];
+      }
+    }
+  }
+}
+
 export function preserveTrackerCharacterUiFields(
   nextCharacters: Array<Record<string, unknown>>,
   previousCharacters: Array<Record<string, unknown>>,
@@ -2541,23 +2613,10 @@ export function preserveTrackerCharacterUiFields(
   } = {},
 ): Set<Record<string, unknown>> {
   const matchedCharacters = new Set<Record<string, unknown>>();
-  const previousByKey = new Map<string, Record<string, unknown>>();
-  const previousByName = new Map<string, Record<string, unknown>>();
-  const previousNameCounts = new Map<string, number>();
-  for (const character of previousCharacters) {
-    const key = trackerCharacterKey(character);
-    if (key) previousByKey.set(key, character);
-    const name = trackerCharacterNameKey(character);
-    if (name) previousNameCounts.set(name, (previousNameCounts.get(name) ?? 0) + 1);
-    if (name) previousByName.set(name, character);
-  }
+  const findPrevious = buildTrackerCharacterLookup(previousCharacters);
 
   for (const character of nextCharacters) {
-    const key = trackerCharacterKey(character);
-    const name = trackerCharacterNameKey(character);
-    const previous =
-      (key ? previousByKey.get(key) : null) ??
-      (name && previousNameCounts.get(name) === 1 ? previousByName.get(name) : null);
+    const previous = findPrevious(character);
     if (previous) matchedCharacters.add(character);
     const previousPortraitFocusX = previous?.portraitFocusX;
     const previousPortraitFocusY = previous?.portraitFocusY;

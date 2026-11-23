@@ -130,7 +130,7 @@ export function FeaturedCharacterTrackerCard({
   deleteMode: boolean;
   addMode: boolean;
   onToggleFeatured?: () => void;
-  onUploadAvatar: () => void;
+  onUploadAvatar?: () => void;
   onGeneratePortrait?: (includeOutfit: boolean) => Promise<void>;
   onRevertScenePortrait?: () => void;
 }) {

@@ -49,7 +49,7 @@ export function TrackerWindowCharacters({
     characterTrackerSettings,
     expressionSpritesEnabled,
     featuredCharacterCardKeys,
-    resolveCardCharacterId,
+    resolveCardCharacterStatus,
     resolveSpriteCharacterId,
     spriteExpressions,
     trackerStatIconOverrides,
@@ -89,7 +89,7 @@ export function TrackerWindowCharacters({
     patchField,
     patchPlayerStats,
     removeFeaturedCharacterCard,
-    resolveCardCharacterId,
+    resolveCardCharacterStatus,
   });
   const updateAgent = useUpdateAgent();
   const autoGenerateAvatars = characterTrackerSettings.autoGenerateAvatars === true;
@@ -181,6 +181,7 @@ export function TrackerWindowCharacters({
         >
           {characters.map((character, index) => {
             const spriteCharacterId = resolveSpriteCharacterId(character);
+            const cardLookupPending = resolveCardCharacterStatus(character).status === "pending";
             return (
               <div key={`${chatId}-${character.characterId}-${index}`} className="@container min-w-0">
                 <FeaturedCharacterTrackerCard
@@ -209,9 +210,11 @@ export function TrackerWindowCharacters({
                   characterIndex={index}
                   deleteMode={deleteMode}
                   addMode={addMode}
-                  onUploadAvatar={() => openAvatarUpload(index)}
+                  onUploadAvatar={cardLookupPending ? undefined : () => openAvatarUpload(index)}
                   onGeneratePortrait={
-                    canGeneratePortraits ? (includeOutfit) => generateAvatar(index, includeOutfit) : undefined
+                    canGeneratePortraits && !cardLookupPending
+                      ? (includeOutfit) => generateAvatar(index, includeOutfit)
+                      : undefined
                   }
                   onRevertScenePortrait={() => revertScenePortrait(index)}
                 />

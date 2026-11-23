@@ -42,6 +42,7 @@ const plannerPrompts: string[] = [];
 const providerErrors: unknown[] = [];
 let failImages = false;
 // Holds the next image request open until released, so a test can act while a portrait is being made.
+let expectedImageUrl = "/v1/images/generations";
 let holdImages: { reached: () => void; released: Promise<void> } | null = null;
 const provider = createServer(async (request, response) => {
   if (failImages) {
@@ -86,10 +87,7 @@ const provider = createServer(async (request, response) => {
       );
       return;
     }
-    assert.ok(
-      request.url === "/v1/images/generations" || request.url === "/v1/images/edits",
-      "the fixture only allows image or planner requests",
-    );
+    assert.equal(request.url, expectedImageUrl, "the fixture only allows image or planner requests");
     assert.equal(typeof body.prompt, "string");
     const bodyRecord = body as Record<string, unknown>;
     imagePrompts.push(body.prompt as string);
@@ -840,6 +838,16 @@ try {
   const settledCard = await pendingCard;
   assert.equal(settledCard.statusCode, 200, settledCard.body);
 
+  // Missing card id returns 404 instead of falling back to NPC generation.
+  const requestCountBeforeMissing = imageRequests.length;
+  const missingCardResponse = await app.inject({
+    method: "POST",
+    url: portraitUrl,
+    payload: { characterId: "missing-card-id", name: "Alice", includeOutfit: false },
+  });
+  assert.equal(missingCardResponse.statusCode, 404, missingCardResponse.body);
+  assert.equal(imageRequests.length, requestCountBeforeMissing, "missing characterId makes no image call");
+
   // Override OFF: uses tracker Look, and falls back to card extensions.appearance when tracker Look is empty.
   const plainCard = await characters.create(
     characterDataSchema.parse({
@@ -888,11 +896,16 @@ try {
   await createAgentsStorage(db).update(trackerAgent.id, {
     settings: { imageConnectionId: xaiConn.id, useCardReferenceInPortraits: true },
   });
-  const refOn = await app.inject({
-    method: "POST",
-    url: portraitUrl,
-    payload: { characterId: kittyCard.id, name: "Kitty Pryde", includeOutfit: false },
-  });
+  expectedImageUrl = "/v1/images/edits";
+  const refOn = await app
+    .inject({
+      method: "POST",
+      url: portraitUrl,
+      payload: { characterId: kittyCard.id, name: "Kitty Pryde", includeOutfit: false },
+    })
+    .finally(() => {
+      expectedImageUrl = "/v1/images/generations";
+    });
   assert.equal(refOn.statusCode, 200, refOn.body);
   assert.equal(imageRequests.at(-1)!.url, "/v1/images/edits");
   assert.equal(imageRequests.at(-1)!.hasReference, true, "card avatar reaches provider when toggle is on");

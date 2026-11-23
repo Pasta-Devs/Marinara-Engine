@@ -203,9 +203,13 @@ export async function avatarsRoutes(app: FastifyInstance) {
     if (typeof connectionId !== "string" || !connectionId.trim()) {
       return reply.status(400).send({ error: "Choose an image connection for the Character Tracker first." });
     }
-    const card = body.data.characterId
-      ? await createCharactersStorage(app.db).getById(body.data.characterId, chat.id)
+    const requestedCharacterId = body.data.characterId?.trim() || null;
+    const card = requestedCharacterId
+      ? await createCharactersStorage(app.db).getById(requestedCharacterId, chat.id)
       : null;
+    if (requestedCharacterId && !card) {
+      return notFound(reply, "Character card not found");
+    }
     const isCardScenePortrait = !!card;
     let characterInput: {
       name: string;
