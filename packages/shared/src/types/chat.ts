@@ -18,6 +18,7 @@ import type { SpotifySourceType } from "./spotify.js";
 import type {
   RoleplayCommandActivity,
   RoleplayCommandAudience,
+  RoleplayCommandNoticeDisplay,
   RoleplayCommandToggles,
   RoleplayDocument,
   RoleplayPrivateCommand,
@@ -648,6 +649,8 @@ export interface ChatMetadata {
   roleplayDmCommandsEnabled?: boolean;
   /** Hidden character commands are opt-in, independently of automatic agents. */
   roleplayCommandsEnabled?: boolean;
+  /** How roleplay command activity notices are shown under messages. Missing means "show". */
+  roleplayCommandNoticeDisplay?: RoleplayCommandNoticeDisplay;
   roleplayCommandToggles?: RoleplayCommandToggles;
   /** An actual group participant, used only for individual Roleplay generations. */
   roleplayCommandNarratorId?: string | null;

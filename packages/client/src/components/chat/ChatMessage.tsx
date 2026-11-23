@@ -14,6 +14,7 @@ import {
   normalizeAvatarCrop,
   getRoleplayWhispers,
   getRoleplayCommandActivity,
+  getRoleplayCommandNoticeDisplay,
   getRoleplayArtifacts,
   getRoleplayCommandContentOffset,
   type AvatarCrop,
@@ -2566,6 +2567,10 @@ export const ChatMessage = memo(function ChatMessage({
     () => normalizeRollOutcomeToneMode(parseChatMetadata(activeChatMetadata).roleplayRollOutcomeTone),
     [activeChatMetadata],
   );
+  const roleplayCommandNoticeDisplay = useMemo(
+    () => getRoleplayCommandNoticeDisplay(parseChatMetadata(activeChatMetadata)),
+    [activeChatMetadata],
+  );
   const scopedRegexMode = useMemo(() => parseChatMetadata(activeChatMetadata).scopedRegexMode, [activeChatMetadata]);
   // The chat's variables, so {{name}} in a message shows what the model reads. Memoized on the raw
   // metadata: a new object every render would rebuild every message's display text.
@@ -3702,6 +3707,7 @@ export const ChatMessage = memo(function ChatMessage({
       characterName={displayName}
       extra={extra}
       isStreaming={!!isStreaming}
+      noticeDisplay={roleplayCommandNoticeDisplay}
     />
   );
   const roleplayBubbleContent = isHiddenCollapsed ? (
