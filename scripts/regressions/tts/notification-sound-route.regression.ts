@@ -11,11 +11,12 @@ process.env.DATA_DIR = dataDir;
 process.env.NODE_ENV = "test";
 process.env.LOG_LEVEL = "silent";
 
-const { default: Fastify } = await import("../../packages/server/node_modules/fastify/fastify.js");
-const { default: multipart } = await import("../../packages/server/node_modules/@fastify/multipart/index.js");
-const { notificationSoundRoutes } = await import("../../packages/server/src/routes/notification-sound.routes.js");
-const { ApiError } = await import("../../packages/client/src/lib/api-client.js");
-const { describeCustomSoundError } = await import("../../packages/client/src/hooks/use-custom-notification-sound.js");
+const { default: Fastify } = await import("../../../packages/server/node_modules/fastify/fastify.js");
+const { default: multipart } = await import("../../../packages/server/node_modules/@fastify/multipart/index.js");
+const { notificationSoundRoutes } = await import("../../../packages/server/src/routes/notification-sound.routes.js");
+const { ApiError } = await import("../../../packages/client/src/lib/api-client.js");
+const { describeCustomSoundError } =
+  await import("../../../packages/client/src/hooks/use-custom-notification-sound.js");
 
 function wav(bytes: number): Buffer {
   const header = Buffer.alloc(44);
