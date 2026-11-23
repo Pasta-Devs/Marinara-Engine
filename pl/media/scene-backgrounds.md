@@ -74,7 +74,7 @@ Wygenerowany obraz da się utworzyć jeszcze raz bez ponownego generowania odpow
 3. Zmień, co chcesz, w polach pod obrazem: **Prompt**, **Negative prompt** (prompt negatywny), osobne pole dla każdej postaci w sekcji **Character prompts** (prompty postaci), jeśli obraz je miał, oraz model obrazów.
 4. Kliknij **Generate image** (wygenerowanie obrazu) albo **Cancel** (anuluj), żeby zostawić obraz bez zmian.
 
-Nowy obraz staje się wybraną wersją w wiadomości. Wcześniejsze wyniki pozostają razem w jednym kafelku galerii z licznikiem wersji. Każda wersja zachowuje zapisany prompt, prompt negatywny i pozostałe zapisane szczegóły generowania. Obrazy referencyjne są wysyłane jeszcze raz na podstawie aktualnych awatarów postaci. Niektóre starsze obrazy nie zapisały promptu negatywnego ani promptów postaci; edytor informuje o tym w takim przypadku.
+Nowy obraz staje się wybraną wersją w wiadomości. Wcześniejsze wyniki pozostają razem w jednym kafelku galerii z licznikiem wersji. Każda wersja zachowuje zapisany prompt, prompt negatywny i pozostałe zapisane szczegóły generowania. Obrazy referencyjne są wysyłane jeszcze raz na podstawie aktualnych awatarów postaci, a po nich obrazy z wpisów lorebooka, z którymi obraz narysowano za pierwszym razem. Usługi Stability AI, Arli AI, SD Web UI i Draw Things nie dostają obrazów z wpisów. Niektóre starsze obrazy nie zapisały promptu negatywnego ani promptów postaci; edytor informuje o tym w takim przypadku.
 
 ### Wersje obrazów
 

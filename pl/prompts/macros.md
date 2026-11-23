@@ -120,6 +120,10 @@ Makro `{{gameStoryboardKeyframeCount}}` trafia do promptów mistrza gry (GM) w t
 
 Makro `{{agent::TYPE}}` wstawia zapisany wynik agenta, czyli pomocnika działającego w tle – takiego jak tracker sceny. Najprościej dodać je w panelu **Preset Editor**: kliknij przycisk **Add Section** (dodanie sekcji), rozwiń grupę **Agent Sections** i wybierz agenta. Marinara tworzy sekcję, w której od razu jest właściwy tag `{{agent::TYPE}}`. To makro rozwija się na samym końcu, więc tekst od agenta nie może wstawić do promptu kolejnych makr.
 
+W polu **Prompt Template** (szablon promptu) agenta `{{agent::TYPE}}` wstawia zapisany stan trackera aktywnego w czacie: `world-state`, `character-tracker`, `persona-stats`, `quest`, `custom-tracker`, `inventory-tracker` albo `beholder`. To ten sam tekst, który sekcja tego trackera dodaje do presetu, tyle że przy presecie w formacie Markdown pomija wiersz, który mówi narratorowi, żeby nie opisywał stanu od nowa. Przy zwykłej odpowiedzi agent widzi stan sprzed tej odpowiedzi. Gdy ponownie uruchamiasz agenta w fazie Post-Processing dla wiadomości, widzi on stan zapisany przy tej wiadomości.
+
+Własny typ agenta wstawia jego ostatni wynik tylko wtedy, gdy w sekcji **Context Sources** (źródła kontekstu) jest włączone **Previous output** (poprzedni wynik). Inne typy agentów nie wstawiają niczego do promptu agenta, a agenci z typem wyniku **Character Activity** nie czytają stanu trackerów. Podanie własnego typu agenta w stwierdzeniu decyzyjnym nie jest obsługiwane: decyzje są planowane raz dla wszystkich agentów, więc takie stwierdzenie może zostać bez odpowiedzi i być odczytane jako nie.
+
 ## Makra outletów lorebooka
 
 Makro `{{outlet::name}}` wstawia treść z tych wpisów lorebooka, które mają pole **Position** ustawione na **Outlet**, a w polu **Outlet name** dokładnie wartość `name`. Wielkość liter w nazwach outletów ma znaczenie. Przykładowo `{{outlet::character_rules}}` nie pasuje do outletu o nazwie `Character_Rules`.
