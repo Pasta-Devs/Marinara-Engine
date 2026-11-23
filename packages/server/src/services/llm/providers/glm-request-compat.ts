@@ -22,14 +22,16 @@ export function isGlm52Model(model: string): boolean {
 }
 
 /**
- * GLM 5.3 and every GLM 5.3 variant (Flash, provider suffixes such as
+ * GLM 5.3 and 5.4 and their variants (Flash, provider suffixes such as
  * `:free`) always reason. Z.AI documents that disabling thinking is no longer
- * supported for the family and that only the `low`, `high`, and `max` effort
+ * supported for GLM 5.3 and that only the `low`, `high`, and `max` effort
  * levels are accepted; OpenRouter and NanoGPT reject any disable request for
- * these models with HTTP 400.
+ * these models with HTTP 400. For GLM 5.4 the Coding Plan turns a disable into
+ * `low` and an unknown effort such as `none` into `max`, so it gets the same rules.
+ * https://docs.z.ai/devpack/latest-model
  */
 export function isGlm53MandatoryReasoningModel(model: string): boolean {
-  return /(?:^|\/)glm-5\.3(?:$|[-:])/u.test(model.toLowerCase());
+  return /(?:^|\/)glm-5\.[34](?:$|[-:])/u.test(model.toLowerCase());
 }
 
 export function isNativeGlmEndpoint(baseUrl: string): boolean {

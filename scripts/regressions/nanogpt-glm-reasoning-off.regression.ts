@@ -61,6 +61,16 @@ try {
     assert.equal(chatOn.body?.enable_thinking, true, `${model}: a chat override still wins over the default`);
     assert.equal("reasoning_effort" in (chatOn.body ?? {}), false);
   }
+
+  // GLM 5.3 and 5.4 (#9700) always reason: Off sends their lightest level, never a disable they refuse.
+  for (const model of ["zai-org/glm-5.3", "zai-org/glm-5.4"]) {
+    const off = await send(model, JSON.stringify({ reasoningEffort: null }), {});
+    assert.equal(off.body?.enable_thinking, true, `${model}: thinking stays on`);
+    assert.equal(off.body?.reasoning_effort, "low", `${model}: Off sends low`);
+
+    const high = await send(model, JSON.stringify({ reasoningEffort: null }), { reasoningEffort: "high" });
+    assert.equal(high.body?.reasoning_effort, "high", `${model}: a chosen level is sent`);
+  }
 } finally {
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
