@@ -192,8 +192,11 @@ try {
           assert.equal(sent.body.stream, stream);
           assert.equal(sent.body.store, false);
           assert.equal(sent.body.max_output_tokens, 512);
-          assert.equal(sent.body.instructions, "Keep <scene> verbatim.");
+          // GPT-6.2 and later bill top-level instructions uncached, after the input: the system prompt leads the input.
+          const developerFirst = model.startsWith("gpt-6.2");
+          assert.equal(sent.body.instructions, developerFirst ? undefined : "Keep <scene> verbatim.");
           assert.deepEqual(sent.body.input, [
+            ...(developerFirst ? [{ role: "developer", content: "Keep <scene> verbatim." }] : []),
             {
               role: "user",
               content: [

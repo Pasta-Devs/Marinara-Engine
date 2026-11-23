@@ -8,7 +8,7 @@ import { logger } from "../../lib/logger.js";
 import { createCharactersStorage, withCharacterUpdateQueue } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
-import { importSTLorebook } from "./st-lorebook.importer.js";
+import { importSTLorebook, type LorebookImportNote } from "./st-lorebook.importer.js";
 import {
   DESCRIPTION_SPLIT_VERSION,
   unassignCardFieldAlternatives,
@@ -120,6 +120,8 @@ export interface STCharacterImportPreview {
   version?: string;
   hasEmbeddedLorebook: boolean;
   embeddedLorebookEntries: number;
+  /** The name the embedded lorebook will get (its own, else "<character>'s Lorebook"). */
+  embeddedLorebookName?: string;
   error?: string;
 }
 
@@ -213,6 +215,17 @@ function convertStPlacements(placement: unknown): RegexPlacement[] | null {
   return out.length > 0 ? out : null;
 }
 
+/**
+ * How many SillyTavern regex scripts the importers leave out and report: ones that run only on slash commands (3),
+ * World Info (5) or reasoning (6), which regex scripts here don't cover, and ones whose pattern is empty, unsafe
+ * or won't compile.
+ */
+export function countStRegexScriptsLeftOut(stScripts: unknown): number {
+  if (!Array.isArray(stScripts)) return 0;
+  const scripts = stScripts.filter((entry) => entry && typeof entry === "object");
+  return scripts.length - convertStRegexScripts(scripts, "", "global").length;
+}
+
 function readBooleanFlag(value: unknown): boolean {
   return value === true || value === "true" || value === 1 || value === "1";
 }
@@ -234,7 +247,7 @@ function convertStRegexApplyMode(s: Record<string, unknown>): "prompt" | "displa
  * (or a bare source) and placements as numbers; scripts with an empty or
  * ReDoS-prone source, or one that won't compile, are skipped.
  */
-function convertStRegexScripts(
+export function convertStRegexScripts(
   stScripts: unknown,
   characterId: string,
   scope: "character" | "global",
@@ -265,6 +278,8 @@ function convertStRegexScripts(
       findRegex: source,
       replaceString: typeof s.replaceString === "string" ? s.replaceString : "",
       trimStrings: Array.isArray(s.trimStrings) ? s.trimStrings.filter((t): t is string => typeof t === "string") : [],
+      // SillyTavern trims only the matched text put back through {{match}}/$n; a Marinara export says its own rule.
+      trimScope: s.trimScope === "result" ? "result" : "match",
       placement,
       flags,
       promptOnly: applyMode === "prompt",
@@ -393,7 +408,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
   const charId = (character as { id?: string } | null)?.id;
 
   // Extract character_book into a standalone lorebook linked to this character
-  let lorebookResult: { lorebookId?: string; entriesImported?: number } | null = null;
+  let lorebookResult: { lorebookId?: string; entriesImported?: number; notes?: LorebookImportNote[] } | null = null;
   if (shouldImportEmbeddedLorebook && data.character_book && charId) {
     const wiData = embeddedBookAsWorldInfo(data.name, rawEmbeddedLorebook);
 
@@ -429,6 +444,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
       lorebookResult = {
         lorebookId: result.lorebookId,
         entriesImported: result.entriesImported,
+        notes: result.notes,
       };
     } catch (err) {
       await rollbackImportedCharacter(db, charId, avatarPath);
@@ -481,6 +497,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     },
     ...(lorebookResult ? { lorebook: lorebookResult } : {}),
     ...(descriptionSplit ? { descriptionSplit } : {}),
+    regexSkipped: countStRegexScriptsLeftOut(rawCardExtensions(raw).regex_scripts),
   };
 }
 
@@ -878,7 +895,7 @@ async function updateCharacterFromCard(input: {
   if (!updated) return { success: false, error: "The character to update no longer exists" };
 
   // The card's lorebook replaces the entries of the lorebook made from it before, or becomes a new linked one.
-  let lorebookResult: { lorebookId?: string; entriesImported?: number } | null = null;
+  let lorebookResult: { lorebookId?: string; entriesImported?: number; notes?: LorebookImportNote[] } | null = null;
   let lorebookError: string | undefined;
   if (input.shouldImportEmbeddedLorebook && data.character_book) {
     const existingLorebookId = typeof currentEmbedded.lorebookId === "string" ? currentEmbedded.lorebookId : null;
@@ -911,7 +928,7 @@ async function updateCharacterFromCard(input: {
           await syncCharacterBookFromLorebook(tx, result.lorebookId, { throwOnError: true });
         },
       });
-      lorebookResult = { lorebookId: result.lorebookId, entriesImported: result.entriesImported };
+      lorebookResult = { lorebookId: result.lorebookId, entriesImported: result.entriesImported, notes: result.notes };
     } catch (err) {
       logger.warn(err, "Updated character %s but not its lorebook", characterId);
       lorebookError = err instanceof Error ? err.message : String(err);
@@ -982,6 +999,12 @@ export function inspectSTCharacter(raw: Record<string, unknown>): STCharacterImp
       version: data.character_version ?? "",
       hasEmbeddedLorebook: embeddedLorebookEntries > 0,
       embeddedLorebookEntries,
+      ...(embeddedLorebookEntries > 0
+        ? {
+            // The name the import gives it (importSTLorebook puts the character's name in front).
+            embeddedLorebookName: `${data.name} — ${String(embeddedBookAsWorldInfo(data.name, data.character_book).name)}`,
+          }
+        : {}),
     };
   } catch (error) {
     return {

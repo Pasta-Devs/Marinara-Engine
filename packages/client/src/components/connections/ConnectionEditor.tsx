@@ -1082,7 +1082,8 @@ export function ConnectionEditor({
       maxRequestsPerMinute: localMaxRequestsPerMinute,
       enableCaching: localEnableCaching,
       anthropicExtendedCacheTtl:
-        (localProvider === "anthropic" && localEnableCaching) || localProvider === "claude_subscription"
+        ((localProvider === "anthropic" || localProvider === "openrouter") && localEnableCaching) ||
+        localProvider === "claude_subscription"
           ? localAnthropicExtendedCacheTtl
           : false,
       cachingAtDepth: localCachingAtDepth,
@@ -1427,7 +1428,8 @@ export function ConnectionEditor({
       defaultParameters,
       enableCaching: localEnableCaching,
       anthropicExtendedCacheTtl:
-        (localProvider === "anthropic" && localEnableCaching) || localProvider === "claude_subscription"
+        ((localProvider === "anthropic" || localProvider === "openrouter") && localEnableCaching) ||
+        localProvider === "claude_subscription"
           ? localAnthropicExtendedCacheTtl
           : false,
       cachingAtDepth: localCachingAtDepth,
@@ -4051,7 +4053,7 @@ export function ConnectionEditor({
             </FieldGroup>
           )}
 
-          {/* ── Prompt Caching (Anthropic + compatible OpenRouter models) ── */}
+          {/* ── Prompt Caching (Anthropic, and Claude, Gemini and Qwen on OpenRouter) ── */}
           {(localProvider === "anthropic" || localProvider === "openrouter") && (
             <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptCaching")}>
               <SettingsSwitch
@@ -4070,7 +4072,7 @@ export function ConnectionEditor({
                       "ui.connections.connectioneditor.onOpenrouterAddsCacheControlForModelsThatSupportExplicitCaching",
                     )}
               </p>
-              {localProvider === "anthropic" && localEnableCaching && (
+              {localEnableCaching && (
                 <div className="mt-2 space-y-2">
                   <SettingsSwitch
                     label={localizeUi("ui.connections.connectioneditor.extendedTokenCaching1Hour")}

@@ -397,17 +397,24 @@ try {
     undefined,
     "openrouter",
   );
-  await provider.chatComplete([{ role: "user", content: "cache Gemini" }], {
+  // Gemini on OpenRouter caches only a marked block, and only the last mark counts: one mark on the system prompt
+  // and no top-level field (https://openrouter.ai/docs/guides/best-practices/prompt-caching#google-gemini).
+  const withSystem = (content: string): ChatMessage[] => [
+    { role: "system", content: "Stable rules" },
+    { role: "user", content },
+  ];
+  const markedSystem = [{ type: "text", text: "Stable rules", cache_control: { type: "ephemeral" } }];
+  await provider.chatComplete(withSystem("cache Gemini"), {
     model: "google/gemini-3-pro-preview",
     stream: false,
     enableCaching: true,
   });
-  await provider.chatComplete([{ role: "user", content: "do not cache" }], {
+  await provider.chatComplete(withSystem("do not cache"), {
     model: "google/gemini-3-pro-preview",
     stream: false,
     enableCaching: false,
   });
-  for await (const _chunk of provider.chat([{ role: "user", content: "cache suppressed stream" }], {
+  for await (const _chunk of provider.chat(withSystem("cache suppressed stream"), {
     model: "google/gemini-3-pro-preview",
     stream: true,
     enableCaching: true,
@@ -415,16 +422,18 @@ try {
   })) {
     // Consume the full SSE response through [DONE].
   }
-  await provider.chatComplete([{ role: "user", content: "cache suppressed complete" }], {
+  await provider.chatComplete(withSystem("cache suppressed complete"), {
     model: "google/gemini-3-pro-preview",
     stream: false,
     enableCaching: true,
     suppressModelParameters: true,
   });
-  assert.deepEqual(openRouterCachingRequestBodies[0]?.cache_control, { type: "ephemeral" });
-  assert.equal("cache_control" in (openRouterCachingRequestBodies[1] ?? {}), false);
-  assert.deepEqual(openRouterCachingRequestBodies[2]?.cache_control, { type: "ephemeral" });
-  assert.deepEqual(openRouterCachingRequestBodies[3]?.cache_control, { type: "ephemeral" });
+  for (const index of [0, 2, 3]) {
+    const body = openRouterCachingRequestBodies[index] as { cache_control?: unknown; messages: ChatMessage[] };
+    assert.equal(body.cache_control, undefined, `request ${index} has no top-level field`);
+    assert.deepEqual(body.messages[0]?.content, markedSystem, `request ${index} marks the system prompt`);
+  }
+  assert.equal(JSON.stringify(openRouterCachingRequestBodies[1]).includes("cache_control"), false);
 } finally {
   await new Promise<void>((resolve, reject) =>
     openRouterCachingServer.close((error) => (error ? reject(error) : resolve())),

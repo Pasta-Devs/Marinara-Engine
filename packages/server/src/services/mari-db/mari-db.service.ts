@@ -548,8 +548,10 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
     "fieldLocks",
   ],
   game_checkpoints: ["snapshotData", "spatialSnapshotData"],
-  // chat_images, character_images, assets, and custom_themes
-  // have no JSON columns; their former entries named columns that do not exist.
+  chat_images: ["generation"],
+  character_images: ["generation"],
+  persona_images: ["generation"],
+  // Assets and custom themes have no JSON columns.
   game_engine_state: ["state"],
   regex_scripts: ["trimStrings", "placement", "targetCharacterIds", "targetPromptPresetIds"],
 };

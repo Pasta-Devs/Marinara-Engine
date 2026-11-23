@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Download, Pin, RefreshCw, Trash2 } from "lucide-react";
 import {
   groupChatImageVariants,
@@ -78,6 +78,11 @@ interface ChatImageLightboxProps {
   /** Opened from Professor Mari's window: the viewer joins her layer (the omnibar layer), above her window. */
   overMari?: boolean;
   onPin?: (image: ChatImage) => void;
+  /** Owner-specific actions follow the currently displayed result. */
+  actions?: (image: ChatImage) => ReactNode;
+  /** Actions for a saved result while its editing panel remains open. */
+  editActions?: (image: ChatImage, busy: boolean) => ReactNode;
+  interactionDisabled?: boolean;
   onClose: () => void;
 }
 
@@ -92,6 +97,9 @@ export function ChatImageLightbox({
   extraMeta,
   overMari = false,
   onPin,
+  actions,
+  editActions,
+  interactionDisabled = false,
   onClose,
 }: ChatImageLightboxProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -145,8 +153,8 @@ export function ChatImageLightbox({
   const downloadName = getChatImageDownloadName(image);
   const loadingDetails = needsGalleryRow && gallery.isFetching && !gallery.data;
   const detailsFailed = needsGalleryRow && gallery.isError && !gallery.data;
-  // Nothing to re-send for an upload without a prompt.
-  const canRegenerate = !!regenerate && !loadingDetails && !detailsFailed && !!prompt.trim();
+  // Entity adapters can start from a blank prompt; ordinary chat uploads need one to resend.
+  const canRegenerate = !!regenerate && !loadingDetails && !detailsFailed && (!!prompt.trim() || !!regenerator);
   const rows = new Map(
     (images ?? (chatGallery ? gallery.data : undefined) ?? [activeImage]).map((row) => [row.id, row]),
   );
@@ -175,7 +183,7 @@ export function ChatImageLightbox({
         // Escape, back and outside taps first leave the regenerate panel, then the viewer.
         onClose={() => (editing ? closeEditing() : onClose())}
         onCloseButton={onClose}
-        closeDisabled={busy || navigating}
+        closeDisabled={busy || navigating || interactionDisabled}
         closeLabel={localizeUi("ui.chat.chatimagelightbox.closeImage")}
         closeButtonRef={closeButtonRef}
         overMari={overMari}
@@ -184,17 +192,18 @@ export function ChatImageLightbox({
         childrenMaxHeightClass={
           editing ? "max-h-[64%] [@media(max-height:520px)]:max-h-[82%] sm:max-h-[48%]" : undefined
         }
+        pictureActions={editing ? editActions?.(image, busy || interactionDisabled) : undefined}
         media={
           editing && editSurfaceActive ? (
             <ImageMaskCanvas
               key={image.id}
               src={image.url}
               alt={alt ?? localizeUi("ui.chat.conversationmessagelightbox.expandedImage")}
-              disabled={busy}
+              disabled={busy || interactionDisabled}
               tool={maskTool}
               brushSizePx={maskBrushSize}
               hideToolbar
-              onBackdropClick={busy ? undefined : closeEditing}
+              onBackdropClick={busy || interactionDisabled ? undefined : closeEditing}
               onMaskChange={setMaskDataUrl}
               onMaskStateChange={setMaskState}
               controlsRef={maskControlsRef}
@@ -202,7 +211,7 @@ export function ChatImageLightbox({
           ) : undefined
         }
         items={
-          galleryIndex >= 0 && !editing && !busy
+          galleryIndex >= 0 && !editing && !busy && !interactionDisabled
             ? galleryImages.map((item) => ({
                 url: item.url,
                 alt: item.prompt || localizeUi("ui.chat.conversationmessagelightbox.expandedImage"),
@@ -239,6 +248,7 @@ export function ChatImageLightbox({
         }}
         actions={
           <>
+            {!editing && actions?.(image)}
             {chatGallery && !editing && (
               <button
                 type="button"
@@ -254,7 +264,7 @@ export function ChatImageLightbox({
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                disabled={busy || navigating}
+                disabled={busy || navigating || interactionDisabled}
                 aria-label={localizeUi("ui.chat.chatimagelightbox.regenerateImage")}
                 className={VIEWER_BUTTON_CLASS}
                 title={localizeUi("ui.chat.chatimagelightbox.regenerateImage")}
@@ -306,6 +316,7 @@ export function ChatImageLightbox({
             onEditSurfaceChange={handleEditSurfaceChange}
             onBusyChange={setBusy}
             onCancel={closeEditing}
+            disabled={interactionDisabled}
             onRegenerated={(next) => {
               setImage(next);
               resetMask();

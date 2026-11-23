@@ -24,6 +24,7 @@ import { logger } from "../../lib/logger.js";
 export const FEATURE_ENV_FLAG_OVERRIDES: Partial<Record<FeatureSwitchName, string>> = {
   stableLorebookGroupPicks: "LOREBOOK_STABLE_GROUP_WINNERS",
   providerRetry: "PROVIDER_RETRY_TRANSIENT_ERRORS",
+  newLorebookVectors: "LOREBOOK_NEW_BOOK_VECTORS",
 };
 
 let cached: FeatureSettings = {};
@@ -130,4 +131,12 @@ export function featureSettingsResponse(): FeatureSettingsResponse {
 export function resetFeatureSettingsForTests(settings: FeatureSettings = {}): void {
   cached = normalizeFeatureSettings(settings);
   notifyFeatureSettingsChange();
+}
+
+/**
+ * `excludeFromVectorization` for a lorebook created without one: excluded unless "Vectors on for new
+ * lorebooks" is on (or LOREBOOK_NEW_BOOK_VECTORS pins it on).
+ */
+export function defaultNewLorebookExcludeFromVectorization(): boolean {
+  return !isFeatureEnabled("newLorebookVectors");
 }

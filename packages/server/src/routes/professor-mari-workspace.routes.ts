@@ -7,6 +7,7 @@ import {
   MARI_PERMISSIONS_MODE_SETTINGS_KEY,
   MARI_RUNTIME_SETTINGS_KEY,
   MARI_SKILL_GATE_SETTINGS_KEY,
+  MARI_CONTEXT_DEPTH_SETTINGS_KEY,
   withMariReceiptOutcome,
   type MariPendingMessage,
   mariWorkspaceAbortSchema,
@@ -23,6 +24,7 @@ import {
   mariWorkspaceRuntimeSchema,
   mariWorkspaceSkillCreateSchema,
   mariWorkspaceSkillGateSchema,
+  mariWorkspaceContextDepthSchema,
   mariWorkspaceSkillUpdateSchema,
   professorMariPromptSchema,
 } from "@marinara-engine/shared";
@@ -36,6 +38,7 @@ import {
   readStoredMariPermissionsMode,
   readStoredMariRuntime,
   readStoredMariSkillGate,
+  readStoredMariContextDepth,
 } from "../services/professor-mari/workspace-agent.service.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -319,6 +322,19 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     const input = mariWorkspaceSkillGateSchema.parse(req.body);
     await createAppSettingsStorage(app.db).set(MARI_SKILL_GATE_SETTINGS_KEY, input.enabled ? "true" : "false");
     return { ok: true, enabled: input.enabled };
+  });
+
+  // Where her per-turn context goes, counted in the newest conversation messages after it. Read fresh per run.
+  app.get("/context-depth", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    return { depth: await readStoredMariContextDepth(createAppSettingsStorage(app.db)) };
+  });
+
+  app.put("/context-depth", async (req, reply) => {
+    if (!privileged(req, reply)) return;
+    const input = mariWorkspaceContextDepthSchema.parse(req.body);
+    await createAppSettingsStorage(app.db).set(MARI_CONTEXT_DEPTH_SETTINGS_KEY, String(input.depth));
+    return { ok: true, depth: input.depth };
   });
 
   app.get("/instructions", async (req, reply) => {

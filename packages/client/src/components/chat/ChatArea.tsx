@@ -64,7 +64,7 @@ import { readChatVariables } from "../../lib/state-editor/chat-variables-editor-
 import { usePresetVariablesResolver } from "../../hooks/use-message-preset-variables";
 import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { parseCharacterDisplayData } from "../../lib/character-display";
-import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { isModalOverlayOpen } from "../../lib/layer-stack";
 import { showChoiceDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { parseMessageExtraRecord } from "../../lib/chat-message-extra";
 import { trimInactiveMessagePageCaches } from "../../lib/message-page-cache";

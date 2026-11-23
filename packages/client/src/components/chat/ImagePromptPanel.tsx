@@ -57,7 +57,7 @@ export function ImagePromptPanel({
   className,
 }: ImagePromptPanelProps) {
   const { t } = useUiTranslation();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const headingId = useId();
   const hasPrompts = !!(prompt?.trim() || negativePrompt?.trim() || characterPrompts.length);
   if (!hasPrompts && !meta?.trim()) return null;

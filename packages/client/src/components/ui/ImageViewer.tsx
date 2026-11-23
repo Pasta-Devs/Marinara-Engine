@@ -3,6 +3,7 @@
 // Zoom + pan, optional gallery (arrows, swipe, filmstrip), toolbar and caption slots.
 // ──────────────────────────────────────────────
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -33,6 +34,15 @@ const isTopModal = (el: Element | null) => {
   return !!el && modals[modals.length - 1] === el.closest(".mari-modal");
 };
 
+interface ImageControlBounds {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  stageTop: number;
+  stageHeight: number;
+}
+
 interface ZoomStageProps {
   src: string;
   alt: string;
@@ -43,6 +53,8 @@ interface ZoomStageProps {
   reserveVersionControls?: boolean;
   /** A tap on the empty space around the picture. */
   onBackgroundTap: () => void;
+  onFitChange: (src: string, bounds: ImageControlBounds) => void;
+  controlSize: number;
 }
 
 /** The picture itself: double-tap, wheel and pinch zoom, drag to pan. Remount it (key) to reset the zoom. */
@@ -54,6 +66,8 @@ function ZoomStage({
   onVerticalSwipe,
   reserveVersionControls,
   onBackgroundTap,
+  onFitChange,
+  controlSize,
 }: ZoomStageProps) {
   const stageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -73,6 +87,33 @@ function ZoomStage({
     lastTapX: 0,
     lastTapY: 0,
   });
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    const image = imgRef.current;
+    if (!stage || !image) return;
+    const measure = () => {
+      if (!image.naturalWidth || !image.offsetWidth) return;
+      // Use the fitted size, not the transformed zoom/pan rectangle, so tools stay put while zooming.
+      onFitChange(src, {
+        left: image.offsetLeft - controlSize - 16,
+        top: image.offsetTop,
+        width: image.offsetWidth + 2 * (controlSize + 16),
+        height: image.offsetHeight,
+        stageTop: stage.offsetTop,
+        stageHeight: stage.clientHeight,
+      });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(stage);
+    observer.observe(image);
+    image.addEventListener("load", measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      image.removeEventListener("load", measure);
+    };
+  }, [src, onFitChange, controlSize]);
 
   const apply = (scale: number, x: number, y: number) => {
     const s = clamp(scale, 1, MAX_ZOOM);
@@ -222,7 +263,7 @@ function ZoomStage({
         decoding="async"
         draggable={false}
         className={cn(
-          "max-h-full max-w-full rounded-lg object-contain shadow-2xl",
+          "max-h-full max-w-[calc(100%_-_5.5rem_-_48px)] rounded-lg object-contain shadow-2xl",
           smooth && "transition-transform duration-150 motion-reduce:transition-none",
         )}
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}
@@ -262,6 +303,8 @@ interface ImageViewerProps {
   versions?: { index: number; count: number; disabled?: boolean; onIndexChange: (index: number) => void };
   /** Buttons in the top-right toolbar, left of Close. */
   actions?: ReactNode;
+  /** Saved-result actions immediately below the picture, outside its drawing surface. */
+  pictureActions?: ReactNode;
   /** Caption area under the picture (prompt, file info, ...). */
   children?: ReactNode;
   /** Optional max-height Tailwind class for the bottom children slot (defaults to `max-h-[45dvh]`). */
@@ -285,6 +328,7 @@ export function ImageViewer({
   onIndexChange,
   versions,
   actions,
+  pictureActions,
   children,
   childrenMaxHeightClass,
   closeButtonRef,
@@ -295,6 +339,26 @@ export function ImageViewer({
   // Keyed by picture so a swap (gallery step, regenerate) never leaves the arrows stuck off.
   const [zoomedSrc, setZoomedSrc] = useState<string | null>(null);
   const filmstripSelectedRef = useRef<HTMLButtonElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarHeight, setToolbarHeight] = useState(0);
+  const [controlSize, setControlSize] = useState(0);
+  const [controlBounds, setControlBounds] = useState<{ src: string; bounds: ImageControlBounds } | null>(null);
+  const onFitChange = useCallback((imageSrc: string, bounds: ImageControlBounds) => {
+    setControlBounds({ src: imageSrc, bounds });
+  }, []);
+
+  useEffect(() => {
+    const toolbar = toolbarRef.current;
+    if (!toolbar) return;
+    const measure = () => {
+      setToolbarHeight(toolbar.scrollHeight);
+      setControlSize(toolbar.offsetWidth);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(toolbar);
+    measure();
+    return () => observer.disconnect();
+  }, [actions, media]);
 
   useEffect(() => {
     if (media) setZoomedSrc(null);
@@ -354,7 +418,27 @@ export function ImageViewer({
     filmstripSelectedRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [index, gallery]);
 
-  const arrowClass = cn(VIEWER_BUTTON_CLASS, "absolute top-1/2 z-10 -translate-y-1/2");
+  const fitted = !media && controlBounds?.src === shownSrc ? controlBounds.bounds : null;
+  const toolbarTop = fitted ? Math.min(fitted.top, Math.max(0, fitted.stageHeight - 2 * controlSize - 16)) : 0;
+  const arrowTop = fitted
+    ? Math.min(
+        Math.max(fitted.top + fitted.height / 2 - controlSize / 2, toolbarTop + toolbarHeight + 16),
+        Math.max(0, fitted.stageHeight - controlSize),
+      )
+    : 0;
+  const arrowClass = cn(VIEWER_BUTTON_CLASS, "absolute z-10");
+  const closeButton = (
+    <button
+      type="button"
+      ref={closeRef}
+      onClick={onCloseButton ?? onClose}
+      disabled={closeDisabled}
+      aria-label={closeLabel ?? t("ui.chat.chatimagelightbox.closeImage")}
+      className={VIEWER_BUTTON_CLASS}
+    >
+      <X size="0.875rem" />
+    </button>
+  );
 
   return (
     <Modal
@@ -403,37 +487,9 @@ export function ImageViewer({
             onVerticalSwipe={hasVersions ? (direction) => goVersion(versions.index + direction) : undefined}
             reserveVersionControls={hasVersions}
             onBackgroundTap={() => !closeDisabled && onClose()}
+            onFitChange={onFitChange}
+            controlSize={controlSize}
           />
-        )}
-        {gallery && (
-          <span
-            role="status"
-            className="absolute left-2 top-2 z-10 rounded-lg bg-black/60 px-2.5 py-1.5 text-sm tabular-nums text-white"
-          >
-            {t("ui.imageviewer.position", { current: index + 1, total: count })}
-          </span>
-        )}
-        {gallery && (
-          <>
-            <button
-              type="button"
-              className={cn(arrowClass, "left-2", hasVersions && "max-sm:top-[calc(50%+1.75rem)]")}
-              onClick={() => go(index - 1)}
-              disabled={closeDisabled || zoomed || index <= 0}
-              aria-label={t("ui.imageviewer.previousImage")}
-            >
-              <ChevronLeft size="1.25rem" />
-            </button>
-            <button
-              type="button"
-              className={cn(arrowClass, "right-2", hasVersions && "max-sm:top-[calc(50%+1.75rem)]")}
-              onClick={() => go(index + 1)}
-              disabled={closeDisabled || zoomed || index >= count - 1}
-              aria-label={t("ui.imageviewer.nextImage")}
-            >
-              <ChevronRight size="1.25rem" />
-            </button>
-          </>
         )}
         {hasVersions && (
           <>
@@ -465,30 +521,87 @@ export function ImageViewer({
             </div>
           </>
         )}
-        <div className="absolute right-2 top-2 z-10 flex gap-2">
-          {actions}
-          <button
-            type="button"
-            ref={closeRef}
-            onClick={onCloseButton ?? onClose}
-            disabled={closeDisabled}
-            aria-label={closeLabel ?? t("ui.chat.chatimagelightbox.closeImage")}
-            className={VIEWER_BUTTON_CLASS}
+        <div
+          className="pointer-events-none absolute inset-0 [&_button]:pointer-events-auto"
+          style={
+            fitted
+              ? {
+                  left: fitted.left,
+                  top: fitted.stageTop,
+                  width: fitted.width,
+                  height: fitted.stageHeight,
+                  bottom: "auto",
+                  right: "auto",
+                }
+              : undefined
+          }
+        >
+          {gallery && (
+            <span
+              role="status"
+              className="absolute left-0 top-2 z-10 rounded-lg bg-black/60 px-2.5 py-1.5 text-sm tabular-nums text-white"
+            >
+              {t("ui.imageviewer.position", { current: index + 1, total: count })}
+            </span>
+          )}
+          {gallery && (
+            <>
+              <button
+                type="button"
+                className={cn(arrowClass, "left-0")}
+                style={{ top: fitted ? arrowTop : "calc(100% - 2.75rem)" }}
+                onClick={() => go(index - 1)}
+                disabled={closeDisabled || zoomed || index <= 0}
+                aria-label={t("ui.imageviewer.previousImage")}
+              >
+                <ChevronLeft size="1.25rem" />
+              </button>
+              <button
+                type="button"
+                className={cn(arrowClass, "right-0")}
+                style={{ top: fitted ? arrowTop : "calc(100% - 2.75rem)" }}
+                onClick={() => go(index + 1)}
+                disabled={closeDisabled || zoomed || index >= count - 1}
+                aria-label={t("ui.imageviewer.nextImage")}
+              >
+                <ChevronRight size="1.25rem" />
+              </button>
+            </>
+          )}
+          <div
+            ref={toolbarRef}
+            className={cn(
+              "pointer-events-auto absolute z-10 flex gap-2",
+              media ? "right-2 top-2" : "right-0 w-11 flex-col overflow-y-auto overscroll-contain",
+            )}
+            style={
+              fitted
+                ? {
+                    top: toolbarTop,
+                    maxHeight: gallery ? Math.max(0, arrowTop - toolbarTop - 16) : fitted.stageHeight - toolbarTop,
+                  }
+                : gallery
+                  ? { maxHeight: "calc(100% - 2.75rem - 16px)" }
+                  : undefined
+            }
           >
-            <X size="0.875rem" />
-          </button>
+            {!media && closeButton}
+            {actions}
+            {media && closeButton}
+          </div>
         </div>
       </div>
-      {children && (
+      {(children || pictureActions) && (
         <div
           data-image-viewer-caption
           className={cn(
-            "mx-auto flex w-full max-w-3xl flex-col overflow-y-auto px-3 pb-2",
+            "mx-auto flex w-full max-w-3xl flex-col overflow-hidden",
             hasVersions ? "min-h-0 shrink" : "shrink-0",
             childrenMaxHeightClass ?? "max-h-[45dvh]",
           )}
         >
-          {children}
+          {pictureActions && <div className="flex shrink-0 justify-center px-3 pb-2">{pictureActions}</div>}
+          {children && <div className="flex min-h-0 flex-col overflow-y-auto px-3 pb-2">{children}</div>}
         </div>
       )}
       {gallery && (

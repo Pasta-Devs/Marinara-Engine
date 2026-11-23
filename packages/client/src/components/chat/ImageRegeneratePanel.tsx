@@ -73,6 +73,7 @@ interface ImageRegeneratePanelProps {
   onBusyChange: (busy: boolean) => void;
   onRegenerated: (image: ChatImage) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 // Same field as InlineChatCardEditor: the chat chrome input tokens follow every theme and chat style,
@@ -385,6 +386,7 @@ export function ImageRegeneratePanel({
   onBusyChange,
   onRegenerated,
   className,
+  disabled = false,
 }: ImageRegeneratePanelProps) {
   const { t } = useUiTranslation();
   const debugMode = useUIStore((s) => s.debugMode);
@@ -419,7 +421,7 @@ export function ImageRegeneratePanel({
   const [infillStrength, setInfillStrength] = useState(1);
   const [phase, setPhase] = useState<"revising" | "generating" | null>(null);
   const [error, setError] = useState("");
-  const busy = phase !== null;
+  const busy = phase !== null || disabled;
   const promptMissing = !draft.prompt.trim();
   const hasGuidance = Boolean(guidance.trim());
   const references = record?.references;

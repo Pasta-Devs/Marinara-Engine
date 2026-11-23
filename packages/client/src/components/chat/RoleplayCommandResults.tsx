@@ -1,6 +1,7 @@
 import {
   cloneElement,
   isValidElement,
+  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -12,7 +13,12 @@ import {
 import { createPortal } from "react-dom";
 import { ChevronDown, Eye, EyeOff, LockKeyhole, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { getRoleplayCommandActivity, type RoleplayCommandActivity } from "@marinara-engine/shared";
+import {
+  getRoleplayCommandActivity,
+  getRoleplayCommandNoticeVisibility,
+  type RoleplayCommandActivity,
+  type RoleplayCommandNoticeDisplay,
+} from "@marinara-engine/shared";
 import { useUpdateMessageExtra } from "../../hooks/use-chats";
 import { useRestoreRoleplayInterrupt, useRoleplayHtmlArtifactRunning } from "../../hooks/use-roleplay-commands";
 import { useChatStore } from "../../stores/chat.store";
@@ -351,11 +357,6 @@ function CommandNotice({
   };
   return (
     <div className="min-w-0 space-y-2 whitespace-normal" data-roleplay-command={command.type}>
-      {!item.deleted &&
-        !item.error &&
-        command.type === "document" &&
-        typeof command.title === "string" &&
-        content !== null && <RoleplayDocument document={command} styleVariant={item.documentStyle} />}
       <div
         className="overflow-hidden rounded-lg border border-[var(--primary)]/20 text-[var(--marinara-chat-chrome-panel-text)]"
         style={{ WebkitTextStroke: "0px", textShadow: "none" }}
@@ -526,6 +527,44 @@ function CommandNotice({
   );
 }
 
+function CollapsedCommandNotices({
+  characterName,
+  count,
+  startExpanded,
+  children,
+}: {
+  characterName: string;
+  count: number;
+  startExpanded: boolean;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(startExpanded);
+  useEffect(() => {
+    if (startExpanded) setOpen(true);
+  }, [startExpanded]);
+  return (
+    <div
+      className="overflow-hidden rounded-lg border border-[var(--primary)]/20 text-[var(--marinara-chat-chrome-panel-text)]"
+      style={{ WebkitTextStroke: "0px", textShadow: "none" }}
+      data-roleplay-command-group
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className="flex min-h-11 w-full items-center gap-2 px-3 py-3 text-left text-sm text-[var(--primary)] focus-visible:outline focus-visible:outline-[var(--primary)]"
+      >
+        <ChevronDown size="1rem" aria-hidden className={`shrink-0 ${open ? "rotate-180" : ""}`} />
+        <span className="min-w-0 break-words">
+          {t("roleplay.commands.activity.usedMultiple", { character: characterName, count })}
+        </span>
+      </button>
+      {open && <div className="space-y-2 border-t border-[var(--primary)]/20 p-2">{children}</div>}
+    </div>
+  );
+}
+
 export function RoleplayCommandResults({
   chatId,
   messageId,
@@ -533,6 +572,7 @@ export function RoleplayCommandResults({
   characterName,
   extra,
   isStreaming,
+  noticeDisplay = "show",
 }: {
   chatId: string;
   messageId: string;
@@ -540,6 +580,7 @@ export function RoleplayCommandResults({
   characterName: string;
   extra: Record<string, unknown>;
   isStreaming: boolean;
+  noticeDisplay?: RoleplayCommandNoticeDisplay;
 }) {
   const { t } = useTranslation();
   const mutation = useUpdateMessageExtra(chatId);
@@ -558,37 +599,68 @@ export function RoleplayCommandResults({
           attachment.url.startsWith("/api/game-assets/file/sfx/"),
       )
     : [];
-  if (!activity.some((item) => item.command.type !== "whisper" || item.error) && !sounds.length) return null;
+  const documents = activity.flatMap((item, index) =>
+    !item.deleted &&
+    !item.error &&
+    item.command.type === "document" &&
+    typeof item.command.title === "string" &&
+    typeof item.command.content === "string"
+      ? [{ index, command: item.command, documentStyle: item.documentStyle }]
+      : [],
+  );
+  const { noticeIndices, collapsed, startExpanded } = getRoleplayCommandNoticeVisibility(activity, noticeDisplay);
+  const showFallbackSounds = !activity.some((item) => item.command.type === "sound") && sounds.length > 0;
+  if (!documents.length && !noticeIndices.length && !showFallbackSounds) return null;
+  const renderNotice = (index: number) => {
+    const item = activity[index]!;
+    return (
+      <CommandNotice
+        key={`${messageId}:${swipeIndex}:${index}`}
+        item={item}
+        characterName={characterName}
+        pending={isStreaming || chatGenerating || artifactRunning || mutation.isPending || restore.isPending}
+        restore={() => restore.mutateAsync({ messageId, swipeIndex, activityIndex: index })}
+        soundUrl={
+          item.command.type === "sound"
+            ? sounds.find((sound) => sound.name === (item.command as { description: string }).description)?.url
+            : undefined
+        }
+        update={(next) =>
+          mutation.mutateAsync({
+            messageId,
+            swipeIndex,
+            extra: {
+              roleplayCommandActivity: activity.map((record, i) => (i === index ? next : record)),
+              roleplayPrivateCommands: null,
+              roleplayDocuments: null,
+            },
+          })
+        }
+      />
+    );
+  };
   return (
     <div className="mt-3 space-y-2" data-roleplay-command-results onDoubleClick={(event) => event.stopPropagation()}>
-      {activity.map((item, index) =>
-        item.command.type === "whisper" && !item.error ? null : (
-          <CommandNotice
-            key={`${messageId}:${swipeIndex}:${index}`}
-            item={item}
-            characterName={characterName}
-            pending={isStreaming || chatGenerating || artifactRunning || mutation.isPending || restore.isPending}
-            restore={() => restore.mutateAsync({ messageId, swipeIndex, activityIndex: index })}
-            soundUrl={
-              item.command.type === "sound"
-                ? sounds.find((sound) => sound.name === (item.command as { description: string }).description)?.url
-                : undefined
-            }
-            update={(next) =>
-              mutation.mutateAsync({
-                messageId,
-                swipeIndex,
-                extra: {
-                  roleplayCommandActivity: activity.map((record, i) => (i === index ? next : record)),
-                  roleplayPrivateCommands: null,
-                  roleplayDocuments: null,
-                },
-              })
-            }
-          />
-        ),
+      {documents.map(({ index, command, documentStyle }) => (
+        <RoleplayDocument
+          key={`${messageId}:${swipeIndex}:doc:${index}`}
+          document={command}
+          styleVariant={documentStyle}
+        />
+      ))}
+      {collapsed ? (
+        <CollapsedCommandNotices
+          key={`${messageId}:${swipeIndex}`}
+          characterName={characterName}
+          count={noticeIndices.length}
+          startExpanded={startExpanded}
+        >
+          {noticeIndices.map(renderNotice)}
+        </CollapsedCommandNotices>
+      ) : (
+        noticeIndices.map(renderNotice)
       )}
-      {!activity.some((item) => item.command.type === "sound") &&
+      {showFallbackSounds &&
         sounds.map((sound, index) => (
           <audio
             key={index}

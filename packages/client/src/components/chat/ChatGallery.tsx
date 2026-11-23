@@ -39,6 +39,7 @@ import {
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
 import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
 import { useSaveGalleryDescription } from "../../hooks/use-gallery-descriptions";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { ContextMenu } from "../ui/ContextMenu";
 import { groupChatImageVariants, BACKGROUND_THUMBNAIL_WIDTH, type GeneratedSceneVideo } from "@marinara-engine/shared";
 import { ChatImageDeleteDialog } from "./ChatImageDeleteDialog";
@@ -237,18 +238,7 @@ export function ChatGallery({
     previousAssetSearchRef.current = assetSearch;
     if (selectingImages) setSelectedImageIds(new Set());
   }, [assetSearch, selectingImages]);
-  useEffect(() => {
-    if (!illustrateMenuOpen) return;
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (target instanceof Node && illustrateMenuRef.current?.contains(target)) return;
-      setIllustrateMenuOpen(false);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown, true);
-    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
-  }, [illustrateMenuOpen]);
+  useDismiss(illustrateMenuRef, illustrateMenuOpen, () => setIllustrateMenuOpen(false));
 
   useEffect(() => {
     return () => {

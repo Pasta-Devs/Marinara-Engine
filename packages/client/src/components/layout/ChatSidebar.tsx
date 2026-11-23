@@ -98,6 +98,7 @@ import { sortPanelFolders } from "../../lib/panel-sort";
 import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolution";
 import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
+import { describeChatImportNotes, type STChatImportNote } from "../../lib/st-import-report";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -814,12 +815,14 @@ export function ChatSidebar() {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("mode", activeTab);
+        // No mode: the server uses the file's own type, else Roleplay, and the list switches to that tab.
         const data = await api.upload<{
           success?: boolean;
           chatId?: string;
+          mode?: "conversation" | "roleplay" | "game";
           error?: string;
           messagesImported?: number;
+          importNotes?: STChatImportNote[];
         }>("/import/st-chat", formData);
         if (data.success === false || data.error) {
           toast.error(
@@ -830,10 +833,15 @@ export function ChatSidebar() {
           return;
         }
 
+        // What came along (Author's Note, persona) and what didn't, so nothing is lost silently.
+        const notes = describeChatImportNotes(data.importNotes, localizeUi);
         toast.success(
           localizeUi("ui.layout.chatsidebar.importedValue1Messages", { value1: data.messagesImported ?? 0 }),
+          notes.length > 0 ? { description: notes.join(" "), duration: 8000 } : undefined,
         );
         await refetchChats();
+        // Show the tab the chat landed in, so it is in the list.
+        if (data.mode) setActiveTab(data.mode);
         if (data.chatId) setActiveChatId(data.chatId);
       } catch (error) {
         toast.error(
@@ -845,7 +853,7 @@ export function ChatSidebar() {
         setIsImportingChat(false);
       }
     },
-    [activeTab, refetchChats, setActiveChatId, localizeUi],
+    [refetchChats, setActiveChatId, localizeUi],
   );
 
   const activeModeConfig = MODE_CONFIG[activeTab] ?? MODE_CONFIG.conversation;

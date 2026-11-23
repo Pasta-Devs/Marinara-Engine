@@ -15,7 +15,10 @@ export type CardFieldKey = (typeof CARD_FIELD_KEYS)[number];
 /** Current editor values, including unsaved text used as generation guidance. */
 export type CardFieldDraft = { name: string } & Record<CardFieldKey, string>;
 
-/** Greeting generation does not add greetings to chat-specific card alternatives. */
-export const CARD_FIELD_GENERATION_KEYS = [...CARD_FIELD_KEYS, "first_mes"] as const;
+/**
+ * Wand targets beyond the card fields: the greeting (not offered as a card field alternative) and the Appearance
+ * field's Image tags tab (#9640), which an Appearance alternative carries itself.
+ */
+export const CARD_FIELD_GENERATION_KEYS = [...CARD_FIELD_KEYS, "first_mes", "imageAppearance"] as const;
 export type CardFieldGenerationKey = (typeof CARD_FIELD_GENERATION_KEYS)[number];
-export type CardFieldGenerationDraft = CardFieldDraft & { first_mes?: string };
+export type CardFieldGenerationDraft = CardFieldDraft & { first_mes?: string; imageAppearance?: string };

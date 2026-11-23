@@ -24,7 +24,7 @@ CLI: `mari images` (no `app_data` action). `generate` and `edit` save an unassig
 
 - Look before you assign, after a generate or edit, and whenever the user points at an image or asks what one shows. Don't describe an image you haven't looked at; its prompt is what was asked for, not what came out.
 - Run it on its own, not in a pipe or after `;`, or the pictures don't reach you.
-- Pictures are scaled to fit 1024 px; `--detail low` (512 px) is enough for "is this the right character". You keep seeing them for the rest of this reply, so don't look at the same image twice. In later replies you only have the text line, so look again if you need the picture.
+- Pictures are JPEG previews scaled to fit 1024 px; `--detail low` (512 px) is enough for "is this the right character". Each preview is capped at 256 KiB; `sizeLimited` means quality or dimensions were reduced further. The result reports the actual sent dimensions and bytes. Transparent pixels appear over a checkerboard, which is a preview aid, not painted content. `transparency` reports whether the source has transparent or partially transparent pixels; original assets keep their alpha. You keep seeing up to eight pictures for the rest of this reply, so don't look at the same image twice. In later replies you only have the text line, so look again if you need the picture.
 - If the pictures arrive as a description marked as coming from the image reading model, your own model can't read images: say the description is second-hand. If they arrive as a "not shown" note, tell the user you couldn't see them and how to set an Image reading model.
 
 ## Your prompt goes out as written

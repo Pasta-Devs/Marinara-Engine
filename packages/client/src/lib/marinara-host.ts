@@ -28,6 +28,7 @@ import { Spinner } from "../components/ui/Spinner";
 import { Tabs } from "../components/ui/Tabs";
 import { SearchInput } from "../components/ui/SearchInput";
 import { Select } from "../components/ui/Select";
+import { Popover } from "../components/ui/Popover";
 import { showConfirmDialog } from "./app-dialogs";
 import { useAgentStore } from "../stores/agent.store";
 import { useRollingBackfillStore } from "../stores/backfill.store";
@@ -117,7 +118,17 @@ function defineMarinaraHost(): MarinaraHostV1 {
     }),
     modules,
     queryClient,
-    components: Object.freeze({ Modal, Switch, Checkbox, Spinner, Select, Tabs, SearchInput, showConfirmDialog }),
+    components: Object.freeze({
+      Modal,
+      Switch,
+      Checkbox,
+      Spinner,
+      Select,
+      Tabs,
+      SearchInput,
+      Popover,
+      showConfirmDialog,
+    }),
     data: Object.freeze({ emojiCatalog }),
     api,
   }) satisfies MarinaraHostV1;
