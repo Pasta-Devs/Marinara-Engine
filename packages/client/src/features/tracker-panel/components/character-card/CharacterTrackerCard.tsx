@@ -197,7 +197,7 @@ export function CharacterTrackerCard({
       ? character.scenePortraitPath.trim()
       : null;
   const avatarMedia = scenePortrait ?? characterPicture ?? character.avatarPath ?? null;
-  const compactAvatarUpload = characterPicture ? undefined : onUploadAvatar;
+  const compactAvatarUpload = onUploadAvatar;
   const characterFieldKey = (field: HideableCharacterField) =>
     characterTrackerLockKey(character, characterIndex, field);
   const fieldHidden = (field: HideableCharacterField) =>
