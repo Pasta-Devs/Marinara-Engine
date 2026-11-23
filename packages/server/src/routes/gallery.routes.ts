@@ -291,10 +291,11 @@ export const rewriteGalleryImagePromptSchema = regenerateGalleryImageSchema
   .required({ negativePrompt: true, characterPrompts: true })
   .extend({ guidance: z.string().trim().max(4_000).optional() });
 
-// #9387: Professor Mari's preview assets. Her images have no character captions; chatId names her chat.
-const regenerateMariImageSchema = regenerateGalleryImageSchema
-  .omit({ characterPrompts: true })
-  .extend({ chatId: z.string().trim().min(1).max(200).optional() });
+// #9387: Professor Mari's preview assets; chatId names her chat. Character prompts are the ones she sent with
+// --character-prompts on a NovelAI connection.
+const regenerateMariImageSchema = regenerateGalleryImageSchema.extend({
+  chatId: z.string().trim().min(1).max(200).optional(),
+});
 
 const reviseMariImagePromptSchema = rewriteGalleryImagePromptSchema.extend({
   chatId: z.string().trim().min(1).max(200),
@@ -678,7 +679,6 @@ export async function reviseImagePromptDraft(
   chat: { id: string; mode: string; metadata: unknown; connectionId: string | null },
   input: z.infer<typeof rewriteGalleryImagePromptSchema>,
   recordedConnectionId: string | null | undefined,
-  options: { captions: boolean } = { captions: true },
 ) {
   const signal = createResponseAbortSignal(reply, IMAGE_PROMPT_REWRITE_TIMEOUT_MS, "Gallery prompt rewriting");
   const chatId = chat.id;
@@ -697,7 +697,7 @@ export async function reviseImagePromptDraft(
   }
 
   const imageTarget = imageConnection ? resolveGalleryImageTarget(imageConnection) : null;
-  const captionLimit = options.captions && imageTarget ? resolveGalleryCaptionLimit(imageTarget) : 0;
+  const captionLimit = imageTarget ? resolveGalleryCaptionLimit(imageTarget) : 0;
   const captionLimitError = galleryCaptionLimitError(captionLimit, input.characterPrompts.length);
   if (captionLimitError) return reply.status(400).send({ error: captionLimitError });
   const hasDraftCaptions = input.characterPrompts.length > 0;
@@ -2392,8 +2392,6 @@ export async function galleryRoutes(app: FastifyInstance) {
   });
 
   // Revise the editor's current draft. Only the image regeneration route saves and swaps images.
-  // Revise an image prompt draft with the chat's Prompt Model. Roleplay images and Professor Mari's share it; hers go
-  // out without character captions, so `captions: false` keeps the rewrite from adding any.
 
   // Revise the editor's current draft. Only the image regeneration route saves and swaps images.
   app.post<{ Params: { chatId: string; imageId: string } }>(
@@ -2440,7 +2438,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!chat) return notFound(reply, "Chat not found");
     const asset = await getMariPreviewAsset(req.params.assetId);
     if (!asset) return notFound(reply, "Image not found");
-    return reviseImagePromptDraft(app, reply, chat, draft, asset.connectionId, { captions: false });
+    return reviseImagePromptDraft(app, reply, chat, draft, asset.connectionId);
   });
 
   // The new asset replaces the old one in the reply it was opened from (#9387); the old file stays in the manifest.
@@ -2471,6 +2469,7 @@ export async function galleryRoutes(app: FastifyInstance) {
         result = await getMariImagesService(app.db).regeneratePreviewAsset(assetId, {
           prompt: input.prompt,
           negativePrompt: input.negativePrompt,
+          characterPrompts: input.characterPrompts,
           connectionId: input.connectionId,
           editMode: input.editMode,
           maskImage: input.maskImage,
