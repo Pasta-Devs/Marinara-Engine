@@ -11,13 +11,14 @@ import { ChevronLeft, FilePlus, FolderOpen, FolderPlus, Plus, RefreshCw, Search,
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { TreeNode } from "../../hooks/use-game-assets";
 import { isHostDeviceBrowser } from "../../lib/host-device";
-import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { cn } from "../../lib/utils";
 import { EditorCrumbs, type RailCrumb } from "../overhaul/EditorRail";
 import { OvEditorHead } from "../overhaul/EditorChrome";
-import { openLibraryPane, openLibrarySection } from "../overhaul/library-navigation";
+import { libraryPageShowing, openLibraryPane, openLibrarySection } from "../overhaul/library-navigation";
+import { requestEditorClose } from "../../lib/editor-leave";
+import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { ViewSwitch } from "../overhaul/LibraryTables";
 import { useKitMenu } from "../overhaul/LibraryKit";
 import { AssetsTitle } from "../overhaul/AssetsTabs";
@@ -189,53 +190,67 @@ export function GameAssetFileEditorPane({
 }) {
   const { t } = useUiTranslation();
   const localize = useLocalizedUiText();
-  const editor = useGameAssetFileEditor({ node, onClose, initialMode, closeOnSave: false });
-  const { isDirty, saveFile, handleSave, isMd, content } = editor;
-  const confirmLeave = async (proceed: () => void) => {
-    if (isDirty) {
-      const discard = await showConfirmDialog({
-        message: t("ui.gameAssets.fileeditormodal.youHaveUnsavedChangesDiscardThem"),
-      });
-      if (!discard) return;
-    }
-    proceed();
+  const leaveKey = `gameAssetFile:${node.path}`;
+  // Every way off this file asks the shared editor question (Save and continue / Don't save / Keep editing): its own
+  // Back and crumbs, Escape, and anything that takes the page away (another Library section, Home, Docs, a phone's
+  // back), which used to drop the edits without a word (bug sweep Nov 23, H1).
+  const confirmLeave = (proceed: () => void) => {
+    if (!requestEditorClose(leaveKey, proceed)) proceed();
   };
-  closeRef.current = (proceed) => void confirmLeave(proceed);
+  const editor = useGameAssetFileEditor({
+    node,
+    onClose,
+    initialMode,
+    closeOnSave: false,
+    pageEditor: true,
+    requestClose: () => confirmLeave(onClose),
+  });
+  const { isDirty, saveFile, handleSave, isMd, content, setContent, loaded } = editor;
+  useEditorLeaveSave(
+    leaveKey,
+    isDirty,
+    handleSave,
+    saveFile.isPending,
+    {
+      ready: loaded,
+      name: node.name,
+      get: () => content,
+      restore: (value) => {
+        if (typeof value === "string") setContent(value);
+      },
+    },
+    (next) => libraryPageShowing("game-assets") && !libraryPageShowing("game-assets", next),
+  );
+  closeRef.current = confirmLeave;
   useEffect(
     () => () => {
       closeRef.current = null;
     },
     [closeRef],
   );
-  useEffect(() => {
-    if (!isDirty) return;
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [isDirty]);
   const folderParts = crumbs.slice(1);
   const trail: RailCrumb[] = [
     { label: localize("Library"), onClick: openLibraryPane },
     {
       label: t("library.sections.assets"),
       onClick: () =>
-        void confirmLeave(() => {
+        confirmLeave(() => {
           onClose();
           openLibrarySection("assets");
         }),
     },
     {
       label: t("library.sections.gameAssets"),
-      onClick: () => void confirmLeave(() => openLibrarySection("game-assets")),
+      onClick: () => confirmLeave(() => openLibrarySection("game-assets")),
     },
-    ...folderParts.map((label) => ({ label, onClick: () => void confirmLeave(onClose) })),
+    ...folderParts.map((label) => ({ label, onClick: () => confirmLeave(onClose) })),
     { label: node.name },
   ];
   return (
     <div className="ov-ga__editor" data-component="GameAssetFileEditor">
       <OvEditorHead
         crumbs={trail}
-        onBack={() => void confirmLeave(onClose)}
+        onBack={() => confirmLeave(onClose)}
         sectionLabel={folderParts.at(-1) ?? t("library.sections.gameAssets")}
         title={node.name}
         meta={`${content.length.toLocaleString()} ${t("ui.panels.promptoverrideseditorbody.chars")}`}

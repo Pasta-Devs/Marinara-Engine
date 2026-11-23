@@ -116,10 +116,6 @@ export function GameAssetsBrowserView({
   const updateChatMetadata = useUpdateChatMetadata();
 
   const [selectedPath, setSelectedPath] = useState("");
-  // The Library page: Back (mouse, browser, swipe) goes up one folder at a time, back to Game assets.
-  useBackSteps(page && selectedPath ? selectedPath.split("/").length : 0, () =>
-    setSelectedPath((path) => path.split("/").slice(0, -1).join("/")),
-  );
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [expanded, setExpanded] = useState<Set<string>>(new Set(Object.keys(DEFAULT_DESCRIPTIONS)));
@@ -128,6 +124,17 @@ export function GameAssetsBrowserView({
   const [previewImage, setPreviewImage] = useState<TreeNode | null>(null);
   const [previewAudio, setPreviewAudio] = useState<TreeNode | null>(null);
   const [editingFile, setEditingFile] = useState<{ node: TreeNode; mode: "edit" | "preview" } | null>(null);
+  // The Library page: Back (mouse, browser, swipe) first closes an open file (asking about unsaved edits), then goes
+  // up one folder at a time, back to Game assets.
+  useBackSteps(page ? (selectedPath ? selectedPath.split("/").length : 0) + (editingFile ? 1 : 0) : 0, () => {
+    if (editingFile) {
+      const close = () => setEditingFile(null);
+      if (fileCloseRef.current) fileCloseRef.current(close);
+      else close();
+      return;
+    }
+    setSelectedPath((path) => path.split("/").slice(0, -1).join("/"));
+  });
   const [imageInfoNode, setImageInfoNode] = useState<TreeNode | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [listColumns, setListColumns] = useState({ size: true, modified: false });

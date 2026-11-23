@@ -199,14 +199,23 @@ export function useBackgroundLibrary({
       api.patch("/backgrounds/organization", { backgroundId, folderId }),
     onMutate: async ({ backgroundId, folderId }) => {
       await qc.cancelQueries({ queryKey: BACKGROUND_QUERY_KEY });
-      const previous = qc.getQueryData<BackgroundLibraryItem[]>(BACKGROUND_QUERY_KEY);
+      const before = qc.getQueryData<BackgroundLibraryItem[]>(BACKGROUND_QUERY_KEY)?.find((b) => b.id === backgroundId);
       qc.setQueryData<BackgroundLibraryItem[]>(BACKGROUND_QUERY_KEY, (current = []) =>
         current.map((background) => (background.id === backgroundId ? { ...background, folderId } : background)),
       );
-      return { previous };
+      return { previousFolderId: before ? before.folderId : undefined };
     },
-    onError: (_error, _variables, context) => {
-      if (context?.previous) qc.setQueryData(BACKGROUND_QUERY_KEY, context.previous);
+    onError: (_error, { backgroundId, folderId }, context) => {
+      // Put back only this picture's folder, and only if nothing changed it since: restoring the whole list from
+      // before undid other moves and favourites made meanwhile (bug sweep Nov 23, L10).
+      if (context && context.previousFolderId !== undefined)
+        qc.setQueryData<BackgroundLibraryItem[]>(BACKGROUND_QUERY_KEY, (current = []) =>
+          current.map((background) =>
+            background.id === backgroundId && background.folderId === folderId
+              ? { ...background, folderId: context.previousFolderId ?? null }
+              : background,
+          ),
+        );
       toast.error(localizeUi("ui.panels.backgroundpicker.failedToMoveBackground"));
     },
     onSettled: () => qc.invalidateQueries({ queryKey: BACKGROUND_QUERY_KEY }),
@@ -217,14 +226,22 @@ export function useBackgroundLibrary({
       api.patch("/backgrounds/favorite", { backgroundId, favorite }),
     onMutate: async ({ backgroundId, favorite }) => {
       await qc.cancelQueries({ queryKey: BACKGROUND_QUERY_KEY });
-      const previous = qc.getQueryData<BackgroundLibraryItem[]>(BACKGROUND_QUERY_KEY);
+      const before = qc.getQueryData<BackgroundLibraryItem[]>(BACKGROUND_QUERY_KEY)?.find((b) => b.id === backgroundId);
       qc.setQueryData<BackgroundLibraryItem[]>(BACKGROUND_QUERY_KEY, (current = []) =>
         current.map((background) => (background.id === backgroundId ? { ...background, favorite } : background)),
       );
-      return { previous };
+      return { previousFavorite: before ? before.favorite : undefined, known: !!before };
     },
-    onError: (_error, _variables, context) => {
-      if (context?.previous) qc.setQueryData(BACKGROUND_QUERY_KEY, context.previous);
+    onError: (_error, { backgroundId, favorite }, context) => {
+      // Only this picture's star, and only if nothing changed it since (as for moves above).
+      if (context?.known)
+        qc.setQueryData<BackgroundLibraryItem[]>(BACKGROUND_QUERY_KEY, (current = []) =>
+          current.map((background) =>
+            background.id === backgroundId && background.favorite === favorite
+              ? { ...background, favorite: context.previousFavorite }
+              : background,
+          ),
+        );
       toast.error(localizeUi("ui.panels.backgroundpicker.failedToUpdateFavorite"));
     },
     onSettled: () => qc.invalidateQueries({ queryKey: BACKGROUND_QUERY_KEY }),
