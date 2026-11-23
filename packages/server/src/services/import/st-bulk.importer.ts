@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Importer: SillyTavern Bulk Import (folder scan)
 // ──────────────────────────────────────────────
-import { readdir, readFile, realpath, stat, copyFile, mkdir, open, unlink } from "fs/promises";
+import { readdir, readFile, lstat, stat, copyFile, mkdir, open, unlink } from "fs/promises";
 import { join, extname, basename, relative, resolve, sep } from "path";
 import { existsSync, readdirSync } from "fs";
 import { createHash, randomUUID } from "crypto";
@@ -819,12 +819,13 @@ export const MAX_ST_CHAT_FILE_BYTES = 256 * 1024 * 1024;
 
 /**
  * The first line of a text file inside `root`, read in chunks; "" when the file is empty, its first line is too long,
- * or the path (after following links) leads outside `root`.
+ * the path leads outside `root`, or the file is a link (it could point anywhere; folder links are never walked into).
  */
 async function readFirstLine(root: string, path: string): Promise<string> {
-  const base = await realpath(resolve(root));
-  const file = await realpath(resolve(path));
+  const base = resolve(root);
+  const file = resolve(path);
   if (!file.startsWith(base + sep)) return "";
+  if ((await lstat(file)).isSymbolicLink()) return "";
   const handle = await open(file, "r");
   try {
     const chunks: Buffer[] = [];
