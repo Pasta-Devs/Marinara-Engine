@@ -89,7 +89,7 @@ These controls decide where an activated entry lands in the prompt. On a wide sc
 | **Depth** | Shown only for **@ Depth**. How many messages back from the latest the entry sits. Default 4. |
 | **Order** | The sequence when several entries activate. A lower number comes first and survives trimming when the budget is tight. Default 100. |
 
-**Before character definitions** and **After character definitions** go where the preset puts its lorebook markers. A **Lorebook Marker (All)** places both together. The built-in **Marinara's Universal Preset** has one before the chat history. See [Sections and markers](../prompts/presets.md#sections-and-markers).
+**Before character definitions** and **After character definitions** go where the preset puts its lorebook markers. A **Lorebook Marker (All)** places whichever of them an earlier marker has not already placed, so on its own it places both together. The built-in **Marinara's Universal Preset** has one before the chat history. See [Sections and markers](../prompts/presets.md#sections-and-markers).
 
 **Role** is in the expanded entry panel, not in the quick controls. It labels the injected text **System**, **User** or **Assistant**, matters only for **@ Depth**, and defaults to **System**.
 
