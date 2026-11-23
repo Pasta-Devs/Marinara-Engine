@@ -211,16 +211,20 @@ On the **2D Avatars** page, choose a character or persona, then use **Make an av
 
 **Make faces from the avatar** makes faces without a background, also for a character or persona with no sprites yet. It needs an avatar and an image generation account. It opens the same sprite generation as the character and persona editors, with the avatar as the reference.
 
-1. Choose **All faces** (all 29 feelings), **Main faces** (the six) or pick faces yourself. Each extra feeling sits in its main face's row until it has its own face.
+1. Choose **All faces** (all 29 feelings), **Main faces** (the six), **Missing faces** (the ones not saved yet) or pick faces yourself. Each extra feeling sits in its main face's row until it has its own face.
 2. Faces are drawn in batches, main faces first. Older GPT Image models draw one face per picture. A picture that fails is tried once more. If it fails again, the run stops with **Retry picture**. **Cancel** keeps the faces already made.
 3. With **Expose media prompts before sending** on, you review every prompt at once before the first is sent. Every face is drawn with open eyes and a closed mouth, so blink and talk pictures have something to close and open.
 4. Marinara draws the faces on a plain color, removes it, and saves them as the character's or persona's sprites. A new sprite replaces one with the same name, so rename it in the last step to keep the old one.
+
+Under **Make faces from the avatar**, a line such as `Faces saved: 24 of 29. Missing: Love, Relief, Confusion, Fear, Realization.` counts the faces from your saved sprites, so it is right when you come back later. A face counts when a sprite has its name, in any folder, such as `happy`, `Happy` or `happy_2`. A face under another name, such as `joy` for happy, leaves happy missing. If a run stopped early, select **Make missing faces** to open the face maker with only the missing faces chosen. **Missing faces** never chooses a face you already saved.
 
 When the avatar is already saved, each new face becomes the face of the feeling it was drawn for, even if renamed. Other sprites stay. A face made again starts without blink and talk pictures, because the old ones would not match. Make new ones under [Blink and talk pictures](#blink-and-talk-pictures). A PNGTuber Plus import keeps its own faces.
 
 ### Blink and talk pictures
 
 Each face the avatar shows for a feeling is one row, with its **Eyes closed** and **Mouth open** pictures next to the **Face**. These are pictures you saved, `_blink` and `_talk` sprites you added, or new ones. With portrait sprites, only those are used, because an avatar never mixes portrait and full-body faces. A face that is not one of your sprites, such as from a PNGTuber Plus import, shows its pictures but cannot get new ones.
+
+The line under the title counts every picture, such as `Pictures saved: 40 of 58. Still to make: 8. Waiting for a missing face: 10.` A face that is not made yet has no row, because its pictures are drawn from it. The last card names those faces, with **Make missing faces**. Saving them adds their rows and keeps the pictures already saved.
 
 1. Check **Image model** (your default image account is picked for you).
 2. Click **Make** for one missing picture, or the **Make N pictures** button for all. Each picture is one image request. With **Expose media prompts before sending** on (in Settings), you see and edit each prompt first.

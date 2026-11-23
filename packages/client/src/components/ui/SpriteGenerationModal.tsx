@@ -2547,7 +2547,8 @@ export function SpriteGenerationModal({
                         {
                           saved: faceChoiceCount - missingFaces.length,
                           total: faceChoiceCount,
-                          names: missingFaces.join(", "),
+                          // Capitalized like the face buttons below.
+                          names: missingFaces.map((face) => face.charAt(0).toUpperCase() + face.slice(1)).join(", "),
                         },
                       )}
                     </p>
