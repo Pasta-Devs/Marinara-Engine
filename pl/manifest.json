@@ -64,8 +64,8 @@
     },
     {
       "path": "agents/knowledge-sources.md",
-      "sha256": "4b7759a55237fa629b87dcc01b7074962e21aff55485401379429037e02fc576",
-      "bytes": 6722
+      "sha256": "7b434d41a430fa81057b2cf0e5ccddd397723e1fbb3fbf747fb1e57d28fc4ae7",
+      "bytes": 6755
     },
     {
       "path": "agents/memory.md",
