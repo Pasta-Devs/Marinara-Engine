@@ -1,5 +1,5 @@
 import { Send, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Modal } from "./Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -39,6 +39,10 @@ type ImagePromptReviewModalProps = {
   items: ImagePromptReviewItem[];
   isSubmitting?: boolean;
   mediaType?: "image" | "video";
+  /** Shown above the prompts, such as why the request failed before. */
+  notice?: ReactNode;
+  /** The confirm button's label; Generate when not given. */
+  confirmLabel?: string;
   onCancel: () => void;
   onConfirm: (overrides: ImagePromptOverride[]) => void;
 };
@@ -48,6 +52,8 @@ export function ImagePromptReviewModal({
   items,
   isSubmitting = false,
   mediaType = "image",
+  notice,
+  confirmLabel,
   onCancel,
   onConfirm,
 }: ImagePromptReviewModalProps) {
@@ -115,7 +121,7 @@ export function ImagePromptReviewModal({
             className={SHEET_BUTTON_PRIMARY}
           >
             {isSubmitting ? <Spinner size="sm" /> : <Send size="0.875rem" />}
-            {localizeUi("ui.characters.characterclipcard.generate")}
+            {confirmLabel ?? localizeUi("ui.characters.characterclipcard.generate")}
           </button>
           <button type="button" onClick={onCancel} disabled={isSubmitting} className={SHEET_BUTTON_QUIET}>
             <X size="0.875rem" />
@@ -125,6 +131,7 @@ export function ImagePromptReviewModal({
       }
     >
       <div className="flex flex-col gap-4">
+        {notice}
         <div className="text-xs leading-relaxed text-[var(--muted-foreground)]">
           {localizeUi("ui.ui.imagepromptreviewmodal.editThePrompt")}
           {items.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}{" "}

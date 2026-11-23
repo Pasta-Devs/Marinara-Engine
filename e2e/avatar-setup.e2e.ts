@@ -811,6 +811,164 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
   }
 });
 
+// #9657: a picture that fails twice pauses the run. Review prompt shows that picture's prompt as its retry sends it,
+// and an edit changes only that picture's request: the faces made before it stay, and the later pictures keep their
+// own prompts, with or without every picture's prompt reviewed first.
+test("Making faces, a failed picture's prompt can be edited for its retry alone", async ({ page, request }, info) => {
+  // Two runs of five pictures, each through the model picker.
+  test.setTimeout(120_000);
+  const picture = readFileSync(new URL("../packages/client/public/sprites/avatar-demo/base.png", import.meta.url));
+  const REFUSED = "EDITED PROMPT THE SERVICE REFUSES";
+  const ACCEPTED = "EDITED PROMPT THE SERVICE ACCEPTS";
+  const characterName = runName("Retry faces fixture");
+  const characterResponse = await request.post("/api/characters", {
+    data: {
+      data: {
+        name: characterName,
+        extensions: { imageAppearanceEnabled: true, imageAppearance: "1girl, short red hair, green eyes" },
+      },
+    },
+  });
+  expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
+  const character = (await characterResponse.json()) as { id: string };
+  const connectionResponse = await request.post("/api/connections", {
+    data: {
+      name: `Retry faces image ${info.project.name}`,
+      provider: "image_generation",
+      imageGenerationSource: "openai",
+      imageService: "openai",
+      model: "gpt-image-2",
+      baseUrl: "http://127.0.0.1:9/v1",
+      apiKey: "fixture",
+    },
+  });
+  expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+  const connection = (await connectionResponse.json()) as { id: string };
+
+  try {
+    const uploaded = await request.post(`/api/characters/${character.id}/avatar`, {
+      data: { avatar: `data:image/png;base64,${picture.toString("base64")}`, filename: "faces.png" },
+    });
+    expect(uploaded.ok(), await uploaded.text()).toBeTruthy();
+    await preparePage(page, "no-owner", { agentDetailId: "2d-avatars", reviewImagePromptsBeforeSend: false });
+    const allFaces = [...AVATAR_EMOTIONS, ...AVATAR_EXTRA_FEELINGS];
+    const second = allFaces.slice(6, 12);
+    type Sheet = { expressions: string[]; promptOverrides?: Array<{ id: string; prompt: string }> };
+    const sheets: Sheet[] = [];
+    // The image service refuses the second picture until its prompt is the one it accepts.
+    await page.route("**/api/sprites/generate-sheet", async (route) => {
+      const body = route.request().postDataJSON() as Sheet;
+      sheets.push(body);
+      if (body.expressions[0] === second[0] && !body.promptOverrides?.some((entry) => entry.prompt === ACCEPTED)) {
+        await route.fulfill({
+          status: 400,
+          json: { error: "moderation_block: the image service refused the request" },
+        });
+        return;
+      }
+      await route.fulfill({
+        json: {
+          sheetBase64: "",
+          cells: body.expressions.map((expression) => ({ expression, base64: picture.toString("base64") })),
+        },
+      });
+    });
+    await page.goto("/");
+    const setup = page.locator('[data-avatar-setup="2d-avatars"]');
+    await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
+    const dialog = page.getByRole("dialog", { name: "Generate Sprites" });
+    const review = page.getByRole("dialog", { name: "Review Image Prompt", exact: true });
+    const prompt = review.locator("textarea").first();
+    const sprites = dialog.getByRole("combobox", { name: /^Assign expression for sprite \d+$/u });
+    const paused = dialog.getByText("Stopped at picture 2 of 5", { exact: true });
+    const reviewPrompt = dialog.getByRole("button", { name: "Review prompt", exact: true });
+    const retryReviewed = review.getByRole("button", { name: "Retry picture", exact: true });
+    const secondRequests = () => sheets.filter((sheet) => sheet.expressions[0] === second[0]);
+    const makeAllFaces = async () => {
+      await pickOwner(page, setup, characterName);
+      await setup.getByRole("button", { name: "Make faces from the avatar", exact: true }).click();
+      await chooseConnection(page, dialog.locator("[data-connection-value]").first(), connection.id);
+      await dialog.getByRole("button", { name: "All faces", exact: true }).click();
+      await expect(dialog.getByText("29 faces in 5 pictures.", { exact: true })).toBeVisible();
+      sheets.length = 0;
+      await dialog.getByRole("button", { name: "Generate Sprites", exact: true }).click();
+    };
+
+    // ── Without a review first ──
+    await makeAllFaces();
+    await expect(paused).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
+    await expect(sprites).toHaveCount(6);
+    expect(secondRequests()).toHaveLength(2);
+    await page.screenshot({ path: info.outputPath("faces-failed-picture-paused.png"), animations: "disabled" });
+    await reviewPrompt.click();
+    await expect(review).toBeVisible();
+    // The editor names the failed picture's faces and why it failed, and shows the prompt its retry sends.
+    await expect(review.getByText(`Picture 2: ${second.join(", ")}`, { exact: true })).toBeVisible();
+    await expect(review.getByText(/moderation_block: the image service refused the request/u)).toBeVisible();
+    await expect(prompt).toHaveValue(/Draw each face like this: curiosity: /u);
+    await page.screenshot({ path: info.outputPath("faces-failed-picture-review.png"), animations: "disabled" });
+    // Closing it sends nothing and keeps the faces made.
+    await review.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(review).toBeHidden();
+    await expect(paused).toBeVisible();
+    await expect(sprites).toHaveCount(6);
+    expect(secondRequests()).toHaveLength(2);
+    // An edit the service refuses again is still there for the next try.
+    await reviewPrompt.click();
+    await prompt.fill(REFUSED);
+    await retryReviewed.click();
+    await expect.poll(() => secondRequests().length).toBe(4);
+    await expect(paused).toBeVisible();
+    expect(
+      secondRequests()
+        .slice(2)
+        .map((sheet) => sheet.promptOverrides?.map((entry) => entry.prompt)),
+    ).toEqual([[REFUSED], [REFUSED]]);
+    await reviewPrompt.click();
+    await expect(prompt).toHaveValue(REFUSED);
+    await prompt.fill(ACCEPTED);
+    await retryReviewed.click();
+    await expect(sprites).toHaveCount(29);
+    // Picture 1 was made once. The later pictures carry only picture 2's edit, so each keeps its own prompt.
+    expect(sheets.filter((sheet) => sheet.expressions[0] === allFaces[0])).toHaveLength(1);
+    const editedId = secondRequests().at(-1)?.promptOverrides?.[0]?.id ?? "";
+    expect(editedId).toContain(`2x3-${second.join(",")}`);
+    const lastFour = sheets.slice(-4);
+    expect(lastFour.map((sheet) => sheet.expressions[0])).toEqual([
+      second[0],
+      allFaces[12],
+      allFaces[18],
+      allFaces[24],
+    ]);
+    for (const sheet of lastFour) expect(sheet.promptOverrides).toMatchObject([{ id: editedId, prompt: ACCEPTED }]);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+
+    // ── With every picture's prompt reviewed first, the edit replaces only picture 2's reviewed prompt ──
+    await seedUIState(page, { reviewImagePromptsBeforeSend: true }, "merge");
+    await page.reload();
+    await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
+    await makeAllFaces();
+    const runReview = page.getByRole("dialog", { name: "Review Image Prompts", exact: true });
+    await expect(runReview).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
+    await runReview.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect(paused).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
+    const reviewed = sheets[0]?.promptOverrides ?? [];
+    expect(reviewed).toHaveLength(5);
+    await reviewPrompt.click();
+    await expect(prompt).toHaveValue(reviewed.find((entry) => entry.id === editedId)?.prompt ?? "missing");
+    await prompt.fill(ACCEPTED);
+    await retryReviewed.click();
+    await expect(sprites).toHaveCount(29);
+    const byId = (entries: Sheet["promptOverrides"] = []) => [...entries].sort((a, b) => a.id.localeCompare(b.id));
+    const expected = byId(reviewed.map((entry) => (entry.id === editedId ? { ...entry, prompt: ACCEPTED } : entry)));
+    for (const sheet of sheets.slice(-4)) expect(byId(sheet.promptOverrides)).toEqual(expected);
+  } finally {
+    await request.delete(`/api/characters/${character.id}`).catch(() => undefined);
+    await request.delete(`/api/connections/${connection.id}`).catch(() => undefined);
+  }
+});
+
 test("The avatar agents' pages leave out the agent pipeline's settings, which other agents' pages keep", async ({
   page,
   request,

@@ -18204,6 +18204,8 @@
   "ui.spriteGeneration.batch.progressRetrying": "Trying picture {{current}} of {{total}} again…",
   "ui.spriteGeneration.batch.retry": "Retry picture",
   "ui.spriteGeneration.batch.retryHelp": "This picture was already tried twice. Retry it when the image service is ready; the faces made so far are kept.",
+  "ui.spriteGeneration.batch.reviewHelp": "An edit changes only this picture's retry; the other pictures keep their prompts. The image service can still refuse the edited prompt.",
+  "ui.spriteGeneration.batch.reviewPrompt": "Review prompt",
   "ui.spriteGeneration.batch.summary_one": "{{count}} face in {{pictures}}.",
   "ui.spriteGeneration.batch.summary_other": "{{count}} faces in {{pictures}}.",
   "ui.spriteGeneration.checkExpressions.badge": "Check",
