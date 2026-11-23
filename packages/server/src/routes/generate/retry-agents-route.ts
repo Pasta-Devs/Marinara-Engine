@@ -1538,7 +1538,8 @@ async function buildRetryAgentContext(args: {
     agentContext.memory._writableLorebooks = [...writableLorebooks.values()];
   }
 
-  // The saved tracker state this context reads, and the message it belongs to (undefined: the latest).
+  // The saved tracker state this context reads, located as the turn sees it, and the message it
+  // belongs to (undefined: the latest).
   let trackerStateRow: Parameters<typeof buildCommittedTrackerSections>[0]["latestGameState"] = null;
   let trackerStateMessageId: string | undefined;
   if (historicalGameStateAnchor) {
@@ -1547,7 +1548,7 @@ async function buildRetryAgentContext(args: {
       historicalGameStateAnchor.messageId,
       historicalGameStateAnchor.swipeIndex,
     );
-    trackerStateRow = snap;
+    trackerStateRow = projectGameSnapshotLocation(snap, retryOwnerSpatialProjection);
     trackerStateMessageId = historicalGameStateAnchor.messageId;
     if (snap) {
       const parsedGameState = parseGameStateRow(snap as Record<string, unknown>);
@@ -1562,7 +1563,7 @@ async function buildRetryAgentContext(args: {
       preferLatestVisible: true,
       visibleAnchor,
     });
-    trackerStateRow = latestGS;
+    trackerStateRow = projectGameSnapshotLocation(latestGS, retryOwnerSpatialProjection);
     trackerStateMessageId = typeof lastAssistant?.id === "string" ? lastAssistant.id : undefined;
     if (latestGS) {
       const parsedGameState = parseGameStateRow(latestGS as Record<string, unknown>);

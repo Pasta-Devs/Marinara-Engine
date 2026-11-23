@@ -456,8 +456,8 @@ export interface AgentContext {
   loadPreviousOutput?: (agentConfigId: string) => Promise<unknown>;
   previousOutput?: { agentType: string; text: string };
   /**
-   * Each active tracker's saved state, by agent type, as a preset's Agent Data section shows it.
-   * `{{agent::TYPE}}` in agent prompts reads it; an agent's own type is left out (#9658).
+   * Each active tracker's saved state, by agent type: a preset's Agent Data text without the narrator's
+   * Markdown note. `{{agent::TYPE}}` in agent prompts reads it; the executor drops the agent's own type (#9658).
    */
   trackerMacroData?: Record<string, string>;
   /** All lorebook IDs the agent can write to */

@@ -30,6 +30,8 @@ const {
 const { parseGameStateRow } = await import("../../../packages/server/src/routes/generate/generate-route-utils.js");
 const { buildCommittedTrackerContextBlock } =
   await import("../../../packages/server/src/services/generation/committed-tracker-context.js");
+const { registerCapabilityService } =
+  await import("../../../packages/server/src/services/capability-packages/capability-service-registry.service.js");
 const prompts: string[] = [];
 const trackerPrompts: string[] = [];
 const mainPrompts: string[] = [];
@@ -576,16 +578,32 @@ try {
   const macroReply = (await chats.listMessages(macroChat.id)).filter((message) => message.role === "assistant").at(-1);
   assert.ok(macroReply && macroReply.id !== macroPrior.id);
   const onReply = await saveMacroState(macroReply.id, "AFTER");
-  const macroRetryStart = prompts.length;
-  const macroRetry = await app.inject({
-    method: "POST",
-    url: "/api/generate/retry-agents",
-    payload: { chatId: macroChat.id, agentTypes: [macroReader.type], forMessageId: macroReply.id },
+  // A map that places the party elsewhere: retries read the location the turn would read.
+  await chats.patchMetadata(macroChat.id, {
+    activeAgentIds: [...macroTrackerTypes, macroReader.type, "hierarchical-maps"],
   });
-  assert.equal(macroRetry.statusCode, 200, macroRetry.body);
-  assert.ok(!macroRetry.body.includes('"type":"error"'), macroRetry.body);
-  const macroRetryPrompt = prompts.slice(macroRetryStart).find((prompt) => prompt.includes("tracker macros")) ?? "";
-  assert.ok(macroRetryPrompt.includes(JSON.stringify(onReply).slice(1, -1)), macroRetryPrompt);
+  const removeProjection = registerCapabilityService("hierarchical-maps:projection", {
+    resolveOwnerSpatialProjection: async () => ({ ownerMode: "roleplay", breadcrumb: [], description: "" }),
+    formatOwnerSpatialBreadcrumb: () => "",
+    projectGameSnapshotLocation: (snapshot: object | null) => snapshot && { ...snapshot, location: "MACRO_MAP_ROOM" },
+  });
+  const onMap = onReply.replace("MACRO_LAB_AFTER", "MACRO_MAP_ROOM");
+  try {
+    for (const forMessageId of [macroReply.id, undefined]) {
+      const macroRetryStart = prompts.length;
+      const macroRetry = await app.inject({
+        method: "POST",
+        url: "/api/generate/retry-agents",
+        payload: { chatId: macroChat.id, agentTypes: [macroReader.type], forMessageId },
+      });
+      assert.equal(macroRetry.statusCode, 200, macroRetry.body);
+      assert.ok(!macroRetry.body.includes('"type":"error"'), macroRetry.body);
+      const macroRetryPrompt = prompts.slice(macroRetryStart).find((prompt) => prompt.includes("tracker macros")) ?? "";
+      assert.ok(macroRetryPrompt.includes(JSON.stringify(onMap).slice(1, -1)), macroRetryPrompt);
+    }
+  } finally {
+    removeProjection();
+  }
 } finally {
   provider.closeAllConnections();
   await new Promise<void>((done) => provider.close(() => done()));
