@@ -9,7 +9,7 @@ import { z } from "zod";
 import {
   buildChatImageGenerationRecord,
   findImageStyleProfile,
-  isNativeNovelAiUrl,
+  imageEditValidationError,
   parseChatImageGenerationRecord,
   LOCAL_SIDECAR_CONNECTION_ID,
   readImageAppearanceOverride,
@@ -2553,25 +2553,11 @@ export async function galleryRoutes(app: FastifyInstance) {
       const imageTarget = resolveGalleryImageTarget(imageConnection);
       const { imageModel, imageBaseUrl, imageSource, imageServiceHint } = imageTarget;
       const imageFallback = await resolveImageConnectionFallback(connectionsStore, imageConnection.id);
-      if (input.maskImage && input.editMode !== "infill") {
-        return reply.status(400).send({ error: "A mask image is only valid for inpainting edits." });
-      }
-      const isNativeNovelAi =
-        resolveImageBackend(imageSource, imageBaseUrl, imageServiceHint, imageModel) === "novelai" &&
-        isNativeNovelAiUrl(imageBaseUrl);
-      if (input.editMode) {
-        if (!isNativeNovelAi) {
-          return reply
-            .status(400)
-            .send({ error: "Image-to-image and inpainting edits require a native NovelAI connection." });
-        }
-        if (input.editMode === "infill" && !input.maskImage) {
-          return reply.status(400).send({ error: "Inpainting requires a painted mask." });
-        }
-      }
-      if (input.reuseSeed && !isNativeNovelAi) {
-        return reply.status(400).send({ error: "Reusing the original seed requires a native NovelAI connection." });
-      }
+      const editError = imageEditValidationError(
+        { source: imageSource, baseUrl: imageBaseUrl, serviceHint: imageServiceHint, model: imageModel },
+        input,
+      );
+      if (editError) return reply.status(400).send({ error: editError });
 
       let sourceBuffer: Buffer | null = null;
       if (input.editMode || (input.reuseSeed && record?.seed === undefined)) {

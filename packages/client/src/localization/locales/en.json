@@ -11726,6 +11726,7 @@
   "ui.chat.imageregeneratepanel.guidance": "AI guidance (optional)",
   "ui.chat.imageregeneratepanel.guidancePlaceholder": "For example, move the scene outdoors at dusk.",
   "ui.chat.imageregeneratepanel.img2imgHint": "Image-to-image mode: re-draws the image using the prompt below. Paint a mask over the image to switch to inpainting.",
+  "ui.chat.imageregeneratepanel.img2imgOnlyHint": "Redraws the image using the prompt below. This connection supports whole-image edits without a mask.",
   "ui.chat.imageregeneratepanel.img2imgStrengthHelp": "How much the image can change from the original. Around 0.30–0.50 keeps the pose and shifts lighting or details; 0.60+ redraws more of the scene.",
   "ui.chat.imageregeneratepanel.infillStrengthHelp": "How strongly the masked area is redrawn. 1.00 fully replaces what is under the mask; lower values blend with the original pixels.",
   "ui.chat.imageregeneratepanel.inpaint": "Inpaint image",
