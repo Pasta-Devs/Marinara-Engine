@@ -10,7 +10,7 @@ import { realpathSync } from "fs";
 import { readdir, stat } from "fs/promises";
 import { resolve as pathResolve } from "path";
 import { containsDecisionStatements, normalizeTextForMatch, type ChatMode } from "@marinara-engine/shared";
-import { importSTChat } from "../services/import/st-chat.importer.js";
+import { importSTChat, stChatFileFingerprint, stChatNameFromFileName } from "../services/import/st-chat.importer.js";
 import {
   importSTCharacter,
   importCharX,
@@ -661,12 +661,7 @@ export async function importRoutes(app: FastifyInstance) {
     if (rawMode !== undefined && mode === undefined) return invalidChatModeResponse();
 
     // Use the uploaded filename (minus extension) as chat name if available
-    const rawName = data.filename ?? "";
-    const chatName =
-      rawName
-        .replace(/\.jsonl$/i, "")
-        .replace(/_/g, " ")
-        .trim() || undefined;
+    const chatName = stChatNameFromFileName(data.filename);
 
     // Try to link the chat to a character by matching the JSONL header's character_name
     let characterId: string | null = null;
@@ -706,6 +701,8 @@ export async function importRoutes(app: FastifyInstance) {
       // The file's own mode wins; the picked one applies to a plain SillyTavern log.
       ...(mode ? { modeFallback: mode } : {}),
       ...(timestampOverrides ? { timestampOverrides } : {}),
+      // So a later folder import knows this file is already here.
+      sourceFingerprint: stChatFileFingerprint(text),
     });
   });
 
@@ -807,6 +804,7 @@ export async function importRoutes(app: FastifyInstance) {
       connectionId: targetChat.connectionId ?? null,
       promptPresetId: targetChat.promptPresetId ?? null,
       ...(timestampOverrides ? { timestampOverrides } : {}),
+      sourceFingerprint: stChatFileFingerprint(text),
     });
 
     return { ...result, groupId };
