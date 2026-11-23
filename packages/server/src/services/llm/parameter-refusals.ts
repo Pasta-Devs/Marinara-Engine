@@ -41,6 +41,11 @@ function fieldPattern(field: string): RegExp {
   return new RegExp(`(?<![A-Za-z0-9_])(?:${spaced}|${camel})(?![A-Za-z0-9_])`, "giu");
 }
 
+/** The sentences of `near`: a bound in a sentence that names another sent field describes that field's value. */
+function sentencesOf(near: string): string[] {
+  return near.split(/(?<=[.!?\n])\s+/u);
+}
+
 /**
  * The fields of `body` that a refusal names: a panel field that was sent, named within reach of refusal wording and not
  * of range wording. An error about two samplers sent together drops only top_p. Returns [] when the error is about
@@ -55,7 +60,14 @@ export function detectRefusedParameterFields(errorText: string, body: Record<str
     for (const match of text.matchAll(fieldPattern(field))) {
       const at = match.index ?? 0;
       const near = text.slice(Math.max(0, at - WINDOW), at + match[0].length + WINDOW);
-      if (RANGE_WORDING.test(near)) continue;
+      // A bound in a sentence about another sent field ("top_k is not supported. Valid top_p values are between 0 and
+      // 1.") is that field's, so it does not make this mention a value error.
+      const others = sent.filter((other) => other !== field).map(fieldPattern);
+      const bounded = sentencesOf(near).some(
+        (sentence) =>
+          RANGE_WORDING.test(sentence) && !others.some((other) => new RegExp(other.source, "iu").test(sentence)),
+      );
+      if (bounded) continue;
       if (REFUSAL_WORDING.test(near) || (field === "top_p" && TOGETHER_WORDING.test(near))) return true;
     }
     return false;

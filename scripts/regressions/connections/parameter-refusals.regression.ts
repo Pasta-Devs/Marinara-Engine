@@ -82,6 +82,11 @@ try {
     detect({ error: { message: "Invalid 'top_k': not allowed. Expected a value <= 100, but got 400 instead." } }),
     [],
   );
+  assert.deepEqual(
+    detect({ error: { message: "top_k is not supported. Valid top_p values are between 0 and 1." } }),
+    ["top_k"],
+    "another field's bound in the next sentence does not cancel a refusal",
+  );
   assert.deepEqual(detect({ error: { message: "messages: role 'tool' is not supported" } }), []);
   assert.deepEqual(detect({ error: { message: "top_k is not supported" } }, { temperature: 0.7 }), []);
   assert.deepEqual(
