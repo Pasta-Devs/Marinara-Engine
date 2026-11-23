@@ -605,7 +605,7 @@ export function ImageRegeneratePanel({
           className={cn(
             "flex shrink-0 items-center justify-between gap-2 px-3 py-1.5 sm:px-4",
             !collapsed && "border-b border-[var(--border)]",
-            !collapsed && capabilities.inpainting && "max-sm:contents",
+            !collapsed && canEdit && "max-sm:contents",
           )}
         >
           <h2
@@ -615,7 +615,7 @@ export function ImageRegeneratePanel({
             className={cn(
               "min-w-0 shrink-0 truncate text-base font-semibold focus:outline-none",
               showCollapsedMaskBar && "max-md:sr-only",
-              !collapsed && capabilities.inpainting && "max-sm:sr-only",
+              !collapsed && canEdit && "max-sm:sr-only",
             )}
           >
             {t("ui.chat.chatimagelightbox.regenerateImage")}
@@ -624,7 +624,7 @@ export function ImageRegeneratePanel({
             className={cn(
               "flex shrink-0 items-center gap-1.5",
               showCollapsedMaskBar && "min-w-0 flex-1 justify-between md:justify-end md:gap-2",
-              !collapsed && capabilities.inpainting && "max-sm:contents",
+              !collapsed && canEdit && "max-sm:contents",
             )}
           >
             {showCollapsedMaskBar && maskControls && (
@@ -639,7 +639,7 @@ export function ImageRegeneratePanel({
             <div
               className={cn(
                 "flex shrink-0 items-center gap-1",
-                !collapsed && capabilities.inpainting && "max-sm:order-last",
+                !collapsed && canEdit && "max-sm:order-last",
               )}
             >
               {collapsed && phase && <Spinner size="sm" aria-hidden="true" />}
