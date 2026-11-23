@@ -1091,12 +1091,17 @@ function ConversationQuickSetup({
 }: WizardWithDefaultsProps) {
   const { t: localizeUi } = useUiTranslation();
   const finishTimerRef = useRef<number | null>(null);
-  useEffect(
-    () => () => {
+  // False once this page closes, so a schedule that finishes generating afterwards never starts the finish.
+  const activeRef = useRef(true);
+  // Set while Start runs (and after it succeeds), so a second click can't start it twice.
+  const startingRef = useRef(false);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
       if (finishTimerRef.current !== null) window.clearTimeout(finishTimerRef.current);
-    },
-    [],
-  );
+    };
+  }, []);
   const pageMode = useOverhaulLook();
   const [step, setStep] = useState(0);
   const currentStep = CONVERSATION_STEPS[step]!;
@@ -1468,6 +1473,8 @@ function ConversationQuickSetup({
 
   const handleStartChatting = useCallback(async () => {
     if (metadata.multiplayerSetup !== true && (!hasConnection || !hasCharacters)) return;
+    if (startingRef.current) return;
+    startingRef.current = true;
     bumpFeatureTipCount(CONVERSATION_FULL_SETUPS);
     const trimmedConversationSystemPrompt = conversationSystemPromptDraft.trim();
     const baseConversationPromptText = baseConversationPrompt.trim();
@@ -1487,22 +1494,28 @@ function ConversationQuickSetup({
       currentConnectionId: metadata.imageGenConnectionId,
       selfieCommandEnabled,
     });
-    await updateMeta.mutateAsync({
-      id: chat.id,
-      autonomousMessages: autonomousEnabled,
-      conversationSchedulesEnabled: generateSchedule,
-      characterCommands: hasConversationCommands && commandsEnabled,
-      conversationCommandToggles: selfieSetup.conversationCommandToggles,
-      conversationSetupComplete: true,
-      // Set up from here on, in the same write: leaving during the schedule step below must never let the draft
-      // cleanup remove this chat (it has no messages yet).
-      setupPending: null,
-      setupUnfinished: null,
-      setupHasInput: null,
-      chatParameters: customizeParameters ? generationParameters : null,
-      customSystemPrompt,
-      ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
-    });
+    try {
+      await updateMeta.mutateAsync({
+        id: chat.id,
+        autonomousMessages: autonomousEnabled,
+        conversationSchedulesEnabled: generateSchedule,
+        characterCommands: hasConversationCommands && commandsEnabled,
+        conversationCommandToggles: selfieSetup.conversationCommandToggles,
+        conversationSetupComplete: true,
+        // Set up from here on, in the same write: leaving during the schedule step below must never let the draft
+        // cleanup remove this chat (it has no messages yet).
+        setupPending: null,
+        setupUnfinished: null,
+        setupHasInput: null,
+        chatParameters: customizeParameters ? generationParameters : null,
+        customSystemPrompt,
+        ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
+      });
+    } catch (error) {
+      // Not saved: Start can be tried again.
+      startingRef.current = false;
+      throw error;
+    }
     useChatStore.getState().clearPendingNewChatSetup(chat.id);
     if (autonomousEnabled && generateSchedule && metadata.multiplayerSetup !== true) {
       setScheduleState("generating");
@@ -1520,6 +1533,7 @@ function ConversationQuickSetup({
       } catch {
         // Schedule generation is non-critical — continue anyway
       }
+      if (!activeRef.current) return;
       setScheduleState("done");
       // Cancelled if this page closes first (another chat, Home), so it never finishes the wrong chat's setup.
       finishTimerRef.current = window.setTimeout(() => {
