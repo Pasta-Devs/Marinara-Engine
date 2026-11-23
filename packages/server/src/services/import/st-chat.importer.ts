@@ -137,6 +137,9 @@ export interface ImportSTChatOptions {
   sourceFingerprint?: string;
 }
 
+const EARLIEST_TRANSCRIPT_MS = Date.parse("2000-01-01T00:00:00.000Z");
+const TRANSCRIPT_FUTURE_SLACK_MS = 24 * 60 * 60 * 1000;
+
 function normalizeTranscriptTimestamps(
   inputs: ParsedSTChatMessageInput[],
   fallbackStart?: TimestampOverrides | null,
@@ -145,16 +148,21 @@ function normalizeTranscriptTimestamps(
   // Marinara sorts messages by createdAt, so make the imported transcript
   // strictly monotonic while preserving the source file's line order.
   const fallback = normalizeTimestampOverrides(fallbackStart);
-  const firstParsedIndex = inputs.findIndex((input) => input.parsedCreatedAt);
-  const firstParsedMs =
-    firstParsedIndex >= 0 ? Date.parse(inputs[firstParsedIndex]!.parsedCreatedAt as string) : Number.NaN;
-  const fallbackMs = Date.parse(fallback?.createdAt ?? fallback?.updatedAt ?? "");
   const nowMs = Date.now();
+  // A date in the future (or before chat apps existed) is a broken clock or a misread field. One such message would
+  // push every later one, and the chat's own date, into the future, so it counts as having no date.
+  const plausibleMs = (value: string | null | undefined) => {
+    const ms = value ? Date.parse(value) : Number.NaN;
+    return ms >= EARLIEST_TRANSCRIPT_MS && ms <= nowMs + TRANSCRIPT_FUTURE_SLACK_MS ? ms : Number.NaN;
+  };
+  const firstParsedIndex = inputs.findIndex((input) => Number.isFinite(plausibleMs(input.parsedCreatedAt)));
+  const firstParsedMs = firstParsedIndex >= 0 ? plausibleMs(inputs[firstParsedIndex]!.parsedCreatedAt) : Number.NaN;
+  const fallbackMs = plausibleMs(fallback?.createdAt ?? fallback?.updatedAt);
 
   let lastMs: number | null = null;
 
   return inputs.map((input, index) => {
-    const parsedMs = input.parsedCreatedAt ? Date.parse(input.parsedCreatedAt) : Number.NaN;
+    const parsedMs = plausibleMs(input.parsedCreatedAt);
     let candidateMs: number;
 
     if (Number.isFinite(parsedMs)) {
@@ -656,192 +664,205 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
 
   if (!chat) return { error: "Failed to create chat" };
 
-  // Preserve an imported branch/file label separately from the main thread/chat name.
-  if (
-    Object.keys(marinaraMetadata).length > 0 ||
-    Object.keys(sillyTavernMetadata).length > 0 ||
-    stGroupMode ||
-    opts?.groupChatMode ||
-    importedBranchName
-  ) {
-    const existingMetadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
-    const importedMetadata = sanitizeImportedMarinaraMetadata(
-      marinaraMetadata,
-      opts?.groupId ?? chat.groupId ?? chat.id,
-    );
-    delete importedMetadata.spatialContextHistory;
-    delete importedMetadata.advancedMemoryTransfer;
-    delete importedMetadata.advancedMemoryState;
-    delete importedMetadata.gameWorldSnapshot;
-    // A game's world (worldgen W11): a world this Engine's generator made is made now from its recipe, as
-    // its edits are saved later; another generator's comes from the snapshot it came with, checked whole,
-    // kept before the metadata that names the world.
-    if (importedMetadata.gameWorld != null) {
-      const snapshots = createGameWorldSnapshotsStorage(db);
-      const sent = readWorldSnapshot(marinaraMetadata.gameWorldSnapshot);
-      const read =
-        sent.ok && sent.snapshot.generatorVersion === WORLD_GENERATOR_VERSION
-          ? ({ ok: false, issues: ["its recipe does not make a world"] } as const)
-          : sent;
-      if (read.ok) await snapshots.put(chat.id, read.snapshot);
-      const game = read.ok
-        ? gameWorldFromSnapshot(read.snapshot)
-        : await saveGameWorldSnapshot(db, chat.id, importedMetadata);
-      if (!game) {
-        logger.warn(
-          "Imported game chat %s has a world this Engine cannot read: %s",
-          chat.id,
-          read.ok ? "" : read.issues[0],
-        );
-      }
-      // The living world earlier sessions left, folded again from what they carried (W11).
-      const carried = worldLedgerCarry(importedMetadata.gameLedgerCarry);
-      if (game && carried?.tags) await snapshots.setFold(chat.id, worldFold(game, readWorldLedger([carried.tags])));
-    }
-    await storage.patchMetadata(
-      chat.id,
-      {
-        ...existingMetadata,
-        ...sillyTavernMetadata,
-        ...(stGroupMode ?? {}),
-        ...importedMetadata,
-        // A mode picked at import time wins over what the file carried.
-        ...(opts?.groupChatMode ? { groupChatMode: opts.groupChatMode } : {}),
-        ...(importedBranchName ? { branchName: importedBranchName } : {}),
-      },
-      { touchUpdatedAt: false },
-    );
-  }
-
-  // "Imported" and where it came from, as chat tags rather than in the name (both optional).
-  if (opts?.importTags) {
-    const importTags = opts.importTags;
-    // A chat Marinara exported carries its own metadata block; anything else came from SillyTavern.
-    const source = opts.source ?? (Object.keys(marinaraMetadata).length > 0 ? "marinara" : "st");
-    await storage.patchMetadata(
-      chat.id,
-      (current) => ({
-        ...current,
-        tags: withImportTags(Array.isArray(current.tags) ? current.tags : [], source, importTags),
-      }),
-      { touchUpdatedAt: false },
-    );
-  }
-
-  const importedMessageIds = await storage.createMessagesBatch(chat.id, msgInputs, chatTimestamps);
-  // Remember the file only once its messages are saved: a chat left half-made by a failed import must not make
-  // "Skip what's already here" pass over the file on the next try.
-  if (opts?.sourceFingerprint) {
-    await storage.patchMetadata(chat.id, { importFingerprint: opts.sourceFingerprint }, { touchUpdatedAt: false });
-  }
-  const sourceIdCounts = new Map<string, number>();
-  for (const message of parsedMsgInputs)
-    if (message.sourceMessageId) {
-      sourceIdCounts.set(message.sourceMessageId, (sourceIdCounts.get(message.sourceMessageId) ?? 0) + 1);
-    }
-  const sourceToImportedMessageId = new Map(
-    parsedMsgInputs.flatMap((message, index) =>
-      message.sourceMessageId && sourceIdCounts.get(message.sourceMessageId) === 1 && importedMessageIds[index]
-        ? [[message.sourceMessageId, importedMessageIds[index]!] as const]
-        : [],
-    ),
-  );
-  // Only Marinara exports carry interruption receipts. Skipping the remap for chats without any keeps a big
-  // SillyTavern import from re-reading every message and swipe already in memory once per chat.
-  if (msgInputs.some(carriesInterruptionReceipt)) {
-    await storage.remapRoleplayInterruptionTargets(chat.id, sourceToImportedMessageId);
-  }
-  if (importedMode === "roleplay" && marinaraMetadata.advancedMemory) {
-    const existing = await storage.getById(chat.id);
-    const metadata = existing?.metadata ? (JSON.parse(existing.metadata) as Record<string, unknown>) : {};
-    const remappedMetadata = remapAdvancedMemoryMetadata(metadata, sourceToImportedMessageId, characterIds);
-    const messageIndexes = new Map(importedMessageIds.map((id, index) => [id, index + 1]));
-    const entries = normalizeChatSummaryEntries(metadata.summaryEntries, {
-      legacySummary: typeof metadata.summary === "string" ? metadata.summary : null,
-    }).flatMap((entry) => {
-      if (!entry.messageIds?.length) return [entry];
-      if (!entry.messageIds.every((id) => sourceToImportedMessageId.has(id))) {
-        return entry.origin === "automated"
-          ? []
-          : [
-              {
-                ...entry,
-                enabled: false,
-                messageIds: undefined,
-                hiddenMessageIds: undefined,
-                rangeStartIndex: undefined,
-                rangeEndIndex: undefined,
-              },
-            ];
-      }
-      const ids = entry.messageIds.map((id) => sourceToImportedMessageId.get(id)!);
-      return [
-        {
-          ...entry,
-          messageIds: ids,
-          hiddenMessageIds: entry.hiddenMessageIds?.flatMap((id) => sourceToImportedMessageId.get(id) ?? []),
-          rangeStartIndex: Math.min(...ids.map((id) => messageIndexes.get(id)!)),
-          rangeEndIndex: Math.max(...ids.map((id) => messageIndexes.get(id)!)),
-        },
-      ];
-    });
-    remappedMetadata.summaryEntries = entries;
-    remappedMetadata.summary = compileChatSummaryEntries(entries);
-    const previousSummaryAnchor = metadata.lastAutomaticSummaryMessageId;
-    remappedMetadata.lastAutomaticSummaryMessageId =
-      typeof previousSummaryAnchor === "string" ? (sourceToImportedMessageId.get(previousSummaryAnchor) ?? null) : null;
-    await storage.patchMetadata(chat.id, remappedMetadata, { touchUpdatedAt: false });
-    await copyAdvancedMemoryRecords({
-      db,
-      chatId: chat.id,
-      records: marinaraMetadata.advancedMemoryTransfer,
-      sourceMessages: parsedMsgInputs.flatMap((message) =>
-        message.sourceMessageId ? [{ ...message, id: message.sourceMessageId }] : [],
-      ),
-      messageIds: sourceToImportedMessageId,
-      characterIds,
-      metadata: remappedMetadata,
-    });
-  }
-  const spatialStorage = createSpatialContextStorage();
-  for (const candidate of importedSpatialHistory) {
-    if (!isRecord(candidate)) continue;
-    const messageIndex = candidate.messageIndex;
-    const swipeIndex = candidate.swipeIndex;
-    const definitionRevision = candidate.definitionRevision;
-    const currentLocationId = candidate.currentLocationId;
+  // Everything below fills the chat in. If any of it fails, the half-made chat goes again (with what hangs off it,
+  // such as a game world snapshot), so a failed file leaves nothing behind and a re-run does not make a duplicate.
+  try {
+    // Preserve an imported branch/file label separately from the main thread/chat name.
     if (
-      !Number.isSafeInteger(messageIndex) ||
-      typeof messageIndex !== "number" ||
-      messageIndex < -1 ||
-      !Number.isSafeInteger(swipeIndex) ||
-      typeof swipeIndex !== "number" ||
-      swipeIndex < 0 ||
-      !Number.isSafeInteger(definitionRevision) ||
-      typeof definitionRevision !== "number" ||
-      definitionRevision < 0 ||
-      (currentLocationId !== null &&
-        (typeof currentLocationId !== "string" ||
-          currentLocationId.length === 0 ||
-          currentLocationId.length > SPATIAL_CONTEXT_LIMITS.maxIdLength ||
-          currentLocationId !== currentLocationId.trim()))
+      Object.keys(marinaraMetadata).length > 0 ||
+      Object.keys(sillyTavernMetadata).length > 0 ||
+      stGroupMode ||
+      opts?.groupChatMode ||
+      importedBranchName
     ) {
-      continue;
+      const existingMetadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+      const importedMetadata = sanitizeImportedMarinaraMetadata(
+        marinaraMetadata,
+        opts?.groupId ?? chat.groupId ?? chat.id,
+      );
+      delete importedMetadata.spatialContextHistory;
+      delete importedMetadata.advancedMemoryTransfer;
+      delete importedMetadata.advancedMemoryState;
+      delete importedMetadata.gameWorldSnapshot;
+      // A game's world (worldgen W11): a world this Engine's generator made is made now from its recipe, as
+      // its edits are saved later; another generator's comes from the snapshot it came with, checked whole,
+      // kept before the metadata that names the world.
+      if (importedMetadata.gameWorld != null) {
+        const snapshots = createGameWorldSnapshotsStorage(db);
+        const sent = readWorldSnapshot(marinaraMetadata.gameWorldSnapshot);
+        const read =
+          sent.ok && sent.snapshot.generatorVersion === WORLD_GENERATOR_VERSION
+            ? ({ ok: false, issues: ["its recipe does not make a world"] } as const)
+            : sent;
+        if (read.ok) await snapshots.put(chat.id, read.snapshot);
+        const game = read.ok
+          ? gameWorldFromSnapshot(read.snapshot)
+          : await saveGameWorldSnapshot(db, chat.id, importedMetadata);
+        if (!game) {
+          logger.warn(
+            "Imported game chat %s has a world this Engine cannot read: %s",
+            chat.id,
+            read.ok ? "" : read.issues[0],
+          );
+        }
+        // The living world earlier sessions left, folded again from what they carried (W11).
+        const carried = worldLedgerCarry(importedMetadata.gameLedgerCarry);
+        if (game && carried?.tags) await snapshots.setFold(chat.id, worldFold(game, readWorldLedger([carried.tags])));
+      }
+      await storage.patchMetadata(
+        chat.id,
+        {
+          ...existingMetadata,
+          ...sillyTavernMetadata,
+          ...(stGroupMode ?? {}),
+          ...importedMetadata,
+          // A mode picked at import time wins over what the file carried.
+          ...(opts?.groupChatMode ? { groupChatMode: opts.groupChatMode } : {}),
+          ...(importedBranchName ? { branchName: importedBranchName } : {}),
+        },
+        { touchUpdatedAt: false },
+      );
     }
-    if (messageIndex === -1 && swipeIndex !== 0) continue;
-    if (messageIndex >= 0 && !msgInputs[messageIndex]?.swipes?.some((swipe) => swipe.index === swipeIndex)) continue;
-    const messageId = messageIndex === -1 ? "" : importedMessageIds[messageIndex];
-    if (messageId === undefined) continue;
-    await spatialStorage.replaceAtAnchor({
-      chatId: chat.id,
-      messageId,
-      swipeIndex,
-      currentLocationId,
-      definitionRevision,
-      source: "branch_copy",
-      transitionCommandId: null,
-      transitionPayloadHash: null,
-    });
+
+    // "Imported" and where it came from, as chat tags rather than in the name (both optional).
+    if (opts?.importTags) {
+      const importTags = opts.importTags;
+      // A chat Marinara exported carries its own metadata block; anything else came from SillyTavern.
+      const source = opts.source ?? (Object.keys(marinaraMetadata).length > 0 ? "marinara" : "st");
+      await storage.patchMetadata(
+        chat.id,
+        (current) => ({
+          ...current,
+          tags: withImportTags(Array.isArray(current.tags) ? current.tags : [], source, importTags),
+        }),
+        { touchUpdatedAt: false },
+      );
+    }
+
+    const importedMessageIds = await storage.createMessagesBatch(chat.id, msgInputs, chatTimestamps);
+    // Remember the file only once its messages are saved: a chat left half-made by a failed import must not make
+    // "Skip what's already here" pass over the file on the next try.
+    if (opts?.sourceFingerprint) {
+      await storage.patchMetadata(chat.id, { importFingerprint: opts.sourceFingerprint }, { touchUpdatedAt: false });
+    }
+    const sourceIdCounts = new Map<string, number>();
+    for (const message of parsedMsgInputs)
+      if (message.sourceMessageId) {
+        sourceIdCounts.set(message.sourceMessageId, (sourceIdCounts.get(message.sourceMessageId) ?? 0) + 1);
+      }
+    const sourceToImportedMessageId = new Map(
+      parsedMsgInputs.flatMap((message, index) =>
+        message.sourceMessageId && sourceIdCounts.get(message.sourceMessageId) === 1 && importedMessageIds[index]
+          ? [[message.sourceMessageId, importedMessageIds[index]!] as const]
+          : [],
+      ),
+    );
+    // Only Marinara exports carry interruption receipts. Skipping the remap for chats without any keeps a big
+    // SillyTavern import from re-reading every message and swipe already in memory once per chat.
+    if (msgInputs.some(carriesInterruptionReceipt)) {
+      await storage.remapRoleplayInterruptionTargets(chat.id, sourceToImportedMessageId);
+    }
+    if (importedMode === "roleplay" && marinaraMetadata.advancedMemory) {
+      const existing = await storage.getById(chat.id);
+      const metadata = existing?.metadata ? (JSON.parse(existing.metadata) as Record<string, unknown>) : {};
+      const remappedMetadata = remapAdvancedMemoryMetadata(metadata, sourceToImportedMessageId, characterIds);
+      const messageIndexes = new Map(importedMessageIds.map((id, index) => [id, index + 1]));
+      const entries = normalizeChatSummaryEntries(metadata.summaryEntries, {
+        legacySummary: typeof metadata.summary === "string" ? metadata.summary : null,
+      }).flatMap((entry) => {
+        if (!entry.messageIds?.length) return [entry];
+        if (!entry.messageIds.every((id) => sourceToImportedMessageId.has(id))) {
+          return entry.origin === "automated"
+            ? []
+            : [
+                {
+                  ...entry,
+                  enabled: false,
+                  messageIds: undefined,
+                  hiddenMessageIds: undefined,
+                  rangeStartIndex: undefined,
+                  rangeEndIndex: undefined,
+                },
+              ];
+        }
+        const ids = entry.messageIds.map((id) => sourceToImportedMessageId.get(id)!);
+        return [
+          {
+            ...entry,
+            messageIds: ids,
+            hiddenMessageIds: entry.hiddenMessageIds?.flatMap((id) => sourceToImportedMessageId.get(id) ?? []),
+            rangeStartIndex: Math.min(...ids.map((id) => messageIndexes.get(id)!)),
+            rangeEndIndex: Math.max(...ids.map((id) => messageIndexes.get(id)!)),
+          },
+        ];
+      });
+      remappedMetadata.summaryEntries = entries;
+      remappedMetadata.summary = compileChatSummaryEntries(entries);
+      const previousSummaryAnchor = metadata.lastAutomaticSummaryMessageId;
+      remappedMetadata.lastAutomaticSummaryMessageId =
+        typeof previousSummaryAnchor === "string"
+          ? (sourceToImportedMessageId.get(previousSummaryAnchor) ?? null)
+          : null;
+      await storage.patchMetadata(chat.id, remappedMetadata, { touchUpdatedAt: false });
+      await copyAdvancedMemoryRecords({
+        db,
+        chatId: chat.id,
+        records: marinaraMetadata.advancedMemoryTransfer,
+        sourceMessages: parsedMsgInputs.flatMap((message) =>
+          message.sourceMessageId ? [{ ...message, id: message.sourceMessageId }] : [],
+        ),
+        messageIds: sourceToImportedMessageId,
+        characterIds,
+        metadata: remappedMetadata,
+      });
+    }
+    const spatialStorage = createSpatialContextStorage();
+    for (const candidate of importedSpatialHistory) {
+      if (!isRecord(candidate)) continue;
+      const messageIndex = candidate.messageIndex;
+      const swipeIndex = candidate.swipeIndex;
+      const definitionRevision = candidate.definitionRevision;
+      const currentLocationId = candidate.currentLocationId;
+      if (
+        !Number.isSafeInteger(messageIndex) ||
+        typeof messageIndex !== "number" ||
+        messageIndex < -1 ||
+        !Number.isSafeInteger(swipeIndex) ||
+        typeof swipeIndex !== "number" ||
+        swipeIndex < 0 ||
+        !Number.isSafeInteger(definitionRevision) ||
+        typeof definitionRevision !== "number" ||
+        definitionRevision < 0 ||
+        (currentLocationId !== null &&
+          (typeof currentLocationId !== "string" ||
+            currentLocationId.length === 0 ||
+            currentLocationId.length > SPATIAL_CONTEXT_LIMITS.maxIdLength ||
+            currentLocationId !== currentLocationId.trim()))
+      ) {
+        continue;
+      }
+      if (messageIndex === -1 && swipeIndex !== 0) continue;
+      if (messageIndex >= 0 && !msgInputs[messageIndex]?.swipes?.some((swipe) => swipe.index === swipeIndex)) continue;
+      const messageId = messageIndex === -1 ? "" : importedMessageIds[messageIndex];
+      if (messageId === undefined) continue;
+      await spatialStorage.replaceAtAnchor({
+        chatId: chat.id,
+        messageId,
+        swipeIndex,
+        currentLocationId,
+        definitionRevision,
+        source: "branch_copy",
+        transitionCommandId: null,
+        transitionPayloadHash: null,
+      });
+    }
+  } catch (err) {
+    try {
+      await storage.remove(chat.id);
+    } catch (cleanupErr) {
+      logger.warn(cleanupErr, "Could not remove the half-imported chat %s", chat.id);
+    }
+    throw err;
   }
 
   return {

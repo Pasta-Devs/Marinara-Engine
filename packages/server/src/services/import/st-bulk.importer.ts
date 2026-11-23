@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Importer: SillyTavern Bulk Import (folder scan)
 // ──────────────────────────────────────────────
-import { readdir, readFile, stat, copyFile, mkdir } from "fs/promises";
+import { readdir, readFile, stat, copyFile, mkdir, open, unlink } from "fs/promises";
 import { join, extname, basename, relative, resolve, sep } from "path";
 import { existsSync, readdirSync } from "fs";
 import { createHash, randomUUID } from "crypto";
@@ -343,8 +343,8 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     const jsonlFiles = await listFilesRecursive(chatsDir, ".jsonl");
     for (const f of jsonlFiles) {
       try {
-        const content = await readFile(f, "utf-8");
-        const firstLine = content.split("\n")[0];
+        // Only the header line is needed here; a long chat is not read whole just to list it.
+        const firstLine = await readFirstLine(f);
         if (firstLine) {
           const header = JSON.parse(firstLine);
           const fileBaseName = basename(f, ".jsonl");
@@ -809,6 +809,58 @@ async function existingImportSignatures(db: DB) {
   return { characters, chats };
 }
 
+/** The longest chat header line read while scanning (a header holds the chat's metadata, never its messages). */
+const MAX_CHAT_HEADER_BYTES = 8 * 1024 * 1024;
+/**
+ * The largest chat file imported. A chat is read whole to import it, and one far past this would take the server
+ * down with it (Node's heap and string limits) instead of failing on its own.
+ */
+export const MAX_ST_CHAT_FILE_BYTES = 256 * 1024 * 1024;
+
+/** The first line of a text file, read in chunks; "" when the file is empty or its first line is too long. */
+async function readFirstLine(path: string): Promise<string> {
+  const handle = await open(path, "r");
+  try {
+    const chunks: Buffer[] = [];
+    let total = 0;
+    const chunk = Buffer.alloc(64 * 1024);
+    while (total < MAX_CHAT_HEADER_BYTES) {
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, total);
+      if (bytesRead === 0) break;
+      const piece = chunk.subarray(0, bytesRead);
+      const newline = piece.indexOf(0x0a);
+      if (newline >= 0) {
+        chunks.push(Buffer.from(piece.subarray(0, newline)));
+        return Buffer.concat(chunks).toString("utf-8").replace(/\r$/u, "");
+      }
+      chunks.push(Buffer.from(piece));
+      total += bytesRead;
+    }
+    // A file with one line and no newline is all header; one past the limit is not a chat this can list.
+    return total < MAX_CHAT_HEADER_BYTES ? Buffer.concat(chunks).toString("utf-8").replace(/\r$/u, "") : "";
+  } finally {
+    await handle.close();
+  }
+}
+
+async function readChatFile(path: string): Promise<string> {
+  const { size } = await stat(path);
+  if (size > MAX_ST_CHAT_FILE_BYTES) {
+    throw new Error(
+      `the file is ${Math.round(size / (1024 * 1024))} MB, over the ${MAX_ST_CHAT_FILE_BYTES / (1024 * 1024)} MB a chat import can read`,
+    );
+  }
+  return readFile(path, "utf-8");
+}
+
+/** An importer that reports a failure as `{ error }` instead of throwing; counted as an error here, not as imported. */
+function importedOrThrow<T>(result: T): T {
+  if (result && typeof result === "object" && "error" in result && typeof result.error === "string" && result.error) {
+    if (!("success" in result) || result.success !== true) throw new Error(result.error);
+  }
+  return result;
+}
+
 export async function runSTBulkImport(
   rootPath: string,
   options: STBulkImportOptions,
@@ -885,15 +937,15 @@ export async function runSTBulkImport(
   };
   const known = skipAlreadyImported ? await existingImportSignatures(db) : null;
   /**
-   * True when this Engine already has it. Otherwise the first key (a content fingerprint) is
-   * remembered, so a folder's own exact copies import once. Later keys (legacy signatures) only
-   * match what existed before this run: two different files can share one.
+   * True when this Engine already has it. The first key is a content fingerprint, which `remember` adds once the
+   * item is really in, so a folder's own exact copies import once. Later keys (legacy signatures) only match what
+   * existed before this run: two different files can share one.
    */
-  const alreadyHave = (set: Set<string> | undefined, remembered: string | null, ...priorOnly: Array<string | null>) => {
-    if (!set) return false;
-    if ([remembered, ...priorOnly].some((key) => key !== null && set.has(key))) return true;
-    if (remembered !== null) set.add(remembered);
-    return false;
+  const alreadyHave = (set: Set<string> | undefined, ...keys: Array<string | null>) =>
+    !!set && keys.some((key) => key !== null && set.has(key));
+  /** Remembered only after a successful import: a failed copy must not make an identical later file "already here". */
+  const remember = (set: Set<string> | undefined, key: string | null) => {
+    if (set && key !== null) set.add(key);
   };
 
   // Import characters
@@ -909,7 +961,8 @@ export async function runSTBulkImport(
         if (ch.format === "png") {
           const buf = await readFile(ch.path);
           const card = extractCharaFromPng(buf);
-          if (card && alreadyHave(known?.characters, characterImportSignature(card))) {
+          const signature = card ? characterImportSignature(card) : null;
+          if (card && alreadyHave(known?.characters, signature)) {
             skipped.characters++;
           } else if (card) {
             // Attach avatar as data URL
@@ -917,7 +970,31 @@ export async function runSTBulkImport(
             const dataUrl = `data:image/png;base64,${b64}`;
             (card as Record<string, unknown>)._avatarDataUrl = dataUrl;
             noteCharacterImport(
-              await importSTCharacter(card as Record<string, unknown>, db, {
+              importedOrThrow(
+                await importSTCharacter(card as Record<string, unknown>, db, {
+                  timestampOverrides,
+                  tagImportMode,
+                  existingTagKeys,
+                  regexScriptScope,
+                  importTags,
+                  importEmbeddedLorebook,
+                  hideEmbeddedLorebook,
+                }),
+              ),
+            );
+            remember(known?.characters, signature);
+            imported.characters++;
+          }
+        } else {
+          const raw = JSON.parse(await readFile(ch.path, "utf-8"));
+          const signature = characterImportSignature(raw);
+          if (alreadyHave(known?.characters, signature)) {
+            skipped.characters++;
+            continue;
+          }
+          noteCharacterImport(
+            importedOrThrow(
+              await importSTCharacter(raw, db, {
                 timestampOverrides,
                 tagImportMode,
                 existingTagKeys,
@@ -926,26 +1003,9 @@ export async function runSTBulkImport(
                 importEmbeddedLorebook,
                 hideEmbeddedLorebook,
               }),
-            );
-            imported.characters++;
-          }
-        } else {
-          const raw = JSON.parse(await readFile(ch.path, "utf-8"));
-          if (alreadyHave(known?.characters, characterImportSignature(raw))) {
-            skipped.characters++;
-            continue;
-          }
-          noteCharacterImport(
-            await importSTCharacter(raw, db, {
-              timestampOverrides,
-              tagImportMode,
-              existingTagKeys,
-              regexScriptScope,
-              importTags,
-              importEmbeddedLorebook,
-              hideEmbeddedLorebook,
-            }),
+            ),
           );
+          remember(known?.characters, signature);
           imported.characters++;
         }
       } catch (err) {
@@ -1021,15 +1081,23 @@ export async function runSTBulkImport(
         const destName = `${randomUUID()}${ext}`;
         await copyFile(p.path, join(AVATAR_DIR, destName));
         const avatarPath = `/api/avatars/file/${destName}`;
-        const fileInfo = await stat(p.path);
-        const persona = await storage.createPersona(
-          p.name,
-          p.description,
-          avatarPath,
-          importTags ? { tags: JSON.stringify(withImportTags([], "st", importTags)) } : undefined,
-          getFileTimestampOverrides(fileInfo),
-        );
-        if (persona) importedPersonaAvatars.set(basename(p.path), persona.id);
+        let persona: Awaited<ReturnType<typeof storage.createPersona>>;
+        try {
+          const fileInfo = await stat(p.path);
+          persona = await storage.createPersona(
+            p.name,
+            p.description,
+            avatarPath,
+            importTags ? { tags: JSON.stringify(withImportTags([], "st", importTags)) } : undefined,
+            getFileTimestampOverrides(fileInfo),
+          );
+          if (!persona) throw new Error("Failed to create persona");
+        } catch (err) {
+          // The picture was copied first; without a persona it would stay behind as an orphan file.
+          await unlink(join(AVATAR_DIR, destName)).catch(() => undefined);
+          throw err;
+        }
+        importedPersonaAvatars.set(basename(p.path), persona.id);
         imported.personas++;
       } catch (err) {
         errors.push(`Persona "${p.name}": ${(err as Error).message}`);
@@ -1067,7 +1135,7 @@ export async function runSTBulkImport(
       onProgress?.({ category: "Chats", item: ct.characterName, current: idx, total, imported });
 
       try {
-        const content = await readFile(ct.path, "utf-8");
+        const content = await readChatFile(ct.path);
         const fileInfo = await stat(ct.path);
         const fingerprint = stChatFileFingerprint(content);
         const branchName = ct.chatName ?? basename(ct.path, ".jsonl");
@@ -1114,7 +1182,9 @@ export async function runSTBulkImport(
           timestampOverrides: getFileTimestampOverrides(fileInfo),
           importTags,
         });
+        importedOrThrow(chatResult);
         if ("importNotes" in chatResult) noteChatImport(chatResult.importNotes);
+        remember(known?.chats, `fp:${fingerprint}`);
 
         imported.chats++;
         await releaseWrittenChats();
@@ -1133,7 +1203,7 @@ export async function runSTBulkImport(
       idx++;
       onProgress?.({ category: "Group Chats", item: gc.groupName, current: idx, total, imported });
       try {
-        const content = await readFile(gc.path, "utf-8");
+        const content = await readChatFile(gc.path);
         const fileInfo = await stat(gc.path);
         const fingerprint = stChatFileFingerprint(content);
         const legacy = legacyChatSignature(
@@ -1176,7 +1246,9 @@ export async function runSTBulkImport(
           timestampOverrides: getFileTimestampOverrides(fileInfo),
           importTags,
         });
+        importedOrThrow(chatResult);
         if ("importNotes" in chatResult) noteChatImport(chatResult.importNotes);
+        remember(known?.chats, `fp:${fingerprint}`);
         imported.groupChats++;
         await releaseWrittenChats();
       } catch (err) {

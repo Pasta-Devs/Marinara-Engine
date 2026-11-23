@@ -531,6 +531,21 @@ function takeCharacterUpdateTarget(targets: CharacterUpdateTargets, index: numbe
   return targets.byIndex.get(index) ?? targets.byName.get(filename)?.shift();
 }
 
+const chatIntoGroupLocks = new Map<string, Promise<unknown>>();
+
+/** Runs imports into the same chat one after another (see /st-chat-into-group). */
+function withChatIntoGroupLock<T>(chatId: string, run: () => Promise<T>): Promise<T> {
+  const previous = chatIntoGroupLocks.get(chatId);
+  const next = previous ? previous.catch(() => undefined).then(run) : run();
+  chatIntoGroupLocks.set(chatId, next);
+  void next
+    .finally(() => {
+      if (chatIntoGroupLocks.get(chatId) === next) chatIntoGroupLocks.delete(chatId);
+    })
+    .catch(() => undefined);
+  return next;
+}
+
 async function importCharacterBuffer(
   fileName: string,
   buffer: Buffer,
@@ -584,17 +599,21 @@ async function importCharacterBuffer(
   }
 
   if (fileName.toLowerCase().endsWith(".charx")) {
-    return importCharX(buffer, db, {
-      timestampOverrides,
-      importEmbeddedLorebook,
-      hideEmbeddedLorebook,
-      tagImportMode,
-      existingTagKeys,
-      regexScriptScope,
-      splitDescription,
-      importTags,
-      ...updateOptions,
-    });
+    try {
+      return await importCharX(buffer, db, {
+        timestampOverrides,
+        importEmbeddedLorebook,
+        hideEmbeddedLorebook,
+        tagImportMode,
+        existingTagKeys,
+        regexScriptScope,
+        splitDescription,
+        importTags,
+        ...updateOptions,
+      });
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   let json: Record<string, unknown>;
@@ -750,92 +769,96 @@ export async function importRoutes(app: FastifyInstance) {
     }
 
     const storage = createChatsStorage(app.db);
-    const targetChat = await storage.getById(targetChatId);
-    if (!targetChat) return reply.status(404).send({ success: false, error: "Target chat not found" });
+    // One import into a chat at a time: two at once into a chat with no group would each make their own group.
+    return withChatIntoGroupLock(targetChatId, async () => {
+      const targetChat = await storage.getById(targetChatId);
+      if (!targetChat) return reply.status(404).send({ success: false, error: "Target chat not found" });
 
-    const text = file.buffer.toString("utf-8");
-    const timestampOverrides = readTimestampOverridesValue(fields.timestampOverrides ?? fields.__timestampOverrides);
+      const text = file.buffer.toString("utf-8");
+      const timestampOverrides = readTimestampOverridesValue(fields.timestampOverrides ?? fields.__timestampOverrides);
 
-    // Auto-create a groupId on the target chat if it isn't already in one, so
-    // the imported transcript can sit alongside it as a branch (mirrors the
-    // behavior of POST /chats/:id/branch).
-    let groupId = (targetChat.groupId as string | null) ?? null;
-    if (!groupId) {
-      groupId = newId();
-      await storage.update(targetChatId, { groupId });
-    }
+      // Auto-create a groupId on the target chat if it isn't already in one, so
+      // the imported transcript can sit alongside it as a branch (mirrors the
+      // behavior of POST /chats/:id/branch).
+      // The target joins the group only once the file has come in, so a file that isn't a chat changes nothing.
+      const targetHadGroup = !!targetChat.groupId;
+      const groupId = (targetChat.groupId as string | null) || newId();
 
-    // Inherit the existing chat's character roster instead of trying to match
-    // characters out of the JSONL header — that path creates new characters
-    // when no match is found, which is exactly what we want to avoid here.
-    let inheritedCharacterIds: string[] = [];
-    try {
-      const parsed = JSON.parse(targetChat.characterIds as string);
-      if (Array.isArray(parsed)) inheritedCharacterIds = parsed.filter((cid): cid is string => typeof cid === "string");
-    } catch {
-      inheritedCharacterIds = [];
-    }
+      // Inherit the existing chat's character roster instead of trying to match
+      // characters out of the JSONL header — that path creates new characters
+      // when no match is found, which is exactly what we want to avoid here.
+      let inheritedCharacterIds: string[] = [];
+      try {
+        const parsed = JSON.parse(targetChat.characterIds as string);
+        if (Array.isArray(parsed))
+          inheritedCharacterIds = parsed.filter((cid): cid is string => typeof cid === "string");
+      } catch {
+        inheritedCharacterIds = [];
+      }
 
-    // For multi-character chats, map each speaker name in the JSONL to one of
-    // the existing characters so per-message attribution survives the import.
-    let speakerMap: Record<string, string> | undefined;
-    if (inheritedCharacterIds.length > 1) {
-      speakerMap = {};
-      const allChars = await app.db.select().from(charactersTable);
-      const byId = new Map(allChars.map((ch) => [ch.id, ch] as const));
-      for (const cid of inheritedCharacterIds) {
-        const ch = byId.get(cid);
-        if (!ch) continue;
-        try {
-          const charData = JSON.parse(ch.data);
-          const charName = typeof charData?.name === "string" ? charData.name.trim() : "";
-          if (charName) speakerMap[charName] = cid;
-        } catch {
-          // skip
+      // For multi-character chats, map each speaker name in the JSONL to one of
+      // the existing characters so per-message attribution survives the import.
+      let speakerMap: Record<string, string> | undefined;
+      if (inheritedCharacterIds.length > 1) {
+        speakerMap = {};
+        const allChars = await app.db.select().from(charactersTable);
+        const byId = new Map(allChars.map((ch) => [ch.id, ch] as const));
+        for (const cid of inheritedCharacterIds) {
+          const ch = byId.get(cid);
+          if (!ch) continue;
+          try {
+            const charData = JSON.parse(ch.data);
+            const charName = typeof charData?.name === "string" ? charData.name.trim() : "";
+            if (charName) speakerMap[charName] = cid;
+          } catch {
+            // skip
+          }
         }
       }
-    }
 
-    // A group chat that already has a mode keeps it for the imported branch.
-    let targetMetadata: Record<string, unknown> = {};
-    try {
-      const parsed: unknown =
-        typeof targetChat.metadata === "string" ? JSON.parse(targetChat.metadata) : targetChat.metadata;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
-        targetMetadata = parsed as Record<string, unknown>;
-    } catch {
-      targetMetadata = {};
-    }
-    const targetGroupChatMode =
-      targetMetadata.groupChatMode === "individual" || targetMetadata.groupChatMode === "merged"
-        ? targetMetadata.groupChatMode
-        : undefined;
+      // A group chat that already has a mode keeps it for the imported branch.
+      let targetMetadata: Record<string, unknown> = {};
+      try {
+        const parsed: unknown =
+          typeof targetChat.metadata === "string" ? JSON.parse(targetChat.metadata) : targetChat.metadata;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+          targetMetadata = parsed as Record<string, unknown>;
+      } catch {
+        targetMetadata = {};
+      }
+      const targetGroupChatMode =
+        targetMetadata.groupChatMode === "individual" || targetMetadata.groupChatMode === "merged"
+          ? targetMetadata.groupChatMode
+          : undefined;
 
-    const rawName = file.filename ?? "";
-    const branchName =
-      rawName
-        .replace(/\.jsonl$/i, "")
-        .replace(/_/g, " ")
-        .trim() || "Imported";
+      const rawName = file.filename ?? "";
+      const branchName =
+        rawName
+          .replace(/\.jsonl$/i, "")
+          .replace(/_/g, " ")
+          .trim() || "Imported";
 
-    const result = await importSTChat(text, app.db, {
-      groupId,
-      chatName: targetChat.name,
-      branchName,
-      mode: targetChat.mode as any,
-      ...(inheritedCharacterIds.length === 1 ? { characterId: inheritedCharacterIds[0] } : {}),
-      ...(inheritedCharacterIds.length > 0 ? { characterIds: inheritedCharacterIds } : {}),
-      ...(speakerMap ? { speakerMap } : {}),
-      ...(targetGroupChatMode ? { groupChatMode: targetGroupChatMode } : {}),
-      personaId: targetChat.personaId ?? null,
-      personaCharacterId: targetChat.personaCharacterId ?? null,
-      connectionId: targetChat.connectionId ?? null,
-      promptPresetId: targetChat.promptPresetId ?? null,
-      ...(timestampOverrides ? { timestampOverrides } : {}),
-      sourceFingerprint: stChatFileFingerprint(text),
+      const result = await importSTChat(text, app.db, {
+        groupId,
+        chatName: targetChat.name,
+        branchName,
+        mode: targetChat.mode as any,
+        ...(inheritedCharacterIds.length === 1 ? { characterId: inheritedCharacterIds[0] } : {}),
+        ...(inheritedCharacterIds.length > 0 ? { characterIds: inheritedCharacterIds } : {}),
+        ...(speakerMap ? { speakerMap } : {}),
+        ...(targetGroupChatMode ? { groupChatMode: targetGroupChatMode } : {}),
+        personaId: targetChat.personaId ?? null,
+        personaCharacterId: targetChat.personaCharacterId ?? null,
+        connectionId: targetChat.connectionId ?? null,
+        promptPresetId: targetChat.promptPresetId ?? null,
+        ...(timestampOverrides ? { timestampOverrides } : {}),
+        sourceFingerprint: stChatFileFingerprint(text),
+      });
+
+      if ("error" in result && result.error) return { ...result, groupId: targetChat.groupId ?? null };
+      if (!targetHadGroup) await storage.update(targetChatId, { groupId });
+      return { ...result, groupId };
     });
-
-    return { ...result, groupId };
   });
 
   /** Import a Marinara Engine export (.marinara.json). */
@@ -1140,7 +1163,13 @@ export async function importRoutes(app: FastifyInstance) {
         try {
           const parsed = JSON.parse(String(part.value ?? "[]"));
           if (Array.isArray(parsed)) {
-            timestampEntries.push(...parsed);
+            // Only well-formed entries; a null or a string in the list is dropped instead of failing the upload.
+            timestampEntries.push(
+              ...parsed.filter(
+                (entry): entry is { name?: string; lastModified?: number | string } =>
+                  !!entry && typeof entry === "object" && !Array.isArray(entry),
+              ),
+            );
           }
         } catch {
           // ignore malformed metadata and continue importing
@@ -1187,7 +1216,7 @@ export async function importRoutes(app: FastifyInstance) {
 
     const timestampsByName = new Map<string, Array<{ lastModified?: number | string }>>();
     for (const entry of timestampEntries) {
-      if (!entry.name) continue;
+      if (typeof entry.name !== "string" || !entry.name) continue;
       const queue = timestampsByName.get(entry.name) ?? [];
       queue.push(entry);
       timestampsByName.set(entry.name, queue);
@@ -1278,11 +1307,14 @@ export async function importRoutes(app: FastifyInstance) {
   /** Run a bulk import from a SillyTavern installation folder (SSE stream with progress). */
   app.post("/st-bulk/run", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "SillyTavern bulk import" })) return;
-    const { options } = req.body as {
+    const { options } = (req.body ?? {}) as {
       folderPath?: string;
       folderToken?: string;
-      options: STBulkImportOptions;
+      options?: STBulkImportOptions;
     };
+    if (!options || typeof options !== "object" || Array.isArray(options)) {
+      return reply.status(400).send({ success: false, error: "Missing import options" });
+    }
     const resolved = resolveImportFolder(req.body as { folderPath?: unknown; folderToken?: unknown });
     if (!resolved.ok) return reply.send({ success: false, error: resolved.error });
     const rawCharacterTagImportMode = (req.body as { options?: { characterTagImportMode?: unknown } }).options
@@ -1322,12 +1354,23 @@ export async function importRoutes(app: FastifyInstance) {
     };
     stBulkImportJob = job;
 
-    // Set up SSE headers
-    reply.raw.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
+    // Set up SSE headers. The stream is written by hand, so the headers Fastify's hooks already set (CORS and the
+    // like) are copied over; and if the stream can't start, the job is not left marked as running forever.
+    reply.hijack();
+    try {
+      reply.raw.writeHead(200, {
+        ...(reply.getHeaders() as Record<string, string | string[] | number>),
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+    } catch (err) {
+      job.running = false;
+      job.finishedAt = new Date().toISOString();
+      job.result = { success: false, error: (err as Error).message, imported: emptyImportCounts(), errors: [] };
+      reply.raw.destroy();
+      return;
+    }
 
     // The import keeps going when the page goes away (tab closed, laptop asleep, dropped
     // connection): it is the server's work, and stopping halfway would leave half a library.
