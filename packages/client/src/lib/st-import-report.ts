@@ -27,6 +27,11 @@ export type STPresetLeftOut =
   | "formatTemplates"
   | "postHistoryRole";
 
+/** Where an imported preset sends World Info (STPresetWorldInfo on the server). */
+export type STPresetWorldInfo = "split" | "combined" | "beforeOff" | "afterOff" | "off";
+
+const WORLD_INFO_KINDS: STPresetWorldInfo[] = ["split", "combined", "beforeOff", "afterOff", "off"];
+
 /** A lorebook entry moved to the closest place (LorebookImportNote on the server). */
 export type LorebookImportNote = { kind: "positionMoved"; from: "authorsNote" | "exampleMessages"; count: number };
 
@@ -54,6 +59,8 @@ export interface STBulkImportReport {
   notBroughtOver?: STNotBroughtOver;
   presetsWithSettings: number;
   presetSettingsLeftOut: STPresetLeftOut[];
+  presetWorldInfo?: Partial<Record<STPresetWorldInfo, number>>;
+  personasAlreadyHere?: string[];
 }
 
 const PARAMETER_LABEL_KEYS: Record<string, string> = {
@@ -131,11 +138,17 @@ function describeLeftOut(leftOut: STPresetLeftOut[] | undefined, t: Translate): 
 }
 
 export function describePresetImport(
-  result: { parametersImported?: string[]; parametersLeftOut?: STPresetLeftOut[]; regexSkipped?: number },
+  result: {
+    parametersImported?: string[];
+    parametersLeftOut?: STPresetLeftOut[];
+    regexSkipped?: number;
+    worldInfo?: STPresetWorldInfo;
+  },
   t: Translate,
 ): string[] {
   const imported = (result.parametersImported ?? []).map((key) => t(PARAMETER_LABEL_KEYS[key] ?? key));
   return [
+    ...(result.worldInfo ? [t(`ui.import.streport.worldInfo.${result.worldInfo}`)] : []),
     ...(imported.length > 0 ? [t("ui.import.streport.settingsImported", { names: imported.join(", ") })] : []),
     ...describeLeftOut(result.parametersLeftOut, t),
     ...((result.regexSkipped ?? 0) > 0 ? [t("ui.import.streport.regexSkipped", { count: result.regexSkipped })] : []),
@@ -153,6 +166,14 @@ export function describeBulkImportReport(report: STBulkImportReport | undefined,
   if (report.authorsNotesOff > 0)
     lines.push(t("ui.import.streport.bulkAuthorsNotesOff", { count: report.authorsNotesOff }));
   if (report.personasLinked > 0) lines.push(t("ui.import.streport.bulkPersonas", { count: report.personasLinked }));
+  if ((report.personasAlreadyHere?.length ?? 0) > 0) {
+    lines.push(
+      t("ui.import.streport.bulkPersonasAlreadyHere", {
+        count: report.personasAlreadyHere!.length,
+        names: report.personasAlreadyHere!.join(", "),
+      }),
+    );
+  }
   if (report.missingPersonas.length > 0) {
     lines.push(t("ui.import.streport.bulkPersonasMissing", { names: report.missingPersonas.join(", ") }));
   }
@@ -164,6 +185,10 @@ export function describeBulkImportReport(report: STBulkImportReport | undefined,
     lines.push(t("ui.import.streport.bulkPresetSettings", { count: report.presetsWithSettings }));
   }
   if ((report.samplersOnlyPresets ?? 0) > 0) lines.push(t("ui.import.streport.samplersOnlyPresets"));
+  for (const kind of WORLD_INFO_KINDS) {
+    const count = report.presetWorldInfo?.[kind] ?? 0;
+    if (count > 0) lines.push(t(`ui.import.streport.bulkWorldInfo.${kind}`, { count }));
+  }
   lines.push(...describeLeftOut(report.presetSettingsLeftOut, t));
   lines.push(
     ...describeLorebookNotes(

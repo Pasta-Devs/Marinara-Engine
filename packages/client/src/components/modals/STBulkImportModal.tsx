@@ -76,7 +76,7 @@ interface ImportResult {
     regexScripts?: number;
   };
   /** Left out because this Engine already had them. */
-  skipped?: { characters: number; chats: number; groupChats: number };
+  skipped?: { characters: number; chats: number; groupChats: number; personas?: number };
   /** What came along beyond the counts (Author's Notes, personas, preset settings), and what didn't. */
   report?: STBulkImportReport;
   errors: string[];
@@ -1280,7 +1280,7 @@ export function STBulkImportModal({ open, onClose }: Props) {
                   ["navigation.topbar.presets", importResult.imported.presets],
                   ["navigation.topbar.lorebooks", importResult.imported.lorebooks],
                   ["settings.controls.backgroundGeneration.label", importResult.imported.backgrounds],
-                  ["navigation.topbar.personas", importResult.imported.personas],
+                  ["navigation.topbar.personas", importResult.imported.personas, importResult.skipped?.personas],
                   ["ui.modals.stbulkimportmodal.regexScripts", importResult.imported.regexScripts ?? 0],
                 ]}
               />

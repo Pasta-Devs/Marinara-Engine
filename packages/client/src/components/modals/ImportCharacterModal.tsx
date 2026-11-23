@@ -32,7 +32,13 @@ import type { DescriptionSplitResult } from "@marinara-engine/shared";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { DescriptionSplitDialog } from "../characters/DescriptionSplitDialog";
 import { requestMariDescriptionSplit } from "../../lib/description-split-mari";
-import { appendImportTags, ImportTagChecks, importTagsBody, useImportTagChoice } from "./ImportTagChecks";
+import {
+  appendImportTags,
+  ImportTagChecks,
+  importTagsBody,
+  useImportTagChoice,
+  type ImportTagChoice,
+} from "./ImportTagChecks";
 import { Spinner } from "../ui/Spinner";
 import { Checkbox } from "../ui/Checkbox";
 import { ImportOptionPicker } from "./ImportOptionPicker";
@@ -40,6 +46,8 @@ import { ImportOptionPicker } from "./ImportOptionPicker";
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** The opener's Tag imported / Tag source choice (Settings › Data); both on when left out. */
+  importTags?: ImportTagChoice;
 }
 
 type ImportResultRow = {
@@ -127,7 +135,7 @@ const REGEX_SCOPE_OPTIONS: Array<{ value: RegexScriptScope; label: string; short
   },
 ];
 
-export function ImportCharacterModal({ open, onClose }: Props) {
+export function ImportCharacterModal({ open, onClose, importTags: initialImportTags }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
@@ -151,7 +159,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
   const [regexScriptScope, setRegexScriptScope] = useState<RegexScriptScope>("character");
   const [embeddedLorebookMode, setEmbeddedLorebookMode] = useState<EmbeddedLorebookMode>("ask");
   const [splitDescription, setSplitDescription] = useState(false);
-  const importTags = useImportTagChoice();
+  const importTags = useImportTagChoice(initialImportTags);
   // The row whose split summary is shown; kept after closing so the dialog does not empty while it fades.
   const [splitSummary, setSplitSummary] = useState<ImportResultRow | null>(null);
   const [splitSummaryOpen, setSplitSummaryOpen] = useState(false);
