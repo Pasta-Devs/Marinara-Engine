@@ -70,7 +70,7 @@ function playSynthesizedNotificationPing(): void {
 }
 
 /** How long a custom sound may take to start before the default ping plays instead. */
-export const CUSTOM_SOUND_START_TIMEOUT_MS = 4_000;
+const CUSTOM_SOUND_START_TIMEOUT_MS = 4_000;
 
 function playCustomNotificationSound(url: string): void {
   const audio = new Audio(url);

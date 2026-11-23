@@ -11,6 +11,7 @@ import { NOTIFICATION_SOUND_RATE_LIMIT } from "../middleware/rate-limit.js";
 
 const NOTIFICATION_SOUNDS_DIR = join(DATA_DIR, "notification-sounds");
 const MAX_NOTIFICATION_SOUND_BYTES = 10 * 1024 * 1024;
+const TOO_LARGE_MESSAGE = "Notification sound must be 10 MB or smaller.";
 
 type NotificationSoundFormat = {
   extension: ".mp3" | ".wav" | ".ogg" | ".m4a" | ".mp4" | ".webm";
@@ -135,7 +136,7 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
       upload = await req.file({ limits: { fileSize: MAX_NOTIFICATION_SOUND_BYTES + 1 } });
     } catch (error) {
       logger.warn(error, "Failed to receive custom notification sound upload");
-      return reply.status(413).send({ error: "Notification sound must be 10 MB or smaller." });
+      return reply.status(413).send({ error: TOO_LARGE_MESSAGE });
     }
     if (!upload) return reply.status(400).send({ error: "No notification sound was uploaded." });
 
@@ -152,13 +153,13 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
       // toBuffer() throws once the stream passes the per-route fileSize limit; that is the
       // size rule, not an unreadable file, and the person needs to be told which.
       if ((error as { code?: string }).code === "FST_REQ_FILE_TOO_LARGE") {
-        return reply.status(413).send({ error: "Notification sound must be 10 MB or smaller." });
+        return reply.status(413).send({ error: TOO_LARGE_MESSAGE });
       }
       logger.warn(error, "Failed to read custom notification sound upload");
       return reply.status(400).send({ error: "The notification sound could not be read." });
     }
     if (upload.file.truncated || buffer.byteLength > MAX_NOTIFICATION_SOUND_BYTES) {
-      return reply.status(413).send({ error: "Notification sound must be 10 MB or smaller." });
+      return reply.status(413).send({ error: TOO_LARGE_MESSAGE });
     }
 
     const format = detectNotificationSoundFormat(buffer);
