@@ -49,7 +49,7 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
-  Save,
+  Upload,
   Trash2,
   FileText,
   Settings2,
@@ -110,8 +110,7 @@ import { useRegexScripts } from "../../hooks/use-regex-scripts";
 import { PresetVariablesEditor, reorderIdsByOffset, reorderIdsToGap } from "./PresetVariablesEditor";
 import { useMariCompanionEditor, useMariEditorFields } from "../../hooks/use-mari-editor-fields";
 import { MariFieldReview, MariFieldReviewProvider, useMariFieldReview } from "../characters/MariFieldReview";
-import { SurfaceBackButton } from "../ui/SurfaceBackButton";
-import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
+import { EditorHeader, EditorHeaderAction, EditorSaveButton } from "../ui/EditorHeader";
 import { GameStoryBoundariesFields } from "../game/GameStoryBoundariesFields";
 import { Spinner } from "../ui/Spinner";
 
@@ -619,16 +618,17 @@ export function PresetEditor() {
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
       {/* ── Header ── */}
-      <div className="mari-editor-header mari-editor-header--with-nav">
-        <div className="mari-editor-header-main">
-          <SurfaceBackButton onClick={handleClose} />
-          <div className="mari-editor-icon-tile mari-panel-gradient-surface mari-panel-gradient--presets overflow-hidden">
-            {presetArtwork ? (
-              <img src={presetArtwork} alt="" className="h-full w-full object-cover" draggable={false} />
-            ) : (
-              <FileText size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
-            )}
-          </div>
+      <EditorHeader
+        onBack={handleClose}
+        icon={
+          presetArtwork ? (
+            <img src={presetArtwork} alt="" className="h-full w-full object-cover" draggable={false} />
+          ) : (
+            <FileText size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
+          )
+        }
+        iconClassName="mari-panel-gradient-surface mari-panel-gradient--presets overflow-hidden"
+        title={
           <input
             data-mari-field="name"
             value={localName}
@@ -640,72 +640,47 @@ export function PresetEditor() {
             className="mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]"
             placeholder={localizeUi("ui.presets.preseteditor.presetName")}
           />
-        </div>
-
-        <EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={scrollToSection} />
-
-        <div className="mari-editor-actions flex">
-          <button
-            type="button"
-            onClick={() => {
-              requestProfessorMariOpen({
-                destination: "omnibar",
-                draft: localizeUi("professorMari.handoff.explainResourceDraft"),
-                context: {
-                  source: "preset-editor",
-                  capability: "explain",
-                  resource: { kind: "preset", id: presetDetailId, label: data.preset.name },
-                },
-              });
-            }}
-            className="mari-editor-action inline-flex"
-            title={localizeUi("professorMari.handoff.ask")}
-            aria-label={localizeUi("professorMari.handoff.ask")}
-          >
-            <MessageCircleQuestion size="0.8125rem" />
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={updatePreset.isPending}
-            className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
-            aria-label={localizeUi("ui.noodle.noodlehome.save")}
-            title={localizeUi("ui.noodle.noodlehome.save")}
-          >
-            <Save size="0.8125rem" />
-            <span className="mari-editor-save-label">{localizeUi("ui.noodle.noodlehome.save")}</span>
-          </button>
-          <button
-            onClick={handleExportPreset}
-            className="mari-editor-action inline-flex"
-            title={
-              dirty
-                ? localizeUi("ui.presets.preseteditor.saveCurrentEditsBeforeExporting")
-                : localizeUi("ui.presets.preseteditor.exportPreset")
-            }
-          >
-            <svg
-              width="0.9375rem"
-              height="0.9375rem"
-              viewBox="0 0 20 20"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                d="M10 13V3m0 0l-4 4m4-4l4 4"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
-            </svg>
-          </button>
-          <button onClick={handleDelete} className="mari-editor-action inline-flex">
-            <Trash2 size="0.9375rem" />
-          </button>
-        </div>
-        <SurfaceCloseButton dividerClassName="" />
-      </div>
+        }
+        nav={<EditorTabNavigation tabs={TABS} activeId={activeTab} onChange={scrollToSection} />}
+        actions={
+          <>
+            <EditorHeaderAction
+              icon={<MessageCircleQuestion size="0.8125rem" />}
+              label={localizeUi("professorMari.handoff.ask")}
+              onClick={() => {
+                requestProfessorMariOpen({
+                  destination: "omnibar",
+                  draft: localizeUi("professorMari.handoff.explainResourceDraft"),
+                  context: {
+                    source: "preset-editor",
+                    capability: "explain",
+                    resource: { kind: "preset", id: presetDetailId, label: data.preset.name },
+                  },
+                });
+              }}
+            />
+            <EditorSaveButton
+              label={localizeUi("ui.noodle.noodlehome.save")}
+              onClick={handleSave}
+              disabled={updatePreset.isPending}
+            />
+            <EditorHeaderAction
+              icon={<Upload size="0.9375rem" />}
+              label={
+                dirty
+                  ? localizeUi("ui.presets.preseteditor.saveCurrentEditsBeforeExporting")
+                  : localizeUi("ui.presets.preseteditor.exportPreset")
+              }
+              onClick={handleExportPreset}
+            />
+            <EditorHeaderAction
+              icon={<Trash2 size="0.9375rem" />}
+              label={localizeUi("ui.panels.presetspanel.deletePreset")}
+              onClick={handleDelete}
+            />
+          </>
+        }
+      />
 
       {/* Saved toast */}
       {showSaved && (
