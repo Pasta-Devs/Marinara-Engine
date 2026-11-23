@@ -129,6 +129,7 @@ import {
   resolveConnectionImageQuality,
 } from "../../services/image/image-generation-defaults.js";
 import { injectMemoryRecallContext } from "../../services/generation/memory-recall-context.js";
+import { buildCommittedTrackerSections } from "../../services/generation/committed-tracker-context.js";
 import { buildDirectorSecretPlotAgent } from "../../services/generation/director-secret-plot-runtime.js";
 import {
   appendTrackerLorebookBatchContextKey,
@@ -1537,12 +1538,17 @@ async function buildRetryAgentContext(args: {
     agentContext.memory._writableLorebooks = [...writableLorebooks.values()];
   }
 
+  // The saved tracker state this context reads, and the message it belongs to (undefined: the latest).
+  let trackerStateRow: Parameters<typeof buildCommittedTrackerSections>[0]["latestGameState"] = null;
+  let trackerStateMessageId: string | undefined;
   if (historicalGameStateAnchor) {
     const snap = await gameStateStore.getByChatAndMessage(
       chatId,
       historicalGameStateAnchor.messageId,
       historicalGameStateAnchor.swipeIndex,
     );
+    trackerStateRow = snap;
+    trackerStateMessageId = historicalGameStateAnchor.messageId;
     if (snap) {
       const parsedGameState = parseGameStateRow(snap as Record<string, unknown>);
       agentContext.gameState =
@@ -1556,12 +1562,31 @@ async function buildRetryAgentContext(args: {
       preferLatestVisible: true,
       visibleAnchor,
     });
+    trackerStateRow = latestGS;
+    trackerStateMessageId = typeof lastAssistant?.id === "string" ? lastAssistant.id : undefined;
     if (latestGS) {
       const parsedGameState = parseGameStateRow(latestGS as Record<string, unknown>);
       agentContext.gameState =
         projectGameSnapshotLocation(parsedGameState, retryOwnerSpatialProjection) ?? parsedGameState;
     }
   }
+  // `{{agent::TYPE}}` in retried templates reads the trackers' state saved on that same message (#9658).
+  const activeTrackerTypes = resolveActiveRetryAgentTypes(chatMode, chatMeta);
+  const readsTrackerState = !!historicalGameStateAnchor || useLatestGameStateFallback;
+  const agentsStore = createAgentsStorage(db);
+  const beholderConfig =
+    readsTrackerState && chatMode === "roleplay" && activeTrackerTypes.has("beholder")
+      ? await agentsStore.getByType("beholder")
+      : null;
+  agentContext.trackerMacroData = buildCommittedTrackerSections({
+    chatEnableAgents: isChatAgentsEnabled(chatMeta),
+    activeAgentIds: activeTrackerTypes,
+    latestGameState: trackerStateRow,
+    beholderState: beholderConfig
+      ? await agentsStore.getPreviousOutput(beholderConfig.id, chatId, trackerStateMessageId)
+      : null,
+    wrapFormat,
+  });
 
   // CYOA re-rolls: inject the previous choices so the agent generates a fresh,
   // meaningfully different set instead of repeating the last batch. Mirrors

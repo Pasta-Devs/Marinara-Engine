@@ -28,6 +28,8 @@ const {
   worldCustomFieldTrackerLockKey,
 } = await import("../../../packages/shared/dist/index.js");
 const { parseGameStateRow } = await import("../../../packages/server/src/routes/generate/generate-route-utils.js");
+const { buildCommittedTrackerContextBlock } =
+  await import("../../../packages/server/src/services/generation/committed-tracker-context.js");
 const prompts: string[] = [];
 const trackerPrompts: string[] = [];
 const mainPrompts: string[] = [];
@@ -486,6 +488,104 @@ try {
     assert.ok(prompt.includes("Public Face: ILSE_PUBLIC_FACE"), prompt);
     assert.ok(!prompt.includes("MAREN_PRIVATE_CARD") && !prompt.includes("ILSE_PRIVATE_CARD"), prompt);
   }
+
+  // #9658: {{agent::TYPE}} in an agent's template inserts an active tracker's saved state, the text its preset
+  // section gets: on a turn, the state from before the reply; on a retry, the state saved on that message.
+  const macroTrackerTypes = [...trackerTypes, "beholder"];
+  replaceBuiltInAgentDefinitions(
+    macroTrackerTypes.map((type) => ({
+      id: type,
+      name: type,
+      description: "Synthetic tracker",
+      phase: "post_processing" as const,
+      enabledByDefault: false,
+      category: "tracker" as const,
+      defaultTools: [],
+      defaultPromptTemplate: `TRACKER_FIXTURE_${type} Return JSON.`,
+    })),
+  );
+  const beholderConfig = await agents.create({
+    type: "beholder",
+    name: "Beholder",
+    phase: "post_processing",
+    connectionId: connection.id,
+  });
+  const macroReader = await agents.create({
+    type: "custom-tracker-macro-reader",
+    name: "Tracker macro reader",
+    phase: "post_processing",
+    connectionId: connection.id,
+    promptTemplate:
+      "CONTEXT_FIXTURE tracker macros WORLD=({{agent::world-state}}) CHARS=({{agent::character-tracker}}) BODY=({{agent::beholder}}) QUEST=({{agent::quest}})",
+    settings: { resultType: "context_injection" },
+  });
+  assert.ok(beholderConfig && macroReader);
+  const macroChat = await chats.create({
+    name: "Tracker macros",
+    mode: "roleplay",
+    characterIds: [],
+    connectionId: connection.id,
+    promptPresetId: null,
+  });
+  assert.ok(macroChat);
+  // Trackers are manual here, so their saved state stays exactly as written below.
+  await chats.patchMetadata(macroChat.id, {
+    enableAgents: true,
+    activeAgentIds: [...macroTrackerTypes, macroReader.type],
+    manualTrackers: true,
+  });
+  const saveMacroState = async (messageId: string, label: string) => {
+    const id = await stateStore.create({
+      ...initialState,
+      chatId: macroChat.id,
+      messageId,
+      location: `MACRO_LAB_${label}`,
+      presentCharacters: [{ characterId: "a", name: `MACRO_ALICE_${label}`, mood: "calm" }],
+      fieldLocks: {},
+    });
+    await stateStore.commit(id, macroChat.id);
+    const beholderState = { characters: [{ name: `MACRO_BODY_${label}`, body: { head: { bare: true } } }] };
+    await agents.saveRun({
+      agentConfigId: beholderConfig.id,
+      chatId: macroChat.id,
+      messageId,
+      result: { type: "beholder", data: beholderState, tokensUsed: 0, durationMs: 1, success: true, error: null },
+    });
+    const row = await stateStore.getById(id);
+    const section = (type: string) =>
+      buildCommittedTrackerContextBlock({
+        chatEnableAgents: true,
+        activeAgentIds: [type],
+        latestGameState: row,
+        beholderState,
+        chatMetadata: {},
+        wrapFormat: "xml",
+      });
+    return `WORLD=(${section("world-state")}) CHARS=(${section("character-tracker")}) BODY=(${section("beholder")}) QUEST=()`;
+  };
+  const macroPrior = await chats.createMessage({ chatId: macroChat.id, role: "assistant", content: "The lab hums." });
+  const beforeReply = await saveMacroState(macroPrior.id, "BEFORE");
+  assert.ok(beforeReply.includes("MACRO_LAB_BEFORE") && beforeReply.includes("MACRO_BODY_BEFORE"));
+  await chats.createMessage({ chatId: macroChat.id, role: "user", content: "Look around." });
+  const macroPromptStart = prompts.length;
+  const macroTurn = await app.inject({ method: "POST", url: "/api/generate/", payload: { chatId: macroChat.id } });
+  assert.equal(macroTurn.statusCode, 200, macroTurn.body);
+  assert.ok(!macroTurn.body.includes('"type":"error"'), macroTurn.body);
+  const macroTurnPrompt = prompts.slice(macroPromptStart).find((prompt) => prompt.includes("tracker macros")) ?? "";
+  assert.ok(macroTurnPrompt.includes(JSON.stringify(beforeReply).slice(1, -1)), macroTurnPrompt);
+  const macroReply = (await chats.listMessages(macroChat.id)).filter((message) => message.role === "assistant").at(-1);
+  assert.ok(macroReply && macroReply.id !== macroPrior.id);
+  const onReply = await saveMacroState(macroReply.id, "AFTER");
+  const macroRetryStart = prompts.length;
+  const macroRetry = await app.inject({
+    method: "POST",
+    url: "/api/generate/retry-agents",
+    payload: { chatId: macroChat.id, agentTypes: [macroReader.type], forMessageId: macroReply.id },
+  });
+  assert.equal(macroRetry.statusCode, 200, macroRetry.body);
+  assert.ok(!macroRetry.body.includes('"type":"error"'), macroRetry.body);
+  const macroRetryPrompt = prompts.slice(macroRetryStart).find((prompt) => prompt.includes("tracker macros")) ?? "";
+  assert.ok(macroRetryPrompt.includes(JSON.stringify(onReply).slice(1, -1)), macroRetryPrompt);
 } finally {
   provider.closeAllConnections();
   await new Promise<void>((done) => provider.close(() => done()));

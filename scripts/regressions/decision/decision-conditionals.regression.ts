@@ -181,6 +181,22 @@ assert.ok(
   agentPlan.decisions.some((d) => d.key === "Kaelen, Alyssa is here"),
   "an agent template is planned as the agent executor resolves it",
 );
+// #9658: an agent template's {{agent::TYPE}} is the tracker's saved state, not the preset's section.
+const trackerPlan = planPromptDecisions(
+  [
+    {
+      texts: [`{{#if decision:"it is night in {{agent::world-state}}"}}{{/if}}`],
+      ctx: agentShapedDecisionContext({ ...base, agentData: { "world-state": "PRESET_SECTION" } } as never, {
+        "world-state": "the lab",
+      }),
+    },
+  ],
+  32,
+);
+assert.deepEqual(
+  trackerPlan.decisions.map((d) => d.key),
+  ["it is night in the lab"],
+);
 
 // ── Choice on a local chat model: one yes/no per option ─────────────────────────
 

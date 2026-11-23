@@ -455,6 +455,11 @@ export interface AgentContext {
   /** Host resolves only this agent's output on the visible message history. */
   loadPreviousOutput?: (agentConfigId: string) => Promise<unknown>;
   previousOutput?: { agentType: string; text: string };
+  /**
+   * Each active tracker's saved state, by agent type, as a preset's Agent Data section shows it.
+   * `{{agent::TYPE}}` in agent prompts reads it; an agent's own type is left out (#9658).
+   */
+  trackerMacroData?: Record<string, string>;
   /** All lorebook IDs the agent can write to */
   writableLorebookIds: string[] | null;
   /** Chat summary text (if any) — helps agents avoid duplicating summarized info */

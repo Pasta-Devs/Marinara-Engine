@@ -118,6 +118,8 @@ The value of `{{lastGenerationType}}` is a plain label. Example values seen in t
 
 The `{{agent::TYPE}}` macro inserts the saved output of an agent (a background helper that fills in things like a scene tracker). The easiest way to add it is inside the **Preset Editor**: click **Add Section**, open the **Agent Sections** group, and pick an agent. Marinara creates a section that already contains the right `{{agent::TYPE}}` tag. This macro is resolved last, so agent text cannot inject more macros into your prompt.
 
+In an agent's **Prompt Template**, `{{agent::TYPE}}` inserts the saved state of a tracker that is active in the chat: `world-state`, `character-tracker`, `persona-stats`, `quest`, `custom-tracker`, `inventory-tracker` or `beholder`. It is the same text that tracker's section adds to a preset. On a normal reply, the agent sees the state from before that reply. When you re-run a post-processing agent on a message, it sees the state saved on that message. The agent's own type inserts its last output only when **Previous output** is on under **Context Sources**. Other agent types insert nothing in an agent's prompt, and agents with the **Character Activity** result type do not read tracker state.
+
 ## Lorebook Outlet macros
 
 `{{outlet::name}}` inserts content from lorebook entries whose **Position** is **Outlet** and whose **Outlet name** exactly matches `name`. Outlet names are case-sensitive. For example, `{{outlet::character_rules}}` does not match an Outlet named `Character_Rules`.
