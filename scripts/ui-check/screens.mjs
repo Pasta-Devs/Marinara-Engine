@@ -351,7 +351,9 @@ export function screenList(ids) {
       id: "image-reading-settings",
       run: open.library("connections"),
       then: async (page) => {
-        const tile = page.locator(".ov-conn-defaults__cell", { hasText: "Image reading" }).first();
+        // Jobs live on Library > Connections > Jobs; a job is a row (own model) or a chip (follows/off).
+        await page.locator("[data-conn-jobs-link]").first().click({ timeout: 10_000 });
+        const tile = page.locator(".ov-jobs__row, .ov-jobs__chip", { hasText: "Image reading" }).first();
         const row = page.locator("[data-picker-job-settings]").filter({ visible: true }).first();
         // Phones: the tile sits low in a long page and its sheet slides up, so try again once it has settled.
         for (let attempt = 0; attempt < 3 && !(await row.count()); attempt++) {
@@ -368,7 +370,9 @@ export function screenList(ids) {
       id: "dictation-settings",
       run: open.library("connections"),
       then: async (page) => {
-        const tile = page.locator(".ov-conn-defaults__cell", { hasText: "Dictation" }).first();
+        // Jobs live on Library > Connections > Jobs; a job is a row (own model) or a chip (follows/off).
+        await page.locator("[data-conn-jobs-link]").first().click({ timeout: 10_000 });
+        const tile = page.locator(".ov-jobs__row, .ov-jobs__chip", { hasText: "Dictation" }).first();
         await tile.scrollIntoViewIfNeeded();
         await tile.click({ timeout: 10_000 });
         await page.locator('[data-component="JobSettingsPage"][data-job="stt"]').waitFor({ timeout: 10_000 });
