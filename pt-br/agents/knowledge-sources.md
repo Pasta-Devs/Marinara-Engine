@@ -36,6 +36,8 @@ O cartão de configurações do agente aparece então em **Agents**, e ele roda 
 
 > **Observação:** esses agentes rodam só em turnos novos. Eles não rodam de novo quando você regenera uma resposta.
 
+<a id="choose-the-sources"></a>
+
 ## Escolha as fontes
 
 Os dois agentes têm os mesmos controles de fonte.

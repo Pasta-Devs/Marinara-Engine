@@ -108,6 +108,25 @@ Cada linha tem os botões **Copy** (duplica o lorebook) e **Delete** (excluir). 
 
 A categoria é um rótulo para a sua biblioteca. Ela não muda quando o lorebook é acionado. As abas são **All**, **Active** (lorebooks relevantes para o chat aberto), **World**, **Character**, **NPC**, **Spellbook** e **Other**. Você pode trocar a categoria de um lorebook na aba **Overview** dele, onde **Other** se chama **Uncategorized**.
 
+### Salve um conjunto de lorebooks
+
+Um conjunto de lorebooks é um grupo nomeado de lorebooks que você usa juntos, como os lorebooks de um cenário. Você escolhe o grupo inteiro de uma vez, em vez de cada lorebook. Um conjunto aponta para os seus lorebooks e não os copia.
+
+1. No painel **Lorebooks**, clique em **New set** (novo conjunto). O conjunto novo abre em **Lorebook Sets** (conjuntos de lorebooks).
+2. Digite um nome em **Set name** (nome do conjunto).
+3. Clique em **Choose lorebooks** (escolher lorebooks) e marque os lorebooks do conjunto. Cada mudança é salva sozinha.
+
+Para editar um conjunto depois, clique nele em **Lorebook Sets**. O botão **Delete set** (excluir conjunto) dele remove o conjunto, e os lorebooks dele continuam na sua biblioteca. Um lorebook que você exclui sai de todos os conjuntos.
+
+Escolha um conjunto em **Use a saved set** (usar um conjunto salvo), acima de **Choose lorebooks**. O campo aparece quando você tem um conjunto, nestes lugares:
+
+- A etapa **Attach Lorebooks** (anexar lorebooks) de um novo roleplay.
+- Os lorebooks de fonte fixos de um agente, como os do Knowledge Router. Veja [Fontes de conhecimento: agentes Retrieval e Router](../agents/knowledge-sources.md#choose-the-sources).
+
+Escolher um conjunto substitui os lorebooks escolhidos ali. Depois você pode acrescentar ou remover lorebooks para aquele chat ou agente, e o conjunto salvo não muda.
+
+Para ligar ou desligar entradas individuais em um chat, abra **Chat Settings → Lorebooks** e clique no ícone de lápis (**Edit lorebook entries**, editar entradas do lorebook) ao lado de um lorebook. Ali, o botão liga/desliga de cada entrada muda só aquele chat. As outras edições feitas ali mudam o próprio lorebook.
+
 ## Guias relacionados
 
 - [Entradas de lorebook: chaves, posição e momento de acionar](entries.md)

@@ -108,6 +108,25 @@ Chaque ligne comporte les boutons **Copy** (copier, duplique le lorebook) et **D
 
 Une catégorie est une étiquette pour ta bibliothèque. Elle ne change pas le moment où le lorebook s'active. Les onglets sont **All**, **Active** (les lorebooks pertinents pour le chat ouvert), **World**, **Character**, **NPC**, **Spellbook** et **Other**. Tu peux changer la catégorie d'un lorebook dans son onglet **Overview**, où **Other** s'appelle **Uncategorized**.
 
+### Enregistrer un ensemble de lorebooks
+
+Un ensemble de lorebooks est un groupe nommé de lorebooks que tu utilises en même temps, par exemple les lorebooks d'un même univers. Tu choisis tout le groupe d'un coup au lieu de choisir chaque lorebook. Un ensemble pointe vers tes lorebooks et ne les copie pas.
+
+1. Dans le panneau **Lorebooks**, clique sur **New set** (nouvel ensemble). Le nouvel ensemble s'ouvre sous **Lorebook Sets** (ensembles de lorebooks).
+2. Saisis un nom dans **Set name** (nom de l'ensemble).
+3. Clique sur **Choose lorebooks** (choisir des lorebooks) et coche les lorebooks de l'ensemble. Chaque modification s'enregistre toute seule.
+
+Pour modifier un ensemble plus tard, clique dessus sous **Lorebook Sets**. Son bouton **Delete set** (supprimer l'ensemble) supprime l'ensemble, et ses lorebooks restent dans ta bibliothèque. Un lorebook que tu supprimes est retiré de tous les ensembles.
+
+Choisis un ensemble dans **Use a saved set** (utiliser un ensemble enregistré), au-dessus de **Choose lorebooks**. Le champ apparaît dès que tu as un ensemble, aux endroits suivants :
+
+- L'étape **Attach Lorebooks** (attacher des lorebooks) d'un nouveau chat Roleplay.
+- Les lorebooks fixes qui servent de source à un agent, comme ceux de Knowledge Router. Voir [Sources de connaissances : les agents Knowledge Retrieval et Knowledge Router](../agents/knowledge-sources.md#choose-the-sources).
+
+Choisir un ensemble remplace les lorebooks choisis à cet endroit. Tu peux ensuite ajouter ou retirer des lorebooks pour ce chat ou cet agent, et l'ensemble enregistré ne change pas.
+
+Pour activer ou désactiver une à une les entrées dans un seul chat, ouvre **Chat Settings → Lorebooks** et clique sur l'icône en forme de crayon (**Edit lorebook entries**, modifier les entrées du lorebook) à côté d'un lorebook. Là, l'interrupteur de chaque entrée ne change que ce chat. Les autres modifications faites à cet endroit changent le lorebook lui-même.
+
 ## Guides associés
 
 - [Les entrées de lorebook : mots-clés, position et déclenchement](entries.md)

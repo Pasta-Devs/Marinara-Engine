@@ -25,6 +25,8 @@ Diese Dienste nutzen einen API-Key, außer den drei Abo-Diensten, die eine Anmel
 | Arli AI | `www.arliai.com/account` |
 | Z.AI | `z.ai/manage-apikey/apikey-list` |
 | DeepSeek | `platform.deepseek.com/api_keys` |
+| AI Horde | `aihorde.net/register` (optional, siehe [AI Horde](#ai-horde)) |
+| BeaverNet | `net.beaverai.org/account` |
 | OpenAI-compatible, Claude (Subscription), OpenAI (ChatGPT), Grok CLI (Subscription) | Keine Key-Seite. Siehe die Hinweise unten. |
 
 Standardadressen, die Marinara für dich einträgt:
@@ -43,6 +45,8 @@ Standardadressen, die Marinara für dich einträgt:
 - Arli AI: `https://api.arliai.com/v1`
 - Z.AI: `https://api.z.ai/api/paas/v4`
 - DeepSeek: `https://api.deepseek.com/v1`
+- AI Horde: `https://oai.aihorde.net/v1`
+- BeaverNet: `https://net.beaverai.org/v1`
 - OpenAI-compatible und die Abo-Dienste: keine. Du trägst eine Adresse ein, oder es wird keine gebraucht.
 
 Alle Key-Seiten beginnen mit `https://`.
@@ -135,15 +139,29 @@ Dieselbe Anzeige erscheint unter dem Kontextbalken in der Verbindungsauswahl ein
 
 ### Z.AI
 
-**Z.AI** stellt die GLM-Modelle (GLM 5.3, GLM 5.3 Flash und frühere) über eine eigene API bereit. Modelle der Reihen GLM 5.2 und 5.3 akzeptieren die Reasoning-Stufe **Maximum**. Die Standardadresse führt zum nutzungsabhängig abgerechneten Endpunkt. Der Coding Plan von Z.AI nutzt einen anderen Endpunkt, daher funktioniert ein Key für den Coding Plan hier möglicherweise nicht.
+**Z.AI** stellt die GLM-Modelle (GLM 5.4, GLM 5.3, GLM 5.3 Flash und frühere) über eine eigene API bereit. Modelle der Reihen GLM 5.2, 5.3 und 5.4 akzeptieren die Reasoning-Stufe **Maximum**. Die Standardadresse führt zum nutzungsabhängig abgerechneten Endpunkt. Der Coding Plan von Z.AI nutzt einen anderen Endpunkt, daher funktioniert ein Key für den Coding Plan hier möglicherweise nicht.
+
+GLM 5.4 gibt es nur im GLM Coding Plan. Um es zu nutzen, setz die **Address** des Kontos auf `https://api.z.ai/api/coding/paas/v4`. GLM 5.4 denkt immer nach, deshalb bietet sein **Reasoning Effort** (Denkaufwand) die Stufen **Low**, **High** und **Max**, ohne **Off** (aus).
 
 ### DeepSeek
 
-**DeepSeek** stellt `deepseek-flash` und `deepseek-v4-pro` bereit. DeepSeek denkt standardmäßig nach. **Reasoning Effort** (Denkaufwand) nutzt hier die eigenen Stufen von DeepSeek, und **Off** (aus) schaltet das Nachdenken für diese Anfrage ab. Eine Anfrage mit mittlerer Stufe behandelt DeepSeek wie High. Das Nachdenken erscheint in der Antwort mit der üblichen Gedankenanzeige.
+**DeepSeek** stellt `deepseek-flash` und `deepseek-v4-pro` bereit. DeepSeek denkt standardmäßig nach. **Reasoning Effort** nutzt hier die eigenen Stufen von DeepSeek, und **Off** schaltet das Nachdenken für diese Anfrage ab. Eine Anfrage mit mittlerer Stufe behandelt DeepSeek wie High. Das Nachdenken erscheint in der Antwort mit der üblichen Gedankenanzeige.
 
 Manche Parameter gelten nicht, deshalb lässt das Panel sie weg: **Verbosity**, **Top K** und die Wiederholungsstrafen sind abgeschafft und werden ignoriert. **Temperature** und **Top P** bilden ein Paar, weil DeepSeek jeweils nur einen davon nutzt. **Temperature** siehst du, wenn das Nachdenken aus ist, **Top P**, wenn es an ist.
 
 Verbinde DeepSeek über seine eigene Kachel, statt **OpenAI** auf die Adresse von DeepSeek zu richten. Der OpenAI-Dienst erwartet die Modelle von OpenAI. Bei einem DeepSeek-Modell blendet er deshalb die Regler für die Generierung aus und sendet fast keine deiner Einstellungen mit.
+
+### AI Horde
+
+**AI Horde** ist ein kostenloses Netzwerk, in dem Freiwillige Modelle auf ihren eigenen Computern betreiben. Seine Kachel richtet ein Konto vom Typ **OpenAI-compatible** mit der Adresse von AI Horde ein.
+
+Im Feld **API key** steht anfangs der anonyme Key `0000000000`, der ohne Konto funktioniert. Anonyme Anfragen warten am längsten in der Warteschlange. Mit einem kostenlosen Key von `aihorde.net/register` wartest du kürzer, und du verdienst Kudos (Horde-Punkte, die deine Anfragen in der Warteschlange nach vorn bringen), wenn du deinen eigenen Computer mit dem Netzwerk teilst.
+
+Die Modellliste zeigt die Modelle, die Freiwillige gerade betreiben, deshalb ändert sie sich oft. Die Warteschlange bestimmt, wie lange eine Antwort dauert: ein paar Sekunden oder mehrere Minuten. Überschreitet eine Antwort das Zeitlimit, versuch ein anderes Modell oder erhöhe die Zeitlimits des Servers (siehe [Zeitlimits](#timeouts)).
+
+### BeaverNet
+
+**BeaverNet** ist ein kostenloses Community-Netzwerk: Menschen mit ungenutzten Grafikkarten betreiben Modelle, und alle anderen nutzen sie. Seine Kachel richtet ein Konto vom Typ **OpenAI-compatible** mit der Adresse von BeaverNet ein. Einen kostenlosen Key erstellst du unter `net.beaverai.org/account`.
 
 ### OpenAI-compatible
 
@@ -205,6 +223,8 @@ Embeddings verwandeln Text in Zahlenlisten, damit Marinara verwandten Text finde
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** und **Grok CLI (Subscription)** können keine Embeddings erzeugen. Nutze dort das Dropdown-Menü **Embedding provider** (Embedding-Anbieter), um ein anderes Konto mitzuverwenden, etwa ein OpenAI-kompatibles, **Google Gemini** oder das **Built-in model** (eingebautes Modell).
 
 Um eine Embedding-Quelle für jedes Konto ohne eigene Embedding-Einstellungen zu nutzen, klick im Bereich **Jobs** auf die Zeile **Embeddings**. **Marinara's own search** (Marinaras eigene Suche) behält das eingebaute Embedding-Modell bei. Das eigene Embedding-Modell oder der **Embedding provider** eines Kontos hat weiterhin Vorrang. Vektorisiere deine Lorebooks und Erinnerungen neu, nachdem du die Quelle geändert hast. Siehe [Semantische Suche für Lorebooks](../lorebooks/semantic-search.md).
+
+<a id="timeouts"></a>
 
 ## Zeitlimits
 

@@ -108,6 +108,25 @@ Każdy wiersz ma przyciski **Copy** (kopiowanie, tworzy kopię lorebooka) i **De
 
 Kategoria to etykieta porządkująca bibliotekę. Nie zmienia tego, kiedy lorebook się aktywuje. Zakładki to **All**, **Active** (lorebooki związane z otwartym czatem), **World**, **Character**, **NPC**, **Spellbook** i **Other**. Kategorię lorebooka zmienisz na jego zakładce **Overview**, gdzie **Other** nazywa się **Uncategorized**.
 
+### Zapisywanie zestawu lorebooków
+
+Zestaw lorebooków to nazwana grupa lorebooków, których używasz razem, na przykład lorebooków jednego świata. Wybierasz od razu całą grupę zamiast każdego lorebooka osobno. Zestaw wskazuje twoje lorebooki i ich nie kopiuje.
+
+1. W panelu **Lorebooks** kliknij **New set** (nowy zestaw). Nowy zestaw otwiera się w sekcji **Lorebook Sets** (zestawy lorebooków).
+2. Wpisz nazwę w polu **Set name** (nazwa zestawu).
+3. Kliknij **Choose lorebooks** (wybór lorebooków) i zaznacz lorebooki należące do zestawu. Każda zmiana zapisuje się sama.
+
+Aby później edytować zestaw, kliknij go w sekcji **Lorebook Sets**. Jego przycisk **Delete set** (usunięcie zestawu) usuwa zestaw, a jego lorebooki zostają w bibliotece. Usunięty lorebook znika ze wszystkich zestawów.
+
+Wybierz zestaw w polu **Use a saved set** (użycie zapisanego zestawu), nad **Choose lorebooks**. Pole pojawia się, gdy masz już jakiś zestaw, w tych miejscach:
+
+- W kroku **Attach Lorebooks** (dołączenie lorebooków) przy tworzeniu nowego czatu Roleplay.
+- Przy stałych źródłowych lorebookach agenta, takiego jak Knowledge Router. Zobacz [Źródła wiedzy: agenci Knowledge Retrieval i Knowledge Router](../agents/knowledge-sources.md#choose-the-sources).
+
+Wybranie zestawu zastępuje lorebooki wybrane w tym miejscu. Potem możesz dodać lub usunąć lorebooki dla tego czatu lub agenta, a zapisany zestaw się nie zmienia.
+
+Aby włączać lub wyłączać pojedyncze wpisy w jednym czacie, otwórz **Chat Settings → Lorebooks** i kliknij ikonę ołówka (**Edit lorebook entries**, edycja wpisów lorebooka) obok lorebooka. Przełącznik każdego wpisu zmienia tam tylko ten czat. Inne zmiany wprowadzone tam zmieniają sam lorebook.
+
 ## Powiązane przewodniki
 
 - [Wpisy lorebooka: słowa kluczowe, pozycja i czas działania](entries.md)

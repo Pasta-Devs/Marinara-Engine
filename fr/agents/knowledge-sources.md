@@ -36,6 +36,8 @@ La carte de réglages de l'agent apparaît alors dans **Agents**, et l'agent tou
 
 > **Remarque :** ces agents ne tournent que sur les nouveaux tours. Ils ne se relancent pas quand tu régénères une réponse.
 
+<a id="choose-the-sources"></a>
+
 ## Choisir les sources
 
 Les deux agents partagent les mêmes réglages de source.

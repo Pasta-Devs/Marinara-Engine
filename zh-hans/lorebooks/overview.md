@@ -107,6 +107,25 @@ Token 是模型用来计数的文本小片段，在英文中大约相当于四�
 
 分类是给你的库用的标签，不影响世界书何时生效。选项卡有 **All**(全部)、**Active**(生效中，即与当前打开的聊天相关的世界书)、**World**(世界)、**Character**、**NPC**、**Spellbook**(法术书) 和 **Other**。你可以在世界书的 **Overview** 选项卡上更改分类，在那里 **Other** 叫作 **Uncategorized**(未分类)。
 
+### 保存世界书组合
+
+世界书组合是一组起了名字、搭配使用的世界书，比如某个设定用到的那几本世界书。选择时可以一次选中整组，不必一本本地选。组合只是指向你的世界书，不会复制它们。
+
+1. 在 **Lorebooks** 面板里点击 **New set**(新建组合)。新组合会在 **Lorebook Sets**(世界书组合) 下打开。
+2. 在 **Set name**(组合名称) 里输入名称。
+3. 点击 **Choose lorebooks**(选择世界书)，勾选要加入组合的世界书。每次改动都会自动保存。
+
+以后要编辑组合，在 **Lorebook Sets** 下点击它。它的 **Delete set**(删除组合) 按钮会删除这个组合，其中的世界书仍留在你的库里。删除一本世界书时，它会从所有组合中移除。
+
+在 **Choose lorebooks** 上方的 **Use a saved set**(使用已保存的组合) 里选择一个组合。你有了组合之后，这个字段才会出现，位置如下：
+
+- 新建 Roleplay(角色扮演) 时的 **Attach Lorebooks**(附加世界书) 步骤。
+- 智能体的固定来源世界书，比如 Knowledge Router 的。见[知识源：Knowledge Retrieval 与 Knowledge Router 智能体](../agents/knowledge-sources.md#choose-the-sources)。
+
+选择组合会替换那里已选的世界书。之后你可以为那个聊天或智能体再添加或移除世界书，已保存的组合不会改变。
+
+要在某一个聊天里单独开关条目，打开 **Chat Settings → Lorebooks**，点击世界书旁边的铅笔图标（**Edit lorebook entries**(编辑世界书条目)）。那里每个条目的开关只影响这个聊天。在那里做的其他编辑会改动世界书本身。
+
 ## 相关指南
 
 - [世界书条目：关键词、位置与时机](entries.md)

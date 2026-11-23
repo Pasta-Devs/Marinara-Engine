@@ -66,7 +66,7 @@ Roleplay 채팅에서는 `/illustrate` 명령어를 써도 됩니다. [슬래시
 - **Together AI**: FLUX를 비롯한 공개 이미지 모델을 제공합니다.
 - **OpenRouter Images**: OpenRouter의 채팅 인터페이스를 통해 이미지 모델에 접근하므로, 쓸 수 있는 모델은 계정마다 다릅니다.
 - **xAI / Grok Imagine**: Grok Imagine을 사용합니다.
-- **NanoGPT**: 여러 제공자를 모아 주는 중개 서비스이므로 NanoGPT의 모델 목록을 사용하세요.
+- **NanoGPT**: 여러 제공자를 모아 주는 중개 서비스이므로 NanoGPT의 모델 목록을 사용하세요. Marinara는 각 모델에 NanoGPT가 그 모델에 대해 제시하는 크기를 보냅니다. 예를 들어 `1344x768` 대신 화면비와 함께 `1.5k`를 보내며, 참조 이미지도 모델이 받는 장수만큼만 보냅니다. 모델이 네거티브 프롬프트를 거부하면 Marinara는 네거티브 프롬프트 없이 그림을 그리고 서버에 경고 로그를 남깁니다.
 - **Pollinations**: 이미지 생성을 가장 빠르게 시험해 볼 수 있는 방법입니다. 계정이 필요 없습니다.
 - **Stable Horde**: 여러 사람이 컴퓨터 자원을 나눠 쓰는 네트워크입니다. 무료 키를 발급받으면 대기열 우선순위가 높아집니다.
 - **SD Web UI**와 **Draw Things**: 소프트웨어를 프로그램 인터페이스가 켜진 상태로 실행하세요. Marinara는 Draw Things를 AUTOMATIC1111 서버처럼 다룹니다(이 앱은 macOS나 iOS에서 실행됩니다).
@@ -223,7 +223,7 @@ NovelAI에는 전용 태그인 `transparent background, alpha transparency`로 �
 | ChatGPT (Codex login) | 최대 16장 |
 | NovelAI | 최대 16장, V4.5 모델에서만 |
 | xAI / Grok Imagine | 최대 3장 |
-| NanoGPT | 최대 3장 |
+| NanoGPT | 최대 3장, 모델 한도 안에서. 텍스트-이미지 모델에는 보내지 않음 |
 | ComfyUI, RunPod Serverless (ComfyUI), SwarmUI | 최대 4장, 워크플로 플레이스홀더를 통해 |
 | Stability AI, Arli AI, SD Web UI, Draw Things | 첫 번째 이미지만, image to image 방식으로 사용 |
 | Atlas Cloud | 첫 번째 이미지, 호환되는 image-to-image, 편집 또는 Kontext 모델 ID에서 |

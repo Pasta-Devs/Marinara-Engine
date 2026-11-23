@@ -37,10 +37,12 @@
 
 카드나 페르소나가 **Image tags**(이미지 태그)를 사용 중이면(편집기 **Appearance**의 **Image tags** 탭에서 **Use for image prompts**(이미지 프롬프트에 사용)를 체크한 경우), Marinara는 **Appearance** 서술문 대신 그 태그를 보냅니다. 채팅에서 활성화된 Appearance 대체 필드는 자체 태그나 서술문을 사용합니다. **Appearance**를 그림이 아니라 이야기용으로 쓴 경우에 활용하세요.
 
+캐릭터가 답변에서 보내는 셀카에는, 이미지 서비스가 참조 그림을 받는 경우 그 답변에 활성화된 로어북 항목의 **Reference images**(참조 이미지)에 있는 그림도 함께 실립니다. 따로 켜는 설정은 없습니다. Stability AI, Arli AI, SD Web UI, Draw Things에는 보내지 않습니다. 이 서비스들은 항목의 그림에서 셀카를 시작해 버리기 때문입니다. Gallery의 **Selfie**(셀카) 버튼은 이 그림을 보내지 않습니다.
+
 ## 직접 셀카 요청하기
 
 1. **Chat Settings**를 열고 **Gallery**(갤러리) 섹션을 펼치세요.
-2. **Selfie**(셀카)를 클릭하세요. 캐릭터가 둘 이상이면 버튼 옆 목록에서 누가 찍을지 고르세요.
+2. **Selfie**를 클릭하세요. 캐릭터가 둘 이상이면 버튼 옆 목록에서 누가 찍을지 고르세요.
 3. **Expose media prompts before sending**(전송 전에 미디어 프롬프트 표시)이 켜져 있으면(**Settings** → **Generations** → **Overall Generations**) 프롬프트를 검토하거나 고친 다음 **Generate**를 클릭하세요. 취소하면 요청이 전송되지 않습니다.
 4. 버튼에 **Generating...**(생성 중...)이 표시되는 동안 기다리세요.
 

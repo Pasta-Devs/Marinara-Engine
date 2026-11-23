@@ -85,6 +85,8 @@ Game Mode에는 **Prompt Mode**(프롬프트 모드)나 **Prompt Model**(프롬�
 
 NovelAI V5처럼 참조 이미지를 버리는 이미지 모델을 쓸 때는 프롬프트 작성 모델을 통해 참조 이미지를 활용할 수 있습니다. 이미지를 읽는 작성 모델이 필요합니다. 작성 모델이 이미지를 거부하면 이미지를 빼고 요청을 다시 보내며, 서버를 재시작할 때까지 해당 작성 모델에는 이미지를 보내지 않습니다. 연결에 이미지를 읽지 못한다고 표시된 작성 모델에도 보내지 않습니다. 작성 모델에 이미지를 보내면 실행할 때마다 토큰을 사용합니다. 이미지는 최대 4개를 보냅니다. `[illustrate: characters="…"]`에 이름이 나온 카드의 이미지이며, 지정하지 않았다면 채팅의 활성 캐릭터와 페르소나의 이미지입니다. **What to carry over from the pictures**는 그림체를 제외한 외모만 가져오는 것처럼 작성 모델이 복사할 내용을 정합니다. Roleplay 채팅은 **Send Avatar References** 아래에서 자체 **Reference pictures go to**를 설정할 수 있습니다.
 
+Roleplay 채팅에서는 로어북 항목이 답변에 활성화되어 있으면 그 항목의 **Reference images**(참조 이미지)에 있는 그림도 이미지 모델로 갑니다. 그림이 맞춰야 할 의상, 소품, 방에 활용하세요. 따로 켜는 설정은 없습니다. 참조 이미지를 받는 이미지 서비스만 이 그림을 받습니다. Stability AI, Arli AI, SD Web UI, Draw Things에는 보내지 않습니다. 이 서비스들은 항목의 그림에서 그림을 시작해 버리기 때문입니다. **Send Avatar References**를 켠 상태에서 **Prompt writer**를 고르면 이 그림도 이미지 모델로 보내지 않습니다. 이 그림은 [World Maps](../agents/hierarchical-maps.md)의 **Location reference image**와 아바타 다음에 오며, 그림은 모두 합쳐 6장을 넘지 않습니다. **Position**(위치)을 **Outlet**(아웃렛)으로 설정한 항목은 그 Outlet이 쓰일 때만 그림을 보내며, Gallery의 **Illustrate**(이미지 생성) 버튼에서는 보내지 않습니다.
+
 ## 그리는 빈도 조절하기
 
 Illustrator 카드에는 전체 설정 화면을 여는 **Open Setup** 버튼이 있습니다. 여기에서 기본 실행 간격을 정하고 전용 이미지 모델을 지정합니다.
@@ -93,7 +95,7 @@ Roleplay 채팅마다 **Chat Settings**의 카드에 자체 **Image Run Interval
 
 수동 전용 모드로 쓰려면 **Image Run Interval**을 **0**으로 설정하세요. 자동 장면 배경을 포함한 자동 실행이 멈추지만, 에이전트는 Gallery 작업에 계속 쓸 수 있습니다. 다시 시작하려면 양수를 설정하세요.
 
-지금 바로 그림을 만들려면 **Chat Settings**를 열고 **Gallery**를 펼친 다음 **Illustrate**(이미지 생성)를 클릭하세요. Illustrator가 즉시 한 번 실행되고, 버튼에 **Generating...**(생성 중...)이 표시됩니다.
+지금 바로 그림을 만들려면 **Chat Settings**를 열고 **Gallery**를 펼친 다음 **Illustrate**를 클릭하세요. Illustrator가 즉시 한 번 실행되고, 버튼에 **Generating...**(생성 중...)이 표시됩니다.
 
 ## 클립 만들기
 

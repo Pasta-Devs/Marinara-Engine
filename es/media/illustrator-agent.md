@@ -85,6 +85,8 @@ Con **Send Avatar References** activado para imágenes, **Reference pictures go 
 
 El modelo que escribe el prompt permite sortear los modelos de imagen que descartan las imágenes de referencia, como NovelAI V5. Debe ser un modelo que lea imágenes. Si las rechaza, su solicitud se envía de nuevo sin las imágenes, y ese modelo no recibe ninguna hasta que se reinicia el servidor. Un modelo cuya conexión está marcada como incapaz de leer imágenes no recibe ninguna. Enviar imágenes al modelo que escribe el prompt cuesta tokens en cada ejecución. Se envían hasta cuatro imágenes: las de las tarjetas nombradas en `[illustrate: characters="…"]` o, si no, las de los personajes activos del chat y la persona. **What to carry over from the pictures** (Qué conservar de las imágenes) indica qué copia el modelo que escribe el prompt, como solo la apariencia y no el estilo de arte. Un chat de Roleplay puede establecer su propio **Reference pictures go to** en **Send Avatar References**.
 
+En un chat de Roleplay, las imágenes de las **Reference images** (Imágenes de referencia) de una entrada de lorebook (libro de trasfondo) también van al modelo de imagen cuando la entrada está activa en la respuesta. Úsalas para un disfraz, un objeto o una habitación con los que deba coincidir la imagen. No hace falta activar ningún ajuste. Solo las recibe un servicio de imágenes que acepta imágenes de referencia. Stability AI, Arli AI, SD Web UI y Draw Things no reciben ninguna, porque empezarían la imagen a partir de la imagen de la entrada. Con **Send Avatar References** activado, **Prompt writer** también las retiene. Van después de la **Location reference image** (Imagen de referencia de ubicación) de [World Maps](../agents/hierarchical-maps.md) y de los avatares, con un máximo de seis imágenes en total. Una entrada con **Position** (Posición) establecida en **Outlet** solo envía sus imágenes cuando se usa su Outlet, y nunca desde el botón **Illustrate** (Ilustrar) de la Gallery.
+
 ## Controlar con qué frecuencia dibuja
 
 La tarjeta del Illustrator tiene un botón **Open Setup** que abre la pantalla de configuración completa. Allí estableces el intervalo de ejecución predeterminado y le das su propio modelo de imagen.
@@ -93,7 +95,7 @@ Cada chat de Roleplay tiene su propio **Image Run Interval** (Intervalo de gener
 
 Establece **Image Run Interval** en **0** para el modo solo manual. Detiene las ejecuciones automáticas, incluidos los fondos de escena automáticos, pero mantiene el agente disponible para las acciones de Gallery. Establece un número positivo para reanudarlas.
 
-Para crear una imagen ahora, abre **Chat Settings**, despliega **Gallery** y haz clic en **Illustrate** (Ilustrar). El Illustrator se ejecuta una vez de inmediato y el botón muestra **Generating...**.
+Para crear una imagen ahora, abre **Chat Settings**, despliega **Gallery** y haz clic en **Illustrate**. El Illustrator se ejecuta una vez de inmediato y el botón muestra **Generating...**.
 
 ## Crear clips
 

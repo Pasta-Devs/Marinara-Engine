@@ -66,7 +66,7 @@ Roleplayのチャットでは、`/illustrate`コマンドも使えます。[ス�
 - **Together AI**: FLUXをはじめとするオープンな画像モデルを利用できます。
 - **OpenRouter Images**: OpenRouterのチャット用インターフェイスを経由して画像モデルを利用するため、使えるモデルはアカウントによって変わります。
 - **xAI / Grok Imagine**: Grok Imagineを使います。
-- **NanoGPT**: 複数のサービスをまとめるアグリゲーターなので、NanoGPTのモデル一覧から選んでください。
+- **NanoGPT**: 複数のサービスをまとめるアグリゲーターなので、NanoGPTのモデル一覧から選んでください。Marinaraは、NanoGPTが各モデルについて示しているサイズをそのモデルに送ります。たとえば`1344x768`ではなく、`1.5k`とアスペクト比を送ります。参照画像も、モデルが受け付ける枚数だけ送ります。モデルがネガティブプロンプトを拒否した場合、Marinaraはネガティブプロンプトなしで画像を描き、サーバーに警告を記録します。
 - **Pollinations**: 画像生成をいちばん手早く試せます。アカウントは不要です。
 - **Stable Horde**: 有志のコンピューターを集めたクラウドソーシング型のネットワークです。無料のキーを取得すると、順番待ちの優先度が上がります。
 - **SD Web UI**と**Draw Things**: ソフトウェアは、アプリケーションインターフェイスをオンにした状態で起動してください。MarinaraはDraw ThingsをAUTOMATIC1111のサーバーと同じように扱います(このアプリはmacOSまたはiOSで動きます)。
@@ -223,7 +223,7 @@ NovelAIには、専用のタグ`transparent background, alpha transparency`を�
 | ChatGPT (Codex login) | 最大16枚 |
 | NovelAI | 最大16枚、V4.5のモデルのみ |
 | xAI / Grok Imagine | 最大3枚 |
-| NanoGPT | 最大3枚 |
+| NanoGPT | 最大3枚、モデルの上限の範囲内。text-to-imageのモデルではなし |
 | ComfyUI、RunPod Serverless (ComfyUI)、SwarmUI | 最大4枚、ワークフローのプレースホルダー経由 |
 | Stability AI、Arli AI、SD Web UI、Draw Things | 1枚目のみ、image to imageとして使用 |
 | Atlas Cloud | 1枚目、image-to-image、編集、Kontextに対応したモデルIDの場合 |

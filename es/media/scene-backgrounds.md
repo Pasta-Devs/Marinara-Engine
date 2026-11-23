@@ -74,7 +74,7 @@ Puedes volver a crear una imagen generada sin regenerar la respuesta a la que pe
 3. Cambia lo que quieras en los cuadros debajo de la imagen: **Prompt**, **Negative prompt** (Prompt negativo), un cuadro para cada personaje en **Character prompts** (Prompts de personajes) cuando la imagen los tenía, y el modelo de imagen.
 4. Haz clic en **Generate image** (Generar imagen), o en **Cancel** (Cancelar) para dejar la imagen como está.
 
-La imagen nueva pasa a ser la versión seleccionada en el mensaje. Los resultados anteriores se mantienen juntos en una sola ficha de la Gallery con un recuento de versiones. Cada versión conserva su prompt, su prompt negativo y los demás detalles de generación guardados. Las imágenes de referencia se vuelven a enviar a partir de los avatares actuales de los personajes. Algunas imágenes antiguas no guardaron su prompt negativo ni sus prompts de personaje; el editor lo indica cuando es así.
+La imagen nueva pasa a ser la versión seleccionada en el mensaje. Los resultados anteriores se mantienen juntos en una sola ficha de la Gallery con un recuento de versiones. Cada versión conserva su prompt, su prompt negativo y los demás detalles de generación guardados. Las imágenes de referencia se vuelven a enviar a partir de los avatares actuales de los personajes, seguidas de las imágenes de las entradas de lorebook (libro de trasfondo) con las que se dibujó la imagen por primera vez. Stability AI, Arli AI, SD Web UI y Draw Things no reciben imágenes de entradas. Algunas imágenes antiguas no guardaron su prompt negativo ni sus prompts de personaje; el editor lo indica cuando es así.
 
 ### Versiones de imagen
 
