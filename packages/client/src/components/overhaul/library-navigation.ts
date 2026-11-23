@@ -18,7 +18,12 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useUIStore, type Panel } from "../../stores/ui.store";
 import { isOverhaulLook, useOverhaulStore, type LibrarySection } from "../../stores/overhaul.store";
-import { deferEditorLeave, leaveWithoutSaving } from "../../lib/editor-leave";
+import {
+  deferEditorLeave,
+  deferPageEditorLeave,
+  leaveWithoutSaving,
+  type PageLeaveStates,
+} from "../../lib/editor-leave";
 
 export type LibrarySectionEntry = {
   id: LibrarySection;
@@ -54,7 +59,29 @@ export function openLibrarySection(section: LibrarySection) {
   // An open editor with unsaved edits asks first (Save / Don't save / Keep editing). Nothing here runs
   // until it says go, so Keep editing leaves the editor, the Library pane highlight and the page as they were.
   const proceed = () => leaveWithoutSaving(() => showLibrarySection(section));
+  // A page's own editor (a Game assets file) asks once, up front, unless the section is its own page.
+  if (deferPageEditorLeave({ ...useOverhaulStore.getState(), libraryPage: landingPageOf(section) }, proceed)) return;
   if (!deferEditorLeave(useUIStore.getState(), CLOSED_EDITORS, proceed)) proceed();
+}
+
+/** The page id `showLibrarySection` lands on (Characters and Personas are the card gallery, not a page). */
+function landingPageOf(section: LibrarySection): LibrarySection | null {
+  if (section === "characters" || section === "personas") return null;
+  return section === "assets" ? lastAssetTab : section;
+}
+
+/**
+ * Whether a Library section's landing page is what the main area shows: nothing that AppShell puts in front of it
+ * (an open item, the card gallery, the agent catalog, Docs, Mari, Schedules, an app) is open. `next` replaces either
+ * store's state with the state a change leaves behind.
+ */
+export function libraryPageShowing(section: LibrarySection, next: PageLeaveStates = {}): boolean {
+  const ui = (next.ui ?? useUIStore.getState()) as Record<string, unknown>;
+  const overhaul = (next.overhaul ?? useOverhaulStore.getState()) as Record<string, unknown>;
+  if (overhaul.libraryPage !== section) return false;
+  if (overhaul.activeSchedules || overhaul.activeMari || overhaul.activeDocsTab || overhaul.activeApp) return false;
+  if (ui.characterLibraryOpen || ui.agentCatalogOpen) return false;
+  return !Object.keys(CLOSED_EDITORS).some((field) => ui[field]);
 }
 
 const CLOSED_EDITORS = {

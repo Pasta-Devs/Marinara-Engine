@@ -41,7 +41,15 @@ export function useGameAssetFileEditor({
   onClose,
   initialMode = "edit",
   closeOnSave = true,
-}: FileEditorModalProps & { closeOnSave?: boolean }) {
+  pageEditor = false,
+  requestClose,
+}: FileEditorModalProps & {
+  closeOnSave?: boolean;
+  /** The Library page's pane: Ctrl+S and Escape go through the shared editor rules (useEditorLeaveSave) instead. */
+  pageEditor?: boolean;
+  /** Escape's close, when the caller asks its own way (the page pane's Save / Don't save / Keep editing). */
+  requestClose?: () => void;
+}) {
   const { t: localizeUi } = useUiTranslation();
   const { data, isLoading } = useGameAssetFileContent(node.path);
   const saveFile = useSaveGameAssetFile();
@@ -88,6 +96,7 @@ export function useGameAssetFileEditor({
   }, [saveFile, node.path, content, onClose, localizeUi, closeOnSave]);
 
   const handleRequestClose = useCallback(async () => {
+    if (requestClose) return requestClose();
     if (isDirty) {
       const discard = await showConfirmDialog({
         message: localizeUi("ui.gameAssets.fileeditormodal.youHaveUnsavedChangesDiscardThem"),
@@ -95,13 +104,13 @@ export function useGameAssetFileEditor({
       if (!discard) return;
     }
     onClose();
-  }, [isDirty, onClose, localizeUi]);
+  }, [isDirty, onClose, localizeUi, requestClose]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (handleTextareaTab(e)) return;
 
-      if (e.key === "s" && (e.metaKey || e.ctrlKey)) {
+      if (e.key === "s" && (e.metaKey || e.ctrlKey) && !pageEditor) {
         e.preventDefault();
         if (isDirty) {
           handleSave();
@@ -111,17 +120,21 @@ export function useGameAssetFileEditor({
 
       if (e.key === "Escape") {
         e.preventDefault();
+        // The question opened below listens for Escape too: this same key press must not reach it and answer it.
+        e.stopPropagation();
         handleRequestClose();
         return;
       }
     },
-    [isDirty, handleSave, handleRequestClose],
+    [isDirty, handleSave, handleRequestClose, pageEditor],
   );
 
   const isMd = node.ext === ".md";
   return {
     localizeUi,
     isLoading,
+    /** The saved file has loaded into the editor. */
+    loaded: data !== undefined,
     saveFile,
     content,
     setContent,

@@ -8,9 +8,10 @@
 // All Tabs viewer, long-press message sheet). Everything here is per device.
 // ──────────────────────────────────────────────
 import { useSyncExternalStore } from "react";
-import { create } from "zustand";
+import { create, type StateCreator } from "zustand";
 import { persist } from "zustand/middleware";
 import type { SplitPage } from "../lib/split-view-env";
+import { deferPageEditorLeave } from "../lib/editor-leave";
 import type { MessageButtonId, MessageButtonMode } from "../components/overhaul/message-buttons";
 
 export type OverhaulTabKind =
@@ -218,9 +219,29 @@ function withoutEmptyGroups(state: { tabs: OverhaulTab[]; tabGroups: Record<stri
 
 export type OverhaulSidePane = "chats" | "library";
 
+type OverhaulCreator = StateCreator<OverhaulState, [["zustand/persist", unknown]]>;
+
+/**
+ * A change that takes a page's open editor off screen (a Game assets file with unsaved edits) asks that editor first,
+ * as the UI store does for item editors (lib/editor-leave). Hydration writes through the store itself, not this.
+ */
+const guardPageLeave =
+  (creator: OverhaulCreator): OverhaulCreator =>
+  (setState, get, api) =>
+    creator(
+      ((next: Partial<OverhaulState> | ((state: OverhaulState) => Partial<OverhaulState>)) => {
+        const state = get();
+        const patch = typeof next === "function" ? next(state) : next;
+        const apply = () => setState(patch);
+        if (!deferPageEditorLeave({ ...state, ...patch }, apply)) apply();
+      }) as typeof setState,
+      get,
+      api,
+    );
+
 export const useOverhaulStore = create<OverhaulState>()(
   persist(
-    (set, get) => ({
+    guardPageLeave((set, get) => ({
       enabled: true,
       desktop: true,
       tabs: [],
@@ -456,7 +477,7 @@ export const useOverhaulStore = create<OverhaulState>()(
         set(mobileSidePageOpen ? { mobileSidePageOpen, libraryHubReturn: false } : { mobileSidePageOpen }),
       libraryHubReturn: false,
       setLibraryHubReturn: (libraryHubReturn) => set({ libraryHubReturn }),
-    }),
+    })),
     {
       name: "marinara-overhaul-layout",
       version: 3,
