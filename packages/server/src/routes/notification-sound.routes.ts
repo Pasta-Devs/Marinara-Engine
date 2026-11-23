@@ -7,6 +7,7 @@ import { logger } from "../lib/logger.js";
 import { notFound } from "../utils/not-found.js";
 import { writeFileAtomic } from "../utils/atomic-write.js";
 import { sendValidatedMediaFile } from "../utils/media-file-security.js";
+import { NOTIFICATION_SOUND_RATE_LIMIT } from "../middleware/rate-limit.js";
 
 const NOTIFICATION_SOUNDS_DIR = join(DATA_DIR, "notification-sounds");
 const MAX_NOTIFICATION_SOUND_BYTES = 10 * 1024 * 1024;
@@ -123,10 +124,12 @@ function soundStatus(sound: StoredNotificationSound | null) {
   };
 }
 
-export async function notificationSoundRoutes(app: FastifyInstance) {
-  app.get("/", async () => soundStatus(await findStoredNotificationSound()));
+const rateLimited = { config: { rateLimit: NOTIFICATION_SOUND_RATE_LIMIT } };
 
-  app.post("/upload", async (req, reply) => {
+export async function notificationSoundRoutes(app: FastifyInstance) {
+  app.get("/", rateLimited, async () => soundStatus(await findStoredNotificationSound()));
+
+  app.post("/upload", rateLimited, async (req, reply) => {
     let upload;
     try {
       upload = await req.file({ limits: { fileSize: MAX_NOTIFICATION_SOUND_BYTES + 1 } });
@@ -187,7 +190,7 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
     }
   });
 
-  app.delete("/", async (_req, reply) => {
+  app.delete("/", rateLimited, async (_req, reply) => {
     try {
       await withNotificationSoundLock(() => removeStoredNotificationSounds());
     } catch (error) {
@@ -205,7 +208,7 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
     return reply.status(204).send();
   });
 
-  app.get("/file", async (req, reply) => {
+  app.get("/file", rateLimited, async (req, reply) => {
     const sound = await findStoredNotificationSound();
     if (!sound) return notFound(reply, "No custom notification sound.");
     // Open a handle before replying: a concurrent replace/delete can remove
