@@ -60,7 +60,7 @@ Marinara는 텍스트, 이미지, 동영상 생성을 위해 OpenAI, Anthropic, 
 
 ## Marinara를 쓰려면 돈을 내야 하나요?
 
-Marinara는 무료입니다. 비용은 사용하는 AI 서비스가 청구하는 만큼 냅니다. 돈을 들이지 않고 시험해 볼 수 있는 선택지도 있습니다. **Pollinations** 이미지는 키가 필요 없고, **Stable Horde**는 무료이며, **Built-in model**은 내 컴퓨터에서 실행됩니다. 구독형 옵션은 이미 가입해 두었을 수 있는 유료 요금제를 씁니다.
+Marinara는 무료입니다. 비용은 사용하는 AI 서비스가 청구하는 만큼 냅니다. 돈을 들이지 않고 시험해 볼 수 있는 선택지도 있습니다. **Pollinations** 이미지는 키가 필요 없고, **Stable Horde** 이미지는 무료이며, **AI Horde**와 **BeaverNet**은 채팅 모델을 무료로 실행하고([AI Horde](connections/providers-reference.md#ai-horde) 참고), **Built-in model**은 내 컴퓨터에서 실행됩니다. 구독형 옵션은 이미 가입해 두었을 수 있는 유료 요금제를 씁니다.
 
 ## API 키는 안전한가요?
 

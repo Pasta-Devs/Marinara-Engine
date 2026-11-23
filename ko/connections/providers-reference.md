@@ -25,6 +25,8 @@
 | Arli AI | `www.arliai.com/account` |
 | Z.AI | `z.ai/manage-apikey/apikey-list` |
 | DeepSeek | `platform.deepseek.com/api_keys` |
+| AI Horde | `aihorde.net/register`(선택 사항, [AI Horde](#ai-horde) 참고) |
+| BeaverNet | `net.beaverai.org/account` |
 | OpenAI-compatible, Claude (Subscription), OpenAI (ChatGPT), Grok CLI (Subscription) | 키 페이지가 없습니다. 아래 참고 사항을 확인하세요. |
 
 기본 주소는 다음과 같으며, Marinara가 대신 채워 줍니다.
@@ -43,6 +45,8 @@
 - Arli AI: `https://api.arliai.com/v1`
 - Z.AI: `https://api.z.ai/api/paas/v4`
 - DeepSeek: `https://api.deepseek.com/v1`
+- AI Horde: `https://oai.aihorde.net/v1`
+- BeaverNet: `https://net.beaverai.org/v1`
 - OpenAI-compatible과 구독형 서비스: 없음. 주소를 직접 입력하거나, 주소가 필요하지 않습니다.
 
 모든 키 페이지 주소는 `https://`로 시작합니다.
@@ -135,7 +139,9 @@ NanoGPT 구독이 있다면 계정에서 현재 할당량을 확인할 수 있�
 
 ### Z.AI
 
-**Z.AI**는 자체 API로 GLM 모델(GLM 5.3, GLM 5.3 Flash와 이전 모델)을 제공합니다. GLM 5.2와 5.3 모델은 **Maximum**(최대) 추론 단계를 지원합니다. 기본 주소는 사용량에 따라 과금되는 엔드포인트입니다. Z.AI의 Coding Plan은 다른 엔드포인트를 사용하므로 Coding Plan 키는 여기서 작동하지 않을 수 있습니다.
+**Z.AI**는 자체 API로 GLM 모델(GLM 5.4, GLM 5.3, GLM 5.3 Flash와 이전 모델)을 제공합니다. GLM 5.2, 5.3, 5.4 모델은 **Maximum**(최대) 추론 단계를 지원합니다. 기본 주소는 사용량에 따라 과금되는 엔드포인트입니다. Z.AI의 Coding Plan은 다른 엔드포인트를 사용하므로 Coding Plan 키는 여기서 작동하지 않을 수 있습니다.
+
+GLM 5.4는 GLM Coding Plan에서만 쓸 수 있습니다. 사용하려면 계정의 **Address**를 `https://api.z.ai/api/coding/paas/v4`로 설정하세요. GLM 5.4는 항상 사고 기능을 사용하므로 **Reasoning Effort**(추론 강도)에는 **Low**(낮음), **High**(높음), **Max**(최대)만 있고 **Off**(꺼짐)는 없습니다.
 
 ### DeepSeek
 
@@ -144,6 +150,18 @@ NanoGPT 구독이 있다면 계정에서 현재 할당량을 확인할 수 있�
 일부 파라미터는 적용되지 않으므로 패널에 표시되지 않습니다. **Verbosity**(상세도), **Top K**, 페널티 설정은 지원이 종료되어 무시됩니다. **Temperature**(온도)와 **Top P**는 한 쌍입니다. DeepSeek는 한 번에 둘 중 하나만 사용하기 때문입니다. 사고 기능이 꺼져 있으면 **Temperature**가, 켜져 있으면 **Top P**가 표시됩니다.
 
 DeepSeek에 연결할 때는 **OpenAI**에 DeepSeek의 주소를 지정하지 말고 전용 타일을 사용하세요. OpenAI 서비스는 OpenAI 모델을 전제로 하므로, DeepSeek 모델에서는 생성 설정 항목을 숨기고 지정한 설정을 거의 보내지 않습니다.
+
+### AI Horde
+
+**AI Horde**는 자원봉사자들이 자기 컴퓨터에서 모델을 실행하는 무료 네트워크입니다. 이 타일은 AI Horde의 주소로 **OpenAI-compatible**(OpenAI 호환) 계정을 설정합니다.
+
+**API key** 입력란에는 처음부터 익명 키 `0000000000`이 들어 있으며, 계정 없이도 작동합니다. 익명 요청은 대기열에서 가장 오래 기다립니다. `aihorde.net/register`에서 받은 무료 키를 쓰면 덜 기다리며, 내 컴퓨터를 네트워크에 공유하면 kudos(요청을 대기열 앞쪽으로 올려 주는 Horde 포인트)를 얻습니다.
+
+모델 목록에는 지금 자원봉사자들이 실행하고 있는 모델이 표시되므로 목록이 자주 바뀝니다. 답변에 걸리는 시간은 대기열에 따라 몇 초에서 몇 분까지 달라집니다. 답변이 시간 초과되면 다른 모델을 써 보거나 서버의 시간 제한을 늘리세요([타임아웃](#timeouts) 참고).
+
+### BeaverNet
+
+**BeaverNet**은 무료 커뮤니티 네트워크입니다. 남는 그래픽 카드가 있는 사람들이 모델을 실행하고, 다른 사람들은 그 모델을 씁니다. 이 타일은 BeaverNet의 주소로 **OpenAI-compatible** 계정을 설정합니다. `net.beaverai.org/account`에서 무료 키를 만드세요.
 
 ### OpenAI-compatible
 
@@ -207,6 +225,8 @@ Game마다 오디오 생성을 켜거나, Roleplay의 명령 설정에서 **Soun
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, **Grok CLI (Subscription)**은 임베딩을 만들 수 없습니다. 이런 서비스에서는 **Embedding provider**(임베딩 연결) 드롭다운으로 다른 계정을 빌려 쓰세요. OpenAI 호환 계정, **Google Gemini**, **Built-in model**(내장 모델) 등을 쓸 수 있습니다.
 
 자체 임베딩 설정이 없는 모든 계정에 임베딩 소스 하나를 쓰려면 **Jobs** 상자에서 **Embeddings**(임베딩) 행을 클릭하세요. **Marinara's own search**(없음, 내장 로컬 모델)는 내장 임베딩 모델을 계속 사용합니다. 계정에 직접 설정한 임베딩 모델이나 **Embedding provider**가 여전히 우선합니다. 이 값을 바꾼 뒤에는 로어북과 기억을 다시 벡터화하세요. [로어북 시맨틱 검색](../lorebooks/semantic-search.md)을 참고하세요.
+
+<a id="timeouts"></a>
 
 ## 타임아웃
 

@@ -107,6 +107,25 @@ Eldoria is a rainy port city ruled by a council of nine merchants.
 
 카테고리는 라이브러리를 정리하기 위한 라벨입니다. 로어북이 언제 활성화되는지는 카테고리로 달라지지 않습니다. 탭은 **All**, **Active**, **World**, **Character**, **NPC**, **Spellbook**, **Other**이며, **Active**에는 열려 있는 채팅과 관련된 로어북이 표시됩니다. 로어북의 카테고리는 **Overview** 탭에서 바꿀 수 있으며, 그 탭에서는 **Other**가 **Uncategorized**로 표시됩니다.
 
+### 로어북 세트 저장하기
+
+로어북 세트는 한 배경 세계에 쓰는 로어북들처럼 함께 쓰는 로어북을 이름을 붙여 묶어 둔 것입니다. 로어북을 하나씩 고르는 대신 묶음 전체를 한 번에 고릅니다. 세트는 내 로어북을 가리킬 뿐 복사하지 않습니다.
+
+1. **Lorebooks** 패널에서 **New set**(새 세트)를 클릭하세요. 새 세트가 **Lorebook Sets**(로어북 세트) 아래에 열립니다.
+2. **Set name**(세트 이름)에 이름을 입력하세요.
+3. **Choose lorebooks**(로어북 선택)를 클릭하고 세트에 넣을 로어북을 체크하세요. 바꾼 내용은 하나하나 자동으로 저장됩니다.
+
+나중에 세트를 편집하려면 **Lorebook Sets** 아래에서 세트를 클릭하세요. 세트의 **Delete set**(세트 삭제) 버튼은 세트를 지우며, 세트에 있던 로어북은 라이브러리에 그대로 남습니다. 로어북을 삭제하면 그 로어북은 모든 세트에서 빠집니다.
+
+**Choose lorebooks** 위에 있는 **Use a saved set**(저장된 세트 사용)에서 세트를 고르세요. 이 입력란은 세트가 하나라도 있으면 다음 위치에 나타납니다.
+
+- 새 Roleplay 채팅의 **Attach Lorebooks**(로어북 연결) 단계.
+- Knowledge Router 같은 에이전트의 고정 소스 로어북. [지식 소스: Retrieval 에이전트와 Router 에이전트](../agents/knowledge-sources.md#choose-the-sources)를 참고하세요.
+
+세트를 고르면 그곳에서 골라 둔 로어북이 세트의 로어북으로 바뀝니다. 그런 다음 그 채팅이나 에이전트에 로어북을 더하거나 뺄 수 있으며, 저장된 세트는 바뀌지 않습니다.
+
+한 채팅에서 개별 항목을 켜거나 끄려면 **Chat Settings → Lorebooks**를 열고 로어북 옆의 연필 아이콘인 **Edit lorebook entries**(로어북 항목 편집)를 클릭하세요. 거기서 각 항목의 스위치는 그 채팅에만 적용됩니다. 그 밖의 편집은 로어북 자체를 바꿉니다.
+
 ## 관련 가이드
 
 - [로어북 항목: 키, 위치, 타이밍](entries.md)
