@@ -54,6 +54,9 @@ import {
   assert.match(imageEditValidationError(native, { editMode: "infill" })!, /painted mask/);
   assert.match(imageEditValidationError(native, { editMode: "img2img", maskImage: "mask" })!, /only valid/);
   assert.match(imageEditValidationError(target("automatic1111"), { reuseSeed: true })!, /seed/);
+  assert.equal(imageEditValidationError(target("automatic1111"), { seedOverride: 123 }), null);
+  assert.equal(imageEditValidationError(target("drawthings"), { seedOverride: 123 }), null);
+  assert.match(imageEditValidationError(target("openai"), { seedOverride: 123 })!, /seed/);
 }
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-image-edit-reference-"));
@@ -452,18 +455,22 @@ try {
   // Explicit editing uses the source canvas, not reference images or a stale requested size.
   for (const service of ["automatic1111", "drawthings"]) {
     sdApiBodies.length = 0;
-    await generateImage("", `${base}/sd`, "", service, {
+    const result = await generateImage("", `${base}/sd`, "", service, {
       prompt: "A blue shirt.",
       sourceImage: dataUrl,
       editMode: "img2img",
       strength: 0.42,
+      seedOverride: 123,
       width: 128,
       height: 96,
       referenceImage: "ignored reference",
       allowLocalUrls: true,
     });
     const body = sdApiBodies[0]!;
+    assert.equal(result.width, 64, "saved edit dimensions follow the prepared canvas");
+    assert.equal(result.height, 64);
     assert.equal(body.denoising_strength, 0.42, `${service}: explicit edit strength`);
+    assert.equal(body.seed, 123, `${service}: explicit fixed seed`);
     assert.equal(body.width, 64);
     assert.equal(body.height, 64);
     assert.equal(body.mask, undefined);

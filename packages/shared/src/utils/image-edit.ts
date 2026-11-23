@@ -48,8 +48,11 @@ export function imageEditValidationError(
   if (input.editMode && input.noise !== undefined && !capabilities.noise) {
     return "This image connection does not support an edit noise setting.";
   }
-  if ((input.reuseSeed || input.seedOverride !== undefined) && !capabilities.reuseSeed) {
+  if (input.reuseSeed && !capabilities.reuseSeed) {
     return "Reusing the original seed requires a native NovelAI connection.";
+  }
+  if (input.seedOverride !== undefined && !capabilities.img2img) {
+    return "This image connection does not support an explicit seed override.";
   }
   return null;
 }

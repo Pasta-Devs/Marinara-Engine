@@ -5093,7 +5093,7 @@ async function generateAutomatic1111(
     width: editInputs?.width ?? request.width ?? 512,
     height: editInputs?.height ?? request.height ?? 768,
     steps: defaults.steps,
-    seed: resolveSeed(request.imageDefaults),
+    seed: readValidSeedNumber(request.seedOverride) ?? resolveSeed(request.imageDefaults),
     sampler_name: defaults.sampler || DEFAULT_AUTOMATIC1111_DEFAULTS.sampler,
   };
 
@@ -5184,5 +5184,10 @@ async function generateAutomatic1111(
     throw new Error(`No image data in ${label} response${hint}`);
   }
 
-  return { base64: b64, mimeType: "image/png", ext: "png" };
+  return {
+    base64: b64,
+    mimeType: "image/png",
+    ext: "png",
+    ...(editInputs ? { width: editInputs.width, height: editInputs.height } : {}),
+  };
 }

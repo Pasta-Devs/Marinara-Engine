@@ -663,7 +663,7 @@ export function ImageRegeneratePanel({
             </div>
           </div>
         </div>
-        {!collapsed && capabilities.inpainting && (
+        {!collapsed && canEdit && (
           <div
             role="group"
             aria-label={t("ui.chat.imageregeneratepanel.modeTablist")}
