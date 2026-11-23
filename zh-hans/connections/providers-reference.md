@@ -144,7 +144,7 @@ GLM 5.4 只在 GLM Coding Plan 里提供。要使用它，把账号的 **Address
 
 ### DeepSeek
 
-**DeepSeek** 提供 `deepseek-flash` 和 `deepseek-v4-pro`。DeepSeek 默认会思考。它的 **Reasoning Effort**(推理强度) 使用 DeepSeek 自己的级别，**Off**(关闭) 会为该次请求关闭思考。DeepSeek 会把中等强度的请求按 High 处理。思考内容会以平常的思考显示方式出现在回复里。
+**DeepSeek** 提供 `deepseek-flash` 和 `deepseek-v4-pro`。DeepSeek 默认会思考。它的 **Reasoning Effort** 使用 DeepSeek 自己的级别，**Off** 会为该次请求关闭思考。DeepSeek 会把中等强度的请求按 High 处理。思考内容会以平常的思考显示方式出现在回复里。
 
 有些参数不适用，所以面板不显示它们：**Verbosity**(详细度)、**Top K** 和各项惩罚都已弃用，发送了也会被忽略。**Temperature**(温度) 和 **Top P** 是一对，因为 DeepSeek 一次只用其中一个。关闭思考时看到的是 **Temperature**，开启思考时看到的是 **Top P**。
 
@@ -164,7 +164,7 @@ GLM 5.4 只在 GLM Coding Plan 里提供。要使用它，把账号的 **Address
 
 ### OpenAI-compatible
 
-**OpenAI-compatible**(OpenAI 兼容) 用来连接接受 OpenAI 请求格式的服务器或代理，例如 Ollama、LM Studio 或 KoboldCpp。在 **Add account** 窗口里，它显示为 **OpenAI-compatible address**(OpenAI 兼容地址)。大多数本地服务器的密钥可以留空。地址由你自己填写。见[连接本地或自托管模型](local-self-hosted.md)。Marinara 自己运行的那个小模型，见[内置模型设置](local-model.md)。
+**OpenAI-compatible** 用来连接接受 OpenAI 请求格式的服务器或代理，例如 Ollama、LM Studio 或 KoboldCpp。在 **Add account** 窗口里，它显示为 **OpenAI-compatible address**(OpenAI 兼容地址)。大多数本地服务器的密钥可以留空。地址由你自己填写。见[连接本地或自托管模型](local-self-hosted.md)。Marinara 自己运行的那个小模型，见[内置模型设置](local-model.md)。
 
 ## 图像与视频
 

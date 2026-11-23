@@ -249,8 +249,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "fd245e701a7b2ff9ed585cbb3271cf222795ac14e667cca9b2c702bf0ab9e5a7",
-      "bytes": 19841
+      "sha256": "29a41206926e5b5caabadefcf847ed77f6835d0b89c815e2d79edf40efd2ff12",
+      "bytes": 19804
     },
     {
       "path": "connections/subscription-clis.md",
@@ -289,8 +289,8 @@
     },
     {
       "path": "conversation/selfies.md",
-      "sha256": "2830c52785cc2d14467177069487ee0de75a5176146a468bbdd7b58996ff815f",
-      "bytes": 9369
+      "sha256": "81cd253e9c40d66e283306445678be5e675e0b538f191d8158850e20335d735b",
+      "bytes": 9361
     },
     {
       "path": "conversation/table-games.md",
@@ -634,8 +634,8 @@
     },
     {
       "path": "lorebooks/overview.md",
-      "sha256": "c9fbecaa54c453ba364a156e40a990b502d6d8409ead733310c77bb4eb6beaec",
-      "bytes": 9927
+      "sha256": "ec910f602fdc7cbf36cab602cd798ff3e9709382ae4624ae1d6c7b108af20da5",
+      "bytes": 9941
     },
     {
       "path": "lorebooks/semantic-search.md",
@@ -659,7 +659,7 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "9ac2df84e0493131fbe163afd61ce96998e028fee4d8bc89bec3bb4c7212918c",
+      "sha256": "6a888f62d61ef06bee89792ca97581ce2d9de47289d52fd49a47719d8d873a44",
       "bytes": 18010
     },
     {

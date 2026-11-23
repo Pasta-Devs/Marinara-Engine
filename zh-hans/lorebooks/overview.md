@@ -119,7 +119,7 @@ Token 是模型用来计数的文本小片段，在英文中大约相当于四�
 
 在 **Choose lorebooks** 上方的 **Use a saved set**(使用已保存的组合) 里选择一个组合。你有了组合之后，这个字段才会出现，位置如下：
 
-- 新建 Roleplay 时的 **Attach Lorebooks**(附加世界书) 步骤。
+- 新建 Roleplay(角色扮演) 时的 **Attach Lorebooks**(附加世界书) 步骤。
 - 智能体的固定来源世界书，比如 Knowledge Router 的。见[知识源：Knowledge Retrieval 与 Knowledge Router 智能体](../agents/knowledge-sources.md#choose-the-sources)。
 
 选择组合会替换那里已选的世界书。之后你可以为那个聊天或智能体再添加或移除世界书，已保存的组合不会改变。

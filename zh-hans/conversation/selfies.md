@@ -42,7 +42,7 @@
 ## 手动请求自拍
 
 1. 打开 **Chat Settings**，并展开 **Gallery**(图库) 部分。
-2. 点击 **Selfie**(自拍)。如果有多个角色，请在按钮旁边的列表中选择由谁拍摄。
+2. 点击 **Selfie**。如果有多个角色，请在按钮旁边的列表中选择由谁拍摄。
 3. 如果开启了 **Expose media prompts before sending**（**Settings → Generations → Overall Generations**），请检查或编辑提示词，然后点击 **Generate**(生成)。取消则不会发送请求。
 4. 等待，直到按钮显示 **Generating...**。
 
