@@ -233,15 +233,28 @@ export function useGameAssetFileContent(path: string) {
  * Save text content back to a file.
  * Writes the saved text into the content query, then refreshes it and the tree.
  */
+/** The newest save started for each file, so an older save that answers last does not put its text back. */
+const latestFileSave = new Map<string, number>();
+let fileSaveCount = 0;
+
 export function useSaveGameAssetFile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ path, content }: { path: string; content: string }) =>
       api.put(`/game-assets/file-content/${encodeAssetPath(path)}`, { content }),
-    onSuccess: (_, vars) => {
+    onMutate: ({ path }) => {
+      const save = ++fileSaveCount;
+      latestFileSave.set(path, save);
+      return { save };
+    },
+    onSettled: (_data, _error, { path }, context) => {
+      if (context && latestFileSave.get(path) === context.save) latestFileSave.delete(path);
+    },
+    onSuccess: (_, vars, context) => {
       // What was saved is the file now: an open editor stops showing unsaved changes at once, not after the
       // refetch lands (the Save button and the leave question read it).
-      qc.setQueryData<{ content: string }>(gameAssetKeys.content(vars.path), { content: vars.content });
+      if (context && latestFileSave.get(vars.path) === context.save)
+        qc.setQueryData<{ content: string }>(gameAssetKeys.content(vars.path), { content: vars.content });
       qc.invalidateQueries({ queryKey: gameAssetKeys.content(vars.path) });
       qc.invalidateQueries({ queryKey: gameAssetKeys.tree() });
     },
