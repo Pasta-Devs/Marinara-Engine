@@ -109,6 +109,12 @@ const modelList = {
       },
     },
     {
+      // Seedream 5's entry puts ratios and named sizes in one list and has no aspect_ratio.
+      id: "bytedance/seedream-v5.0-pro",
+      capabilities: { image_to_image: true },
+      supported_parameters: { resolutions: ["2k", "4k", "1:1", "16:9", "9:16", "4:3", "3:4"] },
+    },
+    {
       id: "qwen-image-3-uncensored",
       capabilities: { image_to_image: false },
       architecture: { input_modalities: ["text"] },
@@ -132,7 +138,9 @@ function rejection(body: Record<string, unknown>): Record<string, unknown> | nul
   const params: { resolutions: string[]; aspect_ratio?: string[]; max_input_images?: number } =
     entry.supported_parameters;
   const tiers = params.resolutions.filter((value) => /^\d+(?:\.\d+)?k$/.test(value));
-  if (tiers.length && !tiers.includes(String(body.size))) {
+  // Only a list of named sizes alone is enforced here; a mixed list's accepted sizes are not known without a key.
+  const onlyTiers = tiers.length === params.resolutions.length;
+  if (tiers.length && onlyTiers && !tiers.includes(String(body.size))) {
     return { error: `${name} resolution must be ${tiers.join(" or ")}.`, code: "INVALID_RESOLUTION" };
   }
   if (tiers.length && params.aspect_ratio && !params.aspect_ratio.includes(String(body.aspect_ratio))) {
@@ -312,6 +320,9 @@ try {
   const animaSquare = await generate({ model: "anima/text-to-image" });
   assert.equal(animaSquare.size, "1k");
   assert.equal(animaSquare.aspect_ratio, "1:1");
+  const seedream = await generate({ model: "bytedance/seedream-v5.0-pro", width: 1344, height: 768 });
+  assert.equal(seedream.size, "1344x768", "A list with ratios among its sizes and no aspect_ratio keeps WxH");
+  assert.equal(seedream.aspect_ratio, undefined);
   const animagine = await generate({ model: "animagine-xl-31", ...scene, referenceImages: [png] });
   assert.equal(animagine.size, "1344x768", "Matching is by the whole model ID, so Animagine keeps pixel sizes");
   assert.ok(animagine.imageDataUrl);

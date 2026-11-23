@@ -2103,9 +2103,15 @@ function readNanoGPTImageModel(entry: Record<string, unknown>): NanoGPTImageMode
   // A model that lists pixel sizes keeps getting the requested WxH, which NanoGPT accepts beyond the list.
   // ponytail: only named `Nk` sizes are read. Models that list presets or ratios as sizes (`square_hd`, `16:9`)
   // still get WxH; read those here when one of them is reported failing.
-  const tiers = resolutions.some((value) => /^\d+\s*[x*]\s*\d+$/i.test(value))
-    ? []
-    : resolutions.filter((value) => /^\d+(?:\.\d+)?k$/i.test(value));
+  const pixelSize = (value: string) => /^\d+\s*[x*]\s*\d+$/i.test(value);
+  const namedSize = (value: string) => /^\d+(?:\.\d+)?k$/i.test(value);
+  // A list that mixes ratios or presets in with named sizes (Seedream 5) and has no aspect_ratio has no way to say
+  // the shape beside a named size, so such a model keeps WxH too rather than coming back square.
+  const shapeInSizes = resolutions.some((value) => !pixelSize(value) && !namedSize(value));
+  const tiers =
+    resolutions.some(pixelSize) || (shapeInSizes && !strings(params.aspect_ratio).length)
+      ? []
+      : resolutions.filter(namedSize);
   const takesImages =
     (isRecord(entry.capabilities) && entry.capabilities.image_to_image === true) ||
     (isRecord(entry.architecture) && strings(entry.architecture.input_modalities).includes("image"));
