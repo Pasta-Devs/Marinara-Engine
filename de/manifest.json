@@ -249,7 +249,7 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "08d8c957878ae242f57577878ec28879df8b4fa4855a87a1d72b65894fdd19c6",
+      "sha256": "d62117cbf8c200a714297491f1e7fea4fce31e767878238d3ce5516d80d8741f",
       "bytes": 22404
     },
     {
@@ -634,8 +634,8 @@
     },
     {
       "path": "lorebooks/overview.md",
-      "sha256": "d4c469d41c613d50f1c5ecb91fc8716bd3dd80d23b30b2106f963e7360729404",
-      "bytes": 11254
+      "sha256": "0af07c2e23429a842ed0ddf0f873d8ed9b66d5b6f486333424d6d5eb06218f86",
+      "bytes": 11267
     },
     {
       "path": "lorebooks/semantic-search.md",
@@ -704,8 +704,8 @@
     },
     {
       "path": "prompts/macros.md",
-      "sha256": "76306db5d3bf545be2e54b66c9281debce2451e4dd05aa51eda732e304c17380",
-      "bytes": 29328
+      "sha256": "2c1a8bbdd5597120a8f6f6c39a364a5910bd13f3115ffab019b30724c6edf575",
+      "bytes": 29318
     },
     {
       "path": "prompts/preset-variables.md",

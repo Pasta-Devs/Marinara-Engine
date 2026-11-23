@@ -155,7 +155,7 @@ Verbinde DeepSeek über seine eigene Kachel, statt **OpenAI** auf die Adresse vo
 
 **AI Horde** ist ein kostenloses Netzwerk, in dem Freiwillige Modelle auf ihren eigenen Computern betreiben. Seine Kachel richtet ein Konto vom Typ **OpenAI-compatible** mit der Adresse von AI Horde ein.
 
-Das Feld **API key** beginnt mit dem anonymen Key `0000000000`, der ohne Konto funktioniert. Anonyme Anfragen warten am längsten in der Warteschlange. Mit einem kostenlosen Key von `aihorde.net/register` wartest du kürzer, und du verdienst Kudos (Horde-Punkte, die deine Anfragen in der Warteschlange nach vorn bringen), wenn du deinen eigenen Computer mit dem Netzwerk teilst.
+Im Feld **API key** steht anfangs der anonyme Key `0000000000`, der ohne Konto funktioniert. Anonyme Anfragen warten am längsten in der Warteschlange. Mit einem kostenlosen Key von `aihorde.net/register` wartest du kürzer, und du verdienst Kudos (Horde-Punkte, die deine Anfragen in der Warteschlange nach vorn bringen), wenn du deinen eigenen Computer mit dem Netzwerk teilst.
 
 Die Modellliste zeigt die Modelle, die Freiwillige gerade betreiben, deshalb ändert sie sich oft. Die Warteschlange bestimmt, wie lange eine Antwort dauert: ein paar Sekunden oder mehrere Minuten. Überschreitet eine Antwort das Zeitlimit, versuch ein anderes Modell oder erhöhe die Zeitlimits des Servers (siehe [Zeitlimits](#timeouts)).
 

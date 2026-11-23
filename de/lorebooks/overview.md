@@ -118,7 +118,7 @@ Ein Lorebook-Set ist eine benannte Gruppe von Lorebooks, die du zusammen nutzt, 
 
 Um ein Set später zu bearbeiten, klick unter **Lorebook Sets** darauf. Seine Schaltfläche **Delete set** (Set löschen) entfernt das Set, und seine Lorebooks bleiben in deiner Bibliothek. Ein Lorebook, das du löschst, verschwindet aus jedem Set.
 
-Ein Set wählst du unter **Use a saved set** (gespeichertes Set verwenden) über **Choose lorebooks** aus. Das Feld erscheint, sobald du ein Set hast, an diesen Stellen:
+Ein Set wählst du im Feld **Use a saved set** (gespeichertes Set verwenden) aus, das über **Choose lorebooks** steht. Das Feld erscheint, sobald du ein Set hast, an diesen Stellen:
 
 - Im Schritt **Attach Lorebooks** (Lorebooks anhängen) eines neuen Roleplay-Chats.
 - Bei den festen Quell-Lorebooks eines Agenten, etwa bei Knowledge Router. Siehe [Wissensquellen: die Agenten Knowledge Retrieval und Knowledge Router](../agents/knowledge-sources.md#choose-the-sources).
