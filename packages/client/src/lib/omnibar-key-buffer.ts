@@ -26,7 +26,7 @@ function onKeyDown(event: KeyboardEvent) {
     stopOmnibarKeyBuffer();
     return;
   }
-  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.isComposing || event.keyCode === 229 || event.ctrlKey || event.metaKey || event.altKey) return;
   // A window already open (What's new, a confirm) stays under Search: Ctrl+K opens over it, so these keys are
   // still meant for the search field.
   if (event.key === "Escape") {
@@ -49,7 +49,12 @@ export function startOmnibarKeyBuffer() {
   if (stopListening || typeof window === "undefined") return;
   buffered = [];
   window.addEventListener("keydown", onKeyDown, true);
-  const timer = window.setTimeout(stopOmnibarKeyBuffer, BUFFER_TIMEOUT_MS);
+  // Timed out: the keys typed so far are stale. Drop them, or they would replay later, after (and out of
+  // order with) keys the page has had since.
+  const timer = window.setTimeout(() => {
+    stopOmnibarKeyBuffer();
+    buffered = [];
+  }, BUFFER_TIMEOUT_MS);
   stopListening = () => {
     window.removeEventListener("keydown", onKeyDown, true);
     window.clearTimeout(timer);

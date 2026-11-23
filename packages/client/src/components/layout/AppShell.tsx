@@ -93,6 +93,7 @@ import { LIBRARY_SECTIONS, openLibrarySection } from "../overhaul/library-naviga
 import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
 import { OverhaulMobileTrackerStrip } from "../overhaul/MobileTrackerStrip";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
+import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 
 const SpotifyMobileWidget = lazy(() =>
   import("../spotify/SpotifyMiniPlayer").then((module) => ({ default: module.SpotifyMobileWidget })),
@@ -435,7 +436,9 @@ export function AppShell({
       ) {
         return;
       }
-      if (useUIStore.getState().modal || useDialogStore.getState().dialog) return;
+      // Not over another layer: a dialog, a modal window or Search (Ctrl+K) keeps the keyboard.
+      const ui = useUIStore.getState();
+      if (ui.modal || ui.omnibarOpen || useDialogStore.getState().dialog || isModalOverlayOpen()) return;
 
       event.preventDefault();
       openGlobalSearch();

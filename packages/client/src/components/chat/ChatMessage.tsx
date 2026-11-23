@@ -16,7 +16,7 @@ import {
   getMergedAvatarBorderStyle,
   isLegacyAvatarCrop,
 } from "../../lib/utils";
-import { announce } from "../../lib/live-announcer";
+import { queueAnnouncement } from "../../lib/reply-announcer";
 import {
   normalizeAvatarCrop,
   getRoleplayWhispers,
@@ -3794,10 +3794,15 @@ export const ChatMessage = memo(function ChatMessage({
     </>
   );
 
-  const handleCopy = () => {
-    copyToClipboard(message.content);
+  const handleCopy = async () => {
+    // "Copied" only once it really is: the clipboard can refuse (no focus, insecure page).
+    if (!(await copyToClipboard(message.content))) {
+      toast.error(localizeUi("markdown.copyFailed"));
+      return;
+    }
     setCopied(true);
-    announce(localizeUi("markdown.copied"));
+    // Through the reply queue, so a "[name] replied" said at the same moment is not overwritten.
+    queueAnnouncement(localizeUi("markdown.copied"));
     setTimeout(() => setCopied(false), 1500);
   };
 

@@ -1324,6 +1324,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     restoreRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     let frame = 0;
+    const startedAt = performance.now();
     const handOver = () => {
       // The settings sheet owns focus when it opens the omnibar directly
       // (Settings > Open, a Settings-search jump); focusing the hidden
@@ -1332,10 +1333,18 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
         takeOmnibarKeyBuffer();
         return;
       }
+      // Opened on Professor Mari's pane: there is no search field to hand keys to, and her pane focuses its own
+      // composer. Stop recording now, or the buffer would keep eating what is typed there.
+      if (sessionRef.current.pane !== "results") {
+        takeOmnibarKeyBuffer();
+        return;
+      }
       const input = inputRef.current;
-      // QC panel 3 AX9: the buffer keeps recording until the field can really take the keys.
+      // QC panel 3 AX9: the buffer keeps recording until the field can really take the keys (never past the
+      // buffer's own time limit: after that the keys go to the page again).
       if (!input || !input.isConnected) {
-        frame = requestAnimationFrame(handOver);
+        if (performance.now() - startedAt < 8_000) frame = requestAnimationFrame(handOver);
+        else takeOmnibarKeyBuffer();
         return;
       }
       // Keys typed between Ctrl+K and now (the code was still loading) belong in the field (A11Y10).
@@ -1821,7 +1830,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   });
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || !isAskMariShortcut(event)) return;
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !isAskMariShortcut(event)) return;
       // A dialog opened above the omnibar (a confirm from Mari, say) keeps the keyboard, as with ⌘K.
       const dialog = event.target instanceof Element ? event.target.closest('[aria-modal="true"]') : null;
       if (dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
@@ -1834,7 +1843,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // UX-02: a card action (Accept, Undo) removes the button that had focus, so focus falls to the page and
   // the dialog never hears Escape. From the page, Escape still goes back from her window.
   const escapeFromPage = useEffectEvent((event: globalThis.KeyboardEvent) => {
-    if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+    if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
     // Companion mode: Escape closes her only from inside her panel (closeCompanionOnEscape).
     if (document.activeElement !== document.body || pane !== "mari" || companion) return;
     event.preventDefault();
@@ -2238,7 +2247,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const setCompanionDocked = useUIStore((state) => state.setMariCompanionDocked);
   // Companion mode is not a dialog: no focus trap, and Escape closes her only from inside her panel.
   const closeCompanionOnEscape = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Escape" || event.defaultPrevented) return;
+    // An IME cancels its composition with Escape: that key is not the panel's.
+    if (event.key !== "Escape" || event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229)
+      return;
     event.preventDefault();
     event.stopPropagation();
     onClose();
