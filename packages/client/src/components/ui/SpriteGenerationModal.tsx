@@ -1701,6 +1701,12 @@ export function SpriteGenerationModal({
     runSpriteBatches,
     spriteGenerationUnavailable,
   ]);
+  // The review's retry runs with the faces as they are when the edit is confirmed, not as they were when it opened:
+  // a cleanup or a label change made meanwhile stays.
+  const retryFailedBatchRef = useRef(handleRetryFailedBatch);
+  useEffect(() => {
+    retryFailedBatchRef.current = handleRetryFailedBatch;
+  });
 
   /** Shows the failed picture's prompt as its retry sends it (the run's reviewed prompt when it has one) and
    *  retries with the edit. Only this picture's prompt changes: the faces made so far stay, and the later pictures
@@ -1758,13 +1764,12 @@ export function SpriteGenerationModal({
     } finally {
       setFailedBatchReview(null);
     }
-    await handleRetryFailedBatch();
+    await retryFailedBatchRef.current();
   }, [
     effectiveConnectionId,
     faceBatchMode,
     failedBatch,
     generationGrid,
-    handleRetryFailedBatch,
     localizeUi,
     openPromptReview,
     selectedImageConnection,
@@ -2152,6 +2157,8 @@ export function SpriteGenerationModal({
   }, [cells, entityId, handleCloseCellFrame, onSpritesGenerated, onClose, spriteType]);
 
   const handleReset = useCallback(() => {
+    // A failed picture's review still loading is dropped with the run it belongs to.
+    abortActiveGeneration();
     setStep(0);
     setGeneratedSheet(null);
     setGeneratedSheets([]);
@@ -2165,7 +2172,7 @@ export function SpriteGenerationModal({
     setSliceAdjustments(DEFAULT_SLICE_ADJUSTMENTS);
     setSliceApplying(false);
     setError(null);
-  }, [handleCloseCellFrame]);
+  }, [abortActiveGeneration, handleCloseCellFrame]);
 
   const handleClose = useCallback(() => {
     abortActiveGeneration();
@@ -2871,7 +2878,7 @@ export function SpriteGenerationModal({
                     <button
                       type="button"
                       onClick={handleRetryFailedBatch}
-                      disabled={spriteGenerationUnavailable || !effectiveConnectionId}
+                      disabled={spriteGenerationUnavailable || !effectiveConnectionId || failedBatchReview !== null}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
                     >
                       <RotateCcw size={13} />

@@ -156,8 +156,9 @@ export function ImagePromptReviewModal({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="min-w-0">
                     <div className="truncate text-xs font-semibold text-[var(--foreground)]">{item.title}</div>
-                    <div className="mt-0.5 text-[0.625rem] capitalize text-[var(--muted-foreground)]">
-                      {item.kind}
+                    <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {/* Only the kind is capitalized: the details carry account names and model IDs as written. */}
+                      <span className="capitalize">{item.kind}</span>
                       {itemDetails ? localizeUi("ui.ui.imagepromptreviewmodal.value1", { value1: itemDetails }) : ""}
                     </div>
                   </div>

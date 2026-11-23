@@ -815,7 +815,7 @@ test("2D Avatars makes faces from the avatar with sprite generation, also for an
 // and an edit changes only that picture's request: the faces made before it stay, and the later pictures keep their
 // own prompts, with or without every picture's prompt reviewed first.
 test("Making faces, a failed picture's prompt can be edited for its retry alone", async ({ page, request }, info) => {
-  // Two runs of five pictures, each through the model picker.
+  // Two runs of five pictures (the second one started twice), each through the model picker.
   test.setTimeout(120_000);
   const picture = readFileSync(new URL("../packages/client/public/sprites/avatar-demo/base.png", import.meta.url));
   const REFUSED = "EDITED PROMPT THE SERVICE REFUSES";
@@ -893,6 +893,20 @@ test("Making faces, a failed picture's prompt can be edited for its retry alone"
       sheets.length = 0;
       await dialog.getByRole("button", { name: "Generate Sprites", exact: true }).click();
     };
+    // Holds the failed picture's prompt while it loads, until the returned function lets it through.
+    const holdPreview = async () => {
+      let release = () => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      await page.route(
+        "**/api/sprites/generate-sheet/preview",
+        async (route) => {
+          await held;
+          await route.continue();
+        },
+        { times: 1 },
+      );
+      return release;
+    };
 
     // ── Without a review first ──
     await makeAllFaces();
@@ -906,6 +920,8 @@ test("Making faces, a failed picture's prompt can be edited for its retry alone"
     await expect(review.getByText(`Picture 2: ${second.join(", ")}`, { exact: true })).toBeVisible();
     await expect(review.getByText(/moderation_block: the image service refused the request/u)).toBeVisible();
     await expect(prompt).toHaveValue(/Draw each face like this: curiosity: /u);
+    // The image account and model are shown as they were written.
+    await expect(review.getByText(/\| gpt-image-2$/u)).toHaveCSS("text-transform", "none");
     await page.screenshot({ path: info.outputPath("faces-failed-picture-review.png"), animations: "disabled" });
     // Closing it sends nothing and keeps the faces made.
     await review.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -913,12 +929,19 @@ test("Making faces, a failed picture's prompt can be edited for its retry alone"
     await expect(paused).toBeVisible();
     await expect(sprites).toHaveCount(6);
     expect(secondRequests()).toHaveLength(2);
-    // An edit the service refuses again is still there for the next try.
+    // An edit the service refuses again is still there for the next try. While the prompt loads, Retry picture waits
+    // for it, and a face deselected meanwhile stays deselected after the edit's retry.
+    const releasePreview = await holdPreview();
     await reviewPrompt.click();
+    await expect(dialog.getByRole("button", { name: "Retry picture", exact: true })).toBeDisabled();
+    await dialog.getByRole("button", { name: allFaces[0], exact: true }).click();
+    await expect(dialog.getByRole("button", { name: "Save 5 Sprites", exact: true })).toBeVisible();
+    releasePreview();
     await prompt.fill(REFUSED);
     await retryReviewed.click();
     await expect.poll(() => secondRequests().length).toBe(4);
     await expect(paused).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Save 5 Sprites", exact: true })).toBeVisible();
     expect(
       secondRequests()
         .slice(2)
@@ -950,6 +973,24 @@ test("Making faces, a failed picture's prompt can be edited for its retry alone"
     await expect(setup).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
     await makeAllFaces();
     const runReview = page.getByRole("dialog", { name: "Review Image Prompts", exact: true });
+    await expect(runReview).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
+    await runReview.getByRole("button", { name: "Generate", exact: true }).click();
+    await expect(paused).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
+    // Regenerate while the prompt loads drops the review with its run: it never opens over the settings.
+    const releaseSecondPreview = await holdPreview();
+    await reviewPrompt.click();
+    await dialog.getByRole("button", { name: "Regenerate", exact: true }).click();
+    await expect(dialog.getByText("29 faces in 5 pictures.", { exact: true })).toBeVisible();
+    const previewAnswered = page.waitForResponse((response) =>
+      response.url().endsWith("/api/sprites/generate-sheet/preview"),
+    );
+    releaseSecondPreview();
+    await previewAnswered;
+    // Time for a review that would open to show itself.
+    await page.waitForTimeout(500);
+    await expect(review).toBeHidden();
+    sheets.length = 0;
+    await dialog.getByRole("button", { name: "Generate Sprites", exact: true }).click();
     await expect(runReview).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
     await runReview.getByRole("button", { name: "Generate", exact: true }).click();
     await expect(paused).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
