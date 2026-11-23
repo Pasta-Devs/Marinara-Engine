@@ -29,7 +29,7 @@ import {
 } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import { useUIStore, type ConversationMessageStyle, selectChatFontColor } from "../../stores/ui.store";
-import { announce } from "../../lib/live-announcer";
+import { queueAnnouncement } from "../../lib/reply-announcer";
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { resolveMessageMacros } from "../../lib/chat-macros";
@@ -848,12 +848,17 @@ export const ConversationMessage = memo(function ConversationMessage({
   }, [message.id, onEdit, handleStartEdit]);
 
   // ── Copy / translate ──
-  const handleCopy = useCallback(() => {
-    copyToClipboard(displayedContent);
+  const handleCopy = useCallback(async () => {
+    // "Copied" only once it really is: the clipboard can refuse (no focus, insecure page).
+    if (!(await copyToClipboard(displayedContent))) {
+      toast.error(localizeUi("markdown.copyFailed"));
+      return;
+    }
     setCopied(true);
-    announce(localizeUi("markdown.copied"));
+    // Through the reply queue, so a "[name] replied" said at the same moment is not overwritten.
+    queueAnnouncement(localizeUi("markdown.copied"));
     setTimeout(() => setCopied(false), 1500);
-  }, [displayedContent]);
+  }, [displayedContent, localizeUi]);
 
   const handleTranslate = useCallback(
     () => translate(message.id, renderedContent, message.chatId, [message.content]),

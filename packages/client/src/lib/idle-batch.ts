@@ -18,7 +18,16 @@ function flush() {
   scheduled = false;
   const callbacks = [...queue];
   queue.clear();
-  for (const callback of callbacks) callback();
+  for (const callback of callbacks) {
+    // One failing caller must not leave the rest of the batch (hover buttons, older rows) unarmed.
+    try {
+      callback();
+    } catch (error) {
+      queueMicrotask(() => {
+        throw error;
+      });
+    }
+  }
 }
 
 /** Runs `callback` once the next frame has painted and the browser is idle. Returns a cancel function. */
