@@ -102,10 +102,21 @@ export function useTrackerSpriteLookup({
 
     return { knownIds, idByName, pictureById, profileColorsById };
   }, [characterQueries, previewValues]);
-  const hasPendingCharacterLookups = enabled && characterQueries.some((query) => query.isPending);
-  const hasFailedCharacterLookups =
-    enabled &&
-    characterQueries.some((query) => query.isError && !(query.error instanceof ApiError && query.error.status === 404));
+  const pendingKey = enabled
+    ? lookupCharacterIds.filter((_id, index) => characterQueries[index]?.isPending).join("\0")
+    : "";
+  const failedKey = enabled
+    ? lookupCharacterIds
+        .filter((_id, index) => {
+          const query = characterQueries[index];
+          return !!query?.isError && !(query.error instanceof ApiError && query.error.status === 404);
+        })
+        .join("\0")
+    : "";
+  const pendingLookupIds = useMemo(() => new Set(pendingKey ? pendingKey.split("\0") : []), [pendingKey]);
+  const failedLookupIds = useMemo(() => new Set(failedKey ? failedKey.split("\0") : []), [failedKey]);
+  const hasPendingCharacterLookups = pendingLookupIds.size > 0;
+  const hasFailedCharacterLookups = failedLookupIds.size > 0;
 
   const resolveSpriteCharacterId = useCallback(
     (character: PresentCharacter) => {
@@ -120,5 +131,12 @@ export function useTrackerSpriteLookup({
     [characterSpriteLookup],
   );
 
-  return { characterSpriteLookup, hasPendingCharacterLookups, hasFailedCharacterLookups, resolveSpriteCharacterId };
+  return {
+    characterSpriteLookup,
+    pendingLookupIds,
+    failedLookupIds,
+    hasPendingCharacterLookups,
+    hasFailedCharacterLookups,
+    resolveSpriteCharacterId,
+  };
 }

@@ -72,12 +72,18 @@ export function useTrackerPanelModel({
   const { data: agentConfigs } = useAgentConfigs(characterTrackerLookupEnabled);
   const { data: activePersonaData } = usePersona(personaDataLookupEnabled ? chatPersonaId : null);
   const previewValues = useTrackerCardColorPreviews();
-  const { characterSpriteLookup, hasPendingCharacterLookups, hasFailedCharacterLookups, resolveSpriteCharacterId } =
-    useTrackerSpriteLookup({
-      enabled: characterTrackerLookupEnabled,
-      chatCharacterIds,
-      presentCharacters,
-    });
+  const {
+    characterSpriteLookup,
+    pendingLookupIds,
+    failedLookupIds,
+    hasPendingCharacterLookups,
+    hasFailedCharacterLookups,
+    resolveSpriteCharacterId,
+  } = useTrackerSpriteLookup({
+    enabled: characterTrackerLookupEnabled,
+    chatCharacterIds,
+    presentCharacters,
+  });
   const characterTrackerConfig = useMemo(() => {
     if (!Array.isArray(agentConfigs)) return null;
     return (agentConfigs as AgentConfigRow[]).find((agent) => agent.type === "character-tracker") ?? null;
@@ -121,13 +127,22 @@ export function useTrackerPanelModel({
       const rawId = typeof character.characterId === "string" ? character.characterId.trim() : "";
       if (rawId && characterSpriteLookup.knownIds.has(rawId)) return { status: "card", characterId: rawId };
       if (!isSpriteLookupCharacterId(rawId) || rawId.includes(":cast:")) return { status: "npc" };
+      if (rawId && pendingLookupIds.has(rawId)) return { status: "pending" };
+      if (rawId && failedLookupIds.has(rawId)) return { status: "error" };
       const matched = resolveSpriteCharacterId(character);
       if (matched && characterSpriteLookup.knownIds.has(matched)) return { status: "card", characterId: matched };
       if (hasPendingCharacterLookups) return { status: "pending" };
       if (hasFailedCharacterLookups) return { status: "error" };
       return { status: "npc" };
     },
-    [characterSpriteLookup.knownIds, hasFailedCharacterLookups, hasPendingCharacterLookups, resolveSpriteCharacterId],
+    [
+      characterSpriteLookup.knownIds,
+      failedLookupIds,
+      hasFailedCharacterLookups,
+      hasPendingCharacterLookups,
+      pendingLookupIds,
+      resolveSpriteCharacterId,
+    ],
   );
 
   return {
