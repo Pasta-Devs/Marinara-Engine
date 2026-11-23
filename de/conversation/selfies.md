@@ -37,6 +37,8 @@ Die Optionen für **Resolution** sind 512x512, 512x768, 768x768, 768x1024, 896x1
 
 Wenn eine Karte oder Persona **Bild-Tags** verwendet (im Editor im Tab **Bild-Tags** unter **Aussehen**, mit angehaktem **Für Bild-Prompts verwenden**), sendet Marinara diese statt der Prosa aus **Aussehen**. Eine im Chat aktive Alternative für Aussehen verwendet ihre eigenen Tags oder ihre Prosa. Nutze das, wenn **Aussehen** für die Geschichte und nicht für Bilder geschrieben ist.
 
+Ein Selfie, das ein Charakter in einer Antwort schickt, bringt außerdem die Bilder unter **Reference images** (Referenzbilder) der Lorebook-Einträge mit, die für diese Antwort aktiv sind, sofern der Bilddienst Referenzbilder annimmt. Du musst dafür nichts einschalten. Stability AI, Arli AI, SD Web UI und Draw Things bekommen keine, weil sie das Selfie sonst ausgehend vom Bild des Eintrags zeichnen würden. Die Schaltfläche **Selfie** der Gallery sendet keine.
+
 ## Ein Selfie von Hand anfordern
 
 1. Öffne die **Chat Settings** und klappe den Abschnitt **Gallery** auf.
