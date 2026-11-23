@@ -1,0 +1,23 @@
+# docs pages whose English changed between 04c967bed (the packs' sourceCommit) and the source commit
+# see: git diff 04c967bed <source> -- docs/<file>
+CONFIGURATION.md
+TROUBLESHOOTING.md
+agents/avatars.md
+agents/memory.md
+characters/creating-and-editing-characters.md
+characters/personas.md
+chats/peek-prompt.md
+configuration/features.md
+connections/connecting-to-a-provider.md
+connections/providers-reference.md
+connections/subscription-clis.md
+conversation/selfies.md
+data/importing-from-sillytavern.md
+development/frontend.md
+development/optional-agent-packages.md
+extending/regex-scripts.md
+game/storyboard.md
+home/professor-mari.md
+media/illustrator-agent.md
+prompts/generation-parameters.md
+prompts/presets.md

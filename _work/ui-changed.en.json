@@ -1,0 +1,26 @@
+{
+  "chatSettings.advanced.imageCaptioningPromptHint": {
+    "old": "Sent with each image to the captioning connection. Saved for this chat only.",
+    "new": "Sent with each image to the model that reads it. Saved for this chat only; without it, the Image reading prompt in the Connections panel is used."
+  },
+  "chatSettings.advanced.imageCaptioningPromptReset": {
+    "old": "Reset to default prompt",
+    "new": "Use the Image reading prompt"
+  },
+  "connections.builtinEmotion.about": {
+    "old": "Reads the feeling of each sentence in 35 languages, offline. {{license}} license.",
+    "new": "Reads the feeling of each sentence in 35 languages. {{license}} license."
+  },
+  "connections.builtinTts.aboutKokoro": {
+    "old": "Fast and light. {{voices}} voices in American and British English, Spanish, French, Hindi, Brazilian Portuguese, Japanese and Mandarin Chinese. {{license}} license.",
+    "new": "Fast and light. {{voices}} voices, each for one of the languages below. {{license}} license."
+  },
+  "connections.builtinTts.aboutSupertonic": {
+    "old": "{{voices}} voices that each speak Korean, Japanese, English, German, Spanish, French, Hindi, Polish, Portuguese and Russian. {{license}} license.",
+    "new": "{{voices}} voices, and each one speaks every language below. {{license}} license."
+  },
+  "ui.connections.connectioneditor.onOpenrouterAddsCacheControlForModelsThatSupportExplicitCaching": {
+    "old": "On OpenRouter, this adds top-level cache_control for compatible models. Cache pricing and behavior depend on the selected provider model.",
+    "new": "On OpenRouter, Claude and Qwen models cache the system prompt and the chat history up to the cache depth, and Gemini models cache the system prompt. Other models cache on their own. The one-hour cache applies to Claude only, and cache writes can cost more than regular input."
+  }
+}
