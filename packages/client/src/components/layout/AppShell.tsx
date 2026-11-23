@@ -72,6 +72,7 @@ import {
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
+import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 
 const ChatArea = preloadedLazy(() => import("../chat/ChatArea").then((module) => module.ChatArea));
 const CharacterEditor = preloadedLazy(() =>
@@ -311,7 +312,9 @@ export function AppShell({
       ) {
         return;
       }
-      if (useUIStore.getState().modal || useDialogStore.getState().dialog) return;
+      // Not over another layer: a dialog, a modal window or Search (Ctrl+K) keeps the keyboard.
+      const ui = useUIStore.getState();
+      if (ui.modal || ui.omnibarOpen || useDialogStore.getState().dialog || isModalOverlayOpen()) return;
 
       event.preventDefault();
       openGlobalSearch();

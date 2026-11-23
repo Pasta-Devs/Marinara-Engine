@@ -3524,8 +3524,12 @@ export const ChatMessage = memo(function ChatMessage({
     </>
   );
 
-  const handleCopy = () => {
-    copyToClipboard(message.content);
+  const handleCopy = async () => {
+    // Show "Copied" only once it really is: the clipboard can refuse (no focus, insecure page).
+    if (!(await copyToClipboard(message.content))) {
+      toast.error(localizeUi("markdown.copyFailed"));
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
