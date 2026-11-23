@@ -21,6 +21,8 @@ const {
   SHARED_AGENT_RESULT_EFFECT_TYPES,
   applyAgentResultEffect,
 } = await import("../../../packages/server/src/services/generation/agent-result-effects/index.js");
+const { compactGameStateForAgentContext } =
+  await import("../../../packages/server/src/services/agents/agent-executor.js");
 const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
@@ -68,6 +70,8 @@ function fakeDeps(
     portraitSettings?: Record<string, unknown> | null;
     drawPortrait?: (name: string) => Promise<string>;
     world?: Partial<WorldStateTarget>;
+    cards?: Array<Record<string, unknown>>;
+    history?: Array<Record<string, unknown>>;
   } = {},
 ) {
   const writes: Write[] = [];
@@ -101,8 +105,8 @@ function fakeDeps(
         (await gameStates.getByChatAndMessage(chatId, "msg-1", 0)) as unknown as TrackerSnapshotRow | null,
       emitGameStatePatch: (patch) => patches.push(patch),
       characters: {
-        cards: [{ id: "card-alice", name: "Alice", avatarPath: "/api/avatars/alice.png" }] as never,
-        history: [],
+        cards: (options.cards ?? [{ id: "card-alice", name: "Alice", avatarPath: "/api/avatars/alice.png" }]) as never,
+        history: options.history ?? [],
         gameNpcs: [],
         settings: options.portraitSettings ?? null,
         loadBaseline: async () =>
@@ -756,6 +760,128 @@ try {
           name: "AbortError",
         });
         assert.deepEqual([(await tracker.row()).location, cancelled.patches], ["Harbor", []]);
+      },
+    },
+    {
+      name: "card scenePortraitPath survives tracker runs, ignores model guesses, never resurrects from history, skips auto-draw, and stays out of agent context",
+      run: async () => {
+        for (const origin of ["generate", "retry"] as const) {
+          const tracker = await trackerChat();
+          const scenePortrait = `/api/avatars/npc/${tracker.chatId}/scene-alice-12345678.png`;
+          const olderScenePortrait = `/api/avatars/npc/${tracker.chatId}/scene-alice-old00001.png`;
+          const history = [
+            {
+              characterId: "card-alice",
+              name: "Alice",
+              mood: "calm",
+              scenePortraitPath: olderScenePortrait,
+              portraitFocusX: 12,
+              portraitFocusY: 34,
+              portraitZoom: 1.8,
+            },
+          ];
+          const turn = (
+            presentCharacters: unknown,
+            extraOptions: { portraitSettings?: Record<string, unknown> } = {},
+          ) =>
+            applyAgentResultEffect(
+              result({ ...characterResult, data: { presentCharacters } }),
+              fakeDeps({ origin }, { chatId: tracker.chatId, history, ...extraOptions }).deps,
+            );
+
+          await gameStates.updateByMessage("msg-1", 0, tracker.chatId, {
+            presentCharacters: [
+              {
+                characterId: "card-alice",
+                name: "Alice",
+                mood: "calm",
+                avatarPath: "/api/avatars/alice.png",
+                scenePortraitPath: scenePortrait,
+              },
+            ],
+          } as never);
+
+          // Omitted and model-guessed scenePortraitPath both keep the stored scene portrait while card avatarPath stays current.
+          await turn([{ characterId: "card-alice", name: "Alice", mood: "happy", scenePortraitPath: "/evil.png" }]);
+          let rows = await presentCharactersOf(tracker);
+          assert.equal(rows[0]!.avatarPath, "/api/avatars/alice.png", origin);
+          assert.equal(rows[0]!.scenePortraitPath, scenePortrait, origin);
+
+          await turn({
+            updates: [{ characterId: "card-alice", name: "Alice", mood: "alert", scenePortraitPath: "/evil-inc.png" }],
+          });
+          rows = await presentCharactersOf(tracker);
+          assert.equal(rows[0]!.scenePortraitPath, scenePortrait, origin);
+
+          // Reverting clears scenePortraitPath to null; the next turn must not resurrect older history's portrait or framing.
+          await gameStates.updateByMessage("msg-1", 0, tracker.chatId, {
+            presentCharacters: [
+              {
+                characterId: "card-alice",
+                name: "Alice",
+                mood: "alert",
+                avatarPath: "/api/avatars/alice.png",
+                scenePortraitPath: null,
+              },
+            ],
+          } as never);
+          await turn([{ characterId: "card-alice", name: "Alice", mood: "relieved" }]);
+          rows = await presentCharactersOf(tracker);
+          assert.equal(rows[0]!.scenePortraitPath, undefined, `${origin}: reverted scene portrait stays cleared`);
+          assert.equal(rows[0]!.portraitZoom, undefined, `${origin}: reset framing stays cleared`);
+          assert.equal(rows[0]!.portraitFocusX, undefined, `${origin}: reset focusX stays cleared`);
+
+          // Auto-draw skips an avatar-less card row once it already has a scenePortraitPath.
+          const noAvatarTracker = await trackerChat();
+          await gameStates.updateByMessage("msg-1", 0, noAvatarTracker.chatId, {
+            presentCharacters: [
+              {
+                characterId: "card-no-avatar",
+                name: "Alice",
+                appearance: "silver hair",
+                mood: "calm",
+                scenePortraitPath: scenePortrait,
+              },
+            ],
+          } as never);
+          const autoRun = fakeDeps(
+            { origin },
+            {
+              chatId: noAvatarTracker.chatId,
+              cards: [{ id: "card-no-avatar", name: "Alice", avatarPath: null }],
+              portraitSettings: portraitsOn,
+            },
+          );
+          await applyAgentResultEffect(
+            result({
+              ...characterResult,
+              data: {
+                presentCharacters: [
+                  { characterId: "card-no-avatar", name: "Alice", appearance: "silver hair", mood: "calm" },
+                ],
+              },
+            }),
+            autoRun.deps,
+          );
+          assert.deepEqual(autoRun.portraitCalls, [], `${origin}: scenePortraitPath suppresses auto-draw`);
+        }
+
+        const compacted = compactGameStateForAgentContext(
+          {
+            presentCharacters: [
+              {
+                characterId: "card-alice",
+                name: "Alice",
+                mood: "calm",
+                avatarPath: "/api/avatars/alice.png",
+                scenePortraitPath: "/api/avatars/npc/chat-1/scene-alice-12345678.png",
+              },
+            ],
+          },
+          ["character-tracker"],
+        ) as { presentCharacters: Array<Record<string, unknown>> };
+        assert.equal("scenePortraitPath" in compacted.presentCharacters[0]!, false);
+        assert.equal("avatarPath" in compacted.presentCharacters[0]!, false);
       },
     },
     {

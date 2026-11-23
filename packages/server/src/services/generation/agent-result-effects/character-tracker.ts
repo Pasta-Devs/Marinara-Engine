@@ -73,6 +73,7 @@ function portraitKey(chatId: string, character: TrackedCharacter): string {
 const SERVER_OWNED_CHARACTER_FIELDS = [
   "avatarPath",
   "avatarCrop",
+  "scenePortraitPath",
   "portraitFocusX",
   "portraitFocusY",
   "portraitZoom",
@@ -189,8 +190,13 @@ export async function applyCharacterTrackerResult(result: AgentResult, deps: Age
       history,
       cardIds: target.cards.map((card) => card.id),
     });
-    preserveTrackerCharacterUiFields(characters, previousCharacters);
-    preserveTrackerCharacterUiFields(characters, history);
+    // Only carry scenePortraitPath from the immediate baseline so reverting on turn N stays cleared across turns.
+    const preservedFromPrevious = preserveTrackerCharacterUiFields(characters, previousCharacters, {
+      preserveScenePortrait: true,
+    });
+    preserveTrackerCharacterUiFields(characters, history, {
+      skipFramingFor: preservedFromPrevious,
+    });
     const lockedPatch = applyTrackerFieldLocksToGameStatePatch({ presentCharacters: characters }, lockState);
     characters = Array.isArray(lockedPatch.presentCharacters) ? lockedPatch.presentCharacters : characters;
 
@@ -320,6 +326,7 @@ function drawMissingPortraits(characters: TrackedCharacter[], deps: AgentResultE
   const needingPortraits = characters.filter(
     (character) =>
       !character.avatarPath &&
+      !character.scenePortraitPath &&
       !isManualTrackerCharacterId(character.characterId) &&
       typeof character.name === "string" &&
       character.name &&

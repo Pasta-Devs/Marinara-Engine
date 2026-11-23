@@ -2535,7 +2535,12 @@ export function handOverTrackerNpcsToCards(input: {
 export function preserveTrackerCharacterUiFields(
   nextCharacters: Array<Record<string, unknown>>,
   previousCharacters: Array<Record<string, unknown>>,
-): void {
+  options: {
+    preserveScenePortrait?: boolean;
+    skipFramingFor?: ReadonlySet<Record<string, unknown>>;
+  } = {},
+): Set<Record<string, unknown>> {
+  const matchedCharacters = new Set<Record<string, unknown>>();
   const previousByKey = new Map<string, Record<string, unknown>>();
   const previousByName = new Map<string, Record<string, unknown>>();
   const previousNameCounts = new Map<string, number>();
@@ -2553,11 +2558,13 @@ export function preserveTrackerCharacterUiFields(
     const previous =
       (key ? previousByKey.get(key) : null) ??
       (name && previousNameCounts.get(name) === 1 ? previousByName.get(name) : null);
+    if (previous) matchedCharacters.add(character);
     const previousPortraitFocusX = previous?.portraitFocusX;
     const previousPortraitFocusY = previous?.portraitFocusY;
     const previousPortraitZoom = previous?.portraitZoom;
     const previousAvatarPath = previous?.avatarPath;
     const previousAvatarCrop = previous?.avatarCrop;
+    const previousScenePortraitPath = previous?.scenePortraitPath;
     const previousCustomFields = isPlainRecord(previous?.customFields) ? previous.customFields : null;
     const nextCustomFields = isPlainRecord(character.customFields) ? character.customFields : null;
     if (previousCustomFields) {
@@ -2572,31 +2579,41 @@ export function preserveTrackerCharacterUiFields(
     ) {
       character.avatarPath = previousAvatarPath.trim();
     }
+    if (
+      options.preserveScenePortrait &&
+      (typeof character.scenePortraitPath !== "string" || !character.scenePortraitPath.trim()) &&
+      isNpcTrackerAvatarPath(previousScenePortraitPath)
+    ) {
+      character.scenePortraitPath = previousScenePortraitPath.trim();
+    }
     if (!isTrackerAvatarCrop(character.avatarCrop) && isTrackerAvatarCrop(previousAvatarCrop)) {
       character.avatarCrop = previousAvatarCrop;
     }
-    if (
-      (typeof character.portraitFocusX !== "number" || !Number.isFinite(character.portraitFocusX)) &&
-      typeof previousPortraitFocusX === "number" &&
-      Number.isFinite(previousPortraitFocusX)
-    ) {
-      character.portraitFocusX = previousPortraitFocusX;
-    }
-    if (
-      (typeof character.portraitFocusY !== "number" || !Number.isFinite(character.portraitFocusY)) &&
-      typeof previousPortraitFocusY === "number" &&
-      Number.isFinite(previousPortraitFocusY)
-    ) {
-      character.portraitFocusY = previousPortraitFocusY;
-    }
-    if (
-      (typeof character.portraitZoom !== "number" || !Number.isFinite(character.portraitZoom)) &&
-      typeof previousPortraitZoom === "number" &&
-      Number.isFinite(previousPortraitZoom)
-    ) {
-      character.portraitZoom = previousPortraitZoom;
+    if (!options.skipFramingFor?.has(character)) {
+      if (
+        (typeof character.portraitFocusX !== "number" || !Number.isFinite(character.portraitFocusX)) &&
+        typeof previousPortraitFocusX === "number" &&
+        Number.isFinite(previousPortraitFocusX)
+      ) {
+        character.portraitFocusX = previousPortraitFocusX;
+      }
+      if (
+        (typeof character.portraitFocusY !== "number" || !Number.isFinite(character.portraitFocusY)) &&
+        typeof previousPortraitFocusY === "number" &&
+        Number.isFinite(previousPortraitFocusY)
+      ) {
+        character.portraitFocusY = previousPortraitFocusY;
+      }
+      if (
+        (typeof character.portraitZoom !== "number" || !Number.isFinite(character.portraitZoom)) &&
+        typeof previousPortraitZoom === "number" &&
+        Number.isFinite(previousPortraitZoom)
+      ) {
+        character.portraitZoom = previousPortraitZoom;
+      }
     }
   }
+  return matchedCharacters;
 }
 
 /** Parse game state JSON fields from a DB row. */
