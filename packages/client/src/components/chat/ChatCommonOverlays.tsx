@@ -577,7 +577,7 @@ type ChatCommonOverlaysProps = {
   sceneSettings: SharedSceneSettingsProps;
   onCloseSettings: (options?: { force?: boolean }) => void;
   onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
-  onWizardFinish: (discarded?: boolean) => void;
+  onWizardFinish: (discarded?: boolean, chatId?: string) => void;
   onClosePeekPrompt: () => void;
   onDeleteConfirm: () => void;
   onDeleteSwipe: () => void;
@@ -723,7 +723,9 @@ export function ChatCommonOverlays({
         </Suspense>
       )}
       {chat && (
-        <Suspense fallback={null}>{wizardOpen && <ChatSetupWizard chat={chat} onFinish={onWizardFinish} />}</Suspense>
+        <Suspense fallback={null}>
+          {wizardOpen && <ChatSetupWizard chat={chat} onFinish={(discarded) => onWizardFinish(discarded, chat.id)} />}
+        </Suspense>
       )}
       <Suspense fallback={null}>
         {peekPromptData && <PeekPromptModal data={peekPromptData} onClose={onClosePeekPrompt} />}

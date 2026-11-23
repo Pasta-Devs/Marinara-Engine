@@ -2831,26 +2831,34 @@ export async function chatsRoutes(app: FastifyInstance) {
   // A New chat whose setup never finished (closed, left, reloaded, or a Create world that failed) is a draft:
   // it is removed, game and all. Anything the player wrote, or a game that was built, keeps it, and the draft
   // mark is dropped so it is never asked again.
-  app.post<{ Params: { id: string } }>("/:id/discard-unfinished-setup", async (req) => {
-    const chat = await storage.getById(req.params.id);
-    if (!chat) return { deleted: false };
-    const meta = parseExtra(chat.metadata) as Record<string, unknown>;
-    // A draft kept for later ("Setup not finished") is only ever discarded on purpose, from its own setup.
-    if (meta.setupPending !== true && meta.setupUnfinished !== true) return { deleted: false };
-    const keep = async () => {
-      await storage.patchMetadata(chat.id, { setupPending: null });
-      return { deleted: false };
-    };
-    const status = typeof meta.gameSessionStatus === "string" ? meta.gameSessionStatus : null;
-    if (chat.mode === "game" && status && status !== "setup") return keep();
-    const chatMessages = await storage.listMessages(chat.id);
-    const written = chatMessages.some((message: { role?: string }) =>
-      chat.mode === "game" ? true : message.role === "user",
-    );
-    if (written) return keep();
-    await removeChatCompletely(chat.id);
-    return { deleted: true };
-  });
+  app.post<{ Params: { id: string }; Body: { explicit?: boolean } | undefined }>(
+    "/:id/discard-unfinished-setup",
+    async (req) => {
+      // A draft kept for later ("Setup not finished"), or one its setup marked as having choices, is only ever
+      // discarded on purpose, from its own setup, which says so with `explicit`. Leaving a draft (or another
+      // window's cleanup) never removes one.
+      const explicit = req.body?.explicit === true;
+      const outcome = await storage.removeUnfinishedSetupChat(req.params.id, { explicit });
+      if (outcome === "kept") {
+        // Something worth keeping: it is a real chat now, so it is never asked about or hidden as a draft again.
+        await storage.patchMetadata(req.params.id, { setupPending: null, setupUnfinished: null, setupHasInput: null });
+        return { deleted: false };
+      }
+      if (outcome === "none") return { deleted: false };
+      const activeGenerations = (
+        app as unknown as {
+          activeGenerations?: Map<string, { abortController?: AbortController }>;
+        }
+      ).activeGenerations;
+      activeGenerations?.get(req.params.id)?.abortController?.abort();
+      activeGenerations?.delete(req.params.id);
+      clearChatActivity(req.params.id);
+      await deletePendingForChat(req.params.id).catch((err) =>
+        logger.warn(err, "[professor-mari] Could not delete the queued messages for chat %s", req.params.id),
+      );
+      return { deleted: true };
+    },
+  );
 
   // ── Messages ──
 
