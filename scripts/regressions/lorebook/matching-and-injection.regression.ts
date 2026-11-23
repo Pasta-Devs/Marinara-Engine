@@ -360,6 +360,27 @@ const cases: RegressionCase[] = [
               generationTriggerFilterMode: "any",
               generationTriggerFilters: [],
             } as any,
+            {
+              // Agents only read lorebook text, so a picture-only entry must not reach them empty.
+              id: "entry-picture-only",
+              lorebookId: "book-override",
+              name: "Picture Entry",
+              content: "",
+              images: [{ path: "map.png", caption: "map" }],
+              enabled: true,
+              constant: true,
+              keys: [],
+              secondaryKeys: [],
+              order: 1,
+              probability: 100,
+              activationConditions: [],
+              characterFilterMode: "any",
+              characterFilterIds: [],
+              characterTagFilterMode: "any",
+              characterTagFilters: [],
+              generationTriggerFilterMode: "any",
+              generationTriggerFilters: [],
+            } as any,
           ];
         },
         listLorebooks: async () => {
@@ -375,7 +396,10 @@ const cases: RegressionCase[] = [
       const first = await resolveTriggeredEntries(messages);
       const second = await resolveTriggeredEntries(messages);
 
-      assert.equal(first["custom:override-reader"]?.[0]?.id, "entry-override");
+      assert.deepEqual(
+        first["custom:override-reader"]?.map((entry) => entry.id),
+        ["entry-override"],
+      );
       assert.equal(second["custom:override-reader"]?.[0]?.id, "entry-override");
       assert.equal(lorebookListCalls, 1);
       assert.equal(entryListCalls, 1);
