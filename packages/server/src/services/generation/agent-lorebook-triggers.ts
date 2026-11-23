@@ -221,13 +221,21 @@ export function createAgentLorebookTriggerResolver(
     return Object.fromEntries(
       resolved.map(([agentId, budgeted]) => [
         agentId,
-        budgeted.map((match) => ({
-          id: match.entry.id,
-          name: match.entry.name,
-          content: options.resolveContent(match.entry.content),
-          matchedKeys: match.matchedKeys,
-          activationSources: match.activationSources,
-        })),
+        // Agents get lorebook text only, so an entry with no text after macros (such as a picture-only entry)
+        // would arrive empty and still be counted. Leave it out.
+        budgeted.flatMap((match) => {
+          const content = options.resolveContent(match.entry.content);
+          if (!content.trim()) return [];
+          return [
+            {
+              id: match.entry.id,
+              name: match.entry.name,
+              content,
+              matchedKeys: match.matchedKeys,
+              activationSources: match.activationSources,
+            },
+          ];
+        }),
       ]),
     ) as TriggeredEntriesByAgentId;
   };
