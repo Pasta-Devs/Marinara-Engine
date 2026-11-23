@@ -120,7 +120,7 @@ The `{{agent::TYPE}}` macro inserts the saved output of an agent (a background h
 
 In an agent's **Prompt Template**, `{{agent::TYPE}}` inserts the saved state of a tracker that is active in the chat: `world-state`, `character-tracker`, `persona-stats`, `quest`, `custom-tracker`, `inventory-tracker` or `beholder`. It is the same text that tracker's section adds to a preset, except that with a Markdown preset it leaves out the line telling the narrator not to re-describe the state. On a normal reply, the agent sees the state from before that reply. When you re-run a post-processing agent on a message, it sees the state saved on that message.
 
-An agent's own type inserts its last output only when **Previous output** is on under **Context Sources**. Other agent types insert nothing in an agent's prompt, and agents with the **Character Activity** result type do not read tracker state. A decision statement in an agent's template that names its own type is not supported: decisions are planned once for all agents, so that statement can go unanswered and read as no.
+An agent's own type inserts its last output only when **Previous output** is on under **Context Sources**. Other agent types insert nothing in an agent's prompt, and agents with the **Character Activity** result type do not read tracker state. Naming the agent's own type inside a decision statement is not supported: decisions are planned once for all agents, so that statement can go unanswered and read as no.
 
 ## Lorebook Outlet macros
 
