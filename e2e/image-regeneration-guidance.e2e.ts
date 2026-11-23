@@ -175,6 +175,7 @@ for (const owner of ["character", "persona"] as const) {
         page.locator(".mari-editor-shell").getByRole("img", { name: result.prompt, exact: true }),
       ).toBeVisible();
       await expect(page.locator(".mari-editor-shell").getByLabel("2 versions", { exact: true })).toBeVisible();
+      await page.locator(".mari-editor-shell").getByLabel("2 versions", { exact: true }).scrollIntoViewIfNeeded();
       await screenshot(page, testInfo, `${owner}-stack-tile`);
       await openEditor("metadata");
       // Avatar editing lives in Metadata; the initial preview cannot reapply an unchanged image.
@@ -480,8 +481,7 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await page.keyboard.press("ArrowDown");
     await expect(position(2)).toBeVisible();
     await expect(page.locator("body")).toHaveAttribute("data-image-viewer-message-edits", "0");
-    for (const closeToast of await page.locator("[data-sonner-toast] [data-close-button]").all())
-      await closeToast.click();
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
     await dialog.getByRole("button", { name: "Close image", exact: true }).focus();
     const previousVersion = dialog.getByRole("button", { name: "Previous image version", exact: true });
     const nextVersion = dialog.getByRole("button", { name: "Next image version", exact: true });
