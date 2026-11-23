@@ -789,11 +789,15 @@ export const ConversationMessage = memo(function ConversationMessage({
   }, [message.id, onEdit, handleStartEdit]);
 
   // ── Copy / translate ──
-  const handleCopy = useCallback(() => {
-    copyToClipboard(displayedContent);
+  const handleCopy = useCallback(async () => {
+    // Show "Copied" only once it really is: the clipboard can refuse (no focus, insecure page).
+    if (!(await copyToClipboard(displayedContent))) {
+      toast.error(localizeUi("markdown.copyFailed"));
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
-  }, [displayedContent]);
+  }, [displayedContent, localizeUi]);
 
   const handleTranslate = useCallback(
     () => translate(message.id, renderedContent, message.chatId, [message.content]),

@@ -1598,7 +1598,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   });
   useEffect(() => {
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || event.isComposing || !isAskMariShortcut(event)) return;
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || !isAskMariShortcut(event)) return;
       // A dialog opened above the omnibar (a confirm from Mari, say) keeps the keyboard, as with ⌘K.
       const dialog = event.target instanceof Element ? event.target.closest('[aria-modal="true"]') : null;
       if (dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
@@ -1611,7 +1611,7 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   // UX-02: a card action (Accept, Undo) removes the button that had focus, so focus falls to the page and
   // the dialog never hears Escape. From the page, Escape still goes back from her window.
   const escapeFromPage = useEffectEvent((event: globalThis.KeyboardEvent) => {
-    if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+    if (event.key !== "Escape" || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
     // Companion mode: Escape closes her only from inside her panel (closeCompanionOnEscape).
     if (document.activeElement !== document.body || pane !== "mari" || companion) return;
     event.preventDefault();

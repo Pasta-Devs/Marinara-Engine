@@ -92,7 +92,9 @@ export function createOmnibarKeyHandlers({
     // An IME (Chinese, Japanese, ...) confirms its candidate with Enter, and
     // arrows move its candidate list, and Escape cancels the composition; none
     // of them belong to the result list or the dialog's own Escape handling.
-    if (event.nativeEvent.isComposing) {
+    // Safari sends the Enter that confirms a candidate after the composition ends: isComposing is already
+    // false then, but keyCode is 229.
+    if (event.nativeEvent.isComposing || event.keyCode === 229) {
       event.stopPropagation();
       return;
     }
