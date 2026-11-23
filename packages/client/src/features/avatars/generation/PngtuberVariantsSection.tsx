@@ -1,6 +1,6 @@
 // Blink and talk pictures for the talking head (PNGTuber avatar): one row per face it shows for the six
 // feelings and for extra feelings with a face of their own, with that face's own blink and talk pictures, made
-// or provided (lane: generation).
+// or provided, and the faces not made yet, whose pictures wait for them (lane: generation).
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -9,6 +9,8 @@ import {
   AVATAR_PNGTUBER_VARIANTS,
   normalizeSpriteExpressionKey,
   type AvatarConfig,
+  type AvatarEmotion,
+  type AvatarExtraFeeling,
   type AvatarImageRef,
   type AvatarOwnerRef,
   type AvatarPngtuberVariant,
@@ -17,12 +19,13 @@ import type { SpriteInfo } from "../../../hooks/use-characters";
 import { cn } from "../../../lib/utils";
 import { useUIStore } from "../../../stores/ui.store";
 import type { ImagePromptOverride, ImagePromptReviewItem } from "../../../components/ui/ImagePromptReviewModal";
-import { AVATAR_EMOTION_LABEL_KEYS } from "../renderers/pngtuber/PngtuberSetupPanel";
+import { AVATAR_EMOTION_LABEL_KEYS, TALKING_HEAD_FACE_LABEL_KEYS } from "../renderers/pngtuber/PngtuberSetupPanel";
 import {
   AVATAR_FEELING_LABEL_KEYS,
   buildPngtuberLayersFromSprites,
   pngtuberSpriteFamily,
   talkingHeadFaces,
+  talkingHeadPictureCoverage,
 } from "../renderers/pngtuber/pngtuber-layers";
 import { resolveAvatarImage } from "../stage/avatar-stage-logic";
 import { avatarSourceSprites } from "./SpritePicker";
@@ -83,6 +86,8 @@ export function PngtuberVariantsSection({
   owner,
   config,
   spriteList,
+  missingFaces,
+  onMakeMissingFaces,
   imageConnectionId,
   reviewPrompts,
   onChanged,
@@ -91,6 +96,10 @@ export function PngtuberVariantsSection({
   config: AvatarConfig | null;
   /** Every sprite of the owner, talk and blink pictures included. */
   spriteList: readonly SpriteInfo[];
+  /** The talking head faces with no face sprite yet (missingTalkingHeadFaces). */
+  missingFaces: readonly (AvatarEmotion | AvatarExtraFeeling)[];
+  /** Opens the face maker with the missing faces chosen; absent when it can't open. */
+  onMakeMissingFaces?: () => void;
   /** Null when there is no image connection to use. */
   imageConnectionId: string | null;
   reviewPrompts: (items: ImagePromptReviewItem[]) => Promise<ImagePromptOverride[] | null>;
@@ -131,6 +140,12 @@ export function PngtuberVariantsSection({
   const kept = useMemo(() => drafts.filter((item) => item.kept), [drafts]);
   const savedPicture = (ref: AvatarImageRef | undefined) =>
     ref ? resolveAvatarImage(owner, config ?? { updatedAt: "" }, spriteList, ref) : null;
+  const coverage = talkingHeadPictureCoverage(
+    config?.kinds.pngtuber,
+    faces,
+    missingFaces,
+    (ref) => !!savedPicture(ref),
+  );
   // Slots with no picture yet, saved, provided or made: what "Make" fills.
   const empty = faces.flatMap(({ label, set }): VariantPair[] =>
     label
@@ -198,6 +213,14 @@ export function PngtuberVariantsSection({
           {t("avatars.generation.pngtuberTitle")}
         </h4>
         <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("avatars.generation.pngtuberDescription")}</p>
+        <p className="text-[0.6875rem] text-[var(--foreground)]">
+          {t(coverage.waiting ? "avatars.generation.picturesSavedBlocked" : "avatars.generation.picturesSaved", {
+            saved: coverage.saved,
+            total: coverage.total,
+            missing: coverage.missing,
+            blocked: coverage.waiting,
+          })}
+        </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -375,6 +398,24 @@ export function PngtuberVariantsSection({
             </li>
           );
         })}
+        {coverage.blockedFaces.length > 0 && (
+          <li className="min-w-0 space-y-2 rounded-xl bg-[var(--secondary)] p-2 ring-1 ring-[var(--border)] md:col-span-2">
+            <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+              {t("avatars.generation.blockedFaces", {
+                names: coverage.blockedFaces.map((face) => t(TALKING_HEAD_FACE_LABEL_KEYS[face])).join(", "),
+              })}
+            </p>
+            {onMakeMissingFaces && (
+              <button
+                type="button"
+                onClick={onMakeMissingFaces}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-2 text-xs ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] active:scale-95"
+              >
+                {t("avatars.generation.makeMissingFaces")}
+              </button>
+            )}
+          </li>
+        )}
       </ul>
 
       {drafts.length > 0 && (

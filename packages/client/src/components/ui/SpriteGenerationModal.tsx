@@ -54,6 +54,11 @@ interface SpriteGenerationModalProps {
   /** Faces for a 2D avatar's talking head: every face is drawn with open eyes and a closed mouth, so its
    *  blink and talk pictures can close and open them. */
   talkingHeadFaces?: boolean;
+  /** The offered expressions with no saved sprite yet: Missing faces chooses only these, and the count of saved
+   *  ones shows beside it, so saved faces are not drawn again. */
+  missingFaces?: readonly string[];
+  /** The expressions chosen when it opens, instead of the grid's first ones. */
+  initialExpressions?: readonly string[];
 }
 
 interface SlicedCell {
@@ -240,6 +245,11 @@ type PresetKey = keyof typeof EXPRESSION_PRESETS;
 function presetExpressions(key: PresetKey, choices?: readonly string[]): string[] {
   const { cols, rows, expressions } = EXPRESSION_PRESETS[key];
   return [...(choices ? choices.slice(0, cols * rows) : expressions)];
+}
+
+/** The expressions chosen when the modal opens: the ones asked for, else the default grid's. */
+function openingExpressions(initial: readonly string[] | undefined, choices?: readonly string[]): string[] {
+  return initial?.length ? [...initial] : presetExpressions(DEFAULT_SPRITE_PRESET, choices);
 }
 
 type SpriteType = "expressions" | "full-body";
@@ -615,6 +625,8 @@ export function SpriteGenerationModal({
   expressionChoices,
   expressionGroups,
   talkingHeadFaces = false,
+  missingFaces,
+  initialExpressions,
 }: SpriteGenerationModalProps) {
   const { t: localizeUi } = useUiTranslation();
   // Step: 0 = configure, 1 = generating, 2 = preview & label
@@ -632,7 +644,7 @@ export function SpriteGenerationModal({
   const [useSavedSpriteReference, setUseSavedSpriteReference] = useState(true);
   const [preset, setPreset] = useState<PresetKey>(DEFAULT_SPRITE_PRESET);
   const [selectedExpressions, setSelectedExpressions] = useState<string[]>(() =>
-    presetExpressions(DEFAULT_SPRITE_PRESET, expressionChoices),
+    openingExpressions(initialExpressions, expressionChoices),
   );
   const [matchExistingExpressions, setMatchExistingExpressions] = useState(false);
   const [nativeTransparentPng, setNativeTransparentPng] = useState(true);
@@ -864,6 +876,7 @@ export function SpriteGenerationModal({
     [cappedSelectedExpressions, faceBatchMode, generationCapacity, oneFacePerRequest],
   );
   const mainFaces = useMemo(() => expressionGroups?.map((group) => group[0] ?? "").filter(Boolean), [expressionGroups]);
+  const faceChoiceCount = expressionChoices?.length ?? 0;
 
   const openPromptReview = useCallback((items: ImagePromptReviewItem[]) => {
     return new Promise<ImagePromptOverride[] | null>((resolve) => {
@@ -936,7 +949,7 @@ export function SpriteGenerationModal({
     setSelectedExpressions(
       initialSpriteType === "full-body"
         ? [...FULL_BODY_POSE_PRESETS[DEFAULT_SPRITE_PRESET]]
-        : presetExpressions(DEFAULT_SPRITE_PRESET, expressionChoices),
+        : openingExpressions(initialExpressions, expressionChoices),
     );
     setMatchExistingExpressions(false);
     setAnimatedPortraits(false);
@@ -968,6 +981,7 @@ export function SpriteGenerationModal({
     defaultAvatarUrl,
     entityId,
     expressionChoices,
+    initialExpressions,
     initialSpriteType,
     open,
   ]);
@@ -2500,18 +2514,22 @@ export function SpriteGenerationModal({
                       {selectedExpressions.length} {localizeUi("ui.ui.spritegenerationmodal.selected")}
                     </label>
                     {faceBatchMode && (
-                      <div className="flex gap-1.5">
+                      <div className="flex flex-wrap gap-1.5">
                         {[
                           { faces: expressionChoices ?? [], label: localizeUi("ui.spriteGeneration.batch.allFaces") },
                           ...(mainFaces
                             ? [{ faces: mainFaces, label: localizeUi("ui.spriteGeneration.batch.mainFaces") }]
                             : []),
+                          ...(missingFaces
+                            ? [{ faces: missingFaces, label: localizeUi("ui.spriteGeneration.batch.missingFaces") }]
+                            : []),
                         ].map(({ faces, label }) => (
                           <button
                             key={label}
                             type="button"
+                            disabled={!faces.length}
                             onClick={() => setSelectedExpressions([...faces])}
-                            className="rounded-md px-2 py-0.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:text-[var(--foreground)] hover:ring-[var(--primary)]/30"
+                            className="rounded-md px-2 py-0.5 text-[0.6875rem] max-sm:text-[13px] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:text-[var(--foreground)] hover:ring-[var(--primary)]/30 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {label}
                           </button>
@@ -2519,6 +2537,22 @@ export function SpriteGenerationModal({
                       </div>
                     )}
                   </div>
+                  {faceBatchMode && missingFaces && (
+                    <p className="mb-1.5 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
+                      {/* The names only once some are saved: with none, every face is missing. */}
+                      {localizeUi(
+                        missingFaces.length && missingFaces.length < faceChoiceCount
+                          ? "ui.spriteGeneration.batch.savedFacesMissing"
+                          : "ui.spriteGeneration.batch.savedFaces",
+                        {
+                          saved: faceChoiceCount - missingFaces.length,
+                          total: faceChoiceCount,
+                          // Capitalized like the face buttons below.
+                          names: missingFaces.map((face) => face.charAt(0).toUpperCase() + face.slice(1)).join(", "),
+                        },
+                      )}
+                    </p>
+                  )}
                   <div className="space-y-2.5">
                     {(expressionGroups ?? [expressionChoices ?? ALL_EXPRESSIONS]).map((group) => (
                       <div key={group[0]} className="flex flex-wrap gap-1.5">
