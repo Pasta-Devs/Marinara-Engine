@@ -1,4 +1,4 @@
-import type { VirtualItem } from "@tanstack/react-virtual";
+import { observeElementOffset, type VirtualItem } from "@tanstack/react-virtual";
 
 /** Last-row distance (in rows) from the end at which a paged panel asks for its next page. */
 export const NEAR_END_ROWS = 2;
@@ -37,6 +37,18 @@ export function loadMeasurementSnapshot(listKey: string): VirtualItem[] {
 export function saveMeasurementSnapshot(listKey: string, items: VirtualItem[]): void {
   measurementSnapshots.set(listKey, items);
 }
+
+/**
+ * The virtualizer's offset observer, reporting first where the container already is. TanStack's own reads the
+ * container only on its next scroll event, and a virtualizer scrolls its container to the offset it knows (0) as it
+ * attaches, so a list mounted in an already scrolled container pulled it back to the top: on a phone, a character's
+ * whole page, when the sprite grid remounts on switching to Full-body.
+ */
+export const observeCurrentOffset: typeof observeElementOffset = (instance, cb) => {
+  const element = instance.scrollElement;
+  if (element) cb(element.scrollTop, false);
+  return observeElementOffset(instance, cb);
+};
 
 /** Nearest scrollable ancestor (the panel's scroll container), or null when the page itself scrolls. */
 export function findScrollParent(node: Element): HTMLElement | null {
