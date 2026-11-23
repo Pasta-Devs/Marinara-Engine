@@ -6,7 +6,10 @@ import {
   type ChatOptions,
 } from "../../../packages/server/src/services/llm/base-provider.js";
 import { withLorebookImageCompatibility } from "../../../packages/server/src/services/llm/lorebook-image-provider.js";
-import { appendLorebookImageMessages } from "../../../packages/server/src/services/generation/lorebook-image-prompt.js";
+import {
+  appendLorebookImageMessages,
+  readLorebookReferenceImages,
+} from "../../../packages/server/src/services/generation/lorebook-image-prompt.js";
 import {
   discardLorebookImage,
   saveLorebookImage,
@@ -16,7 +19,11 @@ import {
   scopeLorebookScanResultToCharacterContext,
   resolveBudgetAndRecursivelyActivateLorebookEntries,
 } from "../../../packages/server/src/services/lorebook/index.js";
-import { createLorebookEntrySchema, type LorebookEntry, type ChatMLMessage } from "../../../packages/shared/dist/index.js";
+import {
+  createLorebookEntrySchema,
+  type LorebookEntry,
+  type ChatMLMessage,
+} from "../../../packages/shared/dist/index.js";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2jX8AAAAASUVORK5CYII=",
@@ -95,6 +102,29 @@ const prefilled: ChatMLMessage[] = [
 ];
 await appendLorebookImageMessages(prefilled, processed.imageEntries);
 assert.equal(prefilled.at(-1)?.content, "Prefill", "references never follow an assistant prefill");
+// #9698: the same activated entries reach image generation as raw base64 references, within the room left.
+const imageEntry = processed.imageEntries![0]!;
+const drawn = await readLorebookReferenceImages(
+  [
+    imageEntry,
+    imageEntry,
+    { ...imageEntry, id: "missing", images: [{ path: "/api/lorebooks/entry-images/x.png", caption: "" }] },
+  ],
+  6,
+);
+assert.deepEqual(drawn.images, [png.toString("base64")], "each entry once; unreadable pictures are skipped");
+assert.match(drawn.referenceLine ?? "", /reference images for outfit: Blue coat\./);
+assert.deepEqual(
+  (await readLorebookReferenceImages(processed.imageEntries, 0)).images,
+  [],
+  "no room left by the cast sends no lorebook pictures",
+);
+assert.equal((await readLorebookReferenceImages([{ ...imageEntry, position: 7 }], 6)).referenceLine, null);
+assert.equal(
+  (await readLorebookReferenceImages([{ ...imageEntry, position: 7, outletUsed: true }], 6)).images.length,
+  1,
+  "only a used Outlet's pictures reach the image model",
+);
 const scan = {
   ...processed,
   activatedEntryIds: [entry.id],

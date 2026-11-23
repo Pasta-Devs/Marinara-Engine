@@ -166,6 +166,13 @@ type AvatarConnection = Parameters<typeof avatarImageService>[0];
 /** What the routing reads from an image connection; the API key is not needed, so a keyless row will do. */
 export type ImageConnectionLike = Pick<AvatarConnection, "model" | "baseUrl" | "imageService" | "comfyuiWorkflow">;
 
+/** Whether the image connection sends reference pictures to its model at all; empty fields read as unset. */
+export function imageConnectionTakesReferences(
+  imageConnection: Partial<Record<keyof ImageConnectionLike, string | null>>,
+): boolean {
+  return imageConnectionTakesReferencePicture(avatarImageService(imageConnection as AvatarConnection));
+}
+
 /**
  * The writer's pictures for one Illustrator run, or null with a log line saying why not. Shared by the chat
  * pipeline, `[illustrate:]`, the retry route and the Gallery's illustrate button, so they all route alike.
@@ -208,9 +215,7 @@ async function collectWriterReferencePicturesOrThrow(
       : args.agentSettings?.useAvatarReferences === true;
   if (!avatarReferencesOn) return null;
   const target = resolveReferencePictureTarget(args.chatMeta.illustratorReferencePictureTarget, args.agentSettings);
-  const takesReferences = imageConnectionTakesReferencePicture(
-    avatarImageService(args.imageConnection as AvatarConnection),
-  );
+  const takesReferences = imageConnectionTakesReferences(args.imageConnection);
   if (!routeReferencePictures(target, takesReferences).toWriter) {
     if (target === "auto")
       logger.info("[writer-references] Skipped: the image connection takes reference pictures itself");
@@ -272,8 +277,5 @@ export function imageModelGetsReferencePictures(
   imageConnection: ImageConnectionLike,
 ): boolean {
   const target = resolveReferencePictureTarget(chatMeta.illustratorReferencePictureTarget, agentSettings);
-  return routeReferencePictures(
-    target,
-    imageConnectionTakesReferencePicture(avatarImageService(imageConnection as AvatarConnection)),
-  ).toImageModel;
+  return routeReferencePictures(target, imageConnectionTakesReferences(imageConnection)).toImageModel;
 }

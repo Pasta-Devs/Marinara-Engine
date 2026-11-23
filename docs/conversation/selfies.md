@@ -37,6 +37,8 @@ All of these live in **Illustrator Settings** and apply to the current chat only
 
 If the card or persona has **Image tags** in use (the **Image tags** tab of **Appearance** in the editor, with **Use for image prompts** ticked), Marinara sends those instead of the **Appearance** prose. An Appearance alternative active in the chat uses its own tags or prose. Use it when **Appearance** is written for the story, not for pictures.
 
+A selfie that a character sends in a reply also carries the pictures in the **Reference images** of the lorebook entries active for that reply, when the image service accepts reference pictures. No setting turns them on. The Gallery's **Selfie** button sends none.
+
 ## Ask for a selfie by hand
 
 1. Open **Chat Settings** and expand the **Gallery** section.

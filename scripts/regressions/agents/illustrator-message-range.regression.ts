@@ -1,4 +1,5 @@
-// Exercise the real retry route: selected history, review/resume, image attachments and gallery opt-out.
+// Exercise the real retry route: selected history, review/resume, image attachments, gallery opt-out and lorebook
+// entry pictures as references.
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
@@ -28,6 +29,8 @@ const { createCharacterGalleryStorage } =
   await import("../../../packages/server/src/services/storage/character-gallery.storage.js");
 const { createAppSettingsStorage } =
   await import("../../../packages/server/src/services/storage/app-settings.storage.js");
+const { createLorebooksStorage } = await import("../../../packages/server/src/services/storage/lorebooks.storage.js");
+const { saveLorebookImage } = await import("../../../packages/server/src/services/lorebook/lorebook-images.js");
 const { characterDataSchema, replaceBuiltInAgentDefinitions } = await import("../../../packages/shared/dist/index.js");
 replaceBuiltInAgentDefinitions([
   {
@@ -444,6 +447,45 @@ try {
   const switchesOff = parseEvents((await oneOffRetry()).body).find((event) => event.type === "image_prompt_review");
   assert.ok(switchesOff);
   assert.doesNotMatch(switchesOff.data.item.prompt, /LIBRARY_ASTER_APPEARANCE|reference images of Aster/);
+
+  // #9698: the reply's activated entry sends its picture to an image connection that takes references, and only there.
+  const lorebooks = createLorebooksStorage(db);
+  const book = await lorebooks.create({ name: "Wardrobe" } as Parameters<typeof lorebooks.create>[0]);
+  assert.ok(book);
+  const coat = await saveLorebookImage(Buffer.from(png, "base64"));
+  const coatEntry = await lorebooks.createEntry({
+    lorebookId: book.id,
+    name: "Red coat",
+    content: "Aster's red coat.",
+    keys: ["coat"],
+    images: [{ ...coat, caption: "festival wear" }],
+  } as Parameters<typeof lorebooks.createEntry>[0]);
+  assert.ok(coatEntry);
+  await chats.createMessage({
+    chatId: templateChat.id,
+    role: "assistant",
+    content: "Aster puts on the coat.",
+    extra: {
+      lorebookScan: { activatedEntries: [{ id: coatEntry.id, name: "Red coat", content: "Aster's red coat." }] },
+    },
+  });
+  const gptImage = await connections.create({
+    name: "GPT Image fixture",
+    provider: "image_generation",
+    baseUrl,
+    model: "gpt-image-1",
+    imageService: "openai",
+    imageGenerationSource: "openai",
+    apiKey: "fixture",
+  });
+  const promptWith = async (illustratorImageConnectionId: string) => {
+    await chats.patchMetadata(templateChat.id, { illustratorImageConnectionId });
+    const event = parseEvents((await oneOffRetry()).body).find((item) => item.type === "image_prompt_review");
+    assert.ok(event);
+    return String(event.data.item.prompt);
+  };
+  assert.match(await promptWith(gptImage.id), /reference images for Red coat: festival wear\./);
+  assert.doesNotMatch(await promptWith(imageConnection.id), /reference images for/, "DALL-E 3 takes no references");
   const beforeInvalidRequests = textRequests.length + imageRequests;
   assert.equal((await oneOffRetry({ illustratorRequest: 5 })).statusCode, 400);
   assert.equal((await oneOffRetry({ illustratorRetryTargets: undefined })).statusCode, 400);

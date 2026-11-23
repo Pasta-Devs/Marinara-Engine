@@ -41,11 +41,16 @@ import {
   type GenerationRoomContext,
 } from "../services/multiplayer/generation-policy.js";
 import { roomMrpgRoster } from "../services/multiplayer/fight-players.js";
-import { appendLorebookImageMessages, type LorebookImageNotice } from "../services/generation/lorebook-image-prompt.js";
+import {
+  appendLorebookImageMessages,
+  readLorebookReferenceImages,
+  type LorebookImageNotice,
+} from "../services/generation/lorebook-image-prompt.js";
 import {
   WRITER_REFERENCE_MEMORY_KEY,
   WRITER_REFERENCE_NAMES_MEMORY_KEY,
   collectWriterReferencePictures,
+  imageConnectionTakesReferences,
   imageModelGetsReferencePictures,
   readWriterReferenceNames,
   writerVisionKey,
@@ -15003,10 +15008,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           ? chatMeta.illustratorUseAvatarReferences
                           : imagePromptAgent?.settings?.useAvatarReferences === true;
                       // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
-                      const useAvatarRefs =
-                        avatarReferencesOn &&
-                        (!usesChatIllustratorSettings ||
-                          imageModelGetsReferencePictures(chatMeta, imagePromptAgent?.settings, imgConnFull));
+                      const imageModelGetsReferences =
+                        !usesChatIllustratorSettings ||
+                        imageModelGetsReferencePictures(chatMeta, imagePromptAgent?.settings, imgConnFull);
+                      const useAvatarRefs = avatarReferencesOn && imageModelGetsReferences;
                       const includeCharacterAppearance =
                         usesChatIllustratorSettings &&
                         typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
@@ -15100,6 +15105,23 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                       if (spatialLocationReferenceImage) {
                         fullPrompt += `\n\n${SPATIAL_LOCATION_REFERENCE_PROMPT_LINE}`;
                         logger.debug("[illustrator] Sending the current Maps location reference image first");
+                      }
+                      // Activated entries' pictures fill what the cap leaves, when the connection takes them (#9698).
+                      const lorebookReferences =
+                        imageModelGetsReferences && imageConnectionTakesReferences(imgConnFull)
+                          ? await readLorebookReferenceImages(
+                              lorebookPromptScanResult?.imageEntries,
+                              6 - mergedReferenceImages.length,
+                            )
+                          : null;
+                      if (lorebookReferences?.referenceLine) {
+                        illustratorRefImages = [...mergedReferenceImages, ...lorebookReferences.images];
+                        if (!suppressReferencePromptLine) fullPrompt += `\n\n${lorebookReferences.referenceLine}`;
+                        logger.debug(
+                          "[illustrator] Sending %d lorebook reference(s) for: %s",
+                          lorebookReferences.images.length,
+                          lorebookReferences.labels.join("; "),
+                        );
                       }
 
                       const compiledPrompt = compileImagePrompt({
@@ -15816,6 +15838,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                   sendEvent: (payload) => {
                     sendSseEvent(reply, payload);
                   },
+                  lorebookImageEntries: (
+                    (characterId ? conversationLorebookScansByResponder.get(characterId) : undefined) ??
+                    lorebookPromptScanResult
+                  )?.imageEntries,
                 });
 
                 // A clip takes minutes; it finishes after "done" while the stream stays open for media.
