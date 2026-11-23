@@ -112,8 +112,12 @@ function withoutPortraitFraming(character: PresentCharacter): PresentCharacter {
   return rest;
 }
 
-type CardCharacterStatus = { status: "card"; characterId: string } | { status: "npc" | "pending" };
+type CardCharacterStatus = { status: "card"; characterId: string } | { status: "npc" | "pending" | "error" };
 type PortraitSnapshotTarget = { chatId: string; messageId: string; swipeIndex: number };
+
+function isCardLookupBlocked(status: CardCharacterStatus | undefined): boolean {
+  return status?.status === "pending" || status?.status === "error";
+}
 
 export function useTrackerMutations({
   activeChatId,
@@ -193,8 +197,9 @@ export function useTrackerMutations({
     (index: number) => {
       const targetCharacter = presentCharacters[index] ?? readPresentCharacters()[index];
       const characterId = targetCharacter?.characterId ?? null;
-      if (!characterId || (targetCharacter && resolveCardCharacterStatus?.(targetCharacter).status === "pending"))
+      if (!characterId || (targetCharacter && isCardLookupBlocked(resolveCardCharacterStatus?.(targetCharacter)))) {
         return;
+      }
       setAvatarUpload({ characterId, index });
       avatarFileInputRef.current?.click();
     },
@@ -235,7 +240,7 @@ export function useTrackerMutations({
       if (!character) return;
 
       const cardStatus = resolveCardCharacterStatus?.(character);
-      if (cardStatus?.status === "pending") return;
+      if (isCardLookupBlocked(cardStatus)) return;
       const cardId = cardStatus?.status === "card" ? cardStatus.characterId : null;
       const targetSnapshot = captureSnapshotTarget();
       const uploadToken = avatarUploadSerialRef.current + 1;
@@ -303,7 +308,7 @@ export function useTrackerMutations({
       if (!character) return;
 
       const cardStatus = resolveCardCharacterStatus?.(character);
-      if (cardStatus?.status === "pending") return;
+      if (isCardLookupBlocked(cardStatus)) return;
       const cardId = cardStatus?.status === "card" ? cardStatus.characterId : null;
       const targetSnapshot = captureSnapshotTarget();
       const token = avatarUploadSerialRef.current + 1;

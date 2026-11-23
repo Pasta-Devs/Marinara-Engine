@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import type { PresentCharacter } from "@marinara-engine/shared";
 import { characterKeys } from "../../../hooks/use-characters";
-import { api } from "../../../lib/api-client";
+import { api, ApiError } from "../../../lib/api-client";
 import { parseCharacterDisplayData } from "../../../lib/character-display";
 import {
   mergeTrackerCardPortraitFields,
@@ -103,6 +103,9 @@ export function useTrackerSpriteLookup({
     return { knownIds, idByName, pictureById, profileColorsById };
   }, [characterQueries, previewValues]);
   const hasPendingCharacterLookups = enabled && characterQueries.some((query) => query.isPending);
+  const hasFailedCharacterLookups =
+    enabled &&
+    characterQueries.some((query) => query.isError && !(query.error instanceof ApiError && query.error.status === 404));
 
   const resolveSpriteCharacterId = useCallback(
     (character: PresentCharacter) => {
@@ -117,5 +120,5 @@ export function useTrackerSpriteLookup({
     [characterSpriteLookup],
   );
 
-  return { characterSpriteLookup, hasPendingCharacterLookups, resolveSpriteCharacterId };
+  return { characterSpriteLookup, hasPendingCharacterLookups, hasFailedCharacterLookups, resolveSpriteCharacterId };
 }

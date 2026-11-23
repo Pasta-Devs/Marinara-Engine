@@ -181,7 +181,8 @@ export function TrackerWindowCharacters({
         >
           {characters.map((character, index) => {
             const spriteCharacterId = resolveSpriteCharacterId(character);
-            const cardLookupPending = resolveCardCharacterStatus(character).status === "pending";
+            const cardLookupStatus = resolveCardCharacterStatus(character).status;
+            const cardLookupPending = cardLookupStatus === "pending" || cardLookupStatus === "error";
             return (
               <div key={`${chatId}-${character.characterId}-${index}`} className="@container min-w-0">
                 <FeaturedCharacterTrackerCard

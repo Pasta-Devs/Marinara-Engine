@@ -72,11 +72,12 @@ export function useTrackerPanelModel({
   const { data: agentConfigs } = useAgentConfigs(characterTrackerLookupEnabled);
   const { data: activePersonaData } = usePersona(personaDataLookupEnabled ? chatPersonaId : null);
   const previewValues = useTrackerCardColorPreviews();
-  const { characterSpriteLookup, hasPendingCharacterLookups, resolveSpriteCharacterId } = useTrackerSpriteLookup({
-    enabled: characterTrackerLookupEnabled,
-    chatCharacterIds,
-    presentCharacters,
-  });
+  const { characterSpriteLookup, hasPendingCharacterLookups, hasFailedCharacterLookups, resolveSpriteCharacterId } =
+    useTrackerSpriteLookup({
+      enabled: characterTrackerLookupEnabled,
+      chatCharacterIds,
+      presentCharacters,
+    });
   const characterTrackerConfig = useMemo(() => {
     if (!Array.isArray(agentConfigs)) return null;
     return (agentConfigs as AgentConfigRow[]).find((agent) => agent.type === "character-tracker") ?? null;
@@ -114,15 +115,19 @@ export function useTrackerPanelModel({
   }, [activePersonaData, previewValues]);
   const expressionSpritesEnabled = trackerPanelUseExpressionSprites && expressionAgentEnabled;
   const resolveCardCharacterStatus = useCallback(
-    (character: PresentCharacter): { status: "card"; characterId: string } | { status: "npc" | "pending" } => {
+    (
+      character: PresentCharacter,
+    ): { status: "card"; characterId: string } | { status: "npc" | "pending" | "error" } => {
       const rawId = typeof character.characterId === "string" ? character.characterId.trim() : "";
       if (rawId && characterSpriteLookup.knownIds.has(rawId)) return { status: "card", characterId: rawId };
       if (!isSpriteLookupCharacterId(rawId) || rawId.includes(":cast:")) return { status: "npc" };
       const matched = resolveSpriteCharacterId(character);
       if (matched && characterSpriteLookup.knownIds.has(matched)) return { status: "card", characterId: matched };
-      return hasPendingCharacterLookups ? { status: "pending" } : { status: "npc" };
+      if (hasPendingCharacterLookups) return { status: "pending" };
+      if (hasFailedCharacterLookups) return { status: "error" };
+      return { status: "npc" };
     },
-    [characterSpriteLookup.knownIds, hasPendingCharacterLookups, resolveSpriteCharacterId],
+    [characterSpriteLookup.knownIds, hasFailedCharacterLookups, hasPendingCharacterLookups, resolveSpriteCharacterId],
   );
 
   return {

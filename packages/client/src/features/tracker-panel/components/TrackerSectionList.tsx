@@ -89,7 +89,7 @@ export function TrackerSectionList({
   ) => void;
   resolveCardCharacterStatus: (
     character: PresentCharacter,
-  ) => { status: "card"; characterId: string } | { status: "npc" | "pending" };
+  ) => { status: "card"; characterId: string } | { status: "npc" | "pending" | "error" };
   resolveSpriteCharacterId: (character: PresentCharacter) => string | null;
   spriteExpressions: Record<string, string>;
   trackerPanelCollapsedSections: TrackerPanelCollapsedSections;
@@ -286,7 +286,10 @@ export function TrackerSectionList({
             onUploadAvatar={openAvatarUpload}
             onGeneratePortrait={canGeneratePortraits ? generateAvatar : undefined}
             onRevertScenePortrait={revertScenePortrait}
-            isCardLookupPending={(character) => resolveCardCharacterStatus(character).status === "pending"}
+            isCardLookupPending={(character) => {
+              const status = resolveCardCharacterStatus(character).status;
+              return status === "pending" || status === "error";
+            }}
             onToggleFeatured={toggleFeaturedCharacterCard}
             deleteMode={deleteMode}
             addMode={addMode}
