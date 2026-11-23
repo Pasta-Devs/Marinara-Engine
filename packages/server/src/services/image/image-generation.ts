@@ -2178,6 +2178,18 @@ function nanoGPTImageModels(
   return entry.models;
 }
 
+/** Waits for a promise other requests share, until this request is cancelled; the promise keeps running for them. */
+function untilAborted<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () =>
+      reject(signal.reason instanceof Error ? signal.reason : new Error("Image generation aborted"));
+    if (signal.aborted) return onAbort();
+    signal.addEventListener("abort", onAbort, { once: true });
+    void promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
 /** The smallest named size that covers the longer side (`1k` is 1024 pixels), else the largest. */
 function nanoGPTSizeTier(tiers: string[], width: number, height: number): string {
   const longest = Math.max(width, height);
@@ -2192,7 +2204,9 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
   const model = request.model?.trim().toLowerCase() ?? "";
   const isNanoBanana = model.includes("nano-banana");
   // Anima takes `1k`/`1.5k` and Chroma takes no pictures (#9560): each model gets what the list says it takes.
-  const listed = model ? (await nanoGPTImageModels(url, apiKey, request))?.get(model) : undefined;
+  const listed = model
+    ? (await untilAborted(nanoGPTImageModels(url, apiKey, request), request.signal))?.get(model)
+    : undefined;
   const accepts = listed ?? (model === "nano-banana-2.1" ? NANOGPT_NANO_BANANA_21 : undefined);
   const isGptImage = isOpenAIGptImageModel(request.model);
   const tiers = isGptImage ? [] : (accepts?.tiers ?? []);
@@ -2214,13 +2228,7 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
   if (aspectRatio) body.aspect_ratio = aspectRatio;
   if (request.model) body.model = request.model;
   const withoutNegativeKey = `${url}\n${model}`;
-  if (
-    request.negativePrompt &&
-    accepts?.negativePrompt !== false &&
-    !nanoGPTModelsWithoutNegativePrompt.has(withoutNegativeKey)
-  ) {
-    body.negative_prompt = request.negativePrompt;
-  }
+  if (request.negativePrompt) body.negative_prompt = request.negativePrompt;
 
   const allReferences = openAIReferenceImages(request);
   const referenceLimit = Math.min(NANOGPT_REFERENCE_IMAGE_LIMIT, accepts?.maxInputImages ?? Infinity);
@@ -2241,8 +2249,16 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
   if (request.model?.toLowerCase().includes("flux-kontext")) {
     body.kontext_max_mode = true;
   }
+  let sentNegativePrompt = false;
   const send = () => {
-    const requestBody = serializeNanoGPTImageRequest(body, references, request.imageDefaults?.customParameters);
+    const customParameters = { ...request.imageDefaults?.customParameters };
+    // A model that refuses a negative prompt gets none, not even from the connection's custom parameters.
+    if (accepts?.negativePrompt === false || nanoGPTModelsWithoutNegativePrompt.has(withoutNegativeKey)) {
+      delete body.negative_prompt;
+      delete customParameters.negative_prompt;
+    }
+    sentNegativePrompt = "negative_prompt" in body || "negative_prompt" in customParameters;
+    const requestBody = serializeNanoGPTImageRequest(body, references, customParameters);
     logDebugOverride(
       request.debugMode === true,
       "[debug/image/nanogpt] final request payload:\n%s",
@@ -2254,7 +2270,7 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
   let resp = await send();
   // The list doesn't say which models refuse a negative prompt (Chroma, Qwen Image 3 Uncensored), and
   // NanoGPT rejects the whole request for one, so drop it, retry once and remember the model.
-  if (resp.status === 400 && body.negative_prompt !== undefined) {
+  if (resp.status === 400 && sentNegativePrompt) {
     const errText = await resp
       .clone()
       .text()
@@ -2262,7 +2278,6 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
     if (/negative_prompt/i.test(errText) && /not support|unsupported/i.test(errText)) {
       nanoGPTModelsWithoutNegativePrompt.add(withoutNegativeKey);
       logger.warn("[image-gen/nanogpt] %s takes no negative prompt; retrying without it", request.model);
-      delete body.negative_prompt;
       resp = await send();
     }
   }

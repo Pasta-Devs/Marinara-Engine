@@ -168,6 +168,8 @@ const supportedRatios = new Set([
 ]);
 const requests: Array<{ path: string; authorization?: string; body: Record<string, unknown> }> = [];
 const listReads: string[] = [];
+let releaseSlowList = () => {};
+const slowList = new Promise<void>((resolve) => (releaseSlowList = resolve));
 const server = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
@@ -175,9 +177,10 @@ const server = createServer(async (request, response) => {
   const path = request.url ?? "";
   if (request.method === "GET" && /\/v1\/image-models\?detailed=true$/.test(path)) {
     listReads.push(path);
-    // `/nolist/` stands for an endpoint whose model list can't be read.
+    // `/nolist/` stands for an endpoint whose model list can't be read, `/slow/` for one still answering.
     if (path.startsWith("/nolist/")) response.statusCode = 503;
-    response.end(JSON.stringify(path.startsWith("/nano/") ? modelList : { error: "unavailable" }));
+    if (path.startsWith("/slow/")) await slowList;
+    response.end(JSON.stringify(/^\/(?:nano|slow)\//.test(path) ? modelList : { error: "unavailable" }));
     return;
   }
   const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
@@ -362,6 +365,67 @@ try {
     "The model list is read once per endpoint and cached",
   );
 
+  // A negative prompt in the connection's custom parameters is dropped the same way.
+  const customNegative = (model: string, negativePrompt?: string) =>
+    posted(
+      {
+        model,
+        negativePrompt,
+        imageDefaults: { version: 1, service: "api", seed: -1, customParameters: { negative_prompt: "smudges" } },
+      },
+      `http://127.0.0.1:${address.port}/nano/custom/v1`,
+    );
+  const [chromaCustom, chromaCustomRetry, ...chromaCustomExtra] = await customNegative("chroma", "letters");
+  assert.equal(chromaCustomExtra.length, 0, "Chroma with a custom negative prompt: one retry");
+  assert.equal(chromaCustom!.negative_prompt, "smudges", "The custom parameter overrides the request's prompt");
+  assert.equal(chromaCustomRetry!.negative_prompt, undefined, "The retry carries no negative prompt from either");
+  const chromaCustomAgain = await customNegative("chroma");
+  assert.equal(chromaCustomAgain.length, 1, "The remembered refusal covers the custom parameter too");
+  assert.equal(chromaCustomAgain[0]!.negative_prompt, undefined);
+  const qwenCustom = await customNegative("qwen-image-3-uncensored");
+  assert.equal(qwenCustom.length, 2, "A negative prompt only in the custom parameters is retried too");
+  assert.equal(qwenCustom[0]!.negative_prompt, "smudges");
+  assert.equal(qwenCustom[1]!.negative_prompt, undefined);
+  const animaCustom = await customNegative("anima/text-to-image");
+  assert.equal(animaCustom.length, 1);
+  assert.equal(animaCustom[0]!.negative_prompt, "smudges", "A model that takes a negative prompt keeps the custom one");
+
+  // A cancelled request stops waiting for a model list that another request still waits on.
+  const slowRequest = (signal?: AbortSignal) =>
+    generateImage("nanogpt", `http://127.0.0.1:${address.port}/slow/v1`, "fixture-key", "nanogpt", {
+      model: "anima/text-to-image",
+      prompt: "a moonlit laboratory",
+      width: 1344,
+      height: 768,
+      allowLocalUrls: true,
+      signal,
+    });
+  requests.length = 0;
+  const cancel = new AbortController();
+  const cancelled = slowRequest(cancel.signal);
+  const waiting = slowRequest();
+  void waiting.catch(() => undefined); // A failed assertion below reports itself, not this request.
+  while (!listReads.some((path) => path.startsWith("/slow/"))) await new Promise((resolve) => setTimeout(resolve, 5));
+  cancel.abort();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const settled = await Promise.race([
+    cancelled.then(
+      () => "drawn",
+      () => "cancelled",
+    ),
+    new Promise((resolve) => (timer = setTimeout(resolve, 2_000, "still waiting"))),
+  ]);
+  clearTimeout(timer);
+  assert.equal(settled, "cancelled", "A cancelled request doesn't wait out the list read's 15-second timeout");
+  releaseSlowList();
+  assert.equal((await waiting).base64, png);
+  assert.equal(requests.length, 1, "Only the request that wasn't cancelled is sent");
+  assert.equal(requests[0]!.body.size, "1.5k", "and it still gets the list");
+  assert.deepEqual(
+    listReads.filter((path) => path.startsWith("/slow/")),
+    ["/slow/v1/image-models?detailed=true"],
+  );
+
   // A list that can't be read keeps today's requests, and Nano Banana 2.1's known contract.
   const nolist = `http://127.0.0.1:${address.port}/nolist/v1`;
   const [fallback] = await posted({ model: "nano-banana-2.1", width: 1536, height: 1024 }, nolist);
@@ -372,6 +436,7 @@ try {
   assert.equal(unlisted!.size, "1344x768");
   assert.equal((unlisted!.imageDataUrls as unknown[]).length, 2);
 } finally {
+  releaseSlowList();
   await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
 }
 console.info(
