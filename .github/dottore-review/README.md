@@ -241,8 +241,9 @@ CodeRabbit reviews every pull request into the default branch, whatever its sett
 `@coderabbitai ignore` to the description of the ones main accepts: SpicyMarinara's staging promotion or `hotfix/*`
 branch from this repository. It runs when the pull request opens, so put the line in the description when you open a
 promotion or hotfix: CodeRabbit starts within seconds, before the gate can add it. A contributor's pull request opened
-into main by mistake gets no line, so it keeps its review once it is retargeted to staging. A promotion or hotfix
-retargeted to staging loses the line the gate added and gets a full Dottore review against staging.
+into main by mistake gets no line, so it keeps its review once it is retargeted to staging. A pull request moved
+from main to staging gets a full Dottore review against staging and loses the line the gate added. A `@coderabbitai
+ignore` line you wrote yourself stays, so delete it after the move, or later pushes get no review.
 
 GitHub runs `check_run` workflows only from the default branch, and `pull_request_target` ones from the base branch, so
 the gate runs from main's copy.

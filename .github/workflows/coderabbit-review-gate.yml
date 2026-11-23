@@ -155,8 +155,8 @@ jobs:
           gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="${BODY:+$BODY$'\n\n'}$LINE" >/dev/null
           echo "PR #$PR_NUM: added @coderabbitai ignore; CodeRabbit reviews no pull request into the default branch."
 
-  # A promotion or hotfix moved off the default branch gets its review back: the line the job above added comes off,
-  # and Dottore reviews the pull request in full against its new base.
+  # A pull request moved off the default branch gets its review back: Dottore reviews it in full against its new base,
+  # and the line the job above added comes off. A `@coderabbitai ignore` its author wrote stays.
   retargeted:
     name: Give a retargeted pull request its review back
     if: >
@@ -190,10 +190,8 @@ jobs:
             NEW=${NEW//"$BREAK$BREAK@coderabbitai ignore$BREAK$MARK"/}
             NEW=${NEW//"@coderabbitai ignore$BREAK$MARK"/}
           done
-          if [ "$NEW" = "$BODY" ]; then
-            echo "PR #$PR_NUM carries no @coderabbitai ignore line this workflow added."
-            exit 0
-          fi
+          # A base change is no push, so CodeRabbit does not review the head again: Dottore gives it its review either
+          # way, even when its author wrote the keyword themselves.
           state() {
             gh api "repos/$REPO/commits/$HEAD_SHA/status?per_page=100" \
               --jq '[.statuses[] | select(.context == "Dottore Review") | .state][0] // ""'
@@ -219,5 +217,7 @@ jobs:
             echo "PR #$PR_NUM: Dottore reviews it in full against $BASE."
           fi
           # Only after the review is asked for, so a failed dispatch leaves the line for a re-run to find.
-          gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="$NEW" >/dev/null
-          echo "PR #$PR_NUM: removed the @coderabbitai ignore line it carried from the default branch."
+          if [ "$NEW" != "$BODY" ]; then
+            gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="$NEW" >/dev/null
+            echo "PR #$PR_NUM: removed the @coderabbitai ignore line it carried from the default branch."
+          fi

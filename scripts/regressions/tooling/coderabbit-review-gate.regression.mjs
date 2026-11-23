@@ -322,9 +322,16 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
     assert.equal(lostLine(`Hotfix.\r\n\r\n${added.replace("\n", "\r\n")}\r\n`, "Hotfix.\r").length, 1),
   );
   expect("a description that was only the line is emptied", () => assert.equal(lostLine(added, "").length, 1));
-  expect("a keyword the author wrote stays, with nothing edited", () =>
-    assert.equal(run(retarget, { body: "Skip review: @coderabbitai ignore\n\nNotes.", env: moved }).length, 0),
-  );
+  expect("a keyword the author wrote stays unedited, and Dottore still reviews the head", () => {
+    const writes = run(retarget, { body: "Hotfix.\n\n@coderabbitai ignore", env: moved });
+    assert.equal(writes.length, 1, JSON.stringify(writes));
+    assert.deepEqual(writes[0].slice(0, 3), ["workflow", "run", "dottore-review.yml"]);
+  });
+  expect("a pull request moved with no ignore line gets its review too", () => {
+    const writes = run(retarget, { body: "Fixes the import.", env: moved });
+    assert.equal(writes.length, 1, JSON.stringify(writes));
+    assert.equal(field(writes[0], "review_mode"), "full");
+  });
   expect("a draft loses the line but waits for its review", () =>
     assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { env: { ...moved, DRAFT: "true" } }).length, 0),
   );
