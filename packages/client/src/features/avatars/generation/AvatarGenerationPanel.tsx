@@ -114,6 +114,14 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
   const missingFaces = useMemo(() => missingTalkingHeadFaces(spriteList ?? []), [spriteList]);
   /** Some faces are saved and some aren't, as after a run that stopped early. */
   const someFacesMissing = missingFaces.length > 0 && missingFaces.length < TALKING_HEAD_FACE_KEYS.length;
+  // Shown here and in the face maker. The names only once some are saved: with none, every face is missing.
+  const savedFacesStatus = spriteList
+    ? t(someFacesMissing ? "ui.spriteGeneration.batch.savedFacesMissing" : "ui.spriteGeneration.batch.savedFaces", {
+        saved: TALKING_HEAD_FACE_KEYS.length - missingFaces.length,
+        total: TALKING_HEAD_FACE_KEYS.length,
+        names: missingFaces.map((face) => t(TALKING_HEAD_FACE_LABEL_KEYS[face])).join(", "),
+      })
+    : null;
   const seed = useMemo(() => spriteGeneratorSeed(character.data, persona.data), [character.data, persona.data]);
   const imageConnections = useMemo(
     () => ((connectionList ?? []) as ConnectionRow[]).filter((row) => row.provider === "image_generation"),
@@ -200,21 +208,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
               seed && !seed.avatarUrl ? "avatars.generation.facesNeedAvatar" : "avatars.generation.facesFromAvatarHelp",
             )}
           </p>
-          {spriteList && (
-            <p className="text-[0.6875rem] text-[var(--foreground)]">
-              {/* The names only once some are saved: with none, every face is missing. */}
-              {t(
-                someFacesMissing
-                  ? "ui.spriteGeneration.batch.savedFacesMissing"
-                  : "ui.spriteGeneration.batch.savedFaces",
-                {
-                  saved: TALKING_HEAD_FACE_KEYS.length - missingFaces.length,
-                  total: TALKING_HEAD_FACE_KEYS.length,
-                  names: missingFaces.map((face) => t(TALKING_HEAD_FACE_LABEL_KEYS[face])).join(", "),
-                },
-              )}
-            </p>
-          )}
+          {savedFacesStatus && <p className="text-[0.6875rem] text-[var(--foreground)]">{savedFacesStatus}</p>}
         </div>
       )}
 
@@ -284,6 +278,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
             expressionGroups={AVATAR_FACE_GROUPS}
             talkingHeadFaces
             missingFaces={missingFaces}
+            savedFacesStatus={savedFacesStatus ?? undefined}
             initialExpressions={facesOpen === "missing" ? missingFaces : undefined}
             onSpritesGenerated={facesSaved}
           />

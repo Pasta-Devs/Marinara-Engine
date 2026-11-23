@@ -54,9 +54,12 @@ interface SpriteGenerationModalProps {
   /** Faces for a 2D avatar's talking head: every face is drawn with open eyes and a closed mouth, so its
    *  blink and talk pictures can close and open them. */
   talkingHeadFaces?: boolean;
-  /** The offered expressions with no saved sprite yet: Missing faces chooses only these, and the count of saved
-   *  ones shows beside it, so saved faces are not drawn again. */
+  /** The offered expressions with no saved sprite yet: Missing faces chooses only these, so saved faces are not
+   *  drawn again. */
   missingFaces?: readonly string[];
+  /** The line under those buttons with the saved count and the missing faces' names, worded by the caller so the
+   *  names are its translated face labels. */
+  savedFacesStatus?: string;
   /** The expressions chosen when it opens, instead of the grid's first ones. */
   initialExpressions?: readonly string[];
 }
@@ -626,6 +629,7 @@ export function SpriteGenerationModal({
   expressionGroups,
   talkingHeadFaces = false,
   missingFaces,
+  savedFacesStatus,
   initialExpressions,
 }: SpriteGenerationModalProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -876,7 +880,6 @@ export function SpriteGenerationModal({
     [cappedSelectedExpressions, faceBatchMode, generationCapacity, oneFacePerRequest],
   );
   const mainFaces = useMemo(() => expressionGroups?.map((group) => group[0] ?? "").filter(Boolean), [expressionGroups]);
-  const faceChoiceCount = expressionChoices?.length ?? 0;
 
   const openPromptReview = useCallback((items: ImagePromptReviewItem[]) => {
     return new Promise<ImagePromptOverride[] | null>((resolve) => {
@@ -2537,20 +2540,9 @@ export function SpriteGenerationModal({
                       </div>
                     )}
                   </div>
-                  {faceBatchMode && missingFaces && (
+                  {faceBatchMode && savedFacesStatus && (
                     <p className="mb-1.5 text-[0.625rem] max-sm:text-[13px] text-[var(--muted-foreground)]">
-                      {/* The names only once some are saved: with none, every face is missing. */}
-                      {localizeUi(
-                        missingFaces.length && missingFaces.length < faceChoiceCount
-                          ? "ui.spriteGeneration.batch.savedFacesMissing"
-                          : "ui.spriteGeneration.batch.savedFaces",
-                        {
-                          saved: faceChoiceCount - missingFaces.length,
-                          total: faceChoiceCount,
-                          // Capitalized like the face buttons below.
-                          names: missingFaces.map((face) => face.charAt(0).toUpperCase() + face.slice(1)).join(", "),
-                        },
-                      )}
+                      {savedFacesStatus}
                     </p>
                   )}
                   <div className="space-y-2.5">
