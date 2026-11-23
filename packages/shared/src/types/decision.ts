@@ -194,6 +194,8 @@ export type DecisionUnavailableReason =
 export interface DecisionModelOption {
   id: string;
   label: string;
+  /** A local slot's model name on its own ("Liquid d1 3B"), without the slot's word; absent when unavailable. */
+  modelLabel?: string;
   group: "local" | "connection";
   slot: DecisionLocalSlot | null;
   selected: boolean;

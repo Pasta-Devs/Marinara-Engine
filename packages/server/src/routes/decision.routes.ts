@@ -123,6 +123,7 @@ function localOption(slot: DecisionLocalSlot, selectedId: string | null): Decisi
   const base: DecisionModelOption = {
     id,
     label: description.available ? `${SLOT_LABELS[slot]} — ${description.label}` : SLOT_LABELS[slot],
+    ...(description.available ? { modelLabel: description.label } : {}),
     group: "local",
     slot,
     selected: selectedId === id,

@@ -27,6 +27,7 @@ import {
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { JOB, jobLabelKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
+import { builtInNamed } from "../../lib/connection-filters";
 import { useUIStore } from "../../stores/ui.store";
 import { Spinner } from "../ui/Spinner";
 import {
@@ -75,10 +76,12 @@ export function useBuiltinEmbeddingOption(current?: string | null): ConnectionEx
   if (!data?.supported || (!active && current !== BUILTIN_EMBEDDING_CONNECTION_ID)) return null;
   return {
     value: BUILTIN_EMBEDDING_CONNECTION_ID,
-    label: t("connections.builtinEmbedding.name"),
+    // Like the built-in model's row beside it: "Built-in model", its model's name on line 2; one line in Now.
+    label: active ? t("connections.add.device.builtIn") : t("connections.builtinEmbedding.name"),
     subtitle: active
       ? `${active.label} · ${t("connections.accounts.section.device")}`
       : t("connections.device.state.notDownloaded"),
+    nowLabel: builtInNamed(t, active?.label, t("connections.builtinEmbedding.name")),
     icon: <ProviderIcon provider="builtin-embedding" size="sm" />,
   };
 }

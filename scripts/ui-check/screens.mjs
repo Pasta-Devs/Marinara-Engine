@@ -363,6 +363,17 @@ export function screenList(ids) {
         await page.getByRole("textbox", { name: "Instructions", exact: true }).waitFor();
       },
     },
+    {
+      // Dictation's Defaults tile opens its settings page (it once did nothing: it has no Model to pick).
+      id: "dictation-settings",
+      run: open.library("connections"),
+      then: async (page) => {
+        const tile = page.locator(".ov-conn-defaults__cell", { hasText: "Dictation" }).first();
+        await tile.scrollIntoViewIfNeeded();
+        await tile.click({ timeout: 10_000 });
+        await page.locator('[data-component="JobSettingsPage"][data-job="stt"]').waitFor({ timeout: 10_000 });
+      },
+    },
     // Library > Settings profiles > Image settings, one screen per section (phones: that section's page).
     ...["defaults", "styles", "canvases", "prompts"].map((tab) => ({
       id: `image-settings-${tab}`,

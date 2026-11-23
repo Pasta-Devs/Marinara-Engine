@@ -9,7 +9,8 @@ import { LOCAL_SIDECAR_CONNECTION_ID, type ConnectionPickerKind } from "@marinar
 import { useConnections } from "../../hooks/use-connections";
 import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { groupModelsByAccount, viaName, type ConnectionModelRow } from "../../lib/connection-groups";
-import { isConnectionFlagTrue } from "../../lib/connection-filters";
+import { builtInNamed, isConnectionFlagTrue } from "../../lib/connection-filters";
+import { useSidecarStore } from "../../stores/sidecar.store";
 import { FLAG_JOBS, matchesKind } from "../../lib/connection-jobs";
 import type { JobKey } from "../../lib/connection-jobs";
 import { cn } from "../../lib/utils";
@@ -53,7 +54,14 @@ export const inheritLabel = (
  * current value. ConnectionSelect and ConnectionPicker share it.
  */
 /** A value that is not a saved Model (such as "random" or an on-device engine); the picker may show a line 2 and an icon. */
-export type ConnectionExtraOption = { value: string; label: string; subtitle?: string; icon?: ReactNode };
+export type ConnectionExtraOption = {
+  value: string;
+  label: string;
+  subtitle?: string;
+  /** One line where label and subtitle are not shown together (the Now strip, the field). */
+  nowLabel?: string;
+  icon?: ReactNode;
+};
 
 export function useConnectionChoices({
   kind,
@@ -150,14 +158,15 @@ export function useConnectionChoices({
   const extra = extraOptions.find((option) => option.value === value);
   const row = value ? view.rows.find((candidate) => candidate.id === value) : undefined;
   const isLocal = local && value === LOCAL_SIDECAR_CONNECTION_ID;
+  const localName = useSidecarStore((s) => (s.modelDownloaded ? s.modelDisplayName : null));
   const missing = !!value && !isLocal && !extra && !row;
   const rowState = row ? stateOf(row) : undefined;
   const current = !value
     ? { label: defaultText, hint: "" }
     : isLocal
-      ? { label: t("connections.select.localModel"), hint: "" }
+      ? { label: builtInNamed(t, localName, t("connections.select.localModel")), hint: "" }
       : extra
-        ? { label: extra.label, hint: "" }
+        ? { label: extra.nowLabel ?? extra.label, hint: "" }
         : row
           ? {
               row,

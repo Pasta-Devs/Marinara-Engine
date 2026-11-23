@@ -128,6 +128,8 @@ function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[
   const click = (tile: DefaultsTile) => {
     if (tile.setup?.item) return openAddConnection({ category: "device", item: tile.setup.item });
     if (tile.device) return openAddConnection({ category: "device", item: tile.device });
+    // Dictation has no Model to pick: its cell opens its settings page (microphone, Calls' dictation model).
+    if (JOB[tile.key].device) return useUIStore.getState().openModal("job-settings", { job: tile.key });
     setPicking(tile.key);
   };
   return (

@@ -34,6 +34,8 @@ import { isDecisionCatalogModel } from "../../lib/connection-model-selection";
 import { NATIVE_DECISION_SOURCE, type ServiceId } from "../modals/create-connection/shared";
 import { ConnectionSwitcherBody, ROW_CLASS } from "./ConnectionSwitcherBody";
 import { useUIStore } from "../../stores/ui.store";
+import { useSidecarStore } from "../../stores/sidecar.store";
+import { builtInNamed } from "../../lib/connection-filters";
 import { SlidersHorizontal } from "lucide-react";
 import { Tabs } from "../ui/Tabs";
 import { ProviderIcon } from "./ProviderIcon";
@@ -524,6 +526,7 @@ export function ModelPicker({
 }: Omit<PickerProps, "header"> & { fallback?: { value: string | null; onChange: (value: string | null) => void } }) {
   const { t } = useTranslation();
   const { data: rows } = useConnections();
+  const localName = useSidecarStore((s) => (s.modelDownloaded ? s.modelDisplayName : null));
   const [slot, setSlot] = useState<"model" | "fallback">("model");
   useEffect(() => {
     if (!props.open) setSlot("model");
@@ -531,7 +534,7 @@ export function ModelPicker({
   if (!fallback) return <ModelPickerSlot {...props} />;
   const nameOf = (id: string | null, empty: string) => {
     if (!id) return empty;
-    if (id === LOCAL_SIDECAR_CONNECTION_ID) return t("connections.select.localModel");
+    if (id === LOCAL_SIDECAR_CONNECTION_ID) return builtInNamed(t, localName, t("connections.select.localModel"));
     const row = (rows as Array<{ id: string; name?: string | null; model?: string | null }> | undefined)?.find(
       (item) => item.id === id,
     );

@@ -106,11 +106,34 @@ export function matchesAudioGenerationConnectionId(
   return !!id && (connection.id === id || connection.audioGenerationLegacyConnectionId === id);
 }
 
+/**
+ * A built-in model's name as people read it: a downloaded GGUF's file name without the download folder it was
+ * flattened from ("unsloth__gemma-4-E4B-it-GGUF__") and without ".gguf", so "gemma-4-E4B-it-Q8_0" is what
+ * fits a cell. Names that are already labels ("Liquid d1 3B") come back as they are.
+ */
+export function builtInModelName(name: string | null | undefined): string | null {
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+  const file = trimmed.replace(/\.gguf$/i, "");
+  return file.split("__").pop()?.trim() || file;
+}
+
+/** One line for a built-in model: "Built-in model · Kokoro-82M", or `fallback` while it has no name yet. */
+export function builtInNamed(
+  t: (key: string, values?: Record<string, string>) => string,
+  name: string | null | undefined,
+  fallback: string,
+): string {
+  const shown = builtInModelName(name);
+  return shown ? t("connections.builtInNamed", { name: shown }) : fallback;
+}
+
 export function createLocalSidecarConnectionOption(modelDisplayName?: string | null): LocalSidecarConnectionOption {
   const model = modelDisplayName?.trim() || "local-sidecar";
+  const shown = builtInModelName(modelDisplayName);
   return {
     id: LOCAL_SIDECAR_CONNECTION_ID,
-    name: modelDisplayName?.trim() ? `Built-in model (${modelDisplayName.trim()})` : "Built-in model",
+    name: shown ? `Built-in model (${shown})` : "Built-in model",
     model,
     provider: "local_sidecar",
     isLocalSidecar: true,

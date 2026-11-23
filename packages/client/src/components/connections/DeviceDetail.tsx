@@ -46,6 +46,7 @@ import { ProviderIcon } from "./ProviderIcon";
 import { closeIfClean, DictationSettings, VoiceJobSettings } from "./ConnectionDefaults";
 import { ImageReadingSettings } from "./ImageReadingSettings";
 import { Modal } from "../ui/Modal";
+import { builtInModelName } from "../../lib/connection-filters";
 import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
 
@@ -191,6 +192,7 @@ export function useDeviceEngines(): DeviceEngine[] {
   const quantization = useSidecarStore((s) => s.config.quantization);
   const speechDownloaded = useSidecarStore((s) => s.speechModelDownloaded);
   const speechModels = useSidecarStore((s) => s.speechModels);
+  const speechModelName = useSidecarStore((s) => s.speechModelDisplayName);
   const speechDownloading = useSidecarStore((s) => s.speechDownloadProgress?.status === "downloading");
   const { data: tts } = useTTSConfig();
   const builtinTts = useBuiltinTtsState();
@@ -203,7 +205,9 @@ export function useDeviceEngines(): DeviceEngine[] {
   const engines: DeviceEngine[] = [];
   if (setup["local-model"].available) {
     const sidecar = useSidecarStore.getState();
-    const model = [modelDisplayName, quantization ? QUANT_LABEL[quantization] : null].filter(Boolean).join(" ");
+    const model = [builtInModelName(modelDisplayName), quantization ? QUANT_LABEL[quantization] : null]
+      .filter(Boolean)
+      .join(" ");
     const base = { item: "local-model" as const, name: t("connections.add.device.local_model"), detail: model };
     if (status === "server_error" || startupError) {
       engines.push({
@@ -255,7 +259,8 @@ export function useDeviceEngines(): DeviceEngine[] {
     engines.push({
       item: "stt",
       name: t("connections.builtinDictation.name"),
-      detail: "Whisper",
+      // The downloaded Whisper model's name, like the other rows; "Whisper" until one is downloaded.
+      detail: speechModelName ?? "Whisper",
       ...(speechDownloaded
         ? { tone: "ok" as const, state: t("connections.device.whisper.ready") }
         : speechDownloading

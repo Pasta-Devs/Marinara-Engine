@@ -3,7 +3,7 @@
 // its "If it fails" Model when set. A row opens the job's one picker (Model and If it fails). A job with a
 // problem shows it as a chip on its row. Agents and Decision keep their other settings behind a gear.
 // ──────────────────────────────────────────────
-import { lazy, Suspense, useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Shuffle, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -43,7 +43,12 @@ import { isOverhaulLook } from "../../stores/overhaul.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { i18n } from "../../localization/i18n";
 import { openAddConnection, type SetupItem } from "../../lib/add-connection";
-import { createLocalSidecarConnectionOption, isConnectionFlagTrue } from "../../lib/connection-filters";
+import {
+  builtInModelName,
+  builtInNamed,
+  createLocalSidecarConnectionOption,
+  isConnectionFlagTrue,
+} from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { SpeechToTextCard } from "../panels/settings/SpeechToTextCard";
@@ -137,6 +142,8 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const builtinEmbedding = useBuiltinEmbedding();
   const builtinEmbeddingActive =
     builtinEmbedding.data?.models.find((model) => model.id === builtinEmbedding.data?.activeModelId) ?? null;
+  const builtinTts = useBuiltinTts();
+  const builtinTtsActive = builtinTts.data?.models.find((model) => model.id === builtinTts.data?.activeModelId) ?? null;
   const decisionOptions = useDecisionOptions();
   const deviceSetup = useDeviceSetup();
   const { data: tts } = useTTSConfig();
@@ -148,8 +155,17 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   const mainIsBuiltIn = useSidecarStore((s) => s.config.useAsMainDefault);
   const sidecarRow: ConnectionRowData = createLocalSidecarConnectionOption(sidecarModelDisplayName);
   const sidecarName = sidecarRow.name;
+  /**
+   * Every built-in model reads the same way, like an account's Model: "Built-in model" muted where the account
+   * name goes, then the model's own name ("Built-in model · Kokoro-82M"). With no name yet, just "Built-in model".
+   */
+  const builtInWord = t("connections.add.device.builtIn");
+  const builtIn = (name: string | null | undefined) => {
+    const shown = builtInModelName(name);
+    return shown ? { value: shown, hint: builtInWord } : { value: builtInWord };
+  };
   /** The built-in model as a Model of its own, so its row has a picture and a name like any other. */
-  const sidecarModel = { value: sidecarName, source: sidecarRow };
+  const sidecarModel = { ...builtIn(sidecarModelDisplayName), source: sidecarRow };
   // A job that points at the built-in model before it is downloaded shows the same fix as the Decision row.
   const builtInDownloaded = useSidecarStore((s) => s.modelDownloaded);
   const builtInWarning = builtInDownloaded
@@ -272,6 +288,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
     }
     // With no Audio connection, text to speech reads with a built-in source.
     if (role.key === "voice" && tts?.enabled) {
+      if (tts.source === "builtin") return { ...tile, ...builtIn(builtinTtsActive?.label) };
       return { ...tile, value: t(`connections.device.ttsSource.${tts.source}`), hint: t("connections.add.device.tts") };
     }
     // Agents follow the chat's model; a new chat uses Main.
@@ -305,8 +322,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   else if (embeddingId === BUILTIN_EMBEDDING_CONNECTION_ID) {
     const name = t("connections.builtinEmbedding.name");
     Object.assign(embeddings, {
-      // The model's own name says enough; "Built-in model (embeddings)" before it would push it out of the cell.
-      value: builtinEmbeddingActive?.label ?? name,
+      ...builtIn(builtinEmbeddingActive?.label),
       source: { id: BUILTIN_EMBEDDING_CONNECTION_ID, name, provider: "builtin-embedding" } as ConnectionRowData,
       muted: false,
       warning: builtinEmbeddingActive
@@ -360,7 +376,10 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
       ? { ...describe(decisionRow), value: decisionSelected!.label }
       : decisionSelected
         ? {
-            value: decisionSelected.label,
+            // A built-in slot reads like the other built-in models; the slot's own word stays in the picker.
+            ...(decisionSelected.group === "local" && decisionSelected.modelLabel
+              ? builtIn(decisionSelected.modelLabel)
+              : { value: decisionSelected.label }),
             source: { ...sidecarRow, id: decisionSelected.id, name: decisionSelected.label },
           }
         : { value: t("connections.defaults.off"), muted: true }),
@@ -533,6 +552,7 @@ export function useJobModels(connectionsList: ConnectionRowData[]) {
   const { data: tts } = useTTSConfig();
   const builtinTts = useBuiltinTts();
   const followVoiceJob = useFollowVoiceJob();
+  const builtinTtsLabel = builtinTts.data?.models.find((model) => model.id === builtinTts.data?.activeModelId)?.label;
   const updateConnection = useUpdateConnection();
   const sidecarAsAgentsDefault = useSidecarStore((s) => s.config.useAsAgentsDefault);
   const mainIsBuiltIn = useSidecarStore((s) => s.config.useAsMainDefault);
@@ -661,7 +681,11 @@ export function useJobModels(connectionsList: ConnectionRowData[]) {
       extraOptions: isVoice
         ? sources.map((source) => ({
             value: `${DEVICE_VOICE}${source}`,
-            label: t("connections.defaults.onThisDevice", { name: t(`connections.device.ttsSource.${source}`) }),
+            // The built-in voice model names its model, as every built-in model does.
+            label:
+              source === "builtin" && builtinTtsLabel
+                ? builtInNamed(t, builtinTtsLabel, "")
+                : t("connections.defaults.onThisDevice", { name: t(`connections.device.ttsSource.${source}`) }),
           }))
         : [],
       includeLocalSidecar: (isAgents || isMain) && !lite,
@@ -768,13 +792,28 @@ export function DictationSettings() {
   const speechToTextEnabled = useUIStore((s) => s.speechToTextEnabled);
   const setSpeechToTextEnabled = useUIStore((s) => s.setSpeechToTextEnabled);
   const callsInstalled = useDeviceSetup().stt.available;
+  const lite = import.meta.env.VITE_MARINARA_LITE === "true";
   return (
     <>
       <ToggleSetting
         label={t("settings.controls.speechToText.label")}
+        help={t("settings.controls.speechToText.help")}
         checked={speechToTextEnabled}
         onChange={setSpeechToTextEnabled}
       />
+      {/* Without Calls there is no built-in dictation model to set up: say so and where it comes from. */}
+      {!callsInstalled && !lite && (
+        <JobSettingsSection title={t("connections.builtinDictation.name")}>
+          <p className="text-xs text-[var(--muted-foreground)]">{t("connections.builtinDictation.needsCalls")}</p>
+          <button
+            type="button"
+            className={`${SMALL_ACTION} self-start`}
+            onClick={() => useUIStore.getState().openAgentCatalog("conversation-calls")}
+          >
+            {t("connections.builtinDictation.installCalls")}
+          </button>
+        </JobSettingsSection>
+      )}
       {/* ponytail: the speech-to-text server keeps its own address and key here; an account for it comes in S4. */}
       {callsInstalled && <SpeechToTextCard inDictation />}
       {/* The same Local Whisper card as the This device page, so Dictation can download its model here. */}
@@ -1045,6 +1084,14 @@ export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => voi
   const connectionsList = (useConnections().data ?? []) as ConnectionRowData[];
   const model = useJobModels(connectionsList)(job);
   const close = (open: boolean) => !open && onClose();
+  // Dictation has no Model to pick: asking for its picker opens its settings, so the click never does nothing.
+  const device = !!job.device;
+  useEffect(() => {
+    if (!device) return;
+    onClose();
+    useUIStore.getState().openModal("job-settings", { job: job.key });
+  }, [device, job.key, onClose]);
+  if (device) return null;
   // These two choose through their own controls (local slots, the embedding default), not a Model list.
   if (job.key === "embeddings") return <EmbeddingDefaultControl open onOpenChange={close} />;
   if (job.key === "decision") return <DecisionDefaultControl open onOpenChange={close} />;

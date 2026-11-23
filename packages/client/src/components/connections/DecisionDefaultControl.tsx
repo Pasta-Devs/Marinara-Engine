@@ -19,6 +19,7 @@ import {
 import { useTestConnection } from "../../hooks/use-connections";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { openAddConnection } from "../../lib/add-connection";
+import { builtInNamed } from "../../lib/connection-filters";
 import { useUIStore } from "../../stores/ui.store";
 import { ConnectionSelect } from "./ConnectionSelect";
 import { Checkbox } from "../ui/Checkbox";
@@ -34,6 +35,13 @@ export function decisionUnavailableReason(t: TFunction, entry: DecisionModelOpti
     : "";
 }
 
+/** A ready built-in slot reads like every built-in model ("Built-in model · Liquid d1 3B"); others keep theirs. */
+export function decisionEntryLabel(t: TFunction, entry: DecisionModelOption) {
+  return entry.group === "local" && !entry.unavailable && entry.modelLabel
+    ? builtInNamed(t, entry.modelLabel, entry.label)
+    : entry.label;
+}
+
 /**
  * One row of a Decision model Select, also used by Advanced Memory's own choice: an unavailable
  * entry is greyed out with its reason as the second line.
@@ -41,7 +49,7 @@ export function decisionUnavailableReason(t: TFunction, entry: DecisionModelOpti
 export function decisionModelOption(t: TFunction, entry: DecisionModelOption) {
   return {
     value: entry.id,
-    label: entry.label,
+    label: decisionEntryLabel(t, entry),
     disabledReason: entry.unavailable ? decisionUnavailableReason(t, entry) : undefined,
   };
 }
@@ -166,7 +174,7 @@ export function DecisionDefaultControl({
         defaultLabel={t("connections.decision.none")}
         extraOptions={locals
           .filter((entry) => !entry.unavailable)
-          .map((entry) => ({ value: entry.id, label: entry.label }))}
+          .map((entry) => ({ value: entry.id, label: decisionEntryLabel(t, entry) }))}
         disabled={busy || options.isPending}
         title={t("connections.decision.defaultLabel")}
       />

@@ -36,7 +36,8 @@ export function useBuiltinEmotionState(): { name: string; tone: EngineTone; stat
   const { data } = useAvatarEmotionModelStatus();
   if (!data || data.unsupported === "lite") return null;
   const name = t("connections.builtinEmotion.name");
-  const detail = t("connections.builtinEmotion.short");
+  // The model's own name, like every other row under On this device (its purpose is on its page).
+  const detail = MODEL_LABEL;
   if (data.unsupported) return { name, tone: "off", detail, state: t("connections.builtinEmotion.state.wordsOnly") };
   switch (data.state) {
     case "downloading": {

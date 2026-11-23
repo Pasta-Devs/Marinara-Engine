@@ -62,6 +62,7 @@ import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useConnectionFolders } from "../../hooks/use-connection-folders";
 import {
+  builtInModelName,
   filterLanguageGenerationConnections,
   isConnectionFlagTrue,
   resolveUsageConnection,
@@ -353,7 +354,7 @@ export function useEffectiveChatModel(chatId: string | null): EffectiveChatModel
     if (connectionId === LOCAL_SIDECAR_CONNECTION_ID) {
       return {
         kind: "local",
-        title: localName || t("connections.switcher.localModel"),
+        title: builtInModelName(localName) || t("connections.switcher.localModel"),
         followsMain,
         unavailable: null,
       };
@@ -487,6 +488,8 @@ export function ConnectionSwitcherBody({
     label: string;
     /** Line 2: where the value lives, such as the account of a saved Model (#9317). */
     subtitle?: string;
+    /** One line for the Now strip when label and subtitle split a name in the list ("Built-in model · Qwen3"). */
+    nowLabel?: string;
     icon?: ReactNode;
     active: boolean;
     onSelect: () => Promise<void>;
@@ -866,10 +869,13 @@ export function ConnectionSwitcherBody({
 
   // Now: what the host runs, or the Main model it follows. Pressing it keeps that state.
   const builtInReady = useSidecarStore((state) => state.modelDownloaded);
+  const builtInName = useSidecarStore((state) => builtInModelName(state.modelDisplayName));
   const localEntry: Entry = {
     key: LOCAL_SIDECAR_CONNECTION_ID,
     title: t("connections.switcher.localModel"),
-    subtitle: localModelHint ?? (builtInReady ? undefined : t("connections.builtin.notDownloadedSetUp")),
+    // The model's own name on line 2, as On this device shows it.
+    subtitle:
+      localModelHint ?? (builtInReady ? (builtInName ?? undefined) : t("connections.builtin.notDownloadedSetUp")),
     choice: { connectionId: LOCAL_SIDECAR_CONNECTION_ID },
   };
   const nowEntry: Entry | null =
@@ -1866,7 +1872,8 @@ export function ConnectionSwitcherBody({
               <p className="truncate px-3 py-2 text-xs font-medium">
                 {shuffle?.active
                   ? t("connections.switcher.shuffle")
-                  : (activeExtra?.label ??
+                  : (activeExtra?.nowLabel ??
+                    activeExtra?.label ??
                     (followDefault?.active
                       ? (followDefault.label ?? t("connections.switcher.followMain"))
                       : t("connections.switcher.chooseModel")))}
