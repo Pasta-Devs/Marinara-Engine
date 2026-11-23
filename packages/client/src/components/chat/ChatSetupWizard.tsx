@@ -872,6 +872,15 @@ function ConversationQuickSetup({
   defaultsAction,
 }: WizardWithDefaultsProps) {
   const { t: localizeUi } = useUiTranslation();
+  const finishTimerRef = useRef<number | null>(null);
+  // The delayed finish after the schedule step belongs to this chat's setup: leaving first cancels it, so it never
+  // closes or acts on the chat that is open by then.
+  useEffect(
+    () => () => {
+      if (finishTimerRef.current !== null) window.clearTimeout(finishTimerRef.current);
+    },
+    [],
+  );
   const [step, setStep] = useState(0);
   const currentStep = CONVERSATION_STEPS[step]!;
   const isLast = step === CONVERSATION_STEPS.length - 1;
@@ -1273,7 +1282,10 @@ function ConversationQuickSetup({
         // Schedule generation is non-critical — continue anyway
       }
       setScheduleState("done");
-      setTimeout(onFinish, 2000);
+      finishTimerRef.current = window.setTimeout(() => {
+        finishTimerRef.current = null;
+        onFinish();
+      }, 2000);
     } else {
       onFinish();
     }
