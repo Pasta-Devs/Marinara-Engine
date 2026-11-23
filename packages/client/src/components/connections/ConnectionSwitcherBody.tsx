@@ -86,6 +86,7 @@ import { SearchInput } from "../ui/SearchInput";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
+import { FamilyChips, familyFilterOf } from "./FamilyChips";
 import { reorderStars, starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
 
@@ -440,6 +441,7 @@ export function ConnectionSwitcherBody({
   className,
   listClassName,
   catalogBrowse = true,
+  searchAtBottom = false,
   showUnstarred = false,
   kind = "chat",
   rowFilter,
@@ -540,6 +542,8 @@ export function ConnectionSwitcherBody({
   autoFocusSearch?: boolean;
   className?: string;
   listClassName?: string;
+  /** Phones: the search box sits under the list, within reach of a thumb (the list keeps the top). */
+  searchAtBottom?: boolean;
   /** False skips catalog search and Browse (Quick Switcher's connection-only mode). */
   catalogBrowse?: boolean;
   /** Job pickers also list provider models below the stars in the initial pane. */
@@ -574,6 +578,9 @@ export function ConnectionSwitcherBody({
   const [pane, setPane] = useState<string | null>(null);
   /** One-pane hosts (phone, Chat Settings) show the right pane; Back shows the account list. */
   const [drilled, setDrilled] = useState(true);
+  // The family chip over the open account's catalog (Claude, DeepSeek …); another account starts on All.
+  const [family, setFamily] = useState<string | null>(null);
+  useEffect(() => setFamily(null), [pane]);
   const searchRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -987,7 +994,9 @@ export function ConnectionSwitcherBody({
     const lead = fromCatalog.filter(
       (entry) => !!entry.model && leads(group, entry.model, catalogOf(group)?.of(entry.model)),
     );
-    return { starred, lead, rest: [...saved, ...fromCatalog.filter((entry) => !lead.includes(entry))] };
+    const catalogRest = fromCatalog.filter((entry) => !lead.includes(entry));
+    // `saved` and `catalogRest` split `rest` for the pane: your saved Models above the family chips, the catalog under them.
+    return { starred, lead, rest: [...saved, ...catalogRest], saved, catalogRest };
   };
 
   // Search (decision 27): saved Models first (starred, then the rest), then catalog models not saved yet, each
@@ -1626,6 +1635,10 @@ export function ConnectionSwitcherBody({
   const paneFolder = folderPanes.find((item) => item.key === paneKey);
   const shownGroup = paneFolder ? undefined : paneGroup;
   const shownEntries = shownGroup ? paneEntries(shownGroup) : null;
+  const paneFamilies = familyFilterOf(
+    (shownEntries?.catalogRest ?? []).map((entry) => entry.model ?? ""),
+    family,
+  );
   const restLabel =
     leadCatalog && shownEntries?.lead.length ? leadCatalog.restLabel : t("connections.switcher.allModels");
   const paneTitle = (title: ReactNode, summary: string) => (
@@ -1735,6 +1748,12 @@ export function ConnectionSwitcherBody({
                 )}
               </section>
             )}
+            {shownEntries.saved.length > 0 && (
+              <section data-switcher-section="saved" aria-label={t("connections.switcher.yourModels")}>
+                {heading(t("connections.switcher.yourModels"), shownEntries.saved.length)}
+                {shownEntries.saved.map((entry) => renderEntry(entry, { star: "all" }))}
+              </section>
+            )}
             {leadCatalog && shownEntries.lead.length > 0 && (
               <section data-switcher-section="lead" aria-label={leadCatalog.label}>
                 {heading(leadCatalog.label, shownEntries.lead.length)}
@@ -1745,12 +1764,23 @@ export function ConnectionSwitcherBody({
                 />
               </section>
             )}
-            {shownEntries.rest.length > 0 && (
+            {shownEntries.catalogRest.length > 0 && (
               <section data-switcher-section="all" aria-label={restLabel}>
-                {heading(restLabel, shownEntries.rest.length)}
+                {heading(restLabel, shownEntries.catalogRest.length)}
+                <FamilyChips
+                  className="px-2 pb-1.5 pt-0.5"
+                  families={paneFamilies.families}
+                  active={paneFamilies.active}
+                  total={shownEntries.catalogRest.length}
+                  onChange={setFamily}
+                />
                 <EntryRows
-                  listKey={`rest:${paneKey}`}
-                  entries={shownEntries.rest}
+                  listKey={`rest:${paneKey}:${paneFamilies.active ?? "all"}`}
+                  entries={
+                    paneFamilies.active
+                      ? shownEntries.catalogRest.filter((entry) => paneFamilies.matches(entry.model ?? ""))
+                      : shownEntries.catalogRest
+                  }
                   render={(entry) => renderEntry(entry, { star: "all" })}
                 />
               </section>
@@ -1942,7 +1972,7 @@ export function ConnectionSwitcherBody({
       className={cn("mari-connection-scope @container flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", className)}
     >
       {nowStrip}
-      {listsReady && !shuffle?.active && !nothing && searchBox}
+      {listsReady && !shuffle?.active && !nothing && !searchAtBottom && searchBox}
       {!listsReady ? (
         listsFailed ? (
           <div role="alert" className="flex flex-col items-center gap-2 border-t border-foreground/10 px-3 py-3">
@@ -1986,6 +2016,11 @@ export function ConnectionSwitcherBody({
         </div>
       )}
       {listFooter}
+      {listsReady && !shuffle?.active && !nothing && searchAtBottom && (
+        <div className="shrink-0 border-t border-foreground/10" data-switcher-search-bottom>
+          {searchBox}
+        </div>
+      )}
     </div>
   );
 }

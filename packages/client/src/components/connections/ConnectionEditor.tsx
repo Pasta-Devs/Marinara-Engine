@@ -3375,50 +3375,6 @@ export function ConnectionEditor({
             </button>
           ))}
 
-        {/* ── Own address: another path on the Connection's server, for this Model only ── */}
-        {canOwnAddress &&
-          (ownAddressOpen ? (
-            <FieldGroup label={t("connections.ownAddress.label")} help={t("connections.ownAddress.help")}>
-              <input
-                data-own-address
-                value={localModelBaseUrl}
-                onChange={(e) => {
-                  setLocalModelBaseUrl(e.target.value);
-                  markDirty();
-                }}
-                spellCheck={false}
-                autoCapitalize="off"
-                autoCorrect="off"
-                inputMode="url"
-                className={cn(
-                  "mari-chrome-field h-11 w-full px-3 font-mono text-xs max-sm:text-base md:h-9",
-                  modelBaseUrlValidation.error ? "border-[var(--destructive)]" : undefined,
-                )}
-                placeholder={accountAddress}
-              />
-              {modelBaseUrlValidation.error ? (
-                <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{modelBaseUrlValidation.error}</p>
-              ) : modelBaseUrlValidation.value && modelBaseUrlValidation.value !== localModelBaseUrl.trim() ? (
-                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("ui.connections.connectioneditor.willSaveAs")} {modelBaseUrlValidation.value}
-                </p>
-              ) : null}
-              <p className="mt-1 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
-                {t("connections.ownAddress.hint", { address: accountAddress })}
-              </p>
-            </FieldGroup>
-          ) : (
-            <button
-              type="button"
-              data-own-address-add
-              onClick={() => setOwnAddressOpen(true)}
-              className="flex min-h-11 items-center gap-1.5 rounded-lg text-xs font-semibold text-[var(--marinara-chat-chrome-accent,var(--foreground))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] md:min-h-8"
-            >
-              <Plus size="0.875rem" aria-hidden />
-              {t("connections.ownAddress.add")}
-            </button>
-          ))}
-
         {/* ── Image Service (only for image_generation provider) ── */}
         {!accountLinked && localProvider === "image_generation" && (
           <FieldGroup label={localizeUi("ui.connections.connectioneditor.service")}>

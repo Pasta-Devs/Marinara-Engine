@@ -30,6 +30,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
+import { readChatModelOverride } from "@marinara-engine/shared";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
@@ -328,7 +329,9 @@ export function ChatSettingsSummary({ chat, fallback }: { chat: Chat; fallback: 
   const connection = chat.connectionId
     ? list.find((item) => item.id === chat.connectionId)
     : list.find((item) => isConnectionFlagTrue(item.isDefault));
-  const parts = [fallback, nameOf(connection)].filter(Boolean);
+  // A tried model (one the chat runs without saving it) is named itself, not the saved Model it runs through.
+  const override = chat.connectionId ? readChatModelOverride(chat) : null;
+  const parts = [fallback, override ? (override.name ?? override.model) : nameOf(connection)].filter(Boolean);
   return <small>{parts.join(" · ")}</small>;
 }
 

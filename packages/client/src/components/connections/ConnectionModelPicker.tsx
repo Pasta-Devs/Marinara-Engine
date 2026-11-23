@@ -51,6 +51,7 @@ import { knownPrefixName, subgroupByUpstream, upstreamOf } from "../../lib/conne
 import { BrandMark, ProviderIcon } from "./ProviderIcon";
 import { ListFrame, ListHeading, ListStatus } from "./ListFrame";
 import { SearchInput } from "../ui/SearchInput";
+import { FamilyChips, familyFilterOf } from "./FamilyChips";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { CostBadge, costBadgeShows } from "./CostBadge";
 import { cn } from "../../lib/utils";
@@ -200,6 +201,7 @@ export function ConnectionModelPicker({
   const [search, setSearch] = useState("");
   const [upstream, setUpstream] = useState<string | null>(null);
   const [costFilter, setCostFilter] = useState<CostFilter | null>(null);
+  const [family, setFamily] = useState<string | null>(null);
   const [sort, setSort] = useState<ModelSort>("list");
   const deferredSearch = useDeferredValue(search);
   const [shownRows, setShownRows] = useState(ROW_BATCH);
@@ -333,9 +335,19 @@ export function ConnectionModelPicker({
   useEffect(() => {
     if (costFilter && !costKinds.includes(costFilter)) setCostFilter(null);
   }, [costFilter, costKinds]);
+  // Family chips (Claude, DeepSeek …) for long lists whose ids carry no vendor path ("[SP]claude-…"); a list with
+  // vendor chips keeps those instead, so there is one chip row.
+  const listedIds = useMemo(() => listed.map((row) => row.id), [listed]);
+  const families = useMemo(
+    () => (upstreams.length > 1 ? familyFilterOf([], null) : familyFilterOf(listedIds, family)),
+    [family, listedIds, upstreams.length],
+  );
   const inFilter = (row: PickerRow) =>
-    listable(row) && (!upstream || upstreamOf(row.id) === upstream) && (!costFilter || costKind(row) === costFilter);
-  const filtering = !!upstream || !!costFilter;
+    listable(row) &&
+    (!upstream || upstreamOf(row.id) === upstream) &&
+    (!costFilter || costKind(row) === costFilter) &&
+    families.matches(row.id);
+  const filtering = !!upstream || !!costFilter || !!families.active;
 
   const { pinnedAll, othersAll, recommendedAll } = useMemo(() => {
     const pinnedSet = new Set(pinnedIds);
@@ -367,10 +379,10 @@ export function ConnectionModelPicker({
       otherRows: filteredOthers.slice(0, Math.min(shownRows, MAX_LISTED_MODELS)),
       totalOther: filteredOthers.length,
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only `only`, upstream and costFilter
-  }, [costFilter, deferredSearch, only, othersAll, pinnedAll, recommendedAll, shownRows, sort, upstream]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- inFilter reads only `only`, upstream, costFilter and families
+  }, [costFilter, deferredSearch, families, only, othersAll, pinnedAll, recommendedAll, shownRows, sort, upstream]);
   // A new search or filter starts again from the first batch.
-  useEffect(() => setShownRows(ROW_BATCH), [costFilter, deferredSearch, sort, upstream, connection.id]);
+  useEffect(() => setShownRows(ROW_BATCH), [costFilter, deferredSearch, family, sort, upstream, connection.id]);
 
   // What Enter does with the search text: an exact ID or name picks that model, a search with a single match
   // picks it, and only text that matches nothing is used as a model ID. Several matches wait for a choice.
@@ -787,6 +799,14 @@ export function ConnectionModelPicker({
                     ))}
                   </div>
                 )}
+
+                <FamilyChips
+                  className="px-3 pb-2"
+                  families={families.families}
+                  active={families.active}
+                  total={listedIds.length}
+                  onChange={setFamily}
+                />
 
                 {addMode && options.length > 1 && (
                   <div className="flex shrink-0 items-center gap-1 overflow-x-auto px-3 pb-2">

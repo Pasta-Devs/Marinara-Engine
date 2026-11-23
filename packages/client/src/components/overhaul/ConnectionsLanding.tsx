@@ -5,7 +5,7 @@
 // the account editor. Add account opens the add window anchored under its button.
 // ──────────────────────────────────────────────
 import { useMenuKeyboard } from "../../hooks/use-menu-keyboard";
-import { Fragment, useMemo, useState, type MouseEvent } from "react";
+import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import {
   BadgeCheck,
   ChevronDown,
@@ -19,6 +19,7 @@ import {
   Plus,
   Search,
   Shuffle,
+  SlidersHorizontal,
   Star,
   Trash2,
   Upload,
@@ -28,19 +29,19 @@ import { useTranslation, useTranslation as useUiTranslation } from "react-i18nex
 import { isChatProvider, parsePinnedModels, PROVIDERS, type APIProvider } from "@marinara-engine/shared";
 import type { ConnectionAccountListItem } from "@marinara-engine/shared";
 import { useConnections } from "../../hooks/use-connections";
-import { useConnectionAccounts, useConnectionBalance } from "../../hooks/use-connection-accounts";
+import { useConnectionAccounts } from "../../hooks/use-connection-accounts";
 import { starAnchorOf, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { groupModelsByAccount } from "../../lib/connection-groups";
 import { isLoadedModelRow } from "../../lib/connection-identity";
-import { JOB, type JobKey } from "../../lib/connection-jobs";
 import { useUIStore } from "../../stores/ui.store";
 import { useOverhaulMobile } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { ProviderIcon } from "../connections/ProviderIcon";
-import { balanceWord } from "../connections/ConnectionBalance";
 import { hostOf } from "../connections/ConnectionGroup";
-import { JobPickerWindow, useConnectionDefaults, type DefaultsTile } from "../connections/ConnectionDefaults";
+import { useConnectionDefaults } from "../connections/ConnectionDefaults";
+import { groupJobs, JOBS_PAGE_ID, listOfJobs, useJobTileClick } from "../connections/JobsPage";
+import { useModelLists } from "../../hooks/use-connections";
 import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import type { ConnectionRowData } from "../connections/ConnectionRow";
 import { builtInFirst, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
@@ -65,9 +66,9 @@ import { moveBlockedKey, moveTargetsFor } from "../connections/ConnectionGroup";
 import { useFolderChooser } from "../connections/ConnectionFolderGroup";
 import { MoveConnectionDialog } from "../connections/MoveConnectionDialog";
 import { useKitMenu, type KitAction } from "./LibraryKit";
+import { ACCOUNT_PREFIX } from "./LibraryViewers";
 
 type KindFilter = "all" | "chat" | "image" | "video" | "voice";
-type SortKey = "name" | "models" | "recent";
 
 function rowKind(row: ConnectionRowData): Exclude<KindFilter, "all"> {
   if (row.videoGenerationSource || row.provider === "video_generation") return "video";
@@ -105,113 +106,76 @@ function AccountStatus({ account }: { account: ConnectionAccountListItem }) {
   );
 }
 
-function AccountBalance({ account }: { account: ConnectionAccountListItem }) {
+/**
+ * The Main model line, in place of the 12-cell Defaults grid: which model writes the replies (and its "if it fails"
+ * model), then one sentence for every other job ("Everything else follows Main, except Images and Quick answers")
+ * with a link to the Jobs page.
+ */
+function MainLine({ connectionsList, onJobs }: { connectionsList: ConnectionRowData[]; onJobs: () => void }) {
   const { t, i18n } = useTranslation();
-  const localize = useLocalizedUiText();
-  const { data } = useConnectionBalance(account.id, account.state === "ok" && !!account.balanceSource);
-  const word = balanceWord(data?.balance, t, i18n.resolvedLanguage);
-  if (word) return <>{word}</>;
-  if (account.billing === "free") return <>{localize("Free")}</>;
-  if (account.billing === "plan") return <>{localize("Plan")}</>;
-  if (account.treatAsLocalEndpoint) return <>{localize("Self-hosted")}</>;
-  return <span className="ov-conn__dim">—</span>;
-}
-
-function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
-  const { t } = useTranslation();
-  const { t: localizeUi } = useUiTranslation();
-  const localize = useLocalizedUiText();
   const tiles = useConnectionDefaults(connectionsList);
-  const [open, setOpen] = useState(true);
-  const [picking, setPicking] = useState<JobKey | null>(null);
-  const problems = tiles.filter((tile) => tile.warning && !tile.warning.quiet).length;
-  const click = (tile: DefaultsTile) => {
-    if (tile.setup?.item) return openAddConnection({ category: "device", item: tile.setup.item });
-    if (tile.device) return openAddConnection({ category: "device", item: tile.device });
-    // Dictation has no Model to pick: its cell opens its settings page (microphone, Calls' dictation model).
-    if (JOB[tile.key].device) return useUIStore.getState().openModal("job-settings", { job: tile.key });
-    setPicking(tile.key);
-  };
+  const { main, own, problems } = groupJobs(tiles);
+  const { click, picker } = useJobTileClick();
+  if (!main) return null;
+  const unset = !!main.muted && !main.follows;
+  const warn = main.warning && !main.warning.quiet ? main.warning : null;
+  const sentence = own.length
+    ? t("connections.home.someOwn", {
+        jobs: listOfJobs(
+          own.map((tile) => tile.title),
+          i18n.resolvedLanguage,
+        ),
+      })
+    : t("connections.home.allFollow");
   return (
-    <section className="ov-conn-defaults" aria-labelledby="ov-conn-defaults-title">
-      <button
-        type="button"
-        className="ov-conn-defaults__head"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <ChevronDown size={13} className={cn(!open && "-rotate-90")} aria-hidden="true" />
-        <span id="ov-conn-defaults-title" className="ov-conn-defaults__title">
-          {localize("Defaults")}
+    <section className="ov-conn-main" aria-labelledby="ov-conn-main-title" data-conn-main>
+      <div className="ov-conn-main__row">
+        <span id="ov-conn-main-title" className="ov-conn-main__label">
+          {t("connections.home.mainModel")}
         </span>
-        <span className="ov-conn__dim">{localize("which model each job uses")}</span>
-        {problems > 0 ? (
-          <span className="ov-conn-defaults__warn">
-            {problems === 1
-              ? localize("1 needs attention")
-              : localizeUi("ui.chat.scheduletimeline.value1Value2", {
-                  value1: problems,
-                  value2: localize("need attention"),
-                })}
+        <button
+          type="button"
+          className={cn("ov-conn-main__pick", unset && "is-unset", warn && "is-warn")}
+          onClick={() => click(main)}
+          title={[t("connections.defaults.purpose.main"), warn?.text].filter(Boolean).join("\n")}
+        >
+          {main.source ? (
+            <ProviderIcon
+              provider={main.source.provider ?? ""}
+              baseUrl={main.source.baseUrl ?? undefined}
+              model={main.source.model ?? undefined}
+              size="sm"
+            />
+          ) : null}
+          <span className="ov-conn-main__model">{unset ? t("connections.home.chooseMain") : main.value}</span>
+          {main.hint && !unset ? <span className="ov-conn__dim">{main.hint}</span> : null}
+          <ChevronDown size={13} className="ov-conn__dim" aria-hidden="true" />
+        </button>
+        {main.fallback ? (
+          <span className="ov-conn__dim ov-conn-main__fallback">
+            {t("connections.home.ifFails", { model: main.fallback })}
           </span>
         ) : null}
-      </button>
-      {open ? (
-        <div className="ov-conn-defaults__grid">
-          {tiles.map((tile) => {
-            const unset = !!tile.muted && !tile.follows;
-            // What the job is for, in plain words: a tooltip with a mouse, a second line on touch screens.
-            const purpose = t(`connections.defaults.purpose.${tile.key}`);
-            // An optional step (a built-in model not downloaded yet) says so beside the name instead of only
-            // in the tooltip, so "Quick answers: Built-in model" never reads as ready when it is not.
-            const quiet = tile.warning?.quiet ? tile.warning : null;
-            return (
-              <button
-                key={tile.key}
-                type="button"
-                className="ov-conn-defaults__cell"
-                onClick={() => click(tile)}
-                title={[
-                  purpose,
-                  tile.warning?.text ?? [tile.follows, tile.value, tile.hint].filter(Boolean).join(" · "),
-                ].join("\n")}
-              >
-                <span className="ov-conn-defaults__job">
-                  {tile.title}
-                  <span className="ov-conn-defaults__purpose">{purpose}</span>
-                </span>
-                <span
-                  className={cn(
-                    "ov-conn-defaults__value",
-                    unset && "is-unset",
-                    tile.warning && !tile.warning.quiet && "is-warn",
-                  )}
-                >
-                  {tile.follows ? (
-                    tile.follows
-                  ) : (
-                    <>
-                      {tile.hint ? <span className="ov-conn__dim">{tile.hint} · </span> : null}
-                      {tile.value}
-                    </>
-                  )}
-                  {quiet?.short ? <span className="ov-conn__dim"> · {quiet.short}</span> : null}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      {picking ? <JobPickerWindow job={JOB[picking]} onClose={() => setPicking(null)} /> : null}
+      </div>
+      <p className="ov-conn-main__jobs">
+        <span>{sentence}</span>{" "}
+        <button type="button" className="ov-conn__link" onClick={onJobs} data-conn-jobs-link>
+          {t("connections.home.jobs")} ›
+        </button>
+        {problems > 0 ? (
+          <span className="ov-conn-main__warn"> · {t("connections.home.needsAttention", { count: problems })}</span>
+        ) : null}
+      </p>
+      {picker}
     </section>
   );
 }
 
 /**
- * On this device: the built-in model and the local voice engines. They are not accounts, so they get their
- * own group under the accounts; a row opens the engine's page, or its set-up window before it is set up.
+ * On this device: the built-in model and the local engines, as one card under the accounts. Engines that are set
+ * up (downloaded, or in use) show; the rest wait behind "N more on this device", so a fresh install shows one line.
  */
-function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
+function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
   const { t } = useTranslation();
   const localize = useLocalizedUiText();
   const setup = useDeviceSetup();
@@ -219,6 +183,7 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
   const usedBy = useLocalModelUsedBy();
   const decision = useDecisionEngine();
   const embedding = useBuiltinEmbeddingState();
+  const [showAll, setShowAll] = useState(false);
   // The engine list already carries the built-in model once it can run here (with its own Download), so the
   // set-up row only fills in when it is missing there.
   const builtInAvailable =
@@ -237,6 +202,7 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
         tone: engine.tone,
         state: engine.state,
         fix: engine.fix,
+        inUse: engine.item === "local-model" && usedBy.length > 0,
         open: () => onOpen(engine.item),
       })),
       ...(builtInAvailable
@@ -251,6 +217,7 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
                 label: t("connections.defaults.setUp"),
                 run: () => openAddConnection({ category: "device", item: "local-model" }),
               },
+              inUse: false,
               open: () => openAddConnection({ category: "device", item: "local-model" }),
             },
           ]
@@ -264,6 +231,7 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
               tone: decision.tone,
               state: decision.state,
               fix: undefined as { label: string; run: () => void } | undefined,
+              inUse: false,
               open: () => onOpen("decision" as DeviceItem),
             },
           ]
@@ -277,6 +245,7 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
               tone: embedding.tone,
               state: embedding.state,
               fix: undefined as { label: string; run: () => void } | undefined,
+              inUse: false,
               open: () => onOpen("embeddings" as DeviceItem),
             },
           ]
@@ -284,63 +253,82 @@ function DeviceRows({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
     ],
     (row) => row.item,
   );
+  // Grow as you add: a downloaded engine, or one a job uses, earns its row.
+  const ready = rows.filter((row) => row.tone !== "off" || row.inUse);
+  const more = rows.filter((row) => !ready.includes(row));
+  const shown = showAll ? rows : ready;
   return (
-    <>
-      <tr className="ov-conn__account is-open ov-conn__account--other">
-        <td className="ov-conn__lead" />
-        <td colSpan={6}>
+    <article className="ov-conn-card ov-conn-card--device" data-conn-device>
+      <header className="ov-conn-card__head">
+        <span className="ov-conn-card__name">
           <b>{t("connections.accounts.section.device")}</b>
-        </td>
-      </tr>
-      {rows.map((row) => (
-        <tr
-          key={row.item}
-          className="ov-conn__account ov-conn__device"
-          tabIndex={0}
-          onClick={row.open}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") row.open();
-          }}
-        >
-          <td className="ov-conn__lead" />
-          <td colSpan={3}>
-            <span className="ov-conn__acct">
+          <span className="ov-conn__dim">{localize("No account needed")}</span>
+        </span>
+      </header>
+      {shown.length ? (
+        <div className="ov-conn-card__rows">
+          {shown.map((row) => (
+            <div
+              key={row.item}
+              className="ov-conn-row ov-conn-row--device"
+              role="button"
+              tabIndex={0}
+              onClick={row.open}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") row.open();
+              }}
+            >
               <ProviderIcon provider={row.item} size="sm" dim={row.tone !== "ok"} />
-              <b>{row.name}</b>
-              {row.detail ? <span className="ov-conn__dim">{row.detail}</span> : null}
-            </span>
-          </td>
-          <td colSpan={2}>
-            <span className="ov-conn__devstate">
-              <span
-                className={cn(
-                  "ov-conn__status",
-                  row.tone === "ok" ? "is-ok" : row.tone === "warn" ? "is-needs_key" : "is-off",
-                )}
-              >
-                <span className="ov-conn__dot" aria-hidden="true" />
-                {row.state}
+              <span className="ov-conn-row__name">
+                <b>{row.name}</b>
+                {row.detail ? <span className="ov-conn__dim">{row.detail}</span> : null}
               </span>
-              {row.fix ? (
-                <button
-                  type="button"
-                  className="ov-conn__link"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    row.fix!.run();
-                  }}
+              <span className="ov-conn-row__trail">
+                <span
+                  className={cn(
+                    "ov-conn__status",
+                    row.tone === "ok" ? "is-ok" : row.tone === "warn" ? "is-needs_key" : "is-off",
+                  )}
                 >
-                  {row.fix.label}
-                </button>
-              ) : null}
-            </span>
-          </td>
-          <td className="ov-conn__act">
-            <ChevronRight size={14} className="ov-conn__dim" aria-hidden="true" />
-          </td>
-        </tr>
-      ))}
-    </>
+                  <span className="ov-conn__dot" aria-hidden="true" />
+                  {row.state}
+                </span>
+                {row.fix ? (
+                  <button
+                    type="button"
+                    className="ov-conn__link"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      row.fix!.run();
+                    }}
+                  >
+                    {row.fix.label}
+                  </button>
+                ) : null}
+                <ChevronRight size={14} className="ov-conn__dim" aria-hidden="true" />
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {more.length ? (
+        <footer className="ov-conn-card__foot">
+          <button
+            type="button"
+            className="ov-conn-card__browse"
+            aria-expanded={showAll}
+            onClick={() => setShowAll((value) => !value)}
+          >
+            {showAll
+              ? t("connections.home.deviceFewer")
+              : ready.length
+                ? t("connections.home.deviceMore", { count: more.length })
+                : t("connections.home.deviceIntro", { count: more.length })}
+            <ChevronDown size={13} className={cn(showAll && "rotate-180")} aria-hidden="true" />
+          </button>
+        </footer>
+      ) : null}
+    </article>
   );
 }
 
@@ -357,8 +345,8 @@ export function ConnectionsLanding() {
   const ovMobile = useOverhaulMobile();
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<KindFilter>("all");
-  const [sort, setSort] = useState<SortKey>("name");
-  const [openIds, setOpenIds] = useState<string[] | null>(null);
+  // Cards show their first few Models; "Show N more" opens the rest.
+  const [expanded, setExpanded] = useState<string[]>([]);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   // A11Y3: arrows move through the account menu; Escape closes it and returns to its ⋯.
   const menuKeys = useMenuKeyboard({ open: menu !== null, onClose: () => setMenu(null) });
@@ -410,24 +398,15 @@ export function ConnectionsLanding() {
         return keep ? { account: group.account, rows: models.length || !accountHit ? models : group.rows } : null;
       })
       .filter((group): group is NonNullable<typeof group> => !!group);
-    list.sort((a, b) =>
-      sort === "models"
-        ? b.rows.length - a.rows.length || a.account.name.localeCompare(b.account.name)
-        : sort === "recent"
-          ? b.account.updatedAt.localeCompare(a.account.updatedAt)
-          : a.account.name.localeCompare(b.account.name),
+    // The account that writes your replies first, then A to Z.
+    const mainAccount = tiles.find((tile) => tile.key === "main")?.source?.accountId ?? null;
+    list.sort(
+      (a, b) =>
+        Number(b.account.id === mainAccount) - Number(a.account.id === mainAccount) ||
+        a.account.name.localeCompare(b.account.name),
     );
     return { groups: list, standalone: standalone.filter(matchRow) };
-  }, [groups, kind, needle, sort, standalone]);
-
-  // Every account starts folded except the first, unless a search is on (then all open).
-  const isOpen = (id: string) =>
-    needle ? true : openIds ? openIds.includes(id) : id === visible.groups[0]?.account.id;
-  const toggle = (id: string) =>
-    setOpenIds((current) => {
-      const base = current ?? (visible.groups[0] ? [visible.groups[0].account.id] : []);
-      return base.includes(id) ? base.filter((item) => item !== id) : [...base, id];
-    });
+  }, [groups, kind, needle, standalone, tiles]);
 
   // An empty chat row is an account's hidden anchor, except on a server that answers with its loaded model: there it
   // is that account's Default model, and counts like any model.
@@ -599,100 +578,211 @@ export function ConnectionsLanding() {
     const loadedModel = isLoadedModelRow(row);
     const jobs = jobsByModel.get(row.id) ?? [];
     const context = fmtContext(row.maxContext);
-    const output = fmtContext(row.maxTokensOverride ?? undefined);
+    // Settings of its own (sampling, context…): the Model is "tuned". Its name is the label the user gave it, so
+    // two Models of one model id read as variants ("Opus creative", "Opus precise").
+    const tuned = isChatProvider(row.provider) && !!(row as { ownSettings?: boolean }).ownSettings;
     // A Model with its own address on the Connection's server says which path it uses.
     const ownAddress = (row as { modelBaseUrl?: string | null }).modelBaseUrl?.trim() || "";
     const ownPath = ownAddress ? ownAddressPath(ownAddress) : "";
     return (
-      <tr
+      <div
         key={row.id}
-        className="ov-conn__model"
+        className="ov-conn-row"
+        role="button"
         tabIndex={0}
+        data-conn-model={row.id}
         onClick={() => openConnectionDetail(row.id)}
         onContextMenu={(event) => modelMenu.openFromEvent(event, row.name || row.model, modelActions(row))}
         onKeyDown={(event) => {
-          if (event.key === "Enter") openConnectionDetail(row.id);
+          if (event.key === "Enter" && event.target === event.currentTarget) openConnectionDetail(row.id);
         }}
       >
-        <td className="ov-conn__lead" />
-        <td colSpan={3}>
-          <span className="ov-conn__model-line">
-            <span className="ov-conn__model-name">
-              <button
-                type="button"
-                className={cn("ov-conn__star", starred && "is-on")}
-                style={loadedModel ? { visibility: "hidden" } : undefined}
-                disabled={!canStar}
-                aria-pressed={starred}
-                aria-label={starred ? localize("Unstar model") : localize("Star model")}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (canStar)
-                    void modelStar.toggle(
-                      { accountId: row.accountId!, model: row.model, name: row.name, anchorId: anchor.id },
-                      starred,
-                    );
-                }}
-              >
-                <Star size={13} aria-hidden="true" />
-              </button>
-              <b title={row.name || row.model}>{row.name || row.model}</b>
-              {row.name && row.model && row.name !== row.model ? (
-                <span className="ov-conn__dim">{row.model}</span>
-              ) : loadedModel ? (
-                <span className="ov-conn__dim">{t("connections.loadedModel.subtitle")}</span>
-              ) : null}
-              {via ? <span className="ov-conn__dim">· {via}</span> : null}
-              {ownPath ? (
-                <span
-                  className="ov-conn__dim"
-                  title={localizeUi("ui.chat.quickreplymenu.value1Value2", {
-                    value1: t("connections.ownAddress.label"),
-                    value2: ownAddress,
-                  })}
-                >
-                  · {ownPath}
-                </span>
-              ) : null}
+        <button
+          type="button"
+          className={cn("ov-conn__star", starred && "is-on")}
+          style={loadedModel ? { visibility: "hidden" } : undefined}
+          disabled={!canStar}
+          aria-pressed={starred}
+          aria-label={starred ? localize("Unstar model") : localize("Star model")}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (canStar)
+              void modelStar.toggle(
+                { accountId: row.accountId!, model: row.model, name: row.name, anchorId: anchor.id },
+                starred,
+              );
+          }}
+        >
+          <Star size={13} aria-hidden="true" />
+        </button>
+        <span className="ov-conn-row__name">
+          <b title={row.name || row.model}>{row.name || row.model}</b>
+          {row.name && row.model && row.name !== row.model ? (
+            <span className="ov-conn__dim">{row.model}</span>
+          ) : loadedModel ? (
+            <span className="ov-conn__dim">{t("connections.loadedModel.subtitle")}</span>
+          ) : null}
+          {via ? <span className="ov-conn__dim">· {via}</span> : null}
+          {ownPath ? (
+            <span
+              className="ov-conn__dim"
+              title={localizeUi("ui.chat.quickreplymenu.value1Value2", {
+                value1: t("connections.ownAddress.label"),
+                value2: ownAddress,
+              })}
+            >
+              · {ownPath}
             </span>
-            <span className="ov-conn__dim ov-conn__ctx">
-              {[context && `${context} ${localize("context")}`, output && `${output} ${localize("out")}`]
-                .filter(Boolean)
-                .join(" · ")}
+          ) : null}
+        </span>
+        <span className="ov-conn-row__trail">
+          {tuned ? (
+            <span className="ov-conn-tuned" title={t("connections.home.tunedHint")}>
+              <SlidersHorizontal size={11} aria-hidden="true" />
+              {t("connections.home.tuned")}
             </span>
-          </span>
-        </td>
-        <td colSpan={2}>
-          <span className="ov-conn__chips">
-            {row.useForRandom === "true" ? (
-              <span className="ov-conn__chip" title={t("connections.switcher.shuffle")}>
-                <Shuffle size={11} aria-hidden="true" /> {t("connections.switcher.shuffle")}
-              </span>
-            ) : null}
-            {jobs.map((job, index) => (
-              <span key={job} className={cn("ov-conn__chip", index === 0 && jobs[0] === tiles[0]?.title && "is-main")}>
-                {job}
-              </span>
-            ))}
-          </span>
-        </td>
-        <td className="ov-conn__act">
+          ) : null}
+          {row.useForRandom === "true" ? (
+            <span className="ov-conn__chip" title={t("connections.switcher.shuffle")}>
+              <Shuffle size={11} aria-hidden="true" /> {t("connections.switcher.shuffle")}
+            </span>
+          ) : null}
+          {jobs.map((job, index) => (
+            <span key={job} className={cn("ov-conn__chip", index === 0 && jobs[0] === tiles[0]?.title && "is-main")}>
+              {job}
+            </span>
+          ))}
+          {context ? (
+            <span className="ov-conn__dim ov-conn-row__ctx">
+              {context} {localize("context")}
+            </span>
+          ) : null}
           <button
             type="button"
             className="ov-conn__more"
             aria-label={localize("Model actions")}
             aria-haspopup="menu"
-            onClick={(event) => modelMenu.openFromEvent(event, row.name || row.model, modelActions(row), "button")}
+            onClick={(event) => {
+              event.stopPropagation();
+              modelMenu.openFromEvent(event, row.name || row.model, modelActions(row), "button");
+            }}
           >
             <MoreHorizontal size={15} aria-hidden="true" />
           </button>
-        </td>
-      </tr>
+        </span>
+      </div>
+    );
+  };
+
+  /** A card's first Models; the rest open with "Show N more" (a search shows every match). */
+  const CARD_ROWS = 6;
+  const cardRows = (key: string, list: ConnectionRowData[], render: (row: ConnectionRowData) => ReactNode) => {
+    const all = !!needle || expanded.includes(key);
+    const shown = all ? list : list.slice(0, CARD_ROWS);
+    return (
+      <>
+        {shown.map(render)}
+        {list.length > CARD_ROWS && !needle ? (
+          <button
+            type="button"
+            className="ov-conn-card__more"
+            aria-expanded={all}
+            onClick={() =>
+              setExpanded((current) =>
+                current.includes(key) ? current.filter((item) => item !== key) : [...current, key],
+              )
+            }
+          >
+            {all ? t("connections.home.showFewer") : t("connections.home.showMore", { count: list.length - CARD_ROWS })}
+          </button>
+        ) : null}
+      </>
+    );
+  };
+
+  // Each account's catalog (its first chat Model without an address of its own), for "Browse 164 models".
+  const catalogIds = useMemo(
+    () =>
+      visible.groups.map(
+        ({ account }) =>
+          rows.find(
+            (row) =>
+              row.accountId === account.id &&
+              isChatProvider(row.provider) &&
+              !(row as { modelBaseUrl?: string | null }).modelBaseUrl?.trim(),
+          )?.id ?? "",
+      ),
+    [rows, visible.groups],
+  );
+  const catalogLists = useModelLists(catalogIds.filter(Boolean));
+  const catalogCount = (index: number) => {
+    const id = catalogIds[index];
+    if (!id) return null;
+    return catalogLists[catalogIds.filter(Boolean).indexOf(id)]?.data?.models?.length ?? null;
+  };
+
+  const renderAccount = (account: ConnectionAccountListItem, models: ConnectionRowData[], index: number) => {
+    const host = hostOf(account.baseUrl) || PROVIDERS[account.provider as APIProvider]?.name || "";
+    const accountRows = groups.find((g) => g.account.id === account.id)?.rows ?? [];
+    const count = catalogCount(index);
+    const problem = account.enabled === false || account.state !== "ok";
+    return (
+      <article key={account.id} className="ov-conn-card" data-connection-account-id={account.id}>
+        <header className="ov-conn-card__head">
+          <ProviderIcon
+            provider={account.provider}
+            baseUrl={account.baseUrl}
+            name={account.name}
+            icon={account.icon}
+            imagePath={account.imagePath}
+            size="sm"
+            dim={account.state !== "ok"}
+          />
+          <button
+            type="button"
+            className="ov-conn-card__name"
+            onClick={() => openConnectionDetail(`${ACCOUNT_PREFIX}${account.id}`)}
+            title={localize("Edit account")}
+          >
+            <b>{account.name}</b>
+            {host && !account.name.includes(host) ? <span className="ov-conn__dim">{host}</span> : null}
+          </button>
+          {/* Status and balance live on the account's page; the card only speaks up when something is wrong. */}
+          {problem ? <AccountStatus account={account} /> : null}
+          <button
+            type="button"
+            className="ov-conn__more"
+            aria-label={localize("Account actions")}
+            aria-haspopup="menu"
+            aria-expanded={menu?.id === account.id}
+            onClick={(event) => openMenu(event, account.id)}
+          >
+            <MoreHorizontal size={15} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="ov-conn-card__rows">
+          {models.length ? (
+            cardRows(account.id, models, (row) => renderModel(row, accountRows))
+          ) : (
+            <p className="ov-conn-card__empty">{localize("No models starred yet.")}</p>
+          )}
+        </div>
+        <footer className="ov-conn-card__foot">
+          <button
+            type="button"
+            className="ov-conn-card__browse"
+            onClick={() => openAddModels({ accountId: account.id })}
+            data-conn-browse
+          >
+            {count ? t("connections.home.browseCount", { count }) : t("connections.home.browse")}
+            <ChevronRight size={13} aria-hidden="true" />
+          </button>
+        </footer>
+      </article>
     );
   };
 
   // Group by folder: every visible Model under its folder, then the ones in none (shared with the classic list).
-  const [closedFolders, setClosedFolders] = useState<string[]>([]);
   const folderView = () => {
     const entries = [
       ...visible.groups.flatMap((group) =>
@@ -720,62 +810,48 @@ export function ConnectionsLanding() {
         rows: entries.filter((entry) => !entry.row.folderId || !known.has(entry.row.folderId)),
       },
     ].filter((section) => section.rows.length > 0 || (section.folder && !needle && kind === "all"));
-    return sections.map((section) => {
-      const open = needle ? true : !closedFolders.includes(section.id);
-      const flip = () =>
-        setClosedFolders((current) =>
-          current.includes(section.id) ? current.filter((id) => id !== section.id) : [...current, section.id],
-        );
-      return (
-        <Fragment key={section.id}>
-          <tr
-            className={cn("ov-conn__account", open && "is-open")}
-            tabIndex={0}
-            aria-expanded={open}
-            onClick={flip}
-            onContextMenu={
-              section.folder
-                ? (event) => modelMenu.openFromEvent(event, section.name, folderActions(section.folder!))
-                : undefined
-            }
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                flip();
+    return sections.map((section) => (
+      <article
+        key={section.id}
+        className="ov-conn-card"
+        onContextMenu={
+          section.folder
+            ? (event) => modelMenu.openFromEvent(event, section.name, folderActions(section.folder!))
+            : undefined
+        }
+      >
+        <header className="ov-conn-card__head">
+          <Folder size={15} aria-hidden="true" />
+          <span className="ov-conn-card__name">
+            <b title={section.name}>{section.name}</b>
+            <span className="ov-conn__dim">{section.rows.length}</span>
+          </span>
+          {section.folder ? (
+            <button
+              type="button"
+              className="ov-conn__more"
+              aria-label={localize("Folder actions")}
+              aria-haspopup="menu"
+              onClick={(event) =>
+                modelMenu.openFromEvent(event, section.name, folderActions(section.folder!), "button")
               }
-            }}
-          >
-            <td className="ov-conn__lead">
-              {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-            </td>
-            <td colSpan={2}>
-              <span className="ov-conn__acct">
-                <Folder size={15} aria-hidden="true" />
-                <b title={section.name}>{section.name}</b>
-              </span>
-            </td>
-            <td className="ov-conn__num">{section.rows.length}</td>
-            <td colSpan={2} />
-            <td className="ov-conn__act">
-              {section.folder ? (
-                <button
-                  type="button"
-                  className="ov-conn__more"
-                  aria-label={localize("Folder actions")}
-                  aria-haspopup="menu"
-                  onClick={(event) =>
-                    modelMenu.openFromEvent(event, section.name, folderActions(section.folder!), "button")
-                  }
-                >
-                  <MoreHorizontal size={15} aria-hidden="true" />
-                </button>
-              ) : null}
-            </td>
-          </tr>
-          {open ? section.rows.map((entry) => renderModel(entry.row, entry.accountRows, entry.via)) : null}
-        </Fragment>
-      );
-    });
+            >
+              <MoreHorizontal size={15} aria-hidden="true" />
+            </button>
+          ) : null}
+        </header>
+        <div className="ov-conn-card__rows">
+          {cardRows(
+            `folder:${section.id}`,
+            section.rows.map((entry) => entry.row),
+            (row) => {
+              const entry = section.rows.find((item) => item.row === row)!;
+              return renderModel(entry.row, entry.accountRows, entry.via);
+            },
+          )}
+        </div>
+      </article>
+    ));
   };
 
   const openMenu = (event: MouseEvent<HTMLButtonElement>, id: string) => {
@@ -784,6 +860,12 @@ export function ConnectionsLanding() {
     const rect = event.currentTarget.getBoundingClientRect();
     setMenu((current) => (current?.id === id ? null : { id, x: rect.right, y: rect.bottom + 4 }));
   };
+
+  // Grow as you add: each tool appears once it has something to do.
+  const kinds = new Set(rows.map(rowKind));
+  const showKind = kinds.size > 1 || kind !== "all";
+  const showGroup = (folders ?? []).length > 0 || byFolder;
+  const showSearch = modelCount >= 8 || (accounts ?? []).length >= 3 || !!needle;
 
   const makeKindSelect = (toolsCopy = false) => (
     <select
@@ -800,7 +882,6 @@ export function ConnectionsLanding() {
     </select>
   );
 
-  // Phones: the grouping sits beside the kind filter on the header line; search and sort share the next line.
   const makeGroupSelect = (toolsCopy = false) => (
     <select
       className={cn("ov-select", ovMobile && "ovm-lp-filter ovm-conn-group", toolsCopy && "ovm-lp-filter--tools")}
@@ -813,8 +894,7 @@ export function ConnectionsLanding() {
     </select>
   );
 
-  const kindSelect = makeKindSelect();
-  const groupSelect = makeGroupSelect();
+  const nothing = visible.groups.length === 0 && visible.standalone.length === 0;
 
   return (
     <section className="ov-list ov-conn" data-component="OverhaulConnections">
@@ -851,177 +931,53 @@ export function ConnectionsLanding() {
           <Plus size={14} aria-hidden="true" />
           {ovMobile ? localize("New") : localize("New connection")}
         </button>
-        {ovMobile && kindSelect}
-        {ovMobile && groupSelect}
       </header>
-      {!ovMobile && (
+      <MainLine connectionsList={rows} onJobs={() => openConnectionDetail(JOBS_PAGE_ID)} />
+      {showSearch || showKind || showGroup ? (
         <div className="ov-gallery__tools">
-          {kindSelect}
-          <span className="ov-gallery__spacer" />
-          <span className="ov-conn__dim ov-conn__note">{localize("Balance shown where the service reports it")}</span>
+          {showSearch ? (
+            <label className="ov-search">
+              <Search size={14} aria-hidden="true" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={localize("Search accounts and models")}
+                aria-label={localize("Search accounts and models")}
+              />
+            </label>
+          ) : (
+            <span className="ov-gallery__spacer" />
+          )}
+          {showKind ? makeKindSelect(ovMobile) : null}
+          {showGroup ? makeGroupSelect(ovMobile) : null}
         </div>
-      )}
-      <div className="ov-gallery__tools">
-        <label className="ov-search">
-          <Search size={14} aria-hidden="true" />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={localize("Search accounts and models")}
-            aria-label={localize("Search accounts and models")}
-          />
-        </label>
-        <select
-          className="ov-select"
-          value={sort}
-          onChange={(event) => setSort(event.target.value as SortKey)}
-          aria-label={localize("Sort")}
-        >
-          <option value="name">{localize("A to Z")}</option>
-          <option value="models">{localize("Most models")}</option>
-          <option value="recent">{localize("Recent")}</option>
-        </select>
-        {!ovMobile && groupSelect}
-        {/* Narrow split side: filters move beside the sort, like every Library page (SV14). */}
-        {ovMobile && makeKindSelect(true)}
-        {ovMobile && makeGroupSelect(true)}
-      </div>
-      <DefaultsGrid connectionsList={rows} />
-      {visible.groups.length === 0 && visible.standalone.length === 0 && (needle || kind !== "all") ? (
-        <p className="ov-list__empty">
-          {rows.length || accounts?.length ? localize("Nothing matches.") : localize("No accounts yet.")}
-        </p>
+      ) : null}
+      {nothing && (needle || kind !== "all") ? (
+        <p className="ov-list__empty">{localize("Nothing matches.")}</p>
+      ) : nothing && !accounts?.length ? (
+        <p className="ov-list__empty">{localize("No accounts yet.")}</p>
       ) : (
-        <div className="ov-table-wrap">
-          <table className="ov-table ov-conn__table">
-            <colgroup>
-              <col className="ov-conn__col-lead" />
-              <col className="ov-conn__col-name" />
-              <col className="ov-conn__col-fill" />
-              <col className="ov-conn__col-num" />
-              <col className="ov-conn__col-status" />
-              <col className="ov-conn__col-bal" />
-              <col className="ov-conn__col-act" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th className="ov-conn__lead" aria-hidden="true" />
-                {/* Spans the spacer column too, like the account and folder names under it. */}
-                <th colSpan={2}>{localize(byFolder ? "Folder" : "Account")}</th>
-                <th className="ov-conn__num">{localize("Models")}</th>
-                <th>{localize("Status")}</th>
-                <th className="ov-conn__bal">{localize("Balance")}</th>
-                <th className="ov-conn__act" aria-hidden="true" />
-              </tr>
-            </thead>
-            <tbody>
-              {byFolder ? (
-                folderView()
-              ) : (
-                <>
-                  {visible.groups.map(({ account, rows: models }) => {
-                    const open = isOpen(account.id);
-                    const host = hostOf(account.baseUrl) || PROVIDERS[account.provider as APIProvider]?.name || "";
-                    return (
-                      <Fragment key={account.id}>
-                        <tr
-                          className={cn("ov-conn__account", open && "is-open")}
-                          tabIndex={0}
-                          aria-expanded={open}
-                          onClick={() => toggle(account.id)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault();
-                              toggle(account.id);
-                            }
-                          }}
-                        >
-                          <td className="ov-conn__lead">
-                            {open ? (
-                              <ChevronDown size={14} aria-hidden="true" />
-                            ) : (
-                              <ChevronRight size={14} aria-hidden="true" />
-                            )}
-                          </td>
-                          <td colSpan={2}>
-                            <span className="ov-conn__acct">
-                              <ProviderIcon
-                                provider={account.provider}
-                                baseUrl={account.baseUrl}
-                                name={account.name}
-                                icon={account.icon}
-                                imagePath={account.imagePath}
-                                size="sm"
-                                dim={account.state !== "ok"}
-                              />
-                              <b title={account.name}>{account.name}</b>
-                              {host && !account.name.includes(host) ? (
-                                <span className="ov-conn__dim">{host}</span>
-                              ) : null}
-                            </span>
-                          </td>
-                          <td className="ov-conn__num">{models.length}</td>
-                          <td>
-                            <AccountStatus account={account} />
-                          </td>
-                          <td className="ov-conn__bal">
-                            <AccountBalance account={account} />
-                          </td>
-                          <td className="ov-conn__act">
-                            <button
-                              type="button"
-                              className="ov-conn__more"
-                              aria-label={localize("Account actions")}
-                              aria-haspopup="menu"
-                              aria-expanded={menu?.id === account.id}
-                              onClick={(event) => openMenu(event, account.id)}
-                            >
-                              <MoreHorizontal size={15} aria-hidden="true" />
-                            </button>
-                          </td>
-                        </tr>
-                        {open ? (
-                          models.length ? (
-                            models.map((row) =>
-                              renderModel(row, groups.find((g) => g.account.id === account.id)?.rows ?? []),
-                            )
-                          ) : (
-                            <tr className="ov-conn__model ov-conn__model--empty">
-                              <td className="ov-conn__lead" />
-                              <td colSpan={6} className="ov-conn__dim">
-                                {localize("No models starred yet.")}{" "}
-                                <button
-                                  type="button"
-                                  className="ov-conn__link"
-                                  onClick={() => openAddModels({ accountId: account.id })}
-                                >
-                                  {t("connections.accounts.addModel")}
-                                </button>
-                              </td>
-                            </tr>
-                          )
-                        ) : null}
-                      </Fragment>
-                    );
-                  })}
-                  {visible.standalone.length ? (
-                    <>
-                      <tr className="ov-conn__account is-open ov-conn__account--other">
-                        <td className="ov-conn__lead" />
-                        <td colSpan={6}>
-                          <b>{localize("Other models")}</b>
-                        </td>
-                      </tr>
-                      {visible.standalone.map((row) => renderModel(row, [row]))}
-                    </>
-                  ) : null}
-                </>
-              )}
-              {!needle && kind === "all" ? (
-                <DeviceRows onOpen={(item) => openConnectionDetail(`device:${item}`)} />
+        <div className="ov-conn-cards">
+          {byFolder ? (
+            folderView()
+          ) : (
+            <>
+              {visible.groups.map(({ account, rows: models }, index) => renderAccount(account, models, index))}
+              {visible.standalone.length ? (
+                <article className="ov-conn-card">
+                  <header className="ov-conn-card__head">
+                    <span className="ov-conn-card__name">
+                      <b>{localize("Other models")}</b>
+                    </span>
+                  </header>
+                  <div className="ov-conn-card__rows">
+                    {cardRows("__other", visible.standalone, (row) => renderModel(row, [row]))}
+                  </div>
+                </article>
               ) : null}
-            </tbody>
-          </table>
+            </>
+          )}
+          {!needle && kind === "all" ? <DeviceCard onOpen={(item) => openConnectionDetail(`device:${item}`)} /> : null}
         </div>
       )}
       {modelMenu.node}

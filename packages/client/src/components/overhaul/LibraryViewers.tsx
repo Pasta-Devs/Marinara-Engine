@@ -41,6 +41,7 @@ import { ImportRegexModal } from "../modals/ImportRegexModal";
 import { insertLibraryItems } from "../../lib/library-order";
 import { builtInFirst, DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
 import { JOB_SETTINGS_PREFIX, JobSettingsPage } from "../connections/ConnectionDefaults";
+import { JOBS_PAGE_ID, JobsPage } from "../connections/JobsPage";
 import type { JobKey } from "../../lib/connection-jobs";
 import { ConnectionAccountEditor } from "../connections/ConnectionAccountEditor";
 import { ProviderIcon } from "../connections/ProviderIcon";
@@ -856,6 +857,7 @@ export function OvToolsViewer({ children }: { children: ReactNode }) {
 
 export function OvConnectionsViewer({ children }: { children: ReactNode }) {
   const localize = useLocalizedUiText();
+  const { t } = useTranslation();
   const { data } = useConnections();
   const { data: accounts } = useConnectionAccounts();
   const openModal = useUIStore((s) => s.openModal);
@@ -932,8 +934,16 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
         label: localize("On this device"),
         rows: builtInFirst(devices, (row) => row.id.slice(DEVICE_PREFIX.length)),
       });
+    // Jobs (which model does what) leads the list, like the Main line on the Connections page.
+    const jobsLabel = t("connections.home.jobs");
+    if (!needle || jobsLabel.toLowerCase().includes(needle))
+      list.unshift({
+        id: "__jobs",
+        label: jobsLabel,
+        rows: [{ id: JOBS_PAGE_ID, name: t("connections.home.jobsSub") }],
+      });
     return list;
-  }, [decisionEngine, embeddingEngine, engines, grouped, localize, search]);
+  }, [decisionEngine, embeddingEngine, engines, grouped, localize, search, t]);
   const accountPage = selectedId?.startsWith(ACCOUNT_PREFIX)
     ? { id: selectedId.slice(ACCOUNT_PREFIX.length), replaceKey: false }
     : selectedId?.startsWith(ACCOUNT_KEY_PREFIX)
@@ -944,7 +954,7 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
     ? (selectedId.slice(JOB_SETTINGS_PREFIX.length) as JobKey)
     : null;
 
-  const firstId = groups.find((group) => group.rows.length)?.rows[0]?.id;
+  const firstId = groups.find((group) => group.id !== "__jobs" && group.rows.length)?.rows[0]?.id;
   useAutoSelect("connections", selectedId, firstId, openConnectionDetail);
   const accountCount = accounts?.length ?? 0;
 
@@ -967,7 +977,9 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       emptyDetail={localize("Pick a model on the left, or add an account.")}
       onSection={() => openLibrarySection("connections")}
     >
-      {jobSettings ? (
+      {selectedId === JOBS_PAGE_ID ? (
+        <JobsPage onClose={closeConnectionDetail} />
+      ) : jobSettings ? (
         <JobSettingsPage key={jobSettings} jobKey={jobSettings} onClose={closeConnectionDetail} />
       ) : accountPage ? (
         <ConnectionAccountEditor
@@ -1026,6 +1038,13 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
   const jobSettings = selectedId?.startsWith(JOB_SETTINGS_PREFIX)
     ? (selectedId.slice(JOB_SETTINGS_PREFIX.length) as JobKey)
     : null;
+  // The Jobs page brings the shared editor header too.
+  if (selectedId === JOBS_PAGE_ID)
+    return (
+      <section className="ov-ed ovm-connpage" data-component="OverhaulConnectionPage">
+        <JobsPage onClose={closeConnectionDetail} />
+      </section>
+    );
   // A job's settings bring the shared editor header (‹ back and the title), like an account page.
   if (jobSettings)
     return (

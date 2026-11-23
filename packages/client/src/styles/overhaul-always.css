@@ -66,3 +66,127 @@
 .mari-mini-avatar {
   display: none;
 }
+
+/* Model family chips over a long model list (switcher, Add models): All · Claude 12 · DeepSeek 9 … Both layouts use them. */
+.ov-family-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3125rem;
+}
+.ov-family-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  min-height: 1.625rem;
+  padding: 0 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--foreground) 78%, transparent);
+  font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+.ov-family-chip:hover {
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+.ov-family-chip.is-on {
+  border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--foreground);
+}
+.ov-family-chip__count {
+  color: color-mix(in srgb, var(--foreground) 50%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+/* Touch: one sideways-scrolling line under the thumb, 36px tall chips. */
+@media (pointer: coarse) {
+  .ov-family-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ov-family-chips::-webkit-scrollbar {
+    display: none;
+  }
+  .ov-family-chip {
+    min-height: 2.25rem;
+    flex: none;
+  }
+}
+
+/* Try mode: the note over the composer while a chat runs a model it has not saved. */
+.ov-trying {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.75rem;
+  margin: 0 0 0.375rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+  font-size: 0.8125rem;
+}
+.ov-trying__text {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 16rem;
+  flex-wrap: wrap;
+  gap: 0 0.375rem;
+  margin: 0;
+  color: color-mix(in srgb, var(--foreground) 70%, transparent);
+}
+.ov-trying__text b {
+  color: var(--foreground);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ov-trying__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+.ov-trying__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  min-height: 1.875rem;
+  padding: 0 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.8125rem;
+}
+.ov-trying__btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+.ov-trying__btn:disabled {
+  opacity: 0.55;
+}
+.ov-trying__close {
+  display: inline-flex;
+  width: 1.875rem;
+  height: 1.875rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: color-mix(in srgb, var(--foreground) 55%, transparent);
+}
+@media (pointer: coarse) {
+  .ov-trying__btn,
+  .ov-trying__close {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+/* Phones: the model name and the buttons only; the explanation stays on the title. */
+@media (max-width: 40rem) {
+  .ov-trying__text span {
+    display: none;
+  }
+}

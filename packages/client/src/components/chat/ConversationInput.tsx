@@ -53,6 +53,7 @@ import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/c
 import { isGenerationSendBlocked, isIosWebKitBrowser } from "../../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../../lib/chat-scroll-events";
 import { searchStandardEmojiShortcodes, type StandardEmojiShortcode } from "../../lib/emoji-shortcodes";
+import { TryingModelNote } from "./TryingModelNote";
 import { QuickConnectionSwitcher } from "./QuickConnectionSwitcher";
 import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
 import { QuickSwitcherMobile } from "./QuickSwitcherMobile";
@@ -2281,6 +2282,8 @@ export function ConversationInput({
       {replyDraft && (
         <MessageReplyPreview reply={replyDraft} onCancel={() => activeChatId && setReplyDraft(activeChatId, null)} />
       )}
+
+      <TryingModelNote chatId={activeChatId} />
 
       {/* Input bar */}
       <div

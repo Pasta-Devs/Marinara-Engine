@@ -69,6 +69,7 @@ import { isGenerationSendBlocked, isIosWebKitBrowser } from "../../lib/generatio
 import { requestChatScrollToBottom } from "../../lib/chat-scroll-events";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { SpeechToTextButton } from "../ui/SpeechToTextButton";
+import { TryingModelNote } from "./TryingModelNote";
 import { QuickConnectionSwitcher } from "./QuickConnectionSwitcher";
 import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
 import { QuickSwitcherMobile } from "./QuickSwitcherMobile";
@@ -2076,6 +2077,8 @@ export const ChatInput = memo(function ChatInput({
       {replyDraft && (
         <MessageReplyPreview reply={replyDraft} onCancel={() => activeChatId && setReplyDraft(activeChatId, null)} />
       )}
+
+      <TryingModelNote chatId={activeChatId} />
 
       {/* Main input container */}
       <div

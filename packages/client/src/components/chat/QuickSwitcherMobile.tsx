@@ -150,6 +150,7 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                   current={chatPick.current}
                   onApply={chatPick.apply}
                   onDone={closeMenu}
+                  searchAtBottom
                   showLocalModel={chatMode !== "game" && import.meta.env.VITE_MARINARA_LITE !== "true"}
                   shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
                   followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}
