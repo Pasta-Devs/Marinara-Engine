@@ -7,7 +7,8 @@ name: CodeRabbit Review Gate
 #   of them passed. Dottore reviews only the changes since then (a head that only merged
 #   staging in has none, so it passes with no model call), and his review posts the status.
 # CodeRabbit reviews every pull request into the default branch, so this also adds `@coderabbitai ignore` to the
-# description of the ones main accepts, staging promotions and hotfixes: what they bring was reviewed on staging.
+# description of the ones main accepts, staging promotions and hotfixes: what they bring was reviewed on staging. One
+# retargeted to staging loses the line again and gets a full Dottore review.
 # Marinara-Agents keeps a byte copy of this file. GitHub runs check_run workflows only from the default branch and
 # pull_request_target ones from the base branch, so the copy on main is the one that runs.
 on:
@@ -151,3 +152,46 @@ jobs:
           fi
           gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="${BODY:+$BODY$'\n\n'}@coderabbitai ignore" >/dev/null
           echo "PR #$PR_NUM: added @coderabbitai ignore; CodeRabbit reviews no pull request into the default branch."
+
+  # A promotion or hotfix moved off the default branch gets its review back: the line the job above added comes off,
+  # and Dottore reviews the pull request in full against its new base.
+  retargeted:
+    name: Give a retargeted pull request its review back
+    if: >
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'edited' &&
+      github.event.changes.base.ref.from == github.event.repository.default_branch &&
+      github.event.pull_request.base.ref != github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: write
+    steps:
+      - name: Remove @coderabbitai ignore and ask Dottore
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          REVIEW_BASES: ${{ vars.DOTTORE_BASE_REFS || 'staging' }}
+        run: |
+          # Inert: edits the description and dispatches the trusted Dottore workflow from the new base; runs no pull
+          # request code.
+          BODY=$(gh api "repos/$REPO/pulls/$PR_NUM" --jq '.body // ""')
+          case "$BODY" in
+            "@coderabbitai ignore") NEW="" ;;
+            *$'\n\n@coderabbitai ignore') NEW=${BODY%$'\n\n@coderabbitai ignore'} ;;
+            *)
+              echo "PR #$PR_NUM does not end with the @coderabbitai ignore line this workflow adds."
+              exit 0
+              ;;
+          esac
+          gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="$NEW" >/dev/null
+          echo "PR #$PR_NUM: removed the @coderabbitai ignore line it carried from the default branch."
+          if [ "$DRAFT" = false ] &&
+            jq -en --arg refs "$REVIEW_BASES" --arg ref "$BASE" '$refs | split(",") | index($ref) != null' >/dev/null; then
+            gh workflow run dottore-review.yml --repo "$REPO" --ref "$BASE" -f pr_number="$PR_NUM" \
+              -f comment_body="Retargeted from the default branch" -f review_mode=full -f requested_by=github-actions
+            echo "PR #$PR_NUM: Dottore reviews it in full against $BASE."
+          fi

@@ -29,6 +29,15 @@ assert.ok(
     runs-on:`),
   "Only the pull requests main accepts get the ignore line, so a contributor's PR retargeted to staging keeps its review",
 );
+assert.ok(
+  source.includes(`    if: >
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'edited' &&
+      github.event.changes.base.ref.from == github.event.repository.default_branch &&
+      github.event.pull_request.base.ref != github.event.repository.default_branch
+    runs-on:`),
+  "Only a pull request moved off the default branch loses the line",
+);
 const dottoreWorkflow = readFileSync(new URL("../../../.github/workflows/dottore-review.yml", import.meta.url), "utf8");
 assert.ok(
   dottoreWorkflow.includes(`run-name: "Dottore Review: PR #\${{ inputs.pr_number }} (\${{ inputs.review_mode }})"`),
@@ -50,6 +59,7 @@ function step(name) {
 }
 const gate = step("Set Dottore Review from CodeRabbit's review");
 const ignore = step("Add @coderabbitai ignore to the description");
+const retarget = step("Remove @coderabbitai ignore and ask Dottore");
 
 const repo = "Pasta-Devs/Marinara-Engine";
 const sha = (c) => c.repeat(40);
@@ -262,6 +272,44 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
   );
   expect("a description with the keyword is kept", () =>
     assert.equal(run(ignore, { body: "Hotfix.\n@coderabbitai IGNORE" }).length, 0),
+  );
+
+  // A promotion or hotfix moved to staging gets its review back.
+  const moved = { BASE: "staging", DRAFT: "false" };
+  expect("a retargeted pull request loses the line and gets a full Dottore review", () => {
+    const writes = run(retarget, { body: "Hotfix.\n\n@coderabbitai ignore", env: moved });
+    assert.equal(writes.length, 2, JSON.stringify(writes));
+    assert.deepEqual(writes[0].slice(0, 4), ["api", "--method", "PATCH", `repos/${repo}/pulls/9086`]);
+    assert.equal(field(writes[0], "body"), "Hotfix.");
+    assert.deepEqual(writes[1].slice(0, 7), [
+      "workflow",
+      "run",
+      "dottore-review.yml",
+      "--repo",
+      repo,
+      "--ref",
+      "staging",
+    ]);
+    assert.equal(field(writes[1], "pr_number"), "9086");
+    assert.equal(field(writes[1], "review_mode"), "full");
+  });
+  expect("a description that was only the line is emptied", () =>
+    assert.equal(field(run(retarget, { body: "@coderabbitai ignore", env: moved })[0], "body"), ""),
+  );
+  expect("a keyword the author wrote elsewhere stays", () =>
+    assert.equal(run(retarget, { body: "Skip review: @coderabbitai ignore\n\nNotes.", env: moved }).length, 0),
+  );
+  expect("a draft loses the line but waits for its review", () =>
+    assert.equal(
+      run(retarget, { body: "Hotfix.\n\n@coderabbitai ignore", env: { ...moved, DRAFT: "true" } }).length,
+      1,
+    ),
+  );
+  expect("a base with no review loses the line and gets no Dottore", () =>
+    assert.equal(
+      run(retarget, { body: "Hotfix.\n\n@coderabbitai ignore", env: { ...moved, BASE: "release" } }).length,
+      1,
+    ),
   );
   console.log(`CodeRabbit review gate regression passed (${cases.length} cases).`);
 } finally {
