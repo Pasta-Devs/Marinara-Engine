@@ -8,25 +8,31 @@ import type { TFunction } from "i18next";
 import type { GalleryCreateKind, GalleryCreateResult } from "../components/ui/AvatarGenerationModal";
 import { dataImageUrlToFile } from "./data-image-file";
 import { readImageDimensions, type CustomTagPatch } from "./custom-emoji";
+import type { GalleryImageUploadInput, GalleryImageUploadMetadata } from "./gallery-image-upload";
 
 export async function saveGalleryCreation(
   result: GalleryCreateResult,
   options: {
     fileStem: string;
-    upload: (files: File[]) => Promise<Array<{ id: string }>>;
+    upload: (input: GalleryImageUploadInput) => Promise<Array<{ id: string }>>;
     tag: (args: { imageId: string; patch: CustomTagPatch }) => Promise<unknown>;
-    saveCharacterSheet: (dataUrl: string) => Promise<void>;
+    saveCharacterSheet: (dataUrl: string, metadata?: GalleryImageUploadMetadata) => Promise<void>;
     localizeUi: TFunction;
   },
 ): Promise<void> {
   const { fileStem, upload, tag, localizeUi } = options;
+  const { prompt, generation, provider, model, width, height } = result;
+  const metadata = { prompt, generation, provider, model, width, height };
   if (result.kind === "character-sheet") {
-    await options.saveCharacterSheet(result.dataUrl);
+    await options.saveCharacterSheet(result.dataUrl, metadata);
     return;
   }
 
   if (result.kind === "background") {
-    const [image] = await upload([dataImageUrlToFile(result.dataUrl, `${fileStem}-background`)]);
+    const [image] = await upload({
+      ...metadata,
+      files: [dataImageUrlToFile(result.dataUrl, `${fileStem}-background`)],
+    });
     if (!image) throw new Error(localizeUi("ui.ui.avatargenerationmodal.failedToSaveGalleryImages"));
     try {
       await tag({ imageId: image.id, patch: { customKind: "background", customName: null } });
@@ -42,7 +48,8 @@ export async function saveGalleryCreation(
   if (!("items" in result) || result.items.length === 0) return;
   const kind = result.kind === "emoji-sheet" ? "emoji" : "sticker";
   const files = result.items.map((item) => dataImageUrlToFile(item.dataUrl, `${fileStem}-${kind}-${item.name}`));
-  const uploaded = await upload(files);
+  // Cut cells keep the sheet's original prompt/settings; their actual size is saved with each label below.
+  const uploaded = await upload({ ...metadata, files });
   const labelled = await Promise.allSettled(
     uploaded.map(async (image, index) => {
       const item = result.items[index];

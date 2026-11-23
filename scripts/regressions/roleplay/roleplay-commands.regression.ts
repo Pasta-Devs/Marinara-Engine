@@ -10,6 +10,8 @@ import {
   isRoleplayCommandEnabled,
   isRoleplayCommandAllowed,
   getRoleplayCommandActivity,
+  getRoleplayCommandNoticeDisplay,
+  getRoleplayCommandNoticeVisibility,
   getRoleplayDocuments,
   roleplayCommandsEnabled,
 } from "../../../packages/shared/src/types/roleplay-command.js";
@@ -1100,4 +1102,46 @@ const htmlRouteSource = readFileSync(
 assert.match(htmlRouteSource, /command\.type === "html" && definedIntro\?\.mode === "defined"\) continue;/u);
 assert.match(htmlRouteSource, /\+\+replyHtmlArtifacts > HTML_ARTIFACT_LIMIT_PER_REPLY/u);
 assert.match(htmlRouteSource, /createAgentConcurrencyLimiter\(\s*await resolveHtmlArtifactMaxParallelJobs\(/u);
+// Command notice display mode defaults to "show" and filters/collapses notices without hiding errors.
+assert.equal(getRoleplayCommandNoticeDisplay(undefined), "show");
+assert.equal(getRoleplayCommandNoticeDisplay({}), "show");
+assert.equal(getRoleplayCommandNoticeDisplay({ roleplayCommandNoticeDisplay: "collapse" }), "collapse");
+assert.equal(getRoleplayCommandNoticeDisplay({ roleplayCommandNoticeDisplay: "hide" }), "hide");
+assert.equal(getRoleplayCommandNoticeDisplay({ roleplayCommandNoticeDisplay: "other" }), "show");
+const noticeActivity = [
+  { command: { type: "illustrate", subject: "portrait" }, raw: '[illustrate: subject="portrait"]' },
+  { command: { type: "whisper", character: "Bob", text: "secret" }, raw: '[whisper: character="Bob" text="secret"]' },
+  { command: { type: "html", prompt: "sign" }, raw: '[html: prompt="sign"]' },
+  { command: { type: "notes", content: "bad" }, raw: "[notes: bad]", error: "roleplay.commands.errors.invalidPrivate" },
+] as const;
+assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity as never, "show"), {
+  noticeIndices: [0, 2, 3],
+  collapsed: false,
+  startExpanded: false,
+});
+assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity as never, "collapse"), {
+  noticeIndices: [0, 2, 3],
+  collapsed: true,
+  startExpanded: true,
+});
+assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity.slice(0, 3) as never, "collapse"), {
+  noticeIndices: [0, 2],
+  collapsed: true,
+  startExpanded: false,
+});
+assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity.slice(0, 1) as never, "collapse"), {
+  noticeIndices: [0],
+  collapsed: false,
+  startExpanded: false,
+});
+assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity as never, "hide"), {
+  noticeIndices: [3],
+  collapsed: false,
+  startExpanded: false,
+});
+assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity.slice(0, 3) as never, "hide"), {
+  noticeIndices: [],
+  collapsed: false,
+  startExpanded: false,
+});
 process.stdout.write("Roleplay commands regression passed.\n");

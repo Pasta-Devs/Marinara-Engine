@@ -231,7 +231,7 @@ export function useGameAssetFileContent(path: string) {
 
 /**
  * Save text content back to a file.
- * Invalidates both the content query and the tree query on success.
+ * Writes the saved text into the content query, then refreshes it and the tree.
  */
 export function useSaveGameAssetFile() {
   const qc = useQueryClient();
@@ -239,6 +239,9 @@ export function useSaveGameAssetFile() {
     mutationFn: ({ path, content }: { path: string; content: string }) =>
       api.put(`/game-assets/file-content/${encodeAssetPath(path)}`, { content }),
     onSuccess: (_, vars) => {
+      // What was saved is the file now. Without this the cached text from before the save stayed until a refetch, so
+      // the editor showed unsaved changes after saving, and reopening the file at once showed the old text.
+      qc.setQueryData<{ content: string }>(gameAssetKeys.content(vars.path), { content: vars.content });
       qc.invalidateQueries({ queryKey: gameAssetKeys.content(vars.path) });
       qc.invalidateQueries({ queryKey: gameAssetKeys.tree() });
     },

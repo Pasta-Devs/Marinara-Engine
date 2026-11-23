@@ -172,7 +172,8 @@ export function applyTokenBudget(activatedEntries: ActivatedEntry[], tokenBudget
   if (tokenBudget <= 0) return activatedEntries;
 
   let totalTokens = 0;
-  const result: ActivatedEntry[] = [];
+  // Each kept entry remembers its own original, so entries sharing an id never swap images.
+  const kept: Array<{ original: ActivatedEntry; candidate: ActivatedEntry; tokens: number; imageOnly: boolean }> = [];
 
   // Sort: constant entries first, then by order
   const sorted = [...activatedEntries].sort((a, b) => {
@@ -181,22 +182,33 @@ export function applyTokenBudget(activatedEntries: ActivatedEntry[], tokenBudget
     return a.entry.order - b.entry.order;
   });
 
+  // Text pass: text claims the budget first. Image-only entries cost nothing here and wait for the images pass.
   for (const entry of sorted) {
+    const imageOnly = !entry.entry.content.trim() && Boolean(entry.entry.images?.length);
+    if (imageOnly) {
+      kept.push({ original: entry, candidate: entry, tokens: 0, imageOnly });
+      continue;
+    }
     const fitted = fitLorebookEntryToBudget(entry, (tokens) => totalTokens + tokens <= tokenBudget, false);
     if (!fitted) continue;
     totalTokens += fitted.tokens;
-    result.push(fitted.candidate);
+    kept.push({ original: entry, candidate: fitted.candidate, tokens: fitted.tokens, imageOnly });
   }
 
-  for (const [index, entry] of result.entries()) {
-    const original = sorted.find((candidate) => candidate.entry.id === entry.entry.id) ?? entry;
+  // Images pass: add each entry's images in the same order while they still fit.
+  const result: ActivatedEntry[] = [];
+  for (const item of kept) {
     const fitted = fitLorebookEntryToBudget(
-      original,
-      (tokens) => totalTokens - estimateTextTokens(entry.entry.content) + tokens <= tokenBudget,
+      item.original,
+      (tokens) => totalTokens - item.tokens + tokens <= tokenBudget,
     );
-    if (!fitted) continue;
-    totalTokens += fitted.tokens - estimateTextTokens(entry.entry.content);
-    result[index] = fitted.candidate;
+    if (fitted) {
+      totalTokens += fitted.tokens - item.tokens;
+      result.push(fitted.candidate);
+    } else if (!item.imageOnly) {
+      result.push(item.candidate);
+    }
+    // An image-only entry whose images did not fit has nothing left to inject.
   }
 
   return result;

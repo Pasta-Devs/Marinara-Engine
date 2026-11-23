@@ -48,7 +48,7 @@ import {
   type WindowGeometry,
   type WindowLayout,
 } from "../../lib/floating-window-layout";
-import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { isModalOverlayOpen } from "../../lib/layer-stack";
 import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
 import { CHAT_VISUAL_VIEWPORT_CHANGE_EVENT } from "../../hooks/use-visual-viewport-chat-bottom";
 import { BUBBLE_SNAP_GAP_PX } from "../../lib/window-bubble-snap";

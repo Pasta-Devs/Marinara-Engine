@@ -2403,6 +2403,8 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
     const texts: string[] = [];
     let done = 0;
     let fresh = false;
+    // One failed part keeps its own text; the parts the Helper did shorten still count (#9669).
+    let shortened = false;
     for (const parts of requests) {
       const outputs: string[] = [];
       for (const part of parts) {
@@ -2487,19 +2489,22 @@ export function createAdvancedMemoryService(db: DB, { includeExcerptsInStatus = 
         if (failure) {
           if (asked)
             logger.warn(
-              "[advanced-memory] Chat %s: asked to shorten a %d-token summary text to about %d tokens, the Helper %s. The summaries stay as they are and are not sent again until they change.",
+              "[advanced-memory] Chat %s: asked to shorten a %d-token summary text to about %d tokens, the Helper %s. That part keeps its text; the other parts are still shortened.",
               ctx.chatId,
               size,
               target,
               failure,
             );
-          return null;
+          outputs.push(part);
+          continue;
         }
+        shortened = true;
         outputs.push(reply!);
       }
       texts.push(outputs.join("\n\n"));
     }
-    return { texts, fresh };
+    // Nothing shorter: the summaries stay as they are and are not sent again until they change.
+    return shortened ? { texts, fresh } : null;
   }
 
   function buildRecord(

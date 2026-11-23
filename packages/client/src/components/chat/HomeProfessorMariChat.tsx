@@ -15,6 +15,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { professorMariWorkspaceStatusKeys } from "../../hooks/use-professor-mari-workspace-status";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { useMariPresence, useMarkMariRunSeen } from "../../hooks/use-mari-presence";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AlertTriangle, MessageCircle } from "lucide-react";
@@ -475,6 +476,14 @@ export function HomeProfessorMariChat({
   const keyboardOpen = useChatKeyboardOpen();
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const headerMenuRef = useRef<HTMLDivElement>(null);
+  const headerMenuWrapperRef = useMemo(
+    () => ({
+      get current() {
+        return headerMenuRef.current?.parentElement ?? null;
+      },
+    }),
+    [],
+  );
   const headerCompact = keyboardOpen || headerMenuOpen;
   const chatHistoryOpen = workspaceDestination === "chats";
   // R52: the slot is empty by default. A user who never opens a panel sees a
@@ -1968,27 +1977,13 @@ export function HomeProfessorMariChat({
     };
   }, [mobileFocusMode]);
 
-  useEffect(() => {
-    if (!connectionMenuOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (connectionButtonRef.current?.contains(target) || connectionMenuRef.current?.contains(target)) return;
-      setConnectionMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [connectionMenuOpen]);
+  useDismiss(connectionMenuRef, connectionMenuOpen, () => setConnectionMenuOpen(false), {
+    openerRef: connectionButtonRef,
+  });
 
-  useEffect(() => {
-    if (!permissionsMenuOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (permissionsButtonRef.current?.contains(target) || permissionsMenuRef.current?.contains(target)) return;
-      setPermissionsMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [permissionsMenuOpen]);
+  useDismiss(permissionsMenuRef, permissionsMenuOpen, () => setPermissionsMenuOpen(false), {
+    openerRef: permissionsButtonRef,
+  });
 
   // The composer's mode and connection menus sit inside the omnibar dialog:
   // Escape closes the menu first, and only a second Escape reaches the dialog.
@@ -2009,24 +2004,9 @@ export function HomeProfessorMariChat({
     chatRowMenuId !== null,
   );
   const onHeaderMenuKeyDown = useInDialogFocusScope(headerMenuRef, () => setHeaderMenuOpen(false), headerMenuOpen);
-  useEffect(() => {
-    if (!headerMenuOpen) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (event.target instanceof Node && !headerMenuRef.current?.parentElement?.contains(event.target)) {
-        setHeaderMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [headerMenuOpen]);
-  useEffect(() => {
-    if (!chatRowMenuId) return;
-    const handlePointerDown = (event: MouseEvent) => {
-      if (event.target instanceof Node && !chatRowMenuRef.current?.contains(event.target)) setChatRowMenuId(null);
-    };
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
-  }, [chatRowMenuId]);
+  // The trigger sits next to the popover in one wrapper; a press on it closes the menu rather than toggling it again.
+  useDismiss(headerMenuRef, headerMenuOpen, () => setHeaderMenuOpen(false), { openerRef: headerMenuWrapperRef });
+  useDismiss(chatRowMenuRef, chatRowMenuId !== null, () => setChatRowMenuId(null));
 
   // #5725: the server-authoritative Permissions Mode. Display rides the status
   // payload; writes go through the dedicated validated PUT. The change applies
@@ -2131,6 +2111,7 @@ export function HomeProfessorMariChat({
 
   const closeChatWindow = useCallback(() => {
     setConnectionMenuOpen(false);
+    setPermissionsMenuOpen(false);
     setWorkspaceDestination("chat");
     setMobileFocusMode(false);
     setChatWindowOpen(false);

@@ -130,7 +130,20 @@ Turning it off shows **Past reasoning blocks**. The default is 1, which keeps th
 
 1. In **Advanced Parameters**, turn on **Image captioning**.
 2. Pick a model in the **Captioning model** dropdown.
-3. Optionally edit the **Captioning Prompt**, the instructions sent with each image. The reset button, or clearing the box, restores the default. The prompt is saved for this chat only, and **Save as Connection Default** does not copy it.
+3. Optionally edit the **Captioning Prompt**, the instructions sent with each image. The reset button, or clearing the box, goes back to the engine-wide Image reading prompt. The prompt is saved for this chat only, and **Save as Connection Default** does not copy it.
+
+The box also shows when the switch is off but an **Image reading** model is set in the **Jobs** box of the **Connections** panel: that model then describes this chat's pictures whenever the chat's own model can't see them.
+
+### What the reading model is asked
+
+In the **Connections** panel, click the gear on the **Image reading** row of the **Jobs** box (or choose **Image reading settings** under the model list in **Model for Image reading**). These apply to every chat:
+
+- **Instructions**: the system prompt sent with every picture. A chat's own **Captioning Prompt** replaces it.
+- **Request**: the message sent with each picture. `{{filename}}` becomes the picture's file name.
+- **Answer length (tokens)**: 700 by default. A thinking model spends part of it thinking, so give it more room (or turn its thinking off) if descriptions come back empty or cut off. A **Max output tokens** limit on the model still applies.
+- **Temperature**: 0.2 by default.
+
+**Instructions** and **Request** have a reset button that puts the built-in text back. Clear **Answer length** or **Temperature** to use its built-in value again. If a local model describes a picture well when you ask it directly but not through Marinara, copy the system prompt and question you use directly into **Instructions** and **Request**. A model's inline thinking (`<think>…</think>`) is removed from the description.
 
 If it did not work: when captioning fails, because the captioning account is broken, deleted or returns nothing, the reply stops with an **Image captioning failed** error. Marinara does not send the image instead. Fix or change the captioning model, or turn **Image captioning** off.
 

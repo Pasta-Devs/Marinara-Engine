@@ -11,6 +11,8 @@ export interface KeyboardShortcut {
   keys: string[][];
   /** Localization key of the description. */
   labelKey: string;
+  /** Works only while this setting is on; the list dims the row and links to the setting when it is off. */
+  setting?: "intuitiveSwipeNavigation";
 }
 
 export interface KeyboardShortcutGroup {
@@ -61,7 +63,7 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
     titleKey: "shortcuts.groups.messages",
     shortcuts: [
       // ChatArea intuitive swipe navigation
-      { keys: [["←"], ["→"]], labelKey: "shortcuts.messages.swipe" },
+      { keys: [["←"], ["→"]], labelKey: "shortcuts.messages.swipe", setting: "intuitiveSwipeNavigation" },
       // ChatMessage edit textarea
       { keys: [["Mod", "Enter"]], labelKey: "shortcuts.messages.saveEdit" },
       { keys: [["Esc"]], labelKey: "shortcuts.messages.cancelEdit" },

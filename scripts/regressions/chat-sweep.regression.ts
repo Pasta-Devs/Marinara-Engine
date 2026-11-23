@@ -133,11 +133,14 @@ try {
   const saved = structuredClone(original);
   const provider = {
     chatComplete: async (messages: ChatMessage[]) => {
+      // The leading system messages join; a per-turn one after the history stays in place, so the start of the
+      // prompt is the same from turn to turn. (Local servers get one system message: mari-prompt-cache covers that.)
       assert.deepEqual(
         messages.map((message) => message.role),
-        ["system", "user", "assistant", "user"],
+        ["system", "user", "assistant", "system", "user"],
       );
-      assert.equal(messages[0]?.content, "RULES\n\nPERMISSIONS\n\nATTACHED_CONTEXT");
+      assert.equal(messages[0]?.content, "RULES\n\nPERMISSIONS");
+      assert.equal(messages[3]?.content, "ATTACHED_CONTEXT");
       assert.deepEqual(messages[1]?.images, ["image-fixture"]);
       return { content: "OK" };
     },

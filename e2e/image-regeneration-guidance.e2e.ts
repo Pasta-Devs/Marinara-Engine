@@ -11,6 +11,194 @@ const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.u
 const requireServer = createRequire(new URL("../packages/server/package.json", import.meta.url));
 const sharp = requireServer("sharp");
 
+for (const owner of ["character", "persona"] as const) {
+  test(`${owner} gallery edits retain prompts and require explicit avatar selection`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.setTimeout(90_000);
+    const collection = owner === "persona" ? "/api/characters/personas" : "/api/characters";
+    const fields = { name: `Quick edit ${owner}` };
+    const created = await request.post(collection, { data: owner === "character" ? { data: fields } : fields });
+    expect(created.ok(), await created.text()).toBeTruthy();
+    const { id } = (await created.json()) as { id: string };
+    const path = `${collection}/${id}`;
+    try {
+      const png = await sharp({ create: { width: 320, height: 480, channels: 3, background: "#164e63" } })
+        .png()
+        .toBuffer();
+      const rows: ChatImage[] = [];
+      for (const prompt of ["Portrait before editing", "Portrait after editing"]) {
+        const uploaded = await request.post(`${path}/gallery/upload`, {
+          multipart: { prompt, file: { name: "portrait.png", mimeType: "image/png", buffer: png } },
+        });
+        expect(uploaded.ok()).toBeTruthy();
+        rows.push(await uploaded.json());
+      }
+      const [source, result] = rows as [ChatImage, ChatImage];
+      const generation = (prompt: string) =>
+        JSON.stringify(
+          buildChatImageGenerationRecord({
+            prompt,
+            connectionId: "entity-nai-e2e",
+            negativePrompt: "lowres",
+            seed: 123,
+          }),
+        );
+      source.generation = generation(source.prompt);
+      result.generation = generation(result.prompt);
+      expect((await request.post(`${path}/gallery/${source.id}/avatar`)).ok()).toBeTruthy();
+      const before = await (await request.get(path)).json();
+      await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+      await page.route("**/api/connections", (route) =>
+        route.fulfill({
+          json: [
+            {
+              id: "entity-nai-e2e",
+              name: "NovelAI test",
+              provider: "image_generation",
+              imageService: "novelai",
+              baseUrl: "https://image.novelai.net",
+              model: "nai-diffusion-5-full",
+              defaultForAgents: true,
+            },
+          ],
+        }),
+      );
+      await page.route(`**${path}/gallery`, (route) => route.fulfill({ json: [source] }));
+      const edits: Record<string, unknown>[] = [];
+      await page.route(`**${path}/gallery/${source.id}/regenerate`, async (route) => {
+        edits.push(route.request().postDataJSON());
+        await route.fulfill({ json: result });
+      });
+      await page.route(`**${path}/avatar/edit-source`, (route) =>
+        route.fulfill({ json: { ...source, prompt: "", generation: null } }),
+      );
+      await seedUIState(page, {
+        hasCompletedOnboarding: true,
+        rightPanelOpen: false,
+        sidebarOpen: false,
+        appAccentPulseMode: false,
+      });
+      await page.addInitScript((version) => localStorage.setItem("marinara:whats-new:seen-version", version), version);
+      await page.goto("/");
+      const openEditor = async (tab: string) => {
+        await page.evaluate(
+          async ({ owner, id, tab }) => {
+            const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+            if (owner === "persona") useUIStore.getState().openPersonaDetail(id, { initialTab: tab });
+            else useUIStore.getState().openCharacterDetail(id, { initialTab: tab });
+          },
+          { owner, id, tab },
+        );
+      };
+      await openEditor("gallery");
+      await page.locator(".mari-editor-shell").getByRole("img", { name: source.prompt, exact: true }).click();
+      const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+      await expect(viewer.getByText(source.prompt, { exact: true })).toHaveCount(0);
+      await viewer.getByRole("button", { name: "Expand panel", exact: true }).click();
+      await expect(viewer.getByText(source.prompt, { exact: true })).toBeVisible();
+      if (owner === "character") {
+        for (const visualTheme of ["default", "sillytavern"] as const) {
+          for (const theme of ["light", "dark"] as const) {
+            await page.evaluate(
+              async ({ visualTheme, theme }) => {
+                const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+                useUIStore.getState().setVisualTheme(visualTheme);
+                useUIStore.getState().setTheme(theme);
+              },
+              { visualTheme, theme },
+            );
+            await page.screenshot({
+              path: testInfo.outputPath(`entity-gallery-${visualTheme}-${theme}.png`),
+              animations: "disabled",
+            });
+          }
+        }
+      }
+      await viewer.getByRole("button", { name: "Regenerate image", exact: true }).click();
+      await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(source.prompt);
+      await viewer.getByRole("button", { name: "Edit image", exact: true }).click();
+      await expect(viewer.getByLabel("Inpainting mask brush canvas")).toBeVisible();
+      await page.evaluate(async () => {
+        const { queryClient } = await import("/src/lib/query-client.ts" as string);
+        const { characterKeys } = await import("/src/hooks/use-characters.ts" as string);
+        queryClient.setQueryData(characterKeys.galleryBackgrounds(), []);
+      });
+      await viewer.getByRole("button", { name: "Apply edit", exact: true }).click();
+      await expect.poll(() => edits.length).toBe(1);
+      expect(edits[0]).toMatchObject({ prompt: source.prompt, editMode: "img2img", connectionId: "entity-nai-e2e" });
+      await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(result.prompt);
+      await expect
+        .poll(() =>
+          page.evaluate(async () => {
+            const { queryClient } = await import("/src/lib/query-client.ts" as string);
+            const { characterKeys } = await import("/src/hooks/use-characters.ts" as string);
+            return queryClient.getQueryState(characterKeys.galleryBackgrounds())?.isInvalidated;
+          }),
+        )
+        .toBe(owner === "character");
+      const unchanged = await (await request.get(path)).json();
+      expect(unchanged.avatarPath).toBe(before.avatarPath);
+      await page.keyboard.press("Escape");
+      const applied = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" && response.url().endsWith(`${path}/gallery/${result.id}/avatar`),
+      );
+      await viewer.getByRole("button", { name: "Use as avatar", exact: true }).click();
+      expect((await applied).ok()).toBeTruthy();
+      await expect.poll(async () => (await (await request.get(path)).json()).avatarPath).not.toBe(before.avatarPath);
+      await viewer.getByRole("button", { name: "Close image", exact: true }).click();
+      await openEditor("metadata");
+      await page.locator(".mari-editor-shell").getByRole("button", { name: "Go to Gallery", exact: true }).click();
+      await expect(
+        page.locator(".mari-editor-shell").getByRole("img", { name: source.prompt, exact: true }),
+      ).toBeVisible();
+      await openEditor("metadata");
+      // Avatar editing lives in Metadata; the initial preview cannot reapply an unchanged image.
+      const editAvatar = page.locator(".mari-editor-shell").getByRole("button", { name: "Edit avatar", exact: true });
+      await expect(editAvatar).toHaveCount(1);
+      await editAvatar.click();
+      await expect(viewer.getByRole("button", { name: "Use as avatar", exact: true })).toHaveCount(0);
+      await viewer.getByRole("button", { name: "Regenerate image", exact: true }).click();
+      const promptField = viewer.getByRole("textbox", { name: "Prompt", exact: true });
+      await expect(promptField).toHaveValue("");
+      await promptField.fill(source.prompt);
+      await viewer.getByRole("button", { name: "Edit image", exact: true }).click();
+      await viewer.getByRole("button", { name: "Apply edit", exact: true }).click();
+      await expect.poll(() => edits.length).toBe(2);
+      await expect(promptField).toHaveValue(result.prompt);
+      // Apply the saved result directly from the open editor, without Cancel or another upload.
+      await expect(viewer.getByRole("button", { name: "Use as avatar", exact: true })).toBeVisible();
+      await expect
+        .poll(() => viewer.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth))
+        .toBe(320);
+      const applyButton = await viewer.getByRole("button", { name: "Use as avatar", exact: true }).boundingBox();
+      const previewBounds = await viewer.getByRole("img").boundingBox();
+      const editPanelBounds = await viewer
+        .getByRole("heading", { name: "Regenerate image", exact: true })
+        .boundingBox();
+      expect(applyButton && previewBounds && editPanelBounds).toBeTruthy();
+      expect(previewBounds!.height).toBeGreaterThan(40);
+      expect(applyButton!.y).toBeGreaterThanOrEqual(previewBounds!.y + previewBounds!.height);
+      expect(applyButton!.y + applyButton!.height).toBeLessThanOrEqual(editPanelBounds!.y);
+      const editButtonBounds = await viewer.getByRole("button", { name: "Apply edit", exact: true }).boundingBox();
+      expect(editButtonBounds!.y + editButtonBounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+      await page.screenshot({ path: testInfo.outputPath("avatar-result-apply.png"), animations: "disabled" });
+      const avatarApplied = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" && response.url().endsWith(`${path}/gallery/${result.id}/avatar`),
+      );
+      await viewer.getByRole("button", { name: "Use as avatar", exact: true }).click();
+      expect((await avatarApplied).ok()).toBeTruthy();
+      await expect(viewer).toHaveCount(0);
+      expect(await (await request.get(`${path}/gallery`)).json()).toHaveLength(2);
+    } finally {
+      await request.delete(path);
+    }
+  });
+}
+
 const original = {
   prompt: "Harbor at dusk | fog along the pier",
   negativePrompt: "flat lighting, oversaturation",
@@ -80,6 +268,61 @@ async function screenshot(page: Page, info: TestInfo, name: string) {
   });
 }
 
+test("gallery navigation remains usable after the first image fails to load", async ({ page, request }) => {
+  const created = await request.post("/api/chats", {
+    data: { name: "Failed gallery image", mode: "roleplay", characterIds: [], connectionId: "synthetic" },
+  });
+  expect(created.ok()).toBeTruthy();
+  const { id: chatId } = (await created.json()) as { id: string };
+  try {
+    const png = await sharp({ create: { width: 640, height: 360, channels: 3, background: "#164e63" } })
+      .png()
+      .toBuffer();
+    const broken = await upload(request, chatId, "Broken first picture", png);
+    const loaded = await upload(request, chatId, "Loaded second picture", png);
+    await page.route(`**/api/gallery/${chatId}`, (route) => route.fulfill({ json: [broken, loaded] }));
+    await page.route(`**${broken.url}`, (route) => route.abort());
+    await openChat(page, chatId);
+    const drawer = await openChatSettingsTool(page, "gallery");
+    await openGalleryImage(drawer, broken.prompt);
+    const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await expect
+      .poll(() => viewer.getByRole("img").evaluate((image: HTMLImageElement) => image.complete && !image.naturalWidth))
+      .toBe(true);
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 640, height: 360 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect
+        .poll(async () => {
+          const toolbar = await viewer
+            .getByRole("button", { name: "Close image", exact: true })
+            .locator("..")
+            .boundingBox();
+          const next = await viewer.getByRole("button", { name: "Next image", exact: true }).boundingBox();
+          return (
+            !!toolbar && !!next && toolbar.y + toolbar.height + 15 <= next.y && next.y + next.height <= viewport.height
+          );
+        })
+        .toBe(true);
+    }
+    await viewer.getByRole("button", { name: "Next image", exact: true }).click();
+    await expect
+      .poll(() => viewer.getByRole("img").evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBe(640);
+    await expect
+      .poll(async () => {
+        const image = await viewer.getByRole("img").boundingBox();
+        const next = await viewer.getByRole("button", { name: "Next image", exact: true }).boundingBox();
+        return !!image && !!next && Math.abs(next.x - image.x - image.width - 16) <= 1;
+      })
+      .toBe(true);
+  } finally {
+    await request.delete(`/api/chats/${chatId}`);
+  }
+});
+
 test("gallery regeneration preserves structured prompts and can revise, generate, or retry independently", async ({
   page,
   request,
@@ -147,7 +390,53 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     const regenerate = dialog.getByRole("button", { name: "Regenerate image", exact: true });
 
     await openGalleryImage(drawer, legacy.prompt);
+    await expect(dialog.getByText(legacy.prompt, { exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Expand panel", exact: true }).click();
     await expect(dialog.getByText(legacy.prompt, { exact: true })).toBeVisible();
+    const originalViewport = page.viewportSize();
+    const originalFontSize = await page.evaluate(() => {
+      const previous = document.documentElement.style.fontSize;
+      document.documentElement.style.fontSize = "20px";
+      return previous;
+    });
+    try {
+      for (const viewport of [
+        { width: 1600, height: 900 },
+        { width: 390, height: 844 },
+        { width: 640, height: 360 },
+      ]) {
+        await page.setViewportSize(viewport);
+        await expect
+          .poll(async () => {
+            const imageBounds = await dialog.getByRole("img").first().boundingBox();
+            const toolbarBounds = await dialog
+              .getByRole("button", { name: "Close image", exact: true })
+              .locator("..")
+              .boundingBox();
+            const previousBounds = await dialog
+              .getByRole("button", { name: "Previous image", exact: true })
+              .boundingBox();
+            const nextBounds = await dialog.getByRole("button", { name: "Next image", exact: true }).boundingBox();
+            if (!imageBounds || !toolbarBounds || !previousBounds || !nextBounds) return false;
+            const right = imageBounds.x + imageBounds.width;
+            return (
+              Math.abs(toolbarBounds.x - right - 16) <= 1 &&
+              Math.abs(nextBounds.x - right - 16) <= 1 &&
+              Math.abs(imageBounds.x - (previousBounds.x + previousBounds.width) - 16) <= 1 &&
+              toolbarBounds.y + toolbarBounds.height + 15 <= nextBounds.y &&
+              Math.abs(previousBounds.y - nextBounds.y) <= 1 &&
+              toolbarBounds.x + toolbarBounds.width <= viewport.width &&
+              nextBounds.y + nextBounds.height <= viewport.height
+            );
+          })
+          .toBe(true);
+      }
+    } finally {
+      await page.evaluate((size) => {
+        document.documentElement.style.fontSize = size;
+      }, originalFontSize);
+      if (originalViewport) await page.setViewportSize(originalViewport);
+    }
     await expect(dialog.getByRole("button", { name: "Copy Negative prompt", exact: true })).toHaveCount(0);
     await regenerate.click();
     await expect(dialog.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(legacy.prompt);
@@ -162,6 +451,8 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await dialog.getByRole("button", { name: "Close image", exact: true }).click();
 
     await openGalleryImage(drawer, displayPrompt);
+    await expect(dialog.getByText(original.prompt, { exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Expand panel", exact: true }).click();
     for (const text of [
       original.prompt,
       original.negativePrompt,
@@ -326,6 +617,8 @@ test("gallery regeneration preserves structured prompts and can revise, generate
     await expect(regenerate).toBeVisible();
     expect(requests.slice(4)).toEqual([{ action: "generate", body: expect.objectContaining(revised) }]);
     expect(generatedPrompt).toBe(`${revised.prompt} (synced)`);
+    await expect(dialog.getByText(`${revised.prompt} (synced)`, { exact: true })).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Expand panel", exact: true }).click();
     await expect(dialog.getByText(`${revised.prompt} (synced)`, { exact: true })).toBeVisible();
   } finally {
     await request.delete(`/api/chats/${chatId}`);
@@ -441,8 +734,12 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
       }),
     );
 
+    await expect(maskCanvas).toHaveClass(/\bcursor-crosshair\b/);
+    await expect.poll(() => maskCanvas.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBe(640);
     const box = await maskCanvas.boundingBox();
     expect(box).toBeTruthy();
+    // The success toast can cover this point briefly on phones; wait for a clear paint target.
+    await maskCanvas.hover({ position: { x: box!.width * 0.4, y: box!.height * 0.4 } });
     await page.mouse.move(box!.x + box!.width * 0.4, box!.y + box!.height * 0.4);
     await page.mouse.down();
     await page.mouse.move(box!.x + box!.width * 0.6, box!.y + box!.height * 0.6, { steps: 5 });

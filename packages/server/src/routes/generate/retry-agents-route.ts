@@ -4189,6 +4189,7 @@ async function applyRetryResultEffects(args: {
                 enabled: imageSettings.autoSaveToGalleries,
                 sourceFilePath: filePath,
                 sourceChatImageId: galleryEntry?.id,
+                generation: galleryEntry?.generation,
                 characterIds: referenceResolution.characterIds,
                 personaIds: referenceResolution.personaId ? [referenceResolution.personaId] : [],
                 characterGallery: createCharacterGalleryStorage(app.db),

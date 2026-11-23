@@ -229,9 +229,9 @@ export interface APIConnection {
   fallbackForAgents: boolean;
   /** Whether provider-native prompt caching is enabled */
   enableCaching: boolean;
-  /** Anthropic and Claude Subscription: request a 1-hour prompt-cache TTL. */
+  /** Anthropic, Claude Subscription and Claude on OpenRouter: request a 1-hour prompt-cache TTL. */
   anthropicExtendedCacheTtl: boolean;
-  /** Conversation message depth for Anthropic cache breakpoints */
+  /** Conversation message depth for Anthropic cache breakpoints, also used for Claude and Qwen on OpenRouter */
   cachingAtDepth: number;
   /** Model to use for embedding generation (e.g. "text-embedding-3-small") */
   embeddingModel: string | null;

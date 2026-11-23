@@ -225,7 +225,6 @@ import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use
 import { useCanRestartServer, useRestartServer } from "../../hooks/use-server-restart";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
-import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
 import { getClientRuntimeDiagnostics } from "../../lib/client-runtime-diagnostics";
 import {
   detectBrowserGpu,
@@ -234,6 +233,7 @@ import {
   type SupportDiagnostics,
 } from "../../lib/support-diagnostics";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { describeChatImportNotes, type STChatImportNote } from "../../lib/st-import-report";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { saveExportFile } from "../../lib/file-download";
 import {
@@ -6790,34 +6790,33 @@ function ImportSettings() {
           </button>
 
           <div className="flex flex-col gap-2">
-            <ImportButton
-              label={localizeUi("settings.transfer.importCharacter")}
-              accept=".json,.png"
-              endpoint="/import/st-character"
-              mode="auto"
-            />
+            {/* Character, preset and lorebook open the same windows as their own Import buttons, with the same
+                choices, report and list refresh. The chat file imports here and opens. */}
+            <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={() => openModal("import-character")}>
+              {localizeUi("settings.transfer.importCharacter")}
+            </button>
             <ImportButton
               label={localizeUi("settings.transfer.importChat")}
               accept=".jsonl"
               endpoint="/import/st-chat"
-              mode="file"
-              onImported={(data) => {
+              onImported={(data: { chatId?: string; messagesImported?: number; importNotes?: STChatImportNote[] }) => {
+                // The same toast as the chat list's import: what came along (Author's Note, persona, hidden
+                // messages) and what didn't.
+                const notes = describeChatImportNotes(data.importNotes, localizeUi);
+                toast.success(
+                  localizeUi("ui.layout.chatsidebar.importedValue1Messages", { value1: data.messagesImported ?? 0 }),
+                  notes.length > 0 ? { description: notes.join(" "), duration: 8000 } : undefined,
+                );
                 qc.invalidateQueries({ queryKey: chatKeys.list() });
                 if (data.chatId) setActiveChatId(data.chatId);
               }}
             />
-            <ImportButton
-              label={localizeUi("settings.transfer.importPreset")}
-              accept=".json"
-              endpoint="/import/st-preset"
-              mode="json"
-            />
-            <ImportButton
-              label={localizeUi("settings.transfer.importLorebook")}
-              accept=".json"
-              endpoint="/import/st-lorebook"
-              mode="json"
-            />
+            <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={() => openModal("import-preset")}>
+              {localizeUi("settings.transfer.importPreset")}
+            </button>
+            <button type="button" className={SETTINGS_BUTTON_CLASS} onClick={() => openModal("import-lorebook")}>
+              {localizeUi("settings.transfer.importLorebook")}
+            </button>
           </div>
         </div>
       </SettingsSection>
@@ -6827,17 +6826,16 @@ function ImportSettings() {
   );
 }
 
+/** A file picker that posts one SillyTavern chat file (multipart) and hands the reply to `onImported`. */
 function ImportButton({
   label,
   accept,
   endpoint,
-  mode = "file",
   onImported,
 }: {
   label: string;
   accept: string;
   endpoint: string;
-  mode?: "file" | "json" | "auto";
   onImported?: (data: any) => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
@@ -6845,51 +6843,9 @@ function ImportButton({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      let res: Response;
-      let importEmbeddedLorebook: boolean | undefined;
-
-      // "auto" mode: send binary files (PNG) as multipart, JSON files as JSON body
-      const effectiveMode = mode === "auto" ? (file.name.toLowerCase().endsWith(".json") ? "json" : "file") : mode;
-      if (endpoint === "/import/st-character") {
-        const previews = await inspectCharacterFilesForEmbeddedLorebooks([file]);
-        const preview = previews[0];
-        if (preview) {
-          importEmbeddedLorebook = await showConfirmDialog({
-            message: localizeUi("ui.panels.importbutton.embeddedLorebookImportPrompt", {
-              name: preview.name ?? file.name,
-              count: preview.embeddedLorebookEntries,
-            }),
-          });
-        }
-      }
-
-      if (effectiveMode === "json") {
-        const text = await file.text();
-        const json = JSON.parse(text);
-        // Pass filename as fallback name for lorebook/preset imports
-        if (endpoint.includes("lorebook") || endpoint.includes("preset")) {
-          json.__filename = file.name.replace(/\.json$/i, "");
-        }
-        if (endpoint === "/import/st-character" && importEmbeddedLorebook !== undefined) {
-          json.importEmbeddedLorebook = importEmbeddedLorebook;
-        }
-        res = await fetch(`/api${endpoint}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(json),
-        });
-      } else {
-        const formData = new FormData();
-        if (endpoint === "/import/st-character" && importEmbeddedLorebook !== undefined) {
-          formData.append("importEmbeddedLorebook", String(importEmbeddedLorebook));
-        }
-        formData.append("file", file);
-        res = await fetch(`/api${endpoint}`, {
-          method: "POST",
-          body: formData,
-        });
-      }
-      const data = await res.json();
+      const formData = new FormData();
+      formData.append("file", file);
+      const data = await api.upload<{ success?: boolean; error?: string }>(endpoint, formData);
       if (data.success) {
         if (onImported) {
           onImported(data);
@@ -6903,8 +6859,12 @@ function ImportButton({
           }),
         );
       }
-    } catch {
-      toast.error(localizeUi("chat.branches.importFailed"));
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError && error.message
+          ? localizeUi("ui.panels.importbutton.importFailedValue1", { value1: error.message })
+          : localizeUi("chat.branches.importFailed"),
+      );
     }
     e.target.value = "";
   };

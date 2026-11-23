@@ -1645,7 +1645,10 @@ const capabilityPackageManifestBaseSchema = z
 //        without playing it, so a later speak or speakSequence with the same text, cacheKey, voice, speaker, tone
 //        and audioConnectionId starts at once. Soft seam: an older Engine leaves it undefined, so a package
 //        feature-detects it and declares 1.835 only when it cannot work without it. No permission.
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 835 } as const);
+// 1.836: the host's `components` gain the shared Popover: a layer anchored to an element that flips, stays inside
+//        the window, and closes on Escape, an outside press and back, topmost layer first. Not a soft seam, as
+//        1.830. No permission.
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 836 } as const);
 
 const capabilityApiVersionSchema = z
   .object({

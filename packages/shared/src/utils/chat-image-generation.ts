@@ -6,8 +6,8 @@ import type { SceneIllustrationCharacterPrompt } from "../types/sidecar.js";
  * image can be regenerated faithfully (#7767). Provider, model and size live on the
  * gallery row itself.
  *
- * This is always the primary connection's request, even when a fallback connection drew
- * the image: a regeneration re-sends it and the fallback still applies if it fails.
+ * The record identifies the connection and request saved by the generation flow.
+ * When that flow records a fallback result, regeneration starts from that fallback request.
  *
  * Reference images are not copied: the record names their sources, and a
  * regeneration re-reads the current avatars and location image.

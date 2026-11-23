@@ -39,6 +39,7 @@ import {
   type ImageGenResult,
 } from "../image/image-generation.js";
 import { getSharp } from "../image/sharp-runtime.js";
+import { prepareMariLookPreview } from "../image/mari-look-preview.js";
 import { resolveConnectionImageDefaults, resolveConnectionImageQuality } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
@@ -2189,22 +2190,14 @@ export class MariImagesService {
     const images: string[] = [];
     const looked = [];
     for (const { ref, image } of sources) {
-      const pipeline = sharp(image.buffer).rotate();
-      const meta = await pipeline.metadata();
-      const resized = pipeline.resize({ width: longSide, height: longSide, fit: "inside", withoutEnlargement: true });
-      // A transparent sprite keeps its alpha as PNG; JPEG would turn it black.
-      const { data, info } = await (meta.hasAlpha ? resized.png() : resized.jpeg({ quality: 85 })).toBuffer({
-        resolveWithObject: true,
-      });
-      const mimeType = meta.hasAlpha ? "image/png" : "image/jpeg";
-      images.push(`data:${mimeType};base64,${data.toString("base64")}`);
+      const { data, ...preview } = await prepareMariLookPreview(sharp, image.buffer, longSide);
+      images.push(`data:image/jpeg;base64,${data.toString("base64")}`);
       looked.push({
         image: images.length,
         ref: ref.startsWith("data:") || ref.length > 200 ? image.label : ref,
         label: image.asset ? `asset:${image.asset.id}` : image.label,
         ...(image.asset ? { kind: image.asset.kind, prompt: clip(image.asset.prompt, 300) } : {}),
-        original: meta.width && meta.height ? `${meta.width}x${meta.height}` : null,
-        sent: `${info.width}x${info.height}`,
+        ...preview,
       });
     }
     return {
@@ -2213,7 +2206,7 @@ export class MariImagesService {
       command: context.command,
       output: {
         looked,
-        note: "The pictures are attached to your next message, in this order. Describe only what you see in them.",
+        note: "The pictures are attached to your next message, in this order, as JPEG previews. A checkerboard represents transparency, not painted image content; transparency.partial reports partially transparent source pixels. sizeLimited means quality or dimensions were reduced to fit the preview byte limit. Original assets are unchanged. Describe only what you see in the previews.",
       },
       images,
     };

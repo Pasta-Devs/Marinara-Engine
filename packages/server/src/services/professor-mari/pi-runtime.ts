@@ -402,21 +402,33 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
   // Decided once per connection: only these connections ever parse text as tool calls.
   const textualTools =
     isLocalSidecarConnection(input.connection) || !supportsNativeToolCalls(input.connection.provider);
-  const systemMessages = input.messages.filter((message) => message.role === "system");
-  const systemSeparator = "\n\n";
-  const systemPrompt = systemMessages.map((message) => message.content).join(systemSeparator);
-  // #8375: where the <workspace_context> message (the last prompt block, with the per-turn lines) starts in
-  // systemPrompt, or -1. Found by message, not by searching the text: memories and the injections after it can
-  // quote the tag.
-  const contextMessage = systemMessages.map((message) => message.contextKind).lastIndexOf("prompt");
-  const contextAt =
-    contextMessage >= 0 && systemMessages[contextMessage]!.content.startsWith("<workspace_context>")
-      ? systemMessages
-          .slice(0, contextMessage)
-          .reduce((chars, message) => chars + message.content.length + systemSeparator.length, 0)
-      : -1;
+  // The system messages before the history are pi's system prompt, the same on every turn. The others change every
+  // turn (workspace context with the time, continuity, @ links), so they go into the history where the prompt put
+  // them, that many conversation messages before the end (the user's context depth): the system prompt and the
+  // history before them stay the start of the next request, and its cache holds.
+  // Per-turn blocks are injections: at a depth beyond the history they come before the first message, and still stay
+  // out of the system prompt.
+  const firstTurn = input.messages.findIndex(
+    (message) => message.role !== "system" || message.contextKind === "injection",
+  );
+  const leadingSystem = input.messages
+    .slice(0, firstTurn < 0 ? input.messages.length : firstTurn)
+    .filter((message) => message.role === "system");
+  const turnContext: ChatMessage[] = input.messages
+    .slice(leadingSystem.length)
+    .filter((message) => message.role === "system")
+    .map((message) => ({ role: "system", content: message.content, contextKind: "injection" }));
+  const firstTurnContext = input.messages.findIndex(
+    (message, index) => index >= leadingSystem.length && message.role === "system",
+  );
+  const turnContextDepth =
+    firstTurnContext < 0
+      ? 0
+      : input.messages.slice(firstTurnContext).filter((message) => message.role !== "system").length;
+  const systemPrompt = leadingSystem.map((message) => message.content).join("\n\n");
   const history = input.messages.filter((message) => message.role !== "system");
   const last = history[history.length - 1];
+  const seededMessages = history.length - 1;
   if (!last || last.role !== "user") throw new Error("The pi runtime needs the current user message last.");
   // Images and files ride on the stored chat messages; pi only sees text, so they are re-attached by text.
   const attachmentsByText = new Map<string, Pick<ChatMessage, "images" | "files">>();
@@ -483,17 +495,10 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     return "done" as const;
   };
 
-  // #8375: the tool block goes before <workspace_context>, so it stays in the cached prefix. pi's prompt is
-  // systemPrompt plus its own <cwd> line, so contextAt holds there too; the startsWith check guards that.
-  const withToolFormat = (prompt: string) => {
-    if (!textualTools) return prompt;
-    const block = textualToolPrompt(tools);
-    return contextAt >= 0 && prompt.startsWith("<workspace_context>", contextAt)
-      ? `${prompt.slice(0, contextAt)}${block}\n\n${prompt.slice(contextAt)}`
-      : `${prompt}\n\n${block}`;
-  };
+  // The tool block is part of the system prompt, so it stays in the cached start too.
+  const withToolFormat = (prompt: string) => (textualTools ? `${prompt}\n\n${textualToolPrompt(tools)}` : prompt);
 
-  const toChatMessages = (context: TranscriptContext, asText = textualTools): ChatMessage[] => {
+  const toChatMessages = (context: TranscriptContext, asText = textualTools, withTurnContext = true): ChatMessage[] => {
     const out: ChatMessage[] = [];
     const prompt = getCurrentSystemPrompt(context.messages);
     if (prompt) out.push({ role: "system", content: withToolFormat(prompt), contextKind: "prompt" });
@@ -505,14 +510,29 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       out.push({ role: "user", content: LOOKED_IMAGES_NOTE, contextKind: "history", images: pendingImages });
       pendingImages = [];
     };
-    for (const message of context.messages as Message[]) {
+    // Seeded history rows carry timestamps 1..n; this run's own message is the first user message after them. The
+    // per-turn context sits `turnContextDepth` messages back from it (0: right after it), counting this run's message.
+    const runStart = (context.messages as Message[]).findIndex(
+      (message) => message.role === "user" && message.timestamp > seededMessages,
+    );
+    // Only user and assistant turns count toward the depth: pi can keep other entries (its own notes) between them.
+    let turnContextAt = runStart < 0 || turnContextDepth <= 0 ? -1 : runStart;
+    for (let back = turnContextDepth - 1; back > 0 && turnContextAt > 0;) {
+      turnContextAt -= 1;
+      const role = (context.messages as Message[])[turnContextAt]!.role;
+      if (role === "user" || role === "assistant") back -= 1;
+    }
+    for (const [index, message] of (context.messages as Message[]).entries()) {
       if (message.role !== "toolResult") {
         lastResult = null;
         flushImages();
       }
+      if (index === turnContextAt && withTurnContext) out.push(...turnContext);
       if (message.role === "user") {
         const content = textOf(message.content as never);
         out.push({ role: "user", content, contextKind: "history", ...attachmentsByText.get(content) });
+        // Depth 0: right after this run's message.
+        if (index === runStart && turnContextAt < 0 && withTurnContext) out.push(...turnContext);
       } else if (message.role === "assistant") {
         const toolCalls = message.content.flatMap((part) =>
           part.type === "toolCall"
@@ -568,6 +588,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
       }
     }
     flushImages();
+    if (runStart < 0 && withTurnContext) out.push(...turnContext);
     return out;
   };
 
@@ -616,7 +637,8 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
         // A textual connection gets no tools in the request: the calls are in the prompt and in the reply text.
         // Only the agent's own turns draft; a chips-only round drops its words, so it shows none.
         const result = await completeWithDraft(
-          toChatMessages(context),
+          // pi's own summary requests (no tools) get no per-turn context.
+          toChatMessages(context, textualTools, isAgentTurn),
           textualTools ? [] : toolDefs,
           isAgentTurn && chipRepair !== "pending",
         );
@@ -708,8 +730,18 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
           if (round.chipRound) chipRepair = "used";
           if (workspaceCalls.length > 0) toolRounds += 1;
         }
-        message.stopReason = truncated ? "length" : workspaceCalls.length > 0 ? "toolUse" : "stop";
-        stream.push({ type: "done", reason: message.stopReason as "stop" | "length" | "toolUse", message });
+        // A cut reply ends as "stop": the round review above redoes it smaller or ends the run. Told "length", pi takes
+        // it for a context overflow and, past its first keepRecentTokens, sends the whole conversation again in an
+        // uncached summary request before retrying a run that has already stopped.
+        // A summary request (no tools) keeps the provider's length stop, so pi rejects a cut-off summary instead of
+        // saving it as the checkpoint. Agent turns report "stop": the round review redoes a cut reply.
+        message.stopReason =
+          workspaceCalls.length > 0
+            ? "toolUse"
+            : !isAgentTurn && isLengthFinishReason(result.finishReason)
+              ? "length"
+              : "stop";
+        stream.push({ type: "done", reason: message.stopReason, message });
       } catch (error) {
         const aborted = signal.aborted;
         if (!aborted) providerError = error;
@@ -984,7 +1016,9 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     // No provider has a "no tools" choice, and some reject tool history sent without tools: the history goes as text.
     const messages: ChatMessage[] = [
       { role: "system", content: withToolFormat(systemPrompt), contextKind: "prompt" },
-      ...toChatMessages({ messages: finished.messages } as never, true).filter((message) => message.role !== "system"),
+      ...toChatMessages({ messages: finished.messages } as never, true).filter(
+        (message) => message.role !== "system" || message.contextKind !== "prompt",
+      ),
       {
         role: "user",
         content: formatMariGuardrail(
@@ -1280,6 +1314,7 @@ export async function runPiLoop(input: PiRunInput & { commands: WorkspaceCommand
     totalTokens: 0,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
   };
+  // Timestamps 1..n mark these rows as the stored history, apart from this run's own messages (Date.now()).
   history.slice(0, -1).forEach((message, index) => {
     const timestamp = index + 1;
     if (message.role === "user") sessionManager.appendMessage({ role: "user", content: message.content, timestamp });

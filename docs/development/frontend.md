@@ -346,12 +346,15 @@ Panels keep their state through a `mountedPanels` Set held in a `useState` insid
 | `GifPicker`        | GIF search via the Giphy API                                          |
 | `HelpTooltip`      | Hover icon that shows a portal-positioned tooltip                     |
 | `LibraryToolbar`   | The toolbar every library panel shares (see below)                    |
+| `EditorHeader`     | The header every full-page editor shares (see below)                  |
 
 All UI components use controlled props (value plus onChange) and portal rendering for overlays.
 
 **Library panels use `LibraryToolbar`.** Characters, Personas, Lorebooks, Agents and the Presets panel's tabs render their top controls through it: an optional library row (one full-width button, or the Download / Open Library pair), create / import / export / select, search with the shared sort menu, New Folder, then panel filters as `children`. The rows are typed props, not slots, so a new library panel gets the same markup instead of a copy that drifts. Add a prop there rather than hand-building a toolbar in a panel.
 
 `LibraryToolbar.tsx` also exports `SegmentedButtons`, one long `.mari-chrome-segmented` button split by `|`. It draws the Download / Open Library pair and the Presets panel's **Prompts** / **Regexes** / **Tools** / **Profiles** tabs, so every panel's top row has the same height. Passing `groupLabel` makes the row a `role="group"` of tabs, and `pressed` sets each tab's `aria-pressed`. `.mari-chrome-segmented` has `flex-shrink: 0`, so a panel's own fixed-height flex scroller (as in Characters) cannot squeeze the row.
+
+**Full-page editors use `EditorHeader`.** It draws Back, the icon tile, the name, the optional section tabs, the actions and Close, in one of two layouts. With `nav` (section tabs), the `mari-editor-header--with-nav` density rules size everything against the tabs. Without it, the actions get a row of their own on phones, and Save shows only its icon there. The name, the tile's content and the buttons are slots, so each editor keeps its own name field and its own controls. Build header buttons with `EditorSaveButton` and `EditorHeaderAction`: their label is always both the tooltip and the accessible name. Add a slot or a part there rather than hand-building a header in an editor.
 
 ## API client (`lib/api-client.ts`)
 
