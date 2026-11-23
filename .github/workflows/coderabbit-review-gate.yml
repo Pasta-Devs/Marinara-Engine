@@ -182,6 +182,8 @@ jobs:
           case "$BODY" in
             "@coderabbitai ignore") NEW="" ;;
             *$'\n\n@coderabbitai ignore') NEW=${BODY%$'\n\n@coderabbitai ignore'} ;;
+            # GitHub's web editor saves a description with CRLF line breaks.
+            *$'\r\n\r\n@coderabbitai ignore') NEW=${BODY%$'\r\n\r\n@coderabbitai ignore'} ;;
             *)
               echo "PR #$PR_NUM does not end with the @coderabbitai ignore line this workflow adds."
               exit 0

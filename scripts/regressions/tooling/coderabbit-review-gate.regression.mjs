@@ -293,6 +293,11 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
     assert.equal(field(writes[1], "pr_number"), "9086");
     assert.equal(field(writes[1], "review_mode"), "full");
   });
+  expect("a description re-saved in the web editor, with CRLF line breaks, loses the line too", () => {
+    const writes = run(retarget, { body: "Hotfix.\r\nNotes.\r\n\r\n@coderabbitai ignore", env: moved });
+    assert.equal(writes.length, 2, JSON.stringify(writes));
+    assert.equal(field(writes[0], "body"), "Hotfix.\r\nNotes.");
+  });
   expect("a description that was only the line is emptied", () =>
     assert.equal(field(run(retarget, { body: "@coderabbitai ignore", env: moved })[0], "body"), ""),
   );
