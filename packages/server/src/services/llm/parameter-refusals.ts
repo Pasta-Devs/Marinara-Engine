@@ -2,20 +2,23 @@
 // Parameter refusals: settings a service has refused for a model
 // ──────────────────────────────────────────────
 // Some services block a setting whatever the model would take (a router that drops penalties, a proxy whose upstream
-// refuses top_k). Most never say so up front, only by refusing a request. When a refusal names one of the panel's
-// settings, the request is sent once more without it, and the setting is remembered for that service and model: later
-// requests leave it out, and Advanced Parameters hides it like any other unsupported setting.
+// refuses top_k). Most never say so up front, only by refusing a request. When a refusal names one of these settings,
+// the request is sent again without it (AI Horde names one per refusal, so this repeats), and once a request goes
+// through, the settings are remembered for that service and model: later requests leave them out, and Advanced
+// Parameters hides them like any other unsupported setting.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { capabilityModelId, type GenerationParameterKey } from "@marinara-engine/shared";
 import { getDataDir } from "../../utils/data-dir.js";
 import { logger } from "../../lib/logger.js";
 
-/** Request fields the parameter panel controls, by their Chat Completions names. */
-export const REFUSABLE_PARAMETER_FIELDS: Readonly<Record<string, GenerationParameterKey>> = {
+/** Request fields a refusal may drop, by their Chat Completions names, with the panel setting each one hides (null when
+ *  Advanced Parameters has no such setting to hide). */
+export const REFUSABLE_PARAMETER_FIELDS: Readonly<Record<string, GenerationParameterKey | null>> = {
   temperature: "temperature",
   top_p: "topP",
   top_k: "topK",
+  min_p: null,
   frequency_penalty: "frequencyPenalty",
   presence_penalty: "presencePenalty",
   verbosity: "verbosity",
@@ -133,7 +136,7 @@ export function refusedParameterFields(service: string, model: string): string[]
 
 /** The panel settings this service refused for this model. */
 export function refusedGenerationParameters(service: string, model: string): GenerationParameterKey[] {
-  return refusedParameterFields(service, model).map((field) => REFUSABLE_PARAMETER_FIELDS[field]!);
+  return refusedParameterFields(service, model).flatMap((field) => REFUSABLE_PARAMETER_FIELDS[field] ?? []);
 }
 
 export function rememberRefusedParameterFields(service: string, model: string, fields: string[]): void {

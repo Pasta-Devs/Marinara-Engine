@@ -1257,27 +1257,31 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
       errorText = await response.text();
     }
-    if (response.status === 400 || response.status === 422) {
-      // A service that blocks a setting for this model (whatever the model itself takes) says so only by refusing it.
-      // Send once more without the settings the refusal names, and remember them for this service and model so later
-      // requests leave them out and Advanced Parameters hides them. Settings sent through Custom Parameters are the
-      // user's own, so their refusal is reported as before.
-      const refused = detectRefusedParameterFields(errorText, body).filter((field) => !isExplicit(field));
-      if (refused.length > 0) {
-        logger.warn(
-          "[OpenAI] %s refused %s for %s; retrying without it and leaving it out from now on",
-          this.chatCompletionsErrorLabel(),
-          refused.join(", "),
-          options.model,
-        );
-        for (const field of refused) delete body[field];
-        response = await send();
-        if (response.ok) {
-          rememberRefusedParameterFields(refusalService, options.model, refused);
-          return response;
-        }
-        errorText = await response.text();
+    // A service that blocks a setting for this model (whatever the model itself takes) says so only by refusing it.
+    // Send again without the settings the refusal names, and once a request goes through, remember them for this
+    // service and model so later requests leave them out and Advanced Parameters hides them. AI Horde names one setting
+    // per refusal, so this repeats; each round drops a field that was sent, so it ends. Settings sent through Custom
+    // Parameters are the user's own, so their refusal is reported as before.
+    const dropped: string[] = [];
+    const refusedNow = () =>
+      response.status === 400 || response.status === 422
+        ? detectRefusedParameterFields(errorText, body).filter((field) => !isExplicit(field))
+        : [];
+    for (let refused = refusedNow(); refused.length > 0; refused = refusedNow()) {
+      logger.warn(
+        "[OpenAI] %s refused %s for %s; retrying without it, and leaving it out from now on if that works",
+        this.chatCompletionsErrorLabel(),
+        refused.join(", "),
+        options.model,
+      );
+      for (const field of refused) delete body[field];
+      dropped.push(...refused);
+      response = await send();
+      if (response.ok) {
+        rememberRefusedParameterFields(refusalService, options.model, dropped);
+        return response;
       }
+      errorText = await response.text();
     }
     if (response.status === 400) {
       // A bare "invalid request" says nothing about which part was refused. The shape of what was sent (roles,

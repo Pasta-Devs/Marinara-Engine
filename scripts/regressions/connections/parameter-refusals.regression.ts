@@ -75,6 +75,14 @@ try {
   assert.deepEqual(detect({ error: { message: "temperature must be between 0 and 1" } }), []);
   assert.deepEqual(detect({ error: { message: "messages: role 'tool' is not supported" } }), []);
   assert.deepEqual(detect({ error: { message: "top_k is not supported" } }, { temperature: 0.7 }), []);
+  assert.deepEqual(
+    detect(
+      { error: { message: "The parameter 'min_p' is not supported by the AI Horde chat completions endpoint." } },
+      { ...sent, min_p: 0.05 },
+    ),
+    ["min_p"],
+    "AI Horde's refusal of min_p",
+  );
 
   // The request path: refuse frequency_penalty and top_k, accept everything else.
   const bodies: Array<Record<string, unknown>> = [];
@@ -83,6 +91,22 @@ try {
     for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
     bodies.push(body);
+    // Like AI Horde: refuses top_k and min_p, naming only the first one it finds.
+    const hordeRefuses = request.url?.startsWith("/horde/") ? ["top_k", "min_p"].find((field) => field in body) : "";
+    if (hordeRefuses) {
+      response.writeHead(400, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({
+          error: {
+            message: `The parameter '${hordeRefuses}' is not supported by the AI Horde chat completions endpoint.`,
+            type: "invalid_request_error",
+            param: hordeRefuses,
+            code: "UnsupportedChatParameter",
+          },
+        }),
+      );
+      return;
+    }
     if ("frequency_penalty" in body) {
       response.writeHead(400, { "content-type": "application/json" });
       response.end(JSON.stringify({ error: { message: "frequency_penalty is not supported by this provider" } }));
@@ -135,6 +159,33 @@ try {
     await assert.rejects(ask({ frequency_penalty: 0.9 }), /frequency_penalty/);
     assert.equal(bodies.length, 4);
     assert.equal(bodies[3]!.frequency_penalty, 0.9);
+
+    // A service that names one refused setting per answer gets a retry for each, and all of them are remembered.
+    const hordeBase = base.replace(/\/v1$/u, "/horde/v1");
+    const hordeService = parameterRefusalService("custom", hordeBase);
+    const askHorde = async () => {
+      const result = await createLLMProvider("custom", hordeBase, "0000000000").chatComplete(
+        [{ role: "user", content: "hi" }],
+        { model: "koboldcpp/some-model", stream: false, temperature: 0.7, maxTokens: 50, topK: 40, minP: 0.05 },
+      );
+      assert.equal(result.content, "ok");
+    };
+    bodies.length = 0;
+    await askHorde();
+    assert.equal(bodies.length, 3, "one retry per refused setting");
+    assert.equal(bodies[0]!.top_k, 40);
+    assert.equal(bodies[0]!.min_p, 0.05);
+    assert.equal("top_k" in bodies[2]!, false);
+    assert.equal("min_p" in bodies[2]!, false);
+    assert.equal(bodies[2]!.temperature, 0.7);
+    assert.deepEqual(refusedParameterFields(hordeService, "koboldcpp/some-model").sort(), ["min_p", "top_k"]);
+    assert.deepEqual(
+      refusedGenerationParameters(hordeService, "koboldcpp/some-model"),
+      ["topK"],
+      "min_p has no panel setting to hide",
+    );
+    await askHorde();
+    assert.equal(bodies.length, 4, "both are left out from the first try");
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
