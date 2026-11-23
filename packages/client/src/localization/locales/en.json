@@ -1880,6 +1880,7 @@
   "connections.add.added": "{{name}} added",
   "connections.add.addedCount_one": "{{name}} added · {{count}} model",
   "connections.add.addedCount_other": "{{name}} added · {{count}} models",
+  "connections.add.anonymousKey": "The anonymous key is filled in. It works without an account, but its requests wait longest in the queue. Paste your own free key to wait less.",
   "connections.add.apiKey": "API key",
   "connections.add.apiKeyOptional": "API key (optional)",
   "connections.add.back": "Back",

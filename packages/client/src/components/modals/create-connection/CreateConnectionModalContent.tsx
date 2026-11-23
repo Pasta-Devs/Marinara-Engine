@@ -52,8 +52,7 @@ import {
   DECISION_BUILTIN,
   JOB_PROVIDER,
   KEY_TAIL,
-  LINKAPI,
-  LINKAPI_SERVICE,
+  hostedServiceOf,
   NO_RECOMMENDED,
   PRIMARY_CLASS,
   SECONDARY_CLASS,
@@ -201,8 +200,8 @@ export function CreateConnectionModalContent({
   const selectedMedia = mediaBackendOf(service);
   const def = provider ? PROVIDERS[provider] : null;
   const keyless = !!provider && (isLocalAuthProvider(provider) || (!!selectedMedia && !selectedMedia.requiresApiKey));
-  // LinkAPI rides the custom provider, but it is a hosted service with a key, not a local server.
-  const isLocal = (provider === "custom" && service !== LINKAPI_SERVICE) || service === "decision:custom";
+  // LinkAPI, AI Horde and BeaverNet ride the custom provider, but they are online services with a key, not a local server.
+  const isLocal = (provider === "custom" && !hostedServiceOf(service)) || service === "decision:custom";
   const isMedia = !!provider && !isChatProvider(provider);
   // Mirrors savingRef so the buttons stay disabled until a failed check has also cleaned up.
   const [saving, setSaving] = useState(false);
@@ -254,12 +253,13 @@ export function CreateConnectionModalContent({
 
   const serviceName = (key: ServiceId) => {
     const media = mediaBackendOf(key);
+    const hosted = hostedServiceOf(key);
     return media
       ? media.name || t("connections.add.decisionServer")
       : isDevice(key)
         ? t(`connections.add.device.${key}`)
-        : key === LINKAPI_SERVICE
-          ? LINKAPI.name
+        : hosted
+          ? hosted.name
           : key === DECISION_BUILTIN
             ? t("ui.panels.sidecarcard.decisionSidecar")
             : key === "decision" || key === "custom"
@@ -458,6 +458,7 @@ export function CreateConnectionModalContent({
     await discard();
     resetFields();
     const media = mediaBackendOf(key);
+    const hosted = hostedServiceOf(key);
     setService(key);
     setProvider(
       isDevice(key) || key === DECISION_BUILTIN
@@ -468,15 +469,17 @@ export function CreateConnectionModalContent({
             : media.image
               ? "image_generation"
               : "video_generation"
-          : key === LINKAPI_SERVICE
+          : hosted
             ? "custom"
             : (key as APIProvider),
     );
     // A server you run starts with its usual address filled in, like Ollama.
     if (media && SELF_HOSTED.has(media.source)) setBaseUrl(media.defaultBaseUrl ?? "");
-    if (key === LINKAPI_SERVICE) {
-      setBaseUrl(LINKAPI.baseUrl);
-      setName(LINKAPI.name);
+    if (hosted) {
+      setBaseUrl(hosted.baseUrl);
+      setName(hosted.name);
+      // AI Horde answers without an account: its anonymous key works until the user pastes their own.
+      if (hosted.anonymousKey) setApiKey(hosted.anonymousKey);
     }
     setStep(2);
   };

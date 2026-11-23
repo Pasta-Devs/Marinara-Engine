@@ -13,9 +13,8 @@ import {
   LOGIN_COMMANDS,
   MEDIA_KEY_URLS,
   SELF_HOSTED,
-  LINKAPI,
-  LINKAPI_SERVICE,
   failureReason,
+  hostedServiceOf,
   hostOf,
   inputClass,
   labelClass,
@@ -57,11 +56,12 @@ export function AccessStep(props: AccessStepProps) {
     props.tested && !props.tested.success && props.provider
       ? failureReason(props.provider, props.tested.message ?? "", props.tested.errorCode)
       : null;
+  const hosted = hostedServiceOf(props.service);
   const keyUrl = props.selectedMedia
     ? MEDIA_KEY_URLS[props.selectedMedia.source]
-    : props.service === LINKAPI_SERVICE
-      ? LINKAPI.keyUrl
-      : props.def?.keyUrl;
+    : (hosted?.keyUrl ?? props.def?.keyUrl);
+  // The field still holds the anonymous key the service tile filled in.
+  const anonymousKey = !!hosted?.anonymousKey && props.apiKey.trim() === hosted.anonymousKey;
 
   useEffect(() => {
     if (failure === "key") document.getElementById("add-connection-key")?.focus();
@@ -140,6 +140,11 @@ export function AccessStep(props: AccessStepProps) {
         </button>
       </div>
       <CheckLine id="add-connection-key-check" check={props.check.key} onRecheck={props.onRecheck} />
+      {anonymousKey && !optional && (
+        <p id="add-connection-key-help" className="text-[0.6875rem] text-[var(--muted-foreground)]">
+          {t("connections.add.anonymousKey")}
+        </p>
+      )}
       {keyUrl && !optional && (
         <p className="flex flex-wrap items-center gap-x-1.5 text-[0.6875rem]">
           <a
