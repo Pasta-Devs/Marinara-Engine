@@ -131,6 +131,9 @@ export interface ImportSTChatOptions {
   sourceFingerprint?: string;
 }
 
+const EARLIEST_TRANSCRIPT_MS = Date.parse("2000-01-01T00:00:00.000Z");
+const TRANSCRIPT_FUTURE_SLACK_MS = 24 * 60 * 60 * 1000;
+
 function normalizeTranscriptTimestamps(
   inputs: ParsedSTChatMessageInput[],
   fallbackStart?: TimestampOverrides | null,
@@ -139,16 +142,21 @@ function normalizeTranscriptTimestamps(
   // Marinara sorts messages by createdAt, so make the imported transcript
   // strictly monotonic while preserving the source file's line order.
   const fallback = normalizeTimestampOverrides(fallbackStart);
-  const firstParsedIndex = inputs.findIndex((input) => input.parsedCreatedAt);
-  const firstParsedMs =
-    firstParsedIndex >= 0 ? Date.parse(inputs[firstParsedIndex]!.parsedCreatedAt as string) : Number.NaN;
-  const fallbackMs = Date.parse(fallback?.createdAt ?? fallback?.updatedAt ?? "");
   const nowMs = Date.now();
+  // A date in the future (or before chat apps existed) is a broken clock or a misread field. One such message would
+  // push every later one, and the chat's own date, into the future, so it counts as having no date.
+  const plausibleMs = (value: string | null | undefined) => {
+    const ms = value ? Date.parse(value) : Number.NaN;
+    return ms >= EARLIEST_TRANSCRIPT_MS && ms <= nowMs + TRANSCRIPT_FUTURE_SLACK_MS ? ms : Number.NaN;
+  };
+  const firstParsedIndex = inputs.findIndex((input) => Number.isFinite(plausibleMs(input.parsedCreatedAt)));
+  const firstParsedMs = firstParsedIndex >= 0 ? plausibleMs(inputs[firstParsedIndex]!.parsedCreatedAt) : Number.NaN;
+  const fallbackMs = plausibleMs(fallback?.createdAt ?? fallback?.updatedAt);
 
   let lastMs: number | null = null;
 
   return inputs.map((input, index) => {
-    const parsedMs = input.parsedCreatedAt ? Date.parse(input.parsedCreatedAt) : Number.NaN;
+    const parsedMs = plausibleMs(input.parsedCreatedAt);
     let candidateMs: number;
 
     if (Number.isFinite(parsedMs)) {
@@ -424,6 +432,28 @@ function sanitizeImportedMarinaraMetadata(
  * Format: Line 0 = header JSON, lines 1+ = message JSON per line.
  */
 export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportSTChatOptions) {
+  // The chat is made first and filled in after. If filling it in fails, the half-made chat goes again (with what
+  // hangs off it, such as a game world snapshot), so a failed file leaves nothing behind and a re-run makes no
+  // duplicate.
+  const created: { chatId?: string } = {};
+  try {
+    return await importSTChatInto(jsonlContent, db, opts, created);
+  } catch (err) {
+    if (created.chatId) {
+      await createChatsStorage(db)
+        .remove(created.chatId)
+        .catch((cleanupErr) => logger.warn(cleanupErr, "Could not remove the half-imported chat %s", created.chatId));
+    }
+    throw err;
+  }
+}
+
+async function importSTChatInto(
+  jsonlContent: string,
+  db: DB,
+  opts: ImportSTChatOptions | undefined,
+  created: { chatId?: string },
+) {
   const storage = createChatsStorage(db);
   const lines = jsonlContent.split("\n").filter((l) => l.trim());
 
@@ -649,6 +679,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   );
 
   if (!chat) return { error: "Failed to create chat" };
+  created.chatId = chat.id;
 
   // Preserve an imported branch/file label separately from the main thread/chat name.
   if (
