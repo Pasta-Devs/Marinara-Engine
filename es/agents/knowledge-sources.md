@@ -36,6 +36,8 @@ Luego la tarjeta de ajustes del agente aparece en **Agents**, y el agente se eje
 
 > **Nota:** Estos agentes se ejecutan solo en turnos nuevos. No se ejecutan de nuevo cuando regeneras una respuesta.
 
+<a id="choose-the-sources"></a>
+
 ## Elegir las fuentes
 
 Ambos agentes comparten los mismos controles de fuente.
