@@ -3,11 +3,11 @@ name: CodeRabbit Review Gate
 # CodeRabbit reviews pull requests into staging; Dottore reviews in its place while CodeRabbit is rate limited. Either
 # review sets the required Dottore Review status on the pull request's head:
 # - When CodeRabbit finishes a review of an open pull request's head, this posts Dottore Review success for it.
-# - When CodeRabbit is rate limited on that head, this asks Dottore to review it, from the last head either of them
-#   reviewed, and Dottore's review posts the status.
-# - When CodeRabbit skips a head that only merged other branches in since the last reviewed head, that review stands.
-# CodeRabbit reviews every pull request into the default branch, so this also adds `@coderabbitai ignore` to their
-# description: what they bring from staging was reviewed there.
+# - When CodeRabbit is rate limited on that head, or skips it, this asks Dottore to review it from the last head either
+#   of them passed. Dottore reviews only the changes since then (a head that only merged
+#   staging in has none, so it passes with no model call), and his review posts the status.
+# CodeRabbit reviews every pull request into the default branch, so this also adds `@coderabbitai ignore` to the
+# description of the ones main accepts, staging promotions and hotfixes: what they bring was reviewed on staging.
 # Marinara-Agents keeps a byte copy of this file. GitHub runs check_run workflows only from the default branch and
 # pull_request_target ones from the base branch, so the copy on main is the one that runs.
 on:
@@ -45,16 +45,16 @@ jobs:
           # Inert: reads the open pull requests, statuses and commits, posts one status or dispatches the trusted
           # Dottore workflow from the base branch; runs no pull request code.
           [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Unexpected head SHA."; exit 1; }
-          # A fork PR's check run lists no pull requests, so find the open PR whose current head is this SHA.
+          # A fork PR's check run lists no pull requests, so find the open PR into a reviewed base whose current head is
+          # this SHA. A promotion into main can share its head with nothing reviewed, so other bases are left out first.
+          export REVIEW_BASES
           PR=$(gh api "repos/$REPO/pulls?state=open&per_page=100" --paginate \
-            --jq '.[] | select(.head.sha == $ENV.HEAD_SHA) | "\(.number) \(.base.ref) \(.draft)"')
+            --jq '.[] | select(.head.sha == $ENV.HEAD_SHA)
+              | select(.base.ref as $ref | $ENV.REVIEW_BASES | split(",") | index($ref) != null)
+              | "\(.number) \(.base.ref) \(.draft)"')
           read -r PR_NUM BASE DRAFT <<<"${PR%%$'\n'*}" || true
           if [ -z "$PR_NUM" ]; then
-            echo "No open pull request has head $HEAD_SHA."
-            exit 0
-          fi
-          if ! jq -en --arg refs "$REVIEW_BASES" --arg ref "$BASE" '$refs | split(",") | index($ref) != null' >/dev/null; then
-            echo "PR #$PR_NUM targets $BASE, which gets no review (DOTTORE_BASE_REFS=$REVIEW_BASES)."
+            echo "No open pull request into $REVIEW_BASES has head $HEAD_SHA."
             exit 0
           fi
           reviewed() {
@@ -66,24 +66,37 @@ jobs:
               -f state=success -f context="Dottore Review" -f target_url="$1" -f description="$2" >/dev/null
             echo "PR #$PR_NUM: Dottore Review set to success at $HEAD_SHA: $2"
           }
-          # The newest earlier commit of the PR whose review passed, and whether every commit after it is a merge.
+          # The newest earlier commit of the PR whose review passed. A list that does not end at the head (GitHub lists
+          # at most 250 commits) gives none, and Dottore chooses where to start.
           last_reviewed() {
-            LAST="" ONLY_MERGES=true COMMITS=()
+            LAST="" COMMITS=()
             while read -r LINE; do COMMITS+=("$LINE"); done < <(gh api "repos/$REPO/pulls/$PR_NUM/commits?per_page=100" \
-              --paginate --jq '.[] | "\(.sha) \(.parents | length)"')
-            for (( i = ${#COMMITS[@]} - 1; i >= 0; i-- )); do
-              read -r SHA PARENTS <<<"${COMMITS[i]}"
-              if [ "$SHA" != "$HEAD_SHA" ] && reviewed "$SHA"; then LAST=$SHA; return; fi
-              [ "$PARENTS" -ge 2 ] || ONLY_MERGES=false
+              --paginate --jq '.[].sha')
+            [ "${#COMMITS[@]}" -gt 0 ] && [ "${COMMITS[${#COMMITS[@]} - 1]}" = "$HEAD_SHA" ] || return 0
+            for (( i = ${#COMMITS[@]} - 2; i >= 0; i-- )); do
+              if reviewed "${COMMITS[i]}"; then LAST=${COMMITS[i]}; return 0; fi
             done
           }
-
-          if [ "$CONCLUSION" = success ]; then
-            post "$CHECK_URL" "CodeRabbit reviewed this head. Resolve its threads to merge."
-          elif [ "$CONCLUSION" = neutral ] && grep -qi "rate limit" <<<"$TITLE"; then
+          # Dottore reviews in CodeRabbit's place, unless the pull request does not need him or he is already on it.
+          dottore() {
             if [ "$DRAFT" != false ] || reviewed "$HEAD_SHA"; then
               echo "PR #$PR_NUM is a draft or its head is already reviewed; Dottore is not needed."
-              exit 0
+              return 0
+            fi
+            if gh api "repos/$REPO/pulls/$PR_NUM" --jq '.body // ""' | grep -qi "@coderabbitai ignore"; then
+              echo "PR #$PR_NUM tells CodeRabbit to ignore it; it gets no review in CodeRabbit's place."
+              return 0
+            fi
+            # A second CodeRabbit run on the head (a manual request) must not restart the review a first one started.
+            # When Dottore's review of the head failed, its status says so and a new request may start another.
+            if [ "$(gh api "repos/$REPO/commits/$HEAD_SHA/status?per_page=100" \
+              --jq '[.statuses[] | select(.context == "Dottore Review") | .state][0] // ""')" != failure ] &&
+              [ "$(gh api "repos/$REPO/actions/workflows/dottore-review.yml/runs?event=workflow_dispatch&per_page=100" \
+                --jq "[.workflow_runs[] | select(.status != \"completed\")
+                  | select(.display_title | startswith(\"Dottore Review: PR #$PR_NUM (\"))] | length" \
+                2>/dev/null || echo 0)" != 0 ]; then
+              echo "PR #$PR_NUM: a Dottore review is already running; it posts the status."
+              return 0
             fi
             gh api "repos/$REPO/contents/.github/workflows/dottore-review.yml?ref=$BASE" --silent >/dev/null || {
               echo "::error::Dottore trusted workflow not found on base ref $BASE"
@@ -91,31 +104,35 @@ jobs:
             }
             last_reviewed
             gh workflow run dottore-review.yml --repo "$REPO" --ref "$BASE" \
-              -f pr_number="$PR_NUM" -f comment_body="CodeRabbit rate limited" -f review_mode=auto \
+              -f pr_number="$PR_NUM" -f comment_body="$1" -f review_mode=auto \
               -f requested_by=coderabbitai -f last_reviewed_sha="$LAST"
-            echo "PR #$PR_NUM: CodeRabbit is rate limited at $HEAD_SHA; Dottore reviews from ${LAST:-his own last review}."
-          elif [ "$CONCLUSION" = skipped ] && [ "$TITLE" = "Review skipped" ]; then
-            # A skip with no reason given is CodeRabbit finding nothing new, as on a head that only merged staging in.
-            # Paused or ignored pull requests get no stand-in.
-            if gh api "repos/$REPO/pulls/$PR_NUM" --jq '.body // ""' | grep -qi "@coderabbitai ignore" || reviewed "$HEAD_SHA"; then
-              echo "PR #$PR_NUM: CodeRabbit is told to ignore it, or its head is already reviewed."
-              exit 0
-            fi
-            last_reviewed
-            if [ -n "$LAST" ] && [ "$ONLY_MERGES" = true ]; then
-              post "https://github.com/$REPO/commit/$LAST" "Only merges since the review of ${LAST:0:7}, which stands for this head."
-            else
-              echo "PR #$PR_NUM: CodeRabbit skipped new commits at $HEAD_SHA; comment @coderabbitai review or /dottore."
-            fi
+            echo "PR #$PR_NUM: $1 at $HEAD_SHA; Dottore reviews from ${LAST:-his own last review}."
+          }
+
+          if [ "$CONCLUSION" = success ]; then
+            post "$CHECK_URL" "CodeRabbit reviewed this head. Resolve its threads to merge."
+          elif [ "$CONCLUSION" = neutral ] && grep -qi "rate limit" <<<"$TITLE"; then
+            dottore "CodeRabbit rate limited"
+          elif [ "$CONCLUSION" = skipped ]; then
+            # CodeRabbit gave this ready head no review: it only merged staging in, or its branch was cut before
+            # automatic reviews were turned on (CodeRabbit reads a member's .coderabbit.yaml from the pull request's
+            # head). Dottore checks it from the last reviewed head: with nothing new he passes it without a model call.
+            dottore "CodeRabbit skipped this head"
           else
             echo "PR #$PR_NUM: CodeRabbit ended '$CONCLUSION' ($TITLE) at $HEAD_SHA; no status."
           fi
 
+  # Only the pull requests main accepts (pull-request-triage.yml): SpicyMarinara's staging promotion or hotfix/* branch
+  # from this repository. A contributor's pull request opened into main by mistake is retargeted to staging, where it
+  # must keep its review.
   default-branch:
     name: Keep CodeRabbit off the default branch
     if: >
       github.event_name == 'pull_request_target' &&
-      github.event.pull_request.base.ref == github.event.repository.default_branch
+      github.event.pull_request.base.ref == github.event.repository.default_branch &&
+      github.event.pull_request.user.login == 'SpicyMarinara' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.pull_request.head.ref == 'staging' || startsWith(github.event.pull_request.head.ref, 'hotfix/'))
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
