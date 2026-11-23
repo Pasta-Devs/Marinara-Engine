@@ -1189,7 +1189,8 @@ assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity.slice(0, 3) a
       return nextLoad(url, context);
     },
   });
-  const { AnimatedDiceRoll } = await import("../../../packages/client/src/components/dice/AnimatedDiceRoll.js");
+  const { AnimatedDiceRoll, diceThrowStarts } =
+    await import("../../../packages/client/src/components/dice/AnimatedDiceRoll.js");
   cssHooks.deregister();
   // React marks the seams between text pieces with empty comments; the reader sees one string.
   const render = (element: unknown) =>
@@ -1211,6 +1212,32 @@ assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity.slice(0, 3) a
         total: 2,
         resolution: "successes",
         threshold: 7,
+      }),
+    );
+  // Advantage keeps the higher d20 and drops the other. The card dims the dropped die.
+  const advantage = () =>
+    render(
+      React.createElement(AnimatedDiceRoll, {
+        notation: "2d20kh1+3",
+        rolls: [4, 18],
+        modifier: 3,
+        total: 21,
+        kept: [1],
+      }),
+    );
+  // A symbol-pool ruleset's dice read as their symbols, by name.
+  const symbolPool = () =>
+    render(
+      React.createElement(AnimatedDiceRoll, {
+        notation: "2a1d",
+        rolls: [3, 5, 2],
+        modifier: 0,
+        total: 1,
+        success: true,
+        thrown: ["Ability", "Ability", "Difficulty"],
+        symbolFaces: [["success"], ["advantage"], ["failure"]],
+        symbols: { success: 1 },
+        symbolLabels: { success: "Success", advantage: "Advantage", failure: "Failure" },
       }),
     );
   const initial = useUIStore.getInitialState();
@@ -1237,9 +1264,39 @@ assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity.slice(0, 3) a
     assert.doesNotMatch(poolLine, /dice-glyph/u);
     assert.match(poolLine, /<span class="dice-roll-breakdown">A die counts as a success at 7 or more\.<\/span>/u);
     assert.match(poolLine, /9 · 2 · 7 · 4<\/span><span class="dice-roll-total is-visible"> → 2 successes</u);
+    // The dropped die has no dimmed picture either, so the line keeps it, struck out.
+    assert.match(
+      advantage(),
+      /><s>4<\/s> \+ 18 \+3<\/span><span class="dice-roll-total is-visible"> = 21</u,
+      "a dropped die stays on the line, struck out",
+    );
+    // A symbol pool's dice were words on the card already, and the line keeps them.
+    const symbolLine = symbolPool();
+    assert.doesNotMatch(symbolLine, /dice-glyph|dice-stage/u);
+    for (const die of ["Ability (3): Success", "Ability (5): Advantage", "Difficulty (2): Failure"]) {
+      assert.ok(symbolLine.includes(`>${die}</span>`), `the line keeps ${die}`);
+    }
+    assert.match(symbolLine, />1 Success<\/span><span class="dice-roll-total is-visible"> → SUCCESS</u);
   } finally {
     initial.diceRollsAsText = false;
   }
+
+  // The card keeps its kept-dice sum, and its symbol dice.
+  assert.match(advantage(), />18 \+3<\/span><span class="dice-roll-total is-visible"> = 21</u);
+  assert.ok(symbolPool().includes(">Ability (3): Success</span>"));
+
+  // A roll that already lay still while shown as text does not tumble again when the setting is
+  // turned off. A new roll is still thrown, and so is the same roll when React runs its effect twice.
+  const roll = "1d20:14:0:14";
+  assert.equal(diceThrowStarts(null, roll, true), true, "a new roll is thrown");
+  assert.equal(diceThrowStarts(null, roll, false), false, "not as text or with reduced motion");
+  assert.equal(
+    diceThrowStarts({ rollKey: roll, shouldAnimate: false }, roll, true),
+    false,
+    "the text setting goes off",
+  );
+  assert.equal(diceThrowStarts({ rollKey: roll, shouldAnimate: true }, roll, true), true, "a second effect run");
+  assert.equal(diceThrowStarts({ rollKey: roll, shouldAnimate: false }, "1d20:3:0:3", true), true, "the next roll");
 
   // The setting follows the user to their other devices, and Reset Appearance turns it off.
   useUIStore.getState().setDiceRollsAsText(true);
