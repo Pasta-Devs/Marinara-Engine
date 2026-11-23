@@ -159,7 +159,7 @@ import { generateIllustratorImageVariants } from "../../services/image/illustrat
 import {
   WRITER_REFERENCE_MEMORY_KEY,
   collectWriterReferencePictures,
-  imageConnectionTakesReferences,
+  imageConnectionTakesEntryPictures,
   imageModelGetsReferencePictures,
   readWriterReferenceNames,
   writerVisionKey,
@@ -3864,16 +3864,16 @@ async function applyRetryResultEffects(args: {
             // Collect optional character visual context. Prefer avatar portraits
             // for references, then fall back to full-body sprites.
             const subjectOnly = illustratorPromptReviewOverride?.subjectOnly === true;
+            const avatarReferencesOn =
+              usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
+                ? chatMeta.illustratorUseAvatarReferences
+                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true;
             // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
             const imageModelGetsReferences =
               !subjectOnly &&
               (!usesChatIllustratorSettings ||
                 imageModelGetsReferencePictures(chatMeta, imagePromptAgent?.resolved.settings, imgConnFull));
-            const useAvatarRefs =
-              imageModelGetsReferences &&
-              (usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
-                ? chatMeta.illustratorUseAvatarReferences
-                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true);
+            const useAvatarRefs = imageModelGetsReferences && avatarReferencesOn;
             const includeCharacterAppearance =
               !subjectOnly &&
               (usesChatIllustratorSettings && typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
@@ -3978,8 +3978,11 @@ async function applyRetryResultEffects(args: {
             }
             // Activated entries' pictures fill what the cap leaves, when the connection takes them (#9698). The
             // stored scan does not record which Outlets were used, so Outlet pictures stay out of a retry.
+            // "Reference pictures go to" shows, and holds them back, only with avatar references on.
             const lorebookReferences =
-              imageModelGetsReferences && imageConnectionTakesReferences(imgConnFull)
+              !subjectOnly &&
+              (!avatarReferencesOn || imageModelGetsReferences) &&
+              imageConnectionTakesEntryPictures(imgConnFull)
                 ? await readLorebookReferenceImages(
                     (
                       await Promise.all(
@@ -4213,6 +4216,7 @@ async function applyRetryResultEffects(args: {
                   referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
                   referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
                   locationImageId: spatialLocationReferenceImage ? retryOwnerSpatialProjection?.referenceImageId : null,
+                  lorebookImagePaths: lorebookReferences?.paths,
                   seed: imageResult.seed,
                 }),
               });

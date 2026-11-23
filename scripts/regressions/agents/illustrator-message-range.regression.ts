@@ -478,14 +478,38 @@ try {
     imageGenerationSource: "openai",
     apiKey: "fixture",
   });
-  const promptWith = async (illustratorImageConnectionId: string) => {
-    await chats.patchMetadata(templateChat.id, { illustratorImageConnectionId });
+  const a1111 = await connections.create({
+    name: "SD Web UI fixture",
+    provider: "image_generation",
+    baseUrl,
+    model: "fixture",
+    imageService: "automatic1111",
+    imageGenerationSource: "automatic1111",
+    apiKey: "",
+  });
+  const promptWith = async (illustratorImageConnectionId: string, meta: Record<string, unknown> = {}) => {
+    await chats.patchMetadata(templateChat.id, { illustratorImageConnectionId, ...meta });
     const event = parseEvents((await oneOffRetry()).body).find((item) => item.type === "image_prompt_review");
     assert.ok(event);
     return String(event.data.item.prompt);
   };
   assert.match(await promptWith(gptImage.id), /reference images for Red coat: festival wear\./);
   assert.doesNotMatch(await promptWith(imageConnection.id), /reference images for/, "DALL-E 3 takes no references");
+  assert.doesNotMatch(await promptWith(a1111.id), /reference images for/, "SD Web UI would start from the picture");
+  // "Reference pictures go to" is hidden, and so ignored, while Send Avatar References is off.
+  assert.match(
+    await promptWith(gptImage.id, { illustratorReferencePictureTarget: "writer" }),
+    /reference images for Red coat/,
+  );
+  assert.doesNotMatch(
+    await promptWith(gptImage.id, { illustratorUseAvatarReferences: true }),
+    /reference images for/,
+    "Prompt writer keeps them back",
+  );
+  await chats.patchMetadata(templateChat.id, {
+    illustratorUseAvatarReferences: false,
+    illustratorReferencePictureTarget: "image",
+  });
   const beforeInvalidRequests = textRequests.length + imageRequests;
   assert.equal((await oneOffRetry({ illustratorRequest: 5 })).statusCode, 400);
   assert.equal((await oneOffRetry({ illustratorRetryTargets: undefined })).statusCode, 400);

@@ -87,6 +87,7 @@ import type { ChatMessage } from "../services/llm/base-provider.js";
 import { resolveIllustratorImageConnectionId } from "../services/generation/illustrator-background-generation.js";
 import { resolveConversationSelfieSystemPrompt } from "../services/conversation/selfie-prompt.js";
 import { appendImagePromptInstructions } from "../services/generation/image-prompt-instructions.js";
+import { imageConnectionTakesEntryPictures } from "../services/image/writer-reference-pictures.js";
 import {
   suppressesReferencePromptLine,
   readRecordedReferenceImages,
@@ -2626,6 +2627,9 @@ export async function galleryRoutes(app: FastifyInstance) {
             characterIds: references.characterIds,
             personaId: references.personaId,
             personaSource: references.personaSource,
+            lorebookImagePaths: imageConnectionTakesEntryPictures(imageConnection)
+              ? references.lorebookImagePaths
+              : undefined,
             charactersStore: characters,
             characterGallery,
             personaGallery,
@@ -2719,6 +2723,7 @@ export async function galleryRoutes(app: FastifyInstance) {
             referencePersonaId: input.editMode ? null : references.personaId,
             referencePersonaSource: input.editMode ? null : references.personaSource,
             locationImageId: input.editMode ? null : references.locationImageId,
+            lorebookImagePaths: input.editMode ? null : references.lorebookImagePaths,
             seed: generated.seed,
           }),
         });

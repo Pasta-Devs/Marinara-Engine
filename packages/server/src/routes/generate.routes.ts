@@ -50,7 +50,7 @@ import {
   WRITER_REFERENCE_MEMORY_KEY,
   WRITER_REFERENCE_NAMES_MEMORY_KEY,
   collectWriterReferencePictures,
-  imageConnectionTakesReferences,
+  imageConnectionTakesEntryPictures,
   imageModelGetsReferencePictures,
   readWriterReferenceNames,
   writerVisionKey,
@@ -15107,8 +15107,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                         logger.debug("[illustrator] Sending the current Maps location reference image first");
                       }
                       // Activated entries' pictures fill what the cap leaves, when the connection takes them (#9698).
+                      // "Reference pictures go to" shows, and holds them back, only with avatar references on.
                       const lorebookReferences =
-                        imageModelGetsReferences && imageConnectionTakesReferences(imgConnFull)
+                        (!avatarReferencesOn || imageModelGetsReferences) &&
+                        imageConnectionTakesEntryPictures(imgConnFull)
                           ? await readLorebookReferenceImages(
                               lorebookPromptScanResult?.imageEntries,
                               6 - mergedReferenceImages.length,
@@ -15272,6 +15274,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                             locationImageId: spatialLocationReferenceImage
                               ? postReplySpatialProjection?.referenceImageId
                               : null,
+                            lorebookImagePaths: lorebookReferences?.paths,
                             seed: imageResult.seed,
                           }),
                         });

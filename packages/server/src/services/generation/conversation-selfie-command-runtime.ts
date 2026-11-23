@@ -48,7 +48,7 @@ import {
 import { resolveImageConnectionFallback } from "./media-connection-fallback.js";
 import { resolveBaseUrl } from "./connection-base-url.js";
 import { readLorebookReferenceImages, type LorebookImageEntry } from "./lorebook-image-prompt.js";
-import { imageConnectionTakesReferences } from "../image/writer-reference-pictures.js";
+import { imageConnectionTakesEntryPictures } from "../image/writer-reference-pictures.js";
 
 type CharactersStore = {
   getById(id: string, chatId?: string): Promise<{ id: string; data: unknown; avatarPath?: string | null } | null>;
@@ -375,7 +375,7 @@ async function generateSelfie(
   }
   // Activated entries' pictures fill what the cap leaves, when the connection takes them (#9698). The picture
   // check below still compares against the character reference only.
-  const lorebookReferences = imageConnectionTakesReferences(imgConnFull)
+  const lorebookReferences = imageConnectionTakesEntryPictures(imgConnFull)
     ? await readLorebookReferenceImages(args.lorebookImageEntries, 6 - (selfieReferenceImages?.length ?? 0))
     : null;
   let selfieRequestReferenceImages = selfieReferenceImages;
@@ -497,6 +497,7 @@ async function generateSelfie(
         connectionId: imageResult.effectiveConnection?.connectionId ?? imgConnFull.id,
         negativePrompt: selfieSubmission.negativePrompt,
         referenceCharacterIds: selfieReferenceCharacterIds,
+        lorebookImagePaths: lorebookReferences?.paths,
         seed: imageResult.seed,
       }),
     });

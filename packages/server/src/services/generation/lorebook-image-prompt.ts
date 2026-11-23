@@ -25,13 +25,15 @@ function entriesWithUsableImages(entries: readonly LorebookImageEntry[]): Lorebo
 
 /**
  * Activated entries' images as image-generation references (#9698): raw base64 like the cast's, in entry order,
- * at most `room` of them. The line names them for the image prompt; null when none could be read.
+ * at most `room` of them. The line names them for the image prompt; null when none could be read. The paths are
+ * what a generation record keeps, so Regenerate sends the same pictures.
  */
 export async function readLorebookReferenceImages(
   entries: readonly LorebookImageEntry[] = [],
   room: number,
-): Promise<{ images: string[]; labels: string[]; referenceLine: string | null }> {
+): Promise<{ images: string[]; paths: string[]; labels: string[]; referenceLine: string | null }> {
   const images: string[] = [];
+  const paths: string[] = [];
   const labels: string[] = [];
   for (const entry of entriesWithUsableImages(entries)) {
     for (const image of entry.images) {
@@ -39,11 +41,13 @@ export async function readLorebookReferenceImages(
       const dataUrl = await readLorebookImageDataUrl(image.path);
       if (!dataUrl) continue;
       images.push(dataUrl.slice(dataUrl.indexOf(",") + 1));
+      paths.push(image.path);
       labels.push(image.caption ? `${entry.name}: ${image.caption}` : entry.name);
     }
   }
   return {
     images,
+    paths,
     labels,
     referenceLine: labels.length
       ? `Attached are reference images for ${labels.join("; ")}. Use them to match how those look; the written scene prompt is authoritative.`
