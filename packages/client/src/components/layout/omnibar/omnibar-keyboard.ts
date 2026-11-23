@@ -207,6 +207,8 @@ export function createOmnibarKeyHandlers({
     // it must not reach their document/window listeners and close them too.
     if (event.key === "Escape" && panelRef.current?.contains(event.target as Node)) event.stopPropagation();
     if (event.defaultPrevented) return;
+    // An IME cancels its composition with Escape (Mari's composer lets it through): not the dialog's Escape.
+    if (event.key === "Escape" && (event.nativeEvent.isComposing || event.keyCode === 229)) return;
     if (event.key === "Escape") {
       event.preventDefault();
       handleEscape();

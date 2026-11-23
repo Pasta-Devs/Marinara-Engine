@@ -2011,7 +2011,9 @@ export function GlobalOmnibarDialog({ onClose }: { onClose: () => void }) {
   const setCompanionDocked = useUIStore((state) => state.setMariCompanionDocked);
   // Companion mode is not a dialog: no focus trap, and Escape closes her only from inside her panel.
   const closeCompanionOnEscape = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Escape" || event.defaultPrevented) return;
+    // An IME cancels its composition with Escape: that key is not the panel's.
+    if (event.key !== "Escape" || event.defaultPrevented || event.nativeEvent.isComposing || event.keyCode === 229)
+      return;
     event.preventDefault();
     event.stopPropagation();
     onClose();
