@@ -114,13 +114,13 @@ Eldoria is a rainy port city ruled by a council of nine merchants.
 
 1. **Lorebooks**パネルで、**New set**(新しいセット)をクリックします。新しいセットが**Lorebook Sets**(ロアブックセット)の下に開きます。
 2. **Set name**(セット名)に名前を入力します。
-3. **Choose lorebooks**(ロアブックを選ぶ)をクリックし、セットに入れるロアブックにチェックを入れます。変更はそのたびに自動で保存されます。
+3. **Choose lorebooks**(ロアブックを選択)をクリックし、セットに入れるロアブックにチェックを入れます。変更はそのたびに自動で保存されます。
 
 あとでセットを編集するには、**Lorebook Sets**の下でそのセットをクリックします。**Delete set**(セットを削除)ボタンでセットを削除しても、そのロアブックはライブラリーに残ります。ロアブックを削除すると、そのロアブックはすべてのセットから外れます。
 
 セットは、**Choose lorebooks**の上にある**Use a saved set**(保存したセットを使う)で選びます。この欄は、セットが1つでもあると次の場所に表示されます。
 
-- 新しいRoleplayの**Attach Lorebooks**(ロアブックを添付)の手順。
+- 新しいRoleplayの**Attach Lorebooks**(ロアブックの添付)の手順。
 - Knowledge Routerなど、エージェントの固定ソースのロアブック。[知識ソース: Knowledge RetrievalとKnowledge Routerエージェント](../agents/knowledge-sources.md#choose-the-sources)を参照してください。
 
 セットを選ぶと、そこで選んでいたロアブックが置き換わります。その後、そのチャットやエージェント用にロアブックを追加したり外したりしても、保存したセットは変わりません。
