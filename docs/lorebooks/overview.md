@@ -123,6 +123,8 @@ Pick a set in **Use a saved set**, above **Choose lorebooks**. The field appears
 
 Picking a set replaces the lorebooks picked there. You can then add or remove lorebooks for that chat or agent, and the saved set does not change.
 
+To turn single entries on or off in one chat, open **Chat Settings → Lorebooks** and click the pencil icon (**Edit lorebook entries**) next to a lorebook. Each entry's switch there changes only that chat. Other edits there change the lorebook itself.
+
 ## Related guides
 
 - [Lorebook Entries: Keys, Position, and Timing](entries.md)

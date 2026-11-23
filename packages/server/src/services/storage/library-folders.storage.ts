@@ -77,6 +77,13 @@ export function createLibraryFoldersStorage(db: DB) {
     async update(scope: LibraryFolderScope, id: string, input: UpdateLibraryFolderInput) {
       const existing = await this.getById(scope, id);
       if (!existing) return null;
+      let itemIds = input.itemIds;
+      // A saved set keeps only lorebooks that exist, so a client still holding a deleted one can't put it back.
+      if (scope === "lorebook-sets" && itemIds?.length) {
+        const rows = await db.select({ id: lorebooks.id }).from(lorebooks).where(inArray(lorebooks.id, itemIds));
+        const existingIds = new Set(rows.map((book) => book.id));
+        itemIds = itemIds.filter((itemId) => existingIds.has(itemId));
+      }
       await db
         .update(libraryFolders)
         .set({
@@ -85,7 +92,7 @@ export function createLibraryFoldersStorage(db: DB) {
           ...((scope === "regex" || scope === "functions") &&
             input.paused !== undefined && { paused: String(input.paused) }),
           ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
-          ...(input.itemIds !== undefined && { itemIds: JSON.stringify(input.itemIds) }),
+          ...(itemIds !== undefined && { itemIds: JSON.stringify(itemIds) }),
           updatedAt: now(),
         })
         .where(eq(libraryFolders.id, id));

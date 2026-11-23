@@ -19,13 +19,21 @@ try {
   process.env.FILE_STORAGE_DIR = fileStorageDir;
   process.env.MARINARA_FILE_STORAGE_DIR = fileStorageDir;
 
-  const [{ createFileNativeDB }, { lorebooksRoutes }, { libraryFoldersRoutes }, { createLibraryFoldersStorage }] =
-    await Promise.all([
-      import("../../../packages/server/src/db/file-backed-store.js"),
-      import("../../../packages/server/src/routes/lorebooks.routes.js"),
-      import("../../../packages/server/src/routes/library-folders.routes.js"),
-      import("../../../packages/server/src/services/storage/library-folders.storage.js"),
-    ]);
+  const [
+    { createFileNativeDB },
+    { lorebooksRoutes },
+    { libraryFoldersRoutes },
+    { createLibraryFoldersStorage },
+    { libraryFolders },
+    { eq },
+  ] = await Promise.all([
+    import("../../../packages/server/src/db/file-backed-store.js"),
+    import("../../../packages/server/src/routes/lorebooks.routes.js"),
+    import("../../../packages/server/src/routes/library-folders.routes.js"),
+    import("../../../packages/server/src/services/storage/library-folders.storage.js"),
+    import("../../../packages/server/src/db/schema/index.js"),
+    import("../../../packages/server/src/db/file-query.js"),
+  ]);
   const db = await createFileNativeDB();
   closeStorage = () => db._fileStore.close();
   const Fastify = createRequire(new URL("../../../packages/server/package.json", import.meta.url))("fastify");
@@ -92,6 +100,13 @@ try {
   assert.deepEqual(await folderItems("lorebooks", secondFolder.id), [thirdBook.id]);
   assert.deepEqual(await folderItems("lorebook-sets", lorebookSet.id), [thirdBook.id, secondBook.id]);
   assert.deepEqual(await folderItems("presets", presetFolder.id), [firstBook.id, "preset-id"]);
+  // A set editor opened before the delete still holds the deleted lorebook; saving its picks doesn't put it back.
+  const fourthBook = await request("POST", "/api/lorebooks", { name: "Fourth" });
+  const savedSet = await request("PATCH", `/api/library-folders/lorebook-sets/${lorebookSet.id}`, {
+    itemIds: [thirdBook.id, firstBook.id, secondBook.id, fourthBook.id],
+  });
+  assert.deepEqual(savedSet.itemIds, [thirdBook.id, secondBook.id, fourthBook.id]);
+  assert.deepEqual(await folderItems("lorebook-sets", lorebookSet.id), [thirdBook.id, secondBook.id, fourthBook.id]);
   const liveBookIds = new Set((await request("GET", "/api/lorebooks")).map((book: { id: string }) => book.id));
   assert.equal(liveBookIds.has(firstBook.id), false);
   assert.equal((await folderItems("lorebooks", firstFolder.id)).filter((id) => liveBookIds.has(id)).length, 2);
@@ -111,10 +126,12 @@ try {
   assert.equal(await folders.pruneMissingLorebookItemIds(), 0);
   assert.equal(db._fileStore.getTableWriteGeneration("library_folders"), generation);
 
-  // The startup prune drops a missing lorebook from saved sets as well.
-  await request("PATCH", `/api/library-folders/lorebook-sets/${lorebookSet.id}`, {
-    itemIds: ["missing-set", secondBook.id],
-  });
+  // The startup prune drops a missing lorebook from saved sets as well. The set's PATCH already refuses one, so the
+  // stale row is written straight to the table.
+  await db
+    .update(libraryFolders)
+    .set({ itemIds: JSON.stringify(["missing-set", secondBook.id]) })
+    .where(eq(libraryFolders.id, lorebookSet.id));
   assert.equal(await folders.pruneMissingLorebookItemIds(), 1);
   assert.deepEqual(await folderItems("lorebook-sets", lorebookSet.id), [secondBook.id]);
   assert.deepEqual(await folderItems("lorebooks", firstFolder.id), [secondBook.id, thirdBook.id]);

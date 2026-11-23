@@ -29,7 +29,8 @@ test("a saved lorebook set fills a new roleplay's lorebooks without changing the
   try {
     const north = await createBook(`North ${stamp}`);
     const south = await createBook(`South ${stamp}`);
-    await createBook(`Elsewhere ${stamp}`);
+    const elsewhere = await createBook(`Elsewhere ${stamp}`);
+    const gone = await createBook(`Gone ${stamp}`);
     const chatResponse = await request.post("/api/chats", {
       data: { name: "Set roleplay", mode: "roleplay", characterIds: [] },
     });
@@ -65,10 +66,29 @@ test("a saved lorebook set fills a new roleplay's lorebooks without changing the
     const bookWindow = page.getByRole("dialog", { name: /^Lorebooks/u });
     await bookWindow.locator(`[data-pick-row][title="North ${stamp}"]`).click();
     await bookWindow.locator(`[data-pick-row][title="South ${stamp}"]`).click();
+    await bookWindow.locator(`[data-pick-row][title="Gone ${stamp}"]`).click();
     await bookWindow.press("Escape");
-    await expect
-      .poll(async () => (await savedSets(request)).find((set) => !setIdsBefore.has(set.id))?.itemIds)
-      .toEqual([north, south]);
+    const newSetItems = async () => (await savedSets(request)).find((set) => !setIdsBefore.has(set.id))?.itemIds;
+    await expect.poll(newSetItems).toEqual([north, south, gone]);
+
+    // Deleting a lorebook while its set is open drops it from the set, and the editor's next save keeps it out.
+    const setRow = sets.getByRole("button", { name: new RegExp(`^Northern AU ${stamp}`, "u") });
+    await expect(setRow.getByText("3 lorebooks", { exact: true })).toBeVisible();
+    const goneRow = page.locator(`[data-touch-drag-card="lorebook"][data-drag-id="${gone}"]`);
+    await goneRow.hover();
+    await goneRow.getByTitle("Delete", { exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Delete Lorebook", exact: true })
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
+    await expect(setRow.getByText("2 lorebooks", { exact: true })).toBeVisible();
+    await sets.getByRole("button", { name: `Lorebooks in Northern AU ${stamp}`, exact: true }).click();
+    await bookWindow.locator(`[data-pick-row][title="Elsewhere ${stamp}"]`).click();
+    await expect.poll(newSetItems).toEqual([north, south, elsewhere]);
+    await bookWindow.locator(`[data-pick-row][title="Elsewhere ${stamp}"]`).click();
+    await bookWindow.press("Escape");
+    await expect.poll(newSetItems).toEqual([north, south]);
+    await expect(setRow.getByText("2 lorebooks", { exact: true })).toBeVisible();
     const saved = (await savedSets(request)).find((set) => !setIdsBefore.has(set.id))!;
 
     // Pick it in the New Roleplay wizard.
