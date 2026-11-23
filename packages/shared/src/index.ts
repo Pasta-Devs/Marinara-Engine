@@ -345,4 +345,5 @@ export * from "./utils/gallery-descriptions.js";
 export * from "./utils/location-backgrounds.js";
 
 export * from "./utils/zod-input.js";
+export * from "./utils/image-edit.js";
 export * from "./schemas/sprite-catalog.js";

@@ -17,6 +17,41 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { imageEditValidationError, resolveImageEditCapabilities } from "../../../packages/shared/src/utils/image-edit.js";
+
+// Canvas editing is narrower than reference-picture support, and the UI and server share this decision.
+{
+  const target = (serviceHint: string, baseUrl = "https://images.example.test") => ({
+    source: serviceHint,
+    serviceHint,
+    baseUrl,
+  });
+  const native = target("novelai", "https://image.novelai.net");
+  assert.deepEqual(resolveImageEditCapabilities(native), {
+    img2img: true,
+    inpainting: true,
+    noise: true,
+    reuseSeed: true,
+  });
+  assert.equal(resolveImageEditCapabilities(target("novelai")).img2img, false);
+  assert.equal(resolveImageEditCapabilities(target("openai")).img2img, false);
+  assert.equal(resolveImageEditCapabilities(target("automatic1111")).inpainting, true);
+  assert.deepEqual(resolveImageEditCapabilities(target("drawthings")), {
+    img2img: true,
+    inpainting: false,
+    noise: false,
+    reuseSeed: false,
+  });
+  assert.equal(imageEditValidationError(target("drawthings"), { editMode: "img2img" }), null);
+  assert.match(
+    imageEditValidationError(target("drawthings"), { editMode: "infill", maskImage: "mask" })!,
+    /inpainting/,
+  );
+  assert.match(imageEditValidationError(target("automatic1111"), { editMode: "img2img", noise: 0.2 })!, /noise/);
+  assert.match(imageEditValidationError(native, { editMode: "infill" })!, /painted mask/);
+  assert.match(imageEditValidationError(native, { editMode: "img2img", maskImage: "mask" })!, /only valid/);
+  assert.match(imageEditValidationError(target("automatic1111"), { reuseSeed: true })!, /seed/);
+}
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-image-edit-reference-"));
 process.env.DATA_DIR = dataDir;
