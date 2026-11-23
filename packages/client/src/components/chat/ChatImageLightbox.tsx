@@ -160,9 +160,10 @@ export function ChatImageLightbox({
   );
   if (chatGallery) for (const row of gallery.data ?? []) rows.set(row.id, row);
   rows.set(image.id, image);
-  const suppliedIds = images ? new Set([...images.map((row) => row.id), activeImage.id]) : null;
+  // Fetching saved versions must not turn a message preview into the entire chat gallery.
+  const suppliedIds = new Set([...(images ?? []).map((row) => row.id), activeImage.id]);
   const stacks = groupChatImageVariants([...rows.values()]).filter(
-    (group) => !suppliedIds || group.versions.some((row) => suppliedIds.has(row.id)),
+    (group) => group.versions.some((row) => suppliedIds.has(row.id)),
   );
   const galleryIndex = stacks.findIndex((stack) => stack.versions.some((row) => row.id === image.id));
   const stack = stacks[galleryIndex];
