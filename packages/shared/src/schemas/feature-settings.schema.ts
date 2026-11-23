@@ -16,6 +16,7 @@ export const FEATURE_SWITCH_NAMES = [
   "providerRetry",
   "usageAndActivationStats",
   "messageTrash",
+  "newLorebookVectors",
 ] as const;
 export type FeatureSwitchName = (typeof FEATURE_SWITCH_NAMES)[number];
 
@@ -25,6 +26,7 @@ export const FEATURE_SWITCH_DEFAULTS: Readonly<Record<FeatureSwitchName, boolean
   providerRetry: false,
   usageAndActivationStats: false,
   messageTrash: false,
+  newLorebookVectors: false,
 };
 
 export type FeatureSettings = Partial<Record<FeatureSwitchName, boolean>>;
@@ -35,6 +37,7 @@ export const featureSettingsSchema = z
     providerRetry: z.boolean().optional(),
     usageAndActivationStats: z.boolean().optional(),
     messageTrash: z.boolean().optional(),
+    newLorebookVectors: z.boolean().optional(),
   })
   .strict();
 

@@ -174,7 +174,8 @@ const lorebookBaseSchema = z.object({
     .default(LIMITS.LOREBOOK_ENTRY_LIMIT_DEFAULT),
   recursiveScanning: z.boolean().default(false),
   maxRecursionDepth: z.number().int().min(1).max(10).default(3),
-  excludeFromVectorization: z.boolean().default(true),
+  // Left unset, a new lorebook follows Settings > Advanced > Features > "Vectors on for new lorebooks" (off: excluded).
+  excludeFromVectorization: z.boolean().optional(),
   vectorIncludeAssistant: z.boolean().default(false),
   vectorQueryDepth: z
     .number()
