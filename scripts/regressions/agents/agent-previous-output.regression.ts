@@ -227,6 +227,70 @@ try {
     previousAgentOutputText((await agents.getRunWithConfig(editedId))?.resultData),
     "Edited private context",
   );
+
+  // #9658: {{agent::TYPE}} reads another tracker's saved state as given, alone or batched; an agent's
+  // own type still reads only its Previous Agent Output.
+  const trackerMacroData = {
+    "world-state": "<context>\n    <world>Location: Tom & Jerry's</world>\n</context>",
+    "character-tracker": "<context>\n    <present_characters>- Alice</present_characters>\n</context>",
+  };
+  const trackerContext: AgentContext = {
+    ...context,
+    wrapFormat: "xml",
+    trackerMacroData,
+    loadPreviousOutput: async () => ({ text: "RAW_LAST_RUN" }),
+  };
+  const trackerTemplate = "OWN=({{agent::world-state}}) OTHER=({{agent::character-tracker}}) NONE=({{agent::quest}})";
+  const worldState = await agents.create({
+    type: "world-state",
+    name: "World State",
+    phase: "post_processing",
+    promptTemplate: trackerTemplate,
+  });
+  assert.ok(worldState);
+  for (const previousOutput of [false, true]) {
+    const trackerProvider = new Provider();
+    await executeAgentBatch(
+      [{ ...worldState, settings: { contextSources: { previousOutput } } }],
+      trackerContext,
+      trackerProvider,
+      "mock",
+    );
+    const prompt = trackerProvider.prompts[0] ?? "";
+    assert.ok(prompt.includes(`OTHER=(${trackerMacroData["character-tracker"]})`), prompt);
+    assert.ok(prompt.includes("NONE=()"), "a tracker with no saved state reads as nothing");
+    assert.ok(
+      prompt.includes(previousOutput ? "OWN=(RAW_LAST_RUN)" : "OWN=()"),
+      "an agent's own type reads its Previous Agent Output, never its tracker section",
+    );
+  }
+  const readers = await Promise.all(
+    ["reader-a", "reader-b"].map((type) =>
+      agents.create({
+        type: `custom-tracker-${type}`,
+        name: type,
+        phase: "pre_generation",
+        promptTemplate: `${type}: ${trackerTemplate}`,
+        settings: { resultType: "context_injection" },
+      }),
+    ),
+  );
+  const batchProvider = new Provider();
+  await executeAgentBatch(
+    readers.map((reader) => ({ ...reader!, settings: JSON.parse(reader!.settings), isCustomAgent: true })),
+    trackerContext,
+    batchProvider,
+    "mock",
+  );
+  assert.ok(batchProvider.prompts[0]?.includes("<agent_task "), "the readers share one batched request");
+  for (const type of ["reader-a", "reader-b"]) {
+    assert.ok(
+      batchProvider.prompts[0]?.includes(
+        `${type}: OWN=(${trackerMacroData["world-state"]}) OTHER=(${trackerMacroData["character-tracker"]})`,
+      ),
+      `${type} reads both trackers' state unescaped`,
+    );
+  }
 } finally {
   await closeDB();
   rmSync(dataDir, { recursive: true, force: true });

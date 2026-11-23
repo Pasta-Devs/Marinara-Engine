@@ -239,10 +239,14 @@ export function promptDecisionCacheKey(chatId: string, latestMessageId: string |
 
 /**
  * The macro context an agent template is resolved in, near enough to plan with: the
- * agent executor names `{{char}}` as every character in the chat, not one of them.
+ * agent executor names `{{char}}` as every character in the chat, not one of them, and
+ * `{{agent::TYPE}}` reads the trackers' saved state, not the preset's sections.
  */
-export function agentShapedDecisionContext(ctx: MacroContext): MacroContext {
-  return { ...ctx, char: ctx.characters.join(", ") || "Assistant" };
+export function agentShapedDecisionContext(
+  ctx: MacroContext,
+  trackerMacroData: Record<string, string> = {},
+): MacroContext {
+  return { ...ctx, char: ctx.characters.join(", ") || "Assistant", agentData: trackerMacroData };
 }
 
 /**

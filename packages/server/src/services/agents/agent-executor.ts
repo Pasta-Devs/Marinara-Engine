@@ -279,12 +279,17 @@ function renderAgentMacroValue(value: string | null | undefined, options: { esca
 
 export function buildAgentPromptMacroContext(
   context: AgentContext,
-  options: { escapeValues?: boolean } = {},
+  /** `agentType` is the agent whose template this is: its own type reads only its Previous Agent Output. */
+  options: { escapeValues?: boolean; agentType?: string } = {},
 ): MacroContext {
   const characters = context.characters.map((character) => character.name.trim()).filter(Boolean);
   const firstCharacter = context.characters[0] ?? null;
   const latestUserMessage = findLatestUserMessage(context);
   const value = (entry: string | null | undefined) => renderAgentMacroValue(entry, options);
+  // Saved tracker state goes in as the block a preset inserts, unescaped like there (#9658).
+  const agentData = { ...context.trackerMacroData };
+  if (options.agentType) delete agentData[options.agentType];
+  if (context.previousOutput) agentData[context.previousOutput.agentType] = value(context.previousOutput.text);
 
   return {
     user: value(context.persona?.name?.trim() || "User"),
@@ -299,7 +304,7 @@ export function buildAgentPromptMacroContext(
         .filter(Boolean) ?? characters
     ).map(value),
     variables: {},
-    agentData: context.previousOutput ? { [context.previousOutput.agentType]: value(context.previousOutput.text) } : {},
+    agentData,
     worldState: context.gameState
       ? {
           date: value(context.gameState.date),
@@ -357,7 +362,7 @@ export function renderAgentPromptTemplate(
   template: string,
   settings: Record<string, unknown>,
   context: AgentContext,
-  options: { escapeValues?: boolean } = {},
+  options: { escapeValues?: boolean; agentType?: string } = {},
 ): string {
   const withSettingMacros = renderAgentSettingsMacros(template, settings, options);
   return resolveMacros(withSettingMacros, buildAgentPromptMacroContext(context, options), { trimResult: false });
@@ -622,12 +627,10 @@ function renderAgentTemplatesForOutput(
   for (const config of configs) {
     templates.set(
       config.type,
-      renderAgentPromptTemplate(
-        config.promptTemplate || getDefaultPromptForAgent(config),
-        config.settings,
-        context,
-        renderOptions,
-      ),
+      renderAgentPromptTemplate(config.promptTemplate || getDefaultPromptForAgent(config), config.settings, context, {
+        ...renderOptions,
+        agentType: config.type,
+      }),
     );
   }
   return templates;
@@ -642,6 +645,7 @@ function getAgentOutputTemplate(
     renderedTemplates?.get(config.type) ??
     renderAgentPromptTemplate(config.promptTemplate || getDefaultPromptForAgent(config), config.settings, context, {
       escapeValues: normalizeAgentContextWrapFormat(context.wrapFormat) === "xml",
+      agentType: config.type,
     })
   );
 }
@@ -986,7 +990,7 @@ export async function executeAgent(
       config.promptTemplate || getDefaultPromptForAgent(config),
       config.settings,
       context,
-      { escapeValues: normalizeAgentContextWrapFormat(context.wrapFormat) === "xml" },
+      { escapeValues: normalizeAgentContextWrapFormat(context.wrapFormat) === "xml", agentType: config.type },
     );
     if (!template) {
       return makeError(config, "No prompt template configured", startTime);

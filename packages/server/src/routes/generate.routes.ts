@@ -1065,7 +1065,10 @@ import {
   injectSceneContextMessages,
   resolveSceneBusyCharacterIds,
 } from "../services/generation/scene-context-runtime.js";
-import { injectCommittedTrackerContext } from "../services/generation/committed-tracker-context.js";
+import {
+  buildCommittedTrackerSections,
+  injectCommittedTrackerContext,
+} from "../services/generation/committed-tracker-context.js";
 import { loadPriorBeholderState } from "../services/agents/beholder-state.js";
 import { gameGmPromptDecisionTexts, injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
 import { mergeConversationCharacterMemories } from "../services/generation/conversation-memory-context.js";
@@ -6737,6 +6740,25 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           signal: agentSignal,
         };
 
+        const latestBeholderState = await loadPriorBeholderState({
+          agentsStore,
+          chatId: input.chatId,
+          chatMode,
+          activeAgentIds: chatActiveAgentIds,
+          chatEnableAgents,
+          excludeMessageId: input.regenerateMessageId,
+        });
+        if (latestBeholderState) agentContext.memory._beholderState = latestBeholderState;
+        // `{{agent::TYPE}}` in agent prompts and activation questions reads the saved tracker
+        // state a preset's Agent Data section shows, as of before this reply (#9658).
+        agentContext.trackerMacroData = buildCommittedTrackerSections({
+          chatEnableAgents,
+          activeAgentIds: chatActiveAgentIds,
+          latestGameState,
+          beholderState: latestBeholderState,
+          wrapFormat,
+        });
+
         // Free keyword and cadence checks have already removed ineligible agents.
         // Character activity agents use their separate activation path and remain keyword-only.
         const gateActivationQuestions = async (
@@ -6779,7 +6801,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               }
               candidates.push({
                 agentId: agent.id,
-                question: renderAgentPromptTemplate(activation.question, agent.settings, agentContext),
+                question: renderAgentPromptTemplate(activation.question, agent.settings, agentContext, {
+                  agentType: agent.type,
+                }),
                 threshold: activation.threshold,
                 scanDepth: activation.scanDepth,
                 media: activation.media,
@@ -6836,16 +6860,6 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         for (let index = resolvedAgents.length - 1; index >= 0; index--) {
           if (inactivePreGenerationQuestionIds.has(resolvedAgents[index]!.id)) resolvedAgents.splice(index, 1);
         }
-
-        const latestBeholderState = await loadPriorBeholderState({
-          agentsStore,
-          chatId: input.chatId,
-          chatMode,
-          activeAgentIds: chatActiveAgentIds,
-          chatEnableAgents,
-          excludeMessageId: input.regenerateMessageId,
-        });
-        if (latestBeholderState) agentContext.memory._beholderState = latestBeholderState;
 
         if (personaId) {
           agentContext.memory._personaId = personaId;
@@ -7830,7 +7844,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             .map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
         );
         if (preReplyAgentDecisionTexts.length > 0) {
-          const agentDecisionContext = agentShapedDecisionContext(promptMacroContext);
+          const agentDecisionContext = agentShapedDecisionContext(promptMacroContext, agentContext.trackerMacroData);
           const agentDecisions = await answerDecisionPlan(
             planPromptDecisions(
               [
@@ -13361,7 +13375,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             ].map((agent) => [effectiveAgentPromptTemplate(agent), agent.settings]),
           );
 
-          const postAgentDecisionContext = agentShapedDecisionContext(promptMacroContext);
+          const postAgentDecisionContext = agentShapedDecisionContext(
+            promptMacroContext,
+            agentContext.trackerMacroData,
+          );
           const postAgentDecisions =
             postAgentDecisionTexts.length > 0
               ? await answerDecisionPlan(
