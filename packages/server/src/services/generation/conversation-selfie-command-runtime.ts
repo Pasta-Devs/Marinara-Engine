@@ -489,6 +489,7 @@ async function generateSelfie(
       enabled: imageSettings.autoSaveToGalleries,
       sourceFilePath: filePath,
       sourceChatImageId: galleryEntry?.id,
+      generation: galleryEntry?.generation,
       characterIds: selfieResolvedCharacterIds,
       characterGallery: createCharacterGalleryStorage(args.db),
       personaGallery: createPersonaGalleryStorage(args.db),

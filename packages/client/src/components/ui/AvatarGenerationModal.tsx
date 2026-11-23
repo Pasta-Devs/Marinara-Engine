@@ -13,6 +13,7 @@ import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptRevie
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { gallerySheetGrid, parseGallerySheetNames } from "@marinara-engine/shared";
 import { GallerySheetCells, useGallerySheetCells, type GallerySheetCut } from "./GallerySheetCells";
+import type { GalleryImageUploadMetadata } from "../../lib/gallery-image-upload";
 
 /** What the gallery's "Create with AI" can make. Sticker and emoji sheets save one picture per cell. */
 export type GalleryCreateKind = "character-sheet" | "background" | "sticker-sheet" | "emoji-sheet";
@@ -24,9 +25,11 @@ export const GALLERY_CREATE_KINDS: readonly GalleryCreateKind[] = [
   "emoji-sheet",
 ];
 
-export type GalleryCreateResult =
-  | { kind: "character-sheet" | "background"; dataUrl: string }
-  | { kind: "sticker-sheet" | "emoji-sheet"; items: GallerySheetCut[] };
+export type GalleryCreateResult = GalleryImageUploadMetadata &
+  (
+    | { kind: "character-sheet" | "background"; dataUrl: string }
+    | { kind: "sticker-sheet" | "emoji-sheet"; items: GallerySheetCut[] }
+  );
 
 /** Gallery "Create with AI": a type picker, each type with its own starting prompt, and one save for all. */
 export type GalleryCreateOptions = {
@@ -58,10 +61,10 @@ type AvatarGenerationModalProps = {
   defaultAvatarUrl?: string | null;
   neutralFullBodyReferenceUrl?: string | null;
   onClose: () => void;
-  onUseAvatar: (avatarDataUrl: string) => Promise<void> | void;
+  onUseAvatar: (avatarDataUrl: string, metadata?: GalleryImageUploadMetadata) => Promise<void> | void;
 };
 
-type AvatarGenerationResponse = {
+type AvatarGenerationResponse = GalleryImageUploadMetadata & {
   image: string;
   prompt: string;
 };
@@ -130,6 +133,7 @@ export function AvatarGenerationModal({
   const [useNeutralFullBodyReference, setUseNeutralFullBodyReference] = useState(false);
   const [generatedAvatar, setGeneratedAvatar] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState("");
+  const [generatedMetadata, setGeneratedMetadata] = useState<GalleryImageUploadMetadata>({});
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [reviewItems, setReviewItems] = useState<ImagePromptReviewItem[]>([]);
@@ -183,6 +187,7 @@ export function AvatarGenerationModal({
     setUseNeutralFullBodyReference(false);
     setGeneratedAvatar(null);
     setGeneratedPrompt("");
+    setGeneratedMetadata({});
     setReviewItems([]);
     setReviewSubmitting(false);
     setFullPrompt(null);
@@ -198,6 +203,7 @@ export function AvatarGenerationModal({
       setAppearance(galleryDraftsRef.current[next] ?? galleryCreate.seeds[next] ?? "");
       setGeneratedAvatar(null);
       setGeneratedPrompt("");
+      setGeneratedMetadata({});
       setFullPrompt(null);
       sheetCells.reset();
     },
@@ -320,6 +326,8 @@ export function AvatarGenerationModal({
       );
       setGeneratedAvatar(result.image);
       setGeneratedPrompt(result.prompt);
+      const { image: _image, ...metadata } = result;
+      setGeneratedMetadata(metadata);
       if (isStickerSheet) void sheetCells.cut(result.image, sheetGrid, sheetNames);
     } catch (error) {
       toast.error(
@@ -347,15 +355,16 @@ export function AvatarGenerationModal({
     try {
       if (galleryCreate) {
         if (mode === "sticker-sheet" || mode === "emoji-sheet") {
-          await galleryCreate.onSave({ kind: mode, items: sheetCells.selectedItems });
+          await galleryCreate.onSave({ ...generatedMetadata, kind: mode, items: sheetCells.selectedItems });
         } else {
           await galleryCreate.onSave({
+            ...generatedMetadata,
             kind: mode === "background" ? "background" : "character-sheet",
             dataUrl: generatedAvatar,
           });
         }
       } else {
-        await onUseAvatar(generatedAvatar);
+        await onUseAvatar(generatedAvatar, generatedMetadata);
       }
       onClose();
     } catch (error) {

@@ -10,6 +10,10 @@ import {
   isGalleryTagKind,
   normalizeGalleryBackgroundPlaces,
 } from "../../../packages/shared/src/utils/gallery-tags.js";
+import {
+  buildChatImageGenerationRecord,
+  parseChatImageGenerationRecord,
+} from "../../../packages/shared/src/utils/chat-image-generation.js";
 import { readGalleryTagPayload } from "../../../packages/server/src/services/image/gallery-tag-payload.js";
 
 const storageRoot = mkdtempSync(join(tmpdir(), "marinara-gallery-labels-storage-"));
@@ -140,8 +144,9 @@ try {
 
   // The chat picture's label was removed: re-assigning keeps the gallery's own label and says so
   // (the toast must not claim a label update).
+  const reassignedGeneration = buildChatImageGenerationRecord({ prompt: "restored request", seed: 91 });
   const unlabeledAgain = await assignChatPictureToGallery({
-    image: { ...tagged!, customKind: null, customName: null },
+    image: { ...tagged!, customKind: null, customName: null, generation: reassignedGeneration },
     target: { type: "character", id: "john" },
     characterGallery,
     personaGallery,
@@ -152,6 +157,61 @@ try {
   const keptRows = await characterGallery.listByCharacterId("john");
   assert.equal(keptRows.length, 1, "still one row on that file");
   assert.equal(keptRows[0]?.customKind, "background", "the gallery keeps its own label");
+  assert.deepEqual(parseChatImageGenerationRecord(keptRows[0]?.generation), reassignedGeneration);
+
+  for (const [type, id] of [
+    ["character", "john"],
+    ["persona", "alyssa"],
+  ] as const) {
+    const target = { type, id };
+    await assignChatPictureToGallery({
+      image: { ...picture, generation: reassignedGeneration },
+      target,
+      characterGallery,
+      personaGallery,
+      galleryRoot,
+    });
+    const gallery = type === "character" ? characterGallery : personaGallery;
+    const originalSetGeneration = gallery.setGeneration;
+    const originalSetTag = gallery.setTag;
+    let generationWrites = 0;
+    let labelWrites = 0;
+    gallery.setGeneration = async (...args) => {
+      generationWrites++;
+      return originalSetGeneration.apply(gallery, args);
+    };
+    gallery.setTag = async (...args) => {
+      labelWrites++;
+      return originalSetTag.apply(gallery, args);
+    };
+    try {
+      const same = await assignChatPictureToGallery({
+        image: { ...picture, generation: JSON.stringify({ ...reassignedGeneration, prompt: "  restored request  " }) },
+        target,
+        characterGallery,
+        personaGallery,
+        galleryRoot,
+      });
+      assert.equal(same.ok && same.alreadyThere, true);
+      assert.equal(
+        generationWrites,
+        0,
+        "an equal normalized record must not enter the gallery writer or reread the row",
+      );
+      assert.equal(labelWrites, 0, "an unlabeled reassignment keeps the existing label without a write");
+      await assignChatPictureToGallery({
+        image: { ...picture, generation: { ...reassignedGeneration, seed: 92 } },
+        target,
+        characterGallery,
+        personaGallery,
+        galleryRoot,
+      });
+      assert.equal(generationWrites, 1, "a different record refreshes the existing row");
+    } finally {
+      gallery.setGeneration = originalSetGeneration;
+      gallery.setTag = originalSetTag;
+    }
+  }
 
   const toPersona = await assignChatPictureToGallery({
     image: { ...picture, customKind: null, customName: null },
