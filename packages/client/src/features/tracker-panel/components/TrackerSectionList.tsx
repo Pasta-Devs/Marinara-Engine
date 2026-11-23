@@ -49,6 +49,7 @@ export function TrackerSectionList({
   patchField,
   patchPlayerStats,
   patchPlayerStatsMany,
+  resolveCardCharacterId,
   resolveSpriteCharacterId,
   spriteExpressions,
   trackerPanelCollapsedSections,
@@ -86,6 +87,7 @@ export function TrackerSectionList({
       | Partial<NonNullable<GameState["playerStats"]>>
       | ((current: NonNullable<GameState["playerStats"]>) => Partial<NonNullable<GameState["playerStats"]>>),
   ) => void;
+  resolveCardCharacterId: (character: PresentCharacter) => string | null;
   resolveSpriteCharacterId: (character: PresentCharacter) => string | null;
   spriteExpressions: Record<string, string>;
   trackerPanelCollapsedSections: TrackerPanelCollapsedSections;
@@ -151,6 +153,7 @@ export function TrackerSectionList({
     openAvatarUpload,
     removeCharacter,
     removeQuest,
+    revertScenePortrait,
     savePersonaStatus,
     updateCharacter,
     updateCustomFields,
@@ -165,6 +168,7 @@ export function TrackerSectionList({
     patchField,
     patchPlayerStats,
     removeFeaturedCharacterCard,
+    resolveCardCharacterId,
   });
   const isPanelCollapsed = (section: TrackerPanelSection) => trackerPanelCollapsedSections[section] === true;
   const toggleAutoGenerateCharacterAvatars = useCallback(() => {
@@ -279,6 +283,7 @@ export function TrackerSectionList({
             onAddCharacter={addCharacter}
             onUploadAvatar={openAvatarUpload}
             onGeneratePortrait={canGeneratePortraits ? generateAvatar : undefined}
+            onRevertScenePortrait={revertScenePortrait}
             onToggleFeatured={toggleFeaturedCharacterCard}
             deleteMode={deleteMode}
             addMode={addMode}

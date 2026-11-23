@@ -12,6 +12,7 @@ import type { TrackerDataPanelSection } from "../../../stores/ui.store";
 import { TRACKER_FEATURED_CHARACTER_META_KEY, TRACKER_SECTION_AGENT_TYPES } from "../lib/tracker-panel.constants";
 import { normalizeMaybeJsonStringArray, normalizeStringArray, parseRecord } from "../lib/tracker-metadata";
 import { resolveSpriteExpressionState } from "../../../lib/sprite-expression-state";
+import { isSpriteLookupCharacterId } from "../lib/sprite-expressions";
 import { useTrackerSpriteLookup } from "./use-tracker-sprite-lookup";
 
 interface UseTrackerPanelModelOptions {
@@ -112,6 +113,16 @@ export function useTrackerPanelModel({
       : activePersonaData;
   }, [activePersonaData, previewValues]);
   const expressionSpritesEnabled = trackerPanelUseExpressionSprites && expressionAgentEnabled;
+  const resolveCardCharacterId = useCallback(
+    (character: PresentCharacter) => {
+      const rawId = typeof character.characterId === "string" ? character.characterId.trim() : "";
+      if (rawId && characterSpriteLookup.knownIds.has(rawId)) return rawId;
+      if (!isSpriteLookupCharacterId(rawId) || rawId.includes(":cast:")) return null;
+      const matched = resolveSpriteCharacterId(character);
+      return matched && characterSpriteLookup.knownIds.has(matched) ? matched : null;
+    },
+    [characterSpriteLookup.knownIds, resolveSpriteCharacterId],
+  );
 
   return {
     activePersona,
@@ -123,6 +134,7 @@ export function useTrackerPanelModel({
     expressionSpritesEnabled,
     featuredCharacterCardKeys,
     orderedTrackerSections,
+    resolveCardCharacterId,
     resolveSpriteCharacterId,
     spriteExpressions,
   };

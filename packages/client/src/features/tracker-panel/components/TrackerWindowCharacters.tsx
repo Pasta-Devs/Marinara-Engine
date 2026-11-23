@@ -49,6 +49,7 @@ export function TrackerWindowCharacters({
     characterTrackerSettings,
     expressionSpritesEnabled,
     featuredCharacterCardKeys,
+    resolveCardCharacterId,
     resolveSpriteCharacterId,
     spriteExpressions,
     trackerStatIconOverrides,
@@ -78,6 +79,7 @@ export function TrackerWindowCharacters({
     generateAvatar,
     handleAvatarFileInputChange,
     openAvatarUpload,
+    revertScenePortrait,
   } = useTrackerMutations({
     activeChatId: chatId,
     customFields: [],
@@ -87,6 +89,7 @@ export function TrackerWindowCharacters({
     patchField,
     patchPlayerStats,
     removeFeaturedCharacterCard,
+    resolveCardCharacterId,
   });
   const updateAgent = useUpdateAgent();
   const autoGenerateAvatars = characterTrackerSettings.autoGenerateAvatars === true;
@@ -210,6 +213,7 @@ export function TrackerWindowCharacters({
                   onGeneratePortrait={
                     canGeneratePortraits ? (includeOutfit) => generateAvatar(index, includeOutfit) : undefined
                   }
+                  onRevertScenePortrait={() => revertScenePortrait(index)}
                 />
               </div>
             );

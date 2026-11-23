@@ -107,6 +107,11 @@ function reconcileListUpdate<T extends { name?: string }>(liveItems: T[], render
   return updatedItems;
 }
 
+function withoutPortraitFraming(character: PresentCharacter): PresentCharacter {
+  const { portraitFocusX: _x, portraitFocusY: _y, portraitZoom: _z, ...rest } = character;
+  return rest;
+}
+
 export function useTrackerMutations({
   activeChatId,
   customFields,
@@ -116,6 +121,7 @@ export function useTrackerMutations({
   patchField,
   patchPlayerStats,
   removeFeaturedCharacterCard,
+  resolveCardCharacterId,
 }: {
   activeChatId: string | null;
   customFields: CustomTrackerField[];
@@ -125,6 +131,7 @@ export function useTrackerMutations({
   patchField: (field: GameStatePatchField, value: unknown) => void;
   patchPlayerStats: (field: keyof PlayerStats, value: unknown) => void;
   removeFeaturedCharacterCard: (key: string) => void;
+  resolveCardCharacterId?: (character: PresentCharacter) => string | null;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [avatarUpload, setAvatarUpload] = useState<{ characterId: string; index: number } | null>(null);
@@ -170,15 +177,18 @@ export function useTrackerMutations({
     [presentCharacters, readPresentCharacters],
   );
 
-  /** Point the character at a saved portrait, unless a newer upload or generation took over. */
-  const saveAvatarPath = useCallback(
-    (characterId: string, fallbackIndex: number, token: number, avatarPath: string) => {
+  /** Point the character at a saved portrait, unless a newer upload, generation, or revert took over. */
+  const savePortraitPath = useCallback(
+    (characterId: string, fallbackIndex: number, token: number, portraitPath: string, isCardRow: boolean) => {
       if (avatarUploadTokenByCharacterRef.current.get(characterId) !== token) return;
       const latestCharacters = readPresentCharacters();
       const targetIndex = resolveCharacterTargetIndex(latestCharacters, characterId, fallbackIndex);
       if (targetIndex < 0) return;
       const nextCharacters = [...latestCharacters];
-      nextCharacters[targetIndex] = { ...latestCharacters[targetIndex]!, avatarPath };
+      const current = latestCharacters[targetIndex]!;
+      nextCharacters[targetIndex] = isCardRow
+        ? { ...withoutPortraitFraming(current), scenePortraitPath: portraitPath }
+        : { ...current, avatarPath: portraitPath };
       patchField("presentCharacters", nextCharacters);
     },
     [patchField, readPresentCharacters],
@@ -192,6 +202,7 @@ export function useTrackerMutations({
       const character = initialIndex >= 0 ? currentCharacters[initialIndex] : undefined;
       if (!character) return;
 
+      const cardId = resolveCardCharacterId?.(character) ?? null;
       const uploadToken = avatarUploadSerialRef.current + 1;
       avatarUploadSerialRef.current = uploadToken;
       avatarUploadTokenByCharacterRef.current.set(characterId, uploadToken);
@@ -211,8 +222,9 @@ export function useTrackerMutations({
           const response = await api.post<{ avatarPath: string }>(`/avatars/npc/${activeChatId}`, {
             name: character.name,
             avatar: dataUrl,
+            ...(cardId ? { scenePortrait: true } : {}),
           });
-          saveAvatarPath(characterId, fallbackIndex, uploadToken, response.avatarPath);
+          savePortraitPath(characterId, fallbackIndex, uploadToken, response.avatarPath, Boolean(cardId));
         } catch {
           // Match the original HUD widget behavior: failed avatar uploads leave tracker data unchanged.
         } finally {
@@ -228,7 +240,7 @@ export function useTrackerMutations({
       };
       reader.readAsDataURL(file);
     },
-    [activeChatId, readPresentCharacters, saveAvatarPath],
+    [activeChatId, readPresentCharacters, resolveCardCharacterId, savePortraitPath],
   );
 
   /** A new tracker portrait from the look, and the outfit when asked; the old one stays if this fails. */
@@ -240,19 +252,21 @@ export function useTrackerMutations({
       const character = currentCharacters[resolveCharacterTargetIndex(currentCharacters, characterId, index)];
       if (!character) return;
 
+      const cardId = resolveCardCharacterId?.(character) ?? null;
       const token = avatarUploadSerialRef.current + 1;
       avatarUploadSerialRef.current = token;
       avatarUploadTokenByCharacterRef.current.set(characterId, token);
       try {
         const response = await api.post<{ avatarPath: string }>(`/avatars/npc/${activeChatId}/generate`, {
           name: character.name,
+          ...(cardId ? { characterId: cardId } : {}),
           // Tracker fields are raw model output; send only text.
           appearance: typeof character.appearance === "string" ? character.appearance : null,
           outfit: typeof character.outfit === "string" ? character.outfit : null,
           includeOutfit,
           debugMode: useUIStore.getState().debugMode,
         });
-        saveAvatarPath(characterId, index, token, response.avatarPath);
+        savePortraitPath(characterId, index, token, response.avatarPath, Boolean(cardId));
       } catch (error) {
         toast.error(localizeUi("ui.trackerPanel.featuredcharacterportrait.newPortraitFailed"), {
           description: error instanceof Error ? error.message : undefined,
@@ -263,7 +277,27 @@ export function useTrackerMutations({
         }
       }
     },
-    [activeChatId, localizeUi, presentCharacters, readPresentCharacters, saveAvatarPath],
+    [activeChatId, localizeUi, presentCharacters, readPresentCharacters, resolveCardCharacterId, savePortraitPath],
+  );
+
+  const revertScenePortrait = useCallback(
+    (index: number) => {
+      const latestCharacters = readPresentCharacters();
+      const targetCharacterId = presentCharacters[index]?.characterId ?? latestCharacters[index]?.characterId;
+      const targetIndex = resolveCharacterTargetIndex(latestCharacters, targetCharacterId, index);
+      if (targetIndex < 0) return;
+      const target = latestCharacters[targetIndex]!;
+      const tokenKey = target.characterId || targetCharacterId;
+      if (tokenKey) {
+        // Bump the token so an in-flight upload or generation cannot overwrite the revert.
+        avatarUploadSerialRef.current += 1;
+        avatarUploadTokenByCharacterRef.current.set(tokenKey, avatarUploadSerialRef.current);
+      }
+      const nextCharacters = [...latestCharacters];
+      nextCharacters[targetIndex] = { ...withoutPortraitFraming(target), scenePortraitPath: null };
+      patchField("presentCharacters", nextCharacters);
+    },
+    [patchField, presentCharacters, readPresentCharacters],
   );
 
   const handleAvatarFileInputChange = useCallback(
@@ -445,6 +479,7 @@ export function useTrackerMutations({
     openAvatarUpload,
     removeCharacter,
     removeQuest,
+    revertScenePortrait,
     savePersonaStatus,
     updateCharacter,
     updateCustomFields,

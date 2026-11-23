@@ -43,6 +43,7 @@ export function CharacterTrackerPanel({
   onToggleFeatured,
   onUploadAvatar,
   onGeneratePortrait,
+  onRevertScenePortrait,
   deleteMode,
   addMode,
   action,
@@ -69,6 +70,7 @@ export function CharacterTrackerPanel({
   onToggleFeatured: (key: string) => void;
   onUploadAvatar: (index: number) => void;
   onGeneratePortrait?: (index: number, includeOutfit: boolean) => Promise<void>;
+  onRevertScenePortrait?: (index: number) => void;
   deleteMode: boolean;
   addMode: boolean;
   action?: ReactNode;
@@ -155,6 +157,7 @@ export function CharacterTrackerPanel({
           onGeneratePortrait={
             onGeneratePortrait ? (includeOutfit) => onGeneratePortrait(entry.index, includeOutfit) : undefined
           }
+          onRevertScenePortrait={onRevertScenePortrait ? () => onRevertScenePortrait(entry.index) : undefined}
         />
       </div>
     );
