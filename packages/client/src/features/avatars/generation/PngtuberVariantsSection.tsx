@@ -214,17 +214,12 @@ export function PngtuberVariantsSection({
         </h4>
         <p className="text-[0.6875rem] text-[var(--muted-foreground)]">{t("avatars.generation.pngtuberDescription")}</p>
         <p className="text-[0.6875rem] text-[var(--foreground)]">
-          {t(
-            coverage.blockedFaces.length
-              ? "avatars.generation.picturesSavedBlocked"
-              : "avatars.generation.picturesSaved",
-            {
-              saved: coverage.saved,
-              total: coverage.total,
-              missing: coverage.missing,
-              blocked: coverage.blockedFaces.length * 2,
-            },
-          )}
+          {t(coverage.waiting ? "avatars.generation.picturesSavedBlocked" : "avatars.generation.picturesSaved", {
+            saved: coverage.saved,
+            total: coverage.total,
+            missing: coverage.missing,
+            blocked: coverage.waiting,
+          })}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">

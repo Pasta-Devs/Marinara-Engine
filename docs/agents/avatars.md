@@ -224,7 +224,7 @@ When the avatar is already saved, each new face becomes the face of the feeling 
 
 Each face the avatar shows for a feeling is one row, with its **Eyes closed** and **Mouth open** pictures next to the **Face**. These are pictures you saved, `_blink` and `_talk` sprites you added, or new ones. With portrait sprites, only those are used, because an avatar never mixes portrait and full-body faces. A face that is not one of your sprites, such as from a PNGTuber Plus import, shows its pictures but cannot get new ones.
 
-The line under the title counts every picture, such as `Pictures saved: 40 of 58. Still to make: 8. Waiting for a missing face: 10.` A face that is not made yet has no row, because its pictures are drawn from it. The last card names those faces, with **Make missing faces**. Saving them adds their rows and keeps the pictures already saved.
+The line under the title counts every picture, such as `Pictures saved: 40 of 58. Still to make: 8. Waiting for a missing face: 10.` A face that is not made yet has no row, because its pictures are drawn from it. A face whose sprite was deleted has nothing to draw from either, so its pictures wait too. A feeling shown by its own face under another name, such as `scared` for fear, uses that face's pictures and is not counted as waiting. The last card names the faces to make, with **Make missing faces**. Saving them adds their rows and keeps the pictures already saved.
 
 1. Check **Image model** (your default image account is picked for you).
 2. Click **Make** for one missing picture, or the **Make N pictures** button for all. Each picture is one image request. With **Expose media prompts before sending** on (in Settings), you see and edit each prompt first.
