@@ -747,10 +747,13 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         const choice = await askLeaveSetup("chat");
         if (choice === "continue") return;
         if (choice === "discard") {
-          discarded = await discardUnfinishedSetup(queryClient, chat.id);
+          discarded = await discardUnfinishedSetup(queryClient, chat.id, { explicit: true });
         } else {
           // Kept for later: close setup without finishing it; it opens again next time.
-          await keepSetupForLater(queryClient, chat.id);
+          if (!(await keepSetupForLater(queryClient, chat.id))) {
+            toast.error(t("setupDraft.keepFailed"));
+            return;
+          }
           toast.info(
             t("chat.wizard.keptForLater", {
               defaultValue: 'Chat setup kept for later. It\'s in your chats as "Setup not finished".',
@@ -789,6 +792,34 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       cast: JSON.stringify((chat as { characterIds?: unknown }).characterIds ?? []),
     };
   }
+  // Whether the chat itself (name, model, prompt, cast, persona, lorebooks) differs from how its setup opened.
+  const chatChangedRef = useRef<() => boolean>(() => false);
+  chatChangedRef.current = () => {
+    const current = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id));
+    // The live baseline: saved defaults and the page's own pre-picks move it along, so only what the person
+    // changed counts. After a reload there is none, and the first render's copy is all there is.
+    const baseline = useChatStore.getState().pendingNewChatSetups[chat.id];
+    const start = baseline
+      ? {
+          name: baseline.name,
+          connectionId: baseline.connectionId ?? null,
+          promptPresetId: baseline.promptPresetId ?? null,
+          cast: JSON.stringify((baseline as { characterIds?: unknown }).characterIds ?? []),
+        }
+      : startRef.current;
+    if (!current || !start) return false;
+    const meta = (value: Chat | undefined, key: string) => JSON.stringify(value?.metadata?.[key] ?? null);
+    return (
+      (!!baseline &&
+        ((current.personaId ?? null) !== (baseline.personaId ?? null) ||
+          (current.personaCharacterId ?? null) !== (baseline.personaCharacterId ?? null) ||
+          ["activeLorebookIds", "groupChatMode"].some((key) => meta(current, key) !== meta(baseline, key)))) ||
+      current.name !== start.name ||
+      (current.connectionId ?? null) !== start.connectionId ||
+      (current.promptPresetId ?? null) !== start.promptPresetId ||
+      JSON.stringify((current as { characterIds?: unknown }).characterIds ?? []) !== start.cast
+    );
+  };
   useEffect(() => {
     if (isGameChat) return;
     return registerSetupInputProbe(chat.id, () => {
@@ -803,32 +834,33 @@ export function ChatSetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       if (saving) return true;
       // Story choices (Content and the rest) stay on the page until Start.
       if (setupStoryChoicesPicked(chat.id)) return true;
-      const current = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id));
-      // The live baseline: saved defaults and the page's own pre-picks move it along, so only what the person
-      // changed counts. After a reload there is none, and the first render's copy is all there is.
-      const baseline = useChatStore.getState().pendingNewChatSetups[chat.id];
-      const start = baseline
-        ? {
-            name: baseline.name,
-            connectionId: baseline.connectionId ?? null,
-            promptPresetId: baseline.promptPresetId ?? null,
-            cast: JSON.stringify((baseline as { characterIds?: unknown }).characterIds ?? []),
-          }
-        : startRef.current;
-      if (!current || !start) return false;
-      const meta = (value: Chat | undefined, key: string) => JSON.stringify(value?.metadata?.[key] ?? null);
-      return (
-        (!!baseline &&
-          ((current.personaId ?? null) !== (baseline.personaId ?? null) ||
-            (current.personaCharacterId ?? null) !== (baseline.personaCharacterId ?? null) ||
-            ["activeLorebookIds", "groupChatMode"].some((key) => meta(current, key) !== meta(baseline, key)))) ||
-        current.name !== start.name ||
-        (current.connectionId ?? null) !== start.connectionId ||
-        (current.promptPresetId ?? null) !== start.promptPresetId ||
-        JSON.stringify((current as { characterIds?: unknown }).characterIds ?? []) !== start.cast
-      );
+      return chatChangedRef.current();
     });
   }, [chat.id, isGameChat, queryClient]);
+  // Choices saved on the chat are marked on it too, so a window that closed (or another device) never clears this
+  // draft as untouched: nobody else can compare it with how its setup opened.
+  const markedInputRef = useRef(false);
+  useEffect(() => {
+    if (isGameChat || markedInputRef.current) return;
+    const current = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id)) ?? (chat as Chat);
+    if (current.metadata?.setupHasInput === true) {
+      markedInputRef.current = true;
+      return;
+    }
+    if (!isUnfinishedSetup(current) || !chatChangedRef.current()) return;
+    // Checked again once things settle, so the page's own pre-picks (which move the baseline a moment later)
+    // never mark an untouched draft.
+    const timer = window.setTimeout(() => {
+      if (markedInputRef.current || !chatChangedRef.current()) return;
+      const latest = queryClient.getQueryData<Chat>(chatKeys.detail(chat.id));
+      if (!latest || !isUnfinishedSetup(latest)) return;
+      markedInputRef.current = true;
+      void api.patch(`/chats/${chat.id}/metadata`, { setupHasInput: true }).catch(() => {
+        markedInputRef.current = false;
+      });
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [chat, isGameChat, queryClient]);
   // Esc closes setup the way × does, as it does in Game setup (user panel 3, PN5).
   useEffect(() => {
     if (isGameChat) return;
@@ -1058,6 +1090,18 @@ function ConversationQuickSetup({
   defaultsAction,
 }: WizardWithDefaultsProps) {
   const { t: localizeUi } = useUiTranslation();
+  const finishTimerRef = useRef<number | null>(null);
+  // False once this page closes, so a schedule that finishes generating afterwards never starts the finish.
+  const activeRef = useRef(true);
+  // Set while Start runs (and after it succeeds), so a second click can't start it twice.
+  const startingRef = useRef(false);
+  useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+      if (finishTimerRef.current !== null) window.clearTimeout(finishTimerRef.current);
+    };
+  }, []);
   const pageMode = useOverhaulLook();
   const [step, setStep] = useState(0);
   const currentStep = CONVERSATION_STEPS[step]!;
@@ -1429,6 +1473,8 @@ function ConversationQuickSetup({
 
   const handleStartChatting = useCallback(async () => {
     if (metadata.multiplayerSetup !== true && (!hasConnection || !hasCharacters)) return;
+    if (startingRef.current) return;
+    startingRef.current = true;
     bumpFeatureTipCount(CONVERSATION_FULL_SETUPS);
     const trimmedConversationSystemPrompt = conversationSystemPromptDraft.trim();
     const baseConversationPromptText = baseConversationPrompt.trim();
@@ -1448,17 +1494,28 @@ function ConversationQuickSetup({
       currentConnectionId: metadata.imageGenConnectionId,
       selfieCommandEnabled,
     });
-    await updateMeta.mutateAsync({
-      id: chat.id,
-      autonomousMessages: autonomousEnabled,
-      conversationSchedulesEnabled: generateSchedule,
-      characterCommands: hasConversationCommands && commandsEnabled,
-      conversationCommandToggles: selfieSetup.conversationCommandToggles,
-      conversationSetupComplete: true,
-      chatParameters: customizeParameters ? generationParameters : null,
-      customSystemPrompt,
-      ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
-    });
+    try {
+      await updateMeta.mutateAsync({
+        id: chat.id,
+        autonomousMessages: autonomousEnabled,
+        conversationSchedulesEnabled: generateSchedule,
+        characterCommands: hasConversationCommands && commandsEnabled,
+        conversationCommandToggles: selfieSetup.conversationCommandToggles,
+        conversationSetupComplete: true,
+        // Set up from here on, in the same write: leaving during the schedule step below must never let the draft
+        // cleanup remove this chat (it has no messages yet).
+        setupPending: null,
+        setupUnfinished: null,
+        setupHasInput: null,
+        chatParameters: customizeParameters ? generationParameters : null,
+        customSystemPrompt,
+        ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
+      });
+    } catch (error) {
+      // Not saved: Start can be tried again.
+      startingRef.current = false;
+      throw error;
+    }
     useChatStore.getState().clearPendingNewChatSetup(chat.id);
     if (autonomousEnabled && generateSchedule && metadata.multiplayerSetup !== true) {
       setScheduleState("generating");
@@ -1476,8 +1533,13 @@ function ConversationQuickSetup({
       } catch {
         // Schedule generation is non-critical — continue anyway
       }
+      if (!activeRef.current) return;
       setScheduleState("done");
-      setTimeout(onFinish, 2000);
+      // Cancelled if this page closes first (another chat, Home), so it never finishes the wrong chat's setup.
+      finishTimerRef.current = window.setTimeout(() => {
+        finishTimerRef.current = null;
+        onFinish();
+      }, 2000);
     } else {
       onFinish();
     }

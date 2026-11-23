@@ -39,9 +39,13 @@ export function parseTrustedTimestamp(value: unknown): string | null {
   // letting `new Date()` roll it into another day.
   if (sillyTavern !== undefined) return sillyTavern;
 
-  const parsed = new Date(raw);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toISOString();
+  // `new Date()` reads almost anything as some date ("12" and "user 2" become 2001), so only strings that look
+  // like a real date and time go to it.
+  if (looksLikeDateTime(raw)) {
+    const parsed = new Date(raw);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed.toISOString();
+    }
   }
 
   const normalizedLegacy = raw.replace(/\s+/gu, " ");
@@ -62,6 +66,20 @@ export function parseTrustedTimestamp(value: unknown): string | null {
   );
 
   return Number.isNaN(legacyDate.getTime()) ? null : legacyDate.toISOString();
+}
+
+/** ISO 8601 ("2025-03-01", "2025-03-01T12:00:00Z") */
+const ISO_DATE_TIME =
+  /^\d{4}-\d{2}-\d{2}(?:[t ]\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?)?(?: ?(?:z|utc|gmt|[+-]\d{2}(?::?\d{2})?))?$/iu;
+const MONTH_NAME = /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?(?![a-z])/iu;
+
+/**
+ * Whether a string looks like a written date: ISO 8601, or a month name with a four-digit year (RFC 2822,
+ * JavaScript's own Date.toString(), "March 1, 2025"). Bare numbers and words with a number in them are not.
+ */
+function looksLikeDateTime(raw: string): boolean {
+  if (ISO_DATE_TIME.test(raw)) return true;
+  return MONTH_NAME.test(raw) && /(?:^|\D)\d{4}(?:\D|$)/u.test(raw);
 }
 
 const ENGLISH_MONTHS = [

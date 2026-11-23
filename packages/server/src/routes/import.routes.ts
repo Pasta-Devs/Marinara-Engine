@@ -61,7 +61,9 @@ const NATIVE_PACKAGE_UPLOAD_LIMIT_BYTES = 1024 * 1024 * 1024;
 const MAX_BATCH_IMPORT_FILES = 128;
 const NATIVE_PACKAGE_ENTRY_LIMIT_BYTES = 256 * 1024 * 1024;
 
-const folderTokens = new Map<string, { path: string; expiresAt: number }>();
+/** "picker": chosen in this computer's own folder window. "browse": reached through /list-directory. */
+type FolderTokenSource = "picker" | "browse";
+const folderTokens = new Map<string, { path: string; expiresAt: number; source: FolderTokenSource }>();
 
 function cleanupFolderTokens() {
   const now = Date.now();
@@ -70,11 +72,11 @@ function cleanupFolderTokens() {
   }
 }
 
-function issueFolderToken(pathValue: string) {
+function issueFolderToken(pathValue: string, source: FolderTokenSource) {
   cleanupFolderTokens();
-  const resolved = pathResolve(pathValue);
+  const resolved = realPathOrSelf(pathResolve(pathValue));
   const token = tokenForPath(`${resolved}:${Date.now()}:${Math.random()}`);
-  folderTokens.set(token, { path: resolved, expiresAt: Date.now() + FOLDER_TOKEN_TTL_MS });
+  folderTokens.set(token, { path: resolved, expiresAt: Date.now() + FOLDER_TOKEN_TTL_MS, source });
   return token;
 }
 
@@ -88,16 +90,19 @@ function isUnderRoot(pathValue: string, root: string): boolean {
 }
 
 function isAllowedImportRoot(pathValue: string) {
-  return getImportAllowedRoots().some((root) => isUnderRoot(pathValue, root));
+  return getImportAllowedRoots().some((root) => isUnderRoot(pathValue, realPathOrSelf(pathResolve(root))));
 }
 
+/** Whether a folder is inside the home folder once links are followed (Browse's limit). */
 function isHomeContained(pathValue: string) {
-  try {
-    assertInsideDir(homedir(), pathResolve(pathValue));
-    return true;
-  } catch {
-    return false;
-  }
+  return isUnderRoot(realPathOrSelf(pathResolve(pathValue)), realPathOrSelf(homedir()));
+}
+
+/** Whether a typed folder is inside the home folder, or IMPORT_ALLOWED_ROOTS when set, once links are followed. */
+function isTypedFolderAllowed(pathValue: string) {
+  const real = realPathOrSelf(pathResolve(pathValue));
+  const roots = getImportAllowedRoots().length > 0 ? getImportAllowedRoots() : [homedir()];
+  return roots.some((root) => isUnderRoot(real, realPathOrSelf(pathResolve(root))));
 }
 
 function resolveImportFolder(body: {
@@ -111,24 +116,26 @@ function resolveImportFolder(body: {
   if (token) {
     const entry = folderTokens.get(token);
     if (!entry) return { ok: false, error: "Folder token is missing or expired" };
-    if (rawPath && !safeCompareString(pathResolve(rawPath), entry.path)) {
+    if (rawPath && !safeCompareString(realPathOrSelf(pathResolve(rawPath)), entry.path)) {
       return { ok: false, error: "Folder token does not match folderPath" };
     }
-    if (getImportAllowedRoots().length > 0 && !isAllowedImportRoot(entry.path)) {
+    // Follow links again at use: the folder may have been swapped for a link since it was listed.
+    const real = realPathOrSelf(entry.path);
+    if (getImportAllowedRoots().length > 0 && !isAllowedImportRoot(real)) {
       return { ok: false, error: describeImportFolderLimit() };
     }
-    return { ok: true, path: entry.path };
+    if (entry.source === "browse" && !isHomeContained(real)) {
+      return { ok: false, error: describeImportFolderLimit() };
+    }
+    return { ok: true, path: real };
   }
 
   if (!rawPath) return { ok: false, error: "folderPath or folderToken is required" };
   const resolved = pathResolve(rawPath);
   // A typed path gets what Browse already reaches: the home folder, unless IMPORT_ALLOWED_ROOTS names others.
   // Links are followed first, so a link inside the home folder can't lead the import outside it.
-  const real = realPathOrSelf(resolved);
-  const roots = getImportAllowedRoots().length > 0 ? getImportAllowedRoots() : [homedir()];
-  const allowed = roots.some((root) => isUnderRoot(real, realPathOrSelf(pathResolve(root))));
-  if (!allowed) return { ok: false, error: describeImportFolderLimit() };
-  return { ok: true, path: real };
+  if (!isTypedFolderAllowed(resolved)) return { ok: false, error: describeImportFolderLimit() };
+  return { ok: true, path: realPathOrSelf(resolved) };
 }
 
 function realPathOrSelf(pathValue: string): string {
@@ -531,6 +538,9 @@ function takeCharacterUpdateTarget(targets: CharacterUpdateTargets, index: numbe
   return targets.byIndex.get(index) ?? targets.byName.get(filename)?.shift();
 }
 
+/** The group picked for a chat that imports are being added to, until the chat is saved in it (/st-chat-into-group). */
+const pendingChatGroupIds = new Map<string, string>();
+
 async function importCharacterBuffer(
   fileName: string,
   buffer: Buffer,
@@ -584,17 +594,21 @@ async function importCharacterBuffer(
   }
 
   if (fileName.toLowerCase().endsWith(".charx")) {
-    return importCharX(buffer, db, {
-      timestampOverrides,
-      importEmbeddedLorebook,
-      hideEmbeddedLorebook,
-      tagImportMode,
-      existingTagKeys,
-      regexScriptScope,
-      splitDescription,
-      importTags,
-      ...updateOptions,
-    });
+    try {
+      return await importCharX(buffer, db, {
+        timestampOverrides,
+        importEmbeddedLorebook,
+        hideEmbeddedLorebook,
+        tagImportMode,
+        existingTagKeys,
+        regexScriptScope,
+        splitDescription,
+        importTags,
+        ...updateOptions,
+      });
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   let json: Record<string, unknown>;
@@ -759,11 +773,11 @@ export async function importRoutes(app: FastifyInstance) {
     // Auto-create a groupId on the target chat if it isn't already in one, so
     // the imported transcript can sit alongside it as a branch (mirrors the
     // behavior of POST /chats/:id/branch).
-    let groupId = (targetChat.groupId as string | null) ?? null;
-    if (!groupId) {
-      groupId = newId();
-      await storage.update(targetChatId, { groupId });
-    }
+    // The chat joins the group only once the file has come in, so a file that isn't a chat changes nothing. Two
+    // imports at once into a chat with no group share the one group the first of them picked.
+    const targetHadGroup = !!targetChat.groupId;
+    const groupId = (targetChat.groupId as string | null) || pendingChatGroupIds.get(targetChatId) || newId();
+    if (!targetHadGroup) pendingChatGroupIds.set(targetChatId, groupId);
 
     // Inherit the existing chat's character roster instead of trying to match
     // characters out of the JSONL header — that path creates new characters
@@ -835,6 +849,11 @@ export async function importRoutes(app: FastifyInstance) {
       sourceFingerprint: stChatFileFingerprint(text),
     });
 
+    if ("error" in result && result.error) return { ...result, groupId: targetChat.groupId ?? null };
+    if (!targetHadGroup) {
+      await storage.update(targetChatId, { groupId });
+      if (pendingChatGroupIds.get(targetChatId) === groupId) pendingChatGroupIds.delete(targetChatId);
+    }
     return { ...result, groupId };
   });
 
@@ -1140,7 +1159,13 @@ export async function importRoutes(app: FastifyInstance) {
         try {
           const parsed = JSON.parse(String(part.value ?? "[]"));
           if (Array.isArray(parsed)) {
-            timestampEntries.push(...parsed);
+            // Only well-formed entries; a null or a string in the list is dropped instead of failing the upload.
+            timestampEntries.push(
+              ...parsed.filter(
+                (entry): entry is { name?: string; lastModified?: number | string } =>
+                  !!entry && typeof entry === "object" && !Array.isArray(entry),
+              ),
+            );
           }
         } catch {
           // ignore malformed metadata and continue importing
@@ -1187,7 +1212,7 @@ export async function importRoutes(app: FastifyInstance) {
 
     const timestampsByName = new Map<string, Array<{ lastModified?: number | string }>>();
     for (const entry of timestampEntries) {
-      if (!entry.name) continue;
+      if (typeof entry.name !== "string" || !entry.name) continue;
       const queue = timestampsByName.get(entry.name) ?? [];
       queue.push(entry);
       timestampsByName.set(entry.name, queue);
@@ -1278,11 +1303,14 @@ export async function importRoutes(app: FastifyInstance) {
   /** Run a bulk import from a SillyTavern installation folder (SSE stream with progress). */
   app.post("/st-bulk/run", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "SillyTavern bulk import" })) return;
-    const { options } = req.body as {
+    const { options } = (req.body ?? {}) as {
       folderPath?: string;
       folderToken?: string;
-      options: STBulkImportOptions;
+      options?: STBulkImportOptions;
     };
+    if (!options || typeof options !== "object" || Array.isArray(options)) {
+      return reply.status(400).send({ success: false, error: "Missing import options" });
+    }
     const resolved = resolveImportFolder(req.body as { folderPath?: unknown; folderToken?: unknown });
     if (!resolved.ok) return reply.send({ success: false, error: resolved.error });
     const rawCharacterTagImportMode = (req.body as { options?: { characterTagImportMode?: unknown } }).options
@@ -1322,12 +1350,23 @@ export async function importRoutes(app: FastifyInstance) {
     };
     stBulkImportJob = job;
 
-    // Set up SSE headers
-    reply.raw.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    });
+    // Set up SSE headers. The stream is written by hand, so the headers Fastify's hooks already set (CORS and the
+    // like) are copied over; and if the stream can't start, the job is not left marked as running forever.
+    reply.hijack();
+    try {
+      reply.raw.writeHead(200, {
+        ...(reply.getHeaders() as Record<string, string | string[] | number>),
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+    } catch (err) {
+      job.running = false;
+      job.finishedAt = new Date().toISOString();
+      job.result = { success: false, error: (err as Error).message, imported: emptyImportCounts(), errors: [] };
+      reply.raw.destroy();
+      return;
+    }
 
     // The import keeps going when the page goes away (tab closed, laptop asleep, dropped
     // connection): it is the server's work, and stopping halfway would leave half a library.
@@ -1372,7 +1411,7 @@ export async function importRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(req, reply, { feature: "Folder picker" })) return;
     const selected = await pickFolder();
     if (!selected) return { success: false, error: "No folder selected" };
-    return { success: true, path: selected, folderToken: issueFolderToken(selected) };
+    return { success: true, path: selected, folderToken: issueFolderToken(selected, "picker") };
   });
 
   /** List directories at a given path (for remote/headless folder browsing).
@@ -1385,7 +1424,7 @@ export async function importRoutes(app: FastifyInstance) {
     const dirPath = requestedPath || home;
     const resolved = pathResolve(dirPath);
 
-    // Restrict browsing to the home directory tree
+    // Restrict browsing to the home directory tree, after following links.
     if (!isHomeContained(resolved)) {
       return { success: false, error: "Access denied: path outside home directory" };
     }
@@ -1400,7 +1439,7 @@ export async function importRoutes(app: FastifyInstance) {
         .map((e) => e.name)
         .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 
-      return { success: true, path: resolved, folderToken: issueFolderToken(resolved), folders };
+      return { success: true, path: resolved, folderToken: issueFolderToken(resolved, "browse"), folders };
     } catch {
       return { success: false, error: "Cannot read directory" };
     }

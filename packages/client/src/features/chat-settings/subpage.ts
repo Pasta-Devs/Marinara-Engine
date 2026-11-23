@@ -8,6 +8,7 @@
 import { create } from "zustand";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
 import { registerChatSwitchGate } from "../../lib/chat-switch-gate";
+import { useChatStore } from "../../stores/chat.store";
 
 export type ChatSettingsSubpageId = "variables" | "agent-suite" | "memories" | "summaries";
 
@@ -47,6 +48,20 @@ export function takeChatSettingsSubpageOpener(): { element: HTMLElement; section
   return opener;
 }
 
+// An editor page belongs to its chat: switching to another chat (no unsaved edits, or the question below was
+// answered) closes it, so it never lingers unseen and a back press never closes a page nobody can see. Started on
+// the first page opened: the chat store imports this module indirectly, so it can't be read while this one loads.
+let watchingChatSwitches = false;
+function watchChatSwitches() {
+  if (watchingChatSwitches) return;
+  watchingChatSwitches = true;
+  useChatStore.subscribe((state, previous) => {
+    if (state.activeChatId === previous.activeChatId) return;
+    const { subpage } = useChatSettingsSubpage.getState();
+    if (subpage && subpage.chatId !== state.activeChatId) useChatSettingsSubpage.getState().closeSubpage();
+  });
+}
+
 export const useChatSettingsSubpage = create<ChatSettingsSubpageState>()((set) => ({
   subpage: null,
   slot: null,
@@ -61,6 +76,7 @@ export const useChatSettingsSubpage = create<ChatSettingsSubpageState>()((set) =
             section: active.closest<HTMLElement>("[data-chat-settings-section]")?.dataset.chatSettingsSection ?? null,
           }
         : null;
+    watchChatSwitches();
     set({ subpage: { chatId, id, props } });
   },
   closeSubpage: () => set({ subpage: null, guard: null }),

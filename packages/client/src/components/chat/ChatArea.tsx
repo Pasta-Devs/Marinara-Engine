@@ -3644,8 +3644,14 @@ const LocalChatArea = memo(function LocalChatArea({
 
   // Finishing setup (or Skip after making choices) turns the draft into a real chat.
   const handleWizardFinish = useCallback(
-    (discarded?: boolean) => {
-      const chatId = useChatStore.getState().setupWizardChatId ?? activeChatId;
+    (discarded?: boolean, finishedChatId?: string) => {
+      // A setup that finishes after its chat was left (Conversation's schedule step) only marks its own chat done:
+      // it never closes the setup of the chat open now.
+      if (finishedChatId && finishedChatId !== useChatStore.getState().activeChatId) {
+        if (!discarded) void finishSetupDraft(queryClient, finishedChatId);
+        return;
+      }
+      const chatId = finishedChatId ?? useChatStore.getState().setupWizardChatId ?? activeChatId;
       setWizardOpen(false);
       if (discarded) return;
       if (chatId) void finishSetupDraft(queryClient, chatId);
