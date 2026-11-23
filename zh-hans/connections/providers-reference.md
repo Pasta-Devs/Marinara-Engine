@@ -25,6 +25,8 @@
 | Arli AI | `www.arliai.com/account` |
 | Z.AI | `z.ai/manage-apikey/apikey-list` |
 | DeepSeek | `platform.deepseek.com/api_keys` |
+| AI Horde | `aihorde.net/register`(可选，见 [AI Horde](#ai-horde)) |
+| BeaverNet | `net.beaverai.org/account` |
 | OpenAI-compatible、Claude (Subscription)、OpenAI (ChatGPT)、Grok CLI (Subscription) | 没有密钥页面。见下面的说明。 |
 
 默认地址如下，Marinara 会自动替你填好：
@@ -42,6 +44,8 @@
 - Arli AI：`https://api.arliai.com/v1`
 - Z.AI：`https://api.z.ai/api/paas/v4`
 - DeepSeek：`https://api.deepseek.com/v1`
+- AI Horde：`https://oai.aihorde.net/v1`
+- BeaverNet：`https://net.beaverai.org/v1`
 - OpenAI-compatible 和订阅服务：没有。由你填写地址，或者不需要地址。
 
 所有密钥页面的网址都以 `https://` 开头。
@@ -134,7 +138,9 @@ Marinara 还会要求 OpenRouter 让每个聊天始终使用同一个后端，�
 
 ### Z.AI
 
-**Z.AI** 通过自有 API 提供 GLM 模型（GLM 5.3、GLM 5.3 Flash 及更早的模型）。GLM 5.2 和 5.3 模型接受 **Maximum**(最高) 推理级别。默认地址是按用量付费的端点。Z.AI 的 Coding Plan 使用另一个端点，所以 Coding Plan 的密钥在这里可能用不了。
+**Z.AI** 通过自有 API 提供 GLM 模型（GLM 5.4、GLM 5.3、GLM 5.3 Flash 及更早的模型）。GLM 5.2、5.3 和 5.4 模型接受 **Maximum**(最高) 推理级别。默认地址是按用量付费的端点。Z.AI 的 Coding Plan 使用另一个端点，所以 Coding Plan 的密钥在这里可能用不了。
+
+GLM 5.4 只在 GLM Coding Plan 里提供。要使用它，把账号的 **Address** 设为 `https://api.z.ai/api/coding/paas/v4`。GLM 5.4 始终会思考，所以它的 **Reasoning Effort**(推理强度) 只有 **Low**、**High** 和 **Max**，没有 **Off**(关闭)。
 
 ### DeepSeek
 
@@ -143,6 +149,18 @@ Marinara 还会要求 OpenRouter 让每个聊天始终使用同一个后端，�
 有些参数不适用，所以面板不显示它们：**Verbosity**(详细度)、**Top K** 和各项惩罚都已弃用，发送了也会被忽略。**Temperature**(温度) 和 **Top P** 是一对，因为 DeepSeek 一次只用其中一个。关闭思考时看到的是 **Temperature**，开启思考时看到的是 **Top P**。
 
 请用 DeepSeek 自己的按钮连接 DeepSeek，不要把 **OpenAI** 指向 DeepSeek 的地址。OpenAI 服务只认 OpenAI 自家的模型，所以配上 DeepSeek 模型时会隐藏生成参数控件，你的设置也几乎都不会发送出去。
+
+### AI Horde
+
+**AI Horde** 是一个免费网络，由志愿者在自己的电脑上运行模型。它的按钮会建立一个使用 AI Horde 地址的 **OpenAI-compatible**(OpenAI 兼容) 账号。
+
+**API key** 输入框一开始填的是匿名密钥 `0000000000`，不需要账号就能用。匿名请求在队列里等得最久。用 `aihorde.net/register` 申请的免费密钥等得短一些；把你自己的电脑分享给这个网络时，还能赚取 kudos(Horde 积分，能让你的请求在队列里往前排)。
+
+模型列表显示的是志愿者此刻正在运行的模型，所以变化很频繁。一条回复要多久由队列决定：可能几秒，也可能好几分钟。如果回复超时，换一个模型试试，或者调高服务器的时限（见[超时](#timeouts)）。
+
+### BeaverNet
+
+**BeaverNet** 是一个免费的社区网络：有闲置显卡的人运行模型，其他人使用这些模型。它的按钮会建立一个使用 BeaverNet 地址的 **OpenAI-compatible** 账号。在 `net.beaverai.org/account` 创建一个免费密钥。
 
 ### OpenAI-compatible
 
@@ -208,6 +226,8 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI 和 Google 的图像和视�
 **Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)** 和 **Grok CLI (Subscription)** 无法生成嵌入。遇到这几家，就用 **Embedding provider**(嵌入服务商) 下拉菜单借用另一个账号，比如某个 OpenAI 兼容账号、**Google Gemini** 或 **Built-in model**(内置模型)。
 
 想让所有没有自己嵌入设置的账号都使用同一个嵌入来源，点击 **Jobs** 框里的 **Embeddings**(嵌入) 行。**Marinara's own search**(Marinara 自带的搜索) 会保留内置的嵌入模型。账号自己的嵌入模型或 **Embedding provider** 仍然优先。更改之后，请重新向量化你的世界书和记忆。见[世界书的语义搜索](../lorebooks/semantic-search.md)。
+
+<a id="timeouts"></a>
 
 ## 超时
 

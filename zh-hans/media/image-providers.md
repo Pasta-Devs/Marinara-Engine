@@ -66,7 +66,7 @@ API 密钥是服务给你的一串秘密代码，Marinara 靠它使用你的账�
 - **Together AI**：FLUX 以及其他开源图像模型。
 - **OpenRouter Images**：通过 OpenRouter 的聊天接口调用图像模型，所以具体能用哪些模型因账号而异。
 - **xAI / Grok Imagine**：使用 Grok Imagine。
-- **NanoGPT**：一个聚合平台，所以要用它的模型列表。
+- **NanoGPT**：一个聚合平台，所以要用它的模型列表。Marinara 会给每个模型发送 NanoGPT 为它列出的尺寸，例如用 `1.5k` 加宽高比，而不是 `1344x768`；参考图也只发送模型能接受的数量。如果某个模型拒绝负面提示词，Marinara 会不带负面提示词生成图片，并在服务器上记录一条警告。
 - **Pollinations**：想试试图像生成，这是最快的办法。不需要账号。
 - **Stable Horde**：一个众包算力网络。申请一个免费密钥能获得更高的排队优先级。
 - **SD Web UI** 和 **Draw Things**：启动软件时要开启它的应用接口。Marinara 把 Draw Things 当作 AUTOMATIC1111 服务器来对待（这个应用运行在 macOS 或 iOS 上）。
@@ -223,7 +223,7 @@ NovelAI 还有 **Background dataset for backgrounds**(背景图使用背景数�
 | ChatGPT (Codex login) | 最多 16 张 |
 | NovelAI | 最多 16 张，仅限 V4.5 模型 |
 | xAI / Grok Imagine | 最多 3 张 |
-| NanoGPT | 最多 3 张 |
+| NanoGPT | 最多 3 张，不超过模型的上限。文生图模型不支持 |
 | ComfyUI、RunPod Serverless (ComfyUI)、SwarmUI | 最多 4 张，通过工作流占位符传入 |
 | Stability AI、Arli AI、SD Web UI、Draw Things | 只取第一张，按图生图使用 |
 | Atlas Cloud | 取第一张，用于兼容的图生图、编辑或 Kontext 模型 ID |

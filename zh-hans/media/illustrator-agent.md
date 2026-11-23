@@ -85,6 +85,8 @@ Game Mode 没有 **Prompt Mode**(提示词模式) 和 **Prompt Model**(提示词
 
 遇到 NovelAI V5 这类会丢弃参考图的图像模型时，可以让写提示词的模型来处理参考图。这需要编写模型能读取图片。如果它拒绝接收图片，请求会去掉图片后重发，直到服务器重启前都不会再向这个编写模型发送图片。连接被标为不支持读图的编写模型也不会收到图片。向编写模型发送图片每次都会消耗 Token。最多发送四张图片：优先使用 `[illustrate: characters="…"]` 点名的角色卡，否则使用聊天里启用的角色和用户角色。**What to carry over from the pictures**(从图片中保留什么) 指定编写模型要照着参考图描述哪些内容，例如只保留外观，不保留画风。Roleplay 聊天可以在 **Send Avatar References** 下单独设置 **Reference pictures go to**。
 
+在 Roleplay 聊天里，世界书条目 **Reference images**(参考图) 中的图片也会发给图像模型，前提是这个条目在这次回复中处于激活状态。可以用它们指定图片要照着画的服装、道具或房间。这不需要开启任何设置。只有接受参考图的图像服务才会收到它们。Stability AI、Arli AI、SD Web UI 和 Draw Things 收不到，因为它们会从条目的图片开始画这张图。开启 **Send Avatar References** 时，**Prompt writer** 选项同样会把它们留下不发。它们排在 [World Maps](../agents/hierarchical-maps.md) 的 **Location reference image**(地点参考图) 和头像之后，总数不超过六张。**Position**(位置) 设为 **Outlet** 的条目，只有在用到它的 Outlet 时才发送图片，而且从不通过 Gallery 的 **Illustrate** 按钮发送。
+
 ## 控制出图频率
 
 Illustrator 卡片上有一个 **Open Setup** 按钮，点开就是完整的设置界面。你可以在那里设置默认的运行间隔，并给它单独指定图像模型。
