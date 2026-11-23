@@ -63,6 +63,7 @@ Jeśli urządzenie prosi o ograniczenie ruchu, obie animacje są pomijane.
 
 - **Custom Mouse Pointer** (własny wskaźnik myszy, domyślnie włączony) wyświetla kursor aplikacji Marinara Engine w kolorze akcentu. Wyłącz go, żeby korzystać z kursora systemowego albo żeby o kursorze decydował własny motyw.
 - **Reduce Ambient Animations & Effects** (ograniczenie animacji i efektów otoczenia) zatrzymuje ozdobne animacje, cząsteczki otoczenia, obracające się podglądy i stopniowe odsłanianie tekstu. Marinara robi to też wtedy, gdy urządzenie prosi o ograniczenie ruchu.
+- **Show Dice Rolls as Text** (rzuty kośćmi jako tekst, domyślnie wyłączone) pokazuje każdy rzut kośćmi jako krótki wiersz tekstu z kośćmi, ich wynikami i sumą zamiast animowanych kości. Rzuty nadal się odbywają, a model i gra nadal dostają ich wyniki. Działa to w każdym trybie czatu, także dla kości w testach umiejętności.
 - **Szerokość paska bocznego na komputerze** ustawia szerokość paska bocznego na komputerze w zakresie od 280 do 480 px. **Czaty** i panele, takie jak **Postacie** czy **Ustawienia**, otwierają się w tym samym pasku bocznym. Przycisk **Resetuj szerokość** przywraca 320 px. Możesz też przeciągnąć wewnętrzną krawędź paska. Telefony i tablety zachowują panele pełnoekranowe.
 - **Strona paska bocznego na komputerze** umieszcza pasek po stronie **Prawa** (domyślnej) lub **Lewa** okna. Przy opcji **Lewa** górny pasek zostaje odbity: **Czaty** i przyciski paneli przesuwają się w lewo, a **Strona główna** w prawo. Działa to tylko na komputerze. Telefony i tablety zachowują swój układ.
 

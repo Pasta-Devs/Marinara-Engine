@@ -36,6 +36,8 @@ Karta ustawień agenta pojawia się wtedy w sekcji **Agents**, a agent uruchamia
 
 > **Uwaga:** Ci agenci działają tylko w nowych turach. Nie uruchamiają się ponownie, gdy generujesz odpowiedź jeszcze raz.
 
+<a id="choose-the-sources"></a>
+
 ## Wybór źródeł
 
 Obaj agenci mają te same kontrolki źródeł.

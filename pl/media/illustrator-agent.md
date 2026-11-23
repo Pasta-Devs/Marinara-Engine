@@ -85,6 +85,8 @@ Gdy opcja **Send Avatar References** jest włączona dla obrazów, ustawienie **
 
 Model piszący prompty pozwala obejść ograniczenia modeli obrazów, które odrzucają obrazy referencyjne, takich jak NovelAI V5. Musi to być model odczytujący obrazy. Jeśli ich odmówi, żądanie jest wysyłane ponownie bez obrazów, a ten model nie dostaje ich aż do ponownego uruchomienia serwera. Model piszący prompty, którego połączenie oznaczono jako nieodczytujące obrazów, nie dostaje żadnych. Wysyłanie mu obrazów zużywa tokeny przy każdym uruchomieniu. Wysyłane są najwyżej cztery obrazy: z kart wymienionych w `[illustrate: characters="…"]`, a w przeciwnym razie z aktywnych postaci i persony czatu. **What to carry over from the pictures** (co przenieść z obrazów) określa, co model piszący prompty kopiuje, na przykład sam wygląd, bez stylu graficznego. Czat w trybie Roleplay może mieć własne ustawienie **Reference pictures go to** w sekcji **Send Avatar References**.
 
+W czacie Roleplay obrazy z pola **Reference images** (obrazy referencyjne) wpisu lorebooka też trafiają do modelu obrazów, gdy wpis jest aktywny dla odpowiedzi. Używaj ich do kostiumu, rekwizytu albo pomieszczenia, do których obraz ma pasować. Nie włącza ich żadne ustawienie. Dostaje je tylko usługa obrazów, która przyjmuje obrazy referencyjne. Usługi Stability AI, Arli AI, SD Web UI i Draw Things nie dostają żadnych, bo zaczęłyby obraz od obrazu z wpisu. Przy włączonej opcji **Send Avatar References** wybór **Prompt writer** też je zatrzymuje. Trafiają po obrazie **Location reference image** (obraz referencyjny lokalizacji) z [World Maps](../agents/hierarchical-maps.md) i po awatarach, a wszystkich obrazów jest najwyżej sześć. Wpis, którego pole **Position** (pozycja) ma wartość **Outlet**, wysyła swoje obrazy tylko wtedy, gdy jego Outlet zostanie użyty, i nigdy z przycisku **Illustrate** (zilustruj) w galerii.
+
 ## Częstotliwość rysowania
 
 Karta agenta Illustrator ma przycisk **Open Setup**, który otwiera pełny ekran konfiguracji. Ustawia się tam domyślny odstęp uruchamiania i przypisuje agentowi własny model obrazów.
@@ -93,7 +95,7 @@ Każdy czat Roleplay ma własne pole **Image Run Interval** (odstęp między obr
 
 Ustaw **Image Run Interval** na **0**, żeby przejść w tryb wyłącznie ręczny. Zatrzymuje to automatyczne uruchomienia, w tym automatyczne tła scen, ale agent pozostaje dostępny w działaniach galerii. Ustaw liczbę dodatnią, żeby wznowić automatyczne działanie.
 
-Żeby od razu zrobić obraz, otwórz **Chat Settings**, rozwiń sekcję **Gallery** i kliknij **Illustrate** (zilustruj). Agent Illustrator uruchamia się natychmiast, jednorazowo, a przycisk pokazuje **Generating...**.
+Żeby od razu zrobić obraz, otwórz **Chat Settings**, rozwiń sekcję **Gallery** i kliknij **Illustrate**. Agent Illustrator uruchamia się natychmiast, jednorazowo, a przycisk pokazuje **Generating...**.
 
 ## Tworzenie klipów
 
