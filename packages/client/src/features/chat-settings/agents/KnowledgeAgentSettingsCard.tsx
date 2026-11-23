@@ -131,6 +131,7 @@ export function KnowledgeAgentSettingsCard({
                 sourceLorebookIds: [...sourceLorebookIds, ...ids.filter((id) => !sourceLorebookIds.includes(id))],
               })
             }
+            onApplySet={(ids) => onChange({ sourceLorebookIds: ids })}
             ariaLabel={localizeUi("ui.chat.knowledgeagentsettingscard.fixedSourceLorebooks")}
             triggerClassName="mari-chrome-field min-h-10 w-full min-w-0 rounded-md px-2.5 py-2 text-base md:text-xs"
           />

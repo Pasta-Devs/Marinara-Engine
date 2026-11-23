@@ -46,7 +46,7 @@ import {
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 import { toPaginatedList } from "../../utils/list-pagination.js";
 import { createChatsStorage } from "./chats.storage.js";
-import { createLibraryFoldersStorage } from "./library-folders.storage.js";
+import { createLibraryFoldersStorage, LOREBOOK_ITEM_SCOPES } from "./library-folders.storage.js";
 import { parseSourceMessageRefs } from "./lorebook-provenance.js";
 import { createCharactersStorage } from "./characters.storage.js";
 
@@ -768,7 +768,7 @@ export function createLorebooksStorage(db: DB) {
         await tx.delete(lorebookCharacterLinks).where(eq(lorebookCharacterLinks.lorebookId, id));
         await tx.delete(lorebookPersonaLinks).where(eq(lorebookPersonaLinks.lorebookId, id));
         await tx.delete(lorebooks).where(eq(lorebooks.id, id));
-        await createLibraryFoldersStorage(tx).removeItemReferences("lorebooks", [id]);
+        await createLibraryFoldersStorage(tx).removeItemReferences(LOREBOOK_ITEM_SCOPES, [id]);
         return entries.map((entry) => entry.id);
       }, id);
     },
