@@ -8,13 +8,16 @@ reviews:
   high_level_summary: true
   poem: false
   review_status: false
+  # CodeRabbit reviews each ready pull request into staging, then each push to it. Dottore reviews in its place while
+  # it is rate limited (.github/workflows/coderabbit-review-gate.yml). CodeRabbit also reviews every pull request into
+  # the default branch, so that workflow adds `@coderabbitai ignore` to their descriptions.
   auto_review:
-    enabled: false
+    enabled: true
     drafts: false
     auto_incremental_review: true
     auto_pause_after_reviewed_commits: 0
     base_branches:
-      - "staging"
+      - "^staging$"
   path_instructions:
     - path: "packages/client/src/**"
       instructions: |

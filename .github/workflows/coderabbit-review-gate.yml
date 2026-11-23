@@ -1,0 +1,136 @@
+name: CodeRabbit Review Gate
+
+# CodeRabbit reviews pull requests into staging; Dottore reviews in its place while CodeRabbit is rate limited. Either
+# review sets the required Dottore Review status on the pull request's head:
+# - When CodeRabbit finishes a review of an open pull request's head, this posts Dottore Review success for it.
+# - When CodeRabbit is rate limited on that head, this asks Dottore to review it, from the last head either of them
+#   reviewed, and Dottore's review posts the status.
+# - When CodeRabbit skips a head that only merged other branches in since the last reviewed head, that review stands.
+# CodeRabbit reviews every pull request into the default branch, so this also adds `@coderabbitai ignore` to their
+# description: what they bring from staging was reviewed there.
+# Marinara-Agents keeps a byte copy of this file. GitHub runs check_run workflows only from the default branch and
+# pull_request_target ones from the base branch, so the copy on main is the one that runs.
+on:
+  check_run:
+    types: [completed]
+  pull_request_target:
+    types: [opened, reopened, edited, synchronize, ready_for_review]
+
+permissions: {}
+
+jobs:
+  gate:
+    name: CodeRabbit review gate
+    if: >
+      github.event_name == 'check_run' &&
+      github.event.check_run.app.slug == 'coderabbitai' &&
+      github.event.check_run.name == 'CodeRabbit'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Set Dottore Review from CodeRabbit's review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.check_run.head_sha }}
+          CONCLUSION: ${{ github.event.check_run.conclusion }}
+          TITLE: ${{ github.event.check_run.output.title }}
+          CHECK_URL: ${{ github.event.check_run.html_url }}
+          REVIEW_BASES: ${{ vars.DOTTORE_BASE_REFS || 'staging' }}
+        run: |
+          # Inert: reads the open pull requests, statuses and commits, posts one status or dispatches the trusted
+          # Dottore workflow from the base branch; runs no pull request code.
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Unexpected head SHA."; exit 1; }
+          # A fork PR's check run lists no pull requests, so find the open PR whose current head is this SHA.
+          PR=$(gh api "repos/$REPO/pulls?state=open&per_page=100" --paginate \
+            --jq '.[] | select(.head.sha == $ENV.HEAD_SHA) | "\(.number) \(.base.ref) \(.draft)"')
+          read -r PR_NUM BASE DRAFT <<<"${PR%%$'\n'*}" || true
+          if [ -z "$PR_NUM" ]; then
+            echo "No open pull request has head $HEAD_SHA."
+            exit 0
+          fi
+          if ! jq -en --arg refs "$REVIEW_BASES" --arg ref "$BASE" '$refs | split(",") | index($ref) != null' >/dev/null; then
+            echo "PR #$PR_NUM targets $BASE, which gets no review (DOTTORE_BASE_REFS=$REVIEW_BASES)."
+            exit 0
+          fi
+          reviewed() {
+            [ "$(gh api "repos/$REPO/commits/$1/status?per_page=100" \
+              --jq '[.statuses[] | select(.context == "Dottore Review") | .state][0] // ""')" = success ]
+          }
+          post() {
+            gh api --method POST "repos/$REPO/statuses/$HEAD_SHA" \
+              -f state=success -f context="Dottore Review" -f target_url="$1" -f description="$2" >/dev/null
+            echo "PR #$PR_NUM: Dottore Review set to success at $HEAD_SHA: $2"
+          }
+          # The newest earlier commit of the PR whose review passed, and whether every commit after it is a merge.
+          last_reviewed() {
+            LAST="" ONLY_MERGES=true COMMITS=()
+            while read -r LINE; do COMMITS+=("$LINE"); done < <(gh api "repos/$REPO/pulls/$PR_NUM/commits?per_page=100" \
+              --paginate --jq '.[] | "\(.sha) \(.parents | length)"')
+            for (( i = ${#COMMITS[@]} - 1; i >= 0; i-- )); do
+              read -r SHA PARENTS <<<"${COMMITS[i]}"
+              if [ "$SHA" != "$HEAD_SHA" ] && reviewed "$SHA"; then LAST=$SHA; return; fi
+              [ "$PARENTS" -ge 2 ] || ONLY_MERGES=false
+            done
+          }
+
+          if [ "$CONCLUSION" = success ]; then
+            post "$CHECK_URL" "CodeRabbit reviewed this head. Resolve its threads to merge."
+          elif [ "$CONCLUSION" = neutral ] && grep -qi "rate limit" <<<"$TITLE"; then
+            if [ "$DRAFT" != false ] || reviewed "$HEAD_SHA"; then
+              echo "PR #$PR_NUM is a draft or its head is already reviewed; Dottore is not needed."
+              exit 0
+            fi
+            gh api "repos/$REPO/contents/.github/workflows/dottore-review.yml?ref=$BASE" --silent >/dev/null || {
+              echo "::error::Dottore trusted workflow not found on base ref $BASE"
+              exit 1
+            }
+            last_reviewed
+            gh workflow run dottore-review.yml --repo "$REPO" --ref "$BASE" \
+              -f pr_number="$PR_NUM" -f comment_body="CodeRabbit rate limited" -f review_mode=auto \
+              -f requested_by=coderabbitai -f last_reviewed_sha="$LAST"
+            echo "PR #$PR_NUM: CodeRabbit is rate limited at $HEAD_SHA; Dottore reviews from ${LAST:-his own last review}."
+          elif [ "$CONCLUSION" = skipped ] && [ "$TITLE" = "Review skipped" ]; then
+            # A skip with no reason given is CodeRabbit finding nothing new, as on a head that only merged staging in.
+            # Paused or ignored pull requests get no stand-in.
+            if gh api "repos/$REPO/pulls/$PR_NUM" --jq '.body // ""' | grep -qi "@coderabbitai ignore" || reviewed "$HEAD_SHA"; then
+              echo "PR #$PR_NUM: CodeRabbit is told to ignore it, or its head is already reviewed."
+              exit 0
+            fi
+            last_reviewed
+            if [ -n "$LAST" ] && [ "$ONLY_MERGES" = true ]; then
+              post "https://github.com/$REPO/commit/$LAST" "Only merges since the review of ${LAST:0:7}, which stands for this head."
+            else
+              echo "PR #$PR_NUM: CodeRabbit skipped new commits at $HEAD_SHA; comment @coderabbitai review or /dottore."
+            fi
+          else
+            echo "PR #$PR_NUM: CodeRabbit ended '$CONCLUSION' ($TITLE) at $HEAD_SHA; no status."
+          fi
+
+  default-branch:
+    name: Keep CodeRabbit off the default branch
+    if: >
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Add @coderabbitai ignore to the description
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          # Inert: reads and edits the pull request's description; runs no pull request code.
+          BODY=$(gh api "repos/$REPO/pulls/$PR_NUM" --jq '.body // ""')
+          if grep -qi "@coderabbitai ignore" <<<"$BODY"; then
+            echo "PR #$PR_NUM already tells CodeRabbit to ignore it."
+            exit 0
+          fi
+          gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="${BODY:+$BODY$'\n\n'}@coderabbitai ignore" >/dev/null
+          echo "PR #$PR_NUM: added @coderabbitai ignore; CodeRabbit reviews no pull request into the default branch."
