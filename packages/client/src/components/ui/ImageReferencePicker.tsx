@@ -42,7 +42,8 @@ export function ImageReferenceRow({
   disabled?: boolean;
   /** Files are being dragged over the window. */
   dropActive?: boolean;
-  onAdd: () => void;
+  /** Opens the chooser; left out where the chooser is always in view, so the row has no Add tile. */
+  onAdd?: () => void;
   /** The connection's name, for "3 of 16 · GPT Image 2 takes up to 16". */
   modelName?: string;
 }) {
@@ -252,7 +253,7 @@ export function ImageReferenceRow({
             </li>
           );
         })}
-        {room > 0 && (
+        {room > 0 && onAdd && (
           <li className={cn("flex flex-col", TILE_WIDTH)}>
             <button
               type="button"
@@ -422,6 +423,7 @@ export function ImageReferenceChooser({
   selectedCount = 0,
   roomLeft = 0,
   onConfirm,
+  headerAction,
 }: {
   tabs: ImageReferenceChooserTab[];
   activeTab: string;
@@ -433,6 +435,8 @@ export function ImageReferenceChooser({
   selectedCount?: number;
   roomLeft?: number;
   onConfirm?: () => void;
+  /** Replaces Done in the column's header, e.g. "Show result" when the chooser is always in view. */
+  headerAction?: ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const deviceTab = "device";
@@ -444,14 +448,16 @@ export function ImageReferenceChooser({
           <h3 className="text-xs font-medium text-[var(--foreground)]">
             {localizeUi("ui.ui.imagereferencepicker.chooserTitle")}
           </h3>
-          <button
-            type="button"
-            onClick={selectedCount > 0 && onConfirm ? onConfirm : onBack}
-            data-reference-done=""
-            className="rounded-md px-1.5 py-0.5 text-xs text-[var(--muted-foreground)] transition-colors [@media(hover:hover)]:hover:text-[var(--foreground)]"
-          >
-            {localizeUi("ui.ui.imagereferencepicker.done")}
-          </button>
+          {headerAction ?? (
+            <button
+              type="button"
+              onClick={selectedCount > 0 && onConfirm ? onConfirm : onBack}
+              data-reference-done=""
+              className="rounded-md px-1.5 py-0.5 text-xs text-[var(--muted-foreground)] transition-colors [@media(hover:hover)]:hover:text-[var(--foreground)]"
+            >
+              {localizeUi("ui.ui.imagereferencepicker.done")}
+            </button>
+          )}
         </div>
       ) : (
         <div className="flex items-center gap-2">

@@ -45,6 +45,8 @@ import { sentImageReferences } from "../../lib/image-references";
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { GallerySheetCells, useGallerySheetCells, type GallerySheetCut } from "./GallerySheetCells";
 
+const NO_KEYS: ReadonlySet<string> = new Set();
+
 /** What the gallery's "Create with AI" can make. Sticker and emoji sheets save one picture per cell. */
 export type GalleryCreateKind = "character-sheet" | "background" | "sticker-sheet" | "emoji-sheet";
 
@@ -206,6 +208,8 @@ export function AvatarGenerationModal({
   const uploadCountRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [chooserOpen, setChooserOpen] = useState(false);
+  // Computers keep the pictures in the right column; after Generate the result takes it until "Reference pictures".
+  const [showResult, setShowResult] = useState(false);
   const [chooserTab, setChooserTab] = useState("own");
   const [chooserSelection, setChooserSelection] = useState<ImageReferenceSource[]>([]);
   const [dropActive, setDropActive] = useState(false);
@@ -257,7 +261,8 @@ export function AvatarGenerationModal({
   const referenceLimit = useImageReferencePictureLimit(open ? effectiveConnectionId : null);
   const referenceModelName = imageConnections.find((connection) => connection.id === effectiveConnectionId)?.name;
   // On a computer the chooser takes the right column and the form stays beside it; touch screens get a page.
-  const chooserInColumn = useMatchMedia("(min-width: 1024px) and (pointer: fine)");
+  const picturesAlwaysShown = useMatchMedia("(min-width: 1024px) and (pointer: fine)");
+  const picturesVisible = chooserOpen || (open && picturesAlwaysShown);
   const busy = generating || saving;
 
   /** The avatar and the character sheet start as the likeness; a background shows the place, so it starts empty. */
@@ -334,10 +339,10 @@ export function AvatarGenerationModal({
   );
 
   const characterGallery = useCharacterGalleryImages(
-    chooserOpen && referenceGallery?.kind === "character" ? referenceGallery.id : null,
+    picturesVisible && referenceGallery?.kind === "character" ? referenceGallery.id : null,
   );
   const personaGallery = usePersonaGalleryImages(
-    chooserOpen && referenceGallery?.kind === "persona" ? referenceGallery.id : null,
+    picturesVisible && referenceGallery?.kind === "persona" ? referenceGallery.id : null,
   );
   const ownGallery = referenceGallery?.kind === "persona" ? personaGallery : characterGallery;
   const ownSources = useMemo<ImageReferenceSource[]>(() => {
@@ -394,6 +399,15 @@ export function AvatarGenerationModal({
     setChooserOpen(false);
     setChooserSelection([]);
   };
+  const referenceKeys = useMemo(() => references.map((reference) => reference.key), [references]);
+  /** Where the pictures are always in view, a click adds a picture or takes it out again. */
+  const toggleReference = (source: ImageReferenceSource) => {
+    if (references.some((reference) => reference.key === source.key)) {
+      changeReferences(references.filter((reference) => reference.key !== source.key));
+    } else {
+      addReferences([source]);
+    }
+  };
   const confirmChooser = () => {
     addReferences(chooserSelection);
     closeChooser();
@@ -410,6 +424,7 @@ export function AvatarGenerationModal({
     setReferences(startingReferences(galleryCreate ? "character-sheet" : fixedMode));
     referencesTouchedRef.current = false;
     setChooserOpen(false);
+    setShowResult(false);
     setChooserSelection([]);
     setDropActive(false);
     dragDepthRef.current = 0;
@@ -554,6 +569,7 @@ export function AvatarGenerationModal({
       );
       setGeneratedAvatar(result.image);
       setGeneratedPrompt(result.prompt);
+      setShowResult(true);
       if (isStickerSheet) void sheetCells.cut(result.image, sheetGrid, sheetNames);
     } catch (error) {
       toast.error(
@@ -645,10 +661,26 @@ export function AvatarGenerationModal({
 
   const referenceChooser = (
     <ImageReferenceChooser
-      column={chooserInColumn}
+      column={picturesAlwaysShown}
       selectedCount={chooserSelection.length}
       roomLeft={Math.max(0, chooserRoom - chooserSelection.length)}
-      onConfirm={confirmChooser}
+      onConfirm={picturesAlwaysShown ? undefined : confirmChooser}
+      headerAction={
+        picturesAlwaysShown ? (
+          generatedAvatar ? (
+            <button
+              type="button"
+              onClick={() => setShowResult(true)}
+              data-reference-show-result=""
+              className="rounded-md px-1.5 py-0.5 text-xs text-[var(--muted-foreground)] transition-colors [@media(hover:hover)]:hover:text-[var(--foreground)]"
+            >
+              {localizeUi("ui.ui.imagereferencepicker.showResult")}
+            </button>
+          ) : (
+            <span />
+          )
+        ) : undefined
+      }
       activeTab={chooserTab}
       onTabChange={setChooserTab}
       onBack={closeChooser}
@@ -662,9 +694,9 @@ export function AvatarGenerationModal({
           content: (
             <ImageReferenceGrid
               sources={ownSources}
-              addedKeys={addedReferenceKeys}
-              selectedKeys={chooserSelection.map((item) => item.key)}
-              onToggle={toggleChooserSource}
+              addedKeys={picturesAlwaysShown ? NO_KEYS : addedReferenceKeys}
+              selectedKeys={picturesAlwaysShown ? referenceKeys : chooserSelection.map((item) => item.key)}
+              onToggle={picturesAlwaysShown ? toggleReference : toggleChooserSource}
               loading={ownGallery.isLoading}
             />
           ),
@@ -674,9 +706,9 @@ export function AvatarGenerationModal({
           label: localizeUi("ui.ui.imagereferencepicker.tabGallery"),
           content: (
             <GlobalGalleryReferenceGrid
-              addedKeys={addedReferenceKeys}
-              selectedKeys={chooserSelection.map((item) => item.key)}
-              onToggle={toggleChooserSource}
+              addedKeys={picturesAlwaysShown ? NO_KEYS : addedReferenceKeys}
+              selectedKeys={picturesAlwaysShown ? referenceKeys : chooserSelection.map((item) => item.key)}
+              onToggle={picturesAlwaysShown ? toggleReference : toggleChooserSource}
             />
           ),
         },
@@ -689,14 +721,14 @@ export function AvatarGenerationModal({
       <Modal
         open={open}
         // Picking references is a page inside the window: closing it goes back one level first.
-        onClose={chooserOpen && !chooserInColumn ? closeChooser : onClose}
+        onClose={chooserOpen && !picturesAlwaysShown ? closeChooser : onClose}
         closeDisabled={generating || saving}
         closeButtonClassName="max-sm:hidden"
         pullToClose={!generating}
         title={title}
         width="max-w-2xl lg:max-w-[60rem]"
         footer={
-          chooserOpen && !chooserInColumn ? (
+          chooserOpen && !picturesAlwaysShown ? (
             <>
               <button
                 type="button"
@@ -804,9 +836,9 @@ export function AvatarGenerationModal({
             void addReferenceFiles(Array.from(event.dataTransfer.files));
           }}
         >
-          {chooserOpen && !chooserInColumn && referenceChooser}
+          {chooserOpen && !picturesAlwaysShown && referenceChooser}
           {/* Kept mounted while choosing, so the form keeps its scroll and nothing reloads on the way back. */}
-          <div hidden={chooserOpen && !chooserInColumn} className="space-y-4">
+          <div hidden={chooserOpen && !picturesAlwaysShown} className="space-y-4">
             <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-[minmax(0,1fr)_13rem] lg:grid-cols-[minmax(0,1fr)_21rem]">
               <div className="space-y-4">
                 {galleryCreate && (
@@ -979,15 +1011,30 @@ export function AvatarGenerationModal({
                   limit={referenceLimit}
                   disabled={busy}
                   dropActive={dropActive}
-                  onAdd={openChooser}
+                  onAdd={picturesAlwaysShown ? undefined : openChooser}
                   modelName={referenceModelName}
                 />
               </div>
 
-              {chooserOpen && chooserInColumn ? (
+              {picturesAlwaysShown && !(showResult && generatedAvatar) ? (
                 referenceChooser
               ) : (
                 <div className="flex flex-col gap-3">
+                  {picturesAlwaysShown && (
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-medium text-[var(--foreground)]">
+                        {localizeUi("ui.ui.imagereferencepicker.result")}
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowResult(false)}
+                        data-reference-show-pictures=""
+                        className="rounded-md px-1.5 py-0.5 text-xs text-[var(--muted-foreground)] transition-colors [@media(hover:hover)]:hover:text-[var(--foreground)]"
+                      >
+                        {localizeUi("ui.ui.imagereferencepicker.showPictures")}
+                      </button>
+                    </div>
+                  )}
                   <div
                     className={cn(
                       "relative overflow-hidden rounded-xl bg-[var(--secondary)] ring-1 ring-[var(--border)]",
