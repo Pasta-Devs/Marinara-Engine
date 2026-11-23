@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
 import { skillCheckDiceSumToTotal, skillCheckSymbolText, type DiceRollResult } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { useUIStore } from "../../stores/ui.store";
 import { DiceGlyph, type DiceGlyphPhase, type DiceGlyphSize } from "./DiceGlyph";
 import { getFaceLabel } from "./dice-shapes";
 import { parseDiceSides, TONE_ACCENT, type Tone } from "./dice-tone";
@@ -88,7 +89,10 @@ export function AnimatedDiceRoll({
   const { t: localizeUi } = useUiTranslation();
   const sides = parseDiceSides(notation);
   const reducedMotion = useReducedMotion();
-  const shouldAnimate = animate && !reducedMotion;
+  // Settings → Appearance → App can show the roll as one short line of text: the same header and
+  // result as the card, without the dice or their animation.
+  const asText = useUIStore((state) => state.diceRollsAsText);
+  const shouldAnimate = animate && !reducedMotion && !asText;
   const rollKey = `${notation}:${rolls.join(",")}:${modifier}:${total}`;
   const isHero = rolls.length === 1 && hero !== false;
   const isLargePool = rolls.length >= 10;
@@ -161,8 +165,9 @@ export function AnimatedDiceRoll({
         "dice-roll-card",
         "dice-tray",
         `dice-roll-card--${mode}`,
-        isHero && "dice-tray--hero",
-        isLargePool && "dice-tray--pool",
+        asText && "dice-roll-card--text",
+        !asText && isHero && "dice-tray--hero",
+        !asText && isLargePool && "dice-tray--pool",
         shouldAnimate && "is-animated",
         phase === "settled" && "is-settled",
         phase === "impact" && "is-impacting",
@@ -186,58 +191,61 @@ export function AnimatedDiceRoll({
         </span>
       </div>
 
-      <div
-        className="dice-stage"
-        aria-label={localizeUi("ui.dice.animateddiceroll.rolledValue1Value2", { value1: notation, value2: rollText })}
-      >
-        {/* A symbol-pool ruleset's dice by name: each die reads as its symbols, not a number. */}
-        {symbols && thrown && symbolFaces ? (
-          <div className="flex flex-wrap gap-2 py-2">
-            {symbolFaces.map((face, index) => (
-              <span
-                key={index}
-                className="max-w-full break-words rounded border border-[var(--border)] px-2 py-1 text-sm"
-              >
-                {thrown[index]} ({rolls[index]}):{" "}
-                {face.map((id) => symbolLabels?.[id] ?? id).join(", ") ||
-                  localizeUi("ui.dice.animatedskillcheckresult.blankFace")}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        {!symbols &&
-          rolls.map((roll, index) => {
-            const shown = displayValues[index] ?? roll;
-            const emphasized =
-              emphasizedIndices !== undefined
-                ? emphasizedIndices.includes(index)
-                : countedFrom == null
-                  ? highlightValue == null || roll === highlightValue
-                  : compare === "below"
-                    ? roll < countedFrom
-                    : compare === "above"
-                      ? roll > countedFrom
-                      : roll >= countedFrom;
-            return (
-              <DiceGlyph
-                key={`${index}-${roll}`}
-                sides={sides}
-                value={shown}
-                faceText={faceText(shown)}
-                phase={phase}
-                size={glyphSize}
-                index={index}
-                emphasized={emphasized}
-                hero={isHero}
-              />
-            );
-          })}
-      </div>
+      {!asText && (
+        <div
+          className="dice-stage"
+          aria-label={localizeUi("ui.dice.animateddiceroll.rolledValue1Value2", { value1: notation, value2: rollText })}
+        >
+          {/* A symbol-pool ruleset's dice by name: each die reads as its symbols, not a number. */}
+          {symbols && thrown && symbolFaces ? (
+            <div className="flex flex-wrap gap-2 py-2">
+              {symbolFaces.map((face, index) => (
+                <span
+                  key={index}
+                  className="max-w-full break-words rounded border border-[var(--border)] px-2 py-1 text-sm"
+                >
+                  {thrown[index]} ({rolls[index]}):{" "}
+                  {face.map((id) => symbolLabels?.[id] ?? id).join(", ") ||
+                    localizeUi("ui.dice.animatedskillcheckresult.blankFace")}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {!symbols &&
+            rolls.map((roll, index) => {
+              const shown = displayValues[index] ?? roll;
+              const emphasized =
+                emphasizedIndices !== undefined
+                  ? emphasizedIndices.includes(index)
+                  : countedFrom == null
+                    ? highlightValue == null || roll === highlightValue
+                    : compare === "below"
+                      ? roll < countedFrom
+                      : compare === "above"
+                        ? roll > countedFrom
+                        : roll >= countedFrom;
+              return (
+                <DiceGlyph
+                  key={`${index}-${roll}`}
+                  sides={sides}
+                  value={shown}
+                  faceText={faceText(shown)}
+                  phase={phase}
+                  size={glyphSize}
+                  index={index}
+                  emphasized={emphasized}
+                  hero={isHero}
+                />
+              );
+            })}
+        </div>
+      )}
 
       {/* Which dice counted is shown by dimming the ones that did not, which is a picture. The rule
-          behind it is said in words here so it reaches a screen reader too. */}
+          behind it is said in words here so it reaches a screen reader too. A roll shown as text has
+          no dimmed dice, so there the rule is on screen. */}
       {countedFrom != null && (
-        <span className="sr-only">
+        <span className={asText ? "dice-roll-breakdown" : "sr-only"}>
           {localizeUi(
             compare === "below"
               ? "ui.dice.animateddiceroll.countedBelow"

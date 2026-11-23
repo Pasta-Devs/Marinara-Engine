@@ -127,6 +127,10 @@ export const OMNIBAR_SETTINGS_TOGGLE_BINDINGS: Readonly<Record<string, OmnibarSe
     get: (state) => state.customCursorEnabled,
     set: (value) => useUIStore.getState().setCustomCursorEnabled(value),
   },
+  "dice-rolls-as-text": {
+    get: (state) => state.diceRollsAsText,
+    set: (value) => useUIStore.getState().setDiceRollsAsText(value),
+  },
   // Pulse and RGB are mutually exclusive, same as the Appearance settings row.
   "accent-pulse": {
     get: (state) => state.appAccentPulseMode,

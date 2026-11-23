@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { addAbortListener, getEventListeners } from "node:events";
 import { readFileSync } from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
+import { createRequire, registerHooks, stripTypeScriptTypes } from "node:module";
 import { setImmediate as nextTurn } from "node:timers/promises";
 import { runInNewContext } from "node:vm";
 import { GENERATIVE_AUDIO_DEFAULTS } from "../../../packages/shared/src/types/connection.js";
@@ -1063,12 +1063,18 @@ assert.equal(scopeArtifactSvgAttribute("d", "M0 0 L1 1", "a1-"), "M0 0 L1 1");
 assert.equal(scopeArtifactSvgAttribute("fill", "url(https://example.com/x.svg#g)", "a1-"), null);
 assert.equal(scopeArtifactSvgAttribute("fill", "\\75rl(https://example.com/x.svg)", "a1-"), null);
 assert.equal(scopeArtifactSvgAttribute("href", "https://example.com/x.svg", "a1-"), null);
-const artifactChatHtml = readFileSync(new URL("../../../packages/client/src/lib/chat-html.ts", import.meta.url), "utf8");
+const artifactChatHtml = readFileSync(
+  new URL("../../../packages/client/src/lib/chat-html.ts", import.meta.url),
+  "utf8",
+);
 assert.match(artifactChatHtml, /concat\(\s*allowSvg \? \[\] : \["svg"\],?\s*\)/u, "messages keep the SVG ban");
 const artifactPrompt = buildHtmlArtifactMessages({ reply: "One. Two.", offset: 4, request: "a sign" });
 assert.ok(
-  (buildHtmlArtifactMessages({ reply: "One.", offset: 4, request: "a sign", scene: "<speaker>Raven</speaker>" }).at(-1)!
-    .content as string).startsWith("<speaker>Raven</speaker>\n\n<reply>"),
+  (
+    buildHtmlArtifactMessages({ reply: "One.", offset: 4, request: "a sign", scene: "<speaker>Raven</speaker>" }).at(
+      -1,
+    )!.content as string
+  ).startsWith("<speaker>Raven</speaker>\n\n<reply>"),
   "the scene comes before the reply",
 );
 assert.match(artifactPrompt.at(-1)!.content as string, /One\.\n\[ARTIFACT GOES HERE\]\n Two\./u);
@@ -1144,4 +1150,101 @@ assert.deepEqual(getRoleplayCommandNoticeVisibility(noticeActivity.slice(0, 3) a
   collapsed: false,
   startExpanded: false,
 });
+
+// #9656: Show Dice Rolls as Text (Settings → Appearance → App) draws a roll as one short line of text
+// instead of the animated dice. The line keeps who rolled, the dice, the DC, each die and the total.
+{
+  const stored = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+      removeItem: (key: string) => stored.delete(key),
+    },
+  });
+  const requireClient = createRequire(new URL("../../../packages/client/package.json", import.meta.url));
+  const React = requireClient("react");
+  // tsx compiles the client's JSX to React.createElement here.
+  Object.assign(globalThis, { React });
+  const { renderToStaticMarkup } = requireClient("react-dom/server");
+  const { I18nextProvider } = await import("../../../packages/client/node_modules/react-i18next/dist/es/index.js");
+  const i18n = requireClient("i18next").createInstance();
+  await i18n.init({
+    lng: "en",
+    resources: {
+      en: {
+        translation: JSON.parse(
+          readFileSync(new URL("../../../packages/client/src/localization/locales/en.json", import.meta.url), "utf8"),
+        ),
+      },
+    },
+  });
+  const { useUIStore, pickSyncedSettings } = await import("../../../packages/client/src/stores/ui.store.js");
+  // The card every roll draws with: an inline Roleplay roll, a /roll message and a skill check. Vite
+  // bundles its stylesheet in the browser; Node cannot import one, so it loads empty here.
+  const cssHooks = registerHooks({
+    load(url, context, nextLoad) {
+      if (url.endsWith(".css")) return { format: "module", source: "", shortCircuit: true };
+      return nextLoad(url, context);
+    },
+  });
+  const { AnimatedDiceRoll } = await import("../../../packages/client/src/components/dice/AnimatedDiceRoll.js");
+  cssHooks.deregister();
+  // React marks the seams between text pieces with empty comments; the reader sees one string.
+  const render = (element: unknown) =>
+    (renderToStaticMarkup(React.createElement(I18nextProvider, { i18n }, element)) as string).replaceAll(
+      "<!-- -->",
+      "",
+    );
+  // A roll as an inline `[roll:]` saves it, rendered the way RoleplayDiceRoll renders it.
+  const savedRoll = { notation: "2d6+1", rolls: [3, 5], modifier: 1, total: 9, dc: 8, success: true, label: "Kael" };
+  assert.equal(isDiceRollResult(savedRoll), true);
+  const inlineRoll = () =>
+    render(React.createElement(AnimatedDiceRoll, { ...savedRoll, tone: "success", animate: true }));
+  const pool = () =>
+    render(
+      React.createElement(AnimatedDiceRoll, {
+        notation: "4d10",
+        rolls: [9, 2, 7, 4],
+        modifier: 0,
+        total: 2,
+        resolution: "successes",
+        threshold: 7,
+      }),
+    );
+  const initial = useUIStore.getInitialState();
+
+  assert.equal(initial.diceRollsAsText, false, "rolls show as animated dice by default");
+  assert.match(inlineRoll(), /class="dice-glyph/u, "by default the inline roll draws its dice");
+  assert.match(pool(), /<span class="sr-only">A die counts as a success at 7 or more\.<\/span>/u);
+
+  // A server render reads the store's initial state, so the setting is turned on there.
+  initial.diceRollsAsText = true;
+  try {
+    const line = inlineRoll();
+    assert.match(line, /dice-roll-card--text/u);
+    assert.doesNotMatch(line, /dice-glyph|dice-stage/u, "no dice are drawn");
+    assert.doesNotMatch(line, /is-animated/u, "and none are thrown");
+    assert.match(line, />Kael · 2d6\+1 · DC 8</u, "who rolled, the dice and the DC stay");
+    assert.match(
+      line,
+      />3 \+ 5 \+1<\/span><span class="dice-roll-total is-visible"> = 9</u,
+      "each die and the total stay",
+    );
+    // A pool's dimmed dice told which dice counted. Without them the rule is on screen instead.
+    const poolLine = pool();
+    assert.doesNotMatch(poolLine, /dice-glyph/u);
+    assert.match(poolLine, /<span class="dice-roll-breakdown">A die counts as a success at 7 or more\.<\/span>/u);
+    assert.match(poolLine, /9 · 2 · 7 · 4<\/span><span class="dice-roll-total is-visible"> → 2 successes</u);
+  } finally {
+    initial.diceRollsAsText = false;
+  }
+
+  // The setting follows the user to their other devices, and Reset Appearance turns it off.
+  useUIStore.getState().setDiceRollsAsText(true);
+  assert.equal(pickSyncedSettings(useUIStore.getState()).diceRollsAsText, true);
+  useUIStore.getState().resetAppearanceSettings();
+  assert.equal(useUIStore.getState().diceRollsAsText, false);
+}
 process.stdout.write("Roleplay commands regression passed.\n");
