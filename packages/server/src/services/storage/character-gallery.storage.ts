@@ -12,6 +12,7 @@ export interface CreateCharacterImageInput {
   sourceChatImageId?: string | null;
   variantGroupId?: string | null;
   variantSelected?: number;
+  variantHistoryRecovered?: number;
   createdAt?: string;
   filePath: string;
   prompt?: string;
@@ -93,6 +94,7 @@ export function createCharacterGalleryStorage(db: DB) {
         sourceChatImageId: input.sourceChatImageId ?? null,
         variantGroupId: input.variantGroupId ?? null,
         variantSelected: input.variantSelected ?? 0,
+        variantHistoryRecovered: input.variantHistoryRecovered ?? 0,
         filePath: input.filePath,
         prompt: input.prompt ?? "",
         generation: input.generation ? JSON.stringify(input.generation) : null,

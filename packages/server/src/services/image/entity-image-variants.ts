@@ -106,9 +106,9 @@ async function addChatVersion(db: DB, kind: EntityImageKind, ownerId: string, st
       const ids = new Set(stack.map((row) => row.id));
       const linked = all.filter((row) => row.sourceChatImageId && ids.has(row.sourceChatImageId));
       const groupId = linked.find((row) => row.variantGroupId)?.variantGroupId ?? newId();
-      // A null group marks old memberships that have never been reconciled. Do this once;
-      // later gallery deletions must not be undone by opening or regenerating the stack.
-      const legacy = linked.length > 0 && linked.every((row) => !row.variantGroupId);
+      // Selection/editing can establish a group before chat history is reconciled.
+      // Record completion separately so later gallery deletions remain respected.
+      const legacy = linked.some((row) => row.variantHistoryRecovered !== 1);
       const candidates = legacy ? stack : target ? [target] : [];
       const members = all.filter((row) => row.variantGroupId === groupId || linked.some((item) => item.id === row.id));
       const selected = members.find((row) => row.variantSelected === 1) ?? members[0];
@@ -129,6 +129,7 @@ async function addChatVersion(db: DB, kind: EntityImageKind, ownerId: string, st
           width: row.width ?? undefined,
           height: row.height ?? undefined,
           variantGroupId: groupId,
+          variantHistoryRecovered: 1,
           variantSelected: !selected && row.id === target?.id ? 1 : 0,
           createdAt: row.createdAt,
         };
@@ -144,6 +145,7 @@ async function addChatVersion(db: DB, kind: EntityImageKind, ownerId: string, st
           .update(table)
           .set({
             variantGroupId: groupId,
+            variantHistoryRecovered: 1,
             variantSelected: row.id === selected?.id ? 1 : 0,
             generation:
               row.generation ?? stack.find((source) => source.id === row.sourceChatImageId)?.generation ?? null,
@@ -183,7 +185,9 @@ export async function persistChatImageVersionToEntityGalleries(
 
 /** Recover pre-fix missing memberships only from explicit source links. A completed group is never refilled. */
 export async function repairEntityImageVariants(db: DB, kind: EntityImageKind, ownerId: string) {
-  const legacy = (await ownerImages(db, kind, ownerId)).filter((row) => row.sourceChatImageId && !row.variantGroupId);
+  const legacy = (await ownerImages(db, kind, ownerId)).filter(
+    (row) => row.sourceChatImageId && row.variantHistoryRecovered !== 1,
+  );
   if (!legacy.length || !(await loadImageGenerationUserSettings(db)).autoSaveToGalleries) return;
   const sources = await db
     .select()

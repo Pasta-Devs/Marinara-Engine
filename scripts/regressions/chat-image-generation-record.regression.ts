@@ -1567,30 +1567,50 @@ try {
   // A pre-fix gallery with only the original recovers once from explicit source links.
   const recoveryOwner = await entityCharacters.create(characterDataSchema.parse({ name: "Recovery owner" }));
   assert.ok(recoveryOwner);
-  await characterImages.create({
+  const recoverySource = await characterImages.create({
     characterId: recoveryOwner.id,
     sourceChatImageId: versionSource.id,
     filePath: versionSource.filePath,
   });
   const recoveryPath = `/api/characters/${recoveryOwner.id}/gallery`;
   await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: false }));
+  assert.ok(recoverySource);
+  const earlySelection = await app.inject({
+    method: "POST",
+    url: `${recoveryPath}/${recoverySource.id}/select`,
+  });
+  assert.equal(earlySelection.statusCode, 200, earlySelection.body);
+  assert.ok(earlySelection.json().variantGroupId, "selection establishes identity before recovery");
+  assert.equal(earlySelection.json().variantHistoryRecovered, 0);
+  const { appendEntityImageVersion } =
+    await import("../../packages/server/src/services/image/entity-image-variants.js");
+  const earlyEdit = await appendEntityImageVersion(db, "character", recoveryOwner.id, recoverySource.id, (tx) =>
+    createCharacterGalleryStorage(tx).create({
+      characterId: recoveryOwner.id,
+      filePath: recoverySource.filePath,
+      prompt: "Owner-local edit before chat history recovery",
+    }),
+  );
+  assert.equal(earlyEdit.variantHistoryRecovered, 0, "editing does not complete chat history recovery");
   assert.equal(
     (await app.inject({ method: "GET", url: recoveryPath })).json().length,
-    1,
+    2,
     "recovery honors autosave off",
   );
   await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: true }));
   const recovered = await app.inject({ method: "GET", url: recoveryPath });
   assert.equal(recovered.statusCode, 200, recovered.body);
   const recoveredRows = recovered.json();
-  assert.equal(recoveredRows.length, 3);
+  assert.equal(recoveredRows.length, 4);
+  assert.equal(recoveredRows.find((row: { variantSelected: number }) => row.variantSelected === 1)?.id, earlyEdit.id);
+  assert.ok(recoveredRows.every((row: { variantHistoryRecovered: number }) => row.variantHistoryRecovered === 1));
   assert.ok(recoveredRows.every((row: { variantGroupId: string }) => row.variantGroupId));
-  assert.equal((await app.inject({ method: "GET", url: recoveryPath })).json().length, 3, "repair is idempotent");
+  assert.equal((await app.inject({ method: "GET", url: recoveryPath })).json().length, 4, "repair is idempotent");
   const removedRecovered = recoveredRows.find((row: { sourceChatImageId: string }) => row.sourceChatImageId === v2.id);
   assert.equal((await app.inject({ method: "DELETE", url: `${recoveryPath}/${removedRecovered.id}` })).statusCode, 200);
   assert.equal(
     (await app.inject({ method: "GET", url: recoveryPath })).json().length,
-    2,
+    3,
     "repair never resurrects a deleted entity version",
   );
   assert.ok(
