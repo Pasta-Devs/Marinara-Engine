@@ -15,6 +15,7 @@ import {
 } from "../../../lib/local-notifications";
 import { playNotificationPing, setCustomNotificationSoundUrl } from "../../../lib/notification-sound";
 import {
+  describeCustomSoundError,
   useCustomNotificationSoundStatus,
   useRemoveCustomNotificationSound,
   useUploadCustomNotificationSound,
@@ -400,8 +401,8 @@ function CustomNotificationSoundSetting() {
       setCustomNotificationSoundUrl(status.url);
       toast.success(t("settings.notifications.customSound.toasts.uploaded"));
       playNotificationPing();
-    } catch {
-      toast.error(t("settings.notifications.customSound.toasts.uploadFailed"));
+    } catch (error) {
+      toast.error(describeCustomSoundError(t("settings.notifications.customSound.toasts.uploadFailed"), error, t));
     }
   };
 
@@ -410,8 +411,8 @@ function CustomNotificationSoundSetting() {
       await removeSound.mutateAsync();
       setCustomNotificationSoundUrl(null);
       toast.success(t("settings.notifications.customSound.toasts.removed"));
-    } catch {
-      toast.error(t("settings.notifications.customSound.toasts.removeFailed"));
+    } catch (error) {
+      toast.error(describeCustomSoundError(t("settings.notifications.customSound.toasts.removeFailed"), error, t));
     }
   };
 

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api-client";
+import { ApiError, api } from "../lib/api-client";
 
 export interface CustomNotificationSoundStatus {
   configured: boolean;
@@ -43,4 +43,14 @@ export function useRemoveCustomNotificationSound() {
       });
     },
   });
+}
+
+/**
+ * The toast for a failed custom-sound upload or removal, with the server's own reason
+ * (wrong format, over 10 MB, file locked) or a note that the server did not answer,
+ * so a support report says which one happened.
+ */
+export function describeCustomSoundError(base: string, error: unknown, t: (key: string) => string): string {
+  if (error instanceof ApiError) return error.message ? `${base} ${error.message}` : base;
+  return `${base} ${t("settings.notifications.customSound.toasts.serverUnreachable")}`;
 }

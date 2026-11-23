@@ -6,6 +6,7 @@ import { resolveInside } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
 import { notFound } from "../utils/not-found.js";
 import { writeFileAtomic } from "../utils/atomic-write.js";
+import { sendValidatedMediaFile } from "../utils/media-file-security.js";
 
 const NOTIFICATION_SOUNDS_DIR = join(DATA_DIR, "notification-sounds");
 const MAX_NOTIFICATION_SOUND_BYTES = 10 * 1024 * 1024;
@@ -145,6 +146,11 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
     try {
       buffer = await upload.toBuffer();
     } catch (error) {
+      // toBuffer() throws once the stream passes the per-route fileSize limit; that is the
+      // size rule, not an unreadable file, and the person needs to be told which.
+      if ((error as { code?: string }).code === "FST_REQ_FILE_TOO_LARGE") {
+        return reply.status(413).send({ error: "Notification sound must be 10 MB or smaller." });
+      }
       logger.warn(error, "Failed to read custom notification sound upload");
       return reply.status(400).send({ error: "The notification sound could not be read." });
     }
@@ -182,11 +188,24 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
   });
 
   app.delete("/", async (_req, reply) => {
-    await withNotificationSoundLock(() => removeStoredNotificationSounds());
+    try {
+      await withNotificationSoundLock(() => removeStoredNotificationSounds());
+    } catch (error) {
+      // Windows refuses to delete a file another program (antivirus, a media player) holds open.
+      // Log the real reason so the server console shows it, not only the client's toast.
+      logger.error(error, "Failed to remove custom notification sound");
+      const code = (error as NodeJS.ErrnoException).code;
+      return reply.status(500).send({
+        error:
+          code === "EPERM" || code === "EBUSY" || code === "EACCES"
+            ? "The notification sound file is in use or locked by another program. Close it there and try again."
+            : "Failed to remove the notification sound.",
+      });
+    }
     return reply.status(204).send();
   });
 
-  app.get("/file", async (_req, reply) => {
+  app.get("/file", async (req, reply) => {
     const sound = await findStoredNotificationSound();
     if (!sound) return notFound(reply, "No custom notification sound.");
     // Open a handle before replying: a concurrent replace/delete can remove
@@ -200,13 +219,20 @@ export async function notificationSoundRoutes(app: FastifyInstance) {
       }
       throw error;
     }
-    const details = await handle.stat();
-    return reply
-      .header("Content-Type", sound.mimeType)
-      .header("Content-Length", details.size.toString())
-      .header("Content-Disposition", "inline")
-      .header("Cache-Control", "no-cache")
-      .header("X-Content-Type-Options", "nosniff")
-      .send(handle.createReadStream());
+    let details;
+    try {
+      details = await handle.stat();
+    } catch (error) {
+      await handle.close().catch(() => undefined);
+      throw error;
+    }
+    reply.header("Content-Disposition", "inline").header("X-Content-Type-Options", "nosniff");
+    // Safari (macOS, iPhone, iPad) only plays audio from servers that answer byte-range
+    // requests with 206; a plain 200 makes it fail and fall back to the default ping.
+    return sendValidatedMediaFile(
+      reply,
+      { handle, mimeType: sound.mimeType, size: details.size, mtimeMs: details.mtimeMs },
+      { method: req.method, rangeHeader: req.headers.range, cacheControl: "no-cache" },
+    );
   });
 }
