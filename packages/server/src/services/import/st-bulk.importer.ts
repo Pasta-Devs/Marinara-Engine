@@ -2,7 +2,7 @@
 // Importer: SillyTavern Bulk Import (folder scan)
 // ──────────────────────────────────────────────
 import { readdir, readFile, stat, copyFile, mkdir, open, unlink } from "fs/promises";
-import { join, extname, basename, relative } from "path";
+import { join, extname, basename, relative, resolve, sep } from "path";
 import { existsSync, readdirSync } from "fs";
 import { createHash, randomUUID } from "crypto";
 import { inflateSync } from "node:zlib";
@@ -307,7 +307,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     for (const f of jsonlFiles) {
       try {
         // Only the header line is needed here; a long chat is not read whole just to list it.
-        const firstLine = await readFirstLine(f);
+        const firstLine = await readFirstLine(chatsDir, f);
         if (firstLine) {
           const header = JSON.parse(firstLine);
           const fileBaseName = basename(f, ".jsonl");
@@ -643,9 +643,15 @@ const MAX_CHAT_HEADER_BYTES = 8 * 1024 * 1024;
  */
 export const MAX_ST_CHAT_FILE_BYTES = 256 * 1024 * 1024;
 
-/** The first line of a text file, read in chunks; "" when the file is empty or its first line is too long. */
-async function readFirstLine(path: string): Promise<string> {
-  const handle = await open(path, "r");
+/**
+ * The first line of a text file inside `root`, read in chunks; "" when the file is empty, its first line is too long,
+ * or the path leads outside `root`.
+ */
+async function readFirstLine(root: string, path: string): Promise<string> {
+  const base = resolve(root);
+  const file = resolve(base, path);
+  if (!file.startsWith(base + sep)) return "";
+  const handle = await open(file, "r");
   try {
     const chunks: Buffer[] = [];
     let total = 0;
