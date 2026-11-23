@@ -368,12 +368,16 @@ for (const service of ["automatic1111", "drawthings"] as const) {
       expect(edits[0]).not.toHaveProperty("maskImage");
       if (service === "automatic1111") {
         await expect(dialog.getByRole("button", { name: "Apply edit", exact: true })).toBeEnabled();
+        const resultToast = page.locator("[data-sonner-toast]").filter({ hasText: "Image regenerated." });
+        await resultToast.getByRole("button", { name: "Close toast", exact: true }).click();
+        await expect(resultToast).toHaveCount(0);
         await canvas.hover({ position: { x: 20, y: 20 } });
         const box = (await canvas.boundingBox())!;
         await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4);
         await page.mouse.down();
         await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.6, { steps: 5 });
         await page.mouse.up();
+        await expect(dialog.getByText("Inpainting mask active", { exact: true })).toBeVisible();
         await dialog.getByRole("button", { name: "Inpaint image", exact: true }).click();
         await expect.poll(() => edits.length).toBe(2);
         expect(edits[1]).toEqual(expect.objectContaining({ editMode: "infill", strength: 1 }));
