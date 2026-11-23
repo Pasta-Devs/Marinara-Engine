@@ -5,7 +5,7 @@
 // stickers (read-only here). Renders as a popover beside the sticker button, or
 // inline (embedded) inside the mobile composer sheet.
 // ──────────────────────────────────────────────
-import { useState, useRef, useEffect, useCallback, useLayoutEffect, type ChangeEvent } from "react";
+import { useState, useRef, useCallback, useLayoutEffect, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { ImagePlus, Settings, Trash2 } from "lucide-react";
 import {
@@ -27,6 +27,7 @@ import { CustomEmojiSelectionSettings } from "./CustomEmojiSelectionSettings";
 import { GalleryDescribeButton } from "../ui/GalleryDescribeButton";
 import { PoolDescriptionButton } from "../ui/PoolDescriptionButton";
 import { cn } from "../../lib/utils";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { rememberRecentMedia, useRecentMedia } from "../../hooks/use-recent-media";
 
@@ -120,30 +121,7 @@ export function StickerPicker({ open, onClose, onSelect, anchorRef, containerRef
   }, [embedded, open, updatePosition]);
 
   // Close on outside click / Escape (popover only; embedded dismissal is owned by the sheet).
-  useEffect(() => {
-    if (!open || embedded) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(e.target as Node) &&
-        anchorRef?.current &&
-        !anchorRef.current.contains(e.target as Node)
-      ) {
-        onClose();
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open, onClose, anchorRef, embedded]);
-
-  useEffect(() => {
-    if (!open || embedded) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose, embedded]);
+  useDismiss(panelRef, open && !embedded, onClose, { openerRef: anchorRef });
 
   const handleFiles = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -513,6 +491,6 @@ export function StickerPicker({ open, onClose, onSelect, anchorRef, containerRef
     >
       {content}
     </div>,
-    document.body,
+    anchorRef?.current?.ownerDocument.body ?? document.body,
   );
 }

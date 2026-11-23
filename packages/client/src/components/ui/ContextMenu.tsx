@@ -1,25 +1,17 @@
 // ──────────────────────────────────────────────
 // ContextMenu — small portal-rendered right-click menu
+//
+// Anchored at a point rather than an element (see `Popover` for that). Rows, keys and dismissal are shared with
+// `Popover`: `MenuItems`, `moveMenuFocus` and `useDismiss`.
 // ──────────────────────────────────────────────
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { BOTTOM_SHEET_CLASS } from "./neutral-surface-styles";
+import { MenuItems, moveMenuFocus, POPOVER_Z_INDEX, type MenuItem } from "./Popover";
 
-export interface ContextMenuItem {
-  label: string;
-  icon?: ReactNode;
-  onSelect: () => void;
-  disabled?: boolean;
-  destructive?: boolean;
-  /** Muted second line, such as the Connection a Model belongs to. */
-  hint?: string;
-  /** Marks the current choice when the menu picks one value. */
-  checked?: boolean;
-  /** An on/off setting: `checked` is its state, not the menu's one choice. */
-  toggle?: boolean;
-}
+export type ContextMenuItem = MenuItem;
 
 interface ContextMenuProps {
   /** Page-relative coordinates (e.clientX / e.clientY) where the menu should anchor. */
@@ -71,6 +63,9 @@ export function ContextMenu({
   // On a touch phone the menu is an action sheet: rows a thumb can hit, no hunting near the finger.
   const [sheet] = useState(() => window.matchMedia("(max-width: 639px) and (pointer: coarse)").matches);
 
+  // Escape, a press outside, back, and a press on the opener (which only closes).
+  useDismiss(ref, true, onClose, { openerRef: opener });
+
   // Flip / clamp the menu so it always stays inside the viewport. A layout effect, so it never paints at the
   // unadjusted spot first.
   useLayoutEffect(() => {
@@ -98,75 +93,29 @@ export function ContextMenu({
     return () => previous?.focus({ preventScroll: true });
   }, [autoFocus]);
 
-  // Close on outside click, Escape, scroll, or window resize.
+  // Arrow keys reach the menu even while focus is still on the page, except from a text field. A point-anchored
+  // menu can't follow the page, so scrolling the page behind it or resizing the window closes it.
   useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (!ref.current || ref.current.contains(e.target as Node)) return;
-      // A press on the button that opened the menu only closes it; without this its click opens it again.
-      if (e.button === 0 && opener.current?.contains(e.target as Node)) {
-        const swallow = (c: MouseEvent) => {
-          if (c.detail === 0) return; // keyboard/programmatic click: let it through
-          c.stopPropagation();
-          c.preventDefault();
-        };
-        window.addEventListener("click", swallow, { capture: true, once: true });
-        window.addEventListener("pointerdown", () => window.removeEventListener("click", swallow, true), {
-          capture: true,
-          once: true,
-        });
-      }
-      onClose();
-    };
-    // Escape is the menu's alone: captured before React's own listeners, so the panel or dialog under the
-    // menu does not close with it.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") {
-        // Arrow keys, Home and End move between enabled items (wrapping). Enter and Space are the buttons' own.
-        const move = { ArrowDown: 1, ArrowUp: -1, Home: 0, End: 0 }[e.key];
-        const menu = ref.current;
-        const active = document.activeElement;
-        if (move === undefined || !menu || e.altKey || e.ctrlKey || e.metaKey) return;
-        // Never take keys from a text field outside the menu.
-        const typing =
-          active instanceof HTMLElement &&
-          !menu.contains(active) &&
-          active.matches("input, textarea, select, [contenteditable]");
-        if (typing) return;
-        const buttons = Array.from(menu.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"));
-        if (buttons.length === 0) return;
-        const at = buttons.findIndex((button) => button === active);
-        const next =
-          e.key === "Home"
-            ? 0
-            : e.key === "End"
-              ? buttons.length - 1
-              : at < 0
-                ? move > 0
-                  ? 0
-                  : buttons.length - 1
-                : (at + move + buttons.length) % buttons.length;
-        e.preventDefault();
-        e.stopPropagation();
-        buttons[next].focus({ preventScroll: true });
-        return;
-      }
-      e.preventDefault();
-      e.stopPropagation();
-      onClose();
+      const menu = ref.current;
+      const active = document.activeElement;
+      if (!menu) return;
+      const typing =
+        active instanceof HTMLElement &&
+        !menu.contains(active) &&
+        active.matches("input, textarea, select, [contenteditable]");
+      if (!typing) moveMenuFocus(menu, e);
     };
-    // A long menu scrolls itself; only scrolling the page behind it closes it.
     const onScroll = (e: Event) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
     window.addEventListener("keydown", onKey, true);
     const raf = requestAnimationFrame(() => {
-      document.addEventListener("mousedown", onDown);
       window.addEventListener("scroll", onScroll, true);
       window.addEventListener("resize", onClose);
     });
     return () => {
       cancelAnimationFrame(raf);
-      document.removeEventListener("mousedown", onDown);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onClose);
@@ -175,16 +124,15 @@ export function ContextMenu({
 
   return createPortal(
     <>
-      {/* Catches the outside tap: the outside-press handler closes the menu and the click lands here, not on the page. */}
-      {sheet && <div aria-hidden="true" className="fixed inset-0 z-[10001] bg-black/55" />}
+      {/* Catches the outside tap: the outside-press handler closes the menu and the tap lands here, not on the page. */}
+      {sheet && <div aria-hidden="true" className="fixed inset-0 bg-black/55" style={{ zIndex: POPOVER_Z_INDEX }} />}
       <div
         ref={ref}
         role="menu"
-        // Above a modal (z 10000), so a menu opened inside a dialog shows.
         style={
           sheet
-            ? { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 10001 }
-            : { position: "fixed", left: pos.left, top: pos.top, zIndex: 10001 }
+            ? { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: POPOVER_Z_INDEX }
+            : { position: "fixed", left: pos.left, top: pos.top, zIndex: POPOVER_Z_INDEX }
         }
         className={
           sheet
@@ -196,44 +144,7 @@ export function ContextMenu({
         }
         onContextMenu={(e) => e.preventDefault()}
       >
-        {items.map((item, i) => (
-          <button
-            key={`${item.label}-${i}`}
-            type="button"
-            role={item.toggle ? "menuitemcheckbox" : item.checked === undefined ? "menuitem" : "menuitemradio"}
-            aria-checked={item.checked}
-            disabled={item.disabled}
-            onClick={() => {
-              if (item.disabled) return;
-              item.onSelect();
-              onClose();
-            }}
-            className={cn(
-              "flex w-full items-center gap-2 text-left transition-colors outline-none focus-visible:bg-[var(--accent)]",
-              sheet ? "min-h-12 rounded-lg px-3 text-sm" : "px-3 py-1.5 text-xs",
-              item.disabled
-                ? "cursor-not-allowed text-[var(--muted-foreground)] opacity-50"
-                : item.destructive
-                  ? destructiveTone === "accent"
-                    ? "text-[var(--primary)] hover:bg-[var(--primary)]/10"
-                    : "text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
-                  : "text-[var(--foreground)] hover:bg-[var(--accent)]",
-            )}
-          >
-            {item.icon && <span className="shrink-0 text-[var(--muted-foreground)]">{item.icon}</span>}
-            <span className="min-w-0 flex-1">
-              <span className="block truncate">{item.label}</span>
-              {item.hint && (
-                <span
-                  className={`block truncate ${sheet ? "text-[13px]" : "text-[0.625rem]"} text-[var(--muted-foreground)]`}
-                >
-                  {item.hint}
-                </span>
-              )}
-            </span>
-            {item.checked && <Check size="0.75rem" className="shrink-0 text-[var(--primary)]" />}
-          </button>
-        ))}
+        <MenuItems items={items} onClose={onClose} sheet={sheet} destructiveTone={destructiveTone} />
       </div>
     </>,
     document.body,

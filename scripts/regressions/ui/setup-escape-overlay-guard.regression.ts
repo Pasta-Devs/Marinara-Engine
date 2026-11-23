@@ -22,7 +22,7 @@ import {
   isModalOverlayOpen,
   registerModalOverlay,
   __resetModalOverlayRegistryForTests,
-} from "../../../packages/client/src/lib/modal-overlay-registry.js";
+} from "../../../packages/client/src/lib/layer-stack.js";
 
 // ── 1. The registry's bookkeeping ──
 __resetModalOverlayRegistryForTests();
@@ -90,7 +90,7 @@ assert.match(
 );
 assert.match(
   modalSource,
-  /useEffect\(\s*\(\)\s*=>\s*\{\s*if\s*\(!open\)\s*return;\s*const registration = registerModalOverlay\(\);[\s\S]{0,400}?registration\.release\(\);[\s\S]{0,200}?\}\s*,\s*\[open\]\s*\)/u,
+  /useEffect\(\s*\(\)\s*=>\s*\{\s*if\s*\(!open\)\s*return;\s*const registration = registerModalOverlay\([^;]*\);[\s\S]{0,400}?registration\.release\(\);[\s\S]{0,200}?\}\s*,\s*\[open\]\s*\)/u,
   "Modal's registration should live in an effect gated on `open` so it releases when the dialog closes",
 );
 assert.match(

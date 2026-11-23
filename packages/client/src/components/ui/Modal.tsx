@@ -29,7 +29,7 @@ import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
-import { registerModalOverlay, type ModalOverlayRegistration } from "../../lib/modal-overlay-registry";
+import { registerModalOverlay, type ModalOverlayRegistration } from "../../lib/layer-stack";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useUIStore } from "../../stores/ui.store";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -238,7 +238,7 @@ export function Modal({
   // since every open Modal hears the same keypress and none stops propagation.
   useEffect(() => {
     if (!open) return;
-    const registration = registerModalOverlay();
+    const registration = registerModalOverlay(() => panelRef.current);
     overlayRegistrationRef.current = registration;
     return () => {
       registration.release();
