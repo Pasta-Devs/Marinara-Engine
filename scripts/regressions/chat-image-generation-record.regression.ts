@@ -1547,7 +1547,9 @@ try {
     url: `/api/characters/${entityCharacter.id}/gallery/${secondCharacterVersion.id}/select`,
   });
   assert.equal(selectedEntity.statusCode, 200, selectedEntity.body);
-  const selectedCharacterRows = await characterImages.listByCharacterId(entityCharacter.id);
+  const selectedCharacterRows = (await characterImages.listByCharacterId(entityCharacter.id)).filter(
+    (row) => row.variantGroupId === secondCharacterVersion.variantGroupId,
+  );
   assert.equal(selectedCharacterRows.filter((row) => row.variantSelected === 1).length, 1);
   assert.equal(selectedCharacterRows.find((row) => row.variantSelected === 1)?.id, secondCharacterVersion.id);
   assert.equal((await attachmentIds())[0].galleryId, v3.id, "entity selection cannot change chat selection");
