@@ -185,9 +185,13 @@ if defined AUTO_OPEN_BROWSER_ENABLED (
 
 cd packages\server
 node ../../scripts/run-server.mjs dist/index.js %BROWSER_ARGS%
-if errorlevel 1 (
+:: An errorlevel test for 1 or more is false for negative codes, which is what a crash inside Node.js itself
+:: (an access violation) returns, so the window used to close with nothing on screen.
+set "SERVER_EXIT=%errorlevel%"
+if not "%SERVER_EXIT%"=="0" (
     echo.
-    echo  [ERROR] Server exited unexpectedly. See the error above.
+    echo  [ERROR] Server exited unexpectedly ^(exit code %SERVER_EXIT%^). See the error above.
+    if %SERVER_EXIT% LSS 0 echo          Node.js itself crashed, so there may be no error above. Windows Event Viewer ^> Windows Logs ^> Application has a node.exe "Application Error" with the details.
     echo.
     pause
 )

@@ -29,3 +29,20 @@ for (const relativePath of [
     `${relativePath} must not pass an argument array through shell: true on Windows`,
   );
 }
+
+// A crash inside Node.js itself exits with a negative code, which "if errorlevel 1" misses: the window then closed
+// with nothing on screen. Both launchers must keep the window open for any non-zero exit.
+for (const launcher of ["start.bat", "start-local.bat"]) {
+  const source = readFileSync(join(REPOSITORY_ROOT, launcher), "utf8");
+  const afterServer = source.slice(source.indexOf("node ../../scripts/run-server.mjs"));
+  assert.match(
+    afterServer,
+    /set "SERVER_EXIT=%errorlevel%"\r?\nif not "%SERVER_EXIT%"=="0" \(/u,
+    `${launcher} must pause on any non-zero server exit`,
+  );
+  assert.doesNotMatch(
+    afterServer.split("goto :eof")[0],
+    /if errorlevel 1/u,
+    `${launcher} must not test the server exit with "if errorlevel 1"`,
+  );
+}
