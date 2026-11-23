@@ -39,9 +39,14 @@ export function parseTrustedTimestamp(value: unknown): string | null {
   // letting `new Date()` roll it into another day.
   if (sillyTavern !== undefined) return sillyTavern;
 
-  const parsed = new Date(raw);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toISOString();
+  // `new Date()` reads almost anything as some date ("12" and "user 2" become 2001), so only strings that look
+  // like a real date and time go to it.
+  if (looksLikeDateTime(raw)) {
+    const parsed = new Date(raw);
+    // `new Date()` rolls an impossible day over ("2025-02-30" becomes March 2), so a written ISO day must survive.
+    if (!Number.isNaN(parsed.getTime()) && isoDayExists(raw)) {
+      return parsed.toISOString();
+    }
   }
 
   const normalizedLegacy = raw.replace(/\s+/gu, " ");
@@ -61,7 +66,40 @@ export function parseTrustedTimestamp(value: unknown): string | null {
     Number(ms ?? 0),
   );
 
-  return Number.isNaN(legacyDate.getTime()) ? null : legacyDate.toISOString();
+  if (
+    Number.isNaN(legacyDate.getTime()) ||
+    legacyDate.getDate() !== Number(day) ||
+    legacyDate.getMonth() !== Number(month) - 1 ||
+    legacyDate.getHours() !== Number(hour) ||
+    legacyDate.getMinutes() !== Number(minute)
+  ) {
+    return null;
+  }
+  return legacyDate.toISOString();
+}
+
+/** ISO 8601 ("2025-03-01", "2025-03-01T12:00:00Z") */
+const ISO_DATE_TIME =
+  /^\d{4}-\d{2}-\d{2}(?:[t ]\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?)?(?: ?(?:z|utc|gmt|[+-]\d{2}(?::?\d{2})?))?$/iu;
+const MONTH_NAME =
+  /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b\.?/iu;
+
+/** False for an ISO date whose day doesn't exist in its month ("2025-02-30"); true for anything else. */
+function isoDayExists(raw: string): boolean {
+  const found = raw.match(/^(\d{4})-(\d{2})-(\d{2})/u);
+  if (!found) return true;
+  const [year, month, day] = [Number(found[1]), Number(found[2]), Number(found[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+/**
+ * Whether a string looks like a written date: ISO 8601, or a month name with a four-digit year (RFC 2822,
+ * JavaScript's own Date.toString(), "March 1, 2025"). Bare numbers and words with a number in them are not.
+ */
+function looksLikeDateTime(raw: string): boolean {
+  if (ISO_DATE_TIME.test(raw)) return true;
+  return MONTH_NAME.test(raw) && /(?:^|\D)\d{4}(?:\D|$)/u.test(raw);
 }
 
 const ENGLISH_MONTHS = [

@@ -32,7 +32,7 @@ process.env.FILE_STORAGE_DIR = storeDir;
 const { and, eq } = await import("../../packages/server/src/db/file-query.js");
 const { createFileNativeDB, encodeShardKey } = await import("../../packages/server/src/db/file-backed-store.js");
 const { chatImages } = await import("../../packages/server/src/db/schema/index.js");
-const { galleryFileHasReferences, unlinkGalleryFileIfUnreferenced } =
+const { chatImagesReferenceFile, galleryFileHasReferences, unlinkGalleryFileIfUnreferenced } =
   await import("../../packages/server/src/services/image/gallery-file-lifecycle.js");
 
 const chatRow = (id: string) => ({ id, name: id, mode: "conversation" });
@@ -60,7 +60,7 @@ const writeShard = (table: string, key: string, rows: unknown[]) => {
 writeShard("chats", "g1", [chatRow("g1")]);
 writeShard("chats", "g2", [chatRow("g2")]);
 writeShard("chat_images", "g1", [imageRow("img-1", "g1", "g1/shared.png")]);
-writeShard("chat_images", "g2", [imageRow("img-2", "g2", "g1/shared.png"), imageRow("img-3", "g2", "g2/own.png")]);
+writeShard("chat_images", "g2", [imageRow("img-2", "g2", "g1\\shared.png"), imageRow("img-3", "g2", "g2/own.png")]);
 // g3: a dbName-form row (external tool) referencing its file.
 writeShard("chats", "g3", [chatRow("g3")]);
 writeShard("chat_images", "g3", [
@@ -186,6 +186,13 @@ try {
   );
 
   // ── Memory is authoritative for resident units, both directions ──
+  await db.select().from(chatImages).where(eq(chatImages.chatId, "g1"));
+  assert.equal(
+    await chatImagesReferenceFile(db, "g1/shared.png", "g1"),
+    true,
+    "a cold branch's separator alias counts",
+  );
+  assert.equal(leased().size, 0, "checking another chat's reference does not lease the table");
   await db.insert(chatImages).values(imageRow("img-8", "g1", "g1/fresh.png"));
   assert.equal(
     await galleryFileHasReferences(db, "g1/fresh.png"),
@@ -207,6 +214,7 @@ try {
     "an unflushed delete wins over the stale disk shard — the row does not resurrect",
   );
   assert.equal(leased().size, 0, "the memory pass never leases the table");
+  assert.equal(await chatImagesReferenceFile(db, "g1\\fresh.png", "g1"), false, "the loaded source can be excluded");
 
   // ── The real deletion flow: unreferenced file removed, referenced kept ──
   mkdirSync(join(dataDir, "gallery", "g2"), { recursive: true });

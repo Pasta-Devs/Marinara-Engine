@@ -631,7 +631,8 @@ export function MariComposer({
                 shiftKey: event.shiftKey,
                 metaKey: event.metaKey,
                 ctrlKey: event.ctrlKey,
-                isComposing: event.nativeEvent.isComposing,
+                // Safari confirms an IME candidate with an Enter whose isComposing is already false (keyCode 229).
+                isComposing: event.nativeEvent.isComposing || event.keyCode === 229,
                 pickerOpen,
                 hasGhost: ghostAvailable,
                 inReferenceToken: ghostInToken,

@@ -66,7 +66,11 @@ import {
 import { buildBackgroundProviderPrompt } from "../services/game/game-asset-generation.js";
 import { generateIllustratorImageVariants } from "../services/image/illustrator-image-variants.js";
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
-import { deleteChatGalleryImageEverywhere } from "../services/image/chat-gallery-cascade-deletion.js";
+import {
+  deleteChatImageVersions,
+  selectChatImageVersion,
+  withChatImageVariantLock,
+} from "../services/image/chat-image-variants.js";
 import { readGalleryTagPayload } from "../services/image/gallery-tag-payload.js";
 import { assignChatPictureToGallery } from "../services/image/assign-chat-gallery-image.js";
 import {
@@ -92,7 +96,6 @@ import {
   mergeSpatialLocationReferenceImages,
   readSpatialLocationReferenceImageById,
 } from "../services/image/spatial-location-reference.js";
-import { createGameStoryboardsStorage } from "../services/storage/game-storyboards.storage.js";
 import { resolveBaseUrl } from "./generate/generate-route-utils.js";
 import {
   MARI_PREVIEW_CHAT_ID,
@@ -2657,8 +2660,6 @@ export async function galleryRoutes(app: FastifyInstance) {
       const signal = createResponseAbortSignal(reply, SCENE_VIDEO_GENERATION_TIMEOUT_MS, "Gallery image regeneration");
       let savedFilePath: string | null = null;
       let savedImageId: string | null = null;
-      // Swaps already applied, undone in reverse if a later step fails so a retry starts clean.
-      const undoSwaps: Array<() => Promise<unknown>> = [];
       try {
         const generated = await generateImage(
           imageSource,
@@ -2724,60 +2725,30 @@ export async function galleryRoutes(app: FastifyInstance) {
         if (!image) throw new Error("Regenerated image metadata could not be saved");
         savedImageId = image.id;
 
-        const url = buildGalleryImageUrl(image, chatId);
-        const attachmentPatch = { url, prompt, galleryId: image.id };
-        const restorePatch = {
-          url: buildGalleryImageUrl(original, chatId),
-          prompt: original.prompt,
-          galleryId: original.id,
-        };
-        // Every message showing the image is updated, in its active mirror or an inactive swipe;
-        // the message it was opened from (if any) goes first.
-        const mentionsImage = (row: { extra: unknown }) =>
-          (typeof row.extra === "string" ? row.extra : JSON.stringify(row.extra ?? {})).includes(original.id);
-        const messages = await chats.listMessages(chatId);
-        const swipes = await chats.listSwipesByMessageIds(messages.map((message) => message.id));
-        const openedFrom = messages.some((message) => message.id === input.messageId) ? [input.messageId!] : [];
-        const candidateMessageIds = Array.from(
-          new Set([
-            ...openedFrom,
-            ...messages.filter(mentionsImage).map((message) => message.id),
-            ...swipes.filter(mentionsImage).map((swipe) => swipe.messageId),
-          ]),
-        );
-        const replacedMessageIds: string[] = [];
-        for (const messageId of candidateMessageIds) {
-          if (await chats.replaceGalleryImageAttachment(messageId, original.id, attachmentPatch)) {
-            replacedMessageIds.push(messageId);
-            undoSwaps.push(() => chats.replaceGalleryImageAttachment(messageId, image.id, restorePatch));
-          }
-        }
-        const storyboards = createGameStoryboardsStorage(app.db);
-        const replacedKeyframeIds: string[] = [];
-        for (const keyframe of await storyboards.listKeyframesByChatImageId(chatId, original.id)) {
-          await storyboards.updateKeyframe(keyframe.id, { chatImageId: image.id });
-          replacedKeyframeIds.push(keyframe.id);
-          undoSwaps.push(() => storyboards.updateKeyframe(keyframe.id, { chatImageId: original.id }));
-        }
-        // Committed: nothing below may roll the swaps back.
-        undoSwaps.length = 0;
+        const selection = await selectChatImageVersion(app.db, chatId, image.id, original.id);
+        const { replacedMessageIds, replacedKeyframeIds } = selection;
+        // The gallery selection, message/swipe references and keyframes committed together.
         savedImageId = null;
         savedFilePath = null;
 
-        await persistGeneratedImageToEntityGalleries({
-          enabled: imageSettings.autoSaveToGalleries,
-          sourceFilePath: filePath,
-          sourceChatImageId: image.id,
-          generation: image.generation,
-          characterIds: references.characterIds,
-          personaIds: references.personaId ? [references.personaId] : [],
-          characterGallery,
-          personaGallery,
-          prompt,
-          provider,
-          model,
-          width: savedWidth,
-          height: savedHeight,
+        await withChatImageVariantLock(chatId, async () => {
+          // Deletion may have won the queue after selection. Never recreate copies of a deleted version.
+          if (!(await storage.getById(image.id, chatId))) return;
+          await persistGeneratedImageToEntityGalleries({
+            enabled: imageSettings.autoSaveToGalleries,
+            sourceFilePath: filePath,
+            sourceChatImageId: image.id,
+            generation: image.generation,
+            characterIds: references.characterIds,
+            personaIds: references.personaId ? [references.personaId] : [],
+            characterGallery,
+            personaGallery,
+            prompt,
+            provider,
+            model,
+            width: savedWidth,
+            height: savedHeight,
+          });
         }).catch((galleryErr) =>
           logger.warn(galleryErr, "[gallery/regenerate] Could not copy image %s to entity galleries", image.id),
         );
@@ -2790,20 +2761,8 @@ export async function galleryRoutes(app: FastifyInstance) {
           replacedMessageIds.length,
           replacedKeyframeIds.length,
         );
-        return { image: { ...image, url }, replacedMessageIds, replacedKeyframeIds };
+        return selection;
       } catch (err) {
-        let allUndone = true;
-        for (const undo of undoSwaps.reverse()) {
-          await undo().catch((undoErr) => {
-            allUndone = false;
-            logger.warn(undoErr, "[gallery/regenerate] Could not restore a reference to image %s", original.id);
-          });
-        }
-        // A reference that could not be restored still points at the new image, so keep it.
-        if (!allUndone) {
-          savedImageId = null;
-          savedFilePath = null;
-        }
         if (savedImageId) {
           await storage
             .remove(savedImageId, chatId)
@@ -3028,6 +2987,27 @@ export async function galleryRoutes(app: FastifyInstance) {
     };
   });
 
+  app.post<{ Params: { chatId: string; imageId: string } }>("/:chatId/images/:imageId/select", async (req, reply) => {
+    const { chatId, imageId } = req.params;
+    if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+    if (!(await storage.getById(imageId, chatId))) return notFound(reply, "Image not found");
+    return selectChatImageVersion(app.db, chatId, imageId);
+  });
+
+  app.delete<{ Params: { chatId: string; imageId: string } }>(
+    "/:chatId/images/:imageId/versions",
+    async (req, reply) => {
+      const { chatId, imageId } = req.params;
+      if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+      const { scope } = z.object({ scope: z.enum(["version", "others", "stack"]) }).parse(req.query);
+      const { versionIds } = z.object({ versionIds: z.array(z.string()).min(1).optional() }).parse(req.body ?? {});
+      if (scope !== "version" && !versionIds)
+        return reply.status(400).send({ error: "Version confirmation is required" });
+      if (!(await storage.getById(imageId, chatId))) return notFound(reply, "Image not found");
+      return deleteChatImageVersions(app.db, chatId, imageId, scope, versionIds);
+    },
+  );
+
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const { id } = req.params;
     // Optional chatId keeps the lazy store from loading the whole table for a bare-id lookup.
@@ -3037,7 +3017,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       return notFound(reply, "Not found");
     }
 
-    const deleted = await deleteChatGalleryImageEverywhere({ db: app.db, image });
+    const deleted = await deleteChatImageVersions(app.db, image.chatId, image.id);
     return { success: true, ...deleted };
   });
 }

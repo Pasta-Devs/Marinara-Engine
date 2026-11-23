@@ -29,6 +29,7 @@ const { buildChatImageGenerationRecord, parseChatImageGenerationRecord } =
   await import("../../packages/shared/src/utils/chat-image-generation.js");
 const { getDB, closeDB } = await import("../../packages/server/src/db/connection.js");
 const { galleryRoutes } = await import("../../packages/server/src/routes/gallery.routes.js");
+const { backupRoutes } = await import("../../packages/server/src/routes/backup.routes.js");
 const { resolveEntityImageGeneration } = await import("../../packages/server/src/routes/entity-image-edit.routes.js");
 const { createCharacterGalleryStorage } =
   await import("../../packages/server/src/services/storage/character-gallery.storage.js");
@@ -79,6 +80,7 @@ const app = Fastify();
 app.decorate("db", db);
 await app.register(requireServer("@fastify/multipart"));
 await app.register(galleryRoutes, { prefix: "/api/gallery" });
+await app.register(backupRoutes, { prefix: "/api/backup" });
 const { charactersRoutes } = await import("../../packages/server/src/routes/characters.routes.js");
 await app.register(charactersRoutes, { prefix: "/api/characters" });
 
@@ -842,8 +844,7 @@ try {
     "a gallery-only image replaces nothing",
   );
 
-  // A swap that fails partway is rolled back: the first message gets its old image back and the
-  // unused new row is removed, so a retry starts clean.
+  // Selection and all reference swaps roll back together if the transaction fails at commit.
   const sharedImage = await gallery.create({
     chatId: chat.id,
     filePath: `${chat.id}/shared.png`,
@@ -866,12 +867,16 @@ try {
   } as never);
   assert.ok(firstShared?.id && secondShared?.id);
   const galleryCountBefore = (await gallery.listByChatId(chat.id)).length;
+  const galleryBeforeFailure = structuredClone(await gallery.listByChatId(chat.id));
+  const swipesBeforeFailure = structuredClone(await chats.listSwipesByMessageIds([firstShared.id, secondShared.id]));
   const realTransaction = db.transaction.bind(db);
   let transactionCalls = 0;
   db.transaction = ((fn: Parameters<typeof realTransaction>[0]) => {
     transactionCalls += 1;
-    if (transactionCalls === 2) return Promise.reject(new Error("simulated storage failure"));
-    return realTransaction(fn);
+    return realTransaction(async (tx) => {
+      await fn(tx);
+      throw new Error("simulated storage failure after reference updates");
+    });
   }) as typeof db.transaction;
   let failedSwap;
   try {
@@ -884,20 +889,21 @@ try {
     db.transaction = realTransaction as typeof db.transaction;
   }
   assert.equal(failedSwap.statusCode, 502, failedSwap.body);
-  assert.equal(transactionCalls, 3, "first swap applied, second failed, first undone");
+  assert.equal(transactionCalls, 1, "one transaction owns selection and all reference updates");
   for (const id of [firstShared.id, secondShared.id]) {
     const extra = (await chats.getMessage(id))?.extra;
     const attachments = (typeof extra === "string" ? JSON.parse(extra) : extra).attachments;
     assert.equal(attachments[0].galleryId, sharedImage.id, "every message is back on the original image");
   }
   assert.equal((await gallery.listByChatId(chat.id)).length, galleryCountBefore, "the unused new row is removed");
+  assert.deepEqual(await gallery.listByChatId(chat.id), galleryBeforeFailure);
+  assert.deepEqual(await chats.listSwipesByMessageIds([firstShared.id, secondShared.id]), swipesBeforeFailure);
 
-  // If the undo itself fails, the first message still points at the new image, so it is kept.
+  // A transaction rejected before it starts also leaves every original intact.
   transactionCalls = 0;
-  db.transaction = ((fn: Parameters<typeof realTransaction>[0]) => {
+  db.transaction = ((_fn: Parameters<typeof realTransaction>[0]) => {
     transactionCalls += 1;
-    if (transactionCalls >= 2) return Promise.reject(new Error("simulated storage failure"));
-    return realTransaction(fn);
+    return Promise.reject(new Error("simulated storage failure before transaction"));
   }) as typeof db.transaction;
   let failedUndo;
   try {
@@ -913,8 +919,8 @@ try {
   const strandedExtra = (await chats.getMessage(firstShared.id))?.extra;
   const strandedId = (typeof strandedExtra === "string" ? JSON.parse(strandedExtra) : strandedExtra).attachments[0]
     .galleryId;
-  assert.notEqual(strandedId, sharedImage.id, "the failed undo left the first message on the new image");
-  assert.ok(await gallery.getById(strandedId, chat.id), "so the new image row is kept, not deleted");
+  assert.equal(strandedId, sharedImage.id, "a failed transaction never leaves a stranded reference");
+  assert.equal((await gallery.listByChatId(chat.id)).length, galleryCountBefore);
 
   // Rejections: a picked connection that is gone, an unknown image, an empty prompt.
   const missingConnection = await app.inject({
@@ -1441,7 +1447,226 @@ try {
   });
   assert.equal(noAvatar.statusCode, 400);
 
-  console.log("chat-image-generation-record: ok (record, storage round trip, regenerate route)");
+  // Version stacks retain originals and select from the whole group when an older version is edited.
+  const { groupChatImageVariants } = await import("../../packages/shared/src/utils/chat-image-variants.js");
+  const versionSource = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/version-original.png`,
+    prompt: "original version",
+    generation: buildChatImageGenerationRecord({
+      prompt: "original version",
+      connectionId: connection.id,
+      negativePrompt: "original negative",
+    }),
+  });
+  assert.ok(versionSource);
+  writeFileSync(join(fixtureDir, "gallery", versionSource.filePath), naiCanvas);
+  const regenerateVersion = (prompt: string) =>
+    app.inject({
+      method: "POST",
+      url: `/api/gallery/${chat.id}/images/${versionSource.id}/regenerate`,
+      payload: { prompt, connectionId: connection.id },
+    });
+  const versionMessage = await chats.createMessage({
+    chatId: chat.id,
+    role: "assistant",
+    content: "Versions",
+    extra: { attachments: [{ type: "image", galleryId: versionSource.id, url: "original", caption: "keep caption" }] },
+  } as never);
+  const v2Response = await regenerateVersion("second version");
+  assert.equal(v2Response.statusCode, 200, v2Response.body);
+  const v2 = v2Response.json().image;
+  const v3Response = await regenerateVersion("edit original after second version");
+  assert.equal(v3Response.statusCode, 200, v3Response.body);
+  const v3 = v3Response.json().image;
+  const versionStack = groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+    stack.versions.some((row) => row.id === versionSource.id),
+  )!;
+  assert.equal(versionStack.versions.length, 3);
+  assert.equal(versionStack.selected.id, v3.id);
+  const attachmentIds = async () => JSON.parse((await chats.getMessage(versionMessage!.id))!.extra).attachments;
+  assert.equal((await attachmentIds())[0].galleryId, v3.id, "editing an older version selects its result in chat");
+  assert.equal((await attachmentIds())[0].caption, "keep caption");
+  const choose = await app.inject({ method: "POST", url: `/api/gallery/${chat.id}/images/${versionSource.id}/select` });
+  assert.equal(choose.statusCode, 200, choose.body);
+  assert.equal((await attachmentIds())[0].galleryId, versionSource.id);
+  assert.equal(parseChatImageGenerationRecord(choose.json().image.generation)?.negativePrompt, "original negative");
+  assert.equal(
+    parseChatImageGenerationRecord((await gallery.getById(v2.id, chat.id))!.generation)?.prompt,
+    "second version",
+  );
+  const otherVersionChat = await chats.create({ name: "Other version owner", mode: "roleplay", characterIds: [] });
+  const wrongVersionOwner = await app.inject({
+    method: "POST",
+    url: `/api/gallery/${otherVersionChat!.id}/images/${v2.id}/select`,
+  });
+  assert.equal(wrongVersionOwner.statusCode, 404, wrongVersionOwner.body);
+  const { copyChatImageVersionsForBranch, selectChatImageVersion, deleteChatImageVersions } =
+    await import("../../packages/server/src/services/image/chat-image-variants.js");
+  const branchExtra = {
+    attachments: [{ type: "image", galleryId: versionSource.id, url: "source URL", prompt: "stale prompt" }],
+  };
+  await selectChatImageVersion(db, chat.id, v3.id);
+  await copyChatImageVersionsForBranch(db, chat.id, otherVersionChat!.id, [branchExtra]);
+  const branchRows = await gallery.listByChatId(otherVersionChat!.id);
+  assert.equal(branchRows.length, 3, "a copied attachment brings the entire stack");
+  assert.notEqual(branchExtra.attachments[0]!.galleryId, versionSource.id);
+  assert.equal(groupChatImageVariants(branchRows)[0]!.selected.id, branchExtra.attachments[0]!.galleryId);
+  assert.equal(branchExtra.attachments[0]!.prompt, versionSource.prompt);
+  const branchV2 = branchRows.find((row) => row.filePath === v2.filePath)!;
+  assert.ok(branchV2);
+  await selectChatImageVersion(db, otherVersionChat!.id, branchV2.id);
+  assert.equal(
+    groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+      stack.versions.some((row) => row.id === versionSource.id),
+    )!.selected.id,
+    v3.id,
+    "branch selection cannot change its source chat",
+  );
+  await deleteChatImageVersions(db, otherVersionChat!.id, branchV2.id, "stack");
+  assert.ok(await gallery.getById(v2.id, chat.id), "deleting the branch stack retains source metadata");
+  assert.ok(
+    readFileSync(join(fixtureDir, "gallery", v2.filePath)).length,
+    "deleting a branch cannot unlink the source file",
+  );
+  await selectChatImageVersion(db, chat.id, versionSource.id);
+  const staleDelete = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=others`,
+    payload: { versionIds: [versionSource.id, v2.id] },
+  });
+  assert.equal(staleDelete.statusCode, 409, staleDelete.body);
+  assert.ok(await gallery.getById(v3.id, chat.id), "a stale confirmation cannot remove a newly added version");
+  const beforeDeleteFailure = structuredClone(await gallery.listByChatId(chat.id));
+  const beforeDeleteAttachments = await attachmentIds();
+  let deletedRows = 0;
+  const { chatImages } = await import("../../packages/server/src/db/schema/index.js");
+  db.transaction = ((fn: Parameters<typeof realTransaction>[0]) =>
+    realTransaction(async (tx) => {
+      const originalDelete = tx.delete;
+      tx.delete = ((table: Parameters<typeof tx.delete>[0]) => {
+        if (table === chatImages && ++deletedRows === 2) throw new Error("simulated second version removal failure");
+        return originalDelete.call(tx, table);
+      }) as typeof tx.delete;
+      try {
+        return await fn(tx);
+      } finally {
+        tx.delete = originalDelete;
+      }
+    })) as typeof db.transaction;
+  try {
+    const failedDelete = await app.inject({
+      method: "DELETE",
+      url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=others`,
+      payload: { versionIds: [versionSource.id, v2.id, v3.id] },
+    });
+    assert.equal(failedDelete.statusCode, 500, failedDelete.body);
+  } finally {
+    db.transaction = realTransaction as typeof db.transaction;
+  }
+  assert.deepEqual(
+    await gallery.listByChatId(chat.id),
+    beforeDeleteFailure,
+    "a multi-version delete cannot partially commit",
+  );
+  assert.deepEqual(await attachmentIds(), beforeDeleteAttachments);
+  assert.ok(readFileSync(join(fixtureDir, "gallery", v2.filePath)).length);
+  assert.ok(readFileSync(join(fixtureDir, "gallery", v3.filePath)).length);
+  const { sanitizeProfileTableRows } = await import("../../packages/server/src/routes/backup.routes.js");
+  const exportedVersions = JSON.parse(
+    JSON.stringify(sanitizeProfileTableRows("chat_images", await gallery.listByChatId(chat.id))),
+  );
+  assert.equal(
+    groupChatImageVariants(exportedVersions).find((stack) => stack.versions.some((row) => row.id === versionSource.id))!
+      .selected.id,
+    versionSource.id,
+    "profile row export keeps grouping and selection",
+  );
+  const profileResponse = await app.inject({ method: "GET", url: "/api/backup/export-profile" });
+  assert.equal(profileResponse.statusCode, 200, profileResponse.body);
+  const exportedProfile = profileResponse.json();
+  const zipProfileResponse = await app.inject({ method: "GET", url: "/api/backup/export-profile?format=zip" });
+  assert.equal(zipProfileResponse.statusCode, 200, zipProfileResponse.body);
+  const removedOriginal = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${versionSource.id}/versions?scope=version`,
+  });
+  assert.equal(removedOriginal.statusCode, 200, removedOriginal.body);
+  assert.equal(removedOriginal.json().selectedImageId, v3.id);
+  assert.equal((await attachmentIds())[0].galleryId, v3.id);
+  assert.ok(await gallery.getById(v2.id, chat.id));
+  const removeOthers = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${v2.id}/versions?scope=others`,
+    payload: { versionIds: [v2.id, v3.id] },
+  });
+  assert.equal(removeOthers.statusCode, 200, removeOthers.body);
+  assert.equal((await attachmentIds())[0].galleryId, v2.id);
+  assert.equal(await gallery.getById(v3.id, chat.id), null);
+  const removeStack = await app.inject({
+    method: "DELETE",
+    url: `/api/gallery/${chat.id}/images/${v2.id}/versions?scope=stack`,
+    payload: { versionIds: [v2.id] },
+  });
+  assert.equal(removeStack.statusCode, 200, removeStack.body);
+  assert.deepEqual(await attachmentIds(), []);
+  const importedProfile = await app.inject({
+    method: "POST",
+    url: "/api/backup/import-profile",
+    payload: exportedProfile,
+  });
+  assert.equal(importedProfile.statusCode, 200, importedProfile.body);
+  const restoredStack = groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+    stack.versions.some((row) => row.id === versionSource.id),
+  );
+  assert.equal(restoredStack?.versions.length, 3, "native profile export/import restores every version");
+  assert.equal(
+    restoredStack?.selected.id,
+    versionSource.id,
+    "native profile export/import restores the saved selection",
+  );
+  assert.equal(restoredStack?.versions.find((row) => row.id === v2.id)?.generation, v2.generation);
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", versionSource.filePath)), naiCanvas);
+  await deleteChatImageVersions(db, chat.id, versionSource.id, "stack");
+  const boundary = "chat-image-version-profile";
+  const zipImport = await app.inject({
+    method: "POST",
+    url: "/api/backup/import-profile",
+    headers: { "content-type": `multipart/form-data; boundary=${boundary}` },
+    payload: Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="profile.zip"\r\nContent-Type: application/zip\r\n\r\n`,
+      ),
+      zipProfileResponse.rawPayload,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]),
+  });
+  assert.equal(zipImport.statusCode, 200, zipImport.body);
+  const zipStack = groupChatImageVariants(await gallery.listByChatId(chat.id)).find((stack) =>
+    stack.versions.some((row) => row.id === versionSource.id),
+  );
+  assert.equal(zipStack?.versions.length, 3, "native profile ZIP restores every version");
+  assert.equal(zipStack?.selected.id, versionSource.id);
+  assert.equal(zipStack?.versions.find((row) => row.id === v2.id)?.generation, v2.generation);
+  assert.deepEqual(readFileSync(join(fixtureDir, "gallery", versionSource.filePath)), naiCanvas);
+  const legacyGroups = groupChatImageVariants([
+    { id: "one", chatId: "a", createdAt: "1" },
+    { id: "two", chatId: "a", createdAt: "2" },
+    { id: "other", chatId: "b", createdAt: "3", variantGroupId: "one" },
+  ]);
+  assert.equal(legacyGroups.length, 3, "legacy pictures and other owners never merge by accident");
+
+  const beforeReopen = groupChatImageVariants(await gallery.listByChatId(chat.id));
+  await closeDB();
+  const reopened = await getDB();
+  assert.deepEqual(
+    groupChatImageVariants(await createGalleryStorage(reopened).listByChatId(chat.id)),
+    beforeReopen,
+    "version metadata and saved requests survive an actual store close and reopen",
+  );
+  console.log(
+    "chat-image-generation-record: ok (record, storage round trip, regenerate route, version selection and deletion)",
+  );
 } finally {
   await app.close();
   provider.closeAllConnections();

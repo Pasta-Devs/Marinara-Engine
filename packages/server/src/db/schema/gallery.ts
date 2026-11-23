@@ -24,6 +24,10 @@ export const chatImages = fileTable("chat_images", {
   height: integer("height"),
   /** JSON ChatImageGenerationRecord: the request this image was rendered from, for regeneration. Null on older rows. */
   generation: text("generation"),
+  /** Stable version-stack identity; null on standalone and legacy pictures. */
+  variantGroupId: text("variant_group_id"),
+  /** One selected version per chat-scoped stack. */
+  variantSelected: integer("variant_selected").notNull().default(0),
   /** Gallery label: "emoji" | "sticker" | "background", or null. Carried over when the picture is assigned to a character or persona. */
   customKind: text("custom_kind"),
   /** Emoji/sticker slug, or a background's place names. */
