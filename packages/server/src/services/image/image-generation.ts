@@ -24,7 +24,7 @@ import {
   mergeNegativePrompt,
   mergePromptPrefix,
   imageConnectionMakesAnimatedGif,
-  isNativeNovelAiUrl,
+  imageEditValidationError,
   isOpenAIGptImageModel,
   isOpenAIGptImage2Model,
   isOpenAIGptImage25Model,
@@ -324,15 +324,13 @@ export async function generateImage(
 ): Promise<ImageGenResult> {
   const resolvedSource = resolveImageBackend(source, baseUrl, serviceHint, request.model);
   const normalizedBaseUrl = normalizeImageUrl(baseUrl);
-  const isNativeNovelAiTarget = resolvedSource === "novelai" && isNativeNovelAiUrl(normalizedBaseUrl);
-  if (request.editMode && !isNativeNovelAiTarget) {
-    throw new NovelAiEditInputError(NOVELAI_EDIT_NATIVE_ONLY_MESSAGE);
-  }
-  if (request.maskImage && request.editMode !== "infill") {
-    throw new NovelAiEditInputError("A mask image is only valid for inpainting edits.");
-  }
-  if (request.seedOverride !== undefined && !isNativeNovelAiTarget) {
-    throw new NovelAiEditInputError("Reusing the original seed requires a native NovelAI connection.");
+  const editError = imageEditValidationError(
+    { source, baseUrl: normalizedBaseUrl, serviceHint, model: request.model },
+    request,
+  );
+  if (editError) throw new NovelAiEditInputError(editError);
+  if (request.editMode && !request.sourceImage?.trim()) {
+    throw new NovelAiEditInputError("Image edit requires a source image.");
   }
   if (request.animation) {
     // Refused before any queue slot or paid call. An empty reference list or field is no picture.
@@ -479,14 +477,10 @@ export async function generateImage(
       throw new ToAPIsSubmittedTaskError(error);
     }
     if (!fallback || request.signal?.aborted || isConnectionAdmissionFailure(error)) throw error;
-    if (
-      (request.editMode || request.seedOverride !== undefined) &&
-      (resolveImageBackend(fallback.source, fallback.baseUrl, fallback.serviceHint, fallback.model) !== "novelai" ||
-        !isNativeNovelAiUrl(fallback.baseUrl))
-    ) {
+    if ((request.editMode || request.seedOverride !== undefined) && imageEditValidationError(fallback, request)) {
       logger.warn(
         error,
-        "[illustrator-fallback] Primary NovelAI %s failed; skipped non-NovelAI fallback connection %s",
+        "[illustrator-fallback] Primary %s failed; skipped incompatible fallback connection %s",
         request.editMode ? "edit" : "seed-reuse generation",
         fallback.connectionId,
       );
@@ -2958,18 +2952,27 @@ export async function prepareNovelAiEditInputs(
   sourceImage: string,
   maskImage?: string,
 ): Promise<{ width: number; height: number; imageBase64: string; maskBase64?: string }> {
+  return prepareImageEditInputs(sourceImage, maskImage, "novelai");
+}
+
+/** Share decoding, safety limits and binary masks; preserve each backend's canvas and mask granularity. */
+async function prepareImageEditInputs(
+  sourceImage: string,
+  maskImage: string | undefined,
+  backend: "novelai" | "automatic1111" | "drawthings",
+): Promise<{ width: number; height: number; imageBase64: string; maskBase64?: string }> {
   let sourceBuffer: Buffer;
   try {
     sourceBuffer = Buffer.from(decodeReferenceImage(sourceImage).base64, "base64");
   } catch (err) {
     const detail = err instanceof Error ? ` ${err.message}` : "";
-    throw new NovelAiEditInputError(`NovelAI edit source image could not be decoded.${detail}`);
+    throw new NovelAiEditInputError(`Edit source image could not be decoded.${detail}`);
   }
 
   const sharpFn = await tryLoadSharp();
   if (!sharpFn) {
     throw new Error(
-      "NovelAI image editing requires server image preprocessing, but the optional sharp dependency is unavailable.",
+      "Image editing requires server image preprocessing, but the optional sharp dependency is unavailable.",
     );
   }
 
@@ -2978,13 +2981,29 @@ export async function prepareNovelAiEditInputs(
     metadata = await sharpFn(sourceBuffer, { limitInputPixels: NOVELAI_REFERENCE_MAX_INPUT_PIXELS }).metadata();
   } catch (err) {
     const detail = err instanceof Error ? ` ${err.message}` : "";
-    throw new NovelAiEditInputError(`NovelAI edit source image could not be read.${detail}`);
+    throw new NovelAiEditInputError(`Edit source image could not be read.${detail}`);
   }
   if (!metadata.width || !metadata.height) {
-    throw new NovelAiEditInputError("NovelAI edit source image dimensions could not be read.");
+    throw new NovelAiEditInputError("Edit source image dimensions could not be read.");
   }
 
-  const size = clampNovelAiCanvasSize(metadata.width, metadata.height);
+  const canvasStep = backend === "drawthings" ? 64 : 8;
+  const canvasMin = backend === "drawthings" ? 128 : 64;
+  const canvasMax = backend === "drawthings" ? 8192 : Infinity;
+  const canvasScale = Math.min(1, canvasMax / Math.max(metadata.width, metadata.height));
+  const size =
+    backend === "novelai"
+      ? clampNovelAiCanvasSize(metadata.width, metadata.height)
+      : {
+          width: Math.min(
+            canvasMax,
+            Math.max(canvasMin, Math.round((metadata.width * canvasScale) / canvasStep) * canvasStep),
+          ),
+          height: Math.min(
+            canvasMax,
+            Math.max(canvasMin, Math.round((metadata.height * canvasScale) / canvasStep) * canvasStep),
+          ),
+        };
   let preparedSource: Buffer;
   try {
     preparedSource = await sharpFn(sourceBuffer, {
@@ -3014,8 +3033,9 @@ export async function prepareNovelAiEditInputs(
     throw new NovelAiEditInputError(`Inpainting mask could not be decoded.${detail}`);
   }
 
-  const gridW = Math.max(1, Math.floor(size.width / 8));
-  const gridH = Math.max(1, Math.floor(size.height / 8));
+  const blockSize = backend === "novelai" ? 8 : 1;
+  const gridW = Math.max(1, Math.floor(size.width / blockSize));
+  const gridH = Math.max(1, Math.floor(size.height / blockSize));
   let fullMask: { data: Buffer; info: { channels: number } };
   try {
     fullMask = await sharpFn(maskBuffer, { limitInputPixels: NOVELAI_REFERENCE_MAX_INPUT_PIXELS })
@@ -3036,11 +3056,11 @@ export async function prepareNovelAiEditInputs(
   for (let gy = 0; gy < gridH; gy++) {
     for (let gx = 0; gx < gridW; gx++) {
       let paintedBlock = false;
-      const baseY = gy * 8;
-      const baseX = gx * 8;
-      for (let dy = 0; dy < 8 && !paintedBlock; dy++) {
+      const baseY = gy * blockSize;
+      const baseX = gx * blockSize;
+      for (let dy = 0; dy < blockSize && !paintedBlock; dy++) {
         const rowOffset = (baseY + dy) * size.width;
-        for (let dx = 0; dx < 8; dx++) {
+        for (let dx = 0; dx < blockSize; dx++) {
           const luma = fullMask.data[(rowOffset + baseX + dx) * channels] ?? 0;
           if (luma > 155) {
             paintedBlock = true;
@@ -5072,15 +5092,22 @@ async function generateAutomatic1111(
   const base = baseUrl.replace(/\/+$/, "");
   const isDrawThings = serviceHint?.trim().toLowerCase() === "drawthings";
   const defaults = resolveAutomatic1111Defaults(request);
-  const useImg2Img = !!(request.referenceImage || request.referenceImages?.length);
+  const editInputs = request.editMode
+    ? await prepareImageEditInputs(
+        request.sourceImage!,
+        request.maskImage,
+        isDrawThings ? "drawthings" : "automatic1111",
+      )
+    : null;
+  const useImg2Img = !!(editInputs || request.referenceImage || request.referenceImages?.length);
 
   const body: Record<string, unknown> = {
     prompt: mergePromptPrefix(defaults.promptPrefix, request.prompt),
     negative_prompt: mergeNegativePrompt(defaults.negativePromptPrefix, request.negativePrompt),
-    width: request.width ?? 512,
-    height: request.height ?? 768,
+    width: editInputs?.width ?? request.width ?? 512,
+    height: editInputs?.height ?? request.height ?? 768,
     steps: defaults.steps,
-    seed: resolveSeed(request.imageDefaults),
+    seed: readValidSeedNumber(request.seedOverride) ?? resolveSeed(request.imageDefaults),
     sampler_name: defaults.sampler || DEFAULT_AUTOMATIC1111_DEFAULTS.sampler,
   };
 
@@ -5118,18 +5145,35 @@ async function generateAutomatic1111(
   }
 
   if (useImg2Img) {
-    const rawInit = decodeReferenceImage((request.referenceImage ?? request.referenceImages?.[0]) as string).base64;
+    const rawInit =
+      editInputs?.imageBase64 ??
+      decodeReferenceImage((request.referenceImage ?? request.referenceImages?.[0]) as string).base64;
     // Draw Things rejects img2img if init_images dimensions don't match the requested
     // width/height exactly. A1111/Forge auto-resize internally; Draw Things does not.
     const initImage = isDrawThings
       ? await resizeBase64ToExactSize(rawInit, body.width as number, body.height as number)
       : rawInit;
     body.init_images = [initImage];
-    body.denoising_strength = defaults.denoisingStrength;
+    body.denoising_strength = editInputs ? (request.strength ?? 0.7) : defaults.denoisingStrength;
+    if (editInputs?.maskBase64) {
+      body.mask = editInputs.maskBase64;
+      body.inpainting_mask_invert = 0;
+      body.inpaint_full_res = false;
+      body.mask_blur = 0;
+    }
   }
 
   const endpoint = useImg2Img ? `${base}/sdapi/v1/img2img` : `${base}/sdapi/v1/txt2img`;
   const label = isDrawThings ? "Draw Things" : "AUTOMATIC1111";
+  logDebugOverride(
+    request.debugMode === true,
+    "[debug/image/automatic1111] final request payload:\n%s",
+    imagePayloadForLog({
+      ...body,
+      ...(body.init_images ? { init_images: "[source image]" } : {}),
+      ...(body.mask ? { mask: "[mask image]" } : {}),
+    }),
+  );
 
   const resp = await localImageBackendFetch(
     endpoint,
@@ -5154,5 +5198,10 @@ async function generateAutomatic1111(
     throw new Error(`No image data in ${label} response${hint}`);
   }
 
-  return { base64: b64, mimeType: "image/png", ext: "png" };
+  return {
+    base64: b64,
+    mimeType: "image/png",
+    ext: "png",
+    ...(editInputs ? { width: editInputs.width, height: editInputs.height } : {}),
+  };
 }

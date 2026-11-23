@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { buildChatImageGenerationRecord, type SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
 import type { ChatImage } from "../packages/client/src/hooks/use-gallery.js";
 import { openChatSettingsTool, closeChatSettings } from "./chat-settings-tools.js";
+import { chooseConnection } from "./connection-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -298,6 +299,131 @@ async function watchBackgroundMessageEdits(page: Page) {
     window.addEventListener("marinara:start-edit-message", () => {
       document.body.dataset.imageViewerMessageEdits = String(Number(document.body.dataset.imageViewerMessageEdits) + 1);
     });
+  });
+}
+
+for (const service of ["automatic1111", "drawthings"] as const) {
+  test(`${service} uses shared canvas editing with only its supported controls`, async ({ page, request }, info) => {
+    test.setTimeout(90_000);
+    const response = await request.post("/api/chats", {
+      data: { name: `Canvas edit ${service}`, mode: "roleplay", characterIds: [], connectionId: "synthetic" },
+    });
+    expect(response.ok()).toBeTruthy();
+    const { id: chatId } = await response.json();
+    try {
+      const png = await sharp({ create: { width: 640, height: 360, channels: 3, background: "#164e63" } })
+        .png()
+        .toBuffer();
+      const image = await upload(request, chatId, "Harbor portrait", png);
+      const generation =
+        service === "drawthings"
+          ? null
+          : JSON.stringify(buildChatImageGenerationRecord({ prompt: image.prompt, connectionId: "canvas-e2e" }));
+      await page.route("**/api/connections", (route) =>
+        route.fulfill({
+          json: [
+            {
+              id: "global-a1111",
+              name: "Global A1111",
+              provider: "image_generation",
+              imageService: "automatic1111",
+              baseUrl: "http://127.0.0.1:9999",
+              model: "fixture",
+              defaultForAgents: service === "drawthings",
+            },
+            {
+              id: "canvas-e2e",
+              name: service,
+              provider: "image_generation",
+              imageService: service,
+              baseUrl: "http://127.0.0.1:9999",
+              model: "fixture",
+              defaultForAgents: service !== "drawthings",
+            },
+          ],
+        }),
+      );
+      await page.route(`**/api/gallery/${chatId}/images/${image.id}/edit-connection`, (route) =>
+        route.fulfill({ json: { connectionId: "canvas-e2e" } }),
+      );
+      await page.route(`**/api/gallery/${chatId}`, async (route) => {
+        const upstream = await route.fetch();
+        await route.fulfill({
+          response: upstream,
+          json: (await upstream.json()).map((row: ChatImage) => ({ ...row, generation })),
+        });
+      });
+      const edits: Record<string, unknown>[] = [];
+      await page.route(`**/api/gallery/${chatId}/images/${image.id}/regenerate`, async (route) => {
+        edits.push(route.request().postDataJSON());
+        await route.fulfill({
+          json: { image: { ...image, generation }, replacedMessageIds: [], replacedKeyframeIds: [] },
+        });
+      });
+      await openChat(page, chatId);
+      const drawer = await openChatSettingsTool(page, "gallery");
+      await openGalleryImage(drawer, image.prompt);
+      const dialog = page.getByRole("dialog", { name: "Image preview", exact: true });
+      await dialog.getByRole("button", { name: "Regenerate image", exact: true }).click();
+      await dialog.getByRole("button", { name: "Edit image", exact: true }).click();
+      await expect(dialog.getByLabel("Strength", { exact: true })).toBeVisible();
+      await expect(dialog.getByLabel("Noise", { exact: true })).toHaveCount(0);
+      await expect(dialog.getByRole("checkbox", { name: /Reuse original seed/ })).toHaveCount(0);
+      const canvas = dialog.getByLabel("Inpainting mask brush canvas");
+      if (service === "automatic1111") await expect(canvas).toBeVisible();
+      else await expect(canvas).toHaveCount(0);
+      await dialog.getByRole("button", { name: "Apply edit", exact: true }).click();
+      await expect.poll(() => edits.length).toBe(1);
+      expect(edits[0]).toEqual(
+        expect.objectContaining({ editMode: "img2img", strength: 0.7, connectionId: "canvas-e2e" }),
+      );
+      expect(edits[0]).not.toHaveProperty("noise");
+      expect(edits[0]).not.toHaveProperty("reuseSeed");
+      expect(edits[0]).not.toHaveProperty("maskImage");
+      if (service === "automatic1111") {
+        await expect(dialog.getByRole("button", { name: "Apply edit", exact: true })).toBeEnabled();
+        const resultToast = page.locator("[data-sonner-toast]").filter({ hasText: "Image regenerated." });
+        await resultToast.getByRole("button", { name: "Close toast", exact: true }).click();
+        await expect(resultToast).toHaveCount(0);
+        await canvas.hover({ position: { x: 20, y: 20 } });
+        const box = (await canvas.boundingBox())!;
+        await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4);
+        await page.mouse.down();
+        await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.6, { steps: 5 });
+        await page.mouse.up();
+        await expect(dialog.getByText("Inpainting mask active", { exact: true })).toBeVisible();
+        await dialog.getByRole("button", { name: "Inpaint image", exact: true }).click();
+        await expect.poll(() => edits.length).toBe(2);
+        expect(edits[1]).toEqual(expect.objectContaining({ editMode: "infill", strength: 1 }));
+        expect(edits[1]?.maskImage).toMatch(/^data:image\/png;base64,/);
+      }
+      if (service === "drawthings") {
+        const resultToast = page.locator("[data-sonner-toast]").filter({ hasText: "Image regenerated." });
+        await resultToast.getByRole("button", { name: "Close toast", exact: true }).click();
+        await chooseConnection(page, dialog.locator("[data-connection-value]"), "global-a1111");
+        await expect(canvas).toBeVisible();
+        await dialog.getByRole("button", { name: "Apply edit", exact: true }).click();
+        await expect.poll(() => edits.length).toBe(2);
+        expect(edits[1]).toEqual(expect.objectContaining({ connectionId: "global-a1111", editMode: "img2img" }));
+        await chooseConnection(page, dialog.locator("[data-connection-value]"), "canvas-e2e");
+        await expect(canvas).toHaveCount(0);
+      }
+      for (const visualTheme of ["default", "sillytavern"] as const) {
+        for (const theme of ["light", "dark"] as const) {
+          await page.evaluate(
+            async ({ visualTheme, theme }) => {
+              const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+              useUIStore.getState().setVisualTheme(visualTheme);
+              useUIStore.getState().setTheme(theme);
+            },
+            { visualTheme, theme },
+          );
+          await screenshot(page, info, `${service}-${visualTheme}-${theme}`);
+        }
+      }
+    } finally {
+      await request.delete(`/api/chats/${chatId}`);
+    }
   });
 }
 

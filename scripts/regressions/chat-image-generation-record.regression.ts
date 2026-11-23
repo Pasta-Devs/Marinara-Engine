@@ -301,6 +301,27 @@ try {
     }),
   });
   assert.ok(illustration?.id);
+  const inheritedCanvas = await createConnectionsStorage(db).create({
+    name: "Chat canvas inheritance fixture",
+    provider: "image_generation",
+    imageService: "drawthings",
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    model: "fixture",
+  });
+  assert.ok(inheritedCanvas?.id);
+  await chats.updateMetadata(chat.id, { illustratorImageConnectionId: inheritedCanvas.id });
+  const editConnectionUrl = (imageId: string) => `/api/gallery/${chat.id}/images/${imageId}/edit-connection`;
+  const inheritedEditConnection = await app.inject({ method: "GET", url: editConnectionUrl(legacy!.id) });
+  assert.equal(inheritedEditConnection.statusCode, 200, inheritedEditConnection.body);
+  assert.deepEqual(inheritedEditConnection.json(), { connectionId: inheritedCanvas.id });
+  const recordedEditConnection = await app.inject({ method: "GET", url: editConnectionUrl(illustration.id) });
+  assert.deepEqual(recordedEditConnection.json(), { connectionId: connection.id });
+  const missingEditConnection = await app.inject({ method: "GET", url: editConnectionUrl("missing-image") });
+  assert.equal(missingEditConnection.statusCode, 404);
+  await chats.updateMetadata(chat.id, { illustratorImageConnectionId: null });
+  const defaultEditConnection = await app.inject({ method: "GET", url: editConnectionUrl(legacy!.id) });
+  assert.deepEqual(defaultEditConnection.json(), { connectionId: connection.id });
+
   const message = await chats.createMessage({
     chatId: chat.id,
     role: "assistant",
@@ -1361,6 +1382,55 @@ try {
     assert.equal(novelAiRequests[4]?.action, "infill");
     assert.equal((await nativeEntityGallery.listByCharacterId(nativeEntityOwner.id)).length, 3);
     assert.equal((await nativeEntityGallery.getById(nativeEntitySource.id))?.prompt, "native source");
+    // Every gallery edit route admits the same provider capabilities before loading its source canvas.
+    const canvasChat = await chats.create({ name: "Canvas edit providers", mode: "roleplay" });
+    assert.ok(canvasChat);
+    const canvasImage = await gallery.create({
+      chatId: canvasChat.id,
+      filePath: infillSavedRow.filePath,
+      prompt: "Canvas source",
+      generation: buildChatImageGenerationRecord({ prompt: "Canvas source" }),
+    });
+    assert.ok(canvasImage);
+    for (const service of ["automatic1111", "drawthings"]) {
+      const canvasConnection = await createConnectionsStorage(db).create({
+        name: service,
+        provider: "image_generation",
+        model: "fixture",
+        imageService: service,
+        imageGenerationSource: service,
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "fixture",
+      });
+      assert.ok(canvasConnection);
+      for (const url of [nativeEntityUrl, `/api/gallery/${canvasChat.id}/images/${canvasImage.id}/regenerate`]) {
+        const result = await app.inject({
+          method: "POST",
+          url,
+          payload: {
+            prompt: "A blue shirt",
+            editMode: "img2img",
+            strength: 0.42,
+            connectionId: canvasConnection.id,
+          },
+        });
+        assert.equal(result.statusCode, 200, `${service}, ${url}: ${result.body}`);
+        const row = result.json().image ?? result.json();
+        const saved = parseChatImageGenerationRecord(row.generation);
+        assert.equal(saved?.connectionId, canvasConnection.id);
+        const masked = await app.inject({
+          method: "POST",
+          url,
+          payload: {
+            prompt: "A blue shirt",
+            editMode: "infill",
+            maskImage: naiMask.toString("base64"),
+            connectionId: canvasConnection.id,
+          },
+        });
+        assert.equal(masked.statusCode, service === "drawthings" ? 400 : 200, masked.body);
+      }
+    }
   } finally {
     fetchMock.mock.restore();
     dnsMock.mock.restore();

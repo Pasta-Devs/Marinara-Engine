@@ -8,8 +8,7 @@ import { readGalleryTagPayload } from "../services/image/gallery-tag-payload.js"
 import {
   buildChatImageGenerationRecord,
   parseChatImageGenerationRecord,
-  isNativeNovelAiUrl,
-  resolveImageBackend,
+  imageEditValidationError,
 } from "@marinara-engine/shared";
 import type { DB } from "../db/connection.js";
 import { inArray } from "../db/file-query.js";
@@ -231,15 +230,11 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
         if (!connection) return reply.status(400).send({ error: "Choose an available image connection first." });
         const target = resolveGalleryImageTarget(connection);
         const { imageSource, imageModel, imageBaseUrl, imageServiceHint } = target;
-        const native =
-          resolveImageBackend(imageSource, imageBaseUrl, imageServiceHint, imageModel) === "novelai" &&
-          isNativeNovelAiUrl(imageBaseUrl);
-        if (input.maskImage && input.editMode !== "infill")
-          return reply.status(400).send({ error: "A mask image is only valid for inpainting edits." });
-        if ((input.editMode || input.reuseSeed) && !native)
-          return reply.status(400).send({ error: "Image edits and seed reuse require a native NovelAI connection." });
-        if (input.editMode === "infill" && !input.maskImage)
-          return reply.status(400).send({ error: "Inpainting requires a painted mask." });
+        const editError = imageEditValidationError(
+          { source: imageSource, baseUrl: imageBaseUrl, serviceHint: imageServiceHint, model: imageModel },
+          input,
+        );
+        if (editError) return reply.status(400).send({ error: editError });
         let source: Buffer | undefined;
         if (input.editMode || (input.reuseSeed && record?.seed === undefined)) {
           const file = resolveStoredGalleryFile(original!.filePath);
