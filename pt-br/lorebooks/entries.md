@@ -91,6 +91,8 @@ Esses controles decidem onde uma entrada ativada entra no prompt. Em uma tela la
 | **Depth** (profundidade) | Aparece só com **@ Depth**. Quantas mensagens antes da mais recente a entrada fica. Padrão 4. |
 | **Order** (ordem) | A sequência quando várias entradas são ativadas. Um número menor vem primeiro e sobrevive ao corte quando o orçamento está apertado. Padrão 100. |
 
+**Antes das definições dos personagens** e **Depois das definições dos personagens** entram onde o preset coloca os marcadores de lorebook. Um **Lorebook Marker (All)** (marcador de lorebook: todos) coloca as opções que um marcador anterior ainda não colocou; por isso, quando usado sozinho, coloca as duas juntas. O preset embutido **Marinara's Universal Preset** tem um desses marcadores antes do histórico do chat. Veja [Seções e marcadores](../prompts/presets.md#sections-and-markers).
+
 **Role** (papel) fica no painel expandido da entrada, não nos controles rápidos. Ele marca o texto inserido como **System**, **User** ou **Assistant**, só importa com **@ Depth** e tem **System** como padrão.
 
 Deixe esses controles nos valores padrão, a menos que uma entrada precise de mais. Use **@ Depth** com moderação. O texto cai entre as mensagens recentes como uma interrupção, então reserve essa opção para uma regra que o modelo vive esquecendo ou um fato que acabou de mudar. Por exemplo, "A taverna agora está pegando fogo." em **@ Depth** 1.

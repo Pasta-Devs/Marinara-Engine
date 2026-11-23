@@ -25,7 +25,7 @@ Jeśli preset ma zmienne, otwiera się okno **Configure Preset Variables** (konf
 
 ## Tworzenie presetu
 
-1. Otwórz panel **Presets** z paska bocznego.
+1. Otwórz panel **Presets** z górnego paska.
 2. Kliknij **New** (nowy, ikona plusa). Otwiera się okno **Create Preset** (tworzenie presetu).
 3. Wpisz nazwę w polu **Name** (nazwa). To pole jest wymagane. Jeśli chcesz, dodaj opis w polu **Description** (opis).
 4. Kliknij **Create** (utwórz). Preset otwiera się w **Preset Editor**.
@@ -140,7 +140,7 @@ Grupa zamyka kilka sekcji w jednym pojemniku.
 2. Kliknij nazwę grupy, żeby ją zmienić.
 3. Rozwiń sekcję i wybierz grupę z jej listy rozwijanej **Group**.
 
-Przy formacie **XML** grupa staje się jednym tagiem nadrzędnym. Przy **MARKDOWN** staje się jednym nagłówkiem. Usunięcie grupy nie usuwa jej sekcji. Przestają one tylko należeć do grupy.
+Przy formacie **XML** grupa staje się jednym tagiem nadrzędnym. Przy **MARKDOWN** staje się jednym nagłówkiem. Sekcje tej samej grupy, które nie sąsiadują ze sobą, dostają osobne tagi lub nagłówki. Usunięcie grupy nie usuwa jej sekcji. Przestają one tylko należeć do grupy.
 
 ### Pozycja i głębokość
 

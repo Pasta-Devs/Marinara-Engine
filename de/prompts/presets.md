@@ -25,7 +25,7 @@ Hat das Preset Variablen, öffnet sich das Fenster **Configure Preset Variables*
 
 ## Ein Preset anlegen
 
-1. Öffne das Panel **Presets** über die Seitenleiste.
+1. Öffne das Panel **Voreinstellungen** über die obere Leiste.
 2. Klick auf **New** (das Plus-Symbol). Das Fenster **Create Preset** (Preset erstellen) öffnet sich.
 3. Gib einen **Name** ein. Das Feld ist Pflicht. Ergänze bei Bedarf eine **Description** (Beschreibung).
 4. Klick auf **Create**. Das Preset öffnet sich im **Preset Editor**.
@@ -140,7 +140,7 @@ Eine Gruppe fasst mehrere Abschnitte in einem Container zusammen.
 2. Klick auf den Namen der Gruppe, um sie umzubenennen.
 3. Klapp einen Abschnitt auf und wähl die Gruppe in seinem Dropdown-Menü **Group**.
 
-Bei **XML** wird eine Gruppe zu einem übergeordneten Tag. Bei **MARKDOWN** wird sie zu einer Überschrift. Löschst du eine Gruppe, bleiben ihre Abschnitte erhalten. Sie verlieren nur die Gruppenzuordnung.
+Bei **XML** wird eine Gruppe zu einem übergeordneten Tag. Bei **MARKDOWN** wird sie zu einer Überschrift. Abschnitte derselben Gruppe, die nicht direkt nebeneinander stehen, bekommen jeweils ein eigenes Tag oder eine eigene Überschrift. Löschst du eine Gruppe, bleiben ihre Abschnitte erhalten. Sie verlieren nur die Gruppenzuordnung.
 
 ### Position und Tiefe
 

@@ -91,6 +91,8 @@ Diese Bedienelemente legen fest, wo ein aktivierter Eintrag im Prompt landet. Au
 | **Depth** | Erscheint nur bei **@ Depth**. Wie viele Nachrichten vor der neuesten der Eintrag sitzt. Standard 4. |
 | **Order** | Die Reihenfolge, wenn mehrere Einträge aktiv werden. Ein niedrigerer Wert kommt zuerst und übersteht das Kürzen, wenn das Budget knapp ist. Standard 100. |
 
+**Vor den Charakterdefinitionen** und **Nach den Charakterdefinitionen** werden dort eingefügt, wo das Preset seine Lorebook-Marker platziert. Ein **Lorebook Marker (All)** fügt diejenigen davon ein, die kein früherer Marker bereits eingefügt hat; steht er allein, fügt er also beide zusammen ein. Das mitgelieferte **Marinara's Universal Preset** hat einen solchen Marker vor dem Chatverlauf. Siehe [Abschnitte und Marker](../prompts/presets.md#sections-and-markers).
+
 Die Einstellung **Role** (Rolle) sitzt im aufgeklappten Eintrags-Panel, nicht in der Schnellsteuerung. Sie kennzeichnet den eingefügten Text als **System**, **User** oder **Assistant**, wirkt sich nur bei **@ Depth** aus und steht standardmäßig auf **System**.
 
 Lass diese Einstellungen auf ihren Standardwerten, solange ein Eintrag nicht mehr braucht. Setz **@ Depth** sparsam ein. Der Text landet wie ein Zwischenruf zwischen den jüngsten Nachrichten, also heb es dir für eine Regel auf, die das Modell immer wieder vergisst, oder für eine Tatsache, die sich gerade erst geändert hat. Zum Beispiel „The tavern is now on fire.“ bei **@ Depth** 1.

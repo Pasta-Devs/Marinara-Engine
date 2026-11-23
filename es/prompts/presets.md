@@ -25,7 +25,7 @@ Si el preset tiene variables, se abre la ventana **Configure Preset Variables** 
 
 ## Crear un preset
 
-1. Abre el panel **Presets** desde la barra lateral.
+1. Abre el panel **Presets** desde la barra superior.
 2. Haz clic en **New** (Nuevo; el icono de más). Se abre la ventana **Create Preset** (Crear preset).
 3. Escribe un **Name** (Nombre). Es obligatorio. Agrega una **Description** (Descripción) si quieres.
 4. Haz clic en **Create** (Crear). El preset se abre en el **Preset Editor**.
@@ -140,7 +140,7 @@ Un grupo envuelve varias secciones en un contenedor.
 2. Haz clic en el nombre del grupo para cambiarlo.
 3. Expande una sección y elige el grupo en su menú desplegable **Group**.
 
-Con **XML**, un grupo se convierte en una etiqueta padre. Con **MARKDOWN**, se convierte en un encabezado. Borrar un grupo no borra sus secciones. Solo pierden el grupo.
+Con **XML**, un grupo se convierte en una etiqueta padre. Con **MARKDOWN**, se convierte en un encabezado. Las secciones de un mismo grupo que no están una junto a otra reciben cada una su propia etiqueta o encabezado. Borrar un grupo no borra sus secciones. Solo pierden el grupo.
 
 ### Posición y profundidad
 

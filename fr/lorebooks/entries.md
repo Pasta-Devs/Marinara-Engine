@@ -91,6 +91,8 @@ Ces contrôles décident de l'endroit où une entrée activée atterrit dans le 
 | **Depth** (profondeur) | N'apparaît que pour **@ Depth**. Le nombre de messages à remonter, depuis le dernier, pour placer l'entrée. 4 par défaut. |
 | **Order** (ordre) | L'ordre quand plusieurs entrées s'activent. Un nombre plus petit passe en premier et survit à la coupe quand le budget est serré. 100 par défaut. |
 
+**Avant les définitions du personnage** et **Après les définitions du personnage** placent les entrées là où le preset situe ses marqueurs de lorebook. Un **Lorebook Marker (All)** place les entrées de ces deux catégories qu'un marqueur précédent n'a pas déjà placées : utilisé seul, il regroupe donc les deux à un même endroit. Le preset intégré **Marinara's Universal Preset** en contient un avant l'historique du chat. Voir [Sections et marqueurs](../prompts/presets.md#sections-and-markers).
+
 **Role** (rôle) se trouve dans le panneau déplié de l'entrée, pas dans les contrôles rapides. Il étiquette le texte inséré **System**, **User** ou **Assistant**, ne compte que pour **@ Depth**, et vaut **System** par défaut.
 
 Laisse ces contrôles sur leurs valeurs par défaut, sauf si une entrée a besoin de plus. Utilise **@ Depth** avec parcimonie. Le texte atterrit entre les messages récents, comme une interruption : réserve-le à une règle que le modèle oublie sans cesse ou à un fait qui vient de changer. Par exemple, "The tavern is now on fire." en **@ Depth** 1.

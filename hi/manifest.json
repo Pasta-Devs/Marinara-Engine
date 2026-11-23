@@ -1,6 +1,6 @@
 {
   "language": "hi",
-  "sourceCommit": "441c8004ea7935548c9ec7f42163da460ef1a04d",
+  "sourceCommit": "bc42d582adf227725e8d7bad71c4c0078340645e",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -619,8 +619,8 @@
     },
     {
       "path": "lorebooks/entries.md",
-      "sha256": "8ac595d3ff7b9783ae9a8dad246490e1c5d70e8860653f5b06b9660f4634d86f",
-      "bytes": 44094
+      "sha256": "1e7cb90353ba16de36edc27d58b689fb2ee2f60ecf26617904a8728dd9e245b2",
+      "bytes": 45113
     },
     {
       "path": "lorebooks/import-export.md",
@@ -714,8 +714,8 @@
     },
     {
       "path": "prompts/presets.md",
-      "sha256": "9bb02e190d88734a3da283b523bddf4bd0154ec0b87241bc151976baa8c6e6f3",
-      "bytes": 33491
+      "sha256": "bf622279bc192030434064d2756ab3da98cfdbb94b3813e1e3f70ff853d28e63",
+      "bytes": 33792
     },
     {
       "path": "prompts/prompt-overrides.md",

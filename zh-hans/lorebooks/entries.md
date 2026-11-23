@@ -91,6 +91,8 @@
 | **Depth**(深度) | 只有选 **@ Depth** 时才显示。条目放在从最新消息往前数第几条消息的位置。默认是 4。 |
 | **Order**(顺序) | 多个条目同时激活时的先后顺序。数字越小越靠前，预算吃紧需要裁剪时也越不容易被丢掉。默认是 100。 |
 
+**Before character definitions** 和 **After character definitions** 的条目会放到预设中世界书标记所在的位置。**Lorebook Marker (All)**(世界书标记（全部）) 只放入这两类条目中尚未被前面的标记放入的部分，所以单独使用时会把两类条目放在一起。内置的 **Marinara's Universal Preset** 在聊天记录之前放了一个这样的标记。见[分区与标记](../prompts/presets.md#sections-and-markers)。
+
 **Role**(消息角色) 在展开的条目面板里，不在快捷控件里。它把注入的文本标记成 **System**、**User** 或 **Assistant**，只对 **@ Depth** 有意义，默认是 **System**。
 
 除非某个条目确实需要，否则这些都保持默认。**@ Depth** 要少用。那段文字会落在最近几条消息之间，读起来就像有人插了一句话，所以只把它留给模型老是忘掉的规则，或者刚刚发生变化的事实。例如，把“The tavern is now on fire.”放在 **@ Depth** 1。

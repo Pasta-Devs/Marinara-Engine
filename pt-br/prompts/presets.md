@@ -25,7 +25,7 @@ Se o preset tiver variáveis, a janela **Configure Preset Variables** (configura
 
 ## Criar um preset
 
-1. Abra o painel **Presets** pela barra lateral.
+1. Abra o painel **Presets** pela barra superior.
 2. Clique em **New** (novo, o ícone de mais). A janela **Create Preset** (criar preset) abre.
 3. Digite um **Name** (nome). Ele é obrigatório. Acrescente uma **Description** (descrição), se quiser.
 4. Clique em **Create** (criar). O preset abre no **Preset Editor**.
@@ -109,7 +109,7 @@ A linha de um marcador mostra o selo **MARKER**. Não é possível digitar na ma
 
 Três marcadores mais raros:
 
-- **Current Scene Summary** e **Recalled Scenes** posicionam os resumos que o Advanced Memory Recall cria. Sem um marcador **Recalled Scenes**, eles aparecem antes do histórico do chat. Veja [Memory Recall](../agents/memory.md).
+- **Current Scene Summary** e **Recalled Scenes** posicionam os resumos que o Advanced Memory Recall cria. Sem um marcador **Recalled Scenes**, eles aparecem antes do histórico do chat. Veja [Memória](../agents/memory.md).
 - **ID Macro Cards** posiciona os cards de personagem que você puxa para um prompt digitando o ID do card de um personagem entre chaves duplas. Sem esse marcador, eles vão para o lugar padrão. Veja [Macros de prompt](macros.md).
 
 Sem um marcador **Dialogue Examples** ativado, os diálogos de exemplo preenchidos são acrescentados ao **Character Info** depois do cenário, no formato de envelopamento do preset. Acrescente o marcador para escolher a posição. Marinara nunca os inclui duas vezes.
@@ -140,7 +140,7 @@ Um grupo envolve várias seções em um só contêiner.
 2. Clique no nome do grupo para renomeá-lo.
 3. Expanda uma seção e escolha o grupo no menu suspenso **Group** dela.
 
-Com **XML**, um grupo vira uma marcação pai. Com **MARKDOWN**, ele vira um título. Excluir um grupo não exclui as seções dele. Elas só deixam de ter grupo.
+Com **XML**, um grupo vira uma marcação pai. Com **MARKDOWN**, ele vira um título. Se as seções de um mesmo grupo não estiverem uma ao lado da outra, cada uma recebe sua própria marcação ou título. Excluir um grupo não exclui as seções dele. Elas só deixam de ter grupo.
 
 ### Posição e profundidade
 
