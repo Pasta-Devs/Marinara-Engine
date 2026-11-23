@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { buildChatImageGenerationRecord, type SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
 import type { ChatImage } from "../packages/client/src/hooks/use-gallery.js";
 import { openChatSettingsTool, closeChatSettings } from "./chat-settings-tools.js";
+import { chooseConnection } from "./connection-picker.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -314,12 +315,22 @@ for (const service of ["automatic1111", "drawthings"] as const) {
         .png()
         .toBuffer();
       const image = await upload(request, chatId, "Harbor portrait", png);
-      const generation = JSON.stringify(
-        buildChatImageGenerationRecord({ prompt: image.prompt, connectionId: "canvas-e2e" }),
-      );
+      const generation =
+        service === "drawthings"
+          ? null
+          : JSON.stringify(buildChatImageGenerationRecord({ prompt: image.prompt, connectionId: "canvas-e2e" }));
       await page.route("**/api/connections", (route) =>
         route.fulfill({
           json: [
+            {
+              id: "global-a1111",
+              name: "Global A1111",
+              provider: "image_generation",
+              imageService: "automatic1111",
+              baseUrl: "http://127.0.0.1:9999",
+              model: "fixture",
+              defaultForAgents: service === "drawthings",
+            },
             {
               id: "canvas-e2e",
               name: service,
@@ -327,10 +338,13 @@ for (const service of ["automatic1111", "drawthings"] as const) {
               imageService: service,
               baseUrl: "http://127.0.0.1:9999",
               model: "fixture",
-              defaultForAgents: true,
+              defaultForAgents: service !== "drawthings",
             },
           ],
         }),
+      );
+      await page.route(`**/api/gallery/${chatId}/images/${image.id}/edit-connection`, (route) =>
+        route.fulfill({ json: { connectionId: "canvas-e2e" } }),
       );
       await page.route(`**/api/gallery/${chatId}`, async (route) => {
         const upstream = await route.fetch();
@@ -382,6 +396,17 @@ for (const service of ["automatic1111", "drawthings"] as const) {
         await expect.poll(() => edits.length).toBe(2);
         expect(edits[1]).toEqual(expect.objectContaining({ editMode: "infill", strength: 1 }));
         expect(edits[1]?.maskImage).toMatch(/^data:image\/png;base64,/);
+      }
+      if (service === "drawthings") {
+        const resultToast = page.locator("[data-sonner-toast]").filter({ hasText: "Image regenerated." });
+        await resultToast.getByRole("button", { name: "Close toast", exact: true }).click();
+        await chooseConnection(page, dialog.locator("[data-connection-value]"), "global-a1111");
+        await expect(canvas).toBeVisible();
+        await dialog.getByRole("button", { name: "Apply edit", exact: true }).click();
+        await expect.poll(() => edits.length).toBe(2);
+        expect(edits[1]).toEqual(expect.objectContaining({ connectionId: "global-a1111", editMode: "img2img" }));
+        await chooseConnection(page, dialog.locator("[data-connection-value]"), "canvas-e2e");
+        await expect(canvas).toHaveCount(0);
       }
       for (const visualTheme of ["default", "sillytavern"] as const) {
         for (const theme of ["light", "dark"] as const) {

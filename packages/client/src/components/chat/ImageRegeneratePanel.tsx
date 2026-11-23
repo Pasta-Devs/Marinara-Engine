@@ -19,6 +19,7 @@ import type { ChatImage, RegenerateChatImageInput } from "../../hooks/use-galler
 import {
   useRegenerateChatImage,
   useReviseChatImagePrompt,
+  useChatImageEditConnection,
   type ImagePromptDraft,
 } from "../../hooks/use-regenerate-chat-image";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
@@ -391,6 +392,7 @@ export function ImageRegeneratePanel({
   const { t } = useUiTranslation();
   const debugMode = useUIStore((s) => s.debugMode);
   const { data: connectionRows } = useConnections();
+  const { data: inheritedConnection } = useChatImageEditConnection(image.chatId, image.id, !regenerator);
   const chatRegenerate = useRegenerateChatImage(image.chatId);
   const chatRevise = useReviseChatImagePrompt(image.chatId);
   const regenerate =
@@ -457,8 +459,10 @@ export function ImageRegeneratePanel({
     const eligibleFallbackRows = rows.filter((row) => !isConnectionFlagTrue(row.profileImportReviewRequired));
     const effective =
       chosen ??
-      eligibleFallbackRows.find((row) => isConnectionFlagTrue(row.defaultForAgents)) ??
-      (eligibleFallbackRows.length === 1 ? eligibleFallbackRows[0] : undefined);
+      (regenerator
+        ? (eligibleFallbackRows.find((row) => isConnectionFlagTrue(row.defaultForAgents)) ??
+          (eligibleFallbackRows.length === 1 ? eligibleFallbackRows[0] : undefined))
+        : rows.find((row) => row.id === inheritedConnection?.connectionId));
     return {
       capabilities: resolveImageEditCapabilities({
         source: String(effective?.imageGenerationSource || effective?.model || ""),
@@ -469,7 +473,7 @@ export function ImageRegeneratePanel({
       effectiveConnectionId: typeof effective?.id === "string" ? effective.id : "",
       hasSelectedConnection: Boolean(connectionId && rows.some((row) => row.id === connectionId)),
     };
-  }, [connectionId, connectionRows, record?.connectionId]);
+  }, [connectionId, connectionRows, record?.connectionId, regenerator, inheritedConnection?.connectionId]);
 
   const canEdit = capabilities.img2img;
   const effectiveMode = canEdit ? mode : "regenerate";
@@ -863,6 +867,7 @@ export function ImageRegeneratePanel({
               value={connectionId || null}
               onChange={(nextId) => setConnectionId(nextId ?? "")}
               defaultLabel={regenerator?.defaultConnectionLabel ?? t("ui.chat.imageregeneratepanel.chatConnection")}
+              inherits={regenerator ? undefined : { connectionId: inheritedConnection?.connectionId ?? null }}
               disabled={busy}
               className="min-h-11"
             />

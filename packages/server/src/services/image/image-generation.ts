@@ -2959,7 +2959,7 @@ export async function prepareNovelAiEditInputs(
 async function prepareImageEditInputs(
   sourceImage: string,
   maskImage: string | undefined,
-  backend: "novelai" | "automatic1111",
+  backend: "novelai" | "automatic1111" | "drawthings",
 ): Promise<{ width: number; height: number; imageBase64: string; maskBase64?: string }> {
   let sourceBuffer: Buffer;
   try {
@@ -2987,12 +2987,22 @@ async function prepareImageEditInputs(
     throw new NovelAiEditInputError("Edit source image dimensions could not be read.");
   }
 
+  const canvasStep = backend === "drawthings" ? 64 : 8;
+  const canvasMin = backend === "drawthings" ? 128 : 64;
+  const canvasMax = backend === "drawthings" ? 8192 : Infinity;
+  const canvasScale = Math.min(1, canvasMax / Math.max(metadata.width, metadata.height));
   const size =
     backend === "novelai"
       ? clampNovelAiCanvasSize(metadata.width, metadata.height)
       : {
-          width: Math.max(64, Math.round(metadata.width / 8) * 8),
-          height: Math.max(64, Math.round(metadata.height / 8) * 8),
+          width: Math.min(
+            canvasMax,
+            Math.max(canvasMin, Math.round((metadata.width * canvasScale) / canvasStep) * canvasStep),
+          ),
+          height: Math.min(
+            canvasMax,
+            Math.max(canvasMin, Math.round((metadata.height * canvasScale) / canvasStep) * canvasStep),
+          ),
         };
   let preparedSource: Buffer;
   try {
@@ -5083,7 +5093,11 @@ async function generateAutomatic1111(
   const isDrawThings = serviceHint?.trim().toLowerCase() === "drawthings";
   const defaults = resolveAutomatic1111Defaults(request);
   const editInputs = request.editMode
-    ? await prepareImageEditInputs(request.sourceImage!, request.maskImage, "automatic1111")
+    ? await prepareImageEditInputs(
+        request.sourceImage!,
+        request.maskImage,
+        isDrawThings ? "drawthings" : "automatic1111",
+      )
     : null;
   const useImg2Img = !!(editInputs || request.referenceImage || request.referenceImages?.length);
 

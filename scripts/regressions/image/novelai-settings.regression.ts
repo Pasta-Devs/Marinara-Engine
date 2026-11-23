@@ -498,7 +498,7 @@ try {
       editMode: "img2img",
       sourceImage: sampleSource.toString("base64"),
     }),
-    /native NovelAI connection/,
+    /does not support image-to-image edits/,
   );
   await assert.rejects(
     generateImage("novelai", "https://novelai-proxy.example.com", "synthetic", "novelai", {
@@ -506,7 +506,7 @@ try {
       model: "nai-diffusion-5-full",
       seedOverride: 123,
     }),
-    /Reusing the original seed/,
+    /does not support an explicit seed override/,
   );
   await assert.rejects(
     generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {

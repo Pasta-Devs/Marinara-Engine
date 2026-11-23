@@ -2512,6 +2512,29 @@ export async function galleryRoutes(app: FastifyInstance) {
     },
   );
 
+  // Share the exact inherited connection with the editor without exposing connection credentials.
+  app.get<{ Params: { chatId: string; imageId: string } }>(
+    "/:chatId/images/:imageId/edit-connection",
+    async (req, reply) => {
+      const { chatId, imageId } = req.params;
+      if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+      const chat = await chats.getById(chatId);
+      if (!chat) return notFound(reply, "Chat not found");
+      const image = await storage.getById(imageId, chatId);
+      if (!image) return notFound(reply, "Image not found");
+      const record = parseChatImageGenerationRecord(image.generation);
+      const connection = await resolveRegenerationImageConnection(
+        app,
+        createConnectionsStorage(app.db),
+        chat.mode,
+        parseChatMetadata(chat.metadata),
+        undefined,
+        record?.connectionId,
+      );
+      return { connectionId: connection?.id ?? null };
+    },
+  );
+
   // Regenerate an existing image from its final request, optionally edited (#7767). The new image
   // replaces the old one wherever a message or storyboard frame shows it; the old one stays in the
   // gallery.
