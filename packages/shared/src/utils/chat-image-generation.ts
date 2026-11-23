@@ -10,7 +10,7 @@ import type { SceneIllustrationCharacterPrompt } from "../types/sidecar.js";
  * When that flow records a fallback result, regeneration starts from that fallback request.
  *
  * Reference images are not copied: the record names their sources, and a
- * regeneration re-reads the current avatars and location image.
+ * regeneration re-reads the current avatars, location image and lorebook entry pictures.
  */
 export interface ChatImageGenerationRecord {
   version: 1;
@@ -31,6 +31,8 @@ export interface ChatImageGenerationRecord {
     personaSource: ChatImageReferenceSource | null;
     /** Maps location reference id (chat gallery id or `global-gallery:<id>`). */
     locationImageId: string | null;
+    /** Activated lorebook entries' pictures sent after the others (#9698); absent when none were. */
+    lorebookImagePaths?: string[];
   };
   /**
    * Set for a looping GIF (`ImageGenRequest.animation`). A GIF is drawn from the prompt alone, so it names no references.
@@ -52,6 +54,7 @@ export type ChatImageGenerationRecordInput = {
   referencePersonaId?: string | null;
   referencePersonaSource?: ChatImageReferenceSource | null;
   locationImageId?: string | null;
+  lorebookImagePaths?: readonly string[] | null;
   animation?: ImageAnimation | null;
   seed?: number | null;
 };
@@ -111,6 +114,7 @@ function readSeed(value: unknown): number | undefined {
 export function buildChatImageGenerationRecord(input: ChatImageGenerationRecordInput): ChatImageGenerationRecord {
   const animation = readAnimation(input.animation);
   const seed = readSeed(input.seed);
+  const lorebookImagePaths = readIds(input.lorebookImagePaths);
   return {
     version: 1,
     prompt: readTrimmed(input.prompt),
@@ -126,6 +130,7 @@ export function buildChatImageGenerationRecord(input: ChatImageGenerationRecordI
             ? readReferenceSource(input.referencePersonaSource)
             : null,
           locationImageId: readTrimmed(input.locationImageId),
+          ...(lorebookImagePaths.length ? { lorebookImagePaths } : {}),
         },
     ...(animation ? { animation } : {}),
     ...(seed !== undefined ? { seed } : {}),
@@ -161,6 +166,7 @@ export function parseChatImageGenerationRecord(value: unknown): ChatImageGenerat
     referencePersonaId: typeof references.personaId === "string" ? references.personaId : null,
     referencePersonaSource: readReferenceSource(references.personaSource),
     locationImageId: typeof references.locationImageId === "string" ? references.locationImageId : null,
+    lorebookImagePaths: Array.isArray(references.lorebookImagePaths) ? (references.lorebookImagePaths as string[]) : [],
     animation: readAnimation(record.animation),
     seed: readSeed(record.seed),
   });

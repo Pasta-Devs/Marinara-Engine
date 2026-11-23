@@ -152,6 +152,7 @@ import {
 } from "../../services/image/spatial-location-reference.js";
 import { persistGeneratedImageToEntityGalleries } from "../../services/image/generated-image-entity-gallery.js";
 import { resolveImageConnectionFallback } from "../../services/generation/media-connection-fallback.js";
+import { readLorebookReferenceImages } from "../../services/generation/lorebook-image-prompt.js";
 import type { GenerationFallbackNotifier } from "../../services/generation/fallback-notification.js";
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { mediaProviderLanesEnabled } from "../../services/image/image-generation-queue.js";
@@ -159,6 +160,7 @@ import { generateIllustratorImageVariants } from "../../services/image/illustrat
 import {
   WRITER_REFERENCE_MEMORY_KEY,
   collectWriterReferencePictures,
+  imageConnectionTakesEntryPictures,
   imageModelGetsReferencePictures,
   readWriterReferenceNames,
   writerVisionKey,
@@ -3888,14 +3890,16 @@ async function applyRetryResultEffects(args: {
             // Collect optional character visual context. Prefer avatar portraits
             // for references, then fall back to full-body sprites.
             const subjectOnly = illustratorPromptReviewOverride?.subjectOnly === true;
-            const useAvatarRefs =
-              !subjectOnly &&
-              (usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
+            const avatarReferencesOn =
+              usesChatIllustratorSettings && typeof chatMeta.illustratorUseAvatarReferences === "boolean"
                 ? chatMeta.illustratorUseAvatarReferences
-                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true) &&
-              // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
+                : imagePromptAgent?.resolved.settings?.useAvatarReferences === true;
+            // The image model gets none for "Prompt writer", or for "Automatic" when it cannot take them.
+            const imageModelGetsReferences =
+              !subjectOnly &&
               (!usesChatIllustratorSettings ||
                 imageModelGetsReferencePictures(chatMeta, imagePromptAgent?.resolved.settings, imgConnFull));
+            const useAvatarRefs = imageModelGetsReferences && avatarReferencesOn;
             const includeCharacterAppearance =
               !subjectOnly &&
               (usesChatIllustratorSettings && typeof chatMeta.illustratorIncludeCharacterAppearance === "boolean"
@@ -3997,6 +4001,37 @@ async function applyRetryResultEffects(args: {
             if (spatialLocationReferenceImage) {
               fullPrompt += `\n\n${SPATIAL_LOCATION_REFERENCE_PROMPT_LINE}`;
               logger.debug("[retry-agents] Illustrator sending the current Maps location reference image first");
+            }
+            // Activated entries' pictures fill what the cap leaves, when the connection takes them (#9698). The
+            // stored scan does not record which Outlets were used, so Outlet pictures stay out of a retry.
+            // "Reference pictures go to" shows, and holds them back, only with avatar references on.
+            const lorebookReferences =
+              !subjectOnly &&
+              (!avatarReferencesOn || imageModelGetsReferences) &&
+              imageConnectionTakesEntryPictures(imgConnFull)
+                ? await readLorebookReferenceImages(
+                    (
+                      await Promise.all(
+                        (agentContext.activatedLorebookEntries ?? []).map((entry) =>
+                          lorebooksStore.getEntry(entry.id).catch(() => null),
+                        ),
+                      )
+                    ).flatMap((row) => {
+                      const entry = row as unknown as LorebookEntry | null;
+                      return entry?.images?.length ? [{ ...entry, images: entry.images }] : [];
+                    }),
+                    6 - mergedReferenceImages.length,
+                  )
+                : null;
+            assertRetryActive();
+            if (lorebookReferences?.referenceLine) {
+              referenceImages = [...mergedReferenceImages, ...lorebookReferences.images];
+              if (!suppressReferencePromptLine) fullPrompt += `\n\n${lorebookReferences.referenceLine}`;
+              logger.debug(
+                "[retry-agents] Illustrator sending %d lorebook reference(s) for: %s",
+                lorebookReferences.images.length,
+                lorebookReferences.labels.join("; "),
+              );
             }
 
             const compiledPrompt = compileImagePrompt({
@@ -4207,6 +4242,7 @@ async function applyRetryResultEffects(args: {
                   referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
                   referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
                   locationImageId: spatialLocationReferenceImage ? retryOwnerSpatialProjection?.referenceImageId : null,
+                  lorebookImagePaths: lorebookReferences?.paths,
                   seed: imageResult.seed,
                 }),
               });
