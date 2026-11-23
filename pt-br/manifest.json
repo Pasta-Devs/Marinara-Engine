@@ -249,7 +249,7 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "68f5d917ccc3f2fab9c8933b02493fd8673a13ad75aecd0d5dbe9cd5fe539a40",
+      "sha256": "4eb69a71f1db50389ebed642802bda449c8d7ef9b1aa22518ee283ab056c1281",
       "bytes": 22039
     },
     {
@@ -659,8 +659,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "22a693cfc258c56ab2cb83091a858a931b83db80a59b31593beea65af44d676a",
-      "bytes": 19351
+      "sha256": "cf52bf559d9c9736e68902c4ded122f4a14b4e613441d3f8c8a1f980ad64b848",
+      "bytes": 19384
     },
     {
       "path": "media/image-providers.md",

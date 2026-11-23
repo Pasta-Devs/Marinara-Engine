@@ -85,7 +85,7 @@ Com **Send Avatar References** ativado para imagens, **Reference pictures go to*
 
 O redator do prompt é a alternativa para modelos de imagem que descartam imagens de referência, como o NovelAI V5. Ele precisa ser um modelo que lê imagens. Se o redator recusar as imagens, a solicitação é enviada de novo sem elas, e esse redator não recebe mais nenhuma até o servidor reiniciar. Um redator cuja conexão está marcada como incapaz de ler imagens não recebe nenhuma. Enviar imagens ao redator custa tokens a cada execução. São enviadas até quatro imagens: as dos cards nomeados em `[illustrate: characters="…"]`, ou, na ausência deles, as dos personagens ativos e da persona do chat. **What to carry over from the pictures** (o que aproveitar das imagens) define o que o redator copia, como apenas a aparência, sem o estilo artístico. Um chat de Roleplay pode definir seu próprio **Reference pictures go to** em **Send Avatar References**.
 
-Em um chat de Roleplay, as imagens em **Reference images** (imagens de referência) de uma entrada de lorebook também vão para o modelo de imagem, quando a entrada está ativa na resposta. Use-as para um figurino, um objeto de cena ou um ambiente com que a imagem deve combinar. Nenhuma configuração precisa ser ativada para isso. Só um serviço de imagem que aceita imagens de referência as recebe. Stability AI, Arli AI, SD Web UI e Draw Things não recebem nenhuma, porque começariam a imagem a partir da imagem da entrada. Com **Send Avatar References** ativado, **Prompt writer** também as retém. Elas vêm depois da **Location reference image** do [World Maps](../agents/hierarchical-maps.md) e dos avatares, com no máximo seis imagens no total. Uma entrada com **Position** (posição) em **Outlet** só envia as imagens dela quando o Outlet dela é usado, e nunca pelo botão **Illustrate** da Gallery.
+Em um chat de Roleplay, as imagens em **Reference images** (imagens de referência) de uma entrada de lorebook também vão para o modelo de imagem, quando a entrada está ativa na resposta. Use-as para um figurino, um objeto de cena ou um ambiente com que a imagem deve combinar. Nenhuma configuração precisa ser ativada para isso. Só um serviço de imagem que aceita imagens de referência as recebe. Stability AI, Arli AI, SD Web UI e Draw Things não recebem nenhuma, porque começariam a imagem a partir da imagem da entrada. Com **Send Avatar References** ativado, **Prompt writer** também as retém. Elas vêm depois da **Location reference image** (imagem de referência do local) do [World Maps](../agents/hierarchical-maps.md) e dos avatares, com no máximo seis imagens no total. Uma entrada com **Position** (posição) em **Outlet** só envia as imagens dela quando o Outlet dela é usado, e nunca pelo botão **Illustrate** (ilustrar) da Gallery.
 
 ## Controle a frequência das imagens
 
@@ -95,7 +95,7 @@ Cada chat de Roleplay tem o próprio **Image Run Interval** (intervalo de execu�
 
 Defina **Image Run Interval** como **0** para o modo só manual. Isso interrompe as execuções automáticas, inclusive os planos de fundo de cena automáticos, mas mantém o agente disponível para as ações da Gallery. Defina um número positivo para retomar.
 
-Para criar uma imagem agora, abra **Chat Settings**, expanda **Gallery** e clique em **Illustrate** (ilustrar). O Illustrator roda uma vez, imediatamente, e o botão mostra **Generating...**.
+Para criar uma imagem agora, abra **Chat Settings**, expanda **Gallery** e clique em **Illustrate**. O Illustrator roda uma vez, imediatamente, e o botão mostra **Generating...**.
 
 ## Crie clipes
 

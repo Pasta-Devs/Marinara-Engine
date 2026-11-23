@@ -141,11 +141,11 @@ O mesmo medidor aparece abaixo da barra de contexto no seletor de conexão de um
 
 **Z.AI** oferece os modelos GLM (GLM 5.4, GLM 5.3, GLM 5.3 Flash e anteriores) pela própria API. Os modelos GLM 5.2, 5.3 e 5.4 aceitam o nível de raciocínio **Maximum** (máximo). O endereço padrão é o endpoint com cobrança por uso. O Coding Plan da Z.AI usa outro endpoint, então uma chave do Coding Plan pode não funcionar aqui.
 
-O GLM 5.4 só está disponível no GLM Coding Plan. Para usá-lo, defina o **Address** da conta como `https://api.z.ai/api/coding/paas/v4`. O GLM 5.4 sempre raciocina, então o **Reasoning Effort** dele oferece **Low**, **High** e **Max**, sem **Off**.
+O GLM 5.4 só está disponível no GLM Coding Plan. Para usá-lo, defina o **Address** da conta como `https://api.z.ai/api/coding/paas/v4`. O GLM 5.4 sempre raciocina, então o **Reasoning Effort** (esforço de raciocínio) dele oferece **Low**, **High** e **Max**, sem **Off**.
 
 ### DeepSeek
 
-**DeepSeek** oferece `deepseek-flash` e `deepseek-v4-pro`. A DeepSeek raciocina por padrão. O **Reasoning Effort** (esforço de raciocínio) dela usa os níveis próprios da DeepSeek, e **Off** (desativado) desliga o raciocínio naquela requisição. A DeepSeek trata uma requisição de nível médio como High. O raciocínio aparece na resposta, na exibição habitual do raciocínio.
+**DeepSeek** oferece `deepseek-flash` e `deepseek-v4-pro`. A DeepSeek raciocina por padrão. O **Reasoning Effort** dela usa os níveis próprios da DeepSeek, e **Off** (desativado) desliga o raciocínio naquela requisição. A DeepSeek trata uma requisição de nível médio como High. O raciocínio aparece na resposta, na exibição habitual do raciocínio.
 
 Alguns parâmetros não se aplicam, por isso o painel os deixa de fora: **Verbosity**, **Top K** e as penalidades foram descontinuados e são ignorados. **Temperature** (temperatura) e **Top P** formam um par, porque a DeepSeek usa um de cada vez. Você vê **Temperature** quando o raciocínio está desativado e **Top P** quando está ativado.
 
@@ -153,7 +153,7 @@ Conecte a DeepSeek pelo botão próprio dela, e não apontando **OpenAI** para o
 
 ### AI Horde
 
-**AI Horde** é uma rede gratuita em que voluntários rodam modelos nos próprios computadores. O botão dele configura uma conta **OpenAI-compatible** com o endereço do AI Horde.
+**AI Horde** é uma rede gratuita em que voluntários rodam modelos nos próprios computadores. O botão dele configura uma conta **OpenAI-compatible** (compatível com OpenAI) com o endereço do AI Horde.
 
 O campo **API key** já vem com a chave anônima `0000000000`, que funciona sem conta. As requisições anônimas são as que mais esperam na fila. Uma chave gratuita de `aihorde.net/register` espera menos, e você ganha kudos (pontos do Horde que fazem as suas requisições subirem na fila) quando compartilha o seu próprio computador com a rede.
 
@@ -165,7 +165,7 @@ A lista de modelos mostra os modelos que os voluntários estão rodando no momen
 
 ### OpenAI-compatible
 
-**OpenAI-compatible** (compatível com OpenAI) conecta um servidor ou proxy que aceita o formato de requisição da OpenAI, como Ollama, LM Studio ou KoboldCpp. Na janela **Add account**, ele aparece como **OpenAI-compatible address** (endereço compatível com OpenAI). Na maioria dos servidores locais, a chave pode ficar vazia. Você informa o endereço. Veja [Conectar um modelo local ou auto-hospedado](local-self-hosted.md). Para o modelo pequeno que Marinara roda sozinho, veja [Como configurar o Built-in model](local-model.md).
+**OpenAI-compatible** conecta um servidor ou proxy que aceita o formato de requisição da OpenAI, como Ollama, LM Studio ou KoboldCpp. Na janela **Add account**, ele aparece como **OpenAI-compatible address** (endereço compatível com OpenAI). Na maioria dos servidores locais, a chave pode ficar vazia. Você informa o endereço. Veja [Conectar um modelo local ou auto-hospedado](local-self-hosted.md). Para o modelo pequeno que Marinara roda sozinho, veja [Como configurar o Built-in model](local-model.md).
 
 ## Imagens e vídeo
 
