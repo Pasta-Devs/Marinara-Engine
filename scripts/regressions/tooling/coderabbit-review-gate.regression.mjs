@@ -29,6 +29,15 @@ assert.ok(
     runs-on:`),
   "Only the pull requests main accepts get the ignore line, so a contributor's PR retargeted to staging keeps its review",
 );
+assert.ok(
+  source.includes(`    if: >
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'edited' &&
+      github.event.changes.base.ref.from == github.event.repository.default_branch &&
+      github.event.pull_request.base.ref != github.event.repository.default_branch
+    runs-on:`),
+  "Only a pull request moved off the default branch loses the line",
+);
 const dottoreWorkflow = readFileSync(new URL("../../../.github/workflows/dottore-review.yml", import.meta.url), "utf8");
 assert.ok(
   dottoreWorkflow.includes(`run-name: "Dottore Review: PR #\${{ inputs.pr_number }} (\${{ inputs.review_mode }})"`),
@@ -50,6 +59,7 @@ function step(name) {
 }
 const gate = step("Set Dottore Review from CodeRabbit's review");
 const ignore = step("Add @coderabbitai ignore to the description");
+const retarget = step("Remove @coderabbitai ignore and ask Dottore");
 
 const repo = "Pasta-Devs/Marinara-Engine";
 const sha = (c) => c.repeat(40);
@@ -71,7 +81,7 @@ const jq = (input) => {
   process.exit(result.status ?? 1);
 };
 const repo = "repos/${repo}/";
-if (args[0] === "workflow" && args[1] === "run") process.exit(0);
+if (args[0] === "workflow" && args[1] === "run") process.exit(process.env.GATE_DISPATCH_FAILS ? 1 : 0);
 if (args[0] === "api" && args[1] === "--method") process.exit(0);
 if (args[0] === "api" && args[1].startsWith(repo + "pulls?state=open")) jq(JSON.parse(process.env.GATE_PULLS));
 const status = args[0] === "api" && /^repos\\/[^/]+\\/[^/]+\\/commits\\/([0-9a-f]{40})\\/status\\?/.exec(args[1]);
@@ -104,7 +114,18 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
   const running = (number) => ({ status: "in_progress", display_title: `Dottore Review: PR #${number} (auto)` });
 
   /** Runs `bash` and returns the calls that write: status posts, dispatches and description edits. */
-  function run(bash, { pulls = [other, pr()], statuses = {}, commits = history, body = "", runs = [], env = {} } = {}) {
+  function run(
+    bash,
+    {
+      pulls = [other, pr()],
+      statuses = {},
+      commits = history,
+      body = "",
+      runs = [],
+      env = {},
+      allowFailure = false,
+    } = {},
+  ) {
     const calls = join(temp, "calls.jsonl");
     writeFileSync(calls, "");
     // Each case starts a dozen Node processes for the gh mock, which takes seconds on a busy runner.
@@ -129,7 +150,7 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
         ...env,
       },
     });
-    assert.equal(result.status, 0, result.stderr);
+    if (!allowFailure) assert.equal(result.status, 0, result.stderr);
     return readFileSync(calls, "utf8")
       .trim()
       .split("\n")
@@ -208,8 +229,8 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
   expect("a head that already passed needs no Dottore", () =>
     assert.equal(run(gate, { ...limited, statuses: { [head]: passed } }).length, 0),
   );
-  expect("a pull request that tells CodeRabbit to ignore it gets no stand-in", () =>
-    assert.equal(run(gate, { ...limited, body: "Promote.\n\n@CodeRabbitAI ignore" }).length, 0),
+  expect("a staging pull request that tells CodeRabbit to ignore it still gets Dottore", () =>
+    dispatched(run(gate, { ...limited, body: "Explains the `@CodeRabbitAI ignore` keyword." })),
   );
   expect("a second rate-limited run does not restart the review a first one started", () =>
     assert.equal(run(gate, { ...limited, runs: [running(9086)] }).length, 0),
@@ -243,25 +264,93 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
       0,
     ),
   );
-  expect("a skip on a pull request that tells CodeRabbit to ignore it gets nothing", () =>
-    assert.equal(
-      run(gate, { ...check("skipped", "Review skipped"), body: "Fixes it.\n\n@coderabbitai ignore" }).length,
-      0,
-    ),
+  expect("a skip because the description says @coderabbitai ignore gets Dottore", () =>
+    dispatched(run(gate, { ...check("skipped", "Review skipped"), body: "Fixes it.\n\n@coderabbitai ignore" })),
   );
 
-  // Promotions and hotfixes into the default branch get @coderabbitai ignore.
+  // Promotions and hotfixes into the default branch get @coderabbitai ignore, marked as the gate's own line.
+  const mark = "<!-- coderabbit-review-gate: keeps CodeRabbit off pull requests into main -->";
+  const added = `@coderabbitai ignore\n${mark}`;
   expect("the keyword goes after the description", () => {
     const writes = run(ignore, { body: "Promote staging." });
     assert.equal(writes.length, 1);
     assert.deepEqual(writes[0].slice(0, 4), ["api", "--method", "PATCH", `repos/${repo}/pulls/9086`]);
-    assert.equal(field(writes[0], "body"), "Promote staging.\n\n@coderabbitai ignore");
+    assert.equal(field(writes[0], "body"), `Promote staging.\n\n${added}`);
   });
   expect("an empty description gets only the keyword", () =>
-    assert.equal(field(run(ignore, { body: null })[0], "body"), "@coderabbitai ignore"),
+    assert.equal(field(run(ignore, { body: null })[0], "body"), added),
   );
   expect("a description with the keyword is kept", () =>
     assert.equal(run(ignore, { body: "Hotfix.\n@coderabbitai IGNORE" }).length, 0),
+  );
+
+  // A promotion or hotfix moved to staging gets its review back.
+  const moved = { BASE: "staging", DRAFT: "false" };
+  // The PATCH comes last, after any dispatch, so a dispatch that fails leaves the line for a re-run.
+  const lostLine = (body, expected, options = {}) => {
+    const writes = run(retarget, { body, env: moved, ...options });
+    const patch = writes.at(-1);
+    assert.deepEqual(patch.slice(0, 4), ["api", "--method", "PATCH", `repos/${repo}/pulls/9086`]);
+    assert.equal(field(patch, "body"), expected);
+    return writes.slice(0, -1);
+  };
+  expect("a retargeted pull request loses the line and gets a full Dottore review", () => {
+    const rest = lostLine(`Hotfix.\n\n${added}`, "Hotfix.");
+    assert.equal(rest.length, 1, JSON.stringify(rest));
+    assert.deepEqual(rest[0].slice(0, 7), [
+      "workflow",
+      "run",
+      "dottore-review.yml",
+      "--repo",
+      repo,
+      "--ref",
+      "staging",
+    ]);
+    assert.equal(field(rest[0], "pr_number"), "9086");
+    assert.equal(field(rest[0], "review_mode"), "full");
+  });
+  expect("the line is found after later edits added text below it", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}\n\nNotes added later.`, "Hotfix.\n\nNotes added later.").length, 1),
+  );
+  expect("a description re-saved in the web editor, with CRLF line breaks, loses the line too", () =>
+    assert.equal(lostLine(`Hotfix.\r\nNotes.\r\n\r\n${added.replace("\n", "\r\n")}`, "Hotfix.\r\nNotes.").length, 1),
+  );
+  expect("a CRLF description that ends in a line break after the line loses it too", () =>
+    assert.equal(lostLine(`Hotfix.\r\n\r\n${added.replace("\n", "\r\n")}\r\n`, "Hotfix.\r").length, 1),
+  );
+  expect("a description that was only the line is emptied", () => assert.equal(lostLine(added, "").length, 1));
+  expect("a keyword the author wrote stays unedited, and Dottore still reviews the head", () => {
+    const writes = run(retarget, { body: "Hotfix.\n\n@coderabbitai ignore", env: moved });
+    assert.equal(writes.length, 1, JSON.stringify(writes));
+    assert.deepEqual(writes[0].slice(0, 3), ["workflow", "run", "dottore-review.yml"]);
+  });
+  expect("a pull request moved with no ignore line gets its review too", () => {
+    const writes = run(retarget, { body: "Fixes the import.", env: moved });
+    assert.equal(writes.length, 1, JSON.stringify(writes));
+    assert.equal(field(writes[0], "review_mode"), "full");
+  });
+  expect("a draft loses the line but waits for its review", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { env: { ...moved, DRAFT: "true" } }).length, 0),
+  );
+  expect("a base with no review loses the line and gets no Dottore", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { env: { ...moved, BASE: "release" } }).length, 0),
+  );
+  expect("moved back and forth, a head that already passed is not reviewed again", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { statuses: { [head]: passed } }).length, 0),
+  );
+  expect("a review already running for it is not restarted", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { runs: [running(9086)] }).length, 0),
+  );
+  expect("a dispatch that fails leaves the line in place for a re-run", () => {
+    const writes = run(retarget, {
+      body: `Hotfix.\n\n${added}`,
+      env: { ...moved, GATE_DISPATCH_FAILS: "1" },
+      allowFailure: true,
+    });
+    assert.equal(writes.filter((args) => args[1] === "--method").length, 0, JSON.stringify(writes));
+  });
+  expect("a head whose review failed gets a new one", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { statuses: { [head]: failed } }).length, 1),
   );
   console.log(`CodeRabbit review gate regression passed (${cases.length} cases).`);
 } finally {

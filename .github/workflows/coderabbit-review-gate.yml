@@ -7,7 +7,8 @@ name: CodeRabbit Review Gate
 #   of them passed. Dottore reviews only the changes since then (a head that only merged
 #   staging in has none, so it passes with no model call), and his review posts the status.
 # CodeRabbit reviews every pull request into the default branch, so this also adds `@coderabbitai ignore` to the
-# description of the ones main accepts, staging promotions and hotfixes: what they bring was reviewed on staging.
+# description of the ones main accepts, staging promotions and hotfixes: what they bring was reviewed on staging. One
+# retargeted to staging loses the line again and gets a full Dottore review.
 # Marinara-Agents keeps a byte copy of this file. GitHub runs check_run workflows only from the default branch and
 # pull_request_target ones from the base branch, so the copy on main is the one that runs.
 on:
@@ -83,10 +84,8 @@ jobs:
               echo "PR #$PR_NUM is a draft or its head is already reviewed; Dottore is not needed."
               return 0
             fi
-            if gh api "repos/$REPO/pulls/$PR_NUM" --jq '.body // ""' | grep -qi "@coderabbitai ignore"; then
-              echo "PR #$PR_NUM tells CodeRabbit to ignore it; it gets no review in CodeRabbit's place."
-              return 0
-            fi
+            # A `@coderabbitai ignore` in the description (CodeRabbit honours it anywhere, even in prose about it) stops
+            # CodeRabbit only: a pull request into a reviewed base still needs its review to merge, so Dottore gives it.
             # A second CodeRabbit run on the head (a manual request) must not restart the review a first one started.
             # When Dottore's review of the head failed, its status says so and a new request may start another.
             if [ "$(gh api "repos/$REPO/commits/$HEAD_SHA/status?per_page=100" \
@@ -149,5 +148,74 @@ jobs:
             echo "PR #$PR_NUM already tells CodeRabbit to ignore it."
             exit 0
           fi
-          gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="${BODY:+$BODY$'\n\n'}@coderabbitai ignore" >/dev/null
+          # The comment under the line marks it as this workflow's, so a retarget finds it wherever later edits moved it.
+          LINE=$'@coderabbitai ignore\n<!-- coderabbit-review-gate: keeps CodeRabbit off pull requests into main -->'
+          gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="${BODY:+$BODY$'\n\n'}$LINE" >/dev/null
           echo "PR #$PR_NUM: added @coderabbitai ignore; CodeRabbit reviews no pull request into the default branch."
+
+  # A pull request moved off the default branch gets its review back: Dottore reviews it in full against its new base,
+  # and the line the job above added comes off. A `@coderabbitai ignore` its author wrote stays.
+  retargeted:
+    name: Give a retargeted pull request its review back
+    if: >
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'edited' &&
+      github.event.changes.base.ref.from == github.event.repository.default_branch &&
+      github.event.pull_request.base.ref != github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: write
+    steps:
+      - name: Remove @coderabbitai ignore and ask Dottore
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_BASES: ${{ vars.DOTTORE_BASE_REFS || 'staging' }}
+        run: |
+          # Inert: edits the description and dispatches the trusted Dottore workflow from the new base; runs no pull
+          # request code.
+          BODY=$(gh api "repos/$REPO/pulls/$PR_NUM" --jq '.body // ""')
+          # Only the line the default-branch job added, found by its marker and with the blank line before it, in LF or
+          # the CRLF line breaks GitHub's web editor saves. A keyword the author wrote stays.
+          MARK='<!-- coderabbit-review-gate: keeps CodeRabbit off pull requests into main -->'
+          NEW=$BODY
+          for BREAK in $'\r\n' $'\n'; do
+            NEW=${NEW//"$BREAK$BREAK@coderabbitai ignore$BREAK$MARK"/}
+            NEW=${NEW//"@coderabbitai ignore$BREAK$MARK"/}
+          done
+          # A base change is no push, so CodeRabbit does not review the head again: Dottore gives it its review either
+          # way, even when its author wrote the keyword themselves.
+          state() {
+            gh api "repos/$REPO/commits/$HEAD_SHA/status?per_page=100" \
+              --jq '[.statuses[] | select(.context == "Dottore Review") | .state][0] // ""'
+          }
+          running() {
+            gh api "repos/$REPO/actions/workflows/dottore-review.yml/runs?event=workflow_dispatch&per_page=100" \
+              --jq "[.workflow_runs[] | select(.status != \"completed\")
+                | select(.display_title | startswith(\"Dottore Review: PR #$PR_NUM (\"))] | length" 2>/dev/null || echo 0
+          }
+          if [ "$DRAFT" != false ] ||
+            ! jq -en --arg refs "$REVIEW_BASES" --arg ref "$BASE" '$refs | split(",") | index($ref) != null' >/dev/null; then
+            echo "PR #$PR_NUM is a draft or targets $BASE, which gets no review."
+          elif [ "$(state)" = success ] || [ "$(running)" != 0 ]; then
+            # Moved back and forth: the same head already passed, or its review is still running.
+            echo "PR #$PR_NUM: $HEAD_SHA already passed review, or its review is running."
+          else
+            gh api "repos/$REPO/contents/.github/workflows/dottore-review.yml?ref=$BASE" --silent >/dev/null || {
+              echo "::error::Dottore trusted workflow not found on base ref $BASE"
+              exit 1
+            }
+            gh workflow run dottore-review.yml --repo "$REPO" --ref "$BASE" -f pr_number="$PR_NUM" \
+              -f comment_body="Retargeted from the default branch" -f review_mode=full -f requested_by=github-actions
+            echo "PR #$PR_NUM: Dottore reviews it in full against $BASE."
+          fi
+          # Only after the review is asked for, so a failed dispatch leaves the line for a re-run to find.
+          if [ "$NEW" != "$BODY" ]; then
+            gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="$NEW" >/dev/null
+            echo "PR #$PR_NUM: removed the @coderabbitai ignore line it carried from the default branch."
+          fi
