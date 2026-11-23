@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronDown, ImagePlus, Plus, Upload, X } from "lucide-react
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { IMAGE_REFERENCE_ROLES, MAX_IMAGE_REFERENCE_PICTURES, type ImageReferenceRole } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { moveImageReference, sentImageReferences } from "../../lib/image-references";
 
 /** A picture the image model is sent, in send order, with what it is for. */
@@ -14,8 +15,8 @@ export type PickedImageReference = {
   role: ImageReferenceRole;
 };
 
-/** 4.5rem tiles; phones fit three to a row across the whole width, so a job name like "Likeness" fits. */
-const TILE_WIDTH = "w-[4.5rem] max-sm:w-[calc((100%-1rem)/3)]";
+/** 6rem tiles (three and Add fit beside each other); phones fit three to a row across the whole width. */
+const TILE_WIDTH = "w-[6rem] max-sm:w-[calc((100%-1rem)/3)]";
 const TILE = "aspect-square w-full";
 const DRAG_START_DISTANCE = 6;
 
@@ -32,6 +33,7 @@ export function ImageReferenceRow({
   disabled = false,
   dropActive = false,
   onAdd,
+  modelName,
 }: {
   references: PickedImageReference[];
   onChange: (next: PickedImageReference[]) => void;
@@ -41,8 +43,11 @@ export function ImageReferenceRow({
   /** Files are being dragged over the window. */
   dropActive?: boolean;
   onAdd: () => void;
+  /** The connection's name, for "3 of 16 · GPT Image 2 takes up to 16". */
+  modelName?: string;
 }) {
-  const { t: localizeUi } = useUiTranslation();
+  const { t: localizeUi, i18n } = useUiTranslation();
+  const coarsePointer = useMatchMedia("(pointer: coarse)");
   const tileRefs = useRef<(HTMLLIElement | null)[]>([]);
   const [drag, setDrag] = useState<DragState | null>(null);
   const count = references.length;
@@ -57,6 +62,17 @@ export function ImageReferenceRow({
       : overLimit
         ? localizeUi("ui.ui.imagereferencepicker.countSent", { count, limit })
         : localizeUi("ui.ui.imagereferencepicker.countOfLimit", { count, limit });
+  // Computers also name what the model takes; phones keep the short count so it stays on one line.
+  // "4 and 5", in the Engine's language.
+  const notSentList = overLimit
+    ? new Intl.ListFormat(i18n.language, { type: "conjunction" }).format(
+        Array.from({ length: count - limit }, (_, i) => String(limit + i + 1)),
+      )
+    : "";
+  const countDetail =
+    !unsupported && limit !== null && !overLimit && modelName
+      ? localizeUi("ui.ui.imagereferencepicker.modelTakes", { model: modelName, limit })
+      : "";
 
   const setRole = (index: number, role: ImageReferenceRole) =>
     onChange(references.map((reference, i) => (i === index ? { ...reference, role } : reference)));
@@ -131,6 +147,7 @@ export function ImageReferenceRow({
         </span>
         <span className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)] max-sm:text-[13px]">
           {countText}
+          {countDetail && <span className="max-sm:hidden"> · {countDetail}</span>}
         </span>
       </div>
 
@@ -180,6 +197,12 @@ export function ImageReferenceRow({
                     draggable={false}
                     className={cn("h-full w-full object-cover", notSent && "opacity-35 grayscale")}
                   />
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/80 to-transparent px-1.5 pb-1 pt-4 text-left text-[0.625rem] text-white max-sm:text-[11px]"
+                  >
+                    {reference.label}
+                  </span>
                 </button>
                 <span
                   aria-hidden="true"
@@ -262,7 +285,14 @@ export function ImageReferenceRow({
           className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-[var(--warning)]/12 px-2.5 py-2 ring-1 ring-[var(--warning)]/40"
         >
           <p className="min-w-0 flex-[1_1_14rem] text-[0.6875rem] leading-relaxed text-[var(--foreground)] max-sm:text-[13px]">
-            {localizeUi("ui.ui.imagereferencepicker.limitNote", { count: limit })}
+            {localizeUi("ui.ui.imagereferencepicker.limitNote", {
+              count: limit,
+              model: modelName || localizeUi("ui.ui.imagereferencepicker.thisModel"),
+              pictures: localizeUi("ui.ui.imagereferencepicker.pictureNumber", {
+                count: count - limit,
+                list: notSentList,
+              }),
+            })}
           </p>
           <button
             type="button"
@@ -275,7 +305,13 @@ export function ImageReferenceRow({
         </div>
       ) : (
         <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] max-sm:text-[13px]">
-          {localizeUi(count === 0 ? "ui.ui.imagereferencepicker.emptyHint" : "ui.ui.imagereferencepicker.hint")}
+          {localizeUi(
+            count === 0
+              ? "ui.ui.imagereferencepicker.emptyHint"
+              : coarsePointer
+                ? "ui.ui.imagereferencepicker.hintTouch"
+                : "ui.ui.imagereferencepicker.hint",
+          )}
         </p>
       )}
 
@@ -372,39 +408,67 @@ export function ImageReferenceGrid({
   );
 }
 
-/** The chooser page shown inside the window in place of its form: tabs of pictures, plus the device. */
+/**
+ * The chooser: tabs of pictures, plus the device. On a computer it takes the window's right column (the form stays
+ * beside it) and carries its own Add button; on touch screens it is a page of the window with a back button.
+ */
 export function ImageReferenceChooser({
   tabs,
   activeTab,
   onTabChange,
   onBack,
   onChooseFiles,
+  column = false,
+  selectedCount = 0,
+  roomLeft = 0,
+  onConfirm,
 }: {
   tabs: ImageReferenceChooserTab[];
   activeTab: string;
   onTabChange: (id: string) => void;
   onBack: () => void;
   onChooseFiles: () => void;
+  /** Shown in the window's right column instead of as a page. */
+  column?: boolean;
+  selectedCount?: number;
+  roomLeft?: number;
+  onConfirm?: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const deviceTab = "device";
   const current = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
   return (
-    <div className="space-y-3" data-reference-chooser="">
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label={localizeUi("ui.ui.imagereferencepicker.back")}
-          title={localizeUi("ui.ui.imagereferencepicker.back")}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors [@media(hover:hover)]:hover:text-[var(--foreground)] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
-        >
-          <ArrowLeft size="1rem" />
-        </button>
-        <h3 className="text-sm font-medium text-[var(--foreground)]">
-          {localizeUi("ui.ui.imagereferencepicker.chooserTitle")}
-        </h3>
-      </div>
+    <div className="space-y-3" data-reference-chooser={column ? "column" : "page"}>
+      {column ? (
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-medium text-[var(--foreground)]">
+            {localizeUi("ui.ui.imagereferencepicker.chooserTitle")}
+          </h3>
+          <button
+            type="button"
+            onClick={selectedCount > 0 && onConfirm ? onConfirm : onBack}
+            data-reference-done=""
+            className="rounded-md px-1.5 py-0.5 text-xs text-[var(--muted-foreground)] transition-colors [@media(hover:hover)]:hover:text-[var(--foreground)]"
+          >
+            {localizeUi("ui.ui.imagereferencepicker.done")}
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label={localizeUi("ui.ui.imagereferencepicker.back")}
+            title={localizeUi("ui.ui.imagereferencepicker.back")}
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors [@media(hover:hover)]:hover:text-[var(--foreground)] [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
+          >
+            <ArrowLeft size="1rem" />
+          </button>
+          <h3 className="text-sm font-medium text-[var(--foreground)]">
+            {localizeUi("ui.ui.imagereferencepicker.chooserTitle")}
+          </h3>
+        </div>
+      )}
       <div role="tablist" className="flex gap-1 rounded-lg bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
         {[
           ...tabs.map((tab) => ({ id: tab.id, label: tab.label })),
@@ -444,6 +508,37 @@ export function ImageReferenceChooser({
         </div>
       ) : (
         current?.content
+      )}
+      {column && activeTab !== deviceTab && (
+        <div className="space-y-2 rounded-lg border border-dashed border-[var(--border)] px-3 py-2.5">
+          <p className="text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("ui.ui.imagereferencepicker.dropAnywhere")}
+          </p>
+          <button
+            type="button"
+            onClick={onChooseFiles}
+            className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-[var(--secondary)] px-2.5 text-[0.6875rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)]"
+          >
+            <Upload size="0.75rem" />
+            {localizeUi("ui.ui.imagereferencepicker.upload")}
+          </button>
+        </div>
+      )}
+      {column && onConfirm && (
+        <div className="flex items-center justify-between gap-2 pt-1">
+          <span className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">
+            {localizeUi("ui.ui.imagereferencepicker.roomLeft", { selected: selectedCount, count: roomLeft })}
+          </span>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={selectedCount === 0}
+            data-reference-confirm=""
+            className="inline-flex min-h-8 items-center rounded-lg bg-[var(--primary)] px-3 text-xs font-semibold text-[var(--primary-foreground)] disabled:opacity-50"
+          >
+            {localizeUi("ui.ui.imagereferencepicker.addSelected", { count: selectedCount })}
+          </button>
+        </div>
       )}
     </div>
   );

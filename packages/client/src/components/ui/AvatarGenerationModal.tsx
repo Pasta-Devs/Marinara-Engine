@@ -42,6 +42,7 @@ import {
   type PickedImageReference,
 } from "./ImageReferencePicker";
 import { sentImageReferences } from "../../lib/image-references";
+import { useMatchMedia } from "../../hooks/use-match-media";
 import { GallerySheetCells, useGallerySheetCells, type GallerySheetCut } from "./GallerySheetCells";
 
 /** What the gallery's "Create with AI" can make. Sticker and emoji sheets save one picture per cell. */
@@ -254,24 +255,37 @@ export function AvatarGenerationModal({
         : imagePortraitHeight;
   const sheetCells = useGallerySheetCells(mode === "emoji-sheet" ? "emoji" : "sticker");
   const referenceLimit = useImageReferencePictureLimit(open ? effectiveConnectionId : null);
+  const referenceModelName = imageConnections.find((connection) => connection.id === effectiveConnectionId)?.name;
+  // On a computer the chooser takes the right column and the form stays beside it; touch screens get a page.
+  const chooserInColumn = useMatchMedia("(min-width: 1024px) and (pointer: fine)");
   const busy = generating || saving;
 
-  /** The avatar starts as the likeness, as the old checkbox did; a background shows the place, so it starts empty. */
+  /** The avatar and the character sheet start as the likeness; a background shows the place, so it starts empty. */
   const startingReferences = useCallback(
-    (forMode: string): PickedImageReference[] =>
-      defaultAvatarUrl && forMode !== "background"
-        ? [
-            {
-              key: "avatar",
-              url: defaultAvatarUrl,
-              label: localizeUi(
-                forMode === "cover" ? "ui.ui.imagereferencepicker.cover" : "ui.ui.imagereferencepicker.avatar",
-              ),
-              role: forMode === "cover" ? "other" : "likeness",
-            },
-          ]
-        : [],
-    [defaultAvatarUrl, localizeUi],
+    (forMode: string): PickedImageReference[] => {
+      if (forMode === "background") return [];
+      const starting: PickedImageReference[] = [];
+      if (defaultAvatarUrl) {
+        starting.push({
+          key: "avatar",
+          url: defaultAvatarUrl,
+          label: localizeUi(
+            forMode === "cover" ? "ui.ui.imagereferencepicker.cover" : "ui.ui.imagereferencepicker.avatar",
+          ),
+          role: forMode === "cover" ? "other" : "likeness",
+        });
+      }
+      if (neutralFullBodyReferenceUrl && forMode !== "cover") {
+        starting.push({
+          key: "full-body",
+          url: neutralFullBodyReferenceUrl,
+          label: localizeUi("ui.ui.imagereferencepicker.fullBody"),
+          role: "likeness",
+        });
+      }
+      return starting;
+    },
+    [defaultAvatarUrl, localizeUi, neutralFullBodyReferenceUrl],
   );
   const changeReferences = useCallback((next: PickedImageReference[]) => {
     referencesTouchedRef.current = true;
@@ -629,19 +643,58 @@ export function AvatarGenerationModal({
             ? localizeUi("ui.ui.avatargenerationmodal.saveEmoji", { count: selectedSheetCount })
             : localizeUi("ui.ui.avatargenerationmodal.useAvatar");
 
+  const referenceChooser = (
+    <ImageReferenceChooser
+      column={chooserInColumn}
+      selectedCount={chooserSelection.length}
+      roomLeft={Math.max(0, chooserRoom - chooserSelection.length)}
+      onConfirm={confirmChooser}
+      activeTab={chooserTab}
+      onTabChange={setChooserTab}
+      onBack={closeChooser}
+      onChooseFiles={() => fileInputRef.current?.click()}
+      tabs={[
+        {
+          id: "own",
+          label: entityName.trim() || localizeUi("ui.ui.imagereferencepicker.galleryPicture"),
+          content: (
+            <ImageReferenceGrid
+              sources={ownSources}
+              addedKeys={addedReferenceKeys}
+              selectedKeys={chooserSelection.map((item) => item.key)}
+              onToggle={toggleChooserSource}
+              loading={ownGallery.isLoading}
+            />
+          ),
+        },
+        {
+          id: "gallery",
+          label: localizeUi("ui.ui.imagereferencepicker.tabGallery"),
+          content: (
+            <GlobalGalleryReferenceGrid
+              addedKeys={addedReferenceKeys}
+              selectedKeys={chooserSelection.map((item) => item.key)}
+              onToggle={toggleChooserSource}
+            />
+          ),
+        },
+      ]}
+    />
+  );
+
   return (
     <>
       <Modal
         open={open}
         // Picking references is a page inside the window: closing it goes back one level first.
-        onClose={chooserOpen ? closeChooser : onClose}
+        onClose={chooserOpen && !chooserInColumn ? closeChooser : onClose}
         closeDisabled={generating || saving}
         closeButtonClassName="max-sm:hidden"
         pullToClose={!generating}
         title={title}
-        width="max-w-2xl"
+        width="max-w-2xl lg:max-w-[60rem]"
         footer={
-          chooserOpen ? (
+          chooserOpen && !chooserInColumn ? (
             <>
               <button
                 type="button"
@@ -749,43 +802,10 @@ export function AvatarGenerationModal({
             void addReferenceFiles(Array.from(event.dataTransfer.files));
           }}
         >
-          {chooserOpen && (
-            <ImageReferenceChooser
-              activeTab={chooserTab}
-              onTabChange={setChooserTab}
-              onBack={closeChooser}
-              onChooseFiles={() => fileInputRef.current?.click()}
-              tabs={[
-                {
-                  id: "own",
-                  label: entityName.trim() || localizeUi("ui.ui.imagereferencepicker.galleryPicture"),
-                  content: (
-                    <ImageReferenceGrid
-                      sources={ownSources}
-                      addedKeys={addedReferenceKeys}
-                      selectedKeys={chooserSelection.map((item) => item.key)}
-                      onToggle={toggleChooserSource}
-                      loading={ownGallery.isLoading}
-                    />
-                  ),
-                },
-                {
-                  id: "gallery",
-                  label: localizeUi("ui.ui.imagereferencepicker.tabGallery"),
-                  content: (
-                    <GlobalGalleryReferenceGrid
-                      addedKeys={addedReferenceKeys}
-                      selectedKeys={chooserSelection.map((item) => item.key)}
-                      onToggle={toggleChooserSource}
-                    />
-                  ),
-                },
-              ]}
-            />
-          )}
+          {chooserOpen && !chooserInColumn && referenceChooser}
           {/* Kept mounted while choosing, so the form keeps its scroll and nothing reloads on the way back. */}
-          <div hidden={chooserOpen} className="space-y-4">
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-[minmax(0,1fr)_13rem]">
+          <div hidden={chooserOpen && !chooserInColumn} className="space-y-4">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-[minmax(0,1fr)_13rem] lg:grid-cols-[minmax(0,1fr)_21rem]">
               <div className="space-y-4">
                 {galleryCreate && (
                   <label className="block space-y-1.5">
@@ -958,59 +978,64 @@ export function AvatarGenerationModal({
                   disabled={busy}
                   dropActive={dropActive}
                   onAdd={openChooser}
+                  modelName={referenceModelName}
                 />
               </div>
 
-              <div className="flex flex-col gap-3">
-                <div
-                  className={cn(
-                    "relative overflow-hidden rounded-xl bg-[var(--secondary)] ring-1 ring-[var(--border)]",
-                    isWide ? "aspect-video" : "aspect-square",
-                  )}
-                >
-                  {previewSrc ? (
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.currentTarget.focus();
-                        setShowFullView(true);
-                      }}
-                      aria-label={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
-                      aria-haspopup="dialog"
-                      title={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
-                      className="group/preview block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--primary)]"
-                    >
-                      <img
-                        src={previewSrc}
-                        alt={previewAlt}
-                        className={cn(
-                          "h-full w-full",
-                          generatedAvatar && (isCharacterSheet || isStickerSheet) ? "object-contain" : "object-cover",
-                          !generatedAvatar && "opacity-80",
-                        )}
-                      />
-                      {/* Always visible (touch has no hover), sits on the image so it reads the same in every theme. */}
-                      <span
-                        aria-hidden="true"
-                        data-avatar-generation-zoom=""
-                        className="absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-black/55 text-white shadow-sm ring-1 ring-white/15 transition-colors group-focus-visible/preview:bg-black/75 max-sm:h-9 max-sm:w-9 [@media(hover:hover)]:group-hover/preview:bg-black/75"
+              {chooserOpen && chooserInColumn ? (
+                referenceChooser
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <div
+                    className={cn(
+                      "relative overflow-hidden rounded-xl bg-[var(--secondary)] ring-1 ring-[var(--border)]",
+                      isWide ? "aspect-video" : "aspect-square",
+                    )}
+                  >
+                    {previewSrc ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.currentTarget.focus();
+                          setShowFullView(true);
+                        }}
+                        aria-label={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
+                        aria-haspopup="dialog"
+                        title={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
+                        className="group/preview block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--primary)]"
                       >
-                        <ZoomIn size="0.875rem" />
-                      </span>
-                    </button>
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--muted-foreground)]">
-                      <ImagePlus size="1.75rem" />
-                      <span className="text-xs">{localizeUi("ui.ui.avatargenerationmodal.noPreviewYet")}</span>
-                    </div>
+                        <img
+                          src={previewSrc}
+                          alt={previewAlt}
+                          className={cn(
+                            "h-full w-full",
+                            generatedAvatar && (isCharacterSheet || isStickerSheet) ? "object-contain" : "object-cover",
+                            !generatedAvatar && "opacity-80",
+                          )}
+                        />
+                        {/* Always visible (touch has no hover), sits on the image so it reads the same in every theme. */}
+                        <span
+                          aria-hidden="true"
+                          data-avatar-generation-zoom=""
+                          className="absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-lg bg-black/55 text-white shadow-sm ring-1 ring-white/15 transition-colors group-focus-visible/preview:bg-black/75 max-sm:h-9 max-sm:w-9 [@media(hover:hover)]:group-hover/preview:bg-black/75"
+                        >
+                          <ZoomIn size="0.875rem" />
+                        </span>
+                      </button>
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--muted-foreground)]">
+                        <ImagePlus size="1.75rem" />
+                        <span className="text-xs">{localizeUi("ui.ui.avatargenerationmodal.noPreviewYet")}</span>
+                      </div>
+                    )}
+                  </div>
+                  {generatedPrompt && (
+                    <p className="line-clamp-4 text-[0.625rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]">
+                      {generatedPrompt}
+                    </p>
                   )}
                 </div>
-                {generatedPrompt && (
-                  <p className="line-clamp-4 text-[0.625rem] max-sm:text-[13px] leading-relaxed text-[var(--muted-foreground)]">
-                    {generatedPrompt}
-                  </p>
-                )}
-              </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
