@@ -636,12 +636,7 @@ export function ImageRegeneratePanel({
                 <MaskModeBadge hasMask={hasMask} compact className="py-1 max-sm:hidden" />
               </>
             )}
-            <div
-              className={cn(
-                "flex shrink-0 items-center gap-1",
-                !collapsed && canEdit && "max-sm:order-last",
-              )}
-            >
+            <div className={cn("flex shrink-0 items-center gap-1", !collapsed && canEdit && "max-sm:order-last")}>
               {collapsed && phase && <Spinner size="sm" aria-hidden="true" />}
               <button
                 type="button"
