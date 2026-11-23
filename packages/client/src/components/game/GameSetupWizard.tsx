@@ -128,7 +128,8 @@ import {
 } from "./game-setup-classes";
 import { SettingsSwitchTrack } from "../panels/settings/SettingControls";
 import { useSidecarStore } from "../../stores/sidecar.store";
-import { useEntriesAcrossLorebooks, useLorebooks } from "../../hooks/use-lorebooks";
+import { useEligibleLorebookEntries, useLorebooks, type EligibleLorebookEntry } from "../../hooks/use-lorebooks";
+import { GameSetupLoreEntryPicker, SETUP_LORE_ENTRY_LIMIT } from "./GameSetupLoreEntryPicker";
 import {
   selectGameExperiencePackages,
   useInstalledCapabilityPackages,
@@ -701,6 +702,8 @@ export function GameSetupWizard({
   const [sceneConnectionId, setSceneConnectionId] = useState<string | null>(null);
   const [activeLorebookIds, setActiveLorebookIds] = useState<string[]>([]);
   const [lbSearch, setLbSearch] = useState("");
+  // A big library draws a page of books at a time (#9645); searching or "Show more" reaches the rest.
+  const [lbShown, setLbShown] = useState(40);
   const [activeLorebookEntryIds, setActiveLorebookEntryIds] = useState<string[]>([]);
   const [importedLorebookEntryIds, setImportedLorebookEntryIds] = useState<string[] | null>(null);
   const [entryPickerOpened, setEntryPickerOpened] = useState(false);
@@ -806,31 +809,95 @@ export function GameSetupWizard({
     () => new Set(installedAgentManifests.map((agent) => agent.id)),
     [installedAgentManifests],
   );
-  const eligibleBooks = (lorebooksList ?? []).filter(
-    (book) =>
-      book.enabled &&
-      !(Array.isArray(chatMetadata?.excludedLorebookIds) && chatMetadata.excludedLorebookIds.includes(book.id)) &&
-      !(
-        chatMetadata?.gameLorebookKeeperEnabled !== true &&
-        (book.sourceAgentId === "game-lorebook-keeper" || book.id === chatMetadata?.gameLorebookKeeperLorebookId)
+  const eligibleBooks = useMemo(
+    () =>
+      (lorebooksList ?? []).filter(
+        (book) =>
+          book.enabled &&
+          !(Array.isArray(chatMetadata?.excludedLorebookIds) && chatMetadata.excludedLorebookIds.includes(book.id)) &&
+          !(
+            chatMetadata?.gameLorebookKeeperEnabled !== true &&
+            (book.sourceAgentId === "game-lorebook-keeper" || book.id === chatMetadata?.gameLorebookKeeperLorebookId)
+          ),
       ),
+    [lorebooksList, chatMetadata],
   );
-  const entryQuery = useEntriesAcrossLorebooks(
-    entryPickerOpened || activeLorebookEntryIds.length > 0 ? eligibleBooks.map((book) => book.id) : [],
-  );
+  const eligibleBookIds = useMemo(() => new Set(eligibleBooks.map((book) => book.id)), [eligibleBooks]);
   const entryOverrides = (chatMetadata?.entryStateOverrides ?? chatMetadata?.lorebookEntryStateOverrides) as
     Record<string, { enabled?: boolean }> | undefined;
-  const eligibleEntries = entryQuery.entries?.filter(
-    (entry) => entry.enabled && entryOverrides?.[entry.id]?.enabled !== false,
+  const isUsableSetupEntry = useCallback(
+    (entry: EligibleLorebookEntry) =>
+      entry.enabled && eligibleBookIds.has(entry.lorebookId) && entryOverrides?.[entry.id]?.enabled !== false,
+    [eligibleBookIds, entryOverrides],
   );
-  const selectedEntryIds = [...new Set(activeLorebookEntryIds)]
-    .filter((id) => eligibleEntries?.some((entry) => entry.id === id))
-    .slice(0, 100);
+  // Picks are checked by id (#9645): no book is read just because an entry might be in it. Entries picked
+  // here from an opened book count at once; picks from a file or an earlier setup wait for the check.
+  const [pickedSetupEntries, setPickedSetupEntries] = useState<Record<string, EligibleLorebookEntry>>({});
+  const entryQuery = useEligibleLorebookEntries(activeLorebookEntryIds);
+  const importedEntryQuery = useEligibleLorebookEntries(importedLorebookEntryIds ?? []);
+  // Once the check for exactly these picks has answered, its answer alone decides: an entry it left out
+  // (an off folder, say) is not brought back from an opened book. Until then, picks made here stand in.
+  const entryCheckAnswered = entryQuery.isSuccess && !entryQuery.isPlaceholderData;
+  // An entry the answered check left out is forgotten as a local pick too, so a later pick (whose check is
+  // still pending) can't bring it back from the opened book's copy.
+  useEffect(() => {
+    if (!entryCheckAnswered) return;
+    const asked = new Set(activeLorebookEntryIds);
+    const allowed = new Set((entryQuery.data ?? []).map((entry) => entry.id));
+    setPickedSetupEntries((known) => {
+      const rejected = Object.keys(known).filter((id) => asked.has(id) && !allowed.has(id));
+      if (rejected.length === 0) return known;
+      const next = { ...known };
+      for (const id of rejected) delete next[id];
+      return next;
+    });
+  }, [entryCheckAnswered, entryQuery.data, activeLorebookEntryIds]);
+  const usableSetupEntries = useMemo(() => {
+    const byId = new Map<string, EligibleLorebookEntry>();
+    const known = entryCheckAnswered
+      ? (entryQuery.data ?? [])
+      : [...(entryQuery.data ?? []), ...Object.values(pickedSetupEntries)];
+    for (const entry of known) {
+      if (isUsableSetupEntry(entry)) byId.set(entry.id, entry);
+    }
+    return byId;
+  }, [entryCheckAnswered, entryQuery.data, pickedSetupEntries, isUsableSetupEntry]);
+  const selectedSetupEntries = useMemo(
+    () =>
+      [...new Set(activeLorebookEntryIds)]
+        .map((id) => usableSetupEntries.get(id))
+        .filter((entry): entry is EligibleLorebookEntry => Boolean(entry))
+        .slice(0, SETUP_LORE_ENTRY_LIMIT),
+    [activeLorebookEntryIds, usableSetupEntries],
+  );
+  const selectedEntryIds = selectedSetupEntries.map((entry) => entry.id);
+  // Known when every pick was picked here, or the check for exactly these picks has answered. A book
+  // list still loading would read every pick as gone, so it waits for that too.
+  const eligibleEntries =
+    lorebooksList !== undefined && (activeLorebookEntryIds.every((id) => pickedSetupEntries[id]) || entryCheckAnswered)
+      ? selectedSetupEntries
+      : undefined;
   // Imported picks are dropped silently when the entry no longer exists on this machine. The count is
-  // taken only once every book has loaded, so a pending or failed fetch never reports entries as gone.
-  const missingImportedEntryCount = eligibleEntries
-    ? new Set(importedLorebookEntryIds?.filter((id) => !eligibleEntries.some((entry) => entry.id === id))).size
-    : 0;
+  // taken only once the check for them has answered, so a pending or failed check never reports them gone.
+  const missingImportedEntryCount =
+    importedLorebookEntryIds?.length &&
+    importedEntryQuery.isSuccess &&
+    !importedEntryQuery.isPlaceholderData &&
+    lorebooksList !== undefined
+      ? new Set(
+          importedLorebookEntryIds.filter((id) => {
+            const entry = importedEntryQuery.data?.find((candidate) => candidate.id === id);
+            return !entry || !isUsableSetupEntry(entry);
+          }),
+        ).size
+      : 0;
+  const pickSetupEntry = useCallback((entry: EligibleLorebookEntry) => {
+    setPickedSetupEntries((known) => ({ ...known, [entry.id]: entry }));
+    setActiveLorebookEntryIds((ids) => (ids.includes(entry.id) ? ids : [...ids, entry.id]));
+  }, []);
+  const unpickSetupEntry = useCallback((entryId: string) => {
+    setActiveLorebookEntryIds((ids) => ids.filter((id) => id !== entryId));
+  }, []);
   const hasInstalledAgents = installedAgentIds.size > 0;
   const hierarchicalMapsInstalled =
     installedAgentIds.has("hierarchical-maps") && !experienceSetup && !multiplayerPlayers;
@@ -1199,8 +1266,12 @@ export function GameSetupWizard({
   // A kit or a world that does not hold together is never quietly left out of a downloaded setup.
   // An intro the server would refuse (1.339): fixed before the game starts or its setup is saved.
   const introProblem = gameIntroProblem(gameIntro);
+  // Picked lore entries are checked first too, so a pending or failed check never drops them from the file.
   const setupDownloadBlocked =
-    Boolean(checkedWorldKit && !checkedWorldKit.ok) || Boolean(checkedWorld && !checkedWorld.ok) || !!introProblem;
+    Boolean(checkedWorldKit && !checkedWorldKit.ok) ||
+    Boolean(checkedWorld && !checkedWorld.ok) ||
+    !!introProblem ||
+    (activeLorebookEntryIds.length > 0 && !eligibleEntries);
   const canStart =
     (!multiplayerPlayers || multiplayerPlayers.every((player) => player.personaName?.trim())) &&
     !experienceSeedInvalid &&
@@ -3470,13 +3541,16 @@ export function GameSetupWizard({
                           <Search size={12} className="text-[var(--muted-foreground)]" />
                           <input
                             value={lbSearch}
-                            onChange={(e) => setLbSearch(e.target.value)}
+                            onChange={(e) => {
+                              setLbSearch(e.target.value);
+                              setLbShown(40);
+                            }}
                             placeholder={localizeUi("ui.game.gamesetupwizard.searchLorebooks")}
                             className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
                           />
                         </div>
                         <div className="max-h-28 overflow-y-auto">
-                          {availableLorebooks.map((lb) => (
+                          {availableLorebooks.slice(0, lbShown).map((lb) => (
                             <button
                               key={lb.id}
                               onClick={() => toggleLorebook(lb.id)}
@@ -3487,6 +3561,17 @@ export function GameSetupWizard({
                               <Plus size={12} className="text-[var(--muted-foreground)]" />
                             </button>
                           ))}
+                          {availableLorebooks.length > lbShown && (
+                            <button
+                              type="button"
+                              onClick={() => setLbShown((count) => count + 40)}
+                              className="flex w-full items-center justify-center px-3 py-1.5 text-xs text-[var(--primary)] transition-all hover:bg-[var(--accent)]"
+                            >
+                              {localizeUi("game.setupLore.showMoreBooks", {
+                                count: Math.min(availableLorebooks.length - lbShown, 40),
+                              })}
+                            </button>
+                          )}
                           {availableLorebooks.length === 0 && lorebooksList !== undefined && (
                             <p className="px-3 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
                               {lorebooks.length === 0
@@ -3511,21 +3596,19 @@ export function GameSetupWizard({
                       className="flex min-h-11 w-full items-center justify-between gap-2 text-left text-xs font-medium text-[var(--foreground)]"
                     >
                       {localizeUi("game.setupLore.entries")}
-                      <ChevronDown size={14} />
+                      <ChevronDown
+                        size={14}
+                        className={cn("transition-transform", entryPickerOpened && "rotate-180")}
+                      />
                     </button>
                     {entryPickerOpened && (
                       <>
                         <p className="text-xs text-[var(--muted-foreground)]">
                           {localizeUi("game.setupLore.description")}
                         </p>
-                        {entryQuery.isFetching && (
-                          <p role="status" className="text-xs">
-                            {localizeUi("game.setupLore.loading")}
-                          </p>
-                        )}
                         {entryQuery.isError && (
                           <div className="space-y-2">
-                            <p role="alert" className="text-xs text-[var(--destructive)]">
+                            <p role="alert" className="text-xs text-[var(--marinara-app-accent-static)]">
                               {localizeUi("game.setupLore.error")}
                             </p>
                             <button
@@ -3538,41 +3621,21 @@ export function GameSetupWizard({
                             </button>
                           </div>
                         )}
-                        {eligibleBooks.map((book) => (
-                          <details key={book.id} className="border-b border-[var(--border)] py-1">
-                            <summary className="cursor-pointer py-2 text-xs font-medium">{book.name}</summary>
-                            <div className="max-h-48 overflow-y-auto">
-                              {eligibleEntries
-                                ?.filter((entry) => entry.lorebookId === book.id)
-                                .sort((a, b) => Number(b.constant) - Number(a.constant) || a.order - b.order)
-                                .map((entry) => (
-                                  <label key={entry.id} className="flex min-h-11 items-start gap-2 py-2 text-xs">
-                                    <Checkbox
-                                      checked={selectedEntryIds.includes(entry.id)}
-                                      disabled={
-                                        isLoading ||
-                                        (!selectedEntryIds.includes(entry.id) && selectedEntryIds.length >= 100)
-                                      }
-                                      className="mt-0.5 accent-[var(--primary)]"
-                                      onChange={(event) =>
-                                        setActiveLorebookEntryIds(
-                                          event.target.checked
-                                            ? [...selectedEntryIds, entry.id]
-                                            : selectedEntryIds.filter((id) => id !== entry.id),
-                                        )
-                                      }
-                                    />
-                                    <span className="min-w-0 break-words">
-                                      {entry.name || localizeUi("game.setupLore.unnamed")}
-                                    </span>
-                                  </label>
-                                ))}
-                            </div>
-                          </details>
-                        ))}
-                        {!entryQuery.isLoading && eligibleEntries?.length === 0 && (
-                          <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("game.setupLore.empty")}</p>
+                        {!eligibleEntries && !entryQuery.isError && (
+                          <p role="status" className="text-xs">
+                            {localizeUi("game.setupLore.loading")}
+                          </p>
                         )}
+                        <GameSetupLoreEntryPicker
+                          books={eligibleBooks}
+                          selectedEntries={selectedSetupEntries}
+                          isUsable={isUsableSetupEntry}
+                          // Picks from a file still being checked hold their places, so no new pick is
+                          // taken until the check answers (it could push one past the limit unseen).
+                          disabled={isLoading || !eligibleEntries}
+                          onPick={pickSetupEntry}
+                          onUnpick={unpickSetupEntry}
+                        />
                       </>
                     )}
                   </div>

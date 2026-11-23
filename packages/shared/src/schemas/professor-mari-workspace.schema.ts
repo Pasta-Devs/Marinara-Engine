@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { MARI_PERMISSIONS_MODES } from "../constants/mari-permissions-mode.js";
-import { MARI_RUNTIMES } from "../constants/mari-runtime.js";
+import { MARI_RUNTIMES, MAX_MARI_CONTEXT_DEPTH } from "../constants/mari-runtime.js";
 
 // Hard limits on every write path (no silent truncation); the storage files re-export them.
 export const MAX_INSTRUCTION_CONTENT_LENGTH = 20_000;
@@ -249,3 +249,6 @@ export const mariWorkspacePermissionsModeSchema = z.object({
 // Professor Mari's runtime ("classic" or "pi"): the same validated-route pattern, global only.
 export const mariWorkspaceRuntimeSchema = z.object({ runtime: z.enum(MARI_RUNTIMES) });
 export const mariWorkspaceSkillGateSchema = z.object({ enabled: z.boolean() });
+export const mariWorkspaceContextDepthSchema = z.object({
+  depth: z.number().int().min(0).max(MAX_MARI_CONTEXT_DEPTH),
+});

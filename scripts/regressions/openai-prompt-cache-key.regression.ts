@@ -15,13 +15,17 @@ assert.equal(openAIPromptCacheKeyAccepted("openai", "https://proxy.example/v1"),
 assert.equal(openAIPromptCacheKeyAccepted("custom", "https://api.openai.com/v1"), false);
 assert.equal(openAIPromptCacheKeyAccepted("openrouter", "https://openrouter.ai/api/v1"), false);
 
-// Each request body the provider sends; the fixture then fails the request, which is enough.
+// Each request body the provider sends, and its `session-id` header; the fixture then fails the request, which is
+// enough.
 const bodies: Array<Record<string, unknown>> = [];
+const sessionHeaders: Array<string | undefined> = [];
 const server = createServer((req, res) => {
   let raw = "";
   req.on("data", (chunk) => (raw += chunk));
   req.on("end", () => {
     bodies.push(JSON.parse(raw || "{}"));
+    const header = req.headers["session-id"];
+    sessionHeaders.push(Array.isArray(header) ? header.join(",") : header);
     res.writeHead(400, { "content-type": "application/json" });
     res.end(JSON.stringify({ error: { message: "fixture" } }));
   });
@@ -41,11 +45,12 @@ function inChat<T>(chatId: string | undefined, fn: () => Promise<T>): Promise<T>
 
 async function send(provider: OpenAIProvider, model: string, chatId: string | undefined) {
   bodies.length = 0;
+  sessionHeaders.length = 0;
   await inChat(chatId, () =>
     provider.chatComplete([{ role: "user", content: "hi" }], { model, stream: false }).catch(() => undefined),
   );
   assert.ok(bodies.length > 0, "a request was sent");
-  return bodies[0]!;
+  return { ...bodies[0]!, sessionHeader: sessionHeaders[0] };
 }
 
 try {
@@ -57,14 +62,46 @@ try {
   assert.match(String(first.prompt_cache_key), /^marinara-[0-9a-f]{32}$/);
   assert.equal((await send(codex, "gpt-5.5", "chat-a")).prompt_cache_key, first.prompt_cache_key);
   assert.notEqual((await send(codex, "gpt-5.5", "chat-b")).prompt_cache_key, first.prompt_cache_key);
+  // The ChatGPT backend caches by the `session-id` header, as the Codex CLI sends it: the same key as the body's.
+  assert.equal(first.sessionHeader, first.prompt_cache_key);
   // The raw chat id never leaves the server.
   assert.ok(!String(first.prompt_cache_key).includes("chat-a"));
   // No chat, no key: a one-off request has nothing to share a cache with.
-  assert.equal((await send(codex, "gpt-5.5", undefined)).prompt_cache_key, undefined);
-  // A compatible endpoint never gets the field.
-  assert.equal((await send(custom, "gpt-4.1", "chat-a")).prompt_cache_key, undefined);
+  const oneOff = await send(codex, "gpt-5.5", undefined);
+  assert.equal(oneOff.prompt_cache_key, undefined);
+  assert.equal(oneOff.sessionHeader, undefined);
+  // A compatible endpoint never gets the field or the header.
+  const compatible = await send(custom, "gpt-4.1", "chat-a");
+  assert.equal(compatible.prompt_cache_key, undefined);
+  assert.equal(compatible.sessionHeader, undefined);
+
+  // GPT-6.2 and later append top-level instructions after the input and bill them uncached, so the system prompt
+  // leads the input as a developer message there. Earlier models keep it in instructions.
+  const withSystem = async (model: string) => {
+    bodies.length = 0;
+    await inChat("chat-a", () =>
+      codex
+        .chatComplete(
+          [
+            { role: "system", content: "Stable rules" },
+            { role: "user", content: "hi" },
+          ],
+          { model, stream: false },
+        )
+        .catch(() => undefined),
+    );
+    return bodies[0] as { instructions?: unknown; input?: Array<Record<string, unknown>> };
+  };
+  const late = await withSystem("gpt-6.2-sol");
+  assert.deepEqual(late.input?.[0], { role: "developer", content: "Stable rules" });
+  assert.equal(late.instructions, "Follow the developer messages.");
+  const early = await withSystem("gpt-6.1-sol");
+  assert.equal(early.instructions, "Stable rules");
+  assert.ok(!JSON.stringify(early.input).includes("Stable rules"));
 } finally {
   server.close();
 }
 
-console.log("OpenAI requests of one chat share a prompt cache key, and only OpenAI's own endpoints get one.");
+console.log(
+  "OpenAI requests of one chat share a prompt cache key, ChatGPT ones also as their session-id header, and only OpenAI's own endpoints get one.",
+);

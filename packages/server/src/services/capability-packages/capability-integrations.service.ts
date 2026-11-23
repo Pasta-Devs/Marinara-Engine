@@ -138,6 +138,9 @@ export function createCapabilityIntegrationHost(
           enabled: input.enabled,
           sourceFilePath: input.sourceFilePath,
           sourceChatImageId: input.sourceChatImageId,
+          generation: input.sourceChatImageId
+            ? (await createGalleryStorage(database).getById(input.sourceChatImageId))?.generation
+            : undefined,
           characterIds: input.characterIds,
           personaIds: input.personaIds,
           characterGallery: createCharacterGalleryStorage(database),

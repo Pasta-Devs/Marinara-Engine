@@ -13,6 +13,8 @@ export const regexScripts = fileTable("regex_scripts", {
   replaceString: text("replace_string").notNull().default(""),
   /** JSON array of strings to trim */
   trimStrings: text("trim_strings").notNull().default("[]"),
+  /** match | result. Null means result (Marinara's rule); SillyTavern imports use match. */
+  trimScope: text("trim_scope"),
   /** JSON array of placements: ["ai_output","user_input"] */
   placement: text("placement").notNull().default('["ai_output"]'),
   /** Regex flags (e.g. "gi") */

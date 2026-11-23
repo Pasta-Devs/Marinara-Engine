@@ -772,6 +772,22 @@ function ChatHelpOverlayInner({
     if (!open) return;
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const handleKeyDown = (event: KeyboardEvent) => {
+      // A key that confirms or cancels an IME candidate is the IME's (Safari: keyCode 229 after composing ends).
+      if (event.isComposing || event.keyCode === 229) return;
+      // A layer opened above the help (Search, a dialog) owns its own keys: typing there must not close the
+      // help and jump to the composer, and Escape closes that layer, not the help under it.
+      const target = event.target;
+      const overlay = overlayRef.current;
+      if (
+        target instanceof Element &&
+        target !== document.body &&
+        target !== document.documentElement &&
+        overlay &&
+        !overlay.contains(target)
+      ) {
+        return;
+      }
+      if (useUIStore.getState().omnibarOpen) return;
       if (event.key === "Escape") {
         // Captured on the document and marked handled, so a window under the overlay keeps this press.
         event.preventDefault();

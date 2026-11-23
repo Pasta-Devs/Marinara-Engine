@@ -1,4 +1,10 @@
 import { isDeepStrictEqual } from "node:util";
+import {
+  labelInjectedParts,
+  peekBlocksForResponder,
+  worldInfoPeekBlocks,
+  type PeekInjectedBlock,
+} from "../services/prompt/peek-injected-parts.js";
 import { sleep } from "../utils/sleep.js";
 import {
   lowerLocalModelPriorityAfterReply,
@@ -491,6 +497,7 @@ import {
 } from "../services/lorebook/game-lorebook-scope.js";
 import { lorebookEntryPassesContextFilters, type GameStateForScanning } from "../services/lorebook/keyword-scanner.js";
 import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
+import { stripMemoryRecallSlot } from "../services/prompt/memory-recall-slot.js";
 import {
   resolveChatSummaryConnection,
   resolveChatSummaryTemperatureOptions,
@@ -544,6 +551,7 @@ import {
   resolveCharacterMacroData,
   resolveMacrosWithVariableSnapshot,
   resolveMacrosForPreview,
+  cloneMacroContextForPreview,
   resolvePromptIdleDuration,
   resolvePromptLastGenerationType,
   resolvePromptMessageMacros,
@@ -1016,7 +1024,11 @@ import { clampGenerationMaxOutputTokens } from "../services/generation/output-to
 import { withAlwaysOnThinkingHeadroom } from "../services/generation/agent-generation-parameters.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
-import { fitMessagesForModelAccess, resolveModelAccessPolicy } from "../services/generation/model-access-policy.js";
+import {
+  fitMessagesForModelAccess,
+  resolveModelAccessPolicy,
+  withHistoryLeftOutEarlier,
+} from "../services/generation/model-access-policy.js";
 import {
   promptPreviewForAgents,
   resolveCustomWritableLorebookIds,
@@ -1057,7 +1069,10 @@ import { injectCommittedTrackerContext } from "../services/generation/committed-
 import { loadPriorBeholderState } from "../services/agents/beholder-state.js";
 import { gameGmPromptDecisionTexts, injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
 import { mergeConversationCharacterMemories } from "../services/generation/conversation-memory-context.js";
-import { injectMemoryRecallContext } from "../services/generation/memory-recall-context.js";
+import {
+  injectMemoryRecallContext,
+  type MemoryRecallPromptWindow,
+} from "../services/generation/memory-recall-context.js";
 import {
   applyIllustratorChatRunInterval,
   automaticVideoAllowed,
@@ -3529,6 +3544,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const lorebookScopeExclusions = resolveLorebookScopeExclusions(chatMode, chatMeta);
         let lorebookScanSnapshot: LorebookScanSnapshot = emptyLorebookScanSnapshot();
         let lorebookPromptScanResult: LorebookScanResult | null = null;
+        // Blocks injected at a depth, so Peek prompt can name them inside the message post-processing put them in.
+        const peekInjectedBlocks: PeekInjectedBlock[] = [];
         const scopedLorebookScansByCharacterId = new Map<string, Promise<LorebookScanResult>>();
         let presetHandledLorebooks = false;
         let characterAdvancedPromptsInjected = false;
@@ -4175,6 +4192,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           );
 
           const assemblerInput: AssemblerInput = {
+            deferMemoryRecall: true,
             worldState: promptMacroContext.worldState,
             model: conn.model,
             reasoning: promptReasoning,
@@ -4262,6 +4280,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             ...assembled.macroAgentData,
           };
           lorebookPromptScanResult = assembled.lorebookScanResult ?? null;
+          peekInjectedBlocks.push(...worldInfoPeekBlocks(assembled.lorebookScanResult?.depthEntries));
           if (assembled.lorebookActivatedEntries || assembled.lorebookBudgetSkippedEntries) {
             lorebookScanSnapshot = {
               activatedEntries: assembled.lorebookActivatedEntries ?? [],
@@ -4793,6 +4812,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               // Inject depth-based lorebook entries into the message array
               if (lorebookResult.depthEntries.length > 0) {
                 finalMessages = injectAtDepth(finalMessages, lorebookResult.depthEntries);
+                peekInjectedBlocks.push(...worldInfoPeekBlocks(lorebookResult.depthEntries));
               }
             }
           }
@@ -4827,6 +4847,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           });
           lorebookPromptScanResult = lorebookResult;
           lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
+          peekInjectedBlocks.push(...worldInfoPeekBlocks(lorebookResult.depthEntries));
           rememberKnowledgeRouterActivatedLorebookIds(
             knowledgeRouterActivatedLorebookEntryIds,
             knowledgeRouterExcludedLorebookEntryIds,
@@ -4877,6 +4898,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           finalMessages = injectAtDepth(finalMessages, [
             { content: authorNotes, role: "system", depth: authorNotesDepth },
           ]);
+          peekInjectedBlocks.push({ label: "authorsNote", depth: authorNotesDepth, content: authorNotes });
         }
 
         // Skip OOC injection entirely for scene chats — scenes are self-contained
@@ -5579,6 +5601,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             );
             lorebookPromptScanResult = lorebookResult;
             lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
+            peekInjectedBlocks.push(...worldInfoPeekBlocks(lorebookResult.depthEntries));
             rememberKnowledgeRouterActivatedLorebookIds(
               knowledgeRouterActivatedLorebookEntryIds,
               knowledgeRouterExcludedLorebookEntryIds,
@@ -6220,7 +6243,29 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           customAgentHasCapability(agent.settings, "access_vectors"),
         );
         let recalledAgentVectorMemories: string[] = [];
-        let memoryRecallAttempted = false;
+        // Agents with vector access read memories from the whole chat. The prompt's own recall serves them too
+        // only when it also searches the whole chat.
+        let agentVectorMemoriesRecalled = false;
+        // History recall removed to make room; the request still reports it as not sent.
+        const memoryRecallLeftOutHistory: GenerationPromptMessage[] = [];
+        // By default the prompt recalls only messages it will not send: none while the whole chat fits.
+        const enableMemoryRecallWholeChat = chatMeta.enableMemoryRecallWholeChat === true;
+        const memoryRecallPromptWindow = (): MemoryRecallPromptWindow<GenerationPromptMessage> | undefined =>
+          enableMemoryRecallWholeChat
+            ? undefined
+            : {
+                prompt: finalMessages,
+                messageCreatedAt: new Map(allChatMessages.map((message) => [message.id, message.createdAt])),
+                // The fit this request gets below. Tool definitions are not known yet; reserving for them would
+                // only make the request drop more history, which then waits a turn or two to be recalled.
+                fit: (messages) =>
+                  fitMessagesForModelAccess({
+                    messages: limitPastReasoningMetadata(messages, chatMeta),
+                    policy: { ...modelAccessPolicy, effectiveMaxContext },
+                    maxTokens,
+                  }).messages,
+                onHistoryLeftOut: (messages) => memoryRecallLeftOutHistory.push(...messages),
+              };
         // An active Long-term memory package replaces built-in recall in the main prompt (#8359).
         const conversationMemoriesSlot = chatMode === "conversation" && conversationContextMacroSlots.memories;
         const memoryRecallPolicy = resolveMemoryRecallPolicy({
@@ -6231,7 +6276,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         if (conversationMemoriesSlot) {
           const memoryRecallMessages: GenerationPromptMessage[] = [];
           if (memoryRecallPolicy.builtInRecall && enableMemoryRecall && memoryRecallVectorizerAvailable) {
-            memoryRecallAttempted = true;
+            agentVectorMemoriesRecalled = enableMemoryRecallWholeChat;
             recalledAgentVectorMemories = await injectMemoryRecallContext({
               db: app.db,
               messages: memoryRecallMessages,
@@ -6240,6 +6285,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               embeddingSource: memoryRecallEmbeddingSource,
               excludeFromMessageAt: regenerateContextCutoff,
               contextLimit: suppressModelParameters ? undefined : (effectiveMaxContext ?? connectionMaxContext),
+              promptWindow: memoryRecallPromptWindow(),
               sendProgress,
               signal: generationSignal,
               resolveMacros: (value) => resolveMacros(value, promptMacroContext, { trimResult: false }),
@@ -6283,7 +6329,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           enableMemoryRecall &&
           memoryRecallVectorizerAvailable
         ) {
-          memoryRecallAttempted = true;
+          agentVectorMemoriesRecalled = enableMemoryRecallWholeChat;
           recalledAgentVectorMemories = await injectMemoryRecallContext({
             db: app.db,
             messages: finalMessages,
@@ -6292,6 +6338,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             embeddingSource: memoryRecallEmbeddingSource,
             excludeFromMessageAt: regenerateContextCutoff,
             contextLimit: suppressModelParameters ? undefined : (effectiveMaxContext ?? connectionMaxContext),
+            promptWindow: memoryRecallPromptWindow(),
             sendProgress,
             signal: generationSignal,
             resolveMacros: (value) => resolveMacros(value, promptMacroContext, { trimResult: false }),
@@ -6302,7 +6349,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           !advancedMemoryEnabled &&
           customAgentVectorAccessEnabled &&
           memoryRecallVectorizerAvailable &&
-          !memoryRecallAttempted
+          !agentVectorMemoriesRecalled
         ) {
           recalledAgentVectorMemories = await injectMemoryRecallContext({
             db: app.db,
@@ -6318,6 +6365,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             wrapFormat,
           });
         }
+        // A preset's Memory Recall marker that recall did not fill (off, nothing recalled) leaves the prompt.
+        finalMessages = stripMemoryRecallSlot(finalMessages);
 
         // ── Deferred relocation {{#if}} decode (#3448) ──
         // Every relocation value is now known: evaluate {{#if memories != ""}} /
@@ -9067,6 +9116,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // and a merged generation that may voice several characters at once
           // stays on the hand-free spectator view.
           let gameAwareMessagesForGen = await prepareConversationLorebookForResponder(targetCharId, messagesForGen);
+          // World Info @depth injected for this responder only (Individual group chats scan per responder).
+          const responderPeekBlocks =
+            deferConversationLorebookScanToResponder && targetCharId
+              ? worldInfoPeekBlocks(conversationLorebookScansByResponder.get(targetCharId)?.depthEntries)
+              : [];
           let responderLorebookScan =
             (targetCharId ? conversationLorebookScansByResponder.get(targetCharId) : undefined) ??
             lorebookPromptScanResult;
@@ -9275,6 +9329,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 convoFields: conversationMacroFieldsByCharacterId.get(targetCharId) ?? promptMacroContext.convoFields,
               }
             : promptMacroContext;
+          // Peek resolves its labels from the variables as they were before the message pass, on copies, so a
+          // variable write in a block (an incvar) still happens once per reply.
+          const peekMacroContext = cloneMacroContextForPreview(responderMacroContext);
           const macroScopedMessagesForGen = spatiallyScopedMessagesForGen.map((message) => ({
             ...message,
             content: (deferredTargetCharacterProfile
@@ -9288,6 +9345,25 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           const providerMacroContext = targetCharacterProfile
             ? scopePromptMacroContextToCharacter(responderMacroContext, targetCharacterProfile)
             : responderMacroContext;
+          // Peek prompt's injected blocks get the same macro passes as this responder's messages, so a note with
+          // {{char}} still matches the text that was sent.
+          const responderPeekPromptBlocks = peekBlocksForResponder(
+            [...peekInjectedBlocks, ...responderPeekBlocks],
+            (text) => {
+              const peekContext = cloneMacroContextForPreview(peekMacroContext);
+              const deferred = deferredTargetCharacterProfile
+                ? resolveDeferredCharacterMacros(text, deferredTargetCharacterProfile, peekContext)
+                : text;
+              const [resolved] = resolvePromptMessageMacros(
+                [{ role: "system" as const, content: deferred }],
+                targetCharacterProfile
+                  ? scopePromptMacroContextToCharacter(peekContext, targetCharacterProfile)
+                  : peekContext,
+                historyMacroProfilesById,
+              );
+              return resolved?.content ?? deferred;
+            },
+          );
           const preparedMessagesForGen = resolvePromptMessageMacros(
             macroScopedMessagesForGen,
             providerMacroContext,
@@ -9622,7 +9698,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             });
             finalPromptSent = fit.messages;
             effectiveMaxTokensForSend = fit.maxTokensForSend;
-            lastContextFit = fit.contextFit;
+            lastContextFit = withHistoryLeftOutEarlier(fit.contextFit, memoryRecallLeftOutHistory);
             return fit.messages;
           };
 
@@ -12077,11 +12153,15 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               extraUpdate.diceRollResult = toolDiceRollResults.at(-1) ?? null;
             }
             // Cache the final prompt (what was actually sent to the model) for Peek Prompt
-            extraUpdate.cachedPrompt = finalPromptSent.map((m) => ({
-              role: m.role,
-              content: m.content,
-              ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
-            }));
+            // `parts` names injected blocks merged into a message (Peek prompt only; never sent).
+            extraUpdate.cachedPrompt = labelInjectedParts(finalPromptSent, responderPeekPromptBlocks).map(
+              ({ message: m, parts }) => ({
+                role: m.role,
+                content: m.content,
+                ...(parts.length > 0 ? { parts } : {}),
+                ...(m.providerMetadata ? { providerMetadata: m.providerMetadata } : {}),
+              }),
+            );
             // Cache the lorebook scan that produced the prompt so Active Context
             // reflects the last generation instead of a best-effort rescan.
             extraUpdate.lorebookScan = lorebookScanSnapshot;
@@ -15145,6 +15225,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           imageResult.effectiveConnection?.provider ?? imgConnFull.provider ?? "image_generation";
                         const effectiveImageModel = imageResult.effectiveConnection?.model || imgModel || "unknown";
 
+                        // Keep the fallback's raw request separate from its display prompt, which may include captions.
+                        const renderedByFallback =
+                          imageResult.effectiveConnection?.connectionId === providerAwareImageFallback?.connectionId &&
+                          !!providerAwareImageFallback;
                         // Save to gallery
                         const galleryEntry = await galleryStore.create({
                           chatId: input.chatId,
@@ -15155,9 +15239,11 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           width: imgWidth,
                           height: imgHeight,
                           generation: buildChatImageGenerationRecord({
-                            prompt: compiledPrompt.prompt,
+                            prompt: renderedByFallback ? providerAwareImageFallback.prompt : compiledPrompt.prompt,
                             connectionId: imageResult.effectiveConnection?.connectionId ?? imgConnFull.id,
-                            negativePrompt: finalNegativePrompt,
+                            negativePrompt: renderedByFallback
+                              ? (imageResult.effectiveNegativePrompt ?? providerAwareImageFallback.negativePrompt ?? "")
+                              : finalNegativePrompt,
                             characterPrompts: illustratorCharacterPrompts,
                             referenceCharacterIds: useAvatarRefs ? referenceResolution.characterIds : [],
                             referencePersonaId: useAvatarRefs ? referenceResolution.personaId : null,
@@ -15172,6 +15258,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                           enabled: imageSettings.autoSaveToGalleries,
                           sourceFilePath: filePath,
                           sourceChatImageId: galleryEntry?.id,
+                          generation: galleryEntry?.generation,
                           characterIds: referenceResolution.characterIds,
                           personaIds: referenceResolution.personaId ? [referenceResolution.personaId] : [],
                           characterGallery,

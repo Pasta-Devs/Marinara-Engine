@@ -46,6 +46,8 @@ export interface MariThread {
   contextLabel?: string;
   lastMessageAt: number | null;
   createdAt: number;
+  /** The thread she showed last (the server's active one). */
+  active?: boolean;
 }
 
 export function readMariThread(chat: {
@@ -65,11 +67,13 @@ export function readMariThread(chat: {
     contextLabel: key ? label : undefined,
     lastMessageAt: Date.parse(chat.lastMessageAt ?? "") || null,
     createdAt: Date.parse(chat.createdAt ?? "") || 0,
+    active: metadata.professorMariActive === true && metadata.professorMariArchived !== true,
   };
 }
 
 export type MariThreadChoice =
-  /** The newest thread for this context (or the one the user chose to continue for it). */
+  /** The newest thread for this context (or the one the user chose to continue for it); from a screen without a
+   *  subject of its own, the thread she showed last. */
   | { kind: "continue"; chatId: string }
   /**
    * No thread for this context: continue her most recent conversation and offer "New about <context>"
@@ -97,6 +101,12 @@ export function chooseMariThread({
         !best || (thread.lastMessageAt ?? thread.createdAt) > (best.lastMessageAt ?? best.createdAt) ? thread : best,
       null,
     );
+  // Home and every other screen without a subject of its own: the thread you were last in, whatever it is about.
+  // Picking the newest "general" one instead opened an older thread whenever the latest began in an editor or chat.
+  if (contextKey === MARI_GENERAL_CONTEXT) {
+    const current = threads.find((thread) => thread.active) ?? newest(threads.filter((thread) => thread.lastMessageAt));
+    if (current) return { kind: "continue", chatId: current.id };
+  }
   const match = newest(threads.filter((thread) => thread.contextKey === contextKey));
   if (match) return { kind: "continue", chatId: match.id };
   const recent = newest(threads.filter((thread) => thread.lastMessageAt !== null));

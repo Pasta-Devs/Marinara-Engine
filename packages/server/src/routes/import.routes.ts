@@ -6,10 +6,11 @@ import { execFile } from "child_process";
 import { randomUUID } from "node:crypto";
 import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
+import { realpathSync } from "fs";
 import { readdir, stat } from "fs/promises";
 import { resolve as pathResolve } from "path";
 import { containsDecisionStatements, normalizeTextForMatch, type ChatMode } from "@marinara-engine/shared";
-import { importSTChat } from "../services/import/st-chat.importer.js";
+import { importSTChat, stChatFileFingerprint, stChatNameFromFileName } from "../services/import/st-chat.importer.js";
 import {
   importSTCharacter,
   importCharX,
@@ -107,23 +108,34 @@ function resolveImportFolder(body: {
       return { ok: false, error: "Folder token does not match folderPath" };
     }
     if (getImportAllowedRoots().length > 0 && !isAllowedImportRoot(entry.path)) {
-      return {
-        ok: false,
-        error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.",
-      };
+      return { ok: false, error: describeImportFolderLimit() };
     }
     return { ok: true, path: entry.path };
   }
 
   if (!rawPath) return { ok: false, error: "folderPath or folderToken is required" };
   const resolved = pathResolve(rawPath);
-  if (!isAllowedImportRoot(resolved)) {
-    return {
-      ok: false,
-      error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.",
-    };
+  // A typed path gets what Browse already reaches: the home folder, unless IMPORT_ALLOWED_ROOTS names others.
+  // Links are followed first, so a link inside the home folder can't lead the import outside it.
+  const real = realPathOrSelf(resolved);
+  const roots = getImportAllowedRoots().length > 0 ? getImportAllowedRoots() : [homedir()];
+  const allowed = roots.some((root) => isUnderRoot(real, realPathOrSelf(pathResolve(root))));
+  if (!allowed) return { ok: false, error: describeImportFolderLimit() };
+  return { ok: true, path: real };
+}
+
+function realPathOrSelf(pathValue: string): string {
+  try {
+    return realpathSync(pathValue);
+  } catch {
+    return pathValue;
   }
-  return { ok: true, path: resolved };
+}
+
+function describeImportFolderLimit() {
+  return getImportAllowedRoots().length > 0
+    ? "Marinara can only read folders inside the import folders this server allows (IMPORT_ALLOWED_ROOTS). Move the SillyTavern folder into one of them, or ask whoever runs the server to allow its location."
+    : `Marinara can only read folders inside your home folder (${homedir()}). Move the SillyTavern folder there, or ask whoever runs the server to allow its location (IMPORT_ALLOWED_ROOTS).`;
 }
 
 /**
@@ -649,12 +661,7 @@ export async function importRoutes(app: FastifyInstance) {
     if (rawMode !== undefined && mode === undefined) return invalidChatModeResponse();
 
     // Use the uploaded filename (minus extension) as chat name if available
-    const rawName = data.filename ?? "";
-    const chatName =
-      rawName
-        .replace(/\.jsonl$/i, "")
-        .replace(/_/g, " ")
-        .trim() || undefined;
+    const chatName = stChatNameFromFileName(data.filename);
 
     // Try to link the chat to a character by matching the JSONL header's character_name
     let characterId: string | null = null;
@@ -691,8 +698,11 @@ export async function importRoutes(app: FastifyInstance) {
     return importSTChat(text, app.db, {
       ...(chatName ? { chatName } : {}),
       ...(characterId ? { characterId } : {}),
-      ...(mode ? { mode } : {}),
+      // The file's own mode wins; the picked one applies to a plain SillyTavern log.
+      ...(mode ? { modeFallback: mode } : {}),
       ...(timestampOverrides ? { timestampOverrides } : {}),
+      // So a later folder import knows this file is already here.
+      sourceFingerprint: stChatFileFingerprint(text),
     });
   });
 
@@ -758,6 +768,21 @@ export async function importRoutes(app: FastifyInstance) {
       }
     }
 
+    // A group chat that already has a mode keeps it for the imported branch.
+    let targetMetadata: Record<string, unknown> = {};
+    try {
+      const parsed: unknown =
+        typeof targetChat.metadata === "string" ? JSON.parse(targetChat.metadata) : targetChat.metadata;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+        targetMetadata = parsed as Record<string, unknown>;
+    } catch {
+      targetMetadata = {};
+    }
+    const targetGroupChatMode =
+      targetMetadata.groupChatMode === "individual" || targetMetadata.groupChatMode === "merged"
+        ? targetMetadata.groupChatMode
+        : undefined;
+
     const rawName = file.filename ?? "";
     const branchName =
       rawName
@@ -773,11 +798,13 @@ export async function importRoutes(app: FastifyInstance) {
       ...(inheritedCharacterIds.length === 1 ? { characterId: inheritedCharacterIds[0] } : {}),
       ...(inheritedCharacterIds.length > 0 ? { characterIds: inheritedCharacterIds } : {}),
       ...(speakerMap ? { speakerMap } : {}),
+      ...(targetGroupChatMode ? { groupChatMode: targetGroupChatMode } : {}),
       personaId: targetChat.personaId ?? null,
       personaCharacterId: targetChat.personaCharacterId ?? null,
       connectionId: targetChat.connectionId ?? null,
       promptPresetId: targetChat.promptPresetId ?? null,
       ...(timestampOverrides ? { timestampOverrides } : {}),
+      sourceFingerprint: stChatFileFingerprint(text),
     });
 
     return { ...result, groupId };

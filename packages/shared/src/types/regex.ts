@@ -31,6 +31,8 @@ export interface RegexScript {
   replaceString: string;
   /** Additional strings to trim from the result */
   trimStrings: string[];
+  /** Where trim strings apply: "match" (SillyTavern) or "result" (default). */
+  trimScope?: "match" | "result";
   /** Where to apply this script */
   placement: RegexPlacement[];
   /** Regex flags (e.g. "gi", "gm") */

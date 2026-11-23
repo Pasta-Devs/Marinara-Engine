@@ -63,6 +63,7 @@ import {
 import { MARI_QUICK_CONNECTION } from "../../lib/omnibar-aside-text";
 import { EmbeddingDefaultControl } from "./EmbeddingDefaultControl";
 import { DecisionDefaultControl } from "./DecisionDefaultControl";
+import { ImageReadingSettings } from "./ImageReadingSettings";
 import { LocalWhisper, SMALL_ACTION } from "./DeviceDetail";
 import { ROW_BUTTON, type ConnectionRowData } from "./ConnectionRow";
 import { JobRow, isUnset } from "./JobRow";
@@ -715,7 +716,7 @@ function overridesOf(key: JobKey, rows: readonly ConnectionRowData[]) {
 }
 
 /** Jobs with behaviour of their own: a gear opens the job's settings window. */
-const JOB_SETTINGS = new Set<JobKey>(["voice", "stt", "decision", "agents"]);
+const JOB_SETTINGS = new Set<JobKey>(["voice", "stt", "decision", "agents", "vision"]);
 
 /** A titled box in the job settings window. */
 function JobSettingsSection({ title, children }: { title: string; children: ReactNode }) {
@@ -828,6 +829,7 @@ function DefaultsJobRow({
           onOpenChange={setOpen}
           job={title}
           jobKey={job.key as JobKey}
+          showJobSettings={job.key === "vision"}
           rowFilter={job.key === "vision" ? mayReadImages : undefined}
           {...model}
         />
@@ -855,6 +857,11 @@ function DefaultsJobRow({
               <Suspense fallback={null}>
                 <ConnectionEditor connectionId={tile.source.id} part="decision" />
               </Suspense>
+            )}
+            {job.key === "vision" && (
+              <JobSettingsSection title={t("connections.imageReading.title")}>
+                <ImageReadingSettings />
+              </JobSettingsSection>
             )}
             {overrides.length > 0 && (
               <JobSettingsSection title={t("connections.jobSettings.overrides")}>
@@ -924,6 +931,7 @@ export function JobPickerWindow({ job, onClose }: { job: Job; onClose: () => voi
       open
       onOpenChange={(open) => !open && onClose()}
       job={t(jobLabelKey(job))}
+      showJobSettings={job.key === "vision"}
       {...model}
     />
   );

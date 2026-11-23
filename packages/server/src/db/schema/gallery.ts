@@ -42,6 +42,8 @@ export const characterImages = fileTable("character_images", {
   sourceChatImageId: text("source_chat_image_id"),
   /** File path relative to data/gallery/ */
   filePath: text("file_path").notNull(),
+  /** Independent regeneration request; retained when the source chat is deleted. */
+  generation: text("generation"),
   /** Optional prompt or note associated with this image */
   prompt: text("prompt").notNull().default(""),
   /** Which provider/service generated this image */
@@ -70,6 +72,8 @@ export const personaImages = fileTable("persona_images", {
   sourceChatImageId: text("source_chat_image_id"),
   /** File path relative to data/gallery/ */
   filePath: text("file_path").notNull(),
+  /** Independent regeneration request; retained when the source chat is deleted. */
+  generation: text("generation"),
   /** Optional prompt or note associated with this image */
   prompt: text("prompt").notNull().default(""),
   /** Which provider/service generated this image */

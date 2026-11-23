@@ -17,17 +17,19 @@ export function truncateRecalledMemory(content: string, tokenBudget: number): st
   return `${head}${RECALL_TRUNCATION_MARKER}${tail}`;
 }
 
+/** The most tokens recalled memories may take in a prompt for this context window. */
+export function memoryRecallBudgetTokens(maxContext?: number): number {
+  const targetBudget = maxContext
+    ? Math.floor(maxContext * MEMORY_RECALL_CONTEXT_SHARE)
+    : DEFAULT_MEMORY_RECALL_BUDGET_TOKENS;
+  return Math.max(MIN_MEMORY_RECALL_BUDGET_TOKENS, Math.min(MAX_MEMORY_RECALL_BUDGET_TOKENS, targetBudget));
+}
+
 export function packRecalledMemories(
   recalled: Array<{ content: string }>,
   maxContext?: number,
 ): { lines: string[]; estimatedTokens: number; budgetTokens: number; trimmed: boolean } {
-  const targetBudget = maxContext
-    ? Math.floor(maxContext * MEMORY_RECALL_CONTEXT_SHARE)
-    : DEFAULT_MEMORY_RECALL_BUDGET_TOKENS;
-  const budgetTokens = Math.max(
-    MIN_MEMORY_RECALL_BUDGET_TOKENS,
-    Math.min(MAX_MEMORY_RECALL_BUDGET_TOKENS, targetBudget),
-  );
+  const budgetTokens = memoryRecallBudgetTokens(maxContext);
 
   const lines: string[] = [];
   let estimatedTokens = 0;

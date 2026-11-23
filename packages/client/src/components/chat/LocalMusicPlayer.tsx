@@ -12,6 +12,7 @@ import {
 import { encodeAssetPath } from "../game-assets/encode-asset-path";
 import { MusicSourceButton, MusicSourceGlyph } from "../music/MusicSourceButton";
 import { createPortal } from "react-dom";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { playbackErrorMessage } from "../../lib/local-music-playback";
@@ -577,21 +578,18 @@ function MoodDisclosure({ text }: { text: string }) {
     const left = Math.max(pad, Math.min(rect.left, window.innerWidth - pad - tip.width));
     setPos({ top, left, ready: true });
   }, [open, text]);
+  // Escape is the shared one. A press counts as outside only when it misses both the line and the panel, which
+  // `useDismiss` (one element) can't tell, so that part stays here.
+  useDismiss(tipRef, open, close, { outsideClick: false, back: false });
   useEffect(() => {
     if (!open) return;
+    const doc = wrapRef.current?.ownerDocument ?? document;
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (!wrapRef.current?.contains(target) && !tipRef.current?.contains(target)) close();
     };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+    doc.addEventListener("pointerdown", onPointerDown);
+    return () => doc.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
   return (
     <span ref={wrapRef} className="relative block min-w-0">
@@ -643,7 +641,7 @@ function MoodDisclosure({ text }: { text: string }) {
             >
               {text}
             </div>,
-            document.body,
+            wrapRef.current?.ownerDocument.body ?? document.body,
           )
         : null}
     </span>

@@ -341,11 +341,12 @@ Video accounts are set up in the app. These settings only tune the jobs. Values 
 
 ### Lorebooks
 
-Both are off by default and apply on the next generation after a `.env` change. When `LOREBOOK_STABLE_GROUP_WINNERS` is set, it wins over the **Stable lorebook picks** switch in **Settings → Advanced → Features**. Otherwise the switch decides. See [Feature Switches](configuration/features.md).
+All are off by default. `LOREBOOK_STABLE_GROUP_WINNERS` and `LOREBOOK_COMPACT_STORED_SCANS` apply on the next generation after a `.env` change, and `LOREBOOK_NEW_BOOK_VECTORS` on the next lorebook created. When `LOREBOOK_STABLE_GROUP_WINNERS` or `LOREBOOK_NEW_BOOK_VECTORS` is set, it wins over its switch (**Stable lorebook picks** or **Vectors on for new lorebooks**) in **Settings → Advanced → Features**. Otherwise the switch decides. See [Feature Switches](configuration/features.md).
 
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | `false` | Keeps the same inclusion-group winner per chat while the candidates stay the same, instead of re-rolling each generation. Keeps the prompt start stable for provider prompt caching. |
+| `LOREBOOK_NEW_BOOK_VECTORS` | `false` | Starts new lorebooks with **Vectors** on, so their entries can be vectorized and found by meaning straight away. Applies to lorebooks created in the app, imported without their own setting, or made by Game Mode and the Lorebook Keeper. Lorebooks Professor Mari creates already start with **Vectors** on. Existing lorebooks keep their own setting. |
 | `LOREBOOK_COMPACT_STORED_SCANS` | `false` | Stores the full text of activated entries only on the newest assistant or narrator message. Older messages keep entry ids, keys and scores. Makes chats with large lorebooks much smaller. If newer messages are deleted, Active Context and agent retries show the entry's current text for the message that is newest again. |
 
 `scripts/compact-lorebook-scans.mjs` applies the same rule to older chats. Stop the server first. It is a dry run unless you pass `--apply`, and it backs up both message tables before it writes.

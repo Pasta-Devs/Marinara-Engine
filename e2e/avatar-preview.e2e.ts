@@ -2,6 +2,271 @@ import { clickTopbarPanel } from "./topbar-navigation.js";
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
+import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
+
+test("leaving an avatar preview while its image loads prevents a stale apply", async ({ page }) => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+    "base64",
+  );
+  const imageUrl = "/api/characters/avatar-owner/gallery/file/avatar.png";
+  const editedImageUrl = "/api/characters/avatar-owner/gallery/file/edited-avatar.png";
+  let releaseBlob!: () => void;
+  let markRequested!: () => void;
+  const heldBlob = new Promise<void>((resolve) => {
+    releaseBlob = resolve;
+  });
+  const requestedBlob = new Promise<void>((resolve) => {
+    markRequested = resolve;
+  });
+  await page.route(`**${imageUrl}`, (route) => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route(`**${editedImageUrl}`, async (route) => {
+    if (route.request().resourceType() === "fetch") {
+      markRequested();
+      await heldBlob;
+    }
+    await route.fulfill({ contentType: "image/png", body: png });
+  });
+  await page.route("**/api/connections", (route) =>
+    route.fulfill({
+      json: [
+        {
+          id: "avatar-nai-e2e",
+          name: "NovelAI test",
+          provider: "image_generation",
+          imageService: "novelai",
+          baseUrl: "https://image.novelai.net",
+          model: "nai-diffusion-5-full",
+          defaultForAgents: true,
+        },
+      ],
+    }),
+  );
+  await page.route("**/api/characters/avatar-owner/gallery/avatar-image/regenerate", (route) =>
+    route.fulfill({
+      json: {
+        id: "edited-avatar-image",
+        filePath: "characters/avatar-owner/edited-avatar.png",
+        url: editedImageUrl,
+        prompt: "Edited avatar",
+        provider: "novelai",
+        model: "nai-diffusion-5-full",
+        width: 1,
+        height: 1,
+        createdAt: "",
+        generation: null,
+      },
+    }),
+  );
+  await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+  await page.goto("/");
+  await prepareViteFixtureDependencies(page);
+  await page.evaluate(async (url) => {
+    const runtime = window as typeof window & {
+      __avatarApplyCalls?: number;
+      __avatarCloseCalls?: number;
+      __avatarApplySettled?: boolean;
+      __unmountAvatarEditFixture?: () => void;
+    };
+    const dependency = window.__viteFixtureDependencyUrl;
+    const { default: React } = await import(dependency("react"));
+    const { default: ReactDOM } = await import(dependency("react-dom_client"));
+    const { QueryClient, QueryClientProvider, MutationCache } = await import(dependency("@tanstack_react-query"));
+    const { EntityAvatarLightbox } = await import("/src/components/ui/EntityAvatarLightbox.tsx" as string);
+    runtime.__avatarApplyCalls = 0;
+    runtime.__avatarCloseCalls = 0;
+    runtime.__avatarApplySettled = false;
+    const mount = document.createElement("div");
+    document.body.append(mount);
+    const root = ReactDOM.createRoot(mount);
+    runtime.__unmountAvatarEditFixture = () => {
+      root.unmount();
+      mount.remove();
+    };
+    root.render(
+      React.createElement(
+        QueryClientProvider,
+        {
+          client: new QueryClient({
+            defaultOptions: { queries: { retry: false } },
+            mutationCache: new MutationCache({
+              onSettled: () => {
+                runtime.__avatarApplySettled = true;
+              },
+            }),
+          }),
+        },
+        React.createElement(EntityAvatarLightbox, {
+          owner: { kind: "character", id: "avatar-owner" },
+          image: {
+            id: "avatar-image",
+            filePath: "characters/avatar-owner/avatar.png",
+            url,
+            prompt: "Original avatar",
+            provider: "",
+            model: "",
+            width: 1,
+            height: 1,
+            createdAt: "",
+            generation: null,
+          },
+          onUseAvatar: async () => {
+            runtime.__avatarApplyCalls! += 1;
+          },
+          onClose: () => {
+            runtime.__avatarCloseCalls! += 1;
+          },
+        }),
+      ),
+    );
+  }, imageUrl);
+  try {
+    const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await expect(viewer.getByRole("button", { name: "Use as avatar", exact: true })).toHaveCount(0);
+    await viewer.getByRole("button", { name: "Regenerate image", exact: true }).click();
+    await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue("Original avatar");
+    await viewer.getByRole("button", { name: "Edit image", exact: true }).click();
+    await viewer.getByRole("button", { name: "Apply edit", exact: true }).click();
+    await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue("Edited avatar");
+    await page.evaluate(() => {
+      (window as typeof window & { __avatarApplySettled?: boolean }).__avatarApplySettled = false;
+    });
+    await viewer.getByRole("button", { name: "Use as avatar", exact: true }).click();
+    await requestedBlob;
+    await page.evaluate(() => {
+      (window as typeof window & { __unmountAvatarEditFixture: () => void }).__unmountAvatarEditFixture();
+    });
+    releaseBlob();
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as typeof window & { __avatarApplySettled?: boolean }).__avatarApplySettled),
+      )
+      .toBe(true);
+    expect(
+      await page.evaluate(() => {
+        const runtime = window as typeof window & { __avatarApplyCalls?: number; __avatarCloseCalls?: number };
+        return { applied: runtime.__avatarApplyCalls, closed: runtime.__avatarCloseCalls };
+      }),
+    ).toEqual({ applied: 0, closed: 0 });
+  } finally {
+    releaseBlob();
+  }
+});
+
+for (const owner of ["character", "persona"] as const) {
+  test(`${owner} avatar preparation and previews expire when leaving the owner`, async ({ page, request }) => {
+    const collection = owner === "persona" ? "/api/characters/personas" : "/api/characters";
+    const ids: string[] = [];
+    const names = [`Avatar session A ${owner}`, `Avatar session B ${owner}`];
+    const png = readFileSync(new URL("../packages/client/public/sprites/mari/safari/pose-greet.webp", import.meta.url));
+    let releasePreparation!: () => void;
+    const heldPreparation = new Promise<void>((resolve) => {
+      releasePreparation = resolve;
+    });
+    let markPreparationRequested!: () => void;
+    const preparationRequested = new Promise<void>((resolve) => {
+      markPreparationRequested = resolve;
+    });
+    try {
+      for (const name of names) {
+        const created = await request.post(collection, { data: owner === "character" ? { data: { name } } : { name } });
+        expect(created.ok(), await created.text()).toBeTruthy();
+        const { id } = (await created.json()) as { id: string };
+        ids.push(id);
+        const uploaded = await request.post(`${collection}/${id}/gallery/upload`, {
+          multipart: { file: { name: "avatar.webp", mimeType: "image/webp", buffer: png } },
+        });
+        expect(uploaded.ok()).toBeTruthy();
+        const image = (await uploaded.json()) as { id: string };
+        expect((await request.post(`${collection}/${id}/gallery/${image.id}/avatar`)).ok()).toBeTruthy();
+      }
+      const preparedImage = {
+        id: "prepared-session-avatar",
+        filePath: "avatar.webp",
+        url: "/avatar-session-fixture.webp",
+        prompt: "Prepared avatar",
+        provider: "",
+        model: "",
+        width: 1,
+        height: 1,
+        createdAt: "",
+        generation: null,
+      };
+      await page.route("**/avatar-session-fixture.webp", (route) =>
+        route.fulfill({ contentType: "image/webp", body: png }),
+      );
+      let preparations = 0;
+      await page.route(`**${collection}/${ids[0]}/avatar/edit-source`, async (route) => {
+        preparations += 1;
+        if (preparations === 1) {
+          markPreparationRequested();
+          await heldPreparation;
+        }
+        await route.fulfill({ json: preparedImage });
+      });
+      await page.route("**/api/app-settings/ui", (route) => route.fulfill({ json: { value: "" } }));
+      await seedUIState(page, { hasCompletedOnboarding: true, sidebarOpen: false, rightPanelOpen: false });
+      await page.addInitScript(
+        (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
+        JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version,
+      );
+      await page.goto("/");
+      const editor = page.locator(".mari-editor-shell");
+      const openOwner = async (index: number) => {
+        await page.evaluate(
+          async ({ owner, id }) => {
+            const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+            if (owner === "persona") useUIStore.getState().openPersonaDetail(id, { initialTab: "metadata" });
+            else useUIStore.getState().openCharacterDetail(id, { initialTab: "metadata" });
+          },
+          { owner, id: ids[index]! },
+        );
+        await expect
+          .poll(() =>
+            editor
+              .locator("input")
+              .evaluateAll(
+                (inputs, name) => inputs.some((input) => (input as HTMLInputElement).value === name),
+                names[index],
+              ),
+          )
+          .toBe(true);
+      };
+      const edit = editor.getByRole("button", { name: "Edit avatar", exact: true });
+      const viewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+      await openOwner(0);
+      await edit.click();
+      await preparationRequested;
+      await openOwner(1);
+      await openOwner(0);
+      releasePreparation();
+      await expect
+        .poll(() =>
+          page.evaluate(async () => {
+            const { queryClient } = await import("/src/lib/query-client.ts" as string);
+            return queryClient.isMutating();
+          }),
+        )
+        .toBe(0);
+      await expect(edit).toBeEnabled();
+      await expect(viewer).toHaveCount(0);
+
+      // A fresh preparation still opens, but an already open preview must not reappear on returning to A.
+      await edit.click();
+      await expect(viewer).toBeVisible();
+      await openOwner(1);
+      await expect(viewer).toHaveCount(0);
+      await openOwner(0);
+      await expect(viewer).toHaveCount(0);
+      await edit.click();
+      await expect(viewer).toBeVisible();
+      await viewer.getByRole("button", { name: "Close image", exact: true }).click();
+    } finally {
+      releasePreparation();
+      for (const id of ids) await request.delete(`${collection}/${id}`);
+    }
+  });
+}
 
 test("sheet uploads persist on refresh without saving unrelated card drafts", async ({ page, request }) => {
   await page.route("**/api/app-settings/ui", (route) =>
@@ -350,6 +615,17 @@ test("avatar crop handles stay whole and draggable on a square image", async ({ 
     const frame = page.locator("[data-avatar-crop-frame]");
     await expect(frame).toBeVisible();
     await frame.evaluate((element) => element.scrollIntoView({ block: "center" }));
+
+    // Initial section anchoring can finish after the crop frame appears in WebKit.
+    await expect
+      .poll(async () => {
+        await frame.evaluate((element) => element.scrollIntoView({ block: "center" }));
+        return frame.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return bounds.top >= 0 && bounds.bottom <= window.innerHeight;
+        });
+      })
+      .toBe(true);
 
     // A square image starts with the crop on every image edge, where the handles were cut to a sliver (#7323).
     for (const pos of ["tl", "tr", "bl", "br"] as const) {

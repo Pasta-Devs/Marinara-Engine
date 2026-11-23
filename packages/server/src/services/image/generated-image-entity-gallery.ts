@@ -1,3 +1,4 @@
+import { parseChatImageGenerationRecord } from "@marinara-engine/shared";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { logger } from "../../lib/logger.js";
@@ -23,6 +24,7 @@ export type GeneratedImageEntityGalleryInput = {
   characterGallery: CharacterGalleryStore;
   personaGallery: PersonaGalleryStore;
   prompt: string;
+  generation?: unknown;
   provider: string;
   model: string;
   width: number;
@@ -65,6 +67,7 @@ export async function persistGeneratedImageToEntityGalleries(
         sourceChatImageId: input.sourceChatImageId ?? null,
         filePath: input.sourceFilePath,
         prompt: input.prompt,
+        generation: parseChatImageGenerationRecord(input.generation),
         provider: input.provider,
         model: input.model,
         width: input.width,

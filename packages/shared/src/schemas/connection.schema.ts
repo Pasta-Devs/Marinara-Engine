@@ -149,7 +149,8 @@ export const createConnectionSchema = z.object({
   useForRandom: z.boolean().default(false),
   defaultForAgents: z.boolean().default(false),
   fallbackForAgents: z.boolean().default(false),
-  enableCaching: z.boolean().default(false),
+  /** Prompt caching. Unset, a new Model takes its service's default: on for OpenRouter, off elsewhere. */
+  enableCaching: z.boolean().optional(),
   anthropicExtendedCacheTtl: z.boolean().default(false),
   cachingAtDepth: z.number().int().min(0).default(5),
   embeddingModel: z.string().default(""),

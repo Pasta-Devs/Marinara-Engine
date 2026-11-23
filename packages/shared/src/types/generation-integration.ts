@@ -94,9 +94,9 @@ export interface ChatOptions {
   toolChoice?: "auto" | "required";
   /** Enable provider-native prompt caching when supported */
   enableCaching?: boolean;
-  /** Anthropic and Claude Subscription: request a 1-hour prompt-cache TTL. */
+  /** Anthropic, Claude Subscription and Claude on OpenRouter: request a 1-hour prompt-cache TTL. */
   anthropicExtendedCacheTtl?: boolean;
-  /** Anthropic cache breakpoint depth from the newest message. 0 = newest message. */
+  /** Anthropic (and Claude or Qwen on OpenRouter) cache breakpoint depth from the newest message. 0 = newest message. */
   cachingAtDepth?: number;
   /** Callback for streaming thinking/reasoning content */
   onThinking?: (chunk: string) => void;

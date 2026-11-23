@@ -153,6 +153,9 @@ export interface MarinaraHostV1 {
     /** Capability API 1.831. The shared dropdown: `value`, `options` ({ value, label, description?, group?,
      *  disabledReason? }), `onChange`, `label`; a popover on desktop and a sheet on phones. */
     readonly Select: typeof import("../components/ui/Select").Select;
+    /** Capability API 1.836. A layer anchored to `anchorRef`: `open`, `onClose`, `side`, `align`; flips, stays inside
+     *  the window, and closes on Escape, an outside press and back, topmost layer first. */
+    readonly Popover: typeof import("../components/ui/Popover").Popover;
   };
   readonly data: { readonly emojiCatalog: typeof import("./emoji-catalog.generated") };
   /** The module namespace of lib/api-client.ts (api, ApiError, getApiErrorMessage, ...). */
