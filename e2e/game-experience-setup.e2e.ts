@@ -2,7 +2,7 @@ import { chooseConnection } from "./connection-picker.js";
 import { prepareViteFixtureDependencies } from "./vite-fixture-dependencies.js";
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
-import { seedUIState } from "./ui-state-fixture.js";
+import { seedUIState, seedClassicLayout } from "./ui-state-fixture.js";
 import {
   WORLD_GENERATOR_VERSION,
   WORLD_STARTER_KITS,
@@ -74,6 +74,7 @@ async function mountWizard(page: Page, testInfo: TestInfo, options: WizardMountO
     rightPanelOpen: false,
     theme: options.theme ?? (testInfo.project.name === "desktop-chromium" ? "light" : "dark"),
   });
+  await seedClassicLayout(page);
   await page.addInitScript((value) => localStorage.setItem("marinara:whats-new:seen-version", value), version);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?", exact: true })).toBeVisible({
@@ -449,6 +450,37 @@ for (const isNewGame of [true, false]) {
     await page.route("**/api/lorebooks", (route) => route.fulfill({ json: books }));
     await page.route("**/api/lorebooks/keeper-book/entries", (route) => route.fulfill({ json: [] }));
     let failEntryFetch = true;
+    // A book's entries are read only when that book is opened in the picker (#9645).
+    const entryReads: string[] = [];
+    page.on("request", (request) => {
+      const match = /\/api\/lorebooks\/([^/]+)\/entries$/u.exec(new URL(request.url()).pathname);
+      if (match && request.method() === "GET") entryReads.push(match[1]!);
+    });
+    // Picks are checked by id; the server answers only for entries play would read.
+    await page.route("**/api/lorebooks/entries/eligible", (route) => {
+      if (failEntryFetch) return route.fulfill({ status: 503, json: { error: "Temporary entry loading failure" } });
+      const ids = (route.request().postDataJSON() as { ids: string[] }).ids;
+      const known = [
+        {
+          id: "keyword-entry",
+          lorebookId: "free-book",
+          name: "Keyword entry",
+          enabled: true,
+          constant: false,
+          order: 0,
+        },
+        {
+          id: "constant-entry",
+          lorebookId: "free-book",
+          name: "Constant entry",
+          enabled: true,
+          constant: true,
+          order: 1,
+        },
+        { id: "chat-disabled-entry", lorebookId: "free-book", name: "Chat disabled entry", enabled: true, order: 3 },
+      ];
+      return route.fulfill({ json: known.filter((entry) => ids.includes(entry.id)) });
+    });
     await page.route("**/api/lorebooks/free-book/entries", (route) =>
       failEntryFetch
         ? route.fulfill({ status: 503, json: { error: "Temporary entry loading failure" } })
@@ -602,8 +634,11 @@ for (const isNewGame of [true, false]) {
     await expect(wizard.getByRole("heading", { name: "Goals", exact: true })).toBeVisible();
     await next();
     await wizard.getByRole("button", { name: "Select individual entries", exact: true }).click();
-    await expect(wizard.locator("summary").filter({ hasText: "Keeper lore" })).toHaveCount(0);
+    const pickerBooks = wizard.locator('[data-component="GameSetupLoreEntryPicker.Books"]');
+    await expect(pickerBooks.getByRole("button", { name: /Unattached lore/u })).toBeVisible();
+    await expect(pickerBooks.getByRole("button", { name: /Keeper lore/u })).toHaveCount(0);
     await expect(wizard.getByRole("alert")).toContainText("Could not load the entries.");
+    expect(entryReads).toEqual([]);
     await next();
     await next();
     await expect(wizard.getByRole("button", { name: "Create world", exact: true })).toBeDisabled();
@@ -614,8 +649,12 @@ for (const isNewGame of [true, false]) {
     failEntryFetch = false;
     await wizard.getByRole("button", { name: "Retry", exact: true }).click();
     await expect(wizard.getByRole("alert")).toHaveCount(0);
-    await wizard.locator("summary").filter({ hasText: "Unattached lore" }).click();
+    // The kept pick is listed with its book, and its book leads the list.
+    await expect(wizard.getByText("Keyword entry", { exact: true })).toBeVisible();
+    await expect(wizard.getByText("1 of 100 entries picked", { exact: true })).toBeVisible();
+    await pickerBooks.getByRole("button", { name: /Unattached lore/u }).click();
     await expect(wizard.getByRole("checkbox")).toHaveCount(2);
+    expect(entryReads).toEqual(["free-book"]);
     await expect(wizard.getByRole("checkbox").first()).toHaveAccessibleName("Constant entry");
     await expect(wizard.getByRole("checkbox", { name: "Keyword entry", exact: true })).toBeChecked();
     await page.screenshot({ path: testInfo.outputPath("setup-lore-entry-picker.png") });

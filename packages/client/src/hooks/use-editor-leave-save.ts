@@ -3,8 +3,9 @@ import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { create } from "zustand";
-import { editorLeaveKeyForTab, registerEditorLeaveHandler } from "../lib/editor-leave";
+import { editorLeaveKeyForTab, registerEditorLeaveHandler, type PageLeaveStates } from "../lib/editor-leave";
 import { showChoiceDialog } from "../lib/app-dialogs";
+import { announce } from "../lib/live-announcer";
 import { isOverhaulLook, useOverhaulStore } from "../stores/overhaul.store";
 import { useUIStore } from "../stores/ui.store";
 
@@ -189,11 +190,16 @@ export function useEditorLeaveSave(
   save: () => Promise<boolean | void>,
   busy = false,
   draft?: EditorUnsavedDraft,
+  /** A page's own editor (no detail id): true when a store change would take its page off screen. */
+  hiddenBy?: (next: PageLeaveStates) => boolean,
 ) {
   const { t } = useTranslation();
   const latest = useRef({ dirty, save, busy, t });
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  const hiddenByRef = useRef(hiddenBy);
+  hiddenByRef.current = hiddenBy;
+  const pageEditor = !!hiddenBy;
   useLayoutEffect(() => {
     latest.current = { dirty, save, busy, t };
   });
@@ -205,6 +211,7 @@ export function useEditorLeaveSave(
     let latestNavigation: (() => void) | null = null;
     const unregister = registerEditorLeaveHandler({
       key,
+      ...(pageEditor ? { hiddenBy: (next: PageLeaveStates) => hiddenByRef.current?.(next) ?? false } : {}),
       park: () => {
         // New layout only, and only when this editor has a tab to come back to: the edits wait there.
         if (!isOverhaulLook() || saving || pending || !draftRef.current) return false;
@@ -283,7 +290,7 @@ export function useEditorLeaveSave(
       active = false;
       unregister();
     };
-  }, [key]);
+  }, [key, pageEditor]);
   useEditorSaveShortcut(save, busy, !key);
   // Leaving through "Don't save" drops the edits with the editor; nothing is unsaved any more.
   useEffect(() => () => useUIStore.getState().setEditorDirty(false), []);
@@ -388,9 +395,11 @@ export function useEditorLeaveSave(
 
 /** Ctrl+S / ⌘S saves the open editor instead of the browser's "Save page". */
 export function useEditorSaveShortcut(save: () => unknown, busy = false, off = false) {
-  const latest = useRef({ save, busy });
+  const { t } = useTranslation();
+  const savedText = t("chat.settings.inlineEditor.saved");
+  const latest = useRef({ save, busy, savedText });
   useLayoutEffect(() => {
-    latest.current = { save, busy };
+    latest.current = { save, busy, savedText };
   });
   useEffect(() => {
     if (off) return;
@@ -405,8 +414,13 @@ export function useEditorSaveShortcut(save: () => unknown, busy = false, off = f
         flushSync(() => focused.blur());
         focused.focus({ preventScroll: true });
       }
+      const { savedText: said } = latest.current;
       void Promise.resolve()
         .then(latest.current.save)
+        // A screen reader hears that Ctrl+S worked (QC Nov 22 K14); a save that says false did not.
+        .then((result) => {
+          if (result !== false) announce(said);
+        })
         .catch(() => undefined);
     };
     window.addEventListener("keydown", onKey);

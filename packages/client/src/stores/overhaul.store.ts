@@ -8,9 +8,10 @@
 // All Tabs viewer, long-press message sheet). Everything here is per device.
 // ──────────────────────────────────────────────
 import { useSyncExternalStore } from "react";
-import { create } from "zustand";
+import { create, type StateCreator } from "zustand";
 import { persist } from "zustand/middleware";
 import type { SplitPage } from "../lib/split-view-env";
+import { deferPageEditorLeave } from "../lib/editor-leave";
 import type { MessageButtonId, MessageButtonMode } from "../components/overhaul/message-buttons";
 
 export type OverhaulTabKind =
@@ -45,6 +46,10 @@ export type LibrarySection =
   | "connections"
   | "agents"
   | "tools"
+  | "assets"
+  | "rulesets"
+  | "backgrounds"
+  | "game-assets"
   | "settings"
   | "extensions"
   | "bot-browser";
@@ -87,6 +92,12 @@ interface OverhaulState {
   /** Phones and tablets: the sidebar as a page that slides over from the right (the Library button). */
   mobileSidePageOpen: boolean;
   setMobileSidePageOpen: (open: boolean) => void;
+  /**
+   * Phones and tablets: the open Library section was picked from the Library list page, so back returns to that list
+   * (QC Nov 22). Cleared by any other way out. Not persisted.
+   */
+  libraryHubReturn: boolean;
+  setLibraryHubReturn: (libraryHubReturn: boolean) => void;
   setGalleryCardSize: (size: GalleryCardSize) => void;
   setGalleryListView: (list: boolean) => void;
   /** The person's choice; on by default on this branch. */
@@ -208,9 +219,29 @@ function withoutEmptyGroups(state: { tabs: OverhaulTab[]; tabGroups: Record<stri
 
 export type OverhaulSidePane = "chats" | "library";
 
+type OverhaulCreator = StateCreator<OverhaulState, [["zustand/persist", unknown]]>;
+
+/**
+ * A change that takes a page's open editor off screen (a Game assets file with unsaved edits) asks that editor first,
+ * as the UI store does for item editors (lib/editor-leave). Hydration writes through the store itself, not this.
+ */
+const guardPageLeave =
+  (creator: OverhaulCreator): OverhaulCreator =>
+  (setState, get, api) =>
+    creator(
+      ((next: Partial<OverhaulState> | ((state: OverhaulState) => Partial<OverhaulState>)) => {
+        const state = get();
+        const patch = typeof next === "function" ? next(state) : next;
+        const apply = () => setState(patch);
+        if (!deferPageEditorLeave({ ...state, ...patch }, apply)) apply();
+      }) as typeof setState,
+      get,
+      api,
+    );
+
 export const useOverhaulStore = create<OverhaulState>()(
   persist(
-    (set, get) => ({
+    guardPageLeave((set, get) => ({
       enabled: true,
       desktop: true,
       tabs: [],
@@ -333,10 +364,24 @@ export const useOverhaulStore = create<OverhaulState>()(
         ),
       activeMari: false,
       openMari: () =>
-        set({ activeMari: true, activeSchedules: false, activeDocsTab: null, libraryPage: null, activeApp: null }),
+        set({
+          activeMari: true,
+          activeSchedules: false,
+          activeDocsTab: null,
+          libraryPage: null,
+          activeApp: null,
+          libraryHubReturn: false,
+        }),
       activeApp: null,
       openApp: (activeApp) =>
-        set({ activeApp, activeMari: false, activeSchedules: false, activeDocsTab: null, libraryPage: null }),
+        set({
+          activeApp,
+          activeMari: false,
+          activeSchedules: false,
+          activeDocsTab: null,
+          libraryPage: null,
+          libraryHubReturn: false,
+        }),
       activeSchedules: false,
       openSchedules: (characterId) =>
         set({
@@ -346,6 +391,7 @@ export const useOverhaulStore = create<OverhaulState>()(
           activeDocsTab: null,
           libraryPage: null,
           activeApp: null,
+          libraryHubReturn: false,
         }),
       schedulesCharacterId: null,
       setSchedulesCharacterId: (schedulesCharacterId) => set({ schedulesCharacterId }),
@@ -367,6 +413,7 @@ export const useOverhaulStore = create<OverhaulState>()(
             activeSchedules: false,
             activeApp: null,
             libraryPage: null,
+            libraryHubReturn: false,
           };
         }),
       setDocsPath: (tabId, path) => set((state) => ({ docsTabs: { ...state.docsTabs, [tabId]: path } })),
@@ -426,8 +473,11 @@ export const useOverhaulStore = create<OverhaulState>()(
       sidePane: "chats",
       setSidePane: (sidePane) => set({ sidePane }),
       mobileSidePageOpen: false,
-      setMobileSidePageOpen: (mobileSidePageOpen) => set({ mobileSidePageOpen }),
-    }),
+      setMobileSidePageOpen: (mobileSidePageOpen) =>
+        set(mobileSidePageOpen ? { mobileSidePageOpen, libraryHubReturn: false } : { mobileSidePageOpen }),
+      libraryHubReturn: false,
+      setLibraryHubReturn: (libraryHubReturn) => set({ libraryHubReturn }),
+    })),
     {
       name: "marinara-overhaul-layout",
       version: 3,

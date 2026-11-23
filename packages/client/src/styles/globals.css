@@ -326,9 +326,10 @@
   --marinara-chat-chrome-panel-divider: color-mix(in srgb, var(--marinara-chat-chrome-accent) 13%, transparent);
   --marinara-chat-chrome-panel-text: color-mix(in srgb, var(--marinara-chat-chrome-text) 90%, transparent);
   --marinara-chat-chrome-panel-title: color-mix(in srgb, var(--marinara-chat-chrome-text) 96%, transparent);
+  /* 61%: small muted text ("23m ago", widget descriptions) passes 4.5:1 on the panels (QC Nov 22 K18). */
   --marinara-chat-chrome-panel-muted: var(
     --mari-chrome-muted,
-    color-mix(in srgb, var(--marinara-chat-chrome-text) 58%, transparent)
+    color-mix(in srgb, var(--marinara-chat-chrome-text) 61%, transparent)
   );
   --marinara-chat-chrome-panel-scrollbar: color-mix(in srgb, var(--marinara-chat-chrome-accent) 22%, transparent);
   --marinara-chat-message-action-text: var(
@@ -512,6 +513,12 @@
    ───────────────────────────────────────────── */
 [data-theme="light"] {
   color-scheme: light;
+  /* Dark text thinned over a near-white panel lands at 4.4:1 at 58%; 66% clears 4.5:1 for the 10-12px muted
+     lines (Home widget descriptions, "24m ago") (QC Nov 22 K18). */
+  --marinara-chat-chrome-panel-muted: var(
+    --mari-chrome-muted,
+    color-mix(in srgb, var(--marinara-chat-chrome-text) 66%, transparent)
+  );
 
   --background: #faf8ff;
   --marinara-app-background-paint: var(--background);
@@ -757,7 +764,9 @@
                 .mari-window-snap-guide (the line shown while a bubble snaps)
    Attributes:  [data-window="<id>"], [data-drawer="<id>"], [data-pinned],
                 [data-locked], [data-detached], [data-presentation="window|sheet"],
-                [data-window-control="pin|lock|close"], [data-edge],
+                [data-window-control="pop-out|pin|lock|close"], [data-edge],
+                [data-popped-out="true"] on a window moved into a separate
+                browser window (it fills that window, with no frame of its own),
                 [data-minimized="true"] with [data-window] on a bubble, [data-axis="x|y"]
                 on a snap guide,
                 [data-drawer-control="pop-out"], [data-drawer-host="<id>"] and
@@ -842,6 +851,13 @@
     );
     -webkit-backdrop-filter: var(--mari-widget-shell-backdrop-filter, var(--mari-window-backdrop-filter, blur(12px)));
     backdrop-filter: var(--mari-widget-shell-backdrop-filter, var(--mari-window-backdrop-filter, blur(12px)));
+  }
+
+  /* Popped out, the window is its browser window's whole page: the browser draws the frame. */
+  .mari-window[data-popped-out="true"] {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .mari-window__header {
@@ -3257,9 +3273,12 @@ html[data-mari-ios-webkit] :is(.mari-modal, .mari-right-panel-content) [class*="
 /* Text boxes with Preview / Expand / Macro buttons inside them: the text never runs under the
    buttons. MacroTextarea measures the room the buttons take (--macro-tools-room); page styles and
    theme rules that pad every textarea used to drop the right padding to ~10px, so long lines slid
-   under the icons. Phones move the buttons above the box instead (overhaul-mobile.css). */
+   under the icons. Phones and touch screens move the buttons above the box instead (overhaul-mobile.css,
+   overhaul.css). */
 @layer mari-protected {
-  :root:not([data-overhaul="mobile"]) [data-macro-field]:has(> [data-macro-tools]) > :is(textarea, [role="region"]) {
+  :root:not([data-overhaul="mobile"]):not([data-overhaul="on"][data-marinara-touch-device="true"])
+    [data-macro-field]:has(> [data-macro-tools])
+    > :is(textarea, [role="region"]) {
     padding-right: var(--macro-tools-room, 2rem) !important;
   }
 }
@@ -3960,8 +3979,26 @@ html[data-mari-ios-webkit] :is([data-component="RightPanelMobile"], [data-compon
   }
   /* Dialogs focus their own panel (tabindex -1) when no control can take focus, such as a phone
      sheet with a hidden Close. Tab never lands there, so the browser's default ring (blue on iOS)
-     only drew a stray border around the whole sheet. */
-  [tabindex="-1"]:focus {
+     only drew a stray border around the whole sheet. Only containers: a control taken out of the Tab
+     order by roving focus (a Settings tab you arrow to, a menu item) still shows where focus is
+     (QC Nov 22 K4). */
+  [tabindex="-1"]:focus:not(
+      :is(
+        button,
+        a,
+        input,
+        select,
+        textarea,
+        [role="tab"],
+        [role="menuitem"],
+        [role="menuitemradio"],
+        [role="menuitemcheckbox"],
+        [role="option"],
+        [role="switch"],
+        [role="radio"],
+        [role="treeitem"]
+      )
+    ) {
     outline: none;
   }
 }
@@ -5411,12 +5448,14 @@ strong {
 /* ─────────────────────────────────────────────
    7. SCROLLBARS
    ───────────────────────────────────────────── */
-* {
+/* The classic look's pink scrollbars. :where() keeps the layout gate as weak as a plain `*`, so a theme's own
+   scrollbar CSS still wins. */
+:where(:root:not([data-overhaul])) * {
   scrollbar-width: thin;
   scrollbar-color: var(--y2k-pink) transparent;
 }
 
-::-webkit-scrollbar {
+:where(:root:not([data-overhaul])) ::-webkit-scrollbar {
   width: 0.625rem;
 }
 
@@ -5427,18 +5466,47 @@ strong {
   cursor: var(--marinara-custom-cursor) !important;
 }
 
-::-webkit-scrollbar-track {
+:where(:root:not([data-overhaul])) ::-webkit-scrollbar-track {
   background: #1a1a2e40;
 }
 
-::-webkit-scrollbar-thumb {
+:where(:root:not([data-overhaul])) ::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, var(--y2k-pink) 0%, var(--y2k-purple) 100%);
   border: 2px solid #0a0a0a66;
   border-radius: 0.5rem;
 }
 
-::-webkit-scrollbar-thumb:hover {
+:where(:root:not([data-overhaul])) ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, var(--pastel-rose) 0%, var(--y2k-lavender) 100%);
+}
+
+/* Thin neutral scrollbars in the new layout (QC panel 2, D15). They live here, not in overhaul.css: that sheet is
+   inserted before this one, so these equal-strength rules lost to the classic ones above on every page (QC panel 3,
+   F7). :where() keeps them weak, so a theme's own scrollbar CSS still wins; a theme can also just set
+   --ov-scrollbar-thumb. */
+:root[data-overhaul] {
+  --ov-scrollbar-thumb: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+}
+:where(:root[data-overhaul]) * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ov-scrollbar-thumb) transparent;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar {
+  width: 0.5rem;
+  height: 0.5rem;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar-track {
+  background: transparent;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--ov-scrollbar-thumb);
+  background-clip: padding-box;
+}
+:where(:root[data-overhaul]) ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+  background-clip: padding-box;
 }
 
 .mari-tracker-panel-scroll {
@@ -5744,6 +5812,14 @@ strong {
   .mari-sidebar,
   .mari-right-panel {
     background-color: var(--sidebar) !important;
+  }
+
+  /* Ctrl+K sits over the page on a see-through --card. Firefox with software rendering (VMs, remote
+     desktop, many Linux GPUs) draws no backdrop blur, so the page showed through its rows (QC panel 3,
+     FF1). Lay the card over the opaque page colour instead. Professor Mari's panels already paint
+     their wash over --background (.mari-workspace-shell), so they keep their own look. */
+  [data-component="GlobalOmnibar.Panel"]:not(.mari-workspace-shell) {
+    background: linear-gradient(var(--card), var(--card)), var(--background) !important;
   }
 }
 
@@ -6711,9 +6787,10 @@ strong {
   overflow: hidden;
 }
 
+/* Rows are visible on their own; the fade only runs on top ("backwards" holds the start frame during each
+   row's delay). A skipped or cancelled animation leaves the list showing, never blank. */
 .stagger-children > * {
-  opacity: 0;
-  animation: fade-in-up 0.25s ease-out forwards;
+  animation: fade-in-up 0.25s ease-out backwards;
 }
 
 .stagger-children > *:nth-child(1) {
@@ -9750,4 +9827,17 @@ html[data-mari-ios-webkit][data-mari-software-keyboard-open] .mari-window.ov-cs-
       height: 2.75rem;
     }
   }
+}
+
+/* Links in chat messages, Mari replies and Markdown previews follow the theme instead of a fixed blue.
+   The accent is mixed toward the surrounding text colour so it stays readable on dark-red or mid-tone message
+   backgrounds (Sanguine Keep, Under Sail). A theme can set --mari-link to pick its own link colour. */
+.mari-md-link {
+  color: var(--mari-link, color-mix(in oklab, var(--primary) 50%, currentColor));
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 0.15em;
+}
+.mari-md-link:hover {
+  text-decoration-color: currentColor;
 }

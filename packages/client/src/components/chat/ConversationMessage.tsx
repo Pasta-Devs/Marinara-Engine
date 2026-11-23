@@ -29,6 +29,7 @@ import {
 } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import { useUIStore, type ConversationMessageStyle, selectChatFontColor } from "../../stores/ui.store";
+import { announce } from "../../lib/live-announcer";
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { resolveMessageMacros } from "../../lib/chat-macros";
@@ -59,7 +60,7 @@ import { useOverhaulActive, useOverhaulTouchMessages } from "../../stores/overha
 import { useMessageButtons } from "../overhaul/message-buttons";
 import { OvThinkingText, OvThinkingToggle, useThinkingToggle } from "./OvThinking";
 import { SwipeCountChip } from "../overhaul/SwipeCountChip";
-import { useLongPress } from "../overhaul/MobileMessageSheet";
+import { OvMobileMessageSheet, useLongPress } from "../overhaul/MobileMessageSheet";
 import { SystemMessage } from "./SystemMessage";
 import { RoleplayMessagePreview } from "./ChatMessage";
 import { MessageMarkIndicators } from "./MessageMarks";
@@ -850,6 +851,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const handleCopy = useCallback(() => {
     copyToClipboard(displayedContent);
     setCopied(true);
+    announce(localizeUi("markdown.copied"));
     setTimeout(() => setCopied(false), 1500);
   }, [displayedContent]);
 
@@ -1177,9 +1179,12 @@ export const ConversationMessage = memo(function ConversationMessage({
             multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
           )}
           onClick={handleMobileTap}
+          // New layout on touch: hold the call card for Delete, like every other message.
+          {...longPress}
         >
           <div className="relative w-full max-w-xl">
-            {!multiSelectMode && onDelete && (
+            {/* Hidden, the corner Delete takes no taps; the new layout on touch uses the hold sheet instead. */}
+            {!multiSelectMode && onDelete && !overhaulMobile && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1187,12 +1192,40 @@ export const ConversationMessage = memo(function ConversationMessage({
                 }}
                 className={cn(
                   "absolute -right-1 -top-1 rounded-md p-1 text-[var(--muted-foreground)]/30 opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100",
-                  showActions && "opacity-100",
+                  showActions
+                    ? "pointer-events-auto opacity-100"
+                    : "pointer-events-none [@media(hover:hover)]:group-hover:pointer-events-auto",
                 )}
                 title={localizeUi("lorebook.editor.batch.delete")}
               >
                 <Trash2 size="0.75rem" />
               </button>
+            )}
+            {overhaulMobile && mobileSheetOpen && (
+              <OvMobileMessageSheet
+                chatId={message.chatId}
+                messageId={message.id}
+                swipeIndex={0}
+                swipeCount={1}
+                copied={copied}
+                onCopy={handleCopy}
+                more={
+                  onDelete ? (
+                    <div className="mari-message-actions grid">
+                      <button
+                        type="button"
+                        onClick={() => onDelete(message.id)}
+                        aria-label={localizeUi("lorebook.editor.batch.delete")}
+                        title={localizeUi("lorebook.editor.batch.delete")}
+                        className="flex items-center text-[var(--destructive)]"
+                      >
+                        <Trash2 size="0.875rem" />
+                      </button>
+                    </div>
+                  ) : null
+                }
+                onClose={closeMobileSheet}
+              />
             )}
             <div className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/90 px-4 py-3 text-left shadow-sm">
               <Icon size="1.25rem" className={cn("shrink-0", iconClass)} />
@@ -1298,7 +1331,14 @@ export const ConversationMessage = memo(function ConversationMessage({
         data-message-role={message.role}
         onClick={handleMobileTap}
         {...longPress}
+        role="article"
+        aria-label={localizeUi("chat.message.focusLabel", { name: displayName })}
       >
+        {/* QC Nov 22 AX4: one heading per message (screen readers jump message to message with H). Visually
+            hidden, so grouped follow-ups and your own bubbles (no name on screen) get one too. */}
+        <span role="heading" aria-level={3} className="sr-only">
+          {displayName}
+        </span>
         <div
           className={cn(
             "mari-message relative w-full min-w-0 max-w-full px-4 transition-colors",
@@ -1330,7 +1370,11 @@ export const ConversationMessage = memo(function ConversationMessage({
         </div>
         <div className="px-4">
           {overhaulMobile && !overhaulDesktopShell && isLastAssistantMessage && !isUser ? (
-            <SwipeCountChip index={message.activeSwipeIndex ?? 0} count={message.swipeCount ?? 1} />
+            <SwipeCountChip
+              index={message.activeSwipeIndex ?? 0}
+              count={message.swipeCount ?? 1}
+              onOpen={openMobileSheet}
+            />
           ) : null}
           <MessageMarkIndicators message={message} className="px-1" />
           <GenerationFallbackMarker fallback={fallback} className="flex w-fit px-1" />

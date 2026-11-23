@@ -11,22 +11,33 @@ import { api } from "../../lib/api-client";
 import { getFolderImportEntries, getFolderManifestConfig } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
-import { ImportTagChecks, importTagsBody, OvImportDrop, useImportTagChoice } from "./ImportTagChecks";
+import {
+  ImportTagChecks,
+  importTagsBody,
+  OvImportDrop,
+  useImportTagChoice,
+  type ImportTagChoice,
+} from "./ImportTagChecks";
 import { Spinner } from "../ui/Spinner";
+import { describePresetImport, type STPresetLeftOut, type STPresetWorldInfo } from "../../lib/st-import-report";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** The opener's Tag imported / Tag source choice (Settings › Data); both on when left out. */
+  importTags?: ImportTagChoice;
 }
 
-export function ImportPresetModal({ open, onClose }: Props) {
+export function ImportPresetModal({ open, onClose, importTags: initialImportTags }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
-  const [results, setResults] = useState<Array<{ filename: string; success: boolean; message: string }>>([]);
+  const [results, setResults] = useState<
+    Array<{ filename: string; success: boolean; message: string; details?: string[] }>
+  >([]);
   const [dragOver, setDragOver] = useState(false);
   const qc = useQueryClient();
-  const importTags = useImportTagChoice();
+  const importTags = useImportTagChoice(initialImportTags);
   const overhaulActive = useOverhaulLook();
 
   const handleFiles = async (files: File[]) => {
@@ -75,7 +86,14 @@ export function ImportPresetModal({ open, onClose }: Props) {
           continue;
         }
 
-        const data = await api.post<{ success: boolean; error?: string }>("/import/st-preset", {
+        const data = await api.post<{
+          success: boolean;
+          error?: string;
+          parametersImported?: string[];
+          parametersLeftOut?: STPresetLeftOut[];
+          regexSkipped?: number;
+          worldInfo?: STPresetWorldInfo;
+        }>("/import/st-preset", {
           ...json,
           ...importTagsBody(importTags.choice),
           __filename: file.name.replace(/\.json$/i, ""),
@@ -89,6 +107,8 @@ export function ImportPresetModal({ open, onClose }: Props) {
           filename: file.name,
           success: data.success,
           message: data.success ? "Imported preset" : (data.error ?? "Import failed"),
+          // Which SillyTavern settings came along, and which stay on the connection or have no field here.
+          ...(data.success ? { details: describePresetImport(data, localizeUi) } : {}),
         });
       } catch (error) {
         nextResults.push({
@@ -199,7 +219,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
             <div
               className={`flex items-center gap-2 rounded-lg p-3 text-xs ${
                 results.some((result) => result.success)
-                  ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                  ? "bg-emerald-500/10 text-emerald-400"
                   : "bg-[var(--destructive)]/10 text-[var(--destructive)]"
               }`}
             >
@@ -215,13 +235,18 @@ export function ImportPresetModal({ open, onClose }: Props) {
                   className="flex items-start gap-2 border-b border-[var(--border)] px-3 py-2 text-xs last:border-b-0"
                 >
                   {result.success ? (
-                    <CheckCircle size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                    <CheckCircle size="0.8125rem" className="mt-0.5 shrink-0 text-emerald-400" />
                   ) : (
                     <XCircle size="0.8125rem" className="mt-0.5 shrink-0 text-[var(--destructive)]" />
                   )}
                   <div className="min-w-0">
                     <div className="truncate font-medium">{result.filename}</div>
                     <div className="text-[var(--muted-foreground)]">{result.message}</div>
+                    {result.details?.map((line) => (
+                      <div key={line} className="text-[var(--muted-foreground)]">
+                        {line}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}

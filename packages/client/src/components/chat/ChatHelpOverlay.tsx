@@ -9,6 +9,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { isTouchDevice } from "../../lib/touch-device";
 import { createPortal } from "react-dom";
 import type { ChatMode } from "@marinara-engine/shared";
 import {
@@ -50,7 +51,10 @@ import {
 } from "../../lib/chat-help-events";
 import { getChatHelpTargets, type ChatHelpTargetDefinition, type ChatHelpTargetId } from "../../lib/chat-help-targets";
 import { orderChatTools, useChatToolsMenuStore } from "../../stores/chat-tools-menu.store";
-import { useFloatingWindowStore } from "../../stores/floating-window.store";
+import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
+import { useOverhaulLook, useOverhaulMobile } from "../../stores/overhaul.store";
+import { releaseFirstRunSlot, useFirstRunQueue } from "../../lib/first-run-queue";
 import { useUIStore } from "../../stores/ui.store";
 import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
 import { hasSeenModeWalkthrough, useWalkthroughDevice, useWalkthroughRecord } from "../../lib/walkthroughs";
@@ -673,15 +677,34 @@ function measurementsSignature(rootRect: Rect | null, surfaces: Rect[], targets:
   ]);
 }
 
+/**
+ * Whether a mode's help would open by itself in this chat (QC panel 2, D1). It opens at most once, right after a
+ * chat starts: on a computer only in a chat you have not written in yet (a long-running chat never gets it), and on
+ * a phone or tablet the first time the mode opens there. ChatArea uses this so the "settings live here" tip waits
+ * for a later visit instead of taking the help's place.
+ */
+export function useChatHelpDue(mode: ChatMode | null, isFirstChat: boolean, hasUserMessages: boolean): boolean {
+  const seenModes = useUIStore((state) => state.chatHelpSeenModes ?? []);
+  const hidden = useUIStore((state) => state.chatHelpButtonHidden ?? false);
+  const device = useWalkthroughDevice();
+  useWalkthroughRecord();
+  if (!mode || hidden || hasSeenModeWalkthrough(mode, device)) return false;
+  if (device !== "desktop") return true;
+  return !hasUserMessages && (isFirstChat || !seenModes.includes(mode));
+}
+
 function ChatHelpOverlayInner({
   mode,
   activeChatId,
   isFirstChat,
+  hasUserMessages,
   autoOpenBlocked,
 }: {
   mode: ChatMode;
   activeChatId: string;
   isFirstChat: boolean;
+  /** The chat already holds a message you wrote: on a computer the help no longer opens by itself. */
+  hasUserMessages: boolean;
   autoOpenBlocked: boolean;
 }) {
   const { t } = useTranslation();
@@ -709,6 +732,21 @@ function ChatHelpOverlayInner({
   // whatever you are doing (it popped over a character editor: keyboard QC round 2, TP13).
   const firstWalkthroughDeviceRef = useRef(walkthroughDevice);
   const maskId = `chat-help-mask-${useId().replace(/:/gu, "")}`;
+  // Typing in this chat's composer (or sending) on this visit means you are busy: the help never pops up over that
+  // (QC panel 2, D1: it opened after about 20 messages in a long session).
+  const [actedInChat, setActedInChat] = useState<string | null>(null);
+  const actedThisVisit = actedInChat === activeChatId;
+  useEffect(() => {
+    if (actedThisVisit) return;
+    const handleInput = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches("textarea, input, [contenteditable='true']")) return;
+      if (!target.closest(`[data-chat-mode="${mode}"]`)) return;
+      setActedInChat(activeChatId);
+    };
+    document.addEventListener("input", handleInput, true);
+    return () => document.removeEventListener("input", handleInput, true);
+  }, [actedThisVisit, activeChatId, mode]);
 
   useEffect(() => {
     const handleOpen = (event: Event) => {
@@ -726,15 +764,22 @@ function ChatHelpOverlayInner({
     };
   }, [chatHelpButtonHidden, mode]);
 
+  const autoOpenBlockedRef = useRef(autoOpenBlocked);
+  autoOpenBlockedRef.current = autoOpenBlocked;
+  const hasUserMessagesRef = useRef(hasUserMessages);
+  hasUserMessagesRef.current = hasUserMessages;
   useEffect(() => {
     // Each kind of device shows a mode's help once. A computer keeps the original rule (the first chat of
     // that mode, or a replay from Settings); a phone or tablet shows it the first time that mode opens there,
     // so someone who has used the mode on a PC for months still learns where its controls sit on touch.
+    // A computer leaves out chats you have already written in, without marking the help seen, so your next new
+    // chat of this mode still gets it (QC panel 2, D1).
     const seenHere = hasSeenModeWalkthrough(mode, walkthroughDevice);
-    const due = walkthroughDevice !== "desktop" || isFirstChat || !seenModes.includes(mode);
+    const due = walkthroughDevice !== "desktop" || (!hasUserMessages && (isFirstChat || !seenModes.includes(mode)));
     if (
       chatHelpButtonHidden ||
       autoOpenBlocked ||
+      actedThisVisit ||
       walkthroughDevice !== firstWalkthroughDeviceRef.current ||
       deviceTourDue ||
       seenHere ||
@@ -748,6 +793,8 @@ function ChatHelpOverlayInner({
     let tries = 0;
     let timer = 0;
     const attempt = () => {
+      // Read again at open time: messages that finished loading during the wait cancel it (QC panel 3, H1).
+      if (autoOpenBlockedRef.current || (walkthroughDevice === "desktop" && hasUserMessagesRef.current)) return;
       const root = document.querySelector<HTMLElement>(`[data-chat-mode="${mode}"]`);
       if (!root || root.getBoundingClientRect().width <= 1) {
         if (++tries < 20) timer = window.setTimeout(attempt, 300);
@@ -770,8 +817,10 @@ function ChatHelpOverlayInner({
     return () => window.clearTimeout(timer);
   }, [
     activeChatId,
+    actedThisVisit,
     autoOpenBlocked,
     chatHelpButtonHidden,
+    hasUserMessages,
     deviceTourDue,
     isFirstChat,
     markChatHelpSeen,
@@ -883,10 +932,25 @@ function ChatHelpOverlayInner({
     if (overlayShown) overlayRef.current?.focus({ preventScroll: true });
   }, [overlayShown]);
 
+  // New layout on phones and tablets: the Chat settings tip a computer shows on its own is part of the help
+  // instead, so a first chat gets one surface rather than two in a row (QC Nov 21, MOB12).
+  const overhaulMobile = useOverhaulMobile();
+  const overhaulLook = useOverhaulLook();
+  const chatIntroDismissed = useUIStore((state) => state.chatWindowIntroDismissed);
+  const dismissChatIntro = useUIStore((state) => state.dismissChatWindowIntro);
+  const chatIntroInHelp = overhaulMobile && !chatIntroDismissed;
   const dismiss = useCallback(() => {
     markChatHelpSeen(mode);
+    if (chatIntroInHelp) dismissChatIntro();
     closeChatHelp(mode);
-  }, [markChatHelpSeen, mode]);
+  }, [chatIntroInHelp, dismissChatIntro, markChatHelpSeen, mode]);
+  // Its button sits in the top bar, outside the chat the help darkens: ring it like the computer's tip does.
+  useEffect(() => {
+    if (!open || !chatIntroInHelp) return;
+    const button = document.querySelector<HTMLElement>(`.ovm-topbar [data-window-opener="${CHAT_SETTINGS_WINDOW_ID}"]`);
+    button?.setAttribute("data-ov-tip-target", "");
+    return () => button?.removeAttribute("data-ov-tip-target");
+  }, [chatIntroInHelp, open]);
   const hideHelpButton = useCallback(() => {
     setChatHelpButtonHidden(true);
     closeChatHelp(mode);
@@ -894,9 +958,26 @@ function ChatHelpOverlayInner({
 
   const legendStyle = useMemo(() => (rootRect ? getLegendStyle(rootRect) : undefined), [rootRect]);
   const mobileDetailStyle = useMemo(() => (rootRect ? getMobileDetailStyle(rootRect) : undefined), [rootRect]);
-  const mobile = typeof window !== "undefined" && window.innerWidth < 768;
+  // Touch behaviour (tap a callout, Done, closing when Chat settings opens) for any touch screen and the phone layout:
+  // an iPad Pro upright (834px) and any iPad sideways got the computer's hover help with no Done (QC panel 2, #11).
+  // Pure geometry stays on width.
+  const mobile = typeof window !== "undefined" && (overhaulMobile || isTouchDevice() || window.innerWidth < 768);
   const selectedTarget = targets.find((target) => target.id === selectedTargetId) ?? null;
   const hoveredTarget = targets.find((target) => target.id === hoveredTargetId) ?? null;
+
+  // One first-run surface at a time: the help holds the slot while it shows, so no tip or offer opens over it.
+  useEffect(() => {
+    if (!open) return;
+    useFirstRunQueue.setState({ showing: "chat-help" });
+    return () => releaseFirstRunSlot("chat-help");
+  }, [open]);
+  // Safari's back and the left-edge swipe close it, like Escape (MOB1, MOB12).
+  useBackDismiss(open, dismiss);
+  // Opening Chat settings (its button is one of the highlighted controls) takes over from the help on touch.
+  const chatSettingsOpen = useFloatingWindowStore((state) => state.open[CHAT_SETTINGS_WINDOW_ID] === true);
+  useEffect(() => {
+    if (open && mobile && chatSettingsOpen) dismiss();
+  }, [chatSettingsOpen, dismiss, mobile, open]);
 
   useEffect(() => {
     if (open) return;
@@ -927,14 +1008,15 @@ function ChatHelpOverlayInner({
   }, [mobile, open, rootRect, targets]);
 
   if (!open || !rootRect || typeof document === "undefined") return null;
+  // Computers: a quiet text button beside the legend's Done. Phones put it inside the instruction callout.
   const hideHelpButtonControl = (
     <button
       type="button"
-      className={cn(
-        "mari-chrome-control pointer-events-auto min-h-7 px-2.5 text-[0.625rem] shadow-lg",
-        // Phones: as wide as the callout above it, label left-aligned with the eye icon beside it (GS9).
-        mobile && "justify-start text-left",
-      )}
+      className={
+        overhaulLook
+          ? "ov-btn is-quiet ov-help-hide pointer-events-auto min-h-7 px-2 text-[0.6875rem]"
+          : "mari-chrome-control pointer-events-auto min-h-7 px-2.5 text-[0.625rem] shadow-lg"
+      }
       onPointerDown={(event) => event.stopPropagation()}
       onClick={hideHelpButton}
     >
@@ -1064,23 +1146,67 @@ function ChatHelpOverlayInner({
       {mobile && (
         <div
           ref={instructionsRef}
-          className="pointer-events-none fixed flex max-w-[calc(100vw-1.5rem)] flex-col items-stretch gap-1.5"
+          className="pointer-events-none fixed flex w-[min(20rem,calc(100vw-1.5rem))] flex-col items-stretch gap-1.5"
           style={{
             top: instructionsTop ?? rootRect.top + 10,
             left: Math.max(rootRect.left + 12, rootRect.left + rootRect.width / 2),
             transform: "translateX(-50%)",
           }}
         >
-          <button
-            type="button"
-            className="pointer-events-auto flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--card)] px-3 py-2 text-left text-xs font-semibold leading-4 text-[var(--foreground)] shadow-lg"
-            onPointerDown={(event) => event.stopPropagation()}
-            onClick={dismiss}
-          >
-            <CircleHelp size="0.875rem" className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
-            <span>{t("chat.help.mobileInstruction")}</span>
-          </button>
-          {hideHelpButtonControl}
+          {/* The callout holds the instruction and, on its own line, the quiet "hide for good" link;
+              Done sits alone beside it, so the link needs no floating surface of its own. */}
+          <div className="flex items-stretch gap-1.5">
+            <div
+              data-chat-help-callout
+              className="pointer-events-auto flex min-w-0 flex-1 flex-col rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--card)] shadow-lg"
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="flex items-center gap-2 px-3 pt-2 pb-1 text-left text-xs font-semibold leading-4 text-[var(--foreground)]"
+                onClick={dismiss}
+              >
+                <CircleHelp
+                  size="0.875rem"
+                  className="shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]"
+                />
+                <span>{t("chat.help.mobileInstruction")}</span>
+              </button>
+              <button
+                type="button"
+                data-chat-help-hide
+                className="flex min-h-11 items-center gap-1.5 px-3 text-left text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)] underline decoration-[color-mix(in_srgb,currentColor_45%,transparent)] underline-offset-2"
+                onClick={hideHelpButton}
+              >
+                <EyeOff size="0.6875rem" className="shrink-0" />
+                {t("chat.help.hidePermanently")}
+              </button>
+            </div>
+            <button
+              type="button"
+              data-chat-help-done
+              className={cn(
+                overhaulLook ? "ov-btn ov-btn--primary" : "mari-chrome-control shadow-lg",
+                "pointer-events-auto min-h-11 shrink-0 self-start px-4 text-xs font-semibold",
+              )}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={dismiss}
+            >
+              {t("chat.help.done")}
+            </button>
+          </div>
+          {chatIntroInHelp ? (
+            <div
+              data-chat-help-chat-settings
+              className="pointer-events-auto rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--card)] px-3 py-2 text-xs leading-4 text-[var(--foreground)] shadow-lg"
+              onPointerDown={(event) => event.stopPropagation()}
+            >
+              <strong className="font-semibold">{t("chatWindowIntro.ovTitle")}</strong>
+              <p className="mt-0.5 text-[var(--marinara-chat-chrome-panel-muted)]">
+                {t("chatWindowIntro.ovPhoneBody")}
+              </p>
+            </div>
+          ) : null}
         </div>
       )}
 

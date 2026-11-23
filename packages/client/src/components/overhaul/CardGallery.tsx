@@ -725,6 +725,7 @@ export function CardGallery({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={localize(kind === "characters" ? "Search characters or tag:name" : "Search personas")}
+            aria-label={localize(kind === "characters" ? "Search characters or tag:name" : "Search personas")}
           />
         </label>
         {tagCounts.tags.length || pickedTags.length ? (
@@ -830,7 +831,14 @@ export function CardGallery({
         ) : null}
         {loose.map((card) => renderCard(card, null))}
         <div className="ov-card" hidden={!!openFolder}>
-          <button type="button" className="ov-card__art ov-card__art--new" onClick={onNew}>
+          {/* The picture repeats the name button beside it, so only the name is in the Tab order (AX16). */}
+          <button
+            type="button"
+            className="ov-card__art ov-card__art--new"
+            onClick={onNew}
+            tabIndex={-1}
+            aria-hidden="true"
+          >
             <Plus size={22} aria-hidden="true" />
           </button>
           <button type="button" className="ov-card__name" onClick={onNew}>

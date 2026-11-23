@@ -410,3 +410,15 @@
   > section:not(:has([data-size-group="mari"])) {
   display: none;
 }
+
+/* The shared slider track (muted at 72%) almost vanishes on the light sheet; these sliders carry the window size,
+   so their track keeps 3:1 against the sheet in both schemes (QC Nov 22 K18). */
+.omnibar-settings-size input[type="range"] {
+  --range-track-color: color-mix(in srgb, var(--foreground) 52%, transparent);
+}
+
+/* "Fit to results": only the fill and thumb dim, so the track stays readable. */
+.omnibar-settings-size input[type="range"][data-unset] {
+  --range-fill-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  --range-thumb-color: color-mix(in srgb, oklch(0.97 0.006 315) 60%, transparent);
+}

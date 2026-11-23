@@ -3,7 +3,9 @@
 // tabs, section and mode filters, starter kits in a menu, and a List (default) or Gallery view.
 // An agent's page keeps a narrow list of its neighbours on the left.
 // ──────────────────────────────────────────────
+import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 import {
   CheckSquare,
   ChevronDown,
@@ -25,6 +27,7 @@ import { translate } from "../../localization/i18n";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { EditorCrumbs } from "./EditorRail";
 import { openLibraryPane } from "./library-navigation";
+import { OvEditorHead } from "./EditorChrome";
 import { PHASE_LABEL, Thumb, ViewSwitch, swatch, useOvAgentRows, type OvAgentRow } from "./LibraryTables";
 import { useUIStore } from "../../stores/ui.store";
 import { useCapabilityAgentRegistry } from "../../hooks/use-capability-packages";
@@ -312,6 +315,7 @@ function KitsMenu({ kits, onInstallKit }: { kits: readonly Kit[]; onInstallKit: 
   const { installedById, pending } = useOrganizer();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuKeys = useMenuKeyboard({ open, onOpen: () => setOpen(true), onClose: () => setOpen(false) });
   useEffect(() => {
     if (!open) return;
     const close = (event: PointerEvent) => {
@@ -326,15 +330,17 @@ function KitsMenu({ kits, onInstallKit }: { kits: readonly Kit[]; onInstallKit: 
       <button
         type="button"
         className={cn("ov-select ov-org-kits__btn", open && "is-open")}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        onClick={() => setOpen((value) => !value)}
+        {...menuKeys.triggerProps}
+        onClick={(event) => {
+          menuKeys.noteOpener(event);
+          setOpen((value) => !value);
+        }}
       >
         {localize("Starter kits")}
         <ChevronDown size={13} aria-hidden="true" />
       </button>
       {open ? (
-        <div className="ov-org-kits__menu" role="menu">
+        <div className="ov-org-kits__menu" role="menu" ref={menuKeys.menuRef}>
           {kits.map((kit) => {
             const missing = kit.entries.filter((entry) => !installedById.has(entry.manifest.id)).length;
             return (
@@ -385,6 +391,8 @@ export interface OvAgentOrganizerProps {
   agentPage: ReactNode;
   /** The release-notes list for the Updates tab. */
   updatesPage: ReactNode;
+  /** Custom sources (GitHub agent repositories), when the server offers them. */
+  sourcesPage?: ReactNode;
   bulkNote: ReactNode;
   bulkBusy: boolean;
   onBack: () => void;
@@ -483,6 +491,25 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
     { label: agentEntry?.manifest.name ?? "" },
   ];
 
+  if (page.kind === "sources" && props.sourcesPage) {
+    // A page of the Agents viewer, like an agent's own page: crumbs back to Agents, no window.
+    return (
+      <div className="ov-edpage ov-org-sources" data-component="CustomAgentSourcesPage">
+        <OvEditorHead
+          sectionLabel={localize("Agents")}
+          crumbs={[
+            { label: localize("Library"), onClick: openLibraryPane },
+            { label: localize("Agents"), onClick: () => go({ kind: "home" }) },
+            { label: localizeUi("ui.agents.agentcatalogview.customSources") },
+          ]}
+          onBack={() => go({ kind: "home" })}
+          title={localizeUi("ui.agents.agentcatalogview.customSources")}
+        />
+        <div className="ov-org-sources__body">{props.sourcesPage}</div>
+      </div>
+    );
+  }
+
   if (page.kind === "agent") {
     // The agent's page with its neighbours (same tab and filters) down the left.
     const neighbours = groups;
@@ -499,6 +526,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={localize("Search agents")}
+              aria-label={localize("Search agents")}
             />
           </label>
           <nav>
@@ -581,7 +609,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
       </header>
       {props.bulkNote}
       <div className="ov-gallery__tools">
-        <div className="ov-seg ov-org__tabs" role="tablist">
+        <div className="ov-seg ov-org__tabs" role="tablist" onKeyDown={(event) => onRovingTabsKeyDown(event)}>
           {(
             [
               ["installed", "Installed", installedCount],
@@ -594,6 +622,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
               type="button"
               role="tab"
               aria-selected={tab === id}
+              tabIndex={tab === id ? 0 : -1}
               className={cn(tab === id && "is-on")}
               onClick={() => setTab(id)}
             >
@@ -636,6 +665,7 @@ export function OvAgentOrganizer(props: OvAgentOrganizerProps) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={localize("Search agents")}
+              aria-label={localize("Search agents")}
             />
           </label>
           <select

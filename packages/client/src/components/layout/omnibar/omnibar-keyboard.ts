@@ -5,6 +5,14 @@ import type { OmnibarResult } from "../../../lib/omnibar-search";
 import { readChoiceOptionId } from "../../../lib/omnibar-choice-rows";
 
 type OmnibarKeyHandlerInput = {
+  /** True while the list is not yet the list for the text in the field (deferred, reconciling, loading). */
+  resultsStale: () => boolean;
+  /** Hold this Enter until the list catches up; GlobalOmnibar replays it then. */
+  holdEnter: (withModifier: boolean) => void;
+  /** Typing more drops a held Enter. */
+  cancelHeldEnter: () => void;
+  /** True for an Enter typed ahead of the field or pressed right after Search opened (AX9). */
+  enterTooEarly: () => boolean;
   panelRef: RefObject<HTMLDivElement | null>;
   listRef: RefObject<HTMLDivElement | null>;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -37,8 +45,21 @@ type OmnibarKeyHandlerInput = {
   resolveCurrentResult: (result: RankedOmnibarResult | null) => RankedOmnibarResult | null;
 };
 
+/** Rows whose Enter writes a setting (toggles, choices and their options) rather than going somewhere. */
+export function changesSomething(result: Pick<RankedOmnibarResult, "id" | "category" | "control">): boolean {
+  if (readChoiceOptionId(result.id)) return true;
+  const type = (result.control as { type?: string } | undefined)?.type;
+  // A preset row's toggle is "Set default", but Enter on it opens the preset.
+  if (type === "toggle") return result.category !== "preset";
+  return type === "choice";
+}
+
 /** The search field's keys (arrows, Enter, Tab, Escape) and the dialog's focus trap. */
 export function createOmnibarKeyHandlers({
+  resultsStale,
+  holdEnter,
+  cancelHeldEnter,
+  enterTooEarly,
   panelRef,
   listRef,
   inputRef,
@@ -85,6 +106,7 @@ export function createOmnibarKeyHandlers({
   const moveSelection = (index: number) => {
     const next = results[index];
     autoSelectionRef.current = false;
+    listRef.current?.setAttribute("data-keyboard-nav", "");
     setActiveResultId(next?.id ?? null);
     if (expandedPreviewId) setExpandedPreviewId(next && isRichResult(next) ? next.id : null);
   };
@@ -94,6 +116,21 @@ export function createOmnibarKeyHandlers({
     // of them belong to the result list or the dialog's own Escape handling.
     if (event.nativeEvent.isComposing) {
       event.stopPropagation();
+      return;
+    }
+    if (event.key.length === 1 || event.key === "Backspace" || event.key === "Delete") cancelHeldEnter();
+    // QC Nov 22 K3: Enter right after fast typing must not act on the previous text's top hit.
+    // Enter and Ctrl/Cmd+Enter wait for the list, then GlobalOmnibar replays them.
+    if (
+      pane === "results" &&
+      event.key === "Enter" &&
+      !event.altKey &&
+      !event.shiftKey &&
+      query.trim() &&
+      resultsStale()
+    ) {
+      event.preventDefault();
+      holdEnter(event.metaKey || event.ctrlKey);
       return;
     }
     if (event.key === "Tab" && !event.shiftKey && inlineSuffix) {
@@ -162,6 +199,8 @@ export function createOmnibarKeyHandlers({
       });
     } else if (pane === "results" && event.key === "Enter" && activeResult) {
       event.preventDefault();
+      // AX9: an early Enter never changes a setting; it leaves the row selected for a fresh Enter.
+      if (enterTooEarly() && changesSomething(activeResult)) return;
       if (chooseChoiceOption(activeResult)) return;
       // A preset row opens the preset; its "Set default preset" button is the toggle (user panel 2, N8).
       if (activeResult.category === "preset" && activeResult.control?.type === "toggle") choose(activeResult);

@@ -1,9 +1,10 @@
 // ──────────────────────────────────────────────
 // Routes: Chats
 // ──────────────────────────────────────────────
+import { readPeekPromptParts, type PeekPromptPart } from "../services/prompt/peek-injected-parts.js";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
-import { parseLorebookWriterOrder, partialInput } from "@marinara-engine/shared";
+import { mergeBuiltInAgentSettings, parseLorebookWriterOrder, partialInput } from "@marinara-engine/shared";
 import { chatResourceRequestOptions } from "./chat-request-validation.js";
 import { logger } from "../lib/logger.js";
 import { prepareJsonResponse } from "../middleware/compress-json.js";
@@ -131,6 +132,8 @@ import { resolveChatUserIdentity } from "../services/chat-user-identity.js";
 import { withAvatarFileLifecycleLock } from "../services/image/avatar-file-lifecycle.js";
 import { isFeatureEnabled } from "../services/features/feature-settings.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { resolveChatImagePlan } from "../services/image/chat-image-plan.js";
+import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { createConnectionAccountsStorage, pickLimits } from "../services/storage/connection-accounts.storage.js";
 import { applyChatModelOverride, readChatModelOverride } from "../services/generation/connection-resolution.js";
 import { notifyLongTermMemoryChatBranched } from "../services/generation/long-term-memory-runtime.js";
@@ -407,6 +410,12 @@ function isSetupDraftChat(chat: { mode?: unknown; metadata?: unknown }) {
   if (metadata.setupPending !== true) return false;
   if (chat.mode !== "game") return true;
   return !metadata.gameSessionStatus || metadata.gameSessionStatus === "setup";
+}
+
+/** A draft kept for later ("Setup not finished"): the sidebar lists it, the home feed's Recent chats doesn't. */
+function isKeptSetupDraftChat(chat: { mode?: unknown; metadata?: unknown }) {
+  if (chat.mode === "game") return false;
+  return parseChatMetadata(chat.metadata).setupUnfinished === true;
 }
 
 function shouldHideProfessorMariChat(chat: { metadata?: unknown }) {
@@ -1174,8 +1183,14 @@ export async function chatsRoutes(app: FastifyInstance) {
       const page = await storage.listRecent(pageSize, offset);
       if (page.length === 0) break;
       for (const chat of page) {
-        // A new chat still in its setup is a draft, not a recent chat (stray "New Conversation", Nov 15).
-        if (!shouldHideProfessorMariChat(chat) && !isSetupDraftChat(chat) && !seenRecentChatIds.has(chat.id)) {
+        // A new chat still in its setup is a draft, not a recent chat (stray "New Conversation", Nov 15), and so is
+        // one kept for later: it read as an identical "New Roleplay" row (QC panel 2, D9).
+        if (
+          !shouldHideProfessorMariChat(chat) &&
+          !isSetupDraftChat(chat) &&
+          !isKeptSetupDraftChat(chat) &&
+          !seenRecentChatIds.has(chat.id)
+        ) {
           seenRecentChatIds.add(chat.id);
           recentChats.push(chat);
         }
@@ -2666,6 +2681,34 @@ export async function chatsRoutes(app: FastifyInstance) {
     return { disconnected: true };
   });
 
+  // "Next image in this chat": the image model, fallback, prompt writer, style and reference pictures the next
+  // Illustrator picture (or Conversation selfie) uses, and where each comes from. Read-only; names, never keys.
+  app.get<{ Params: { id: string } }>("/:id/image-plan", async (req, reply) => {
+    const chat = await storage.getById(req.params.id);
+    if (!chat) return notFound(reply, "Chat not found");
+    const connections = createConnectionsStorage(app.db);
+    const illustratorRow = await createAgentsStorage(app.db).getByType("illustrator");
+    const imageSettings = await loadImageGenerationUserSettings(app.db);
+    return resolveChatImagePlan({
+      chatMode: String(chat.mode ?? ""),
+      chatMetadata: parseChatMetadata(chat.metadata),
+      chatConnectionId: typeof chat.connectionId === "string" ? chat.connectionId : null,
+      illustrator: illustratorRow
+        ? {
+            connectionId: typeof illustratorRow.connectionId === "string" ? illustratorRow.connectionId : null,
+            settings: mergeBuiltInAgentSettings("illustrator", illustratorRow.settings),
+          }
+        : null,
+      connections: {
+        getUsable: (id) => connections.getWithKey(id),
+        getDefaultForImageGeneration: () => connections.getDefaultForImageGeneration(),
+        getFallbackForImageGeneration: () => connections.getFallbackForImageGeneration(),
+        getDefault: () => connections.getDefault(),
+      },
+      styleProfiles: imageSettings.styleProfiles,
+    });
+  });
+
   // List pending OOC influences for a chat
   app.get<{ Params: { id: string } }>("/:id/influences", async (req) => {
     return storage.listPendingInfluences(req.params.id);
@@ -2713,6 +2756,13 @@ export async function chatsRoutes(app: FastifyInstance) {
           mode: z.enum(["conversation", "roleplay", "game"]),
           connectionId: z.string().nullable(),
           promptPresetId: z.string().nullable(),
+          // Saved setup defaults may already have picked these; matching them is still untouched.
+          personaId: z.string().nullable().optional(),
+          personaCharacterId: z.string().nullable().optional(),
+          characterIds: z
+            .union([z.array(z.string()), z.string()])
+            .nullable()
+            .optional(),
           metadata: z.record(z.string(), z.unknown()),
         }),
       })
@@ -2781,26 +2831,34 @@ export async function chatsRoutes(app: FastifyInstance) {
   // A New chat whose setup never finished (closed, left, reloaded, or a Create world that failed) is a draft:
   // it is removed, game and all. Anything the player wrote, or a game that was built, keeps it, and the draft
   // mark is dropped so it is never asked again.
-  app.post<{ Params: { id: string } }>("/:id/discard-unfinished-setup", async (req) => {
-    const chat = await storage.getById(req.params.id);
-    if (!chat) return { deleted: false };
-    const meta = parseExtra(chat.metadata) as Record<string, unknown>;
-    // A draft kept for later ("Setup not finished") is only ever discarded on purpose, from its own setup.
-    if (meta.setupPending !== true && meta.setupUnfinished !== true) return { deleted: false };
-    const keep = async () => {
-      await storage.patchMetadata(chat.id, { setupPending: null });
-      return { deleted: false };
-    };
-    const status = typeof meta.gameSessionStatus === "string" ? meta.gameSessionStatus : null;
-    if (chat.mode === "game" && status && status !== "setup") return keep();
-    const chatMessages = await storage.listMessages(chat.id);
-    const written = chatMessages.some((message: { role?: string }) =>
-      chat.mode === "game" ? true : message.role === "user",
-    );
-    if (written) return keep();
-    await removeChatCompletely(chat.id);
-    return { deleted: true };
-  });
+  app.post<{ Params: { id: string }; Body: { explicit?: boolean } | undefined }>(
+    "/:id/discard-unfinished-setup",
+    async (req) => {
+      // A draft kept for later ("Setup not finished"), or one its setup marked as having choices, is only ever
+      // discarded on purpose, from its own setup, which says so with `explicit`. Leaving a draft (or another
+      // window's cleanup) never removes one.
+      const explicit = req.body?.explicit === true;
+      const outcome = await storage.removeUnfinishedSetupChat(req.params.id, { explicit });
+      if (outcome === "kept") {
+        // Something worth keeping: it is a real chat now, so it is never asked about or hidden as a draft again.
+        await storage.patchMetadata(req.params.id, { setupPending: null, setupUnfinished: null, setupHasInput: null });
+        return { deleted: false };
+      }
+      if (outcome === "none") return { deleted: false };
+      const activeGenerations = (
+        app as unknown as {
+          activeGenerations?: Map<string, { abortController?: AbortController }>;
+        }
+      ).activeGenerations;
+      activeGenerations?.get(req.params.id)?.abortController?.abort();
+      activeGenerations?.delete(req.params.id);
+      clearChatActivity(req.params.id);
+      await deletePendingForChat(req.params.id).catch((err) =>
+        logger.warn(err, "[professor-mari] Could not delete the queued messages for chat %s", req.params.id),
+      );
+      return { deleted: true };
+    },
+  );
 
   // ── Messages ──
 
@@ -3893,7 +3951,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       extra: Record<string, unknown>,
       allowHistoricalCache = false,
     ): Promise<{
-      messages: Array<{ role: string; content: string }>;
+      messages: Array<{ role: string; content: string; parts?: PeekPromptPart[] }>;
       generationInfo?: Record<string, unknown>;
       gameToolPlanning?: GameToolPlanningInfo;
     } | null> => {
@@ -3903,9 +3961,10 @@ export async function chatsRoutes(app: FastifyInstance) {
               if (!isRecord(entry) || typeof entry.role !== "string" || typeof entry.content !== "string") {
                 return null;
               }
-              return { role: entry.role, content: entry.content };
+              const parts = readPeekPromptParts(entry.parts, entry.content.length);
+              return { role: entry.role, content: entry.content, ...(parts.length > 0 ? { parts } : {}) };
             })
-            .filter((entry): entry is { role: string; content: string } => entry !== null)
+            .filter((entry): entry is { role: string; content: string; parts?: PeekPromptPart[] } => entry !== null)
         : [];
       if (cachedPrompt.length === 0) return null;
       // A selected turn is a historical request, not memory being reused for a

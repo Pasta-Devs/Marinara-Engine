@@ -14,7 +14,9 @@ It installs WebKitGTK's WebDriver and a virtual display the first time (about 20
 the running app as an iPhone (375x812) and an iPad mini (744x1133) with **Show tap timings** on, taps Library (Chats
 in the classic layout) and Home, saves screenshots to `/tmp/webkit-qc/smoke/` and prints the tap timings readings. Running it again only checks
 that everything is still up. `--restart` fixes a stuck driver ("Maximum number of active sessions"), `--stop` stops
-it all.
+it all. Both only touch this setup's own browsers (the ones started by the driver in this `WEBKIT_QC_DIR`), so two
+runs side by side with their own `WEBKIT_QC_DIR`, `WEBKIT_QC_DRIVER_PORT` and `WEBKIT_QC_PROXY_PORT` don't stop each
+other.
 
 Then drive your own checks:
 
@@ -35,6 +37,15 @@ await page.close();
 ```
 
 Put the tap timings readings in every phone or tablet QC report.
+
+Reading a row: `Library 359 · 699 · 223 · 3× 665 (api 1 · code 2)` is tap to shown, to smooth, the longest frame
+(all ms), then how many loads started during the tap and when the last one finished, split into server calls (api),
+scripts and stylesheets (code) and pictures and fonts (media). `+150 pre` at the end means 150 of the code loads came
+from the background preload queue (`lib/background-preload.ts`), not from the tap; it is approximate (a chunk the tap
+needed that starts while a preload runs counts as pre too). A "first tap" reading in a QC report quotes both numbers:
+the total and the total minus pre. A smooth of `≥8000` means the box's 8 s window ended the row; it is a cap, not a
+real time. `webkit-qc.mjs`'s `tapTimings()` returns the split as fields (`loads`, `api`, `code`, `media`,
+`preload`, `capped`) read from the row's `data-*` attributes.
 
 How it works and its limits:
 
@@ -83,6 +94,8 @@ Use it for anything that touches the launcher, dependencies, the build or the st
 `--memory 4g` caps the container's memory like a phone's RAM. `start-termux.sh` sizes Node's heap from the RAM it
 sees, so the container also gets a `/proc/meminfo` that shows the cap. Through emulation the build needs more memory
 than on a phone, so read a failure under a cap from an ARM machine or the workflow.
+`--check-args` (with any other options) checks them and prints the `/proc/meminfo` a `--memory` cap would mount, then
+exits without Docker; the workflow runs it on every pull request.
 
 - Needs Docker only, no KVM, so it works in cloud containers. Termux's mirror (`packages-cf.termux.dev`) must be
   reachable; sandboxed cloud environments need it on their allowed hosts.

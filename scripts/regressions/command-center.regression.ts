@@ -18,6 +18,7 @@ import {
   type CommandCenterPresentableResult,
 } from "../../packages/client/src/lib/command-center.js";
 import { createSystemCommandDefinitions } from "../../packages/client/src/lib/command-center-system-commands.js";
+import { changesSomething } from "../../packages/client/src/components/layout/omnibar/omnibar-keyboard.js";
 import {
   formatShortcutKey,
   isQuickPickerShortcut,
@@ -2651,9 +2652,10 @@ assert.ok(!("mariDetailId" in mariSession));
       "chat-tool:summary:chat-1",
       "chat-tool:advanced-parameters:chat-1",
       "chat-tool:memory-recall:chat-1",
+      "chat-tool:peek-prompt:chat-1",
       "chat-tool:regenerate:chat-1",
     ],
-    "roleplay on the chat surface gets all six tool rows, Summary and the two settings rows included",
+    "roleplay on the chat surface gets all seven tool rows, Summary, Peek prompt and the two settings rows included",
   );
   const summaryRow = roleplayOnChatSurface.find((row) => row.id === "chat-tool:summary:chat-1");
   assert.deepEqual(summaryRow?.action, { kind: "open-chat-tool", chatId: "chat-1", tool: "summary" });
@@ -2670,6 +2672,7 @@ assert.ok(!("mariDetailId" in mariSession));
       "chat-tool:lorebook:chat-1",
       "chat-tool:advanced-parameters:chat-1",
       "chat-tool:memory-recall:chat-1",
+      "chat-tool:peek-prompt:chat-1",
       "chat-tool:regenerate:chat-1",
     ],
     "conversation mode has no Summary feature, so no Summary row",
@@ -2686,8 +2689,8 @@ assert.ok(!("mariDetailId" in mariSession));
   });
   assert.deepEqual(
     toolIds(gameOnChatSurface),
-    ["chat-tool:lorebook:chat-1"],
-    "game mode gets only the lorebook tool row, not search or regenerate",
+    ["chat-tool:lorebook:chat-1", "chat-tool:peek-prompt:chat-1"],
+    "game mode gets the lorebook and Peek prompt rows (the chat view behind a game answers Peek prompt), not search or regenerate",
   );
 
   // R2 (slice 61): a reply finding puts "Fix: Check the last reply" first in the chat's rows; a
@@ -3002,7 +3005,7 @@ assert.ok(!("mariDetailId" in mariSession));
     "the open custom agent leads, then the focused-field row",
   );
   assert.equal(customRows[0]?.title, "Editing Scene Critic");
-  assert.equal(customRows[1]?.title, "Improve Prompt Template with Prof. Mari");
+  assert.equal(customRows[1]?.title, "Improve Prompt Template with Professor Mari");
   const builtInRows = buildOmnibarContextResults({ ...input, openAgentId: "illustrator" });
   assert.equal(builtInRows[0]?.id, "agent:illustrator", "a built-in opened by type gets its Editing row");
 
@@ -3090,6 +3093,8 @@ assert.ok(!("mariDetailId" in mariSession));
     "components/layout/PersonalExtensionContributionsMenu.tsx",
     "components/layout/PersonalExtensionInjector.tsx",
     "hooks/use-touch-folder-drag.ts",
+    // The keyboard skip links show only while focused, and must then sit over everything, the omnibar included.
+    "styles/accessibility.css",
   ]);
   // Slice 82: the end-of-run sprite puff (.mari-sprite-ghost, the one exempt CSS value) had no user
   // left and was deleted, so any z-index at or above the layer in a stylesheet now fails this check.
@@ -4682,4 +4687,35 @@ console.info("Command Center regression checks passed.");
   assert.equal(opened.results.length, 12);
   assert.equal(opened.results[COMMAND_CENTER_GROUP_LIMIT]!.id, "chat:8");
   assert.equal(presentCommandCenterResults(rows, { query: "moon" }).results.length, 12, "no row builder, no cap");
+}
+
+{
+  // QC panel 3 AX17: an exact title is the Top hit over a longer title it only starts, even ranked lower.
+  const rows = [
+    { id: "nav:settings-profiles", title: "Settings profiles", category: "navigation", score: 260 },
+    { id: "chat:1", title: "Storm at Gull Point", category: "chat", score: 0 },
+    { id: "nav:settings", title: "Settings", category: "navigation", score: 250 },
+  ] as CommandCenterPresentableResult[];
+  assert.equal(presentCommandCenterResults(rows, { query: "settings" }).results[0]?.id, "nav:settings");
+  // Without an exact title, the best-ranked prefix match still leads.
+  assert.equal(presentCommandCenterResults(rows, { query: "sett" }).results[0]?.id, "nav:settings-profiles");
+  const storm = [
+    { id: "nav:presets", title: "Presets", category: "navigation", score: 300 },
+    { id: "chat:storm", title: "Storm at Gull Point", category: "chat", score: 220 },
+  ] as CommandCenterPresentableResult[];
+  assert.equal(presentCommandCenterResults(storm, { query: "storm" }).results[0]?.id, "chat:storm");
+  assert.equal(presentCommandCenterResults(storm, { query: "presets" }).results[0]?.id, "nav:presets");
+}
+
+{
+  // QC panel 3 AX9: an early Enter (typed ahead of a cold Ctrl+K) never runs a row that changes a setting.
+  assert.equal(changesSomething({ id: "settings-control:x", category: "settings", control: { type: "toggle" } }), true);
+  assert.equal(changesSomething({ id: "settings-control:y", category: "settings", control: { type: "choice" } }), true);
+  assert.equal(
+    changesSomething({ id: "preset:1", category: "preset", control: { type: "toggle" } }),
+    false,
+    "Enter on a preset row opens it",
+  );
+  assert.equal(changesSomething({ id: "nav:settings", category: "navigation" }), false);
+  assert.equal(changesSomething({ id: "chat:1", category: "chat" }), false);
 }

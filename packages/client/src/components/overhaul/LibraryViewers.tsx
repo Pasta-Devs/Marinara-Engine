@@ -37,8 +37,11 @@ import {
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { Toggle, flag, parseList, useRegexFolders, useRegexImport, useRegexKitActions } from "./LibraryTables";
+import { ImportRegexModal } from "../modals/ImportRegexModal";
 import { insertLibraryItems } from "../../lib/library-order";
 import { builtInFirst, DeviceDetail, useDeviceEngines } from "../connections/DeviceDetail";
+import { JOB_SETTINGS_PREFIX, JobSettingsPage } from "../connections/ConnectionDefaults";
+import type { JobKey } from "../../lib/connection-jobs";
 import { ConnectionAccountEditor } from "../connections/ConnectionAccountEditor";
 import { ProviderIcon } from "../connections/ProviderIcon";
 import type { DeviceItem } from "../../hooks/use-device-setup";
@@ -48,6 +51,7 @@ import { BuiltinEmbeddingDetail, useBuiltinEmbeddingState } from "../connections
 import { EditorCrumbs, useSplitTouchCrumbs, type RailCrumb } from "./EditorRail";
 import { openLibraryPane, openLibrarySection } from "./library-navigation";
 import { OvEditorHeadSlot } from "./EditorChrome";
+import { AssetsTitle } from "./AssetsTabs";
 import {
   useCreateCustomTool,
   useCustomTools,
@@ -155,6 +159,7 @@ export function OvViewer({
   selectedId,
   onSelect,
   emptyList,
+  detailOpen = false,
   emptyDetail,
   children,
   onSection,
@@ -190,6 +195,8 @@ export function OvViewer({
   selectedId: string | null;
   onSelect: (id: string) => void;
   emptyList: string;
+  /** An editor with no list row yet (a new item being made) is open: no landing or empty state. */
+  detailOpen?: boolean;
   emptyDetail: string;
   children: ReactNode;
 }) {
@@ -211,7 +218,7 @@ export function OvViewer({
   // With nothing open this is the section's landing page: it reads like the other Library landing pages
   // (no crumbs, title at the same spot, Import and + New as pills at the top right). Once an item is
   // open, its editor header takes the top and the list keeps Import / + New (audit D7).
-  const landing = !selectedId;
+  const landing = !selectedId && !detailOpen;
   const newButton = (
     <button
       type="button"
@@ -239,7 +246,14 @@ export function OvViewer({
         <div className="ov-vw__slot" ref={setHeadSlot} />
         <header className={cn("ov-vw__top", !landing && "has-crumbs")}>
           {landing ? null : <EditorCrumbs items={crumbs} />}
-          <h1 data-mari-part="page-title">{title}</h1>
+          {/* Library > Assets' tabs take the title's place on its landing (AssetsTabs.tsx); an open item keeps its name. */}
+          {landing ? (
+            <AssetsTitle>
+              <h1 data-mari-part="page-title">{title}</h1>
+            </AssetsTitle>
+          ) : (
+            <h1 data-mari-part="page-title">{title}</h1>
+          )}
           <small>{meta}</small>
           {landing ? (
             <div className="ov-vw__actions">
@@ -483,7 +497,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
   const handleImport = useRegexImport();
   const selectedId = useUIStore((s) => s.regexDetailId);
   const openRegexDetail = useUIStore((s) => s.openRegexDetail);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
 
   const scripts = useMemo(
@@ -602,7 +616,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
       title={localize("Regex scripts")}
       meta={`${scripts.length} ${localize(scripts.length === 1 ? "script" : "scripts")} · ${enabledCount} ${localize("enabled")}`}
       tools={[
-        { label: localize("Import"), icon: Download, onClick: () => fileRef.current?.click() },
+        { label: localize("Import"), icon: Download, onClick: () => setImportOpen(true) },
         { label: localize("New folder"), icon: FolderPlus, onClick: regexFolders.manual.create, compact: true },
       ]}
       listLabel={localize("Scripts")}
@@ -619,17 +633,7 @@ export function OvRegexViewer({ children }: { children: ReactNode }) {
       emptyList={localize("No regex scripts yet.")}
       emptyDetail={localize("Pick a script on the left, or make a new one.")}
     >
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".json,application/json"
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (file) void handleImport(file);
-        }}
-      />
+      <ImportRegexModal open={importOpen} onClose={() => setImportOpen(false)} onImport={handleImport} />
       {regexFolders.fileInput}
       {children}
     </OvViewer>
@@ -936,6 +940,9 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       ? { id: selectedId.slice(ACCOUNT_KEY_PREFIX.length), replaceKey: true }
       : null;
   const device = selectedId?.startsWith(DEVICE_PREFIX) ? (selectedId.slice(DEVICE_PREFIX.length) as DeviceItem) : null;
+  const jobSettings = selectedId?.startsWith(JOB_SETTINGS_PREFIX)
+    ? (selectedId.slice(JOB_SETTINGS_PREFIX.length) as JobKey)
+    : null;
 
   const firstId = groups.find((group) => group.rows.length)?.rows[0]?.id;
   useAutoSelect("connections", selectedId, firstId, openConnectionDetail);
@@ -960,7 +967,9 @@ export function OvConnectionsViewer({ children }: { children: ReactNode }) {
       emptyDetail={localize("Pick a model on the left, or add an account.")}
       onSection={() => openLibrarySection("connections")}
     >
-      {accountPage ? (
+      {jobSettings ? (
+        <JobSettingsPage key={jobSettings} jobKey={jobSettings} onClose={closeConnectionDetail} />
+      ) : accountPage ? (
         <ConnectionAccountEditor
           key={selectedId}
           embedded
@@ -1014,6 +1023,16 @@ export function OvConnectionPageMobile({ children }: { children: ReactNode }) {
       ? (selectedId.slice(DEVICE_PREFIX.length) as DeviceItem)
       : null;
   const embeddingPage = selectedId === EMBEDDING_DEVICE_ID;
+  const jobSettings = selectedId?.startsWith(JOB_SETTINGS_PREFIX)
+    ? (selectedId.slice(JOB_SETTINGS_PREFIX.length) as JobKey)
+    : null;
+  // A job's settings bring the shared editor header (‹ back and the title), like an account page.
+  if (jobSettings)
+    return (
+      <section className="ov-ed ovm-connpage" data-component="OverhaulConnectionPage">
+        <JobSettingsPage key={jobSettings} jobKey={jobSettings} onClose={closeConnectionDetail} />
+      </section>
+    );
   if (!accountPage && !device && !embeddingPage && selectedId !== DECISION_DEVICE_ID) return <>{children}</>;
   const title = accountPage
     ? localize("Account")

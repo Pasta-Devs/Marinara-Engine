@@ -7,15 +7,15 @@ Marinara Engine is an app for chatting and roleplaying with AI characters. It ru
 Before you start: you need an API key (a secret code, like a password) from an AI service, or the **Built-in model** described below.
 
 1. Install Marinara Engine and open it in your browser. Pick your platform in [Marinara Engine Installation](../INSTALLATION.md).
-2. Add an account. An account is one API key for one AI service. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
-3. Pick the models the account should use. The same guide shows how.
+2. Add a connection: one API key for one AI service, or the **Built-in model**. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+3. Pick the models the connection should use. The same guide shows how.
 4. Make or import a character. Open **Library → Characters** (click **Library** at the top right), then click **New character**, or click **Import** to bring in a card from a file. See [Creating and Editing Characters](../characters/creating-and-editing-characters.md).
 5. Click **Conversation**, **Roleplay** or **Game** on Home. Or open your chats: click **Library** at the top right, pick **Chats** at the top of the sidebar, choose the **Convo**, **Roleplay** or **Game** tab and click **New**.
-6. Follow the setup window that opens, then click **Create Chat**.
+6. The setup page opens in the new tab. Pick a character and the **Content** choice, then click **Start roleplay** (or **Start chatting** for a Conversation, **Create world** for a Game).
 
 What you see: the new chat opens, and you can write your first message.
 
-If you have no account yet, the add-account window opens first and ends with **Start chatting**. If a **Set Up** window asks you to choose an account, pick one from the list, then click **Create Chat**.
+If you have no connection yet, Marinara opens the add-connection window first.
 
 Marinara does not include an online AI. Most people connect to an online service. You can also download the **Built-in model**, a small model that runs on your computer with no API key. It suits light helper jobs, not your main chat. See [Built-in model setup](../connections/local-model.md).
 

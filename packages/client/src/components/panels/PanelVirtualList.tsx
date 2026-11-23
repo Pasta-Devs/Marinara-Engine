@@ -22,6 +22,11 @@ interface PanelVirtualListProps {
   gap?: number;
   /** Row index that stays mounted while it is dragged, so drag handlers survive scrolling it away. */
   pinnedIndex?: number;
+  /**
+   * Row index that stays mounted even while the list itself is hidden (zero height), e.g. an open entry whose
+   * editor is portaled into a detail pane while a phone hides the list. Off-screen, it renders in a 0x0 box.
+   */
+  keepMountedIndex?: number;
   /** Scrolls this row into view when the value changes (keyboard highlight on rows that may be unmounted). */
   scrollToIndex?: number;
   /** Paged lists: asks for the next page when the last rendered row is near the end. */
@@ -55,6 +60,7 @@ export function PanelVirtualList({
   estimateSize,
   gap = 0,
   pinnedIndex,
+  keepMountedIndex,
   scrollToIndex,
   paging,
   className,
@@ -92,7 +98,10 @@ export function PanelVirtualList({
     scrollMargin,
     initialMeasurementsCache: loadMeasurementSnapshot(listKey),
     rangeExtractor: (range) =>
-      withPinnedIndex(withPinnedIndex(defaultRangeExtractor(range), toRow(pinnedIndex)), focusedRow),
+      withPinnedIndex(
+        withPinnedIndex(withPinnedIndex(defaultRangeExtractor(range), toRow(pinnedIndex)), focusedRow),
+        toRow(keepMountedIndex),
+      ),
   });
 
   // Remember measured heights so a remount (panel switch) lands on the same row without re-estimating.
@@ -147,6 +156,12 @@ export function PanelVirtualList({
   }, [scrollToKey, scroller, virtualizer]);
 
   const items = virtualizer.getVirtualItems();
+  // A hidden list has no range, so the virtualizer renders nothing at all; the kept row still has to exist.
+  const keepRow =
+    keepMountedIndex !== undefined && keepMountedIndex >= 0 && keepMountedIndex < count
+      ? toRow(keepMountedIndex)!
+      : undefined;
+  const keepOutside = keepRow !== undefined && !items.some((item) => item.index === keepRow);
   const lastVisibleIndex = items.length > 0 ? items[items.length - 1]!.index : undefined;
   const requestedRef = useRef(false);
   const isFetchingNextPage = paging?.isFetchingNextPage ?? false;
@@ -171,41 +186,55 @@ export function PanelVirtualList({
       className={className}
       style={{ position: "relative", height: virtualizer.getTotalSize() }}
     >
-      {items.map((virtualRow) => {
-        const first = virtualRow.index * perRow;
-        return (
+      {[
+        ...items.map((virtualRow) => {
+          const first = virtualRow.index * perRow;
+          return (
+            <div
+              key={virtualRow.key}
+              ref={virtualizer.measureElement}
+              data-index={virtualRow.index}
+              role={asList && perRow === 1 ? "listitem" : undefined}
+              aria-posinset={asList && perRow === 1 ? first + 1 : undefined}
+              aria-setsize={asList && perRow === 1 ? count : undefined}
+              onFocus={() => setFocusedKey(virtualRow.key)}
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setFocusedKey(undefined);
+              }}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+                ...(perRow > 1 && {
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))`,
+                  columnGap: gap,
+                }),
+              }}
+            >
+              {perRow === 1
+                ? renderRow(first)
+                : Array.from({ length: Math.min(perRow, count - first) }, (_, offset) => (
+                    <Fragment key={getItemKey(first + offset)}>{renderRow(first + offset)}</Fragment>
+                  ))}
+            </div>
+          );
+        }),
+        // In the same array and with the same key as its windowed wrapper, so moving between the two keeps the
+        // row's state.
+        keepOutside && perRow === 1 && (
           <div
-            key={virtualRow.key}
-            ref={virtualizer.measureElement}
-            data-index={virtualRow.index}
-            role={asList && perRow === 1 ? "listitem" : undefined}
-            aria-posinset={asList && perRow === 1 ? first + 1 : undefined}
-            aria-setsize={asList && perRow === 1 ? count : undefined}
-            onFocus={() => setFocusedKey(virtualRow.key)}
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) setFocusedKey(undefined);
-            }}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
-              ...(perRow > 1 && {
-                display: "grid",
-                gridTemplateColumns: `repeat(${perRow}, minmax(0, 1fr))`,
-                columnGap: gap,
-              }),
-            }}
+            key={rowKey(keepRow!)}
+            data-kept-row
+            aria-hidden
+            style={{ position: "absolute", top: 0, left: 0, width: 0, height: 0, overflow: "hidden" }}
           >
-            {perRow === 1
-              ? renderRow(first)
-              : Array.from({ length: Math.min(perRow, count - first) }, (_, offset) => (
-                  <Fragment key={getItemKey(first + offset)}>{renderRow(first + offset)}</Fragment>
-                ))}
+            {renderRow(keepRow! * perRow)}
           </div>
-        );
-      })}
+        ),
+      ]}
     </div>
   );
 }

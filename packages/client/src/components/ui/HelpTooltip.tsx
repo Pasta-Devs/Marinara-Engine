@@ -15,6 +15,9 @@ let activeTooltipClose: (() => void) | null = null;
 interface HelpTooltipProps {
   /** The help content to display */
   text: ReactNode;
+  /** What the help is about: the button is named "Help: {topic}" (QC panel 3 AX14). Found from the text
+   *  around the button when not given, so 25 buttons on one page are not all "Show help". */
+  topic?: string;
   /** Optional visible label shown before the help icon */
   label?: string;
   /** Accessible name for the help button when "Show help" alone would not say what the help is about */
@@ -38,10 +41,41 @@ interface HelpTooltipProps {
   icon?: "help" | "info";
 }
 
+const TOPIC_MAX = 60;
+
+/** Text a reader sees in `node`, leaving out the help button itself, pickers' option lists and hidden text. */
+function visibleLabelText(node: HTMLElement, skip: HTMLElement): string {
+  let text = "";
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT, {
+    acceptNode: (textNode) =>
+      textNode.parentElement?.closest("select, textarea, [aria-hidden='true'], script, style") ||
+      skip.contains(textNode)
+        ? NodeFilter.FILTER_REJECT
+        : NodeFilter.FILTER_ACCEPT,
+  });
+  while (walker.nextNode()) text += ` ${walker.currentNode.nodeValue ?? ""}`;
+  return text.replace(/\s+/gu, " ").trim();
+}
+
+/** The nearest text around a help button (its row's label or section title), cut to a short name. */
+export function findHelpTopic(wrap: HTMLElement | null): string | null {
+  if (!wrap || typeof document === "undefined") return null;
+  let node = wrap.parentElement;
+  for (let depth = 0; node && depth < 4; depth += 1, node = node.parentElement) {
+    if (node.matches("[role='dialog'], main, body, .mari-window")) return null;
+    const text = visibleLabelText(node, wrap);
+    if (!text) continue;
+    if (text.length <= TOPIC_MAX) return text;
+    return `${text.slice(0, TOPIC_MAX).replace(/\s+\S*$/u, "")}…`;
+  }
+  return null;
+}
+
 export function HelpTooltip({
   text,
   label,
   ariaLabel,
+  topic,
   size = "0.75rem",
   side = "top",
   className,
@@ -58,6 +92,12 @@ export function HelpTooltip({
   const [show, setShow] = useState(false);
   const [pinned, setPinned] = useState(false);
   const wrapRef = useRef<HTMLSpanElement>(null);
+  const [nearbyTopic, setNearbyTopic] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    if (ariaLabel || label || topic) return;
+    setNearbyTopic(findHelpTopic(wrapRef.current));
+  }, [ariaLabel, label, topic]);
+  const helpTopic = topic ? localize(topic) : nearbyTopic;
   const tipRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number; ready: boolean }>({ top: 0, left: 0, ready: false });
 
@@ -175,7 +215,9 @@ export function HelpTooltip({
                 value1: localize("Show help"),
                 value2: localizedLabel,
               })
-            : localize("Show help"))
+            : helpTopic
+              ? localizeUi("ui.help.showFor", { topic: helpTopic })
+              : localize("Show help"))
         }
         aria-expanded={show}
         className={cn(

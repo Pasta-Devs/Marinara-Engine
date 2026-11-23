@@ -5,6 +5,7 @@
 // eyebrow section headings with a rule, and label-left form rows. The
 // Connection, Regex and Agent editors are built from these.
 // ──────────────────────────────────────────────
+import { useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, MoreHorizontal, Save } from "lucide-react";
@@ -149,20 +150,19 @@ export function OvEditorHead({
   const slot = useContext(OvEditorHeadSlot);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // A11Y3: arrows move through the items, Escape returns to ⋯ (it used to drop focus on <body>).
+  const menuKeys = useMenuKeyboard({
+    open: menuOpen,
+    onOpen: () => setMenuOpen(true),
+    onClose: () => setMenuOpen(false),
+  });
   useEffect(() => {
     if (!menuOpen) return;
     const close = (event: PointerEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
     };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
     document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("pointerdown", close);
   }, [menuOpen]);
   // Save (with the state and ⋯) always stays on the title row. Only the editor's own buttons move to a
   // second line, and only when the whole row would cut the title short (user panel 3, PV3).
@@ -232,13 +232,17 @@ export function OvEditorHead({
         className={cn("ov-edbtn ov-edbtn--icon", menuOpen && "is-on")}
         aria-label={localizeUi("chatInsights.activity.more")}
         title={localizeUi("chatInsights.activity.more")}
-        aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((open) => !open)}
+        {...menuKeys.triggerProps}
+        onClick={(event) => {
+          menuKeys.noteOpener(event);
+          setMenuOpen((open) => !open);
+        }}
       >
         <MoreHorizontal size={16} />
       </button>
       {menuOpen ? (
         <div
+          ref={menuKeys.menuRef}
           className="ov-menu"
           role="menu"
           onClick={(event) => {
@@ -399,6 +403,8 @@ export function OvSaveButton({
 }) {
   const { t } = useUiTranslation();
   const shortcut = /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? "") ? "⌘S" : "Ctrl+S";
+  // A touch screen has no keyboard to press it on, so its tooltip (and VoiceOver) just say Save.
+  const keyboardHint = globalThis.matchMedia?.("(hover: hover) and (pointer: fine)").matches ?? true;
   return (
     <>
       {error || (!quiet && (dirty || saving)) ? (
@@ -420,10 +426,14 @@ export function OvSaveButton({
             .catch(() => undefined)
         }
         disabled={!dirty || saving || disabled}
-        title={t("ui.layout.personalextensiontopbarbuttons.value1Value2", {
-          value1: t("ui.noodle.noodlehome.save"),
-          value2: shortcut,
-        })}
+        title={
+          keyboardHint
+            ? t("ui.layout.personalextensiontopbarbuttons.value1Value2", {
+                value1: t("ui.noodle.noodlehome.save"),
+                value2: shortcut,
+              })
+            : t("ui.noodle.noodlehome.save")
+        }
         data-ov-save=""
       >
         <Save size={14} aria-hidden="true" />
@@ -437,16 +447,19 @@ export function OvEyebrow({
   children,
   aside,
   className,
+  as: Tag = "p",
 }: {
   children: ReactNode;
   aside?: ReactNode;
   className?: string;
+  /** A section title that is a real heading (QC panel 3 AX14); the look stays the same. */
+  as?: "p" | "h2" | "h3";
 }) {
   return (
-    <p className={cn("ov-eyebrow", className)}>
+    <Tag className={cn("ov-eyebrow", className)}>
       <span>{children}</span>
       {aside ? <small>{aside}</small> : null}
-    </p>
+    </Tag>
   );
 }
 

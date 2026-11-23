@@ -44,7 +44,9 @@ import {
   type TTSAutoplayMessage,
   type TTSAutoplayMessageReadyDetail,
 } from "../lib/tts-autoplay";
-import { translate } from "../localization/i18n";
+import { i18n, translate } from "../localization/i18n";
+import { queueAnnouncement, replyAnnouncementText, type ReplyAnnouncement } from "../lib/reply-announcer";
+import { useOverhaulStore } from "../stores/overhaul.store";
 import { waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { agentKeys } from "./use-agents";
 import { advancedMemoryKeys, ADVANCED_MEMORY_SETTINGS_EVENT, notifyAdvancedMemoryFailure } from "./use-advanced-memory";
@@ -937,6 +939,14 @@ function getCachedChatMode(qc: QueryClient, chatId: string): Chat["mode"] | unde
   return list?.find((chat) => chat.id === chatId)?.mode;
 }
 
+/** The chat is what the user is looking at: its tab is open with no Library page over it, or it is the other split side. */
+function isReplyChatOnScreen(chatId: string): boolean {
+  const overhaul = useOverhaulStore.getState();
+  const split = overhaul.split;
+  if (overhaul.splitShown && split?.page.kind === "chat" && split.page.id === chatId) return true;
+  return useChatStore.getState().activeChatId === chatId && !overhaul.libraryPage;
+}
+
 function getCachedChatForGeneration(qc: QueryClient, chatId: string): Chat | undefined {
   const activeChat = useChatStore.getState().activeChat;
   if (activeChat?.id === chatId) return activeChat;
@@ -1398,6 +1408,53 @@ export function useGenerate() {
         completionNotifications.push(notify);
       };
       const shouldRefreshGameState = shouldRefreshGameStateAfterGeneration(qc, params.chatId);
+      // QC Nov 22 AX1: a screen reader hears "Wren replied" once per run, never the reply itself.
+      let replyAnnounced = false;
+      // A regenerate adds a swipe; the ready row from the server carries its index but not the count.
+      const swipeCountBefore = params.regenerateMessageId
+        ? Number(
+            getCachedMessages(qc, params.chatId).find((message) => message.id === params.regenerateMessageId)
+              ?.swipeCount,
+          ) || 1
+        : 0;
+      const announceReplyOnce = (messages: Iterable<Message>) => {
+        if (replyAnnounced || params.turnGameBots) return;
+        const assistantRows = [...messages].filter((message) => message.role === "assistant");
+        if (params.impersonate) {
+          replyAnnounced = true;
+          if (isReplyChatOnScreen(params.chatId)) queueAnnouncement(translate("chat.announce.impersonated"));
+          return;
+        }
+        if (assistantRows.length === 0) return;
+        replyAnnounced = true;
+        const chat = getCachedChatForGeneration(qc, params.chatId);
+        const fallbackCharacterId = parseChatCharacterIds(chat?.characterIds)[0] ?? null;
+        const names = assistantRows.map((message) => {
+          // A Game Master turn has no character; the party's first member did not write it.
+          const id = isGameGeneration
+            ? message.characterId
+            : resolveNotifiedCharacterId(message, params.forCharacterId, fallbackCharacterId);
+          return id ? getCachedCharacterName(qc, id) : null;
+        });
+        const onScreen = isReplyChatOnScreen(params.chatId);
+        const named = names.filter((name): name is string => !!name);
+        if (isGameGeneration && named.length === 0) named.push(translate("chat.announce.gameMaster"));
+        let event: ReplyAnnouncement;
+        if (params.autonomous) {
+          if (!onScreen) return;
+          event = { kind: "messaged", names: named };
+        } else if (params.regenerateMessageId) {
+          const row = assistantRows.find((message) => message.id === params.regenerateMessageId) ?? assistantRows[0]!;
+          const index = Math.max(1, (Number(row.activeSwipeIndex) || 0) + 1);
+          const total = Math.max(index, Number(row.swipeCount) || 0, swipeCountBefore + 1);
+          event = { kind: "swipe", names: named, index, total, chatName: chat?.name, onScreen };
+        } else if (params.continueMessageId) {
+          event = { kind: "continued", names: named, chatName: chat?.name, onScreen };
+        } else {
+          event = { kind: "replied", names: named, chatName: chat?.name, onScreen };
+        }
+        queueAnnouncement(replyAnnouncementText(event, i18n.language || "en", translate));
+      };
       let spriteChangeReceived = false;
 
       // Only touch global streaming UI state if the user is viewing this chat.
@@ -2939,6 +2996,11 @@ export function useGenerate() {
                 if (savedMessage) upsertPersistedMessages(qc, params.chatId, [savedMessage]);
                 heldUnlistedReplies.delete(message.id);
                 publishVnReply(savedMessage ?? null);
+                if (savedMessage && !params.autonomous) {
+                  // The ready row is read fresh from the server, so a swipe's number and count are current.
+                  const fresh = { ...savedMessage, ...(message as unknown as Partial<Message>) } as Message;
+                  announceReplyOnce([...persistedMessages.values()].map((row) => (row.id === fresh.id ? fresh : row)));
+                }
                 if (useChatStore.getState().streamingChatId === params.chatId) {
                   setStreaming(false);
                 }
@@ -3860,6 +3922,15 @@ export function useGenerate() {
           !params.turnGameBots &&
           ((sawDoneEvent && receivedContent) ||
             (passiveStreamSettled && passiveRecoveryDurableMessage?.role === "assistant"));
+        if (
+          completedReply ||
+          (params.impersonate && !abortController.signal.aborted && sawDoneEvent && receivedContent)
+        ) {
+          const announced = [...persistedForRefresh];
+          const changed = latestChangedAssistantMessage(qc, params.chatId, assistantMessagesBeforeGeneration);
+          if (!announced.some((message) => message.role === "assistant") && changed) announced.push(changed);
+          announceReplyOnce(params.impersonate ? [] : announced);
+        }
         if (completedReply) {
           const notifiedMessage =
             latestAssistantMessage(persistedForRefresh) ??

@@ -29,7 +29,9 @@ import { useDocsFind } from "../../hooks/use-docs-find";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { cn } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
-import { useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { useMatchMedia } from "../../hooks/use-match-media";
+import { useBackSteps } from "../../hooks/use-back-steps";
 import { dirLabel, prepareDocMarkdown } from "../modals/DocsViewerModal";
 import { splitDocAtShots, type DocShot } from "./docs-shots";
 import { useFeatureShow } from "../../hooks/use-feature-show";
@@ -94,6 +96,11 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
   const localize = useLocalizedUiText();
   const path = useOverhaulStore((s) => s.docsTabs[tabId] ?? null);
   const setDocsPath = useOverhaulStore((s) => s.setDocsPath);
+  // Phones show one pane at a time (the guide replaces the list, with its own back): back goes to the list first
+  // (QC panel 3: Android's back skipped it).
+  const overhaulMobile = useOverhaulMobile();
+  const phoneWidth = useMatchMedia("(max-width: 767px)");
+  useBackSteps(path && overhaulMobile && phoneWidth ? 1 : 0, () => setDocsPath(tabId, null));
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
@@ -127,16 +134,28 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
     return out;
   }, [index]);
 
-  const rendered = useMemo(() => {
-    if (!doc) return null;
-    const pieces = splitDocAtShots(prepareDocMarkdown(doc.content, doc.path), doc.path, doc.language);
-    return pieces.map((piece, i) =>
-      piece.kind === "shot" ? (
-        <ShotFigure key={`shot-${piece.shot.name}`} shot={piece.shot} onOpen={setZoomed} />
-      ) : (
-        <Fragment key={`md-${i}`}>{renderMarkdownBlocks(piece.text, applyInlineMarkdown, `docs-viewer-${i}`)}</Fragment>
+  // The guide's title renders on its own, so the "On this page" outline can sit right under it (QC panel 3, F8).
+  const [renderedTitle, rendered] = useMemo(() => {
+    if (!doc) return [null, null];
+    const prepared = prepareDocMarkdown(doc.content, doc.path);
+    const titleMatch = /^\s*#\s+[^\n]+(?:\n|$)/.exec(prepared);
+    const title = titleMatch
+      ? renderMarkdownBlocks(titleMatch[0].trim(), applyInlineMarkdown, "docs-viewer-title")
+      : null;
+    const body = titleMatch ? prepared.slice(titleMatch[0].length + titleMatch.index) : prepared;
+    const pieces = splitDocAtShots(body, doc.path, doc.language);
+    return [
+      title,
+      pieces.map((piece, i) =>
+        piece.kind === "shot" ? (
+          <ShotFigure key={`shot-${piece.shot.name}`} shot={piece.shot} onOpen={setZoomed} />
+        ) : (
+          <Fragment key={`md-${i}`}>
+            {renderMarkdownBlocks(piece.text, applyInlineMarkdown, `docs-viewer-${i}`)}
+          </Fragment>
+        ),
       ),
-    );
+    ];
   }, [doc]);
   useCodeBlockCopy(contentEl, rendered);
 
@@ -265,6 +284,62 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
 
   const results = search?.results ?? [];
   const findPosition = [Math.max(find.current + 1, 0), find.count].join(" / ");
+  // One search box and one results list, shown in the page's own header on a computer and in the guide list on a
+  // phone (QC panel 3, F8: the guide list beside the page was a second right-hand column next to the sidebar).
+  const searchField = (
+    <label className="ov-search">
+      <Search size={14} aria-hidden="true" />
+      <input
+        type="search"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          if (path && find.count) {
+            if (event.shiftKey) find.previous();
+            else find.next();
+          } else if (results[0]) {
+            select(results[0].path, true);
+          }
+        }}
+        placeholder={localize("Search all guides")}
+        aria-label={localize("Search all guides")}
+      />
+      {query ? (
+        <button type="button" onClick={clearSearch} aria-label={localize("Clear search")}>
+          <X size={12} />
+        </button>
+      ) : null}
+    </label>
+  );
+  const resultsList = (
+    <ul className="ov-docs__list ov-docs__results">
+      {results.map((result) => {
+        const snippet = result.snippets[0] ? plainSnippet(result.snippets[0].text) : "";
+        return (
+          <li key={result.path}>
+            <button
+              type="button"
+              className={cn(path === result.path && "is-on")}
+              onClick={() => select(result.path, true)}
+            >
+              <span className="ov-docs__result-head">
+                {result.title}
+                <small>{result.matches}</small>
+              </span>
+              {snippet ? (
+                <span className="ov-docs__snippet">
+                  <Highlighted text={snippet} term={term} />
+                </span>
+              ) : null}
+            </button>
+          </li>
+        );
+      })}
+      {search && results.length === 0 ? <li className="ov-docs__none">{localize("No matches")}</li> : null}
+    </ul>
+  );
 
   return (
     <section className="ov-docs" data-component="OverhaulDocsPage" data-has-doc={path !== null ? "true" : undefined}>
@@ -296,8 +371,10 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
           <div className="ov-docs__empty">
             <BookOpen size={28} aria-hidden="true" />
             <h1 data-mari-part="page-title">{localize("Docs")}</h1>
-            <p>{localize("Pick a guide on the right, or search all guides.")}</p>
-            <div className="ov-docs__landing">
+            <p>{localize("Pick a guide, or search all guides.")}</p>
+            <div className="ov-docs__head">{searchField}</div>
+            {searching ? <div className="ov-docs__head-results">{resultsList}</div> : null}
+            <div className="ov-docs__landing" hidden={searching || undefined}>
               {groups.map((group) => (
                 <div key={group.dir || "root"}>
                   <p className="ov-docs__eyebrow">{dirLabel(group.dir, docsLanguage) || localize("Start here")}</p>
@@ -320,7 +397,9 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
           <p className="ov-gallery__note">{localize("Could not load this guide.")}</p>
         ) : (
           <article className="ov-docs__article">
-            {/* Phones show one pane at a time: this goes back to the guide list. */}
+            <div className="ov-docs__head">{searchField}</div>
+            {searching ? <div className="ov-docs__head-results">{resultsList}</div> : null}
+            {/* Back to the guide list (on a computer the list is the Docs landing, on a phone its own pane). */}
             <button
               type="button"
               className="ov-docs__back"
@@ -338,6 +417,32 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
                 {minutes} {localize("min read")}
               </span>
             </p>
+            {renderedTitle ? (
+              <div className="mari-message-content docs-reader-content ov-docs__content ov-docs__title">
+                {renderedTitle}
+              </div>
+            ) : null}
+            {outline.length > 1 ? (
+              // The open guide's outline folds under its title, inside the page (QC panel 3, F8).
+              <details className="ov-docs__toc">
+                <summary>{localize("On this page")}</summary>
+                <ul>
+                  {outline.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className={cn(item.level === 3 && "is-sub", activeHeading === item.id && "is-on")}
+                        onClick={() =>
+                          document.getElementById(item.id)?.scrollIntoView({ block: "start", behavior: "smooth" })
+                        }
+                      >
+                        {item.text}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ) : null}
             <div
               key={`${doc.path}:${doc.updatedAt}`}
               ref={setContentEl}
@@ -375,57 +480,10 @@ export function OverhaulDocsPage({ tabId }: { tabId: string }) {
         )}
       </div>
       <aside className="ov-docs__nav">
-        <label className="ov-search">
-          <Search size={14} aria-hidden="true" />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter") return;
-              event.preventDefault();
-              if (path && find.count) {
-                if (event.shiftKey) find.previous();
-                else find.next();
-              } else if (results[0]) {
-                select(results[0].path, true);
-              }
-            }}
-            placeholder={localize("Search all guides")}
-          />
-          {query ? (
-            <button type="button" onClick={clearSearch} aria-label={localize("Clear search")}>
-              <X size={12} />
-            </button>
-          ) : null}
-        </label>
+        {searchField}
         {indexLoading ? <p className="ov-gallery__note">{localize("Loading…")}</p> : null}
         {searching ? (
-          <ul className="ov-docs__list ov-docs__results">
-            {results.map((result) => {
-              const snippet = result.snippets[0] ? plainSnippet(result.snippets[0].text) : "";
-              return (
-                <li key={result.path}>
-                  <button
-                    type="button"
-                    className={cn(path === result.path && "is-on")}
-                    onClick={() => select(result.path, true)}
-                  >
-                    <span className="ov-docs__result-head">
-                      {result.title}
-                      <small>{result.matches}</small>
-                    </span>
-                    {snippet ? (
-                      <span className="ov-docs__snippet">
-                        <Highlighted text={snippet} term={term} />
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
-            {search && results.length === 0 ? <li className="ov-docs__none">{localize("No matches")}</li> : null}
-          </ul>
+          resultsList
         ) : (
           <>
             {path !== null && outline.length > 1 ? (

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { buildUncaptionedCharacterAppearanceBlock } from "../../../packages/server/src/services/image/character-prompts.js";
 import { resolveIllustratorCharacterReferences } from "../../../packages/server/src/services/image/illustrator-references.js";
+import { applyCharacterCardFieldAlternatives } from "../../../packages/shared/src/index.js";
 
 const cards = [
   { id: "chat", name: "Doctor Ash" },
@@ -104,5 +105,62 @@ for (const [requestedNames, promptText] of [
     includeReferenceImages: false,
   });
   assert.deepEqual(resolution.characterIds, ["chat"]);
+}
+// #9605: outside Roleplay's chatScope, `chatProjection` re-reads the chat's own cards as they are in that chat, so an
+// Appearance alternative's image tags win over the main card's, and an unticked alternative falls back to its own
+// prose, never to the main card's tags. Library characters can still be named.
+for (const [ticked, expected] of [
+  [true, "ALT_TAGS black armor"],
+  [false, "ALT_PROSE black armor"],
+] as const) {
+  const row = {
+    id: "knight",
+    data: {
+      name: "Sir Brann",
+      extensions: {
+        appearance: "MAIN_PROSE silver armor",
+        imageAppearance: "MAIN_TAGS silver armor",
+        imageAppearanceEnabled: true,
+        cardFieldAlternatives: [
+          {
+            id: "alt",
+            field: "appearance",
+            label: "Black",
+            value: "ALT_PROSE black armor",
+            imageAppearance: "ALT_TAGS black armor",
+            imageAppearanceEnabled: ticked,
+            chatIds: ["convo"],
+          },
+        ],
+      },
+    },
+  };
+  const store = {
+    list: async () => [row, { id: "global", data: { name: "Elena Vale", appearance: "global appearance" } }],
+  };
+  const resolveIn = (chatId: string) => {
+    const projected = applyCharacterCardFieldAlternatives(row.data, chatId);
+    return resolveIllustratorCharacterReferences({
+      charactersStore: store,
+      chatProjection: {
+        chatId,
+        getById: async (id, scope) =>
+          id === row.id ? { id, data: applyCharacterCardFieldAlternatives(row.data, scope) } : null,
+      },
+      // As the conversation callers pass it: the chat-scoped prose, no explicit override.
+      chatCharacters: [{ id: row.id, name: "Sir Brann", appearance: projected.extensions.appearance as string }],
+      requestedNames: ["Sir Brann", "Elena Vale"],
+      promptText: "",
+      includeReferenceImages: false,
+    });
+  };
+  const inChat = await resolveIn("convo");
+  assert.deepEqual(inChat.characterIds, ["knight", "global"], "library characters stay nameable");
+  assert.deepEqual(inChat.appearanceSources, [
+    { name: "Sir Brann", appearance: expected },
+    { name: "Elena Vale", appearance: "global appearance" },
+  ]);
+  const elsewhere = await resolveIn("other");
+  assert.equal(elsewhere.appearanceSources[0]?.appearance, "MAIN_TAGS silver armor");
 }
 console.info("Illustrator reference scope regression passed");

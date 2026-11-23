@@ -1,7 +1,119 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  createContext,
+  startTransition,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { Drawer } from "../../components/ui/Drawer";
 import { useUIStore } from "../../stores/ui.store";
 import { isOverhaulActive } from "../../stores/overhaul.store";
+
+/**
+ * True where Chat settings shows every section expanded in one scrolling list (the new layout on desktop and iPad
+ * landscape). Each section's body then mounts once it nears the visible part of the list, instead of all ~25 on
+ * open: opening Chat settings fetched 23 things (galleries, backgrounds, tools, memories...) and drew every section
+ * before the first frame. A body stays mounted once shown.
+ */
+export const ChatSettingsDeferBodiesContext = createContext(false);
+
+/** How far past the visible list a section body starts loading, so it is usually ready before it scrolls in. */
+const DEFER_MARGIN_PX = 900;
+
+// Bodies near the view (inside the margin, not on screen) mount after the first paint, one per slice, as
+// low-priority renders: mounting all of them in the frames right after opening made the open itself one
+// 1.4-2.5 s frame on an iPad sideways (QC panel 3, speed H3). A body that scrolls into view skips the line.
+const nearQueue: Array<() => void> = [];
+let nearScheduled = false;
+type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+function scheduleNearSlice() {
+  if (nearScheduled || !nearQueue.length) return;
+  nearScheduled = true;
+  const run = () => {
+    nearScheduled = false;
+    const next = nearQueue.shift();
+    if (next) startTransition(next);
+    scheduleNearSlice();
+  };
+  // After a frame, so a slice never lands inside the frame that shows the panel.
+  requestAnimationFrame(() => {
+    const idle = (window as IdleWindow).requestIdleCallback;
+    if (typeof idle === "function") idle(run, { timeout: 500 });
+    else window.setTimeout(run, 30);
+  });
+}
+function queueNearBody(mount: () => void) {
+  nearQueue.push(mount);
+  scheduleNearSlice();
+  return () => {
+    const index = nearQueue.indexOf(mount);
+    if (index >= 0) nearQueue.splice(index, 1);
+  };
+}
+
+/** Whether the placeholder shows in the list's visible part (or the window, outside a list). */
+function inView(placeholder: HTMLElement, root: HTMLElement | null) {
+  const box = placeholder.getBoundingClientRect();
+  const area = root ? root.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+  return box.bottom > area.top && box.top < area.bottom;
+}
+
+function DeferredSectionBody({ defer, children }: { defer: boolean; children: ReactNode }) {
+  const [reached, setReached] = useState(!defer);
+  const show = reached || !defer;
+  const placeholderRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!defer) setReached(true);
+  }, [defer]);
+  // Before the first paint: a body already on screen (the top of the list, a section you just expanded) shows at
+  // once, so no empty block flashes. The rest wait for the observer, which loads them ahead of the scroll.
+  useLayoutEffect(() => {
+    if (show) return;
+    const placeholder = placeholderRef.current;
+    if (!placeholder || typeof IntersectionObserver === "undefined") {
+      setReached(true);
+      return;
+    }
+    // The list's own scroller: a root margin on the window would stop at the scroller's clipped edge.
+    const root = placeholder.closest<HTMLElement>(".ov-cs__scroll");
+    if (inView(placeholder, root)) {
+      setReached(true);
+      return;
+    }
+    let dequeue: (() => void) | null = null;
+    const mount = () => {
+      dequeue?.();
+      setReached(true);
+    };
+    // Near the view: wait for its slice. In view (scrolled to): show it now.
+    const near = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) dequeue ??= queueNearBody(() => setReached(true));
+      },
+      { root, rootMargin: `${DEFER_MARGIN_PX}px 0px` },
+    );
+    const visible = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) mount();
+      },
+      { root },
+    );
+    near.observe(placeholder);
+    visible.observe(placeholder);
+    return () => {
+      near.disconnect();
+      visible.disconnect();
+      dequeue?.();
+    };
+  }, [show]);
+  if (show) return <>{children}</>;
+  // A still block, never a shimmer (an endless animation off screen repaints the panel every frame).
+  return <div ref={placeholderRef} className="ov-cs-deferred" aria-busy="true" style={{ minHeight: "6rem" }} />;
+}
 
 interface ChatSettingsSectionProps {
   /** Stable id used to remember this section's expand/collapse state across reopens. */
@@ -11,6 +123,8 @@ interface ChatSettingsSectionProps {
   count?: number;
   /** Short current value (a persona's name), shown on the section's row in the phone list. */
   summary?: string;
+  /** Phones and tablets: the section's single control sits on its row in the list (see Drawer `mobileInline`). */
+  mobileInline?: boolean;
   help?: string;
   style?: CSSProperties;
   initialOpen?: boolean;
@@ -31,6 +145,7 @@ export function ChatSettingsSection({
   icon,
   count,
   summary,
+  mobileInline,
   help,
   style,
   initialOpen = false,
@@ -41,6 +156,7 @@ export function ChatSettingsSection({
   detachedHeaderControls,
   children,
 }: ChatSettingsSectionProps) {
+  const deferBodies = useContext(ChatSettingsDeferBodiesContext);
   const rememberedOpen = useUIStore((s) => (id ? s.chatSettingsExpandedSections[id] : undefined));
   const setSectionExpanded = useUIStore((s) => s.setChatSettingsSectionExpanded);
   // Remembered state wins once it exists; otherwise fall back to initialOpen.
@@ -69,6 +185,7 @@ export function ChatSettingsSection({
       icon={icon}
       count={count}
       rowValue={summary}
+      mobileInline={mobileInline}
       help={help}
       open={open}
       onOpenChange={setOpenRemembered}
@@ -79,7 +196,7 @@ export function ChatSettingsSection({
       detachedHeaderControls={detachedHeaderControls}
       rootAttributes={{ "data-chat-settings-section": id }}
     >
-      {children}
+      <DeferredSectionBody defer={deferBodies && !forceOpen}>{children}</DeferredSectionBody>
     </Drawer>
   );
 }

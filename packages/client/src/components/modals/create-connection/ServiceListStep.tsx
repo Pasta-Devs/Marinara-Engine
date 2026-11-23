@@ -69,6 +69,8 @@ interface ServiceListStepProps {
   kind?: ChipKind | null;
   /** New layout: the menu under "Add account" (type tabs, one-line rows by group) instead of the tile grid. */
   compact?: boolean;
+  /** No chat model yet: the Text tab starts on the Recommended group alone, with "Show all services". */
+  firstRun?: boolean;
 }
 
 /** Group headings for the compact menu, in SERVICE_GROUPS order. */
@@ -147,6 +149,7 @@ export function ServiceListStep({
   serviceName,
   kind,
   compact = false,
+  firstRun = false,
 }: ServiceListStepProps) {
   const { t, i18n } = useTranslation();
   const localize = useLocalizedUiText();
@@ -167,6 +170,7 @@ export function ServiceListStep({
           : kind,
   );
   const [onDevice, setOnDevice] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const needle = query.trim().toLowerCase();
   const matches = (name: string, key?: ServiceId) =>
     !needle || `${name} ${key ? (SEARCH_ALIASES[key] ?? "") : ""}`.toLowerCase().includes(needle);
@@ -322,10 +326,13 @@ export function ServiceListStep({
 
   if (compact && onDevice) return <OnDeviceList onBack={() => setOnDevice(false)} />;
   if (compact) {
+    // A first-time user sees a handful of services, not forty; a search or "Show all" lists everything.
+    const shortList = firstRun && !showAll && !needle && type === "text";
     const groups = SERVICE_GROUPS.map((group) => ({
       id: group.id,
       tiles: visible.filter((tile) => tile.group === group.id),
-    })).filter((group) => group.tiles.length > 0);
+    })).filter((group) => group.tiles.length > 0 && (!shortList || group.id === "popular"));
+    const hidden = shortList ? visible.filter((tile) => tile.group !== "popular").length : 0;
     return (
       <div className="ov-add-list">
         <div className="ov-add-list__top">
@@ -358,6 +365,11 @@ export function ServiceListStep({
           )}
         </div>
         <div className="ov-add-list__body">
+          {type === "decision" && !needle && (
+            <p className="ov-add-list__note" data-add-connection-decision-note>
+              {t("connections.add.decisionNote")}
+            </p>
+          )}
           {groups.map((group) => (
             <div key={group.id}>
               <h4 className="ov-add-list__group">{localize(GROUP_TITLES[group.id] ?? group.id)}</h4>
@@ -376,6 +388,16 @@ export function ServiceListStep({
               ))}
             </div>
           ))}
+          {hidden > 0 && (
+            <button
+              type="button"
+              className="ov-add-list__more"
+              data-add-connection-show-all
+              onClick={() => setShowAll(true)}
+            >
+              {t("connections.add.showAll", { count: hidden })}
+            </button>
+          )}
           {visible.length === 0 && (
             <div data-add-connection-no-match className="ov-add-list__empty">
               <span>{t("connections.add.noMatch", { query: query.trim() })}</span>

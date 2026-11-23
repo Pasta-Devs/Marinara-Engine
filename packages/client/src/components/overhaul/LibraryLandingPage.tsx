@@ -6,12 +6,14 @@
 // contents at a readable width; dedicated list views come in a later slice.
 // ──────────────────────────────────────────────
 import { Suspense, type ComponentType, type CSSProperties } from "react";
+import { scheduleBackgroundPreload } from "../../lib/background-preload";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
 import { DelayedFallback } from "../ui/DelayedFallback";
 import type { LibrarySection } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
-import { LIBRARY_SECTIONS } from "./library-navigation";
+import { isAssetTab, LIBRARY_SECTIONS } from "./library-navigation";
+import { AssetsTabContext } from "./AssetsTabs";
 
 // One lazy wrapper per module (not per section): once a module has loaded, switching between
 // its sections renders straight away instead of flashing "Loading…" again. Both modules are also
@@ -61,7 +63,35 @@ const AgentsPage = preloadedLazy(() =>
     return AgentsPage;
   }),
 );
+// Backgrounds, Game assets and Rulesets: managers that were windows or an old full page (QC panel 2, E2).
+const BackgroundsPage = preloadedLazy(() =>
+  import("./BackgroundsPage").then((m) => {
+    function BackgroundsLibraryPage(_props: PageProps) {
+      return <m.BackgroundsPage />;
+    }
+    return BackgroundsLibraryPage;
+  }),
+);
+const GameAssetsPage = preloadedLazy(() =>
+  import("./GameAssetsPage").then((m) => {
+    function GameAssetsLibraryPage(_props: PageProps) {
+      return <m.GameAssetsPage />;
+    }
+    return GameAssetsLibraryPage;
+  }),
+);
+const RulesetsPage = preloadedLazy(() =>
+  import("./RulesetsViewer").then((m) => {
+    function RulesetsLibraryPage(_props: PageProps) {
+      return <m.RulesetsViewer />;
+    }
+    return RulesetsLibraryPage;
+  }),
+);
 const PAGES: Partial<Record<LibrarySection, ComponentType<PageProps>>> = {
+  backgrounds: BackgroundsPage,
+  "game-assets": GameAssetsPage,
+  rulesets: RulesetsPage,
   lorebooks: TablesPage,
   presets: TablesPage,
   regex: TablesPage,
@@ -71,17 +101,22 @@ const PAGES: Partial<Record<LibrarySection, ComponentType<PageProps>>> = {
   extensions: ExtensionsPage,
 };
 /**
- * Fetches every Library page's code (and Settings' sections) so opening one renders at once
- * instead of showing "Loading…" first (QC Nov 14 #2). The shell calls this while idle.
+ * Queues every Library page's code (and Settings' sections) in the background preload queue, one page per
+ * slice, so opening one renders at once instead of showing "Loading…" first (QC Nov 14 #2) without a burst of
+ * downloads in the way of the first tap (QC panel 3, speed H1).
  */
-export function preloadLibraryPages() {
-  return Promise.all([
-    TablesPage.preload(),
-    SettingsModulePage.preload(),
-    AgentsPage.preload(),
-    ExtensionsPage.preload(),
-    loadSettings().then((m) => m.preloadOverhaulSettingsSections()),
-  ]).catch(() => undefined);
+export function queueLibraryPagePreloads() {
+  const pages = {
+    "library:tables": () => TablesPage.preload(),
+    "library:settings": () => SettingsModulePage.preload(),
+    "library:settings-sections": () => loadSettings().then((m) => m.preloadOverhaulSettingsSections()),
+    "library:agents-page": () => AgentsPage.preload(),
+    "library:extensions": () => ExtensionsPage.preload(),
+    "library:backgrounds": () => BackgroundsPage.preload(),
+    "library:game-assets": () => GameAssetsPage.preload(),
+    "library:rulesets": () => RulesetsPage.preload(),
+  };
+  for (const [name, run] of Object.entries(pages)) scheduleBackgroundPreload(name, run);
 }
 
 const SURFACES = {
@@ -104,11 +139,29 @@ const SELF_HEADED = new Set<LibrarySection>([
   "agents",
   "settings",
   "extensions",
+  "backgrounds",
+  "game-assets",
+  "rulesets",
 ]);
 
 export function LibraryLandingPage({ section }: { section: LibrarySection }) {
   const localize = useLocalizedUiText();
   const Page = PAGES[section];
+  if (Page && isAssetTab(section)) {
+    return (
+      <AssetsTabContext.Provider value={section}>
+        <Suspense
+          fallback={
+            <DelayedFallback>
+              <div className="ov-libpage__loading">{localize("Loading…")}</div>
+            </DelayedFallback>
+          }
+        >
+          <Page section={section} />
+        </Suspense>
+      </AssetsTabContext.Provider>
+    );
+  }
   if (Page && SELF_HEADED.has(section)) {
     return (
       <Suspense

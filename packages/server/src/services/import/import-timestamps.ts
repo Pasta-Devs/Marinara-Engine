@@ -34,9 +34,19 @@ export function parseTrustedTimestamp(value: unknown): string | null {
     }
   }
 
-  const parsed = new Date(raw);
-  if (!Number.isNaN(parsed.getTime())) {
-    return parsed.toISOString();
+  const sillyTavern = parseSillyTavernSendDate(raw);
+  // A date in SillyTavern's shape that isn't a real time ("February 31", "1:99pm") stays unread rather than
+  // letting `new Date()` roll it into another day.
+  if (sillyTavern !== undefined) return sillyTavern;
+
+  // `new Date()` reads almost anything as some date ("12" and "user 2" become 2001), so only strings that look
+  // like a real date and time go to it.
+  if (looksLikeDateTime(raw)) {
+    const parsed = new Date(raw);
+    // `new Date()` rolls an impossible day over ("2025-02-30" becomes March 2), so a written ISO day must survive.
+    if (!Number.isNaN(parsed.getTime()) && isoDayExists(raw)) {
+      return parsed.toISOString();
+    }
   }
 
   const normalizedLegacy = raw.replace(/\s+/gu, " ");
@@ -56,7 +66,86 @@ export function parseTrustedTimestamp(value: unknown): string | null {
     Number(ms ?? 0),
   );
 
-  return Number.isNaN(legacyDate.getTime()) ? null : legacyDate.toISOString();
+  if (
+    Number.isNaN(legacyDate.getTime()) ||
+    legacyDate.getDate() !== Number(day) ||
+    legacyDate.getMonth() !== Number(month) - 1 ||
+    legacyDate.getHours() !== Number(hour) ||
+    legacyDate.getMinutes() !== Number(minute)
+  ) {
+    return null;
+  }
+  return legacyDate.toISOString();
+}
+
+/** ISO 8601 ("2025-03-01", "2025-03-01T12:00:00Z") */
+const ISO_DATE_TIME =
+  /^\d{4}-\d{2}-\d{2}(?:[t ]\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?)?(?: ?(?:z|utc|gmt|[+-]\d{2}(?::?\d{2})?))?$/iu;
+const MONTH_NAME =
+  /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b\.?/iu;
+
+/** False for an ISO date whose day doesn't exist in its month ("2025-02-30"); true for anything else. */
+function isoDayExists(raw: string): boolean {
+  const found = raw.match(/^(\d{4})-(\d{2})-(\d{2})/u);
+  if (!found) return true;
+  const [year, month, day] = [Number(found[1]), Number(found[2]), Number(found[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+/**
+ * Whether a string looks like a written date: ISO 8601, or a month name with a four-digit year (RFC 2822,
+ * JavaScript's own Date.toString(), "March 1, 2025"). Bare numbers and words with a number in them are not.
+ */
+function looksLikeDateTime(raw: string): boolean {
+  if (ISO_DATE_TIME.test(raw)) return true;
+  return MONTH_NAME.test(raw) && /(?:^|\D)\d{4}(?:\D|$)/u.test(raw);
+}
+
+const ENGLISH_MONTHS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+];
+
+/**
+ * SillyTavern writes each message's `send_date` as moment's "MMMM D, YYYY h:mma" ("March 1, 2025 12:00pm"),
+ * in the machine's local time. `new Date()` can't read the am/pm glued to the minutes, so without this every
+ * imported message got the import time. Seconds ("12:00:05pm") and a 24-hour clock are read too.
+ */
+function parseSillyTavernSendDate(raw: string): string | null | undefined {
+  const found = raw
+    .replace(/\s+/gu, " ")
+    .match(/^([a-z]+)\.? (\d{1,2}),? (\d{4}),? (\d{1,2}):(\d{2})(?::(\d{2}))?(?: ?([ap])\.?m\.?)?$/iu);
+  if (!found) return undefined;
+  const [, monthName, day, year, hourText, minute, second, meridiem] = found;
+  if (Number(minute) > 59 || Number(second ?? 0) > 59) return null;
+  const lowerMonth = monthName!.toLowerCase();
+  const month = ENGLISH_MONTHS.findIndex(
+    (name) => name === lowerMonth || (lowerMonth.length >= 3 && name.startsWith(lowerMonth)),
+  );
+  if (month < 0) return undefined;
+  let hour = Number(hourText);
+  if (meridiem) {
+    if (hour < 1 || hour > 12) return null;
+    const pm = meridiem.toLowerCase() === "p";
+    hour = (hour % 12) + (pm ? 12 : 0);
+  } else if (hour > 23) {
+    return null;
+  }
+  const date = new Date(Number(year), month, Number(day), hour, Number(minute), Number(second ?? 0));
+  // Reject roll-overs such as "February 31".
+  if (Number.isNaN(date.getTime()) || date.getDate() !== Number(day) || date.getMonth() !== month) return null;
+  return date.toISOString();
 }
 
 export function normalizeTimestampOverrides(

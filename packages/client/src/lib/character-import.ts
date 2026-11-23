@@ -22,6 +22,8 @@ export interface EmbeddedLorebookImportPreview {
   name?: string;
   hasEmbeddedLorebook: boolean;
   embeddedLorebookEntries: number;
+  /** The lorebook the import will make. */
+  embeddedLorebookName?: string;
   error?: string;
 }
 

@@ -1,6 +1,8 @@
 // ──────────────────────────────────────────────
 // React Query: Chat hooks
 // ──────────────────────────────────────────────
+import { isChatScrolledToBottom, requestChatScrollToBottom } from "../lib/chat-scroll-events";
+import { rememberLocalSetupDraft } from "../lib/local-setup-drafts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { noteBulkDeleteForTips } from "../lib/feature-tips";
 import { create } from "zustand";
@@ -64,10 +66,13 @@ import type {
   HomeFeedSnapshot,
   ChatPersonaAttributionsSummary,
   ReassignMessagePersonaInput,
+  PeekPromptMessage,
 } from "@marinara-engine/shared";
 
 import { useRollingBackfillStore } from "../stores/backfill.store";
 import { homeFeedKeys } from "./use-home-feed";
+import { defaultNewChatPersonaId } from "../lib/new-chat-persona";
+import { personaCacheKeys } from "../lib/persona-cache";
 
 export const chatKeys = {
   all: ["chats"] as const,
@@ -976,10 +981,23 @@ export function useCreateChat() {
       promptPresetId?: string | null;
       /** A New chat launcher's chat: a draft until its setup wizard finishes. */
       setupPending?: boolean;
-    }) => api.post<Chat>("/chats", data),
-    onSuccess: (chat) => {
+    }) =>
+      api.post<Chat>("/chats", {
+        ...data,
+        // A launcher's new chat starts with the persona used last (F10), still changeable on its setup page.
+        ...(data.setupPending && data.personaId === undefined && !data.personaCharacterId
+          ? {
+              personaId: defaultNewChatPersonaId(
+                qc.getQueryData<Chat[]>(chatKeys.list()),
+                qc.getQueryData<Array<{ id: string }>>(personaCacheKeys.list),
+              ),
+            }
+          : {}),
+      }),
+    onSuccess: (chat, variables) => {
       if (chat) {
-        if (chat.characterIds.length === 0 && !chat.personaId && !chat.personaCharacterId) {
+        if (variables.setupPending) rememberLocalSetupDraft(chat.id);
+        if (chat.characterIds.length === 0 && !chat.personaCharacterId && (!chat.personaId || variables.setupPending)) {
           useChatStore.getState().setPendingNewChatSetup(chat);
         }
         qc.setQueryData(chatKeys.detail(chat.id), chat);
@@ -1667,6 +1685,47 @@ export function useCreateMessage(chatId: string | null) {
   });
 }
 
+/**
+ * The "Moved to trash" toast's Undo: finds the trash entries of the messages just deleted (newest first) and
+ * restores them in place, swipes and all (QC panel 2, D6: a delete had no Undo).
+ */
+async function undoTrashedDelete(qc: QueryClient, chatId: string, messageIds: string[], wasAtBottom = false) {
+  try {
+    const entries = await api.get<MessageTrashEntry[]>(`/chats/${chatId}/trash`);
+    const wanted = new Set(messageIds);
+    const entryIds = entries
+      .filter((entry) => wanted.has(entry.messageId))
+      .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt))
+      .filter((entry, index, all) => all.findIndex((other) => other.messageId === entry.messageId) === index)
+      .map((entry) => entry.id);
+    if (entryIds.length === 0) throw new Error(translate("ui.chat.messagetrash.restoreFailed"));
+    await api.post(`/chats/${chatId}/trash/restore`, { entryIds });
+    toast.success(translate("ui.chat.messagetrash.restored", { count: entryIds.length }));
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : translate("ui.chat.messagetrash.restoreFailed"));
+  } finally {
+    await invalidateAfterTrashChange(qc, chatId);
+    // The restored messages land back at the end: keep the newest in view when the view was there (QC panel 3, F2).
+    if (wasAtBottom) requestChatScrollToBottom({ chatId, behavior: "auto" });
+  }
+}
+
+function showMovedToTrashToast(
+  qc: QueryClient,
+  chatId: string,
+  count: number,
+  messageIds: string[],
+  wasAtBottom = false,
+) {
+  toast.success(translate("ui.chat.messagetrash.movedToTrash", { count }), {
+    description: translate("ui.chat.messagetrash.movedToTrashHint"),
+    action: {
+      label: translate("ui.chat.messagetrash.undo"),
+      onClick: () => void undoTrashedDelete(qc, chatId, messageIds, wasAtBottom),
+    },
+  });
+}
+
 export function useDeleteMessage(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
@@ -1678,20 +1737,19 @@ export function useDeleteMessage(chatId: string | null) {
     },
     // While pending, useChatMessages hides the message; a failed delete simply shows it again.
     mutationKey: chatMessageDeleteKey(chatId),
+    onMutate: () => ({ wasAtBottom: chatId ? isChatScrolledToBottom(chatId) : false }),
     // A refused delete (for example already removed in another tab) refetches; the cache is never rewritten.
     onError: () => {
       if (!chatId) return;
       void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
       void qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
     },
-    onSuccess: (result, target) => {
+    onSuccess: (result, target, context) => {
       if (chatId) {
         settleDeletedMessages(qc, chatId, deletedMessageIds(target));
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
-          toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: 1 }), {
-            description: translate("ui.chat.messagetrash.movedToTrashHint"),
-          });
+          showMovedToTrashToast(qc, chatId, 1, deletedMessageIds(target), context?.wasAtBottom);
         }
         qc.invalidateQueries({ queryKey: ["chat-message-search", chatId] });
         qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) });
@@ -1710,13 +1768,14 @@ export function useDeleteMessages(chatId: string | null) {
     mutationFn: (messageIds: string[]) =>
       api.post<{ trashed: boolean; trashedCount: number }>(`/chats/${chatId}/messages/bulk-delete`, { messageIds }),
     mutationKey: chatMessageDeleteKey(chatId),
+    onMutate: () => ({ wasAtBottom: chatId ? isChatScrolledToBottom(chatId) : false }),
     // A refused delete (for example already removed in another tab) refetches; the cache is never rewritten.
     onError: () => {
       if (!chatId) return;
       void qc.invalidateQueries({ queryKey: chatKeys.messages(chatId) });
       void qc.invalidateQueries({ queryKey: chatKeys.messageCount(chatId) });
     },
-    onSuccess: (result, messageIds) => {
+    onSuccess: (result, messageIds, context) => {
       if (chatId) {
         settleDeletedMessages(qc, chatId, messageIds);
         noteBulkDeleteForTips(messageIds.length, () =>
@@ -1724,9 +1783,7 @@ export function useDeleteMessages(chatId: string | null) {
         );
         if (result.trashed) {
           qc.invalidateQueries({ queryKey: chatKeys.trash(chatId) });
-          toast.success(translate("ui.chat.messagetrash.movedToTrash", { count: result.trashedCount }), {
-            description: translate("ui.chat.messagetrash.movedToTrashHint"),
-          });
+          showMovedToTrashToast(qc, chatId, result.trashedCount, messageIds, context?.wasAtBottom);
         }
         qc.invalidateQueries({ queryKey: ["chat-message-search", chatId] });
         qc.invalidateQueries({ queryKey: chatKeys.messagePeek(chatId) });
@@ -2009,7 +2066,7 @@ export function usePeekPrompt() {
       const messageId = typeof request === "string" ? undefined : request.messageId;
       const current = typeof request !== "string" && request.current === true;
       return api.post<{
-        messages: Array<{ role: string; content: string }>;
+        messages: PeekPromptMessage[];
         chatMode?: string;
         parameters: unknown;
         source?: "cached" | "live_preview" | "raw_messages";

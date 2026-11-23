@@ -55,11 +55,30 @@ function feature(
 }
 
 export const FEATURE_FINDER_ENTRIES: readonly FeatureEntry[] = [
+  // QC panel 2, D11: "getting started" ranked a ruleset doc first, and "how do i start" found only Ask Mari.
+  feature({
+    id: "gettingStarted",
+    name: "Getting started",
+    summary: "The Home screen and the steps to your first chat.",
+    sillyTavern: [],
+    plain: ["getting started", "how do i start", "start here", "first steps"],
+    guide: "home/welcome.md",
+  }),
+  // "tokens" buried AI Basics under pages that only mention the word.
+  feature({
+    id: "aiBasics",
+    name: "AI basics: models, tokens and context",
+    summary: "The few words the other guides use: models, tokens, context and what they cost.",
+    sillyTavern: [],
+    plain: ["tokens", "token", "context window", "what is a model"],
+    guide: "home/ai-basics.md",
+  }),
   feature({
     id: "settingsProfiles",
     name: "Settings profiles",
     summary: "Save a chat's connection, preset, agents and more, then start new chats with them in one step.",
-    sillyTavern: ["chat preset", "chat default", "chat completion preset"],
+    // Not "chat completion preset": in SillyTavern that is the prompt and sampler preset, which is Presets here.
+    sillyTavern: ["chat preset", "chat default"],
     plain: [
       "settings profile",
       "start chats faster",
@@ -72,18 +91,75 @@ export const FEATURE_FINDER_ENTRIES: readonly FeatureEntry[] = [
       "chat setup",
     ],
     guide: "chats/settings-profiles.md",
+    // Show me opens the profiles page (Library > Settings profiles) rather than starting a chat.
     actions: [
-      {
-        id: "startRoleplay",
-        label: "Start a roleplay from a profile",
-        step: { kind: "start-chat", mode: "roleplay", profile: true },
-      },
       {
         id: "seeProfiles",
         label: "See and edit your profiles",
         step: { kind: "target", target: { kind: "panel", panel: "profiles" } },
       },
+      {
+        id: "startRoleplay",
+        label: "Start a roleplay from a profile",
+        step: { kind: "start-chat", mode: "roleplay", profile: true },
+      },
     ],
+  }),
+  feature({
+    id: "presets",
+    name: "Presets",
+    summary:
+      "The prompt the AI gets, as sections in order, plus starting sampler settings such as temperature. Library > Presets.",
+    sillyTavern: [
+      "chat completion preset",
+      "ai response configuration",
+      "prompt manager",
+      "sampler",
+      "sampler setting",
+      "completion preset",
+    ],
+    plain: ["prompt order", "prompt section"],
+    guide: "prompts/presets.md",
+    actions: [
+      {
+        id: "open",
+        label: "Open your presets",
+        step: { kind: "target", target: { kind: "panel", panel: "presets" } },
+      },
+    ],
+  }),
+  feature({
+    id: "regexScripts",
+    name: "Regex scripts",
+    summary: "Find-and-replace rules for what the AI writes or what you send, for every chat or one character.",
+    sillyTavern: ["regex", "regex extension"],
+    plain: ["find and replace", "replace text"],
+    guide: "extending/regex-scripts.md",
+  }),
+  feature({
+    id: "groupChats",
+    name: "Group chats",
+    summary:
+      "Add two or more characters to one chat. One narrator voices everyone by default, or each character replies in turn.",
+    sillyTavern: ["group chat"],
+    plain: ["several characters", "multiple characters", "more than one character"],
+    guide: "chats/group-chats.md",
+  }),
+  feature({
+    id: "instruct",
+    name: "Instruct and context templates",
+    summary:
+      "Not needed here: Marinara sends chat messages and the model's server applies its own template. A preset lays out the prompt.",
+    sillyTavern: [
+      "instruct",
+      "instruct mode",
+      "instruct template",
+      "context template",
+      "advanced formatting",
+      "story string",
+    ],
+    plain: [],
+    guide: "data/coming-from-sillytavern.md",
   }),
   feature({
     id: "authorsNotes",
@@ -195,8 +271,8 @@ export const FEATURE_FINDER_ENTRIES: readonly FeatureEntry[] = [
     id: "swipes",
     name: "Swipes",
     summary: "Alternate replies to the same message: the arrows under a reply, or swipe on a touch screen.",
-    sillyTavern: ["reroll"],
-    plain: ["alternate reply", "another reply", "different reply", "other answer"],
+    sillyTavern: ["reroll", "swipe"],
+    plain: ["alternate reply", "another reply", "different reply", "other answer", "arrow key"],
     guide: "chats/messages.md",
   }),
   feature({

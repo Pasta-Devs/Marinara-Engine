@@ -18,7 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Undo2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import {
@@ -56,6 +56,11 @@ export interface DrawerProps {
   summary?: ReactNode;
   /** New layout on phones: the current value shown on this section's row in Chat settings' list. */
   rowValue?: string;
+  /**
+   * New layout on phones: in Chat settings' list, show the section's one control on its row instead of a row that
+   * opens a page holding only that control (Prompt Preset with no preset chosen).
+   */
+  mobileInline?: boolean;
   /** Shown on the bubble of its popped-out window, instead of its icon, while that window is minimized. */
   banner?: ReactNode;
   /** Extra controls between the help tip and the arrow, before the pop-out button. */
@@ -159,6 +164,7 @@ export function Drawer({
   help,
   summary,
   rowValue,
+  mobileInline = false,
   banner,
   actions,
   detachedHeaderControls,
@@ -186,12 +192,18 @@ export function Drawer({
   const overhaulMobile = useOverhaulMobile();
   const navView = useMobileChatSettingsNav((state) => state.view);
   const navPage = useMobileChatSettingsNav((state) => state.page);
-  const navBack = useMobileChatSettingsNav((state) => state.back);
   // Connection stays its one-line selector everywhere.
   const pagedNav =
     overhaulMobile && !!id && id !== "connection" && host?.id === CHAT_SETTINGS_WINDOW_ID && navView !== "off";
   // There, sections never pop out (see useDrawerPoppedOut), so they offer no pop-out button or drag-out.
   const canPopOut = !!windowId && !(overhaulMobile && host?.id === CHAT_SETTINGS_WINDOW_ID && !onPopOut);
+
+  // The open page's title and help go up into the sheet's own header, so a page shows one header, not two.
+  const isCurrentPage = pagedNav && navView === "page" && navPage === id;
+  useLayoutEffect(() => {
+    if (!isCurrentPage) return;
+    useMobileChatSettingsNav.getState().setPageMeta(title, help ?? null);
+  }, [isCurrentPage, title, help]);
 
   if (poppedOut && host && windowId && id) {
     return (
@@ -227,31 +239,27 @@ export function Drawer({
           className={cn("mari-drawer ovm-cs-page", className)}
           style={style}
         >
-          <div className="ovm-cs-page__head">
-            <button
-              type="button"
-              className="ovm-cs-page__back"
-              onClick={nav.goBack}
-              aria-label={
-                navBack === "quick"
-                  ? t("chat.settings.backToQuickSettings", { defaultValue: "Back to Quick settings" })
-                  : t("chat.settings.backToAllSettings", { defaultValue: "Back to All settings" })
-              }
-            >
-              <ChevronLeft size={26} aria-hidden="true" />
-            </button>
-            <span className="ovm-cs-page__name">
-              <span className="ovm-cs-page__title">{title}</span>
-              {help ? (
-                <span className="mari-drawer__help ovm-cs-page__help">
-                  <HelpTooltip text={help} side="bottom" />
-                </span>
-              ) : null}
-            </span>
-          </div>
           {actions ? <div className="ovm-cs-page__actions">{actions}</div> : null}
           <div id={bodyId} className={cn("mari-drawer__body ovm-cs-page__body", bodyClassName ?? "pt-3")}>
             {children}
+          </div>
+        </div>
+      );
+    }
+    if (mobileInline) {
+      return (
+        <div
+          ref={rootRef}
+          data-drawer={id}
+          data-detached="false"
+          {...rootAttributes}
+          className={cn("mari-drawer ovm-cs-row ovm-cs-row--inline", className)}
+          style={style}
+        >
+          <div className="ovm-cs-row__btn">
+            {icon && <span className="ovm-cs-row__icon">{icon}</span>}
+            <span className="ovm-cs-row__title">{title}</span>
+            <div className="ovm-cs-row__control">{children}</div>
           </div>
         </div>
       );
@@ -422,24 +430,27 @@ export function Drawer({
           windowId && "select-none",
         )}
       >
-        <button
-          type="button"
-          role="button"
-          data-drawer-toggle
-          aria-expanded={open}
-          aria-controls={open ? bodyId : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
-        >
-          {icon && <span className="mari-drawer__icon">{icon}</span>}
-          <span className="mari-drawer__title flex-1 text-xs font-semibold">{title}</span>
-        </button>
+        {/* A real heading (QC panel 3 AX14), so a screen reader's heading keys move section to section. */}
+        <h3 className="mari-drawer__heading m-0 flex min-w-0 flex-1">
+          <button
+            type="button"
+            role="button"
+            data-drawer-toggle
+            aria-expanded={open}
+            aria-controls={open ? bodyId : undefined}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]"
+          >
+            {icon && <span className="mari-drawer__icon">{icon}</span>}
+            <span className="mari-drawer__title flex-1 text-xs font-semibold">{title}</span>
+          </button>
+        </h3>
         {summary && !open && <span className="mari-drawer__summary flex shrink-0 items-center">{summary}</span>}
         {count != null && count > 0 && (
           <span className="mari-drawer__count rounded-full px-1.5 py-0.5 text-[0.625rem] font-medium">{count}</span>
         )}
         {help && (
           <span className="mari-drawer__help" onClick={(event) => event.stopPropagation()}>
-            <HelpTooltip text={help} side="left" />
+            <HelpTooltip text={help} side="left" topic={typeof title === "string" ? title : undefined} />
           </span>
         )}
         {(actions || canPopOut) && (
@@ -583,7 +594,11 @@ function DetachedDrawerWindow({
             id={windowId}
             title={title}
             titleIcon={icon ? <span className="mari-drawer__icon flex shrink-0">{icon}</span> : undefined}
-            titleAccessory={help ? <HelpTooltip text={help} side="bottom" /> : undefined}
+            titleAccessory={
+              help ? (
+                <HelpTooltip text={help} side="bottom" topic={typeof title === "string" ? title : undefined} />
+              ) : undefined
+            }
             headerControls={headerControls}
             closeLabel={t("window.controls.close")}
             closeAccessory={

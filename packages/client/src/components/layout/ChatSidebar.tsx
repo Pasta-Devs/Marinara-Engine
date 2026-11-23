@@ -82,6 +82,7 @@ import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { isSetupKeptForLater, isUnfinishedSetup } from "../../hooks/use-setup-drafts";
 import { ChatRowPeek } from "./ChatRowPeek";
+import { useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 import { Fragment, lazy, Suspense, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
@@ -103,7 +104,13 @@ import { resolveLiveConversationStatus } from "../../lib/conversation-presence-s
 import { Modal } from "../ui/Modal";
 import { SHEET_CHOICE_GROUP_CLASS, SHEET_CHOICE_ROW_CLASS } from "../ui/neutral-surface-styles";
 import { Reorder } from "framer-motion";
-import { parseChatMetadata, getChatDisplayName, stripChatDateSuffix } from "../../lib/chat-display";
+import {
+  parseChatMetadata,
+  getChatDisplayName,
+  getChatDisplayParts,
+  splitAtDisplaySuffix,
+  stripChatDateSuffix,
+} from "../../lib/chat-display";
 import { buildChatBranchRows, hasChatBranchLineage, type BranchTreeRow } from "../../lib/chat-branch-tree";
 import {
   compareChatsByActivityDesc,
@@ -115,6 +122,7 @@ import { sortPanelFolders } from "../../lib/panel-sort";
 import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolution";
 import { api } from "../../lib/api-client";
 import { EXPORT_FAILED_TOAST_ID } from "../../lib/file-download";
+import { describeChatImportNotes, type STChatImportNote } from "../../lib/st-import-report";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -122,13 +130,14 @@ import { MobileChatsHomeButton, MobileLibraryButton } from "../overhaul/MobileTo
 import { useMatchMedia } from "../../hooks/use-match-media";
 import { SwipeActionsRow, type SwipeAction } from "../overhaul/SwipeActionsRow";
 import { RowActionSheet } from "../overhaul/RowActionSheet";
+import { useKitMenu, type KitAction } from "../overhaul/LibraryKit";
 import { useChatRowPreviewSlot } from "../../lib/theme-slots";
 import { TagFilter, countItemTags, matchesPickedTags } from "../overhaul/TagFilter";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
 import { ChatModeIcon } from "../chat/ChatModeIcon";
-import { ImportChatModal } from "../modals/ImportChatModal";
+import { ImportChatModal, type ImportChatMode } from "../modals/ImportChatModal";
 import { appendImportTags, DEFAULT_IMPORT_TAGS, type ImportTagChoice } from "../modals/ImportTagChecks";
 import { avatarPreviewSrc } from "../../lib/avatar-preview";
 import { Spinner } from "../ui/Spinner";
@@ -327,6 +336,8 @@ export function ChatSidebar() {
   const [swipeOpenChatId, setSwipeOpenChatId] = useState<string | null>(null);
   const rowActionsRef = useRef(new Map<string, { title: string; actions: SwipeAction[] }>());
   const [rowSheet, setRowSheet] = useState<{ title: string; actions: SwipeAction[] } | null>(null);
+  // Right-click, Shift+F10 or the menu key on a row (computer, new layout): the row's actions as a menu.
+  const rowMenu = useKitMenu();
   const closeRowSheet = useCallback(() => setRowSheet(null), []);
   const updateChatMetadata = useUpdateChatMetadata();
   // The overhaul look (compact rows, previews, mode counts) applies to phones too.
@@ -430,6 +441,12 @@ export function ChatSidebar() {
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   // New layout on phones: sort, select, new folder, import and message search live in one ⋯ menu.
   const [ovmListMenuOpen, setOvmListMenuOpen] = useState(false);
+  // A11Y3: same keys as every other menu (arrows, Escape back to ⋯).
+  const ovmListMenuKeys = useMenuKeyboard({
+    open: ovmListMenuOpen,
+    onOpen: () => setOvmListMenuOpen(true),
+    onClose: () => setOvmListMenuOpen(false),
+  });
   const [selectedChatIds, setSelectedChatIds] = useState<Set<string>>(new Set());
   const [isImportingChat, setIsImportingChat] = useState(false);
 
@@ -932,18 +949,21 @@ export function ChatSidebar() {
   }, [handleNewChat, activeTab]);
 
   const importChatFile = useCallback(
-    async (file: File, importTags: ImportTagChoice = DEFAULT_IMPORT_TAGS) => {
+    async (file: File, importTags: ImportTagChoice = DEFAULT_IMPORT_TAGS, mode?: ImportChatMode) => {
       setIsImportingChat(true);
       try {
         const formData = new FormData();
         appendImportTags(formData, importTags);
-        formData.append("mode", activeTab);
+        // The file's own type wins on the server; this is only for a plain SillyTavern log (Roleplay unless picked).
+        if (mode) formData.append("mode", mode);
         formData.append("file", file);
         const data = await api.upload<{
           success?: boolean;
           chatId?: string;
+          mode?: "conversation" | "roleplay" | "game";
           error?: string;
           messagesImported?: number;
+          importNotes?: STChatImportNote[];
         }>("/import/st-chat", formData);
         if (data.success === false || data.error) {
           toast.error(
@@ -954,10 +974,15 @@ export function ChatSidebar() {
           return;
         }
 
+        // What came along (Author's Note, persona) and what didn't, so nothing is lost silently.
+        const notes = describeChatImportNotes(data.importNotes, localizeUi);
         toast.success(
           localizeUi("ui.layout.chatsidebar.importedValue1Messages", { value1: data.messagesImported ?? 0 }),
+          notes.length > 0 ? { description: notes.join(" "), duration: 8000 } : undefined,
         );
         await refetchChats();
+        // Show the tab the chat landed in, so it is in the list.
+        if (data.mode) setActiveTab(data.mode);
         if (data.chatId) setActiveChatId(data.chatId);
       } catch (error) {
         toast.error(
@@ -969,7 +994,7 @@ export function ChatSidebar() {
         setIsImportingChat(false);
       }
     },
-    [activeTab, refetchChats, setActiveChatId, localizeUi],
+    [refetchChats, setActiveChatId, localizeUi],
   );
   const handleImportChatFile = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1210,6 +1235,7 @@ export function ChatSidebar() {
           key={row.chat.id}
           chatId={row.chat.id}
           name={name}
+          nameSuffix={getChatDisplayParts(row.chat).suffix}
           relativeTime={
             row.chat.lastMessageAt ? formatRelativeContact(row.chat.lastMessageAt, presenceNow.getTime()) : null
           }
@@ -1245,9 +1271,21 @@ export function ChatSidebar() {
   // ── Renaming a chat in place (desktop new layout: the hover pencil beside the name) ──
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  // Leaving the inline box by Enter or Escape puts focus back on the row, not on the page (QC Nov 22 K8).
+  const focusChatRow = (chatId: string) => {
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      // Focus already went somewhere on purpose (a click elsewhere): leave it there.
+      if (active && active !== document.body && !active.matches("main, #mari-main")) return;
+      document
+        .querySelector<HTMLElement>(`[data-chat-row][data-chat-id="${CSS.escape(chatId)}"] > [data-chat-row-main]`)
+        ?.focus();
+    });
+  };
   const commitRename = (chatId: string, currentName: string) => {
     if (renamingChatId !== chatId) return;
     setRenamingChatId(null);
+    focusChatRow(chatId);
     const next = renameDraft.trim();
     if (!next || next === currentName) return;
     renameChat.mutate(
@@ -1376,6 +1414,34 @@ export function ChatSidebar() {
     // New layout: "Generating…" stands in for the time on the same line, so a row doesn't grow 6px and push
     // the list down and back for every reply (audit H14). Typing and the rest keep their own line.
     const liveInTimeSlot = overhaulActive && isGenerating && !typingCharacter;
+    const unreadCount = signalRows
+      ? signalRows.reduce((sum, row) => sum + (unreadCounts.get(row.chat.id) ?? 0), 0)
+      : unreadCounts.get(chat.id) || 0;
+    const multiplayer = chat.metadata?.multiplayer as { role?: string; status?: string } | undefined;
+    const multiplayerLabel = multiplayer
+      ? localizeUi(
+          multiplayer.role === "host"
+            ? multiplayer.status === "ended"
+              ? "multiplayer.sidebar.stopped"
+              : "multiplayer.sidebar.hosting"
+            : multiplayer.status === "joined"
+              ? "multiplayer.sidebar.joined"
+              : "multiplayer.sidebar.disconnected",
+        )
+      : null;
+    // What the row shows besides its name, read as the row button's description (QC panel 3 AX15).
+    const rowDescription = [
+      isChatPinned(chat) ? localizeUi("ui.layout.chatsidebar.pinned") : null,
+      multiplayerLabel,
+      subtitle,
+      rowPreview && !(subtitle && !liveInTimeSlot)
+        ? `${rowPreviewWho ? `${rowPreviewWho} ` : ""}${rowPreview.text}`
+        : null,
+      !liveInTimeSlot ? relativeTime : null,
+      unreadCount > 0 && !isActive ? localizeUi("ui.layout.chatsidebar.unreadCount", { count: unreadCount }) : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
     // Same precedence as the subtitle: whatever the line says is what the icon marks.
     const SubtitleIcon =
       typingCharacter || isGenerating
@@ -1443,12 +1509,9 @@ export function ChatSidebar() {
           actions={rowActions}
         >
           <div
-            role="button"
-            tabIndex={0}
             data-chat-id={chat.id}
             title={displayName}
             data-drag-id={chat.id}
-            aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
             data-drag-kind="chat"
             data-drag-order-id={chat.groupId ?? chat.id}
             data-drag-folder={chat.folderId ?? ""}
@@ -1458,7 +1521,7 @@ export function ChatSidebar() {
               });
             }}
             onMouseDown={(event) => startMouseDrag(event, chat.id)}
-            onPointerEnter={() => preloadChatSurface(chat.mode)}
+            onPointerEnter={() => void preloadChatSurface(chat.mode)}
             onPointerDown={() => prefetchChatMessages(chat.id)}
             draggable={renamingChatId !== chat.id}
             onDragStart={(event) => {
@@ -1487,12 +1550,30 @@ export function ChatSidebar() {
               }
               await openChat(chat.id);
             }}
-            // Enter/Space go through the click handler, so multi-select and the touch-drag guard
-            // apply to the keyboard too.
-            onKeyDown={(event) => {
-              const row = event.currentTarget;
-              activateRowFromKey(event, () => row.click());
-            }}
+            onContextMenu={
+              overhaulActive && canHover && !multiSelectMode && renamingChatId !== chat.id
+                ? (event) => {
+                    if (event.target !== event.currentTarget && (event.target as HTMLElement).closest("input")) return;
+                    const actions = rowActions.map((action): KitAction => ({
+                      key: action.key,
+                      label: action.label,
+                      icon: action.icon,
+                      danger: action.tone === "danger",
+                      // On a computer, Rename edits the name in place. Started after the menu has handed
+                      // focus back to the row, so the box keeps it.
+                      onSelect:
+                        action.key === "rename" && overhaulDesktop
+                          ? () =>
+                              window.setTimeout(() => {
+                                setRenameDraft(chat.name);
+                                setRenamingChatId(chat.id);
+                              }, 0)
+                          : action.onSelect,
+                    }));
+                    rowMenu.openFromEvent(event, displayName, actions);
+                  }
+                : undefined
+            }
             data-chat-row="true"
             data-selected={isActive && !(multiSelectMode && isSelected) ? "true" : undefined}
             className={cn(
@@ -1506,6 +1587,24 @@ export function ChatSidebar() {
               draggedChatId === chat.id && "opacity-50",
             )}
           >
+            {/* The row's one button (QC panel 3 AX15). It lies under the row's text, over its whole area, so
+                Rename, Tags and the branch toggle are its neighbours, not buttons inside a button. A click
+                anywhere on the row still reaches the row's own click handler; Enter and Space click this
+                button, so multi-select and the touch-drag guard apply to the keyboard too. */}
+            <button
+              type="button"
+              data-chat-row-main=""
+              aria-label={displayName}
+              aria-describedby={`chat-row-desc-${chat.id}`}
+              aria-current={isActive ? "true" : undefined}
+              aria-pressed={multiSelectMode ? isSelected : undefined}
+              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+              tabIndex={renamingChatId === chat.id ? -1 : 0}
+              className="ov-chat-row-main absolute inset-0 -z-[5] cursor-[inherit] rounded-[inherit] border-0 bg-transparent p-0"
+            />
+            <span id={`chat-row-desc-${chat.id}`} hidden>
+              {rowDescription}
+            </span>
             {/* Multi-select checkbox */}
             {multiSelectMode && (
               <div className="mari-chrome-accent-icon mari-accent-animated shrink-0">
@@ -1551,8 +1650,8 @@ export function ChatSidebar() {
               />
             )}
 
-            {/* Chat avatar(s) or mode icon fallback — with unread badge overlay */}
-            <div className="relative flex-shrink-0">
+            {/* Chat avatar(s) or mode icon fallback — with unread badge overlay. Read through the row button. */}
+            <div className="relative flex-shrink-0" aria-hidden="true">
               {(() => {
                 const avatars = charIds
                   .slice(0, 3)
@@ -1674,9 +1773,7 @@ export function ChatSidebar() {
 
               {/* Unread count badge */}
               {(() => {
-                const count = signalRows
-                  ? signalRows.reduce((sum, row) => sum + (unreadCounts.get(row.chat.id) ?? 0), 0)
-                  : unreadCounts.get(chat.id) || 0;
+                const count = unreadCount;
                 if (count === 0 || isActive) return null;
                 return (
                   <span className="absolute -top-1 -right-1 z-20 flex h-4 min-w-4 items-center justify-center rounded-md bg-red-500 px-1 text-[0.5625rem] font-bold leading-none text-white shadow-sm ring-2 ring-[var(--sidebar-background)]">
@@ -1704,6 +1801,7 @@ export function ChatSidebar() {
                     } else if (event.key === "Escape") {
                       event.preventDefault();
                       setRenamingChatId(null);
+                      focusChatRow(chat.id);
                     }
                   }}
                   onBlur={() => commitRename(chat.id, chat.name)}
@@ -1715,6 +1813,7 @@ export function ChatSidebar() {
               ) : (
                 <span className="flex min-w-0 items-center gap-1">
                   <span
+                    aria-hidden="true"
                     className={cn(
                       "block min-w-0 truncate text-sm",
                       isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
@@ -1723,11 +1822,7 @@ export function ChatSidebar() {
                     {displayName}
                   </span>
                   {isChatPinned(chat) ? (
-                    <Pin
-                      size="0.6875rem"
-                      className="shrink-0 text-[var(--muted-foreground)]"
-                      aria-label={localizeUi("ui.layout.chatsidebar.pinned")}
-                    />
+                    <Pin size="0.6875rem" className="shrink-0 text-[var(--muted-foreground)]" aria-hidden="true" />
                   ) : null}
                   {overhaulDesktop && canHover && !multiSelectMode ? (
                     <button
@@ -1765,7 +1860,7 @@ export function ChatSidebar() {
                 </span>
               )}
               {chat.metadata?.multiplayer && (
-                <span className="mari-chrome-accent-text-muted block truncate text-[0.6875rem]">
+                <span className="mari-chrome-accent-text-muted block truncate text-[0.6875rem]" aria-hidden="true">
                   {localizeUi(
                     (chat.metadata.multiplayer as { role?: string; status?: string }).role === "host"
                       ? (chat.metadata.multiplayer as { status?: string }).status === "ended"
@@ -1778,7 +1873,10 @@ export function ChatSidebar() {
                 </span>
               )}
               {subtitle && !liveInTimeSlot && (
-                <span className="mari-chrome-accent-text-muted flex items-center gap-1 truncate text-[0.6875rem] leading-tight">
+                <span
+                  className="mari-chrome-accent-text-muted flex items-center gap-1 truncate text-[0.6875rem] leading-tight"
+                  aria-hidden="true"
+                >
                   {SubtitleIcon && (
                     <SubtitleIcon
                       className={cn(
@@ -1792,6 +1890,7 @@ export function ChatSidebar() {
               )}
               {rowPreview && !(subtitle && !liveInTimeSlot) && (
                 <span
+                  aria-hidden="true"
                   data-mari-part="chat-row-preview"
                   data-role={rowPreview.role}
                   className="mari-chrome-accent-text-muted block truncate text-[0.6875rem] leading-tight"
@@ -1833,7 +1932,10 @@ export function ChatSidebar() {
               </button>
             ) : (
               branchCount > 1 && (
-                <span className="mari-chrome-muted-badge flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem]">
+                <span
+                  className="mari-chrome-muted-badge flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 text-[0.625rem]"
+                  aria-hidden="true"
+                >
                   <GitBranch size="0.625rem" />
                   {branchCount}
                 </span>
@@ -1845,12 +1947,13 @@ export function ChatSidebar() {
               <span
                 className="mari-chrome-accent-text-muted flex shrink-0 items-center gap-1 text-[0.625rem]"
                 title={subtitle ?? undefined}
+                aria-hidden="true"
               >
                 <Loader2 className="h-2.5 w-2.5 shrink-0 animate-spin" aria-hidden="true" />
                 {subtitle}
               </span>
             ) : relativeTime ? (
-              <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">
+              <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums" aria-hidden="true">
                 {relativeTime}
               </span>
             ) : null}
@@ -2169,6 +2272,7 @@ export function ChatSidebar() {
               }}
               className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
               title={localize("Sort chats")}
+              aria-label={localize("Sort chats")}
             >
               <option value="custom">{localizeUi("ui.layout.chatsidebar.customOrder")}</option>
               <option value="manual" title={localizeUi("dragDrop.manualOrderHelp")}>
@@ -2217,13 +2321,17 @@ export function ChatSidebar() {
                 type="button"
                 className="mari-chrome-control ovm-chats-more__btn"
                 aria-label={localize("More chat list options")}
-                aria-expanded={ovmListMenuOpen}
-                onClick={() => setOvmListMenuOpen((open) => !open)}
+                {...ovmListMenuKeys.triggerProps}
+                onClick={(event) => {
+                  ovmListMenuKeys.noteOpener(event);
+                  setOvmListMenuOpen((open) => !open);
+                }}
               >
                 <MoreHorizontal size={20} />
               </button>
               {ovmListMenuOpen ? (
                 <div
+                  ref={ovmListMenuKeys.menuRef}
                   className="ov-menu ovm-chats-menu"
                   role="menu"
                   aria-label={localize("Chat list options")}
@@ -2559,6 +2667,7 @@ export function ChatSidebar() {
       )}
 
       {rowSheet ? <RowActionSheet title={rowSheet.title} actions={rowSheet.actions} onClose={closeRowSheet} /> : null}
+      {rowMenu.node}
 
       {/* ── Delete Branch Modal ── */}
       <Modal
@@ -2616,20 +2725,6 @@ export function ChatSidebar() {
   );
 }
 
-/**
- * Enter/Space activation for a `role="button"` row. Keys aimed at a button inside the row stay
- * that button's, modified keys stay free for shortcuts, and a held key activates once (its
- * repeats are still prevented, so a held Space does not scroll the list).
- */
-function activateRowFromKey(event: React.KeyboardEvent<HTMLElement>, activate: () => void) {
-  if (event.target !== event.currentTarget) return;
-  if (event.altKey || event.ctrlKey || event.metaKey) return;
-  if (event.key !== "Enter" && event.key !== " ") return;
-  event.preventDefault();
-  if (event.repeat) return;
-  activate();
-}
-
 /** Past this depth a branch still renders, but without another step of indent. */
 const MAX_BRANCH_NESTING = 4;
 /** A nested level: its line sits under the parent branch's name (the row's px-2). */
@@ -2641,6 +2736,7 @@ const BRANCH_LEVEL_CLASS = "ml-2 flex flex-col gap-0.5 border-l border-[var(--ma
 function BranchRow({
   chatId,
   name,
+  nameSuffix = "",
   relativeTime,
   isActive,
   isSelected,
@@ -2655,6 +2751,7 @@ function BranchRow({
 }: {
   chatId: string;
   name: string;
+  nameSuffix?: string;
   relativeTime: string | null;
   isActive: boolean;
   isSelected: boolean;
@@ -2669,17 +2766,14 @@ function BranchRow({
 }) {
   // Same click semantics as every other row: multi-select selects, otherwise it opens the chat.
   const handleClick = multiSelectMode ? onToggleSelect : onSelect;
+  const [nameHead, nameTail] = splitAtDisplaySuffix(name, nameSuffix);
   return (
     <div
-      role="button"
-      tabIndex={0}
       data-chat-id={chatId}
-      aria-pressed={multiSelectMode ? isSelected : undefined}
       title={name}
       onClick={handleClick}
-      onKeyDown={(event) => activateRowFromKey(event, handleClick)}
       className={cn(
-        "group flex min-w-0 cursor-pointer items-center gap-2 rounded-md py-1.5 pr-3 pl-2 transition-colors max-md:min-h-11 [@media(pointer:coarse)]:min-h-11",
+        "group relative isolate flex min-w-0 cursor-pointer items-center gap-2 rounded-md py-1.5 pr-3 pl-2 transition-colors max-md:min-h-11 [@media(pointer:coarse)]:min-h-11",
         multiSelectMode && isSelected
           ? "mari-chrome-accent-surface mari-accent-animated"
           : isActive
@@ -2687,6 +2781,21 @@ function BranchRow({
             : "hover:bg-[var(--marinara-chat-chrome-highlight-bg)]",
       )}
     >
+      {/* The row's button lies under its text (QC panel 3 AX15), so Delete is a neighbour, not nested. */}
+      <button
+        type="button"
+        data-chat-row-main=""
+        aria-label={name}
+        aria-describedby={relativeTime ? `chat-branch-desc-${chatId}` : undefined}
+        aria-current={isActive ? "true" : undefined}
+        aria-pressed={multiSelectMode ? isSelected : undefined}
+        className="ov-chat-row-main absolute inset-0 -z-[5] cursor-[inherit] rounded-[inherit] border-0 bg-transparent p-0"
+      />
+      {relativeTime ? (
+        <span id={`chat-branch-desc-${chatId}`} hidden>
+          {relativeTime}
+        </span>
+      ) : null}
       {multiSelectMode && (
         <span className="mari-chrome-accent-icon mari-accent-animated shrink-0">
           {isSelected ? (
@@ -2697,12 +2806,15 @@ function BranchRow({
         </span>
       )}
       <span
+        aria-hidden="true"
         className={cn(
-          "min-w-0 flex-1 truncate text-[0.8125rem]",
+          "flex min-w-0 flex-1 gap-[0.25em] text-[0.8125rem]",
           isActive ? "mari-chrome-text-strong font-medium" : "mari-chrome-text",
         )}
       >
-        {name}
+        {/* A long name gives way; its "· branch N" end stays (QC panel 3, F3). */}
+        <span className="min-w-0 truncate">{nameHead}</span>
+        {nameTail ? <span className="shrink-0 whitespace-nowrap">{nameTail}</span> : null}
       </span>
       {isBusy && <Spinner size="sm" className="shrink-0 text-[var(--muted-foreground)]" />}
       {!isActive && !multiSelectMode && unread > 0 && (
@@ -2711,7 +2823,9 @@ function BranchRow({
         </span>
       )}
       {relativeTime && (
-        <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums">{relativeTime}</span>
+        <span className="mari-chrome-accent-text-muted shrink-0 text-[0.625rem] tabular-nums" aria-hidden="true">
+          {relativeTime}
+        </span>
       )}
       {!multiSelectMode && showDelete && (
         <button

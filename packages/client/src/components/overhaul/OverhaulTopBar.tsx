@@ -6,7 +6,11 @@
 // Chat settings, Help, Library and the Library pane toggle on the right.
 // Sidebar collapse controls live here, never over the chat background.
 // ──────────────────────────────────────────────
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import {
+  requestCloseChatSettings,
+  toggleChatSettings as toggleChatSettingsWindow,
+} from "../../lib/chat-settings-close";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   BookOpen,
   CalendarDays,
@@ -22,6 +26,7 @@ import {
   Sparkles,
   Users,
   VenetianMask,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
@@ -40,7 +45,13 @@ import { useCharacter, usePersona } from "../../hooks/use-characters";
 import { useLorebook } from "../../hooks/use-lorebooks";
 import { useConnection, useConnections } from "../../hooks/use-connections";
 import { usePresetFull } from "../../hooks/use-presets";
-import { getChatDisplayName, parseChatMetadata, stripChatDateSuffix } from "../../lib/chat-display";
+import {
+  getChatDisplayName,
+  getChatDisplayParts,
+  parseChatMetadata,
+  splitAtDisplaySuffix,
+  stripChatDateSuffix,
+} from "../../lib/chat-display";
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { useDocsIndex } from "../../hooks/use-docs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
@@ -57,7 +68,7 @@ import { BrowserPackageTabIcon } from "../chat/BrowserPackageTabIcon";
 import { selectHomeBrowserPackages, useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { resolveCapabilityPackageDisplay } from "../../lib/capability-package-localization";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
-import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
+import { isAssetTab, LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
 import { editorLeaveKeyForTab, requestEditorClose } from "../../lib/editor-leave";
 import { showChoiceDialog } from "../../lib/app-dialogs";
 import { discardParkedDraft, useEditorDraftOfferStore, useParkedDraftsStore } from "../../hooks/use-editor-leave-save";
@@ -95,6 +106,7 @@ type CurrentTabInputs = {
   presetDetailId: string | null;
   connectionDetailId: string | null;
   agentDetailId: string | null;
+  agentCatalogOpen: boolean;
   regexDetailId: string | null;
   toolDetailId: string | null;
   profileDetailId: string | null;
@@ -117,14 +129,16 @@ function currentTabFrom(v: CurrentTabInputs): OverhaulTab | null {
   if (v.toolDetailId) return { kind: "library", id: "tools" };
   if (v.profileDetailId) return { kind: "library", id: "profiles" };
   if (real(v.personaDetailId)) return { kind: "persona", id: v.personaDetailId! };
-  if (v.agentDetailId) return { kind: "library", id: "agents" };
+  // The agent store page (an agent's install page) is part of Library > Agents too.
+  if (v.agentDetailId || v.agentCatalogOpen) return { kind: "library", id: "agents" };
   if (v.connectionDetailId) return { kind: "library", id: "connections" };
   if (real(v.presetDetailId)) return { kind: "preset", id: v.presetDetailId! };
   if (real(v.characterDetailId)) return { kind: "character", id: v.characterDetailId! };
   if (v.characterLibraryOpen)
     return { kind: "library", id: v.cardLibraryKind === "personas" ? "personas" : "characters" };
   if (real(v.lorebookDetailId)) return { kind: "lorebook", id: v.lorebookDetailId! };
-  if (v.libraryPage) return { kind: "library", id: v.libraryPage };
+  // Backgrounds, Game assets and Rulesets are tabs of one Assets page, so they share its tab.
+  if (v.libraryPage) return { kind: "library", id: isAssetTab(v.libraryPage) ? "assets" : v.libraryPage };
   if (v.activeChatId) return { kind: "chat", id: v.activeChatId };
   if (v.activeApp) return { kind: "app", id: v.activeApp };
   return null;
@@ -142,6 +156,7 @@ export function currentTabNow(): OverhaulTab | null {
     presetDetailId: ui.presetDetailId,
     connectionDetailId: ui.connectionDetailId,
     agentDetailId: ui.agentDetailId,
+    agentCatalogOpen: ui.agentCatalogOpen,
     regexDetailId: ui.regexDetailId,
     toolDetailId: ui.toolDetailId,
     profileDetailId: ui.profileDetailId,
@@ -164,6 +179,7 @@ export function useCurrentTab(): OverhaulTab | null {
   const presetDetailId = useUIStore((s) => s.presetDetailId);
   const connectionDetailId = useUIStore((s) => s.connectionDetailId);
   const agentDetailId = useUIStore((s) => s.agentDetailId);
+  const agentCatalogOpen = useUIStore((s) => s.agentCatalogOpen);
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const toolDetailId = useUIStore((s) => s.toolDetailId);
   const profileDetailId = useUIStore((s) => s.profileDetailId);
@@ -184,6 +200,7 @@ export function useCurrentTab(): OverhaulTab | null {
         presetDetailId,
         connectionDetailId,
         agentDetailId,
+        agentCatalogOpen,
         regexDetailId,
         toolDetailId,
         profileDetailId,
@@ -201,6 +218,7 @@ export function useCurrentTab(): OverhaulTab | null {
       activeDocsTab,
       activeMari,
       activeSchedules,
+      agentCatalogOpen,
       agentDetailId,
       cardLibraryKind,
       characterDetailId,
@@ -221,6 +239,7 @@ export function goHome() {
   window.dispatchEvent(new Event("marinara:home-professor-mari-close"));
   useOverhaulStore.getState().leaveDocs();
   useOverhaulStore.getState().setLibraryPage(null);
+  useOverhaulStore.getState().setLibraryHubReturn(false);
   useChatStore.getState().setActiveChatId(null);
   useUIStore.getState().closeAllDetails();
 }
@@ -336,13 +355,106 @@ function useHomeApps() {
 
 /** Resolves a tab's label with the same queries the editors use, so it is usually cached already. */
 export function TabLabel({ tab, chats }: { tab: OverhaulTab; chats: Chat[] }) {
-  const text = useTabLabelText(tab, chats);
+  const { t } = useTranslation();
+  const base = useTabLabelText(tab, chats);
+  const key = overhaulTabKey(tab);
+  const chat = tab.kind === "chat" ? chats.find((entry) => entry.id === tab.id) : undefined;
+  // Two tabs with the same name ("Luna" the character and "Luna" the chat) say which is which (QC panel 2, D15).
+  // Two chats say their mode, and two of the same mode their order by creation (QC panel 3, F3).
+  const kindKey = chat ? (CHAT_MODE_KIND_KEYS[chat.mode] ?? TAB_KIND_KEYS.chat) : TAB_KIND_KEYS[tab.kind];
+  const kind = kindKey ? t(kindKey) : null;
+  const withKind = kind ? t("ui.overhaul.tab.labelWithKind", { name: base, kind }) : base;
+  const order = chat?.createdAt ?? key;
+  useEffect(() => publishTabLabel(key, base, withKind, order), [base, key, order, withKind]);
+  const clash = useSyncExternalStore(subscribeTabLabels, () => tabLabelClash(key, base, withKind, order));
+  const numbered = kind && clash > 1 ? t("ui.overhaul.tab.labelWithKindN", { name: base, kind, n: clash }) : withKind;
+  const text = clash ? numbered : base;
+  // What tells the tab apart (a branch's "· branch N", a clash's "· roleplay 2") stays in view; the name in front of
+  // it is what gives way.
+  const [name] = splitAtDisplaySuffix(base, chat ? getChatDisplayParts(chat).suffix : "");
+  const head = text.startsWith(name) && text.length > name.length ? name : text;
+  const tail = head === text ? "" : text.slice(name.length).trim();
   // Short names keep their natural width; only long names give way when the strip is full.
   return (
-    <span className="ov-tab__label" data-short={text.length <= 10 ? "true" : undefined} title={text}>
-      {text}
+    <span
+      className={cn("ov-tab__label", tail && "ov-tab__label--split")}
+      data-short={text.length <= 10 ? "true" : undefined}
+      title={numbered}
+    >
+      {tail ? (
+        <>
+          <span className="ov-tab__label-head">{head}</span>
+          <span className="ov-tab__label-tail">{tail}</span>
+        </>
+      ) : (
+        text
+      )}
     </span>
   );
+}
+
+/** A tab's ✕, named after its tab: "Close Storm at Gull Point", not one "Close tab" per tab (QC panel 3 AX16). */
+export function TabCloseButton({ tab, chats, onClose }: { tab: OverhaulTab; chats: Chat[]; onClose: () => void }) {
+  const { t } = useTranslation();
+  const name = useTabLabelText(tab, chats);
+  const label = t("ui.tabs.closeNamed", { name });
+  return (
+    <button type="button" draggable className="ov-tab__close" aria-label={label} title={label} onClick={onClose}>
+      <X size={12} />
+    </button>
+  );
+}
+
+const TAB_KIND_KEYS: Partial<Record<OverhaulTab["kind"], string>> = {
+  character: "ui.overhaul.tab.kindCharacter",
+  chat: "ui.overhaul.tab.kindChat",
+  persona: "ui.overhaul.tab.kindPersona",
+  lorebook: "ui.overhaul.tab.kindLorebook",
+  preset: "ui.overhaul.tab.kindPreset",
+};
+const CHAT_MODE_KIND_KEYS: Partial<Record<string, string>> = {
+  roleplay: "ui.overhaul.tab.kindRoleplay",
+  conversation: "ui.overhaul.tab.kindConversation",
+  game: "ui.overhaul.tab.kindGame",
+};
+
+// Every shown tab's plain label (and the label with its kind), so a tab can tell when another one reads the same.
+type PublishedTabLabel = { label: string; withKind: string; order: string; count: number };
+const tabLabels = new Map<string, PublishedTabLabel>();
+const tabLabelListeners = new Set<() => void>();
+function subscribeTabLabels(listener: () => void) {
+  tabLabelListeners.add(listener);
+  return () => tabLabelListeners.delete(listener);
+}
+function publishTabLabel(key: string, label: string, withKind: string, order: string) {
+  const entry = tabLabels.get(key);
+  if (entry && entry.label === label && entry.withKind === withKind && entry.order === order) entry.count += 1;
+  else tabLabels.set(key, { label, withKind, order, count: 1 });
+  tabLabelListeners.forEach((listener) => listener());
+  return () => {
+    const current = tabLabels.get(key);
+    if (!current) return;
+    current.count -= 1;
+    if (current.count <= 0) tabLabels.delete(key);
+    tabLabelListeners.forEach((listener) => listener());
+  };
+}
+/** 0: no other tab reads the same. 1: show the kind. 2+: the kind clashes too, so this is its number by order. */
+function tabLabelClash(key: string, label: string, withKind: string, order: string): number {
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  if (!label.trim()) return 0;
+  let clashes = false;
+  let before = 0;
+  let kindTwin = false;
+  for (const [otherKey, entry] of tabLabels) {
+    if (otherKey === key || !same(entry.label, label)) continue;
+    clashes = true;
+    if (!same(entry.withKind, withKind)) continue;
+    kindTwin = true;
+    if (entry.order < order || (entry.order === order && otherKey < key)) before += 1;
+  }
+  if (!clashes) return 0;
+  return kindTwin ? before + 1 : 1;
 }
 
 /** The browser tab says which page or chat is open ("Smuggler's Run · Marinara Engine"), audit C23. */
@@ -360,7 +472,7 @@ export function DocumentTitle({ tab, chats }: { tab: OverhaulTab | null; chats: 
 }
 const HOME_TITLE_TAB = { kind: "library", id: "" } as OverhaulTab;
 
-function useTabLabelText(tab: OverhaulTab, chats: Chat[]): string {
+export function useTabLabelText(tab: OverhaulTab, chats: Chat[]): string {
   const localize = useLocalizedUiText();
   const character = useCharacter(tab.kind === "character" ? tab.id : null);
   const persona = usePersona(tab.kind === "persona" ? tab.id : null);
@@ -734,8 +846,12 @@ export function OverhaulTopBar() {
     if (!before.settings) {
       reopenLibraryRef.current = true;
       useUIStore.getState().closeRightPanel();
-    } else if (!before.library)
-      useFloatingWindowStore.getState().dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
+    } else if (!before.library) {
+      // An editor page with unsaved edits asks first; keeping them keeps Chat settings and closes the Library again.
+      void requestCloseChatSettings().then((closed) => {
+        if (!closed) useUIStore.getState().closeRightPanel();
+      });
+    }
   }, [chatSettingsFloating, chatSettingsOpen, rightPanelOpen]);
 
   useTabBookkeeping(current, chats);
@@ -744,9 +860,7 @@ export function OverhaulTopBar() {
   const chatOnScreen = current?.kind === "chat";
   const toggleChatSettings = (button: HTMLButtonElement) => {
     void preloadChatSettingsDrawer();
-    const windows = useFloatingWindowStore.getState();
-    if (windows.open[CHAT_SETTINGS_WINDOW_ID]) windows.dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
-    else windows.openWindow(CHAT_SETTINGS_WINDOW_ID, button);
+    toggleChatSettingsWindow(button);
   };
   const libraryOpen = rightPanelOpen;
   const modeLabel = activeChat
@@ -791,7 +905,7 @@ export function OverhaulTopBar() {
             <button
               type="button"
               className={cn("ov-text-btn", chatSettingsOpen && "is-on")}
-              aria-pressed={chatSettingsOpen}
+              aria-expanded={chatSettingsOpen}
               data-window-opener={CHAT_SETTINGS_WINDOW_ID}
               onClick={(event) => toggleChatSettings(event.currentTarget)}
             >

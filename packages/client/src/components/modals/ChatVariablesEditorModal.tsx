@@ -8,7 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { MAX_CHAT_VARIABLE_VALUE_LENGTH, MAX_CHAT_VARIABLES, type Chat } from "@marinara-engine/shared";
-import { Modal } from "../ui/Modal";
+import { ChatSettingsEditorSurface } from "../../features/chat-settings/ChatSettingsEditorSurface";
 import { StateEditor } from "../ui/state-editor/StateEditor";
 import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -27,6 +27,8 @@ interface ChatVariablesEditorModalProps {
   open: boolean;
   onClose: () => void;
   chatId: string;
+  /** New layout: a page inside Chat settings instead of a window. */
+  asPage?: boolean;
 }
 
 /** Waits for queued Chat Variables writes, so the editor starts from what the server will hold. */
@@ -36,7 +38,7 @@ async function fetchSavedVariables(chatId: string): Promise<Record<string, strin
   return readChatVariables(chat.metadata);
 }
 
-export function ChatVariablesEditorModal({ open, onClose, chatId }: ChatVariablesEditorModalProps) {
+export function ChatVariablesEditorModal({ open, onClose, chatId, asPage = false }: ChatVariablesEditorModalProps) {
   const { t: localizeUi } = useUiTranslation();
   const qc = useQueryClient();
   const queryKey = useMemo(() => ["state-editor", "chat-variables", chatId] as const, [chatId]);
@@ -64,19 +66,26 @@ export function ChatVariablesEditorModal({ open, onClose, chatId }: ChatVariable
     dirtyRef.current = dirty;
   }, []);
 
-  const requestClose = useCallback(async () => {
-    if (dirtyRef.current) {
-      const confirmed = await showConfirmDialog({
+  const confirmDiscard = useCallback(
+    () =>
+      showConfirmDialog({
         title: localizeUi("ui.stateEditor.discard.title"),
         message: localizeUi("ui.stateEditor.discard.closeMessage"),
         confirmLabel: localizeUi("ui.stateEditor.discard.confirm"),
         cancelLabel: localizeUi("ui.stateEditor.discard.cancel"),
         tone: "destructive",
-      });
-      if (!confirmed) return;
-    }
+      }),
+    [localizeUi],
+  );
+  const leaveGuard = useMemo(
+    () => ({ isDirty: () => dirtyRef.current, confirmLeave: confirmDiscard }),
+    [confirmDiscard],
+  );
+
+  const requestClose = useCallback(async () => {
+    if (dirtyRef.current && !(await confirmDiscard())) return;
     onClose();
-  }, [localizeUi, onClose]);
+  }, [confirmDiscard, onClose]);
 
   const issueMessage = useCallback(
     (issue: ChatVariablesEditorIssue) => {
@@ -123,7 +132,10 @@ export function ChatVariablesEditorModal({ open, onClose, chatId }: ChatVariable
   );
 
   return (
-    <Modal
+    <ChatSettingsEditorSurface
+      asPage={asPage}
+      leaveGuard={leaveGuard}
+      pageBodyClassName="flex flex-col"
       open={open}
       onClose={() => void requestClose()}
       title={localizeUi("ui.stateEditor.chatVariables.title")}
@@ -153,6 +165,6 @@ export function ChatVariablesEditorModal({ open, onClose, chatId }: ChatVariable
       ) : (
         <StateEditor sections={sections} onSave={save} onDirtyChange={handleDirtyChange} />
       )}
-    </Modal>
+    </ChatSettingsEditorSurface>
   );
 }

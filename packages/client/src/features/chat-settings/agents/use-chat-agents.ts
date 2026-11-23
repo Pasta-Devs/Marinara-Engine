@@ -28,7 +28,7 @@ import { createSerializedMutationQueue } from "../../../lib/serialized-mutation-
 import { getChatActiveLorebookIds } from "../../../lib/chat-lorebooks";
 import { getAgentRunIntervalMeta } from "../../../lib/agent-cadence";
 import { buildRoleplayAgentSettingsOrder, hasStandaloneRoleplayAgentSettings } from "../../../lib/agent-settings-order";
-import { useUIStore } from "../../../stores/ui.store";
+import { isMobileShellViewport, useUIStore } from "../../../stores/ui.store";
 import { abortGenerationForChat, useChatStore } from "../../../stores/chat.store";
 import type {
   AgentPhase,
@@ -401,7 +401,8 @@ export function useChatAgents({
   }, [openRightPanel, setSettingsTab]);
   const openDownloadAgents = useCallback(() => {
     closeForSurface();
-    openRightPanel("agents");
+    // Phones: opening the Agents panel first made it where back lands, so back skipped Chat settings (QC Nov 22).
+    if (!isMobileShellViewport()) openRightPanel("agents");
     openAgentCatalog();
   }, [closeForSurface, openAgentCatalog, openRightPanel]);
   const refreshLorebooks = useCallback(() => qc.invalidateQueries({ queryKey: lorebookKeys.all }), [qc]);

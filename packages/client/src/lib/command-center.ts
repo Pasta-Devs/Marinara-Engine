@@ -654,7 +654,10 @@ function findTopHit<T extends CommandCenterPresentableResult>(
   const name = (result: T) => normalizeTextForMatch(result.title);
   // A title that starts with the text beats one where only a later word does:
   // "persona" leads with Persona library, not Show Characters in Persona Pickers.
+  // An exact title beats a longer title it only starts: "settings" is Settings, not Settings profiles
+  // (QC panel 3 AX17), whatever was used more lately.
   const candidate =
+    eligible.find((result) => name(result) === typed) ??
     eligible.find((result) => name(result).startsWith(typed)) ??
     eligible.find((result) => name(result).includes(` ${typed}`));
   if (!candidate) return null;

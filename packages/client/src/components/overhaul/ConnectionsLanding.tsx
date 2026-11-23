@@ -4,6 +4,7 @@
 // says which Model each job uses. Model rows open the Model editor; the account name opens
 // the account editor. Add account opens the add window anchored under its button.
 // ──────────────────────────────────────────────
+import { useMenuKeyboard } from "../../hooks/use-menu-keyboard";
 import { Fragment, useMemo, useState, type MouseEvent } from "react";
 import {
   BadgeCheck,
@@ -117,6 +118,7 @@ function AccountBalance({ account }: { account: ConnectionAccountListItem }) {
 }
 
 function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[] }) {
+  const { t } = useTranslation();
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const tiles = useConnectionDefaults(connectionsList);
@@ -156,15 +158,26 @@ function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[
         <div className="ov-conn-defaults__grid">
           {tiles.map((tile) => {
             const unset = !!tile.muted && !tile.follows;
+            // What the job is for, in plain words: a tooltip with a mouse, a second line on touch screens.
+            const purpose = t(`connections.defaults.purpose.${tile.key}`);
+            // An optional step (a built-in model not downloaded yet) says so beside the name instead of only
+            // in the tooltip, so "Quick answers: Built-in model" never reads as ready when it is not.
+            const quiet = tile.warning?.quiet ? tile.warning : null;
             return (
               <button
                 key={tile.key}
                 type="button"
                 className="ov-conn-defaults__cell"
                 onClick={() => click(tile)}
-                title={tile.warning?.text ?? [tile.follows, tile.value, tile.hint].filter(Boolean).join(" · ")}
+                title={[
+                  purpose,
+                  tile.warning?.text ?? [tile.follows, tile.value, tile.hint].filter(Boolean).join(" · "),
+                ].join("\n")}
               >
-                <span className="ov-conn-defaults__job">{tile.title}</span>
+                <span className="ov-conn-defaults__job">
+                  {tile.title}
+                  <span className="ov-conn-defaults__purpose">{purpose}</span>
+                </span>
                 <span
                   className={cn(
                     "ov-conn-defaults__value",
@@ -180,6 +193,7 @@ function DefaultsGrid({ connectionsList }: { connectionsList: ConnectionRowData[
                       {tile.value}
                     </>
                   )}
+                  {quiet?.short ? <span className="ov-conn__dim"> · {quiet.short}</span> : null}
                 </span>
               </button>
             );
@@ -344,6 +358,8 @@ export function ConnectionsLanding() {
   const [sort, setSort] = useState<SortKey>("name");
   const [openIds, setOpenIds] = useState<string[] | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  // A11Y3: arrows move through the account menu; Escape closes it and returns to its ⋯.
+  const menuKeys = useMenuKeyboard({ open: menu !== null, onClose: () => setMenu(null) });
   // Model actions (the classic list's ⋯): Move, Folder, Duplicate, Shuffle, Make default for, Remove.
   const modelMenu = useKitMenu();
   const duplicateConnection = useDuplicateConnection();
@@ -762,6 +778,7 @@ export function ConnectionsLanding() {
 
   const openMenu = (event: MouseEvent<HTMLButtonElement>, id: string) => {
     event.stopPropagation();
+    menuKeys.noteOpener(event);
     const rect = event.currentTarget.getBoundingClientRect();
     setMenu((current) => (current?.id === id ? null : { id, x: rect.right, y: rect.bottom + 4 }));
   };
@@ -849,6 +866,7 @@ export function ConnectionsLanding() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={localize("Search accounts and models")}
+            aria-label={localize("Search accounts and models")}
           />
         </label>
         <select
@@ -1016,7 +1034,12 @@ export function ConnectionsLanding() {
       {menu ? (
         <>
           <div className="ov-conn__menu-scrim" onClick={() => setMenu(null)} />
-          <div className="ov-menu ov-conn__menu" role="menu" style={{ top: menu.y, left: menu.x }}>
+          <div
+            ref={menuKeys.menuRef}
+            className="ov-menu ov-conn__menu"
+            role="menu"
+            style={{ top: menu.y, left: menu.x }}
+          >
             <button
               type="button"
               role="menuitem"

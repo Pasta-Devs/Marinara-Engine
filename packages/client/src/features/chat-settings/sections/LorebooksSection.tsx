@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BookOpen, Eye, EyeOff, Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -42,6 +42,7 @@ export function LorebooksSection({
   inlineLorebookEditor,
 }: LorebooksSectionProps) {
   const { t: localizeUi } = useUiTranslation();
+  const tokenBudgetId = useId();
   const { t } = useTranslation();
   const qc = useQueryClient();
   const updateMeta = useUpdateChatMetadata();
@@ -115,15 +116,16 @@ export function LorebooksSection({
       help={localizeUi("ui.chatSettings.lorebookssection.lorebooksContainWorldInfoCharacterBackstoriesAndLoreThat")}
     >
       <div className="mb-2 rounded-lg bg-[var(--secondary)]/70 p-3 ring-1 ring-[var(--border)]">
-        <label className="mb-1.5 flex items-center gap-1 text-xs font-medium">
-          {localizeUi("ui.chatSettings.lorebookssection.lorebookTokenBudget")}{" "}
+        <div className="mb-1.5 flex items-center gap-1 text-xs font-medium">
+          <label htmlFor={tokenBudgetId}>{localizeUi("ui.chatSettings.lorebookssection.lorebookTokenBudget")}</label>{" "}
           <HelpTooltip
             text={localizeUi("ui.chatSettings.lorebookssection.contextCapForActivatedLorebookRetrievalsInThisChat", {
               value1: LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET,
             })}
           />
-        </label>
+        </div>
         <input
+          id={tokenBudgetId}
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"

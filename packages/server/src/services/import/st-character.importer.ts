@@ -4,11 +4,12 @@ import { syncCharacterBookFromLorebook } from "../lorebook/character-book-sync.j
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
 import { characters as charactersTable } from "../../db/schema/index.js";
+import { eq } from "../../db/file-query.js";
 import { logger } from "../../lib/logger.js";
 import { createCharactersStorage, withCharacterUpdateQueue } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
-import { importSTLorebook } from "./st-lorebook.importer.js";
+import { importSTLorebook, type LorebookImportNote } from "./st-lorebook.importer.js";
 import {
   DESCRIPTION_SPLIT_VERSION,
   unassignCardFieldAlternatives,
@@ -85,6 +86,23 @@ async function removeImportedAvatarFile(avatarPath: string | undefined) {
   }
 }
 
+/** Removes the imported picture unless a character was saved with it before the error (a failed read-back). */
+async function removeUnusedImportedAvatar(db: DB, avatarPath: string | undefined) {
+  if (!avatarPath) return;
+  try {
+    const rows = await db
+      .select({ id: charactersTable.id })
+      .from(charactersTable)
+      .where(eq(charactersTable.avatarPath, avatarPath));
+    if (rows.length > 0) return;
+  } catch (err) {
+    // Unknown whether a character holds it: keep the file rather than break a saved character.
+    logger.warn(err, "Kept an imported character avatar whose use could not be checked");
+    return;
+  }
+  await removeImportedAvatarFile(avatarPath);
+}
+
 async function rollbackImportedCharacter(db: DB, characterId: string | undefined, avatarPath: string | undefined) {
   if (!characterId) {
     await removeImportedAvatarFile(avatarPath);
@@ -125,6 +143,8 @@ export interface STCharacterImportPreview {
   version?: string;
   hasEmbeddedLorebook: boolean;
   embeddedLorebookEntries: number;
+  /** The name the embedded lorebook will get (its own, else "<character>'s Lorebook"). */
+  embeddedLorebookName?: string;
   error?: string;
 }
 
@@ -224,6 +244,17 @@ function convertStPlacements(placement: unknown): RegexPlacement[] | null {
   return out.length > 0 ? out : null;
 }
 
+/**
+ * How many SillyTavern regex scripts the importers leave out and report: ones that run only on slash commands (3),
+ * World Info (5) or reasoning (6), which regex scripts here don't cover, and ones whose pattern is empty, unsafe
+ * or won't compile.
+ */
+export function countStRegexScriptsLeftOut(stScripts: unknown): number {
+  if (!Array.isArray(stScripts)) return 0;
+  const scripts = stScripts.filter((entry) => entry && typeof entry === "object");
+  return scripts.length - convertStRegexScripts(scripts, {}).length;
+}
+
 function readBooleanFlag(value: unknown): boolean {
   return value === true || value === "true" || value === 1 || value === "1";
 }
@@ -276,6 +307,8 @@ export function convertStRegexScripts(
       findRegex: source,
       replaceString: typeof s.replaceString === "string" ? s.replaceString : "",
       trimStrings: Array.isArray(s.trimStrings) ? s.trimStrings.filter((t): t is string => typeof t === "string") : [],
+      // SillyTavern trims only the matched text put back through {{match}}/$n; a Marinara export says its own rule.
+      trimScope: s.trimScope === "result" ? "result" : "match",
       placement,
       flags,
       promptOnly: applyMode === "prompt",
@@ -405,11 +438,22 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     });
   }
 
-  const character = await storage.create(data, avatarPath, importTimestamps);
+  let character: unknown;
+  try {
+    character = await storage.create(data, avatarPath, importTimestamps);
+  } catch (err) {
+    // The picture was saved first; without a character it would stay behind as an orphan file.
+    await removeUnusedImportedAvatar(db, avatarPath);
+    throw err;
+  }
   const charId = (character as { id?: string } | null)?.id;
+  if (!charId) {
+    await removeUnusedImportedAvatar(db, avatarPath);
+    return { success: false, error: "Failed to create character" };
+  }
 
   // Extract character_book into a standalone lorebook linked to this character
-  let lorebookResult: { lorebookId?: string; entriesImported?: number } | null = null;
+  let lorebookResult: { lorebookId?: string; entriesImported?: number; notes?: LorebookImportNote[] } | null = null;
   if (shouldImportEmbeddedLorebook && data.character_book && charId) {
     const wiData = embeddedBookAsWorldInfo(data.name, rawEmbeddedLorebook);
 
@@ -447,6 +491,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
       lorebookResult = {
         lorebookId: result.lorebookId,
         entriesImported: result.entriesImported,
+        notes: result.notes,
       };
     } catch (err) {
       await rollbackImportedCharacter(db, charId, avatarPath);
@@ -499,6 +544,7 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     },
     ...(lorebookResult ? { lorebook: lorebookResult } : {}),
     ...(descriptionSplit ? { descriptionSplit } : {}),
+    regexSkipped: countStRegexScriptsLeftOut(rawCardExtensions(raw).regex_scripts),
   };
 }
 
@@ -506,7 +552,8 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
 function embeddedBookAsWorldInfo(characterName: string, rawEmbeddedLorebook: unknown): Record<string, unknown> {
   const bookRaw = rawEmbeddedLorebook as Record<string, unknown>;
   return {
-    name: `${characterName}'s Lorebook`,
+    // The book keeps its own name when the card gives one (QC ONB-27); otherwise it's named after the character.
+    name: (typeof bookRaw.name === "string" && bookRaw.name.trim()) || `${characterName}'s Lorebook`,
     entries: bookRaw.entries ?? {},
     description: bookRaw.description,
     scan_depth: bookRaw.scan_depth,
@@ -818,69 +865,72 @@ async function updateCharacterFromCard(input: {
   const storage = createCharactersStorage(db);
   const keepPicture = !input.useCardPicture || !input.avatarPath;
   const discardNewPicture = () => (keepPicture ? removeImportedAvatarFile(input.avatarPath) : Promise.resolve());
-  const existing = await storage.getById(characterId);
-  if (!existing) {
-    await removeImportedAvatarFile(input.avatarPath);
-    return { success: false, error: "The character to update no longer exists" };
-  }
-  const current = JSON.parse(existing.data) as CharacterData;
-  const currentExtensions = (current.extensions ?? {}) as Record<string, unknown>;
-  const cardExtensionKeys = new Set(Object.keys(rawCardExtensions(input.raw)));
-
-  const extensions: Record<string, unknown> = { ...currentExtensions };
-  for (const [key, value] of Object.entries(data.extensions)) {
-    if (USER_OWNED_EXTENSION_KEYS.has(key)) continue;
-    if (cardExtensionKeys.has(key)) extensions[key] = value;
-  }
-  for (const key of CARD_TEXT_EXTENSION_KEYS) extensions[key] = data.extensions[key] ?? "";
-  // The new picture needs its own framing.
-  if (!keepPicture) delete extensions.avatarCrop;
-  const newBrowserSource = data.extensions.botBrowserSource;
-  if (typeof newBrowserSource === "string" && newBrowserSource) extensions.botBrowserSource = newBrowserSource;
-  const currentImportMetadata =
-    currentExtensions[IMPORT_METADATA_KEY] && typeof currentExtensions[IMPORT_METADATA_KEY] === "object"
-      ? (currentExtensions[IMPORT_METADATA_KEY] as Record<string, unknown>)
-      : {};
-  const newImportMetadata = data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>;
-  const currentEmbedded =
-    currentImportMetadata.embeddedLorebook && typeof currentImportMetadata.embeddedLorebook === "object"
-      ? (currentImportMetadata.embeddedLorebook as Record<string, unknown>)
-      : {};
-  extensions[IMPORT_METADATA_KEY] = {
-    ...currentImportMetadata,
-    ...newImportMetadata,
-    embeddedLorebook: { ...currentEmbedded, hasEmbeddedLorebook: input.hasEmbeddedLorebook },
-  };
-
-  const { tags: cardTags, extensions: _cardExtensions, ...cardFields } = data;
-  void _cardExtensions;
-  const notesChoice = input.options.creatorNotes ?? "merge";
-  if (notesChoice !== "card") {
-    const mine = typeof current.creator_notes === "string" ? current.creator_notes : "";
-    const base =
-      typeof currentImportMetadata.importedCreatorNotes === "string"
-        ? currentImportMetadata.importedCreatorNotes
-        : null;
-    cardFields.creator_notes =
-      notesChoice === "mine" ? mine : mergeCreatorNotes(base, mine, cardFields.creator_notes ?? "");
-  }
-  const tags = [...(Array.isArray(current.tags) ? current.tags : [])];
-  const tagKeys = new Set(tags.map(tagKey));
-  for (const tag of cardTags) {
-    if (!tagKeys.has(tagKey(tag))) {
-      tags.push(tag);
-      tagKeys.add(tagKey(tag));
-    }
-  }
-  const versionReason = "Updated from a newer card";
-  // Version history keeps the card as it was, even with Automatic versioning off, so the update can be undone.
-  if (currentExtensions.versioningEnabled === false) {
-    await storage.createVersionSnapshot(characterId, { source: "card-update", reason: versionReason });
-  }
-  let updated;
+  // The card is merged into the character as it is when the save runs, inside its update queue, so an edit saved
+  // while the card was being read is kept instead of being written over.
+  let outcome: {
+    updated: unknown;
+    currentEmbedded: Record<string, unknown>;
+    currentImportMetadata: Record<string, unknown>;
+  } | null;
   try {
-    updated = await withCharacterUpdateQueue(characterId, () =>
-      storage.update(
+    outcome = await withCharacterUpdateQueue(characterId, async () => {
+      const existing = await storage.getById(characterId);
+      if (!existing) return null;
+      const current = JSON.parse(existing.data) as CharacterData;
+      const currentExtensions = (current.extensions ?? {}) as Record<string, unknown>;
+      const cardExtensionKeys = new Set(Object.keys(rawCardExtensions(input.raw)));
+
+      const extensions: Record<string, unknown> = { ...currentExtensions };
+      for (const [key, value] of Object.entries(data.extensions)) {
+        if (USER_OWNED_EXTENSION_KEYS.has(key)) continue;
+        if (cardExtensionKeys.has(key)) extensions[key] = value;
+      }
+      for (const key of CARD_TEXT_EXTENSION_KEYS) extensions[key] = data.extensions[key] ?? "";
+      // The new picture needs its own framing.
+      if (!keepPicture) delete extensions.avatarCrop;
+      const newBrowserSource = data.extensions.botBrowserSource;
+      if (typeof newBrowserSource === "string" && newBrowserSource) extensions.botBrowserSource = newBrowserSource;
+      const currentImportMetadata =
+        currentExtensions[IMPORT_METADATA_KEY] && typeof currentExtensions[IMPORT_METADATA_KEY] === "object"
+          ? (currentExtensions[IMPORT_METADATA_KEY] as Record<string, unknown>)
+          : {};
+      const newImportMetadata = data.extensions[IMPORT_METADATA_KEY] as Record<string, unknown>;
+      const currentEmbedded =
+        currentImportMetadata.embeddedLorebook && typeof currentImportMetadata.embeddedLorebook === "object"
+          ? (currentImportMetadata.embeddedLorebook as Record<string, unknown>)
+          : {};
+      extensions[IMPORT_METADATA_KEY] = {
+        ...currentImportMetadata,
+        ...newImportMetadata,
+        embeddedLorebook: { ...currentEmbedded, hasEmbeddedLorebook: input.hasEmbeddedLorebook },
+      };
+
+      const { tags: cardTags, extensions: _cardExtensions, ...cardFields } = data;
+      void _cardExtensions;
+      const notesChoice = input.options.creatorNotes ?? "merge";
+      if (notesChoice !== "card") {
+        const mine = typeof current.creator_notes === "string" ? current.creator_notes : "";
+        const base =
+          typeof currentImportMetadata.importedCreatorNotes === "string"
+            ? currentImportMetadata.importedCreatorNotes
+            : null;
+        cardFields.creator_notes =
+          notesChoice === "mine" ? mine : mergeCreatorNotes(base, mine, cardFields.creator_notes ?? "");
+      }
+      const tags = [...(Array.isArray(current.tags) ? current.tags : [])];
+      const tagKeys = new Set(tags.map(tagKey));
+      for (const tag of cardTags) {
+        if (!tagKeys.has(tagKey(tag))) {
+          tags.push(tag);
+          tagKeys.add(tagKey(tag));
+        }
+      }
+      const versionReason = "Updated from a newer card";
+      // Version history keeps the card as it was, even with Automatic versioning off, so the update can be undone.
+      if (currentExtensions.versioningEnabled === false) {
+        await storage.createVersionSnapshot(characterId, { source: "card-update", reason: versionReason });
+      }
+      const updated = await storage.update(
         characterId,
         { ...cardFields, tags, extensions } as CharacterData,
         keepPicture ? undefined : input.avatarPath,
@@ -889,17 +939,22 @@ async function updateCharacterFromCard(input: {
           versionSource: "card-update",
           versionReason,
         },
-      ),
-    );
+      );
+      return { updated, currentEmbedded, currentImportMetadata };
+    });
   } catch (err) {
     await removeImportedAvatarFile(input.avatarPath);
     throw err;
   }
+  if (!outcome?.updated) {
+    await removeImportedAvatarFile(input.avatarPath);
+    return { success: false, error: "The character to update no longer exists" };
+  }
   await discardNewPicture();
-  if (!updated) return { success: false, error: "The character to update no longer exists" };
+  const { currentEmbedded, currentImportMetadata } = outcome;
 
   // The card's lorebook replaces the entries of the lorebook made from it before, or becomes a new linked one.
-  let lorebookResult: { lorebookId?: string; entriesImported?: number } | null = null;
+  let lorebookResult: { lorebookId?: string; entriesImported?: number; notes?: LorebookImportNote[] } | null = null;
   let lorebookError: string | undefined;
   if (input.shouldImportEmbeddedLorebook && data.character_book) {
     const existingLorebookId = typeof currentEmbedded.lorebookId === "string" ? currentEmbedded.lorebookId : null;
@@ -934,7 +989,7 @@ async function updateCharacterFromCard(input: {
           await syncCharacterBookFromLorebook(tx, result.lorebookId, { throwOnError: true });
         },
       });
-      lorebookResult = { lorebookId: result.lorebookId, entriesImported: result.entriesImported };
+      lorebookResult = { lorebookId: result.lorebookId, entriesImported: result.entriesImported, notes: result.notes };
     } catch (err) {
       logger.warn(err, "Updated character %s but not its lorebook", characterId);
       lorebookError = err instanceof Error ? err.message : String(err);
@@ -1005,6 +1060,12 @@ export function inspectSTCharacter(raw: Record<string, unknown>): STCharacterImp
       version: data.character_version ?? "",
       hasEmbeddedLorebook: embeddedLorebookEntries > 0,
       embeddedLorebookEntries,
+      ...(embeddedLorebookEntries > 0
+        ? {
+            // The name the import gives it (importSTLorebook puts the character's name in front).
+            embeddedLorebookName: `${data.name} — ${String(embeddedBookAsWorldInfo(data.name, data.character_book).name)}`,
+          }
+        : {}),
     };
   } catch (error) {
     return {

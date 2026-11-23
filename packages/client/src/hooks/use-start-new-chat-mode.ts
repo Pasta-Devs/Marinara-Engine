@@ -6,6 +6,7 @@ import { useCreateChat } from "./use-chats";
 import { connectionListQuery, useConnections } from "./use-connections";
 import { useChatStore } from "../stores/chat.store";
 import { isMobileShellViewport, useUIStore } from "../stores/ui.store";
+import { revealChatSurface } from "../lib/state-navigation";
 import { CHAT_MODE_OPTIONS, type ChatLaunchMode } from "../components/chat/ChatModeSelectorModal";
 
 /**
@@ -61,6 +62,8 @@ export function useStartNewChatMode() {
       // desktop it stays open the way starting a chat from the sidebar "+"
       // already left it.
       useUIStore.getState().setSidebarOpen(!isMobileShellViewport());
+      // New layout: an open editor or Library page would hide the setup page (QC panel 3 AX8).
+      revealChatSurface();
       store.setActiveChatId(chat.id);
       store.setShouldOpenSettings(true);
       store.setShouldOpenWizard(true);

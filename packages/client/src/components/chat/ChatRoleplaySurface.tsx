@@ -12,6 +12,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -108,6 +109,7 @@ import {
   useGenerateGameTurnStoryboard,
 } from "../../hooks/use-game-storyboards";
 import { Spinner } from "../ui/Spinner";
+import { ReplyWritingStatus } from "./ReplyWritingStatus";
 
 /** The VN page each message was left on (message id → paragraph, -1 = last), and the message each
  *  chat was left on (chat id → message id, "" = the newest reply). Kept in localStorage (theming
@@ -942,7 +944,7 @@ type RoleplaySurfaceProps = {
   onGenerateBackground?: () => void | Promise<void>;
   onGenerateVideo?: () => void | Promise<void>;
   onAnimateImage?: (image: ChatImage) => void | Promise<void>;
-  onWizardFinish: (discarded?: boolean) => void;
+  onWizardFinish: (discarded?: boolean, chatId?: string) => void;
   onClosePeekPrompt: () => void;
   onResetSpritePlacements: () => void;
   onResetSpriteCharacterVisualSettings: (characterId: string) => void;
@@ -1276,6 +1278,7 @@ export function ChatRoleplaySurface({
   }, [activeChatId]);
   // A live reply, and each group member's turn in it, opens at its first paragraph and moves on only
   // when the reader does (#8635).
+  const transcriptHeadingId = useId();
   const streamingCharacterId = useChatStore((s) => s.streamingCharacterId);
   useEffect(() => {
     if (!hasLiveStream) return;
@@ -2220,6 +2223,13 @@ export function ChatRoleplaySurface({
               </Suspense>
             )}
 
+            <ReplyWritingStatus
+              streaming={isStreaming && !staging}
+              name={
+                (streamingCharacterId ? characterMap.get(streamingCharacterId)?.name : null) ??
+                (chatCharIds.length === 1 ? (characterMap.get(chatCharIds[0]!)?.name ?? null) : null)
+              }
+            />
             <div
               data-chat-resource-drop-surface
               className={cn(
@@ -2232,6 +2242,8 @@ export function ChatRoleplaySurface({
                 ref={scrollRef}
                 data-chat-scroll
                 id="roleplay-chat-history"
+                role="region"
+                aria-labelledby={transcriptHeadingId}
                 aria-hidden={visualNovel && !vnHistoryOpen ? true : undefined}
                 inert={visualNovel && !vnHistoryOpen ? true : undefined}
                 className={cn(
@@ -2251,6 +2263,11 @@ export function ChatRoleplaySurface({
                     "calc(var(--mari-roleplay-scroll-padding-bottom, 16px) + var(--mari-message-editor-scroll-space, 0px))",
                 }}
               >
+                {/* QC Nov 22 AX4: the transcript is a named region under a heading, not a live log (replies are
+                    announced once by the reply announcer, never read in full). */}
+                <h1 id={transcriptHeadingId} className="sr-only">
+                  {chat?.name?.trim() || localizeUi("chat.transcript.label")}
+                </h1>
                 {hasNextPage && !staging && (
                   <div className="mari-chat-load-more mb-3 flex justify-center">
                     <button

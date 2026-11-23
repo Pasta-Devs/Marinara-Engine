@@ -11,22 +11,31 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
-import { ImportTagChecks, importTagsBody, OvImportDrop, useImportTagChoice } from "./ImportTagChecks";
+import {
+  ImportTagChecks,
+  importTagsBody,
+  OvImportDrop,
+  useImportTagChoice,
+  type ImportTagChoice,
+} from "./ImportTagChecks";
 import { Spinner } from "../ui/Spinner";
+import { describeLorebookImport, type LorebookImportNote } from "../../lib/st-import-report";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** The opener's Tag imported / Tag source choice (Settings › Data); both on when left out. */
+  importTags?: ImportTagChoice;
 }
 
-export function ImportLorebookModal({ open, onClose }: Props) {
+export function ImportLorebookModal({ open, onClose, importTags: initialImportTags }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
   const [results, setResults] = useState<Array<{ filename: string; success: boolean; message: string }>>([]);
   const [dragOver, setDragOver] = useState(false);
   const qc = useQueryClient();
-  const importTags = useImportTagChoice();
+  const importTags = useImportTagChoice(initialImportTags);
   const overhaulActive = useOverhaulLook();
 
   const handleFiles = async (files: File[]) => {
@@ -62,14 +71,23 @@ export function ImportLorebookModal({ open, onClose }: Props) {
               },
             };
 
-        const data = await api.post<{ success: boolean; error?: string }>(endpoint, {
+        const data = await api.post<{
+          success: boolean;
+          error?: string;
+          entriesImported?: number;
+          notes?: LorebookImportNote[];
+        }>(endpoint, {
           ...payload,
           ...importTagsBody(importTags.choice),
         });
+        // How many entries came in, and any SillyTavern placement moved to the closest one here.
+        const lines = data.success ? describeLorebookImport(data, localizeUi) : [];
         nextResults.push({
           filename: file.name,
           success: data.success,
-          message: data.success ? "Imported lorebook" : (data.error ?? "Import failed"),
+          message: data.success
+            ? lines.join(" ") || localizeUi("ui.modals.importlorebook.imported")
+            : (data.error ?? "Import failed"),
         });
       } catch (error) {
         nextResults.push({

@@ -1,6 +1,9 @@
 // ──────────────────────────────────────────────
 // Zustand Store: Chat Slice
 // ──────────────────────────────────────────────
+import { queueAnnouncement } from "../lib/reply-announcer";
+import { translate } from "../localization/i18n";
+import { deferChatSwitch } from "../lib/chat-switch-gate";
 import { create } from "zustand";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { subscribeWithSelector } from "zustand/middleware";
@@ -438,6 +441,8 @@ export const useChatStore = create<ChatState>()(
     setActiveChat: (chat) => set({ activeChat: chat }),
     setActiveChatId: (id) => {
       const prev = get().activeChatId;
+      // An editor page with unsaved edits (Chat settings' State editor…) asks before the chat changes under it.
+      if (id !== prev && deferChatSwitch(() => get().setActiveChatId(id))) return;
       if (id !== prev) {
         currentInputSnapshot = "";
         clearCurrentInputPresenceTimer();
@@ -481,7 +486,7 @@ export const useChatStore = create<ChatState>()(
         if (id) {
           // Opening a chat is meaningful recency even when the user only reads it.
           // The lightweight touch keeps Home's Continue Chatting shelf in visit order.
-          void api.post(`/chats/${encodeURIComponent(id)}/touch`).catch(() => undefined);
+          void api.post(`/chats/${encodeURIComponent(id)}/touch`, undefined, { sync: false }).catch(() => undefined);
         }
         // Background is NOT cleared here — it's managed by ChatArea's restore effect.
         // Clearing it would cause a black flash and wipe the background for new chats.
@@ -610,6 +615,8 @@ export const useChatStore = create<ChatState>()(
       for (const targetChatId of new Set(targetIds)) {
         void abortGenerationForChat(targetChatId, abortControllers.get(targetChatId)).catch(() => {});
       }
+      // QC Nov 22 AX1: the user pressed Stop; a screen reader hears that the reply stopped.
+      if (targetIds.some((id) => abortControllers.has(id))) queueAnnouncement(translate("chat.announce.stopped"));
     },
     appendStreamBuffer: (text, chatId) =>
       set((state) => {

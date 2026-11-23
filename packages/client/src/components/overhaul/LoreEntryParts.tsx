@@ -4,9 +4,10 @@
 // Chip inputs (keys, schedule), a segmented control (entry type, filter
 // modes), a labelled switch, and a chip picker that adds from a fixed list.
 // ──────────────────────────────────────────────
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Select } from "../ui/Select";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 
@@ -17,10 +18,13 @@ export function OvChipInput({
   placeholder,
   parse,
   mono = true,
+  label,
 }: {
   values: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
+  /** The field's name (its visible heading); the placeholder alone is not a name (QC panel 3 AX16). */
+  label?: string;
   /** Turns typed text into the next list; defaults to comma split with de-dupe. */
   parse?: (current: string[], text: string) => string[];
   mono?: boolean;
@@ -75,31 +79,72 @@ export function OvChipInput({
           }
         }}
         placeholder={placeholder}
+        aria-label={label}
       />
     </div>
   );
 }
 
+/**
+ * Segmented one-of-N control (2-3 short options). A radio group: only the picked option is in the Tab order,
+ * and the arrow keys (Home/End too) move to and pick a neighbour, as with native radio buttons.
+ */
 export function OvSeg<T extends string>({
   value,
   options,
   onChange,
   label,
+  labelledBy,
+  disabled,
+  className,
+  id,
 }: {
   value: T;
-  options: Array<{ value: T; label: string }>;
+  options: Array<{ value: T; label: string; title?: string }>;
   onChange: (next: T) => void;
   label?: string;
+  labelledBy?: string;
+  disabled?: boolean;
+  className?: string;
+  id?: string;
 }) {
   const localize = useLocalizedUiText();
+  const groupRef = useRef<HTMLDivElement>(null);
+  const checkedIndex = options.findIndex((option) => option.value === value);
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (disabled || event.altKey || event.ctrlKey || event.metaKey) return;
+    const current = options.findIndex((option) => option.value === value);
+    let next = -1;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (current + 1) % options.length;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp")
+      next = (current - 1 + options.length) % options.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = options.length - 1;
+    if (next < 0) return;
+    event.preventDefault();
+    onChange(options[next]!.value);
+    groupRef.current?.querySelectorAll<HTMLButtonElement>("[role=radio]")[next]?.focus();
+  };
   return (
-    <div className="ov-seg" role="radiogroup" aria-label={label}>
-      {options.map((option) => (
+    <div
+      ref={groupRef}
+      id={id}
+      className={cn("ov-seg", className)}
+      role="radiogroup"
+      aria-label={labelledBy ? undefined : label}
+      aria-labelledby={labelledBy}
+      aria-disabled={disabled || undefined}
+      onKeyDown={onKeyDown}
+    >
+      {options.map((option, index) => (
         <button
           key={option.value}
           type="button"
           role="radio"
           aria-checked={value === option.value}
+          tabIndex={index === (checkedIndex < 0 ? 0 : checkedIndex) ? 0 : -1}
+          title={option.title ? localize(option.title) : undefined}
+          disabled={disabled}
           className={cn(value === option.value && "is-on")}
           onClick={() => onChange(option.value)}
         >
@@ -138,7 +183,7 @@ export function OvToggle({
   );
 }
 
-/** Selected values as chips plus a native select that adds one of the rest. */
+/** Selected values as chips plus a dropdown that adds one of the rest. */
 export function OvChipPicker({
   options,
   selected,
@@ -168,20 +213,15 @@ export function OvChipPicker({
         </span>
       ))}
       {rest.length ? (
-        <select
-          value=""
-          aria-label={placeholder}
-          onChange={(event) => {
-            if (event.target.value) onChange([...selected, event.target.value]);
-          }}
-        >
-          <option value="">{placeholder}</option>
-          {rest.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        // An "add one" picker: nothing stays picked, each pick adds a chip.
+        <Select
+          className="ov-lsel ov-chipbox__add"
+          label={placeholder}
+          placeholder={placeholder}
+          value={null}
+          onChange={(next) => onChange([...selected, next])}
+          options={rest.map((option) => ({ value: option.value, label: option.label }))}
+        />
       ) : null}
     </div>
   );

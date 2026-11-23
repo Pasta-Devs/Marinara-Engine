@@ -345,6 +345,10 @@ export function OmnibarFooter({
             : t("commandCenter.keyboard.askMariShortcut", "{{mod}}+J Open Professor Mari", {
                 mod: formatShortcutKey("Mod"),
               })}
+          {/* Off Apple, Ctrl+J in a text box stays the IME's (#9129), as the "?" list says too (QC Nov 22 K13). */}
+          {isApplePlatform() ? null : (
+            <span className="ms-1">{t("shortcuts.notWhileTyping", "(not while typing in a box)")}</span>
+          )}
         </span>
         {!idle ? (
           <span className="mari-kbd-hint hidden sm:inline">{t("commandCenter.keyboard.escape", "Esc close")}</span>

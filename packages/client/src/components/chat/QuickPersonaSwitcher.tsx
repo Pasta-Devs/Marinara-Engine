@@ -51,9 +51,18 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
       <button
         type="button"
         ref={btnRef}
+        data-quick-persona-trigger
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={open}
+        // Says what it does and who is picked; the picture or the "?" placeholder alone named it "?" (QC A11Y7).
+        aria-label={
+          activePersona || activeCharacter
+            ? localizeUi("ui.chat.quickpersonaswitcher.personaNamed", {
+                name: activePersona?.name ?? activeCharacterName ?? "",
+              })
+            : localizeUi("ui.chat.quickpersonaswitcher.choosePersona")
+        }
         title={
           activePersona || activeCharacter
             ? localizeUi("ui.chat.quickpersonaswitcher.value1Value2", {
@@ -71,7 +80,8 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
         {activePersona?.avatarPath || activeCharacter?.avatarPath ? (
           <img
             src={avatarPreviewSrc(activePersona?.avatarPath ?? activeCharacter?.avatarPath ?? "", "row")}
-            alt={activePersona?.name ?? activeCharacterName ?? ""}
+            alt=""
+            aria-hidden="true"
             className="h-full w-full rounded-[inherit] object-cover"
             style={getAvatarCropStyle(
               activePersona?.avatarPath
@@ -85,6 +95,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
           <div
             className="flex h-full w-full items-center justify-center rounded-[inherit] bg-foreground/10 text-[0.75rem] font-semibold text-foreground/45"
             data-mari-part="avatar-placeholder"
+            aria-hidden="true"
             data-role={activePersona ? "user" : "assistant"}
           >
             {avatarInitial(activePersona?.name ?? activeCharacterName)}

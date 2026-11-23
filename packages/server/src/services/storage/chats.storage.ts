@@ -2164,8 +2164,12 @@ export function createChatsStorage(db: DB) {
       id: string,
       initial: Pick<Chat, "id" | "createdAt" | "name" | "mode" | "connectionId" | "promptPresetId"> & {
         metadata: Record<string, unknown>;
+        personaId?: string | null;
+        personaCharacterId?: string | null;
+        characterIds?: string[] | string | null;
       },
     ): Promise<boolean> {
+      const initialCast = JSON.stringify(parseCharacterIds(initial.characterIds ?? []));
       const galleryFilePaths = await db.transaction(async (tx) => {
         const [chat] = await tx.select().from(chats).where(eq(chats.id, id)).limit(1);
         if (
@@ -2175,9 +2179,9 @@ export function createChatsStorage(db: DB) {
           chat.name !== initial.name ||
           chat.mode !== initial.mode ||
           chat.connectionId !== initial.connectionId ||
-          chat.personaId ||
-          chat.personaCharacterId ||
-          parseCharacterIds(chat.characterIds).length ||
+          (chat.personaId ?? null) !== (initial.personaId ?? null) ||
+          (chat.personaCharacterId ?? null) !== (initial.personaCharacterId ?? null) ||
+          JSON.stringify(parseCharacterIds(chat.characterIds)) !== initialCast ||
           chat.groupId ||
           chat.folderId ||
           chat.connectedChatId ||
@@ -2207,6 +2211,46 @@ export function createChatsStorage(db: DB) {
       if (!galleryFilePaths) return false;
       await cleanupDeletedChatFiles(id, galleryFilePaths);
       return true;
+    },
+
+    /**
+     * Removes a New chat whose setup never finished, checking and deleting in one transaction so a message that
+     * lands meanwhile is never deleted with it. "kept" means it has something worth keeping (a message the player
+     * wrote, a built game, memories, restorable deleted messages, a link to another chat); "none" means it is not a
+     * draft this call may remove. A draft kept for later ("Setup not finished"), or one whose setup marked choices in
+     * it (`setupHasInput`), is removed only by the player's own Discard (`explicit`).
+     */
+    async removeUnfinishedSetupChat(id: string, options: { explicit: boolean }): Promise<"deleted" | "kept" | "none"> {
+      let outcome: "deleted" | "kept" | "none" = "none";
+      const galleryFilePaths = await db.transaction(async (tx) => {
+        const [chat] = await tx.select().from(chats).where(eq(chats.id, id)).limit(1);
+        if (!chat) return null;
+        const meta = parseMetadata(chat.metadata);
+        const pending = meta.setupPending === true;
+        const keptForLater = meta.setupUnfinished === true;
+        if (!options.explicit && (!pending || meta.setupHasInput === true)) return null;
+        if (!pending && !keptForLater) return null;
+        outcome = "kept";
+        const status = typeof meta.gameSessionStatus === "string" ? meta.gameSessionStatus : null;
+        if (chat.mode === "game" && status && status !== "setup") return null;
+        if (chat.groupId || chat.connectedChatId) return null;
+        const written = await tx
+          .select({ id: messages.id })
+          .from(messages)
+          .where(
+            chat.mode === "game" ? eq(messages.chatId, id) : and(eq(messages.chatId, id), eq(messages.role, "user")),
+          )
+          .limit(1);
+        if (written.length) return null;
+        for (const table of [memoryChunks, agentMemory, messageTrash]) {
+          const rows = await tx.select({ id: table.id }).from(table).where(eq(table.chatId, id)).limit(1);
+          if (rows.length) return null;
+        }
+        outcome = "deleted";
+        return removeChatDatabaseRecords(tx, id);
+      });
+      if (galleryFilePaths) await cleanupDeletedChatFiles(id, galleryFilePaths);
+      return outcome;
     },
 
     /** Atomically remove a marked Roleplay DM thread only while it is still empty. */

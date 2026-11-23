@@ -2,7 +2,7 @@
 // Regex Scripts — Prompt Application
 // ──────────────────────────────────────────────
 import {
-  applyRegexReplacement,
+  applyRegexScriptReplacement,
   isPatternSafe,
   isRegexApplyMode,
   resolveRegexPatternLiteralMacros,
@@ -21,6 +21,7 @@ type RegexScriptLike = {
   flags?: unknown;
   replaceString?: unknown;
   trimStrings?: unknown;
+  trimScope?: unknown;
   placement?: unknown;
   promptOnly?: unknown;
   applyMode?: unknown;
@@ -197,11 +198,11 @@ function applyRegexScriptsForModes(
       const re = new RegExp(findRegex, flags);
       const replacement = typeof script.replaceString === "string" ? script.replaceString : "";
       if (!vmRegexReplaceGuard(re, result)) continue;
-      result = applyRegexReplacement(result, re, replacement, (value) => resolveScriptString(value, options));
-      for (const trim of parseTrimStrings(script.trimStrings)) {
-        const resolvedTrim = resolveScriptString(trim, options);
-        if (resolvedTrim) result = result.split(resolvedTrim).join("");
-      }
+      result = applyRegexScriptReplacement(result, re, replacement, {
+        trimStrings: parseTrimStrings(script.trimStrings),
+        trimScope: script.trimScope,
+        resolve: (value) => resolveScriptString(value, options),
+      });
     } catch {
       /* invalid regex — skip */
     }

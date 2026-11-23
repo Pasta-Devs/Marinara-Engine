@@ -44,6 +44,7 @@ import { hostOf } from "../modals/create-connection/shared";
 import { ToggleSetting } from "../panels/settings/SettingControls";
 import { ProviderIcon } from "./ProviderIcon";
 import { closeIfClean, DictationSettings, VoiceJobSettings } from "./ConnectionDefaults";
+import { ImageReadingSettings } from "./ImageReadingSettings";
 import { Modal } from "../ui/Modal";
 import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
@@ -919,8 +920,11 @@ export function DeviceDetailWindow({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Voice or Dictation settings on their own, for the character editor's "Open settings" and device links. */
-export function JobSettingsWindow({ job, onClose }: { job: "voice" | "stt"; onClose: () => void }) {
+/**
+ * Voice, Dictation or Image reading settings on their own, for the character editor's "Open settings", device
+ * links and the Image reading picker. Classic layout only: the new layout opens the job's Connections page.
+ */
+export function JobSettingsWindow({ job, onClose }: { job: "voice" | "stt" | "vision"; onClose: () => void }) {
   const { t } = useTranslation();
   const connectionSaving = useUIStore((s) => s.connectionSaving);
   return (
@@ -931,7 +935,9 @@ export function JobSettingsWindow({ job, onClose }: { job: "voice" | "stt"; onCl
       title={t("connections.defaults.settingsFor", { role: t(jobLabelKey(JOB[job])) })}
       width="max-w-xl"
     >
-      <div className="flex flex-col gap-3">{job === "voice" ? <VoiceJobSettings /> : <DictationSettings />}</div>
+      <div className="flex flex-col gap-3">
+        {job === "voice" ? <VoiceJobSettings /> : job === "stt" ? <DictationSettings /> : <ImageReadingSettings />}
+      </div>
     </Modal>
   );
 }

@@ -3,7 +3,8 @@
 //
 // Every chat window (Chat Settings, popped-out drawers, the Trackers window, the
 // chat's control windows) renders through this component so they behave and theme
-// alike. A minimizable window shrinks to a small button (its bubble) the user can
+// alike. A window that opts in (`poppable`) can pop out into a separate browser window (DetachedWindow).
+// A minimizable window shrinks to a small button (its bubble) the user can
 // place anywhere; on a phone it shows as its bubble and opens as a sheet. Custom
 // themes style the stable `mari-window…` classes, the data attributes and the
 // `--mari-window-*` variables documented in globals.css.
@@ -22,8 +23,11 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import { Lock, Pin, Unlock, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { inertOutside } from "../../lib/inert-outside";
+import { Lock, PictureInPicture2, Pin, Unlock, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import {
   PHONE_BUBBLE_SIZE_PX,
@@ -50,6 +54,7 @@ import { isBrowserExtensionUi } from "../../lib/chat-floating-ui-events";
 import { CHAT_VISUAL_VIEWPORT_CHANGE_EVENT } from "../../hooks/use-visual-viewport-chat-bottom";
 import { BUBBLE_SNAP_GAP_PX } from "../../lib/window-bubble-snap";
 import { DrawerHostContext, type DrawerHost } from "./drawer-host";
+import { DetachedWindow, closeDetachedWindow, openDetachedWindow, type DetachedWindowTarget } from "./DetachedWindow";
 import { WindowBubble } from "./WindowBubble";
 import { useChatToolsMenuStore } from "../../stores/chat-tools-menu.store";
 import {
@@ -103,6 +108,13 @@ export interface FloatingWindowProps {
   /** windowClassName: classes for popped-out section windows when they should differ from this window's. */
   drawerHost?: { title: string; scrollClassName?: string; windowClassName?: string };
   /**
+   * The window can pop out into a separate browser window beside the app (`[data-popped-out="true"]`),
+   * where it fills that window: no move, resize, pin or lock, and Escape leaves it be. The same button
+   * puts it back; closing the browser window counts as its close button. `title` names it in the
+   * browser's frame. Not offered on phones or with `minimizable`.
+   */
+  poppable?: { title: string };
+  /**
    * The window can shrink to a small button you place anywhere (its bubble), showing `icon`; `label`
    * names it. Closing it, Escape and, while unpinned, a press elsewhere shrink it back too.
    * `getDefaultLayout` says whether it starts minimized and where its bubble starts. On a phone
@@ -123,6 +135,8 @@ export interface FloatingWindowProps {
   className?: string;
   sheetClassName?: string;
   sheetStyle?: CSSProperties;
+  /** As a sheet, the window is modal: the page behind it is inert and it says aria-modal (QC panel 3 AX12). */
+  modalSheet?: boolean;
   headerClassName?: string;
   titleClassName?: string;
   bodyClassName?: string;
@@ -459,10 +473,12 @@ export function FloatingWindow({
   autoFocus = true,
   hidden = false,
   drawerHost,
+  poppable,
   minimizable,
   className,
   sheetClassName,
   sheetStyle,
+  modalSheet: modalWhenSheet = false,
   headerClassName,
   titleClassName,
   bodyClassName,
@@ -476,7 +492,12 @@ export function FloatingWindow({
   const { t } = useTranslation();
   const titleId = `mari-window-title-${useId().replace(/:/gu, "")}`;
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const sheet = presentation === "sheet";
+  const [poppedOut, setPoppedOut] = useState<{ target: DetachedWindowTarget; host: HTMLElement } | null>(null);
+  const poppedOutRef = useRef(poppedOut);
+  const popOutPendingRef = useRef(false);
+  const mountedRef = useRef(false);
+  // Popped out, it is a window in its own right, whatever the app's layout does meanwhile.
+  const sheet = presentation === "sheet" && !poppedOut;
   const savedLayout = useFloatingWindowStore((state) => state.layouts[id]);
   const savedDesktopBubble = useFloatingWindowStore((state) => state.bubbles[id]);
   const resetRevision = useFloatingWindowStore((state) => state.resetRevision);
@@ -575,7 +596,9 @@ export function FloatingWindow({
     [bounds, bubbleSize, resetRevision, defaultRevision, openInStore],
   );
   const layout = savedLayout ?? defaultLayout;
-  const pinned = !sheet && layout.pinned;
+  // Popped out it stays up like a pinned window: presses in the app and Escape never close it.
+  const pinned = !!poppedOut || (!sheet && layout.pinned);
+  const frameControls = !sheet && !poppedOut;
   const locked = layout.locked;
   const geometry = clampWindowGeometry(liveGeometry ?? layout, bounds, limits);
   const canMinimize = !!minimizable && !sheet;
@@ -642,6 +665,70 @@ export function FloatingWindow({
     },
     [canMinimize, id, phoneBubble],
   );
+  const requestCloseRef = useRef(requestClose);
+  requestCloseRef.current = requestClose;
+
+  // Pop out: the window moves into a separate browser window and back. Opening it must run straight
+  // from the click (Picture-in-Picture needs its user activation), so nothing awaits before it.
+  const popOut = async () => {
+    if (!poppable || popOutPendingRef.current || poppedOutRef.current) return;
+    popOutPendingRef.current = true;
+    try {
+      const target = await openDetachedWindow({
+        title: poppable.title,
+        width: geometry.width,
+        height: geometry.height,
+      });
+      if (!target) {
+        toast.error(t("window.controls.popOutBlocked"));
+        return;
+      }
+      // The window closed while its browser window was opening: nothing would ever close that one.
+      if (!mountedRef.current) {
+        closeDetachedWindow(target);
+        return;
+      }
+      const host = target.popup.document.createElement("div");
+      host.style.display = "contents";
+      const next = { target, host };
+      poppedOutRef.current = next;
+      setPoppedOut(next);
+    } catch {
+      toast.error(t("window.controls.popOutFailed"));
+    } finally {
+      popOutPendingRef.current = false;
+    }
+  };
+
+  const putBack = () => {
+    const current = poppedOutRef.current;
+    if (!current) return;
+    // Cleared first, so the browser window's own close event reads as a put-back, not a close.
+    poppedOutRef.current = null;
+    setPoppedOut(null);
+    closeDetachedWindow(current.target);
+    requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true }));
+  };
+
+  // Closing the browser window counts as the window's close button; a put-back or an older window does not.
+  const handlePopOutClosed = useCallback((closed: DetachedWindowTarget) => {
+    if (poppedOutRef.current?.target !== closed) return;
+    poppedOutRef.current = null;
+    setPoppedOut(null);
+    requestCloseRef.current("close-button");
+  }, []);
+
+  // The window closing (or the app leaving it) takes its browser window along.
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const current = poppedOutRef.current;
+      if (!current) return;
+      poppedOutRef.current = null;
+      closeDetachedWindow(current.target);
+    };
+  }, []);
 
   // The window opens where it was last left; its bubble's place is its own.
   const restoreFromBubble = (bubble: HTMLButtonElement) => {
@@ -653,6 +740,16 @@ export function FloatingWindow({
     useFloatingWindowStore.getState().openWindow(id, bubble);
   };
 
+  // QC panel 3 AX12: a sheet (phones, iPad portrait) covers the page, so it is modal: what is behind it is
+  // inert for VoiceOver and Tab. The desktop window stays non-modal (owner decision). A layout effect, so the
+  // page is live again before the focus effect below hands focus back to the opener on close.
+  const modalSheet = modalWhenSheet && sheet && !hidden && !minimized;
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!modalSheet || !root) return;
+    return inertOutside(root);
+  }, [modalSheet]);
+
   // Focus moves into the window when it opens and back to its opener when it closes. A remount (a
   // chat switch, or the loading placeholder giving way) only takes focus if nothing else has it.
   // Hiding and showing a kept-mounted window count as closing and opening it.
@@ -661,7 +758,14 @@ export function FloatingWindow({
     restoreFocusOnUnmountRef.current = false;
     const requested = takeFloatingWindowFocusRequest(id);
     const focusIsFree = !document.activeElement || document.activeElement === document.body;
-    if ((requested && (!sheet || phoneMenu)) || (!sheet && autoFocus && focusIsFree)) {
+    // A modal sheet takes focus on its root too (QC panel 3 AX12), never an input, so the iOS keyboard stays down.
+    // Everything behind a modal sheet is inert, so focus left on the page (the loading placeholder it replaced
+    // went away with it) belongs in the sheet.
+    if (
+      (requested && (!sheet || phoneMenu || modalWhenSheet)) ||
+      (!sheet && autoFocus && focusIsFree) ||
+      (sheet && modalWhenSheet && focusIsFree)
+    ) {
       rootRef.current?.focus({ preventScroll: true });
     }
     return () => {
@@ -723,7 +827,7 @@ export function FloatingWindow({
   );
 
   const beginPointerSession = (event: ReactPointerEvent<HTMLElement>, edge: ResizeEdge | null) => {
-    if (sheet || locked || event.button !== 0 || pointerSessionRef.current) return;
+    if (!frameControls || locked || event.button !== 0 || pointerSessionRef.current) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     pointerSessionRef.current = {
@@ -778,7 +882,7 @@ export function FloatingWindow({
   };
 
   const handleHeaderKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget || locked || sheet) return;
+    if (event.target !== event.currentTarget || locked || !frameControls) return;
     const delta = readArrowDelta(event);
     if (!delta) return;
     // Handled keys stop here, so chat-wide arrow shortcuts (swipes, history) skip them.
@@ -787,7 +891,7 @@ export function FloatingWindow({
   };
 
   const handleResizeKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
-    if (locked || sheet) return;
+    if (locked || !frameControls) return;
     const delta = readArrowDelta(event);
     if (!delta) return;
     event.preventDefault();
@@ -857,77 +961,97 @@ export function FloatingWindow({
     ) : null;
   if (minimized && minimizable && !hidden && !drawerHost) return minimizedBubble;
 
-  const rootStyle: CSSProperties | undefined = sheet
-    ? sheetStyle
-    : {
-        left: geometry.x,
-        top: geometry.y,
-        width: geometry.width,
-        height: geometry.height,
-        zIndex: layer === "top" ? TOP_LAYER_WINDOW_Z_INDEX : FLOATING_WINDOW_Z_BASE + 1 + Math.max(0, stackIndex),
-      };
+  const rootStyle: CSSProperties | undefined = poppedOut
+    ? undefined
+    : sheet
+      ? sheetStyle
+      : {
+          left: geometry.x,
+          top: geometry.y,
+          width: geometry.width,
+          height: geometry.height,
+          zIndex: layer === "top" ? TOP_LAYER_WINDOW_Z_INDEX : FLOATING_WINDOW_Z_BASE + 1 + Math.max(0, stackIndex),
+        };
 
-  return (
-    <>
-      {minimizedBubble}
+  const movable = frameControls && !locked;
+  const windowElement = (
+    <div
+      ref={rootRef}
+      role="dialog"
+      aria-modal={modalSheet ? "true" : "false"}
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      hidden={hidden || minimized}
+      data-window={id}
+      data-pinned={pinned ? "true" : "false"}
+      data-locked={locked ? "true" : "false"}
+      data-detached="false"
+      data-popped-out={poppedOut ? "true" : "false"}
+      data-presentation={presentation}
+      data-no-intuitive-swipe
+      {...rootAttributes}
+      className={cn(
+        "mari-window flex min-h-0 flex-col outline-none",
+        className,
+        sheet ? sheetClassName : poppedOut ? "fixed inset-0" : "fixed",
+      )}
+      style={rootStyle}
+      onPointerDownCapture={() => bringToFront(id)}
+      onFocusCapture={() => bringToFront(id)}
+      onKeyDown={handleRootKeyDown}
+    >
+      <WindowTitle title={title} where="window" />
       <div
-        ref={rootRef}
-        role="dialog"
-        aria-modal="false"
-        aria-labelledby={titleId}
-        tabIndex={-1}
-        hidden={hidden || minimized}
-        data-window={id}
-        data-pinned={pinned ? "true" : "false"}
-        data-locked={locked ? "true" : "false"}
-        data-detached="false"
-        data-presentation={presentation}
-        data-no-intuitive-swipe
-        {...rootAttributes}
-        className={cn("mari-window flex min-h-0 flex-col outline-none", className, sheet ? sheetClassName : "fixed")}
-        style={rootStyle}
-        onPointerDownCapture={() => bringToFront(id)}
-        onFocusCapture={() => bringToFront(id)}
-        onKeyDown={handleRootKeyDown}
+        className={cn(
+          "mari-window__header flex shrink-0 items-center justify-between gap-2",
+          movable && "cursor-grab touch-none select-none active:cursor-grabbing",
+          headerClassName,
+        )}
+        role={movable ? "group" : undefined}
+        tabIndex={movable ? 0 : undefined}
+        aria-label={movable ? t("window.controls.move") : undefined}
+        onPointerDown={handleHeaderPointerDown}
+        onPointerMove={updatePointerSession}
+        onPointerUp={endPointerSession}
+        onPointerCancel={endPointerSession}
+        onKeyDown={handleHeaderKeyDown}
       >
-        <WindowTitle title={title} where="window" />
-        <div
-          className={cn(
-            "mari-window__header flex shrink-0 items-center justify-between gap-2",
-            !sheet && !locked && "cursor-grab touch-none select-none active:cursor-grabbing",
-            headerClassName,
+        <span className="mari-window__title-row flex min-w-0 items-center gap-1.5">
+          {titleIcon}
+          <h2 id={titleId} className={cn("mari-window__title truncate", titleClassName)}>
+            {title}
+          </h2>
+          {titleAccessory}
+        </span>
+        <div className="mari-window__controls flex shrink-0 items-center">
+          {headerControls}
+          {poppable && !minimizable && !sheet && (
+            <button
+              type="button"
+              data-window-control="pop-out"
+              aria-pressed={!!poppedOut}
+              aria-label={t(poppedOut ? "window.controls.putBack" : "window.controls.popOut")}
+              title={t(poppedOut ? "window.controls.putBack" : "window.controls.popOutHint")}
+              className="mari-window__control"
+              onClick={poppedOut ? putBack : () => void popOut()}
+            >
+              <PictureInPicture2 size="0.875rem" />
+            </button>
           )}
-          role={sheet || locked ? undefined : "group"}
-          tabIndex={sheet || locked ? undefined : 0}
-          aria-label={sheet || locked ? undefined : t("window.controls.move")}
-          onPointerDown={handleHeaderPointerDown}
-          onPointerMove={updatePointerSession}
-          onPointerUp={endPointerSession}
-          onPointerCancel={endPointerSession}
-          onKeyDown={handleHeaderKeyDown}
-        >
-          <span className="mari-window__title-row flex min-w-0 items-center gap-1.5">
-            {titleIcon}
-            <h2 id={titleId} className={cn("mari-window__title truncate", titleClassName)}>
-              {title}
-            </h2>
-            {titleAccessory}
-          </span>
-          <div className="mari-window__controls flex shrink-0 items-center">
-            {headerControls}
-            {!sheet && (
-              <button
-                type="button"
-                data-window-control="pin"
-                aria-pressed={pinned}
-                aria-label={t("window.controls.pin")}
-                title={t(pinned ? "window.controls.unpinHint" : "window.controls.pinHint")}
-                className="mari-window__control"
-                onClick={() => commitLayout({ pinned: !pinned })}
-              >
-                <Pin size="0.875rem" fill={pinned ? "currentColor" : "none"} />
-              </button>
-            )}
+          {frameControls && (
+            <button
+              type="button"
+              data-window-control="pin"
+              aria-pressed={pinned}
+              aria-label={t("window.controls.pin")}
+              title={t(pinned ? "window.controls.unpinHint" : "window.controls.pinHint")}
+              className="mari-window__control"
+              onClick={() => commitLayout({ pinned: !pinned })}
+            >
+              <Pin size="0.875rem" fill={pinned ? "currentColor" : "none"} />
+            </button>
+          )}
+          {!poppedOut && (
             <button
               type="button"
               data-window-control="lock"
@@ -939,59 +1063,74 @@ export function FloatingWindow({
             >
               {locked ? <Lock size="0.875rem" /> : <Unlock size="0.875rem" />}
             </button>
-            {closeAccessory}
-            <button
-              type="button"
-              data-window-control="close"
-              aria-label={closeLabel}
-              title={closeLabel}
-              className="mari-window__control"
-              onClick={() => requestClose("close-button")}
-            >
-              <X size="1rem" />
-            </button>
-          </div>
-        </div>
-        <div ref={bodyRef} className={cn("mari-window__body flex min-h-0 flex-1 flex-col", bodyClassName)}>
-          {drawerHost ? (
-            <DrawerHostContext.Provider value={drawerHostValue}>{children}</DrawerHostContext.Provider>
-          ) : (
-            children
           )}
+          {closeAccessory}
+          <button
+            type="button"
+            data-window-control="close"
+            aria-label={closeLabel}
+            title={closeLabel}
+            className="mari-window__control"
+            onClick={() => requestClose("close-button")}
+          >
+            <X size="1rem" />
+          </button>
         </div>
-        {!sheet &&
-          !locked &&
-          RESIZE_EDGES.map((edge) =>
-            edge === "se" ? (
-              <button
-                key={edge}
-                type="button"
-                data-edge={edge}
-                aria-label={t("window.controls.resize")}
-                className="mari-window__resize-handle"
-                onPointerDown={(event) => beginPointerSession(event, edge)}
-                onPointerMove={updatePointerSession}
-                onPointerUp={endPointerSession}
-                onPointerCancel={endPointerSession}
-                onKeyDown={handleResizeKeyDown}
-              >
-                {/* Shown while the pointer or focus is in the window: a cue that it resizes from here. */}
-                <span aria-hidden="true" className="mari-window__resize-grip" />
-              </button>
-            ) : (
-              <div
-                key={edge}
-                data-edge={edge}
-                aria-hidden="true"
-                className="mari-window__resize-handle"
-                onPointerDown={(event) => beginPointerSession(event, edge)}
-                onPointerMove={updatePointerSession}
-                onPointerUp={endPointerSession}
-                onPointerCancel={endPointerSession}
-              />
-            ),
-          )}
       </div>
+      <div ref={bodyRef} className={cn("mari-window__body flex min-h-0 flex-1 flex-col", bodyClassName)}>
+        {drawerHost ? (
+          <DrawerHostContext.Provider value={drawerHostValue}>{children}</DrawerHostContext.Provider>
+        ) : (
+          children
+        )}
+      </div>
+      {movable &&
+        RESIZE_EDGES.map((edge) =>
+          edge === "se" ? (
+            <button
+              key={edge}
+              type="button"
+              data-edge={edge}
+              aria-label={t("window.controls.resize")}
+              className="mari-window__resize-handle"
+              onPointerDown={(event) => beginPointerSession(event, edge)}
+              onPointerMove={updatePointerSession}
+              onPointerUp={endPointerSession}
+              onPointerCancel={endPointerSession}
+              onKeyDown={handleResizeKeyDown}
+            >
+              {/* Shown while the pointer or focus is in the window: a cue that it resizes from here. */}
+              <span aria-hidden="true" className="mari-window__resize-grip" />
+            </button>
+          ) : (
+            <div
+              key={edge}
+              data-edge={edge}
+              aria-hidden="true"
+              className="mari-window__resize-handle"
+              onPointerDown={(event) => beginPointerSession(event, edge)}
+              onPointerMove={updatePointerSession}
+              onPointerUp={endPointerSession}
+              onPointerCancel={endPointerSession}
+            />
+          ),
+        )}
+    </div>
+  );
+
+  if (poppedOut) {
+    return (
+      <>
+        <DetachedWindow host={poppedOut.host} target={poppedOut.target} onClosed={handlePopOutClosed} />
+        {createPortal(windowElement, poppedOut.host)}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {minimizedBubble}
+      {windowElement}
     </>
   );
 }

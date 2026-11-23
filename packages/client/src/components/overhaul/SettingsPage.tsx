@@ -5,6 +5,9 @@
 // sections themselves are the app's own components, so nothing loses
 // behaviour. Chips under the tabs jump to a section; search covers all tabs.
 // ──────────────────────────────────────────────
+import { isMarinaraAndroidShell } from "../../lib/android-bridge";
+import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { APP_VERSION, SETTINGS_SECTIONS, type SettingsSectionId } from "@marinara-engine/shared";
@@ -55,6 +58,8 @@ function scrollToSection(id: SettingsSectionId, attempt = 0, controlId?: string 
   window.requestAnimationFrame(() => {
     const target =
       (controlId ? document.getElementById(`settings-control-${controlId}`) : null) ??
+      // Search and Professor Mari rows keep the anchors they had in the omnibar's settings view.
+      (controlId ? document.getElementById(`omnibar-setting-${controlId}`) : null) ??
       document.getElementById(`settings-section-${id}`);
     // The nearest box that really scrolls: on phones `.ov-settings__scroll` grows with its content and the
     // page around it scrolls instead, so the jump went nowhere (keyboard QC round 2, PN17).
@@ -196,10 +201,12 @@ const MOBILE_TABS: Partial<
 };
 
 /** Sections whose risky buttons (resets, deletes) only show after tapping Edit. */
-const EDIT_SECTIONS = new Set<SettingsSectionId>(["app-style", "image-generation", "danger-zone"]);
+const EDIT_SECTIONS = new Set<SettingsSectionId>(["app-style", "danger-zone"]);
 
-const IS_ANDROID = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
-/** Layout holds a computer-only setting and an Android-only one; elsewhere it would be empty. */
+// The Android app (APK), not Chrome on Android: Layout's Android controls need the app's bridge, so in Chrome the
+// section was an empty page (QC panel 2, #13).
+const IS_ANDROID = isMarinaraAndroidShell();
+/** Layout holds a computer-only setting and an Android-app-only one; elsewhere it would be empty. */
 const HIDDEN_ON_DEVICE = new Set<SettingsSectionId>(IS_ANDROID ? [] : ["layout"]);
 
 const VISUAL_THEME_LABELS: Record<string, string> = { default: "Marinara", sillytavern: "SillyTavern", stage: "Stage" };
@@ -259,8 +266,8 @@ function useSectionValues(): Partial<Record<SettingsSectionId, string>> {
  * it is a split view instead: tabs on the left, the tab's sections on the right.
  */
 function OverhaulSettingsMobile() {
-  const split = useMatchMedia("(min-width: 700px)");
-  return split ? <OverhaulSettingsSplit /> : <OverhaulSettingsPhone />;
+  const tablet = useMatchMedia("(min-width: 700px)");
+  return tablet ? <OverhaulSettingsDesktop tablet /> : <OverhaulSettingsPhone />;
 }
 
 function EditToggle({ editing, onToggle }: { editing: boolean; onToggle: () => void }) {
@@ -319,6 +326,8 @@ function OverhaulSettingsPhone() {
     setEditing(false);
     setLevel(next);
   };
+  // Safari's back and the left-edge swipe go up one level, the same as the page's own ‹ button (QC Nov 21, MOB1).
+  useBackDismiss(level !== "root", () => go(level === "section" ? "tab" : "root", true));
   // Phone: a picked setting opens its section's page (a small tab is one page: open the tab there).
   useSettingsJumpTarget((target, controlId) => {
     const tabEntry = OVERHAUL_SETTINGS_TABS.find((item) => item.sections.includes(target));
@@ -487,107 +496,20 @@ function scrollToSectionIn(id: SettingsSectionId, root: HTMLElement | null, atte
 }
 
 /** iPad (from about 700px wide): tabs on the left, the selected tab's sections on the right. */
-function OverhaulSettingsSplit() {
-  const localize = useLocalizedUiText();
-  const tabId = useOverhaulStore((s) => s.settingsTab);
-  const setTab = useOverhaulStore((s) => s.setSettingsTab);
-  const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState(false);
-  const results = useSettingsSearch(query).filter((result) => !HIDDEN_ON_DEVICE.has(result.id));
-  const tab = OVERHAUL_SETTINGS_TABS.find((item) => item.id === tabId) ?? OVERHAUL_SETTINGS_TABS[0]!;
-  const sections = tab.sections.filter((id) => !HIDDEN_ON_DEVICE.has(id));
-  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
-  useSettingsJumpTarget((sectionId, controlId) => scrollToSection(sectionId, 0, controlId));
-  // Edit shows only when the tab has a risky button on screen (Media has none before its Agent is installed).
-  const [hasEdit, setHasEdit] = useState(false);
-  useEffect(() => {
-    if (!scrollEl) return;
-    const read = () =>
-      setHasEdit(
-        Array.from(scrollEl.querySelectorAll<HTMLElement>('[id^="settings-section-"]')).some(
-          (el) => el.offsetParent !== null && !!el.querySelector(".ovm-risky"),
-        ),
-      );
-    read();
-    const observer = new MutationObserver(read);
-    observer.observe(scrollEl, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [scrollEl]);
-  useEffect(() => {
-    scrollEl?.scrollTo({ top: 0 });
-    setEditing(false);
-  }, [scrollEl, tab.id]);
-
-  return (
-    <section
-      className="ov-settings ovm-settings ovm-settings--split"
-      data-component="OverhaulSettingsPage"
-      data-ovm-edit={editing ? "" : undefined}
-      data-ovm-android={IS_ANDROID ? "" : undefined}
-      data-ovm-tab={tab.id}
-    >
-      <nav className="ovm-settings__side" aria-label={localize("Settings tabs")}>
-        <h1 data-mari-part="page-title">{localize("Settings")}</h1>
-        <SettingsSearchField query={query} setQuery={setQuery} />
-        {query.trim() ? (
-          results.length ? (
-            results.map((result) => (
-              <button
-                key={`${result.tab.id}:${result.id}`}
-                type="button"
-                className="ovm-settings__tab ovm-settings__tab--result"
-                onClick={() => {
-                  setQuery("");
-                  if (result.page) {
-                    openLibrarySection(result.page);
-                    return;
-                  }
-                  setTab(result.tab.id);
-                  scrollToSection(result.id);
-                }}
-              >
-                <span>{localize(sectionLabel(result.id))}</span>
-                <small>{localize(result.tab.label)}</small>
-              </button>
-            ))
-          ) : (
-            <p className="ovm-drill-help">{localize("No settings match.")}</p>
-          )
-        ) : (
-          OVERHAUL_SETTINGS_TABS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={cn("ovm-settings__tab", item.id === tab.id && "is-on")}
-              aria-current={item.id === tab.id ? "page" : undefined}
-              onClick={() => setTab(item.id)}
-            >
-              {localize(item.label)}
-            </button>
-          ))
-        )}
-      </nav>
-      <div className="ov-settings__scroll ovm-settings__main ovm-settings__onepage" ref={setScrollEl}>
-        <div className="ovm-settings__mainhead">
-          <h2>{localize(tab.label)}</h2>
-          {hasEdit ? <EditToggle editing={editing} onToggle={() => setEditing((on) => !on)} /> : null}
-        </div>
-        <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
-          <OverhaulSettingsSections key={tab.id} sectionIds={sections} />
-        </Suspense>
-      </div>
-    </section>
-  );
-}
-
-function OverhaulSettingsDesktop() {
+/**
+ * Computers, and tablets from about 700px wide (her call 2026-11-21: the tablet's tabs-on-the-left split view
+ * looked nothing like the computer's): title and search, the tab strip, section chips, the sections.
+ * On a tablet, computer-only sections and settings are left out.
+ */
+function OverhaulSettingsDesktop({ tablet = false }: { tablet?: boolean }) {
   const localize = useLocalizedUiText();
   const tabId = useOverhaulStore((s) => s.settingsTab);
   const setTab = useOverhaulStore((s) => s.setSettingsTab);
   const [query, setQuery] = useState("");
   const tab = OVERHAUL_SETTINGS_TABS.find((item) => item.id === tabId) ?? OVERHAUL_SETTINGS_TABS[0]!;
+  const sectionIds = tablet ? tab.sections.filter((id) => !HIDDEN_ON_DEVICE.has(id)) : tab.sections;
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
-  const chips = useSectionChips(scrollEl, tab.sections);
+  const chips = useSectionChips(scrollEl, sectionIds);
   // A new tab starts at its top.
   useEffect(() => {
     scrollEl?.scrollTo({ top: 0 });
@@ -623,11 +545,16 @@ function OverhaulSettingsDesktop() {
           page: item.page,
         })),
       )
+      .filter((result) => !tablet || !HIDDEN_ON_DEVICE.has(result.id))
       .slice(0, 12) as { tab: (typeof OVERHAUL_SETTINGS_TABS)[number]; id: SettingsSectionId; page?: "extensions" }[];
-  }, [query]);
+  }, [query, tablet]);
 
   return (
-    <section className="ov-settings" data-component="OverhaulSettingsPage">
+    <section
+      className={cn("ov-settings", tablet && "ovm-settings-tablet")}
+      data-component="OverhaulSettingsPage"
+      data-ovm-android={tablet && IS_ANDROID ? "" : undefined}
+    >
       <header className="ov-settings__head">
         {/* No subtitle: it listed the same sections as the tabs and chips below (audit C8). */}
         <h1 data-mari-part="page-title">{localize("Settings")}</h1>
@@ -638,6 +565,7 @@ function OverhaulSettingsDesktop() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={localize("Search all settings")}
+              aria-label={localize("Search all settings")}
             />
           </label>
           {results.length ? (
@@ -665,13 +593,21 @@ function OverhaulSettingsDesktop() {
         </div>
       </header>
       <div className="ov-settings__tabs">
-        <div role="tablist" aria-label={localize("Settings categories")}>
+        {/* A11Y11: one Tab stop; arrows move focus and Enter or Space opens the tab (manual: a tab takes a moment). */}
+        <div
+          role="tablist"
+          aria-label={localize("Settings categories")}
+          onKeyDown={(event) => onRovingTabsKeyDown(event, "manual")}
+        >
           {OVERHAUL_SETTINGS_TABS.map((item) => (
             <button
               key={item.id}
               type="button"
               role="tab"
+              id={`ov-settings-tab-${item.id}`}
+              aria-controls="ov-settings-panel"
               aria-selected={item.id === tab.id}
+              tabIndex={item.id === tab.id ? 0 : -1}
               className={cn(item.id === tab.id && "is-on")}
               onClick={() => setTab(item.id)}
             >
@@ -689,9 +625,15 @@ function OverhaulSettingsDesktop() {
           ))}
         </div>
       ) : null}
-      <div className="ov-settings__scroll" ref={setScrollEl}>
+      <div
+        className="ov-settings__scroll"
+        ref={setScrollEl}
+        id="ov-settings-panel"
+        role="tabpanel"
+        aria-labelledby={`ov-settings-tab-${tab.id}`}
+      >
         <Suspense fallback={<p className="ov-gallery__note">{localize("Loading…")}</p>}>
-          <OverhaulSettingsSections key={tab.id} sectionIds={tab.sections} />
+          <OverhaulSettingsSections key={tab.id} sectionIds={sectionIds} />
         </Suspense>
       </div>
     </section>

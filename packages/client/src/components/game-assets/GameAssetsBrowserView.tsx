@@ -2,6 +2,7 @@
 // View: File Browser (full-page overlay)
 // ──────────────────────────────────────────────
 import { useState, useMemo, useCallback, useRef, useEffect, type ReactNode } from "react";
+import { useBackSteps } from "../../hooks/use-back-steps";
 import { createPortal } from "react-dom";
 import { Check, Folder, Upload, Pencil, Info, FileText, Move, Copy, Minus, RotateCcw, Trash2, X } from "lucide-react";
 import {
@@ -33,6 +34,7 @@ import { ImagePreviewModal } from "./ImagePreviewModal";
 import { AudioPlayerModal } from "./AudioPlayerModal";
 import { ImageInfoPopover } from "./ImageInfoPopover";
 import { FileEditorModal } from "./FileEditorModal";
+import { GameAssetFileEditorPane, GameAssetsPageHead } from "./GameAssetsPageParts";
 import { ActionDropdown } from "./ActionDropdown";
 import { DEFAULT_DESCRIPTIONS } from "./constants";
 import { isImage, isAudio, isEditableText, countItems } from "./utils";
@@ -86,11 +88,17 @@ export function GameAssetsBrowserView({
   embedded = false,
   onClose,
   selectFoldersByDefault = false,
+  variant,
 }: {
   embedded?: boolean;
   onClose?: () => void;
   selectFoldersByDefault?: boolean;
+  /** "page": Library > Assets > Game assets in the new layout: its own header, no Toolbar or close, and a
+   *  text file opens as an editor in the right pane instead of a window. `embedded` stays as it is. */
+  variant?: "page";
 } = {}) {
+  const page = variant === "page";
+  const fileCloseRef = useRef<((proceed: () => void) => void) | null>(null);
   const { t: localizeUi } = useUiTranslation();
   const { data: tree, isLoading } = useGameAssetTree();
   const createFolder = useCreateGameAssetFolder();
@@ -116,6 +124,17 @@ export function GameAssetsBrowserView({
   const [previewImage, setPreviewImage] = useState<TreeNode | null>(null);
   const [previewAudio, setPreviewAudio] = useState<TreeNode | null>(null);
   const [editingFile, setEditingFile] = useState<{ node: TreeNode; mode: "edit" | "preview" } | null>(null);
+  // The Library page: Back (mouse, browser, swipe) first closes an open file (asking about unsaved edits), then goes
+  // up one folder at a time, back to Game assets.
+  useBackSteps(page ? (selectedPath ? selectedPath.split("/").length : 0) + (editingFile ? 1 : 0) : 0, () => {
+    if (editingFile) {
+      const close = () => setEditingFile(null);
+      if (fileCloseRef.current) fileCloseRef.current(close);
+      else close();
+      return;
+    }
+    setSelectedPath((path) => path.split("/").slice(0, -1).join("/"));
+  });
   const [imageInfoNode, setImageInfoNode] = useState<TreeNode | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [listColumns, setListColumns] = useState({ size: true, modified: false });
@@ -311,7 +330,7 @@ export function GameAssetsBrowserView({
     setSelectedPaths(new Set());
   }, []);
 
-  const isBrowserVisible = useUIStore((s) => s.gameAssetsBrowserOpen) || embedded;
+  const isBrowserVisible = useUIStore((s) => s.gameAssetsBrowserOpen) || embedded || page;
 
   // Modal Escape handler
   useEffect(() => {
@@ -707,43 +726,80 @@ export function GameAssetsBrowserView({
   const closeAction = onClose ?? (showGameCloseButton ? closeGameAssetsBrowser : undefined);
 
   return (
-    <div className={cn("flex h-full flex-col", embedded ? "bg-transparent" : "bg-[var(--background)]")}>
-      {/* Toolbar */}
-      <Toolbar
-        breadcrumb={breadcrumb}
-        search={search}
-        onSearch={setSearch}
-        viewMode={viewMode}
-        onViewMode={setViewMode}
-        onUploadClick={() => uploadRef.current?.click()}
-        onNewFolder={() => {
-          setModal({ type: "create-folder" });
-          setModalValue("");
-        }}
-        onNewTextFile={() => {
-          setModal({ type: "new-text-file" });
-          setModalValue("");
-        }}
-        onNewMarkdownFile={() => {
-          setModal({ type: "new-markdown-file" });
-          setModalValue("");
-        }}
-        onRescan={() => rescan.mutate()}
-        onOpenFolder={() => openFolder.mutate(selectedPath || undefined)}
-        onBreadcrumbClick={(path) => setSelectedPath(path)}
-        listColumns={listColumns}
-        onToggleColumn={(col) => setListColumns((prev) => ({ ...prev, [col]: !prev[col] }))}
-        onClose={closeAction}
-        assetSelection={
-          canSelectGameAssets
-            ? {
-                active: assetSelectionMode,
-                excludedCount: gameAssetExcludedFolders.length,
-                onToggle: () => setAssetSelectionMode((active) => !active),
-              }
-            : undefined
-        }
-      />
+    <div
+      className={cn(
+        "flex h-full flex-col",
+        page ? "ov-ga" : embedded ? "bg-transparent" : "bg-[var(--background)]",
+        page && editingFile && "has-file",
+      )}
+      data-component={page ? "OverhaulGameAssetsPage" : undefined}
+    >
+      {page ? (
+        <GameAssetsPageHead
+          crumbs={breadcrumb}
+          onCrumb={(index) => {
+            const go = () => {
+              setEditingFile(null);
+              setSelectedPath(index === 0 ? "" : selectedPath.split("/").slice(0, index).join("/"));
+            };
+            // An open file with unsaved edits asks first (the pane's own close).
+            if (editingFile && fileCloseRef.current) fileCloseRef.current(go);
+            else go();
+          }}
+          search={search}
+          onSearch={setSearch}
+          viewMode={viewMode}
+          onViewMode={setViewMode}
+          onUpload={() => uploadRef.current?.click()}
+          onNew={(type) => {
+            setModal({ type });
+            setModalValue("");
+          }}
+          onRescan={() => rescan.mutate()}
+          rescanning={rescan.isPending}
+          onOpenFolder={() => openFolder.mutate(selectedPath || undefined)}
+          guardLeave={(go) => {
+            if (editingFile && fileCloseRef.current) fileCloseRef.current(go);
+            else go();
+          }}
+        />
+      ) : (
+        <Toolbar
+          breadcrumb={breadcrumb}
+          search={search}
+          onSearch={setSearch}
+          viewMode={viewMode}
+          onViewMode={setViewMode}
+          onUploadClick={() => uploadRef.current?.click()}
+          onNewFolder={() => {
+            setModal({ type: "create-folder" });
+            setModalValue("");
+          }}
+          onNewTextFile={() => {
+            setModal({ type: "new-text-file" });
+            setModalValue("");
+          }}
+          onNewMarkdownFile={() => {
+            setModal({ type: "new-markdown-file" });
+            setModalValue("");
+          }}
+          onRescan={() => rescan.mutate()}
+          onOpenFolder={() => openFolder.mutate(selectedPath || undefined)}
+          onBreadcrumbClick={(path) => setSelectedPath(path)}
+          listColumns={listColumns}
+          onToggleColumn={(col) => setListColumns((prev) => ({ ...prev, [col]: !prev[col] }))}
+          onClose={closeAction}
+          assetSelection={
+            canSelectGameAssets
+              ? {
+                  active: assetSelectionMode,
+                  excludedCount: gameAssetExcludedFolders.length,
+                  onToggle: () => setAssetSelectionMode((active) => !active),
+                }
+              : undefined
+          }
+        />
+      )}
 
       {canSelectGameAssets && assetSelectionMode && (
         <div className="flex min-h-[36px] items-center gap-3 border-b border-[var(--border)]/40 bg-[var(--foreground)]/5 px-4 py-1.5">
@@ -777,7 +833,7 @@ export function GameAssetsBrowserView({
       )}
 
       {/* Folder Description (hidden when selections exist) */}
-      {selectedPaths.size === 0 && selectedNode?.type === "folder" && (
+      {selectedPaths.size === 0 && selectedNode?.type === "folder" && !(page && editingFile) && (
         <div className="flex min-h-[28px] items-center border-b border-[var(--border)]/40 bg-[var(--card)]/30 px-4 py-1">
           {editingDescription ? (
             <div className="flex w-full items-center gap-2">
@@ -917,7 +973,16 @@ export function GameAssetsBrowserView({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
         >
-          {isLoading ? (
+          {page && editingFile ? (
+            <GameAssetFileEditorPane
+              key={editingFile.node.path}
+              node={editingFile.node}
+              initialMode={editingFile.mode}
+              crumbs={breadcrumb}
+              onClose={() => setEditingFile(null)}
+              closeRef={fileCloseRef}
+            />
+          ) : isLoading ? (
             <div className="mari-chrome-text-muted flex flex-1 items-center justify-center text-sm">
               {localizeUi("ui.gameAssets.gameassetsbrowserview.loadingAssets")}
             </div>
@@ -939,6 +1004,7 @@ export function GameAssetsBrowserView({
                 assetSelectionMode={canSelectGameAssets && assetSelectionMode}
                 getFolderSelectionStatus={getFolderSelectionStatus}
                 onOpenFolderSelection={handleOpenFolderSelection}
+                kitFolders={page}
               />
             </div>
           )}
@@ -1092,7 +1158,7 @@ export function GameAssetsBrowserView({
       )}
 
       {/* File editor */}
-      {editingFile && (
+      {editingFile && !page && (
         <FileEditorModal node={editingFile.node} initialMode={editingFile.mode} onClose={() => setEditingFile(null)} />
       )}
 

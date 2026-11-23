@@ -33,6 +33,7 @@ import {
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import { ImportRegexModal, type RegexImportFileResult } from "../modals/ImportRegexModal";
 import {
   BUILT_IN_AGENTS,
   isAgentConfigDeleted,
@@ -77,6 +78,7 @@ import {
   getImportEntries,
   getNextRegexOrderBase,
   normalizeRegexImportEntry,
+  regexImportSkipReason,
   serializeRegexScript,
 } from "../panels/PresetsPanel";
 import { insertLibraryItems, type InsertEdge } from "../../lib/library-order";
@@ -393,7 +395,12 @@ function ListPage<T extends { id: string }>({
       <div className="ov-gallery__tools">
         <label className="ov-search">
           <Search size={14} aria-hidden="true" />
-          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder={searchPlaceholder} />
+          <input
+            value={search}
+            onChange={(event) => onSearch(event.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+          />
         </label>
         {searchExtra}
         {!mobile && chipsAsSelect ? chipSelect : null}
@@ -536,11 +543,11 @@ export function ViewSwitch({
   }
   return (
     <div className="ov-seg" role="group" aria-label={localize("View")}>
-      <button type="button" className={cn(!gallery && "is-on")} onClick={() => onChange(false)}>
+      <button type="button" className={cn(!gallery && "is-on")} aria-pressed={!gallery} onClick={() => onChange(false)}>
         <List size={13} aria-hidden="true" />
         {localize("List")}
       </button>
-      <button type="button" className={cn(gallery && "is-on")} onClick={() => onChange(true)}>
+      <button type="button" className={cn(gallery && "is-on")} aria-pressed={gallery} onClick={() => onChange(true)}>
         <LayoutGrid size={13} aria-hidden="true" />
         {localize("Gallery")}
       </button>
@@ -1143,29 +1150,49 @@ export const REGEX_PLACEMENT_LABEL: Record<string, string> = {
   slash_command: "Commands",
 };
 
-/** Import regex scripts from a JSON file, appended after the current run order. */
+/**
+ * Import regex scripts from JSON files (SillyTavern exports one file per script), appended after the current run
+ * order. Returns one row per file, with what was left out and why, for the Import window to list.
+ */
 export function useRegexImport() {
   const localize = useLocalizedUiText();
   const { data } = useRegexScripts();
   const importRegex = useImportRegexScript();
-  return async (file: File) => {
-    try {
-      const parsed = JSON.parse(await file.text());
-      const entries = getImportEntries(parsed, ["regexScripts", "regexes", "scripts"]);
-      const base = getNextRegexOrderBase((data ?? []) as RegexScriptRow[]);
-      let imported = 0;
-      for (const [index, entry] of entries.entries()) {
-        const normalized = normalizeRegexImportEntry(entry, base + index);
-        if (!normalized) continue;
-        await importRegex.mutateAsync(normalized);
-        imported += 1;
+  return async (files: File[]): Promise<RegexImportFileResult[]> => {
+    let base = getNextRegexOrderBase((data ?? []) as RegexScriptRow[]);
+    const results: RegexImportFileResult[] = [];
+    for (const file of files) {
+      const result: RegexImportFileResult = { filename: file.name, imported: 0, skipped: [] };
+      results.push(result);
+      try {
+        const entries = getImportEntries(JSON.parse(await file.text()), ["regexScripts", "regexes", "scripts"]);
+        if (entries.length === 0) result.skipped.push(localize("No valid regex scripts found in file."));
+        for (const [index, entry] of entries.entries()) {
+          const normalized = normalizeRegexImportEntry(entry, base + index);
+          const name = isRecordEntry(entry) ? String(entry.scriptName ?? entry.name ?? "") : "";
+          if (!normalized) {
+            const reason = regexImportSkipReason(entry) ?? localize("missing name or find pattern.");
+            result.skipped.push(name ? `${name}: ${reason}` : reason);
+            continue;
+          }
+          try {
+            await importRegex.mutateAsync(normalized);
+            result.imported += 1;
+          } catch (error) {
+            result.skipped.push(`${normalized.name}: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        base += entries.length;
+      } catch (error) {
+        result.skipped.push(error instanceof Error ? error.message : localize("Failed to import regex scripts"));
       }
-      if (imported) toast.success(translate("ui.overhaul.text.importedNumber", { number: imported }));
-      else toast.error(localize("No valid regex scripts found in file."));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : localize("Failed to import regex scripts"));
     }
+    return results;
   };
+}
+
+function isRecordEntry(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 /** Duplicate, export, delete and on/off for regex scripts: shared by the list page and the Regex viewer. */
@@ -1288,13 +1315,15 @@ function useRegexFolderImport(allScripts: RegexScriptRow[], folders: KitFolders)
               current.minDepth === normalized.minDepth &&
               current.maxDepth === normalized.maxDepth &&
               JSON.stringify(current.placement) === JSON.stringify(normalized.placement) &&
-              JSON.stringify(current.trimStrings) === JSON.stringify(normalized.trimStrings);
+              JSON.stringify(current.trimStrings) === JSON.stringify(normalized.trimStrings) &&
+              current.trimScope === normalized.trimScope;
             if (same) continue;
             await updateRegex.mutateAsync({
               id: existing.id,
               findRegex: normalized.findRegex,
               replaceString: normalized.replaceString,
               trimStrings: normalized.trimStrings,
+              trimScope: normalized.trimScope,
               placement: normalized.placement,
               flags: normalized.flags,
               promptOnly: normalized.promptOnly,
@@ -1472,13 +1501,17 @@ export function useRegexFolders(scripts: RegexScriptRow[]) {
       ref={fileRef}
       type="file"
       accept=".json,application/json"
+      multiple
       className="hidden"
       onChange={(event) => {
-        const file = event.target.files?.[0];
+        const files = Array.from(event.target.files ?? []);
         event.target.value = "";
         const target = targetRef.current;
         targetRef.current = null;
-        if (file && target) void folderImport(file, target);
+        if (!target) return;
+        void (async () => {
+          for (const file of files) await folderImport(file, target);
+        })();
       }}
     />
   );
@@ -1508,7 +1541,6 @@ export function RegexLanding() {
   const reorderRegex = useReorderRegexScripts();
   const menu = useKitMenu();
   const openRegexDetail = useUIStore((s) => s.openRegexDetail);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [chip, setChip] = useState("all");
   const [sort, setSort] = useState<"order" | SortKey>("order");
@@ -1533,6 +1565,7 @@ export function RegexLanding() {
   }, [chip, data, search, sort]);
 
   const handleImport = useRegexImport();
+  const [importOpen, setImportOpen] = useState(false);
   const selection = useKitSelection(rows.map((row) => row.id));
   const allScripts = useMemo(
     () => [...((data ?? []) as RegexScriptRow[])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
@@ -1573,19 +1606,9 @@ export function RegexLanding() {
       title={localize("Regex scripts")}
       actions={
         <>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              event.target.value = "";
-              if (file) void handleImport(file);
-            }}
-          />
+          <ImportRegexModal open={importOpen} onClose={() => setImportOpen(false)} onImport={handleImport} />
           {regexFolders.fileInput}
-          <button type="button" className="ov-btn" onClick={() => fileRef.current?.click()}>
+          <button type="button" className="ov-btn" onClick={() => setImportOpen(true)}>
             <Download size={14} aria-hidden="true" />
             {localize("Import")}
           </button>

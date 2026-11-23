@@ -2705,7 +2705,8 @@ export function resolveNovelAiSize(
   prompt = request.prompt,
   defaults: NovelAiDefaults = resolveNovelAiDefaults(request),
 ): { width: number; height: number } {
-  if (defaults.dynamicResolutionBySubjectCount) {
+  // A caller that chose the size on purpose (Professor Mari's --width/--height) keeps it.
+  if (defaults.dynamicResolutionBySubjectCount && !request.keepRequestedSize) {
     const subjectCount = detectNovelAiSubjectCount(prompt);
     if (subjectCount === 1) return { width: 832, height: 1216 };
     if (subjectCount === 2) return { width: 1024, height: 1024 };
@@ -4963,7 +4964,7 @@ async function generateAutomatic1111(
   }
 
   if (useImg2Img) {
-    const rawInit = (request.referenceImage ?? request.referenceImages?.[0]) as string;
+    const rawInit = decodeReferenceImage((request.referenceImage ?? request.referenceImages?.[0]) as string).base64;
     // Draw Things rejects img2img if init_images dimensions don't match the requested
     // width/height exactly. A1111/Forge auto-resize internally; Draw Things does not.
     const initImage = isDrawThings

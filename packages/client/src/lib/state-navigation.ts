@@ -29,6 +29,19 @@ export function openProfessorMariChatPage(): boolean {
   return true;
 }
 
+/**
+ * New layout: an open editor, Library page, Docs, Mari or app page covers the chat, so they step aside
+ * (unsaved editor edits wait in their tab), as picking the chat's tab does. Otherwise a chat opened from
+ * Ctrl+K stayed unseen behind the page (QC panel 3 AX8).
+ */
+export function revealChatSurface() {
+  if (!isOverhaulLook()) return;
+  useUIStore.getState().closeAllDetails();
+  const overhaul = useOverhaulStore.getState();
+  overhaul.leaveDocs();
+  overhaul.setLibraryPage(null);
+}
+
 /** Leave the current chat or editor, show Home, then let Home open the surface. */
 function openHomeWith(request: HomeRequest) {
   const ui = useUIStore.getState();
@@ -63,16 +76,25 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     if (isMobileShellViewport()) ui.setSidebarOpen(false);
     else ui.setSidebarOpen(true);
     ui.closeRightPanel();
-    // New layout: an open editor page covers the chat, so it steps aside (its unsaved edits wait in its
-    // tab), like picking the chat's tab does. Otherwise the chat opened unseen behind the editor.
-    if (isOverhaulLook()) ui.closeAllDetails();
+    revealChatSurface();
     useChatStore.getState().setActiveChatId(target.chatId);
   } else if (target.kind === "panel") {
     // New layout: a Library section is a page of its own, not just the highlighted pane entry.
     if (isOverhaulLook()) openLibrarySection(target.panel);
-    else ui.openRightPanel(target.panel === "profiles" ? "presets" : target.panel);
-  } else if (target.kind === "settings" && isOmnibarSettingsTarget(target)) {
+    else
+      ui.openRightPanel(
+        target.panel === "profiles" || target.panel === "regex" || target.panel === "tools"
+          ? "presets"
+          : // The classic layout keeps rulesets in the Agents panel and the background library in Settings.
+            target.panel === "rulesets"
+            ? "agents"
+            : target.panel === "backgrounds" || target.panel === "assets"
+              ? "settings"
+              : target.panel,
+      );
+  } else if (target.kind === "settings" && isOmnibarSettingsTarget(target) && !isOverhaulLook()) {
     // Q2: these live in the omnibar's settings view, which keeps the omnibar open.
+    // The new layout keeps them in Settings › General instead (the branch below).
     ui.openOmnibarSettings(target.controlId ?? null);
     return true;
   } else if (target.kind === "settings") {
@@ -91,7 +113,17 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
       openLibrarySection("settings");
     } else ui.openRightPanel("settings");
   } else if (target.kind === "surface") {
-    if (target.surface === "card-downloads") ui.openBotBrowser();
+    // New layout: these three are Library pages, opened like picking them in the sidebar.
+    const page =
+      target.surface === "character-library"
+        ? "characters"
+        : target.surface === "persona-library"
+          ? "personas"
+          : target.surface === "lorebook-library"
+            ? "lorebooks"
+            : null;
+    if (page && isOverhaulLook()) openLibrarySection(page);
+    else if (target.surface === "card-downloads") ui.openBotBrowser();
     else if (target.surface === "lorebook-downloads") ui.openLorebookBrowser();
     else if (target.surface === "character-library") ui.openCharacterLibrary();
     else if (target.surface === "persona-library") ui.openPersonaLibrary();
@@ -104,7 +136,8 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
         useOverhaulStore.getState().openSchedules();
         if (isOverhaulMobile()) ui.setSidebarOpen(false);
       } else ui.setSidebarOpen(true);
-    } else ui.openGameAssetsBrowser();
+    } else if (isOverhaulLook()) openLibrarySection("game-assets");
+    else ui.openGameAssetsBrowser();
   } else if (target.kind === "resource") {
     if (target.resource === "character") ui.openCharacterDetail(target.id);
     else if (target.resource === "persona") ui.openPersonaDetail(target.id);
@@ -124,6 +157,9 @@ export function executeStateNavigation(target: ProfessorMariNavigationTarget): b
     } else if (target.window === "credits") {
       trackWindow("credits_viewed");
       openHomeWith({ kind: "credits" });
+    } else if (target.window === "widgets" && isOverhaulLook()) {
+      // New layout: Home's widgets are chosen in Settings › General › Home.
+      return executeStateNavigation({ kind: "settings", tab: "general", sectionId: "home" });
     } else if (target.window === "faq" || target.window === "widgets") openHomeWith({ kind: target.window });
   } else openHomeWith({ kind: "tab", tab: target.packageId });
   ui.setOmnibarOpen(false);

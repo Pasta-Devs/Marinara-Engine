@@ -1,10 +1,12 @@
 // ──────────────────────────────────────────────
 // Layout: Main App Shell (Discord-like three-column)
 // ──────────────────────────────────────────────
+import { useKeepFocusOnPage } from "../../hooks/use-keep-focus-on-page";
 import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
 import { useCenterPageOpen } from "../../hooks/use-chat-theme";
 import { useQueryClient } from "@tanstack/react-query";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { prioritizeBackgroundPreloads, scheduleBackgroundPreload } from "../../lib/background-preload";
 import { DelayedFallback } from "../ui/DelayedFallback";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
@@ -50,11 +52,11 @@ import { openGlobalSearch } from "../../lib/chat-insights";
 import { requestChatSummaryOpen } from "../../lib/chat-floating-ui-events";
 import { resolveTrackerPanelContentScale, resolveTrackerPanelDesktopWidth } from "../../lib/tracker-panel-layout";
 import {
-  closeTrackerPanelWindow,
-  openTrackerPanelWindow,
-  TrackerPanelDetachedWindow,
-  type TrackerPanelWindowTarget,
-} from "../../features/tracker-panel/components/TrackerPanelDetachedWindow";
+  closeDetachedWindow,
+  openDetachedWindow,
+  DetachedWindow,
+  type DetachedWindowTarget,
+} from "../ui/DetachedWindow";
 import { TrackerWindowProvider } from "../../features/tracker-panel/components/TrackerWindowContext";
 import { usePersonaPortraitSaveCoordinator } from "../../features/tracker-panel/hooks/use-persona-portrait-save";
 import { motion, AnimatePresence } from "framer-motion";
@@ -76,8 +78,12 @@ import {
 } from "react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { SkipLinks } from "./SkipLinks";
-import { TRACKER_PANEL_BUBBLE_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
-import { useOverhaulStore } from "../../stores/overhaul.store";
+import {
+  CHAT_SETTINGS_WINDOW_ID,
+  TRACKER_PANEL_BUBBLE_ID,
+  useFloatingWindowStore,
+} from "../../stores/floating-window.store";
+import { isOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { loadOverhaulStyles, overhaulStylesReady, type OverhaulShell } from "../../lib/overhaul-styles";
 import { preloadChatSurface } from "../chat/chat-surface-preload";
 import { OverhaulTopBar } from "../overhaul/OverhaulTopBar";
@@ -147,11 +153,40 @@ const TrackerDataSidebar = lazy(() =>
 const ChatNotificationBubbles = lazy(() =>
   import("../chat/ChatNotificationBubbles").then((module) => ({ default: module.ChatNotificationBubbles })),
 );
+
+/** The docked Chat settings pane's width (overhaul.css .ov-cs--docked: min(27rem, 100vw - 22rem)). */
+function dockedChatSettingsWidth(): number {
+  if (typeof window === "undefined") return 0;
+  const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  return Math.max(0, Math.round(Math.min(27 * rem, window.innerWidth - 22 * rem)));
+}
+
 const SplitSide = lazy(() => import("../overhaul/SplitView").then((module) => ({ default: module.SplitSide })));
 const SplitDropOverlay = lazy(() =>
   import("../overhaul/SplitView").then((module) => ({ default: module.SplitDropOverlay })),
 );
 const SplitPaneBar = lazy(() => import("../overhaul/SplitView").then((module) => ({ default: module.SplitPaneBar })));
+const DESKTOP_SIDEBAR_BEFORE_TOUCH_KEY = "marinara:desktop-sidebar-before-touch";
+
+/** What the desktop sidebar showed ("chats" or a panel) when the phone layout closed it. */
+function writeDesktopSidebarBeforeTouch(view: string) {
+  try {
+    window.localStorage.setItem(DESKTOP_SIDEBAR_BEFORE_TOUCH_KEY, view);
+  } catch {
+    // Restricted storage: rotating back then keeps today's closed sidebar.
+  }
+}
+
+function takeDesktopSidebarBeforeTouch(): string | null {
+  try {
+    const view = window.localStorage.getItem(DESKTOP_SIDEBAR_BEFORE_TOUCH_KEY);
+    window.localStorage.removeItem(DESKTOP_SIDEBAR_BEFORE_TOUCH_KEY);
+    return view;
+  } catch {
+    return null;
+  }
+}
+
 const OnboardingTutorial = lazy(() =>
   import("../onboarding/OnboardingTutorial").then((module) => ({ default: module.OnboardingTutorial })),
 );
@@ -294,6 +329,31 @@ function SidePanelFallback() {
   );
 }
 
+/**
+ * Queues the Library's viewers and editors in the background preload queue (tier 1), viewers first so a
+ * Library page never shows "Loading…", then the editors they open. Each is its own slice.
+ */
+function queueEditorPreloads() {
+  const views = {
+    "library:characters": CharacterLibraryView,
+    "library:agents": AgentCatalogView,
+    "library:regex": OvRegexViewer,
+    "library:tools": OvToolsViewer,
+    "library:profiles": OvProfilesViewer,
+    "library:connections": OvConnectionsViewer,
+    "editor:character": CharacterEditor,
+    "editor:persona": PersonaEditor,
+    "editor:lorebook": LorebookEditor,
+    "editor:preset": PresetEditor,
+    "editor:regex": RegexScriptEditor,
+    "editor:connection": ConnectionEditor,
+    "editor:agent": AgentEditor,
+    "editor:tool": ToolEditor,
+    "library:docs": OverhaulDocsPage,
+  };
+  for (const [name, view] of Object.entries(views)) scheduleBackgroundPreload(name, () => view.preload());
+}
+
 export function AppShell({
   chatWindowIntroAllowed = false,
   onChatWindowIntroOpenChange,
@@ -301,22 +361,24 @@ export function AppShell({
   chatWindowIntroAllowed?: boolean;
   onChatWindowIntroOpenChange?: (open: boolean) => void;
 }) {
-  // Load the chat view and right panel while idle, so the first chat or panel open does not wait for code.
+  // A11Y19: a page change never leaves keyboard focus on <body>.
+  useKeepFocusOnPage();
+  // The chat view and the Library landing page are what a first tap most likely opens: they come right after
+  // the first paint (tier 0). The right panel, Library pages and Settings wait until the first tap has settled
+  // (tier 1, lib/background-preload.ts), so they never compete with it (QC panel 3, speed H1).
   useEffect(() => {
-    const preload = () => {
-      // A failed preload only means the click loads the code; the lazy import reports real failures.
-      ChatArea.preload().catch(() => undefined);
-      RightPanel.preload().catch(() => undefined);
-      // Library pages and Settings open without a "Loading…" page first (QC Nov 14 #2).
-      LibraryLandingPage.preload().catch(() => undefined);
-      import("../overhaul/LibraryLandingPage").then((module) => module.preloadLibraryPages()).catch(() => undefined);
-    };
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(preload, { timeout: 5_000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const timer = window.setTimeout(preload, 2_000);
-    return () => window.clearTimeout(timer);
+    scheduleBackgroundPreload("chat-area", () => ChatArea.preload(), 0);
+    // Library pages and Settings open without a "Loading…" page first (QC Nov 14 #2): the landing page's
+    // module queues them (tier 1) once it is in.
+    scheduleBackgroundPreload(
+      "library:landing",
+      () =>
+        LibraryLandingPage.preload().then(() =>
+          import("../overhaul/LibraryLandingPage").then((module) => module.queueLibraryPagePreloads()),
+        ),
+      0,
+    );
+    scheduleBackgroundPreload("right-panel", () => RightPanel.preload());
   }, []);
   // Editors load once the Library is opened (or an editor tab is open), so opening or switching to an
   // editor never shows an empty frame or "Loading…" first (QC Nov 14 #2, #5).
@@ -327,34 +389,10 @@ export function AppShell({
       state.tabs.some((tab) => tab.kind !== "chat" && tab.kind !== "app"),
   );
   useEffect(() => {
-    if (!editorsWanted) return;
-    const preload = () => {
-      for (const editor of [
-        CharacterEditor,
-        CharacterLibraryView,
-        PersonaEditor,
-        LorebookEditor,
-        PresetEditor,
-        ConnectionEditor,
-        RegexScriptEditor,
-        AgentEditor,
-        ToolEditor,
-        AgentCatalogView,
-        OvRegexViewer,
-        OvToolsViewer,
-        OvProfilesViewer,
-        OvConnectionsViewer,
-        OverhaulDocsPage,
-      ]) {
-        editor.preload().catch(() => undefined);
-      }
-    };
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(preload, { timeout: 1_500 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const timer = window.setTimeout(preload, 300);
-    return () => window.clearTimeout(timer);
+    queueEditorPreloads();
+    // Opening the Library doesn't start a burst of downloads: it moves its pages and editors to the front of the
+    // background queue, which fetches them one at a time.
+    if (editorsWanted) prioritizeBackgroundPreloads(["library:", "editor:"]);
   }, [editorsWanted]);
   const { t: localizeUi } = useUiTranslation();
   const chatWindowIntroNavigationBlocked = useUIStore((state) => state.hasAnyDetailOpen());
@@ -679,9 +717,9 @@ export function AppShell({
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
   const [trackerPanelResolvedWidth, setTrackerPanelResolvedWidth] = useState(trackerPanelWidth);
   const [trackerPanelWidthMeasured, setTrackerPanelWidthMeasured] = useState(false);
-  const [trackerPanelWindowTarget, setTrackerPanelWindowTarget] = useState<TrackerPanelWindowTarget | null>(null);
-  const trackerPanelWindowTargetRef = useRef<TrackerPanelWindowTarget | null>(null);
-  const trackerPanelDockingPopupRef = useRef<TrackerPanelWindowTarget["popup"] | null>(null);
+  const [trackerPanelWindowTarget, setDetachedWindowTarget] = useState<DetachedWindowTarget | null>(null);
+  const trackerPanelWindowTargetRef = useRef<DetachedWindowTarget | null>(null);
+  const trackerPanelDockingPopupRef = useRef<DetachedWindowTarget["popup"] | null>(null);
   const detachTrackerPanelPendingRef = useRef(false);
   const [trackerPanelHost] = useState(() => {
     const host = document.createElement("div");
@@ -728,17 +766,38 @@ export function AppShell({
   // Split view (desktop only): a second page beside the main one, when both fit.
   const split = useOverhaulStore((s) => s.split);
   const splitDragging = useOverhaulStore((s) => s.splitDrag !== null);
-  const splitRoom = useSplitRoom(
+  // Docked Chat settings takes the Library pane's slot beside a split, instead of floating over the second side
+  // (QC panel 2, D7). Only while both sides still fit next to it; a narrower window lets it float as before.
+  const chatSettingsOpen = useFloatingWindowStore((s) => s.open[CHAT_SETTINGS_WINDOW_ID] === true);
+  const chatSettingsFloating = useOverhaulStore((s) => s.chatSettingsFloating);
+  const splitRoomBase = useSplitRoom(
     sidebarOpen && !overhaulActive ? liveSidebarWidth : 0,
     rightPanelOpen ? liveRightPanelWidth : 0,
   );
+  const chatSettingsSlot =
+    overhaulActive && !SPLIT_PANE && split !== null && chatSettingsOpen && !chatSettingsFloating && !rightPanelOpen
+      ? dockedChatSettingsWidth()
+      : 0;
+  const chatSettingsTakesSlot = chatSettingsSlot > 0 && splitRoomBase - chatSettingsSlot >= SPLIT_MIN_ROOM;
+  const splitRoom = chatSettingsTakesSlot ? splitRoomBase - chatSettingsSlot : splitRoomBase;
   const splitFits = overhaulActive && !SPLIT_PANE && splitRoom >= SPLIT_MIN_ROOM;
   const splitOn = splitFits && split !== null;
   const splitSize = split ? clampSplitSize(split.size, splitRoom) : 0.5;
   // Opening, closing or resizing the Library pane leaves the second side as wide as it was: the main side
   // takes the change. Sharing it made the second side cross its touch-layout width, so the page there
   // swapped layouts each time the pane opened or closed and looked like it reloaded (Nov 14 finding).
-  const splitWidthRef = useRef<{ px: number; size: number; room: number; viewport: number } | null>(null);
+  // Chat settings taking or giving back that slot (often swapping with the Library pane) keeps the divider where it
+  // is instead: the left side keeps its width and the right side takes the change (QC panel 2, D7: it jumped
+  // 320 px).
+  const splitWidthRef = useRef<{
+    px: number;
+    size: number;
+    room: number;
+    viewport: number;
+    csSlot: boolean;
+    /** When Chat settings last took or gave back the slot; the Library pane coming back right after is the swap. */
+    csChangedAt: number;
+  } | null>(null);
   useLayoutEffect(() => {
     if (!splitOn || !split) {
       splitWidthRef.current = null;
@@ -748,14 +807,43 @@ export function AppShell({
     const viewport = window.innerWidth;
     const last = splitWidthRef.current;
     if (last && last.size === split.size && last.viewport === viewport && last.room !== splitRoom) {
-      const size = clampSplitSize(last.px / usable, splitRoom);
-      splitWidthRef.current = { ...last, size, room: splitRoom };
+      let size: number;
+      const now = performance.now();
+      const csChanged = last.csSlot !== chatSettingsTakesSlot;
+      const csChangedAt = csChanged ? now : last.csChangedAt;
+      if (csChanged || now - last.csChangedAt < 600) {
+        const lastUsable = Math.max(1, last.room - SPLIT_DIVIDER);
+        const secondLeft = split.side === "left";
+        const leftPx = secondLeft ? last.px : lastUsable - last.px;
+        size = clampSplitSize(secondLeft ? leftPx / usable : 1 - leftPx / usable, splitRoom);
+      } else size = clampSplitSize(last.px / usable, splitRoom);
+      splitWidthRef.current = {
+        px: size * usable,
+        size,
+        room: splitRoom,
+        viewport,
+        csSlot: chatSettingsTakesSlot,
+        csChangedAt,
+      };
       if (size !== split.size) useOverhaulStore.getState().setSplit({ ...split, size });
       return;
     }
-    if (last && last.size === split.size && last.viewport === viewport && last.room === splitRoom) return;
-    splitWidthRef.current = { px: splitSize * usable, size: split.size, room: splitRoom, viewport };
-  }, [splitOn, split, splitRoom, splitSize]);
+    if (last && last.size === split.size && last.viewport === viewport && last.room === splitRoom) {
+      if (last.csSlot !== chatSettingsTakesSlot) {
+        last.csSlot = chatSettingsTakesSlot;
+        last.csChangedAt = performance.now();
+      }
+      return;
+    }
+    splitWidthRef.current = {
+      px: splitSize * usable,
+      size: split.size,
+      room: splitRoom,
+      viewport,
+      csSlot: chatSettingsTakesSlot,
+      csChangedAt: 0,
+    };
+  }, [chatSettingsTakesSlot, splitOn, split, splitRoom, splitSize]);
   useEffect(() => {
     document.documentElement.toggleAttribute("data-ov-split", splitOn);
     useOverhaulStore.setState({ splitShown: splitOn, splitRoom: splitFits });
@@ -771,11 +859,7 @@ export function AppShell({
   // its stylesheet still arrives, just after startup instead of in the way of it.
   useEffect(() => {
     if (overhaulEnabled) return;
-    const load = () => void loadOverhaulStyles("desktop").catch(() => undefined);
-    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number })
-      .requestIdleCallback;
-    if (idle) idle(load, { timeout: 4000 });
-    else window.setTimeout(load, 2000);
+    scheduleBackgroundPreload("styles:desktop", () => loadOverhaulStyles("desktop"));
   }, [overhaulEnabled]);
   useEffect(() => {
     useOverhaulStore.getState().setDesktop(!isMobile);
@@ -795,46 +879,18 @@ export function AppShell({
     // A touch screen can turn into the other shell at any moment: have the phone stylesheet ready, so the
     // first rotation doesn't show a blank frame while it downloads.
     if (!isMobile && overhaulEnabled && window.matchMedia?.("(hover: none) and (pointer: coarse)").matches) {
-      const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-      const load = () => void loadOverhaulStyles("mobile").catch(() => undefined);
-      if (idle) idle(load);
-      else window.setTimeout(load, 2000);
+      scheduleBackgroundPreload("styles:mobile", () => loadOverhaulStyles("mobile"));
     }
   }, [isMobile, overhaulEnabled]);
-  // New layout: fetch the Library pages in the background once the app is idle, so opening one
-  // from the Stack or a tab shows it straight away instead of "Loading…".
+  // New layout: the Library pages, the editors they open and the chat surfaces come in the background
+  // (tier 1, after the first tap has settled), so opening one shows it straight away instead of "Loading…".
+  // Chat settings' code waits for a chat to be on screen (ChatCommonOverlays), never app start.
   useEffect(() => {
     if (!overhaulEnabled) return;
-    const preload = () => {
-      // Library pages and viewers first, then the editors they open, so neither shows "Loading…".
-      void LibraryLandingPage.preload();
-      void Promise.all([
-        CharacterLibraryView.preload(),
-        AgentCatalogView.preload(),
-        OvRegexViewer.preload(),
-        OvToolsViewer.preload(),
-        OvProfilesViewer.preload(),
-        OvConnectionsViewer.preload(),
-      ]).then(() => {
-        for (const editor of [
-          CharacterEditor,
-          PersonaEditor,
-          LorebookEditor,
-          PresetEditor,
-          RegexScriptEditor,
-          ConnectionEditor,
-          AgentEditor,
-          ToolEditor,
-        ])
-          void editor.preload();
-      });
-      // Opening a chat is the next step almost every time: fetch the chat surfaces now, not on the click.
-      preloadChatSurface("roleplay");
-      preloadChatSurface("conversation");
-    };
-    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
-    if (idle) idle(preload);
-    else window.setTimeout(preload, 1500);
+    queueEditorPreloads();
+    // Opening a chat is the next step almost every time; Home queues the last chat's mode in tier 0.
+    scheduleBackgroundPreload("chat-surface:roleplay", () => preloadChatSurface("roleplay"));
+    scheduleBackgroundPreload("chat-surface:conversation", () => preloadChatSurface("conversation"));
   }, [overhaulEnabled]);
   useEffect(() => {
     if (!overhaulActive && !overhaulMobile) return;
@@ -849,13 +905,62 @@ export function AppShell({
     return useChatStore.subscribe((state) => {
       if (state.activeChatId === previous) return;
       previous = state.activeChatId;
-      if (state.activeChatId) useOverhaulStore.getState().setLibraryPage(null);
+      if (state.activeChatId) {
+        useOverhaulStore.getState().setLibraryPage(null);
+        useOverhaulStore.getState().setLibraryHubReturn(false);
+      }
     });
   }, []);
   // New layout on phones: the old right panel (Connections, Presets... lists) never shows. Anything
   // that opens it lands on that section's Library page instead. A window shrinking into the phone
   // layout keeps the page it shows (a Docs guide, Mari, a chat): the desktop sidebar is always open,
   // so it only becomes the section's page when that pane was on its Library view beside plain Home.
+  // Turning an iPad from portrait (phone layout) to landscape (desktop layout) brought the desktop layout back
+  // without its sidebar: the phone layout closes the sidebar, and that closed state is what the desktop then read
+  // (QC Nov 21, MOB11). The phone layout notes what the desktop sidebar showed before it closed it (kept across a
+  // reload, so a portrait start works too), and growing back to the desktop layout puts it back.
+  const sidebarRestoreBeforeRef = useRef(overhaulMobile);
+  // Chat settings open while the window grows: it holds the docked slot, so the sidebar waits until it closes.
+  // Otherwise the restore took the slot and closed Chat settings on portrait-to-landscape only (QC panel 2, #6).
+  const pendingSidebarRestoreRef = useRef<string | null>(null);
+  useEffect(() => {
+    const grew = !overhaulMobile && sidebarRestoreBeforeRef.current;
+    sidebarRestoreBeforeRef.current = overhaulMobile;
+    if (overhaulMobile) {
+      const ui = useUIStore.getState();
+      if (ui.rightPanelOpen || ui.sidebarOpen) {
+        writeDesktopSidebarBeforeTouch(ui.rightPanelOpen ? ui.rightPanel : "chats");
+      } else if (pendingSidebarRestoreRef.current) {
+        writeDesktopSidebarBeforeTouch(pendingSidebarRestoreRef.current);
+      }
+      pendingSidebarRestoreRef.current = null;
+      return;
+    }
+    if (!grew || !overhaulActive) return;
+    const saved = takeDesktopSidebarBeforeTouch();
+    const ui = useUIStore.getState();
+    if (!saved || ui.rightPanelOpen || ui.sidebarOpen) return;
+    if (useFloatingWindowStore.getState().open[CHAT_SETTINGS_WINDOW_ID]) {
+      pendingSidebarRestoreRef.current = saved;
+      return;
+    }
+    if (saved === "chats") ui.setSidebarOpen(true);
+    else ui.openRightPanel(saved as Parameters<typeof ui.openRightPanel>[0]);
+  }, [overhaulActive, overhaulMobile]);
+  useEffect(
+    () =>
+      useFloatingWindowStore.subscribe((state, previous) => {
+        if (state.open[CHAT_SETTINGS_WINDOW_ID] || !previous.open[CHAT_SETTINGS_WINDOW_ID]) return;
+        const saved = pendingSidebarRestoreRef.current;
+        pendingSidebarRestoreRef.current = null;
+        if (!saved || isOverhaulMobile()) return;
+        const ui = useUIStore.getState();
+        if (ui.rightPanelOpen || ui.sidebarOpen) return;
+        if (saved === "chats") ui.setSidebarOpen(true);
+        else ui.openRightPanel(saved as Parameters<typeof ui.openRightPanel>[0]);
+      }),
+    [],
+  );
   const overhaulMobileBeforeRef = useRef(overhaulMobile);
   useEffect(() => {
     const shrank = overhaulMobile && !overhaulMobileBeforeRef.current;
@@ -873,7 +978,10 @@ export function AppShell({
         !overhaul.activeSchedules &&
         !overhaul.activeApp &&
         !overhaul.libraryPage &&
-        !useChatStore.getState().activeChatId;
+        !useChatStore.getState().activeChatId &&
+        // An open editor (or the Characters / Personas gallery) is not plain Home: reopening the section would pop
+        // it and lose a draft when an iPad turns to portrait mid-edit (QC Nov 22).
+        !ui.hasAnyDetailOpen();
       if (!onPlainHome) return;
     }
     if (LIBRARY_SECTIONS.some((section) => section.id === panel)) {
@@ -891,37 +999,12 @@ export function AppShell({
   useEffect(() => {
     if (rightPanelOpen) setRightPanelEverOpened(true);
   }, [rightPanelOpen]);
-  // The editors and library views open from the right panel: a moment after it first opens (not during
-  // its own render), fetch their code while idle, so opening one renders at once without "Loading…".
+  // The editors and library views open from the right panel: once it has opened, they join the background
+  // queue (the Library opening moves them up), so opening one renders at once without "Loading…".
   useEffect(() => {
     if (!rightPanelEverOpened) return;
-    const preload = () => {
-      for (const view of [
-        CharacterEditor,
-        CharacterLibraryView,
-        PersonaEditor,
-        LorebookEditor,
-        PresetEditor,
-        ProfileEditor,
-        ConnectionEditor,
-        RegexScriptEditor,
-        AgentEditor,
-        ToolEditor,
-        AgentCatalogView,
-      ]) {
-        view.preload().catch(() => undefined);
-      }
-    };
-    let idleId = 0;
-    const timer = window.setTimeout(() => {
-      if (typeof window.requestIdleCallback === "function")
-        idleId = window.requestIdleCallback(preload, { timeout: 2_000 });
-      else preload();
-    }, 1_000);
-    return () => {
-      window.clearTimeout(timer);
-      if (idleId) window.cancelIdleCallback(idleId);
-    };
+    queueEditorPreloads();
+    scheduleBackgroundPreload("editor:profile", () => ProfileEditor.preload());
   }, [rightPanelEverOpened]);
 
   // New layout: Chats live in the one sidebar on the right, so the left chat list never shows. Anything
@@ -1491,6 +1574,11 @@ export function AppShell({
   // Phones and tablets: a page covers the whole screen, so a theme's ambient layer (rising bubbles,
   // rain) holds still under it instead of repainting every frame where nobody sees it (battery).
   const pageCoversScreen = overhaulMobile && shellOverlayMode && hasDetailView;
+  // The Chats/Library page and the All tabs grid cover the whole screen too: what lies under them is out of reach
+  // for VoiceOver and Tab as well (QC panel 2, #21). Both live outside the covered part (a portal, the top bar).
+  const mobileSidePageOpen = useOverhaulStore((s) => s.mobileSidePageOpen);
+  const mobileAllTabsOpen = useOverhaulStore((s) => s.allTabsOpen);
+  const sheetCoversScreen = overhaulMobile && (mobileSidePageOpen || mobileAllTabsOpen);
   useEffect(() => {
     if (!pageCoversScreen) return;
     document.documentElement.setAttribute("data-mari-page-covers", "");
@@ -1523,10 +1611,10 @@ export function AppShell({
     const target = trackerPanelWindowTargetRef.current;
     if (target) {
       trackerPanelDockingPopupRef.current = target.popup;
-      closeTrackerPanelWindow(target);
+      closeDetachedWindow(target);
       trackerPanelWindowTargetRef.current = null;
     }
-    setTrackerPanelWindowTarget(null);
+    setDetachedWindowTarget(null);
   }, []);
 
   const detachTrackerPanel = useCallback(async () => {
@@ -1535,7 +1623,7 @@ export function AppShell({
     detachTrackerPanelPendingRef.current = true;
 
     try {
-      const target = await openTrackerPanelWindow({
+      const target = await openDetachedWindow({
         title: localizeUi("ui.layout.appshell.detachedTrackerPanelTitle"),
         width: trackerPanelWidth,
       });
@@ -1544,7 +1632,7 @@ export function AppShell({
         return;
       }
       trackerPanelWindowTargetRef.current = target;
-      setTrackerPanelWindowTarget(target);
+      setDetachedWindowTarget(target);
     } catch {
       toast.error(localizeUi("ui.layout.appshell.trackerPanelWindowFailed"));
     } finally {
@@ -1552,14 +1640,14 @@ export function AppShell({
     }
   }, [localizeUi, trackerPanelWidth]);
 
-  const handleTrackerPanelWindowClosed = useCallback((closedTarget: TrackerPanelWindowTarget) => {
+  const handleTrackerPanelWindowClosed = useCallback((closedTarget: DetachedWindowTarget) => {
     if (trackerPanelDockingPopupRef.current === closedTarget.popup) {
       trackerPanelDockingPopupRef.current = null;
       return;
     }
     if (trackerPanelWindowTargetRef.current?.popup !== closedTarget.popup) return;
     trackerPanelWindowTargetRef.current = null;
-    setTrackerPanelWindowTarget(null);
+    setDetachedWindowTarget(null);
     closeTrackerPanel();
   }, []);
 
@@ -1580,9 +1668,9 @@ export function AppShell({
   }, [activeChat?.mode, activeChatId, setTrackerPanelOpen, trackerPanelModeAvailable, trackerPanelOpen]);
   useEffect(() => {
     if (!trackerPanelWindowTarget || (trackerPanelActive && trackerPanelModeAvailable)) return;
-    closeTrackerPanelWindow(trackerPanelWindowTarget);
+    closeDetachedWindow(trackerPanelWindowTarget);
     trackerPanelWindowTargetRef.current = null;
-    setTrackerPanelWindowTarget(null);
+    setDetachedWindowTarget(null);
   }, [trackerPanelActive, trackerPanelModeAvailable, trackerPanelWindowTarget]);
   useEffect(() => {
     if (trackerPanelVisible) {
@@ -2095,6 +2183,10 @@ export function AppShell({
               // New layout on phones/tablets: a page (Settings, an editor) covers Home or the chat completely, so
               // a theme's see-through page colour never shows them through it.
               data-under-page={pageCoversScreen ? "true" : undefined}
+              // Hidden under the page, so VoiceOver swipes and a keyboard's Tab can't land on its buttons either
+              // (QC Nov 21, MOB missed A). Painting is untouched: `inert` doesn't hide anything.
+              // The Chats/Library page (MobileSidePage) and All tabs cover it the same way (QC Nov 22 K6, #21).
+              inert={pageCoversScreen || sheetCoversScreen || undefined}
               className={cn(
                 "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
                 (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) && "hidden",
@@ -2129,7 +2221,9 @@ export function AppShell({
               discards component-local unsaved form state. */}
             <AnimatePresence mode="wait">
               {detailView && (
-                <motion.aside
+                // A plain container, not a landmark (QC panel 3 AX17): the page inside has its own heading, and a
+                // "complementary" region inside main made every Library page sound like a sidebar.
+                <motion.div
                   key="detail-editor"
                   // No slide: the sheet sits between the camera strips, and any sideways travel crosses one.
                   // Phones and tablets: no fade either. iOS Safari painted the page, dropped it for a couple of
@@ -2143,7 +2237,6 @@ export function AppShell({
                   // Every full page (Library pages, viewers, editors, Settings, Docs) sits in here, so a
                   // theme paints one readable surface for all of them on this hook.
                   data-mari-part="page"
-                  aria-label={localizeUi("ui.layout.appshell.detailEditor")}
                   tabIndex={-1}
                   className={cn(
                     "mari-detail-editor-surface mari-app-background-paint flex min-h-0 flex-1 flex-col overflow-hidden",
@@ -2157,16 +2250,15 @@ export function AppShell({
                   )}
                 >
                   <Suspense fallback={<MainPaneFallback />}>{detailView}</Suspense>
-                </motion.aside>
+                </motion.div>
               )}
             </AnimatePresence>
             {mariPageMounted && (
               // Professor Mari's tab: the same page surface as the sheet above, kept mounted and hidden
               // (inline display so no theme rule can show it) while she isn't the open tab.
-              <aside
+              <div
                 data-component={mariPageActive ? (shellOverlayMode ? "MobileDetailSheet" : "DetailEditor") : undefined}
                 data-mari-part={mariPageActive ? "page" : undefined}
-                aria-label={localizeUi("ui.layout.appshell.detailEditor")}
                 aria-hidden={mariPageActive ? undefined : true}
                 inert={!mariPageActive}
                 tabIndex={-1}
@@ -2185,7 +2277,7 @@ export function AppShell({
                 <Suspense fallback={<MainPaneFallback />}>
                   <OverhaulMariPage active={mariPageActive} />
                 </Suspense>
-              </aside>
+              </div>
             )}
           </div>
           {/* Floating avatar notification bubbles (right edge) */}
@@ -2201,6 +2293,9 @@ export function AppShell({
             <SplitSide split={split} size={splitSize} />
           </Suspense>
         ) : null}
+        {splitOn && chatSettingsTakesSlot ? (
+          <div aria-hidden="true" className="shrink-0" data-ov-cs-slot style={{ width: chatSettingsSlot }} />
+        ) : null}
         {splitFits && splitDragging ? (
           <Suspense fallback={null}>
             <SplitDropOverlay />
@@ -2212,7 +2307,7 @@ export function AppShell({
         </AnimatePresence>
 
         {trackerPanelWindowTarget && trackerPanelActive && trackerPanelModeAvailable && (
-          <TrackerPanelDetachedWindow
+          <DetachedWindow
             host={trackerPanelHost}
             target={trackerPanelWindowTarget}
             onClosed={handleTrackerPanelWindowClosed}

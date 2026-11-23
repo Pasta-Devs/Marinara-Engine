@@ -5,9 +5,17 @@
 // few switches). All settings is a list of rows, and a row opens its section
 // as a page of its own. "off" keeps the classic collapsible sections (Edit mode).
 // ──────────────────────────────────────────────
+import type { ReactNode } from "react";
 import { create } from "zustand";
 
 export type MobileChatSettingsView = "off" | "quick" | "all" | "page";
+
+/** Where the sheet was (a section's page, the list): a surface opened from it comes back to the same place. */
+export interface MobileChatSettingsPlace {
+  view: MobileChatSettingsView;
+  page: string | null;
+  back: "quick" | "all";
+}
 
 interface MobileChatSettingsNavState {
   view: MobileChatSettingsView;
@@ -17,12 +25,23 @@ interface MobileChatSettingsNavState {
   back: "quick" | "all";
   /** How far the All settings list was scrolled when a page opened from it. */
   listScroll: number;
+  /** The open page's own title and help, shown in the sheet's header (the page draws no header of its own). */
+  pageTitle: ReactNode;
+  pageHelp: string | null;
+  setPageMeta: (title: ReactNode, help: string | null) => void;
   showQuick: () => void;
   showAll: () => void;
   showPage: (id: string) => void;
   goBack: () => void;
   turnOff: () => void;
+  /** The place the sheet shows the next time it opens (back from Agent Organizer and the like). */
+  pendingPlace: MobilePlaceOrNull;
+  setPendingPlace: (place: MobilePlaceOrNull) => void;
+  /** Opens the sheet where `pendingPlace` says, or on its Quick page. */
+  showOnOpen: () => void;
 }
+
+type MobilePlaceOrNull = MobileChatSettingsPlace | null;
 
 function scrollContainer(): HTMLElement | null {
   return typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-ovm-cs-view]");
@@ -33,6 +52,12 @@ export const useMobileChatSettingsNav = create<MobileChatSettingsNavState>()((se
   page: null,
   back: "all",
   listScroll: 0,
+  pageTitle: null,
+  pageHelp: null,
+  setPageMeta: (pageTitle, pageHelp) => {
+    const current = get();
+    if (current.pageTitle !== pageTitle || current.pageHelp !== pageHelp) set({ pageTitle, pageHelp });
+  },
   showQuick: () => set({ view: "quick", page: null }),
   showAll: () => set({ view: "all", page: null }),
   showPage: (page) => {
@@ -41,6 +66,8 @@ export const useMobileChatSettingsNav = create<MobileChatSettingsNavState>()((se
     set({
       view: "page",
       page,
+      pageTitle: get().page === page ? get().pageTitle : null,
+      pageHelp: get().page === page ? get().pageHelp : null,
       back: view === "quick" ? "quick" : "all",
       listScroll: view === "all" && scroller ? scroller.scrollTop : get().listScroll,
     });
@@ -55,4 +82,13 @@ export const useMobileChatSettingsNav = create<MobileChatSettingsNavState>()((se
     requestAnimationFrame(() => requestAnimationFrame(() => scrollContainer()?.scrollTo({ top: restore })));
   },
   turnOff: () => set({ view: "off", page: null }),
+  pendingPlace: null,
+  setPendingPlace: (pendingPlace) => set({ pendingPlace }),
+  showOnOpen: () => {
+    const place = get().pendingPlace;
+    if (place?.view === "page" && place.page)
+      set({ view: "page", page: place.page, back: place.back, pageTitle: null, pageHelp: null, pendingPlace: null });
+    else if (place?.view === "all") set({ view: "all", page: null, pendingPlace: null });
+    else set({ view: "quick", page: null, pendingPlace: null });
+  },
 }));

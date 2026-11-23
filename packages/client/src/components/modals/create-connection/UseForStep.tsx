@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState, type MutableRefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -101,10 +101,24 @@ interface UseForStepProps {
   serviceName: (service: ServiceId) => string;
   /** Closes the window; `applied` is false when nothing was set, so it still says the account was added. */
   onFinish: (applied: boolean) => void;
+  /**
+   * What closing the window (X, Escape, "Skip for now") runs: with no Main model yet, the account's chat model
+   * becomes Main (with Undo), so a first-time user is never left without one.
+   */
+  skipRef?: MutableRefObject<(() => Promise<void>) | null>;
 }
 
 /** Step 3 of a new account: "Found in <account> — use it for:", one row per job it can do. */
-export function UseForStep({ target, service, accounts, accountName, job, serviceName, onFinish }: UseForStepProps) {
+export function UseForStep({
+  target,
+  service,
+  accounts,
+  accountName,
+  job,
+  serviceName,
+  onFinish,
+  skipRef,
+}: UseForStepProps) {
   const { t } = useTranslation();
   const { data: connections } = useConnections();
   const rows = (connections ?? []) as ConnectionRowData[];
@@ -137,6 +151,7 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
     for (const kind of ["chat", "image", "video"] as const)
       if (kinds.includes(kind) && !uses.some((use) => use.kind === kind))
         uses.push({ kind, job: JOB_OF[kind]!, model: (typed[JOB_OF[kind]!] ?? "").trim(), typed: true });
+  const loading = catalog.isLoading && !uses.length;
   const currentOf = (use: Use) =>
     use.kind === "decision" ? (decisionOptions.data?.selected ?? null) : (modelFor(JOB[use.job])?.value ?? null);
   const labelOf = (id: string, use: Use) => {
@@ -148,8 +163,10 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
     const row = rows.find((candidate) => candidate.id === id);
     return row?.model?.trim() || row?.name || id;
   };
-  // Empty jobs and the asked-for job start ticked; a job that already has a model waits for the user.
-  const isTicked = (use: Use) => (ticked ? ticked.has(use.job) : use.job === job || !currentOf(use));
+  // Empty jobs and the asked-for job start ticked; a job that already has a model waits for the user. A row
+  // waiting for a typed model ID ticks itself once something is typed: ticked and empty, it would set nothing.
+  const isTicked = (use: Use) =>
+    ticked ? ticked.has(use.job) : use.typed ? !!use.model : use.job === job || !currentOf(use);
   const toggle = (use: Use) =>
     setTicked(() => {
       const next = new Set(uses.filter(isTicked).map((item) => item.job));
@@ -210,7 +227,8 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
     );
   };
 
-  const done = async () => {
+  /** Sets the given jobs; Done passes the ticked ones, closing passes Main alone when it is empty. */
+  const apply = async (chosen: Use[]) => {
     setBusy(true);
     const undo: Array<() => void> = [];
     const jobs: string[] = [];
@@ -223,12 +241,12 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
       undo.push(() => set(id, previous));
       return true;
     };
-    let madeMedia = false;
-    for (const use of uses.filter(isTicked)) {
+    let madeModel = false;
+    for (const use of chosen) {
       if (!use.model) continue;
       try {
         const id = await rowFor(use);
-        if (id && !use.rowId && (use.kind === "image" || use.kind === "video")) madeMedia = true;
+        if (id && !use.rowId && id !== target.placeholderId) madeModel = true;
         const previous = currentOf(use);
         if (!id || id === previous) continue;
         if (use.kind === "decision") {
@@ -242,9 +260,10 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
         failures[use.job] = errorText(error);
       }
     }
-    // The empty row this Add flow made only held the place; a media row replaces it. Older empty rows stay.
+    // The empty row this Add flow made only held the place: a picked model replaces it, so the account does not
+    // list a "Default" beside the model it really uses (one count everywhere). Older empty rows stay.
     const placeholder = target.placeholderId ? rows.find((row) => row.id === target.placeholderId) : undefined;
-    if (madeMedia && placeholder && !placeholder.model?.trim())
+    if (madeModel && placeholder && !placeholder.model?.trim())
       await deleteRow.mutateAsync(placeholder.id).catch(() => undefined);
     setErrors(failures);
     setBusy(false);
@@ -255,8 +274,24 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
       });
     if (!Object.keys(failures).length) onFinish(jobs.length > 0);
   };
+  const done = () => apply(uses.filter(isTicked));
+  // With no Main yet, leaving still sets the account's chat model as Main: a tested account with no Main left
+  // "Main: Not set · needs attention" behind, and the first chat had no model.
+  const mainUse = uses.find((use) => use.job === "main" && !!use.model);
+  const skip = async () => {
+    if (busy) return;
+    // A Main that failed here already shows why; leaving again just closes.
+    if (mainUse && !currentOf(mainUse) && !loading && !errors.main) return apply([mainUse]);
+    onFinish(false);
+  };
+  useEffect(() => {
+    if (!skipRef) return;
+    skipRef.current = skip;
+    return () => {
+      skipRef.current = null;
+    };
+  });
 
-  const loading = catalog.isLoading && !uses.length;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-3 py-4">
@@ -311,10 +346,16 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
                     />
                   )}
                   <span className="text-xs text-[var(--muted-foreground)] [overflow-wrap:anywhere]">
-                    {!use.typed && <>{use.name ?? use.model} · </>}
-                    {current
-                      ? t("connections.add.nowUses", { model: labelOf(current, use) })
-                      : t("connections.add.nothingSet")}
+                    {current ? (
+                      <>
+                        {!use.typed && <>{use.name ?? use.model} · </>}
+                        {t("connections.add.nowUses", { model: labelOf(current, use) })}
+                      </>
+                    ) : use.typed && !use.model ? (
+                      t("connections.add.typeToUse")
+                    ) : (
+                      t("connections.add.willUse", { model: use.name ?? use.model })
+                    )}
                   </span>
                   {errors[use.job] && (
                     <span role="alert" className="text-xs text-[var(--destructive)] [overflow-wrap:anywhere]">
@@ -328,8 +369,14 @@ export function UseForStep({ target, service, accounts, accountName, job, servic
         )}
       </div>
       <div className="flex shrink-0 items-center justify-end gap-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-3">
-        <button type="button" className={SECONDARY_CLASS} disabled={busy} onClick={() => onFinish(false)}>
-          {t("connections.add.skip")}
+        <button
+          type="button"
+          className={SECONDARY_CLASS}
+          data-add-connection-skip
+          disabled={busy}
+          onClick={() => void skip()}
+        >
+          {t("connections.add.skipForNow")}
         </button>
         <button
           type="button"

@@ -73,7 +73,7 @@ The search pattern. Write only the pattern, without a slash at the start or end.
 
 ### Replace With
 
-The text that replaces each match. Leave it empty to delete the match. Reuse captured text with `$1`, `$2` and so on. These case changes work before a capture:
+The text that replaces each match. Leave it empty to delete the match. Reuse captured text with `$1`, `$2` and so on. `$0`, `$&` and `{{match}}` put back the whole match, as in SillyTavern. These case changes work before a capture:
 
 | Write | Result |
 | --- | --- |
@@ -98,7 +98,14 @@ Toggle buttons that change how the pattern matches. A new script starts with `g`
 
 ### Trim Strings
 
-An optional list of plain strings removed after the replacement runs. Click **Add trim string** to add a row and the **X** button to remove one. Use it for a fixed piece of text that is easier to type than to match with a pattern.
+An optional list of plain strings to remove. Click **Add trim string** to add a row and the **X** button to remove one. Use it for a fixed piece of text that is easier to type than to match with a pattern.
+
+Once a script has a trim string, **Trim from** decides where they are removed:
+
+- **Whole result**: from the whole message after the replacement, even where the pattern doesn't match. New scripts start here.
+- **Matched text (like SillyTavern)**: only from the matched text that `$0`, `{{match}}` or `$1` put back. Text you typed in **Replace With** and the rest of the message stay as they are, and nothing changes where the pattern doesn't match.
+
+Scripts imported from SillyTavern use **Matched text**. Scripts imported before this option existed used **Whole result**; if one of them now removes too much, import it again or switch it to **Matched text**.
 
 ### Live Test
 
@@ -173,7 +180,7 @@ Below the modes, the panel lists each character's scoped scripts with a switch f
 Marinara reads regex scripts bundled in a SillyTavern character card. When you import a card, an **Imported regex scripts** section offers two choices:
 
 - **Character only** (default): the scripts stay scoped to that character.
-- **Global**: the scripts go to **Presets → Regexes** and can run across chats.
+- **Global**: the scripts go to **Library → Regex scripts** (**Presets → Regexes** in the classic layout) and can run across chats.
 
 The choice appears in the single-character import dialog and in the bulk **Import from SillyTavern Folder** flow. Scripts with an empty pattern or one that fails the safety check are skipped. To import a plain JSON file of scripts, use **Import regexes from JSON** in **Regexes**. See [Importing from SillyTavern](../data/importing-from-sillytavern.md).
 
@@ -181,7 +188,7 @@ The choice appears in the single-character import dialog and in the bulk **Impor
 
 ### Replace a regex pack
 
-1. In **Presets → Regexes**, choose **Select regex scripts**.
+1. In **Library → Regex scripts** (**Presets → Regexes** in the classic layout), choose **Select regex scripts**.
 2. Check the old pack's entries. **Select all regex scripts** selects the whole library, including scripts in collapsed folders.
 3. Click **Delete** in the action bar. Marinara asks you to confirm. To keep a copy first, click **Export** before deleting.
 4. Import the updated pack.

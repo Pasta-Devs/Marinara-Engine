@@ -1,4 +1,5 @@
-import { Component, Suspense, useEffect, type ErrorInfo, type ReactNode } from "react";
+import { Component, Suspense, useEffect, useLayoutEffect, useRef, type ErrorInfo, type ReactNode } from "react";
+import { runBackgroundPreloadNow, scheduleBackgroundPreload } from "../../lib/background-preload";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { professorMariChatsQuery } from "../../hooks/use-chats";
@@ -11,7 +12,7 @@ import {
   writeCommandCenterSessionState,
 } from "../../lib/command-center";
 import { openProfessorMariChatPage } from "../../lib/state-navigation";
-import { isShortcutsHelpKey, shortcutKeyTypesText, takesLetterKeys } from "../../lib/keyboard-shortcuts";
+import { askMariKeyStaysInField, isShortcutsHelpKey, takesLetterKeys } from "../../lib/keyboard-shortcuts";
 import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
 import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
 import { parseOmnibarScope } from "../../lib/omnibar-scope";
@@ -26,6 +27,7 @@ import { useMariPresence } from "../../hooks/use-mari-presence";
 import { warmMariSprite } from "../../lib/mari-sprite-ready";
 import { mariAssetUrls } from "../../lib/mari-work-animations";
 import { preloadedLazy } from "../../lib/preloaded-lazy";
+import { startOmnibarKeyBuffer, stopOmnibarKeyBuffer, takeBootOmnibarOpenRequest } from "../../lib/omnibar-key-buffer";
 import { useUIStore } from "../../stores/ui.store";
 
 // The dialog carries the whole Command Center (search, browse, Mari panes), so it
@@ -100,25 +102,38 @@ export function GlobalOmnibar() {
   // The top-bar edge glow (useMariEdgeGlow) reads the same query.
   useMariPresence();
 
-  // Fetch the dialog's code once the app is idle, so the first ⌘K opens without
-  // waiting on the network. A failed preload is retried by the real open.
+  // Fetch the dialog's code in the background (tier 1: after the first tap has settled, lib/background-preload),
+  // so the first ⌘K opens without waiting on the network. A failed preload is retried by the real open.
+  // The split view's second side skips it (tier 1 doesn't run there); ⌘K in it loads on demand.
   const queryClient = useQueryClient();
   useEffect(() => {
-    const preload = () =>
-      void GlobalOmnibarDialog.preload()
+    scheduleBackgroundPreload("omnibar", () =>
+      GlobalOmnibarDialog.preload()
         // Search's Continue row lists her last conversation; fetched now it is there on the first open
         // instead of pushing the rows down once it arrives (QC Nov 14 #3).
         .then(() => queryClient.prefetchQuery(professorMariChatsQuery))
         .then(() => import("./GlobalOmnibar"))
         // Her pane's code too, so the first ⌘J does not fetch and run it before her chat can load.
-        .then((module) => module.OmnibarMariPane.preload())
-        .catch(() => undefined);
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(preload, { timeout: 5_000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const timer = window.setTimeout(preload, 2_000);
-    return () => window.clearTimeout(timer);
+        .then((module) => module.OmnibarMariPane.preload()),
+    );
+    // Also on the first sign of a person at the keyboard or mouse, not only in the queue's turn: a busy start
+    // never settles before the first Ctrl+K (QC Nov 21 A11Y10). On touch screens a finger also sends pointer
+    // moves on every tap, so there only a key counts. Runs once, whichever comes first.
+    const touch = window.matchMedia?.("(hover: none) and (pointer: coarse)").matches ?? false;
+    let done = false;
+    const once = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("pointermove", once);
+      window.removeEventListener("keydown", once);
+      runBackgroundPreloadNow("omnibar");
+    };
+    if (!touch) window.addEventListener("pointermove", once, { passive: true });
+    window.addEventListener("keydown", once);
+    return () => {
+      window.removeEventListener("pointermove", once);
+      window.removeEventListener("keydown", once);
+    };
   }, [queryClient]);
 
   // M16 tier 2: once the page has loaded, warm the selected pack's omnibar sprites at idle, so the
@@ -127,25 +142,11 @@ export function GlobalOmnibar() {
   const pack = useMariAppearancePack();
   useMariPackUnlocks();
   useEffect(() => {
-    let idleId: number | undefined;
-    let timer: number | undefined;
-    // Decoded, not just fetched: the first frame she draws is already a bitmap, not a late pop-in.
     // Decoded, not just fetched: a sheet counts as drawn only once it is decoded (mari-sprite-ready).
-    const prefetch = () => {
-      for (const url of mariAssetUrls(pack, 2)) void warmMariSprite(url);
-    };
-    const schedule = () => {
-      if (typeof window.requestIdleCallback === "function")
-        idleId = window.requestIdleCallback(prefetch, { timeout: 5_000 });
-      else timer = window.setTimeout(prefetch, 2_000);
-    };
-    if (document.readyState === "complete") schedule();
-    else window.addEventListener("load", schedule, { once: true });
-    return () => {
-      window.removeEventListener("load", schedule);
-      if (idleId !== undefined) window.cancelIdleCallback(idleId);
-      window.clearTimeout(timer);
-    };
+    // In the background queue (tier 1), so the pictures don't compete with the first tap's own loads.
+    const urls = mariAssetUrls(pack, 2);
+    if (urls.length)
+      scheduleBackgroundPreload(`mari-sprites:${urls[0]}`, () => Promise.all(urls.map((url) => warmMariSprite(url))));
   }, [pack]);
 
   useEffect(() => {
@@ -159,9 +160,13 @@ export function GlobalOmnibar() {
         const dialog = event.target instanceof Element ? event.target.closest('[aria-modal="true"]') : null;
         if (ui.omnibarOpen && dialog && !dialog.closest('[data-component="GlobalOmnibar"]')) return;
         event.preventDefault();
-        if (!ui.omnibarOpen) captureMariFieldDraft();
+        if (!ui.omnibarOpen) {
+          captureMariFieldDraft();
+          // Keys typed before the search field exists go into it, not to the page (A11Y10).
+          startOmnibarKeyBuffer();
+        }
         setOpen(!ui.omnibarOpen);
-      } else if (isAskMariShortcut(event) && !ui.omnibarOpen && !shortcutKeyTypesText(event)) {
+      } else if (isAskMariShortcut(event) && !ui.omnibarOpen && !askMariKeyStaysInField(event)) {
         // M18: ⌘J opens Mari with this screen's context, over any dialog like ⌘K (L8). #9129: not while a
         // field is being typed in - there Ctrl+J is the IME's own key (SKK's on switch), so the field keeps it.
         event.preventDefault();
@@ -216,6 +221,25 @@ export function GlobalOmnibar() {
     window.addEventListener(PROFESSOR_MARI_OPEN_EVENT, openProfessorMari);
     return () => window.removeEventListener(PROFESSOR_MARI_OPEN_EVENT, openProfessorMari);
   }, [setOpen]);
+
+  // Opened another way (the top bar's Search, a pull): same buffering. Closed before it showed: give keys back.
+  // Ctrl+K pressed before this mounted (main.tsx's boot listener, K17): open now, and keep the key buffer it
+  // started running, so what was typed after it lands in the field.
+  const bootChecked = useRef(false);
+  useLayoutEffect(() => {
+    if (!bootChecked.current) {
+      bootChecked.current = true;
+      if (takeBootOmnibarOpenRequest() && !open) {
+        setOpen(true);
+        return;
+      }
+    }
+    // The store, not this render's `open`: right after the boot request opened Search, an effect re-run that still
+    // saw the old `open` stopped the buffer and the restart dropped every key typed so far (QC panel 3 AX9: the
+    // first letters of a cold Ctrl+K went missing).
+    if (open || useUIStore.getState().omnibarOpen) startOmnibarKeyBuffer();
+    else stopOmnibarKeyBuffer();
+  }, [open, setOpen]);
 
   if (!open) return null;
   return (

@@ -4,7 +4,7 @@
  * and rows under it do the thing. Only the best match gets action rows; a second match gets its
  * name row, so a vague word never fills the list.
  */
-import { matchFeatures, type FeatureStep } from "./feature-finder";
+import { matchFeatures, type FeatureAction, type FeatureStep } from "./feature-finder";
 import type { OmnibarTranslate } from "./omnibar-entity-rows";
 import type { OmnibarResult } from "./omnibar-search";
 
@@ -55,6 +55,10 @@ export function buildOmnibarFeatureResults({
   matches.forEach((match, matchIndex) => {
     const { feature } = match;
     const base = FEATURE_ROW_SCORE - matchIndex * 10;
+    // A feature that is a place in the app (Connections, Lorebooks) opens that place on Enter, and its guide
+    // becomes a row of its own: typing a page's name and pressing Enter opened a docs article (QC Nov 21 IA14).
+    const pageAction = feature.actions.find((action) => action.step.kind === "target");
+    const pageTarget = pageAction?.step.kind === "target" ? pageAction.step.target : undefined;
     rows.push({
       id: `feature:${feature.id}`,
       title: t(feature.nameKey, feature.name),
@@ -66,12 +70,27 @@ export function buildOmnibarFeatureResults({
       group: "features",
       score: base,
       matchKind: "literal",
-      action: { kind: "open-docs", path: feature.guide },
-      kind: "resource",
-      icon: "documentation",
+      ...(pageTarget
+        ? { category: "navigation" as const, target: pageTarget, kind: "navigation" as const, icon: "command" as const }
+        : {
+            action: { kind: "open-docs" as const, path: feature.guide },
+            kind: "resource" as const,
+            icon: "documentation" as const,
+          }),
     });
     if (matchIndex > 0) return;
-    feature.actions.forEach((action, actionIndex) => {
+    const actions: readonly FeatureAction[] = pageAction
+      ? [
+          ...feature.actions.filter((action) => action !== pageAction),
+          {
+            id: "guide",
+            labelKey: "featureFinder.readGuide",
+            label: "Read the guide",
+            step: { kind: "docs", path: feature.guide },
+          },
+        ]
+      : feature.actions;
+    actions.forEach((action, actionIndex) => {
       const row = stepRow(action.step, activeChatId);
       if (!row) return;
       rows.push({

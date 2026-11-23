@@ -8,9 +8,13 @@ import {
   type ConversationCommandKey,
   type ConversationCommandToggles,
   type WrapFormat,
+  resolveSelfieImageConnectionId,
+  selfieFollowsImagesDefault,
 } from "@marinara-engine/shared";
 
 import { logger } from "../../lib/logger.js";
+import { createConnectionsStorage } from "../storage/connections.storage.js";
+import type { DB } from "../../db/connection.js";
 import type { CharacterCommand } from "../conversation/character-commands.js";
 import { wrapContent } from "../prompt/format-engine.js";
 import { resolveSpotifyCredentials, spotifyHasScope } from "../spotify/spotify.service.js";
@@ -240,8 +244,15 @@ export async function buildConversationCommandsReminder(args: {
     }
   }
 
-  // Check if selfie is enabled for this chat (user picked an image gen connection)
-  const hasImageGen = !!chatMeta.imageGenConnectionId;
+  // Selfies need an image model: the chat's own, else the Images default once Generated Selfies is on.
+  // The Images default is only looked up when the chat has no model of its own and selfies are switched on.
+  const imagesDefaultId = selfieFollowsImagesDefault(chatMeta)
+    ? await createConnectionsStorage(args.db as DB)
+        .getDefaultForImageGeneration()
+        .then((row) => row?.id ?? null)
+        .catch(() => null)
+    : null;
+  const hasImageGen = Boolean(resolveSelfieImageConnectionId(chatMeta, imagesDefaultId));
   let conversationSpotifyCommandsAvailable = false;
   let conversationYoutubeCommandsAvailable = false;
   if (chatMode === "conversation" && musicCommandEnabled && activeMusicCommandSource === "spotify") {

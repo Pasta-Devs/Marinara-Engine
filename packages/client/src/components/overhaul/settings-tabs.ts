@@ -16,8 +16,8 @@ export const OVERHAUL_SETTINGS_TABS: {
   {
     id: "general",
     label: "General",
-    blurb: "Language, confirmations, extras, Professor Mari and notifications",
-    sections: ["application", "confirmations-help", "extras", "omnibar", "notifications"],
+    blurb: "Language, Home widgets, confirmations, extras, Professor Mari and notifications",
+    sections: ["application", "home", "confirmations-help", "extras", "omnibar", "notifications"],
   },
   {
     id: "chatting",
@@ -118,4 +118,10 @@ export function overhaulSettingsTabForClassicTab(tab: string): OverhaulSettingsT
     if (found) return found;
   }
   return null;
+}
+
+/** The new layout's tab label for a settings section ("Chatting" for Message buttons), or null. */
+export function overhaulSettingsTabLabelFor(sectionId: string | null | undefined): string | null {
+  const id = overhaulSettingsTabFor(sectionId);
+  return id ? (OVERHAUL_SETTINGS_TABS.find((tab) => tab.id === id)?.label ?? null) : null;
 }

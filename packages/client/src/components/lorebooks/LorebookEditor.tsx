@@ -8,6 +8,8 @@
 // flow has been replaced so users can edit row-level params without leaving
 // the list. Inspired by SillyTavern's World Info layout.
 // ──────────────────────────────────────────────
+import { announce } from "../../lib/live-announcer";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { estimateTextTokens } from "@marinara-engine/shared";
 import { useBuiltinEmbeddingOption } from "../connections/BuiltinEmbeddingDetail";
 import {
@@ -93,6 +95,7 @@ import {
   ArrowDown,
   ArrowLeft,
 } from "lucide-react";
+import { Select } from "../ui/Select";
 import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { CharacterSelect } from "../characters/CharacterSelect";
@@ -500,6 +503,11 @@ export function LorebookEditor() {
     const i = scrollToEntryId ? list.findIndex((entry) => entry.id === scrollToEntryId) : -1;
     return i >= 0 ? i : undefined;
   };
+  // The open entry's row stays mounted: on phones its editor is portaled into the detail pane while the list is hidden.
+  const expandedIndexIn = (list: { id: string }[]) => {
+    const i = expandedEntryId ? list.findIndex((entry) => entry.id === expandedEntryId) : -1;
+    return i >= 0 ? i : undefined;
+  };
   useEffect(() => {
     const id = newlyCreatedEntryRef.current;
     if (!id) return;
@@ -663,6 +671,11 @@ export function LorebookEditor() {
   const [ovBookOpen, setOvBookOpen] = useState(true);
   // Overhaul viewer: which tool panel sits above the entry on the right, and where the entry editor renders.
   const [ovPanel, setOvPanel] = useState<"book" | "check" | "keyword" | null>(null);
+  // Phones: Safari's back and the left-edge swipe go from the open entry or tool back to the book (MOB1).
+  useBackDismiss(overhaulMobile && ovmDetail, () => {
+    setOvmDetail(false);
+    setOvPanel(null);
+  });
   const openOvPanel = (id: "book" | "check" | "keyword") => {
     const next = overhaulMobile ? id : ovPanel === id ? null : id;
     setOvPanel(next);
@@ -872,6 +885,66 @@ export function LorebookEditor() {
   }, [collapsedFolderIds, entriesByContainer, filteredEntries, folderForest, showFolderGrouping]);
 
   const canReorderEntries = showFolderGrouping && entries.length > 1 && !reorderEntries.isPending;
+
+  // QC Nov 22 AX3: keyboard on an entry's name. Rows are windowed, so the target row is mounted first, then
+  // focused once it is there.
+  const focusEntryOpenButton = useCallback(
+    (entryId: string) => {
+      snapToEntryRef.current = false;
+      setScrollToEntryId(entryId);
+      let tries = 0;
+      const tryFocus = () => {
+        const button = contentRef.current?.querySelector<HTMLElement>(
+          `[data-lorebook-entry-open="${CSS.escape(entryId)}"]`,
+        );
+        const current = document.activeElement;
+        // Only while focus is on a row's name, in the search box, or was dropped (a moved row is re-inserted);
+        // never pull it back from somewhere else the user went.
+        const free =
+          !current ||
+          current === document.body ||
+          current.hasAttribute("data-lorebook-entry-open") ||
+          current.hasAttribute("data-lorebook-entry-search");
+        if (button && free && current !== button) button.focus();
+        if (++tries < 20 && (!button || document.activeElement !== button)) requestAnimationFrame(tryFocus);
+      };
+      requestAnimationFrame(tryFocus);
+    },
+    [contentRef],
+  );
+  const handleEntryKeyboardNavigate = useCallback(
+    (entryId: string, offset: -1 | 1, reorder: boolean) => {
+      if (!reorder) {
+        const at = displayedEntryIds.indexOf(entryId);
+        const next = at < 0 ? undefined : displayedEntryIds[at + offset];
+        if (next) focusEntryOpenButton(next);
+        return;
+      }
+      if (!lorebookId || !canReorderEntries) return;
+      const entry = entries.find((candidate) => candidate.id === entryId);
+      if (!entry) return;
+      const container = entry.folderId && entriesByContainer.has(entry.folderId) ? entry.folderId : null;
+      const ids = (entriesByContainer.get(container) ?? []).map((candidate) => candidate.id);
+      const from = ids.indexOf(entryId);
+      const to = from + offset;
+      if (from < 0 || to < 0 || to >= ids.length) return;
+      ids.splice(from, 1);
+      ids.splice(to, 0, entryId);
+      reorderEntries.mutate({ lorebookId, entryIds: ids, folderId: container });
+      focusEntryOpenButton(entryId);
+      announce(localizeUi("ui.presets.sectionstab.movedTo", { position: to + 1, total: ids.length }));
+    },
+    [
+      canReorderEntries,
+      displayedEntryIds,
+      entries,
+      entriesByContainer,
+      focusEntryOpenButton,
+      localizeUi,
+      lorebookId,
+      reorderEntries,
+    ],
+  );
   const canReorderFolders = showFolderGrouping && folders.length > 1 && !reorderFolders.isPending;
 
   // Keyword-test verdicts: for each entry, would the debounced preview text
@@ -1130,11 +1203,13 @@ export function LorebookEditor() {
   // Jump from a lint issue or test result to its entry: clear anything that
   // could hide the row, open its folder chain, expand it, and scroll to it.
   const jumpToEntry = useCallback(
-    (entryId: string, scroll = true) => {
+    (entryId: string, scroll = true, keepSearch = false) => {
       const target = entries.find((entry) => entry.id === entryId);
       if (!target) return;
-      setEntrySearch("");
-      setNeverFiredOnly(false);
+      if (!keepSearch) {
+        setEntrySearch("");
+        setNeverFiredOnly(false);
+      }
       if (lorebookId && target.folderId) {
         const parentById = new Map(folders.map((folder) => [folder.id, folder.parentFolderId ?? null]));
         setCollapsedFolderIds((prev) => {
@@ -1163,14 +1238,15 @@ export function LorebookEditor() {
     [entries, folders, lorebookId, overhaulMobile],
   );
 
-  // Open the entry an opener asked for once, e.g. one just made from selected chat text (#6899).
-  const initialEntryIdRef = useRef(useUIStore.getState().lorebookDetailInitialEntryId);
+  // Open the entry an opener asked for, e.g. one just made from selected chat text (#6899). Read from the store, not
+  // once at mount, so Ctrl+K to an entry (or "Add to lorebook") also works while this lorebook is already open
+  // (QC Nov 22 AX3).
+  const initialEntryId = useUIStore((s) => s.lorebookDetailInitialEntryId);
   useEffect(() => {
-    const entryId = initialEntryIdRef.current;
-    if (!entryId || isLoading || !entries.some((entry) => entry.id === entryId)) return;
-    initialEntryIdRef.current = null;
-    jumpToEntry(entryId);
-  }, [entries, isLoading, jumpToEntry]);
+    if (!initialEntryId || isLoading || !entries.some((entry) => entry.id === initialEntryId)) return;
+    useUIStore.getState().consumeLorebookInitialEntry();
+    jumpToEntry(initialEntryId);
+  }, [entries, initialEntryId, isLoading, jumpToEntry]);
   // F7: a deep link (e.g. the reply checkup's "lorebook budget" row) asked for a specific Overview field.
   const initialFieldRef = useRef(useUIStore.getState().lorebookDetailInitialField);
   useEffect(() => {
@@ -2249,6 +2325,7 @@ export function LorebookEditor() {
               pinnedIndex={
                 dragSourceContainer === folder.id && draggingEntryIdx !== null ? draggingEntryIdx : undefined
               }
+              keepMountedIndex={expandedIndexIn(folderEntries)}
               scrollToIndex={revealIndexIn(folderEntries)}
               renderRow={(eIdx) => {
                 const entry = folderEntries[eIdx]!;
@@ -2316,6 +2393,7 @@ export function LorebookEditor() {
                       activationStat={activationStatsById.get(entry.id)}
                       mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
                       onUpdateEntry={handleEntryUpdate}
+                      onKeyboardNavigate={handleEntryKeyboardNavigate}
                     />
                     {showDropAfter && (
                       <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
@@ -2553,22 +2631,19 @@ export function LorebookEditor() {
                 }}
               />
             </label>
-            <label className="ov-bk__field">
+            <div className="ov-bk__field">
               <span>{localizeUi("ui.lorebooks.lorebookeditor.category")}</span>
-              <select
+              <Select
+                className="ov-bk__select"
+                label={localizeUi("ui.lorebooks.lorebookeditor.category")}
                 value={formCategory}
-                onChange={(event) => {
-                  setFormCategory(event.target.value as LorebookCategory);
+                onChange={(next) => {
+                  setFormCategory(next);
                   markLorebookDirty();
                 }}
-              >
-                {CATEGORY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                options={CATEGORY_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+              />
+            </div>
             <div className="ov-bk__pair">
               {ovSwitch(
                 localizeUi("ui.noodle.noodlehome.enabled"),
@@ -3056,6 +3131,17 @@ export function LorebookEditor() {
             placeholder={localizeUi("chat.settings.inlineLorebook.search")}
             value={entrySearch}
             onChange={(e) => setEntrySearch(e.target.value)}
+            data-lorebook-entry-search=""
+            // QC Nov 22 AX3: Enter opens the first entry found and keeps the search.
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.nativeEvent.isComposing || !entrySearch.trim()) return;
+              const first = displayedEntryIds[0];
+              if (!first) return;
+              e.preventDefault();
+              jumpToEntry(first, true, true);
+              // Phones open the entry's page over the list; there is no row to focus.
+              if (!overhaulMobile) focusEntryOpenButton(first);
+            }}
             className="mari-editor-field w-full py-2.5 pl-8 pr-3 text-xs"
           />
         </div>
@@ -3067,6 +3153,7 @@ export function LorebookEditor() {
           <select
             value={entrySort}
             onChange={(e) => setEntrySort(e.target.value as EntrySortKey)}
+            aria-label={localizeUi("lorebook.editor.sortEntries")}
             className="mari-editor-field h-full appearance-none py-2.5 pl-8 pr-6 text-xs"
           >
             {SORT_OPTIONS.map((opt) => (
@@ -3360,6 +3447,7 @@ export function LorebookEditor() {
               estimateSize={ENTRY_ROW_ESTIMATE}
               gap={6}
               pinnedIndex={dragSourceContainer === null && draggingEntryIdx !== null ? draggingEntryIdx : undefined}
+              keepMountedIndex={expandedIndexIn(entriesByContainer.get(null) ?? [])}
               scrollToIndex={revealIndexIn(entriesByContainer.get(null) ?? [])}
               renderRow={(idx) => {
                 const rootList = entriesByContainer.get(null) ?? [];
@@ -3428,6 +3516,7 @@ export function LorebookEditor() {
                       activationStat={activationStatsById.get(entry.id)}
                       mapBacklinks={mapBacklinksByEntryId.get(entry.id)}
                       onUpdateEntry={handleEntryUpdate}
+                      onKeyboardNavigate={handleEntryKeyboardNavigate}
                     />
                     {showDropAfter && (
                       <div className="mari-chrome-accent-progress mari-accent-animated mx-2 mt-1 h-0.5 rounded-full" />
@@ -3449,6 +3538,7 @@ export function LorebookEditor() {
             getItemKey={(i) => filteredEntries[i]!.id}
             estimateSize={ENTRY_ROW_ESTIMATE}
             gap={6}
+            keepMountedIndex={expandedIndexIn(filteredEntries)}
             scrollToIndex={revealIndexIn(filteredEntries)}
             renderRow={(i) => {
               const entry = filteredEntries[i]!;
@@ -3783,6 +3873,8 @@ export function LorebookEditor() {
                                 }}
                               >
                                 <ChevronLeft size={26} aria-hidden="true" />
+                                {/* One bar per page: the book's own header steps aside, and its name is the way back (MOB13). */}
+                                <span className="ovm-lv-head__parent">{lorebook.name}</span>
                               </button>
                               <span className="ovm-drill-page__title">{ovmDetailTitle}</span>
                               {/* The book header (with Save) scrolls away; this header stays, so Save comes along. */}
@@ -3980,25 +4072,17 @@ export function LorebookEditor() {
                             <label htmlFor="lorebook-editor-category" className="mb-1.5 block text-xs font-medium">
                               {localizeUi("ui.lorebooks.lorebookeditor.category")}
                             </label>
-                            <div className="relative md:hidden">
-                              <select
+                            <div className="md:hidden">
+                              <Select
                                 id="lorebook-editor-category"
+                                label={localizeUi("ui.lorebooks.lorebookeditor.category")}
                                 value={formCategory}
-                                onChange={(event) => {
-                                  setFormCategory(event.target.value as LorebookCategory);
+                                onChange={(next) => {
+                                  setFormCategory(next);
                                   markLorebookDirty();
                                 }}
-                                className="mari-editor-field h-10 w-full min-w-0 appearance-none truncate px-3 py-0 pr-9 text-xs"
-                              >
-                                {CATEGORY_OPTIONS.map((opt) => (
-                                  <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown
-                                size="0.75rem"
-                                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--marinara-editor-muted)]"
+                                options={CATEGORY_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+                                className="mari-editor-field h-10 w-full min-w-0 px-3 py-0 text-xs"
                               />
                             </div>
                             <div className="hidden gap-2 md:flex">
@@ -4688,21 +4772,6 @@ function VectorizeSection({
   ) : null;
 
   if (overhaul) {
-    const pickerOptions = (
-      <>
-        <option value="">{localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch")}</option>
-        {embeddingConnections.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-            {c.embeddingModel?.trim() && c.embeddingModel.trim() !== c.name ? (
-              <> {localizeUi("ui.connections.connectioneditor.value1", { value1: c.embeddingModel })}</>
-            ) : (
-              ""
-            )}
-          </option>
-        ))}
-      </>
-    );
     return (
       <div className="ov-vec">
         <p className="ov-bk__note">
@@ -4723,12 +4792,24 @@ function VectorizeSection({
           </p>
         ) : (
           <div className="ov-vec__row">
-            <label className="ov-bk__field ov-vec__model">
+            <div className="ov-bk__field ov-vec__model">
               <span>{localizeUi("connections.embeddingDefault.label")}</span>
-              <select value={selectedConnectionId} onChange={(e) => handleConnectionChange(e.target.value)}>
-                {pickerOptions}
-              </select>
-            </label>
+              <Select
+                className="ov-bk__select"
+                label={localizeUi("connections.embeddingDefault.label")}
+                value={selectedConnectionId}
+                onChange={handleConnectionChange}
+                options={[
+                  { value: "", label: localizeUi("ui.lorebooks.vectorizesection.noSemanticSearch") },
+                  ...embeddingConnections.map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                    description:
+                      c.embeddingModel?.trim() && c.embeddingModel.trim() !== c.name ? c.embeddingModel : undefined,
+                  })),
+                ]}
+              />
+            </div>
             <div className="ov-vec__actions">
               <button
                 type="button"

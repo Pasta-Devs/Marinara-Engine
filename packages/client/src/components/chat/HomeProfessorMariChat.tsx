@@ -1,4 +1,5 @@
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { MariStorySprite } from "./MariStorySprite";
 import {
   type ReactNode,
@@ -106,6 +107,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
+import { useDocumentVisible } from "../../hooks/use-document-visible";
 import {
   DeleteReviewCard,
   MariHeldChangeCard,
@@ -234,6 +236,7 @@ import { MariWindowHeader } from "./mari/MariWindowHeader";
 import { useMariSkillMemoryActions } from "./mari/use-mari-skill-memory-actions";
 import { useMariChatHistoryActions } from "./mari/use-mari-chat-history-actions";
 import { useMariMessageActions } from "./mari/use-mari-message-actions";
+import { invalidateMariRefreshScope, mariRefreshScopeForTables } from "./mari/mari-refresh-scope";
 import { useMariWorkspaceRun } from "./mari/use-mari-workspace-run";
 import { MariOmnibarHeaderChrome } from "./mari/MariOmnibarHeaderChrome";
 import { MariOpenOutputLimitContext } from "./mari/MariOutputLimitNote";
@@ -494,6 +497,8 @@ export function HomeProfessorMariChat({
   // menu keeps it compact (moving focus into the menu closes the keyboard); closing the menu restores it.
   const keyboardOpen = useChatKeyboardOpen();
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  // Back (swipe, hardware back) closes the ☰ menu and stays with Professor Mari.
+  useBackDismiss(headerMenuOpen, () => setHeaderMenuOpen(false));
   const headerMenuRef = useRef<HTMLDivElement>(null);
   const headerCompact = keyboardOpen || headerMenuOpen;
   const chatHistoryOpen = workspaceDestination === "chats";
@@ -968,6 +973,16 @@ export function HomeProfessorMariChat({
   }, [chatHistory, chatHistoryQuery, chatHistorySortMode]);
   const desktopChatWindowOpen = controlledChatWindowOpen ?? internalChatWindowOpen;
   const chatWindowOpen = desktopChatWindowOpen || mobileFocusMode;
+  // Her page (or tab) on screen, with the window in front, counts as reading her (QC panel 2, D3). The omnibar pane
+  // reports its own visibility.
+  const showsFullSize = !omnibarMode && pageActive && (embeddedTab || chatWindowOpen);
+  const documentVisible = useDocumentVisible();
+  useEffect(() => {
+    if (!showsFullSize || !documentVisible) return;
+    const { setMariPageVisible } = useUIStore.getState();
+    setMariPageVisible(true);
+    return () => setMariPageVisible(false);
+  }, [documentVisible, showsFullSize]);
   const setChatWindowOpen = useCallback(
     (open: boolean) => {
       setInternalChatWindowOpen(open);
@@ -1436,13 +1451,17 @@ export function HomeProfessorMariChat({
         console.error("[Professor Mari] Failed to start Keep this theme? after her theme change", error);
       });
     }
-    void invalidateWorkspaceData().catch((error) => {
-      console.error("[Professor Mari] Failed to refresh app data after workspace change", error);
-      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariAppliedAWorkspaceChangeButAppData"), {
-        description: describeProfessorMariError(error),
-        duration: 12_000,
-      });
-    });
+    // Only the lists those changes touched (a new lorebook refetches lorebooks, not every query in the app).
+    const changedTables = appliedChanges.flatMap((entry) => Object.keys(entry.affectedTables ?? {}));
+    void invalidateMariRefreshScope(qc, mariRefreshScopeForTables(changedTables), invalidateWorkspaceData).catch(
+      (error) => {
+        console.error("[Professor Mari] Failed to refresh app data after workspace change", error);
+        toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariAppliedAWorkspaceChangeButAppData"), {
+          description: describeProfessorMariError(error),
+          duration: 12_000,
+        });
+      },
+    );
   }, [invalidateWorkspaceData, workspaceStatus, localizeUi, qc, tryThemeSwitchedByMari]);
 
   useEffect(() => {

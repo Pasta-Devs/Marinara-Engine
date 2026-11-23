@@ -1,5 +1,8 @@
 import { WindowTitle } from "../../lib/theme-slots";
+import { isTouchDevice } from "../../lib/touch-device";
 import {
+  Children,
+  isValidElement,
   useCallback,
   useEffect,
   useInsertionEffect,
@@ -13,7 +16,7 @@ import {
   type RefObject,
 } from "react";
 import { flushSync } from "react-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -42,15 +45,11 @@ import {
 } from "lucide-react";
 import {
   APP_VERSION,
-  BUILT_IN_AGENTS,
-  HOME_CUSTOM_WIDGETS_SETTINGS_KEY,
   isInstalledCapabilityReady,
   normalizeAvatarCrop,
   type AchievementEvent,
   type HomeCustomWidget,
-  type HomeCustomWidgetCatalog,
   type SceneFullPlan,
-  homeAgentWidgetsSchema,
 } from "@marinara-engine/shared";
 import { useTranslation } from "react-i18next";
 import { useCoveredSurfaceFlag } from "../../hooks/use-covered-surface-flag";
@@ -66,13 +65,12 @@ import { isChatProvider } from "@marinara-engine/shared";
 import { useAllCharacterCatalog } from "../../hooks/use-characters";
 import {
   selectHomeBrowserPackages,
-  selectHomeWidgetPackages,
   useCapabilityCatalog,
   useInstalledCapabilityPackages,
 } from "../../hooks/use-capability-packages";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { achievementKeys, trackAchievementEvent } from "../../hooks/use-achievements";
-import { api, ApiError } from "../../lib/api-client";
+import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { HOME_CHAT_MODE_ACCENTS } from "../../lib/home-chat-mode-style";
 import {
@@ -101,6 +99,18 @@ import { HomeFaq } from "./HomeFaq";
 import { HomeNewChatLauncher } from "./HomeNewChatLauncher";
 import { isOverhaulLook, useOverhaulLook, useOverhaulStore } from "../../stores/overhaul.store";
 import { RecentChats } from "./RecentChats";
+import { useHomeWidgetCatalog } from "./use-home-widget-catalog";
+import {
+  customHomeWidgetId,
+  HOME_WIDGET_IDS,
+  isHomeWidgetId,
+  readHomeWidgetVisibility,
+  useHomeWidgetsStore,
+  HOME_WIDGET_MANAGER_LABEL_KEYS,
+  type AgentHomeWidget,
+  type BuiltInHomeWidgetId,
+  type HomeWidgetId,
+} from "../../stores/home-widgets.store";
 import { HomeCharacterLibrary } from "./HomeCharacterLibrary";
 import { avatarPreviewSrc } from "../../lib/avatar-preview";
 import { ThingsToTryList, ThingsToTrySeeAll, ThingsToTryWidget } from "./HomeThingsToTry";
@@ -117,43 +127,7 @@ const HOME_CARD_ART_CLASS = "-right-5 -top-5 h-36 w-44 object-contain object-rig
 const NOODLE_REFRESH_SEEN_STORAGE_KEY = "marinara:home:noodle-refresh-seen:v1";
 const HOME_WIDGET_ORDER_STORAGE_KEY = "marinara:home:widget-order:v1";
 const HOME_WIDGET_LAYOUT_STORAGE_KEY = "marinara:home:widget-layout:v2";
-const HOME_WIDGET_VISIBILITY_STORAGE_KEY = "marinara:home:widget-visibility:v2";
-const LEGACY_HOME_WIDGET_VISIBILITY_STORAGE_KEY = "marinara:home:widget-visibility:v1";
 const HOME_CUSTOM_WIDGET_KNOWN_STORAGE_KEY = "marinara:home:custom-widget-known:v1";
-const HOME_WIDGET_IDS = [
-  "character-library",
-  "professor",
-  "whats-new",
-  "recent",
-  "learn",
-  "community",
-  "discovery",
-  "character",
-  "clock",
-  "achievements",
-] as const;
-type BuiltInHomeWidgetId = (typeof HOME_WIDGET_IDS)[number];
-type HomeWidgetId = BuiltInHomeWidgetId | `custom:${string}` | `agent:${string}`;
-type AgentHomeWidget = {
-  id: HomeWidgetId;
-  kind: "package" | "custom";
-  packageId?: string;
-  agentId?: string;
-  widgetId: string;
-  ownerName: string;
-  label: string;
-  description: string;
-  size: "compact" | "large";
-  icon?: string;
-  iconPath?: string;
-  accent?: "cyan" | "green" | "amber" | "orange" | "rose" | "violet";
-  surface?: "soft" | "solid" | "quiet";
-  header?: "standard" | "compact" | "banner";
-};
-
-function packageHomeWidgetId(packageId: string, widgetId: string): HomeWidgetId {
-  return `agent:package:${packageId}:${widgetId}`;
-}
 
 function CustomAgentHomeWidget({
   agentId,
@@ -234,15 +208,6 @@ function CustomAgentHomeWidget({
   );
 }
 
-function isHomeWidgetId(value: unknown): value is HomeWidgetId {
-  return (
-    typeof value === "string" &&
-    (HOME_WIDGET_IDS.includes(value as BuiltInHomeWidgetId) ||
-      /^custom:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ||
-      /^agent:(?:package|custom):[A-Za-z0-9_-]+:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value))
-  );
-}
-
 function readSeenNoodleRefreshMarker(): string | null {
   if (typeof window === "undefined") return null;
   try {
@@ -272,14 +237,6 @@ const DEFAULT_HOME_WIDGET_ORDER = [
   "clock",
   "achievements",
 ] as const satisfies readonly BuiltInHomeWidgetId[];
-const DEFAULT_VISIBLE_HOME_WIDGETS = [
-  "professor",
-  "whats-new",
-  "recent",
-  "learn",
-  "community",
-] as const satisfies readonly BuiltInHomeWidgetId[];
-const NEW_DEFAULT_HOME_WIDGET_IDS: readonly BuiltInHomeWidgetId[] = ["community", "clock"];
 type HomeGridColumns = 1 | 2 | 3 | 4;
 type HomeWidgetSlot = HomeWidgetId | null;
 type HomeWidgetLayouts = Record<HomeGridColumns, HomeWidgetSlot[]>;
@@ -294,18 +251,6 @@ const HOME_WIDGET_LABEL_KEYS: Record<BuiltInHomeWidgetId, string> = {
   community: "home.widgets.community",
   clock: "home.widgets.clock",
   achievements: "home.widgets.achievements",
-};
-const HOME_WIDGET_MANAGER_LABEL_KEYS: Record<BuiltInHomeWidgetId, { name: string; purpose: string }> = {
-  "character-library": { name: "home.widgets.characterLibrary", purpose: "home.characterLibrary.description" },
-  professor: { name: "home.professorMari.eyebrow", purpose: "home.widgets.professor" },
-  recent: { name: "home.recentChats.eyebrow", purpose: "home.recentChats.title" },
-  "whats-new": { name: "home.whatsNew.eyebrow", purpose: "home.widgets.whatsNew" },
-  discovery: { name: "home.discovery.eyebrow", purpose: "home.discovery.title" },
-  character: { name: "home.characterOfDay.eyebrow", purpose: "home.characterOfDay.title" },
-  learn: { name: "home.learn.eyebrow", purpose: "home.learn.title" },
-  community: { name: "home.community.eyebrow", purpose: "home.community.title" },
-  clock: { name: "home.clock.eyebrow", purpose: "home.clock.title" },
-  achievements: { name: "home.achievements.eyebrow", purpose: "home.achievements.title" },
 };
 const HOME_WIDGET_MIN_ROW_HEIGHT = 208;
 const HOME_WIDGET_MAX_ROW_HEIGHT = 640;
@@ -335,10 +280,6 @@ const HOME_CUSTOM_WIDGET_ICONS = {
   compass: Compass,
 } as const;
 
-function customHomeWidgetId(id: string): HomeWidgetId {
-  return `custom:${id}`;
-}
-
 const HOME_STARS = Array.from({ length: 42 }, (_, index) => ({
   x: (index * 37 + 7) % 100,
   y: (index * 53 + 11) % 100,
@@ -366,25 +307,6 @@ function readHomeWidgetOrder(): HomeWidgetId[] {
     return valid.length > 0 ? valid : [...DEFAULT_HOME_WIDGET_ORDER];
   } catch {
     return [...DEFAULT_HOME_WIDGET_ORDER];
-  }
-}
-
-function readHomeWidgetVisibility(): HomeWidgetId[] {
-  if (typeof window === "undefined") return [...DEFAULT_VISIBLE_HOME_WIDGETS];
-  try {
-    const current = window.localStorage.getItem(HOME_WIDGET_VISIBILITY_STORAGE_KEY);
-    if (current !== null) {
-      const parsed = JSON.parse(current) as unknown;
-      if (!Array.isArray(parsed)) return [...DEFAULT_VISIBLE_HOME_WIDGETS];
-      return parsed.filter((id, index): id is HomeWidgetId => isHomeWidgetId(id) && parsed.indexOf(id) === index);
-    }
-    const legacy = JSON.parse(
-      window.localStorage.getItem(LEGACY_HOME_WIDGET_VISIBILITY_STORAGE_KEY) ?? "null",
-    ) as unknown;
-    if (!Array.isArray(legacy)) return [...DEFAULT_VISIBLE_HOME_WIDGETS];
-    return HOME_WIDGET_IDS.filter((id) => legacy.includes(id) || NEW_DEFAULT_HOME_WIDGET_IDS.includes(id));
-  } catch {
-    return [...DEFAULT_VISIBLE_HOME_WIDGETS];
   }
 }
 
@@ -643,6 +565,23 @@ function homeFeedObservedElements(feed: HTMLElement) {
     child,
     ...Array.from(child.children).filter((inner) => !inner.hasAttribute("data-home-drag-handle")),
   ]);
+}
+
+/**
+ * The widgets are packed with absolute positions, so their order in the page was the code's, not the one you
+ * see: Tab and a screen reader went Professor, Recent, ... wherever they sat. Rendered by placement (row, then
+ * column), the page order follows the screen (QC Nov 22 K16). Hidden widgets (no placement) go last.
+ */
+function HomeWidgetsInPlacementOrder({ children }: { children: ReactNode }) {
+  const placed = Children.toArray(children).map((child, index) => {
+    const placement = isValidElement<{ placement?: HomeWidgetPlacement }>(child) ? child.props.placement : undefined;
+    return { child, index, placement };
+  });
+  placed.sort((a, b) => {
+    if (!a.placement || !b.placement) return a.placement ? -1 : b.placement ? 1 : a.index - b.index;
+    return a.placement.row - b.placement.row || a.placement.column - b.placement.column || a.index - b.index;
+  });
+  return <>{placed.map((item) => item.child)}</>;
 }
 
 function homePlacementProps(placement: HomeWidgetPlacement | undefined) {
@@ -1148,56 +1087,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     { version: APP_VERSION },
   );
   const queryClient = useQueryClient();
-  const customWidgetsQuery = useQuery({
-    queryKey: ["home-custom-widgets"],
-    queryFn: () => api.get<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`),
-  });
-  const customWidgets = useMemo(() => customWidgetsQuery.data?.widgets ?? [], [customWidgetsQuery.data?.widgets]);
-  const customWidgetIds = useMemo(() => customWidgets.map((widget) => customHomeWidgetId(widget.id)), [customWidgets]);
-  const customWidgetsById = useMemo(
-    () => new Map(customWidgets.map((widget) => [customHomeWidgetId(widget.id), widget])),
-    [customWidgets],
-  );
-  const deleteCustomWidgetMutation = useMutation({
-    mutationFn: async (widgetId: string) => {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const catalog = await api.get<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`);
-        if (!catalog.widgets.some((widget) => widget.id === widgetId)) return catalog;
-        try {
-          return await api.put<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`, {
-            ...catalog,
-            widgets: catalog.widgets.filter((widget) => widget.id !== widgetId),
-          });
-        } catch (error) {
-          if (!(error instanceof ApiError) || error.status !== 409 || attempt > 0) throw error;
-        }
-      }
-      throw new Error("Home widget catalog changed repeatedly; try again.");
-    },
-    onSuccess: (catalog) => queryClient.setQueryData(["home-custom-widgets"], catalog),
-    onError: () => queryClient.invalidateQueries({ queryKey: ["home-custom-widgets"] }),
-  });
-  const updateCustomWidgetMutation = useMutation({
-    mutationFn: async (updated: HomeCustomWidget) => {
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        const catalog = await api.get<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`);
-        if (!catalog.widgets.some((widget) => widget.id === updated.id)) throw new Error("Widget no longer exists");
-        try {
-          return await api.put<HomeCustomWidgetCatalog>(`/app-settings/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`, {
-            ...catalog,
-            widgets: catalog.widgets.map((widget) =>
-              widget.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : widget,
-            ),
-          });
-        } catch (error) {
-          if (!(error instanceof ApiError) || error.status !== 409 || attempt > 0) throw error;
-        }
-      }
-      throw new Error("Home widget catalog changed repeatedly; try again.");
-    },
-    onSuccess: (catalog) => queryClient.setQueryData(["home-custom-widgets"], catalog),
-    onError: () => queryClient.invalidateQueries({ queryKey: ["home-custom-widgets"] }),
-  });
+  const homeWidgetCatalog = useHomeWidgetCatalog();
   const installed = useInstalledCapabilityPackages();
   const catalog = useCapabilityCatalog();
   const characterCatalog = useAllCharacterCatalog();
@@ -1214,63 +1104,15 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   // but still gets compact tabs, with the URL bar and bookmark strip kept desktop-only.
   const mobileShell = useMatchMedia(useMobileShellMediaQuery());
   const browserPackages = useMemo(() => selectHomeBrowserPackages(installed.data), [installed.data]);
-  const agentWidgetGroups = useMemo(() => {
-    const packageGroups = selectHomeWidgetPackages(installed.data).map((pkg) => {
-      const display = resolveCapabilityPackageDisplay(pkg.manifest, i18n.resolvedLanguage ?? i18n.language);
-      return {
-        id: pkg.id,
-        name: display.name,
-        widgets: (display.homeWidgets ?? []).map((widget): AgentHomeWidget => ({
-          id: packageHomeWidgetId(pkg.id, widget.id),
-          kind: "package",
-          packageId: pkg.id,
-          widgetId: widget.id,
-          ownerName: display.name,
-          label: widget.label,
-          description: widget.description,
-          size: widget.size,
-          icon: widget.icon,
-          iconPath: widget.iconPath,
-          accent: widget.accent,
-          surface: widget.surface,
-          header: widget.header,
-        })),
-      };
-    });
-    const customGroups = (agents.data ?? []).flatMap((agent) => {
-      if (BUILT_IN_AGENTS.some((builtIn) => builtIn.id === agent.type)) return [];
-      const settings = (() => {
-        try {
-          return JSON.parse(agent.settings) as Record<string, unknown>;
-        } catch {
-          return {};
-        }
-      })();
-      const parsed = homeAgentWidgetsSchema.safeParse(settings.homeWidgets ?? []);
-      if (!parsed.success || parsed.data.length === 0) return [];
-      return [
-        {
-          id: agent.id,
-          name: agent.name,
-          widgets: parsed.data.map((widget): AgentHomeWidget => ({
-            id: `agent:custom:${agent.id}:${widget.id}`,
-            kind: "custom",
-            agentId: agent.id,
-            widgetId: widget.id,
-            ownerName: agent.name,
-            label: widget.title,
-            description: widget.description,
-            size: widget.size,
-            icon: widget.icon,
-            accent: widget.accent,
-            surface: widget.surface,
-            header: widget.header,
-          })),
-        },
-      ];
-    });
-    return [...packageGroups, ...customGroups];
-  }, [installed.data, agents.data, i18n.language, i18n.resolvedLanguage]);
+  const {
+    customWidgetsQuery,
+    customWidgets,
+    customWidgetIds,
+    customWidgetsById,
+    deleteCustomWidgetMutation,
+    updateCustomWidgetMutation,
+    agentWidgetGroups,
+  } = homeWidgetCatalog;
   const agentWidgets = useMemo(() => agentWidgetGroups.flatMap((group) => group.widgets), [agentWidgetGroups]);
   const agentWidgetsById = useMemo(() => new Map(agentWidgets.map((widget) => [widget.id, widget])), [agentWidgets]);
   const largeAgentWidgetIds = useMemo(
@@ -1426,13 +1268,15 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   const [widgetManagerAgentId, setWidgetManagerAgentId] = useState<string | null>(null);
   const [focusedPackagePost, setFocusedPackagePost] = useState<{ packageId: string; postId: string } | null>(null);
   const [mobileBookmarksOpen, setMobileBookmarksOpen] = useState(false);
-  const [visibleWidgets, setVisibleWidgets] = useState<HomeWidgetId[]>(readHomeWidgetVisibility);
+  // Shared with Settings › General › Home, so a switch there changes Home at once.
+  const visibleWidgets = useHomeWidgetsStore((state) => state.visible);
+  const setVisibleWidgets = useHomeWidgetsStore((state) => state.setVisible);
   const [widgetLayouts, setWidgetLayouts] = useState<HomeWidgetLayouts>(() =>
     readHomeWidgetLayouts(readHomeWidgetVisibility()),
   );
   const [gridColumns, setGridColumns] = useState<HomeGridColumns>(1);
   const [gridRowHeight, setGridRowHeight] = useState(HOME_WIDGET_MIN_ROW_HEIGHT);
-  const contentRef = useRef<HTMLElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   // Phone Home keeps Conversation / Roleplay / Game on one row. When a theme's font or the phone
   // is too narrow for icon + label, data-compact drops the icons (styles in overhaul-mobile.css).
   const homeModesRef = useRef<HTMLDivElement | null>(null);
@@ -1579,7 +1423,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     } catch {
       /* Local storage is optional; the current session still updates. */
     }
-  }, [customWidgets, customWidgetsQuery.isSuccess]);
+  }, [customWidgets, customWidgetsQuery.isSuccess, setVisibleWidgets]);
 
   useEffect(() => {
     if (!installed.isSuccess || !agents.isSuccess) return;
@@ -1596,7 +1440,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
       });
       return next.length === current.length ? current : next;
     });
-  }, [agentWidgets, installed.data, installed.isSuccess, agents.isSuccess]);
+  }, [agentWidgets, installed.data, installed.isSuccess, agents.isSuccess, setVisibleWidgets]);
 
   useEffect(() => {
     if (!achievementsEnabled) setAchievementsOpen(false);
@@ -1724,7 +1568,6 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
   useEffect(() => {
     try {
       window.localStorage.setItem(HOME_WIDGET_LAYOUT_STORAGE_KEY, JSON.stringify(widgetLayouts));
-      window.localStorage.setItem(HOME_WIDGET_VISIBILITY_STORAGE_KEY, JSON.stringify(visibleWidgets));
       window.localStorage.setItem(
         HOME_WIDGET_ORDER_STORAGE_KEY,
         JSON.stringify(widgetOrderFromSlots(activeWidgetSlots)),
@@ -1820,6 +1663,11 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     if (isOverhaulLook()) useOverhaulStore.getState().openMari();
     else requestProfessorMariOpen();
   };
+  // New layout: the widgets are chosen in Settings › General › Home; the classic layout keeps its window.
+  const openWidgetSettings = useCallback(() => {
+    if (overhaulActive) executeStateNavigation({ kind: "settings", tab: "general", sectionId: "home" });
+    else setWidgetManagerOpen(true);
+  }, [overhaulActive]);
   // The omnibar and Command Center ask Home for a surface through `requestHome`; Home opens it here.
   const homeRequest = useUIStore((state) => state.homeRequest);
   useEffect(() => {
@@ -1827,9 +1675,9 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
     useUIStore.getState().consumeHomeRequest();
     if (homeRequest.kind === "tab") selectTab(homeRequest.tab);
     else if (homeRequest.kind === "faq") setFaqOpen(true);
-    else if (homeRequest.kind === "widgets") setWidgetManagerOpen(true);
+    else if (homeRequest.kind === "widgets") openWidgetSettings();
     else onOpenCredits();
-  }, [homeRequest, onOpenCredits, selectTab]);
+  }, [homeRequest, onOpenCredits, openWidgetSettings, selectTab]);
   const moveDraggedWidget = useCallback(
     (target: { kind: "widget"; id: HomeWidgetId } | { kind: "empty"; index: number }) => {
       const source = draggedWidgetIdRef.current;
@@ -2520,7 +2368,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                     </BrowserBookmark>
                   ) : null}
                   <BrowserBookmark
-                    onClick={() => setWidgetManagerOpen(true)}
+                    onClick={openWidgetSettings}
                     icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
                     tone={HOME_MODULE_ACCENTS.violet}
                     tourTarget="home-widgets"
@@ -2622,7 +2470,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                   <MobileBrowserBookmark
                     onClick={() => {
                       setMobileBookmarksOpen(false);
-                      setWidgetManagerOpen(true);
+                      openWidgetSettings();
                     }}
                     icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
                     tone={HOME_MODULE_ACCENTS.violet}
@@ -2635,7 +2483,8 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
           </header>
         )}
 
-        <main
+        {/* One <main> per page: the app's own; this is its tab panel (QC Nov 22 K16). */}
+        <div
           id={HOME_BROWSER_PANEL_ID}
           ref={contentRef}
           role="tabpanel"
@@ -2843,7 +2692,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                             {display.homeBrowserTab?.label ?? display.name}
                           </button>
                         ))}
-                        <button type="button" className="ov-btn" onClick={() => setWidgetManagerOpen(true)}>
+                        <button type="button" className="ov-btn" onClick={openWidgetSettings}>
                           <SlidersHorizontal size={14} aria-hidden="true" />
                           {t("home.browser.widgets")}
                         </button>
@@ -2864,502 +2713,512 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
                       } as CSSProperties
                     }
                   >
-                    <HomeWidgetFrame {...widgetFrameProps("professor")}>
-                      <section
-                        className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-widget relative grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)] gap-x-[min(0.75rem,12px)] rounded-[var(--mari-home-widget-radius,1rem)] border [border-width:var(--mari-home-widget-border-width,1px)] p-(--mari-home-professor-pad) [font-family:var(--mari-home-widget-font,inherit)] [--mari-home-professor-pad:0.75rem] sm:[--mari-home-professor-pad:clamp(0.85rem,1vw,1.2rem)]"
-                        data-component="HomeBrowserHub.ProfessorWidget"
-                        data-mari-part="home-widget"
-                      >
-                        {/* At the widget's top edge like the other widgets' titles (theme-tokens.css). */}
-                        <WindowTitle title={t("home.shortcuts.professorMari")} where="home-widget" />
-                        {/* The card does not clip, so Mari can stand in its bottom padding (#7032). The text column
+                    <HomeWidgetsInPlacementOrder>
+                      <HomeWidgetFrame {...widgetFrameProps("professor")}>
+                        <section
+                          className="mari-chrome-accent-frame mari-chrome-accent-panel mari-accent-animated mari-home-professor-widget relative grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)] gap-x-[min(0.75rem,12px)] rounded-[var(--mari-home-widget-radius,1rem)] border [border-width:var(--mari-home-widget-border-width,1px)] p-(--mari-home-professor-pad) [font-family:var(--mari-home-widget-font,inherit)] [--mari-home-professor-pad:0.75rem] sm:[--mari-home-professor-pad:clamp(0.85rem,1vw,1.2rem)]"
+                          data-component="HomeBrowserHub.ProfessorWidget"
+                          data-mari-part="home-widget"
+                        >
+                          {/* At the widget's top edge like the other widgets' titles (theme-tokens.css). */}
+                          <WindowTitle title={t("home.shortcuts.professorMari")} where="home-widget" />
+                          {/* The card does not clip, so Mari can stand in its bottom padding (#7032). The text column
                             clips instead, reaching into the card's vertical padding so a large UI font is cut at
                             the card's padding edge, as before, rather than further in. */}
-                        <div
-                          className="relative z-[2] -my-(--mari-home-professor-pad) flex min-h-0 min-w-0 flex-col items-start justify-center overflow-y-clip py-(--mari-home-professor-pad)"
-                          data-home-professor-content
-                        >
-                          <p
-                            data-mari-part="home-widget-eyebrow"
-                            className="mari-chrome-accent-icon mari-accent-animated text-[length:var(--mari-home-widget-eyebrow-size,0.625rem)] font-extrabold uppercase tracking-[0.16em]"
-                          >
-                            {t("home.professorMari.eyebrow")}
-                          </p>
-                          <h2
-                            data-mari-part="home-widget-title"
-                            className="mt-0.5 text-[length:var(--mari-home-widget-title-size,0.875rem)] font-bold text-[var(--mari-home-widget-title-color,var(--foreground))] [font-family:var(--mari-home-widget-title-font,inherit)] sm:text-[length:var(--mari-home-widget-title-size,1rem)]"
-                          >
-                            {t("home.shortcuts.professorMari")}
-                          </h2>
-                          <p
-                            className="mt-1 line-clamp-6 min-w-0 text-[length:var(--mari-home-widget-text-size,clamp(0.56rem,2.4cqw,0.75rem))] leading-[1.3] text-[var(--mari-home-widget-muted,var(--muted-foreground))] sm:mt-1.5 sm:line-clamp-7"
-                            data-mari-part="home-widget-text"
-                            data-home-professor-description
-                          >
-                            {(() => {
-                              // Phones and tablets have no Ctrl+K: their copy says to tap the title (audit C22).
-                              const key = mariPackSeason
-                                ? `home.professorMari.${mariPackId}.widgetDescription`
-                                : "home.professorMari.widgetDescription";
-                              const touchKey = `${key}Touch`;
-                              return t(mobileShell && i18n.exists(touchKey) ? touchKey : key, {
-                                mod: formatShortcutKey("Mod"),
-                              });
-                            })()}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={openProfessor}
-                            className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected mari-accent-animated mt-2 h-auto min-h-8 max-w-full px-2 py-1 text-center text-[clamp(0.56rem,2.2cqw,0.75rem)] font-bold leading-tight sm:gap-1.5 sm:px-2.5"
-                            data-home-professor-action
-                          >
-                            <MessageCircle size="0.8rem" className="mari-rgb-static-icon text-current" />{" "}
-                            {t("home.professorMari.ask")}
-                          </button>
-                          {mariPackSeason ? (
-                            <p className="mari-home-professor-greeting">
-                              {t(`home.professorMari.${mariPackId}.greeting`)}
-                            </p>
-                          ) : null}
-                        </div>
-                        {/* Slice 85: the navigator's idle portrait with its blink on top, scaled to 192 px tall
-                            and standing on the card's bottom border. */}
-                        <MariHold heldSrc={mariPortraits.drag} onTap={openProfessor}>
                           <div
-                            className="group/home-mari relative z-[1] -mb-(--mari-home-professor-pad) h-[192px] w-[128px] self-end"
-                            data-home-professor-art
-                            ref={professorArtRef}
-                            aria-hidden="true"
+                            className="relative z-[2] -my-(--mari-home-professor-pad) flex min-h-0 min-w-0 flex-col items-start justify-center overflow-y-clip py-(--mari-home-professor-pad)"
+                            data-home-professor-content
                           >
-                            <img
-                              src={mariPortraits.idle}
-                              {...mariImgLoading(MARI_ASSET_TIER.portraits.idle)}
-                              width={128}
-                              height={192}
-                              alt=""
-                              data-part="sprite"
-                              draggable={false}
-                              className="block h-[192px] w-[128px] max-w-none select-none"
-                            />
-                            <img
-                              src={mariPortraits.blink}
-                              {...mariImgLoading(MARI_ASSET_TIER.portraits.blink)}
-                              width={128}
-                              height={192}
-                              alt=""
-                              draggable={false}
-                              className="mari-home-professor-blink absolute inset-0 block h-[192px] w-[128px] max-w-none select-none"
-                            />
-                            {/* Slice 85 hover: mouse only, over the idle and blink layers; the same box, so nothing moves. */}
-                            <img
-                              src={mariPortraits.hover}
-                              {...mariImgLoading(MARI_ASSET_TIER.portraits.hover)}
-                              width={128}
-                              height={192}
-                              alt=""
-                              draggable={false}
-                              className="absolute inset-0 block h-[192px] w-[128px] max-w-none select-none opacity-0 [@media(hover:hover)]:group-hover/home-mari:opacity-100"
-                            />
-                          </div>
-                        </MariHold>
-                      </section>
-                    </HomeWidgetFrame>
-
-                    <HomeWidgetFrame {...widgetFrameProps("recent")}>
-                      <FeedModule
-                        eyebrow={t("home.recentChats.eyebrow")}
-                        title={t("home.recentChats.title")}
-                        accent={HOME_MODULE_ACCENTS.cyan}
-                        art="/home/story-comet.webp"
-                        artClassName={HOME_CARD_ART_CLASS}
-                        className="h-full"
-                        onOpen={() => executeStateNavigation({ kind: "chats" })}
-                        openLabel={t("home.recentChats.open")}
-                      >
-                        <RecentChats />
-                      </FeedModule>
-                    </HomeWidgetFrame>
-
-                    <HomeWidgetFrame {...widgetFrameProps("character-library")}>
-                      <FeedModule
-                        eyebrow={t("home.widgets.characterLibrary")}
-                        title={t("home.characterLibrary.title")}
-                        accent={HOME_MODULE_ACCENTS.cyan}
-                        className="h-full"
-                        onOpen={() => useUIStore.getState().openCharacterLibrary()}
-                        openLabel={t("home.characterLibrary.open")}
-                      >
-                        <HomeCharacterLibrary
-                          characters={characterCatalog.data ?? []}
-                          loading={characterCatalog.isLoading}
-                          error={characterCatalog.isError}
-                          onRetry={() => void characterCatalog.refetch()}
-                        />
-                      </FeedModule>
-                    </HomeWidgetFrame>
-
-                    <HomeWidgetFrame {...widgetFrameProps("whats-new")}>
-                      <FeedModule
-                        eyebrow={t("home.whatsNew.eyebrow")}
-                        title={t("home.whatsNew.title", { version: APP_VERSION })}
-                        accent={HOME_MODULE_ACCENTS.orange}
-                        art="/home/kitchen-orbit.webp"
-                        artClassName={HOME_CARD_ART_CLASS}
-                        className="h-full"
-                      >
-                        {/* Text at the top, links pinned to the bottom, so a taller row (big theme text in the
-                            next card) leaves its space between them instead of under the links. */}
-                        <div className="flex h-full min-h-0 flex-col">
-                          <div className="max-w-[68%]">
                             <p
-                              data-mari-part="home-widget-text"
-                              className="text-[length:var(--mari-home-widget-text-size,0.75rem)] leading-relaxed text-[var(--mari-home-widget-muted,var(--muted-foreground))]"
+                              data-mari-part="home-widget-eyebrow"
+                              className="mari-chrome-accent-icon mari-accent-animated text-[length:var(--mari-home-widget-eyebrow-size,0.625rem)] font-extrabold uppercase tracking-[0.16em]"
                             >
-                              {t("home.whatsNew.description")}
+                              {t("home.professorMari.eyebrow")}
                             </p>
-                          </div>
-                          {/* Full card width: on phones the 68% text column is too narrow for both actions on one line. */}
-                          <div className="mt-auto flex items-center gap-x-3">
+                            <h2
+                              data-mari-part="home-widget-title"
+                              className="mt-0.5 text-[length:var(--mari-home-widget-title-size,0.875rem)] font-bold text-[var(--mari-home-widget-title-color,var(--foreground))] [font-family:var(--mari-home-widget-title-font,inherit)] sm:text-[length:var(--mari-home-widget-title-size,1rem)]"
+                            >
+                              {t("home.shortcuts.professorMari")}
+                            </h2>
+                            <p
+                              className="mt-1 line-clamp-6 min-w-0 text-[length:var(--mari-home-widget-text-size,clamp(0.56rem,2.4cqw,0.75rem))] leading-[1.3] text-[var(--mari-home-widget-muted,var(--muted-foreground))] sm:mt-1.5 sm:line-clamp-7"
+                              data-mari-part="home-widget-text"
+                              data-home-professor-description
+                            >
+                              {(() => {
+                                // Phones and tablets have no Ctrl+K: their copy says to tap the title (audit C22).
+                                // A tablet sideways (computer layout) taps the search button instead (QC panel 2).
+                                // A seasonal pack without its own touch copy uses the plain touch copy, never ⌘K.
+                                const key = mariPackSeason
+                                  ? `home.professorMari.${mariPackId}.widgetDescription`
+                                  : "home.professorMari.widgetDescription";
+                                const plain = "home.professorMari.widgetDescription";
+                                const touchSuffix = mobileShell ? "Touch" : isTouchDevice() ? "TouchSearch" : null;
+                                const pick = touchSuffix
+                                  ? i18n.exists(`${key}${touchSuffix}`)
+                                    ? `${key}${touchSuffix}`
+                                    : `${plain}${touchSuffix}`
+                                  : key;
+                                return t(pick, { mod: formatShortcutKey("Mod") });
+                              })()}
+                            </p>
                             <button
                               type="button"
-                              onClick={() => useUIStore.getState().requestWhatsNew()}
-                              className="mt-2 inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                              onClick={openProfessor}
+                              className="mari-chrome-control mari-chrome-control--compact mari-chrome-control--selected mari-accent-animated mt-2 h-auto min-h-8 max-w-full px-2 py-1 text-center text-[clamp(0.56rem,2.2cqw,0.75rem)] font-bold leading-tight sm:gap-1.5 sm:px-2.5"
+                              data-home-professor-action
                             >
-                              {t("home.whatsNew.open")}
+                              <MessageCircle size="0.8rem" className="mari-rgb-static-icon text-current" />{" "}
+                              {t("home.professorMari.ask")}
                             </button>
-                            <a
-                              href={ENGINE_RELEASE_URL}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                            >
-                              {t("home.whatsNew.releaseNotes")} <ExternalLink size="0.7rem" />
-                            </a>
-                          </div>
-                        </div>
-                      </FeedModule>
-                    </HomeWidgetFrame>
-
-                    <HomeWidgetFrame {...widgetFrameProps("discovery")}>
-                      <FeedModule
-                        eyebrow={t("home.discovery.eyebrow")}
-                        title={t("home.discovery.title")}
-                        accent={HOME_MODULE_ACCENTS.violet}
-                        className="h-full"
-                        action={
-                          <button
-                            type="button"
-                            onClick={() => useUIStore.getState().openAgentCatalog()}
-                            className="min-h-8 shrink-0 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                          >
-                            {t("home.discovery.browse")}
-                          </button>
-                        }
-                      >
-                        {activeRecommendation ? (
-                          <div className="relative flex h-full min-h-24 items-center px-6">
-                            {recommendations.length > 1 ? (
-                              <button
-                                type="button"
-                                onClick={() => moveDiscovery(-1)}
-                                className="absolute -left-1 top-1/2 z-[2] flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--home-module-accent-text,var(--home-module-accent))] transition-[background-color,transform] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                                aria-label={t("home.discovery.previous")}
-                              >
-                                <ChevronLeft size="1rem" />
-                              </button>
-                            ) : null}
-                            <button
-                              key={activeRecommendation.manifest.id}
-                              type="button"
-                              onClick={() => useUIStore.getState().openAgentCatalog(activeRecommendation.manifest.id)}
-                              className="mari-home-discovery-card flex min-h-24 w-full items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--home-module-accent)_20%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_5%,var(--secondary))] p-3 text-left transition-colors hover:border-[color-mix(in_srgb,var(--home-module-accent)_48%,var(--border))] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_10%,var(--secondary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                            >
-                              <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[color-mix(in_srgb,var(--home-module-accent)_14%,var(--accent))] text-[var(--home-module-accent-text,var(--home-module-accent))]">
-                                {activeRecommendation.iconUrl ? (
-                                  <img
-                                    src={activeRecommendation.iconUrl}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <PackagePlus size="1rem" />
-                                )}
-                              </span>
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-bold text-[var(--foreground)]">
-                                  {activeRecommendationDisplay?.name ?? activeRecommendation.manifest.name}
-                                </span>
-                                <span className="mt-0.5 line-clamp-2 text-[0.68rem] leading-relaxed text-[var(--muted-foreground)]">
-                                  {activeRecommendationDisplay?.description ??
-                                    activeRecommendation.manifest.description}
-                                </span>
-                                {recommendations.length > 1 ? (
-                                  <span className="mt-1.5 block text-[0.58rem] font-bold uppercase tracking-[0.12em] text-[var(--home-module-accent-text,var(--home-module-accent))]">
-                                    {t("home.discovery.position", {
-                                      current: (discoveryIndex % recommendations.length) + 1,
-                                      total: recommendations.length,
-                                    })}
-                                  </span>
-                                ) : null}
-                              </span>
-                            </button>
-                            {recommendations.length > 1 ? (
-                              <button
-                                type="button"
-                                onClick={() => moveDiscovery(1)}
-                                className="absolute -right-1 top-1/2 z-[2] flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--home-module-accent-text,var(--home-module-accent))] transition-[background-color,transform] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                                aria-label={t("home.discovery.next")}
-                              >
-                                <ChevronRight size="1rem" />
-                              </button>
+                            {mariPackSeason ? (
+                              <p className="mari-home-professor-greeting">
+                                {t(`home.professorMari.${mariPackId}.greeting`)}
+                              </p>
                             ) : null}
                           </div>
-                        ) : (
-                          <div className="flex h-full min-h-20 items-center gap-3 rounded-xl border border-dashed border-[var(--border)]/70 p-3 text-xs text-[var(--muted-foreground)]">
-                            <Compass
-                              size="1rem"
-                              className="text-[var(--home-module-accent-text,var(--home-module-accent))]"
-                            />{" "}
-                            {t("home.discovery.empty")}
-                          </div>
-                        )}
-                      </FeedModule>
-                    </HomeWidgetFrame>
-
-                    <HomeWidgetFrame {...widgetFrameProps("character")}>
-                      <FeedModule
-                        eyebrow={t("home.characterOfDay.eyebrow")}
-                        title={t("home.characterOfDay.title")}
-                        accent={HOME_MODULE_ACCENTS.accent}
-                        className="h-full"
-                      >
-                        {characterOfDay ? (
-                          <div
-                            className="flex h-full min-h-0 items-center gap-3"
-                            data-component="HomeBrowserHub.CharacterOfDayContent"
-                          >
+                          {/* Slice 85: the navigator's idle portrait with its blink on top, scaled to 192 px tall
+                            and standing on the card's bottom border. */}
+                          <MariHold heldSrc={mariPortraits.drag} onTap={openProfessor}>
                             <div
-                              className="relative h-24 w-24 shrink-0 sm:h-32 sm:w-32"
-                              data-component="HomeBrowserHub.CharacterOfDayAvatar"
+                              className="group/home-mari relative z-[1] -mb-(--mari-home-professor-pad) h-[192px] w-[128px] self-end"
+                              data-home-professor-art
+                              ref={professorArtRef}
+                              aria-hidden="true"
                             >
-                              <span className="absolute inset-[15%] flex items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--secondary))] text-2xl font-black text-[var(--home-module-accent-text,var(--home-module-accent))]">
-                                {characterOfDay.avatarPath ? (
-                                  <img
-                                    src={avatarPreviewSrc(characterOfDay.avatarPath, "icon")}
-                                    alt=""
-                                    className="h-full w-full rounded-full object-cover"
-                                    style={getAvatarCropStyle(characterOfDay.avatarCrop)}
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  characterOfDay.name.slice(0, 1)
-                                )}
-                              </span>
                               <img
-                                src="/home/character-portal.webp"
+                                src={mariPortraits.idle}
+                                {...mariImgLoading(MARI_ASSET_TIER.portraits.idle)}
+                                width={128}
+                                height={192}
                                 alt=""
-                                loading="lazy"
-                                decoding="async"
-                                data-mari-part="home-art"
-                                className="pointer-events-none absolute inset-0 h-full w-full object-contain"
-                                aria-hidden="true"
+                                data-part="sprite"
+                                draggable={false}
+                                className="block h-[192px] w-[128px] max-w-none select-none"
+                              />
+                              <img
+                                src={mariPortraits.blink}
+                                {...mariImgLoading(MARI_ASSET_TIER.portraits.blink)}
+                                width={128}
+                                height={192}
+                                alt=""
+                                draggable={false}
+                                className="mari-home-professor-blink absolute inset-0 block h-[192px] w-[128px] max-w-none select-none"
+                              />
+                              {/* Slice 85 hover: mouse only, over the idle and blink layers; the same box, so nothing moves. */}
+                              <img
+                                src={mariPortraits.hover}
+                                {...mariImgLoading(MARI_ASSET_TIER.portraits.hover)}
+                                width={128}
+                                height={192}
+                                alt=""
+                                draggable={false}
+                                className="absolute inset-0 block h-[192px] w-[128px] max-w-none select-none opacity-0 [@media(hover:hover)]:group-hover/home-mari:opacity-100"
                               />
                             </div>
-                            <div className="min-w-0 flex-1" data-component="HomeBrowserHub.CharacterOfDayDetails">
-                              <h3 className="truncate text-base font-bold text-[var(--foreground)]">
-                                {characterOfDay.name}
-                              </h3>
-                              <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-[var(--muted-foreground)] sm:line-clamp-3">
-                                {characterOfDay.summary ||
-                                  characterOfDay.comment ||
-                                  characterOfDay.description?.trim() ||
-                                  t("home.characterOfDay.fallback")}
+                          </MariHold>
+                        </section>
+                      </HomeWidgetFrame>
+
+                      <HomeWidgetFrame {...widgetFrameProps("recent")}>
+                        <FeedModule
+                          eyebrow={t("home.recentChats.eyebrow")}
+                          title={t("home.recentChats.title")}
+                          accent={HOME_MODULE_ACCENTS.cyan}
+                          art="/home/story-comet.webp"
+                          artClassName={HOME_CARD_ART_CLASS}
+                          className="h-full"
+                          onOpen={() => executeStateNavigation({ kind: "chats" })}
+                          openLabel={t("home.recentChats.open")}
+                        >
+                          <RecentChats />
+                        </FeedModule>
+                      </HomeWidgetFrame>
+
+                      <HomeWidgetFrame {...widgetFrameProps("character-library")}>
+                        <FeedModule
+                          eyebrow={t("home.widgets.characterLibrary")}
+                          title={t("home.characterLibrary.title")}
+                          accent={HOME_MODULE_ACCENTS.cyan}
+                          className="h-full"
+                          onOpen={() => useUIStore.getState().openCharacterLibrary()}
+                          openLabel={t("home.characterLibrary.open")}
+                        >
+                          <HomeCharacterLibrary
+                            characters={characterCatalog.data ?? []}
+                            loading={characterCatalog.isLoading}
+                            error={characterCatalog.isError}
+                            onRetry={() => void characterCatalog.refetch()}
+                          />
+                        </FeedModule>
+                      </HomeWidgetFrame>
+
+                      <HomeWidgetFrame {...widgetFrameProps("whats-new")}>
+                        <FeedModule
+                          eyebrow={t("home.whatsNew.eyebrow")}
+                          title={t("home.whatsNew.title", { version: APP_VERSION })}
+                          accent={HOME_MODULE_ACCENTS.orange}
+                          art="/home/kitchen-orbit.webp"
+                          artClassName={HOME_CARD_ART_CLASS}
+                          className="h-full"
+                        >
+                          {/* Text at the top, links pinned to the bottom, so a taller row (big theme text in the
+                            next card) leaves its space between them instead of under the links. */}
+                          <div className="flex h-full min-h-0 flex-col">
+                            <div className="max-w-[68%]">
+                              <p
+                                data-mari-part="home-widget-text"
+                                className="text-[length:var(--mari-home-widget-text-size,0.75rem)] leading-relaxed text-[var(--mari-home-widget-muted,var(--muted-foreground))]"
+                              >
+                                {t("home.whatsNew.description")}
                               </p>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:mt-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    useUIStore.getState().openModal("start-character-chat", {
-                                      characterId: characterOfDay.id,
-                                      characterName: characterOfDay.name,
-                                    })
-                                  }
-                                  className="inline-flex min-h-8 items-center rounded-md bg-[var(--home-module-accent)] px-2.5 text-xs font-bold text-[var(--primary-foreground)] transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                                >
-                                  {t("home.characterOfDay.startChat")}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => useUIStore.getState().openCharacterDetail(characterOfDay.id)}
-                                  className="inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
-                                >
-                                  {t("home.characterOfDay.open")}
-                                </button>
-                              </div>
+                            </div>
+                            {/* Full card width: on phones the 68% text column is too narrow for both actions on one line. */}
+                            <div className="mt-auto flex items-center gap-x-3">
+                              <button
+                                type="button"
+                                onClick={() => useUIStore.getState().requestWhatsNew()}
+                                className="mt-2 inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                              >
+                                {t("home.whatsNew.open")}
+                              </button>
+                              <a
+                                href={ENGINE_RELEASE_URL}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                              >
+                                {t("home.whatsNew.releaseNotes")} <ExternalLink size="0.7rem" />
+                              </a>
                             </div>
                           </div>
-                        ) : (
-                          // Reaches up into the header's mb-3 gap so a large UI font still fits. mt-auto, not
-                          // justify-end, bottom-aligns it: when nothing fits, it overflows below the title, never over it.
-                          <div className="-mt-3 flex h-[calc(100%+0.75rem)] min-h-0 flex-col">
-                            <LibraryBig
-                              className="mb-2 mt-auto min-h-0 text-[var(--home-module-accent-text,var(--home-module-accent))]"
-                              size="1.1rem"
-                            />
-                            <p className="text-sm font-bold text-[var(--foreground)]">
-                              {t("home.characterOfDay.emptyTitle")}
-                            </p>
+                        </FeedModule>
+                      </HomeWidgetFrame>
+
+                      <HomeWidgetFrame {...widgetFrameProps("discovery")}>
+                        <FeedModule
+                          eyebrow={t("home.discovery.eyebrow")}
+                          title={t("home.discovery.title")}
+                          accent={HOME_MODULE_ACCENTS.violet}
+                          className="h-full"
+                          action={
                             <button
                               type="button"
-                              onClick={() => useUIStore.getState().openCharacterLibrary()}
-                              className="mt-1 self-start text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                              onClick={() => useUIStore.getState().openAgentCatalog()}
+                              className="min-h-8 shrink-0 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
                             >
-                              {t("home.characterOfDay.emptyAction")}
+                              {t("home.discovery.browse")}
                             </button>
-                          </div>
-                        )}
-                      </FeedModule>
-                    </HomeWidgetFrame>
-
-                    <HomeWidgetFrame {...widgetFrameProps("learn")}>
-                      <FeedModule
-                        eyebrow={t(featureTipsEnabled ? "thingsToTry.eyebrow" : "home.learn.eyebrow")}
-                        title={t(featureTipsEnabled ? "thingsToTry.title" : "home.learn.title")}
-                        accent={HOME_MODULE_ACCENTS.cyan}
-                        className="h-full"
-                        action={
-                          featureTipsEnabled ? <ThingsToTrySeeAll onOpen={() => setThingsToTryOpen(true)} /> : undefined
-                        }
-                      >
-                        {featureTipsEnabled ? <ThingsToTryWidget fallback={learnShortcuts} /> : learnShortcuts}
-                      </FeedModule>
-                    </HomeWidgetFrame>
-
-                    <HomeWidgetFrame {...widgetFrameProps("community")}>
-                      <FeedModule
-                        eyebrow={t("home.community.eyebrow")}
-                        title={t("home.community.title")}
-                        accent={HOME_MODULE_ACCENTS.accent}
-                        className="h-full"
-                      >
-                        <div className="mari-home-widget-shortcut-list grid h-full grid-rows-3 gap-1">
-                          <HomeWidgetShortcut
-                            href="https://discord.com/invite/KdAkTg94ME"
-                            onClick={() => trackHomeAction("discord_clicked")}
-                            icon="/home/tab-icons/discord.svg"
-                            title={t("home.community.discordTitle")}
-                            description={t("home.community.discordDescription")}
-                          />
-                          <HomeWidgetShortcut
-                            href="https://ko-fi.com/marinara_spaghetti"
-                            onClick={() => trackHomeAction("kofi_clicked")}
-                            icon="/home/tab-icons/kofi.png"
-                            title={t("home.community.supportTitle")}
-                            description={t("home.community.supportDescription")}
-                          />
-                          <HomeWidgetShortcut
-                            onClick={() => {
-                              trackHomeAction("credits_viewed");
-                              onOpenCredits();
-                            }}
-                            icon="/home/tab-icons/credits.png"
-                            title={t("home.community.creditsTitle")}
-                            description={t("home.community.creditsDescription")}
-                          />
-                        </div>
-                      </FeedModule>
-                    </HomeWidgetFrame>
-
-                    <HomeWidgetFrame {...widgetFrameProps("clock")}>
-                      <HomeClockCalendar />
-                    </HomeWidgetFrame>
-
-                    <HomeWidgetFrame {...widgetFrameProps("achievements")}>
-                      <FeedModule
-                        eyebrow={t("home.achievements.eyebrow")}
-                        title={t("home.achievements.title")}
-                        description={t("home.achievements.description")}
-                        accent={HOME_MODULE_ACCENTS.orange}
-                        art="/home/achievement-trophy.webp"
-                        artClassName={HOME_CARD_ART_CLASS}
-                        className="h-full min-h-0"
-                      >
-                        <HomeAchievements
-                          compact
-                          open={achievementsOpen}
-                          onOpenChange={setAchievementsOpen}
-                          showModal={false}
-                          className="!h-auto !w-full !border-0 !px-2"
-                        />
-                      </FeedModule>
-                    </HomeWidgetFrame>
-                    {customWidgets.map((widget) => {
-                      const id = customHomeWidgetId(widget.id);
-                      const Icon = HOME_CUSTOM_WIDGET_ICONS[widget.icon];
-                      return (
-                        <HomeWidgetFrame key={id} {...widgetFrameProps(id)}>
-                          <FeedModule
-                            eyebrow={t("home.widgets.customEyebrow")}
-                            title={widget.title}
-                            accent={HOME_MODULE_ACCENTS[widget.accent]}
-                            className="h-full"
-                          >
-                            <div className="flex h-full min-h-0 items-center gap-3">
-                              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[color-mix(in_srgb,var(--home-module-accent)_38%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--card))] text-[var(--home-module-accent-text,var(--home-module-accent))]">
-                                <Icon size="1.25rem" aria-hidden="true" />
-                              </span>
-                              <p className="line-clamp-6 min-w-0 text-xs leading-relaxed text-[var(--muted-foreground)]">
-                                {widget.description}
-                              </p>
+                          }
+                        >
+                          {activeRecommendation ? (
+                            <div className="relative flex h-full min-h-24 items-center px-6">
+                              {recommendations.length > 1 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => moveDiscovery(-1)}
+                                  className="absolute -left-1 top-1/2 z-[2] flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--home-module-accent-text,var(--home-module-accent))] transition-[background-color,transform] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                                  aria-label={t("home.discovery.previous")}
+                                >
+                                  <ChevronLeft size="1rem" />
+                                </button>
+                              ) : null}
+                              <button
+                                key={activeRecommendation.manifest.id}
+                                type="button"
+                                onClick={() => useUIStore.getState().openAgentCatalog(activeRecommendation.manifest.id)}
+                                className="mari-home-discovery-card flex min-h-24 w-full items-center gap-3 rounded-xl border border-[color-mix(in_srgb,var(--home-module-accent)_20%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_5%,var(--secondary))] p-3 text-left transition-colors hover:border-[color-mix(in_srgb,var(--home-module-accent)_48%,var(--border))] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_10%,var(--secondary))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                              >
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[color-mix(in_srgb,var(--home-module-accent)_14%,var(--accent))] text-[var(--home-module-accent-text,var(--home-module-accent))]">
+                                  {activeRecommendation.iconUrl ? (
+                                    <img
+                                      src={activeRecommendation.iconUrl}
+                                      alt=""
+                                      className="h-full w-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <PackagePlus size="1rem" />
+                                  )}
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm font-bold text-[var(--foreground)]">
+                                    {activeRecommendationDisplay?.name ?? activeRecommendation.manifest.name}
+                                  </span>
+                                  <span className="mt-0.5 line-clamp-2 text-[0.68rem] leading-relaxed text-[var(--muted-foreground)]">
+                                    {activeRecommendationDisplay?.description ??
+                                      activeRecommendation.manifest.description}
+                                  </span>
+                                  {recommendations.length > 1 ? (
+                                    <span className="mt-1.5 block text-[0.58rem] font-bold uppercase tracking-[0.12em] text-[var(--home-module-accent-text,var(--home-module-accent))]">
+                                      {t("home.discovery.position", {
+                                        current: (discoveryIndex % recommendations.length) + 1,
+                                        total: recommendations.length,
+                                      })}
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </button>
+                              {recommendations.length > 1 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => moveDiscovery(1)}
+                                  className="absolute -right-1 top-1/2 z-[2] flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[var(--home-module-accent-text,var(--home-module-accent))] transition-[background-color,transform] hover:bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                                  aria-label={t("home.discovery.next")}
+                                >
+                                  <ChevronRight size="1rem" />
+                                </button>
+                              ) : null}
                             </div>
-                          </FeedModule>
-                        </HomeWidgetFrame>
-                      );
-                    })}
-                    {agentWidgets.map((widget) => (
-                      <HomeWidgetFrame key={widget.id} {...widgetFrameProps(widget.id)}>
-                        {widget.kind === "package" && widget.packageId ? (
-                          <CapabilityElement
-                            packageId={widget.packageId}
-                            view="widget"
-                            className="block h-full min-h-0 w-full"
-                            capabilityProps={{
-                              widgetId: widget.widgetId,
-                              widgetLabel: widget.label,
-                              widgetDescription: widget.description,
-                              widgetIcon: widget.icon,
-                              widgetIconPath: widget.iconPath,
-                              widgetAccent: widget.accent,
-                              widgetSurface: widget.surface,
-                              widgetHeader: widget.header,
-                              active: pageActive && activeTab === "home" && visibleWidgets.includes(widget.id),
-                              onOpenPost: (postId: unknown) => {
-                                if (typeof postId !== "string" || postId.length > 128) return;
-                                if (!browserPackages.some((item) => item.id === widget.packageId)) return;
-                                setFocusedPackagePost({ packageId: widget.packageId!, postId });
-                                selectTab(widget.packageId!);
-                              },
-                              onOpenNoodle: () => {
-                                if (browserPackages.some((item) => item.id === widget.packageId))
-                                  selectTab(widget.packageId!);
-                              },
-                            }}
-                          />
-                        ) : widget.agentId ? (
-                          <CustomAgentHomeWidget
-                            agentId={widget.agentId}
-                            widgetId={widget.widgetId}
-                            label={widget.label}
-                            ownerName={widget.ownerName}
-                            accent={widget.accent}
-                            description={widget.description}
-                            active={pageActive && activeTab === "home" && visibleWidgets.includes(widget.id)}
-                            onOpenAgent={() => useUIStore.getState().openAgentDetail(widget.agentId!)}
-                          />
-                        ) : null}
+                          ) : (
+                            <div className="flex h-full min-h-20 items-center gap-3 rounded-xl border border-dashed border-[var(--border)]/70 p-3 text-xs text-[var(--muted-foreground)]">
+                              <Compass
+                                size="1rem"
+                                className="text-[var(--home-module-accent-text,var(--home-module-accent))]"
+                              />{" "}
+                              {t("home.discovery.empty")}
+                            </div>
+                          )}
+                        </FeedModule>
                       </HomeWidgetFrame>
-                    ))}
+
+                      <HomeWidgetFrame {...widgetFrameProps("character")}>
+                        <FeedModule
+                          eyebrow={t("home.characterOfDay.eyebrow")}
+                          title={t("home.characterOfDay.title")}
+                          accent={HOME_MODULE_ACCENTS.accent}
+                          className="h-full"
+                        >
+                          {characterOfDay ? (
+                            <div
+                              className="flex h-full min-h-0 items-center gap-3"
+                              data-component="HomeBrowserHub.CharacterOfDayContent"
+                            >
+                              <div
+                                className="relative h-24 w-24 shrink-0 sm:h-32 sm:w-32"
+                                data-component="HomeBrowserHub.CharacterOfDayAvatar"
+                              >
+                                <span className="absolute inset-[15%] flex items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--secondary))] text-2xl font-black text-[var(--home-module-accent-text,var(--home-module-accent))]">
+                                  {characterOfDay.avatarPath ? (
+                                    <img
+                                      src={avatarPreviewSrc(characterOfDay.avatarPath, "icon")}
+                                      alt=""
+                                      className="h-full w-full rounded-full object-cover"
+                                      style={getAvatarCropStyle(characterOfDay.avatarCrop)}
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    characterOfDay.name.slice(0, 1)
+                                  )}
+                                </span>
+                                <img
+                                  src="/home/character-portal.webp"
+                                  alt=""
+                                  loading="lazy"
+                                  decoding="async"
+                                  data-mari-part="home-art"
+                                  className="pointer-events-none absolute inset-0 h-full w-full object-contain"
+                                  aria-hidden="true"
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1" data-component="HomeBrowserHub.CharacterOfDayDetails">
+                                <h3 className="truncate text-base font-bold text-[var(--foreground)]">
+                                  {characterOfDay.name}
+                                </h3>
+                                <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-[var(--muted-foreground)] sm:line-clamp-3">
+                                  {characterOfDay.summary ||
+                                    characterOfDay.comment ||
+                                    characterOfDay.description?.trim() ||
+                                    t("home.characterOfDay.fallback")}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:mt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      useUIStore.getState().openModal("start-character-chat", {
+                                        characterId: characterOfDay.id,
+                                        characterName: characterOfDay.name,
+                                      })
+                                    }
+                                    className="inline-flex min-h-8 items-center rounded-md bg-[var(--home-module-accent)] px-2.5 text-xs font-bold text-[var(--primary-foreground)] transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                                  >
+                                    {t("home.characterOfDay.startChat")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => useUIStore.getState().openCharacterDetail(characterOfDay.id)}
+                                    className="inline-flex min-h-8 items-center text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                                  >
+                                    {t("home.characterOfDay.open")}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            // Reaches up into the header's mb-3 gap so a large UI font still fits. mt-auto, not
+                            // justify-end, bottom-aligns it: when nothing fits, it overflows below the title, never over it.
+                            <div className="-mt-3 flex h-[calc(100%+0.75rem)] min-h-0 flex-col">
+                              <LibraryBig
+                                className="mb-2 mt-auto min-h-0 text-[var(--home-module-accent-text,var(--home-module-accent))]"
+                                size="1.1rem"
+                              />
+                              <p className="text-sm font-bold text-[var(--foreground)]">
+                                {t("home.characterOfDay.emptyTitle")}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => useUIStore.getState().openCharacterLibrary()}
+                                className="mt-1 self-start text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+                              >
+                                {t("home.characterOfDay.emptyAction")}
+                              </button>
+                            </div>
+                          )}
+                        </FeedModule>
+                      </HomeWidgetFrame>
+
+                      <HomeWidgetFrame {...widgetFrameProps("learn")}>
+                        <FeedModule
+                          eyebrow={t(featureTipsEnabled ? "thingsToTry.eyebrow" : "home.learn.eyebrow")}
+                          title={t(featureTipsEnabled ? "thingsToTry.title" : "home.learn.title")}
+                          accent={HOME_MODULE_ACCENTS.cyan}
+                          className="h-full"
+                          action={
+                            featureTipsEnabled ? (
+                              <ThingsToTrySeeAll onOpen={() => setThingsToTryOpen(true)} />
+                            ) : undefined
+                          }
+                        >
+                          {featureTipsEnabled ? <ThingsToTryWidget fallback={learnShortcuts} /> : learnShortcuts}
+                        </FeedModule>
+                      </HomeWidgetFrame>
+
+                      <HomeWidgetFrame {...widgetFrameProps("community")}>
+                        <FeedModule
+                          eyebrow={t("home.community.eyebrow")}
+                          title={t("home.community.title")}
+                          accent={HOME_MODULE_ACCENTS.accent}
+                          className="h-full"
+                        >
+                          <div className="mari-home-widget-shortcut-list grid h-full grid-rows-3 gap-1">
+                            <HomeWidgetShortcut
+                              href="https://discord.com/invite/KdAkTg94ME"
+                              onClick={() => trackHomeAction("discord_clicked")}
+                              icon="/home/tab-icons/discord.svg"
+                              title={t("home.community.discordTitle")}
+                              description={t("home.community.discordDescription")}
+                            />
+                            <HomeWidgetShortcut
+                              href="https://ko-fi.com/marinara_spaghetti"
+                              onClick={() => trackHomeAction("kofi_clicked")}
+                              icon="/home/tab-icons/kofi.png"
+                              title={t("home.community.supportTitle")}
+                              description={t("home.community.supportDescription")}
+                            />
+                            <HomeWidgetShortcut
+                              onClick={() => {
+                                trackHomeAction("credits_viewed");
+                                onOpenCredits();
+                              }}
+                              icon="/home/tab-icons/credits.png"
+                              title={t("home.community.creditsTitle")}
+                              description={t("home.community.creditsDescription")}
+                            />
+                          </div>
+                        </FeedModule>
+                      </HomeWidgetFrame>
+
+                      <HomeWidgetFrame {...widgetFrameProps("clock")}>
+                        <HomeClockCalendar />
+                      </HomeWidgetFrame>
+
+                      <HomeWidgetFrame {...widgetFrameProps("achievements")}>
+                        <FeedModule
+                          eyebrow={t("home.achievements.eyebrow")}
+                          title={t("home.achievements.title")}
+                          description={t("home.achievements.description")}
+                          accent={HOME_MODULE_ACCENTS.orange}
+                          art="/home/achievement-trophy.webp"
+                          artClassName={HOME_CARD_ART_CLASS}
+                          className="h-full min-h-0"
+                        >
+                          <HomeAchievements
+                            compact
+                            open={achievementsOpen}
+                            onOpenChange={setAchievementsOpen}
+                            showModal={false}
+                            className="!h-auto !w-full !border-0 !px-2"
+                          />
+                        </FeedModule>
+                      </HomeWidgetFrame>
+                      {customWidgets.map((widget) => {
+                        const id = customHomeWidgetId(widget.id);
+                        const Icon = HOME_CUSTOM_WIDGET_ICONS[widget.icon];
+                        return (
+                          <HomeWidgetFrame key={id} {...widgetFrameProps(id)}>
+                            <FeedModule
+                              eyebrow={t("home.widgets.customEyebrow")}
+                              title={widget.title}
+                              accent={HOME_MODULE_ACCENTS[widget.accent]}
+                              className="h-full"
+                            >
+                              <div className="flex h-full min-h-0 items-center gap-3">
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[color-mix(in_srgb,var(--home-module-accent)_38%,var(--border))] bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--card))] text-[var(--home-module-accent-text,var(--home-module-accent))]">
+                                  <Icon size="1.25rem" aria-hidden="true" />
+                                </span>
+                                <p className="line-clamp-6 min-w-0 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                                  {widget.description}
+                                </p>
+                              </div>
+                            </FeedModule>
+                          </HomeWidgetFrame>
+                        );
+                      })}
+                      {agentWidgets.map((widget) => (
+                        <HomeWidgetFrame key={widget.id} {...widgetFrameProps(widget.id)}>
+                          {widget.kind === "package" && widget.packageId ? (
+                            <CapabilityElement
+                              packageId={widget.packageId}
+                              view="widget"
+                              className="block h-full min-h-0 w-full"
+                              capabilityProps={{
+                                widgetId: widget.widgetId,
+                                widgetLabel: widget.label,
+                                widgetDescription: widget.description,
+                                widgetIcon: widget.icon,
+                                widgetIconPath: widget.iconPath,
+                                widgetAccent: widget.accent,
+                                widgetSurface: widget.surface,
+                                widgetHeader: widget.header,
+                                active: pageActive && activeTab === "home" && visibleWidgets.includes(widget.id),
+                                onOpenPost: (postId: unknown) => {
+                                  if (typeof postId !== "string" || postId.length > 128) return;
+                                  if (!browserPackages.some((item) => item.id === widget.packageId)) return;
+                                  setFocusedPackagePost({ packageId: widget.packageId!, postId });
+                                  selectTab(widget.packageId!);
+                                },
+                                onOpenNoodle: () => {
+                                  if (browserPackages.some((item) => item.id === widget.packageId))
+                                    selectTab(widget.packageId!);
+                                },
+                              }}
+                            />
+                          ) : widget.agentId ? (
+                            <CustomAgentHomeWidget
+                              agentId={widget.agentId}
+                              widgetId={widget.widgetId}
+                              label={widget.label}
+                              ownerName={widget.ownerName}
+                              accent={widget.accent}
+                              description={widget.description}
+                              active={pageActive && activeTab === "home" && visibleWidgets.includes(widget.id)}
+                              onOpenAgent={() => useUIStore.getState().openAgentDetail(widget.agentId!)}
+                            />
+                          ) : null}
+                        </HomeWidgetFrame>
+                      ))}
+                    </HomeWidgetsInPlacementOrder>
                     {activeWidgetSlots.map((slot, index) =>
                       slot === null ? (
                         <div
@@ -3377,7 +3236,7 @@ export function HomeBrowserHub({ pageActive, onOpenCredits }: HomeBrowserHubProp
               </div>
             </div>
           )}
-        </main>
+        </div>
       </div>
       {achievementsEnabled ? (
         <HomeAchievements open={achievementsOpen} onOpenChange={setAchievementsOpen} showLauncher={false} />

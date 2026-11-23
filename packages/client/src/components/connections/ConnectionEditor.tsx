@@ -75,6 +75,7 @@ import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { decisionConnectionTestMessage } from "../../lib/decision-test-message";
 import { AtlasCloudModelOptions } from "./AtlasCloudModelOptions";
 import { ServiceRow } from "./ServiceRow";
+import { ComfyWorkflowCheck } from "./ComfyWorkflowCheck";
 import { confirmModelDelete, useUseFor, type ConnectionRowData } from "./ConnectionRow";
 import { menuAt, type MenuAt } from "./ModelRow";
 import { Modal } from "../ui/Modal";
@@ -366,7 +367,7 @@ interface ConnectionEditorProps {
   onBusyChange?: (busy: boolean) => void;
   closeRequestToken?: number;
   /** Only the fields one job owns, for that job's settings window. */
-  part?: "decision" | "voice" | "captioning" | "embeddings";
+  part?: "decision" | "voice" | "captioning" | "embeddings" | "imageDefaults";
 }
 
 // Several part editors can be open in one job window; the store flags stay true while any one of them is.
@@ -396,7 +397,6 @@ export function ConnectionEditor({
   const ovLook = useOverhaulLook();
 
   const { data: conn, isLoading } = useConnection(connectionDetailId);
-  const [moreOpen, setMoreOpen] = useState(false);
   const [useForMenu, setUseForMenu] = useState<MenuAt | null>(null);
   const modelStar = useModelStar();
   const contentRef = useRef<HTMLDivElement>(null);
@@ -550,7 +550,7 @@ export function ConnectionEditor({
   const [localImageDefaults, setLocalImageDefaults] = useState<ImageGenerationDefaultsProfile | null>(null);
   const localImageDefaultsRef = useRef<ImageGenerationDefaultsProfile | null>(null);
   const [localVideoDefaults, setLocalVideoDefaults] = useState<VideoGenerationDefaultsProfile | null>(null);
-  const [imageDefaultsExpanded, setImageDefaultsExpanded] = useState(false);
+  const [imageDefaultsExpanded, setImageDefaultsExpanded] = useState(part === "imageDefaults");
   const [videoDefaultsExpanded, setVideoDefaultsExpanded] = useState(false);
 
   // Test results
@@ -1094,7 +1094,8 @@ export function ConnectionEditor({
       maxRequestsPerMinute: localMaxRequestsPerMinute,
       enableCaching: localEnableCaching,
       anthropicExtendedCacheTtl:
-        (localProvider === "anthropic" && localEnableCaching) || localProvider === "claude_subscription"
+        ((localProvider === "anthropic" || localProvider === "openrouter") && localEnableCaching) ||
+        localProvider === "claude_subscription"
           ? localAnthropicExtendedCacheTtl
           : false,
       cachingAtDepth: localCachingAtDepth,
@@ -1617,7 +1618,8 @@ export function ConnectionEditor({
       defaultParameters,
       enableCaching: localEnableCaching,
       anthropicExtendedCacheTtl:
-        (localProvider === "anthropic" && localEnableCaching) || localProvider === "claude_subscription"
+        ((localProvider === "anthropic" || localProvider === "openrouter") && localEnableCaching) ||
+        localProvider === "claude_subscription"
           ? localAnthropicExtendedCacheTtl
           : false,
       cachingAtDepth: localCachingAtDepth,
@@ -2806,6 +2808,36 @@ export function ConnectionEditor({
       )}
     </>
   );
+  // The image model's own defaults (style, prompt prefixes, sampler); also the Image settings window's part.
+  const imageDefaultsFields = localProvider === "image_generation" &&
+    selectedImageDefaultsService &&
+    localImageDefaults && (
+      <ImageGenerationDefaultsPanel
+        service={selectedImageDefaultsService}
+        model={localModel}
+        source={selectedImageService}
+        value={localImageDefaults}
+        styleProfiles={imageStyleProfiles}
+        remoteLoras={remoteLoras}
+        expanded={imageDefaultsExpanded}
+        onExpandedChange={setImageDefaultsExpanded}
+        onChange={(next) => {
+          const current = localImageDefaultsRef.current;
+          if (!current) return;
+          const resolved = typeof next === "function" ? next(current) : next;
+          const sanitized = sanitizeImageGenerationProfile(resolved, selectedImageDefaultsService);
+          localImageDefaultsRef.current = sanitized;
+          setLocalImageDefaults(sanitized);
+          markDirty();
+        }}
+        onReset={() => {
+          const defaults = createDefaultImageGenerationProfile(selectedImageDefaultsService);
+          localImageDefaultsRef.current = defaults;
+          setLocalImageDefaults(defaults);
+          markDirty();
+        }}
+      />
+    );
   const testSection = isGenerativeAudioProvider ? musicTestSection : standardTestSection;
 
   if (part)
@@ -2815,6 +2847,7 @@ export function ConnectionEditor({
         {part === "voice" && voiceFields}
         {part === "captioning" && captioningFields}
         {part === "embeddings" && embeddingFields}
+        {part === "imageDefaults" && imageDefaultsFields}
         {saveError && <p className="text-xs text-[var(--destructive)]">{saveError}</p>}
         {dirty && (
           <button
@@ -3891,6 +3924,15 @@ export function ConnectionEditor({
                   </span>
                 </p>
               )}
+            {localProvider === "image_generation" &&
+              localComfyuiWorkflow.trim() &&
+              !comfyWorkflowValidation?.parseError && (
+                <ComfyWorkflowCheck
+                  workflow={localComfyuiWorkflow}
+                  blanksFilled={localImageDefaults?.comfyui?.uploadPlaceholderOnMissingReference === true}
+                  imagePlaceholdersOnly={selectedImageService === "swarmui"}
+                />
+              )}
             <p className="text-[0.55rem] text-[var(--muted-foreground)] mt-1">
               {localizeUi("ui.connections.connectioneditor.exportYourWorkflowFromComfyuiUsing")}{" "}
               <strong>{localizeUi("ui.connections.connectioneditor.saveApiFormat")}</strong>{" "}
@@ -4016,33 +4058,7 @@ export function ConnectionEditor({
             />
           )}
 
-        {localProvider === "image_generation" && selectedImageDefaultsService && localImageDefaults && (
-          <ImageGenerationDefaultsPanel
-            service={selectedImageDefaultsService}
-            model={localModel}
-            source={selectedImageService}
-            value={localImageDefaults}
-            styleProfiles={imageStyleProfiles}
-            remoteLoras={remoteLoras}
-            expanded={imageDefaultsExpanded}
-            onExpandedChange={setImageDefaultsExpanded}
-            onChange={(next) => {
-              const current = localImageDefaultsRef.current;
-              if (!current) return;
-              const resolved = typeof next === "function" ? next(current) : next;
-              const sanitized = sanitizeImageGenerationProfile(resolved, selectedImageDefaultsService);
-              localImageDefaultsRef.current = sanitized;
-              setLocalImageDefaults(sanitized);
-              markDirty();
-            }}
-            onReset={() => {
-              const defaults = createDefaultImageGenerationProfile(selectedImageDefaultsService);
-              localImageDefaultsRef.current = defaults;
-              setLocalImageDefaults(defaults);
-              markDirty();
-            }}
-          />
-        )}
+        {imageDefaultsFields}
 
         {localProvider === "video_generation" && localVideoDefaults && (
           <VideoGenerationDefaultsPanel
@@ -4197,7 +4213,7 @@ export function ConnectionEditor({
           </FieldGroup>
         )}
 
-        {/* ── Prompt Caching (Anthropic + compatible OpenRouter models) ── */}
+        {/* ── Prompt Caching (Anthropic, and Claude, Gemini and Qwen on OpenRouter) ── */}
         {(localProvider === "anthropic" || localProvider === "openrouter") && (
           <FieldGroup label={localizeUi("ui.connections.connectioneditor.promptCaching")}>
             <SettingsSwitch
@@ -4216,7 +4232,7 @@ export function ConnectionEditor({
                     "ui.connections.connectioneditor.onOpenrouterAddsCacheControlForModelsThatSupportExplicitCaching",
                   )}
             </p>
-            {localProvider === "anthropic" && localEnableCaching && (
+            {localEnableCaching && (
               <div className="mt-2 space-y-2">
                 <SettingsSwitch
                   label={localizeUi("ui.connections.connectioneditor.extendedTokenCaching1Hour")}
@@ -4384,106 +4400,101 @@ export function ConnectionEditor({
       {decisionFields}
       {isAudioProvider && voiceFields}
 
-      <EditorSection title={t("connections.editor.section.advanced")} advanced>
-        <div className="grid gap-6 empty:hidden sm:grid-cols-2">
-          {/* ── Agent Parallel Jobs ── */}
-          {!isMediaGenerationProvider && (
-            <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}>
-              <div className="flex items-center gap-3">
-                <DraftNumberInput
-                  value={localMaxParallelJobs}
-                  min={1}
-                  max={MAX_PARALLEL_JOBS}
-                  selectOnFocus
-                  onCommit={(nextValue) => {
-                    setLocalMaxParallelJobs(normalizeMaxParallelJobs(nextValue));
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-24 px-3 text-xs md:h-9"
-                />
-                <span className="text-xs text-[var(--muted-foreground)]">
-                  {localMaxParallelJobs === 1
-                    ? localizeUi("ui.connections.connectioneditor.oneAgentJobAtATime")
-                    : localizeUi("ui.connections.connectioneditor.value1AgentJobs", {
-                        value1: localMaxParallelJobs,
-                      })}
-                </span>
-              </div>
-            </FieldGroup>
-          )}
-
-          {/* ── Rate Limit (requests per minute) ── */}
-          {!isMediaGenerationProvider && (
-            <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}>
-              <div className="flex items-center gap-3">
-                <DraftNumberInput
-                  allowEmpty
-                  value={localMaxRequestsPerMinute}
-                  ariaLabel={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}
-                  min={0}
-                  max={600}
-                  selectOnFocus
-                  placeholder={localizeUi("ui.connections.connectioneditor.requestsPerMinuteUnlimited")}
-                  onCommit={(nextValue) => {
-                    setLocalMaxRequestsPerMinute(nextValue && nextValue > 0 ? Math.floor(nextValue) : null);
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
-                />
-                {localMaxRequestsPerMinute !== null && (
+      {/* Every field here is for text Models; image, video, voice and decision Models have none, so no card. */}
+      {!isMediaGenerationProvider && (
+        <EditorSection title={t("connections.editor.section.advanced")} advanced>
+          <div className="grid gap-6 empty:hidden sm:grid-cols-2">
+            {/* ── Agent Parallel Jobs ── */}
+            {!isMediaGenerationProvider && (
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxParallelAgentJobs")}>
+                <div className="flex items-center gap-3">
+                  <DraftNumberInput
+                    value={localMaxParallelJobs}
+                    min={1}
+                    max={MAX_PARALLEL_JOBS}
+                    selectOnFocus
+                    onCommit={(nextValue) => {
+                      setLocalMaxParallelJobs(normalizeMaxParallelJobs(nextValue));
+                      markDirty();
+                    }}
+                    className="mari-chrome-field h-11 w-24 px-3 text-xs md:h-9"
+                  />
                   <span className="text-xs text-[var(--muted-foreground)]">
-                    {localizeUi("ui.connections.connectioneditor.value1RequestsPerMinute", {
-                      value1: localMaxRequestsPerMinute,
-                    })}
+                    {localMaxParallelJobs === 1
+                      ? localizeUi("ui.connections.connectioneditor.oneAgentJobAtATime")
+                      : localizeUi("ui.connections.connectioneditor.value1AgentJobs", {
+                          value1: localMaxParallelJobs,
+                        })}
                   </span>
-                )}
-              </div>
-            </FieldGroup>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={() => setMoreOpen((open) => !open)}
-          aria-expanded={moreOpen}
-          className="mari-chrome-control mari-chrome-control--small text-xs self-start"
-        >
-          <ChevronDown size="0.75rem" aria-hidden className={cn("transition-transform", moreOpen && "rotate-180")} />
-          {t("connections.editor.more")}
-        </button>
-        {moreOpen && (
-          <div className="space-y-6">
-            {canTreatAsLocalEndpoint && !accountLinked && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}>
-                <SettingsSwitch
-                  label={localizeUi("ui.connections.connectioneditor.treatAsLocalCustomEndpoint")}
-                  checked={localTreatAsLocalEndpoint}
-                  onChange={(checked) => {
-                    setLocalTreatAsLocalEndpoint(checked);
-                    markDirty();
-                  }}
-                />
+                </div>
               </FieldGroup>
             )}
 
-            {/* ── OpenRouter Provider Preference ── */}
-            {localProvider === "openrouter" && (
-              <FieldGroup label={localizeUi("ui.connections.connectioneditor.preferredProvider")}>
-                <input
-                  value={localOpenrouterProvider}
-                  onChange={(e) => {
-                    setLocalOpenrouterProvider(e.target.value);
-                    markDirty();
-                  }}
-                  className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
-                  placeholder={localizeUi("ui.connections.connectioneditor.eGAnthropicGoogleAmazonBedrock")}
-                />
+            {/* ── Rate Limit (requests per minute) ── */}
+            {!isMediaGenerationProvider && (
+              <FieldGroup label={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}>
+                <div className="flex items-center gap-3">
+                  <DraftNumberInput
+                    allowEmpty
+                    value={localMaxRequestsPerMinute}
+                    ariaLabel={localizeUi("ui.connections.connectioneditor.maxRequestsPerMinute")}
+                    min={0}
+                    max={600}
+                    selectOnFocus
+                    placeholder={localizeUi("ui.connections.connectioneditor.requestsPerMinuteUnlimited")}
+                    onCommit={(nextValue) => {
+                      setLocalMaxRequestsPerMinute(nextValue && nextValue > 0 ? Math.floor(nextValue) : null);
+                      markDirty();
+                    }}
+                    className="mari-chrome-field h-11 w-32 px-3 text-xs md:h-9"
+                  />
+                  {localMaxRequestsPerMinute !== null && (
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {localizeUi("ui.connections.connectioneditor.value1RequestsPerMinute", {
+                        value1: localMaxRequestsPerMinute,
+                      })}
+                    </span>
+                  )}
+                </div>
               </FieldGroup>
             )}
           </div>
-        )}
-        {isChatProvider(localProvider) && captioningFields}
-        {embeddingFields}
-      </EditorSection>
+          {/* The card is already the collapsed "More"; its fields show straight away when opened. */}
+          {((canTreatAsLocalEndpoint && !accountLinked) || localProvider === "openrouter") && (
+            <div className="space-y-6">
+              {canTreatAsLocalEndpoint && !accountLinked && (
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.localCustomEndpoint")}>
+                  <SettingsSwitch
+                    label={localizeUi("ui.connections.connectioneditor.treatAsLocalCustomEndpoint")}
+                    checked={localTreatAsLocalEndpoint}
+                    onChange={(checked) => {
+                      setLocalTreatAsLocalEndpoint(checked);
+                      markDirty();
+                    }}
+                  />
+                </FieldGroup>
+              )}
+
+              {/* ── OpenRouter Provider Preference ── */}
+              {localProvider === "openrouter" && (
+                <FieldGroup label={localizeUi("ui.connections.connectioneditor.preferredProvider")}>
+                  <input
+                    value={localOpenrouterProvider}
+                    onChange={(e) => {
+                      setLocalOpenrouterProvider(e.target.value);
+                      markDirty();
+                    }}
+                    className="mari-chrome-field h-11 w-full px-3 text-xs md:h-9"
+                    placeholder={localizeUi("ui.connections.connectioneditor.eGAnthropicGoogleAmazonBedrock")}
+                  />
+                </FieldGroup>
+              )}
+            </div>
+          )}
+          {isChatProvider(localProvider) && captioningFields}
+          {embeddingFields}
+        </EditorSection>
+      )}
 
       {testSection}
     </div>

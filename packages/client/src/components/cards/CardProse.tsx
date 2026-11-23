@@ -39,25 +39,33 @@ export function CardProseSectionHeader({
 }: CardProseSectionHeaderProps) {
   const persona = variant === "persona";
   const headingClass = cn("inline-flex items-center gap-1.5", persona ? "text-sm font-semibold" : "text-lg font-bold");
-  const content = (
-    <>
+  // The help button sits beside the heading, not inside it: the heading reads "Metadata", not
+  // "Metadata Show help" (QC panel 3 AX14).
+  const heading = persona ? (
+    <h3 className={headingClass} data-card-field-heading>
       {title}
-      {helpText && (
-        <HelpTooltip text={helpText} side="bottom" wide={helpWide} size={persona ? "0.8125rem" : "0.875rem"} />
-      )}
-    </>
+    </h3>
+  ) : (
+    <h2 className={headingClass} data-card-field-heading>
+      {title}
+    </h2>
   );
 
   return (
     <div className={cn("mb-4", className)}>
-      {persona ? (
-        <h3 className={headingClass} data-card-field-heading>
-          {content}
-        </h3>
+      {helpText ? (
+        <div className="inline-flex items-center gap-1.5">
+          {heading}
+          <HelpTooltip
+            text={helpText}
+            side="bottom"
+            wide={helpWide}
+            size={persona ? "0.8125rem" : "0.875rem"}
+            topic={typeof title === "string" ? title : undefined}
+          />
+        </div>
       ) : (
-        <h2 className={headingClass} data-card-field-heading>
-          {content}
-        </h2>
+        heading
       )}
       {subtitle && <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{subtitle}</p>}
     </div>
@@ -83,7 +91,10 @@ export type CardProseTextareaProps = {
   actions?: ReactNode;
   /** The field id Prof. Mari knows this field by (see lib/mari-editor-fields). */
   mariField?: string;
-  /** Passed through for MacroTextarea's self-reference preview when present. */
+  /** Shown between the header and the textarea, e.g. the Appearance Prose | Image tags tabs. */
+  belowHeader?: ReactNode;
+  /** The textarea's accessible name when it differs from the section title. */
+  textareaLabel?: string;
 };
 
 export function CardProseTextarea({
@@ -101,6 +112,8 @@ export function CardProseTextarea({
   footer,
   actions,
   mariField,
+  belowHeader,
+  textareaLabel,
 }: CardProseTextareaProps) {
   const { t: localizeUi } = useUiTranslation();
   const persona = variant === "persona";
@@ -112,9 +125,10 @@ export function CardProseTextarea({
         <CardProseSectionHeader variant={variant} title={title} subtitle={subtitle} helpText={helpText} />
         {actions}
       </div>
+      {belowHeader}
       <MariFieldReview field={mariField ?? ""}>
         <MacroTextarea
-          ariaLabel={title}
+          ariaLabel={textareaLabel ?? title}
           textareaRef={textareaRef}
           onFocus={onFocus}
           showTokenCount={!persona}

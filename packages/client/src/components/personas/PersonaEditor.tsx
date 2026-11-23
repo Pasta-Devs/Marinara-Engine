@@ -2167,7 +2167,8 @@ export function PersonaEditor() {
     mes_example: overhaulHasText(formData.mes_example),
     personality: overhaulHasText(formData.personality),
     backstory: overhaulHasText(formData.backstory),
-    appearance: overhaulHasText(formData.appearance),
+    // Image tags live on the Appearance field's second tab, so they keep it shown too.
+    appearance: overhaulHasText(formData.appearance) || overhaulHasText(formData.imageAppearance),
     scenario: overhaulHasText(formData.scenario),
     publicFace: overhaulHasText(formData.publicFace),
   };
@@ -2468,6 +2469,12 @@ export function PersonaEditor() {
                 variant="persona"
                 entityKey={personaId}
                 onJump={scrollToSection}
+                onOpenAppearance={() => {
+                  // The overhaul hides an empty Appearance until it is added; adding it also scrolls there.
+                  if (overhaulActive) return addOverhaulField("appearance");
+                  const appearance = document.getElementById("persona-card-appearance");
+                  if (appearance) scrollToElement(appearance);
+                }}
                 sheet={
                   <PersonaCharacterSheetSection
                     personaId={personaId}
@@ -4024,6 +4031,7 @@ function PersonaMetadataTab({
           <input
             value={formData.personaVersion}
             onChange={(e) => updateField("personaVersion", e.target.value)}
+            aria-label={localizeUi("ui.personas.personametadatatab.version")}
             disabled={!formData.versioningEnabled}
             className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="1.0"
@@ -4826,11 +4834,6 @@ function PersonaCardTab({
           onToggle: (enabled) => updateField("imageAppearanceEnabled", enabled),
           value: formData.imageAppearance,
           onChange: (value) => updateField("imageAppearance", value),
-          toggleLabel: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          toggleHelp: localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp"),
-          title: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          subtitle: localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle"),
-          placeholder: localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder"),
           mariField: "imageAppearance",
         }}
         alternatives={formData.cardFieldAlternatives}

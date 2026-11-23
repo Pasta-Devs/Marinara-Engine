@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useRef, useState, type ComponentProps } from "react";
+import { useFeatureEnabled } from "../../hooks/use-feature-settings";
 import { createPortal } from "react-dom";
 import type { SpriteSide } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -31,9 +32,16 @@ import { useHostHasDetachedDrawers } from "../ui/drawer-host";
 import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
 import { useRoleplaySheetStore } from "../../stores/roleplay-sheet.store";
 import { Spinner } from "../ui/Spinner";
+import { scheduleBackgroundPreload } from "../../lib/background-preload";
 
 const loadChatSettingsDrawer = async () => {
-  const module = await import("../../features/chat-settings/ChatSettingsDrawer");
+  // The summary and the roleplay panels (Author's notes, active lorebook entries) come with it: opening
+  // Chat settings used to fetch them in a second round 3 s after the tap (QC panel 3, speed H3).
+  const [module] = await Promise.all([
+    import("../../features/chat-settings/ChatSettingsDrawer"),
+    import("./ChatSummaryPanel").catch(() => undefined),
+    import("./ChatRoleplayPanels").catch(() => undefined),
+  ]);
   return { default: module.ChatSettingsDrawer };
 };
 
@@ -51,12 +59,15 @@ export function preloadChatSettingsDrawer() {
   return chatSettingsDrawerLoadPromise;
 }
 
-/** Fetches Chat settings' code in the background (when a chat opens), so opening it never waits on it. */
+/**
+ * Fetches Chat settings' code in the background once a chat is on screen (never at app start), after the tap
+ * that opened the chat has settled (lib/background-preload.ts), so opening it never waits on it.
+ */
 export function preloadChatSettingsDrawerWhenIdle() {
   if (loadedChatSettingsDrawer || chatSettingsDrawerLoadPromise || typeof window === "undefined") return;
-  const run = () => void preloadChatSettingsDrawer().catch(() => (chatSettingsDrawerLoadPromise = null));
-  if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 2500 });
-  else setTimeout(run, 600);
+  scheduleBackgroundPreload("chat-settings", () =>
+    preloadChatSettingsDrawer().catch(() => (chatSettingsDrawerLoadPromise = null)),
+  );
 }
 
 const LazyChatSettingsDrawer = lazy(preloadChatSettingsDrawer);
@@ -176,6 +187,8 @@ function DeleteConfirmationDialog({
 }: DeleteDialogProps) {
   const { t } = useTranslation();
   const sheet = useOverhaulMobile();
+  // With the trash off (the default) a delete is for good, so the dialog says so (QC panel 2, D6).
+  const trashOn = useFeatureEnabled("messageTrash");
 
   // New layout on phones: an action sheet along the bottom, with Cancel on its own.
   if (sheet) {
@@ -198,6 +211,7 @@ function DeleteConfirmationDialog({
             <div className="ovm-action-sheet__head">
               <strong>{t("chat.delete.dialog.title")}</strong>
               <span>{t("chat.delete.dialog.description")}</span>
+              {!trashOn ? <span>{t("chat.delete.dialog.permanent")}</span> : null}
             </div>
             <button type="button" className="is-danger" onClick={onConfirm}>
               {t("chat.delete.dialog.message")}
@@ -241,6 +255,12 @@ function DeleteConfirmationDialog({
     >
       <p className="mb-4 text-sm leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
         {t("chat.delete.dialog.description")}
+        {!trashOn ? (
+          <>
+            {" "}
+            <span data-delete-permanent>{t("chat.delete.dialog.permanent")}</span>
+          </>
+        ) : null}
       </p>
       <div className="grid gap-2" data-component="MessageDeleteActions">
         {canDeleteSwipe && (
@@ -517,6 +537,7 @@ function ChatSettingsLoadingFallback({
       id={CHAT_SETTINGS_WINDOW_ID}
       bodyRef={bodyRef}
       presentation={phoneLayout || overhaulMobile ? "sheet" : "window"}
+      modalSheet
       title={localizeUi("chat.toolbar.settings")}
       titleIcon={<Spinner size="sm" className="mari-chrome-accent-icon shrink-0" />}
       closeLabel={localizeUi("ui.chat.chatsettingsdrawer.closeChatSettings")}
@@ -556,7 +577,7 @@ type ChatCommonOverlaysProps = {
   sceneSettings: SharedSceneSettingsProps;
   onCloseSettings: (options?: { force?: boolean }) => void;
   onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
-  onWizardFinish: (discarded?: boolean) => void;
+  onWizardFinish: (discarded?: boolean, chatId?: string) => void;
   onClosePeekPrompt: () => void;
   onDeleteConfirm: () => void;
   onDeleteSwipe: () => void;
@@ -702,7 +723,9 @@ export function ChatCommonOverlays({
         </Suspense>
       )}
       {chat && (
-        <Suspense fallback={null}>{wizardOpen && <ChatSetupWizard chat={chat} onFinish={onWizardFinish} />}</Suspense>
+        <Suspense fallback={null}>
+          {wizardOpen && <ChatSetupWizard chat={chat} onFinish={(discarded) => onWizardFinish(discarded, chat.id)} />}
+        </Suspense>
       )}
       <Suspense fallback={null}>
         {peekPromptData && <PeekPromptModal data={peekPromptData} onClose={onClosePeekPrompt} />}

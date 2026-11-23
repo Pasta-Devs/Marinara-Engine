@@ -4,7 +4,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2, CalendarClock, ChevronRight, ChevronsDownUp, ChevronsUpDown, RefreshCw } from "lucide-react";
 import { cn } from "../../lib/utils";
-import { Modal } from "../../components/ui/Modal";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import { ChatSettingsEditorSurface } from "./ChatSettingsEditorSurface";
 import {
   estimateTextTokens,
   type Chat,
@@ -52,6 +53,8 @@ function AutoSizingTextarea({ value, onChange, className }: AutoSizingTextareaPr
 interface SummariesEditorModalProps {
   chat: Chat;
   open: boolean;
+  /** New layout: a page inside Chat settings instead of a window. */
+  asPage?: boolean;
   onClose: () => void;
 }
 
@@ -114,7 +117,7 @@ function computeDelta(
   return out;
 }
 
-export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorModalProps) {
+export function SummariesEditorModal({ chat, open, onClose, asPage = false }: SummariesEditorModalProps) {
   const { t: localizeUi } = useUiTranslation();
   const metadata = useMemo(
     () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
@@ -190,6 +193,22 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
 
   const delta = useMemo(() => computeDelta(drafts, snapshotRef.current), [drafts]);
   const isDirty = !!(delta.daySummaries || delta.weekSummaries);
+  const dirtyRef = useRef(isDirty);
+  dirtyRef.current = isDirty;
+  const leaveGuard = useMemo(
+    () => ({
+      isDirty: () => dirtyRef.current,
+      confirmLeave: () =>
+        showConfirmDialog({
+          title: localizeUi("ui.stateEditor.discard.title"),
+          message: localizeUi("ui.stateEditor.discard.closeMessage"),
+          confirmLabel: localizeUi("ui.stateEditor.discard.confirm"),
+          cancelLabel: localizeUi("ui.stateEditor.discard.cancel"),
+          tone: "destructive",
+        }),
+    }),
+    [localizeUi],
+  );
 
   const totalTokens = useMemo(() => {
     let text = "";
@@ -272,7 +291,10 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
   };
 
   return (
-    <Modal
+    <ChatSettingsEditorSurface
+      asPage={asPage}
+      leaveGuard={leaveGuard}
+      pageBodyClassName="space-y-3 px-4 py-3"
       labelledBy="summaries-editor-title"
       open={open}
       onClose={onClose}
@@ -497,6 +519,6 @@ export function SummariesEditorModal({ chat, open, onClose }: SummariesEditorMod
           </div>
         );
       })}
-    </Modal>
+    </ChatSettingsEditorSurface>
   );
 }

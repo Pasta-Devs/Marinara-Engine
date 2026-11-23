@@ -6,6 +6,7 @@
 // bubble). They start minimized, their bubbles in a row at the chat's top right where
 // the buttons (and a phone's menu button) used to be. On a phone each opens as a sheet.
 // ──────────────────────────────────────────────
+import { requestCloseChatSettings } from "../../lib/chat-settings-close";
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRightLeft, Undo2 } from "lucide-react";
@@ -166,7 +167,7 @@ export function ChatControlWindow({
     );
     if (phoneLayout) {
       windows.closeWindow(id);
-      windows.dismissWindow(CHAT_SETTINGS_WINDOW_ID, { force: true });
+      void requestCloseChatSettings();
     } else windows.openWindow(id);
   };
   const handleDragMove = (point: { x: number; y: number }, phase: "move" | "end") => {

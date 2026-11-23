@@ -136,6 +136,8 @@ interface Props {
    * = the entry activates regardless (no keys required). `undefined` = no
    * preview active. Adds a side accent + chip; does not change behavior.
    */
+  /** Up/Down on the name (QC Nov 22 AX3): move focus to the next row, or with Alt move the entry itself. */
+  onKeyboardNavigate?: (entryId: string, offset: -1 | 1, reorder: boolean) => void;
   previewMatch?: "matched" | "constant";
   mapBacklinks?: Array<{ chatId: string; locationId: string; locationName: string }>;
   /** How often this entry fired in real generations (absent = never). */
@@ -155,6 +157,9 @@ type OvEntryControls = {
   setPosition: (position: LorebookEntry["position"]) => void;
   depth: number;
   setDepth: (depth: number) => void;
+  /** Insertion order: the list row shows it, and the open entry needs it too (the row is a name rail then). */
+  order: number;
+  setOrder: (order: number) => void;
   probability: number;
   setProbability: (probability: number) => void;
   folderId: string | null;
@@ -304,6 +309,7 @@ export function LorebookEntryRow({
   mapBacklinks = [],
   onUpdateEntry,
   chatEnabled,
+  onKeyboardNavigate,
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
   const overhaul = useOverhaulLook();
@@ -636,6 +642,11 @@ export function LorebookEntryRow({
                 setLocalDepth(n);
                 patch({ depth: n });
               },
+              order: localOrder,
+              setOrder: (n) => {
+                setLocalOrder(n);
+                patch({ order: n });
+              },
               probability: localProbability,
               setProbability: (n) => {
                 setLocalProbability(n);
@@ -702,6 +713,9 @@ export function LorebookEntryRow({
           {!compact ? (
             <button
               type="button"
+              // Mouse and touch only: the keyboard moves a row with Alt+Up/Down on its name (QC Nov 22 AX3).
+              tabIndex={-1}
+              aria-hidden="true"
               className={cn("ov-lrow__grip", !draggable && "is-off")}
               title={
                 draggable
@@ -747,7 +761,11 @@ export function LorebookEntryRow({
             role="switch"
             aria-checked={localEnabled}
             disabled={!!chatEnabled && !entry.enabled}
-            aria-label={localizeUi(
+            // Named after the entry; on/off is aria-checked alone, so it is not read twice (QC Nov 22 K10).
+            aria-label={localizeUi("ui.lorebooks.lorebookentryrow.useEntry", {
+              name: entry.name?.trim() || localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry"),
+            })}
+            title={localizeUi(
               localEnabled ? "ui.lorebooks.lorebookentryrow.disableEntry" : "ui.lorebooks.lorebookentryrow.enableEntry",
             )}
             className={cn("ov-switch", localEnabled && "is-on")}
@@ -758,7 +776,35 @@ export function LorebookEntryRow({
           >
             <span />
           </button>
-          <span className="ov-lrow__name">
+          {/* QC Nov 22 AX3: the name is the row's keyboard stop (Enter opens the entry, Up/Down move between rows,
+              Alt+Up/Down reorder). A span with role="button" so the row still drags by its name. */}
+          <span
+            className="ov-lrow__name"
+            role="button"
+            tabIndex={0}
+            data-lorebook-entry-open={entry.id}
+            aria-current={!selectionMode && isExpanded ? "true" : undefined}
+            aria-pressed={selectionMode ? !!isSelected : undefined}
+            aria-keyshortcuts={onKeyboardNavigate ? "ArrowUp ArrowDown Alt+ArrowUp Alt+ArrowDown" : undefined}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (selectionMode) onToggleSelected?.(e);
+              else onToggleExpand();
+            }}
+            onKeyDown={(e) => {
+              if ((e.key === "Enter" || e.key === " ") && !e.altKey && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                if (selectionMode) onToggleSelected?.(e);
+                else onToggleExpand();
+                return;
+              }
+              if ((e.key === "ArrowUp" || e.key === "ArrowDown") && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                if (!onKeyboardNavigate) return;
+                e.preventDefault();
+                onKeyboardNavigate(entry.id, e.key === "ArrowUp" ? -1 : 1, e.altKey);
+              }
+            }}
+          >
             <span
               className={cn("ov-lrow__dot", STATUS_DOT_COLOR[localStatus])}
               data-status={localStatus}
@@ -924,19 +970,9 @@ export function LorebookEntryRow({
             onMouseDown={(e) => e.stopPropagation()}
           >
             <SettingsSwitch
-              ariaLabel={
-                chatEnabled
-                  ? localizeUi(
-                      localEnabled
-                        ? "chat.settings.inlineLorebook.disableForChat"
-                        : "chat.settings.inlineLorebook.enableForChat",
-                    )
-                  : localizeUi(
-                      localEnabled
-                        ? "ui.lorebooks.lorebookentryrow.disableEntry"
-                        : "ui.lorebooks.lorebookentryrow.enableEntry",
-                    )
-              }
+              ariaLabel={localizeUi("ui.lorebooks.lorebookentryrow.useEntry", {
+                name: entry.name?.trim() || localizeUi("ui.lorebooks.lorebookentryrow.untitledEntry"),
+              })}
               title={
                 chatEnabled && !entry.enabled
                   ? localizeUi("chat.settings.inlineLorebook.globallyDisabled")
@@ -1966,6 +2002,7 @@ function ExpandedDrawer({
       <div className="ov-lf">
         <span>{localizeUi("ui.lorebooks.expandeddrawer.secondaryKeys")}</span>
         <OvChipInput
+          label={localizeUi("ui.lorebooks.expandeddrawer.secondaryKeys")}
           values={form.secondaryKeys ?? []}
           onChange={(keys) => update({ secondaryKeys: keys })}
           parse={appendLorebookActivationKeys}
@@ -2012,18 +2049,21 @@ function ExpandedDrawer({
     const placementBlock = (
       <>
         <div className="ov-lentry__row ov-lentry__row--wide">
-          <label className="ov-lf">
+          <div className="ov-lf">
             <span>{localizeUi("ui.lorebooks.lorebookentryrow.position")}</span>
-            <select
-              value={String(position)}
-              onChange={(event) => ov.setPosition(Number(event.target.value) as LorebookEntry["position"])}
-            >
-              <option value="0">{localizeUi("ui.lorebooks.lorebookentryrow.beforeCharacter")}</option>
-              <option value="1">{localizeUi("ui.lorebooks.lorebookentryrow.afterCharacter")}</option>
-              <option value="2">{localizeUi("ui.lorebooks.lorebookentryrow.atDepth")}</option>
-              <option value="7">{localizeUi("ui.lorebooks.lorebookentryrow.outlet")}</option>
-            </select>
-          </label>
+            <Select
+              className="ov-lsel"
+              label={localizeUi("ui.lorebooks.lorebookentryrow.position")}
+              value={String(position) as "0" | "1" | "2" | "7"}
+              onChange={(next) => ov.setPosition(Number(next) as LorebookEntry["position"])}
+              options={[
+                { value: "0", label: localizeUi("ui.lorebooks.lorebookentryrow.beforeCharacter") },
+                { value: "1", label: localizeUi("ui.lorebooks.lorebookentryrow.afterCharacter") },
+                { value: "2", label: localizeUi("ui.lorebooks.lorebookentryrow.atDepth") },
+                { value: "7", label: localizeUi("ui.lorebooks.lorebookentryrow.outlet") },
+              ]}
+            />
+          </div>
           {position === 2 ? (
             <label className="ov-lf">
               <span>{localizeUi("ui.lorebooks.lorebookentryrow.depth")}</span>
@@ -2036,19 +2076,30 @@ function ExpandedDrawer({
               />
             </label>
           ) : null}
+          <label className="ov-lf" data-ov-entry-order="">
+            <span>{localizeUi("ui.lorebooks.lorebookentryrow.order")}</span>
+            <OvNum
+              label={localizeUi("ui.lorebooks.lorebookentryrow.order")}
+              value={ov.order}
+              onCommit={(n) => n !== null && ov.setOrder(n)}
+            />
+          </label>
         </div>
         <div className="ov-lentry__row ov-lentry__row--3">
-          <label className="ov-lf">
+          <div className="ov-lf">
             <span>{localizeUi("ui.lorebooks.expandeddrawer.role")}</span>
-            <select
+            <Select
+              className="ov-lsel"
+              label={localizeUi("ui.lorebooks.expandeddrawer.role")}
               value={form.role ?? "system"}
-              onChange={(e) => update({ role: e.target.value as "system" | "user" | "assistant" })}
-            >
-              <option value="system">{localizeUi("ui.lorebooks.expandeddrawer.system")}</option>
-              <option value="user">{localizeUi("ui.lorebooks.expandeddrawer.user")}</option>
-              <option value="assistant">{localizeUi("ui.lorebooks.expandeddrawer.assistant")}</option>
-            </select>
-          </label>
+              onChange={(role) => update({ role })}
+              options={[
+                { value: "system", label: localizeUi("ui.lorebooks.expandeddrawer.system") },
+                { value: "user", label: localizeUi("ui.lorebooks.expandeddrawer.user") },
+                { value: "assistant", label: localizeUi("ui.lorebooks.expandeddrawer.assistant") },
+              ]}
+            />
+          </div>
           <label className="ov-lf">
             <span>{localizeUi("ui.lorebooks.lorebookentryrow.probability")} %</span>
             <OvNum
@@ -2076,17 +2127,19 @@ function ExpandedDrawer({
         </div>
         <div className="ov-lentry__row">
           {ov.folders.length > 0 ? (
-            <label className="ov-lf">
+            <div className="ov-lf">
               <span>{localizeUi("ui.lorebooks.lorebookentryrow.folder")}</span>
-              <select value={ov.folderId ?? ""} onChange={(event) => ov.setFolder(event.target.value || null)}>
-                <option value="">{localizeUi("ui.lorebooks.expandeddrawer.root")}</option>
-                {ov.folders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <Select
+                className="ov-lsel"
+                label={localizeUi("ui.lorebooks.lorebookentryrow.folder")}
+                value={ov.folderId ?? ""}
+                onChange={(next) => ov.setFolder(next || null)}
+                options={[
+                  { value: "", label: localizeUi("ui.lorebooks.expandeddrawer.root") },
+                  ...ov.folders.map((folder) => ({ value: folder.id, label: folder.name })),
+                ]}
+              />
+            </div>
           ) : null}
           {position === 7 ? (
             <label className="ov-lf">
@@ -2202,24 +2255,17 @@ function ExpandedDrawer({
             </span>
           ))}
           {restSources.length ? (
-            <select
-              className="ov-addselect"
-              value=""
-              aria-label={localizeUi("ui.lorebooks.expandeddrawer.addMatchingSource")}
-              onChange={(event) =>
-                event.target.value &&
-                update({
-                  additionalMatchingSources: [...sources, event.target.value as LorebookMatchingSource],
-                })
-              }
-            >
-              <option value="">{localizeUi("ui.characters.dialoguetab.add")}</option>
-              {restSources.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            // An "add one" picker: nothing stays picked, each pick adds a source.
+            <span className="ov-addselect-wrap">
+              <Select
+                className="ov-lsel ov-addselect"
+                label={localizeUi("ui.lorebooks.expandeddrawer.addMatchingSource")}
+                placeholder={localizeUi("ui.characters.dialoguetab.add")}
+                value={null}
+                onChange={(next) => update({ additionalMatchingSources: [...sources, next as LorebookMatchingSource] })}
+                options={restSources.map((option) => ({ value: option.value, label: option.label }))}
+              />
+            </span>
           ) : null}
         </div>
       </>
@@ -2247,26 +2293,24 @@ function ExpandedDrawer({
                     })
                   }
                 />
-                <select
+                <Select
+                  className="ov-lsel"
+                  label={localizeUi("ui.lorebooks.expandeddrawer.operator")}
                   value={condition.operator}
-                  aria-label={localizeUi("ui.lorebooks.expandeddrawer.operator")}
-                  onChange={(event) =>
+                  onChange={(operator) =>
                     update({
-                      activationConditions: conditions.map((item, i) =>
-                        i === index
-                          ? { ...item, operator: event.target.value as (typeof conditions)[number]["operator"] }
-                          : item,
-                      ),
+                      activationConditions: conditions.map((item, i) => (i === index ? { ...item, operator } : item)),
                     })
                   }
-                >
-                  <option value="equals">{localizeUi("ui.lorebooks.expandeddrawer.equals")}</option>
-                  <option value="not_equals">{localizeUi("ui.lorebooks.expandeddrawer.doesNotEqual")}</option>
-                  <option value="contains">{localizeUi("ui.lorebooks.expandeddrawer.contains")}</option>
-                  <option value="not_contains">{localizeUi("ui.lorebooks.expandeddrawer.doesNotContain")}</option>
-                  <option value="gt">{localizeUi("ui.lorebooks.expandeddrawer.greaterThan")}</option>
-                  <option value="lt">{localizeUi("ui.lorebooks.expandeddrawer.lessThan")}</option>
-                </select>
+                  options={[
+                    { value: "equals", label: localizeUi("ui.lorebooks.expandeddrawer.equals") },
+                    { value: "not_equals", label: localizeUi("ui.lorebooks.expandeddrawer.doesNotEqual") },
+                    { value: "contains", label: localizeUi("ui.lorebooks.expandeddrawer.contains") },
+                    { value: "not_contains", label: localizeUi("ui.lorebooks.expandeddrawer.doesNotContain") },
+                    { value: "gt", label: localizeUi("ui.lorebooks.expandeddrawer.greaterThan") },
+                    { value: "lt", label: localizeUi("ui.lorebooks.expandeddrawer.lessThan") },
+                  ]}
+                />
                 <input
                   value={condition.value}
                   placeholder={localizeUi("ui.chatSettings.chatvariablessection.value")}
@@ -2302,6 +2346,7 @@ function ExpandedDrawer({
             <div className="ov-lf">
               <span>{localizeUi("ui.lorebooks.expandeddrawer.activeTimes")}</span>
               <OvChipInput
+                label={localizeUi("ui.lorebooks.expandeddrawer.activeTimes")}
                 values={schedule.activeTimes}
                 onChange={(activeTimes) => setSchedule({ activeTimes })}
                 placeholder={localizeUi("ui.lorebooks.expandeddrawer.time")}
@@ -2310,6 +2355,7 @@ function ExpandedDrawer({
             <div className="ov-lf">
               <span>{localizeUi("ui.lorebooks.expandeddrawer.activeDates")}</span>
               <OvChipInput
+                label={localizeUi("ui.lorebooks.expandeddrawer.activeDates")}
                 values={schedule.activeDates}
                 onChange={(activeDates) => setSchedule({ activeDates })}
                 placeholder={localizeUi("ui.lorebooks.expandeddrawer.date")}
@@ -2318,6 +2364,7 @@ function ExpandedDrawer({
             <div className="ov-lf">
               <span>{localizeUi("ui.lorebooks.expandeddrawer.activeLocations")}</span>
               <OvChipInput
+                label={localizeUi("ui.lorebooks.expandeddrawer.activeLocations")}
                 values={schedule.activeLocations}
                 onChange={(activeLocations) => setSchedule({ activeLocations })}
                 placeholder={localizeUi("ui.lorebooks.expandeddrawer.location_2302a51")}
@@ -2328,7 +2375,10 @@ function ExpandedDrawer({
       </>
     );
     const placementDrill = (
-      <OvmDrill title={localizeUi("ui.lorebooks.expandeddrawer.placement")} summary={positionLabel}>
+      <OvmDrill
+        title={localizeUi("ui.lorebooks.expandeddrawer.placement")}
+        summary={`${positionLabel} · ${localizeUi("ui.lorebooks.lorebookentryrow.order")} ${ov.order}`}
+      >
         {placementBlock}
       </OvmDrill>
     );
@@ -2428,6 +2478,7 @@ function ExpandedDrawer({
               <div className="ov-lf">
                 <span>{localizeUi("ui.lorebooks.expandeddrawer.primaryKeys")}</span>
                 <OvChipInput
+                  label={localizeUi("ui.lorebooks.expandeddrawer.primaryKeys")}
                   values={form.keys ?? []}
                   onChange={(keys) => update({ keys })}
                   parse={appendLorebookActivationKeys}
@@ -2440,19 +2491,19 @@ function ExpandedDrawer({
             <OvmDrill title={localizeUi("ui.lorebooks.expandeddrawer.matchOptions")} summary={matchSummary}>
               {overhaulMobile ? secondaryKeysField : null}
               <div className="ov-lentry__inline">
-                <label className="ov-lf">
+                <div className="ov-lf">
                   <span>{localizeUi("ui.lorebooks.expandeddrawer.secondaryLogic")}</span>
-                  <select
-                    value={form.selectiveLogic === "or" ? "and" : (form.selectiveLogic ?? "and")}
-                    onChange={(event) => update({ selectiveLogic: event.target.value as SelectiveLogic })}
-                  >
-                    {SELECTIVE_LOGIC_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <Select
+                    className="ov-lsel"
+                    label={localizeUi("ui.lorebooks.expandeddrawer.secondaryLogic")}
+                    value={(form.selectiveLogic === "or" ? "and" : (form.selectiveLogic ?? "and")) as SelectiveLogic}
+                    onChange={(selectiveLogic) => update({ selectiveLogic })}
+                    options={SELECTIVE_LOGIC_OPTIONS.map((option) => ({
+                      value: option.value as SelectiveLogic,
+                      label: option.label,
+                    }))}
+                  />
+                </div>
                 <div className="ov-lentry__switches">
                   <OvToggle
                     label={localizeUi("ui.lorebooks.expandeddrawer.regexKeys")}

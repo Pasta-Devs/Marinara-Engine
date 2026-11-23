@@ -17,6 +17,8 @@ import {
   resolveGameSetupArtStylePrompt,
   VIDEO_GENERATION_SETTINGS_KEY,
   normalizeVideoGenerationUserSettings,
+  resolveSelfieImageConnectionId,
+  selfieFollowsImagesDefault,
 } from "@marinara-engine/shared";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
 import { listSpriteCatalog } from "../services/sprites/sprite-catalog.js";
@@ -291,10 +293,11 @@ const rewriteGalleryImagePromptSchema = regenerateGalleryImageSchema
   .required({ negativePrompt: true, characterPrompts: true })
   .extend({ guidance: z.string().trim().max(4_000).optional() });
 
-// #9387: Professor Mari's preview assets. Her images have no character captions; chatId names her chat.
-const regenerateMariImageSchema = regenerateGalleryImageSchema
-  .omit({ characterPrompts: true })
-  .extend({ chatId: z.string().trim().min(1).max(200).optional() });
+// #9387: Professor Mari's preview assets; chatId names her chat. Character prompts are the ones she sent with
+// --character-prompts on a NovelAI connection.
+const regenerateMariImageSchema = regenerateGalleryImageSchema.extend({
+  chatId: z.string().trim().min(1).max(200).optional(),
+});
 
 const reviseMariImagePromptSchema = rewriteGalleryImagePromptSchema.extend({
   chatId: z.string().trim().min(1).max(200),
@@ -513,7 +516,13 @@ async function resolveRegenerationImageConnection(
   if (selectedId) return null;
 
   // Conversation selfies use the image connection configured for the chat.
-  const conversationId = chatMode === "conversation" ? readTrimmedString(metadata.imageGenConnectionId) : null;
+  const conversationId =
+    chatMode === "conversation"
+      ? resolveSelfieImageConnectionId(
+          metadata,
+          selfieFollowsImagesDefault(metadata) ? (await connections.getDefaultForImageGeneration())?.id : null,
+        ) || null
+      : null;
   const conversation = conversationId ? await connections.getWithKey(conversationId) : null;
   if (conversation?.provider === "image_generation") return conversation;
   return (await resolveGalleryImageConnection(app, chatMode, metadata)).connection;
@@ -883,6 +892,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const mentioned = namesMentionedByPart(withoutQuotedSpeech(promptText), members);
     const cast = await resolveIllustratorCharacterReferences({
       charactersStore: characters,
+      chatProjection: { chatId: chat.id, getById: characters.getById },
       chatCharacters,
       persona,
       requestedNames: members.filter(({ id }) => mentioned.has(id)).map(({ name }) => name),
@@ -1721,13 +1731,17 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!character) return notFound(reply, "Character not found");
 
     const meta = parseChatMetadata(chat.metadata);
-    const imageConnectionId = readTrimmedString(meta.imageGenConnectionId);
+    const connections = createConnectionsStorage(app.db);
+    // The chat's own Selfie model, else the Images default once Generated Selfies is on.
+    const imageConnectionId = resolveSelfieImageConnectionId(
+      meta,
+      selfieFollowsImagesDefault(meta) ? (await connections.getDefaultForImageGeneration())?.id : null,
+    );
     if (!imageConnectionId) {
       return reply.status(400).send({
-        error: "No image generation connection configured for this chat. Set one in Conversation Chat Settings.",
+        error: "No image model for selfies. Choose one in Chat Settings, or set the Images default under Connections.",
       });
     }
-    const connections = createConnectionsStorage(app.db);
     const imageConn = await connections.getWithKey(imageConnectionId);
     if (!imageConn) return notFound(reply, "Image generation connection not found.");
     if (imageConn.provider !== "image_generation") {
@@ -1859,6 +1873,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (selfieUseAvatarReferences || selfieIncludeCharacterAppearance) {
       const referenceResolution = await resolveIllustratorCharacterReferences({
         charactersStore: characters,
+        chatProjection: { chatId, getById: characters.getById },
         characterGallery,
         chatCharacters: [
           {
@@ -2171,14 +2186,12 @@ export async function galleryRoutes(app: FastifyInstance) {
   });
 
   // Revise the editor's current draft. Only the image regeneration route saves and swaps images.
-  // Revise an image prompt draft with the chat's Prompt Model. Roleplay images and Professor Mari's share it; hers go
-  // out without character captions, so `captions: false` keeps the rewrite from adding any.
+  // Revise an image prompt draft with the chat's Prompt Model. Roleplay images and Professor Mari's share it.
   const reviseImagePromptDraft = async (
     reply: FastifyReply,
     chat: NonNullable<Awaited<ReturnType<typeof chats.getById>>>,
     input: z.infer<typeof rewriteGalleryImagePromptSchema>,
     recordedConnectionId: string | null | undefined,
-    options: { captions: boolean } = { captions: true },
   ) => {
     const chatId = chat.id;
     const metadata = parseChatMetadata(chat.metadata);
@@ -2196,7 +2209,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     }
 
     const imageTarget = imageConnection ? resolveGalleryImageTarget(imageConnection) : null;
-    const captionLimit = options.captions && imageTarget ? resolveGalleryCaptionLimit(imageTarget) : 0;
+    const captionLimit = imageTarget ? resolveGalleryCaptionLimit(imageTarget) : 0;
     const captionLimitError = galleryCaptionLimitError(captionLimit, input.characterPrompts.length);
     if (captionLimitError) return reply.status(400).send({ error: captionLimitError });
     const hasDraftCaptions = input.characterPrompts.length > 0;
@@ -2433,7 +2446,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     if (!chat) return notFound(reply, "Chat not found");
     const asset = await getMariPreviewAsset(req.params.assetId);
     if (!asset) return notFound(reply, "Image not found");
-    return reviseImagePromptDraft(reply, chat, draft, asset.connectionId, { captions: false });
+    return reviseImagePromptDraft(reply, chat, draft, asset.connectionId);
   });
 
   // The new asset replaces the old one in the reply it was opened from (#9387); the old file stays in the manifest.
@@ -2464,6 +2477,7 @@ export async function galleryRoutes(app: FastifyInstance) {
         result = await getMariImagesService(app.db).regeneratePreviewAsset(assetId, {
           prompt: input.prompt,
           negativePrompt: input.negativePrompt,
+          characterPrompts: input.characterPrompts,
           connectionId: input.connectionId,
           editMode: input.editMode,
           maskImage: input.maskImage,

@@ -195,7 +195,7 @@ Open **Library → Agents**, click **Storyboard** and open its setup. These valu
 | **Clip seconds** | 5 (1 to 15) | Requested length of each clip. |
 | **Viewer display** | Floating viewer | The Game viewer default. Roleplay always shows Storyboards inline. |
 | **Default Roleplay episode interval** | 1 (1 to 100) | New Roleplay material needed between automatic episodes. |
-| **Attach Card Appearance** | On | Adds matched character appearance to image prompts. A card or persona with **Image Appearance Override** on supplies that text instead of its **Appearance** field. |
+| **Attach Card Appearance** | On | Adds matched character appearance to image prompts. A card or persona with **Image tags** in use supplies those instead of its **Appearance** prose. |
 | **Send Avatar References** | On | Sends matched character and persona avatars when the image service accepts references. |
 | **Use the final image template** | On | Formats a planned frame before it goes to the image service. In a Game chat, this is **Use Storyboard Template**. |
 | **Use NovelAI character prompts** | On | Native per-character prompting on supported official NovelAI V4 and V4.5 accounts only. Other services use the shared prompt path. |

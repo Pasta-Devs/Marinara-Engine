@@ -66,7 +66,15 @@ export type CommandCenterTitleKey =
   | "updates"
   | "diagnostics"
   | "backups"
-  | "schedules";
+  | "schedules"
+  | "presetsPage"
+  | "profilesPage"
+  | "regexPage"
+  | "agentsPage"
+  | "toolsPage"
+  | "assetsPage"
+  | "rulesetsPage"
+  | "backgroundsPage";
 
 export type CommandCenterLabels = Readonly<Record<CommandCenterTitleKey, string>>;
 export type CommandCenterTranslate = (key: CommandCenterTitleKey, fallback: string) => string;
@@ -107,6 +115,14 @@ export const DEFAULT_COMMAND_CENTER_LABELS: CommandCenterLabels = {
   diagnostics: "Support diagnostics",
   backups: "Backups and export",
   schedules: "Schedules",
+  presetsPage: "Presets",
+  profilesPage: "Settings profiles",
+  regexPage: "Regex scripts",
+  agentsPage: "Agents",
+  toolsPage: "Custom tools",
+  assetsPage: "Assets",
+  rulesetsPage: "Rulesets",
+  backgroundsPage: "Backgrounds",
 };
 
 export function resolveCommandCenterTitles(source: CommandCenterTitleSource): CommandCenterLabels {

@@ -13,6 +13,15 @@ export interface KeyboardShortcut {
   labelKey: string;
   /** The description in the new layout, when the binding does something else there. */
   overhaulLabelKey?: string;
+  /**
+   * Not taken while a text box has focus on Windows and Linux, where Ctrl+J belongs to Japanese IMEs (#9129)
+   * and the browser (Downloads). The list says so there (QC Nov 21 A11Y18).
+   */
+  notWhileTypingOffApple?: boolean;
+  /** The keys are pressed one after the other ("Esc, then Tab"), not as alternatives. */
+  sequence?: boolean;
+  /** Only works while this Settings switch is on; the list dims it and says where to turn it on. */
+  requiresSetting?: "intuitiveSwipeNavigation";
 }
 
 export interface KeyboardShortcutGroup {
@@ -34,6 +43,7 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
         keys: [["Mod", "J"]],
         labelKey: "shortcuts.general.askMari",
         overhaulLabelKey: "shortcuts.general.openMariChat",
+        notWhileTypingOffApple: true,
       },
       // GlobalOmnibar result list
       { keys: [["↑"], ["↓"], ["Enter"]], labelKey: "shortcuts.general.omnibarNavigate" },
@@ -54,7 +64,7 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
       // ChatInput / ConversationInput / GameInput with "Send on Enter" on
       { keys: [["Enter"]], labelKey: "shortcuts.composer.send" },
       { keys: [["Shift", "Enter"]], labelKey: "shortcuts.composer.newline" },
-      // ConversationInput / GameInput / Professor Mari with "Send on Enter" off
+      // ChatInput / ConversationInput / GameInput / Professor Mari with "Send on Enter" off
       { keys: [["Mod", "Enter"]], labelKey: "shortcuts.composer.sendModifier" },
       // ChatArea handleArrowUp ("Up arrow edits last message")
       { keys: [["↑"]], labelKey: "shortcuts.composer.editLast" },
@@ -68,7 +78,7 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
     titleKey: "shortcuts.groups.messages",
     shortcuts: [
       // ChatArea intuitive swipe navigation
-      { keys: [["←"], ["→"]], labelKey: "shortcuts.messages.swipe" },
+      { keys: [["←"], ["→"]], labelKey: "shortcuts.messages.swipe", requiresSetting: "intuitiveSwipeNavigation" },
       // ChatMessage edit textarea
       { keys: [["Mod", "Enter"]], labelKey: "shortcuts.messages.saveEdit" },
       { keys: [["Esc"]], labelKey: "shortcuts.messages.cancelEdit" },
@@ -91,8 +101,10 @@ export const KEYBOARD_SHORTCUT_GROUPS: readonly KeyboardShortcutGroup[] = [
     shortcuts: [
       // textarea-editing handleTextareaTab (prompt, macro and file editors)
       { keys: [["Tab"], ["Shift", "Tab"]], labelKey: "shortcuts.editors.indent" },
-      // FileEditorModal
-      { keys: [["Mod", "S"]], labelKey: "shortcuts.editors.saveFile" },
+      // textarea-editing nextTabMode: Escape arms the next Tab to move on
+      { keys: [["Esc"], ["Tab"]], labelKey: "shortcuts.editors.leaveBox", sequence: true },
+      // useEditorSaveShortcut (every editor) and FileEditorModal
+      { keys: [["Mod", "S"]], labelKey: "shortcuts.editors.save" },
       // GameAssetsBrowserView
       { keys: [["Mod", "A"]], labelKey: "shortcuts.editors.selectAllAssets" },
       { keys: [["Esc"]], labelKey: "shortcuts.editors.clearAssetSelection" },
@@ -159,6 +171,18 @@ export function takesLetterKeys(target: unknown): boolean {
  * typed in - a Japanese IME's Ctrl+J (SKK's on switch), not a request to open a panel. The path is read,
  * not the event's target, because a package's shadow root retargets the event to its host.
  */
+/**
+ * Ctrl+J / ⌘J (Professor Mari) from inside a text box. On a Mac it is ⌘J, which no IME uses, so the box
+ * gives it up (A11Y18: in the message box it reached nobody). Elsewhere Ctrl+J stays the IME's (#9129).
+ */
+export function askMariKeyStaysInField(
+  event: { composedPath?: () => ArrayLike<unknown>; isComposing?: boolean; keyCode?: number },
+  apple = isApplePlatform(),
+): boolean {
+  if (!shortcutKeyTypesText(event)) return false;
+  return !apple || event.isComposing === true || event.keyCode === 229;
+}
+
 export function shortcutKeyTypesText(event: { composedPath?: () => ArrayLike<unknown> }): boolean {
   const path = typeof event.composedPath === "function" ? Array.from(event.composedPath()) : [];
   return path.some(takesLetterKeys);

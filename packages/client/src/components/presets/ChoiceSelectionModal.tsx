@@ -5,7 +5,7 @@
 // Supports single-select and multi-select modes.
 // ──────────────────────────────────────────────
 import type { ChoiceDisplayMode, ChoiceOptionSort, ChoiceOption } from "@marinara-engine/shared";
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import { forwardRef, useState, useMemo, useCallback, useRef, useEffect, useImperativeHandle } from "react";
 import { Modal } from "../ui/Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "../ui/neutral-surface-styles";
 import { usePresetFull, useUpdatePreset } from "../../hooks/use-presets";
@@ -17,6 +17,7 @@ import { ChoiceOptionsField } from "./ChoiceOptionsField";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { cn } from "../../lib/utils";
 import { Spinner } from "../ui/Spinner";
+import { OvRow } from "../overhaul/EditorChrome";
 
 interface ChoiceSelectionModalProps {
   open: boolean;
@@ -77,12 +78,171 @@ function readableChoiceText(text: string, localize: (key: string) => string): st
     .replace(/\{\{\s*user\s*\}\}/giu, localize("ui.presets.choiceselectionmodal.you"));
 }
 
+/**
+ * The stock preset's questions in plain words on the setup page (QC panel 2, D4). Keyed by the stock question text,
+ * so copies of the stock preset get them and custom presets keep their own words. The preset text stays what the
+ * model is sent; the original question is the row's tooltip.
+ */
+const PLAIN_STOCK_CHOICES: Record<
+  string,
+  { labelKey: string; options?: Record<string, { labelKey?: string; hintKey: string }> }
+> = {
+  "Choose what you want the model to be.": {
+    labelKey: "chat.setupPage.plain.role",
+    options: {
+      "Game Master": { hintKey: "chat.setupPage.plain.role.gameMasterHint" },
+      Roleplayer: { hintKey: "chat.setupPage.plain.role.roleplayerHint" },
+      Writer: { hintKey: "chat.setupPage.plain.role.writerHint" },
+    },
+  },
+  "Choose between NSFW and SFW.": {
+    labelKey: "chat.setupPage.plain.rating",
+    options: {
+      SFW: { hintKey: "chat.setupPage.plain.rating.sfwHint" },
+      NSFW: { hintKey: "chat.setupPage.plain.rating.nsfwHint" },
+    },
+  },
+  "Choose the narration style.": { labelKey: "chat.setupPage.plain.narration" },
+  "Choose the narrative perspective.": {
+    labelKey: "chat.setupPage.plain.pov",
+    options: {
+      Omniscient: { hintKey: "chat.setupPage.plain.pov.omniscientHint" },
+      "Character's": { hintKey: "chat.setupPage.plain.pov.characterHint" },
+      "User's": { labelKey: "chat.setupPage.plain.pov.yours", hintKey: "chat.setupPage.plain.pov.yoursHint" },
+    },
+  },
+  "Choose the tense for the writing.": { labelKey: "chat.setupPage.plain.tense" },
+  "Choose the response length.": { labelKey: "chat.setupPage.plain.length" },
+  "Choose the response language.": { labelKey: "chat.setupPage.plain.language" },
+};
+
+/**
+ * "Remember these choices" with a content rating picked: the next new chat on this device starts with that rating
+ * instead of asking again. The preset's shipped default choices carry a rating too, which must never be picked for
+ * someone, so only a rating the person chose (marked here) is reused.
+ */
+const REMEMBERED_RATING_KEY = "marinara-setup-rating-remembered:";
+
+function readRememberedRating(presetId: string | null): boolean {
+  if (!presetId) return false;
+  try {
+    return localStorage.getItem(REMEMBERED_RATING_KEY + presetId) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeRememberedRating(presetId: string, variables: VariableData[], selections: Record<string, unknown>) {
+  const rating = variables.find(isContentRatingVariable);
+  if (!rating || typeof selections[rating.variableName] !== "string" || !selections[rating.variableName]) return;
+  try {
+    localStorage.setItem(REMEMBERED_RATING_KEY + presetId, "1");
+  } catch {
+    /* private mode: it asks again next time */
+  }
+}
+
+/** The setup page keeps its picks for the tab's life, so a reload mid-setup doesn't lose them. */
+const SETUP_CHOICES_KEY = "marinara-setup-choices:";
+
+function readSetupOverrides(chatId: string): Record<string, string | string[]> {
+  try {
+    const raw = sessionStorage.getItem(SETUP_CHOICES_KEY + chatId);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Whether the setup page's story choices hold a pick the person made (kept until the chat starts). */
+export function setupStoryChoicesPicked(chatId: string): boolean {
+  return Object.keys(readSetupOverrides(chatId)).length > 0;
+}
+
+function writeSetupOverrides(chatId: string, overrides: Record<string, string | string[]> | null) {
+  try {
+    if (overrides && Object.keys(overrides).length > 0) {
+      sessionStorage.setItem(SETUP_CHOICES_KEY + chatId, JSON.stringify(overrides));
+    } else sessionStorage.removeItem(SETUP_CHOICES_KEY + chatId);
+  } catch {
+    /* storage blocked: picks last until a reload */
+  }
+}
+
 function fallbackChoiceSelection(variable: VariableData): string | string[] | undefined {
   if (variable.multiSelect) return [];
   if (variable.randomPick && variable.options.length > 0) {
     return variable.options[Math.floor(Math.random() * variable.options.length)].value;
   }
   return variable.options[0]?.value;
+}
+
+function parseChoiceVariables(choiceBlocks: unknown): VariableData[] {
+  if (!Array.isArray(choiceBlocks)) return [];
+  return (choiceBlocks as any[]).map((cb: any) => {
+    let opts: ChoiceOption[] = [];
+    try {
+      opts = typeof cb.options === "string" ? JSON.parse(cb.options) : (cb.options ?? []);
+    } catch {
+      /* empty */
+    }
+    return {
+      id: cb.id,
+      variableName: cb.variableName ?? cb.variable_name ?? "unknown",
+      question: cb.question ?? "Choose an option",
+      options: opts,
+      multiSelect: cb.multiSelect === "true" || cb.multiSelect === true || cb.multi_select === "true",
+      randomPick: cb.randomPick === "true" || cb.randomPick === true || cb.random_pick === "true",
+      displayMode: readChoiceDisplayMode(cb.displayMode ?? cb.display_mode),
+      optionSort: readChoiceOptionSort(cb.optionSort ?? cb.option_sort),
+    };
+  });
+}
+
+function parseDefaultChoices(preset: unknown): Record<string, string | string[]> {
+  if (!preset) return {};
+  try {
+    const raw = (preset as any).defaultChoices ?? (preset as any).default_choices;
+    return typeof raw === "string" ? JSON.parse(raw) : (raw ?? {});
+  } catch {
+    return {};
+  }
+}
+
+function buildFallbackSelections(variables: VariableData[]): Record<string, string | string[]> {
+  return Object.fromEntries(
+    variables.map((variable) => [variable.variableName, fallbackChoiceSelection(variable) ?? ""]),
+  );
+}
+
+function buildBaseSelections(
+  variables: VariableData[],
+  existingChoices: Record<string, string | string[]>,
+  defaultChoices: Record<string, string | string[]>,
+  fallbackSelections: Record<string, string | string[]>,
+  /** The person chose the saved rating ("Remember these choices"), so it may be reused. */
+  ratingRemembered = false,
+): Record<string, string | string[]> {
+  const initial: Record<string, string | string[]> = {};
+  for (const v of variables) {
+    const existing = existingChoices[v.variableName];
+    const saved = defaultChoices[v.variableName];
+    if (existing !== undefined) {
+      initial[v.variableName] = sanitizeChoiceSelection(v, existing) ?? fallbackSelections[v.variableName] ?? "";
+    } else if (isContentRatingVariable(v) && !(ratingRemembered && saved !== undefined)) {
+      // Never pick mature content for someone: they choose it themselves (Confirm waits for the pick). A rating
+      // they asked to remember is theirs, so it is used (QC panel 2, D4: daily users were asked every time).
+      initial[v.variableName] = "";
+    } else if (saved !== undefined && !(v.randomPick && !v.multiSelect)) {
+      initial[v.variableName] = sanitizeChoiceSelection(v, saved) ?? fallbackSelections[v.variableName] ?? "";
+    } else if (v.multiSelect) {
+      initial[v.variableName] = [];
+    } else {
+      initial[v.variableName] = fallbackSelections[v.variableName] ?? "";
+    }
+  }
+  return initial;
 }
 
 export function ChoiceSelectionModal(props: ChoiceSelectionModalProps) {
@@ -106,69 +266,16 @@ function ChatChoiceSelectionModal({
 
   const [saveAsDefault, setSaveAsDefault] = useState(false);
 
-  // Parse variables from preset data
-  const variables = useMemo<VariableData[]>(() => {
-    if (!data?.choiceBlocks) return [];
-    return (data.choiceBlocks as any[]).map((cb: any) => {
-      let opts: ChoiceOption[] = [];
-      try {
-        opts = typeof cb.options === "string" ? JSON.parse(cb.options) : (cb.options ?? []);
-      } catch {
-        /* empty */
-      }
-      return {
-        id: cb.id,
-        variableName: cb.variableName ?? cb.variable_name ?? "unknown",
-        question: cb.question ?? "Choose an option",
-        options: opts,
-        multiSelect: cb.multiSelect === "true" || cb.multiSelect === true || cb.multi_select === "true",
-        randomPick: cb.randomPick === "true" || cb.randomPick === true || cb.random_pick === "true",
-        displayMode: readChoiceDisplayMode(cb.displayMode ?? cb.display_mode),
-        optionSort: readChoiceOptionSort(cb.optionSort ?? cb.option_sort),
-      };
-    });
-  }, [data?.choiceBlocks]);
-
-  // Parse saved default choices from preset
-  const defaultChoices = useMemo<Record<string, string | string[]>>(() => {
-    if (!data?.preset) return {};
-    try {
-      const raw = (data.preset as any).defaultChoices ?? (data.preset as any).default_choices;
-      return typeof raw === "string" ? JSON.parse(raw) : (raw ?? {});
-    } catch {
-      return {};
-    }
-  }, [data?.preset]);
-
-  const fallbackSelections = useMemo(
-    () =>
-      Object.fromEntries(variables.map((variable) => [variable.variableName, fallbackChoiceSelection(variable) ?? ""])),
-    [variables],
-  );
-
+  const variables = useMemo(() => parseChoiceVariables(data?.choiceBlocks), [data?.choiceBlocks]);
+  const defaultChoices = useMemo(() => parseDefaultChoices(data?.preset), [data?.preset]);
+  const fallbackSelections = useMemo(() => buildFallbackSelections(variables), [variables]);
   // Base selections derived from existing choices / defaults / first option.
   // Pure derivation — no setState, no flicker on open.
-  const baseSelections = useMemo<Record<string, string | string[]>>(() => {
-    if (!variables.length) return {};
-    const initial: Record<string, string | string[]> = {};
-    for (const v of variables) {
-      const existing = existingChoices[v.variableName];
-      const saved = defaultChoices[v.variableName];
-      if (existing !== undefined) {
-        initial[v.variableName] = sanitizeChoiceSelection(v, existing) ?? fallbackSelections[v.variableName] ?? "";
-      } else if (isContentRatingVariable(v)) {
-        // Never pick mature content for someone: they choose it themselves (Confirm waits for the pick).
-        initial[v.variableName] = "";
-      } else if (saved !== undefined && !(v.randomPick && !v.multiSelect)) {
-        initial[v.variableName] = sanitizeChoiceSelection(v, saved) ?? fallbackSelections[v.variableName] ?? "";
-      } else if (v.multiSelect) {
-        initial[v.variableName] = [];
-      } else {
-        initial[v.variableName] = fallbackSelections[v.variableName] ?? "";
-      }
-    }
-    return initial;
-  }, [variables, existingChoices, defaultChoices, fallbackSelections]);
+  const ratingRemembered = useMemo(() => readRememberedRating(presetId), [presetId]);
+  const baseSelections = useMemo(
+    () => buildBaseSelections(variables, existingChoices, defaultChoices, fallbackSelections, ratingRemembered),
+    [variables, existingChoices, defaultChoices, fallbackSelections, ratingRemembered],
+  );
 
   // User overrides (only written when user clicks an option).
   // Reset when modal re-opens so stale overrides don't persist.
@@ -218,8 +325,9 @@ function ChatChoiceSelectionModal({
     // Optionally save as default for this preset
     if (saveAsDefault && presetId) {
       updatePreset.mutate({ id: presetId, defaultChoices: selections });
+      writeRememberedRating(presetId, variables, selections);
     }
-  }, [chatId, presetId, selections, saveAsDefault, updateMetadata, updatePreset, onClose, onConfirm]);
+  }, [chatId, presetId, selections, saveAsDefault, updateMetadata, updatePreset, onClose, onConfirm, variables]);
 
   return (
     <Modal
@@ -335,3 +443,159 @@ function ChatChoiceSelectionModal({
     </Modal>
   );
 }
+
+export interface InlineStoryChoicesHandle {
+  /** Saves the picks to the chat (and to the preset when "Save as default" is on). False while a choice is unanswered. */
+  commit: () => Promise<boolean>;
+  /** Scrolls to the first question still waiting for a pick and focuses it. */
+  showFirstUnanswered: () => void;
+}
+
+/**
+ * The preset's story choices as rows on the new-chat setup page, right under the preset: one dropdown per
+ * question (several picks stay a checkbox list, one option an on/off switch). Picks are kept on the page and
+ * written when the chat starts, like Confirm in the choices window.
+ */
+export const InlineStoryChoices = forwardRef<
+  InlineStoryChoicesHandle,
+  {
+    presetId: string | null;
+    chatId: string;
+    existingChoices?: Record<string, string | string[]>;
+    /** How many questions still wait for a pick (the content rating is never picked for you). */
+    onUnansweredChange?: (count: number) => void;
+  }
+>(function InlineStoryChoices({ presetId, chatId, existingChoices = EMPTY_CHOICES, onUnansweredChange }, ref) {
+  const { t: localizeUi } = useUiTranslation();
+  const { data } = usePresetFull(presetId);
+  const updateMetadata = useUpdateChatMetadata();
+  const updatePreset = useUpdatePreset();
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const [overrides, setOverridesState] = useState<Record<string, string | string[]>>(() => readSetupOverrides(chatId));
+  const setOverrides = useCallback(
+    (update: (prev: Record<string, string | string[]>) => Record<string, string | string[]>) =>
+      setOverridesState((prev) => {
+        const next = update(prev);
+        writeSetupOverrides(chatId, next);
+        return next;
+      }),
+    [chatId],
+  );
+  const variables = useMemo(() => parseChoiceVariables(data?.choiceBlocks), [data?.choiceBlocks]);
+  const defaultChoices = useMemo(() => parseDefaultChoices(data?.preset), [data?.preset]);
+  const fallbackSelections = useMemo(() => buildFallbackSelections(variables), [variables]);
+  const ratingRemembered = useMemo(() => readRememberedRating(presetId), [presetId]);
+  const baseSelections = useMemo(
+    () => buildBaseSelections(variables, existingChoices, defaultChoices, fallbackSelections, ratingRemembered),
+    [variables, existingChoices, defaultChoices, fallbackSelections, ratingRemembered],
+  );
+  const selections = useMemo(() => ({ ...baseSelections, ...overrides }), [baseSelections, overrides]);
+  const unanswered = variables.filter((variable) => !arePresetChoiceSelectionsComplete([variable], selections));
+  const unansweredCount = unanswered.length;
+  useEffect(() => {
+    onUnansweredChange?.(unansweredCount);
+  }, [onUnansweredChange, unansweredCount]);
+  useEffect(() => () => onUnansweredChange?.(0), [onUnansweredChange]);
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      commit: async () => {
+        if (!presetId || variables.length === 0) return true;
+        if (!arePresetChoiceSelectionsComplete(variables, selections)) return false;
+        await updateMetadata.mutateAsync({ id: chatId, presetChoices: selections });
+        if (saveAsDefault) {
+          updatePreset.mutate({ id: presetId, defaultChoices: selections });
+          writeRememberedRating(presetId, variables, selections);
+        }
+        writeSetupOverrides(chatId, null);
+        return true;
+      },
+      showFirstUnanswered: () => {
+        const first = unanswered[0];
+        const el = first ? rowRefs.current.get(first.id) : null;
+        el?.scrollIntoView({ block: "center", behavior: "smooth" });
+        el?.querySelector<HTMLElement>("button, input, select")?.focus({ preventScroll: true });
+      },
+    }),
+    [chatId, presetId, saveAsDefault, selections, unanswered, updateMetadata, updatePreset, variables],
+  );
+
+  if (!presetId || variables.length === 0) return null;
+  return (
+    <div
+      className="ov-setup__choices"
+      role="group"
+      aria-label={localizeUi("ui.presets.choiceselectionmodal.storyChoices")}
+    >
+      {variables.map((v) => {
+        const plain = PLAIN_STOCK_CHOICES[v.question.trim()];
+        const question = plain ? localizeUi(plain.labelKey) : readableChoiceText(v.question, localizeUi);
+        const waiting = unanswered.includes(v);
+        const asDropdown = !v.multiSelect && v.options.length > 1;
+        const picked = selections[v.variableName];
+        const pickedOption =
+          typeof picked === "string" ? v.options.find((option) => option.value === picked) : undefined;
+        const pickedHintKey = pickedOption ? plain?.options?.[pickedOption.label]?.hintKey : undefined;
+        const optionText = (text: string) => {
+          const plainOption = plain?.options?.[text];
+          return plainOption?.labelKey ? localizeUi(plainOption.labelKey) : readableChoiceText(text, localizeUi);
+        };
+        return (
+          <div
+            key={v.id}
+            ref={(el) => {
+              if (el) rowRefs.current.set(v.id, el);
+              else rowRefs.current.delete(v.id);
+            }}
+            className={cn("ov-setup__choice", waiting && "is-waiting")}
+          >
+            <OvRow
+              label={
+                <span title={plain ? readableChoiceText(v.question, localizeUi) : "{{" + v.variableName + "}}"}>
+                  {question}
+                </span>
+              }
+              hint={
+                waiting
+                  ? localizeUi("chat.setupPage.choiceRequired")
+                  : pickedHintKey
+                    ? localizeUi(pickedHintKey)
+                    : v.multiSelect
+                      ? localizeUi("ui.presets.choiceselectionmodal.multiSelect")
+                      : v.randomPick
+                        ? localizeUi("ui.presets.choiceselectionmodal.randomPick")
+                        : undefined
+              }
+              top={!asDropdown}
+            >
+              <div className="ov-grow ov-setup__field">
+                <ChoiceOptionsField
+                  variable={asDropdown ? { ...v, displayMode: "listbox" } : v}
+                  selection={selections[v.variableName]}
+                  optionKey={(opt) => opt.value}
+                  onChange={(next) => setOverrides((prev) => ({ ...prev, [v.variableName]: next }))}
+                  ariaLabel={question}
+                  displayText={optionText}
+                  placeholder={localizeUi("chat.setupPage.chooseOne")}
+                />
+              </div>
+            </OvRow>
+          </div>
+        );
+      })}
+      <OvRow label="">
+        <SettingsSwitch
+          checked={saveAsDefault}
+          onChange={setSaveAsDefault}
+          label={localizeUi("chat.setupPage.rememberChoices")}
+          labelPosition="end"
+          className="ov-setup__remember p-0 text-xs text-[var(--muted-foreground)] hover:bg-transparent"
+        />
+      </OvRow>
+    </div>
+  );
+});
+
+const EMPTY_CHOICES: Record<string, string | string[]> = {};

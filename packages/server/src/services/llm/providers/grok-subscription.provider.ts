@@ -47,6 +47,69 @@ const GROK_CLI_SAFE_HEADLESS_MODEL_ID = "grok-composer-2.5-fast";
 const GROK_CLI_SYSTEM_PROMPT =
   "You are Marinara Engine's one-shot chat completion backend. Return exactly one assistant response for the transcript. Do not inspect files, run tools, ask clarifying questions, plan, or continue beyond the final answer.";
 const STALE_GROK_CLI_MODEL_IDS = new Set(["grok-build-latest", "grok-build-0.1"]);
+/**
+ * The CLI also loads a coding agent's setup from the home folder: Claude Code and Cursor rules, CLAUDE.md files,
+ * skills, hooks and MCP servers. None of it belongs in a chat request, and the rules went to xAI with every prompt
+ * (about 5k tokens on one machine). These switch each source off for Marinara's calls only.
+ */
+const GROK_CLI_ENV: Record<string, string> = Object.fromEntries(
+  ["CLAUDE", "CURSOR"].flatMap((vendor) =>
+    ["SKILLS", "RULES", "AGENTS", "MCPS", "HOOKS"].map((surface) => [`GROK_${vendor}_${surface}_ENABLED`, "false"]),
+  ),
+);
+
+type GrokCliJsonUsage = {
+  input_tokens?: unknown;
+  cache_read_input_tokens?: unknown;
+  cache_creation_input_tokens?: unknown;
+  output_tokens?: unknown;
+  reasoning_tokens?: unknown;
+  total_tokens?: unknown;
+};
+
+/**
+ * The text and usage of the CLI's headless JSON result (`--output-format json`). The CLI reports uncached input, cache
+ * reads and cache writes as separate buckets; the prompt count here includes all three, as on OpenAI-compatible
+ * routes. Returns null for output that is not that envelope.
+ */
+export function parseGrokCliJsonResult(stdout: string): { text: string; usage?: LLMUsage } | null {
+  const trimmed = stripAnsi(stdout).trim();
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed.slice(trimmed.indexOf("{")));
+  } catch {
+    return null;
+  }
+  // Only the CLI's own envelope (it carries sessionId and stopReason): a plain reply that merely contains a JSON
+  // object with a text field is returned whole by the caller.
+  const envelope = parsed as { text?: unknown; sessionId?: unknown; stopReason?: unknown } | null;
+  if (
+    !envelope ||
+    typeof envelope !== "object" ||
+    typeof envelope.text !== "string" ||
+    (typeof envelope.sessionId !== "string" && typeof envelope.stopReason !== "string")
+  )
+    return null;
+  const { text, usage, stopReason } = parsed as { text: string; usage?: GrokCliJsonUsage; stopReason?: unknown };
+  if (!usage || typeof usage !== "object") return { text };
+  const count = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : 0);
+  const cachedPromptTokens = count(usage.cache_read_input_tokens);
+  const cacheWritePromptTokens = count(usage.cache_creation_input_tokens);
+  const promptTokens = count(usage.input_tokens) + cachedPromptTokens + cacheWritePromptTokens;
+  const completionTokens = count(usage.output_tokens);
+  return {
+    text,
+    usage: {
+      promptTokens,
+      completionTokens,
+      totalTokens: count(usage.total_tokens) || promptTokens + completionTokens,
+      cachedPromptTokens,
+      cacheWritePromptTokens,
+      ...(count(usage.reasoning_tokens) ? { completionReasoningTokens: count(usage.reasoning_tokens) } : {}),
+      finishReason: stopReason === "max_tokens" ? "length" : "stop",
+    },
+  };
+}
 
 function getGrokScratchDir(): Promise<string> {
   grokScratchDirPromise ??= mkdtemp(GROK_SCRATCH_PREFIX);
@@ -234,7 +297,7 @@ async function runGrokCliCommand(
 
   const child = spawn("grok", args, {
     cwd: grokScratchDir,
-    env: { ...process.env },
+    env: { ...process.env, ...GROK_CLI_ENV },
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -366,16 +429,23 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
       "--no-auto-update",
       "--prompt-file",
       promptFile,
+      // JSON reports real token use, cache reads included; plain output had only estimates.
       "--output-format",
-      "plain",
+      "json",
       "--system-prompt-override",
       GROK_CLI_SYSTEM_PROMPT,
+      "--verbatim",
       "--no-plan",
       "--no-subagents",
       "--no-memory",
       "--disable-web-search",
+      // No tools: allowing one and removing it leaves none, and the two always-on MCP tools go too. Their definitions
+      // were ~8k tokens of every request; with the home setup off as well, a 5.6k-token prompt went from 25.9k input
+      // tokens to 12.2k.
+      "--tools",
+      "read_file",
       "--disallowed-tools",
-      "run_terminal_command",
+      "read_file,run_terminal_command,search_tool,use_tool",
       "--max-turns",
       String(GROK_CLI_MAX_TURNS),
       "--cwd",
@@ -425,13 +495,16 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
         );
       }
 
-      const text = stripAnsi(result.stdout).trim();
+      // A CLI that printed plain text instead still answers; its usage stays an estimate.
+      const json = parseGrokCliJsonResult(result.stdout);
+      const text = (json ? json.text : stripAnsi(result.stdout)).trim();
       if (!text) {
         const detail = compactGrokError(result.stderr, result.stdout, "empty response");
         throw new Error(`Grok CLI returned no content (${detail}).`);
       }
 
       yield text;
+      if (json?.usage) return json.usage;
       const completionTokens = estimateTextTokens(text);
       const promptTokens = estimateTextTokens(prompt);
       return {

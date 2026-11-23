@@ -404,6 +404,7 @@ export function ChatBranchesPanel({
               <button
                 type="button"
                 onClick={() => setActiveChatId(branch.id)}
+                data-branch-row
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 <div
@@ -429,6 +430,7 @@ export function ChatBranchesPanel({
                 <button
                   type="button"
                   onClick={() => void handleRenameBranch(branch)}
+                  data-branch-action
                   className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                   title={localizeUi("ui.chat.chatbranchselector.renameBranch_09bac0c")}
                   aria-label={localizeUi("chat.branches.renameLabel", {
@@ -441,6 +443,7 @@ export function ChatBranchesPanel({
                   type="button"
                   onClick={() => void handleDeleteBranch(branch.id)}
                   disabled={deleteChat.isPending}
+                  data-branch-action
                   className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
                   title={localizeUi("ui.chat.chatbranchselector.deleteBranch_5478e60")}
                   aria-label={localizeUi("chat.branches.deleteLabel", {

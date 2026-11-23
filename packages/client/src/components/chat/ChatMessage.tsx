@@ -1,4 +1,5 @@
 import { WindowTitle } from "../../lib/theme-slots";
+import { GroupGreetingIdsContext } from "../../lib/group-greetings";
 import { dropMessageEditDraft, keepMessageEditDraft, readMessageEditDraft } from "../../lib/message-edit-drafts";
 import { useMessagePresetVariables } from "../../hooks/use-message-preset-variables";
 import { avatarInitial } from "../../lib/avatar-initial";
@@ -15,6 +16,7 @@ import {
   getMergedAvatarBorderStyle,
   isLegacyAvatarCrop,
 } from "../../lib/utils";
+import { announce } from "../../lib/live-announcer";
 import {
   normalizeAvatarCrop,
   getRoleplayWhispers,
@@ -99,6 +101,7 @@ import {
   useRef,
   useEffect,
   useId,
+  useContext,
   useLayoutEffect,
   useCallback,
   cloneElement,
@@ -189,6 +192,27 @@ const NOTHING_ON_MESSAGE: ReadonlySet<MessageButtonId> = new Set();
 function buttonsWhere(flags: Partial<Record<MessageButtonId, boolean>>): ReadonlySet<MessageButtonId> {
   return new Set((Object.keys(flags) as MessageButtonId[]).filter((id) => flags[id]));
 }
+// A merged reply whose members have no pictures: initials tiles in their name colours, or one neutral narrator
+// tile (an open book). Inline SVG, so every avatar slot that takes a picture takes these too (QC panel 3, F4).
+const TILE_FALLBACK_COLORS = ["#a78bfa", "#fb923c", "#4ade80", "#60a5fa", "#facc15", "#f472b6"];
+const svgTile = (body: string, background: string) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="${background}"/>${body}</svg>`,
+  )}`;
+function initialsTileUrl(name: string, nameColor: string, index: number): string {
+  const plainColor = /^(#[0-9a-f]{3,8}|rgba?\([^()]*\)|hsla?\([^()]*\))$/i.test(nameColor.trim());
+  const background = plainColor ? nameColor.trim() : TILE_FALLBACK_COLORS[index % TILE_FALLBACK_COLORS.length]!;
+  const letter = (Array.from(name.trim())[0] ?? "?").toUpperCase().replace(/[<>&"']/g, "?");
+  return svgTile(
+    `<text x="32" y="33" text-anchor="middle" dominant-baseline="central" font-family="system-ui,sans-serif" font-size="30" font-weight="600" fill="#fff" stroke="rgba(0,0,0,0.35)" stroke-width="1">${letter}</text>`,
+    background,
+  );
+}
+const NARRATOR_TILE_URL = svgTile(
+  '<path d="M14 20c6-3 12-3 18 1v25c-6-4-12-4-18-1zM50 20c-6-3-12-3-18 1v25c6-4 12-4 18-1z" fill="none" stroke="#e5e7eb" stroke-width="2.5" stroke-linejoin="round"/>',
+  "#4b5563",
+);
+
 const MESSAGE_DOUBLE_TAP_MS = 320;
 const MESSAGE_DOUBLE_TAP_DISTANCE_PX = 26;
 const MESSAGE_CHROME_ACTIVE_ICON_CLASS =
@@ -972,6 +996,28 @@ const EditTextarea = memo(function EditTextarea({
     }
   }, [autoResize, keptText]);
 
+  // Save and Cancel stay in view: editing the last message put them under the composer (QC panel 2, D13).
+  const actionsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const actions = actionsRef.current;
+      const scroller = actions?.closest<HTMLElement>("[data-chat-scroll]");
+      if (!actions || !scroller) return;
+      // This chat's own composer box, not its textarea (which sits inside it) and not the other split pane's
+      // (QC panel 3, F1).
+      const root = actions.closest<HTMLElement>("[data-chat-mode]");
+      const composer =
+        root?.querySelector<HTMLElement>(".mari-chat-input-box") ??
+        root?.querySelector<HTMLElement>("[data-chat-composer]");
+      const scrollerBox = scroller.getBoundingClientRect();
+      const composerTop = composer?.getBoundingClientRect().top ?? scrollerBox.bottom;
+      const limit = Math.min(scrollerBox.bottom, composerTop) - 10;
+      const overflow = actions.getBoundingClientRect().bottom - limit;
+      if (overflow > 0) scroller.scrollBy({ top: overflow });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   // An iPhone keyboard shrinks the transcript but not 60dvh. Keep the editor
   // and its Save row within the part between the top controls and the
   // composer, so scrolling inside it can always bring its last line into view.
@@ -1026,7 +1072,10 @@ const EditTextarea = memo(function EditTextarea({
         className="relative z-0 w-full resize-none overflow-y-auto overscroll-contain rounded-lg bg-black/30 px-3 py-2 text-white outline-none ring-1 ring-white/20 focus:ring-blue-400/50 max-md:max-h-[min(60dvh,32rem,var(--mari-message-editor-fit-height,100dvh))]"
         style={{ fontSize, lineHeight: 1.5 }}
       />
-      <div className="ov-edit-actions pointer-events-auto relative z-30 flex items-center justify-end gap-1.5">
+      <div
+        ref={actionsRef}
+        className="ov-edit-actions pointer-events-auto relative z-30 flex items-center justify-end gap-1.5"
+      >
         <button
           type="button"
           onClick={onCancel}
@@ -3084,7 +3133,12 @@ export const ChatMessage = memo(function ChatMessage({
     : isUser
       ? getAvatarCropStyle(personaAvatarCrop)
       : getAvatarCropStyle(resolvedCharacterInfo?.avatarCrop);
-  const isMergedGroup = groupChatMode === "merged" && !isUser && (chatCharacterIds?.length ?? 0) > 1;
+  // A greeting before your first message is one character's own, so it keeps that character's name and look
+  // (QC panel 2, D5); merged replies after it stay "Narrator".
+  const groupGreetingIds = useContext(GroupGreetingIdsContext);
+  const isGroupGreeting = groupGreetingIds?.has(message.id) ?? false;
+  const isMergedGroup =
+    groupChatMode === "merged" && !isUser && !isGroupGreeting && (chatCharacterIds?.length ?? 0) > 1;
 
   // Resolve colors: character colors for assistant, persona colors for user
   // Prefer per-message persona snapshot colors over current persona
@@ -3189,7 +3243,7 @@ export const ChatMessage = memo(function ChatMessage({
       "#60a5fa",
       "#facc15",
     ];
-    return mergedCharacterIds
+    const pictured = mergedCharacterIds
       .map((id, index) => {
         const info = characterMap.get(id);
         // Query placeholder data may belong to the previous swipe; only the
@@ -3211,7 +3265,32 @@ export const ChatMessage = memo(function ChatMessage({
       crop?: AvatarCrop | null;
       nameColor: string;
     }[];
-  }, [isMergedGroup, characterMap, mergedCharacterIds, expressionAvatarResolver, message, referencedAvatarCharacters]);
+    if (pictured.length > 0 || mergedCharacterIds.length === 0) return pictured;
+    // Nobody in the reply has a picture: never fall back to the first member's face (QC panel 3, F4). The members'
+    // initials take turns, or one neutral narrator tile stands for them when nothing cycles.
+    if (!cycleMergedNarratorAvatars) {
+      return [{ id: "narrator", url: NARRATOR_TILE_URL, crop: null, nameColor: fallbackPalette[0]! }];
+    }
+    return mergedCharacterIds.map((id, index) => {
+      const info = characterMap.get(id);
+      const reference = referencedAvatarCharacters?.find((character) => character.id === id);
+      const nameColor = info?.nameColor || fallbackPalette[index % fallbackPalette.length]!;
+      return {
+        id,
+        url: initialsTileUrl(info?.name ?? reference?.name ?? "?", nameColor, index),
+        crop: null,
+        nameColor,
+      };
+    });
+  }, [
+    isMergedGroup,
+    characterMap,
+    cycleMergedNarratorAvatars,
+    mergedCharacterIds,
+    expressionAvatarResolver,
+    message,
+    referencedAvatarCharacters,
+  ]);
   const mergedNameColors = useMemo(() => mergedAvatars.map((avatar) => avatar.nameColor), [mergedAvatars]);
   // Cycle index for merged group avatars/names — driven by a ref + 2s setInterval to avoid re-renders
   const cycleIndexRef = useRef(0);
@@ -3311,6 +3390,18 @@ export const ChatMessage = memo(function ChatMessage({
       : vnParagraphs.length - 1;
 
   const text = visualNovel ? (vnParagraphs.length > 0 ? (vnParagraphs[activeVnParagraphIndex] ?? "") : "") : fullText;
+  // QC Nov 22 AX1: the VN box is never live while text streams in (the reply announcer says "Wren replied").
+  // Paging to the next paragraph is the one read that is wanted, so the box is polite for 2 s after a page turn.
+  const [vnReadNewPage, setVnReadNewPage] = useState(false);
+  const vnLastPageRef = useRef(activeVnParagraphIndex);
+  useEffect(() => {
+    if (!visualNovel || vnLastPageRef.current === activeVnParagraphIndex) return;
+    vnLastPageRef.current = activeVnParagraphIndex;
+    if (isStreaming) return;
+    setVnReadNewPage(true);
+    const timer = window.setTimeout(() => setVnReadNewPage(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [activeVnParagraphIndex, isStreaming, visualNovel]);
   // VN text box: a fade at its foot while more of the paragraph is below (theme-tokens.css).
   const vnTextRef = useRef<HTMLDivElement>(null);
   const [vnMoreBelow, setVnMoreBelow] = useState(false);
@@ -3706,6 +3797,7 @@ export const ChatMessage = memo(function ChatMessage({
   const handleCopy = () => {
     copyToClipboard(message.content);
     setCopied(true);
+    announce(localizeUi("markdown.copied"));
     setTimeout(() => setCopied(false), 1500);
   };
 
@@ -4156,7 +4248,7 @@ export const ChatMessage = memo(function ChatMessage({
               tabIndex={0}
               role="region"
               aria-label={localizeUi("chat.roleplayVn.currentParagraph")}
-              aria-live="polite"
+              aria-live={vnReadNewPage && !isStreaming ? "polite" : "off"}
             >
               {isStreaming && streamingContent ? (
                 streamingContent(renderStreamingText)
@@ -4251,7 +4343,14 @@ export const ChatMessage = memo(function ChatMessage({
             data-card-css={message.characterId ?? undefined}
             onClick={handleMobileTap}
             onDoubleClick={handleRoleplayDoubleClick}
+            // New layout on touch: hold the narration for its actions, like every other message.
+            {...longPress}
+            role="article"
+            aria-label={localizeUi("chat.message.focusLabel", { name: localizeUi("ui.chat.chatmessage.narrator") })}
           >
+            <span role="heading" aria-level={3} className="sr-only">
+              {localizeUi("ui.chat.chatmessage.narrator")}
+            </span>
             <div className="flex gap-3">
               {multiSelectMode && (
                 <div className="flex flex-shrink-0 items-start pt-2">
@@ -4277,20 +4376,49 @@ export const ChatMessage = memo(function ChatMessage({
                 </div>
               )}
               <div className="mari-message-bubble mari-chat-style-surface relative flex-1 rounded-xl border border-amber-500/10 bg-black/40 px-5 py-4">
-                {/* Delete button */}
-                {!multiSelectMode && onDelete && (
+                {/* Delete button. Hidden, it takes no taps (it sat invisible in the corner on touch). The new layout
+                    on touch has no corner button: Delete is in the hold sheet. */}
+                {!multiSelectMode && onDelete && !overhaulMobile && (
                   <button
                     type="button"
                     onClick={() => onDelete(message.id)}
                     aria-label={localizeUi("chat.delete.dialog.title")}
                     className={cn(
                       "absolute right-2 top-2 rounded-md p-1 text-white/20 opacity-0 transition-all hover:bg-foreground/10 hover:text-foreground/70 group-hover:opacity-100",
-                      showActions && "opacity-100",
+                      showActions
+                        ? "pointer-events-auto opacity-100"
+                        : "pointer-events-none [@media(hover:hover)]:group-hover:pointer-events-auto",
                     )}
                     title={localizeUi("lorebook.editor.batch.delete")}
                   >
                     <Trash2 size="0.75rem" />
                   </button>
+                )}
+                {overhaulMobile && mobileSheetOpen && (
+                  <OvMobileMessageSheet
+                    chatId={message.chatId}
+                    messageId={message.id}
+                    swipeIndex={0}
+                    swipeCount={1}
+                    copied={copied}
+                    onCopy={handleCopy}
+                    more={
+                      onDelete ? (
+                        <div className="mari-message-actions grid">
+                          <button
+                            type="button"
+                            onClick={() => onDelete(message.id)}
+                            aria-label={localizeUi("chat.delete.dialog.title")}
+                            title={localizeUi("lorebook.editor.batch.delete")}
+                            className="flex items-center text-[var(--destructive)]"
+                          >
+                            <Trash2 size="0.875rem" />
+                          </button>
+                        </div>
+                      ) : null
+                    }
+                    onClose={closeMobileSheet}
+                  />
                 )}
                 <div className="mb-1 flex items-center gap-2 text-[0.625rem] font-semibold uppercase tracking-widest text-amber-400/70">
                   <span className="h-px flex-1 bg-amber-400/20" />
@@ -4491,6 +4619,9 @@ export const ChatMessage = memo(function ChatMessage({
       <>
         {hiddenFromAIHeader}
         <span
+          // QC Nov 22 AX4: the speaker's name is a heading, so screen readers jump message to message (H).
+          role="heading"
+          aria-level={3}
           className={cn(
             "mari-message-name text-[0.75rem] font-bold tracking-tight",
             !msgNameColor && !isMergedGroup && (isUser ? "text-neutral-300" : "rpg-char-name"),
@@ -4629,6 +4760,13 @@ export const ChatMessage = memo(function ChatMessage({
       thinking: ovThinkingShown && !isGrouped,
     });
     // Every button picked: ⋯ would open an empty menu, so it goes too.
+    const rpToolsId = `mari-rp-tools-${message.id}`;
+    // A follow-up from the same speaker shows no name; screen readers still get one heading per message.
+    const rpGroupedHeading = isGrouped ? (
+      <span role="heading" aria-level={3} className="sr-only">
+        {displayName}
+      </span>
+    ) : null;
     const rpMenuEmpty =
       !onToggleConversationStart &&
       !(isLastAssistantMessage && !isUser) &&
@@ -4651,6 +4789,7 @@ export const ChatMessage = memo(function ChatMessage({
     const rpActions = (part: "tools" | "generate") =>
       overhaulActive && !editing ? (
         <OvRpMessageFooter
+          id={part === "tools" ? rpToolsId : undefined}
           part={part}
           placement={part === "generate" ? "below" : "footer"}
           shown={rpShownButtons}
@@ -4676,6 +4815,13 @@ export const ChatMessage = memo(function ChatMessage({
         />
       ) : null;
     const rpGenerateActions = rpActions("generate");
+    // QC Nov 22 AX4: the header tools sit beside the name on screen, but a screen reader reads them after the
+    // text (name, time, text, then Edit/Copy/…), through aria-owns on a marker after the content. Tab order and
+    // the look are unchanged.
+    const rpToolsAfterText =
+      overhaulActive && !editing && !overhaulMobile ? (
+        <div aria-owns={rpToolsId} data-mari-a11y-tools-after="" />
+      ) : null;
     /** New layout: name, time and the message tools inside the bubble, above a divider line. */
     const ovRpHead = overhaulActive ? (
       isGrouped ? (
@@ -4711,6 +4857,8 @@ export const ChatMessage = memo(function ChatMessage({
           onDoubleClick={handleRoleplayDoubleClick}
           style={{ ...roleplayAvatarScaleStyle, ...messageHookProps.style }}
           {...longPress}
+          role="article"
+          aria-label={localizeUi("chat.message.focusLabel", { name: displayName })}
         >
           {/* Multi-select checkbox */}
           {multiSelectMode && (
@@ -4813,6 +4961,7 @@ export const ChatMessage = memo(function ChatMessage({
                   )}
                 >
                   <span
+                    aria-hidden="true"
                     className={cn("font-bold leading-none", isUser ? "text-white" : "text-current")}
                     style={{ fontSize: `calc(${compactAvatarIconSize} * 0.8)` }}
                   >
@@ -4986,6 +5135,7 @@ export const ChatMessage = memo(function ChatMessage({
                           )}
                         >
                           <span
+                            aria-hidden="true"
                             className={cn(
                               "text-lg font-bold leading-none",
                               isUser ? "text-white" : "text-[var(--primary-foreground)]",
@@ -5024,7 +5174,9 @@ export const ChatMessage = memo(function ChatMessage({
                         after={isUser ? titleMiniAvatar : undefined}
                       />
                       {ovRpHead}
+                      {rpGroupedHeading}
                       {roleplayBubbleContent}
+                      {rpToolsAfterText}
                     </div>
                   )}
                 </div>
@@ -5037,7 +5189,9 @@ export const ChatMessage = memo(function ChatMessage({
                     after={isUser ? titleMiniAvatar : undefined}
                   />
                   {ovRpHead}
+                  {rpGroupedHeading}
                   {roleplayBubbleContent}
+                  {rpToolsAfterText}
                 </div>
               ) : null}
               {overhaulMobile && mobileSheetOpen && !editing && (
@@ -5099,7 +5253,7 @@ export const ChatMessage = memo(function ChatMessage({
             )}
 
             {overhaulMobile && !overhaulActive && isLastAssistantMessage && !isUser && !editing ? (
-              <SwipeCountChip index={message.activeSwipeIndex ?? 0} count={swipeCount} />
+              <SwipeCountChip index={message.activeSwipeIndex ?? 0} count={swipeCount} onOpen={openMobileSheet} />
             ) : null}
 
             <MessageMarkIndicators message={message} className="px-1" />

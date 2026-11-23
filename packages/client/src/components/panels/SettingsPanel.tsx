@@ -28,12 +28,16 @@ import {
   type TrackerPanelSizeProfile,
   type TrackerStatDisplayMode,
   type TrackerThoughtBubbleDisplay,
+  type ImageSettingsTab,
   type VisualTheme,
   selectChatChromeTextColor,
   selectChatFontColor,
   selectDefaultDialogueColor,
 } from "../../stores/ui.store";
-import { useOverhaulActive, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { useOverhaulActive, useOverhaulLook, useOverhaulMobile, useOverhaulStore } from "../../stores/overhaul.store";
+import { HomeWidgetsSettings } from "./settings/HomeWidgetsSettings";
+import { OmnibarSettingsInline } from "../layout/omnibar/OmnibarSettingsMenu";
+import { openLibrarySection } from "../overhaul/library-navigation";
 import { MessageButtonsSettings } from "../overhaul/MessageButtonsSettings";
 import { goHome } from "../overhaul/OverhaulTopBar";
 import { UILanguageSetting } from "./settings/UILanguageSetting";
@@ -118,11 +122,10 @@ import React, { Activity, Fragment, useRef, useState, useCallback, useEffect, us
 import type { TFunction } from "i18next";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { resetDeviceWalkthrough, resetModeWalkthroughs, useWalkthroughDevice } from "../../lib/walkthroughs";
+import { resetModeWalkthroughs, useWalkthroughDevice } from "../../lib/walkthroughs";
 import {
   APP_VERSION,
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
-  DEFAULT_IMAGE_STYLE_PROFILES,
   VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX,
   VIDEO_PER_REPLY_MAX,
   VIDEO_PER_REPLY_MIN,
@@ -132,17 +135,11 @@ import {
   VIDEO_GENERATION_SETTINGS_KEY,
   VIDEO_SCENE_DURATION_MAX,
   VIDEO_SCENE_DURATION_MIN,
-  compileImagePrompt,
-  createImageStyleProfileId,
   normalizeImageStyleProfileSettings,
   normalizeVideoGenerationUserSettings,
   type AppSettingsResponse,
   type APIConnection,
   type ConversationCallCharacterVideoClipKind,
-  type ImagePromptKind,
-  type ImagePromptMode,
-  type ImageStyleProfile,
-  type ImageStyleProfileSettings,
   type QuoteFormat,
   type SidecarHealthSection,
   type Theme,
@@ -219,6 +216,7 @@ import {
   Square,
   CheckSquare,
   Loader2,
+  LayoutGrid,
 } from "lucide-react";
 import {
   useChat,
@@ -249,15 +247,19 @@ import {
   SETTINGS_ICON_BUTTON_CLASS,
   SETTINGS_PRIMARY_BUTTON_CLASS,
   SETTINGS_PRIMARY_FULL_BUTTON_CLASS,
+  SettingsChoiceRow,
   SettingsIntro,
   SettingsSection,
   SettingsSwitch,
+  SettingsVisibleSectionsContext,
   ToggleSetting,
 } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
+import { OvSeg } from "../overhaul/LoreEntryParts";
 import { TrackerPanelPreview } from "./settings/TrackerPanelPreview";
 import { UiStyleSettings } from "./settings/UiStyleSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
+import { useImageCanvases, VIDEO_PROMPT_TEMPLATE_KEYS } from "../image-settings/image-canvases";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
 import { AccessStatusSettings, AdminSecretMaker } from "./settings/AccessStatusSettings";
 import { RequestTimeoutSettings } from "./settings/RequestTimeoutSettings";
@@ -273,7 +275,6 @@ import { useAgentImportPolicy, useSetAgentImportsEnabled } from "../../hooks/use
 import { useCanRestartServer, useRestartServer } from "../../hooks/use-server-restart";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
-import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-import";
 import { getClientRuntimeDiagnostics } from "../../lib/client-runtime-diagnostics";
 import {
   detectBrowserGpu,
@@ -282,6 +283,7 @@ import {
   type SupportDiagnostics,
 } from "../../lib/support-diagnostics";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { describeChatImportNotes, type STChatImportNote } from "../../lib/st-import-report";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { saveExportFile } from "../../lib/file-download";
 import {
@@ -295,7 +297,6 @@ import {
   appendImportTags,
   DEFAULT_IMPORT_TAGS,
   ImportTagChecks,
-  importTagsBody,
   useImportTagChoice,
   type ImportTagChoice,
 } from "../modals/ImportTagChecks";
@@ -630,6 +631,24 @@ const CHAT_LIST_BACKGROUND_OPTIONS: Array<{ id: ChatListBackgroundMode; label: s
   { id: "off", label: "Off", desc: "No banners. Chat rows keep the plain sidebar background." },
 ];
 
+const VISUAL_STYLE_OPTIONS = [
+  {
+    id: "default" as VisualTheme,
+    label: "Default (Marinara)",
+    desc: "Y2K / retro aesthetic with glow effects",
+  },
+  {
+    id: "sillytavern" as VisualTheme,
+    label: "SillyTavern",
+    desc: "Classic SillyTavern look — clean & minimal",
+  },
+  {
+    id: "stage" as VisualTheme,
+    label: "Stage",
+    desc: "Plum, brass and crimson from the UI overhaul",
+  },
+] as const;
+
 const GAME_DIALOGUE_DISPLAY_OPTIONS: Array<{ id: GameDialogueDisplayMode; label: string; desc: string }> = [
   {
     id: "classic",
@@ -749,21 +768,6 @@ const GAME_ASSET_CATEGORIES = [
   },
 ] as const;
 
-const VIDEO_PROMPT_TEMPLATE_KEYS = [
-  "game.video",
-  "roleplay.galleryVideoDirector",
-  "roleplay.clipDirector",
-  "conversation.video",
-  "conversation.callVideo.idle",
-  "conversation.callVideo.talking",
-  "conversation.callVideo.laughing",
-  "conversation.callVideo.angry",
-  "conversation.callVideo.crying",
-  "conversation.callVideo.sighing",
-  "conversation.callVideo.custom",
-  "sprites.animatedPortrait",
-] as const;
-
 const CONVERSATION_CALL_VIDEO_CLIP_LABELS: Record<ConversationCallCharacterVideoClipKind, string> = {
   idle: "Idle loop",
   talking: "Talking loop",
@@ -775,392 +779,6 @@ const CONVERSATION_CALL_VIDEO_CLIP_LABELS: Record<ConversationCallCharacterVideo
 
 type GameAssetCategoryId = (typeof GAME_ASSET_CATEGORIES)[number]["id"];
 const GAME_ASSET_CATEGORY_BY_ID = new Map(GAME_ASSET_CATEGORIES.map((category) => [category.id, category]));
-
-const IMAGE_STYLE_SUBJECT_KINDS: ImagePromptKind[] = [
-  "avatar",
-  "portrait",
-  "selfie",
-  "background",
-  "illustration",
-  "sprite",
-];
-const IMAGE_PROMPT_MODE_OPTIONS: Array<{ value: ImagePromptMode; label: string }> = [
-  { value: "hybrid", label: "Hybrid" },
-  { value: "danbooru", label: "Danbooru tags" },
-  { value: "tagged", label: "Tags" },
-  { value: "natural", label: "Natural language" },
-];
-
-function ImageDimensionRow({
-  label,
-  help,
-  width,
-  height,
-  onCommit,
-  controlId,
-}: {
-  label: string;
-  help: string;
-  width: number;
-  height: number;
-  onCommit: (width: number, height: number) => void;
-  controlId?: string;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  return (
-    <div
-      id={controlId ? getSettingsControlAnchorId(controlId) : undefined}
-      className="grid scroll-mt-3 gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-    >
-      <div className="min-w-0">
-        <div className="inline-flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
-          {label}
-          <HelpTooltip text={help} />
-        </div>
-        <div className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-          {localizeUi("ui.panels.imagedimensionrow.pixelsClampedFrom64To4096")}
-        </div>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 sm:w-40">
-        <DraftNumberInput
-          value={width}
-          ariaLabel={localizeUi("settings.imageDimensions.width", { label })}
-          min={64}
-          max={4096}
-          commitOnValidChange
-          onCommit={(nextWidth) => onCommit(nextWidth, height)}
-          className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
-        />
-        <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-          {localizeUi("ui.panels.imagedimensionrow.x")}
-        </span>
-        <DraftNumberInput
-          value={height}
-          ariaLabel={localizeUi("settings.imageDimensions.height", { label })}
-          min={64}
-          max={4096}
-          commitOnValidChange
-          onCommit={(nextHeight) => onCommit(width, nextHeight)}
-          className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs"
-        />
-      </div>
-    </div>
-  );
-}
-
-function ImageStyleProfilesEditor({
-  value,
-  onChange,
-}: {
-  value: ImageStyleProfileSettings;
-  onChange: (settings: ImageStyleProfileSettings) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const settings = normalizeImageStyleProfileSettings(value);
-  const [selectedId, setSelectedId] = useState(settings.defaultProfileId);
-  const [previewKind, setPreviewKind] = useState<ImagePromptKind>("portrait");
-  const [previewPrompt, setPreviewPrompt] = useState(
-    "Create a portrait of Mira, anime style, best quality, high quality, detailed eyes. Avoid blurry, text, watermark. no extra fingers",
-  );
-  const selected = settings.profiles.find((profile) => profile.id === selectedId) ?? settings.profiles[0]!;
-  const preview = useMemo(
-    () =>
-      compileImagePrompt({
-        kind: previewKind,
-        prompt: previewPrompt,
-        styleProfiles: { ...settings, defaultProfileId: selected.id },
-        styleProfileId: selected.id,
-      }),
-    [previewKind, previewPrompt, selected.id, settings],
-  );
-  const cleanupCount =
-    preview.diagnostics.removedPositiveDuplicates.length +
-    preview.diagnostics.removedNegativeDuplicates.length +
-    preview.diagnostics.movedNegativeFragments.length;
-
-  useEffect(() => {
-    if (!settings.profiles.some((profile) => profile.id === selectedId)) {
-      setSelectedId(settings.defaultProfileId);
-    }
-  }, [selectedId, settings.defaultProfileId, settings.profiles]);
-
-  const commit = useCallback(
-    (next: ImageStyleProfileSettings) => {
-      onChange(normalizeImageStyleProfileSettings(next));
-    },
-    [onChange],
-  );
-
-  const updateSelected = useCallback(
-    (patch: Partial<ImageStyleProfile>) => {
-      commit({
-        ...settings,
-        profiles: settings.profiles.map((profile) =>
-          profile.id === selected.id ? { ...profile, ...patch, id: selected.id } : profile,
-        ),
-      });
-    },
-    [commit, selected.id, settings],
-  );
-
-  const updateSubjectTags = useCallback(
-    (kind: ImagePromptKind, tags: string) => {
-      updateSelected({ subjectTags: { ...selected.subjectTags, [kind]: tags } });
-    },
-    [selected.subjectTags, updateSelected],
-  );
-
-  const cloneSelected = useCallback(() => {
-    const id = createImageStyleProfileId(selected.id, settings.profiles);
-    const clone = { ...selected, id, name: `${selected.name} Custom`, builtIn: false };
-    commit({ ...settings, profiles: [...settings.profiles, clone], defaultProfileId: id });
-    setSelectedId(id);
-  }, [commit, selected, settings]);
-
-  const resetSelected = useCallback(() => {
-    const builtIn = DEFAULT_IMAGE_STYLE_PROFILES.find((profile) => profile.id === selected.id);
-    if (!builtIn) return;
-    commit({
-      ...settings,
-      profiles: settings.profiles.map((profile) => (profile.id === selected.id ? { ...builtIn } : profile)),
-    });
-  }, [commit, selected.id, settings]);
-
-  const deleteSelected = useCallback(() => {
-    if (selected.builtIn || settings.profiles.length <= 1) return;
-    const profiles = settings.profiles.filter((profile) => profile.id !== selected.id);
-    const defaultProfileId = settings.defaultProfileId === selected.id ? profiles[0]!.id : settings.defaultProfileId;
-    commit({ profiles, defaultProfileId });
-    setSelectedId(defaultProfileId);
-  }, [commit, selected.builtIn, selected.id, settings]);
-
-  const setDefaultProfileId = useCallback(
-    (defaultProfileId: string) => {
-      commit({ ...settings, defaultProfileId });
-    },
-    [commit, settings],
-  );
-
-  return (
-    <div className="rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)]">
-      <div className="space-y-3">
-        <div className="grid gap-2">
-          <div className="min-w-0">
-            <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle")}
-            </span>
-            <Select
-              value={settings.defaultProfileId}
-              options={settings.profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
-              onChange={setDefaultProfileId}
-              label={localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle")}
-              className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-            />
-          </div>
-
-          <div className="min-w-0">
-            <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.imagestyleprofileseditor.editing")}
-            </span>
-            <Select
-              value={selected.id}
-              options={settings.profiles.map((profile) => ({ value: profile.id, label: profile.name }))}
-              onChange={setSelectedId}
-              label={localizeUi("ui.panels.imagestyleprofileseditor.editing")}
-              className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5">
-          <button type="button" onClick={cloneSelected} className={SETTINGS_BUTTON_CLASS}>
-            <Plus size="0.75rem" />
-            {localizeUi("ui.panels.imagestyleprofileseditor.clone")}
-          </button>
-          <button
-            type="button"
-            onClick={resetSelected}
-            disabled={!selected.builtIn}
-            className={cn(SETTINGS_BUTTON_CLASS, "ovm-risky")}
-          >
-            <RotateCcw size="0.75rem" />
-            {localizeUi("ui.panels.imagestyleprofileseditor.reset")}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              void showConfirmDialog({
-                title: localizeUi("lorebook.editor.batch.delete"),
-                message: localizeUi("ui.chat.gameprompttemplateselect.value1", { value1: selected.name }),
-                confirmLabel: localizeUi("lorebook.editor.batch.delete"),
-                cancelLabel: localizeUi("chat.delete.dialog.cancel"),
-              }).then((confirmed) => {
-                if (confirmed) deleteSelected();
-              });
-            }}
-            disabled={selected.builtIn || settings.profiles.length <= 1}
-            className={cn(SETTINGS_BUTTON_CLASS, "mari-chrome-control--danger ovm-risky")}
-          >
-            <Trash2 size="0.75rem" />
-            {localizeUi("lorebook.editor.batch.delete")}
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3">
-        <label className="min-w-0">
-          <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.imagestyleprofileseditor.name")}
-          </span>
-          <input
-            value={selected.name}
-            onChange={(event) => updateSelected({ name: event.target.value })}
-            className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-          />
-        </label>
-        <div className="min-w-0">
-          <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.imagestyleprofileseditor.promptGrammar")}
-          </span>
-          <Select
-            value={selected.promptMode}
-            options={[
-              { value: "off", label: localizeUi("ui.panels.imagestyleprofileseditor.promptGrammarOff") },
-              ...IMAGE_PROMPT_MODE_OPTIONS,
-            ]}
-            onChange={(promptMode) => updateSelected({ promptMode })}
-            label={localizeUi("ui.panels.imagestyleprofileseditor.promptGrammar")}
-            className="h-9 w-full rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 text-xs"
-          />
-          {selected.promptMode === "off" && (
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {localizeUi("ui.panels.imagestyleprofileseditor.promptGrammarOffHelp")}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <label className="mt-3 block">
-        <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-          {localizeUi("ui.panels.imagestyleprofileseditor.styleText")}
-        </span>
-        <textarea
-          value={selected.styleText}
-          onChange={(event) => updateSelected({ styleText: event.target.value })}
-          className="min-h-20 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs leading-relaxed"
-        />
-      </label>
-
-      <div className="mt-3 grid gap-3">
-        <label className="block">
-          <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.imagestyleprofileseditor.positiveTags")}
-          </span>
-          <textarea
-            value={selected.positiveTags}
-            onChange={(event) => updateSelected({ positiveTags: event.target.value })}
-            className="min-h-24 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs leading-relaxed"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.panels.imagestyleprofileseditor.negativeTags")}
-          </span>
-          <textarea
-            value={selected.negativeTags}
-            onChange={(event) => updateSelected({ negativeTags: event.target.value })}
-            className="min-h-24 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs leading-relaxed"
-          />
-        </label>
-      </div>
-
-      <details className="mt-3 rounded-md bg-[var(--secondary)]/55 p-2.5 ring-1 ring-[var(--border)]">
-        <summary className="cursor-pointer text-xs font-medium text-[var(--foreground)]">
-          {localizeUi("ui.panels.imagestyleprofileseditor.perImageTags")}
-        </summary>
-        <div className="mt-2 grid gap-2">
-          {IMAGE_STYLE_SUBJECT_KINDS.map((kind) => (
-            <label key={kind} className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium capitalize text-[var(--muted-foreground)]">
-                {kind}
-              </span>
-              <textarea
-                value={selected.subjectTags[kind] ?? ""}
-                onChange={(event) => updateSubjectTags(kind, event.target.value)}
-                className="min-h-14 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs leading-relaxed"
-              />
-            </label>
-          ))}
-        </div>
-      </details>
-
-      <details className="mt-2 rounded-md bg-[var(--secondary)]/55 p-2 ring-1 ring-[var(--border)]">
-        <summary className="cursor-pointer text-xs font-medium text-[var(--foreground)]">
-          {localizeUi("ui.panels.imagestyleprofileseditor.testBench")}
-        </summary>
-        <div className="mt-2 grid gap-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="space-y-2">
-            <div className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.imagestyleprofileseditor.imageKind")}
-              </span>
-              <Select
-                value={previewKind}
-                options={IMAGE_STYLE_SUBJECT_KINDS.map((kind) => ({ value: kind, label: kind }))}
-                onChange={setPreviewKind}
-                label={localizeUi("ui.panels.imagestyleprofileseditor.imageKind")}
-                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-xs"
-              />
-            </div>
-            <label className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.imagestyleprofileseditor.sampleInput")}
-              </span>
-              <textarea
-                value={previewPrompt}
-                onChange={(event) => setPreviewPrompt(event.target.value)}
-                className="min-h-32 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs"
-                spellCheck={false}
-              />
-            </label>
-            <div className="text-[0.625rem] text-[var(--muted-foreground)]">
-              {cleanupCount > 0
-                ? localizeUi("ui.panels.imagestyleprofileseditor.value1DuplicateOrMisplacedFragmentValue2Cleaned", {
-                    value1: cleanupCount,
-                    value2: cleanupCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
-                  })
-                : localizeUi("ui.panels.imagestyleprofileseditor.noCleanupNeededForThisSample")}
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <label className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.imagestyleprofileseditor.finalPositivePrompt")}
-              </span>
-              <textarea
-                value={preview.prompt}
-                readOnly
-                className="min-h-32 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs"
-                spellCheck={false}
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                {localizeUi("ui.panels.imagestyleprofileseditor.finalNegativePrompt")}
-              </span>
-              <textarea
-                value={preview.negativePrompt}
-                readOnly
-                className="min-h-20 w-full resize-y rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 font-mono text-xs"
-                spellCheck={false}
-              />
-            </label>
-          </div>
-        </div>
-      </details>
-    </div>
-  );
-}
 
 function TrackerPanelCardOrderSetting() {
   const { t: localizeUi } = useUiTranslation();
@@ -1185,7 +803,10 @@ function TrackerPanelCardOrderSetting() {
   };
 
   return (
-    <div className="mt-1.5 flex flex-col gap-1.5 rounded-lg bg-[var(--background)]/36 p-1.5 ring-1 ring-[var(--border)]">
+    <div
+      data-tracker-card-order=""
+      className="mt-1.5 flex flex-col gap-1.5 rounded-lg bg-[var(--background)]/36 p-1.5 ring-1 ring-[var(--border)]"
+    >
       <div className="ov-help-row flex min-h-5 items-center justify-between gap-2 px-0.5">
         <button
           type="button"
@@ -1298,6 +919,146 @@ function TrackerPanelAppearanceDrawer() {
   const setTrackerTemperatureUnit = useUIStore((state) => state.setTrackerTemperatureUnit);
   const trackerStatDisplayMode = useUIStore((state) => state.trackerStatDisplayMode);
   const setTrackerStatDisplayMode = useUIStore((state) => state.setTrackerStatDisplayMode);
+  const overhaulLook = useOverhaulLook();
+
+  // New layout: a plain Settings section of rows (the boxed card with an icon tile is the classic look).
+  if (overhaulLook) {
+    return (
+      <SettingsSection
+        title={localizeUi("ui.panels.trackerpanelappearancedrawer.trackerPanel")}
+        description={localizeUi("ui.panels.trackerpanelappearancedrawer.shownInTheRoleplayHud")}
+        help={localizeUi("ui.panels.trackerpanelappearancedrawer.controlsTheRoleplayHudSidePanelForTheFixed")}
+        {...getSettingsSectionAnchorProps("roleplay-tracker")}
+      >
+        <div className="flex flex-col">
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-panel")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.showTrackerPanel")}
+            checked={trackerPanelEnabled}
+            onChange={setTrackerPanelEnabled}
+          />
+        </div>
+        <fieldset
+          disabled={!trackerPanelEnabled}
+          data-off={trackerPanelEnabled ? undefined : ""}
+          className="ov-trk-fieldset flex flex-col"
+        >
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-replace-hud-icons")}
+            label={localizeUi("settings.controls.replaceTrackerIcons.label")}
+            checked={trackerPanelHideHudWidgets}
+            onChange={setTrackerPanelHideHudWidgets}
+            help={localizeUi("settings.controls.replaceTrackerIcons.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-expression-sprites")}
+            label={localizeUi("settings.controls.useExpressionSprites.label")}
+            checked={trackerPanelUseExpressionSprites}
+            onChange={setTrackerPanelUseExpressionSprites}
+            help={localizeUi("settings.controls.useExpressionSprites.help")}
+          />
+          <div id={getSettingsControlAnchorId("tracker-panel-background")} className="scroll-mt-3">
+            <ColorPicker
+              value={trackerPanelBackgroundColor}
+              onChange={setTrackerPanelBackgroundColor}
+              gradient
+              compact
+              label={localizeUi("settings.controls.panelBackground.label")}
+              helpText="Pick the Tracker panel and tracker section background. CSS colors and gradients are accepted."
+              emptyText={localizeUi("ui.panels.trackerpanelappearancedrawer.defaultValue1", {
+                value1: TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
+              })}
+              clearLabel="Reset"
+            />
+          </div>
+          <SettingsChoiceRow
+            kind="select"
+            anchorId={getSettingsControlAnchorId("tracker-desktop-size")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.desktopSize")}
+            help={localizeUi("ui.panels.trackerpanelappearancedrawer.chooseTheDesignedDesktopWidthForTheTrackerPanel")}
+            value={trackerPanelSizeProfile}
+            onChange={setTrackerPanelSizeProfile}
+            disabled={!trackerPanelEnabled}
+            options={TRACKER_PANEL_SIZE_PROFILE_OPTIONS.map((opt) => ({
+              value: opt.id,
+              label: opt.label,
+              description: localizeUi("ui.panels.trackerpanelappearancedrawer.sizePxDescription", {
+                px: getTrackerPanelWidthForProfile(opt.id),
+                description: opt.desc,
+              }),
+            }))}
+          />
+          <SettingsChoiceRow
+            anchorId={getSettingsControlAnchorId("tracker-thought-display-mode")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.thoughtDisplayMode")}
+            help={localizeUi(
+              "ui.panels.trackerpanelappearancedrawer.chooseWhetherFeaturedCharacterThoughtsOpenInsideTheTracker",
+            )}
+            value={trackerPanelThoughtBubbleDisplay}
+            onChange={setTrackerPanelThoughtBubbleDisplay}
+            disabled={!trackerPanelEnabled}
+            options={TRACKER_THOUGHT_BUBBLE_DISPLAY_OPTIONS.map((opt) => ({
+              value: opt.id,
+              label: opt.label,
+              description: opt.desc,
+            }))}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-docked-thoughts")}
+            label={localizeUi("settings.controls.alwaysShowDockedThoughts.label")}
+            checked={trackerPanelDockedThoughtsAlwaysVisible}
+            onChange={setTrackerPanelDockedThoughtsAlwaysVisible}
+            help={localizeUi("settings.controls.alwaysShowDockedThoughts.help")}
+          />
+          <SettingsChoiceRow
+            anchorId={getSettingsControlAnchorId("tracker-stat-display-mode")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.statDisplayMode")}
+            help={localizeUi("ui.panels.trackerpanelappearancedrawer.chooseBarsOrGaugesForTrackerStats")}
+            value={trackerStatDisplayMode}
+            onChange={setTrackerStatDisplayMode}
+            disabled={!trackerPanelEnabled}
+            options={TRACKER_STAT_DISPLAY_OPTIONS.map((option) => ({
+              value: option,
+              label: localizeUi(
+                option === "bars"
+                  ? "ui.panels.trackerpanelappearancedrawer.bars"
+                  : "ui.panels.trackerpanelappearancedrawer.gauges",
+              ),
+              description: localizeUi(
+                option === "bars"
+                  ? "ui.panels.trackerpanelappearancedrawer.barsDescription"
+                  : "ui.panels.trackerpanelappearancedrawer.gaugesDescription",
+              ),
+            }))}
+          />
+          <SettingsChoiceRow
+            anchorId={getSettingsControlAnchorId("tracker-temperature-unit")}
+            label={localizeUi("ui.panels.trackerpanelappearancedrawer.temperatureUnit")}
+            help={localizeUi(
+              "ui.panels.trackerpanelappearancedrawer.changesTrackerPanelAndRoleplayHudTemperatureDisplaysWithout",
+            )}
+            value={trackerTemperatureUnit}
+            onChange={setTrackerTemperatureUnit}
+            disabled={!trackerPanelEnabled}
+            options={[
+              {
+                value: "celsius",
+                label: localizeUi("ui.panels.trackerpanelappearancedrawer.c"),
+                title: localizeUi("ui.panels.trackerpanelappearancedrawer.celsius"),
+              },
+              {
+                value: "fahrenheit",
+                label: localizeUi("ui.panels.trackerpanelappearancedrawer.f"),
+                title: localizeUi("ui.panels.trackerpanelappearancedrawer.fahrenheit"),
+              },
+            ]}
+          />
+          <TrackerPanelCardOrderSetting />
+          <TrackerCardColorSettings />
+        </fieldset>
+      </SettingsSection>
+    );
+  }
 
   return (
     <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/34 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]">
@@ -2146,7 +1907,7 @@ function WalkthroughSettings() {
             data-walkthrough-replay="device"
             onClick={() => {
               leaveSettingsForTour();
-              resetDeviceWalkthrough(device);
+              useUIStore.getState().resetWalkthroughDevice(device);
             }}
           >
             {localizeUi("settings.walkthroughs.replayDevice", { device: deviceLabel })}
@@ -2159,7 +1920,12 @@ function WalkthroughSettings() {
           onClick={() => {
             resetModeWalkthroughs(device);
             useUIStore.setState({ chatHelpSeenModes: [], chatHelpButtonHidden: false });
-            toast.success(localizeUi("settings.walkthroughs.modesReset"));
+            // On a computer the help opens by itself only in a chat you have not written in yet (QC panel 2, D1).
+            toast.success(
+              localizeUi(
+                device === "desktop" ? "settings.walkthroughs.modesResetDesktop" : "settings.walkthroughs.modesReset",
+              ),
+            );
           }}
         >
           {localizeUi("settings.walkthroughs.replayModes")}
@@ -2321,6 +2087,7 @@ function DocsLanguageSetting() {
 
 function GeneralSettings() {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulLook = useOverhaulLook();
   const { t, i18n: localization } = useTranslation();
   const localize = useLocalizedUiText();
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages();
@@ -2425,6 +2192,18 @@ function GeneralSettings() {
         </div>
       </SettingsSection>
 
+      {/* New layout: Home's widgets are chosen here (the classic layout keeps Home's Widgets window). */}
+      {overhaulLook ? (
+        <SettingsSection
+          title={localizeUi("settings.sections.home.title")}
+          description={localizeUi("settings.sections.home.description")}
+          icon={<LayoutGrid size="0.875rem" />}
+          {...getSettingsSectionAnchorProps("home")}
+        >
+          <HomeWidgetsSettings anchorId={getSettingsControlAnchorId("home-widgets")} />
+        </SettingsSection>
+      ) : null}
+
       <SettingsSection
         title={localizeUi("ui.panels.generalsettings.confirmationsHelp")}
         description={localizeUi("ui.panels.generalsettings.deleteConfirmationsAndTheChatHelpButton")}
@@ -2507,27 +2286,38 @@ function GeneralSettings() {
 
       <SettingsSection
         title={localizeUi("commandCenter.workTitle")}
-        description={localizeUi("ui.panels.generalsettings.searchQuickAnswersAndProfessorMariTheyOpenIn")}
+        description={localizeUi(
+          overhaulLook
+            ? "settings.sections.omnibar.descriptionInline"
+            : "ui.panels.generalsettings.searchQuickAnswersAndProfessorMariTheyOpenIn",
+        )}
         icon={<GraduationCap size="0.875rem" />}
         {...getSettingsSectionAnchorProps("omnibar")}
       >
         <div className="flex flex-col gap-2.5">
-          {/* Q2: every omnibar and Professor Mari setting lives in the omnibar; this row opens it. */}
-          <div className="flex scroll-mt-3 items-center justify-between gap-3 p-1.5">
-            <span className="flex min-w-0 items-center gap-1.5 text-xs">
-              <span id="settings-omnibar-row-label">{localizeUi("settings.controls.omnibarSettings.label")}</span>
-              <HelpTooltip text={localizeUi("settings.controls.omnibarSettings.help")} />
-            </span>
-            <button
-              type="button"
-              id="settings-omnibar-row-open"
-              aria-labelledby="settings-omnibar-row-open settings-omnibar-row-label"
-              className={SETTINGS_BUTTON_CLASS}
-              onClick={() => useUIStore.getState().openOmnibarSettings()}
-            >
-              {localizeUi("settings.controls.omnibarSettings.open")}
-            </button>
-          </div>
+          {/* New layout: every Search and Professor Mari setting is a row right here. */}
+          {overhaulLook ? (
+            <OmnibarSettingsInline />
+          ) : (
+            <>
+              {/* Q2: every omnibar and Professor Mari setting lives in the omnibar; this row opens it. */}
+              <div className="flex scroll-mt-3 items-center justify-between gap-3 p-1.5">
+                <span className="flex min-w-0 items-center gap-1.5 text-xs">
+                  <span id="settings-omnibar-row-label">{localizeUi("settings.controls.omnibarSettings.label")}</span>
+                  <HelpTooltip text={localizeUi("settings.controls.omnibarSettings.help")} />
+                </span>
+                <button
+                  type="button"
+                  id="settings-omnibar-row-open"
+                  aria-labelledby="settings-omnibar-row-open settings-omnibar-row-label"
+                  className={SETTINGS_BUTTON_CLASS}
+                  onClick={() => useUIStore.getState().openOmnibarSettings()}
+                >
+                  {localizeUi("settings.controls.omnibarSettings.open")}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </SettingsSection>
 
@@ -2551,7 +2341,8 @@ function GeneralSettings() {
             ]}
             onChange={setNotificationPosition}
             label={localizeUi("settings.notifications.position.label")}
-            className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)]"
+            // The same box as the Language picker above it (QC panel 2, G).
+            className="min-h-11 w-full min-w-0 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/60"
           />
           <span className="text-[var(--muted-foreground)]">{localizeUi("settings.notifications.position.help")}</span>
         </div>
@@ -2774,14 +2565,14 @@ function GeneralSettings() {
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("conversation-always-display-swipe-menu")}
-            label={localize("Always show swipe menu in Conversation")}
+            label={localize("Show swipe arrows from the first reply (Conversation)")}
             checked={alwaysDisplayConversationSwipeMenu}
             onChange={setAlwaysDisplayConversationSwipeMenu}
             help={localizeUi("settings.controls.alwaysDisplaySwipeMenu.help")}
           />
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("roleplay-always-display-swipe-menu")}
-            label={localize("Always show swipe menu in Roleplay")}
+            label={localize("Show swipe arrows from the first reply (Roleplay)")}
             checked={alwaysDisplayRoleplaySwipeMenu}
             onChange={setAlwaysDisplayRoleplaySwipeMenu}
             help={localizeUi("settings.controls.alwaysDisplaySwipeMenu.help")}
@@ -2972,23 +2763,42 @@ function GeneralSettings() {
                 text={localizeUi("ui.panels.appearancesettings.chooseWhetherGameModeUsesAClassicDialogueBox")}
               />
             </div>
-            <div
-              id={getSettingsControlAnchorId("game-dialogue-display")}
-              className="grid scroll-mt-3 grid-cols-1 gap-2 sm:grid-cols-2"
-            >
-              {GAME_DIALOGUE_DISPLAY_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  aria-pressed={gameDialogueDisplayMode === opt.id}
-                  onClick={() => setGameDialogueDisplayMode(opt.id)}
-                  className={SETTINGS_CHOICE_CARD_CLASS}
-                >
-                  <span className="font-semibold">{opt.label}</span>
-                  <span className="text-[0.625rem] leading-tight text-[var(--muted-foreground)]">{opt.desc}</span>
-                </button>
-              ))}
-            </div>
+            {/* New layout: a dropdown; the picked option's description is the hint under it. */}
+            {overhaulLook ? (
+              <div
+                id={getSettingsControlAnchorId("game-dialogue-display")}
+                className="flex scroll-mt-3 flex-col gap-1.5 text-xs"
+              >
+                <Select
+                  value={gameDialogueDisplayMode}
+                  options={GAME_DIALOGUE_DISPLAY_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+                  onChange={setGameDialogueDisplayMode}
+                  label={localizeUi("ui.panels.appearancesettings.gameDialogueDisplay")}
+                  className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 ring-1 ring-[var(--border)]"
+                />
+                <span className="text-[var(--muted-foreground)]">
+                  {GAME_DIALOGUE_DISPLAY_OPTIONS.find((opt) => opt.id === gameDialogueDisplayMode)?.desc}
+                </span>
+              </div>
+            ) : (
+              <div
+                id={getSettingsControlAnchorId("game-dialogue-display")}
+                className="grid scroll-mt-3 grid-cols-1 gap-2 sm:grid-cols-2"
+              >
+                {GAME_DIALOGUE_DISPLAY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    aria-pressed={gameDialogueDisplayMode === opt.id}
+                    onClick={() => setGameDialogueDisplayMode(opt.id)}
+                    className={SETTINGS_CHOICE_CARD_CLASS}
+                  >
+                    <span className="font-semibold">{opt.label}</span>
+                    <span className="text-[0.625rem] leading-tight text-[var(--muted-foreground)]">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <ToggleSetting
             anchorId={getSettingsControlAnchorId("game-text-effects")}
@@ -3070,30 +2880,29 @@ function OverallGenerationSettings() {
   );
 }
 
+/**
+ * Image generation lives in the Image settings window; this section says what is set and opens it on the right tab.
+ * Each line keeps its settings search id, so a search for a size or for style profiles still lands here.
+ */
 function ImageGenerationSettings() {
   const { t: localizeUi } = useUiTranslation();
-  const autoSaveToGalleries = useUIStore((s) => s.autoSaveGeneratedImagesToGalleries);
-  const setAutoSaveToGalleries = useUIStore((s) => s.setAutoSaveGeneratedImagesToGalleries);
-  const imageBackgroundWidth = useUIStore((s) => s.imageBackgroundWidth);
-  const imageBackgroundHeight = useUIStore((s) => s.imageBackgroundHeight);
-  const setImageBackgroundDimensions = useUIStore((s) => s.setImageBackgroundDimensions);
-  const imageIllustrationWidth = useUIStore((s) => s.imageIllustrationWidth);
-  const imageIllustrationHeight = useUIStore((s) => s.imageIllustrationHeight);
-  const setImageIllustrationDimensions = useUIStore((s) => s.setImageIllustrationDimensions);
-  const imageGameWidth = useUIStore((s) => s.imageGameWidth);
-  const imageGameHeight = useUIStore((s) => s.imageGameHeight);
-  const setImageGameDimensions = useUIStore((s) => s.setImageGameDimensions);
-  const imagePortraitWidth = useUIStore((s) => s.imagePortraitWidth);
-  const imagePortraitHeight = useUIStore((s) => s.imagePortraitHeight);
-  const setImagePortraitDimensions = useUIStore((s) => s.setImagePortraitDimensions);
-  const imageCharacterSheetWidth = useUIStore((s) => s.imageCharacterSheetWidth);
-  const imageCharacterSheetHeight = useUIStore((s) => s.imageCharacterSheetHeight);
-  const setImageCharacterSheetDimensions = useUIStore((s) => s.setImageCharacterSheetDimensions);
-  const imageSelfieWidth = useUIStore((s) => s.imageSelfieWidth);
-  const imageSelfieHeight = useUIStore((s) => s.imageSelfieHeight);
-  const setImageSelfieDimensions = useUIStore((s) => s.setImageSelfieDimensions);
+  const openImageSettings = useUIStore((s) => s.openImageSettings);
   const imageStyleProfiles = useUIStore((s) => s.imageStyleProfiles);
-  const setImageStyleProfiles = useUIStore((s) => s.setImageStyleProfiles);
+  const canvases = useImageCanvases();
+  const styles = normalizeImageStyleProfileSettings(imageStyleProfiles);
+  const defaultStyle = styles.profiles.find((profile) => profile.id === styles.defaultProfileId)?.name ?? "";
+  const line = (id: string | null, label: string, value: string, tab: ImageSettingsTab) => (
+    <button
+      key={id ?? label}
+      type="button"
+      id={id ? getSettingsControlAnchorId(id) : undefined}
+      onClick={() => openImageSettings(tab)}
+      className="grid min-h-8 scroll-mt-3 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 text-start text-xs transition-colors hover:bg-[var(--secondary)]"
+    >
+      <span className="min-w-0 truncate text-[var(--foreground)]">{label}</span>
+      <span className="truncate text-[var(--muted-foreground)]">{value}</span>
+    </button>
+  );
 
   return (
     <SettingsSection
@@ -3103,72 +2912,30 @@ function ImageGenerationSettings() {
       {...getSettingsSectionAnchorProps("image-generation")}
     >
       <div className="flex flex-col gap-2.5">
-        <ToggleSetting
-          label={localizeUi("settings.controls.autoSaveGeneratedImagesToGalleries.label")}
-          help={localizeUi("settings.controls.autoSaveGeneratedImagesToGalleries.help")}
-          checked={autoSaveToGalleries}
-          onChange={setAutoSaveToGalleries}
-        />
-        <ImageDimensionRow
-          controlId="image-background-size"
-          label={localizeUi("settings.controls.backgroundGeneration.label")}
-          help={localizeUi("settings.controls.backgroundGeneration.help")}
-          width={imageBackgroundWidth}
-          height={imageBackgroundHeight}
-          onCommit={setImageBackgroundDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-illustration-size"
-          label={localizeUi("settings.controls.illustrations.label")}
-          help={localizeUi("settings.controls.illustrations.help")}
-          width={imageIllustrationWidth}
-          height={imageIllustrationHeight}
-          onCommit={setImageIllustrationDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-game-size"
-          label={localizeUi("settings.controls.gameGeneration.label")}
-          help={localizeUi("settings.controls.gameGeneration.help")}
-          width={imageGameWidth}
-          height={imageGameHeight}
-          onCommit={setImageGameDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-portrait-size"
-          label={localizeUi("settings.controls.portraits.label")}
-          help={localizeUi("settings.controls.portraits.help")}
-          width={imagePortraitWidth}
-          height={imagePortraitHeight}
-          onCommit={setImagePortraitDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-character-sheet-size"
-          label={localizeUi("settings.controls.characterSheets.label")}
-          help={localizeUi("settings.controls.characterSheets.help")}
-          width={imageCharacterSheetWidth}
-          height={imageCharacterSheetHeight}
-          onCommit={setImageCharacterSheetDimensions}
-        />
-        <ImageDimensionRow
-          controlId="image-selfie-size"
-          label={localizeUi("settings.controls.selfies.label")}
-          help={localizeUi("settings.controls.selfies.help")}
-          width={imageSelfieWidth}
-          height={imageSelfieHeight}
-          onCommit={setImageSelfieDimensions}
-        />
-
-        <div id={getSettingsControlAnchorId("image-style-profiles")} className="mt-1 scroll-mt-3">
-          <div className="mb-2 flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
-            {localizeUi("ui.panels.imagegenerationsettings.styleProfiles")}
-            <HelpTooltip
-              text={localizeUi(
-                "ui.panels.imagegenerationsettings.definesWhatAnimeDanbooruRealisticAndCustomStylesMean",
-              )}
-            />
-          </div>
-          <ImageStyleProfilesEditor value={imageStyleProfiles} onChange={setImageStyleProfiles} />
+        <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
+          {localizeUi("imageSettings.generations.intro")}
+        </p>
+        <div className="flex flex-col">
+          {line(
+            "image-style-profiles",
+            localizeUi("ui.panels.imagestyleprofileseditor.defaultStyle"),
+            defaultStyle,
+            "styles",
+          )}
+          {canvases.map((canvas) =>
+            line(canvas.id, localizeUi(canvas.labelKey), `${canvas.width} × ${canvas.height}`, "canvases"),
+          )}
+          {line(
+            null,
+            localizeUi("imageSettings.tabs.prompts"),
+            localizeUi("imageSettings.generations.templates"),
+            "prompts",
+          )}
         </div>
+        <button type="button" onClick={() => openImageSettings()} className={SETTINGS_PRIMARY_FULL_BUTTON_CLASS}>
+          <SlidersHorizontal size="0.8125rem" />
+          {localizeUi("imageSettings.generations.open")}
+        </button>
       </div>
     </SettingsSection>
   );
@@ -3431,6 +3198,7 @@ function VideoGenerationSettings() {
 
 function GameAssetsSettings() {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulLook = useOverhaulLook();
   const rescanGameAssets = useRescanGameAssets();
   const openGameAssetsFolder = useOpenGameAssetsFolder();
   const openGameAssetsBrowser = useUIStore((s) => s.openGameAssetsBrowser);
@@ -3523,6 +3291,26 @@ function GameAssetsSettings() {
       setAssetUploading(false);
     }
   };
+
+  // New layout: the browser, uploads, rescan and folder shortcuts live on Library > Assets > Game assets, so this
+  // section only points there instead of repeating them (QC panel 2, E2).
+  if (overhaulLook)
+    return (
+      <SettingsSection
+        title={localizeUi("settings.sections.gameAssets.title")}
+        description={localizeUi("settings.sections.gameAssets.libraryDescription")}
+        icon={<FolderOpen size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("game-assets")}
+      >
+        <div className="ov-set-linkrow">
+          <span>{localizeUi("library.sections.gameAssets")}</span>
+          <button type="button" className="ov-btn" onClick={() => openLibrarySection("game-assets")}>
+            <FolderOpen size={14} aria-hidden="true" />
+            {localizeUi("settings.gameAssets.openLibrary")}
+          </button>
+        </div>
+      </SettingsSection>
+    );
 
   return (
     <SettingsSection
@@ -3798,6 +3586,7 @@ function AppearanceSettings({
   afterTheme?: React.ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulLook = useOverhaulLook();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
   const themeAuto = useUIStore((s) => s.themeAuto);
@@ -4192,6 +3981,51 @@ function AppearanceSettings({
   const gameAvatarPreview = gameAvatarPreviewSize ?? gameAvatarPreviewBase;
   const gameFullBodyPreview = gameFullBodyPreviewSize ?? gameFullBodyPreviewBase;
 
+  // Conversation layout preview: rows or bubbles with the picked avatar shape (a picture, kept in both layouts).
+  const conversationLayoutPreview = (
+    <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--background)]/35 p-2.5 text-[0.6875rem]">
+      {conversationMessageStyle === "bubble" ? (
+        <div className="space-y-1.5">
+          <div className="flex justify-end">
+            <div className="mari-message-bubble texting-bubble texting-bubble-user max-w-[78%] rounded-2xl px-3 py-1.5 text-xs shadow-sm">
+              {localizeUi("ui.panels.appearancesettings.heyHowSItGoing")}
+            </div>
+          </div>
+          <div className="flex items-end gap-1.5 justify-start">
+            <div
+              className={cn(
+                "h-5 w-5 shrink-0 bg-[var(--accent)]",
+                conversationAvatarShape === "square" ? "rounded-[0.2rem]" : "rounded-full",
+              )}
+            />
+            <div className="mari-message-bubble texting-bubble texting-bubble-other max-w-[78%] rounded-2xl px-3 py-1.5 text-xs shadow-sm">
+              {localizeUi("ui.panels.appearancesettings.prettyGoodThanks")}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2 text-xs">
+          <div
+            className={cn(
+              "h-6 w-6 shrink-0 bg-[var(--accent)]",
+              conversationAvatarShape === "square" ? "rounded-[0.2rem]" : "rounded-full",
+            )}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="mb-0.5 flex items-baseline gap-2">
+              <span className="font-semibold">{localizeUi("ui.panels.appearancesettings.character")}</span>
+              <span className="text-[0.625rem] text-[var(--muted-foreground)]">12:45</span>
+            </div>
+            <div className="space-y-0.5 text-[var(--foreground)]/90">
+              <div>{localizeUi("ui.panels.appearancesettings.messagesAppearAsRows")}</div>
+              <div>{localizeUi("ui.panels.appearancesettings.groupedBySender")}</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <SettingsIntro>
@@ -4239,47 +4073,45 @@ function AppearanceSettings({
                     text={localizeUi("ui.panels.appearancesettings.chooseHowTheEntireAppLooksMarinaraUsesA")}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      {
-                        id: "default" as VisualTheme,
-                        label: "Default (Marinara)",
-                        desc: "Y2K / retro aesthetic with glow effects",
-                      },
-                      {
-                        id: "sillytavern" as VisualTheme,
-                        label: "SillyTavern",
-                        desc: "Classic SillyTavern look — clean & minimal",
-                      },
-                      {
-                        id: "stage" as VisualTheme,
-                        label: "Stage",
-                        desc: "Plum, brass and crimson from the UI overhaul",
-                      },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      aria-pressed={visualTheme === opt.id}
-                      onClick={() => setVisualTheme(opt.id)}
-                      className={SETTINGS_CHOICE_CARD_CLASS}
-                    >
-                      <span className="font-semibold">{opt.label}</span>
-                      <span className="text-[0.625rem] text-[var(--muted-foreground)] leading-tight">{opt.desc}</span>
-                    </button>
-                  ))}
-                </div>
+                {/* New layout: a dropdown; the picked style's description is the hint under it. */}
+                {overhaulLook ? (
+                  <>
+                    <Select
+                      value={visualTheme}
+                      options={VISUAL_STYLE_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+                      onChange={setVisualTheme}
+                      label={localizeUi("ui.panels.appearancesettings.visualStyle")}
+                      className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)]"
+                    />
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {VISUAL_STYLE_OPTIONS.find((opt) => opt.id === visualTheme)?.desc}
+                    </span>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {VISUAL_STYLE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        aria-pressed={visualTheme === opt.id}
+                        onClick={() => setVisualTheme(opt.id)}
+                        className={SETTINGS_CHOICE_CARD_CLASS}
+                      >
+                        <span className="font-semibold">{opt.label}</span>
+                        <span className="text-[0.625rem] text-[var(--muted-foreground)] leading-tight">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <ToggleSetting
                 anchorId={getSettingsControlAnchorId("overhaul-layout")}
-                label={localize("New layout (UI overhaul preview)")}
+                label={localize("New layout")}
                 checked={overhaulLayoutEnabled}
                 onChange={setOverhaulLayoutEnabled}
                 help={localize(
-                  "One tab bar on top, the Library on the right and Library pages in the middle. Desktop only; phones keep the standard layout.",
+                  "One tab bar on top, the Library on the right and Library pages in the middle, with a touch layout on phones and tablets. Turn it off for the classic layout.",
                 )}
               />
 
@@ -4472,6 +4304,12 @@ function AppearanceSettings({
                     {localizeUi("ui.panels.appearancesettings.folderToAddCustomFonts")}
                   </p>
                 )}
+                {/* Android: the server runs in Termux, where "data/fonts" can't be reached from a file manager. */}
+                {typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent) ? (
+                  <p className="text-[0.625rem] text-[var(--muted-foreground)]" data-fonts-termux-hint>
+                    {localizeUi("ui.panels.appearancesettings.termuxFontsHint")}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   onClick={handleOpenFontsFolder}
@@ -4816,7 +4654,7 @@ function AppearanceSettings({
                     text={localizeUi("ui.panels.appearancesettings.importOneOrMoreCustomImagesOrChooseFrom")}
                   />
                 </span>
-                <label className="flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
+                <label className="mari-settings-boxed-slider flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
                   <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
                     {localizeUi("ui.panels.appearancesettings.backgroundBlur")}
                     <HelpTooltip
@@ -4842,7 +4680,7 @@ function AppearanceSettings({
                     </span>
                   </div>
                 </label>
-                <label className="flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
+                <label className="mari-settings-boxed-slider flex flex-col gap-1 rounded-lg bg-[var(--secondary)]/45 p-3 ring-1 ring-[var(--border)]/70">
                   <span className="text-[0.6875rem] font-medium">
                     {localizeUi("settings.controls.conversationBackgroundImageOpacity.label")}
                     <HelpTooltip
@@ -4883,7 +4721,16 @@ function AppearanceSettings({
                   <Select
                     id={getSettingsControlAnchorId("chat-list-backgrounds")}
                     value={chatListBackgrounds}
-                    options={CHAT_LIST_BACKGROUND_OPTIONS.map((opt) => ({ value: opt.id, label: opt.label }))}
+                    options={CHAT_LIST_BACKGROUND_OPTIONS.map((opt) => ({
+                      value: opt.id,
+                      // Touch screens have no hover, so that choice is just the active chat there (QC panel 2, G).
+                      label:
+                        opt.id === "hover" &&
+                        typeof window !== "undefined" &&
+                        window.matchMedia?.("(hover: none) and (any-pointer: coarse)").matches
+                          ? "Active chat"
+                          : opt.label,
+                    }))}
                     onChange={setChatListBackgrounds}
                     label={localizeUi("ui.panels.appearancesettings.chatListBackgrounds")}
                     className="h-7 min-w-0 flex-1 scroll-mt-3 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 text-xs"
@@ -5150,161 +4997,163 @@ function AppearanceSettings({
             icon={<MessageCircle size="0.875rem" />}
             {...getSettingsSectionAnchorProps("chat-display")}
           >
-            <div className="flex flex-col gap-3">
-              <div
-                id={getSettingsControlAnchorId("conversation-layout")}
-                className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
-              >
-                <div className="flex items-center gap-1.5">
-                  <MessageCircle size="0.75rem" className="text-[var(--muted-foreground)]" />
-                  <span className="text-xs font-medium">{localizeUi("ui.panels.appearancesettings.chatLayout")}</span>
+            {overhaulLook ? (
+              <div className="flex flex-col gap-3">
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("conversation-layout")}
+                  label={localizeUi("ui.panels.appearancesettings.chatLayout")}
+                  value={conversationMessageStyle}
+                  onChange={setConversationMessageStyle}
+                  options={[
+                    { value: "classic", label: "Linear", description: "Chat-style rows" },
+                    { value: "bubble", label: "Bubbles", description: "Messenger-style bubbles" },
+                  ]}
+                />
+                <div className="ov-convo-preview">{conversationLayoutPreview}</div>
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("conversation-avatar-shape")}
+                  label={localizeUi("ui.panels.appearancesettings.conversationAvatarShape")}
+                  hint={localizeUi("ui.panels.appearancesettings.conversationAvatarShapeDescription")}
+                  value={conversationAvatarShape}
+                  onChange={setConversationAvatarShape}
+                  options={[
+                    { value: "circle", label: localizeUi("ui.panels.appearancesettings.circularAvatars") },
+                    { value: "square", label: localizeUi("ui.panels.appearancesettings.squareAvatars") },
+                  ]}
+                />
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("phone-chat-avatars")}
+                  label={localizeUi("ui.panels.appearancesettings.phoneChatAvatars")}
+                  hint={localizeUi("ui.panels.appearancesettings.phoneChatAvatarsDescription")}
+                  value={phoneChatAvatars}
+                  onChange={setPhoneChatAvatars}
+                  options={[
+                    { value: "mini", label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsMini") },
+                    { value: "full", label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsFull") },
+                    { value: "off", label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsOff") },
+                  ]}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div
+                  id={getSettingsControlAnchorId("conversation-layout")}
+                  className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <MessageCircle size="0.75rem" className="text-[var(--muted-foreground)]" />
+                    <span className="text-xs font-medium">{localizeUi("ui.panels.appearancesettings.chatLayout")}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { id: "classic" as ConversationMessageStyle, label: "Linear", desc: "Chat-style rows" },
+                        { id: "bubble" as ConversationMessageStyle, label: "Bubbles", desc: "Messenger-style bubbles" },
+                      ] as const
+                    ).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setConversationMessageStyle(opt.id)}
+                        className={SETTINGS_CHOICE_CARD_CLASS}
+                        aria-pressed={conversationMessageStyle === opt.id}
+                      >
+                        <span className="font-semibold">{opt.label}</span>
+                        <span className="text-[0.625rem] leading-tight text-[var(--muted-foreground)]">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {conversationLayoutPreview}
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      { id: "classic" as ConversationMessageStyle, label: "Linear", desc: "Chat-style rows" },
-                      { id: "bubble" as ConversationMessageStyle, label: "Bubbles", desc: "Messenger-style bubbles" },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setConversationMessageStyle(opt.id)}
-                      className={SETTINGS_CHOICE_CARD_CLASS}
-                      aria-pressed={conversationMessageStyle === opt.id}
-                    >
-                      <span className="font-semibold">{opt.label}</span>
-                      <span className="text-[0.625rem] leading-tight text-[var(--muted-foreground)]">{opt.desc}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--background)]/35 p-2.5 text-[0.6875rem]">
-                  {conversationMessageStyle === "bubble" ? (
-                    <div className="space-y-1.5">
-                      <div className="flex justify-end">
-                        <div className="mari-message-bubble texting-bubble texting-bubble-user max-w-[78%] rounded-2xl px-3 py-1.5 text-xs shadow-sm">
-                          {localizeUi("ui.panels.appearancesettings.heyHowSItGoing")}
-                        </div>
-                      </div>
-                      <div className="flex items-end gap-1.5 justify-start">
-                        <div
+                <div
+                  id={getSettingsControlAnchorId("conversation-avatar-shape")}
+                  className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
+                >
+                  <div>
+                    <div className="text-xs font-medium">
+                      {localizeUi("ui.panels.appearancesettings.conversationAvatarShape")}
+                    </div>
+                    <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.appearancesettings.conversationAvatarShapeDescription")}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        {
+                          id: "circle" as ConversationAvatarShape,
+                          label: localizeUi("ui.panels.appearancesettings.circularAvatars"),
+                          cornerClass: "rounded-full",
+                        },
+                        {
+                          id: "square" as ConversationAvatarShape,
+                          label: localizeUi("ui.panels.appearancesettings.squareAvatars"),
+                          cornerClass: "rounded-[0.2rem]",
+                        },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setConversationAvatarShape(option.id)}
+                        className={SETTINGS_BUTTON_CLASS}
+                        aria-pressed={conversationAvatarShape === option.id}
+                      >
+                        <span
                           className={cn(
-                            "h-5 w-5 shrink-0 bg-[var(--accent)]",
-                            conversationAvatarShape === "square" ? "rounded-[0.2rem]" : "rounded-full",
+                            "h-5 w-5 shrink-0 border border-current bg-[var(--accent)]",
+                            option.cornerClass,
                           )}
+                          data-avatar-shape-preview={option.id}
                         />
-                        <div className="mari-message-bubble texting-bubble texting-bubble-other max-w-[78%] rounded-2xl px-3 py-1.5 text-xs shadow-sm">
-                          {localizeUi("ui.panels.appearancesettings.prettyGoodThanks")}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex gap-2 text-xs">
-                      <div
-                        className={cn(
-                          "h-6 w-6 shrink-0 bg-[var(--accent)]",
-                          conversationAvatarShape === "square" ? "rounded-[0.2rem]" : "rounded-full",
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-0.5 flex items-baseline gap-2">
-                          <span className="font-semibold">{localizeUi("ui.panels.appearancesettings.character")}</span>
-                          <span className="text-[0.625rem] text-[var(--muted-foreground)]">12:45</span>
-                        </div>
-                        <div className="space-y-0.5 text-[var(--foreground)]/90">
-                          <div>{localizeUi("ui.panels.appearancesettings.messagesAppearAsRows")}</div>
-                          <div>{localizeUi("ui.panels.appearancesettings.groupedBySender")}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div
-                id={getSettingsControlAnchorId("conversation-avatar-shape")}
-                className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
-              >
-                <div>
-                  <div className="text-xs font-medium">
-                    {localizeUi("ui.panels.appearancesettings.conversationAvatarShape")}
+                        {option.label}
+                      </button>
+                    ))}
                   </div>
-                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.panels.appearancesettings.conversationAvatarShapeDescription")}
-                  </p>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      {
-                        id: "circle" as ConversationAvatarShape,
-                        label: localizeUi("ui.panels.appearancesettings.circularAvatars"),
-                        cornerClass: "rounded-full",
-                      },
-                      {
-                        id: "square" as ConversationAvatarShape,
-                        label: localizeUi("ui.panels.appearancesettings.squareAvatars"),
-                        cornerClass: "rounded-[0.2rem]",
-                      },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setConversationAvatarShape(option.id)}
-                      className={SETTINGS_BUTTON_CLASS}
-                      aria-pressed={conversationAvatarShape === option.id}
-                    >
-                      <span
-                        className={cn("h-5 w-5 shrink-0 border border-current bg-[var(--accent)]", option.cornerClass)}
-                        data-avatar-shape-preview={option.id}
-                      />
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div
-                id={getSettingsControlAnchorId("phone-chat-avatars")}
-                className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
-              >
-                <div>
-                  <div className="text-xs font-medium">
-                    {localizeUi("ui.panels.appearancesettings.phoneChatAvatars")}
+                <div
+                  id={getSettingsControlAnchorId("phone-chat-avatars")}
+                  className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
+                >
+                  <div>
+                    <div className="text-xs font-medium">
+                      {localizeUi("ui.panels.appearancesettings.phoneChatAvatars")}
+                    </div>
+                    <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.appearancesettings.phoneChatAvatarsDescription")}
+                    </p>
                   </div>
-                  <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    {localizeUi("ui.panels.appearancesettings.phoneChatAvatarsDescription")}
-                  </p>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(
-                    [
-                      {
-                        id: "mini" as PhoneChatAvatars,
-                        label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsMini"),
-                      },
-                      {
-                        id: "full" as PhoneChatAvatars,
-                        label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsFull"),
-                      },
-                      {
-                        id: "off" as PhoneChatAvatars,
-                        label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsOff"),
-                      },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setPhoneChatAvatars(option.id)}
-                      className={SETTINGS_BUTTON_CLASS}
-                      aria-pressed={phoneChatAvatars === option.id}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        {
+                          id: "mini" as PhoneChatAvatars,
+                          label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsMini"),
+                        },
+                        {
+                          id: "full" as PhoneChatAvatars,
+                          label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsFull"),
+                        },
+                        {
+                          id: "off" as PhoneChatAvatars,
+                          label: localizeUi("ui.panels.appearancesettings.phoneChatAvatarsOff"),
+                        },
+                      ] as const
+                    ).map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setPhoneChatAvatars(option.id)}
+                        className={SETTINGS_BUTTON_CLASS}
+                        aria-pressed={phoneChatAvatars === option.id}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </SettingsSection>
 
           <SettingsSection
@@ -5330,24 +5179,39 @@ function AppearanceSettings({
                     />
                   </div>
                   {/* Scheme tabs */}
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setActiveGradientScheme("dark")}
-                      aria-pressed={activeGradientScheme === "dark"}
-                      className={SETTINGS_BUTTON_CLASS}
-                    >
-                      {localizeUi("ui.panels.appearancesettings.dark")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveGradientScheme("light")}
-                      aria-pressed={activeGradientScheme === "light"}
-                      className={SETTINGS_BUTTON_CLASS}
-                    >
-                      {localizeUi("ui.panels.appearancesettings.light")}
-                    </button>
-                  </div>
+                  {overhaulLook ? (
+                    <span className="inline-flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                      {localizeUi("ui.panels.imagestyleprofileseditor.editing")}
+                      <OvSeg
+                        value={activeGradientScheme}
+                        onChange={setActiveGradientScheme}
+                        label={localizeUi("ui.panels.appearancesettings.colorSchemeToEdit")}
+                        options={[
+                          { value: "dark", label: localizeUi("ui.panels.appearancesettings.dark") },
+                          { value: "light", label: localizeUi("ui.panels.appearancesettings.light") },
+                        ]}
+                      />
+                    </span>
+                  ) : (
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveGradientScheme("dark")}
+                        aria-pressed={activeGradientScheme === "dark"}
+                        className={SETTINGS_BUTTON_CLASS}
+                      >
+                        {localizeUi("ui.panels.appearancesettings.dark")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveGradientScheme("light")}
+                        aria-pressed={activeGradientScheme === "light"}
+                        className={SETTINGS_BUTTON_CLASS}
+                      >
+                        {localizeUi("ui.panels.appearancesettings.light")}
+                      </button>
+                    </div>
+                  )}
                 </div>
                 {/* Preview */}
                 <div
@@ -5376,7 +5240,7 @@ function AppearanceSettings({
                     commitConvoGradientField(activeGradientScheme, "from", defaults.from);
                     commitConvoGradientField(activeGradientScheme, "to", defaults.to);
                   }}
-                  className={cn(SETTINGS_BUTTON_CLASS, "self-start")}
+                  className={overhaulLook ? "ov-linkbtn self-start text-xs" : cn(SETTINGS_BUTTON_CLASS, "self-start")}
                 >
                   {localizeUi("ui.panels.imagestyleprofileseditor.reset")}{" "}
                   {activeGradientScheme === "dark"
@@ -5396,13 +5260,21 @@ function AppearanceSettings({
             {localizeUi("settings.appearance.groups.roleplay")}
           </h2>
 
-          <div
-            id={getSettingsSectionAnchorId("roleplay-tracker")}
-            className="ov-trk-settings flex scroll-mt-3 flex-col gap-3"
-          >
-            <TrackerPanelAppearanceDrawer />
-            {overhaulDesktop ? <TrackerPanelPreview /> : null}
-          </div>
+          {overhaulLook ? (
+            // Not a div: Settings flattens divs that hold a section, and this one lays the section out beside
+            // its preview. The section itself carries the anchor.
+            <article className="ov-trk-settings">
+              <TrackerPanelAppearanceDrawer />
+              {overhaulDesktop ? <TrackerPanelPreview /> : null}
+            </article>
+          ) : (
+            <div
+              id={getSettingsSectionAnchorId("roleplay-tracker")}
+              className="ov-trk-settings flex scroll-mt-3 flex-col gap-3"
+            >
+              <TrackerPanelAppearanceDrawer />
+            </div>
+          )}
 
           <SettingsSection
             title={localizeUi("ui.panels.appearancesettings.roleplayMessages")}
@@ -5411,35 +5283,50 @@ function AppearanceSettings({
             {...getSettingsSectionAnchorProps("roleplay-messages")}
           >
             <div className="flex flex-col gap-3">
-              <div id={getSettingsControlAnchorId("roleplay-chat-position")} className="grid scroll-mt-3 gap-1.5">
-                <span className="inline-flex items-center gap-1 text-xs font-medium">
-                  {localizeUi("settings.controls.roleplayChatPosition.label")}
-                  <HelpTooltip text={localizeUi("settings.controls.roleplayChatPosition.help")} />
-                </span>
-                <div
-                  role="group"
-                  aria-label={localizeUi("settings.controls.roleplayChatPosition.label")}
-                  className="grid grid-cols-3 gap-1"
-                >
-                  {ROLEPLAY_CHAT_POSITIONS.map((position) => {
-                    // An unknown synced value shows as Center, which is how the chat treats it.
-                    const selected =
-                      position ===
-                      (ROLEPLAY_CHAT_POSITIONS.includes(roleplayChatPosition) ? roleplayChatPosition : "center");
-                    return (
-                      <button
-                        key={position}
-                        type="button"
-                        onClick={() => setRoleplayChatPosition(position)}
-                        aria-pressed={selected}
-                        className={SETTINGS_BUTTON_CLASS}
-                      >
-                        {localizeUi(`settings.controls.roleplayChatPosition.${position}`)}
-                      </button>
-                    );
-                  })}
+              {overhaulLook ? (
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("roleplay-chat-position")}
+                  label={localizeUi("settings.controls.roleplayChatPosition.label")}
+                  help={localizeUi("settings.controls.roleplayChatPosition.help")}
+                  // An unknown synced value shows as Center, which is how the chat treats it.
+                  value={ROLEPLAY_CHAT_POSITIONS.includes(roleplayChatPosition) ? roleplayChatPosition : "center"}
+                  onChange={setRoleplayChatPosition}
+                  options={ROLEPLAY_CHAT_POSITIONS.map((position) => ({
+                    value: position,
+                    label: localizeUi(`settings.controls.roleplayChatPosition.${position}`),
+                  }))}
+                />
+              ) : (
+                <div id={getSettingsControlAnchorId("roleplay-chat-position")} className="grid scroll-mt-3 gap-1.5">
+                  <span className="inline-flex items-center gap-1 text-xs font-medium">
+                    {localizeUi("settings.controls.roleplayChatPosition.label")}
+                    <HelpTooltip text={localizeUi("settings.controls.roleplayChatPosition.help")} />
+                  </span>
+                  <div
+                    role="group"
+                    aria-label={localizeUi("settings.controls.roleplayChatPosition.label")}
+                    className="grid grid-cols-3 gap-1"
+                  >
+                    {ROLEPLAY_CHAT_POSITIONS.map((position) => {
+                      // An unknown synced value shows as Center, which is how the chat treats it.
+                      const selected =
+                        position ===
+                        (ROLEPLAY_CHAT_POSITIONS.includes(roleplayChatPosition) ? roleplayChatPosition : "center");
+                      return (
+                        <button
+                          key={position}
+                          type="button"
+                          onClick={() => setRoleplayChatPosition(position)}
+                          aria-pressed={selected}
+                          className={SETTINGS_BUTTON_CLASS}
+                        >
+                          {localizeUi(`settings.controls.roleplayChatPosition.${position}`)}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
               <div id={getSettingsControlAnchorId("roleplay-chat-width")} className="grid scroll-mt-3 gap-2">
                 <ToggleSetting
                   label={localizeUi("settings.controls.roleplayChatWidth.enabled")}
@@ -5477,7 +5364,7 @@ function AppearanceSettings({
                 id={getSettingsControlAnchorId("roleplay-message-opacity")}
                 className="flex scroll-mt-3 flex-col gap-1"
               >
-                <span className="text-[0.6875rem] font-medium">
+                <span className="text-xs font-medium">
                   {localizeUi("ui.panels.appearancesettings.roleplayMessagesBackgroundOpacity")}
                 </span>
                 <div className="flex items-center gap-3">
@@ -5498,7 +5385,7 @@ function AppearanceSettings({
                   type="button"
                   onClick={() => setChatFontOpacity(90)}
                   disabled={chatFontOpacity === 90}
-                  className={cn(SETTINGS_BUTTON_CLASS, "self-start")}
+                  className={overhaulLook ? "ov-linkbtn self-start text-xs" : cn(SETTINGS_BUTTON_CLASS, "self-start")}
                 >
                   {localizeUi("ui.panels.appearancesettings.resetOpacityToDefault")}
                 </button>
@@ -5625,7 +5512,7 @@ function AppearanceSettings({
                   </button>
                 ))}
               </div>
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
+              <div className="ov-flat-box rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                   <div className="flex h-20 w-full shrink-0 items-end justify-center gap-3 overflow-hidden rounded-md bg-black/30 p-2 ring-1 ring-[var(--border)]/70 sm:w-28">
                     {roleplayAvatarStyle === "none" ? (
@@ -5667,7 +5554,7 @@ function AppearanceSettings({
                       id={getSettingsControlAnchorId("roleplay-avatar-scale")}
                       className="flex scroll-mt-3 min-w-0 flex-col gap-1"
                     >
-                      <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                      <span className="text-xs font-medium text-[var(--foreground)]">
                         {localizeUi("ui.panels.appearancesettings.messageAvatarScale")}
                       </span>
                       <div className="flex items-center gap-2">
@@ -5689,7 +5576,7 @@ function AppearanceSettings({
                       id={getSettingsControlAnchorId("roleplay-sprite-scale")}
                       className="flex scroll-mt-3 min-w-0 flex-col gap-1"
                     >
-                      <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                      <span className="text-xs font-medium text-[var(--foreground)]">
                         {localizeUi("ui.panels.appearancesettings.defaultSpriteScale")}
                       </span>
                       <div className="flex items-center gap-2">
@@ -5770,7 +5657,7 @@ function AppearanceSettings({
                   className="w-full accent-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </label>
-              <div className="grid gap-3 rounded-lg border border-[var(--border)] p-3 sm:grid-cols-2">
+              <div className="ov-flat-box ov-flat-box--rows grid gap-3 rounded-lg border border-[var(--border)] p-3 sm:grid-cols-2">
                 <label
                   id={getSettingsControlAnchorId("roleplay-vn-portrait-scale")}
                   className="flex scroll-mt-3 min-w-0 flex-col gap-2 text-xs"
@@ -5835,7 +5722,7 @@ function AppearanceSettings({
                     )}
                   />
                 </div>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
+                <div className="mari-settings-boxed-group ov-flat-box rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                     <div className="flex h-20 w-full shrink-0 items-end justify-center gap-3 overflow-hidden rounded-md bg-black/30 p-2 ring-1 ring-[var(--border)]/70 sm:w-28">
                       <div
@@ -5858,7 +5745,7 @@ function AppearanceSettings({
                         id={getSettingsControlAnchorId("game-dialogue-portrait-scale")}
                         className="flex scroll-mt-3 min-w-0 flex-col gap-1"
                       >
-                        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                        <span className="text-xs font-medium text-[var(--foreground)]">
                           {localizeUi("ui.panels.appearancesettings.dialoguePortraitScale")}
                         </span>
                         <div className="flex items-center gap-2">
@@ -5880,7 +5767,7 @@ function AppearanceSettings({
                         id={getSettingsControlAnchorId("game-full-body-sprite-scale")}
                         className="flex scroll-mt-3 min-w-0 flex-col gap-1"
                       >
-                        <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+                        <span className="text-xs font-medium text-[var(--foreground)]">
                           {localizeUi("ui.panels.appearancesettings.fullBodySpriteScale")}
                         </span>
                         <div className="flex items-center gap-2">
@@ -5963,7 +5850,7 @@ function GenerationsSettings() {
                   {localizeUi("settings.sections.promptOverrides.title")}
                 </div>
                 <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                  {localizeUi("settings.sections.promptOverrides.description")}
+                  {localizeUi("imageSettings.generations.promptOverrides")}
                 </div>
               </div>
             </div>
@@ -5973,12 +5860,6 @@ function GenerationsSettings() {
               help={localizeUi("settings.prompts.video.help")}
               keys={VIDEO_PROMPT_TEMPLATE_KEYS}
               preferredKey="game.video"
-            />
-            <PromptOverridesEditor
-              title={localizeUi("settings.prompts.image.title")}
-              description={localizeUi("settings.prompts.image.description")}
-              help={localizeUi("settings.prompts.image.help")}
-              preferredKey="game.npcPortrait"
             />
           </div>
         </>
@@ -7979,39 +7860,47 @@ function ImportSettings() {
           </button>
 
           <ImportTagChecks value={importTags.choice} onChange={importTags.setChoice} sources={["ST"]} />
+          {/* Character, preset and lorebook open the same windows as Library › Import, with the same
+              choices, report and list refresh. The chat file imports here and opens. */}
           <div className="flex flex-col gap-2">
-            <ImportButton
-              label={localizeUi("settings.transfer.importCharacter")}
-              accept=".json,.png"
-              endpoint="/import/st-character"
-              mode="auto"
-              importTags={importTags.choice}
-            />
+            <button
+              type="button"
+              className={SETTINGS_BUTTON_CLASS}
+              onClick={() => openModal("import-character", { importTags: importTags.choice })}
+            >
+              {localizeUi("settings.transfer.importCharacter")}
+            </button>
             <ImportButton
               label={localizeUi("settings.transfer.importChat")}
               accept=".jsonl"
               endpoint="/import/st-chat"
-              mode="file"
               importTags={importTags.choice}
-              onImported={(data) => {
+              onImported={(data: { chatId?: string; messagesImported?: number; importNotes?: STChatImportNote[] }) => {
+                // The same toast as the chat list's import: what came along (Author's Note, persona, hidden
+                // messages) and what didn't.
+                const notes = describeChatImportNotes(data.importNotes, localizeUi);
+                toast.success(
+                  localizeUi("ui.layout.chatsidebar.importedValue1Messages", { value1: data.messagesImported ?? 0 }),
+                  notes.length > 0 ? { description: notes.join(" "), duration: 8000 } : undefined,
+                );
                 qc.invalidateQueries({ queryKey: chatKeys.list() });
                 if (data.chatId) setActiveChatId(data.chatId);
               }}
             />
-            <ImportButton
-              label={localizeUi("settings.transfer.importPreset")}
-              accept=".json"
-              endpoint="/import/st-preset"
-              mode="json"
-              importTags={importTags.choice}
-            />
-            <ImportButton
-              label={localizeUi("settings.transfer.importLorebook")}
-              accept=".json"
-              endpoint="/import/st-lorebook"
-              mode="json"
-              importTags={importTags.choice}
-            />
+            <button
+              type="button"
+              className={SETTINGS_BUTTON_CLASS}
+              onClick={() => openModal("import-preset", { importTags: importTags.choice })}
+            >
+              {localizeUi("settings.transfer.importPreset")}
+            </button>
+            <button
+              type="button"
+              className={SETTINGS_BUTTON_CLASS}
+              onClick={() => openModal("import-lorebook", { importTags: importTags.choice })}
+            >
+              {localizeUi("settings.transfer.importLorebook")}
+            </button>
           </div>
         </div>
       </SettingsSection>
@@ -8021,18 +7910,17 @@ function ImportSettings() {
   );
 }
 
+/** A file picker that posts one SillyTavern chat file (multipart) and hands the reply to `onImported`. */
 function ImportButton({
   label,
   accept,
   endpoint,
-  mode = "file",
   onImported,
   importTags = DEFAULT_IMPORT_TAGS,
 }: {
   label: string;
   accept: string;
   endpoint: string;
-  mode?: "file" | "json" | "auto";
   onImported?: (data: any) => void;
   importTags?: ImportTagChoice;
 }) {
@@ -8041,52 +7929,10 @@ function ImportButton({
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      let res: Response;
-      let importEmbeddedLorebook: boolean | undefined;
-
-      // "auto" mode: send binary files (PNG) as multipart, JSON files as JSON body
-      const effectiveMode = mode === "auto" ? (file.name.toLowerCase().endsWith(".json") ? "json" : "file") : mode;
-      if (endpoint === "/import/st-character") {
-        const previews = await inspectCharacterFilesForEmbeddedLorebooks([file]);
-        const preview = previews[0];
-        if (preview) {
-          importEmbeddedLorebook = await showConfirmDialog({
-            message: localizeUi("ui.panels.importbutton.embeddedLorebookImportPrompt", {
-              name: preview.name ?? file.name,
-              count: preview.embeddedLorebookEntries,
-            }),
-          });
-        }
-      }
-
-      if (effectiveMode === "json") {
-        const text = await file.text();
-        const json = JSON.parse(text);
-        // Pass filename as fallback name for lorebook/preset imports
-        if (endpoint.includes("lorebook") || endpoint.includes("preset")) {
-          json.__filename = file.name.replace(/\.json$/i, "");
-        }
-        if (endpoint === "/import/st-character" && importEmbeddedLorebook !== undefined) {
-          json.importEmbeddedLorebook = importEmbeddedLorebook;
-        }
-        res = await fetch(`/api${endpoint}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...json, ...importTagsBody(importTags) }),
-        });
-      } else {
-        const formData = new FormData();
-        appendImportTags(formData, importTags);
-        if (endpoint === "/import/st-character" && importEmbeddedLorebook !== undefined) {
-          formData.append("importEmbeddedLorebook", String(importEmbeddedLorebook));
-        }
-        formData.append("file", file);
-        res = await fetch(`/api${endpoint}`, {
-          method: "POST",
-          body: formData,
-        });
-      }
-      const data = await res.json();
+      const formData = new FormData();
+      appendImportTags(formData, importTags);
+      formData.append("file", file);
+      const data = await api.upload<{ success?: boolean; error?: string }>(endpoint, formData);
       if (data.success) {
         if (onImported) {
           onImported(data);
@@ -8100,8 +7946,12 @@ function ImportButton({
           }),
         );
       }
-    } catch {
-      toast.error(localizeUi("chat.branches.importFailed"));
+    } catch (error) {
+      toast.error(
+        error instanceof ApiError && error.message
+          ? localizeUi("ui.panels.importbutton.importFailedValue1", { value1: error.message })
+          : localizeUi("chat.branches.importFailed"),
+      );
     }
     e.target.value = "";
   };
@@ -8150,16 +8000,15 @@ function ManualUpdateCommand({ command }: { command: string }) {
   );
 }
 
-function AdvancedSettings() {
+/**
+ * Message info and Message buttons. In the classic layout they sit in Advanced; the new layout shows them in
+ * Settings > Chatting on their own, so that tab no longer mounts the whole Advanced group (backups, multiplayer,
+ * access...) and its requests just to show two switch lists.
+ */
+function MessageDisplaySettings() {
   const { t: localizeUi } = useUiTranslation();
   // Message buttons only exist in the new layout (Settings > Chatting there).
   const overhaulEnabled = useOverhaulStore((s) => s.enabled);
-  const { t } = useTranslation();
-  const activeChatId = useChatStore((state) => state.activeChatId);
-  const { data: activeChat, isLoading: isActiveChatLoading } = useChat(activeChatId);
-  const { data: rawConnections, isLoading: isConnectionsLoading } = useConnections();
-  const loadRemoteMessageImages = useUIStore((s) => s.loadRemoteMessageImages);
-  const setLoadRemoteMessageImages = useUIStore((s) => s.setLoadRemoteMessageImages);
   const showTimestamps = useUIStore((s) => s.showTimestamps);
   const setShowTimestamps = useUIStore((s) => s.setShowTimestamps);
   const showModelName = useUIStore((s) => s.showModelName);
@@ -8172,6 +8021,83 @@ function AdvancedSettings() {
   const setShowMessageNumbers = useUIStore((s) => s.setShowMessageNumbers);
   const showHistoryTrimNotice = useUIStore((s) => s.showHistoryTrimNotice);
   const setShowHistoryTrimNotice = useUIStore((s) => s.setShowHistoryTrimNotice);
+  return (
+    <>
+      <SettingsSection
+        title={localizeUi("ui.panels.advancedsettings.messageInfo")}
+        description={localizeUi("ui.panels.advancedsettings.whatEachMessageShowsTimeModelTokensAndNumbers")}
+        icon={<MessageCircle size="0.875rem" />}
+        {...getSettingsSectionAnchorProps("message-tools")}
+      >
+        <div className="flex flex-col gap-2.5">
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-message-timestamps")}
+            label={localizeUi("settings.controls.showTimestamps.label")}
+            checked={showTimestamps}
+            onChange={setShowTimestamps}
+            help={localizeUi("settings.controls.showTimestamps.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-model-name")}
+            label={localizeUi("settings.controls.showModelName.label")}
+            checked={showModelName}
+            onChange={setShowModelName}
+            help={localizeUi("settings.controls.showModelName.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-token-usage")}
+            label={localizeUi("settings.controls.showTokenUsage.label")}
+            checked={showTokenUsage}
+            onChange={setShowTokenUsage}
+            help={localizeUi("settings.controls.showTokenUsage.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-context-usage")}
+            label={localizeUi("settings.controls.showContextUsage.label")}
+            checked={showContextUsage}
+            onChange={setShowContextUsage}
+            help={localizeUi("settings.controls.showContextUsage.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-message-numbers")}
+            label={localizeUi("settings.controls.showMessageNumbers.label")}
+            checked={showMessageNumbers}
+            onChange={setShowMessageNumbers}
+            help={localizeUi("settings.controls.showMessageNumbers.help")}
+          />
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-history-trim-notice")}
+            label={localizeUi("settings.controls.showHistoryTrimNotice.label")}
+            checked={showHistoryTrimNotice}
+            onChange={setShowHistoryTrimNotice}
+            help={localizeUi("settings.controls.showHistoryTrimNotice.help")}
+          />
+        </div>
+      </SettingsSection>
+
+      {overhaulEnabled ? (
+        <SettingsSection
+          title={localizeUi("ui.overhaul.messagebuttons.title")}
+          description={localizeUi("ui.overhaul.messagebuttons.description")}
+          icon={<MousePointerClick size="0.875rem" />}
+          {...getSettingsSectionAnchorProps("message-buttons")}
+        >
+          <MessageButtonsSettings />
+        </SettingsSection>
+      ) : null}
+    </>
+  );
+}
+
+function AdvancedSettings({ withMessageSections = true }: { withMessageSections?: boolean }) {
+  const overhaulLook = useOverhaulLook();
+  const { t: localizeUi } = useUiTranslation();
+  const { t } = useTranslation();
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const { data: activeChat, isLoading: isActiveChatLoading } = useChat(activeChatId);
+  const { data: rawConnections, isLoading: isConnectionsLoading } = useConnections();
+  const loadRemoteMessageImages = useUIStore((s) => s.loadRemoteMessageImages);
+  const setLoadRemoteMessageImages = useUIStore((s) => s.setLoadRemoteMessageImages);
   const includeReasoningInExports = useUIStore((s) => s.includeReasoningInExports);
   const setIncludeReasoningInExports = useUIStore((s) => s.setIncludeReasoningInExports);
   const includePrivateNotesInExports = useUIStore((s) => s.includePrivateNotesInExports);
@@ -9076,7 +9002,7 @@ function AdvancedSettings() {
       >
         <FeatureSwitchesSettings
           anchorId={getSettingsControlAnchorId(FEATURE_SWITCHES_CONTROL_ID)}
-          switches={["stableLorebookGroupPicks", "usageAndActivationStats"]}
+          switches={["stableLorebookGroupPicks", "usageAndActivationStats", "newLorebookVectors"]}
         />
       </SettingsSection>
 
@@ -9119,7 +9045,10 @@ function AdvancedSettings() {
             disabled={agentImportPolicyLoading || setAgentImportsEnabled.isPending}
             help={t("settings.agentImports.toggle.help")}
           />
-          <div className="flex items-start gap-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]">
+          <div
+            data-settings-toggle-warning
+            className="flex items-start gap-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]"
+          >
             <ShieldAlert size="0.875rem" className="mt-0.5 shrink-0" />
             <p>{t("settings.agentImports.warning")}</p>
           </div>
@@ -9139,7 +9068,10 @@ function AdvancedSettings() {
                 : t("settings.externalExtensions.toggle.locked")
             }
           />
-          <div className="flex items-start gap-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]">
+          <div
+            data-settings-toggle-warning
+            className="flex items-start gap-2 text-[0.6875rem] leading-relaxed text-[var(--primary)]"
+          >
             <ShieldAlert size="0.875rem" className="mt-0.5 shrink-0" />
             <p>{t("settings.externalExtensions.warning")}</p>
           </div>
@@ -9207,68 +9139,7 @@ function AdvancedSettings() {
         </div>
       </SettingsSection>
 
-      <SettingsSection
-        title={localizeUi("ui.panels.advancedsettings.messageInfo")}
-        description={localizeUi("ui.panels.advancedsettings.whatEachMessageShowsTimeModelTokensAndNumbers")}
-        icon={<MessageCircle size="0.875rem" />}
-        {...getSettingsSectionAnchorProps("message-tools")}
-      >
-        <div className="flex flex-col gap-2.5">
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-message-timestamps")}
-            label={localizeUi("settings.controls.showTimestamps.label")}
-            checked={showTimestamps}
-            onChange={setShowTimestamps}
-            help={localizeUi("settings.controls.showTimestamps.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-model-name")}
-            label={localizeUi("settings.controls.showModelName.label")}
-            checked={showModelName}
-            onChange={setShowModelName}
-            help={localizeUi("settings.controls.showModelName.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-token-usage")}
-            label={localizeUi("settings.controls.showTokenUsage.label")}
-            checked={showTokenUsage}
-            onChange={setShowTokenUsage}
-            help={localizeUi("settings.controls.showTokenUsage.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-context-usage")}
-            label={localizeUi("settings.controls.showContextUsage.label")}
-            checked={showContextUsage}
-            onChange={setShowContextUsage}
-            help={localizeUi("settings.controls.showContextUsage.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-message-numbers")}
-            label={localizeUi("settings.controls.showMessageNumbers.label")}
-            checked={showMessageNumbers}
-            onChange={setShowMessageNumbers}
-            help={localizeUi("settings.controls.showMessageNumbers.help")}
-          />
-          <ToggleSetting
-            anchorId={getSettingsControlAnchorId("show-history-trim-notice")}
-            label={localizeUi("settings.controls.showHistoryTrimNotice.label")}
-            checked={showHistoryTrimNotice}
-            onChange={setShowHistoryTrimNotice}
-            help={localizeUi("settings.controls.showHistoryTrimNotice.help")}
-          />
-        </div>
-      </SettingsSection>
-
-      {overhaulEnabled ? (
-        <SettingsSection
-          title={localizeUi("ui.overhaul.messagebuttons.title")}
-          description={localizeUi("ui.overhaul.messagebuttons.description")}
-          icon={<MousePointerClick size="0.875rem" />}
-          {...getSettingsSectionAnchorProps("message-buttons")}
-        >
-          <MessageButtonsSettings />
-        </SettingsSection>
-      ) : null}
+      {withMessageSections ? <MessageDisplaySettings /> : null}
 
       <SettingsSection
         title={localizeUi("ui.panels.advancedsettings.backupRestore")}
@@ -9288,20 +9159,35 @@ function AdvancedSettings() {
                 onChange={(enabled) => updateAutomaticBackup({ enabled })}
                 disabled={automaticBackupMutation.isPending}
               />
-              <div className="mt-2 grid grid-cols-3 gap-1">
-                {(["daily", "weekly", "monthly"] as const).map((frequency) => (
-                  <button
-                    key={frequency}
-                    type="button"
-                    onClick={() => updateAutomaticBackup({ frequency })}
-                    disabled={automaticBackupMutation.isPending}
-                    aria-pressed={automaticBackupQuery.data.frequency === frequency}
-                    className={SETTINGS_BUTTON_CLASS}
-                  >
-                    {localizeUi(`ui.panels.advancedsettings.automaticBackupFrequency.${frequency}`)}
-                  </button>
-                ))}
-              </div>
+              {overhaulLook ? (
+                // A labelled row, greyed out while automatic backups are off.
+                <SettingsChoiceRow
+                  anchorId={getSettingsControlAnchorId("automatic-backup-frequency")}
+                  label={localizeUi("ui.panels.advancedsettings.automaticBackupFrequency.label")}
+                  value={automaticBackupQuery.data.frequency}
+                  onChange={(frequency) => updateAutomaticBackup({ frequency })}
+                  disabled={automaticBackupMutation.isPending || !automaticBackupQuery.data.enabled}
+                  options={(["daily", "weekly", "monthly"] as const).map((frequency) => ({
+                    value: frequency,
+                    label: localizeUi(`ui.panels.advancedsettings.automaticBackupFrequency.${frequency}`),
+                  }))}
+                />
+              ) : (
+                <div className="mt-2 grid grid-cols-3 gap-1">
+                  {(["daily", "weekly", "monthly"] as const).map((frequency) => (
+                    <button
+                      key={frequency}
+                      type="button"
+                      onClick={() => updateAutomaticBackup({ frequency })}
+                      disabled={automaticBackupMutation.isPending}
+                      aria-pressed={automaticBackupQuery.data.frequency === frequency}
+                      className={SETTINGS_BUTTON_CLASS}
+                    >
+                      {localizeUi(`ui.panels.advancedsettings.automaticBackupFrequency.${frequency}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div
                 id={getSettingsControlAnchorId("automatic-backups-kept")}
                 className="mt-2 grid scroll-mt-3 gap-2 border-t border-[var(--border)]/60 pt-2 sm:grid-cols-[minmax(0,1fr)_5.5rem] sm:items-center"
@@ -9694,6 +9580,9 @@ function AdvancedSettings() {
 // and hides every other section, so each control keeps its real behaviour
 // while the overhaul's Settings page arranges them into its own tabs.
 // ──────────────────────────────────────────────
+/** Shown by MessageDisplaySettings, not the Advanced group, in the new layout. */
+const MESSAGE_DISPLAY_SECTIONS = new Set<SettingsSectionId>(["message-tools", "message-buttons"]);
+
 export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly SettingsSectionId[] }) {
   // Each part renders once, in the order its first section appears in the tab, so the
   // sections (and the jump buttons read from them) follow the tab's own order.
@@ -9706,10 +9595,21 @@ export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly 
     if (id === "theme-library" && cssThemesAfterTheme) continue;
     const meta = SETTINGS_SECTIONS.find((section) => section.id === id);
     if (!meta) continue;
-    const part = meta.tab === "appearance" ? `appearance:${appearanceGroupForSection(id)}` : meta.tab;
+    const part =
+      meta.tab === "appearance"
+        ? `appearance:${appearanceGroupForSection(id)}`
+        : MESSAGE_DISPLAY_SECTIONS.has(id)
+          ? "messages"
+          : meta.tab;
     if (!parts.includes(part)) parts.push(part);
   }
   const visible = sectionIds.map((id) => `#${getSettingsSectionAnchorId(id)}`).join(", ");
+  // Sections outside this page render nothing (the CSS above still hides anything that isn't a SettingsSection).
+  const sectionKey = sectionIds.join(",");
+  const visibleAnchors = useMemo(
+    () => new Set(sectionKey.split(",").map((id) => getSettingsSectionAnchorId(id as SettingsSectionId))),
+    [sectionKey],
+  );
   const renderPart = (part: string) => {
     switch (part) {
       case "general":
@@ -9734,17 +9634,21 @@ export function OverhaulSettingsSections({ sectionIds }: { sectionIds: readonly 
       case "import":
         return <ImportSettings />;
       case "advanced":
-        return <AdvancedSettings />;
+        return <AdvancedSettings withMessageSections={false} />;
+      case "messages":
+        return <MessageDisplaySettings />;
       default:
         return null;
     }
   };
   return (
-    <div className="ov-settings__sections" data-ov-settings-sections>
-      <style>{`[data-ov-settings-sections] [id^="settings-section-"]:not(${visible}) { display: none !important; }`}</style>
-      {parts.map((part) => (
-        <Fragment key={part}>{renderPart(part)}</Fragment>
-      ))}
-    </div>
+    <SettingsVisibleSectionsContext.Provider value={visibleAnchors}>
+      <div className="ov-settings__sections" data-ov-settings-sections>
+        <style>{`[data-ov-settings-sections] [id^="settings-section-"]:not(${visible}) { display: none !important; }`}</style>
+        {parts.map((part) => (
+          <Fragment key={part}>{renderPart(part)}</Fragment>
+        ))}
+      </div>
+    </SettingsVisibleSectionsContext.Provider>
   );
 }

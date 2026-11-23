@@ -6,7 +6,16 @@
 // shared builder writes an ordinary ruleset, which is saved like an imported one. Everything a ruleset
 // gets comes with it: the sheet, the Engine's dice, the narrator's teaching, Game Mode.
 // ──────────────────────────────────────────────
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { GripVertical, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -38,6 +47,21 @@ import { cn } from "../../lib/utils";
 import { Checkbox } from "../ui/Checkbox";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { Select } from "../ui/Select";
+import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { OvEditorHead, OvEyebrow } from "../overhaul/EditorChrome";
+import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
+import type { RailCrumb } from "../overhaul/EditorRail";
+
+/** True inside the builder's page (Library > Assets > Rulesets) rather than its window. */
+const BuilderPageContext = createContext(false);
+
+/** What the page puts in the shared editor header. */
+export type RulesetBuilderPageProps = {
+  crumbs: RailCrumb[];
+  onBack: () => void;
+  /** Tells the page whether the form has unsaved edits (its leave guard). */
+  onDirtyChange?: (dirty: boolean) => void;
+};
 
 const PRESETS: RulesetBuilderDicePreset[] = ["d20", "2d6-bands", "pool", "highest", "percentile", "duality", "no-dice"];
 /** A preset's localization key segment: keys take no dashes and start with a letter. */
@@ -60,6 +84,31 @@ function Group({
   onAdd?: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  // Library > Assets > Rulesets: a page section (eyebrow heading, no box), like the other Library editors.
+  if (useContext(BuilderPageContext))
+    return (
+      <section className="ov-rsb__group">
+        <OvEyebrow
+          aside={
+            onAdd ? (
+              <button
+                type="button"
+                className="ov-btn ov-btn--sm"
+                onClick={onAdd}
+                aria-label={localizeUi("rulesetBuilder.addTo", { section: title })}
+              >
+                <Plus size={12} aria-hidden="true" />
+                {localizeUi("rulesetBuilder.add")}
+              </button>
+            ) : undefined
+          }
+        >
+          {title}
+        </OvEyebrow>
+        {help && <p className="ov-rsb__help">{help}</p>}
+        {children}
+      </section>
+    );
   return (
     <section className="space-y-1.5 rounded-xl bg-[var(--muted)]/15 p-3 ring-1 ring-[var(--border)]">
       <div className="flex items-center justify-between gap-2">
@@ -317,6 +366,7 @@ export function RulesetBuilderModal({
   installedVersion,
   installed,
   onSaved,
+  page,
 }: {
   open: boolean;
   onClose: () => void;
@@ -328,6 +378,8 @@ export function RulesetBuilderModal({
    *  that already rolls the chosen way. */
   installed: InstalledRuleset[];
   onSaved?: (rulesetId: string) => void;
+  /** Render as a Library page with the shared editor header and Save, instead of a window. */
+  page?: RulesetBuilderPageProps;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const overhaulLook = useOverhaulLook();
@@ -342,6 +394,12 @@ export function RulesetBuilderModal({
   }, []);
   const set = (patch: Partial<RulesetBuilderDraft>) => setDraft((current) => ({ ...current, ...patch }));
   const namedAbilities = draft.abilities.filter((ability) => ability.label.trim());
+  const [baseline] = useState(() => JSON.stringify(initial ?? rulesetBuilderStarter("d20")));
+  const dirty = JSON.stringify(draft) !== baseline;
+  const onDirtyChange = page?.onDirtyChange;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
   // Every ruleset is its own sheet on each character, and sheets don't carry between rulesets (#9017).
   // So a new ruleset hears which installed ones already roll the chosen way: a package to play, or one
   // of the player's own to keep using.
@@ -412,6 +470,599 @@ export function RulesetBuilderModal({
     }
   };
 
+  // The page saves with Ctrl+S and warns before a reload, like every Library editor; the window has its own buttons.
+  useEditorLeaveSave(page ? "rulesets:builder" : "", dirty, save, saving);
+  const fields = (
+    <>
+      <Group title={localizeUi("rulesetBuilder.about")}>
+        <label className="block space-y-1">
+          <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("rulesetBuilder.name")}</span>
+          <input value={draft.name} onChange={(event) => set({ name: event.target.value })} className={INPUT} />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+            {localizeUi("rulesetBuilder.summary")}
+          </span>
+          <input
+            value={draft.summary ?? ""}
+            onChange={(event) => set({ summary: event.target.value })}
+            className={INPUT}
+          />
+        </label>
+      </Group>
+
+      <Group
+        title={localizeUi("rulesetBuilder.dice")}
+        help={localizeUi(`rulesetBuilder.presets.${presetKey(draft.dice.preset)}.help`)}
+      >
+        {/* New layout: a dropdown, like every other one-of-many pick there; the help line names the choice. */}
+        {overhaulLook ? (
+          <Select
+            label={localizeUi("rulesetBuilder.dice")}
+            value={draft.dice.preset}
+            onChange={choosePreset}
+            className={INPUT}
+            options={PRESETS.map((preset) => ({
+              value: preset,
+              label: localizeUi(`rulesetBuilder.presets.${presetKey(preset)}.label`),
+              description: localizeUi(`rulesetBuilder.presets.${presetKey(preset)}.help`),
+            }))}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                aria-pressed={draft.dice.preset === preset}
+                onClick={() => choosePreset(preset)}
+                className={cn(
+                  "rounded-lg px-2 py-1.5 text-left text-[0.6875rem] font-medium ring-1 transition-colors",
+                  draft.dice.preset === preset
+                    ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/60"
+                    : "text-[var(--foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
+                )}
+              >
+                {localizeUi(`rulesetBuilder.presets.${presetKey(preset)}.label`)}
+              </button>
+            ))}
+          </div>
+        )}
+        {shipped.length > 0 && (
+          <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+            {localizeUi("rulesetBuilder.shipped", {
+              names: shipped.map((entry) => entry.definition.name).join(", "),
+            })}
+          </p>
+        )}
+        {yours.length > 0 && (
+          <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+            {localizeUi("rulesetBuilder.yours", {
+              names: yours.map((entry) => entry.definition.name).join(", "),
+            })}
+          </p>
+        )}
+        {draft.dice.preset === "pool" && (
+          <div className="flex flex-wrap items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+            <div className="flex items-center gap-1.5">
+              {localizeUi("rulesetBuilder.poolSides")}
+              <Select
+                value={String(draft.dice.sides ?? 10)}
+                label={localizeUi("rulesetBuilder.poolSides")}
+                onChange={(next) => set({ dice: { ...draft.dice, sides: Number(next) } })}
+                className={NUMBER}
+                options={[6, 10].map((sides) => ({
+                  value: String(sides),
+                  label: localizeUi("ui.dice.diceglyph.dValue1", { value1: sides }),
+                }))}
+              />
+            </div>
+            <label className="flex items-center gap-1.5">
+              {localizeUi("rulesetBuilder.poolTarget")}
+              <DraftNumberInput
+                value={draft.dice.target ?? 6}
+                commitOnValidChange
+                onCommit={(value) => set({ dice: { ...draft.dice, target: value } })}
+                className={NUMBER}
+              />
+            </label>
+          </div>
+        )}
+      </Group>
+
+      {draft.dice.preset !== "highest" && (
+        <Group
+          title={localizeUi("rulesetBuilder.ladder")}
+          help={localizeUi(ladderHelp)}
+          onAdd={
+            draft.ladder.length < RULESET_BUILDER_MAX.ladder
+              ? () => set({ ladder: [...draft.ladder, { label: "", value: 0 }] })
+              : undefined
+          }
+        >
+          <SortableRows
+            kind="ruleset-builder-ladder"
+            rows={draft.ladder}
+            label={(step) => step.label}
+            onReorder={(rows) => set({ ladder: rows })}
+          >
+            {(step, index) => (
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={step.label}
+                  placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
+                  aria-label={localizeUi("rulesetBuilder.difficultyName")}
+                  onChange={(event) =>
+                    set({ ladder: patchRow(draft.ladder, index, { ...step, label: event.target.value }) })
+                  }
+                  className={INPUT}
+                />
+                <DraftNumberInput
+                  value={step.value}
+                  ariaLabel={localizeUi(
+                    draft.dice.preset === "pool"
+                      ? "rulesetBuilder.difficultySuccesses"
+                      : "rulesetBuilder.difficultyNumber",
+                  )}
+                  commitOnValidChange
+                  onCommit={(value) =>
+                    set({
+                      ladder: patchRow(draft.ladder, index, {
+                        ...step,
+                        value,
+                      }),
+                    })
+                  }
+                  className={NUMBER}
+                />
+                <RemoveButton onClick={() => set({ ladder: patchRow(draft.ladder, index, null) })} />
+              </div>
+            )}
+          </SortableRows>
+        </Group>
+      )}
+
+      <Group
+        title={localizeUi("rulesetBuilder.abilities")}
+        help={localizeUi("rulesetBuilder.abilitiesHelp")}
+        onAdd={
+          draft.abilities.length < RULESET_BUILDER_MAX.abilities
+            ? () =>
+                set({
+                  abilities: [...draft.abilities, { key: rulesetBuilderKey(), label: "", min: 0, max: 5, default: 0 }],
+                })
+            : undefined
+        }
+      >
+        {draft.abilities.length > 0 && (
+          <div className="hidden gap-1.5 px-0.5 text-[0.625rem] uppercase tracking-wider text-[var(--muted-foreground)] sm:flex">
+            {/* Lines up with the rows, which start with their grip. */}
+            <span className="w-4 shrink-0" />
+            <span className="flex-1">{localizeUi("rulesetBuilder.labelPlaceholder")}</span>
+            <span className="w-28">{localizeUi("rulesetBuilder.skillGroup")}</span>
+            <span className="w-16">{localizeUi("rulesetBuilder.min")}</span>
+            <span className="w-16">{localizeUi("rulesetBuilder.max")}</span>
+            <span className="w-16">{localizeUi("rulesetBuilder.default")}</span>
+            <span className="w-6" />
+          </div>
+        )}
+        <SortableRows
+          kind="ruleset-builder-abilities"
+          rows={draft.abilities}
+          label={(ability) => ability.label}
+          onReorder={(rows) => set({ abilities: rows })}
+        >
+          {(ability, index) => (
+            // On a phone the name and group take the first line and each number carries its own caption on
+            // the second, since the header row above only lines up on a wider screen.
+            <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
+              <input
+                value={ability.label}
+                aria-label={localizeUi("rulesetBuilder.labelPlaceholder")}
+                onChange={(event) =>
+                  set({ abilities: patchRow(draft.abilities, index, { ...ability, label: event.target.value }) })
+                }
+                className={cn(INPUT, "basis-0 flex-1")}
+              />
+              <input
+                value={ability.group ?? ""}
+                placeholder={localizeUi("rulesetBuilder.skillGroup")}
+                aria-label={localizeUi("rulesetBuilder.skillGroup")}
+                onChange={(event) =>
+                  set({ abilities: patchRow(draft.abilities, index, { ...ability, group: event.target.value }) })
+                }
+                className={cn(INPUT, "w-24 shrink-0 sm:w-28")}
+              />
+              <div className="basis-full sm:hidden" />
+              {(["min", "max", "default"] as const).map((key) => (
+                <label key={key} className="flex min-w-0 flex-1 items-center gap-1 sm:flex-none">
+                  <span className="text-[0.625rem] uppercase tracking-wider text-[var(--muted-foreground)] sm:hidden">
+                    {localizeUi(`rulesetBuilder.${key}`)}
+                  </span>
+                  <DraftNumberInput
+                    value={ability[key]}
+                    ariaLabel={localizeUi(`rulesetBuilder.${key}`)}
+                    commitOnValidChange
+                    onCommit={(value) =>
+                      set({
+                        abilities: patchRow(draft.abilities, index, {
+                          ...ability,
+                          [key]: value,
+                        }),
+                      })
+                    }
+                    className={cn(NUMBER, "w-auto min-w-0 flex-1 sm:w-16 sm:flex-none")}
+                  />
+                </label>
+              ))}
+              <RemoveButton onClick={() => set({ abilities: patchRow(draft.abilities, index, null) })} />
+            </div>
+          )}
+        </SortableRows>
+      </Group>
+
+      <Group
+        title={localizeUi("rulesetBuilder.skills")}
+        help={localizeUi("rulesetBuilder.skillsHelp")}
+        onAdd={
+          draft.skills.length < RULESET_BUILDER_MAX.skills
+            ? () =>
+                set({
+                  skills: [
+                    ...draft.skills,
+                    { key: rulesetBuilderKey(), label: "", ability: namedAbilities[0]?.key ?? "" },
+                  ],
+                })
+            : undefined
+        }
+      >
+        <SortableRows
+          kind="ruleset-builder-skills"
+          rows={draft.skills}
+          label={(skill) => skill.label}
+          onReorder={(rows) => set({ skills: rows })}
+        >
+          {(skill, index) => (
+            // Four controls do not fit a phone's width, so the name takes its own line there.
+            <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
+              <input
+                value={skill.label}
+                placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
+                aria-label={localizeUi("rulesetBuilder.labelPlaceholder")}
+                onChange={(event) =>
+                  set({ skills: patchRow(draft.skills, index, { ...skill, label: event.target.value }) })
+                }
+                className={cn(INPUT, "basis-full sm:basis-0 sm:flex-1")}
+              />
+              <input
+                value={skill.group ?? ""}
+                placeholder={localizeUi("rulesetBuilder.skillGroup")}
+                aria-label={localizeUi("rulesetBuilder.skillGroup")}
+                onChange={(event) =>
+                  set({ skills: patchRow(draft.skills, index, { ...skill, group: event.target.value }) })
+                }
+                className={cn(INPUT, "w-auto flex-1 sm:w-28 sm:flex-none")}
+              />
+              <Select
+                value={namedAbilities.some((ability) => ability.key === skill.ability) ? skill.ability : null}
+                label={localizeUi("rulesetBuilder.skillAbility")}
+                // A skill whose stat was removed says so, rather than seeming to roll with the first one.
+                placeholder={localizeUi("rulesetBuilder.chooseStat")}
+                onChange={(next) => set({ skills: patchRow(draft.skills, index, { ...skill, ability: next }) })}
+                className={cn(INPUT, "w-auto flex-1 sm:w-36 sm:flex-none")}
+                options={namedAbilities.map((ability) => ({ value: ability.key, label: ability.label }))}
+              />
+              <RemoveButton onClick={() => set({ skills: patchRow(draft.skills, index, null) })} />
+            </div>
+          )}
+        </SortableRows>
+      </Group>
+
+      <Group
+        title={localizeUi("rulesetBuilder.ranks")}
+        help={localizeUi("rulesetBuilder.ranksHelp")}
+        onAdd={
+          draft.ranks.length < RULESET_BUILDER_MAX.ranks
+            ? () =>
+                set({
+                  ranks: [
+                    ...draft.ranks,
+                    { key: rulesetBuilderKey(), label: "", bonus: (draft.ranks.at(-1)?.bonus ?? 0) + 1 },
+                  ],
+                })
+            : undefined
+        }
+      >
+        <SortableRows
+          kind="ruleset-builder-ranks"
+          rows={draft.ranks}
+          label={(rank) => rank.label}
+          onReorder={(rows) => set({ ranks: rows })}
+        >
+          {(rank, index) => (
+            <div className="flex items-center gap-1.5">
+              <input
+                value={rank.label}
+                placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
+                aria-label={localizeUi("rulesetBuilder.rankName")}
+                onChange={(event) =>
+                  set({ ranks: patchRow(draft.ranks, index, { ...rank, label: event.target.value }) })
+                }
+                className={INPUT}
+              />
+              <DraftNumberInput
+                value={rank.bonus}
+                ariaLabel={localizeUi("rulesetBuilder.rankBonus")}
+                commitOnValidChange
+                onCommit={(value) =>
+                  set({
+                    ranks: patchRow(draft.ranks, index, { ...rank, bonus: value }),
+                  })
+                }
+                className={NUMBER}
+              />
+              <RemoveButton onClick={() => set({ ranks: patchRow(draft.ranks, index, null) })} />
+            </div>
+          )}
+        </SortableRows>
+        {overhaulLook ? (
+          <SettingsSwitch
+            label={localizeUi("rulesetBuilder.practice")}
+            checked={draft.practice === true}
+            onChange={(practice) => set({ practice })}
+            labelPosition="start"
+            className="justify-between gap-3 px-0 py-1"
+            labelClassName="text-xs"
+          />
+        ) : (
+          <label className="flex items-center gap-2 pt-1 text-xs text-[var(--foreground)]">
+            <Checkbox checked={draft.practice === true} onChange={(event) => set({ practice: event.target.checked })} />
+            {localizeUi("rulesetBuilder.practice")}
+          </label>
+        )}
+        <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+          {localizeUi("rulesetBuilder.practiceHelp")}
+        </p>
+        {draft.practice && skillGroups.length > 0 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--foreground)]">
+            <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+              {localizeUi("rulesetBuilder.practiceExcept")}
+            </span>
+            {skillGroups.map((group) => (
+              <label key={group} className="flex items-center gap-1">
+                <Checkbox
+                  checked={(draft.practiceExcept ?? []).some((entry) => entry.toLowerCase() === group.toLowerCase())}
+                  onChange={(event) =>
+                    set({
+                      practiceExcept: event.target.checked
+                        ? [...(draft.practiceExcept ?? []), group]
+                        : (draft.practiceExcept ?? []).filter((entry) => entry.toLowerCase() !== group.toLowerCase()),
+                    })
+                  }
+                />
+                {group}
+              </label>
+            ))}
+          </div>
+        )}
+      </Group>
+
+      <Group
+        title={localizeUi("rulesetBuilder.pools")}
+        help={localizeUi("rulesetBuilder.poolsHelp")}
+        onAdd={
+          draft.pools.length < RULESET_BUILDER_MAX.pools
+            ? () => set({ pools: [...draft.pools, { key: rulesetBuilderKey(), label: "", max: 5 }] })
+            : undefined
+        }
+      >
+        <SortableRows
+          kind="ruleset-builder-pools"
+          rows={draft.pools}
+          label={(pool) => pool.label}
+          onReorder={(rows) => set({ pools: rows })}
+        >
+          {(pool, index) => (
+            <div className="flex items-center gap-1.5">
+              <input
+                value={pool.label}
+                placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
+                aria-label={localizeUi("rulesetBuilder.poolName")}
+                onChange={(event) =>
+                  set({ pools: patchRow(draft.pools, index, { ...pool, label: event.target.value }) })
+                }
+                className={INPUT}
+              />
+              <DraftNumberInput
+                value={pool.max}
+                ariaLabel={localizeUi("rulesetBuilder.max")}
+                commitOnValidChange
+                onCommit={(value) =>
+                  set({
+                    pools: patchRow(draft.pools, index, { ...pool, max: value }),
+                  })
+                }
+                className={NUMBER}
+              />
+              <DisplayPicker
+                value={pool.display}
+                onChange={(display) => set({ pools: patchRow(draft.pools, index, { ...pool, display }) })}
+              />
+              <RemoveButton onClick={() => set({ pools: patchRow(draft.pools, index, null) })} />
+            </div>
+          )}
+        </SortableRows>
+      </Group>
+
+      <Group
+        title={localizeUi("rulesetBuilder.tracks")}
+        help={localizeUi("rulesetBuilder.tracksHelp")}
+        onAdd={
+          draft.tracks.length < RULESET_BUILDER_MAX.tracks
+            ? () => set({ tracks: [...draft.tracks, { key: rulesetBuilderKey(), label: "", min: 0, max: 5 }] })
+            : undefined
+        }
+      >
+        <SortableRows
+          kind="ruleset-builder-tracks"
+          rows={draft.tracks}
+          label={(track) => track.label}
+          onReorder={(rows) => set({ tracks: rows })}
+        >
+          {(track, index) => (
+            <div className="flex items-center gap-1.5">
+              <input
+                value={track.label}
+                placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
+                aria-label={localizeUi("rulesetBuilder.trackName")}
+                onChange={(event) =>
+                  set({ tracks: patchRow(draft.tracks, index, { ...track, label: event.target.value }) })
+                }
+                className={INPUT}
+              />
+              {(["min", "max"] as const).map((key) => (
+                <DraftNumberInput
+                  key={key}
+                  value={track[key]}
+                  ariaLabel={localizeUi(`rulesetBuilder.${key}`)}
+                  commitOnValidChange
+                  onCommit={(value) =>
+                    set({
+                      tracks: patchRow(draft.tracks, index, {
+                        ...track,
+                        [key]: value,
+                      }),
+                    })
+                  }
+                  className={NUMBER}
+                />
+              ))}
+              <DisplayPicker
+                value={track.display}
+                onChange={(display) => set({ tracks: patchRow(draft.tracks, index, { ...track, display }) })}
+              />
+              <RemoveButton onClick={() => set({ tracks: patchRow(draft.tracks, index, null) })} />
+            </div>
+          )}
+        </SortableRows>
+      </Group>
+
+      <Group
+        title={localizeUi("rulesetBuilder.fields")}
+        help={localizeUi("rulesetBuilder.fieldsHelp")}
+        onAdd={
+          draft.fields.length < RULESET_BUILDER_MAX.fields
+            ? () => set({ fields: [...draft.fields, { key: rulesetBuilderKey(), label: "", type: "text" }] })
+            : undefined
+        }
+      >
+        <SortableRows
+          kind="ruleset-builder-fields"
+          rows={draft.fields}
+          label={(field) => field.label}
+          onReorder={(rows) => set({ fields: rows })}
+        >
+          {(field, index) => (
+            <div className="flex items-center gap-1.5">
+              <input
+                value={field.label}
+                placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
+                aria-label={localizeUi("rulesetBuilder.fieldName")}
+                onChange={(event) =>
+                  set({ fields: patchRow(draft.fields, index, { ...field, label: event.target.value }) })
+                }
+                className={INPUT}
+              />
+              <Select
+                value={field.type}
+                label={localizeUi("rulesetBuilder.fieldType")}
+                onChange={(next) =>
+                  set({
+                    fields: patchRow(draft.fields, index, {
+                      ...field,
+                      type: next as "text" | "number",
+                    }),
+                  })
+                }
+                className={cn(INPUT, "w-28 shrink-0")}
+                options={[
+                  { value: "text", label: localizeUi("rulesetBuilder.fieldText") },
+                  { value: "number", label: localizeUi("rulesetBuilder.fieldNumber") },
+                ]}
+              />
+              <RemoveButton onClick={() => set({ fields: patchRow(draft.fields, index, null) })} />
+            </div>
+          )}
+        </SortableRows>
+      </Group>
+
+      <Group
+        title={localizeUi("rulesetBuilder.lists")}
+        help={localizeUi("rulesetBuilder.listsHelp")}
+        onAdd={
+          draft.lists.length < RULESET_BUILDER_MAX.lists
+            ? () => set({ lists: [...draft.lists, { key: rulesetBuilderKey(), label: "", columns: [] }] })
+            : undefined
+        }
+      >
+        <SortableRows
+          kind="ruleset-builder-lists"
+          rows={draft.lists}
+          label={(list) => list.label}
+          onReorder={(rows) => set({ lists: rows })}
+        >
+          {(list, index) => (
+            <ListEditor list={list} onChange={(next) => set({ lists: patchRow(draft.lists, index, next) })} />
+          )}
+        </SortableRows>
+      </Group>
+
+      <Group title={localizeUi("rulesetBuilder.prompts")} help={localizeUi("rulesetBuilder.promptsHelp")}>
+        {PROMPT_FIELDS.map(({ key, rows, max }) => (
+          <label key={key} className="block space-y-1">
+            <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
+              {localizeUi(`rulesetBuilder.prompt.${key}.label`)}
+            </span>
+            <span className="block text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+              {localizeUi(`rulesetBuilder.prompt.${key}.help`)}
+            </span>
+            <textarea
+              value={draft[key] ?? ""}
+              rows={rows}
+              maxLength={max}
+              placeholder={
+                key === "checkGuidance"
+                  ? rulesetBuilderDefaultCheckGuidance(draft.name)
+                  : key === "sheetGuidance"
+                    ? RULESET_BUILDER_DEFAULT_SHEET_GUIDANCE
+                    : undefined
+              }
+              onChange={(event) => set({ [key]: event.target.value })}
+              className={cn(INPUT, "resize-y")}
+            />
+          </label>
+        ))}
+      </Group>
+    </>
+  );
+  if (page)
+    return (
+      <BuilderPageContext.Provider value>
+        <div className="ov-rsb" data-component="RulesetBuilderPage">
+          <OvEditorHead
+            crumbs={[...page.crumbs, { label: draft.name || localizeUi("rulesetBuilder.newTitle") }]}
+            onBack={page.onBack}
+            sectionLabel={page.crumbs.at(-1)?.label}
+            title={draft.name}
+            titlePlaceholder={localizeUi("rulesetBuilder.newTitle")}
+            meta={localizeUi(editing ? "rulesetBuilder.editTitle" : "rulesetBuilder.newTitle")}
+            save={{ dirty: dirty || !editing, onSave: save, saving }}
+          />
+          <div className="ov-rsb__body">{fields}</div>
+        </div>
+      </BuilderPageContext.Provider>
+    );
+
   return (
     <Modal
       open={open}
@@ -423,569 +1074,7 @@ export function RulesetBuilderModal({
       mobileFullscreen
     >
       <div className="space-y-3">
-        <Group title={localizeUi("rulesetBuilder.about")}>
-          <label className="block space-y-1">
-            <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("rulesetBuilder.name")}</span>
-            <input value={draft.name} onChange={(event) => set({ name: event.target.value })} className={INPUT} />
-          </label>
-          <label className="block space-y-1">
-            <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
-              {localizeUi("rulesetBuilder.summary")}
-            </span>
-            <input
-              value={draft.summary ?? ""}
-              onChange={(event) => set({ summary: event.target.value })}
-              className={INPUT}
-            />
-          </label>
-        </Group>
-
-        <Group
-          title={localizeUi("rulesetBuilder.dice")}
-          help={localizeUi(`rulesetBuilder.presets.${presetKey(draft.dice.preset)}.help`)}
-        >
-          {/* New layout: a dropdown, like every other one-of-many pick there; the help line names the choice. */}
-          {overhaulLook ? (
-            <select
-              aria-label={localizeUi("rulesetBuilder.dice")}
-              value={draft.dice.preset}
-              onChange={(event) => choosePreset(event.target.value as RulesetBuilderDicePreset)}
-              className={INPUT}
-            >
-              {PRESETS.map((preset) => (
-                <option key={preset} value={preset}>
-                  {localizeUi(`rulesetBuilder.presets.${presetKey(preset)}.label`)}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-              {PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  aria-pressed={draft.dice.preset === preset}
-                  onClick={() => choosePreset(preset)}
-                  className={cn(
-                    "rounded-lg px-2 py-1.5 text-left text-[0.6875rem] font-medium ring-1 transition-colors",
-                    draft.dice.preset === preset
-                      ? "bg-[var(--primary)]/15 text-[var(--primary)] ring-[var(--primary)]/60"
-                      : "text-[var(--foreground)] ring-[var(--border)] hover:bg-[var(--accent)]",
-                  )}
-                >
-                  {localizeUi(`rulesetBuilder.presets.${presetKey(preset)}.label`)}
-                </button>
-              ))}
-            </div>
-          )}
-          {shipped.length > 0 && (
-            <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
-              {localizeUi("rulesetBuilder.shipped", {
-                names: shipped.map((entry) => entry.definition.name).join(", "),
-              })}
-            </p>
-          )}
-          {yours.length > 0 && (
-            <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
-              {localizeUi("rulesetBuilder.yours", {
-                names: yours.map((entry) => entry.definition.name).join(", "),
-              })}
-            </p>
-          )}
-          {draft.dice.preset === "pool" && (
-            <div className="flex flex-wrap items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-              <div className="flex items-center gap-1.5">
-                {localizeUi("rulesetBuilder.poolSides")}
-                <Select
-                  value={String(draft.dice.sides ?? 10)}
-                  label={localizeUi("rulesetBuilder.poolSides")}
-                  onChange={(next) => set({ dice: { ...draft.dice, sides: Number(next) } })}
-                  className={NUMBER}
-                  options={[6, 10].map((sides) => ({
-                    value: String(sides),
-                    label: localizeUi("ui.dice.diceglyph.dValue1", { value1: sides }),
-                  }))}
-                />
-              </div>
-              <label className="flex items-center gap-1.5">
-                {localizeUi("rulesetBuilder.poolTarget")}
-                <DraftNumberInput
-                  value={draft.dice.target ?? 6}
-                  commitOnValidChange
-                  onCommit={(value) => set({ dice: { ...draft.dice, target: value } })}
-                  className={NUMBER}
-                />
-              </label>
-            </div>
-          )}
-        </Group>
-
-        {draft.dice.preset !== "highest" && (
-          <Group
-            title={localizeUi("rulesetBuilder.ladder")}
-            help={localizeUi(ladderHelp)}
-            onAdd={
-              draft.ladder.length < RULESET_BUILDER_MAX.ladder
-                ? () => set({ ladder: [...draft.ladder, { label: "", value: 0 }] })
-                : undefined
-            }
-          >
-            <SortableRows
-              kind="ruleset-builder-ladder"
-              rows={draft.ladder}
-              label={(step) => step.label}
-              onReorder={(rows) => set({ ladder: rows })}
-            >
-              {(step, index) => (
-                <div className="flex items-center gap-1.5">
-                  <input
-                    value={step.label}
-                    placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
-                    aria-label={localizeUi("rulesetBuilder.difficultyName")}
-                    onChange={(event) =>
-                      set({ ladder: patchRow(draft.ladder, index, { ...step, label: event.target.value }) })
-                    }
-                    className={INPUT}
-                  />
-                  <DraftNumberInput
-                    value={step.value}
-                    ariaLabel={localizeUi(
-                      draft.dice.preset === "pool"
-                        ? "rulesetBuilder.difficultySuccesses"
-                        : "rulesetBuilder.difficultyNumber",
-                    )}
-                    commitOnValidChange
-                    onCommit={(value) =>
-                      set({
-                        ladder: patchRow(draft.ladder, index, {
-                          ...step,
-                          value,
-                        }),
-                      })
-                    }
-                    className={NUMBER}
-                  />
-                  <RemoveButton onClick={() => set({ ladder: patchRow(draft.ladder, index, null) })} />
-                </div>
-              )}
-            </SortableRows>
-          </Group>
-        )}
-
-        <Group
-          title={localizeUi("rulesetBuilder.abilities")}
-          help={localizeUi("rulesetBuilder.abilitiesHelp")}
-          onAdd={
-            draft.abilities.length < RULESET_BUILDER_MAX.abilities
-              ? () =>
-                  set({
-                    abilities: [
-                      ...draft.abilities,
-                      { key: rulesetBuilderKey(), label: "", min: 0, max: 5, default: 0 },
-                    ],
-                  })
-              : undefined
-          }
-        >
-          {draft.abilities.length > 0 && (
-            <div className="hidden gap-1.5 px-0.5 text-[0.625rem] uppercase tracking-wider text-[var(--muted-foreground)] sm:flex">
-              {/* Lines up with the rows, which start with their grip. */}
-              <span className="w-4 shrink-0" />
-              <span className="flex-1">{localizeUi("rulesetBuilder.labelPlaceholder")}</span>
-              <span className="w-28">{localizeUi("rulesetBuilder.skillGroup")}</span>
-              <span className="w-16">{localizeUi("rulesetBuilder.min")}</span>
-              <span className="w-16">{localizeUi("rulesetBuilder.max")}</span>
-              <span className="w-16">{localizeUi("rulesetBuilder.default")}</span>
-              <span className="w-6" />
-            </div>
-          )}
-          <SortableRows
-            kind="ruleset-builder-abilities"
-            rows={draft.abilities}
-            label={(ability) => ability.label}
-            onReorder={(rows) => set({ abilities: rows })}
-          >
-            {(ability, index) => (
-              // On a phone the name and group take the first line and each number carries its own caption on
-              // the second, since the header row above only lines up on a wider screen.
-              <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
-                <input
-                  value={ability.label}
-                  aria-label={localizeUi("rulesetBuilder.labelPlaceholder")}
-                  onChange={(event) =>
-                    set({ abilities: patchRow(draft.abilities, index, { ...ability, label: event.target.value }) })
-                  }
-                  className={cn(INPUT, "basis-0 flex-1")}
-                />
-                <input
-                  value={ability.group ?? ""}
-                  placeholder={localizeUi("rulesetBuilder.skillGroup")}
-                  aria-label={localizeUi("rulesetBuilder.skillGroup")}
-                  onChange={(event) =>
-                    set({ abilities: patchRow(draft.abilities, index, { ...ability, group: event.target.value }) })
-                  }
-                  className={cn(INPUT, "w-24 shrink-0 sm:w-28")}
-                />
-                <div className="basis-full sm:hidden" />
-                {(["min", "max", "default"] as const).map((key) => (
-                  <label key={key} className="flex min-w-0 flex-1 items-center gap-1 sm:flex-none">
-                    <span className="text-[0.625rem] uppercase tracking-wider text-[var(--muted-foreground)] sm:hidden">
-                      {localizeUi(`rulesetBuilder.${key}`)}
-                    </span>
-                    <DraftNumberInput
-                      value={ability[key]}
-                      ariaLabel={localizeUi(`rulesetBuilder.${key}`)}
-                      commitOnValidChange
-                      onCommit={(value) =>
-                        set({
-                          abilities: patchRow(draft.abilities, index, {
-                            ...ability,
-                            [key]: value,
-                          }),
-                        })
-                      }
-                      className={cn(NUMBER, "w-auto min-w-0 flex-1 sm:w-16 sm:flex-none")}
-                    />
-                  </label>
-                ))}
-                <RemoveButton onClick={() => set({ abilities: patchRow(draft.abilities, index, null) })} />
-              </div>
-            )}
-          </SortableRows>
-        </Group>
-
-        <Group
-          title={localizeUi("rulesetBuilder.skills")}
-          help={localizeUi("rulesetBuilder.skillsHelp")}
-          onAdd={
-            draft.skills.length < RULESET_BUILDER_MAX.skills
-              ? () =>
-                  set({
-                    skills: [
-                      ...draft.skills,
-                      { key: rulesetBuilderKey(), label: "", ability: namedAbilities[0]?.key ?? "" },
-                    ],
-                  })
-              : undefined
-          }
-        >
-          <SortableRows
-            kind="ruleset-builder-skills"
-            rows={draft.skills}
-            label={(skill) => skill.label}
-            onReorder={(rows) => set({ skills: rows })}
-          >
-            {(skill, index) => (
-              // Four controls do not fit a phone's width, so the name takes its own line there.
-              <div className="flex flex-wrap items-center gap-1.5 sm:flex-nowrap">
-                <input
-                  value={skill.label}
-                  placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
-                  aria-label={localizeUi("rulesetBuilder.labelPlaceholder")}
-                  onChange={(event) =>
-                    set({ skills: patchRow(draft.skills, index, { ...skill, label: event.target.value }) })
-                  }
-                  className={cn(INPUT, "basis-full sm:basis-0 sm:flex-1")}
-                />
-                <input
-                  value={skill.group ?? ""}
-                  placeholder={localizeUi("rulesetBuilder.skillGroup")}
-                  aria-label={localizeUi("rulesetBuilder.skillGroup")}
-                  onChange={(event) =>
-                    set({ skills: patchRow(draft.skills, index, { ...skill, group: event.target.value }) })
-                  }
-                  className={cn(INPUT, "w-auto flex-1 sm:w-28 sm:flex-none")}
-                />
-                <Select
-                  value={namedAbilities.some((ability) => ability.key === skill.ability) ? skill.ability : null}
-                  label={localizeUi("rulesetBuilder.skillAbility")}
-                  // A skill whose stat was removed says so, rather than seeming to roll with the first one.
-                  placeholder={localizeUi("rulesetBuilder.chooseStat")}
-                  onChange={(next) => set({ skills: patchRow(draft.skills, index, { ...skill, ability: next }) })}
-                  className={cn(INPUT, "w-auto flex-1 sm:w-36 sm:flex-none")}
-                  options={namedAbilities.map((ability) => ({ value: ability.key, label: ability.label }))}
-                />
-                <RemoveButton onClick={() => set({ skills: patchRow(draft.skills, index, null) })} />
-              </div>
-            )}
-          </SortableRows>
-        </Group>
-
-        <Group
-          title={localizeUi("rulesetBuilder.ranks")}
-          help={localizeUi("rulesetBuilder.ranksHelp")}
-          onAdd={
-            draft.ranks.length < RULESET_BUILDER_MAX.ranks
-              ? () =>
-                  set({
-                    ranks: [
-                      ...draft.ranks,
-                      { key: rulesetBuilderKey(), label: "", bonus: (draft.ranks.at(-1)?.bonus ?? 0) + 1 },
-                    ],
-                  })
-              : undefined
-          }
-        >
-          <SortableRows
-            kind="ruleset-builder-ranks"
-            rows={draft.ranks}
-            label={(rank) => rank.label}
-            onReorder={(rows) => set({ ranks: rows })}
-          >
-            {(rank, index) => (
-              <div className="flex items-center gap-1.5">
-                <input
-                  value={rank.label}
-                  placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
-                  aria-label={localizeUi("rulesetBuilder.rankName")}
-                  onChange={(event) =>
-                    set({ ranks: patchRow(draft.ranks, index, { ...rank, label: event.target.value }) })
-                  }
-                  className={INPUT}
-                />
-                <DraftNumberInput
-                  value={rank.bonus}
-                  ariaLabel={localizeUi("rulesetBuilder.rankBonus")}
-                  commitOnValidChange
-                  onCommit={(value) =>
-                    set({
-                      ranks: patchRow(draft.ranks, index, { ...rank, bonus: value }),
-                    })
-                  }
-                  className={NUMBER}
-                />
-                <RemoveButton onClick={() => set({ ranks: patchRow(draft.ranks, index, null) })} />
-              </div>
-            )}
-          </SortableRows>
-          <label className="flex items-center gap-2 pt-1 text-xs text-[var(--foreground)]">
-            <Checkbox checked={draft.practice === true} onChange={(event) => set({ practice: event.target.checked })} />
-            {localizeUi("rulesetBuilder.practice")}
-          </label>
-          <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
-            {localizeUi("rulesetBuilder.practiceHelp")}
-          </p>
-          {draft.practice && skillGroups.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--foreground)]">
-              <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
-                {localizeUi("rulesetBuilder.practiceExcept")}
-              </span>
-              {skillGroups.map((group) => (
-                <label key={group} className="flex items-center gap-1">
-                  <Checkbox
-                    checked={(draft.practiceExcept ?? []).some((entry) => entry.toLowerCase() === group.toLowerCase())}
-                    onChange={(event) =>
-                      set({
-                        practiceExcept: event.target.checked
-                          ? [...(draft.practiceExcept ?? []), group]
-                          : (draft.practiceExcept ?? []).filter((entry) => entry.toLowerCase() !== group.toLowerCase()),
-                      })
-                    }
-                  />
-                  {group}
-                </label>
-              ))}
-            </div>
-          )}
-        </Group>
-
-        <Group
-          title={localizeUi("rulesetBuilder.pools")}
-          help={localizeUi("rulesetBuilder.poolsHelp")}
-          onAdd={
-            draft.pools.length < RULESET_BUILDER_MAX.pools
-              ? () => set({ pools: [...draft.pools, { key: rulesetBuilderKey(), label: "", max: 5 }] })
-              : undefined
-          }
-        >
-          <SortableRows
-            kind="ruleset-builder-pools"
-            rows={draft.pools}
-            label={(pool) => pool.label}
-            onReorder={(rows) => set({ pools: rows })}
-          >
-            {(pool, index) => (
-              <div className="flex items-center gap-1.5">
-                <input
-                  value={pool.label}
-                  placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
-                  aria-label={localizeUi("rulesetBuilder.poolName")}
-                  onChange={(event) =>
-                    set({ pools: patchRow(draft.pools, index, { ...pool, label: event.target.value }) })
-                  }
-                  className={INPUT}
-                />
-                <DraftNumberInput
-                  value={pool.max}
-                  ariaLabel={localizeUi("rulesetBuilder.max")}
-                  commitOnValidChange
-                  onCommit={(value) =>
-                    set({
-                      pools: patchRow(draft.pools, index, { ...pool, max: value }),
-                    })
-                  }
-                  className={NUMBER}
-                />
-                <DisplayPicker
-                  value={pool.display}
-                  onChange={(display) => set({ pools: patchRow(draft.pools, index, { ...pool, display }) })}
-                />
-                <RemoveButton onClick={() => set({ pools: patchRow(draft.pools, index, null) })} />
-              </div>
-            )}
-          </SortableRows>
-        </Group>
-
-        <Group
-          title={localizeUi("rulesetBuilder.tracks")}
-          help={localizeUi("rulesetBuilder.tracksHelp")}
-          onAdd={
-            draft.tracks.length < RULESET_BUILDER_MAX.tracks
-              ? () => set({ tracks: [...draft.tracks, { key: rulesetBuilderKey(), label: "", min: 0, max: 5 }] })
-              : undefined
-          }
-        >
-          <SortableRows
-            kind="ruleset-builder-tracks"
-            rows={draft.tracks}
-            label={(track) => track.label}
-            onReorder={(rows) => set({ tracks: rows })}
-          >
-            {(track, index) => (
-              <div className="flex items-center gap-1.5">
-                <input
-                  value={track.label}
-                  placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
-                  aria-label={localizeUi("rulesetBuilder.trackName")}
-                  onChange={(event) =>
-                    set({ tracks: patchRow(draft.tracks, index, { ...track, label: event.target.value }) })
-                  }
-                  className={INPUT}
-                />
-                {(["min", "max"] as const).map((key) => (
-                  <DraftNumberInput
-                    key={key}
-                    value={track[key]}
-                    ariaLabel={localizeUi(`rulesetBuilder.${key}`)}
-                    commitOnValidChange
-                    onCommit={(value) =>
-                      set({
-                        tracks: patchRow(draft.tracks, index, {
-                          ...track,
-                          [key]: value,
-                        }),
-                      })
-                    }
-                    className={NUMBER}
-                  />
-                ))}
-                <DisplayPicker
-                  value={track.display}
-                  onChange={(display) => set({ tracks: patchRow(draft.tracks, index, { ...track, display }) })}
-                />
-                <RemoveButton onClick={() => set({ tracks: patchRow(draft.tracks, index, null) })} />
-              </div>
-            )}
-          </SortableRows>
-        </Group>
-
-        <Group
-          title={localizeUi("rulesetBuilder.fields")}
-          help={localizeUi("rulesetBuilder.fieldsHelp")}
-          onAdd={
-            draft.fields.length < RULESET_BUILDER_MAX.fields
-              ? () => set({ fields: [...draft.fields, { key: rulesetBuilderKey(), label: "", type: "text" }] })
-              : undefined
-          }
-        >
-          <SortableRows
-            kind="ruleset-builder-fields"
-            rows={draft.fields}
-            label={(field) => field.label}
-            onReorder={(rows) => set({ fields: rows })}
-          >
-            {(field, index) => (
-              <div className="flex items-center gap-1.5">
-                <input
-                  value={field.label}
-                  placeholder={localizeUi("rulesetBuilder.labelPlaceholder")}
-                  aria-label={localizeUi("rulesetBuilder.fieldName")}
-                  onChange={(event) =>
-                    set({ fields: patchRow(draft.fields, index, { ...field, label: event.target.value }) })
-                  }
-                  className={INPUT}
-                />
-                <Select
-                  value={field.type}
-                  label={localizeUi("rulesetBuilder.fieldType")}
-                  onChange={(next) =>
-                    set({
-                      fields: patchRow(draft.fields, index, {
-                        ...field,
-                        type: next as "text" | "number",
-                      }),
-                    })
-                  }
-                  className={cn(INPUT, "w-28 shrink-0")}
-                  options={[
-                    { value: "text", label: localizeUi("rulesetBuilder.fieldText") },
-                    { value: "number", label: localizeUi("rulesetBuilder.fieldNumber") },
-                  ]}
-                />
-                <RemoveButton onClick={() => set({ fields: patchRow(draft.fields, index, null) })} />
-              </div>
-            )}
-          </SortableRows>
-        </Group>
-
-        <Group
-          title={localizeUi("rulesetBuilder.lists")}
-          help={localizeUi("rulesetBuilder.listsHelp")}
-          onAdd={
-            draft.lists.length < RULESET_BUILDER_MAX.lists
-              ? () => set({ lists: [...draft.lists, { key: rulesetBuilderKey(), label: "", columns: [] }] })
-              : undefined
-          }
-        >
-          <SortableRows
-            kind="ruleset-builder-lists"
-            rows={draft.lists}
-            label={(list) => list.label}
-            onReorder={(rows) => set({ lists: rows })}
-          >
-            {(list, index) => (
-              <ListEditor list={list} onChange={(next) => set({ lists: patchRow(draft.lists, index, next) })} />
-            )}
-          </SortableRows>
-        </Group>
-
-        <Group title={localizeUi("rulesetBuilder.prompts")} help={localizeUi("rulesetBuilder.promptsHelp")}>
-          {PROMPT_FIELDS.map(({ key, rows, max }) => (
-            <label key={key} className="block space-y-1">
-              <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
-                {localizeUi(`rulesetBuilder.prompt.${key}.label`)}
-              </span>
-              <span className="block text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
-                {localizeUi(`rulesetBuilder.prompt.${key}.help`)}
-              </span>
-              <textarea
-                value={draft[key] ?? ""}
-                rows={rows}
-                maxLength={max}
-                placeholder={
-                  key === "checkGuidance"
-                    ? rulesetBuilderDefaultCheckGuidance(draft.name)
-                    : key === "sheetGuidance"
-                      ? RULESET_BUILDER_DEFAULT_SHEET_GUIDANCE
-                      : undefined
-                }
-                onChange={(event) => set({ [key]: event.target.value })}
-                className={cn(INPUT, "resize-y")}
-              />
-            </label>
-          ))}
-        </Group>
-
+        {fields}
         <div className="flex justify-end gap-2">
           <button
             type="button"

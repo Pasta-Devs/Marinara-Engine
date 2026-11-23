@@ -1,9 +1,11 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { avatarInitial } from "../../lib/avatar-initial";
 import { MessageCircleQuestion, MessageSquare, RefreshCw } from "lucide-react";
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useCharacterSpritePreviews, useCharacterSummaries, type SpriteInfo } from "../../hooks/use-characters";
 import { useHomeFeed } from "../../hooks/use-home-feed";
+import { scheduleBackgroundPreload } from "../../lib/background-preload";
+import { preloadChatSurface } from "./chat-surface-preload";
 import { useGameAssetManifest } from "../../hooks/use-game-assets";
 import { resolveAssetTag } from "../../lib/asset-fuzzy-match";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
@@ -100,25 +102,54 @@ export function RecentChats() {
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
   const prefetchChatMessages = usePrefetchChatMessages();
   const recentChats = useMemo(() => feed.data?.recentChats ?? [], [feed.data?.recentChats]);
+  // The last chat is the likeliest first tap: its surface's code comes right after the first paint (tier 0 of
+  // the background queue), so opening it needs no code download (QC panel 3, speed H1).
+  const lastChatMode = recentChats[0]?.chat.mode;
+  useEffect(() => {
+    if (lastChatMode)
+      scheduleBackgroundPreload(`chat-surface:${lastChatMode}`, () => preloadChatSurface(lastChatMode), 0);
+  }, [lastChatMode]);
   // New layout: as many rows as the widget has room for (it can be resized), so a tall widget isn't
   // left with an empty band under six rows.
   const listRef = useRef<HTMLUListElement | null>(null);
+  const overhaulRowsRef = useRef(0);
   const [fitRows, setFitRows] = useState(6);
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list || typeof ResizeObserver === "undefined") return;
+    // Three or more chats that all fit: the card ends under its last row instead of keeping the two-row size made
+    // for upstream's picture gallery (QC panel 3, F5). Home packs the widgets below it up. The card's standard
+    // size still caps it, so a long list keeps its "all chats" row.
+    const card = list.closest<HTMLElement>(".mari-home-widget");
+    card?.style.removeProperty("--recent-fit-height");
+    let standardFit = 0;
     const measure = () => {
       const row = list.firstElementChild as HTMLElement | null;
       const rowHeight = row?.getBoundingClientRect().height ?? 0;
       if (rowHeight < 8) return;
-      const fits = Math.max(1, Math.floor((list.getBoundingClientRect().height + 0.5) / rowHeight));
-      setFitRows((current) => (current === fits ? current : fits));
+      const listBox = list.getBoundingClientRect();
+      const fits = Math.max(1, Math.floor((listBox.height + 0.5) / rowHeight));
+      const fitted = card?.style.getPropertyValue("--recent-fit-height");
+      if (!fitted) standardFit = fits;
+      setFitRows((current) => (fitted ? Math.max(current, fits) : current === fits ? current : fits));
+      if (!card || fitted || overhaulRowsRef.current < 3 || overhaulRowsRef.current > standardFit) return;
+      const last = list.lastElementChild as HTMLElement | null;
+      if (!last || list.children.length < overhaulRowsRef.current) return;
+      const emptyBelow = listBox.bottom - last.getBoundingClientRect().bottom;
+      if (emptyBelow <= 24) return;
+      card.style.setProperty(
+        "--recent-fit-height",
+        `${Math.ceil(card.getBoundingClientRect().height - emptyBelow + 8)}px`,
+      );
     };
     // No measure() here: the observer's first report comes after layout and before paint, when reading
     // sizes is free. Measuring in this effect made Safari lay out the page again on every Home visit.
     const observer = new ResizeObserver(measure);
     observer.observe(list);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      card?.style.removeProperty("--recent-fit-height");
+    };
   }, [overhaul, recentChats.length]);
   const characterIds = useMemo(
     () => Array.from(new Set(recentChats.flatMap(({ chat }) => chat.characterIds))),
@@ -223,7 +254,10 @@ export function RecentChats() {
 
   if (recentChats.length === 0) {
     return (
-      <div className="flex h-full min-h-36 flex-col justify-end rounded-2xl border border-dashed border-[var(--border)]/70 p-4">
+      <div
+        className="flex h-full min-h-36 flex-col justify-end rounded-2xl border border-dashed border-[var(--border)]/70 p-4"
+        data-recent-short=""
+      >
         <MessageSquare className="mb-3 text-[var(--mari-mode-conversation)]" size="1.25rem" aria-hidden="true" />
         <p className="text-sm font-semibold text-[var(--foreground)]">{t("home.recentChats.emptyTitle")}</p>
         <p className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]">
@@ -246,8 +280,17 @@ export function RecentChats() {
     const limit = Math.min(12, fitRows);
     const more = rows.length > limit;
     const shown = rows.slice(0, more ? Math.max(1, limit - 1) : limit);
+    overhaulRowsRef.current = rows.length;
     return (
-      <ul ref={listRef} className="ov-recent" data-component="RecentChats" data-variant="list">
+      <ul
+        ref={listRef}
+        className="ov-recent"
+        data-component="RecentChats"
+        data-variant="list"
+        // One or two chats fit a one-row card; Home shrinks the widget to that (overhaul.css, QC IA17).
+        data-recent-short={rows.length <= 2 ? "" : undefined}
+        data-recent-rows={shown.length}
+      >
         {shown.map(({ chat }) => {
           const mode = MODE_BADGE[chat.mode];
           const characterId = chat.characterIds.find((id) => characterLookup.has(id)) ?? null;

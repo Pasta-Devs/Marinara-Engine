@@ -33,6 +33,8 @@ const regexScriptShape = z.object({
   findRegex: z.string().min(1),
   replaceString: z.string().default(""),
   trimStrings: z.array(z.string()).default([]),
+  /** "result" (Marinara's rule) or "match" (SillyTavern's). Left out = "result". */
+  trimScope: z.enum(["match", "result"]).optional(),
   placement: z.array(regexPlacementSchema).min(1),
   flags: z.string().default("gi").refine(hasValidRegexFlags, "Invalid or duplicated regex flags."),
   promptOnly: z.boolean().default(false),

@@ -7,17 +7,19 @@
 // that slides over from the right (the Library button at the top right), with
 // Settings, Docs and All Tabs pinned at the bottom of its Library view.
 // ──────────────────────────────────────────────
+import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CircleHelp, Layers, MessageCircle, Settings } from "lucide-react";
 import { useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
-import { useOverhaulStore, type OverhaulSidePane } from "../../stores/overhaul.store";
+import { useOverhaulStore, type LibrarySection, type OverhaulSidePane } from "../../stores/overhaul.store";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { cn } from "../../lib/utils";
 import { ChatSidebar } from "../layout/ChatSidebar";
 import { LibraryNav } from "./LibraryNav";
 import { LIBRARY_SECTIONS, openLibrarySection } from "./library-navigation";
+import { batchBackLayers } from "../../lib/back-navigation";
 
 /** The Chats | Library switch at the top of the sidebar. */
 function SidePaneSwitch() {
@@ -29,13 +31,19 @@ function SidePaneSwitch() {
     { id: "library", label: "Library", Icon: Layers, tour: "library-switch" },
   ];
   return (
-    <div className="ov-sideswitch" role="tablist" aria-label={localize("Sidebar")}>
+    <div
+      className="ov-sideswitch"
+      role="tablist"
+      aria-label={localize("Sidebar")}
+      onKeyDown={(event) => onRovingTabsKeyDown(event)}
+    >
       {options.map(({ id, label, Icon, tour }) => (
         <button
           key={id}
           type="button"
           role="tab"
           aria-selected={view === id}
+          tabIndex={view === id ? 0 : -1}
           className={cn("ov-sideswitch__btn", view === id && "is-on")}
           onClick={() => setView(id)}
           data-tour={tour}
@@ -91,6 +99,14 @@ function MobileLibraryList() {
     closeSidePage();
     run();
   };
+  // A section picked here: back from it comes back to this list (QC Nov 22). One batch, so the list page's back entry
+  // is handed to the section (and one more pushed for the way back here) inside this tap, where Safari keeps it.
+  const pickSection = (section: LibrarySection) => () =>
+    batchBackLayers(() => {
+      closeSidePage();
+      useOverhaulStore.getState().setLibraryHubReturn(true);
+      openLibrarySection(section);
+    });
   const rows = LIBRARY_SECTIONS.filter((entry) => entry.id !== "settings");
   return (
     <div className="ovm-sidepage__library">
@@ -98,12 +114,7 @@ function MobileLibraryList() {
         {rows.map((entry) => {
           const Icon = entry.icon;
           return (
-            <button
-              key={entry.id}
-              type="button"
-              className="ovm-stack-menu__row"
-              onClick={pick(() => openLibrarySection(entry.id))}
-            >
+            <button key={entry.id} type="button" className="ovm-stack-menu__row" onClick={pickSection(entry.id)}>
               <Icon size={20} aria-hidden="true" />
               <span>{localize(entry.label)}</span>
             </button>
@@ -111,7 +122,7 @@ function MobileLibraryList() {
         })}
       </nav>
       <div className="ovm-sidepage__dock">
-        <button type="button" className="ovm-stack-menu__tile" onClick={pick(() => openLibrarySection("settings"))}>
+        <button type="button" className="ovm-stack-menu__tile" onClick={pickSection("settings")}>
           <Settings size={22} aria-hidden="true" />
           <span>{localize("Settings")}</span>
         </button>

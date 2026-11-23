@@ -14,6 +14,7 @@
  * list to update. `omnibar-settings.test.ts` fails if a row ever points at an
  * id this file does not define.
  */
+import { isMarinaraAndroidShell } from "./android-bridge";
 import {
   SETTINGS_SECTION_BY_ID,
   SETTINGS_SECTIONS,
@@ -54,12 +55,15 @@ export function isOmnibarSettingsTarget(target: { sectionId?: string | null; con
 export function settingsLocationPath(
   sectionId: SettingsSectionId,
   localize: (englishText: string) => string,
+  /** The new layout's own tab label for the section (Chatting, Appearance...), which wins over the classic tab's. */
+  overhaulTabLabel?: string | null,
 ): string | null {
   const section = SETTINGS_SECTION_BY_ID.get(sectionId);
   if (!section) return null;
   const tab = SETTINGS_TABS.find((entry) => entry.id === section.tab);
   const sectionLabel = localize(section.label);
-  return tab ? `${localize(tab.label)} › ${sectionLabel}` : sectionLabel;
+  const tabLabel = overhaulTabLabel ?? tab?.label;
+  return tabLabel ? `${localize(tabLabel)} › ${sectionLabel}` : sectionLabel;
 }
 
 /** The shape of i18next's `t` that the registry needs: a key plus the English text to fall back on. */
@@ -206,6 +210,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "home-widgets",
+    sectionId: "home",
+    labelKey: "settings.controls.homeWidgets.label",
+    label: "Home widgets",
+    description:
+      "Choose which widgets live on Home. A restored widget returns to the first available place on your desk.",
+    descriptionKey: "home.browser.widgetsWindowDescription",
+    aliases: ["widgets", "home", "clock", "calendar", "community", "learn", "recent chats"],
+    kind: "Toggle",
+  },
+  {
     id: "achievements",
     sectionId: "extras",
     labelKey: "settings.controls.achievements.label",
@@ -317,6 +332,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     description: "How Professor Mari works: Classic, or Pi (experimental), which lets her think more before she acts.",
     descriptionKey: "settings.search.mariRuntime.description",
     aliases: ["mari", "runtime", "pi", "classic", "experimental", "tool calls", "reasoning"],
+    kind: "Select",
+  },
+  {
+    id: "mari-context-depth",
+    sectionId: "omnibar",
+    labelKey: "omnibar.settings.mariContextDepth.label",
+    label: "Turn context placement",
+    description:
+      "Where she reads this turn's context: the time, attached chats, @ links and notes from earlier turns. Above her last reply keeps her on your task instead of a story she was shown. Further back keeps less of the chat cached.",
+    descriptionKey: "omnibar.settings.mariContextDepth.help",
+    aliases: ["mari", "depth", "context depth", "injection", "workspace context", "prompt cache", "roleplay"],
     kind: "Select",
   },
   {
@@ -895,6 +921,30 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Select",
   },
   {
+    // QC panel 2, D11: "new layout" / "classic layout" found nothing.
+    id: "overhaul-layout",
+    sectionId: "app-style",
+    labelKey: "ui.overhaul.text.newLayoutUiOverhaulPreview",
+    label: "New layout",
+    description:
+      "One tab bar on top, the Library on the right and Library pages in the middle, with a touch layout on phones and tablets. Turn it off for the classic layout.",
+    descriptionKey: "ui.overhaul.text.oneTabBarOnTopTheLibraryOn",
+    aliases: ["new layout", "classic layout", "old layout", "overhaul", "old UI", "layout switch"],
+    keywords: ["new ui", "old interface", "classic ui"],
+    kind: "Toggle",
+  },
+  {
+    id: "theme-gallery",
+    sectionId: "theme-library",
+    labelKey: "theming.gallery.heading",
+    label: "Theme gallery",
+    description: "Starter themes aren't part of the install. Download only the ones you want.",
+    descriptionKey: "theming.gallery.browseHelp",
+    aliases: ["starter themes", "download themes", "more themes", "theme gallery"],
+    keywords: ["get themes", "browse themes"],
+    kind: "Button group",
+  },
+  {
     id: "device-look",
     sectionId: "app-style",
     labelKey: "settings.deviceLook.label",
@@ -1251,7 +1301,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     id: "conversation-always-display-swipe-menu",
     sectionId: "editing-swipes",
     labelKey: "settings.controls.alwaysDisplaySwipeMenuConversation.label",
-    label: "Always show swipe menu in Conversation",
+    label: "Show swipe arrows from the first reply (Conversation)",
     description:
       "Show swipe arrows and the counter from the first response. Turn off to show them only after regeneration.",
     descriptionKey: "settings.controls.alwaysDisplaySwipeMenu.help",
@@ -1262,7 +1312,7 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     id: "roleplay-always-display-swipe-menu",
     sectionId: "editing-swipes",
     labelKey: "settings.controls.alwaysDisplaySwipeMenuRoleplay.label",
-    label: "Always show swipe menu in Roleplay",
+    label: "Show swipe arrows from the first reply (Roleplay)",
     description:
       "Show swipe arrows and the counter from the first response. Turn off to show them only after regeneration.",
     descriptionKey: "settings.controls.alwaysDisplaySwipeMenu.help",
@@ -1867,6 +1917,9 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
   },
 ] as const;
 
+/** Settings that need the Android app (APK) bridge. */
+const ANDROID_APP_ONLY_CONTROLS = new Set<string>(["android-status-bar"]);
+
 export function searchSettings(
   query: string,
   localize: (englishText: string) => string,
@@ -1879,6 +1932,8 @@ export function searchSettings(
   const controlResults = SETTINGS_SEARCHABLE_CONTROLS.flatMap((control) => {
     const section = SETTINGS_SECTION_BY_ID.get(control.sectionId);
     if (!section) return [];
+    // The Android app's own settings only work inside the app (Chrome on Android has no bridge).
+    if (ANDROID_APP_ONLY_CONTROLS.has(control.id) && !isMarinaraAndroidShell()) return [];
     // Both the English and the translated copy match, so a query works in either language.
     const haystack = [
       control.label,

@@ -12,6 +12,9 @@ import type { LorebookCategory, LorebookScope } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Select } from "../ui/Select";
 import { Spinner } from "../ui/Spinner";
+import { SettingsSwitch } from "../panels/settings/SettingControls";
+import { useFeatureEnabled, useFeatureSettings } from "../../hooks/use-feature-settings";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 
 const LOREBOOK_CATEGORIES: Array<{ id: LorebookCategory; label: string }> = [
   { id: "world", label: "World" },
@@ -41,18 +44,29 @@ export function CreateLorebookModal({
   defaultName = "",
 }: Props) {
   const { t: localizeUi } = useUiTranslation();
+  const overhaulLook = useOverhaulLook();
   const qc = useQueryClient();
   const [form, setForm] = useState({ name: defaultName, description: "", category: defaultCategory });
+  // null follows Settings > Advanced > Lorebooks > "Vectors on for new lorebooks" until the user flips it here.
+  const [vectorsChoice, setVectorsChoice] = useState<boolean | null>(null);
+  const newLorebookVectors = useFeatureEnabled("newLorebookVectors");
+  const featureSettingsLoaded = useFeatureSettings().data !== undefined;
+  const vectors = vectorsChoice ?? newLorebookVectors;
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) setForm((current) => ({ ...current, name: defaultName, category: defaultCategory }));
+    if (open) {
+      setForm((current) => ({ ...current, name: defaultName, category: defaultCategory }));
+      setVectorsChoice(null);
+    }
   }
 
   const createLorebook = useMutation({
     mutationFn: (data: { name: string; description: string; category: LorebookCategory }) =>
       api.post("/lorebooks", {
         ...data,
+        // Send what the switch shows; only while the default has not loaded yet does the server pick it.
+        ...(vectorsChoice === null && !featureSettingsLoaded ? {} : { excludeFromVectorization: !vectors }),
         ...(characterId ? { characterIds: [characterId] } : {}),
         ...(personaId ? { personaIds: [personaId] } : {}),
         ...(defaultScope ? { scope: defaultScope } : {}),
@@ -89,18 +103,27 @@ export function CreateLorebookModal({
       }
     >
       <div className="flex flex-col gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-400/20">
-            <BookOpen size="1.375rem" className="text-white" />
+        {/* New layout: the window's title is its header, like Create character; no coloured tile (QC panel 2). */}
+        {overhaulLook ? (
+          <p className="text-xs text-[var(--muted-foreground)]">
+            {localizeUi(
+              "ui.modals.createlorebookmodal.lorebooksInjectContextualWorldBuildingInformationIntoPromptsBased",
+            )}
+          </p>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg shadow-amber-400/20">
+              <BookOpen size="1.375rem" className="text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi(
+                  "ui.modals.createlorebookmodal.lorebooksInjectContextualWorldBuildingInformationIntoPromptsBased",
+                )}
+              </p>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-xs text-[var(--muted-foreground)]">
-              {localizeUi(
-                "ui.modals.createlorebookmodal.lorebooksInjectContextualWorldBuildingInformationIntoPromptsBased",
-              )}
-            </p>
-          </div>
-        </div>
+        )}
 
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-[var(--muted-foreground)]">
@@ -140,6 +163,16 @@ export function CreateLorebookModal({
             options={LOREBOOK_CATEGORIES.map((category) => ({ value: category.id, label: category.label }))}
           />
         </div>
+
+        <SettingsSwitch
+          label={localizeUi("ui.lorebooks.lorebookeditor.vectors")}
+          help={localizeUi("ui.modals.createlorebookmodal.vectorsHelp")}
+          helpPosition="label"
+          labelPosition="start"
+          checked={vectors}
+          onChange={setVectorsChoice}
+          className="justify-between rounded-lg bg-[var(--secondary)] px-3 py-2 hover:bg-[var(--secondary)]"
+        />
 
         {createLorebook.isError && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--destructive)]/10 p-2.5 text-xs text-[var(--destructive)]">

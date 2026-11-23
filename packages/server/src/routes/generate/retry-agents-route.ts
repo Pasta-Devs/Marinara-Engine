@@ -150,6 +150,7 @@ import {
   SPATIAL_LOCATION_REFERENCE_PROMPT_LINE,
 } from "../../services/image/spatial-location-reference.js";
 import { persistGeneratedImageToEntityGalleries } from "../../services/image/generated-image-entity-gallery.js";
+import { describeDrawnBy, describeReviewReferences } from "../../services/image/review-references.js";
 import { resolveImageConnectionFallback } from "../../services/generation/media-connection-fallback.js";
 import type { GenerationFallbackNotifier } from "../../services/generation/fallback-notification.js";
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
@@ -274,6 +275,7 @@ import {
   validateSpriteExpressionEntries,
 } from "./expression-agent-utils.js";
 import {
+  buildIllustratorPromptSources,
   suppressesReferencePromptLine,
   mergeIllustratorNegativePrompt,
   illustratorPromptTemplateOwnsComposition,
@@ -615,29 +617,6 @@ function getGameImageStylePrompt(chat: any, chatMeta: Record<string, unknown>): 
   if (((chat as any).mode ?? "conversation") !== "game") return "";
   const setupConfig = parseSettingsRecord(chatMeta.gameSetupConfig);
   return resolveGameSetupArtStylePrompt(setupConfig);
-}
-
-function buildIllustratorImagePrompt(args: {
-  gameArtStylePrompt: string;
-  style: string;
-  imagePrompt: string;
-  imagePositivePrompt: string;
-}): string {
-  const imagePrompt = args.imagePrompt.trim();
-  const imagePromptLower = imagePrompt.toLowerCase();
-  const prefixParts: string[] = [];
-  const seen = new Set<string>();
-
-  for (const part of [args.gameArtStylePrompt, args.style]) {
-    const trimmed = part.trim();
-    const key = trimmed.toLowerCase();
-    if (!trimmed || seen.has(key) || imagePromptLower.includes(key)) continue;
-    seen.add(key);
-    prefixParts.push(trimmed);
-  }
-
-  const fullPrompt = [...prefixParts, imagePrompt].join(", ");
-  return args.imagePositivePrompt ? `${fullPrompt}, ${args.imagePositivePrompt}` : fullPrompt;
 }
 
 async function resolveManualIllustratorStyleInstruction(args: {
@@ -3871,12 +3850,14 @@ async function applyRetryResultEffects(args: {
               styleProfileId || imageDefaults?.styleProfileId,
             ).promptMode;
             const writerStyle = removeCopiedPromptGuidance(style, writerGuidance, { allowEmpty: true, promptMode });
-            let fullPrompt = buildIllustratorImagePrompt({
+            const writerSources = buildIllustratorPromptSources({
               gameArtStylePrompt,
-              style: writerStyle,
+              generatedStyle: writerStyle,
               imagePrompt: removeCopiedPromptGuidance(imagePrompt, writerGuidance, { promptMode }),
               imagePositivePrompt,
+              promptMode,
             });
+            let fullPrompt = writerSources.prompt;
             const requestedNegativePrompt = [negativePrompt, savedNegativePrompt].filter(Boolean).join(", ");
 
             // Collect optional character visual context. Prefer avatar portraits
@@ -4000,7 +3981,7 @@ async function applyRetryResultEffects(args: {
               styleProfiles: imageSettings.styleProfiles,
               styleProfileId,
               imageDefaults,
-              generatedStyle: writerStyle,
+              generatedStyle: writerSources.generatedStyle,
               omitProfileStyleText:
                 illData._styleProfileInstructionApplied === true ||
                 typeof agentContext.memory._illustratorImageStyleInstruction === "string",
@@ -4029,7 +4010,7 @@ async function applyRetryResultEffects(args: {
                   styleProfiles: imageSettings.styleProfiles,
                   styleProfileId,
                   imageDefaults: imageFallback.imageDefaults,
-                  generatedStyle: writerStyle,
+                  generatedStyle: writerSources.generatedStyle,
                   omitProfileStyleText:
                     illData._styleProfileInstructionApplied === true ||
                     typeof agentContext.memory._illustratorImageStyleInstruction === "string",
@@ -4077,6 +4058,22 @@ async function applyRetryResultEffects(args: {
                 height: imgHeight,
                 imageDefaults,
               });
+              // Which model draws, and where each reference picture goes (ComfyUI placeholders included).
+              const reviewReferences = await describeReviewReferences({
+                connection: imgConnFull,
+                images: referenceImages ?? [],
+                labels: [
+                  ...(spatialLocationReferenceImage ? [{ name: "", from: "location" as const }] : []),
+                  ...(useAvatarRefs
+                    ? referenceResolution.referenceNames.map((name, index) => ({
+                        name,
+                        from: referenceResolution.referenceSources[index] ?? ("avatar" as const),
+                      }))
+                    : []),
+                ],
+                blanksFilled: imageDefaults?.comfyui?.uploadPlaceholderOnMissingReference === true,
+              });
+              const reviewStyleId = styleProfileId || imageDefaults?.styleProfileId || null;
               assertRetryActive();
               sendSseEvent(reply, {
                 type: "image_prompt_review",
@@ -4090,6 +4087,14 @@ async function applyRetryResultEffects(args: {
                     ...(promptSubmission.negativePrompt ? { negativePrompt: promptSubmission.negativePrompt } : {}),
                     width: previewSize.width,
                     height: previewSize.height,
+                    drawnBy: describeDrawnBy({
+                      connection: imgConnFull,
+                      fallback: imageFallback,
+                      styleName: reviewStyleId
+                        ? findImageStyleProfile(imageSettings.styleProfiles, reviewStyleId).name
+                        : null,
+                    }),
+                    ...(reviewReferences ? { references: reviewReferences } : {}),
                     ...(illustratorCharacterPrompts.length > 0
                       ? { characterPrompts: illustratorCharacterPrompts }
                       : {}),
@@ -5366,9 +5371,11 @@ export async function registerRetryAgentsRoute(
         const retryImageAppearanceOverrides: Record<string, string> = {};
         // Fetch concurrently: this runs inside the request path and each lookup
         // touches storage, so a sequential await per character adds up on a large
-        // cast. A miss or failure is a no-op (no override).
+        // cast. A miss or failure is a no-op (no override). Read chat-scoped, so a
+        // chat's Appearance alternative brings its own image tags (#9605), as on the
+        // first run (character-prompt-context.ts).
         const retryCharRows = await Promise.all(
-          agentContext.characters.map((character) => chars.getById(character.id).catch(() => null)),
+          agentContext.characters.map((character) => chars.getById(character.id, chatId).catch(() => null)),
         );
         agentContext.characters.forEach((character, index) => {
           const charRow = retryCharRows[index];
@@ -5407,7 +5414,7 @@ export async function registerRetryAgentsRoute(
           !retryImageAppearanceOverrides[retryIdentityIdForOverride] &&
           agentContext.memory._userIdentitySource === "character"
         ) {
-          const identityRow = await chars.getById(retryIdentityIdForOverride).catch(() => null);
+          const identityRow = await chars.getById(retryIdentityIdForOverride, chatId).catch(() => null);
           const identityData = identityRow ? (parseSettingsRecord(identityRow.data) as Record<string, unknown>) : {};
           const identityOverride = readImageAppearanceOverride(
             identityData.extensions && typeof identityData.extensions === "object"

@@ -7,7 +7,7 @@
 // movable, resizable window. The arrangement is kept per chat mode.
 // ──────────────────────────────────────────────
 import { useCallback, useEffect, useMemo, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ExternalLink, Eye, EyeOff, GripVertical, Pencil, Undo2 } from "lucide-react";
+import { Check, ExternalLink, Eye, EyeOff, GripVertical, Pencil, Undo2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { getDrawerWindowId } from "../../lib/floating-window-layout";
 import { CHAT_SETTINGS_WINDOW_ID, useFloatingWindowStore } from "../../stores/floating-window.store";
@@ -69,30 +69,50 @@ export function OvChatSettingsHeader({ mode }: { mode: string }) {
   const layout = useLayout(mode);
   const editing = useOverhaulStore((state) => state.chatSettingsEditing);
   const setEditing = useOverhaulStore((state) => state.setChatSettingsEditing);
+  // Phones and tablets: Edit is an icon, so the title "Chat Settings" keeps its room (large text too).
+  // The hidden count moves into the Edit list there.
+  const compact = useOverhaulMobile();
   // Leaving the chat or closing the drawer should not leave Edit mode stuck on.
   useEffect(() => () => setEditing(false), [setEditing]);
+  const label = editing
+    ? localizeUi("chat.settingsProfile.builder.done")
+    : localizeUi("chat.settingsProfile.builder.edit");
   return (
     <span className="ov-cs__head" onPointerDown={(event) => event.stopPropagation()}>
       <span className="ov-cs__mode">{MODE_LABELS[mode] ?? mode}</span>
-      {!editing && layout.hidden.length ? (
+      {!compact && !editing && layout.hidden.length ? (
         <button type="button" className="ov-cs__hidden" onClick={() => setEditing(true)}>
           {layout.hidden.length} {localizeUi("ui.overhaul.ovchatsettingsheader.hidden")}
         </button>
       ) : null}
-      <button
-        type="button"
-        className={cn("ov-edbtn", editing ? "ov-edbtn--accent" : "ov-edbtn--tint")}
-        aria-pressed={editing}
-        onClick={() => setEditing(!editing)}
-      >
-        {editing ? (
-          localizeUi("chat.settingsProfile.builder.done")
-        ) : (
-          <>
-            <Pencil size={12} /> {localizeUi("chat.settingsProfile.builder.edit")}
-          </>
-        )}
-      </button>
+      {compact ? (
+        <button
+          type="button"
+          className={cn("mari-window__control ov-cs__edit-icon", editing && "is-on")}
+          data-chat-settings-control="edit"
+          aria-pressed={editing}
+          aria-label={label}
+          title={label}
+          onClick={() => setEditing(!editing)}
+        >
+          {editing ? <Check size="1.125rem" aria-hidden="true" /> : <Pencil size="1rem" aria-hidden="true" />}
+        </button>
+      ) : (
+        <button
+          type="button"
+          className={cn("ov-edbtn", editing ? "ov-edbtn--accent" : "ov-edbtn--tint")}
+          aria-pressed={editing}
+          onClick={() => setEditing(!editing)}
+        >
+          {editing ? (
+            label
+          ) : (
+            <>
+              <Pencil size={12} /> {label}
+            </>
+          )}
+        </button>
+      )}
     </span>
   );
 }
@@ -241,6 +261,11 @@ export function OvChatSettingsEditor({
           <span>{localizeUi("ui.overhaul.ovchatsettingseditor.settingsProfile")}</span>
           <div ref={onProfileSlot} />
         </div>
+      ) : null}
+      {overhaulMobile && layout.hidden.length ? (
+        <p className="ov-cs-edit__hidden-count">
+          {layout.hidden.length} {localizeUi("ui.overhaul.ovchatsettingsheader.hidden")}
+        </p>
       ) : null}
       <ul className="ov-cs-edit__list" onDragOver={(event) => event.preventDefault()}>
         {ordered.map((section, index) => {

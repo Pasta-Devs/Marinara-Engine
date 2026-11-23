@@ -1,0 +1,354 @@
+// ──────────────────────────────────────────────
+// Menus: one keyboard behaviour for every ⋯ and right-click menu
+// ──────────────────────────────────────────────
+// QC Nov 21 (A11Y1-A11Y3): the message ⋯, editor ⋯, tab and rail menus opened without moving focus,
+// ignored the arrow keys, and Escape dropped focus on <body>. ui/ContextMenu and the top bar's ⋯
+// already did it right; this is that behaviour, shared (WAI-ARIA menu button pattern):
+// - Enter, Space or ArrowDown on the button opens the menu on its first item, ArrowUp on its last.
+// - ArrowDown/ArrowUp move between items (wrapping), Home/End jump to the ends.
+// - Escape closes the menu and puts focus back on its button; Tab closes it and moves on from the button.
+// - A mouse click opens the menu without moving focus (no focus ring under the pointer).
+import { useCallback, useEffect, useLayoutEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
+
+// The button of the latest click, and whether the keyboard pressed it (Enter/Space clicks have detail 0), for
+// menus whose opener only gets a bare onClick.
+let lastClick: { opener: HTMLElement | null; keyboard: boolean } = { opener: null, keyboard: false };
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "click",
+    (event) => {
+      const target =
+        event.target instanceof Element ? event.target.closest<HTMLElement>("button, [role='button']") : null;
+      lastClick = { opener: target, keyboard: event.detail === 0 };
+    },
+    true,
+  );
+}
+
+/** Read inside an onClick: the button just clicked, and whether it was pressed from the keyboard. */
+export function menuOpenerFromClick() {
+  return lastClick;
+}
+
+// When Shift+F10 or the menu key was last pressed. Chromium, Firefox and WebKit each describe the contextmenu
+// event that follows differently, so the key press itself is the surest sign (QC Nov 22 AX5).
+let menuKeyAt = 0;
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey)) menuKeyAt = Date.now();
+    },
+    true,
+  );
+}
+
+/** A context menu asked for from the keyboard (Shift+F10, the menu key) rather than a right click. */
+export function isKeyboardContextMenu(event: {
+  nativeEvent: Event;
+  clientX: number;
+  clientY: number;
+  button?: number;
+}) {
+  const native = event.nativeEvent as Partial<PointerEvent> & { button?: number };
+  // Chromium sends Shift+F10 / the menu key as a "mouse" PointerEvent with button -1, placed on the element.
+  // A right click is button 2 and a touch long-press is pointerType "touch", so both stay pointer menus.
+  const button = typeof event.button === "number" ? event.button : native.button;
+  if (button === -1) return true;
+  if (Date.now() - menuKeyAt < 500) return true;
+  if (typeof native.pointerType === "string") return native.pointerType === "";
+  return event.clientX === 0 && event.clientY === 0;
+}
+
+/**
+ * Shift+F10 or the menu key on a message's buttons opens that message's ⋯ menu, focused on its first item
+ * (QC Nov 22 K7). A right click with the mouse keeps the browser's own menu (copy, spelling).
+ */
+/**
+ * The button that had focus when the menu key opened a message's ⋯ menu (Copy, say), so Escape and Tab carry on
+ * from there rather than from ⋯ (QC panel 3 AX5). Only for the ⋯ button it names.
+ */
+type MenuKeyReturn = { trigger: HTMLElement; target: HTMLElement; at: number } | null;
+let menuKeyReturn: MenuKeyReturn = null;
+
+/** The menu key's note, while it belongs to the menu that is opening now. */
+function freshMenuKeyReturn(): MenuKeyReturn {
+  return menuKeyReturn && Date.now() - menuKeyReturn.at < 1000 ? menuKeyReturn : null;
+}
+
+/** Where focus goes back to when the menu of `trigger` closes. */
+function menuReturnTarget(note: MenuKeyReturn, trigger: HTMLElement | null): HTMLElement | null {
+  const target = note && note.trigger === trigger ? note.target : null;
+  if (target?.isConnected && target.getClientRects().length > 0) return target;
+  return trigger;
+}
+
+export function openMessageMoreFromMenuKey(event: {
+  nativeEvent: Event;
+  clientX: number;
+  clientY: number;
+  currentTarget: EventTarget & HTMLElement;
+  preventDefault: () => void;
+  stopPropagation: () => void;
+}) {
+  if (!isKeyboardContextMenu(event)) return;
+  const message = event.currentTarget.closest<HTMLElement>("[data-message-id]") ?? event.currentTarget;
+  const more =
+    event.currentTarget.querySelector<HTMLButtonElement>("button[data-message-more]") ??
+    message.querySelector<HTMLButtonElement>("button[data-message-more]");
+  if (!more) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (more.getAttribute("aria-expanded") === "true") return;
+  const focused = document.activeElement;
+  menuKeyReturn =
+    focused instanceof HTMLElement && focused !== more && message.contains(focused)
+      ? { trigger: more, target: focused, at: Date.now() }
+      : null;
+  // A click with detail 0 is the keyboard path: the menu opens with focus on its first item.
+  more.click();
+}
+
+const ITEM_SELECTOR =
+  '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], button, a[href], input:not([type="hidden"])';
+
+/** The enabled, visible items of a menu, in order. */
+export function menuItems(menu: HTMLElement | null): HTMLElement[] {
+  if (!menu) return [];
+  return Array.from(menu.querySelectorAll<HTMLElement>(ITEM_SELECTOR)).filter(
+    (item) =>
+      !item.matches(":disabled, [aria-disabled='true']") &&
+      !item.closest("[hidden], [inert], [aria-hidden='true']") &&
+      item.getClientRects().length > 0,
+  );
+}
+
+/**
+ * An on/off button in a menu ("Hide from AI", "Mark as new start") is a checkbox item: aria-pressed is not
+ * allowed on a menu item, and screen readers dropped the state (QC panel 3 AX13).
+ */
+function markCheckboxItem(item: HTMLElement) {
+  const pressed = item.getAttribute("aria-pressed");
+  if (pressed === null) return;
+  item.setAttribute("role", "menuitemcheckbox");
+  item.setAttribute("aria-checked", pressed === "true" ? "true" : "false");
+  item.removeAttribute("aria-pressed");
+}
+
+/** Plain buttons in a menu are its items: screen readers then say "menu item, 2 of 5". */
+function markItems(menu: HTMLElement) {
+  for (const item of menuItems(menu)) {
+    if (!(item instanceof HTMLButtonElement)) continue;
+    const role = item.getAttribute("role");
+    if (item.hasAttribute("aria-pressed") && (role === null || role === "menuitem" || role === "menuitemcheckbox"))
+      markCheckboxItem(item);
+    else if (role === null) item.setAttribute("role", "menuitem");
+  }
+}
+
+/** Some menus stay open after a toggle and React writes aria-pressed again: keep converting it. */
+function watchCheckboxItems(menu: HTMLElement): () => void {
+  if (typeof MutationObserver === "undefined") return () => undefined;
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      if (record.target instanceof HTMLButtonElement && record.target.hasAttribute("aria-pressed"))
+        markCheckboxItem(record.target);
+      for (const node of Array.from(record.addedNodes)) if (node instanceof HTMLElement) markItems(menu);
+    }
+  });
+  observer.observe(menu, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-pressed"] });
+  return () => observer.disconnect();
+}
+
+export function focusMenuItem(menu: HTMLElement | null, which: "first" | "last") {
+  const items = menuItems(menu);
+  // Only a radio group's picked option takes focus first; an on checkbox item ("Hide from AI") does not.
+  const checked =
+    which === "first"
+      ? items.find(
+          (item) => item.getAttribute("role") === "menuitemradio" && item.getAttribute("aria-checked") === "true",
+        )
+      : undefined;
+  (checked ?? (which === "first" ? items[0] : items[items.length - 1]))?.focus({ preventScroll: true });
+}
+
+/**
+ * Moves focus between a menu's items for one key press. Returns true when the key was a menu key
+ * (the caller then stops it), false otherwise.
+ */
+export function moveMenuFocus(menu: HTMLElement | null, key: string): boolean {
+  const step = { ArrowDown: 1, ArrowUp: -1, Home: 0, End: 0 }[key];
+  if (step === undefined || !menu) return false;
+  const items = menuItems(menu);
+  if (items.length === 0) return false;
+  const at = items.findIndex((item) => item === document.activeElement || item.contains(document.activeElement));
+  const next =
+    key === "Home"
+      ? 0
+      : key === "End"
+        ? items.length - 1
+        : at < 0
+          ? step > 0
+            ? 0
+            : items.length - 1
+          : (at + step + items.length) % items.length;
+  items[next]?.focus({ preventScroll: true });
+  return true;
+}
+
+type Options = {
+  open: boolean;
+  /** Opens the menu (ArrowDown/ArrowUp on its button). Without it those keys do nothing while closed. */
+  onOpen?: () => void;
+  onClose: () => void;
+  /**
+   * Also take the arrow keys while focus is outside the menu (a right-click menu opened with the mouse),
+   * except from a text field. Off for menus that sit next to a page the arrows also scroll.
+   */
+  anywhere?: boolean;
+  /** For a menu component that is only mounted while open: the button that opened it. */
+  trigger?: HTMLElement | null;
+  /** For a menu component that is only mounted while open: where focus goes when it mounts. */
+  initialFocus?: "first" | "last" | null;
+};
+
+export function useMenuKeyboard<TMenu extends HTMLElement = HTMLDivElement>({
+  open,
+  onOpen,
+  onClose,
+  anywhere = false,
+  trigger,
+  initialFocus = null,
+}: Options) {
+  const menuRef = useRef<TMenu | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(trigger ?? null);
+  if (trigger) triggerRef.current = trigger;
+  /** Where focus goes once the menu shows: set when it is opened from the keyboard. */
+  const focusOnOpen = useRef<"first" | "last" | null>(null);
+  const initialFocusRef = useRef(initialFocus);
+  initialFocusRef.current = initialFocus;
+  const hadFocus = useRef(false);
+  // Read once per opening (React's dev double effects run it twice, so it isn't cleared on read).
+  const returnNote = useRef<MenuKeyReturn>(null);
+  useLayoutEffect(() => {
+    returnNote.current = open ? freshMenuKeyReturn() : null;
+  }, [open]);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    if (menuRef.current) markItems(menuRef.current);
+    const which = focusOnOpen.current ?? initialFocusRef.current;
+    focusOnOpen.current = null;
+    // A menu that places itself first (hidden until measured, or fading in), or that is drawn a moment later,
+    // cannot take focus yet: try for a few frames until it can.
+    let frame = 0;
+    let tries = 10;
+    const attempt = () => {
+      const current = menuRef.current;
+      if (current) markItems(current);
+      if (!which) return;
+      if (current) focusMenuItem(current, which);
+      if (!current?.contains(document.activeElement) && tries-- > 0) frame = requestAnimationFrame(attempt);
+    };
+    frame = requestAnimationFrame(attempt);
+    const unwatch = menuRef.current ? watchCheckboxItems(menuRef.current) : null;
+    return () => {
+      cancelAnimationFrame(frame);
+      unwatch?.();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onFocusIn = (event: FocusEvent) => {
+      if (menuRef.current?.contains(event.target as Node)) hadFocus.current = true;
+    };
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      const menu = menuRef.current;
+      if (!menu || event.altKey || event.ctrlKey || event.metaKey || event.defaultPrevented) return;
+      const active = document.activeElement;
+      const inside = Boolean(active && menu.contains(active));
+      if (event.key === "Escape") {
+        if (!inside && !anywhere && active !== triggerRef.current) return;
+        // The menu's alone: the panel or dialog under it stays open.
+        event.preventDefault();
+        event.stopPropagation();
+        hadFocus.current = false;
+        closeRef.current();
+        menuReturnTarget(returnNote.current, triggerRef.current)?.focus({ preventScroll: true });
+        return;
+      }
+      if (event.key === "Tab") {
+        if (!inside) return;
+        // Tab leaves the menu: close it and carry on from its button, as if the menu were never there.
+        hadFocus.current = false;
+        menuReturnTarget(returnNote.current, triggerRef.current)?.focus({ preventScroll: true });
+        closeRef.current();
+        return;
+      }
+      if (!inside) {
+        if (!anywhere && active !== triggerRef.current) return;
+        if (active instanceof HTMLElement && active.matches("input, textarea, select, [contenteditable]")) return;
+      }
+      // A text field inside the menu (a search box) keeps Home/End for its caret.
+      if (inside && active instanceof HTMLInputElement && (event.key === "Home" || event.key === "End")) return;
+      if (moveMenuFocus(menu, event.key)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener("focusin", onFocusIn);
+    window.addEventListener("keydown", onKey, true);
+    if (menuRef.current?.contains(document.activeElement)) hadFocus.current = true;
+    return () => {
+      document.removeEventListener("focusin", onFocusIn);
+      window.removeEventListener("keydown", onKey, true);
+      // Closed (or unmounted) with focus inside, after an item ran: that focus went with the menu, so hand it
+      // back to the button instead of leaving it on <body>.
+      if (hadFocus.current) {
+        hadFocus.current = false;
+        const active = document.activeElement;
+        if (!active || active === document.body || !active.isConnected)
+          menuReturnTarget(returnNote.current, triggerRef.current)?.focus({ preventScroll: true });
+      }
+    };
+  }, [anywhere, open]);
+
+  /** Put on the button's onClick (before toggling): a keyboard click (Enter/Space) opens on the first item. */
+  const noteOpener = useCallback((event: MouseEvent<HTMLElement>) => {
+    triggerRef.current = event.currentTarget;
+    focusOnOpen.current = event.detail === 0 ? "first" : null;
+  }, []);
+
+  /** The button's onKeyDown: ArrowDown/ArrowUp open the menu on its first/last item. */
+  const onTriggerKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLElement>) => {
+      triggerRef.current = event.currentTarget;
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      if (open) {
+        event.preventDefault();
+        focusMenuItem(menuRef.current, event.key === "ArrowDown" ? "first" : "last");
+        return;
+      }
+      if (!onOpen) return;
+      event.preventDefault();
+      focusOnOpen.current = event.key === "ArrowDown" ? "first" : "last";
+      onOpen();
+    },
+    [onOpen, open],
+  );
+
+  return {
+    menuRef,
+    triggerRef,
+    noteOpener,
+    /** Spread on the button that opens the menu. */
+    triggerProps: {
+      "aria-haspopup": "menu" as const,
+      "aria-expanded": open,
+      onKeyDown: onTriggerKeyDown,
+    },
+  };
+}

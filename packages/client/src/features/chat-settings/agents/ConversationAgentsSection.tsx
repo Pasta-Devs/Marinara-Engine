@@ -24,6 +24,8 @@ import { cn } from "../../../lib/utils";
 import { ConversationCommandsSettings } from "./ConversationCommandsSettings";
 import { LongTermMemoryCapabilitySettings, LongTermMemoryEnableSwitch } from "./LongTermMemorySettings";
 import { getAgentSettingsMenuId, type ChatAgents } from "./use-chat-agents";
+import { NextImageSummary, imageSourceLabel } from "./NextImageSummary";
+import { InheritStatus } from "./IllustratorControls";
 
 interface ConversationAgentsSectionProps {
   order: number;
@@ -151,20 +153,28 @@ export function ConversationAgentsSection({
 
                 {selfieSettingsOpen ? (
                   <div className="space-y-2 border-t border-[var(--border)]/60 pt-3">
-                    <label className="flex flex-col gap-1">
+                    <NextImageSummary chat={chat} />
+                    <div className="flex flex-col gap-1" data-image-field="image-model">
                       <span className="text-[0.625rem] font-medium text-[var(--foreground)]">
                         {localizeUi("ui.chat.chatsettingsdrawer.selfieConnection")}
                       </span>
                       <ConnectionSelect
                         job={t("connections.picker.job.selfies")}
+                        aria-label={localizeUi("ui.chat.chatsettingsdrawer.selfieConnection")}
                         value={selfieConnectionId || null}
                         onChange={(connectionId) =>
                           updateMeta.mutate({ id: chat.id, imageGenConnectionId: connectionId })
                         }
                         kind="image"
-                        defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.noneSelfiesDisabled")}
+                        defaultLabel={imageSourceLabel(t, "imagesDefault")}
+                        inherits="agents"
                       />
-                    </label>
+                      <InheritStatus
+                        overridden={selfieConnectionId.length > 0}
+                        sourceLabel={imageSourceLabel(t, "imagesDefault")}
+                        onReset={() => updateMeta.mutate({ id: chat.id, imageGenConnectionId: null })}
+                      />
+                    </div>
                     {renderIllustratorPromptConnectionSelect()}
                     {renderIllustratorImageStyleSelect()}
                     {renderIllustratorImagesPerGeneration()}
@@ -172,7 +182,7 @@ export function ConversationAgentsSection({
                       {localizeUi("ui.chat.chatsettingsdrawer.usedForCharacterSelfiesWhenCommandsAreEnabledThe")}
                     </p>
 
-                    {selfieConnectionId ? (
+                    {selfieSettingsOpen ? (
                       <div className="mt-2 space-y-1">
                         <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                           {localizeUi("ui.connections.videogenerationdefaultspanel.resolution")}

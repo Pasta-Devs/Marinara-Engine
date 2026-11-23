@@ -24,7 +24,7 @@ import { DraftNumberInput } from "../../../components/ui/DraftNumberInput";
 import { Select } from "../../../components/ui/Select";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { cn } from "../../../lib/utils";
-import { useUIStore } from "../../../stores/ui.store";
+import { isMobileShellViewport, useUIStore } from "../../../stores/ui.store";
 import { type ChatConnectionOption } from "../sections/ConnectionSection";
 import { AgentLorebookAttachment } from "./AgentLorebookAttachment";
 import { AgentPromptTemplateSelect } from "./AgentPromptTemplateSelect";
@@ -35,7 +35,9 @@ import {
   IllustratorImagesPerGeneration,
   IllustratorPromptConnectionSelect,
   IllustratorRunIntervalField,
+  InheritStatus,
 } from "./IllustratorControls";
+import { imageSourceLabel } from "./NextImageSummary";
 import { LongTermMemoryCapabilitySettings } from "./LongTermMemorySettings";
 import { renderRoleplayAgentMenuIcon } from "./roleplay-agent-menu-icon";
 import {
@@ -228,13 +230,25 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
       chat={chat}
       connectionId={illustratorPromptConnectionId}
       includeLocalSidecar={!isGame && sidecarModelDownloaded}
+      illustratorConnectionId={
+        typeof illustratorConfig?.connectionId === "string" ? illustratorConfig.connectionId : null
+      }
     />
   );
-  const renderIllustratorImageConnectionSelect = () => (
+  const renderIllustratorImageConnectionSelect = (
+    metadataKey: "illustratorImageConnectionId" | "gameImageConnectionId" = "illustratorImageConnectionId",
+  ) => (
     <IllustratorImageConnectionSelect
       chat={chat}
-      connectionId={illustratorImageConnectionId}
+      connectionId={
+        metadataKey === "gameImageConnectionId"
+          ? typeof metadata.gameImageConnectionId === "string"
+            ? metadata.gameImageConnectionId
+            : ""
+          : illustratorImageConnectionId
+      }
       agentSettings={illustratorConfig?.settings}
+      metadataKey={metadataKey}
     />
   );
   const renderIllustratorImageStyleSelect = (options: { emptyOptionLabel?: string; description?: string } = {}) => (
@@ -526,7 +540,8 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
               onClick={() => {
                 closeForSurface();
                 const ui = useUIStore.getState();
-                ui.openRightPanel("agents");
+                // The phone's Agents panel would be where back lands instead of Chat settings.
+                if (!isMobileShellViewport()) ui.openRightPanel("agents");
                 ui.openAgentDetail("__new__");
               }}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-2 text-[0.6875rem] font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]"
@@ -566,6 +581,10 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
             const tokenEst = agentLoadCost.tokensByType.get(agent.id);
             const imageCapable = isImageCapableCustomAgent(agent.id);
             const agentImageConnectionId = customAgentImageSelections[agent.id]?.imageConnectionId ?? "";
+            // The agent's own image model from its setup; without one it draws with the Images default.
+            const agentSetupImageRaw = agentSettings.imageConnectionId;
+            const agentSetupImageId =
+              typeof agentSetupImageRaw === "string" && agentSetupImageRaw.trim() ? agentSetupImageRaw.trim() : null;
             const agentImageStyleProfileId = customAgentImageSelections[agent.id]?.styleProfileId ?? "";
             const agentImageStyleProfileMissing =
               agentImageStyleProfileId.length > 0 &&
@@ -709,11 +728,12 @@ export function createAgentSettingsRenderers(agents: ChatAgents, drawer: AgentSe
                       value={agentImageConnectionId || null}
                       onChange={(connectionId) => updateCustomAgentImageConnection(agent.id, connectionId ?? "")}
                       kind="image"
-                      defaultLabel={localizeUi("ui.chat.chatsettingsdrawer.agentDefault")}
-                      inherits="agents"
+                      defaultLabel={imageSourceLabel(t, agentSetupImageId ? "agentSetup" : "imagesDefault")}
+                      inherits={agentSetupImageId ? { connectionId: agentSetupImageId } : "agents"}
                     />
-                    <AgentDefaultStatus
+                    <InheritStatus
                       overridden={agentImageConnectionId.length > 0}
+                      sourceLabel={imageSourceLabel(t, agentSetupImageId ? "agentSetup" : "imagesDefault")}
                       onReset={() => updateCustomAgentImageConnection(agent.id, "")}
                     />
                     <span className="mt-1 text-[0.625rem] font-medium text-[var(--foreground)]">

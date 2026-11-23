@@ -1548,7 +1548,8 @@ export function CharacterEditor() {
     summary: overhaulHasText(formData.summary),
     personality: overhaulHasText(formData.personality),
     backstory: overhaulHasText(overhaulExt.backstory),
-    appearance: overhaulHasText(overhaulExt.appearance),
+    // Image tags live on the Appearance field's second tab, so they keep it shown too.
+    appearance: overhaulHasText(overhaulExt.appearance) || overhaulHasText(overhaulExt.imageAppearance),
     scenario: overhaulHasText(formData.scenario),
     publicFace: overhaulHasText(overhaulExt.publicFace),
     mes_example: overhaulHasText(formData.mes_example),
@@ -1891,6 +1892,12 @@ export function CharacterEditor() {
                   variant="character"
                   entityKey={characterId}
                   onJump={scrollToSection}
+                  onOpenAppearance={() => {
+                    // The overhaul hides an empty Appearance until it is added; adding it also scrolls there.
+                    if (overhaulActive) return addOverhaulField("appearance");
+                    const appearance = document.getElementById("character-card-appearance");
+                    if (appearance) scrollToElement(appearance);
+                  }}
                   sheet={
                     <CharacterSheetSection
                       characterId={characterId}
@@ -2267,11 +2274,6 @@ function CharacterCardTab({
           onToggle: (enabled) => updateExtension("imageAppearanceEnabled", enabled),
           value: String(formData.extensions.imageAppearance ?? ""),
           onChange: (value) => updateExtension("imageAppearance", value),
-          toggleLabel: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          toggleHelp: localizeUi("ui.characters.charactercardtab.imageAppearanceToggleHelp"),
-          title: localizeUi("ui.characters.charactercardtab.imageAppearanceToggle"),
-          subtitle: localizeUi("ui.characters.charactercardtab.imageAppearanceSubtitle"),
-          placeholder: localizeUi("ui.characters.charactercardtab.imageAppearancePlaceholder"),
         }}
         alternatives={alternatives}
         onAlternativesChange={(next) => updateExtension("cardFieldAlternatives", next)}
@@ -2998,6 +3000,7 @@ function MetadataTab({
   const [tagCatalogRequested, setTagCatalogRequested] = useState(false);
   const { data: allCharacters } = useAllCharacterCatalog(tagCatalogRequested);
   const tagListboxId = useId();
+  const talkativenessId = useId();
   const tagSuggestionsContainerRef = useRef<HTMLDivElement>(null);
   const tagSuggestionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const existingTagCounts = useMemo(() => {
@@ -3153,6 +3156,7 @@ function MetadataTab({
             <input
               value={formData.character_version}
               onChange={(e) => updateField("character_version", e.target.value)}
+              aria-label={localizeUi("ui.characters.metadatatab.version")}
               disabled={formData.extensions.versioningEnabled === false}
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="1.0"
@@ -3176,24 +3180,26 @@ function MetadataTab({
             {localizeUi("ui.characters.metadatatab.splitDescription")}
           </button>
         </div>
-        <label className="space-y-1.5">
+        <div className="space-y-1.5">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
-            {localizeUi("ui.characters.metadatatab.talkativeness")}{" "}
+            <label htmlFor={talkativenessId}>{localizeUi("ui.characters.metadatatab.talkativeness")}</label>{" "}
             <HelpTooltip text={localizeUi("ui.characters.metadatatab.howOftenThisCharacterSpeaksInGroupChats0")} />
           </span>
           <input
+            id={talkativenessId}
             type="range"
             min={0}
             max={1}
             step={0.05}
+            aria-valuetext={`${Math.round(formData.extensions.talkativeness * 100)}%`}
             value={formData.extensions.talkativeness}
             onChange={(e) => updateExtension("talkativeness", parseFloat(e.target.value))}
             className="w-full accent-[var(--primary)]"
           />
-          <span className="text-[0.625rem] text-[var(--muted-foreground)]">
+          <span className="text-[0.625rem] text-[var(--muted-foreground)]" aria-hidden="true">
             {Math.round(formData.extensions.talkativeness * 100)}%
           </span>
-        </label>
+        </div>
       </div>
 
       {/* Tags */}

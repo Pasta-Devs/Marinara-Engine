@@ -479,6 +479,7 @@ export function MsgAction({
   tabIndex,
   buttonRef,
   disabled,
+  opensMenu,
 }: {
   icon: React.ReactNode;
   onClick: () => void;
@@ -487,9 +488,12 @@ export function MsgAction({
   tabIndex?: number;
   buttonRef?: RefObject<HTMLButtonElement | null>;
   disabled?: boolean;
+  /** The message's ⋯: Shift+F10 on the bar opens it (openMessageMoreFromMenuKey). */
+  opensMenu?: boolean;
 }) {
   return (
     <MessageActionButton
+      opensMenu={opensMenu}
       buttonRef={buttonRef}
       disabled={disabled}
       icon={icon}

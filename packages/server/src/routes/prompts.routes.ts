@@ -134,6 +134,7 @@ async function presetRegexScriptsForExport(regexStorage: ReturnType<typeof creat
       findRegex: script.findRegex,
       replaceString: script.replaceString,
       trimStrings: parseIdList(script.trimStrings),
+      ...(script.trimScope ? { trimScope: script.trimScope } : {}),
       placement: parseIdList(script.placement),
       flags: script.flags,
       promptOnly: script.promptOnly === "true",

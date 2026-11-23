@@ -1,8 +1,15 @@
 // ──────────────────────────────────────────────
 // Zustand Store: UI Slice
 // ──────────────────────────────────────────────
-import { markAllModeWalkthroughsSeen, markModeWalkthroughSeen } from "../lib/walkthroughs";
+import {
+  markAllModeWalkthroughsSeen,
+  markDeviceWalkthroughSeen,
+  markModeWalkthroughSeen,
+  resetDeviceWalkthrough,
+  type WalkthroughDevice,
+} from "../lib/walkthroughs";
 import { create } from "zustand";
+import { openChatSettingsSubpage } from "../features/chat-settings/subpage";
 import { isOverhaulLook, useOverhaulStore } from "./overhaul.store";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { generateClientId } from "../lib/utils";
@@ -172,6 +179,11 @@ export type TrackerStatDisplayMode = "bars" | "gauges";
 export type MusicPlayerSource = "spotify" | "youtube" | "custom";
 export const TRACKER_TEMPERATURE_UNITS = ["celsius", "fahrenheit"] as const;
 export type TrackerTemperatureUnit = (typeof TRACKER_TEMPERATURE_UNITS)[number];
+/** The Image settings page's sections. */
+export type ImageSettingsTab = "defaults" | "styles" | "canvases" | "prompts";
+/** Library > Settings profiles: the row (and `profileDetailId`) that opens Image settings. */
+export const IMAGE_SETTINGS_PROFILE_ID = "image-settings";
+
 export { QUICK_REPLIES_SETTINGS_CONTROL_ID } from "../lib/settings-registry";
 export const TRACKER_PANEL_SIZE_PROFILES = ["compact", "standard", "expanded"] as const;
 export type TrackerPanelSizeProfile = (typeof TRACKER_PANEL_SIZE_PROFILES)[number];
@@ -850,6 +862,8 @@ export interface UIState {
   settingsTargetControlId: string | null;
   /** A settings section to scroll to, when the jump names a section rather than one control. */
   settingsTargetSectionId: string | null;
+  /** Not saved: the Image settings page's open section (Library > Settings profiles); null is its hub on phones. */
+  imageSettingsTab: ImageSettingsTab | null;
   /** Not saved: a Home surface to open once Home mounts (see `requestHome`). */
   homeRequest: HomeRequest | null;
   /**
@@ -1429,6 +1443,11 @@ export interface UIState {
   hasCompletedOnboarding: boolean;
   /** Chat modes whose first-chat help overlay has already been dismissed. */
   chatHelpSeenModes: ChatModeShortcut[];
+  /** Kinds of device (computer, tablet, phone) whose walkthrough was finished in any browser, so a new
+   *  browser on the same kind of device does not show it again. */
+  walkthroughDevicesSeen: WalkthroughDevice[];
+  /** "New to AI chat?" was answered (or the welcome tour skipped) in some browser: no other browser asks again. */
+  aiBasicsOfferAnswered: boolean;
   /** Removes the chat Help button and suppresses automatic help overlays. */
   chatHelpButtonHidden: boolean;
   /** One-line tips that name a feature where it lives, once each (lib/feature-tips.ts). */
@@ -1495,6 +1514,8 @@ export interface UIState {
   omnibarSettings: { controlId: string | null } | null;
   /** Transient: Mari's pane in the omnibar is open and showing her, so her result counts as seen (P3). */
   mariPaneVisible: boolean;
+  /** Transient: her full chat (the Mari page or tab) is the page on screen; her result counts as seen there too. */
+  mariPageVisible: boolean;
 
   // Actions
   setShowHomeBrowserAddressBar: (visible: boolean) => void;
@@ -1624,11 +1645,16 @@ export interface UIState {
   closeCharacterDetail: () => void;
   openLorebookDetail: (id: string, options?: { initialTab?: string; entryId?: string; field?: string }) => void;
   closeLorebookDetail: () => void;
+  /** The lorebook editor opened the entry it was asked for (QC Nov 22 AX3). */
+  consumeLorebookInitialEntry: () => void;
   setLorebookLinkClipboard: (links: NonNullable<UIState["lorebookLinkClipboard"]>) => void;
   openPresetDetail: (id: string, options?: { initialTab?: string }) => void;
   closePresetDetail: () => void;
   openProfileDetail: (id: string) => void;
   closeProfileDetail: () => void;
+  /** Library > Settings profiles > Image settings, on a section (or its first one; the hub on phones). */
+  openImageSettings: (tab?: ImageSettingsTab) => void;
+  setImageSettingsTab: (tab: ImageSettingsTab | null) => void;
   openConnectionDetail: (id: string) => void;
   closeConnectionDetail: () => void;
   openAgentDetail: (agentType: string) => void;
@@ -1655,6 +1681,8 @@ export interface UIState {
   openLorebookLibrary: () => void;
   closeCharacterLibrary: () => void;
   openAgentCatalog: (packageId?: string) => void;
+  /** An open agent page whose package is not installed becomes that package's install page, in place (Back skips it). */
+  replaceAgentDetailWithInstallPage: (packageId: string) => void;
   closeAgentCatalog: () => void;
   setAgentCatalogPage: (packageId: string | null) => void;
   openBotBrowser: () => void;
@@ -1819,6 +1847,7 @@ export interface UIState {
   openOmnibarSettings: (controlId?: string | null) => void;
   closeOmnibarSettings: () => void;
   setMariPaneVisible: (visible: boolean) => void;
+  setMariPageVisible: (visible: boolean) => void;
   setVisualTheme: (v: VisualTheme) => void;
   setConvoGradientField: (scheme: "dark" | "light", field: "from" | "to", value: string) => void;
   resetAppearanceSettings: () => void;
@@ -1860,6 +1889,10 @@ export interface UIState {
   clearLegacyCustomThemes: () => void;
   setHasCompletedOnboarding: (v: boolean) => void;
   markChatHelpSeen: (mode: ChatModeShortcut) => void;
+  /** This kind of device finished its walkthrough: in this browser and in the synced settings. */
+  markWalkthroughDeviceSeen: (device: WalkthroughDevice) => void;
+  /** Settings > Replay: show this kind of device's walkthrough again (in every browser). */
+  resetWalkthroughDevice: (device: WalkthroughDevice) => void;
   setChatHelpButtonHidden: (v: boolean) => void;
   dismissLinkApiBanner: () => void;
   dismissConnectionsUpgradeNote: () => void;
@@ -1917,7 +1950,12 @@ const MAIN_SURFACE_KEYS = [
 export type MainSurfaceKey = (typeof MAIN_SURFACE_KEYS)[number];
 
 /** The Chat Settings drawer a surface was opened from; `section` is the drawer's `initialSection`. */
-export type ChatSettingsReturn = { chatId: string; section: string | null };
+export type ChatSettingsReturn = {
+  chatId: string;
+  section: string | null;
+  /** Phones and tablets upright: the sheet's page to reopen on (see MobileChatSettingsPlace). */
+  mobileNav?: { view: "off" | "quick" | "all" | "page"; page: string | null; back: "quick" | "all" };
+};
 
 const CLOSED_MAIN_SURFACE = {
   regexDetailId: null,
@@ -2270,6 +2308,8 @@ export function pickSyncedSettings(state: UIState) {
     weatherEffects: state.weatherEffects,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     chatHelpSeenModes: state.chatHelpSeenModes,
+    walkthroughDevicesSeen: state.walkthroughDevicesSeen,
+    aiBasicsOfferAnswered: state.aiBasicsOfferAnswered,
     chatHelpButtonHidden: state.chatHelpButtonHidden,
     featureTipsEnabled: state.featureTipsEnabled,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
@@ -2579,6 +2619,8 @@ export function pickPersistedUIState(state: UIState) {
     customThemes: state.customThemes,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     chatHelpSeenModes: state.chatHelpSeenModes,
+    walkthroughDevicesSeen: state.walkthroughDevicesSeen,
+    aiBasicsOfferAnswered: state.aiBasicsOfferAnswered,
     chatHelpButtonHidden: state.chatHelpButtonHidden,
     featureTipsEnabled: state.featureTipsEnabled,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
@@ -2695,6 +2737,7 @@ export const useUIStore = create<UIState>()(
         homeBrowserFullscreen: false,
         whatsNewRequested: false,
         settingsTargetSectionId: null,
+        imageSettingsTab: null,
         modal: null,
         advancedMemoryRequest: null,
         theme: "dark" as const,
@@ -2974,6 +3017,8 @@ export const useUIStore = create<UIState>()(
         hasMigratedCustomThemesToServer: false,
         hasCompletedOnboarding: false,
         chatHelpSeenModes: [],
+        walkthroughDevicesSeen: [],
+        aiBasicsOfferAnswered: false,
         chatHelpButtonHidden: false,
         featureTipsEnabled: true,
         linkApiBannerDismissed: false,
@@ -2997,6 +3042,7 @@ export const useUIStore = create<UIState>()(
         omnibarOpen: false,
         omnibarSettings: null,
         mariPaneVisible: false,
+        mariPageVisible: false,
 
         // Impersonate settings defaults
         impersonatePromptTemplate: "",
@@ -3139,12 +3185,33 @@ export const useUIStore = create<UIState>()(
         requestWhatsNew: () => set({ whatsNewRequested: true }),
         consumeWhatsNewRequest: () => set({ whatsNewRequested: false }),
         setSettingsTargetSectionId: (sectionId) => set({ settingsTargetSectionId: sectionId }),
+        openImageSettings: (tab) => {
+          set({ imageSettingsTab: tab ?? null });
+          get().openProfileDetail(IMAGE_SETTINGS_PROFILE_ID);
+        },
+        setImageSettingsTab: (imageSettingsTab) => set({ imageSettingsTab }),
         openModal: (type, props) => {
           // UI overhaul: Docs open as a tab (the Docs page on phones) instead of a modal.
           if (type === "docs-viewer" && isOverhaulLook()) {
             const initialDoc = typeof props?.initialDoc === "string" ? props.initialDoc : null;
             get().closeAllDetails();
             useOverhaulStore.getState().openDocs(initialDoc, { newTab: Boolean(props?.newTab) });
+            return;
+          }
+          // UI overhaul: Chat Variables' State editor is a page inside that chat's Chat settings.
+          if (type === "chat-variables-editor" && typeof props?.chatId === "string" && isOverhaulLook()) {
+            openChatSettingsSubpage(props.chatId, "variables");
+            return;
+          }
+          // UI overhaul: a job's settings and the built-in model are Connections pages, not windows.
+          if (type === "job-settings" && typeof props?.job === "string" && isOverhaulLook()) {
+            get().openConnectionDetail(`job-settings:${props.job}`);
+            return;
+          }
+          if (type === "device-detail" && isOverhaulLook()) {
+            get().openConnectionDetail(
+              import.meta.env.VITE_MARINARA_LITE === "true" ? "device:decision" : "device:local-model",
+            );
             return;
           }
           // UI overhaul: an account is a page (desktop: in the Connections viewer, beside its models).
@@ -3326,6 +3393,7 @@ export const useUIStore = create<UIState>()(
             ...getMobileDetailReturnState(s),
           })),
         closeLorebookDetail: () => set((s) => leaveMainSurface(s, { lorebookDetailId: null })),
+        consumeLorebookInitialEntry: () => set({ lorebookDetailInitialEntryId: null }),
         openPresetDetail: (id, options) =>
           set((s) => ({
             ...enterMainSurface(s, { presetDetailId: id }),
@@ -3444,6 +3512,17 @@ export const useUIStore = create<UIState>()(
             editorDirty: false,
             ...getMobileDetailReturnState(state),
           })),
+        replaceAgentDetailWithInstallPage: (packageId) =>
+          set((s) =>
+            s.agentDetailId
+              ? {
+                  ...CLOSED_MAIN_SURFACE,
+                  agentCatalogOpen: true,
+                  agentCatalogInitialPackageId: packageId,
+                  editorDirty: false,
+                }
+              : {},
+          ),
         closeAgentCatalog: () =>
           set((s) => leaveMainSurface(s, { agentCatalogOpen: false, agentCatalogInitialPackageId: null })),
         setAgentCatalogPage: (agentCatalogInitialPackageId) => set({ agentCatalogInitialPackageId }),
@@ -3538,11 +3617,25 @@ export const useUIStore = create<UIState>()(
           set(open ? { omnibarOpen: true } : { omnibarOpen: false, omnibarSettings: null, mariFieldDraft: null });
         },
         openOmnibarSettings: (controlId = null) => {
+          // New layout: Search and Professor Mari settings are rows in Settings › General, so every way in
+          // (the omnibar's gear, a search result, Mari's link) closes the omnibar and goes there instead.
+          if (isOverhaulLook()) {
+            set({ omnibarOpen: false, omnibarSettings: null, mariFieldDraft: null });
+            void import("../lib/state-navigation").then(({ executeStateNavigation }) =>
+              executeStateNavigation(
+                controlId
+                  ? { kind: "settings", tab: "general", controlId }
+                  : { kind: "settings", tab: "general", sectionId: "omnibar" },
+              ),
+            );
+            return;
+          }
           if (!get().omnibarOpen && get().debugMode) markOmnibarOpenStart();
           set({ omnibarOpen: true, omnibarSettings: { controlId } });
         },
         closeOmnibarSettings: () => set({ omnibarSettings: null }),
         setMariPaneVisible: (visible) => set({ mariPaneVisible: visible }),
+        setMariPageVisible: (visible) => set({ mariPageVisible: visible }),
 
         // Settings actions
         setFontSize: (size) => set({ fontSize: size }),
@@ -3974,6 +4067,19 @@ export const useUIStore = create<UIState>()(
         setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
         clearLegacyCustomThemes: () => set({ customThemes: [], activeCustomTheme: null }),
         setHasCompletedOnboarding: (v) => set({ hasCompletedOnboarding: v }),
+        markWalkthroughDeviceSeen: (device) => {
+          markDeviceWalkthroughSeen(device);
+          set((state) => {
+            const seen = state.walkthroughDevicesSeen ?? [];
+            return seen.includes(device) ? state : { walkthroughDevicesSeen: [...seen, device] };
+          });
+        },
+        resetWalkthroughDevice: (device) => {
+          resetDeviceWalkthrough(device);
+          set((state) => ({
+            walkthroughDevicesSeen: (state.walkthroughDevicesSeen ?? []).filter((d) => d !== device),
+          }));
+        },
         markChatHelpSeen: (mode) =>
           set((state) => {
             // Also per device kind, so the same mode's help still opens once on a phone or tablet.

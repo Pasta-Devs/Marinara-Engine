@@ -388,7 +388,9 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   );
 
   const hasPlayerContent = !!nowPlaying || loading || !!error;
-  const showPlayer = active;
+  // Phones: the floating disc shows only while there is music (loading, playing or an error) or while it is open,
+  // not as an empty disc over Home and every chat (QC panel 2, #18).
+  const showPlayer = active && (!mobile || hasPlayerContent || !collapsed);
   const displayTitle = loading ? "Finding a track..." : error ? error : (nowPlaying?.title ?? "YouTube");
   const displaySubtitle = loading
     ? "Searching YouTube"
@@ -554,10 +556,25 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
   if (mobile) {
     return (
       <>
-        {showPlayer && (
+        {/* The collapsed disc only shows while there is something to play or say (an idle disc over the chat
+            read as a stray button). The expanded panel and the video stay as they were. */}
+        {showPlayer && (!collapsed || hasPlayerContent) && (
           <div
             className="fixed z-[45] touch-none select-none md:hidden"
             style={mobileWidgetStyle}
+            role={collapsed ? "button" : undefined}
+            tabIndex={collapsed ? 0 : undefined}
+            aria-label={collapsed ? localizeUi("ui.chat.youtubeplayer.player") : undefined}
+            onKeyDown={
+              collapsed
+                ? (event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setCollapsed(false);
+                    }
+                  }
+                : undefined
+            }
             onPointerDown={startDrag}
             onPointerMove={moveDrag}
             onPointerUp={endDrag}
@@ -565,6 +582,15 @@ export function YouTubePlayer({ mobile = false }: { mobile?: boolean } = {}) {
           >
             {collapsed ? (
               <div
+                role="button"
+                tabIndex={0}
+                aria-label={[localizeUi("ui.chat.youtubeplayer.youtube"), nowPlaying?.title].filter(Boolean).join(": ")}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setCollapsed(false);
+                  }
+                }}
                 className={cn(
                   "flex h-12 w-12 items-center justify-center rounded-full border shadow-lg backdrop-blur-xl",
                   MUSIC_NEUTRAL_SHELL_BORDER_CLASS,

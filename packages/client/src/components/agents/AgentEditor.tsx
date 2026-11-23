@@ -2565,7 +2565,21 @@ export function AgentEditor() {
       : "ui.agents.agenteditor.writePromptForTextResultExample",
   )}\n\n${customResultExample.value}`;
 
+  // An agent from the store that isn't installed (Image settings' Illustrator row, a Chat settings link) has no
+  // settings page yet: show its install page instead, in place, so Back returns to where the link was.
+  const replaceWithInstallPage = useUIStore((s) => s.replaceAgentDetailWithInstallPage);
+  const agentMissing = !!agentDetailId && agentDetailId !== "__new__" && !builtIn && !dbConfig;
+  const installPackageId = agentMissing
+    ? (capabilityCatalog.data?.packages.find((entry) => entry.manifest.id === agentDetailId)?.manifest.id ?? null)
+    : null;
+  useEffect(() => {
+    if (installPackageId) replaceWithInstallPage(installPackageId);
+  }, [installPackageId, replaceWithInstallPage]);
+
   // ── Loading / not found ──
+  if (agentMissing && (installPackageId || capabilityCatalog.isLoading)) {
+    return <div className="mari-editor-shell flex flex-1" aria-busy="true" />;
+  }
   if (!agentDetailId || (!builtIn && !dbConfig && agentDetailId !== "__new__")) {
     return (
       <div className="mari-editor-shell flex flex-1 items-center justify-center">
@@ -2873,30 +2887,47 @@ export function AgentEditor() {
               icon={<Zap size="0.875rem" className="text-[var(--primary)]" />}
               help={localizeUi("ui.agents.agenteditor.whenThisAgentRunsDuringGenerationPreGenerationRuns")}
             >
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {(Object.entries(PHASE_META) as [AgentPhase, typeof phaseMeta][]).map(([phase, meta]) => {
-                  const isActive = normalizedLocalPhase === phase;
-                  const Icon = meta.icon;
-                  return (
-                    <button
-                      key={phase}
-                      onClick={() => {
-                        setLocalPhase(normalizeAgentPhaseForType(currentAgentType, phase));
-                        markDirty();
-                      }}
-                      className={cn(
-                        "flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs ring-1 transition-all",
-                        isActive
-                          ? "bg-[var(--primary)]/10 ring-[var(--primary)] " + meta.color
-                          : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                      )}
-                    >
-                      <Icon size="1rem" />
-                      <span className="font-medium">{meta.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {/* New layout: one dropdown (each phase with its icon), not a card grid. */}
+              {overhaulActive ? (
+                <Select
+                  label={localizeUi("ui.agents.agenteditor.pipelinePhase")}
+                  value={normalizedLocalPhase}
+                  onChange={(phase) => {
+                    setLocalPhase(normalizeAgentPhaseForType(currentAgentType, phase));
+                    markDirty();
+                  }}
+                  options={(Object.entries(PHASE_META) as [AgentPhase, typeof phaseMeta][]).map(([phase, meta]) => {
+                    const Icon = meta.icon;
+                    return { value: phase, label: meta.label, icon: <Icon size="0.875rem" className={meta.color} /> };
+                  })}
+                  className="w-full rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
+                />
+              ) : (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {(Object.entries(PHASE_META) as [AgentPhase, typeof phaseMeta][]).map(([phase, meta]) => {
+                    const isActive = normalizedLocalPhase === phase;
+                    const Icon = meta.icon;
+                    return (
+                      <button
+                        key={phase}
+                        onClick={() => {
+                          setLocalPhase(normalizeAgentPhaseForType(currentAgentType, phase));
+                          markDirty();
+                        }}
+                        className={cn(
+                          "flex flex-col items-center gap-1.5 rounded-xl p-3 text-xs ring-1 transition-all",
+                          isActive
+                            ? "bg-[var(--primary)]/10 ring-[var(--primary)] " + meta.color
+                            : "ring-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                        )}
+                      >
+                        <Icon size="1rem" />
+                        <span className="font-medium">{meta.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">{phaseMeta.description}</p>
             </FieldGroup>
           )}

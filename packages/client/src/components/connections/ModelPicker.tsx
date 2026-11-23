@@ -33,7 +33,7 @@ import { mediaRowFor, mediaSources, type MediaKind } from "../../lib/media-sourc
 import { isDecisionCatalogModel } from "../../lib/connection-model-selection";
 import { NATIVE_DECISION_SOURCE, type ServiceId } from "../modals/create-connection/shared";
 import { ConnectionSwitcherBody, ROW_CLASS } from "./ConnectionSwitcherBody";
-import { ImageReadingSettingsWindow } from "./ImageReadingSettings";
+import { useUIStore } from "../../stores/ui.store";
 import { SlidersHorizontal } from "lucide-react";
 import { Tabs } from "../ui/Tabs";
 import { ProviderIcon } from "./ProviderIcon";
@@ -369,15 +369,26 @@ function ModelPickerSlot({
         : null;
 
   // Image reading keeps what its Model is asked (prompt, request, limits) one row under the list.
-  const [readingSettingsOpen, setReadingSettingsOpen] = useState(false);
-  const readingSettingsLabel = t("connections.imageReading.open");
+  // Images keeps its styles, sizes and templates in the Image settings window, opened from the same row.
+  const imageSettings = jobKey === "images";
+  const openImageSettings = useUIStore((s) => s.openImageSettings);
+  const readingSettingsLabel = t(imageSettings ? "imageSettings.title" : "connections.imageReading.open");
   const footer = showJobSettings ? (
     <div className="shrink-0 border-t border-foreground/10 px-1 py-1">
-      <button type="button" data-picker-job-settings onClick={() => setReadingSettingsOpen(true)} className={ROW_CLASS}>
+      <button
+        type="button"
+        data-picker-job-settings
+        onClick={() => {
+          // Both close the picker first: Image settings and Image reading's settings are pages (new layout).
+          onClose();
+          if (imageSettings) openImageSettings();
+          else useUIStore.getState().openModal("job-settings", { job: "vision" });
+        }}
+        className={ROW_CLASS}
+      >
         <SlidersHorizontal size="0.875rem" aria-hidden className="mx-[0.3125rem] shrink-0 text-foreground/55" />
         <span className="min-w-0 flex-1 truncate">{readingSettingsLabel}</span>
       </button>
-      {readingSettingsOpen && <ImageReadingSettingsWindow onClose={() => setReadingSettingsOpen(false)} />}
     </div>
   ) : undefined;
   const onAdd = () => {

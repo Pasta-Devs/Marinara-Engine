@@ -60,9 +60,13 @@ import { loadOverhaulStyles } from "./lib/overhaul-styles";
 import { normalizeUiStyleOverride } from "./lib/ui-style-overrides";
 import { useSidecarStore } from "./stores/sidecar.store";
 import { useDialogStore } from "./stores/dialog.store";
+import { useChatStore } from "./stores/chat.store";
+import { useFloatingWindowStore } from "./stores/floating-window.store";
+import { useMobileChatSettingsNav } from "./features/chat-settings/mobile-nav";
+import { useChatSettingsSubpage } from "./features/chat-settings/subpage";
 import { api, requestTimeoutSignal } from "./lib/api-client";
 import { forceRefreshSpa, reloadBrowser } from "./lib/browser-runtime";
-import { recordClientError } from "./lib/client-runtime-diagnostics";
+import { isPageUnloading, recordClientError } from "./lib/client-runtime-diagnostics";
 import { showAppUpdatePrompt } from "./lib/app-update-prompt";
 import { UI_PERSISTENCE_HOST_COPY } from "./lib/ui-persistence";
 import { formatRuntimeBuild, getServerRuntimeBuild, isRuntimeBuildCurrent } from "./lib/runtime-build";
@@ -86,8 +90,9 @@ import { useSeasonalTheme } from "./hooks/use-seasonal-theme";
 import { useCustomNotificationSoundStatus } from "./hooks/use-custom-notification-sound";
 import { useReducedAmbientEffects } from "./hooks/use-reduced-ambient-effects";
 import { installLongTaskWarner } from "./lib/perf-diagnostics";
-import { getStoreBackLayers } from "./lib/back-layers";
+import { getStoreBackLayers, watchLibraryHubReturn } from "./lib/back-layers";
 import { initBackNavigation, syncBackNavigation } from "./lib/back-navigation";
+import { watchChatSettingsClose } from "./lib/chat-settings-close";
 import { setCustomNotificationSoundUrl } from "./lib/notification-sound";
 import { PHONE_TOAST_TOP_VARIABLE, watchPhoneToastTop } from "./lib/phone-toast-top";
 import { useCombatScreenStore } from "./stores/combat-screen.store";
@@ -206,6 +211,8 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
   }
 
   componentDidCatch(error: unknown, info: ErrorInfo) {
+    // A reload in Firefox fails the code still loading: not the app's error, and the page is going anyway.
+    if (isPageUnloading()) return;
     recordClientError("render-error", error);
     console.error("[AppRecoveryBoundary] Unhandled render error", error, info.componentStack);
   }
@@ -243,6 +250,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
       <Translation>
         {(t) => (
           <div
+            data-app-recovery=""
             className="mari-chrome-token-scope flex min-h-screen items-center justify-center bg-[var(--background)] px-4 text-[var(--marinara-chat-chrome-panel-text)]"
             style={recoveryChromeStyle}
           >
@@ -253,7 +261,10 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
               <p className="mt-2 text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
                 {t("ui.app.recovery.description")}
               </p>
-              <pre className="mari-chrome-accent-text-muted mari-accent-animated mt-3 max-h-32 overflow-auto rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-2 text-xs">
+              <pre
+                data-app-recovery-message=""
+                className="mari-chrome-accent-text-muted mari-accent-animated mt-3 max-h-32 overflow-auto rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] p-2 text-xs"
+              >
                 {errorMessage}
               </pre>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -767,12 +778,20 @@ export function App() {
 
   // A phone toast sits below the header rows at the top, never over their controls (lib/phone-toast-top).
   const toasterHostRef = useRef<HTMLDivElement>(null);
-  const phoneToastsAtTop = isMobileShell && (omnibarOpen || notificationPosition !== "bottom");
+  // Every shell: top toasts stay below the page headers too, so they never cover Close or Save (QC panel 2, #7).
+  // The computer's omnibar keeps its toasts bottom right.
+  const overhaulEnabled = useOverhaulStore((state) => state.enabled);
+  const phoneToastsAtTop = isMobileShell
+    ? omnibarOpen || notificationPosition !== "bottom"
+    : overhaulEnabled && !omnibarOpen && notificationPosition !== "bottom";
   // Top toasts, such as the lasting update notice, stack under an app banner instead of over it.
   const belowAppBanner = `calc(var(${APP_BANNER_BOTTOM_VARIABLE}, 0px) + 8px)`;
-  const phoneToastOffsetTop = omnibarOpen
-    ? "calc(env(safe-area-inset-top) + 5rem)"
-    : `max(calc(env(safe-area-inset-top) + 3.5rem), var(${PHONE_TOAST_TOP_VARIABLE}, 0px), ${belowAppBanner})`;
+  const phoneToastOffsetTop =
+    !isMobileShell && overhaulEnabled
+      ? `max(4rem, var(${PHONE_TOAST_TOP_VARIABLE}, 0px), ${belowAppBanner})`
+      : omnibarOpen
+        ? "calc(env(safe-area-inset-top) + 5rem)"
+        : `max(calc(env(safe-area-inset-top) + 3.5rem), var(${PHONE_TOAST_TOP_VARIABLE}, 0px), ${belowAppBanner})`;
   useLayoutEffect(() => {
     if (!phoneToastsAtTop || !toasterHostRef.current) return;
     return watchPhoneToastTop(toasterHostRef.current);
@@ -785,12 +804,27 @@ export function App() {
     syncBackNavigation();
     const unsubscribeUI = useUIStore.subscribe(syncBackNavigation);
     const unsubscribeDialog = useDialogStore.subscribe(syncBackNavigation);
+    // New layout on phones: pages, the Chats / Library page and the Chat settings sheet are back layers too.
+    const unsubscribeOverhaul = useOverhaulStore.subscribe(syncBackNavigation);
+    const unsubscribeChat = useChatStore.subscribe(syncBackNavigation);
+    const unsubscribeWindows = useFloatingWindowStore.subscribe(syncBackNavigation);
+    const unsubscribeChatSettingsNav = useMobileChatSettingsNav.subscribe(syncBackNavigation);
+    const unsubscribeChatSettingsSubpage = useChatSettingsSubpage.subscribe(syncBackNavigation);
+    const unwatchLibraryHub = watchLibraryHubReturn();
+    const unwatchChatSettingsClose = watchChatSettingsClose();
     // Whether a shell panel counts as an overlay depends on the viewport.
     const shellQuery = window.matchMedia(MOBILE_SHELL_MEDIA_QUERY);
     shellQuery.addEventListener("change", syncBackNavigation);
     return () => {
       unsubscribeUI();
       unsubscribeDialog();
+      unsubscribeOverhaul();
+      unsubscribeChat();
+      unsubscribeWindows();
+      unsubscribeChatSettingsNav();
+      unsubscribeChatSettingsSubpage();
+      unwatchLibraryHub();
+      unwatchChatSettingsClose();
       shellQuery.removeEventListener("change", syncBackNavigation);
     };
   }, []);

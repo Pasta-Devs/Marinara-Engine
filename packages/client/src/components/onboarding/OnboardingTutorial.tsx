@@ -1,7 +1,8 @@
 // ──────────────────────────────────────────────
 // Onboarding Tutorial — first-time guided tour
 // ──────────────────────────────────────────────
-import { useState, useEffect, useCallback, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useOverlayFocus } from "../../hooks/use-overlay-focus";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createPortal } from "react-dom";
 import { APP_VERSION } from "@marinara-engine/shared";
@@ -23,7 +24,8 @@ import { formatShortcutKey } from "../../lib/keyboard-shortcuts";
 import { WHATS_NEW_SEEN_VERSION_KEY } from "../modals/WhatsNewModal";
 import { LanguagePicker } from "../ui/LanguagePicker";
 import { useOverhaulStore, type OverhaulSettingsTab } from "../../stores/overhaul.store";
-import { markDeviceWalkthroughSeen, useWalkthroughDevice, type WalkthroughDevice } from "../../lib/walkthroughs";
+import { useWalkthroughDevice, type WalkthroughDevice } from "../../lib/walkthroughs";
+import { answerAiBasicsOffer } from "../../lib/guide-quests-progress";
 import { useDeviceWalkthroughDue } from "../../hooks/use-device-walkthrough-due";
 
 // ─── Step definitions ─────────────────────────
@@ -393,9 +395,9 @@ const TUTORIAL_DESKTOP_WIDTH = 340;
 const TUTORIAL_CARD_CLASS =
   "mari-chrome-token-scope pointer-events-auto overflow-x-hidden overflow-y-auto rounded-2xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-5 shadow-2xl ring-1 ring-[var(--marinara-chat-chrome-focus-ring)]";
 const TUTORIAL_SECONDARY_BUTTON_CLASS =
-  "rounded-lg px-3 py-1.5 text-xs text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-panel-text)]";
+  "ov-hit-y rounded-lg px-3 py-1.5 text-xs text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-panel-text)]";
 const TUTORIAL_PRIMARY_BUTTON_CLASS =
-  "flex items-center gap-1.5 rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] px-4 py-1.5 text-xs font-medium text-[var(--marinara-chat-chrome-button-text-active)] shadow-sm transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:scale-95";
+  "ov-hit-y flex items-center gap-1.5 rounded-lg border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] px-4 py-1.5 text-xs font-medium text-[var(--marinara-chat-chrome-button-text-active)] shadow-sm transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:scale-95";
 const TUTORIAL_DOCUMENTATION_BUTTON_CLASS =
   "flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] px-4 py-2.5 text-sm font-semibold text-[var(--marinara-chat-chrome-button-text-active)] shadow-sm transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-[0.98]";
 
@@ -759,10 +761,10 @@ function TourCardContent({
 
         {/* Buttons */}
         <div className="flex items-center justify-between">
-          <button onClick={onSkip} className={TUTORIAL_SECONDARY_BUTTON_CLASS}>
+          <button type="button" onClick={onSkip} className={TUTORIAL_SECONDARY_BUTTON_CLASS}>
             {localize(step === 0 ? "Skip Tutorial" : "Skip")}
           </button>
-          <button onClick={onNext} className={TUTORIAL_PRIMARY_BUTTON_CLASS}>
+          <button type="button" data-tour-primary="" onClick={onNext} className={TUTORIAL_PRIMARY_BUTTON_CLASS}>
             {localize(isLast ? "Get Started" : "Next")}
             {!isLast && <ChevronRight size="0.75rem" />}
           </button>
@@ -1003,39 +1005,42 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
     return () => cancelAnimationFrame(rafRef.current);
   }, [updateRect]);
 
-  const finish = useCallback(() => {
-    // Phones and tablets: a step may have slid the sidebar page open; the tour leaves the screen clear.
-    useOverhaulStore.getState().setMobileSidePageOpen(false);
-    if (tourSettingsTabRef.current) {
-      useOverhaulStore.getState().setSettingsTab(tourSettingsTabRef.current);
-      tourSettingsTabRef.current = null;
-    }
-    // A new user has just met this release in the tour, so What's New must not open right after it.
-    try {
-      window.localStorage.setItem(WHATS_NEW_SEEN_VERSION_KEY, APP_VERSION);
-    } catch {
-      // Storage may be unavailable in private or restricted browser contexts.
-    }
-    // Either tour shows where things live on this kind of device, so its own walkthrough is done too.
-    if (useOverhaulStore.getState().enabled) markDeviceWalkthroughSeen(device);
-    if (kind === "device") return;
-    setCompleted(true);
-    trackAchievement.mutate("tutorial_completed");
-  }, [device, kind, setCompleted, trackAchievement]);
-
-  const handleTutorialKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLElement>) => {
-      if (event.key !== "Escape" || event.defaultPrevented || useUIStore.getState().modal) return;
-      finish();
+  // Skip (and Escape) end the tour without its achievement, and do not follow it with the "New to AI chat?"
+  // offer: the AI basics tour stays in Home's Things to try.
+  const finish = useCallback(
+    (skipped: boolean) => {
+      // Phones and tablets: a step may have slid the sidebar page open; the tour leaves the screen clear.
+      useOverhaulStore.getState().setMobileSidePageOpen(false);
+      if (tourSettingsTabRef.current) {
+        useOverhaulStore.getState().setSettingsTab(tourSettingsTabRef.current);
+        tourSettingsTabRef.current = null;
+      }
+      // A new user has just met this release in the tour, so What's New must not open right after it.
+      try {
+        window.localStorage.setItem(WHATS_NEW_SEEN_VERSION_KEY, APP_VERSION);
+      } catch {
+        // Storage may be unavailable in private or restricted browser contexts.
+      }
+      // Either tour shows where things live on this kind of device, so its own walkthrough is done too.
+      if (useOverhaulStore.getState().enabled) useUIStore.getState().markWalkthroughDeviceSeen(device);
+      if (kind === "device") return;
+      setCompleted(true);
+      if (skipped) {
+        answerAiBasicsOffer("skipped");
+        useUIStore.setState({ aiBasicsOfferAnswered: true });
+        return;
+      }
+      trackAchievement.mutate("tutorial_completed");
     },
-    [finish],
+    [device, kind, setCompleted, trackAchievement],
   );
+  const skip = useCallback(() => finish(true), [finish]);
 
   // "Get Started" on the final step commits the docs-language pick; Skip never does.
   const next = useCallback(() => {
     if (isLast) {
       commitDocsLanguage();
-      finish();
+      finish(false);
     } else {
       setStep((s) => s + 1);
     }
@@ -1070,6 +1075,18 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
   const tooltipStyle = targetRect ? computeTooltipStyle(targetRect, currentStep) : lastTooltipStyleRef.current;
   if (!isCentered && targetRect) lastTooltipStyleRef.current = tooltipStyle;
   if (isCentered) lastTooltipStyleRef.current = null;
+
+  // A11Y4: the card takes focus (its Next button) on every step, Tab stays in it (the page behind is dimmed),
+  // and Escape ends the tour from anywhere, as Skip does. A window opened above the tour keeps its own Escape.
+  useOverlayFocus(cardRef, {
+    active: !holdingForTarget,
+    initialFocus: "[data-tour-primary]",
+    focusKey: `${step}:${isCentered}`,
+    onEscape: () => {
+      if (useUIStore.getState().modal) return false;
+      skip();
+    },
+  });
 
   // Mari turns toward the highlighted control, wherever the card ended up beside (or, on a phone, below) it.
   const [cardBox, setCardBox] = useState<Rect | null>(null);
@@ -1177,7 +1194,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
             className={TUTORIAL_CARD_CLASS}
             ref={cardRef}
             role="dialog"
-            onKeyDown={handleTutorialKeyDown}
+            aria-modal="true"
             aria-label={dialogLabel}
             data-component="OnboardingTutorial.Card"
             style={{
@@ -1192,7 +1209,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
               currentStep={currentStep}
               isLast={isLast}
               onNext={next}
-              onSkip={finish}
+              onSkip={skip}
               pickerSlot={pickerSlot}
               device={device}
               sprite={aimedSprite}
@@ -1209,7 +1226,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
           className={TUTORIAL_CARD_CLASS}
           ref={cardRef}
           role="dialog"
-          onKeyDown={handleTutorialKeyDown}
+          aria-modal="true"
           aria-label={dialogLabel}
           data-component="OnboardingTutorial.Card"
           style={{
@@ -1224,7 +1241,7 @@ function OnboardingTutorialInner({ kind, device }: { kind: TourKind; device: Wal
             currentStep={currentStep}
             isLast={isLast}
             onNext={next}
-            onSkip={finish}
+            onSkip={skip}
             pickerSlot={pickerSlot}
             device={device}
             sprite={aimedSprite}

@@ -7,9 +7,9 @@ Type a message, send it, and watch the reply appear. This guide covers sending, 
 Before you start: your chat needs a model. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 1. Type in the input bar at the bottom of the chat.
-2. Click **Send**, or press <kbd>Enter</kbd> if **Send on Enter** is on for that chat mode.
+2. Click **Send**. In Roleplay, press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>⌘</kbd>+<kbd>Enter</kbd> on a Mac). In Conversation and Game, press <kbd>Enter</kbd>. The message box's placeholder and a one-time tip say this too.
 
-Your message appears, then the reply streams in. Only one reply can generate per chat at a time. While a reply streams, **Send** turns into a stop button.
+Your message appears, then the reply appears as it is written, at the pace set in **Streaming speed**. Only one reply can generate per chat at a time. While a reply streams, **Send** turns into a stop button.
 
 If it did not work: with no model set for the chat, the reply fails at once with a message that no connection is configured. Pick one in [Chat Settings](chat-settings.md).
 
@@ -17,11 +17,11 @@ If it did not work: with no model set for the chat, the reply fails at once with
 
 Find it in **Settings → Chatting → Message Box**. There is one toggle per chat mode, saved on the device you set it on, so a phone and a computer can differ.
 
-| Chat mode     | Default | When off                                                                         |
-| ------------- | ------- | -------------------------------------------------------------------------------- |
-| Roleplay      | Off     | <kbd>Enter</kbd> adds a new line. Click **Send**.                                |
-| Conversations | On      | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
-| Game          | On      | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends. |
+| Chat mode     | Default | When off                                                                                                                             |
+| ------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Roleplay      | Off     | <kbd>Enter</kbd> adds a new line; <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends, as does **Send**. |
+| Conversations | On      | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends.                                                     |
+| Game          | On      | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (<kbd>Cmd</kbd>+<kbd>Enter</kbd> on Mac) sends.                                                     |
 
 Roleplay is off by default because roleplay messages are often long and need line breaks. Professor Mari has her own toggle, **Enter sends to Professor Mari**, in **Settings → General → Professor Mari**.
 

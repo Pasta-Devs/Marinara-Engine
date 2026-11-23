@@ -3476,6 +3476,42 @@ details[open] > .mari-disclosure .mari-disclosure__chevron {
   }
 }
 
+/* Her full chat page (and the classic Home chat) has no margin beside its column for her to hang in: the
+   column runs to the pane's edge, so at -3.75rem she was cut off at the left (QC MOB23, iPad portrait and
+   desktop alike). There she always rests at L0 with her first lines beside her, as in a narrow Search panel. */
+.mari-page-transcript .mari-answer {
+  display: flow-root;
+}
+
+.mari-page-transcript .mari-answer > * + * {
+  margin-top: 0.5rem;
+}
+
+.mari-page-transcript .mari-answer[data-sprite="true"] {
+  min-height: 0;
+}
+
+.mari-page-transcript .mari-answer__sprite {
+  position: relative;
+  inset: auto;
+  display: block;
+  float: inline-start;
+  margin-block: -0.3rem 0.15rem;
+  margin-inline: 0 0.6rem;
+}
+
+.mari-page-transcript .mari-answer .mari-run-outcome {
+  clear: both;
+}
+
+.mari-page-transcript .mari-answer .mari-message-content > span:not(.mari-stream-caret) {
+  display: block;
+}
+
+.mari-page-transcript .mari-answer .mari-message-content > :not(span:first-child) {
+  clear: inline-start;
+}
+
 /* Under her answer: reference rows, the outcome groups, "Why", then the reply actions. */
 .mari-run-outcome {
   display: grid;

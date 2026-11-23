@@ -2,6 +2,7 @@
 // Home "Things to try": the next three tasks in the Field notes widget, and the full list by trail
 // (See all). Show me opens the spot; a task ticks itself when Marinara sees it done, or by hand.
 // ──────────────────────────────────────────────
+import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
 import { useState, type ComponentType, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -46,6 +47,7 @@ import { AI_BASICS_QUESTS, type GuideQuest } from "../../lib/guide-quests";
 import { markGuideQuestDone, skipGuideQuest } from "../../lib/guide-quests-progress";
 import { startGuideQuest } from "../../stores/guide-card.store";
 import { useUIStore } from "../../stores/ui.store";
+import { useOverhaulLook } from "../../stores/overhaul.store";
 import {
   AI_BASICS_ICON,
   AiBasicsList,
@@ -259,7 +261,7 @@ export function ThingsToTrySeeAll({ onOpen }: { onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="relative z-[2] shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
+      className="ov-hit-y relative z-[2] shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-[var(--home-module-accent-text,var(--home-module-accent))] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
     >
       {things.ready
         ? t("thingsToTry.seeAllCount", "See all ({{done}}/{{total}})", { done: things.doneCount, total: things.total })
@@ -328,6 +330,7 @@ function TaskRow({
           <button
             type="button"
             onClick={() => onShow(task)}
+            aria-label={t("thingsToTry.showMeNamed", "Show me: {{task}}", { task: title(task) })}
             className="rounded-lg px-2 py-1 text-xs font-bold text-[var(--marinara-app-accent-text,var(--primary))] hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] pointer-coarse:min-h-9"
           >
             {t("thingsToTry.showMe", "Show me")}
@@ -390,6 +393,7 @@ type SeeAllTab = "things" | "basics" | "deep";
 export function ThingsToTryList({ onClose, links }: { onClose: () => void; links: ReactNode }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<SeeAllTab>("things");
+  const overhaulLook = useOverhaulLook();
   const tabs: { id: SeeAllTab; label: string }[] = [
     { id: "things", label: t("guideQuests.tabThings", "Things to try") },
     { id: "basics", label: t("guideQuests.tabBasics", "AI basics") },
@@ -400,7 +404,11 @@ export function ThingsToTryList({ onClose, links }: { onClose: () => void; links
       <div
         role="tablist"
         aria-label={t("thingsToTry.windowTitle", "Things to try")}
-        className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1"
+        onKeyDown={(event) => onRovingTabsKeyDown(event)}
+        // New layout: the overhaul's underline tabs (like Settings), not filled pills.
+        className={
+          overhaulLook ? "ov-linetabs" : "flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-1"
+        }
       >
         {tabs.map((entry) => (
           <button
@@ -408,14 +416,19 @@ export function ThingsToTryList({ onClose, links }: { onClose: () => void; links
             type="button"
             role="tab"
             aria-selected={tab === entry.id}
+            tabIndex={tab === entry.id ? 0 : -1}
             data-see-all-tab={entry.id}
             onClick={() => setTab(entry.id)}
-            className={cn(
-              "min-h-8 flex-1 rounded-lg px-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] pointer-coarse:min-h-10",
-              tab === entry.id
-                ? "bg-[var(--marinara-app-accent-solid,var(--primary))] text-[var(--primary-foreground)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-            )}
+            className={
+              overhaulLook
+                ? cn("ov-linetabs__tab", tab === entry.id && "is-on")
+                : cn(
+                    "min-h-8 flex-1 rounded-lg px-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)] pointer-coarse:min-h-10",
+                    tab === entry.id
+                      ? "bg-[var(--marinara-app-accent-solid,var(--primary))] text-[var(--primary-foreground)]"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                  )
+            }
           >
             {entry.label}
           </button>

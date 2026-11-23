@@ -37,6 +37,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { AgentModeFilter, type AgentModeFilterValue } from "./AgentModeFilter";
 import { CustomAgentRepositoriesModal } from "./CustomAgentRepositoriesModal";
+import { useBackDismiss } from "../../hooks/use-back-dismiss";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   checkReasonOf,
@@ -435,6 +436,8 @@ export function AgentCatalogView() {
     setQuery("");
     setPage(next);
   };
+  // Browser / gesture Back leaves the Custom sources page for the Agents list.
+  useBackDismiss(ovLook && page.kind === "sources", () => go({ kind: "home" }));
 
   const openMenu = (entry: OrganizerEntry | null, event: MouseEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -503,7 +506,8 @@ export function AgentCatalogView() {
             {
               label: localizeUi("ui.agents.agentcatalogview.customSources"),
               icon: <GitFork size="0.85rem" />,
-              onSelect: () => setCustomRepositoriesOpen(true),
+              // New layout: a page in the Agents viewer; the classic view keeps its window.
+              onSelect: () => (ovLook ? go({ kind: "sources" }) : setCustomRepositoriesOpen(true)),
             },
           ]
         : []),
@@ -658,7 +662,9 @@ export function AgentCatalogView() {
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menuItems(menu.entry)} onClose={() => setMenu(null)} autoFocus />
       )}
-      <CustomAgentRepositoriesModal open={customRepositoriesOpen} onClose={() => setCustomRepositoriesOpen(false)} />
+      {ovLook ? null : (
+        <CustomAgentRepositoriesModal open={customRepositoriesOpen} onClose={() => setCustomRepositoriesOpen(false)} />
+      )}
     </>
   );
 
@@ -704,6 +710,11 @@ export function AgentCatalogView() {
                   void runUpdates([all.find((live) => live.manifest.id === entry.manifest.id) ?? entry], true)
                 }
               />
+            }
+            sourcesPage={
+              customRepositories.data?.enabled ? (
+                <CustomAgentRepositoriesModal open asPage onClose={() => go({ kind: "home" })} />
+              ) : undefined
             }
             bulkNote={
               bulkProgress ? (

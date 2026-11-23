@@ -17,6 +17,7 @@ process.env.DISABLE_REQUEST_LOGGING = "true";
 process.env.AUTO_CREATE_DEFAULT_CONNECTION = "false";
 delete process.env.LOREBOOK_STABLE_GROUP_WINNERS;
 delete process.env.PROVIDER_RETRY_TRANSIENT_ERRORS;
+delete process.env.LOREBOOK_NEW_BOOK_VECTORS;
 
 type TestApp = {
   close(): Promise<void>;
@@ -33,6 +34,7 @@ try {
   // ── the registry: exactly these switches, every one off by default ──
   assert.deepEqual([...FEATURE_SWITCH_NAMES].sort(), [
     "messageTrash",
+    "newLorebookVectors",
     "providerRetry",
     "stableLorebookGroupPicks",
     "usageAndActivationStats",

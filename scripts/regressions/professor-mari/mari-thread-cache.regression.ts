@@ -40,10 +40,16 @@ assert.equal(cachedMariThread(general), null);
 
 const day = (n: number) => new Date(Date.UTC(2026, 9, n)).toISOString();
 rememberMariThreads([
-  { id: "a", metadata: { mariContextKey: "general" }, lastMessageAt: day(2), createdAt: day(1) },
+  // "a" is the thread she showed last (the server's active one).
+  {
+    id: "a",
+    metadata: { mariContextKey: "general", professorMariActive: true },
+    lastMessageAt: day(2),
+    createdAt: day(1),
+  },
   { id: "b", metadata: { mariContextKey: "character:c1" }, lastMessageAt: day(3), createdAt: day(1) },
 ]);
-// The routing would keep her in "a" for Home.
+// The routing would keep her in "a", the thread she showed last, for Home, though "b" is newer.
 assert.equal(cachedMariThread(general)?.chatId, "a");
 // From the character's editor it would move to "b": do not flash "a" first.
 assert.equal(cachedMariThread({ context: { key: "character:c1" } }), null);

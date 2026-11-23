@@ -1,5 +1,7 @@
 // Split view: the second side's frame keeps where it is to itself (must run before any store loads).
 import { SPLIT_PANE } from "./lib/split-view-env";
+// Before any schema is used: no eval probe for the CSP to block (lib/zod-jitless.ts).
+import "./lib/zod-jitless";
 // Split view: only the side you clicked last plays sound. Installed before anything can start a sound.
 import "./lib/split-sound-gate";
 import { followSavedSettings } from "./lib/follow-saved-settings";
@@ -21,6 +23,7 @@ import { formatRuntimeBuild, runningBuildIsServed } from "./lib/runtime-build";
 import { recordClientReload, registerClientRuntimeDiagnostics } from "./lib/client-runtime-diagnostics";
 import { isIosWebKitBrowser } from "./lib/generation-stream-policy";
 import { installUiCheckHook } from "./lib/ui-check-hook";
+import { installBootOmnibarShortcut } from "./lib/omnibar-key-buffer";
 import "@fontsource/gloock/400.css";
 import "@fontsource-variable/figtree";
 import "./styles/globals.css";
@@ -33,6 +36,8 @@ Object.assign(globalThis, { React, ReactDOM });
 
 registerClientRuntimeDiagnostics(formatRuntimeBuild(APP_VERSION, __MARINARA_BUILD_COMMIT__));
 installUiCheckHook();
+// Ctrl+K before the app has drawn still opens Search, with what you type after it (QC Nov 22 K17).
+installBootOmnibarShortcut();
 // Phones and tablets: Home's stars hold still (battery). Set once before the first render, because the
 // media query alone missed iPads with a keyboard or trackpad attached (they report hover and a fine pointer).
 if (

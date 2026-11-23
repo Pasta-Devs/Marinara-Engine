@@ -97,6 +97,26 @@ export function cardFieldAlternativeValues(
   );
 }
 
+/**
+ * The image tags that go with a chat's Appearance alternative. An alternative without its own
+ * ticked tags turns the override off, so image prompts fall back to the alternative's prose,
+ * never to the main card's tags (which describe a different look).
+ */
+function appearanceAlternativeImageTags(
+  value: unknown,
+  chatId: string | undefined,
+): { imageAppearance: string; imageAppearanceEnabled: boolean } | null {
+  if (!chatId) return null;
+  const alternative = normalizeCardFieldAlternatives(value).find(
+    (entry) => entry.field === "appearance" && entry.chatIds.includes(chatId),
+  );
+  if (!alternative) return null;
+  return {
+    imageAppearance: alternative.imageAppearance ?? "",
+    imageAppearanceEnabled: alternative.imageAppearanceEnabled === true,
+  };
+}
+
 /** Pure projection: the authored card and its extension bag are never mutated. */
 export function applyCharacterCardFieldAlternatives<T extends Record<string, unknown>>(
   data: T,
@@ -114,13 +134,27 @@ export function applyCharacterCardFieldAlternatives<T extends Record<string, unk
       if (Object.hasOwn(projected, field)) projected[field] = value;
     } else projected[field] = value;
   }
+  const imageTags = appearanceAlternativeImageTags(extensions.cardFieldAlternatives, chatId);
+  if (imageTags) Object.assign(projected.extensions as Record<string, unknown>, imageTags);
   return projected as T;
 }
 
-export function applyPersonaCardFieldAlternatives<T extends { cardFieldAlternatives?: unknown }>(
-  persona: T,
-  chatId: string | undefined,
-): T {
+export function applyPersonaCardFieldAlternatives<
+  T extends { cardFieldAlternatives?: unknown; imageAppearanceEnabled?: unknown },
+>(persona: T, chatId: string | undefined): T {
   const values = cardFieldAlternativeValues(persona.cardFieldAlternatives, chatId);
-  return Object.keys(values).length ? { ...persona, ...values } : persona;
+  if (!Object.keys(values).length) return persona;
+  const imageTags = appearanceAlternativeImageTags(persona.cardFieldAlternatives, chatId);
+  if (!imageTags) return { ...persona, ...values };
+  // Stored persona rows keep the flag as "true"/"false"; a persona already parsed to a boolean keeps a boolean.
+  const enabled =
+    typeof persona.imageAppearanceEnabled === "boolean"
+      ? imageTags.imageAppearanceEnabled
+      : String(imageTags.imageAppearanceEnabled);
+  return {
+    ...persona,
+    ...values,
+    imageAppearance: imageTags.imageAppearance,
+    imageAppearanceEnabled: enabled,
+  };
 }
