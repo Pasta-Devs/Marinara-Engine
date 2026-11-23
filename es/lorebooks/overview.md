@@ -125,7 +125,7 @@ Elige un conjunto en **Use a saved set** (Usar un conjunto guardado), encima de 
 
 Elegir un conjunto reemplaza los lorebooks elegidos allí. Después puedes agregar o quitar lorebooks para ese chat o agente, y el conjunto guardado no cambia.
 
-Para activar o desactivar entradas sueltas en un solo chat, abre **Chat Settings → Lorebooks** y haz clic en el icono de lápiz **Edit lorebook entries** (Editar las entradas del lorebook) junto a un lorebook. Allí, el interruptor de cada entrada solo cambia ese chat. Las demás ediciones que hagas allí cambian el propio lorebook.
+Para activar o desactivar entradas sueltas en un solo chat, abre **Chat Settings → Lorebooks** y haz clic en el icono de lápiz (**Edit lorebook entries**, Editar las entradas del lorebook) junto a un lorebook. Allí, el interruptor de cada entrada solo cambia ese chat. Las demás ediciones que hagas allí cambian el propio lorebook.
 
 ## Guías relacionadas
 

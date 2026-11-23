@@ -144,7 +144,7 @@ GLM 5.4 solo está disponible en el GLM Coding Plan. Para usarlo, establece la *
 
 ### DeepSeek
 
-**DeepSeek** ofrece `deepseek-flash` y `deepseek-v4-pro`. DeepSeek razona de forma predeterminada. Su **Reasoning Effort** (Esfuerzo de razonamiento) usa los niveles propios de DeepSeek, y **Off** (Desactivado) desactiva el razonamiento para esa solicitud. DeepSeek atiende una solicitud de nivel medio como High. El razonamiento aparece en la respuesta con la presentación habitual de los pensamientos.
+**DeepSeek** ofrece `deepseek-flash` y `deepseek-v4-pro`. DeepSeek razona de forma predeterminada. Su **Reasoning Effort** usa los niveles propios de DeepSeek, y **Off** (Desactivado) desactiva el razonamiento para esa solicitud. DeepSeek atiende una solicitud de nivel medio como High. El razonamiento aparece en la respuesta con la presentación habitual de los pensamientos.
 
 Algunos parámetros no se aplican, así que el panel los omite: **Verbosity**, **Top K** y las penalizaciones están retirados y se ignoran. **Temperature** (Temperatura) y **Top P** forman un par, porque DeepSeek usa uno a la vez. Ves **Temperature** cuando el razonamiento está desactivado y **Top P** cuando está activado.
 
@@ -164,7 +164,7 @@ La lista de modelos muestra los modelos que los voluntarios ejecutan en ese mome
 
 ### OpenAI-compatible
 
-**OpenAI-compatible** (Compatible con OpenAI) conecta un servidor o proxy que acepta el formato de solicitud de OpenAI, como Ollama, LM Studio o KoboldCpp. En la ventana **Add account** aparece como **OpenAI-compatible address** (Dirección compatible con OpenAI). La clave puede quedar vacía en la mayoría de los servidores locales. Tú introduces la dirección. Consulta [Conectar un modelo local o autoalojado](local-self-hosted.md). Para el modelo pequeño que Marinara ejecuta por su cuenta, consulta [Configuración del modelo integrado](local-model.md).
+**OpenAI-compatible** conecta un servidor o proxy que acepta el formato de solicitud de OpenAI, como Ollama, LM Studio o KoboldCpp. En la ventana **Add account** aparece como **OpenAI-compatible address** (Dirección compatible con OpenAI). La clave puede quedar vacía en la mayoría de los servidores locales. Tú introduces la dirección. Consulta [Conectar un modelo local o autoalojado](local-self-hosted.md). Para el modelo pequeño que Marinara ejecuta por su cuenta, consulta [Configuración del modelo integrado](local-model.md).
 
 ## Imágenes y video
 

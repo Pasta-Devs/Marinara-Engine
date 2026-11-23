@@ -249,8 +249,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "ce7a411ba9ecb47602fcf7e28c2588a12dc06060d10267b508262b822367550e",
-      "bytes": 22546
+      "sha256": "980f3f7553ec96feab635aac824327dfba6e3b0fc561906c8ae0e4e032c6ecea",
+      "bytes": 22495
     },
     {
       "path": "connections/subscription-clis.md",
@@ -634,8 +634,8 @@
     },
     {
       "path": "lorebooks/overview.md",
-      "sha256": "ad5e70d89c4a3717d6eaa49c3d435c8ddf3e194360aa4429845a129988196a5b",
-      "bytes": 11322
+      "sha256": "7acabaf2aa826119a0ca3a2decfbe5033e6a8d083845021e0a58dcfed58771fd",
+      "bytes": 11323
     },
     {
       "path": "lorebooks/semantic-search.md",
@@ -659,8 +659,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "52ae9108906a88dfde80a56a15b7c830953e096b0b6f2af77325b6099b2eade3",
-      "bytes": 20207
+      "sha256": "fa388e6bddbaff626c12e27339b223e50f95f5aa4193cbc098fd867afd8642d8",
+      "bytes": 20244
     },
     {
       "path": "media/image-providers.md",
@@ -704,8 +704,8 @@
     },
     {
       "path": "prompts/macros.md",
-      "sha256": "662ae9a131c9a44c9dd9a089ad7cc6b2dd53d12394737f7c3db4261a40853303",
-      "bytes": 28973
+      "sha256": "a11906a8a9655715e4a6fc2325ab0c155d2a830eff458d664034960190ab7b78",
+      "bytes": 28974
     },
     {
       "path": "prompts/preset-variables.md",
