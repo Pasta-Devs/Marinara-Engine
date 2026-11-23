@@ -8,6 +8,7 @@ import {
   isGeminiModel,
   isGeminiStrictRequestModel,
   isGeminiThinkingLevelModel,
+  MODEL_LISTS,
   resolveProviderReasoningEffort,
   shouldSuppressUnknownModelParameters,
 } from "../../packages/shared/src/constants/model-lists.js";
@@ -1745,6 +1746,12 @@ assert.deepEqual(
 // https://docs.z.ai/devpack/latest-model
 assert.equal(findKnownModel("zai", "glm-5.4")?.context, 1_000_000);
 assert.equal(findKnownModel("zai", "glm-5.4")?.maxOutput, 128_000);
+// GLM-5.4 is on the Coding Plan only. Switching a connection to Z.AI fills in the first listed model and adding a
+// Z.AI account recommends the first three, both on the pay-as-you-go address, so none of them may be GLM-5.4.
+assert.ok(
+  !MODEL_LISTS.zai.slice(0, 3).some((model) => model.id === "glm-5.4"),
+  "Z.AI's filled-in and recommended models leave out the Coding-Plan-only GLM-5.4",
+);
 for (const model of ["glm-5.4", "z-ai/glm-5.4", "zai-org/glm-5.4", "glm-5.4:thinking"]) {
   assert.equal(isGlm53MandatoryReasoningModel(model), true, model);
 }
