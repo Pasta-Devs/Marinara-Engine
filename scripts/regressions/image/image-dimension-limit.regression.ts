@@ -12,6 +12,12 @@ let errorMessage: string | undefined;
 const server = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
+  // NanoGPT reads its model list first; without one, the request keeps its pixel size.
+  if (request.url?.startsWith("/v1/image-models")) {
+    response.statusCode = 404;
+    response.end();
+    return;
+  }
   const body = JSON.parse(Buffer.concat(chunks).toString()) as Record<string, unknown>;
   requests.push(body);
   const dimensions = String(body.size).split("x").map(Number);

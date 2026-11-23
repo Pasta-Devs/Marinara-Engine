@@ -2356,6 +2356,12 @@ const nanoGPTImageServer = createServer(async (request, response) => {
     response.end(Buffer.from(onePixelPng, "base64"));
     return;
   }
+  // The NanoGPT model list, read before the first request; this fixture has none.
+  if (request.url?.startsWith("/v1/image-models")) {
+    response.writeHead(404);
+    response.end();
+    return;
+  }
 
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
