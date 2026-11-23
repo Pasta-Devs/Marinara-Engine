@@ -66,7 +66,7 @@ Observações sobre os serviços simples:
 - **Together AI**: FLUX e outros modelos de imagem abertos.
 - **OpenRouter Images**: alcança os modelos de imagem pela interface de chat do OpenRouter, então os modelos variam de conta para conta.
 - **xAI / Grok Imagine**: usa o Grok Imagine.
-- **NanoGPT**: é um agregador, então use a lista de modelos dele.
+- **NanoGPT**: é um agregador, então use a lista de modelos dele. Marinara envia a cada modelo os tamanhos que o NanoGPT lista para ele, por exemplo `1.5k` com uma proporção de tela em vez de `1344x768`, e só a quantidade de imagens de referência que o modelo aceita. Se um modelo recusar um prompt negativo, Marinara desenha a imagem sem ele e registra um aviso no servidor.
 - **Pollinations**: a forma mais rápida de experimentar a geração de imagens. Não exige conta.
 - **Stable Horde**: uma rede colaborativa. Uma chave gratuita dá mais prioridade na fila.
 - **SD Web UI** e **Draw Things**: inicie o programa com a interface de aplicação ativada. Marinara trata o Draw Things como um servidor AUTOMATIC1111 (o aplicativo roda no macOS ou no iOS).
@@ -223,7 +223,7 @@ Uma imagem de referência é uma figura já existente que você envia junto com 
 | ChatGPT (Codex login) | Até 16 |
 | NovelAI | Até 16, somente no modelo V4.5 |
 | xAI / Grok Imagine | Até 3 |
-| NanoGPT | Até 3 |
+| NanoGPT | Até 3, dentro do limite do modelo. Nenhuma para modelos de texto para imagem |
 | ComfyUI, RunPod Serverless (ComfyUI), SwarmUI | Até 4, por meio dos marcadores do fluxo de trabalho |
 | Stability AI, Arli AI, SD Web UI, Draw Things | Somente a primeira imagem, como imagem para imagem |
 | Atlas Cloud | Primeira imagem, em IDs de modelo compatíveis com imagem para imagem, edição ou Kontext |

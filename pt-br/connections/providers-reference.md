@@ -25,6 +25,8 @@ Estes serviços usam uma chave de API, exceto os três serviços por assinatura,
 | Arli AI | `www.arliai.com/account` |
 | Z.AI | `z.ai/manage-apikey/apikey-list` |
 | DeepSeek | `platform.deepseek.com/api_keys` |
+| AI Horde | `aihorde.net/register` (opcional, veja [AI Horde](#ai-horde)) |
+| BeaverNet | `net.beaverai.org/account` |
 | OpenAI-compatible, Claude (Subscription), OpenAI (ChatGPT), Grok CLI (Subscription) | Sem página de chave. Veja as notas abaixo. |
 
 Endereços padrão, que Marinara preenche para você:
@@ -43,6 +45,8 @@ Endereços padrão, que Marinara preenche para você:
 - Arli AI: `https://api.arliai.com/v1`
 - Z.AI: `https://api.z.ai/api/paas/v4`
 - DeepSeek: `https://api.deepseek.com/v1`
+- AI Horde: `https://oai.aihorde.net/v1`
+- BeaverNet: `https://net.beaverai.org/v1`
 - OpenAI-compatible e os serviços por assinatura: nenhum. Você informa um endereço, ou nenhum é necessário.
 
 Todas as páginas de chave começam com `https://`.
@@ -135,19 +139,33 @@ O mesmo medidor aparece abaixo da barra de contexto no seletor de conexão de um
 
 ### Z.AI
 
-**Z.AI** oferece os modelos GLM (GLM 5.3, GLM 5.3 Flash e anteriores) pela própria API. Os modelos GLM 5.2 e 5.3 aceitam o nível de raciocínio **Maximum** (máximo). O endereço padrão é o endpoint com cobrança por uso. O Coding Plan da Z.AI usa outro endpoint, então uma chave do Coding Plan pode não funcionar aqui.
+**Z.AI** oferece os modelos GLM (GLM 5.4, GLM 5.3, GLM 5.3 Flash e anteriores) pela própria API. Os modelos GLM 5.2, 5.3 e 5.4 aceitam o nível de raciocínio **Maximum** (máximo). O endereço padrão é o endpoint com cobrança por uso. O Coding Plan da Z.AI usa outro endpoint, então uma chave do Coding Plan pode não funcionar aqui.
+
+O GLM 5.4 só está disponível no GLM Coding Plan. Para usá-lo, defina o **Address** da conta como `https://api.z.ai/api/coding/paas/v4`. O GLM 5.4 sempre raciocina, então o **Reasoning Effort** (esforço de raciocínio) dele oferece **Low**, **High** e **Max**, sem **Off**.
 
 ### DeepSeek
 
-**DeepSeek** oferece `deepseek-flash` e `deepseek-v4-pro`. A DeepSeek raciocina por padrão. O **Reasoning Effort** (esforço de raciocínio) dela usa os níveis próprios da DeepSeek, e **Off** (desativado) desliga o raciocínio naquela requisição. A DeepSeek trata uma requisição de nível médio como High. O raciocínio aparece na resposta, na exibição habitual do raciocínio.
+**DeepSeek** oferece `deepseek-flash` e `deepseek-v4-pro`. A DeepSeek raciocina por padrão. O **Reasoning Effort** dela usa os níveis próprios da DeepSeek, e **Off** (desativado) desliga o raciocínio naquela requisição. A DeepSeek trata uma requisição de nível médio como High. O raciocínio aparece na resposta, na exibição habitual do raciocínio.
 
 Alguns parâmetros não se aplicam, por isso o painel os deixa de fora: **Verbosity**, **Top K** e as penalidades foram descontinuados e são ignorados. **Temperature** (temperatura) e **Top P** formam um par, porque a DeepSeek usa um de cada vez. Você vê **Temperature** quando o raciocínio está desativado e **Top P** quando está ativado.
 
 Conecte a DeepSeek pelo botão próprio dela, e não apontando **OpenAI** para o endereço da DeepSeek. O serviço OpenAI espera os modelos da OpenAI; por isso, com um modelo da DeepSeek, ele esconde os controles de geração e não envia quase nenhum dos seus ajustes.
 
+### AI Horde
+
+**AI Horde** é uma rede gratuita em que voluntários rodam modelos nos próprios computadores. O botão dele configura uma conta **OpenAI-compatible** (compatível com OpenAI) com o endereço do AI Horde.
+
+O campo **API key** já vem com a chave anônima `0000000000`, que funciona sem conta. As requisições anônimas são as que mais esperam na fila. Uma chave gratuita de `aihorde.net/register` espera menos, e você ganha kudos (pontos do Horde que fazem as suas requisições subirem na fila) quando compartilha o seu próprio computador com a rede.
+
+A lista de modelos mostra os modelos que os voluntários estão rodando no momento, então ela muda com frequência. A fila decide quanto tempo uma resposta leva: alguns segundos ou vários minutos. Se o tempo de uma resposta se esgotar, tente outro modelo ou aumente os tempos limite do servidor (veja [Tempos limite](#timeouts)).
+
+### BeaverNet
+
+**BeaverNet** é uma rede comunitária gratuita: pessoas com placas de vídeo sobrando rodam modelos, e todos os outros os usam. O botão dele configura uma conta **OpenAI-compatible** com o endereço do BeaverNet. Crie uma chave gratuita em `net.beaverai.org/account`.
+
 ### OpenAI-compatible
 
-**OpenAI-compatible** (compatível com OpenAI) conecta um servidor ou proxy que aceita o formato de requisição da OpenAI, como Ollama, LM Studio ou KoboldCpp. Na janela **Add account**, ele aparece como **OpenAI-compatible address** (endereço compatível com OpenAI). Na maioria dos servidores locais, a chave pode ficar vazia. Você informa o endereço. Veja [Conectar um modelo local ou auto-hospedado](local-self-hosted.md). Para o modelo pequeno que Marinara roda sozinho, veja [Como configurar o Built-in model](local-model.md).
+**OpenAI-compatible** conecta um servidor ou proxy que aceita o formato de requisição da OpenAI, como Ollama, LM Studio ou KoboldCpp. Na janela **Add account**, ele aparece como **OpenAI-compatible address** (endereço compatível com OpenAI). Na maioria dos servidores locais, a chave pode ficar vazia. Você informa o endereço. Veja [Conectar um modelo local ou auto-hospedado](local-self-hosted.md). Para o modelo pequeno que Marinara roda sozinho, veja [Como configurar o Built-in model](local-model.md).
 
 ## Imagens e vídeo
 
@@ -207,6 +225,8 @@ Os embeddings transformam texto em listas de números para que Marinara encontre
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** e **Grok CLI (Subscription)** não geram embeddings. Nesses casos, use o menu suspenso **Embedding provider** (provedor de embeddings) para emprestar outra conta, como uma compatível com OpenAI, **Google Gemini** ou o **Built-in model** (modelo embutido).
 
 Para usar uma mesma fonte de embedding em todas as contas que não têm configurações de embedding próprias, clique na linha **Embeddings** da caixa **Jobs**. **Marinara's own search** (a busca do próprio Marinara) mantém o modelo de embedding embutido. O modelo de embedding próprio de uma conta, ou o **Embedding provider** dela, continua tendo prioridade. Vetorize de novo os seus lorebooks e memórias depois de mudar essa opção. Veja [Busca semântica para lorebooks](../lorebooks/semantic-search.md).
+
+<a id="timeouts"></a>
 
 ## Tempos limite
 
