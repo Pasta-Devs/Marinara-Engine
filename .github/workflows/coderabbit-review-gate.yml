@@ -194,8 +194,6 @@ jobs:
             echo "PR #$PR_NUM carries no @coderabbitai ignore line this workflow added."
             exit 0
           fi
-          gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="$NEW" >/dev/null
-          echo "PR #$PR_NUM: removed the @coderabbitai ignore line it carried from the default branch."
           state() {
             gh api "repos/$REPO/commits/$HEAD_SHA/status?per_page=100" \
               --jq '[.statuses[] | select(.context == "Dottore Review") | .state][0] // ""'
@@ -212,7 +210,14 @@ jobs:
             # Moved back and forth: the same head already passed, or its review is still running.
             echo "PR #$PR_NUM: $HEAD_SHA already passed review, or its review is running."
           else
+            gh api "repos/$REPO/contents/.github/workflows/dottore-review.yml?ref=$BASE" --silent >/dev/null || {
+              echo "::error::Dottore trusted workflow not found on base ref $BASE"
+              exit 1
+            }
             gh workflow run dottore-review.yml --repo "$REPO" --ref "$BASE" -f pr_number="$PR_NUM" \
               -f comment_body="Retargeted from the default branch" -f review_mode=full -f requested_by=github-actions
             echo "PR #$PR_NUM: Dottore reviews it in full against $BASE."
           fi
+          # Only after the review is asked for, so a failed dispatch leaves the line for a re-run to find.
+          gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="$NEW" >/dev/null
+          echo "PR #$PR_NUM: removed the @coderabbitai ignore line it carried from the default branch."

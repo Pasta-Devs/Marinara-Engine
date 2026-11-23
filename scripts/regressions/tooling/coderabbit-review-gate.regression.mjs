@@ -81,7 +81,7 @@ const jq = (input) => {
   process.exit(result.status ?? 1);
 };
 const repo = "repos/${repo}/";
-if (args[0] === "workflow" && args[1] === "run") process.exit(0);
+if (args[0] === "workflow" && args[1] === "run") process.exit(process.env.GATE_DISPATCH_FAILS ? 1 : 0);
 if (args[0] === "api" && args[1] === "--method") process.exit(0);
 if (args[0] === "api" && args[1].startsWith(repo + "pulls?state=open")) jq(JSON.parse(process.env.GATE_PULLS));
 const status = args[0] === "api" && /^repos\\/[^/]+\\/[^/]+\\/commits\\/([0-9a-f]{40})\\/status\\?/.exec(args[1]);
@@ -114,7 +114,18 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
   const running = (number) => ({ status: "in_progress", display_title: `Dottore Review: PR #${number} (auto)` });
 
   /** Runs `bash` and returns the calls that write: status posts, dispatches and description edits. */
-  function run(bash, { pulls = [other, pr()], statuses = {}, commits = history, body = "", runs = [], env = {} } = {}) {
+  function run(
+    bash,
+    {
+      pulls = [other, pr()],
+      statuses = {},
+      commits = history,
+      body = "",
+      runs = [],
+      env = {},
+      allowFailure = false,
+    } = {},
+  ) {
     const calls = join(temp, "calls.jsonl");
     writeFileSync(calls, "");
     // Each case starts a dozen Node processes for the gh mock, which takes seconds on a busy runner.
@@ -139,7 +150,7 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
         ...env,
       },
     });
-    assert.equal(result.status, 0, result.stderr);
+    if (!allowFailure) assert.equal(result.status, 0, result.stderr);
     return readFileSync(calls, "utf8")
       .trim()
       .split("\n")
@@ -278,11 +289,13 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
 
   // A promotion or hotfix moved to staging gets its review back.
   const moved = { BASE: "staging", DRAFT: "false" };
+  // The PATCH comes last, after any dispatch, so a dispatch that fails leaves the line for a re-run.
   const lostLine = (body, expected, options = {}) => {
     const writes = run(retarget, { body, env: moved, ...options });
-    assert.deepEqual(writes[0].slice(0, 4), ["api", "--method", "PATCH", `repos/${repo}/pulls/9086`]);
-    assert.equal(field(writes[0], "body"), expected);
-    return writes.slice(1);
+    const patch = writes.at(-1);
+    assert.deepEqual(patch.slice(0, 4), ["api", "--method", "PATCH", `repos/${repo}/pulls/9086`]);
+    assert.equal(field(patch, "body"), expected);
+    return writes.slice(0, -1);
   };
   expect("a retargeted pull request loses the line and gets a full Dottore review", () => {
     const rest = lostLine(`Hotfix.\n\n${added}`, "Hotfix.");
@@ -324,6 +337,14 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
   expect("a review already running for it is not restarted", () =>
     assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { runs: [running(9086)] }).length, 0),
   );
+  expect("a dispatch that fails leaves the line in place for a re-run", () => {
+    const writes = run(retarget, {
+      body: `Hotfix.\n\n${added}`,
+      env: { ...moved, GATE_DISPATCH_FAILS: "1" },
+      allowFailure: true,
+    });
+    assert.equal(writes.filter((args) => args[1] === "--method").length, 0, JSON.stringify(writes));
+  });
   expect("a head whose review failed gets a new one", () =>
     assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { statuses: { [head]: failed } }).length, 1),
   );
