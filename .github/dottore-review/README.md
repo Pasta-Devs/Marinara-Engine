@@ -224,8 +224,9 @@ last review (`.coderabbit.yaml`). The **Dottore Review** status is the required 
 | Rate limited, or skipped | Asks Dottore to review the head, from the last head either reviewer passed, and his review sets the status. A head that only merged staging in has nothing new, so he passes it without a model call. |
 | Failed | Nothing. |
 
-Dottore is not asked for a draft, a head that already passed, a pull request whose description says `@coderabbitai
-ignore`, or a pull request he is already reviewing (unless that review failed). A skip also covers a branch cut before
+Dottore is not asked for a draft, a head that already passed, or a pull request he is already reviewing (unless that
+review failed). CodeRabbit skips a pull request whose description says `@coderabbitai ignore` anywhere, even in prose
+about the keyword, so Dottore reviews such a pull request into staging in its place. A skip also covers a branch cut before
 automatic reviews were turned on: CodeRabbit reads a member's `.coderabbit.yaml` from the pull request's head, so that
 branch still has them off until it merges staging. When Dottore cannot finish a review, he leaves a head CodeRabbit
 already passed as it is.
@@ -243,7 +244,8 @@ branch from this repository. It runs when the pull request opens, so put the lin
 promotion or hotfix: CodeRabbit starts within seconds, before the gate can add it. A contributor's pull request opened
 into main by mistake gets no line, so it keeps its review once it is retargeted to staging. A pull request moved
 from main to staging gets a full Dottore review against staging and loses the line the gate added. A `@coderabbitai
-ignore` line you wrote yourself stays, so delete it after the move, or later pushes get no review.
+ignore` line you wrote yourself stays, so Dottore keeps reviewing its pushes; delete the line to have CodeRabbit review
+them again.
 
 GitHub runs `check_run` workflows only from the default branch, and `pull_request_target` ones from the base branch, so
 the gate runs from main's copy.

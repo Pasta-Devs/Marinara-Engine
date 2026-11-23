@@ -84,10 +84,8 @@ jobs:
               echo "PR #$PR_NUM is a draft or its head is already reviewed; Dottore is not needed."
               return 0
             fi
-            if gh api "repos/$REPO/pulls/$PR_NUM" --jq '.body // ""' | grep -qi "@coderabbitai ignore"; then
-              echo "PR #$PR_NUM tells CodeRabbit to ignore it; it gets no review in CodeRabbit's place."
-              return 0
-            fi
+            # A `@coderabbitai ignore` in the description (CodeRabbit honours it anywhere, even in prose about it) stops
+            # CodeRabbit only: a pull request into a reviewed base still needs its review to merge, so Dottore gives it.
             # A second CodeRabbit run on the head (a manual request) must not restart the review a first one started.
             # When Dottore's review of the head failed, its status says so and a new request may start another.
             if [ "$(gh api "repos/$REPO/commits/$HEAD_SHA/status?per_page=100" \

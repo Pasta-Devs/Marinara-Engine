@@ -229,8 +229,8 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
   expect("a head that already passed needs no Dottore", () =>
     assert.equal(run(gate, { ...limited, statuses: { [head]: passed } }).length, 0),
   );
-  expect("a pull request that tells CodeRabbit to ignore it gets no stand-in", () =>
-    assert.equal(run(gate, { ...limited, body: "Promote.\n\n@CodeRabbitAI ignore" }).length, 0),
+  expect("a staging pull request that tells CodeRabbit to ignore it still gets Dottore", () =>
+    dispatched(run(gate, { ...limited, body: "Explains the `@CodeRabbitAI ignore` keyword." })),
   );
   expect("a second rate-limited run does not restart the review a first one started", () =>
     assert.equal(run(gate, { ...limited, runs: [running(9086)] }).length, 0),
@@ -264,11 +264,8 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
       0,
     ),
   );
-  expect("a skip on a pull request that tells CodeRabbit to ignore it gets nothing", () =>
-    assert.equal(
-      run(gate, { ...check("skipped", "Review skipped"), body: "Fixes it.\n\n@coderabbitai ignore" }).length,
-      0,
-    ),
+  expect("a skip because the description says @coderabbitai ignore gets Dottore", () =>
+    dispatched(run(gate, { ...check("skipped", "Review skipped"), body: "Fixes it.\n\n@coderabbitai ignore" })),
   );
 
   // Promotions and hotfixes into the default branch get @coderabbitai ignore, marked as the gate's own line.
