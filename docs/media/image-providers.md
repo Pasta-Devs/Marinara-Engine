@@ -113,7 +113,7 @@ It runs hosted Stable Diffusion models. A model is required, so type the name of
 
 ### NovelAI
 
-NovelAI focuses on anime-style art. On V4, V4.5 and V5 models, Marinara sends native per-character prompts with positions for multi-character storyboards and Illustrator scenes. Precise reference images work only on a V4.5 model.
+NovelAI focuses on anime-style art. On V4, V4.5 and V5 models, Marinara sends native per-character prompts with positions for multi-character storyboards, Illustrator scenes and Professor Mari's images. Precise reference images work only on a V4.5 model.
 
 ### Venice.ai
 
