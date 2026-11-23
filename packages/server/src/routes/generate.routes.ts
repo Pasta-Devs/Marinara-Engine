@@ -679,6 +679,7 @@ import {
   parseJsonField,
   parseStoredGenerationParameters,
   parseGameStateRow,
+  regeneratedSwipeTrackerBase,
   isRoleplaySummaryMode,
   prefixGroupIndividualHistorySpeakers,
   readPersonaSnapshotName,
@@ -11840,7 +11841,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // Written for every saved turn of a ruleset game, changed or not, so each message and
           // swipe carries the state it ended with and the next turn, a swipe or a new session
           // always has a row to start from. A tracker that later rebuilds this row keeps it (see
-          // `create` in the game-state storage). The clone base matches the one the trackers use;
+          // `create` in the game-state storage). The clone base matches the one the Game tools use;
           // the live state itself is passed explicitly, because a sibling swipe's row holds what
           // THAT telling spent.
           // What the turn leaves on the sheets: the sheet commands' own result when that pass ran,
@@ -13922,14 +13923,19 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             input.regenerateMessageId && messageId && targetSwipeIndex > 0
               ? await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex - 1)
               : null;
-          // A value the trackers leave out keeps the user's edit, which the trackers were shown.
+          // A regenerated swipe starts where the reply began, as the trackers were shown, with the user's edits.
+          // The swipe before lends only its locks and hidden fields, with the values they hold; the rest belongs
+          // to the telling it replaces, such as the NPCs that telling brought in (#9697).
           const siblingSwipeSnapshot = projectGameSnapshotLocation(
             siblingSwipeRow
               ? ((await gameStateStore.applyManualEdits(input.chatId, messageId, siblingSwipeRow)) ?? siblingSwipeRow)
               : null,
             ownerSpatialProjection,
           );
-          const trackerBaseGameStateSnapshot = siblingSwipeSnapshot ?? baseGameStateSnapshot;
+          const trackerBaseGameStateSnapshot = regeneratedSwipeTrackerBase(
+            baseGameStateSnapshot,
+            siblingSwipeSnapshot,
+          ) as typeof baseGameStateSnapshot;
 
           const defaultResultMessageId = messageId;
           const defaultResultSwipeIndex = targetSwipeIndex;
