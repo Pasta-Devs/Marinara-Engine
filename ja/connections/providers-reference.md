@@ -25,6 +25,8 @@
 | Arli AI | `www.arliai.com/account` |
 | Z.AI | `z.ai/manage-apikey/apikey-list` |
 | DeepSeek | `platform.deepseek.com/api_keys` |
+| AI Horde | `aihorde.net/register`(任意。[AI Horde](#ai-horde)を参照) |
+| BeaverNet | `net.beaverai.org/account` |
 | OpenAI-compatible、Claude (Subscription)、OpenAI (ChatGPT)、Grok CLI (Subscription) | キーのページはありません。下の注記を参照してください。 |
 
 デフォルトのアドレスは次のとおりです。Marinaraが自動で入力します。
@@ -42,6 +44,8 @@
 - Arli AI: `https://api.arliai.com/v1`
 - Z.AI: `https://api.z.ai/api/paas/v4`
 - DeepSeek: `https://api.deepseek.com/v1`
+- AI Horde: `https://oai.aihorde.net/v1`
+- BeaverNet: `https://net.beaverai.org/v1`
 - OpenAI-compatibleとサブスクリプションサービス: なし。アドレスを自分で入力するか、アドレスが不要です。
 
 キーのページのアドレスは、すべて`https://`で始まります。
@@ -134,7 +138,9 @@ NanoGPTのサブスクリプションがある場合、アカウントに現在�
 
 ### Z.AI
 
-**Z.AI**は、GLMモデル(GLM 5.3、GLM 5.3 Flash、およびそれ以前のモデル)を独自のAPIで提供しています。GLM 5.2と5.3のモデルは、**Maximum**(最大)の推論レベルを受け付けます。デフォルトのアドレスは従量課金用のエンドポイントです。Z.AIのCoding Planは別のエンドポイントを使うため、Coding Planのキーはここでは動作しない場合があります。
+**Z.AI**は、GLMモデル(GLM 5.4、GLM 5.3、GLM 5.3 Flash、およびそれ以前のモデル)を独自のAPIで提供しています。GLM 5.2、5.3、5.4のモデルは、**Maximum**(最大)の推論レベルを受け付けます。デフォルトのアドレスは従量課金用のエンドポイントです。Z.AIのCoding Planは別のエンドポイントを使うため、Coding Planのキーはここでは動作しない場合があります。
+
+GLM 5.4はGLM Coding Planでのみ利用できます。使うには、アカウントの**Address**(アドレス)を`https://api.z.ai/api/coding/paas/v4`に設定します。GLM 5.4は常に思考するため、**Reasoning Effort**(推論の度合い)の選択肢は**Low**、**High**、**Max**で、**Off**はありません。
 
 ### DeepSeek
 
@@ -143,6 +149,18 @@ NanoGPTのサブスクリプションがある場合、アカウントに現在�
 適用されないパラメーターもあるため、パネルではそれらを表示しません。**Verbosity**、**Top K**、各種ペナルティーは廃止されており、無視されます。DeepSeekは一度にどちらか一方しか使わないため、**Temperature**(温度)と**Top P**は対になっています。思考がオフのときは**Temperature**が、オンのときは**Top P**が表示されます。
 
 DeepSeekには、**OpenAI**にDeepSeekのアドレスを指定するのではなく、DeepSeek専用のタイルで接続してください。OpenAIのサービスはOpenAIのモデルを前提としているため、DeepSeekのモデルでは生成の設定項目が非表示になり、設定のほとんどが送信されません。
+
+### AI Horde
+
+**AI Horde**は、有志が自分のコンピューターでモデルを動かす無料のネットワークです。このタイルは、AI Hordeのアドレスを入れた**OpenAI-compatible**(OpenAI互換)のアカウントを作ります。
+
+**API key**(APIキー)欄には、最初から匿名キーの`0000000000`が入っています。このキーはアカウントなしで使えます。匿名のリクエストは、順番待ちがいちばん長くなります。`aihorde.net/register`で無料のキーを取得すると待ち時間が短くなり、自分のコンピューターをネットワークに提供するとkudos(リクエストの順番を早めるHordeのポイント)がたまります。
+
+モデルの一覧には、その時点で有志が動かしているモデルが表示されるため、内容は頻繁に変わります。返信にかかる時間は順番待ち次第で、数秒のこともあれば数分かかることもあります。返信がタイムアウトした場合は、別のモデルを試すか、サーバーの制限時間を延ばしてください([タイムアウト](#timeouts)を参照)。
+
+### BeaverNet
+
+**BeaverNet**は無料のコミュニティネットワークです。グラフィックカードに余裕のある人がモデルを動かし、ほかの人がそれを使います。このタイルは、BeaverNetのアドレスを入れた**OpenAI-compatible**(OpenAI互換)のアカウントを作ります。`net.beaverai.org/account`で無料のキーを作成してください。
 
 ### OpenAI-compatible
 
@@ -206,6 +224,8 @@ Marinaraがデフォルトで使う音声アカウントを選ぶには、**Jobs
 **Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)**、**Grok CLI (Subscription)**は埋め込みを作れません。これらを使う場合は、**Embedding provider**(埋め込み用のプロバイダー)ドロップダウンで、OpenAI互換のアカウント、**Google Gemini**、**Built-in model**(内蔵モデル)など、ほかのアカウントを借ります。
 
 独自の埋め込み設定がないすべてのアカウントで1つの埋め込みの生成元を使うには、**Jobs**(役割)ボックスの**Embeddings**(埋め込み)の行をクリックします。**Marinara's own search**(Marinara独自の検索)を選ぶと、内蔵の埋め込みモデルを使い続けます。アカウント自身の埋め込みモデルや**Embedding provider**の設定は、引き続き優先されます。変更した後は、ロアブックと記憶をベクトル化し直してください。[ロアブックのセマンティック検索](../lorebooks/semantic-search.md)を参照してください。
+
+<a id="timeouts"></a>
 
 ## タイムアウト
 
