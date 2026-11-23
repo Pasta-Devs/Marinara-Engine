@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   agentResultMatchesVisibleSwipe,
   shouldQueueAgentWriteApproval,
-} from "../../packages/client/src/lib/agent-result-ownership.js";
+} from "../../../packages/client/src/lib/agent-result-ownership.js";
 
 // A backfill targets a reply far above the loaded page (#9695).
 const loadedPage = [{ id: "recent-reply", activeSwipeIndex: 0 }];
