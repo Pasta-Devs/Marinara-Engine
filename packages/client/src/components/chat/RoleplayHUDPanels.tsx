@@ -965,12 +965,20 @@ export function CharactersPanel({
       reader.onload = async () => {
         const dataUrl = reader.result as string;
         try {
+          const hasScenePortrait =
+            typeof char.scenePortraitPath === "string" && char.scenePortraitPath.trim().length > 0;
           const res = await api.post<{ avatarPath: string }>(`/avatars/npc/${chatId}`, {
             name: char.name,
             avatar: dataUrl,
+            ...(hasScenePortrait ? { scenePortrait: true } : {}),
           });
           const next = [...characters];
-          next[idx] = { ...char, avatarPath: res.avatarPath };
+          if (hasScenePortrait) {
+            const { portraitFocusX: _x, portraitFocusY: _y, portraitZoom: _z, ...rest } = char;
+            next[idx] = { ...rest, scenePortraitPath: res.avatarPath };
+          } else {
+            next[idx] = { ...char, avatarPath: res.avatarPath };
+          }
           onUpdate(next);
         } catch {
           // silently fail
