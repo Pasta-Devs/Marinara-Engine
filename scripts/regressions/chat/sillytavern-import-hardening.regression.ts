@@ -3,7 +3,7 @@
 // counted as imported (and so making an identical copy "already here"), long chats read whole just to be
 // listed, and import routes answering a malformed upload with a bare 500.
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DB } from "../../../packages/server/src/db/connection.js";
@@ -23,7 +23,16 @@ try {
   const { parseTrustedTimestamp } = await import("../../../packages/server/src/services/import/import-timestamps.js");
 
   // ── Dates: only strings that look like a date are read ──
-  for (const junk of ["12", "user 2", "2001", "chapter 3", "v2.5"]) {
+  for (const junk of [
+    "12",
+    "user 2",
+    "2001",
+    "chapter 3",
+    "v2.5",
+    "mayhem 2025",
+    "2025-02-30T12:00:00Z",
+    "2025-04-31",
+  ]) {
     assert.equal(parseTrustedTimestamp(junk), null, `"${junk}" is not a date`);
   }
   assert.equal(parseTrustedTimestamp("2025-03-01T12:00:00.000Z"), "2025-03-01T12:00:00.000Z", "ISO 8601");
@@ -35,15 +44,17 @@ try {
     "JavaScript's Date.toString()",
   );
   assert.ok(parseTrustedTimestamp("2024-5-12 @14h 3m 22s 123ms"), "SillyTavern's file date still reads");
+  assert.equal(parseTrustedTimestamp("2025-2-30 @12h 0m 0s"), null, "an impossible day in SillyTavern's file date");
+  assert.equal(parseTrustedTimestamp("2024-02-29T00:00:00Z"), "2024-02-29T00:00:00.000Z", "a real leap day");
+  assert.ok(parseTrustedTimestamp("Sept 3, 2025 10:00"), "an abbreviated month name");
   assert.equal(parseTrustedTimestamp(1_700_000_000_000), "2023-11-14T22:13:20.000Z", "epoch numbers still read");
 
   const { createFileNativeDB } = await import("../../../packages/server/src/db/file-backed-store.js");
   const { chats, messages, characters } = await import("../../../packages/server/src/db/schema/index.js");
   const { eq } = await import("../../../packages/server/src/db/file-query.js");
   const { importSTChat } = await import("../../../packages/server/src/services/import/st-chat.importer.js");
-  const { runSTBulkImport, scanSTFolder } = await import(
-    "../../../packages/server/src/services/import/st-bulk.importer.js"
-  );
+  const { runSTBulkImport, scanSTFolder } =
+    await import("../../../packages/server/src/services/import/st-bulk.importer.js");
   db = await createFileNativeDB();
 
   // ── A message dated in the future doesn't drag the rest of the chat after it ──
@@ -118,6 +129,10 @@ try {
       ),
     ].join("\r\n"),
   );
+  // A link inside the chats folder to a file outside it is not read.
+  const outside = join(fixtureRoot, "outside.jsonl");
+  writeFileSync(outside, [line({ user_name: "You", character_name: "Secret" }), line({ mes: "x" })].join("\n"));
+  symlinkSync(outside, join(dataDir, "chats", "Aria", "Linked.jsonl"));
   const scan = await scanSTFolder(fixtureRoot);
   assert.equal(scan.success, true, scan.error);
   assert.deepEqual(
@@ -125,7 +140,10 @@ try {
     ["Empty", "Empty", "Long"],
     "every chat file is listed, including a header-only one",
   );
-  assert.ok(scan.chats.every((chat) => chat.characterName === "Aria"), "names come from the header line");
+  assert.ok(
+    scan.chats.every((chat) => chat.characterName === "Aria"),
+    "names come from the header line",
+  );
 
   const bulk = await runSTBulkImport(
     fixtureRoot,

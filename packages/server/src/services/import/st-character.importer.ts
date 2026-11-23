@@ -4,6 +4,7 @@ import { syncCharacterBookFromLorebook } from "../lorebook/character-book-sync.j
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
 import { characters as charactersTable } from "../../db/schema/index.js";
+import { eq } from "../../db/file-query.js";
 import { logger } from "../../lib/logger.js";
 import { createCharactersStorage, withCharacterUpdateQueue } from "../storage/characters.storage.js";
 import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
@@ -78,6 +79,23 @@ async function removeImportedAvatarFile(avatarPath: string | undefined) {
   } catch (err) {
     logger.warn(err, "Failed to roll back imported character avatar");
   }
+}
+
+/** Removes the imported picture unless a character was saved with it before the error (a failed read-back). */
+async function removeUnusedImportedAvatar(db: DB, avatarPath: string | undefined) {
+  if (!avatarPath) return;
+  try {
+    const rows = await db
+      .select({ id: charactersTable.id })
+      .from(charactersTable)
+      .where(eq(charactersTable.avatarPath, avatarPath));
+    if (rows.length > 0) return;
+  } catch (err) {
+    // Unknown whether a character holds it: keep the file rather than break a saved character.
+    logger.warn(err, "Kept an imported character avatar whose use could not be checked");
+    return;
+  }
+  await removeImportedAvatarFile(avatarPath);
 }
 
 async function rollbackImportedCharacter(db: DB, characterId: string | undefined, avatarPath: string | undefined) {
@@ -394,12 +412,12 @@ export async function importSTCharacter(raw: Record<string, unknown>, db: DB, op
     character = await storage.create(data, avatarPath, normalizedTimestamps);
   } catch (err) {
     // The picture was saved first; without a character it would stay behind as an orphan file.
-    await removeImportedAvatarFile(avatarPath);
+    await removeUnusedImportedAvatar(db, avatarPath);
     throw err;
   }
   const charId = (character as { id?: string } | null)?.id;
   if (!charId) {
-    await removeImportedAvatarFile(avatarPath);
+    await removeUnusedImportedAvatar(db, avatarPath);
     return { success: false, error: "Failed to create character" };
   }
 
