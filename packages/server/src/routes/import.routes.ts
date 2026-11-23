@@ -859,7 +859,7 @@ export async function importRoutes(app: FastifyInstance) {
         if (importedChatId) {
           await storage
             .remove(importedChatId)
-            .catch((cleanupErr) => app.log.warn(cleanupErr, "Could not remove the imported branch %s", importedChatId));
+            .catch((cleanupErr) => logger.warn(cleanupErr, "Could not remove the imported branch %s", importedChatId));
         }
         throw err;
       }

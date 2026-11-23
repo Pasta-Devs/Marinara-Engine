@@ -943,7 +943,7 @@ async function updateCharacterFromCard(input: {
       return { updated, currentEmbedded, currentImportMetadata };
     });
   } catch (err) {
-    await removeImportedAvatarFile(input.avatarPath);
+    await removeUnusedImportedAvatar(db, input.avatarPath);
     throw err;
   }
   if (!outcome?.updated) {
