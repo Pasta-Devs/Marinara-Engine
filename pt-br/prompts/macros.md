@@ -120,6 +120,10 @@ A macro `{{gameStoryboardKeyframeCount}}` é fornecida aos prompts de GM do Game
 
 A macro `{{agent::TYPE}}` insere a saída salva de um agente (um ajudante que roda em segundo plano e preenche coisas como o tracker de cena). O jeito mais fácil de adicioná-la é pelo **Preset Editor**: clique em **Add Section**, abra o grupo **Agent Sections** e escolha um agente. Marinara cria uma seção que já contém a etiqueta `{{agent::TYPE}}` certa. Esta macro é resolvida por último, então o texto do agente não consegue inserir mais macros no prompt.
 
+No **Prompt Template** (modelo de prompt) de um agente, `{{agent::TYPE}}` insere o estado salvo de um tracker ativo no chat: `world-state`, `character-tracker`, `persona-stats`, `quest`, `custom-tracker`, `inventory-tracker` ou `beholder`. É o mesmo texto que a seção desse tracker acrescenta a um preset, exceto que, com um preset em Markdown, ele deixa de fora a linha que diz ao narrador para não descrever o estado de novo. Em uma resposta normal, o agente vê o estado de antes dessa resposta. Quando você roda de novo um agente de pós-processamento em uma mensagem, ele vê o estado salvo naquela mensagem.
+
+O próprio tipo de um agente só insere a última saída dele quando **Previous output** (saída anterior) está ligado em **Context Sources** (fontes de contexto). Os outros tipos de agente não inserem nada no prompt de um agente, e os agentes com o tipo de resultado **Character Activity** não leem o estado dos trackers. Citar o próprio tipo do agente dentro de uma declaração de decisão não é aceito: as decisões são planejadas uma vez para todos os agentes, então essa declaração pode ficar sem resposta e contar como não.
+
 ## Macros de Outlet de lorebook
 
 A macro `{{outlet::name}}` insere o conteúdo das entradas de lorebook cujo campo **Position** está em **Outlet** e cujo campo **Outlet name** é exatamente igual a `name`. Nos nomes de outlet, maiúsculas e minúsculas fazem diferença. Por exemplo, `{{outlet::character_rules}}` não corresponde a um outlet chamado `Character_Rules`.

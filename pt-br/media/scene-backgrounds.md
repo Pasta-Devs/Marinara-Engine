@@ -74,7 +74,7 @@ Você pode gerar de novo uma imagem sem gerar de novo a resposta a que ela perte
 3. Mude o que quiser nas caixas abaixo da imagem: **Prompt**, **Negative prompt** (prompt negativo), uma caixa para cada personagem em **Character prompts** (prompts de personagem), quando a imagem os tinha, e o modelo de imagem.
 4. Clique em **Generate image** (gerar imagem), ou em **Cancel** (cancelar) para deixar a imagem como está.
 
-A imagem nova passa a ser a versão selecionada na mensagem. Os resultados anteriores ficam juntos em um único bloco da galeria com uma contagem de versões. Cada versão mantém o prompt, o prompt negativo e os outros detalhes de geração salvos. As imagens de referência são enviadas de novo a partir dos avatares atuais dos personagens. Algumas imagens mais antigas não salvaram o prompt negativo e os prompts de personagem; o editor avisa quando é o caso.
+A imagem nova passa a ser a versão selecionada na mensagem. Os resultados anteriores ficam juntos em um único bloco da galeria com uma contagem de versões. Cada versão mantém o prompt, o prompt negativo e os outros detalhes de geração salvos. As imagens de referência são enviadas de novo a partir dos avatares atuais dos personagens, seguidas das imagens das entradas de lorebook com que a imagem foi desenhada da primeira vez. Stability AI, Arli AI, SD Web UI e Draw Things não recebem imagens de entradas. Algumas imagens mais antigas não salvaram o prompt negativo e os prompts de personagem; o editor avisa quando é o caso.
 
 ### Versões de imagens
 
