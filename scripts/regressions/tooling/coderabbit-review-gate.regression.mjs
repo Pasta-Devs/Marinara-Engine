@@ -305,6 +305,9 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
   expect("a description re-saved in the web editor, with CRLF line breaks, loses the line too", () =>
     assert.equal(lostLine(`Hotfix.\r\nNotes.\r\n\r\n${added.replace("\n", "\r\n")}`, "Hotfix.\r\nNotes.").length, 1),
   );
+  expect("a CRLF description that ends in a line break after the line loses it too", () =>
+    assert.equal(lostLine(`Hotfix.\r\n\r\n${added.replace("\n", "\r\n")}\r\n`, "Hotfix.\r").length, 1),
+  );
   expect("a description that was only the line is emptied", () => assert.equal(lostLine(added, "").length, 1));
   expect("a keyword the author wrote stays, with nothing edited", () =>
     assert.equal(run(retarget, { body: "Skip review: @coderabbitai ignore\n\nNotes.", env: moved }).length, 0),
