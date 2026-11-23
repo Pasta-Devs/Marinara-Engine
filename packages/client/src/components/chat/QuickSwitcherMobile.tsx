@@ -26,6 +26,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"connections" | "personas">("connections");
+  // The sheet opens at half height (Starred is one tap away) and grows once the user searches or opens a Connection.
+  const [tall, setTall] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const { data: rawCharacters } = useCharacterListRows();
@@ -75,7 +77,10 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
         type="button"
         ref={btnRef}
         data-quick-switcher-trigger
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setTall(false);
+          setOpen((v) => !v);
+        }}
         aria-haspopup="dialog"
         aria-expanded={open}
         title={
@@ -105,7 +110,10 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
           opaque
           chatFloatingPanel
           restoreFocusRef={btnRef}
-          panelClassName="ovm-qs-modal max-sm:h-[calc(var(--mari-visual-viewport-height,100dvh)-1.5rem)] max-sm:min-h-0"
+          panelClassName={cn(
+            "ovm-qs-modal max-sm:h-[calc(var(--mari-visual-viewport-height,100dvh)-1.5rem)] max-sm:min-h-0",
+            tall || tab === "personas" ? "is-tall" : "is-half",
+          )}
           contentClassName="flex flex-col overflow-hidden !p-0"
         >
           <div data-quick-switcher-mobile-menu className="flex min-h-0 flex-1 flex-col">
@@ -151,6 +159,8 @@ export function QuickSwitcherMobile({ contextBudget }: { contextBudget?: Profess
                   onApply={chatPick.apply}
                   onDone={closeMenu}
                   searchAtBottom
+                  connectionChips
+                  onGrow={() => setTall(true)}
                   showLocalModel={chatMode !== "game" && import.meta.env.VITE_MARINARA_LITE !== "true"}
                   shuffle={{ active: isRandom, onToggle: handleToggleRandom }}
                   followDefault={{ active: chatPick.followsMain, onSelect: chatPick.useDefault }}

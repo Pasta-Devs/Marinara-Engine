@@ -125,7 +125,48 @@ function takesMainDefaults(provider: string): boolean {
 
 /** One model in a saved provider list: display and limit fields only, never credentials. */
 export type SavedConnectionModel = { id: string; name: string } & Record<string, unknown>;
-export type SavedConnectionModelList = { fetchedAt: string; models: SavedConnectionModel[] };
+/** What changed between the last two lists that differed: `since` is the older list's time, `at` the newer one's. */
+export type ModelListChanges = { since: string; at: string; added: string[]; removed: string[] };
+export type SavedConnectionModelList = {
+  fetchedAt: string;
+  models: SavedConnectionModel[];
+  changes?: ModelListChanges;
+};
+
+const MAX_LISTED_CHANGES = 200;
+
+/**
+ * A new list with what changed since the previous one (a proxy that added three models and dropped one). A refresh
+ * that changes nothing keeps the last change, so "3 new since Monday" survives the next quiet refresh.
+ */
+export function withModelListChanges(
+  previous: SavedConnectionModelList | null,
+  list: SavedConnectionModelList,
+): SavedConnectionModelList {
+  if (!previous) return list;
+  const before = new Set(previous.models.map((model) => model.id));
+  const after = new Set(list.models.map((model) => model.id));
+  const added = list.models.filter((model) => !before.has(model.id)).map((model) => model.id);
+  const removed = previous.models.filter((model) => !after.has(model.id)).map((model) => model.id);
+  if (!added.length && !removed.length) return previous.changes ? { ...list, changes: previous.changes } : list;
+  return {
+    ...list,
+    changes: {
+      since: previous.fetchedAt,
+      at: list.fetchedAt,
+      added: added.slice(0, MAX_LISTED_CHANGES),
+      removed: removed.slice(0, MAX_LISTED_CHANGES),
+    },
+  };
+}
+
+function toChanges(value: unknown): ModelListChanges | undefined {
+  const parsed = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+  if (!parsed || typeof parsed.since !== "string" || typeof parsed.at !== "string") return undefined;
+  const ids = (raw: unknown) =>
+    Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string").slice(0, MAX_LISTED_CHANGES) : [];
+  return { since: parsed.since, at: parsed.at, added: ids(parsed.added), removed: ids(parsed.removed) };
+}
 
 /** The only fields kept from a provider's model entry when its list is saved. */
 const SAVED_MODEL_EXTRA_FIELDS = [
@@ -168,9 +209,11 @@ function toSavedModels(models: readonly unknown[]): SavedConnectionModel[] {
 }
 
 function toSavedModelList(value: unknown): SavedConnectionModelList | null {
-  const parsed = value && typeof value === "object" ? (value as { fetchedAt?: unknown; models?: unknown }) : null;
+  const parsed =
+    value && typeof value === "object" ? (value as { fetchedAt?: unknown; models?: unknown; changes?: unknown }) : null;
   if (typeof parsed?.fetchedAt !== "string" || !Array.isArray(parsed.models)) return null;
-  return { fetchedAt: parsed.fetchedAt, models: toSavedModels(parsed.models) };
+  const changes = toChanges(parsed.changes);
+  return { fetchedAt: parsed.fetchedAt, models: toSavedModels(parsed.models), ...(changes ? { changes } : {}) };
 }
 
 function parseJson(raw: unknown): unknown {
@@ -1498,8 +1541,9 @@ export function createConnectionsStorage(db: DB) {
       return db.transaction(async (tx) => {
         const [current] = await tx.select().from(apiConnections).where(eq(apiConnections.id, expected.id));
         if (!current || MODEL_LIST_SOURCE_FIELDS.some((field) => current[field] !== expected[field])) return null;
-        const list: SavedConnectionModelList = { fetchedAt: now(), models: toSavedModels(models) };
         const account = current.accountId ? await getConnectionAccount(tx, current.accountId) : null;
+        const previous = (account && readAccountCatalogs(account)[current.provider]) || readSavedModelList(current);
+        const list = withModelListChanges(previous, { fetchedAt: now(), models: toSavedModels(models) });
         if (!account) {
           await tx
             .update(apiConnections)
@@ -1535,7 +1579,10 @@ export function createConnectionsStorage(db: DB) {
         ) {
           return null;
         }
-        const list: SavedConnectionModelList = { fetchedAt: now(), models: toSavedModels(models) };
+        const list = withModelListChanges(readAccountCatalogs(current)[current.provider] ?? null, {
+          fetchedAt: now(),
+          models: toSavedModels(models),
+        });
         await tx
           .update(connectionAccounts)
           .set({ modelCatalogs: withAccountCatalog(current, current.provider, list) })

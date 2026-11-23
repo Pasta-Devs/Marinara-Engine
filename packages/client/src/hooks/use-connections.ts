@@ -471,6 +471,8 @@ export type ConnectionModelList = {
   models: RemoteConnectionModel[];
   loras?: RemoteConnectionModel[];
   fetchedAt?: string;
+  /** What changed between the last two saved lists that differed (a proxy adding or dropping models). */
+  changes?: { since: string; at: string; added: string[]; removed: string[] };
   /** "plan" or "free" when one word says how the whole Connection is paid for. */
   billing?: ConnectionBilling;
 };

@@ -17615,7 +17615,142 @@ button.ov-conn-card__name:hover b {
   cursor: pointer;
 }
 .ov-conn-card__foot {
+  display: flex;
+  align-items: stretch;
   border-top: 1px solid var(--ov-line);
+}
+.ov-conn-card__foot > .ov-conn-card__browse {
+  flex: 1 1 auto;
+  width: auto;
+  justify-content: flex-start;
+  border-radius: 0 0 0 0.75rem;
+}
+.ov-conn-card__chev {
+  transition: transform 0.15s ease;
+}
+.ov-conn-card__chev.is-open {
+  transform: rotate(180deg);
+}
+.ov-conn-card__account {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 0 0 0.75rem 0;
+  background: none;
+  color: var(--ov-muted);
+  font: inherit;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ov-conn-card__account:hover {
+  background: var(--ov-hover);
+  color: var(--ov-text);
+}
+.ov-conn-card__account.is-warn {
+  color: #e07a7a;
+  font-weight: 600;
+}
+.ov-conn-card__changes {
+  overflow: hidden;
+  min-width: 0;
+  padding: 0.0625rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ov-accent) 14%, transparent);
+  color: var(--ov-accent-text);
+  font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Browse, open under a card's own models. */
+.ov-conn-browse {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.625rem;
+  border-top: 1px solid var(--ov-line);
+  background: color-mix(in srgb, var(--ov-text) 2.5%, transparent);
+}
+.ov-conn-browse__group {
+  display: grid;
+  gap: 0.125rem;
+}
+.ov-conn-browse__group h3 {
+  margin: 0.125rem 0.375rem 0.125rem;
+  color: var(--ov-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ov-conn-browse__chips {
+  padding: 0 0.25rem 0.25rem;
+}
+.ov-conn-browse__row {
+  display: flex;
+  min-width: 0;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  color: var(--ov-text);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: start;
+  cursor: pointer;
+}
+.ov-conn-browse__row:hover,
+.ov-conn-browse__row:focus-visible {
+  background: var(--ov-hover);
+}
+.ov-conn-browse__row:disabled {
+  opacity: 0.55;
+}
+.ov-conn-browse__star {
+  flex: none;
+  color: var(--ov-muted);
+}
+.ov-conn-browse__row:hover .ov-conn-browse__star {
+  color: var(--ov-accent-text);
+}
+.ov-conn-browse__name {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 0.375rem;
+  overflow: hidden;
+}
+.ov-conn-browse__name b {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-conn-browse__name .ov-conn__dim {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov-conn-browse__new {
+  flex: none;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ov-accent) 18%, transparent);
+  color: var(--ov-accent-text);
+  font-size: 0.6875rem;
+}
+.ov-conn-browse__status,
+.ov-conn-browse__hint {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  color: var(--ov-muted);
+  font-size: 0.75rem;
 }
 .ov-conn-card__browse {
   display: flex;
@@ -17716,6 +17851,17 @@ button.ov-conn-card__name:hover b {
   .ov-conn-row__ctx {
     display: none;
   }
+  /* "+3 new, 1 gone" takes its own line under the name rather than squeezing the address. */
+  .ov-conn-card__head {
+    flex-wrap: wrap;
+  }
+  .ov-conn-card__name {
+    flex: 1 1 8rem;
+  }
+  .ov-conn-card__changes {
+    order: 10;
+    margin-inline-start: 2rem;
+  }
 }
 @media (max-width: 40rem) {
   .ov-conn-row__ctx {
@@ -17724,7 +17870,9 @@ button.ov-conn-card__name:hover b {
 }
 @media (pointer: coarse) {
   .ov-conn-row,
-  .ov-conn-card__browse {
+  .ov-conn-card__browse,
+  .ov-conn-card__account,
+  .ov-conn-browse__row {
     min-height: 2.75rem;
   }
 }

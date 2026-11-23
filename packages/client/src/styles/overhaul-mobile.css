@@ -3222,6 +3222,23 @@
   border-radius: 1.375rem 1.375rem 0 0;
   background: var(--ovm-raised);
 }
+:root[data-overhaul="mobile"] .mari-modal-panel.ovm-qs-modal.is-half:not(#ovm-x) {
+  /* Half height: Starred is one tap away; searching or opening a Connection grows it (.is-tall). */
+  height: min(38rem, 68dvh);
+  transition: height 0.2s ease;
+}
+:root[data-overhaul="mobile"] .ovm-qs-modal.is-half [data-quick-switcher-mobile-menu] {
+  min-height: 0;
+}
+:root[data-overhaul="mobile"] .mari-modal-panel.ovm-qs-modal.is-tall:not(#ovm-x) {
+  height: 85dvh;
+  transition: height 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-overhaul="mobile"] .mari-modal-panel.ovm-qs-modal:not(#ovm-x) {
+    transition: none;
+  }
+}
 :root[data-overhaul="mobile"] .ovm-qs-modal::before {
   content: "";
   position: absolute;

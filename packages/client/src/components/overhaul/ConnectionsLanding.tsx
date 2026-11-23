@@ -42,6 +42,7 @@ import { hostOf } from "../connections/ConnectionGroup";
 import { useConnectionDefaults } from "../connections/ConnectionDefaults";
 import { groupJobs, JOBS_PAGE_ID, listOfJobs, useJobTileClick } from "../connections/JobsPage";
 import { useModelLists } from "../../hooks/use-connections";
+import { CardBrowse, changesLine } from "../connections/CardBrowse";
 import { openAddConnection, openAddModels } from "../../lib/add-connection";
 import type { ConnectionRowData } from "../connections/ConnectionRow";
 import { builtInFirst, useDeviceEngines, useLocalModelUsedBy } from "../connections/DeviceDetail";
@@ -335,7 +336,7 @@ function DeviceCard({ onOpen }: { onOpen: (item: DeviceItem) => void }) {
 export function ConnectionsLanding() {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: connections } = useConnections();
   const { data: accounts } = useConnectionAccounts();
   const hiddenIds = useHiddenModelIds();
@@ -347,6 +348,8 @@ export function ConnectionsLanding() {
   const [kind, setKind] = useState<KindFilter>("all");
   // Cards show their first few Models; "Show N more" opens the rest.
   const [expanded, setExpanded] = useState<string[]>([]);
+  // The card whose catalog is open under its models ("Browse 164 ▾"); one at a time keeps the page short.
+  const [browsing, setBrowsing] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   // A11Y3: arrows move through the account menu; Escape closes it and returns to its ⋯.
   const menuKeys = useMenuKeyboard({ open: menu !== null, onClose: () => setMenu(null) });
@@ -720,12 +723,20 @@ export function ConnectionsLanding() {
     if (!id) return null;
     return catalogLists[catalogIds.filter(Boolean).indexOf(id)]?.data?.models?.length ?? null;
   };
+  const catalogChanges = (index: number) => {
+    const id = catalogIds[index];
+    return id ? catalogLists[catalogIds.filter(Boolean).indexOf(id)]?.data?.changes : undefined;
+  };
 
   const renderAccount = (account: ConnectionAccountListItem, models: ConnectionRowData[], index: number) => {
     const host = hostOf(account.baseUrl) || PROVIDERS[account.provider as APIProvider]?.name || "";
     const accountRows = groups.find((g) => g.account.id === account.id)?.rows ?? [];
     const count = catalogCount(index);
     const problem = account.enabled === false || account.state !== "ok";
+    const changes = changesLine(catalogChanges(index), t, i18n.language);
+    const catalogId = catalogIds[index];
+    const open = browsing === account.id && !!catalogId;
+    const anchor = starAnchorOf(accountRows);
     return (
       <article key={account.id} className="ov-conn-card" data-connection-account-id={account.id}>
         <header className="ov-conn-card__head">
@@ -749,6 +760,11 @@ export function ConnectionsLanding() {
           </button>
           {/* Status and balance live on the account's page; the card only speaks up when something is wrong. */}
           {problem ? <AccountStatus account={account} /> : null}
+          {changes && !problem ? (
+            <span className="ov-conn-card__changes" title={changes.title} data-conn-changes>
+              {changes.text}
+            </span>
+          ) : null}
           <button
             type="button"
             className="ov-conn__more"
@@ -767,14 +783,36 @@ export function ConnectionsLanding() {
             <p className="ov-conn-card__empty">{localize("No models starred yet.")}</p>
           )}
         </div>
+        {open && anchor ? (
+          <CardBrowse
+            accountId={account.id}
+            accountName={account.name}
+            catalogId={catalogId}
+            anchorId={anchor.id}
+            saved={new Set(accountRows.flatMap((row) => (row.model ? [row.model] : [])))}
+            rows={rows}
+          />
+        ) : null}
         <footer className="ov-conn-card__foot">
           <button
             type="button"
             className="ov-conn-card__browse"
-            onClick={() => openAddModels({ accountId: account.id })}
+            aria-expanded={catalogId ? open : undefined}
+            onClick={() =>
+              catalogId ? setBrowsing(open ? null : account.id) : openAddModels({ accountId: account.id })
+            }
             data-conn-browse
           >
             {count ? t("connections.home.browseCount", { count }) : t("connections.home.browse")}
+            <ChevronDown size={13} aria-hidden="true" className={cn("ov-conn-card__chev", open && "is-open")} />
+          </button>
+          <button
+            type="button"
+            className={cn("ov-conn-card__account", account.state === "needs_key" && "is-warn")}
+            onClick={() => openConnectionDetail(`${ACCOUNT_PREFIX}${account.id}`)}
+            data-conn-account-link
+          >
+            {account.state === "needs_key" ? t("connections.home.fixKey") : t("connections.home.accountLink")}
             <ChevronRight size={13} aria-hidden="true" />
           </button>
         </footer>

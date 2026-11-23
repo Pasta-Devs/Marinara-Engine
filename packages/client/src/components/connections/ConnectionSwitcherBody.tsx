@@ -48,8 +48,10 @@ import {
   useRefreshConnectionModels,
   useUpdateConnection,
   type CachedModelFacts,
+  type ConnectionModelList,
   type SubscriptionUsage,
 } from "../../hooks/use-connections";
+import { freshChanges } from "./CardBrowse";
 import { catalogMatchesKind, matchesKind } from "../../lib/connection-jobs";
 import { useChat, useSetChatModel } from "../../hooks/use-chats";
 import {
@@ -442,6 +444,8 @@ export function ConnectionSwitcherBody({
   listClassName,
   catalogBrowse = true,
   searchAtBottom = false,
+  connectionChips = false,
+  onGrow,
   showUnstarred = false,
   kind = "chat",
   rowFilter,
@@ -544,6 +548,10 @@ export function ConnectionSwitcherBody({
   listClassName?: string;
   /** Phones: the search box sits under the list, within reach of a thumb (the list keeps the top). */
   searchAtBottom?: boolean;
+  /** Phones: a row of Connection chips under Starred ("Browse a connection"), one tap into each catalog. */
+  connectionChips?: boolean;
+  /** Called once the user searches or opens a Connection, so a half-height sheet can grow. */
+  onGrow?: () => void;
   /** False skips catalog search and Browse (Quick Switcher's connection-only mode). */
   catalogBrowse?: boolean;
   /** Job pickers also list provider models below the stars in the initial pane. */
@@ -666,6 +674,7 @@ export function ConnectionSwitcherBody({
     [groups],
   );
 
+  const queryClient = useQueryClient();
   // Cost badges from the catalogs already cached for each Connection; nothing is fetched for them.
   const catalogAnchors = groups.map((group) =>
     group.account
@@ -1101,6 +1110,11 @@ export function ConnectionSwitcherBody({
   }, [knownGood, groups, catalogs, anchorOf]);
 
   const searching = deferredQuery.length > 0;
+  const growRef = useRef(onGrow);
+  growRef.current = onGrow;
+  useEffect(() => {
+    if (deferredQuery) growRef.current?.();
+  }, [deferredQuery]);
   // Search results: starred matches first, then one group per account; a selected account searches only its own
   // models. The typed id comes last.
   const isStarredEntry = (entry: Entry) =>
@@ -1146,6 +1160,9 @@ export function ConnectionSwitcherBody({
   if (searching && typedEntry) allSections.push({ key: "use", entries: [typedEntry] });
   const searchSections = allSections.filter((section) => section.entries.length > 0);
   const searchEntries = searchSections.flatMap((section) => section.entries);
+  const crossKeySearch = searching && !scopeGroup;
+  const anyPlain =
+    crossKeySearch && searchEntries.some((entry) => !!entry.group?.account && !!entry.model && !entry.row);
 
   // Enter adds a typed id only after the user moved onto that row; typing a name to filter
   // and pressing Enter must not create a Model.
@@ -1224,7 +1241,19 @@ export function ConnectionSwitcherBody({
     // The job this picker is for is in its title already; its pill would only repeat it.
     const roleLabels = entry.row ? modelRoleLabels(entry.row, t, voiceRowId).filter((role) => role !== ownRole) : [];
     const starred = group?.account && entry.model ? starsOf(group).has(entry.model) : false;
-    const custom = !!entry.row?.ownSettings && !starred && roleLabels.length === 0;
+    // A search across every key lists a model once per key, so each line says what it would run with: "tuned" (a
+    // saved Model with settings of its own), "plain" (neutral settings until it is tuned) and "new" on the list lately.
+    const kindLabels: string[] = [];
+    if (crossKeySearch && group?.account && entry.model && !entry.key.startsWith("use:")) {
+      if (entry.row?.ownSettings) kindLabels.push(t("connections.home.tuned"));
+      else if (!entry.row) kindLabels.push(t("connections.switcher.plain"));
+      const anchorId = catalogAnchors[groups.indexOf(group)];
+      const changes = anchorId
+        ? queryClient.getQueryData<ConnectionModelList>(connectionKeys.models(anchorId))?.changes
+        : undefined;
+      if (freshChanges(changes)?.added.includes(entry.model)) kindLabels.push(t("connections.browse.new"));
+    }
+    const custom = !!entry.row?.ownSettings && !starred && roleLabels.length === 0 && kindLabels.length === 0;
     const showStar = !!group?.account && !!entry.model && (star === "all" || (star === "unstarred" && !starred));
     const stateLabel = unavailable ? t(accountStateLabel({ state: unavailable })) : null;
     const local = entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID;
@@ -1293,7 +1322,7 @@ export function ConnectionSwitcherBody({
         routeId={routeId}
         // The Now strip folds its heading into line 2 to stay one compact row.
         subtitle={now ? [nowLabel, entry.subtitle].filter(Boolean).join(" · ") : entry.subtitle}
-        roles={roleLabels}
+        roles={kindLabels.length ? [...roleLabels, ...kindLabels] : roleLabels}
         status={
           rowStateOf
             ? { label: rowStateOf.label, state: rowStateOf.state, detail: rowStateOf.detail }
@@ -1503,6 +1532,7 @@ export function ConnectionSwitcherBody({
   const openPane = (key: string) => {
     setPane(key);
     setDrilled(true);
+    if (key !== "starred") onGrow?.();
   };
   const heading = (label: ReactNode, count?: number) => (
     <ListHeading className="flex items-baseline justify-between gap-2">
@@ -1829,6 +1859,31 @@ export function ConnectionSwitcherBody({
             {starredEntries.length === 0 && knownEntries.length === 0 && unstarredGroups.length === 0 && (
               <ListStatus>{t("connections.switcher.starredEmpty")}</ListStatus>
             )}
+            {connectionChips && groups.some((group) => group.account) && (
+              <section
+                data-switcher-section="connections"
+                aria-label={t("connections.switcher.browseConnection")}
+                className="@xl:hidden"
+              >
+                {heading(t("connections.switcher.browseConnection"))}
+                <div className="flex flex-wrap gap-1.5 px-2 pb-2 pt-0.5">
+                  {groups
+                    .filter((group) => group.account)
+                    .map((group) => (
+                      <button
+                        key={group.key}
+                        type="button"
+                        data-switcher-connection-chip={group.key}
+                        onClick={() => openPane(group.key)}
+                        className="mari-connection-chip min-h-11 gap-1.5 px-3 text-xs"
+                      >
+                        {group.name}
+                        {unavailableOf(group) ? <span className="text-[#e07a7a]">·</span> : null}
+                      </button>
+                    ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </ListFrame>
@@ -1860,6 +1915,11 @@ export function ConnectionSwitcherBody({
           </section>
         ))}
       </div>
+      {anyPlain && (
+        <p className="px-2 pt-1 pb-0.5 text-[0.6875rem] text-foreground/50" data-switcher-plain-hint>
+          {t("connections.switcher.plainHint")}
+        </p>
+      )}
       {searchEntries.length === 0 && (
         <ListStatus>
           {t(!scopeGroup && catalog.isFetching ? "connections.switcher.searching" : "connections.switcher.noMatches")}
