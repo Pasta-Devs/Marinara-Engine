@@ -1052,6 +1052,24 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     return matches.slice(0, cap);
   });
 
+  // Picked entries by id, without reading every book they might be in (#9645). Only entries play would
+  // read come back: an off entry, folder or book is left out. Slim rows, for pickers that list picks.
+  app.post("/entries/eligible", async (req, reply) => {
+    const ids = (req.body as { ids?: unknown } | null)?.ids;
+    if (!Array.isArray(ids) || ids.length > 500 || !ids.every((id) => typeof id === "string")) {
+      return reply.status(400).send({ error: "ids must be a list of at most 500 entry ids" });
+    }
+    const entries = await storage.listEligibleEntriesByIds(ids as string[], { unlimited: true });
+    return entries.map((entry) => ({
+      id: entry.id,
+      lorebookId: entry.lorebookId,
+      name: entry.name,
+      enabled: entry.enabled,
+      constant: entry.constant,
+      order: entry.order,
+    }));
+  });
+
   // ── Active entries (for prompt injection) ──
 
   app.get("/active/entries", async () => {
