@@ -9088,6 +9088,7 @@
   "settings.walkthroughs.replayDevice": "Replay the {{device}} walkthrough",
   "settings.walkthroughs.replayModes": "Show chat mode tips again",
   "settings.walkthroughs.replayWelcome": "Replay the welcome tour",
+  "setupDraft.keepFailed": "We couldn't keep this setup for later. Please try again.",
   "setupDraft.keepForLater": "Keep for later",
   "setupDraft.open": "Open",
   "shortcuts.composer.completionAccept": "Accept a / command, @mention, or :emoji: suggestion",

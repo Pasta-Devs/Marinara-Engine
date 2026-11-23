@@ -353,6 +353,43 @@ try {
   }
   assert.ok(!(await bwrap(false)).includes(pinned(serverPackage)), "a read-only workspace stays read-only");
 
+  // A PATH folder under /usr that links outside the system roots gets its real folder mounted, so the link resolves.
+  // Needs a writable /usr/local (root in a container); skipped elsewhere.
+  if (process.platform === "linux") {
+    const linkedTarget = mkdtempSync(join(tmpdir(), "marinara-mari-linked-tool-"));
+    const linkedBin = join(linkedTarget, "bin");
+    mkdirSync(linkedBin);
+    const usrLink = join("/usr/local", `marinara-linked-tool-${process.pid}`);
+    let linked = false;
+    try {
+      symlinkSync(linkedTarget, usrLink);
+      linked = true;
+    } catch {
+      console.log(
+        "Professor Mari shell sandbox regression skipped the linked PATH folder check: /usr/local is not writable",
+      );
+    }
+    try {
+      if (linked) {
+        const args = await linuxBubblewrapArgs(
+          buildWorkspace,
+          { PATH: `${join(usrLink, "bin")}:/usr/bin` },
+          tmpdir(),
+          "/bin/bash",
+          ["-c", "true"],
+          false,
+        );
+        const realBin = realpathSync(linkedBin);
+        const joined = args.join("\u0000");
+        assert.ok(joined.includes(`--ro-bind\u0000${realBin}\u0000${realBin}`), "linked PATH folder target is mounted");
+        assert.ok(!joined.includes(`\u0000${join(usrLink, "bin")}\u0000`), "the link itself is not a mount point");
+      }
+    } finally {
+      if (linked) rmSync(usrLink, { force: true });
+      rmSync(linkedTarget, { recursive: true, force: true });
+    }
+  }
+
   const sandbox = getWorkspaceShellSandboxStatus();
   if (sandbox.available) {
     const seatbelt = sandbox.backend === "macos-seatbelt";
