@@ -49,6 +49,7 @@ export function TrackerWindowCharacters({
     characterTrackerSettings,
     expressionSpritesEnabled,
     featuredCharacterCardKeys,
+    resolveCardCharacterStatus,
     resolveSpriteCharacterId,
     spriteExpressions,
     trackerStatIconOverrides,
@@ -78,6 +79,7 @@ export function TrackerWindowCharacters({
     generateAvatar,
     handleAvatarFileInputChange,
     openAvatarUpload,
+    revertScenePortrait,
   } = useTrackerMutations({
     activeChatId: chatId,
     customFields: [],
@@ -87,6 +89,7 @@ export function TrackerWindowCharacters({
     patchField,
     patchPlayerStats,
     removeFeaturedCharacterCard,
+    resolveCardCharacterStatus,
   });
   const updateAgent = useUpdateAgent();
   const autoGenerateAvatars = characterTrackerSettings.autoGenerateAvatars === true;
@@ -178,6 +181,8 @@ export function TrackerWindowCharacters({
         >
           {characters.map((character, index) => {
             const spriteCharacterId = resolveSpriteCharacterId(character);
+            const cardLookupStatus = resolveCardCharacterStatus(character).status;
+            const cardLookupPending = cardLookupStatus === "pending" || cardLookupStatus === "error";
             return (
               <div key={`${chatId}-${character.characterId}-${index}`} className="@container min-w-0">
                 <FeaturedCharacterTrackerCard
@@ -206,10 +211,13 @@ export function TrackerWindowCharacters({
                   characterIndex={index}
                   deleteMode={deleteMode}
                   addMode={addMode}
-                  onUploadAvatar={() => openAvatarUpload(index)}
+                  onUploadAvatar={cardLookupPending ? undefined : () => openAvatarUpload(index)}
                   onGeneratePortrait={
-                    canGeneratePortraits ? (includeOutfit) => generateAvatar(index, includeOutfit) : undefined
+                    canGeneratePortraits && !cardLookupPending
+                      ? (includeOutfit) => generateAvatar(index, includeOutfit)
+                      : undefined
                   }
+                  onRevertScenePortrait={() => revertScenePortrait(index)}
                 />
               </div>
             );

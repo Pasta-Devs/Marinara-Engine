@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import type { PresentCharacter } from "@marinara-engine/shared";
 import { characterKeys } from "../../../hooks/use-characters";
-import { api } from "../../../lib/api-client";
+import { api, ApiError } from "../../../lib/api-client";
 import { parseCharacterDisplayData } from "../../../lib/character-display";
 import {
   mergeTrackerCardPortraitFields,
@@ -102,6 +102,21 @@ export function useTrackerSpriteLookup({
 
     return { knownIds, idByName, pictureById, profileColorsById };
   }, [characterQueries, previewValues]);
+  const pendingKey = enabled
+    ? lookupCharacterIds.filter((_id, index) => characterQueries[index]?.isPending).join("\0")
+    : "";
+  const failedKey = enabled
+    ? lookupCharacterIds
+        .filter((_id, index) => {
+          const query = characterQueries[index];
+          return !!query?.isError && !(query.error instanceof ApiError && query.error.status === 404);
+        })
+        .join("\0")
+    : "";
+  const pendingLookupIds = useMemo(() => new Set(pendingKey ? pendingKey.split("\0") : []), [pendingKey]);
+  const failedLookupIds = useMemo(() => new Set(failedKey ? failedKey.split("\0") : []), [failedKey]);
+  const hasPendingCharacterLookups = pendingLookupIds.size > 0;
+  const hasFailedCharacterLookups = failedLookupIds.size > 0;
 
   const resolveSpriteCharacterId = useCallback(
     (character: PresentCharacter) => {
@@ -116,5 +131,12 @@ export function useTrackerSpriteLookup({
     [characterSpriteLookup],
   );
 
-  return { characterSpriteLookup, resolveSpriteCharacterId };
+  return {
+    characterSpriteLookup,
+    pendingLookupIds,
+    failedLookupIds,
+    hasPendingCharacterLookups,
+    hasFailedCharacterLookups,
+    resolveSpriteCharacterId,
+  };
 }

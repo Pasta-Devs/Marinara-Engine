@@ -124,7 +124,7 @@ Agents update the values of your custom fields. They never delete a field you ma
 
 ### Make a new portrait
 
-A character's large card can make a new portrait once the Character Tracker has an image connection. On a compact card, click **Feature character card** to open the large one. The Trackers window always shows large cards. Hover the portrait and click the eye button to make one from the **Look**, or the shirt button for the **Look** and **Outfit**. The shirt button shows only when the character has an outfit. The old portrait stays until the new one is ready. If making one fails, you keep the old one. Characters shown with their card avatar or an expression sprite do not have these buttons.
+A character's large card can make a new portrait once the Character Tracker has an image connection. On a compact card, click **Feature character card** to open the large one. The Trackers window always shows large cards. Hover the portrait and click the eye button to make one from the **Look**, or the shirt button for the **Look** and **Outfit**. The shirt button shows only when the character has an outfit. You can also upload a picture with the upload button in the bottom-right corner of the portrait. For character cards, this saves a per-scene portrait without replacing the card's own avatar, and you can click **Revert to card portrait** in the top-right corner to switch back to the card portrait. The old portrait stays until the new one is ready; if making one fails, you keep the old one. Characters currently shown with an expression sprite hide these buttons until **Use expression sprites for tracker portraits** is turned off or no matching sprite exists.
 
 ### Tracker Panel settings
 

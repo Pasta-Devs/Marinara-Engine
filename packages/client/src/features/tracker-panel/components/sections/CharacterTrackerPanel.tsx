@@ -43,6 +43,8 @@ export function CharacterTrackerPanel({
   onToggleFeatured,
   onUploadAvatar,
   onGeneratePortrait,
+  onRevertScenePortrait,
+  isCardLookupPending,
   deleteMode,
   addMode,
   action,
@@ -69,6 +71,8 @@ export function CharacterTrackerPanel({
   onToggleFeatured: (key: string) => void;
   onUploadAvatar: (index: number) => void;
   onGeneratePortrait?: (index: number, includeOutfit: boolean) => Promise<void>;
+  onRevertScenePortrait?: (index: number) => void;
+  isCardLookupPending?: (character: PresentCharacter) => boolean;
   deleteMode: boolean;
   addMode: boolean;
   action?: ReactNode;
@@ -92,6 +96,7 @@ export function CharacterTrackerPanel({
         character,
         cardKey,
         spriteCharacterId,
+        cardLookupPending: isCardLookupPending?.(character) ?? false,
         characterPicture: spriteCharacterId ? characterPictures[spriteCharacterId] : undefined,
         profileColors: spriteCharacterId ? characterProfileColors[spriteCharacterId] : undefined,
         featured: featuredCharacterCards.has(cardKey),
@@ -122,7 +127,7 @@ export function CharacterTrackerPanel({
           deleteMode={deleteMode}
           addMode={addMode}
           onToggleFeatured={() => onToggleFeatured(entry.cardKey)}
-          onUploadAvatar={() => onUploadAvatar(entry.index)}
+          onUploadAvatar={entry.cardLookupPending ? undefined : () => onUploadAvatar(entry.index)}
         />
       </div>
     );
@@ -151,10 +156,13 @@ export function CharacterTrackerPanel({
           deleteMode={deleteMode}
           addMode={addMode}
           onToggleFeatured={() => onToggleFeatured(entry.cardKey)}
-          onUploadAvatar={() => onUploadAvatar(entry.index)}
+          onUploadAvatar={entry.cardLookupPending ? undefined : () => onUploadAvatar(entry.index)}
           onGeneratePortrait={
-            onGeneratePortrait ? (includeOutfit) => onGeneratePortrait(entry.index, includeOutfit) : undefined
+            onGeneratePortrait && !entry.cardLookupPending
+              ? (includeOutfit) => onGeneratePortrait(entry.index, includeOutfit)
+              : undefined
           }
+          onRevertScenePortrait={onRevertScenePortrait ? () => onRevertScenePortrait(entry.index) : undefined}
         />
       </div>
     );

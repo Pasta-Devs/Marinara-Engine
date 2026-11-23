@@ -110,6 +110,7 @@ export function FeaturedCharacterTrackerCard({
   onToggleFeatured,
   onUploadAvatar,
   onGeneratePortrait,
+  onRevertScenePortrait,
 }: {
   character: PresentCharacter;
   spriteCharacterId?: string | null;
@@ -129,8 +130,9 @@ export function FeaturedCharacterTrackerCard({
   deleteMode: boolean;
   addMode: boolean;
   onToggleFeatured?: () => void;
-  onUploadAvatar: () => void;
+  onUploadAvatar?: () => void;
   onGeneratePortrait?: (includeOutfit: boolean) => Promise<void>;
+  onRevertScenePortrait?: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const trackerWindow = useTrackerWindow();
@@ -343,6 +345,7 @@ export function FeaturedCharacterTrackerCard({
               outsideSide={featuredPortraitSide}
               onUploadAvatar={onUploadAvatar}
               onGeneratePortrait={onGeneratePortrait}
+              onRevertScenePortrait={onRevertScenePortrait}
               onPortraitFocusChange={(portraitFocusX, portraitFocusY, portraitZoom) =>
                 onUpdate({ ...character, portraitFocusX, portraitFocusY, portraitZoom })
               }

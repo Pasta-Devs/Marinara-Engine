@@ -79,6 +79,8 @@ export interface PresentCharacter {
   avatarPath?: string | null;
   /** Optional avatar crop JSON carried from the character card. */
   avatarCrop?: unknown;
+  /** Generated or uploaded per-scene portrait URL for card rows, shown instead of the card avatar when set. */
+  scenePortraitPath?: string | null;
   /** Featured tracker portrait focus, 0 = left, 100 = right. */
   portraitFocusX?: number;
   /** Featured tracker portrait focus, 0 = top, 100 = bottom; expression sprites may exceed 100 to dip below the frame. */
