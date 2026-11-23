@@ -75,28 +75,37 @@ export function createLibraryFoldersStorage(db: DB) {
     },
 
     async update(scope: LibraryFolderScope, id: string, input: UpdateLibraryFolderInput) {
-      const existing = await this.getById(scope, id);
-      if (!existing) return null;
-      let itemIds = input.itemIds;
-      // A saved set keeps only lorebooks that exist, so a client still holding a deleted one can't put it back.
-      if (scope === "lorebook-sets" && itemIds?.length) {
-        const rows = await db.select({ id: lorebooks.id }).from(lorebooks).where(inArray(lorebooks.id, itemIds));
-        const existingIds = new Set(rows.map((book) => book.id));
-        itemIds = itemIds.filter((itemId) => existingIds.has(itemId));
-      }
-      await db
-        .update(libraryFolders)
-        .set({
-          ...(input.name !== undefined && { name: input.name }),
-          ...(input.collapsed !== undefined && { collapsed: input.collapsed ? "true" : "false" }),
-          ...((scope === "regex" || scope === "functions") &&
-            input.paused !== undefined && { paused: String(input.paused) }),
-          ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
-          ...(itemIds !== undefined && { itemIds: JSON.stringify(itemIds) }),
-          updatedAt: now(),
-        })
-        .where(eq(libraryFolders.id, id));
-      return this.getById(scope, id);
+      // One transaction, so concurrent adds and removals each apply to the list the other one wrote.
+      return db.transaction(async (tx) => {
+        const folders = createLibraryFoldersStorage(tx);
+        const existing = await folders.getById(scope, id);
+        if (!existing) return null;
+        let itemIds = input.itemIds;
+        if (input.addItemIds || input.removeItemIds) {
+          const removing = new Set(input.removeItemIds);
+          const kept = (itemIds ?? existing.itemIds).filter((itemId) => !removing.has(itemId));
+          itemIds = [...new Set([...kept, ...(input.addItemIds ?? [])])];
+        }
+        // A saved set keeps only lorebooks that exist, so a client still holding a deleted one can't put it back.
+        if (scope === "lorebook-sets" && itemIds?.length) {
+          const rows = await tx.select({ id: lorebooks.id }).from(lorebooks).where(inArray(lorebooks.id, itemIds));
+          const existingIds = new Set(rows.map((book) => book.id));
+          itemIds = itemIds.filter((itemId) => existingIds.has(itemId));
+        }
+        await tx
+          .update(libraryFolders)
+          .set({
+            ...(input.name !== undefined && { name: input.name }),
+            ...(input.collapsed !== undefined && { collapsed: input.collapsed ? "true" : "false" }),
+            ...((scope === "regex" || scope === "functions") &&
+              input.paused !== undefined && { paused: String(input.paused) }),
+            ...(input.sortOrder !== undefined && { sortOrder: input.sortOrder }),
+            ...(itemIds !== undefined && { itemIds: JSON.stringify(itemIds) }),
+            updatedAt: now(),
+          })
+          .where(eq(libraryFolders.id, id));
+        return folders.getById(scope, id);
+      });
     },
 
     async remove(scope: LibraryFolderScope, id: string) {

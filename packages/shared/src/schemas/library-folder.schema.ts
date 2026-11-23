@@ -49,6 +49,9 @@ export const updateLibraryFolderSchema = z.object({
   paused: z.boolean().optional(),
   sortOrder: z.number().int().nonnegative().optional(),
   itemIds: libraryFolderItemIdsSchema.optional(),
+  // Changes to the stored list, so a client holding an older copy can't drop ids added elsewhere.
+  addItemIds: libraryFolderItemIdsSchema.optional(),
+  removeItemIds: libraryFolderItemIdsSchema.optional(),
 });
 
 export const moveLibraryItemsSchema = z.object({

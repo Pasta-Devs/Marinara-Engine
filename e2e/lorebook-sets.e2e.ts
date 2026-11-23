@@ -30,6 +30,7 @@ test("a saved lorebook set fills a new roleplay's lorebooks without changing the
     const north = await createBook(`North ${stamp}`);
     const south = await createBook(`South ${stamp}`);
     const elsewhere = await createBook(`Elsewhere ${stamp}`);
+    const west = await createBook(`West ${stamp}`);
     const gone = await createBook(`Gone ${stamp}`);
     const chatResponse = await request.post("/api/chats", {
       data: { name: "Set roleplay", mode: "roleplay", characterIds: [] },
@@ -91,6 +92,34 @@ test("a saved lorebook set fills a new roleplay's lorebooks without changing the
     await expect(setRow.getByText("2 lorebooks", { exact: true })).toBeVisible();
     const saved = (await savedSets(request)).find((set) => !setIdsBefore.has(set.id))!;
 
+    // Another window adds a lorebook to the open set and renames it. A pick here keeps that lorebook, and leaving
+    // the name field keeps the new name.
+    const renamed = `Renamed AU ${stamp}`;
+    const elsewhereEdit = await request.patch(`/api/library-folders/lorebook-sets/${saved.id}`, {
+      data: { itemIds: [north, south, elsewhere], name: renamed },
+    });
+    expect(elsewhereEdit.ok()).toBeTruthy();
+    await sets.getByRole("button", { name: `Lorebooks in Northern AU ${stamp}`, exact: true }).click();
+    const pickRow = (title: string) => bookWindow.locator(`[data-pick-row][title="${title} ${stamp}"]`);
+    await pickRow("West").click();
+    await expect.poll(newSetItems).toEqual([north, south, elsewhere, west]);
+    await expect(pickRow("Elsewhere")).toHaveAttribute("aria-pressed", "true");
+    await pickRow("Elsewhere").click();
+    await pickRow("West").click();
+    await bookWindow.press("Escape");
+    await expect.poll(newSetItems).toEqual([north, south]);
+    await expect(nameField).toHaveValue(renamed);
+    const nameSaved = page
+      .waitForRequest((sent) => sent.method() === "PATCH" && sent.url().endsWith(saved.id), { timeout: 1_000 })
+      .then(
+        () => true,
+        () => false,
+      );
+    await nameField.focus();
+    await nameField.blur();
+    expect(await nameSaved).toBe(false);
+    expect((await savedSets(request)).find((set) => set.id === saved.id)?.name).toBe(renamed);
+
     // Pick it in the New Roleplay wizard.
     await page.evaluate(async (id) => {
       const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
@@ -130,12 +159,12 @@ test("a saved lorebook set fills a new roleplay's lorebooks without changing the
     await setTrigger.click();
     await page
       .getByRole("dialog", { name: "Lorebook set", exact: true })
-      .locator(`[data-pick-row][title="Northern AU ${stamp}"]`)
+      .locator(`[data-pick-row][title="${renamed}"]`)
       .click();
     const chatBooks = async () =>
       (await (await request.get(`/api/chats/${chat.id}`)).json()).metadata?.activeLorebookIds as string[] | undefined;
     await expect.poll(chatBooks).toEqual([north, south]);
-    await expect(setTrigger).toHaveText(`Northern AU ${stamp}`);
+    await expect(setTrigger).toHaveText(renamed);
 
     // A change for this chat only: the saved set keeps both lorebooks.
     await wizard.getByRole("button", { name: `Remove South ${stamp}`, exact: true }).click();

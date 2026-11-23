@@ -107,6 +107,29 @@ try {
   });
   assert.deepEqual(savedSet.itemIds, [thirdBook.id, secondBook.id, fourthBook.id]);
   assert.deepEqual(await folderItems("lorebook-sets", lorebookSet.id), [thirdBook.id, secondBook.id, fourthBook.id]);
+  // A set editor sends only the lorebook it adds or removes, so a lorebook another window added since it opened stays.
+  const fifthBook = await request("POST", "/api/lorebooks", { name: "Fifth" });
+  const sixthBook = await request("POST", "/api/lorebooks", { name: "Sixth" });
+  const setUrl = `/api/library-folders/lorebook-sets/${lorebookSet.id}`;
+  await request("PATCH", setUrl, { itemIds: [thirdBook.id, secondBook.id, fourthBook.id, fifthBook.id] });
+  await request("PATCH", setUrl, { removeItemIds: [secondBook.id] });
+  assert.deepEqual(await folderItems("lorebook-sets", lorebookSet.id), [thirdBook.id, fourthBook.id, fifthBook.id]);
+  // Picks sent at once each build on the list the other wrote, even when both read the set while a write was held
+  // up, and a deleted lorebook still stays out.
+  let releaseHeldWrite!: () => void;
+  const heldWrite = db.transaction(() => new Promise<void>((resolve) => (releaseHeldWrite = resolve)));
+  const picks = Promise.all([
+    request("PATCH", setUrl, { addItemIds: [sixthBook.id, firstBook.id] }),
+    request("PATCH", setUrl, { addItemIds: [secondBook.id], removeItemIds: [thirdBook.id] }),
+  ]);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  releaseHeldWrite();
+  await heldWrite;
+  await picks;
+  assert.deepEqual(
+    (await folderItems("lorebook-sets", lorebookSet.id)).sort(),
+    [fourthBook.id, fifthBook.id, sixthBook.id, secondBook.id].sort(),
+  );
   const liveBookIds = new Set((await request("GET", "/api/lorebooks")).map((book: { id: string }) => book.id));
   assert.equal(liveBookIds.has(firstBook.id), false);
   assert.equal((await folderItems("lorebooks", firstFolder.id)).filter((id) => liveBookIds.has(id)).length, 2);

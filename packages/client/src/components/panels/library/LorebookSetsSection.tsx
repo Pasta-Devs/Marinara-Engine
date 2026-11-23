@@ -3,7 +3,7 @@
 // New Roleplay wizard and agents' fixed sources can pick in one go. It only references the
 // lorebooks (no copies), and picking it copies the list, so changes made there never reach it.
 // ──────────────────────────────────────────────
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight, Layers, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -140,17 +140,22 @@ export function LorebookSetsSection() {
 
 // An open set: its name and its lorebooks. Mounted only while open, so the full lorebook list
 // loads only when someone edits a set. The picks are kept here as well, so quick changes in a
-// row each build on the last one instead of on a list that hasn't refetched yet.
+// row each build on the last one instead of on a list that hasn't refetched yet. Each pick
+// sends only what it adds or removes, so changes made elsewhere (another window, Mari) stay.
 function LorebookSetEditor({ set }: { set: LibraryFolder }) {
   const { t } = useTranslation();
   const { data: lorebooks } = useLorebooks();
   const updateSet = useUpdateLibraryFolder("lorebook-sets");
   const [name, setName] = useState(set.name);
   const [itemIds, setItemIds] = useState(set.itemIds);
+  useEffect(() => setName(set.name), [set.name]);
+  useEffect(() => {
+    if (!updateSet.isPending) setItemIds(set.itemIds);
+  }, [set.itemIds, updateSet.isPending]);
 
-  const saveItems = (next: string[]) => {
-    setItemIds(next);
-    updateSet.mutate({ id: set.id, itemIds: next });
+  const saveItems = (addItemIds: string[], removeItemIds: string[] = []) => {
+    setItemIds((current) => [...new Set([...current.filter((id) => !removeItemIds.includes(id)), ...addItemIds])]);
+    updateSet.mutate({ id: set.id, addItemIds, removeItemIds });
   };
   const saveName = () => {
     const trimmed = name.trim();
@@ -177,8 +182,8 @@ function LorebookSetEditor({ set }: { set: LibraryFolder }) {
         lorebooks={lorebooks ?? []}
         disabled={lorebooks === undefined}
         selectedIds={itemIds}
-        onToggle={(id) => saveItems(itemIds.includes(id) ? itemIds.filter((other) => other !== id) : [...itemIds, id])}
-        onAdd={(ids) => saveItems([...itemIds, ...ids.filter((id) => !itemIds.includes(id))])}
+        onToggle={(id) => (itemIds.includes(id) ? saveItems([], [id]) : saveItems([id]))}
+        onAdd={(ids) => saveItems(ids)}
         ariaLabel={t("lorebook.sets.lorebooks", { name: set.name })}
         triggerClassName="mari-chrome-field min-h-10 w-full min-w-0 rounded-lg px-3 py-2 text-base md:text-xs"
       />
