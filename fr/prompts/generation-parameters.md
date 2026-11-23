@@ -132,7 +132,22 @@ Le désactiver fait apparaître **Past reasoning blocks** (blocs de raisonnement
 
 1. Dans **Advanced Parameters**, active **Image captioning**.
 2. Choisis un modèle dans le menu déroulant **Captioning model** (modèle de description).
-3. Si tu veux, modifie **Captioning Prompt** (prompt de description), les instructions envoyées avec chaque image. Le bouton de réinitialisation, ou le fait de vider le champ, rétablit le prompt par défaut. Le prompt est enregistré pour ce chat uniquement, et **Save as Connection Default** (enregistrer comme valeur par défaut de la connexion) ne le copie pas.
+3. Tu peux modifier le **Prompt de description**, les instructions envoyées avec chaque image. Le bouton de réinitialisation, ou le fait de vider le champ, revient au prompt de lecture d'images commun à tout le moteur. Le prompt n'est enregistré que pour ce chat, et **Enregistrer comme valeur par défaut de la connexion** ne le copie pas.
+
+Le champ s'affiche aussi quand l'interrupteur est désactivé mais qu'un modèle de **Lecture d'images** est défini dans l'encadré **Tâches** du panneau **Connexions** : ce modèle décrit alors les images de ce chat chaque fois que le modèle du chat ne peut pas les voir.
+
+<a id="what-the-reading-model-is-asked"></a>
+
+### Ce qui est demandé au modèle de lecture
+
+Dans le panneau **Connexions**, clique sur la roue dentée de la ligne **Lecture d'images** de l'encadré **Tâches** (ou choisis **Réglages de lecture d'images** sous la liste des modèles dans **Modèle pour Lecture d'images**). Ces réglages s'appliquent à tous les chats :
+
+- **Instructions** : le prompt système envoyé avec chaque image. Le **Prompt de description** propre à un chat le remplace.
+- **Requête** : le message envoyé avec chaque image. `{{filename}}` devient le nom de fichier de l'image.
+- **Longueur de réponse (tokens)** : 700 par défaut. Un modèle de raisonnement en consomme une partie pour réfléchir : laisse-lui donc plus de place (ou désactive sa réflexion) si les descriptions reviennent vides ou coupées. Une limite de **Tokens de sortie maximum** sur le modèle s'applique toujours.
+- **Température** : 0,2 par défaut.
+
+**Instructions** et **Requête** ont un bouton de réinitialisation qui remet le texte intégré. Vide **Longueur de réponse** ou **Température** pour réutiliser sa valeur intégrée. Si un modèle local décrit bien une image quand tu le lui demandes directement, mais pas via Marinara, copie le prompt système et la question que tu utilises directement dans **Instructions** et **Requête**. La réflexion intégrée du modèle (`<think>…</think>`) est retirée de la description.
 
 Si ça n'a pas marché : quand la description échoue, parce que le compte utilisé pour les descriptions est défaillant, a été supprimé ou ne renvoie rien, la réponse s'arrête avec l'erreur **Image captioning failed**. Marinara n'envoie pas l'image à la place. Répare ou change le modèle de description, ou désactive **Image captioning**.
 

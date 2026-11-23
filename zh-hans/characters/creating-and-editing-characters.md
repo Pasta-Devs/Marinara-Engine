@@ -51,6 +51,20 @@ Character Editor 会把聊天区域换成一整页的工作区。屏幕较宽时
 
 下面几节讲 **Metadata**、**Card**、**Images**、**Voice** 和 **Advanced**，以及头像和版本历史。
 
+
+<a id="images-tab"></a>
+
+## Images 选项卡
+
+**Images** 选项卡集中管理角色在图片中的外观。点击顶部的按钮可跳到对应的区域。
+
+- **Character Sheet**(角色设定图)：用作角色外观的参考图。点击 **Manage**(管理) 创建、上传或选择设定图。打开 **Use as reference image**(用作参考图)，生成图片时会优先使用设定图，其次才使用头像。见[角色设定图](sprites.md#character-sheet)。
+- **Selfie instructions**(自拍指令)：可为这个角色的 Conversation 自拍添加指令，例如镜头风格或表情。在 Noodle 和 Slurp 的设置中开启后，它们也可以使用这些指令。见[自拍](../conversation/selfies.md)。
+- **Sprites**(立绘)：包含表情、全身立绘和通话片段。见[角色立绘](sprites.md)。
+- **Gallery**(图库)：保存附属于角色的图片和视频。见[角色与用户角色图库](galleries.md)。
+
+用户角色的 **Images** 选项卡也有这些区域，只有 **Selfie instructions** 除外。
+
 <a id="metadata-tab"></a>
 
 ## Metadata 选项卡
@@ -88,7 +102,7 @@ Character Editor 会把聊天区域换成一整页的工作区。屏幕较宽时
 
 **Public Face** 写的是其他角色能够看到或知道的信息，例如外貌、举止、身份、声誉和公开的关系。请省略秘密、内心想法、私密经历以及如何扮演角色的指令。这个字段永远不会作为角色卡的一部分发送。提示词只会在你放置 `{{publicFace}}` 宏的位置读取它；用户角色用 `{{personaPublicFace}}`。见[提示词宏](../prompts/macros.md#identity-character-and-persona-macros)。在 Individual 模式的 Roleplay 群聊里，**Others' Public Faces** 会在其他角色的回合发送这段文字。见[Individual 的其他设置](../chats/group-chats.md#more-individual-settings)。智能体的 **Characters** 或 **Persona** 来源设为 **Public Face** 时，会读取这个字段来代替角色卡。见[其他设置](../agents/custom-agents.md#other-settings)。开启 **Send Public Faces** 后，Roleplay 中的 Impersonate 也会读取这个字段来代替角色卡。见[Impersonate 设置](../chats/guided-and-impersonate.md#the-impersonate-settings)。
 
-**Image Appearance Override**(图像专用外貌) 位于 **Appearance** 下方，默认关闭。打开后会显示第二个输入框，用来填写简短的图像标签，例如 LoRA 触发词（一个能开启自定义图像风格的关键词）。开关打开且输入框有内容时，图像提示词会原样使用这些标签，**Appearance** 则作为背景信息保留。AI 头像提示词也会以它为起点。旁白始终会看到 **Appearance** 的完整内容。
+**Appearance** 有 **Prose**(文字描述) 和 **Image tags**(图片标签) 两个标签页。**Prose** 就是外貌描述本身。**Image tags** 存放用于图像提示词的简短标签，例如 LoRA 触发词（一个能开启自定义图像风格的关键词）。输入标签后会勾选 **Use for image prompts**(用于图片提示词)，标签页上的圆点表示正在使用这些标签。勾选且标签非空时，图像提示词会原样使用这些标签，文字描述则作为背景信息保留。取消勾选可以保留标签但不使用它们，图像提示词会改用 **Prose**。AI 头像提示词也会以这些标签为起点。旁白始终能看到 **Prose** 的文字。**Images** 标签页中的 **Go to Appearance**(前往外貌) 可以跳到这里。这个标签页有自己的魔杖按钮。见[用魔杖生成图片标签](#image-tags-from-the-wand)。
 
 **Dialogue & Greetings** 一节决定聊天怎么开场、角色说话是什么调子：
 
@@ -108,18 +122,31 @@ Character Editor 会把聊天区域换成一整页的工作区。屏幕较宽时
 
 ### 用魔杖撰写角色卡字段
 
-**Summary**、**Description**、**Personality**、**Backstory**、**Appearance**、**Scenario**、**Public Face**、**Example Dialogue**、**First Message** 和每个 **Alternate Greeting** 的上方都有一个只显示魔杖图标的按钮。它的悬停提示会写明它生成哪个字段。
+**Summary**、**Description**、**Personality**、**Backstory**、**Appearance**(两个标签页都有)、**Scenario**、**Public Face**、**Example Dialogue**、**First Message** 和每个 **Alternate Greeting** 的上方都有一个只显示魔杖图标的按钮。它的悬停提示会写明它生成哪个字段。
 
 开始之前：先配置好一个可用的文本连接。参见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 
 1. 在字段里写下想保留的想法，例如 `smart, scientist, handsome`，也可以留空。
 2. 填好希望 AI 参考的其他角色卡字段。不必先保存。
-3. 点击该字段的魔杖。Marinara 会以你的文字为起点，为这个字段请求 100–300 个单词的内容。Example Dialogue 请求的是示例对话。**First Message** 和每个 **Alternate Greeting** 请求的是一条开场消息，不替你决定怎么回应。**Public Face** 没有字数范围：魔杖会改写卡片的其他字段，去掉私密内容，所以长度取决于角色卡。
+3. 点击该字段的魔杖。Marinara 会以你的文字为起点，为这个字段请求 100–300 个单词的内容。Example Dialogue 请求的是示例对话。**First Message** 和每个 **Alternate Greeting** 请求的是一条开场消息，不替你决定怎么回应。**Public Face** 没有字数范围：魔杖会改写卡片的其他字段，去掉私密内容，所以长度取决于角色卡。在 **Appearance** 的 **Image tags** 标签页里，魔杖则会把角色卡的外貌转换为一行图片标签。见[用魔杖生成图片标签](#image-tags-from-the-wand)。
 4. 编辑结果，然后点击 **Save**。
 
 魔杖使用你的默认智能体文本连接；没有的话，就用默认文本连接。配置好的智能体备用连接仍然适用。
 
 魔杖只替换未保存草稿里选定的那个字段。生成失败时，原有文字会保留。如果等待期间你修改了这个字段，或者切换到了其他角色卡，迟到的结果不会覆盖你的内容。不需要 Professor Mari 也能使用魔杖。
+
+<a id="image-tags-from-the-wand"></a>
+
+#### 用魔杖生成图片标签
+
+**Appearance** 的 **Image tags** 标签页里的魔杖会根据角色卡中的外貌文字生成标签，主要参考 **Appearance** 本身。它会勾选 **Use for image prompts**。
+
+- 输入框里已有、但外貌文字没有说明的标签，例如 LoRA 触发词，会原样保留在这一行的开头。
+- 后面是新标签：先是 `1girl`、`1boy` 或 `1other`，再是持久的特征，包括体型、头发、眼睛、皮肤、脸部和印记。没有保留的标签时，这一行就以 `1girl`、`1boy` 或 `1other` 开头。
+- 新标签使用小写英文，以逗号分隔，采用图像模型熟悉的 Danbooru 风格（Danbooru 是一个动漫图片网站，许多模型学习过它的标签）。
+- 新标签只使用角色卡明确写出的特征。不包括衣着、表情、姿势和地点，因为这些会随场景变化。
+
+这些标签由模型生成，不是从真实的 Danbooru 标签列表中选取的，所以措辞可能不被你的图像模型识别。保存前先检查并编辑这一行。
 
 ## 添加头像
 
@@ -138,25 +165,12 @@ Character Editor 会把聊天区域换成一整页的工作区。屏幕较宽时
 
 1. 把鼠标移到头像方块上，点击魔杖按钮。**Generate Character Avatar**(生成角色头像) 窗口会打开。
 2. 选择一个 **Image Generation Connection**(图像生成连接)。
-3. 检查或修改 **Avatar Prompt**(头像提示词)。**Image Appearance Override** 打开且填有内容时，就以它为起点。否则依次使用 **Appearance**、**Description**、**Personality**，取第一个有内容的字段。
+3. 检查或修改 **Avatar Prompt**(头像提示词)。勾选 **Use for image prompts** 且 **Appearance** 的 **Image tags** 非空时，就以这些标签为起点。否则依次使用 **Appearance**、**Description**、**Personality**，取第一个有内容的字段。
 4. 如果角色卡已经有头像，可以勾选 **Use current avatar as a reference**(用当前头像作参考)。
 5. 点击 **Generate**(生成)。想再试一次就点 **Regenerate**(重新生成)。
 6. 对结果满意后，点击 **Use Avatar**(使用头像)。
 
 图片尺寸取自图像生成设置里的 **Portraits**(肖像) 图片尺寸，默认是 1024 × 1024。如果开启了 **Expose media prompts before sending**(发送前显示媒体提示词)，每次请求前都会多出一步提示词审阅。
-
-<a id="images-tab"></a>
-
-## Images 选项卡
-
-**Images** 选项卡集中管理角色在图片中的外观。点击顶部的按钮可跳到对应的区域。
-
-- **Character Sheet**(角色设定图)：用作角色外观的参考图。点击 **Manage**(管理) 创建、上传或选择设定图。打开 **Use as reference image**(用作参考图)，生成图片时会优先使用设定图，其次才使用头像。见[角色设定图](sprites.md#character-sheet)。
-- **Selfie instructions**(自拍指令)：可为这个角色的 Conversation 自拍添加指令，例如镜头风格或表情。在 Noodle 和 Slurp 的设置中开启后，它们也可以使用这些指令。见[自拍](../conversation/selfies.md)。
-- **Sprites**(立绘)：包含表情、全身立绘和通话片段。见[角色立绘](sprites.md)。
-- **Gallery**(图库)：保存附属于角色的图片和视频。见[角色与用户角色图库](galleries.md)。
-
-用户角色的 **Images** 选项卡也有这些区域，只有 **Selfie instructions** 除外。
 
 ## Voice 选项卡
 
@@ -197,6 +211,7 @@ Character Editor 会把聊天区域换成一整页的工作区。屏幕较宽时
 - 每个聊天的同一个字段只能用一个替代版本。在另一个替代版本里勾选某个聊天，或者在 Chat Settings 里选择另一个替代版本，都会把它移到那边。
 - 一个聊天都不勾选时，替代字段会保持停用，留待以后使用。
 - 留空的替代字段会清空它所在聊天里的对应字段。
+- **Appearance** 的替代版本有自己的 **Prose** 和 **Image tags** 标签页。在使用该替代版本的聊天里，它的标签会替换角色卡的标签。标签为空或未勾选时，图像提示词使用替代版本的文字描述，绝不会使用角色卡的标签。新建替代版本时也会复制角色卡的标签。它的 **Image tags** 标签页有自己的魔杖，会读取替代版本的文字描述和标签。
 - 聊天专属的场景和图像外貌覆盖设置仍然优先。
 - **Summary** 的替代版本仍是元数据，不会发给 AI。
 - 角色离开某个聊天时，它的分配会暂停；重新添加这个角色后会恢复。
@@ -208,7 +223,7 @@ Character Editor 会把聊天区域换成一整页的工作区。屏幕较宽时
 
 ## 版本历史
 
-**Automatic versioning** 开着时，每次保存都可能往 **Metadata** 选项卡上的 **Version history** 里加一份快照。在那之前，面板上写着 `Previous card states will appear here after the next edit.` 旁边有个计数，显示已经保存了多少份快照。
+**Automatic versioning** 开着时，每次保存都可能往 **Metadata** 选项卡上的 **Version history** 里加一份快照。在那之前，面板上写着 `Previous card states will appear here after the next edit.` 旁边有个计数，显示已经保存了多少份快照。用新版角色卡更新角色时，即使这个开关关闭，也总会先保存快照。见[更新已有角色](import-export.md#update-a-character-you-already-have)。
 
 把某个已保存的版本和当前角色卡对比：
 

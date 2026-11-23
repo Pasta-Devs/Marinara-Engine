@@ -42,7 +42,7 @@ Kontekst towarzyszy wszystkiemu uruchomionemu w żądaniu, w tym timerom, nasłu
 
 `LOG_DISABLE_REQUEST_LOGGING` działa jak wcześniej i wyłącza też wpis o przerwaniu.
 
-W `pnpm dev` pino-pretty ukrywa `hostname` (domyślnie) i `bootId`. Produkcyjny JSON zachowuje oba.
+Terminal otrzymuje wpisy pino-pretty: w `pnpm dev` oraz na serwerze produkcyjnym, którego stdout jest terminalem (programy uruchamiające). Produkcyjne wyjście kierowane gdzie indziej to JSON, jeden obiekt na wiersz. `LOG_FORMAT=pretty|json` nadpisuje wybór, a program uruchamiający środowiska Termux ustawia `pretty`, bo jego wyjście trafia do terminala przez `tee`. pino-pretty ukrywa `hostname` (domyślnie) i `bootId`; wyjście JSON zachowuje oba.
 
 <a id="startup-timeline"></a>
 
@@ -108,6 +108,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 ```
 
 Przełącznik debugowania interfejsu nadal działa przez `logDebugOverride`. To przewidziany sposób oglądania promptów, gdy `LOG_LEVEL` ukrywa debug.
+
+Wypisuj tekst promptu bez zmian, przez `%s`. Dla wartości strukturalnej (tablicy wiadomości, treści żądania dostawcy, sparsowanej odpowiedzi) przekaż `debugJson(value)` do `%s`, a nie `%j` lub `JSON.stringify(value)`. Wypisuje JSON z wcięciami, w którym podziały wierszy w ciągach są rzeczywistymi podziałami wierszy, więc wielowierszowy prompt pozostaje czytelny, a renderowanie odbywa się dopiero przy wypisywaniu wpisu. Funkcja zastępująca ukrywająca dane trafia do drugiego argumentu, jak w `JSON.stringify`. Widok debugowania w aplikacji wypisuje ten sam tekst przez `readableJson` z `@marinara-engine/shared`. Regresja `debug-log-line-breaks` obejmuje to zachowanie i wybór formatu.
 
 Media osadzone w tekście trafiają do logu w skróconej postaci. `debugJson` zastępuje każde dane base64 znacznikiem takim jak `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`. Zawiera on ich typ, rozmiar oraz pierwsze i ostatnie 16 znaków. Dotyczy to adresów `data:` (samodzielnych ciągów znaków lub fragmentów tekstu) oraz pól `data` bez prefiksu w częściach multimedialnych Anthropic i Google, również gdy base64 rozbito na kilka wierszy. Serializer `msg` robi to samo z adresami `data:` w zwykłych wpisach `%s` i `%j`. Pola `data` bez prefiksu skraca tylko `debugJson`. Zmienia się wyłącznie wypisana kopia, a przekazana wartość pozostaje bez zmian. Opcja `LOG_INLINE_MEDIA=full` w pliku `.env` przywraca wypisywanie pełnych danych. Obejmuje to test regresji `log-inline-media`.
 

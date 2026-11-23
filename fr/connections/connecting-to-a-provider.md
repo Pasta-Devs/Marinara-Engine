@@ -75,7 +75,7 @@ Une tâche, c'est quelque chose qu'un modèle fait pour toi. L'encadré **Jobs**
 
 Chaque ligne affiche le modèle qui s'occupe de cette tâche, ou ce que fait la tâche sans modèle, par exemple **Follows Main** (suit Main) ou **Off** (désactivé). Une tâche sans modèle affiche **N models found** avec **Pick** (choisir), ou **None in your accounts** avec **Add**. Le sélecteur liste les modèles compatibles de tous les comptes. **Add** ouvre **Add account**, puis revient à la tâche. Clique sur **Jobs** pour replier l'encadré.
 
-Pour changer le modèle d'une tâche, clique sur sa ligne. La fenêtre **Model for** (modèle pour) de cette tâche s'ouvre, sauf pour trois lignes. **Decision** et **Embeddings** ouvrent leurs propres contrôles (voir [Modèles de décision](decision-models.md) et [Fournisseurs d'IA pris en charge](providers-reference.md#embeddings)). **Dictation** (dictée) ouvre la configuration de la reconnaissance vocale. **Voice** et **Dictation** ont aussi une roue dentée qui ouvre leur fenêtre de réglages. Choisir un modèle **Voice** active la synthèse vocale.
+Pour changer le modèle d'une tâche, clique sur sa ligne. **Modèle pour** cette tâche s'ouvre, sauf pour trois lignes. **Décision** et **Embeddings** ouvrent leurs propres contrôles (voir [Modèles de décision](decision-models.md) et [Fournisseurs d'IA pris en charge](providers-reference.md#embeddings)). **Dictée** ouvre la configuration de la parole. **Voix**, **Dictée** et **Lecture d'images** ont aussi un engrenage qui ouvre leur fenêtre de réglages ; celle de Lecture d'images contient ce qui est demandé à son modèle (voir [Description d'images](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Choisir un modèle **Voix** active la synthèse vocale.
 
 Dans **Model for** :
 

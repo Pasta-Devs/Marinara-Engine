@@ -75,7 +75,7 @@ Zadanie to coś, co model robi dla ciebie. Sekcja **Jobs** wymienia zadania w cz
 
 Każdy wiersz pokazuje model, który wykonuje dane zadanie, albo to, co zadanie robi bez modelu, na przykład **Follows Main** albo **Off**. Zadanie bez modelu pokazuje **N models found** (znalezione modele) i **Pick** (wybierz) albo **None in your accounts** (brak na twoich kontach) i **Add**. Selektor pokazuje pasujące modele ze wszystkich kont. **Add** otwiera okno **Add account**, po czym wraca do zadania. Kliknij **Jobs**, żeby zwinąć sekcję.
 
-Żeby zmienić model zadania, kliknij jego wiersz. Otwiera się okno **Model for** (model dla) tego zadania, z wyjątkiem trzech wierszy. **Decision** i **Embeddings** otwierają własne kontrolki (zobacz [Modele decyzyjne](decision-models.md) i [Obsługiwani dostawcy AI](providers-reference.md#embeddings)). **Dictation** otwiera konfigurację mowy. Wiersze **Voice** i **Dictation** mają też koło zębate otwierające okno ustawień. Wybór modelu w **Voice** włącza syntezę mowy.
+Żeby zmienić model zadania, kliknij jego wiersz. Otwiera się okno **Model for** (model dla) tego zadania, z wyjątkiem trzech wierszy. **Decision** i **Embeddings** otwierają własne kontrolki (zobacz [Modele decyzyjne](decision-models.md) i [Obsługiwani dostawcy AI](providers-reference.md#embeddings)). **Dictation** otwiera konfigurację mowy. Wiersze **Voice**, **Dictation** i **Odczytywanie obrazów** mają też koło zębate otwierające okno ustawień; okno odczytywania obrazów zawiera instrukcje dla jego modelu (zobacz [Opisywanie obrazów](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Wybór modelu w **Voice** włącza syntezę mowy.
 
 W oknie **Model for**:
 

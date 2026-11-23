@@ -263,6 +263,8 @@ Unter **Runtime** (Laufzeit) wählst du **Pi (experimental)**, die Standardeinst
 
 **Read the handbook before the first write** (Handbuch vor der ersten Änderung lesen), ebenfalls unter **Runtime**, ist standardmäßig an. Ihre erste Änderung in einem Bereich mit integriertem Skill wird zurückgewiesen, bis sie diesen Skill gelesen hat. Das hilft kleineren Modellen. Ausschalten kannst nur du die Einstellung.
 
+**Position des Zugkontexts** unter **Laufzeit** legt fest, wo sie den Kontext jedes Zugs liest: die aktuelle Uhrzeit, angehängte Chats, @-Links und ihre Notizen aus früheren Zügen. Die Standardeinstellung **Oberhalb der letzten 2 Nachrichten** platziert ihn über ihrer letzten Antwort und deiner Nachricht. So folgt deine Anfrage danach, und sie setzt seltener eine Geschichte fort, die ihr gezeigt wurde. Mit **Am Ende, nach deiner Nachricht** liest sie ihn zuletzt. Mit jedem Schritt weiter zurück wird etwas weniger vom Chat aus dem Prompt-Cache deines Anbieters wiederverwendet. Ihre Anweisungen stehen immer am Anfang und werden nicht verschoben.
+
 ### Worauf sie auf deinem Computer zugreifen kann
 
 Sie kann die Programmdateien von Marinara lesen und ändern und Befehle in einer Sandbox ausführen, damit sie die App reparieren kann. Die meisten Menschen brauchen das nie.

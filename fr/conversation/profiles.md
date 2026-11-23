@@ -8,7 +8,7 @@ Ce n'est pas un profil de réglages (un ensemble enregistré d'options de chat, 
 
 Les champs sont dans un onglet nommé **Convo**.
 
-1. Ouvre le personnage dans le **Character Editor** (éditeur de personnage), ou la persona dans le **Persona Editor** (éditeur de persona). Pour y aller, ouvre le panneau **Characters** depuis la barre latérale, ou le panneau **Personas** depuis l'icône de personne dans la barre du haut de la barre latérale droite, puis clique sur la fiche (voir [Créer et modifier des personnages](../characters/creating-and-editing-characters.md) et [Personas utilisateur](../characters/personas.md)).
+1. Ouvre le personnage dans le **Character Editor** (éditeur de personnage), ou la persona dans le **Persona Editor** (éditeur de persona). Pour y aller, ouvre le panneau **Personnages** ou **Personas** depuis la barre du haut, puis clique sur la fiche (voir [Créer et modifier des personnages](../characters/creating-and-editing-characters.md) et [Personas utilisateur](../characters/personas.md)).
 2. Clique sur l'onglet **Convo**.
 
 L'onglet contient **Convo Display Name**, **About Me** et **Convo Behavior**. Sur un personnage, il a aussi **Weekly schedule** (avec **Edit schedule** ou **Create schedule**, voir [emplois du temps](schedules.md)). Les directives pour les selfies du personnage se trouvent désormais dans l'onglet **Images** (images), sous **Selfie instructions** (instructions pour les selfies) (voir [Selfies](selfies.md)).

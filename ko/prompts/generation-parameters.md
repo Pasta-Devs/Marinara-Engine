@@ -132,7 +132,20 @@ NanoGPT의 MiniMax M3.1 Flash는 항상 추론합니다. **Low**(낮음)부터 *
 
 1. **Advanced Parameters**에서 **Image captioning**을 켜세요.
 2. **Captioning model**(캡션 연결) 드롭다운에서 모델을 고르세요.
-3. 필요하면 이미지마다 함께 보내는 지시인 **Captioning Prompt**(캡션 프롬프트)를 고치세요. 초기화 버튼을 누르거나 입력란을 비우면 기본값으로 돌아갑니다. 프롬프트는 이 채팅에만 저장되며, **Save as Connection Default**(연결 기본값으로 저장)로는 복사되지 않습니다.
+3. 필요하면 이미지마다 함께 보내는 지시인 **Captioning Prompt**(캡션 프롬프트)를 고치세요. 초기화 버튼을 누르거나 입력란을 비우면 엔진 전체의 이미지 판독 프롬프트로 돌아갑니다. 프롬프트는 이 채팅에만 저장되며, **Save as Connection Default**(연결 기본값으로 저장)로는 복사되지 않습니다.
+
+스위치가 꺼져 있어도 **Connections**(연결) 패널의 **Jobs**에 **Image reading**(이미지 판독) 모델이 설정되어 있으면 입력란이 표시됩니다. 그러면 채팅 자체 모델이 이미지를 볼 수 없을 때마다 그 모델이 이 채팅의 이미지를 설명합니다.
+
+### 판독 모델에 요청하는 내용
+
+**Connections** 패널의 **Jobs**에서 **Image reading** 행의 톱니바퀴를 클릭하세요. 또는 **Model for Image reading**의 모델 목록 아래에서 **Image reading settings**(이미지 판독 설정)를 고르세요. 다음 설정은 모든 채팅에 적용됩니다.
+
+- **Instructions**(지침): 모든 이미지와 함께 보내는 시스템 프롬프트입니다. 채팅 자체의 **Captioning Prompt**가 이를 대신합니다.
+- **Request**(요청): 각 이미지와 함께 보내는 메시지입니다. `{{filename}}`은 이미지 파일 이름으로 바뀝니다.
+- **Answer length (tokens)**(답변 길이(토큰)): 기본값은 700입니다. 사고 모델은 이 길이의 일부를 사고에 쓰므로 설명이 비어 있거나 잘려 오면 길이를 늘리거나 사고를 끄세요. 모델의 **Max output tokens**(최대 출력 토큰) 한도는 계속 적용됩니다.
+- **Temperature**: 기본값은 0.2입니다.
+
+**Instructions**와 **Request**에는 내장 텍스트로 되돌리는 초기화 버튼이 있습니다. **Answer length**(답변 길이)나 **Temperature**를 비우면 내장 값을 다시 사용합니다. 로컬 모델에 직접 물을 때는 이미지를 잘 설명하지만 Marinara에서는 그렇지 않다면, 직접 사용하는 시스템 프롬프트와 질문을 **Instructions**와 **Request**에 복사하세요. 모델의 인라인 사고(`<think>…</think>`)는 설명에서 제거됩니다.
 
 작동하지 않는 경우: 캡션 계정이 고장 났거나 삭제되었거나 아무것도 돌려주지 않아서 캡션 생성에 실패하면, 답변이 **Image captioning failed** 오류와 함께 중단됩니다. Marinara가 이미지를 대신 보내지는 않습니다. 캡션 모델을 고치거나 바꾸거나, **Image captioning**을 끄세요.
 

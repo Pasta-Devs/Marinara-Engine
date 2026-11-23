@@ -235,7 +235,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 ### Memory Recall ничего не вспоминает
 
-Функция **Memory Recall** ищет в прежних сообщениях самые подходящие и добавляет их обратно в промпт.
+Функция **Извлечение воспоминаний** ищет в прежних сообщениях, которые уже не помещаются в промпт, самые подходящие и добавляет их обратно. Пока весь чат помещается в окно контекста, она ничего не добавляет. См. [Что добавляет Memory Recall](agents/memory.md#what-memory-recall-adds).
 
 1. Откройте **Chat Settings → Memory Recall** и убедитесь, что переключатель **Enable Memory Recall** включен.
 2. Откройте **Access memories for this chat**. В разделе **Memories for This Chat** посмотрите статус каждого фрагмента.

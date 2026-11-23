@@ -235,7 +235,7 @@ Das **Built-in model** (eingebautes Modell) läuft ohne API-Key auf deinem Compu
 
 ### Memory Recall erinnert sich an nichts
 
-**Memory Recall** durchsucht frühere Nachrichten und fügt die passendsten wieder in den Prompt ein.
+**Memory Recall** durchsucht frühere Nachrichten, die nicht mehr in den Prompt passen, und fügt die relevantesten wieder hinzu. Solange der ganze Chat ins Kontextfenster passt, fügt es nichts hinzu. Siehe [Was Memory Recall hinzufügt](agents/memory.md#what-memory-recall-adds).
 
 1. Öffne **Chat Settings → Memory Recall** und prüf, ob **Enable Memory Recall** eingeschaltet ist.
 2. Öffne **Access memories for this chat**. Sieh dir unter **Memories for This Chat** den Status jedes Abschnitts an.

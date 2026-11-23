@@ -38,6 +38,8 @@ Pod nią panel informacji może pokazać usługę i model, szacowaną liczbę to
 
 Resztę okna zajmuje prompt podzielony na zwijane sekcje, każda z własnym zgrubnym oszacowaniem liczby tokenów. Wiadomości czatu są zgrupowane w sekcji **Chat History** (historia czatu). W zapisanym dosłownym zapytaniu usługa mogła połączyć kilka tur czatu w jeden blok, więc rozwiń każdy blok, żeby zobaczyć cały tekst. Kliknij nagłówek sekcji, aby ją otworzyć lub zamknąć.
 
+Część tekstu jest dodawana na określonej głębokości czatu: **Notatki autora** i wpisy World Info ustawione na **@ Głębokość**. Gdy opcja **Przetwarzanie końcowe wiadomości** ma wartość **Zastosuj** (domyślną), model dostaje ten tekst wewnątrz pobliskiej wiadomości użytkownika, więc widać go w wiadomości **Ty**. Podgląd oznacza go tam własnym nagłówkiem, takim jak **Notatka autora · wysyłana wewnątrz twojej wiadomości** lub **World Info @depth 4 · wysyłane wewnątrz twojej wiadomości**. Przy opcji **Nie stosuj** jest zamiast tego wysyłany jako osobna wiadomość **System**.
+
 **Exact Text Model Request** to zapytanie w takiej postaci, w jakiej wysłano je po tę odpowiedź. Zostało zapisane przed wszystkim, co uruchomiło się po odpowiedzi, na przykład przed automatycznym podsumowaniem albo ukryciem wiadomości, więc może zawierać wiadomości, których następna odpowiedź nie dostanie. Kliknij **Show current context** (pokazanie bieżącego kontekstu), żeby złożyć prompt z czatu w jego obecnym stanie, bez wysyłania go. Kliknij **Show sent request** (pokazanie wysłanego zapytania), żeby wrócić.
 
 ### Kopiowanie promptu

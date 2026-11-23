@@ -101,14 +101,13 @@ Die Eigenschaft ist weder beschreibbar noch konfigurierbar, und der Namensraum s
 | `components.SearchInput` | Ab Capability-API 1.832 das Suchfeld der Engine. Übergib `value`, `onChange` und ein `label` für Screenreader. Das Feld hat eine Schaltfläche zum Leeren. Escape leert zuerst den Text. `resultCount` zeigt „4 found“ an, `busy` zeigt einen Ladeindikator, `size="compact"` passt in enge Werkzeugleisten, und `slashShortcut` setzt mit „/“ den Fokus auf das Feld. |
 | `components.showConfirmDialog` | Ab Capability-API 1.830 der Bestätigungsdialog der Engine, dieselbe Funktion wie `services.dialogs.showConfirmDialog`. |
 | `components.Select` | Ab Capability-API 1.831 das Dropdown der Engine. Übergib `value` (eine Zeichenfolge oder `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` und ein `label`. Optional sind `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` und `buttonRef`. Am Computer öffnet sich ein Popover, am Handy ein Einschub. Ab acht Optionen gibt es eine Suche. Verwende es anstelle eines nativen `<select>`. |
+| `components.Popover` | Ab Capability API 1.836: die verankerte Ebene der Engine. Übergib `open`, `onClose`, `anchorRef` und den Inhalt; optional sind `side` (`top` / `bottom`), `align` (`start` / `center` / `end`), `gap`, `matchAnchorWidth`, `role`, `className` und `dismiss` (zum Beispiel `{ outsideClick: false }`). Bei Platzmangel wechselt sie die Seite, bleibt innerhalb des Fensters und schließt sich bei Escape, einem Klick außerhalb oder Zurück. Dabei schließt sich die oberste Ebene zuerst, sodass ein Popover innerhalb eines Dialogs vor dem Dialog geschlossen wird. |
 | `data.emojiCatalog` | Das Modul `lib/emoji-catalog.generated.ts`. |
 | `api` | Das Modul `lib/api-client.ts` (`api`, `ApiError`, `getApiErrorMessage`, ...). |
 
 Ein Paket liest ein Mitglied erst nach einer Prüfung, zum Beispiel
 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
-
 Verwende für Bilddownloads `shouldUseIosImageShare()`, damit dieselben Plattformregeln wie in der Galerie gelten. Bereite das Bild auf dem iPhone vor der Speichergeste mit `prepareImageSave(url, filename)` vor und rufe `savePreparedImageToDevice(prepared)` direkt aus dieser Geste auf. Ein abgebrochener Teilen-Vorgang bleibt ohne Fehlermeldung; ein fehlgeschlagener Vorgang wird nicht durch eine WebKit-Downloadvorschau ersetzt. Andere Plattformen verwenden `downloadUrlToDevice`. Diese Hilfsfunktionen speichern auf dem Gerät des Clients, auch wenn der Engine-Server in Docker läuft.
-
 Der Namensraum wächst nur: Ein neues Mitglied kommt mit einer Minor-Version der Capability API, und ein Paket, das es braucht, verlangt diese Minor-Version. Pakete, die für den Namensraum gebaut sind, verlangen die Version der Capability API, die ihn eingeführt hat. Eine ältere Engine installiert sie also nie und behält die Paketversion, die sie bereits hat. Fehlt ein Mitglied trotzdem, greift das Paket nie auf eine mitgebündelte Kopie eines zustandsbehafteten Engine-Dienstes zurück: Die Stores `ui` und `chat` werden zu schreibgeschützten Kopien, die nie schreiben, und jedes andere Mitglied meldet, dass die Funktion eine neuere Version von Marinara Engine braucht.
 
 **Host-Module.** `modules[specifier]` ist ein vollständiger Modulnamensraum, einschließlich `default`, sofern die Bibliothek eines hat. `MARINARA_HOST_MODULE_IMPORTS` im Client-Vertrag ordnet jedem öffentlichen Slot die Abhängigkeit zu, die er importiert. Meist stimmen beide Namen überein. Der stabile Slot `framer-motion` ist `framer-motion-v13` zugeordnet (ein exakter npm-Alias für Motion 13.5.1), während der optionale Slot `motion/react` der primären Abhängigkeit `framer-motion` 14 der Engine zugeordnet ist. Die Paketwerkzeuge verwenden diese Zuordnung sowohl für die Exportliste als auch für die TypeScript-Pfade; öffentliche Slot-Namen müssen keine tatsächlichen Abhängigkeiten sein. Die Specifier sind `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` und `clsx`. Ein Paket-Build löst diese Specifier zu Shims auf, die den Namensraum lesen. So rendert das Paket mit dem einen React der Engine und teilt deren React-Query-Cache und Toasts.
@@ -131,7 +130,7 @@ Der Namensraum wächst nur: Ein neues Mitglied kommt mit einer Minor-Version der
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ui`        | `achievementsEnabled`, `debugMode`, `includeReasoningInExports`, `enableStreaming`, `userStatus`, `enterToSendConvo`, `conversationCallVoiceVolume`, `conversationCallVoiceMuted`, `setConversationCallVoiceVolume`, `setConversationCallVoiceMuted`, `conversationTimeZone`, `noodleNavigation`, `setNoodleNavigation`, `noodleSelectedPersonaId`, `setNoodleSelectedPersonaId`, `reviewImagePromptsBeforeSend`, `musicPlayerEnabled`, `musicPlayerSource`, `sidebarOpen`, `setSidebarOpen`, `chatBackground`, `setChatBackground`, `characterDetailId`, `lorebookDetailId`, `presetDetailId`, `connectionDetailId`, `agentDetailId`, `toolDetailId`, `personaDetailId`, `regexDetailId`, `characterLibraryOpen`, `botBrowserOpen`, `gameAssetsBrowserOpen`, `modal`, `rightPanelOpen`, `closeModal`, `closeRightPanel`, `closeBotBrowser`, `closeAllDetails` |
 | `chat`      | `activeChatId`, `activeChat`, `isStreaming`, `streamingChatId`, `abortControllers`, `reset`, `pendingSpatialTransitions`, `setPendingSpatialTransition`, `clearPendingSpatialTransition`, `setPendingSpatialTransitionStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `agent`     | `setYoutubePlay`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `agent`     | `setYoutubePlay`, `setPackageActivity`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `sidecar`   | `modelDownloaded`, `modelDisplayName`, `fetchStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `dialog`    | `dialog`, `openDialog`, `closeDialog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `gallery`   | `pinImage`, `pinVideo`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -201,6 +200,7 @@ Die Sicherheitsregeln der Engine haben Vorrang. Das Feld wird zwangsweise ausgek
 Capability API 1.14 ergänzt zwei Werte für `contributions.slots` bei aktiven, eingeschalteten Roleplay-Agentenpaketen mit Client-Einstiegspunkt:
 
 - `roleplay-tracker` bindet die Ansicht `toolbar` des Pakets ins Roleplay-HUD ein. Ihre Props umfassen `chatId`, `chatMode`, `mobileCompact`, die Host-Klasse `toolbarButtonClass`, `onRerunTracker`, `trackerRetryBusy`, `lockMode` und `onToggleLockMode`. Die Callbacks sind optional; prüfe sie vor der Verwendung.
+- `chat-activity` (Capability API 1.820) bindet die Ansicht `activity` des Pakets in das Panel Agentenaktivität des Chats ein. Siehe [Capability API 1.820](#capability-api-1820-showing-a-package-in-agent-activity).
 - `tracker-panel` bindet die Ansicht `tracker` mit `chatId`, `chatMode` und `detached` in das bestehende Tracker Panel ein. Verwende diese Host-Oberfläche, statt ein zweites Panel zu öffnen. Beide Slots erhalten auch die üblichen Props für Capability-Identität und Lokalisierung.
 
 Prompt-Kontext wird weiterhin über `api.registerPromptContext` registriert und braucht die Berechtigung `prompt-context`. Die Anfrage enthält nun `targetCharacterIds`, `personaId` und `placedAgentTypes`, aus Kompatibilitätsgründen optional. `placedAgentTypes` nennt die vom Preset bereits platzierten Agentendatenabschnitte, damit ein Beitrag seinen Kontext nicht dupliziert. Der Host behält in `packageBlocks` die Paketidentität jedes Beitrags, um paketeigenen Text im passenden Agentenabschnitt zu platzieren. Empfängerspezifischer Text sollte die gelieferten Zielcharakter-IDs berücksichtigen.
@@ -268,11 +268,8 @@ Das Dokument hat die Form `{ "schemaVersion": 1, "verbs": [ … ] }` mit einem b
 ```
 
 Ein Verbname entspricht `[a-z][a-z0-9_]*`, umfasst höchstens 32 Zeichen und darf keines der eigenen GM-Klammertags der Engine sein. Diese Prüfung ignoriert Groß-/Kleinschreibung: Die Erinnerung schreibt `[Note:` und `[Book:` groß, der Parser erkennt sie unabhängig davon. Ein Verb `note` würde daher das Journaltag verdecken. Die reservierte Menge stammt aus allen Tags, die GM- und Party-Erinnerungen in ihren Zweigen ausgeben können, sowie aus den fünf Parsern für fertige Erzählungen: Client-Tag-Parser, Client-Erzählformatter, serverseitiger Segmenteditor, Sidecar-Szenenanalyse und Dialogumschreiber der Generierungsroute. Ihr Wortschatz ist größer als der jeder Erinnerung. Er enthält die Dialogtokens `main`, `side`, `extra`, `action`, `thought` und `whisper` sowie `qte_bonus` / `qte_result`, die nur der Erzählformatter erkennt. Gerade deshalb ist die Absicherung wichtig: Ein Verb `whisper` würde `[whisper:Tam]` vor dem Speichern aus einer Dialogzeile entfernen; diese wäre danach dauerhaft keine Dialogzeile mehr.
-
 Eine Regression sichert auch die Extraktoren ab. Jeder Parser mit einzigartigen Namen muss diese weiterhin liefern, etwa `party-chat` / `party-turn` aus dem Tag-Parser und das QTE-Paar aus dem Formatter. Verschwindet eine Quelle aus der Suche, schlägt der Build fehl, statt die reservierte Menge zu verkleinern. Auch die drei Quellen ohne einzigartige Namen werden durchsucht, um dort zuerst ergänzte Tags zu erkennen. Vollständigkeit verspricht diese Absicherung nicht: Ein Tag außerhalb der durchsuchten Dateien oder in einer vom Extraktor nicht erkannten Schreibweise könnte fehlen. Bei neuen Parsern muss die Suche daher erweitert werden. Auch gewöhnliche Wörter wie `action`, `state`, `status` und `note` sind eingebaute Tags; ihre Ablehnung beruht meist auf dieser Regel, nicht auf einem Tippfehler.
-
 `description` ist eine Zeile mit 1–200 Zeichen ohne eckige Klammern und Zeilenumbrüche, weil sie unverändert in die Verbzeile des Blocks `COMMANDS:` der Erinnerung gelangt. Als Zeilenumbrüche gelten neben CR/LF auch `U+0085`, `U+2028` und `U+2029`. Auch C0-Steuerzeichen und DEL werden abgelehnt; besonders ein Tabulator könnte den Block umformen, ohne eine Zeile zu beenden. Unverändert bedeutet hier jedoch nicht ohne Makroverarbeitung: Die gesamte Erinnerung wird vor dem Senden aufgelöst. `{{…}}` in einer Beschreibung wird daher expandiert, einschließlich schreibender Makros wie `{{setvar::…}}`. Das reicht nicht weiter als die vorhandene Berechtigung `chat-write`, kann aber versehentlich passieren. Verwende Makroklammern deshalb nur absichtlich.
-
 Ein Verb akzeptiert bis zu sechs Argumente, jeweils `{ name, type, enum?, maxLength?, optional? }`. Namen entsprechen `[a-z][a-zA-Z0-9_]*` mit höchstens 32 Zeichen, bewusst weiter als Verb-Namen ohne Großbuchstaben: Argumentnamen sind JSON-Schlüssel, keine Klammertags. Nur String-Argumente dürfen `enum` tragen: 1–16 unterschiedliche Werte. Wiederholungen bringen nichts und werden wie andere Duplikate in Verbtabellen abgelehnt. Ein String ohne Enum muss `maxLength` von 1–500 deklarieren; der begrenzte Parser hat keine eigene Längengrenze und würde sonst ganze Erzählfragmente zulassen. `enum` und `maxLength` zusammen werden abgelehnt, weil das Enum bereits begrenzt. Nutzdaten sind flaches einzeiliges JSON; ein verschachteltes `}` beendet die Tagerkennung vorzeitig. Pro Verbname und Nachricht wird nur ein Vorkommen gelesen; eine Wiederholung in derselben Erzählung wird einmal ausgeführt.
 
 Das musst du nicht in der Beschreibung wiederholen. Die Erinnerung wird aus der geparsten Tabelle erstellt: schematische Nutzdaten, Beschreibung und ein kopierbares Beispiel:
@@ -296,11 +293,9 @@ Enthält ein Zug beide Arten, erreicht die synchrone Event-Zustellung das Paket 
 Ablehnung ist bewusst asymmetrisch. Die Engine prüft nur Struktur: Argumentnamen, Typen, Enum-Werte und String-Grenzen. Bedeutung gehört dem Paket; NPC-Namen etwa können nicht schon bei Deklaration aufgezählt werden, wenn die Welt je Chat entsteht. Die Ablehnung eines Zustandsverbs durch das Paket ist deshalb nur _ein Hinweis_: Die Metadaten sind bereits gespeichert. Bei einem Ereignisverb ist sie _verbindlich_: Engine-seitig wurde nichts gespeichert; ein unbekannter Name kann tatsächlich abgelehnt werden.
 
 Der `metadataKey` eines Zustandsverbs muss nach drei Regeln zum deklarierenden Paket gehören. Er beginnt mit dessen nach Camel Case normalisierter ID (`hierarchical-maps` → `hierarchicalMaps`). Es folgt ein nicht leeres Suffix, das mit einem Großbuchstaben beginnt; dadurch kann kein Paket den Namensraum eines anderen als Präfix verwenden. Außerdem darf die normalisierte ID kein Engine-Metadaten-Namensraum sein oder diesen an einer Großbuchstabengrenze verlängern. Die Namensraumliste stammt aus allen obersten `ChatMetadata`-Schlüsseln, den Engine-Konstanten und Schlüsseln der Indexsignatur statt der Deklaration: `encounterActive`, `internalAssistant`, `imageGenConnectionId` und weitere, die die ersten beiden Quellen nicht sehen.
-
 Diese dritte Gruppe benötigt sieben Quellen, weil die Engine Metadaten in mehreren Formen liest und schreibt: das Objekt eines `patchMetadata`/`updateMetadata`-Aufrufs; das von einem Aktualisierungs-Callback _zurückgegebene_ Objekt, fast ebenso häufig; die Client-Mutation `useUpdateChatMetadata()` und ihr Prop `onMetadataChange`, die `patchMetadata` nie verwenden; direkte Client-Aufrufe `PATCH /chats/:id/metadata`, etwa für Kampf-, Szenen- und Erzählwerte der Game-Oberfläche; Zugriffe über `chatMetadata.key` und `chat.metadata.key`; Zugriffe auf Ergebnisse von `parseChatMetadata(…)`, die häufigste Form und einzige Quelle für Schlüssel wie `scenario`; schließlich die bereits manuell gepflegte Liste für Chat-Einstellungsprofile. Letztere erfasst Schlüssel, die vollständig über Funktionsgrenzen hinweg gelesen und geschrieben werden.
 
 Regressionen sichern alle Quellen und Extraktoren ab. Zwei Fälle liegen bewusst außerhalb der Suche. Ein Schreibaufruf mit Variable oder Helferergebnis, etwa `patchMetadata(id, hydratedMeta)` oder dieselbe Form an der Metadatenroute, enthält statisch nicht erkennbare Schlüssel. Davon gibt es derzeit zwanzig; die Regression fixiert diese Zahl. Ein einundzwanzigster lässt den Build bis zur manuellen Prüfung scheitern. Ein Lesezugriff _innerhalb_ eines Helfers über einen Parameter ist ebenfalls nicht statisch erfasst. So verhält sich `spatialContext`: Geschrieben vom Client des Pakets `hierarchical-maps` im Agents-Repository, gelesen hier über einen Helfer und dateilokales Parsing. Diese Lücke schließt die gepflegte Liste. Deshalb ist eine Quelle bewusst kuratiert statt abgeleitet; die Ableitung benennt ihre blinden Flecken. `persona` ist ein manuell ergänzter Mindesteintrag ohne heutige Ableitungsquelle.
-
 Die dritte Regel kann absichtlich ganze Pakete ausschließen: `conversation-calls` wird zu `conversationCalls`, und `conversationCalls` + `Enabled` ist bereits ein Engine-Schlüssel. Dieses Paket darf daher unter seiner ID keine Chat-Metadatenschlüssel besitzen. Dasselbe gilt für `noodle` und `background`; Letzteres, weil `background` selbst ein Engine-Schlüssel für Chat-Metadaten ist. Solche Pakete dürfen weiterhin schlüssellose Ereignisverben deklarieren. Schlüssel sind flach auf oberster Ebene, passend zum vorhandenen Abgleich des Pakets.
 
 Verben laufen nur für installierte, bereite Pakete mit `chat-write`. Diese Berechtigung schützt auch die Persistenz-API für Nachrichten, Chat-Metadaten, Roleplay-Ereignisse und räumliche Snapshots. `chat-read` schützt Lesezugriffe auf Chats, Nachrichten, Spielzustand und räumliche Snapshots. Dieselben Prüfungen gelten in Transaktionen und Chatsperren; Schreibrecht gewährt nicht automatisch Leserecht. Engine-eigene Persistenzaufrufe bleiben vertrauenswürdig.
@@ -1130,6 +1125,34 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 Dafür ist keine Berechtigung nötig. Ältere Engines haben die Methode nicht, prüfe also `typeof ttsService.prepareAudio === "function"` und vertone Zeilen weiterhin, sobald sie erscheinen. Deklariere 1.835 nur, wenn das Paket ohne sie nicht funktioniert.
 
+### Capability API 1.834: gespeicherte Sprites und die Regel zur Bildauswahl
+
+`api.runtime.sprites` liest die gespeicherten Sprites eines Charakters oder einer Persona, damit ein Paket vorhandene Bilder des Nutzers verwendet, bevor es neue zeichnet. Dafür ist keine Berechtigung nötig. Ältere Engines bieten die API nicht an; prüfe deshalb, ob sie vorhanden ist.
+
+- `list(ownerId)`: jedes gespeicherte Sprite als `{ handle, kind, name, label, folder, url, mimeType }`. `kind` ist `"expression"` (ein Gesicht) oder `"full-body"`. `folder` ist der Sprite-Ordner, in dem es abgelegt ist; Nutzer benennen ihn oft nach einem Outfit. SVG-Sprites werden ausgelassen, da kein Bildmodell sie lesen kann.
+- `resolve(ownerId, { kind, expression?, outfit?, selected?, maxReferences? })`: die Regel zur Bildauswahl, in dieser Reihenfolge.
+  1. `selected`: das Handle eines gespeicherten Sprites, das der Nutzer ausgewählt hat, etwa das Bild eines angelegten Outfits. Solange es existiert, hat es Vorrang: `{ source: "selected", sprite }`.
+  2. Ein gespeichertes Sprite, das bereits das Gewünschte zeigt: `{ source: "library", sprite, match }`. Der Gesichtsausdruck (bei Ganzkörperbildern die Pose) muss über den Namen übereinstimmen, das Outfit über den Ordnernamen oder einen Namensbestandteil (`happy_winter_coat`, siehe [Namensvarianten](../characters/sprites.md#name-variants)). Ohne Gesichtsausdruck passt das Ruhebild des Outfits (neutral, idle, default). Das richtige Gesicht in einem anderen Outfit gilt nicht als Treffer.
+  3. Gespeicherte Sprites als Vorlage zum Zeichnen: `{ source: "reference", references }`, bis zu `maxReferences` (1 bis 4, standardmäßig 4), die besten zuerst: die Bilder des Outfits, der Gesichtsausdruck in einem anderen Outfit, dann das ruhende Gesicht und die ruhende Ganzkörperansicht. Lies sie mit `read` und übergib sie als `referenceImages` an `integrations.images.generate`.
+  4. `{ source: "none" }`: anhand der Charakterbeschreibung zeichnen.
+- `read(ownerId, handle)`: `{ base64, mimeType, transparent }`, oder null, wenn das Sprite nicht mehr vorhanden ist. `transparent` gibt an, dass das Bild bereits einen transparenten Hintergrund hat. Lass es deshalb unverändert und schicke es nicht durch die Hintergrundentfernung.
+
+Bilder, die das Paket selbst für eine ausdrückliche Auswahl vorhält, etwa Outfits in Otome Hearth oder saisonale Kleidung in Life Sim, haben vor all dem Vorrang und brauchen keinen Aufruf. Eine Client-Ansicht erhält dieselbe Antwort über `GET /api/sprites/:ownerId/match?kind=expression&expression=happy&outfit=winter%20coat`.
+
+```ts
+const sprites = context.api.runtime.sprites;
+const pick = sprites ? await sprites.resolve(characterId, { kind: "full-body", expression: "wave", outfit }) : null;
+if (pick?.source === "selected" || pick?.source === "library") return pick.sprite.url;
+const references =
+  pick?.source === "reference"
+    ? (await Promise.all(pick.references.map((entry) => sprites!.read(characterId, entry.handle))))
+        .filter((picture) => picture !== null)
+        .map((picture) => picture.base64)
+    : [];
+// Generate with `referenceImages: references`, and ask for a see-through picture only on a connection that draws
+// one (its Transparent backgrounds setting).
+```
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: animierte GIF-Bilder
@@ -1176,6 +1199,91 @@ sind innerhalb des Aufrufs also schon lesbar. Ein Paket kann damit die Kopie kor
 Fehler und Aufrufe, die länger als einige Sekunden dauern, werden protokolliert und verworfen; die Verzweigung wird so oder so zurückgegeben. Ohne
 die Methode ändert sich nichts. Dies ist eine weiche Schnittstelle: Ältere Engines rufen sie nie auf, das Paket muss also auch ohne den Aufruf
 auskommen. Eine Berechtigung ist nicht nötig.
+
+### Capability API 1.818: Embeddings aus einer vom Paket gewählten Verbindung
+
+`api.runtime.embeddingsFor(connectionId)` liefert Embeddings aus einer Quelle, die eine eigene Einstellung des Pakets nennt, statt aus der Agentenverbindung, der `resolveEmbeddings()` folgt. Anders als `resolveEmbeddings()` greift es nie auf den appweiten Standard **Embeddings** zurück.
+
+| `connectionId` | Liefert |
+| --- | --- |
+| `null` | Den eingebauten lokalen MiniLM-Embedder. |
+| Eine Verbindungs-ID | Die eigene Embedding-Quelle dieser Verbindung: ihren **Embedding provider**, ihre **URL des Embedding-Endpunkts** und ihr Embedding-Modell, wie **Embedding testen** sie ermittelt. |
+| Eine ID ohne zugehörige Verbindung oder eine Verbindung ohne nutzbare Embedding-Quelle | `null`. Der Fall wird protokolliert und der Aufruf abgeschlossen; es wird kein Fehler geworfen. |
+
+Der zurückgegebene Host hat dieselbe Form wie bei `resolveEmbeddings()`: `spaceId`, `label` und `embed(texts, signal?, inputType?)`, mit denselben Grenzen (128 Texte, zusammen 200.000 Zeichen) und dem Eingabetyp aus 1.68. Bei einem fehlgeschlagenen Aufruf liefert `embed` den Wert `null`. Jede Quelle hat ihre eigene `spaceId`. Erzeuge deshalb die Embeddings gespeicherter Vektoren neu, wenn sich die Einstellung ändert.
+
+```ts
+const runtime = api.runtime;
+const chosen = settings.embeddingConnectionId ?? null; // null: the built-in local model
+const embeddings =
+  typeof runtime.embeddingsFor === "function"
+    ? ((await runtime.embeddingsFor(chosen)) ?? (await runtime.embeddingsFor(null)))
+    : await runtime.resolveEmbeddings();
+const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
+```
+
+Dies ist eine weiche Schnittstelle: Ältere Engines lassen die Methode weg. Prüfe deshalb vor dem Aufruf, ob sie existiert, und nutze eine Ausweichlösung wie im Beispiel. Deklariere 1.818 nur, wenn das Paket ohne sie nicht funktioniert. Eine Berechtigung ist nicht nötig.
+
+### Capability API 1.820: ein Paket in der Agentenaktivität anzeigen
+
+Der Slot `chat-activity` fügt eine eigene Karte in das Panel Agentenaktivität eines Chats ein, das über das Symbol für Agentenaktivität
+geöffnet wird, in der Chat-Seitenleiste und im Tracker-Panel. Deklariere ihn in `contributions.slots` und registriere eine Ansicht `activity`;
+die Engine hängt für jedes aktive Paket ein Element ein, sofern es einen Client-Einstiegspunkt hat und im Chat läuft
+(die Paket-ID steht unter den aktivierten Agenten des Chats). Es erscheint nach Status und Ausgaben der Agenten und vor
+den gespeicherten Ausgaben eigener Agenten.
+
+```json
+{ "contributions": { "slots": ["chat-activity"] } }
+```
+
+Das Element erhält `chatId` und `onOpenAgentSettings()`, das die eigene Agentenseite des Pakets öffnet, sowie die üblichen
+Props für Capability-Identität und Lokalisierung. Die Engine fügt keine umgebende Oberfläche hinzu: Zeichne deine eigene Karte und zeige nichts an,
+wenn es nichts zu zeigen gibt. Sobald dein Client-Code geladen ist, braucht ein leeres Element keinen Platz. Solange eine Paketkarte
+eingehängt ist, zeigt das Panel „No agent activity yet“ nicht an. Zeichne bei Bedarf eine eigene Zeile für den Leerlauf.
+
+Dies ist keine weiche Schnittstelle: Eine Engine vor 1.820 lehnt das Manifest ab. Ein Paket, das `chat-activity` deklariert, deklariert deshalb
+1.820.
+
+#### Anzeigen, dass ein Paket arbeitet oder Aufmerksamkeit braucht
+
+`__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })` aktiviert das Symbol für Agentenaktivität
+dieses Chats (`packageId` ist die `id` deines Manifests), wo immer es steht (in der Chat-Seitenleiste, ihrem ausgelagerten Fenster und im Tracker-Panel). Solange ein
+Paket `busy: true` meldet, dreht sich das Symbol wie bei den eigenen Agenten des Chats; `alert: true` zeigt seinen Punkt an. Ein
+weggelassenes Feld behält seinen Wert, und ein Eintrag mit zweimal false wird entfernt. Signale werden je Chat gespeichert, sodass beim Chatwechsel
+nur die Signale dieses Chats erscheinen.
+
+```ts
+const agent = globalThis.__MARINARA_HOST__?.stores.agent?.getState();
+agent?.setPackageActivity?.(id, chatId, { busy: true });
+try {
+  await doWork();
+} finally {
+  agent?.setPackageActivity?.(id, chatId, { busy: false });
+}
+```
+
+Die Engine löscht ein Signal nie von selbst, auch nicht, wenn dein Element `activity` ausgehängt wird (das Symbol ist am wichtigsten,
+während das Panel geschlossen ist): Du musst es selbst löschen. Ein Neuladen oder `reset()` löscht alles. Ein Chatwechsel lässt es bestehen. Ein arbeitendes oder Aufmerksamkeit meldendes
+Paket zählt ebenfalls als Aktivität, sodass das Panel „No agent activity yet“ nicht anzeigt. Kombiniere das Signal mit einer Karte `activity`,
+damit das Panel etwas anzeigen kann. Dies ist eine weiche Schnittstelle: Ältere Engines
+lassen die Methode weg. Prüfe deshalb wie oben, ob sie existiert. Deklariere 1.820 nur, wenn das Paket ohne sie nicht funktioniert.
+Eine Berechtigung ist nicht nötig.
+
+### Capability API 1.833: World-State-Snapshots eines Chats auflisten
+
+`persistence.getGameState(chatId)` liefert nur den neuesten festgeschriebenen World State. `persistence.listGameStates(chatId)`
+liefert den festgeschriebenen Snapshot des aktiven Swipes jeder Nachricht in Nachrichtenreihenfolge, jeweils im selben Record-Format wie
+`getGameState`. Ein Paket kann so für jede Nachricht das Datum innerhalb der Geschichte lesen, das der Tracker gespeichert hat,
+statt ein Modell danach im Text suchen zu lassen.
+
+Ausgelassen werden Nachrichten ohne festgeschriebenen Snapshot, Snapshots eines Swipes, den der Nutzer nicht behalten hat,
+Snapshots gelöschter Nachrichten und Snapshots ohne Nachrichtenzuordnung. Deshalb kann der letzte Eintrag von `getGameState` abweichen.
+Wie `getGameState` braucht die Methode die Berechtigung `chat-read` und liest nur Daten. Die Schnittstelle ist optional: Ältere Engines bieten die Methode
+nicht an; prüfe deshalb wie oben, ob sie vorhanden ist. Deklariere 1.833 nur, wenn das Paket ohne sie nicht funktioniert.
+
+```ts
+const states = (await api.runtime.persistence.listGameStates?.(chatId)) ?? [];
+```
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
@@ -1456,7 +1564,7 @@ Serverpakete können über `api.runtime.integrations` die LLM-, Bild- und Videod
 - `llm.withFallback(...)` umschließt einen vom selben Pakethost erzeugten Anbieter und erhält die Zugangsprüfung, Ersatzanbieter-Hinweise und Anbieterauswahl der Engine.
 - `images.generate(...)` und `videos.generate(...)` verwenden die laufenden Engine-Implementierungen einschließlich Abbruch, Anfrage-Logging, Netzwerkprüfungen und Medienwarteschlangen. Reiche `signal` des Aufrufers und UI-`debugMode` weiter, falls vorhanden. Ab 1.816 fordert `animation` in einer Bildanfrage ein GIF in Endlosschleife an (siehe [Capability API 1.816](#capability-api-1816-animated-gif-images)).
 - `images.save`, `images.remove`, `images.stage` und `images.sweepStaged` nutzen die sicheren Schreibvorgänge und den Lebenszyklus vorgemerkter Galeriedateien. `videos.save` und `videos.remove` verwenden den Videospeicherpfad. `images.resolveNovelAiRequestSize` nutzt die Größenanpassung des Hosts für NovelAI. Für Videodauer und öffentliche Referenz-Uploads stehen `videos.resolveDuration` und `videos.resolveReferenceUpload` bereit.
-- `speech.transcribe(audio, { filename, mimeType, signal })` schickt aufgenommenes Audio an den Speech-to-Text-Server, den der Nutzer in den Einstellungen der Aufgabe **Dictation** (Diktat) unter **Connections** eingerichtet hat, und liefert das Transkript – oder `null`, solange dieser Server ausgeschaltet ist, damit das Paket bei seiner eigenen Transkription bleibt. Dabei gelten die URL-Richtlinie des Hosts (`STT_LOCAL_URLS_ENABLED`) sowie seine Größen- und Zeitlimits, und der gespeicherte Key wird nie preisgegeben. `speech` ist optional und braucht keine neuere Capability API: Prüfe `typeof api.runtime.integrations?.speech?.transcribe === "function"` und greife bei älteren Engines auf die eigene Lösung zurück.
+- `speech.transcribe(audio, { filename, mimeType, signal })` schickt aufgenommenes Audio an den Speech-to-Text-Server, den der Nutzer unter **Connections → Speech to Text** (Spracherkennung) eingerichtet hat, und liefert das Transkript – oder `null`, solange dieser Server ausgeschaltet ist, damit das Paket bei seiner eigenen Transkription bleibt. Dabei gelten die URL-Richtlinie des Hosts (`STT_LOCAL_URLS_ENABLED`) sowie seine Größen- und Zeitlimits, und der gespeicherte Key wird nie preisgegeben. `speech` ist optional und braucht keine neuere Capability API: Prüfe `typeof api.runtime.integrations?.speech?.transcribe === "function"` und greife bei älteren Engines auf die eigene Lösung zurück.
 
 Gemeinsame Anfrage- und Ergebnistypen exportiert `@marinara-engine/shared`. Paketabhängiger Prompt-Aufbau und Ablaufsteuerung bleiben im Paket. Rufe diese Host-Schnittstellen für Anbieterzugriffe auf, statt Engine-Dienste zu kopieren. Reine Helfer und Typen dürfen weiterhin gebündelt werden.
 

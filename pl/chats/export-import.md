@@ -40,7 +40,7 @@ Marinara eksportuje wszystkie wiadomości od pierwszej do ostatniej z wybranych.
 
 ## Eksport wielu czatów naraz
 
-1. Na lewym pasku bocznym kliknij zakładkę odpowiedniego trybu: **CONVO**, **RP** lub **GM**. Każda zakładka eksportuje tylko własne czaty.
+1. W panelu **Czaty** kliknij zakładkę odpowiedniego trybu: **ROZM.**, **RP** lub **MG**. Każda zakładka eksportuje tylko własne czaty.
 2. Kliknij **Select chats** (zaznaczanie czatów) u góry listy.
 3. Kliknij każdy czat, który chcesz uwzględnić. Na dole pasek pokazuje licznik, na przykład "3 selected".
 4. Kliknij **Export** (eksport) na tym pasku.
@@ -51,7 +51,7 @@ Przeglądarka pobiera plik `.zip` z jednym zapisem JSONL na każdy czat. Eksport
 
 W ten sposób z pliku `.jsonl` zapisanego w aplikacji Marinara Engine lub wyeksportowanego z aplikacji SillyTavern powstaje nowy czat.
 
-1. Na lewym pasku bocznym kliknij zakładkę odpowiedniego trybu. Zaimportowany czat dostaje tryb otwartej zakładki, a nie tryb zapisany w pliku.
+1. W panelu **Czaty** kliknij zakładkę odpowiedniego trybu. Zaimportowany czat dostaje tryb otwartej zakładki, a nie tryb zapisany w pliku.
 2. Kliknij przycisk **Import** obok przycisku **+**. Jego etykieta to **Import SillyTavern or Marinara chat JSONL**.
 3. Wskaż plik `.jsonl`.
 

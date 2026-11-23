@@ -82,7 +82,20 @@ Google 문서를 따른 Marinara 코드의 주석에 따르면, **Gemini 4 Argon
 **OpenRouter**는 중계 서비스이며, 모델 편집기에 옵션 두 개가 추가됩니다.
 
 - **Preferred provider**(선호 제공자)는 요청을 지정한 백엔드 한 곳으로만 보냅니다. 이름은 OpenRouter 모델 페이지에 표시된 것과 같아야 합니다. 비워 두면 자동으로 배분합니다.
-- **Enable prompt caching**은 OpenRouter를 거쳐 쓰는 Claude 모델에 캐싱 힌트를 보냅니다. 다른 모델은 대부분 알아서 캐싱합니다.
+- **Enable prompt caching**은 다음 메시지에서 모델이 재사용할 수 있는 프롬프트 부분을 표시하여 긴 채팅의 비용을 낮춥니다. OpenRouter 계정에 모델을 추가할 때마다 기본으로 켜집니다. 표시하는 부분은 모델에 따라 다릅니다.
+
+| 모델 | 캐시되는 내용 | 유지 시간 |
+| --- | --- | --- |
+| Claude | 시스템 프롬프트, **Cache depth**(캐시 깊이)까지의 채팅 기록, 최신 메시지 | 5분, **Extended token caching (1 hour)**(확장 토큰 캐싱, 1시간)를 켜면 1시간 |
+| Qwen | 시스템 프롬프트와 **Cache depth**까지의 채팅 기록 | 5분 |
+| Gemini | 시스템 프롬프트 | 5분 |
+| GPT, DeepSeek, Grok, Kimi 등 | 스위치와 관계없이 서비스가 자체적으로 캐시합니다. | 서비스가 정함 |
+
+Marinara는 이전 메시지의 캐시가 남아 있도록 OpenRouter에 각 채팅을 같은 백엔드에 유지해 달라고 요청합니다. 스위치가 꺼져 있어도 작동합니다. **Preferred provider**를 설정하면 그 백엔드로 고정됩니다.
+
+메시지 사이에 프롬프트 앞부분이 그대로 유지될 때 캐싱으로 가장 많이 절약할 수 있습니다. [프롬프트 캐싱](../prompts/conditional-prompts.md#prompt-caching)을 참고하세요.
+
+> **참고:** 캐시에 쓰는 비용은 일반 입력보다 높습니다. 예를 들어 Claude의 5분 캐시는 1.25배, 1시간 캐시는 2배입니다. 캐시에서 읽는 비용은 훨씬 낮습니다. OpenRouter의 [프롬프트 캐싱 가이드](https://openrouter.ai/docs/guides/best-practices/prompt-caching)를 참고하세요.
 
 ### NanoGPT
 

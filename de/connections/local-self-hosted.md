@@ -22,6 +22,17 @@ Wenn es nicht funktioniert hat:
 - **Marinara could not reach** die Adresse. Prüf, ob der Server läuft und ob Adresse und Port stimmen. **Continue anyway** (trotzdem fortfahren) speichert das Konto ohne bestandenen Test.
 - Die Adresse liegt auf einem anderen Rechner. Siehe [Einen Server auf einem anderen Rechner erreichen](#reach-a-server-on-another-computer).
 
+## Das jeweils geladene Servermodell nutzen
+
+Ein lokaler oder selbst gehosteter Server kann mit dem Modell antworten, das er gerade geladen hat. Deshalb kann sein Konto ein Modell **Standard** enthalten. Default sendet keinen Modellnamen. Es nutzt immer das Modell, das du in Ollama, LM Studio, KoboldCpp oder llama.cpp geladen hast, auch nachdem du dort das Modell gewechselt hast.
+
+- Ein neues Konto für einen Server auf deinem Rechner oder in deinem Netzwerk beginnt mit einem Modell **Standard**.
+- Um später eines hinzuzufügen, klick am Konto auf **⋯** und wähl **Modell hinzufügen**. **Standard** steht in der ersten Zeile.
+- Nutze **Standard** wie jedes andere Modell: Weise ihm im Kasten **Aufgaben** eine Aufgabe wie **Main** zu oder wähl es unter **Modell für diesen Chat**.
+- Klick im Panel auf **Standard**, um ihm eigene Einstellungen zu geben, etwa Parameter und Prompt-Preset, genau wie einem benannten Modell.
+
+**Standard** erscheint bei einem Server auf deinem Rechner oder in deinem Netzwerk sowie für die Grok CLI, die einen eigenen Standard hat (siehe [Abonnement-CLIs](subscription-clis.md)). Ein gehosteter API-Dienst braucht einen Modellnamen.
+
 ## Adressen verbreiteter lokaler Server
 
 Ein Port ist der nummerierte Kanal, den ein Server auf deinem Rechner belegt. `localhost` bedeutet „genau dieser Rechner“. Laufen Marinara und der Server auf demselben Rechner, funktionieren diese Adressen deshalb unverändert.

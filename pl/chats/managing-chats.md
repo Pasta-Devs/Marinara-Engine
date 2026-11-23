@@ -1,6 +1,8 @@
 # Zarządzanie listą czatów
 
-Panel **Chats** (czaty) po lewej stronie zawiera wszystkie twoje czaty. Służy do zakładania, wyszukiwania, sortowania, porządkowania i usuwania czatów.
+Panel **Czaty** zawiera wszystkie twoje czaty. Służy do zakładania, wyszukiwania, sortowania, porządkowania i usuwania czatów. Żeby go otworzyć, kliknij **Czaty** na górnym pasku. Jeśli nie widzisz tego przycisku, najpierw otwórz **Więcej**.
+
+Na komputerze **Czaty** otwierają się w pasku bocznym, w tym samym miejscu co **Postacie** i pozostałe panele. Widać tylko jeden panel naraz: otwarcie panelu zastępuje **Czaty**, a kliknięcie **Czaty** je przywraca. Pasek boczny jest po prawej, chyba że ustawisz opcję **Strona paska bocznego na komputerze** na **Lewa** (zobacz [Ustawienia wyglądu](../appearance/appearance-settings.md#other-app-style-controls)). Na telefonie lub tablecie panel otwiera się na pełnym ekranie.
 
 ## Lista czatów i zakładki trybów
 

@@ -361,11 +361,12 @@ Konta wideo konfiguruje się w aplikacji. Te ustawienia tylko dostrajają zadani
 
 ### Lorebooki
 
-Oba ustawienia są domyślnie wyłączone i działają od następnego generowania po zmianie `.env`. Gdy zmienna `LOREBOOK_STABLE_GROUP_WINNERS` jest ustawiona, wygrywa z przełącznikiem **Stable lorebook picks** (stałe wybory lorebooka) w **Settings → Advanced → Features**. W przeciwnym razie decyduje przełącznik. Zobacz [Przełączniki funkcji](configuration/features.md).
+Wszystkie są domyślnie wyłączone. `LOREBOOK_STABLE_GROUP_WINNERS` i `LOREBOOK_COMPACT_STORED_SCANS` zaczynają działać przy następnym generowaniu po zmianie `.env`, a `LOREBOOK_NEW_BOOK_VECTORS` przy tworzeniu następnego lorebooka. Gdy ustawiona jest zmienna `LOREBOOK_STABLE_GROUP_WINNERS` lub `LOREBOOK_NEW_BOOK_VECTORS`, ma pierwszeństwo przed odpowiadającym jej przełącznikiem (**Stabilne wybory lorebooka** lub **Wektory włączone dla nowych lorebooków**) w sekcji **Ustawienia → Zaawansowane → Funkcje**. W przeciwnym razie decyduje przełącznik. Zobacz [Przełączniki funkcji](configuration/features.md).
 
 | Zmienna | Domyślnie | Do czego służy |
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | `false` | Zachowuje tego samego zwycięzcę grupy włączania w czacie, dopóki kandydaci są tacy sami, zamiast losować przy każdym generowaniu. Utrzymuje stały początek promptu dla pamięci podręcznej promptów u dostawcy. |
+| `LOREBOOK_NEW_BOOK_VECTORS` | `false` | Nowe lorebooki mają włączoną opcję **Wektory**, więc ich wpisy można od razu wektoryzować i wyszukiwać po znaczeniu. Dotyczy lorebooków tworzonych w aplikacji, importowanych bez własnego ustawienia oraz tworzonych przez tryb Game Mode i agenta Lorebook Keeper. Lorebooki tworzone przez asystentkę Professor Mari już mają na początku włączoną opcję **Wektory**. Istniejące lorebooki zachowują własne ustawienie. |
 | `LOREBOOK_COMPACT_STORED_SCANS` | `false` | Zapisuje pełny tekst aktywowanych wpisów tylko przy najnowszej wiadomości asystenta lub narratora. Starsze wiadomości zachowują identyfikatory wpisów, klucze i wyniki. Znacznie zmniejsza czaty z dużymi lorebookami. Jeśli nowsze wiadomości zostaną usunięte, Active Context i ponowienia agentów pokazują bieżący tekst wpisu dla wiadomości, która znów jest najnowsza. |
 
 Skrypt `scripts/compact-lorebook-scans.mjs` stosuje tę samą regułę do starszych czatów. Najpierw zatrzymaj serwer. Bez `--apply` skrypt wykonuje tylko próbę, a przed zapisem tworzy kopię zapasową obu tabel wiadomości.

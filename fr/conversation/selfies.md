@@ -35,7 +35,7 @@ Options de **Resolution** : 512x512, 512x768, 768x768, 768x1024, 896x1152 et 102
 
 **Send Avatar References** et **Attach Card Appearance** proposent chacun **Off**, **Images only**, **Videos only** et **Images and videos**.
 
-Si la fiche ou la persona a **Image Appearance Override** activé (sous **Appearance** dans l'éditeur), Marinara envoie ce texte à la place de **Appearance**. Utilise-le quand **Appearance** est écrit pour l'histoire, pas pour les images.
+Si la fiche ou le persona utilise des **Tags d'image** (l'onglet **Tags d'image** de **Apparence** dans l'éditeur, avec **Utiliser pour les prompts d'image** coché), Marinara les envoie à la place de la prose de **Apparence**. Une alternative d'apparence active dans le chat utilise ses propres tags ou sa propre prose. Utilise cette option quand **Apparence** est écrit pour l'histoire, pas pour les images.
 
 ## Demander un selfie à la main
 
@@ -67,7 +67,9 @@ La nouvelle image remplace l'ancienne dans le message. L'ancienne reste dans la 
 
 Un personnage peut envoyer un court clip vidéo. Installe d'abord Illustrator. Les selfies peuvent rester désactivés.
 
-Pour en demander un toi-même, tape `/video`, ou `/video Aster` pour choisir un personnage. Ou clique sur **Video** dans la **Gallery** du chat, qui utilise le personnage choisi là. Le clip arrive comme un nouveau message et se joue dans le chat. Il montre le dernier moment de la conversation : le modèle qui l'écrit lit autant de messages récents qu'Illustrator pour une image (son **Agent Budget**). Tu peux aussi animer une image depuis la Gallery. Le clip continue cette image et rejoint la réponse la plus récente. Si un clip ne peut pas être ajouté au chat, il est quand même enregistré dans l'onglet **Videos** de la Gallery. La galerie d'un personnage liste une vidéo seulement quand le clip montre ce personnage (voir [Galeries de personnages et de personas](../characters/galleries.md)).
+Pour en demander un toi-même, tape `/video`, ou `/video Aster` pour choisir un personnage. Ou clique sur **Video** dans la **Gallery** du chat, qui utilise le personnage choisi là. Le clip arrive comme un nouveau message et se joue dans le chat. Il montre le dernier moment de la conversation : le modèle qui l'écrit lit autant de messages récents qu'Illustrator pour une image (son **Agent Budget**). Tu peux aussi animer une image depuis la Gallery. Le clip continue cette image et rejoint la réponse la plus récente.
+
+Si un clip ne peut pas être ajouté au chat, il est quand même enregistré dans l'onglet **Videos** de la Gallery. La galerie d'un personnage liste une vidéo seulement quand le clip montre ce personnage (voir [Galeries de personnages et de personas](../characters/galleries.md)).
 
 ### Réglages vidéo
 

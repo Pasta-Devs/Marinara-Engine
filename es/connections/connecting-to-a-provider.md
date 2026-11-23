@@ -75,7 +75,7 @@ Una tarea es algo que un modelo hace por ti. El cuadro **Jobs** las enumera en c
 
 Cada fila muestra el modelo que hace esa tarea, o lo que hace la tarea sin modelo, como **Follows Main** u **Off**. Una tarea sin modelo muestra **N models found** con **Pick** (Elegir), o **None in your accounts** con **Add**. El selector enumera los modelos compatibles de todas las cuentas. **Add** abre **Add account** y después vuelve a la tarea. Haz clic en **Jobs** para plegar el cuadro.
 
-Para cambiar el modelo de una tarea, haz clic en su fila. Se abre **Model for** (Modelo para) esa tarea, excepto en tres filas. **Decision** y **Embeddings** abren sus propios controles (consulta [Modelos de decisión](decision-models.md) y [Proveedores de IA compatibles](providers-reference.md#embeddings)). **Dictation** (Dictado) abre la configuración de voz a texto. **Voice** y **Dictation** también tienen un engranaje para abrir su ventana de ajustes. Elegir un modelo de **Voice** activa la síntesis de voz.
+Para cambiar el modelo de una tarea, haz clic en su fila. Se abre **Modelo para** esa tarea, excepto en tres filas. **Decisión** y **Embeddings** abren sus propios controles (consulta [Modelos de decisión](decision-models.md) y [Proveedores de IA compatibles](providers-reference.md#embeddings)). **Dictation** (Dictado) abre la configuración de voz a texto. **Voz**, **Dictation** y **Lectura de imágenes** también tienen un engranaje para abrir su ventana de ajustes; la de lectura de imágenes contiene lo que se le pide al modelo (consulta [Descripción de imágenes](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Elegir un modelo de **Voz** activa la síntesis de voz.
 
 En **Model for**:
 

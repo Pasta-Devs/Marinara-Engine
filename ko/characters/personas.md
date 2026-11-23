@@ -95,7 +95,7 @@ Persona Editor는 [캐릭터 편집기](creating-and-editing-characters.md)와 �
 | **Public Face** | 카드에서 비공개 내용을 뺀 정보입니다. | `{{personaPublicFace}}`를 쓰거나 에이전트의 **Persona** 소스가 **Public Face**일 때만 전송 |
 | **Example Dialogue**(예시 대화) | 대화 예시. `<START>`로 구분하세요. 내 페르소나에는 `{{user}}`, 상대 캐릭터에는 `{{char}}`를 쓰세요. | 예 |
 
-**Appearance** 아래의 **Image Appearance Override**(이미지 외모 재정의)와 **Public Face**는 캐릭터에서와 똑같이 동작합니다. [Card 탭](creating-and-editing-characters.md#card-tab)을 참고하세요. 텍스트 상자에서는 매크로를 쓸 수 있습니다.
+**Appearance**의 **Image tags**(이미지 태그) 탭과 **Public Face**는 캐릭터에서와 똑같이 동작합니다. [Card 탭](creating-and-editing-characters.md#card-tab)을 참고하세요. 텍스트 상자에서는 매크로를 쓸 수 있습니다.
 
 다음 기능은 캐릭터에서와 똑같이 동작하며, 대상이 페르소나라는 점만 다릅니다.
 

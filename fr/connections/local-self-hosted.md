@@ -22,6 +22,17 @@ Si ça n'a pas marché :
 - **Marinara could not reach** s'affiche quand Marinara n'a pas pu joindre l'adresse. Vérifie que le serveur tourne et que l'adresse et le port correspondent. **Continue anyway** (continuer quand même) enregistre le compte sans test réussi.
 - L'adresse se trouve sur un autre ordinateur. Voir [Joindre un serveur sur un autre ordinateur](#reach-a-server-on-another-computer).
 
+## Utiliser le modèle chargé sur le serveur
+
+Un serveur local ou auto-hébergé peut répondre avec le modèle qu'il a chargé ; son compte peut donc contenir un modèle **Par défaut**. Ce modèle n'envoie aucun nom de modèle. Il utilise toujours le modèle que tu as chargé dans Ollama, LM Studio, KoboldCpp ou llama.cpp, même après que tu y as changé de modèle.
+
+- Un nouveau compte pour un serveur sur ton ordinateur ou ton réseau commence avec un modèle **Par défaut**.
+- Pour en ajouter un plus tard, clique sur **⋯** sur le compte et choisis **Ajouter un modèle**. **Par défaut** est la première ligne.
+- Utilise **Par défaut** comme n'importe quel autre modèle : attribue-lui une tâche comme **Principal** dans la zone **Tâches**, ou choisis-le dans **Modèle pour ce chat**.
+- Clique sur **Par défaut** dans le panneau pour lui attribuer ses propres réglages, comme ses paramètres et son preset de prompt, comme tu le ferais pour un modèle nommé.
+
+**Par défaut** apparaît pour un serveur sur ton ordinateur ou ton réseau, ainsi que pour la CLI Grok, qui a sa propre valeur par défaut (voir [CLI avec abonnement](subscription-clis.md)). Un service d'API hébergé a besoin d'un nom de modèle.
+
 ## Adresses des serveurs locaux courants
 
 Un port est le canal numéroté qu'un serveur utilise sur ton ordinateur. `localhost` désigne ce même ordinateur : ces adresses fonctionnent donc telles quelles quand Marinara et le serveur tournent sur le même ordinateur.

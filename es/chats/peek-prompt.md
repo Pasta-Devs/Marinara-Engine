@@ -38,6 +38,8 @@ Debajo, un panel de información puede mostrar el servicio y el modelo, un recue
 
 El resto es el prompt en secciones plegables, cada una con su propia estimación aproximada de tokens. Los mensajes del chat se agrupan bajo **Chat History** (Historial del chat). En una petición exacta guardada, el servicio puede haber combinado varios turnos del chat en un solo bloque, así que expande cada bloque para ver todo el texto. Haz clic en el encabezado de una sección para abrirla o cerrarla.
 
+Parte del texto se añade a una profundidad del chat: la **Nota del autor** y las entradas de World Info configuradas en **@Depth**. Con **Posprocesamiento de mensajes** en **Aplicar** (la opción predeterminada), el modelo recibe este texto dentro del mensaje de usuario cercano, así que aparece en un mensaje de **Tú**. Peek lo señala allí con su propio encabezado, como **Nota del autor · enviada dentro de tu mensaje** o **World Info @depth 4 · enviado dentro de tu mensaje**. Con **No aplicar**, se envía como un mensaje **Sistema** independiente.
+
 Una **Exact Text Model Request** es la petición tal como se envió para esa respuesta. Se guardó antes de todo lo que se ejecutó después de la respuesta, como un resumen automático o la ocultación de mensajes, así que puede contener mensajes que la siguiente respuesta no recibirá. Haz clic en **Show current context** (Mostrar el contexto actual) para armar el prompt a partir del chat tal como está ahora, sin enviarlo. Haz clic en **Show sent request** (Mostrar la petición enviada) para volver.
 
 ### Copiar el prompt

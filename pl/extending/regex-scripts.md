@@ -40,15 +40,13 @@ Jeśli to nie zadziałało: czerwony komunikat pod polem **Find Pattern (Regex)*
 
 ### Zarządzanie skryptami
 
-Każdy wiersz listy **Regexes** pokazuje nazwę skryptu, tag **AI** albo **User**, wzorzec w postaci `/pattern/flags`, przełącznik włącz/wyłącz (zmiana działa od razu), **Edit regex** (edycja skryptu regex, ołówek) i **Delete regex** (usunięcie skryptu regex, kosz). Gdy nie ma żadnych skryptów, lista pokazuje "No regexes yet".
-
-Nagłówek sekcji ma trzy przyciski z ikonami: **Create regex**, **Import regexes from JSON** (import skryptów z pliku JSON) i **Export regexes to JSON** (eksport skryptów do pliku JSON; zapisuje wszystkie twoje skrypty globalne do jednego pliku). Skrypty powiązane z jedną postacią są przechowywane osobno; zobacz [Ograniczenie skryptu do jednej postaci](#limit-a-script-to-one-character).
+Każdy wiersz pokazuje nazwę skryptu, tag **AI** albo **Użytkownik** i wzorzec w postaci `/pattern/flags`. Kliknij nazwę lub **Edytuj regex**, aby otworzyć edytor. Użyj przełącznika obok skryptu, aby zmienić, czy działa, lub **Usuń regex**, aby go usunąć. Gdy nie ma skryptów ani folderów, zakładka pokazuje "Nie ma jeszcze regexów". Skrypty przypisane do postaci są przechowywane razem z nią. Zobacz [Ograniczenie skryptu do jednej postaci](#limit-a-script-to-one-character).
 
 Aby znaleźć skrypt, wpisz tekst w polu **Search regexes** (szukaj skryptów regex). Wyszukiwanie obejmuje nazwy i wzorce skryptów oraz otwiera foldery z pasującymi skryptami. Podczas wyszukiwania nie da się przeciągać skryptów, aby zmienić ich kolejność.
 
 <a id="organize-scripts-in-folders"></a>
 
-#### Porządkowanie skryptów w folderach
+### Porządkowanie skryptów w folderach
 
 1. Kliknij **New Folder** (nowy folder) i nazwij folder.
 2. Kliknij ikonę folderu w wierszu skryptu, żeby otworzyć **Move to folder** (przeniesienie do folderu).
@@ -57,7 +55,6 @@ Aby znaleźć skrypt, wpisz tekst w polu **Search regexes** (szukaj skryptów re
 Kliknij nazwę folderu, żeby go rozwinąć lub zwinąć. Wyłącz przełącznik folderu, żeby wstrzymać jego skrypty we wszystkich czatach. Nagłówek pokazuje **Paused** (wstrzymane). Każdy skrypt zachowuje zapisane ustawienie przełącznika. Włączony skrypt we wstrzymanym folderze ma szary przełącznik i etykietę **Paused by folder** (wstrzymane przez folder). Usunięcie folderu przenosi skrypty na poziom główny, gdzie działają zgodnie z własnymi przełącznikami.
 
 Foldery grupują skrypty bez zmiany kolejności ich uruchamiania. Kliknij **Execution order** (kolejność wykonania), żeby zobaczyć pełną listę w kolejności uruchamiania. Przeciągnij skrypt za uchwyt, żeby zmienić kolejność. Jeśli nie ma folderów, lista jest już w tej kolejności. W tym widoku ikona pauzy oznacza włączony skrypt, którego folder jest wstrzymany.
-
 ### Zmienianie kilku skryptów naraz
 
 1. Kliknij **Select regex scripts**.
@@ -76,7 +73,7 @@ Wzorzec wyszukiwania. Wpisz sam wzorzec, bez ukośnika na początku ani na końc
 
 ### Pole **Replace With**
 
-Tekst, który zastępuje każde dopasowanie. Zostaw je puste, żeby usunąć dopasowanie. Przechwycony tekst wykorzystasz ponownie przez `$1`, `$2` i kolejne. Przed przechwyceniem działają takie zmiany wielkości liter:
+Tekst zastępujący każde dopasowanie. Zostaw puste pole, aby usunąć dopasowanie. Użyj `$1`, `$2` itd., aby ponownie wstawić przechwycony tekst. `$0`, `$&` i `{{match}}` wstawiają z powrotem całe dopasowanie, tak jak w aplikacji SillyTavern. Przed przechwyconą grupą działają następujące zmiany wielkości liter:
 
 | Zapis | Wynik |
 | --- | --- |
@@ -101,7 +98,14 @@ Przyciski przełączające (flagi wyrażenia regularnego), które zmieniają spo
 
 ### Sekcja **Trim Strings**
 
-Opcjonalna lista zwykłych fragmentów tekstu (przycinanych ciągów), które są usuwane po wykonaniu zamiany. Kliknij **Add trim string** (dodanie przycinanego ciągu), żeby dodać wiersz, a przycisk **X**, żeby go usunąć. Użyj tego dla stałego fragmentu tekstu, który łatwiej wpisać, niż dopasować wzorcem.
+Opcjonalna lista zwykłych ciągów tekstu do usunięcia. Kliknij **Dodaj ciąg do przycięcia**, aby dodać wiersz, a przycisk **X**, aby go usunąć. Użyj jej do stałego fragmentu tekstu, który łatwiej wpisać niż dopasować wzorcem.
+
+Gdy skrypt ma ciąg do przycięcia, pole **Usuwaj z** określa, skąd ciągi są usuwane:
+
+- **Całego wyniku**: z całej wiadomości po zastąpieniu, nawet tam, gdzie wzorzec nie pasuje. To ustawienie początkowe nowych skryptów.
+- **Dopasowanego tekstu (jak w aplikacji SillyTavern)**: tylko z dopasowanego tekstu wstawianego z powrotem przez `$0`, `{{match}}` lub `$1`. Tekst wpisany w polu **Zastąp przez** i reszta wiadomości pozostają bez zmian, a tam, gdzie wzorzec nie pasuje, nic się nie zmienia.
+
+Skrypty importowane z aplikacji SillyTavern używają opcji **Dopasowanego tekstu**. Skrypty zaimportowane przed wprowadzeniem tej opcji używały ustawienia **Całego wyniku**; jeśli któryś teraz usuwa zbyt dużo, zaimportuj go ponownie albo przełącz na **Dopasowanego tekstu**.
 
 ### Sekcja **Live Test**
 

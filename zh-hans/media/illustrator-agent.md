@@ -72,7 +72,7 @@ Game Mode 没有 **Prompt Mode**(提示词模式) 和 **Prompt Model**(提示词
 - **Videos only**(仅视频)：短片会加上其中出场角色的外貌描述。这对 **Prompt only**(仅提示词) 短片最重要，因为它没有图片。
 - **Images and videos**(图片和视频)：两者都加。
 
-开启后，如果角色卡或用户角色打开了 **Image Appearance Override**(图像专用外貌)，发送的就是这段覆盖文字，而不是它的 **Appearance**(外观) 文字。当 **Appearance** 是为旁白写的、图像模型却读不顺时，就用它：把完整描述留在 **Appearance** 里，再在覆盖里填一段更短的标签式描述。覆盖关闭或留空时，图像提示词使用 **Appearance**。旁白始终能看到完整的 **Appearance**。这个开关在角色编辑器和用户角色编辑器的 **Appearance** 下方。
+开启后，正在使用 **Image tags**(图片标签) 的角色卡或用户角色会发送这些标签，而不是 **Appearance** 的文字描述。文字描述是给旁白看的、图像模型却读不好时，就可以使用标签。把完整描述留在 **Appearance** 的 **Prose**(文字描述) 标签页，在 **Image tags** 标签页填写更短的标签式版本，并勾选 **Use for image prompts**(用于图片提示词)。标签未勾选或为空时，图像提示词使用文字描述。旁白始终看到文字描述。聊天里生效的 Appearance 替代版本会使用自己的标签或文字描述。
 
 **Send Avatar References**(发送头像参考图) 会把角色和用户角色的头像或立绘作为参考图发给图像服务，让模型照着画出同一张脸或同一身衣服。不是每个服务都接受参考图。在 Roleplay 聊天里，它和 **Attach Card Appearance** 一样是一个列表。包含视频时，**First frame**(首帧) 为 **Prompt only** 的短片会从角色的头像或立绘开始，这个选项也会显示为 **Prompt only (avatar from Send Avatar References)**。
 

@@ -55,7 +55,6 @@ Para encontrar un script, escribe en **Search regexes** (Buscar regexes). Busca 
 Haz clic en su nombre para desplegarla o contraerla. Desactiva su interruptor para pausar sus scripts en todos los chats. El encabezado dice **Paused** (En pausa). Cada script conserva el estado guardado de su interruptor. Un script activado en una carpeta en pausa muestra un interruptor gris y la etiqueta **Paused by folder** (En pausa por la carpeta). Al borrar la carpeta, sus scripts pasan al nivel superior y siguen el estado de sus propios interruptores.
 
 Las carpetas agrupan los scripts sin cambiar cuándo se ejecutan. Haz clic en **Execution order** (Orden de ejecución) para ver la lista completa en el orden en que se ejecutan. Arrastra un script por su asa para cambiar el orden. Si no hay carpetas, la lista ya muestra el orden de ejecución.
-
 ### Cambiar varios scripts a la vez
 
 1. Haz clic en **Select regex scripts** (Seleccionar scripts de regex).
@@ -74,7 +73,7 @@ El patrón de búsqueda. Escribe solo el patrón, sin barra al principio ni al f
 
 ### Replace With
 
-El texto que reemplaza cada coincidencia. Déjalo vacío para borrar la coincidencia. Reutiliza el texto capturado con `$1`, `$2`, y así sucesivamente. Estos cambios de mayúsculas funcionan antes de una captura:
+El texto que reemplaza cada coincidencia. Déjalo vacío para borrar la coincidencia. Reutiliza el texto capturado con `$1`, `$2`, y así sucesivamente. `$0`, `$&` y `{{match}}` vuelven a insertar la coincidencia completa, como en SillyTavern. Estos cambios de mayúsculas funcionan antes de una captura:
 
 | Escribe | Resultado |
 | --- | --- |
@@ -99,7 +98,14 @@ Botones de interruptor que cambian cómo coincide el patrón. Un script nuevo em
 
 ### Trim Strings
 
-Una lista opcional de cadenas de texto simples que se eliminan después de ejecutarse el reemplazo. Haz clic en **Add trim string** (Añadir cadena a recortar) para añadir una fila y en el botón **X** para quitar una. Úsala para un fragmento de texto fijo que es más fácil de escribir que de coincidir con un patrón.
+Una lista opcional de cadenas de texto simples que se eliminan. Haz clic en **Add trim string** (Añadir cadena a recortar) para añadir una fila y en el botón **X** para quitar una. Úsala para un fragmento de texto fijo que es más fácil de escribir que de coincidir con un patrón.
+
+Cuando un script tiene una cadena a recortar, **Trim from** (Recortar de) decide de dónde se elimina:
+
+- **Whole result** (Resultado completo): de todo el mensaje después del reemplazo, incluso donde el patrón no coincide. Los scripts nuevos empiezan aquí.
+- **Matched text (like SillyTavern)** (Texto coincidente: como en SillyTavern): solo del texto coincidente que `$0`, `{{match}}` o `$1` vuelven a insertar. El texto que escribiste en **Replace With** y el resto del mensaje quedan como están, y nada cambia donde el patrón no coincide.
+
+Los scripts importados de SillyTavern usan **Matched text** (Texto coincidente). Los scripts importados antes de que existiera esta opción usaban **Whole result**; si uno de ellos ahora elimina demasiado, impórtalo de nuevo o cámbialo a **Matched text**.
 
 ### Live Test
 

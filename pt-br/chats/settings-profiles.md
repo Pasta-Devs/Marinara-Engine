@@ -87,7 +87,7 @@ A estrela ao lado do menu suspenso marca o perfil usado automaticamente nos chat
 
 **Export settings profile (.json)** baixa um arquivo `.marinara-settings-profile.json` que você pode guardar como backup ou compartilhar. **Import settings profile (.json)** cria um perfil novo a partir de um arquivo compatível e nunca sobrescreve um perfil existente. As exportações antigas ainda podem ser importadas. Uma importação que falha mostra **Import failed**.
 
-Os perfis guardam configurações, não os segredos do provedor. Um perfil exportado ou importado também deixa de fora o webhook do espelhamento no Discord, o endereço do DeepLX, a chave do DeepL e o endereço do Intiface. Os perfis que você salva nesta instalação mantêm esses dados. Os arquivos exportados deixam de fora a persona e os lorebooks, porque eles só existem nesta instalação.
+Os perfis guardam configurações, não os segredos do provedor. Um perfil exportado ou importado também deixa de fora o webhook do espelhamento no Discord, o endereço do DeepLX, a chave do DeepL e o endereço do Intiface. Os perfis que você salva nesta instalação mantêm esses dados. Os arquivos exportados deixam de fora a persona, os lorebooks e as escolhas das variáveis do preset, porque pertencem a esta instalação.
 
 ## O perfil Default
 
@@ -106,7 +106,7 @@ Quando um novo chat usa um perfil padrão que tem um layout salvo, esse layout t
 O perfil salva a forma como o chat conversa com o modelo:
 
 - A conexão.
-- O preset de prompt (chamado de fonte do prompt em Conversation).
+- O preset de prompt (chamado de fonte do prompt em Conversation), com as escolhas que você fez para as [variáveis do preset](../prompts/preset-variables.md). Aplicar o perfil leva essas escolhas para o chat. Um perfil salvo antes de incluir essas escolhas mantém as escolhas do próprio chat.
 - Os agentes e as ferramentas.
 - A tradução, a Memory Recall e os Advanced Parameters.
 - O layout de janelas e botões: posições, tamanhos, fixações, travas, quais ferramentas estão dentro de Chat Settings ou destacadas, janelas de controles abertas e posições dos botões no computador e no celular. Perfis sem layout salvo, como **Default**, deixam o layout do chat como está.
@@ -121,7 +121,7 @@ Um perfil também pode guardar **escolhas iniciais**: uma persona, lorebooks par
 - **Save current chat settings into this profile** substitui os lorebooks do perfil pelos que foram adicionados ao chat, com **Add Lorebook** (adicionar um lorebook) ou ao aplicar um perfil. Um lorebook que o Lorebook Keeper criou para o chat não é salvo. Se nenhum lorebook foi adicionado, o perfil fica sem lorebooks depois de salvar. O perfil mantém a própria persona e o próprio plano de fundo. Um perfil sem plano de fundo recebe o plano de fundo do chat quando você salva nele.
 - Atualizar outros chats nunca muda a persona, os lorebooks nem o plano de fundo deles.
 
-O perfil não substitui o conteúdo que pertence ao chat: personagens, sprites, resumo, tags e prompt da cena. Ele também não guarda o histórico da conversa nem estado em andamento, como as variáveis de macro, os personagens que você desativou ou uma sala multijogador.
+O perfil não substitui o conteúdo que pertence ao chat: personagens, sprites, resumo, tags, prompt da cena e **Author's Notes** (notas do autor). Ele também não guarda o histórico da conversa nem estado em andamento, como as variáveis de macro, os personagens que você desativou ou uma sala multijogador. Um perfil salvo em uma versão anterior ainda pode guardar **Author's Notes**, mas aplicá-lo mantém as notas do próprio chat.
 
 ### O que Save and update copia
 
@@ -134,13 +134,14 @@ O perfil não substitui o conteúdo que pertence ao chat: personagens, sprites, 
 - As configurações de memória e de resumo.
 - A tradução.
 - O layout das janelas.
+- As escolhas das variáveis do preset, só nos chats que usam o mesmo preset de prompt do perfil.
 
 Todo o resto continua como cada chat tem:
 
 - A conexão, o preset de prompt e o prompt personalizado.
 - A história e os personagens.
 - Os lorebooks e o plano de fundo.
-- As notas e o progresso.
+- As **Author's Notes** e o progresso.
 - Quais comandos de Roleplay só o narrador do chat pode usar.
 - Se o Noodle pode usar as mensagens do chat.
 

@@ -102,9 +102,9 @@ Zanim zaczniesz: dodaj połączenie do generowania obrazów. Do animowanych spri
 1. Otwórz **Add sprites** i kliknij **Generate Sprite** (generowanie sprite'a). W edytorze persony ten przycisk jest w sekcji **Add Sprite**. Otwiera się okno **Generate Sprites**.
 2. Na górze wybierz źródło: **Expressions (Portrait)** albo **Full-body**.
 3. Wybierz połączenie w polu **Image Generation Connection** (połączenie do generowania obrazów).
-4. Opcjonalnie dodaj maksymalnie cztery **Reference Images** (obrazy referencyjne) albo zaznacz pole wyboru, żeby użyć bieżącego awatara jako referencji.
+4. Opcjonalnie dodaj maksymalnie cztery **Reference Images** (Obrazy referencyjne) albo zaznacz pole wyboru, żeby użyć bieżącego awatara lub arkusza postaci jako referencji. Gdy postać ma już sprite'y, opcja **Użyj zapisanego sprite'a jako obrazu referencyjnego** jest włączona: do żądania dołączana jest jej twarz w spoczynku (neutralna, jeśli taka istnieje), żeby nowe sprite'y wyglądały podobnie do tych, które już masz.
 5. Wpisz **Appearance Description** (opis wyglądu). To pole jest wymagane.
-6. Opcjonalnie włącz **Transparent sprite background** (przezroczyste tło sprite'a). Marinara robi tło przezroczyste. Jeśli usługa tego nie potrafi, Marinara rysuje jednolite tło zielone, magentowe albo cyjanowe, które różni się od kolorów z pola **Appearance Description**, a potem je usuwa.
+6. Opcjonalnie włącz **Transparent sprite background** (Przezroczyste tło sprite'a). Marinara robi tło przezroczyste. Model, który rysuje obrazy z przezroczystym tłem, dostaje takie żądanie, a jego krawędzie pozostają dokładnie takie, jak je narysowano. Każdy inny model rysuje jednolite tło zielone, magentowe albo cyjanowe, które różni się od kolorów z pola **Appearance Description** (Opis wyglądu), a Marinara je usuwa. Wiersz pod polem wyboru mówi, który sposób zostanie użyty. To, które modele rysują obrazy z przezroczystym tłem, ustawia się w połączeniu: zobacz [Przezroczyste tła](../media/image-providers.md#transparent-backgrounds).
 7. Ustaw **Expression Count** (liczba wyrazów twarzy) albo, przy całych sylwetkach, **Pose Count** (liczba póz) i wybierz, które wyrazy twarzy albo pozy mają powstać.
 8. Opcjonalnie, dla wyrazów twarzy: zaznacz **Oznacz twarze, które nie pasują do przypisanej miny**. [Model decyzyjny odczytujący obrazy](../connections/decision-models.md#features-that-look-at-pictures) ogląda każdą twarz po narysowaniu i oznacza te, które mogą nie oddawać przypisanego wyrazu twarzy, etykietą **Sprawdź**, żeby można było je odznaczyć lub narysować ponownie. Każda twarz zajmuje chwilę. Bez takiego modelu pole jest wyszarzone.
 9. Kliknij **Generate**.
@@ -121,7 +121,9 @@ W źródle **Expressions (Portrait)** opcja **Generate animated portraits** (gen
 
 ## Czyszczenie tła sprite'ów
 
-Sprite wygląda najlepiej, kiedy widać samą postać. Wygenerowane sprite'y korzystają z natywnej przezroczystości, o ile usługa ją obsługuje. W przeciwnym razie Marinara usuwa jednolity, dobrany kolor tła z miękką krawędzią i wypłukuje ten kolor z włosów, tkanin oraz innych częściowo przezroczystych pikseli. Starsze sprite'y z białym tłem nadal działają.
+Sprite wygląda najlepiej, kiedy widać samą postać. Wygenerowane sprite'y korzystają z natywnej przezroczystości, o ile model ją obsługuje. W przeciwnym razie Marinara usuwa jednolity, dobrany kolor tła z miękką krawędzią i wypłukuje ten kolor z włosów, tkanin oraz innych częściowo przezroczystych pikseli. Starsze sprite'y z białym tłem nadal działają.
+
+Obraz, który już ma przezroczyste tło, nigdy nie jest czyszczony ponownie: usuwanie tła tylko zmiękczyłoby dobre krawędzie. Gdy model rysujący obrazy z przezroczystym tłem mimo to zwróci obraz z jednolitym tłem, Marinara zachowuje go bez zmian i informuje o tym na etapie przeglądania wyników. Kliknij **Zastosuj czyszczenie**, żeby usunąć to tło, albo zachowaj obrazy takie, jakie są.
 
 ### Ręczne czyszczenie jednego sprite'a
 

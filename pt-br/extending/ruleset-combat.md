@@ -628,7 +628,6 @@ Os números abaixo são a maneira direta de escrever uma criatura. Uma escrita n
       "applies": [{ "condition": "parrying", "duration": { "rounds": 1 }, "endsAfter": "attacked" }]
     }
     ```
-
 - Uma salvaguarda precisa de uma dificuldade na própria ação: `save.difficulty` para uma salvaguarda imposta pela ação, ou `saveDifficulty` para uma condição que termina com uma salvaguarda quando a ação não tem a sua própria. Uma ação de bloco é escrita com números simples mesmo em uma criatura com ficha; portanto, esse número fica na ação. A salvaguarda de uma cláusula pode omitir sua `difficulty` e recorrer ao mesmo número.
 - `damage.plus` é a mesma lista de cláusulas que o `plus` de uma entrada de catálogo e é lida exatamente da mesma forma: `"damage": { "dice": "1d6", "flat": 2, "type": "piercing", "plus": [{ "dice": "1d4", "type": "fire" }] }` é uma mordida cujo calor tem sua própria quantidade, resistida e dobrada separadamente.
 

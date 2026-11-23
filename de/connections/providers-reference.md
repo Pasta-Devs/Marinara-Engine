@@ -82,7 +82,20 @@ Ein Aggregator ist ein Dienst, bei dem ein einziger Key Modelle vieler Firmen er
 **OpenRouter** ist ein Aggregator mit zwei zusätzlichen Optionen im Modell-Editor:
 
 - **Preferred provider** (bevorzugter Anbieter) zwingt die Weiterleitung zu genau einem benannten Backend. Der Name muss dem auf der OpenRouter-Modellseite entsprechen. Lass das Feld für automatische Weiterleitung leer.
-- **Enable prompt caching** schickt Caching-Hinweise für Claude-Modelle, die über OpenRouter laufen. Die meisten anderen Modelle speichern von selbst zwischen.
+- **Prompt-Caching aktivieren** markiert die Teile des Prompts, die das Modell für deine nächste Nachricht wiederverwenden kann, damit lange Chats weniger kosten. Für jedes Modell, das du einem OpenRouter-Konto hinzufügst, ist die Option anfangs eingeschaltet. Was markiert wird, hängt vom Modell ab:
+
+| Modell | Was zwischengespeichert wird | Wie lange |
+| --- | --- | --- |
+| Claude | Der System-Prompt, der Chatverlauf bis zur **Cache-Tiefe** und die neueste Nachricht | 5 Minuten oder 1 Stunde mit **Erweitertes Token-Caching (1 Stunde)** |
+| Qwen | Der System-Prompt und der Chatverlauf bis zur **Cache-Tiefe** | 5 Minuten |
+| Gemini | Der System-Prompt | 5 Minuten |
+| GPT, DeepSeek, Grok, Kimi und andere | Der Dienst speichert von sich aus zwischen, mit oder ohne den Schalter | Vom Dienst festgelegt |
+
+Marinara bittet OpenRouter außerdem, jeden Chat beim selben Backend zu belassen, damit der Cache deiner letzten Nachricht noch da ist. Das funktioniert auch bei ausgeschaltetem Schalter. **Bevorzugter Anbieter** legt stattdessen das Backend fest.
+
+Caching spart am meisten, wenn der Anfang des Prompts zwischen Nachrichten gleich bleibt. Siehe [Prompt-Caching](../prompts/conditional-prompts.md#prompt-caching).
+
+> **Hinweis:** In den Cache zu schreiben kostet mehr als eine normale Eingabe, etwa das 1,25-Fache für Claudes 5-Minuten-Cache und das 2-Fache für seinen 1-Stunden-Cache. Daraus zu lesen kostet deutlich weniger. Siehe OpenRouters [Anleitung zum Prompt-Caching](https://openrouter.ai/docs/guides/best-practices/prompt-caching).
 
 ### NanoGPT
 

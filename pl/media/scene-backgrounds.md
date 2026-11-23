@@ -74,7 +74,23 @@ Wygenerowany obraz da się utworzyć jeszcze raz bez ponownego generowania odpow
 3. Zmień, co chcesz, w polach pod obrazem: **Prompt**, **Negative prompt** (prompt negatywny), osobne pole dla każdej postaci w sekcji **Character prompts** (prompty postaci), jeśli obraz je miał, oraz model obrazów.
 4. Kliknij **Generate image** (wygenerowanie obrazu) albo **Cancel** (anuluj), żeby zostawić obraz bez zmian.
 
-Nowy obraz zastępuje stary w wiadomości. Stary zostaje w galerii, więc możesz go ponownie przypiąć. Obrazy referencyjne są wysyłane jeszcze raz na podstawie aktualnych awatarów postaci. Niektóre starsze obrazy nie zapisały promptu negatywnego ani promptów postaci; edytor informuje o tym w takim przypadku.
+Nowy obraz staje się wybraną wersją w wiadomości. Wcześniejsze wyniki pozostają razem w jednym kafelku galerii z licznikiem wersji. Każda wersja zachowuje zapisany prompt, prompt negatywny i pozostałe zapisane szczegóły generowania. Obrazy referencyjne są wysyłane jeszcze raz na podstawie aktualnych awatarów postaci. Niektóre starsze obrazy nie zapisały promptu negatywnego ani promptów postaci; edytor informuje o tym w takim przypadku.
+
+### Wersje obrazów
+
+Otwórz obraz ze stosu, żeby wybrać wersję. Strzałki w lewo i w prawo, odpowiadające im klawisze oraz poziome przesunięcia palcem przełączają między kafelkami galerii. Przyciski w górę i w dół, odpowiadające im klawisze oraz pionowe przesunięcia palcem po obrazie przełączają między wersjami w bieżącym stosie. Przed przełączaniem zmniejsz powiększenie. Przewijanie promptu nie zmienia wersji.
+
+Kliknij obraz, nagłówek promptu albo przycisk zwijania, żeby klawisze strzałek w górę i w dół przełączały wersje. Kliknij tekst promptu albo przycisk kopiowania, żeby te klawisze służyły zamiast tego do przewijania. Przyciski wersji pozostają widoczne także podczas ponownego generowania lub edycji. Przed zmianą wersji zastosuj albo wyczyść namalowaną maskę; podczas generowania przyciski są nieaktywne.
+
+Wybrana wersja jest zapisywana i pokazywana w czacie, także po ponownym wczytaniu. Ponowne generowanie lub edycja starszej wersji dodaje nowy wynik do tego samego stosu i zachowuje również późniejsze wersje. Gałąź czatu ma własny wybór wersji.
+
+Użyj przycisku **Usuń obraz z galerii** na kafelku albo przycisku usuwania w przeglądarce obrazów, żeby wybrać, co usunąć:
+
+- **Usuń tę wersję** usuwa wyświetlaną wersję. Jeśli była wybrana, pojawi się najnowsza z pozostałych wersji.
+- **Usuń pozostałe wersje** zachowuje wyświetlaną wersję i usuwa pozostałe.
+- **Usuń cały stos** usuwa wszystkie wersje i ich załączniki graficzne z czatu.
+
+Te opcje trwale usuwają zapisane wersje. Przycisk **Anuluj** zachowuje je wszystkie.
 
 ## Sprawdzanie promptu przed wysłaniem
 

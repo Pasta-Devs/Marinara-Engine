@@ -8,7 +8,7 @@
 
 | 功能 | 作用 | 适用模式 |
 | --- | --- | --- |
-| **Memory Recall** | 在较早的消息里找出和你刚说的话相关的部分，补进提示词。 | 所有模式 |
+| **Memory Recall** | 从提示词里已放不下的较早消息中，搜索与你刚说的话相关的部分，并加回提示词。 | 所有模式 |
 | **Chat Summary**(聊天摘要) | 用简短的回顾取代旧消息。 | Roleplay(角色扮演) |
 | **Automatic Summarization**(自动摘要) | 每天做一份摘要，再按周汇总。始终开启。 | Conversation(对话模式) |
 | **Advanced Memory Recall**(高级记忆功能) | 统一管理当前历史、场景摘要和召回的片段。可选。 | Roleplay 和 Game Mode(游戏模式) |
@@ -68,6 +68,23 @@ Memory Recall 需要一个生成指纹的模型。如果你什么都不设，Mar
 - 清空全部的图标会打开 **Clear Memories**，点击 **Clear** 确认。这只会清掉回忆用的记忆，不会删除聊天消息。
 - 刷新图标会用当前的消息重建全部记忆块。换过嵌入模型之后就用它。
 - 导出会保存一个 `.marinara.json` 文件。导入接受 `.json` 或 `.marinara` 文件，并把内容合并进来。
+
+<a id="what-memory-recall-adds"></a>
+
+### Memory Recall 会添加什么
+
+Memory Recall 只会找回提示词里已放不下的消息。整个聊天都能装进上下文窗口时，它不会添加任何内容，因为 AI 已经能读到每条消息。等到为了让提示词装得下而省略了较早的消息，记忆功能才会搜索这些消息。
+
+- 只有一个记忆块里的所有消息都不在提示词中时，才会回忆这个块。
+- 记忆也占空间。加入记忆时，原本还能装下的最早几条消息可能会被省略，以腾出空间。记忆功能也能找回这些消息。
+- 被 **Context message limit**(上下文消息上限) 排除的消息也算作不在提示词中。
+- 从其他聊天导入的记忆随时都可以被回忆。
+
+要让记忆功能选择任意较早消息，开启 **Enable Memory Recall** 下方的 **Recall from the whole chat**(从整个聊天中回忆)。这样，记忆往往会重复提示词里已有的消息。这些重复内容会消耗 Token；而且记忆放在聊天历史前面，每回合都会变化，所以服务商的提示词缓存无法复用聊天历史。
+
+回忆到的记忆放在聊天历史的正前方。想自己决定位置，就在聊天的预设里添加一个 **Memory Recall** 标记。见[为提示词缓存调整分区顺序](../prompts/presets.md#order-sections-for-prompt-caching)。在 Conversation 提示词中，由 `{{memories}}` 宏决定它们的位置。
+
+[查看提示词](../chats/peek-prompt.md)里的实时预览不会运行 Memory Recall。开启记忆功能时，预览列出的历史消息可能比实际回复收到的更多。
 
 ### Memory Recall 的行为细节
 
@@ -305,6 +322,7 @@ Game Mode 聊天同样在 **Chat Settings → Memory Recall** 中开启 Advanced
 | Memory Recall 什么都回忆不出来 | 确认嵌入来源已经配好。如果记忆块显示 **Embedding unavailable**，就设置一个 **Semantic search (embeddings)** 模型，或者使用内置模型。见[内置模型设置](../connections/local-model.md)。 |
 | 记忆块显示 **Waiting for vector** | 稍等一会儿。指纹是在回复之后生成的。 |
 | 好像没有相关内容 | 回忆只会补进密切相关的记忆。什么都不加是正常的。 |
+| 聊天较短时 Memory Recall 不添加任何内容 | 这是正常的。记忆功能只会添加上下文窗口里已放不下的消息。见 [Memory Recall 会添加什么](#what-memory-recall-adds)。 |
 | 换了嵌入模型后回忆变差了 | 在 **Memories for This Chat** 中使用重建图标。 |
 | 摘要生成不出来 | 聊天需要一个可用的文本账号。Chat Summary 使用 **Summary Provider**。一个都不可用时，生成会被跳过。 |
 | AI 摘要一直不出现 | **Review Agent Outputs** 可能在等你批准。 |

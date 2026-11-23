@@ -359,11 +359,12 @@ Las cuentas de video se configuran en la app. Estos ajustes solo afinan los trab
 
 ### Lorebooks
 
-Ambos están desactivados de forma predeterminada y se aplican en la siguiente generación tras un cambio en `.env`. Cuando `LOREBOOK_STABLE_GROUP_WINNERS` está definida, tiene prioridad sobre el interruptor **Stable lorebook picks** (Selecciones estables del lorebook) de **Settings → Advanced → Features**. Si no, decide el interruptor. Consulta [Interruptores de funciones](configuration/features.md).
+Todos están desactivados de forma predeterminada. `LOREBOOK_STABLE_GROUP_WINNERS` y `LOREBOOK_COMPACT_STORED_SCANS` se aplican en la siguiente generación tras un cambio en `.env`, y `LOREBOOK_NEW_BOOK_VECTORS`, al siguiente lorebook creado. Cuando `LOREBOOK_STABLE_GROUP_WINNERS` o `LOREBOOK_NEW_BOOK_VECTORS` está definida, tiene prioridad sobre su interruptor (**Selecciones estables del lorebook** o **Vectores activado para los lorebooks nuevos**) de **Configuración → Avanzado → Funciones**. Si no, decide el interruptor. Consulta [Interruptores de funciones](configuration/features.md).
 
 | Variable | Predeterminado | Qué hace |
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | `false` | Conserva el mismo ganador del grupo de inclusión por chat mientras los candidatos no cambien, en vez de sortearlo en cada generación. Mantiene estable el inicio del prompt para la caché de prompts del proveedor. |
+| `LOREBOOK_NEW_BOOK_VECTORS` | `false` | Inicia los lorebooks nuevos con **Vectores** activado, para que sus entradas puedan vectorizarse y encontrarse por su significado de inmediato. Se aplica a los lorebooks creados en la app, importados sin un ajuste propio o creados por Game Mode y el Lorebook Keeper. Los lorebooks que crea Professor Mari ya empiezan con **Vectores** activado. Los lorebooks existentes conservan su propio ajuste. |
 | `LOREBOOK_COMPACT_STORED_SCANS` | `false` | Guarda el texto completo de las entradas activadas solo en el mensaje de asistente o narrador más reciente. Los mensajes más antiguos conservan los ID, las claves y las puntuaciones de las entradas. Hace mucho más pequeños los chats con lorebooks grandes. Si se borran mensajes más recientes, Active Context y los reintentos de agentes muestran el texto actual de la entrada para el mensaje que vuelve a ser el más reciente. |
 
 `scripts/compact-lorebook-scans.mjs` aplica la misma regla a los chats más antiguos. Detén primero el servidor. Es una simulación a menos que pases `--apply`, y hace una copia de seguridad de ambas tablas de mensajes antes de escribir.

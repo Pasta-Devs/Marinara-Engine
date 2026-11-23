@@ -63,7 +63,8 @@ Fordert dein Gerät reduzierte Bewegung an, entfallen beide Animationen.
 
 - **Custom Mouse Pointer** (eigener Mauszeiger, standardmäßig an) nutzt den Marinara-Zeiger in der Akzentfarbe. Schalte die Option aus, um deinen Systemzeiger zu nutzen oder den Zeiger von einem eigenen Theme steuern zu lassen.
 - **Reduce Ambient Animations & Effects** (Umgebungsanimationen und Effekte reduzieren) stoppt dekorative Animationen, Umgebungspartikel, rotierende Vorschauen und das schrittweise Einblenden von Text. Marinara tut das auch, wenn dein Gerät reduzierte Bewegung anfordert.
-- **Desktop sidebar width** (Breite der Seitenleisten am Desktop) legt am Desktop die Breite beider Seitenleisten fest. **Reset width** (Breite zurücksetzen) stellt sie wieder her. Auf dem Handy bleibt das Layout unverändert.
+- **Breite der Desktop-Seitenleiste** legt die Breite der Seitenleiste auf einem Computer fest, von 280 bis 480 px. **Chats** und die Panels, etwa **Charaktere** und **Einstellungen**, öffnen sich alle in dieser einen Seitenleiste. **Breite zurücksetzen** setzt sie auf 320 px zurück. Du kannst auch den inneren Rand der Seitenleiste ziehen. Auf Smartphones und Tablets bleiben die Panels im Vollbild.
+- **Position der Desktop-Seitenleiste** dockt die Seitenleiste **Rechts** (Standard) oder **Links** im Fenster an. Bei **Links** wird die obere Leiste gespiegelt: **Chats** und die Panel-Schaltflächen wandern nach links, **Startseite** nach rechts. Das gilt nur auf einem Computer. Auf Smartphones und Tablets bleibt das Layout unverändert.
 
 ### Chat widget style
 
@@ -125,7 +126,7 @@ Der Abschnitt **Backgrounds** (Hintergründe) enthält die Auswahl **Chat Backgr
 
 | Einstellung | Was sie tut | Standard |
 | --- | --- | --- |
-| **Chat position** | Wo Nachrichten und Eingabefeld auf breiten Bildschirmen sitzen: **Left**, **Center** oder **Right**. Eine geöffnete Seitenleiste oder ein Tracker Panel auf derselben Seite schiebt sie mit. Auf dem Handy behält der Chat die volle Breite. | **Center** |
+| **Chat-Position** | Wo Nachrichten und Eingabefeld auf breiten Bildschirmen stehen: **Links**, **Mitte** oder **Rechts**. Eine offene Seitenleiste oder ein Tracker Panel auf derselben Seite verschiebt sie entsprechend (siehe **Position der Desktop-Seitenleiste**). Smartphones nutzen weiterhin die volle Breite. | **Mitte** |
 | **Visual Novel display** | Zeigt jeweils einen fertigen Absatz mit Dialogporträt und deinen Sprites. Die Einstellung ändert den aktuellen Roleplay-Chat und den Standard für Chats ohne gespeicherten Stil. | Aus |
 | **Roleplay Messages Background Opacity** | Ein Schieberegler von 0 % bis 100 %. Senke den Wert, damit der Hintergrund durch die Sprechblasen scheint. | 90 % |
 | **Roleplay Avatars** | Der Avatar-Stil neben jeder Nachricht: **None**, **Small Circles**, **Small Rectangles** oder **Glued Side Panel**. | **Small Circles** |

@@ -31,17 +31,17 @@
 | # | 카드 제목 | 다루는 내용 |
 | --- | --- | --- |
 | 1 | **Welcome to Marinara Engine!**(Marinara Engine에 오신 것을 환영합니다!) | 화면 가운데에 뜨는 환영 카드입니다. Professor Mari가 앱을 둘러보자고 제안합니다. |
-| 2 | **Characters**(캐릭터) | 캐릭터가 모여 있는 **Characters** 패널 버튼입니다. |
-| 3 | **Personas**(페르소나) | 채팅에서 내가 누구인지 정하는 **Personas** 패널 버튼입니다. |
-| 4 | **Lorebooks**(로어북) | 세계와 캐릭터의 추가 설정을 담아 두는 **Lorebooks** 패널 버튼입니다. |
-| 5 | **Presets**(프리셋) | 프롬프트를 어떻게 구성할지 정하는 **Presets** 패널 버튼입니다. |
-| 6 | **Connections** | **Connections** 패널 버튼입니다. 채팅을 시작하기 전에 가장 먼저 설정할 것이 연결입니다. |
-| 7 | **Agents**(에이전트) | **Agents** 패널 버튼입니다. 카드는 에이전트를 설치할 수 있는 **Agent Organizer**를 안내합니다. |
-| 8 | **Settings** | **Settings** 패널 버튼입니다. **General** 탭이 선택된 상태로 **Settings**를 엽니다. |
-| 9 | **Chats**(채팅) | 사이드바 토글입니다. 채팅 사이드바를 엽니다. |
-| 10 | **Conversation Mode**(대화 모드) | **CONVO**라고 표시된 Conversation 탭입니다. |
-| 11 | **Roleplay Mode**(롤플레이 모드) | **RP**라고 표시된 Roleplay 탭입니다. |
-| 12 | **Game Mode**(게임 모드) | **GM**이라고 표시된 Game Mode 탭입니다. |
+| 2 | **Chats**(채팅) | 컴퓨터에서는 패널 버튼 중 첫 번째인 **Chats** 버튼입니다. 사이드바에 **Chats**를 열며, 다음 단계의 패널도 같은 사이드바에 열립니다. 이 카드는 컴퓨터에서 **Settings → Appearance**(설정 → 모양)로 사이드바를 왼쪽에 고정할 수 있다는 점도 안내합니다. |
+| 3 | **Conversation Mode**(대화 모드) | **CONVO**라고 표시된 Conversation 탭입니다. |
+| 4 | **Roleplay Mode**(롤플레이 모드) | **RP**라고 표시된 Roleplay 탭입니다. |
+| 5 | **Game Mode**(게임 모드) | **GM**이라고 표시된 Game Mode 탭입니다. |
+| 6 | **Characters**(캐릭터) | 캐릭터가 모여 있는 **Characters** 패널 버튼입니다. |
+| 7 | **Personas**(페르소나) | 채팅에서 내가 누구인지 정하는 **Personas** 패널 버튼입니다. |
+| 8 | **Lorebooks**(로어북) | 세계와 캐릭터의 추가 설정을 담아 두는 **Lorebooks** 패널 버튼입니다. |
+| 9 | **Presets**(프리셋) | 프롬프트를 어떻게 구성할지 정하는 **Presets** 패널 버튼입니다. |
+| 10 | **Connections** | **Connections** 패널 버튼입니다. 채팅을 시작하기 전에 가장 먼저 설정할 것이 연결입니다. |
+| 11 | **Agents**(에이전트) | **Agents** 패널 버튼입니다. 카드는 에이전트를 설치할 수 있는 **Agent Organizer**를 안내합니다. |
+| 12 | **Settings** | **Settings** 패널 버튼입니다. **General** 탭이 선택된 상태로 **Settings**를 엽니다. |
 | 13 | **Home: Your Story Hub**(홈: 이야기의 중심) | 홈으로 돌아갑니다. 홈은 채팅을 이어 가고, 새 채팅을 시작하고, 위젯을 배치하는 곳입니다. |
 | 14 | **Ask Me Where Things Are**(위치가 궁금하면 저에게 물어보세요) | 홈 맨 위의 검색 바입니다. 휴대폰에서는 카드가 앱의 상단 바에서 아래로 당기라고 안내합니다. |
 | 15 | **Guides and Home Controls**(가이드와 홈 설정) | **Documentation**(문서), **Tutorial**, **FAQ**, **Widgets**(위젯) 북마크입니다. |

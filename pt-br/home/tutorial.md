@@ -31,17 +31,17 @@ No celular ou em outra tela estreita, cada cartão aparece centralizado abaixo d
 | # | Título do cartão | O que apresenta |
 | --- | --- | --- |
 | 1 | **Welcome to Marinara Engine!** | Um cartão de boas-vindas centralizado. A Professor Mari se oferece para mostrar o aplicativo a você. |
-| 2 | **Characters** | O botão do painel **Characters**, onde ficam os seus personagens. |
-| 3 | **Personas** | O botão do painel **Personas**, onde você define quem você é em um chat. |
-| 4 | **Lorebooks** | O botão do painel **Lorebooks**, que guarda detalhes extras do mundo e dos personagens. |
-| 5 | **Presets** | O botão do painel **Presets**, que controla como o prompt é montado. |
-| 6 | **Connections** | O botão do painel **Connections**. As conexões são a primeira coisa a configurar antes de conversar. |
-| 7 | **Agents** | O botão do painel **Agents**. O cartão indica **Agent Organizer** (organizador de agentes) para instalar agentes. |
-| 8 | **Settings** | O botão do painel **Settings**. Abre **Settings** na aba **General**. |
-| 9 | **Chats** | O botão liga/desliga da barra lateral. Abre a barra lateral de chats. |
-| 10 | **Conversation Mode** | A aba de conversa, que aparece como **CONVO**. |
-| 11 | **Roleplay Mode** | A aba de roleplay, que aparece como **RP**. |
-| 12 | **Game Mode** | A aba de jogo, que aparece como **GM**. |
+| 2 | **Chats** | O botão **Chats**, o primeiro dos botões dos painéis no computador. Abre **Chats** na barra lateral, onde os painéis das próximas etapas também abrem. O cartão também explica que, no computador, você pode acoplar a barra lateral à esquerda em **Configurações → Aparência**. |
+| 3 | **Conversation Mode** | A aba de conversa, que aparece como **CONVO**. |
+| 4 | **Roleplay Mode** | A aba de roleplay, que aparece como **RP**. |
+| 5 | **Game Mode** | A aba de jogo, que aparece como **GM**. |
+| 6 | **Characters** | O botão do painel **Characters**, onde ficam os seus personagens. |
+| 7 | **Personas** | O botão do painel **Personas**, onde você define quem você é em um chat. |
+| 8 | **Lorebooks** | O botão do painel **Lorebooks**, que guarda detalhes extras do mundo e dos personagens. |
+| 9 | **Presets** | O botão do painel **Presets**, que controla como o prompt é montado. |
+| 10 | **Conexões** | O botão do painel **Conexões**. As conexões são a primeira coisa a configurar antes de conversar. |
+| 11 | **Agents** | O botão do painel **Agents**. O cartão indica **Agent Organizer** (organizador de agentes) para instalar agentes. |
+| 12 | **Settings** | O botão do painel **Settings**. Abre **Settings** na aba **General**. |
 | 13 | **Home: Your Story Hub** | Volta para a tela inicial. A tela inicial é onde você continua um chat, começa um novo e organiza os widgets. |
 | 14 | **Ask Me Where Things Are** | A barra de busca no topo da tela inicial. No celular, o cartão diz para você puxar para baixo a partir da barra superior do aplicativo. |
 | 15 | **Guides and Home Controls** | Os favoritos **Documentation**, **Tutorial**, **FAQ** e **Widgets**. |

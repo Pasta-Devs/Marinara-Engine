@@ -75,7 +75,7 @@
 
 每一行显示负责这项工作的模型；没有模型时，则显示这项工作会怎么处理，比如 **Follows Main**(跟随主模型) 或 **Off**(关闭)。尚未分配模型的工作会显示 **N models found**(找到的模型) 和 **Pick**(选择)，或 **None in your accounts**(账号里没有可用模型) 和 **Add**。选择器列出所有账号中适合该项工作的模型。**Add** 打开 **Add account** 窗口，完成后回到该项工作。点击 **Jobs** 可以折叠这个框。
 
-要更改某项工作的模型，点击它那一行。除了三行以外，都会打开这项工作的 **Model for**(用于……的模型) 窗口。**Decision** 和 **Embeddings** 会打开它们自己的控件（见 [Decision 模型](decision-models.md)和[支持的 AI 服务商](providers-reference.md#embeddings)）。**Dictation** 打开语音设置。**Voice** 和 **Dictation** 的行也各有一个齿轮，可打开各自的设置窗口。选择 **Voice** 模型后就会启用语音合成。
+要更改某项工作的模型，点击它那一行。除了三行以外，都会打开这项工作的 **Model for**(用于……的模型) 窗口。**Decision** 和 **Embeddings** 会打开它们自己的控件（见 [Decision 模型](decision-models.md)和[支持的 AI 服务商](providers-reference.md#embeddings)）。**Dictation** 打开语音设置。**Voice**、**Dictation** 和 **Image reading** 的行也各有一个齿轮，可打开各自的设置窗口；Image reading 的窗口可以设置向模型提出的要求（见[图像描述](../prompts/generation-parameters.md#what-the-reading-model-is-asked)）。选择 **Voice** 模型后就会启用语音合成。
 
 在 **Model for** 窗口里：
 

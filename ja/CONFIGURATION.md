@@ -361,11 +361,12 @@ ADMIN_SECRET=replace-this-with-a-long-random-secret
 
 ### ロアブック
 
-どちらもデフォルトでオフで、`.env`を変更した後の次の生成から適用されます。`LOREBOOK_STABLE_GROUP_WINNERS`を設定すると、**Settings → Advanced → Features**(設定 → 詳細設定 → 機能)の**Stable lorebook picks**(ロアブックの選択を固定)スイッチより優先されます。設定しない場合は、スイッチで決まります。[機能スイッチ](configuration/features.md)を参照してください。
+すべてデフォルトではオフです。`LOREBOOK_STABLE_GROUP_WINNERS`と`LOREBOOK_COMPACT_STORED_SCANS`は`.env`を変更した後の次の生成から、`LOREBOOK_NEW_BOOK_VECTORS`は次に作成するロアブックから適用されます。`LOREBOOK_STABLE_GROUP_WINNERS`または`LOREBOOK_NEW_BOOK_VECTORS`が設定されている場合は、**Settings → Advanced → Features**(設定 → 詳細設定 → 機能)にある対応するスイッチ(**Stable lorebook picks**または**Vectors on for new lorebooks**(新しいロアブックのベクトルをオンにする))より優先されます。設定されていなければ、スイッチで決まります。[機能スイッチ](configuration/features.md)を参照してください。
 
 | 変数 | デフォルト | 説明 |
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | `false` | 候補が変わらないあいだ、包含グループで選ばれるエントリーをチャットごとに同じに保ち、生成のたびに選び直しません。プロバイダーのプロンプトキャッシュのために、プロンプトの先頭を安定させます。 |
+| `LOREBOOK_NEW_BOOK_VECTORS` | `false` | 新しいロアブックを**Vectors**(ベクトル)がオンの状態で作成し、エントリーをすぐにベクトル化して意味で検索できるようにします。アプリで作成するロアブック、独自の設定がないファイルからインポートするロアブック、Game ModeやLorebook Keeperが作成するロアブックに適用されます。Professor Mariが作成するロアブックは、すでに**Vectors**がオンの状態で作成されます。既存のロアブックはそれぞれの設定を維持します。 |
 | `LOREBOOK_COMPACT_STORED_SCANS` | `false` | 有効化されたエントリーの全文を、最新のアシスタントまたはナレーターのメッセージにだけ保存します。古いメッセージには、エントリーのID、キー、スコアが残ります。大きなロアブックを使うチャットがかなり小さくなります。新しいメッセージを削除した場合、再び最新になったメッセージのActive Contextとエージェントの再試行では、そのエントリーの現在の本文を表示します。 |
 
 `scripts/compact-lorebook-scans.mjs`は、以前のチャットにも同じ規則を適用します。先にサーバーを停止してください。`--apply`を渡さないかぎり試行(ドライラン)だけを行い、書き込む前に両方のメッセージテーブルをバックアップします。

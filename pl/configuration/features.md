@@ -14,6 +14,7 @@ Zmiany obowiązują od razu, bez restartu serwera ani odświeżania strony.
 | **Retry failed provider calls** (ponawiaj nieudane wywołania dostawcy) | `providerRetry` | Wyłączony | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
 | **Lorebook activation stats** (statystyki aktywacji lorebooków) | `usageAndActivationStats` | Wyłączony | brak |
 | **Recover deleted chat messages** (odzyskiwanie usuniętych wiadomości czatu) | `messageTrash` | Wyłączony | brak |
+| **Wektory włączone dla nowych lorebooków** | `newLorebookVectors` | Wyłączony | `LOREBOOK_NEW_BOOK_VECTORS` |
 
 Wyszukanie `features` w ustawieniach prowadzi do tej sekcji.
 
@@ -73,6 +74,16 @@ Wyłączony: usunięte wiadomości znikają od razu.
 
 <a id="precedence"></a>
 
+### Wektory włączone dla nowych lorebooków
+
+Klucz: `newLorebookVectors`. Zmienna środowiskowa: `LOREBOOK_NEW_BOOK_VECTORS`.
+
+Włączony: nowy lorebook ma włączoną opcję **Wektory**, więc jego wpisy można od razu wektoryzować i wyszukiwać po znaczeniu.
+
+Wyłączony: nowy lorebook ma wyłączoną opcję **Wektory**. Słowa kluczowe nadal działają, a opcję **Wektory** możesz włączyć w lorebooku później.
+
+Decyduje tylko o wartości początkowej lorebooków tworzonych bez niej: przez **Utwórz lorebook** (gdzie przełącznik jest widoczny, więc możesz go zmienić dla tego lorebooka), import plików bez własnego ustawienia oraz tworzenie przez tryb Game Mode lub agenta Lorebook Keeper. Istniejące lorebooki zachowują własne ustawienie. Lorebooki tworzone przez asystentkę Professor Mari już mają na początku włączoną opcję **Wektory**.
+
 ## Pierwszeństwo
 
 1. **Zmienna środowiskowa.** Jeśli jest ustawiona, wygrywa z zapisanym przełącznikiem zarówno przy włączaniu, jak i wyłączaniu. Settings pokazuje blokadę z nazwą zmiennej. Pusta wartość oznacza brak ustawienia.
@@ -83,6 +94,7 @@ Wyłączony: usunięte wiadomości znikają od razu.
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | Stałe wybory lorebooka | `true`, `1`, `yes` lub `on` włączają. Każda inna wartość wyłącza. |
 | `PROVIDER_RETRY_TRANSIENT_ERRORS` | Ponowienia wywołań dostawcy | `true`, `1`, `yes` lub `on` włączają. Każda inna wartość wyłącza. |
+| `LOREBOOK_NEW_BOOK_VECTORS` | Wektory włączone dla nowych lorebooków | `true`, `1`, `yes` lub `on` włączają. Każda inna wartość wyłącza. |
 
 Zmienne są odczytywane przy każdej kontroli, więc zmiana `.env` nie wymaga restartu.
 

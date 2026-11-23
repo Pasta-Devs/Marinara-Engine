@@ -20,7 +20,7 @@ Termes employés ci-dessous :
 
 Voici les profils intégrés :
 
-- **Off** : n'ajoute aucun style maison. Le prompt part quasiment tel que tu l'as écrit.
+- **Désactivé** : n'ajoute aucun style maison et utilise par défaut la grammaire **Désactivé**, qui conserve le texte du prompt assemblé sans nettoyage. Si tu as une version enregistrée de ce profil, choisis **Désactivé** sous **Grammaire du prompt** ou utilise **Réinitialiser** pour obtenir la nouvelle valeur par défaut.
 - **Auto** : déduit un rendu cohérent à partir du personnage, du jeu, de la scène et du modèle d'image sélectionné. C'est le profil par défaut.
 - **Anime** : tags génériques de style anime, pour un rendu de personnage net.
 - **Danbooru / Illustrious** : tags à la Danbooru, pensés pour les checkpoints anime SDXL comme Illustrious, Pony et NovelAI.
@@ -67,6 +67,25 @@ Deux boutons aident à gérer les profils :
 - **Danbooru tags** : tags courts façon Danbooru, séparés par des virgules. Idéal pour les checkpoints anime SDXL comme Illustrious, Pony et NovelAI.
 - **Tags** : mots-clés courts séparés par des virgules, sans la convention Danbooru.
 - **Natural language** : des phrases simples. Idéal pour les modèles qui lisent de la prose, comme DALL-E et les modèles Z-Image Turbo.
+- **Désactivé** : conserve le texte du prompt assemblé dans son ordre d'origine, y compris les tags répétés. Choisis cette option quand ton modèle d'image exige des suites de tags exactes.
+
+<a id="prompt-grammar-off"></a>
+
+### Grammaire du prompt : Désactivé
+
+Choisis **Désactivé** pour désactiver le traitement grammatical et le nettoyage du prompt pour n'importe quel profil de style. Marinara ne découpe ni ne réécrit le texte fourni, ne supprime pas les doublons, ne résout pas les contradictions entre tags de genre et ne déplace pas les expressions comme `no watermark` dans le prompt négatif. Les espaces, sauts de ligne et signes de ponctuation à l'intérieur de chaque source restent tels que tu les as fournis.
+
+Par exemple, cette suite garde chaque marqueur de participant à côté de sa description :
+
+```text
+2boys, 3girls, 1boy, black hair, 1boy, brown hair, 1girl, long hair, 1girl, short hair, 1girl, red hair
+```
+
+Marinara assemble toujours les sources configurées, comme les préfixes de connexion, les tags du profil, le texte généré et tes remplacements d'apparence. Il ajoute une virgule et une espace entre les sources. **Désactivé** empêche aussi la suppression des consignes de style recopiées par les modèles qui rédigent les prompts d'image. Ce réglage ne contrôle pas ce que le modèle rédacteur génère.
+
+Avec **Désactivé**, Illustrator garde les tags **Illustration** que tu as configurés, même quand son modèle de prompt mentionne des cases ou des mises en page de bande dessinée. Il laisse aussi le prompt négatif assemblé tel quel, sans supprimer les négations répétées ni ajouter d'interdictions de texte par défaut.
+
+Tu peux choisir la grammaire **Désactivé** sur un profil qui ajoute des tags de style. Le profil intégré **Désactivé** laisse aussi ses champs de style vides. Tes profils enregistrés gardent leur grammaire actuelle tant que tu ne la changes pas.
 
 ## Le banc d'essai
 
@@ -80,7 +99,7 @@ Le **Test bench** affiche aussi une courte note sur le nettoyage. Quand rien ne 
 
 ## Comment Marinara nettoie le prompt
 
-Avant qu'une requête d'image ne quitte Marinara, le prompt est compilé avec le profil actif. Le compilateur :
+Avant qu'une requête d'image ne quitte Marinara, le prompt est compilé avec le profil actif. Avec la grammaire **Désactivé**, il assemble les sources sans nettoyage. Avec les autres modes de grammaire, le compilateur :
 
 - supprime les tags quasi identiques, par exemple un tag de qualité répété ;
 - déplace les formulations négatives simples comme "avoid text" ou "no watermark" vers le prompt négatif ;
@@ -124,6 +143,8 @@ La section **Local image defaults** n'apparaît que pour AUTOMATIC1111 / SD Web 
 Professor Mari rédige elle-même ses prompts d'image. Sa commande `mari images` les transmet à ton modèle d'image tels qu'elle les a écrits. Aucun profil de style, tag par type d'image ou préfixe de prompt de la connexion n'est ajouté. Demande-lui d'utiliser ton style et elle ajoute `--style`, qui applique le profil choisi plus haut (celui du modèle d'image en priorité, puis le **Default style** global), ou `--style <name>` pour un profil précis. Elle peut lister tes profils et en lire un intégralement avant de choisir.
 
 Pour chaque image créée, elle conserve son prompt d'origine, le profil utilisé (s'il y en a un) et le prompt exact qui a été envoyé. Elle peut ainsi te montrer ce que le style a changé.
+
+Avec un modèle NovelAI V4 ou plus récent, elle donne à chaque personnage de l'image son propre prompt, selon les mêmes règles que l'Illustrator, pour que leurs apparences ne se mélangent pas. La taille qu'elle demande est conservée même quand le réglage **Choisir la résolution selon le nombre de personnages** du modèle est activé ; ce réglage ne choisit une taille que lorsqu'elle laisse le modèle le faire.
 
 ## Guides associés
 

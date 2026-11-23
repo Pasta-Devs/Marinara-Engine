@@ -14,6 +14,7 @@
 | **Retry failed provider calls**(실패한 제공자 호출 재시도) | `providerRetry` | 꺼짐 | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
 | **Lorebook activation stats**(로어북 활성화 통계) | `usageAndActivationStats` | 꺼짐 | 없음 |
 | **Recover deleted chat messages**(삭제된 채팅 메시지 복구) | `messageTrash` | 꺼짐 | 없음 |
+| **Vectors on for new lorebooks**(새 로어북의 벡터 켜기) | `newLorebookVectors` | 꺼짐 | `LOREBOOK_NEW_BOOK_VECTORS` |
 
 설정에서 `features`를 검색하면 해당 섹션으로 이동합니다.
 
@@ -71,6 +72,16 @@ API는 `GET`과 `PUT /api/app-settings/features`입니다. `PUT`은 전체 객�
 
 꺼짐: 삭제한 메시지는 바로 제거됩니다.
 
+### 새 로어북의 벡터 켜기
+
+설정 키: `newLorebookVectors`. 환경 변수: `LOREBOOK_NEW_BOOK_VECTORS`.
+
+켜짐: 새 로어북은 **Vectors**(벡터)가 켜진 상태로 시작하므로 항목을 바로 벡터화하고 의미로 찾을 수 있습니다.
+
+꺼짐: 새 로어북은 **Vectors**가 꺼진 상태로 시작합니다. 키워드는 계속 작동하며, 나중에 로어북에서 **Vectors**를 켤 수 있습니다.
+
+이 설정은 시작값이 없는 상태로 만드는 로어북에만 기본값을 정합니다. **Create lorebook**(로어북 만들기)(스위치가 표시되어 해당 로어북의 값을 바꿀 수 있음), 파일에 자체 설정이 없는 가져오기, Game Mode나 Lorebook Keeper가 만드는 로어북이 해당됩니다. 기존 로어북은 자체 설정을 유지합니다. Professor Mari가 만드는 로어북은 이미 **Vectors**가 켜진 상태로 시작합니다.
+
 <a id="precedence"></a>
 
 ## 우선순위
@@ -83,6 +94,7 @@ API는 `GET`과 `PUT /api/app-settings/features`입니다. `PUT`은 전체 객�
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | 로어북 선택 고정 | `true`, `1`, `yes`, `on`은 켭니다. 다른 값은 끕니다. |
 | `PROVIDER_RETRY_TRANSIENT_ERRORS` | 실패한 제공자 호출 재시도 | `true`, `1`, `yes`, `on`은 켭니다. 다른 값은 끕니다. |
+| `LOREBOOK_NEW_BOOK_VECTORS` | 새 로어북의 벡터 켜기 | `true`, `1`, `yes`, `on`이면 켜집니다. 그 밖의 값이면 꺼집니다. |
 
 환경 변수는 확인할 때마다 읽으므로 `.env` 변경은 재시작 없이 적용됩니다.
 

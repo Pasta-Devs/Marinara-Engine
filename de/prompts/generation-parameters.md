@@ -132,7 +132,20 @@ Mit **Image captioning** (Bildbeschreibung) beschreibt Marinara jedes angehängt
 
 1. Schalte in **Advanced Parameters** die Option **Image captioning** ein.
 2. Wähl im Dropdown-Menü **Captioning model** (Modell für die Bildbeschreibung) ein Modell.
-3. Bearbeite optional den **Captioning Prompt**, also die Anweisungen, die mit jedem Bild mitgehen. Die Schaltfläche zum Zurücksetzen oder ein Leeren des Felds stellt den Standard wieder her. Der Prompt wird nur für diesen Chat gespeichert, und **Save as Connection Default** (als Verbindungsstandard speichern) übernimmt ihn nicht.
+3. Optional: Bearbeite **Prompt für Bildbeschreibungen**, die Anweisungen, die mit jedem Bild gesendet werden. Die Schaltfläche zum Zurücksetzen oder das Leeren des Felds stellt den engineweiten Prompt für „Bilder lesen“ wieder her. Der Prompt wird nur für diesen Chat gespeichert; **Als Verbindungsstandard speichern** kopiert ihn nicht.
+
+Das Feld erscheint auch bei ausgeschaltetem Schalter, wenn im Bereich **Jobs** des Panels **Verbindungen** ein Modell für **Bilder lesen** festgelegt ist: Dieses Modell beschreibt dann die Bilder des Chats, wenn dessen eigenes Modell sie nicht sehen kann.
+
+### Was das Modell beim Lesen gefragt wird
+
+Klick im Panel **Verbindungen** auf das Zahnrad in der Zeile **Bilder lesen** des Bereichs **Jobs** (oder wähle unter der Modellliste in **Modell für Bilder lesen** die Option **Einstellungen für „Bilder lesen“**). Diese Einstellungen gelten für jeden Chat:
+
+- **Anweisungen**: der System-Prompt, der mit jedem Bild gesendet wird. Ein eigener **Prompt für Bildbeschreibungen** im Chat ersetzt ihn.
+- **Anfrage**: die Nachricht, die mit jedem Bild gesendet wird. `{{filename}}` wird zum Dateinamen des Bildes.
+- **Antwortlänge (Tokens)**: standardmäßig 700. Ein nachdenkendes Modell verbraucht einen Teil davon fürs Nachdenken. Gib ihm deshalb mehr Platz (oder schalte sein Nachdenken aus), wenn Beschreibungen leer oder abgeschnitten zurückkommen. Das Limit **Maximale Ausgabe-Tokens** beim Modell gilt weiterhin.
+- **Temperatur**: standardmäßig 0,2.
+
+**Anweisungen** und **Anfrage** haben eine Schaltfläche zum Zurücksetzen, die den eingebauten Text wiederherstellt. Leere **Antwortlänge** oder **Temperatur**, um wieder den eingebauten Wert zu verwenden. Beschreibt ein lokales Modell ein Bild bei einer direkten Anfrage gut, aber nicht über Marinara, kopiere den dort verwendeten System-Prompt und die Frage in **Anweisungen** und **Anfrage**. In die Antwort eingebettete Denkschritte des Modells (`<think>…</think>`) werden aus der Beschreibung entfernt.
 
 Wenn es nicht funktioniert hat: Schlägt die Bildbeschreibung fehl, weil das Konto dafür defekt oder gelöscht ist oder nichts zurückliefert, bricht die Antwort mit dem Fehler **Image captioning failed** ab. Marinara sendet dann nicht ersatzweise das Bild. Repariere oder wechsle das Modell für die Bildbeschreibung, oder schalte **Image captioning** aus.
 

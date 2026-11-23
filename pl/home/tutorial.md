@@ -31,17 +31,17 @@ Na telefonie i innych wąskich ekranach każda karta pojawia się na środku, po
 | # | Tytuł karty | Co obejmuje |
 | --- | --- | --- |
 | 1 | **Welcome to Marinara Engine!** | Wyśrodkowana karta powitalna. Professor Mari proponuje oprowadzenie po aplikacji. |
-| 2 | **Characters** | Przycisk panelu **Characters** (postacie), w którym mieszkają twoje postacie. |
-| 3 | **Personas** | Przycisk panelu **Personas** (persony), w którym określasz, kim jesteś na czacie. |
-| 4 | **Lorebooks** | Przycisk panelu **Lorebooks** (lorebooki), który przechowuje dodatkowe szczegóły o świecie i postaciach. |
-| 5 | **Presets** | Przycisk panelu **Presets** (presety), który steruje budowaniem promptu (prompt to tekst, który Marinara wysyła do AI). |
-| 6 | **Connections** | Przycisk panelu **Connections**. Połączenia to pierwsza rzecz do skonfigurowania przed rozpoczęciem czatu. |
-| 7 | **Agents** | Przycisk panelu **Agents** (agenci). Karta kieruje do **Agent Organizer** (organizowanie agentów), gdzie można zainstalować agentów. |
-| 8 | **Settings** | Przycisk panelu **Settings**. Otwiera panel **Settings** na zakładce **General**. |
-| 9 | **Chats** | Przełącznik paska bocznego. Otwiera pasek boczny z czatami. |
-| 10 | **Conversation Mode** | Zakładka trybu Conversation, oznaczona jako **CONVO**. |
-| 11 | **Roleplay Mode** | Zakładka trybu Roleplay, oznaczona jako **RP**. |
-| 12 | **Game Mode** | Zakładka trybu Game Mode, oznaczona jako **GM**. |
+| 2 | **Czaty** | Przycisk **Czaty**, pierwszy z przycisków paneli na komputerze. Otwiera **Czaty** w pasku bocznym, w którym otwierają się też panele z kolejnych kroków. Karta informuje też, że na komputerze możesz przypiąć pasek boczny po lewej stronie w sekcji **Ustawienia → Wygląd**. |
+| 3 | **Conversation Mode** | Zakładka rozmowy, oznaczona **CONVO**. |
+| 4 | **Roleplay Mode** | Zakładka roleplay, oznaczona **RP**. |
+| 5 | **Game Mode** | Zakładka gry, oznaczona **GM**. |
+| 6 | **Postacie** | Przycisk panelu **Postacie**, w którym znajdują się twoje postacie. |
+| 7 | **Persony** | Przycisk panelu **Persony**, w którym określasz, kim jesteś w czacie. |
+| 8 | **Księgi wiedzy** | Przycisk panelu **Księgi wiedzy**, zawierającego dodatkowe informacje o świecie i postaciach. |
+| 9 | **Presety** | Przycisk panelu **Presety**, który kontroluje sposób budowania promptu. |
+| 10 | **Połączenia** | Przycisk panelu **Połączenia**. Połączenia to pierwsza rzecz do skonfigurowania przed rozpoczęciem czatu. |
+| 11 | **Agenci** | Przycisk panelu **Agenci**. Karta wskazuje **Agent Organizer** jako miejsce instalacji agentów. |
+| 12 | **Ustawienia** | Przycisk panelu **Ustawienia**. Otwiera **Ustawienia** na zakładce **Ogólne**. |
 | 13 | **Home: Your Story Hub** | Wraca do ekranu głównego. Na ekranie głównym można kontynuować czat, zacząć nowy i rozmieścić widgety. |
 | 14 | **Ask Me Where Things Are** | Pasek wyszukiwania u góry ekranu głównego. Na telefonie karta mówi, żeby przeciągnąć palcem w dół od górnego paska aplikacji. |
 | 15 | **Guides and Home Controls** | Skróty **Documentation** (dokumentacja), **Tutorial**, **FAQ** (najczęstsze pytania) i **Widgets** (widgety). |

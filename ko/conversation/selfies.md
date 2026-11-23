@@ -35,7 +35,7 @@
 
 **Send Avatar References**와 **Attach Card Appearance**는 각각 **Off**(꺼짐), **Images only**(이미지만), **Videos only**(동영상만), **Images and videos**(이미지와 동영상) 중에서 고를 수 있습니다.
 
-카드나 페르소나에서 **Image Appearance Override**(이미지 외모 재정의)가 켜져 있으면(편집기의 **Appearance** 아래) Marinara는 **Appearance** 대신 그 텍스트를 보냅니다. **Appearance**를 그림이 아니라 이야기용으로 쓴 경우에 활용하세요.
+카드나 페르소나가 **Image tags**(이미지 태그)를 사용 중이면(편집기 **Appearance**의 **Image tags** 탭에서 **Use for image prompts**(이미지 프롬프트에 사용)를 체크한 경우), Marinara는 **Appearance** 서술문 대신 그 태그를 보냅니다. 채팅에서 활성화된 Appearance 대체 필드는 자체 태그나 서술문을 사용합니다. **Appearance**를 그림이 아니라 이야기용으로 쓴 경우에 활용하세요.
 
 ## 직접 셀카 요청하기
 

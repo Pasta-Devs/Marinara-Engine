@@ -235,7 +235,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 ### Funkcja Memory Recall niczego nie przywołuje
 
-**Memory Recall** przeszukuje wcześniejsze wiadomości i dodaje najbardziej pasujące z powrotem do promptu (tekstu, który Marinara wysyła do AI).
+**Przywoływanie pamięci** przeszukuje wcześniejsze wiadomości, które nie mieszczą się już w prompcie, i dodaje z powrotem te najbardziej pasujące. Dopóki cały czat mieści się w oknie kontekstu, nic nie dodaje. Zobacz [Co dodaje Memory Recall](agents/memory.md#what-memory-recall-adds).
 
 1. Otwórz **Chat Settings → Memory Recall** i sprawdź, czy przełącznik **Enable Memory Recall** (włączenie Memory Recall) jest włączony.
 2. Otwórz **Access memories for this chat** (dostęp do wspomnień tego czatu). W oknie **Memories for This Chat** (wspomnienia tego czatu) sprawdź status każdego fragmentu.

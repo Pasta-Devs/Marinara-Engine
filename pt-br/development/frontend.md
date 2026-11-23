@@ -10,31 +10,34 @@ O cliente fica em `packages/client`. Ele conversa com um servidor de API Fastify
 
 ## Arquitetura do aplicativo
 
-### Layout de três colunas
+### Layout da estrutura do aplicativo
 
-A interface segue um desenho de três colunas inspirado no Discord, gerenciado por `components/layout/AppShell.tsx`:
+`components/layout/AppShell.tsx` organiza a barra superior, o painel central e uma barra lateral. A barra lateral mostra Chats ou um painel, nunca os dois. Ela fica acoplada à direita por padrão, ou à esquerda quando `sidebarSide` é `"left"`:
 
 ```
-+-------------+-----------------------------+--------------+
-|  Left       |         Center              |  Right       |
-|  Sidebar    |                             |  Panel       |
-|             |  Chat area or Editor        |              |
-|  Chat list  |  (lazy-loaded)              |  Characters  |
-|  Folders    |                             |  Lorebooks   |
-|  Mode tabs  |  ChatConversationSurface    |  Presets     |
-|             |  ChatRoleplaySurface        |  Connections |
-|             |  GameSurface                |  Agents      |
-|             |  CharacterEditor            |  Personas    |
-|             |  LorebookEditor             |  Settings    |
-|             |  PresetEditor               |  Browser     |
-|             |  ...other editors           |              |
-+-------------+-----------------------------+--------------+
++-----------------------------------+----------------+
+|  Center                           |  Sidebar       |
+|                                   |                |
+|  Chat area or Editor              |  Chats         |
+|  (lazy-loaded)                    |  (chat list,   |
+|                                   |  folders,      |
+|  ChatConversationSurface          |  mode tabs)    |
+|  ChatRoleplaySurface              |                |
+|  GameSurface                      |  or a panel:   |
+|  CharacterEditor                  |  Characters    |
+|  LorebookEditor                   |  Personas      |
+|  PresetEditor                     |  Lorebooks     |
+|  ...other editors                 |  Presets, ...  |
++-----------------------------------+----------------+
 ```
 
-- Barra lateral esquerda (`components/layout/ChatSidebar.tsx`): a lista de chats, organizada em pastas e filtrável por modo (Conversation, Roleplay, Game).
+- Barra lateral (`[data-component="SidebarSlot"]` em `AppShell.tsx`): um único espaço no desktop. Dentro do contêiner deslizante (`SidebarSlotPanel`) há duas camadas empilhadas. `ChatSidebarPanel` renderiza `components/layout/ChatSidebar.tsx`, a lista de chats com pastas e as abas de modo (Conversation, Roleplay, Game). Ele fica sempre montado no desktop, porque as contagens de mensagens não lidas e os balões de notificação são carregados a partir dele. `RightPanelDesktop` renderiza `components/layout/RightPanel.tsx` e é montado na primeira vez que um painel abre. A camada oculta fica `invisible`, `inert` e `aria-hidden`. A troca entre Chats e um painel é instantânea, e a abertura ou o fechamento da barra lateral usa uma animação de deslizamento.
+- Largura: um separador na borda interna da barra lateral (aria-label "Resize sidebar") define a largura compartilhada, de `SHARED_SIDEBAR_WIDTH_MIN` (280) a `SHARED_SIDEBAR_WIDTH_MAX` (480). Leia o valor com `selectSharedSidebarWidth`; a store mantém `sidebarWidth` e `rightPanelWidth` iguais.
+- Lado: com `sidebarSide: "left"`, o espaço recebe o CSS `order: -1`. Ele mantém sua posição na árvore React, então trocar de lado nunca remonta um painel. `--mari-chat-ui-inset-left` / `--mari-chat-ui-inset-right`, o deslocamento do Tracker Panel acoplado e os recuos de `Modal` não modal acompanham o lado.
+- Celulares e tablets: quando `isMobileShellViewport()` é verdadeiro (`MOBILE_SHELL_MEDIA_QUERY`, ou uma janela estreita demais para o layout acoplado), a barra lateral é um painel de tela cheia que vem da direita, renderizado como `ChatSidebarPanel` ou `RightPanelMobile`. `sidebarSide` não se aplica nesse caso.
 - Painel central: a superfície do chat ativo ou um editor de tela cheia (personagem, lorebook, preset e assim por diante). Só um aparece de cada vez. Os editores substituem a área do chat.
-- Painel direito (`components/layout/RightPanel.tsx`): um navegador de recursos e as configurações, aberto e fechado pela barra superior. Depois de montado, o painel permanece no DOM (escondido por CSS) para preservar a posição de rolagem e o estado local.
-- Barra superior (`components/layout/TopBar.tsx`): botões de troca rápida para cada painel direito.
+- Painéis (`components/layout/RightPanel.tsx`): encaminha `rightPanel` para um componente de painel e mantém os painéis visitados montados. Veja [Sistema de painéis](#panel-system-componentspanels).
+- Barra superior (`components/layout/TopBar.tsx`): Início e as informações do chat de um lado. No lado da barra lateral, `[data-tour="panel-buttons"]` contém primeiro o botão Chats (`[data-tour="sidebar-toggle"]`), seguido por um botão para cada painel. Com `sidebarSide: "left"`, a barra fica espelhada (`flex-row-reverse`): os botões dos painéis ficam à esquerda, e Início na ponta direita. Em celulares e tablets, Chats fica ao lado de Início; em celulares, Chats e os botões dos painéis passam para o menu **Mais**.
 
 ### Navegação
 
@@ -48,8 +51,11 @@ A navegação é guiada por estado. Não existe roteador de URL. A store Zustand
 | Abrir o editor de conexão | `connectionDetailId` | `openConnectionDetail(id)`                         |
 | Abrir o editor de agente      | `agentDetailId`      | `openAgentDetail(id)`                              |
 | Abrir o editor de persona    | `personaDetailId`    | `openPersonaDetail(id)`                            |
-| Trocar o painel direito     | `rightPanel`         | `openRightPanel(name)` / `toggleRightPanel(name)` |
+| Mostrar um painel     | `rightPanel`         | `openRightPanel(name)` / `toggleRightPanel(name)` |
+| Mostrar Chats | `sidebarOpen` | `toggleSidebar()` / `setSidebarOpen(open)` |
 | Abrir uma janela             | `modal`              | `openModal(type, props?)`                          |
+
+Chats e os painéis compartilham a barra lateral, então são mutuamente exclusivos em qualquer tamanho de tela. `openRightPanel` e `toggleRightPanel` fecham Chats, e `toggleSidebar` e `setSidebarOpen(true)` fecham o painel. `setSidebarOpen(false)` não interfere em um painel aberto. `selectSidebarShown` é falso enquanto um painel está aberto, então um par desatualizado com os dois sinalizadores verdadeiros renderiza o painel, e o estado persistido transforma um par salvo assim em apenas o painel.
 
 ### Divisão de código
 
@@ -76,6 +82,7 @@ A única store persistida (em localStorage, pelo middleware `persist` do Zustand
 - Som: `convoNotificationSound` e `rpNotificationSound`.
 - Comportamento: `confirmBeforeDelete`, `enterToSendRP`, `enterToSendConvo`, `weatherEffects` e `guideGenerations`.
 - Navegação: `rightPanel`, `rightPanelOpen`, `sidebarOpen`, `settingsTab`, todos os campos `*DetailId` e `modal`.
+- Layout da barra lateral: `sidebarSide` (`"right"` ou `"left"`, padrão `"right"`, sincronizado entre dispositivos e redefinido para `"right"` por `resetAppearanceSettings`) e `sidebarWidth` / `rightPanelWidth` (mantidos iguais; leia os valores com `selectSharedSidebarWidth`).
 
 Os temas personalizados sincronizados não ficam em `ui.store.ts`. Marinara busca esses temas no servidor pelo React Query e os espelha entre os dispositivos ligados à mesma instância.
 
@@ -319,14 +326,14 @@ Padrão das janelas: todas aceitam `{ open, onClose }`, envolvem o conteúdo no 
 
 ### Sistema de painéis (`components/panels/`)
 
-Os painéis do lado direito mostram listas de recursos com busca, ordenação e filtros. Ao clicar em um recurso, o editor completo dele abre no painel central.
+Os painéis abrem na barra lateral no lugar de Chats e mostram listas de recursos com busca, ordenação e filtros. Ao clicar em um recurso, o editor completo dele abre no painel central.
 
 Os painéis são registrados em `RightPanel.tsx`, em dois lugares:
 
 1. `PANEL_CONFIG`: título, ícone e cor do gradiente.
 2. `RIGHT_PANELS` (em `right-panel-panels.ts`): o mapa de componentes.
 
-Os painéis preservam o estado com o Set `mountedPanels`, mantido em um `useState` dentro de `RightPanel`. Ele registra os painéis já visitados. Depois de montado, um painel permanece no DOM (oculto com `display: none` ou `aria-hidden`) para preservar o estado.
+Os painéis preservam o estado por meio de um Set `mountedPanels` mantido em um `useState` dentro de `RightPanel`. Ele registra os painéis já visitados. Depois de montado, um painel permanece no DOM (oculto com `display: none` ou `aria-hidden`) para preservar o estado. O Set pertence a uma montagem de `RightPanel`, então uma remontagem, como a reabertura do painel no celular, começa apenas com o painel atual.
 
 ### Primitivos de interface (`components/ui/`)
 
@@ -339,10 +346,15 @@ Os painéis preservam o estado com o Set `mountedPanels`, mantido em um `useStat
 | `GifPicker`        | Busca de GIFs pela API do Giphy                                          |
 | `HelpTooltip`      | Ícone que, ao passar o mouse, mostra uma dica posicionada em portal                     |
 | `LibraryToolbar` | Barra de ferramentas compartilhada por todos os painéis da biblioteca (veja abaixo) |
+| `EditorHeader` | O cabeçalho compartilhado por todos os editores de página inteira (veja abaixo) |
 
 Todos os componentes de interface usam props controladas (value mais onChange) e renderização em portal para as sobreposições.
 
-**Os painéis de biblioteca usam `LibraryToolbar`.** Os painéis Characters, Personas, Lorebooks e Agents e as abas do painel Presets renderizam por ele os controles do topo: uma linha opcional de biblioteca (um botão de largura total ou o par Download / Open Library), criar, importar, exportar e selecionar, a busca com o menu de ordenação compartilhado, New Folder e os filtros do painel como `children`. As linhas são props tipadas, e não slots, para que os painéis de biblioteca usem a mesma marcação. Para estender a barra, adicione uma prop a `LibraryToolbar`.
+**Os painéis de biblioteca usam `LibraryToolbar`.** Os painéis Characters, Personas, Lorebooks e Agents e as abas do painel Presets renderizam por ele os controles do topo: uma linha opcional de biblioteca (um botão de largura total ou o par Download / Open Library), criar, importar, exportar e selecionar, a busca com o menu de ordenação compartilhado, New Folder e os filtros do painel como `children`. As linhas são props tipadas, e não slots, para que os painéis de biblioteca usem a mesma marcação. Adicione uma prop ali em vez de montar uma barra de ferramentas à mão em um painel.
+
+`LibraryToolbar.tsx` também exporta `SegmentedButtons`, um botão longo `.mari-chrome-segmented` dividido por `|`. Ele desenha o par Baixar / Abrir a biblioteca e as abas **Prompts** / **Regexes** / **Ferramentas** / **Perfis** do painel Presets, para que a linha superior de todos os painéis tenha a mesma altura. Passar `groupLabel` transforma a linha em um `role="group"` de abas, e `pressed` define o `aria-pressed` de cada aba. `.mari-chrome-segmented` tem `flex-shrink: 0`, então o contêiner de rolagem flex de altura fixa de um painel (como em Personagens) não consegue comprimir a linha.
+
+**Os editores de página inteira usam `EditorHeader`.** Ele desenha Voltar, o bloco do ícone, o nome, as abas de seção opcionais, as ações e Fechar, em um de dois layouts. Com `nav` (abas de seção), as regras de densidade de `mari-editor-header--with-nav` dimensionam tudo em relação às abas. Sem ele, as ações ganham uma linha própria nos celulares, e Salvar mostra só o ícone ali. O nome, o conteúdo do bloco e os botões são slots, então cada editor mantém seu próprio campo de nome e seus controles. Monte os botões do cabeçalho com `EditorSaveButton` e `EditorHeaderAction`: o rótulo deles é sempre tanto a dica quanto o nome acessível. Acrescente um slot ou uma parte ali em vez de montar um cabeçalho à mão em um editor.
 
 ## Cliente de API (`lib/api-client.ts`)
 
@@ -700,7 +712,7 @@ Rodar só o servidor de API:
 pnpm dev:server
 ```
 
-Rodar a validação de base (TypeScript mais ESLint):
+Execute a validação de base (Prettier, ESLint, verificações de tipos e builds de produção; defina `MARINARA_CHECK_JOBS=1` em uma máquina com pouca memória):
 
 ```bash
 pnpm check

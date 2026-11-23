@@ -35,7 +35,7 @@ Opcje **Resolution**: 512x512, 512x768, 768x768, 768x1024, 896x1152 i 1024x1024.
 
 **Send Avatar References** i **Attach Card Appearance** mają po cztery opcje: **Off**, **Images only**, **Videos only** i **Images and videos**.
 
-Jeśli karta lub persona ma włączone **Image Appearance Override** (w sekcji **Appearance** w edytorze), aplikacja wysyła ten tekst zamiast **Appearance**. Użyj tego, gdy **Appearance** jest napisane na potrzeby fabuły, a nie obrazów.
+Jeśli karta lub persona używa opcji **Tagi obrazów** (zakładka **Tagi obrazów** w sekcji **Wygląd** w edytorze, z zaznaczonym **Używaj do promptów obrazów**), Marinara wysyła je zamiast prozy z pola **Wygląd**. Wariant wyglądu aktywny w czacie używa własnych tagów lub prozy. Skorzystaj z tego, gdy pole **Wygląd** jest napisane na potrzeby fabuły, a nie obrazów.
 
 ## Poproś o selfie ręcznie
 
@@ -43,7 +43,8 @@ Jeśli karta lub persona ma włączone **Image Appearance Override** (w sekcji *
 2. Kliknij **Selfie**. Gdy postaci jest więcej niż jedna, wybierz z listy obok przycisku, kto ma zrobić selfie.
 3. Jeśli **Expose media prompts before sending** jest włączone (**Settings → Generations → Overall Generations**), przejrzyj lub edytuj prompt i kliknij **Generate**. Anulowanie nie wysyła żadnego żądania.
 4. Poczekaj, aż przycisk pokaże **Generating...**.
-5. Zobaczysz komunikat "Selfie generated." i obraz pojawi się w czacie. Ręczne żądanie używa **Selfie model** i kosztuje jedno żądanie obrazu.
+
+Zobaczysz komunikat "Selfie generated." i obraz pojawi się w czacie. Ręczne żądanie używa **Selfie model** i kosztuje jedno żądanie obrazu.
 
 ## Jak postacie wysyłają selfie
 
@@ -76,10 +77,10 @@ Otwórz **Chat Settings → Agents → Illustrator Settings**, **Video messages*
 
 - **Generated Videos**: pozwala postaciom wysyłać wiadomości wideo samodzielnie. W nowych czatach jest domyślnie wyłączone, bo każdy klip to żądanie wideo. Wymaga też **Videos** na liście **Commands**.
 - **Video Run Interval**: pokazuje się po włączeniu **Generated Videos**. Określa, ile wiadomości musi minąć między klipami. **0** wyłącza tę przerwę.
-- **Video model**: konto wideo.
-- **Default video provider** używa twojego ustawienia domyślnego.
+- **Video model**: konto wideo. **Default video provider** używa twojego ustawienia domyślnego.
 - **First frame**: obraz, od którego zaczyna się klip (patrz niżej).
-- `/video` i przycisk **Video** w galerii działają tak czy inaczej i ignorują ten odstęp. Przesunięcie swipe odpowiedzi, która wysłała klip, pozwala nowemu swipe'owi wysłać własny. W czacie grupowym każda postać może wysłać jeden klip na odpowiedź, do **Videos per reply** (domyślnie 3) w **Settings → Generations → Video Generation**.
+
+`/video` i przycisk **Video** w galerii działają tak czy inaczej i ignorują ten odstęp. Przesunięcie swipe odpowiedzi, która wysłała klip, pozwala nowemu swipe'owi wysłać własny. W czacie grupowym każda postać może wysłać jeden klip na odpowiedź, do **Videos per reply** (domyślnie 3) w **Settings → Generations → Video Generation**.
 
 Opcje **First frame**:
 

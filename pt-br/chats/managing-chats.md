@@ -1,6 +1,8 @@
 # Como gerenciar a lista de chats
 
-O painel **Chats**, à esquerda, guarda todos os seus chats. Use-o para começar, encontrar, ordenar, organizar e excluir chats.
+O painel **Chats** guarda todos os seus chats. Use-o para começar, encontrar, ordenar, organizar e excluir chats. Para abri-lo, clique em **Chats** na barra superior. Se ele não aparecer, abra **Mais** primeiro.
+
+No computador, **Chats** abre na barra lateral, no mesmo lugar que **Personagens** e os outros painéis. Só um aparece por vez: abrir um painel substitui **Chats**, e clicar em **Chats** traz a lista de volta. A barra lateral fica à direita, a menos que você defina **Lado da barra lateral no computador** como **Esquerda** (veja [Configurações de aparência](../appearance/appearance-settings.md#other-app-style-controls)). No celular ou tablet, ela abre como um painel em tela cheia.
 
 ## A lista de chats e as abas de modo
 

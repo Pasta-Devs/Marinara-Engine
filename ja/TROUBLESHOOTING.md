@@ -235,7 +235,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 ### Memory Recallが何も思い出さない
 
-**Memory Recall**(記憶の呼び出し)は、過去のメッセージを検索し、関連の強いものをプロンプトに加え直します。
+**Memory Recall**は、プロンプトに収まらなくなった過去のメッセージを検索し、最も関連するものを戻します。チャット全体がコンテキストウィンドウに収まる間は、何も追加しません。[Memory Recallが追加する内容](agents/memory.md#what-memory-recall-adds)を参照してください。
 
 1. **Chat Settings → Memory Recall**(チャット設定 → 記憶の呼び出し)を開き、**Enable Memory Recall**がオンになっているか確かめます。
 2. **Access memories for this chat**を開きます。**Memories for This Chat**で、各チャンクの状態を確認します。

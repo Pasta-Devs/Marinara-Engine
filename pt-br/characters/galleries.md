@@ -50,7 +50,7 @@ Antes de começar: adicione uma conexão de geração de imagens.
 
 ### Corrigir o recorte de uma folha
 
-Depois que uma folha de stickers ou emojis é gerada, cada sticker é identificado pelo contorno, o fundo verde é removido e ele aparece em sua própria miniatura com o nome. Os stickers salvos têm no máximo 512 por 512 pixels e os emojis, no máximo 256 por 256, e cada um é marcado com o próprio nome.
+Depois que uma folha de stickers ou emojis é gerada, cada sticker é encontrado pelo contorno, o fundo verde é removido e ele aparece em uma miniatura própria com o nome. Em um modelo que desenha imagens transparentes (veja [Fundos transparentes](../media/image-providers.md#transparent-backgrounds)), a folha é solicitada com fundo transparente, usando o verde apenas como alternativa, e uma folha que chega transparente mantém as bordas como foram desenhadas. Os stickers salvos têm no máximo 512 por 512 pixels e os emojis, no máximo 256 por 256, e cada um recebe uma tag com o nome.
 
 - Clique em uma miniatura para mantê-la ou ignorá-la. As miniaturas ignoradas não são salvas.
 - Edite o nome abaixo de uma miniatura para renomeá-la.

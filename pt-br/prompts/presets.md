@@ -25,7 +25,7 @@ Se o preset tiver variáveis, a janela **Configure Preset Variables** (configura
 
 ## Criar um preset
 
-1. Abra o painel **Presets** pela barra lateral.
+1. Abra o painel **Presets** pela barra superior.
 2. Clique em **New** (novo, o ícone de mais). A janela **Create Preset** (criar preset) abre.
 3. Digite um **Name** (nome). Ele é obrigatório. Acrescente uma **Description** (descrição), se quiser.
 4. Clique em **Create** (criar). O preset abre no **Preset Editor**.
@@ -103,12 +103,13 @@ Um **Prompt Block** é um texto que você escreve: instruções de sistema, regr
 | **Lorebook Marker (All)** | Todas as entradas de lorebook ativas. |
 | **Lorebook Marker (Before)** | As entradas de lorebook configuradas para ir antes. |
 | **Lorebook Marker (After)** | As entradas de lorebook configuradas para ir depois. |
+| **Recuperação de memórias** | As memórias que a [Recuperação de memórias](../agents/memory.md) encontra para cada resposta. Sem este marcador, elas ficam logo antes do histórico do chat. |
 
 A linha de um marcador mostra o selo **MARKER**. Não é possível digitar na maioria dos marcadores. Use **Lorebook Marker (All)**, a menos que você queira dividir as entradas de lorebook entre antes e depois.
 
 Três marcadores mais raros:
 
-- **Current Scene Summary** e **Recalled Scenes** posicionam os resumos que o Advanced Memory Recall cria. Sem um marcador **Recalled Scenes**, eles aparecem antes do histórico do chat. Veja [Memory Recall](../agents/memory.md).
+- **Current Scene Summary** e **Recalled Scenes** posicionam os resumos que o Advanced Memory Recall cria. Sem um marcador **Recalled Scenes**, eles aparecem antes do histórico do chat. Veja [Memória](../agents/memory.md).
 - **ID Macro Cards** posiciona os cards de personagem que você puxa para um prompt digitando o ID do card de um personagem entre chaves duplas. Sem esse marcador, eles vão para o lugar padrão. Veja [Macros de prompt](macros.md).
 
 Sem um marcador **Dialogue Examples** ativado, os diálogos de exemplo preenchidos são acrescentados ao **Character Info** depois do cenário, no formato de envelopamento do preset. Acrescente o marcador para escolher a posição. Marinara nunca os inclui duas vezes.
@@ -139,7 +140,7 @@ Um grupo envolve várias seções em um só contêiner.
 2. Clique no nome do grupo para renomeá-lo.
 3. Expanda uma seção e escolha o grupo no menu suspenso **Group** dela.
 
-Com **XML**, um grupo vira uma marcação pai. Com **MARKDOWN**, ele vira um título. Excluir um grupo não exclui as seções dele. Elas só deixam de ter grupo.
+Com **XML**, um grupo vira uma marcação pai. Com **MARKDOWN**, ele vira um título. Se as seções de um mesmo grupo não estiverem uma ao lado da outra, cada uma recebe sua própria marcação ou título. Excluir um grupo não exclui as seções dele. Elas só deixam de ter grupo.
 
 ### Posição e profundidade
 
@@ -182,6 +183,12 @@ Abaixo do menu suspenso, um selo mostra de onde vem o prompt.
 A caixa de texto mostra o prompt em uso. Edite-a para criar uma cópia local deste chat. Se o seu texto for idêntico ao do preset ou ao padrão, Marinara o considera não personalizado. Enquanto existe uma edição personalizada, aparece um ícone de redefinir (dica **Reset to default prompt**).
 
 Os chats de Game acrescentam mais controles. **Story style**, **Violence**, **Content boundaries** e **Rating guidelines** (Diretrizes da classificação) definem o que a história do jogo pode conter. Veja [Mudar durante um jogo](../game/getting-started.md#change-them-during-a-game). Outros dois moldam o prompt. **GM prompt style** (estilo de prompt do GM) substitui só o prompt de Game, e uma edição local do chat ainda prevalece. **Extra instructions** (instruções extras) acrescenta texto ao prompt de Game, até 2000 caracteres, como "Write in the style of Terry Pratchett."
+
+## Ordenar as seções para o cache de prompts
+
+O cache de prompts permite que um serviço reutilize o começo de um prompt que já leu, para que chats longos custem menos e recebam respostas mais rápido. O serviço reutiliza o prompt só até o primeiro texto que mudou desde a última mensagem. As memórias recuperadas mudam a cada mensagem, ou quase, então, antes do histórico do chat, impedem que o histórico inteiro entre no cache.
+
+Para posicioná-las, adicione um marcador **Recuperação de memórias** ao preset. Arraste-o para baixo de **Histórico do chat**, ou defina sua **Posição** como **Profundidade (a partir do fim do chat)** para colocá-lo dentro do histórico. Memórias lidas antes da história mantêm as respostas mais próximas delas, então o padrão continua sendo antes do histórico.
 
 <a id="decision-blocks-and-prompt-caching"></a>
 

@@ -13,7 +13,9 @@ Bevor du anfängst: Installiere **Illustrator** unter **Agents → Agent Organiz
 3. Schalte **Generated Selfies** an. Darunter erscheinen die Selfie-Einstellungen.
 4. Wähle unter **Selfie model** dein Bild-Konto.
 
-Wenn du **Generated Selfies** einschaltest, schaltest du auch den Hauptschalter **Commands** für den Chat ein. Charaktere senden Selfies erst, wenn **Selfie model** gesetzt ist. Bis dahin zeigt der Chat „Choose a Selfie Provider to let characters generate selfie images.“
+Wenn du **Generated Selfies** einschaltest, schaltest du auch den Hauptschalter **Commands** für den Chat ein.
+
+Charaktere senden Selfies erst, wenn **Selfie model** gesetzt ist. Bis dahin zeigt der Chat „Choose a Selfie Provider to let characters generate selfie images.“
 
 Wenn es nicht funktioniert hat: **Illustrator Settings** erscheint nur, wenn Illustrator installiert ist. Außerdem muss der Befehl **Selfies** an sein (siehe [Wählen, welche Commands ein Charakter nutzen darf](getting-started.md#choose-which-commands-a-character-can-use)).
 
@@ -33,7 +35,7 @@ Die Optionen für **Resolution** sind 512x512, 512x768, 768x768, 768x1024, 896x1
 
 **Send Avatar References** und **Attach Card Appearance** bieten jeweils **Off**, **Images only**, **Videos only** und **Images and videos**.
 
-Hat die Karte oder Persona **Image Appearance Override** eingeschaltet (im Editor unter **Appearance**), sendet Marinara diesen Text statt **Appearance**. Nutze ihn, wenn **Appearance** für die Geschichte geschrieben ist, nicht für Bilder.
+Wenn eine Karte oder Persona **Bild-Tags** verwendet (im Editor im Tab **Bild-Tags** unter **Aussehen**, mit angehaktem **Für Bild-Prompts verwenden**), sendet Marinara diese statt der Prosa aus **Aussehen**. Eine im Chat aktive Alternative für Aussehen verwendet ihre eigenen Tags oder ihre Prosa. Nutze das, wenn **Aussehen** für die Geschichte und nicht für Bilder geschrieben ist.
 
 ## Ein Selfie von Hand anfordern
 
@@ -41,7 +43,8 @@ Hat die Karte oder Persona **Image Appearance Override** eingeschaltet (im Edito
 2. Klicke auf **Selfie**. Sind mehrere Charaktere im Chat, wähle in der Liste neben der Schaltfläche den aus, der das Selfie machen soll.
 3. Ist **Expose media prompts before sending** unter **Settings → Generations → Overall Generations** an, prüfe oder bearbeite den Prompt und klicke auf **Generate**. Beim Abbrechen wird keine Anfrage gesendet.
 4. Warte, solange die Schaltfläche **Generating...** zeigt.
-5. Du siehst „Selfie generated.“ und das Bild erscheint im Chat. Eine manuelle Anfrage nutzt **Selfie model** und kostet eine Bildanfrage.
+
+Du siehst „Selfie generated.“ und das Bild erscheint im Chat. Eine manuelle Anfrage nutzt **Selfie model** und kostet eine Bildanfrage.
 
 ## Wie Charaktere Selfies senden
 

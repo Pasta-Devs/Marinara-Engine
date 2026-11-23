@@ -82,7 +82,20 @@ Um agregador é um serviço em que uma única chave dá acesso a modelos de muit
 **OpenRouter** é um agregador com duas opções extras no editor do modelo:
 
 - **Preferred provider** (provedor preferido) força o roteamento para um backend específico. O nome tem que ser igual ao da página de modelos do OpenRouter. Deixe vazio para o roteamento automático.
-- **Enable prompt caching** envia dicas de cache para os modelos Claude roteados pelo OpenRouter. A maioria dos outros modelos faz cache por conta própria.
+- **Enable prompt caching** marca as partes do prompt que o modelo pode reutilizar na próxima mensagem, para que chats longos custem menos. A opção vem ativada para cada modelo que você adiciona a uma conta do OpenRouter. O que ela marca depende do modelo:
+
+| Modelo | O que fica em cache | Por quanto tempo |
+| --- | --- | --- |
+| Claude | O prompt de sistema, o histórico do chat até a **Profundidade do cache** e a mensagem mais recente | 5 minutos, ou 1 hora com **Cache de tokens estendido (1 hora)** |
+| Qwen | O prompt de sistema e o histórico do chat até a **Profundidade do cache** | 5 minutos |
+| Gemini | O prompt de sistema | 5 minutos |
+| GPT, DeepSeek, Grok, Kimi e outros | O serviço faz cache por conta própria, com ou sem o botão liga/desliga ativado | Definido pelo serviço |
+
+Marinara também pede ao OpenRouter que mantenha cada chat em um único backend, para que o cache da última mensagem continue disponível. Isso também funciona com o botão liga/desliga desativado. Definir um **Preferred provider** fixa o backend no provedor escolhido.
+
+O cache economiza mais quando o início do prompt permanece igual entre as mensagens. Veja [Cache de prompt](../prompts/conditional-prompts.md#prompt-caching).
+
+> **Nota:** Gravar no cache custa mais do que a entrada normal, por exemplo, 1,25 vez para o cache de 5 minutos do Claude e 2 vezes para o cache de 1 hora. Ler dele custa muito menos. Veja o [guia de cache de prompt](https://openrouter.ai/docs/guides/best-practices/prompt-caching) do OpenRouter.
 
 ### NanoGPT
 

@@ -51,6 +51,7 @@ Abas que têm guia próprio:
 
 As seções abaixo explicam **Metadata**, **Card**, **Images**, **Voice** e **Advanced**, além dos avatares e do histórico de versões.
 
+
 <a id="images-tab"></a>
 
 ## A aba Images
@@ -101,7 +102,7 @@ A aba **Card** é o espaço principal de escrita. Os links no topo levam a qualq
 
 **Public Face** é o que os outros personagens podem ver ou saber sobre o personagem: aparência, jeito, papel, reputação e relacionamentos que não são segredo. Deixe de fora segredos, pensamentos íntimos, histórico privado e instruções de interpretação. Esse campo nunca é enviado como parte do card. Um prompt só o lê onde você coloca a macro `{{publicFace}}`, ou `{{personaPublicFace}}` para a sua persona. Veja [Macros de prompt](../prompts/macros.md#identity-character-and-persona-macros). Em um chat de grupo de Roleplay no modo Individual, **Others' Public Faces** envia o conteúdo aos turnos dos outros personagens. Veja [Mais configurações de Individual](../chats/group-chats.md#more-individual-settings). Um agente cuja fonte **Characters** ou **Persona** está definida como **Public Face** lê o campo no lugar do card. Veja [Outras configurações](../agents/custom-agents.md#other-settings). Com **Send Public Faces** ativado, o Impersonate em Roleplay lê esse campo no lugar do card. Veja [Configurações do Impersonate](../chats/guided-and-impersonate.md#the-impersonate-settings).
 
-A opção **Image Appearance Override** (aparência alternativa para imagens) fica abaixo de **Appearance** e vem desativada por padrão. Ative-a para mostrar uma segunda caixa para tags curtas de imagem, como a palavra-gatilho de uma LoRA (uma palavra-chave que ativa um estilo de imagem personalizado). Enquanto a opção estiver ativada e a caixa estiver preenchida, os prompts de imagem usam essas tags exatamente como estão escritas, com **Appearance** mantido como contexto. O prompt de avatar gerado por IA também parte dessas tags. O narrador sempre vê o texto completo de **Appearance**.
+**Aparência** tem duas abas, **Prosa** e **Tags de imagem**. **Prosa** é o texto da aparência em si. **Tags de imagem** guarda tags curtas para prompts de imagem, como uma palavra de ativação de LoRA (uma palavra-chave que ativa um estilo de imagem personalizado). Digitar tags marca **Usar nos prompts de imagem**, e um ponto na aba indica que elas estão em uso. Enquanto a opção está marcada e as tags estão preenchidas, os prompts de imagem usam essas tags exatamente como foram escritas, mantendo a prosa como contexto. Desmarque a opção para manter as tags sem usá-las: os prompts de imagem passam a usar **Prosa**. O prompt de avatar por IA também parte das tags. O narrador sempre vê o texto de **Prosa**. A aba **Imagens** leva até aqui com **Ir para Aparência**. A aba tem sua própria varinha. Veja [Tags de imagem pela varinha](#image-tags-from-the-wand).
 
 A seção **Dialogue & Greetings** define como um chat começa e como o personagem soa:
 
@@ -121,18 +122,31 @@ As saudações e as mensagens de exemplo podem mostrar imagens da Gallery do per
 
 ### Escreva um campo do card com a varinha
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message** e cada **Alternate Greeting** têm um botão só com o ícone de varinha acima do campo. A dica do botão mostra o nome do campo que ele escreve.
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance** (nas duas abas), **Scenario**, **Public Face**, **Example Dialogue**, **First Message** e cada **Alternate Greeting** têm um botão só com o ícone de varinha acima do campo. A dica do botão mostra o nome do campo que ele escreve.
 
 Antes de começar: configure uma conexão de texto que funcione. Veja [Conectando a um provedor de IA](../connections/connecting-to-a-provider.md).
 
 1. Escreva no campo as ideias que deseja manter, como `smart, scientist, handsome`, ou deixe-o vazio.
 2. Preencha os outros campos do card que a IA deve usar como referência. Você não precisa salvar antes.
-3. Clique na varinha do campo. Marinara pede de 100 a 300 palavras para esse campo, usando o seu texto como ponto de partida. Example Dialogue pede trocas de exemplo. **First Message** e cada **Alternate Greeting** pedem uma mensagem de abertura que deixa a sua resposta em aberto. O **Public Face** não tem faixa de palavras: a varinha reescreve o restante do card sem as partes privadas, então o tamanho depende do card.
+3. Clique na varinha do campo. Marinara pede de 100 a 300 palavras para esse campo, usando o seu texto como ponto de partida. Example Dialogue pede trocas de exemplo. **First Message** e cada **Alternate Greeting** pedem uma mensagem de abertura que deixa a sua resposta em aberto. O **Public Face** não tem faixa de palavras: a varinha reescreve o restante do card sem as partes privadas, então o tamanho depende do card. Na aba **Tags de imagem** de **Aparência**, a varinha transforma a aparência do card em uma linha de tags de imagem. Veja [Tags de imagem pela varinha](#image-tags-from-the-wand).
 4. Edite o resultado e clique em **Save**.
 
 A varinha usa a sua conexão de texto padrão para agentes ou, se não houver uma, a sua conexão de texto padrão. Uma conexão de reserva de agentes configurada continua valendo.
 
 A varinha substitui apenas o campo escolhido no seu rascunho não salvo. Se a geração falhar, o seu texto continua lá. Se você editar esse campo enquanto espera, ou mudar para outro card, um resultado atrasado não sobrescreve o seu trabalho. Você não precisa da Professor Mari para usar a varinha.
+
+<a id="image-tags-from-the-wand"></a>
+
+#### Tags de imagem pela varinha
+
+A varinha na aba **Tags de imagem** de **Aparência** escreve as tags a partir do texto de aparência do card, principalmente do próprio campo **Aparência**. Ela marca **Usar nos prompts de imagem**.
+
+- As tags que já estão na caixa e que o texto de aparência não explica, como uma palavra de ativação de LoRA, ficam exatamente como você as escreveu, no início da linha.
+- Depois vêm as novas tags: `1girl`, `1boy` ou `1other`, seguidas dos traços permanentes: corpo, cabelo, olhos, pele, rosto e marcas. Sem tags mantidas, a linha começa com `1girl`, `1boy` ou `1other`.
+- As novas tags são em inglês, em minúsculas, no estilo que os modelos de imagem conhecem do Danbooru (um site de imagens de anime cujas tags muitos modelos aprenderam), separadas por vírgulas.
+- As novas tags usam apenas traços que o card informa. Roupas, expressões, poses e lugares ficam de fora, porque mudam de cena para cena.
+
+As tags vêm do modelo, não de uma lista de tags reais do Danbooru, então uma tag pode ser escrita de um jeito que o seu modelo de imagem não conhece. Confira a linha e edite antes de salvar.
 
 ## Adicione um avatar
 
@@ -151,7 +165,7 @@ Antes de começar: adicione uma conexão de geração de imagens. O botão de av
 
 1. Passe o mouse sobre o quadro do avatar e clique no botão de varinha. A janela **Generate Character Avatar** abre.
 2. Escolha uma **Image Generation Connection** (conexão de geração de imagens).
-3. Confira ou edite o **Avatar Prompt**. Ele parte de **Image Appearance Override** quando essa opção está ativada e preenchida. Caso contrário, usa **Appearance**, depois **Description** e depois **Personality**, o primeiro que tiver texto.
+3. Confira ou edite o **Avatar Prompt**. Ele parte das **Tags de imagem** de **Appearance** quando **Usar nos prompts de imagem** está marcado e elas estão preenchidas. Caso contrário, usa **Appearance**, depois **Description** e depois **Personality**, o primeiro que tiver texto.
 4. Se o card já tiver um avatar, você pode marcar **Use current avatar as a reference**.
 5. Clique em **Generate**. Para tentar de novo, clique em **Regenerate**.
 6. Clique em **Use Avatar** quando gostar do resultado.
@@ -197,6 +211,7 @@ Regras:
 - Um chat só pode usar uma alternativa por campo. Marcar um chat em outra alternativa, ou escolher outra em Chat Settings, move o chat para lá.
 - Sem chats marcados, a alternativa fica inativa para depois.
 - Uma alternativa vazia limpa esse campo nos chats dela.
+- Uma alternativa de **Aparência** tem suas próprias abas **Prosa** e **Tags de imagem**. Nos chats dela, suas tags substituem as do card. Com as tags vazias ou desmarcadas, os prompts de imagem usam a prosa da alternativa, nunca as tags do card. Uma nova alternativa também copia as tags do card. Sua aba **Tags de imagem** tem uma varinha própria, que lê a prosa e as tags da alternativa.
 - As substituições de cenário e de aparência para imagens específicas do chat continuam tendo prioridade.
 - Alternativas de **Summary** continuam sendo metadados e não são enviadas para a IA.
 - Se o personagem sair de um chat, a atribuição naquele chat fica suspensa e volta a valer quando você adicionar o personagem de novo.
@@ -208,7 +223,7 @@ Para remover uma alternativa, clique no botão de lixeira dela, confirme com **D
 
 ## Histórico de versões
 
-Enquanto **Automatic versioning** estiver ativado, cada salvamento pode acrescentar um instantâneo ao painel **Version history** da aba **Metadata**. Até lá, o painel mostra `Previous card states will appear here after the next edit.` Um contador mostra quantos instantâneos estão salvos.
+Enquanto **Automatic versioning** estiver ativado, cada salvamento pode acrescentar um instantâneo ao painel **Version history** da aba **Metadata**. Até lá, o painel mostra `Previous card states will appear here after the next edit.` Um contador mostra quantos instantâneos estão salvos. Atualizar o personagem a partir de um card mais novo sempre salva um instantâneo antes, mesmo com o botão desligado. Veja [Atualizar um personagem que você já tem](import-export.md#update-a-character-you-already-have).
 
 Para comparar uma versão salva com o card atual:
 

@@ -102,9 +102,9 @@ Antes de empezar: añade una conexión de generación de imágenes. Para sprites
 1. Abre **Add sprites** y haz clic en **Generate Sprite** (generar sprite). En el editor de personas, el botón está en **Add Sprite**. Se abre la ventana **Generate Sprites** (generar sprites).
 2. Elige una fuente en la parte superior: **Expressions (Portrait)** o **Full-body**.
 3. Elige una **Image Generation Connection** (conexión de generación de imágenes).
-4. Opcionalmente, añade hasta cuatro **Reference Images** (imágenes de referencia), o marca la casilla para usar el avatar actual como referencia.
+4. Opcionalmente, añade hasta cuatro **Imágenes de referencia**, o marca una casilla para usar el avatar actual o la hoja de personaje como referencia. Cuando el personaje ya tiene sprites, **Usar un sprite guardado como imagen de referencia** está activado: su rostro en reposo (neutral cuando lo hay) acompaña la solicitud, para que los nuevos sprites se parezcan a los que tienes.
 5. Escribe una **Appearance Description** (descripción de aspecto). Es obligatoria.
-6. Opcionalmente, activa **Transparent sprite background** (fondo de sprite transparente). Marinara hace que el fondo sea transparente. Si el servicio no puede hacerlo, Marinara dibuja un fondo liso verde, magenta o cian que se distinga de los colores de tu **Appearance Description**, y luego lo quita.
+6. Opcionalmente, activa **Fondo de sprite transparente**. Marinara hace que el fondo sea transparente. A un modelo que dibuja imágenes transparentes se le pide una, y sus bordes se conservan exactamente como se dibujaron. Cualquier otro modelo dibuja un fondo liso verde, magenta o cian que se distinga de los colores de tu **Descripción del aspecto**, y Marinara lo quita. La línea debajo de la casilla indica qué caso se aplica. Los modelos que dibujan imágenes transparentes se definen en la conexión: consulta [Fondos transparentes](../media/image-providers.md#transparent-backgrounds).
 7. Define **Expression Count** (cantidad de expresiones), o **Pose Count** (cantidad de poses) para cuerpo completo, y elige qué expresiones o poses hacer.
 8. Opcional, para expresiones: marca **Flag faces that don't match their expression** (Marcar los rostros que no coincidan con su expresión). Un [modelo de decisión que lee imágenes](../connections/decision-models.md#features-that-look-at-pictures) examina cada cara después de dibujarla y marca con **Check** (Revisar) las que podrían no mostrar su expresión, para que puedas desmarcarlas o volver a dibujarlas. Cada cara tarda un momento. Sin un modelo así, la casilla aparece en gris.
 9. Haz clic en **Generate** (generar).
@@ -121,7 +121,9 @@ En la fuente **Expressions (Portrait)**, **Generate animated portraits** (genera
 
 ## Limpiar los fondos de los sprites
 
-Un sprite se ve mejor cuando solo se muestra el personaje. Los sprites generados usan transparencia nativa cuando el servicio la admite. De lo contrario, Marinara quita un color de fondo plano y adaptativo con un borde suave, y limpia ese color del cabello, la tela y otros píxeles parcialmente transparentes. Los sprites más antiguos con fondo blanco siguen funcionando.
+Un sprite se ve mejor cuando solo se muestra el personaje. Los sprites generados usan transparencia nativa cuando el modelo la admite. De lo contrario, Marinara quita un color de fondo plano y adaptativo con un borde suave, y limpia ese color del cabello, la tela y otros píxeles parcialmente transparentes. Los sprites más antiguos con fondo blanco siguen funcionando.
+
+Una imagen que ya tiene un fondo transparente nunca se vuelve a limpiar: quitar el fondo solo suavizaría bordes que ya están bien. Cuando un modelo que dibuja imágenes transparentes devuelve una con fondo sólido de todos modos, Marinara la deja tal como se dibujó y lo indica en el paso de revisión. Haz clic en **Aplicar la limpieza** para quitar ese fondo, o conserva las imágenes como están.
 
 ### Limpiar un sprite a mano
 

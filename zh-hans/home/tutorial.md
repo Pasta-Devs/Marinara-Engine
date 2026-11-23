@@ -31,17 +31,17 @@
 | # | 卡片标题 | 讲解内容 |
 | --- | --- | --- |
 | 1 | **Welcome to Marinara Engine!** | 居中的欢迎卡片。Professor Mari 提出带你四处看看。 |
-| 2 | **Characters** | **Characters**(角色) 面板按钮，角色都放在这里。 |
-| 3 | **Personas** | **Personas**(用户角色) 面板按钮，在这里定义你在聊天里的身份。 |
-| 4 | **Lorebooks** | **Lorebooks**(世界书) 面板按钮，里面存放额外的世界设定和角色细节。 |
-| 5 | **Presets** | **Presets**(预设) 面板按钮，它决定提示词怎么拼装。 |
-| 6 | **Connections** | **Connections** 面板按钮。开始聊天前，第一件要设置的就是连接。 |
-| 7 | **Agents** | **Agents**(智能体) 面板按钮。卡片会指引你到 **Agent Organizer**(智能体管理器) 安装智能体。 |
-| 8 | **Settings** | **Settings**(设置) 面板按钮。打开 **Settings** 的 **General** 选项卡。 |
-| 9 | **Chats** | 侧边栏开关。打开聊天侧边栏。 |
-| 10 | **Conversation Mode** | Conversation(对话模式) 选项卡，标签显示为 **CONVO**。 |
-| 11 | **Roleplay Mode** | Roleplay(角色扮演) 选项卡，标签显示为 **RP**。 |
-| 12 | **Game Mode** | Game Mode(游戏模式) 选项卡，标签显示为 **GM**。 |
+| 2 | **Chats** | **Chats**(聊天) 按钮，在电脑上排在面板按钮的第一位。它会在侧边栏打开 **Chats**，后面几步介绍的面板也在这里打开。卡片还会说明：在电脑上，可以到 **Settings → Appearance**(设置 → 外观) 把侧边栏停靠在左侧。 |
+| 3 | **Conversation Mode** | Conversation(对话模式) 选项卡，标签显示为 **CONVO**。 |
+| 4 | **Roleplay Mode** | Roleplay(角色扮演) 选项卡，标签显示为 **RP**。 |
+| 5 | **Game Mode** | Game Mode(游戏模式) 选项卡，标签显示为 **GM**。 |
+| 6 | **Characters** | **Characters**(角色) 面板按钮，角色都放在这里。 |
+| 7 | **Personas** | **Personas**(用户角色) 面板按钮，在这里定义你在聊天里的身份。 |
+| 8 | **Lorebooks** | **Lorebooks**(世界书) 面板按钮，里面存放额外的世界设定和角色细节。 |
+| 9 | **Presets** | **Presets**(预设) 面板按钮，它决定提示词怎么拼装。 |
+| 10 | **Connections** | **Connections** 面板按钮。开始聊天前，第一件要设置的就是连接。 |
+| 11 | **Agents** | **Agents**(智能体) 面板按钮。卡片会指引你到 **Agent Organizer**(智能体管理器) 安装智能体。 |
+| 12 | **Settings** | **Settings**(设置) 面板按钮。打开 **Settings** 的 **General** 选项卡。 |
 | 13 | **Home: Your Story Hub** | 回到主页。主页是你继续聊天、开始新聊天和摆放小组件的地方。 |
 | 14 | **Ask Me Where Things Are** | 主页顶部的搜索栏。在手机上，卡片会提示你从应用的顶栏往下拉。 |
 | 15 | **Guides and Home Controls** | **Documentation**(文档)、**Tutorial**、**FAQ**(常见问题) 和 **Widgets**(小组件) 书签。 |

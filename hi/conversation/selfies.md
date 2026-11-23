@@ -35,7 +35,7 @@
 
 **Send Avatar References** और **Attach Card Appearance** हर एक में **Off**, **Images only**, **Videos only** और **Images and videos** के विकल्प मिलते हैं।
 
-कार्ड या पर्सोना में **Image Appearance Override** चालू हो (एडिटर में **Appearance** के नीचे), तो Marinara **Appearance** की जगह वही टेक्स्ट भेजता है। इसे तब इस्तेमाल करें जब **Appearance** कहानी के लिए लिखा गया हो, तस्वीरों के लिए नहीं।
+अगर कार्ड या पर्सोना में **Image tags** (इमेज टैग) इस्तेमाल हो रहे हैं (एडिटर में **Appearance** का **Image tags** टैब, जहाँ **Use for image prompts** (इमेज प्रॉम्प्ट के लिए इस्तेमाल करें) पर टिक लगा हो), तो Marinara **Appearance** के गद्य की जगह वे टैग भेजता है। चैट में सक्रिय Appearance विकल्प अपने टैग या गद्य का इस्तेमाल करता है। इसे तब इस्तेमाल करें जब **Appearance** तस्वीरों के बजाय कहानी के लिए लिखा गया हो।
 
 ## हाथ से सेल्फ़ी माँगना
 

@@ -8,7 +8,7 @@ Fang mit **Memory Recall** an. Es funktioniert ohne zusätzliche Einrichtung, we
 
 | Funktion | Was sie tut | Gilt für |
 | --- | --- | --- |
-| **Memory Recall** | Durchsucht ältere Nachrichten nach den Stellen, die zu deiner letzten Eingabe passen, und fügt sie in den Prompt ein. | Alle Modi |
+| **Memory Recall** | Durchsucht ältere Nachrichten, die nicht mehr in den Prompt passen, nach den Stellen, die zu deiner letzten Eingabe passen, und fügt sie in den Prompt ein. | Alle Modi |
 | **Chat Summary** | Ersetzt alte Nachrichten durch kurze Rückblicke. | Roleplay |
 | **Automatic Summarization** | Fasst jeden Tag zusammen, dann jede Woche. Immer an. | Conversation |
 | **Advanced Memory Recall** (erweiterter Erinnerungsabruf) | Verwaltet Live-Verlauf, Szenenzusammenfassungen und abgerufene Auszüge gemeinsam. Optional. | Roleplay und Game Mode |
@@ -68,6 +68,21 @@ Die Symbolleiste hat Symbole zum Exportieren, Importieren, Neuaufbauen und Leere
 - Das Symbol zum Leeren aller Erinnerungen öffnet **Clear Memories**. Bestätige mit **Clear**. Das entfernt die Erinnerungen für den Abruf, nicht deine Chat-Nachrichten.
 - Das Aktualisieren-Symbol baut jeden Chunk aus den aktuellen Nachrichten neu auf. Nutze es, nachdem du das Embedding-Modell gewechselt hast.
 - Der Export speichert eine `.marinara.json`-Datei. Der Import akzeptiert `.json`- oder `.marinara`-Dateien und führt sie mit den vorhandenen Erinnerungen zusammen.
+
+### Was Memory Recall hinzufügt
+
+Memory Recall holt nur Nachrichten zurück, die nicht mehr im Prompt stehen. Solange der ganze Chat ins Kontextfenster passt, fügt es nichts hinzu, weil die KI bereits jede Nachricht liest. Sobald ältere Nachrichten weggelassen werden, damit der Prompt hineinpasst, durchsucht der Erinnerungsabruf diese Nachrichten.
+
+- Ein Chunk wird nur abgerufen, wenn keine seiner Nachrichten im Prompt steht.
+- Auch Erinnerungen brauchen Platz. Werden sie hinzugefügt, können dafür die ältesten Nachrichten wegfallen, die sonst noch hineinpassen würden. Der Erinnerungsabruf kann auch diese zurückholen.
+- Nachrichten, die wegen **Limit für Kontextnachrichten** wegfallen, gelten als außerhalb des Prompts.
+- Aus einem anderen Chat importierte Erinnerungen können jederzeit abgerufen werden.
+
+Damit der Erinnerungsabruf jede frühere Nachricht auswählen kann, schalte **Erinnerungen aus dem ganzen Chat abrufen** unter **Memory Recall aktivieren** ein. Erinnerungen wiederholen dann oft Nachrichten, die bereits im Prompt stehen. Die Wiederholungen kosten Tokens. Weil die Erinnerungen vor dem Chatverlauf stehen und sich bei jedem Zug ändern, kann der Prompt-Cache des Dienstes den Verlauf nicht wiederverwenden.
+
+Abgerufene Erinnerungen stehen direkt vor dem Chatverlauf. Um ihre Position selbst festzulegen, füge dem Preset des Chats einen **Memory Recall**-Marker hinzu. Siehe [Abschnitte für Prompt-Caching anordnen](../prompts/presets.md#order-sections-for-prompt-caching). In einem Conversation-Prompt legt das Makro `{{memories}}` ihre Position fest.
+
+Die Live-Vorschau in [Prompt ansehen](../chats/peek-prompt.md) führt Memory Recall nicht aus. Bei eingeschaltetem Erinnerungsabruf kann sie mehr Verlauf anzeigen, als eine Antwort erhält.
 
 ### Wie sich Memory Recall verhält
 
@@ -307,6 +322,7 @@ In Game-Chats schaltest du Advanced Memory Recall genauso unter **Chat Settings 
 | Memory Recall ruft nichts ab | Prüf, ob eine Embedding-Quelle eingerichtet ist. Zeigen die Chunks **Embedding unavailable**, leg ein Modell unter **Semantic search (embeddings)** fest oder nutze das eingebaute Modell. Siehe [Eingebautes Modell einrichten](../connections/local-model.md). |
 | Chunks zeigen **Waiting for vector** | Gib ihnen etwas Zeit. Die Fingerabdrücke entstehen nach den Antworten. |
 | Nichts scheint zu passen | Der Abruf ergänzt nur eng passende Erinnerungen. Dass nichts dazukommt, ist normal. |
+| Memory Recall fügt nichts hinzu, solange der Chat kurz ist | Das ist zu erwarten. Der Erinnerungsabruf fügt nur Nachrichten hinzu, die nicht mehr ins Kontextfenster passen. Siehe [Was Memory Recall hinzufügt](#what-memory-recall-adds). |
 | Der Abruf ist nach einem Wechsel des Embedding-Modells schlechter geworden | Nutze das Symbol zum Neuaufbauen in **Memories for This Chat**. |
 | Es entstehen keine Zusammenfassungen | Der Chat braucht ein funktionierendes Textkonto. Chat Summary nutzt den **Summary Provider**. Funktioniert keins, entfällt die Generierung. |
 | KI-Zusammenfassungen erscheinen nie | **Review Agent Outputs** wartet vielleicht auf deine Freigabe. |

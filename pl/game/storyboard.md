@@ -198,7 +198,7 @@ Otwórz panel **Agents**, wybierz **Storyboard** i otwórz jego konfigurację. T
 | **Clip seconds** | 5, zakres 1-15 | Żądana długość każdego klipu. |
 | **Viewer display** | Floating viewer | Domyślny podgląd w trybie Game Mode. W trybie Roleplay storyboardy zawsze wyświetlają się w czacie. |
 | **Default Roleplay episode interval** | 1, zakres 1-100 | Ilość nowego materiału z trybu Roleplay potrzebna między odcinkami automatycznymi. |
-| **Attach Card Appearance** | On | Dodaje do promptów obrazu wygląd dopasowanych postaci. Karta lub persona z włączonym **Image Appearance Override** (osobny opis wyglądu do obrazów) przekazuje ten tekst zamiast pola **Appearance** (wygląd). |
+| **Dołączaj wygląd z karty** | Włączone | Dodaje pasujący wygląd postaci do promptów obrazów. Karta lub persona, która używa opcji **Tagi obrazów**, dostarcza je zamiast prozy z pola **Wygląd**. |
 | **Send Avatar References** | On | Wysyła awatary dopasowanych postaci i person, gdy usługa obrazów przyjmuje referencje. |
 | **Use the final image template** | On | Formatuje zaplanowaną klatkę, zanim trafi do usługi obrazów. W czacie gry to opcja **Use Storyboard Template**. |
 | **Use NovelAI character prompts** | On | Natywne prompty dla poszczególnych postaci, tylko na obsługiwanych oficjalnych kontach NovelAI V4 i V4.5. Inne usługi korzystają ze wspólnej ścieżki promptu. |

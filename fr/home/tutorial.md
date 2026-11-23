@@ -31,17 +31,17 @@ Sur un téléphone ou un autre écran étroit, chaque carte s'affiche centrée s
 | # | Titre de la carte | Ce qu'elle présente |
 | --- | --- | --- |
 | 1 | **Welcome to Marinara Engine!** | Une carte de bienvenue centrée. Professor Mari te propose de te faire visiter. |
-| 2 | **Characters** | Le bouton du panneau **Characters**, là où vivent tes personnages. |
-| 3 | **Personas** | Le bouton du panneau **Personas**, où tu définis qui tu es dans un chat. |
-| 4 | **Lorebooks** | Le bouton du panneau **Lorebooks**, qui regroupe des détails supplémentaires sur l'univers et les personnages. |
-| 5 | **Presets** | Le bouton du panneau **Presets**, qui règle la façon dont le prompt est construit. |
-| 6 | **Connections** | Le bouton du panneau **Connections**. Les connexions sont la première chose à configurer avant de discuter. |
-| 7 | **Agents** | Le bouton du panneau **Agents**. La carte t'oriente vers **Agent Organizer** (organisateur d'agents) pour installer des agents. |
-| 8 | **Settings** | Le bouton du panneau **Settings**. Ouvre **Settings** sur l'onglet **General**. |
-| 9 | **Chats** | L'interrupteur de la barre latérale. Ouvre la barre latérale des chats. |
-| 10 | **Conversation Mode** | L'onglet de conversation, intitulé **CONVO**. |
-| 11 | **Roleplay Mode** | L'onglet de roleplay, intitulé **RP**. |
-| 12 | **Game Mode** | L'onglet de jeu, intitulé **GM**. |
+| 2 | **Chats** | Le bouton **Chats**, le premier des boutons de panneaux sur ordinateur. Ouvre **Chats** dans la barre latérale, où s'ouvrent aussi les panneaux des étapes suivantes. La carte indique aussi que, sur ordinateur, tu peux ancrer la barre latérale à gauche dans **Paramètres → Apparence**. |
+| 3 | **Conversation Mode** | L'onglet de conversation, intitulé **CONVO**. |
+| 4 | **Roleplay Mode** | L'onglet de roleplay, intitulé **RP**. |
+| 5 | **Game Mode** | L'onglet de jeu, intitulé **GM**. |
+| 6 | **Characters** | Le bouton du panneau **Characters**, là où vivent tes personnages. |
+| 7 | **Personas** | Le bouton du panneau **Personas**, où tu définis qui tu es dans un chat. |
+| 8 | **Lorebooks** | Le bouton du panneau **Lorebooks**, qui regroupe des détails supplémentaires sur l'univers et les personnages. |
+| 9 | **Presets** | Le bouton du panneau **Presets**, qui règle la façon dont le prompt est construit. |
+| 10 | **Connexions** | Le bouton du panneau **Connexions**. Les connexions sont la première chose à configurer avant de discuter. |
+| 11 | **Agents** | Le bouton du panneau **Agents**. La carte t'oriente vers **Agent Organizer** (organisateur d'agents) pour installer des agents. |
+| 12 | **Settings** | Le bouton du panneau **Settings**. Ouvre **Settings** sur l'onglet **General**. |
 | 13 | **Home: Your Story Hub** | Revient à l'accueil. L'accueil sert à reprendre un chat, à en lancer un nouveau et à disposer les widgets. |
 | 14 | **Ask Me Where Things Are** | La barre de recherche en haut de l'accueil. Sur téléphone, la carte te dit de tirer vers le bas depuis la barre supérieure de l'application. |
 | 15 | **Guides and Home Controls** | Les marque-pages **Documentation**, **Tutorial**, **FAQ** et **Widgets**. |

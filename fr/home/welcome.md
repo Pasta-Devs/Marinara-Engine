@@ -10,7 +10,7 @@ Avant de commencer : il te faut une clé API (un code secret, un peu comme un mo
 2. Ajoute un compte. Un compte, c'est une clé API pour un service d'IA. Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 3. Choisis les modèles que le compte doit utiliser. Le même guide explique comment.
 4. Crée ou importe un personnage. Ouvre le panneau **Characters** (personnages), puis clique sur **New** (nouveau) pour ouvrir la fenêtre **Create Character** (créer un personnage), ou sur **Import** (importer) pour récupérer une fiche depuis un fichier. Voir [Créer et modifier des personnages](../characters/creating-and-editing-characters.md).
-5. Ouvre la barre latérale des chats avec le bouton de barre latérale. Ses onglets s'appellent **CONVO**, **RP** et **GM**. Choisis-en un, puis clique sur le bouton **+**. Il s'appelle **New Conversation**, **New Roleplay** ou **New Game**, selon l'onglet.
+5. Clique sur **Chats** dans la barre supérieure pour ouvrir ta liste de chats. Ses onglets s'appellent **CONVO**, **RP** et **GM**. Choisis-en un, puis clique sur le bouton **+**. Il s'appelle **Nouvelle conversation**, **Nouveau roleplay** ou **Nouvelle partie**, selon l'onglet.
 6. Suis la fenêtre de configuration qui s'ouvre, puis clique sur **Create Chat** (créer le chat).
 
 Ce que tu vois : le nouveau chat s'ouvre, et tu peux écrire ton premier message.

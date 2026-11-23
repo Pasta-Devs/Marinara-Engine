@@ -22,6 +22,17 @@
 - **Marinara could not reach** 这个地址。检查服务器是否在运行，地址和端口是否一致。**Continue anyway**(仍然继续) 会在测试没通过的情况下保存账号。
 - 地址在另一台电脑上。见[连接另一台电脑上的服务器](#reach-a-server-on-another-computer)。
 
+## 使用服务器当前加载的模型
+
+本地或自托管服务器可以用当前加载的模型作答，因此它的账号可以包含一个 **Default**(默认) 模型。Default 不发送模型名称。它始终使用 Ollama、LM Studio、KoboldCpp 或 llama.cpp 中当前加载的模型，即使你在那边换了模型也一样。
+
+- 为电脑或网络上的服务器新建账号时，账号一开始就带有一个 **Default** 模型。
+- 之后想添加，点击账号上的 **⋯**，选择 **Add model**。**Default** 是第一行。
+- **Default** 的用法与其他模型一样：在 **Jobs**(分工) 框中为它分配 **Main**(主模型) 等工作，或在 **Model for this chat**(此聊天的模型) 中选择它。
+- 在面板里点击 **Default**，即可像具名模型一样为它单独设置参数、提示词预设等。
+
+**Default** 会在服务器位于你的电脑或网络上时显示，也适用于自带默认模型的 Grok CLI（见[订阅服务 CLI](subscription-clis.md)）。托管 API 服务需要模型名称。
+
 ## 常见本地服务器的地址
 
 端口是服务器在你电脑上使用的带编号的通道。`localhost` 表示“同一台电脑”，所以只要 Marinara 和服务器在同一台电脑上，这些地址照抄就能用。

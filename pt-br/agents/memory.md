@@ -8,7 +8,7 @@ Comece pelo **Memory Recall**. Ele funciona sem nenhuma configuração extra, po
 
 | Recurso | O que ele faz | Funciona em |
 | --- | --- | --- |
-| **Memory Recall** | Procura, nas mensagens antigas, os trechos relacionados ao que você acabou de dizer e os acrescenta ao prompt. | Todos os modos |
+| **Memory Recall** | Procura, nas mensagens antigas que não cabem mais no prompt, os trechos relacionados ao que você acabou de dizer e os acrescenta. | Todos os modos |
 | **Chat Summary** | Substitui as mensagens antigas por recapitulações curtas. | Roleplay |
 | **Automatic Summarization** | Resume cada dia e depois cada semana. Sempre ativada. | Conversation |
 | **Advanced Memory Recall** | Gerencia em conjunto o histórico atual, os resumos de cena e os trechos recuperados. Opcional. | Roleplay e Game Mode |
@@ -68,6 +68,23 @@ A barra de ferramentas tem ícones para exportar, importar, reconstruir e limpar
 - O ícone de limpar tudo abre **Clear Memories** (limpar memórias). Confirme em **Clear**. Isso remove as memórias da recuperação, não as mensagens do chat.
 - O ícone de atualizar reconstrói todos os blocos a partir das mensagens atuais. Use-o depois de trocar o modelo de embeddings.
 - A exportação salva um arquivo `.marinara.json`. A importação aceita arquivos `.json` ou `.marinara` e os mescla com as memórias que já existem.
+
+<a id="what-memory-recall-adds"></a>
+
+### O que o Memory Recall acrescenta
+
+Memory Recall recupera apenas mensagens que já não estão no prompt. Enquanto o chat inteiro cabe na janela de contexto, ele não acrescenta nada, porque a IA já lê todas as mensagens. Quando as mensagens antigas ficam de fora para que o prompt caiba, a recuperação passa a buscar nelas.
+
+- Um bloco só é recuperado quando nenhuma das suas mensagens está no prompt.
+- As lembranças também ocupam espaço. Quando são acrescentadas, as mensagens mais antigas que ainda caberiam podem ficar de fora para abrir esse espaço. A recuperação também pode trazê-las de volta.
+- As mensagens deixadas de fora pelo **Limite de mensagens de contexto** contam como fora do prompt.
+- As lembranças importadas de outro chat podem ser recuperadas a qualquer momento.
+
+Para permitir que a recuperação escolha qualquer mensagem anterior, ative **Recuperar mensagens do chat inteiro** abaixo de **Enable Memory Recall**. As lembranças passam a repetir com frequência mensagens que já estão no prompt. As repetições custam tokens e, como as lembranças ficam antes do histórico do chat e mudam a cada turno, o cache de prompt do serviço não consegue reutilizar o histórico.
+
+As memórias recuperadas entram logo antes do histórico do chat. Para posicioná-las você mesmo, adicione um marcador **Memory Recall** ao preset do chat. Veja [Ordenar seções para o cache de prompt](../prompts/presets.md#order-sections-for-prompt-caching). Em um prompt de Conversation, a macro `{{memories}}` define a posição delas.
+
+A prévia ao vivo de [Espiar o prompt](../chats/peek-prompt.md) não executa o Memory Recall. Com a recuperação ativada, ela pode listar mais histórico do que uma resposta recebe.
 
 ### Como o Memory Recall se comporta
 
@@ -305,6 +322,7 @@ Os chats de Game Mode ativam o Advanced Memory Recall em **Chat Settings → Mem
 | O Memory Recall não recupera nada | Confira se há uma fonte de embeddings configurada. Se os blocos mostram **Embedding unavailable**, defina um modelo em **Semantic search (embeddings)** ou use o modelo embutido. Veja [Como configurar o Built-in model](../connections/local-model.md). |
 | Os blocos mostram **Waiting for vector** | Dê tempo a eles. As impressões digitais são criadas depois das respostas. |
 | Nada parece relacionado | A recuperação só acrescenta memórias bem relacionadas. Não acrescentar nada é normal. |
+| Memory Recall não acrescenta nada enquanto o chat é curto | É esperado. A recuperação acrescenta apenas mensagens que não cabem mais na janela de contexto. Veja [O que o Memory Recall acrescenta](#what-memory-recall-adds). |
 | A recuperação piorou depois de trocar de modelo de embeddings | Use o ícone de reconstruir em **Memories for This Chat**. |
 | Os resumos não são gerados | O chat precisa de uma conta de texto que funcione. O Chat Summary usa o **Summary Provider**. Se nenhuma funcionar, a geração é pulada. |
 | Os resumos da IA nunca aparecem | **Review Agent Outputs** pode estar esperando a sua aprovação. |

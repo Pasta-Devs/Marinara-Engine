@@ -14,7 +14,7 @@ Eldoria is a rainy port city ruled by a council of nine merchants.
 
 ## ロアブックを作ってエントリーを追加する
 
-1. サイドバーから**Lorebooks**(ロアブック)パネルを開きます。
+1. 上部バーから**ロアブック**パネルを開きます。
 2. **New**(新規、プラスのアイコン)をクリックします。**Create Lorebook**(ロアブックの作成)ウィンドウが開きます。
 3. **Name**(名前)を入力します。この欄は必須です。
 4. 必要なら**Description**(説明)を書きます。
@@ -79,6 +79,7 @@ Eldoria is a rainy port city ruled by a council of nine merchants.
 新しい画像はトリミングされていません。画像を外すには、**Remove**(削除)をクリックします。
 
 <a id="the-lorebook-library"></a>
+
 ## ロアブックライブラリー
 
 ロアブックライブラリーでは、各ロアブックの画像、説明、エントリー数をページ全体で確認できます。**Lorebooks**パネル上部の**Open Library**(ライブラリーを開く)で開きます。

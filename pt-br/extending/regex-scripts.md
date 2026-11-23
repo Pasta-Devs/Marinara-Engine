@@ -40,15 +40,13 @@ Se não funcionou: um erro em vermelho abaixo de **Find Pattern (Regex)** bloque
 
 ### Gerenciar os seus scripts
 
-Cada linha da lista **Regexes** mostra o nome do script, uma etiqueta **AI** ou **User**, o padrão no formato `/pattern/flags`, um botão liga/desliga (com efeito imediato), **Edit regex** (editar regex, lápis) e **Delete regex** (excluir regex, lixeira). Sem scripts, a lista mostra "No regexes yet".
-
-O cabeçalho da seção tem três botões de ícone: **Create regex**, **Import regexes from JSON** (importar regexes de JSON) e **Export regexes to JSON** (exportar regexes para JSON), que salva todos os seus scripts globais em um único arquivo. Os scripts ligados a um único personagem ficam separados; veja [Limitar um script a um personagem](#limit-a-script-to-one-character).
+Cada linha mostra o nome do script, uma etiqueta **IA** ou **Usuário** e o padrão como `/pattern/flags`. Clique no nome ou em **Editar regex** para abrir o editor. Use o botão liga/desliga ao lado do script para mudar se ele roda, ou **Excluir regex** para removê-lo. Sem scripts ou pastas, a aba mostra "Ainda não há regexes". Os scripts específicos de um personagem ficam com ele. Veja [Limitar um script a um personagem](#limit-a-script-to-one-character).
 
 Para encontrar um script, digite em **Search regexes** (buscar regexes). A busca procura nos nomes e padrões dos scripts e abre as pastas com resultados. Durante a busca, você não pode arrastar os scripts para mudar a ordem.
 
 <a id="organize-scripts-in-folders"></a>
 
-#### Organizar scripts em pastas
+### Organizar scripts em pastas
 
 1. Clique em **New Folder** (nova pasta) e dê um nome à pasta.
 2. Clique no ícone de pasta na linha de um script para abrir **Move to folder** (mover para a pasta).
@@ -57,7 +55,6 @@ Para encontrar um script, digite em **Search regexes** (buscar regexes). A busca
 Clique no nome de uma pasta para expandi-la ou recolhê-la. Desligue a pasta para pausar seus scripts em todos os chats. O cabeçalho mostra **Paused** (pausada). Cada script mantém a posição salva do próprio botão liga/desliga. Um script ativado em uma pasta pausada aparece com o botão cinza e a etiqueta **Paused by folder** (pausado pela pasta). Excluir a pasta move seus scripts para o nível superior, onde cada um segue o próprio botão liga/desliga.
 
 As pastas agrupam scripts sem mudar a ordem de execução. Clique em **Execution order** (ordem de execução) para ver a lista completa na ordem em que os scripts rodam. Arraste um script pela alça para mudar a ordem. Quando não há pastas, a lista já aparece nessa ordem. Nessa visualização, um ícone de pausa indica que um script está ligado, mas a pasta está pausada.
-
 ### Alterar vários scripts de uma vez
 
 1. Clique em **Select regex scripts**.
@@ -76,7 +73,7 @@ O padrão de busca. Escreva só o padrão, sem barra no começo nem no fim. O te
 
 ### Replace With
 
-O texto que substitui cada correspondência. Deixe vazio para excluir a correspondência. Reaproveite o texto capturado com `$1`, `$2` e assim por diante. Estas mudanças de caixa funcionam antes de uma captura:
+O texto que substitui cada correspondência. Deixe vazio para excluir a correspondência. Reaproveite o texto capturado com `$1`, `$2` e assim por diante. `$0`, `$&` e `{{match}}` recolocam a correspondência inteira, como no SillyTavern. Estas mudanças de caixa funcionam antes de uma captura:
 
 | Escreva | Resultado |
 | --- | --- |
@@ -101,7 +98,14 @@ Botões liga/desliga que mudam a forma como o padrão encontra o texto. Um scrip
 
 ### Trim Strings
 
-Uma lista opcional de textos simples removidos depois que a substituição roda. Clique em **Add trim string** (adicionar texto a remover) para incluir uma linha e no botão **X** para tirar uma. Use para um trecho fixo de texto que é mais fácil de digitar do que de encontrar com um padrão.
+Uma lista opcional de textos simples a remover. Clique em **Adicionar um texto a remover** para adicionar uma linha e no botão **X** para remover uma. Use para um trecho fixo de texto que é mais fácil digitar do que encontrar com um padrão.
+
+Quando um script tem um texto a remover, **Remover de** decide de onde ele é removido:
+
+- **Resultado inteiro**: da mensagem inteira depois da substituição, mesmo onde o padrão não encontra correspondência. Scripts novos começam aqui.
+- **Texto encontrado (como no SillyTavern)**: só do texto encontrado que `$0`, `{{match}}` ou `$1` recolocam. O texto que você digitou em **Substituir por** e o restante da mensagem ficam como estão, e nada muda onde o padrão não encontra correspondência.
+
+Scripts importados do SillyTavern usam **Texto encontrado**. Scripts importados antes de essa opção existir usavam **Resultado inteiro**; se um deles agora remove texto demais, importe-o de novo ou mude para **Texto encontrado**.
 
 ### Live Test
 

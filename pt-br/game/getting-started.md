@@ -20,7 +20,7 @@ Todo o resto é opcional e vem desativado por padrão. Você pode adicionar depo
 
 ## Comece um jogo
 
-1. Na barra lateral de chats, abra a aba **GM** e clique no botão **+** (**New Game**). Ou clique em **Game** na tela inicial. O assistente de configuração abre. Veja [Como gerenciar a lista de chats](../chats/managing-chats.md).
+1. Clique em **Chats** na barra superior, abra a aba **GM** e clique no botão **+** (**New Game**). Ou clique em **Game** na tela inicial. O assistente de configuração abre. Veja [Como gerenciar a lista de chats](../chats/managing-chats.md).
 2. Na primeira etapa, escolha o **Model** (modelo) que roda o GM. Escolha uma conta que você já adicionou. Se a lista estiver vazia, adicione uma primeiro. Para a geração do mundo, escolha um modelo pago e forte (veja [Escolher um modelo](#choosing-a-model)).
 3. Clique em **Next** (avançar) em cada etapa. Todos os outros campos têm um valor padrão, então você pode só ir avançando.
 4. Na última etapa, clique em **Create world** (criar mundo). O botão mostra **Generating World…** enquanto Marinara monta o seu mundo. É uma única solicitação grande ao seu modelo, então espere até ela terminar.
@@ -157,7 +157,7 @@ No computador, os controles abrem pelos botões perto do canto superior direito 
 
 | Controle | O que ele contém |
 |---|---|
-| **Game controls** (controle de videogame) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (quando o Music DJ toca a música) e **Retry assets image generation**. Para um plano de fundo de storyboard, também repetir, reproduzir/pausar e silenciar. **Edit game data** corrige à mão os dados salvos (veja [Editar os dados do jogo à mão](sessions-and-saves. md#editing-game-data-by-hand)). **Checkpoints** volta para um momento anterior (veja [Como o jogo salva](sessions-and-saves. md#how-your-game-saves)). |
+| **Game controls** (controle de videogame) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (quando o Music DJ toca a música) e **Retry assets image generation**. Para um plano de fundo de storyboard, também repetir, reproduzir/pausar e silenciar. **Edit game data** corrige à mão os dados salvos (veja [Editar os dados do jogo à mão](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** volta para um momento anterior (veja [Como o jogo salva](sessions-and-saves.md#how-your-game-saves)). |
 | **Session** (pena) | O histórico de sessões, o diário e os controles de sessão. Veja [Game Mode: sessões e saves](sessions-and-saves.md). |
 | **Volume** (alto-falante) | Volume de **Master**, **Music**, **Sound Effects**, **TTS** e **Ambient**. |
 | **Game Assets** (pasta) | As mídias de cena e o Asset Browser. Veja [Recursos do jogo](game-assets.md). |

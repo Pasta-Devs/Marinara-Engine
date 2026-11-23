@@ -55,7 +55,6 @@ Pour trouver un script, saisis du texte dans **Search regexes** (rechercher des 
 Clique sur son nom pour le déplier ou le replier. Désactive son interrupteur pour mettre ses scripts en pause dans tous les chats. L'en-tête affiche **Paused** (en pause). Chaque script conserve la position enregistrée de son interrupteur. Un script activé dans un dossier en pause affiche un interrupteur grisé et la mention **Paused by folder** (mis en pause par le dossier). Si tu supprimes le dossier, ses scripts remontent au premier niveau et suivent leurs propres interrupteurs.
 
 Les dossiers regroupent les scripts sans changer leur ordre d'exécution. Clique sur **Execution order** (ordre d'exécution) pour voir la liste complète dans cet ordre. Fais glisser un script par sa poignée pour changer l'ordre. Sans dossier, la liste est déjà dans l'ordre d'exécution.
-
 ### Modifier plusieurs scripts à la fois
 
 1. Clique sur **Select regex scripts** (sélectionner les scripts regex).
@@ -74,7 +73,7 @@ Le motif de recherche. N'écris que le motif, sans barre oblique au début ni à
 
 ### Replace With
 
-Le texte qui remplace chaque correspondance. Laisse-le vide pour supprimer la correspondance. Réutilise le texte capturé avec `$1`, `$2`, et ainsi de suite. Ces changements de casse fonctionnent devant une capture :
+Le texte qui remplace chaque correspondance. Laisse-le vide pour supprimer la correspondance. Réutilise le texte capturé avec `$1`, `$2`, et ainsi de suite. `$0`, `$&` et `{{match}}` réinsèrent la correspondance entière, comme dans SillyTavern. Ces changements de casse fonctionnent devant une capture :
 
 | Écris | Résultat |
 | --- | --- |
@@ -99,7 +98,14 @@ Des boutons à activer ou désactiver, qui changent la façon dont le motif trou
 
 ### Trim Strings
 
-Une liste facultative de chaînes simples retirées une fois le remplacement effectué. Clique sur **Add trim string** (ajouter une chaîne à retirer) pour ajouter une ligne, et sur le bouton **X** pour en enlever une. Sers-t'en pour un texte fixe plus simple à taper qu'à décrire par un motif.
+Une liste facultative de chaînes simples à retirer. Clique sur **Ajouter une chaîne à retirer** pour ajouter une ligne, et sur le bouton **X** pour en enlever une. Sers-t'en pour un texte fixe plus simple à taper qu'à décrire par un motif.
+
+Dès qu'un script contient une chaîne à retirer, **Retirer de** détermine où les chaînes sont supprimées :
+
+- **Résultat entier** : dans tout le message après le remplacement, même là où le motif ne correspond pas. C'est le réglage initial des nouveaux scripts.
+- **Texte correspondant (comme dans SillyTavern)** : uniquement dans le texte correspondant réinséré par `$0`, `{{match}}` ou `$1`. Le texte que tu as saisi dans **Remplacer par** et le reste du message restent tels quels, et rien ne change là où le motif ne correspond pas.
+
+Les scripts importés de SillyTavern utilisent **Texte correspondant**. Ceux importés avant l'ajout de cette option utilisaient **Résultat entier** ; si l'un d'eux retire maintenant trop de texte, importe-le à nouveau ou passe-le sur **Texte correspondant**.
 
 ### Live Test
 

@@ -1,6 +1,8 @@
 # Die Chatliste verwalten
 
-Im Panel **Chats** links liegen alle deine Chats. Dort startest, findest, sortierst, ordnest und löschst du Chats.
+Das Panel **Chats** enthält alle deine Chats. Hier kannst du Chats starten, finden, sortieren, organisieren und löschen. Klick zum Öffnen in der oberen Leiste auf **Chats**. Falls du es nicht siehst, öffne zuerst **Mehr**.
+
+Auf einem Computer öffnet sich **Chats** in der Seitenleiste, an derselben Stelle wie **Charaktere** und die anderen Panels. Es ist immer nur eines sichtbar: Öffnest du ein Panel, ersetzt es **Chats**; ein Klick auf **Chats** bringt die Chatliste zurück. Die Seitenleiste steht rechts, sofern du **Position der Desktop-Seitenleiste** nicht auf **Links** setzt (siehe [Darstellungseinstellungen](../appearance/appearance-settings.md#other-app-style-controls)). Auf einem Smartphone oder Tablet öffnet sie sich als Vollbild-Panel.
 
 ## Chatliste und Modus-Tabs
 

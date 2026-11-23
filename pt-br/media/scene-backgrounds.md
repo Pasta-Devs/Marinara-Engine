@@ -74,7 +74,23 @@ Você pode gerar de novo uma imagem sem gerar de novo a resposta a que ela perte
 3. Mude o que quiser nas caixas abaixo da imagem: **Prompt**, **Negative prompt** (prompt negativo), uma caixa para cada personagem em **Character prompts** (prompts de personagem), quando a imagem os tinha, e o modelo de imagem.
 4. Clique em **Generate image** (gerar imagem), ou em **Cancel** (cancelar) para deixar a imagem como está.
 
-A imagem nova substitui a antiga na mensagem. A antiga continua na galeria, então você pode fixá-la de novo. As imagens de referência são enviadas de novo a partir dos avatares atuais dos personagens. Algumas imagens mais antigas não salvaram o prompt negativo e os prompts de personagem; o editor avisa quando é o caso.
+A imagem nova passa a ser a versão selecionada na mensagem. Os resultados anteriores ficam juntos em um único bloco da galeria com uma contagem de versões. Cada versão mantém o prompt, o prompt negativo e os outros detalhes de geração salvos. As imagens de referência são enviadas de novo a partir dos avatares atuais dos personagens. Algumas imagens mais antigas não salvaram o prompt negativo e os prompts de personagem; o editor avisa quando é o caso.
+
+### Versões de imagens
+
+Abra uma imagem com versões empilhadas para escolher uma versão. As setas para a esquerda e a direita, as teclas de seta e os gestos de deslizar na horizontal alternam entre os blocos da galeria. Os controles para cima e para baixo, as teclas de seta e os gestos de deslizar na vertical sobre a imagem alternam entre as versões da pilha atual. Reduza o zoom antes de navegar. Rolar o prompt não muda a versão.
+
+Clique na imagem, no cabeçalho do prompt ou no botão de recolher para usar as teclas de seta para cima e para baixo para alternar entre versões. Clique no texto do prompt ou em um botão de copiar para usar essas teclas para rolar o texto. Os controles de versão também continuam visíveis durante a geração de uma nova imagem ou a edição. Aplique ou limpe uma máscara pintada antes de trocar de versão; os controles ficam pausados enquanto a geração está em andamento.
+
+A versão que você escolhe é salva e exibida no chat, inclusive depois de recarregar a página. Gerar de novo ou editar uma versão mais antiga acrescenta um novo resultado à mesma pilha e também mantém as versões posteriores. Um chat ramificado tem sua própria seleção.
+
+Use **Excluir a imagem da galeria** no bloco, ou o botão de excluir no visualizador, para escolher o que remover:
+
+- **Excluir esta versão** remove a versão exibida. Se ela estava selecionada, a versão mais recente entre as restantes é exibida.
+- **Excluir as outras versões** mantém a versão exibida e remove as demais.
+- **Excluir a pilha inteira** remove todas as versões e seus anexos de imagem do chat.
+
+Essas opções excluem permanentemente as versões salvas. **Cancelar** mantém todas elas.
 
 ## Revisar o prompt antes do envio
 

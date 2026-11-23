@@ -42,7 +42,7 @@ O contexto acompanha tudo iniciado na solicitação, incluindo temporizadores, l
 
 `LOG_DISABLE_REQUEST_LOGGING` funciona como antes e desliga também a linha de cancelamento.
 
-Em `pnpm dev`, pino-pretty oculta `hostname` (seu padrão) e `bootId`. O JSON de produção mantém ambos.
+Um terminal recebe linhas do pino-pretty: `pnpm dev` e um servidor de produção cujo stdout é um terminal (os inicializadores). A saída de produção enviada para outro destino é JSON, um objeto por linha. `LOG_FORMAT=pretty|json` substitui essa escolha, e o inicializador do Termux define `pretty` porque a saída chega ao terminal por `tee`. pino-pretty oculta `hostname` (seu padrão) e `bootId`; a saída JSON mantém ambos.
 
 <a id="startup-timeline"></a>
 
@@ -108,6 +108,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 ```
 
 O ajuste de debug da interface continua funcionando por `logDebugOverride`. Esse é o caminho previsto para ver prompts quando `LOG_LEVEL` oculta debug.
+
+Imprima o texto do prompt como está, com `%s`. Para um valor estruturado (um array de mensagens, um corpo de requisição de provedor, uma resposta analisada), passe `debugJson(value)` para `%s`, não `%j` nem `JSON.stringify(value)`. Ele imprime JSON indentado cujas quebras de linha dentro de strings são quebras reais, para que um prompt com várias linhas continue legível, e só renderiza quando a linha é impressa. Uma função replacer que oculta dados vai no segundo argumento, como em `JSON.stringify`. Uma visualização de debug dentro do aplicativo imprime o mesmo texto com `readableJson` de `@marinara-engine/shared`. A regressão `debug-log-line-breaks` cobre isso e a escolha do formato.
 
 A mídia embutida aparece de forma abreviada no log. `debugJson` troca cada conteúdo base64 por um marcador como `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`, com o tipo, o tamanho e os primeiros e últimos 16 caracteres. Isso inclui URLs `data:` (a string inteira ou dentro de um texto) e campos `data` sem prefixo nas partes de mídia da Anthropic e do Google, mesmo se o base64 ocupar várias linhas. O serializador `msg` faz o mesmo com URLs `data:` em linhas comuns com `%s` e `%j`. Só `debugJson` abrevia um campo `data` sem prefixo. A mudança só afeta a cópia impressa. O valor recebido permanece intacto. Defina `LOG_INLINE_MEDIA=full` no `.env` para voltar a imprimir o conteúdo inteiro. O teste de regressão `log-inline-media` cobre esse comportamento.
 

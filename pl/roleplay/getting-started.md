@@ -6,10 +6,10 @@ Wybierz tryb Roleplay do sceny z opowieści. Do zwykłego pisania wiadomości wy
 
 ## Rozpocznij roleplay
 
-Zanim zaczniesz: dodaj konto w panelu **Connections** (Połączenia) po prawej stronie aplikacji. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
+Zanim zaczniesz: dodaj konto w panelu **Połączenia**. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 
-1. Na pasku bocznym czatów kliknij zakładkę **RP**.
-2. Kliknij przycisk **+** u góry paska bocznego. Jego podpowiedź brzmi **New Roleplay** (nowy roleplay).
+1. Kliknij **Czaty** na górnym pasku, a potem kliknij zakładkę **RP**.
+2. Kliknij przycisk **+** u góry listy czatów. Jego podpowiedź brzmi **Nowy roleplay**.
 
 Czat otwiera się z panelem **Chat Settings** (ustawienia czatu) i pięciokrokowym kreatorem konfiguracji. Wymagane jest tylko konto. Wszystko da się zmienić później.
 

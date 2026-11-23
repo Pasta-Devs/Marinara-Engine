@@ -94,20 +94,17 @@ A propriedade não é gravável nem configurável, e o namespace e os objetos `s
 | `modules` | Módulos de bibliotecas, indexados pelo especificador simples (veja abaixo). |
 | `queryClient` | O único `QueryClient` do React Query com que o Engine renderiza. |
 | `components.Modal` | O `Modal` do Engine, com a ordem de sobreposição e o tratamento da tecla Escape e do botão de voltar. |
-| `components.Switch`, `components.Checkbox` | Desde a Capability API 1.830, a chave e a caixa de seleção compartilhadas do Engine, para o pacote seguir a aparência do aplicativo hospedeiro. |
-| `components.Spinner` | Desde a Capability API 1.830, o anel de carregamento compartilhado do Engine. Ele fica oculto para leitores de tela, a menos que você passe um `label`, que o torna uma região de status. |
-| `components.Tabs` | Desde a Capability API 1.832, a barra de abas compartilhada do Engine. `variant="pill"` é o controle segmentado para alternar entre visualizações. `variant="underline"` usa abas de texto para as seções de um painel ou de uma caixa de diálogo. As setas, Home e End navegam entre as abas. |
-| `components.SearchInput` | Desde a Capability API 1.832, o campo de busca do Engine. Passe `value`, `onChange` e um `label` para leitores de tela. Há um botão para limpar, e Escape primeiro apaga o texto. `resultCount` exibe "4 found", `busy` mostra um indicador de carregamento, `size="compact"` cabe em barras de ferramentas mais densas e `slashShortcut` permite usar "/" para focar o campo. |
-| `components.showConfirmDialog` | Desde a Capability API 1.830, a caixa de diálogo de confirmação do Engine, a mesma função que `services.dialogs.showConfirmDialog`. |
-| `components.Select` | Desde a Capability API 1.831, o menu suspenso do Engine. Passe `value` (uma string ou `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` e um `label`. As propriedades `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` e `buttonRef` são opcionais. Ele abre uma janela flutuante no computador e um painel no celular, com busca a partir de oito opções. Use-o no lugar do `<select>` nativo. |
+| `components.Switch`, `components.Checkbox` | A partir da Capability API 1.830, o botão liga/desliga e a caixa de seleção compartilhados do Engine, para que um pacote siga o visual do host. |
+| `components.Spinner` | A partir da Capability API 1.830, o anel de carregamento compartilhado do Engine. Fica oculto para leitores de tela, a menos que você passe um `label`, que o transforma em uma região de status. |
+| `components.Tabs` | A partir da Capability API 1.832, a barra de abas compartilhada do Engine. `variant="pill"` é a faixa segmentada para alternar entre visualizações; `variant="underline"` são abas de texto para seções dentro de um painel ou caixa de diálogo. As teclas de seta, Home e End alternam entre as abas. |
+| `components.SearchInput` | A partir da Capability API 1.832, o campo de busca do Engine. Passe `value`, `onChange` e um `label` para leitores de tela. Tem um botão para limpar, e Escape limpa o texto primeiro. `resultCount` mostra "4 found", `busy` mostra um indicador de carregamento, `size="compact"` cabe em barras de ferramentas com muitos controles, e `slashShortcut` permite que "/" coloque o foco no campo. |
+| `components.showConfirmDialog` | A partir da Capability API 1.830, a caixa de diálogo de confirmação do Engine, a mesma função de `services.dialogs.showConfirmDialog`. |
+| `components.Select` | A partir da Capability API 1.831, o menu suspenso do Engine: passe `value` (uma string ou `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` e um `label`; são opcionais `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` e `buttonRef`. Abre uma janela flutuante no computador e um painel no celular, com busca a partir de oito opções. Use no lugar de um `<select>` nativo. |
+| `components.Popover` | A partir da Capability API 1.836, a camada ancorada do Engine: passe `open`, `onClose`, `anchorRef` e o conteúdo; opcionais: `side` (`top` / `bottom`), `align` (`start` / `center` / `end`), `gap`, `matchAnchorWidth`, `role`, `className` e `dismiss` (por exemplo, `{ outsideClick: false }`). Ela inverte o lado quando não há espaço, fica dentro da janela e fecha com Escape, um clique fora e voltar, começando pela camada mais alta, para que um popover dentro de uma janela feche antes da janela. |
 | `data.emojiCatalog` | O módulo `lib/emoji-catalog.generated.ts`. |
 | `api` | O módulo `lib/api-client.ts` (`api`, `ApiError`, `getApiErrorMessage`, ...). |
 
-Um pacote só lê um membro depois de verificá-lo, por exemplo `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
-
-Para baixar imagens, use `shouldUseIosImageShare()` e siga a mesma política de plataforma da galeria. No iPhone, prepare a imagem com `prepareImageSave(url, filename)` antes do gesto de salvar e chame `savePreparedImageToDevice(prepared)` diretamente nesse gesto. O cancelamento do compartilhamento é silencioso, e uma falha não é substituída pela prévia de download do WebKit. As outras plataformas usam `downloadUrlToDevice`. Essas funções salvam no dispositivo do cliente, mesmo quando o servidor do Engine roda no Docker.
-
-O namespace só cresce: um membro novo chega com uma versão minor da API de capacidades, e um pacote que precisa dele exige essa minor. Os pacotes feitos para o namespace exigem a versão da API de capacidades que o acrescentou, então um Engine mais antigo nunca os instala e mantém a versão que já tem instalada. Quando um membro falta mesmo assim, o pacote nunca recorre a uma cópia embutida de um serviço do Engine que guarda estado: os stores `ui` e `chat` viram cópias somente leitura que nunca gravam, e todos os outros membros informam que o recurso precisa de um Marinara Engine mais novo.
+Um pacote só lê um membro depois de verificá-lo, por exemplo `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`. Para baixar imagens, use `shouldUseIosImageShare()` e siga a mesma política de plataforma da galeria. No iPhone, prepare a imagem com `prepareImageSave(url, filename)` antes do gesto de salvar e chame `savePreparedImageToDevice(prepared)` diretamente nesse gesto. O cancelamento do compartilhamento é silencioso, e uma falha não é substituída pela prévia de download do WebKit. As outras plataformas usam `downloadUrlToDevice`. Essas funções salvam no dispositivo do cliente, mesmo quando o servidor do Engine roda no Docker. O namespace só cresce: um membro novo chega com uma versão minor da API de capacidades, e um pacote que precisa dele exige essa minor. Os pacotes feitos para o namespace exigem a versão da API de capacidades que o acrescentou, então um Engine mais antigo nunca os instala e mantém a versão que já tem instalada. Quando um membro falta mesmo assim, o pacote nunca recorre a uma cópia embutida de um serviço do Engine que guarda estado: os stores `ui` e `chat` viram cópias somente leitura que nunca gravam, e todos os outros membros informam que o recurso precisa de um Marinara Engine mais novo.
 
 **Módulos do host.** `modules[specifier]` é um namespace de módulo completo, inclusive `default` quando a biblioteca tem um. `MARINARA_HOST_MODULE_IMPORTS`, no contrato do cliente, mapeia cada slot público para a dependência que ele importa. A maioria mantém o mesmo nome. O slot estável `framer-motion` é mapeado para `framer-motion-v13` (um alias npm fixado exatamente no Motion 13.5.1), enquanto o slot opcional `motion/react` é mapeado para a dependência principal `framer-motion` 14 do Engine. As ferramentas de pacotes usam esse mapeamento tanto para o inventário de exports quanto para os caminhos do TypeScript; nomes de slots públicos não precisam ser dependências físicas. Os especificadores são `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` e `clsx`. O build de um pacote resolve esses especificadores para shims que leem o namespace, então o pacote renderiza com o único React do Engine e compartilha o cache do React Query e os toasts dele.
 
@@ -129,7 +126,7 @@ O namespace só cresce: um membro novo chega com uma versão minor da API de cap
 | --- | --- |
 | `ui` | `achievementsEnabled`, `debugMode`, `includeReasoningInExports`, `enableStreaming`, `userStatus`, `enterToSendConvo`, `conversationCallVoiceVolume`, `conversationCallVoiceMuted`, `setConversationCallVoiceVolume`, `setConversationCallVoiceMuted`, `conversationTimeZone`, `noodleNavigation`, `setNoodleNavigation`, `noodleSelectedPersonaId`, `setNoodleSelectedPersonaId`, `reviewImagePromptsBeforeSend`, `musicPlayerEnabled`, `musicPlayerSource`, `sidebarOpen`, `setSidebarOpen`, `chatBackground`, `setChatBackground`, `characterDetailId`, `lorebookDetailId`, `presetDetailId`, `connectionDetailId`, `agentDetailId`, `toolDetailId`, `personaDetailId`, `regexDetailId`, `characterLibraryOpen`, `botBrowserOpen`, `gameAssetsBrowserOpen`, `modal`, `rightPanelOpen`, `closeModal`, `closeRightPanel`, `closeBotBrowser`, `closeAllDetails` |
 | `chat` | `activeChatId`, `activeChat`, `isStreaming`, `streamingChatId`, `abortControllers`, `reset`, `pendingSpatialTransitions`, `setPendingSpatialTransition`, `clearPendingSpatialTransition`, `setPendingSpatialTransitionStatus` |
-| `agent` | `setYoutubePlay`, `reset` |
+| `agent` | `setYoutubePlay`, `setPackageActivity`, `reset` |
 | `sidecar` | `modelDownloaded`, `modelDisplayName`, `fetchStatus` |
 | `dialog` | `dialog`, `openDialog`, `closeDialog` |
 | `gallery` | `pinImage`, `pinVideo` |
@@ -199,6 +196,7 @@ As regras de segurança do Engine têm prioridade. A caixa é aberta à força s
 Capability API 1.14 adiciona dois valores de `contributions.slots` para pacotes de agentes Roleplay ativos e habilitados com ponto de entrada do cliente:
 
 - `roleplay-tracker` monta a visualização `toolbar` do pacote no HUD Roleplay. As propriedades incluem `chatId`, `chatMode`, `mobileCompact`, `toolbarButtonClass` do host, `onRerunTracker`, `trackerRetryBusy`, `lockMode` e `onToggleLockMode`. Os callbacks são opcionais: confira se existem antes de usá-los.
+- `chat-activity` (Capability API 1.820) monta a visualização `activity` do pacote no painel de atividade dos agentes do chat. Veja [Capability API 1.820](#capability-api-1820-showing-a-package-in-agent-activity).
 - `tracker-panel` monta a visualização `tracker` dentro do Tracker Panel existente, com `chatId`, `chatMode` e `detached`. Reutilize essa superfície em vez de abrir outro painel. Ambos também recebem as propriedades normais de identidade e localização de capacidades.
 
 Contribuições de contexto continuam registradas por `api.registerPromptContext` e exigem `prompt-context`. A solicitação agora expõe `targetCharacterIds`, `personaId` e `placedAgentTypes`, opcional por compatibilidade. `placedAgentTypes` informa ao contribuidor quais seções de dados de agentes o preset já posicionou, para que ele evite duplicar o próprio contexto. O host mantém a identidade do pacote de cada contribuição em `packageBlocks` para posicionar seu texto na seção de agente correspondente. Texto específico para um público deve respeitar os IDs de personagens destinatários recebidos.
@@ -265,11 +263,7 @@ O documento é `{ "schemaVersion": 1, "verbs": [ … ] }`, com 1–16 verbos. Ca
 }
 ```
 
-Um nome de verbo segue `[a-z][a-z0-9_]*`, tem no máximo 32 caracteres e não pode coincidir com as tags entre colchetes do GM próprias do motor. A verificação ignora maiúsculas: o lembrete escreve `[Note:` e `[Book:`, mas a expressão de análise não distingue o caso; `note` ocultaria a tag do diário. O conjunto reservado vem de todas as tags que os lembretes do GM e do grupo podem produzir em suas ramificações e dos cinco analisadores de narração: analisador de tags e formatador do cliente, editor de segmentos do servidor, analisador de cenas do sidecar e reescritor de diálogo da rota de geração. Seu vocabulário também inclui `main`, `side`, `extra`, `action`, `thought`, `whisper` e o par `qte_bonus` / `qte_result`, reconhecido só pelo formatador. Um verbo `whisper` removeria `[whisper:Tam]` de uma fala antes de salvar, e a linha deixaria permanentemente de ser diálogo.
-
-As regressões também fixam os extratores: cada analisador com nomes exclusivos, como `party-chat` / `party-turn` ou o par QTE, precisa continuar fornecendo esses nomes. Se uma fonte deixar de ser varrida, a compilação falha em vez de reduzir o conjunto silenciosamente. Os outros três também são percorridos para detectar novas tags. Isso não garante completude: uma tag em arquivo não examinado ou escrita em formato que o extrator não entenda pode escapar; amplie o conjunto quando surgir outro analisador. Palavras comuns como `action`, `state`, `status` e `note` também são reservadas; a recusa geralmente vem dessa regra, não de erro de digitação.
-
-`description` ocupa uma linha de 1–200 caracteres sem colchetes nem quebras, pois entra literalmente em `COMMANDS:`. Além de CR e LF, são proibidos `U+0085`, `U+2028`, `U+2029`, controles C0 e DEL, inclusive tabulações, que deformam o bloco. Depois, porém, as macros do lembrete inteiro são expandidas: `{{…}}` dentro da descrição é avaliado, inclusive `{{setvar::…}}`, que escreve variáveis do chat. Isso não concede mais acesso que `chat-write`, mas evite essas chaves se não forem intencionais. Um verbo aceita até seis argumentos `{ name, type, enum?, maxLength?, optional? }`, nomeados com `[a-z][a-zA-Z0-9_]*` em até 32 caracteres. Diferentemente do verbo, maiúsculas são permitidas porque são chaves JSON, não tags. Só strings aceitam `enum`, com 1–16 valores distintos; duplicatas são recusadas. Uma string sem enum deve declarar `maxLength` de 1–500: a análise delimitada do executor não herda outro teto e poderia aceitar um fragmento inteiro de narração. Declarar `enum` e `maxLength` juntos é recusado, pois o enum já limita o valor. As cargas são JSON plano de uma linha; um `}` aninhado encerra a correspondência antes da hora. Só uma instância de cada nome é analisada por mensagem, então um verbo repetido é aplicado uma vez.
+Um nome de verbo segue `[a-z][a-z0-9_]*`, tem no máximo 32 caracteres e não pode coincidir com as tags entre colchetes do GM próprias do motor. A verificação ignora maiúsculas: o lembrete escreve `[Note:` e `[Book:`, mas a expressão de análise não distingue o caso; `note` ocultaria a tag do diário. O conjunto reservado vem de todas as tags que os lembretes do GM e do grupo podem produzir em suas ramificações e dos cinco analisadores de narração: analisador de tags e formatador do cliente, editor de segmentos do servidor, analisador de cenas do sidecar e reescritor de diálogo da rota de geração. Seu vocabulário também inclui `main`, `side`, `extra`, `action`, `thought`, `whisper` e o par `qte_bonus` / `qte_result`, reconhecido só pelo formatador. Um verbo `whisper` removeria `[whisper:Tam]` de uma fala antes de salvar, e a linha deixaria permanentemente de ser diálogo. As regressões também fixam os extratores: cada analisador com nomes exclusivos, como `party-chat` / `party-turn` ou o par QTE, precisa continuar fornecendo esses nomes. Se uma fonte deixar de ser varrida, a compilação falha em vez de reduzir o conjunto silenciosamente. Os outros três também são percorridos para detectar novas tags. Isso não garante completude: uma tag em arquivo não examinado ou escrita em formato que o extrator não entenda pode escapar; amplie o conjunto quando surgir outro analisador. Palavras comuns como `action`, `state`, `status` e `note` também são reservadas; a recusa geralmente vem dessa regra, não de erro de digitação. `description` ocupa uma linha de 1–200 caracteres sem colchetes nem quebras, pois entra literalmente em `COMMANDS:`. Além de CR e LF, são proibidos `U+0085`, `U+2028`, `U+2029`, controles C0 e DEL, inclusive tabulações, que deformam o bloco. Depois, porém, as macros do lembrete inteiro são expandidas: `{{…}}` dentro da descrição é avaliado, inclusive `{{setvar::…}}`, que escreve variáveis do chat. Isso não concede mais acesso que `chat-write`, mas evite essas chaves se não forem intencionais. Um verbo aceita até seis argumentos `{ name, type, enum?, maxLength?, optional? }`, nomeados com `[a-z][a-zA-Z0-9_]*` em até 32 caracteres. Diferentemente do verbo, maiúsculas são permitidas porque são chaves JSON, não tags. Só strings aceitam `enum`, com 1–16 valores distintos; duplicatas são recusadas. Uma string sem enum deve declarar `maxLength` de 1–500: a análise delimitada do executor não herda outro teto e poderia aceitar um fragmento inteiro de narração. Declarar `enum` e `maxLength` juntos é recusado, pois o enum já limita o valor. As cargas são JSON plano de uma linha; um `}` aninhado encerra a correspondência antes da hora. Só uma instância de cada nome é analisada por mensagem, então um verbo repetido é aplicado uma vez.
 
 Não é preciso explicar os argumentos na descrição. A tabela analisada produz uma carga esquemática, a descrição e um exemplo copiável:
 
@@ -291,13 +285,9 @@ Se um turno contém os dois tipos, o evento síncrono chega antes de terminar a 
 
 O motor só valida o formato: nomes e tipos de argumentos, participação nos enums e limites de strings. A semântica pertence ao pacote: não se pode enumerar NPCs ao declarar um mundo compilado por chat. A recusa do pacote a um verbo de estado é apenas orientativa, pois os metadados já foram gravados ao recebê-lo. Para um evento, a recusa é efetiva: o motor não gravou nada e o pacote pode realmente rejeitar um nome desconhecido.
 
-`metadataKey` deve pertencer ao pacote sob três regras: começa com seu ID normalizado em camelCase (`hierarchical-maps` → `hierarchicalMaps`), continua com um sufixo não vazio que começa em maiúscula, e o ID normalizado não pode ser um namespace do motor nem estendê-lo numa fronteira de maiúscula. Isso impede roubar o prefixo de outro pacote. A lista do motor deriva de todas as chaves superiores de `ChatMetadata`, de suas constantes e das chaves presentes só na assinatura de índice, como `encounterActive`, `internalAssistant` e `imageGenConnectionId`, invisíveis para as duas primeiras fontes.
+`metadataKey` deve pertencer ao pacote sob três regras: começa com seu ID normalizado em camelCase (`hierarchical-maps` → `hierarchicalMaps`), continua com um sufixo não vazio que começa em maiúscula, e o ID normalizado não pode ser um namespace do motor nem estendê-lo numa fronteira de maiúscula. Isso impede roubar o prefixo de outro pacote. A lista do motor deriva de todas as chaves superiores de `ChatMetadata`, de suas constantes e das chaves presentes só na assinatura de índice, como `encounterActive`, `internalAssistant` e `imageGenConnectionId`, invisíveis para as duas primeiras fontes. Esse terceiro grupo exige sete fontes: os objetos passados a `patchMetadata`/`updateMetadata`; os retornados por callbacks de atualização, quase tão frequentes; a mutação `useUpdateChatMetadata()` e a propriedade `onMetadataChange` do cliente, que nunca passam por `patchMetadata`; chamadas diretas `PATCH /chats/:id/metadata`, usadas sem esse hook para chaves de combate, cena e narração; leituras `chatMetadata.key` e `chat.metadata.key`; leituras do resultado de `parseChatMetadata(…)`, a forma mais comum e a única que vê `scenario`; e a lista manual de chaves por chat dos perfis de configurações, que cobre chaves lidas e escritas através de limites entre funções.
 
-Esse terceiro grupo exige sete fontes: os objetos passados a `patchMetadata`/`updateMetadata`; os retornados por callbacks de atualização, quase tão frequentes; a mutação `useUpdateChatMetadata()` e a propriedade `onMetadataChange` do cliente, que nunca passam por `patchMetadata`; chamadas diretas `PATCH /chats/:id/metadata`, usadas sem esse hook para chaves de combate, cena e narração; leituras `chatMetadata.key` e `chat.metadata.key`; leituras do resultado de `parseChatMetadata(…)`, a forma mais comum e a única que vê `scenario`; e a lista manual de chaves por chat dos perfis de configurações, que cobre chaves lidas e escritas através de limites entre funções.
-
-As regressões fixam todas as fontes e extratores. Há dois limites deliberados. Uma escrita que recebe variável ou resultado de função, como `patchMetadata(id, hydratedMeta)` ou a mesma forma na rota de metadados, contém chaves invisíveis a uma varredura estática: existem vinte chamadas assim e a regressão fixa esse número; a vigésima primeira exige leitura manual. Uma leitura dentro de um auxiliar a partir de um parâmetro também fica fora do alcance: é o caso de `spatialContext`, escrito pelo cliente de `hierarchical-maps` distribuído no repositório Agents e lido aqui por um auxiliar e análise local ao arquivo. A lista manual cobre esse segundo ponto; por isso uma das sete fontes é selecionada à mão. Os limites são declarados em vez de negados. `persona` também é um mínimo adicionado manualmente que nenhuma fonte produz hoje.
-
-A terceira regra recusa pacotes inteiros de propósito: `conversation-calls` vira `conversationCalls`, e `conversationCalls` + `Enabled` já é uma chave do motor. Esse pacote não pode possuir chaves sob seu ID; `noodle` e `background` estão na mesma situação, este último porque `background` já é, por si só, uma chave de metadados de chat do motor. Eles ainda podem declarar eventos, que não possuem chaves. As chaves são planas e no nível superior porque esse é o formato que o reconciliador do pacote já lê.
+As regressões fixam todas as fontes e extratores. Há dois limites deliberados. Uma escrita que recebe variável ou resultado de função, como `patchMetadata(id, hydratedMeta)` ou a mesma forma na rota de metadados, contém chaves invisíveis a uma varredura estática: existem vinte chamadas assim e a regressão fixa esse número; a vigésima primeira exige leitura manual. Uma leitura dentro de um auxiliar a partir de um parâmetro também fica fora do alcance: é o caso de `spatialContext`, escrito pelo cliente de `hierarchical-maps` distribuído no repositório Agents e lido aqui por um auxiliar e análise local ao arquivo. A lista manual cobre esse segundo ponto; por isso uma das sete fontes é selecionada à mão. Os limites são declarados em vez de negados. `persona` também é um mínimo adicionado manualmente que nenhuma fonte produz hoje. A terceira regra recusa pacotes inteiros de propósito: `conversation-calls` vira `conversationCalls`, e `conversationCalls` + `Enabled` já é uma chave do motor. Esse pacote não pode possuir chaves sob seu ID; `noodle` e `background` estão na mesma situação, este último porque `background` já é, por si só, uma chave de metadados de chat do motor. Eles ainda podem declarar eventos, que não possuem chaves. As chaves são planas e no nível superior porque esse é o formato que o reconciliador do pacote já lê.
 
 Comandos do modelo declarados por um pacote só são executados se ele declarar `chat-write`, estiver instalado e estiver pronto. Essa permissão também controla gravações pela API de persistência do pacote, incluindo mensagens, metadados do chat, eventos de roleplay e snapshots espaciais. `chat-read` controla leituras de chats, mensagens, estado do jogo e snapshots espaciais. As mesmas verificações se aplicam dentro de transações de persistência e bloqueios do chat; uma permissão de gravação não concede implicitamente permissão de leitura. Chamadas de persistência do próprio motor continuam sendo confiáveis.
 
@@ -1054,7 +1044,7 @@ A visualização do navegador (`home-browser-tab`) recebe estas propriedades:
 - `openChat(chatId)` vai para um chat, para um botão "Go to scene" em uma thread travada.
 - `focusSceneOriginId` é a thread a mostrar quando o usuário volta de uma cena (Back, End Scene, Discard). Chame `onFocusSceneOriginHandled()` depois de mostrá-la.
 
-Regras que vale conhecer:
+Regras que vale a pena conhecer:
 
 - `data` são as configurações próprias desta cena, um objeto JSON simples de no máximo 4.000 caracteres. O Engine o guarda com a cena e o passa para `claim(originId, { sceneChatId, characterIds, data })` e para `release` como `end.data`, então cada cena pode decidir por si: `claim` pode admitir uma cena sem travar (devolva `true` e não guarde nada), e `release` pode destravar sem receber o resumo, ou recebê-lo com o alcance que a cena pediu.
 - Só `getContext` é obrigatório. Um pacote que só quer iniciar cenas deixa de fora `claim` e `release`: nada é travado, qualquer número de cenas pode rodar a partir da mesma origem e nada é entregue quando elas terminam (**Back** ainda volta para o pacote). Deixe de fora só `release` para travar sem saber o resultado, ou só `claim` para saber os resultados sem trava.
@@ -1125,6 +1115,34 @@ Engines mais antigos ignoram a opção, então um pacote sempre pode passá-la. 
 
 Não precisa de permissão. Engines mais antigos não têm o método, então verifique `typeof ttsService.prepareAudio === "function"` e continue dando voz às falas conforme elas aparecem. Declare 1.835 só quando o pacote não funcionar sem ele.
 
+### Capability API 1.834: sprites salvos e a regra de escolha da arte
+
+`api.runtime.sprites` lê os sprites salvos de um personagem ou de uma persona, para que um pacote use a arte que o usuário já tem antes de desenhar uma nova. Não exige nenhuma permissão. Engines mais antigos não incluem esse recurso, então verifique se ele existe.
+
+- `list(ownerId)`: cada sprite salvo como `{ handle, kind, name, label, folder, url, mimeType }`. `kind` é `"expression"` (um rosto) ou `"full-body"`. `folder` é a pasta de sprites em que ele está, que os usuários costumam nomear de acordo com uma roupa. Sprites SVG ficam de fora, porque nenhum modelo de imagem os lê.
+- `resolve(ownerId, { kind, expression?, outfit?, selected?, maxReferences? })`: a regra de escolha da arte, nesta ordem.
+  1. `selected`: o identificador de um sprite salvo que o usuário escolheu, como a imagem de uma roupa equipada. Ele tem prioridade enquanto existir: `{ source: "selected", sprite }`.
+  2. Um sprite salvo que já mostra o que foi pedido: `{ source: "library", sprite, match }`. A expressão (ou pose, para corpo inteiro) precisa corresponder pelo nome, e a roupa, pelo nome da pasta ou por uma parte do nome (`happy_winter_coat`, veja [variantes de nome](../characters/sprites.md#name-variants)). Sem expressão, a imagem em repouso da roupa (neutral, idle, default) corresponde. O rosto certo com outra roupa não corresponde.
+  3. Sprites salvos para usar como base do desenho: `{ source: "reference", references }`, até `maxReferences` (1 a 4, padrão 4), com os melhores primeiro: as imagens da própria roupa, a expressão com outra roupa, depois o rosto em repouso e o corpo inteiro em repouso. Leia-os com `read` e passe-os como `referenceImages` para `integrations.images.generate`.
+  4. `{ source: "none" }`: desenhe a partir da descrição do personagem.
+- `read(ownerId, handle)`: `{ base64, mimeType, transparent }`, ou null quando o sprite não existe mais. `transparent` indica que a imagem já tem fundo transparente, então mantenha-a como está: não a envie para remoção de fundo.
+
+A arte que o próprio pacote mantém para uma escolha explícita, como as roupas do Otome Hearth ou as roupas sazonais do Life Sim, tem prioridade sobre tudo isso e não exige nenhuma chamada. Uma visualização do cliente obtém a mesma resposta com `GET /api/sprites/:ownerId/match?kind=expression&expression=happy&outfit=winter%20coat`.
+
+```ts
+const sprites = context.api.runtime.sprites;
+const pick = sprites ? await sprites.resolve(characterId, { kind: "full-body", expression: "wave", outfit }) : null;
+if (pick?.source === "selected" || pick?.source === "library") return pick.sprite.url;
+const references =
+  pick?.source === "reference"
+    ? (await Promise.all(pick.references.map((entry) => sprites!.read(characterId, entry.handle))))
+        .filter((picture) => picture !== null)
+        .map((picture) => picture.base64)
+    : [];
+// Generate with `referenceImages: references`, and ask for a see-through picture only on a connection that draws
+// one (its Transparent backgrounds setting).
+```
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: imagens GIF animadas
@@ -1166,6 +1184,68 @@ Em um Engine 1.816, capture `code === "animation-unsupported"` para desenhar uma
 O serviço `long-term-memory:runtime` pode adicionar um método opcional `chatBranched({ chatId, parentChatId })`. O Engine aguarda esse método uma vez quando um chat é ramificado, depois que a rota de ramificação termina de copiar (mensagens, metadados e snapshots) e antes de retornar o novo chat, então as mensagens da ramificação e os metadados `branchParentChatId` já podem ser lidos dentro da chamada. Um pacote pode usá-lo para corrigir a cópia antes que alguém a leia.
 
 Erros e chamadas que levam mais de alguns segundos são registrados e ignorados; a ramificação é retornada de qualquer forma. Sem o método, nada muda. É uma integração opcional: Engines mais antigos nunca o chamam, então o pacote ainda precisa lidar com a ausência dessa chamada. Não exige nenhuma permissão.
+
+### Capability API 1.818: embeddings de uma conexão escolhida pelo pacote
+
+`api.runtime.embeddingsFor(connectionId)` resolve embeddings a partir de uma origem indicada pela configuração do próprio pacote, em vez da conexão do agente que `resolveEmbeddings()` segue. Ao contrário de `resolveEmbeddings()`, nunca recorre ao padrão **Embeddings** de todo o aplicativo.
+
+| `connectionId` | Resolve |
+| --- | --- |
+| `null` | O gerador de embeddings local MiniLM embutido. |
+| Um ID de conexão | A origem de embeddings da própria conexão: seu **Provedor de embeddings**, **URL do endpoint de embedding** e modelo de embeddings, como **Testar embedding** os resolve. |
+| Um ID que não identifica nenhuma conexão ou uma conexão sem uma origem de embeddings utilizável | `null`. Registra no log e resolve; não lança uma exceção. |
+
+O host retornado tem o mesmo formato de `resolveEmbeddings()`: `spaceId`, `label` e `embed(texts, signal?, inputType?)`, com os mesmos limites (128 textos, 200.000 caracteres no total) e o tipo de entrada da versão 1.68. `embed` resolve `null` quando a chamada falha. Cada origem tem seu próprio `spaceId`, então gere novamente os embeddings dos vetores armazenados quando a configuração mudar.
+
+```ts
+const runtime = api.runtime;
+const chosen = settings.embeddingConnectionId ?? null; // null: the built-in local model
+const embeddings =
+  typeof runtime.embeddingsFor === "function"
+    ? ((await runtime.embeddingsFor(chosen)) ?? (await runtime.embeddingsFor(null)))
+    : await runtime.resolveEmbeddings();
+const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
+```
+
+É uma integração opcional: versões mais antigas do Engine não têm o método, então verifique se ele existe antes de chamá-lo e use uma alternativa como no exemplo. Declare 1.818 apenas quando o pacote não puder funcionar sem ele. Nenhuma permissão é necessária.
+
+### Capability API 1.820: mostrar um pacote na atividade dos agentes
+
+O slot `chat-activity` coloca um cartão próprio no painel de atividade dos agentes de um chat, aberto pelo ícone de atividade dos agentes, no painel lateral do chat e no Tracker Panel. Declare-o em `contributions.slots` e registre uma visualização `activity`; o Engine monta um elemento para cada pacote ativo que tenha um ponto de entrada do cliente e que o chat execute (o ID do pacote está entre os agentes ativados do chat). Ele aparece depois do status e das saídas dos agentes, antes das saídas salvas dos agentes personalizados.
+
+```json
+{ "contributions": { "slots": ["chat-activity"] } }
+```
+
+O elemento recebe `chatId` e `onOpenAgentSettings()`, que abre a página do próprio agente do pacote, além das propriedades normais de identidade e localização da capacidade. O Engine não adiciona uma moldura de interface: desenhe o próprio cartão e não renderize nada quando não houver nada para mostrar. Depois que o código do cliente carrega, um elemento vazio não ocupa espaço. Enquanto qualquer cartão de pacote estiver montado, o painel não mostra "No agent activity yet", então desenhe sua própria linha de inatividade se quiser uma.
+
+Não é uma integração opcional: um Engine anterior à versão 1.820 recusa o manifesto, então um pacote que declara `chat-activity` declara 1.820.
+
+#### Mostrar que um pacote está ocupado ou precisa de atenção
+
+`__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })` acende o ícone de atividade dos agentes daquele chat (`packageId` é o `id` do manifesto), onde quer que o ícone esteja (no painel lateral do chat, na janela destacada dele e no Tracker Panel). Enquanto qualquer pacote informar `busy: true`, o ícone gira como faz para os agentes do próprio chat; `alert: true` mostra o ponto dele. Um campo omitido mantém o valor, e uma entrada com ambos false é removida. Os sinais são mantidos por chat, então trocar de chat mostra só os sinais daquele chat.
+
+```ts
+const agent = globalThis.__MARINARA_HOST__?.stores.agent?.getState();
+agent?.setPackageActivity?.(id, chatId, { busy: true });
+try {
+  await doWork();
+} finally {
+  agent?.setPackageActivity?.(id, chatId, { busy: false });
+}
+```
+
+O Engine nunca limpa um sinal por conta própria, nem mesmo quando o elemento `activity` é desmontado (o ícone é mais importante quando o painel está fechado): a responsabilidade de limpá-lo é sua, e recarregar ou chamar `reset()` limpa tudo. Trocar de chat mantém o sinal. Um pacote ocupado ou com alerta também conta como atividade, então o painel não mostra "No agent activity yet"; combine o sinal com um cartão `activity` para o painel ter algo a mostrar. É uma integração opcional: versões mais antigas do Engine não têm o método, então verifique se ele existe, como acima. Declare 1.820 apenas quando o pacote não puder funcionar sem ele. Nenhuma permissão é necessária.
+
+### Capability API 1.833: listar os snapshots de World State de um chat
+
+`persistence.getGameState(chatId)` retorna apenas o World State confirmado mais recente. `persistence.listGameStates(chatId)` retorna o snapshot confirmado do swipe ativo de cada mensagem, na ordem das mensagens, cada um no mesmo formato de registro de `getGameState`. Um pacote pode ler a data dentro da história que o tracker salvou para qualquer mensagem em vez de pedir a um modelo que a encontre no texto.
+
+Uma mensagem sem snapshot confirmado, um snapshot salvo para um swipe que o usuário não manteve, um snapshot cuja mensagem foi excluída e um snapshot sem vínculo com uma mensagem ficam de fora, então a última entrada pode ser diferente de `getGameState`. Exige a permissão `chat-read`, como `getGameState`, e é somente leitura. É uma integração opcional: Engines mais antigos não incluem o método, então verifique se ele existe, como acima. Declare 1.833 apenas quando o pacote não puder funcionar sem ele.
+
+```ts
+const states = (await api.runtime.persistence.listGameStates?.(chatId)) ?? [];
+```
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
@@ -1278,7 +1358,7 @@ export async function activate({ api }) {
 }
 ```
 
-Regras importantes:
+Regras que vale a pena conhecer:
 
 - A chave deve ser `mari-actions:<package-id>` do pacote que registra. Sem a permissão ou sob o ID de outro pacote, o registro lança erro; assim, a ação executada por Mari sempre pertence ao pacote nomeado.
 - `list()` retorna entradas `{ name, summary?, inputs? }`. Nomes têm de 1 a 80 letras, dígitos, `.`, `_` ou `-`; outras entradas não aparecem. Mari lê `summary` e `inputs`, então escreva com clareza. Só as primeiras 50 ações podem ser vistas ou executadas. Mari vê até 40 entradas por ação; nomes são cortados em 80 caracteres e textos em 300. `list()` deve responder em 5 segundos ou as ações do pacote são omitidas.
@@ -1433,9 +1513,7 @@ Pacotes do servidor podem usar `api.runtime.integrations` para acessar os servi�
 
 ### Áudio de pacotes
 
-A partir da Capability API **1.381**, `__MARINARA_HOST__.services.audio` fornece reprodução e seleção de recursos pelo Engine. Declare essa versão secundária no manifesto do pacote e atualize o Engine junto com o pacote. A fala continua em `services.tts`; música e efeitos sonoros usam `services.audio`. `services.tts.ttsService.speakSequence(requests, id?, options?)` aceita `options.audioConnectionId` desde a versão 1.381, aplicando a conexão de fala selecionada a cada trecho e mantendo a voz de cada solicitação. Deixe o valor indefinido para usar o padrão normal ou passe `""` para usar explicitamente as configurações antigas de TTS.
-
-Um `audioConnectionId` desconhecido, excluído, em quarentena ou que não seja de fala é ignorado, e a resolução normal de fala é executada: primeiro a seleção de fala salva, depois a conexão padrão/de fallback e, por fim, as configurações antigas. Se a própria seleção de fala salva estiver indisponível, a reprodução é recusada em vez de usar outra conexão. Pacotes que exigem uma conexão específica devem validar o ID salvo antes da reprodução.
+A partir da Capability API **1.381**, `__MARINARA_HOST__.services.audio` fornece reprodução e seleção de recursos pelo Engine. Declare essa versão secundária no manifesto do pacote e atualize o Engine junto com o pacote. A fala continua em `services.tts`; música e efeitos sonoros usam `services.audio`. `services.tts.ttsService.speakSequence(requests, id?, options?)` aceita `options.audioConnectionId` desde a versão 1.381, aplicando a conexão de fala selecionada a cada trecho e mantendo a voz de cada solicitação. Deixe o valor indefinido para usar o padrão normal ou passe `""` para usar explicitamente as configurações antigas de TTS. Um `audioConnectionId` desconhecido, excluído, em quarentena ou que não seja de fala é ignorado, e a resolução normal de fala é executada: primeiro a seleção de fala salva, depois a conexão padrão/de fallback e, por fim, as configurações antigas. Se a própria seleção de fala salva estiver indisponível, a reprodução é recusada em vez de usar outra conexão. Pacotes que exigem uma conexão específica devem validar o ID salvo antes da reprodução.
 
 Para criar clipes de voz antes que as falas toquem, veja [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead).
 

@@ -14,7 +14,7 @@ Dopasowanie po słowach kluczowych działa z każdym modelem i nie wymaga konfig
 
 ## Tworzenie lorebooka i dodawanie wpisu
 
-1. Otwórz panel **Lorebooks** (Lorebooki) z paska bocznego.
+1. Otwórz panel **Księgi wiedzy** z górnego paska.
 2. Kliknij **New** (nowy, znak plus). Otwiera się okno **Create Lorebook** (utworzenie lorebooka).
 3. Wpisz nazwę w polu **Name** (nazwa). To pole jest wymagane.
 4. Jeśli chcesz, dodaj opis w polu **Description** (opis).

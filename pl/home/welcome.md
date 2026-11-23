@@ -10,7 +10,7 @@ Zanim zaczniesz: potrzebujesz klucza API (tajnego kodu, trochę jak hasło) od u
 2. Dodaj konto. Konto to jeden klucz API do jednej usługi AI. Zobacz [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 3. Wybierz modele, których ma używać to konto. Ten sam przewodnik pokazuje, jak to zrobić.
 4. Utwórz albo zaimportuj postać. Otwórz panel **Characters** (postacie), a potem kliknij **New** (nowa), żeby otworzyć okno **Create Character** (tworzenie postaci), albo kliknij **Import** (import), żeby wczytać kartę z pliku. Zobacz [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md).
-5. Otwórz pasek boczny czatów przyciskiem paska bocznego. Jego zakładki to **CONVO**, **RP** i **GM**. Wybierz jedną z nich, a potem kliknij przycisk **+**. Nazywa się on **New Conversation**, **New Roleplay** albo **New Game**, zgodnie z zakładką.
+5. Kliknij **Czaty** na górnym pasku, aby otworzyć listę czatów. Jej zakładki mają etykiety **CONVO**, **RP** i **GM**. Wybierz jedną z nich, a potem kliknij przycisk **+**. Ma nazwę **Nowa rozmowa**, **Nowy roleplay** lub **Nowa gra**, zależnie od zakładki.
 6. Przejdź przez okno konfiguracji, które się otworzy, a potem kliknij **Create Chat** (utworzenie czatu).
 
 Co zobaczysz: otworzy się nowy czat i możesz napisać pierwszą wiadomość.

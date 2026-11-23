@@ -528,7 +528,8 @@ Engine 为双方用已有符号购买价值最高的消费，对玩家和对手�
 }
 ```
 
-`sources` 指定适用的攻击列表，`requires` 指定这些行中一个求值为真的列。因此，只在特定武器上触发的附加效果可以声明哪些武器适用，而不要求 Engine 理解什么是武器。两者都不写，就表示持有者造成的任何命中。从背包中拿在手上的武器不是行，因此 `weapons`(Capability API 1.70) 还会指定它在哪些物品标签上触发：`"weapons": { "tags": ["finesse", "ranged"] }` 表示用带有其中任一标签的手持武器命中时触发，包括其副手打击。只写 `weapons` 时不在任何行上触发，只写行时不在任何手持武器上触发。`when` 满足任意一项即可：`advantage` 表示攻击检定最终的优势倾向；`ally-adjacent` 表示攻击者一名站立且能行动的盟友，在棋盘上须位于目标一格内，没有棋盘时则可在任何位置。`ally-adjacent-no-disadvantage`(Capability API 1.126) 还要求在优势与劣势抵消后，最终掷骰不处于劣势；上面的例子用它表达 Sneak Attack。`oncePer` 是 `turn`(每个人的每次回合开始时都会刷新，因此在别人行动时打出的攻击也能附加)或 `round`。`amount` 随条目自己的 `scales` 增长，`type` 是伤害类型，默认沿用打击自身的类型。
+`sources` 指定适用的攻击列表，`requires` 指定这些行中一个求值为真的列。因此，只在特定武器上触发的附加效果可以声明哪些武器适用，而不要求 Engine 理解什么是武器。两者都不写，就表示持有者造成的任何命中。从背包中拿在手上的武器不是行，因此 `weapons`(Capability API 1.70) 还会指定它在哪些物品标签上触发：`"weapons": { "tags": ["finesse",
+"ranged"] }` 表示用带有其中任一标签的手持武器命中时触发，包括其副手打击。只写 `weapons` 时不在任何行上触发，只写行时不在任何手持武器上触发。`when` 满足任意一项即可：`advantage` 表示攻击检定最终的优势倾向；`ally-adjacent` 表示攻击者一名站立且能行动的盟友，在棋盘上须位于目标一格内，没有棋盘时则可在任何位置。`ally-adjacent-no-disadvantage`(Capability API 1.126) 还要求在优势与劣势抵消后，最终掷骰不处于劣势；上面的例子用它表达 Sneak Attack。`oncePer` 是 `turn`(每个人的每次回合开始时都会刷新，因此在别人行动时打出的攻击也能附加)或 `round`。`amount` 随条目自己的 `scales` 增长，`type` 是伤害类型，默认沿用打击自身的类型。
 
 <a id="creatures-a-bestiary-a-fight-reads"></a>
 
@@ -626,7 +627,6 @@ Engine 为双方用已有符号购买价值最高的消费，对玩家和对手�
       "applies": [{ "condition": "parrying", "duration": { "rounds": 1 }, "endsAfter": "attacked" }]
     }
     ```
-
 - 豁免需要在行动本身指定难度：行动强制的豁免使用 `save.difficulty`；若行动没有自己的豁免，而状态在豁免成功时结束，则使用 `saveDifficulty`。即使生物有人物卡，块行动仍使用直接数值编写，所以该数值放在行动上。子项自己的豁免可以省略 `difficulty`，回退到同一个数值。
 - `damage.plus` 与目录条目的 `plus` 是同一种子项列表，读取方式完全相同：`"damage": { "dice": "1d6", "flat": 2, "type": "piercing", "plus": [{ "dice": "1d4", "type": "fire" }] }` 表示带热量的啃咬，热量有独立数值，独立受到抗性影响，也独立翻倍。
 

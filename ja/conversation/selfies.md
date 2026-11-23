@@ -35,7 +35,7 @@
 
 **Send Avatar References**と**Attach Card Appearance**には、それぞれ**Off**、**Images only**、**Videos only**、**Images and videos**の選択肢があります。
 
-カードまたはペルソナで、エディターの**Appearance**にある**Image Appearance Override**がオンの場合、Marinaraは**Appearance**の代わりにそのテキストを使います。**Appearance**が、絵ではなく物語のために書かれているときに使ってください。
+カードやペルソナで**Image tags**(画像タグ)を使用中の場合(エディターの**Appearance**の**Image tags**タブで**Use for image prompts**(画像プロンプトに使用)にチェックが入っている場合)、Marinaraは**Appearance**の説明文の代わりにそのタグを送ります。チャットで有効なAppearanceの代替がある場合は、その代替のタグか説明文を使います。**Appearance**が画像向けではなく物語向けに書かれている場合に使ってください。
 
 ## 手動で自撮り写真を頼む
 
@@ -43,7 +43,8 @@
 2. **Selfie**をクリックします。キャラクターが複数いる場合は、ボタンの隣の一覧から、撮るキャラクターを選びます。
 3. **Expose media prompts before sending**がオンの場合(**Settings → Generations → Overall Generations**)は、プロンプトを確認または編集して、**Generate**をクリックします。取り消すと、リクエストは送られません。
 4. ボタンに**Generating...**と表示されているあいだ、待ちます。
-5. 「Selfie generated.」と表示され、画像がチャットに現れます。手動のリクエストでは**Selfie model**を使い、画像リクエスト1回分の費用がかかります。
+
+「Selfie generated.」と表示され、画像がチャットに現れます。手動のリクエストでは**Selfie model**を使い、画像リクエスト1回分の費用がかかります。
 
 ## キャラクターが自撮り写真を送る仕組み
 
@@ -64,7 +65,9 @@
 
 ## 動画メッセージ
 
-キャラクターは、短い動画クリップを送れます。先にIllustratorをインストールしてください。自撮り写真は、オフのままでもかまいません。自分で頼むには、`/video`と入力するか、`/video Aster`のように入力してキャラクターを選びます。または、チャットの**Gallery**で**Video**をクリックします。この場合は、そこで選んだキャラクターが使われます。クリップは新しいメッセージとして届き、チャットの中で再生されます。会話の最新の場面が使われます。クリップを書くモデルは、Illustratorが絵に使うのと同じ数の最近のメッセージを読みます(**Agent Budget**)。ギャラリーにある画像から動画にすることもできます。クリップはその画像から続き、最新の返信に付きます。
+キャラクターは、短い動画クリップを送れます。先にIllustratorをインストールしてください。自撮り写真は、オフのままでもかまいません。
+
+自分で頼むには、`/video`と入力するか、`/video Aster`のように入力してキャラクターを選びます。または、チャットの**Gallery**で**Video**をクリックします。この場合は、そこで選んだキャラクターが使われます。クリップは新しいメッセージとして届き、チャットの中で再生されます。会話の最新の場面が使われます。クリップを書くモデルは、Illustratorが絵に使うのと同じ数の最近のメッセージを読みます(**Agent Budget**)。ギャラリーにある画像から動画にすることもできます。クリップはその画像から続き、最新の返信に付きます。
 
 クリップをチャットに追加できなかった場合でも、ギャラリーの**Videos**タブに保存されます。キャラクター自身のギャラリーに動画が一覧表示されるのは、そのクリップにそのキャラクターが写っているときだけです([キャラクターとペルソナのギャラリー](../characters/galleries.md)を参照)。
 
@@ -77,7 +80,7 @@
 - **Video model**: 動画アカウントです。**Default video provider**は、デフォルトのアカウントを使います。
 - **First frame**: クリップを始める画像です(下記を参照)。
 
-`/video`とギャラリーの**Video**ボタンは、どちらの設定でも動作し、間隔を無視します。自撮り写真つきの返信をスワイプすると、新しいスワイプで、その返信ならではのクリップを送れます。グループチャットでは、**Settings → Generations → Video Generation**の**Videos per reply**(デフォルトは3)の範囲で、各キャラクターが返信ごとに1つのクリップを送れます。
+`/video`とギャラリーの**Video**ボタンは、どちらの設定でも動作し、間隔を無視します。クリップを送った返信をスワイプすると、新しいスワイプで、その返信ならではのクリップを送れます。グループチャットでは、**Settings → Generations → Video Generation**の**Videos per reply**(デフォルトは3)の範囲で、各キャラクターが返信ごとに1つのクリップを送れます。
 
 **First frame**の選択肢は次のとおりです。
 
@@ -88,7 +91,7 @@
 
 **Expose media prompts before sending**がオンの場合は、動画プロンプトと一緒に自撮り写真のプロンプトも確認します。
 
-WebPなど別の形式の画像は、動画サービス向けに変換されます。動画メッセージ1つは、動画リクエスト1回です。新しい自撮り写真から始める場合は、画像リクエストがもう1回加わります。**Settings → Generations → Prompt Model**が、動画のプロンプトを書きます。**Settings → Generations → Video Generation Prompt Overrides → Conversation Video Message**が、その指示を持ちます。
+WebPなど別の形式の画像は、動画サービス向けに変換されます。動画メッセージ1つは、動画リクエスト1回です。新しい自撮り写真から始める場合は、画像リクエストがもう1回加わります。**Prompt Model**が、動画のプロンプトを書きます。**Settings → Generations → Video Generation Prompt Overrides → Conversation Video Message**が、その指示を持ちます。
 
 ## リファレンス: 自撮り写真のタグ
 
@@ -98,7 +101,7 @@ WebPなど別の形式の画像は、動画サービス向けに変換されま�
 [selfie: context="standing beside the river at sunset"]
 ```
 
-`[selfie: "standing beside the river"]`や`[selfie: standing beside the river]`も使え、どの大文字小文字でも動きます。Marinaraがタグを読み取り、画像を投稿します。
+`[selfie: "standing beside the river"]`や`[selfie: standing beside the river]`も使え、どの大文字小文字でも動きます。Marinaraがタグを取り除き、画像を投稿します。
 
 ## 関連ガイド
 

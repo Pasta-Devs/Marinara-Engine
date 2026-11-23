@@ -2,7 +2,9 @@
 
 Autonome Nachrichten sind Nachrichten, die ein Charakter dir zuerst schickt, nachdem du eine Weile still warst. Ein Zeitplan ist der Wochenplan eines Charakters, durch den er je nach Uhrzeit wach, beschäftigt oder schlafend wirkt. Beides funktioniert nur in Conversation Mode.
 
-Zeitpläne sind optional. Ohne Zeitpläne melden sich Charaktere trotzdem, je nach ihrer Gesprächigkeit (wie oft ein Charakter ein Gespräch beginnt) und deinem Status. Springe zu: [Zeitpläne aktivieren](#turn-on-schedules), wenn du nur einen Zeitplan willst.
+Zeitpläne sind optional. Ohne Zeitpläne melden sich Charaktere trotzdem, je nach ihrer Gesprächigkeit (wie oft ein Charakter ein Gespräch beginnt) und deinem Status.
+
+Springe zu: [Zeitpläne aktivieren](#turn-on-schedules), wenn du nur einen Zeitplan willst.
 
 ## Autonome Nachrichten aktivieren
 
@@ -49,7 +51,9 @@ Bevor du anfängst: Schalte **Autonomous Messages** an.
 
 Ein Zeitplan gehört dem Charakter und wird in jedem Conversation-Chat wiederverwendet. Schaltest du **Schedules** in einem Chat aus, bleibt er dort erhalten, und der Zeitplan bleibt gespeichert.
 
-Die automatische wöchentliche Erneuerung ist aus, solange du nicht **Renew weekly** für diesen Charakter im **Character Schedule Manager** einschaltest. Öffne ihn über die Kalenderschaltfläche in der Fußzeile der Seitenleiste, neben dem Statusfeld. Marinara versucht bei jedem Laden der App einmal pro Chat eine Erneuerung. Schlägt sie fehl, versucht es Marinara erst nach einem Neuladen der Seite wieder. Klicke auf **Generate**, um es erneut zu versuchen.
+Die automatische wöchentliche Erneuerung ist aus, solange du nicht **Wöchentlich erneuern** für diesen Charakter im **Zeitplan-Manager für Charaktere** einschaltest. Öffne ihn über die Kalenderschaltfläche unten in **Chats** im Tab **CONVO**, neben dem Statusfeld.
+
+Marinara versucht bei jedem Laden der App einmal pro Chat eine Erneuerung. Schlägt sie fehl, versucht es Marinara erst nach einem Neuladen der Seite wieder. Klicke auf **Generate**, um es erneut zu versuchen.
 
 **Schedule generation preferences** im selben Bereich **Schedules** der **Chat Settings** enthalten Freitext-Vorgaben dafür, wie Zeitpläne geschrieben werden. Sie gelten für jeden Conversation-Chat, wenn das nächste Mal Zeitpläne erstellt werden. Beispiel:
 

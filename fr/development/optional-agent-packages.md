@@ -96,18 +96,17 @@ La propriété n'est ni accessible en écriture ni configurable, et l'espace de 
 | `components.Modal`  | Le `Modal` du moteur, avec son ordre de superposition et sa gestion d'Échap et du bouton Retour.                                                                                        |
 | `components.Switch`, `components.Checkbox` | Depuis l'API de capacités 1.830, l'interrupteur et la case à cocher partagés du moteur. Le paquet reprend ainsi l'apparence de l'hôte. |
 | `components.Spinner` | Depuis l'API de capacités 1.830, l'indicateur circulaire de chargement partagé du moteur. Les lecteurs d'écran l'ignorent sauf si tu passes un `label`, qui en fait une zone d'état. |
-| `components.Tabs` | Depuis l'API de capacités 1.832, la barre d'onglets partagée du moteur. `variant="pill"` affiche une barre segmentée pour changer de vue. `variant="underline"` affiche des onglets textuels pour les sections d'un panneau ou d'une boîte de dialogue. Utilise les flèches, Début et Fin pour passer d'un onglet à l'autre. |
-| `components.SearchInput` | Depuis l'API de capacités 1.832, le champ de recherche du moteur. Passe `value`, `onChange` et un `label` pour les lecteurs d'écran. Un bouton efface le texte, et la touche Échap efface d'abord le texte. `resultCount` affiche "4 found", `busy` affiche un indicateur de chargement, `size="compact"` tient dans les barres d'outils chargées, et `slashShortcut` permet de placer le focus sur le champ avec "/". |
+| `components.Tabs` | Depuis l'API de capacités 1.831, la barre d'onglets partagée du moteur. `variant="pill"` affiche une barre segmentée pour changer de vue. `variant="underline"` affiche des onglets textuels pour les sections d'un panneau ou d'une boîte de dialogue. Utilise les flèches, Début et Fin pour passer d'un onglet à l'autre. |
+| `components.SearchInput` | Depuis l'API de capacités 1.831, le champ de recherche du moteur. Passe `value`, `onChange` et un `label` pour les lecteurs d'écran. Un bouton efface le texte, et la touche Échap efface d'abord le texte. `resultCount` affiche "4 found", `busy` affiche un indicateur de chargement, `size="compact"` tient dans les barres d'outils chargées, et `slashShortcut` permet de placer le focus sur le champ avec "/". |
 | `components.showConfirmDialog` | Depuis l'API de capacités 1.830, la boîte de dialogue de confirmation du moteur. C'est la même fonction que `services.dialogs.showConfirmDialog`. |
 | `components.Select` | Depuis l'API de capacités 1.831, le menu déroulant du moteur. Passe `value` (une chaîne ou `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` et un `label`. `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` et `buttonRef` sont facultatifs. Sur ordinateur, il ouvre un menu flottant. Sur téléphone, il ouvre un panneau. La recherche apparaît à partir de huit options. Utilise ce composant à la place d'un `<select>` natif. |
+| `components.Popover` | Depuis Capability API 1.836, la couche ancrée du moteur : passe `open`, `onClose`, `anchorRef` et le contenu ; facultativement, `side` (`top` / `bottom`), `align` (`start` / `center` / `end`), `gap`, `matchAnchorWidth`, `role`, `className` et `dismiss` (par exemple `{ outsideClick: false }`). Elle change de côté si la place manque, reste dans la fenêtre et se ferme avec Échap, une pression à l'extérieur ou le retour, en commençant par la couche du dessus : une fenêtre contextuelle dans une boîte de dialogue se ferme donc avant cette dernière. |
 | `data.emojiCatalog` | Le module `lib/emoji-catalog.generated.ts`.                                                                                                                                             |
 | `api`               | Le module `lib/api-client.ts` (`api`, `ApiError`, `getApiErrorMessage`, ...).                                                                                                           |
 
 Un package ne lit un membre qu'après l'avoir vérifié, par exemple
 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
-
 Pour télécharger des images, utilise `shouldUseIosImageShare()` afin de suivre les règles de la galerie pour chaque plateforme. Sur iPhone, prépare l'image avec `prepareImageSave(url, filename)` avant le geste d'enregistrement, puis appelle `savePreparedImageToDevice(prepared)` directement depuis ce geste. L'annulation du partage reste silencieuse et un échec n'est pas remplacé par un aperçu de téléchargement WebKit. Les autres plateformes utilisent `downloadUrlToDevice`. Ces fonctions enregistrent les images sur l'appareil du client, même si le serveur du moteur s'exécute dans Docker.
-
 L'espace de noms ne fait que s'agrandir : un nouveau membre arrive avec une version mineure de Capability API, et un package qui en a besoin exige cette version mineure. Les packages construits pour l'espace de noms exigent la version de Capability API qui l'a ajouté : un moteur plus ancien ne les installe donc jamais et garde la version qu'il a. Si un membre manque malgré tout, le package ne se rabat jamais sur une copie embarquée d'un service du moteur qui a un état : les stores `ui` et `chat` deviennent des copies en lecture seule qui n'écrivent jamais, et chaque autre membre signale que la fonctionnalité demande une version plus récente de Marinara Engine.
 
 **Modules de l'hôte.** `modules[specifier]` est un espace de noms de module complet, y compris `default` quand la bibliothèque en a un. Dans le contrat client, `MARINARA_HOST_MODULE_IMPORTS` associe chaque slot public à la dépendance qu'il importe. La plupart gardent le même nom. Le slot stable `framer-motion` est associé à `framer-motion-v13` (un alias npm fixé exactement à Motion 13.5.1), tandis que le slot optionnel `motion/react` est associé à la dépendance principale `framer-motion` 14 du moteur. Les outils de package utilisent cette correspondance pour l'inventaire des exports comme pour les chemins TypeScript ; les noms des slots publics ne sont pas forcément des dépendances physiques. Les spécificateurs sont `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` et `clsx`. La build d'un package résout ces spécificateurs vers des shims qui lisent l'espace de noms. Le package s'affiche donc avec l'unique React du moteur et partage son cache React Query et ses notifications toast.
@@ -130,7 +129,7 @@ L'espace de noms ne fait que s'agrandir : un nouveau membre arrive avec une vers
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ui`        | `achievementsEnabled`, `debugMode`, `includeReasoningInExports`, `enableStreaming`, `userStatus`, `enterToSendConvo`, `conversationCallVoiceVolume`, `conversationCallVoiceMuted`, `setConversationCallVoiceVolume`, `setConversationCallVoiceMuted`, `conversationTimeZone`, `noodleNavigation`, `setNoodleNavigation`, `noodleSelectedPersonaId`, `setNoodleSelectedPersonaId`, `reviewImagePromptsBeforeSend`, `musicPlayerEnabled`, `musicPlayerSource`, `sidebarOpen`, `setSidebarOpen`, `chatBackground`, `setChatBackground`, `characterDetailId`, `lorebookDetailId`, `presetDetailId`, `connectionDetailId`, `agentDetailId`, `toolDetailId`, `personaDetailId`, `regexDetailId`, `characterLibraryOpen`, `botBrowserOpen`, `gameAssetsBrowserOpen`, `modal`, `rightPanelOpen`, `closeModal`, `closeRightPanel`, `closeBotBrowser`, `closeAllDetails` |
 | `chat`      | `activeChatId`, `activeChat`, `isStreaming`, `streamingChatId`, `abortControllers`, `reset`, `pendingSpatialTransitions`, `setPendingSpatialTransition`, `clearPendingSpatialTransition`, `setPendingSpatialTransitionStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `agent`     | `setYoutubePlay`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `agent`     | `setYoutubePlay`, `setPackageActivity`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `sidecar`   | `modelDownloaded`, `modelDisplayName`, `fetchStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `dialog`    | `dialog`, `openDialog`, `closeDialog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `gallery`   | `pinImage`, `pinVideo`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -200,6 +199,8 @@ Les règles de sécurité du moteur ont priorité. Le panneau s'ouvre de force l
 Capability API 1.14 ajoute deux valeurs de `contributions.slots` pour les paquets d'agents Roleplay actifs et activés disposant d'un point d'entrée client :
 
 - `roleplay-tracker` monte la vue `toolbar` du paquet dans le HUD Roleplay. Ses propriétés comprennent `chatId`, `chatMode`, `mobileCompact`, `toolbarButtonClass` de l'hôte, `onRerunTracker`, `trackerRetryBusy`, `lockMode` et `onToggleLockMode`. Les callbacks sont facultatifs : vérifie leur présence avant de les appeler.
+- `chat-activity` (Capability API 1.820) monte la vue `activity` du package dans le panneau
+  d'activité des agents du chat. Voir [Capability API 1.820](#capability-api-1820-showing-a-package-in-agent-activity).
 - `tracker-panel` monte la vue `tracker` dans le Tracker Panel existant avec `chatId`, `chatMode` et `detached`. Réutilise cette surface au lieu d'ouvrir un second panneau. Les deux emplacements reçoivent aussi les propriétés habituelles d'identité et de localisation des capacités.
 
 Les contributions de contexte restent enregistrées par `api.registerPromptContext` et nécessitent `prompt-context`. La requête expose maintenant `targetCharacterIds`, `personaId` et `placedAgentTypes`, facultatif pour la compatibilité. `placedAgentTypes` indique au contributeur quelles sections de données d'agents le preset a déjà placées, pour qu'il évite de dupliquer son contexte. L'hôte conserve l'identité du paquet de chaque contribution dans `packageBlocks` pour placer son texte dans la section d'agent correspondante. Un texte destiné à un public particulier doit respecter les identifiants de personnages cibles reçus.
@@ -1318,6 +1319,36 @@ dépend.
 
 Aucune permission n'est nécessaire. Les anciens moteurs n'ont pas cette méthode : vérifie donc `typeof ttsService.prepareAudio === "function"` et continue à faire lire les répliques à mesure qu'elles apparaissent. Déclare 1.835 uniquement si le package ne peut pas fonctionner sans elle.
 
+<a id="capability-api-1834-saved-sprites-and-the-artwork-rule"></a>
+
+### Capability API 1.834 : sprites enregistrés et règle de choix des images
+
+`api.runtime.sprites` lit les sprites enregistrés d'un personnage ou d'un persona, pour qu'un package utilise les images que l'utilisateur possède déjà avant d'en dessiner de nouvelles. Aucune permission n'est nécessaire. Les anciens moteurs ne proposent pas cette API : vérifie donc sa présence.
+
+- `list(ownerId)` : tous les sprites enregistrés sous la forme `{ handle, kind, name, label, folder, url, mimeType }`. `kind` vaut `"expression"` (un visage) ou `"full-body"`. `folder` est le dossier de sprites dans lequel il est rangé, que les utilisateurs nomment souvent d'après une tenue. Les sprites SVG sont exclus, car aucun modèle d'image ne les lit.
+- `resolve(ownerId, { kind, expression?, outfit?, selected?, maxReferences? })` : la règle de choix des images, dans cet ordre.
+  1. `selected` : l'identifiant d'un sprite enregistré choisi par l'utilisateur, par exemple l'image d'une tenue équipée. Il est prioritaire tant qu'il existe : `{ source: "selected", sprite }`.
+  2. Un sprite enregistré qui représente déjà la demande : `{ source: "library", sprite, match }`. L'expression (ou la pose, pour le corps entier) doit correspondre par son nom, et la tenue par le nom du dossier ou une partie du nom (`happy_winter_coat`, voir [variantes de nom](../characters/sprites.md#name-variants)). Sans expression, l'image au repos de la tenue (neutre, au repos, par défaut) convient. Le bon visage dans une autre tenue ne convient pas.
+  3. Des sprites enregistrés à partir desquels dessiner : `{ source: "reference", references }`, jusqu'à `maxReferences` (1 à 4, 4 par défaut), les meilleurs d'abord : les images de la tenue elle-même, l'expression dans une autre tenue, puis le visage au repos et le corps entier au repos. Lis-les avec `read` et transmets-les comme `referenceImages` à `integrations.images.generate`.
+  4. `{ source: "none" }` : dessiner à partir de la description du personnage.
+- `read(ownerId, handle)` : `{ base64, mimeType, transparent }`, ou null quand le sprite n'existe plus. `transparent` indique que l'image a déjà un arrière-plan transparent : garde-la telle quelle, sans la soumettre à la suppression d'arrière-plan.
+
+Les images que le package conserve lui-même pour un choix explicite, comme les tenues d'Otome Hearth ou les vêtements saisonniers de Life Sim, passent avant tout cela et ne nécessitent aucun appel. Une vue cliente obtient la même réponse via `GET /api/sprites/:ownerId/match?kind=expression&expression=happy&outfit=winter%20coat`.
+
+```ts
+const sprites = context.api.runtime.sprites;
+const pick = sprites ? await sprites.resolve(characterId, { kind: "full-body", expression: "wave", outfit }) : null;
+if (pick?.source === "selected" || pick?.source === "library") return pick.sprite.url;
+const references =
+  pick?.source === "reference"
+    ? (await Promise.all(pick.references.map((entry) => sprites!.read(characterId, entry.handle))))
+        .filter((picture) => picture !== null)
+        .map((picture) => picture.base64)
+    : [];
+// Generate with `referenceImages: references`, and ask for a see-through picture only on a connection that draws
+// one (its Transparent backgrounds setting).
+```
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816 : images GIF animées
@@ -1365,6 +1396,99 @@ avant que quiconque la lise.
 Les erreurs et les appels qui durent plus de quelques secondes sont journalisés et ignorés ; la branche est renvoyée dans
 tous les cas. Sans cette méthode, rien ne change. Il s'agit d'une interface souple : les anciens moteurs ne l'appellent
 jamais, le package doit donc aussi fonctionner sans cet appel. Aucune permission n'est nécessaire.
+
+<a id="capability-api-1818-embeddings-from-a-connection-the-package-chooses"></a>
+
+### Capability API 1.818 : embeddings depuis une connexion choisie par le package
+
+`api.runtime.embeddingsFor(connectionId)` résout les embeddings depuis une source nommée par un réglage du package, au lieu de la connexion de l'agent que suit `resolveEmbeddings()`. Contrairement à `resolveEmbeddings()`, il ne se rabat jamais sur la valeur par défaut **Embeddings** de l'application.
+
+| `connectionId` | Résolution |
+| --- | --- |
+| `null` | Le modèle d'embedding local MiniLM intégré. |
+| Un identifiant de connexion | La source d'embedding propre à cette connexion : ses **Fournisseur d'embedding**, **URL du point de terminaison d'embedding** et modèle d'embedding, tels que les résout **Tester l'embedding**. |
+| Un identifiant ne correspondant à aucune connexion, ou une connexion sans source d'embedding utilisable | `null`. L'appel journalise et se termine ; il ne lève pas d'exception. |
+
+L'hôte renvoyé a la même forme que `resolveEmbeddings()` : `spaceId`, `label` et `embed(texts, signal?, inputType?)`, avec les mêmes limites (128 textes, 200 000 caractères au total) et le type d'entrée de 1.68. `embed` renvoie `null` quand l'appel échoue. Chaque source a son propre `spaceId` : recalcule donc les embeddings des vecteurs stockés quand le réglage change.
+
+```ts
+const runtime = api.runtime;
+const chosen = settings.embeddingConnectionId ?? null; // null: the built-in local model
+const embeddings =
+  typeof runtime.embeddingsFor === "function"
+    ? ((await runtime.embeddingsFor(chosen)) ?? (await runtime.embeddingsFor(null)))
+    : await runtime.resolveEmbeddings();
+const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
+```
+
+C'est une interface souple : les anciens moteurs n'ont pas cette méthode, donc vérifie qu'elle existe avant de l'appeler et prévois une solution de repli comme dans l'exemple. Ne déclare 1.818 que si le package ne peut pas fonctionner sans elle. Aucune permission n'est nécessaire.
+
+<a id="capability-api-1820-showing-a-package-in-agent-activity"></a>
+
+### Capability API 1.820 : afficher un package dans l'activité des agents
+
+L'emplacement `chat-activity` place ta propre carte dans le panneau d'activité des agents du chat, celui que l'icône d'activité des agents
+ouvre, dans le tiroir du chat et dans le Tracker Panel. Déclare-le dans `contributions.slots` et enregistre une vue `activity` ;
+le moteur monte un élément pour chaque package actif qui a un point d'entrée client et que le chat exécute
+(l'identifiant du package figure parmi les agents activés du chat). Il vient après l'état et les sorties des agents, avant les
+sorties enregistrées des agents personnalisés.
+
+```json
+{ "contributions": { "slots": ["chat-activity"] } }
+```
+
+L'élément reçoit `chatId` et `onOpenAgentSettings()`, qui ouvre la page d'agent propre au package, ainsi que les props habituelles
+d'identité de capacité et de localisation. Le moteur n'ajoute aucun habillage : dessine ta propre carte et ne rends rien
+quand tu n'as rien à afficher. Une fois ton code client chargé, un élément vide ne prend aucune place. Tant qu'une carte de package
+est montée, le panneau n'affiche pas "Aucune activité d'agent pour le moment" : dessine donc ta propre ligne d'inactivité si tu en veux une.
+
+Ce n'est pas une interface souple : un moteur antérieur à 1.820 refuse le manifeste, donc un package qui déclare `chat-activity` déclare
+1.820.
+
+<a id="showing-that-a-package-is-busy-or-needs-attention"></a>
+
+#### Signaler qu'un package travaille ou demande de l'attention
+
+`__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })` active l'icône d'activité
+des agents pour ce chat (`packageId` est l'`id` de ton manifeste), où qu'elle soit (le tiroir du chat, sa fenêtre détachée et le Tracker Panel). Tant qu'un
+package signale `busy: true`, l'icône tourne comme pour les agents du chat ; `alert: true` affiche son point. Un
+champ omis garde sa valeur, et une entrée dont les deux valeurs sont false est supprimée. Les signaux sont conservés par chat : changer
+de chat n'affiche donc que ceux du chat choisi.
+
+```ts
+const agent = globalThis.__MARINARA_HOST__?.stores.agent?.getState();
+agent?.setPackageActivity?.(id, chatId, { busy: true });
+try {
+  await doWork();
+} finally {
+  agent?.setPackageActivity?.(id, chatId, { busy: false });
+}
+```
+
+Le moteur n'efface jamais un signal de lui-même, même quand ton élément `activity` est démonté (l'icône compte surtout
+quand le panneau est fermé) : c'est à toi de l'effacer, et un rechargement ou `reset()` efface tout. Changer de chat le conserve. Un package occupé ou
+signalant une alerte compte aussi comme une activité : le panneau n'affiche donc pas "Aucune activité d'agent pour le moment" ; associe le signal à une carte `activity`
+pour que le panneau ait quelque chose à afficher. C'est une interface souple : les anciens moteurs
+n'ont pas cette méthode, donc vérifie qu'elle existe, comme ci-dessus. Ne déclare 1.820 que si le package ne peut pas fonctionner sans elle.
+Aucune permission n'est nécessaire.
+
+<a id="capability-api-1833-list-a-chats-world-state-snapshots"></a>
+
+### Capability API 1.833 : lister les instantanés de World State d'un chat
+
+`persistence.getGameState(chatId)` renvoie seulement le dernier World State validé. `persistence.listGameStates(chatId)`
+renvoie l'instantané validé du swipe actif de chaque message, dans l'ordre des messages, chacun sous la même forme d'enregistrement que
+`getGameState`. Un package peut lire la date dans l'histoire que le tracker a enregistrée pour n'importe quel message au lieu de demander à un modèle de
+la retrouver dans le texte.
+
+Un message sans instantané validé, un instantané enregistré pour un swipe que l'utilisateur n'a pas conservé, un instantané dont le message a été
+supprimé et un instantané sans lien avec un message sont exclus : la dernière entrée peut donc différer de `getGameState`. Cette méthode nécessite
+la permission `chat-read`, comme `getGameState`, et fonctionne en lecture seule. C'est une interface souple : les anciens moteurs n'ont pas cette méthode,
+donc vérifie qu'elle existe, comme ci-dessus. Ne déclare 1.833 que si le package ne peut pas fonctionner sans elle.
+
+```ts
+const states = (await api.runtime.persistence.listGameStates?.(chatId)) ?? [];
+```
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 

@@ -93,19 +93,18 @@ globalThis.__MARINARA_HOST__ = {
 | `modules` | लाइब्रेरी मॉड्यूल, बेयर स्पेसिफ़ायर के हिसाब से (नीचे देखें) |
 | `queryClient` | वही एक React Query `QueryClient` जिसके साथ Engine रेंडर करता है |
 | `components.Modal` | Engine का `Modal`, उसके ओवरले क्रम, Escape और बैक बटन की हैंडलिंग के साथ |
-| `components.Switch`, `components.Checkbox` | कैपेबिलिटी API 1.830 से Engine का साझा स्विच और चेकबॉक्स, ताकि पैकेज होस्ट जैसा दिखे। |
-| `components.Spinner` | कैपेबिलिटी API 1.830 से Engine का साझा लोडिंग रिंग। स्क्रीन रीडर से छिपा रहता है। `label` देने पर यह स्टेटस रीजन बन जाता है। |
-| `components.Tabs` | कैपेबिलिटी API 1.832 से Engine की साझा टैब बार। `variant="pill"` व्यू बदलने के लिए खंडों वाली पट्टी है। `variant="underline"` शीट या डायलॉग के अंदर सेक्शन के लिए टेक्स्ट टैब है। ऐरो कुंजियाँ, Home और End टैब के बीच ले जाते हैं। |
-| `components.SearchInput` | कैपेबिलिटी API 1.832 से Engine का सर्च फ़ील्ड। `value`, `onChange` और स्क्रीन रीडर के लिए `label` दें। इसमें साफ़ करने वाला बटन है और Escape पहले टेक्स्ट साफ़ करता है। `resultCount` "4 found" दिखाता है, `busy` स्पिनर दिखाता है, `size="compact"` कम जगह वाले टूलबार में फ़िट होता है और `slashShortcut` से "/" फ़ील्ड पर फ़ोकस करता है। |
-| `components.showConfirmDialog` | कैपेबिलिटी API 1.830 से Engine का कन्फ़र्मेशन डायलॉग। यह `services.dialogs.showConfirmDialog` वाला ही फ़ंक्शन है। |
-| `components.Select` | कैपेबिलिटी API 1.831 से Engine का ड्रॉपडाउन। `value` (स्ट्रिंग या `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` और `label` दें। `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` और `buttonRef` वैकल्पिक हैं। डेस्कटॉप पर पॉपओवर और फ़ोन पर शीट खुलती है। आठ या ज़्यादा विकल्प हों तो सर्च मिलता है। नेटिव `<select>` की जगह इसे इस्तेमाल करें। |
+| `components.Switch`, `components.Checkbox` | Capability API 1.830 से, Engine के साझा स्विच और चेकबॉक्स, ताकि पैकेज का रूप होस्ट से मेल खाए। |
+| `components.Spinner` | Capability API 1.830 से, Engine का साझा लोडिंग रिंग। स्क्रीन रीडर से यह छिपा रहता है, जब तक आप `label` न दें, जिससे यह स्टेटस रीजन बन जाता है। |
+| `components.Tabs` | Capability API 1.832 से, Engine का साझा टैब बार। `variant="pill"` व्यू बदलने के लिए खंडों में बँटा ट्रैक है; `variant="underline"` शीट या डायलॉग के अंदर के सेक्शन के लिए टेक्स्ट टैब हैं। ऐरो कुंजियाँ, Home और End टैब के बीच ले जाते हैं। |
+| `components.SearchInput` | Capability API 1.832 से, Engine की सर्च फ़ील्ड। `value`, `onChange` और स्क्रीन रीडर के लिए `label` दें। इसमें साफ़ करने का बटन होता है, और Escape पहले टेक्स्ट साफ़ करता है। `resultCount` से "4 found" दिखता है, `busy` से स्पिनर दिखता है, `size="compact"` भरे हुए टूलबार में फ़िट होता है, और `slashShortcut` से "/" दबाकर फ़ील्ड पर फ़ोकस किया जा सकता है। |
+| `components.showConfirmDialog` | Capability API 1.830 से, Engine का पुष्टि डायलॉग, वही फ़ंक्शन जो `services.dialogs.showConfirmDialog` है। |
+| `components.Select` | Capability API 1.831 से, Engine का ड्रॉपडाउन: `value` (स्ट्रिंग या `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` और `label` दें; चाहें तो `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` और `buttonRef` भी दें। यह डेस्कटॉप पर पॉपओवर और फ़ोन पर शीट खोलता है, और आठ या ज़्यादा विकल्प होने पर सर्च मिलता है। नेटिव `<select>` की जगह इसे इस्तेमाल करें। |
+| `components.Popover` | Capability API 1.836 से, Engine की एंकर से जुड़ी लेयर: `open`, `onClose`, `anchorRef` और कॉन्टेंट दें; वैकल्पिक `side` (`top` / `bottom`), `align` (`start` / `center` / `end`), `gap`, `matchAnchorWidth`, `role`, `className` और `dismiss` (जैसे `{ outsideClick: false }`)। जगह न होने पर यह दिशा बदलती है, विंडो के अंदर रहती है, और Escape, बाहर दबाने या वापस जाने पर सबसे ऊपर की लेयर पहले बंद होती है। इसलिए डायलॉग के अंदर का पॉपओवर डायलॉग से पहले बंद होता है। |
 | `data.emojiCatalog` | `lib/emoji-catalog.generated.ts` मॉड्यूल |
 | `api` | `lib/api-client.ts` मॉड्यूल (`api`, `ApiError`, `getApiErrorMessage`, ...) |
 
 पैकेज किसी सदस्य को जाँचने के बाद ही पढ़ता है, मिसाल के तौर पर `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`।
-
 इमेज डाउनलोड के लिए `shouldUseIosImageShare()` से गैलरी की प्लेटफ़ॉर्म नीति अपनाएँ। iPhone पर सेव करने के जेस्चर से पहले `prepareImageSave(url, filename)` से इमेज तैयार करें, फिर उसी जेस्चर से सीधे `savePreparedImageToDevice(prepared)` कॉल करें। शेयर करना रद्द करने पर कोई त्रुटि नहीं दिखती और शेयर विफल होने पर उसकी जगह WebKit डाउनलोड प्रीव्यू नहीं खुलता। दूसरे प्लेटफ़ॉर्म `downloadUrlToDevice` इस्तेमाल करते हैं। ये सहायक फ़ंक्शन क्लाइंट डिवाइस पर सेव करते हैं, भले ही Engine सर्वर Docker में चल रहा हो।
-
 नेमस्पेस सिर्फ़ बढ़ता है: नया सदस्य कैपेबिलिटी API के एक माइनर वर्ज़न के साथ आता है, और जिस पैकेज को उसकी ज़रूरत है, वह वही माइनर वर्ज़न माँगता है। नेमस्पेस के लिए बने पैकेज कैपेबिलिटी API का वह वर्ज़न माँगते हैं जिसमें नेमस्पेस जोड़ा गया था, इसलिए पुराना Engine उन्हें कभी इंस्टॉल नहीं करता और अपने पास मौजूद वर्ज़न ही रखता है। फिर भी कोई सदस्य गायब हो, तो पैकेज कभी स्टेट रखने वाली Engine सेवा की बंडल की हुई कॉपी पर नहीं लौटता: `ui` और `chat` स्टोर सिर्फ़ पढ़ने वाली कॉपी बन जाते हैं जो कभी कुछ नहीं लिखतीं, और बाकी हर सदस्य बताता है कि इस फ़ीचर के लिए नया Marinara Engine चाहिए।
 
 **होस्ट मॉड्यूल।** `modules[specifier]` एक पूरा मॉड्यूल नेमस्पेस है, और जिस लाइब्रेरी में `default` है, उसमें वह भी शामिल है। क्लाइंट कॉन्ट्रैक्ट में `MARINARA_HOST_MODULE_IMPORTS` हर सार्वजनिक स्लॉट को उस डिपेंडेंसी से मैप करता है जिसे वह इंपोर्ट करता है। ज़्यादातर के दोनों नाम एक ही हैं। स्थिर `framer-motion` स्लॉट `framer-motion-v13` से मैप होता है (Motion 13.5.1 का एक सटीक npm alias), जबकि वैकल्पिक `motion/react` स्लॉट Engine की मुख्य `framer-motion` 14 डिपेंडेंसी से मैप होता है। पैकेज टूलिंग एक्सपोर्ट सूची और TypeScript पाथ, दोनों के लिए इसी मैपिंग का इस्तेमाल करती है; सार्वजनिक स्लॉट के नाम वास्तविक डिपेंडेंसी के नाम होना ज़रूरी नहीं है। स्पेसिफ़ायर ये हैं: `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` और `clsx`। पैकेज बिल्ड इन स्पेसिफ़ायर को ऐसे शिम पर रिज़ॉल्व करता है जो नेमस्पेस पढ़ते हैं, इसलिए पैकेज Engine के उसी एक React से रेंडर होता है और उसका React Query कैश और टोस्ट साझा करता है।
@@ -127,7 +126,7 @@ globalThis.__MARINARA_HOST__ = {
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ui`        | `achievementsEnabled`, `debugMode`, `includeReasoningInExports`, `enableStreaming`, `userStatus`, `enterToSendConvo`, `conversationCallVoiceVolume`, `conversationCallVoiceMuted`, `setConversationCallVoiceVolume`, `setConversationCallVoiceMuted`, `conversationTimeZone`, `noodleNavigation`, `setNoodleNavigation`, `noodleSelectedPersonaId`, `setNoodleSelectedPersonaId`, `reviewImagePromptsBeforeSend`, `musicPlayerEnabled`, `musicPlayerSource`, `sidebarOpen`, `setSidebarOpen`, `chatBackground`, `setChatBackground`, `characterDetailId`, `lorebookDetailId`, `presetDetailId`, `connectionDetailId`, `agentDetailId`, `toolDetailId`, `personaDetailId`, `regexDetailId`, `characterLibraryOpen`, `botBrowserOpen`, `gameAssetsBrowserOpen`, `modal`, `rightPanelOpen`, `closeModal`, `closeRightPanel`, `closeBotBrowser`, `closeAllDetails` |
 | `chat`      | `activeChatId`, `activeChat`, `isStreaming`, `streamingChatId`, `abortControllers`, `reset`, `pendingSpatialTransitions`, `setPendingSpatialTransition`, `clearPendingSpatialTransition`, `setPendingSpatialTransitionStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `agent`     | `setYoutubePlay`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `agent`     | `setYoutubePlay`, `setPackageActivity`, `reset`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `sidecar`   | `modelDownloaded`, `modelDisplayName`, `fetchStatus`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `dialog`    | `dialog`, `openDialog`, `closeDialog`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `gallery`   | `pinImage`, `pinVideo`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -203,6 +202,7 @@ Engine के सुरक्षा नियम अनुरोध से ऊ�
 Capability API 1.14, क्लाइंट एंट्री पॉइंट वाले सक्रिय और सक्षम Roleplay एजेंट पैकेजों के लिए `contributions.slots` में दो मान जोड़ता है:
 
 - `roleplay-tracker` पैकेज का `toolbar` व्यू Roleplay HUD में माउंट करता है। प्रॉप्स में `chatId`, `chatMode`, `mobileCompact`, होस्ट का `toolbarButtonClass`, `onRerunTracker`, `trackerRetryBusy`, `lockMode` और `onToggleLockMode` होते हैं। कॉलबैक वैकल्पिक हैं: इस्तेमाल करने से पहले उनका होना जाँचें।
+- `chat-activity` (Capability API 1.820) पैकेज का `activity` व्यू चैट के Agent activity पैनल में माउंट करता है। [Capability API 1.820](#capability-api-1820-showing-a-package-in-agent-activity) देखें।
 - `tracker-panel` पैकेज का `tracker` व्यू मौजूदा Tracker Panel में `chatId`, `chatMode` और `detached` के साथ माउंट करता है। दूसरा पैनल खोलने के बजाय होस्ट की यही सतह इस्तेमाल करें। दोनों स्लॉट को सामान्य क्षमता पहचान और स्थानीयकरण प्रॉप्स भी मिलते हैं।
 
 प्रॉम्प्ट कॉन्टेक्स्ट योगदान अब भी `api.registerPromptContext` से रजिस्टर होते हैं और `prompt-context` अनुमति माँगते हैं। अनुरोध अब `targetCharacterIds`, `personaId` और `placedAgentTypes` देता है (अनुकूलता के लिए वैकल्पिक)। `placedAgentTypes` योगदान देने वाले को बताता है कि प्रीसेट किन एजेंट डेटा भागों को पहले ही रख चुका है, ताकि दोहरा कॉन्टेक्स्ट न आए। होस्ट हर योगदान की पैकेज पहचान `packageBlocks` में रखता है, जिससे पैकेज का टेक्स्ट संबंधित एजेंट भाग में रखा जा सके। खास दर्शकों के लिए टेक्स्ट लौटाने वाला योगदान दिए गए लक्ष्य कैरेक्टर ID का ध्यान रखे।
@@ -1110,14 +1110,42 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 ### Capability API 1.835: वॉइस क्लिप पहले से तैयार करना
 
-`services.tts.ttsService.prepareAudio(text, options?)` किसी लाइन की क्लिप को बिना चलाए साझा ऑडियो कैश में बना देता है। इसे उसी टेक्स्ट और उन्हीं विकल्पों के साथ कॉल करें जिनका इस्तेमाल बाद वाला `speak` या `speakSequence` करेगा: `cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone` और `audioConnectionId`। तब वह कॉल दूसरी सिंथेसिस के बिना तुरंत चलना शुरू कर देती है।
+`services.tts.ttsService.prepareAudio(text, options?)` किसी लाइन की क्लिप साझा ऑडियो कैश में बनाता है, उसे बजाए बिना। इसे उसी टेक्स्ट और विकल्पों के साथ कॉल करें जिन्हें बाद में `speak` या `speakSequence` इस्तेमाल करेगा: `cacheKey`, `cacheAliases`, `voice`, `speaker`, `tone` और `audioConnectionId`। वह कॉल फिर तुरंत बजना शुरू कर देती है, दोबारा आवाज़ बनाए बिना।
 
-- जो क्लिप पहले से कैश में है, या किसी दूसरी कॉल से बन रही है, वह दोबारा नहीं बनती।
-- प्लेबैक कभी रुकता या बदलता नहीं, इसलिए एक लाइन चलते समय पैकेज अगली लाइनें तैयार कर सकता है।
-- बिना टेक्स्ट या बिना `cacheKey` वाली लाइन छोड़ दी जाती है, क्योंकि उसकी क्लिप कोई ढूँढ नहीं पाएगा।
-- `options.signal` सिर्फ़ इंतज़ार रोकता है। भेजी जा चुकी सिंथेसिस चलती रहती है और कैश हो जाती है, जब तक `abortCacheGenerationOnAbort` सेट न हो।
+- जो क्लिप पहले से कैश में है या किसी दूसरी कॉल में बन रही है, वह दोबारा नहीं बनती।
+- प्लेबैक कभी रुकता या बदलता नहीं है, इसलिए एक लाइन बजते समय पैकेज अगली लाइनें तैयार कर सकता है।
+- बिना टेक्स्ट या `cacheKey` वाली लाइन छोड़ दी जाती है, क्योंकि उसकी क्लिप ढूँढ़ी नहीं जा सकेगी।
+- `options.signal` सिर्फ़ इंतज़ार रोकता है। आवाज़ बनाने की जो रिक्वेस्ट पहले ही भेजी जा चुकी है, वह चलती रहती है और उसका नतीजा कैश में सेव होता है, जब तक `abortCacheGenerationOnAbort` सेट न हो।
 
-इसके लिए किसी अनुमति की ज़रूरत नहीं है। पुराने Engine में यह मेथड नहीं होता, इसलिए `typeof ttsService.prepareAudio === "function"` जाँचें और लाइनें दिखते ही उन्हें आवाज़ देने का तरीका भी रखें। 1.835 तभी घोषित करें जब पैकेज इसके बिना काम न कर सके।
+इसके लिए कोई परमिशन नहीं चाहिए। पुराने Engine में यह मेथड नहीं होता, इसलिए `typeof ttsService.prepareAudio === "function"` जाँचें और लाइनें सामने आने पर उन्हें आवाज़ देते रहें। 1.835 तभी घोषित करें, जब पैकेज इसके बिना काम न कर सके।
+
+### Capability API 1.834: सेव किए गए स्प्राइट और आर्टवर्क का नियम
+
+`api.runtime.sprites` कैरेक्टर या पर्सोना के सेव किए गए स्प्राइट पढ़ता है, ताकि नई आर्ट बनाने से पहले पैकेज यूज़र की मौजूदा आर्ट इस्तेमाल करे। इसके लिए कोई परमिशन नहीं चाहिए। पुराने Engine में यह नहीं होता, इसलिए इसकी मौजूदगी जाँचें।
+
+- `list(ownerId)`: हर सेव किया गया स्प्राइट `{ handle, kind, name, label, folder, url, mimeType }` के रूप में। `kind` या तो `"expression"` (चेहरा) होता है या `"full-body"`। `folder` वह स्प्राइट फ़ोल्डर है जिसमें यह रखा है, जिसे यूज़र अक्सर किसी पोशाक का नाम देते हैं। SVG स्प्राइट छोड़ दिए जाते हैं, क्योंकि कोई इमेज मॉडल उन्हें नहीं पढ़ता।
+- `resolve(ownerId, { kind, expression?, outfit?, selected?, maxReferences? })`: आर्टवर्क का नियम, इस क्रम में।
+  1. `selected`: यूज़र के चुने हुए सेव किए गए स्प्राइट का हैंडल, जैसे पहनी हुई पोशाक की तस्वीर। जब तक वह मौजूद है, वही चुना जाता है: `{ source: "selected", sprite }`।
+  2. सेव किया गया स्प्राइट जो पहले से माँगी गई चीज़ दिखाता है: `{ source: "library", sprite, match }`। एक्सप्रेशन (या पूरे शरीर के लिए पोज़) का नाम मेल खाना चाहिए, और पोशाक का फ़ोल्डर के नाम या नाम के किसी हिस्से से मेल खाना चाहिए (`happy_winter_coat`, [नाम के अलग-अलग रूप](../characters/sprites.md#name-variants) देखें)। एक्सप्रेशन न दिया हो, तो पोशाक की सामान्य तस्वीर (neutral, idle, default) मेल खाती है। दूसरी पोशाक में सही चेहरा मेल नहीं माना जाता।
+  3. तस्वीर बनाने के लिए सेव किए गए स्प्राइट: `{ source: "reference", references }`, ज़्यादा से ज़्यादा `maxReferences` (1 से 4, डिफ़ॉल्ट 4), सबसे अच्छे पहले: पोशाक की अपनी तस्वीरें, दूसरी पोशाक में वही एक्सप्रेशन, फिर सामान्य चेहरा और सामान्य पूरे शरीर की तस्वीर। इन्हें `read` से पढ़ें और `integrations.images.generate` को `referenceImages` के रूप में दें।
+  4. `{ source: "none" }`: कैरेक्टर के विवरण से तस्वीर बनाएँ।
+- `read(ownerId, handle)`: `{ base64, mimeType, transparent }`, या स्प्राइट हट चुका हो तो null। `transparent` बताता है कि तस्वीर का बैकग्राउंड पहले से पारदर्शी है, इसलिए उसे जैसा है, वैसा ही रखें: बैकग्राउंड हटाने के लिए न भेजें।
+
+किसी साफ़ तौर पर चुने गए विकल्प के लिए पैकेज खुद जो आर्ट रखता है, जैसे Otome Hearth की पोशाकें या Life Sim के मौसमी कपड़े, वह इस सब से पहले आती है और उसके लिए कोई कॉल नहीं चाहिए। क्लाइंट व्यू को यही जवाब `GET /api/sprites/:ownerId/match?kind=expression&expression=happy&outfit=winter%20coat` से मिलता है।
+
+```ts
+const sprites = context.api.runtime.sprites;
+const pick = sprites ? await sprites.resolve(characterId, { kind: "full-body", expression: "wave", outfit }) : null;
+if (pick?.source === "selected" || pick?.source === "library") return pick.sprite.url;
+const references =
+  pick?.source === "reference"
+    ? (await Promise.all(pick.references.map((entry) => sprites!.read(characterId, entry.handle))))
+        .filter((picture) => picture !== null)
+        .map((picture) => picture.base64)
+    : [];
+// Generate with `referenceImages: references`, and ask for a see-through picture only on a connection that draws
+// one (its Transparent backgrounds setting).
+```
 
 <a id="capability-api-1816-animated-gif-images"></a>
 
@@ -1160,6 +1188,74 @@ const isGif = result.mimeType === "image/gif";
 `long-term-memory:runtime` सर्विस एक वैकल्पिक `chatBranched({ chatId, parentChatId })` मेथड जोड़ सकती है। चैट की ब्रांच बनाए जाने पर Engine इसे एक बार कॉल करता है और इसके पूरा होने का इंतज़ार करता है। यह कॉल ब्रांच रूट के कॉपी करना (संदेश, मेटाडेटा और स्नैपशॉट) पूरा करने के बाद और नई चैट लौटाने से पहले होती है, इसलिए कॉल के अंदर ब्रांच के संदेश और `branchParentChatId` मेटाडेटा पहले से पढ़े जा सकते हैं। पैकेज इसका इस्तेमाल करके कॉपी को किसी के पढ़ने से पहले ठीक कर सकता है।
 
 एरर देने वाली कॉल और कुछ सेकंड से ज़्यादा समय लेने वाली कॉल लॉग करके अनदेखी कर दी जाती हैं; दोनों ही हालात में ब्रांच लौटाई जाती है। मेथड न होने पर कुछ नहीं बदलता। यह सॉफ़्ट इंटरफ़ेस है: पुराने Engine इसे कभी कॉल नहीं करते, इसलिए यह कॉल न आने पर भी पैकेज को ठीक से काम करना होगा। इसके लिए परमिशन नहीं चाहिए।
+
+### Capability API 1.818: पैकेज के चुने हुए कनेक्शन से एम्बेडिंग
+
+`api.runtime.embeddingsFor(connectionId)` पैकेज की अपनी सेटिंग में बताए गए सोर्स से एम्बेडिंग लाता है, उस एजेंट कनेक्शन से नहीं जिसे `resolveEmbeddings()` इस्तेमाल करता है। `resolveEmbeddings()` के उलट, यह कभी पूरे ऐप के **एम्बेडिंग** डिफ़ॉल्ट का सहारा नहीं लेता।
+
+| `connectionId` | क्या मिलता है |
+| --- | --- |
+| `null` | बिल्ट-इन लोकल MiniLM एम्बेडर। |
+| कनेक्शन की ID | उस कनेक्शन का अपना एम्बेडिंग सोर्स: उसका **एम्बेडिंग प्रोवाइडर**, **एम्बेडिंग एंडपॉइंट URL** और एम्बेडिंग मॉडल, जैसे **एम्बेडिंग टेस्ट करें** उन्हें ढूँढता है। |
+| ऐसी ID जिसका कोई कनेक्शन नहीं, या ऐसा कनेक्शन जिसमें इस्तेमाल लायक एम्बेडिंग सोर्स नहीं | `null`। यह लॉग करके नतीजा लौटाता है; एरर थ्रो नहीं करता। |
+
+लौटे हुए होस्ट का रूप `resolveEmbeddings()` जैसा ही है: `spaceId`, `label` और `embed(texts, signal?, inputType?)`, उन्हीं सीमाओं (128 टेक्स्ट, कुल 200,000 अक्षर) और 1.68 वाले इनपुट टाइप के साथ। कॉल फ़ेल हो तो `embed`, null लौटाता है। हर सोर्स का अपना `spaceId` है, इसलिए सेटिंग बदलने पर सेव किए हुए वेक्टर की एम्बेडिंग फिर बनाएँ।
+
+```ts
+const runtime = api.runtime;
+const chosen = settings.embeddingConnectionId ?? null; // null: the built-in local model
+const embeddings =
+  typeof runtime.embeddingsFor === "function"
+    ? ((await runtime.embeddingsFor(chosen)) ?? (await runtime.embeddingsFor(null)))
+    : await runtime.resolveEmbeddings();
+const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
+```
+
+यह सॉफ़्ट इंटरफ़ेस है: पुराने Engine में यह मेथड नहीं होता, इसलिए कॉल करने से पहले इसका होना जाँचें और उदाहरण की तरह फ़ॉलबैक इस्तेमाल करें। पैकेज इसके बिना काम न कर सके, तभी 1.818 घोषित करें। कोई परमिशन नहीं चाहिए।
+
+### Capability API 1.820: पैकेज को Agent activity में दिखाना
+
+`chat-activity` स्लॉट चैट के Agent activity पैनल में आपका अपना कार्ड रखता है, जिसे Agent activity आइकन खोलता है, चैट ड्रॉअर और Tracker Panel में। इसे `contributions.slots` में घोषित करें और `activity` व्यू रजिस्टर करें; Engine हर सक्रिय पैकेज के लिए एक एलिमेंट माउंट करता है जिसका क्लाइंट एंट्रीपॉइंट हो और जिसे चैट चलाती हो (पैकेज की ID चैट के चालू एजेंट में हो)। यह एजेंट के स्टेटस और आउटपुट के बाद और कस्टम एजेंट के सेव किए आउटपुट से पहले आता है।
+
+```json
+{ "contributions": { "slots": ["chat-activity"] } }
+```
+
+एलिमेंट को `chatId` और `onOpenAgentSettings()` मिलता है, जो पैकेज का अपना एजेंट पेज खोलता है, साथ में आम कैपेबिलिटी पहचान और लोकलाइज़ेशन प्रॉप भी मिलते हैं। Engine कोई बाहरी रैपर UI नहीं जोड़ता: अपना कार्ड खुद बनाएँ, और दिखाने को कुछ न हो तो कुछ रेंडर न करें। आपका क्लाइंट कोड लोड हो जाने पर खाली एलिमेंट कोई जगह नहीं लेता। कोई भी पैकेज कार्ड माउंट रहने तक पैनल "No agent activity yet" नहीं दिखाता, इसलिए खाली समय में कोई लाइन दिखानी हो तो खुद बनाएँ।
+
+यह सॉफ़्ट इंटरफ़ेस नहीं है: 1.820 से पुराना Engine मैनिफ़ेस्ट ठुकरा देता है, इसलिए `chat-activity` घोषित करने वाला पैकेज 1.820 घोषित करता है।
+
+#### पैकेज का व्यस्त होना या ध्यान माँगना दिखाना
+
+`__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })` उस चैट का Agent activity आइकन रोशन करता है (`packageId` आपके मैनिफ़ेस्ट का `id` है), आइकन जहाँ भी हो (चैट ड्रॉअर, उसकी अलग खुली विंडो और Tracker Panel)। कोई पैकेज `busy: true` बताए तो आइकन चैट के अपने एजेंट की तरह घूमता है; `alert: true` उसका बिंदु दिखाता है। जो फ़ील्ड आप छोड़ दें उसकी वैल्यू बनी रहती है, और दोनों false वाली एंट्री हटा दी जाती है। संकेत हर चैट के लिए अलग रहते हैं, इसलिए चैट बदलने पर सिर्फ़ उसी चैट के संकेत दिखते हैं।
+
+```ts
+const agent = globalThis.__MARINARA_HOST__?.stores.agent?.getState();
+agent?.setPackageActivity?.(id, chatId, { busy: true });
+try {
+  await doWork();
+} finally {
+  agent?.setPackageActivity?.(id, chatId, { busy: false });
+}
+```
+
+Engine कभी अपने आप संकेत साफ़ नहीं करता, आपका `activity` एलिमेंट अनमाउंट होने पर भी नहीं (पैनल बंद रहने पर आइकन सबसे ज़्यादा काम आता है): इसे साफ़ करना आपकी ज़िम्मेदारी है, और रीलोड या `reset()` सब साफ़ कर देता है। चैट बदलने पर यह बना रहता है। व्यस्त या अलर्ट देने वाला पैकेज भी एक्टिविटी माना जाता है, इसलिए पैनल "No agent activity yet" नहीं दिखाता; संकेत के साथ `activity` कार्ड जोड़ें ताकि पैनल में दिखाने को कुछ हो। यह सॉफ़्ट इंटरफ़ेस है: पुराने Engine में यह मेथड नहीं होता, इसलिए ऊपर की तरह इसका होना जाँचें। पैकेज इसके बिना काम न कर सके, तभी 1.820 घोषित करें। कोई परमिशन नहीं चाहिए।
+
+### Capability API 1.833: चैट के World State स्नैपशॉट की लिस्ट पाना
+
+`persistence.getGameState(chatId)` सिर्फ़ सबसे नया कमिट किया गया World State लौटाता है। `persistence.listGameStates(chatId)`
+हर संदेश के सक्रिय स्वाइप का कमिट किया गया स्नैपशॉट, संदेशों के क्रम में लौटाता है। हर रिकॉर्ड का आकार
+`getGameState` जैसा ही होता है। पैकेज किसी भी संदेश के लिए ट्रैकर की सेव की गई कहानी की तारीख पढ़ सकता है,
+बजाय किसी मॉडल से उसे टेक्स्ट में ढूँढ़ने को कहने के।
+
+जिस संदेश का कोई कमिट किया गया स्नैपशॉट न हो, जिस स्वाइप को यूज़र ने नहीं रखा उसके लिए सेव किया गया स्नैपशॉट, जिस स्नैपशॉट का संदेश
+डिलीट हो चुका हो और जो स्नैपशॉट किसी संदेश से जुड़ा न हो, वे छोड़ दिए जाते हैं। इसलिए आखिरी एंट्री `getGameState` से अलग हो सकती है। इसके लिए
+`getGameState` की तरह `chat-read` परमिशन चाहिए, और यह सिर्फ़ पढ़ने के लिए है। यह सॉफ़्ट इंटरफ़ेस है: पुराने Engine में यह मेथड
+नहीं होता, इसलिए ऊपर की तरह इसकी मौजूदगी जाँचें। 1.833 तभी घोषित करें, जब पैकेज इसके बिना काम न कर सके।
+
+```ts
+const states = (await api.runtime.persistence.listGameStates?.(chatId)) ?? [];
+```
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
@@ -1279,7 +1375,7 @@ export async function activate({ api }) {
 }
 ```
 
-ज़रूरी नियम:
+जानने लायक नियम:
 
 - कुंजी रजिस्टर करने वाले पैकेज की `mari-actions:<package-id>` होनी चाहिए। अधिकार न हो या दूसरे पैकेज की ID हो तो रजिस्ट्रेशन त्रुटि देता है, इसलिए Mari की चलाई कार्रवाई हमेशा बताए पैकेज की होती है।
 - `list()`, `{ name, summary?, inputs? }` एंट्री लौटाता है। नाम 1 से 80 अक्षर, अंक, `.`, `_` या `-` के होते हैं; दूसरी एंट्री नहीं दिखतीं। Mari `summary` और `inputs` पढ़ती है, इसलिए साफ़ भाषा में लिखें। केवल पहली 50 कार्रवाइयाँ दिख या चल सकती हैं। Mari प्रति कार्रवाई अधिकतम 40 इनपुट देखती है; इनपुट नाम 80 अक्षर और हर टेक्स्ट 300 अक्षर पर कटता है। `list()` को 5 सेकंड में जवाब देना होगा, नहीं तो पैकेज की कार्रवाइयाँ छोड़ दी जाती हैं।
@@ -1437,7 +1533,7 @@ Engine पैकेज के क्लाइंट एलिमेंट को
 Capability API **1.381** से `__MARINARA_HOST__.services.audio` में Engine का प्लेबैक और एसेट चुनने की सुविधा मिलती है। पैकेज मैनिफ़ेस्ट में वही माइनर वर्ज़न घोषित करें और पैकेज के साथ Engine भी अपडेट करें। स्पीच अब भी `services.tts` में है; संगीत और साउंड इफ़ेक्ट `services.audio` इस्तेमाल करते हैं। `services.tts.ttsService.speakSequence(requests, id?, options?)` में 1.381 से `options.audioConnectionId` दिया जा सकता है। इससे चुना हुआ स्पीच कनेक्शन हर हिस्से पर लागू होता है, और हर रिक्वेस्ट की अपनी आवाज़ बनी रहती है। सामान्य डिफ़ॉल्ट के लिए इसे undefined रहने दें, या पुरानी TTS सेटिंग्स साफ़ तौर पर इस्तेमाल करने के लिए `""` भेजें।
 अगर `audioConnectionId` अज्ञात हो, मिटाया जा चुका हो, क्वारंटीन में हो या स्पीच कनेक्शन का न हो, तो उसे अनदेखा करके स्पीच का सामान्य चयन लागू होता है: सेव किया गया स्पीच चयन, फिर डिफ़ॉल्ट/फ़ॉलबैक कनेक्शन, फिर पुरानी सेटिंग। अगर सेव किया गया स्पीच चयन खुद उपलब्ध न हो, तो किसी दूसरे कनेक्शन का इस्तेमाल करने के बजाय प्लेबैक शुरू नहीं होता। जिन पैकेजों को कोई खास कनेक्शन चाहिए, उन्हें प्लेबैक से पहले सेव की गई ID जाँचनी चाहिए।
 
-लाइनें चलने से पहले वॉइस क्लिप बनाने के लिए [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead) देखें।
+लाइनें बजने से पहले उनकी वॉइस क्लिप बनाने के लिए [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead) देखें।
 
 - `createPlayer()` एक स्वतंत्र प्लेयर लौटाता है, जिसमें `unlock()`, `playMusic(tag, assets?)`, `stopMusic(immediate?)`, `playSfx(tag, assets?, loopCount?)`, `setVolumes({ music, sfx })`, `setMuted(boolean)` और `dispose()` होते हैं। आवाज़ की वैल्यू 0 से 1 तक होती है। `assets` टैग से कुंजीबद्ध रिकॉर्ड है, जिसकी एंट्री `{ path: string, url?: string }` रखती हैं। पाथ मौजूदा Game एसेट सर्वर इस्तेमाल करते हैं, जबकि `url` पैकेज के अपने एसेट का पता दे सकता है। प्लेबैक में Engine का क्रॉसफ़ेड, ऑटोप्ले की दोबारा कोशिश और SFX पूल इस्तेमाल होता है। ऑडियो शुरू करते समय यूज़र के क्लिक या टैप में सीधे `unlock()` कॉल करें; ब्राउज़र के ऑटोप्ले नियम अब भी लागू होते हैं।
 - माउंट किए गए पैकेज की स्क्रीन के लिए एक प्लेयर रखें और अनमाउंट होने पर `dispose()` कॉल करें। इससे उस प्लेयर का ऑडियो स्थायी रूप से रुकता है, उसका कॉन्टेक्स्ट और जेस्चर लिसनर हटते हैं, और बाद की कॉल कुछ नहीं करतीं। Game या दूसरे पैकेज का प्लेयर नहीं रुकता। स्क्रीन दोबारा माउंट होने पर नया प्लेयर बनाएँ।

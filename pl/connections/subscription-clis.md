@@ -64,7 +64,7 @@ Użyj przycisku **Diagnose model routing**, gdy wybrany jest duży model, na prz
 
 ## OpenAI (ChatGPT)
 
-Ta usługa korzysta z twojego konta ChatGPT przez Codex CLI. Marinara odczytuje lokalny plik logowania Codex i odświeża sesję, kiedy tylko może.
+Ta usługa korzysta z twojego konta ChatGPT przez Codex CLI. Marinara odczytuje lokalny plik logowania Codex i odświeża sesję, kiedy tylko może. Każde żądanie w czacie ma ten sam klucz pamięci podręcznej, więc usługa może ponownie wykorzystać niezmieniony początek promptu, zużywając mniej limitu twojego planu.
 
 Aby ustawić, jak długo Codex myśli przed odpowiedzią, otwórz **Edit model**, włącz **Use custom defaults for this model** (własne wartości domyślne dla tego modelu) i wybierz **Reasoning Effort** (poziom rozumowania). Na start ustawiony jest poziom **Default** (domyślny), który zachowuje poziom, jakiego Codex używa dla danego modelu. Czat może wybrać własny poziom w **Advanced Parameters** (parametry zaawansowane). Poziom z presetu go nie zmienia. Model Codex użyty jako zapasowy kieruje się wyłącznie własnym poziomem, a agenci korzystający z modelu używają poziomu modelu. Dostępne poziomy odpowiadają tym, które oferuje wybrany model.
 
@@ -76,6 +76,8 @@ Ta usługa uruchamia Grok CLI na komputerze z aplikacją Marinara Engine. Od inn
 - Okno kontekstu ma domyślnie 32 000 tokenów. Tokeny to małe kawałki tekstu, które liczą modele. Duże prompty mogą przekroczyć limit tury samego narzędzia CLI, więc wartość domyślna pozostaje niska. W modelu możesz ustawić większe **Max Context Window** (maksymalne okno kontekstu).
 
 W edytorze modelu **Use the Grok CLI default** (użyj ustawienia domyślnego Grok CLI) zostawia model pusty, żeby narzędzie CLI samo wybrało model. Edytor wskazuje `grok-composer-2.5-fast` jako zwykle najbezpieczniejszy model do roleplayu, bo Marinara uruchamia narzędzie CLI bez interfejsu (headless), z wyłączonymi własnymi narzędziami, pamięcią, wyszukiwaniem w sieci, planami i podagentami Grok.
+
+Marinara pomija też to, co CLI wczytałoby z twojego folderu domowego na potrzeby programowania: reguły Claude Code i Cursor, pliki `CLAUDE.md`, umiejętności, hooki i serwery MCP. Żądania czatu do xAI nie zawierają tych elementów, więc każde żądanie jest mniejsze. Liczby tokenów odpowiedzi Grok pochodzą bezpośrednio z CLI, w tym liczba tokenów odczytanych przez xAI z pamięci podręcznej.
 
 ## Zużycie planu
 

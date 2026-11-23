@@ -113,7 +113,7 @@ OpenAI는 더 많은 프레임을 허용하지만 GIF 하나에 허용되는 픽
 
 ### NovelAI
 
-NovelAI는 애니메이션풍 그림에 특화되어 있습니다. V4, V4.5, V5 모델에서는 Marinara가 여러 캐릭터가 등장하는 스토리보드와 Illustrator 장면을 위해 위치 정보가 포함된 캐릭터별 프롬프트를 NovelAI가 자체 지원하는 형식으로 보냅니다. 정밀 참조 이미지는 V4.5 모델에서만 작동합니다.
+NovelAI는 애니메이션풍 그림에 특화되어 있습니다. V4, V4.5, V5 모델에서는 Marinara가 여러 캐릭터가 등장하는 스토리보드, Illustrator 장면, Professor Mari의 이미지를 위해 위치 정보가 포함된 캐릭터별 프롬프트를 NovelAI가 자체 지원하는 형식으로 보냅니다. 정밀 참조 이미지는 V4.5 모델에서만 작동합니다.
 
 ### Venice.ai
 
@@ -196,6 +196,22 @@ Marinara가 값을 채워 넣을 자리마다 워크플로에 다음 문자열�
 | NovelAI | Noise schedule | karras |
 
 서비스마다 **Prompt prefix**(프롬프트 접두사)와 **Negative prefix**(네거티브 접두사) 입력란도 있습니다. 여기에 넣은 글은 이 모델에서 보내는 모든 프롬프트 앞에 붙습니다. AUTOMATIC1111 / Forge와 ComfyUI에는 **Clip skip**(클립 건너뛰기) 입력란이 있습니다. AUTOMATIC1111 / Forge에는 **Restore faces**(얼굴 복원) 토글이 추가로 있습니다. ComfyUI에는 참조 이미지가 없을 때 1x1 플레이스홀더를 업로드하는 토글이 추가로 있으며, 이 토글은 참조 플레이스홀더를 쓰는 사용자 지정 워크플로에서만 의미가 있습니다. NovelAI에는 **Guidance rescale**(가이던스 리스케일)과 **UC preset**(UC 프리셋)이 추가로 있습니다.
+
+NovelAI에는 **Background dataset for backgrounds**(배경에 배경 데이터셋 사용) 설정도 있으며, 기본값은 꺼짐입니다. 켜면 V4.5와 V5 모델에서 배경 그림(캐릭터와 페르소나 Gallery 배경, 채팅과 Illustrator 장면 배경, 채팅 갤러리의 장소 그림, 게임 배경)의 프롬프트 앞에 NovelAI의 `background dataset` 태그가 붙습니다. NovelAI의 배경 데이터셋은 사진에 가까운 그림을 만드는 경향이 있으므로, 배경을 애니메이션풍 채팅에 맞추려면 꺼 두세요.
+
+## 투명 배경
+
+스프라이트와 스티커 또는 이모지 시트는 배경이 투명할 때 가장 보기 좋습니다. 각 이미지 모델에는 투명 배경을 그릴 수 있는지 지정하는 **Transparent backgrounds**(투명 배경) 설정이 있습니다.
+
+- **Automatic**(자동)이 기본값이며, Marinara가 알고 있는 모델 정보를 사용합니다. OpenAI, OpenRouter 또는 ChatGPT (Codex login)의 GPT Image 1, 1.5, 2.5, 2.6과 NovelAI 자체 서비스의 NovelAI V5(Full 또는 Curated)에는 **Automatic (supported)**(자동(지원됨))가 표시됩니다. GPT Image 2를 포함한 나머지 모델에는 **Automatic (not supported)**(자동(지원되지 않음))가 표시됩니다.
+- **Supported**(지원됨): 모델이나 워크플로가 실제로 배경이 투명한 그림을 반환합니다. 예를 들어 저장하기 전에 배경을 제거하는 ComfyUI 워크플로가 여기에 해당합니다.
+- **Not supported**(지원되지 않음): 더 나은 결과를 낼 수 있는 모델에서도 항상 Marinara가 제거할 단색 배경을 사용합니다.
+
+모델이 투명한 그림을 그리면 스프라이트와 시트 생성 시 투명 배경을 요청하고, 결과를 그려진 그대로 유지합니다. 그렇지 않으면 모델에 단색 초록, 마젠타, 청록 배경을 요청하고 Marinara가 그 배경을 제거합니다. 설정에 관계없이 투명 배경으로 돌아온 그림은 다시 정리하지 않습니다. 지원하는 모델이 단색 배경의 그림을 보내면 그려진 그대로 두고 스프라이트 검토 단계에서 표시합니다. 그 단계에서 **Apply cleanup**(정리 적용)으로 배경을 제거할 수 있습니다.
+
+NovelAI에는 전용 태그인 `transparent background, alpha transparency`로 요청하며, 대체 수단인 단색 배경 지시는 넣지 않습니다. 태그 기반 모델은 그 지시를 그려야 할 대상으로 해석하기 때문입니다.
+
+투명도를 위해 자체 옵션이 필요한 OpenAI 호환 서버에는 **Custom parameters**(사용자 지정 매개변수)로 옵션을 전달할 수 있습니다. 예를 들면 `"background": "transparent"`입니다.
 
 ## 서비스마다 다른 참조 이미지 지원
 

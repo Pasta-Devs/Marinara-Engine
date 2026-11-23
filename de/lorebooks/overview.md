@@ -14,7 +14,7 @@ Der Abgleich über Schlüsselwörter funktioniert mit jedem Modell und braucht k
 
 ## Ein Lorebook anlegen und einen Eintrag hinzufügen
 
-1. Öffne das Panel **Lorebooks** über die Seitenleiste.
+1. Öffne das Panel **Lorebooks** über die obere Leiste.
 2. Klick auf **New** (Neu, das Plus-Symbol). Das Fenster **Create Lorebook** (Lorebook erstellen) öffnet sich.
 3. Gib im Feld **Name** einen Namen ein. Dieses Feld ist Pflicht.
 4. Ergänze bei Bedarf eine **Description** (Beschreibung).

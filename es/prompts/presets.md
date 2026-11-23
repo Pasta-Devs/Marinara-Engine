@@ -25,7 +25,7 @@ Si el preset tiene variables, se abre la ventana **Configure Preset Variables** 
 
 ## Crear un preset
 
-1. Abre el panel **Presets** desde la barra lateral.
+1. Abre el panel **Presets** desde la barra superior.
 2. Haz clic en **New** (Nuevo; el icono de más). Se abre la ventana **Create Preset** (Crear preset).
 3. Escribe un **Name** (Nombre). Es obligatorio. Agrega una **Description** (Descripción) si quieres.
 4. Haz clic en **Create** (Crear). El preset se abre en el **Preset Editor**.
@@ -103,6 +103,7 @@ Un **Prompt Block** es texto que escribes tú: instrucciones de sistema, reglas 
 | **Lorebook Marker (All)** | Todas las entradas de lorebook activas. |
 | **Lorebook Marker (Before)** | Las entradas de lorebook configuradas para ir antes. |
 | **Lorebook Marker (After)** | Las entradas de lorebook configuradas para ir después. |
+| **Memory Recall** | Las memorias que [Memory Recall](../agents/memory.md) encuentra para cada respuesta. Sin este marcador, van justo antes del historial del chat. |
 
 La fila de un marcador muestra una insignia **MARKER**. No puedes escribir en la mayoría de los marcadores. Usa **Lorebook Marker (All)** salvo que quieras separar las entradas de lorebook en antes y después.
 
@@ -139,7 +140,7 @@ Un grupo envuelve varias secciones en un contenedor.
 2. Haz clic en el nombre del grupo para cambiarlo.
 3. Expande una sección y elige el grupo en su menú desplegable **Group**.
 
-Con **XML**, un grupo se convierte en una etiqueta padre. Con **MARKDOWN**, se convierte en un encabezado. Borrar un grupo no borra sus secciones. Solo pierden el grupo.
+Con **XML**, un grupo se convierte en una etiqueta padre. Con **MARKDOWN**, se convierte en un encabezado. Las secciones de un mismo grupo que no están una junto a otra reciben cada una su propia etiqueta o encabezado. Borrar un grupo no borra sus secciones. Solo pierden el grupo.
 
 ### Posición y profundidad
 
@@ -182,6 +183,12 @@ Debajo del menú desplegable, una insignia muestra de dónde viene el prompt.
 El cuadro de texto muestra el prompt en uso. Edítalo para crear una copia local del chat. Si tu texto coincide exactamente con el del preset o el predeterminado, Marinara lo trata como no personalizado. Mientras exista una edición personalizada, aparece un icono de restablecer (su tooltip dice **Reset to default prompt**).
 
 Los chats de Game agregan más controles. **Story style**, **Violence**, **Content boundaries** y **Rating guidelines** (Directrices de clasificación) definen qué puede contener la historia de la partida. Consulta [Cambiarlos durante una partida](../game/getting-started.md#change-them-during-a-game). Otros dos dan forma al prompt. **GM prompt style** (Estilo de prompt del GM) solo sustituye el prompt de Game, y una edición local del chat sigue teniendo prioridad. **Extra instructions** (Instrucciones adicionales) agrega texto al prompt de Game, hasta 2000 caracteres, como "Write in the style of Terry Pratchett."
+
+## Ordenar las secciones para guardar el prompt en caché
+
+La caché de prompts permite que un servicio reutilice el principio de un prompt que ya leyó, para que los chats largos cuesten menos y respondan antes. El servicio solo reutiliza el prompt hasta el primer texto que cambió desde el último mensaje. Las memorias recuperadas cambian con casi cada mensaje, así que, delante del historial del chat, dejan todo el historial fuera de la caché.
+
+Para colocarlas tú, agrega un marcador **Memory Recall** al preset. Arrástralo debajo de **Chat History**, o establece su **Position** en **Depth (from end of chat)** (Profundidad: desde el final del chat) para ponerlo dentro del historial. Las memorias leídas antes de la historia hacen que las respuestas se ajusten más a ellas, así que la posición predeterminada sigue siendo antes del historial.
 
 <a id="decision-blocks-and-prompt-caching"></a>
 

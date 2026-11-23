@@ -113,7 +113,7 @@ Ce service fait tourner des modèles Stable Diffusion hébergés. Un modèle est
 
 ### NovelAI
 
-NovelAI se concentre sur le style anime. Avec les modèles V4, V4.5 et V5, Marinara envoie des prompts de personnage natifs, avec leurs positions, pour les storyboards à plusieurs personnages et les scènes de l'Illustrator. Les images de référence précises ne fonctionnent que sur un modèle V4.5.
+NovelAI se concentre sur le style anime. Avec les modèles V4, V4.5 et V5, Marinara envoie des prompts de personnage natifs, avec leurs positions, pour les storyboards à plusieurs personnages, les scènes de l'Illustrator et les images de Professor Mari. Les images de référence précises ne fonctionnent que sur un modèle V4.5.
 
 ### Venice.ai
 
@@ -196,6 +196,24 @@ Chaque service a un champ **Seed** (graine aléatoire). La valeur -1 garde chaqu
 | NovelAI | Noise schedule | karras |
 
 Chaque service a aussi les champs **Prompt prefix** (préfixe de prompt) et **Negative prefix** (préfixe négatif). Le texte saisi là est ajouté au début de chaque prompt de ce modèle. AUTOMATIC1111 / Forge et ComfyUI ont un champ **Clip skip**. AUTOMATIC1111 / Forge ajoute un interrupteur **Restore faces**. ComfyUI ajoute un interrupteur qui téléverse une image de remplacement de 1x1 quand aucune image de référence n'est fournie, ce qui ne compte que pour les workflows personnalisés contenant des placeholders d'image de référence. NovelAI ajoute **Guidance rescale** et **UC preset**.
+
+NovelAI propose aussi le réglage **Jeu de données de décors pour les arrière-plans**, désactivé par défaut. Quand il est activé, les images d'arrière-plan (arrière-plans des galeries des personnages et des personas, arrière-plans de scène du chat et d'Illustrator, images de lieux de la galerie du chat et arrière-plans de jeu) commencent par le tag `background dataset` de NovelAI sur les modèles V4.5 et V5. Le jeu de données d'arrière-plans de NovelAI tend vers un rendu photographique : laisse donc ce réglage désactivé si tes arrière-plans doivent correspondre à un chat de style anime.
+
+<a id="transparent-backgrounds"></a>
+
+## Arrière-plans transparents
+
+Les sprites et les planches de stickers ou d'emojis rendent mieux sur un arrière-plan transparent. Chaque modèle d'image a un réglage **Fonds transparents** qui indique s'il peut en dessiner un :
+
+- **Automatique** (par défaut) utilise ce que Marinara sait du modèle. Il affiche **Automatique (pris en charge)** pour GPT Image 1, 1.5, 2.5 et 2.6 sur OpenAI, OpenRouter ou ChatGPT (Codex login), ainsi que pour NovelAI V5 (Full ou Curated) sur le service de NovelAI lui-même. Il affiche **Automatique (non pris en charge)** pour tous les autres, y compris GPT Image 2.
+- **Pris en charge** : le modèle ou le workflow renvoie des images avec un véritable arrière-plan transparent, par exemple un workflow ComfyUI qui supprime l'arrière-plan avant l'enregistrement.
+- **Non pris en charge** : utilise toujours la couleur unie que Marinara retire, même avec un modèle qui pourrait faire mieux.
+
+Quand le modèle dessine des images transparentes, les sprites et les planches lui demandent ce type de fond et conservent le résultat exactement tel qu'il a été dessiné. Sinon, le modèle reçoit la consigne de dessiner un fond uni vert, magenta ou cyan, que Marinara retire. Quel que soit le réglage, une image reçue avec un fond transparent n'est jamais nettoyée à nouveau. Une image renvoyée sur fond uni par un modèle qui prend en charge la transparence est laissée telle quelle et signalée à l'étape de vérification des sprites, où **Appliquer le nettoyage** permet de supprimer ce fond.
+
+Marinara envoie à NovelAI ses propres tags, `transparent background, alpha transparency`, sans la consigne de fond uni utilisée en dernier recours, qu'un modèle à tags interpréterait comme un élément à peindre.
+
+Un serveur compatible avec OpenAI qui a besoin de sa propre option de transparence peut la recevoir via **Paramètres personnalisés**, par exemple `"background": "transparent"`.
 
 ## La prise en charge des images de référence varie selon le service
 

@@ -113,7 +113,7 @@ Der Dienst führt gehostete Stable-Diffusion-Modelle aus. Ein Modell ist Pflicht
 
 ### NovelAI
 
-NovelAI hat seinen Schwerpunkt auf Artwork im Anime-Stil. Bei V4-, V4.5- und V5-Modellen sendet Marinara für Storyboards und Illustrator-Szenen mit mehreren Figuren native Figuren-Prompts samt Positionen. Präzise Referenzbilder funktionieren nur auf einem V4.5-Modell.
+NovelAI hat seinen Schwerpunkt auf Artwork im Anime-Stil. Bei V4-, V4.5- und V5-Modellen sendet Marinara für Storyboards, Illustrator-Szenen und Bilder von Professor Mari mit mehreren Figuren native Figuren-Prompts samt Positionen. Präzise Referenzbilder funktionieren nur auf einem V4.5-Modell.
 
 ### Venice.ai
 
@@ -196,6 +196,22 @@ Jeder Dienst hat ein Feld **Seed**. Mit -1 bleibt jedes Bild zufällig. Jede and
 | NovelAI | Noise schedule | karras |
 
 Jeder Dienst hat außerdem die Felder **Prompt prefix** und **Negative prefix**. Text darin wird jedem Prompt dieses Modells vorangestellt. AUTOMATIC1111 / Forge und ComfyUI haben ein Feld **Clip skip**. AUTOMATIC1111 / Forge ergänzt den Schalter **Restore faces**. ComfyUI ergänzt einen Schalter, der einen 1x1-Platzhalter hochlädt, wenn kein Referenzbild mitkommt. Er spielt nur bei eigenen Workflows mit Referenz-Platzhaltern eine Rolle. NovelAI ergänzt **Guidance rescale** und **UC preset**.
+
+NovelAI hat außerdem die Einstellung **Hintergrunddatensatz für Hintergrundbilder**, die standardmäßig aus ist. Wenn du sie einschaltest, wird bei V4.5- und V5-Modellen für Hintergrundbilder (Hintergründe in Charakter- und Persona-Galerien, Szenenhintergründe für Chats und Illustrator, Ortsbilder in der Chat-Galerie und Game-Hintergründe) der NovelAI-Tag `background dataset` vorangestellt. NovelAIs Hintergrunddatensatz liefert eher fotografische Bilder. Lass die Einstellung deshalb aus, wenn deine Hintergründe zu einem Chat im Anime-Stil passen sollen.
+
+## Transparente Hintergründe
+
+Sprites sowie Sticker- und Emoji-Bögen sehen mit einem transparenten Hintergrund am besten aus. Jedes Bildmodell hat eine Einstellung **Transparente Hintergründe**, die angibt, ob es einen solchen Hintergrund erzeugen kann:
+
+- **Automatisch** ist die Standardeinstellung und nutzt Marinaras Wissen über das Modell. Für GPT Image 1, 1.5, 2.5 und 2.6 bei OpenAI, OpenRouter oder ChatGPT (Codex login) sowie für NovelAI V5 (Full oder Curated) beim eigenen Dienst von NovelAI wird **Automatisch (unterstützt)** angezeigt. Für alle anderen Modelle einschließlich GPT Image 2 wird **Automatisch (nicht unterstützt)** angezeigt.
+- **Unterstützt**: Das Modell oder der Workflow liefert Bilder mit einem wirklich transparenten Hintergrund, etwa ein ComfyUI-Workflow, der den Hintergrund vor dem Speichern entfernt.
+- **Nicht unterstützt**: Es wird immer die einfarbige Fläche verwendet, die Marinara entfernt, selbst wenn das Modell mehr könnte.
+
+Wenn das Modell transparente Bilder erzeugt, wird für Sprites und Bögen ein transparenter Hintergrund angefordert und das Ergebnis genau wie gezeichnet beibehalten. Andernfalls wird das Modell um einen einfarbigen grünen, magentafarbenen oder cyanfarbenen Hintergrund gebeten, den Marinara entfernt. Unabhängig von der Einstellung wird ein Bild, das bereits transparent zurückkommt, nie erneut bereinigt. Liefert ein Modell mit Transparenzunterstützung ein Bild mit undurchsichtigem Hintergrund, bleibt es unverändert und wird bei der Sprite-Prüfung markiert. Dort entfernt **Bereinigung anwenden** den Hintergrund.
+
+NovelAI erhält dafür seine eigenen Tags, `transparent background, alpha transparency`, ohne die Ersatzanweisung für einen einfarbigen Hintergrund. Ein Modell, das Tags verwendet, würde diese als etwas verstehen, das es zeichnen soll.
+
+Ein OpenAI-kompatibler Server, der eine eigene Option für Transparenz braucht, kann sie über **Eigene Parameter** erhalten, zum Beispiel `"background": "transparent"`.
 
 ## Referenzbilder je nach Dienst
 

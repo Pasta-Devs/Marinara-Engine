@@ -235,7 +235,7 @@ O **Built-in model** (modelo embutido) roda no seu computador, sem chave de API.
 
 ### O Memory Recall não recupera nada
 
-O **Memory Recall** procura mensagens anteriores e insere as mais relevantes de volta no prompt.
+O **Memory Recall** procura mensagens anteriores que não cabem mais no prompt e insere as mais relevantes de volta. Enquanto o chat inteiro cabe na janela de contexto, ele não acrescenta nada. Veja [O que o Memory Recall acrescenta](agents/memory.md#what-memory-recall-adds).
 
 1. Abra **Chat Settings → Memory Recall** e confirme que **Enable Memory Recall** está ligado.
 2. Abra **Access memories for this chat**. Em **Memories for This Chat**, olhe o status de cada trecho.

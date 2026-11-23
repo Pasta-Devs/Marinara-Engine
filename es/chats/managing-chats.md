@@ -1,6 +1,8 @@
 # Cómo gestionar tu lista de chats
 
-El panel **Chats** de la izquierda contiene todos tus chats. Úsalo para empezar, encontrar, ordenar, organizar y eliminar chats.
+El panel **Chats** contiene todos tus chats. Úsalo para iniciar, buscar, ordenar, organizar y eliminar chats. Para abrirlo, haz clic en **Chats** en la barra superior. Si no lo ves, abre primero **Más**.
+
+En una computadora, **Chats** se abre en la barra lateral, en el mismo lugar que **Personajes** y los demás paneles. Solo se muestra uno a la vez: abrir un panel reemplaza **Chats**, y hacer clic en **Chats** lo trae de vuelta. La barra lateral está a la derecha, a menos que establezcas **Lado de la barra lateral en el escritorio** en **Izquierda** (consulta [Ajustes de apariencia](../appearance/appearance-settings.md#other-app-style-controls)). En un teléfono o una tableta, se abre como un panel a pantalla completa.
 
 ## La lista de chats y las pestañas de modo
 

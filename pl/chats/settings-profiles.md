@@ -87,7 +87,7 @@ Gwiazdka obok listy rozwijanej oznacza profil używany automatycznie w nowych cz
 
 **Export settings profile (.json)** pobiera plik `.marinara-settings-profile.json`, który można zachować jako kopię zapasową albo udostępnić. **Import settings profile (.json)** tworzy nowy profil ze zgodnego pliku i nigdy nie nadpisuje istniejącego. Starsze eksporty nadal da się importować. Nieudany import pokazuje komunikat **Import failed**.
 
-Profile przechowują ustawienia, a nie tajne dane dostawców. Wyeksportowany albo zaimportowany profil pomija też webhook kopii czatu w serwisie Discord, adres DeepLX, klucz DeepL i adres Intiface. Profile zapisane w tej instalacji je zachowują. Wyeksportowane pliki nie zawierają persony ani lorebooków, ponieważ istnieją one tylko w tej instalacji.
+Profile przechowują ustawienia, a nie tajne dane dostawców. Wyeksportowany albo zaimportowany profil pomija też webhook kopii czatu w serwisie Discord, adres DeepLX, klucz DeepL i adres Intiface. Profile zapisane w tej instalacji je zachowują. Wyeksportowane pliki nie zawierają persony, lorebooków ani wyborów zmiennych presetu, ponieważ należą one do tej instalacji.
 
 ## Profil Default
 
@@ -106,7 +106,7 @@ Gdy nowy czat korzysta z domyślnego profilu z zapisanym układem, ten układ ma
 Profil zapisuje sposób, w jaki czat rozmawia z modelem:
 
 - Połączenie.
-- Preset promptu (w trybie Conversation nazywany źródłem promptu).
+- Preset promptu (w trybie Conversation nazywany źródłem promptu) wraz z twoimi wyborami jego [zmiennych presetu](../prompts/preset-variables.md). Zastosowanie profilu przenosi te wybory do czatu. Profil zapisany, zanim zaczął je przechowywać, zostawia własne wybory czatu.
 - Agenci i narzędzia.
 - Tłumaczenie, Memory Recall i Advanced Parameters.
 - Układ okien i przycisków: położenia, rozmiary, przypięcia, blokady, to, które narzędzia są wewnątrz Chat Settings, a które wydzielone, otwarte okna narzędzi oraz położenia przycisków na komputerach i telefonach. Profile bez zapisanego układu, takie jak **Default**, zostawiają układ czatu bez zmian.
@@ -121,7 +121,7 @@ Profil może też przechowywać **wybory początkowe**: personę, lorebooki do w
 - **Save current chat settings into this profile** zastępuje lorebooki profilu tymi, które dodano do czatu za pomocą **Add Lorebook** (dodanie lorebooka) albo przez zastosowanie profilu. Lorebook utworzony dla czatu przez agenta Lorebook Keeper nie zostaje zapisany. Jeśli nie dodano żadnych lorebooków, po zapisie profil nie ma żadnego lorebooka. Profil zachowuje własną personę i tło. Profil bez tła przejmuje tło czatu, gdy zapisujesz do niego ustawienia.
 - Aktualizacja innych czatów nigdy nie zmienia ich persony, lorebooków ani tła.
 
-Profil nie zastępuje treści należących do czatu: postaci, sprite'ów, podsumowania, tagów ani promptu sceny. Nie zawiera też historii rozmowy ani bieżącego stanu, takiego jak zmienne makr, postacie wyłączone przez ciebie czy pokój gry wieloosobowej.
+Profil nie zastępuje treści należących do czatu: postaci, sprite'ów, podsumowania, tagów, promptu sceny ani **Author's Notes** (Notatki autora). Nie zawiera też historii rozmowy ani bieżącego stanu, takiego jak zmienne makr, postacie wyłączone przez ciebie czy pokój gry wieloosobowej. Profil zapisany we wcześniejszej wersji może nadal zawierać **Author's Notes**, ale jego zastosowanie zachowuje własne notatki czatu.
 
 ### Co kopiuje Save and update
 
@@ -134,13 +134,14 @@ Profil nie zastępuje treści należących do czatu: postaci, sprite'ów, podsum
 - Ustawienia pamięci i podsumowań.
 - Tłumaczenie.
 - Układ okien.
+- Wybory zmiennych presetu, tylko w czatach korzystających z tego samego presetu promptu co profil.
 
 Wszystko inne zostaje tak, jak jest w danym czacie:
 
 - Połączenie, preset promptu i własny prompt czatu.
 - Fabuła i postacie czatu.
 - Lorebooki i tło czatu.
-- Notatki i postęp czatu.
+- **Author's Notes** i postęp czatu.
 - To, których komend Roleplay może używać tylko narrator czatu.
 - To, czy Noodle może korzystać z wiadomości czatu.
 

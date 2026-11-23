@@ -81,7 +81,20 @@
 **OpenRouter** 是聚合服务，在模型编辑器里多出两个选项：
 
 - **Preferred provider**(优先服务商) 强制把请求路由到指定的一个后端。名称必须与 OpenRouter 模型页上的一致。留空则自动路由。
-- **Enable prompt caching** 为经由 OpenRouter 路由的 Claude 模型发送缓存提示。其他模型大多会自己缓存。
+- **Enable prompt caching**(启用提示词缓存) 会标记提示词中模型可以在下一条消息时复用的部分，让长聊天更省钱。添加到 OpenRouter 账号的每个模型都默认开启它。具体标记哪些部分取决于模型：
+
+| 模型 | 缓存内容 | 保留时间 |
+| --- | --- | --- |
+| Claude | 系统提示词、到 **Cache depth**(缓存深度) 为止的聊天历史，以及最新一条消息 | 5 分钟；开启 **Extended token caching (1 hour)**(延长 token 缓存（1 小时）) 后为 1 小时 |
+| Qwen | 系统提示词和到 **Cache depth** 为止的聊天历史 | 5 分钟 |
+| Gemini | 系统提示词 | 5 分钟 |
+| GPT、DeepSeek、Grok、Kimi 等 | 无论开关是否开启，服务商都会自行缓存 | 由服务商决定 |
+
+Marinara 还会要求 OpenRouter 让每个聊天始终使用同一个后端，这样上一条消息的缓存仍然可用。即使关闭开关，这也会生效。如果设置了 **Preferred provider**，则会固定到指定后端。
+
+消息之间提示词的开头保持不变时，缓存最省钱。见[提示词缓存](../prompts/conditional-prompts.md#prompt-caching)。
+
+> **注意：** 写入缓存比普通输入更贵，例如 Claude 的 5 分钟缓存写入费用为 1.25 倍，1 小时缓存为 2 倍。读取缓存则便宜得多。见 OpenRouter 的[提示词缓存指南](https://openrouter.ai/docs/guides/best-practices/prompt-caching)。
 
 ### NanoGPT
 

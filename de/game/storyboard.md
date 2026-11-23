@@ -196,7 +196,7 @@ Storyboard ist vom Illustrator getrennt, und die manuellen Aktionen des Illustra
 | **Clip seconds** | 5 (1 bis 15) | Gewünschte Länge jedes Clips. |
 | **Viewer display** | Floating viewer | Der Standard für den Game-Viewer. Roleplay zeigt Storyboards immer direkt im Chat. |
 | **Default Roleplay episode interval** | 1 (1 bis 100) | Wie viel neuer Roleplay-Stoff zwischen zwei automatischen Episoden nötig ist. |
-| **Attach Card Appearance** | On | Ergänzt die Bild-Prompts um das Aussehen der erkannten Charaktere. Eine Karte oder Persona mit eingeschaltetem **Image Appearance Override** (eigene Aussehensbeschreibung für Bilder) liefert diesen Text statt ihres Felds **Appearance**. |
+| **Aussehen aus der Karte anhängen** | An | Fügt das Aussehen passender Charaktere zu Bild-Prompts hinzu. Eine Karte oder Persona, die **Bild-Tags** verwendet, liefert diese statt ihrer Prosa aus **Aussehen**. |
 | **Send Avatar References** | On | Schickt die Avatare der erkannten Charaktere und Personas mit, wenn der Bilddienst Referenzen annimmt. |
 | **Use the final image template** | On | Formatiert ein geplantes Bild, bevor es an den Bilddienst geht. In einem Game-Chat heißt die Einstellung **Use Storyboard Template**. |
 | **Use NovelAI character prompts** | On | Native Prompts pro Charakter, nur bei unterstützten offiziellen NovelAI-Konten mit V4 und V4.5. Andere Dienste nutzen den gemeinsamen Prompt-Pfad. |

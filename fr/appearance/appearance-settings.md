@@ -63,7 +63,8 @@ Si ton appareil demande de réduire les animations, les deux effets sont ignoré
 
 - **Custom Mouse Pointer** (curseur de souris personnalisé, activé par défaut) affiche le curseur aux couleurs d'accentuation de Marinara. Désactive-le pour retrouver le curseur du système, ou pour laisser un thème personnalisé gérer le curseur.
 - **Reduce Ambient Animations & Effects** (réduire les animations et effets d'ambiance) arrête les animations décoratives, les particules d'ambiance, les aperçus qui tournent et l'apparition progressive du texte. Marinara le fait aussi quand ton appareil demande de réduire les animations.
-- **Desktop sidebar width** (largeur des barres latérales sur ordinateur) règle la largeur des deux barres latérales sur ordinateur. **Reset width** (réinitialiser la largeur) la rétablit. Les téléphones gardent leur disposition.
+- **Largeur de la barre latérale sur ordinateur** règle la largeur de la barre latérale sur un ordinateur, de 280 à 480 px. **Chats** et les panneaux, comme **Personnages** et **Réglages**, s'ouvrent tous dans cette même barre latérale. **Réinitialiser la largeur** la remet à 320 px. Tu peux aussi faire glisser le bord intérieur de la barre latérale. Les téléphones et les tablettes gardent leurs panneaux en plein écran.
+- **Côté de la barre latérale sur ordinateur** ancre la barre latérale à **Droite** (par défaut) ou à **Gauche** de la fenêtre. Avec **Gauche**, la barre du haut s'inverse : **Chats** et les boutons des panneaux passent à gauche, et **Accueil** passe à droite. Cela fonctionne uniquement sur ordinateur. Les téléphones et les tablettes gardent leur disposition.
 
 ### Chat widget style
 
@@ -125,7 +126,7 @@ La section **Backgrounds** (arrière-plans) contient le sélecteur **Chat Backgr
 
 | Réglage | Rôle | Par défaut |
 | --- | --- | --- |
-| **Chat position** (position du chat) | L'emplacement des messages et de la zone de saisie sur un écran large : **Left**, **Center** ou **Right**. Une barre latérale ouverte ou un Tracker Panel du même côté les décale. Sur téléphone, le chat garde toute la largeur. | **Center** |
+| **Position du chat** | L'emplacement des messages et du champ de saisie sur les écrans larges : **Gauche**, **Centre** ou **Droite**. Une barre latérale ouverte ou un Tracker Panel du même côté les décale (voir **Côté de la barre latérale sur ordinateur**). Les téléphones gardent toute la largeur. | **Centre** |
 | **Visual Novel display** (affichage visual novel) | Affiche un paragraphe terminé à la fois, avec un portrait de dialogue et tes sprites (les images des personnages sur le plateau). Il change le Roleplay en cours et la valeur par défaut des chats sans style enregistré. | Désactivé |
 | **Roleplay Messages Background Opacity** | Un curseur de 0 % à 100 %. Baisse-le pour laisser l'arrière-plan transparaître à travers les bulles de message. | 90 % |
 | **Roleplay Avatars** | Le style d'avatar affiché à côté de chaque message : **None**, **Small Circles**, **Small Rectangles** ou **Glued Side Panel**. | **Small Circles** |

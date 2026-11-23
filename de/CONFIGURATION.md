@@ -359,11 +359,12 @@ Video-Konten richtest du in der App ein. Diese Einstellungen justieren nur die A
 
 ### Lorebooks
 
-Beide Einstellungen sind standardmäßig aus und gelten nach einer `.env`-Änderung ab der nächsten Generierung. Ist `LOREBOOK_STABLE_GROUP_WINNERS` gesetzt, hat die Variable Vorrang vor dem Schalter **Stable lorebook picks** (stabile Lorebook-Auswahl) unter **Settings → Advanced → Features**. Sonst entscheidet der Schalter. Siehe [Funktionsschalter](configuration/features.md).
+Alle sind standardmäßig aus. `LOREBOOK_STABLE_GROUP_WINNERS` und `LOREBOOK_COMPACT_STORED_SCANS` gelten nach einer `.env`-Änderung ab der nächsten Generierung, `LOREBOOK_NEW_BOOK_VECTORS` ab dem nächsten neu erstellten Lorebook. Ist `LOREBOOK_STABLE_GROUP_WINNERS` oder `LOREBOOK_NEW_BOOK_VECTORS` gesetzt, hat die Variable Vorrang vor dem zugehörigen Schalter (**Stabile Lorebook-Auswahl** oder **Vektoren für neue Lorebooks einschalten**) unter **Einstellungen → Erweitert → Funktionen**. Andernfalls entscheidet der Schalter. Siehe [Funktionsschalter](configuration/features.md).
 
 | Variable | Standard | Wirkung |
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | `false` | Behält pro Chat denselben Gewinner einer Einschlussgruppe, solange die Kandidaten gleich bleiben, statt bei jeder Generierung neu auszulosen. Hält den Anfang des Prompts stabil für den Prompt-Cache des Anbieters. |
+| `LOREBOOK_NEW_BOOK_VECTORS` | `false` | Schaltet bei neuen Lorebooks **Vektoren** von Anfang an ein, damit ihre Einträge sofort vektorisiert und anhand ihrer Bedeutung gefunden werden können. Gilt für Lorebooks, die in der App erstellt, ohne eigene Einstellung importiert oder von Game Mode und dem Lorebook Keeper angelegt werden. Von Professor Mari erstellte Lorebooks starten bereits mit eingeschalteten **Vektoren**. Bestehende Lorebooks behalten ihre eigene Einstellung. |
 | `LOREBOOK_COMPACT_STORED_SCANS` | `false` | Speichert den vollständigen Text aktivierter Einträge nur an der neuesten Assistenten- oder Erzählernachricht. Ältere Nachrichten behalten Eintrags-IDs, Schlüssel und Scores. Macht Chats mit großen Lorebooks deutlich kleiner. Werden neuere Nachrichten gelöscht, zeigen Active Context und Agentenwiederholungen für die wieder neueste Nachricht den aktuellen Text des Eintrags. |
 
 `scripts/compact-lorebook-scans.mjs` wendet dieselbe Regel auf ältere Chats an. Stoppe zuerst den Server. Ohne `--apply` bleibt es ein Probelauf, und vor dem Schreiben sichert es beide Nachrichtentabellen.

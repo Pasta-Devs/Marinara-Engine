@@ -75,7 +75,7 @@ Uma tarefa é algo que um modelo faz por você. A caixa **Jobs** lista as tarefa
 
 Cada linha mostra o modelo que faz aquela tarefa, ou o que a tarefa faz sem um modelo, como **Follows Main** ou **Off**. Uma tarefa sem modelo mostra **N models found** (modelos encontrados) com **Pick** (escolher), ou **None in your accounts** (nenhum nas suas contas) com **Add**. O seletor lista modelos compatíveis de todas as contas. **Add** abre a janela **Add account** e volta à tarefa. Clique em **Jobs** para recolher a caixa.
 
-Para trocar o modelo de uma tarefa, clique na linha dela. Abre **Model for** (modelo para) aquela tarefa, exceto em três linhas. **Decision** e **Embeddings** abrem os próprios controles (veja [Modelos de decisão](decision-models.md) e [Provedores de IA compatíveis](providers-reference.md#embeddings)). **Dictation** abre a configuração de fala. As linhas **Voice** e **Dictation** também têm uma engrenagem que abre a janela de configurações. Escolher um modelo de **Voice** ativa a síntese de fala.
+Para trocar o modelo de uma tarefa, clique na linha dela. Abre **Model for** (modelo para) aquela tarefa, exceto em três linhas. **Decision** e **Embeddings** abrem os próprios controles (veja [Modelos de decisão](decision-models.md) e [Provedores de IA compatíveis](providers-reference.md#embeddings)). **Dictation** abre a configuração de fala. As linhas **Voice**, **Dictation** e **Leitura de imagens** também têm uma engrenagem que abre a janela de configurações; a de Leitura de imagens contém o que é pedido ao modelo (veja [Descrição de imagens](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Escolher um modelo de **Voice** ativa a síntese de fala.
 
 Em **Model for**:
 

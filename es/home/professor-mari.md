@@ -263,6 +263,8 @@ En **Runtime** (Entorno de ejecución) puedes elegir **Pi (experimental)**, la o
 
 **Read the handbook before the first write** (Leer el manual antes de la primera escritura), también en **Runtime**, está activado de forma predeterminada. Su primer cambio en un área con un skill integrado se rechaza hasta que haya leído ese skill. Esto ayuda a los modelos más pequeños. Solo tú puedes desactivarlo.
 
+**Turn context placement** (Ubicación del contexto del turno), debajo de **Runtime**, establece dónde lee el contexto de cada turno: la hora actual, los chats adjuntos, los enlaces @ y sus notas de turnos anteriores. El valor predeterminado, **Above the last 2 messages** (Encima de los últimos 2 mensajes), lo coloca encima de su última respuesta y de tu mensaje, para que tu solicitud vaya después y sea menos probable que continúe una historia que se le mostró. **At the end, after your message** (Al final, después de tu mensaje) hace que lo lea al final. Cada paso hacia atrás reduce un poco la parte del chat que se reutiliza desde la caché de prompts de tu proveedor. Sus instrucciones siempre van primero y no se mueven.
+
 ### Qué puede alcanzar en tu computadora
 
 Puede leer y cambiar los propios archivos de programa de Marinara y ejecutar comandos en un entorno aislado, así que puede reparar la app. La mayoría de las personas nunca necesitan esto.

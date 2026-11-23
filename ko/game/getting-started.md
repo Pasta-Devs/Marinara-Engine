@@ -20,7 +20,7 @@ Game Mode(게임 모드)는 Marinara Engine을 AI 게임 마스터가 진행하�
 
 ## 게임 시작하기
 
-1. 채팅 사이드바에서 **GM**(게임) 탭을 열고 **+** 버튼, 즉 **New Game**(새 게임)을 클릭하세요. 또는 홈 화면에서 **Game**(게임)을 클릭하세요. 설정 마법사가 열립니다. [채팅 목록 관리](../chats/managing-chats.md)를 참고하세요.
+1. 상단 바에서 **Chats**(채팅)를 클릭하고 **GM**(게임) 탭을 연 다음 **+** 버튼, 즉 **New Game**(새 게임)을 클릭하세요. 또는 홈 화면에서 **Game**(게임)을 클릭하세요. 설정 마법사가 열립니다. [채팅 목록 관리](../chats/managing-chats.md)를 참고하세요.
 2. 첫 단계에서 GM을 구동할 **Model**(모델)을 고르세요. 전에 추가한 계정을 선택하세요. 목록이 비어 있으면 먼저 계정을 추가하세요. 월드 생성에는 성능 좋은 유료 모델을 고르세요([모델 고르기](#choosing-a-model) 참고).
 3. 단계마다 **Next**(다음)를 클릭하세요. 나머지 입력란에는 모두 기본값이 있으므로 그대로 넘어가도 됩니다.
 4. 마지막 단계에서 **Create world**(세계 생성)를 클릭하세요. Marinara가 세계를 만드는 동안 버튼에 **Generating World…**(월드 생성 중…)가 표시됩니다. 모델에 보내는 큰 요청 하나이므로 끝날 때까지 기다리세요.
@@ -157,7 +157,7 @@ GM이 작은 실수마다 벌을 주는 일 없이 이야기와 캐릭터를 즐
 
 | 컨트롤 | 들어 있는 것 |
 |---|---|
-| **Game controls**(게임 컨트롤, 게임 컨트롤러 아이콘) | **Retry turn**(턴 재시도), **Retry scene analysis**(장면 분석 재시도), Music DJ가 음악을 재생할 때의 **Retry Music DJ**(Music DJ 재시도), **Retry assets image generation**(에셋 이미지 생성 재시도)이 있습니다. 스토리보드 배경에는 다시 재생, 재생/일시정지, 음소거도 있습니다. **Edit game data**(게임 데이터 편집)는 저장된 데이터를 직접 고칩니다([게임 데이터 직접 고치기](sessions-and-saves. md#editing-game-data-by-hand) 참고). **Checkpoints**(체크포인트)는 이전 시점으로 돌아갑니다([게임이 저장되는 방식](sessions-and-saves. md#how-your-game-saves) 참고). |
+| **Game controls**(게임 컨트롤, 게임 컨트롤러 아이콘) | **Retry turn**(턴 재시도), **Retry scene analysis**(장면 분석 재시도), Music DJ가 음악을 재생할 때의 **Retry Music DJ**(Music DJ 재시도), **Retry assets image generation**(에셋 이미지 생성 재시도)이 있습니다. 스토리보드 배경에는 다시 재생, 재생/일시정지, 음소거도 있습니다. **Edit game data**(게임 데이터 편집)는 저장된 데이터를 직접 고칩니다([게임 데이터 직접 고치기](sessions-and-saves.md#editing-game-data-by-hand) 참고). **Checkpoints**(체크포인트)는 이전 시점으로 돌아갑니다([게임이 저장되는 방식](sessions-and-saves.md#how-your-game-saves) 참고). |
 | **Session**(세션, 깃펜) | 세션 기록, 일지, 세션 조작입니다. [Game Mode: 세션과 저장 데이터](sessions-and-saves.md)를 참고하세요. |
 | **Volume**(음량, 스피커) | **Master**, **Music**, **Sound Effects**, **TTS**, **Ambient** 음량입니다. |
 | **Game Assets**(게임 에셋, 폴더) | 장면 미디어와 Asset Browser입니다. [게임 에셋](game-assets.md)을 참고하세요. |

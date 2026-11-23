@@ -113,7 +113,7 @@ Udostępnia hostowane modele Stable Diffusion. Model jest wymagany, więc wpisz 
 
 ### NovelAI
 
-Usługa NovelAI skupia się na grafice w stylu anime. Przy modelach V4, V4.5 i V5 Marinara wysyła natywne prompty poszczególnych postaci wraz z ich pozycjami dla storyboardów i scen agenta Illustrator z wieloma postaciami. Precyzyjne obrazy referencyjne działają wyłącznie na modelu V4.5.
+Usługa NovelAI skupia się na grafice w stylu anime. Przy modelach V4, V4.5 i V5 Marinara wysyła natywne prompty poszczególnych postaci wraz z ich pozycjami dla storyboardów, scen agenta Illustrator i obrazów asystentki Professor Mari z wieloma postaciami. Precyzyjne obrazy referencyjne działają wyłącznie na modelu V4.5.
 
 ### Venice.ai
 
@@ -196,6 +196,22 @@ Każda usługa ma pole **Seed** (ziarno). Wartość -1 sprawia, że każdy obraz
 | NovelAI | Noise schedule | karras |
 
 Każda usługa ma też pola **Prompt prefix** i **Negative prefix**. Wpisany tam tekst trafia na początek każdego promptu w tym modelu. AUTOMATIC1111 / Forge i ComfyUI mają pole **Clip skip**. AUTOMATIC1111 / Forge dokłada przełącznik **Restore faces**. ComfyUI dokłada przełącznik, który wgrywa obrazek zastępczy 1x1, gdy nie podano obrazu referencyjnego. Ma on znaczenie tylko przy własnych workflow ze znacznikami obrazów referencyjnych. NovelAI dokłada pola **Guidance rescale** i **UC preset**.
+
+NovelAI ma też ustawienie **Zbiór danych teł do generowania tła**, domyślnie wyłączone. Gdy jest włączone, w modelach V4.5 i V5 prompty obrazów tła (teł w galeriach postaci i person, teł scen w czacie i tworzonych przez agenta Illustrator, obrazów lokacji w galerii czatu oraz teł gry) zaczynają się od tagu NovelAI `background dataset`. Zbiór danych tła NovelAI sprzyja stylowi fotograficznemu, więc zostaw to ustawienie wyłączone, jeśli tła mają pasować do czatu w stylu anime.
+
+## Przezroczyste tła
+
+Sprite'y oraz arkusze naklejek lub emoji wyglądają najlepiej z przezroczystym tłem. Każdy model obrazów ma ustawienie **Przezroczyste tła**, które określa, czy potrafi takie tło narysować:
+
+- **Automatycznie**, ustawienie domyślne, korzysta z tego, co Marinara wie o modelu. Pokazuje **Automatycznie (obsługiwane)** dla GPT Image 1, 1.5, 2.5 i 2.6 w usługach OpenAI, OpenRouter lub ChatGPT (Codex login), a także dla NovelAI V5 (Full lub Curated) we własnej usłudze NovelAI. Pokazuje **Automatycznie (nieobsługiwane)** dla wszystkich pozostałych modeli, w tym GPT Image 2.
+- **Obsługiwane**: model lub workflow zwraca obrazy z prawdziwym przezroczystym tłem, na przykład workflow ComfyUI, który usuwa tło przed zapisem.
+- **Nieobsługiwane**: zawsze używaj jednolitego koloru, który Marinara usuwa, nawet w przypadku modelu, który potrafi więcej.
+
+Gdy model rysuje obrazy z przezroczystym tłem, żądania sprite'ów i arkuszy proszą o takie tło, a wynik jest zachowywany dokładnie tak, jak go narysowano. W przeciwnym razie model dostaje prośbę o jednolite zielone, magentowe albo cyjanowe tło, które Marinara usuwa. Niezależnie od ustawienia obraz zwrócony z przezroczystym tłem nigdy nie jest czyszczony ponownie. Obraz z jednolitym tłem zwrócony przez model obsługujący przezroczystość zostaje bez zmian i jest oznaczany na etapie przeglądania sprite'ów, gdzie przycisk **Zastosuj czyszczenie** usuwa tło.
+
+Do NovelAI trafiają jego własne tagi, `transparent background, alpha transparency`, bez zastępczej instrukcji o jednolitym kolorze tła, którą model oparty na tagach odczytałby jako coś do namalowania.
+
+Serwer zgodny z OpenAI, który wymaga własnej opcji przezroczystości, może ją otrzymać przez **Własne parametry**, na przykład `"background": "transparent"`.
 
 ## Obsługa obrazów referencyjnych zależy od usługi
 

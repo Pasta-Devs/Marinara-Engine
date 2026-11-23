@@ -91,6 +91,8 @@ Te kontrolki decydują o tym, w którym miejscu promptu ląduje aktywowany wpis.
 | **Depth** | Widoczne tylko przy **@ Depth**. Ile wiadomości wstecz od najnowszej znajduje się wpis. Domyślnie 4. |
 | **Order** | Kolejność, gdy aktywuje się kilka wpisów. Niższa liczba trafia wcześniej i przeżywa przycinanie, gdy limit jest ciasny. Domyślnie 100. |
 
+Wpisy z pozycją **Przed definicjami postaci** i **Po definicjach postaci** trafiają tam, gdzie preset umieszcza swoje znaczniki lorebooka. Znacznik **Lorebook Marker (All)** umieszcza te grupy, których nie umieścił już wcześniejszy znacznik, więc użyty samodzielnie umieszcza obie razem. Wbudowany preset **Marinara's Universal Preset** ma taki znacznik przed historią czatu. Zobacz [Sekcje i znaczniki](../prompts/presets.md#sections-and-markers).
+
 Pole **Role** (rola) jest w rozwiniętym panelu wpisu, a nie w szybkich kontrolkach. Oznacza wstawiony tekst jako **System**, **User** albo **Assistant**, ma znaczenie tylko przy **@ Depth**, a domyślnie ma wartość **System**.
 
 Zostaw te kontrolki na wartościach domyślnych, chyba że wpis potrzebuje czegoś więcej. Po **@ Depth** sięgaj rzadko. Tekst ląduje między niedawnymi wiadomościami jak wtręt, więc zostaw tę pozycję dla reguły, o której model wciąż zapomina, albo faktu, który zmienił się przed chwilą. Na przykład "Karczma właśnie stanęła w ogniu." na **@ Depth** 1.

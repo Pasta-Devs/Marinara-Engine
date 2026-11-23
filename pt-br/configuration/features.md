@@ -14,6 +14,7 @@ As alterações valem imediatamente, sem reiniciar o servidor nem recarregar a p
 | **Retry failed provider calls** (repetir chamadas de provedor que falharam) | `providerRetry` | Desligada | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
 | **Lorebook activation stats** (estatísticas de ativação de lorebook) | `usageAndActivationStats` | Desligada | nenhuma |
 | **Recover deleted chat messages** (recuperar mensagens de chat excluídas) | `messageTrash` | Desligada | nenhuma |
+| **Vetores ativados para novos lorebooks** | `newLorebookVectors` | Desligado | `LOREBOOK_NEW_BOOK_VECTORS` |
 
 Pesquisar `features` nas configurações leva à seção.
 
@@ -71,6 +72,16 @@ Ligada: as mensagens de chat excluídas vão para a aba **Trash** (lixeira) da b
 
 Desligada: as mensagens excluídas são removidas na hora.
 
+### Vetores ativados para novos lorebooks
+
+Chave de configuração: `newLorebookVectors`. Variável de ambiente: `LOREBOOK_NEW_BOOK_VECTORS`.
+
+Ligado: um novo lorebook começa com **Vetores** ativados, para que as entradas possam ser vetorizadas e encontradas pelo significado desde o início.
+
+Desligado: um novo lorebook começa com **Vetores** desativados. As palavras-chave continuam funcionando, e você pode ativar **Vetores** no lorebook depois.
+
+A opção decide apenas o valor inicial dos lorebooks criados sem um: **Criar lorebook** (que mostra o botão liga/desliga para você poder alterá-lo para aquele lorebook), importações cujo arquivo não tem configuração própria e lorebooks feitos pelo Game Mode ou pelo Lorebook Keeper. Os lorebooks existentes mantêm a própria configuração. Os lorebooks que a Professor Mari cria já começam com **Vetores** ativados.
+
 <a id="precedence"></a>
 
 ## Precedência
@@ -83,6 +94,7 @@ Desligada: as mensagens excluídas são removidas na hora.
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | Seleções estáveis de lorebook | `true`, `1`, `yes` ou `on` ligam. Qualquer outro valor desliga. |
 | `PROVIDER_RETRY_TRANSIENT_ERRORS` | Repetição de chamadas de provedor que falharam | `true`, `1`, `yes` ou `on` ligam. Qualquer outro valor desliga. |
+| `LOREBOOK_NEW_BOOK_VECTORS` | Vetores ativados para novos lorebooks | `true`, `1`, `yes` ou `on` ligam. Qualquer outro valor desliga. |
 
 As variáveis são lidas em cada verificação, portanto mudanças no `.env` não exigem reinício.
 

@@ -102,9 +102,9 @@ Bevor du anfängst: Füg eine Verbindung zur Bildgenerierung hinzu. Für animier
 1. Öffne **Add sprites** und klick auf **Generate Sprite** (Sprite generieren). Im Persona-Editor liegt die Schaltfläche unter **Add Sprite**. Das Fenster **Generate Sprites** öffnet sich.
 2. Wähl oben eine Quelle: **Expressions (Portrait)** oder **Full-body**.
 3. Wähl eine **Image Generation Connection** (Verbindung zur Bildgenerierung).
-4. Füg optional bis zu vier **Reference Images** (Referenzbilder) hinzu, oder kreuz das Kästchen an, um den aktuellen Avatar als Referenz zu verwenden.
+4. Füg optional bis zu vier **Referenzbilder** hinzu, oder kreuz ein Kästchen an, um den aktuellen Avatar oder den Charakterbogen als Referenz zu verwenden. Hat der Charakter bereits Sprites, ist **Gespeichertes Sprite als Referenzbild verwenden** eingeschaltet: Ein Gesicht mit ruhendem Ausdruck (neutral, falls vorhanden) wird mit der Anfrage gesendet, damit die neuen Sprites zu den vorhandenen passen.
 5. Schreib eine **Appearance Description** (Aussehensbeschreibung). Sie ist Pflicht.
-6. Schalte optional **Transparent sprite background** (transparenter Sprite-Hintergrund) ein. Marinara macht den Hintergrund durchsichtig. Kann der Dienst das nicht, zeichnet Marinara einen einfarbigen grünen, magentafarbenen oder cyanfarbenen Hintergrund, der sich von den Farben deiner **Appearance Description** abhebt, und entfernt ihn danach.
+6. Schalte optional **Transparenter Sprite-Hintergrund** ein. Marinara macht den Hintergrund durchsichtig. Ein Modell, das transparente Bilder erzeugt, wird um eines gebeten; seine Kanten bleiben genau wie gezeichnet erhalten. Jedes andere Modell zeichnet einen einfarbigen grünen, magentafarbenen oder cyanfarbenen Hintergrund, der sich von den Farben deiner **Aussehensbeschreibung** abhebt, und Marinara entfernt ihn. Die Zeile unter dem Kästchen zeigt, welcher Fall zutrifft. Welche Modelle transparente Bilder erzeugen, legst du an der Verbindung fest: siehe [Transparente Hintergründe](../media/image-providers.md#transparent-backgrounds).
 7. Leg **Expression Count** (bei Ganzkörperbildern **Pose Count**) fest und wähl aus, welche Gesichtsausdrücke oder Posen entstehen sollen.
 8. Optional für Gesichtsausdrücke: Hak **Gesichter markieren, die nicht zum Ausdruck passen** an. Ein [Decision-Modell, das Bilder liest](../connections/decision-models.md#features-that-look-at-pictures), sieht sich jedes gezeichnete Gesicht an und markiert diejenigen, die ihren Ausdruck möglicherweise nicht zeigen, mit **Prüfen**. So kannst du sie abwählen oder neu zeichnen lassen. Jedes Gesicht braucht einen Moment. Ohne ein solches Modell ist das Kästchen ausgegraut.
 9. Klick auf **Generate** (Generieren).
@@ -121,7 +121,9 @@ Bei der Quelle **Expressions (Portrait)** erstellt **Generate animated portraits
 
 ## Sprite-Hintergründe bereinigen
 
-Ein Sprite sieht am besten aus, wenn nur der Charakter zu sehen ist. Generierte Sprites nutzen echte Transparenz, wenn der Dienst sie unterstützt. Andernfalls entfernt Marinara eine einfarbige, adaptiv gewählte Hintergrundfarbe mit weicher Kante und rechnet diese Farbe aus Haaren, Stoffen und anderen teilweise durchsichtigen Pixeln heraus. Ältere Sprites mit weißem Hintergrund funktionieren weiterhin.
+Ein Sprite sieht am besten aus, wenn nur der Charakter zu sehen ist. Generierte Sprites nutzen echte Transparenz, wenn das Modell sie unterstützt. Andernfalls entfernt Marinara eine einfarbige, adaptiv gewählte Hintergrundfarbe mit weicher Kante und rechnet diese Farbe aus Haaren, Stoffen und anderen teilweise durchsichtigen Pixeln heraus. Ältere Sprites mit weißem Hintergrund funktionieren weiterhin.
+
+Ein Bild mit bereits transparentem Hintergrund wird nie erneut bereinigt: Eine Hintergrundentfernung würde nur die sauberen Kanten aufweichen. Liefert ein Modell, das transparente Bilder erzeugt, dennoch eines mit undurchsichtigem Hintergrund, lässt Marinara es unverändert und weist bei der Prüfung darauf hin. Klick auf **Bereinigung anwenden**, um diesen Hintergrund zu entfernen, oder behalte die Bilder, wie sie sind.
 
 ### Ein Sprite von Hand bereinigen
 

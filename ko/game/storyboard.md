@@ -198,7 +198,7 @@ Storyboard는 Illustrator와 별개이며, Illustrator를 직접 실행하는 �
 | **Clip seconds**(클립 길이, 초 단위) | 5(1에서 15까지) | 클립 하나에 요청하는 길이입니다. |
 | **Viewer display**(뷰어 표시) | Floating viewer | Game 뷰어의 기본값입니다. Roleplay는 스토리보드를 항상 인라인으로 표시합니다. |
 | **Default Roleplay episode interval**(기본 롤플레이 에피소드 간격) | 1(1에서 100까지) | 자동 에피소드 사이에 필요한 새 Roleplay 내용의 양입니다. |
-| **Attach Card Appearance** | On | 이미지 프롬프트에 해당 캐릭터의 외형을 더합니다. **Image Appearance Override**(이미지 외모 재정의)가 켜진 카드나 페르소나는 **Appearance**(모양) 필드 대신 그 글을 제공합니다. |
+| **Attach Card Appearance** | On | 이미지 프롬프트에 해당 캐릭터의 외형을 더합니다. **Image tags**(이미지 태그)를 사용 중인 카드나 페르소나는 **Appearance**(모양) 서술문 대신 그 태그를 제공합니다. |
 | **Send Avatar References** | On | 이미지 서비스가 참조 이미지를 받으면 해당 캐릭터와 페르소나의 아바타를 보냅니다. |
 | **Use the final image template**(최종 이미지 템플릿 사용) | On | 계획한 프레임을 이미지 서비스에 보내기 전에 형식을 다듬습니다. Game 채팅에서는 **Use Storyboard Template**입니다. |
 | **Use NovelAI character prompts** | On | 지원되는 공식 NovelAI V4와 V4.5 계정에서만 쓰는 캐릭터별 자체 프롬프트 방식입니다. 다른 서비스는 공용 프롬프트 경로를 씁니다. |

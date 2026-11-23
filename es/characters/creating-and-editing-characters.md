@@ -51,6 +51,20 @@ Pestañas que tienen su propia guía:
 
 Las secciones de abajo cubren **Metadata**, **Card**, **Images**, **Voice** y **Advanced**, además de los avatares y el historial de versiones.
 
+
+<a id="images-tab"></a>
+
+## Pestaña Images
+
+La pestaña **Images** (Imágenes) reúne lo que define el aspecto del personaje en las imágenes. Los botones de arriba llevan a cada sección:
+
+- **Character Sheet** (Hoja del personaje): una imagen de referencia del personaje. Haz clic en **Manage** (Gestionar) para crear, subir o elegir una. Activa **Use as reference image** (Usar como imagen de referencia) para que tenga prioridad sobre el avatar al generar imágenes. Consulta [Hoja del personaje](sprites.md#character-sheet).
+- **Selfie instructions** (Instrucciones para selfies): indicaciones opcionales para las selfies de Conversation del personaje, como el estilo de cámara o las expresiones. Noodle y Slurp también pueden usarlas si activas la opción en sus ajustes. Consulta [Selfies](../conversation/selfies.md).
+- **Sprites**: expresiones, sprites de cuerpo completo y clips de llamadas. Consulta [Sprites de personaje](sprites.md).
+- **Gallery** (Galería): imágenes y videos guardados con el personaje. Consulta [Galerías de personajes y personas](galleries.md).
+
+La pestaña **Images** de una persona tiene las mismas secciones, salvo **Selfie instructions**.
+
 <a id="metadata-tab"></a>
 
 ## Pestaña Metadata
@@ -88,7 +102,7 @@ La pestaña **Card** es el espacio principal de escritura. Los enlaces de la par
 
 **Public Face** recoge lo que los demás personajes pueden ver o saber del personaje: su aspecto, sus modales, su papel, su reputación y sus relaciones conocidas. Excluye los secretos, los pensamientos, la historia privada y las instrucciones sobre cómo interpretar al personaje. Este campo nunca se envía como parte de la tarjeta. Un prompt lo lee solo donde insertas la macro `{{publicFace}}`, o `{{personaPublicFace}}` para tu persona. Consulta [Macros de prompt](../prompts/macros.md#identity-character-and-persona-macros). En un chat grupal Individual de Roleplay, **Others' Public Faces** lo envía en los turnos de los demás personajes. Consulta [Más ajustes de Individual](../chats/group-chats.md#more-individual-settings). Un agente con la fuente **Characters** o **Persona** en **Public Face** lee este campo en lugar de la tarjeta. Consulta [Otros ajustes](../agents/custom-agents.md#other-settings). Con **Send Public Faces** activado, Impersonate en Roleplay lee el campo en lugar de la tarjeta. Consulta [Ajustes de Impersonate](../chats/guided-and-impersonate.md#the-impersonate-settings).
 
-**Image Appearance Override** (Apariencia alternativa para imágenes) está debajo de **Appearance** y está desactivado de forma predeterminada. Actívalo para mostrar un segundo cuadro para etiquetas de imagen breves, como la palabra de activación de una LoRA (una palabra clave que activa un estilo de imagen personalizado). Mientras está activado y tiene texto, los prompts de imagen usan esas etiquetas tal como están escritas, y **Appearance** se mantiene como contexto de fondo. El prompt de avatar de IA también parte de ellas. El narrador siempre ve el texto completo de **Appearance**.
+**Apariencia** tiene dos pestañas, **Prosa** y **Etiquetas de imagen**. **Prosa** es el texto de apariencia en sí. **Etiquetas de imagen** contiene etiquetas breves para los prompts de imagen, como la palabra de activación de una LoRA (una palabra clave que activa un estilo de imagen personalizado). Escribir etiquetas marca **Usar para los prompts de imagen**, y un punto en la pestaña indica que están en uso. Mientras está marcado y hay etiquetas, los prompts de imagen las usan tal como están escritas, y la prosa se mantiene como contexto de fondo. Desmárcalo para conservar las etiquetas sin usarlas: los prompts de imagen vuelven entonces a **Prosa**. El prompt de avatar de IA también parte de las etiquetas. El narrador siempre ve el texto de **Prosa**. La pestaña **Imágenes** enlaza aquí con **Ir a Apariencia**. La pestaña tiene su propia varita. Consulta [Etiquetas de imagen con la varita](#image-tags-from-the-wand).
 
 La sección **Dialogue & Greetings** define cómo se abre un chat y cómo suena el personaje:
 
@@ -108,18 +122,29 @@ Los saludos y los mensajes de ejemplo pueden mostrar imágenes de la Gallery del
 
 ### Escribir un campo de la tarjeta con la varita
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message** y cada **Alternate Greeting** tienen encima del campo un botón de varita que solo muestra el icono. Su descripción emergente indica el campo que escribe.
+**Resumen**, **Descripción**, **Personalidad**, **Trasfondo**, **Apariencia** (sus dos pestañas), **Escenario**, **Faceta pública**, **Diálogo de ejemplo**, **Primer mensaje** y cada **Alternate Greeting** tienen encima del campo un botón de varita que solo muestra el icono. Su descripción emergente indica el campo que escribe.
 
 Antes de empezar: configura una conexión de texto que funcione. Consulta [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md).
 
 1. Escribe en el campo las ideas que quieras conservar, como `smart, scientist, handsome`, o déjalo vacío.
 2. Completa los demás campos de la tarjeta que quieras que la IA use como referencia. No necesitas guardar primero.
-3. Haz clic en la varita del campo. Marinara pide entre 100 y 300 palabras para ese campo, usando tu texto como detalles de partida. Example Dialogue pide intercambios de ejemplo. **First Message** y cada **Alternate Greeting** piden un mensaje de apertura que deja tu respuesta en tus manos. **Public Face** no tiene un intervalo de palabras. Su varita reescribe el resto de la tarjeta sin las partes privadas, así que la longitud depende de tu tarjeta.
+3. Haz clic en la varita del campo. Marinara pide entre 100 y 300 palabras para ese campo, usando tu texto como detalles de partida. Example Dialogue pide intercambios de ejemplo. **Primer mensaje** y cada **Alternate Greeting** piden un mensaje de apertura que deja tu respuesta en tus manos. **Faceta pública** no tiene un intervalo de palabras. Su varita reescribe el resto de la tarjeta sin las partes privadas, así que la longitud depende de tu tarjeta. En la pestaña **Etiquetas de imagen** de **Apariencia**, la varita convierte la apariencia de la tarjeta en una línea de etiquetas de imagen. Consulta [Etiquetas de imagen con la varita](#image-tags-from-the-wand).
 4. Edita el resultado y luego haz clic en **Save**.
 
 La varita usa tu conexión de texto predeterminada para agentes o, si no hay ninguna, tu conexión de texto predeterminada. Una conexión de respaldo de agentes configurada sigue aplicándose.
 
 La varita solo reemplaza el campo elegido en tu borrador sin guardar. Si la generación falla, tu texto se queda. Si editas ese campo mientras esperas, o cambias a otra tarjeta, un resultado tardío no sobrescribe tu trabajo. No necesitas Professor Mari para usar la varita.
+
+#### Etiquetas de imagen con la varita
+
+La varita de la pestaña **Etiquetas de imagen** de **Apariencia** escribe las etiquetas a partir del texto de apariencia de tu tarjeta, principalmente del propio campo **Apariencia**. Marca **Usar para los prompts de imagen**.
+
+- Las etiquetas que ya están en el cuadro y que el texto de apariencia no explica, como la palabra de activación de una LoRA, se conservan exactamente como las escribiste, al principio de la línea.
+- Después vienen las etiquetas nuevas: `1girl`, `1boy` o `1other`, seguidas de los rasgos permanentes: cuerpo, cabello, ojos, piel, rostro y marcas. Si no se conserva ninguna etiqueta, la línea empieza con `1girl`, `1boy` o `1other`.
+- Las etiquetas nuevas están en inglés, en minúsculas, con el estilo que los modelos de imagen conocen de Danbooru (un sitio de imágenes de anime cuyas etiquetas aprendieron muchos modelos), separadas por comas.
+- Las etiquetas nuevas solo usan rasgos que tu tarjeta indique. Se omiten la ropa, las expresiones, las poses y los lugares, porque cambian de una escena a otra.
+
+Las etiquetas vienen del modelo, no de una lista de etiquetas reales de Danbooru, así que alguna puede estar escrita de una forma que tu modelo de imagen no conozca. Revisa la línea y edítala antes de guardar.
 
 ## Añadir un avatar
 
@@ -138,25 +163,12 @@ Antes de empezar: añade una conexión de generación de imágenes. El botón de
 
 1. Pasa el cursor sobre la casilla del avatar y haz clic en el botón de varita. Se abre la ventana **Generate Character Avatar** (Generar avatar de personaje).
 2. Elige una **Image Generation Connection** (Conexión de generación de imágenes).
-3. Revisa o edita el **Avatar Prompt** (Prompt del avatar). Parte de **Image Appearance Override** cuando está activado y tiene texto. Si no, usa **Appearance**, luego **Description** y luego **Personality**, el primero que tenga texto.
+3. Revisa o edita el **Prompt del avatar**. Parte de las **Etiquetas de imagen** de **Apariencia** cuando **Usar para los prompts de imagen** está marcado y hay etiquetas. Si no, usa **Apariencia**, luego **Descripción** y luego **Personalidad**, el primero que tenga texto.
 4. Si la tarjeta ya tiene un avatar, puedes marcar **Use current avatar as a reference** (Usar el avatar actual como referencia).
 5. Haz clic en **Generate** (Generar). Para volver a intentarlo, haz clic en **Regenerate** (Regenerar).
 6. Haz clic en **Use Avatar** (Usar avatar) cuando te guste el resultado.
 
 El tamaño de la imagen viene del tamaño de imagen **Portraits** en los ajustes de generación de imágenes. De forma predeterminada es 1024 por 1024. Si **Expose media prompts before sending** (Mostrar los prompts de medios antes de enviarlos) está activado, aparece un paso de revisión del prompt antes de cada solicitud.
-
-<a id="images-tab"></a>
-
-## Pestaña Images
-
-La pestaña **Images** (Imágenes) reúne lo que define el aspecto del personaje en las imágenes. Los botones de arriba llevan a cada sección:
-
-- **Character Sheet** (Hoja del personaje): una imagen de referencia del personaje. Haz clic en **Manage** (Gestionar) para crear, subir o elegir una. Activa **Use as reference image** (Usar como imagen de referencia) para que tenga prioridad sobre el avatar al generar imágenes. Consulta [Hoja del personaje](sprites.md#character-sheet).
-- **Selfie instructions** (Instrucciones para selfies): indicaciones opcionales para las selfies de Conversation del personaje, como el estilo de cámara o las expresiones. Noodle y Slurp también pueden usarlas si activas la opción en sus ajustes. Consulta [Selfies](../conversation/selfies.md).
-- **Sprites**: expresiones, sprites de cuerpo completo y clips de llamadas. Consulta [Sprites de personaje](sprites.md).
-- **Gallery** (Galería): imágenes y videos guardados con el personaje. Consulta [Galerías de personajes y personas](galleries.md).
-
-La pestaña **Images** de una persona tiene las mismas secciones, salvo **Selfie instructions**.
 
 ## Pestaña Voice
 
@@ -197,6 +209,7 @@ Reglas:
 - Un chat solo puede usar una alternativa por campo. Marcar un chat en otra alternativa, o elegir otra en Chat Settings, lo traslada allí.
 - Sin chats marcados, la alternativa queda inactiva para más adelante.
 - Una alternativa vacía borra ese campo en sus chats.
+- Una alternativa de **Apariencia** tiene sus propias pestañas **Prosa** y **Etiquetas de imagen**. En sus chats, sus etiquetas reemplazan las de la tarjeta. Con las etiquetas vacías o desactivadas, los prompts de imagen usan la prosa de la alternativa, nunca las etiquetas de la tarjeta. Una alternativa nueva también copia las etiquetas de la tarjeta. Su pestaña **Etiquetas de imagen** tiene su propia varita, que lee la prosa y las etiquetas de la alternativa.
 - Las sustituciones de escenario y de apariencia para imágenes específicas del chat siguen teniendo prioridad.
 - Las alternativas de **Summary** siguen siendo metadatos y no se envían a la IA.
 - Si el personaje sale de un chat, su asignación se pausa y se reanuda cuando vuelves a añadir al personaje.
@@ -208,7 +221,7 @@ Para quitar una alternativa, haz clic en su botón de papelera, confirma con **D
 
 ## Historial de versiones
 
-Mientras **Automatic versioning** está activado, cada guardado puede añadir una instantánea a **Version history** en la pestaña **Metadata**. Hasta entonces, el panel dice `Previous card states will appear here after the next edit.` Un contador muestra cuántas instantáneas hay guardadas.
+Mientras **Control de versiones automático** está activado, cada guardado puede añadir una instantánea a **Historial de versiones** en la pestaña **Metadatos**. Hasta entonces, el panel dice `Previous card states will appear here after the next edit.` Un contador muestra cuántas instantáneas hay guardadas. Actualizar el personaje desde una tarjeta más reciente siempre guarda primero una instantánea, incluso con el interruptor desactivado. Consulta [Actualizar un personaje que ya tienes](import-export.md#update-a-character-you-already-have).
 
 Para comparar una versión guardada con tu tarjeta actual:
 

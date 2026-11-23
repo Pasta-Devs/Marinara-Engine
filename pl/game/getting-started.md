@@ -20,7 +20,7 @@ Cała reszta jest opcjonalna i domyślnie wyłączona. Możesz dodać ją późn
 
 ## Rozpoczynanie gry
 
-1. Na pasku bocznym czatów otwórz zakładkę **GM** i kliknij przycisk **+** o etykiecie **New Game** (nowa gra). Możesz też kliknąć **Game** (gra) na ekranie głównym. Otworzy się kreator konfiguracji. Zobacz [Zarządzanie listą czatów](../chats/managing-chats.md).
+1. Kliknij **Chats** (Czaty) na górnym pasku, otwórz zakładkę **GM** i kliknij przycisk **+** o etykiecie **New Game** (nowa gra). Możesz też kliknąć **Game** (gra) na ekranie głównym. Otworzy się kreator konfiguracji. Zobacz [Zarządzanie listą czatów](../chats/managing-chats.md).
 2. W pierwszym kroku wybierz **Model**, który obsługuje postać GM. Wybierz jedno z wcześniej dodanych kont. Jeśli lista jest pusta, najpierw dodaj konto. Do generowania świata wybierz mocny płatny model (zobacz [Wybór modelu](#choosing-a-model)).
 3. W każdym kroku klikaj **Next** (dalej). Każde inne pole ma wartość domyślną, więc możesz po prostu przejść przez kreator.
 4. W ostatnim kroku kliknij **Create world** (utworzenie świata). Podczas budowania świata przycisk pokazuje **Generating World…** (generowanie świata). To jedno duże zapytanie do twojego modelu, więc poczekaj, aż się zakończy.
@@ -157,7 +157,7 @@ Na komputerze kontrolki otwierają się przyciskami blisko prawego górnego rogu
 
 | Kontrolka | Co zawiera |
 | --- | --- |
-| **Game controls** (Kontrolki gry, ikona kontrolera do gier) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (gdy Music DJ odtwarza muzykę) i **Retry assets image generation**. Przy tle ze storyboardu także ponowne odtwarzanie, odtwarzanie/pauza i wyciszenie. **Edit game data** (edycja danych gry) pozwala ręcznie poprawić zapisane dane (zobacz [Ręczna edycja danych gry](sessions-and-saves. md#editing-game-data-by-hand)). **Checkpoints** (punkty kontrolne) cofa grę do wcześniejszego momentu (zobacz [Jak gra zapisuje postępy](sessions-and-saves. md#how-your-game-saves)). |
+| **Game controls** (Kontrolki gry, ikona kontrolera do gier) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (gdy Music DJ odtwarza muzykę) i **Retry assets image generation**. Przy tle ze storyboardu także ponowne odtwarzanie, odtwarzanie/pauza i wyciszenie. **Edit game data** (edycja danych gry) pozwala ręcznie poprawić zapisane dane (zobacz [Ręczna edycja danych gry](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** (punkty kontrolne) cofa grę do wcześniejszego momentu (zobacz [Jak gra zapisuje postępy](sessions-and-saves.md#how-your-game-saves)). |
 | **Session** (sesja, ikona pióra) | Historia sesji, dziennik i kontrolki sesji. Zobacz [Game Mode: sesje i zapisy gry](sessions-and-saves.md). |
 | **Volume** (głośność, ikona głośnika) | Głośność **Master**, **Music**, **Sound Effects**, **TTS** i **Ambient**. |
 | **Game Assets** (zasoby gry, ikona folderu) | Multimedia sceny i Asset Browser. Zobacz [Zasoby gry](game-assets.md). |

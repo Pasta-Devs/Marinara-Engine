@@ -10,7 +10,7 @@ Marinara Engine은 AI 캐릭터와 채팅하고 롤플레이하는 앱입니다.
 2. 계정을 추가하세요. 계정은 AI 서비스 하나에 쓰는 API 키 하나입니다. [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)를 참고하세요.
 3. 계정에서 쓸 모델을 고르세요. 방법은 같은 가이드에서 설명합니다.
 4. 캐릭터를 만들거나 가져오세요. **Characters**(캐릭터) 패널을 열고 **New**(새로 만들기)를 클릭해 **Create Character**(캐릭터 만들기) 창을 열거나, **Import**(가져오기)를 클릭해 파일에서 카드를 불러오세요. [캐릭터 만들기와 편집](../characters/creating-and-editing-characters.md)을 참고하세요.
-5. 사이드바 버튼으로 채팅 사이드바를 여세요. 탭에는 **CONVO**(대화), **RP**(롤플), **GM**(게임)이라고 적혀 있습니다. 하나를 고른 다음 **+** 버튼을 클릭하세요. 이 버튼의 이름은 탭에 따라 **New Conversation**(새 대화), **New Roleplay**(새 롤플레이), **New Game**(새 게임)으로 바뀝니다.
+5. 상단 바에서 **Chats**(채팅)를 클릭해 채팅 목록을 여세요. 탭은 **CONVO**, **RP**, **GM**으로 표시됩니다. 하나를 고른 다음 **+** 버튼을 클릭하세요. 탭에 따라 **New Conversation**, **New Roleplay**, **New Game**이라고 표시됩니다.
 6. 열리는 설정 창의 안내를 따른 다음 **Create Chat**(채팅 생성)을 클릭하세요.
 
 결과: 새 채팅이 열리고 첫 메시지를 쓸 수 있습니다.

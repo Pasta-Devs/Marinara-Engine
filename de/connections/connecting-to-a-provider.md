@@ -75,7 +75,7 @@ Eine Aufgabe ist etwas, das ein Modell für dich erledigt. Der Bereich **Jobs** 
 
 Jede Zeile zeigt das Modell, das die Aufgabe übernimmt, oder was die Aufgabe ohne Modell tut, etwa **Follows Main** oder **Off**. Eine unbelegte Aufgabe zeigt **N models found** mit **Pick** (Auswählen) oder **None in your accounts** mit **Add**. Die Auswahl zeigt die passenden Modelle aller Konten. **Add** öffnet **Add account** und führt dich danach zur Aufgabe zurück. Klick auf **Jobs**, um den Bereich einzuklappen.
 
-Um das Modell für eine Aufgabe zu ändern, klick auf ihre Zeile. Dann öffnet sich **Model for** (Modell für) für diese Aufgabe – außer bei drei Zeilen. **Decision** und **Embeddings** öffnen eigene Bedienelemente (siehe [Decision-Modelle](decision-models.md) und [Unterstützte KI-Anbieter](providers-reference.md#embeddings)). **Dictation** (Diktat) öffnet die Einrichtung der Spracherkennung. **Voice** und **Dictation** haben außerdem ein Zahnrad für ihr Einstellungsfenster. Wenn du ein **Voice**-Modell auswählst, schaltet sich die Sprachausgabe ein.
+Um das Modell für eine Aufgabe zu ändern, klick auf ihre Zeile. **Modell für** diese Aufgabe öffnet sich, außer bei drei Zeilen. **Entscheidung** und **Embeddings** öffnen ihre eigenen Regler (siehe [Decision-Modelle](decision-models.md) und [Unterstützte KI-Anbieter](providers-reference.md#embeddings)). **Diktat** öffnet die Spracheinrichtung. **Stimme**, **Diktat** und **Bilder lesen** haben außerdem ein Zahnrad, das ihr Einstellungsfenster öffnet; bei „Bilder lesen“ steht darin, was das Modell gefragt wird (siehe [Bildbeschreibungen](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Wählst du ein Modell für **Stimme**, wird Text to Speech eingeschaltet.
 
 In **Model for**:
 
