@@ -56,6 +56,7 @@ export function createRegexScriptsStorage(db: DB) {
         findRegex: input.findRegex,
         replaceString: input.replaceString ?? "",
         trimStrings: JSON.stringify(input.trimStrings ?? []),
+        trimScope: input.trimScope === "match" ? "match" : "result",
         placement: JSON.stringify(input.placement),
         flags: input.flags ?? "gi",
         promptOnly: promptOnlyForApplyMode(applyMode),
@@ -78,6 +79,7 @@ export function createRegexScriptsStorage(db: DB) {
       if (data.findRegex !== undefined) updateFields.findRegex = data.findRegex;
       if (data.replaceString !== undefined) updateFields.replaceString = data.replaceString;
       if (data.trimStrings !== undefined) updateFields.trimStrings = JSON.stringify(data.trimStrings);
+      if (data.trimScope !== undefined) updateFields.trimScope = data.trimScope;
       if (data.placement !== undefined) updateFields.placement = JSON.stringify(data.placement);
       if (data.flags !== undefined) updateFields.flags = data.flags;
       if (data.applyMode !== undefined || data.promptOnly !== undefined) {

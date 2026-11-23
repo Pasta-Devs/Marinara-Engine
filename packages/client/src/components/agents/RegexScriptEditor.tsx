@@ -22,7 +22,8 @@ import { CharacterSelect } from "../characters/CharacterSelect";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
-  applyRegexReplacement,
+  applyRegexScriptReplacement,
+  type RegexTrimScope,
   formatTextQuotes,
   isPatternSafe,
   resolveRegexPatternLiteralMacros,
@@ -227,6 +228,7 @@ export function RegexScriptEditor() {
   const [localFindRegex, setLocalFindRegex] = useState("");
   const [localReplaceString, setLocalReplaceString] = useState("");
   const [localTrimStrings, setLocalTrimStrings] = useState<string[]>([]);
+  const [localTrimScope, setLocalTrimScope] = useState<RegexTrimScope>("result");
   const [localPlacement, setLocalPlacement] = useState<RegexPlacement[]>(["ai_output"]);
   const [localFlags, setLocalFlags] = useState("gi");
   const [localApplyMode, setLocalApplyMode] = useState<RegexApplyMode>("display");
@@ -271,6 +273,7 @@ export function RegexScriptEditor() {
       } catch {
         setLocalTrimStrings([]);
       }
+      setLocalTrimScope(dbRow.trimScope === "match" ? "match" : "result");
       try {
         setLocalPlacement(JSON.parse(dbRow.placement));
       } catch {
@@ -295,6 +298,7 @@ export function RegexScriptEditor() {
       setLocalFindRegex("");
       setLocalReplaceString("");
       setLocalTrimStrings([]);
+      setLocalTrimScope("result");
       setLocalPlacement(["ai_output"]);
       setLocalFlags("gi");
       setLocalApplyMode("display");
@@ -352,17 +356,31 @@ export function RegexScriptEditor() {
       const findRegex = resolveRegexPatternLiteralMacros(localFindRegex, resolveTestMacros);
       if (!findRegex) return testInput;
       const re = new RegExp(findRegex, localFlags);
-      let result = applyRegexReplacement(testInput, re, localReplaceString, resolveTestMacros);
-      // Apply trim strings
-      for (const trim of localTrimStrings) {
-        const resolvedTrim = resolveTestMacros(trim);
-        if (resolvedTrim) result = result.split(resolvedTrim).join("");
-      }
+      const result = applyRegexScriptReplacement(testInput, re, localReplaceString, {
+        trimStrings: localTrimStrings,
+        trimScope: localTrimScope,
+        resolve: resolveTestMacros,
+      });
       return formatTextQuotes(result, quoteFormat);
     } catch {
       return testInput;
     }
-  }, [testInput, localFindRegex, localReplaceString, localFlags, localTrimStrings, quoteFormat, regexError]);
+  }, [
+    testInput,
+    localFindRegex,
+    localReplaceString,
+    localFlags,
+    localTrimStrings,
+    localTrimScope,
+    quoteFormat,
+    regexError,
+  ]);
+
+  const trimScopeHint = localizeUi(
+    localTrimScope === "match"
+      ? "ui.agents.regexscripteditor.trimFromMatchHint"
+      : "ui.agents.regexscripteditor.trimFromResultHint",
+  );
 
   const handleClose = useCallback(() => {
     if (dirty) {
@@ -398,6 +416,7 @@ export function RegexScriptEditor() {
       findRegex: localFindRegex,
       replaceString: localReplaceString,
       trimStrings: localTrimStrings,
+      trimScope: localTrimScope,
       placement: localPlacement,
       flags: localFlags,
       promptOnly: localApplyMode === "prompt",
@@ -438,6 +457,7 @@ export function RegexScriptEditor() {
     localFindRegex,
     localReplaceString,
     localTrimStrings,
+    localTrimScope,
     localPlacement,
     localFlags,
     localApplyMode,
@@ -498,6 +518,7 @@ export function RegexScriptEditor() {
         findRegex: localFindRegex,
         replaceString: localReplaceString,
         trimStrings: localTrimStrings,
+        trimScope: localTrimScope,
         placement: localPlacement,
         flags: localFlags,
         promptOnly: localApplyMode === "prompt",
@@ -863,9 +884,25 @@ export function RegexScriptEditor() {
           <FieldGroup
             label={localizeUi("ui.agents.regexscripteditor.trimStrings")}
             icon={<Minus size="0.875rem" className={REGEX_FIELD_ICON_CLASS} />}
-            help={localizeUi("ui.agents.regexscripteditor.additionalStringsToRemoveFromTheResultAfterThe")}
+            help={trimScopeHint}
           >
             <div className="flex flex-col gap-1.5">
+              {localTrimStrings.length > 0 ? (
+                <label className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
+                  {localizeUi("ui.agents.regexscripteditor.trimFrom")}
+                  <select
+                    value={localTrimScope}
+                    onChange={(e) => {
+                      setLocalTrimScope(e.target.value === "match" ? "match" : "result");
+                      markDirty();
+                    }}
+                    className="rounded-lg bg-[var(--secondary)] px-2 py-1 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  >
+                    <option value="match">{localizeUi("ui.agents.regexscripteditor.trimFromMatch")}</option>
+                    <option value="result">{localizeUi("ui.agents.regexscripteditor.trimFromResult")}</option>
+                  </select>
+                </label>
+              ) : null}
               {localTrimStrings.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input

@@ -265,6 +265,8 @@ function convertStRegexScripts(
       findRegex: source,
       replaceString: typeof s.replaceString === "string" ? s.replaceString : "",
       trimStrings: Array.isArray(s.trimStrings) ? s.trimStrings.filter((t): t is string => typeof t === "string") : [],
+      // SillyTavern trims only the matched text put back through {{match}}/$n; a Marinara export says its own rule.
+      trimScope: s.trimScope === "result" ? "result" : "match",
       placement,
       flags,
       promptOnly: applyMode === "prompt",

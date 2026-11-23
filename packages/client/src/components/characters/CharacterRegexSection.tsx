@@ -97,6 +97,7 @@ function serializeRegexScript(script: RegexScriptRow) {
     findRegex: script.findRegex,
     replaceString: script.replaceString,
     trimStrings: parseStringArray(script.trimStrings),
+    trimScope: script.trimScope === "match" ? ("match" as const) : ("result" as const),
     placement: parseStringArray(script.placement),
     flags: script.flags,
     promptOnly: parseBooleanValue(script.promptOnly, false),
@@ -161,12 +162,20 @@ function normalizeRegexImportEntry(entry: unknown, fallbackOrder: number) {
       (placementValue): placementValue is string => placementValue === "ai_output" || placementValue === "user_input",
     );
 
+  // SillyTavern trims only the matched text; Marinara's own exports say which rule they use.
+  const trimScope =
+    entry.trimScope === "match" || entry.trimScope === "result"
+      ? entry.trimScope
+      : looksLikeSillyTavernRegex(entry) || !("promptOnly" in entry || "applyMode" in entry)
+        ? "match"
+        : "result";
   return {
     name,
     enabled: parseBooleanValue(entry.enabled, entry.disabled === undefined ? true : !parseBooleanValue(entry.disabled)),
     findRegex,
     replaceString: typeof entry.replaceString === "string" ? entry.replaceString : "",
     trimStrings: parseStringArray(entry.trimStrings),
+    trimScope,
     placement: mappedPlacement.length > 0 ? mappedPlacement : ["ai_output"],
     flags,
     promptOnly: readRegexApplyMode(entry) === "prompt",

@@ -4,6 +4,8 @@ type RegexReplaceMatch = {
   offset: number;
   input: string;
   groups?: Record<string, string>;
+  /** Runs on every captured value put back through $&, $0, $n or $<name> (SillyTavern trim strings). */
+  filterCapture?: (value: string) => string;
 };
 
 type CaseMode = "none" | "upper" | "lower";
@@ -114,11 +116,20 @@ function applyCase(
 }
 
 function expandRegexReplacementToken(replacement: string, index: number, ctx: RegexReplaceMatch) {
+  const token = expandRawRegexReplacementToken(replacement, index, ctx);
+  return token.capture && ctx.filterCapture ? { ...token, value: ctx.filterCapture(token.value) } : token;
+}
+
+function expandRawRegexReplacementToken(
+  replacement: string,
+  index: number,
+  ctx: RegexReplaceMatch,
+): { value: string; nextIndex: number; capture?: boolean } {
   const next = replacement[index + 1];
   if (!next) return { value: "$", nextIndex: index + 1 };
 
   if (next === "$") return { value: "$", nextIndex: index + 2 };
-  if (next === "&") return { value: ctx.match, nextIndex: index + 2 };
+  if (next === "&") return { value: ctx.match, nextIndex: index + 2, capture: true };
   if (next === "`") return { value: ctx.input.slice(0, ctx.offset), nextIndex: index + 2 };
   if (next === "'") return { value: ctx.input.slice(ctx.offset + ctx.match.length), nextIndex: index + 2 };
 
@@ -127,7 +138,7 @@ function expandRegexReplacementToken(replacement: string, index: number, ctx: Re
     if (closeIndex !== -1) {
       const name = replacement.slice(index + 2, closeIndex);
       if (ctx.groups && Object.prototype.hasOwnProperty.call(ctx.groups, name)) {
-        return { value: ctx.groups[name] ?? "", nextIndex: closeIndex + 1 };
+        return { value: ctx.groups[name] ?? "", nextIndex: closeIndex + 1, capture: true };
       }
       if (ctx.groups) {
         return { value: "", nextIndex: closeIndex + 1 };
@@ -140,11 +151,13 @@ function expandRegexReplacementToken(replacement: string, index: number, ctx: Re
     const twoDigit = replacement.slice(index + 1, index + 3);
     if (/^\d{2}$/.test(twoDigit)) {
       const twoDigitValue = readCapture(ctx.captures, Number(twoDigit));
-      if (twoDigitValue !== null) return { value: twoDigitValue, nextIndex: index + 3 };
+      if (twoDigitValue !== null) return { value: twoDigitValue, nextIndex: index + 3, capture: true };
     }
 
     const oneDigitValue = readCapture(ctx.captures, Number(next));
-    if (oneDigitValue !== null) return { value: oneDigitValue, nextIndex: index + 2 };
+    if (oneDigitValue !== null) return { value: oneDigitValue, nextIndex: index + 2, capture: true };
+    // SillyTavern's $0 is the whole match.
+    if (next === "0") return { value: ctx.match, nextIndex: index + 2, capture: true };
   }
 
   return { value: "$", nextIndex: index + 1 };
@@ -228,14 +241,23 @@ export function resolveRegexPatternLiteralMacros(
   return replaceBalancedMacros(pattern, (original) => escapeRegExpLiteral(resolveLiteral(original)));
 }
 
-export function applyRegexReplacement(
+// SillyTavern's {{match}} is the whole match, like $0.
+const MATCH_MACRO = /\{\{match\}\}/gi;
+
+function applyRegexReplacementTracked(
   text: string,
   regex: RegExp,
   replacement: string,
   resolveReplacement?: (replacement: string) => string,
-): string {
-  const preparedReplacement = prepareLiteralMacroPlaceholders(replacement, resolveReplacement);
-  return text.replace(regex, (...args: unknown[]) => {
+  filterCapture?: (value: string) => string,
+): { text: string; matched: boolean } {
+  const preparedReplacement = prepareLiteralMacroPlaceholders(
+    replacement.replace(MATCH_MACRO, "$$&"),
+    resolveReplacement,
+  );
+  let matched = false;
+  const result = text.replace(regex, (...args: unknown[]) => {
+    matched = true;
     const lastArg = args[args.length - 1];
     const hasGroups = typeof lastArg === "object" && lastArg !== null;
     const groups = hasGroups ? (lastArg as Record<string, string>) : undefined;
@@ -249,7 +271,55 @@ export function applyRegexReplacement(
       offset,
       input,
       groups,
+      filterCapture,
     });
     return restoreLiteralMacroPlaceholders(expanded, preparedReplacement.literals);
   });
+  return { text: result, matched };
+}
+
+export function applyRegexReplacement(
+  text: string,
+  regex: RegExp,
+  replacement: string,
+  resolveReplacement?: (replacement: string) => string,
+): string {
+  return applyRegexReplacementTracked(text, regex, replacement, resolveReplacement).text;
+}
+
+/**
+ * Where a regex script's trim strings apply. "match" is SillyTavern's rule: they are removed from the
+ * captured text put back through $0, {{match}} or $n, only where the pattern matched. "result" removes
+ * them from the whole text after the replacement, as Marinara always has, whether or not the pattern matched.
+ */
+export type RegexTrimScope = "match" | "result";
+
+export function isRegexTrimScope(value: unknown): value is RegexTrimScope {
+  return value === "match" || value === "result";
+}
+
+/** One regex script's replacement plus its trim strings, shared by the server, the client and Live Test. */
+export function applyRegexScriptReplacement(
+  text: string,
+  regex: RegExp,
+  replacement: string,
+  options: {
+    trimStrings?: readonly string[];
+    trimScope?: unknown;
+    resolve?: (value: string) => string;
+  } = {},
+): string {
+  const resolve = options.resolve;
+  const trims = (options.trimStrings ?? []).map((trim) => (resolve ? resolve(trim) : trim)).filter(Boolean);
+  const removeTrims = (value: string) => trims.reduce((acc, trim) => acc.split(trim).join(""), value);
+  const matchScope = options.trimScope === "match";
+  const replaced = applyRegexReplacementTracked(
+    text,
+    regex,
+    replacement,
+    resolve,
+    matchScope && trims.length > 0 ? removeTrims : undefined,
+  );
+  if (matchScope || trims.length === 0) return replaced.text;
+  return removeTrims(replaced.text);
 }
