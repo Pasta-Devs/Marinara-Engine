@@ -4,9 +4,9 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// A service that blocks a setting says so only by refusing it. The Chat Completions path resends once without the
-// settings a refusal names, remembers them for that service and model, and leaves them out from then on; the panel
-// reads the same memory and hides them.
+// A service that blocks a setting says so only by refusing it. The Chat Completions path resends without the settings
+// a refusal names, remembers them for that service and model, and leaves them out from then on; the panel reads the
+// same memory and hides them.
 const root = mkdtempSync(join(tmpdir(), "marinara-parameter-refusals-"));
 process.env.DATA_DIR = root;
 process.env.FILE_STORAGE_DIR = `${root}/storage`;
@@ -91,6 +91,14 @@ try {
     for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
     bodies.push(body);
+    // Refuses top_k, then fails for another reason.
+    if (request.url?.startsWith("/broken/")) {
+      response.writeHead(400, { "content-type": "application/json" });
+      response.end(
+        JSON.stringify({ error: { message: "top_k" in body ? "top_k is not supported" : "model is busy" } }),
+      );
+      return;
+    }
     // Like AI Horde: refuses top_k and min_p, naming only the first one it finds.
     const hordeRefuses = request.url?.startsWith("/horde/") ? ["top_k", "min_p"].find((field) => field in body) : "";
     if (hordeRefuses) {
@@ -179,13 +187,24 @@ try {
     assert.equal("min_p" in bodies[2]!, false);
     assert.equal(bodies[2]!.temperature, 0.7);
     assert.deepEqual(refusedParameterFields(hordeService, "koboldcpp/some-model").sort(), ["min_p", "top_k"]);
-    assert.deepEqual(
-      refusedGenerationParameters(hordeService, "koboldcpp/some-model"),
-      ["topK"],
-      "min_p has no panel setting to hide",
-    );
+    assert.deepEqual(refusedGenerationParameters(hordeService, "koboldcpp/some-model").sort(), ["minP", "topK"]);
     await askHorde();
     assert.equal(bodies.length, 4, "both are left out from the first try");
+
+    // A retry that fails for another reason stops there and remembers nothing.
+    const brokenBase = base.replace(/\/v1$/u, "/broken/v1");
+    bodies.length = 0;
+    await assert.rejects(
+      createLLMProvider("custom", brokenBase, "key").chatComplete([{ role: "user", content: "hi" }], {
+        model: "some-model",
+        stream: false,
+        maxTokens: 50,
+        topK: 40,
+      }),
+      /model is busy/,
+    );
+    assert.equal(bodies.length, 2);
+    assert.deepEqual(refusedParameterFields(parameterRefusalService("custom", brokenBase), "some-model"), []);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
@@ -198,6 +217,14 @@ try {
   });
   assert.equal(shown.has("frequencyPenalty"), false);
   assert.equal(shown.has("presencePenalty"), true);
+  // Min P shows where Top K does, and each refusal hides only the setting it names.
+  const custom = (refusedParameters?: Array<"topK" | "minP">) =>
+    relevantGenerationParameters({ provider: "custom", model: "some-model", capabilities: { refusedParameters } });
+  assert.equal(custom().has("minP"), true);
+  assert.equal(custom(["minP"]).has("minP"), false, "a remembered min_p refusal hides Min P");
+  assert.equal(custom(["minP"]).has("topK"), true);
+  assert.equal(custom(["topK"]).has("minP"), true, "min_p is still sent when only top_k was refused");
+  assert.equal(relevantGenerationParameters({ provider: "openai", model: "gpt-4o" }).has("minP"), false);
 
   // Survives a restart: a fresh module reads the saved file.
   const fresh = await import(

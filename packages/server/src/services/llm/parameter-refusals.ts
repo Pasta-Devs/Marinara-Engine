@@ -12,13 +12,12 @@ import { capabilityModelId, type GenerationParameterKey } from "@marinara-engine
 import { getDataDir } from "../../utils/data-dir.js";
 import { logger } from "../../lib/logger.js";
 
-/** Request fields a refusal may drop, by their Chat Completions names, with the panel setting each one hides (null when
- *  Advanced Parameters has no such setting to hide). */
-export const REFUSABLE_PARAMETER_FIELDS: Readonly<Record<string, GenerationParameterKey | null>> = {
+/** Request fields the parameter panel controls, by their Chat Completions names. */
+export const REFUSABLE_PARAMETER_FIELDS: Readonly<Record<string, GenerationParameterKey>> = {
   temperature: "temperature",
   top_p: "topP",
   top_k: "topK",
-  min_p: null,
+  min_p: "minP",
   frequency_penalty: "frequencyPenalty",
   presence_penalty: "presencePenalty",
   verbosity: "verbosity",
@@ -136,7 +135,7 @@ export function refusedParameterFields(service: string, model: string): string[]
 
 /** The panel settings this service refused for this model. */
 export function refusedGenerationParameters(service: string, model: string): GenerationParameterKey[] {
-  return refusedParameterFields(service, model).flatMap((field) => REFUSABLE_PARAMETER_FIELDS[field] ?? []);
+  return refusedParameterFields(service, model).map((field) => REFUSABLE_PARAMETER_FIELDS[field]!);
 }
 
 export function rememberRefusedParameterFields(service: string, model: string, fields: string[]): void {

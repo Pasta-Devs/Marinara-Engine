@@ -1269,7 +1269,7 @@ export class OpenAIProvider extends BaseLLMProvider {
         : [];
     for (let refused = refusedNow(); refused.length > 0; refused = refusedNow()) {
       logger.warn(
-        "[OpenAI] %s refused %s for %s; retrying without it, and leaving it out from now on if that works",
+        "[OpenAI] %s refused %s for %s; retrying without the refused setting(s) and remembering the refusal once a request goes through",
         this.chatCompletionsErrorLabel(),
         refused.join(", "),
         options.model,
