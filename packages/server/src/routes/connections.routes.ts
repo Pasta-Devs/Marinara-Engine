@@ -119,7 +119,11 @@ import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
-import { resolveLocalBackendHeaders } from "../services/image/image-generation.js";
+import {
+  imageConnectionReferencePictureLimit,
+  resolveLocalBackendHeaders,
+} from "../services/image/image-generation.js";
+import { avatarImageService } from "../services/avatars/generation/generation-context.js";
 import { buildVeniceApiUrl, normalizeVeniceImageModels } from "../services/image/venice-image.js";
 import { buildFalImageUrl } from "../services/image/fal-image.js";
 import { buildSpicyApiUrl, normalizeSpicyApiImageModels } from "../services/image/spicyapi-image.js";
@@ -781,6 +785,14 @@ export async function connectionsRoutes(app: FastifyInstance) {
       };
     },
   );
+
+  /** How many reference pictures an image connection sends to its model (0: it draws from the prompt alone). */
+  app.get<{ Params: { id: string } }>("/:id/reference-pictures", async (req, reply) => {
+    const conn = await storage.getWithKey(req.params.id);
+    if (!conn) return notFound(reply, "Connection not found");
+    if (conn.provider !== "image_generation") return { limit: 0 };
+    return { limit: imageConnectionReferencePictureLimit(avatarImageService(conn)) };
+  });
 
   app.post("/", async (req, reply) => {
     const body = req.body as Record<string, unknown> | null;

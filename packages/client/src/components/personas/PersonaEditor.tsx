@@ -2330,6 +2330,7 @@ export function PersonaEditor() {
           formData.appearance || formData.description || formData.personality,
         )}
         defaultAvatarUrl={avatarPreview}
+        referenceGallery={{ kind: "persona", id: personaId }}
         onClose={() => setAvatarGeneratorOpen(false)}
         onUseAvatar={handleGeneratedAvatar}
       />
@@ -2343,6 +2344,7 @@ export function PersonaEditor() {
           formData.appearance || formData.description || formData.personality,
         )}
         defaultAvatarUrl={avatarPreview}
+        referenceGallery={{ kind: "persona", id: personaId }}
         neutralFullBodyReferenceUrl={characterSheetSprites?.find((sprite) => sprite.expression === "full_neutral")?.url}
         onClose={() => setCharacterSheetGeneratorOpen(false)}
         onUseAvatar={handleGeneratedCharacterSheet}
@@ -2363,6 +2365,7 @@ export function PersonaEditor() {
           onSave: handleGalleryCreation,
         }}
         defaultAvatarUrl={avatarPreview}
+        referenceGallery={{ kind: "persona", id: personaId }}
         neutralFullBodyReferenceUrl={characterSheetSprites?.find((sprite) => sprite.expression === "full_neutral")?.url}
         onClose={() => setGalleryCreateOpen(false)}
         onUseAvatar={handleGeneratedCharacterSheet}

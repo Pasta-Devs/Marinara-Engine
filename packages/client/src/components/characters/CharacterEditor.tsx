@@ -1722,6 +1722,7 @@ export function CharacterEditor() {
             (formData.extensions.appearance as string | undefined) || formData.description || formData.personality,
           )}
           defaultAvatarUrl={avatarPreview}
+          referenceGallery={{ kind: "character", id: characterId }}
           onClose={() => setAvatarGeneratorOpen(false)}
           onUseAvatar={handleGeneratedAvatar}
         />
@@ -1735,6 +1736,7 @@ export function CharacterEditor() {
             (formData.extensions.appearance as string | undefined) || formData.description || formData.personality,
           )}
           defaultAvatarUrl={avatarPreview}
+          referenceGallery={{ kind: "character", id: characterId }}
           neutralFullBodyReferenceUrl={
             characterSheetSprites?.find((sprite) => sprite.expression === "full_neutral")?.url
           }
@@ -1757,6 +1759,7 @@ export function CharacterEditor() {
             onSave: handleGalleryCreation,
           }}
           defaultAvatarUrl={avatarPreview}
+          referenceGallery={{ kind: "character", id: characterId }}
           neutralFullBodyReferenceUrl={
             characterSheetSprites?.find((sprite) => sprite.expression === "full_neutral")?.url
           }

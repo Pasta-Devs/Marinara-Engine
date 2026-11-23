@@ -23,6 +23,7 @@ export * from "./types/prompt.js";
 export * from "./types/connection.js";
 export * from "./types/connection-picker.js";
 export * from "./utils/openai-image.js";
+export * from "./utils/image-reference-roles.js";
 export * from "./utils/readable-json.js";
 export * from "./types/agent.js";
 export * from "./types/game-state.js";

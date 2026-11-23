@@ -34,6 +34,7 @@ import {
   NOVELAI_TRANSPARENCY_TAGS,
   resolveOpenAIGifAnimation,
   gallerySheetGrid,
+  imageReferenceRoleNotes,
   parseGallerySheetNames,
 } from "@marinara-engine/shared";
 import type {
@@ -68,7 +69,12 @@ import {
   CHARACTERS_STICKER_SHEET,
   loadPrompt,
 } from "../services/prompt-overrides/index.js";
-import { generateImage, ImageAnimationUnsupportedError } from "../services/image/image-generation.js";
+import {
+  generateImage,
+  imageConnectionReferencePictureLimit,
+  ImageAnimationUnsupportedError,
+} from "../services/image/image-generation.js";
+import { avatarImageService } from "../services/avatars/generation/generation-context.js";
 import {
   resolveConnectionImageDefaults,
   resolveConnectionImageQuality,
@@ -502,6 +508,8 @@ type AvatarGenerationBody = {
   /** Sticker and emoji sheets: the names drawn, one cell each, in grid order. */
   stickers?: string[];
   referenceImages?: string[];
+  /** What each reference picture is for, in the same order (see IMAGE_REFERENCE_ROLES). */
+  referenceRoles?: string[];
   width?: number;
   height?: number;
   styleProfileId?: string | null;
@@ -694,7 +702,35 @@ export function withGallerySheetTransparency(prompt: string, tags = false): stri
   return `${prompt.trimEnd()} Transparent background everywhere (no backdrop at all, real PNG alpha).`;
 }
 
+/** The generation prompt, followed by what each reference picture the connection will be sent is for. */
 async function buildAvatarGenerationPrompt(
+  promptOverridesStorage: ReturnType<typeof createPromptOverridesStorage>,
+  body: AvatarGenerationBody,
+  profile: Pick<ImageStyleProfile, "promptMode" | "subjectTags">,
+  seeThrough = false,
+  transparencyTags = false,
+): Promise<string> {
+  const prompt = await buildAvatarGenerationBasePrompt(
+    promptOverridesStorage,
+    body,
+    profile,
+    seeThrough,
+    transparencyTags,
+  );
+  const notes = imageReferenceRoleNotes(body.referenceRoles ?? [], body.name ?? "");
+  return notes ? `${prompt.trimEnd()}\n\n${notes}` : prompt;
+}
+
+/**
+ * The roles of the reference pictures the connection is sent: no more than it takes, and, when the pictures
+ * themselves came along, no more than arrived. A preview may come without the pictures.
+ */
+function sentAvatarReferenceRoles(body: AvatarGenerationBody, limit: number, sentPictures?: number): string[] {
+  const roles = Array.isArray(body.referenceRoles) ? body.referenceRoles : [];
+  return roles.slice(0, Math.min(limit, sentPictures ?? limit));
+}
+
+async function buildAvatarGenerationBasePrompt(
   promptOverridesStorage: ReturnType<typeof createPromptOverridesStorage>,
   body: AvatarGenerationBody,
   profile: Pick<ImageStyleProfile, "promptMode" | "subjectTags">,
@@ -1759,11 +1795,19 @@ export async function charactersRoutes(app: FastifyInstance) {
       imageSettings.styleProfiles,
       body.styleProfileId || imageDefaults?.styleProfileId || imageSettings.styleProfiles.defaultProfileId,
     );
+    const referenceLimit = imageConnectionReferencePictureLimit(avatarImageService(resolved.conn));
     const compiled = compileImagePrompt({
       kind: purposeInfo.kind,
       prompt: await buildAvatarGenerationPrompt(
         promptOverridesStorage,
-        body,
+        {
+          ...body,
+          referenceRoles: sentAvatarReferenceRoles(
+            body,
+            referenceLimit,
+            Array.isArray(body.referenceImages) ? body.referenceImages.length : undefined,
+          ),
+        },
         avatarStyleProfile,
         gallerySheetWantsTransparency(body.purpose, resolved.conn),
         gallerySheetUsesTransparencyTags(resolved.conn),
@@ -1838,7 +1882,9 @@ export async function charactersRoutes(app: FastifyInstance) {
       .map((image) => image.trim())
       // A negative test walks the string; `^[A-Za-z0-9+/=\s]+$` recurses once per character in V8's regexp interpreter.
       .filter((image) => image.startsWith("data:image/") || (image.length > 0 && !/[^A-Za-z0-9+/=\s]/.test(image)))
-      .slice(0, 4);
+      // Pictures past what the connection takes are not sent; the window shows them as "Not sent".
+      .slice(0, imageConnectionReferencePictureLimit(avatarImageService(conn)));
+    const referenceRoles = sentAvatarReferenceRoles(body, referenceImages.length, referenceImages.length);
 
     const imgModel = conn.model || "";
     const imgBaseUrl = conn.baseUrl || "https://image.pollinations.ai";
@@ -1861,7 +1907,7 @@ export async function charactersRoutes(app: FastifyInstance) {
           kind: purposeInfo.kind,
           prompt: await buildAvatarGenerationPrompt(
             promptOverridesStorage,
-            body,
+            { ...body, referenceRoles },
             avatarStyleProfile,
             seeThrough,
             seeThrough && gallerySheetUsesTransparencyTags(conn),

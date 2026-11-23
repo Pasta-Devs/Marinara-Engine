@@ -76,6 +76,7 @@ import {
   comfyWorkflowTakesReference,
   findMissingComfyReferenceSlots,
   numberedComfyReferencePlaceholder,
+  type ComfyReferencePlaceholderBase,
 } from "./comfyui-reference-placeholders.js";
 import { buildVeniceApiUrl, buildVeniceImageRequest, parseVeniceImageResponse } from "./venice-image.js";
 import { buildZaiImageRequest, buildZaiImageUrl, parseZaiImageUrl } from "./zai-image.js";
@@ -233,6 +234,71 @@ export function imageConnectionTakesReferencePicture(connection: {
   return typeof support === "boolean"
     ? support
     : support({
+        model: connection.model?.trim() ?? "",
+        baseUrl: connection.baseUrl,
+        comfyWorkflow: connection.comfyWorkflow ?? "",
+      });
+}
+
+/** The most reference pictures any image connection takes; the generate functions cap each backend lower. */
+export const MAX_REFERENCE_PICTURES = 16;
+
+/** How many numbered reference slots a ComfyUI workflow fills in order, the plain slot counting as the first. */
+function comfyWorkflowReferenceSlotCount(
+  workflowText: string,
+  baseNames: readonly ComfyReferencePlaceholderBase[] = ["reference_image", "reference_image_name"],
+): number {
+  let count = 0;
+  while (
+    count < COMFYUI_MAX_REFERENCE_IMAGES &&
+    baseNames.some(
+      (baseName) =>
+        workflowText.includes(numberedComfyReferencePlaceholder(baseName, count)) ||
+        (count === 0 && workflowText.includes(`%${baseName}%`)),
+    )
+  ) {
+    count++;
+  }
+  return count;
+}
+
+/**
+ * How many reference pictures each backend's generate function sends, where that is fewer than
+ * MAX_REFERENCE_PICTURES; a function where it depends on the model or the workflow.
+ */
+const REFERENCE_PICTURE_LIMIT: Readonly<Record<string, number | ((target: ReferencePictureTarget) => number)>> = {
+  xai: 3,
+  nanogpt: 3,
+  arli: 1,
+  stability: 1,
+  atlas: 1,
+  automatic1111: 1,
+  // OpenRouter's images API takes many pictures for GPT Image only; its chat route takes them all.
+  openrouter: ({ model }) =>
+    usesOpenRouterImagesApi(model) && !isOpenRouterGptImageModel(normalizeOpenRouterImagesApiModel(model) ?? "")
+      ? 1
+      : MAX_REFERENCE_PICTURES,
+  comfyui: ({ comfyWorkflow }) => comfyWorkflowReferenceSlotCount(comfyWorkflow),
+  runpod_comfyui: ({ comfyWorkflow }) => comfyWorkflowReferenceSlotCount(comfyWorkflow),
+  swarmui: ({ comfyWorkflow }) =>
+    comfyWorkflow.trim()
+      ? comfyWorkflowReferenceSlotCount(comfyWorkflow, ["reference_image"])
+      : COMFYUI_MAX_REFERENCE_IMAGES,
+};
+
+/**
+ * How many reference pictures an image connection sends to its model: 0 when it draws from the prompt
+ * alone. Pictures past this are not sent. SpicyAPI's own model may take fewer; it is read only at send time.
+ */
+export function imageConnectionReferencePictureLimit(
+  connection: Parameters<typeof imageConnectionTakesReferencePicture>[0],
+): number {
+  if (!imageConnectionTakesReferencePicture(connection)) return 0;
+  const backend = resolveImageBackend(connection.source, connection.baseUrl, connection.serviceHint, connection.model);
+  const limit = REFERENCE_PICTURE_LIMIT[backend] ?? MAX_REFERENCE_PICTURES;
+  return typeof limit === "number"
+    ? limit
+    : limit({
         model: connection.model?.trim() ?? "",
         baseUrl: connection.baseUrl,
         comfyWorkflow: connection.comfyWorkflow ?? "",

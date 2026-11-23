@@ -912,3 +912,19 @@ export function useLocalServers() {
     refetchOnWindowFocus: false,
   });
 }
+
+/**
+ * How many reference pictures an image connection sends to its model (0: it draws from the prompt alone),
+ * or null while unknown. Pictures past it are shown as "Not sent".
+ */
+export function useImageReferencePictureLimit(connectionId: string | null | undefined): number | null {
+  const id = connectionId ?? "";
+  const { data } = useQuery({
+    queryKey: [...connectionKeys.all, "reference-pictures", id] as const,
+    queryFn: () => api.get<{ limit?: number }>(`/connections/${encodeURIComponent(id)}/reference-pictures`),
+    enabled: !!id,
+    staleTime: 30_000,
+    retry: false,
+  });
+  return id && typeof data?.limit === "number" ? data.limit : null;
+}
