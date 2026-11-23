@@ -3878,7 +3878,8 @@ export function HomeProfessorMariChat({
                   embeddedTab ? "max-w-none" : "max-w-none sm:max-w-5xl",
                 )}
                 onKeyDown={(event) => {
-                  if (event.key !== "Escape") return;
+                  // An IME cancels its composition with Escape: that key must not leave the open item (and drop its edits).
+                  if (event.key !== "Escape" || event.nativeEvent.isComposing || event.keyCode === 229) return;
                   const hasDetail =
                     (workspaceDestination === "context" && Boolean(selectedContextId)) ||
                     (workspaceDestination === "skills" && Boolean(selectedSkillId)) ||
