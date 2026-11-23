@@ -138,7 +138,7 @@ A group wraps several sections in one container.
 2. Click the group's name to rename it.
 3. Expand a section and pick the group in its **Group** dropdown.
 
-With **XML**, a group becomes one parent tag. With **MARKDOWN**, it becomes one heading. Deleting a group does not delete its sections. They only lose the group.
+With **XML**, a group becomes one parent tag. With **MARKDOWN**, it becomes one heading. Sections of one group that are not next to each other each get their own tag or heading. Deleting a group does not delete its sections. They only lose the group.
 
 ### Position and depth
 

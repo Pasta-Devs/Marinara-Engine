@@ -918,6 +918,17 @@ export const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMet
     kind: "Toggle",
   },
   {
+    id: "dice-rolls-as-text",
+    sectionId: "app-style",
+    labelKey: "settings.controls.diceRollsAsText.label",
+    label: "Show Dice Rolls as Text",
+    description: "Show each roll as a short line of text instead of animated dice.",
+    descriptionKey: "settings.search.diceRollsAsText.description",
+    aliases: ["dice", "roll", "dice card", "hide dice"],
+    keywords: ["dice text", "compact rolls"],
+    kind: "Toggle",
+  },
+  {
     id: "ui-element-styles",
     sectionId: "app-style",
     labelKey: "settings.controls.uiElementStyles.label",

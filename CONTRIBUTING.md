@@ -57,7 +57,7 @@ Guidelines:
 
 - **Base your feature branch on `staging`**, not `main`. Run `git checkout staging && git pull` before branching.
 - **Open PRs against `staging`**. The GitHub web UI defaults to `main` (the repo's default branch); change the base to `staging` when filing the PR.
-- Every PR must pass the required GitHub checks and complete [Dottore Review](.github/dottore-review/README.md) before merge. Ready PRs are reviewed automatically; if no review starts, an owner, organization member or collaborator can comment `/dottore`. Outside contributors should ask a maintainer. If Dottore cannot finish a review, a Pasta-Devs member can ask CodeRabbit to review the same head in its place (see [When Dottore is down](.github/dottore-review/README.md#when-dottore-is-down)). These gates cannot be bypassed by developers.
+- Every PR must pass the required GitHub checks and the **Dottore Review** status before merge, with every review thread resolved. CodeRabbit reviews each ready PR into `staging`, then each push to it, and its finished review sets that status. While CodeRabbit is rate limited, [Dottore](.github/dottore-review/README.md) reviews in its place. If no review sets the status, comment `@coderabbitai review`; an owner, organization member or collaborator can also comment `/dottore`. See [CodeRabbit and Dottore](.github/dottore-review/README.md#coderabbit-and-dottore). These gates cannot be bypassed by developers.
 - PRs authored by active Pasta-Devs organization members or owners do not require a separate human approval. Organization members with repository merge permission may merge a ready PR into `staging` after the automated gates pass.
 - Outside and first-time contributors may submit only to `staging` and need an approving review from repository owner `SpicyMarinara` in addition to the automated gates. Approval from another Pasta-Devs member does not satisfy this gate.
 - Only `SpicyMarinara` may update or merge into `main`. Normal releases are promoted from the same repository's tested `staging` branch; direct mainline work is reserved for an owner-owned `hotfix/*` branch in this repository.
@@ -275,7 +275,7 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 ## Pull Request Expectations
 
 - Target the `staging` branch. The GitHub UI defaults to `main`; change the base before submitting. See [Branches](#branches).
-- Wait for every required check and [Dottore Review](.github/dottore-review/README.md) to complete. Outside and first-time contributors must also obtain an approving review from `SpicyMarinara`.
+- Wait for every required check and the review to complete: CodeRabbit's, or [Dottore's](.github/dottore-review/README.md) while CodeRabbit is rate limited. Outside and first-time contributors must also obtain an approving review from `SpicyMarinara`.
 - Optional manual CodeRabbit commands can fix common review findings on your PR: `@coderabbitai run localize` (moves new UI text into `en.json`), `@coderabbitai run theme colours` (swaps hard-coded colours for theme tokens) or `@coderabbitai resolve merge conflict`. Check what it pushes before you ask for review.
 - Link the issue or feature request your PR addresses. If there isn't one yet, open one first (see [Before You Open a Pull Request](#before-you-open-a-pull-request)).
 - Keep PRs focused. Separate unrelated refactors from user-facing fixes or documentation work.

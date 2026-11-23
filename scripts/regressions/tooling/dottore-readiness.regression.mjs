@@ -267,6 +267,9 @@ if (args[0] === "pr" && args[1] === "view") {
   process.stdout.write(JSON.stringify({state: process.env.STATUS_READINESS === "ready" || process.env.STATUS_READINESS === "draft" ? "OPEN" : process.env.STATUS_READINESS.toUpperCase(), isDraft: process.env.STATUS_READINESS === "draft"}));
 } else if (args[0] === "api" && args.includes("POST") && args.some(arg => arg.includes("/statuses/"))) {
   fs.appendFileSync(process.env.STATUS_CALLS, JSON.stringify(args) + "\\n");
+} else if (args[0] === "api" && /\\/commits\\/[0-9a-f]{40}\\/status\\?/.test(args[1])) {
+  // The head's current Dottore Review state, as the step's --jq selects it.
+  process.stdout.write((process.env.STATUS_EXISTING ?? "") + "\\n");
 } else { throw new Error("Unexpected GitHub boundary: " + JSON.stringify(args)); }
 `,
       { mode: 0o755 },
@@ -282,6 +285,9 @@ if (args[0] === "pr" && args[1] === "view") {
       { name: "PR merges before publication", readiness: "merged", expected: [] },
       { name: "Draft admission", admission: "false", readiness: "draft", expected: [] },
       { name: "Ready examination fails", job: "failure", expected: ["failure"] },
+      { name: "A failure keeps another review's pass", job: "failure", existing: "success", expected: [] },
+      { name: "A failure replaces Dottore's own failure", job: "failure", existing: "failure", expected: ["failure"] },
+      { name: "A completed review replaces any status", existing: "failure", expected: ["success"] },
       { name: "Autofix does not publish a review status", mode: "autofix", expected: [] },
     ];
     for (const scenario of scenarios) {
@@ -312,6 +318,7 @@ if (args[0] === "pr" && args[1] === "view") {
             JOB_STATUS: scenario.job ?? "success",
             STATUS_CALLS: calls,
             STATUS_READINESS: ready,
+            STATUS_EXISTING: scenario.existing ?? "",
           },
         });
         assert.equal(execution.status, 0, `${scenario.name}: ${execution.error?.message ?? ""}\n${execution.stderr}`);

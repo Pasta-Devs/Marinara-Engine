@@ -66,7 +66,7 @@ Notes for the simple services:
 - **Together AI**: FLUX and other open image models.
 - **OpenRouter Images**: reaches image models through OpenRouter's chat interface, so the models vary by account.
 - **xAI / Grok Imagine**: uses Grok Imagine.
-- **NanoGPT**: an aggregator, so use its model list.
+- **NanoGPT**: an aggregator, so use its model list. Marinara sends each model the sizes NanoGPT lists for it, for example `1.5k` with an aspect ratio instead of `1344x768`, and only as many reference images as the model takes. If a model refuses a negative prompt, Marinara draws the picture without one and logs a warning on the server.
 - **Pollinations**: the fastest way to try image generation. No account needed.
 - **Stable Horde**: a crowdsourced network. A free key gives higher queue priority.
 - **SD Web UI** and **Draw Things**: start the software with its application interface turned on. Marinara treats Draw Things like an AUTOMATIC1111 server (the app runs on macOS or iOS).
@@ -221,7 +221,7 @@ A reference image is an existing picture you send with your prompt, so the new i
 | ChatGPT (Codex login)                           | Up to 16                                                              |
 | NovelAI                                         | Up to 16, V4.5 model only                                             |
 | xAI / Grok Imagine                              | Up to 3                                                               |
-| NanoGPT                                         | Up to 3                                                               |
+| NanoGPT                                         | Up to 3, within the model's limit. None for text-to-image models      |
 | ComfyUI, RunPod Serverless (ComfyUI), SwarmUI   | Up to 4, through workflow placeholders                                |
 | Stability AI, Arli AI, SD Web UI, Draw Things   | First image only, as image to image                                   |
 | Atlas Cloud                                     | First image, for compatible image-to-image, edit or Kontext model IDs |

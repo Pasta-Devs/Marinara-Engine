@@ -1,4 +1,6 @@
 name: Dottore Review
+# The pull request in the run's title lets coderabbit-review-gate.yml see a review already running for it.
+run-name: "Dottore Review: PR #${{ inputs.pr_number }} (${{ inputs.review_mode }})"
 
 on:
   workflow_dispatch:
@@ -269,6 +271,13 @@ jobs:
           STATE=$(printf '%s\n' "$STATUS_OUTPUT" | sed -n 's/^state=//p')
           DESCRIPTION=$(printf '%s\n' "$STATUS_OUTPUT" | sed -n 's/^description=//p')
           [ "$(python3 /tmp/dottore-review-tool/dottore_review.py ready)" = "ready=true" ] || exit 0
+          # Dottore fails a head only when he could not finish its review, never for what he found. A head another
+          # review already passed (CodeRabbit's, through coderabbit-review-gate.yml) keeps that pass.
+          if [ "$STATE" != success ] && [ "$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/status?per_page=100" \
+            --jq '[.statuses[] | select(.context == "Dottore Review") | .state][0] // ""')" = success ]; then
+            echo "::warning::Dottore could not finish, but $PR_HEAD_SHA already passed review; its status stands."
+            exit 0
+          fi
           gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$PR_HEAD_SHA" \
             -f state="$STATE" -f context="Dottore Review" \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \

@@ -69,15 +69,35 @@ function playSynthesizedNotificationPing(): void {
   osc2.stop(now + 0.2);
 }
 
+/** How long a custom sound may take to start before the default ping plays instead. */
+export const CUSTOM_SOUND_START_TIMEOUT_MS = 4_000;
+
 function playCustomNotificationSound(url: string): void {
   const audio = new Audio(url);
   audio.preload = "auto";
-  let fellBack = false;
-  const playFallback = () => {
-    if (fellBack) return;
-    fellBack = true;
+  let settled = false;
+  // A server that stops answering leaves the request open with no error, which
+  // would otherwise mean no sound at all; after the deadline the default ping plays.
+  const timer = window.setTimeout(() => {
+    if (settled) return;
+    audio.removeAttribute("src");
+    audio.load();
+    playFallback();
+  }, CUSTOM_SOUND_START_TIMEOUT_MS);
+  function playFallback() {
+    if (settled) return;
+    settled = true;
+    window.clearTimeout(timer);
     playSynthesizedNotificationPing();
-  };
+  }
+  audio.addEventListener(
+    "playing",
+    () => {
+      settled = true;
+      window.clearTimeout(timer);
+    },
+    { once: true },
+  );
   audio.addEventListener("error", playFallback, { once: true });
   void audio.play().catch(playFallback);
 }

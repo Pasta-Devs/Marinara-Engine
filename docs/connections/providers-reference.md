@@ -134,7 +134,9 @@ The same meter shows under the context bar in a chat's connection picker and in 
 
 ### Z.AI
 
-**Z.AI** serves the GLM models (GLM 5.3, GLM 5.3 Flash, and earlier) on its own API. GLM 5.2 and 5.3 models accept the **Maximum** reasoning level. The default address is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint, so a Coding Plan key may not work here.
+**Z.AI** serves the GLM models (GLM 5.4, GLM 5.3, GLM 5.3 Flash, and earlier) on its own API. GLM 5.2, 5.3, and 5.4 models accept the **Maximum** reasoning level. The default address is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint, so a Coding Plan key may not work here.
+
+GLM 5.4 is only on the GLM Coding Plan. To use it, set the account's **Address** to `https://api.z.ai/api/coding/paas/v4`. GLM 5.4 always thinks, so its **Reasoning Effort** offers **Low**, **High**, and **Max**, with no **Off**.
 
 ### DeepSeek
 

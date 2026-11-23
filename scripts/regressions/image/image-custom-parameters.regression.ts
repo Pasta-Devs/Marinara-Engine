@@ -65,6 +65,12 @@ const server = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const bytes = Buffer.concat(chunks);
+  // NanoGPT reads its model list before the request; this fixture has none.
+  if (request.url!.startsWith("/v1/image-models")) {
+    response.statusCode = 404;
+    response.end();
+    return;
+  }
   const contentType = request.headers["content-type"] ?? "";
   let body: Record<string, unknown> = {};
   if (contentType.startsWith("multipart/form-data")) {
