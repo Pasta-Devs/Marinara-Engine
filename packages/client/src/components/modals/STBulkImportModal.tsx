@@ -74,7 +74,7 @@ interface ImportResult {
     regexScripts?: number;
   };
   /** Left out because this Engine already had them. */
-  skipped?: { characters: number; chats: number; groupChats: number };
+  skipped?: { characters: number; chats: number; groupChats: number; personas?: number };
   /** What came along beyond the counts (Author's Notes, personas, preset settings), and what didn't. */
   report?: STBulkImportReport;
   errors: string[];

@@ -2,7 +2,7 @@
 // Importer: SillyTavern Bulk Import (folder scan)
 // ──────────────────────────────────────────────
 import { readdir, readFile, stat, copyFile, mkdir } from "fs/promises";
-import { join, extname, basename, relative } from "path";
+import { join, extname, basename, relative, resolve, sep } from "path";
 import { existsSync, readdirSync } from "fs";
 import { createHash, randomUUID } from "crypto";
 import { inflateSync } from "node:zlib";
@@ -13,8 +13,15 @@ import {
   importSTCharacter,
   type STCharacterTagImportMode,
 } from "./st-character.importer.js";
-import { buildPersonaLookup, importSTChat, personaLookupKey, type STChatImportNote } from "./st-chat.importer.js";
-import { importSTPreset, type STPresetLeftOut } from "./st-prompt.importer.js";
+import {
+  buildPersonaLookup,
+  importSTChat,
+  personaLookupKey,
+  stChatFileFingerprint,
+  stChatNameFromFileName,
+  type STChatImportNote,
+} from "./st-chat.importer.js";
+import { importSTPreset, type STPresetLeftOut, type STPresetWorldInfo } from "./st-prompt.importer.js";
 import { importSTLorebook } from "./st-lorebook.importer.js";
 import { createRegexScriptsStorage } from "../storage/regex-scripts.storage.js";
 import { characters as charactersTable, chats as chatsTable } from "../../db/schema/index.js";
@@ -181,6 +188,12 @@ function isPlaceholderChatName(value: unknown) {
   return !name || name === "unused" || name === "new chat";
 }
 
+/** A folder chat's name: the file's, unless the file name is a placeholder ("New Chat", "unused"). */
+function folderChatName(fileName: string, characterName: string) {
+  const name = stChatNameFromFileName(fileName);
+  return name && !isPlaceholderChatName(name) ? name : characterName;
+}
+
 function isConfidentBuiltinPreset(filePath: string) {
   const name = basename(filePath, extname(filePath)).trim().toLowerCase();
   return new Set([
@@ -202,6 +215,14 @@ interface STBulkScanItemBase {
   modifiedAt: string | null;
 }
 
+/** A global regex script's identity in settings.json: its name and pattern, not its place in the list. */
+function regexScriptFingerprint(name: unknown, findRegex: unknown) {
+  return createHash("sha1")
+    .update(`${typeof name === "string" ? name : ""}\u0000${typeof findRegex === "string" ? findRegex : ""}`)
+    .digest("hex")
+    .slice(0, 12);
+}
+
 export interface STBulkScanResult {
   success: boolean;
   error?: string;
@@ -215,9 +236,11 @@ export interface STBulkScanResult {
   backgrounds: STBulkScanItemBase[];
   personas: Array<STBulkScanItemBase & { description: string }>;
   /** Global regex scripts from settings.json (extension_settings.regex); index is the script's place there. */
-  regexScripts?: Array<STBulkScanItemBase & { index: number }>;
+  regexScripts?: Array<STBulkScanItemBase & { index: number; fingerprint?: string }>;
   /** What the folder holds that Marinara has no matching feature for, counted so the import can say so. */
   notBroughtOver?: STNotBroughtOver;
+  /** Folders of things that have no feature here which couldn't be read, so they are missing from the counts. */
+  unreadableFolders?: string[];
 }
 
 export interface STNotBroughtOver {
@@ -506,15 +529,13 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
         const name = (script as Record<string, unknown>).scriptName;
         const findRegex = (script as Record<string, unknown>).findRegex;
         // The id names the script, not only its place, so a pick still means the same script if the list moved.
-        const fingerprint = createHash("sha1")
-          .update(`${typeof name === "string" ? name : ""}\u0000${typeof findRegex === "string" ? findRegex : ""}`)
-          .digest("hex")
-          .slice(0, 12);
+        const fingerprint = regexScriptFingerprint(name, findRegex);
         regexScripts.push({
           id: makeScanItemId("regexScripts", dataDir, `${settingsPath}#${index}:${fingerprint}`),
           path: settingsPath,
           name: typeof name === "string" && name.trim() ? name.trim() : `Regex ${index + 1}`,
           index,
+          fingerprint,
           modifiedAt,
         });
       }
@@ -553,10 +574,20 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
   }
 
   // 9. What has no matching feature here: counted, so the import can name it instead of staying quiet.
+  const unreadableFolders: string[] = [];
   const countJson = async (...folders: string[]) => {
+    const root = resolve(dataDir);
     for (const folder of folders) {
-      const dir = join(dataDir, folder);
-      if (existsSync(dir)) return (await listFiles(dir, ".json")).length;
+      // Stays inside the SillyTavern data folder (the names are fixed; the check keeps it that way).
+      const dir = resolve(root, folder);
+      if (!dir.startsWith(root + sep) || !existsSync(dir)) continue;
+      // Only counted for the report: a folder that can't be read must not stop the import of what can.
+      try {
+        return (await listFiles(dir, ".json")).length;
+      } catch {
+        unreadableFolders.push(folder);
+        return 0;
+      }
     }
     return 0;
   };
@@ -579,6 +610,7 @@ export async function scanSTFolder(rootPath: string): Promise<STBulkScanResult> 
     personas,
     regexScripts,
     notBroughtOver,
+    ...(unreadableFolders.length > 0 ? { unreadableFolders } : {}),
   };
 }
 
@@ -624,7 +656,7 @@ export interface STBulkImportResult {
     regexScripts?: number;
   };
   /** Left out because this Engine already had them (skipAlreadyImported). */
-  skipped?: { characters: number; chats: number; groupChats: number };
+  skipped?: { characters: number; chats: number; groupChats: number; personas?: number };
   /** What came along beyond the counts, and what could not. */
   report?: STBulkImportReport;
   errors: string[];
@@ -659,6 +691,10 @@ export interface STBulkImportReport {
   presetsWithSettings: number;
   /** Preset settings with no place in a Marinara preset. */
   presetSettingsLeftOut: STPresetLeftOut[];
+  /** SillyTavern personas left out because a persona of that name is already here (chats link to it). Up to 20. */
+  personasAlreadyHere: string[];
+  /** Presets per World Info layout (before/after kept apart, one combined spot, or turned off). */
+  presetWorldInfo: Partial<Record<STPresetWorldInfo, number>>;
 }
 
 function emptyBulkImportReport(): STBulkImportReport {
@@ -677,6 +713,8 @@ function emptyBulkImportReport(): STBulkImportReport {
     notBroughtOver: { quickReplies: 0, instruct: 0, context: 0, systemPrompts: 0 },
     presetsWithSettings: 0,
     presetSettingsLeftOut: [],
+    presetWorldInfo: {},
+    personasAlreadyHere: [],
   };
 }
 
@@ -718,11 +756,6 @@ function characterImportSignature(data: unknown): string | null {
     .digest("hex");
 }
 
-/** A chat file's own fingerprint, kept in the imported chat's metadata. */
-function chatFileFingerprint(content: string) {
-  return createHash("sha256").update(content.replace(/\r\n/g, "\n")).digest("hex");
-}
-
 /**
  * Chats imported before fingerprints existed: the same file gives the same chat name, file label
  * and file time, which no two different files share in practice.
@@ -753,7 +786,12 @@ async function existingImportSignatures(db: DB) {
     } catch {
       // no metadata: legacy signature with no label
     }
-    if (typeof metadata.importFingerprint === "string") chats.add(`fp:${metadata.importFingerprint}`);
+    // A chat that remembers its file matches only that file; name and time matching is for chats from older
+    // versions, which kept no fingerprint (two different files can share a label and a time).
+    if (typeof metadata.importFingerprint === "string") {
+      chats.add(`fp:${metadata.importFingerprint}`);
+      continue;
+    }
     const createdAt = parseTrustedTimestamp(row.createdAt);
     const branch = typeof metadata.branchName === "string" ? metadata.branchName : null;
     const legacy = legacyChatSignature(row.name, branch, createdAt);
@@ -803,7 +841,7 @@ export async function runSTBulkImport(
   const existingTagKeys =
     tagImportMode === "existing" && selectedCharacters.length > 0 ? await getExistingCharacterTagKeys(db) : undefined;
   const skipAlreadyImported = options.skipAlreadyImported !== false;
-  const skipped = { characters: 0, chats: 0, groupChats: 0 };
+  const skipped = { characters: 0, chats: 0, groupChats: 0, personas: 0 };
   const report = emptyBulkImportReport();
   const missingPersonas = new Set<string>();
   const presetLeftOut = new Set<STPresetLeftOut>();
@@ -946,11 +984,22 @@ export async function runSTBulkImport(
     if (!existsSync(AVATAR_DIR)) {
       await mkdir(AVATAR_DIR, { recursive: true });
     }
+    // With "Skip what's already here", a persona of the same name (from a chat import or an earlier run)
+    // is used instead of a second, empty copy. Only personas from before this run count, so two
+    // SillyTavern personas sharing a name both come in.
+    const existingPersonas = skipAlreadyImported ? await buildPersonaLookup(db) : null;
     const total = selectedPersonas.length;
     let idx = 0;
     for (const p of selectedPersonas) {
       idx++;
       onProgress?.({ category: "Personas", item: p.name, current: idx, total, imported });
+      const existingId = existingPersonas?.get(personaLookupKey(p.name));
+      if (existingId) {
+        importedPersonaAvatars.set(basename(p.path), existingId);
+        skipped.personas++;
+        if (report.personasAlreadyHere.length < MAX_REPORTED_MISSING_PERSONAS) report.personasAlreadyHere.push(p.name);
+        continue;
+      }
       try {
         // Copy avatar image
         const ext = extname(p.path).toLowerCase();
@@ -1005,14 +1054,21 @@ export async function runSTBulkImport(
       try {
         const content = await readFile(ct.path, "utf-8");
         const fileInfo = await stat(ct.path);
-        const fingerprint = chatFileFingerprint(content);
+        const fingerprint = stChatFileFingerprint(content);
         const branchName = ct.chatName ?? basename(ct.path, ".jsonl");
-        const legacy = legacyChatSignature(
-          ct.characterName,
-          branchName,
-          parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt),
-        );
-        if (alreadyHave(known?.chats, `fp:${fingerprint}`, legacy && `legacy:${legacy}`)) {
+        const chatName = folderChatName(branchName, ct.characterName);
+        const fileCreatedAt = parseTrustedTimestamp(getFileTimestampOverrides(fileInfo)?.createdAt);
+        // Older folder runs named the chat after the character; chats are named after the file now.
+        const legacy = legacyChatSignature(ct.characterName, branchName, fileCreatedAt);
+        const legacyByFile = legacyChatSignature(chatName, branchName, fileCreatedAt);
+        if (
+          alreadyHave(
+            known?.chats,
+            `fp:${fingerprint}`,
+            legacy && `legacy:${legacy}`,
+            legacyByFile && `legacy:${legacyByFile}`,
+          )
+        ) {
           skipped.chats++;
           continue;
         }
@@ -1034,7 +1090,9 @@ export async function runSTBulkImport(
         const chatResult = await importSTChat(content, db, {
           personaLookup,
           characterId: charId,
-          chatName: ct.characterName,
+          // Named after the SillyTavern file, as a single chat import is ("Ilse Marrow - Beach date").
+          // A placeholder file name falls back to the character's.
+          chatName,
           branchName,
           groupId,
           sourceFingerprint: fingerprint,
@@ -1061,7 +1119,7 @@ export async function runSTBulkImport(
       try {
         const content = await readFile(gc.path, "utf-8");
         const fileInfo = await stat(gc.path);
-        const fingerprint = chatFileFingerprint(content);
+        const fingerprint = stChatFileFingerprint(content);
         const legacy = legacyChatSignature(
           gc.groupName,
           null,
@@ -1125,6 +1183,9 @@ export async function runSTBulkImport(
         });
         if ((presetResult.parametersImported?.length ?? 0) > 0) report.presetsWithSettings++;
         if (pr.samplersOnly) report.samplersOnlyPresets++;
+        if (presetResult.worldInfo) {
+          report.presetWorldInfo[presetResult.worldInfo] = (report.presetWorldInfo[presetResult.worldInfo] ?? 0) + 1;
+        }
         for (const key of presetResult.parametersLeftOut ?? []) presetLeftOut.add(key);
         imported.presets++;
       } catch (err) {
@@ -1187,7 +1248,19 @@ export async function runSTBulkImport(
     try {
       const settings = JSON.parse(await readFile(selectedRegex[0]!.path, "utf-8"));
       const all = readSettingsRegexScripts(settings);
-      const picked = selectedRegex.map((item) => all[item.index]).filter((script) => script !== undefined);
+      // settings.json is read again here; take a pick only if it is still the script that was scanned.
+      const picked: unknown[] = [];
+      for (const item of selectedRegex) {
+        const script = all[item.index] as Record<string, unknown> | undefined;
+        if (
+          script &&
+          (!item.fingerprint || regexScriptFingerprint(script.scriptName, script.findRegex) === item.fingerprint)
+        ) {
+          picked.push(script);
+        } else {
+          errors.push(`Regex script "${item.name}": settings.json changed since the scan, so it was not imported.`);
+        }
+      }
       const regexStorage = createRegexScriptsStorage(db);
       const existing = await regexStorage.list();
       const orderBase = existing.reduce((maximum, script) => Math.max(maximum, script.order), -1) + 1;
@@ -1208,6 +1281,9 @@ export async function runSTBulkImport(
   }
 
   if (scanResult.notBroughtOver) report.notBroughtOver = scanResult.notBroughtOver;
+  for (const folder of scanResult.unreadableFolders ?? []) {
+    errors.push(`Folder "${folder}" couldn't be read, so it isn't counted under "Not brought over".`);
+  }
   report.missingPersonas = [...missingPersonas].slice(0, MAX_REPORTED_MISSING_PERSONAS);
   report.presetSettingsLeftOut = [...presetLeftOut];
   return { success: true, imported, ...(skipAlreadyImported ? { skipped } : {}), report, errors };

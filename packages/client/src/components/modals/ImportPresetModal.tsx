@@ -11,7 +11,7 @@ import { api } from "../../lib/api-client";
 import { getFolderImportEntries, getFolderManifestConfig } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Spinner } from "../ui/Spinner";
-import { describePresetImport, type STPresetLeftOut } from "../../lib/st-import-report";
+import { describePresetImport, type STPresetLeftOut, type STPresetWorldInfo } from "../../lib/st-import-report";
 
 interface Props {
   open: boolean;
@@ -78,6 +78,7 @@ export function ImportPresetModal({ open, onClose }: Props) {
           error?: string;
           parametersImported?: string[];
           parametersLeftOut?: STPresetLeftOut[];
+          worldInfo?: STPresetWorldInfo;
         }>("/import/st-preset", {
           ...json,
           __filename: file.name.replace(/\.json$/i, ""),
