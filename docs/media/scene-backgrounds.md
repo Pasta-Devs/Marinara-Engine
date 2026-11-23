@@ -76,13 +76,15 @@ The new image becomes the selected version in the message. Earlier results stay 
 
 ### Image versions
 
-Open a stacked image to choose a version. Left/right arrows, arrow keys and horizontal swipes move between Gallery tiles. Up/down controls, arrow keys and vertical swipes on the picture move between versions in the current stack. Zoom out before navigating. Scrolling the prompt does not change versions.
+Open a stacked image to choose a version. In a Gallery, left/right arrows, arrow keys and horizontal swipes move between tiles. Opening an image from a chat message stays within that image's stack. Up/down controls, arrow keys and vertical swipes on the picture move between versions in the current stack. Zoom out before navigating. Scrolling the prompt does not change versions.
 
 Click the picture, prompt header or collapse button to use Up/Down for versions. Click prompt text or a copy button to use Up/Down for scrolling instead. Version controls also stay visible while regenerating or editing. Apply or clear a painted mask before switching versions; controls pause while generation runs.
 
 The version you choose is saved and shown in the chat, including after a reload. Regenerating or editing an older version adds a new result to the same stack and keeps the later versions too. A branched chat has its own selection.
 
-Use **Delete gallery image** on the tile, or the delete button in the viewer, to choose what to remove:
+With **Automatically save generated images to character galleries** enabled, regenerations and edits keep the original image's character and persona gallery destinations. Those galleries group the versions too. Each gallery saves its own selected version, so browsing there does not change the picture selected in chat. Gallery entries share the saved image files; they do not make extra copies. Opening a gallery also restores missing versions from older chat stacks when their original gallery entry still links to the source chat. Versions deleted from an already grouped gallery stay deleted.
+
+In the chat Gallery, use **Delete gallery image** on the tile, or the delete button in the viewer, to choose what to remove:
 
 - **Delete this version** removes the displayed version. If it was selected, the newest remaining version is shown.
 - **Delete other versions** keeps the displayed version and removes the rest.

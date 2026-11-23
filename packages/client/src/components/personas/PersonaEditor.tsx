@@ -1,3 +1,4 @@
+import { Images as VersionImagesIcon } from "lucide-react";
 import { CardProseSectionHeader, type CardProseSectionHeaderProps } from "../cards/CardProse";
 import { CardImagesTab } from "../cards/CardImagesTab";
 import { ClassicCardSection } from "../overhaul/ClassicCardSection";
@@ -488,6 +489,8 @@ function PersonaGalleryTab({
   );
   const {
     lightbox,
+    displayedImages,
+    versionCounts,
     setLightbox,
     selectingImages,
     setSelectingImages,
@@ -610,7 +613,7 @@ function PersonaGalleryTab({
 
       <div className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-1">
         {[
-          { id: "images" as const, label: "Images", icon: Camera, count: images?.length ?? 0 },
+          { id: "images" as const, label: "Images", icon: Camera, count: displayedImages.length },
           { id: "clips" as const, label: "Videos", icon: Film, count: null },
         ].map((tab) => {
           const Icon = tab.icon;
@@ -656,7 +659,7 @@ function PersonaGalleryTab({
                 disabled={!images?.length}
                 onClick={() => {
                   setSelectingImages(true);
-                  setSelectedImageIds(new Set(images?.map((image) => image.id) ?? []));
+                  setSelectedImageIds(new Set(displayedImages.map((image) => image.id)));
                 }}
                 className="mari-editor-action inline-flex disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -715,7 +718,7 @@ function PersonaGalleryTab({
             </div>
           ) : images && images.length > 0 ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4">
-              {images.map((image) => (
+              {displayedImages.map((image) => (
                 <div
                   key={image.id}
                   className={cn(
@@ -725,6 +728,15 @@ function PersonaGalleryTab({
                       : "border-[var(--border)] hover:border-[var(--primary)]/30",
                   )}
                 >
+                  {(versionCounts.get(image.id) ?? 0) > 1 && (
+                    <span
+                      className="pointer-events-none absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-md bg-[var(--sidebar)] px-2 py-1 text-xs text-[var(--foreground)] shadow-sm"
+                      aria-label={localizeUi("chat.imageVersions.count", { count: versionCounts.get(image.id) })}
+                    >
+                      <VersionImagesIcon size="0.875rem" />
+                      {versionCounts.get(image.id)}
+                    </span>
+                  )}
                   {!selectingImages ? (
                     <CustomEmojiTagButton
                       image={image}

@@ -1,3 +1,4 @@
+import { repairEntityImageVariants } from "../services/image/entity-image-variants.js";
 import { embedCharacterBookImages, LOREBOOK_EXPORT_IMAGE_MAX_BYTES } from "../services/lorebook/lorebook-images.js";
 // ──────────────────────────────────────────────
 // Routes: Characters, Personas & Groups
@@ -1040,6 +1041,9 @@ async function* galleryExportEntries(
       data: dataUrl,
       prompt: img.prompt ?? "",
       ...(generation ? { generation } : {}),
+      ...(img.variantGroupId
+        ? { variantGroupId: img.variantGroupId, variantSelected: img.variantSelected ?? 0, createdAt: img.createdAt }
+        : {}),
       provider: img.provider ?? "",
       model: img.model ?? "",
       width: img.width ?? null,
@@ -2140,6 +2144,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const char = await storage.getById(req.params.id);
     if (!char) return notFound(reply, "Character not found");
 
+    await repairEntityImageVariants(app.db, "character", req.params.id);
     const images = await characterGallery.listByCharacterId(req.params.id);
     const kept = isUnsafePathSegment(req.params.id)
       ? new Set<string>()
@@ -3379,6 +3384,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const persona = await storage.getPersona(req.params.id);
     if (!persona) return notFound(reply, "Persona not found");
 
+    await repairEntityImageVariants(app.db, "persona", req.params.id);
     const images = await personaGallery.listByPersonaId(req.params.id);
     const kept = isUnsafePathSegment(req.params.id)
       ? new Set<string>()

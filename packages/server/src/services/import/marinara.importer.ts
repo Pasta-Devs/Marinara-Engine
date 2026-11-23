@@ -289,6 +289,9 @@ async function restoreOwnerGallery(
     filePath: string;
     prompt: string;
     generation?: ChatImageGenerationRecord | null;
+    variantGroupId?: string | null;
+    variantSelected?: number;
+    createdAt?: string;
     provider: string;
     model: string;
     width?: number;
@@ -353,6 +356,12 @@ async function restoreOwnerGallery(
         filePath: `${ownerFolder}/${ownerId}/${safeFilename}`,
         prompt: typeof entry.prompt === "string" ? entry.prompt : "",
         generation: parseChatImageGenerationRecord(entry.generation),
+        variantGroupId: typeof entry.variantGroupId === "string" ? entry.variantGroupId : null,
+        variantSelected: entry.variantSelected === 1 ? 1 : 0,
+        createdAt:
+          typeof entry.createdAt === "string" && Number.isFinite(Date.parse(entry.createdAt))
+            ? entry.createdAt
+            : undefined,
         provider: typeof entry.provider === "string" ? entry.provider : "",
         model: typeof entry.model === "string" ? entry.model : "",
         width: typeof entry.width === "number" ? entry.width : undefined,

@@ -601,6 +601,8 @@ export interface CharacterGalleryImage {
   id: string;
   characterId: string;
   sourceChatImageId?: string | null;
+  variantGroupId?: string | null;
+  variantSelected?: number;
   generation?: string | null;
   filePath: string;
   prompt: string;
@@ -1250,6 +1252,8 @@ export interface PersonaGalleryImage {
   id: string;
   personaId: string;
   sourceChatImageId?: string | null;
+  variantGroupId?: string | null;
+  variantSelected?: number;
   generation?: string | null;
   filePath: string;
   prompt: string;

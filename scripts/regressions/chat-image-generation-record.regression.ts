@@ -1112,6 +1112,19 @@ try {
   });
 
   try {
+    await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: true }));
+    const editMembershipOwner = await createCharactersStorage(db).create(
+      characterDataSchema.parse({ name: "Edit membership owner" }),
+    );
+    assert.ok(editMembershipOwner);
+    const editMemberships = (
+      await import("../../packages/server/src/services/storage/character-gallery.storage.js")
+    ).createCharacterGalleryStorage(db);
+    await editMemberships.create({
+      characterId: editMembershipOwner.id,
+      sourceChatImageId: naiImage.id,
+      filePath: naiImage.filePath,
+    });
     // 1) img2img with reuseSeed on V4.5 uses record.seed, omits director refs even with real character refs, persists new seed.
     const img2imgResp = await app.inject({
       method: "POST",
@@ -1155,6 +1168,17 @@ try {
       },
     });
     assert.equal(infillResp.statusCode, 200, infillResp.body);
+    const savedEditMemberships = await editMemberships.listByCharacterId(editMembershipOwner.id);
+    assert.equal(
+      savedEditMemberships.length,
+      3,
+      "img2img then infill retains gallery membership after references are cleared",
+    );
+    assert.equal(
+      savedEditMemberships.find((row) => row.sourceChatImageId === infillResp.json().image.id)?.filePath,
+      infillResp.json().image.filePath,
+    );
+
     assert.equal(novelAiRequests[1]?.action, "infill");
     assert.equal(novelAiRequests[1]?.model, "nai-diffusion-5-full-inpainting");
     const naiParams2 = novelAiRequests[1]?.parameters as Record<string, unknown>;
@@ -1449,6 +1473,7 @@ try {
 
   // Version stacks retain originals and select from the whole group when an older version is edited.
   const { groupChatImageVariants } = await import("../../packages/shared/src/utils/chat-image-variants.js");
+  await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: true }));
   const versionSource = await gallery.create({
     chatId: chat.id,
     filePath: `${chat.id}/version-original.png`,
@@ -1461,6 +1486,18 @@ try {
   });
   assert.ok(versionSource);
   writeFileSync(join(fixtureDir, "gallery", versionSource.filePath), naiCanvas);
+  await characterImages.create({
+    characterId: entityCharacter.id,
+    sourceChatImageId: versionSource.id,
+    filePath: versionSource.filePath,
+    generation: parseChatImageGenerationRecord(versionSource.generation),
+  });
+  await personaImages.create({
+    personaId: entityPersona.id,
+    sourceChatImageId: versionSource.id,
+    filePath: versionSource.filePath,
+    generation: parseChatImageGenerationRecord(versionSource.generation),
+  });
   const regenerateVersion = (prompt: string) =>
     app.inject({
       method: "POST",
@@ -1487,6 +1524,81 @@ try {
   const attachmentIds = async () => JSON.parse((await chats.getMessage(versionMessage!.id))!.extra).attachments;
   assert.equal((await attachmentIds())[0].galleryId, v3.id, "editing an older version selects its result in chat");
   assert.equal((await attachmentIds())[0].caption, "keep caption");
+  // Empty generation references still inherit actual gallery membership, using the same files.
+  const sourceIds = new Set([versionSource.id, v2.id, v3.id]);
+  const entityStackRows = (rows: Awaited<ReturnType<typeof characterImages.listByCharacterId>>) =>
+    rows.filter((row) => sourceIds.has(row.sourceChatImageId ?? ""));
+  const characterVersions = entityStackRows(await characterImages.listByCharacterId(entityCharacter.id));
+  const personaVersions = (await personaImages.listByPersonaId(entityPersona.id)).filter((row) =>
+    sourceIds.has(row.sourceChatImageId ?? ""),
+  );
+  assert.equal(characterVersions.length, 3, "regenerations inherit character membership without avatar reference IDs");
+  assert.equal(personaVersions.length, 3, "persona memberships inherit independently");
+  assert.equal(new Set(characterVersions.map((row) => row.variantGroupId)).size, 1);
+  for (const row of [...characterVersions, ...personaVersions]) {
+    const source = await gallery.getById(row.sourceChatImageId!, chat.id);
+    assert.equal(row.filePath, source!.filePath, "gallery memberships must reference the existing bytes");
+    assert.equal(row.generation, source!.generation, "each version owns its generation record");
+  }
+  const originalCharacterVersion = characterVersions.find((row) => row.sourceChatImageId === versionSource.id)!;
+  const secondCharacterVersion = characterVersions.find((row) => row.sourceChatImageId === v2.id)!;
+  const selectedEntity = await app.inject({
+    method: "POST",
+    url: `/api/characters/${entityCharacter.id}/gallery/${secondCharacterVersion.id}/select`,
+  });
+  assert.equal(selectedEntity.statusCode, 200, selectedEntity.body);
+  assert.equal((await attachmentIds())[0].galleryId, v3.id, "entity selection cannot change chat selection");
+  assert.equal(
+    (await personaImages.getById(personaVersions.find((row) => row.variantSelected === 1)!.id))!.variantSelected,
+    1,
+  );
+  assert.equal((await characterImages.getById(originalCharacterVersion.id))!.variantSelected, 0);
+  const wrongOwnerSelect = await app.inject({
+    method: "POST",
+    url: `/api/characters/${entityPersona.id}/gallery/${secondCharacterVersion.id}/select`,
+  });
+  assert.equal(wrongOwnerSelect.statusCode, 404);
+
+  // A pre-fix gallery with only the original recovers once from explicit source links.
+  const recoveryOwner = await entityCharacters.create(characterDataSchema.parse({ name: "Recovery owner" }));
+  assert.ok(recoveryOwner);
+  await characterImages.create({
+    characterId: recoveryOwner.id,
+    sourceChatImageId: versionSource.id,
+    filePath: versionSource.filePath,
+  });
+  const recoveryPath = `/api/characters/${recoveryOwner.id}/gallery`;
+  const recovered = await app.inject({ method: "GET", url: recoveryPath });
+  assert.equal(recovered.statusCode, 200, recovered.body);
+  const recoveredRows = recovered.json();
+  assert.equal(recoveredRows.length, 3);
+  assert.ok(recoveredRows.every((row: { variantGroupId: string }) => row.variantGroupId));
+  assert.equal((await app.inject({ method: "GET", url: recoveryPath })).json().length, 3, "repair is idempotent");
+  const removedRecovered = recoveredRows.find((row: { sourceChatImageId: string }) => row.sourceChatImageId === v2.id);
+  assert.equal((await app.inject({ method: "DELETE", url: `${recoveryPath}/${removedRecovered.id}` })).statusCode, 200);
+  assert.equal(
+    (await app.inject({ method: "GET", url: recoveryPath })).json().length,
+    2,
+    "repair never resurrects a deleted entity version",
+  );
+  assert.ok(
+    readFileSync(join(fixtureDir, "gallery", v2.filePath)).length,
+    "deleting one membership retains shared bytes",
+  );
+
+  const nativeCard = await app.inject({ method: "GET", url: `/api/characters/${entityCharacter.id}/export` });
+  assert.equal(nativeCard.statusCode, 200, nativeCard.body);
+  const cardPayload = nativeCard.json();
+  const serializedCard = JSON.stringify(cardPayload);
+  assert.ok(serializedCard.includes(secondCharacterVersion.variantGroupId!));
+  const { importMarinara } = await import("../../packages/server/src/services/import/marinara.importer.js");
+  const importedCard = await importMarinara(cardPayload, db);
+  assert.ok(importedCard.success && importedCard.id, importedCard.error);
+  const importedVersions = await characterImages.listByCharacterId(importedCard.id);
+  const importedStack = importedVersions.filter((row) => row.variantGroupId === secondCharacterVersion.variantGroupId);
+  assert.equal(importedStack.length, 3, "native card import retains all versions without the source chat");
+  assert.equal(importedStack.find((row) => row.variantSelected === 1)?.prompt, secondCharacterVersion.prompt);
+
   const choose = await app.inject({ method: "POST", url: `/api/gallery/${chat.id}/images/${versionSource.id}/select` });
   assert.equal(choose.statusCode, 200, choose.body);
   assert.equal((await attachmentIds())[0].galleryId, versionSource.id);

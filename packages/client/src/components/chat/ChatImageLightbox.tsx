@@ -83,6 +83,7 @@ interface ChatImageLightboxProps {
   /** Actions for a saved result while its editing panel remains open. */
   editActions?: (image: ChatImage, busy: boolean) => ReactNode;
   interactionDisabled?: boolean;
+  onSelectVersion?: (image: ChatImage) => Promise<ChatImage>;
   onClose: () => void;
 }
 
@@ -100,6 +101,7 @@ export function ChatImageLightbox({
   actions,
   editActions,
   interactionDisabled = false,
+  onSelectVersion,
   onClose,
 }: ChatImageLightboxProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -162,8 +164,8 @@ export function ChatImageLightbox({
   rows.set(image.id, image);
   // Fetching saved versions must not turn a message preview into the entire chat gallery.
   const suppliedIds = new Set([...(images ?? []).map((row) => row.id), activeImage.id]);
-  const stacks = groupChatImageVariants([...rows.values()]).filter(
-    (group) => group.versions.some((row) => suppliedIds.has(row.id)),
+  const stacks = groupChatImageVariants([...rows.values()]).filter((group) =>
+    group.versions.some((row) => suppliedIds.has(row.id)),
   );
   const galleryIndex = stacks.findIndex((stack) => stack.versions.some((row) => row.id === image.id));
   const stack = stacks[galleryIndex];
@@ -221,7 +223,7 @@ export function ChatImageLightbox({
         }
         index={galleryIndex}
         versions={
-          chatGallery && stack
+          (chatGallery || onSelectVersion) && stack
             ? {
                 index: versionIndex,
                 count: stack.versions.length,
@@ -229,9 +231,12 @@ export function ChatImageLightbox({
                 onIndexChange: (next) => {
                   const target = stack.versions[next];
                   if (!target || navigating || busy || maskState.hasMask || maskState.isDrawing) return;
-                  void selectVersion
-                    .mutateAsync(target)
-                    .then((result) => setImage(result.image))
+                  void (
+                    onSelectVersion
+                      ? onSelectVersion(target)
+                      : selectVersion.mutateAsync(target).then((result) => result.image)
+                  )
+                    .then((result) => setImage(result))
                     .catch((error) =>
                       toast.error(
                         error instanceof Error ? error.message : localizeUi("chat.imageVersions.selectFailed"),

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ChatImageLightbox } from "../chat/ChatImageLightbox";
 import {
   useEntityImageRegenerator,
+  useSelectEntityImageVersion,
   type EntityEditableImage,
   type EntityImageOwner,
 } from "../../hooks/use-entity-image-edit";
@@ -30,6 +31,7 @@ export function EntityImageLightbox<T extends EntityEditableImage>({
 }) {
   const { t } = useTranslation();
   const regenerator = useEntityImageRegenerator(owner, applyEditedOnly);
+  const selectVersion = useSelectEntityImageVersion(owner);
   const asChatImage = (item: T) => ({ ...item, chatId: "", generation: item.generation ?? null });
   return (
     <ChatImageLightbox
@@ -38,7 +40,8 @@ export function EntityImageLightbox<T extends EntityEditableImage>({
       pinEnabled={false}
       regenerate={{}}
       regenerator={regenerator}
-      interactionDisabled={busy}
+      interactionDisabled={busy || selectVersion.isPending}
+      onSelectVersion={async (target) => ({ ...(await selectVersion.mutateAsync(target.id)), chatId: "" })}
       onClose={onClose}
       editActions={
         applyEditedOnly && onUseImage
