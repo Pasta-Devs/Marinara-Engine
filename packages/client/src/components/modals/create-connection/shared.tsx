@@ -21,12 +21,28 @@ import type { DeviceItem } from "../../../hooks/use-device-setup";
 /** "On this device" (decision 32): built-in parts set up with their own controls, listed here so people find them. */
 export type DeviceService = "local_model" | "tts" | "stt";
 export type MediaServiceId = `media:${string}` | `audio:${string}` | `decision:${string}`;
-export type ServiceId = APIProvider | DeviceService | MediaServiceId | typeof LINKAPI_SERVICE | typeof DECISION_BUILTIN;
+export type ServiceId = APIProvider | DeviceService | MediaServiceId | HostedServiceId | typeof DECISION_BUILTIN;
 /** The experimental built-in decision model: its tile under "Other" opens its own installer. */
 export const DECISION_BUILTIN = "decision_builtin";
-/** LinkAPI (Marinara's sponsor): an OpenAI-compatible gateway, set up as a custom address with its own key. */
-export const LINKAPI_SERVICE = "linkapi";
-export const LINKAPI = { name: "LinkAPI", baseUrl: "https://linkapi.ai/v1", keyUrl: "https://linkapi.ai/" };
+/**
+ * Online OpenAI-compatible services, set up as a custom address with the service's own key: LinkAPI (Marinara's
+ * sponsor) and the free volunteer networks AI Horde and BeaverNet. `anonymousKey` fills the key field of a service
+ * that also answers without an account.
+ */
+export type HostedServiceId = "linkapi" | "aihorde" | "beavernet";
+export type HostedService = { name: string; baseUrl: string; keyUrl: string; anonymousKey?: string };
+export const HOSTED_SERVICES: Record<HostedServiceId, HostedService> = {
+  linkapi: { name: "LinkAPI", baseUrl: "https://linkapi.ai/v1", keyUrl: "https://linkapi.ai/" },
+  aihorde: {
+    name: "AI Horde",
+    baseUrl: "https://oai.aihorde.net/v1",
+    keyUrl: "https://aihorde.net/register",
+    anonymousKey: "0000000000",
+  },
+  beavernet: { name: "BeaverNet", baseUrl: "https://net.beaverai.org/v1", keyUrl: "https://net.beaverai.org/account" },
+};
+export const hostedServiceOf = (service: ServiceId | null): HostedService | null =>
+  service && Object.hasOwn(HOSTED_SERVICES, service) ? HOSTED_SERVICES[service as HostedServiceId] : null;
 export const DEVICE_ITEMS: Record<DeviceService, DeviceItem> = { local_model: "local-model", tts: "tts", stt: "stt" };
 export const isDevice = (service: ServiceId | null): service is DeviceService => !!service && service in DEVICE_ITEMS;
 export const isLinkApiUrl = (url: string) => /^https?:\/\/(?:[^/]*\.)?linkapi\.ai(?:[:/]|$)/iu.test(url.trim());
@@ -118,6 +134,8 @@ export const mediaBackendOf = (service: ServiceId | null) =>
 export const SERVICE_KINDS: Partial<Record<ServiceId, Kind[]>> = {
   custom: ["chat", "image", "local"],
   linkapi: ["chat", "image"],
+  aihorde: ["chat"],
+  beavernet: ["chat"],
   local_model: ["local"],
   tts: ["voice", "local"],
   // Dictation is its own job: search finds it, the Voice (Text to speech) filter does not list it.
@@ -183,7 +201,7 @@ export type ServiceGroupDefinition = {
   sorted?: boolean;
 };
 export const SERVICE_GROUPS: ServiceGroupDefinition[] = [
-  { id: "popular", services: [LINKAPI_SERVICE, "nanogpt", "openrouter", "openai", "anthropic", "google"] },
+  { id: "popular", services: ["linkapi", "nanogpt", "openrouter", "openai", "anthropic", "google"] },
   { id: "plan", services: ["openai_chatgpt", "claude_subscription", "grok_subscription"] },
   {
     id: "local",
@@ -193,7 +211,7 @@ export const SERVICE_GROUPS: ServiceGroupDefinition[] = [
     id: "all",
     sorted: true,
     services: [
-      ...(["xai", "mistral", "cohere", "deepseek", "zai", "arli"] as const),
+      ...(["xai", "mistral", "cohere", "deepseek", "zai", "arli", "aihorde", "beavernet"] as const),
       "google_vertex",
       ...MEDIA_BACKENDS.filter((backend) => !SELF_HOSTED.has(backend.source)).map((backend) => backend.id),
       "tts",
@@ -206,6 +224,7 @@ export const VENDORS_SHOWN = 4;
 /** Old names people still search for. */
 export const SEARCH_ALIASES: Partial<Record<ServiceId, string>> = {
   openai_chatgpt: "codex",
+  aihorde: "stable horde kobold kudos",
   local_model: "local built-in built in sidecar llama gguf offline free device no account",
 };
 export const KIND_ICONS = {
@@ -358,8 +377,8 @@ export function failureReason(
 export function ServiceTile({ service, baseUrl, name }: { service: ServiceId; baseUrl?: string; name?: string }) {
   const media = mediaBackendOf(service);
   // A custom address: its brand comes from the URL.
-  if (service === LINKAPI_SERVICE)
-    return <ProviderIcon provider="custom" baseUrl={LINKAPI.baseUrl} name={LINKAPI.name} size="add" />;
+  const hosted = hostedServiceOf(service);
+  if (hosted) return <ProviderIcon provider="custom" baseUrl={hosted.baseUrl} name={hosted.name} size="add" />;
   if (service === "custom") return <ProviderIcon provider="custom" baseUrl={baseUrl} name={name} size="add" />;
   if (service === DECISION_BUILTIN) return <ProviderIcon provider="decision" size="add" />;
   return (
