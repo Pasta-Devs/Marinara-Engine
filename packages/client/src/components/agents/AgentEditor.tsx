@@ -4700,6 +4700,10 @@ export function AgentEditor() {
                         setLocalSourceLorebookIds((prev) => [...prev, ...ids.filter((id) => !prev.includes(id))]);
                         setDirty(true);
                       }}
+                      onApplySet={(ids) => {
+                        setLocalSourceLorebookIds(ids);
+                        setDirty(true);
+                      }}
                       ariaLabel={localizeUi("ui.agents.agenteditor.fixedSourceOverride")}
                       triggerClassName="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                     />

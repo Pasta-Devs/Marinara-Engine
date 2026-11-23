@@ -137,6 +137,14 @@ try {
         createdAt: timestamp,
         updatedAt: timestamp,
       },
+      {
+        id: "saved-lorebook-set",
+        scope: "lorebook-sets",
+        name: "Set",
+        itemIds: JSON.stringify([presetId, lorebookId]),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
     ]);
     const folderItems = async (id: string) => {
       const [row] = await db.select().from(libraryFolders).where(eq(libraryFolders.id, id));
@@ -153,6 +161,11 @@ try {
       [lorebookId, presetId],
       "a lorebook folder keeps an id that only matches a preset",
     );
+    assert.deepEqual(
+      await folderItems("saved-lorebook-set"),
+      [presetId, lorebookId],
+      "a saved lorebook set keeps an id that only matches a preset",
+    );
 
     const [review] = mari.getPendingApprovals();
     assert.ok(review, "the delete made a review card");
@@ -166,6 +179,7 @@ try {
     assert.equal(deletedBook.ok, true, `the lorebook delete applies: ${deletedBook.error ?? ""}`);
     await drainKeep(mari);
     assert.deepEqual(await folderItems("folder-lorebooks"), [presetId], "the lorebook id left its folder");
+    assert.deepEqual(await folderItems("saved-lorebook-set"), [presetId], "the lorebook id left its saved set");
   } finally {
     await db._fileStore.close();
   }

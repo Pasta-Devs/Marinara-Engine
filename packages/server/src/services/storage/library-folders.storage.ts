@@ -9,11 +9,14 @@ import type {
   UpdateLibraryFolderInput,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
-import { eq } from "../../db/file-query.js";
+import { eq, inArray } from "../../db/file-query.js";
 import { libraryFolders, lorebooks, promptPresets } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 
 type LibraryFolderRow = typeof libraryFolders.$inferSelect;
+
+/** A lorebook id sits in the Lorebooks panel's folders and in saved lorebook sets. */
+export const LOREBOOK_ITEM_SCOPES: readonly LibraryFolderScope[] = ["lorebooks", "lorebook-sets"];
 
 function parseItemIds(value: string): string[] {
   try {
@@ -96,11 +99,12 @@ export function createLibraryFoldersStorage(db: DB) {
       return true;
     },
 
-    async removeItemReferences(scope: LibraryFolderScope, itemIds: string[]) {
+    async removeItemReferences(scope: LibraryFolderScope | readonly LibraryFolderScope[], itemIds: string[]) {
       const removingIds = new Set(itemIds);
       if (removingIds.size === 0) return 0;
 
-      const rows = await db.select().from(libraryFolders).where(eq(libraryFolders.scope, scope));
+      const scopes: LibraryFolderScope[] = typeof scope === "string" ? [scope] : [...scope];
+      const rows = await db.select().from(libraryFolders).where(inArray(libraryFolders.scope, scopes));
 
       const timestamp = now();
       let removedCount = 0;
@@ -156,7 +160,7 @@ export function createLibraryFoldersStorage(db: DB) {
         const folders = await tx
           .select({ itemIds: libraryFolders.itemIds })
           .from(libraryFolders)
-          .where(eq(libraryFolders.scope, "lorebooks"));
+          .where(inArray(libraryFolders.scope, [...LOREBOOK_ITEM_SCOPES]));
         const missingIds = new Set<string>();
         for (const folder of folders) {
           for (const id of parseItemIds(folder.itemIds)) {
@@ -165,7 +169,7 @@ export function createLibraryFoldersStorage(db: DB) {
         }
         if (missingIds.size === 0) return 0;
 
-        await createLibraryFoldersStorage(tx).removeItemReferences("lorebooks", [...missingIds]);
+        await createLibraryFoldersStorage(tx).removeItemReferences(LOREBOOK_ITEM_SCOPES, [...missingIds]);
 
         return missingIds.size;
       });

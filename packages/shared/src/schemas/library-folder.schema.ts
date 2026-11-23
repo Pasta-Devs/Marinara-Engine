@@ -19,7 +19,17 @@ const nonEmptyLibraryFolderItemIdsSchema = z
     }
   });
 
-export const libraryFolderScopeSchema = z.enum(["lorebooks", "presets", "agents", "regex", "functions", "profiles"]);
+// "lorebook-sets" rows are saved lorebook sets (#9672): named lists of lorebook ids. Unlike a folder, a lorebook can
+// sit in any number of sets, so nothing moves ids between them.
+export const libraryFolderScopeSchema = z.enum([
+  "lorebooks",
+  "presets",
+  "agents",
+  "regex",
+  "functions",
+  "profiles",
+  "lorebook-sets",
+]);
 
 export const libraryFolderScopeParamsSchema = z.object({
   scope: libraryFolderScopeSchema,

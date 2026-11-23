@@ -816,6 +816,7 @@ function KnowledgeSourceFields({
                 sourceLorebookIds: [...sourceLorebookIds, ...ids.filter((id) => !sourceLorebookIds.includes(id))],
               })
             }
+            onApplySet={(ids) => onChange({ sourceLorebookIds: ids })}
             ariaLabel={localizeUi("ui.chat.knowledgesourcefields.fixedSourceLorebooks")}
             disabled={disabled}
             triggerClassName="mari-chrome-field min-h-10 w-full min-w-0 rounded-lg px-3 py-2 text-base md:text-xs disabled:cursor-not-allowed disabled:opacity-60"
