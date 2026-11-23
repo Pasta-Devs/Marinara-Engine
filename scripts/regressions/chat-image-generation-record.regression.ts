@@ -1575,6 +1575,12 @@ try {
   const recoveryPath = `/api/characters/${recoveryOwner.id}/gallery`;
   await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: false }));
   assert.ok(recoverySource);
+  const { characterImages: characterImagesTable } = await import("../../packages/server/src/db/schema/gallery.js");
+  const { eq } = await import("../../packages/server/src/db/file-query.js");
+  await db
+    .update(characterImagesTable)
+    .set({ variantHistoryRecovered: null })
+    .where(eq(characterImagesTable.id, recoverySource.id));
   const earlySelection = await app.inject({
     method: "POST",
     url: `${recoveryPath}/${recoverySource.id}/select`,
@@ -1617,6 +1623,33 @@ try {
     readFileSync(join(fixtureDir, "gallery", v2.filePath)).length,
     "deleting one membership retains shared bytes",
   );
+
+  // A stack reconciled by a pre-marker build must not refill deleted history.
+  const completedOwner = await entityCharacters.create(
+    characterDataSchema.parse({ name: "Pre-marker completed owner" }),
+  );
+  assert.ok(completedOwner);
+  const completedSource = await characterImages.create({
+    characterId: completedOwner.id,
+    sourceChatImageId: versionSource.id,
+    filePath: versionSource.filePath,
+    variantGroupId: "pre-marker-completed-stack",
+    variantSelected: 1,
+  });
+  assert.ok(completedSource);
+  await db
+    .update(characterImagesTable)
+    .set({ variantHistoryRecovered: null })
+    .where(eq(characterImagesTable.id, completedSource.id));
+  const completedPath = `/api/characters/${completedOwner.id}/gallery`;
+  assert.equal(
+    (await app.inject({ method: "GET", url: completedPath })).json().length,
+    1,
+    "pre-marker groups retain deletions",
+  );
+  const completedSelection = await app.inject({ method: "POST", url: `${completedPath}/${completedSource.id}/select` });
+  assert.equal(completedSelection.statusCode, 200, completedSelection.body);
+  assert.equal(completedSelection.json().variantHistoryRecovered, 1, "selection preserves pre-marker completion");
 
   const nativeCard = await app.inject({ method: "GET", url: `/api/characters/${entityCharacter.id}/export` });
   assert.equal(nativeCard.statusCode, 200, nativeCard.body);

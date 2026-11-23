@@ -50,7 +50,7 @@ export const characterImages = fileTable("character_images", {
   variantGroupId: text("variant_group_id"),
   variantSelected: integer("variant_selected").notNull().default(0),
   /** Chat history reconciliation is independent of owner-local selection and editing. */
-  variantHistoryRecovered: integer("variant_history_recovered").notNull().default(0),
+  variantHistoryRecovered: integer("variant_history_recovered"),
   /** Independent regeneration request; retained when the source chat is deleted. */
   generation: text("generation"),
   /** Optional prompt or note associated with this image */
@@ -85,7 +85,7 @@ export const personaImages = fileTable("persona_images", {
   variantGroupId: text("variant_group_id"),
   variantSelected: integer("variant_selected").notNull().default(0),
   /** Chat history reconciliation is independent of owner-local selection and editing. */
-  variantHistoryRecovered: integer("variant_history_recovered").notNull().default(0),
+  variantHistoryRecovered: integer("variant_history_recovered"),
   /** Independent regeneration request; retained when the source chat is deleted. */
   generation: text("generation"),
   /** Optional prompt or note associated with this image */

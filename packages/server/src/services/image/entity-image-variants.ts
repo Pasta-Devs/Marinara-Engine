@@ -41,6 +41,12 @@ async function ownerImages(db: DB, kind: EntityImageKind, ownerId: string) {
 
 type EntityImage = typeof characterImages.$inferSelect | typeof personaImages.$inferSelect;
 
+function hasRecoveredHistory(image: EntityImage) {
+  // Pre-marker grouped rows may already have deletions. Keep those groups complete;
+  // storage creation explicitly writes zero for new rows, even before selection/editing.
+  return image.variantHistoryRecovered === 1 || (image.variantHistoryRecovered == null && !!image.variantGroupId);
+}
+
 async function selectInTransaction(
   tx: DB,
   kind: EntityImageKind,
@@ -57,6 +63,12 @@ async function selectInTransaction(
   const groupId = source.variantGroupId ?? image.variantGroupId ?? newId();
   const members = rows.filter((row) => row.variantGroupId === groupId || row.id === source.id || row.id === image.id);
   const table = ownerTable(kind);
+  for (const row of members)
+    if (row.variantHistoryRecovered == null)
+      await tx
+        .update(table)
+        .set({ variantHistoryRecovered: hasRecoveredHistory(row) ? 1 : 0 })
+        .where(eq(table.id, row.id));
   await tx
     .update(table)
     .set({ variantGroupId: groupId, variantSelected: 0 })
@@ -67,7 +79,12 @@ async function selectInTransaction(
       ),
     );
   await tx.update(table).set({ variantSelected: 1 }).where(eq(table.id, image.id));
-  return { ...image, variantGroupId: groupId, variantSelected: 1 };
+  return {
+    ...image,
+    variantGroupId: groupId,
+    variantSelected: 1,
+    variantHistoryRecovered: hasRecoveredHistory(image) ? 1 : 0,
+  };
 }
 
 /** A gallery selection changes only that owner's rows, never chat attachments or another gallery. */
@@ -108,7 +125,7 @@ async function addChatVersion(db: DB, kind: EntityImageKind, ownerId: string, st
       const groupId = linked.find((row) => row.variantGroupId)?.variantGroupId ?? newId();
       // Selection/editing can establish a group before chat history is reconciled.
       // Record completion separately so later gallery deletions remain respected.
-      const legacy = linked.some((row) => row.variantHistoryRecovered !== 1);
+      const legacy = linked.some((row) => !hasRecoveredHistory(row));
       const candidates = legacy ? stack : target ? [target] : [];
       const members = all.filter((row) => row.variantGroupId === groupId || linked.some((item) => item.id === row.id));
       const selected = members.find((row) => row.variantSelected === 1) ?? members[0];
@@ -186,7 +203,7 @@ export async function persistChatImageVersionToEntityGalleries(
 /** Recover pre-fix missing memberships only from explicit source links. A completed group is never refilled. */
 export async function repairEntityImageVariants(db: DB, kind: EntityImageKind, ownerId: string) {
   const legacy = (await ownerImages(db, kind, ownerId)).filter(
-    (row) => row.sourceChatImageId && row.variantHistoryRecovered !== 1,
+    (row) => row.sourceChatImageId && !hasRecoveredHistory(row),
   );
   if (!legacy.length || !(await loadImageGenerationUserSettings(db)).autoSaveToGalleries) return;
   const sources = await db
