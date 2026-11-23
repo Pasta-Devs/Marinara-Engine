@@ -966,8 +966,11 @@ function mergeCharacterCustomFieldsWithLocks(
   locks: TrackerFieldLocks,
   character: PresentCharacter,
   characterIndex: number,
+  /** A whole state keeps only its own fields and the locked ones; a tracker's output also keeps the others. */
+  wholeState = false,
 ): Record<string, string> | undefined {
-  let next = nextFields ? { ...(currentFields ?? {}), ...nextFields } : currentFields ? { ...currentFields } : null;
+  const kept = wholeState ? null : currentFields;
+  let next = nextFields ? { ...(kept ?? {}), ...nextFields } : kept ? { ...kept } : null;
   const current = currentFields ?? {};
   let hasLockedField = false;
   for (const [name, value] of Object.entries(current)) {
@@ -985,7 +988,7 @@ function mergeCharacterCustomFieldsWithLocks(
       (next ??= {})[name] = valueLocked ? value : typeof nextValue === "string" ? nextValue : value;
     }
   }
-  return nextFields || hasLockedField || Object.keys(current).length > 0 ? (next ?? undefined) : undefined;
+  return nextFields || hasLockedField || Object.keys(kept ?? {}).length > 0 ? (next ?? undefined) : undefined;
 }
 
 function mergeWorldCustomFieldsWithLocks(
@@ -1085,6 +1088,7 @@ function mergeCharactersWithLocks(
       locks,
       currentCharacter,
       currentIndex,
+      !byPosition,
     );
     if (customFields !== undefined) next.customFields = customFields;
     return next;
@@ -1100,7 +1104,8 @@ function mergeCharactersWithLocks(
 export interface TrackerFieldLockMergeOptions {
   /**
    * The patch is a whole state, not a tracker's output, such as the row a regenerated swipe starts from: rows match
-   * only by id or name, never by position, and a current world field the patch lacks stays only when locked.
+   * only by id or name, never by position, and a current world field or NPC custom field the patch lacks stays only
+   * when locked.
    */
   wholeState?: boolean;
 }

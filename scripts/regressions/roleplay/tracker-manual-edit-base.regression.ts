@@ -3,7 +3,7 @@
 // reply began, not from the swipe it replaces, which lends only its locks. Drives the real chat and
 // generate routes with a fake provider that records what the main model and the tracker agents were shown.
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -22,10 +22,14 @@ const { generateRoutes } = await import("../../../packages/server/src/routes/gen
 const { chatsRoutes } = await import("../../../packages/server/src/routes/chats.routes.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
+const { createGameRulesetsStorage } =
+  await import("../../../packages/server/src/services/storage/game-rulesets.storage.js");
 const {
   replaceBuiltInAgentDefinitions,
+  characterCustomFieldTrackerLockKey,
   characterTrackerLockKey,
   personaStatTrackerLockKey,
   questTrackerLockKey,
@@ -38,6 +42,8 @@ const trackerTypes = ["world-state", "character-tracker", "custom-tracker"];
 let mainPrompts: string[] = [];
 let trackerPrompts: string[] = [];
 let trackerOutputs: Record<string, unknown> = {};
+/** Runs once while the next main reply is being written, before it is answered. */
+let duringMainReply: (() => Promise<void>) | null = null;
 const provider = createServer(async (req, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
@@ -45,6 +51,11 @@ const provider = createServer(async (req, res) => {
   const prompt = body.messages.map((message: { content: unknown }) => JSON.stringify(message.content)).join("\n");
   const trackerType = trackerTypes.find((type) => prompt.includes(`TRACKER_FIXTURE_${type}`));
   (trackerType ? trackerPrompts : mainPrompts).push(prompt);
+  if (!trackerType && duringMainReply) {
+    const run = duringMainReply;
+    duringMainReply = null;
+    await run();
+  }
   const content = trackerType
     ? JSON.stringify(prompt.includes("<agent_task ") ? trackerOutputs : trackerOutputs[trackerType])
     : "The story continues.";
@@ -495,8 +506,8 @@ try {
     assert.equal((await chatApi.lastAssistant()).chatId, chat.id);
   }
 
-  // ── #9697: a regenerated swipe's trackers start from where the reply began, not from the swipe it replaces ──
-  {
+  /** #9697: a Roleplay chat whose last reply has Alice in the scene, followed by the user's message. */
+  const setUpScene = async (metadata: Record<string, unknown> = {}) => {
     const chat = await chats.create({
       name: "Tracker swipes",
       mode: "roleplay",
@@ -505,7 +516,7 @@ try {
       promptPresetId: null,
     });
     assert.ok(chat);
-    await chats.patchMetadata(chat.id, { enableAgents: true, activeAgentIds: trackerTypes });
+    await chats.patchMetadata(chat.id, { enableAgents: true, activeAgentIds: trackerTypes, ...metadata });
     const a1 = await chats.createMessage({ chatId: chat.id, role: "assistant", content: "We stand in the square." });
     assert.ok(a1);
     const a1StateId = await states.create({
@@ -525,18 +536,24 @@ try {
     });
     await states.commit(a1StateId, chat.id);
     await chats.createMessage({ chatId: chat.id, role: "user", content: "We walk on." });
-    const chatApi = api(chat.id);
-    // The tracker's incremental reply: this telling's own newcomer, nothing removed, because it was
-    // shown the scene before the reply, where the other tellings' newcomers never were.
-    const arrives = (name: string) => ({
-      ...NO_CHANGES,
-      "character-tracker": { presentCharacters: { updates: [{ name, mood: "mood-new" }] } },
-    });
-    const present = async (swipeIndex: number) => {
-      const row = await states.getByChatAndMessage(chat.id, a2.id, swipeIndex);
-      assert.ok(row, `swipe ${swipeIndex} has a tracker snapshot`);
-      return parseGameStateRow(row).presentCharacters;
-    };
+    return { chat, chatApi: api(chat.id) };
+  };
+  // The tracker's incremental reply: this telling's own newcomer, nothing removed, because it was
+  // shown the scene before the reply, where the other tellings' newcomers never were.
+  const arrives = (name: string) => ({
+    ...NO_CHANGES,
+    "character-tracker": { presentCharacters: { updates: [{ name, mood: "mood-new" }] } },
+  });
+  const presentOn = async (chatId: string, messageId: string, swipeIndex: number) => {
+    const row = await states.getByChatAndMessage(chatId, messageId, swipeIndex);
+    assert.ok(row, `swipe ${swipeIndex} has a tracker snapshot`);
+    return parseGameStateRow(row).presentCharacters;
+  };
+
+  // ── #9697: a regenerated swipe's trackers start from where the reply began, not from the swipe it replaces ──
+  {
+    const { chat, chatApi } = await setUpScene();
+    const present = (swipeIndex: number) => presentOn(chat.id, a2.id, swipeIndex);
     const names = async (swipeIndex: number) => (await present(swipeIndex)).map((character) => character.name);
 
     trackerOutputs = arrives("Brakka");
@@ -574,6 +591,42 @@ try {
     trackerOutputs = NO_CHANGES;
     const next = await capture(() => chatApi.generate({ userMessage: "We look around." }));
     assertShows(next.main, ["Dagny", "Eira"], ["Brakka", "Corvin"], "the next reply after three swipes");
+
+    // A Tracker Panel edit made on the swipe being replaced while the new one is written carries into it too.
+    const a3 = await chatApi.lastAssistant();
+    duringMainReply = () => chatApi.edit({ messageId: a3.id, swipeIndex: 0 }, { time: "Edited mid-reply" });
+    await chatApi.regenerate(a3.id);
+    assert.equal(duringMainReply, null, "the edit was made while the reply was written");
+    assert.equal(
+      parseGameStateRow((await states.getByChatAndMessage(chat.id, a3.id, 1))!).time,
+      "Edited mid-reply",
+      "an edit made during the regeneration carries into the new swipe",
+    );
+  }
+
+  // ── #9697: a Roleplay chat played by a ruleset saves each swipe's sheets first, from the same start ──
+  {
+    const definition = readFileSync(
+      new URL("../../../docs/examples/rulesets/gravewatch.json", import.meta.url),
+      "utf8",
+    );
+    const { id, version } = JSON.parse(definition) as { id: string; version: string };
+    await createGameRulesetsStorage(db).put({ rulesetId: `local/${id}`, version, sourceKind: "local", definition });
+    // Without World State, the Character Tracker merges onto the row the sheet save already wrote.
+    const { chat, chatApi } = await setUpScene({
+      activeAgentIds: ["character-tracker"],
+      gameRuleset: { id: `local/${id}`, version, packageId: null, options: {} },
+    });
+    trackerOutputs = arrives("Brakka");
+    await chatApi.generate();
+    const a2 = await chatApi.lastAssistant();
+    trackerOutputs = arrives("Corvin");
+    await chatApi.regenerate(a2.id);
+    assert.deepEqual(
+      (await presentOn(chat.id, a2.id, 1)).map((character) => character.name),
+      ["Alice", "Corvin"],
+      "a ruleset swipe drops the first swipe's NPC",
+    );
   }
 
   // ── #9697: the replaced swipe lends locked rows by id or name only, also to a list the start row lacks ──
@@ -584,11 +637,15 @@ try {
         { name: "Mood", value: "tense" },
         { name: "Storm", value: "rolling in" },
       ],
-      presentCharacters: [{ name: "Brakka", mood: "angry" }],
+      presentCharacters: [
+        { name: "Brakka", mood: "angry", customFields: { Scar: "right cheek", Secret: "owes a debt", Oath: "sworn" } },
+        { name: "Alice", mood: "tense", customFields: { Rumor: "a spy" } },
+      ],
       personaStats: [{ name: "Focus", value: 3, max: 10 }],
       playerStats: { status: "", inventory: [{ name: "Shield", quantity: 1 }], activeQuests: [quest] },
       fieldLocks: {
         [characterTrackerLockKey({ name: "Brakka" }, 0, "mood")]: true,
+        [characterCustomFieldTrackerLockKey({ name: "Brakka" }, 0, "Oath", "value")]: true,
         [questTrackerLockKey(quest, 0, "name")]: true,
         [personaStatTrackerLockKey({ name: "Focus" }, "value", 0)]: true,
       },
@@ -601,7 +658,7 @@ try {
       worldCustomFields: [{ name: "Mood", value: "calm" }],
       presentCharacters: [
         { name: "Alice", mood: "calm" },
-        { name: "Brakka", mood: "calm" },
+        { name: "Brakka", mood: "calm", customFields: { Scar: "left cheek" } },
       ],
       playerStats: {
         status: "",
@@ -621,6 +678,11 @@ try {
         ["Brakka", "angry"],
       ],
       "a locked NPC keeps its value without pushing out the NPC at its position",
+    );
+    assert.deepEqual(
+      swipe.presentCharacters.map((character) => character.customFields),
+      [undefined, { Scar: "left cheek", Oath: "sworn" }],
+      "an NPC keeps its own custom fields and the locked ones, not the replaced swipe's others",
     );
     assert.deepEqual(
       names(swipe.playerStats?.activeQuests),
