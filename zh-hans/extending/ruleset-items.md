@@ -261,7 +261,8 @@ Gravewatch 在骰池上展示了同样的做法：已绑定的 Dawn bell 为 War
 
 `combat.conditions[]` 和 `combat.levels[]` 可以给予 `resist`、`vulnerable`、`immune`(各 1–30 项) 和 `conditionImmunities`(1–40 个状态 ID)。它们在状态持续期间或等级阈值达到时生效。新获得的状态免疫会结束已经生效的该状态，并防止再次施加它。免疫优先于抗性；抗性与易伤相互抵消。多重抗性从不会让伤害减半两次。
 
-`resist` 和 `immune` 使用生物的写法：一个伤害词，或 `{ "type": "bludgeoning", "except": ["magical"] }`。打击上任何被指定的标签都会绕过该项。`vulnerable` 仍是普通的伤害词。同样的例外写法也适用于物品的 `worn` 和 `carried` 效果。在 `items.tags` 中声明例外标签，并把它们放在武器或法术的性质上。例如，Stoneskin 是这样一个状态映射：
+`resist` 和 `immune` 使用生物的写法：一个伤害词，或 `{ "type": "bludgeoning",
+"except": ["magical"] }`。打击上任何被指定的标签都会绕过该项。`vulnerable` 仍是普通的伤害词。同样的例外写法也适用于物品的 `worn` 和 `carried` 效果。在 `items.tags` 中声明例外标签，并把它们放在武器或法术的性质上。例如，Stoneskin 是这样一个状态映射：
 
 ```json
 {

@@ -175,7 +175,7 @@ Marinaraは、通知に標準の音を鳴らします。自分の音を使うに
 | **Include reasoning in exports** | モデルの表に出ない思考を、チャットのエクスポートに含めます。 |
 | **Include private notes in exports** | メッセージに付けた非公開のメモを、JSONLとテキストのエクスポートに含めます。記録を共有するときは、オフのままにしてください。 |
 | **Debug mode** | サポート用に、モデルへ送ったデータをサーバーのコンソールに記録します。 |
-| **Open Console**(コンソールを開く) | サーバーの最近のログを、移動できる読み取り専用ウィンドウに表示します。サーバーと同じコンピューターから、または**Admin Access**に管理者用のシークレットを保存したデバイスから使えます。プロンプトと応答を見るにはウィンドウ内で**Debug mode**をオンにし、すべてを記録するには`.env`に`LOG_LEVEL=debug`を設定します。 |
+| **Open Console**(コンソールを開く) | サーバーの最近のログを、移動できる読み取り専用ウィンドウに表示します。サーバーと同じコンピューターから、または**Admin Access**に管理者用のシークレットを保存したデバイスから使えます。プロンプトと応答を見るにはウィンドウ内で**Debug mode**をオンにし、すべてを記録するには`.env`に`LOG_LEVEL=debug`を設定します。コンピューターでは、ポップアウトボタンで別のブラウザーウィンドウに移し、Marinaraの横や別の画面に置けます。もう一度押すと元に戻ります。 |
 
 詳しくは、[メッセージの操作](../chats/messages.md)、[ペルソナ](../characters/personas.md)、[1つのチャットで使うモデルを選ぶ](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat)、[Peek Prompt](../chats/peek-prompt.md)、[ガイド付き生成とImpersonate](../chats/guided-and-impersonate.md)、[チャットのエクスポートとインポート](../chats/export-import.md)、[トラブルシューティング](../TROUBLESHOOTING.md)を参照してください。
 

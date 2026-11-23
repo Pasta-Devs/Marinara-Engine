@@ -64,7 +64,7 @@ Use **Diagnose model routing** quando você pediu um modelo grande, como o Opus,
 
 ## OpenAI (ChatGPT)
 
-Este serviço usa a sua conta do ChatGPT por meio do CLI do Codex. Marinara lê o arquivo de login local do Codex e renova a sessão sempre que consegue.
+Este serviço usa a sua conta do ChatGPT por meio do CLI do Codex. Marinara lê o arquivo de login local do Codex e renova a sessão sempre que consegue. Toda requisição em um chat leva a mesma chave de cache, para que o serviço possa reutilizar o início inalterado do prompt, consumindo menos do seu plano.
 
 Para definir quanto tempo o Codex pensa antes de responder, abra **Edit model**, ative **Use custom defaults for this model** (usar padrões personalizados para este modelo) e escolha um nível em **Reasoning Effort** (esforço de raciocínio). O ajuste começa em **Default**, que mantém o nível próprio do Codex para o modelo. Um chat pode escolher o próprio nível em **Advanced Parameters** (parâmetros avançados). O nível definido em um preset não muda isso. Um modelo Codex usado como reserva segue apenas o próprio nível, e os agentes que usam o modelo seguem o nível do modelo. Os níveis que você vê correspondem aos disponíveis para o modelo escolhido.
 
@@ -76,6 +76,8 @@ Este serviço roda o Grok CLI no computador do Marinara. Duas coisas são difere
 - A janela de contexto dele vem com 32.000 tokens por padrão. Os tokens são pedacinhos de texto que os modelos contam. Prompts grandes podem estourar o limite de turno do próprio CLI, por isso o padrão fica baixo. Você pode definir um **Max Context Window** (janela de contexto máxima) maior no modelo.
 
 No editor do modelo, **Use the Grok CLI default** (usar o padrão do Grok CLI) deixa o modelo vazio para que o CLI escolha o próprio. O editor indica `grok-composer-2.5-fast` como, em geral, o modelo mais seguro para roleplay, porque Marinara roda o CLI sem interface, com as ferramentas, a memória, a busca na web, os planos e os subagentes do próprio Grok desativados.
+
+Marinara também deixa de fora o que o CLI carregaria da sua pasta pessoal para trabalhar com código: regras do Claude Code e do Cursor, arquivos `CLAUDE.md`, skills, hooks e servidores MCP. As requisições dos seus chats à xAI não levam esses dados, e cada requisição fica menor. As contagens de tokens das respostas do Grok vêm do próprio CLI, incluindo os tokens que a xAI leu do cache.
 
 ## Uso do plano
 

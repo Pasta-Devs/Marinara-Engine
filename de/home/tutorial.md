@@ -31,17 +31,17 @@ Auf dem Handy oder einem anderen schmalen Bildschirm erscheint jede Karte mittig
 | # | Kartentitel | Worum es geht |
 | --- | --- | --- |
 | 1 | **Welcome to Marinara Engine!** | Eine mittig platzierte Willkommenskarte. Professor Mari bietet dir eine kleine Führung an. |
-| 2 | **Characters** | Die Panel-Schaltfläche **Characters** (Charaktere). Dort liegen deine Charaktere. |
-| 3 | **Personas** | Die Panel-Schaltfläche **Personas**. Dort legst du fest, wer du im Chat bist. |
-| 4 | **Lorebooks** | Die Panel-Schaltfläche **Lorebooks**. Lorebooks enthalten zusätzliche Details zur Welt und zu den Charakteren. |
-| 5 | **Presets** | Die Panel-Schaltfläche **Presets**. Presets steuern, wie der Prompt aufgebaut wird. |
-| 6 | **Connections** | Die Panel-Schaltfläche **Connections**. Verbindungen sind das Erste, was du vor dem Chatten einrichtest. |
-| 7 | **Agents** | Die Panel-Schaltfläche **Agents** (Agenten). Die Karte verweist dich auf **Agent Organizer** (Agentenverwaltung), um Agenten zu installieren. |
-| 8 | **Settings** | Die Panel-Schaltfläche **Settings**. Öffnet **Settings** auf dem Tab **General**. |
-| 9 | **Chats** | Der Schalter für die Seitenleiste. Öffnet die Chat-Seitenleiste. |
-| 10 | **Conversation Mode** | Der Conversation-Tab mit der Beschriftung **CONVO**. |
-| 11 | **Roleplay Mode** | Der Roleplay-Tab mit der Beschriftung **RP**. |
-| 12 | **Game Mode** | Der Game-Tab mit der Beschriftung **GM**. |
+| 2 | **Chats** | Die Schaltfläche **Chats**, auf dem Computer die erste der Panel-Schaltflächen. Öffnet **Chats** in der Seitenleiste, in der auch die Panels der nächsten Schritte erscheinen. Die Karte erklärt außerdem, dass du die Seitenleiste auf dem Computer unter **Einstellungen → Erscheinungsbild** links andocken kannst. |
+| 3 | **Conversation Mode** | Der Conversation-Tab mit der Beschriftung **CONVO**. |
+| 4 | **Roleplay Mode** | Der Roleplay-Tab mit der Beschriftung **RP**. |
+| 5 | **Game Mode** | Der Game-Tab mit der Beschriftung **GM**. |
+| 6 | **Characters** | Die Panel-Schaltfläche **Characters** (Charaktere). Dort liegen deine Charaktere. |
+| 7 | **Personas** | Die Panel-Schaltfläche **Personas**. Dort legst du fest, wer du im Chat bist. |
+| 8 | **Lorebooks** | Die Panel-Schaltfläche **Lorebooks**. Lorebooks enthalten zusätzliche Details zur Welt und zu den Charakteren. |
+| 9 | **Presets** | Die Panel-Schaltfläche **Presets**. Presets steuern, wie der Prompt aufgebaut wird. |
+| 10 | **Verbindungen** | Die Panel-Schaltfläche **Verbindungen**. Verbindungen sind das Erste, was du vor dem Chatten einrichtest. |
+| 11 | **Agents** | Die Panel-Schaltfläche **Agents** (Agenten). Die Karte verweist dich auf **Agent Organizer** (Agentenverwaltung), um Agenten zu installieren. |
+| 12 | **Settings** | Die Panel-Schaltfläche **Settings**. Öffnet **Settings** auf dem Tab **General**. |
 | 13 | **Home: Your Story Hub** | Kehrt zu Home zurück. Auf Home setzt du einen Chat fort, startest einen neuen und ordnest Widgets an. |
 | 14 | **Ask Me Where Things Are** | Die Suchleiste oben auf Home. Auf dem Handy sagt dir die Karte, dass du von der oberen Leiste der App nach unten ziehst. |
 | 15 | **Guides and Home Controls** | Die Lesezeichen **Documentation** (Dokumentation), **Tutorial**, **FAQ** und **Widgets**. |

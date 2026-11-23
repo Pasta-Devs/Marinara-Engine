@@ -35,7 +35,7 @@
 
 **Send Avatar References** 和 **Attach Card Appearance** 都提供 **Off**(关闭)、**Images only**(仅图片)、**Videos only**(仅视频) 和 **Images and videos**(图片和视频) 选项。
 
-如果角色卡或用户角色开启了 **Image Appearance Override**(图像外观覆盖)（位于编辑器的 **Appearance** 下方），Marinara 会发送这段文字，而不是 **Appearance**。当 **Appearance** 是为故事而写、而非为图片而写时，就使用它。
+如果角色卡或用户角色正在使用 **Image tags**(图片标签)（编辑器里 **Appearance** 的 **Image tags** 标签页，勾选 **Use for image prompts**(用于图片提示词)），Marinara 会发送这些标签，而不是 **Appearance** 的文字描述。聊天里生效的 Appearance 替代版本会使用自己的标签或文字描述。如果 **Appearance** 是为故事写的，不适合生成图片，就可以用它。
 
 ## 手动请求自拍
 

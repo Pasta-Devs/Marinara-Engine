@@ -20,7 +20,7 @@ Alles Weitere ist optional und standardmäßig aus. Du kannst es später ergänz
 
 ## Ein Spiel starten
 
-1. Öffne in der Chat-Seitenleiste den Tab **GM** und klick auf die Schaltfläche **+** (**New Game**). Oder klick auf dem Home-Bildschirm auf **Game**. Der Einrichtungsassistent öffnet sich. Siehe [Die Chatliste verwalten](../chats/managing-chats.md).
+1. Klick in der oberen Leiste auf **Chats**, öffne den Tab **GM** und klick auf die Schaltfläche **+** (**Neues Spiel**). Oder klick auf dem Home-Bildschirm auf **Game**. Der Einrichtungsassistent öffnet sich. Siehe [Die Chatliste verwalten](../chats/managing-chats.md).
 2. Wähle im ersten Schritt das **Model** (Modell), auf dem der GM läuft. Nimm ein Konto, das du schon hinzugefügt hast. Ist die Liste leer, füge zuerst eines hinzu. Wähle für die Weltgenerierung ein starkes kostenpflichtiges Modell (siehe [Ein Modell auswählen](#choosing-a-model)).
 3. Klick bei jedem Schritt auf **Next** (Weiter). Alle anderen Felder haben einen Standardwert, du kannst also einfach durchklicken.
 4. Klick im letzten Schritt auf **Create world** (Welt erstellen). Die Schaltfläche zeigt **Generating World…**, während Marinara deine Welt baut. Das ist eine einzige große Anfrage an dein Modell, warte also, bis sie fertig ist.
@@ -157,7 +157,7 @@ Am Computer öffnen sich die Bedienelemente über Schaltflächen nahe der oberen
 
 | Bedienelement | Was es enthält |
 | --- | --- |
-| **Game controls** (Spielsteuerung, der Gamecontroller) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (wenn Music DJ die Musik spielt) und **Retry assets image generation**. Bei einem Storyboard-Hintergrund außerdem Wiederholung, Wiedergabe/Pause und Stummschaltung. **Edit game data** (Spieldaten bearbeiten) korrigiert gespeicherte Daten von Hand (siehe [Spieldaten von Hand bearbeiten](sessions-and-saves. md#editing-game-data-by-hand)). **Checkpoints** kehrt zu einem früheren Moment zurück (siehe [Wie das Spiel speichert](sessions-and-saves. md#how-your-game-saves)). |
+| **Game controls** (Spielsteuerung, der Gamecontroller) | **Retry turn**, **Retry scene analysis**, **Retry Music DJ** (wenn Music DJ die Musik spielt) und **Retry assets image generation**. Bei einem Storyboard-Hintergrund außerdem Wiederholung, Wiedergabe/Pause und Stummschaltung. **Edit game data** (Spieldaten bearbeiten) korrigiert gespeicherte Daten von Hand (siehe [Spieldaten von Hand bearbeiten](sessions-and-saves.md#editing-game-data-by-hand)). **Checkpoints** kehrt zu einem früheren Moment zurück (siehe [Wie das Spiel speichert](sessions-and-saves.md#how-your-game-saves)). |
 | **Session** (Sitzung, die Feder) | Sitzungsverlauf, Journal und Sitzungssteuerung. Siehe [Game Mode: Sitzungen und Spielstände](sessions-and-saves.md). |
 | **Volume** (Lautstärke, der Lautsprecher) | Lautstärke für **Master**, **Music**, **Sound Effects**, **TTS** und **Ambient**. |
 | **Game Assets** (Spielressourcen, der Ordner) | Szenenmedien und der Asset Browser. Siehe [Game-Assets](game-assets.md). |

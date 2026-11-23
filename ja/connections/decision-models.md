@@ -139,7 +139,7 @@ Marinaraはモデルにはい・いいえの質問を1つ送り、1トークン�
 ホスト型のDecisionアカウントは、選択した最近のメッセージと判定文をサービスに送信し、料金が発生することがあります。Smart応答順では[キャラクター一覧](#what-the-model-sees)も送信します。
 
 1. 上部バーの**Connections**(接続)をクリックし、**Add**(追加)をクリックします。
-2. **TypeSafe**または**Own decision server**を検索するか、種類のチップで**Text**(テキスト)をクリックします。OpenRouterの場合は**OpenRouter**をクリックします。
+2. 種類のチップで**Decision**(判断)をクリックし、**TypeSafe**または**Own decision server**(独自の判断サーバー)をクリックします。NanoGPTの場合は[NanoGPT経由](#through-nanogpt)を参照してください。OpenRouterまたはGoogle Geminiの場合は[OpenRouterまたはGoogle Gemini経由](#through-openrouter-or-google-gemini)を参照してください。
 3. **API key**(APIキー)を入力します。**Own decision server**の場合は**Server address**(サーバーのアドレス)を入力します。**Connect**(接続)をクリックします。
 4. **Found in TypeSafe — use it for:**で**Decision**にチェックを入れ、**Done**(完了)をクリックします。**Jobs**(役割)ボックスの**Behind the scenes**(裏方の処理)の下にある**Decision**の行にモデルが表示されます。
 5. テストするには、パネルでモデルをクリックして**Edit model**(モデルの編集)を開き、**Provider tests**(プロバイダーのテスト)カードの**Test provider**(プロバイダーをテスト)をクリックします。**Own decision server**のモデルには、そこに**Test provider**ボタンがありません。代わりに、パネルでアカウントの**⋯**メニューを開き、**Test**(テスト)をクリックします。

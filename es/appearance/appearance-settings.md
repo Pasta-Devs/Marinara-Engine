@@ -63,7 +63,8 @@ Si tu dispositivo pide reducir el movimiento, ambas animaciones se omiten.
 
 - **Custom Mouse Pointer** (puntero del ratón personalizado, activado de forma predeterminada) usa el cursor de Marinara con el color de acento. Desactívalo para usar el cursor de tu sistema, o para dejar que un tema personalizado lo controle.
 - **Reduce Ambient Animations & Effects** (reducir animaciones y efectos ambientales) detiene la animación decorativa, las partículas ambientales, las vistas previas giratorias y la aparición gradual del texto. Marinara también lo hace cuando tu dispositivo pide reducir el movimiento.
-- **Desktop sidebar width** (ancho de las barras laterales en el escritorio) fija el ancho de las dos barras laterales en el escritorio. **Reset width** (Restablecer el ancho) lo restablece. Los teléfonos conservan su distribución.
+- **Ancho de las barras laterales en el escritorio** fija el ancho de la barra lateral en una computadora, de 280 a 480 px. **Chats** y los paneles, como **Personajes** y **Configuración**, se abren todos en esta única barra lateral. **Restablecer el ancho** lo restablece a 320 px. También puedes arrastrar el borde interior de la barra lateral. Los teléfonos y las tabletas conservan sus paneles a pantalla completa.
+- **Lado de la barra lateral en el escritorio** coloca la barra lateral a la **Derecha** (la opción predeterminada) o a la **Izquierda** de la ventana. Con **Izquierda**, la barra superior se invierte: **Chats** y los botones de los paneles pasan a la izquierda, e **Inicio** pasa a la derecha. Esto funciona solo en una computadora. Los teléfonos y las tabletas conservan su distribución.
 
 ### Chat widget style
 
@@ -125,7 +126,7 @@ La sección **Backgrounds** (fondos) contiene el selector **Chat Background** (f
 
 | Ajuste | Qué hace | Predeterminado |
 | --- | --- | --- |
-| **Chat position** | Dónde se ubican los mensajes y el cuadro de entrada en pantallas anchas: **Left**, **Center** o **Right**. Una barra lateral abierta o un Tracker Panel del mismo lado los desplaza. Los teléfonos conservan todo el ancho. | **Center** |
+| **Posición del chat** | Dónde se ubican los mensajes y el cuadro de entrada en pantallas anchas: **Izquierda**, **Centro** o **Derecha**. Una barra lateral abierta o un Tracker Panel del mismo lado los desplaza (consulta **Lado de la barra lateral en el escritorio**). Los teléfonos conservan todo el ancho. | **Centro** |
 | **Visual Novel display** (visualización de novela visual) | Muestra un párrafo terminado a la vez, con un retrato de diálogo y tus sprites (imágenes del personaje). Cambia el Roleplay actual y el predeterminado de los chats que no tienen un estilo guardado. | Desactivado |
 | **Roleplay Messages Background Opacity** | Un control deslizante de 0% a 100%. Bájalo para dejar que el fondo se vea a través de las burbujas de mensaje. | 90% |
 | **Roleplay Avatars** | El estilo del avatar junto a cada mensaje: **None**, **Small Circles**, **Small Rectangles** o **Glued Side Panel**. | **Small Circles** |

@@ -38,6 +38,8 @@ Marinara 不会发出消息，而是清空输入框并打开这个窗口。`{{pr
 
 窗口其余部分就是提示词本身，分成一个个可折叠的区块，每个区块都有各自的粗略 Token 估算。聊天消息统一归在 **Chat History**(聊天记录) 下。如果看的是已保存的真实请求，服务商可能把好几轮聊天合并进了同一个块，所以要逐个展开才能看到全部文字。点击区块标题即可展开或收起。
 
+有些文字会按深度插入聊天中，例如 **Author's Note**(作者注释) 和设为 **@Depth** 的 World Info 条目。**Post-processing messages**(后处理消息) 设为 **Apply**(应用，默认) 时，这些文字会合并到附近的用户消息里发给模型，所以会显示在一条 **You**(你) 消息中。Peek 会在其中用单独的标题标出这些文字，例如 **Author's Note · sent inside your message**(作者注释 · 随你的消息一起发送) 或 **World Info @depth 4 · sent inside your message**(世界信息 @depth 4 · 随你的消息一起发送)。设为 **Don't apply**(不应用) 时，则会作为独立的 **System**(系统) 消息发送。
+
 **Exact Text Model Request** 是那条回复当时原样发出的请求。它保存在回复结束后运行的一切操作之前，比如自动摘要或隐藏消息，所以里面可能有下一条回复收不到的消息。点击 **Show current context**(显示当前上下文)，就会按聊天现在的状态拼装提示词，但不会发送。点击 **Show sent request**(显示已发送的请求) 即可返回。
 
 ### 复制提示词

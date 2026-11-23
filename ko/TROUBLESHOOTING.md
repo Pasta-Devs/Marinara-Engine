@@ -235,7 +235,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 ### Memory Recall이 아무것도 기억하지 못할 때
 
-**Memory Recall**(기억 회상)은 이전 메시지를 검색해 가장 관련 있는 메시지를 프롬프트에 다시 넣습니다.
+**Memory Recall**(기억 회상)은 프롬프트에 더 이상 들어가지 않는 이전 메시지를 검색하여 가장 관련 있는 메시지를 다시 추가합니다. 전체 채팅이 컨텍스트 창에 들어가는 동안에는 아무것도 추가하지 않습니다. [Memory Recall이 추가하는 내용](agents/memory.md#what-memory-recall-adds)을 참고하세요.
 
 1. **Chat Settings → Memory Recall**(채팅 설정 → 기억 회상)을 열고 **Enable Memory Recall**(이전 기억 불러오기)이 켜져 있는지 확인하세요.
 2. **Access memories for this chat**(이 채팅의 기억에 접근)을 여세요. **Memories for This Chat**(이 채팅의 기억)에서 각 조각의 상태를 확인하세요.

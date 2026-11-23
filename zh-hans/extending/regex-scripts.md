@@ -20,11 +20,11 @@ She smiles Hello there.
 
 ## 新建正则脚本
 
-你的全局脚本放在 **Presets**(预设) 面板的 **Regexes**(正则) 区块里。用顶栏的 **Presets** 按钮打开它。
+你的全局脚本放在 **Presets**(预设) 面板的 **Regexes**(正则) 选项卡里。
 
 ### 新建正则脚本的步骤
 
-1. 打开 **Presets**，找到 **Regexes**。
+1. 从顶栏打开 **Presets → Regexes**(预设 → 正则)。
 2. 点击 **Create regex**(新建正则)。完整的编辑器会打开。
 3. 在顶部填一个名称。新脚本的名称是“New Regex Script”。
 4. 在 **Find Pattern (Regex)**(查找模式) 中输入 `\*([^*]+)\*`(见[编辑器字段](#editor-fields))。
@@ -40,11 +40,9 @@ She smiles Hello there.
 
 ### 管理你的脚本
 
-**Regexes** 列表中的每一行显示脚本名称、一个 **AI** 或 **User** 标签、写成 `/pattern/flags` 形式的模式、一个启停开关（即时生效）、**Edit regex**(编辑正则)（铅笔图标）和 **Delete regex**(删除正则)（垃圾桶图标）。没有脚本或文件夹时，列表显示“No regexes yet”。
+每一行显示脚本名称、一个 **AI** 或 **User** 标签，以及写成 `/pattern/flags` 形式的模式。点击名称或 **Edit regex**(编辑正则) 打开编辑器。用脚本旁边的开关控制它是否运行，或用 **Delete regex**(删除正则) 删除它。没有脚本或文件夹时，选项卡显示“No regexes yet”。绑定到单个角色的脚本存放在角色里。见[把脚本限定给一个角色](#limit-a-script-to-one-character)。
 
 使用 **Search regexes**(搜索正则) 按脚本名称和模式搜索。包含匹配脚本的文件夹会自动打开。搜索时无法拖动脚本调整顺序。
-
-区块标题栏有三个图标按钮：**Create regex**、**Import regexes from JSON**(从 JSON 导入正则) 和 **Export regexes to JSON**(导出正则为 JSON)（把你所有的全局脚本保存到一个文件里）。绑定到单个角色的脚本单独存放；见[把脚本限定给一个角色](#limit-a-script-to-one-character)。
 
 <a id="organize-scripts-in-folders"></a>
 
@@ -56,8 +54,7 @@ She smiles Hello there.
 
 点击文件夹名称可以展开或折叠。关闭文件夹的开关后，里面的脚本会在所有聊天中暂停，文件夹标题会显示 **Paused**(已暂停)。各脚本保留自己的开关设置。已启用的脚本如果位于暂停的文件夹中，开关会变灰，并显示 **Paused by folder**(因文件夹暂停)。删除文件夹会将脚本移到顶层，脚本继续按各自的开关设置运行。
 
-文件夹不会改变脚本执行顺序。点击 **Execution order**(执行顺序) 按实际执行顺序查看整个列表。拖动脚本的把手可以改变顺序。没有文件夹时，列表已经按执行顺序排列。在此视图中，暂停图标表示脚本本身已启用，但其文件夹已暂停。
-
+文件夹不会改变脚本执行顺序。点击 **Execution order**(执行顺序) 按实际执行顺序查看整个列表。拖动脚本的把手可以改变顺序。没有文件夹时，列表已经按执行顺序排列。
 ### 同时修改多条脚本
 
 1. 点击 **Select regex scripts**。
@@ -76,7 +73,7 @@ She smiles Hello there.
 
 ### Replace With
 
-用来替换每一处命中的文字。留空就会删掉命中的内容。用 `$1`、`$2` 等复用捕获到的文字。在捕获记号前面可以使用以下大小写转换：
+用来替换每一处命中的文字。留空就会删掉命中的内容。用 `$1`、`$2` 等复用捕获到的文字。`$0`、`$&` 和 `{{match}}` 会放回整段匹配内容，与 SillyTavern 一样。在捕获记号前面可以使用以下大小写转换：
 
 | 写法 | 结果 |
 | --- | --- |
@@ -101,7 +98,14 @@ She smiles Hello there.
 
 ### Trim Strings
 
-一份可选的纯文本列表，替换完成后会把这些文字删掉。点击 **Add trim string**(添加裁剪字符串) 增加一行，点击 **X** 按钮删除一行。有些固定的文字直接打出来比用模式匹配更省事，这时就用它。
+一份可选的待删除纯文本列表。点击 **Add trim string**(添加裁剪字符串) 增加一行，点击 **X** 按钮删除一行。有些固定的文字直接打出来比用模式匹配更省事，这时就用它。
+
+脚本添加了裁剪字符串后，**Trim from**(移除范围) 决定从哪里删除它们：
+
+- **Whole result**(整个结果)：替换后从整条消息中删除，包括模式没有匹配到的部分。新脚本默认使用这一项。
+- **Matched text (like SillyTavern)**(匹配的文本（与 SillyTavern 相同）)：只从 `$0`、`{{match}}` 或 `$1` 放回的匹配文本中删除。你在 **Replace With** 中输入的文字和消息的其余部分都保持原样，模式没有匹配到的地方也不会变化。
+
+从 SillyTavern 导入的脚本使用 **Matched text**(匹配的文本)。在这个选项出现之前导入的脚本使用 **Whole result**；如果其中某条现在删掉了太多内容，重新导入，或把它切换到 **Matched text**。
 
 ### Live Test
 

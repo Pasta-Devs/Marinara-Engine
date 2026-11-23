@@ -103,6 +103,7 @@ Ein **Prompt Block** ist Text, den du selbst schreibst: System-Anweisungen, Vorg
 | **Lorebook Marker (All)** | Alle aktiven Lorebook-Einträge. |
 | **Lorebook Marker (Before)** | Lorebook-Einträge, die davor eingefügt werden sollen. |
 | **Lorebook Marker (After)** | Lorebook-Einträge, die danach eingefügt werden sollen. |
+| **Memory Recall** | Die Erinnerungen, die [Memory Recall](../agents/memory.md) für jede Antwort findet. Ohne diesen Marker stehen sie direkt vor dem Chatverlauf. |
 
 Die Zeile eines Markers trägt das Abzeichen **MARKER**. In die meisten Marker kannst du nichts tippen. Nimm **Lorebook Marker (All)**, außer du willst Lorebook-Einträge in davor und danach aufteilen.
 
@@ -182,6 +183,12 @@ Unter dem Dropdown-Menü zeigt ein Abzeichen, woher der Prompt stammt.
 Das Textfeld zeigt den Prompt, der gerade gilt. Bearbeite ihn, um eine chatlokale Kopie anzulegen. Stimmt dein Text exakt mit dem Preset oder dem Standard überein, wertet Marinara ihn nicht als Anpassung. Solange eine eigene Bearbeitung existiert, erscheint ein Symbol zum Zurücksetzen (Tooltip **Reset to default prompt**).
 
 Game-Chats haben weitere Bedienelemente. **Story style**, **Violence**, **Content boundaries** und **Rating guidelines** (Richtlinien zur Altersfreigabe) legen fest, was in der Geschichte des Spiels vorkommen darf. Siehe [Während eines Spiels ändern](../game/getting-started.md#change-them-during-a-game). Zwei weitere gestalten den Prompt. **GM prompt style** (GM-Prompt-Stil) ersetzt nur den Game-Prompt, und eine chatlokale Bearbeitung hat weiterhin Vorrang. **Extra instructions** (zusätzliche Anweisungen) ergänzt den Game-Prompt um Text, bis zu 2.000 Zeichen, etwa „Write in the style of Terry Pratchett.“
+
+## Abschnitte für Prompt-Caching anordnen
+
+Beim Prompt-Caching kann ein Dienst den bereits gelesenen Anfang eines Prompts wiederverwenden. Dadurch kosten lange Chats weniger und antworten schneller. Der Dienst verwendet den Prompt nur bis zum ersten Text wieder, der sich seit der letzten Nachricht geändert hat. Abgerufene Erinnerungen ändern sich mit fast jeder Nachricht. Stehen sie vor dem Chatverlauf, verhindern sie deshalb, dass der gesamte Verlauf aus dem Cache genutzt wird.
+
+Um sie selbst zu platzieren, füge dem Preset einen Marker **Memory Recall** hinzu. Zieh ihn unter **Chatverlauf**, oder setze seine **Position** auf **Tiefe (ab dem Ende des Chats)**, um ihn innerhalb des Verlaufs einzufügen. Liest das Modell Erinnerungen vor der Geschichte, orientieren sich seine Antworten stärker daran. Deshalb bleibt die Standardposition vor dem Verlauf.
 
 <a id="decision-blocks-and-prompt-caching"></a>
 

@@ -42,7 +42,7 @@ Le contexte suit tout ce qui démarre dans la requête, y compris minuteurs, éc
 
 `LOG_DISABLE_REQUEST_LOGGING` fonctionne comme avant et désactive aussi la ligne d'abandon.
 
-Dans `pnpm dev`, pino-pretty masque `hostname` (son défaut) et `bootId`. La sortie JSON de production garde les deux.
+Un terminal reçoit des lignes pino-pretty : `pnpm dev`, ainsi qu'un serveur de production dont la sortie standard est un terminal (les lanceurs). La sortie de production envoyée ailleurs est du JSON, un objet par ligne. `LOG_FORMAT=pretty|json` remplace ce choix, et le lanceur Termux définit `pretty` parce que sa sortie atteint le terminal via `tee`. pino-pretty masque `hostname` (son défaut) et `bootId` ; la sortie JSON garde les deux.
 
 <a id="startup-timeline"></a>
 
@@ -108,6 +108,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 ```
 
 Le réglage de débogage de l'interface fonctionne toujours via `logDebugOverride`. C'est le moyen prévu pour voir les prompts quand `LOG_LEVEL` masque debug.
+
+Affiche le texte des prompts tel quel, avec `%s`. Pour une valeur structurée (un tableau de messages, un corps de requête fournisseur, une réponse analysée), passe `debugJson(value)` à `%s`, pas à `%j` ni à `JSON.stringify(value)`. Il affiche du JSON indenté dont les retours à la ligne dans les chaînes sont de vrais retours à la ligne : un prompt sur plusieurs lignes reste donc lisible, et le rendu n'a lieu que si la ligne est affichée. Un replacer qui masque des données se passe en deuxième argument, comme avec `JSON.stringify`. Une vue de débogage dans l'application affiche le même texte avec `readableJson` de `@marinara-engine/shared`. La régression `debug-log-line-breaks` couvre ce comportement et le choix du format.
 
 Par défaut, les médias intégrés apparaissent sous forme abrégée dans le journal. `debugJson` remplace chaque bloc de données en base64 par un marqueur tel que `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]`, avec le type, la taille et les 16 premiers et derniers caractères. Cela couvre les URL `data:` seules ou intégrées à du texte, ainsi que les champs `data` seuls des éléments multimédias d'Anthropic et de Google. La règle s'applique même si le base64 s'étend sur plusieurs lignes. Le sérialiseur `msg` fait de même pour les URL `data:` dans les lignes simples `%s` et `%j`. Seul `debugJson` raccourcit les champs `data` seuls. Seule la copie affichée change. La valeur transmise reste intacte. `LOG_INLINE_MEDIA=full` dans `.env` affiche de nouveau les données en entier. Le test de régression `log-inline-media` couvre ce comportement.
 

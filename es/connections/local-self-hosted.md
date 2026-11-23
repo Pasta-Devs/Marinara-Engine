@@ -22,6 +22,17 @@ Si no funcionó:
 - **Marinara could not reach** la dirección (Marinara no pudo llegar a la dirección). Comprueba que el servidor esté en ejecución y que la dirección y el puerto coincidan. **Continue anyway** (Continuar de todos modos) guarda la cuenta sin que la prueba haya pasado.
 - La dirección está en otra computadora. Consulta [Alcanzar un servidor en otra computadora](#reach-a-server-on-another-computer).
 
+## Usar el modelo que tenga cargado el servidor
+
+Un servidor local o autoalojado puede responder con el modelo que tiene cargado, así que su cuenta puede tener un modelo **Predeterminado**. Predeterminado no envía ningún nombre de modelo. Siempre usa el modelo que tengas cargado en Ollama, LM Studio, KoboldCpp o llama.cpp, incluso después de cambiar de modelo allí.
+
+- Una cuenta nueva para un servidor en tu computadora o red empieza con un modelo **Predeterminado**.
+- Para añadir uno más tarde, haz clic en **⋯** en la cuenta y elige **Añadir modelo**. **Predeterminado** es la primera fila.
+- Usa **Predeterminado** como cualquier otro modelo: asígnale una tarea como **Principal** en el cuadro **Tareas**, o elígelo en **Modelo para este chat**.
+- Haz clic en **Predeterminado** en el panel para darle sus propios ajustes, como sus parámetros y su preset de prompt, igual que harías con un modelo con nombre.
+
+**Predeterminado** se muestra para un servidor en tu computadora o tu red, y para Grok CLI, que tiene su propio valor predeterminado (consulta [CLI de suscripción](subscription-clis.md)). Un servicio de API alojado necesita un nombre de modelo.
+
 ## Direcciones de los servidores locales comunes
 
 Un puerto es el canal numerado que usa un servidor en tu computadora. `localhost` significa esta misma computadora, así que estas direcciones funcionan tal como están escritas cuando Marinara y el servidor se ejecutan en la misma computadora.

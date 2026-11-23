@@ -31,17 +31,17 @@ En un teléfono u otra pantalla estrecha, cada tarjeta se muestra centrada debaj
 | # | Título de la tarjeta | Qué cubre |
 | --- | --- | --- |
 | 1 | **Welcome to Marinara Engine!** (¡Bienvenido a Marinara Engine!) | Una tarjeta de bienvenida centrada. Professor Mari se ofrece a mostrarte todo. |
-| 2 | **Characters** | El botón del panel **Characters**, donde viven tus personajes. |
-| 3 | **Personas** | El botón del panel **Personas**, donde defines quién eres en un chat. |
-| 4 | **Lorebooks** | El botón del panel **Lorebooks** (lorebooks, o libros de trasfondo), que guarda detalles adicionales del mundo y de los personajes. |
-| 5 | **Presets** | El botón del panel **Presets** (presets, o ajustes guardados), que controla cómo se construye el prompt (las instrucciones enviadas a la IA). |
-| 6 | **Connections** | El botón del panel **Connections**. Las conexiones son lo primero que hay que configurar antes de chatear. |
-| 7 | **Agents** | El botón del panel **Agents**. La tarjeta te indica **Agent Organizer** (Organizador de agentes) para instalar agentes. |
-| 8 | **Settings** | El botón del panel **Settings**. Abre **Settings** en la pestaña **General**. |
-| 9 | **Chats** | El interruptor de la barra lateral. Abre la barra lateral de chats. |
-| 10 | **Conversation Mode** | La pestaña de conversación, etiquetada como **CONVO**. |
-| 11 | **Roleplay Mode** | La pestaña de roleplay, etiquetada como **RP**. |
-| 12 | **Game Mode** | La pestaña de juego, etiquetada como **GM**. |
+| 2 | **Chats** | El botón **Chats**, el primero de los botones de panel en una computadora. Abre **Chats** en la barra lateral, donde también se abren los paneles de los pasos siguientes. La tarjeta también indica que en una computadora puedes acoplar la barra lateral a la izquierda en **Settings → Appearance** (Configuración → Apariencia). |
+| 3 | **Conversation Mode** | La pestaña de conversación, etiquetada como **CONVO**. |
+| 4 | **Roleplay Mode** | La pestaña de roleplay, etiquetada como **RP**. |
+| 5 | **Game Mode** | La pestaña de juego, etiquetada como **GM**. |
+| 6 | **Characters** | El botón del panel **Characters**, donde viven tus personajes. |
+| 7 | **Personas** | El botón del panel **Personas**, donde defines quién eres en un chat. |
+| 8 | **Lorebooks** | El botón del panel **Lorebooks** (lorebooks, o libros de trasfondo), que guarda detalles adicionales del mundo y de los personajes. |
+| 9 | **Presets** | El botón del panel **Presets** (presets, o ajustes guardados), que controla cómo se construye el prompt (las instrucciones enviadas a la IA). |
+| 10 | **Connections** | El botón del panel **Connections**. Las conexiones son lo primero que hay que configurar antes de chatear. |
+| 11 | **Agents** | El botón del panel **Agents**. La tarjeta te indica **Agent Organizer** (Organizador de agentes) para instalar agentes. |
+| 12 | **Settings** | El botón del panel **Settings**. Abre **Settings** en la pestaña **General**. |
 | 13 | **Home: Your Story Hub** (Inicio: tu centro de historias) | Vuelve a la pantalla de inicio. La pantalla de inicio es donde continúas un chat, empiezas uno nuevo y organizas los widgets. |
 | 14 | **Ask Me Where Things Are** (Pregúntame dónde están las cosas) | La barra de búsqueda de la parte superior de la pantalla de inicio. En un teléfono, la tarjeta te indica que deslices hacia abajo desde la barra superior de la app. |
 | 15 | **Guides and Home Controls** (Guías y controles de inicio) | Los marcadores **Documentation** (Documentación), **Tutorial**, **FAQ** y **Widgets**. |

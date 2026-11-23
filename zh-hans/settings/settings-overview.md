@@ -185,7 +185,7 @@ Marinara 为通知播放内置提示音。想使用你自己的声音：
 | **Include reasoning in exports** | 把模型隐藏的思考过程加入聊天导出文件。 |
 | **Include private notes in exports** | 把你的私人消息备注加入 JSONL 和文本导出。分享聊天记录时请保持关闭。 |
 | **Debug mode** | 在服务器控制台中记录模型负载，便于获取支持。 |
-| **Open Console**(打开控制台) | 在可移动的只读窗口中显示最近的服务器日志。在运行服务器的电脑上可直接使用，其他设备需要先在 **Admin Access** 中保存管理员密钥。打开窗口内的 **Debug mode** 可查看提示词和响应，要查看完整日志则在 `.env` 中设置 `LOG_LEVEL=debug`。 |
+| **Open Console**(打开控制台) | 在可移动的只读窗口中显示最近的服务器日志。在运行服务器的电脑上可直接使用，其他设备需要先在 **Admin Access** 中保存管理员密钥。打开窗口内的 **Debug mode** 可查看提示词和响应，要查看完整日志则在 `.env` 中设置 `LOG_LEVEL=debug`。在电脑上，点击弹出按钮可将它移到独立的浏览器窗口，放在 Marinara 旁边或另一块屏幕上；再点一次就会放回原处。 |
 
 更多内容请参见[消息操作](../chats/messages.md)、[用户角色](../characters/personas.md)、[为单个聊天选择模型](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat)、[Peek Prompt](../chats/peek-prompt.md)、[引导生成与 Impersonate](../chats/guided-and-impersonate.md)、[导出与导入聊天](../chats/export-import.md) 和[故障排查](../TROUBLESHOOTING.md)。
 

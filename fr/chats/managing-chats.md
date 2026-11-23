@@ -1,6 +1,8 @@
 # Gérer la liste des chats
 
-Le panneau **Chats**, à gauche, contient tous tes chats. Sers-t'en pour lancer, retrouver, trier, organiser et supprimer des chats.
+Le panneau **Chats** contient tous tes chats. Utilise-le pour démarrer, trouver, trier, organiser et supprimer des chats. Pour l'ouvrir, clique sur **Chats** dans la barre du haut. Si tu ne le vois pas, ouvre d'abord **Plus**.
+
+Sur un ordinateur, **Chats** s'ouvre dans la barre latérale, au même endroit que **Personnages** et les autres panneaux. Un seul s'affiche à la fois : ouvrir un panneau remplace **Chats**, et cliquer sur **Chats** le fait revenir. La barre latérale est à droite, sauf si tu règles **Côté de la barre latérale sur ordinateur** sur **Gauche** (voir [Réglages d'apparence](../appearance/appearance-settings.md#other-app-style-controls)). Sur un téléphone ou une tablette, elle s'ouvre comme un panneau en plein écran.
 
 ## La liste des chats et les onglets de mode
 

@@ -8,7 +8,7 @@
 
 这些字段位于名为 **Convo**(对话) 的选项卡中。
 
-1. 在 **Character Editor**(角色编辑器) 中打开角色，或在 **Persona Editor**(用户角色编辑器) 中打开用户角色。进入的方法是：从侧边栏打开 **Characters** 面板，或从右侧边栏顶栏的人形图标打开 **Personas** 面板，然后点击对应卡片（参见[创建和编辑角色](../characters/creating-and-editing-characters.md)和[用户角色](../characters/personas.md)）。
+1. 在 **Character Editor**(角色编辑器) 中打开角色，或在 **Persona Editor**(用户角色编辑器) 中打开用户角色。进入的方法是：从顶栏打开 **Characters** 或 **Personas** 面板，然后点击对应卡片（参见[创建和编辑角色](../characters/creating-and-editing-characters.md)和[用户角色](../characters/personas.md)）。
 2. 点击 **Convo** 选项卡。
 
 该选项卡包含 **Convo Display Name**(对话显示名称)、**About Me**(自我介绍) 和 **Convo Behavior**(对话行为)。角色还有 **Weekly schedule**(每周日程)，其中可以用 **Edit schedule**(编辑日程) 或 **Create schedule**(创建日程)，参见[日程](schedules.md)。角色的自拍指令已移到 **Images**(图像) 选项卡的 **Selfie instructions**(自拍指令)。见[自拍](selfies.md)。

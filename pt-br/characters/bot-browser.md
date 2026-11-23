@@ -103,6 +103,12 @@ Antes de começar: para conversar com o personagem, você vai precisar de uma co
 
 Se não funcionou: leia a mensagem de erro no aviso que aparece na tela. Em **JannyAI**, um bloqueio da Cloudflare é a causa mais comum (veja Solução de problemas, abaixo).
 
+### Atualizar um personagem que você já tem
+
+Se o card que você importa já está na sua biblioteca (baixado antes da mesma página, ou com o mesmo nome e criador), a importação pausa em **Já está na biblioteca**. Escolha **Atualizar "Nome"** para atualizar a sua cópia no próprio lugar, **Adicionar como novo personagem** para manter os dois, ou **Pular este card**. Para vincular o card a um personagem que chegou por outro caminho, clique em **Atualizar um personagem que você já tem…** na janela **Import Card** e escolha o personagem na lista. Veja [Atualizar um personagem que você já tem](import-export.md#update-a-character-you-already-have).
+
+Para procurar uma versão mais nova de um card que você baixou aqui, abra o personagem, clique em **⋯** ao lado de **Save** (salvar) e escolha **Procurar atualização**. O Card Browser abre nesse card.
+
 ### Download as PNG
 
 Clique em **Download as PNG** (baixar como PNG) na tela de detalhes para salvar o card como um card de personagem PNG comum no seu dispositivo, sem adicioná-lo à sua biblioteca. O botão mostra **Building PNG...** enquanto trabalha. Isso funciona em todas as fontes, e o arquivo leva o nome do personagem, como `Some_Character.png`. O card PNG é uma imagem com os dados do personagem guardados dentro dela. Você pode compartilhá-lo ou importá-lo em outro aplicativo.

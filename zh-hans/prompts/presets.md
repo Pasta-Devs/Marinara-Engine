@@ -103,6 +103,7 @@
 | **Lorebook Marker (All)** | 全部生效的世界书条目。 |
 | **Lorebook Marker (Before)** | 设为放在前面的世界书条目。 |
 | **Lorebook Marker (After)** | 设为放在后面的世界书条目。 |
+| **Memory Recall**(记忆召回) | [Memory Recall](../agents/memory.md) 为每条回复找到的记忆。没有这个标记时，记忆放在聊天历史之前。 |
 
 标记所在的行会显示 **MARKER** 标记。大部分标记都不能输入内容。除非想把世界书条目拆成前后两部分，否则用 **Lorebook Marker (All)** 就行。
 
@@ -182,6 +183,12 @@ XML 适合大多数模型。只有某个模型在没有标签时回答得更好�
 文本框里显示正在使用的提示词。编辑它，就会生成一份只属于这个聊天的副本。如果你写的内容和预设或默认值完全一样，Marinara 就当作没有自定义。存在自定义修改时，会出现一个重置图标（提示文字是 **Reset to default prompt**(重置为默认提示词)）。
 
 Game 聊天还提供更多控件。**Story style**、**Violence**、**Content boundaries** 和 **Rating guidelines**(分级指南) 决定游戏故事可以包含什么内容。见[在游戏中修改这些设置](../game/getting-started.md#change-them-during-a-game)。另外两个控件用于调整提示词。**GM prompt style**(GM 提示词风格) 只替换 Game 提示词，而聊天本地的修改仍然优先。**Extra instructions**(额外指令) 会把文字追加到 Game 提示词里，上限 2000 个字符，比如“Write in the style of Terry Pratchett.”
+
+## 为提示词缓存安排小节顺序
+
+提示词缓存让服务商复用已经读过的提示词开头，从而降低长聊天的费用并加快回复。服务商只能复用到相较于上一条消息首次出现变化的文字之前。召回的记忆几乎每条消息都会变化，因此放在聊天历史之前时，整段历史都无法使用缓存。
+
+要自行安排记忆的位置，在预设中添加 **Memory Recall** 标记。把它拖到 **Chat History** 下方，或把 **Position** 设为 **Depth (from end of chat)**，将它放进历史中。在故事之前读到记忆，回复会更贴近这些记忆，所以默认位置仍在历史之前。
 
 <a id="decision-blocks-and-prompt-caching"></a>
 

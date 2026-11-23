@@ -132,7 +132,20 @@ Send 开关关闭时，输入框里照样显示这个值。打开开关之前，
 
 1. 在 **Advanced Parameters** 里开启 **Image captioning**。
 2. 在 **Captioning model**(描述用模型) 下拉菜单里选一个模型。
-3. 可选：编辑 **Captioning Prompt**(图像描述提示词)，也就是随每张图片一起发送的指令。点重置按钮或清空输入框，就会恢复默认值。这段提示词只保存在当前聊天里，**Save as Connection Default**(保存为连接默认值) 也不会复制它。
+3. 可选：编辑 **Captioning Prompt**(图像描述提示词)，也就是随每张图片一起发送的指令。点重置按钮或清空输入框，就会回到 Engine 全局的 Image reading 提示词。这段提示词只保存在当前聊天里，**Save as Connection Default**(保存为连接默认值) 也不会复制它。
+
+即使开关已关闭，只要在 **Connections**(连接) 面板的 **Jobs**(任务) 区域设置了 **Image reading**(图片识别) 模型，也会显示这个输入框：当聊天自身的模型无法看图时，该模型会为这个聊天的图片生成描述。
+
+### 向读图模型提出什么要求
+
+在 **Connections** 面板中，点击 **Jobs** 区域内 **Image reading** 行上的齿轮按钮（或在 **Model for Image reading**(图片识别模型) 的模型列表下方选择 **Image reading settings**(读取图片设置)）。这些设置适用于所有聊天：
+
+- **Instructions**(指令)：随每张图片一起发送的系统提示词。聊天自己的 **Captioning Prompt** 会替代它。
+- **Request**(请求)：随每张图片一起发送的消息。`{{filename}}` 会替换为图片文件名。
+- **Answer length (tokens)**(回答长度（Token）)：默认为 700。思考模型会把一部分额度用于思考，因此描述为空或被截断时，要多给它一些空间（或关闭思考）。模型上设置的 **Max output tokens**(最大输出 Token 数) 限制仍然生效。
+- **Temperature**：默认为 0.2。
+
+**Instructions** 和 **Request** 都有重置按钮，可以恢复内置文本。清空 **Answer length**(回答长度) 或 **Temperature**，即可重新使用内置值。如果直接询问本地模型时它能很好地描述图片，通过 Marinara 却不行，就把直接询问时使用的系统提示词和问题复制到 **Instructions** 和 **Request**。模型的内联思考内容（`<think>…</think>`）会从描述中移除。
 
 如果没有成功：图像描述失败时（比如描述用的账号坏了、被删除了或者什么都没返回），回复会中止，并报 **Image captioning failed** 错误。Marinara 不会改为发送图片本身。修复或更换描述用模型，或者关闭 **Image captioning**。
 

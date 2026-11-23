@@ -67,7 +67,6 @@ Apple Silicon에서는 **Find files**가 **Validate repo**(레포 확인)로 표
 | **Use for tracker agents (roleplay)**(트래커 에이전트에 사용, 롤플레이) | 트래커 에이전트를 위해 모델을 계속 실행해 둡니다. 기본값은 꺼짐입니다. |
 | **Use for game scene analysis**(게임 장면 분석에 사용) | 배경, 음악, 날씨 같은 Game Mode 장면 효과를 위해 모델을 계속 실행해 둡니다. 기본값은 켜짐입니다. |
 | **Use the built-in model for all tracker agents**(모든 트래커 에이전트에 내장 모델 사용) | 기본 제공 트래커 에이전트가 모두 이 모델을 쓰도록 지정합니다. 에이전트를 켜 주지는 않습니다. |
-| **Change in Defaults**(기본값에서 변경) | 다른 작업도 맡길 수 있는 **Jobs** 상자를 엽니다. |
 
 두 스위치가 모두 꺼져 있으면 모델은 저절로 시작되지 않습니다. 둘 중 하나를 켜거나, 채팅이나 작업이 모델을 쓸 때 시작됩니다. 에이전트를 켜는 방법은 [Memory Recall과 채팅 요약](../agents/memory.md)을 참고하세요.
 

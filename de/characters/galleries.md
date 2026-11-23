@@ -50,7 +50,7 @@ Bevor du anfängst: Füge eine Verbindung zur Bildgenerierung hinzu.
 
 ### Den Zuschnitt eines Bogens korrigieren
 
-Nach dem Generieren eines Sticker- oder Emoji-Bogens wird jeder Sticker anhand seines Umrisses erkannt und sein grüner Hintergrund entfernt. Er erscheint dann als eigene Kachel mit seinem Namen. Gespeicherte Sticker sind höchstens 512 mal 512 Pixel groß, Emojis höchstens 256 mal 256. Jedes Bild wird mit seinem Namen markiert.
+Nach dem Generieren eines Sticker- oder Emoji-Bogens wird jeder Sticker an seinem Umriss erkannt, sein grüner Hintergrund entfernt und er erscheint als eigene Kachel mit seinem Namen. Bei einem Modell, das transparente Bilder erzeugt (siehe [Transparente Hintergründe](../media/image-providers.md#transparent-backgrounds)), wird stattdessen ein transparenter Hintergrund angefordert; Grün dient nur als Ausweichlösung. Liefert das Modell einen transparenten Bogen, bleiben seine Kanten genau wie gezeichnet erhalten. Gespeicherte Sticker sind höchstens 512 mal 512 Pixel groß, Emojis höchstens 256 mal 256. Jedes Bild wird mit seinem Namen markiert.
 
 - Klick auf eine Kachel, um sie zu behalten oder zu überspringen. Übersprungene Kacheln werden nicht gespeichert.
 - Bearbeite den Namen unter einer Kachel, um sie umzubenennen.

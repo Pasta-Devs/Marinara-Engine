@@ -51,7 +51,7 @@ Antes de empezar: activa **Autonomous Messages**.
 
 Un horario pertenece al personaje y se reutiliza en todos los chats de Conversation. Desactivar **Schedules** en un chat lo mantiene desactivado allí y conserva el horario.
 
-La renovación semanal automática está desactivada a menos que actives **Renew weekly** para ese personaje en el **Character Schedule Manager**. Ábrelo con el botón de calendario del pie de la barra lateral, junto al cuadro de estado.
+La renovación semanal automática está desactivada a menos que actives **Renovar cada semana** para ese personaje en el **Gestor de horarios de personajes**. Ábrelo con el botón de calendario de la parte inferior de **Chats**, en la pestaña **CONVO**, junto al cuadro de estado.
 
 Marinara intenta una renovación una vez por chat cada vez que carga la página de la app. Si falla, no lo intenta de nuevo hasta que recargues la página. Haz clic en **Generate** para intentarlo otra vez.
 

@@ -38,6 +38,8 @@ En dessous, un panneau d'informations peut afficher le service et le modèle, un
 
 Le reste, c'est le prompt découpé en sections repliables, chacune avec sa propre estimation approximative de tokens. Les messages du chat sont regroupés sous **Chat History** (historique du chat). Pour une requête exacte enregistrée, le service a pu fusionner plusieurs tours du chat en un seul bloc : déplie chaque bloc pour voir tout le texte. Clique sur l'en-tête d'une section pour l'ouvrir ou la fermer.
 
+Certains textes sont ajoutés à une profondeur donnée dans le chat : les **Notes de l'auteur** et les entrées World Info réglées sur **@Depth**. Avec **Post-traitement des messages** réglé sur **Appliquer** (par défaut), le modèle reçoit ce texte dans le message utilisateur voisin ; il apparaît donc dans un message **Toi**. L'aperçu le signale avec son propre titre, comme **Note de l'auteur · envoyée dans ton message** ou **World Info @depth 4 · envoyé dans ton message**. Avec **Ne pas appliquer**, il est envoyé dans son propre message **Système**.
+
 Avec le badge **Exact Text Model Request**, tu lis la requête telle qu'elle a été envoyée pour cette réponse. Elle a été enregistrée avant tout ce qui s'est exécuté après la réponse, comme un résumé automatique ou le masquage de messages : elle peut donc contenir des messages que la prochaine réponse ne recevra pas. Clique sur **Show current context** (afficher le contexte actuel) pour construire le prompt à partir du chat tel qu'il est maintenant, sans l'envoyer. Clique sur **Show sent request** (afficher la requête envoyée) pour revenir en arrière.
 
 ### Copier le prompt

@@ -64,7 +64,7 @@ Nutze **Diagnose model routing**, wenn du ein großes Modell wie Opus angefragt 
 
 ## OpenAI (ChatGPT)
 
-Dieser Dienst nutzt dein ChatGPT-Konto über die Codex CLI. Marinara liest die lokale Codex-Anmeldedatei und frischt die Sitzung auf, wenn es möglich ist.
+Dieser Dienst nutzt dein ChatGPT-Konto über die Codex CLI. Marinara liest die lokale Codex-Anmeldedatei und erneuert die Sitzung, wenn möglich. Jede Anfrage in einem Chat trägt denselben Cache-Schlüssel, damit der Dienst den unveränderten Anfang deines Prompts wiederverwenden kann. So verbrauchst du weniger von deinem Abo-Kontingent.
 
 Wie lange Codex vor der Antwort nachdenkt, stellst du so ein: Öffne **Edit model**, schalte **Use custom defaults for this model** (eigene Standardwerte für dieses Modell verwenden) ein und wähl bei **Reasoning Effort** (Denkaufwand) eine Stufe. Anfangs steht dort **Default** (Standard); damit bleibt die Stufe, die Codex selbst für das Modell nutzt. Ein Chat kann unter **Advanced Parameters** (Erweiterte Parameter) eine eigene Stufe wählen. Die Stufe in einem Preset ändert daran nichts. Ein als Fallback genutztes Codex-Modell richtet sich nur nach seiner eigenen Stufe, und Agenten auf dem Modell verwenden die Stufe des Modells. Die angezeigten Stufen entsprechen denen, die für das gewählte Modell verfügbar sind.
 
@@ -76,6 +76,8 @@ Dieser Dienst führt die Grok CLI auf dem Marinara-Rechner aus. Zwei Dinge sind 
 - Sein Kontextfenster liegt standardmäßig bei 32.000 Tokens. Tokens sind kleine Textstücke, die Modelle zählen. Große Prompts können an das eigene Zug-Limit der CLI stoßen, deshalb bleibt der Standard niedrig. Am Modell kannst du ein größeres **Max Context Window** (maximales Kontextfenster) einstellen.
 
 Im Modell-Editor lässt **Use the Grok CLI default** (Standard der Grok CLI verwenden) das Modell leer, sodass die CLI ihr eigenes wählt. Der Editor nennt `grok-composer-2.5-fast` als meist sicherstes Modell für Roleplay, weil Marinara die CLI im Headless-Modus ausführt und Groks eigene Tools, Gedächtnis, Websuche, Pläne und Subagents dabei abgeschaltet sind.
+
+Marinara hält außerdem fern, was die CLI für Programmierarbeit aus deinem Home-Ordner laden würde: Claude-Code- und Cursor-Regeln, `CLAUDE.md`-Dateien, Skills, Hooks und MCP-Server. Deine Chat-Anfragen an xAI enthalten sie nicht, und jede Anfrage wird kleiner. Die Token-Zahlen für Grok-Antworten stammen von der CLI selbst, einschließlich der Tokens, die xAI aus seinem Cache gelesen hat.
 
 ## Tarifnutzung
 

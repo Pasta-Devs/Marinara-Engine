@@ -185,7 +185,7 @@ Marinara는 알림에 기본 내장 소리를 재생합니다. 직접 고른 소
 | **Include reasoning in exports**(내보내기에 추론 포함) | 채팅 내보내기에 모델의 숨겨진 사고 과정을 넣습니다. |
 | **Include private notes in exports**(내보내기에 비공개 메모 포함) | JSONL 및 텍스트 내보내기에 비공개 메시지 메모를 넣습니다. 채팅 기록을 공유할 때는 꺼 두세요. |
 | **Debug mode**(디버그 모드) | 지원 요청에 쓸 수 있도록 모델 요청 내용을 서버 콘솔에 기록합니다. |
-| **Open Console**(콘솔 열기) | 최근 서버 로그 줄을 이동할 수 있는 읽기 전용 창에 표시합니다. 서버와 같은 컴퓨터에서, 또는 **Admin Access**에 관리자 시크릿을 저장한 기기에서 쓸 수 있습니다. 프롬프트와 응답을 보려면 창에서 **Debug mode**를 켜고, 모든 로그를 보려면 `.env`에 `LOG_LEVEL=debug`를 설정하세요. |
+| **Open Console**(콘솔 열기) | 최근 서버 로그 줄을 이동할 수 있는 읽기 전용 창에 표시합니다. 서버와 같은 컴퓨터에서, 또는 **Admin Access**에 관리자 시크릿을 저장한 기기에서 쓸 수 있습니다. 프롬프트와 응답을 보려면 창에서 **Debug mode**를 켜고, 모든 로그를 보려면 `.env`에 `LOG_LEVEL=debug`를 설정하세요. 컴퓨터에서는 팝아웃 버튼을 누르면 별도의 브라우저 창으로 옮겨 Marinara 옆이나 다른 화면에 둘 수 있습니다. 다시 누르면 원래 위치로 돌아옵니다. |
 
 자세한 내용은 [메시지 조작](../chats/messages.md), [사용자 페르소나](../characters/personas.md), [한 채팅에 쓸 모델 고르기](../connections/connecting-to-a-provider.md#choosing-a-model-for-one-chat), [Peek Prompt](../chats/peek-prompt.md), [지침 기반 생성과 Impersonate](../chats/guided-and-impersonate.md), [채팅 내보내기와 가져오기](../chats/export-import.md), [Marinara Engine 문제 해결](../TROUBLESHOOTING.md)을 참고하세요.
 

@@ -42,7 +42,7 @@ IDは`AsyncLocalStorage`コンテキスト(`lib/log-context.ts`)に保存し、P
 
 `LOG_DISABLE_REQUEST_LOGGING`は従来どおり動き、中断行も無効にします。
 
-`pnpm dev`ではpino-prettyが既定の`hostname`と`bootId`を隠します。本番のJSON出力は両方を保持します。
+ターミナルにはpino-pretty形式の行を出力します。`pnpm dev`と、標準出力がターミナルになっている本番サーバー(ランチャー)が該当します。本番環境でそれ以外の場所に出す場合は、1行に1つのJSONオブジェクトを出力します。`LOG_FORMAT=pretty|json`でこの選択を上書きできます。Termuxランチャーは`tee`を通してターミナルに出力するため、`pretty`を設定します。pino-prettyは`hostname`(デフォルトの動作)と`bootId`を隠し、JSON出力は両方を保持します。
 
 <a id="startup-timeline"></a>
 
@@ -108,6 +108,8 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 ```
 
 UIのデバッグ切り替えは`logDebugOverride`経由で引き続き機能します。`LOG_LEVEL`でdebugを隠していてもプロンプトを確認するための仕組みです。
+
+プロンプトの文章は`%s`でそのまま出力してください。構造化された値(メッセージの配列、プロバイダーへのリクエスト本文、解析済みの返信)は、`%j`や`JSON.stringify(value)`ではなく、`debugJson(value)`を`%s`に渡します。インデント付きのJSONを出力し、文字列内の改行も実際の改行になるため、複数行のプロンプトを読みやすく保てます。また、その行を出力するときだけ描画します。情報を伏せるreplacerは、`JSON.stringify`と同じく第2引数に渡します。アプリ内のデバッグ表示は、`@marinara-engine/shared`の`readableJson`で同じ文章を出力します。`debug-log-line-breaks`回帰テストが、この動作と形式の選択を検証します。
 
 <a id="checks"></a>
 

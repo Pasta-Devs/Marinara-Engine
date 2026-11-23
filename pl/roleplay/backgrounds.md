@@ -28,6 +28,14 @@ Od teraz tło zmienia się samo, w miarę jak fabuła przenosi się między miej
 
 Jeśli to nie zadziałało: gdy masz tylko jedno albo dwa tła, agent wciąż wybiera właśnie je. Dodaj więcej obrazów do biblioteki. Zobacz [Tła czatu](../appearance/chat-backgrounds.md).
 
+## Ponowne używanie posiadanych obrazów
+
+Gdy Illustrator samodzielnie tworzy tła, a historia przenosi się w nowe miejsce, najpierw sprawdza, czy jest tło przypięte do tego miejsca (zobacz [Przypnij tło do miejsca](#pin-a-background-to-a-place)). W przypiętym miejscu niczego nie maluje. W przeciwnym razie przeszukuje twoją bibliotekę teł. Obraz pasuje do miejsca, gdy jego nazwa pliku albo jeden z tagów złożonych z co najmniej dwóch słów występuje w lokalizacji World State. Na przykład `john-bedroom.png` pasuje do "Smith House, John's bedroom". Wielkość liter, akcenty i "'s" nie mają znaczenia, a najbardziej szczegółowa nazwa ma pierwszeństwo przed zwykłym `bedroom.png`.
+
+Gdy brak lokalizacji World State, nazwa miejsca zapisana przez agenta Illustrator dla nowego tła jest dopasowywana w ten sam sposób. Jeśli obraz pasuje, zostaje wyświetlony i nic nie jest malowane. Tylko miejsce bez dopasowania otrzymuje nowy obraz.
+
+Aby miejsce zachowało swój obraz, nazwij plik od tego miejsca (`kitchen.png` dla "Kitchen"). Tag też działa, jeśli ma co najmniej dwa słowa, na przykład `smith house kitchen`; jednowyrazowe tagi, takie jak `kitchen` lub `night`, są ignorowane, ponieważ zwykle opisują wygląd obrazu.
+
 ## Wygeneruj tło ręcznie
 
 Na podstawie sceny (gatunek, świat, miejsce, pogoda i pora dnia) Marinara buduje prompt obrazu (prompt to tekst, który Marinara wysyła do AI) i tworzy nowe tło.
@@ -41,6 +49,43 @@ Zanim zaczniesz: zainstaluj agenta **Illustrator** i ustaw dla niego konto do ge
 Ręczne generowanie korzysta z konta obrazów agenta Illustrator, a w razie jego braku z twojego domyślnego konta do generowania obrazów. Działa w trybach Roleplay i Game Mode, ale nie w trybie Conversation.
 
 Jeśli to nie zadziałało: komunikat "Choose an image generation connection for the Illustrator agent, or mark one as the default image connection." oznacza, że Marinara nie znalazła żadnego konta obrazów. Ustaw je i spróbuj ponownie. Jeśli brakuje przycisku **Background**, agent Illustrator nie jest zainstalowany.
+
+## Przypnij tło do miejsca
+
+Użyj tego, gdy miejsce w twojej historii ma zawsze wyglądać tak samo: sypialnia Johna zawsze pokazuje `john-bedroom`, a twoja własna sypialnia zawsze pokazuje `my-bedroom`. Gdy historia dociera do przypiętego miejsca, pojawia się jego obraz, niezależnie od tego, co wybrałby agent Background.
+
+1. Otwórz **Ustawienia czatu** przyciskiem z suwakami w czacie i otwórz sekcję **Tło**.
+2. W sekcji **Przypięte miejsca** kliknij **Dodaj miejsce**.
+3. Kliknij puste pole obrazu i wybierz tło. Wpisz miejsce tak, jak jest zapisywane w opowieści, na przykład `John's bedroom`.
+4. Opcjonalnie: poniżej dodaj inne nazwy, których może używać opowieść, oddzielając je przecinkami, na przykład `John's room, the master bedroom`.
+
+Szybszy sposób: gdy opowieść jest w danym miejscu i wyświetla się właściwy obraz, kliknij **Przypnij ten obraz do miejsca "John's bedroom"**.
+
+Jak rozróżniane są miejsca:
+
+- Wygrywa najbardziej szczegółowa nazwa. `John's bedroom` i `{{user}}'s bedroom` nigdy się nie mieszają, a przypięcie o samej nazwie `bedroom` jest używane tylko dla sypialni, których nikt nie przypiął.
+- Jedno lub dwa słowa pomiędzy nadal pozwalają na dopasowanie: "John's guest bedroom" pasuje do `John's bedroom`, chyba że inne przypięcie nazywa to miejsce dokładnie.
+- `{{user}}` to imię twojej persony, a `{{char}}` – dowolnej postaci w czacie, więc `{{user}}'s bedroom` pasuje do "Alyssa's bedroom".
+- "My" i "our" odnoszą się do autora wiadomości. Gdy w odpowiedzi Johna opowieść toczy się w "my bedroom", chodzi o sypialnię Johna; "your bedroom" w jego odpowiedzi oznacza twoją sypialnię. W twojej wiadomości "your bedroom" oznacza sypialnię postaci, jeśli w czacie jest tylko jedna postać.
+- Wielkość liter, znaki diakrytyczne i apostrofy nie mają znaczenia. Nazwy pasują do całych słów: `John` nigdy nie pasuje do "Johnson".
+- Jeśli korzystasz z **World Maps**, wybierz miejsce z listy **Miejsce na mapach świata**. Przypięty budynek obejmuje też te pomieszczenia, które nie mają własnego przypięcia.
+
+Co się dzieje:
+
+- Obraz pojawia się raz, po przybyciu na miejsce. Jeśli podczas pobytu wybierzesz ręcznie inne tło, twój wybór pozostaje, dopóki opowieść nie przeniesie się dalej.
+- W przypiętym miejscu agent Background nie może zmienić obrazu, a Illustrator nie maluje dla niego nowego tła.
+- Potrzebna jest lokalizacja od agenta **World State** (lub World Maps). Dół listy pokazuje, gdzie historia rozgrywa się teraz, a **Tutaj** oznacza używane przypięcie. Przypięcia działają w czatach w trybie Roleplay.
+
+Jeśli to nie zadziałało: sprawdź, czy pole **Historia rozgrywa się w** pod listą pokazuje to miejsce i czy występuje w nim jedna z nazw przypięcia.
+
+### Tła podążające za postacią
+
+Obraz w sekcji **Galeria** postaci (lub persony), oznaczony jako tło, pojawia się w każdym czacie z tą postacią, bez potrzeby przypinania go osobno w każdym czacie.
+
+1. Otwórz sekcję **Galeria** postaci, kliknij przycisk tagu na obrazie i wybierz **Użyj jako tła**.
+2. Wpisz przedstawione na nim miejsca, oddzielając je przecinkami, na przykład `{{char}}'s bedroom, {{char}}'s room`. W galerii postaci `{{char}}` oznacza tę postać, a w galerii persony `{{user}}` oznacza tę personę. Zostaw pole puste, jeśli obraz nie przedstawia jednego miejsca.
+
+Obrazy nazywające miejsca działają jak przypięte miejsca w każdym czacie z tą postacią i są wymienione w sekcji **Przypięte miejsca** w **Ustawienia czatu → Tło**. Przypięcie ustawione w samym czacie ma pierwszeństwo przed obrazem z galerii o tej samej nazwie.
 
 ## Biblioteka teł i rozmycie
 

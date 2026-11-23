@@ -10,31 +10,34 @@ Marinara Engineは、Conversation、Roleplay、Game Modeの3つのモードを�
 
 ## アプリのアーキテクチャ
 
-### 3カラムレイアウト
+### シェルのレイアウト
 
-画面はDiscord風の3カラム構成で、`components/layout/AppShell.tsx`が管理します。
+`components/layout/AppShell.tsx`がトップバー、中央ペイン、1つのサイドバーを配置します。サイドバーにはチャットか1つのパネルのどちらかが表示され、両方が同時に表示されることはありません。デフォルトでは右側に固定され、`sidebarSide`が`"left"`のときは左側に固定されます。
 
 ```
-+-------------+-----------------------------+--------------+
-|  Left       |         Center              |  Right       |
-|  Sidebar    |                             |  Panel       |
-|             |  Chat area or Editor        |              |
-|  Chat list  |  (lazy-loaded)              |  Characters  |
-|  Folders    |                             |  Lorebooks   |
-|  Mode tabs  |  ChatConversationSurface    |  Presets     |
-|             |  ChatRoleplaySurface        |  Connections |
-|             |  GameSurface                |  Agents      |
-|             |  CharacterEditor            |  Personas    |
-|             |  LorebookEditor             |  Settings    |
-|             |  PresetEditor               |  Browser     |
-|             |  ...other editors           |              |
-+-------------+-----------------------------+--------------+
++-----------------------------------+----------------+
+|  Center                           |  Sidebar       |
+|                                   |                |
+|  Chat area or Editor              |  Chats         |
+|  (lazy-loaded)                    |  (chat list,   |
+|                                   |  folders,      |
+|  ChatConversationSurface          |  mode tabs)    |
+|  ChatRoleplaySurface              |                |
+|  GameSurface                      |  or a panel:   |
+|  CharacterEditor                  |  Characters    |
+|  LorebookEditor                   |  Personas      |
+|  PresetEditor                     |  Lorebooks     |
+|  ...other editors                 |  Presets, ...  |
++-----------------------------------+----------------+
 ```
 
-- 左サイドバー(`components/layout/ChatSidebar.tsx`): チャット一覧です。フォルダー単位で整理し、モード(Conversation、Roleplay、Game)で絞り込めます。
+- サイドバー(`AppShell.tsx`内の`[data-component="SidebarSlot"]`): デスクトップでは1つのスロットです。スライドするラッパー(`SidebarSlotPanel`)内に、2つのレイヤーが重なっています。`ChatSidebarPanel`は`components/layout/ChatSidebar.tsx`を描画し、フォルダーとモードタブ(Conversation、Roleplay、Game)を備えたチャット一覧を表示します。未読数と通知バブルをここから読み込むため、デスクトップでは常にマウントされています。`RightPanelDesktop`は`components/layout/RightPanel.tsx`を描画し、初めてパネルを開いたときにマウントされます。隠れているレイヤーは`invisible`、`inert`、`aria-hidden`になります。チャットとパネルの切り替えは即座に行われ、サイドバーの開閉時はスライドします。
+- 幅: サイドバーの内側の端にある1つの区切り(aria-label "Resize sidebar")で、`SHARED_SIDEBAR_WIDTH_MIN`(280)から`SHARED_SIDEBAR_WIDTH_MAX`(480)までの共有幅を設定します。読み取りには`selectSharedSidebarWidth`を使ってください。ストアは`sidebarWidth`と`rightPanelWidth`を同じ値に保ちます。
+- 配置側: `sidebarSide: "left"`のとき、スロットにCSSの`order: -1`が適用されます。Reactツリー内の位置は変わらないため、配置側を変更してもパネルは再マウントされません。`--mari-chat-ui-inset-left` / `--mari-chat-ui-inset-right`、固定されたTracker Panelのオフセット、モードレスの`Modal`のインセットは、配置側に追従します。
+- スマートフォンとタブレット: `isMobileShellViewport()`がtrueのとき(`MOBILE_SHELL_MEDIA_QUERY`に該当するか、ウィンドウが固定レイアウトには狭すぎる場合)、サイドバーは右から開く全画面シートとなり、`ChatSidebarPanel`または`RightPanelMobile`として描画されます。そこには`sidebarSide`は適用されません。
 - 中央ペイン: アクティブなチャット画面か、全画面のエディター(キャラクター、ロアブック、プリセットなど)のどちらかです。同時に表示するのは片方だけで、エディターを開くとチャット領域と入れ替わります。
-- 右パネル(`components/layout/RightPanel.tsx`): リソースの一覧と設定です。トップバーから開閉します。一度マウントしたパネルはCSSで非表示にするだけでDOMに残し、スクロール位置とローカルな状態を保ちます。
-- トップバー(`components/layout/TopBar.tsx`): 各右パネルへ素早く切り替えるボタンが並びます。
+- パネル(`components/layout/RightPanel.tsx`): `rightPanel`に対応するパネルコンポーネントを表示し、訪問済みのパネルはマウントしたままにします。[パネルの仕組み](#panel-system-componentspanels)を参照してください。
+- トップバー(`components/layout/TopBar.tsx`): 片側にホームとチャット情報を配置します。サイドバー側では、`[data-tour="panel-buttons"]`の先頭にチャットボタン(`[data-tour="sidebar-toggle"]`)があり、その後に各パネルのボタンが1つずつ並びます。`sidebarSide: "left"`のときはバーが反転し(`flex-row-reverse`)、パネルボタンが左、ホームが右端になります。スマートフォンとタブレットではチャットはホームの隣に置かれ、スマートフォンではチャットとパネルボタンが**More**(その他)メニューに移ります。
 
 ### ナビゲーション
 
@@ -48,8 +51,11 @@ Marinara Engineは、Conversation、Roleplay、Game Modeの3つのモードを�
 | 接続エディターを開く      | `connectionDetailId` | `openConnectionDetail(id)`                         |
 | エージェントエディターを開く | `agentDetailId`      | `openAgentDetail(id)`                              |
 | ペルソナエディターを開く   | `personaDetailId`    | `openPersonaDetail(id)`                            |
-| 右パネルを切り替える      | `rightPanel`         | `openRightPanel(name)` / `toggleRightPanel(name)` |
+| パネルを表示する | `rightPanel` | `openRightPanel(name)` / `toggleRightPanel(name)` |
+| チャットを表示する | `sidebarOpen` | `toggleSidebar()` / `setSidebarOpen(open)` |
 | ウィンドウを開く         | `modal`              | `openModal(type, props?)`                          |
+
+チャットとパネルはサイドバーを共有するため、どの画面サイズでも同時には表示されません。`openRightPanel`と`toggleRightPanel`はチャットを閉じ、`toggleSidebar`と`setSidebarOpen(true)`はパネルを閉じます。`setSidebarOpen(false)`は、開いているパネルに影響しません。パネルが開いている間は`selectSidebarShown`がfalseになるため、古い状態で両方のフラグがtrueでもパネルを描画します。また、永続化された状態でも、そのような保存済みの組み合わせはパネルだけに変換されます。
 
 ### コード分割
 
@@ -76,6 +82,7 @@ UIと実行時の状態には、`packages/client/src/stores/`にあるZustandス
 - サウンド: `convoNotificationSound`と`rpNotificationSound`。
 - 挙動: `confirmBeforeDelete`、`enterToSendRP`、`enterToSendConvo`、`weatherEffects`、`guideGenerations`。
 - ナビゲーション: `rightPanel`、`rightPanelOpen`、`sidebarOpen`、`settingsTab`、`*DetailId`のすべての項目、`modal`。
+- サイドバーのレイアウト: `sidebarSide`(`"right"`または`"left"`、デフォルトは`"right"`。端末間で同期され、`resetAppearanceSettings`で`"right"`にリセットされます)と、`sidebarWidth` / `rightPanelWidth`(同じ値に保たれます。読み取りには`selectSharedSidebarWidth`を使ってください)。
 
 同期されるカスタムテーマは`ui.store.ts`には保存しません。React Query経由でサーバーから取得し、同じMarinaraインスタンスに接続したデバイス間でミラーリングします。
 
@@ -319,14 +326,14 @@ AIゲームマスター(GM)の画面です。chatフォルダーの外、`compon
 
 ### パネルシステム(`components/panels/`)
 
-右側のパネルは、検索、並べ替え、絞り込みができるリソース一覧です。リソースをクリックすると、中央ペインにそのエディターが開きます。
+パネルはサイドバー内でチャットと入れ替わって開き、検索、並べ替え、絞り込みができるリソース一覧を表示します。リソースをクリックすると、中央ペインにそのエディターが開きます。
 
 パネルは`RightPanel.tsx`の2か所に登録します。
 
 1. `PANEL_CONFIG`: タイトル、アイコン、グラデーションの色。
 2. `RIGHT_PANELS`(`right-panel-panels.ts`内): コンポーネントの対応表。
 
-`RightPanel`内の`useState`に保持した`mountedPanels`というSetで、パネルの状態を維持します。このSetは訪問済みのパネルを記録します。一度マウントしたパネルは状態を保つためDOMに残り、`display: none`または`aria-hidden`で隠れます。
+パネルは`RightPanel`内の`useState`で保持する`mountedPanels` Setを通じて状態を維持します。このSetが訪問済みのパネルを記録します。一度マウントしたパネルは状態を保つためDOMに残り、`display: none`または`aria-hidden`で隠れます。このSetは1回の`RightPanel`のマウントに属するため、スマートフォンのシートを再び開く場合など、再マウント時には現在のパネルだけから始まります。
 
 ### UIプリミティブ(`components/ui/`)
 
@@ -339,10 +346,15 @@ AIゲームマスター(GM)の画面です。chatフォルダーの外、`compon
 | `GifPicker`        | Giphy APIを使ったGIF検索                                          |
 | `HelpTooltip`      | ホバーするとポータルで位置決めしたツールチップを表示するアイコン                     |
 | `LibraryToolbar` | 各ライブラリーパネルで共通のツールバー |
+| `EditorHeader` | すべての全画面エディターで共有するヘッダー(下記参照) |
 
 UIコンポーネントはすべて制御コンポーネント(valueとonChange)として作り、オーバーレイはポータルで描画します。
 
 キャラクター、ペルソナ、ロアブック、エージェントの各パネルとPresetsパネルの各タブは、`LibraryToolbar`で上部の操作を表示します。任意のライブラリー行(全幅のボタン1つ、またはDownloadとOpen Libraryの2つ)、作成・インポート・エクスポート・選択、共通の並べ替えメニュー付きの検索欄、New Folder、`children`で渡すパネル固有のフィルターの順です。各行は型付きのpropsとして渡すので、新しいライブラリーパネルにも同じマークアップが適用されます。パネルごとにツールバーを組む代わりに、このコンポーネントにpropを追加してください。
+
+`LibraryToolbar.tsx`は、`|`で区切った1本の長い`.mari-chrome-segmented`ボタンである`SegmentedButtons`もエクスポートします。ダウンロード / ライブラリーを開くの組み合わせと、Presetsパネルの**プロンプト** / **正規表現** / **ツール** / **プロファイル**タブを描画するため、すべてのパネルの最上段が同じ高さになります。`groupLabel`を渡すと、その行はタブの`role="group"`となり、`pressed`が各タブの`aria-pressed`を設定します。`.mari-chrome-segmented`には`flex-shrink: 0`が指定されているため、Charactersのようにパネル独自の高さ固定のflexスクロール領域があっても、この行は押し縮められません。
+
+**全画面エディターは`EditorHeader`を使います。** 戻る、アイコンのタイル、名前、任意のセクションタブ、操作ボタン、閉じるを、2種類のレイアウトのいずれかで表示します。`nav`(セクションタブ)がある場合は、`mari-editor-header--with-nav`の密度ルールでタブに合わせて各部のサイズを決めます。ない場合は、スマートフォンでは操作ボタンを別の行に置き、保存ボタンはアイコンだけを表示します。名前、タイルの内容、ボタンはスロットなので、各エディターは独自の名前欄と操作を保てます。ヘッダーボタンには`EditorSaveButton`と`EditorHeaderAction`を使ってください。ラベルは常にツールチップとアクセシブル名の両方になります。エディター内でヘッダーを独自に組み立てるのではなく、これらにスロットや部品を追加してください。
 
 ## APIクライアント(`lib/api-client.ts`)
 
@@ -495,7 +507,6 @@ Personal Extensionsは、サーバーに保存され、ハッシュの完全一�
 | `/api/regex-scripts` | GET, POST, PUT, PATCH, DELETE | 正規表現スクリプトのCRUD、`PUT /reorder`、`PUT /enabled` |
 | `/api/library-folders/regex` | GET, POST, PATCH, DELETE | 正規表現スクリプトのフォルダーのCRUD、一時停止状態、`POST /move` |
 | `/api/library-folders/functions` | GET, POST, PATCH, DELETE | カスタムツールのフォルダーのCRUD、一時停止状態、`POST /move` |
-
 
 `PUT /api/regex-scripts/enabled`は`scriptIds`と`enabled`を受け取ります。存在しないIDがあれば、どのスクリプトも更新せず404を返します。一覧には保存済みの`enabled`とは別に`pausedByFolder`が含まれます。`PUT /api/custom-tools/enabled`も`toolIds`で同じように動作し、ツールの一覧にも`pausedByFolder`が含まれます。一時停止中のフォルダー内のツールはモデルに渡しません。
 
@@ -701,7 +712,7 @@ APIサーバーだけを起動します。
 pnpm dev:server
 ```
 
-基本の検証(TypeScriptとESLint)を実行します。
+基本の検証(Prettier、ESLint、型チェック、本番ビルド)を実行します。メモリーの少ないコンピューターでは`MARINARA_CHECK_JOBS=1`を設定してください。
 
 ```bash
 pnpm check

@@ -36,13 +36,13 @@ ID는 `AsyncLocalStorage` 컨텍스트(`lib/log-context.ts`)에 저장합니다.
 
 `RequestLogController`는 Fastify 기본 `LogController`에서 다음을 바꿉니다.
 
-- ID 이름은 `requestId`입니다. 기본 `reqId`로 저장된 검색이나 필터는 새 이름이 필요합니다.
+- ID 이름은 `requestId`입니다. Fastify의 기본 라벨은 `reqId`이므로 `reqId`로 저장된 검색이나 필터는 새 이름이 필요합니다.
 - `incoming request`와 `Route ... not found` 줄은 토큰이나 검색 텍스트가 있을 수 있는 쿼리 문자열을 제외합니다. 수신 줄은 다른 `req` 필드(`method`, `version`, `host`, `remoteAddress`, `remotePort`)를 유지하고 `route`를 더합니다.
 - 클라이언트가 요청을 일찍 닫으면 info로 `Client aborted request` 한 줄을 기록합니다. Fastify는 여기서 기록하지 않았습니다.
 
 `LOG_DISABLE_REQUEST_LOGGING`는 이전처럼 동작하며 중단 줄도 끕니다.
 
-`pnpm dev`에서 pino-pretty는 기본적으로 숨기는 `hostname`과 `bootId`를 감춥니다. 운영 JSON 출력에는 둘 다 남습니다.
+터미널에는 pino-pretty 형식의 줄이 출력됩니다. `pnpm dev`와 표준 출력이 터미널인 운영 서버(런처)가 이에 해당합니다. 다른 곳으로 보내는 운영 출력은 줄마다 객체 하나가 담긴 JSON입니다. `LOG_FORMAT=pretty|json`으로 이 선택을 덮어쓸 수 있으며, Termux 런처는 출력이 `tee`를 거쳐 터미널에 도달하므로 `pretty`를 설정합니다. pino-pretty는 `hostname`(기본 동작)과 `bootId`를 숨기며, JSON 출력에는 둘 다 남습니다.
 
 <a id="startup-timeline"></a>
 
@@ -109,7 +109,7 @@ logger.debug({ err }, "[game/scene-wrap] Unparsed LLM response: %s", raw.slice(0
 
 UI 디버그 토글은 계속 `logDebugOverride`를 통해 동작합니다. `LOG_LEVEL`이 debug를 숨길 때 프롬프트를 보는 정해진 방법입니다.
 
-<a id="checks"></a>
+프롬프트 텍스트는 `%s`로 그대로 출력하세요. 구조화된 값(메시지 배열, 제공자 요청 본문, 파싱한 답변)은 `%j`나 `JSON.stringify(value)` 대신 `debugJson(value)`를 `%s`에 전달하세요. 들여쓴 JSON을 출력하되 문자열 안의 줄바꿈을 실제 줄바꿈으로 표시하므로 여러 줄짜리 프롬프트도 읽기 쉽고, 해당 줄을 출력할 때만 렌더링합니다. 가리는 용도의 replacer는 `JSON.stringify`와 마찬가지로 두 번째 인수에 넣습니다. 앱 안의 디버그 화면은 `@marinara-engine/shared`의 `readableJson`으로 같은 텍스트를 출력합니다. `debug-log-line-breaks` 회귀 테스트가 이 동작과 형식 선택을 검증합니다.
 
 인라인 미디어는 기본적으로 전체가 로그에 남지 않습니다. `debugJson`은 각 base64 페이로드를 `[image/png base64, ~1.2 MB: iVBORw0KGgoAAAA...ElFTkSuQmCC]` 같은 표시로 바꿉니다. 여기에는 유형, 크기, 처음과 끝의 16자가 각각 들어갑니다. 문자열 전체나 텍스트 안의 `data:` URL과 Anthropic 및 Google 미디어 부분의 단독 `data` 필드에 적용되며, base64가 여러 줄로 나뉘어도 처리합니다. `msg` 직렬화기는 일반 `%s`, `%j` 줄의 `data:` URL에 같은 처리를 합니다. 단독 `data` 필드는 `debugJson`에서만 줄입니다. 출력할 사본만 바꾸며 전달한 값은 그대로 유지합니다. `.env`에서 `LOG_INLINE_MEDIA=full`을 설정하면 페이로드 전체를 다시 출력합니다. `log-inline-media` 회귀 테스트가 이 동작을 검사합니다.
 
@@ -121,6 +121,8 @@ NAS, VPS, Docker, Termux처럼 터미널을 직접 볼 수 없는 환경에서�
 - `logger.ts`는 Pino의 `hooks.streamWrite`를 통해 직렬화된 줄을 모두 복사합니다. 버퍼에는 같은 `LOG_LEVEL`에서 터미널이나 로그 파일에 기록된 줄이 들어갑니다. dotenv의 `injected env` 줄이나 하위 프로세스의 원시 출력처럼 Pino를 거치지 않는 줄은 들어가지 않습니다.
 - `GET /api/admin/logs?afterId=`는 `afterId` 뒤의 줄과 `latestId`, `truncated`(읽기 전에 버려진 줄이 있는지), 서버의 `logLevel`을 반환합니다. `requirePrivilegedAccess`로 보호되며 `no-store`가 적용됩니다. 경로의 `logLevel: "silent"` 설정 덕분에 콘솔 자체의 폴링은 로그에 나타나지 않습니다.
 - 이 페이지의 규칙은 콘솔에도 적용됩니다. 원격 관리자는 앱에서 warn 및 error 로그를 읽으므로 프롬프트와 제공자 요청과 응답의 본문은 debug 수준에 두세요.
+
+<a id="checks"></a>
 
 ## 검사
 

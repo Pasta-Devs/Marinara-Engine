@@ -103,6 +103,12 @@ PlotLight 会限制应用向它发请求的速度。太快的话，Marinara 会�
 
 如果没有成功：看看提示消息里的错误信息。对 **JannyAI** 来说，最常见的原因是 Cloudflare 拦截（见下面的故障排查）。
 
+### 更新已有角色
+
+如果导入的角色卡已经在角色库里（之前从同一页面下载过，或名称和创作者相同），导入会停在 **Already in your library**(库中已存在)。选择 **Update "Name"**(更新“Name”) 就地更新现有角色，**Add as a new character**(添加为新角色) 保留两份，或 **Skip this card**(跳过此角色卡)。要把角色卡关联到通过其他途径获取的角色，点击 **Import Card** 窗口里的 **Update a character you already have…**(更新已有角色…)，再从列表里选择。见[更新已有角色](import-export.md#update-a-character-you-already-have)。
+
+要检查从这里下载的角色卡有没有新版，打开角色，点击 **Save**(保存) 旁边的 **⋯**，选择 **Check for update**(检查更新)。Card Browser 会打开这张角色卡。
+
 ### Download as PNG
 
 在详情视图里点击 **Download as PNG**(下载为 PNG)，就能把角色卡存成设备上的一张标准 PNG 角色卡，而不加入角色库。处理过程中按钮显示 **Building PNG...**。所有来源都支持，文件以角色名命名，例如 `Some_Character.png`。PNG 角色卡是一张把角色数据存在内部的图片。你可以分享它，也可以把它导入其他应用。

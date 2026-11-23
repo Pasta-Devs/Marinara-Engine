@@ -95,7 +95,7 @@ Persona Editor [Character Editor](creating-and-editing-characters.md) की त
 | **Public Face** | कार्ड की जानकारी, निजी हिस्सों के बिना। | सिर्फ़ `{{personaPublicFace}}` से, या किसी एजेंट का **Persona** सोर्स **Public Face** पर सेट होने पर |
 | **Example Dialogue** | नमूना बातचीत। इन्हें `<START>` से अलग करें। अपने पर्सोना के लिए `{{user}}` और दूसरे कैरेक्टर के लिए `{{char}}` इस्तेमाल करें। | हाँ |
 
-**Appearance** के नीचे वाला **Image Appearance Override** (इमेज के लिए अलग दिखावट) और **Public Face** वैसे ही काम करते हैं जैसे कैरेक्टर के लिए। देखें [Card टैब](creating-and-editing-characters.md#card-tab)। टेक्स्ट बॉक्स में मैक्रो चलते हैं।
+**Appearance** का **Image tags** (इमेज टैग) टैब और **Public Face** वैसे ही काम करते हैं जैसे कैरेक्टर के लिए। देखें [Card टैब](creating-and-editing-characters.md#card-tab)। टेक्स्ट बॉक्स में मैक्रो चलते हैं।
 
 ये सुविधाएँ कैरेक्टर की तरह ही काम करती हैं, बस इनका विषय पर्सोना होता है:
 

@@ -75,7 +75,7 @@
 
 各行には担当モデルが表示されます。モデルがない場合は、**Follows Main**や**Off**のようにモデルなしでの動作を示します。空の役割には**N models found**と**Pick**、または**None in your accounts**と**Add**が表示されます。選択画面には、すべてのアカウントからその役割に合うモデルが並びます。**Add**をクリックすると**Add account**ウィンドウが開き、追加後にその役割へ戻ります。**Jobs**をクリックするとボックスを折りたためます。
 
-役割のモデルを変えるには、その行をクリックします。その役割の**Model for**(役割に使うモデル)が開きます。ただし、3つの行は例外です。**Decision**と**Embeddings**は、それぞれ専用の操作画面を開きます([Decisionモデル](decision-models.md)と[対応しているAIプロバイダー](providers-reference.md#embeddings)を参照)。**Dictation**は、音声入力の設定を開きます。**Voice**と**Dictation**の歯車をクリックすると、それぞれの設定ウィンドウが開きます。**Voice**のモデルを選ぶと音声合成がオンになります。
+役割のモデルを変えるには、その行をクリックします。その役割の**Model for**(役割に使うモデル)が開きます。ただし、3つの行は例外です。**Decision**と**Embeddings**は、それぞれ専用の操作画面を開きます([Decisionモデル](decision-models.md)と[対応しているAIプロバイダー](providers-reference.md#embeddings)を参照)。**Dictation**は、音声入力の設定を開きます。**Voice**、**Dictation**、**Image reading**の歯車をクリックすると、それぞれの設定ウィンドウが開きます。Image readingの設定では、モデルへの依頼内容を指定します([画像のキャプション生成](../prompts/generation-parameters.md#what-the-reading-model-is-asked)を参照)。**Voice**のモデルを選ぶと音声合成がオンになります。
 
 **Model for**では、次のようにします。
 

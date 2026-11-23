@@ -235,7 +235,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 ### Memory Recall 什么都想不起来
 
-**Memory Recall**(记忆功能) 会检索早先的消息，把最相关的几条加回提示词里。
+**Memory Recall**(记忆功能) 会搜索提示词里已放不下的较早消息，把最相关的内容加回来。整个聊天都能装进上下文窗口时，它不会添加任何内容。见 [Memory Recall 会添加什么](agents/memory.md#what-memory-recall-adds)。
 
 1. 打开 **Chat Settings → Memory Recall**(聊天设置 → 记忆功能)，确认 **Enable Memory Recall** 已开启。
 2. 打开 **Access memories for this chat**。在 **Memories for This Chat** 里查看每个记忆块的状态。

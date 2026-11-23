@@ -55,7 +55,6 @@ Such im Feld **Search regexes** (Regex-Skripte suchen) nach Skriptnamen oder Mus
 Klick auf seinen Namen, um ihn auf- oder zuzuklappen. Schalte ihn aus, um seine Skripte in allen Chats zu pausieren. In der Kopfzeile steht **Paused** (Pausiert). Jedes Skript behält seine gespeicherte Schalterstellung. Ein eingeschaltetes Skript in einem pausierten Ordner zeigt einen grauen Schalter und **Paused by folder** (Durch Ordner pausiert). Löschst du den Ordner, wandern seine Skripte auf die oberste Ebene und folgen ihren eigenen Schaltern.
 
 Ordner gruppieren Skripte, ohne ihre Ausführungsreihenfolge zu ändern. Klick auf **Execution order** (Ausführungsreihenfolge), um die vollständige Liste in dieser Reihenfolge zu sehen. Zieh ein Skript an seinem Griff, um die Reihenfolge zu ändern. Ohne Ordner steht die Liste bereits in Ausführungsreihenfolge.
-
 ### Mehrere Skripte auf einmal ändern
 
 1. Klick auf **Select regex scripts** (Regex-Skripte auswählen).
@@ -74,7 +73,7 @@ Das Suchmuster. Schreib nur das Muster, ohne Schrägstrich am Anfang oder Ende. 
 
 ### Replace With
 
-Der Text, der jeden Treffer ersetzt. Lass das Feld leer, um den Treffer zu löschen. Erfassten Text verwendest du mit `$1`, `$2` und so weiter wieder. Diese Umwandlungen der Groß- und Kleinschreibung wirken vor einer Erfassung:
+Der Text, der jeden Treffer ersetzt. Lass das Feld leer, um den Treffer zu löschen. Erfassten Text verwendest du mit `$1`, `$2` und so weiter wieder. `$0`, `$&` und `{{match}}` setzen wie in SillyTavern den gesamten Treffer wieder ein. Diese Umwandlungen der Groß- und Kleinschreibung wirken vor einer Erfassung:
 
 | Eingabe | Ergebnis |
 | --- | --- |
@@ -99,7 +98,14 @@ Umschalter, die steuern, wie das Muster Treffer findet. Bei einem neuen Skript s
 
 ### Trim Strings
 
-Eine optionale Liste einfacher Zeichenfolgen, die nach der Ersetzung entfernt werden. Mit **Add trim string** (Zeichenfolge hinzufügen) fügst du eine Zeile hinzu, mit der Schaltfläche **X** entfernst du eine. Das eignet sich für ein festes Textstück, das sich leichter eintippen als mit einem Muster treffen lässt.
+Eine optionale Liste einfacher Zeichenfolgen, die entfernt werden sollen. Mit **Zu entfernende Zeichenfolge hinzufügen** fügst du eine Zeile hinzu, mit der Schaltfläche **X** entfernst du eine. Das eignet sich für ein festes Textstück, das sich leichter eintippen als mit einem Muster treffen lässt.
+
+Sobald ein Skript eine zu entfernende Zeichenfolge hat, legt **Entfernen aus** fest, wo sie entfernt wird:
+
+- **Gesamtem Ergebnis**: aus der gesamten Nachricht nach dem Ersetzen, auch dort, wo das Muster nicht passt. Neue Skripte starten mit dieser Einstellung.
+- **Gefundenem Text (wie in SillyTavern)**: nur aus dem gefundenen Text, den `$0`, `{{match}}` oder `$1` wieder einsetzen. Text, den du in **Ersetzen durch** eingegeben hast, und der Rest der Nachricht bleiben unverändert. Wo das Muster nicht passt, ändert sich nichts.
+
+Aus SillyTavern importierte Skripte verwenden **Gefundenem Text**. Skripte, die vor Einführung dieser Option importiert wurden, verwendeten **Gesamtem Ergebnis**. Entfernt eines davon jetzt zu viel, importiere es erneut oder stelle es auf **Gefundenem Text** um.
 
 ### Live Test
 

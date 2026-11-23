@@ -104,13 +104,12 @@ globalThis.__MARINARA_HOST__ = {
 | `components.SearchInput` | С Capability API 1.832, поле поиска Engine. Передайте `value`, `onChange` и `label` для программ чтения с экрана. У поля есть кнопка очистки, и Escape сначала стирает текст. `resultCount` показывает "4 found", `busy` выводит индикатор загрузки, `size="compact"` подходит для плотных панелей инструментов, а `slashShortcut` позволяет перевести фокус на поле клавишей "/". |
 | `components.showConfirmDialog` | С Capability API 1.830, диалог подтверждения Engine. Это та же функция, что и `services.dialogs.showConfirmDialog`. |
 | `components.Select` | С Capability API 1.831, раскрывающийся список Engine. Передайте `value` (строку или `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` и `label`. Необязательные свойства: `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` и `buttonRef`. На компьютере открывается всплывающее окно, на телефоне – выдвижная панель. Поиск доступен от восьми вариантов. Используйте этот компонент вместо нативного `<select>`. |
+| `components.Popover` | С Capability API 1.836, привязанный к элементу слой Engine: передайте `open`, `onClose`, `anchorRef` и содержимое; необязательные параметры – `side` (`top` / `bottom`), `align` (`start` / `center` / `end`), `gap`, `matchAnchorWidth`, `role`, `className` и `dismiss` (например, `{ outsideClick: false }`). Он меняет сторону, если не хватает места, остается в пределах окна и закрывается по Escape, нажатию снаружи и возврату назад, начиная с самого верхнего слоя, поэтому всплывающий слой внутри диалога закрывается раньше диалога. |
 | `data.emojiCatalog` | Модуль `lib/emoji-catalog.generated.ts`. |
 | `api` | Модуль `lib/api-client.ts` (`api`, `ApiError`, `getApiErrorMessage`, ...). |
 
 Пакет читает свойство только после проверки, например `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
-
 Для загрузки изображений используйте `shouldUseIosImageShare()`, чтобы соблюдать те же правила платформы, что и галерея. На iPhone подготовьте изображение через `prepareImageSave(url, filename)` до жеста сохранения, затем вызовите `savePreparedImageToDevice(prepared)` непосредственно из этого жеста. Отмена отправки не вызывает сообщения об ошибке, а сбой не заменяется предпросмотром загрузки WebKit. На остальных платформах используется `downloadUrlToDevice`. Эти функции сохраняют изображения на устройстве клиента, даже если сервер Marinara Engine работает в Docker.
-
 Пространство имен только расширяется: новое свойство появляется вместе с новой минорной версией Capability API, и пакет, которому оно нужно, требует эту минорную версию. Пакеты, собранные под пространство имен, требуют ту версию Capability API, в которой оно появилось, поэтому более старый Engine никогда их не устанавливает и сохраняет уже установленную версию. Если свойства все же нет, пакет никогда не переходит на встроенную копию сервиса Engine с состоянием: хранилища `ui` и `chat` становятся копиями только для чтения, которые ничего не записывают, а все остальные свойства сообщают, что для этой функции нужна более новая версия Marinara Engine.
 
 **Модули хоста.** `modules[specifier]` – это полное пространство имен модуля, включая `default`, если он есть у библиотеки. `MARINARA_HOST_MODULE_IMPORTS` в клиентском контракте сопоставляет каждый публичный слот с импортируемой им зависимостью. У большинства имена совпадают. Стабильный слот `framer-motion` сопоставлен с `framer-motion-v13` (npm-псевдонимом для точной версии Motion 13.5.1), а необязательный слот `motion/react` – с основной зависимостью Engine, `framer-motion` 14. Инструменты для пакетов используют это сопоставление и для списка экспортов, и для путей TypeScript; имена публичных слотов не обязаны быть именами физических зависимостей. Спецификаторы: `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` и `clsx`. Сборка пакета сопоставляет эти спецификаторы с шимами, которые читают пространство имен, поэтому пакет рендерится единственным экземпляром React из Engine и делит с Engine кеш React Query и всплывающие уведомления.
@@ -133,7 +132,7 @@ globalThis.__MARINARA_HOST__ = {
 | --- | --- |
 | `ui` | `achievementsEnabled`, `debugMode`, `includeReasoningInExports`, `enableStreaming`, `userStatus`, `enterToSendConvo`, `conversationCallVoiceVolume`, `conversationCallVoiceMuted`, `setConversationCallVoiceVolume`, `setConversationCallVoiceMuted`, `conversationTimeZone`, `noodleNavigation`, `setNoodleNavigation`, `noodleSelectedPersonaId`, `setNoodleSelectedPersonaId`, `reviewImagePromptsBeforeSend`, `musicPlayerEnabled`, `musicPlayerSource`, `sidebarOpen`, `setSidebarOpen`, `chatBackground`, `setChatBackground`, `characterDetailId`, `lorebookDetailId`, `presetDetailId`, `connectionDetailId`, `agentDetailId`, `toolDetailId`, `personaDetailId`, `regexDetailId`, `characterLibraryOpen`, `botBrowserOpen`, `gameAssetsBrowserOpen`, `modal`, `rightPanelOpen`, `closeModal`, `closeRightPanel`, `closeBotBrowser`, `closeAllDetails` |
 | `chat` | `activeChatId`, `activeChat`, `isStreaming`, `streamingChatId`, `abortControllers`, `reset`, `pendingSpatialTransitions`, `setPendingSpatialTransition`, `clearPendingSpatialTransition`, `setPendingSpatialTransitionStatus` |
-| `agent` | `setYoutubePlay`, `reset` |
+| `agent` | `setYoutubePlay`, `setPackageActivity`, `reset` |
 | `sidecar` | `modelDownloaded`, `modelDisplayName`, `fetchStatus` |
 | `dialog` | `dialog`, `openDialog`, `closeDialog` |
 | `gallery` | `pinImage`, `pinVideo` |
@@ -212,6 +211,7 @@ Capability API 1.14 добавляет два значения `contributions.sl
 
 - `roleplay-tracker` монтирует представление пакета `toolbar` в HUD Roleplay. Свойства включают `chatId`, `chatMode`, `mobileCompact`, класс хоста `toolbarButtonClass`, `onRerunTracker`, `trackerRetryBusy`, `lockMode` и `onToggleLockMode`. Обратные вызовы необязательны: проверяйте их наличие перед использованием.
 - `tracker-panel` монтирует представление пакета `tracker` внутри существующей Tracker Panel с `chatId`, `chatMode` и `detached`. Используйте эту поверхность хоста вместо открытия второй панели. Оба слота также получают обычные свойства идентификации возможности и локализации.
+- `chat-activity` (Capability API 1.820) монтирует представление пакета `activity` на панели активности агентов чата. См. [Capability API 1.820](#capability-api-1820-showing-a-package-in-agent-activity).
 
 Вклад в контекст промпта по-прежнему регистрируется через `api.registerPromptContext` и требует `prompt-context`. Запрос теперь предоставляет `targetCharacterIds`, `personaId` и `placedAgentTypes` (необязательные для совместимости). `placedAgentTypes` сообщает поставщику, какие разделы данных агентов пресет уже разместил, чтобы не дублировать контекст. Хост сохраняет идентичность пакета каждого вклада в `packageBlocks`, размещая текст пакета в соответствующем разделе агента. Поставщик текста для определенной аудитории должен учитывать переданные идентификаторы целевых персонажей.
 
@@ -1127,6 +1127,34 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 Разрешения не нужны. В старых версиях Engine этого метода нет, поэтому проверяйте `typeof ttsService.prepareAudio === "function"` и продолжайте озвучивать реплики по мере их появления. Объявляйте 1.835, только если пакет не может работать без него.
 
+### Capability API 1.834: сохраненные спрайты и правило выбора изображений
+
+`api.runtime.sprites` читает сохраненные спрайты персонажа или персоны, чтобы пакет использовал уже имеющиеся у пользователя изображения, прежде чем рисовать новые. Разрешений не нужно. В старых версиях Engine этого интерфейса нет, поэтому проверяйте его наличие.
+
+- `list(ownerId)`: все сохраненные спрайты в виде `{ handle, kind, name, label, folder, url, mimeType }`. `kind` – это `"expression"` (лицо) или `"full-body"`. `folder` – папка, в которой хранится спрайт; пользователи часто называют ее по одежде. Спрайты SVG пропускаются, поскольку ни одна модель изображений их не читает.
+- `resolve(ownerId, { kind, expression?, outfit?, selected?, maxReferences? })`: правило выбора изображений в следующем порядке.
+  1. `selected`: дескриптор сохраненного спрайта, выбранного пользователем, например изображения надетой одежды. Пока спрайт существует, он имеет приоритет: `{ source: "selected", sprite }`.
+  2. Сохраненный спрайт, который уже изображает запрошенное: `{ source: "library", sprite, match }`. Выражение лица (или поза для спрайта во весь рост) должно совпадать по названию, а одежда – по названию папки или дополнительному слову в названии (`happy_winter_coat`, см. [названия вариантов](../characters/sprites.md#name-variants)). Если выражение лица не указано, подходит изображение в этой одежде в спокойном состоянии (neutral, idle, default). Нужное лицо в другой одежде не считается совпадением.
+  3. Сохраненные спрайты, по которым можно нарисовать новое изображение: `{ source: "reference", references }`, не более `maxReferences` (от 1 до 4, по умолчанию 4), начиная с наиболее подходящих: изображения в нужной одежде, нужное выражение лица в другой одежде, затем лицо и фигура во весь рост в спокойном состоянии. Прочитайте их через `read` и передайте как `referenceImages` в `integrations.images.generate`.
+  4. `{ source: "none" }`: нарисовать по описанию персонажа.
+- `read(ownerId, handle)`: `{ base64, mimeType, transparent }` или null, если спрайта больше нет. `transparent` означает, что у изображения уже есть прозрачный фон, поэтому сохраните его как есть: не отправляйте его на удаление фона.
+
+Изображения, которые сам пакет хранит для явно выбранного варианта, например наряды Otome Hearth или сезонная одежда Life Sim, имеют приоритет над всем перечисленным и не требуют вызова. Клиентское представление получает тот же ответ через `GET /api/sprites/:ownerId/match?kind=expression&expression=happy&outfit=winter%20coat`.
+
+```ts
+const sprites = context.api.runtime.sprites;
+const pick = sprites ? await sprites.resolve(characterId, { kind: "full-body", expression: "wave", outfit }) : null;
+if (pick?.source === "selected" || pick?.source === "library") return pick.sprite.url;
+const references =
+  pick?.source === "reference"
+    ? (await Promise.all(pick.references.map((entry) => sprites!.read(characterId, entry.handle))))
+        .filter((picture) => picture !== null)
+        .map((picture) => picture.base64)
+    : [];
+// Generate with `referenceImages: references`, and ask for a see-through picture only on a connection that draws
+// one (its Transparent backgrounds setting).
+```
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: анимированные изображения GIF
@@ -1173,6 +1201,91 @@ Engine один раз вызывает его и дожидается заве�
 Ошибки и вызовы дольше нескольких секунд записываются в журнал и игнорируются; ветка возвращается в любом случае. Без
 этого метода ничего не меняется. Это мягкий интерфейс: старые версии Engine его никогда не вызывают, поэтому пакет должен работать
 и без этого вызова. Разрешений не нужно.
+
+### Capability API 1.818: эмбеддинги из подключения, выбранного пакетом
+
+`api.runtime.embeddingsFor(connectionId)` получает эмбеддинги из источника, указанного в собственной настройке пакета, вместо подключения агента, которому следует `resolveEmbeddings()`. В отличие от `resolveEmbeddings()`, он никогда не переходит к общему значению **Эмбеддинги** по умолчанию.
+
+| `connectionId` | Результат |
+| --- | --- |
+| `null` | Встроенная локальная модель эмбеддингов MiniLM. |
+| Идентификатор подключения | Собственный источник эмбеддингов этого подключения: его **Провайдер эмбеддингов**, **URL конечной точки эмбеддингов** и модель эмбеддингов, как их определяет **Проверить эмбеддинг**. |
+| Идентификатор несуществующего подключения или подключение без пригодного источника эмбеддингов | `null`. Метод делает запись в журнале и завершает выполнение; исключение не выбрасывается. |
+
+Возвращаемый хост имеет ту же форму, что и у `resolveEmbeddings()`: `spaceId`, `label` и `embed(texts, signal?, inputType?)`, с теми же ограничениями (128 текстов, 200 000 символов суммарно) и типом входных данных из 1.68. При неудачном вызове `embed` возвращает `null`. У каждого источника свой `spaceId`, поэтому при изменении настройки заново создайте эмбеддинги сохраненных векторов.
+
+```ts
+const runtime = api.runtime;
+const chosen = settings.embeddingConnectionId ?? null; // null: the built-in local model
+const embeddings =
+  typeof runtime.embeddingsFor === "function"
+    ? ((await runtime.embeddingsFor(chosen)) ?? (await runtime.embeddingsFor(null)))
+    : await runtime.resolveEmbeddings();
+const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
+```
+
+Это мягкий интерфейс: в более старых версиях Engine метода нет, поэтому перед вызовом проверьте его наличие и используйте запасной вариант, как в примере. Объявляйте 1.818 только тогда, когда пакет не может работать без этого метода. Разрешений не нужно.
+
+### Capability API 1.820: отображение пакета в активности агентов
+
+Слот `chat-activity` добавляет вашу карточку на панель активности агентов чата, которую открывает значок активности агентов,
+в выдвижной панели чата и на панели трекеров. Объявите его в `contributions.slots` и зарегистрируйте представление `activity`;
+Engine монтирует по одному элементу для каждого активного пакета с клиентской точкой входа, который выполняется в чате
+(идентификатор пакета входит в список включенных агентов чата). Элемент идет после статусов и результатов агентов, перед
+сохраненными результатами собственных агентов.
+
+```json
+{ "contributions": { "slots": ["chat-activity"] } }
+```
+
+Элемент получает `chatId` и `onOpenAgentSettings()`, открывающий собственную страницу агента пакета, а также обычные
+свойства идентификации возможности и локализации. Engine не добавляет внешнее оформление: нарисуйте свою карточку и ничего не выводите,
+если показывать нечего. После загрузки клиентского кода пустой элемент не занимает места. Пока смонтирована хотя бы одна карточка
+пакета, панель не показывает "Пока нет активности агентов", поэтому при необходимости добавьте собственную строку состояния ожидания.
+
+Это не мягкий интерфейс: Engine старше 1.820 отклоняет манифест, поэтому пакет, объявляющий `chat-activity`, объявляет
+1.820.
+
+#### Как показать, что пакет занят или требует внимания
+
+`__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })` подсвечивает значок активности
+агентов этого чата (`packageId` – `id` вашего манифеста), где бы он ни находился (в выдвижной панели чата, ее отдельном окне и на панели трекеров). Пока хотя бы один
+пакет сообщает `busy: true`, значок вращается, как для собственных агентов чата; `alert: true` показывает точку. Поле,
+которое вы не передали, сохраняет значение, а запись с обоими значениями false удаляется. Сигналы хранятся отдельно для каждого чата, поэтому при переключении
+чатов видны только сигналы текущего.
+
+```ts
+const agent = globalThis.__MARINARA_HOST__?.stores.agent?.getState();
+agent?.setPackageActivity?.(id, chatId, { busy: true });
+try {
+  await doWork();
+} finally {
+  agent?.setPackageActivity?.(id, chatId, { busy: false });
+}
+```
+
+Engine никогда не сбрасывает сигнал самостоятельно, даже при размонтировании элемента `activity` (значок особенно важен,
+когда панель закрыта): за сброс отвечаете вы, а перезагрузка или `reset()` очищает всё. Переключение чатов сохраняет сигнал. Занятый или требующий внимания
+пакет также считается активностью, поэтому панель не показывает "Пока нет активности агентов"; используйте сигнал вместе с карточкой `activity`,
+чтобы панели было что показать. Это мягкий интерфейс: в более старых версиях Engine
+метода нет, поэтому проверьте его наличие, как в примере выше. Объявляйте 1.820 только тогда, когда пакет не может работать без этого метода.
+Разрешений не нужно.
+
+### Capability API 1.833: получение списка снимков World State чата
+
+`persistence.getGameState(chatId)` возвращает только последнее зафиксированное состояние World State. `persistence.listGameStates(chatId)`
+возвращает зафиксированный снимок активного свайпа каждого сообщения в порядке сообщений; формат каждой записи такой же, как у
+`getGameState`. Пакет может прочитать дату внутри истории, которую трекер сохранил для любого сообщения, вместо того чтобы просить модель
+найти ее в тексте.
+
+Сообщения без зафиксированного снимка, снимки свайпов, которые пользователь не оставил, снимки удаленных сообщений
+и снимки, не привязанные к сообщению, пропускаются, поэтому последняя запись может отличаться от `getGameState`. Нужно
+разрешение `chat-read`, как для `getGameState`; метод только читает данные. Это мягкий интерфейс: в старых версиях Engine метода
+нет, поэтому проверяйте его наличие, как в примере выше. Объявляйте 1.833 только тогда, когда пакет не может работать без него.
+
+```ts
+const states = (await api.runtime.persistence.listGameStates?.(chatId)) ?? [];
+```
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 

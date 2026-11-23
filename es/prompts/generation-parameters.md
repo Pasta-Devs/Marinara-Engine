@@ -132,7 +132,20 @@ Al desactivarlo aparece **Past reasoning blocks** (Bloques de razonamiento anter
 
 1. En **Advanced Parameters**, activa **Image captioning**.
 2. Elige un modelo en el menú desplegable **Captioning model** (Modelo de descripción).
-3. Si quieres, edita el **Captioning Prompt** (Prompt de descripción), las instrucciones que se envían con cada imagen. El botón de restablecer, o vaciar el cuadro, recupera el valor predeterminado. El prompt se guarda solo para este chat, y **Save as Connection Default** (Guardar como predeterminado de la conexión) no lo copia.
+3. Si quieres, edita el **Captioning Prompt** (Prompt de descripción), las instrucciones que se envían con cada imagen. El botón de restablecer, o vaciar el cuadro, vuelve al prompt de Image reading de todo el motor. El prompt se guarda solo para este chat, y **Save as Connection Default** (Guardar como predeterminado de la conexión) no lo copia.
+
+El cuadro también aparece cuando el interruptor está desactivado pero hay un modelo de **Image reading** (Lectura de imágenes) configurado en el cuadro **Jobs** (Tareas) del panel **Connections** (Conexiones): ese modelo describe las imágenes de este chat cuando el propio modelo del chat no puede verlas.
+
+### Qué se le pide al modelo de lectura
+
+En el panel **Connections**, haz clic en el engranaje de la fila **Image reading** del cuadro **Jobs** (o elige **Image reading settings** (Ajustes de lectura de imágenes) debajo de la lista de modelos en **Model for Image reading** (Modelo para Lectura de imágenes)). Estos ajustes se aplican a todos los chats:
+
+- **Instructions** (Instrucciones): el prompt del sistema que se envía con cada imagen. El **Captioning Prompt** propio de un chat lo reemplaza.
+- **Request** (Solicitud): el mensaje que se envía con cada imagen. `{{filename}}` se convierte en el nombre de archivo de la imagen.
+- **Answer length (tokens)** (Longitud de respuesta: tokens): 700 de forma predeterminada. Un modelo de razonamiento dedica parte de esa longitud a pensar, así que dale más espacio (o desactiva su razonamiento) si las descripciones llegan vacías o cortadas. El límite de **Max output tokens** (Máximo de tokens de salida) del modelo sigue aplicándose.
+- **Temperature**: 0,2 de forma predeterminada.
+
+**Instructions** y **Request** tienen un botón de restablecer que recupera el texto integrado. Vacía **Answer length** (Longitud de respuesta) o **Temperature** para volver a usar su valor integrado. Si un modelo local describe bien una imagen cuando se lo pides directamente pero no a través de Marinara, copia el prompt del sistema y la pregunta que usas directamente en **Instructions** y **Request**. El razonamiento incluido en la respuesta de un modelo (`<think>…</think>`) se elimina de la descripción.
 
 Si no funcionó: cuando la descripción falla, porque la cuenta que genera las descripciones está rota, se eliminó o no devuelve nada, la respuesta se detiene con el error **Image captioning failed**. Marinara no envía la imagen en su lugar. Repara o cambia el modelo de descripción, o desactiva **Image captioning**.
 

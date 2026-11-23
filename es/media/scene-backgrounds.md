@@ -74,7 +74,23 @@ Puedes volver a crear una imagen generada sin regenerar la respuesta a la que pe
 3. Cambia lo que quieras en los cuadros debajo de la imagen: **Prompt**, **Negative prompt** (Prompt negativo), un cuadro para cada personaje en **Character prompts** (Prompts de personajes) cuando la imagen los tenía, y el modelo de imagen.
 4. Haz clic en **Generate image** (Generar imagen), o en **Cancel** (Cancelar) para dejar la imagen como está.
 
-La imagen nueva reemplaza a la anterior en el mensaje. La anterior se queda en la Gallery, así que puedes volver a fijarla. Las imágenes de referencia se vuelven a enviar a partir de los avatares actuales de los personajes. Algunas imágenes antiguas no guardaron su prompt negativo ni sus prompts de personaje; el editor lo indica cuando es así.
+La imagen nueva pasa a ser la versión seleccionada en el mensaje. Los resultados anteriores se mantienen juntos en una sola ficha de la Gallery con un recuento de versiones. Cada versión conserva su prompt, su prompt negativo y los demás detalles de generación guardados. Las imágenes de referencia se vuelven a enviar a partir de los avatares actuales de los personajes. Algunas imágenes antiguas no guardaron su prompt negativo ni sus prompts de personaje; el editor lo indica cuando es así.
+
+### Versiones de imagen
+
+Abre una imagen apilada para elegir una versión. Las flechas de izquierda/derecha, las teclas de flecha y los gestos de deslizamiento horizontal permiten moverte entre las fichas de la Gallery. Los controles de arriba/abajo, las teclas de flecha y los gestos de deslizamiento vertical sobre la imagen permiten moverte entre las versiones de la pila actual. Reduce el zoom antes de navegar. Desplazarte por el prompt no cambia de versión.
+
+Haz clic en la imagen, el encabezado del prompt o el botón para contraerlo para usar las flechas arriba/abajo con las versiones. Haz clic en el texto del prompt o en un botón de copiar para usar las flechas arriba/abajo para desplazarte por el texto. Los controles de versión también siguen visibles mientras regeneras o editas. Aplica o borra la máscara pintada antes de cambiar de versión; los controles se pausan mientras se genera la imagen.
+
+La versión que elijas se guarda y se muestra en el chat, incluso después de recargar. Regenerar o editar una versión anterior agrega un resultado nuevo a la misma pila y conserva también las versiones posteriores. Una rama del chat tiene su propia selección.
+
+Usa **Delete gallery image** (Eliminar imagen de la galería) en la ficha, o el botón de eliminar del visor, para elegir qué quitar:
+
+- **Delete this version** (Eliminar esta versión) elimina la versión mostrada. Si era la seleccionada, se muestra la más reciente de las que quedan.
+- **Delete other versions** (Eliminar las otras versiones) conserva la versión mostrada y elimina las demás.
+- **Delete entire stack** (Eliminar toda la pila) elimina todas las versiones y sus imágenes adjuntas del chat.
+
+Estas opciones eliminan permanentemente las versiones guardadas. **Cancel** las conserva todas.
 
 ## Revisar un prompt antes de enviarlo
 

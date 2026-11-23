@@ -113,7 +113,7 @@ OpenAI 允许更多帧，但没有公布一个 GIF 最多可以有多少像素�
 
 ### NovelAI
 
-NovelAI 专注于动漫风格的图像。使用 V4、V4.5 和 V5 模型时，Marinara 会为多角色分镜和 Illustrator 场景发送带位置的原生角色提示词。精确参考图只能在 V4.5 模型上使用。
+NovelAI 专注于动漫风格的图像。使用 V4、V4.5 和 V5 模型时，Marinara 会为多角色分镜、Illustrator 场景和 Professor Mari 的图片发送带位置的原生角色提示词。精确参考图只能在 V4.5 模型上使用。
 
 ### Venice.ai
 
@@ -196,6 +196,22 @@ SwarmUI 可以把 ComfyUI 任务分配到自己的队列中处理。没有账号
 | NovelAI | Noise schedule | karras |
 
 每个服务还有 **Prompt prefix**(提示词前缀) 和 **Negative prefix**(负面前缀) 两个字段。写在这里的文字会加在这个模型每一条提示词的最前面。AUTOMATIC1111 / Forge 和 ComfyUI 都有 **Clip skip** 字段。AUTOMATIC1111 / Forge 另有一个 **Restore faces** 开关。ComfyUI 另有一个开关，用于在没有提供参考图时上传一张 1x1 占位图，它只对带参考图占位符的自定义工作流有意义。NovelAI 另有 **Guidance rescale** 和 **UC preset**。
+
+NovelAI 还有 **Background dataset for backgrounds**(背景图使用背景数据集) 开关，默认关闭。开启后，使用 V4.5 和 V5 模型生成背景图片（角色和用户角色图库的背景、聊天和 Illustrator 的场景背景、聊天图库的地点图片以及游戏背景）时，提示词会以 NovelAI 的 `background dataset` 标签开头。NovelAI 的背景数据集偏向摄影风格，所以如果想让背景与动漫风格的聊天保持一致，就让它保持关闭。
+
+## 透明背景
+
+立绘、贴纸表和表情表使用透明背景时效果最好。每个图像模型都有一项 **Transparent backgrounds**(透明背景) 设置，用来指定它是否能生成透明背景图片：
+
+- **Automatic**(自动)（默认值）使用 Marinara 已知的模型信息。对于 OpenAI、OpenRouter 或 ChatGPT (Codex login) 上的 GPT Image 1、1.5、2.5 和 2.6，以及 NovelAI 自家服务上的 NovelAI V5(Full 或 Curated)，会显示 **Automatic (supported)**(自动（支持）)。其他模型（包括 GPT Image 2）则显示 **Automatic (not supported)**(自动（不支持）)。
+- **Supported**(支持)：模型或工作流会返回真正带透明背景的图片，例如在保存前去除背景的 ComfyUI 工作流。
+- **Not supported**(不支持)：始终使用由 Marinara 去除的纯色背景，即使模型本来能生成更好的透明背景。
+
+模型能生成透明背景图片时，生成立绘和整张表都会要求它使用透明背景，并原样保留结果。否则，会要求模型使用纯绿色、洋红或青色背景，再由 Marinara 去掉。无论怎么设置，返回的图片如果已经透明，就不会再次清理。支持透明背景的模型如果返回了纯色背景图片，应用会保留原图，并在立绘检查步骤中标记出来，点击 **Apply cleanup**(应用清理) 即可去掉背景。
+
+请求 NovelAI 时会使用它自己的标签 `transparent background, alpha transparency`，不附加纯色背景的备用方案，因为使用标签的模型会把它理解为要画出来的内容。
+
+如果兼容 OpenAI 的服务器需要专用的透明背景选项，可以通过 **Custom Parameters** 传入，例如 `"background": "transparent"`。
 
 ## 参考图支持因服务而异
 

@@ -132,7 +132,20 @@ Ustawienie **Image captioning** (opisywanie obrazów) sprawia, że Marinara opis
 
 1. W sekcji **Advanced Parameters** włącz **Image captioning**.
 2. Wybierz model z listy rozwijanej **Captioning model** (model do opisywania obrazów).
-3. Opcjonalnie edytuj **Captioning Prompt** (prompt do opisywania obrazów), czyli instrukcje wysyłane razem z każdym obrazem. Przycisk resetowania albo wyczyszczenie pola przywraca wartość domyślną. Prompt jest zapisywany tylko dla tego czatu, a **Save as Connection Default** go nie kopiuje.
+3. Opcjonalnie edytuj **Prompt opisywania obrazów**, czyli instrukcje wysyłane razem z każdym obrazem. Przycisk resetowania albo wyczyszczenie pola przywraca prompt odczytywania obrazów wspólny dla całej aplikacji. Prompt jest zapisywany tylko dla tego czatu, a **Zapisz jako domyślne dla połączenia** go nie kopiuje.
+
+Sekcja pojawia się też, gdy przełącznik jest wyłączony, ale w sekcji **Zadania** panelu **Połączenia** ustawiono model **Odczytywanie obrazów**: ten model opisuje wtedy obrazy z tego czatu, gdy jego własny model nie potrafi ich zobaczyć.
+
+### O co pytany jest model odczytujący obrazy
+
+W panelu **Połączenia** kliknij zębatkę w wierszu **Odczytywanie obrazów** sekcji **Zadania** (albo wybierz **Ustawienia odczytywania obrazów** pod listą modeli w oknie **Model dla: Odczytywanie obrazów**). Te ustawienia dotyczą wszystkich czatów:
+
+- **Instrukcje**: prompt systemowy wysyłany z każdym obrazem. Własny **Prompt opisywania obrazów** czatu go zastępuje.
+- **Żądanie**: wiadomość wysyłana z każdym obrazem. `{{filename}}` zostaje zastąpione nazwą pliku obrazu.
+- **Długość odpowiedzi (tokeny)**: domyślnie 700. Model myślący zużywa część tego limitu na myślenie, więc daj mu więcej miejsca (albo wyłącz myślenie), jeśli opisy wracają puste lub ucięte. Limit **Maks. liczba tokenów odpowiedzi** ustawiony w modelu nadal obowiązuje.
+- **Temperatura**: domyślnie 0,2.
+
+Pola **Instrukcje** i **Żądanie** mają przycisk resetowania, który przywraca wbudowany tekst. Wyczyść **Długość odpowiedzi** lub **Temperatura**, żeby ponownie używać wbudowanej wartości. Jeśli lokalny model dobrze opisuje obraz przy bezpośrednim pytaniu, ale nie przez aplikację Marinara, skopiuj używany bezpośrednio prompt systemowy i pytanie do pól **Instrukcje** i **Żądanie**. Myśli modelu wplecione w tekst (`<think>…</think>`) są usuwane z opisu.
 
 Jeśli to nie zadziałało: gdy opisywanie się nie uda, bo konto używane do opisów jest uszkodzone, zostało usunięte albo nic nie zwraca, odpowiedź zatrzymuje się z błędem **Image captioning failed**. Marinara nie wysyła wtedy zamiast tego samego obrazu. Napraw lub zmień model do opisywania obrazów albo wyłącz **Image captioning**.
 

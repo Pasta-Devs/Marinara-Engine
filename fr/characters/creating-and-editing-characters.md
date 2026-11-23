@@ -51,6 +51,20 @@ Onglets qui ont leur propre guide :
 
 Les sections ci-dessous traitent des onglets **Metadata**, **Card**, **Images**, **Voice** et **Advanced**, ainsi que des avatars et de l'historique des versions.
 
+
+<a id="images-tab"></a>
+
+## Onglet Images
+
+L'onglet **Images** (images) rassemble ce qui définit l'apparence du personnage dans les images. Les boutons en haut mènent à chaque section :
+
+- **Character Sheet** (fiche de référence) : une image de référence du personnage. Clique sur **Manage** (gérer) pour en créer, en téléverser ou en choisir une. Active **Use as reference image** (utiliser comme image de référence) pour qu'elle soit utilisée de préférence à l'avatar lors de la génération d'images. Voir [Fiche de référence](sprites.md#character-sheet).
+- **Selfie instructions** (instructions pour les selfies) : des directives facultatives pour les selfies Conversation du personnage, par exemple le style de prise de vue ou les expressions. Noodle et Slurp peuvent les utiliser si tu actives cette option dans leurs réglages. Voir [Selfies](../conversation/selfies.md).
+- **Sprites** : expressions du visage, sprites en pied et clips d'appel. Voir [Sprites de personnage](sprites.md).
+- **Gallery** (galerie) : images et vidéos conservées avec le personnage. Voir [Galeries de personnages et de personas](galleries.md).
+
+L'onglet **Images** d'un persona contient les mêmes sections, à l'exception de **Selfie instructions**.
+
 <a id="metadata-tab"></a>
 
 ## Onglet Metadata
@@ -88,7 +102,7 @@ L'onglet **Card** est l'espace principal de rédaction. Les liens en haut permet
 
 **Public Face** décrit ce que les autres personnages peuvent voir ou savoir du personnage : son apparence, ses manières, son rôle, sa réputation et les relations connues. Laisse de côté les secrets, les pensées intimes, l'histoire privée et les consignes pour jouer le personnage. Ce champ ne fait jamais partie de la fiche envoyée. Un prompt le lit uniquement là où tu places la macro `{{publicFace}}`, ou `{{personaPublicFace}}` pour ton persona. Voir [Macros de prompt](../prompts/macros.md#identity-character-and-persona-macros). Dans un chat de groupe Individual en Roleplay, **Others' Public Faces** l'envoie aux tours des autres personnages. Voir [Autres réglages Individual](../chats/group-chats.md#more-individual-settings). Un agent dont la source **Characters** ou **Persona** est réglée sur **Public Face** lit ce champ à la place de la fiche. Voir [Autres réglages](../agents/custom-agents.md#other-settings). Quand **Send Public Faces** est activé, Impersonate lit ce champ à la place de la fiche en Roleplay. Voir [Réglages d'Impersonate](../chats/guided-and-impersonate.md#the-impersonate-settings).
 
-L'interrupteur **Image Appearance Override** (apparence propre aux images) se trouve sous **Appearance** et est désactivé par défaut. Active-le pour afficher un second champ destiné à de courts tags d'image, comme le mot déclencheur d'un LoRA (un mot qui active un style d'image personnalisé). S'il est activé et que le champ est rempli, les prompts d'image utilisent ces tags tels quels, **Appearance** servant de contexte. Le prompt d'avatar IA est aussi prérempli à partir de ce champ. Le narrateur reçoit toujours le texte complet du champ **Appearance**.
+**Apparence** a deux onglets, **Prose** et **Tags d'image**. **Prose** contient le texte de l'apparence lui-même. **Tags d'image** contient des tags courts pour les prompts d'image, comme un mot déclencheur de LoRA (un mot-clé qui active un style d'image personnalisé). Saisir des tags coche **Utiliser pour les prompts d'image**, et un point sur l'onglet indique qu'ils sont utilisés. Tant que cette option est cochée et que les tags sont remplis, les prompts d'image utilisent ces tags exactement tels qu'ils sont écrits, avec la prose en contexte. Décoche-la pour garder les tags sans les utiliser : les prompts d'image se rabattent alors sur **Prose**. Un prompt d'avatar IA part aussi des tags. Le narrateur voit toujours le texte de **Prose**. L'onglet **Images** mène ici avec **Aller à Apparence**. L'onglet a sa propre baguette. Voir [Tags d'image avec la baguette](#image-tags-from-the-wand).
 
 La section **Dialogue & Greetings** définit l'ouverture du chat et le ton du personnage :
 
@@ -108,18 +122,29 @@ Les salutations et les messages d'exemple peuvent afficher des images de la Gall
 
 ### Écrire un champ de la fiche avec la baguette
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message** et chaque **Alternate Greeting** possèdent un bouton avec une simple icône de baguette au-dessus du champ. Son infobulle indique le champ qu'il écrit.
+**Résumé**, **Description**, **Personnalité**, **Passé**, **Apparence** (ses deux onglets), **Scénario**, **Profil public**, **Exemple de dialogue**, **Premier message** et chaque **Salutation alternative** ont un bouton baguette sans texte au-dessus du champ. Son infobulle nomme le champ qu'il écrit.
 
 Avant de commencer : configure une connexion texte fonctionnelle. Voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 
 1. Écris dans le champ les idées que tu veux conserver, par exemple `smart, scientist, handsome`, ou laisse-le vide.
 2. Remplis les autres champs de la fiche que l'IA doit utiliser comme référence. Tu n'as pas besoin d'enregistrer d'abord.
-3. Clique sur la baguette du champ. Marinara demande 100–300 mots pour ce champ, en prenant ton texte comme point de départ. Example Dialogue demande des exemples d'échanges. **First Message** et chaque **Alternate Greeting** demandent un seul message d'ouverture qui te laisse libre de ta réponse. **Public Face** n'a pas de nombre de mots imposé. Sa baguette réécrit le reste de la fiche en retirant ses éléments privés, donc la longueur dépend de ta fiche.
+3. Clique sur la baguette du champ. Marinara demande 100–300 mots pour ce champ, en prenant ton texte comme détails de départ. Exemple de dialogue demande des échanges d'exemple. **Premier message** et chaque **Salutation alternative** demandent un seul message d'ouverture qui laisse ta réponse ouverte. **Profil public** n'a pas de fourchette de mots : sa baguette réécrit le reste de la fiche sans les parties privées, donc la longueur suit ta fiche. Dans l'onglet **Tags d'image** de **Apparence**, la baguette transforme plutôt l'apparence de la fiche en une ligne de tags d'image. Voir [Tags d'image avec la baguette](#image-tags-from-the-wand).
 4. Modifie le résultat, puis clique sur **Save**.
 
 La baguette utilise ta connexion texte par défaut pour les agents ou, s'il n'y en a pas, ta connexion texte par défaut. Une connexion de secours configurée pour les agents s'applique toujours.
 
 La baguette remplace uniquement le champ choisi dans ton brouillon non enregistré. Si la génération échoue, ton texte reste intact. Si tu modifies ce champ pendant l'attente, ou si tu passes à une autre fiche, un résultat tardif n'écrase pas ton travail. Tu n'as pas besoin de Professor Mari pour utiliser la baguette.
+
+#### Tags d'image avec la baguette
+
+La baguette de l'onglet **Tags d'image** de **Apparence** écrit les tags à partir du texte d'apparence de ta fiche, principalement **Apparence** lui-même. Elle coche **Utiliser pour les prompts d'image**.
+
+- Les tags déjà dans le champ que ton texte d'apparence n'explique pas, comme un mot déclencheur de LoRA, restent exactement tels que tu les as écrits, au début de la ligne.
+- Viennent ensuite les nouveaux tags : `1girl`, `1boy` ou `1other`, puis les traits durables : corps, cheveux, yeux, peau, visage et marques. Si aucun tag n'est conservé, la ligne commence par `1girl`, `1boy` ou `1other`.
+- Les nouveaux tags sont en anglais, en minuscules, dans le style que les modèles d'image connaissent grâce à Danbooru (un site d'images anime dont beaucoup de modèles ont appris les tags), séparés par des virgules.
+- Les nouveaux tags utilisent uniquement les traits indiqués dans ta fiche. Les vêtements, expressions, poses et lieux sont laissés de côté, car ils changent d'une scène à l'autre.
+
+Les tags viennent du modèle, pas d'une liste de vrais tags Danbooru ; un tag peut donc être formulé d'une façon que ton modèle d'image ne connaît pas. Vérifie la ligne et modifie-la avant d'enregistrer.
 
 ## Ajouter un avatar
 
@@ -138,25 +163,12 @@ Avant de commencer : ajoute une connexion de génération d'images. Le bouton d'
 
 1. Survole la vignette de l'avatar et clique sur le bouton baguette. La fenêtre **Generate Character Avatar** (générer l'avatar du personnage) s'ouvre.
 2. Choisis une connexion dans **Image Generation Connection** (connexion de génération d'images).
-3. Vérifie ou modifie le champ **Avatar Prompt** (prompt d'avatar). Il part du champ **Image Appearance Override** quand celui-ci est activé et rempli. Sinon, il utilise **Appearance**, puis **Description**, puis **Personality** : le premier qui contient du texte.
+3. Vérifie ou modifie le **Prompt de l'avatar**. Il part des **Tags d'image** de **Apparence** quand **Utiliser pour les prompts d'image** est coché et qu'ils sont remplis. Sinon, il utilise **Apparence**, puis **Description**, puis **Personnalité**, le premier champ qui contient du texte.
 4. Si la fiche a déjà un avatar, tu peux cocher **Use current avatar as a reference** (utiliser l'avatar actuel comme référence).
 5. Clique sur **Generate** (générer). Pour un nouvel essai, clique sur **Regenerate** (régénérer).
 6. Quand le résultat te convient, clique sur **Use Avatar** (utiliser l'avatar).
 
 La taille de l'image vient du réglage de taille **Portraits**, dans les réglages de génération d'images. Elle vaut 1024 par 1024 par défaut. Si **Expose media prompts before sending** (afficher les prompts médias avant l'envoi) est activé, une étape de relecture du prompt s'intercale avant chaque requête.
-
-<a id="images-tab"></a>
-
-## Onglet Images
-
-L'onglet **Images** (images) rassemble ce qui définit l'apparence du personnage dans les images. Les boutons en haut mènent à chaque section :
-
-- **Character Sheet** (fiche de référence) : une image de référence du personnage. Clique sur **Manage** (gérer) pour en créer, en téléverser ou en choisir une. Active **Use as reference image** (utiliser comme image de référence) pour qu'elle soit utilisée de préférence à l'avatar lors de la génération d'images. Voir [Fiche de référence](sprites.md#character-sheet).
-- **Selfie instructions** (instructions pour les selfies) : des directives facultatives pour les selfies Conversation du personnage, par exemple le style de prise de vue ou les expressions. Noodle et Slurp peuvent les utiliser si tu actives cette option dans leurs réglages. Voir [Selfies](../conversation/selfies.md).
-- **Sprites** : expressions du visage, sprites en pied et clips d'appel. Voir [Sprites de personnage](sprites.md).
-- **Gallery** (galerie) : images et vidéos conservées avec le personnage. Voir [Galeries de personnages et de personas](galleries.md).
-
-L'onglet **Images** d'un persona contient les mêmes sections, à l'exception de **Selfie instructions**.
 
 ## Onglet Voice
 
@@ -197,6 +209,7 @@ Règles :
 - Un chat ne peut utiliser qu'une seule alternative par champ. Cocher un chat dans une autre alternative, ou en choisir une autre dans Chat Settings, l'y déplace.
 - Sans chat coché, l'alternative reste inactive pour plus tard.
 - Une alternative vide efface ce champ dans ses chats.
+- Une alternative de **Apparence** a ses propres onglets **Prose** et **Tags d'image**. Dans ses chats, ses tags remplacent ceux de la fiche. Si ses tags sont vides ou décochés, les prompts d'image utilisent la prose de l'alternative, jamais les tags de la fiche. Une nouvelle alternative copie aussi les tags de la fiche. Son onglet **Tags d'image** a sa propre baguette, qui lit la prose et les tags de l'alternative.
 - Les remplacements de scénario et d'apparence pour les images propres au chat restent prioritaires.
 - Les alternatives de **Summary** restent des métadonnées et ne sont pas envoyées à l'IA.
 - Si le personnage quitte un chat, son affectation est suspendue, puis reprend quand tu ajoutes à nouveau le personnage.
@@ -208,7 +221,7 @@ Pour supprimer une alternative, clique sur sa corbeille, confirme avec **Delete*
 
 ## Historique des versions
 
-Tant que l'interrupteur **Automatic versioning** est activé, chaque enregistrement peut ajouter un instantané dans **Version history**, sur l'onglet **Metadata**. Jusque-là, le panneau affiche `Previous card states will appear here after the next edit.` Un compteur indique le nombre d'instantanés enregistrés.
+Tant que l'interrupteur **Versionnage automatique** est activé, chaque enregistrement peut ajouter un instantané dans **Historique des versions**, sur l'onglet **Métadonnées**. Jusque-là, le panneau affiche `Previous card states will appear here after the next edit.` Un compteur indique le nombre d'instantanés enregistrés. Mettre à jour le personnage à partir d'une fiche plus récente enregistre toujours un instantané au préalable, même si l'interrupteur est désactivé. Voir [Mettre à jour un personnage que tu as déjà](import-export.md#update-a-character-you-already-have).
 
 Pour comparer une version enregistrée avec ta fiche actuelle :
 

@@ -100,13 +100,12 @@ Ta właściwość nie jest zapisywalna ani konfigurowalna, a przestrzeń nazw or
 | `components.SearchInput` | Pole wyszukiwania silnika od Capability API 1.832. Przekaż `value`, `onChange` i `label` dla czytników ekranu. Pole ma przycisk czyszczenia, a Escape najpierw usuwa tekst. `resultCount` pokazuje "4 found", `busy` wyświetla wskaźnik ładowania, `size="compact"` pasuje do gęstych pasków narzędzi, a `slashShortcut` pozwala ustawić fokus na polu klawiszem "/". |
 | `components.showConfirmDialog` | Okno potwierdzenia silnika od Capability API 1.830. To ta sama funkcja co `services.dialogs.showConfirmDialog`. |
 | `components.Select` | Lista rozwijana silnika od Capability API 1.831. Przekaż `value` (ciąg znaków lub `null`), `options` (`{ value, label, description?, icon?, group?, disabledReason? }`), `onChange(next)` i `label`. Opcjonalne właściwości to `placeholder`, `disabled`, `id`, `title`, `aria-describedby`, `className`, `searchable` i `buttonRef`. Na komputerze otwiera wyskakujące okno, a na telefonie wysuwany panel. Wyszukiwanie jest dostępne od ośmiu opcji. Używaj tego komponentu zamiast natywnego `<select>`. |
+| `components.Popover` | Od capability API 1.836 warstwa Engine zakotwiczona przy elemencie: przekaż `open`, `onClose`, `anchorRef` i zawartość; opcjonalnie `side` (`top` / `bottom`), `align` (`start` / `center` / `end`), `gap`, `matchAnchorWidth`, `role`, `className` i `dismiss` (na przykład `{ outsideClick: false }`). Zmienia stronę, gdy brakuje miejsca, pozostaje w granicach okna i zamyka się po naciśnięciu Escape, kliknięciu na zewnątrz lub powrocie, zaczynając od najwyższej warstwy, więc popover wewnątrz okna dialogowego zamyka się przed tym oknem. |
 | `data.emojiCatalog` | Moduł `lib/emoji-catalog.generated.ts`. |
 | `api` | Moduł `lib/api-client.ts` (`api`, `ApiError`, `getApiErrorMessage`, ...). |
 
 Pakiet odczytuje element dopiero po sprawdzeniu go, na przykład `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`.
-
 Do pobierania obrazów używaj `shouldUseIosImageShare()`, żeby stosować te same zasady dla platform co galeria. Na iPhonie przygotuj obraz przez `prepareImageSave(url, filename)` przed gestem zapisu, a potem wywołaj `savePreparedImageToDevice(prepared)` bezpośrednio z tego gestu. Anulowanie udostępniania nie wyświetla błędu, a nieudane udostępnienie nie jest zastępowane podglądem pobierania WebKit. Pozostałe platformy używają `downloadUrlToDevice`. Te funkcje zapisują obrazy na urządzeniu klienta, także wtedy, gdy serwer Marinara Engine działa w Dockerze.
-
 Przestrzeń nazw tylko się rozrasta: nowy element pojawia się razem z nową wersją minor API możliwości, a pakiet, który go potrzebuje, wymaga tej wersji minor. Pakiety zbudowane pod przestrzeń nazw wymagają wersji API możliwości, która ją dodała, więc starszy silnik nigdy ich nie instaluje i zachowuje wersję, którą ma. Jeśli element mimo to nie istnieje, pakiet nigdy nie wraca do dołączonej kopii stanowej usługi silnika: magazyny `ui` i `chat` stają się kopiami tylko do odczytu, które nigdy niczego nie zapisują, a każdy inny element zgłasza, że funkcja wymaga nowszej wersji aplikacji Marinara Engine.
 
 **Moduły hosta.** `modules[specifier]` to pełna przestrzeń nazw modułu, łącznie z `default`, jeśli biblioteka go ma. `MARINARA_HOST_MODULE_IMPORTS` w kontrakcie klienta przypisuje każdemu publicznemu slotowi importowaną przez niego zależność. Większość zachowuje tę samą nazwę. Stabilny slot `framer-motion` jest przypisany do `framer-motion-v13` (aliasu npm wskazującego dokładnie Motion 13.5.1), a opcjonalny slot `motion/react` do głównej zależności silnika, `framer-motion` 14. Narzędzia pakietów używają tego mapowania zarówno do listy eksportów, jak i ścieżek TypeScript; nazwy publicznych slotów nie muszą być nazwami rzeczywistych zależności. Specyfikatory to `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`, `@tanstack/react-query`, `zustand`, `zustand/middleware`, `sonner`, `zod`, `i18next`, `react-i18next`, `framer-motion`, `motion/react`, `tailwind-merge` i `clsx`. Build pakietu rozwiązuje te specyfikatory na shimy, które czytają przestrzeń nazw, więc pakiet renderuje się z jedyną instancją React w silniku i współdzieli jego pamięć podręczną React Query oraz toasty.
@@ -129,7 +128,7 @@ Przestrzeń nazw tylko się rozrasta: nowy element pojawia się razem z nową we
 | --- | --- |
 | `ui` | `achievementsEnabled`, `debugMode`, `includeReasoningInExports`, `enableStreaming`, `userStatus`, `enterToSendConvo`, `conversationCallVoiceVolume`, `conversationCallVoiceMuted`, `setConversationCallVoiceVolume`, `setConversationCallVoiceMuted`, `conversationTimeZone`, `noodleNavigation`, `setNoodleNavigation`, `noodleSelectedPersonaId`, `setNoodleSelectedPersonaId`, `reviewImagePromptsBeforeSend`, `musicPlayerEnabled`, `musicPlayerSource`, `sidebarOpen`, `setSidebarOpen`, `chatBackground`, `setChatBackground`, `characterDetailId`, `lorebookDetailId`, `presetDetailId`, `connectionDetailId`, `agentDetailId`, `toolDetailId`, `personaDetailId`, `regexDetailId`, `characterLibraryOpen`, `botBrowserOpen`, `gameAssetsBrowserOpen`, `modal`, `rightPanelOpen`, `closeModal`, `closeRightPanel`, `closeBotBrowser`, `closeAllDetails` |
 | `chat` | `activeChatId`, `activeChat`, `isStreaming`, `streamingChatId`, `abortControllers`, `reset`, `pendingSpatialTransitions`, `setPendingSpatialTransition`, `clearPendingSpatialTransition`, `setPendingSpatialTransitionStatus` |
-| `agent` | `setYoutubePlay`, `reset` |
+| `agent` | `setYoutubePlay`, `setPackageActivity`, `reset` |
 | `sidecar` | `modelDownloaded`, `modelDisplayName`, `fetchStatus` |
 | `dialog` | `dialog`, `openDialog`, `closeDialog` |
 | `gallery` | `pinImage`, `pinVideo` |
@@ -199,6 +198,7 @@ Zasady bezpieczeństwa Engine mają pierwszeństwo. Pole jest przymusowo rozwija
 Capability API 1.14 dodaje dwie wartości `contributions.slots` dla aktywnych, włączonych pakietów agentów Roleplay z punktem wejścia klienta:
 
 - `roleplay-tracker` montuje widok `toolbar` pakietu w HUD Roleplay. Jego właściwości obejmują `chatId`, `chatMode`, `mobileCompact`, klasę hosta `toolbarButtonClass`, `onRerunTracker`, `trackerRetryBusy`, `lockMode` i `onToggleLockMode`. Funkcje zwrotne są opcjonalne: sprawdź ich istnienie przed użyciem.
+- `chat-activity` (Capability API 1.820) montuje widok `activity` pakietu w panelu aktywności agentów czatu. Zobacz [Capability API 1.820](#capability-api-1820-showing-a-package-in-agent-activity).
 - `tracker-panel` montuje widok `tracker` pakietu wewnątrz istniejącego Tracker Panel, z `chatId`, `chatMode` i `detached`. Używaj tej powierzchni hosta zamiast otwierać drugi panel. Oba sloty otrzymują też zwykłe właściwości tożsamości capability i lokalizacji.
 
 Wkłady kontekstu promptu nadal rejestruje się przez `api.registerPromptContext` i wymagają uprawnienia `prompt-context`. Żądanie udostępnia teraz `targetCharacterIds`, `personaId` i `placedAgentTypes` (opcjonalne dla zgodności). `placedAgentTypes` mówi autorowi wkładu, które sekcje danych agentów preset już umieścił, aby uniknąć powtarzania kontekstu. Host zachowuje tożsamość pakietu każdego wkładu w `packageBlocks`, umieszczając tekst pakietu w odpowiedniej sekcji agenta. Autor zwracający tekst dla określonej grupy odbiorców powinien respektować podane identyfikatory postaci docelowych.
@@ -1044,7 +1044,7 @@ Widok w przeglądarce (`home-browser-tab`) dostaje te właściwości:
 - `openChat(chatId)` przechodzi do czatu, na przykład dla przycisku "Go to scene" w zablokowanym wątku.
 - `focusSceneOriginId` to wątek, który trzeba pokazać, gdy użytkownik wraca ze sceny (Back, End Scene, Discard). Po jego pokazaniu wywołaj `onFocusSceneOriginHandled()`.
 
-Zasady, które warto znać:
+Ważne reguły:
 
 - `data` to własne ustawienia tej sceny: zwykły obiekt JSON o długości najwyżej 4 000 znaków. Engine przechowuje go razem ze sceną i przekazuje do `claim(originId, { sceneChatId, characterIds, data })` oraz do `release` jako `end.data`, więc każda scena może zdecydować sama: `claim` może dopuścić scenę bez blokady (zwróć `true` i niczego nie zapisuj), a `release` może odblokować wątek bez przejmowania podsumowania albo przejąć je w zakresie, o który prosiła scena.
 - Wymagane jest tylko `getContext`. Pakiet, który chce jedynie uruchamiać sceny, pomija `claim` i `release`: nic nie jest blokowane, z tego samego punktu wyjścia może działać dowolnie wiele scen, a po ich zakończeniu nic nie jest przekazywane (**Back** nadal wraca do pakietu). Pomiń tylko `release`, żeby blokować bez poznawania wyniku, albo tylko `claim`, żeby poznawać wyniki bez blokady.
@@ -1115,6 +1115,34 @@ Starsze wersje silnika ignorują tę opcję, więc pakiet może ją zawsze przek
 
 Nie wymaga żadnego uprawnienia. Starsze wersje silnika nie mają tej metody, więc sprawdź `typeof ttsService.prepareAudio === "function"` i nadal odtwarzaj głos kwestii, gdy się pojawiają. Zadeklaruj wersję 1.835 tylko wtedy, gdy pakiet nie może bez niej działać.
 
+### Capability API 1.834: zapisane sprite'y i zasada wyboru grafiki
+
+`api.runtime.sprites` odczytuje zapisane sprite'y postaci lub persony, żeby pakiet korzystał z grafiki, którą użytkownik już ma, zanim narysuje nową. Nie wymaga uprawnień. Starsze wersje silnika nie udostępniają tego API, więc sprawdź, czy istnieje.
+
+- `list(ownerId)`: każdy zapisany sprite jako `{ handle, kind, name, label, folder, url, mimeType }`. `kind` to `"expression"` (twarz) albo `"full-body"`. `folder` to folder sprite'ów, w którym go zapisano; użytkownicy często nazywają go od stroju. Sprite'y SVG są pomijane, bo żaden model obrazów ich nie odczytuje.
+- `resolve(ownerId, { kind, expression?, outfit?, selected?, maxReferences? })`: zasada wyboru grafiki, w tej kolejności.
+  1. `selected`: uchwyt zapisanego sprite'a wybranego przez użytkownika, na przykład obrazu założonego stroju. Ma pierwszeństwo, dopóki istnieje: `{ source: "selected", sprite }`.
+  2. Zapisany sprite, który już przedstawia to, czego dotyczy żądanie: `{ source: "library", sprite, match }`. Wyraz twarzy (lub poza przy całej sylwetce) musi pasować nazwą, a strój nazwą folderu albo słowem w nazwie (`happy_winter_coat`, zobacz [warianty nazw](../characters/sprites.md#name-variants)). Bez wyrazu twarzy pasuje obraz w spoczynku dla danego stroju (neutralny, bezczynny, domyślny). Właściwa twarz w innym stroju nie jest dopasowaniem.
+  3. Zapisane sprite'y, na podstawie których można narysować obraz: `{ source: "reference", references }`, do `maxReferences` (od 1 do 4, domyślnie 4), od najlepszych: obrazy danego stroju, wyraz twarzy w innym stroju, potem twarz w spoczynku i cała sylwetka w spoczynku. Odczytaj je przez `read` i przekaż jako `referenceImages` do `integrations.images.generate`.
+  4. `{ source: "none" }`: narysuj na podstawie opisu postaci.
+- `read(ownerId, handle)`: `{ base64, mimeType, transparent }` albo null, gdy sprite już nie istnieje. `transparent` mówi, że obraz już ma przezroczyste tło, więc zachowaj go bez zmian: nie przepuszczaj go przez usuwanie tła.
+
+Grafika przechowywana przez sam pakiet dla konkretnego wyboru, na przykład strojów Otome Hearth lub sezonowej odzieży Life Sim, ma pierwszeństwo przed tym wszystkim i nie wymaga wywołania. Widok klienta otrzymuje tę samą odpowiedź z `GET /api/sprites/:ownerId/match?kind=expression&expression=happy&outfit=winter%20coat`.
+
+```ts
+const sprites = context.api.runtime.sprites;
+const pick = sprites ? await sprites.resolve(characterId, { kind: "full-body", expression: "wave", outfit }) : null;
+if (pick?.source === "selected" || pick?.source === "library") return pick.sprite.url;
+const references =
+  pick?.source === "reference"
+    ? (await Promise.all(pick.references.map((entry) => sprites!.read(characterId, entry.handle))))
+        .filter((picture) => picture !== null)
+        .map((picture) => picture.base64)
+    : [];
+// Generate with `referenceImages: references`, and ask for a see-through picture only on a connection that draws
+// one (its Transparent backgrounds setting).
+```
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816: animowane obrazy GIF
@@ -1162,6 +1190,74 @@ ktokolwiek ją odczyta.
 Błędy i wywołania trwające dłużej niż kilka sekund są zapisywane w logach i ignorowane; gałąź jest zwracana w każdym
 przypadku. Bez tej metody nic się nie zmienia. To miękki interfejs: starsze wersje Engine nigdy jej nie wywołują, więc
 pakiet musi sobie radzić także bez tego wywołania. Uprawnienia nie są potrzebne.
+
+### Capability API 1.818: embeddingi z połączenia wybranego przez pakiet
+
+`api.runtime.embeddingsFor(connectionId)` pobiera obsługę embeddingów ze źródła wskazanego przez własne ustawienie pakietu, zamiast z połączenia agenta używanego przez `resolveEmbeddings()`. W przeciwieństwie do `resolveEmbeddings()` nigdy nie przechodzi awaryjnie na domyślne **Embeddingi** całej aplikacji.
+
+| `connectionId` | Wynik |
+| --- | --- |
+| `null` | Wbudowany lokalny model embeddingów MiniLM. |
+| Identyfikator połączenia | Własne źródło embeddingów tego połączenia: **Dostawca embeddingów**, **URL punktu końcowego embeddingów** i model embeddingów, ustalane tak jak przez **Testuj embedding**. |
+| Identyfikator nieistniejącego połączenia lub połączenie bez działającego źródła embeddingów | `null`. Zapisuje zdarzenie w logu i zwraca wynik; nie zgłasza wyjątku. |
+
+Zwrócony host ma tę samą postać co `resolveEmbeddings()`: `spaceId`, `label` i `embed(texts, signal?, inputType?)`, z tymi samymi limitami (128 tekstów, łącznie 200 000 znaków) i typem wejścia z 1.68. `embed` zwraca `null`, gdy wywołanie się nie powiedzie. Każde źródło ma własne `spaceId`, więc po zmianie ustawienia ponownie wygeneruj zapisane wektory.
+
+```ts
+const runtime = api.runtime;
+const chosen = settings.embeddingConnectionId ?? null; // null: the built-in local model
+const embeddings =
+  typeof runtime.embeddingsFor === "function"
+    ? ((await runtime.embeddingsFor(chosen)) ?? (await runtime.embeddingsFor(null)))
+    : await runtime.resolveEmbeddings();
+const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
+```
+
+To miękki interfejs: starsze wersje aplikacji Marinara Engine nie mają tej metody, więc przed wywołaniem sprawdź jej istnienie i zastosuj rozwiązanie zastępcze jak w przykładzie. Zadeklaruj 1.818 tylko wtedy, gdy pakiet nie może bez niej działać. Nie wymaga uprawnienia.
+
+### Capability API 1.820: pokazywanie pakietu w aktywności agentów
+
+Slot `chat-activity` umieszcza twoją własną kartę w panelu Aktywność agentów czatu, otwieranym ikoną aktywności agentów w szufladzie czatu i panelu trackera. Zadeklaruj go w `contributions.slots` i zarejestruj widok `activity`; aplikacja montuje jeden element dla każdego aktywnego pakietu, który ma punkt wejścia klienta i działa w czacie (identyfikator pakietu należy do włączonych agentów czatu). Pojawia się za stanem i wynikami agentów, a przed zapisanymi wynikami własnych agentów.
+
+```json
+{ "contributions": { "slots": ["chat-activity"] } }
+```
+
+Element otrzymuje `chatId` i `onOpenAgentSettings()`, które otwiera stronę agenta danego pakietu, oraz zwykłe właściwości tożsamości capability i lokalizacji. Aplikacja nie dodaje oprawy interfejsu: narysuj własną kartę i nie renderuj niczego, gdy nie masz nic do pokazania. Po wczytaniu kodu klienta pusty element nie zajmuje miejsca. Gdy zamontowana jest dowolna karta pakietu, panel nie pokazuje "Brak aktywności agentów", więc narysuj własny komunikat bezczynności, jeśli go potrzebujesz.
+
+To nie jest miękki interfejs: aplikacja Marinara Engine starsza niż 1.820 odrzuca manifest, więc pakiet deklarujący `chat-activity` deklaruje 1.820.
+
+#### Sygnalizowanie pracy pakietu lub potrzeby uwagi
+
+`__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })` wyróżnia ikonę aktywności agentów tego czatu (`packageId` to `id` manifestu), wszędzie, gdzie ta ikona występuje (w szufladzie czatu, jej odłączonym oknie i panelu trackera). Gdy dowolny pakiet zgłasza `busy: true`, ikona obraca się jak przy własnych agentach czatu; `alert: true` pokazuje kropkę. Pominięte pole zachowuje wartość, a wpis z obiema wartościami false jest usuwany. Sygnały są przechowywane osobno dla każdego czatu, więc po zmianie czatu widać tylko jego sygnały.
+
+```ts
+const agent = globalThis.__MARINARA_HOST__?.stores.agent?.getState();
+agent?.setPackageActivity?.(id, chatId, { busy: true });
+try {
+  await doWork();
+} finally {
+  agent?.setPackageActivity?.(id, chatId, { busy: false });
+}
+```
+
+Aplikacja nigdy sama nie usuwa sygnału, nawet po odmontowaniu elementu `activity` (ikona jest najważniejsza, gdy panel jest zamknięty): to ty odpowiadasz za jego wyczyszczenie, a odświeżenie lub `reset()` czyści wszystko. Zmiana czatu go pozostawia. Pakiet zajęty lub zgłaszający uwagę też liczy się jako aktywność, więc panel nie pokazuje "Brak aktywności agentów"; połącz sygnał z kartą `activity`, żeby panel miał co wyświetlić. To miękki interfejs: starsze wersje aplikacji nie mają tej metody, więc sprawdź jej istnienie jak wyżej. Zadeklaruj 1.820 tylko wtedy, gdy pakiet nie może bez niej działać. Nie wymaga uprawnienia.
+
+### Capability API 1.833: lista migawek World State czatu
+
+`persistence.getGameState(chatId)` zwraca tylko najnowszy zatwierdzony stan World State. `persistence.listGameStates(chatId)`
+zwraca zatwierdzoną migawkę aktywnego swipe'a każdej wiadomości, w kolejności wiadomości, każdą w takim samym formacie rekordu jak
+`getGameState`. Pakiet może odczytać datę w świecie opowieści zapisaną przez tracker dla dowolnej wiadomości, zamiast prosić model,
+żeby znalazł ją w tekście.
+
+Wiadomość bez zatwierdzonej migawki, migawka zapisana dla swipe'a, którego użytkownik nie zachował, migawka, której wiadomość
+usunięto, oraz migawka niepowiązana z wiadomością są pomijane, więc ostatni wpis może się różnić od `getGameState`. Metoda wymaga
+uprawnienia `chat-read`, tak jak `getGameState`, i służy tylko do odczytu. To miękki interfejs: starsze wersje silnika nie mają tej metody,
+więc sprawdź jej istnienie jak wyżej. Zadeklaruj 1.833 tylko wtedy, gdy pakiet nie może bez niej działać.
+
+```ts
+const states = (await api.runtime.persistence.listGameStates?.(chatId)) ?? [];
+```
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
@@ -1328,7 +1424,7 @@ export async function activate({ api }) {
 }
 ```
 
-Zasady, które warto znać:
+Ważne reguły:
 
 - Identyfikatory otrzymują przestrzeń nazw `<packageId>.<id>`. Wbudowany identyfikator nie zawiera kropki, więc nie może dojść do kolizji. Host przyjmuje identyfikator lokalny lub z przestrzenią nazw i odrzuca każdy identyfikator, którego pakiet sam nie zarejestrował.
 - `unlock(id)` zwraca po zakończeniu `true` tylko dla wywołania, które odblokowało odznakę. `isUnlocked(id)` i `list()` odczytują stan; `list()` zwraca własne odznaki pakietu wraz z postępem.

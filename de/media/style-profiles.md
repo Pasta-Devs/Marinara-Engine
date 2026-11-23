@@ -20,7 +20,7 @@ Begriffe, die unten vorkommen:
 
 Die mitgelieferten Profile:
 
-- **Off**: fügt keinen Hausstil hinzu. Dein Prompt geht fast genau so raus, wie du ihn geschrieben hast.
+- **Aus**: fügt keinen eigenen Stil hinzu und verwendet standardmäßig die Grammatik **Aus**, die den zusammengesetzten Prompt-Text ohne Bereinigung beibehält. Hast du eine gespeicherte Version dieses Profils, wähle unter **Prompt-Grammatik** die Option **Aus** oder nutze **Zurücksetzen**, um den neuen Standard zu übernehmen.
 - **Auto**: leitet einen stimmigen Look aus Charakter, Spiel, Szene und gewähltem Bildmodell ab. Das ist das Standardprofil.
 - **Anime**: allgemeine Anime-Tags für saubere Charakter-Artworks.
 - **Danbooru / Illustrious**: Tags im Danbooru-Stil, zugeschnitten auf Anime-Checkpoints für SDXL wie Illustrious, Pony und NovelAI.
@@ -67,6 +67,23 @@ Zwei Schaltflächen helfen bei der Verwaltung:
 - **Danbooru tags**: kurze, kommagetrennte Tags im Danbooru-Stil. Ideal für Anime-Checkpoints auf SDXL-Basis wie Illustrious, Pony und NovelAI.
 - **Tags**: kurze, kommagetrennte Schlüsselwörter ohne die Danbooru-Konvention.
 - **Natural language**: schlichte Sätze. Ideal für Modelle, die Fließtext lesen, etwa DALL-E und Z-Image-Turbo-Modelle.
+- **Aus**: behält den zusammengesetzten Prompt-Text in seiner ursprünglichen Reihenfolge bei, auch wiederholte Tags. Wähle dies, wenn dein Bildmodell genaue Tag-Abfolgen braucht.
+
+### Prompt-Grammatik: Aus
+
+Wähle **Aus**, um die Grammatikverarbeitung und Prompt-Bereinigung für ein beliebiges Stilprofil abzuschalten. Marinara teilt den gelieferten Text nicht auf und schreibt ihn nicht um, entfernt keine Duplikate, gleicht keine Geschlechts-Tags ab und verschiebt Ausdrücke wie `no watermark` nicht in den negativen Prompt. Leerzeichen, Zeilenumbrüche und Satzzeichen innerhalb jeder Quelle bleiben wie angegeben.
+
+In dieser Abfolge bleibt zum Beispiel jede Teilnehmermarkierung neben ihrer Beschreibung:
+
+```text
+2boys, 3girls, 1boy, black hair, 1boy, brown hair, 1girl, long hair, 1girl, short hair, 1girl, red hair
+```
+
+Marinara setzt eingerichtete Quellen weiterhin zusammen, etwa Verbindungspräfixe, Profil-Tags, generierten Text und deine Aussehensüberschreibungen. Zwischen den Quellen fügt es ein Komma und ein Leerzeichen ein. **Aus** verhindert außerdem, dass kopierte Stilvorgaben aus der Ausgabe der Bild-Prompt-Schreiber entfernt werden. Es bestimmt nicht, was das Modell erzeugt, das den Prompt schreibt.
+
+Mit **Aus** behält Illustrator deine eingestellten **Illustration**-Tags bei, auch wenn seine Prompt-Vorlage Panels oder Comic-Layouts erwähnt. Auch der zusammengesetzte negative Prompt bleibt unverändert, statt wiederholte Ausschlüsse zu entfernen oder Standardverbote für Text hinzuzufügen.
+
+Du kannst die Grammatik **Aus** auch für ein Profil wählen, das Stil-Tags hinzufügt. Das eingebaute Profil **Aus** lässt außerdem seine Stilfelder leer. Deine gespeicherten Profile behalten ihre bisherige Grammatik, bis du sie änderst.
 
 ## Die Test bench
 
@@ -80,7 +97,7 @@ Die Test bench zeigt außerdem einen kurzen Hinweis zur Bereinigung. Ändert sie
 
 ## Wie Marinara den Prompt bereinigt
 
-Bevor eine Bildanfrage Marinara verlässt, kompiliert Marinara deinen Prompt mit dem aktiven Profil. Der Compiler:
+Bevor eine Bildanfrage Marinara verlässt, stellt es deinen Prompt mit dem aktiven Profil zusammen. Mit der Grammatik **Aus** setzt es Quellen ohne Bereinigung zusammen. In den anderen Grammatikmodi macht der Compiler Folgendes:
 
 - entfernt beinahe doppelte Tags, etwa ein wiederholtes Qualitäts-Tag;
 - verschiebt einfache Negativ-Formulierungen wie „avoid text“ oder „no watermark“ in den negativen Prompt;
@@ -124,6 +141,8 @@ Der Abschnitt **Local image defaults** erscheint nur bei AUTOMATIC1111 / SD Web 
 Professor Mari schreibt ihre Bild-Prompts selbst. Ihr Befehl `mari images` sendet sie genau so an dein Bildmodell, wie sie sie geschrieben hat. Dabei werden weder ein Stilprofil noch Tags pro Bildart oder ein Prompt-Präfix der Verbindung hinzugefügt. Bittest du sie, deinen Stil zu verwenden, ergänzt sie `--style`. Das wendet das oben gewählte Profil an (zuerst das eigene Profil des Bildmodells, dann den globalen **Default style**). Mit `--style <name>` wählt sie ein bestimmtes Profil. Sie kann deine Profile auflisten und ein Profil vollständig lesen, bevor sie sich entscheidet.
 
 Für jedes Bild speichert sie ihren ursprünglichen Prompt, das verwendete Profil (falls vorhanden) und den genauen Prompt, der gesendet wurde. So kann sie dir zeigen, was ein Stil verändert hat.
+
+Bei einem NovelAI-Modell ab V4 gibt sie jedem Charakter im Bild einen eigenen Prompt. Dabei folgt sie denselben Regeln wie der Illustrator, damit sich das Aussehen der Charaktere nicht vermischt. Die von ihr angeforderte Größe bleibt erhalten, auch wenn am Modell **Auflösung nach Anzahl der Charaktere wählen** eingeschaltet ist. Diese Einstellung bestimmt die Größe nur dann, wenn sie die Wahl dem Modell überlässt.
 
 ## Verwandte Anleitungen
 

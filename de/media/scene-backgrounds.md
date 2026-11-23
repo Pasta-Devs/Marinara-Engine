@@ -74,7 +74,23 @@ Du kannst ein generiertes Bild neu erstellen, ohne die Antwort neu zu generieren
 3. Ändere, was du willst, in den Feldern unter dem Bild: **Prompt**, **Negative prompt** (negativer Prompt), ein Feld für jeden Charakter unter **Character prompts** (Charakter-Prompts), falls das Bild welche hatte, und das Bildmodell.
 4. Klick auf **Generate image** (Bild generieren) oder auf **Cancel** (Abbrechen), um das Bild so zu lassen, wie es ist.
 
-Das neue Bild ersetzt das alte in der Nachricht. Das alte bleibt in der Gallery, sodass du es wieder anheften kannst. Referenzbilder werden erneut aus den aktuellen Avataren der Charaktere geschickt. Manche älteren Bilder haben ihren negativen Prompt und ihre Charakter-Prompts nicht gespeichert; der Editor weist dann darauf hin.
+Das neue Bild wird zur ausgewählten Version in der Nachricht. Frühere Ergebnisse bleiben zusammen in einer Gallery-Kachel, die die Anzahl der Versionen anzeigt. Jede Version behält ihren gespeicherten Prompt, negativen Prompt und die übrigen gespeicherten Angaben zur Generierung. Referenzbilder werden erneut aus den aktuellen Avataren der Charaktere geschickt. Manche älteren Bilder haben ihren negativen Prompt und ihre Charakter-Prompts nicht gespeichert; der Editor weist dann darauf hin.
+
+### Bildversionen
+
+Öffne ein Bild mit mehreren Versionen, um eine davon auszuwählen. Mit den Pfeilen nach links und rechts, den entsprechenden Pfeiltasten und horizontalen Wischgesten wechselst du zwischen den Gallery-Kacheln. Mit den Bedienelementen nach oben und unten, den entsprechenden Pfeiltasten und vertikalen Wischgesten auf dem Bild wechselst du zwischen den Versionen im aktuellen Stapel. Zoome vor dem Navigieren heraus. Wenn du im Prompt scrollst, wechselt die Version nicht.
+
+Klick auf das Bild, die Prompt-Kopfzeile oder die Schaltfläche zum Einklappen, um mit den Pfeiltasten nach oben und unten zwischen Versionen zu wechseln. Klick auf den Prompt-Text oder eine Kopierschaltfläche, um mit diesen Tasten stattdessen zu scrollen. Die Bedienelemente für Versionen bleiben auch beim Neugenerieren oder Bearbeiten sichtbar. Übernimm oder entferne eine aufgemalte Maske, bevor du die Version wechselst. Während der Generierung sind die Bedienelemente gesperrt.
+
+Die ausgewählte Version wird gespeichert und im Chat angezeigt, auch nach dem Neuladen. Wenn du eine ältere Version neu generierst oder bearbeitest, wird das neue Ergebnis demselben Stapel hinzugefügt. Auch die späteren Versionen bleiben erhalten. Ein verzweigter Chat hat seine eigene Auswahl.
+
+Klick auf **Galeriebild löschen** auf der Kachel oder auf die Schaltfläche zum Löschen in der Bildansicht, um auszuwählen, was entfernt werden soll:
+
+- **Diese Version löschen** entfernt die angezeigte Version. War sie ausgewählt, wird die neueste verbleibende Version angezeigt.
+- **Andere Versionen löschen** behält die angezeigte Version und entfernt alle anderen.
+- **Gesamten Stapel löschen** entfernt alle Versionen und ihre Bildanhänge aus dem Chat.
+
+Diese Optionen löschen die gespeicherten Versionen endgültig. Mit **Abbrechen** bleiben alle erhalten.
 
 ## Den Prompt vor dem Senden prüfen
 

@@ -235,7 +235,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 
 ### Memory Recall कुछ याद नहीं रखता
 
-**Memory Recall** (मेमोरी रिकॉल) पिछले संदेशों में खोजता है और सबसे मिलते-जुलते संदेश वापस प्रॉम्प्ट में जोड़ देता है।
+**Memory Recall** ऐसे पुराने संदेशों में खोजता है जो अब प्रॉम्प्ट में नहीं समाते और सबसे ज़्यादा मेल खाने वाले संदेश वापस जोड़ता है। जब तक पूरी चैट कॉन्टेक्स्ट विंडो में समाती है, यह कुछ नहीं जोड़ता। [Memory Recall क्या जोड़ता है](agents/memory.md#what-memory-recall-adds) देखें।
 
 1. **Chat Settings → Memory Recall** खोलें और पक्का करें कि **Enable Memory Recall** चालू है।
 2. **Access memories for this chat** खोलें। **Memories for This Chat** में हर चंक की स्थिति देखें।

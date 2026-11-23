@@ -10,7 +10,7 @@ Marinara Engine 是一个用来和 AI 角色聊天、玩角色扮演的应用。
 2. 添加一个账号。一个账号就是某个 AI 服务的一个 API 密钥。见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 3. 挑选这个账号要用的模型。同一篇指南里有操作方法。
 4. 创建或导入一个角色。打开 **Characters**(角色) 面板，点击 **New**(新建) 打开 **Create Character**(创建角色) 窗口，或者点击 **Import**(导入) 从文件导入一张角色卡。见[创建和编辑角色](../characters/creating-and-editing-characters.md)。
-5. 用侧边栏按钮打开聊天侧边栏。它的选项卡写着 **CONVO**、**RP** 和 **GM**。选一个，然后点击 **+** 按钮。这个按钮会随选项卡叫作 **New Conversation**、**New Roleplay** 或 **New Game**。
+5. 点击顶栏的 **Chats**(聊天)，打开聊天列表。它的选项卡写着 **CONVO**、**RP** 和 **GM**。选一个，然后点击 **+** 按钮。这个按钮会随选项卡叫作 **New Conversation**、**New Roleplay** 或 **New Game**。
 6. 按照打开的设置窗口操作，然后点击 **Create Chat**(创建聊天)。
 
 你会看到：新聊天打开，你可以写第一条消息了。

@@ -52,6 +52,49 @@ Marinara 导出文件保留的细节最多。其他几种格式来自 SillyTaver
 
 要搬走整个 SillyTavern 安装，请使用 **Settings**(设置) 中 **Imports**(导入) 选项卡里的批量导入工具。它会把角色、聊天、预设和世界书一起搬过来。见[从 SillyTavern 导入](../data/importing-from-sillytavern.md)。
 
+<a id="update-a-character-you-already-have"></a>
+
+## 更新已有角色
+
+角色卡作者发布新版后，可以就地更新现有角色，不必再添加一个。角色会保留聊天、记忆、图库、立绘、文件夹、收藏星标、颜色和你自己的标签。当前角色卡会先保存到 **Version history**(版本历史)（即使自动版本管理已关闭），方便恢复。
+
+### 从导入窗口更新
+
+1. 照常导入新版角色卡文件（步骤见上文）。
+2. 如果它与已有角色相符，导入会停在 **Already in your library**(库中已存在)。Marinara 会匹配从同一个 Card Browser 页面下载的角色卡，或名称和创作者相同的角色卡。每个选项下方都会显示匹配原因。
+3. 为每张角色卡选择一种处理方式：
+   - **Update "Name"**(更新“Name”)：就地更新该角色（默认）。
+   - **Update another character…**(更新其他角色…)：从列表里任选一个角色。适用于通过其他途径获取的角色卡，例如先从网站导入 SillyTavern，再导入 Marinara，导致名称或创作者已不再匹配。
+   - **Add as a new character**(添加为新角色)：两份都保留。
+   - **Skip this card**(跳过此角色卡)：不导入这张卡。
+4. 选择是否 **Use the new card's picture**(使用新角色卡的图片)，以及如何处理 **Creator's Notes**(创作者注释)（见下文）。
+5. 点击 **Continue**(继续)。如果角色卡内置了世界书，下一步仍会照常询问。更新角色时，已关联的世界书会用新条目刷新，不会再复制一本。
+6. 结果会显示 `Updated "Name". Its old card is in Version history.`
+
+### 从角色编辑器更新
+
+1. 打开角色，先保存所有改动。
+2. 点击 **Save**(保存) 旁边的 **⋯**，选择 **Update from card file…**(从角色卡文件更新…)。
+3. 选择新版角色卡（.png、.json 或 .charx），检查各项选择后点击 **Update**(更新)。
+
+对于从 [Card Browser](bot-browser.md) 下载的角色，同一个菜单里还有 **Check for update**(检查更新)。它会在 Card Browser 中打开该角色卡的页面，可以在那里比较并导入新版。
+
+### 创作者注释
+
+Creator's Notes 是 **Characters** 中每张角色卡下方的简短文字，有些人还会把自定义 CSS 放在这里。选择一种处理方式：
+
+| 选择 | 处理方式 |
+| --- | --- |
+| **Merge: keep mine, add the author's changes**(合并：保留我的注释，加入作者的改动)（默认） | 保留你的文字和 CSS。作者新增的行会插在第一个样式块之前；作者删除的行，如果你没有修改过，也会删掉。如果你从未编辑过注释，就直接使用新版角色卡的注释。 |
+| **Use the card's notes**(使用角色卡的注释) | 用角色卡的注释替换你的注释。 |
+| **Keep mine**(保留我的注释) | 你的注释保持原样。 |
+
+此功能推出前导入的角色卡没有记录原始注释，所以第一次合并只会添加你还没有的行。
+
+### 撤销更新
+
+打开角色，在 **Metadata**(元数据) 选项卡里找到 **Version history**，恢复更新前的版本。见[版本历史](creating-and-editing-characters.md#version-history)。
+
 ## 导出一个角色
 
 1. 在编辑器里打开这个角色。

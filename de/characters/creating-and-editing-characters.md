@@ -51,6 +51,20 @@ Tabs mit eigener Anleitung:
 
 Die Abschnitte unten behandeln **Metadata**, **Card**, **Images**, **Voice** und **Advanced**, dazu Avatare und den Versionsverlauf.
 
+
+<a id="images-tab"></a>
+
+## Tab „Images“
+
+Der Tab **Images** (Bilder) bündelt alles, was das Aussehen eines Charakters auf Bildern bestimmt. Mit den Schaltflächen oben springst du zum jeweiligen Abschnitt:
+
+- **Character Sheet** (Charakterbogen): ein Referenzbild des Charakters. Klick auf **Manage** (Verwalten), um eins zu erstellen, hochzuladen oder auszuwählen. Schalte **Use as reference image** (als Referenzbild verwenden) ein, damit Marinara es bei der Bildgenerierung dem Avatar vorzieht. Siehe [Charakterbogen](sprites.md#character-sheet).
+- **Selfie instructions** (Selfie-Anweisungen): optionale Vorgaben für die Conversation-Selfies dieses Charakters, etwa zum Kamerastil oder zum Gesichtsausdruck. Noodle und Slurp können sie ebenfalls nutzen, wenn du das in ihren Einstellungen einschaltest. Siehe [Selfies](../conversation/selfies.md).
+- **Sprites**: Gesichtsausdrücke, Ganzkörper-Sprites und Anrufclips. Siehe [Charakter-Sprites](sprites.md).
+- **Gallery** (Galerie): Bilder und Videos, die beim Charakter gespeichert sind. Siehe [Galerien für Charaktere und Personas](galleries.md).
+
+Bei Personas hat der Tab **Images** dieselben Abschnitte, bis auf **Selfie instructions**.
+
 <a id="metadata-tab"></a>
 
 ## Tab „Metadata“
@@ -59,7 +73,7 @@ Der Tab **Metadata** enthält Angaben zu Identität und Organisation. Sie helfen
 
 - **Character ID**. Schreibgeschützt. Sie erscheint, sobald die Karte gespeichert ist. Mit **Copy** kopierst du sie.
 - **Name**. Der angezeigte Name. In Prompts steht er als `{{char}}`, ein Platzhalter, den Marinara durch den Namen des Charakters ersetzt.
-- **Other names** (Weitere Namen). Spitznamen, vollständige Namen oder Titel, unter denen der Charakter auch bekannt ist, etwa `Clark Kent, Kal-El, Mr. Kent`. Trenn mehrere Namen mit Kommas und drück <kbd>Enter</kbd> oder klick auf **Add**. In Roleplay-Chats können sie in der Namensfarbe erscheinen. Der Character Tracker verknüpft einen Charakter, den er unter einem dieser Namen führt, mit der Karte. Siehe [Charakterfarben](colors-and-stats.md#the-three-colors).
+- **Andere Namen**. Spitznamen, vollständige Namen oder Titel, unter denen der Charakter auch bekannt ist, etwa `Clark Kent, Kal-El, Mr. Kent`. Trenn mehrere Namen mit Kommas und drück <kbd>Enter</kbd> oder klick auf **Hinzufügen**. In Roleplay-Chats können sie in der Namensfarbe erscheinen, und der Character Tracker verknüpft einen Charakter, den er unter einem dieser Namen verfolgt, mit der Karte. Siehe [Charakterfarben](colors-and-stats.md#the-three-colors).
 - **Creator**. Wer die Karte erstellt hat – für die Namensnennung, wenn du sie teilst.
 - **Version**. Eine Versionsnummer, die du selbst festlegst, etwa `1.0`. Der Schalter **Automatic versioning** (automatische Versionierung) daneben behält frühere Versionen und erhöht diese Nummer, wenn sich die Karte ändert. Der Versionsverlauf speichert nur Momentaufnahmen, solange dieser Schalter an ist.
 - **Talkativeness**. Ein Schieberegler von 0 bis 100 Prozent. Er legt fest, wie oft dieser Charakter in Gruppenchats spricht. Der Standard sind 50 Prozent.
@@ -88,7 +102,7 @@ Der Tab **Card** ist der zentrale Schreibbereich. Über die Sprunglinks oben err
 
 **Public Face** beschreibt, was andere über den Charakter sehen oder wissen können: Aussehen, Auftreten, Rolle, Ruf und Beziehungen, die kein Geheimnis sind. Lass Geheimnisse, Gedanken, private Vorgeschichte und Anweisungen zum Spielen des Charakters weg. Das Feld wird nie als Teil der Charakterkarte gesendet. Ein Prompt liest es nur dort, wo du das Makro `{{publicFace}}` einfügst, bei deiner Persona `{{personaPublicFace}}`. Siehe [Prompt-Makros](../prompts/macros.md#identity-character-and-persona-macros). In einem Individual-Gruppenchat in Roleplay sendet **Others' Public Faces** das Feld bei den Zügen der anderen Charaktere mit. Siehe [Weitere Individual-Einstellungen](../chats/group-chats.md#more-individual-settings). Ist die Quelle **Characters** oder **Persona** eines Agenten auf **Public Face** gestellt, liest er es anstelle der Karte. Siehe [Weitere Einstellungen](../agents/custom-agents.md#other-settings). Ist **Send Public Faces** an, liest Impersonate in Roleplay das Feld anstelle der Karte. Siehe [Impersonate-Einstellungen](../chats/guided-and-impersonate.md#the-impersonate-settings).
 
-**Image Appearance Override** (eigene Aussehensbeschreibung für Bilder) liegt unter **Appearance** und ist standardmäßig aus. Schalte den Schalter ein, um ein zweites Feld für kurze Bild-Tags einzublenden, etwa ein LoRA-Triggerwort (ein Schlüsselwort, das einen eigenen Bildstil einschaltet). Ist er an und das Feld ausgefüllt, verwenden Bild-Prompts diese Tags genau so, wie sie dastehen, und **Appearance** dient als Hintergrund. Auch ein KI-Avatar-Prompt wird dann daraus vorbefüllt. Der Erzähler sieht immer den vollständigen Text aus **Appearance**.
+**Aussehen** hat zwei Tabs: **Prosa** und **Bild-Tags**. **Prosa** enthält den eigentlichen Aussehenstext. **Bild-Tags** enthält kurze Tags für Bild-Prompts, etwa ein LoRA-Triggerwort (ein Schlüsselwort, das einen eigenen Bildstil aktiviert). Wenn du Tags eingibst, wird **Für Bild-Prompts verwenden** angehakt. Ein Punkt am Tab zeigt, dass sie verwendet werden. Solange das Kästchen angehakt ist und Tags eingetragen sind, nutzen Bild-Prompts diese genau wie geschrieben; die Prosa bleibt als Hintergrundinformation erhalten. Nimm den Haken heraus, um die Tags zu behalten, ohne sie zu verwenden: Bild-Prompts greifen dann auf **Prosa** zurück. Auch ein KI-Avatar-Prompt wird aus den Tags vorbereitet. Der Erzähler sieht immer den Text unter **Prosa**. Der Tab **Bilder** verlinkt über **Zu „Aussehen“** hierher. Der Tab hat einen eigenen Zauberstab. Siehe [Bild-Tags mit dem Zauberstab erstellen](#image-tags-from-the-wand).
 
 Der Abschnitt **Dialogue & Greetings** legt fest, wie ein Chat beginnt und wie der Charakter klingt:
 
@@ -108,18 +122,29 @@ Begrüßungen und Beispielnachrichten können Bilder aus der Galerie des Charakt
 
 ### Ein Kartenfeld mit dem Zauberstab schreiben
 
-Über **Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message** und jedem **Alternate Greeting** sitzt eine Zauberstab-Schaltfläche, die nur ein Symbol zeigt. Ihr Tooltip nennt das Feld, das sie schreibt.
+Über **Zusammenfassung**, **Beschreibung**, **Persönlichkeit**, **Hintergrundgeschichte**, **Aussehen** (in beiden Tabs), **Szenario**, **Public Face**, **Beispieldialog**, **Erste Nachricht** und jedem Feld **Alternative Begrüßung** gibt es eine Schaltfläche mit einem Zauberstab-Symbol. Ihr Tooltip nennt das Feld, das sie schreibt.
 
 Bevor du anfängst: Richte eine funktionierende Textverbindung ein. Siehe [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 
 1. Schreib Ideen, die erhalten bleiben sollen, in das Feld, etwa `smart, scientist, handsome`, oder lass es leer.
 2. Füll andere Kartenfelder aus, die die KI als Referenz nutzen soll. Du musst vorher nicht speichern.
-3. Klick auf den Zauberstab des Felds. Marinara fordert 100–300 Wörter für dieses Feld an und nimmt deinen Text als Ausgangsdetails. Example Dialogue fordert Beispielwechsel an. **First Message** und jedes **Alternate Greeting** fordern eine Eröffnungsnachricht an, die deine Antwort offenlässt. **Public Face** hat keine Wortvorgabe. Der Zauberstab schreibt den Rest der Karte ohne private Angaben um, sodass sich die Länge nach deiner Karte richtet.
+3. Klick auf den Zauberstab des Feldes. Marinara fordert 100–300 Wörter für dieses Feld an und nutzt deinen Text als Ausgangspunkt. Für Beispieldialog werden beispielhafte Dialogwechsel angefordert. **Erste Nachricht** und jede **Alternative Begrüßung** fordern eine einzelne Eröffnungsnachricht an, die deine Antwort offenlässt. Für **Public Face** gibt es keine Wortvorgabe: Der Zauberstab schreibt den Rest der Karte ohne die privaten Teile um, sodass die Länge deiner Karte folgt. Im Tab **Bild-Tags** unter **Aussehen** wandelt der Zauberstab das Aussehen der Karte stattdessen in eine Zeile mit Bild-Tags um. Siehe [Bild-Tags mit dem Zauberstab erstellen](#image-tags-from-the-wand).
 4. Bearbeite das Ergebnis und klick dann auf **Save**.
 
 Der Zauberstab verwendet deine Standard-Textverbindung für Agenten oder, falls es keine gibt, deine Standard-Textverbindung. Eine eingerichtete Ausweichverbindung für Agenten gilt weiterhin.
 
 Der Zauberstab ersetzt nur das gewählte Feld in deinem ungespeicherten Entwurf. Schlägt die Generierung fehl, bleibt dein Text erhalten. Bearbeitest du das Feld während des Wartens oder wechselst zu einer anderen Karte, überschreibt ein verspätetes Ergebnis deine Arbeit nicht. Für den Zauberstab brauchst du Professor Mari nicht.
+
+#### Bild-Tags mit dem Zauberstab erstellen
+
+Der Zauberstab im Tab **Bild-Tags** unter **Aussehen** schreibt die Tags anhand des Aussehenstexts deiner Karte, vor allem des Feldes **Aussehen** selbst. Er hakt **Für Bild-Prompts verwenden** an.
+
+- Bereits eingetragene Tags, die dein Aussehenstext nicht erklärt, etwa ein LoRA-Triggerwort, bleiben genau wie geschrieben am Anfang der Zeile stehen.
+- Danach kommen die neuen Tags: `1girl`, `1boy` oder `1other`, dann dauerhafte Merkmale: Körper, Haare, Augen, Haut, Gesicht und besondere Kennzeichen. Bleiben keine Tags erhalten, beginnt die Zeile mit `1girl`, `1boy` oder `1other`.
+- Die neuen Tags sind auf Englisch, kleingeschrieben und durch Kommas getrennt, in dem Stil, den Bildmodelle von Danbooru kennen (einer Anime-Bildseite, deren Tags viele Modelle gelernt haben).
+- Die neuen Tags verwenden nur Merkmale, die deine Karte nennt. Kleidung, Gesichtsausdrücke, Posen und Orte bleiben weg, weil sie sich von Szene zu Szene ändern.
+
+Die Tags stammen vom Modell, nicht aus einer Liste echter Danbooru-Tags. Ein Tag kann deshalb so formuliert sein, dass dein Bildmodell ihn nicht kennt. Prüf die Zeile und bearbeite sie vor dem Speichern.
 
 ## Einen Avatar hinzufügen
 
@@ -138,25 +163,12 @@ Bevor du anfängst: Füg eine Verbindung zur Bildgenerierung hinzu. Die Schaltfl
 
 1. Zeig mit der Maus auf die Avatar-Kachel und klick auf die Zauberstab-Schaltfläche. Das Fenster **Generate Character Avatar** öffnet sich.
 2. Wähl eine **Image Generation Connection** (Verbindung zur Bildgenerierung).
-3. Prüf den **Avatar Prompt** und bearbeite ihn bei Bedarf. Er geht von **Image Appearance Override** aus, wenn der Schalter an und das Feld ausgefüllt ist. Andernfalls nimmt er **Appearance**, dann **Description**, dann **Personality** – je nachdem, welches Feld zuerst Text enthält.
+3. Prüfe oder bearbeite den **Avatar-Prompt**. Er startet mit den **Bild-Tags** unter **Aussehen**, wenn **Für Bild-Prompts verwenden** angehakt ist und sie ausgefüllt sind. Andernfalls nutzt er **Aussehen**, dann **Beschreibung**, dann **Persönlichkeit** – das erste Feld, das Text enthält.
 4. Hat die Karte bereits einen Avatar, kannst du **Use current avatar as a reference** ankreuzen.
 5. Klick auf **Generate**. Für einen weiteren Versuch klick auf **Regenerate**.
 6. Gefällt dir das Ergebnis, klick auf **Use Avatar**.
 
 Die Bildgröße stammt aus der Bildgröße **Portraits** in den Einstellungen zur Bildgenerierung. Standardmäßig sind das 1024 mal 1024. Ist **Expose media prompts before sending** an, erscheint vor jeder Anfrage ein Prüfschritt für den Prompt.
-
-<a id="images-tab"></a>
-
-## Tab „Images“
-
-Der Tab **Images** (Bilder) bündelt alles, was das Aussehen eines Charakters auf Bildern bestimmt. Mit den Schaltflächen oben springst du zum jeweiligen Abschnitt:
-
-- **Character Sheet** (Charakterbogen): ein Referenzbild des Charakters. Klick auf **Manage** (Verwalten), um eins zu erstellen, hochzuladen oder auszuwählen. Schalte **Use as reference image** (als Referenzbild verwenden) ein, damit Marinara es bei der Bildgenerierung dem Avatar vorzieht. Siehe [Charakterbogen](sprites.md#character-sheet).
-- **Selfie instructions** (Selfie-Anweisungen): optionale Vorgaben für die Conversation-Selfies dieses Charakters, etwa zum Kamerastil oder zum Gesichtsausdruck. Noodle und Slurp können sie ebenfalls nutzen, wenn du das in ihren Einstellungen einschaltest. Siehe [Selfies](../conversation/selfies.md).
-- **Sprites**: Gesichtsausdrücke, Ganzkörper-Sprites und Anrufclips. Siehe [Charakter-Sprites](sprites.md).
-- **Gallery** (Galerie): Bilder und Videos, die beim Charakter gespeichert sind. Siehe [Galerien für Charaktere und Personas](galleries.md).
-
-Bei Personas hat der Tab **Images** dieselben Abschnitte, bis auf **Selfie instructions**.
 
 ## Tab „Voice“
 
@@ -197,6 +209,7 @@ Regeln:
 - Ein Chat kann pro Feld nur eine Alternative verwenden. Kreuzt du einen Chat in einer anderen Alternative an oder wählst du in Chat Settings eine andere, wandert er dorthin.
 - Ohne angekreuzte Chats bleibt die Alternative für später inaktiv.
 - Eine leere Alternative leert das Feld in ihren Chats.
+- Eine Alternative für **Aussehen** hat eigene Tabs **Prosa** und **Bild-Tags**. In ihren Chats ersetzen ihre Tags die der Karte. Sind ihre Tags leer oder nicht angehakt, verwenden Bild-Prompts die Prosa der Alternative, niemals die Tags der Karte. Eine neue Alternative kopiert auch die Tags der Karte. Ihr Tab **Bild-Tags** hat einen eigenen Zauberstab, der die Prosa und Tags der Alternative liest.
 - Chatspezifische Überschreibungen für Szenario und Bildaussehen haben weiterhin Vorrang.
 - Alternativen für **Summary** bleiben Metadaten und gehen nicht an die KI.
 - Verlässt der Charakter einen Chat, pausiert die Zuordnung und wird wieder aktiv, wenn du den Charakter erneut hinzufügst.
@@ -208,7 +221,7 @@ Zum Entfernen einer Alternative klick auf ihren Papierkorb, bestätige mit **Del
 
 ## Versionsverlauf
 
-Solange **Automatic versioning** an ist, kann jedes Speichern eine Momentaufnahme zu **Version history** auf dem Tab **Metadata** hinzufügen. Bis dahin steht dort `Previous card states will appear here after the next edit.` Ein Zähler zeigt, wie viele Momentaufnahmen gespeichert sind.
+Solange **Automatische Versionierung** an ist, kann jedes Speichern eine Momentaufnahme zu **Versionsverlauf** auf dem Tab **Metadaten** hinzufügen. Bis dahin steht dort `Previous card states will appear here after the next edit.` Ein Zähler zeigt, wie viele Momentaufnahmen gespeichert sind. Beim Aktualisieren des Charakters aus einer neueren Karte wird immer zuerst eine Momentaufnahme gespeichert, auch wenn der Schalter aus ist. Siehe [Einen vorhandenen Charakter aktualisieren](import-export.md#update-a-character-you-already-have).
 
 So vergleichst du eine gespeicherte Version mit deiner aktuellen Karte:
 

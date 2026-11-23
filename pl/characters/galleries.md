@@ -50,7 +50,7 @@ Zanim zaczniesz: dodaj połączenie do generowania obrazów.
 
 ### Poprawianie podziału arkusza
 
-Po wygenerowaniu arkusza naklejek lub emoji każda naklejka jest wykrywana na podstawie obrysu, jej zielone tło jest usuwane, a ona sama pojawia się jako osobny kafelek z nazwą. Zapisane naklejki mają najwyżej 512 na 512 pikseli, a emoji – najwyżej 256 na 256. Każde z nich jest oznaczone swoją nazwą.
+Po wygenerowaniu arkusza naklejek lub emoji każda naklejka jest rozpoznawana po obrysie, jej zielone tło jest usuwane, a ona pojawia się jako osobny kafelek z nazwą. W przypadku modelu, który rysuje obrazy z przezroczystym tłem (zobacz [Przezroczyste tła](../media/image-providers.md#transparent-backgrounds)), żądanie dotyczy zamiast tego arkusza z przezroczystym tłem, a zielone tło jest tylko rozwiązaniem zastępczym. Jeśli zwrócony arkusz ma przezroczyste tło, jego krawędzie pozostają takie, jak je narysowano. Zapisane naklejki mają najwyżej 512 na 512 pikseli, a emoji najwyżej 256 na 256. Każdy element jest oznaczany swoją nazwą.
 
 - Kliknij kafelek, żeby go zachować lub pominąć. Pominięte kafelki nie są zapisywane.
 - Zmień nazwę pod kafelkiem, żeby nadać mu inną nazwę.

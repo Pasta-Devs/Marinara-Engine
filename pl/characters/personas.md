@@ -95,7 +95,7 @@ Zakładka **Card** zawiera pola, które opisują cię dla AI. Każde ma szacunek
 | **Public Face** (publiczny wizerunek) | Karta bez prywatnych informacji. | Tylko przez `{{personaPublicFace}}` albo gdy źródło **Persona** agenta to **Public Face** |
 | **Example Dialogue** (przykładowy dialog) | Przykładowe wymiany zdań. Rozdzielaj je znacznikiem `<START>`. Używaj `{{user}}` dla swojej persony, a `{{char}}` dla drugiej postaci. | Tak |
 
-**Image Appearance Override** (osobny opis wyglądu do obrazów) pod polem **Appearance** oraz **Public Face** działają tak samo jak u postaci. Zobacz [Zakładka Card](creating-and-editing-characters.md#card-tab). Pola tekstowe obsługują makra.
+Zakładka **Tagi obrazów** w sekcji **Wygląd** oraz **Wizerunek publiczny** działają tak jak u postaci. Zobacz [Zakładka Card](creating-and-editing-characters.md#card-tab). Pola tekstowe obsługują makra.
 
 Te funkcje działają tak samo jak u postaci, tylko ich przedmiotem jest persona:
 

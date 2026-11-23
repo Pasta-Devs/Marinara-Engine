@@ -50,7 +50,7 @@ Avant de commencer : ajoute une connexion de génération d'images.
 
 ### Corriger le découpage d'une planche
 
-Après la génération d'une planche de stickers ou d'emojis, chaque sticker est repéré grâce à son contour, son fond vert est retiré et il apparaît dans sa propre vignette avec son nom. Les stickers enregistrés mesurent au plus 512 sur 512 pixels et les emojis au plus 256 sur 256, et chacun porte un tag avec son nom.
+Après la génération d'une planche de stickers ou d'emojis, chaque sticker est repéré par son contour, son arrière-plan vert est supprimé et il apparaît dans sa propre vignette avec son nom. Avec un modèle qui dessine des images transparentes (voir [Arrière-plans transparents](../media/image-providers.md#transparent-backgrounds)), la planche est plutôt demandée sur fond transparent, le vert servant seulement de solution de repli ; une planche reçue avec un fond transparent conserve ses contours tels qu'ils ont été dessinés. Les stickers enregistrés mesurent au plus 512 sur 512 pixels, et les emojis au plus 256 sur 256 ; chacun est marqué avec son nom.
 
 - Clique sur une vignette pour la garder ou l'exclure. Les vignettes exclues ne sont pas enregistrées.
 - Modifie le nom sous une vignette pour la renommer.

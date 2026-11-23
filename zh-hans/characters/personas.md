@@ -95,7 +95,7 @@ Marinara 会在每一次提示词里把你的用户角色发给 AI。在聊天�
 | **Public Face**(公开形象) | 不含私密内容的角色卡。 | 仅通过 `{{personaPublicFace}}`，或智能体的 **Persona** 来源设为 **Public Face** 时 |
 | **Example Dialogue**(对话示例) | 示例对话。用 `<START>` 分隔各段，用 `{{user}}` 表示你的用户角色，用 `{{char}}` 表示对方角色。 | 是 |
 
-**Appearance** 下方的 **Image Appearance Override**(图像专用外貌) 和 **Public Face** 的用法与角色卡相同。见[角色卡的 Card 选项卡](creating-and-editing-characters.md#card-tab)。这些文本框支持宏。
+**Appearance** 的 **Image tags**(图片标签) 标签页和 **Public Face** 都与角色上的用法一样，见 [Card 选项卡](creating-and-editing-characters.md#card-tab)。这些文本框支持宏。
 
 下面这些功能和角色上的一样，只是对象换成了用户角色：
 

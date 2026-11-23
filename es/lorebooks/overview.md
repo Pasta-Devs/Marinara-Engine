@@ -14,7 +14,7 @@ La coincidencia por palabra clave funciona con cualquier modelo y no necesita co
 
 ## Crear un lorebook y agregar una entrada
 
-1. Abre el panel **Lorebooks** desde la barra lateral.
+1. Abre el panel **Lorebooks** desde la barra superior.
 2. Haz clic en **New** (Nuevo: el icono del signo más). Se abre la ventana **Create Lorebook** (Crear lorebook).
 3. Escribe un **Name** (Nombre). Este campo es obligatorio.
 4. Agrega una **Description** (Descripción) si quieres.

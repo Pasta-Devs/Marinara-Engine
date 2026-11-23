@@ -22,6 +22,17 @@ Jeśli to nie zadziałało:
 - Komunikat **Marinara could not reach** oznacza, że nie udało się połączyć z adresem. Sprawdź, czy serwer działa i czy adres oraz port się zgadzają. **Continue anyway** (kontynuuj mimo to) zapisuje konto bez zaliczonego testu.
 - Adres jest na innym komputerze. Zobacz [Dostęp do serwera na innym komputerze](#reach-a-server-on-another-computer).
 
+## Używanie modelu aktualnie załadowanego na serwerze
+
+Serwer lokalny lub samodzielnie hostowany może odpowiadać modelem, który ma załadowany, więc jego konto może zawierać model **Domyślny**. Model Domyślny nie wysyła nazwy modelu. Zawsze używa modelu załadowanego w Ollama, LM Studio, KoboldCpp lub llama.cpp, także po zmianie modelu na tym serwerze.
+
+- Nowe konto serwera na twoim komputerze lub w twojej sieci zaczyna z modelem **Domyślny**.
+- Żeby dodać go później, kliknij **⋯** na koncie i wybierz **Dodaj model**. **Domyślny** jest pierwszym wierszem.
+- Używaj modelu **Domyślny** tak jak każdego innego: przydziel mu zadanie, na przykład **Main**, w sekcji **Zadania** albo wybierz go w **Model dla tego czatu**.
+- Kliknij **Domyślny** w panelu, żeby nadać mu własne ustawienia, takie jak parametry i preset promptu, tak samo jak modelowi z nazwą.
+
+**Domyślny** pojawia się przy serwerze na twoim komputerze lub w twojej sieci, a także przy Grok CLI, które ma własny model domyślny (zobacz [Narzędzia CLI w ramach subskrypcji](subscription-clis.md)). Hostowana usługa API wymaga nazwy modelu.
+
 ## Adresy popularnych serwerów lokalnych
 
 Port to numerowany kanał, z którego serwer korzysta na twoim komputerze. `localhost` oznacza ten sam komputer, więc te adresy działają w podanej postaci, gdy Marinara i serwer działają na jednym komputerze.

@@ -100,16 +100,6 @@ z dróg konfiguracji:
 - **Create with AI** przygotowuje wygenerowaną hierarchię do sprawdzenia.
 - **Use template** otwiera bibliotekę światów jeszcze przed utworzeniem gry.
 - **Build manually** zaczyna od pustej hierarchii do edycji.
-- **From the world** (ze świata) pojawia się, gdy gra tworzy świat (zobacz
-  świat jako mapę: jego regiony, osady i miejsca oraz drogi między nimi wraz
-  z czasem podróży. Przed zapisaniem możesz to sprawdzić. Ta droga nie wymaga
-  generowania przez AI, a miejsca na mapie są miejscami świata.
-  W trakcie gry jedno i drugie pozostaje zgodne. Mistrz gry i rynki używają
-  miejsca, w którym mapa umieszcza drużynę. Gdy mistrz gry nazwie miejsce ze
-  świata, mapa przenosi tam drużynę. W World Maps 1.6.0 lub nowszym wybiera
-  najkrótszą trasę. Wcześniejsze wersje przenoszą drużynę tylko o jeden krok:
-  do miejsca wewnątrz, do miejsca, które je otacza, albo do miejsca, z którym
-  łączy je droga.
 
 Po wybraniu opcji **Use template** okno wyboru pokazuje najpierw sekcję
 **Shared worlds**, a pod nią **Independent templates**:

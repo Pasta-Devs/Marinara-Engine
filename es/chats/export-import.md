@@ -40,7 +40,7 @@ Marinara exporta todos los mensajes desde el primero hasta el último que elegis
 
 ## Exportar varios chats a la vez
 
-1. En la barra lateral izquierda, haz clic en la pestaña del modo que quieras: **CONVO**, **RP** o **GM**. Cada pestaña exporta solo sus propios chats.
+1. En **Chats**, haz clic en la pestaña del modo que quieras: **CONVO**, **RP** o **GM**. Cada pestaña exporta solo sus propios chats.
 2. Haz clic en **Select chats** en la parte superior de la lista.
 3. Haz clic en cada chat que quieras. Una barra en la parte inferior muestra el recuento, por ejemplo "3 selected".
 4. Haz clic en **Export** en la barra.
@@ -51,7 +51,7 @@ Tu navegador descarga un archivo `.zip` con una transcripción JSONL por chat. L
 
 Esto crea un chat nuevo a partir de un archivo `.jsonl` guardado por Marinara o exportado desde SillyTavern.
 
-1. En la barra lateral izquierda, haz clic en la pestaña del modo que quieras. El chat importado usa el modo de la pestaña que tienes abierta, no el modo del archivo.
+1. En **Chats**, haz clic en la pestaña del modo que quieras. El chat importado usa el modo de la pestaña que tienes abierta, no el modo del archivo.
 2. Haz clic en el botón **Import** (Importar) junto al botón **+**. Su etiqueta es **Import SillyTavern or Marinara chat JSONL**.
 3. Elige tu archivo `.jsonl`.
 

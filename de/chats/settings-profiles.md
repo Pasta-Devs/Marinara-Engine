@@ -87,7 +87,7 @@ Der Stern neben dem Dropdown-Menü markiert das Profil, das neue Chats in diesem
 
 **Export settings profile (.json)** lädt eine Datei `.marinara-settings-profile.json` herunter, die du als Backup aufheben oder weitergeben kannst. **Import settings profile (.json)** legt aus einer passenden Datei ein neues Profil an und überschreibt nie ein vorhandenes. Auch ältere Exporte lassen sich weiterhin importieren. Schlägt ein Import fehl, erscheint **Import failed**.
 
-Profile speichern Einstellungen, keine Zugangsdaten von Anbietern. Ein exportiertes oder importiertes Profil lässt außerdem den Webhook des Discord-Mirrors, die DeepLX-Adresse, den DeepL-Key und die Intiface-Adresse weg. Profile, die du in dieser Installation speicherst, behalten sie. Exportierte Dateien enthalten weder Persona noch Lorebooks, da diese nur in dieser Installation vorhanden sind.
+Profile speichern Einstellungen, keine Zugangsdaten von Anbietern. Ein exportiertes oder importiertes Profil lässt außerdem den Webhook des Discord-Mirrors, die DeepLX-Adresse, den DeepL-Key und die Intiface-Adresse weg. Profile, die du in dieser Installation speicherst, behalten sie. Exportierte Dateien enthalten weder Persona noch Lorebooks noch die Auswahl für Preset-Variablen, da diese zu dieser Installation gehören.
 
 ## Das Profil „Default“
 
@@ -106,7 +106,7 @@ Nutzt ein neuer Chat ein Standardprofil mit gespeicherter Anordnung, hat diese A
 Ein Profil hält fest, wie der Chat mit dem Modell spricht:
 
 - Verbindung.
-- Prompt-Preset (in Conversation heißt es Prompt-Quelle).
+- Prompt-Preset (in Conversation heißt es Prompt-Quelle), mit deiner Auswahl für seine [Preset-Variablen](../prompts/preset-variables.md). Wendest du das Profil an, übernimmt der Chat diese Auswahl. Ein Profil, das gespeichert wurde, bevor es diese Auswahl enthalten konnte, lässt die eigene Auswahl des Chats unverändert.
 - Agenten und Tools.
 - Übersetzung, Memory Recall und Advanced Parameters.
 - Fenster- und Schaltflächenanordnung: Positionen, Größen, Anheftungen, Sperren, welche Tools in Chat Settings liegen oder herausgelöst sind, offene Steuerungsfenster und Schaltflächenpositionen am Computer und Telefon. Profile ohne gespeicherte Anordnung, etwa **Default**, lassen die Anordnung des Chats unverändert.
@@ -121,7 +121,7 @@ Ein Profil kann auch **Startauswahlen** enthalten: eine Persona, zu aktivierende
 - **Save current chat settings into this profile** ersetzt die Lorebooks des Profils durch die Lorebooks, die dem Chat mit **Add Lorebook** (Lorebook hinzufügen) oder durch das Anwenden eines Profils hinzugefügt wurden. Ein Lorebook, das Lorebook Keeper für den Chat angelegt hat, wird nicht gespeichert. Wurden keine Lorebooks hinzugefügt, hat das Profil nach dem Speichern keine. Das Profil behält seine eigene Persona und seinen eigenen Hintergrund. Ein Profil ohne Hintergrund übernimmt beim Speichern den Hintergrund des Chats.
 - Das Aktualisieren anderer Chats ändert nie deren Persona, Lorebooks oder Hintergrund.
 
-Chat-eigene Inhalte ersetzt ein Profil nicht: Charaktere, Sprites, Zusammenfassung, Tags und Szenen-Prompt. Es enthält auch keinen Chatverlauf und keinen laufenden Zustand wie Makrovariablen, die Charaktere, die du ausgeschaltet hast, oder einen Raum im Mehrspielermodus.
+Chat-eigene Inhalte ersetzt ein Profil nicht: Charaktere, Sprites, Zusammenfassung, Tags, Szenen-Prompt und **Autorennotizen**. Es enthält auch keinen Chatverlauf und keinen laufenden Zustand wie Makrovariablen, die Charaktere, die du ausgeschaltet hast, oder einen Raum im Mehrspielermodus. Ein in einer früheren Version gespeichertes Profil kann noch **Autorennotizen** enthalten, beim Anwenden bleiben aber die eigenen Notizen des Chats erhalten.
 
 ### Was Save and update kopiert
 
@@ -134,13 +134,14 @@ Chat-eigene Inhalte ersetzt ein Profil nicht: Charaktere, Sprites, Zusammenfassu
 - Gedächtnis- und Zusammenfassungseinstellungen.
 - Übersetzung.
 - Die Fensteranordnung.
+- Die Auswahl für Preset-Variablen, nur in Chats, die dasselbe Prompt-Preset wie das Profil verwenden.
 
 Alles andere behält jeder Chat so, wie er es hat:
 
 - Seine Verbindung, sein Prompt-Preset und sein eigener Prompt.
 - Seine Geschichte und seine Charaktere.
 - Seine Lorebooks und sein Hintergrund.
-- Seine Notizen und sein Fortschritt.
+- Seine **Autorennotizen** und sein Fortschritt.
 - Welche Roleplay-Befehle nur sein Erzähler verwenden darf.
 - Ob Noodle seine Nachrichten verwenden darf.
 

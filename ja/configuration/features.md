@@ -14,6 +14,7 @@
 | **Retry failed provider calls**(失敗したプロバイダー呼び出しを再試行) | `providerRetry` | オフ | `PROVIDER_RETRY_TRANSIENT_ERRORS` |
 | **Lorebook activation stats**(ロアブックの有効化統計) | `usageAndActivationStats` | オフ | なし |
 | **Recover deleted chat messages**(削除したチャットメッセージの復元) | `messageTrash` | オフ | なし |
+| **Vectors on for new lorebooks**(新しいロアブックのベクトルをオンにする) | `newLorebookVectors` | オフ | `LOREBOOK_NEW_BOOK_VECTORS` |
 
 設定で`features`を検索するとこのセクションに移動します。
 
@@ -71,6 +72,16 @@ APIは`GET`と`PUT /api/app-settings/features`です。`PUT`はオブジェク�
 
 オフ: 削除したメッセージはすぐに削除されます。
 
+### Vectors on for new lorebooks
+
+設定キー: `newLorebookVectors`。環境変数: `LOREBOOK_NEW_BOOK_VECTORS`。
+
+オン: 新しいロアブックは**Vectors**(ベクトル)がオンの状態で作成され、エントリーをすぐにベクトル化して意味で検索できます。
+
+オフ: 新しいロアブックは**Vectors**がオフの状態で作成されます。キーワードは引き続き使え、後からそのロアブックで**Vectors**をオンにできます。
+
+この設定が決めるのは、初期値を持たずに作成されるロアブックの開始時の値だけです。対象は、**Create lorebook**(ロアブックを作成)(スイッチが表示され、その本に使う値を変更できます)、ファイルに独自の設定がないインポート、Game ModeやLorebook Keeperが作成する本です。既存のロアブックはそれぞれの設定を維持します。Professor Mariが作成するロアブックは、すでに**Vectors**がオンの状態で作成されます。
+
 <a id="precedence"></a>
 
 ## 優先順位
@@ -83,6 +94,7 @@ APIは`GET`と`PUT /api/app-settings/features`です。`PUT`はオブジェク�
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | ロアブックの選択固定 | `true`、`1`、`yes`、`on`でオン。それ以外はオフ。 |
 | `PROVIDER_RETRY_TRANSIENT_ERRORS` | 失敗したプロバイダー呼び出しの再試行 | `true`、`1`、`yes`、`on`でオン。それ以外はオフ。 |
+| `LOREBOOK_NEW_BOOK_VECTORS` | Vectors on for new lorebooks | `true`、`1`、`yes`、`on`でオンになります。それ以外の値はオフです。 |
 
 環境変数は確認のたびに読むため、`.env`変更は再起動なしで反映されます。
 

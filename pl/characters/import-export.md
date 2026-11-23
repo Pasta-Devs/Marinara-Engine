@@ -52,6 +52,47 @@ Lorebook to zbiór faktów o tle historii, do których AI zagląda w trakcie cza
 
 Aby przenieść całą instalację SillyTavern, użyj importera zbiorczego w panelu **Settings** (Ustawienia), w zakładce **Imports** (import). Przenosi on jednocześnie postacie, czaty, presety i lorebooki. Zobacz [Importowanie z SillyTavern](../data/importing-from-sillytavern.md).
 
+## Aktualizowanie posiadanej postaci
+
+Gdy autor karty opublikuje nowszą wersję, możesz zaktualizować swoją kopię zamiast dodawać drugą. Postać zachowuje czaty, wspomnienia, galerię, sprite'y, folder, gwiazdkę ulubionych, kolory i twoje tagi. Jej obecna karta najpierw trafia do sekcji **Historia wersji** (nawet przy wyłączonym automatycznym wersjonowaniu), więc możesz do niej wrócić.
+
+### Z okna importu
+
+1. Zaimportuj nowszy plik karty jak zwykle (kroki powyżej).
+2. Jeśli przypomina posiadaną postać, import zatrzymuje się na ekranie **Już w twojej bibliotece**. Marinara dopasowuje kartę pobraną z tej samej strony przeglądarki kart albo o tym samym imieniu i twórcy. Powód widać pod każdą opcją.
+3. Dla każdej karty wybierz jedną opcję:
+   - **Zaktualizuj "Name"**: zaktualizuj tę postać na miejscu (opcja domyślna).
+   - **Zaktualizuj inną postać...**: wybierz dowolną postać z listy. Użyj tej opcji dla karty pozyskanej inną drogą, na przykład ze strony internetowej do aplikacji SillyTavern, a potem do aplikacji Marinara, przez co jej imię lub twórca już się nie zgadzają.
+   - **Dodaj jako nową postać**: zachowaj obie.
+   - **Pomiń tę kartę**: pomiń ją.
+4. Wybierz, czy włączyć **Użyj obrazu z nowej karty**, i co zrobić z polem **Notatki twórcy** (zobacz niżej).
+5. Kliknij **Kontynuuj**. Jeśli karta ma wbudowany lorebook, następny krok pyta o niego jak zwykle. Powiązany lorebook aktualizowanej postaci otrzymuje nowe wpisy, zamiast tworzyć drugą kopię.
+6. Wynik brzmi `Updated "Name". Its old card is in Version history.`
+
+### Z edytora postaci
+
+1. Otwórz postać i najpierw zapisz zmiany.
+2. Kliknij **⋯** obok **Zapisz** i wybierz **Zaktualizuj z pliku karty...**.
+3. Wybierz nowszą kartę (.png, .json lub .charx), sprawdź opcje i kliknij **Zaktualizuj**.
+
+Dla postaci pobranej z [przeglądarki kart](bot-browser.md) to samo menu zawiera opcję **Sprawdź aktualizację**. Otwiera ona stronę tej karty w przeglądarce kart, gdzie możesz porównać i zaimportować nowszą wersję.
+
+### Notatki twórcy
+
+Notatki twórcy to krótki tekst pod każdą kartą w sekcji **Postacie**. Niektórzy przechowują tam własny CSS. Wybierz jedną opcję:
+
+| Opcja | Co się dzieje |
+| --- | --- |
+| **Połącz: zachowaj moje i dodaj zmiany autora** (domyślna) | Twój tekst i CSS zostają. Wiersze dodane przez autora trafiają przed pierwszy blok stylów, a usunięte przez autora znikają, o ile nie zostały przez ciebie zmienione. Jeśli notatki nigdy nie były edytowane, zostają po prostu zastąpione notatkami z nowej karty. |
+| **Użyj notatek z karty** | Twoje notatki zostają zastąpione notatkami z karty. |
+| **Zachowaj moje** | Twoje notatki pozostają dokładnie takie, jakie są. |
+
+Karty zaimportowane przed wprowadzeniem tej funkcji nie pamiętają pierwotnych notatek, więc pierwsze scalenie tylko dodaje wiersze, których jeszcze nie masz.
+
+### Cofanie aktualizacji
+
+Otwórz postać, znajdź sekcję **Historia wersji** na zakładce **Metadane** i przywróć wersję sprzed aktualizacji. Zobacz [Historia wersji](creating-and-editing-characters.md#version-history).
+
 ## Eksportowanie postaci
 
 1. Otwórz postać w edytorze.

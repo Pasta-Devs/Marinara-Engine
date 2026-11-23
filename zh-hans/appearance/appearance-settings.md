@@ -59,11 +59,14 @@
 
 如果设备要求减少动态效果，这两种动画都不会播放。
 
+<a id="other-app-style-controls"></a>
+
 ### 其他 App Style 控件
 
 - **Custom Mouse Pointer**(自定义鼠标指针，默认开启) 使用 Marinara 的强调色光标。关闭它就改用系统光标，也可以把光标交给自定义主题控制。
 - **Reduce Ambient Animations & Effects**(减少环境动画和特效) 会停止装饰性动画、环境粒子、轮换预览和文字逐渐显现的效果。设备要求减少动态效果时，Marinara 也会这样做。
-- **Desktop sidebar width**(桌面端侧边栏宽度) 设置桌面端两侧侧边栏的宽度。**Reset width**(重置宽度) 会恢复原来的宽度。手机保持原有布局。
+- **Desktop sidebar width**(桌面端侧边栏宽度) 设置电脑上侧边栏的宽度，范围为 280 到 480 px。**Chats**(聊天) 以及 **Characters**(角色)、**Settings**(设置) 等面板都在这一个侧边栏里打开。**Reset width**(重置宽度) 会把宽度恢复为 320 px。也可以拖动侧边栏的内侧边缘调整。手机和平板保持全屏面板。
+- **Desktop sidebar side**(桌面端侧边栏位置) 把侧边栏固定在窗口的 **Right**(右侧，默认) 或 **Left**(左侧)。选择 **Left** 时，顶栏也会镜像排列：**Chats** 和面板按钮移到左侧，**Home**(主页) 移到右侧。这只在电脑上生效，手机和平板保持原有布局。
 
 ### 聊天组件样式
 
@@ -125,7 +128,7 @@
 
 | 设置 | 作用 | 默认值 |
 | --- | --- | --- |
-| **Chat position**(聊天位置) | 宽屏时消息和输入框的位置：**Left**(左)、**Center**(居中) 或 **Right**(右)。同一侧打开了侧边栏或 Tracker Panel 时，它们会随之移开。手机上聊天始终占满整个宽度。 | **Center** |
+| **Chat position**(聊天位置) | 宽屏时消息和输入框的位置：**Left**、**Center**(居中) 或 **Right**。同一侧打开了侧边栏或 Tracker Panel 时，它们会随之移开（见 **Desktop sidebar side**）。手机上聊天始终占满整个宽度。 | **Center** |
 | **Visual Novel display**(视觉小说显示) | 每次显示一个写完的段落，配上对白半身像和你的立绘。它会改变当前的 Roleplay 聊天，也会改变尚未保存样式的聊天所用的默认值。 | 关闭 |
 | **Roleplay Messages Background Opacity**(Roleplay 消息背景不透明度) | 0% 到 100% 的滑块。调低它，背景就会透过消息气泡显出来。 | 90% |
 | **Roleplay Avatars**(Roleplay 头像) | 每条消息旁边的头像样式：**None**(无)、**Small Circles**(小圆形)、**Small Rectangles**(小矩形) 或 **Glued Side Panel**(贴边侧面板)。 | **Small Circles** |

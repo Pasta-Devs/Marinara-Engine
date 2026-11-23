@@ -51,7 +51,7 @@ Antes de começar: ative **Autonomous Messages**.
 
 Uma agenda pertence ao personagem e é reutilizada em todo chat de Conversation. Desativar **Schedules** em um chat mantém a opção desativada ali e mantém a agenda.
 
-A renovação semanal automática fica desativada, a menos que você ative **Renew weekly** para esse personagem no **Character Schedule Manager**. Abra-o com o botão de calendário no rodapé da barra lateral, ao lado da caixa de status.
+A renovação semanal automática fica desativada, a menos que você ative **Renew weekly** para esse personagem no **Character Schedule Manager**. Abra-o com o botão de calendário no rodapé de **Chats**, na aba **CONVO**, ao lado da caixa de status.
 
 O Marinara tenta uma renovação uma vez por chat a cada vez que a página do aplicativo carrega. Se ela falhar, ele não tenta de novo até você recarregar a página. Clique em **Generate** para tentar de novo.
 

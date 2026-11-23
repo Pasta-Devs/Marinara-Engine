@@ -63,7 +63,8 @@ Se o dispositivo pedir movimento reduzido, as duas animações são puladas.
 
 - **Custom Mouse Pointer** (cursor do mouse personalizado, ativado por padrão) usa o cursor do Marinara na cor de destaque. Desative para usar o cursor do sistema, ou para deixar um tema personalizado controlar o cursor.
 - **Reduce Ambient Animations & Effects** (reduzir animações e efeitos de ambiente) interrompe as animações decorativas, as partículas de ambiente, as prévias giratórias e a revelação gradual do texto. Marinara também faz isso quando o dispositivo pede movimento reduzido.
-- **Desktop sidebar width** (largura da barra lateral no computador) define a largura das duas barras laterais no computador. **Reset width** (redefinir a largura) restaura o valor. O celular mantém o próprio layout.
+- **Largura da barra lateral no computador** define a largura da barra lateral no computador, de 280 a 480 px. **Chats** e os painéis, como **Personagens** e **Configurações**, abrem todos nessa única barra lateral. **Redefinir a largura** restaura o valor de 320 px. Você também pode arrastar a borda interna da barra lateral. Celulares e tablets mantêm os painéis em tela cheia.
+- **Lado da barra lateral no computador** posiciona a barra lateral à **Direita** (o padrão) ou à **Esquerda** da janela. Com **Esquerda**, a barra superior se inverte: **Chats** e os botões dos painéis vão para a esquerda, e **Início** vai para a direita. Isso funciona apenas no computador. Celulares e tablets mantêm o layout.
 
 ### Chat widget style
 
@@ -125,7 +126,7 @@ A seção **Backgrounds** reúne o seletor **Chat Background** (plano de fundo d
 
 | Configuração | O que faz | Padrão |
 | --- | --- | --- |
-| **Chat position** (posição do chat) | Onde as mensagens e a caixa de entrada ficam em telas largas: **Left**, **Center** ou **Right**. Uma barra lateral aberta ou um Tracker Panel do mesmo lado as empurra junto. No celular, o chat continua com a largura toda. | **Center** |
+| **Chat position** (posição do chat) | Onde as mensagens e a caixa de entrada ficam em telas largas: **Left**, **Center** ou **Right**. Uma barra lateral aberta ou um Tracker Panel do mesmo lado as empurra junto (veja **Lado da barra lateral no computador**). No celular, o chat continua com a largura toda. | **Center** |
 | **Visual Novel display** (exibição Visual Novel) | Mostra um parágrafo terminado por vez, com um retrato de diálogo e os seus sprites. Muda o Roleplay atual e o padrão dos chats sem estilo salvo. | Desativado |
 | **Roleplay Messages Background Opacity** | Um controle deslizante de 0% a 100%. Diminua para deixar o plano de fundo aparecer através dos balões de mensagem. | 90% |
 | **Roleplay Avatars** | O estilo do avatar ao lado de cada mensagem: **None**, **Small Circles**, **Small Rectangles** ou **Glued Side Panel**. | **Small Circles** |

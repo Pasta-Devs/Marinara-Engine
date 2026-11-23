@@ -14,7 +14,7 @@ Eldoria is a rainy port city ruled by a council of nine merchants.
 
 ## 로어북 만들고 항목 추가하기
 
-1. 사이드바에서 **Lorebooks**(로어북) 패널을 여세요.
+1. 상단 바에서 **Lorebooks** 패널을 여세요.
 2. 더하기 아이콘인 **New**를 클릭하세요. **Create Lorebook**(로어북 만들기) 창이 열립니다.
 3. **Name**(이름)을 입력하세요. 반드시 입력해야 하는 필드입니다.
 4. 원하면 **Description**(설명)을 추가하세요.

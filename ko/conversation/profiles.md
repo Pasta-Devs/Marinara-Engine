@@ -8,7 +8,7 @@
 
 이 입력란들은 **Convo**(대화(콘보)) 탭에 있습니다.
 
-1. **Character Editor**에서 캐릭터를, **Persona Editor**에서 페르소나를 여세요. 사이드바에서 **Characters**(캐릭터) 패널을 열거나, 오른쪽 사이드바 상단 바의 사람 아이콘으로 **Personas**(페르소나) 패널을 연 다음 카드를 클릭하면 됩니다([캐릭터 만들기와 편집](../characters/creating-and-editing-characters.md)과 [사용자 페르소나](../characters/personas.md) 참고).
+1. **Character Editor**에서 캐릭터를, **Persona Editor**에서 페르소나를 여세요. 상단 바에서 **Characters**(캐릭터) 또는 **Personas**(페르소나) 패널을 연 다음 카드를 클릭하면 됩니다([캐릭터 만들기와 편집](../characters/creating-and-editing-characters.md)과 [사용자 페르소나](../characters/personas.md) 참고).
 2. **Convo** 탭을 클릭하세요.
 
 이 탭에는 **Convo Display Name**(대화(콘보) 표시 이름), **About Me**(내 소개), **Convo Behavior**(대화(콘보) 동작)가 있습니다. 캐릭터에는 **Weekly schedule**(주간 일정)도 있습니다. **Edit schedule**(일정 편집)이나 **Create schedule**(스케줄 만들기)이 함께 표시됩니다([스케줄](schedules.md) 참고). 캐릭터의 셀카 지침은 **Images**(이미지) 탭의 **Selfie instructions**(셀카 지침)로 옮겼습니다. [셀카](selfies.md)를 참고하세요.

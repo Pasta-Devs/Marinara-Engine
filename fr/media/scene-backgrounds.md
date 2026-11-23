@@ -74,7 +74,23 @@ Tu peux refaire une image générée sans régénérer la réponse à laquelle e
 3. Modifie ce que tu veux dans les champs sous l'image : **Prompt**, **Negative prompt** (prompt négatif), un champ pour chaque personnage sous **Character prompts** (prompts de personnage) si l'image en avait, et le modèle d'image.
 4. Clique sur **Generate image** (générer l'image), ou sur **Cancel** pour laisser l'image telle quelle.
 
-La nouvelle image remplace l'ancienne dans le message. L'ancienne reste dans la galerie : tu peux donc l'épingler de nouveau. Les images de référence sont renvoyées à partir des avatars actuels des personnages. Certaines images plus anciennes n'ont pas enregistré leur prompt négatif ni leurs prompts de personnage ; l'éditeur l'indique le cas échéant.
+La nouvelle image devient la version sélectionnée dans le message. Les résultats précédents restent regroupés dans une seule vignette de la galerie, avec un compteur de versions. Chaque version conserve son prompt, son prompt négatif et les autres détails de génération enregistrés. Les images de référence sont renvoyées à partir des avatars actuels des personnages. Certaines images plus anciennes n'ont pas enregistré leur prompt négatif ni leurs prompts de personnage ; l'éditeur l'indique le cas échéant.
+
+### Versions d'image
+
+Ouvre une image regroupée en pile pour choisir une version. Les flèches gauche/droite, les touches fléchées et les balayages horizontaux permettent de passer d'une vignette de la galerie à l'autre. Les commandes haut/bas, les touches fléchées et les balayages verticaux sur l'image permettent de passer d'une version à l'autre dans la pile actuelle. Dézoome avant de naviguer. Faire défiler le prompt ne change pas de version.
+
+Clique sur l'image, l'en-tête du prompt ou le bouton de repli pour utiliser les touches Haut/Bas pour les versions. Clique sur le texte du prompt ou sur un bouton de copie pour utiliser ces touches pour le défilement à la place. Les commandes de version restent aussi visibles pendant la régénération ou l'édition. Applique ou efface un masque peint avant de changer de version ; les commandes sont désactivées pendant la génération.
+
+La version que tu choisis est enregistrée et affichée dans le chat, même après un rechargement. Régénérer ou modifier une ancienne version ajoute un nouveau résultat à la même pile et conserve aussi les versions suivantes. Une branche du chat a sa propre sélection.
+
+Utilise **Supprimer l'image de la galerie** sur la vignette, ou le bouton de suppression dans la visionneuse, pour choisir ce que tu veux retirer :
+
+- **Supprimer cette version** supprime la version affichée. Si elle était sélectionnée, la version restante la plus récente s'affiche.
+- **Supprimer les autres versions** conserve la version affichée et supprime les autres.
+- **Supprimer toute la pile** supprime toutes les versions et leurs pièces jointes d'image du chat.
+
+Ces choix suppriment définitivement les versions enregistrées. **Annuler** les conserve toutes.
 
 ## Relire un prompt avant l'envoi
 

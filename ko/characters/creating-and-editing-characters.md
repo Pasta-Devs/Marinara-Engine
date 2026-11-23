@@ -51,6 +51,20 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 
 아래 절에서는 **Metadata**, **Card**, **Images**, **Voice**, **Advanced** 탭과 아바타, 버전 히스토리를 설명합니다.
 
+
+<a id="images-tab"></a>
+
+## Images 탭
+
+**Images** 탭에서는 이미지 속 캐릭터의 모습을 설정합니다. 상단의 버튼을 눌러 각 구역으로 이동하세요.
+
+- **Character Sheet**(캐릭터 시트). 캐릭터의 참조 이미지입니다. **Manage**(관리)를 클릭해 시트를 만들거나 업로드하거나 고르세요. 이미지 생성 시 아바타보다 우선하려면 **Use as reference image**(참조 이미지로 사용)를 켜세요. [Character Sheet](sprites.md#character-sheet)를 참고하세요.
+- **Selfie instructions**(셀카 지침). 카메라 스타일이나 표정 등 캐릭터의 Conversation 셀카에 넣는 선택 사항입니다. Noodle과 Slurp에서도 각 설정에서 켜면 사용할 수 있습니다. [셀카](../conversation/selfies.md)를 참고하세요.
+- **Sprites**(스프라이트). 표정, 전신 스프라이트, 통화 클립입니다. [캐릭터 스프라이트](sprites.md)를 참고하세요.
+- **Gallery**(갤러리). 캐릭터에 연결해 보관하는 이미지와 동영상입니다. [캐릭터와 페르소나 갤러리](galleries.md)를 참고하세요.
+
+페르소나의 **Images** 탭에도 **Selfie instructions**를 제외한 같은 항목이 있습니다.
+
 <a id="metadata-tab"></a>
 
 ## Metadata 탭
@@ -88,7 +102,7 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 
 **Public Face**에는 다른 등장인물이 이 캐릭터에 대해 보거나 알 수 있는 내용을 적습니다. 외모, 태도, 역할, 평판, 공개된 관계 등이 해당합니다. 비밀, 속마음, 비공개 과거와 캐릭터를 연기하는 방법에 관한 지침은 빼세요. 이 필드는 캐릭터 카드의 일부로 전송되지 않습니다. 프롬프트는 `{{publicFace}}` 매크로를 넣은 곳에서만 이를 읽으며, 내 페르소나에는 `{{personaPublicFace}}`를 씁니다. [프롬프트 매크로](../prompts/macros.md#identity-character-and-persona-macros)를 참고하세요. Individual Roleplay 그룹 채팅에서 **Others' Public Faces**를 켜면 다른 캐릭터의 턴에 이 필드를 보냅니다. [추가 Individual 설정](../chats/group-chats.md#more-individual-settings)을 참고하세요. **Characters**(캐릭터) 또는 **Persona**(페르소나) 소스가 **Public Face**인 에이전트는 카드 대신 이 필드를 읽습니다. [그 밖의 설정](../agents/custom-agents.md#other-settings)을 참고하세요. **Send Public Faces**를 켜면 Roleplay에서 Impersonate도 카드 대신 이 필드를 읽습니다. [Impersonate 설정](../chats/guided-and-impersonate.md#the-impersonate-settings)을 참고하세요.
 
-**Image Appearance Override**(이미지 외모 재정의)는 **Appearance** 아래에 있으며 기본값은 꺼짐입니다. 켜면 LoRA 트리거 단어(사용자 지정 이미지 스타일을 켜는 키워드)처럼 짧은 이미지 태그를 넣을 두 번째 상자가 나타납니다. 켜 두고 내용을 채우면 이미지 프롬프트는 그 태그를 적힌 그대로 쓰고, **Appearance**는 배경 정보로 남겨 둡니다. AI 아바타 프롬프트도 이 태그를 바탕으로 채워집니다. 내레이터는 항상 **Appearance**의 전체 내용을 봅니다.
+**Appearance**에는 **Prose**(서술문)와 **Image tags**(이미지 태그) 탭이 있습니다. **Prose**는 외모를 설명하는 본문입니다. **Image tags**에는 LoRA 트리거 단어(사용자 지정 이미지 스타일을 켜는 키워드)처럼 이미지 프롬프트에 쓸 짧은 태그를 적습니다. 태그를 입력하면 **Use for image prompts**(이미지 프롬프트에 사용)가 체크되고, 탭에 점이 표시되어 사용 중임을 알립니다. 체크된 상태에서 태그가 채워져 있으면 이미지 프롬프트는 태그를 적힌 그대로 쓰고, 서술문은 배경 정보로 남겨 둡니다. 태그를 보관만 하고 쓰지 않으려면 체크를 해제하세요. 그러면 이미지 프롬프트는 **Prose**를 사용합니다. AI 아바타 프롬프트도 태그를 바탕으로 채워집니다. 내레이터는 항상 **Prose**의 내용을 봅니다. **Images** 탭의 **Go to Appearance**(외모로 이동)로 이곳에 올 수 있습니다. 이 탭에는 자체 마법봉이 있습니다. [마법봉으로 이미지 태그 만들기](#image-tags-from-the-wand)를 참고하세요.
 
 **Dialogue & Greetings** 구역에서는 채팅이 어떻게 시작되고 캐릭터가 어떤 말투를 쓰는지 정합니다.
 
@@ -108,18 +122,31 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 
 ### 마법봉으로 카드 필드 작성하기
 
-**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**, **Scenario**, **Public Face**, **Example Dialogue**, **First Message**와 각 **Alternate Greeting** 필드 위에는 아이콘만 있는 마법봉 버튼이 있습니다. 툴팁에 그 버튼이 작성할 필드가 표시됩니다.
+**Summary**, **Description**, **Personality**, **Backstory**, **Appearance**(두 탭 모두), **Scenario**, **Public Face**, **Example Dialogue**, **First Message**와 각 **Alternate Greeting** 필드 위에는 아이콘만 있는 마법봉 버튼이 있습니다. 툴팁에 그 버튼이 작성할 필드가 표시됩니다.
 
 시작하기 전에: 작동하는 텍스트 연결을 설정하세요. [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)를 참고하세요.
 
 1. 필드에 `smart, scientist, handsome`처럼 유지할 아이디어를 적거나 비워 두세요.
 2. AI가 참고할 다른 카드 필드를 채우세요. 먼저 저장할 필요는 없습니다.
-3. 해당 필드의 마법봉을 클릭하세요. Marinara는 입력한 텍스트를 시작 정보로 삼아 그 필드를 100–300단어로 작성하도록 요청합니다. Example Dialogue는 대화 예시를 요청합니다. **First Message**와 각 **Alternate Greeting**은 사용자의 답변 여지를 남겨 두는 첫 메시지 하나를 요청합니다. **Public Face**에는 단어 수 범위가 없습니다. 마법봉이 카드의 나머지 내용을 비공개 부분 없이 다시 쓰므로 길이는 카드에 따라 달라집니다.
+3. 해당 필드의 마법봉을 클릭하세요. Marinara는 입력한 텍스트를 시작 정보로 삼아 그 필드를 100–300단어로 작성하도록 요청합니다. Example Dialogue는 대화 예시를 요청합니다. **First Message**와 각 **Alternate Greeting**은 사용자의 답변 여지를 남겨 두는 첫 메시지 하나를 요청합니다. **Public Face**에는 단어 수 범위가 없습니다. 마법봉이 카드의 나머지 내용을 비공개 부분 없이 다시 쓰므로 길이는 카드에 따라 달라집니다. **Appearance**의 **Image tags** 탭에서는 마법봉이 대신 카드의 외모 설명을 이미지 태그 한 줄로 바꿉니다. [마법봉으로 이미지 태그 만들기](#image-tags-from-the-wand)를 참고하세요.
 4. 결과를 수정한 다음 **Save**를 클릭하세요.
 
 마법봉은 기본 에이전트 텍스트 연결을 사용하고, 없으면 기본 텍스트 연결을 사용합니다. 설정한 에이전트 대체 연결도 그대로 적용됩니다.
 
 마법봉은 저장하지 않은 초안에서 선택한 필드만 바꿉니다. 생성에 실패하면 입력한 텍스트가 그대로 남습니다. 기다리는 동안 그 필드를 수정하거나 다른 카드로 바꾸면, 늦게 도착한 결과가 작업한 내용을 덮어쓰지 않습니다. 마법봉을 쓰는 데 Professor Mari는 필요하지 않습니다.
+
+<a id="image-tags-from-the-wand"></a>
+
+#### 마법봉으로 이미지 태그 만들기
+
+**Appearance**의 **Image tags** 탭에 있는 마법봉은 카드의 외모 설명, 주로 **Appearance** 자체를 바탕으로 태그를 작성합니다. **Use for image prompts**도 체크합니다.
+
+- 상자에 이미 있는 태그 중 외모 설명에 나오지 않는 태그(예: LoRA 트리거 단어)는 작성한 그대로 줄 맨 앞에 유지됩니다.
+- 그 뒤에 새 태그가 들어갑니다. `1girl`, `1boy`, `1other` 중 하나에 이어 체형, 머리카락, 눈, 피부, 얼굴, 무늬 같은 지속적인 특징이 나옵니다. 유지할 태그가 없으면 `1girl`, `1boy`, `1other` 중 하나로 시작합니다.
+- 새 태그는 이미지 모델이 익숙하게 사용하는 Danbooru(많은 모델이 태그를 학습한 애니메이션 이미지 사이트) 스타일의 영어 소문자로 작성되며 쉼표로 구분됩니다.
+- 새 태그에는 카드에 명시된 특징만 사용합니다. 옷차림, 표정, 자세, 장소는 장면마다 바뀌므로 제외합니다.
+
+태그는 실제 Danbooru 태그 목록이 아니라 모델이 만들어 내므로, 이미지 모델이 모르는 표현으로 작성될 수 있습니다. 저장하기 전에 태그 줄을 확인하고 수정하세요.
 
 ## 아바타 추가하기
 
@@ -138,25 +165,12 @@ Character Editor는 채팅 영역을 전체 화면 작업 공간으로 바꿉니
 
 1. 아바타 타일 위에 마우스를 올리고 마법봉 버튼을 클릭하세요. **Generate Character Avatar**(캐릭터 아바타 생성) 창이 열립니다.
 2. **Image Generation Connection**(이미지 생성 연결)을 고르세요.
-3. **Avatar Prompt**(아바타 프롬프트)를 확인하거나 고치세요. **Image Appearance Override**가 켜져 있고 내용이 채워져 있으면 그 내용으로 시작합니다. 그렇지 않으면 **Appearance**, **Description**, **Personality** 중 먼저 텍스트가 있는 것을 씁니다.
+3. **Avatar Prompt**(아바타 프롬프트)를 확인하거나 고치세요. **Use for image prompts**가 체크되어 있고 **Appearance**의 **Image tags**가 채워져 있으면 그 태그로 시작합니다. 그렇지 않으면 **Appearance**, **Description**, **Personality** 중 먼저 텍스트가 있는 것을 씁니다.
 4. 카드에 이미 아바타가 있으면 **Use current avatar as a reference**(현재 아바타를 참조로 사용)를 체크할 수 있습니다.
 5. **Generate**(생성)를 클릭하세요. 다시 시도하려면 **Regenerate**(재생성)를 클릭하세요.
 6. 결과가 마음에 들면 **Use Avatar**(아바타 사용)를 클릭하세요.
 
 그림 크기는 이미지 생성 설정의 **Portraits**(초상화) 이미지 크기를 따르며, 기본값은 1024 x 1024입니다. **Expose media prompts before sending**(전송 전에 미디어 프롬프트 표시)이 켜져 있으면 요청할 때마다 먼저 프롬프트 검토 단계가 나타납니다.
-
-<a id="images-tab"></a>
-
-## Images 탭
-
-**Images** 탭에서는 이미지 속 캐릭터의 모습을 설정합니다. 상단의 버튼을 눌러 각 구역으로 이동하세요.
-
-- **Character Sheet**(캐릭터 시트). 캐릭터의 참조 이미지입니다. **Manage**(관리)를 클릭해 시트를 만들거나 업로드하거나 고르세요. 이미지 생성 시 아바타보다 우선하려면 **Use as reference image**(참조 이미지로 사용)를 켜세요. [Character Sheet](sprites.md#character-sheet)를 참고하세요.
-- **Selfie instructions**(셀카 지침). 카메라 스타일이나 표정 등 캐릭터의 Conversation 셀카에 넣는 선택 사항입니다. Noodle과 Slurp에서도 각 설정에서 켜면 사용할 수 있습니다. [셀카](../conversation/selfies.md)를 참고하세요.
-- **Sprites**(스프라이트). 표정, 전신 스프라이트, 통화 클립입니다. [캐릭터 스프라이트](sprites.md)를 참고하세요.
-- **Gallery**(갤러리). 캐릭터에 연결해 보관하는 이미지와 동영상입니다. [캐릭터와 페르소나 갤러리](galleries.md)를 참고하세요.
-
-페르소나의 **Images** 탭에도 **Selfie instructions**를 제외한 같은 항목이 있습니다.
 
 ## Voice 탭
 
@@ -197,6 +211,7 @@ Text to Speech가 꺼져 있거나 모든 캐릭터가 한 목소리를 함께 �
 - 한 채팅은 필드마다 대체 필드를 하나만 쓸 수 있습니다. 다른 대체 필드에서 그 채팅을 체크하거나 Chat Settings에서 다른 대체 필드를 고르면 그쪽으로 옮겨 갑니다.
 - 체크한 채팅이 없으면 대체 필드는 나중에 쓰도록 비활성 상태로 남습니다.
 - 비어 있는 대체 필드는 해당 채팅에서 그 필드를 비웁니다.
+- **Appearance** 대체 필드에는 자체 **Prose**와 **Image tags** 탭이 있습니다. 해당 채팅에서는 이 태그가 카드의 태그를 대신합니다. 태그가 비어 있거나 체크가 해제되어 있으면 이미지 프롬프트는 대체 필드의 서술문을 사용하며, 카드의 태그는 사용하지 않습니다. 새 대체 필드를 만들면 카드의 태그도 복사됩니다. 대체 필드의 **Image tags** 탭에는 자체 마법봉이 있으며, 대체 필드의 서술문과 태그를 읽습니다.
 - 채팅별 시나리오와 이미지 외형 덮어쓰기 설정은 계속 우선 적용됩니다.
 - **Summary** 대체 필드는 메타데이터로 남으며 AI에 전달되지 않습니다.
 - 캐릭터가 채팅에서 빠지면 그 할당은 일시 중지되며, 캐릭터를 다시 추가하면 재개됩니다.
@@ -208,7 +223,7 @@ Text to Speech가 꺼져 있거나 모든 캐릭터가 한 목소리를 함께 �
 
 ## 버전 히스토리
 
-**Automatic versioning**이 켜져 있으면 저장할 때마다 **Metadata** 탭의 **Version history**에 스냅샷이 추가될 수 있습니다. 그 전까지는 `Previous card states will appear here after the next edit.`이 표시됩니다. 저장된 스냅샷 수는 카운터로 확인할 수 있습니다.
+**Automatic versioning**이 켜져 있으면 저장할 때마다 **Metadata** 탭의 **Version history**에 스냅샷이 추가될 수 있습니다. 그 전까지는 `Previous card states will appear here after the next edit.`이 표시됩니다. 저장된 스냅샷 수는 카운터로 확인할 수 있습니다. 더 새로운 카드로 캐릭터를 업데이트할 때는 스위치가 꺼져 있어도 항상 먼저 스냅샷을 저장합니다. [이미 있는 캐릭터 업데이트하기](import-export.md#update-a-character-you-already-have)를 참고하세요.
 
 저장된 버전과 현재 카드를 비교하려면 다음과 같이 하세요.
 

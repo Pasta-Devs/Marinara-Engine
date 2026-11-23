@@ -132,7 +132,20 @@ Desligar essa opção mostra **Past reasoning blocks** (blocos de raciocínio an
 
 1. Em **Advanced Parameters**, ligue **Image captioning**.
 2. Escolha um modelo no menu suspenso **Captioning model** (modelo de descrição).
-3. Se quiser, edite o **Captioning Prompt** (prompt de descrição), as instruções enviadas com cada imagem. O botão de redefinir, ou esvaziar a caixa, restaura o padrão. O prompt fica salvo só neste chat, e **Save as Connection Default** não o copia.
+3. Se quiser, edite o **Prompt de descrição**, as instruções enviadas com cada imagem. O botão de redefinir, ou esvaziar a caixa, restaura o prompt de Leitura de imagens usado em todo o motor. O prompt fica salvo só neste chat, e **Salvar como padrão da conexão** não o copia.
+
+A caixa também aparece quando o botão liga/desliga está desativado, mas há um modelo de **Leitura de imagens** definido na caixa **Tarefas** do painel **Conexões**: esse modelo então descreve as imagens deste chat sempre que o modelo do próprio chat não consegue vê-las.
+
+### O que é perguntado ao modelo de leitura
+
+No painel **Conexões**, clique na engrenagem da linha **Leitura de imagens** na caixa **Tarefas** (ou escolha **Configurações de leitura de imagens** abaixo da lista de modelos em **Modelo para Leitura de imagens**). Estas configurações valem para todos os chats:
+
+- **Instruções**: o prompt de sistema enviado com cada imagem. O **Prompt de descrição** do próprio chat o substitui.
+- **Requisição**: a mensagem enviada com cada imagem. `{{filename}}` vira o nome do arquivo da imagem.
+- **Tamanho da resposta (tokens)**: 700 por padrão. Um modelo de raciocínio gasta parte disso pensando, então dê mais espaço a ele (ou desative o raciocínio) se as descrições voltarem vazias ou cortadas. Um limite de **Máximo de tokens de saída** no modelo continua valendo.
+- **Temperatura**: 0,2 por padrão.
+
+**Instruções** e **Requisição** têm um botão de redefinir que restaura o texto integrado. Esvazie **Tamanho da resposta** ou **Temperatura** para voltar a usar o valor integrado. Se um modelo local descreve bem uma imagem quando você pergunta diretamente, mas não pelo Marinara, copie o prompt de sistema e a pergunta que você usa diretamente para **Instruções** e **Requisição**. O raciocínio do modelo dentro do texto (`<think>…</think>`) é removido da descrição.
 
 Se não funcionou: quando a descrição falha, porque a conta usada nas descrições está com defeito, foi excluída ou não devolve nada, a resposta é interrompida com o erro **Image captioning failed** (falha na descrição da imagem). Marinara não envia a imagem no lugar. Corrija ou troque o modelo de descrição, ou desligue **Image captioning**.
 

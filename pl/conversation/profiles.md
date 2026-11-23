@@ -8,7 +8,7 @@ To nie jest profil ustawień (zapisany zestaw opcji czatu, zobacz [Profile ustaw
 
 Pola znajdują się w zakładce o nazwie **Convo**.
 
-1. Otwórz postać w panelu **Character Editor** (edytor postaci) albo personę w panelu **Persona Editor** (edytor persony). Aby tam trafić, otwórz panel **Characters** z paska bocznego albo panel **Personas** za pomocą ikony osoby na górnym pasku prawego paska bocznego, a potem kliknij kartę (zobacz [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md) i [Persony użytkownika: tworzenie i edycja](../characters/personas.md)).
+1. Otwórz postać w panelu **Character Editor** (edytor postaci) albo personę w panelu **Persona Editor** (edytor persony). Aby tam trafić, otwórz panel **Postacie** lub **Persony** z górnego paska, a potem kliknij kartę (zobacz [Tworzenie i edycja postaci](../characters/creating-and-editing-characters.md) i [Persony użytkownika: tworzenie i edycja](../characters/personas.md)).
 2. Kliknij zakładkę **Convo**.
 
 Zakładka zawiera **Convo Display Name**, **About Me** i **Convo Behavior**. Przy postaci ma też **Weekly schedule** (z przyciskiem **Edit schedule** lub **Create schedule**, zobacz [harmonogramy](schedules.md)). Wskazówki dla selfie postaci są teraz w zakładce **Images** (obrazy), w polu **Selfie instructions** (instrukcje do selfie). Zobacz [Selfie](selfies.md).

@@ -361,11 +361,12 @@ Fork 可以让 `MARINARA_NOTICES_URL` 指向自己的文件。
 
 ### 世界书
 
-两项设置默认关闭，在 `.env` 变更后的下一次生成生效。设置了 `LOREBOOK_STABLE_GROUP_WINNERS` 时，它优先于 **Settings → Advanced → Features** 中的 **Stable lorebook picks**(固定世界书选择) 开关。否则由开关决定。见[功能开关](configuration/features.md)。
+这里的设置默认全部关闭。`LOREBOOK_STABLE_GROUP_WINNERS` 和 `LOREBOOK_COMPACT_STORED_SCANS` 在 `.env` 变更后的下一次生成时生效，`LOREBOOK_NEW_BOOK_VECTORS` 则从下一本新建世界书开始生效。设置了 `LOREBOOK_STABLE_GROUP_WINNERS` 或 `LOREBOOK_NEW_BOOK_VECTORS` 时，它优先于 **Settings → Advanced → Features** 中对应的开关（**Stable lorebook picks**(稳定的世界书抽选) 或 **Vectors on for new lorebooks**(新世界书默认开启向量)）。否则由开关决定。见[功能开关](configuration/features.md)。
 
 | 变量 | 默认值 | 作用 |
 | --- | --- | --- |
 | `LOREBOOK_STABLE_GROUP_WINNERS` | `false` | 只要候选不变，就在每个聊天中保留同一个包含组胜出条目，而不是每次生成重新抽选。这能让提示词开头保持稳定，便于服务商缓存提示词。 |
+| `LOREBOOK_NEW_BOOK_VECTORS` | `false` | 新世界书默认开启 **Vectors**(向量)，让条目可以立即向量化并按含义查找。适用于在应用里创建的世界书、导入时没有自带设置的世界书，以及 Game Mode 和 Lorebook Keeper 创建的世界书。Professor Mari 创建的世界书本来就默认开启 **Vectors**。已有世界书保留各自的设置。 |
 | `LOREBOOK_COMPACT_STORED_SCANS` | `false` | 只在最新的助手或旁白消息上保存激活条目的完整文本。旧消息保留条目 ID、关键词和评分。这能让带大型世界书的聊天小得多。如果删除了较新的消息，Active Context 和智能体重试会为再次成为最新的那条消息显示条目当前的文本。 |
 
 `scripts/compact-lorebook-scans.mjs` 会把同样的规则应用到较早的聊天。先停止服务器。不传入 `--apply` 时它只是试运行，写入前会备份两个消息表。

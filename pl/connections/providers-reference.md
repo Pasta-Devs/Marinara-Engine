@@ -82,7 +82,20 @@ Agregator to usługa, w której jeden klucz daje dostęp do modeli wielu firm. A
 **OpenRouter** to agregator z dwiema dodatkowymi opcjami w edytorze modelu:
 
 - **Preferred provider** (preferowany dostawca) wymusza kierowanie żądań do jednego wskazanego zaplecza. Nazwa musi zgadzać się z nazwą na stronie modeli OpenRouter. Zostaw pole puste, żeby dobór był automatyczny.
-- **Enable prompt caching** wysyła wskazówki dotyczące pamięci podręcznej dla modeli Claude kierowanych przez usługę OpenRouter. Większość pozostałych modeli korzysta z pamięci podręcznej samodzielnie.
+- **Włącz zapis promptu w pamięci podręcznej** oznacza części promptu, które model może ponownie wykorzystać przy twojej następnej wiadomości, dzięki czemu długie czaty kosztują mniej. Opcja jest początkowo włączona dla każdego modelu dodanego do konta OpenRouter. To, co oznacza, zależy od modelu:
+
+| Model | Co trafia do pamięci podręcznej | Na jak długo |
+| --- | --- | --- |
+| Claude | Prompt systemowy, historia czatu do wartości **Głębokość pamięci podręcznej** i najnowsza wiadomość | 5 minut lub 1 godzina przy opcji **Rozszerzony zapis tokenów w pamięci podręcznej (1 godzina)** |
+| Qwen | Prompt systemowy i historia czatu do wartości **Głębokość pamięci podręcznej** | 5 minut |
+| Gemini | Prompt systemowy | 5 minut |
+| GPT, DeepSeek, Grok, Kimi i inne | Usługa samodzielnie korzysta z pamięci podręcznej, niezależnie od przełącznika | Ustala usługa |
+
+Marinara prosi też usługę OpenRouter o kierowanie każdego czatu do tego samego backendu, żeby pamięć podręczna z ostatniej wiadomości nadal była dostępna. Działa to także przy wyłączonym przełączniku. Opcja **Preferowany dostawca** przypina backend zamiast tego mechanizmu.
+
+Pamięć podręczna daje największe oszczędności, gdy początek promptu pozostaje taki sam między wiadomościami. Zobacz [Pamięć podręczna promptów](../prompts/conditional-prompts.md#prompt-caching).
+
+> **Uwaga:** Zapis do pamięci podręcznej kosztuje więcej niż zwykłe dane wejściowe, na przykład 1,25 raza dla 5-minutowej pamięci podręcznej Claude i 2 razy dla godzinnej. Odczyt z niej kosztuje znacznie mniej. Zobacz [przewodnik po pamięci podręcznej promptów](https://openrouter.ai/docs/guides/best-practices/prompt-caching) usługi OpenRouter.
 
 ### NanoGPT
 

@@ -261,7 +261,8 @@ Gravewatch muestra lo mismo en una reserva: la Dawn bell vinculada añade un dad
 
 `combat.conditions[]` y `combat.levels[]` pueden conceder `resist`, `vulnerable`, `immune` (de 1 a 30 entradas cada uno) y `conditionImmunities` (de 1 a 40 IDs de estado). Se aplican mientras dura el estado o mientras se alcanza el umbral del nivel. Una inmunidad a un estado recién obtenida termina ese estado si ya está activo e impide volver a aplicarlo. La inmunidad tiene prioridad sobre la resistencia; la resistencia y la vulnerabilidad se anulan. Varias resistencias nunca reducen el daño a la mitad dos veces.
 
-`resist` e `immune` usan la forma de las criaturas: una palabra de daño o `{ "type": "bludgeoning", "except": ["magical"] }`. Cualquier etiqueta nombrada en el golpe se salta esa entrada. `vulnerable` sigue siendo solo palabras de daño. La misma forma de excepción funciona en los efectos `worn` y `carried` de los objetos. Declara las etiquetas de excepción en `items.tags` y ponlas en las cualidades del arma o del conjuro. Por ejemplo, Stoneskin es una asignación de estado:
+`resist` e `immune` usan la forma de las criaturas: una palabra de daño o `{ "type": "bludgeoning",
+"except": ["magical"] }`. Cualquier etiqueta nombrada en el golpe se salta esa entrada. `vulnerable` sigue siendo solo palabras de daño. La misma forma de excepción funciona en los efectos `worn` y `carried` de los objetos. Declara las etiquetas de excepción en `items.tags` y ponlas en las cualidades del arma o del conjuro. Por ejemplo, Stoneskin es una asignación de estado:
 
 ```json
 {

@@ -52,6 +52,47 @@ Un lorebook (libro de trasfondo) es un conjunto de datos de fondo que la IA cons
 
 Para mover una instalación entera de SillyTavern, usa el importador masivo de **Settings** (Configuración), en la pestaña **Imports** (Importaciones). Trae juntos los personajes, chats, presets y lorebooks. Consulta [Importar desde SillyTavern](../data/importing-from-sillytavern.md).
 
+## Actualizar un personaje que ya tienes
+
+Cuando quien creó una tarjeta publica una versión más reciente, puedes actualizar tu copia en lugar de agregar una segunda. El personaje conserva sus chats, memorias, galería, sprites, carpeta, estrella de favorito, colores y tus propias etiquetas. Primero se guarda su tarjeta actual en **Historial de versiones**, incluso con el control de versiones automático desactivado, para que puedas volver atrás.
+
+### Desde la ventana de importación
+
+1. Importa el archivo de la tarjeta más reciente como siempre (pasos de arriba).
+2. Si parece un personaje que ya tienes, la importación se detiene en **Ya está en tu biblioteca**. Marinara encuentra coincidencias con una tarjeta descargada de la misma página del Card Browser, o con una que tenga el mismo nombre y creador. El motivo aparece debajo de cada opción.
+3. Para cada tarjeta, elige una opción:
+   - **Actualizar "Nombre"**: actualiza ese personaje en su lugar (la opción predeterminada).
+   - **Actualizar otro personaje…**: elige cualquier personaje de una lista. Úsalo para una tarjeta que llegó por otra vía, por ejemplo de un sitio web a SillyTavern y luego a Marinara, de modo que su nombre o creador ya no coincide.
+   - **Agregar como personaje nuevo**: conserva ambos.
+   - **Omitir esta tarjeta**: la deja fuera.
+4. Elige si quieres **Usar la imagen de la nueva tarjeta** y qué ocurre con **Notas del creador** (consulta abajo).
+5. Haz clic en **Continuar**. Si la tarjeta tiene un lorebook integrado, el siguiente paso pregunta por él como siempre. El lorebook vinculado de un personaje actualizado se renueva con las entradas nuevas, en lugar de copiarse por segunda vez.
+6. El resultado dice `Updated "Name". Its old card is in Version history.`
+
+### Desde el editor de personajes
+
+1. Abre el personaje y guarda primero cualquier cambio.
+2. Haz clic en **⋯** junto a **Guardar** y elige **Actualizar desde un archivo de tarjeta…**.
+3. Elige la tarjeta más reciente (.png, .json o .charx), revisa las opciones y haz clic en **Actualizar**.
+
+Para un personaje descargado del [Card Browser](bot-browser.md), el mismo menú tiene **Buscar actualización**. Abre la página de esa tarjeta en el Card Browser, donde puedes comparar e importar la versión más reciente.
+
+### Notas del creador
+
+Notas del creador es el texto breve debajo de cada tarjeta en **Personajes**, y algunas personas guardan ahí CSS personalizado. Elige una opción:
+
+| Opción | Qué ocurre |
+| --- | --- |
+| **Combinar: conservar las mías y agregar los cambios del autor** (predeterminado) | Tu texto y tu CSS se conservan. Las líneas que agregó quien creó la tarjeta van antes de tu primer bloque de estilos, y las que eliminó se quitan si no las habías cambiado. Si nunca editaste las notas, simplemente pasan a ser las de la tarjeta nueva. |
+| **Usar las notas de la tarjeta** | Las notas de la tarjeta reemplazan las tuyas. |
+| **Conservar las mías** | Tus notas se quedan exactamente como están. |
+
+Las tarjetas importadas antes de esta función no recuerdan sus notas originales, así que la primera combinación solo agrega las líneas que aún no tienes.
+
+### Deshacer una actualización
+
+Abre el personaje, busca **Historial de versiones** en la pestaña **Metadatos** y restaura la versión anterior a la actualización. Consulta [Historial de versiones](creating-and-editing-characters.md#version-history).
+
 ## Exportar un personaje
 
 1. Abre el personaje en el editor.

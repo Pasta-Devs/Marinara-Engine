@@ -14,7 +14,7 @@ La correspondance par mots-clés fonctionne avec n'importe quel modèle, sans au
 
 ## Créer un lorebook et ajouter une entrée
 
-1. Ouvre le panneau **Lorebooks** depuis la barre latérale.
+1. Ouvre le panneau **Lorebooks** depuis la barre supérieure.
 2. Clique sur **New** (nouveau, l'icône plus). La fenêtre **Create Lorebook** (créer un lorebook) s'ouvre.
 3. Saisis un nom dans le champ **Name** (nom). Ce champ est obligatoire.
 4. Ajoute une **Description** si tu veux.

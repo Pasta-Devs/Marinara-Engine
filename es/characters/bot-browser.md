@@ -11,9 +11,9 @@ Una tarjeta de personaje es un archivo que guarda el nombre, la personalidad, el
 
 El Card Browser ocupa toda el área de contenido, con el título **Browse character cards online** (Explorar tarjetas de personaje en línea). Para salir, haz clic en la flecha hacia atrás de la esquina superior izquierda.
 
-Si lo cierras y lo vuelves a abrir, tu última búsqueda, tus filtros y el personaje seleccionado siguen ahí. Al recargar la app se reinician.
-
 El botón **Download** (Descargar) del panel **Lorebooks** abre el mismo navegador con lorebooks disponibles para descargar. Consulta [Descargar un lorebook de Chub](../lorebooks/import-export.md#download-a-lorebook-from-chub).
+
+Si lo cierras y lo vuelves a abrir, tu última búsqueda, tus filtros y el personaje seleccionado siguen ahí. Al recargar la app se reinician.
 
 ## Elegir una fuente
 
@@ -102,6 +102,12 @@ Antes de empezar: para chatear con el personaje necesitarás una conexión de te
 8. Abre **Characters** (o **Personas**) para encontrarlo.
 
 Si no funcionó: lee el mensaje de error del aviso emergente. En **JannyAI**, un bloqueo de Cloudflare es la causa más común (consulta Solución de problemas más abajo).
+
+### Actualizar un personaje que ya tienes
+
+Si la tarjeta que importas ya está en tu biblioteca (descargada antes de la misma página, o con el mismo nombre y creador), la importación se detiene en **Ya está en tu biblioteca**. Elige **Actualizar "Nombre"** para actualizar tu copia en su lugar, **Agregar como personaje nuevo** para conservar ambas, o **Omitir esta tarjeta**. Para vincular la tarjeta a un personaje que llegó por otra vía, haz clic en **Actualizar un personaje que ya tienes…** en la ventana **Importar tarjeta** y elígelo de la lista. Consulta [Actualizar un personaje que ya tienes](import-export.md#update-a-character-you-already-have).
+
+Para buscar una versión más reciente de una tarjeta que descargaste aquí, abre el personaje, haz clic en **⋯** junto a **Guardar** y elige **Buscar actualización**. El Card Browser se abre en esa tarjeta.
 
 ### Download as PNG
 

@@ -14,7 +14,7 @@ Eldoria is a rainy port city ruled by a council of nine merchants.
 
 ## 创建世界书并添加条目
 
-1. 从侧边栏打开 **Lorebooks**(世界书) 面板。
+1. 从顶栏打开 **Lorebooks**(世界书) 面板。
 2. 点击 **New**(新建，加号图标)。**Create Lorebook**(新建世界书) 窗口随即打开。
 3. 填写 **Name**(名称)。这一项必填。
 4. 想写的话，加上 **Description**(描述)。

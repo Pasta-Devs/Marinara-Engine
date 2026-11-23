@@ -52,6 +52,47 @@ Un lorebook est un recueil de faits de contexte que l'IA consulte pendant un cha
 
 Pour déplacer une installation SillyTavern entière, utilise l'importateur par lot de **Settings** (Paramètres), dans l'onglet **Imports**. Il récupère ensemble les personnages, les chats, les presets et les lorebooks. Voir [Importer depuis SillyTavern](../data/importing-from-sillytavern.md).
 
+## Mettre à jour un personnage que tu as déjà
+
+Quand l'auteur d'une fiche publie une nouvelle version, tu peux mettre à jour ta copie sur place au lieu d'en ajouter une deuxième. Le personnage conserve ses chats, ses souvenirs, sa galerie, ses sprites, son dossier, son étoile de favori, ses couleurs et tes propres tags. Sa fiche actuelle est d'abord enregistrée dans **Historique des versions** (même si l'enregistrement automatique des versions est désactivé), pour que tu puisses revenir en arrière.
+
+### Depuis la fenêtre d'import
+
+1. Importe le nouveau fichier de fiche comme d'habitude (étapes ci-dessus).
+2. S'il ressemble à un personnage que tu as déjà, l'import s'interrompt sur **Déjà dans ta bibliothèque**. Marinara reconnaît une fiche téléchargée depuis la même page du Card Browser, ou portant le même nom et le même créateur. La raison s'affiche sous chaque choix.
+3. Pour chaque fiche, choisis une option :
+   - **Mettre à jour "Nom"** : mettre à jour ce personnage sur place (par défaut).
+   - **Mettre à jour un autre personnage…** : choisir n'importe quel personnage dans une liste. Utilise cette option pour une fiche arrivée par un autre chemin, par exemple d'un site web à SillyTavern puis à Marinara, et dont le nom ou le créateur ne correspond donc plus.
+   - **Ajouter comme nouveau personnage** : garder les deux.
+   - **Passer cette fiche** : l'ignorer.
+4. Choisis si tu veux **Utiliser l'image de la nouvelle fiche**, et ce qu'il faut faire des **Notes du créateur** (voir ci-dessous).
+5. Clique sur **Continuer**. Si la fiche contient un lorebook intégré, l'étape suivante te demande quoi en faire comme d'habitude. Le lorebook lié au personnage mis à jour reçoit les nouvelles entrées, sans être copié une deuxième fois.
+6. Le résultat indique `Updated "Name". Its old card is in Version history.`
+
+### Depuis l'éditeur de personnage
+
+1. Ouvre le personnage et enregistre d'abord les modifications éventuelles.
+2. Clique sur **⋯** à côté de **Enregistrer** et choisis **Mettre à jour depuis un fichier de fiche…**.
+3. Choisis la fiche plus récente (.png, .json ou .charx), vérifie les choix et clique sur **Mettre à jour**.
+
+Pour un personnage téléchargé depuis le [Card Browser](bot-browser.md), le même menu propose **Rechercher une mise à jour**. Il ouvre la page de cette fiche dans le Card Browser, où tu peux comparer et importer la nouvelle version.
+
+### Notes du créateur
+
+Les notes du créateur sont le court texte sous chaque fiche dans **Personnages**, et certaines personnes y conservent du CSS personnalisé. Choisis une option :
+
+| Choix | Ce qui se passe |
+| --- | --- |
+| **Fusionner : garder mes notes et ajouter les changements de l'auteur** (par défaut) | Ton texte et ton CSS restent. Les lignes ajoutées par l'auteur sont insérées avant ton premier bloc de style, et celles qu'il a retirées sont supprimées si tu ne les avais pas modifiées. Si tu n'as jamais modifié les notes, elles deviennent simplement celles de la nouvelle fiche. |
+| **Utiliser les notes de la fiche** | Tes notes sont remplacées par celles de la fiche. |
+| **Garder mes notes** | Tes notes restent exactement telles quelles. |
+
+Les fiches importées avant cette fonctionnalité ne conservent pas leurs notes d'origine : la première fusion ajoute donc seulement les lignes que tu n'as pas encore.
+
+### Annuler une mise à jour
+
+Ouvre le personnage, trouve **Historique des versions** dans l'onglet **Métadonnées** et restaure la version d'avant la mise à jour. Voir [Historique des versions](creating-and-editing-characters.md#version-history).
+
 ## Exporter un personnage
 
 1. Ouvre le personnage dans l'éditeur.

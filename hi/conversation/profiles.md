@@ -8,7 +8,7 @@
 
 ये फ़ील्ड **Convo** नाम के टैब में हैं।
 
-1. कैरेक्टर को **Character Editor** (कैरेक्टर एडिटर) में खोलें, या पर्सोना को **Persona Editor** (पर्सोना एडिटर) में। वहाँ पहुँचने के लिए साइडबार से **Characters** पैनल खोलें, या दाएँ साइडबार की टॉप बार के व्यक्ति वाले आइकन से **Personas** पैनल खोलें, फिर कार्ड पर क्लिक करें ([कैरेक्टर बनाना और एडिट करना](../characters/creating-and-editing-characters.md) और [यूज़र पर्सोना: बनाना और बदलना](../characters/personas.md) देखें)।
+1. कैरेक्टर को **Character Editor** (कैरेक्टर एडिटर) में खोलें, या पर्सोना को **Persona Editor** (पर्सोना एडिटर) में। वहाँ पहुँचने के लिए टॉप बार से **Characters** या **Personas** पैनल खोलें, फिर कार्ड पर क्लिक करें ([कैरेक्टर बनाना और एडिट करना](../characters/creating-and-editing-characters.md) और [यूज़र पर्सोना: बनाना और बदलना](../characters/personas.md) देखें)।
 2. **Convo** टैब पर क्लिक करें।
 
 इस टैब में **Convo Display Name**, **About Me** और **Convo Behavior** हैं। कैरेक्टर पर **Weekly schedule** (**Edit schedule** या **Create schedule** के साथ, [शेड्यूल](schedules.md) देखें) भी है। कैरेक्टर की सेल्फ़ी के वैकल्पिक निर्देश **Images** टैब के **Selfie instructions** (सेल्फ़ी के निर्देश) फ़ील्ड में हैं। देखें [सेल्फ़ी](selfies.md)।

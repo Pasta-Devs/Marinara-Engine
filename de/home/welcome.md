@@ -10,7 +10,7 @@ Bevor du anfängst: Du brauchst einen API-Key (einen geheimen Code, ähnlich ein
 2. Leg ein Konto an. Ein Konto ist ein API-Key für einen KI-Dienst. Siehe [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 3. Wähl die Modelle, die das Konto nutzen soll. Wie das geht, zeigt dieselbe Anleitung.
 4. Erstelle oder importiere einen Charakter. Öffne das Panel **Characters** (Charaktere) und klick auf **New** (Neu), um das Fenster **Create Character** (Charakter erstellen) zu öffnen, oder klick auf **Import** (Importieren), um eine Karte aus einer Datei hereinzuholen. Siehe [Charaktere anlegen und bearbeiten](../characters/creating-and-editing-characters.md).
-5. Öffne die Chat-Seitenleiste mit der Seitenleisten-Schaltfläche. Ihre Tabs heißen **CONVO**, **RP** und **GM**. Wähl einen aus und klick dann auf die Schaltfläche **+**. Passend zum Tab heißt sie **New Conversation**, **New Roleplay** oder **New Game**.
+5. Klick in der oberen Leiste auf **Chats**, um deine Chatliste zu öffnen. Ihre Tabs heißen **CONVO**, **RP** und **GM**. Wähle einen aus und klick dann auf **+**. Je nach Tab heißt die Schaltfläche **Neue Unterhaltung**, **Neues Roleplay** oder **Neues Spiel**.
 6. Folge dem Einrichtungsfenster, das sich öffnet, und klick dann auf **Create Chat** (Chat erstellen).
 
 Was du siehst: Der neue Chat öffnet sich, und du kannst deine erste Nachricht schreiben.

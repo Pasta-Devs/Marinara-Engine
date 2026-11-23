@@ -81,7 +81,20 @@ Un agrégateur est un service où une seule clé donne accès aux modèles de no
 **OpenRouter** est un agrégateur qui ajoute deux options dans l'éditeur du modèle :
 
 - Le champ **Preferred provider** (fournisseur préféré) force le routage vers un backend nommé. Le nom doit correspondre à celui de la page des modèles d'OpenRouter. Laisse-le vide pour un routage automatique.
-- L'option **Enable prompt caching** envoie des indications de mise en cache pour les modèles Claude routés via OpenRouter. La plupart des autres modèles gèrent le cache tout seuls.
+- **Activer la mise en cache du prompt** marque les parties du prompt que le modèle peut réutiliser pour ton prochain message, afin de réduire le coût des longs chats. Ce réglage est activé au départ pour chaque modèle que tu ajoutes à un compte OpenRouter. Les parties marquées dépendent du modèle :
+
+| Modèle | Ce qui est mis en cache | Durée |
+| --- | --- | --- |
+| Claude | Le prompt système, l'historique du chat jusqu'à **Profondeur du cache**, et le dernier message | 5 minutes, ou 1 heure avec **Mise en cache des tokens prolongée (1 heure)** |
+| Qwen | Le prompt système et l'historique du chat jusqu'à **Profondeur du cache** | 5 minutes |
+| Gemini | Le prompt système | 5 minutes |
+| GPT, DeepSeek, Grok, Kimi et autres | Le service met en cache de lui-même, avec ou sans l'interrupteur | Définie par le service |
+
+Marinara demande aussi à OpenRouter de garder chaque chat sur le même backend, pour que le cache de ton dernier message soit toujours là. Cela fonctionne aussi quand l'interrupteur est désactivé. **Fournisseur préféré** fixe plutôt le backend à utiliser.
+
+La mise en cache économise le plus quand le début du prompt reste identique entre les messages. Voir [Mise en cache du prompt](../prompts/conditional-prompts.md#prompt-caching).
+
+> **Note :** Écrire dans le cache coûte plus cher qu'une entrée ordinaire, par exemple 1,25 fois pour le cache de 5 minutes de Claude et 2 fois pour son cache d'une heure. La lecture coûte beaucoup moins cher. Voir le [guide de mise en cache du prompt](https://openrouter.ai/docs/guides/best-practices/prompt-caching) d'OpenRouter.
 
 ### NanoGPT
 

@@ -14,7 +14,7 @@ A correspondência por palavra-chave funciona com qualquer modelo e não exige c
 
 ## Como criar um lorebook e adicionar uma entrada
 
-1. Abra o painel **Lorebooks** pela barra lateral.
+1. Abra o painel **Lorebooks** pela barra superior.
 2. Clique em **New** (novo, o ícone de mais). A janela **Create Lorebook** (criar lorebook) abre.
 3. Digite um **Name** (nome). Esse campo é obrigatório.
 4. Acrescente uma **Description** (descrição), se quiser.

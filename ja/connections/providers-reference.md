@@ -33,8 +33,7 @@
 - OpenAI: `https://api.openai.com/v1`
 - Anthropic: `https://api.anthropic.com/v1`
 - Google Gemini: `https://generativelanguage.googleapis.com/v1beta`
-- Google Vertex AI:
-  `https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1`
+- Google Vertex AI: `https://us-central1-aiplatform.googleapis.com/v1/projects/YOUR_PROJECT_ID/locations/us-central1`
 - Mistral: `https://api.mistral.ai/v1`
 - Cohere: `https://api.cohere.ai/compatibility/v1`
 - OpenRouter: `https://openrouter.ai/api/v1`
@@ -82,7 +81,20 @@ Googleのドキュメントに沿ったMarinaraのコード内の注記による
 **OpenRouter**はアグリゲーターで、モデルエディターに次の2つの項目が追加されます。
 
 - **Preferred provider**(優先プロバイダー)は、転送先を名前で指定した1つのバックエンドに固定します。名前は、OpenRouterのモデルページに表示されているものと一致させる必要があります。自動で振り分ける場合は空のままにします。
-- **Enable prompt caching**(プロンプトキャッシュを有効にする)は、OpenRouter経由で利用するClaudeのモデルにキャッシュのヒントを送ります。ほかのほとんどのモデルは自動でキャッシュします。
+- **Enable prompt caching**(プロンプトキャッシュを有効にする)は、次のメッセージでモデルが再利用できるプロンプトの部分に印を付け、長いチャットの費用を抑えます。OpenRouterアカウントに追加する各モデルでは、最初からオンになっています。どこに印を付けるかはモデルによって異なります。
+
+| モデル | キャッシュする内容 | 保持時間 |
+| --- | --- | --- |
+| Claude | システムプロンプト、**Cache depth**(キャッシュの深さ)までのチャット履歴、最新のメッセージ | 5分、または**Extended token caching (1 hour)**(トークンキャッシュの延長(1時間))で1時間 |
+| Qwen | システムプロンプトと**Cache depth**までのチャット履歴 | 5分 |
+| Gemini | システムプロンプト | 5分 |
+| GPT、DeepSeek、Grok、Kimiなど | スイッチのオンとオフにかかわらず、サービスが独自にキャッシュします | サービスが決定 |
+
+Marinaraは、前のメッセージのキャッシュが残るように、各チャットで同じバックエンドを使い続けることもOpenRouterに求めます。これはスイッチがオフでも機能します。**Preferred provider**を設定すると、代わりにそのバックエンドに固定します。
+
+メッセージ間でプロンプトの先頭が変わらない場合に、キャッシュの節約効果が最も大きくなります。[プロンプトキャッシュ](../prompts/conditional-prompts.md#prompt-caching)を参照してください。
+
+> **注:** キャッシュへの書き込みは通常の入力より費用がかかります。たとえばClaudeでは、5分のキャッシュで1.25倍、1時間のキャッシュで2倍です。読み取りは大幅に安くなります。OpenRouterの[プロンプトキャッシュガイド](https://openrouter.ai/docs/guides/best-practices/prompt-caching)を参照してください。
 
 ### NanoGPT
 

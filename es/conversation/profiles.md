@@ -8,7 +8,7 @@ Este no es un perfil de ajustes (un conjunto guardado de opciones del chat, cons
 
 Los campos están en una pestaña llamada **Convo**.
 
-1. Abre el personaje en el **Character Editor** (Editor de personajes), o la persona en el **Persona Editor** (Editor de personas). Para llegar, abre el panel **Characters** desde la barra lateral, o el panel **Personas** desde el icono de persona de la barra superior de la barra lateral derecha, y luego haz clic en la tarjeta (consulta [Crear y editar personajes](../characters/creating-and-editing-characters.md) y [Personas de usuario](../characters/personas.md)).
+1. Abre el personaje en el **Character Editor** (Editor de personajes), o la persona en el **Persona Editor** (Editor de personas). Para llegar, abre el panel **Personajes** o **Personas** desde la barra superior y luego haz clic en la tarjeta (consulta [Crear y editar personajes](../characters/creating-and-editing-characters.md) y [Personas de usuario](../characters/personas.md)).
 2. Haz clic en la pestaña **Convo**.
 
 La pestaña contiene **Convo Display Name**, **About Me** y **Convo Behavior**. En un personaje también tiene **Weekly schedule** (con **Edit schedule** o **Create schedule**, consulta [horarios](schedules.md)). Las indicaciones para las selfies del personaje están ahora en la pestaña **Images** (Imágenes), en **Selfie instructions** (Instrucciones para selfies) (consulta [Selfies](selfies.md)).

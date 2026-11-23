@@ -102,9 +102,9 @@ Avant de commencer : ajoute une connexion de génération d'images. Pour les spr
 1. Ouvre **Add sprites** et clique sur **Generate Sprite** (générer un sprite). Dans l'éditeur de persona, le bouton se trouve dans **Add Sprite**. La fenêtre **Generate Sprites** s'ouvre.
 2. En haut, choisis une source : **Expressions (Portrait)** ou **Full-body**.
 3. Choisis une connexion dans **Image Generation Connection** (connexion de génération d'images).
-4. Si tu veux, ajoute jusqu'à quatre **Reference Images** (images de référence), ou coche la case pour utiliser l'avatar actuel comme référence.
+4. Si tu veux, ajoute jusqu'à quatre **Images de référence**, ou coche une case pour utiliser l'avatar actuel ou la fiche de personnage comme référence. Quand le personnage a déjà des sprites, **Utiliser un sprite enregistré comme image de référence** est activé : son visage au repos (neutre s'il en existe un) accompagne la requête, pour que les nouveaux sprites ressemblent à ceux que tu as.
 5. Remplis le champ **Appearance Description** (description de l'apparence). Il est obligatoire.
-6. Si tu le souhaites, active **Transparent sprite background** (arrière-plan de sprite transparent). Marinara rend l'arrière-plan transparent. Si le service ne peut pas le faire, Marinara dessine un fond uni vert, magenta ou cyan, différent des couleurs du champ **Appearance Description**, puis le retire.
+6. Si tu le souhaites, active **Fond de sprite transparent**. Marinara rend l'arrière-plan transparent. Un modèle qui dessine des images transparentes reçoit cette demande, et ses contours sont conservés exactement tels qu'ils ont été dessinés. Tout autre modèle dessine un fond uni vert, magenta ou cyan, différent des couleurs du champ **Description de l'apparence**, et Marinara le retire. La ligne sous la case indique quel comportement s'applique. Les modèles qui dessinent des images transparentes sont définis sur la connexion : voir [Arrière-plans transparents](../media/image-providers.md#transparent-backgrounds).
 7. Règle **Expression Count** (nombre d'expressions), ou **Pose Count** (nombre de poses) pour le corps entier, et choisis les expressions ou les poses à créer.
 8. Facultatif, pour les expressions : coche **Signaler les visages qui ne correspondent pas à leur expression**. Un [modèle de décision qui lit les images](../connections/decision-models.md#features-that-look-at-pictures) examine chaque visage après sa création et marque ceux qui pourraient ne pas correspondre à leur expression avec **À vérifier**, pour que tu puisses les décocher ou les redessiner. Chaque visage prend un peu de temps. Sans un tel modèle, la case est grisée.
 9. Clique sur **Generate** (générer).
@@ -121,7 +121,9 @@ Dans la source **Expressions (Portrait)**, **Generate animated portraits** (gén
 
 ## Nettoyer l'arrière-plan des sprites
 
-Un sprite rend mieux quand seul le personnage apparaît. Les sprites générés utilisent la transparence native quand le service la prend en charge. Sinon, Marinara retire une couleur de fond unie et adaptative avec un bord adouci, et efface cette couleur des cheveux, des tissus et des autres pixels partiellement transparents. Les anciens sprites sur fond blanc fonctionnent toujours.
+Un sprite rend mieux quand seul le personnage apparaît. Les sprites générés utilisent la transparence native quand le modèle la prend en charge. Sinon, Marinara retire une couleur de fond unie et adaptative avec un bord adouci, et efface cette couleur des cheveux, des tissus et des autres pixels partiellement transparents. Les anciens sprites sur fond blanc fonctionnent toujours.
+
+Une image qui a déjà un arrière-plan transparent n'est jamais nettoyée à nouveau : la suppression de l'arrière-plan ne ferait qu'adoucir des contours déjà nets. Quand un modèle qui dessine des images transparentes renvoie tout de même une image sur fond uni, Marinara la laisse telle quelle et le signale à l'étape de vérification. Clique sur **Appliquer le nettoyage** pour supprimer ce fond, ou garde les images telles quelles.
 
 ### Nettoyer un sprite à la main
 

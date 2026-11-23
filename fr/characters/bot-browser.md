@@ -11,9 +11,9 @@ Une fiche de personnage est un fichier qui contient le nom, la personnalité, le
 
 Le Card Browser occupe toute la zone de contenu, sous le titre **Browse character cards online**. Pour le quitter, clique sur la flèche de retour en haut à gauche.
 
-Si tu le fermes puis le rouvres, ta dernière recherche, tes filtres et le personnage sélectionné sont toujours là. Recharger l'application les remet à zéro.
-
 Le bouton **Download** (télécharger) du panneau **Lorebooks** ouvre le même navigateur sur les lorebooks à télécharger. Voir [Télécharger un lorebook depuis Chub](../lorebooks/import-export.md#download-a-lorebook-from-chub).
+
+Si tu le fermes puis le rouvres, ta dernière recherche, tes filtres et le personnage sélectionné sont toujours là. Recharger l'application les remet à zéro.
 
 ## Choisir une source
 
@@ -102,6 +102,12 @@ Avant de commencer : pour discuter avec le personnage, il te faudra une connexio
 8. Ouvre **Characters** (ou **Personas**) pour le retrouver.
 
 Si ça n'a pas marché : lis le message d'erreur dans la notification. Pour **JannyAI**, un blocage Cloudflare est la cause la plus fréquente (voir le dépannage ci-dessous).
+
+### Mettre à jour un personnage que tu as déjà
+
+Si la fiche que tu importes est déjà dans ta bibliothèque (téléchargée auparavant depuis la même page, ou portant le même nom et le même créateur), l'import s'interrompt sur **Déjà dans ta bibliothèque**. Choisis **Mettre à jour "Nom"** pour mettre à jour ta copie sur place, **Ajouter comme nouveau personnage** pour garder les deux, ou **Passer cette fiche**. Pour lier la fiche à un personnage arrivé par un autre chemin, clique sur **Mettre à jour un personnage que tu as déjà…** dans la fenêtre **Importer la fiche** et choisis-le dans la liste. Voir [Mettre à jour un personnage que tu as déjà](import-export.md#update-a-character-you-already-have).
+
+Pour chercher une version plus récente d'une fiche téléchargée ici, ouvre le personnage, clique sur **⋯** à côté de **Enregistrer** et choisis **Rechercher une mise à jour**. Le Card Browser s'ouvre sur cette fiche.
 
 ### Download as PNG
 

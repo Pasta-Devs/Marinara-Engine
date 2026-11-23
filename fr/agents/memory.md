@@ -8,7 +8,7 @@ Commence par **Memory Recall**. Il fonctionne sans configuration supplémentaire
 
 | Fonction | Ce qu'elle fait | Disponible en |
 | --- | --- | --- |
-| **Memory Recall** | Cherche dans les anciens messages les passages liés à ce que tu viens de dire et les ajoute au prompt (le texte que Marinara envoie à l'IA). | Tous les modes |
+| **Memory Recall** | Recherche, dans les anciens messages qui ne tiennent plus dans le prompt, les passages liés à ce que tu viens de dire et les ajoute. | Tous les modes |
 | **Chat Summary** | Remplace les anciens messages par de courts récapitulatifs. | Roleplay |
 | **Automatic Summarization** | Résume chaque journée, puis chaque semaine. Toujours actif. | Conversation |
 | **Advanced Memory Recall** | Gère ensemble l'historique actuel, les résumés de scènes et les extraits rappelés. Facultatif. | Roleplay et Game Mode |
@@ -68,6 +68,21 @@ La barre d'outils propose des icônes pour exporter, importer, reconstruire et e
 - L'icône pour tout effacer ouvre **Clear Memories** (effacer les souvenirs). Confirme avec **Clear** (effacer). Ça supprime les souvenirs de rappel, pas les messages du chat.
 - L'icône d'actualisation reconstruit tous les blocs à partir des messages actuels. Sers-t'en après avoir changé de modèle d'embeddings.
 - L'export enregistre un fichier `.marinara.json`. L'import accepte les fichiers `.json` ou `.marinara` et les fusionne avec les souvenirs existants.
+
+### Ce que Memory Recall ajoute
+
+Memory Recall ne rappelle que les messages qui ne sont plus dans le prompt. Tant que tout le chat tient dans la fenêtre de contexte, il n'ajoute rien, car l'IA lit déjà chaque message. Dès que d'anciens messages sont écartés pour que le prompt tienne, le rappel cherche parmi eux.
+
+- Un bloc n'est rappelé que si aucun de ses messages ne figure dans le prompt.
+- Les souvenirs prennent aussi de la place. Quand ils sont ajoutés, les messages les plus anciens qui tiendraient encore peuvent être écartés pour leur faire de la place. Le rappel peut aussi les faire revenir.
+- Les messages écartés par **Limite de messages du contexte** comptent comme absents du prompt.
+- Les souvenirs importés d'un autre chat peuvent être rappelés à tout moment.
+
+Pour permettre au rappel de choisir n'importe quel message antérieur, active **Rappeler des messages de tout le chat** sous **Activer Memory Recall**. Les souvenirs répètent alors souvent des messages déjà présents dans le prompt. Ces répétitions coûtent des tokens et, comme les souvenirs se trouvent avant l'historique du chat et changent à chaque tour, le cache de prompt du service ne peut pas réutiliser l'historique.
+
+Les souvenirs rappelés se placent juste avant l'historique du chat. Pour choisir leur emplacement, ajoute un marqueur **Memory Recall** au preset du chat. Voir [Ordonner les sections pour le cache de prompt](../prompts/presets.md#order-sections-for-prompt-caching). Dans un prompt Conversation, la macro `{{memories}}` les place.
+
+L'aperçu en direct de [Voir le prompt](../chats/peek-prompt.md) n'exécute pas Memory Recall. Quand le rappel est activé, il peut afficher plus d'historique qu'une réponse n'en reçoit.
 
 ### Le comportement de Memory Recall
 
@@ -305,6 +320,7 @@ Les chats Game Mode activent Advanced Memory Recall dans **Chat Settings → Mem
 | Memory Recall ne rappelle rien | Vérifie qu'une source d'embeddings est configurée. Si des blocs affichent **Embedding unavailable**, définis un modèle dans **Semantic search (embeddings)** ou utilise le modèle intégré. Voir [Configuration du modèle intégré](../connections/local-model.md). |
 | Des blocs affichent **Waiting for vector** | Laisse-leur le temps. Les empreintes se construisent après les réponses. |
 | Rien ne semble lié | Le rappel n'ajoute que les souvenirs étroitement liés. Ne rien ajouter est normal. |
+| Memory Recall n'ajoute rien tant que le chat est court | C'est normal. Le rappel n'ajoute que les messages qui ne tiennent plus dans la fenêtre de contexte. Voir [Ce que Memory Recall ajoute](#what-memory-recall-adds). |
 | Le rappel s'est dégradé après un changement de modèle d'embeddings | Utilise l'icône de reconstruction dans **Memories for This Chat**. |
 | Les résumés ne se génèrent pas | Le chat a besoin d'un compte texte qui fonctionne. Chat Summary utilise **Summary Provider**. Si aucun ne fonctionne, la génération est ignorée. |
 | Les résumés de l'IA n'apparaissent jamais | **Review Agent Outputs** attend peut-être ton approbation. |

@@ -102,9 +102,9 @@ Expression Engine 既能看到表情（`happy`），也能看到完整名称（`
 1. 打开 **Add sprites**，点击 **Generate Sprite**(生成立绘)。在用户角色编辑器里，这个按钮在 **Add Sprite** 里。**Generate Sprites** 窗口会打开。
 2. 在顶部选择来源：**Expressions (Portrait)**(表情半身像) 或 **Full-body**。
 3. 选择一个 **Image Generation Connection**(图像生成连接)。
-4. 可以添加最多四张 **Reference Images**(参考图)，或者勾选复选框，把当前头像当作参考。
+4. 可以添加最多四张 **Reference Images**(参考图)，或者勾选复选框，把当前头像或角色设定图当作参考。角色已有立绘时，**Use a saved sprite as a reference image**(使用已保存的立绘作为参考图) 默认开启：请求会附上角色的静息表情图（有 neutral 时就用它），让新立绘与已有立绘保持一致。
 5. 填写 **Appearance Description**(外观描述)。这一项必填。
-6. 可以开启 **Transparent sprite background**(透明立绘背景)。Marinara 会让背景透明。如果服务做不到，Marinara 会画一层和 **Appearance Description** 里的颜色都不同的纯绿色、洋红或青色背景，然后再把它去掉。
+6. 可以开启 **Transparent sprite background**(透明立绘背景)。Marinara 会让背景透明。能生成透明背景图片的模型会收到相应要求，生成图片的边缘会原样保留。其他模型会画一层和 **Appearance Description** 里的颜色都不同的纯绿色、洋红或青色背景，再由 Marinara 去掉。复选框下方的文字会说明采用哪种方式。哪些模型能生成透明背景图片，在连接中设置：见[透明背景](../media/image-providers.md#transparent-backgrounds)。
 7. 设置 **Expression Count**(表情数量)（全身图则是 **Pose Count**(姿势数量)），并挑选要生成哪些表情或姿势。
 8. 可选，仅限表情：勾选 **Flag faces that don't match their expression**(标记不符合指定表情的面部图片)。[能读取图片的判定模型](../connections/decision-models.md#features-that-look-at-pictures)会在每张脸画好后查看它，用 **Check**(检查) 标记可能没有体现指定表情的图片，方便取消勾选或重新绘制。每张脸需要一点时间。没有这类模型时，复选框会显示为灰色。
 9. 点击 **Generate**(生成)。
@@ -121,7 +121,9 @@ Expression Engine 既能看到表情（`happy`），也能看到完整名称（`
 
 ## 清理立绘背景
 
-立绘只显示角色时效果最好。服务支持时，生成的立绘会使用原生透明。否则 Marinara 会去掉一层自适应的纯色背景，边缘做柔化处理，并把这种颜色从头发、布料和其他半透明像素里清理掉。早期的白底立绘仍然可用。
+立绘只显示角色时效果最好。模型支持时，生成的立绘会使用原生透明。否则 Marinara 会去掉一层自适应的纯色背景，边缘做柔化处理，并把这种颜色从头发、布料和其他半透明像素里清理掉。早期的白底立绘仍然可用。
+
+图片已经有透明背景时，不会再次清理：去除背景只会让原本清晰的边缘变得模糊。如果支持透明背景的模型仍然返回了不透明背景的图片，Marinara 会保留原图，并在检查步骤中说明。点击 **Apply cleanup**(应用清理) 去掉背景，也可以保留图片原样。
 
 ### 手动清理单张立绘
 

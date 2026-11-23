@@ -198,7 +198,7 @@ Storyboard 和 Illustrator 是分开的，手动触发的 Illustrator 操作照�
 | **Clip seconds** | 5(范围 1 到 15) | 每个片段请求的时长。 |
 | **Viewer display** | Floating viewer | Game 查看器的默认值。Roleplay 的分镜一律内嵌显示。 |
 | **Default Roleplay episode interval** | 1(范围 1 到 100) | 两段自动剧集之间需要积累多少新的 Roleplay 内容。 |
-| **Attach Card Appearance** | On | 把匹配到的角色外观加进图像提示词。如果角色卡或用户角色开启了 **Image Appearance Override**(图像专用外貌)，就用那段文字代替它的 **Appearance**(外观) 字段。 |
+| **Attach Card Appearance** | 开启 | 将匹配角色的外貌加入图像提示词。正在使用 **Image tags**(图片标签) 的角色卡或用户角色会提供这些标签，而不是 **Appearance** 的文字描述。 |
 | **Send Avatar References** | On | 图像服务接受参考图时，发送匹配到的角色头像和用户角色头像。 |
 | **Use the final image template** | On | 规划好的帧发给图像服务之前先格式化一次。在 Game 聊天里，这一项是 **Use Storyboard Template**。 |
 | **Use NovelAI character prompts** | On | 只在受支持的 NovelAI V4 和 V4.5 官方账号上按角色使用原生提示词。其他服务走共用的提示词路径。 |

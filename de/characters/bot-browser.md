@@ -11,9 +11,9 @@ Eine Charakterkarte ist eine Datei mit Name, Persönlichkeit, Begrüßung und we
 
 Der Card Browser füllt den gesamten Inhaltsbereich aus und trägt den Titel **Browse character cards online**. Zum Verlassen klickst du oben links auf den Zurück-Pfeil.
 
-Schließt du ihn und öffnest ihn erneut, sind deine letzte Suche, die Filter und der ausgewählte Charakter noch da. Ein Neuladen der App setzt sie zurück.
-
 Die Schaltfläche **Download** (Herunterladen) im Panel **Lorebooks** öffnet denselben Browser mit herunterladbaren Lorebooks. Siehe [Ein Lorebook von Chub herunterladen](../lorebooks/import-export.md#download-a-lorebook-from-chub).
+
+Schließt du ihn und öffnest ihn erneut, sind deine letzte Suche, die Filter und der ausgewählte Charakter noch da. Ein Neuladen der App setzt sie zurück.
 
 ## Eine Quelle wählen
 
@@ -102,6 +102,12 @@ Bevor du anfängst: Zum Chatten mit dem Charakter brauchst du eine funktionieren
 8. Öffne **Characters** (oder **Personas**), um die importierte Karte zu finden.
 
 Wenn es nicht funktioniert hat: Lies die Fehlermeldung in der Toast-Meldung. Bei **JannyAI** ist eine Cloudflare-Sperre die häufigste Ursache (siehe Fehlerbehebung unten).
+
+### Einen vorhandenen Charakter aktualisieren
+
+Ist die importierte Karte schon in deiner Bibliothek (früher von derselben Seite heruntergeladen oder mit demselben Namen und Ersteller), hält der Import bei **Bereits in deiner Bibliothek** an. Wähle **„Name“ aktualisieren**, um deine Kopie direkt zu aktualisieren, **Als neuen Charakter hinzufügen**, um beide zu behalten, oder **Diese Karte überspringen**. Um die Karte mit einem Charakter zu verknüpfen, der auf einem anderen Weg kam, klick im Fenster **Karte importieren** auf **Einen vorhandenen Charakter aktualisieren…** und wähle ihn aus der Liste. Siehe [Einen vorhandenen Charakter aktualisieren](import-export.md#update-a-character-you-already-have).
+
+Um nach einer neueren Version einer hier heruntergeladenen Karte zu suchen, öffne den Charakter, klick neben **Speichern** auf **⋯** und wähle **Nach Update suchen**. Der Card Browser öffnet sich bei dieser Karte.
 
 ### Download as PNG
 

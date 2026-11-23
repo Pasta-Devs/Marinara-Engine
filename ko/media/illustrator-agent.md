@@ -72,7 +72,7 @@ Game Mode에는 **Prompt Mode**(프롬프트 모드)나 **Prompt Model**(프롬�
 - **Videos only**(동영상만): 클립에 등장하는 캐릭터의 외형 텍스트를 클립이 받습니다. 그림이 없는 **Prompt only** 클립에서 특히 중요합니다.
 - **Images and videos**(이미지와 동영상): 둘 다 적용합니다.
 
-이 설정이 켜져 있으면 **Image Appearance Override**(이미지 외모 재정의)를 켠 카드나 페르소나는 **Appearance**(모양) 텍스트 대신 그 재정의 텍스트를 보냅니다. **Appearance**가 내레이터용으로 쓰여 있어 이미지 모델이 읽기 어려울 때 사용하세요. 전체 설명은 **Appearance**에 두고, 재정의에는 더 짧은 태그 형식을 넣으세요. 재정의를 끄거나 비워 두면 이미지 프롬프트는 **Appearance**를 사용합니다. 내레이터는 항상 **Appearance** 전체를 봅니다. 이 스위치는 캐릭터 편집기와 페르소나 편집기의 **Appearance** 아래에 있습니다.
+켜져 있을 때 **Image tags**(이미지 태그)를 사용 중인 카드나 페르소나는 **Appearance** 서술문 대신 그 태그를 보냅니다. 서술문이 내레이터용으로 쓰여 이미지 모델이 잘 이해하지 못할 때 사용하세요. 전체 설명은 **Appearance**의 **Prose**(서술문) 탭에 두고, 짧은 태그 형식의 내용은 **Image tags** 탭에 넣은 뒤 **Use for image prompts**(이미지 프롬프트에 사용)를 체크하세요. 태그의 체크가 해제되어 있거나 비어 있으면 이미지 프롬프트는 서술문을 사용합니다. 내레이터는 항상 서술문을 봅니다. 채팅에서 활성화된 Appearance 대체 필드는 자체 태그나 서술문을 사용합니다.
 
 **Send Avatar References**(아바타 참조 전송)는 캐릭터와 페르소나의 아바타나 스프라이트를 참조 이미지로 이미지 서비스에 보내, 모델이 얼굴이나 복장을 따라 그릴 수 있게 합니다. 참조 이미지를 받지 않는 서비스도 있습니다. Roleplay 채팅에서는 **Attach Card Appearance**와 같은 목록입니다. 동영상을 포함하면 **First frame**(첫 프레임)이 **Prompt only**인 클립은 캐릭터의 아바타나 스프라이트에서 시작하며, 선택지는 **Prompt only (avatar from Send Avatar References)**로 표시됩니다.
 

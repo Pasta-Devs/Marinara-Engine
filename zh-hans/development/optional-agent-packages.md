@@ -77,13 +77,12 @@ globalThis.__MARINARA_HOST__ = {
 | `components.SearchInput` | 从 Capability API 1.832 起提供 Engine 的搜索框。传入 `value`、`onChange` 和供屏幕阅读器使用的 `label`。搜索框有清除按钮，按 Escape 会先清除文字。`resultCount` 显示“4 found”，`busy` 显示加载指示器，`size="compact"` 适合紧凑的工具栏，`slashShortcut` 让“/”键可以聚焦搜索框。 |
 | `components.showConfirmDialog` | 从 Capability API 1.830 起提供 Engine 的确认对话框，与 `services.dialogs.showConfirmDialog` 是同一个函数。 |
 | `components.Select` | 从 Capability API 1.831 起提供 Engine 的下拉选择控件。传入 `value`（字符串或 `null`）、`options`（`{ value, label, description?, icon?, group?, disabledReason? }`）、`onChange(next)` 和 `label`。可选属性包括 `placeholder`、`disabled`、`id`、`title`、`aria-describedby`、`className`、`searchable` 和 `buttonRef`。它在桌面端打开浮层，在手机上打开面板，有八个及以上选项时可搜索。用它代替原生 `<select>`。 |
+| `components.Popover` | 从 Capability API 1.836 起提供 Engine 的锚定浮层：传入 `open`、`onClose`、`anchorRef` 和内容；可选属性有 `side`（`top` / `bottom`）、`align`（`start` / `center` / `end`）、`gap`、`matchAnchorWidth`、`role`、`className` 和 `dismiss`（例如 `{ outsideClick: false }`）。空间不足时会翻转方向，并保持在窗口内。按 Escape、点击外部或返回时，会从最上层开始关闭，因此对话框内的浮层会先于对话框关闭。 |
 | `data.emojiCatalog` | `lib/emoji-catalog.generated.ts` 模块。 |
 | `api` | `lib/api-client.ts` 模块（`api`、`ApiError`、`getApiErrorMessage` 等）。 |
 
 包只有先检查过某个成员，才会读取它，例如 `const host = globalThis.__MARINARA_HOST__; if (host?.version === 1 && typeof host.stores?.ui?.getState === "function")`。
-
 下载图片时，使用 `shouldUseIosImageShare()` 遵循图库的平台策略。在 iPhone 上，先在用户执行保存手势之前用 `prepareImageSave(url, filename)` 准备图片，再从该手势直接调用 `savePreparedImageToDevice(prepared)`。取消分享时不会显示错误；分享失败也不会改用 WebKit 下载预览。其他平台使用 `downloadUrlToDevice`。即使 Engine 服务器在 Docker 中运行，这些函数也会把图片保存到客户端设备。
-
 命名空间只增不减：新成员会随一个 Capability API 次版本号一起加入，需要它的包就要求这个次版本号。为命名空间构建的包要求引入它的那个 Capability API 版本，所以旧版 Engine 永远不会安装它们，而是保留已有的版本。如果某个成员仍然缺失，包也绝不会回退到自己打包的有状态 Engine 服务副本：`ui` 和 `chat` store 会变成从不写入的只读副本，其他所有成员则提示该功能需要更新版本的 Marinara Engine。
 
 **宿主模块。** `modules[specifier]` 是完整的模块命名空间，库有 `default` 时也包括它。客户端契约中的 `MARINARA_HOST_MODULE_IMPORTS` 把每个公开槽位映射到它导入的依赖。大多数槽位映射到同名依赖。稳定的 `framer-motion` 槽位映射到 `framer-motion-v13`（精确指定 Motion 13.5.1 的 npm 别名），可选的 `motion/react` 槽位则映射到 Engine 的主要依赖 `framer-motion` 14。包工具在导出清单和 TypeScript 路径中都使用这个映射；公开槽位名称不一定是实际依赖的名称。这些说明符是 `react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@tanstack/react-query`、`zustand`、`zustand/middleware`、`sonner`、`zod`、`i18next`、`react-i18next`、`framer-motion`、`motion/react`、`tailwind-merge` 和 `clsx`。包构建会把这些说明符解析为读取命名空间的垫片（shim），所以包用 Engine 唯一的那份 React 渲染，并共享它的 React Query 缓存和 toast 提示。
@@ -101,7 +100,7 @@ globalThis.__MARINARA_HOST__ = {
 | --- | --- |
 | `ui` | `achievementsEnabled`、`debugMode`、`includeReasoningInExports`、`enableStreaming`、`userStatus`、`enterToSendConvo`、`conversationCallVoiceVolume`、`conversationCallVoiceMuted`、`setConversationCallVoiceVolume`、`setConversationCallVoiceMuted`、`conversationTimeZone`、`noodleNavigation`、`setNoodleNavigation`、`noodleSelectedPersonaId`、`setNoodleSelectedPersonaId`、`reviewImagePromptsBeforeSend`、`musicPlayerEnabled`、`musicPlayerSource`、`sidebarOpen`、`setSidebarOpen`、`chatBackground`、`setChatBackground`、`characterDetailId`、`lorebookDetailId`、`presetDetailId`、`connectionDetailId`、`agentDetailId`、`toolDetailId`、`personaDetailId`、`regexDetailId`、`characterLibraryOpen`、`botBrowserOpen`、`gameAssetsBrowserOpen`、`modal`、`rightPanelOpen`、`closeModal`、`closeRightPanel`、`closeBotBrowser`、`closeAllDetails` |
 | `chat` | `activeChatId`、`activeChat`、`isStreaming`、`streamingChatId`、`abortControllers`、`reset`、`pendingSpatialTransitions`、`setPendingSpatialTransition`、`clearPendingSpatialTransition`、`setPendingSpatialTransitionStatus` |
-| `agent` | `setYoutubePlay`、`reset` |
+| `agent` | `setYoutubePlay`、`setPackageActivity`、`reset` |
 | `sidecar` | `modelDownloaded`、`modelDisplayName`、`fetchStatus` |
 | `dialog` | `dialog`、`openDialog`、`closeDialog` |
 | `gallery` | `pinImage`、`pinVideo` |
@@ -171,6 +170,7 @@ Engine 的安全规则优先于请求。只要屏幕上显示玩家文本输入�
 Capability API 1.14 为具有客户端入口、处于活动且已启用状态的 Roleplay 智能体包增加两个 `contributions.slots` 值：
 
 - `roleplay-tracker` 将包的 `toolbar` 视图挂载到 Roleplay HUD。属性包括 `chatId`、`chatMode`、`mobileCompact`、宿主的 `toolbarButtonClass`、`onRerunTracker`、`trackerRetryBusy`、`lockMode` 和 `onToggleLockMode`。回调是可选的，使用前请检查是否存在。
+- `chat-activity`(Capability API 1.820) 将包的 `activity` 视图挂载到聊天的智能体活动面板。见 [Capability API 1.820](#capability-api-1820-showing-a-package-in-agent-activity)。
 - `tracker-panel` 将包的 `tracker` 视图挂载到现有 Tracker Panel，传入 `chatId`、`chatMode` 和 `detached`。请复用宿主界面，不要另开第二个面板。两个插槽还会收到普通的功能身份和本地化属性。
 
 提示词上下文贡献仍通过 `api.registerPromptContext` 注册，需要 `prompt-context` 权限。请求现在公开 `targetCharacterIds`、`personaId` 和 `placedAgentTypes`(为兼容而设为可选)。`placedAgentTypes` 告知预设已经放置哪些智能体数据区段，避免重复上下文。宿主在 `packageBlocks` 中保留各贡献的包身份，以便把包文本放入对应智能体区段。返回按受众区分的文本时，应遵守传入的目标角色 ID。
@@ -441,7 +441,7 @@ Engine 战斗自行决定普通敌人的行为。GM 方的每个非首领敌人�
 
 ## 目录界面
 
-Agents(智能体) 面板里有一个 `Agent Organizer(智能体管理器)` 控件，与 Characters 和 Personas 面板里打开 Card Browser 的 `Download` 按钮相对应。点开是一个全屏的自适应库页面，提供搜索、包类型、兼容性信息、安装/更新状态、权限、占用空间、文档和卸载控件。
+Agents(智能体) 面板里有一个 `Agent Organizer`(智能体管理器) 控件，与 Characters 和 Personas 面板里打开 Card Browser 的 `Download` 按钮相对应。点开是一个全屏的自适应库页面，提供搜索、包类型、兼容性信息、安装/更新状态、权限、占用空间、文档和卸载控件。
 
 桌面端在商店页面旁显示侧边栏，里面有搜索、模式筛选和分区。移动端在页面上方显示搜索、模式筛选和分区标签；打开智能体页面后会替换列表，配明确的返回导航和适合触摸的按钮。空列表、离线、不兼容、下载损坏、安装中断、有更新、已回滚、需重启这些状态都是一等公民，各有对应界面。
 
@@ -1087,6 +1087,34 @@ const cacheRead = result.usage?.cachedPromptTokens ?? 0;
 
 不需要任何权限。旧版 Engine 没有这个方法，因此请检查 `typeof ttsService.prepareAudio === "function"`，并保留台词出现时再配音的做法。只有包离不开它时，才声明 1.835。
 
+### Capability API 1.834：已保存的立绘与图片选用规则
+
+`api.runtime.sprites` 读取角色或用户角色已保存的立绘，让包先使用用户已有的图片，再考虑生成新图。不需要权限。旧版 Engine 没有它，因此要先检查是否存在。
+
+- `list(ownerId)`：返回所有已保存的立绘，每张的格式为 `{ handle, kind, name, label, folder, url, mimeType }`。`kind` 为 `"expression"`（面部表情）或 `"full-body"`。`folder` 是立绘所在的文件夹，用户常按服装命名。SVG 立绘不会列出，因为图像模型都无法读取它们。
+- `resolve(ownerId, { kind, expression?, outfit?, selected?, maxReferences? })`：按以下顺序选用图片。
+  1. `selected`：用户选中的已保存立绘句柄，例如已装备服装的图片。只要它还存在，就优先使用：`{ source: "selected", sprite }`。
+  2. 已经符合要求的已保存立绘：`{ source: "library", sprite, match }`。表情（全身图则是姿势）必须按名称匹配，服装则按文件夹名或名称中的部分匹配（`happy_winter_coat`，见[名称变体](../characters/sprites.md#name-variants)）。未指定表情时，匹配该服装的静息图（neutral、idle、default）。表情正确但服装不同的图片不算匹配。
+  3. 可用作绘图参考的已保存立绘：`{ source: "reference", references }`，最多 `maxReferences` 张（1 到 4，默认 4），按适合程度排序：该服装的图片、其他服装下的指定表情，再到静息表情图和静息全身图。用 `read` 读取，并作为 `referenceImages` 传给 `integrations.images.generate`。
+  4. `{ source: "none" }`：根据角色描述绘图。
+- `read(ownerId, handle)`：返回 `{ base64, mimeType, transparent }`，立绘已不存在时返回 null。`transparent` 表示图片已有透明背景，应保留原样，不要再去除背景。
+
+包自己为明确选项保存的图片，例如 Otome Hearth 的服装或 Life Sim 的季节服装，优先于以上所有规则，无需调用接口。客户端视图可通过 `GET /api/sprites/:ownerId/match?kind=expression&expression=happy&outfit=winter%20coat` 得到相同结果。
+
+```ts
+const sprites = context.api.runtime.sprites;
+const pick = sprites ? await sprites.resolve(characterId, { kind: "full-body", expression: "wave", outfit }) : null;
+if (pick?.source === "selected" || pick?.source === "library") return pick.sprite.url;
+const references =
+  pick?.source === "reference"
+    ? (await Promise.all(pick.references.map((entry) => sprites!.read(characterId, entry.handle))))
+        .filter((picture) => picture !== null)
+        .map((picture) => picture.base64)
+    : [];
+// Generate with `referenceImages: references`, and ask for a see-through picture only on a connection that draws
+// one (its Transparent backgrounds setting).
+```
+
 <a id="capability-api-1816-animated-gif-images"></a>
 
 ### Capability API 1.816：动态 GIF 图像
@@ -1128,6 +1156,70 @@ const isGif = result.mimeType === "image/gif";
 `long-term-memory:runtime` 服务可以添加可选的 `chatBranched({ chatId, parentChatId })` 方法。聊天创建分支时，Engine 会调用它一次并等待它完成：时间点在分支路由完成复制（消息、元数据和快照）之后、返回新聊天之前，因此在调用内部已经可以读取分支的消息和 `branchParentChatId` 元数据。包可以借此在任何人读取之前修正这份副本。
 
 出错的调用和耗时超过几秒的调用会记录日志后忽略；无论哪种情况，分支都会照常返回。没有这个方法时，一切照旧。这是软接口：旧版 Engine 从不调用它，因此包在收不到这次调用时也必须能正常工作。无需权限。
+
+### Capability API 1.818：使用包自行选择的连接生成嵌入
+
+`api.runtime.embeddingsFor(connectionId)` 从包自身设置指定的来源解析嵌入，而不是使用 `resolveEmbeddings()` 所跟随的智能体连接。与 `resolveEmbeddings()` 不同，它绝不会回退到应用全局的 **Embeddings**(嵌入) 默认值。
+
+| `connectionId` | 解析结果 |
+| --- | --- |
+| `null` | 内置的本地 MiniLM 嵌入模型。 |
+| 连接 ID | 该连接自身的嵌入来源：它的 **Embedding provider**(嵌入服务商)、**Embedding endpoint URL**(嵌入端点 URL) 和嵌入模型，与 **Test embedding**(测试嵌入) 的解析方式相同。 |
+| 不对应任何连接的 ID，或没有可用嵌入来源的连接 | `null`。记录日志并返回，不抛出异常。 |
+
+返回的宿主与 `resolveEmbeddings()` 结构相同：`spaceId`、`label` 和 `embed(texts, signal?, inputType?)`，采用相同限制（128 段文本，总计 200,000 个字符）和 1.68 的输入类型。调用失败时，`embed` 返回 `null`。每个来源都有自己的 `spaceId`，因此设置变更后要重新嵌入已保存的向量。
+
+```ts
+const runtime = api.runtime;
+const chosen = settings.embeddingConnectionId ?? null; // null: the built-in local model
+const embeddings =
+  typeof runtime.embeddingsFor === "function"
+    ? ((await runtime.embeddingsFor(chosen)) ?? (await runtime.embeddingsFor(null)))
+    : await runtime.resolveEmbeddings();
+const [queryVector] = (await embeddings?.embed([query], signal, "query")) ?? [];
+```
+
+这是软接口：旧 Engine 没有这个方法，因此调用前要检查是否存在，并像示例一样回退。只有包离不开它时才声明 1.818。不需要权限。
+
+<a id="capability-api-1820-showing-a-package-in-agent-activity"></a>
+
+### Capability API 1.820：在智能体活动中显示包
+
+`chat-activity` 槽位会在聊天的智能体活动面板中放入你自己的卡片；这个面板由聊天抽屉和 Tracker Panel 中的智能体活动图标打开。在 `contributions.slots` 中声明它，并注册一个 `activity` 视图；Engine 会为每个有客户端入口、且由该聊天运行的活跃包挂载一个元素（包的 ID 位于聊天已启用的智能体中）。它出现在智能体状态和输出之后、自定义智能体已保存的输出之前。
+
+```json
+{ "contributions": { "slots": ["chat-activity"] } }
+```
+
+元素会收到 `chatId` 和打开包自身智能体页面的 `onOpenAgentSettings()`，以及常规的能力标识和本地化 props。Engine 不添加外围界面：自行绘制卡片，没有内容时不渲染任何东西。客户端代码加载后，空元素不占空间。只要挂载了任意包卡片，面板就不会显示“No agent activity yet”，所以需要空闲提示时自行绘制。
+
+这不是软接口：早于 1.820 的 Engine 会拒绝该清单，因此声明 `chat-activity` 的包必须声明 1.820。
+
+#### 显示包正在忙或需要关注
+
+`__MARINARA_HOST__.stores.agent.getState().setPackageActivity(packageId, chatId, { busy?, alert? })` 会点亮该聊天的智能体活动图标（`packageId` 是清单中的 `id`），无论图标位于聊天抽屉、弹出窗口还是 Tracker Panel。只要有包报告 `busy: true`，图标就像聊天自身智能体运行时那样旋转；`alert: true` 则显示提示圆点。省略的字段保留原值，两者都为 false 的条目会被移除。信号按聊天保存，因此切换聊天只显示对应聊天的信号。
+
+```ts
+const agent = globalThis.__MARINARA_HOST__?.stores.agent?.getState();
+agent?.setPackageActivity?.(id, chatId, { busy: true });
+try {
+  await doWork();
+} finally {
+  agent?.setPackageActivity?.(id, chatId, { busy: false });
+}
+```
+
+Engine 绝不会自行清除信号，即使 `activity` 元素已卸载也一样（面板关闭时，图标反而最有用）：你负责清除它，重新加载或调用 `reset()` 会清除全部信号。切换聊天不会清除。忙碌或发出提醒的包也算有活动，因此面板不会显示“No agent activity yet”；把信号与 `activity` 卡片搭配使用，让面板有内容可显示。这是软接口：旧 Engine 没有这个方法，因此如上例所示，先检查它是否存在。只有包离不开它时才声明 1.820。不需要权限。
+
+### Capability API 1.833：列出聊天的 World State 快照
+
+`persistence.getGameState(chatId)` 只返回最新提交的 World State。`persistence.listGameStates(chatId)` 按消息顺序返回每条消息当前备选回复已提交的快照，每条记录的格式与 `getGameState` 相同。包可以读取追踪器为任意消息保存的故事内日期，无需让模型从文本中查找。
+
+没有已提交快照的消息、为用户未保留的备选回复保存的快照、所属消息已被删除的快照，以及未关联消息的快照，都不会列出，因此最后一条记录可能与 `getGameState` 不同。它需要 `chat-read` 权限，与 `getGameState` 相同，而且是只读的。这是软接口：旧版 Engine 没有这个方法，因此如上例所示，先检查它是否存在。只有包离不开它时才声明 1.833。
+
+```ts
+const states = (await api.runtime.persistence.listGameStates?.(chatId)) ?? [];
+```
 
 <a id="capability-api-1391-advanced-memory-scene-summaries-and-the-memory-block"></a>
 
@@ -1396,7 +1488,6 @@ Engine 用 `view="widget"` 挂载包的客户端元素。除常见的 `packageId
 ### 包音频
 
 从 Capability API **1.381** 起，`__MARINARA_HOST__.services.audio` 提供由 Engine 管理的播放和素材选择。在包清单中声明该次版本，并随包一同更新 Engine。语音仍使用 `services.tts`，音乐和音效使用 `services.audio`。从 1.381 起，`services.tts.ttsService.speakSequence(requests, id?, options?)` 接受 `options.audioConnectionId`，将选中的语音连接应用到每个片段，同时保留各请求的声音。不设置时使用常规默认值；传入 `""` 可明确使用旧 TTS 设置。
-
 未知、已删除、被隔离或不属于语音的 `audioConnectionId` 会被忽略，并执行正常的语音解析：先使用已保存的语音选择，再尝试默认/回退连接，最后使用旧设置。如果已保存的语音选择本身不可用，就会拒绝播放，而不会借用另一个连接。要求使用特定连接的包应在播放前验证保存的 ID。
 
 如需在台词播放前生成语音片段，请参阅 [Capability API 1.835](#capability-api-1835-prepare-voice-clips-ahead)。

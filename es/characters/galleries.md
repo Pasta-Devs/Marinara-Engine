@@ -50,7 +50,7 @@ Antes de empezar: agrega una conexión de generación de imágenes.
 
 ### Corregir el recorte de una hoja
 
-Después de generar una hoja de stickers o emojis, se identifica cada sticker por su contorno, se elimina su fondo verde y aparece como una miniatura individual con su nombre. Los stickers guardados tienen un tamaño máximo de 512 por 512 píxeles y los emojis, de 256 por 256, y cada uno se etiqueta con su nombre.
+Después de generar una hoja de stickers o emojis, se encuentra cada sticker por su contorno, se elimina su fondo verde y aparece en su propia miniatura con su nombre. En un modelo que dibuja imágenes transparentes (consulta [Fondos transparentes](../media/image-providers.md#transparent-backgrounds)), se pide que la hoja tenga un fondo transparente, con verde solo como respaldo, y una hoja que llega transparente conserva los bordes tal como se dibujaron. Los stickers guardados miden como máximo 512 por 512 píxeles y los emojis, 256 por 256, y cada uno se etiqueta con su nombre.
 
 - Haz clic en una miniatura para conservarla u omitirla. Las miniaturas omitidas no se guardan.
 - Edita el nombre debajo de una miniatura para cambiarlo.

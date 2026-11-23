@@ -63,7 +63,8 @@ Jeśli urządzenie prosi o ograniczenie ruchu, obie animacje są pomijane.
 
 - **Custom Mouse Pointer** (własny wskaźnik myszy, domyślnie włączony) wyświetla kursor aplikacji Marinara Engine w kolorze akcentu. Wyłącz go, żeby korzystać z kursora systemowego albo żeby o kursorze decydował własny motyw.
 - **Reduce Ambient Animations & Effects** (ograniczenie animacji i efektów otoczenia) zatrzymuje ozdobne animacje, cząsteczki otoczenia, obracające się podglądy i stopniowe odsłanianie tekstu. Marinara robi to też wtedy, gdy urządzenie prosi o ograniczenie ruchu.
-- **Desktop sidebar width** (szerokość pasków bocznych na komputerze) ustawia szerokość obu pasków bocznych na komputerze. Przycisk **Reset width** (przywrócenie szerokości) ją przywraca. Telefony zachowują swój układ.
+- **Szerokość paska bocznego na komputerze** ustawia szerokość paska bocznego na komputerze w zakresie od 280 do 480 px. **Czaty** i panele, takie jak **Postacie** czy **Ustawienia**, otwierają się w tym samym pasku bocznym. Przycisk **Resetuj szerokość** przywraca 320 px. Możesz też przeciągnąć wewnętrzną krawędź paska. Telefony i tablety zachowują panele pełnoekranowe.
+- **Strona paska bocznego na komputerze** umieszcza pasek po stronie **Prawa** (domyślnej) lub **Lewa** okna. Przy opcji **Lewa** górny pasek zostaje odbity: **Czaty** i przyciski paneli przesuwają się w lewo, a **Strona główna** w prawo. Działa to tylko na komputerze. Telefony i tablety zachowują swój układ.
 
 ### Chat widget style
 
@@ -125,7 +126,7 @@ Sekcja **Roleplay Presentation** (prezentacja trybu Roleplay) odpowiada za styl 
 
 | Ustawienie | Do czego służy | Domyślnie |
 | --- | --- | --- |
-| **Chat position** | Gdzie na szerokim ekranie stoją wiadomości i pole wpisywania: **Left**, **Center** lub **Right**. Otwarty pasek boczny lub Tracker Panel po tej samej stronie odsuwa je na bok. Na telefonie czat zajmuje całą szerokość. | **Center** |
+| **Chat position** | Gdzie na szerokim ekranie stoją wiadomości i pole wpisywania: **Left**, **Center** lub **Right**. Otwarty pasek boczny lub Tracker Panel po tej samej stronie odsuwa je na bok (zobacz **Strona paska bocznego na komputerze**). Na telefonie czat zajmuje całą szerokość. | **Center** |
 | **Visual Novel display** (widok visual novel) | Pokazuje po jednym gotowym akapicie naraz, z portretem dialogowym i twoimi sprite'ami. Zmienia bieżący czat w trybie Roleplay oraz ustawienie domyślne dla czatów bez zapisanego stylu. | Wyłączone |
 | **Roleplay Messages Background Opacity** | Suwak od 0% do 100%. Zmniejsz wartość, żeby tło prześwitywało przez dymki wiadomości. | 90% |
 | **Roleplay Avatars** | Styl awatara przy każdej wiadomości: **None**, **Small Circles**, **Small Rectangles** albo **Glued Side Panel**. | **Small Circles** |

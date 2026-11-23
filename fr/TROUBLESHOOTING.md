@@ -235,7 +235,7 @@ Le **Built-in model** (modèle intégré) tourne sur ton ordinateur, sans clé A
 
 ### Memory Recall ne rappelle rien
 
-**Memory Recall** parcourt les messages précédents et réinsère les plus pertinents dans le prompt, le texte que Marinara envoie à l'IA.
+**Memory Recall** recherche les messages antérieurs qui ne tiennent plus dans le prompt et y remet les plus pertinents. Tant que tout le chat tient dans la fenêtre de contexte, il n'ajoute rien. Voir [Ce que Memory Recall ajoute](agents/memory.md#what-memory-recall-adds).
 
 1. Ouvre **Chat Settings → Memory Recall** et vérifie que **Enable Memory Recall** (activer Memory Recall) est activé.
 2. Ouvre **Access memories for this chat** (accéder aux souvenirs de ce chat). Dans **Memories for This Chat** (souvenirs de ce chat), regarde le statut de chaque fragment.

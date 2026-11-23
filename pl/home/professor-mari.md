@@ -263,6 +263,8 @@ W ustawieniu **Runtime** (środowisko uruchomieniowe) możesz wybrać **Pi (expe
 
 **Read the handbook before the first write** (przeczytanie podręcznika przed pierwszym zapisem), również w sekcji **Runtime**, jest domyślnie włączone. Jej pierwsza zmiana w obszarze z wbudowaną umiejętnością jest odrzucana, dopóki asystentka nie przeczyta tej umiejętności. Pomaga to mniejszym modelom. Tylko ty możesz to wyłączyć.
 
+Ustawienie **Pozycja kontekstu tury**, pod sekcją **Silnik**, określa, gdzie asystentka czyta kontekst każdej tury: bieżący czas, dołączone czaty, odnośniki @ i swoje notatki z wcześniejszych tur. Domyślna opcja **Nad ostatnimi 2 wiadomościami** umieszcza go nad jej ostatnią odpowiedzią i twoją wiadomością, więc twoja prośba pojawia się po nim i asystentka rzadziej kontynuuje pokazaną jej historię. Opcja **Na końcu, po twojej wiadomości** sprawia, że czyta go na końcu. Każdy krok wstecz oznacza, że nieco mniejsza część czatu jest ponownie wykorzystywana z pamięci podręcznej promptów dostawcy. Jej instrukcje zawsze są pierwsze i nie zmieniają miejsca.
+
 ### Do czego ma dostęp na twoim komputerze
 
 Asystentka może czytać i zmieniać pliki programu aplikacji Marinara Engine oraz uruchamiać polecenia w piaskownicy, żeby móc naprawić aplikację. Większość osób nigdy tego nie potrzebuje.

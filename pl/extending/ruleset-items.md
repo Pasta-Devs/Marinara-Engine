@@ -261,7 +261,8 @@ Gravewatch pokazuje to samo w puli: powiązany Dawn bell (dzwonek świtu) dodaje
 
 `combat.conditions[]` i `combat.levels[]` mogą przyznawać `resist`, `vulnerable`, `immune` (od 1 do 30 wpisów każde) i `conditionImmunities` (od 1 do 40 identyfikatorów stanów). Działają, dopóki trwa stan lub dopóki osiągnięty jest próg poziomu. Nowo uzyskana niewrażliwość na stan kończy ten stan, jeśli jest już aktywny, i zapobiega jego ponownemu nałożeniu. Niewrażliwość wygrywa z odpornością; odporność i podatność się znoszą. Kilka odporności nigdy nie zmniejsza obrażeń o połowę dwa razy.
 
-`resist` i `immune` używają postaci znanej ze stworzeń: słowa obrażeń albo `{ "type": "bludgeoning", "except": ["magical"] }`. Każdy wskazany tag ciosu omija ten wpis. `vulnerable` pozostaje zwykłymi słowami obrażeń. Ta sama postać z wyjątkiem działa w efektach `worn` i `carried` przedmiotów. Zadeklaruj tagi wyjątków w `items.tags` i umieść je w cechach broni lub zaklęcia. Na przykład Stoneskin to takie mapowanie stanu:
+`resist` i `immune` używają postaci znanej ze stworzeń: słowa obrażeń albo `{ "type": "bludgeoning",
+"except": ["magical"] }`. Każdy wskazany tag ciosu omija ten wpis. `vulnerable` pozostaje zwykłymi słowami obrażeń. Ta sama postać z wyjątkiem działa w efektach `worn` i `carried` przedmiotów. Zadeklaruj tagi wyjątków w `items.tags` i umieść je w cechach broni lub zaklęcia. Na przykład Stoneskin to takie mapowanie stanu:
 
 ```json
 {

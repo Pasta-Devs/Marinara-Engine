@@ -198,7 +198,7 @@ StoryboardはIllustratorとは別のエージェントで、Illustratorの手動
 | **Clip seconds** | 5(範囲は1から15) | クリップ1本ごとに要求する長さです。 |
 | **Viewer display** | Floating viewer | Gameのビューアーのデフォルトです。Roleplayでは、絵コンテを常にチャット内にそのまま表示します。 |
 | **Default Roleplay episode interval** | 1(範囲は1から100) | 自動エピソードのあいだに必要な、Roleplayの新しい本文の量です。 |
-| **Attach Card Appearance** | On | 該当するキャラクターの外見を画像プロンプトに加えます。**Image Appearance Override**(画像用の外見指定)がオンのカードやペルソナは、**Appearance**欄の代わりにその文章を渡します。 |
+| **カードの外見を添付** | オン | 一致したキャラクターの外見を画像プロンプトに追加します。カードやペルソナで**画像タグ**を使用中の場合は、**Appearance**の説明文の代わりにそのタグを渡します。 |
 | **Send Avatar References** | On | 画像サービスが参照画像を受け付ける場合に、該当するキャラクターとペルソナのアバターを送ります。 |
 | **Use the final image template** | On | 計画したフレームを、画像サービスへ送る前に整形します。Gameのチャットでは、これが**Use Storyboard Template**です。 |
 | **Use NovelAI character prompts** | On | 対応する公式NovelAI V4/V4.5のアカウントでのみ、キャラクターごとの本来のプロンプト方式を使います。ほかのサービスでは、共通のプロンプトの経路を使います。 |

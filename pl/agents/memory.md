@@ -8,7 +8,7 @@ Zacznij od **Memory Recall** (wyszukiwanie w dawnych wiadomościach). Działa be
 
 | Funkcja | Co robi | Gdzie działa |
 | --- | --- | --- |
-| **Memory Recall** | Przeszukuje starsze wiadomości pod kątem fragmentów związanych z twoją ostatnią wiadomością i dodaje je do promptu. | We wszystkich trybach |
+| **Przywoływanie pamięci** | Przeszukuje starsze wiadomości, które nie mieszczą się już w prompcie, pod kątem fragmentów związanych z twoją ostatnią wiadomością i dodaje te fragmenty. | We wszystkich trybach |
 | **Chat Summary** (podsumowanie czatu) | Zastępuje stare wiadomości krótkimi streszczeniami. | Roleplay |
 | **Automatic Summarization** (automatyczne podsumowywanie) | Podsumowuje każdy dzień, a potem każdy tydzień. Zawsze włączone. | Conversation |
 | **Advanced Memory Recall** (zaawansowane przywoływanie pamięci) | Wspólnie zarządza bieżącą historią, podsumowaniami scen i przywołanymi fragmentami. Opcjonalne. | Roleplay i Game Mode |
@@ -68,6 +68,21 @@ Na pasku narzędzi są ikony eksportu, importu, przebudowy i wyczyszczenia wspom
 - Ikona wyczyszczenia wszystkiego otwiera okno **Clear Memories**. Potwierdź przyciskiem **Clear**. Usuwa to wspomnienia do przywoływania, a nie wiadomości czatu.
 - Ikona odświeżania przebudowuje każdy fragment z bieżących wiadomości. Użyj jej po zmianie modelu embeddingów.
 - Eksport zapisuje plik `.marinara.json`. Import przyjmuje pliki `.json` lub `.marinara` i dołącza ich zawartość.
+
+### Co dodaje Memory Recall
+
+Memory Recall przywołuje tylko wiadomości, których prompt już nie zawiera. Dopóki cały czat mieści się w oknie kontekstu, nic nie dodaje, bo AI już czyta każdą wiadomość. Gdy starsze wiadomości zostają pominięte, żeby prompt się zmieścił, przywoływanie przeszukuje właśnie je.
+
+- Fragment jest przywoływany tylko wtedy, gdy żadnej z jego wiadomości nie ma w prompcie.
+- Wspomnienia też zajmują miejsce. Po ich dodaniu najstarsze wiadomości, które jeszcze by się zmieściły, mogą zostać pominięte, żeby zwolnić to miejsce. Przywoływanie może odzyskać także je.
+- Wiadomości pominięte przez **Limit wiadomości w kontekście** są traktowane jako znajdujące się poza promptem.
+- Wspomnienia zaimportowane z innego czatu mogą być przywoływane w dowolnym momencie.
+
+Żeby przywoływanie mogło wybierać dowolne wcześniejsze wiadomości, włącz **Przywołuj z całego czatu** pod **Włącz przywoływanie pamięci**. Wspomnienia często powtarzają wtedy wiadomości, które prompt już zawiera. Powtórzenia kosztują tokeny, a ponieważ wspomnienia znajdują się przed historią czatu i zmieniają się co turę, pamięć podręczna promptów usługi nie może ponownie wykorzystać historii.
+
+Przywołane wspomnienia trafiają tuż przed historię czatu. Żeby samodzielnie ustalić ich miejsce, dodaj znacznik **Przywoływanie pamięci** do presetu czatu. Zobacz [Kolejność sekcji dla pamięci podręcznej promptów](../prompts/presets.md#order-sections-for-prompt-caching). W prompcie trybu Conversation ich położenie wyznacza makro `{{memories}}`.
+
+Podgląd na żywo w [Podglądzie promptu](../chats/peek-prompt.md) nie uruchamia Memory Recall. Przy włączonym przywoływaniu może pokazywać więcej historii, niż trafia do generowania odpowiedzi.
 
 ### Jak zachowuje się Memory Recall
 
@@ -307,6 +322,7 @@ Czaty w trybie Game Mode włączają Advanced Memory Recall tak samo, w **Chat S
 | Memory Recall nic nie przywołuje | Sprawdź, czy skonfigurowane jest źródło embeddingów. Jeśli fragmenty mają status **Embedding unavailable**, ustaw model w sekcji **Semantic search (embeddings)** albo użyj wbudowanego modelu. Zobacz [Konfiguracja modelu wbudowanego](../connections/local-model.md). |
 | Fragmenty mają status **Waiting for vector** | Daj im czas. Odciski palca powstają po odpowiedziach. |
 | Nic nie wydaje się powiązane | Przywoływanie dodaje tylko blisko powiązane wspomnienia. To normalne, że nic nie dodaje. |
+| Memory Recall nic nie dodaje, gdy czat jest krótki | To oczekiwane zachowanie. Przywoływanie dodaje tylko wiadomości, które nie mieszczą się już w oknie kontekstu. Zobacz [Co dodaje Memory Recall](#what-memory-recall-adds). |
 | Przywoływanie pogorszyło się po zmianie modelu embeddingów | Użyj ikony przebudowy w oknie **Memories for This Chat**. |
 | Podsumowania nie powstają | Czat potrzebuje działającego konta tekstowego. Chat Summary używa **Summary Provider**. Jeśli żadne nie działa, generowanie zostaje pominięte. |
 | Podsumowania AI nigdy się nie pojawiają | **Review Agent Outputs** może czekać na twoje zatwierdzenie. |

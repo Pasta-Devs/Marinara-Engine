@@ -35,14 +35,16 @@ Opciones de **Resolution**: 512x512, 512x768, 768x768, 768x1024, 896x1152 y 1024
 
 **Send Avatar References** y **Attach Card Appearance** ofrecen cada uno **Off**, **Images only**, **Videos only** e **Images and videos**.
 
-Si la tarjeta o la persona tiene **Image Appearance Override** activado (en **Appearance** en el editor), Marinara envía ese texto en lugar de **Appearance**. Úsalo cuando **Appearance** esté escrito para la historia y no para las imágenes.
+Si la tarjeta o la persona tiene **Etiquetas de imagen** en uso (la pestaña **Etiquetas de imagen** de **Apariencia** en el editor, con **Usar para los prompts de imagen** marcado), Marinara envía esas etiquetas en lugar de la prosa de **Apariencia**. Una alternativa de Apariencia activa en el chat usa sus propias etiquetas o su prosa. Úsalo cuando **Apariencia** esté escrito para la historia y no para las imágenes.
 
 ## Pedir una selfie a mano
 
 1. Abre **Chat Settings** y expande la sección **Gallery**.
 2. Haz clic en **Selfie**. Con más de un personaje, elige quién la toma en la lista junto al botón.
 3. Si **Expose media prompts before sending** está activado (**Settings → Generations → Overall Generations**), revisa o edita el prompt y haz clic en **Generate**. Cancelar no envía ninguna solicitud.
-4. Espera mientras el botón dice **Generating...**. Verás "Selfie generated." y la imagen aparece en el chat. Una solicitud manual usa **Selfie model** y cuesta una solicitud de imagen.
+4. Espera mientras el botón dice **Generating...**.
+
+Verás "Selfie generated." y la imagen aparece en el chat. Una solicitud manual usa **Selfie model** y cuesta una solicitud de imagen.
 
 ## Cómo envían selfies los personajes
 
@@ -73,7 +75,7 @@ Si un clip no se puede añadir al chat, igualmente se guarda en la pestaña **Vi
 
 Abre **Chat Settings → Agents → Illustrator Settings**, **Video messages**.
 
-- **Generated Videos**: deja que los personajes envíen mensajes de video por su cuenta. Desactivado de forma predeterminada en los chats nuevos, porque cada clip es una solicitud de video. También necesita **Videos** en la lista de **Commands**.
+- **Generated Videos**: deja que los personajes envíen mensajes de video por su cuenta. Desactivado de forma predeterminada en los chats nuevos, porque cada clip es una solicitud de video. También aparece como **Videos** en la lista de **Commands**.
 - **Video Run Interval**: se muestra una vez que **Generated Videos** está activado. Cuántos mensajes deben pasar entre clips. **0** los detiene.
 - **Video model**: la cuenta de video. **Default video provider** usa tu valor predeterminado.
 - **First frame**: la imagen desde la que empieza el clip (abajo).

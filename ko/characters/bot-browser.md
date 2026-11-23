@@ -103,6 +103,12 @@ PlotLight는 앱이 요청을 보낼 수 있는 빈도를 제한합니다. 너�
 
 작동하지 않는 경우: 토스트의 오류 메시지를 읽으세요. **JannyAI**에서는 Cloudflare 차단이 가장 흔한 원인입니다(아래 문제 해결 참고).
 
+### 이미 보유한 캐릭터 업데이트하기
+
+가져오는 카드가 이미 라이브러리에 있으면(같은 페이지에서 전에 다운로드했거나 이름과 제작자가 같으면) 가져오기가 **Already in your library**(이미 라이브러리에 있음)에서 멈춥니다. 기존 사본을 업데이트하려면 **Update "Name"**("Name" 업데이트), 둘 다 유지하려면 **Add as a new character**(새 캐릭터로 추가), 제외하려면 **Skip this card**(이 카드 건너뛰기)를 고르세요. 다른 경로로 온 캐릭터에 카드를 연결하려면 **Import Card** 창에서 **Update a character you already have…**(이미 보유한 캐릭터 업데이트…)를 클릭하고 목록에서 고르세요. [이미 보유한 캐릭터 업데이트하기](import-export.md#update-a-character-you-already-have)를 참고하세요.
+
+여기서 다운로드한 카드의 새 버전을 찾으려면 캐릭터를 열고 **Save**(저장) 옆의 **⋯**를 클릭한 다음 **Check for update**(업데이트 확인)를 고르세요. 해당 카드로 Card Browser가 열립니다.
+
 ### PNG로 다운로드하기
 
 상세 화면에서 **Download as PNG**(PNG 다운로드)를 클릭하면 라이브러리에 추가하지 않고 카드를 표준 PNG 캐릭터 카드로 기기에 저장합니다. 처리하는 동안 버튼에 **Building PNG...**(PNG 생성 중...)가 표시됩니다. 모든 소스에서 작동하며, 파일 이름은 `Some_Character.png`처럼 캐릭터 이름을 따릅니다. PNG 카드는 캐릭터 데이터를 안에 담은 이미지입니다. 공유하거나 다른 앱으로 가져올 수 있습니다.
