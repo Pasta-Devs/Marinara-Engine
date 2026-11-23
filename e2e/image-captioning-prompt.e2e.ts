@@ -37,7 +37,7 @@ test("image captioning prompt shows under the toggle, saves, and resets", async 
     );
     const section = page.locator('.mari-chat-settings-drawer [data-chat-settings-section="advanced-parameters"]');
     const prompt = section.getByRole("textbox", { name: "Captioning Prompt", exact: true });
-    const reset = section.getByRole("button", { name: "Reset to default prompt", exact: true });
+    const reset = section.getByRole("button", { name: "Use the Image reading prompt", exact: true });
     const openSettings = async () => {
       await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
       await section.getByText("Advanced Parameters", { exact: true }).click();

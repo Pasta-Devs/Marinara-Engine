@@ -22,6 +22,9 @@ import {
   featureSettingsSchema,
   FEATURE_MODEL_CONNECTIONS_SETTINGS_KEY,
   featureModelConnectionsSchema,
+  IMAGE_READING_SETTINGS_KEY,
+  imageReadingSettingsSchema,
+  type ImageReadingSettings,
   type FeatureModelConnections,
   type FeatureSettingsResponse,
   impersonatePromptTemplateCatalogSchema,
@@ -54,6 +57,7 @@ import {
 } from "../utils/stored-secrets.js";
 import { initializeChatWindowDefaults } from "../services/storage/chat-window-defaults.js";
 import { readFeatureModelConnections } from "../services/storage/feature-model-connections.js";
+import { readImageReadingSettings, writeImageReadingSettings } from "../services/storage/image-reading-settings.js";
 import { featureSettingsResponse, loadFeatureSettings } from "../services/features/feature-settings.js";
 import { loadMediaQueueUiSettings } from "../services/image/image-generation-queue.js";
 import { loadGeneratedImageFormatUiSettings } from "../services/image/generated-image-format.js";
@@ -153,6 +157,13 @@ export async function appSettingsRoutes(app: FastifyInstance) {
     });
     return readFeatureModelConnections(app.db);
   });
+
+  // The Image reading prompt, request and limits. Loading them here also hands them to the captioning runtime.
+  await readImageReadingSettings(app.db).catch(() => undefined);
+  app.get(`/${IMAGE_READING_SETTINGS_KEY}`, (): Promise<ImageReadingSettings> => readImageReadingSettings(app.db));
+  app.put(`/${IMAGE_READING_SETTINGS_KEY}`, async (req): Promise<ImageReadingSettings> =>
+    writeImageReadingSettings(app.db, imageReadingSettingsSchema.partial().parse(req.body)),
+  );
 
   app.get(`/${HOME_CUSTOM_WIDGETS_SETTINGS_KEY}`, () => readHomeWidgetCatalog(app.db));
 
