@@ -120,6 +120,22 @@ test("a saved lorebook set fills a new roleplay's lorebooks without changing the
     expect(await nameSaved).toBe(false);
     expect((await savedSets(request)).find((set) => set.id === saved.id)?.name).toBe(renamed);
 
+    // A refetch with a name changed elsewhere keeps the text being typed here, and leaving the field saves it.
+    const typed = `Typed AU ${stamp}`;
+    await nameField.fill(typed);
+    const foreignRename = await request.patch(`/api/library-folders/lorebook-sets/${saved.id}`, {
+      data: { name: `Foreign AU ${stamp}` },
+    });
+    expect(foreignRename.ok()).toBeTruthy();
+    await page.evaluate(async () => {
+      const { queryClient } = await import("/src/lib/query-client.ts" as string);
+      await queryClient.invalidateQueries({ queryKey: ["library-folders", "lorebook-sets"] });
+    });
+    await expect(sets.getByRole("button", { name: new RegExp(`^Foreign AU ${stamp}`, "u") })).toBeVisible();
+    await expect(nameField).toHaveValue(typed);
+    await nameField.blur();
+    await expect.poll(async () => (await savedSets(request)).find((set) => set.id === saved.id)?.name).toBe(typed);
+
     // Pick it in the New Roleplay wizard.
     await page.evaluate(async (id) => {
       const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
@@ -159,12 +175,12 @@ test("a saved lorebook set fills a new roleplay's lorebooks without changing the
     await setTrigger.click();
     await page
       .getByRole("dialog", { name: "Lorebook set", exact: true })
-      .locator(`[data-pick-row][title="${renamed}"]`)
+      .locator(`[data-pick-row][title="${typed}"]`)
       .click();
     const chatBooks = async () =>
       (await (await request.get(`/api/chats/${chat.id}`)).json()).metadata?.activeLorebookIds as string[] | undefined;
     await expect.poll(chatBooks).toEqual([north, south]);
-    await expect(setTrigger).toHaveText(renamed);
+    await expect(setTrigger).toHaveText(typed);
 
     // A change for this chat only: the saved set keeps both lorebooks.
     await wizard.getByRole("button", { name: `Remove South ${stamp}`, exact: true }).click();

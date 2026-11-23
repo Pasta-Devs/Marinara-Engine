@@ -3,7 +3,7 @@
 // New Roleplay wizard and agents' fixed sources can pick in one go. It only references the
 // lorebooks (no copies), and picking it copies the list, so changes made there never reach it.
 // ──────────────────────────────────────────────
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronRight, Layers, Plus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -142,13 +142,17 @@ export function LorebookSetsSection() {
 // loads only when someone edits a set. The picks are kept here as well, so quick changes in a
 // row each build on the last one instead of on a list that hasn't refetched yet. Each pick
 // sends only what it adds or removes, so changes made elsewhere (another window, Mari) stay.
+// The name field takes a name changed elsewhere unless someone is typing in it.
 function LorebookSetEditor({ set }: { set: LibraryFolder }) {
   const { t } = useTranslation();
   const { data: lorebooks } = useLorebooks();
   const updateSet = useUpdateLibraryFolder("lorebook-sets");
   const [name, setName] = useState(set.name);
   const [itemIds, setItemIds] = useState(set.itemIds);
-  useEffect(() => setName(set.name), [set.name]);
+  const nameEdited = useRef(false);
+  useEffect(() => {
+    if (!nameEdited.current) setName(set.name);
+  }, [set.name]);
   useEffect(() => {
     if (!updateSet.isPending) setItemIds(set.itemIds);
   }, [set.itemIds, updateSet.isPending]);
@@ -158,6 +162,7 @@ function LorebookSetEditor({ set }: { set: LibraryFolder }) {
     updateSet.mutate({ id: set.id, addItemIds, removeItemIds });
   };
   const saveName = () => {
+    nameEdited.current = false;
     const trimmed = name.trim();
     if (!trimmed) setName(set.name);
     else if (trimmed !== set.name) updateSet.mutate({ id: set.id, name: trimmed });
@@ -170,7 +175,10 @@ function LorebookSetEditor({ set }: { set: LibraryFolder }) {
         <input
           value={name}
           maxLength={200}
-          onChange={(event) => setName(event.target.value)}
+          onChange={(event) => {
+            nameEdited.current = true;
+            setName(event.target.value);
+          }}
           onBlur={saveName}
           onKeyDown={(event) => {
             if (event.key === "Enter") event.currentTarget.blur();
