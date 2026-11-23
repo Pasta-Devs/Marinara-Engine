@@ -245,10 +245,10 @@ export function resolvePosition(value: unknown): number {
   const positionMap: Record<number, number> = {
     0: 0, // ST before_char
     1: 1, // ST after_char
-    2: 0, // ST ANTop
-    3: 1, // ST ANBottom
+    2: 2, // ST ANTop: at depth 4, where SillyTavern puts the Author's Note (see importSTLorebook)
+    3: 2, // ST ANBottom: the same, just after it
     4: 2, // ST @D / at-depth
-    5: 0, // ST EMTop
+    5: 1, // ST EMTop: the examples sit after the character definitions in SillyTavern
     6: 1, // ST EMBottom
     7: 7, // ST Outlet
   };
@@ -365,13 +365,16 @@ function detectCategory(entries: STWorldInfoEntry[], name?: string): LorebookCat
   return bestScore > 0 ? best : "world";
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Auto-detect a tag for an individual entry based on its content/keys.
  */
 function detectEntryTag(entry: STWorldInfoEntry): string {
-  const text = [entry.comment ?? entry.name ?? "", entry.content ?? "", ...asStringArray(entry.key ?? entry.keys)]
-    .join(" ")
-    .toLowerCase();
+  // The name and keys only: the content mentions too much ("lighthouse" is not a house).
+  const text = [entry.comment ?? entry.name ?? "", ...asStringArray(entry.key ?? entry.keys)].join(" ").toLowerCase();
   const tagSignals: Record<string, string[]> = {
     location: [
       "city",
@@ -392,7 +395,7 @@ function detectEntryTag(entry: STWorldInfoEntry): string {
     item: ["sword", "potion", "artifact", "weapon", "armor", "ring", "amulet", "scroll", "tome"],
     faction: ["guild", "order", "alliance", "faction", "clan", "tribe", "house", "court"],
     lore: ["history", "legend", "myth", "prophecy", "ancient", "origin", "creation", "divine"],
-    magic: ["spell", "enchant", "ritual", "arcane", "mana", "rune", "conjur", "summon"],
+    magic: ["spell", "enchant*", "ritual", "arcane", "mana", "rune", "conjur*", "summon*"],
     creature: ["dragon", "beast", "monster", "demon", "undead", "spirit", "elemental", "golem"],
     event: ["battle", "war", "festival", "ceremony", "ritual", "tournament", "coronation"],
   };
@@ -402,7 +405,10 @@ function detectEntryTag(entry: STWorldInfoEntry): string {
   for (const [tag, signals] of Object.entries(tagSignals)) {
     let score = 0;
     for (const signal of signals) {
-      if (text.includes(signal)) score++;
+      // Whole words; a trailing * lets a stem continue ("enchant" in "enchantment").
+      const stem = signal.endsWith("*");
+      const word = escapeRegExp(stem ? signal.slice(0, -1) : signal);
+      if (new RegExp(stem ? `\\b${word}\\w*` : `\\b${word}\\b`).test(text)) score++;
     }
     if (score > bestScore) {
       bestScore = score;
@@ -412,6 +418,9 @@ function detectEntryTag(entry: STWorldInfoEntry): string {
   return bestTag;
 }
 
+/** An entry setting with no equal here, moved to the closest place (SillyTavern's Author's Note and examples). */
+export type LorebookImportNote = { kind: "positionMoved"; from: "authorsNote" | "exampleMessages"; count: number };
+
 export interface LorebookImportResult {
   success: true;
   lorebookId: string;
@@ -419,6 +428,7 @@ export interface LorebookImportResult {
   category: LorebookCategory;
   entriesImported: number;
   reimported: boolean;
+  notes: LorebookImportNote[];
 }
 
 /**
@@ -511,6 +521,8 @@ export async function importSTLorebook(
       const lorebookId = lorebook.id as string;
       const lorebookName = typeof lorebook.name === "string" ? lorebook.name : lbName;
       let imported = 0;
+      let movedFromAuthorsNote = 0;
+      let movedFromExamples = 0;
 
       for (const entry of entryList) {
         // Resolve fields that differ between ST World Info format and V2 Character Book format
@@ -525,7 +537,19 @@ export async function importSTLorebook(
         // V2 position can be string ("before_char"/"after_char") — map to number
         const resolvedPosition = resolvePosition(entry.position);
         // Role can be a number (ST) or string (V2)
-        const resolvedRole = resolveLorebookEntryRole(entry.role);
+        let resolvedRole = resolveLorebookEntryRole(entry.role);
+        let resolvedDepth = asNumber(entry.depth, 4);
+        let positionOrder = resolvedOrder;
+        // SillyTavern's Before/After Author's Note: at depth 4 as system, where SillyTavern (and Marinara) put
+        // the note itself; After lands just behind Before. Around the examples: after the character definitions.
+        if (entry.position === 2 || entry.position === 3) {
+          resolvedRole = "system";
+          resolvedDepth = 4;
+          if (entry.position === 3) positionOrder += 1;
+          movedFromAuthorsNote++;
+        } else if (entry.position === 5 || entry.position === 6) {
+          movedFromExamples++;
+        }
         const resolvedCaseSensitive = entry.caseSensitive ?? entry.case_sensitive ?? false;
         const resolvedMatchWholeWords = entry.matchWholeWords ?? entry.match_whole_words ?? false;
         const entryUsesRegex = Boolean(entry.useRegex ?? entry.regex ?? false);
@@ -563,8 +587,8 @@ export async function importSTLorebook(
           useRegex: resolvedUseRegex,
           position: resolvedPosition,
           outletName: normalizeString(entry.outletName),
-          depth: asNumber(entry.depth, 4),
-          order: resolvedOrder,
+          depth: resolvedDepth,
+          order: positionOrder,
           role: resolvedRole,
           sticky: asNullableNumber(entry.sticky),
           cooldown: asNullableNumber(entry.cooldown),
@@ -577,7 +601,8 @@ export async function importSTLorebook(
           dynamicState: {},
           activationConditions: [],
           schedule: null,
-          preventRecursion: entry.preventRecursion == null ? true : Boolean(entry.preventRecursion),
+          // Off when the file doesn't say, as in SillyTavern and the V2 card spec.
+          preventRecursion: Boolean(entry.preventRecursion ?? false),
           excludeRecursion: Boolean(entry.excludeRecursion ?? false),
           delayUntilRecursion: Boolean(entry.delayUntilRecursion ?? false),
           excludeFromVectorization: entry.vectorized === false ? true : entry.excludeFromVectorization === true,
@@ -614,6 +639,14 @@ export async function importSTLorebook(
         category: detectedCategory,
         entriesImported: imported,
         reimported: !!existingLorebookId,
+        notes: [
+          ...(movedFromAuthorsNote > 0
+            ? [{ kind: "positionMoved" as const, from: "authorsNote" as const, count: movedFromAuthorsNote }]
+            : []),
+          ...(movedFromExamples > 0
+            ? [{ kind: "positionMoved" as const, from: "exampleMessages" as const, count: movedFromExamples }]
+            : []),
+        ],
       };
       await options?.beforeCommit?.(tx, result);
       return { result, removedEntryIds: existingEntryIds };

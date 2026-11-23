@@ -815,10 +815,11 @@ export function ChatSidebar() {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("mode", activeTab);
+        // No mode: the server uses the file's own type, else Roleplay, and the list switches to that tab.
         const data = await api.upload<{
           success?: boolean;
           chatId?: string;
+          mode?: "conversation" | "roleplay" | "game";
           error?: string;
           messagesImported?: number;
           importNotes?: STChatImportNote[];
@@ -839,6 +840,8 @@ export function ChatSidebar() {
           notes.length > 0 ? { description: notes.join(" "), duration: 8000 } : undefined,
         );
         await refetchChats();
+        // Show the tab the chat landed in, so it is in the list.
+        if (data.mode) setActiveTab(data.mode);
         if (data.chatId) setActiveChatId(data.chatId);
       } catch (error) {
         toast.error(
@@ -850,7 +853,7 @@ export function ChatSidebar() {
         setIsImportingChat(false);
       }
     },
-    [activeTab, refetchChats, setActiveChatId, localizeUi],
+    [refetchChats, setActiveChatId, localizeUi],
   );
 
   const activeModeConfig = MODE_CONFIG[activeTab] ?? MODE_CONFIG.conversation;
