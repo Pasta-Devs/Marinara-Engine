@@ -976,24 +976,27 @@ test("Making faces, a failed picture's prompt can be edited for its retry alone"
     await expect(runReview).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
     await runReview.getByRole("button", { name: "Generate", exact: true }).click();
     await expect(paused).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
-    // Regenerate while the prompt loads drops the review with its run: it never opens over the settings.
+    // Regenerate while the prompt loads cancels it with its run: the review never opens over the settings, and the
+    // next run's failed picture can be reviewed and retried at once.
     const releaseSecondPreview = await holdPreview();
+    const previewCancelled = page.waitForEvent("requestfailed", (failed) =>
+      failed.url().endsWith("/api/sprites/generate-sheet/preview"),
+    );
     await reviewPrompt.click();
     await dialog.getByRole("button", { name: "Regenerate", exact: true }).click();
     await expect(dialog.getByText("29 faces in 5 pictures.", { exact: true })).toBeVisible();
-    const previewAnswered = page.waitForResponse((response) =>
-      response.url().endsWith("/api/sprites/generate-sheet/preview"),
-    );
-    releaseSecondPreview();
-    await previewAnswered;
-    // Time for a review that would open to show itself.
-    await page.waitForTimeout(500);
-    await expect(review).toBeHidden();
     sheets.length = 0;
     await dialog.getByRole("button", { name: "Generate Sprites", exact: true }).click();
     await expect(runReview).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
     await runReview.getByRole("button", { name: "Generate", exact: true }).click();
     await expect(paused).toBeVisible({ timeout: FIRST_LOAD_TIMEOUT_MS });
+    await expect(reviewPrompt).toBeEnabled();
+    await expect(dialog.getByRole("button", { name: "Retry picture", exact: true })).toBeEnabled();
+    await previewCancelled;
+    releaseSecondPreview();
+    // Time for a review that would open to show itself.
+    await page.waitForTimeout(500);
+    await expect(review).toBeHidden();
     const reviewed = sheets[0]?.promptOverrides ?? [];
     expect(reviewed).toHaveLength(5);
     await reviewPrompt.click();

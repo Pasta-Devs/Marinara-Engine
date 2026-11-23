@@ -904,6 +904,7 @@ export function SpriteGenerationModal({
     generationControllerRef.current?.abort();
     generationControllerRef.current = null;
     closePromptReview(null);
+    setFailedBatchReview(null);
   }, [closePromptReview]);
 
   useEffect(() => {
@@ -1731,6 +1732,9 @@ export function SpriteGenerationModal({
   const handleReviewFailedBatch = useCallback(async () => {
     if (!failedBatch || !faceBatchMode || spriteGenerationUnavailable || !effectiveConnectionId) return;
     const batch = failedBatch.batches[failedBatch.batchIndex] ?? [];
+    // Held like a run's, so a reset or close cancels the preview and clears the review.
+    const controller = new AbortController();
+    generationControllerRef.current = controller;
     const runId = generationRunIdRef.current;
     const saved = facePromptOverridesRef.current ?? [];
     setFailedBatchReview("loading");
@@ -1738,6 +1742,7 @@ export function SpriteGenerationModal({
       const preview = await api.post<GenerateSheetPreviewResult>(
         "/sprites/generate-sheet/preview",
         sheetRequestBody(batch, generationGrid, false),
+        { signal: controller.signal },
       );
       if (generationRunIdRef.current !== runId) return;
       const faces = batch.map((expression) => expression.replace(/_/g, " ")).join(", ");
@@ -1779,7 +1784,11 @@ export function SpriteGenerationModal({
       if (generationRunIdRef.current === runId) setError(getGenerationErrorMessage(err));
       return;
     } finally {
-      setFailedBatchReview(null);
+      // A stale preview leaves the state to the review or run that replaced it.
+      if (generationRunIdRef.current === runId && generationControllerRef.current === controller) {
+        generationControllerRef.current = null;
+        setFailedBatchReview(null);
+      }
     }
     await retryFailedBatchRef.current();
   }, [
@@ -3341,8 +3350,8 @@ export function SpriteGenerationModal({
         isSubmitting={promptReviewSubmitting}
         notice={
           failedBatchReview === "open" && failedBatch ? (
-            <div className="rounded-lg bg-[var(--destructive)]/10 px-3 py-2 text-xs leading-relaxed">
-              <p className="text-[var(--destructive)]">
+            <div className="rounded-lg bg-[var(--marinara-app-accent-static)]/10 px-3 py-2 text-xs leading-relaxed">
+              <p className="text-[var(--marinara-app-accent-static)]">
                 {localizeUi("ui.spriteGeneration.batch.failed", {
                   current: failedBatch.batchIndex + 1,
                   total: failedBatch.batches.length,
