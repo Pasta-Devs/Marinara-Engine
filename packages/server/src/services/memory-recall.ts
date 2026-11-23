@@ -95,6 +95,8 @@ export interface RecalledMemory {
   similarity: number;
   firstMessageAt: string;
   lastMessageAt: string;
+  /** Imported from another chat's memories, so none of its messages are in this chat's prompt. */
+  imported: boolean;
 }
 
 export interface MemoryRecallEmbeddingSource {
@@ -123,6 +125,27 @@ export interface RecallMemoriesOptions extends MemoryRecallEmbeddingOptions {
   topK?: number;
   /** Exclude chunks covering this message timestamp or anything newer. */
   excludeFromMessageAt?: string | null;
+  /**
+   * The messages of `chatId` that the prompt sends, by creation time. A chunk of that chat covering one of them is
+   * skipped, so recall never repeats what the prompt already holds. Imported chunks came from another chat and stay.
+   * With no chunk left, recall returns nothing without embedding the query.
+   */
+  sentMessages?: { chatId: string; times: readonly string[] };
+}
+
+/** Whether a chunk spanning `firstMessageAt`..`lastMessageAt` covers a message created at one of `sortedTimes`. */
+export function chunkCoversSentMessage(
+  chunk: { firstMessageAt: string; lastMessageAt: string },
+  sortedTimes: readonly string[],
+): boolean {
+  let low = 0;
+  let high = sortedTimes.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (sortedTimes[middle]! < chunk.firstMessageAt) low = middle + 1;
+    else high = middle;
+  }
+  return low < sortedTimes.length && sortedTimes[low]! <= chunk.lastMessageAt;
 }
 
 export interface ChunkAndEmbedMessagesOptions extends MemoryRecallEmbeddingOptions {
@@ -602,19 +625,15 @@ export async function recallMemories(
     return [];
   }
 
-  // Embed the query using local model
-  const queryEmbeddings = await embedMemoryRecallTexts([query], { ...options, inputType: "query" });
-  if (!queryEmbeddings || queryEmbeddings.length === 0) return [];
-  const queryEmbedding = queryEmbeddings[0]!;
-  if (queryEmbedding.length === 0) return [];
-
   const matchingChatIds = chatIds.slice(0, 50);
   const excludeFromMessageAt = options.excludeFromMessageAt?.trim() || null;
+  const sentChatId = options.sentMessages?.chatId;
+  const sentTimes = options.sentMessages ? [...options.sentMessages.times].sort() : [];
 
   // Load every embedded chunk in scope before scoring. Applying a recency cap
   // here would exclude old-but-relevant memories before cosine similarity can
   // evaluate them.
-  const chunks = await db
+  const loadedChunks = await db
     .select({
       id: memoryChunks.id,
       chatId: memoryChunks.chatId,
@@ -633,8 +652,17 @@ export async function recallMemories(
         excludeFromMessageAt ? lt(memoryChunks.lastMessageAt, excludeFromMessageAt) : undefined,
       ),
     );
+  const chunks = loadedChunks.filter(
+    (chunk) => chunk.chatId !== sentChatId || chunk.sourceChatId || !chunkCoversSentMessage(chunk, sentTimes),
+  );
 
   if (chunks.length === 0) return [];
+
+  // Embed the query only once there is a chunk to compare it with.
+  const queryEmbeddings = await embedMemoryRecallTexts([query], { ...options, inputType: "query" });
+  if (!queryEmbeddings || queryEmbeddings.length === 0) return [];
+  const queryEmbedding = queryEmbeddings[0]!;
+  if (queryEmbedding.length === 0) return [];
   const sourceIds = [...new Set(chunks.map((chunk) => chunk.sourceChatId ?? chunk.chatId))];
   const sourceModes = new Map(
     (await db.select({ id: chats.id, mode: chats.mode }).from(chats).where(inArray(chats.id, sourceIds))).map(
@@ -676,6 +704,7 @@ export async function recallMemories(
         similarity: cosineSimilarity(queryEmbedding, embedding),
         firstMessageAt: chunk.firstMessageAt,
         lastMessageAt: chunk.lastMessageAt,
+        imported: Boolean(chunk.sourceChatId),
       };
     })
     .filter((s): s is RecalledMemory => s !== null && s.similarity >= SIMILARITY_THRESHOLD)

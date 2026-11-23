@@ -97,6 +97,7 @@ export const markerTypeSchema = z.enum([
   "current_scene_summary",
   "recalled_scenes",
   "recalled_messages",
+  "memory_recall",
   "id_macro_cards",
   "world_info_before",
   "world_info_after",

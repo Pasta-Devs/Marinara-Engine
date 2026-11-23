@@ -36,6 +36,8 @@ export type MarkerType =
   | "current_scene_summary"
   | "recalled_scenes"
   | "recalled_messages"
+  /** Where Memory Recall puts recalled memories. Without one, they go right before the chat history. */
+  | "memory_recall"
   | "id_macro_cards"
   | "world_info_before"
   | "world_info_after"
