@@ -1,3 +1,4 @@
+import { selectEntityImageVersion, appendEntityImageVersion } from "../services/image/entity-image-variants.js";
 import type { FastifyInstance } from "fastify";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile, unlink } from "node:fs/promises";
@@ -98,6 +99,14 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
       ...image,
       generation: await resolveEntityImageGeneration(app.db, image),
       url: `/api/characters/${kind === "persona" ? "personas/" : ""}${encodeURIComponent(id)}/gallery/file/${encodeURIComponent(basename(image.filePath))}`,
+    });
+
+    app.post<{ Params: { id: string; imageId: string } }>(`${prefix}/gallery/:imageId/select`, async (req, reply) => {
+      if (!(await owner(req.params.id))) return reply.status(404).send({ error: "Gallery owner not found" });
+      const image = await gallery.getById(req.params.imageId);
+      if (!owns(image, req.params.id)) return reply.status(404).send({ error: "Gallery image not found" });
+      const selected = await selectEntityImageVersion(app.db, kind, req.params.id, req.params.imageId);
+      return present(selected, req.params.id);
     });
 
     app.post<{ Params: { id: string } }>(`${prefix}/avatar/edit-source`, rateLimit, async (req, reply) => {
@@ -358,11 +367,11 @@ export async function entityImageEditRoutes(app: FastifyInstance) {
                   }),
             }),
           };
-          const image =
+          const image = await appendEntityImageVersion(app.db, kind, entity.id, original!.id, (tx) =>
             kind === "character"
-              ? await characterGallery.create({ characterId: entity.id, ...fields })
-              : await personaGallery.create({ personaId: entity.id, ...fields });
-          if (!image) throw new Error("Edited image metadata could not be saved");
+              ? createCharacterGalleryStorage(tx).create({ characterId: entity.id, ...fields })
+              : createPersonaGalleryStorage(tx).create({ personaId: entity.id, ...fields }),
+          );
           savedPath = undefined;
           return present(image, entity.id);
         } catch (error) {

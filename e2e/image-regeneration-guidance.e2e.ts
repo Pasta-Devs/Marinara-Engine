@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { buildChatImageGenerationRecord, type SceneIllustrationCharacterPrompt } from "@marinara-engine/shared";
 import type { ChatImage } from "../packages/client/src/hooks/use-gallery.js";
-import { openChatSettingsTool } from "./chat-settings-tools.js";
+import { openChatSettingsTool, closeChatSettings } from "./chat-settings-tools.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version as string;
@@ -66,10 +66,22 @@ for (const owner of ["character", "persona"] as const) {
           ],
         }),
       );
-      await page.route(`**${path}/gallery`, (route) => route.fulfill({ json: [source] }));
+      source.variantGroupId = result.variantGroupId = `entity-stack-${id}`;
+      source.variantSelected = 1;
+      result.variantSelected = 0;
+      let galleryRows = [source];
+      await page.route(`**${path}/gallery`, (route) => route.fulfill({ json: galleryRows }));
+      await page.route(`**${path}/gallery/*/select`, async (route) => {
+        const selectedId = route.request().url().split("/").at(-2);
+        galleryRows = galleryRows.map((row) => ({ ...row, variantSelected: row.id === selectedId ? 1 : 0 }));
+        await route.fulfill({ json: galleryRows.find((row) => row.id === selectedId) });
+      });
       const edits: Record<string, unknown>[] = [];
       await page.route(`**${path}/gallery/${source.id}/regenerate`, async (route) => {
         edits.push(route.request().postDataJSON());
+        source.variantSelected = 0;
+        result.variantSelected = 1;
+        galleryRows = [source, result];
         await route.fulfill({ json: result });
       });
       await page.route(`**${path}/avatar/edit-source`, (route) =>
@@ -139,9 +151,16 @@ for (const owner of ["character", "persona"] as const) {
           }),
         )
         .toBe(owner === "character");
+      await expect(viewer.getByText("Version 2 of 2", { exact: true })).toBeVisible();
+      await expect(viewer.getByRole("button", { name: "Previous image version", exact: true })).toBeEnabled();
+      await viewer.getByRole("button", { name: "Previous image version", exact: true }).click();
+      await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(source.prompt);
+      await viewer.getByRole("button", { name: "Next image version", exact: true }).click();
+      await expect(viewer.getByRole("textbox", { name: "Prompt", exact: true })).toHaveValue(result.prompt);
       const unchanged = await (await request.get(path)).json();
       expect(unchanged.avatarPath).toBe(before.avatarPath);
       await page.keyboard.press("Escape");
+      await screenshot(page, testInfo, `${owner}-version-stack`);
       const applied = page.waitForResponse(
         (response) =>
           response.request().method() === "POST" && response.url().endsWith(`${path}/gallery/${result.id}/avatar`),
@@ -153,8 +172,11 @@ for (const owner of ["character", "persona"] as const) {
       await openEditor("metadata");
       await page.locator(".mari-editor-shell").getByRole("button", { name: "Go to Gallery", exact: true }).click();
       await expect(
-        page.locator(".mari-editor-shell").getByRole("img", { name: source.prompt, exact: true }),
+        page.locator(".mari-editor-shell").getByRole("img", { name: result.prompt, exact: true }),
       ).toBeVisible();
+      await expect(page.locator(".mari-editor-shell").getByLabel("2 versions", { exact: true })).toBeVisible();
+      await page.locator(".mari-editor-shell").getByLabel("2 versions", { exact: true }).scrollIntoViewIfNeeded();
+      await screenshot(page, testInfo, `${owner}-stack-tile`);
       await openEditor("metadata");
       // Avatar editing lives in Metadata; the initial preview cannot reapply an unchanged image.
       const editAvatar = page.locator(".mari-editor-shell").getByRole("button", { name: "Edit avatar", exact: true });
@@ -349,7 +371,16 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await watchBackgroundMessageEdits(page);
     let drawer = await openChatSettingsTool(page, "gallery");
     await expect(drawer.getByRole("button", { name: "Open gallery image", exact: true })).toHaveCount(2);
-    await openGalleryImage(drawer, third.prompt);
+    await closeChatSettings(page);
+    await page.locator("[data-message-id]").getByRole("img", { name: "image", exact: true }).first().click();
+    const messageViewer = page.getByRole("dialog", { name: "Image preview", exact: true });
+    await expect(messageViewer.getByText("Version 3 of 3", { exact: true })).toBeVisible();
+    await expect(messageViewer.getByRole("button", { name: "Next image", exact: true })).toHaveCount(0);
+    await expect(messageViewer.getByRole("button", { name: "Previous image", exact: true })).toHaveCount(0);
+    await screenshot(page, info, "message-single-stack");
+    await messageViewer.getByRole("button", { name: "Close image", exact: true }).click();
+    const reopenedDrawer = await openChatSettingsTool(page, "gallery");
+    await openGalleryImage(reopenedDrawer, third.prompt);
     const dialog = page.getByRole("dialog", { name: "Image preview", exact: true });
     const position = (n: number) => dialog.getByText(`Version ${n} of 3`, { exact: true });
     await expect(position(3)).toBeVisible();
@@ -450,8 +481,7 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await page.keyboard.press("ArrowDown");
     await expect(position(2)).toBeVisible();
     await expect(page.locator("body")).toHaveAttribute("data-image-viewer-message-edits", "0");
-    for (const closeToast of await page.locator("[data-sonner-toast] [data-close-button]").all())
-      await closeToast.click();
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
     await dialog.getByRole("button", { name: "Close image", exact: true }).focus();
     const previousVersion = dialog.getByRole("button", { name: "Previous image version", exact: true });
     const nextVersion = dialog.getByRole("button", { name: "Next image version", exact: true });
@@ -1043,11 +1073,10 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
     await expect(maskCanvas).toHaveClass(/\bcursor-crosshair\b/);
     await expect.poll(() => maskCanvas.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBe(640);
     await maskCanvas.scrollIntoViewIfNeeded();
+    // Hover waits for layout and any success toast to settle before measuring the paint target.
+    await maskCanvas.hover({ position: { x: 20, y: 20 } });
     const box = await maskCanvas.boundingBox();
     expect(box).toBeTruthy();
-    // A regenerated result can resize the stage, and the success toast can cover this point briefly on phones.
-    // Hover waits for the canvas to settle and offer a clear paint target.
-    await maskCanvas.hover({ position: { x: box!.width * 0.4, y: box!.height * 0.4 } });
     await page.mouse.move(box!.x + box!.width * 0.4, box!.y + box!.height * 0.4);
     await page.mouse.down();
     await page.mouse.move(box!.x + box!.width * 0.6, box!.y + box!.height * 0.6, { steps: 5 });

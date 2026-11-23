@@ -63,3 +63,15 @@ export function usePrepareAvatarEdit(owner: EntityImageOwner) {
     },
   });
 }
+
+export function useSelectEntityImageVersion(owner: EntityImageOwner) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (imageId: string) =>
+      api.post<EntityEditableImage>(`${entityImagePath(owner)}/gallery/${encodeURIComponent(imageId)}/select`),
+    onSuccess: () =>
+      qc.invalidateQueries({
+        queryKey: owner.kind === "persona" ? characterKeys.personaGallery(owner.id) : characterKeys.gallery(owner.id),
+      }),
+  });
+}

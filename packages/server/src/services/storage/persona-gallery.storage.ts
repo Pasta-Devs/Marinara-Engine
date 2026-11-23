@@ -10,6 +10,10 @@ import { newId, now } from "../../utils/id-generator.js";
 export interface CreatePersonaImageInput {
   personaId: string;
   sourceChatImageId?: string | null;
+  variantGroupId?: string | null;
+  variantSelected?: number;
+  variantHistoryRecovered?: number;
+  createdAt?: string;
   filePath: string;
   prompt?: string;
   generation?: ChatImageGenerationRecord | null;
@@ -80,6 +84,9 @@ export function createPersonaGalleryStorage(db: DB) {
         id,
         personaId: input.personaId,
         sourceChatImageId: input.sourceChatImageId ?? null,
+        variantGroupId: input.variantGroupId ?? null,
+        variantSelected: input.variantSelected ?? 0,
+        variantHistoryRecovered: input.variantHistoryRecovered ?? 0,
         filePath: input.filePath,
         prompt: input.prompt ?? "",
         generation: input.generation ? JSON.stringify(input.generation) : null,
@@ -90,7 +97,7 @@ export function createPersonaGalleryStorage(db: DB) {
         customKind: input.customKind ?? null,
         customName: input.customKind ? (input.customName ?? null) : null,
         description: input.description ?? null,
-        createdAt: now(),
+        createdAt: input.createdAt ?? now(),
       });
       return this.getById(id);
     },

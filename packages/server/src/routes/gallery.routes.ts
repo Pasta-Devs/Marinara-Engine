@@ -65,6 +65,7 @@ import {
 } from "../services/image/image-prompt-review.js";
 import { buildBackgroundProviderPrompt } from "../services/game/game-asset-generation.js";
 import { generateIllustratorImageVariants } from "../services/image/illustrator-image-variants.js";
+import { persistChatImageVersionToEntityGalleries } from "../services/image/entity-image-variants.js";
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
 import {
   deleteChatImageVersions,
@@ -2742,20 +2743,12 @@ export async function galleryRoutes(app: FastifyInstance) {
         await withChatImageVariantLock(chatId, async () => {
           // Deletion may have won the queue after selection. Never recreate copies of a deleted version.
           if (!(await storage.getById(image.id, chatId))) return;
-          await persistGeneratedImageToEntityGalleries({
+          await persistChatImageVersionToEntityGalleries(app.db, {
             enabled: imageSettings.autoSaveToGalleries,
-            sourceFilePath: filePath,
-            sourceChatImageId: image.id,
-            generation: image.generation,
+            chatId,
+            imageId: image.id,
             characterIds: references.characterIds,
             personaIds: references.personaId ? [references.personaId] : [],
-            characterGallery,
-            personaGallery,
-            prompt,
-            provider,
-            model,
-            width: savedWidth,
-            height: savedHeight,
           });
         }).catch((galleryErr) =>
           logger.warn(galleryErr, "[gallery/regenerate] Could not copy image %s to entity galleries", image.id),

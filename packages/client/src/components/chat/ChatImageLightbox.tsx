@@ -83,6 +83,7 @@ interface ChatImageLightboxProps {
   /** Actions for a saved result while its editing panel remains open. */
   editActions?: (image: ChatImage, busy: boolean) => ReactNode;
   interactionDisabled?: boolean;
+  onSelectVersion?: (image: ChatImage) => Promise<ChatImage>;
   onClose: () => void;
 }
 
@@ -100,6 +101,7 @@ export function ChatImageLightbox({
   actions,
   editActions,
   interactionDisabled = false,
+  onSelectVersion,
   onClose,
 }: ChatImageLightboxProps) {
   const { t: localizeUi } = useUiTranslation();
@@ -116,6 +118,8 @@ export function ChatImageLightbox({
   const maskControlsRef = useRef<ImageMaskCanvasHandle | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const selectingVersion = useRef(false);
+  const [selectionPending, setSelectionPending] = useState(false);
   const selectVersion = useSelectChatImageVersion(activeImage.chatId);
 
   const resetMask = useCallback((options?: { resetToolAndBrush?: boolean }) => {
@@ -160,15 +164,16 @@ export function ChatImageLightbox({
   );
   if (chatGallery) for (const row of gallery.data ?? []) rows.set(row.id, row);
   rows.set(image.id, image);
-  const suppliedIds = images ? new Set([...images.map((row) => row.id), activeImage.id]) : null;
-  const stacks = groupChatImageVariants([...rows.values()]).filter(
-    (group) => !suppliedIds || group.versions.some((row) => suppliedIds.has(row.id)),
+  // Fetching saved versions must not turn a message preview into the entire chat gallery.
+  const suppliedIds = new Set([...(images ?? []).map((row) => row.id), activeImage.id]);
+  const stacks = groupChatImageVariants([...rows.values()]).filter((group) =>
+    group.versions.some((row) => suppliedIds.has(row.id)),
   );
   const galleryIndex = stacks.findIndex((stack) => stack.versions.some((row) => row.id === image.id));
   const stack = stacks[galleryIndex];
   const versionIndex = stack?.versions.findIndex((row) => row.id === image.id) ?? 0;
   const galleryImages = stacks.map((group) => (group === stack ? image : group.selected));
-  const navigating = selectVersion.isPending;
+  const navigating = selectionPending || selectVersion.isPending;
 
   // Close is disabled while a regeneration runs, and the panel closes before `busy` clears: wait for
   // both, or focus falls to the page.
@@ -220,22 +225,41 @@ export function ChatImageLightbox({
         }
         index={galleryIndex}
         versions={
-          chatGallery && stack
+          (chatGallery || onSelectVersion) && stack
             ? {
                 index: versionIndex,
                 count: stack.versions.length,
-                disabled: busy || maskState.hasMask || Boolean(maskState.isDrawing),
+                disabled:
+                  busy || navigating || interactionDisabled || maskState.hasMask || Boolean(maskState.isDrawing),
                 onIndexChange: (next) => {
                   const target = stack.versions[next];
-                  if (!target || navigating || busy || maskState.hasMask || maskState.isDrawing) return;
-                  void selectVersion
-                    .mutateAsync(target)
-                    .then((result) => setImage(result.image))
+                  if (
+                    !target ||
+                    selectingVersion.current ||
+                    navigating ||
+                    busy ||
+                    interactionDisabled ||
+                    maskState.hasMask ||
+                    maskState.isDrawing
+                  )
+                    return;
+                  selectingVersion.current = true;
+                  setSelectionPending(true);
+                  void (
+                    onSelectVersion
+                      ? onSelectVersion(target)
+                      : selectVersion.mutateAsync(target).then((result) => result.image)
+                  )
+                    .then((result) => setImage(result))
                     .catch((error) =>
                       toast.error(
                         error instanceof Error ? error.message : localizeUi("chat.imageVersions.selectFailed"),
                       ),
-                    );
+                    )
+                    .finally(() => {
+                      selectingVersion.current = false;
+                      setSelectionPending(false);
+                    });
                 },
               }
             : undefined
