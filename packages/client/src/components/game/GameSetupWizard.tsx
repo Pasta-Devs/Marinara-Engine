@@ -1791,6 +1791,10 @@ export function GameSetupWizard({
       save();
     };
   }, [isNewGame]);
+  // A Create world that failed leaves the page open as a draft again, so its choices are kept again.
+  useEffect(() => {
+    if (setupFailureMessage && !isLoading) skipDraftSaveRef.current = false;
+  }, [setupFailureMessage, isLoading]);
   const setupDraftRestoredRef = useRef(false);
   useEffect(() => {
     if (!isNewGame || setupDraftRestoredRef.current || !setupImportResourcesReady) return;
@@ -2011,6 +2015,8 @@ export function GameSetupWizard({
 
   const handleComplete = () => {
     if (isLoading || !canStart) return;
+    // Started: the kept choices are done with, and leaving the page must not write them back.
+    skipDraftSaveRef.current = true;
     try {
       localStorage.removeItem(setupDraftKey);
     } catch {

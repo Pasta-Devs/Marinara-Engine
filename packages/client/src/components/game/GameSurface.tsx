@@ -13043,12 +13043,17 @@ function GameSurfaceComponent({
           return;
         }
         if (decision === "later") keepForLater = true;
-        else if (await discardUnfinishedSetup(queryClient, activeChatId)) {
+        else if (await discardUnfinishedSetup(queryClient, activeChatId, { explicit: true })) {
           toast.info(localizeUi("game.setupDraft.discarded", { defaultValue: "Game discarded." }));
           return;
         }
       }
-      if (keepForLater && !isSetupKeptForLater(chat)) await keepSetupForLater(queryClient, activeChatId);
+      if (keepForLater && !isSetupKeptForLater(chat) && !(await keepSetupForLater(queryClient, activeChatId))) {
+        // Not saved: setup stays open rather than saying it was kept.
+        toast.error(localizeUi("setupDraft.keepFailed"));
+        useGameModeStore.getState().setSetupActive(true);
+        return;
+      }
       setDismissedSetupWizardChatId(activeChatId);
       writeSetupDismissed(activeChatId, true);
       // A Start Game that failed made the game without this page reading it yet: read it now, so

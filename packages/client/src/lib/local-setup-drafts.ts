@@ -10,8 +10,11 @@
 const DRAFTS_KEY = "marinara-local-setup-drafts";
 const ALIVE_PREFIX = "marinara-window-alive:";
 const BEAT_MS = 10_000;
-/** A window that hasn't beaten for this long is closed (or asleep long enough that its draft is stale). */
-const GONE_MS = 45_000;
+/**
+ * A window that hasn't beaten for this long is closed (or asleep long enough that its draft is stale). Browsers slow
+ * a hidden tab's timers to about once a minute, so this leaves room for a few missed beats.
+ */
+const GONE_MS = 5 * 60_000;
 
 const windowId =
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -52,12 +55,18 @@ function startBeating() {
   beating = true;
   beat();
   window.setInterval(beat, BEAT_MS);
+  // Beat as soon as the window is seen again, rather than waiting for a slowed timer.
+  document.addEventListener("visibilitychange", beat);
   window.addEventListener("pagehide", () => {
     try {
       localStorage.removeItem(ALIVE_PREFIX + windowId);
     } catch {
       /* ignore */
     }
+  });
+  // A page restored from the back/forward cache is alive again after its pagehide removed the beat.
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) beat();
   });
 }
 
