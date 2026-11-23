@@ -13,8 +13,8 @@ export type TrackerSnapshotRow = { id: string; playerStats?: unknown; personaSta
 
 /**
  * What the tracker effects need from the route. Finding the snapshot stays with each route, because the two differ on
- * purpose: generate falls back to the sibling swipe and the generation baseline, retry projects the owner's location and
- * can run without an assistant message.
+ * purpose: generate falls back to the generation baseline (with the sibling swipe's locks on a regeneration); retry
+ * projects the owner's location and can run without an assistant message.
  */
 export interface TrackerEffectTarget {
   db: DB;

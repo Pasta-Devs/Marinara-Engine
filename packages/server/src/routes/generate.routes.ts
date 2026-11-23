@@ -684,6 +684,7 @@ import {
   parseJsonField,
   parseStoredGenerationParameters,
   parseGameStateRow,
+  regeneratedSwipeTrackerBase,
   isRoleplaySummaryMode,
   prefixGroupIndividualHistorySpeakers,
   readPersonaSnapshotName,
@@ -6487,6 +6488,26 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
         const baseGameStateSnapshot = latestGameState;
         const allowLatestGameStateFallback = !input.regenerateMessageId;
         const gameState = latestGameState ? parseGameStateRow(latestGameState as Record<string, unknown>) : null;
+        // The row a regenerated swipe starts from: where the reply began, as the trackers were shown, with the
+        // user's Tracker Panel edits, also those made while the reply was written. The swipe before lends only
+        // its locks and hidden fields, with the values they hold; the rest belongs to the telling it replaces,
+        // such as the NPCs that telling brought in (#9697).
+        const regeneratedSwipeBase = async (messageId: string, swipeIndex: number) => {
+          const replaced =
+            input.regenerateMessageId && messageId && swipeIndex > 0
+              ? await gameStateStore.getByChatAndMessage(input.chatId, messageId, swipeIndex - 1)
+              : null;
+          if (!replaced) return baseGameStateSnapshot;
+          const start =
+            (await gameStateStore.applyManualEdits(input.chatId, messageId, baseGameStateSnapshot)) ??
+            baseGameStateSnapshot;
+          const replacedWithEdits =
+            (await gameStateStore.applyManualEdits(input.chatId, messageId, replaced)) ?? replaced;
+          return regeneratedSwipeTrackerBase(
+            projectGameSnapshotLocation(start, ownerSpatialProjection),
+            projectGameSnapshotLocation(replacedWithEdits, ownerSpatialProjection),
+          ) as typeof baseGameStateSnapshot;
+        };
 
         // Build base agent context (without mainResponse — that comes after generation)
         // Fetch enough history for the hungriest agent — individual agents trim to their own contextSize.
@@ -11859,9 +11880,10 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           // Written for every saved turn of a ruleset game, changed or not, so each message and
           // swipe carries the state it ended with and the next turn, a swipe or a new session
           // always has a row to start from. A tracker that later rebuilds this row keeps it (see
-          // `create` in the game-state storage). The clone base matches the one the trackers use;
-          // the live state itself is passed explicitly, because a sibling swipe's row holds what
-          // THAT telling spent.
+          // `create` in the game-state storage). The clone base matches the one the Game tools use in
+          // Game Mode and the one the trackers use in a Roleplay chat, whose Character Tracker would
+          // otherwise merge onto the NPCs of the swipe before (#9697). The live state itself is passed
+          // explicitly, because a sibling swipe's row holds what THAT telling spent.
           // What the turn leaves on the sheets: the sheet commands' own result when that pass ran,
           // and otherwise just the purchases the checks already paid for. Without the second half a
           // turn whose sheet pass was skipped or threw would keep the automatic successes a player
@@ -11884,17 +11906,19 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
           if ((liveAfterTurn || rulesetClocksAfterTurn !== undefined) && savedMsg?.id) {
             try {
               const swipeIndex = savedSwipeIndex ?? 0;
-              const siblingSwipeRow =
-                input.regenerateMessageId && swipeIndex > 0
-                  ? await gameStateStore.getByChatAndMessage(input.chatId, savedMsg.id, swipeIndex - 1)
-                  : null;
+              const baseSnapshot =
+                chatMode !== "game"
+                  ? await regeneratedSwipeBase(savedMsg.id, swipeIndex)
+                  : ((input.regenerateMessageId && swipeIndex > 0
+                      ? await gameStateStore.getByChatAndMessage(input.chatId, savedMsg.id, swipeIndex - 1)
+                      : null) ?? baseGameStateSnapshot);
               await gameStateStore.updateByMessage(
                 savedMsg.id,
                 swipeIndex,
                 input.chatId,
                 rulesetStatePatch,
                 undefined,
-                { baseSnapshot: siblingSwipeRow ?? baseGameStateSnapshot },
+                { baseSnapshot },
               );
               sendSseEvent(reply, { type: "game_state_patch", data: rulesetStatePatch });
             } catch (err) {
@@ -13940,18 +13964,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               : typeof (lastSavedMsg as { activeSwipeIndex?: unknown } | null)?.activeSwipeIndex === "number"
                 ? (lastSavedMsg as { activeSwipeIndex: number }).activeSwipeIndex
                 : 0;
-          const siblingSwipeRow =
-            input.regenerateMessageId && messageId && targetSwipeIndex > 0
-              ? await gameStateStore.getByChatAndMessage(input.chatId, messageId, targetSwipeIndex - 1)
-              : null;
-          // A value the trackers leave out keeps the user's edit, which the trackers were shown.
-          const siblingSwipeSnapshot = projectGameSnapshotLocation(
-            siblingSwipeRow
-              ? ((await gameStateStore.applyManualEdits(input.chatId, messageId, siblingSwipeRow)) ?? siblingSwipeRow)
-              : null,
-            ownerSpatialProjection,
-          );
-          const trackerBaseGameStateSnapshot = siblingSwipeSnapshot ?? baseGameStateSnapshot;
+          const trackerBaseGameStateSnapshot = await regeneratedSwipeBase(messageId, targetSwipeIndex);
 
           const defaultResultMessageId = messageId;
           const defaultResultSwipeIndex = targetSwipeIndex;

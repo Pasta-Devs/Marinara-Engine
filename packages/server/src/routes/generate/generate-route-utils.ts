@@ -2638,6 +2638,49 @@ export function parseGameStateRow(row: Record<string, unknown>): GameState {
   };
 }
 
+/**
+ * The row a regenerated swipe's trackers merge onto: `base`, the state the reply began from and the
+ * trackers were shown, under the locks and hidden fields of the swipe it replaces, which keep their
+ * values there. Merging onto that swipe itself kept whatever its trackers had added, such as the NPCs
+ * each discarded telling brought in (#9697).
+ */
+export function regeneratedSwipeTrackerBase(
+  base: Record<string, unknown> | null,
+  replaced: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!replaced) return base;
+  const start = parseGameStateRow(base ?? {});
+  const replacedState = parseGameStateRow(replaced);
+  // A list or status the start row lacks starts empty, so the replaced swipe's locked rows still come over.
+  const emptyLists = Object.fromEntries(
+    Object.entries(replacedState.playerStats ?? {}).flatMap(([key, value]) =>
+      Array.isArray(value) ? [[key, []]] : [],
+    ),
+  );
+  const values = applyTrackerFieldLocksToGameStatePatch(
+    {
+      date: start.date ?? null,
+      time: start.time ?? null,
+      location: start.location ?? null,
+      weather: start.weather ?? null,
+      temperature: start.temperature ?? null,
+      worldCustomFields: start.worldCustomFields,
+      presentCharacters: start.presentCharacters,
+      personaStats: start.personaStats ?? (replacedState.personaStats ? [] : null),
+      playerStats: replacedState.playerStats ? { status: "", ...emptyLists, ...start.playerStats } : start.playerStats,
+    },
+    replacedState,
+    replacedState.fieldLocks,
+    { wholeState: true },
+  );
+  return {
+    ...base,
+    ...values,
+    fieldLocks: normalizeTrackerFieldLocksForState(replacedState.fieldLocks, replacedState),
+    hiddenTrackerFields: replacedState.hiddenTrackerFields,
+  };
+}
+
 /** A turn's live sheet state laid over what the player changed while it was being written. A rest or
  *  a slot pressed back on the sheet during a reply lands on the row the turn started from, and the
  *  turn's own row, built from the state before it, would otherwise put the old numbers back
