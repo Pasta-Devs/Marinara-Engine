@@ -367,6 +367,7 @@ for (const service of ["automatic1111", "drawthings"] as const) {
       expect(edits[0]).not.toHaveProperty("reuseSeed");
       expect(edits[0]).not.toHaveProperty("maskImage");
       if (service === "automatic1111") {
+        await expect(dialog.getByRole("button", { name: "Apply edit", exact: true })).toBeEnabled();
         await canvas.hover({ position: { x: 20, y: 20 } });
         const box = (await canvas.boundingBox())!;
         await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4);
