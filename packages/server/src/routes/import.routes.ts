@@ -538,8 +538,11 @@ function takeCharacterUpdateTarget(targets: CharacterUpdateTargets, index: numbe
   return targets.byIndex.get(index) ?? targets.byName.get(filename)?.shift();
 }
 
-/** The group picked for a chat that imports are being added to, until the chat is saved in it (/st-chat-into-group). */
-const pendingChatGroupIds = new Map<string, string>();
+/**
+ * The group picked for a chat that imports are being added to (/st-chat-into-group), kept only while at least one of
+ * those imports is still running, so a failed import doesn't leave its pick behind.
+ */
+const pendingChatGroupIds = new Map<string, { groupId: string; imports: number }>();
 
 async function importCharacterBuffer(
   fileName: string,
@@ -776,96 +779,104 @@ export async function importRoutes(app: FastifyInstance) {
     // The chat joins the group only once the file has come in, so a file that isn't a chat changes nothing. Two
     // imports at once into a chat with no group share the one group the first of them picked.
     const targetHadGroup = !!targetChat.groupId;
-    const groupId = (targetChat.groupId as string | null) || pendingChatGroupIds.get(targetChatId) || newId();
-    if (!targetHadGroup) pendingChatGroupIds.set(targetChatId, groupId);
-
-    // Inherit the existing chat's character roster instead of trying to match
-    // characters out of the JSONL header — that path creates new characters
-    // when no match is found, which is exactly what we want to avoid here.
-    let inheritedCharacterIds: string[] = [];
+    const pending = targetHadGroup ? undefined : pendingChatGroupIds.get(targetChatId);
+    const groupId = (targetChat.groupId as string | null) || pending?.groupId || newId();
+    if (!targetHadGroup) pendingChatGroupIds.set(targetChatId, { groupId, imports: (pending?.imports ?? 0) + 1 });
     try {
-      const parsed = JSON.parse(targetChat.characterIds as string);
-      if (Array.isArray(parsed)) inheritedCharacterIds = parsed.filter((cid): cid is string => typeof cid === "string");
-    } catch {
-      inheritedCharacterIds = [];
-    }
-
-    // For multi-character chats, map each speaker name in the JSONL to one of
-    // the existing characters so per-message attribution survives the import.
-    let speakerMap: Record<string, string> | undefined;
-    if (inheritedCharacterIds.length > 1) {
-      speakerMap = {};
-      const allChars = await app.db.select().from(charactersTable);
-      const byId = new Map(allChars.map((ch) => [ch.id, ch] as const));
-      for (const cid of inheritedCharacterIds) {
-        const ch = byId.get(cid);
-        if (!ch) continue;
-        try {
-          const charData = JSON.parse(ch.data);
-          const charName = typeof charData?.name === "string" ? charData.name.trim() : "";
-          if (charName) speakerMap[charName] = cid;
-        } catch {
-          // skip
-        }
-      }
-    }
-
-    // A group chat that already has a mode keeps it for the imported branch.
-    let targetMetadata: Record<string, unknown> = {};
-    try {
-      const parsed: unknown =
-        typeof targetChat.metadata === "string" ? JSON.parse(targetChat.metadata) : targetChat.metadata;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
-        targetMetadata = parsed as Record<string, unknown>;
-    } catch {
-      targetMetadata = {};
-    }
-    const targetGroupChatMode =
-      targetMetadata.groupChatMode === "individual" || targetMetadata.groupChatMode === "merged"
-        ? targetMetadata.groupChatMode
-        : undefined;
-
-    const rawName = file.filename ?? "";
-    const branchName =
-      rawName
-        .replace(/\.jsonl$/i, "")
-        .replace(/_/g, " ")
-        .trim() || "Imported";
-
-    const result = await importSTChat(text, app.db, {
-      groupId,
-      chatName: targetChat.name,
-      branchName,
-      mode: targetChat.mode as any,
-      ...(inheritedCharacterIds.length === 1 ? { characterId: inheritedCharacterIds[0] } : {}),
-      ...(inheritedCharacterIds.length > 0 ? { characterIds: inheritedCharacterIds } : {}),
-      ...(speakerMap ? { speakerMap } : {}),
-      ...(targetGroupChatMode ? { groupChatMode: targetGroupChatMode } : {}),
-      personaId: targetChat.personaId ?? null,
-      personaCharacterId: targetChat.personaCharacterId ?? null,
-      connectionId: targetChat.connectionId ?? null,
-      promptPresetId: targetChat.promptPresetId ?? null,
-      ...(timestampOverrides ? { timestampOverrides } : {}),
-      sourceFingerprint: stChatFileFingerprint(text),
-    });
-
-    if ("error" in result && result.error) return { ...result, groupId: targetChat.groupId ?? null };
-    if (!targetHadGroup) {
+      // Inherit the existing chat's character roster instead of trying to match
+      // characters out of the JSONL header — that path creates new characters
+      // when no match is found, which is exactly what we want to avoid here.
+      let inheritedCharacterIds: string[] = [];
       try {
-        await storage.update(targetChatId, { groupId });
-      } catch (err) {
-        // The branch must not stay in a group its chat isn't in: take this request's import back out.
-        const importedChatId = "chatId" in result ? result.chatId : undefined;
-        if (importedChatId) {
-          await storage
-            .remove(importedChatId)
-            .catch((cleanupErr) => logger.warn(cleanupErr, "Could not remove the imported branch %s", importedChatId));
-        }
-        throw err;
+        const parsed = JSON.parse(targetChat.characterIds as string);
+        if (Array.isArray(parsed))
+          inheritedCharacterIds = parsed.filter((cid): cid is string => typeof cid === "string");
+      } catch {
+        inheritedCharacterIds = [];
       }
-      if (pendingChatGroupIds.get(targetChatId) === groupId) pendingChatGroupIds.delete(targetChatId);
+
+      // For multi-character chats, map each speaker name in the JSONL to one of
+      // the existing characters so per-message attribution survives the import.
+      let speakerMap: Record<string, string> | undefined;
+      if (inheritedCharacterIds.length > 1) {
+        speakerMap = {};
+        const allChars = await app.db.select().from(charactersTable);
+        const byId = new Map(allChars.map((ch) => [ch.id, ch] as const));
+        for (const cid of inheritedCharacterIds) {
+          const ch = byId.get(cid);
+          if (!ch) continue;
+          try {
+            const charData = JSON.parse(ch.data);
+            const charName = typeof charData?.name === "string" ? charData.name.trim() : "";
+            if (charName) speakerMap[charName] = cid;
+          } catch {
+            // skip
+          }
+        }
+      }
+
+      // A group chat that already has a mode keeps it for the imported branch.
+      let targetMetadata: Record<string, unknown> = {};
+      try {
+        const parsed: unknown =
+          typeof targetChat.metadata === "string" ? JSON.parse(targetChat.metadata) : targetChat.metadata;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+          targetMetadata = parsed as Record<string, unknown>;
+      } catch {
+        targetMetadata = {};
+      }
+      const targetGroupChatMode =
+        targetMetadata.groupChatMode === "individual" || targetMetadata.groupChatMode === "merged"
+          ? targetMetadata.groupChatMode
+          : undefined;
+
+      const rawName = file.filename ?? "";
+      const branchName =
+        rawName
+          .replace(/\.jsonl$/i, "")
+          .replace(/_/g, " ")
+          .trim() || "Imported";
+
+      const result = await importSTChat(text, app.db, {
+        groupId,
+        chatName: targetChat.name,
+        branchName,
+        mode: targetChat.mode as any,
+        ...(inheritedCharacterIds.length === 1 ? { characterId: inheritedCharacterIds[0] } : {}),
+        ...(inheritedCharacterIds.length > 0 ? { characterIds: inheritedCharacterIds } : {}),
+        ...(speakerMap ? { speakerMap } : {}),
+        ...(targetGroupChatMode ? { groupChatMode: targetGroupChatMode } : {}),
+        personaId: targetChat.personaId ?? null,
+        personaCharacterId: targetChat.personaCharacterId ?? null,
+        connectionId: targetChat.connectionId ?? null,
+        promptPresetId: targetChat.promptPresetId ?? null,
+        ...(timestampOverrides ? { timestampOverrides } : {}),
+        sourceFingerprint: stChatFileFingerprint(text),
+      });
+
+      if ("error" in result && result.error) return { ...result, groupId: targetChat.groupId ?? null };
+      if (!targetHadGroup) {
+        try {
+          await storage.update(targetChatId, { groupId });
+        } catch (err) {
+          // The branch must not stay in a group its chat isn't in: take this request's import back out.
+          const importedChatId = "chatId" in result ? result.chatId : undefined;
+          if (importedChatId) {
+            await storage
+              .remove(importedChatId)
+              .catch((cleanupErr) =>
+                logger.warn(cleanupErr, "Could not remove the imported branch %s", importedChatId),
+              );
+          }
+          throw err;
+        }
+      }
+      return { ...result, groupId };
+    } finally {
+      const entry = pendingChatGroupIds.get(targetChatId);
+      if (!targetHadGroup && entry?.groupId === groupId && --entry.imports <= 0)
+        pendingChatGroupIds.delete(targetChatId);
     }
-    return { ...result, groupId };
   });
 
   /** Import a Marinara Engine export (.marinara.json). */
