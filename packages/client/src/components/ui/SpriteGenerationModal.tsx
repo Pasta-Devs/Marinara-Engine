@@ -2175,12 +2175,12 @@ export function SpriteGenerationModal({
   }, [abortActiveGeneration, handleCloseCellFrame]);
 
   const handleClose = useCallback(() => {
-    abortActiveGeneration();
     setSaving(false);
     setPromptReviewSubmitting(false);
+    // handleReset aborts the active run.
     handleReset();
     onClose();
-  }, [abortActiveGeneration, handleReset, onClose]);
+  }, [handleReset, onClose]);
 
   const selectedCount = cells.filter((c) => c.selected).length;
 
