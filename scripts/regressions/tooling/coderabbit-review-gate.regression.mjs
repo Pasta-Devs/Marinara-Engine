@@ -260,15 +260,17 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
     ),
   );
 
-  // Promotions and hotfixes into the default branch get @coderabbitai ignore.
+  // Promotions and hotfixes into the default branch get @coderabbitai ignore, marked as the gate's own line.
+  const mark = "<!-- coderabbit-review-gate: keeps CodeRabbit off pull requests into main -->";
+  const added = `@coderabbitai ignore\n${mark}`;
   expect("the keyword goes after the description", () => {
     const writes = run(ignore, { body: "Promote staging." });
     assert.equal(writes.length, 1);
     assert.deepEqual(writes[0].slice(0, 4), ["api", "--method", "PATCH", `repos/${repo}/pulls/9086`]);
-    assert.equal(field(writes[0], "body"), "Promote staging.\n\n@coderabbitai ignore");
+    assert.equal(field(writes[0], "body"), `Promote staging.\n\n${added}`);
   });
   expect("an empty description gets only the keyword", () =>
-    assert.equal(field(run(ignore, { body: null })[0], "body"), "@coderabbitai ignore"),
+    assert.equal(field(run(ignore, { body: null })[0], "body"), added),
   );
   expect("a description with the keyword is kept", () =>
     assert.equal(run(ignore, { body: "Hotfix.\n@coderabbitai IGNORE" }).length, 0),
@@ -276,12 +278,16 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
 
   // A promotion or hotfix moved to staging gets its review back.
   const moved = { BASE: "staging", DRAFT: "false" };
-  expect("a retargeted pull request loses the line and gets a full Dottore review", () => {
-    const writes = run(retarget, { body: "Hotfix.\n\n@coderabbitai ignore", env: moved });
-    assert.equal(writes.length, 2, JSON.stringify(writes));
+  const lostLine = (body, expected, options = {}) => {
+    const writes = run(retarget, { body, env: moved, ...options });
     assert.deepEqual(writes[0].slice(0, 4), ["api", "--method", "PATCH", `repos/${repo}/pulls/9086`]);
-    assert.equal(field(writes[0], "body"), "Hotfix.");
-    assert.deepEqual(writes[1].slice(0, 7), [
+    assert.equal(field(writes[0], "body"), expected);
+    return writes.slice(1);
+  };
+  expect("a retargeted pull request loses the line and gets a full Dottore review", () => {
+    const rest = lostLine(`Hotfix.\n\n${added}`, "Hotfix.");
+    assert.equal(rest.length, 1, JSON.stringify(rest));
+    assert.deepEqual(rest[0].slice(0, 7), [
       "workflow",
       "run",
       "dottore-review.yml",
@@ -290,31 +296,33 @@ throw new Error("Unexpected gh call: " + JSON.stringify(args));
       "--ref",
       "staging",
     ]);
-    assert.equal(field(writes[1], "pr_number"), "9086");
-    assert.equal(field(writes[1], "review_mode"), "full");
+    assert.equal(field(rest[0], "pr_number"), "9086");
+    assert.equal(field(rest[0], "review_mode"), "full");
   });
-  expect("a description re-saved in the web editor, with CRLF line breaks, loses the line too", () => {
-    const writes = run(retarget, { body: "Hotfix.\r\nNotes.\r\n\r\n@coderabbitai ignore", env: moved });
-    assert.equal(writes.length, 2, JSON.stringify(writes));
-    assert.equal(field(writes[0], "body"), "Hotfix.\r\nNotes.");
-  });
-  expect("a description that was only the line is emptied", () =>
-    assert.equal(field(run(retarget, { body: "@coderabbitai ignore", env: moved })[0], "body"), ""),
+  expect("the line is found after later edits added text below it", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}\n\nNotes added later.`, "Hotfix.\n\nNotes added later.").length, 1),
   );
-  expect("a keyword the author wrote elsewhere stays", () =>
+  expect("a description re-saved in the web editor, with CRLF line breaks, loses the line too", () =>
+    assert.equal(lostLine(`Hotfix.\r\nNotes.\r\n\r\n${added.replace("\n", "\r\n")}`, "Hotfix.\r\nNotes.").length, 1),
+  );
+  expect("a description that was only the line is emptied", () => assert.equal(lostLine(added, "").length, 1));
+  expect("a keyword the author wrote stays, with nothing edited", () =>
     assert.equal(run(retarget, { body: "Skip review: @coderabbitai ignore\n\nNotes.", env: moved }).length, 0),
   );
   expect("a draft loses the line but waits for its review", () =>
-    assert.equal(
-      run(retarget, { body: "Hotfix.\n\n@coderabbitai ignore", env: { ...moved, DRAFT: "true" } }).length,
-      1,
-    ),
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { env: { ...moved, DRAFT: "true" } }).length, 0),
   );
   expect("a base with no review loses the line and gets no Dottore", () =>
-    assert.equal(
-      run(retarget, { body: "Hotfix.\n\n@coderabbitai ignore", env: { ...moved, BASE: "release" } }).length,
-      1,
-    ),
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { env: { ...moved, BASE: "release" } }).length, 0),
+  );
+  expect("moved back and forth, a head that already passed is not reviewed again", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { statuses: { [head]: passed } }).length, 0),
+  );
+  expect("a review already running for it is not restarted", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { runs: [running(9086)] }).length, 0),
+  );
+  expect("a head whose review failed gets a new one", () =>
+    assert.equal(lostLine(`Hotfix.\n\n${added}`, "Hotfix.", { statuses: { [head]: failed } }).length, 1),
   );
   console.log(`CodeRabbit review gate regression passed (${cases.length} cases).`);
 } finally {

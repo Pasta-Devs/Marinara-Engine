@@ -150,7 +150,9 @@ jobs:
             echo "PR #$PR_NUM already tells CodeRabbit to ignore it."
             exit 0
           fi
-          gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="${BODY:+$BODY$'\n\n'}@coderabbitai ignore" >/dev/null
+          # The comment under the line marks it as this workflow's, so a retarget finds it wherever later edits moved it.
+          LINE=$'@coderabbitai ignore\n<!-- coderabbit-review-gate: keeps CodeRabbit off pull requests into main -->'
+          gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="${BODY:+$BODY$'\n\n'}$LINE" >/dev/null
           echo "PR #$PR_NUM: added @coderabbitai ignore; CodeRabbit reviews no pull request into the default branch."
 
   # A promotion or hotfix moved off the default branch gets its review back: the line the job above added comes off,
@@ -174,25 +176,42 @@ jobs:
           PR_NUM: ${{ github.event.pull_request.number }}
           BASE: ${{ github.event.pull_request.base.ref }}
           DRAFT: ${{ github.event.pull_request.draft }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REVIEW_BASES: ${{ vars.DOTTORE_BASE_REFS || 'staging' }}
         run: |
           # Inert: edits the description and dispatches the trusted Dottore workflow from the new base; runs no pull
           # request code.
           BODY=$(gh api "repos/$REPO/pulls/$PR_NUM" --jq '.body // ""')
-          case "$BODY" in
-            "@coderabbitai ignore") NEW="" ;;
-            *$'\n\n@coderabbitai ignore') NEW=${BODY%$'\n\n@coderabbitai ignore'} ;;
-            # GitHub's web editor saves a description with CRLF line breaks.
-            *$'\r\n\r\n@coderabbitai ignore') NEW=${BODY%$'\r\n\r\n@coderabbitai ignore'} ;;
-            *)
-              echo "PR #$PR_NUM does not end with the @coderabbitai ignore line this workflow adds."
-              exit 0
-              ;;
-          esac
+          # Only the line the default-branch job added, found by its marker and with the blank line before it, in LF or
+          # the CRLF line breaks GitHub's web editor saves. A keyword the author wrote stays.
+          MARK='<!-- coderabbit-review-gate: keeps CodeRabbit off pull requests into main -->'
+          NEW=$BODY
+          for BREAK in $'\r\n' $'\n'; do
+            NEW=${NEW//"$BREAK$BREAK@coderabbitai ignore$BREAK$MARK"/}
+            NEW=${NEW//"@coderabbitai ignore$BREAK$MARK"/}
+          done
+          if [ "$NEW" = "$BODY" ]; then
+            echo "PR #$PR_NUM carries no @coderabbitai ignore line this workflow added."
+            exit 0
+          fi
           gh api --method PATCH "repos/$REPO/pulls/$PR_NUM" -f body="$NEW" >/dev/null
           echo "PR #$PR_NUM: removed the @coderabbitai ignore line it carried from the default branch."
-          if [ "$DRAFT" = false ] &&
-            jq -en --arg refs "$REVIEW_BASES" --arg ref "$BASE" '$refs | split(",") | index($ref) != null' >/dev/null; then
+          state() {
+            gh api "repos/$REPO/commits/$HEAD_SHA/status?per_page=100" \
+              --jq '[.statuses[] | select(.context == "Dottore Review") | .state][0] // ""'
+          }
+          running() {
+            gh api "repos/$REPO/actions/workflows/dottore-review.yml/runs?event=workflow_dispatch&per_page=100" \
+              --jq "[.workflow_runs[] | select(.status != \"completed\")
+                | select(.display_title | startswith(\"Dottore Review: PR #$PR_NUM (\"))] | length" 2>/dev/null || echo 0
+          }
+          if [ "$DRAFT" != false ] ||
+            ! jq -en --arg refs "$REVIEW_BASES" --arg ref "$BASE" '$refs | split(",") | index($ref) != null' >/dev/null; then
+            echo "PR #$PR_NUM is a draft or targets $BASE, which gets no review."
+          elif [ "$(state)" = success ] || [ "$(running)" != 0 ]; then
+            # Moved back and forth: the same head already passed, or its review is still running.
+            echo "PR #$PR_NUM: $HEAD_SHA already passed review, or its review is running."
+          else
             gh workflow run dottore-review.yml --repo "$REPO" --ref "$BASE" -f pr_number="$PR_NUM" \
               -f comment_body="Retargeted from the default branch" -f review_mode=full -f requested_by=github-actions
             echo "PR #$PR_NUM: Dottore reviews it in full against $BASE."
