@@ -316,7 +316,8 @@ export function missingTalkingHeadFaces(sprites: readonly SpriteLike[]): (Avatar
 /** The blink and talk pictures of the faces listed (talkingHeadFaces) that are saved and not saved, and the missing
  *  faces (missingTalkingHeadFaces) whose two pictures wait for them. A missing face the list shows already (one kept
  *  after its sprite was deleted) isn't counted twice, and nothing waits in a PNGTuber Plus import, which sprite faces
- *  never join. `total` is every picture, so 58 when all 29 faces are each shown once. */
+ *  never join. `total` is every picture, so 58 when all 29 faces are each shown once; a face of another name the
+ *  avatar shows (`smirk`) adds its two. */
 export function talkingHeadPictureCoverage<Face extends string>(
   shown: Pick<PngtuberAvatarData, "source"> | null | undefined,
   faces: readonly TalkingHeadFace[],
