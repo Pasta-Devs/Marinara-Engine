@@ -1,9 +1,12 @@
 // Shared side-panel virtual list (Characters / Personas / Lorebooks): pins the pure helpers it relies on —
-// when a paged list asks for its next page, how the dragged row stays mounted, and the per-list measurement snapshots.
+// when a paged list asks for its next page, how the dragged row stays mounted, the per-list measurement snapshots,
+// and that a list mounting in an already scrolled container leaves it where it is.
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import type { VirtualItem } from "@tanstack/react-virtual";
 import {
   loadMeasurementSnapshot,
+  observeCurrentOffset,
   saveMeasurementSnapshot,
   shouldFetchNextPage,
   withPinnedIndex,
@@ -40,5 +43,44 @@ assert.deepEqual(loadMeasurementSnapshot("test:unknown"), []);
 saveMeasurementSnapshot("test:one", [row]);
 assert.deepEqual(loadMeasurementSnapshot("test:one"), [row]);
 assert.deepEqual(loadMeasurementSnapshot("test:two"), []);
+
+// A list mounting in a scrolled container (the sprite grid remounting on Full-body, a phone's page-long scroll) keeps
+// the container's position. TanStack's own observer reads it only on the next scroll, so the virtualizer scrolled the
+// container to 0 as it attached, and the page jumped to the character's top.
+const requireClient = createRequire(new URL("../../../packages/client/package.json", import.meta.url));
+const { Virtualizer, observeElementOffset } = requireClient(
+  "@tanstack/react-virtual",
+) as typeof import("@tanstack/react-virtual");
+function attachTo(observe: typeof observeElementOffset) {
+  const writes: number[] = [];
+  const view = { setTimeout, clearTimeout, requestAnimationFrame: () => 0, cancelAnimationFrame: () => {} };
+  const element = {
+    scrollTop: 600,
+    ownerDocument: { defaultView: view },
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  } as unknown as HTMLElement;
+  // As in PanelVirtualList: no container on the first render, which reads the offset, then the container.
+  let scroller: HTMLElement | null = null;
+  const virtualizer = new Virtualizer<HTMLElement, Element>({
+    count: 20,
+    estimateSize: () => 180,
+    getScrollElement: () => scroller,
+    scrollToFn: (offset) => void writes.push(offset),
+    observeElementRect: (_instance, cb) => {
+      cb({ width: 360, height: 640 });
+      return () => {};
+    },
+    observeElementOffset: observe,
+  });
+  virtualizer._willUpdate();
+  virtualizer.getVirtualItems();
+  scroller = element;
+  virtualizer._willUpdate();
+  virtualizer.cleanup();
+  return writes;
+}
+assert.deepEqual(attachTo(observeElementOffset), [0], "the library's own observer scrolls a scrolled container to 0");
+assert.deepEqual(attachTo(observeCurrentOffset), [600], "the list keeps the container where it is");
 
 console.log("panel-virtual-list regression passed");

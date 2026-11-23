@@ -3,6 +3,7 @@ import { defaultRangeExtractor, useVirtualizer, type VirtualItem } from "@tansta
 import {
   findScrollParent,
   loadMeasurementSnapshot,
+  observeCurrentOffset,
   saveMeasurementSnapshot,
   shouldFetchNextPage,
   withPinnedIndex,
@@ -83,6 +84,7 @@ export function PanelVirtualList({
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => scroller,
+    observeElementOffset: observeCurrentOffset,
     getItemKey: rowKey,
     estimateSize: () => estimateSize,
     // The default rounds to whole pixels, which drifts rows that have fractional heights.
