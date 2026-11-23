@@ -132,7 +132,12 @@ try {
   // A link inside the chats folder to a file outside it is not read.
   const outside = join(fixtureRoot, "outside.jsonl");
   writeFileSync(outside, [line({ user_name: "You", character_name: "Secret" }), line({ mes: "x" })].join("\n"));
-  symlinkSync(outside, join(dataDir, "chats", "Aria", "Linked.jsonl"));
+  try {
+    symlinkSync(outside, join(dataDir, "chats", "Aria", "Linked.jsonl"));
+  } catch (err) {
+    // Windows without Developer Mode cannot make links; the scan below then simply has no link to skip.
+    if (process.platform !== "win32" || (err as NodeJS.ErrnoException).code !== "EPERM") throw err;
+  }
   const scan = await scanSTFolder(fixtureRoot);
   assert.equal(scan.success, true, scan.error);
   assert.deepEqual(
