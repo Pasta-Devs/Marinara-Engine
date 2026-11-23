@@ -19,7 +19,10 @@ import {
   scopeLorebookScanResultToCharacterContext,
 } from "../../../packages/server/src/services/lorebook/index.js";
 import { scanForActivatedEntries } from "../../../packages/server/src/services/lorebook/keyword-scanner.js";
-import { processActivatedEntries } from "../../../packages/server/src/services/lorebook/prompt-injector.js";
+import {
+  applyTokenBudget,
+  processActivatedEntries,
+} from "../../../packages/server/src/services/lorebook/prompt-injector.js";
 import { executeToolCalls } from "../../../packages/server/src/services/tools/tool-executor.js";
 import type { LLMToolCall } from "../../../packages/server/src/services/llm/base-provider.js";
 import { type RegressionCase, runNamedCases } from "../fixtures/named-cases.js";
@@ -206,6 +209,47 @@ const cases: RegressionCase[] = [
 
       assert.equal(results[0]?.success, true);
       assert.equal(savedContent, longContent);
+    },
+  },
+  {
+    name: "lorebook token budget keeps picture-only entries and pairs duplicate ids with their own pictures",
+    run() {
+      const image = (caption: string) => ({ id: caption, path: `${caption}.png`, caption });
+      const activated = [
+        { entry: { id: "map", name: "Map", position: 0, order: 0, content: "", images: [image("map")] } },
+        { entry: { id: "dup", name: "First", position: 0, order: 1, content: "First text", images: [image("first")] } },
+        {
+          entry: {
+            id: "dup",
+            name: "Second",
+            position: 0,
+            order: 2,
+            content: "Second text",
+            images: [image("second")],
+          },
+        },
+        { entry: { id: "blank", name: "Blank", position: 0, order: 3, content: "  " } },
+      ] as any;
+
+      const budgeted = applyTokenBudget(activated, 10_000);
+      assert.deepEqual(
+        budgeted.map(({ entry }) => [entry.name, entry.images?.map((img: { caption: string }) => img.caption)]),
+        [
+          ["Map", ["map"]],
+          ["First", ["first"]],
+          ["Second", ["second"]],
+        ],
+      );
+
+      // Too small for any picture: text stays, the picture-only entry has nothing left and is dropped.
+      const textOnly = applyTokenBudget(activated, 50);
+      assert.deepEqual(
+        textOnly.map(({ entry }) => [entry.name, entry.images?.length ?? 0]),
+        [
+          ["First", 0],
+          ["Second", 0],
+        ],
+      );
     },
   },
   {
