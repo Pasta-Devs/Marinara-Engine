@@ -51,6 +51,8 @@ const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwA
 const imagePrompts: string[] = [];
 // Pictures sent with each edit request, as raw base64.
 const editPictures: string[][] = [];
+// Start pictures sent with each SD Web UI request.
+const sdInitImages: string[][] = [];
 const promptModelRequests: Array<{
   model?: string;
   messages?: Array<{ role: string; content: string }>;
@@ -71,6 +73,11 @@ const provider = createServer(async (request, response) => {
         choices: [{ message: { role: "assistant", content: promptModelOutput }, finish_reason: promptModelFinish }],
       }),
     );
+    return;
+  }
+  if (request.url?.includes("/sdapi/v1/")) {
+    sdInitImages.push(body.init_images ?? []);
+    response.end(JSON.stringify({ images: [png] }));
     return;
   }
   imagePrompts.push(String(body.prompt));
@@ -1004,6 +1011,54 @@ try {
     [coat.path],
     "the new image records them too",
   );
+  // A service that starts from the first picture is sent no entry pictures, so the new record names none either.
+  const sdWebUi = await connections.create({
+    name: "SD Web UI regenerate fixture",
+    provider: "image_generation",
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    model: "fixture",
+    imageService: "automatic1111",
+    imageGenerationSource: "automatic1111",
+    apiKey: "",
+  });
+  assert.ok(sdWebUi?.id);
+  const startPictureRecord = buildChatImageGenerationRecord({
+    connectionId: sdWebUi.id,
+    lorebookImagePaths: [coat.path],
+  });
+  const startPictureImage = await gallery.create({
+    chatId: chat.id,
+    filePath: `${chat.id}/entry-picture-sd.png`,
+    prompt: "a red coat",
+    generation: startPictureRecord,
+  });
+  const startPictureEntityImage = await createCharacterGalleryStorage(db).create({
+    characterId: coatWearer.id,
+    filePath: `${chat.id}/entry-picture-sd.png`,
+    prompt: "a red coat",
+    generation: startPictureRecord,
+  });
+  assert.ok(startPictureImage?.id && startPictureEntityImage?.id);
+  sdInitImages.length = 0;
+  const startPictureRegenerated = await app.inject({
+    method: "POST",
+    url: `/api/gallery/${chat.id}/images/${startPictureImage.id}/regenerate`,
+    payload: { prompt: "a red coat" },
+  });
+  assert.equal(startPictureRegenerated.statusCode, 200, startPictureRegenerated.body);
+  const startPictureEntityRegenerated = await app.inject({
+    method: "POST",
+    url: `/api/characters/${coatWearer.id}/gallery/${startPictureEntityImage.id}/regenerate`,
+    payload: { prompt: "a red coat" },
+  });
+  assert.equal(startPictureEntityRegenerated.statusCode, 200, startPictureEntityRegenerated.body);
+  assert.deepEqual(sdInitImages, [[], []], "SD Web UI is sent no reference picture");
+  for (const generation of [
+    startPictureRegenerated.json().image.generation,
+    startPictureEntityRegenerated.json().generation,
+  ]) {
+    assert.equal(parseChatImageGenerationRecord(generation)?.references.lorebookImagePaths, undefined);
+  }
 
   // ── Native NovelAI img2img, infill, seed reuse & validations ──
   const sharp = await getSharp();

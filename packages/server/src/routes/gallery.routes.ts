@@ -2612,6 +2612,11 @@ export async function galleryRoutes(app: FastifyInstance) {
         personaSource: null,
         locationImageId: null,
       };
+      // Sent and recorded only on a connection that takes entry pictures, so the record names what was sent (#9698).
+      const lorebookImagePaths =
+        input.editMode || !imageConnectionTakesEntryPictures(imageConnection)
+          ? undefined
+          : references.lorebookImagePaths;
       let referenceImages: string[] = [];
       if (!input.editMode) {
         const locationImage = references.locationImageId
@@ -2627,9 +2632,7 @@ export async function galleryRoutes(app: FastifyInstance) {
             characterIds: references.characterIds,
             personaId: references.personaId,
             personaSource: references.personaSource,
-            lorebookImagePaths: imageConnectionTakesEntryPictures(imageConnection)
-              ? references.lorebookImagePaths
-              : undefined,
+            lorebookImagePaths,
             charactersStore: characters,
             characterGallery,
             personaGallery,
@@ -2723,7 +2726,7 @@ export async function galleryRoutes(app: FastifyInstance) {
             referencePersonaId: input.editMode ? null : references.personaId,
             referencePersonaSource: input.editMode ? null : references.personaSource,
             locationImageId: input.editMode ? null : references.locationImageId,
-            lorebookImagePaths: input.editMode ? null : references.lorebookImagePaths,
+            lorebookImagePaths,
             seed: generated.seed,
           }),
         });

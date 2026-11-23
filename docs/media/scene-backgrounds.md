@@ -72,7 +72,7 @@ You can make a generated image again without regenerating the reply it belongs t
 3. Change what you want in the boxes under the picture: **Prompt**, **Negative prompt**, a box for each character under **Character prompts** when the image had them, and the image model.
 4. Click **Generate image**, or **Cancel** to leave the image as it is.
 
-The new image becomes the selected version in the message. Earlier results stay together in one Gallery tile with a version count. Each version keeps its saved prompt, negative prompt and other saved generation details. Reference pictures are sent again from the characters' current avatars, followed by the lorebook entry pictures the image was first drawn with. Some older images did not save their negative prompt and character prompts; the editor says so when that is the case.
+The new image becomes the selected version in the message. Earlier results stay together in one Gallery tile with a version count. Each version keeps its saved prompt, negative prompt and other saved generation details. Reference pictures are sent again from the characters' current avatars, followed by the lorebook entry pictures the image was first drawn with. Stability AI, Arli AI, SD Web UI and Draw Things get no entry pictures. Some older images did not save their negative prompt and character prompts; the editor says so when that is the case.
 
 ### Image versions
 
