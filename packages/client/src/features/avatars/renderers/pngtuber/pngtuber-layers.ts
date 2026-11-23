@@ -15,6 +15,7 @@ import {
   detectSpriteFeelingBindings,
   isAvatarExtraFeeling,
   normalizeSpriteExpressionKey,
+  spriteExpressionFacetKey,
   type AvatarEmotion,
   type AvatarExpressionBinding,
   type AvatarExtraFeeling,
@@ -290,6 +291,45 @@ export function talkingHeadFaces(
     if (key) faceFor(key).feelings.push(feeling);
   }
   return [...faces.values()];
+}
+
+/** The 29 faces the face maker makes for a talking head: the six main faces first, so a run cut short already has
+ *  every face the others fall back to, then the 23 extra feelings. */
+export const TALKING_HEAD_FACE_KEYS: readonly (AvatarEmotion | AvatarExtraFeeling)[] = [
+  ...AVATAR_EMOTIONS,
+  ...AVATAR_EXTRA_FEELINGS,
+];
+
+/** The faces of TALKING_HEAD_FACE_KEYS with no face sprite saved yet, in that order. A portrait sprite in any
+ *  folder is a face's when its name or its file name is the face's, ignoring case and a variant number
+ *  (`Happy`, `happy_2`). Talk, blink and full-body sprites never count, and neither does the face a feeling falls
+ *  back to: a face under another name (`joy`, `smirk`) leaves the feeling missing. */
+export function missingTalkingHeadFaces(sprites: readonly SpriteLike[]): (AvatarEmotion | AvatarExtraFeeling)[] {
+  const saved = new Set(
+    sprites
+      .filter((sprite) => !isFullBodySprite(sprite.expression) && !isSpriteVariant(sprite.label ?? sprite.expression))
+      .flatMap((sprite) => [sprite.label ?? "", sprite.expression].map(spriteExpressionFacetKey)),
+  );
+  return TALKING_HEAD_FACE_KEYS.filter((key) => !saved.has(key));
+}
+
+/** The blink and talk pictures of the faces listed (talkingHeadFaces) that are saved and not saved, and the missing
+ *  faces (missingTalkingHeadFaces) whose two pictures wait for them. A missing face the list shows already (one kept
+ *  after its sprite was deleted) isn't counted twice, and nothing waits in a PNGTuber Plus import, which sprite faces
+ *  never join. `total` is every picture, so 58 when all 29 faces are each shown once. */
+export function talkingHeadPictureCoverage<Face extends string>(
+  shown: Pick<PngtuberAvatarData, "source"> | null | undefined,
+  faces: readonly TalkingHeadFace[],
+  missingFaces: readonly Face[],
+  hasPicture: (ref: AvatarImageRef | undefined) => boolean,
+): { saved: number; missing: number; blockedFaces: Face[]; total: number } {
+  const blockedFaces =
+    shown?.source === "pngtuber-plus" ? [] : missingFaces.filter((key) => !faces.some((face) => face.key === key));
+  const saved = faces.reduce(
+    (count, { set }) => count + Number(hasPicture(set.eyesClosed)) + Number(hasPicture(set.mouthOpen)),
+    0,
+  );
+  return { saved, missing: faces.length * 2 - saved, blockedFaces, total: (faces.length + blockedFaces.length) * 2 };
 }
 
 /** The picture of a layer set for the mouth and eyes right now; a missing variant falls back to one the set

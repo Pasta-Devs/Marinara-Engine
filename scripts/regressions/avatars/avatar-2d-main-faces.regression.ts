@@ -9,7 +9,10 @@
  *   - a PNGTuber Plus import keeps its own faces, and a full setup gains no face past the 64-face cap, nor offers one;
  *   - the face lists offer every sprite face, sprites named after a feeling too, never talk, blink or full-body
  *     sprites, and nothing from sprites for a PNGTuber Plus import;
- *   - the result is a valid setup that saving blink and talk pictures keeps.
+ *   - the result is a valid setup that saving blink and talk pictures keeps;
+ *   - after a run that stopped early (#9653), Missing faces is the faces with no sprite of their name, in any folder
+ *     or spelling, never one a feeling falls back to; blink and talk pictures count saved, still to make and waiting
+ *     for a missing face out of all 58, and a face saved later frees its two without dropping the pictures made.
  * The setup and sprite list are the reporter's (GET /api/avatar-models and /api/sprites), with the owner renamed.
  */
 import assert from "node:assert/strict";
@@ -229,6 +232,88 @@ try {
   assert.deepEqual(kept.expressionMap.neutral, user("neutral"));
   assert.deepEqual(kept.feelingMap?.fear, user("fear"));
   assert.equal(kept.layers.smirk?.base.source, "sprite", "old faces stay");
+
+  // ── Missing faces after a run that stopped early (#9653) ──
+  const FACE_KEYS = layers.TALKING_HEAD_FACE_KEYS;
+  assert.deepEqual(FACE_KEYS, [...AVATAR_EMOTIONS, ...AVATAR_EXTRA_FEELINGS], "29 faces, the main six first");
+  const spelled = [
+    { expression: "neutral" },
+    { expression: "happy", label: "Happy", folderId: "outfit", folderName: "Outfit" },
+    { expression: "angry_2" }, // renamed in the last step to keep an older angry face
+    { expression: "sad_sprite_0123456789ab", label: "sad" }, // a second file of that name
+    { expression: "old_face", label: "relaxed" }, // renamed to the face
+    { expression: "surprised", label: "shocked" }, // renamed away from it: never drawn again unasked
+    // Not a face of its own: another face's talk or blink picture, a full-body sprite, a face under another name.
+    { expression: "curiosity_blink" },
+    { expression: "admiration_mouth_open" },
+    { expression: "full_amusement" },
+    { expression: "excited" },
+  ];
+  assert.deepEqual(
+    layers.missingTalkingHeadFaces(spelled),
+    AVATAR_EXTRA_FEELINGS,
+    "only the extra feelings are missing",
+  );
+  assert.deepEqual(layers.missingTalkingHeadFaces([]), FACE_KEYS, "no sprites, every face missing");
+
+  // The run stopped after 24 faces, and blink and talk pictures were saved for 20 of them.
+  const LEFT_OUT = ["love", "relief", "confusion", "fear", "realization"];
+  const made = FACE_KEYS.filter((face) => !LEFT_OUT.includes(face));
+  const cutShort = [...made, ...made.slice(0, 20).flatMap((face) => [`${face}_blink`, `${face}_talk`])].map(
+    (expression) => ({ expression }),
+  );
+  const missingNow = layers.missingTalkingHeadFaces(cutShort);
+  assert.deepEqual(missingNow, LEFT_OUT, "exactly the five faces not made, so Missing faces queues only those");
+  const cutShortSetup = layers.buildPngtuberLayersFromSprites(cutShort)!;
+  const hasPicture = (ref: unknown) => !!ref;
+  const coverage = (shown: typeof cutShortSetup, fromSprites: typeof cutShortSetup, missing: readonly string[]) =>
+    layers.talkingHeadPictureCoverage(
+      shown,
+      layers.talkingHeadFaces(shown, fromSprites, labelFor),
+      missing,
+      hasPicture,
+    );
+  assert.deepEqual(
+    coverage(cutShortSetup, cutShortSetup, missingNow),
+    { saved: 40, missing: 8, blockedFaces: LEFT_OUT, total: 58 },
+    "40 of 58 saved, 8 to make, 10 waiting for the 5 missing faces",
+  );
+  assert.deepEqual(
+    layers.talkingHeadPictureCoverage({ source: "pngtuber-plus" }, [], missingNow, hasPicture).blockedFaces,
+    [],
+    "nothing waits in a PNGTuber Plus import: sprite faces never join it",
+  );
+
+  // Saving the five faces into the saved setup frees their ten pictures and keeps the 40 made.
+  const filled = [...cutShort, ...LEFT_OUT.map((expression) => ({ expression }))];
+  const afterMissing = layers.withGeneratedFaces(
+    cutShortSetup,
+    LEFT_OUT.map((label) => ({ label, drawnAs: label })),
+  );
+  assert.deepEqual(layers.missingTalkingHeadFaces(filled), [], "worked out again from the saved sprites");
+  assert.deepEqual(coverage(afterMissing, layers.buildPngtuberLayersFromSprites(filled)!, []), {
+    saved: 40,
+    missing: 18,
+    blockedFaces: [],
+    total: 58,
+  });
+  // A face kept in the setup after its sprite was deleted is listed already, so it isn't counted twice.
+  const fearKept = layers.withGeneratedFaces(cutShortSetup, [{ label: "fear", drawnAs: "fear" }]);
+  assert.deepEqual(coverage(fearKept, cutShortSetup, missingNow), {
+    saved: 40,
+    missing: 10,
+    blockedFaces: ["love", "relief", "confusion", "realization"],
+    total: 58,
+  });
+
+  // A feeling shown with another face for now (happy with one of the others, confusion with confused) still waits
+  // for its own.
+  const noHappy = [...FACE_KEYS.filter((face) => face !== "happy" && face !== "confusion"), "confused"].map(
+    (expression) => ({ expression }),
+  );
+  const noHappySetup = layers.buildPngtuberLayersFromSprites(noHappy)!;
+  assert.deepEqual(layers.missingTalkingHeadFaces(noHappy), ["happy", "confusion"]);
+  assert.deepEqual(coverage(noHappySetup, noHappySetup, ["happy", "confusion"]).blockedFaces, ["happy", "confusion"]);
 
   console.log("avatar 2D main faces regression passed");
 } finally {
