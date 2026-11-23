@@ -851,7 +851,18 @@ export async function importRoutes(app: FastifyInstance) {
 
     if ("error" in result && result.error) return { ...result, groupId: targetChat.groupId ?? null };
     if (!targetHadGroup) {
-      await storage.update(targetChatId, { groupId });
+      try {
+        await storage.update(targetChatId, { groupId });
+      } catch (err) {
+        // The branch must not stay in a group its chat isn't in: take this request's import back out.
+        const importedChatId = "chatId" in result ? result.chatId : undefined;
+        if (importedChatId) {
+          await storage
+            .remove(importedChatId)
+            .catch((cleanupErr) => app.log.warn(cleanupErr, "Could not remove the imported branch %s", importedChatId));
+        }
+        throw err;
+      }
       if (pendingChatGroupIds.get(targetChatId) === groupId) pendingChatGroupIds.delete(targetChatId);
     }
     return { ...result, groupId };
