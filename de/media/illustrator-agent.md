@@ -85,6 +85,8 @@ Ist **Send Avatar References** für Bilder eingeschaltet, legt **Reference pictu
 
 Das promptschreibende Modell hilft bei Bildmodellen, die Referenzbilder verwerfen, etwa NovelAI V5. Dafür muss es Bilder lesen können. Lehnt es sie ab, wird seine Anfrage ohne Bilder erneut gesendet, und es bekommt bis zum Neustart des Servers keine mehr. Ist seine Verbindung als nicht bildlesend markiert, bekommt es keine. Bilder an das promptschreibende Modell zu senden kostet bei jedem Lauf Tokens. Es werden bis zu vier Bilder gesendet: die der in `[illustrate: characters="…"]` genannten Karten oder andernfalls die der aktiven Charaktere und der Persona des Chats. **What to carry over from the pictures** legt fest, was das Modell übernimmt, etwa nur das Aussehen und nicht den Kunststil. Ein Roleplay-Chat kann unter **Send Avatar References** seine eigene Einstellung für **Reference pictures go to** festlegen.
 
+In einem Roleplay-Chat gehen auch die Bilder unter **Reference images** (Referenzbilder) eines Lorebook-Eintrags an das Bildmodell, wenn der Eintrag für die Antwort aktiv ist. Nutze sie für ein Kostüm, einen Gegenstand oder einen Raum, zu dem das Bild passen soll. Du musst dafür nichts einschalten. Nur ein Bilddienst, der Referenzbilder annimmt, bekommt sie. Stability AI, Arli AI, SD Web UI und Draw Things bekommen keine, weil sie das Bild sonst ausgehend vom Bild des Eintrags zeichnen würden. Bei eingeschaltetem **Send Avatar References** hält **Prompt writer** sie ebenfalls zurück. Sie kommen nach dem **Location reference image** aus [World Maps](../agents/hierarchical-maps.md) und den Avataren, mit höchstens sechs Bildern insgesamt. Ein Eintrag, dessen **Position** auf **Outlet** steht, sendet seine Bilder nur, wenn sein Outlet verwendet wird, und nie über die Schaltfläche **Illustrate** (Illustrieren) der Gallery.
+
 ## Festlegen, wie oft er zeichnet
 
 Auf der Illustrator-Karte sitzt die Schaltfläche **Open Setup** für das vollständige Einrichtungsfenster. Dort legst du das Standard-Laufintervall fest und gibst ihm ein eigenes Bildmodell.
@@ -93,7 +95,7 @@ Jeder Roleplay-Chat hat auf der Karte in den **Chat Settings** ein eigenes **Ima
 
 Setze **Image Run Interval** auf **0**, um nur noch manuell zu erzeugen. Das stoppt automatische Läufe einschließlich automatischer Szenenhintergründe, lässt den Agenten aber für Aktionen in der Gallery verfügbar. Mit einer positiven Zahl läuft er wieder automatisch.
 
-Um sofort ein Bild zu erzeugen, öffne die **Chat Settings**, klapp **Gallery** auf und klick auf **Illustrate** (Illustrieren). Der Illustrator läuft sofort einmal durch, und die Schaltfläche zeigt **Generating...**.
+Um sofort ein Bild zu erzeugen, öffne die **Chat Settings**, klapp **Gallery** auf und klick auf **Illustrate**. Der Illustrator läuft sofort einmal durch, und die Schaltfläche zeigt **Generating...**.
 
 ## Clips erzeugen
 

@@ -108,6 +108,25 @@ Jede Zeile hat die Schaltflächen **Copy** (Kopieren; dupliziert das Lorebook) u
 
 Eine Kategorie ist eine Beschriftung für deine Bibliothek. Sie ändert nichts daran, wann das Lorebook aktiv wird. Die Tabs sind **All**, **Active** (Lorebooks, die für den geöffneten Chat relevant sind), **World**, **Character**, **NPC**, **Spellbook** und **Other**. Die Kategorie eines Lorebooks änderst du in seinem Tab **Overview**, wo **Other** **Uncategorized** heißt.
 
+### Ein Lorebook-Set speichern
+
+Ein Lorebook-Set ist eine benannte Gruppe von Lorebooks, die du zusammen nutzt, etwa die Lorebooks für eine Welt. Du wählst die ganze Gruppe auf einmal statt jedes Lorebook einzeln. Ein Set verweist auf deine Lorebooks und kopiert sie nicht.
+
+1. Klick im Panel **Lorebooks** auf **New set** (neues Set). Das neue Set öffnet sich unter **Lorebook Sets** (Lorebook-Sets).
+2. Gib im Feld **Set name** (Name des Sets) einen Namen ein.
+3. Klick auf **Choose lorebooks** (Lorebooks auswählen) und hak die Lorebooks für das Set an. Jede Änderung speichert sich von selbst.
+
+Um ein Set später zu bearbeiten, klick unter **Lorebook Sets** darauf. Seine Schaltfläche **Delete set** (Set löschen) entfernt das Set, und seine Lorebooks bleiben in deiner Bibliothek. Ein Lorebook, das du löschst, verschwindet aus jedem Set.
+
+Ein Set wählst du unter **Use a saved set** (gespeichertes Set verwenden) über **Choose lorebooks** aus. Das Feld erscheint, sobald du ein Set hast, an diesen Stellen:
+
+- Im Schritt **Attach Lorebooks** (Lorebooks anhängen) eines neuen Roleplay-Chats.
+- Bei den festen Quell-Lorebooks eines Agenten, etwa bei Knowledge Router. Siehe [Wissensquellen: die Agenten Knowledge Retrieval und Knowledge Router](../agents/knowledge-sources.md#choose-the-sources).
+
+Wählst du ein Set, ersetzt es die dort gewählten Lorebooks. Danach kannst du für diesen Chat oder Agenten Lorebooks hinzufügen oder entfernen, ohne dass sich das gespeicherte Set ändert.
+
+Um einzelne Einträge in einem Chat ein- oder auszuschalten, öffne **Chat Settings → Lorebooks** und klick neben einem Lorebook auf das Stiftsymbol **Edit lorebook entries** (Lorebook-Einträge bearbeiten). Der Schalter eines Eintrags wirkt dort nur in diesem Chat. Alle anderen Änderungen dort gelten für das Lorebook selbst.
+
 ## Verwandte Anleitungen
 
 - [Lorebook-Einträge: Schlüsselwörter, Position und Timing](entries.md)

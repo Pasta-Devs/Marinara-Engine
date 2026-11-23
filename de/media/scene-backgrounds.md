@@ -74,7 +74,7 @@ Du kannst ein generiertes Bild neu erstellen, ohne die Antwort neu zu generieren
 3. Ändere, was du willst, in den Feldern unter dem Bild: **Prompt**, **Negative prompt** (negativer Prompt), ein Feld für jeden Charakter unter **Character prompts** (Charakter-Prompts), falls das Bild welche hatte, und das Bildmodell.
 4. Klick auf **Generate image** (Bild generieren) oder auf **Cancel** (Abbrechen), um das Bild so zu lassen, wie es ist.
 
-Das neue Bild wird zur ausgewählten Version in der Nachricht. Frühere Ergebnisse bleiben zusammen in einer Gallery-Kachel, die die Anzahl der Versionen anzeigt. Jede Version behält ihren gespeicherten Prompt, negativen Prompt und die übrigen gespeicherten Angaben zur Generierung. Referenzbilder werden erneut aus den aktuellen Avataren der Charaktere geschickt. Manche älteren Bilder haben ihren negativen Prompt und ihre Charakter-Prompts nicht gespeichert; der Editor weist dann darauf hin.
+Das neue Bild wird zur ausgewählten Version in der Nachricht. Frühere Ergebnisse bleiben zusammen in einer Gallery-Kachel, die die Anzahl der Versionen anzeigt. Jede Version behält ihren gespeicherten Prompt, negativen Prompt und die übrigen gespeicherten Angaben zur Generierung. Referenzbilder werden erneut aus den aktuellen Avataren der Charaktere geschickt, gefolgt von den Bildern der Lorebook-Einträge, mit denen das Bild zuerst gezeichnet wurde. Stability AI, Arli AI, SD Web UI und Draw Things bekommen keine Bilder aus Einträgen. Manche älteren Bilder haben ihren negativen Prompt und ihre Charakter-Prompts nicht gespeichert; der Editor weist dann darauf hin.
 
 ### Bildversionen
 
