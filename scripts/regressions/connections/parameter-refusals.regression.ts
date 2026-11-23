@@ -73,6 +73,15 @@ try {
   );
   // Not refusals of a setting: a value out of range, a refusal about something else, a field that was not sent.
   assert.deepEqual(detect({ error: { message: "temperature must be between 0 and 1" } }), []);
+  assert.deepEqual(
+    detect({ error: { message: "min_p is not allowed to be 1; it must be between 0 and 1" } }, { ...sent, min_p: 1 }),
+    [],
+    "refusal wording about a value out of range refuses the value, not the setting",
+  );
+  assert.deepEqual(
+    detect({ error: { message: "Invalid 'top_k': not allowed. Expected a value <= 100, but got 400 instead." } }),
+    [],
+  );
   assert.deepEqual(detect({ error: { message: "messages: role 'tool' is not supported" } }), []);
   assert.deepEqual(detect({ error: { message: "top_k is not supported" } }, { temperature: 0.7 }), []);
   assert.deepEqual(
@@ -91,6 +100,12 @@ try {
     for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
     bodies.push(body);
+    // Refuses a min_p value out of range, and takes any other request.
+    if (request.url?.startsWith("/range/") && "min_p" in body) {
+      response.writeHead(400, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: { message: "min_p is not allowed to be 1; it must be between 0 and 1" } }));
+      return;
+    }
     // Refuses top_k, then fails for another reason.
     if (request.url?.startsWith("/broken/")) {
       response.writeHead(400, { "content-type": "application/json" });
@@ -190,6 +205,25 @@ try {
     assert.deepEqual(refusedGenerationParameters(hordeService, "koboldcpp/some-model").sort(), ["minP", "topK"]);
     await askHorde();
     assert.equal(bodies.length, 4, "both are left out from the first try");
+
+    // A value out of range is reported, not retried without the setting, and Min P stays in the panel.
+    const rangeBase = base.replace(/\/v1$/u, "/range/v1");
+    const rangeService = parameterRefusalService("custom", rangeBase);
+    bodies.length = 0;
+    await assert.rejects(
+      createLLMProvider("custom", rangeBase, "key").chatComplete([{ role: "user", content: "hi" }], {
+        model: "some-model",
+        stream: false,
+        maxTokens: 50,
+        topK: 40,
+        minP: 1,
+      }),
+      /must be between 0 and 1/,
+    );
+    assert.equal(bodies.length, 1);
+    assert.equal(bodies[0]!.min_p, 1);
+    assert.deepEqual(refusedParameterFields(rangeService, "some-model"), []);
+    assert.deepEqual(refusedGenerationParameters(rangeService, "some-model"), []);
 
     // A retry that fails for another reason stops there and remembers nothing.
     const brokenBase = base.replace(/\/v1$/u, "/broken/v1");
