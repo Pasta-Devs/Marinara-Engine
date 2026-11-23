@@ -4,7 +4,7 @@
 // Generates a character expression sheet via image generation,
 // slices it into individual sprites, and lets the user label/save them.
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { X, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film, AlertTriangle } from "lucide-react";
+import { X, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film, AlertTriangle, Pencil } from "lucide-react";
 import { Modal } from "./Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET, SHEET_BUTTON_SECONDARY } from "./neutral-surface-styles";
 import { NeedsModelChip } from "../connections/NeedsModelChip";
@@ -679,10 +679,12 @@ export function SpriteGenerationModal({
   const [error, setError] = useState<string | null>(null);
   const [promptReviewItems, setPromptReviewItems] = useState<ImagePromptReviewItem[]>([]);
   const [promptReviewSubmitting, setPromptReviewSubmitting] = useState(false);
+  /** The failed picture's prompt is loading or open for an edit before its retry. */
+  const [failedBatchReview, setFailedBatchReview] = useState<"loading" | "open" | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const promptReviewResolveRef = useRef<((overrides: ImagePromptOverride[] | null) => void) | null>(null);
-  /** The prompts reviewed for a run of faces, which a Retry sends again. */
+  /** The prompts reviewed for a run of faces, and a failed picture's edited ones, which a Retry sends again. */
   const facePromptOverridesRef = useRef<ImagePromptOverride[] | undefined>(undefined);
   const generationControllerRef = useRef<AbortController | null>(null);
   const generationRunIdRef = useRef(0);
@@ -902,6 +904,7 @@ export function SpriteGenerationModal({
     generationControllerRef.current?.abort();
     generationControllerRef.current = null;
     closePromptReview(null);
+    setFailedBatchReview(null);
   }, [closePromptReview]);
 
   useEffect(() => {
@@ -1716,6 +1719,89 @@ export function SpriteGenerationModal({
     runSpriteBatches,
     spriteGenerationUnavailable,
   ]);
+  // The review's retry runs with the faces as they are when the edit is confirmed, not as they were when it opened:
+  // a cleanup or a label change made meanwhile stays.
+  const retryFailedBatchRef = useRef(handleRetryFailedBatch);
+  useEffect(() => {
+    retryFailedBatchRef.current = handleRetryFailedBatch;
+  });
+
+  /** Shows the failed picture's prompt as its retry sends it (the run's reviewed prompt when it has one) and
+   *  retries with the edit. Only this picture's prompt changes: the faces made so far stay, and the later pictures
+   *  keep their own prompts. */
+  const handleReviewFailedBatch = useCallback(async () => {
+    if (!failedBatch || !faceBatchMode || spriteGenerationUnavailable || !effectiveConnectionId) return;
+    const batch = failedBatch.batches[failedBatch.batchIndex] ?? [];
+    // Held like a run's, so a reset or close cancels the preview and clears the review.
+    const controller = new AbortController();
+    generationControllerRef.current = controller;
+    const runId = generationRunIdRef.current;
+    const saved = facePromptOverridesRef.current ?? [];
+    setFailedBatchReview("loading");
+    try {
+      const preview = await api.post<GenerateSheetPreviewResult>(
+        "/sprites/generate-sheet/preview",
+        sheetRequestBody(batch, generationGrid, false),
+        { signal: controller.signal },
+      );
+      if (generationRunIdRef.current !== runId) return;
+      const faces = batch.map((expression) => expression.replace(/_/g, " ")).join(", ");
+      const title = `${localizeUi("ui.spriteGeneration.batch.pictureLabel", { number: failedBatch.batchIndex + 1 })}: ${faces}`;
+      const items = preview.items.map((item) => {
+        const override = saved.find((entry) => entry.id === item.id);
+        return {
+          ...item,
+          title,
+          details: [
+            item.width && item.height ? `${item.width}x${item.height}` : "",
+            selectedImageConnection?.name,
+            selectedImageConnection?.model,
+          ]
+            .filter(Boolean)
+            .join(" | "),
+          ...(override
+            ? { prompt: override.prompt, negativePrompt: override.negativePrompt ?? item.negativePrompt }
+            : {}),
+        };
+      });
+      setFailedBatchReview("open");
+      const reviewed = await openPromptReview(items);
+      if (!reviewed || generationRunIdRef.current !== runId) return;
+      // A prompt left as shown keeps what the picture had; an edited one replaces only this picture's.
+      const edited = reviewed.filter((entry) => {
+        const item = items.find((candidate) => candidate.id === entry.id);
+        return (
+          entry.prompt !== item?.prompt.trim() || (entry.negativePrompt ?? "") !== (item?.negativePrompt ?? "").trim()
+        );
+      });
+      if (edited.length > 0) {
+        facePromptOverridesRef.current = [
+          ...saved.filter((entry) => !edited.some((change) => change.id === entry.id)),
+          ...edited,
+        ];
+      }
+    } catch (err) {
+      if (generationRunIdRef.current === runId) setError(getGenerationErrorMessage(err));
+      return;
+    } finally {
+      // A stale preview leaves the state to the review or run that replaced it.
+      if (generationRunIdRef.current === runId && generationControllerRef.current === controller) {
+        generationControllerRef.current = null;
+        setFailedBatchReview(null);
+      }
+    }
+    await retryFailedBatchRef.current();
+  }, [
+    effectiveConnectionId,
+    faceBatchMode,
+    failedBatch,
+    generationGrid,
+    localizeUi,
+    openPromptReview,
+    selectedImageConnection,
+    sheetRequestBody,
+    spriteGenerationUnavailable,
+  ]);
 
   const handleCancelGeneration = useCallback(() => {
     abortActiveGeneration();
@@ -2097,6 +2183,8 @@ export function SpriteGenerationModal({
   }, [cells, entityId, handleCloseCellFrame, onSpritesGenerated, onClose, spriteType]);
 
   const handleReset = useCallback(() => {
+    // A failed picture's review still loading is dropped with the run it belongs to.
+    abortActiveGeneration();
     setStep(0);
     setGeneratedSheet(null);
     setGeneratedSheets([]);
@@ -2110,15 +2198,15 @@ export function SpriteGenerationModal({
     setSliceAdjustments(DEFAULT_SLICE_ADJUSTMENTS);
     setSliceApplying(false);
     setError(null);
-  }, [handleCloseCellFrame]);
+  }, [abortActiveGeneration, handleCloseCellFrame]);
 
   const handleClose = useCallback(() => {
-    abortActiveGeneration();
     setSaving(false);
     setPromptReviewSubmitting(false);
+    // handleReset aborts the active run.
     handleReset();
     onClose();
-  }, [abortActiveGeneration, handleReset, onClose]);
+  }, [handleReset, onClose]);
 
   const selectedCount = cells.filter((c) => c.selected).length;
 
@@ -2786,7 +2874,8 @@ export function SpriteGenerationModal({
             {failedBatch && (
               <div className="rounded-lg bg-[var(--secondary)]/60 p-3 ring-1 ring-[var(--border)]/70">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
+                  {/* On a phone the text keeps the width and the buttons wrap below it. */}
+                  <div className="min-w-0 flex-1 basis-60">
                     <p className="text-xs font-medium text-[var(--foreground)]">
                       {faceBatchMode
                         ? localizeUi("ui.spriteGeneration.batch.paused", {
@@ -2809,17 +2898,30 @@ export function SpriteGenerationModal({
                         : localizeUi("ui.spriteGeneration.matched.retryHelp")}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleRetryFailedBatch}
-                    disabled={spriteGenerationUnavailable || !effectiveConnectionId}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-                  >
-                    <RotateCcw size={13} />
-                    {faceBatchMode
-                      ? localizeUi("ui.spriteGeneration.batch.retry")
-                      : localizeUi("ui.spriteGeneration.matched.retry")}
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {faceBatchMode && (
+                      <button
+                        type="button"
+                        onClick={handleReviewFailedBatch}
+                        disabled={spriteGenerationUnavailable || !effectiveConnectionId || failedBatchReview !== null}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--background)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+                      >
+                        {failedBatchReview === "loading" ? <Spinner size="sm" /> : <Pencil size={13} />}
+                        {localizeUi("ui.spriteGeneration.batch.reviewPrompt")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleRetryFailedBatch}
+                      disabled={spriteGenerationUnavailable || !effectiveConnectionId || failedBatchReview !== null}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                    >
+                      <RotateCcw size={13} />
+                      {faceBatchMode
+                        ? localizeUi("ui.spriteGeneration.batch.retry")
+                        : localizeUi("ui.spriteGeneration.matched.retry")}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -3246,6 +3348,23 @@ export function SpriteGenerationModal({
         open={promptReviewItems.length > 0}
         items={promptReviewItems}
         isSubmitting={promptReviewSubmitting}
+        notice={
+          failedBatchReview === "open" && failedBatch ? (
+            <div className="rounded-lg bg-[var(--marinara-app-accent-static)]/10 px-3 py-2 text-xs leading-relaxed">
+              <p className="text-[var(--marinara-app-accent-static)]">
+                {localizeUi("ui.spriteGeneration.batch.failed", {
+                  current: failedBatch.batchIndex + 1,
+                  total: failedBatch.batches.length,
+                  error: failedBatch.error,
+                })}
+              </p>
+              <p className="mt-1 text-[var(--muted-foreground)]">
+                {localizeUi("ui.spriteGeneration.batch.reviewHelp")}
+              </p>
+            </div>
+          ) : undefined
+        }
+        confirmLabel={failedBatchReview === "open" ? localizeUi("ui.spriteGeneration.batch.retry") : undefined}
         onCancel={() => closePromptReview(null)}
         onConfirm={(overrides) => closePromptReview(overrides)}
       />

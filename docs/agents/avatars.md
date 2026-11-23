@@ -212,7 +212,7 @@ On the **2D Avatars** page, choose a character or persona, then use **Make an av
 **Make faces from the avatar** makes faces without a background, also for a character or persona with no sprites yet. It needs an avatar and an image generation account. It opens the same sprite generation as the character and persona editors, with the avatar as the reference.
 
 1. Choose **All faces** (all 29 feelings), **Main faces** (the six), **Missing faces** (the ones not saved yet) or pick faces yourself. Each extra feeling sits in its main face's row until it has its own face.
-2. Faces are drawn in batches, main faces first. Older GPT Image models draw one face per picture. A picture that fails is tried once more. If it fails again, the run stops with **Retry picture**. **Cancel** keeps the faces already made.
+2. Faces are drawn in batches, main faces first. Older GPT Image models draw one face per picture. A picture that fails is tried once more. If it fails again, the run stops with **Retry picture**. **Review prompt** shows that picture's prompt and why it failed. Edit it and click **Retry picture** to try again with your edit, which changes only that picture. **Cancel** keeps the faces already made.
 3. With **Expose media prompts before sending** on, you review every prompt at once before the first is sent. Every face is drawn with open eyes and a closed mouth, so blink and talk pictures have something to close and open.
 4. Marinara draws the faces on a plain color, removes it, and saves them as the character's or persona's sprites. A new sprite replaces one with the same name, so rename it in the last step to keep the old one.
 
