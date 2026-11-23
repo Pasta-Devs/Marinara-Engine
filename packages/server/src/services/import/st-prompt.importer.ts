@@ -12,12 +12,23 @@ import type { TimestampOverrides } from "./import-timestamps.js";
 const MARKER_DISPLAY_NAMES: Partial<Record<string, string>> = {
   character: "Character Info",
   lorebook: "World Info",
+  world_info_before: "World Info (before)",
+  world_info_after: "World Info (after)",
   persona: "Persona",
   chat_history: "Chat History",
   dialogue_examples: "Chat Examples",
   chat_summary: "Chat Summary",
   agent_data: "Agent Data",
 };
+/**
+ * Where an imported preset sends World Info, for the import report:
+ * - split: World Info (before) and (after) keep their own places;
+ * - combined: the file names one spot, so before and after entries go there together;
+ * - beforeOff / afterOff: one of the two is turned off in the file, so those entries aren't sent (as in SillyTavern);
+ * - off: both (or the only one) are turned off.
+ */
+export type STPresetWorldInfo = "split" | "combined" | "beforeOff" | "afterOff" | "off";
+
 interface STPromptEntry {
   identifier: string;
   name: string;
@@ -227,8 +238,13 @@ export async function importSTPreset(
   // Track identifier → created section ID for reordering
   const createdSectionIds: string[] = [];
 
+  // World Info (before) and (after) keep their own places when the file uses both, so entries
+  // SillyTavern sends after the character still come after it. A preset that names only one
+  // (older files) gets one combined World Info section, so no entries are lost.
+  const worldInfoLayout = readWorldInfoLayout(prompts, orderMap.size > 0 ? orderMap : null);
+
   // Track which consolidated marker types have already been emitted so we
-  // don't create duplicates (e.g. worldInfoBefore + worldInfoAfter → one lorebook).
+  // don't create duplicates (e.g. the character parts → one Character Info section).
   const emittedMarkerTypes = new Set<string>();
 
   for (const entry of sortedPrompts) {
@@ -237,7 +253,7 @@ export async function importSTPreset(
     if (isBracket && !entry.content?.trim()) continue;
 
     // Map ST marker identifiers to our marker types
-    const mappedMarkerConfig = entry.marker ? mapSTMarkerConfig(entry.identifier) : null;
+    const mappedMarkerConfig = entry.marker ? mapSTMarkerConfig(entry.identifier, worldInfoLayout.split) : null;
 
     // Deduplicate consolidated markers — if we already emitted a marker of
     // this type, skip the duplicate (e.g. second world-info or character marker).
@@ -303,7 +319,39 @@ export async function importSTPreset(
     variableGroups: variableGroups.length,
     parametersImported: Object.keys(samplers.parameters),
     parametersLeftOut: postHistoryAsUser ? [...samplers.leftOut, "postHistoryRole" as const] : samplers.leftOut,
+    worldInfo: worldInfoLayout.kind ?? undefined,
   };
+}
+
+/**
+ * Which World Info markers the file really uses: listed in its prompt order (or in its prompts when it
+ * has no order), and whether each is on. Both used → separate before/after sections.
+ */
+function readWorldInfoLayout(
+  prompts: STPromptEntry[],
+  orderMap: Map<string, { index: number; enabled?: boolean }> | null,
+): { split: boolean; kind: STPresetWorldInfo | null } {
+  const state = (identifier: string): { enabled: boolean } | null => {
+    const entry = prompts.find((prompt) => prompt.identifier === identifier && prompt.marker);
+    if (!entry) return null;
+    if (orderMap) {
+      const order = orderMap.get(identifier);
+      if (!order) return null;
+      return { enabled: order.enabled ?? entry.enabled ?? true };
+    }
+    return { enabled: entry.enabled ?? true };
+  };
+  const before = state("worldInfoBefore");
+  const after = state("worldInfoAfter");
+  if (before && after) {
+    if (before.enabled && after.enabled) return { split: true, kind: "split" };
+    if (before.enabled) return { split: true, kind: "afterOff" };
+    if (after.enabled) return { split: true, kind: "beforeOff" };
+    return { split: true, kind: "off" };
+  }
+  const only = before ?? after;
+  if (!only) return { split: false, kind: null };
+  return { split: false, kind: only.enabled ? "combined" : "off" };
 }
 
 /**
@@ -311,10 +359,11 @@ export async function importSTPreset(
  * ST uses camelCase identifiers (e.g. "chatHistory", "charDescription") but the
  * marker expander expects specific types (e.g. "chat_history", "character").
  *
- * ST splits character info into separate Description / Personality / Scenario markers
- * and world info into Before / After — we consolidate each into a single marker.
+ * ST splits character info into separate Description / Personality / Scenario markers; we consolidate
+ * them into a single marker. World Info Before / After stay separate when the file uses both
+ * (`splitWorldInfo`), and fold into one combined lorebook marker otherwise.
  */
-function mapSTMarkerConfig(identifier: string): MarkerConfig | null {
+function mapSTMarkerConfig(identifier: string, splitWorldInfo = false): MarkerConfig | null {
   switch (identifier) {
     case "chatHistory":
       return { type: "chat_history" };
@@ -326,8 +375,9 @@ function mapSTMarkerConfig(identifier: string): MarkerConfig | null {
     case "personaDescription":
       return { type: "persona" };
     case "worldInfoBefore":
+      return { type: splitWorldInfo ? "world_info_before" : "lorebook" };
     case "worldInfoAfter":
-      return { type: "lorebook" };
+      return { type: splitWorldInfo ? "world_info_after" : "lorebook" };
     case "dialogueExamples":
       return { type: "dialogue_examples" };
     default:

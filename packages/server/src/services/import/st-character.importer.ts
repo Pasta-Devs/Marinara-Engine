@@ -1000,7 +1000,10 @@ export function inspectSTCharacter(raw: Record<string, unknown>): STCharacterImp
       hasEmbeddedLorebook: embeddedLorebookEntries > 0,
       embeddedLorebookEntries,
       ...(embeddedLorebookEntries > 0
-        ? { embeddedLorebookName: String(embeddedBookAsWorldInfo(data.name, data.character_book).name) }
+        ? {
+            // The name the import gives it (importSTLorebook puts the character's name in front).
+            embeddedLorebookName: `${data.name} — ${String(embeddedBookAsWorldInfo(data.name, data.character_book).name)}`,
+          }
         : {}),
     };
   } catch (error) {
