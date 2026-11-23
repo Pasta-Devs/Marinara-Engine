@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Importer: SillyTavern Bulk Import (folder scan)
 // ──────────────────────────────────────────────
-import { readdir, readFile, stat, copyFile, mkdir, open, unlink } from "fs/promises";
+import { readdir, readFile, lstat, stat, copyFile, mkdir, open, unlink } from "fs/promises";
 import { join, extname, basename, relative, resolve, sep } from "path";
 import { existsSync, readdirSync } from "fs";
 import { createHash, randomUUID } from "crypto";
@@ -819,12 +819,13 @@ export const MAX_ST_CHAT_FILE_BYTES = 256 * 1024 * 1024;
 
 /**
  * The first line of a text file inside `root`, read in chunks; "" when the file is empty, its first line is too long,
- * or the path leads outside `root`.
+ * the path leads outside `root`, or the file is a link (it could point anywhere; folder links are never walked into).
  */
 async function readFirstLine(root: string, path: string): Promise<string> {
   const base = resolve(root);
-  const file = resolve(base, path);
+  const file = resolve(path);
   if (!file.startsWith(base + sep)) return "";
+  if ((await lstat(file)).isSymbolicLink()) return "";
   const handle = await open(file, "r");
   try {
     const chunks: Buffer[] = [];
@@ -1099,8 +1100,12 @@ export async function runSTBulkImport(
           );
           if (!persona) throw new Error("Failed to create persona");
         } catch (err) {
-          // The picture was copied first; without a persona it would stay behind as an orphan file.
-          await unlink(join(AVATAR_DIR, destName)).catch(() => undefined);
+          // The picture was copied first; without a persona it would stay behind as an orphan file. A persona that
+          // was saved before the error keeps it.
+          const personasNow = await storage.listPersonas().catch(() => null);
+          if (personasNow && !personasNow.some((row) => row.avatarPath === avatarPath)) {
+            await unlink(join(AVATAR_DIR, destName)).catch(() => undefined);
+          }
           throw err;
         }
         importedPersonaAvatars.set(basename(p.path), persona.id);
