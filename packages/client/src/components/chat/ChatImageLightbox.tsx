@@ -118,6 +118,8 @@ export function ChatImageLightbox({
   const maskControlsRef = useRef<ImageMaskCanvasHandle | null>(null);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const selectingVersion = useRef(false);
+  const [selectionPending, setSelectionPending] = useState(false);
   const selectVersion = useSelectChatImageVersion(activeImage.chatId);
 
   const resetMask = useCallback((options?: { resetToolAndBrush?: boolean }) => {
@@ -171,7 +173,7 @@ export function ChatImageLightbox({
   const stack = stacks[galleryIndex];
   const versionIndex = stack?.versions.findIndex((row) => row.id === image.id) ?? 0;
   const galleryImages = stacks.map((group) => (group === stack ? image : group.selected));
-  const navigating = selectVersion.isPending;
+  const navigating = selectionPending || selectVersion.isPending;
 
   // Close is disabled while a regeneration runs, and the panel closes before `busy` clears: wait for
   // both, or focus falls to the page.
@@ -227,10 +229,22 @@ export function ChatImageLightbox({
             ? {
                 index: versionIndex,
                 count: stack.versions.length,
-                disabled: busy || maskState.hasMask || Boolean(maskState.isDrawing),
+                disabled:
+                  busy || navigating || interactionDisabled || maskState.hasMask || Boolean(maskState.isDrawing),
                 onIndexChange: (next) => {
                   const target = stack.versions[next];
-                  if (!target || navigating || busy || maskState.hasMask || maskState.isDrawing) return;
+                  if (
+                    !target ||
+                    selectingVersion.current ||
+                    navigating ||
+                    busy ||
+                    interactionDisabled ||
+                    maskState.hasMask ||
+                    maskState.isDrawing
+                  )
+                    return;
+                  selectingVersion.current = true;
+                  setSelectionPending(true);
                   void (
                     onSelectVersion
                       ? onSelectVersion(target)
@@ -241,7 +255,11 @@ export function ChatImageLightbox({
                       toast.error(
                         error instanceof Error ? error.message : localizeUi("chat.imageVersions.selectFailed"),
                       ),
-                    );
+                    )
+                    .finally(() => {
+                      selectingVersion.current = false;
+                      setSelectionPending(false);
+                    });
                 },
               }
             : undefined

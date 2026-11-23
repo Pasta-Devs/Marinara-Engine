@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { parseChatImageGenerationRecord } from "@marinara-engine/shared";
+import { isGalleryTagKind, parseChatImageGenerationRecord } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { eq, inArray } from "../../db/file-query.js";
 import { characterImages, personaImages, chatImages } from "../../db/schema/index.js";
@@ -8,6 +8,7 @@ import { createGalleryStorage } from "../storage/gallery.storage.js";
 import { createCharacterGalleryStorage } from "../storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../storage/persona-gallery.storage.js";
 import { withChatImageVariantLock } from "./chat-image-variants.js";
+import { loadImageGenerationUserSettings } from "./image-generation-settings.js";
 import { resolveStoredGalleryFile } from "./gallery-file-lifecycle.js";
 
 export type EntityImageKind = "character" | "persona";
@@ -119,6 +120,9 @@ async function addChatVersion(db: DB, kind: EntityImageKind, ownerId: string, st
           sourceChatImageId: row.id,
           filePath: row.filePath,
           prompt: row.prompt,
+          customKind: isGalleryTagKind(row.customKind) ? row.customKind : null,
+          customName: row.customName,
+          description: row.description,
           generation: parseChatImageGenerationRecord(row.generation),
           provider: row.provider,
           model: row.model,
@@ -180,7 +184,7 @@ export async function persistChatImageVersionToEntityGalleries(
 /** Recover pre-fix missing memberships only from explicit source links. A completed group is never refilled. */
 export async function repairEntityImageVariants(db: DB, kind: EntityImageKind, ownerId: string) {
   const legacy = (await ownerImages(db, kind, ownerId)).filter((row) => row.sourceChatImageId && !row.variantGroupId);
-  if (!legacy.length) return;
+  if (!legacy.length || !(await loadImageGenerationUserSettings(db)).autoSaveToGalleries) return;
   const sources = await db
     .select()
     .from(chatImages)
@@ -191,11 +195,12 @@ export async function repairEntityImageVariants(db: DB, kind: EntityImageKind, o
       ),
     );
   for (const chatId of new Set(sources.map((row) => row.chatId))) {
+    const groups = new Set(
+      sources.filter((row) => row.chatId === chatId && row.variantGroupId).map((row) => row.variantGroupId),
+    );
+    if (!groups.size) continue;
     await withChatImageVariantLock(chatId, async () => {
       const current = await createGalleryStorage(db).listByChatId(chatId);
-      const groups = new Set(
-        sources.filter((row) => row.chatId === chatId && row.variantGroupId).map((row) => row.variantGroupId),
-      );
       for (const groupId of groups) {
         const stack = current.filter((row) => row.variantGroupId === groupId);
         if (stack.length) await addChatVersion(db, kind, ownerId, stack);

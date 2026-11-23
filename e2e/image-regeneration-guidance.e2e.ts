@@ -160,6 +160,7 @@ for (const owner of ["character", "persona"] as const) {
       const unchanged = await (await request.get(path)).json();
       expect(unchanged.avatarPath).toBe(before.avatarPath);
       await page.keyboard.press("Escape");
+      await screenshot(page, testInfo, `${owner}-version-stack`);
       const applied = page.waitForResponse(
         (response) =>
           response.request().method() === "POST" && response.url().endsWith(`${path}/gallery/${result.id}/avatar`),
@@ -174,6 +175,7 @@ for (const owner of ["character", "persona"] as const) {
         page.locator(".mari-editor-shell").getByRole("img", { name: result.prompt, exact: true }),
       ).toBeVisible();
       await expect(page.locator(".mari-editor-shell").getByLabel("2 versions", { exact: true })).toBeVisible();
+      await screenshot(page, testInfo, `${owner}-stack-tile`);
       await openEditor("metadata");
       // Avatar editing lives in Metadata; the initial preview cannot reapply an unchanged image.
       const editAvatar = page.locator(".mari-editor-shell").getByRole("button", { name: "Edit avatar", exact: true });
@@ -374,6 +376,7 @@ test("chat image version stacks keep two navigation axes and persist the selecte
     await expect(messageViewer.getByText("Version 3 of 3", { exact: true })).toBeVisible();
     await expect(messageViewer.getByRole("button", { name: "Next image", exact: true })).toHaveCount(0);
     await expect(messageViewer.getByRole("button", { name: "Previous image", exact: true })).toHaveCount(0);
+    await screenshot(page, info, "message-single-stack");
     await messageViewer.getByRole("button", { name: "Close image", exact: true }).click();
     const reopenedDrawer = await openChatSettingsTool(page, "gallery");
     await openGalleryImage(reopenedDrawer, third.prompt);
@@ -1070,11 +1073,10 @@ test("novelai edit mode supports img2img, painted mask infill, seed reuse, and s
     await expect(maskCanvas).toHaveClass(/\bcursor-crosshair\b/);
     await expect.poll(() => maskCanvas.evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBe(640);
     await maskCanvas.scrollIntoViewIfNeeded();
+    // Hover waits for layout and any success toast to settle before measuring the paint target.
+    await maskCanvas.hover({ position: { x: 20, y: 20 } });
     const box = await maskCanvas.boundingBox();
     expect(box).toBeTruthy();
-    // A regenerated result can resize the stage, and the success toast can cover this point briefly on phones.
-    // Hover waits for the canvas to settle and offer a clear paint target.
-    await maskCanvas.hover({ position: { x: box!.width * 0.4, y: box!.height * 0.4 } });
     await page.mouse.move(box!.x + box!.width * 0.4, box!.y + box!.height * 0.4);
     await page.mouse.down();
     await page.mouse.move(box!.x + box!.width * 0.6, box!.y + box!.height * 0.6, { steps: 5 });

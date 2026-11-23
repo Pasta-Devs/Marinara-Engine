@@ -1547,6 +1547,9 @@ try {
     url: `/api/characters/${entityCharacter.id}/gallery/${secondCharacterVersion.id}/select`,
   });
   assert.equal(selectedEntity.statusCode, 200, selectedEntity.body);
+  const selectedCharacterRows = await characterImages.listByCharacterId(entityCharacter.id);
+  assert.equal(selectedCharacterRows.filter((row) => row.variantSelected === 1).length, 1);
+  assert.equal(selectedCharacterRows.find((row) => row.variantSelected === 1)?.id, secondCharacterVersion.id);
   assert.equal((await attachmentIds())[0].galleryId, v3.id, "entity selection cannot change chat selection");
   assert.equal(
     (await personaImages.getById(personaVersions.find((row) => row.variantSelected === 1)!.id))!.variantSelected,
@@ -1568,6 +1571,13 @@ try {
     filePath: versionSource.filePath,
   });
   const recoveryPath = `/api/characters/${recoveryOwner.id}/gallery`;
+  await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: false }));
+  assert.equal(
+    (await app.inject({ method: "GET", url: recoveryPath })).json().length,
+    1,
+    "recovery honors autosave off",
+  );
+  await createAppSettingsStorage(db).set("ui", JSON.stringify({ autoSaveGeneratedImagesToGalleries: true }));
   const recovered = await app.inject({ method: "GET", url: recoveryPath });
   assert.equal(recovered.statusCode, 200, recovered.body);
   const recoveredRows = recovered.json();
@@ -1768,6 +1778,13 @@ try {
   ]);
   assert.equal(legacyGroups.length, 3, "legacy pictures and other owners never merge by accident");
 
+  const persistedEntityVersions = entityStackRows(await characterImages.listByCharacterId(entityCharacter.id));
+  assert.equal(persistedEntityVersions.length, 3, "profile JSON and ZIP restore entity memberships");
+  assert.equal(
+    persistedEntityVersions.find((row) => row.variantSelected === 1)?.sourceChatImageId,
+    v2.id,
+    "profile restore retains independent entity selection",
+  );
   const beforeReopen = groupChatImageVariants(await gallery.listByChatId(chat.id));
   await closeDB();
   const reopened = await getDB();
@@ -1775,6 +1792,11 @@ try {
     groupChatImageVariants(await createGalleryStorage(reopened).listByChatId(chat.id)),
     beforeReopen,
     "version metadata and saved requests survive an actual store close and reopen",
+  );
+  assert.deepEqual(
+    entityStackRows(await createCharacterGalleryStorage(reopened).listByCharacterId(entityCharacter.id)),
+    persistedEntityVersions,
+    "entity stack metadata and canonical file references survive store reopen",
   );
   console.log(
     "chat-image-generation-record: ok (record, storage round trip, regenerate route, version selection and deletion)",
