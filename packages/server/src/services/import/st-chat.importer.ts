@@ -29,6 +29,7 @@ import {
   type TimestampOverrides,
 } from "./import-timestamps.js";
 import { isRecord } from "../../utils/large-json.js";
+import { createCharactersStorage } from "../storage/characters.storage.js";
 
 interface STChatHeader {
   user_name?: string;
@@ -93,8 +94,16 @@ export interface ImportSTChatOptions {
   speakerMap?: Record<string, string>;
   /** Group ID to associate this chat with (for grouping branches) */
   groupId?: string | null;
-  /** Persona to attach to the imported chat */
+  /**
+   * Persona to attach to the imported chat. Left out (undefined), the persona whose name matches the
+   * SillyTavern user name is attached; null attaches none.
+   */
   personaId?: string | null;
+  /**
+   * Personas to match the SillyTavern user against, by personaLookupKey(name) and by "avatar:<file>" for
+   * SillyTavern's persona lock. A bulk import builds this once; left out, the personas are read here.
+   */
+  personaLookup?: Map<string, string>;
   /** Character card to use as the user identity */
   personaCharacterId?: string | null;
   /** Connection to attach to the imported chat */
@@ -181,6 +190,79 @@ function normalizeImportedMode(value: unknown): ChatMode | null {
 
 function normalizeSpeakerKey(value: unknown): string {
   return typeof value === "string" ? normalizeTextForMatch(value.replace(/\.(png|json)$/i, "")) : "";
+}
+
+/** How a persona's name is matched: case, spacing and accents ignored. */
+export function personaLookupKey(name: unknown): string {
+  return typeof name === "string" ? normalizeTextForMatch(name) : "";
+}
+
+/** Personas by name (the most recently updated wins a shared name), for matching SillyTavern users. */
+export async function buildPersonaLookup(db: DB): Promise<Map<string, string>> {
+  const lookup = new Map<string, string>();
+  // listPersonas is newest first.
+  for (const persona of await createCharactersStorage(db).listPersonas()) {
+    const key = personaLookupKey(persona.name);
+    if (key && !lookup.has(key)) lookup.set(key, persona.id);
+  }
+  return lookup;
+}
+
+/** Something from the SillyTavern file that came in differently or not at all. */
+export type STChatImportNote =
+  | { kind: "authorsNote" }
+  | { kind: "authorsNoteOff" }
+  | { kind: "authorsNotePlacement" }
+  | { kind: "persona"; name: string }
+  | { kind: "personaMissing"; name: string };
+
+// SillyTavern's extension prompt positions: 0 after the story string, 1 in the chat at a depth, 2 before it.
+const ST_NOTE_IN_CHAT = 1;
+
+/**
+ * SillyTavern's Author's Note lives in `chat_metadata.note_*`. Marinara injects it as a system message at a
+ * depth, which is SillyTavern's default ("In-chat @ depth 4", every message, system role). Anything else is kept
+ * in metadata.sillyTavernAuthorsNote and reported, and a note SillyTavern had turned off (frequency 0) stays off.
+ */
+function readSillyTavernAuthorsNote(meta: Record<string, unknown>) {
+  const prompt = typeof meta.note_prompt === "string" ? meta.note_prompt : "";
+  if (!prompt.trim()) return null;
+  const whole = (value: unknown, fallback: number) => {
+    const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+    return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : fallback;
+  };
+  const depth = whole(meta.note_depth, 4);
+  const interval = whole(meta.note_interval, 1);
+  const position = whole(meta.note_position, ST_NOTE_IN_CHAT);
+  const role = whole(meta.note_role, 0);
+  const off = interval === 0;
+  const placementDiffers = !off && (interval !== 1 || position !== ST_NOTE_IN_CHAT || role !== 0);
+  const metadata: Record<string, unknown> = off ? {} : { authorNotes: prompt, authorNotesDepth: depth };
+  if (off || placementDiffers) {
+    metadata.sillyTavernAuthorsNote = { prompt, depth, interval, position, role };
+  }
+  const note: STChatImportNote = off
+    ? { kind: "authorsNoteOff" }
+    : placementDiffers
+      ? { kind: "authorsNotePlacement" }
+      : { kind: "authorsNote" };
+  return { metadata, note };
+}
+
+/** The SillyTavern user's name: the header's, else the first user message's. */
+function sillyTavernUserName(header: STChatHeader, lines: string[]): string | null {
+  // SillyTavern 1.16+ writes "unused" in the header; the user's name then lives on their messages.
+  const headerName = typeof header.user_name === "string" ? header.user_name.trim() : "";
+  if (headerName && headerName.toLowerCase() !== "unused") return headerName;
+  for (let index = 1; index < lines.length; index++) {
+    try {
+      const message = JSON.parse(lines[index]!) as STChatMessage;
+      if (message.is_user && typeof message.name === "string" && message.name.trim()) return message.name.trim();
+    } catch {
+      // skip malformed lines
+    }
+  }
+  return null;
 }
 
 const INTERNAL_EXTRA_KEYS = new Set([
@@ -325,6 +407,29 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     normalizeImportedMode(marinaraMetadata.mode) ??
     "roleplay";
 
+  const importNotes: STChatImportNote[] = [];
+  // Marinara's own exports carry their note in marinara_metadata, which wins below.
+  const authorsNote = readSillyTavernAuthorsNote(headerMetadata);
+  if (authorsNote && marinaraMetadata.authorNotes === undefined) importNotes.push(authorsNote.note);
+  const sillyTavernMetadata = authorsNote && marinaraMetadata.authorNotes === undefined ? authorsNote.metadata : {};
+
+  // The persona SillyTavern spoke as: its persona lock (an avatar file), else the user's name.
+  let personaId = opts?.personaId;
+  const stUserName = sillyTavernUserName(header, lines);
+  if (personaId === undefined && !opts?.personaCharacterId && Object.keys(marinaraMetadata).length === 0) {
+    const lookup = opts?.personaLookup ?? (await buildPersonaLookup(db));
+    const lockedAvatar = typeof headerMetadata.persona === "string" ? headerMetadata.persona : null;
+    personaId =
+      (lockedAvatar ? lookup.get(`avatar:${lockedAvatar}`) : undefined) ??
+      (stUserName ? lookup.get(personaLookupKey(stUserName)) : undefined) ??
+      null;
+    if (stUserName && personaLookupKey(stUserName) !== personaLookupKey("User")) {
+      importNotes.push(
+        personaId ? { kind: "persona", name: stUserName } : { kind: "personaMissing", name: stUserName },
+      );
+    }
+  }
+
   // Build characterIds array. Caller-supplied list wins so an import-into-group
   // can fully inherit the existing chat's roster instead of being limited to a
   // single matched character.
@@ -452,7 +557,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       mode: importedMode,
       characterIds,
       groupId: opts?.groupId ?? null,
-      personaId: opts?.personaId ?? null,
+      personaId: personaId ?? null,
       personaCharacterId: opts?.personaCharacterId ?? null,
       promptPresetId: opts?.promptPresetId ?? null,
       connectionId: opts?.connectionId ?? null,
@@ -463,7 +568,12 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   if (!chat) return { error: "Failed to create chat" };
 
   // Preserve an imported branch/file label separately from the main thread/chat name.
-  if (Object.keys(marinaraMetadata).length > 0 || importedBranchName || opts?.sourceFingerprint) {
+  if (
+    Object.keys(marinaraMetadata).length > 0 ||
+    Object.keys(sillyTavernMetadata).length > 0 ||
+    importedBranchName ||
+    opts?.sourceFingerprint
+  ) {
     const existingMetadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const importedMetadata = sanitizeImportedMarinaraMetadata(
       marinaraMetadata,
@@ -502,6 +612,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
       chat.id,
       {
         ...existingMetadata,
+        ...sillyTavernMetadata,
         ...importedMetadata,
         ...(importedBranchName ? { branchName: importedBranchName } : {}),
         ...(opts?.sourceFingerprint ? { importFingerprint: opts.sourceFingerprint } : {}),
@@ -627,6 +738,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
     characterName,
     userName,
     messagesImported: msgInputs.length,
+    importNotes,
   };
 }
 

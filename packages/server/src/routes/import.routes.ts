@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import { randomUUID } from "node:crypto";
 import { inflateSync } from "node:zlib";
 import { platform, homedir } from "os";
+import { realpathSync } from "fs";
 import { readdir, stat } from "fs/promises";
 import { resolve as pathResolve } from "path";
 import { containsDecisionStatements, normalizeTextForMatch, type ChatMode } from "@marinara-engine/shared";
@@ -107,23 +108,34 @@ function resolveImportFolder(body: {
       return { ok: false, error: "Folder token does not match folderPath" };
     }
     if (getImportAllowedRoots().length > 0 && !isAllowedImportRoot(entry.path)) {
-      return {
-        ok: false,
-        error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.",
-      };
+      return { ok: false, error: describeImportFolderLimit() };
     }
     return { ok: true, path: entry.path };
   }
 
   if (!rawPath) return { ok: false, error: "folderPath or folderToken is required" };
   const resolved = pathResolve(rawPath);
-  if (!isAllowedImportRoot(resolved)) {
-    return {
-      ok: false,
-      error: "folderPath is not allowed. Use the folder picker/browser or set IMPORT_ALLOWED_ROOTS.",
-    };
+  // A typed path gets what Browse already reaches: the home folder, unless IMPORT_ALLOWED_ROOTS names others.
+  // Links are followed first, so a link inside the home folder can't lead the import outside it.
+  const real = realPathOrSelf(resolved);
+  const roots = getImportAllowedRoots().length > 0 ? getImportAllowedRoots() : [homedir()];
+  const allowed = roots.some((root) => isUnderRoot(real, realPathOrSelf(pathResolve(root))));
+  if (!allowed) return { ok: false, error: describeImportFolderLimit() };
+  return { ok: true, path: real };
+}
+
+function realPathOrSelf(pathValue: string): string {
+  try {
+    return realpathSync(pathValue);
+  } catch {
+    return pathValue;
   }
-  return { ok: true, path: resolved };
+}
+
+function describeImportFolderLimit() {
+  return getImportAllowedRoots().length > 0
+    ? "Marinara can only read folders inside the import folders this server allows (IMPORT_ALLOWED_ROOTS). Move the SillyTavern folder into one of them, or ask whoever runs the server to allow its location."
+    : `Marinara can only read folders inside your home folder (${homedir()}). Move the SillyTavern folder there, or ask whoever runs the server to allow its location (IMPORT_ALLOWED_ROOTS).`;
 }
 
 /**
