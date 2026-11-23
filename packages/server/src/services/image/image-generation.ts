@@ -85,6 +85,7 @@ import {
   assertSpicyApiModelId,
   buildSpicyApiImageInput,
   buildSpicyApiUrl,
+  closestShape,
   fitsSpicyApiInlineLimit,
   parseSpicyApiTask,
   readSpicyApiMessage,
@@ -173,6 +174,7 @@ const REFERENCE_PICTURE_SUPPORT: Readonly<Record<string, boolean | ((target: Ref
   openai: openAITakesReference,
   codex_chatgpt: true,
   arli: true,
+  // NanoGPT's model list decides per request; generateNanoGPT refuses an edit for a model with no picture input.
   nanogpt: true,
   openrouter: true,
   pollinations: false,
@@ -1658,10 +1660,6 @@ function xAIReferenceImages(request: ImageGenRequest): string[] {
   return openAIReferenceImages(request).slice(0, 3);
 }
 
-function nanoGPTReferenceImages(request: ImageGenRequest): string[] {
-  return openAIReferenceImages(request).slice(0, NANOGPT_REFERENCE_IMAGE_LIMIT);
-}
-
 function serializeNanoGPTImageRequest(
   body: Record<string, unknown>,
   references: string[],
@@ -2071,28 +2069,120 @@ async function generateAtlasCloudImage(
   return downloadImageUrl(outputUrl, request.privateImageResultOrigin, request.signal);
 }
 
-function nanoGPTNanoBanana21AspectRatio(width: number, height: number): string {
-  // NanoGPT's nano-banana-2.1 supports these ratios, not arbitrary pixel sizes.
-  const ratios = [
-    ["1:1", 1],
-    ["2:3", 2 / 3],
-    ["3:2", 3 / 2],
-    ["3:4", 3 / 4],
-    ["4:3", 4 / 3],
-    ["4:5", 4 / 5],
-    ["5:4", 5 / 4],
-    ["9:16", 9 / 16],
-    ["16:9", 16 / 9],
-    ["21:9", 21 / 9],
-    ["1:4", 1 / 4],
-    ["4:1", 4],
-    ["1:8", 1 / 8],
-    ["8:1", 8],
-  ] as const;
-  const ratio = width / height;
-  return ratios.reduce((best, candidate) =>
-    Math.abs(candidate[1] - ratio) < Math.abs(best[1] - ratio) ? candidate : best,
-  )[0];
+/** What NanoGPT's image model list says one model takes. */
+interface NanoGPTImageModel {
+  /** Named sizes such as `1k` or `1.5k`, for a model that takes those instead of pixel sizes. */
+  tiers: string[];
+  aspectRatios: string[];
+  maxInputImages: number;
+  /** Set only when the list says it; most models don't. */
+  negativePrompt?: boolean;
+}
+
+// #8022's contract, used when the list can't be read.
+const NANOGPT_NANO_BANANA_21: NanoGPTImageModel = {
+  tiers: ["1k", "2k"],
+  aspectRatios: ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9", "1:4", "4:1", "1:8", "8:1"],
+  maxInputImages: NANOGPT_REFERENCE_IMAGE_LIMIT,
+};
+const NANOGPT_MODEL_LIST_TTL_MS = 6 * 60 * 60_000;
+const NANOGPT_MODEL_LIST_RETRY_MS = 5 * 60_000;
+const NANOGPT_MODEL_LIST_TIMEOUT_MS = 15_000;
+const nanoGPTModelLists = new Map<
+  string,
+  { expires: number; models: Promise<Map<string, NanoGPTImageModel> | null> }
+>();
+/** Endpoint and model pairs that answered that they take no negative prompt. */
+const nanoGPTModelsWithoutNegativePrompt = new Set<string>();
+
+function readNanoGPTImageModel(entry: Record<string, unknown>): NanoGPTImageModel {
+  const params = isRecord(entry.supported_parameters) ? entry.supported_parameters : {};
+  const strings = (value: unknown) =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  const resolutions = strings(params.resolutions);
+  // A model that lists pixel sizes keeps getting the requested WxH, which NanoGPT accepts beyond the list.
+  // ponytail: only named `Nk` sizes are read. Models that list presets or ratios as sizes (`square_hd`, `16:9`)
+  // still get WxH; read those here when one of them is reported failing.
+  const tiers = resolutions.some((value) => /^\d+\s*[x*]\s*\d+$/i.test(value))
+    ? []
+    : resolutions.filter((value) => /^\d+(?:\.\d+)?k$/i.test(value));
+  const takesImages =
+    (isRecord(entry.capabilities) && entry.capabilities.image_to_image === true) ||
+    (isRecord(entry.architecture) && strings(entry.architecture.input_modalities).includes("image"));
+  const maxInputImages =
+    typeof params.max_input_images === "number"
+      ? Math.max(0, Math.floor(params.max_input_images))
+      : takesImages
+        ? NANOGPT_REFERENCE_IMAGE_LIMIT
+        : 0;
+  return {
+    tiers,
+    aspectRatios: strings(params.aspect_ratio),
+    maxInputImages,
+    ...(typeof params.negative_prompt === "boolean" ? { negativePrompt: params.negative_prompt } : {}),
+  };
+}
+
+async function fetchNanoGPTImageModels(
+  listUrl: string,
+  apiKey: string,
+  request: ImageGenRequest,
+): Promise<Map<string, NanoGPTImageModel> | null> {
+  try {
+    const resp = await imageFetch(
+      listUrl,
+      { headers: { Authorization: `Bearer ${apiKey}` }, signal: AbortSignal.timeout(NANOGPT_MODEL_LIST_TIMEOUT_MS) },
+      { allowLocal: request.allowLocalUrls },
+    );
+    if (!resp.ok) throw new Error(`status ${resp.status}`);
+    const json = (await resp.json()) as unknown;
+    const data = isRecord(json) ? json.data : undefined;
+    if (!Array.isArray(data)) throw new Error("no model list in the response");
+    const models = new Map<string, NanoGPTImageModel>();
+    for (const item of data) {
+      if (isRecord(item) && typeof item.id === "string") {
+        models.set(item.id.trim().toLowerCase(), readNanoGPTImageModel(item));
+      }
+    }
+    return models;
+  } catch (err) {
+    logger.warn(err, "[image-gen/nanogpt] Could not read the image model list; sending requests unchanged");
+    return null;
+  }
+}
+
+/**
+ * NanoGPT documents `GET /v1/image-models?detailed=true` as the place to read each model's sizes and picture
+ * inputs, and asks clients to cache it. A list that can't be read leaves requests as they were.
+ */
+function nanoGPTImageModels(
+  imagesUrl: string,
+  apiKey: string,
+  request: ImageGenRequest,
+): Promise<Map<string, NanoGPTImageModel> | null> {
+  const listUrl = new URL(imagesUrl);
+  if (!listUrl.pathname.endsWith("/images/generations")) return Promise.resolve(null);
+  listUrl.pathname = listUrl.pathname.replace(/\/images\/generations$/, "/image-models");
+  listUrl.search = "?detailed=true";
+  const key = listUrl.toString();
+  const cached = nanoGPTModelLists.get(key);
+  if (cached && cached.expires > Date.now()) return cached.models;
+  const entry = {
+    expires: Date.now() + NANOGPT_MODEL_LIST_TTL_MS,
+    models: fetchNanoGPTImageModels(key, apiKey, request),
+  };
+  nanoGPTModelLists.set(key, entry);
+  void entry.models.then((models) => {
+    if (!models) entry.expires = Date.now() + NANOGPT_MODEL_LIST_RETRY_MS;
+  });
+  return entry.models;
+}
+
+/** The smallest named size that covers the longer side (`1k` is 1024 pixels), else the largest. */
+function nanoGPTSizeTier(tiers: string[], width: number, height: number): string {
+  const longest = Math.max(width, height);
+  const sorted = [...tiers].sort((a, b) => parseFloat(a) - parseFloat(b));
+  return sorted.find((tier) => parseFloat(tier) * 1024 >= longest) ?? sorted[sorted.length - 1]!;
 }
 
 async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
@@ -2101,13 +2191,15 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
   const height = request.height ?? 1024;
   const model = request.model?.trim().toLowerCase() ?? "";
   const isNanoBanana = model.includes("nano-banana");
-  const isNanoBanana21 = model === "nano-banana-2.1";
-  const size = isNanoBanana21
-    ? Math.max(width, height) > 1024
-      ? "2k"
-      : "1k"
-    : isOpenAIGptImageModel(request.model)
-      ? openAIImageSize(request)
+  // Anima takes `1k`/`1.5k` and Chroma takes no pictures (#9560): each model gets what the list says it takes.
+  const listed = model ? (await nanoGPTImageModels(url, apiKey, request))?.get(model) : undefined;
+  const accepts = listed ?? (model === "nano-banana-2.1" ? NANOGPT_NANO_BANANA_21 : undefined);
+  const isGptImage = isOpenAIGptImageModel(request.model);
+  const tiers = isGptImage ? [] : (accepts?.tiers ?? []);
+  const size = isGptImage
+    ? openAIImageSize(request)
+    : tiers.length
+      ? nanoGPTSizeTier(tiers, width, height)
       : isNanoBanana && height > width
         ? "768x1344"
         : `${width}x${height}`;
@@ -2117,22 +2209,63 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
     size,
     response_format: "url",
   };
-  if (isNanoBanana21) body.aspect_ratio = nanoGPTNanoBanana21AspectRatio(width, height);
+  // A named size alone comes back square, so the shape goes in aspect_ratio.
+  const aspectRatio = tiers.length ? closestShape(accepts?.aspectRatios ?? [], width, height) : null;
+  if (aspectRatio) body.aspect_ratio = aspectRatio;
   if (request.model) body.model = request.model;
-  if (request.negativePrompt) body.negative_prompt = request.negativePrompt;
+  const withoutNegativeKey = `${url}\n${model}`;
+  if (
+    request.negativePrompt &&
+    accepts?.negativePrompt !== false &&
+    !nanoGPTModelsWithoutNegativePrompt.has(withoutNegativeKey)
+  ) {
+    body.negative_prompt = request.negativePrompt;
+  }
 
-  const references = nanoGPTReferenceImages(request);
+  const allReferences = openAIReferenceImages(request);
+  const referenceLimit = Math.min(NANOGPT_REFERENCE_IMAGE_LIMIT, accepts?.maxInputImages ?? Infinity);
+  // An edit the model can't take a picture for would be billed as a new picture.
+  if (request.referenceIsCanvas && allReferences.length && !referenceLimit) {
+    throw new Error(IMAGE_EDIT_UNSUPPORTED_MESSAGE);
+  }
+  const references = allReferences.slice(0, referenceLimit);
+  if (references.length < Math.min(allReferences.length, NANOGPT_REFERENCE_IMAGE_LIMIT)) {
+    logger.warn(
+      "[image-gen/nanogpt] %s takes %d reference image(s); sending %d of %d",
+      request.model,
+      referenceLimit,
+      references.length,
+      allReferences.length,
+    );
+  }
   if (request.model?.toLowerCase().includes("flux-kontext")) {
     body.kontext_max_mode = true;
   }
-  const requestBody = serializeNanoGPTImageRequest(body, references, request.imageDefaults?.customParameters);
-  logDebugOverride(
-    request.debugMode === true,
-    "[debug/image/nanogpt] final request payload:\n%s",
-    imagePayloadForLog(requestBody),
-  );
+  const send = () => {
+    const requestBody = serializeNanoGPTImageRequest(body, references, request.imageDefaults?.customParameters);
+    logDebugOverride(
+      request.debugMode === true,
+      "[debug/image/nanogpt] final request payload:\n%s",
+      imagePayloadForLog(requestBody),
+    );
+    return fetchImageWithSizeFallback(url, apiKey, requestBody, request);
+  };
 
-  const resp = await fetchImageWithSizeFallback(url, apiKey, requestBody, request);
+  let resp = await send();
+  // The list doesn't say which models refuse a negative prompt (Chroma, Qwen Image 3 Uncensored), and
+  // NanoGPT rejects the whole request for one, so drop it, retry once and remember the model.
+  if (resp.status === 400 && body.negative_prompt !== undefined) {
+    const errText = await resp
+      .clone()
+      .text()
+      .catch(() => "");
+    if (/negative_prompt/i.test(errText) && /not support|unsupported/i.test(errText)) {
+      nanoGPTModelsWithoutNegativePrompt.add(withoutNegativeKey);
+      logger.warn("[image-gen/nanogpt] %s takes no negative prompt; retrying without it", request.model);
+      delete body.negative_prompt;
+      resp = await send();
+    }
+  }
 
   if (!resp.ok) {
     const errText = await resp.text().catch(() => "Unknown error");
