@@ -221,9 +221,14 @@ last review (`.coderabbit.yaml`). The **Dottore Review** status is the required 
 | CodeRabbit on the head | What the gate does |
 | --- | --- |
 | Finished its review | Sets **Dottore Review** to success, linked to that review. |
-| Rate limited | Asks Dottore to review the head, from the last head either reviewer passed, and his review sets the status. A draft, or a head already passed, gets no Dottore review. |
-| Skipped with no reason given (a head that only merged other branches in) | Keeps the last passed review for this head, when every commit after it is a merge and the description does not tell CodeRabbit to ignore the pull request. |
-| Anything else (skipped for a reason, or failed) | Nothing. |
+| Rate limited, or skipped | Asks Dottore to review the head, from the last head either reviewer passed, and his review sets the status. A head that only merged staging in has nothing new, so he passes it without a model call. |
+| Failed | Nothing. |
+
+Dottore is not asked for a draft, a head that already passed, a pull request whose description says `@coderabbitai
+ignore`, or a pull request he is already reviewing (unless that review failed). A skip also covers a branch cut before
+automatic reviews were turned on: CodeRabbit reads a member's `.coderabbit.yaml` from the pull request's head, so that
+branch still has them off until it merges staging. When Dottore cannot finish a review, he leaves a head CodeRabbit
+already passed as it is.
 
 A review's findings are review threads, which the ruleset requires resolved before the merge, whoever posted them.
 With `DOTTORE_AUTO_REVIEW` off, Dottore reviews only for the gate and on request.
@@ -233,8 +238,10 @@ owner, member or collaborator can comment `/dottore` instead. If Dottore cannot 
 asked for, ask CodeRabbit again once its rate limit resets: the comment says when.
 
 CodeRabbit reviews every pull request into the default branch, whatever its settings say, so the gate adds
-`@coderabbitai ignore` to their descriptions. It runs when the pull request opens, so put the line in the description
-when you open a promotion or hotfix: CodeRabbit starts within seconds, before the gate can add it.
+`@coderabbitai ignore` to the description of the ones main accepts: SpicyMarinara's staging promotion or `hotfix/*`
+branch from this repository. It runs when the pull request opens, so put the line in the description when you open a
+promotion or hotfix: CodeRabbit starts within seconds, before the gate can add it. A contributor's pull request opened
+into main by mistake gets no line, so it keeps its review once it is retargeted to staging.
 
 GitHub runs `check_run` workflows only from the default branch, and `pull_request_target` ones from the base branch, so
 the gate runs from main's copy.
@@ -420,7 +427,10 @@ passes the same inputs, and passes its own four secrets. Moving to a newer revie
 The calling repository also keeps:
 
 - byte copies of the three dispatcher workflows, with its own workflow list in `dottore-review-approve.yml`, and of
-  `coderabbit-review-gate.yml`;
+  `coderabbit-review-gate.yml`, on both staging and main;
+- the same `run-name` as `dottore-review.yml` in its wrapper, which the gate reads to see a review already running;
+- its own `.coderabbit.yaml` on staging, with `reviews.auto_review.enabled: true`, `auto_incremental_review: true` and
+  `base_branches: ["^staging$"]`;
 - its own `.github/dottore-review/rules.json`, read from its base branch;
 - its own model variables and secrets, the Dottore App installed there, and `contents: write` granted in the wrapper
   for the repair check.

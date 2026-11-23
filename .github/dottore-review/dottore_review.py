@@ -4710,7 +4710,7 @@ def produce_review(args):
     files = changed_files(base)
     if not files and effective_mode == "incremental" and not leftover:
         # The last walkthrough (a base merge or a repeated /dottore changed nothing) is carried to this head.
-        carried = (latest_walkthrough_comment(pr_num) or {}).get("body") or ""
+        carried = carried_walkthrough_for(pr_num, reviewed)
         write_skipped_review(
             "No New Diff Reviewed",
             "Dottore already reviewed this head; this run did not inspect new changes.",
@@ -4722,7 +4722,7 @@ def produce_review(args):
                 "base_ref": base_ref,
                 "mode": effective_mode,
                 "review_state": "no_new_diff_reviewed",
-                "carried_walkthrough": carried if STATE_MARKER_RE.search(walkthrough_header(carried)) else "",
+                "carried_walkthrough": carried,
             },
         )
         print("Dottore telemetry: skipped=no_new_diff_reviewed", flush=True)
@@ -4893,6 +4893,14 @@ def findings_for_inline_comments(findings):
 
 CARRY_NOTE_RE = re.compile(r"\n\n> 🎭 \*No new diff since [^\n]*\*\s*$")
 SUPERSEDED_NOTE_RE = re.compile(r"\n\n> 🎭 \*Examined `[^`\n]*`; the PR head has since moved [^\n]*\*\s*$")
+
+
+def carried_walkthrough_for(pr_num, reviewed):
+    """The last walkthrough, when it examined `reviewed`, the head this run diffed from; otherwise "". Another reviewer
+    can pass a head after Dottore's last examination (coderabbit-review-gate.yml stands CodeRabbit's review in for
+    his), and that walkthrough describes code which is no longer this head's, so its verdict does not stand for it."""
+    body = (latest_walkthrough_comment(pr_num) or {}).get("body") or ""
+    return body if reviewed in STATE_MARKER_RE.findall(walkthrough_header(body)) else ""
 
 
 def carry_walkthrough(body, head_sha):
