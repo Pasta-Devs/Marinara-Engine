@@ -37,6 +37,16 @@ export const GLOBAL_GALLERY_FILE_RATE_LIMIT = {
   timeWindow: 60_000,
 } as const;
 
+/**
+ * Custom notification sound: the file is read on every notification ping (and a media element may ask for it in
+ * ranges), the status is read when Settings opens, and upload/remove are clicks. One bucket sized for several tabs
+ * pinging at once; a scripted loop meets a wall.
+ */
+export const NOTIFICATION_SOUND_RATE_LIMIT = {
+  max: 600,
+  timeWindow: 60_000,
+} as const satisfies MarinaraRouteRateLimit;
+
 /** Status pages poll about once a second during a download or start; sized for a few tabs or devices at once. */
 export const STATUS_POLL_RATE_LIMIT = {
   max: 600,

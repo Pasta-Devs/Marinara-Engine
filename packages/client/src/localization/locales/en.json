@@ -7850,6 +7850,7 @@
   "settings.notifications.customSound.status.loading": "Checking…",
   "settings.notifications.customSound.toasts.removed": "Custom notification sound removed.",
   "settings.notifications.customSound.toasts.removeFailed": "Could not remove the custom notification sound.",
+  "settings.notifications.customSound.toasts.serverUnreachable": "Marinara's server did not answer. Check that it is still running.",
   "settings.notifications.customSound.toasts.tooLarge": "Notification sound must be 10 MB or smaller.",
   "settings.notifications.customSound.toasts.uploaded": "Custom notification sound saved.",
   "settings.notifications.customSound.toasts.uploadFailed": "Could not save the custom notification sound.",
