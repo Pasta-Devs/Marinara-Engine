@@ -42,7 +42,7 @@
 ## 직접 셀카 요청하기
 
 1. **Chat Settings**를 열고 **Gallery**(갤러리) 섹션을 펼치세요.
-2. **Selfie**(셀카)를 클릭하세요. 캐릭터가 둘 이상이면 버튼 옆 목록에서 누가 찍을지 고르세요.
+2. **Selfie**를 클릭하세요. 캐릭터가 둘 이상이면 버튼 옆 목록에서 누가 찍을지 고르세요.
 3. **Expose media prompts before sending**(전송 전에 미디어 프롬프트 표시)이 켜져 있으면(**Settings** → **Generations** → **Overall Generations**) 프롬프트를 검토하거나 고친 다음 **Generate**를 클릭하세요. 취소하면 요청이 전송되지 않습니다.
 4. 버튼에 **Generating...**(생성 중...)이 표시되는 동안 기다리세요.
 

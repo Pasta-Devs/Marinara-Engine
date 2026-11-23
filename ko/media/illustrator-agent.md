@@ -95,7 +95,7 @@ Roleplay 채팅마다 **Chat Settings**의 카드에 자체 **Image Run Interval
 
 수동 전용 모드로 쓰려면 **Image Run Interval**을 **0**으로 설정하세요. 자동 장면 배경을 포함한 자동 실행이 멈추지만, 에이전트는 Gallery 작업에 계속 쓸 수 있습니다. 다시 시작하려면 양수를 설정하세요.
 
-지금 바로 그림을 만들려면 **Chat Settings**를 열고 **Gallery**를 펼친 다음 **Illustrate**(이미지 생성)를 클릭하세요. Illustrator가 즉시 한 번 실행되고, 버튼에 **Generating...**(생성 중...)이 표시됩니다.
+지금 바로 그림을 만들려면 **Chat Settings**를 열고 **Gallery**를 펼친 다음 **Illustrate**를 클릭하세요. Illustrator가 즉시 한 번 실행되고, 버튼에 **Generating...**(생성 중...)이 표시됩니다.
 
 ## 클립 만들기
 

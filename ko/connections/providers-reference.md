@@ -145,7 +145,7 @@ GLM 5.4는 GLM Coding Plan에서만 쓸 수 있습니다. 사용하려면 계정
 
 ### DeepSeek
 
-**DeepSeek**는 `deepseek-flash`와 `deepseek-v4-pro`를 제공합니다. DeepSeek는 기본적으로 사고 기능을 사용합니다. **Reasoning Effort**(추론 강도)는 DeepSeek 자체 단계를 사용하며, **Off**(꺼짐)를 고르면 해당 요청에서 사고 기능을 끕니다. DeepSeek는 중간 단계 요청을 High로 처리합니다. 사고 내용은 평소와 같은 생각 과정 표시로 답변에 나타납니다.
+**DeepSeek**는 `deepseek-flash`와 `deepseek-v4-pro`를 제공합니다. DeepSeek는 기본적으로 사고 기능을 사용합니다. **Reasoning Effort**는 DeepSeek 자체 단계를 사용하며, **Off**를 고르면 해당 요청에서 사고 기능을 끕니다. DeepSeek는 중간 단계 요청을 High로 처리합니다. 사고 내용은 평소와 같은 생각 과정 표시로 답변에 나타납니다.
 
 일부 파라미터는 적용되지 않으므로 패널에 표시되지 않습니다. **Verbosity**(상세도), **Top K**, 페널티 설정은 지원이 종료되어 무시됩니다. **Temperature**(온도)와 **Top P**는 한 쌍입니다. DeepSeek는 한 번에 둘 중 하나만 사용하기 때문입니다. 사고 기능이 꺼져 있으면 **Temperature**가, 켜져 있으면 **Top P**가 표시됩니다.
 

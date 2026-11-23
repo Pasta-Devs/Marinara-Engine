@@ -249,8 +249,8 @@
     },
     {
       "path": "connections/providers-reference.md",
-      "sha256": "14a932a5e10b9482fbd711520771c7161cf80e644ced8d49101e73e40ec1155f",
-      "bytes": 23842
+      "sha256": "d2fdd1f51189c97d7b723bd15619ac2719d7e5c585728efb5206274e37034196",
+      "bytes": 23819
     },
     {
       "path": "connections/subscription-clis.md",
@@ -289,8 +289,8 @@
     },
     {
       "path": "conversation/selfies.md",
-      "sha256": "3923357138616fc1c8e2525d4d311932651e3a6a86e18c93a0635ace408f603b",
-      "bytes": 11594
+      "sha256": "a8283d381a449193921e3eca14f9fe25dce149d3ed5350a9ecce96f9c043ea08",
+      "bytes": 11586
     },
     {
       "path": "conversation/table-games.md",
@@ -659,8 +659,8 @@
     },
     {
       "path": "media/illustrator-agent.md",
-      "sha256": "ef6b5c5be76051bd8d257df00d640afd454d67bc528f6dc3b49b796b2f503c25",
-      "bytes": 22119
+      "sha256": "e090ba5771773d79c50e8848286feb95f3b5c61ad8b1bc4d61b451e86c6fa7d3",
+      "bytes": 22101
     },
     {
       "path": "media/image-providers.md",
