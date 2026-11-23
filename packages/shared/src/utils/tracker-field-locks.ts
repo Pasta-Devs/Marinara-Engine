@@ -651,7 +651,9 @@ function findCurrentCharacterMatch(
   }
   return {
     index:
-      fallbackIndex < currentCharacters.length && available(currentCharacters[fallbackIndex]!, fallbackIndex)
+      fallbackIndex >= 0 &&
+      fallbackIndex < currentCharacters.length &&
+      available(currentCharacters[fallbackIndex]!, fallbackIndex)
         ? fallbackIndex
         : -1,
     matchedByIdentity: false,
@@ -708,15 +710,17 @@ function mergeNamedRowsWithLocks<T extends { name?: string }>(
   {
     mergeRow,
     prefixFor,
+    byPosition = true,
   }: {
     mergeRow: (nextRow: T, currentRow: T, currentIndex: number) => T;
     prefixFor: (currentRow: T, currentIndex: number) => string;
+    byPosition?: boolean;
   },
 ) {
   const current = currentRows ?? [];
   const usedCurrent = new Set<number>();
   const merged = nextRows.map((row, index) => {
-    const match = findCurrentNamedMatch(row, current, index, usedCurrent);
+    const match = findCurrentNamedMatch(row, current, byPosition ? index : -1, usedCurrent);
     const currentIndex = match.index;
     const currentRow = currentIndex >= 0 ? current[currentIndex] : null;
     if (!currentRow) return row;
@@ -740,8 +744,10 @@ function mergeStatsWithLocks(
   currentStats: CharacterStat[] | null | undefined,
   locks: TrackerFieldLocks,
   keyFor: (stat: CharacterStat, index: number, field: StatField) => string,
+  byPosition = true,
 ) {
   return mergeNamedRowsWithLocks(nextStats, currentStats, locks, {
+    byPosition,
     mergeRow: (stat, currentStat, currentIndex) => {
       const next = { ...stat };
       if (isTrackerFieldLocked(locks, keyFor(currentStat, currentIndex, "name"))) next.name = currentStat.name;
@@ -757,8 +763,10 @@ function mergeInventoryWithLocks(
   nextItems: InventoryItem[],
   currentItems: InventoryItem[] | null | undefined,
   locks: TrackerFieldLocks,
+  byPosition = true,
 ) {
   return mergeNamedRowsWithLocks(nextItems, currentItems, locks, {
+    byPosition,
     mergeRow: (item, currentItem, currentIndex) => {
       const next = { ...item };
       for (const field of ["name", "quantity", "description", "location"] as const) {
@@ -777,8 +785,10 @@ function mergeRoleplayInventoryTrackerRowsWithLocks(
   nextRows: InventoryTrackerRow[],
   currentRows: InventoryTrackerRow[] | null | undefined,
   locks: TrackerFieldLocks,
+  byPosition = true,
 ) {
   return mergeNamedRowsWithLocks(nextRows, currentRows, locks, {
+    byPosition,
     mergeRow: (row, currentRow, currentIndex) => {
       const next = { ...row };
       for (const field of ["name", "qty", "description", "location"] as const) {
@@ -829,8 +839,10 @@ function mergeCustomTrackerFieldsWithGenericLocks(
   nextFields: CustomTrackerField[],
   currentFields: CustomTrackerField[] | null | undefined,
   locks: TrackerFieldLocks,
+  byPosition = true,
 ) {
   return mergeNamedRowsWithLocks(nextFields, currentFields, locks, {
+    byPosition,
     mergeRow: (field, currentField, currentIndex) => {
       const next = { ...field };
       if (isTrackerFieldLocked(locks, customTrackerLockKey(currentField, "name", currentIndex)))
@@ -850,6 +862,7 @@ function mergeQuestObjectivesWithLocks(
   locks: TrackerFieldLocks,
   quest: QuestProgress,
   questIndex: number,
+  byPosition = true,
 ) {
   const current = currentObjectives ?? [];
   const usedCurrent = new Set<number>();
@@ -860,7 +873,7 @@ function mergeQuestObjectivesWithLocks(
           return !usedCurrent.has(candidateIndex) && normalizeComparableText(candidate.text) === text;
         })
       : -1;
-    const fallbackIndex = index < current.length && !usedCurrent.has(index) ? index : -1;
+    const fallbackIndex = byPosition && index < current.length && !usedCurrent.has(index) ? index : -1;
     const currentIndex = byText >= 0 ? byText : fallbackIndex;
     const currentObjective = currentIndex >= 0 ? current[currentIndex] : null;
     if (!currentObjective) return objective;
@@ -901,11 +914,12 @@ function mergeQuestsWithLocks(
   nextQuests: QuestProgress[],
   currentQuests: QuestProgress[] | null | undefined,
   locks: TrackerFieldLocks,
+  byPosition = true,
 ) {
   const current = currentQuests ?? [];
   const usedCurrent = new Set<number>();
   const merged = nextQuests.map((quest, index) => {
-    const match = findCurrentQuestMatch(quest, current, index, usedCurrent);
+    const match = findCurrentQuestMatch(quest, current, byPosition ? index : -1, usedCurrent);
     const currentIndex = match.index;
     const currentQuest = currentIndex >= 0 ? current[currentIndex] : null;
     if (!currentQuest) return quest;
@@ -934,6 +948,7 @@ function mergeQuestsWithLocks(
         locks,
         currentQuest,
         currentIndex,
+        byPosition,
       );
     }
     return next;
@@ -1019,6 +1034,7 @@ function mergeCharactersWithLocks(
   nextCharacters: PresentCharacter[],
   currentCharacters: PresentCharacter[] | null | undefined,
   locks: TrackerFieldLocks,
+  byPosition = true,
 ) {
   const current = currentCharacters ?? [];
   const usedCurrent = new Set<number>();
@@ -1026,7 +1042,7 @@ function mergeCharactersWithLocks(
     nextCharacters.map((character) => (typeof character.characterId === "string" ? character.characterId.trim() : "")),
   );
   const merged = nextCharacters.map((character, index) => {
-    const match = findCurrentCharacterMatch(character, current, index, usedCurrent, reportedIds);
+    const match = findCurrentCharacterMatch(character, current, byPosition ? index : -1, usedCurrent, reportedIds);
     const currentIndex = match.index;
     const currentCharacter = currentIndex >= 0 ? current[currentIndex] : null;
     if (!currentCharacter) return character;
@@ -1055,8 +1071,12 @@ function mergeCharactersWithLocks(
       }
     }
     if (Array.isArray(next.stats)) {
-      next.stats = mergeStatsWithLocks(next.stats, currentCharacter.stats, locks, (stat, statIndex, field) =>
-        characterStatTrackerLockKey(currentCharacter, currentIndex, stat, field, statIndex),
+      next.stats = mergeStatsWithLocks(
+        next.stats,
+        currentCharacter.stats,
+        locks,
+        (stat, statIndex, field) => characterStatTrackerLockKey(currentCharacter, currentIndex, stat, field, statIndex),
+        byPosition,
       );
     }
     const customFields = mergeCharacterCustomFieldsWithLocks(
@@ -1076,12 +1096,23 @@ function mergeCharactersWithLocks(
   return merged;
 }
 
+/** How {@link applyTrackerFieldLocksToGameStatePatch} reads its patch. */
+export interface TrackerFieldLockMergeOptions {
+  /**
+   * The patch is a whole state, not a tracker's output, such as the row a regenerated swipe starts from: rows match
+   * only by id or name, never by position, and a current world field the patch lacks stays only when locked.
+   */
+  wholeState?: boolean;
+}
+
 export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, unknown>>(
   patch: T,
   currentState: GameState | null | undefined,
   fieldLocks: TrackerFieldLocks | null | undefined = currentState?.fieldLocks,
+  { wholeState = false }: TrackerFieldLockMergeOptions = {},
 ): T {
   const locks = normalizeEffectiveTrackerFieldLocks(fieldLocks, currentState);
+  const byPosition = !wholeState;
   const next = { ...patch } as Record<string, unknown>;
   const incrementalWorldFields = isTrackerRowsUpdate(next.worldCustomFields);
   if (incrementalWorldFields) {
@@ -1101,7 +1132,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
       next.worldCustomFields as WorldCustomField[],
       currentState.worldCustomFields,
       locks,
-      !incrementalWorldFields,
+      !incrementalWorldFields && !wholeState,
     );
   }
 
@@ -1110,6 +1141,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
       next.presentCharacters as PresentCharacter[],
       currentState.presentCharacters,
       locks,
+      byPosition,
     );
   }
 
@@ -1119,6 +1151,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
       currentState.personaStats,
       locks,
       (stat, index, field) => personaStatTrackerLockKey(stat, field, index),
+      byPosition,
     );
   }
 
@@ -1133,6 +1166,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
         playerStatsPatch.inventory,
         currentPlayerStats.inventory,
         locks,
+        byPosition,
       );
     }
     if (Array.isArray(playerStatsPatch.activeQuests)) {
@@ -1140,6 +1174,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
         playerStatsPatch.activeQuests,
         currentPlayerStats.activeQuests,
         locks,
+        byPosition,
       );
     }
     if (Array.isArray(playerStatsPatch.customTrackerFields)) {
@@ -1147,6 +1182,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
         playerStatsPatch.customTrackerFields,
         currentPlayerStats.customTrackerFields,
         locks,
+        byPosition,
       );
     }
     if (Array.isArray(playerStatsPatch.inventoryTrackerCurrencies)) {
@@ -1155,6 +1191,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
         playerStatsPatch.inventoryTrackerCurrencies,
         currentPlayerStats.inventoryTrackerCurrencies,
         locks,
+        byPosition,
       );
     }
     if (Array.isArray(playerStatsPatch.inventoryTrackerEquipped)) {
@@ -1163,6 +1200,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
         playerStatsPatch.inventoryTrackerEquipped,
         currentPlayerStats.inventoryTrackerEquipped,
         locks,
+        byPosition,
       );
     }
     if (Array.isArray(playerStatsPatch.inventoryTrackerInventory)) {
@@ -1171,6 +1209,7 @@ export function applyTrackerFieldLocksToGameStatePatch<T extends Record<string, 
         playerStatsPatch.inventoryTrackerInventory,
         currentPlayerStats.inventoryTrackerInventory,
         locks,
+        byPosition,
       );
     }
     enforceRoleplayInventoryTrackerExclusivity(playerStatsPatch, currentPlayerStats);

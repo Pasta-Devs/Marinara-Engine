@@ -2651,8 +2651,12 @@ export function regeneratedSwipeTrackerBase(
   if (!replaced) return base;
   const start = parseGameStateRow(base ?? {});
   const replacedState = parseGameStateRow(replaced);
-  // ponytail: persona or player stats the start row has none of (a chat's first reply) keep no locked rows
-  // from the swipe before, since the lock merge only runs on a list. Seed empty lists here if that matters.
+  // A list or status the start row lacks starts empty, so the replaced swipe's locked rows still come over.
+  const emptyLists = Object.fromEntries(
+    Object.entries(replacedState.playerStats ?? {}).flatMap(([key, value]) =>
+      Array.isArray(value) ? [[key, []]] : [],
+    ),
+  );
   const values = applyTrackerFieldLocksToGameStatePatch(
     {
       date: start.date ?? null,
@@ -2662,10 +2666,12 @@ export function regeneratedSwipeTrackerBase(
       temperature: start.temperature ?? null,
       worldCustomFields: start.worldCustomFields,
       presentCharacters: start.presentCharacters,
-      personaStats: start.personaStats,
-      playerStats: start.playerStats,
+      personaStats: start.personaStats ?? (replacedState.personaStats ? [] : null),
+      playerStats: replacedState.playerStats ? { status: "", ...emptyLists, ...start.playerStats } : start.playerStats,
     },
     replacedState,
+    replacedState.fieldLocks,
+    { wholeState: true },
   );
   return {
     ...base,

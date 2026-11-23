@@ -24,9 +24,15 @@ const { createChatsStorage } = await import("../../../packages/server/src/servic
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
 const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createGameStateStorage } = await import("../../../packages/server/src/services/storage/game-state.storage.js");
-const { replaceBuiltInAgentDefinitions, characterTrackerLockKey, worldTrackerLockKey } =
-  await import("../../../packages/shared/dist/index.js");
-const { parseGameStateRow } = await import("../../../packages/server/src/routes/generate/generate-route-utils.js");
+const {
+  replaceBuiltInAgentDefinitions,
+  characterTrackerLockKey,
+  personaStatTrackerLockKey,
+  questTrackerLockKey,
+  worldTrackerLockKey,
+} = await import("../../../packages/shared/dist/index.js");
+const { parseGameStateRow, regeneratedSwipeTrackerBase } =
+  await import("../../../packages/server/src/routes/generate/generate-route-utils.js");
 
 const trackerTypes = ["world-state", "character-tracker", "custom-tracker"];
 let mainPrompts: string[] = [];
@@ -568,6 +574,69 @@ try {
     trackerOutputs = NO_CHANGES;
     const next = await capture(() => chatApi.generate({ userMessage: "We look around." }));
     assertShows(next.main, ["Dagny", "Eira"], ["Brakka", "Corvin"], "the next reply after three swipes");
+  }
+
+  // ── #9697: the replaced swipe lends locked rows by id or name only, also to a list the start row lacks ──
+  {
+    const quest = { name: "Escort the merchant", completed: false, objectives: [] };
+    const replaced = {
+      worldCustomFields: [
+        { name: "Mood", value: "tense" },
+        { name: "Storm", value: "rolling in" },
+      ],
+      presentCharacters: [{ name: "Brakka", mood: "angry" }],
+      personaStats: [{ name: "Focus", value: 3, max: 10 }],
+      playerStats: { status: "", inventory: [{ name: "Shield", quantity: 1 }], activeQuests: [quest] },
+      fieldLocks: {
+        [characterTrackerLockKey({ name: "Brakka" }, 0, "mood")]: true,
+        [questTrackerLockKey(quest, 0, "name")]: true,
+        [personaStatTrackerLockKey({ name: "Focus" }, "value", 0)]: true,
+      },
+    };
+    const regenerated = (start: Record<string, unknown>) =>
+      parseGameStateRow(regeneratedSwipeTrackerBase(start, replaced)!);
+    const names = (rows: { name?: string }[] | null | undefined) => rows?.map((row) => row.name);
+
+    const swipe = regenerated({
+      worldCustomFields: [{ name: "Mood", value: "calm" }],
+      presentCharacters: [
+        { name: "Alice", mood: "calm" },
+        { name: "Brakka", mood: "calm" },
+      ],
+      playerStats: {
+        status: "",
+        inventory: [{ name: "Sword", quantity: 1 }],
+        activeQuests: [{ name: "Find the ring", completed: false, objectives: [] }],
+      },
+    });
+    assert.deepEqual(
+      swipe.worldCustomFields.map((field) => [field.name, field.value]),
+      [["Mood", "calm"]],
+      "an unlocked world field of the replaced swipe stays behind",
+    );
+    assert.deepEqual(
+      swipe.presentCharacters.map((character) => [character.name, character.mood]),
+      [
+        ["Alice", "calm"],
+        ["Brakka", "angry"],
+      ],
+      "a locked NPC keeps its value without pushing out the NPC at its position",
+    );
+    assert.deepEqual(
+      names(swipe.playerStats?.activeQuests),
+      ["Find the ring", "Escort the merchant"],
+      "a locked quest joins the start row's quests",
+    );
+    assert.deepEqual(names(swipe.playerStats?.inventory), ["Sword"], "an unlocked item stays behind");
+    assert.deepEqual(names(swipe.personaStats), ["Focus"], "a locked persona stat comes over to a row without any");
+
+    const firstReply = regenerated({});
+    assert.deepEqual(
+      names(firstReply.playerStats?.activeQuests),
+      ["Escort the merchant"],
+      "a locked quest comes over to a row without quests",
+    );
+    assert.deepEqual(names(firstReply.presentCharacters), ["Brakka"]);
   }
 
   console.log("tracker manual edit base regression passed");
