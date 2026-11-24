@@ -23400,6 +23400,31 @@ test("mobile chat composer follows the visual viewport above the software keyboa
   }
 });
 
+test("a ?chat= launch link opens that chat once and leaves the address clean", async ({ page }) => {
+  // #9752: a tapped push notification opens Marinara at /?chat=<id>.
+  const response = await page.request.post("/api/chats", { data: { name: "Launch link chat", mode: "conversation" } });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+  const activeChatId = () =>
+    page.evaluate(async () => {
+      const { useChatStore } = await import("/src/stores/chat.store.ts" as string);
+      return useChatStore.getState().activeChatId as string | null;
+    });
+  try {
+    await page.goto(`/?chat=${chat.id}`);
+    await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+    await expect.poll(activeChatId).toBe(chat.id);
+    await expect.poll(() => new URL(page.url()).search).toBe("");
+
+    await page.goto("/?chat=no-such-chat");
+    await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+    await expect.poll(() => new URL(page.url()).search).toBe("");
+    expect(await activeChatId()).not.toBe("no-such-chat");
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
 test("page backing keeps the app running when the browser refuses canvas reads", async ({ page }) => {
   // WebKit throws InvalidStateError from getImageData under memory pressure (#7241).
   await page.addInitScript(() => {
