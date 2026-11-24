@@ -10,7 +10,7 @@ import {
 } from "@marinara-engine/shared";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import type { DB } from "../../db/connection.js";
-import { logDebugOverride } from "../../lib/logger.js";
+import { logDebugOverride, logger } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { resolveInside } from "../../utils/security.js";
 import { npcAvatarSlug } from "../game/npc-avatar-utils.js";
@@ -151,20 +151,28 @@ export async function generateTrackerPortrait(args: {
     let promptToCompile: string | null = null;
     if (args.rewritePrompt?.enabled) {
       const rewriter = args.rewriteFn ?? rewriteTrackerPortraitPrompt;
-      const rewritten = await rewriter({
-        db: args.db,
-        chatConnectionId: args.rewritePrompt.chatConnectionId ?? null,
-        illustratorPromptConnectionId: args.rewritePrompt.illustratorPromptConnectionId ?? null,
-        systemPrompt: args.rewritePrompt.prompt || DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
-        character: args.character,
-        includeOutfit: args.includeOutfit,
-        promptMode: resolvedStyleProfile.promptMode,
-        portraitTags: resolvedStyleProfile.subjectTags.portrait ?? "",
-        imagePromptInstructions: connection.imagePromptInstructions,
-        debugMode: args.debugMode,
-      });
-      if (rewritten) {
-        promptToCompile = [rewritten, clause(args.referenceLine)].filter(Boolean).join("\n");
+      try {
+        const rewritten = await rewriter({
+          db: args.db,
+          chatConnectionId: args.rewritePrompt.chatConnectionId ?? null,
+          illustratorPromptConnectionId: args.rewritePrompt.illustratorPromptConnectionId ?? null,
+          systemPrompt: args.rewritePrompt.prompt || DEFAULT_TRACKER_PORTRAIT_REWRITE_PROMPT,
+          character: args.character,
+          includeOutfit: args.includeOutfit,
+          promptMode: resolvedStyleProfile.promptMode,
+          portraitTags: resolvedStyleProfile.subjectTags.portrait ?? "",
+          imagePromptInstructions: connection.imagePromptInstructions,
+          debugMode: args.debugMode,
+        });
+        if (rewritten) {
+          promptToCompile = [rewritten, clause(args.referenceLine)].filter(Boolean).join("\n");
+        }
+      } catch (err) {
+        logger.warn(
+          err,
+          '[character-tracker/portrait-rewriter] Rewrite failed for "%s"; falling back to direct prompt',
+          args.character.name,
+        );
       }
     }
 

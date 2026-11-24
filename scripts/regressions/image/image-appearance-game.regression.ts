@@ -23,7 +23,7 @@ const Fastify = requireServer("fastify") as typeof import("fastify").default;
 const { getDB, closeDB } = await import("../../../packages/server/src/db/connection.js");
 const { gameRoutes } = await import("../../../packages/server/src/routes/game.routes.js");
 const { avatarsRoutes } = await import("../../../packages/server/src/routes/avatars.routes.js");
-const { buildTrackerPortraitPrompt, trackerPortraitRewriteOption } =
+const { buildTrackerPortraitPrompt, generateTrackerPortrait, trackerPortraitRewriteOption } =
   await import("../../../packages/server/src/services/image/tracker-portrait.js");
 const {
   buildTrackerPortraitRewriteMessages,
@@ -1153,6 +1153,19 @@ try {
     "falls back through chat connection to Main default",
   );
   assert.equal(
+    (
+      await resolveTrackerPortraitRewriteConnection({
+        connections: testConnStore,
+        illustratorConnectionId: null,
+        defaultAgentConnectionId: null,
+        chatConnectionId: "deleted-chat-conn",
+        localSidecarAvailable: false,
+      })
+    )?.model,
+    "main-model",
+    "falls back from an unavailable or deleted chat connection to Main default",
+  );
+  assert.equal(
     await resolveTrackerPortraitRewriteConnection({
       connections: {
         getWithKey: async (id: string) => (id === "img-conn" ? connStoreRecords.get("img-conn")! : null),
@@ -1272,6 +1285,23 @@ try {
     /Character portrait, head and shoulders, detailed face, high quality/,
     "LLM failure falls back to direct prompt",
   );
+
+  // Even a throwing custom rewriter falls back cleanly to buildTrackerPortraitPrompt instead of aborting portrait generation.
+  const thrownFallbackUrl = await generateTrackerPortrait({
+    db,
+    connectionId: connection.id,
+    chatId: trackerChat.id,
+    styleProfileId: "auto",
+    character: { name: "Throwing Fallback", appearance: "hazel eyes", outfit: "wool coat" },
+    includeOutfit: true,
+    rewritePrompt: { enabled: true },
+    rewriteFn: async () => {
+      throw new Error("Injected rewriter failure");
+    },
+  });
+  assert.match(thrownFallbackUrl, new RegExp(`^/api/avatars/npc/${trackerChat.id}/throwing-fallback\\.png$`));
+  assert.match(imagePrompts.at(-1)!, /hazel eyes/);
+  assert.match(imagePrompts.at(-1)!, /Character portrait, head and shoulders, detailed face, high quality/);
 
   console.info(
     "Game image appearance route regression passed (5 plain-text and 8 macro preview/dispatch pairs; 2 historical storyboard planner cases).",

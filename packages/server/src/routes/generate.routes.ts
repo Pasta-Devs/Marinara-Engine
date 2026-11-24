@@ -14070,7 +14070,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     styleProfileId: trackerPortraitStyleProfileId(chatMeta),
                     character,
                     includeOutfit,
-                    rewritePrompt: trackerPortraitRewriteOption(characterTrackerSettings, chatMeta, chat.connectionId),
+                    rewritePrompt: trackerPortraitRewriteOption(characterTrackerSettings, chatMeta, conn.id),
                     debugMode: input.debugMode,
                     onFallback,
                   }),
