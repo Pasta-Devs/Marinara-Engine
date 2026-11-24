@@ -97,7 +97,17 @@ try {
   assert.equal((await looseRow()).modelBaseUrl, "");
   assert.equal((await storage.getWithKey(looseId))?.baseUrl, "http://10.0.0.6:8080/v1");
 
-  // A Connection's address edit that moves its Models to another server drops their own addresses too.
+  // Only a path ("/proxy/zai") is read against the Connection's server; a path that tries another host is refused.
+  const pathOnly = await patch({ modelBaseUrl: "/proxy/zai" });
+  assert.equal(pathOnly.statusCode, 200, pathOnly.body);
+  assert.equal((await storage.getWithKey(id))?.baseUrl, "http://127.0.0.1:9/proxy/zai");
+  const sneaky = await patch({ modelBaseUrl: "//elsewhere.example/proxy" });
+  assert.equal(sneaky.statusCode, 400, sneaky.body);
+  assert.equal((await stored()).modelBaseUrl, "/proxy/zai");
+  assert.equal((await patch({ modelBaseUrl: "http://127.0.0.1:9/proxy/openai" })).statusCode, 200);
+
+  // A Connection's address edit that moves its Models to another server (a tunnel's new name) keeps their paths
+  // there: a full own address becomes its path on the new server, and a path stays as it is.
   assert.equal((await stored()).modelBaseUrl, "http://127.0.0.1:9/proxy/openai");
   const samePath = await app.inject({
     method: "PATCH",
@@ -113,7 +123,8 @@ try {
   });
   assert.equal(newServer.statusCode, 200, newServer.body);
   assert.equal((await stored()).baseUrl, "http://10.0.0.7:8080/google-ai");
-  assert.equal((await stored()).modelBaseUrl, "");
+  assert.equal((await stored()).modelBaseUrl, "/proxy/openai");
+  assert.equal((await storage.getWithKey(id))?.baseUrl, "http://10.0.0.7:8080/proxy/openai");
 } finally {
   await app.close();
   await closeDB();

@@ -5,7 +5,8 @@
 //
 // Only tags that never name a different model are folded: a leading [tag], a trailing [tag] or @tag, a :tag
 // (OpenRouter ":free", NanoGPT ":thinking"), a gateway path ("vendor/…"), thinking on/off and search suffixes, and
-// reasoning effort suffixes after a version number ("gpt-5.1-high"). Sizes and names such as "-max", "-mini",
+// reasoning effort suffixes after a version number ("gpt-5.1-high"), and a route letter "-r" when the list also
+// has the model without it. Sizes and names such as "-max", "-mini",
 // "-medium" or dates are part of the model and stay apart.
 // ──────────────────────────────────────────────
 
@@ -58,11 +59,21 @@ export function modelVariantKey(id: string): string {
   return splitModelVariant(id).base.toLowerCase();
 }
 
-/** A variant's short name under its base: its tags ("SP · thinking"), or the id when it has none. */
-export function variantLabel(id: string): string {
-  const { tags } = splitModelVariant(id);
+/** A variant's short name under its base: its tags ("SP · thinking"), or the id when it has none. With the group's
+ *  base, a route letter the list folded ("claude-opus-5-r" under "claude-opus-5") leads the tags. */
+export function variantLabel(id: string, base?: string): string {
+  const split = splitModelVariant(id);
+  const tags = [...split.tags];
+  if (base && split.base.toLowerCase() !== base.toLowerCase()) {
+    const extra = split.base.slice(base.length).replace(/^-/, "");
+    if (split.base.toLowerCase().startsWith(base.toLowerCase()) && extra) tags.unshift(extra);
+  }
   return tags.length ? tags.join(" · ") : id;
 }
+
+/** A route letter some proxies add ("claude-opus-5-r"). It folds only when the list has the model without it too,
+ *  since on its own it can be part of a name ("command-r"). */
+const ROUTE_LETTER = /-r$/u;
 
 export interface ModelVariantGroup<T> {
   key: string;
@@ -73,13 +84,19 @@ export interface ModelVariantGroup<T> {
 
 /** Items grouped by base model, in the order each base first appears; a model without variants is a group of one. */
 export function groupModelVariants<T>(items: readonly T[], idOf: (item: T) => string): Array<ModelVariantGroup<T>> {
+  const bases = items.map((item) => splitModelVariant(idOf(item)).base);
+  const keys = new Set(bases.map((base) => base.toLowerCase()));
   const groups = new Map<string, ModelVariantGroup<T>>();
-  for (const item of items) {
-    const { base } = splitModelVariant(idOf(item));
+  items.forEach((item, index) => {
+    let base = bases[index]!;
+    if (ROUTE_LETTER.test(base) && keys.has(base.slice(0, -2).toLowerCase())) base = base.slice(0, -2);
     const key = base.toLowerCase();
     const group = groups.get(key);
-    if (group) group.items.push(item);
-    else groups.set(key, { key, base, items: [item] });
-  }
+    if (group) {
+      group.items.push(item);
+      // The group is named by the plain model even when a route variant came first.
+      if (base.length < group.base.length) group.base = base;
+    } else groups.set(key, { key, base, items: [item] });
+  });
   return [...groups.values()];
 }

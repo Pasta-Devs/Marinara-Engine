@@ -46,7 +46,7 @@ import { clearConnectionRateLimit, setConnectionRateLimit } from "../llm/connect
 import { logger } from "../../lib/logger.js";
 import { sidecarModelService } from "../sidecar/sidecar-model.service.js";
 import { createLocalSidecarGenerationConnection } from "../generation/local-sidecar-generation-connection.js";
-import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, resolveModelAddress } from "@marinara-engine/shared";
 
 type ConnectionDefaultCategory =
   "image_generation" | "video_generation" | "audio_generation" | "audio" | "decision" | "language";
@@ -77,13 +77,12 @@ function withDecryptedKey<
 }
 
 export const MODEL_ADDRESS_ORIGIN_ERROR =
-  "A model's own address must be on the same server as its Connection (same https://host), because it uses the Connection's key.";
+  "A model's own address must be on the same server as its Connection (same https://host), or only a path such as /proxy/zai, because it uses the Connection's key.";
 
 /** The Model's own address when it is set and on the same origin as the row's address; otherwise null. */
 export function ownModelBaseUrl(row: { baseUrl?: string | null; modelBaseUrl?: string | null }): string | null {
-  const own = row.modelBaseUrl?.trim();
-  if (!own) return null;
-  return sameOriginUrl(own, row.baseUrl ?? "") ? own : null;
+  // A full address on the same server, or a path ("/proxy/zai") read against the Connection's server.
+  return resolveModelAddress(row.modelBaseUrl, row.baseUrl);
 }
 
 /** The address a row has stored: a request copy with the Model's own address keeps it in `connectionBaseUrl`. */
@@ -1084,7 +1083,7 @@ export function createConnectionsStorage(db: DB) {
       // A Model's own address carries the Connection's key, so it is judged against the address the row will
       // store: one on another server is refused, and one that an address move left behind is cleared.
       const nextOwnAddress = (data.modelBaseUrl ?? existing.modelBaseUrl ?? "").trim();
-      if (nextOwnAddress && !sameOriginUrl(nextOwnAddress, data.baseUrl ?? existing.baseUrl ?? "")) {
+      if (nextOwnAddress && !resolveModelAddress(nextOwnAddress, data.baseUrl ?? existing.baseUrl ?? "")) {
         if (data.modelBaseUrl?.trim()) throw Object.assign(new Error(MODEL_ADDRESS_ORIGIN_ERROR), { statusCode: 400 });
         data.modelBaseUrl = "";
       }

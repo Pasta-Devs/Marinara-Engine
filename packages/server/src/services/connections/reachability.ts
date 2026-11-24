@@ -2,7 +2,8 @@
 // Whether a Connection's server answered lately. A model list fetch that gets no answer at all (address not found,
 // refused, timed out) marks the Connection unreachable until a fetch succeeds again. The Connections page shows it,
 // and repeat fetches wait a little (30 s, doubling, at most 15 min) instead of filling the log with the same failure.
-// In memory only: a restart forgets it, and the next fetch finds out again.
+// Kept per server address: a new address (a tunnel's new name) starts clean. In memory only: a restart forgets it,
+// and the next fetch finds out again.
 // ──────────────────────────────────────────────
 
 export type UnreachableReason = "not_found" | "refused" | "timeout" | "unreachable";
@@ -18,7 +19,16 @@ export interface Unreachable {
 const FIRST_WAIT_MS = 30_000;
 const MAX_WAIT_MS = 15 * 60_000;
 
-type Entry = Unreachable & { failures: number; until: number };
+type Entry = Unreachable & { failures: number; until: number; origin: string };
+
+/** The server an address is on; a new address (a tunnel's new name) is a new server with a clean slate. */
+function originOf(address: string | null | undefined): string {
+  try {
+    return new URL(address?.trim() ?? "").origin;
+  } catch {
+    return "";
+  }
+}
 const entries = new Map<string, Entry>();
 
 /** The key a Connection's reachability is kept under: its account, or the Model itself when it has none. */
@@ -44,15 +54,19 @@ export function noteUnreachable(
   key: string,
   reason: UnreachableReason,
   error: string,
+  address: string | null | undefined,
   now = Date.now(),
 ): { first: boolean } {
-  const previous = entries.get(key);
+  const origin = originOf(address);
+  const stored = entries.get(key);
+  const previous = stored && stored.origin === origin ? stored : undefined;
   const failures = (previous?.failures ?? 0) + 1;
   entries.set(key, {
     reason,
     error,
     since: previous?.since ?? new Date(now).toISOString(),
     failures,
+    origin,
     until: now + Math.min(MAX_WAIT_MS, FIRST_WAIT_MS * 2 ** (failures - 1)),
   });
   return { first: !previous };
@@ -64,15 +78,21 @@ export function noteReachable(key: string | null) {
 }
 
 /** The stored failure while repeat fetches should wait, else null. */
-export function waitingUnreachable(key: string | null, now = Date.now()): Unreachable | null {
+export function waitingUnreachable(
+  key: string | null,
+  address: string | null | undefined,
+  now = Date.now(),
+): Unreachable | null {
   const entry = key ? entries.get(key) : undefined;
-  return entry && entry.until > now ? entry : null;
+  return entry && entry.origin === originOf(address) && entry.until > now ? entry : null;
 }
 
 /** What the Connections page shows: the failure, however long ago it began, until a fetch succeeds. */
-export function unreachableOf(key: string | null): Unreachable | null {
+export function unreachableOf(key: string | null, address: string | null | undefined): Unreachable | null {
   const entry = key ? entries.get(key) : undefined;
-  return entry ? { reason: entry.reason, since: entry.since, error: entry.error } : null;
+  return entry && entry.origin === originOf(address)
+    ? { reason: entry.reason, since: entry.since, error: entry.error }
+    : null;
 }
 
 /** For tests. */

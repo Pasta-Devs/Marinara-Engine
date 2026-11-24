@@ -1867,7 +1867,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       // A saved Connection that gets no answer is marked unreachable (the Connections page says so) and only its
       // first failure in a row is a warning; repeats until it answers again go to debug, not a log line each time.
       const key = conn.id && !detail.startsWith("Refused to fetch") ? reachabilityKey(conn) : null;
-      const first = key ? noteUnreachable(key, unreachableReasonOf(err), error).first : true;
+      const first = key ? noteUnreachable(key, unreachableReasonOf(err), error, conn.baseUrl).first : true;
       if (conn.id && first) logger.warn(err, "Model discovery failed for connection %s", conn.id);
       else logger.debug(err, "Model discovery failed");
       return reply.status(502).send({
@@ -1950,7 +1950,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     }
     // A server that gave no answer lately is not asked again until its wait is over; Refresh (Retry) asks now.
     const reachKey = reachabilityKey(conn);
-    const waiting = req.query.refresh === "true" ? null : waitingUnreachable(reachKey);
+    const waiting = req.query.refresh === "true" ? null : waitingUnreachable(reachKey, conn.baseUrl);
     if (waiting) return reply.status(502).send({ error: waiting.error, unreachable: true });
     const discovered = await discoverConnectionModels(conn, reply);
     // FastifyReply is thenable: awaiting a helper that sent it resolves to undefined.

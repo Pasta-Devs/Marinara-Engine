@@ -15,6 +15,7 @@ export * from "./types/card-field.js";
 export * from "./schemas/card-field-alternative.schema.js";
 export * from "./utils/card-field-alternatives.js";
 export * from "./utils/local-server-address.js";
+export * from "./utils/model-address.js";
 export * from "./utils/mari-editor-fields.js";
 export * from "./utils/game-character-name-match.js";
 export * from "./types/character-catalog.js";

@@ -40,4 +40,20 @@ assert.deepEqual(
   ],
 );
 
+// A route letter "-r" folds only when the list has the model without it; "command-r" alone stays a model.
+const routed = groupModelVariants(
+  ["claude-opus-5-r", "claude-opus-5", "command-r", "[SP]claude-sonnet-5-5-r"],
+  (id) => id,
+);
+assert.deepEqual(
+  routed.map((group) => [group.base, group.items.length]),
+  [
+    ["claude-opus-5", 2],
+    ["command-r", 1],
+    ["claude-sonnet-5-5-r", 1],
+  ],
+);
+assert.equal(variantLabel("claude-opus-5-r", "claude-opus-5"), "r");
+assert.equal(variantLabel("[SP]claude-opus-5-r-thinking", "claude-opus-5"), "r · SP · thinking");
+
 console.log("model-variants regression passed");

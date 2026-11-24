@@ -18049,6 +18049,9 @@ button.ov-conn-card__name:hover b {
   font-size: 0.875rem;
 }
 .ov-conn-row__name b {
+  /* The name is what the row is; the model id beside it gives way first. */
+  flex: 0 0 auto;
+  max-width: 70%;
   min-width: 0;
   overflow: hidden;
   font-weight: 500;
@@ -18081,6 +18084,8 @@ button.ov-conn-card__name:hover b {
   flex: 1 1 12rem;
 }
 .ov-conn-row--device .ov-conn-row__trail {
+  flex-wrap: wrap;
+  justify-content: flex-end;
   margin-left: auto;
   font-size: 0.8125rem;
 }
@@ -18303,4 +18308,119 @@ button.ov-conn-card__name:hover b {
 }
 .ov-conn-browse__row.is-base .ov-conn-browse__star {
   transition: transform 0.15s ease;
+}
+
+/* ──────────────────────────────────────────────
+   Model page (Library › Connections › a model): its settings are Library tables, one dense row per setting,
+   so the page says as much in a third of the height (Nov 24, layout A). Each card is a real .ov-table-wrap with a
+   table head, so themes paint it like Lorebooks. With a mouse a row is name | value; touch stacks the name over
+   the value and keeps 44px fields.
+   ────────────────────────────────────────────── */
+.ov-model-sheet {
+  gap: 0.875rem;
+}
+.ov-model-sheet .ov-field-card {
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+  background: var(--ov-panel, var(--card));
+}
+/* Centred like every Library table's headings (Nov 19). */
+.ov-model-sheet .ov-field-card__table th {
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+}
+.ov-model-sheet .ov-field-card__summary {
+  display: flex;
+  min-height: 2.375rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  color: var(--ov-accent-text);
+  cursor: pointer;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  list-style: none;
+  text-transform: uppercase;
+}
+.ov-model-sheet .ov-field-card__summary::-webkit-details-marker {
+  display: none;
+}
+.ov-model-sheet details[open] > .ov-field-card__summary {
+  border-bottom: 1px solid var(--ov-line);
+}
+/* Rows: every direct child of a card, with a hairline between them. */
+.ov-model-sheet .ov-field-card__rows {
+  display: flex;
+  flex-direction: column;
+}
+.ov-model-sheet .ov-field-card__rows > * {
+  margin: 0;
+  padding: 0.5rem 0.875rem;
+}
+.ov-model-sheet .ov-field-card__rows > * + * {
+  border-top: 1px dotted color-mix(in srgb, var(--ov-line) 80%, transparent);
+}
+.ov-model-sheet .ov-field-card__rows > :empty {
+  display: none;
+}
+.ov-model-sheet .ov-field-row__label h3 {
+  color: var(--ov-muted);
+  font-weight: 500;
+}
+.ov-model-sheet .ov-field-model {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.625rem;
+}
+.ov-model-sheet .ov-field-model b {
+  font-family: var(--ov-mono, ui-monospace, monospace);
+  font-weight: 500;
+}
+.ov-model-sheet .ov-field-model__facts {
+  color: var(--ov-muted);
+  font-size: 0.75rem;
+}
+.ov-model-sheet .ov-field-model .ov-conn__link {
+  margin-inline-start: auto;
+  font-size: 0.8125rem;
+}
+.ov-model-sheet .ov-field-card__rows > [data-connection-field] {
+  border-radius: 0;
+}
+.ov-model-sheet .ov-field-row__value > .mari-connection-group {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+@media (pointer: fine) and (min-width: 48rem) {
+  .ov-model-sheet .ov-field-card__rows > .ov-field-row,
+  .ov-model-sheet .ov-field-card__rows > [data-connection-field] > .ov-field-row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr);
+    align-items: center;
+    column-gap: 1rem;
+    min-height: 2.5rem;
+    padding-block: 0.3125rem;
+  }
+  .ov-model-sheet .ov-field-card__rows > .ov-field-row > .ov-field-row__label,
+  .ov-model-sheet .ov-field-card__rows > [data-connection-field] > .ov-field-row > .ov-field-row__label {
+    margin: 0;
+    align-self: start;
+    padding-top: 0.375rem;
+  }
+  .ov-model-sheet .ov-field-card__rows .ov-field-row__label h3 {
+    font-size: 0.8125rem;
+  }
+  .ov-model-sheet .mari-chrome-field {
+    height: 2rem;
+  }
+  .ov-model-sheet .ov-field-card__rows > * > .space-y-6 > * + *,
+  .ov-model-sheet .ov-field-card__rows .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.75rem;
+  }
 }
