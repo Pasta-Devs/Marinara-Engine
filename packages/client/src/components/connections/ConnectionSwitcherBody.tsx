@@ -1271,7 +1271,12 @@ export function ConnectionSwitcherBody({
         key={entry.key}
         rowProps={{
           "data-switcher-row": true,
-          className: cn("rounded-lg", now ? "bg-transparent pe-0" : isCurrent && ACCENT_BAR),
+          // The keyboard highlight covers the whole row, star included, like the current row's.
+          className: cn(
+            "rounded-lg",
+            now ? "bg-transparent pe-0" : isCurrent && ACCENT_BAR,
+            highlighted && !now && "bg-foreground/10",
+          ),
         }}
         data-switcher-entry={entry.choice.model ?? entry.choice.connectionId}
         data-switcher-model={entry.model}
@@ -1294,7 +1299,6 @@ export function ConnectionSwitcherBody({
         onMouseEnter={index !== undefined ? () => setHighlight(index) : undefined}
         className={cn(
           "rounded-lg disabled:cursor-wait",
-          highlighted && "bg-foreground/10",
           // Now and pane rows put the tile in the shared 2rem column; text then starts where Starred and accounts start.
           now && "min-h-0 gap-2 py-1 ps-1.5 max-md:gap-2 max-md:ps-1.5",
           pane && "gap-2 ps-3 max-md:gap-2 max-md:ps-3",
