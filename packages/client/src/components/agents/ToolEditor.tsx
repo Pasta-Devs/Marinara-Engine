@@ -13,7 +13,6 @@ import {
   type CustomToolRow,
 } from "../../hooks/use-custom-tools";
 import {
-  Save,
   Wrench,
   Check,
   AlertCircle,
@@ -39,8 +38,7 @@ import { createFolderEntry } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { useOverhaulLook } from "../../stores/overhaul.store";
 import { OvEditorHead } from "../overhaul/EditorChrome";
-import { SurfaceBackButton } from "../ui/SurfaceBackButton";
-import { SurfaceCloseButton } from "../ui/SurfaceCloseButton";
+import { EditorHeader, EditorHeaderAction, EditorSaveButton } from "../ui/EditorHeader";
 
 const EXEC_TYPES = [
   { value: "static", label: "Static Result", icon: FileText, description: "Returns a fixed string when called." },
@@ -364,68 +362,60 @@ export function ToolEditor() {
           ]}
         />
       ) : (
-        <div className="mari-editor-header">
-          <SurfaceBackButton onClick={handleClose} />
-          <div className="mari-editor-icon-tile">
-            <Wrench size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
-          </div>
-          <input
-            value={localName}
-            onChange={(e) => {
-              setLocalName(e.target.value);
-              markDirty();
-            }}
-            className="mari-editor-title-input min-w-0 flex-1 font-mono placeholder:text-[var(--marinara-editor-muted)]"
-            placeholder={localizeUi("ui.agents.tooleditor.toolName")}
-          />
-          <div className="mari-editor-actions flex max-md:order-2 max-md:w-full max-md:justify-end max-md:border-t max-md:border-[var(--marinara-editor-divider)] max-md:pt-2">
-            {saveError && (
-              <span className="mari-editor-status mr-2 text-red-400">
-                <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.tooleditor.error")}
-              </span>
-            )}
-            {savedFlash && !dirty && (
-              <span className="mari-editor-status mr-2 text-emerald-400">
-                <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
-              </span>
-            )}
-            {dirty && !saveError && (
-              <span className="mari-editor-status mr-2 text-amber-400">
-                {localizeUi("ui.agents.agenteditor.unsaved")}
-              </span>
-            )}
-            <button
-              onClick={handleSave}
-              disabled={isPending}
-              className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
-              title={localizeUi("ui.agents.tooleditor.saveTool")}
-              aria-label={localizeUi("ui.agents.tooleditor.saveTool")}
-            >
-              <Save size="0.8125rem" /> <span className="max-md:hidden">{localizeUi("ui.noodle.noodlehome.save")}</span>
-            </button>
-            {dbTool && (
-              <button
-                onClick={handleExport}
-                className="mari-editor-action inline-flex"
-                title={localizeUi("ui.agents.tooleditor.exportFunction")}
-                aria-label={localizeUi("ui.agents.tooleditor.exportFunction")}
-              >
-                <Upload size="0.9375rem" />
-              </button>
-            )}
-            {dbTool && (
-              <button
-                onClick={handleDelete}
-                className="mari-editor-action inline-flex"
-                title={localizeUi("ui.agents.tooleditor.deleteFunction")}
-                aria-label={localizeUi("ui.agents.tooleditor.deleteFunction")}
-              >
-                <Trash2 size="0.9375rem" />
-              </button>
-            )}
-          </div>
-          <SurfaceCloseButton dividerClassName="max-md:hidden" />
-        </div>
+        <EditorHeader
+          onBack={handleClose}
+          icon={<Wrench size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />}
+          title={
+            <input
+              value={localName}
+              onChange={(e) => {
+                setLocalName(e.target.value);
+                markDirty();
+              }}
+              className="mari-editor-title-input min-w-0 flex-1 font-mono placeholder:text-[var(--marinara-editor-muted)]"
+              placeholder={localizeUi("ui.agents.tooleditor.toolName")}
+            />
+          }
+          actions={
+            <>
+              {saveError && (
+                <span className="mari-editor-status mr-2 text-red-400">
+                  <AlertCircle size="0.6875rem" /> {localizeUi("ui.agents.tooleditor.error")}
+                </span>
+              )}
+              {savedFlash && !dirty && (
+                <span className="mari-editor-status mr-2 text-emerald-400">
+                  <Check size="0.6875rem" /> {localizeUi("chat.settings.inlineEditor.saved")}
+                </span>
+              )}
+              {dirty && !saveError && (
+                <span className="mari-editor-status mr-2 text-amber-400">
+                  {localizeUi("ui.agents.agenteditor.unsaved")}
+                </span>
+              )}
+              <EditorSaveButton
+                label={localizeUi("ui.noodle.noodlehome.save")}
+                ariaLabel={localizeUi("ui.agents.tooleditor.saveTool")}
+                onClick={handleSave}
+                disabled={isPending}
+              />
+              {dbTool && (
+                <EditorHeaderAction
+                  icon={<Upload size="0.9375rem" />}
+                  label={localizeUi("ui.agents.tooleditor.exportFunction")}
+                  onClick={handleExport}
+                />
+              )}
+              {dbTool && (
+                <EditorHeaderAction
+                  icon={<Trash2 size="0.9375rem" />}
+                  label={localizeUi("ui.agents.tooleditor.deleteFunction")}
+                  onClick={handleDelete}
+                />
+              )}
+            </>
+          }
+        />
       )}
 
       {/* Unsaved warning */}

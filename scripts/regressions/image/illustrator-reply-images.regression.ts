@@ -4,7 +4,9 @@
 //   not the Illustrator's;
 // - the characters in the picture come from the user's latest message too, but the user's Persona is never added
 //   just for being named;
-// - Roleplay pictures use the Illustration size, and Game pictures the Game scene size.
+// - Roleplay pictures use the Illustration size, and Game pictures the Game scene size;
+// - the reply's activated lorebook entries send their pictures as references, an Outlet entry's only when a preset used
+//   its Outlet (#9698).
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
@@ -46,11 +48,33 @@ replaceBuiltInAgentDefinitions([
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 // Every request to the image service: which image connection it reached, the prompt and the size.
+let failIllustrator = false;
+const fallbackRequests: Array<{ prompt: string; negative_prompt: string }> = [];
 const images: Array<{ url: string; prompt: string; size: string }> = [];
+// Edit requests (they carry references): the prompt and the pictures, as raw base64.
+const edits: Array<{ prompt: string; pictures: string[] }> = [];
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+  if (request.url?.includes("/fallback/")) {
+    fallbackRequests.push(body);
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ images: [png] }));
+    return;
+  }
+  if (failIllustrator && request.url?.startsWith("/illustrator/")) {
+    response.writeHead(500, { "content-type": "application/json" });
+    response.end(JSON.stringify({ error: "primary fixture unavailable" }));
+    return;
+  }
+  if (request.url?.endsWith("/images/edits")) {
+    const pictures = (body.images ?? [body.image]).map((image: { url: string }) => image.url.split(",")[1]);
+    edits.push({ prompt: String(body.prompt), pictures });
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ data: [{ b64_json: png }] }));
+    return;
+  }
   if (request.url?.endsWith("/images/generations")) {
     images.push({ url: request.url, prompt: String(body.prompt), size: String(body.size) });
     response.writeHead(200, { "content-type": "application/json" });
@@ -206,7 +230,158 @@ try {
   const gamePictures = byConnection();
   assert.deepEqual(Object.keys(gamePictures), ["painter"]);
   assert.equal(gamePictures.painter!.size, "1792x1024", "Game uses the landscape Game scene size");
-  console.info("Reply pictures follow their own agent, the latest user message and the mode's canvas size.");
+  // A differently compiled fallback must save its own request for later regeneration.
+  const fallback = await connections.create({
+    name: "Fallback pictures",
+    provider: "image_generation",
+    baseUrl: `${origin}/fallback`,
+    model: "sdxl",
+    imageService: "automatic1111",
+    imageGenerationSource: "automatic1111",
+    apiKey: "fixture",
+    fallbackForAgents: true,
+  });
+  assert.ok(fallback);
+  await connections.updateDefaultParameters(fallback.id, {
+    imageGeneration: {
+      version: 1,
+      service: "automatic1111",
+      seed: -1,
+      automatic1111: { promptPrefix: "FALLBACK_POSITIVE", negativePromptPrefix: "FALLBACK_NEGATIVE" },
+    },
+  });
+  assert.equal((await connections.getFallbackForImageGeneration())?.id, fallback.id);
+  const { createGalleryStorage } = await import("../../../packages/server/src/services/storage/gallery.storage.js");
+  const { parseChatImageGenerationRecord } = await import("../../../packages/shared/dist/index.js");
+  const gallery = createGalleryStorage(db);
+  const primaryRows = await gallery.listByChatId(roleplay.id);
+  assert.ok(
+    primaryRows.some((row) => parseChatImageGenerationRecord(row.generation)?.connectionId === illustratorImages.id),
+  );
+  assert.ok(
+    primaryRows.every((row) => !parseChatImageGenerationRecord(row.generation)?.prompt?.includes("FALLBACK_POSITIVE")),
+    "successful primary requests keep their original prompt",
+  );
+  failIllustrator = true;
+  // A fresh chat exercises generation directly, without the earlier reply's Illustrator cadence checkpoint.
+  const fallbackChat = await chats.create({
+    name: "Fallback pictures",
+    mode: "roleplay",
+    characterIds: [brin.id],
+    connectionId: text.id,
+    promptPresetId: null,
+  });
+  assert.ok(fallbackChat);
+  await chats.patchMetadata(fallbackChat.id, {
+    enableAgents: true,
+    activeAgentIds: ["illustrator"],
+    automaticSummaryEnabled: false,
+  });
+  await run("/api/generate/", {
+    chatId: fallbackChat.id,
+    userMessage: "Brin watches the rain again.",
+    streaming: false,
+  });
+  assert.equal(fallbackRequests.length, 1);
+  assert.match(fallbackRequests[0]!.prompt, /FALLBACK_POSITIVE/u);
+  assert.match(fallbackRequests[0]!.negative_prompt, /FALLBACK_NEGATIVE/u);
+  const fallbackRow = (await gallery.listByChatId(fallbackChat.id)).find(
+    (row) => parseChatImageGenerationRecord(row.generation)?.connectionId === fallback.id,
+  );
+  assert.ok(fallbackRow, "the result records the fallback connection");
+  const fallbackRecord = parseChatImageGenerationRecord(fallbackRow.generation);
+  assert.equal(fallbackRecord?.prompt, fallbackRequests[0]!.prompt);
+  assert.equal(fallbackRecord?.negativePrompt, fallbackRequests[0]!.negative_prompt);
+
+  // ── Lorebook entry pictures reach the image model (#9698) ───────────────────
+  const { createLorebooksStorage } = await import("../../../packages/server/src/services/storage/lorebooks.storage.js");
+  const { createPromptsStorage } = await import("../../../packages/server/src/services/storage/prompts.storage.js");
+  const { saveLorebookImage } = await import("../../../packages/server/src/services/lorebook/lorebook-images.js");
+  const cloakPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC";
+  const lorebooks = createLorebooksStorage(db);
+  const book = await lorebooks.create({ name: "Props" } as Parameters<typeof lorebooks.create>[0]);
+  assert.ok(book);
+  const entry = async (name: string, picture: string, extra: Record<string, unknown> = {}) =>
+    lorebooks.createEntry({
+      lorebookId: book.id,
+      name,
+      content: `${name} lore.`,
+      keys: [name.toLowerCase()],
+      images: [{ ...(await saveLorebookImage(Buffer.from(picture, "base64"))), caption: "" }],
+      ...extra,
+    } as Parameters<typeof lorebooks.createEntry>[0]);
+  assert.ok(await entry("Lantern", png));
+  assert.ok(await entry("Cloak", cloakPng, { position: 7, outletName: "outfit" }));
+  const xai = await connections.create({
+    name: "Reference pictures",
+    provider: "image_generation",
+    baseUrl: `${origin}/xai/v1`,
+    model: "grok-imagine-image",
+    imageService: "xai",
+    imageGenerationSource: "xai",
+    apiKey: "fixture",
+  });
+  assert.ok(xai);
+  const presets = createPromptsStorage(db);
+  const preset = await presets.create({ name: "Outlet preset", parameters: { maxTokens: 256, maxContext: 8192 } });
+  assert.ok(preset);
+  await presets.createSection({
+    presetId: preset.id,
+    identifier: "outfit",
+    name: "Outfit",
+    content: "{{outlet::outfit}}",
+  });
+  // A preset sends an entry's pictures only with its text, which goes where the preset's World Info marker is.
+  await presets.createSection({
+    presetId: preset.id,
+    identifier: "world",
+    name: "World Info",
+    isMarker: true,
+    markerConfig: { type: "world_info_before" },
+  });
+  await presets.createSection({
+    presetId: preset.id,
+    identifier: "history",
+    name: "Chat History",
+    isMarker: true,
+    markerConfig: { type: "chat_history" },
+  });
+  const entryPictures = async (promptPresetId: string | null) => {
+    const chat = await chats.create({
+      name: "Entry pictures",
+      mode: "roleplay",
+      characterIds: [brin.id],
+      connectionId: text.id,
+      promptPresetId,
+    });
+    assert.ok(chat);
+    await chats.patchMetadata(chat.id, {
+      enableAgents: true,
+      activeAgentIds: ["illustrator"],
+      automaticSummaryEnabled: false,
+      activeLorebookIds: [book.id],
+      illustratorImageConnectionId: xai.id,
+      // "Reference pictures go to" applies only with avatar references on, so this one does not hold them back.
+      illustratorReferencePictureTarget: "writer",
+    });
+    edits.length = 0;
+    await run("/api/generate/", {
+      chatId: chat.id,
+      userMessage: "Brin lifts the lantern and the cloak.",
+      streaming: false,
+    });
+    assert.equal(edits.length, 1, "the picture is drawn from references");
+    return edits[0]!;
+  };
+  const plain = await entryPictures(null);
+  assert.deepEqual(plain.pictures, [png], "without a preset no Outlet is used, so only the Lantern's picture goes");
+  assert.match(plain.prompt, /reference images for Lantern\./u);
+  const withOutlet = await entryPictures(preset.id);
+  assert.deepEqual(withOutlet.pictures, [png, cloakPng], "the preset used the Cloak's Outlet");
+  assert.match(withOutlet.prompt, /reference images for Lantern[;,] Cloak\./u);
+  console.info(
+    "Reply pictures follow their own agent, the latest user message, the mode's canvas size and the active entries.",
+  );
 } finally {
   provider.closeAllConnections();
   await app.close();

@@ -3,9 +3,10 @@
 // and docked composers so the menu can't drift between them. Mirrors the adjacent connection popover
 // (anchored div + outside-click + in-dialog focus scope), matching the surrounding composer code.
 // It doubles as the index of what she can do: Attach, the `@` link, and her commands (the `/` menu's list).
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AtSign, Layers, MessageSquareText, Paperclip } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { useInDialogFocusScope } from "../../hooks/use-in-dialog-focus-scope";
 import { MARI_COMMANDS, type MariCommandId } from "../../lib/mari-commands";
 import { MariRow } from "./mari-primitives";
@@ -50,16 +51,7 @@ export function MariAttachButton({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onMouseDown = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (buttonRef.current?.contains(target) || menuRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
-  }, [open]);
+  useDismiss(menuRef, open, () => setOpen(false), { openerRef: buttonRef });
   // Escape closes only this menu; a second Escape reaches the omnibar.
   const onMenuKeyDown = useInDialogFocusScope(menuRef, () => setOpen(false), open);
 

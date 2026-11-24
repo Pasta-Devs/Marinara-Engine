@@ -374,7 +374,7 @@ export function GenerationParametersFields({
   };
   const isSendEnabled = (key: GenerationParameterSendKey) =>
     (value.enabledParameters ?? enabledParametersFallback)[key] !== false;
-  const showSamplingGrid = show("temperature") || show("maxTokens") || show("topP") || show("topK");
+  const showSamplingGrid = show("temperature") || show("maxTokens") || show("topP") || show("topK") || show("minP");
   const showPenaltyGrid = show("frequencyPenalty") || show("presencePenalty");
   const setManagedParameter = (
     definition: ManagedGenerationParameterDefinition,
@@ -469,14 +469,14 @@ export function GenerationParametersFields({
               step={1}
             />
           )}
-          {/* Sent where Top K is (the built-in model and OpenAI-compatible custom servers); 0 sends nothing. */}
-          {show("topK") && (
+          {/* 0 sends nothing. */}
+          {show("minP") && (
             <ParamInput
               label={localizeUi("ui.ui.generationparametersfields.minP")}
               help={localizeUi("ui.ui.generationparametersfields.minPHelp")}
               value={value.minP ?? 0}
               onChange={(nextValue) => set("minP", nextValue)}
-              effective={unusedNote("topK") ?? effectiveHint("minP")}
+              effective={effectiveHint("minP")}
               min={0}
               max={1}
               step={0.01}

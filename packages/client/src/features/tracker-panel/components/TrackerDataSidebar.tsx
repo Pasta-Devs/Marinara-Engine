@@ -139,6 +139,7 @@ export function TrackerDataSidebar({
     expressionSpritesEnabled,
     featuredCharacterCardKeys,
     orderedTrackerSections,
+    resolveCardCharacterStatus,
     resolveSpriteCharacterId,
     spriteExpressions,
   } = useTrackerPanelModel({
@@ -380,6 +381,7 @@ export function TrackerDataSidebar({
                 patchField={patchField}
                 patchPlayerStats={patchPlayerStats}
                 patchPlayerStatsMany={patchPlayerStatsMany}
+                resolveCardCharacterStatus={resolveCardCharacterStatus}
                 resolveSpriteCharacterId={resolveSpriteCharacterId}
                 spriteExpressions={spriteExpressions}
                 trackerPanelCollapsedSections={trackerPanelCollapsedSections}

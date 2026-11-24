@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { resolveStoredGalleryFile } from "./gallery-file-lifecycle.js";
 import { isAllowedImageBuffer } from "../../utils/security.js";
+import { readLorebookImageDataUrl } from "../lorebook/lorebook-images.js";
 
 type CharacterRowLike = {
   id: string;
@@ -501,14 +502,16 @@ export async function readPreferredPersonaReferenceImage(args: {
 
 /**
  * Re-read the reference images a regenerated chat image was originally sent with (#7767),
- * from the characters/persona it recorded, using their current sheet/avatar/sprite.
- * Sources that no longer exist or have no picture are skipped.
+ * from the characters/persona it recorded, using their current sheet/avatar/sprite, then
+ * the lorebook entry pictures it recorded. Sources that no longer exist or have no picture are skipped.
  */
 export async function readRecordedReferenceImages(args: {
   characterIds: readonly string[];
   personaId: string | null;
   /** The persona picture first sent; "sprite" skips the avatar like Game mode's lookup does. */
   personaSource?: "character-sheet" | "avatar" | "sprite" | null;
+  /** Leave out for an image connection that would draw over them (see imageConnectionTakesEntryPictures). */
+  lorebookImagePaths?: readonly string[];
   charactersStore: {
     getById: (id: string) => Promise<CharacterRowLike | null>;
     getPersona: (id: string) => Promise<{
@@ -560,6 +563,10 @@ export async function readRecordedReferenceImages(args: {
           })
         : null;
     if (image) images.push(image.base64);
+  }
+  for (const path of args.lorebookImagePaths ?? []) {
+    const dataUrl = await readLorebookImageDataUrl(path);
+    if (dataUrl) images.push(dataUrl.slice(dataUrl.indexOf(",") + 1));
   }
   return images;
 }

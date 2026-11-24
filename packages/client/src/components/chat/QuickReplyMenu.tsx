@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { MoreHorizontal } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 export interface QuickReplyAction {
@@ -92,24 +93,19 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
     next?.button.focus();
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node;
-      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
-        setOpen(false);
+  // Escape and a press outside close it; keyboard focus that was in the rail goes back to the trigger.
+  useDismiss(
+    menuRef,
+    open,
+    () => {
+      const active = triggerRef.current?.ownerDocument.activeElement;
+      setOpen(false);
+      if (!active || active === active.ownerDocument.body || menuRef.current?.contains(active)) {
+        triggerRef.current?.focus();
       }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
+    },
+    { openerRef: triggerRef },
+  );
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -188,11 +184,6 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
       case "End":
         event.preventDefault();
         focusMenuItem("last");
-        break;
-      case "Escape":
-        event.preventDefault();
-        setOpen(false);
-        triggerRef.current?.focus();
         break;
     }
   };
@@ -335,7 +326,7 @@ export function QuickReplyMenu({ actions, disabled = false }: QuickReplyMenuProp
             </div>
           )}
         </AnimatePresence>,
-        document.body,
+        triggerRef.current?.ownerDocument.body ?? document.body,
       )}
     </div>
   );

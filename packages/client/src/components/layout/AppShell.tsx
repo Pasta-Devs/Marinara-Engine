@@ -93,7 +93,7 @@ import { LIBRARY_SECTIONS, openLibrarySection } from "../overhaul/library-naviga
 import { OverhaulMobileTopBar } from "../overhaul/MobileTopBar";
 import { OverhaulMobileTrackerStrip } from "../overhaul/MobileTrackerStrip";
 import { closeTrackerPanel } from "../../lib/tracker-panel-surface";
-import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { isModalOverlayOpen } from "../../lib/layer-stack";
 
 const SpotifyMobileWidget = lazy(() =>
   import("../spotify/SpotifyMiniPlayer").then((module) => ({ default: module.SpotifyMobileWidget })),

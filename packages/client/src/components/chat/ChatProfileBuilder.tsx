@@ -38,7 +38,7 @@ import { Modal } from "../ui/Modal";
 import { ConnectionSelect } from "../connections/ConnectionSelect";
 import { PickerField, PickerListField, PickerTileArt } from "../ui/PickerField";
 import { SHEET_BUTTON_PRIMARY } from "../ui/neutral-surface-styles";
-import { SurfaceBackButton } from "../ui/SurfaceBackButton";
+import { EditorHeader } from "../ui/EditorHeader";
 import { useEditorLeaveSave } from "../../hooks/use-editor-leave-save";
 import { leaveWithoutSaving } from "../../lib/editor-leave";
 import {
@@ -1003,15 +1003,11 @@ function ChatProfileBuilderBody({
     return (
       <div data-settings-profile-editor className="mari-editor-shell flex min-h-0 flex-1 flex-col overflow-hidden">
         {leaveKey && <PageLeaveGuard leaveKey={leaveKey} dirty={dirty} save={saveOnLeave} busy={busy} />}
-        <div className="mari-editor-header">
-          <div className="mari-editor-header-main">
-            <SurfaceBackButton />
-            <div className="mari-editor-icon-tile mari-panel-gradient-surface mari-panel-gradient--settings">
-              <SlidersHorizontal size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />
-            </div>
-            {nameInput("mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]")}
-          </div>
-        </div>
+        <EditorHeader
+          icon={<SlidersHorizontal size="1.125rem" className="max-md:!h-[0.875rem] max-md:!w-[0.875rem]" />}
+          iconClassName="mari-panel-gradient-surface mari-panel-gradient--settings"
+          title={nameInput("mari-editor-title-input min-w-0 flex-1 placeholder:text-[var(--marinara-editor-muted)]")}
+        />
         <div className={bodyClass}>
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
             <div className="flex items-center gap-2">{profile ? modeBadge : modePicker}</div>

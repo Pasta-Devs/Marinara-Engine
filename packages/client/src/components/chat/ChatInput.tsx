@@ -18,7 +18,6 @@ import {
   WandSparkles,
   Swords,
 } from "lucide-react";
-import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { updateCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
@@ -35,6 +34,7 @@ import { useCommitSpatialOwnerTurn } from "../../hooks/use-spatial-context";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useCreateMessage, useDeleteMessage, useUpdateMessageExtra, chatKeys } from "../../hooks/use-chats";
+import { useDismiss } from "../../hooks/use-dismiss";
 import { isConnectionFlagTrue } from "../../lib/connection-filters";
 import { useConnections } from "../../hooks/use-connections";
 import { characterKeys, ensureCharacterAndPersonaLists } from "../../hooks/use-characters";
@@ -69,6 +69,7 @@ import { isGenerationSendBlocked, isIosWebKitBrowser } from "../../lib/generatio
 import { requestChatScrollToBottom } from "../../lib/chat-scroll-events";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { SpeechToTextButton } from "../ui/SpeechToTextButton";
+import { Popover } from "../ui/Popover";
 import { TryingModelNote } from "./TryingModelNote";
 import { QuickConnectionSwitcher } from "./QuickConnectionSwitcher";
 import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
@@ -249,7 +250,6 @@ export const ChatInput = memo(function ChatInput({
   const [isDragging, setIsDragging] = useState(false);
   const [charPickerOpen, setCharPickerOpen] = useState(false);
   const charPickerBtnRef = useRef<HTMLButtonElement>(null);
-  const charPickerMenuRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastSendTapAtRef = useRef(0);
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
@@ -921,23 +921,7 @@ export const ChatInput = memo(function ChatInput({
   );
 
   // Dismiss the Push Story mode selector on outside click or Escape.
-  useEffect(() => {
-    if (!pushStoryMenuOpen) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (target && pushStoryMenuRef.current?.contains(target)) return;
-      setPushStoryMenuOpen(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setPushStoryMenuOpen(false);
-    };
-    window.addEventListener("pointerdown", handlePointerDown, true);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown, true);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [pushStoryMenuOpen]);
+  useDismiss(pushStoryMenuRef, pushStoryMenuOpen, () => setPushStoryMenuOpen(false));
 
   const handleSend = useCallback(async () => {
     const raw = getValue();
@@ -1743,7 +1727,6 @@ export const ChatInput = memo(function ChatInput({
     async (characterId?: string) => {
       if (!activeChatId || isInputBusy) return;
       setCharPickerOpen(false);
-      setCharPickerPos(null);
       if (characterId && responseQueue.includes(characterId)) {
         removeFromResponseQueue(activeChatId, characterId);
       }
@@ -1776,42 +1759,6 @@ export const ChatInput = memo(function ChatInput({
       removeFromResponseQueue,
     ],
   );
-
-  // Close character picker on outside click
-  useEffect(() => {
-    if (!charPickerOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (
-        charPickerMenuRef.current &&
-        !charPickerMenuRef.current.contains(e.target as Node) &&
-        charPickerBtnRef.current &&
-        !charPickerBtnRef.current.contains(e.target as Node)
-      ) {
-        setCharPickerOpen(false);
-        setCharPickerPos(null);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [charPickerOpen]);
-
-  // Position character picker above button
-  const [charPickerPos, setCharPickerPos] = useState<{ left: number; top: number } | null>(null);
-  useEffect(() => {
-    if (!charPickerOpen || !charPickerBtnRef.current) return;
-    const rect = charPickerBtnRef.current.getBoundingClientRect();
-    const inputBox = charPickerBtnRef.current.closest(".rounded-2xl") as HTMLElement | null;
-    const anchorTop = inputBox ? inputBox.getBoundingClientRect().top : rect.top;
-    requestAnimationFrame(() => {
-      const menuEl = charPickerMenuRef.current;
-      const menuHeight = menuEl?.offsetHeight || 300;
-      const menuWidth = menuEl?.offsetWidth || 220;
-      // Right-align the dropdown with the right edge of the button
-      let left = rect.right - menuWidth;
-      if (left < 8) left = 8;
-      setCharPickerPos({ left, top: Math.max(8, anchorTop - menuHeight - 4) });
-    });
-  }, [charPickerOpen]);
 
   const showCharPicker =
     !!chatCharacters && chatCharacters.length > 1 && !!activeChatCharacters?.length && !!groupResponseOrder;
@@ -2310,71 +2257,69 @@ export const ChatInput = memo(function ChatInput({
       </div>
 
       {/* Character picker dropdown (portal) */}
-      {charPickerOpen &&
-        showCharPicker &&
-        createPortal(
-          <div
-            ref={charPickerMenuRef}
-            data-chat-input-popup="character"
-            className="mari-chat-style-surface mari-chat-input-popup fixed z-[9999] flex min-w-[220px] max-w-[280px] max-h-[320px] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-2xl"
-            style={
-              charPickerPos ? { left: charPickerPos.left, top: charPickerPos.top } : { visibility: "hidden" as const }
-            }
-          >
-            <div className="flex items-center justify-center border-b border-foreground/10 px-3 py-2 text-[0.6875rem] font-semibold">
-              {localizeUi("ui.chat.chatinput.triggerResponse")}
-            </div>
-            <div className="overflow-y-auto p-1">
-              {mode === "roleplay" && (groupResponseOrder === "smart" || groupResponseOrder === "manual") && (
+      {showCharPicker && (
+        <Popover
+          open={charPickerOpen}
+          onClose={() => setCharPickerOpen(false)}
+          anchorRef={charPickerBtnRef}
+          side="top"
+          align="end"
+          gap={4}
+          className="mari-chat-style-surface mari-chat-input-popup flex min-w-[220px] max-w-[280px] max-h-[320px] flex-col overflow-hidden rounded-xl border-foreground/10 shadow-2xl"
+        >
+          <div className="flex items-center justify-center border-b border-foreground/10 px-3 py-2 text-[0.6875rem] font-semibold">
+            {localizeUi("ui.chat.chatinput.triggerResponse")}
+          </div>
+          <div className="overflow-y-auto p-1">
+            {mode === "roleplay" && (groupResponseOrder === "smart" || groupResponseOrder === "manual") && (
+              <button
+                onClick={() => handleCharacterResponse()}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-foreground/10"
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--primary)]">
+                  <Users size="1rem" aria-hidden="true" />
+                </span>
+                <span className="text-sm">{localizeUi("ui.chat.chatinput.smartResponse")}</span>
+              </button>
+            )}
+            {activeChatCharacters!.map((char) => {
+              const queuedOrder = queuedResponseOrder.get(char.id);
+              return (
                 <button
-                  onClick={() => handleCharacterResponse()}
+                  key={char.id}
+                  onClick={() => handleCharacterResponse(char.id)}
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-foreground/10"
                 >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center text-[var(--primary)]">
-                    <Users size="1rem" aria-hidden="true" />
-                  </span>
-                  <span className="text-sm">{localizeUi("ui.chat.chatinput.smartResponse")}</span>
+                  {char.avatarUrl ? (
+                    <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full">
+                      <img
+                        src={char.avatarUrl}
+                        alt={char.name}
+                        className="h-full w-full object-cover"
+                        style={getAvatarCropStyle(char.avatarCrop)}
+                      />
+                    </span>
+                  ) : (
+                    <div
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[0.6875rem] font-semibold text-foreground/45"
+                      data-mari-part="avatar-placeholder"
+                      data-role="assistant"
+                    >
+                      {avatarInitial(char.name)}
+                    </div>
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-xs">{char.name}</span>
+                  {queuedOrder && (
+                    <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-foreground/15 bg-foreground/10 px-1 text-[0.625rem] font-semibold text-foreground/70">
+                      {queuedOrder}
+                    </span>
+                  )}
                 </button>
-              )}
-              {activeChatCharacters!.map((char) => {
-                const queuedOrder = queuedResponseOrder.get(char.id);
-                return (
-                  <button
-                    key={char.id}
-                    onClick={() => handleCharacterResponse(char.id)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-foreground/10"
-                  >
-                    {char.avatarUrl ? (
-                      <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full">
-                        <img
-                          src={char.avatarUrl}
-                          alt={char.name}
-                          className="h-full w-full object-cover"
-                          style={getAvatarCropStyle(char.avatarCrop)}
-                        />
-                      </span>
-                    ) : (
-                      <div
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-[0.6875rem] font-semibold text-foreground/45"
-                        data-mari-part="avatar-placeholder"
-                        data-role="assistant"
-                      >
-                        {avatarInitial(char.name)}
-                      </div>
-                    )}
-                    <span className="min-w-0 flex-1 truncate text-xs">{char.name}</span>
-                    {queuedOrder && (
-                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full border border-foreground/15 bg-foreground/10 px-1 text-[0.625rem] font-semibold text-foreground/70">
-                        {queuedOrder}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>,
-          document.body,
-        )}
+              );
+            })}
+          </div>
+        </Popover>
+      )}
     </div>
   );
 });

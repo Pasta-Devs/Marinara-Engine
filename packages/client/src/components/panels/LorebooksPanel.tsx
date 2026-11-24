@@ -67,6 +67,7 @@ import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { LibraryToolbar } from "../ui/LibraryToolbar";
 import { LorebookSelectionEnableActions } from "./library/LorebookSelectionEnableActions";
+import { LorebookSetsSection } from "./library/LorebookSetsSection";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
 import { PanelVirtualList } from "./PanelVirtualList";
@@ -867,6 +868,8 @@ export function LorebooksPanel() {
           ))}
         </div>
       )}
+
+      <LorebookSetsSection />
 
       <div className="flex flex-col gap-0.5">
         {folderDrag.orderItems(sortedFolders).map((folder) => {

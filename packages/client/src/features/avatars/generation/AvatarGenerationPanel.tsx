@@ -13,8 +13,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  AVATAR_EMOTIONS,
-  AVATAR_EXTRA_FEELINGS,
   AVATAR_FACE_GROUPS,
   readImageAppearanceOverride,
   type AvatarConfig,
@@ -38,8 +36,13 @@ import {
   type ImagePromptReviewItem,
 } from "../../../components/ui/ImagePromptReviewModal";
 import { avatarModelKeys, type AvatarKindSetupPanelProps } from "../contract";
-import { errorMessage } from "../renderers/pngtuber/PngtuberSetupPanel";
-import { withGeneratedFaces, type SavedTalkingHeadFace } from "../renderers/pngtuber/pngtuber-layers";
+import { TALKING_HEAD_FACE_LABEL_KEYS, errorMessage } from "../renderers/pngtuber/PngtuberSetupPanel";
+import {
+  TALKING_HEAD_FACE_KEYS,
+  missingTalkingHeadFaces,
+  withGeneratedFaces,
+  type SavedTalkingHeadFace,
+} from "../renderers/pngtuber/pngtuber-layers";
 import { MeshAvatarSection, type ConnectionOption } from "./MeshAvatarSection";
 import { PngtuberVariantsSection } from "./PngtuberVariantsSection";
 import { avatarSourceSprites } from "./SpritePicker";
@@ -49,9 +52,6 @@ type ConnectionRow = ConnectionOption & { defaultForAgents?: boolean | string };
 const SpriteGenerationModal = lazy(() =>
   import("../../../components/ui/SpriteGenerationModal").then((m) => ({ default: m.SpriteGenerationModal })),
 );
-
-/** The six main faces first, so a run cut short already has every face the others fall back to. */
-const TALKING_HEAD_FACES = [...AVATAR_EMOTIONS, ...AVATAR_EXTRA_FEELINGS];
 
 function cardRecord(value: unknown): Record<string, unknown> {
   if (typeof value === "string") {
@@ -102,7 +102,8 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
   const { save } = useAvatarModelActions(owner, onChanged);
   const character = useCharacter(owner.ownerType === "character" ? owner.ownerId : null);
   const persona = usePersona(owner.ownerType === "persona" ? owner.ownerId : null);
-  const [facesOpen, setFacesOpen] = useState(false);
+  /** How the face maker opened: with its first faces chosen, or the missing ones. */
+  const [facesOpen, setFacesOpen] = useState<"first" | "missing" | null>(null);
   const [chosenImageConnectionId, setChosenImageConnectionId] = useState<string | null>(null);
   const [reviewItems, setReviewItems] = useState<ImagePromptReviewItem[]>([]);
   const reviewResolveRef = useRef<((overrides: ImagePromptOverride[] | null) => void) | null>(null);
@@ -113,6 +114,18 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
     () => (spriteList ?? []).filter((sprite) => !sprite.expression.toLowerCase().startsWith("full_")),
     [spriteList],
   );
+  // Worked out again from the saved sprites each time, so it is right after a run stops, fails or is reopened.
+  const missingFaces = useMemo(() => missingTalkingHeadFaces(spriteList ?? []), [spriteList]);
+  /** Some faces are saved and some aren't, as after a run that stopped early. */
+  const someFacesMissing = missingFaces.length > 0 && missingFaces.length < TALKING_HEAD_FACE_KEYS.length;
+  // Shown here and in the face maker. The names only once some are saved: with none, every face is missing.
+  const savedFacesStatus = spriteList
+    ? t(someFacesMissing ? "ui.spriteGeneration.batch.savedFacesMissing" : "ui.spriteGeneration.batch.savedFaces", {
+        saved: TALKING_HEAD_FACE_KEYS.length - missingFaces.length,
+        total: TALKING_HEAD_FACE_KEYS.length,
+        names: missingFaces.map((face) => t(TALKING_HEAD_FACE_LABEL_KEYS[face])).join(", "),
+      })
+    : null;
   const seed = useMemo(() => spriteGeneratorSeed(character.data, persona.data), [character.data, persona.data]);
   const characterSheetUrl = useCharacterSheetImageUrl(owner.ownerType, owner.ownerId, seed?.characterSheetImageId);
   const imageConnections = useMemo(
@@ -173,21 +186,34 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
 
       {unavailable ? null : (
         <div className="space-y-1.5">
-          <button
-            type="button"
-            // Opened once the card is loaded, so its avatar is the reference from the start.
-            disabled={!seed?.avatarUrl}
-            onClick={() => setFacesOpen(true)}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary)]/85 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Wand2 size="0.875rem" aria-hidden />
-            {t("avatars.generation.facesFromAvatar")}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              // Opened once the card is loaded, so its avatar is the reference from the start.
+              disabled={!seed?.avatarUrl}
+              onClick={() => setFacesOpen("first")}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-[var(--primary)] px-3 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-colors hover:bg-[var(--primary)]/85 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Wand2 size="0.875rem" aria-hidden />
+              {t("avatars.generation.facesFromAvatar")}
+            </button>
+            {someFacesMissing && (
+              <button
+                type="button"
+                disabled={!seed?.avatarUrl}
+                onClick={() => setFacesOpen("missing")}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-2 text-xs ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {t("avatars.generation.makeMissingFaces")}
+              </button>
+            )}
+          </div>
           <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
             {t(
               seed && !seed.avatarUrl ? "avatars.generation.facesNeedAvatar" : "avatars.generation.facesFromAvatarHelp",
             )}
           </p>
+          {savedFacesStatus && <p className="text-[0.6875rem] text-[var(--foreground)]">{savedFacesStatus}</p>}
         </div>
       )}
 
@@ -224,6 +250,8 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
             owner={owner}
             config={config}
             spriteList={spriteList ?? []}
+            missingFaces={missingFaces}
+            onMakeMissingFaces={seed?.avatarUrl ? () => setFacesOpen("missing") : undefined}
             imageConnectionId={imageConnectionId}
             reviewPrompts={reviewPrompts}
             onChanged={onChanged}
@@ -243,7 +271,7 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
         {facesOpen && seed?.avatarUrl ? (
           <SpriteGenerationModal
             open
-            onClose={() => setFacesOpen(false)}
+            onClose={() => setFacesOpen(null)}
             entityId={owner.ownerId}
             initialSpriteType="expressions"
             existingExpressionSprites={portraitSprites}
@@ -252,9 +280,12 @@ export function AvatarGenerationPanel({ owner, config, onChanged }: AvatarKindSe
             characterSheetUrl={characterSheetUrl}
             // The six main faces, chosen at first, and the 23 extra feelings that fall back to them, each with open
             // eyes and a closed mouth for its blink and talk pictures to change.
-            expressionChoices={TALKING_HEAD_FACES}
+            expressionChoices={TALKING_HEAD_FACE_KEYS}
             expressionGroups={AVATAR_FACE_GROUPS}
             talkingHeadFaces
+            missingFaces={missingFaces}
+            savedFacesStatus={savedFacesStatus ?? undefined}
+            initialExpressions={facesOpen === "missing" ? missingFaces : undefined}
             onSpritesGenerated={facesSaved}
           />
         ) : null}

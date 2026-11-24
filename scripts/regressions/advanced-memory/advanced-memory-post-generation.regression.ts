@@ -19,7 +19,8 @@ const { generateRoutes } = await import("../../../packages/server/src/routes/gen
 const { chatsRoutes } = await import("../../../packages/server/src/routes/chats.routes.js");
 const { createChatsStorage } = await import("../../../packages/server/src/services/storage/chats.storage.js");
 const { createAgentsStorage } = await import("../../../packages/server/src/services/storage/agents.storage.js");
-const { createConnectionsStorage } = await import("../../../packages/server/src/services/storage/connections.storage.js");
+const { createConnectionsStorage } =
+  await import("../../../packages/server/src/services/storage/connections.storage.js");
 const { createCharactersStorage } = await import("../../../packages/server/src/services/storage/characters.storage.js");
 const { createAdvancedMemoryService } = await import("../../../packages/server/src/services/advanced-memory.js");
 const { estimateTextTokens, measureContextBudget } =
@@ -2714,8 +2715,8 @@ try {
   }
   const narratorSlip = await canonView(powers.id);
   assert(narratorSlip.includes(mapSecret) && narratorSlip.includes(ledgerSecret), "the narrator reads both");
-  // When one set's part can't be shortened, nothing is saved, no smaller groups are tried, and the same summaries
-  // are not sent again on the next reply (#8820).
+  // When one set's part can't be shortened, that part keeps its text and the other set's shortened part is still
+  // saved (#9669); no smaller groups are tried, and each reader still reads only their own part (#8820).
   summaryReply = (prompt) =>
     (JSON.parse(prompt).at(-1).content as string).includes("HIDE_B")
       ? JSON.parse(prompt).at(-1).content
@@ -2723,9 +2724,21 @@ try {
   await chats.patchMetadata(canonChat.id, { summaryEntries: twoReaders });
   calls.length = 0;
   await memory.checkScenesAfterGeneration(canonChat.id, { blocking: false });
-  await memory.checkScenesAfterGeneration(canonChat.id, { blocking: false });
-  assert.equal(calls.length, 2, "one call per set, none for smaller groups, none on the next reply");
-  assert.deepEqual(JSON.parse((await chats.getById(canonChat.id))!.metadata).summaryEntries, twoReaders);
+  assert.equal(calls.length, 2, "one call per set, none for smaller groups");
+  const partialEntries = JSON.parse((await chats.getById(canonChat.id))!.metadata).summaryEntries as Array<{
+    enabled: boolean;
+    content: string;
+  }>;
+  const partialActive = partialEntries.filter((entry) => entry.enabled);
+  assert.equal(partialActive.length, 1, "the shortened set is saved in one combined summary");
+  assert(partialActive[0]!.content.includes(`${fill("I", 400)}${ledgerSecret}`), "the failed set keeps its text");
+  for (const [id, own, other] of [
+    [privateA.id, mapSecret, ledgerSecret],
+    [privateB.id, ledgerSecret, mapSecret],
+  ]) {
+    const view = await canonView(id!);
+    assert(view.includes(own!) && !view.includes(other!));
+  }
 
   // A summary only a character who left the chat reads is never rewritten for the narrator alone, so it is
   // still theirs when they come back; the narrator still reads it.

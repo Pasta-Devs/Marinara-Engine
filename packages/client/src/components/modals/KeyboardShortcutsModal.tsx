@@ -38,7 +38,7 @@ export function KeyboardShortcutsModal({ open, onClose }: { open: boolean; onClo
                       <dt className="min-w-0 text-xs text-[var(--foreground)]">
                         {t((overhaul && shortcut.overhaulLabelKey) || shortcut.labelKey)}
                         {shortcut.notWhileTypingOffApple && !apple
-                          ? ` ${t("shortcuts.notWhileTyping", "(not while typing in a box)")}`
+                          ? " " + t("shortcuts.notWhileTyping", "(not while typing in a box)")
                           : null}
                         {off ? " " : null}
                         {off ? <span>{t("shortcuts.offInSettings")}</span> : null}

@@ -23,6 +23,7 @@ import {
   Globe,
   ExternalLink,
   FileText,
+  ChevronRight,
   LayoutGrid,
   List,
   Plus,
@@ -52,6 +53,16 @@ import {
 } from "../../hooks/use-lorebooks";
 import { useLibraryOrder } from "../../hooks/use-library-order";
 import { useUpdateLibraryFolder } from "../../hooks/use-library-folders";
+import { LorebookSetEditor } from "../panels/library/LorebookSetsSection";
+import {
+  getNextUnnamedLibraryFolderName,
+  useCreateLibraryFolder,
+  useDeleteLibraryFolder,
+  useLibraryFolders,
+  type LibraryFolder,
+} from "../../hooks/use-library-folders";
+import { showConfirmDialog } from "../../lib/app-dialogs";
+import { onRovingTabsKeyDown } from "../../hooks/roving-tabs";
 import { duplicateLorebook } from "../../lib/lorebook-duplicate";
 import { api } from "../../lib/api-client";
 import { useDeletePreset, useDuplicatePreset, usePresets } from "../../hooks/use-presets";
@@ -238,8 +249,11 @@ function ListPage<T extends { id: string }>({
   gallery,
   empty,
   kit,
+  titleSlot,
 }: {
   title: string;
+  /** Takes the title's place, such as Lorebooks' Books / Sets tabs. */
+  titleSlot?: ReactNode;
   actions: ReactNode;
   searchPlaceholder: string;
   search: string;
@@ -380,7 +394,7 @@ function ListPage<T extends { id: string }>({
   return (
     <section className="ov-list" data-component="OverhaulLibraryList">
       <header className="ov-gallery__head">
-        <h1 data-mari-part="page-title">{title}</h1>
+        {titleSlot ?? <h1 data-mari-part="page-title">{title}</h1>}
         {kit?.folders ? (
           <KitNewFolderButton
             folders={kit.folders}
@@ -699,7 +713,161 @@ const LOREBOOK_CATEGORY_LABEL: Record<string, string> = {
   uncategorized: "Uncategorized",
 };
 
+type LorebooksTab = "books" | "sets";
+
+/**
+ * Library > Lorebooks has two tabs on its title line, like Assets: the lorebooks themselves and saved
+ * lorebook sets (named lists New Roleplay and agents can pick in one go). Sets get a page, not a window.
+ */
 export function LorebooksLanding() {
+  const [tab, setTab] = useState<LorebooksTab>("books");
+  return tab === "sets" ? <LorebookSetsPage onTab={setTab} /> : <LorebookBooksPage onTab={setTab} />;
+}
+
+function LorebooksTitle({ tab, onTab }: { tab: LorebooksTab; onTab: (tab: LorebooksTab) => void }) {
+  const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
+  const mobile = useOverhaulMobile();
+  const title = <h1 data-mari-part="page-title">{localize("Lorebooks")}</h1>;
+  const tabs = (
+    <div
+      className="ov-seg ov-assets__tabs"
+      role="tablist"
+      aria-label={localize("Lorebooks")}
+      data-component="LorebooksTabs"
+      onKeyDown={(event) => onRovingTabsKeyDown(event)}
+    >
+      {(["books", "sets"] as const).map((each) => (
+        <button
+          key={each}
+          type="button"
+          role="tab"
+          aria-selected={each === tab}
+          tabIndex={each === tab ? 0 : -1}
+          className={cn(each === tab && "is-on")}
+          onClick={() => onTab(each)}
+        >
+          {localizeUi(each === "books" ? "lorebook.sets.tabBooks" : "lorebook.sets.tabSets")}
+        </button>
+      ))}
+    </div>
+  );
+  if (mobile)
+    return (
+      <>
+        {title}
+        {tabs}
+      </>
+    );
+  return (
+    <div className="ov-assets__title">
+      {title}
+      {tabs}
+    </div>
+  );
+}
+
+/** Lorebook sets as a dense table; a row opens its name and lorebooks right under it. */
+function LorebookSetsPage({ onTab }: { onTab: (tab: LorebooksTab) => void }) {
+  const { t: localizeUi } = useUiTranslation();
+  const localize = useLocalizedUiText();
+  const { data: sets = [] } = useLibraryFolders("lorebook-sets");
+  const createSet = useCreateLibraryFolder("lorebook-sets");
+  const deleteSet = useDeleteLibraryFolder("lorebook-sets");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const create = () =>
+    createSet.mutate({ name: getNextUnnamedLibraryFolderName(sets) }, { onSuccess: (set) => setOpenId(set.id) });
+  const remove = async (set: LibraryFolder) => {
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("lorebook.sets.deleteTitle"),
+      message: localizeUi("lorebook.sets.deleteMessage", { name: set.name }),
+      confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+    deleteSet.mutate(set.id);
+    if (openId === set.id) setOpenId(null);
+  };
+  return (
+    <section className="ov-list" data-component="OverhaulLorebookSets">
+      <header className="ov-gallery__head">
+        <LorebooksTitle tab="sets" onTab={onTab} />
+        <NewButton label={localizeUi("lorebook.sets.create")} onClick={create} />
+      </header>
+      {sets.length === 0 ? (
+        <p className="ov-lbsets__empty">{localizeUi("lorebook.sets.empty")}</p>
+      ) : (
+        <div className="ov-table-wrap">
+          <table className="ov-table ov-lbsets">
+            <thead>
+              <tr>
+                <th>{localizeUi("lorebook.sets.name")}</th>
+                <th>{localize("Lorebooks")}</th>
+                <th className="ov-table__more" aria-hidden="true" />
+              </tr>
+            </thead>
+            <tbody>
+              {sets.map((set) => {
+                const open = openId === set.id;
+                const toggle = () => setOpenId(open ? null : set.id);
+                return (
+                  <Fragment key={set.id}>
+                    <tr
+                      tabIndex={0}
+                      aria-expanded={open}
+                      className={cn(open && "is-selected")}
+                      onClick={toggle}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") toggle();
+                      }}
+                    >
+                      <td className="ov-table__name">
+                        <span className="ov-lbsets__name">
+                          <ChevronRight size={14} aria-hidden="true" className={cn(open && "is-open")} />
+                          <span className="ov-table__clip">{set.name}</span>
+                        </span>
+                      </td>
+                      <td>{localizeUi("lorebook.sets.lorebookCount", { count: set.itemIds.length })}</td>
+                      <td className="ov-table__more">
+                        <button
+                          type="button"
+                          className="ov-icon-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void remove(set);
+                          }}
+                          title={localizeUi("lorebook.sets.delete")}
+                          aria-label={localizeUi("lorebook.sets.deleteNamed", { name: set.name })}
+                        >
+                          <Trash2 size={14} aria-hidden="true" />
+                        </button>
+                      </td>
+                    </tr>
+                    {open ? (
+                      <tr className="ov-lbsets__detail">
+                        <td colSpan={3}>
+                          <LorebookSetEditor set={set} />
+                          <div className="ov-lbsets__foot">
+                            <button type="button" className="ov-btn ov-btn--danger" onClick={() => void remove(set)}>
+                              <Trash2 size={14} aria-hidden="true" />
+                              {localizeUi("lorebook.sets.delete")}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function LorebookBooksPage({ onTab }: { onTab: (tab: LorebooksTab) => void }) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
   const { data } = useLorebooks();
@@ -825,6 +993,7 @@ export function LorebooksLanding() {
   return (
     <ListPage
       title={localize("Lorebooks")}
+      titleSlot={<LorebooksTitle tab="books" onTab={onTab} />}
       actions={
         <>
           <button

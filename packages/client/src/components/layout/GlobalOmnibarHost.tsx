@@ -14,7 +14,7 @@ import {
 import { openProfessorMariChatPage } from "../../lib/state-navigation";
 import { askMariKeyStaysInField, isShortcutsHelpKey, takesLetterKeys } from "../../lib/keyboard-shortcuts";
 import { captureMariFieldDraft } from "../../hooks/use-mari-editor-fields";
-import { isModalOverlayOpen } from "../../lib/modal-overlay-registry";
+import { isModalOverlayOpen } from "../../lib/layer-stack";
 import { parseOmnibarScope } from "../../lib/omnibar-scope";
 import {
   consumeProfessorMariOpenRequest,

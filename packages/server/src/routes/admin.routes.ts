@@ -41,6 +41,7 @@ import {
 } from "../services/image/avatar-file-lifecycle.js";
 import { removeAvatarOwnersOfType } from "../services/avatars/storage.js";
 import { TRIPO_API_KEY_SETTING } from "../services/avatars/generation/tripo-key.js";
+import { LOREBOOK_ITEM_SCOPES } from "../services/storage/library-folders.storage.js";
 
 type ExpungeScope =
   "chats" | "characters" | "personas" | "lorebooks" | "presets" | "connections" | "automation" | "media";
@@ -407,7 +408,10 @@ export async function adminRoutes(app: FastifyInstance) {
       await runDelete("lorebook_entries", () => db.delete(schema.lorebookEntries).run());
       await runDelete("lorebooks", () => db.delete(schema.lorebooks).run());
       await runDelete("library_folders:lorebooks", () =>
-        db.delete(schema.libraryFolders).where(eq(schema.libraryFolders.scope, "lorebooks")).run(),
+        db
+          .delete(schema.libraryFolders)
+          .where(inArray(schema.libraryFolders.scope, [...LOREBOOK_ITEM_SCOPES]))
+          .run(),
       );
       await checkpoint();
     }

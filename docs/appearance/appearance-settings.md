@@ -88,6 +88,7 @@ In the classic layout, these sections sit in the **Appearance** tab behind four 
 
 - **Dynamic weather effects (rain, snow, fog, etc.)** is on by default. It shows weather based on the story's weather and time of day, and needs the **World State** agent on for the chat. See [Agents: AI Helpers for Your Chats](../agents/agents-overview.md).
 - **Reduce Ambient Animations & Effects** stops decorative animation, particles, rotating previews and gradual text reveal.
+- **Show Dice Rolls as Text** (off by default) shows each dice roll as a short line of text with the dice, their results and the total, instead of animated dice. Rolls still happen, and the model and the game still get their results. It applies in every chat mode, including the dice inside skill checks.
 - **Reduced paint effects** flattens costly see-through panels and shadows, so slower devices stay smooth.
 
 ## Backgrounds

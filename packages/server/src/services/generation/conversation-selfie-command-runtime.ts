@@ -49,6 +49,8 @@ import {
 } from "./illustrator-prompt-runtime.js";
 import { resolveImageConnectionFallback } from "./media-connection-fallback.js";
 import { resolveBaseUrl } from "./connection-base-url.js";
+import { readLorebookReferenceImages, type LorebookImageEntry } from "./lorebook-image-prompt.js";
+import { imageConnectionTakesEntryPictures } from "../image/writer-reference-pictures.js";
 
 type CharactersStore = {
   getById(id: string, chatId?: string): Promise<{ id: string; data: unknown; avatarPath?: string | null } | null>;
@@ -135,6 +137,8 @@ export async function handleConversationSelfieCommand(args: {
   /** A reviewed prompt: it replaces the written one and is sent as is. */
   promptOverride?: string | null;
   negativePromptOverride?: string | null;
+  /** The reply's activated lorebook entries with pictures; only a character's own [selfie] has them. */
+  lorebookImageEntries?: readonly LorebookImageEntry[];
 }): Promise<boolean> {
   if (args.command.type !== "selfie") return false;
   const command = args.command as SelfieCommand;
@@ -376,6 +380,17 @@ async function generateSelfie(
       logger.debug("[selfie] Sending character reference for: %s", referenceResolution.referenceNames.join(", "));
     }
   }
+  // Activated entries' pictures fill what the cap leaves, when the connection takes them (#9698). The picture
+  // check below still compares against the character reference only.
+  const lorebookReferences = imageConnectionTakesEntryPictures(imgConnFull)
+    ? await readLorebookReferenceImages(args.lorebookImageEntries, 6 - (selfieReferenceImages?.length ?? 0))
+    : null;
+  let selfieRequestReferenceImages = selfieReferenceImages;
+  if (lorebookReferences?.referenceLine) {
+    selfieRequestReferenceImages = [...(selfieReferenceImages ?? []), ...lorebookReferences.images];
+    if (!suppressReferencePromptLine) finalSelfiePrompt += `\n\n${lorebookReferences.referenceLine}`;
+    logger.debug("[selfie] Sending lorebook reference(s) for: %s", lorebookReferences.labels.join("; "));
+  }
 
   const galleryStore = createGalleryStorage(args.db);
   const imgModel = imgConnFull.model || "";
@@ -420,7 +435,7 @@ async function generateSelfie(
       comfyWorkflow: imgConnFull.comfyuiWorkflow || undefined,
       imageDefaults,
       quality: resolveConnectionImageQuality(imgConnFull),
-      referenceImages: selfieReferenceImages,
+      referenceImages: selfieRequestReferenceImages,
       signal: args.signal,
       fallback: imageFallback,
       onFallback: reportFallback,
@@ -489,6 +504,7 @@ async function generateSelfie(
         connectionId: imageResult.effectiveConnection?.connectionId ?? imgConnFull.id,
         negativePrompt: selfieSubmission.negativePrompt,
         referenceCharacterIds: selfieReferenceCharacterIds,
+        lorebookImagePaths: lorebookReferences?.paths,
         seed: imageResult.seed,
       }),
     });
@@ -496,6 +512,7 @@ async function generateSelfie(
       enabled: imageSettings.autoSaveToGalleries,
       sourceFilePath: filePath,
       sourceChatImageId: galleryEntry?.id,
+      generation: galleryEntry?.generation,
       characterIds: selfieResolvedCharacterIds,
       characterGallery: createCharacterGalleryStorage(args.db),
       personaGallery: createPersonaGalleryStorage(args.db),

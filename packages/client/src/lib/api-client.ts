@@ -373,6 +373,12 @@ async function saveDownload(
 }
 
 export const api = {
+  /** Read local media through the same authentication and error boundary as API calls. */
+  blob: async (path: string): Promise<Blob> => {
+    const response = await apiFetch(path);
+    if (!response.ok) throw new ApiError(response.status, `HTTP ${response.status}`);
+    return response.blob();
+  },
   /** Return the raw response while still applying shared auth, CSRF, and cache policy. */
   raw: (path: string, init?: RequestInit) => apiFetch(path, init),
 

@@ -553,8 +553,10 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
     "fieldLocks",
   ],
   game_checkpoints: ["snapshotData", "spatialSnapshotData"],
-  // chat_images, character_images, assets, and custom_themes
-  // have no JSON columns; their former entries named columns that do not exist.
+  chat_images: ["generation"],
+  character_images: ["generation"],
+  persona_images: ["generation"],
+  // Assets and custom themes have no JSON columns.
   game_engine_state: ["state"],
   regex_scripts: ["trimStrings", "placement", "targetCharacterIds", "targetPromptPresetIds"],
 };
@@ -10281,23 +10283,25 @@ export class MariDbService {
   // #7977: a deleted preset, lorebook, regex or function left its id in a library folder's itemIds. The HTTP routes
   // prune it with removeItemReferences; here the prune joins the plan, so Restore puts it back too.
   private async addLibraryFolderPrunes(changes: PlanChange[]) {
-    const folderScopes: Record<string, string> = {
-      prompt_presets: "presets",
+    // Each folder scope and the table whose ids it holds; saved lorebook sets hold lorebook ids too.
+    const scopeTables: Record<string, string> = {
+      presets: "prompt_presets",
       lorebooks: "lorebooks",
-      regex_scripts: "regex",
-      custom_tools: "functions",
+      "lorebook-sets": "lorebooks",
+      regex: "regex_scripts",
+      functions: "custom_tools",
     };
+    const folderTables = new Set(Object.values(scopeTables));
     const removing = new Map<string, Set<string>>();
     for (const change of changes) {
-      const scope = folderScopes[change.table];
-      if (!scope || change.action !== "delete" || !change.apply) continue;
-      removing.set(scope, (removing.get(scope) ?? new Set()).add(change.id));
+      if (!folderTables.has(change.table) || change.action !== "delete" || !change.apply) continue;
+      removing.set(change.table, (removing.get(change.table) ?? new Set()).add(change.id));
     }
     if (removing.size === 0) return;
     const folderMeta = getMeta("library_folders");
     const timestamp = now();
     for (const folder of await this.rawRows(folderMeta.name)) {
-      const removedIds = removing.get(String(folder.scope));
+      const removedIds = removing.get(scopeTables[String(folder.scope)] ?? "");
       if (!removedIds) continue;
       const parsed = parseRow(folderMeta.name, folder);
       const itemIds = parseJsonArray(parsed.itemIds).map(String);

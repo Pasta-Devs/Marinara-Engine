@@ -46,6 +46,9 @@ import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
 import { Modal } from "../ui/Modal";
 import { RulesetImportReviewModal } from "./RulesetImportReviewModal";
 
+/** File types, not words: the same in every language. */
+const AGENT_IMPORT_TYPES = " .json .zip .marinara";
+
 type NormalizedAgentImport = NonNullable<ReturnType<typeof normalizeAgentImportEntry>>;
 type PendingAgentImport = {
   agents: NormalizedAgentImport[];
@@ -554,7 +557,7 @@ export function useAgentImportFlow({ toasts = false }: { toasts?: boolean } = {}
             <Download size={16} aria-hidden="true" className="ov-imp__dropicon" />
             <span className="ov-imp__droptext">
               {localizeUi("agents.import.dropHere")}
-              <span className="ov-imp__types"> .json .zip .marinara</span>
+              <span className="ov-imp__types">{AGENT_IMPORT_TYPES}</span>
             </span>
             <button type="button" className="ov-btn" onClick={() => pickFromWindow("file")}>
               {localizeUi("agents.import.browseFiles")}

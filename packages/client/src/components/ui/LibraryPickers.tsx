@@ -5,13 +5,20 @@
 // like character rows show avatars.
 // ──────────────────────────────────────────────
 import { useMemo, type RefObject } from "react";
-import { BookOpen, FileText } from "lucide-react";
+import { BookOpen, FileText, Layers } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLibraryFolders } from "../../hooks/use-library-folders";
 import { resolvePresetArtwork } from "../../lib/preset-artwork";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { PICKER_ROW_ART, PickerField, PickerListField, PickerListWindow, type PickerListItem } from "./PickerField";
+import {
+  PICKER_ROW_ART,
+  PickerField,
+  PickerListField,
+  PickerListWindow,
+  PickerTileArt,
+  type PickerListItem,
+} from "./PickerField";
 
 export type LibraryPreset = { id: string; name: string; author?: string | null; imagePath?: string | null };
 export type LibraryLorebook = {
@@ -212,6 +219,66 @@ export function LorebookPickerWindow({
   );
 }
 
+// The saved lorebook sets (#9672), made in the Lorebooks panel. Picking one replaces the field's lorebooks with the
+// set's; the set is only read, so what the user then adds or removes here never changes it. The trigger names the
+// set while the field holds exactly its lorebooks. Hidden until there is a set.
+function LorebookSetPicker({
+  lorebooks,
+  selectedIds,
+  onApply,
+  triggerClassName,
+  disabled,
+}: {
+  lorebooks: readonly LibraryLorebook[];
+  selectedIds: readonly string[];
+  onApply: (ids: string[]) => void;
+  triggerClassName: string;
+  disabled?: boolean;
+}) {
+  const { t } = useTranslation();
+  const { data: sets } = useLibraryFolders("lorebook-sets");
+  const { items, setBooks, current } = useMemo(() => {
+    const available = new Set(lorebooks.map((book) => book.id));
+    const selected = new Set(selectedIds);
+    const setBooks = new Map<string, string[]>();
+    let current = "";
+    for (const set of sets ?? []) {
+      // A set can name a lorebook this field doesn't offer (hidden from the library, not loaded yet).
+      const ids = set.itemIds.filter((id) => available.has(id));
+      setBooks.set(set.id, ids);
+      const matches = ids.length > 0 && ids.length === selected.size && ids.every((id) => selected.has(id));
+      if (!current && matches) current = set.id;
+    }
+    const items = (sets ?? []).map((set) => ({
+      id: set.id,
+      label: set.name,
+      subtitle: t("lorebook.sets.lorebookCount", { count: setBooks.get(set.id)?.length ?? 0 }),
+      icon: <PickerTileArt type="lorebooks" icon={Layers} />,
+    }));
+    return { items, setBooks, current };
+  }, [lorebooks, selectedIds, sets, t]);
+
+  if (!sets?.length) return null;
+  return (
+    <div className="space-y-1">
+      <PickerField
+        value={current}
+        items={items}
+        ariaLabel={t("lorebook.sets.pick.label")}
+        missingLabel={t("lorebook.sets.pick.placeholder")}
+        triggerClassName={triggerClassName}
+        triggerData={{ "data-lorebook-set-trigger": "" }}
+        disabled={disabled}
+        onChange={(id) => onApply(setBooks.get(id) ?? [])}
+        searchLabel={t("lorebook.sets.pick.search")}
+        emptyLabel={t("lorebook.sets.empty")}
+        noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
+      />
+      <p className="text-[0.625rem] text-[var(--muted-foreground)]">{t("lorebook.sets.pick.hint")}</p>
+    </div>
+  );
+}
+
 // A several-lorebooks field (New Chat lorebook step, agents' fixed sources, the profile builder): a
 // trigger that opens the lorebook window, with the picked lorebooks listed under it, a remove button each.
 export function LorebookListField({
@@ -219,6 +286,7 @@ export function LorebookListField({
   selectedIds,
   onToggle,
   onAdd,
+  onApplySet,
   triggerClassName,
   ariaLabel,
   keepMissing,
@@ -228,6 +296,8 @@ export function LorebookListField({
   selectedIds: readonly string[];
   onToggle: (id: string) => void;
   onAdd: (ids: string[]) => void;
+  /** Offers the saved lorebook sets above the field; picking one replaces the selection with these ids. */
+  onApplySet?: (ids: string[]) => void;
   /** The field look of the surface it sits in. */
   triggerClassName: string;
   /** Names the trigger, when a visible label isn't tied to it. */
@@ -239,7 +309,7 @@ export function LorebookListField({
   const { t } = useTranslation();
   const { data: folders } = useLibraryFolders("lorebooks");
   const items = useLorebookItems(lorebooks);
-  return (
+  const field = (
     <PickerListField
       items={items}
       folders={folders}
@@ -259,5 +329,18 @@ export function LorebookListField({
       emptyLabel={t("ui.panels.lorebookspanel.noLorebooksYet")}
       noMatchesLabel={t("ui.lorebooks.linkedresourcepicker.noMatches")}
     />
+  );
+  if (!onApplySet) return field;
+  return (
+    <div className="space-y-2">
+      <LorebookSetPicker
+        lorebooks={lorebooks}
+        selectedIds={selectedIds}
+        onApply={onApplySet}
+        triggerClassName={triggerClassName}
+        disabled={disabled}
+      />
+      {field}
+    </div>
   );
 }

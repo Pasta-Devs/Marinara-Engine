@@ -2532,32 +2532,98 @@ export function handOverTrackerNpcsToCards(input: {
   };
 }
 
+function findMatchedTrackerCharacter(
+  character: Record<string, unknown>,
+  byKey: Map<string, Record<string, unknown>>,
+  byName: Map<string, Record<string, unknown>>,
+  nameCounts: Map<string, number>,
+): Record<string, unknown> | null {
+  const key = trackerCharacterKey(character);
+  if (key) {
+    const byId = byKey.get(key);
+    if (byId) return byId;
+  }
+  const name = trackerCharacterNameKey(character);
+  return name && nameCounts.get(name) === 1 ? (byName.get(name) ?? null) : null;
+}
+
+function buildTrackerCharacterLookup(characters: Array<Record<string, unknown>>) {
+  const byKey = new Map<string, Record<string, unknown>>();
+  const byName = new Map<string, Record<string, unknown>>();
+  const nameCounts = new Map<string, number>();
+  for (const character of characters) {
+    const key = trackerCharacterKey(character);
+    if (key) byKey.set(key, character);
+    const name = trackerCharacterNameKey(character);
+    if (name) nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
+    if (name) byName.set(name, character);
+  }
+  return (character: Record<string, unknown>) => findMatchedTrackerCharacter(character, byKey, byName, nameCounts);
+}
+
+const PORTRAIT_FRAMING_FIELDS = ["portraitFocusX", "portraitFocusY", "portraitZoom"] as const;
+
+function finitePortraitNumberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizedScenePortraitOrNull(row: Record<string, unknown> | null): string | null {
+  return row && isNpcTrackerAvatarPath(row.scenePortraitPath) ? row.scenePortraitPath.trim() : null;
+}
+
+/**
+ * Carries over concurrent `scenePortraitPath` and framing changes landed between the baseline read
+ * and the save after async avatar lookups (#9734).
+ */
+export function mergeLiveTrackerPortraitChanges(
+  characters: Array<Record<string, unknown>>,
+  initialBaseline: Array<Record<string, unknown>>,
+  liveBaseline: Array<Record<string, unknown>>,
+): void {
+  const findInitial = buildTrackerCharacterLookup(initialBaseline);
+  const findLive = buildTrackerCharacterLookup(liveBaseline);
+  for (const character of characters) {
+    const liveRow = findLive(character);
+    if (!liveRow) continue;
+    const preRow = findInitial(character);
+    const preScene = normalizedScenePortraitOrNull(preRow);
+    const liveScene = normalizedScenePortraitOrNull(liveRow);
+    const sceneChanged = liveScene !== preScene;
+    if (sceneChanged) {
+      if (liveScene) character.scenePortraitPath = liveScene;
+      else delete character.scenePortraitPath;
+    }
+    for (const field of PORTRAIT_FRAMING_FIELDS) {
+      const preVal = finitePortraitNumberOrNull(preRow?.[field]);
+      const liveVal = finitePortraitNumberOrNull(liveRow[field]);
+      if (sceneChanged || liveVal !== preVal) {
+        if (liveVal !== null) character[field] = liveVal;
+        else delete character[field];
+      }
+    }
+  }
+}
+
 export function preserveTrackerCharacterUiFields(
   nextCharacters: Array<Record<string, unknown>>,
   previousCharacters: Array<Record<string, unknown>>,
-): void {
-  const previousByKey = new Map<string, Record<string, unknown>>();
-  const previousByName = new Map<string, Record<string, unknown>>();
-  const previousNameCounts = new Map<string, number>();
-  for (const character of previousCharacters) {
-    const key = trackerCharacterKey(character);
-    if (key) previousByKey.set(key, character);
-    const name = trackerCharacterNameKey(character);
-    if (name) previousNameCounts.set(name, (previousNameCounts.get(name) ?? 0) + 1);
-    if (name) previousByName.set(name, character);
-  }
+  options: {
+    preserveScenePortrait?: boolean;
+    skipFramingFor?: ReadonlySet<Record<string, unknown>>;
+  } = {},
+): Set<Record<string, unknown>> {
+  const matchedCharacters = new Set<Record<string, unknown>>();
+  const findPrevious = buildTrackerCharacterLookup(previousCharacters);
 
   for (const character of nextCharacters) {
-    const key = trackerCharacterKey(character);
-    const name = trackerCharacterNameKey(character);
-    const previous =
-      (key ? previousByKey.get(key) : null) ??
-      (name && previousNameCounts.get(name) === 1 ? previousByName.get(name) : null);
+    const previous = findPrevious(character);
+    if (previous) matchedCharacters.add(character);
     const previousPortraitFocusX = previous?.portraitFocusX;
     const previousPortraitFocusY = previous?.portraitFocusY;
     const previousPortraitZoom = previous?.portraitZoom;
     const previousAvatarPath = previous?.avatarPath;
     const previousAvatarCrop = previous?.avatarCrop;
+    const previousScenePortraitPath = previous?.scenePortraitPath;
     const previousCustomFields = isPlainRecord(previous?.customFields) ? previous.customFields : null;
     const nextCustomFields = isPlainRecord(character.customFields) ? character.customFields : null;
     if (previousCustomFields) {
@@ -2572,31 +2638,41 @@ export function preserveTrackerCharacterUiFields(
     ) {
       character.avatarPath = previousAvatarPath.trim();
     }
+    if (
+      options.preserveScenePortrait &&
+      (typeof character.scenePortraitPath !== "string" || !character.scenePortraitPath.trim()) &&
+      isNpcTrackerAvatarPath(previousScenePortraitPath)
+    ) {
+      character.scenePortraitPath = previousScenePortraitPath.trim();
+    }
     if (!isTrackerAvatarCrop(character.avatarCrop) && isTrackerAvatarCrop(previousAvatarCrop)) {
       character.avatarCrop = previousAvatarCrop;
     }
-    if (
-      (typeof character.portraitFocusX !== "number" || !Number.isFinite(character.portraitFocusX)) &&
-      typeof previousPortraitFocusX === "number" &&
-      Number.isFinite(previousPortraitFocusX)
-    ) {
-      character.portraitFocusX = previousPortraitFocusX;
-    }
-    if (
-      (typeof character.portraitFocusY !== "number" || !Number.isFinite(character.portraitFocusY)) &&
-      typeof previousPortraitFocusY === "number" &&
-      Number.isFinite(previousPortraitFocusY)
-    ) {
-      character.portraitFocusY = previousPortraitFocusY;
-    }
-    if (
-      (typeof character.portraitZoom !== "number" || !Number.isFinite(character.portraitZoom)) &&
-      typeof previousPortraitZoom === "number" &&
-      Number.isFinite(previousPortraitZoom)
-    ) {
-      character.portraitZoom = previousPortraitZoom;
+    if (!options.skipFramingFor?.has(character)) {
+      if (
+        (typeof character.portraitFocusX !== "number" || !Number.isFinite(character.portraitFocusX)) &&
+        typeof previousPortraitFocusX === "number" &&
+        Number.isFinite(previousPortraitFocusX)
+      ) {
+        character.portraitFocusX = previousPortraitFocusX;
+      }
+      if (
+        (typeof character.portraitFocusY !== "number" || !Number.isFinite(character.portraitFocusY)) &&
+        typeof previousPortraitFocusY === "number" &&
+        Number.isFinite(previousPortraitFocusY)
+      ) {
+        character.portraitFocusY = previousPortraitFocusY;
+      }
+      if (
+        (typeof character.portraitZoom !== "number" || !Number.isFinite(character.portraitZoom)) &&
+        typeof previousPortraitZoom === "number" &&
+        Number.isFinite(previousPortraitZoom)
+      ) {
+        character.portraitZoom = previousPortraitZoom;
+      }
     }
   }
+  return matchedCharacters;
 }
 
 /** Parse game state JSON fields from a DB row. */
@@ -2635,6 +2711,49 @@ export function parseGameStateRow(row: Record<string, unknown>): GameState {
     rulesetLive: parseStoredRulesetLive(row.rulesetLive),
     rulesetClocks: parseStoredRulesetClocks(row.rulesetClocks),
     createdAt: row.createdAt as string,
+  };
+}
+
+/**
+ * The row a regenerated swipe's trackers merge onto: `base`, the state the reply began from and the
+ * trackers were shown, under the locks and hidden fields of the swipe it replaces, which keep their
+ * values there. Merging onto that swipe itself kept whatever its trackers had added, such as the NPCs
+ * each discarded telling brought in (#9697).
+ */
+export function regeneratedSwipeTrackerBase(
+  base: Record<string, unknown> | null,
+  replaced: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!replaced) return base;
+  const start = parseGameStateRow(base ?? {});
+  const replacedState = parseGameStateRow(replaced);
+  // A list or status the start row lacks starts empty, so the replaced swipe's locked rows still come over.
+  const emptyLists = Object.fromEntries(
+    Object.entries(replacedState.playerStats ?? {}).flatMap(([key, value]) =>
+      Array.isArray(value) ? [[key, []]] : [],
+    ),
+  );
+  const values = applyTrackerFieldLocksToGameStatePatch(
+    {
+      date: start.date ?? null,
+      time: start.time ?? null,
+      location: start.location ?? null,
+      weather: start.weather ?? null,
+      temperature: start.temperature ?? null,
+      worldCustomFields: start.worldCustomFields,
+      presentCharacters: start.presentCharacters,
+      personaStats: start.personaStats ?? (replacedState.personaStats ? [] : null),
+      playerStats: replacedState.playerStats ? { status: "", ...emptyLists, ...start.playerStats } : start.playerStats,
+    },
+    replacedState,
+    replacedState.fieldLocks,
+    { wholeState: true },
+  );
+  return {
+    ...base,
+    ...values,
+    fieldLocks: normalizeTrackerFieldLocksForState(replacedState.fieldLocks, replacedState),
+    hiddenTrackerFields: replacedState.hiddenTrackerFields,
   };
 }
 

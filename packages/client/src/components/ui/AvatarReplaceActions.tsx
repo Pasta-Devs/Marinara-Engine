@@ -1,4 +1,4 @@
-import { Download, Wand2 } from "lucide-react";
+import { Download, Paintbrush, Wand2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Spinner } from "./Spinner";
 
@@ -8,6 +8,9 @@ interface AvatarReplaceActionsProps {
   generationAvailable: boolean;
   onUpload: () => void;
   onGenerate: () => void;
+  onEdit?: () => void;
+  editing?: boolean;
+  onOpenGallery?: () => void;
   /** "cover" words the buttons for a lorebook picture instead of an avatar. */
   kind?: "avatar" | "cover";
 }
@@ -18,6 +21,9 @@ export function AvatarReplaceActions({
   generationAvailable,
   onUpload,
   onGenerate,
+  onEdit,
+  editing = false,
+  onOpenGallery,
   kind = "avatar",
 }: AvatarReplaceActionsProps) {
   const { t } = useTranslation();
@@ -39,6 +45,18 @@ export function AvatarReplaceActions({
           {t("editor.avatar.actions.help")}
         </p>
       </div>
+      {onOpenGallery && (
+        <p className="text-[0.6875rem] leading-5 text-[var(--muted-foreground)]">
+          {t("editor.avatar.gallery.hint")}{" "}
+          <button
+            type="button"
+            onClick={onOpenGallery}
+            className="inline-flex min-h-11 items-center rounded font-medium text-[var(--foreground)] underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          >
+            {t("editor.avatar.gallery.open")}
+          </button>
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-2 max-[360px]:grid-cols-1">
         <button
           type="button"
@@ -75,6 +93,17 @@ export function AvatarReplaceActions({
           <span>{t("editor.avatar.generate")}</span>
         </button>
       </div>
+      {hasAvatar && onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={uploading || editing}
+          className="mari-chrome-control mari-chrome-control--small flex min-h-11 w-full items-center justify-center gap-1.5 text-xs disabled:opacity-60"
+        >
+          {editing ? <Spinner size="sm" /> : <Paintbrush size="0.875rem" />}
+          {t("images.entity.editAvatar")}
+        </button>
+      )}
     </section>
   );
 }

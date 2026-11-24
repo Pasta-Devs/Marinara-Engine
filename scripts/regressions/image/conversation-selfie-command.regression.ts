@@ -3,7 +3,9 @@
 // - the chat's own image prompt connection writes the prompt;
 // - debug mode logs the prompt writer's system prompt;
 // - a group selfie, asked for in the request, describes every character and not the user's Persona, and is saved to
-//   every depicted character's gallery; an ordinary selfie only to the speaker's.
+//   every depicted character's gallery; an ordinary selfie only to the speaker's;
+// - an activated lorebook entry's picture goes only to an image connection that takes references, and never to one
+//   that would start the picture from it.
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
@@ -33,19 +35,29 @@ const { createCharactersStorage } = await import("../../../packages/server/src/s
 const { createCharacterGalleryStorage } =
   await import("../../../packages/server/src/services/storage/character-gallery.storage.js");
 const { characterDataSchema } = await import("../../../packages/shared/dist/index.js");
+const { saveLorebookImage } = await import("../../../packages/server/src/services/lorebook/lorebook-images.js");
 
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 // Which address each prompt-writer request reached, and every prompt sent to the image service.
 const writerUrls: string[] = [];
 const imagePrompts: string[] = [];
+// Reference pictures sent: init images to SD Web UI, edit inputs to xAI.
+const initImages: string[] = [];
 const provider = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.from(chunk));
   const body = JSON.parse(Buffer.concat(chunks).toString());
   response.setHeader("content-type", "application/json");
-  if (request.url?.endsWith("/images/generations")) {
+  if (request.url?.endsWith("/images/generations") || request.url?.endsWith("/images/edits")) {
     imagePrompts.push(String(body.prompt));
+    if (body.image?.url) initImages.push(String(body.image.url).split(",")[1]!);
     response.end(JSON.stringify({ data: [{ b64_json: png }] }));
+    return;
+  }
+  if (request.url?.includes("/sdapi/v1/")) {
+    imagePrompts.push(String(body.prompt));
+    initImages.push(...(body.init_images ?? []));
+    response.end(JSON.stringify({ images: [png] }));
     return;
   }
   writerUrls.push(request.url ?? "");
@@ -107,9 +119,11 @@ try {
     generationGuide?: string;
     chatMeta?: Record<string, unknown>;
     debugMode?: boolean;
+    lorebookImageEntries?: Parameters<typeof handleConversationSelfieCommand>[0]["lorebookImageEntries"];
   }) => {
     writerUrls.length = 0;
     imagePrompts.length = 0;
+    initImages.length = 0;
     const events: Array<Record<string, unknown>> = [];
     const handled = await handleConversationSelfieCommand({
       command: { type: "selfie" } as Parameters<typeof handleConversationSelfieCommand>[0]["command"],
@@ -131,6 +145,7 @@ try {
       chats,
       connections,
       sendEvent: (event) => events.push(event),
+      lorebookImageEntries: options.lorebookImageEntries,
     });
     assert.equal(handled, true);
     assert.equal(imagePrompts.length, 1, JSON.stringify(events));
@@ -168,6 +183,46 @@ try {
   });
   assert.equal(gallerySelfie.statusCode, 200, gallerySelfie.body);
   assert.deepEqual(writerUrls, ["/chat-writer/v1/chat/completions"]);
+
+  // #9698: an activated entry's picture reaches a connection that takes references, and only such a connection.
+  const coat = await saveLorebookImage(Buffer.from(png, "base64"));
+  const coatEntries = [
+    { id: "coat", name: "Red coat", content: "", position: 0, images: [{ ...coat, caption: "festival wear" }] },
+  ];
+  const textOnlyImage = await selfie({ lorebookImageEntries: coatEntries });
+  assert.doesNotMatch(textOnlyImage, /reference images for/u, "DALL-E 3 takes no references");
+  const a1111 = await connections.create({
+    name: "A1111 fixture",
+    provider: "image_generation",
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    model: "fixture",
+    imageService: "automatic1111",
+    imageGenerationSource: "automatic1111",
+    apiKey: "",
+  });
+  assert.ok(a1111);
+  const startPicture = await selfie({
+    chatMeta: { ...chatMeta, imageGenConnectionId: a1111.id },
+    lorebookImageEntries: coatEntries,
+  });
+  assert.deepEqual(initImages, [], "SD Web UI would draw over the entry's picture, so it gets none");
+  assert.doesNotMatch(startPicture, /reference images for/u);
+  const xai = await connections.create({
+    name: "xAI fixture",
+    provider: "image_generation",
+    baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    model: "grok-imagine-image",
+    imageService: "xai",
+    imageGenerationSource: "xai",
+    apiKey: "fixture",
+  });
+  assert.ok(xai);
+  const withReference = await selfie({
+    chatMeta: { ...chatMeta, imageGenConnectionId: xai.id },
+    lorebookImageEntries: coatEntries,
+  });
+  assert.deepEqual(initImages, [png], "the entry's picture is sent as the reference");
+  assert.match(withReference, /reference images for Red coat: festival wear\./u);
 
   // Debug mode logs the system prompt the prompt writer is given.
   const logged: string[] = [];

@@ -76,6 +76,7 @@ const card: CardFieldGenerationDraft = {
   publicFace: "Known as the masked scientist; preserve {{char}}.",
   mes_example: "Unsaved playful dialogue direction",
   first_mes: "The masked scientist welcomes {{user}} to his laboratory; preserve {{custom_trait}}.",
+  imageAppearance: "mskd_lora, 1boy, masked",
 };
 try {
   app.decorate("db", db);
@@ -104,6 +105,7 @@ try {
     { field: "summary" },
     { field: "summary", card, debugMode: "true" },
     { field: "first_mes", card: { ...card, first_mes: 5 } },
+    { field: "imageAppearance", card: { ...card, imageAppearance: 5 } },
   ]) {
     const response = await app.inject({ method: "POST", url: characterPath, payload });
     assert.equal(response.statusCode, 400, response.body);
@@ -130,7 +132,7 @@ try {
   const originalCharacter = (await characters.getById(character.id))!;
   const originalPersona = (await characters.getPersona(persona.id))!;
   for (const url of [characterPath, personaPath]) {
-    for (const field of url === characterPath ? CARD_FIELD_GENERATION_KEYS : CARD_FIELD_KEYS) {
+    for (const field of url === characterPath ? CARD_FIELD_GENERATION_KEYS : [...CARD_FIELD_KEYS, "imageAppearance"]) {
       response = await generate(url, field);
       assert.equal(response.statusCode, 200, `${url}/${field}: ${response.body}`);
       assert.equal(response.json().text, output);
@@ -146,6 +148,20 @@ try {
         assert.match(messages[0].content, /the card minus its private parts/);
         assert.match(messages[0].content, /Leave out secrets/);
         assert.match(messages[0].content, /Use only facts the draft states/);
+      } else if (field === "imageAppearance") {
+        // #9640: tags drawn from the draft, no word range, the author's own tags kept.
+        assert.equal(request.max_tokens, 2048);
+        assert.doesNotMatch(messages[0].content, /100 and 300 words/);
+        assert.doesNotMatch(messages[0].content, /language of the author's draft/, "Danbooru tags stay English");
+        assert.match(messages[0].content, /only the image tags for the Appearance of a (character|persona) card/);
+        assert.match(messages[0].content, /1girl, 1boy, or 1other/);
+        assert.match(messages[0].content, /never guess or add traits the draft does not state/);
+        assert.match(
+          messages[0].content,
+          /LoRA trigger words .* exactly as written and at the start of the line, before the count tag/,
+        );
+        assert.match(messages[0].content, /With no kept tags, the count tag starts the line/);
+        assert.match(messages[0].content, /Leave out clothing/);
       } else {
         assert.equal(request.max_tokens, 2048);
         assert.match(messages[0].content, /between 100 and 300 words/);
@@ -168,7 +184,7 @@ try {
       }
     }
   }
-  const { first_mes: _greeting, publicFace: _publicFace, ...legacyCard } = card;
+  const { first_mes: _greeting, publicFace: _publicFace, imageAppearance: _tags, ...legacyCard } = card;
   response = await app.inject({
     method: "POST",
     url: characterPath,
@@ -206,6 +222,18 @@ try {
     assert.match(response.json().error, /original field was kept/);
     assert.equal(requests.length, countBefore + 1, "invalid-length output does not trigger another paid attempt");
   }
+  // #9640: image tags have no word range, and a reply split over lines becomes one tag line.
+  output = "mskd_lora, 1boy,\n  masked, grey hair\n\nstreaked hair,";
+  response = await generate(personaPath, "imageAppearance");
+  assert.equal(response.statusCode, 200, response.body);
+  assert.equal(response.json().text, "mskd_lora, 1boy, masked, grey hair, streaked hair");
+  output = "";
+  response = await generate(characterPath, "imageAppearance");
+  assert.equal(response.statusCode, 502, "empty tags still fail and keep the field");
+  output = ", ,\n,";
+  response = await generate(characterPath, "imageAppearance");
+  assert.equal(response.statusCode, 502, "a reply of only commas fails instead of clearing the tags");
+  assert.match(response.json().error, /returned no text/);
   // Public Face follows the card's length, so short and long results are both kept. Empty still fails.
   for (const words of [30, 500]) {
     output = "word ".repeat(words).trim();

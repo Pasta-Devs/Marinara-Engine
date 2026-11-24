@@ -14,7 +14,7 @@ export function CardFieldWand({
   onGenerate: () => void;
   disabled: boolean;
   loading: boolean;
-  /** The field it writes. Public Face has its own tooltip: it has no word range. */
+  /** The field it writes. Public Face and the image tags have their own tooltips: no word range. */
   field?: CardFieldGenerationKey;
 }) {
   const { t } = useTranslation();
@@ -28,7 +28,9 @@ export function CardFieldWand({
       title={
         field === "publicFace"
           ? t("ui.cardFields.publicFace.generateTooltip")
-          : t("ui.cardFields.generateTooltip", { field: label })
+          : field === "imageAppearance"
+            ? t("ui.cardFields.imageTags.generateTooltip")
+            : t("ui.cardFields.generateTooltip", { field: label })
       }
       className="mari-editor-action inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
     >

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
 import { skillCheckDiceSumToTotal, skillCheckSymbolText, type DiceRollResult } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { useUIStore } from "../../stores/ui.store";
 import { DiceGlyph, type DiceGlyphPhase, type DiceGlyphSize } from "./DiceGlyph";
 import { getFaceLabel } from "./dice-shapes";
 import { parseDiceSides, TONE_ACCENT, type Tone } from "./dice-tone";
@@ -59,6 +60,17 @@ export function shouldAnimateDiceRollMessage(createdAt: string | null | undefine
   return Date.now() - createdMs < 10_000;
 }
 
+/** Whether a card throws its dice on this run of its effect, given the run before it. A new roll is
+ *  thrown when animation is on. A roll that already lay still stays still when animation comes back
+ *  on, as when Show Dice Rolls as Text is turned off. */
+export function diceThrowStarts(
+  previous: { rollKey: string; shouldAnimate: boolean } | null,
+  rollKey: string,
+  shouldAnimate: boolean,
+): boolean {
+  return shouldAnimate && !(previous?.rollKey === rollKey && !previous.shouldAnimate);
+}
+
 export function AnimatedDiceRoll({
   notation,
   rolls,
@@ -88,16 +100,22 @@ export function AnimatedDiceRoll({
   const { t: localizeUi } = useUiTranslation();
   const sides = parseDiceSides(notation);
   const reducedMotion = useReducedMotion();
-  const shouldAnimate = animate && !reducedMotion;
+  // Settings → Appearance → App can show the roll as one short line of text: the same header and
+  // result as the card, without the dice or their animation.
+  const asText = useUIStore((state) => state.diceRollsAsText);
+  const shouldAnimate = animate && !reducedMotion && !asText;
   const rollKey = `${notation}:${rolls.join(",")}:${modifier}:${total}`;
   const isHero = rolls.length === 1 && hero !== false;
   const isLargePool = rolls.length >= 10;
   const glyphSize: DiceGlyphSize = isHero ? "hero" : isLargePool || mode === "compact" ? "compact" : "standard";
   const [phase, setPhase] = useState<DiceGlyphPhase>(shouldAnimate ? "cast" : "settled");
   const [displayValues, setDisplayValues] = useState(rolls);
+  const lastRun = useRef<{ rollKey: string; shouldAnimate: boolean } | null>(null);
 
   useEffect(() => {
-    if (!shouldAnimate) {
+    const throws = diceThrowStarts(lastRun.current, rollKey, shouldAnimate);
+    lastRun.current = { rollKey, shouldAnimate };
+    if (!throws) {
       setDisplayValues(rolls);
       setPhase("settled");
       return;
@@ -154,6 +172,26 @@ export function AnimatedDiceRoll({
   const totalVisible = phase === "impact" || phase === "settled";
   // A pool that reported the target it counted with marks the dice that reached it.
   const countedFrom = resolution === "successes" && threshold != null ? threshold : null;
+  // A symbol-pool ruleset's dice by name: each die reads as its symbols, not a number. They are words
+  // already, so a roll shown as text keeps them, smaller.
+  const symbolDice =
+    symbols && thrown && symbolFaces ? (
+      <div className={cn("flex flex-wrap", asText ? "gap-1" : "gap-2 py-2")}>
+        {symbolFaces.map((face, index) => (
+          <span
+            key={index}
+            className={cn(
+              "max-w-full break-words rounded border border-[var(--border)]",
+              asText ? "px-1.5 text-xs" : "px-2 py-1 text-sm",
+            )}
+          >
+            {thrown[index]} ({rolls[index]}):{" "}
+            {face.map((id) => symbolLabels?.[id] ?? id).join(", ") ||
+              localizeUi("ui.dice.animatedskillcheckresult.blankFace")}
+          </span>
+        ))}
+      </div>
+    ) : null;
 
   return (
     <div
@@ -161,8 +199,9 @@ export function AnimatedDiceRoll({
         "dice-roll-card",
         "dice-tray",
         `dice-roll-card--${mode}`,
-        isHero && "dice-tray--hero",
-        isLargePool && "dice-tray--pool",
+        asText && "dice-roll-card--text",
+        !asText && isHero && "dice-tray--hero",
+        !asText && isLargePool && "dice-tray--pool",
         shouldAnimate && "is-animated",
         phase === "settled" && "is-settled",
         phase === "impact" && "is-impacting",
@@ -186,58 +225,48 @@ export function AnimatedDiceRoll({
         </span>
       </div>
 
-      <div
-        className="dice-stage"
-        aria-label={localizeUi("ui.dice.animateddiceroll.rolledValue1Value2", { value1: notation, value2: rollText })}
-      >
-        {/* A symbol-pool ruleset's dice by name: each die reads as its symbols, not a number. */}
-        {symbols && thrown && symbolFaces ? (
-          <div className="flex flex-wrap gap-2 py-2">
-            {symbolFaces.map((face, index) => (
-              <span
-                key={index}
-                className="max-w-full break-words rounded border border-[var(--border)] px-2 py-1 text-sm"
-              >
-                {thrown[index]} ({rolls[index]}):{" "}
-                {face.map((id) => symbolLabels?.[id] ?? id).join(", ") ||
-                  localizeUi("ui.dice.animatedskillcheckresult.blankFace")}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        {!symbols &&
-          rolls.map((roll, index) => {
-            const shown = displayValues[index] ?? roll;
-            const emphasized =
-              emphasizedIndices !== undefined
-                ? emphasizedIndices.includes(index)
-                : countedFrom == null
-                  ? highlightValue == null || roll === highlightValue
-                  : compare === "below"
-                    ? roll < countedFrom
-                    : compare === "above"
-                      ? roll > countedFrom
-                      : roll >= countedFrom;
-            return (
-              <DiceGlyph
-                key={`${index}-${roll}`}
-                sides={sides}
-                value={shown}
-                faceText={faceText(shown)}
-                phase={phase}
-                size={glyphSize}
-                index={index}
-                emphasized={emphasized}
-                hero={isHero}
-              />
-            );
-          })}
-      </div>
+      {!asText && (
+        <div
+          className="dice-stage"
+          aria-label={localizeUi("ui.dice.animateddiceroll.rolledValue1Value2", { value1: notation, value2: rollText })}
+        >
+          {symbolDice}
+          {!symbols &&
+            rolls.map((roll, index) => {
+              const shown = displayValues[index] ?? roll;
+              const emphasized =
+                emphasizedIndices !== undefined
+                  ? emphasizedIndices.includes(index)
+                  : countedFrom == null
+                    ? highlightValue == null || roll === highlightValue
+                    : compare === "below"
+                      ? roll < countedFrom
+                      : compare === "above"
+                        ? roll > countedFrom
+                        : roll >= countedFrom;
+              return (
+                <DiceGlyph
+                  key={`${index}-${roll}`}
+                  sides={sides}
+                  value={shown}
+                  faceText={faceText(shown)}
+                  phase={phase}
+                  size={glyphSize}
+                  index={index}
+                  emphasized={emphasized}
+                  hero={isHero}
+                />
+              );
+            })}
+        </div>
+      )}
+      {asText && symbolDice}
 
       {/* Which dice counted is shown by dimming the ones that did not, which is a picture. The rule
-          behind it is said in words here so it reaches a screen reader too. */}
+          behind it is said in words here so it reaches a screen reader too. A roll shown as text has
+          no dimmed dice, so there the rule is on screen. */}
       {countedFrom != null && (
-        <span className="sr-only">
+        <span className={asText ? "dice-roll-breakdown" : "sr-only"}>
           {localizeUi(
             compare === "below"
               ? "ui.dice.animateddiceroll.countedBelow"
@@ -273,7 +302,16 @@ export function AnimatedDiceRoll({
               makes correct results look like broken arithmetic. */}
             {sumsToTotal ? (
               <>
-                {counted.map(worthOf).join(" + ")}
+                {/* The card dims the dice a pool dropped (`2d20kh1`). A roll shown as text has no dice to
+                    dim, so it lists them all and strikes out the dropped ones, as a roll message does. */}
+                {asText && kept
+                  ? rolls.map((face, index) => (
+                      <Fragment key={index}>
+                        {index > 0 && " + "}
+                        {kept.includes(index) ? worthOf(face) : <s>{worthOf(face)}</s>}
+                      </Fragment>
+                    ))
+                  : counted.map(worthOf).join(" + ")}
                 {modifierText && ` ${modifierText}`}
               </>
             ) : (

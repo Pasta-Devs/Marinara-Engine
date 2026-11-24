@@ -24,6 +24,10 @@ export const chatImages = fileTable("chat_images", {
   height: integer("height"),
   /** JSON ChatImageGenerationRecord: the request this image was rendered from, for regeneration. Null on older rows. */
   generation: text("generation"),
+  /** Stable version-stack identity; null on standalone and legacy pictures. */
+  variantGroupId: text("variant_group_id"),
+  /** One selected version per chat-scoped stack. */
+  variantSelected: integer("variant_selected").notNull().default(0),
   /** Gallery label: "emoji" | "sticker" | "background", or null. Carried over when the picture is assigned to a character or persona. */
   customKind: text("custom_kind"),
   /** Emoji/sticker slug, or a background's place names. */
@@ -42,6 +46,13 @@ export const characterImages = fileTable("character_images", {
   sourceChatImageId: text("source_chat_image_id"),
   /** File path relative to data/gallery/ */
   filePath: text("file_path").notNull(),
+  /** Owner-local stack and selection, independent of the source chat. */
+  variantGroupId: text("variant_group_id"),
+  variantSelected: integer("variant_selected").notNull().default(0),
+  /** Chat history reconciliation is independent of owner-local selection and editing. */
+  variantHistoryRecovered: integer("variant_history_recovered"),
+  /** Independent regeneration request; retained when the source chat is deleted. */
+  generation: text("generation"),
   /** Optional prompt or note associated with this image */
   prompt: text("prompt").notNull().default(""),
   /** Which provider/service generated this image */
@@ -70,6 +81,13 @@ export const personaImages = fileTable("persona_images", {
   sourceChatImageId: text("source_chat_image_id"),
   /** File path relative to data/gallery/ */
   filePath: text("file_path").notNull(),
+  /** Owner-local stack and selection, independent of the source chat. */
+  variantGroupId: text("variant_group_id"),
+  variantSelected: integer("variant_selected").notNull().default(0),
+  /** Chat history reconciliation is independent of owner-local selection and editing. */
+  variantHistoryRecovered: integer("variant_history_recovered"),
+  /** Independent regeneration request; retained when the source chat is deleted. */
+  generation: text("generation"),
   /** Optional prompt or note associated with this image */
   prompt: text("prompt").notNull().default(""),
   /** Which provider/service generated this image */

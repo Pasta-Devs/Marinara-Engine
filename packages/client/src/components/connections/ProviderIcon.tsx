@@ -119,6 +119,7 @@ const HINTS: Array<[RegExp, string]> = [
   [/infermatic/, "infermatic"],
   [/chutes/, "chutes"],
   [/arliai/, "arliai"],
+  [/horde/, "horde"],
   [/comfy/, "comfyui"],
   [/anthropic|claude/, "anthropic"],
   [/^openai$|openai\.com/, "openai"],

@@ -1,5 +1,5 @@
 import { Send, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Modal } from "./Modal";
 import { SHEET_BUTTON_PRIMARY, SHEET_BUTTON_QUIET } from "./neutral-surface-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -62,6 +62,10 @@ type ImagePromptReviewModalProps = {
   items: ImagePromptReviewItem[];
   isSubmitting?: boolean;
   mediaType?: "image" | "video";
+  /** Shown above the prompts, such as why the request failed before. */
+  notice?: ReactNode;
+  /** The confirm button's label; Generate when not given. */
+  confirmLabel?: string;
   onCancel: () => void;
   onConfirm: (overrides: ImagePromptOverride[]) => void;
 };
@@ -71,6 +75,8 @@ export function ImagePromptReviewModal({
   items,
   isSubmitting = false,
   mediaType = "image",
+  notice,
+  confirmLabel,
   onCancel,
   onConfirm,
 }: ImagePromptReviewModalProps) {
@@ -138,7 +144,7 @@ export function ImagePromptReviewModal({
             className={SHEET_BUTTON_PRIMARY}
           >
             {isSubmitting ? <Spinner size="sm" /> : <Send size="0.875rem" />}
-            {localizeUi("ui.characters.characterclipcard.generate")}
+            {confirmLabel ?? localizeUi("ui.characters.characterclipcard.generate")}
           </button>
           <button type="button" onClick={onCancel} disabled={isSubmitting} className={SHEET_BUTTON_QUIET}>
             <X size="0.875rem" />
@@ -148,6 +154,7 @@ export function ImagePromptReviewModal({
       }
     >
       <div className="flex flex-col gap-4">
+        {notice}
         <div className="text-xs leading-relaxed text-[var(--muted-foreground)]">
           {localizeUi("ui.ui.imagepromptreviewmodal.editThePrompt")}
           {items.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}{" "}
@@ -170,8 +177,9 @@ export function ImagePromptReviewModal({
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <div className="truncate text-xs font-semibold text-[var(--foreground)]">{item.title}</div>
-                      <div className="mt-0.5 text-[0.625rem] capitalize text-[var(--muted-foreground)]">
-                        {item.kind}
+                      <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                        {/* Only the kind is capitalized: the details carry account names and model IDs as written. */}
+                        <span className="capitalize">{item.kind}</span>
                         {itemDetails ? localizeUi("ui.ui.imagepromptreviewmodal.value1", { value1: itemDetails }) : ""}
                       </div>
                     </div>

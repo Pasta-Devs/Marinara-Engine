@@ -4,7 +4,9 @@ import { chooseConnection } from "./connection-picker.js";
 // and leaves the panel idle with only finished pictures, Try again shows the picture being redone, and a
 // sprite drawn on a flat background is used as it is: nothing is cut out of the blink picture or the saved
 // mesh avatar. An image connection that can't edit pictures draws a new face with its blink and talk
-// pictures in one sheet; they are offered, kept and saved together.
+// pictures in one sheet; they are offered, kept and saved together. After a run that stopped early, the
+// page names the faces not made, counts the blink and talk pictures waiting for them, and Missing faces
+// chooses only those faces in the face maker (#9653).
 import { expect, test, type Page } from "@playwright/test";
 import AdmZip from "adm-zip";
 import { readFileSync } from "node:fs";
@@ -434,6 +436,84 @@ test("An image connection that can't edit draws a new face with its blink and ta
     models.server.closeAllConnections();
     await new Promise<void>((resolve) => models.server.close(() => resolve()));
     if (connectionId) await request.delete(`/api/connections/${connectionId}`);
+    if (characterId) await request.delete(`/api/characters/${characterId}`);
+  }
+});
+
+test("After a run that stopped early, the missing faces are named and Missing faces chooses only them", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  let characterId = "";
+  try {
+    const character = await request.post("/api/characters", { data: { data: { name: "Missing faces fixture" } } });
+    expect(character.ok(), await character.text()).toBeTruthy();
+    characterId = ((await character.json()) as { id: string }).id;
+    const png = `data:image/png;base64,${(await bust()).toString("base64")}`;
+    const avatar = await request.post(`/api/characters/${characterId}/avatar`, {
+      data: { avatar: png, filename: "missing-faces.png" },
+    });
+    expect(avatar.ok(), await avatar.text()).toBeTruthy();
+    // 24 of the 29 faces, with blink and talk pictures for 20 of them.
+    const missing = ["love", "relief", "confusion", "fear", "realization"];
+    const made = [
+      ...["neutral", "happy", "angry", "sad", "relaxed", "surprised", "curiosity", "admiration", "amusement"],
+      ...["desire", "embarrassment", "excitement", "gratitude", "optimism", "pride", "annoyance", "disapproval"],
+      ...["disgust", "disappointment", "grief", "nervousness", "remorse", "approval", "caring"],
+    ];
+    for (const expression of [...made, ...made.slice(0, 20).flatMap((face) => [`${face}_blink`, `${face}_talk`])]) {
+      const sprite = await request.post(`/api/sprites/${characterId}`, { data: { expression, image: png } });
+      expect(sprite.ok(), await sprite.text()).toBeTruthy();
+    }
+
+    await page.route("**/api/app-settings/ui", (route) =>
+      route.fulfill({ json: route.request().method() === "GET" ? { value: null } : { success: true } }),
+    );
+    await seedUIState(page, { hasCompletedOnboarding: true, reviewImagePromptsBeforeSend: false });
+    await page.addInitScript(
+      (version) => localStorage.setItem("marinara:whats-new:seen-version", version),
+      APP_VERSION,
+    );
+    await page.goto("/");
+    const panel = await mountGenerationPanel(page, characterId);
+    await expect(
+      panel.getByText("Faces saved: 24 of 29. Missing: Love, Relief, Confusion, Fear, Realization."),
+    ).toBeVisible();
+    await expect(panel.locator("[data-talking-head-face]")).toHaveCount(24);
+    await expect(
+      panel.getByText("Pictures saved: 40 of 58. Still to make: 8. Waiting for a missing face: 10."),
+    ).toBeVisible();
+    await expect(panel.getByText("Not made yet: Love, Relief, Confusion, Fear, Realization.")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Make 8 pictures" })).toBeVisible();
+    await panel
+      .getByRole("listitem")
+      .last()
+      .screenshot({ path: testInfo.outputPath("waiting-faces.png") });
+
+    // The shortcut beside the waiting faces opens the face maker with only the missing ones chosen.
+    await panel.getByRole("listitem").getByRole("button", { name: "Make missing faces" }).click();
+    const maker = page.getByRole("dialog", { name: "Generate Sprites" });
+    await expect(
+      maker.getByText("Faces saved: 24 of 29. Missing: Love, Relief, Confusion, Fear, Realization."),
+    ).toBeVisible();
+    const chosen = async () => {
+      const faces: string[] = [];
+      for (const face of [...made, ...missing]) {
+        if ((await maker.getByRole("button", { name: face, exact: true }).getAttribute("aria-pressed")) === "true") {
+          faces.push(face);
+        }
+      }
+      return faces.sort();
+    };
+    expect(await chosen()).toEqual([...missing].sort());
+    await maker.getByRole("button", { name: "Missing faces", exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath("missing-faces.png"), animations: "disabled" });
+    await maker.getByRole("button", { name: "Main faces", exact: true }).click();
+    expect(await chosen()).toEqual(["angry", "happy", "neutral", "relaxed", "sad", "surprised"]);
+    await maker.getByRole("button", { name: "Missing faces", exact: true }).click();
+    expect(await chosen()).toEqual([...missing].sort());
+  } finally {
     if (characterId) await request.delete(`/api/characters/${characterId}`);
   }
 });

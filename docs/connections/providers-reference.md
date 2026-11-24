@@ -25,6 +25,8 @@ These services use an API key, except the three subscription services, which use
 | Arli AI | `www.arliai.com/account` |
 | Z.AI | `z.ai/manage-apikey/apikey-list` |
 | DeepSeek | `platform.deepseek.com/api_keys` |
+| AI Horde | `aihorde.net/register` (optional, see [AI Horde](#ai-horde)) |
+| BeaverNet | `net.beaverai.org/account` |
 | OpenAI-compatible, Claude (Subscription), OpenAI (ChatGPT), Grok CLI (Subscription) | No key page. See the notes below. |
 
 Default addresses, which Marinara fills in for you:
@@ -42,6 +44,8 @@ Default addresses, which Marinara fills in for you:
 - Arli AI: `https://api.arliai.com/v1`
 - Z.AI: `https://api.z.ai/api/paas/v4`
 - DeepSeek: `https://api.deepseek.com/v1`
+- AI Horde: `https://oai.aihorde.net/v1`
+- BeaverNet: `https://net.beaverai.org/v1`
 - OpenAI-compatible and the subscription services: none. You enter an address, or none is needed.
 
 All key pages start with `https://`.
@@ -134,7 +138,9 @@ The same meter shows under the context bar in a chat's connection picker and in 
 
 ### Z.AI
 
-**Z.AI** serves the GLM models (GLM 5.3, GLM 5.3 Flash, and earlier) on its own API. GLM 5.2 and 5.3 models accept the **Maximum** reasoning level. The default address is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint, so a Coding Plan key may not work here.
+**Z.AI** serves the GLM models (GLM 5.4, GLM 5.3, GLM 5.3 Flash, and earlier) on its own API. GLM 5.2, 5.3, and 5.4 models accept the **Maximum** reasoning level. The default address is the pay-as-you-go endpoint. Z.AI's Coding Plan uses a different endpoint, so a Coding Plan key may not work here.
+
+GLM 5.4 is only on the GLM Coding Plan. To use it, set the account's **Address** to `https://api.z.ai/api/coding/paas/v4`. GLM 5.4 always thinks, so its **Reasoning Effort** offers **Low**, **High**, and **Max**, with no **Off**.
 
 ### DeepSeek
 
@@ -143,6 +149,18 @@ The same meter shows under the context bar in a chat's connection picker and in 
 Some parameters do not apply, so the panel leaves them out: **Verbosity**, **Top K**, and the penalties are retired and ignored. **Temperature** and **Top P** are a pair, because DeepSeek uses one at a time. You see **Temperature** when thinking is off and **Top P** when it is on.
 
 Connect DeepSeek with its own tile, not by pointing **OpenAI** at DeepSeek's address. The OpenAI service expects OpenAI's models, so it hides the generation controls for a DeepSeek model and sends almost none of your settings.
+
+### AI Horde
+
+**AI Horde** is a free network where volunteers run models on their own computers. Its tile sets up an **OpenAI-compatible** account with AI Horde's address.
+
+The **API key** field starts with the anonymous key `0000000000`, which works without an account. Anonymous requests wait longest in the queue. A free key from `aihorde.net/register` waits less, and you earn kudos (Horde points that move your requests up the queue) when you share your own computer with the network.
+
+The model list shows the models that volunteers run at the moment, so it changes often. The queue decides how long a reply takes: a few seconds, or several minutes. If a reply times out, try another model, or raise the server's time limits (see [Timeouts](#timeouts)).
+
+### BeaverNet
+
+**BeaverNet** is a free community network: people with spare graphics cards run models, and everyone else uses them. Its tile sets up an **OpenAI-compatible** account with BeaverNet's address. Create a free key at `net.beaverai.org/account`.
 
 ### OpenAI-compatible
 

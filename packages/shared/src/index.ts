@@ -354,7 +354,9 @@ export * from "./utils/message-marks.js";
 export * from "./utils/game-tag-parser.js";
 export * from "./utils/game-widget-update.js";
 export * from "./utils/gallery-tags.js";
+export * from "./utils/chat-image-variants.js";
 export * from "./utils/gallery-descriptions.js";
 
 export * from "./utils/zod-input.js";
+export * from "./utils/image-edit.js";
 export * from "./schemas/sprite-catalog.js";

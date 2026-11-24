@@ -76,6 +76,16 @@ print("PASS a failed walkthrough's text is not carried")
 assert summary(render({"mode": "full", "change_summary": []}, heads[0])) == []
 assert module.NO_SUMMARY in render({"mode": "full", "change_summary": []}, heads[0])
 print("PASS an empty summary renders the placeholder and is not carried")
+
+# A head with no new diff carries the walkthrough only when that walkthrough examined the head the run diffed from.
+module.latest_walkthrough_comment = lambda pr: {"body": full}
+assert module.carried_walkthrough_for("8197", heads[0]) == full
+print("PASS a walkthrough of the reviewed head is carried")
+assert module.carried_walkthrough_for("8197", heads[1]) == ""
+print("PASS a walkthrough of an earlier head, passed since by another reviewer, is not carried")
+module.latest_walkthrough_comment = lambda pr: None
+assert module.carried_walkthrough_for("8197", heads[0]) == ""
+print("PASS no walkthrough carries nothing")
 `,
     reviewer,
   ],

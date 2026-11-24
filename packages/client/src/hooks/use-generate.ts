@@ -691,7 +691,7 @@ function createGenerationSubmissionId(): string {
 }
 import { useChatStore } from "../stores/chat.store";
 import { useAgentStore } from "../stores/agent.store";
-import { agentResultMatchesVisibleSwipe } from "../lib/agent-result-ownership";
+import { agentResultMatchesVisibleSwipe, shouldQueueAgentWriteApproval } from "../lib/agent-result-ownership";
 import { isDiceRollResult } from "../lib/dice-roll-result";
 import { useGameModeStore } from "../stores/game-mode.store";
 import { useGameStateStore } from "../stores/game-state.store";
@@ -4183,7 +4183,14 @@ export function useGenerate() {
                     result.resultType,
                   )
                 : null;
-              if (writeApproval && shouldApplyVisibleResult) {
+              if (
+                writeApproval &&
+                shouldQueueAgentWriteApproval({
+                  isActiveChat: isActiveChat(),
+                  ownsVisibleSwipe,
+                  backfill: options?.customLorebookBackfill === true || options?.lorebookKeeperBackfill === true,
+                })
+              ) {
                 enqueuePendingAgentWriteApproval(createPendingAgentWriteApproval(writeApproval));
                 useUIStore.getState().openModal("agent-write-approval");
               }

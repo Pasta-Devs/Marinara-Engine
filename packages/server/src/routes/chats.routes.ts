@@ -136,6 +136,7 @@ import { resolveChatImagePlan } from "../services/image/chat-image-plan.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { createConnectionAccountsStorage, pickLimits } from "../services/storage/connection-accounts.storage.js";
 import { applyChatModelOverride, readChatModelOverride } from "../services/generation/connection-resolution.js";
+import { copyChatImageVersionsForBranch } from "../services/image/chat-image-variants.js";
 import { notifyLongTermMemoryChatBranched } from "../services/generation/long-term-memory-runtime.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
@@ -5780,41 +5781,62 @@ export async function chatsRoutes(app: FastifyInstance) {
       return notFound(reply, "Cutoff message not found in source chat");
     }
 
-    // Ensure the source chat belongs to a group so branches are linked
-    let groupId = sourceChat.groupId as string | null;
-    if (!groupId) {
-      groupId = newId();
-      await storage.update(req.params.id, { groupId });
-    }
+    // Create group membership under the same source queue used by failed-copy cleanup.
+    const branch = await withChatMetadataPatchQueue(sourceChat.id, async () => {
+      const current = await storage.getById(sourceChat.id);
+      if (!current) return null;
+      const createdGroup = !current.groupId;
+      const groupId = current.groupId || newId();
+      if (createdGroup) await storage.update(sourceChat.id, { groupId });
 
-    // Create a new chat as a branch. Keep the main thread/chat name stable and
-    // store the per-branch display label in metadata instead.
-    const newChat = await storage.create({
-      name: sourceChat.name,
-      mode: sourceChat.mode as "conversation" | "roleplay" | "game",
-      characterIds: (() => {
-        try {
-          return JSON.parse(sourceChat.characterIds as string);
-        } catch {
-          return [];
-        }
-      })(),
-      groupId,
-      personaId: sourceChat.personaId,
-      personaCharacterId: sourceChat.personaCharacterId ?? null,
-      promptPresetId: sourceChat.promptPresetId,
-      connectionId: sourceChat.connectionId,
+      // Create a new chat as a branch. Keep the main thread/chat name stable and
+      // store the per-branch display label in metadata instead.
+      const newChat = await storage.create({
+        name: sourceChat.name,
+        mode: sourceChat.mode as "conversation" | "roleplay" | "game",
+        characterIds: (() => {
+          try {
+            return JSON.parse(sourceChat.characterIds as string);
+          } catch {
+            return [];
+          }
+        })(),
+        groupId,
+        personaId: sourceChat.personaId,
+        personaCharacterId: sourceChat.personaCharacterId ?? null,
+        promptPresetId: sourceChat.promptPresetId,
+        connectionId: sourceChat.connectionId,
+      });
+      return { groupId, createdGroup, newChat };
     });
-
-    if (!newChat) return reply.status(500).send({ error: "Failed to create branch" });
+    if (!branch?.newChat) return reply.status(500).send({ error: "Failed to create branch" });
+    const { groupId, createdGroup, newChat } = branch;
+    const cleanupIncompleteBranch = async () => {
+      try {
+        await storage.remove(newChat.id);
+      } catch (cleanupErr) {
+        logger.error(cleanupErr, "Failed to remove incomplete chat branch after copy failed");
+      }
+      if (createdGroup) {
+        try {
+          await withChatMetadataPatchQueue(sourceChat.id, async () => {
+            const current = await storage.getById(sourceChat.id);
+            const remainingGroupChats = await storage.listByGroup(groupId);
+            if (current?.groupId === groupId && remainingGroupChats.every((chat) => chat.id === sourceChat.id)) {
+              await storage.update(sourceChat.id, { groupId: null });
+            }
+          });
+        } catch (restoreErr) {
+          logger.error(restoreErr, "Failed to restore source chat grouping after branch copy failed");
+        }
+      }
+    };
     // A branched game plays in the same world: its snapshot comes with it (worldgen W11). A branch that
     // cannot take it is not left behind without its world.
     try {
       await createGameWorldSnapshotsStorage(app.db).copy(sourceChat.id, newChat.id);
     } catch (err) {
-      await storage.remove(newChat.id).catch((cleanup: unknown) => {
-        logger.error(cleanup, "Could not remove branch %s after its world snapshot failed", newChat.id);
-      });
+      await cleanupIncompleteBranch();
       throw err;
     }
 
@@ -5965,6 +5987,19 @@ export async function chatsRoutes(app: FastifyInstance) {
       copied.activeSwipeIndex = swipeIndexes.get(copied.activeSwipeIndex ?? 0) ?? 0;
       sourceToCopiedSwipeIndexes.set(copiedSourceMessages[index]!.id, swipeIndexes);
     });
+    try {
+      await copyChatImageVersionsForBranch(
+        app.db,
+        sourceChat.id,
+        newChat.id,
+        copiedMessageInputs
+          .flatMap((message) => [message.extra, ...(message.swipes ?? []).map((swipe) => swipe.extra)])
+          .filter((extra): extra is Record<string, unknown> => !!extra && typeof extra === "object"),
+      );
+    } catch (error) {
+      await cleanupIncompleteBranch();
+      throw error;
+    }
     const branchedMessageIds = await storage.createMessagesBatch(newChat.id, copiedMessageInputs);
     copiedSourceMessages.forEach((msg, index) => {
       const branchedId = branchedMessageIds[index];
@@ -6239,21 +6274,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       // was taken, handing the same ordinal to two rows in one counter space.
       await storage.raiseWriteOrdinalFloor(newChat.id, maxCopiedWriteOrdinal);
     } catch (err) {
-      try {
-        await storage.remove(newChat.id);
-      } catch (cleanupErr) {
-        logger.error(cleanupErr, "Failed to remove incomplete chat branch after state copy failed");
-      }
-      if (!sourceChat.groupId) {
-        try {
-          const remainingGroupChats = await storage.listByGroup(groupId);
-          if (remainingGroupChats.every((chat) => chat.id === sourceChat.id)) {
-            await storage.update(sourceChat.id, { groupId: null });
-          }
-        } catch (restoreErr) {
-          logger.error(restoreErr, "Failed to restore source chat grouping after branch copy failed");
-        }
-      }
+      await cleanupIncompleteBranch();
       throw err;
     }
 

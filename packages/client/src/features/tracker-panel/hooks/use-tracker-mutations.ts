@@ -107,6 +107,26 @@ function reconcileListUpdate<T extends { name?: string }>(liveItems: T[], render
   return updatedItems;
 }
 
+function withoutPortraitFraming(character: PresentCharacter): PresentCharacter {
+  const { portraitFocusX: _x, portraitFocusY: _y, portraitZoom: _z, ...rest } = character;
+  return rest;
+}
+
+type CardCharacterStatus = { status: "card"; characterId: string } | { status: "npc" | "pending" | "error" };
+type PortraitSnapshotTarget = { chatId: string; messageId: string; swipeIndex: number };
+
+function isCardLookupBlocked(status: CardCharacterStatus | undefined): boolean {
+  return status?.status === "pending" || status?.status === "error";
+}
+
+// Shared across hook instances so reverting in one tracker surface supersedes pending writes in another.
+let sharedPortraitActionSerial = 0;
+const sharedPortraitActionTokenByKey = new Map<string, number>();
+
+function portraitActionKey(chatId: string | null | undefined, characterId: string): string {
+  return `${chatId ?? ""}\u0000${characterId}`;
+}
+
 export function useTrackerMutations({
   activeChatId,
   customFields,
@@ -116,6 +136,7 @@ export function useTrackerMutations({
   patchField,
   patchPlayerStats,
   removeFeaturedCharacterCard,
+  resolveCardCharacterStatus,
 }: {
   activeChatId: string | null;
   customFields: CustomTrackerField[];
@@ -125,12 +146,11 @@ export function useTrackerMutations({
   patchField: (field: GameStatePatchField, value: unknown) => void;
   patchPlayerStats: (field: keyof PlayerStats, value: unknown) => void;
   removeFeaturedCharacterCard: (key: string) => void;
+  resolveCardCharacterStatus?: (character: PresentCharacter) => CardCharacterStatus;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [avatarUpload, setAvatarUpload] = useState<{ characterId: string; index: number } | null>(null);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
-  const avatarUploadSerialRef = useRef(0);
-  const avatarUploadTokenByCharacterRef = useRef(new Map<string, number>());
   const updateFieldLocks = useTrackerFieldLockUpdater({ chatId: activeChatId, patchField });
   const updateHiddenTrackerFields = useCallback(
     (updater: (hiddenFields: TrackerHiddenFields | null | undefined) => TrackerHiddenFields) => {
@@ -160,28 +180,62 @@ export function useTrackerMutations({
   );
   const readCustomFields = useCallback(() => readPlayerStats()?.customTrackerFields ?? [], [readPlayerStats]);
 
+  const captureSnapshotTarget = useCallback((): PortraitSnapshotTarget | null => {
+    const current = readCurrentGameState();
+    return current ? { chatId: current.chatId, messageId: current.messageId, swipeIndex: current.swipeIndex } : null;
+  }, [readCurrentGameState]);
+
+  const matchesSnapshotTarget = useCallback(
+    (expected: PortraitSnapshotTarget | null) => {
+      const current = readCurrentGameState();
+      if (!expected) return !current || !current.messageId;
+      return (
+        !!current &&
+        current.chatId === expected.chatId &&
+        current.messageId === expected.messageId &&
+        current.swipeIndex === expected.swipeIndex
+      );
+    },
+    [readCurrentGameState],
+  );
+
   const openAvatarUpload = useCallback(
     (index: number) => {
-      const characterId = presentCharacters[index]?.characterId ?? readPresentCharacters()[index]?.characterId ?? null;
-      if (!characterId) return;
+      const targetCharacter = presentCharacters[index] ?? readPresentCharacters()[index];
+      const characterId = targetCharacter?.characterId ?? null;
+      if (!characterId || (targetCharacter && isCardLookupBlocked(resolveCardCharacterStatus?.(targetCharacter)))) {
+        return;
+      }
       setAvatarUpload({ characterId, index });
       avatarFileInputRef.current?.click();
     },
-    [presentCharacters, readPresentCharacters],
+    [presentCharacters, readPresentCharacters, resolveCardCharacterStatus],
   );
 
-  /** Point the character at a saved portrait, unless a newer upload or generation took over. */
-  const saveAvatarPath = useCallback(
-    (characterId: string, fallbackIndex: number, token: number, avatarPath: string) => {
-      if (avatarUploadTokenByCharacterRef.current.get(characterId) !== token) return;
+  /** Point the character at a saved portrait, unless a newer action or snapshot change took over. */
+  const savePortraitPath = useCallback(
+    (
+      actionKey: string,
+      characterId: string,
+      fallbackIndex: number,
+      token: number,
+      portraitPath: string,
+      isCardRow: boolean,
+      targetSnapshot: PortraitSnapshotTarget | null,
+    ) => {
+      if (sharedPortraitActionTokenByKey.get(actionKey) !== token) return;
+      if (!matchesSnapshotTarget(targetSnapshot)) return;
       const latestCharacters = readPresentCharacters();
       const targetIndex = resolveCharacterTargetIndex(latestCharacters, characterId, fallbackIndex);
       if (targetIndex < 0) return;
       const nextCharacters = [...latestCharacters];
-      nextCharacters[targetIndex] = { ...latestCharacters[targetIndex]!, avatarPath };
+      const current = latestCharacters[targetIndex]!;
+      nextCharacters[targetIndex] = isCardRow
+        ? { ...withoutPortraitFraming(current), scenePortraitPath: portraitPath }
+        : { ...current, avatarPath: portraitPath };
       patchField("presentCharacters", nextCharacters);
     },
-    [patchField, readPresentCharacters],
+    [matchesSnapshotTarget, patchField, readPresentCharacters],
   );
 
   const handleAvatarUpload = useCallback(
@@ -192,43 +246,64 @@ export function useTrackerMutations({
       const character = initialIndex >= 0 ? currentCharacters[initialIndex] : undefined;
       if (!character) return;
 
-      const uploadToken = avatarUploadSerialRef.current + 1;
-      avatarUploadSerialRef.current = uploadToken;
-      avatarUploadTokenByCharacterRef.current.set(characterId, uploadToken);
+      const cardStatus = resolveCardCharacterStatus?.(character);
+      if (isCardLookupBlocked(cardStatus)) return;
+      const cardId = cardStatus?.status === "card" ? cardStatus.characterId : null;
+      const targetSnapshot = captureSnapshotTarget();
+      const actionKey = portraitActionKey(activeChatId, characterId);
+      const uploadToken = ++sharedPortraitActionSerial;
+      sharedPortraitActionTokenByKey.set(actionKey, uploadToken);
 
       const reader = new FileReader();
       reader.onload = async () => {
         const dataUrl = typeof reader.result === "string" ? reader.result : "";
         if (!dataUrl) {
-          if (avatarUploadTokenByCharacterRef.current.get(characterId) === uploadToken) {
-            avatarUploadTokenByCharacterRef.current.delete(characterId);
+          if (sharedPortraitActionTokenByKey.get(actionKey) === uploadToken) {
+            sharedPortraitActionTokenByKey.delete(actionKey);
           }
           return;
         }
-        if (avatarUploadTokenByCharacterRef.current.get(characterId) !== uploadToken) return;
+        if (sharedPortraitActionTokenByKey.get(actionKey) !== uploadToken) return;
+        if (!matchesSnapshotTarget(targetSnapshot)) return;
 
         try {
           const response = await api.post<{ avatarPath: string }>(`/avatars/npc/${activeChatId}`, {
             name: character.name,
             avatar: dataUrl,
+            ...(cardId ? { scenePortrait: true } : {}),
           });
-          saveAvatarPath(characterId, fallbackIndex, uploadToken, response.avatarPath);
+          savePortraitPath(
+            actionKey,
+            characterId,
+            fallbackIndex,
+            uploadToken,
+            response.avatarPath,
+            Boolean(cardId),
+            targetSnapshot,
+          );
         } catch {
           // Match the original HUD widget behavior: failed avatar uploads leave tracker data unchanged.
         } finally {
-          if (avatarUploadTokenByCharacterRef.current.get(characterId) === uploadToken) {
-            avatarUploadTokenByCharacterRef.current.delete(characterId);
+          if (sharedPortraitActionTokenByKey.get(actionKey) === uploadToken) {
+            sharedPortraitActionTokenByKey.delete(actionKey);
           }
         }
       };
       reader.onerror = () => {
-        if (avatarUploadTokenByCharacterRef.current.get(characterId) === uploadToken) {
-          avatarUploadTokenByCharacterRef.current.delete(characterId);
+        if (sharedPortraitActionTokenByKey.get(actionKey) === uploadToken) {
+          sharedPortraitActionTokenByKey.delete(actionKey);
         }
       };
       reader.readAsDataURL(file);
     },
-    [activeChatId, readPresentCharacters, saveAvatarPath],
+    [
+      activeChatId,
+      captureSnapshotTarget,
+      matchesSnapshotTarget,
+      readPresentCharacters,
+      resolveCardCharacterStatus,
+      savePortraitPath,
+    ],
   );
 
   /** A new tracker portrait from the look, and the outfit when asked; the old one stays if this fails. */
@@ -240,30 +315,62 @@ export function useTrackerMutations({
       const character = currentCharacters[resolveCharacterTargetIndex(currentCharacters, characterId, index)];
       if (!character) return;
 
-      const token = avatarUploadSerialRef.current + 1;
-      avatarUploadSerialRef.current = token;
-      avatarUploadTokenByCharacterRef.current.set(characterId, token);
+      const cardStatus = resolveCardCharacterStatus?.(character);
+      if (isCardLookupBlocked(cardStatus)) return;
+      const cardId = cardStatus?.status === "card" ? cardStatus.characterId : null;
+      const targetSnapshot = captureSnapshotTarget();
+      const actionKey = portraitActionKey(activeChatId, characterId);
+      const token = ++sharedPortraitActionSerial;
+      sharedPortraitActionTokenByKey.set(actionKey, token);
       try {
         const response = await api.post<{ avatarPath: string }>(`/avatars/npc/${activeChatId}/generate`, {
           name: character.name,
+          ...(cardId ? { characterId: cardId } : {}),
           // Tracker fields are raw model output; send only text.
           appearance: typeof character.appearance === "string" ? character.appearance : null,
           outfit: typeof character.outfit === "string" ? character.outfit : null,
           includeOutfit,
           debugMode: useUIStore.getState().debugMode,
         });
-        saveAvatarPath(characterId, index, token, response.avatarPath);
+        savePortraitPath(actionKey, characterId, index, token, response.avatarPath, Boolean(cardId), targetSnapshot);
       } catch (error) {
         toast.error(localizeUi("ui.trackerPanel.featuredcharacterportrait.newPortraitFailed"), {
           description: error instanceof Error ? error.message : undefined,
         });
       } finally {
-        if (avatarUploadTokenByCharacterRef.current.get(characterId) === token) {
-          avatarUploadTokenByCharacterRef.current.delete(characterId);
+        if (sharedPortraitActionTokenByKey.get(actionKey) === token) {
+          sharedPortraitActionTokenByKey.delete(actionKey);
         }
       }
     },
-    [activeChatId, localizeUi, presentCharacters, readPresentCharacters, saveAvatarPath],
+    [
+      activeChatId,
+      captureSnapshotTarget,
+      localizeUi,
+      presentCharacters,
+      readPresentCharacters,
+      resolveCardCharacterStatus,
+      savePortraitPath,
+    ],
+  );
+
+  const revertScenePortrait = useCallback(
+    (index: number) => {
+      const latestCharacters = readPresentCharacters();
+      const targetCharacterId = presentCharacters[index]?.characterId ?? latestCharacters[index]?.characterId;
+      const targetIndex = resolveCharacterTargetIndex(latestCharacters, targetCharacterId, index);
+      if (targetIndex < 0) return;
+      const target = latestCharacters[targetIndex]!;
+      const tokenKey = target.characterId || targetCharacterId;
+      if (tokenKey) {
+        // Bump the shared token so an in-flight upload or generation on any surface cannot overwrite the revert.
+        sharedPortraitActionTokenByKey.set(portraitActionKey(activeChatId, tokenKey), ++sharedPortraitActionSerial);
+      }
+      const nextCharacters = [...latestCharacters];
+      nextCharacters[targetIndex] = { ...withoutPortraitFraming(target), scenePortraitPath: null };
+      patchField("presentCharacters", nextCharacters);
+    },
+    [activeChatId, patchField, presentCharacters, readPresentCharacters],
   );
 
   const handleAvatarFileInputChange = useCallback(
@@ -445,6 +552,7 @@ export function useTrackerMutations({
     openAvatarUpload,
     removeCharacter,
     removeQuest,
+    revertScenePortrait,
     savePersonaStatus,
     updateCharacter,
     updateCustomFields,
