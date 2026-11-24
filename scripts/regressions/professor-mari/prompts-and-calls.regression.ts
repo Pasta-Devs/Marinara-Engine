@@ -19,6 +19,7 @@ import {
   OFFICIAL_AGENT_CATALOG_SECTIONS,
   OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
   PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
+  PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE,
   resetOfficialAgentCatalogCacheForTests,
 } from "../../../packages/server/src/services/professor-mari/official-agent-knowledge.js";
 import { type RegressionCase, runNamedCases } from "../fixtures/named-cases.js";
@@ -132,6 +133,11 @@ const cases: RegressionCase[] = [
       const customCatalog = "<official_agent_catalog>\nsentinel\n</official_agent_catalog>";
       assert.ok(buildMariAssistantPrompt(customCatalog).includes(customCatalog));
       assert.ok(buildMariSystemPrompt(customCatalog).includes(customCatalog));
+      assert.ok(PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE.includes("`agent.list`"));
+      assert.ok(!PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("agent.list"));
+      assert.ok(
+        PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("Never claim an uninstalled agent is active."),
+      );
       const workspaceMariSource = readFileSync(
         new URL("../../../packages/server/src/services/professor-mari/workspace-agent.service.ts", import.meta.url),
         "utf8",

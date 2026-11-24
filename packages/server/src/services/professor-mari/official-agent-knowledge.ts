@@ -19,6 +19,8 @@ export interface OfficialAgentKnowledgeEntry {
   preview?: boolean;
 }
 
+export type OfficialAgentCatalogRuntime = "workspace" | "assistant";
+
 const SECTION_TITLES: Record<OfficialAgentCatalogSection, string> = {
   apps: "Apps",
   games: "Chat games",
@@ -31,14 +33,20 @@ const SECTION_TITLES: Record<OfficialAgentCatalogSection, string> = {
   more: "More agents",
 };
 
-const CATALOG_GUIDANCE_LINES = [
-  "Catalog guidance:",
-  "- Package sources, manifests, artifacts, and the complete official catalog are public at https://github.com/Pasta-Devs/Marinara-Agents.",
-  "- The catalog is not proof of install. Before naming an agent for a request, call `agent.list`; suggest a catalog package (Agents → Agent Organizer) only when nothing installed covers it. Never claim an uninstalled agent is active.",
-  "- Install, update, or uninstall official packages from Agents → Agent Organizer. When a compatible update is found, Marinara asks before applying it; declining or failing an update preserves the installed version and leaves the manual Update action available.",
-  "- Pipeline agents are enabled per compatible chat in Chat Settings → Agents. Feature packages such as Maps, Calls, and Conversation games expose their own controls after installation.",
-  "- Do not describe About Me Keeper as an agent. Conversation About Me and its update tool are built into Marinara Engine.",
-] as const;
+function catalogGuidanceLines(runtime: OfficialAgentCatalogRuntime): readonly string[] {
+  const installCheckLine =
+    runtime === "workspace"
+      ? "- The catalog is not proof of install. Before naming an agent for a request, call `agent.list`; suggest a catalog package (Agents → Agent Organizer) only when nothing installed covers it. Never claim an uninstalled agent is active."
+      : "- The catalog is not proof of install. Before suggesting a new install, have the user check Agents (or Agent Organizer) to see whether an installed agent already covers it. Never claim an uninstalled agent is active.";
+  return [
+    "Catalog guidance:",
+    "- Package sources, manifests, artifacts, and the complete official catalog are public at https://github.com/Pasta-Devs/Marinara-Agents.",
+    installCheckLine,
+    "- Install, update, or uninstall official packages from Agents → Agent Organizer. When a compatible update is found, Marinara asks before applying it; declining or failing an update preserves the installed version and leaves the manual Update action available.",
+    "- Pipeline agents are enabled per compatible chat in Chat Settings → Agents. Feature packages such as Maps, Calls, and Conversation games expose their own controls after installation.",
+    "- Do not describe About Me Keeper as an agent. Conversation About Me and its update tool are built into Marinara Engine.",
+  ];
+}
 
 const CATALOG_CACHE_TTL_MS = 15 * 60 * 1000;
 const CATALOG_ERROR_COOLDOWN_MS = 60 * 1000;
@@ -467,7 +475,11 @@ function formatEntryLine(entry: OfficialAgentKnowledgeEntry): string {
 }
 
 /** Formats catalog entries into `<official_agent_catalog>` grouped by Agent Organizer section. */
-export function formatOfficialAgentCatalogBlock(entries: readonly OfficialAgentKnowledgeEntry[]): string {
+export function formatOfficialAgentCatalogBlock(
+  entries: readonly OfficialAgentKnowledgeEntry[],
+  options?: { runtime?: OfficialAgentCatalogRuntime },
+): string {
+  const runtime = options?.runtime ?? "workspace";
   const bySection = new Map<OfficialAgentCatalogSection, OfficialAgentKnowledgeEntry[]>();
   for (const entry of entries) {
     const group = bySection.get(entry.section);
@@ -486,12 +498,16 @@ export function formatOfficialAgentCatalogBlock(entries: readonly OfficialAgentK
     "<official_agent_catalog>",
     `The official Marinara Engine v2.3.0+ catalog contains these ${entries.length} optional first-party packages:`,
     ...sectionLines,
-    ...CATALOG_GUIDANCE_LINES,
+    ...catalogGuidanceLines(runtime),
     "</official_agent_catalog>",
   ].join("\n");
 }
 
 export const PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE = formatOfficialAgentCatalogBlock(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES);
+export const PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE = formatOfficialAgentCatalogBlock(
+  OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
+  { runtime: "assistant" },
+);
 
 export interface OfficialAgentCatalogKnowledgeResult {
   entries: readonly OfficialAgentKnowledgeEntry[];
@@ -502,32 +518,53 @@ export interface OfficialAgentCatalogKnowledgeResult {
 type CachedCatalogState = {
   entries: readonly OfficialAgentKnowledgeEntry[];
   block: string;
+  assistantBlock: string;
   fetchedAt: number;
 };
 
 let liveCatalogCache: CachedCatalogState | null = null;
 let lastCatalogErrorAt: number | null = null;
-let inFlightCatalogLoad: Promise<OfficialAgentCatalogKnowledgeResult> | null = null;
+let inFlightCatalogLoad: Promise<CachedCatalogState | null> | null = null;
 let catalogCacheGeneration = 0;
 
-function fallbackCatalogResult(): OfficialAgentCatalogKnowledgeResult {
-  if (liveCatalogCache) {
-    return { entries: liveCatalogCache.entries, block: liveCatalogCache.block, source: "live" };
+function toCatalogResult(
+  state: CachedCatalogState | null,
+  runtime: OfficialAgentCatalogRuntime,
+): OfficialAgentCatalogKnowledgeResult {
+  if (state) {
+    return {
+      entries: state.entries,
+      block: runtime === "assistant" ? state.assistantBlock : state.block,
+      source: "live",
+    };
   }
   return {
     entries: OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
-    block: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
+    block:
+      runtime === "assistant"
+        ? PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE
+        : PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
     source: "fallback",
   };
 }
 
+function fallbackCatalogResult(runtime: OfficialAgentCatalogRuntime): OfficialAgentCatalogKnowledgeResult {
+  return toCatalogResult(liveCatalogCache, runtime);
+}
+
 async function awaitCatalogWithinBudget(
-  pending: Promise<OfficialAgentCatalogKnowledgeResult>,
+  pending: Promise<CachedCatalogState | null>,
+  runtime: OfficialAgentCatalogRuntime,
   signal?: AbortSignal,
   timeoutMs?: number,
 ): Promise<OfficialAgentCatalogKnowledgeResult> {
-  if (signal?.aborted) return fallbackCatalogResult();
-  if (!signal && timeoutMs === undefined) return pending;
+  if (signal?.aborted) return fallbackCatalogResult(runtime);
+  if (!signal && timeoutMs === undefined) {
+    return pending.then(
+      (state) => toCatalogResult(state ?? liveCatalogCache, runtime),
+      () => fallbackCatalogResult(runtime),
+    );
+  }
 
   return new Promise((resolve) => {
     let settled = false;
@@ -539,12 +576,15 @@ async function awaitCatalogWithinBudget(
       signal?.removeEventListener("abort", onAbort);
       resolve(result);
     };
-    const onAbort = () => finish(fallbackCatalogResult());
+    const onAbort = () => finish(fallbackCatalogResult(runtime));
     if (signal) signal.addEventListener("abort", onAbort, { once: true });
     if (timeoutMs !== undefined) {
-      timer = setTimeout(() => finish(fallbackCatalogResult()), Math.max(0, timeoutMs));
+      timer = setTimeout(() => finish(fallbackCatalogResult(runtime)), Math.max(0, timeoutMs));
     }
-    void pending.then(finish, () => finish(fallbackCatalogResult()));
+    void pending.then(
+      (state) => finish(toCatalogResult(state ?? liveCatalogCache, runtime)),
+      () => finish(fallbackCatalogResult(runtime)),
+    );
   });
 }
 
@@ -554,21 +594,23 @@ async function awaitCatalogWithinBudget(
  * and fallback to the last-known live catalog or bundled 46-package snapshot when offline.
  */
 export async function getOfficialAgentCatalogKnowledge(options?: {
+  runtime?: OfficialAgentCatalogRuntime;
   fetchCatalog?: () => Promise<Pick<StampedCapabilityCatalog, "packages">>;
   now?: () => number;
   forceRefresh?: boolean;
   signal?: AbortSignal;
   timeoutMs?: number;
 }): Promise<OfficialAgentCatalogKnowledgeResult> {
+  const runtime = options?.runtime ?? "workspace";
   const now = options?.now ?? Date.now;
   const currentTime = now();
 
   if (!options?.forceRefresh && liveCatalogCache && currentTime - liveCatalogCache.fetchedAt < CATALOG_CACHE_TTL_MS) {
-    return { entries: liveCatalogCache.entries, block: liveCatalogCache.block, source: "live" };
+    return toCatalogResult(liveCatalogCache, runtime);
   }
 
   if (options?.signal?.aborted) {
-    return fallbackCatalogResult();
+    return fallbackCatalogResult(runtime);
   }
 
   if (
@@ -576,28 +618,33 @@ export async function getOfficialAgentCatalogKnowledge(options?: {
     lastCatalogErrorAt !== null &&
     currentTime - lastCatalogErrorAt < CATALOG_ERROR_COOLDOWN_MS
   ) {
-    return fallbackCatalogResult();
+    return fallbackCatalogResult(runtime);
   }
 
   if (!inFlightCatalogLoad) {
     const generation = catalogCacheGeneration;
     const fetchCatalog = options?.fetchCatalog ?? (() => capabilityPackageManager.catalog());
-    inFlightCatalogLoad = (async (): Promise<OfficialAgentCatalogKnowledgeResult> => {
+    inFlightCatalogLoad = (async (): Promise<CachedCatalogState | null> => {
       try {
         const catalog = await fetchCatalog();
         const entries = entriesFromCapabilityCatalog(catalog);
         if (entries.length === 0) throw new Error("Capability catalog returned zero packages");
-        const block = formatOfficialAgentCatalogBlock(entries);
-        if (generation !== catalogCacheGeneration) return fallbackCatalogResult();
-        liveCatalogCache = { entries, block, fetchedAt: now() };
+        const state: CachedCatalogState = {
+          entries,
+          block: formatOfficialAgentCatalogBlock(entries, { runtime: "workspace" }),
+          assistantBlock: formatOfficialAgentCatalogBlock(entries, { runtime: "assistant" }),
+          fetchedAt: now(),
+        };
+        if (generation !== catalogCacheGeneration) return null;
+        liveCatalogCache = state;
         lastCatalogErrorAt = null;
-        return { entries, block, source: "live" };
+        return state;
       } catch (error) {
         if (generation === catalogCacheGeneration) {
           lastCatalogErrorAt = now();
         }
         logger.debug(error, "[mari-catalog] live catalog unavailable; using fallback snapshot");
-        return fallbackCatalogResult();
+        return null;
       } finally {
         if (generation === catalogCacheGeneration) {
           inFlightCatalogLoad = null;
@@ -606,7 +653,7 @@ export async function getOfficialAgentCatalogKnowledge(options?: {
     })();
   }
 
-  return awaitCatalogWithinBudget(inFlightCatalogLoad, options?.signal, options?.timeoutMs);
+  return awaitCatalogWithinBudget(inFlightCatalogLoad, runtime, options?.signal, options?.timeoutMs);
 }
 
 /** Returns the cached live catalog entries when loaded, or the bundled snapshot otherwise. */

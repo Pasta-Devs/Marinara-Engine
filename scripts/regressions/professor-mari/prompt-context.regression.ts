@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PROFESSOR_MARI_ID } from "../../../packages/shared/src/constants/defaults.js";
 import { MARI_ASSISTANT_PROMPT } from "../../../packages/server/src/db/seed-mari.js";
-import { PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE } from "../../../packages/server/src/services/professor-mari/official-agent-knowledge.js";
+import { PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE as PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE } from "../../../packages/server/src/services/professor-mari/official-agent-knowledge.js";
 import {
   MAX_MARI_AVAILABLE_NAMES_PER_TYPE,
   resolveProfessorMariPromptContext,

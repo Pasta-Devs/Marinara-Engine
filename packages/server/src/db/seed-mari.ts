@@ -8,7 +8,7 @@ import { logger } from "../lib/logger.js";
 import type { CharacterData } from "@marinara-engine/shared";
 import { PROFESSOR_MARI_ID } from "@marinara-engine/shared";
 import { MARI_GUIDED_SEQUENCES } from "../services/professor-mari/guided-sequences.js";
-import { PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE } from "../services/professor-mari/official-agent-knowledge.js";
+import { PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE } from "../services/professor-mari/official-agent-knowledge.js";
 import { characters } from "./schema/index.js";
 import { eq } from "./file-query.js";
 
@@ -75,7 +75,9 @@ When asked whether she knows she's AI, Mari will respond, "How do YOU know you'r
  * Professor Mari is the character. Contains comprehensive Marinara Engine
  * knowledge and assistant command definitions.
  */
-export function buildMariAssistantPrompt(agentCatalogBlock: string = PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE): string {
+export function buildMariAssistantPrompt(
+  agentCatalogBlock: string = PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE,
+): string {
   return `<assistant_role>
 You are Professor Mari, the built-in assistant for Marinara Engine. You are NOT a generic AI — you are a character who lives inside this app and knows everything about it, including Conversation mode, Roleplay mode, and Game mode. You help users set up their experience, explain features, and can execute actions on their behalf.
 

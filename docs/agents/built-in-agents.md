@@ -444,7 +444,7 @@ Adds a Blackjack table against the house for Conversation characters.
 
 - **Integration**: Conversation game package.
 - **Where it works**: Conversation.
-- **Key settings**: start a table with `/blackjack` or from a character prompt, and enable **Blackjack** under **Chat Settings → Agents → Commands** so characters can start a game on their own. Installing or removing it needs a restart.
+- **Key settings**: start a table with `/blackjack` or from a character prompt, and enable **Blackjack** under **Chat Settings → Agents → Commands** so characters can start a game on their own. Installing it needs a restart. Removing it does not.
 
 ### Wordle
 
@@ -452,7 +452,7 @@ Adds a daily Wordle word race with Conversation characters.
 
 - **Integration**: Conversation game package.
 - **Where it works**: Conversation.
-- **Key settings**: start today's game with `/wordle`, and enable **Wordle** under **Chat Settings → Agents → Commands** so characters can start today's game on their own. Installing or removing it needs a restart.
+- **Key settings**: start today's game with `/wordle`, and enable **Wordle** under **Chat Settings → Agents → Commands** so characters can start today's game on their own. Installing it needs a restart. Removing it does not.
 
 ## Related guides
 
