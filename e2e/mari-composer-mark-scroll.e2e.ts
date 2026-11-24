@@ -81,11 +81,8 @@ test("Mari's composer marks scroll with their text and stay inside the field", a
       sidebarOpen: false,
     });
     await page.goto("/");
-    await page
-      .locator("main")
-      .first()
-      .click({ position: { x: 5, y: 5 } });
-    await page.keyboard.press("Control+j");
+    // Home's button opens her on every platform; the shortcut is Cmd+J on WebKit and Ctrl+J elsewhere.
+    await page.getByRole("button", { name: "Ask Professor Mari", exact: true }).click();
     const mariPane = page.locator('[data-component="GlobalOmnibar.Mari"]:not([aria-hidden="true"])');
     const composer = mariPane.locator("textarea:visible");
     await expect(composer).toBeVisible();
