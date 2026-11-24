@@ -84,7 +84,7 @@ export interface CharacterTrackerTarget {
   /** Saves the drawn portraits. Must not depend on the route's abort signal, which may have fired by then. */
   saveInBackground: (presentCharacters: Array<Record<string, unknown>>) => Promise<unknown>;
   drawPortrait: (
-    character: { name: string; appearance?: unknown; outfit?: unknown },
+    character: { name: string; appearance?: unknown; outfit?: unknown; mood?: unknown },
     options: { connectionId: string; includeOutfit: boolean },
   ) => Promise<string>;
 }

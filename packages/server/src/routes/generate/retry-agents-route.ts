@@ -325,7 +325,11 @@ import {
   resolveEffectiveAgentSettings,
 } from "../../services/generation/agent-resolution.js";
 import { resolveAgentGenerationTools } from "../../services/generation/tool-resolution-runtime.js";
-import { generateTrackerPortrait, trackerPortraitStyleProfileId } from "../../services/image/tracker-portrait.js";
+import {
+  generateTrackerPortrait,
+  trackerPortraitRewriteOption,
+  trackerPortraitStyleProfileId,
+} from "../../services/image/tracker-portrait.js";
 import type { GameNpc } from "@marinara-engine/shared";
 import {
   applyAgentResultEffect,
@@ -3391,6 +3395,8 @@ async function applyRetryResultEffects(args: {
     return updated;
   };
 
+  const characterTrackerSettings =
+    resolvedAgents.find((entry) => entry.resolved.type === "character-tracker")?.resolved.settings ?? null;
   const retryTrackerEffects: TrackerEffectTarget = {
     db: app.db,
     canEditTrackers: (trackerResult) => customAgentCanApplyRetryResult(trackerResult, resolvedAgents, "edit_trackers"),
@@ -3400,7 +3406,7 @@ async function applyRetryResultEffects(args: {
       cards: agentContext.characters,
       history: (agentContext.characterTrackerHistory ?? []) as unknown as Array<Record<string, unknown>>,
       gameNpcs: Array.isArray(chatMeta.gameNpcs) ? (chatMeta.gameNpcs as GameNpc[]) : [],
-      settings: resolvedAgents.find((entry) => entry.resolved.type === "character-tracker")?.resolved.settings ?? null,
+      settings: characterTrackerSettings,
       loadBaseline: loadRetryTargetGameStateSnapshot,
       save: (presentCharacters, movedKeys) => updateRetryTargetGameStateSnapshot({ presentCharacters, ...movedKeys }),
       // The portraits finish after this route has answered and its signal has fired, so these skip the abort checks.
@@ -3420,6 +3426,7 @@ async function applyRetryResultEffects(args: {
           styleProfileId: trackerPortraitStyleProfileId(chatMeta),
           character,
           includeOutfit,
+          rewritePrompt: trackerPortraitRewriteOption(characterTrackerSettings, chatMeta, chat.connectionId),
           debugMode,
           onFallback,
         }),

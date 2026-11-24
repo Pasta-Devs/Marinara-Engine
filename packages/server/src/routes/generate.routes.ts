@@ -512,7 +512,11 @@ import {
   resolveConnectionImageQuality,
 } from "../services/image/image-generation-defaults.js";
 import { generateIllustratorImageVariants } from "../services/image/illustrator-image-variants.js";
-import { generateTrackerPortrait, trackerPortraitStyleProfileId } from "../services/image/tracker-portrait.js";
+import {
+  generateTrackerPortrait,
+  trackerPortraitRewriteOption,
+  trackerPortraitStyleProfileId,
+} from "../services/image/tracker-portrait.js";
 import {
   loadImageGenerationUserSettings,
   resolveIllustratorImageSize,
@@ -14066,6 +14070,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                     styleProfileId: trackerPortraitStyleProfileId(chatMeta),
                     character,
                     includeOutfit,
+                    rewritePrompt: trackerPortraitRewriteOption(characterTrackerSettings, chatMeta, chat.connectionId),
                     debugMode: input.debugMode,
                     onFallback,
                   }),
