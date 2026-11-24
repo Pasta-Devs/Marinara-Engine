@@ -34,14 +34,19 @@ const SECTION_TITLES: Record<OfficialAgentCatalogSection, string> = {
 };
 
 function catalogGuidanceLines(runtime: OfficialAgentCatalogRuntime): readonly string[] {
-  const installCheckLine =
+  const installCheckLines =
     runtime === "workspace"
-      ? "- The catalog is not proof of install. Before naming an agent for a request, call `agent.list`; suggest a catalog package (Agents → Agent Organizer) only when nothing installed covers it. Never claim an uninstalled agent is active."
-      : "- The catalog is not proof of install. Before suggesting a new install, have the user check Agents (or Agent Organizer) to see whether an installed agent already covers it. Never claim an uninstalled agent is active.";
+      ? [
+          "- The catalog is not proof of install. Before naming an agent for a request, call `agent.list`; suggest a catalog package (Agents → Agent Organizer) only when nothing installed covers it. Never claim an uninstalled agent is active.",
+          "- When asked what an official catalog package does, its permissions, requirements, version, or recent changes, call `agent.catalog.get` (`id` or `name`) instead of guessing from its one-line summary.",
+        ]
+      : [
+          "- The catalog is not proof of install. Before suggesting a new install, have the user check Agents (or Agent Organizer) to see whether an installed agent already covers it. Never claim an uninstalled agent is active.",
+        ];
   return [
     "Catalog guidance:",
     "- Package sources, manifests, artifacts, and the complete official catalog are public at https://github.com/Pasta-Devs/Marinara-Agents.",
-    installCheckLine,
+    ...installCheckLines,
     "- Install, update, or uninstall official packages from Agents → Agent Organizer. When a compatible update is found, Marinara asks before applying it; declining or failing an update preserves the installed version and leaves the manual Update action available.",
     "- Pipeline agents are enabled per compatible chat in Chat Settings → Agents. Feature packages such as Maps, Calls, and Conversation games expose their own controls after installation.",
     "- Do not describe About Me Keeper as an agent. Conversation About Me and its update tool are built into Marinara Engine.",
@@ -50,6 +55,7 @@ function catalogGuidanceLines(runtime: OfficialAgentCatalogRuntime): readonly st
 
 const CATALOG_CACHE_TTL_MS = 15 * 60 * 1000;
 const CATALOG_ERROR_COOLDOWN_MS = 60 * 1000;
+const CATALOG_LOOKUP_TIMEOUT_MS = 2_000;
 
 function compareCodeUnit(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -437,6 +443,20 @@ function modesForCatalogPackage(
   return undefined;
 }
 
+function dedupeCatalogPackages(
+  catalog: Pick<StampedCapabilityCatalog, "packages">,
+): readonly StampedCapabilityCatalogPackage[] {
+  const seen = new Set<string>();
+  const unique: StampedCapabilityCatalogPackage[] = [];
+  for (const pkg of catalog.packages) {
+    const id = pkg.manifest.id;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    unique.push(pkg);
+  }
+  return unique;
+}
+
 /**
  * Converts a live or stamped capability catalog into deterministically ordered entries
  * for Professor Mari's prompt and Quick Answer grounding.
@@ -444,23 +464,19 @@ function modesForCatalogPackage(
 export function entriesFromCapabilityCatalog(
   catalog: Pick<StampedCapabilityCatalog, "packages">,
 ): OfficialAgentKnowledgeEntry[] {
-  const seen = new Set<string>();
-  const entries: OfficialAgentKnowledgeEntry[] = [];
-  for (const pkg of catalog.packages) {
+  const entries = dedupeCatalogPackages(catalog).map((pkg) => {
     const id = pkg.manifest.id;
-    if (seen.has(id)) continue;
-    seen.add(id);
     const section = sectionForCatalogPackage(pkg);
     const modes = modesForCatalogPackage(pkg, section);
-    entries.push({
+    return {
       id,
       name: pkg.manifest.name.trim(),
       section,
       ...(modes ? { modes } : {}),
       summary: summaryForCatalogPackage(pkg),
       ...(pkg.preview === true ? { preview: true } : {}),
-    });
-  }
+    };
+  });
   return entries.sort((left, right) => compareCodeUnit(left.name, right.name) || compareCodeUnit(left.id, right.id));
 }
 
@@ -515,8 +531,32 @@ export interface OfficialAgentCatalogKnowledgeResult {
   source: "live" | "fallback";
 }
 
+export type OfficialAgentCatalogLookupResult =
+  | {
+      found: true;
+      source: "live" | "fallback";
+      entry: OfficialAgentKnowledgeEntry;
+      package?: StampedCapabilityCatalogPackage;
+    }
+  | {
+      found: false;
+      ambiguous: boolean;
+      source: "live" | "fallback";
+      query: string;
+      candidates: readonly OfficialAgentKnowledgeEntry[];
+    };
+
+type CatalogLoadOptions = {
+  fetchCatalog?: () => Promise<Pick<StampedCapabilityCatalog, "packages">>;
+  now?: () => number;
+  forceRefresh?: boolean;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
+
 type CachedCatalogState = {
   entries: readonly OfficialAgentKnowledgeEntry[];
+  packagesById: ReadonlyMap<string, StampedCapabilityCatalogPackage>;
   block: string;
   assistantBlock: string;
   fetchedAt: number;
@@ -548,69 +588,51 @@ function toCatalogResult(
   };
 }
 
-function fallbackCatalogResult(runtime: OfficialAgentCatalogRuntime): OfficialAgentCatalogKnowledgeResult {
-  return toCatalogResult(liveCatalogCache, runtime);
-}
-
-async function awaitCatalogWithinBudget(
+async function awaitCatalogStateWithinBudget(
   pending: Promise<CachedCatalogState | null>,
-  runtime: OfficialAgentCatalogRuntime,
   signal?: AbortSignal,
   timeoutMs?: number,
-): Promise<OfficialAgentCatalogKnowledgeResult> {
-  if (signal?.aborted) return fallbackCatalogResult(runtime);
+): Promise<CachedCatalogState | null> {
+  if (signal?.aborted) return null;
   if (!signal && timeoutMs === undefined) {
     return pending.then(
-      (state) => toCatalogResult(state ?? liveCatalogCache, runtime),
-      () => fallbackCatalogResult(runtime),
+      (state) => state ?? liveCatalogCache,
+      () => liveCatalogCache,
     );
   }
 
   return new Promise((resolve) => {
     let settled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const finish = (result: OfficialAgentCatalogKnowledgeResult) => {
+    const finish = (state: CachedCatalogState | null) => {
       if (settled) return;
       settled = true;
       if (timer !== undefined) clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
-      resolve(result);
+      resolve(state);
     };
-    const onAbort = () => finish(fallbackCatalogResult(runtime));
+    const onAbort = () => finish(liveCatalogCache);
     if (signal) signal.addEventListener("abort", onAbort, { once: true });
     if (timeoutMs !== undefined) {
-      timer = setTimeout(() => finish(fallbackCatalogResult(runtime)), Math.max(0, timeoutMs));
+      timer = setTimeout(() => finish(liveCatalogCache), Math.max(0, timeoutMs));
     }
     void pending.then(
-      (state) => finish(toCatalogResult(state ?? liveCatalogCache, runtime)),
-      () => finish(fallbackCatalogResult(runtime)),
+      (state) => finish(state ?? liveCatalogCache),
+      () => finish(liveCatalogCache),
     );
   });
 }
 
-/**
- * Resolves the current `<official_agent_catalog>` block with an in-memory 15-minute TTL cache,
- * single-flight request deduplication, 60-second error cooldown, caller cancellation/deadline bounds,
- * and fallback to the last-known live catalog or bundled 46-package snapshot when offline.
- */
-export async function getOfficialAgentCatalogKnowledge(options?: {
-  runtime?: OfficialAgentCatalogRuntime;
-  fetchCatalog?: () => Promise<Pick<StampedCapabilityCatalog, "packages">>;
-  now?: () => number;
-  forceRefresh?: boolean;
-  signal?: AbortSignal;
-  timeoutMs?: number;
-}): Promise<OfficialAgentCatalogKnowledgeResult> {
-  const runtime = options?.runtime ?? "workspace";
+async function loadCatalogState(options?: CatalogLoadOptions): Promise<CachedCatalogState | null> {
   const now = options?.now ?? Date.now;
   const currentTime = now();
 
   if (!options?.forceRefresh && liveCatalogCache && currentTime - liveCatalogCache.fetchedAt < CATALOG_CACHE_TTL_MS) {
-    return toCatalogResult(liveCatalogCache, runtime);
+    return liveCatalogCache;
   }
 
   if (options?.signal?.aborted) {
-    return fallbackCatalogResult(runtime);
+    return null;
   }
 
   if (
@@ -618,7 +640,7 @@ export async function getOfficialAgentCatalogKnowledge(options?: {
     lastCatalogErrorAt !== null &&
     currentTime - lastCatalogErrorAt < CATALOG_ERROR_COOLDOWN_MS
   ) {
-    return fallbackCatalogResult(runtime);
+    return liveCatalogCache;
   }
 
   if (!inFlightCatalogLoad) {
@@ -627,10 +649,12 @@ export async function getOfficialAgentCatalogKnowledge(options?: {
     inFlightCatalogLoad = (async (): Promise<CachedCatalogState | null> => {
       try {
         const catalog = await fetchCatalog();
-        const entries = entriesFromCapabilityCatalog(catalog);
+        const uniquePackages = dedupeCatalogPackages(catalog);
+        const entries = entriesFromCapabilityCatalog({ packages: [...uniquePackages] });
         if (entries.length === 0) throw new Error("Capability catalog returned zero packages");
         const state: CachedCatalogState = {
           entries,
+          packagesById: new Map(uniquePackages.map((pkg) => [pkg.manifest.id, pkg])),
           block: formatOfficialAgentCatalogBlock(entries, { runtime: "workspace" }),
           assistantBlock: formatOfficialAgentCatalogBlock(entries, { runtime: "assistant" }),
           fetchedAt: now(),
@@ -653,7 +677,106 @@ export async function getOfficialAgentCatalogKnowledge(options?: {
     })();
   }
 
-  return awaitCatalogWithinBudget(inFlightCatalogLoad, runtime, options?.signal, options?.timeoutMs);
+  return awaitCatalogStateWithinBudget(inFlightCatalogLoad, options?.signal, options?.timeoutMs);
+}
+
+/**
+ * Resolves the current `<official_agent_catalog>` block with an in-memory 15-minute TTL cache,
+ * single-flight request deduplication, 60-second error cooldown, caller cancellation/deadline bounds,
+ * and fallback to the last-known live catalog or bundled 46-package snapshot when offline.
+ */
+export async function getOfficialAgentCatalogKnowledge(
+  options?: CatalogLoadOptions & {
+    runtime?: OfficialAgentCatalogRuntime;
+  },
+): Promise<OfficialAgentCatalogKnowledgeResult> {
+  const runtime = options?.runtime ?? "workspace";
+  const state = await loadCatalogState(options);
+  return toCatalogResult(state, runtime);
+}
+
+function normalizeLookupToken(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]+/gu, " ");
+}
+
+function singleOrAmbiguous(
+  matches: readonly OfficialAgentKnowledgeEntry[],
+): { matched: OfficialAgentKnowledgeEntry | null; candidates: readonly OfficialAgentKnowledgeEntry[] } | null {
+  const [first, second] = matches;
+  if (!first) return null;
+  if (!second) return { matched: first, candidates: [] };
+  const sorted = [...matches].sort(
+    (left, right) => compareCodeUnit(left.name, right.name) || compareCodeUnit(left.id, right.id),
+  );
+  return { matched: null, candidates: sorted };
+}
+
+function matchOfficialCatalogEntries(
+  entries: readonly OfficialAgentKnowledgeEntry[],
+  rawQuery: string,
+): { matched: OfficialAgentKnowledgeEntry | null; candidates: readonly OfficialAgentKnowledgeEntry[] } {
+  const trimmed = rawQuery.trim();
+  if (!trimmed) return { matched: null, candidates: [] };
+  const lower = trimmed.toLowerCase();
+  const exactId = entries.find((entry) => entry.id.toLowerCase() === lower);
+  if (exactId) return { matched: exactId, candidates: [] };
+
+  const byExactName = singleOrAmbiguous(entries.filter((entry) => entry.name.toLowerCase() === lower));
+  if (byExactName) return byExactName;
+
+  const normalizedQuery = normalizeLookupToken(trimmed);
+  const byExactNormalized = singleOrAmbiguous(
+    entries.filter(
+      (entry) =>
+        normalizeLookupToken(entry.id) === normalizedQuery || normalizeLookupToken(entry.name) === normalizedQuery,
+    ),
+  );
+  if (byExactNormalized) return byExactNormalized;
+
+  const partial = entries.filter(
+    (entry) =>
+      entry.id.toLowerCase().includes(lower) ||
+      entry.name.toLowerCase().includes(lower) ||
+      normalizeLookupToken(entry.id).includes(normalizedQuery) ||
+      normalizeLookupToken(entry.name).includes(normalizedQuery),
+  );
+  return singleOrAmbiguous(partial) ?? { matched: null, candidates: [] };
+}
+
+/**
+ * Looks up an official catalog package by exact id, case-insensitive exact name,
+ * or unambiguous substring using the warm live cache (or offline snapshot).
+ */
+export async function lookupOfficialAgentCatalogPackage(
+  query: string,
+  options?: CatalogLoadOptions,
+): Promise<OfficialAgentCatalogLookupResult> {
+  const state = await loadCatalogState({
+    ...options,
+    timeoutMs: options?.timeoutMs ?? CATALOG_LOOKUP_TIMEOUT_MS,
+  });
+  const source = state ? "live" : "fallback";
+  const entries = state?.entries ?? OFFICIAL_AGENT_KNOWLEDGE_ENTRIES;
+  const { matched, candidates } = matchOfficialCatalogEntries(entries, query);
+  if (!matched) {
+    return {
+      found: false,
+      ambiguous: candidates.length > 1,
+      source,
+      query: query.trim(),
+      candidates,
+    };
+  }
+  const pkg = state?.packagesById.get(matched.id);
+  return {
+    found: true,
+    source,
+    entry: matched,
+    ...(pkg ? { package: pkg } : {}),
+  };
 }
 
 /** Returns the cached live catalog entries when loaded, or the bundled snapshot otherwise. */
