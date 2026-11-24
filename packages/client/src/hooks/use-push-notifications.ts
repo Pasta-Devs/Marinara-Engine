@@ -26,7 +26,10 @@ export function useUpdatePushNotificationSettings() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (changes: PushNotificationSettingsUpdate) => api.put<PushNotificationSettings>(PATH, changes),
-    onSuccess: (settings) => qc.setQueryData(pushNotificationKeys.settings, settings),
+    onSuccess: (settings) => {
+      qc.setQueryData(pushNotificationKeys.settings, settings);
+      void qc.invalidateQueries({ queryKey: pushNotificationKeys.settings });
+    },
   });
 }
 
@@ -34,7 +37,10 @@ export function useRotatePushNotificationTopic() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.post<PushNotificationSettings>(`${PATH}/topic`),
-    onSuccess: (settings) => qc.setQueryData(pushNotificationKeys.settings, settings),
+    onSuccess: (settings) => {
+      qc.setQueryData(pushNotificationKeys.settings, settings);
+      void qc.invalidateQueries({ queryKey: pushNotificationKeys.settings });
+    },
   });
 }
 

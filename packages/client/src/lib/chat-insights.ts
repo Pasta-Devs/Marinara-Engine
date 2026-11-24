@@ -36,22 +36,34 @@ export function openChatAtMessage(chatId: string, messageNumber?: number) {
 
 /** The query parameter a push notification's tap opens a chat with: `/?chat=<id>` (#9752). */
 export const CHAT_LAUNCH_PARAM = "chat";
+let launchChatId: string | null | undefined;
 
 /**
- * Open the chat a launch URL names, then drop the parameter so a reload does not open it again.
- * An id that is malformed or no longer exists is ignored.
+ * Read and remove the chat a launch URL names, synchronously, so history entries made later (an open panel's
+ * back entry) never copy the parameter and a reload does not open the chat again. Null when there is none
+ * or the id is malformed.
  */
-export async function openChatFromLaunchUrl(): Promise<void> {
+export function consumeChatLaunchParam(): string | null {
+  // Kept for the page's life: React's development double render calls this twice.
+  if (launchChatId !== undefined) return launchChatId;
   const url = new URL(window.location.href);
   const chatId = url.searchParams.get(CHAT_LAUNCH_PARAM)?.trim();
-  if (chatId === undefined) return;
-  url.searchParams.delete(CHAT_LAUNCH_PARAM);
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-  if (!chatId || !/^[\w-]{1,128}$/.test(chatId)) return;
+  if (chatId !== undefined) {
+    url.searchParams.delete(CHAT_LAUNCH_PARAM);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+  launchChatId = chatId && /^[\w-]{1,128}$/.test(chatId) ? chatId : null;
+  return launchChatId;
+}
+
+/** Open a launched chat once it is known to exist, unless the user picked another chat meanwhile. */
+export async function openLaunchedChat(chatId: string): Promise<void> {
+  const activeBefore = useChatStore.getState().activeChatId;
   try {
     await api.get(`/chats/${encodeURIComponent(chatId)}`);
   } catch {
     return;
   }
+  if (useChatStore.getState().activeChatId !== activeBefore) return;
   openChatAtMessage(chatId);
 }

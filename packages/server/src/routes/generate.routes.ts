@@ -1958,6 +1958,8 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
       );
     };
     const detachCloseListener = onGenerationOutputClose(reply, onClose);
+    // A socket that closed before the listener was attached never emits "close" again.
+    if (!isSseReplyWritable(reply)) onClose();
     if (requestChatMode === "conversation" && !input.impersonate) {
       conversationGenerationStartedAt = markGenerationInProgress(input.chatId);
     }
@@ -11472,6 +11474,9 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             fullResponse,
           );
           let savedMsg = savedReply.savedMsg;
+          // Whether the client had gone when the reply was delivered (message_saved): a push notification
+          // covers only a reply it never received.
+          let clientGoneAtDelivery = clientDisconnected;
           const savedSwipeIndex = savedReply.savedSwipeIndex;
           const replyParts = savedReply.replyParts;
           fullResponse = savedReply.fullResponse;
@@ -11997,6 +12002,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
 
           // Persist thinking/reasoning and generation info
           if (savedMsg?.id && recoveredAlreadyAppliedSpatialTurn) {
+            clientGoneAtDelivery = clientDisconnected;
             sendSseEvent(reply, {
               type: "message_saved",
               data: savedMsg,
@@ -12341,6 +12347,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
               });
             }
 
+            clientGoneAtDelivery = clientDisconnected;
             sendSseEvent(reply, {
               type: "message_saved",
               data: heldForRewrite(refreshedMsg ?? savedMsg),
@@ -12453,7 +12460,7 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
             },
             {
               autonomous: input.autonomous === true,
-              clientDisconnected,
+              clientDisconnected: clientGoneAtDelivery,
               regenerate: Boolean(input.regenerateMessageId),
               impersonate: Boolean(input.impersonate),
               content: fullResponse,

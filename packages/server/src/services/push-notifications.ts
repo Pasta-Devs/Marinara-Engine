@@ -26,6 +26,8 @@ export const PUSH_CHAT_COOLDOWN_MS = 20_000;
 const PUSH_MIN_INTERVAL_MS = 1_000;
 const PUSH_MAX_QUEUED = 10;
 const PUSH_TIMEOUT_MS = 15_000;
+/** Topics replaced by New topic: a notice still queued for one is dropped instead of reaching old subscribers. */
+const retiredTopics = new Set<string>();
 
 export interface PushNotificationEvent {
   chatId: string;
@@ -140,7 +142,10 @@ export async function writePushNotificationSettings(
       ...(serverUrl !== undefined ? { serverUrl } : {}),
       ...(clickUrl !== undefined ? { clickUrl } : {}),
     };
-    if (options.rotateTopic || (next.enabled && !next.topic)) next.topic = generatePushTopic();
+    if (options.rotateTopic || (next.enabled && !next.topic)) {
+      if (current.topic) retiredTopics.add(current.topic);
+      next.topic = generatePushTopic();
+    }
     await createAppSettingsStorage(db).set(PUSH_NOTIFICATION_SETTINGS_KEY, JSON.stringify(next));
   });
   return readPushNotificationSettings(db);
@@ -167,10 +172,10 @@ async function sendNtfy(request: NtfyPublishRequest): Promise<void> {
     });
   } catch (error) {
     if (error instanceof Error && error.name === "TimeoutError") {
-      throw new Error(`The ntfy server at ${origin} took too long to answer.`);
+      throw new Error(`The ntfy server at ${origin} took too long to answer.`, { cause: error });
     }
     if (error instanceof Error && error.message.startsWith("Refused to fetch")) throw error;
-    throw new Error(`Could not reach the ntfy server at ${origin}.`);
+    throw new Error(`Could not reach the ntfy server at ${origin}.`, { cause: error });
   }
   if (!response.ok) {
     const detail = await response
@@ -225,10 +230,12 @@ export function publishPushNotification(settings: PushNotificationSettings, even
     for (const [chatId, at] of lastNoticeByChat) if (now - at >= PUSH_CHAT_COOLDOWN_MS) lastNoticeByChat.delete(chatId);
   }
   const queued = enqueue(request.url, async () => {
+    if (retiredTopics.has(request.body.topic)) return;
     try {
       await sendNtfy(request);
       logger.debug("[push] Sent a notification for chat %s", event.chatId);
     } catch (error) {
+      // The message names the server, never the topic.
       logger.warn("[push] Could not send a notification: %s", error instanceof Error ? error.message : String(error));
     }
   });

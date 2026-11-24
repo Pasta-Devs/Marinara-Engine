@@ -31,20 +31,22 @@ export function PushNotificationSettings() {
   const [serverDraft, setServerDraft] = useState("");
   const [clickDraft, setClickDraft] = useState("");
 
+  // Each field follows its own saved value, so a save of one never replaces the other's unsaved draft.
+  const savedServerUrl = settings?.serverUrl;
+  const savedClickUrl = settings?.clickUrl;
   useEffect(() => {
-    if (!settings) return;
-    setServerDraft(settings.serverUrl);
-    setClickDraft(settings.clickUrl);
-  }, [settings]);
+    if (savedServerUrl !== undefined) setServerDraft(savedServerUrl);
+  }, [savedServerUrl]);
+  useEffect(() => {
+    if (savedClickUrl !== undefined) setClickDraft(savedClickUrl);
+  }, [savedClickUrl]);
 
   const save = (changes: PushNotificationSettingsUpdate) =>
     update.mutate(changes, {
       onError: (saveError) => {
         toast.error(getPrivilegedActionErrorMessage(saveError, t("settings.notifications.push.toasts.saveFailed")));
-        if (settings) {
-          setServerDraft(settings.serverUrl);
-          setClickDraft(settings.clickUrl);
-        }
+        if (settings && changes.serverUrl !== undefined) setServerDraft(settings.serverUrl);
+        if (settings && changes.clickUrl !== undefined) setClickDraft(settings.clickUrl);
       },
     });
 
@@ -208,7 +210,12 @@ export function PushNotificationSettings() {
               onChange={(previews) => save({ previews })}
             />
           </div>
-          <button type="button" onClick={handleTest} disabled={test.isPending} className={SETTINGS_BUTTON_CLASS}>
+          <button
+            type="button"
+            onClick={handleTest}
+            disabled={busy || test.isPending}
+            className={SETTINGS_BUTTON_CLASS}
+          >
             {test.isPending ? <Spinner size="sm" /> : <Send size="0.75rem" />}
             {t("settings.notifications.push.test")}
           </button>
