@@ -320,7 +320,7 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
   if (embeddingId === LOCAL_SIDECAR_CONNECTION_ID)
     Object.assign(embeddings, { ...sidecarModel, muted: false, warning: builtInWarning });
   else if (embeddingId === BUILTIN_EMBEDDING_CONNECTION_ID) {
-    const name = t("connections.builtinEmbedding.name");
+    const name = t("connections.builtInNamed", { name: t("connections.builtinEmbedding.name") });
     Object.assign(embeddings, {
       ...builtIn(builtinEmbeddingActive?.label),
       source: { id: BUILTIN_EMBEDDING_CONNECTION_ID, name, provider: "builtin-embedding" } as ConnectionRowData,
@@ -527,7 +527,8 @@ export function useConnectionDefaults(connectionsList: ConnectionRowData[]) {
         : [];
     const names = saved.map((row) => accountOf(row)?.name ?? row.name);
     // A downloaded built-in embedding model is a choice for Embeddings with no account: Pick it, never Add one.
-    if (job.key === "embeddings" && builtinEmbeddingActive) names.push(t("connections.builtinEmbedding.name"));
+    if (job.key === "embeddings" && builtinEmbeddingActive)
+      names.push(t("connections.builtInNamed", { name: t("connections.builtinEmbedding.name") }));
     const builtin = job.key === "embeddings" && builtinEmbeddingActive ? 1 : 0;
     return {
       count: found.count + saved.length + builtin,
