@@ -202,12 +202,14 @@ Every service has a **Seed** field. -1 keeps each image random. Any other number
 | ComfyUI               | Sampler         | euler_ancestral   |
 | ComfyUI               | Scheduler       | normal            |
 | ComfyUI               | Denoise         | 1                 |
-| NovelAI               | Steps           | 28                |
-| NovelAI               | Prompt guidance | 6                 |
+| NovelAI               | Steps           | Automatic         |
+| NovelAI               | Prompt guidance | Automatic         |
 | NovelAI               | Sampler         | k_euler_ancestral |
 | NovelAI               | Noise schedule  | karras            |
 
 Each service also has **Prompt prefix** and **Negative prefix** fields. Text there is added to the front of every prompt on this model. AUTOMATIC1111 / Forge and ComfyUI have a **Clip skip** field. AUTOMATIC1111 / Forge adds a **Restore faces** toggle. ComfyUI adds a toggle to upload a 1x1 placeholder when no reference image is given, which matters only for custom workflows with reference placeholders. NovelAI adds **Guidance rescale** and **UC preset**.
+
+NovelAI's **Steps** and **Prompt guidance** are empty by default, which means **Automatic**: Marinara sends NovelAI's own default for the model, shown in the empty field. That is 23 steps with guidance 7 on V5, guidance 5 on V4.5 and 5.5 on V4. Type a number to use your own. Clear the field to go back to automatic. A connection saved before this setting existed with the old built-in 28 steps or guidance 6 now uses the automatic value.
 
 NovelAI also has **Background dataset for backgrounds**, off by default. When it is on, background pictures (Character and Persona Gallery backgrounds, chat and Illustrator scene backgrounds, chat gallery location pictures and game backgrounds) start with NovelAI's `background dataset` tag on V4.5 and V5 models. NovelAI's background dataset leans photographic, so leave it off if your backgrounds should match an anime-style chat.
 

@@ -726,3 +726,58 @@ try {
     referenceDns.mock.restore();
   }
 }
+
+// Automatic NovelAI settings: unset Steps and Prompt guidance send NovelAI's own default for the model (its client,
+// 2026-11-24), a saved value wins, and a profile saved before them reads its built-in 28 / 6 as automatic once.
+{
+  const { normalizeImageGenerationProfile } =
+    await import("../../../packages/shared/src/constants/image-generation-defaults.js");
+  const novelaiOf = (novelai: Record<string, unknown>) =>
+    normalizeImageGenerationProfile({ version: 1, service: "novelai", seed: -1, novelai }, "novelai").profile.novelai!;
+  assert.equal(novelaiOf({ steps: 28, promptGuidance: 6 }).steps, null, "the old built-in steps read as automatic");
+  assert.equal(novelaiOf({ steps: 28, promptGuidance: 6 }).promptGuidance, null);
+  assert.equal(novelaiOf({ steps: 30, promptGuidance: 6.5 }).steps, 30, "an old profile's own choice is kept");
+  assert.equal(novelaiOf({ steps: 30, promptGuidance: 6.5 }).promptGuidance, 6.5);
+  const saved = novelaiOf({ steps: 28, promptGuidance: 6, settingsVersion: 2 });
+  assert.equal(saved.steps, 28, "a value saved with automatic settings is taken as saved");
+  assert.equal(saved.promptGuidance, 6);
+  assert.equal(novelaiOf({ steps: null, settingsVersion: 2 }).steps, null);
+
+  const sentParams: Array<Record<string, unknown>> = [];
+  const settingsDns = mock.method(dns, "lookup", async () => [{ address: "8.8.8.8", family: 4 }]);
+  const settingsFetch = mock.method(globalThis, "fetch", async (_input: string | URL | Request, init?: RequestInit) => {
+    sentParams.push((JSON.parse(String(init?.body)) as { parameters: Record<string, unknown> }).parameters);
+    return new Response(new Uint8Array(sampleSource), { status: 200, headers: { "content-type": "image/png" } });
+  });
+  const paintWith = (model: string, novelai: Record<string, unknown> = {}) =>
+    generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
+      prompt: "1girl, garden",
+      model,
+      imageDefaults: { version: 1, service: "novelai", seed: 7, novelai: novelaiOf(novelai) },
+    });
+  try {
+    await paintWith("nai-diffusion-5-full");
+    assert.equal(sentParams.at(-1)!.steps, 23);
+    assert.equal(sentParams.at(-1)!.scale, 7);
+    assert.equal(sentParams.at(-1)!.sampler, "k_euler_ancestral");
+    assert.equal(sentParams.at(-1)!.noise_schedule, "karras");
+    assert.equal(sentParams.at(-1)!.cfg_rescale, 0);
+    assert.equal(sentParams.at(-1)!.deliberate_euler_ancestral_bug, false);
+    assert.equal(sentParams.at(-1)!.prefer_brownian, true);
+
+    await paintWith("nai-diffusion-4-5-curated", { steps: 28, promptGuidance: 6 });
+    assert.equal(sentParams.at(-1)!.steps, 23, "an old profile's built-in steps follow the model now");
+    assert.equal(sentParams.at(-1)!.scale, 5);
+
+    await paintWith("nai-diffusion-5-curated", { steps: 28, promptGuidance: 6, settingsVersion: 2 });
+    assert.equal(sentParams.at(-1)!.steps, 28, "the connection's own steps win");
+    assert.equal(sentParams.at(-1)!.scale, 6);
+
+    await paintWith("nai-diffusion-5-full", { noiseSchedule: "native", settingsVersion: 2 });
+    assert.equal(sentParams.at(-1)!.deliberate_euler_ancestral_bug, undefined, "native noise keeps NovelAI's own");
+    assert.equal(sentParams.at(-1)!.prefer_brownian, undefined);
+  } finally {
+    settingsFetch.mock.restore();
+    settingsDns.mock.restore();
+  }
+}

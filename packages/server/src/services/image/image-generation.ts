@@ -21,6 +21,7 @@ import {
   DEFAULT_AUTOMATIC1111_DEFAULTS,
   DEFAULT_COMFYUI_DEFAULTS,
   DEFAULT_NOVELAI_DEFAULTS,
+  novelAiRecommendedSettings,
   mergeNegativePrompt,
   mergePromptPrefix,
   imageConnectionMakesAnimatedGif,
@@ -3475,6 +3476,8 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
     ? { width: editInputs.width, height: editInputs.height }
     : resolveNovelAiRequestSize(request, defaults);
 
+  // A connection that leaves Steps or Prompt guidance unset sends NovelAI's own default for the model.
+  const recommended = novelAiRecommendedSettings(baseModel);
   const parameters: Record<string, unknown> = {
     width: size.width,
     height: size.height,
@@ -3482,12 +3485,17 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
     ucPreset: defaults.undesiredContentPreset,
     negative_prompt: negativePrompt,
     seed,
-    scale: defaults.promptGuidance,
-    steps: defaults.steps,
+    scale: defaults.promptGuidance ?? recommended.promptGuidance,
+    steps: defaults.steps ?? recommended.steps,
     sampler: defaults.sampler,
   };
   if (defaults.noiseSchedule) {
     parameters.noise_schedule = defaults.noiseSchedule;
+  }
+  // As NovelAI's client sends them for Euler Ancestral on a scheduled noise (not "native"): its corrected sampling.
+  if (defaults.sampler === "k_euler_ancestral" && defaults.noiseSchedule && defaults.noiseSchedule !== "native") {
+    parameters.deliberate_euler_ancestral_bug = false;
+    parameters.prefer_brownian = true;
   }
   if (isV4) {
     parameters.cfg_rescale = defaults.promptGuidanceRescale;
