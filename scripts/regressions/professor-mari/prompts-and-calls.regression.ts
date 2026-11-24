@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import type { StampedCapabilityCatalogPackage } from "../../../packages/shared/src/schemas/capability-package.schema.js";
+import { buildMariAssistantPrompt } from "../../../packages/server/src/db/seed-mari.js";
 import {
+  buildMariSystemPrompt,
   parseAssistantWorkspaceAction,
   professorMariWorkspaceResponseFormat,
   resolveWorkspaceMutationVerification,
@@ -9,11 +12,70 @@ import {
   type WorkspaceCommandResult,
 } from "../../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import {
+  entriesFromCapabilityCatalog,
+  formatOfficialAgentCatalogBlock,
+  getCachedOfficialAgentCatalogEntries,
+  getOfficialAgentCatalogKnowledge,
+  OFFICIAL_AGENT_CATALOG_SECTIONS,
   OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
   PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
+  PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE,
+  resetOfficialAgentCatalogCacheForTests,
 } from "../../../packages/server/src/services/professor-mari/official-agent-knowledge.js";
 import { type RegressionCase, runNamedCases } from "../fixtures/named-cases.js";
 import "../fixtures/regression-agent-definitions.js";
+
+function fakeCatalogPackage(opts: {
+  id: string;
+  name: string;
+  description: string;
+  category?: "writer" | "tracker" | "misc";
+  section?: NonNullable<StampedCapabilityCatalogPackage["store"]>["section"];
+  tagline?: string;
+  preview?: true;
+  homeBrowserTab?: boolean;
+  conversationGame?: boolean;
+}): StampedCapabilityCatalogPackage {
+  return {
+    category: opts.category ?? "misc",
+    iconUrl: `https://example.invalid/${opts.id}.png`,
+    manifest: {
+      schemaVersion: 2,
+      capabilityApi: { major: 1, minor: 836 },
+      builtAgainst: "2.5.1",
+      id: opts.id,
+      name: opts.name,
+      version: "1.0.0",
+      description: opts.description,
+      engine: { min: "2.5.0" },
+      kind: opts.conversationGame ? ["agent", "turn-game"] : ["agent"],
+      entrypoints: { client: "client.js" },
+      files: [{ path: "client.js", sha256: "a".repeat(64) }],
+      permissions: ["ui"],
+      restartRequired: false,
+      ...(opts.homeBrowserTab || opts.conversationGame
+        ? {
+            contributions: {
+              ...(opts.homeBrowserTab
+                ? {
+                    slots: ["home-browser-tab"],
+                    homeBrowserTab: { label: opts.name, iconPaths: ["client.js"] },
+                  }
+                : { slots: ["conversation-surface"] }),
+              ...(opts.conversationGame
+                ? { conversationGame: { command: `/${opts.id}`, aliases: [], playerLabel: opts.name } }
+                : {}),
+            },
+          }
+        : {}),
+    },
+    artifact: { url: `https://example.invalid/${opts.id}.zip`, sha256: "b".repeat(64), size: 1024 },
+    ...(opts.preview ? { preview: true as const } : {}),
+    ...(opts.section
+      ? { store: { section: opts.section, tagline: opts.tagline ?? `${opts.name} tagline.` } }
+      : {}),
+  };
+}
 
 const cases: RegressionCase[] = [
   {
@@ -29,38 +91,29 @@ const cases: RegressionCase[] = [
         /### First-party downloadable agents([\s\S]*?)### Agent result types/u,
       );
       const readme = readFileSync(new URL("../../../README.md", import.meta.url), "utf8");
-      const seededMariSource = readFileSync(
-        new URL("../../../packages/server/src/db/seed-mari.ts", import.meta.url),
-        "utf8",
-      );
-      const workspaceMariSource = readFileSync(
-        new URL("../../../packages/server/src/services/professor-mari/workspace-agent.service.ts", import.meta.url),
-        "utf8",
-      );
 
-      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 39);
-      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 39);
+      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 46);
+      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 46);
       assert.deepEqual(
         OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.find((entry) => entry.id === "noodle"),
         {
           id: "noodle",
           name: "Noodle",
-          category: "misc",
+          section: "apps",
           modes: "Home",
-          summary:
-            "adds the optional local Noodle timeline and NoodleR creator-and-fan roleplay feed in a dedicated Home tab",
+          summary: "A pretend social network for your characters",
         },
       );
       assert.ok(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.some((entry) => entry.id === "long-term-memory"));
       assert.ok(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.some((entry) => entry.id === "storyboard"));
       assert.deepEqual(
         Object.fromEntries(
-          (["writer", "tracker", "misc"] as const).map((category) => [
-            category,
-            OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.filter((entry) => entry.category === category).length,
+          OFFICIAL_AGENT_CATALOG_SECTIONS.map((section) => [
+            section,
+            OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.filter((entry) => entry.section === section).length,
           ]),
         ),
-        { writer: 6, tracker: 13, misc: 20 },
+        { apps: 6, games: 8, writing: 4, memory: 5, trackers: 9, adventure: 3, media: 5, alive: 6, more: 0 },
       );
       assert.ok(frontendAgentCatalog, "Frontend architecture is missing the first-party agent catalog");
       assert.deepEqual(
@@ -77,8 +130,18 @@ const cases: RegressionCase[] = [
         assert.ok(readme.includes(entry.name), `README agent catalog is missing ${entry.name}`);
       }
 
-      assert.match(seededMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
-      assert.match(workspaceMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
+      const customCatalog = "<official_agent_catalog>\nsentinel\n</official_agent_catalog>";
+      assert.ok(buildMariAssistantPrompt(customCatalog).includes(customCatalog));
+      assert.ok(buildMariSystemPrompt(customCatalog).includes(customCatalog));
+      assert.ok(PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE.includes("`agent.list`"));
+      assert.ok(!PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("agent.list"));
+      assert.ok(
+        PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("Never claim an uninstalled agent is active."),
+      );
+      const workspaceMariSource = readFileSync(
+        new URL("../../../packages/server/src/services/professor-mari/workspace-agent.service.ts", import.meta.url),
+        "utf8",
+      );
       assert.match(workspaceMariSource, /"resultType":"image_prompt"/u);
       assert.match(workspaceMariSource, /"activationKeywords":\["IMG_PROMPT:"\]/u);
       assert.match(workspaceMariSource, /"trigger_image_generation":true/u);
@@ -565,6 +628,190 @@ const cases: RegressionCase[] = [
         }),
       );
       assert.equal(deferral.awaitingAuthorization, true);
+    },
+  },
+  {
+    name: "Live agent catalog formatter groups Organizer sections deterministically and marks previews",
+    run() {
+      const lifeSim = fakeCatalogPackage({
+        id: "modern-life-sim",
+        name: "Modern Life Sim",
+        section: "apps",
+        tagline: "A small-town life simulation.",
+        description: "Full description.",
+        preview: true,
+        homeBrowserTab: true,
+      });
+      const wordGame = fakeCatalogPackage({
+        id: "word-game-two",
+        name: "Word Game Two",
+        description: "First sentence explains the game. Second sentence adds detail.",
+        conversationGame: true,
+      });
+      const fallbackMisc = fakeCatalogPackage({
+        id: "mystery-pack",
+        name: "Mystery Pack",
+        description: "Adds something unexpected without store metadata.",
+      });
+
+      const first = formatOfficialAgentCatalogBlock(
+        entriesFromCapabilityCatalog({ packages: [wordGame, lifeSim, fallbackMisc] }),
+      );
+      const reversed = formatOfficialAgentCatalogBlock(
+        entriesFromCapabilityCatalog({ packages: [fallbackMisc, lifeSim, wordGame] }),
+      );
+      assert.equal(first, reversed, "catalog order must stay byte-identical across shuffled inputs");
+      assert.match(first, /^<official_agent_catalog>\nThe official Marinara Engine v2\.3\.0\+ catalog contains these 3 optional/u);
+      assert.match(first, /## Apps\n- Modern Life Sim \(package `modern-life-sim`; Home; preview\): A small-town life simulation\./u);
+      assert.match(first, /## Chat games\n- Word Game Two \(package `word-game-two`; Conversation\): First sentence explains the game\./u);
+      assert.match(first, /## More agents\n- Mystery Pack \(package `mystery-pack`\): Adds something unexpected without store metadata\./u);
+      assert.ok(first.includes("Do not describe About Me Keeper as an agent."));
+      assert.ok(!first.includes("## Trackers"), "empty sections must be omitted");
+    },
+  },
+  {
+    name: "Live catalog loader caches results, applies error cooldown, and falls back safely when offline",
+    async run() {
+      resetOfficialAgentCatalogCacheForTests();
+      try {
+        let nowMs = 1_000_000;
+        let fetchCount = 0;
+
+        const coldFallback = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            throw new Error("offline");
+          },
+        });
+        assert.equal(coldFallback.source, "fallback");
+        assert.equal(coldFallback.entries.length, 46);
+        assert.equal(fetchCount, 1);
+        assert.equal(getCachedOfficialAgentCatalogEntries().length, 46);
+
+        // Cooldown suppresses immediate retry after failure.
+        nowMs += 10_000;
+        const cooledDown = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            throw new Error("should not run");
+          },
+        });
+        assert.equal(cooledDown.source, "fallback");
+        assert.equal(fetchCount, 1);
+
+        // Once cooldown passes, a live catalog succeeds and replaces the fallback.
+        nowMs += 65_000;
+        const customPet = fakeCatalogPackage({
+          id: "saucelings-next",
+          name: "Saucelings Next",
+          section: "apps",
+          tagline: "An even smaller pet.",
+          description: "Desc.",
+        });
+        const liveFirst = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            return { packages: [customPet] };
+          },
+        });
+        assert.equal(liveFirst.source, "live");
+        assert.equal(fetchCount, 2);
+        assert.ok(liveFirst.block.includes("`saucelings-next`"));
+        assert.equal(getCachedOfficialAgentCatalogEntries()[0]?.id, "saucelings-next");
+
+        // Cache hit inside the 15-minute TTL does not call fetchCatalog.
+        nowMs += 5 * 60 * 1000;
+        const cachedHit = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            return { packages: [] };
+          },
+        });
+        assert.equal(cachedHit.source, "live");
+        assert.equal(fetchCount, 2);
+
+        // After TTL expiry, a failed refresh preserves the last-known live catalog.
+        nowMs += 16 * 60 * 1000;
+        const staleLiveFallback = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            throw new Error("github blip");
+          },
+        });
+        assert.equal(staleLiveFallback.source, "live");
+        assert.equal(fetchCount, 3);
+        assert.ok(staleLiveFallback.block.includes("`saucelings-next`"));
+      } finally {
+        resetOfficialAgentCatalogCacheForTests();
+      }
+    },
+  },
+  {
+    name: "Live catalog loader honors abort signal and deadline without blocking prompt assembly",
+    async run() {
+      resetOfficialAgentCatalogCacheForTests();
+      try {
+        let releaseSlowFetch: (() => void) | undefined;
+        let fetchCount = 0;
+
+        // Pre-aborted signal returns fallback immediately without invoking fetch.
+        const preAborted = new AbortController();
+        preAborted.abort();
+        const immediate = await getOfficialAgentCatalogKnowledge({
+          signal: preAborted.signal,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            return { packages: [] };
+          },
+        });
+        assert.equal(immediate.source, "fallback");
+        assert.equal(fetchCount, 0);
+
+        // In-flight wait stops promptly on signal abort while slow fetch later settles cleanly.
+        const activeController = new AbortController();
+        const abortedWait = getOfficialAgentCatalogKnowledge({
+          signal: activeController.signal,
+          fetchCatalog: () =>
+            new Promise((resolve) => {
+              releaseSlowFetch = () =>
+                resolve({
+                  packages: [
+                    fakeCatalogPackage({
+                      id: "late-pack",
+                      name: "Late Pack",
+                      section: "apps",
+                      tagline: "Loaded late.",
+                      description: "Loaded late.",
+                    }),
+                  ],
+                });
+            }),
+        });
+        activeController.abort();
+        const fromAbort = await abortedWait;
+        assert.equal(fromAbort.source, "fallback");
+        releaseSlowFetch?.();
+
+        // Short timeout returns fallback even when fetch takes longer.
+        resetOfficialAgentCatalogCacheForTests();
+        let releaseTimeoutFetch: (() => void) | undefined;
+        const timedOut = await getOfficialAgentCatalogKnowledge({
+          timeoutMs: 10,
+          fetchCatalog: () =>
+            new Promise((resolve) => {
+              releaseTimeoutFetch = () => resolve({ packages: [] });
+            }),
+        });
+        assert.equal(timedOut.source, "fallback");
+        releaseTimeoutFetch?.();
+      } finally {
+        resetOfficialAgentCatalogCacheForTests();
+      }
     },
   },
 ];

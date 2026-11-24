@@ -11,6 +11,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PROFESSOR_MARI_ID } from "../../../packages/shared/src/constants/defaults.js";
 import { MARI_ASSISTANT_PROMPT } from "../../../packages/server/src/db/seed-mari.js";
+import { PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE as PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE } from "../../../packages/server/src/services/professor-mari/official-agent-knowledge.js";
 import {
   MAX_MARI_AVAILABLE_NAMES_PER_TYPE,
   resolveProfessorMariPromptContext,
@@ -57,6 +58,7 @@ function makeStores(opts: {
   const RUNTIME_BODY = "FETCHED-BODY-SENTINEL-9271";
   const { stablePrompt, volatileContext } = await resolveProfessorMariPromptContext({
     chatMeta: { mariContext: { [`character:${RUNTIME_NAME}`]: RUNTIME_BODY } },
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
     ...makeStores({ chars: [charRow(RUNTIME_NAME)], presets: [{ name: "Creative Writing" }] }),
   });
 
@@ -76,9 +78,14 @@ function makeStores(opts: {
 // ── 2. A [fetch:] (populated mariContext) must not disturb the stable half.
 {
   const base = makeStores({ chars: [charRow("Luna")] });
-  const empty = await resolveProfessorMariPromptContext({ chatMeta: {}, ...base });
+  const empty = await resolveProfessorMariPromptContext({
+    chatMeta: {},
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
+    ...base,
+  });
   const fetched = await resolveProfessorMariPromptContext({
     chatMeta: { mariContext: { "character:Luna": "fetched body" } },
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
     ...makeStores({ chars: [charRow("Luna")] }),
   });
 
@@ -95,10 +102,12 @@ function makeStores(opts: {
   const shuffled = ["Echo", "Aardvark", "Dana", "Cleo", "Bob"];
   const a = await resolveProfessorMariPromptContext({
     chatMeta: {},
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
     ...makeStores({ chars: ascending.map((n) => charRow(n)) }),
   });
   const b = await resolveProfessorMariPromptContext({
     chatMeta: {},
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
     ...makeStores({ chars: shuffled.map((n) => charRow(n)) }),
   });
   assert.equal(a.volatileContext, b.volatileContext, "store order must not change the emitted block");
@@ -111,6 +120,7 @@ function makeStores(opts: {
   const many = Array.from({ length: 250 }, (_, i) => charRow(`char-${String(i).padStart(3, "0")}`));
   const { volatileContext } = await resolveProfessorMariPromptContext({
     chatMeta: {},
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
     ...makeStores({ chars: many }),
   });
   const block = volatileContext.match(/<available_names type="character">\n([\s\S]*?)\n<\/available_names>/);
@@ -123,6 +133,7 @@ function makeStores(opts: {
 
   const few = await resolveProfessorMariPromptContext({
     chatMeta: {},
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
     ...makeStores({ chars: Array.from({ length: 10 }, (_, i) => charRow(`only-${i}`)) }),
   });
   assert.ok(!few.volatileContext.includes("more not listed"), "under the cap → no overflow hint");
@@ -134,6 +145,7 @@ function makeStores(opts: {
   const build = () =>
     resolveProfessorMariPromptContext({
       chatMeta: { mariContext: { "preset:X": "body" } },
+      agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
       ...makeStores({
         chars: [charRow("Zed"), charRow("Amy")],
         personas: [{ name: "Alex" }],
@@ -152,6 +164,7 @@ function makeStores(opts: {
 {
   const withMari = await resolveProfessorMariPromptContext({
     chatMeta: {},
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
     ...makeStores({ chars: [charRow("Professor Mari", PROFESSOR_MARI_ID), charRow("Luna")] }),
   });
   assert.ok(!withMari.volatileContext.includes("Professor Mari"), "Mari must be filtered from her own name list");
@@ -159,12 +172,17 @@ function makeStores(opts: {
 
   const thrown = await resolveProfessorMariPromptContext({
     chatMeta: {},
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
     ...makeStores({ throwOnCharsList: true }),
   });
   assert.equal(thrown.stablePrompt, MARI_ASSISTANT_PROMPT, "a store failure must still yield the instruction block");
   assert.equal(thrown.volatileContext, "", "a store failure yields no partial name lists");
 
-  const emptyLib = await resolveProfessorMariPromptContext({ chatMeta: {}, ...makeStores({}) });
+  const emptyLib = await resolveProfessorMariPromptContext({
+    chatMeta: {},
+    agentCatalogBlock: PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
+    ...makeStores({}),
+  });
   assert.equal(emptyLib.volatileContext, "", "an empty library yields an empty volatile block");
 }
 

@@ -652,17 +652,24 @@ The lightweight Engine ships with an empty runtime agent registry. Packages inst
 | `haptic`                 | post_processing | Sends haptic device commands                                      |
 | `cyoa`                   | post_processing | Generates choice prompts                                          |
 | `storyboard`             | post_processing | Plans still or animated Game and Roleplay storyboards             |
+| `2d-avatars`             | feature         | Renders animated 2D sprite or mesh character avatars              |
+| `3d-avatars`             | feature         | Renders animated VRM, MMD PMX, GLB, and FBX 3D avatars            |
 | `conversation-calls`     | feature         | Adds Conversation audio/video calls and related settings          |
 | `hierarchical-maps`      | feature         | Adds Roleplay/Game maps, spatial context, and movement             |
 | `noodle`                 | feature         | Adds the local Noodle social feed to Home                         |
+| `otome-forge`            | feature         | Adds Otome Hearth, an otome game made from characters, to Home    |
+| `saucelings`             | feature         | Adds Saucelings, a virtual pet raised by characters, to Home      |
 | `slurp2`                 | feature         | Adds Slurp, a private creator app for characters, to Home         |
+| `story-writer`           | feature         | Adds Story Writer, a co-writing book workspace, to Home           |
 | `gacha-forge`            | feature         | Adds a gacha game mode to Home                                    |
+| `blackjack`              | feature         | Adds the Conversation Blackjack table                             |
 | `uno`                    | feature         | Adds the Conversation UNO table                                   |
 | `chess`                  | feature         | Adds the Conversation Chess board                                 |
 | `poker`                  | feature         | Adds the Conversation Texas Hold'em table                         |
 | `eightball`              | feature         | Adds the Conversation 8-Ball Pool table                           |
 | `tic-tac-toe`            | feature         | Adds the Conversation Tic-Tac-Toe board                           |
 | `rock-paper-scissors`    | feature         | Adds Conversation Rock-Paper-Scissors matches                     |
+| `wordle`                 | feature         | Adds the Conversation daily Wordle race                           |
 
 ### Agent result types
 
