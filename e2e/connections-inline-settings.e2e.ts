@@ -135,6 +135,7 @@ test("Job settings open in a window and retain inherited Main without changing f
   await expect(dialog).toBeHidden();
   expect(patches).toEqual([]);
   await expect(followsMain).toBeVisible();
+  await expect(followsMain).toHaveAccessibleName("Agents: Follows Main");
   await page.evaluate(async () => {
     const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
     useUIStore.setState({ connectionsGroupBy: "folder" });
@@ -160,6 +161,7 @@ test("Job settings open in a window and retain inherited Main without changing f
   await expect(dialog).toBeHidden();
   expect(patches).toEqual([]);
   await expect(followsMain).toBeVisible();
+  await expect(followsMain).toHaveAccessibleName("Agents: Follows Main");
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   if (info.project.name === "desktop-chromium") {
     await page.setViewportSize({ width: 768, height: 960 });

@@ -6,7 +6,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { seedUIState } from "./ui-state-fixture.js";
-import { hideExistingItems, showConnectionsList } from "./connections-panel.js";
+import { hideExistingItems, panelSearch, showConnectionsList } from "./connections-panel.js";
 
 const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
@@ -263,9 +263,8 @@ test("the panel list shows each Connection's Models open, and its row or toggle 
     await expect(model).toBeVisible();
 
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
-    const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
-    // The search box shows from 8 Models; with it the fold below runs on a filtered list.
-    if (await search.count()) await search.fill("E2E open models");
+    // With 8 Models or more the fold below runs on a filtered list (panelSearch checks the box either way).
+    await (await panelSearch(panel))?.fill("E2E open models");
     await toggle.click();
     await expect(model).toHaveCount(0);
     await toggle.click();
