@@ -345,6 +345,30 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+/* A tab group's heading over its tabs (groups are made on a computer, from the tab bar). */
+.ovm-alltabs__group {
+  display: flex;
+  grid-column: 1 / -1;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding: 0.75rem 0.25rem 0;
+  border-top: 1px solid var(--ov-line);
+  color: var(--ov-accent-text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.ovm-alltabs__group--end {
+  padding-top: 0;
+}
+.ovm-alltabs__group-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ovm-tabcard {
   position: relative;
 }

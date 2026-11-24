@@ -69,10 +69,13 @@ export function DesktopTabStrip({
   chats,
   current,
   currentKey,
+  rowSlot,
 }: {
   chats: Chat[];
   current: OverhaulTab | null;
   currentKey: string | null;
+  /** Where the group's own row goes: a spot under the top bar, outside it (see OverhaulTopBar). */
+  rowSlot: HTMLElement | null;
 }) {
   const localize = useLocalizedUiText();
   const tabs = useOverhaulStore((s) => s.tabs);
@@ -479,41 +482,119 @@ export function DesktopTabStrip({
   const overflowItems = items.filter((item) => clipped.has(item.itemKey));
   const overflowCount = overflowItems.reduce((sum, item) => sum + (item.type === "tab" ? 1 : item.entries.length), 0);
 
-  // Second row: the tabs of the group you're on.
+  // Second row: the tabs of the group you're on, across the whole window under the top bar (Vivaldi's tab stacks).
+  // It is its own bar below the top bar, not a wrapped line inside it: themes give the top bar a fixed height
+  // (MARI to the Moon's ticker, Velvet Casket's fence), which squeezed the row into the bar and over the ticker.
+  // It carries the top bar's names so a theme dresses its tabs like the ones above.
+  const rowRef = useRef<HTMLDivElement | null>(null);
   const row = currentGroup ? (
-    <div className="ov-tabrow2" role="group" aria-label={currentGroup.name}>
-      <span className="ov-tabrow2__name">
-        <Layers size={12} aria-hidden="true" />
-        {currentGroup.name}
-      </span>
-      {currentGroup.entries.map((entry) => (
-        <div
-          key={entry.key}
-          className={cn(
-            "ov-tab",
-            entry.key === currentKey && "is-on",
-            entry.key === splitKey && "is-split",
-            drag?.kind === "tab" && drag.key === entry.key && "is-dragging",
-            dropClass(`entry:${entry.key}`),
-          )}
-          draggable
-          onDragStart={(event) => startDrag(event, { kind: "tab", key: entry.key })}
-          onDragOver={(event) => overEntry(event, entry, "x")}
-          onDrop={(event) => dropOnEntry(event, entry)}
-          onDragEnd={endDrag}
-          onContextMenu={(event) => openMenu(event, { kind: "tab", entry })}
-          {...touchMenu({ kind: "tab", entry })}
-        >
-          {tabButton(entry)}
-        </div>
-      ))}
+    <div
+      ref={rowRef}
+      className="ov-topbar ov-tabrow2"
+      data-component="TopBar"
+      data-mari-part="top-bar"
+      data-tab-row=""
+      role="group"
+      aria-label={`${localize("Tab group")}: ${currentGroup.name}`}
+      onWheel={(event) => {
+        // A mouse wheel scrolls a full row sideways.
+        const el = event.currentTarget;
+        if (Math.abs(event.deltaY) > Math.abs(event.deltaX) && el.scrollWidth > el.clientWidth) {
+          el.scrollLeft += event.deltaY;
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="ov-tabrow2__name"
+        title={localize("Group options")}
+        aria-haspopup="menu"
+        onClick={(event) => {
+          // The group's menu (rename, ungroup, close) opens under its name, on its first item from the keyboard.
+          const rect = event.currentTarget.getBoundingClientRect();
+          setOverflowOpen(false);
+          menuKeyboardRef.current = event.detail === 0;
+          menuOpenerRef.current = event.currentTarget;
+          setMenu({ kind: "group", id: currentGroup.id, x: rect.left, y: rect.bottom + 4 });
+        }}
+        onContextMenu={(event) => openMenu(event, { kind: "group", id: currentGroup.id })}
+      >
+        <Layers size={14} aria-hidden="true" />
+        <span className="ov-tabrow2__label">{currentGroup.name}</span>
+        <span className="ov-tab__count">{currentGroup.entries.length}</span>
+      </button>
+      {/* A theme's strip under the tabs (MARI to the Moon's ticker, Velvet Casket's fence, Granite Watch's hazard
+          stripe) moves from the top bar to here while a group's row shows: --mari-tab-row-strip-bg and
+          --mari-tab-row-strip-height draw it, [data-mari-part="tab-row-strip"] can animate it. */}
+      <span className="ov-tabrow2__strip" data-mari-part="tab-row-strip" aria-hidden="true" />
+      <div className="ov-tabrow2__tabs">
+        {currentGroup.entries.map((entry) => (
+          <div
+            key={entry.key}
+            data-tab-key={entry.key}
+            className={cn(
+              "ov-tab",
+              entry.key === currentKey && "is-on",
+              entry.key === splitKey && "is-split",
+              drag?.kind === "tab" && drag.key === entry.key && "is-dragging",
+              dropClass(`entry:${entry.key}`),
+            )}
+            draggable
+            onDragStart={(event) => startDrag(event, { kind: "tab", key: entry.key })}
+            onDragOver={(event) => overEntry(event, entry, "x")}
+            onDrop={(event) => dropOnEntry(event, entry)}
+            onDragEnd={endDrag}
+            onContextMenu={(event) => openMenu(event, { kind: "tab", entry })}
+            {...touchMenu({ kind: "tab", entry })}
+          >
+            {tabButton(entry)}
+          </div>
+        ))}
+      </div>
     </div>
   ) : null;
 
   useLayoutEffect(() => {
-    document.documentElement.toggleAttribute("data-ov-tabrow", Boolean(currentGroup));
-    return () => document.documentElement.removeAttribute("data-ov-tabrow");
+    const root = document.documentElement;
+    root.toggleAttribute("data-ov-tabrow", Boolean(currentGroup));
+    return () => root.removeAttribute("data-ov-tabrow");
   }, [currentGroup]);
+
+  // The row's real height (a theme can make it taller): what sits under the top bar (the docked Chat settings
+  // window) starts below it, and the fullscreen bar slides it in under itself.
+  useLayoutEffect(() => {
+    const el = rowRef.current;
+    const root = document.documentElement;
+    if (!el) {
+      root.style.removeProperty("--ov-tabrow-h");
+      return;
+    }
+    // A theme whose bar is see-through (its picture on the bar, the page's art behind) would leave the row
+    // see-through too, with the page's art behind its tabs: such a row gets the page's own colour.
+    const publish = () => {
+      root.style.setProperty("--ov-tabrow-h", `${Math.round(el.offsetHeight)}px`);
+      const bar = document.querySelector<HTMLElement>("header.ov-topbar");
+      const color = bar ? getComputedStyle(bar).backgroundColor : "";
+      // rgba(r, g, b, a) or color(srgb r g b / a); no alpha means opaque.
+      const alpha = /(?:,|\/)\s*([\d.]+)\s*\)$/.exec(color)?.[1];
+      el.toggleAttribute("data-solid", color === "transparent" || (alpha !== undefined && Number(alpha) < 0.85));
+    };
+    publish();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
+    observer?.observe(el, { box: "border-box" });
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty("--ov-tabrow-h");
+    };
+  }, [currentGroup ? currentGroup.id : null, rowSlot]);
+
+  // The open tab stays in view in a long row.
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el || !currentKey) return;
+    const tab = el.querySelector<HTMLElement>(`[data-tab-key="${CSS.escape(currentKey)}"]`);
+    tab?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [currentKey, currentGroup ? currentGroup.entries.length : 0]);
 
   const groupList = Object.entries(tabGroups);
 
@@ -718,7 +799,7 @@ export function DesktopTabStrip({
             : null}
         </div>
       ) : null}
-      {row}
+      {row && rowSlot ? createPortal(row, rowSlot) : row}
       {menu
         ? createPortal(
             <div

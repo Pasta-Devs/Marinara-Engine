@@ -236,13 +236,23 @@ export function focusWindowOpener(id: FloatingWindowId) {
     ?.focus({ preventScroll: true });
 }
 
+/** The bottom of the top bar, or of a tab group's row under it (that row takes the TopBar name too). */
+function topBarBottom(): number | null {
+  const bars = document.querySelectorAll<HTMLElement>('[data-component="TopBar"]');
+  let bottom: number | null = null;
+  for (const bar of bars) {
+    const rect = bar.getBoundingClientRect();
+    if (rect.height > 0) bottom = Math.max(bottom ?? 0, rect.bottom);
+  }
+  return bottom;
+}
+
 /** The whole viewport below the topbar, minus the window margin: a `layer="top"` window may cover sidebars too. */
 export function readTopLayerWindowBounds(): WindowBounds {
   if (typeof window === "undefined") return { left: 0, top: 0, right: 1024, bottom: 768 };
-  const topbar = document.querySelector<HTMLElement>('[data-component="TopBar"]');
   return {
     left: WINDOW_MARGIN_PX,
-    top: Math.max(0, topbar?.getBoundingClientRect().bottom ?? 0) + WINDOW_MARGIN_PX,
+    top: Math.max(0, topBarBottom() ?? 0) + WINDOW_MARGIN_PX,
     right: window.innerWidth - WINDOW_MARGIN_PX,
     bottom: window.innerHeight - WINDOW_MARGIN_PX,
   };
@@ -255,7 +265,6 @@ export function readTopLayerWindowBounds(): WindowBounds {
  */
 export function readFloatingWindowBounds(): WindowBounds {
   if (typeof window === "undefined") return { left: 0, top: 0, right: 1024, bottom: 768 };
-  const topbar = document.querySelector<HTMLElement>('[data-component="TopBar"]');
   const area = document.querySelector<HTMLElement>(CENTER_CONTENT_SELECTOR)?.getBoundingClientRect();
   const topObstacles = Array.from(document.querySelectorAll<HTMLElement>(CHAT_WINDOW_TOP_OBSTACLE_SELECTOR))
     .filter((element) => getComputedStyle(element).visibility === "visible")
@@ -282,12 +291,7 @@ export function readFloatingWindowBounds(): WindowBounds {
   return {
     left: Math.max(0, area?.left ?? 0) + WINDOW_MARGIN_PX,
     top:
-      Math.max(
-        0,
-        topbar?.getBoundingClientRect().bottom ?? 0,
-        area?.top ?? 0,
-        ...topObstacles.map((rect) => rect.bottom),
-      ) + WINDOW_MARGIN_PX,
+      Math.max(0, topBarBottom() ?? 0, area?.top ?? 0, ...topObstacles.map((rect) => rect.bottom)) + WINDOW_MARGIN_PX,
     right: Math.min(window.innerWidth, area?.right ?? window.innerWidth) - WINDOW_MARGIN_PX,
     bottom: Math.min(bottom, (composer?.top ?? Infinity) - WINDOW_MARGIN_PX),
     ...(composer && {
