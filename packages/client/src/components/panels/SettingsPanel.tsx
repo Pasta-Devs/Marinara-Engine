@@ -208,6 +208,7 @@ import {
   ToggleSetting,
 } from "./settings/SettingControls";
 import { TrackerCardColorSettings } from "./settings/TrackerCardColorSettings";
+import { PushNotificationSettings } from "./settings/PushNotificationSettings";
 import { UiStyleSettings } from "./settings/UiStyleSettings";
 import { PromptOverridesEditor } from "./settings/PromptOverridesEditor";
 import { BackgroundPicker } from "./settings/BackgroundPicker";
@@ -2342,6 +2343,7 @@ function GeneralSettings() {
           <span className="text-[var(--muted-foreground)]">{localizeUi("settings.notifications.position.help")}</span>
         </div>
         <ConversationSoundSetting />
+        <PushNotificationSettings />
       </SettingsSection>
 
       <SettingsSection

@@ -63,6 +63,7 @@ import {
   RAINBOW_GRADIENT_PRESET,
 } from "./lib/css-colors";
 import { normalizeThemeCss } from "./lib/theme-css";
+import { openChatFromLaunchUrl } from "./lib/chat-insights";
 import {
   CHAT_WIDGET_COLOR_PROPERTIES,
   getChatWidgetColorRoles,
@@ -682,6 +683,11 @@ export function App() {
   useEffect(() => {
     if (!isLite) void fetchSidecarStatus();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A tapped push notification opens Marinara at `/?chat=<id>`: open that chat once (#9752).
+  useEffect(() => {
+    void openChatFromLaunchUrl();
+  }, []);
 
   // Apply theme + font size to the document root whenever they change
   useEffect(() => {

@@ -641,6 +641,7 @@ import {
   resolveMemoryRecallEmbeddingSource,
 } from "../services/memory-recall-embedding.js";
 import { postToDiscordWebhook } from "../services/discord-webhook.js";
+import { publishReplyPushNotification } from "../services/push-notifications.js";
 import {
   longTermMemoryRuntimeAvailable,
   recallLongTermMemory,
@@ -12438,6 +12439,26 @@ export async function generateRoutes(app: FastifyInstance, options: GenerateRout
                 : (charInfo.find((c) => c.id === targetCharId)?.name ?? "Character");
             postToDiscordWebhook(discordWebhookUrl, { content: fullResponse, username: charName });
           }
+
+          // Push notification for a closed app (fire-and-forget; the settings decide whether it sends).
+          publishReplyPushNotification(
+            app.db,
+            {
+              chatId: input.chatId,
+              title:
+                chatMode === "game"
+                  ? chat.name?.trim() || "Game"
+                  : `New message from ${charInfo.find((c) => c.id === targetCharId)?.name ?? "Character"}`,
+              content: fullResponse,
+            },
+            {
+              autonomous: input.autonomous === true,
+              clientDisconnected,
+              regenerate: Boolean(input.regenerateMessageId),
+              impersonate: Boolean(input.impersonate),
+              content: fullResponse,
+            },
+          );
 
           // The reply this turn goes on with is a split reply's last part; the caller records the earlier ones.
           if (replyParts) fullResponse = replyParts.at(-1)!.content;

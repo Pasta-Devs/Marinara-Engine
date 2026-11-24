@@ -28,6 +28,8 @@ import {
   type FeatureModelConnections,
   type FeatureSettingsResponse,
   impersonatePromptTemplateCatalogSchema,
+  PUSH_NOTIFICATION_SETTINGS_KEY,
+  pushNotificationSettingsUpdateSchema,
   getChatWindowDefaultSettingsKey,
   BUILTIN_EMBEDDING_CONNECTION_ID,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -62,6 +64,13 @@ import { featureSettingsResponse, loadFeatureSettings } from "../services/featur
 import { loadMediaQueueUiSettings } from "../services/image/image-generation-queue.js";
 import { loadGeneratedImageFormatUiSettings } from "../services/image/generated-image-format.js";
 import { notFound } from "../utils/not-found.js";
+import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import {
+  PushNotificationSettingsError,
+  readPushNotificationSettings,
+  sendTestPushNotification,
+  writePushNotificationSettings,
+} from "../services/push-notifications.js";
 
 const ALLOWED_KEYS = new Set([
   "ui",
@@ -225,6 +234,41 @@ export async function appSettingsRoutes(app: FastifyInstance) {
       resetMemoryRecallVectorizerCache();
       return { connectionId };
     });
+  });
+
+  // Push notifications send chat notices to an address the owner picks, and the topic lets anyone read
+  // them, so every route here is privileged like custom tool webhooks.
+  app.get(`/${PUSH_NOTIFICATION_SETTINGS_KEY}`, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Push notifications" })) return;
+    return readPushNotificationSettings(app.db);
+  });
+
+  app.put(`/${PUSH_NOTIFICATION_SETTINGS_KEY}`, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Push notifications" })) return;
+    try {
+      return await writePushNotificationSettings(app.db, pushNotificationSettingsUpdateSchema.parse(req.body ?? {}));
+    } catch (error) {
+      if (error instanceof PushNotificationSettingsError) return reply.status(400).send({ error: error.message });
+      throw error;
+    }
+  });
+
+  // A new topic: phones subscribed to the old one stop getting notices.
+  app.post(`/${PUSH_NOTIFICATION_SETTINGS_KEY}/topic`, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Push notifications" })) return;
+    return writePushNotificationSettings(app.db, {}, { rotateTopic: true });
+  });
+
+  app.post(`/${PUSH_NOTIFICATION_SETTINGS_KEY}/test`, async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { feature: "Push notifications" })) return;
+    try {
+      await sendTestPushNotification(await readPushNotificationSettings(app.db));
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn("[push] Test notification failed: %s", message);
+      return reply.status(error instanceof PushNotificationSettingsError ? 400 : 502).send({ error: message });
+    }
   });
 
   app.get<{ Params: { key: string } }>("/:key", async (req, reply) => {
