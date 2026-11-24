@@ -884,6 +884,7 @@ export function AgentEditor() {
   const activeAgentDetailIdRef = useRef(agentDetailId);
   activeAgentDetailIdRef.current = agentDetailId;
   const portraitRewritePromptRevRef = useRef(0);
+  const editRevisionRef = useRef(0);
   const setPortraitRewritePromptDraft = useCallback((value: string) => {
     portraitRewritePromptRevRef.current += 1;
     setLocalPortraitRewritePrompt(value);
@@ -1868,6 +1869,7 @@ export function AgentEditor() {
     const saveAgentDetailId = agentDetailId;
     const savePortraitRewritePrompt = localPortraitRewritePrompt;
     const savePortraitRewritePromptRev = portraitRewritePromptRevRef.current;
+    const saveEditRevision = editRevisionRef.current;
 
     try {
       if (dbConfig) {
@@ -1920,6 +1922,10 @@ export function AgentEditor() {
           openAgentDetail(created.id);
         }
       }
+      const saveSnapshotCurrent =
+        activeAgentDetailIdRef.current === saveAgentDetailId &&
+        portraitRewritePromptRevRef.current === savePortraitRewritePromptRev &&
+        editRevisionRef.current === saveEditRevision;
       if (
         shouldClearTrackerPortraitRewriteDraftAfterSave({
           savedPrompt: savePortraitRewritePrompt,
@@ -1932,9 +1938,11 @@ export function AgentEditor() {
         setPortraitRewritePromptDraft("");
         setEditingPortraitRewritePrompt(false);
       }
-      setDirty(false);
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 1500);
+      if (saveSnapshotCurrent) {
+        setDirty(false);
+        setSavedFlash(true);
+        setTimeout(() => setSavedFlash(false), 1500);
+      }
       return true;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save agent config");
@@ -2152,7 +2160,10 @@ export function AgentEditor() {
     setDirty(true);
   }, [defaultPrompt]);
 
-  const markDirty = useCallback(() => setDirty(true), []);
+  const markDirty = useCallback(() => {
+    editRevisionRef.current += 1;
+    setDirty(true);
+  }, []);
 
   // Prof. Mari and the agent's own fields (`agent.update`), as in the Preset editor. A built-in agent
   // without a saved config has no record for her to change.
