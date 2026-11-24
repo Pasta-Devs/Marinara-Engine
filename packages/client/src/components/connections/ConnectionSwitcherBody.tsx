@@ -445,6 +445,7 @@ export function ConnectionSwitcherBody({
   catalogBrowse = true,
   searchAtBottom = false,
   connectionChips = false,
+  hideNow = false,
   onGrow,
   showUnstarred = false,
   kind = "chat",
@@ -548,6 +549,8 @@ export function ConnectionSwitcherBody({
   listClassName?: string;
   /** Phones: the search box sits under the list, within reach of a thumb (the list keeps the top). */
   searchAtBottom?: boolean;
+  /** The host already names what is in use (the Model / If it fails tabs), so the Now row would only repeat it. */
+  hideNow?: boolean;
   /** Phones: a row of Connection chips under Starred ("Browse a connection"), one tap into each catalog. */
   connectionChips?: boolean;
   /** Called once the user searches or opens a Connection, so a half-height sheet can grow. */
@@ -854,7 +857,7 @@ export function ConnectionSwitcherBody({
       type="button"
       data-switcher-edit-order
       aria-pressed={editOrder}
-      className="mb-1 ml-auto flex min-h-11 items-center rounded-lg px-3 text-xs text-foreground/50 outline-none hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25"
+      className="ml-auto flex min-h-11 items-center rounded-lg px-3 text-xs font-normal text-foreground/50 outline-none hover:bg-foreground/10 hover:text-foreground/80 focus-visible:ring-1 focus-visible:ring-foreground/25"
       onClick={() => setEditOrder((on) => !on)}
     >
       {t(editOrder ? "connections.switcher.doneOrder" : "connections.switcher.editOrder")}
@@ -1538,10 +1541,15 @@ export function ConnectionSwitcherBody({
     setDrilled(true);
     if (key !== "starred") onGrow?.();
   };
-  const heading = (label: ReactNode, count?: number) => (
-    <ListHeading className="flex items-baseline justify-between gap-2">
+  const heading = (label: ReactNode, count?: number, trailing?: ReactNode) => (
+    <ListHeading className={cn("flex justify-between gap-2", trailing ? "items-center" : "items-baseline")}>
       <span className="min-w-0 truncate">{label}</span>
-      {count !== undefined && <span className="shrink-0 font-normal tabular-nums">{count}</span>}
+      {(count !== undefined || trailing) && (
+        <span className="flex shrink-0 items-center gap-1">
+          {count !== undefined && <span className="font-normal tabular-nums">{count}</span>}
+          {trailing}
+        </span>
+      )}
     </ListHeading>
   );
   // On a narrow host each left item drills into its pane.
@@ -1775,8 +1783,11 @@ export function ConnectionSwitcherBody({
           <>
             {shownEntries.starred.length > 0 && (
               <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
-                {heading(t("connections.switcher.starred"), shownEntries.starred.length)}
-                {shownEntries.starred.length > 1 && orderToggle}
+                {heading(
+                  t("connections.switcher.starred"),
+                  shownEntries.starred.length,
+                  shownEntries.starred.length > 1 && orderToggle,
+                )}
                 {shownEntries.starred.map((entry) =>
                   renderEntry(entry, { star: "all", order: shownEntries.starred.length > 1 }),
                 )}
@@ -1842,10 +1853,14 @@ export function ConnectionSwitcherBody({
               </section>
             )}
             <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
-              {showUnstarred &&
-                starredEntries.length > 0 &&
-                heading(t("connections.switcher.starred"), starredEntries.length)}
-              {starredEntries.length > 1 && orderToggle}
+              {/* "Edit order" sits on the Starred heading's line; with no heading it keeps a line of its own. */}
+              {showUnstarred && starredEntries.length > 0
+                ? heading(
+                    t("connections.switcher.starred"),
+                    starredEntries.length,
+                    starredEntries.length > 1 && orderToggle,
+                  )
+                : starredEntries.length > 1 && orderToggle}
               {starredEntries.map((entry) =>
                 renderEntry(entry, { star: "all", away: true, order: starredEntries.length > 1 }),
               )}
@@ -1943,6 +1958,51 @@ export function ConnectionSwitcherBody({
     </ListFrame>
   );
 
+  // The way back to the default (and the dice): beside "Now", or beside the search when a host hides "Now".
+  const stripButtons = (
+    <>
+      {followDefault && (!followDefault.active || confirmCurrent) && (
+        <button
+          type="button"
+          data-switcher-default
+          disabled={busy}
+          title={mainLine || followDefault.label || t("connections.switcher.useDefaultNone")}
+          onClick={() => {
+            setBusy(true);
+            void followDefault
+              .onSelect()
+              .then(onDone)
+              .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
+              .finally(() => setBusy(false));
+          }}
+          className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] max-sm:text-[13px] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait @max-xl:w-11 @max-xl:px-0"
+        >
+          <House size="0.8125rem" className="shrink-0" aria-hidden />
+          <span className="@max-xl:sr-only">{followDefault.label ?? t("connections.switcher.useDefaultNone")}</span>
+        </button>
+      )}
+      {shuffle?.onToggle && (
+        <button
+          type="button"
+          data-switcher-shuffle
+          aria-pressed={shuffle.active}
+          aria-label={t("connections.switcher.shuffle")}
+          title={t(
+            shuffle.active
+              ? "ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable"
+              : "ui.chat.quickconnectionswitcher.useRandomConnectionFromPool",
+          )}
+          onClick={shuffle.onToggle}
+          className={cn(
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25",
+            shuffle.active && "text-[var(--marinara-chat-chrome-accent)]",
+          )}
+        >
+          <Dices size="1rem" aria-hidden />
+        </button>
+      )}
+    </>
+  );
   // Now: what the host runs (or the default it follows), with the way back to the default beside it.
   const activeExtra = extras?.find((extra) => extra.active);
   const nowStrip = (
@@ -1975,46 +2035,7 @@ export function ConnectionSwitcherBody({
             </>
           )}
         </div>
-        {followDefault && (!followDefault.active || confirmCurrent) && (
-          <button
-            type="button"
-            data-switcher-default
-            disabled={busy}
-            title={mainLine || followDefault.label || t("connections.switcher.useDefaultNone")}
-            onClick={() => {
-              setBusy(true);
-              void followDefault
-                .onSelect()
-                .then(onDone)
-                .catch((error) => toast.error(t("connections.switcher.pickFailed", { error: errorMessage(error) })))
-                .finally(() => setBusy(false));
-            }}
-            className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-lg px-2.5 text-[0.6875rem] max-sm:text-[13px] text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25 disabled:cursor-wait @max-xl:w-11 @max-xl:px-0"
-          >
-            <House size="0.8125rem" className="shrink-0" aria-hidden />
-            <span className="@max-xl:sr-only">{followDefault.label ?? t("connections.switcher.useDefaultNone")}</span>
-          </button>
-        )}
-        {shuffle?.onToggle && (
-          <button
-            type="button"
-            data-switcher-shuffle
-            aria-pressed={shuffle.active}
-            aria-label={t("connections.switcher.shuffle")}
-            title={t(
-              shuffle.active
-                ? "ui.chat.quickconnectionswitcher.randomPoolActiveClickToDisable"
-                : "ui.chat.quickconnectionswitcher.useRandomConnectionFromPool",
-            )}
-            onClick={shuffle.onToggle}
-            className={cn(
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-foreground/55 outline-none transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:ring-1 focus-visible:ring-foreground/25",
-              shuffle.active && "text-[var(--marinara-chat-chrome-accent)]",
-            )}
-          >
-            <Dices size="1rem" aria-hidden />
-          </button>
-        )}
+        {stripButtons}
       </div>
       {listHeader}
     </section>
@@ -2035,8 +2056,21 @@ export function ConnectionSwitcherBody({
       }}
       className={cn("mari-connection-scope @container flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", className)}
     >
-      {nowStrip}
-      {listsReady && !shuffle?.active && !nothing && !searchAtBottom && searchBox}
+      {!hideNow && nowStrip}
+      {hideNow ? (
+        // The host shows what runs now itself (the Model / If it fails tabs): the default's way back sits by the search.
+        <div className="flex min-w-0 shrink-0 items-center pe-1">
+          {listsReady && !shuffle?.active && !nothing && !searchAtBottom ? (
+            <div className="min-w-0 flex-1">{searchBox}</div>
+          ) : (
+            <div className="flex-1" />
+          )}
+          {stripButtons}
+        </div>
+      ) : (
+        listsReady && !shuffle?.active && !nothing && !searchAtBottom && searchBox
+      )}
+      {hideNow && listHeader}
       {!listsReady ? (
         listsFailed ? (
           <div role="alert" className="flex flex-col items-center gap-2 border-t border-foreground/10 px-3 py-3">

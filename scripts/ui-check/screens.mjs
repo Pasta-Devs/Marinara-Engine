@@ -325,6 +325,15 @@ export function screenList(ids) {
       run: hook(() => window.__marinaraUiCheck.ui.getState().openModal("keyboard-shortcuts")),
     },
     { id: "connections", group: "core", run: open.library("connections") },
+    {
+      // The Main model's chooser ("Model for Main"): dense rows with a mouse, 44px targets on touch.
+      id: "model-picker-main",
+      run: open.library("connections"),
+      then: async (page) => {
+        await page.locator(".ov-conn-main__pick").filter({ visible: true }).first().click({ timeout: 10_000 });
+      },
+      ready: ".connection-picker-dialog [data-switcher-panes]",
+    },
     // The Add account menu as Home's "Connect a model" opens it (centred, not the old tile grid), and its key step
     // for a service at an address that already has an account ("You already have …").
     {

@@ -406,12 +406,14 @@ function ModelPickerSlot({
       width="max-w-2xl"
       opaque
       panelClassName="connection-picker-dialog mari-connection-scope h-[min(36rem,calc(var(--mari-visual-viewport-height,100dvh)-1.5rem))]"
-      closeButtonClassName="!min-h-11 !min-w-11"
+      // Touch keeps a 44px close; with a mouse the title bar stays slim (overhaul.css).
+      closeButtonClassName="max-md:!min-h-11 max-md:!min-w-11 [@media(pointer:coarse)]:!min-h-11 [@media(pointer:coarse)]:!min-w-11"
       restoreFocusRef={restoreFocusRef}
       contentClassName="flex flex-col !overflow-hidden !p-0"
     >
       {header}
       <ConnectionSwitcherBody
+        hideNow={!!header}
         ownRole={jobName}
         kind={decision ? "chat" : kind}
         rowFilter={rowFilter}
@@ -571,12 +573,13 @@ export function ModelPicker({
             items={slots.map((entry) => ({
               id: entry.key,
               label: (
-                <>
-                  <span className="block text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">
+                // One line on computers ("Model  [SP]claude-opus-5-5"); phones keep the label above the value.
+                <span className="flex min-w-0 flex-col items-center sm:flex-row sm:justify-center sm:gap-1.5">
+                  <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)] max-sm:text-[13px]">
                     {entry.label}
                   </span>
-                  <span className="block truncate text-xs font-medium">{entry.value}</span>
-                </>
+                  <span className="min-w-0 truncate text-xs font-medium">{entry.value}</span>
+                </span>
               ),
             }))}
             value={slot}
