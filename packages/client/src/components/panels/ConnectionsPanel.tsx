@@ -774,6 +774,7 @@ export function ConnectionsPanel() {
       connectionsList={connectionsList}
       onOpenJobs={() => select("jobs")}
       onOpenDevice={openDevice}
+      current={wide && current === "jobs"}
     />
   );
   // On this device: one card like a Connection's, its engines as rows, a Local Model's jobs as role badges.
@@ -1164,8 +1165,9 @@ export function ConnectionsPanel() {
               disabled: connectionsList.length === 0,
               onSelect: () => void exportConnections(connectionsList),
             },
+            // "Sort: A–Z": the choices read as sorting, not as more Group by choices, to a screen reader too.
             ...SORT_OPTIONS.map(([value, key]) => ({
-              label: t(key),
+              label: t("connections.list.sortBy", { option: t(key) }),
               icon: <ArrowUpDown size="0.75rem" />,
               checked: sort === value,
               onSelect: () => setSort(value),

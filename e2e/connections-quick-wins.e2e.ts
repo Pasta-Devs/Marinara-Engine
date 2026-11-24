@@ -110,14 +110,24 @@ test("the panel shows search from 8 Models and keeps sort in More actions", asyn
     await expect(panel.getByRole("searchbox", { name: "Search models and accounts" })).toHaveCount(0);
     await expect(panel.getByRole("combobox", { name: "Sort accounts" })).toHaveCount(0);
     await panel.getByRole("button", { name: "More actions", exact: true }).click();
-    await expect(page.getByRole("menu").getByText("A–Z", { exact: true })).toBeVisible();
+    await expect(page.getByRole("menu").getByText("Sort: A–Z", { exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
 
     // The eighth Model brings the search box.
-    await models.add("mystery-model-7");
+    const last = await models.add("mystery-model-7");
     await page.reload();
     await openConnectionsPanel(page);
-    await expect(panelOf(page).getByRole("searchbox", { name: "Search models and accounts" })).toBeVisible();
+    const search = panelOf(page).getByRole("searchbox", { name: "Search models and accounts" });
+    await expect(search).toBeVisible();
+    // During a search an account still folds from its heading, and a new search opens it again.
+    await search.fill("mystery-model-7");
+    const toggle = panelOf(page).locator(`[data-connections-toggle="${last.accountId}"]`);
+    const row = panelOf(page).locator(`[data-connection-id="${last.id}"]`);
+    await expect(row).toBeVisible();
+    await toggle.click();
+    await expect(row).toHaveCount(0);
+    await search.fill("mystery-model");
+    await expect(row).toBeVisible();
   } finally {
     await models.cleanup();
     await provider.close();

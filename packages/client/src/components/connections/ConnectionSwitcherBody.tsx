@@ -733,9 +733,15 @@ export function ConnectionSwitcherBody({
       // While the host follows its default, the current value is that default.
       else if (confirmCurrent) await followDefault?.onSelect();
       if (applied === false) return;
-      // Every host's pick of an account model feeds the Starred pane's Recent list on this device.
-      if (entry.group?.account && entry.model) {
-        rememberModelPick({ accountId: entry.group.account.id, model: entry.model });
+      // A chat-model pick feeds the chat chooser's Recent list on this device; an embedding, image, video or voice
+      // pick (another kind, or a filtered list) would be offered there as a chat model. A saved Model is kept by
+      // its row, as two saved Models can share one model id with different settings.
+      if (kind === "chat" && !modelFilter && entry.group?.account && entry.model) {
+        rememberModelPick({
+          accountId: entry.group.account.id,
+          model: entry.model,
+          ...(!entry.choice.model && entry.choice.connectionId ? { rowId: entry.choice.connectionId } : {}),
+        });
       }
       if (entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID && !useSidecarStore.getState().modelDownloaded) {
         openAddConnection({ category: "device", item: "local-model" });
@@ -1677,6 +1683,12 @@ export function ConnectionSwitcherBody({
       const group = groupByAccount.get(pick.accountId);
       if (!group || starsOf(group).has(pick.model)) continue;
       const facts = catalogOf(group)?.of(pick.model);
+      const savedRow = pick.rowId ? group.rows.find((row) => row.id === pick.rowId) : undefined;
+      if (savedRow) {
+        if (savedRow.model === pick.model && !leadOnly(group, pick.model, facts))
+          recentEntries.push(entryOfRow(savedRow, group));
+        continue;
+      }
       const listed = group.rows.some((row) => row.model === pick.model)
         ? !leadOnly(group, pick.model, facts)
         : catalogBrowse &&

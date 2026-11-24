@@ -4,18 +4,18 @@ This guide covers keeping your accounts and models tidy in the **Connections** p
 
 ## The account list
 
-Below the **Jobs** summary, the panel lists your accounts. Each account shows its picture, name, number of models, and address. When something needs your attention, the account says so next to its name: **Off**, **Needs key**, **Low balance** (less than 1 left in its currency), or **No credit left**. The balance and plan of an account are in **Edit account**, under **Usage and balance**. A model row shows the model's picture, its name, and badges such as the job it does (**Main**, **Agents**, **Images**), **Custom settings**, its price, or **Plan** for models included in a subscription. The **Built-in model** card sits under the **Jobs** summary. See [Built-in Model Setup](local-model.md).
+Below the **Jobs** summary, the panel lists your accounts. Each account shows its picture, name, number of models, and address. When something needs your attention, the account says so next to its name: **Off**, **Needs key**, **Low balance** (less than 1 left in its currency), or **No credit left**. When Marinara can read an account's balance or plan usage, it shows them in **Edit account**, under **Usage and balance**. A model row shows the model's picture, its name, and badges such as the job it does (**Main**, **Agents**, **Images**), **Custom settings**, its price, or **Plan** for models included in a subscription. The **Built-in model** card sits under the **Jobs** summary. See [Built-in Model Setup](local-model.md).
 
 Click an account's row to fold its models away, and click again to show them. Marinara remembers which accounts you folded. **More actions** (three dots) at the top of the panel has these items:
 
-| Item | What it does |
-| --- | --- |
-| **Fold all accounts**, **Open all accounts** | Folds or opens every account. |
-| **Custom**, **A–Z**, **Z–A**, **Newest**, **Oldest** | Sorts the accounts. |
-| **Show only Off or Needs key** | Lists only accounts that need attention. It shows when an account needs attention. |
-| **Show cost badges** | Shows each model's price. |
-| **Group by folder**, **Group by account** | Switches how models are grouped. See [Folders](#folders). |
-| **Import account**, **Export all accounts** | See [Export and import](#export-and-import). |
+| Item                                                                               | What it does                                                                       |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Fold all accounts**, **Open all accounts**                                       | Folds or opens every account.                                                      |
+| **Sort: Custom**, **Sort: A–Z**, **Sort: Z–A**, **Sort: Newest**, **Sort: Oldest** | Sorts the accounts.                                                                |
+| **Show only Off or Needs key**                                                     | Lists only accounts that need attention. It shows when an account needs attention. |
+| **Show cost badges**                                                               | Shows each model's price.                                                          |
+| **Group by folder**, **Group by account**                                          | Switches how models are grouped. See [Folders](#folders).                          |
+| **Import account**, **Export all accounts**                                        | See [Export and import](#export-and-import).                                       |
 
 **Search models and accounts** filters the list as you type. It shows once you have 8 models or more.
 
@@ -25,16 +25,16 @@ Some accounts reach models from several makers, such as NanoGPT or a proxy. Thei
 
 Click **⋯** on an account's row:
 
-| Action | What it does |
-| --- | --- |
-| **Edit account** | Opens its settings, including **Name**, **Address**, **API key**, and **Use this account**. |
-| **Replace key** | Pastes a new key. If the old key is on other accounts, Marinara asks whether to update them too. |
-| **Test** | Checks the key and shows the result. |
-| **Add model** | Opens the account's model list. |
-| **Select models** | Lets you move or delete several models at once. |
-| **Duplicate** | Adds a copy of the account with copies of its models. |
-| **Turn off** / **Turn on** | Stops or resumes Marinara using the account. |
-| **Delete account** | See below. |
+| Action                     | What it does                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Edit account**           | Opens its settings, including **Name**, **Address**, **API key**, and **Use this account**.      |
+| **Replace key**            | Pastes a new key. If the old key is on other accounts, Marinara asks whether to update them too. |
+| **Test**                   | Checks the key and shows the result.                                                             |
+| **Add model**              | Opens the account's model list.                                                                  |
+| **Select models**          | Lets you move or delete several models at once.                                                  |
+| **Duplicate**              | Adds a copy of the account with copies of its models.                                            |
+| **Turn off** / **Turn on** | Stops or resumes Marinara using the account.                                                     |
+| **Delete account**         | See below.                                                                                       |
 
 To delete an account, click **Delete account**. Marinara asks you to confirm and lists what uses its models, under **Used by**: chats, agents, models, and jobs. Click **Delete with its N models** to remove the account and its models. Those chats and jobs then need another model. If a model cannot be removed, the editor lists it under **This account still has models. Remove these first:**. Open each one and remove it.
 
@@ -56,16 +56,16 @@ To unstar a model, click its star again. Marinara removes the model and shows **
 
 Click **⋯** on a model row:
 
-| Action | What it does |
-| --- | --- |
-| **Use for…** | Opens a list of jobs. Click one to give the model that job, the same as picking it on the **Jobs** page. A tick marks the jobs it already has. |
-| **Edit model** | Opens its settings. Clicking the model row does the same. |
-| **Move to account…** | Moves the model to another account. It then uses that account's key. |
-| **Folder** | Puts the model in a folder. |
-| **Duplicate** | Makes a full copy with the same settings. |
-| **Add to Shuffle** / **Remove from Shuffle** | See [Shuffle](#shuffle). |
-| **Change picture** | Opens the picture choices. |
-| **Remove** | Deletes the model after you confirm. The confirmation lists what uses it. |
+| Action                                       | What it does                                                                                                                                   |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Use for…**                                 | Opens a list of jobs. Click one to give the model that job, the same as picking it on the **Jobs** page. A tick marks the jobs it already has. |
+| **Edit model**                               | Opens its settings. Clicking the model row does the same.                                                                                      |
+| **Move to account…**                         | Moves the model to another account. It then uses that account's key.                                                                           |
+| **Folder**                                   | Puts the model in a folder.                                                                                                                    |
+| **Duplicate**                                | Makes a full copy with the same settings.                                                                                                      |
+| **Add to Shuffle** / **Remove from Shuffle** | See [Shuffle](#shuffle).                                                                                                                       |
+| **Change picture**                           | Opens the picture choices.                                                                                                                     |
+| **Remove**                                   | Deletes the model after you confirm. The confirmation lists what uses it.                                                                      |
 
 When you move a model, its name, picture, jobs, and chats move with it, and service options reset.
 

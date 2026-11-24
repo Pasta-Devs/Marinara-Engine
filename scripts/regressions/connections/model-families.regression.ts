@@ -7,6 +7,13 @@ import { MODEL_FAMILY_LABELS, familyChipsFor, modelFamilyOf } from "../../../pac
 const families: Array<[string, string]> = [
   // Bracket tags, paths and :tags are decorations, not part of the name.
   ["[SP] claude-sonnet-4-5", "claude"],
+  // Gateway decorations and prefixes the shared capability id strips, and a name after a colon.
+  ["【限时】o3", "gpt"],
+  ["o3(high)", "gpt"],
+  ["o3@2025-04-16", "gpt"],
+  ["ft:gpt-4o-mini-2024-07-18:my-org::A1b2C3", "gpt"],
+  ["groq:llama-3.1-8b", "llama"],
+  ["anthropic/claude-sonnet-4:free", "claude"],
   ["[free] [SP] gpt-4o", "gpt"],
   ["anthropic/claude-3.5-sonnet", "claude"],
   ["accounts/fireworks/models/llama-v3p1-405b-instruct", "llama"],
@@ -113,3 +120,22 @@ const loaded = merge(
 assert.deepEqual(loaded.recentModelPicks, [pick("a", "x")]);
 assert.deepEqual(merge({ recentModelPicks: "nope" }, useUIStore.getState()).recentModelPicks, []);
 assert.deepEqual(addRecentModelPick([], pick("", "x")), [], "a pick without an account is not kept");
+// Two saved Models can share a model id: each is its own line, kept by its row, and a bad row id is dropped.
+assert.deepEqual(
+  addRecentModelPick(
+    [
+      { accountId: "a", model: "x", rowId: "row-1" },
+      { accountId: "a", model: "x", rowId: 7 },
+    ],
+    {
+      accountId: "a",
+      model: "x",
+      rowId: "row-2",
+    },
+  ),
+  [
+    { accountId: "a", model: "x", rowId: "row-2" },
+    { accountId: "a", model: "x", rowId: "row-1" },
+    { accountId: "a", model: "x" },
+  ],
+);

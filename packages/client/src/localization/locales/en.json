@@ -2645,6 +2645,7 @@
   "connections.list.searchModels_other": "Search {{count}} models",
   "connections.list.showAll": "Show all",
   "connections.list.showCostBadges": "Show cost badges",
+  "connections.list.sortBy": "Sort: {{option}}",
   "connections.list.sortCustom": "Custom",
   "connections.list.sortNameAsc": "A–Z",
   "connections.list.sortNameDesc": "Z–A",

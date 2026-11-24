@@ -55,7 +55,8 @@ export const bucketOf = (tile: SummaryTile, followsAgents: string): JobBucket =>
  * card's sentence names after "except". `followsAgents` is the "Follows Agents" text the tiles carry.
  *
  * Main is always its own line, so it is in no bucket and not among the problems (its row shows its own warning).
- * The sentence names the jobs that run a Model of their own; a follower is a row for its problem but still follows
+ * The sentence names the jobs that do not run Main's Model: the ones with a Model of their own, and, when Agents has
+ * a Model of its own, the jobs that follow Agents. A follower of Main is a row for its problem but still follows
  * Main, so it is not named there. Off jobs are never named.
  */
 export function summarizeJobs<T extends SummaryTile>(tiles: readonly T[], followsAgents: string) {
@@ -63,6 +64,8 @@ export function summarizeJobs<T extends SummaryTile>(tiles: readonly T[], follow
   const problems: T[] = [];
   const exceptions: T[] = [];
   let main: T | undefined;
+  const agents = tiles.find((tile) => tile.key === "agents");
+  const agentsOwn = !!agents && baseBucket(agents, followsAgents) === "own";
   for (const tile of tiles) {
     if (tile.key === "main") {
       main = tile;
@@ -70,7 +73,8 @@ export function summarizeJobs<T extends SummaryTile>(tiles: readonly T[], follow
     }
     buckets[bucketOf(tile, followsAgents)].push(tile);
     if (hasProblem(tile)) problems.push(tile);
-    if (baseBucket(tile, followsAgents) === "own") exceptions.push(tile);
+    const base = baseBucket(tile, followsAgents);
+    if (base === "own" || (agentsOwn && base === "followsAgents")) exceptions.push(tile);
   }
   return { main, ...buckets, problems, exceptions };
 }

@@ -1057,10 +1057,13 @@ export function ConnectionJobsSummary({
   connectionsList,
   onOpenJobs,
   onOpenDevice,
+  current = false,
 }: {
   connectionsList: ConnectionRowData[];
   onOpenJobs: () => void;
   onOpenDevice: (item: DeviceItem) => void;
+  /** The Jobs page shows beside the list (a wide panel), so its row reads as the current one. */
+  current?: boolean;
 }) {
   const { t } = useTranslation();
   useMigrateVoiceJob();
@@ -1083,8 +1086,13 @@ export function ConnectionJobsSummary({
         type="button"
         data-connections-row="defaults"
         onClick={onOpenJobs}
+        aria-current={current || undefined}
         aria-label={t("connections.jobs.openWithSummary", { summary: sentence })}
-        className={cn("relative flex min-h-11 w-full min-w-0 items-center gap-1.5 px-1.5 py-1 text-start", FOCUS)}
+        className={cn(
+          "relative flex min-h-11 w-full min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-start",
+          current && "bg-foreground/[0.06]",
+          FOCUS,
+        )}
       >
         <span id={titleId} className="min-w-0 flex-1 text-base font-semibold leading-6 text-[var(--foreground)]">
           {t("connections.defaults.title")}
@@ -1157,17 +1165,19 @@ export function ConnectionJobsPage({
   // settings window is open, every job keeps its place, so no window closes under the person using it; once they
   // are all closed the page sorts again and focus follows the job it was on.
   const [busy, setBusy] = useState<ReadonlySet<JobKey>>(() => new Set());
-  const onBusyChange = useCallback(
-    (key: JobKey, isBusy: boolean) =>
-      setBusy((keys) => {
-        if (keys.has(key) === isBusy) return keys;
-        const next = new Set(keys);
-        if (isBusy) next.add(key);
-        else next.delete(key);
-        return next;
-      }),
-    [],
-  );
+  // The job whose window was open last: closing a window can re-sort the page while focus is still in that
+  // window (a portal outside the page), so focus then goes back to this job in its new place.
+  const lastBusyRef = useRef<JobKey | null>(null);
+  const onBusyChange = useCallback((key: JobKey, isBusy: boolean) => {
+    if (isBusy) lastBusyRef.current = key;
+    setBusy((keys) => {
+      if (keys.has(key) === isBusy) return keys;
+      const next = new Set(keys);
+      if (isBusy) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
   const liveBuckets = useMemo(() => {
     const buckets = new Map<JobKey, JobBucket>();
     for (const bucket of ["own", "followsMain", "followsAgents", "off"] as const)
@@ -1178,6 +1188,9 @@ export function ConnectionJobsPage({
   const refocusRef = useRef<string | null>(null);
   useEffect(() => {
     if (busy.size > 0) return;
+    // Used once: a later re-sort with nothing open never moves focus on its own.
+    const closed = lastBusyRef.current;
+    lastBusyRef.current = null;
     const same =
       placed.size === liveBuckets.size && [...liveBuckets].every(([key, bucket]) => placed.get(key) === bucket);
     if (same) return;
@@ -1185,7 +1198,7 @@ export function ConnectionJobsPage({
     refocusRef.current =
       active instanceof HTMLElement && rootRef.current?.contains(active)
         ? (active.closest("[data-defaults-role]")?.getAttribute("data-defaults-role") ?? null)
-        : null;
+        : closed;
     setPlaced(liveBuckets);
   }, [busy, liveBuckets, placed]);
   useLayoutEffect(() => {

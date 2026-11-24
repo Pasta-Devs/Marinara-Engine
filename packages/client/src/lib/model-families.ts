@@ -4,6 +4,8 @@
 // proxies add ("[SP] ", "anthropic/", ":free") are gone. An id no rule knows is "other".
 // ──────────────────────────────────────────────
 
+import { bareCapabilityModelId } from "@marinara-engine/shared";
+
 export type ModelFamily =
   | "claude"
   | "gpt"
@@ -82,20 +84,19 @@ const RULES: ReadonlyArray<readonly [RegExp, ModelFamily]> = [
 ];
 
 /** The id with proxy decorations removed: bracket tags, any path before the last "/", and a ":tag". */
-function bareModelId(modelId: string): string {
-  const untagged = modelId
-    .trim()
-    .toLowerCase()
-    .replace(/^(?:\[[^\]]*\]\s*)+/, "");
-  const name = untagged.slice(untagged.lastIndexOf("/") + 1);
-  const colon = name.indexOf(":");
-  return (colon > 0 ? name.slice(0, colon) : name).trim();
+/**
+ * The names a model id may go by, best first. The shared capability id drops proxy decorations (bracket tags such
+ * as "[SP] " or "【限时】", "(high)" and "@date" modifiers, the path before the last "/"). Around a colon the name
+ * usually comes first ("claude-sonnet-4:free"), but a gateway or fine-tune prefix can come first instead
+ * ("groq:llama-3.1-8b", OpenAI's "ft:gpt-4o-mini:org::id"), so the part after it is tried next.
+ */
+function modelNames(modelId: string): string[] {
+  const [head = "", next = ""] = bareCapabilityModelId(modelId).split(":");
+  return [head.trim(), next.trim()].filter(Boolean);
 }
 
 export function modelFamilyOf(modelId: string): ModelFamily {
-  const id = bareModelId(modelId);
-  if (!id) return "other";
-  for (const [pattern, family] of RULES) if (pattern.test(id)) return family;
+  for (const id of modelNames(modelId)) for (const [pattern, family] of RULES) if (pattern.test(id)) return family;
   return "other";
 }
 

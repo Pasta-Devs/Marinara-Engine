@@ -55,6 +55,21 @@ const keys = (tiles: readonly SummaryTile[]) => tiles.map((tile) => tile.key);
   assert.deepEqual(keys(summary.exceptions), []);
 }
 
+// Agents has a Model of its own: a job that follows Agents does not run Main's Model, so the sentence names it too.
+{
+  const summary = summarizeJobs(
+    [
+      { key: "main", source: MODEL, warning: null },
+      { key: "agents", source: MODEL, warning: null },
+      { key: "impersonate", follows: FOLLOWS_MAIN, source: MODEL, warning: null },
+      { key: "mari", follows: FOLLOWS_AGENTS, source: MODEL, warning: null },
+    ],
+    FOLLOWS_AGENTS,
+  );
+  assert.deepEqual(keys(summary.followsAgents), ["mari"]);
+  assert.deepEqual(keys(summary.exceptions), ["agents", "mari"]);
+}
+
 // Main's account is off: Main is no problem line (its row shows it), its followers are rows with the problem, and
 // the sentence still names none of them, as they follow Main.
 {

@@ -221,17 +221,17 @@ test("connections concept A reference renders without overflow", async ({ browse
     if (size.name !== "panel-512x768") await page.screenshot({ path: `${base}-full.png` });
     if (size.width === 320) {
       const standalone = connection("c-standalone", "Standalone fixture", "custom", "local/fixture", null);
-      await page.route("**/api/connections", (route) => route.fulfill({ json: [...connections, standalone] }));
+      // A second Model with no account brings the list to 8, where the search box shows.
+      const spare = connection("c-standalone-2", "Second standalone", "custom", "local/fixture-2", null);
+      await page.route("**/api/connections", (route) => route.fulfill({ json: [...connections, standalone, spare] }));
       await page.reload();
       const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
       const row = panel.locator('[data-connection-id="c-standalone"]');
-      // The search box shows from 8 Models; it lists a Model with no account in place.
-      if (await search.count()) {
-        await search.fill("Standalone fixture");
-        await expect(row).toBeVisible();
-        expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
-        await search.fill("");
-      }
+      // A search lists a Model with no account in place.
+      await search.fill("Standalone fixture");
+      await expect(row).toBeVisible();
+      expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+      await search.fill("");
       await panel.locator('[data-connections-row="other"]').click();
       await expect(row).toBeVisible();
       expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);

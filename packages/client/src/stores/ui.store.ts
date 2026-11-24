@@ -454,7 +454,8 @@ function normalizeUserActivity(activity: string): string {
 }
 
 /** A model picked in the model chooser: the account it runs on and the model id. */
-export type RecentModelPick = { accountId: string; model: string };
+/** A recent pick: the account and model id, and the saved Model's row when the pick was one. */
+export type RecentModelPick = { accountId: string; model: string; rowId?: string };
 const RECENT_MODEL_PICK_LIMIT = 8;
 
 /** The picks with `pick` first: one line per account and model, at most eight. Also cleans a saved list. */
@@ -462,12 +463,13 @@ export function addRecentModelPick(picks: readonly unknown[], pick?: RecentModel
   const out: RecentModelPick[] = [];
   const seen = new Set<string>();
   for (const item of pick ? [pick, ...picks] : picks) {
-    const { accountId, model } = (item ?? {}) as Partial<RecentModelPick>;
+    const { accountId, model, rowId } = (item ?? {}) as Partial<RecentModelPick>;
     if (typeof accountId !== "string" || typeof model !== "string" || !accountId || !model) continue;
-    const key = `${accountId}\n${model}`;
+    const row = typeof rowId === "string" && rowId ? rowId : undefined;
+    const key = `${accountId}\n${model}\n${row ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ accountId, model });
+    out.push({ accountId, model, ...(row ? { rowId: row } : {}) });
     if (out.length === RECENT_MODEL_PICK_LIMIT) break;
   }
   return out;

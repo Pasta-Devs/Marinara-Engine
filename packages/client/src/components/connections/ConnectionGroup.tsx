@@ -35,6 +35,7 @@ import {
   useConnections,
   useDeleteConnection,
   useMoveConnection,
+  useSubscriptionUsage,
   useTestConnection,
   type CachedCatalogFacts,
 } from "../../hooks/use-connections";
@@ -384,8 +385,14 @@ export function ConnectionGroup({
               }
             : null;
   // A key or test problem outranks the balance: only a Connection that works says its credit is running out.
+  // A subscriber's pay-as-you-go credit can be 0 while the plan covers their models, so an active plan means no
+  // warning. The card's usage meter reads the same query, so this asks nothing more while it shows.
+  const { data: plan } = useSubscriptionUsage(firstRow?.id ?? null, !!usage && !!lowBalance && account.state === "ok");
+  const planActive = !!plan && "active" in plan && plan.active;
   const warning =
-    lowBalance && account.state === "ok" && !testFailure ? t(`connections.balance.warning.${lowBalance}`) : null;
+    lowBalance && !planActive && account.state === "ok" && !testFailure
+      ? t(`connections.balance.warning.${lowBalance}`)
+      : null;
   const headingName = [heading, accountLabel, endpoint, count].filter(Boolean).join(", ");
   const statusWord = testFailure ? testLabel : account.state !== "ok" ? state : warning;
   return (
