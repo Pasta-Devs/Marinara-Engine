@@ -12,7 +12,7 @@ API 密钥是服务给你的一串秘密代码，Marinara 靠它使用你的账�
 4. 点击 **Connect**(连接)。Marinara 会测试这个账号。
 5. 在 **Found in … — use it for:** 下勾选 **Images**(图像)。如果服务没有模型列表，就在这一行输入模型 ID。点击 **Done**(完成)。
 6. 打开这个图像模型，点击 **Test image**(测试图像)。Marinara 会生成一张小尺寸的测试图。
-7. 在第 5 步勾选 **Images**，也会设置 **Connections** 面板顶部 **Jobs**(分工) 区域中的 **Images** 工作。以后要修改，点击 **Images** 行。
+7. 在第 5 步勾选 **Images**，也会设置 **Connections** 面板中 **Jobs**(分工) 页面上的 **Images** 工作。以后要修改，在那里点击 **Images**。
 
 要给某个账号再添加一个图像模型，点击账号行中的 **⋯**，选择 **Add model**(添加模型)。窗口的完整说明见[连接 AI 服务商](../connections/connecting-to-a-provider.md)。
 

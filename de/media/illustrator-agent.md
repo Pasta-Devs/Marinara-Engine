@@ -16,7 +16,7 @@ Den Prompt schreibt der Illustrator selbst, das Bild zeichnet aber ein separates
 
 Ein Bildmodell gibst du ihm auf einem von zwei Wegen.
 
-1. Leg im Panel **Connections** (Verbindungen) im Bereich **Jobs** (Aufgaben) die Aufgabe **Images** (Bilder) fest.
+1. Leg im Panel **Connections** (Verbindungen) auf der Seite **Jobs** (Aufgaben) die Aufgabe **Images** (Bilder) fest.
 2. Oder gib dem Illustrator im Fenster **Open Setup** (Einrichtung öffnen) ein eigenes Bildmodell.
 
 Findet die App kein Bildmodell, schlägt das Bild fehl, und du wirst aufgefordert, eines auszuwählen.

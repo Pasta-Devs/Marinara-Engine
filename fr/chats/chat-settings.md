@@ -58,7 +58,7 @@ La section **Connection** choisit le modèle qui répond dans ce chat. Un choix 
 1. Ouvre **Chat Settings**, puis la section **Connection**.
 2. Appuie sur le champ **Model** (modèle). Il affiche le modèle actuel.
 3. Regarde s'il indique que le chat suit **Main** (principal). Main est le modèle par défaut que tu définis dans **Connections** (Connexions).
-4. Choisis un modèle. Le sélecteur est le même que celui du bouton de modèle de la zone de saisie du chat. Le modèle actuel reste en haut, avec les modèles récents et favoris en dessous, classés par compte. Cherche parmi les modèles et les comptes, ou utilise **Browse** (parcourir) pour ouvrir le catalogue d'un compte.
+4. Choisis un modèle. Le sélecteur est le même que celui du bouton de modèle de la zone de saisie du chat. Le modèle actuel reste en haut, avec les modèles favoris et récents en dessous. Cherche parmi les modèles et les comptes, ou clique sur un compte pour voir ses modèles. Une longue liste est d'abord repliée derrière **Browse all N models** (parcourir les N modèles).
 
 **Follow Main** (suivre Main) efface le choix propre au chat : le chat change alors quand tu changes Main. **Shuffle** (mélange) choisit pour chaque réponse un modèle différent parmi ceux de ton pool. Voir [Shuffle](../connections/organizing-connections.md#shuffle). Si un compte a besoin d'une clé ou est désactivé, son modèle mène à l'action de réparation. Pour ajouter un compte, voir [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 

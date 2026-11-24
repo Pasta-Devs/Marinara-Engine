@@ -12,7 +12,7 @@ API 키는 서비스가 발급하는 비밀 코드로, Marinara가 내 계정을
 4. **Connect**(연결)를 클릭하세요. Marinara가 계정을 테스트합니다.
 5. **Found in … — use it for:** 아래에서 **Images**를 체크하세요. 서비스가 모델 목록을 제공하지 않으면 행에 모델 ID를 입력하세요. **Done**(완료)을 클릭하세요.
 6. 이미지 모델을 열고 **Test image**(이미지 테스트)를 클릭하세요. Marinara가 작은 시험용 그림을 만듭니다.
-7. 5단계에서 **Images**를 체크하면 **Connections** 패널 맨 위 **Jobs**(작업) 상자의 **Images** 작업도 설정됩니다. 나중에 바꾸려면 **Images** 행을 클릭하세요.
+7. 5단계에서 **Images**를 체크하면 **Connections** 패널의 **Jobs**(작업) 페이지에 있는 **Images** 작업도 설정됩니다. 나중에 바꾸려면 거기서 **Images**를 클릭하세요.
 
 계정에 이미지 모델을 하나 더 추가하려면 그 계정의 **⋯** 메뉴를 열고 **Add model**(모델 추가)을 클릭하세요. 창 전체에 대한 설명은 [AI 제공자에 연결하기](../connections/connecting-to-a-provider.md)를 참고하세요.
 

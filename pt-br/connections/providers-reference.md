@@ -194,7 +194,7 @@ Em **Voice** (voz), um serviço de áudio fala as vozes dos personagens e a narr
 
 Cada fonte preenche um endereço e um modelo padrão. **Default voice** (voz padrão) é a voz usada quando nada mais específico, como uma voz por personagem, está definido. **Request timeout (seconds)** (tempo limite da requisição, em segundos) é quanto tempo Marinara espera por uma fala. Aumente esse valor para um servidor de voz lento.
 
-Para escolher a conta de fala que Marinara usa por padrão, clique na linha **Voice** (voz) da caixa **Jobs** (tarefas). Para ler mensagens em voz alta, escolha o modelo da conta nessa linha. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md) e [Usar um modelo de voz de uma conta](../media/tts-setup.md#use-a-voice-model-from-an-account).
+Para escolher a conta de fala que Marinara usa por padrão, clique em **Voice** (voz) na página **Jobs** (tarefas). Para ler mensagens em voz alta com ela, escolha o modelo dela para **Voice**. Veja [Configuração de Text to Speech (TTS)](../media/tts-setup.md) e [Usar um modelo de voz de uma conta](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 
@@ -224,7 +224,7 @@ Os embeddings transformam texto em listas de números para que Marinara encontre
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** e **Grok CLI (Subscription)** não geram embeddings. Nesses casos, use o menu suspenso **Embedding provider** (provedor de embeddings) para emprestar outra conta, como uma compatível com OpenAI, **Google Gemini** ou o **Built-in model** (modelo embutido).
 
-Para usar uma mesma fonte de embedding em todas as contas que não têm configurações de embedding próprias, clique na linha **Embeddings** da caixa **Jobs**. **Marinara's own search** (a busca do próprio Marinara) mantém o modelo de embedding embutido. O modelo de embedding próprio de uma conta, ou o **Embedding provider** dela, continua tendo prioridade. Vetorize de novo os seus lorebooks e memórias depois de mudar essa opção. Veja [Busca semântica para lorebooks](../lorebooks/semantic-search.md).
+Para usar uma mesma fonte de embedding em todas as contas que não têm configurações de embedding próprias, clique em **Embeddings** na página **Jobs**. **Marinara's own search** (a busca do próprio Marinara) mantém o modelo de embedding embutido. O modelo de embedding próprio de uma conta, ou o **Embedding provider** dela, continua tendo prioridade. Vetorize de novo os seus lorebooks e memórias depois de mudar essa opção. Veja [Busca semântica para lorebooks](../lorebooks/semantic-search.md).
 
 <a id="timeouts"></a>
 

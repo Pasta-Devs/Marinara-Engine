@@ -4,19 +4,20 @@
 
 ## 账号列表
 
-面板在 **Jobs**(分工) 框下方列出你的账号。每个账号显示它的图片、名称、模型数量和地址。模型行显示模型的图片、名称和徽章，比如它负责的工作（**Main**(主模型)、**Agents**(智能体)、**Images**(图像)）、**Custom settings**(自定义设置)、价格，或者订阅里包含的模型会显示 **Plan**(套餐)。**Built-in model**(内置模型) 卡片位于 **Jobs** 框下方。见[内置模型设置](local-model.md)。
+面板在 **Jobs**(分工) 摘要下方列出你的账号。每个账号显示它的图片、名称、模型数量和地址。有需要你处理的情况时，账号会在名称旁边注明：**Off**(关闭)、**Needs key**、**Low balance**(余额不足，按账号所用的货币计剩余不到 1) 或 **No credit left**(余额已用完)。Marinara 能读取账号的余额或套餐用量时，会在 **Edit account**(编辑账号) 的 **Usage and balance**(用量与余额) 下显示出来。模型行显示模型的图片、名称和徽章，比如它负责的工作（**Main**(主模型)、**Agents**(智能体)、**Images**(图像)）、**Custom settings**(自定义设置)、价格，或者订阅里包含的模型会显示 **Plan**(套餐)。**Built-in model**(内置模型) 卡片位于 **Jobs** 摘要下方。见[内置模型设置](local-model.md)。
 
 点击账号行可以把它的模型折叠起来，再点一次重新显示。Marinara 会记住哪些账号折叠了。面板顶部的 **More actions**(更多操作，三个点) 里有这些项：
 
 | 项 | 作用 |
 | --- | --- |
 | **Fold all accounts**(折叠全部账号)、**Open all accounts**(展开全部账号) | 折叠或展开所有账号。 |
-| **Show only Off or Needs key**(只显示 Off 或 Needs key 的账号) | 只列出需要处理的账号。 |
+| **Sort: Custom**(排序：自定义)、**Sort: A–Z**、**Sort: Z–A**、**Sort: Newest**(排序：最新)、**Sort: Oldest**(排序：最早) | 给账号排序。 |
+| **Show only Off or Needs key**(只显示 Off 或 Needs key 的账号) | 只列出需要处理的账号。有账号需要处理时才会显示这一项。 |
 | **Show cost badges**(显示费用徽章) | 显示每个模型的价格。 |
 | **Group by folder**(按文件夹分组)、**Group by account**(按账号分组) | 切换模型的分组方式。见[文件夹](#folders)。 |
 | **Import account**(导入账号)、**Export all accounts**(导出全部账号) | 见[导出与导入](#export-and-import)。 |
 
-面板较宽时，排序下拉菜单在 **Search models and accounts**(搜索模型和账号) 旁边；面板较窄时，排序放在 **More actions** 里。排序方式有 **Custom**(自定义)、**A–Z**、**Z–A**、**Newest** 和 **Oldest**。**Search models and accounts** 会随输入筛选列表。
+**Search models and accounts**(搜索模型和账号) 会随输入筛选列表。你有 8 个或更多模型时它才会显示。
 
 有些账号能用到多家开发商的模型，比如 NanoGPT 或代理。它们的模型会分在 **via NanoGPT** 这样的标题下面。
 
@@ -45,7 +46,7 @@
 
 ## 星标模型
 
-星标用来标记想快速找到的模型。加了星标的模型会列在每个模型选择器靠上的 **Starred**(星标) 下：**Jobs** 框的 **Model for**(用于……的模型) 窗口、**Model for this chat**(此聊天的模型)，以及 **Chat Settings**(聊天设置) 和智能体编辑器里的模型字段。
+星标用来标记想快速找到的模型。加了星标的模型会列在每个模型选择器靠上的 **Starred**(星标) 下：**Jobs** 页面的 **Model for**(用于……的模型) 窗口、**Model for this chat**(此聊天的模型)，以及 **Chat Settings**(聊天设置) 和智能体编辑器里的模型字段。
 
 要给模型加星标，在账号的 **Add model** 列表里点它的星标，或者在模型的 **⋯** 菜单里选 **Star**(加星标)。把某项工作交给模型，也会把它保存下来。
 
@@ -57,7 +58,7 @@
 
 | 操作 | 作用 |
 | --- | --- |
-| **Use for…** | 打开工作列表。点击其中一项即可分配给模型，和在 **Jobs** 框里选择一样。已分配的工作会带勾。 |
+| **Use for…** | 打开工作列表。点击其中一项即可分配给模型，和在 **Jobs** 页面上选择一样。已分配的工作会带勾。 |
 | **Edit model**(编辑模型) | 打开它的设置。点击模型行效果相同。 |
 | **Move to account…**(移到账号…) | 把模型移到另一个账号。之后它使用那个账号的密钥。 |
 | **Folder**(文件夹) | 把模型放进文件夹。 |
@@ -92,7 +93,7 @@ Shuffle 让聊天每写一条回复就换一个模型。用它可以把请求分
 
 如果某条回复挑中的模型失败了，而 **Main** 设置了 **If it fails**(失败时) 模型，就会改由那个模型写这条回复。一条通知会说明失败的是哪个模型以及简短原因，例如“key rejected”、“rate limited”或“not found”。这条回复会保留一个小小的 **Fallback**(后备) 标签。点按它或把鼠标指向它，就能再次看到同一行说明。
 
-在 **Model for this chat** 里选的模型只改变这个聊天。要更改新聊天用的模型，在 **Jobs** 框里设置 **Main**。
+在 **Model for this chat** 里选的模型只改变这个聊天。要更改新聊天用的模型，在 **Jobs** 摘要里设置 **Main**。
 
 <a id="export-and-import"></a>
 

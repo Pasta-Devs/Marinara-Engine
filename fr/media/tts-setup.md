@@ -7,13 +7,13 @@ Le Text to Speech (TTS), ou synthèse vocale, lit à voix haute les messages du 
 1. Clique sur **Connections** (Connexions) dans la barre du haut, puis sur **Add** (ajouter).
 2. Clique sur **Voice** (voix) dans les filtres de type, choisis un service et colle ta clé dans **API key**. Clique sur **Connect** (connecter).
 3. Sous **Found in … — use it for:**, coche **Voice**, puis clique sur **Done** (terminé). Choisir un modèle Voice active la synthèse vocale.
-4. Clique sur l'engrenage de la ligne **Voice** de l'encadré **Jobs** (tâches), puis sur **Preview** (aperçu) pour écouter un exemple. Dans un chat, clique sur **Speak** (lire à voix haute) sous un message.
+4. Clique sur l'engrenage à côté de **Voice** sur la page **Jobs** (tâches), puis sur **Preview** (aperçu) pour écouter un exemple. Dans un chat, clique sur **Speak** (lire à voix haute) sous un message.
 
 ## Activer la synthèse vocale
 
 Choisir un modèle pour la tâche **Voice** active la synthèse vocale. Rien ne se met à parler tout seul. Le bouton **Speak** apparaît sur chaque message, ainsi que les options **Auto-play**. Tu choisis toujours ce qui est lu et quand.
 
-1. Clique sur **Connections** dans la barre du haut. Repère la ligne **Voice** sous **Pictures & sound** (images et son) dans l'encadré **Jobs**.
+1. Clique sur **Connections** dans la barre du haut, puis sur **All jobs** (toutes les tâches) sous **Jobs**. Repère **Voice**.
 2. Clique sur la ligne et choisis un modèle vocal ou un service vocal. La ligne affiche ton choix.
 3. Clique sur l'engrenage de la ligne pour ouvrir les réglages de la voix. Si tu n'as pas encore de compte vocal, clique sur **Add** dans la ligne ou ajoute un compte comme dans le démarrage rapide.
 4. Pour désactiver la synthèse vocale, clique sur la ligne et choisis **Turn voice off** (désactiver la voix). La ligne affiche **Off** (désactivé) et rien n'est lu à voix haute.
@@ -35,7 +35,7 @@ Les requêtes passent par le serveur de Marinara. Ta clé API est stockée chiff
 
 Si tu as déjà ajouté un compte **Audio** (voir [Fournisseurs d'IA pris en charge](../connections/providers-reference.md#audio)), tu n'as pas à saisir à nouveau ses informations. Ses modèles vocaux apparaissent dans le sélecteur **Voice**.
 
-1. Clique sur la ligne **Voice** de l'encadré **Jobs** et choisis le modèle.
+1. Clique sur **Voice** sur la page **Jobs** et choisis le modèle.
 2. Clique sur l'engrenage de la ligne. Choisis tes voix et les autres réglages.
 
 Marinara utilise alors l'adresse, la clé, le modèle et **Request timeout (seconds)** de ce compte. Les réglages de la voix n'affichent donc pas ces champs. La clé reste dans le compte ; elle n'est jamais copiée dans les réglages de la voix ni envoyée à ton navigateur. Les changements du compte, comme une nouvelle clé, s'appliquent immédiatement.
@@ -69,7 +69,7 @@ PocketTTS n'est pas intégré à Marinara. Installe [le serveur officiel de Pock
 
 ### Délai d'attente des requêtes
 
-Marinara attend jusqu'à 60 secondes pour chaque ligne parlée. Un serveur vocal sur ton propre ordinateur, surtout un portable, peut avoir besoin de plus de temps pour une longue ligne. Augmente **Request timeout (seconds)** sous **More** (plus) dans **Voice settings** (réglages de la voix ; l'engrenage sur la ligne **Voice** de l'encadré **Jobs**). La plage va de 10 à 3 600 secondes.
+Marinara attend jusqu'à 60 secondes pour chaque ligne parlée. Un serveur vocal sur ton propre ordinateur, surtout un portable, peut avoir besoin de plus de temps pour une longue ligne. Augmente **Request timeout (seconds)** sous **More** (plus) dans **Voice settings** (réglages de la voix ; l'engrenage à côté de **Voice** sur la page **Jobs**). La plage va de 10 à 3 600 secondes.
 
 Un compte Audio a son propre **Request timeout (seconds)**, sous **Default voice** (voix par défaut) dans la fenêtre **Edit model** (modifier le modèle) de son modèle et dans **Voice settings**. Les chats qui utilisent un compte Audio pour parler, y compris un compte choisi pour la tâche **Voice**, utilisent cette limite. La limite de **Voice settings** couvre la synthèse à partir de ces réglages, y compris **Preview**. Si une ligne prend trop de temps, l'erreur indique combien de secondes Marinara a attendu et quel réglage augmenter.
 
@@ -182,7 +182,7 @@ Si la voix prononce mal le nom d'un personnage ou d'un persona, ajoute un **Phon
 
 ## Dépannage
 
-- **Rien n'est lu** : vérifie que la ligne **Voice** de l'encadré **Jobs** n'est pas sur **Off**. Vérifie ensuite l'option **Auto-play** correspondante, ou utilise **Speak** sur un message.
+- **Rien n'est lu** : vérifie que **Voice**, sur la page **Jobs**, n'est pas sous **Off**. Vérifie ensuite l'option **Auto-play** correspondante, ou utilise **Speak** sur un message.
 - **La ligne Voice indique The voice account is missing** : le compte du modèle vocal a été supprimé ou est inutilisable. Choisis un autre modèle vocal. Voir [Utiliser un modèle Voice d'un compte](#use-a-voice-model-from-an-account).
 - **Aucune voix dans la liste** : vérifie que la ligne **Voice** a un modèle et une clé valide, puis clique sur **Refresh voices from provider**. Le serveur officiel PocketTTS utilise la liste intégrée de Marinara. Pour un serveur intermédiaire compatible PocketTTS, vérifie que `<Base URL>/v1/voices` répond.
 - **ElevenLabs ne parle pas** : choisis une vraie voix, pas le texte indicatif "Select an ElevenLabs voice". Vérifie que le modèle est un modèle vocal, pas un modèle de création de voix dont l'identifiant contient `ttv`.

@@ -12,7 +12,7 @@ Ein API-Key ist ein geheimer Code, den dir ein Dienst gibt, damit Marinara dein 
 4. Klick auf **Connect** (Verbinden). Marinara testet das Konto.
 5. Hake unter **Found in … — use it for:** die Option **Images** (Bilder) an. Hat der Dienst keine Modellliste, tipp die Modell-ID in die Zeile. Klick auf **Done** (Fertig).
 6. Öffne das Bildmodell und klick auf **Test image** (Bild testen). Marinara erzeugt ein kleines Testbild.
-7. Das Anhaken von **Images** in Schritt 5 legt auch die Aufgabe **Images** im Bereich **Jobs** (Aufgaben) oben im Panel **Connections** fest. Um sie später zu ändern, klick auf die Zeile **Images**.
+7. Das Anhaken von **Images** in Schritt 5 legt auch die Aufgabe **Images** auf der Seite **Jobs** (Aufgaben) des Panels **Connections** fest. Um sie später zu ändern, klick dort auf **Images**.
 
 Um einem Konto ein weiteres Bildmodell hinzuzufügen, klick auf **⋯** in der Kontozeile und wähl **Add model** (Modell hinzufügen). Das vollständige Fenster beschreibt [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 

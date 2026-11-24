@@ -37,7 +37,7 @@ Przy **SwarmUI** Marinara wpisuje adres `http://127.0.0.1:7801`. Wklej workflow 
 
 ### Ustawienie domyślnego modelu wideo
 
-Żeby używać modelu wideo, gdy czat nie ma własnego, ustaw zadanie **Video** w bloku **Jobs** (zadania) u góry panelu **Connections**. W **Chat Settings** (ustawienia czatu) widnieje ono jako **Default video provider** (domyślny dostawca wideo). Gdy nie ma ani modelu w czacie, ani domyślnego, akcje wideo pokazują ostrzeżenie z prośbą o wybór.
+Żeby używać modelu wideo, gdy czat nie ma własnego, ustaw zadanie **Video** na stronie **Jobs** (zadania) panelu **Connections**. W **Chat Settings** (ustawienia czatu) widnieje ono jako **Default video provider** (domyślny dostawca wideo). Gdy nie ma ani modelu w czacie, ani domyślnego, akcje wideo pokazują ostrzeżenie z prośbą o wybór.
 
 ### Instrukcje do promptów wideo
 

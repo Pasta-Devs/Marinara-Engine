@@ -12,7 +12,7 @@ Une clé API est un code secret qu'un service te donne pour que Marinara puisse 
 4. Clique sur **Connect** (connecter). Marinara teste le compte.
 5. Sous **Found in … — use it for:**, coche **Images**. Si le service ne fournit pas de liste de modèles, saisis l'identifiant du modèle dans la ligne. Clique sur **Done** (terminé).
 6. Ouvre le modèle d'images et clique sur **Test image** (tester une image). Marinara génère une petite image de test.
-7. Cocher **Images** à l'étape 5 définit aussi la tâche **Images** dans l'encadré **Jobs** (tâches), en haut du panneau **Connections**. Pour la modifier ensuite, clique sur la ligne **Images**.
+7. Cocher **Images** à l'étape 5 définit aussi la tâche **Images** sur la page **Jobs** (tâches) du panneau **Connections**. Pour la modifier ensuite, clique sur **Images** sur cette page.
 
 Pour ajouter un autre modèle d'images à un compte, clique sur **⋯** dans la ligne du compte et choisis **Add model** (ajouter un modèle). La fenêtre complète est décrite dans [Se connecter à un fournisseur d'IA](../connections/connecting-to-a-provider.md).
 

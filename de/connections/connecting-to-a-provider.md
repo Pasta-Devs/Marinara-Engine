@@ -52,9 +52,9 @@ Startest du einen Chat, bevor du ein Modell hast, öffnet Marinara zuerst das Fe
 
 Konten verwaltest du im Panel **Connections**. Von oben nach unten zeigt es:
 
-- Ein Suchfeld, das die Liste beim Tippen filtert. Es trägt die Beschriftung **Search models and accounts** (Modelle und Konten durchsuchen).
-- **Add**, das **Add account** öffnet, und **More actions** (Weitere Aktionen, drei Punkte) mit **Import account** (Konto importieren), **Export all accounts** (alle Konten exportieren), Einklappen und Gruppieren. In einem breiten Panel steht das Dropdown-Menü für die Sortierung neben der Suche. In einem schmalen Panel liegt die Sortierung unter **More actions**.
-- Den Bereich **Jobs** (Aufgaben). Er zeigt, welches Modell welche Aufgabe übernimmt.
+- **Search models and accounts** (Modelle und Konten durchsuchen), ein Suchfeld, das die Liste beim Tippen filtert. Es erscheint, sobald du 8 oder mehr Modelle hast.
+- **Add**, das **Add account** öffnet, und **More actions** (Weitere Aktionen, drei Punkte) mit **Import account** (Konto importieren), **Export all accounts** (alle Konten exportieren), Sortieren, Einklappen und Gruppieren.
+- Die Übersicht **Jobs** (Aufgaben). Sie zeigt dein **Main**-Modell und einen Satz zu den übrigen Aufgaben. Siehe [Das Modell für jede Aufgabe wählen](#choosing-the-model-for-each-job).
 - Die Karte **Built-in model**. Siehe [Eingebautes Modell einrichten](local-model.md).
 - Deine Konten, jeweils mit den gespeicherten Modellen darunter. Siehe [Verbindungen organisieren](organizing-connections.md).
 
@@ -64,29 +64,33 @@ Ein **Konto** ist ein gespeicherter Key, eine gespeicherte Anmeldung oder eine g
 
 ## Das Modell für jede Aufgabe wählen
 
-Eine Aufgabe ist etwas, das ein Modell für dich erledigt. Der Bereich **Jobs** listet sie in vier Gruppen:
+Eine Aufgabe ist etwas, das ein Modell für dich erledigt. **Main** schreibt die Antworten in deinen Chats, **Agents** (Agenten) betreibt die Hilfsagenten, und andere Aufgaben erzeugen Bilder, sprechen oder beantworten Ja/Nein-Fragen für Agenten.
 
-| Gruppe | Aufgaben |
+Die Übersicht **Jobs** oben im Panel zeigt die Zeile **Main** und einen Satz wie „Every other job that is on follows Main, except Images.“ (Jede andere eingeschaltete Aufgabe folgt Main, außer Images). Eine Aufgabe, die Main folgt, nutzt das Main-Modell. Ausgeschaltete Aufgaben stehen auf der Seite **Jobs**. Eine Aufgabe mit einem Problem, etwa weil das Konto ihres Modells ausgeschaltet ist, bekommt eine eigene Zeile mit einer Schaltfläche zum Beheben.
+
+Um alle Aufgaben zu sehen, klick auf **All jobs** (alle Aufgaben) oder auf die Überschrift **Jobs**. Die Seite **Jobs** listet sie in dieser Reihenfolge:
+
+| Teil | Inhalt |
 | --- | --- |
-| **Chat** | **Main** schreibt die Antworten in deinen Chats. **Agents** (Agenten) betreibt die Hilfsagenten. **Impersonate** schreibt in deinem Namen. |
-| **Omnibar** | **Professor Mari** und **Quick answers** (schnelle Antworten). |
-| **Pictures & sound** (Bild und Ton) | **Images** (Bilder), **Video**, **Voice** und, sofern verfügbar, **Dictation**. |
-| **Behind the scenes** (hinter den Kulissen) | **Decision**, **Embeddings** und **Image reading** (Bilder lesen). |
+| **Main** | Das Main-Modell und sein Modell unter **If it fails** (falls es fehlschlägt), sofern es eines hat. |
+| **Own model** (eigenes Modell) | Aufgaben mit einem eigenen Modell und Aufgaben mit einem Problem, das behoben werden muss. |
+| **Follow Main** (Main folgen), **Follow Agents** (Agenten folgen) | Aufgaben, die das Modell von Main oder von Agents nutzen, als kleine Schaltflächen. |
+| **Off** | Aufgaben, die noch kein Modell haben, als kleine Schaltflächen. **Pick** (Auswählen) bedeutet, dass deine Konten Modelle dafür haben. **Add** bedeutet, dass sie keine haben, und **Set up** (Einrichten) bedeutet, dass für die Aufgabe zuerst etwas installiert werden muss. |
 
-Jede Zeile zeigt das Modell, das die Aufgabe übernimmt, oder was die Aufgabe ohne Modell tut, etwa **Follows Main** oder **Off**. Eine unbelegte Aufgabe zeigt **N models found** mit **Pick** (Auswählen) oder **None in your accounts** mit **Add**. Die Auswahl zeigt die passenden Modelle aller Konten. **Add** öffnet **Add account** und führt dich danach zur Aufgabe zurück. Klick auf **Jobs**, um den Bereich einzuklappen.
+Jede Aufgabe steht genau einmal auf der Seite. Klick oben auf der Seite auf **Connections**, um zur Liste zurückzukehren.
 
-Um das Modell für eine Aufgabe zu ändern, klick auf ihre Zeile. **Modell für** diese Aufgabe öffnet sich, außer bei drei Zeilen. **Entscheidung** und **Embeddings** öffnen ihre eigenen Regler (siehe [Decision-Modelle](decision-models.md) und [Unterstützte KI-Anbieter](providers-reference.md#embeddings)). **Diktat** öffnet die Spracheinrichtung. **Stimme**, **Diktat** und **Bilder lesen** haben außerdem ein Zahnrad, das ihr Einstellungsfenster öffnet; bei „Bilder lesen“ steht darin, was das Modell gefragt wird (siehe [Bildbeschreibungen](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Wählst du ein Modell für **Stimme**, wird Text to Speech eingeschaltet.
+Um das Modell für eine Aufgabe zu ändern, klick auf ihre Zeile oder ihre Schaltfläche. **Model for** (Modell für) diese Aufgabe öffnet sich, außer bei drei Zeilen. **Decision** (Entscheidung) und **Embeddings** öffnen ihre eigenen Regler (siehe [Decision-Modelle](decision-models.md) und [Unterstützte KI-Anbieter](providers-reference.md#embeddings)). **Dictation** (Diktat) öffnet die Spracheinrichtung. **Voice**, **Dictation** und **Image reading** (Bilder lesen) haben außerdem ein Zahnrad, das ihr Einstellungsfenster öffnet; bei **Image reading** steht darin, was das Modell gefragt wird (siehe [Bildbeschreibungen](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Wählst du ein Modell für **Voice**, wird Text to Speech eingeschaltet.
 
 In **Model for**:
 
 1. Sieh dir die Liste an.
-2. Klick auf ein Modell. Die Liste zeigt es unter **Now** (jetzt), danach deine Modelle unter **Starred** (mit Stern markiert) und dann deine gespeicherten Modelle nach Konto. **All models** (alle Modelle) unter einem Konto öffnet dessen vollständige Liste. Tipp in **Search all models or paste a model ID** (alle Modelle durchsuchen oder Modell-ID einfügen), um alle Konten auf einmal zu durchsuchen. Speichern musst du ein Modell vorher nicht.
+2. Klick auf ein Modell. Die Liste zeigt es unter **Now** (jetzt), danach deine Modelle unter **Starred** (mit Stern markiert) und dann deine gespeicherten Modelle nach Konto. Klick auf ein Konto, um seine Modelle zu sehen. Tipp in **Search all models or paste a model ID** (alle Modelle durchsuchen oder Modell-ID einfügen), um alle Konten auf einmal zu durchsuchen. Speichern musst du ein Modell vorher nicht.
 
-**If it fails** (falls es fehlschlägt) oben im Fenster wählt ein zweites Modell, das antwortet, wenn das erste fehlschlägt. **Add account** unten öffnet das Fenster zum Hinzufügen.
+**If it fails** oben im Fenster wählt ein zweites Modell, das antwortet, wenn das erste fehlschlägt. **Add account** unten öffnet das Fenster zum Hinzufügen.
 
 ### Wenn eine Funktion ein Modell braucht
 
-Eine Funktion, die ohne eine bestimmte Art von Modell nicht arbeiten kann, zeigt den Hinweis **Needs an image model** (oder entsprechend für Video, Audio, Decision oder Chat). Du siehst ihn auf der Karte des Agenten im Panel **Agents**, in den **Chat Settings** (Chat-Einstellungen), im Agenten-Editor sowie in den Fenstern für Bilder und Videos. Klick daneben auf **Set up** (Einrichten) und wähl dann ein Modell oder klick auf **Add account**. Der Hinweis verschwindet, sobald die Aufgabe ein Modell hat.
+Eine Funktion, die ohne eine bestimmte Art von Modell nicht arbeiten kann, zeigt den Hinweis **Needs an image model** (oder entsprechend für Video, Audio, Decision oder Chat). Du siehst ihn auf der Karte des Agenten im Panel **Agents**, in den **Chat Settings** (Chat-Einstellungen), im Agenten-Editor sowie in den Fenstern für Bilder und Videos. Klick daneben auf **Set up** und wähl dann ein Modell oder klick auf **Add account**. Der Hinweis verschwindet, sobald die Aufgabe ein Modell hat.
 
 ## Ein Konto testen
 
@@ -99,9 +103,11 @@ Eine Funktion, die ohne eine bestimmte Art von Modell nicht arbeiten kann, zeigt
 Ein neuer Chat nutzt dein **Main**-Modell. Um einem einzelnen Chat ein anderes Modell zu geben, klick im Eingabebereich des Chats auf die Modell-Schaltfläche (das Link-Symbol, beschriftet mit dem aktuellen Modell) oder nutze das Feld **Model** (Modell) unter **Chat Settings → Connection** (Chat-Einstellungen → Verbindung). Beide öffnen **Model for this chat** (Modell für diesen Chat):
 
 - **Now** zeigt das Modell, das der Chat nutzt. **This chat only** bedeutet, dass der Chat eine eigene Auswahl hat. **follows Main** bedeutet, dass er Main nutzt.
-- **Recent** (zuletzt genutzt) und **Starred** listen deine Modelle nach Konto.
-- **Search models or paste an ID…** (Modelle suchen oder ID einfügen) durchsucht alle Konten. **Browse** (Durchsuchen) öffnet die vollständige Liste eines Kontos.
-- **Follow Main** (Main folgen) hebt die eigene Auswahl des Chats auf. **Shuffle** (Zufallsauswahl) wählt jedes Mal ein anderes Modell.
+- **Starred** listet deine mit Stern markierten Modelle, danach listet **Recent** (zuletzt genutzt) die Modelle, die du zuletzt auf diesem Gerät gewählt hast.
+- **Search models or paste an ID…** (Modelle suchen oder ID einfügen) durchsucht alle Konten.
+- Klick auf ein Konto, um seine Modelle zu sehen: zuerst **Starred**, dann **Saved** (gespeichert), also deine gespeicherten Modelle mit ihren eigenen Einstellungen, dann alle übrigen. Eine lange Liste ist zunächst hinter **Browse all N models** (alle N Modelle durchsuchen) eingeklappt. Klick darauf, um alle Modelle anzuzeigen.
+- In einer langen Liste zeigen Schaltflächen wie **Claude**, **GPT** und **DeepSeek** jeweils nur eine Modellfamilie. **All** (alle) zeigt wieder alle Modelle. Das Suchfeld berücksichtigt diese Schaltflächen nicht.
+- **Follow Main** hebt die eigene Auswahl des Chats auf. **Shuffle** (Zufallsauswahl) wählt jedes Mal ein anderes Modell.
 
 Eine Auswahl ändert nur diesen Chat. Die Meldung nach einer Auswahl bietet **Make it my Main model** (zu meinem Main-Modell machen) und **Undo** (rückgängig) an. Im Game Mode heißt das Feld **Game Master model**.
 

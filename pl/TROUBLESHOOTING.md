@@ -240,7 +240,7 @@ pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --froze
 1. Otwórz **Chat Settings → Memory Recall** i sprawdź, czy przełącznik **Enable Memory Recall** (włączenie Memory Recall) jest włączony.
 2. Otwórz **Access memories for this chat** (dostęp do wspomnień tego czatu). W oknie **Memories for This Chat** (wspomnienia tego czatu) sprawdź status każdego fragmentu.
 3. **Waiting for vector** oznacza, że wspomnienie jest jeszcze przetwarzane. Poczekaj, a potem napisz kolejną wiadomość.
-4. **Embedding unavailable** oznacza, że żadne źródło embeddingów nie działa. Skonfiguruj konto do embeddingów albo pozwól wczytać wbudowany model. Aby używać jednego źródła we wszystkich czatach, wybierz je dla zadania **Embeddings** (embeddingi) w bloku **Jobs** (zadania) panelu **Connections**.
+4. **Embedding unavailable** oznacza, że żadne źródło embeddingów nie działa. Skonfiguruj konto do embeddingów albo pozwól wczytać wbudowany model. Aby używać jednego źródła we wszystkich czatach, wybierz je dla zadania **Embeddings** (embeddingi) na stronie **Jobs** (zadania) panelu **Connections**.
 
 Wspomnienie powstaje dopiero po co najmniej 5 nowych wiadomościach. Funkcja pokazuje tylko wspomnienia, które mocno pasują do nowej wiadomości, więc może nie zwrócić nic nawet wtedy, gdy wspomnienia istnieją.
 
@@ -321,8 +321,8 @@ Jeśli model zwróci uszkodzony JSON (ustrukturyzowany tekst), Marinara otwiera 
 
 ## Głos, rozmowy i TTS
 
-- **Postacie nie mówią podczas rozmowy.** Zadanie **Voice** (głos) nie ma modelu. Otwórz **Connections**, kliknij wiersz **Voice** w bloku **Jobs** i wybierz model głosu. Następnie kliknij jego koło zębate i wybierz głos. Postać bez głosu pojawia się wyłącznie jako tekst.
-- **Mowa urywa się z komunikatem "No audio after N s".** Twój serwer głosu działa wolniej, niż Marinara na niego czeka. Lokalny serwer na laptopie często tak działa. `N` to twój obecny limit czasu. Zwiększ **Request timeout (seconds)** (limit czasu żądania w sekundach) pod **More** (więcej) w **Voice settings** (ustawienia głosu; koło zębate w wierszu **Voice** bloku **Jobs**) albo w oknie **Edit model** (edycja modelu) modelu audio wskazanego w komunikacie. Zobacz [Limit czasu żądania](media/tts-setup.md#request-timeout).
+- **Postacie nie mówią podczas rozmowy.** Zadanie **Voice** (głos) nie ma modelu. Otwórz **Connections**, kliknij **All jobs** (wszystkie zadania), a potem **Voice** i wybierz model głosu. Następnie kliknij jego koło zębate i wybierz głos. Postać bez głosu pojawia się wyłącznie jako tekst.
+- **Mowa urywa się z komunikatem "No audio after N s".** Twój serwer głosu działa wolniej, niż Marinara na niego czeka. Lokalny serwer na laptopie często tak działa. `N` to twój obecny limit czasu. Zwiększ **Request timeout (seconds)** (limit czasu żądania w sekundach) pod **More** (więcej) w **Voice settings** (ustawienia głosu; koło zębate obok **Voice** na stronie **Jobs**) albo w oknie **Edit model** (edycja modelu) modelu audio wskazanego w komunikacie. Zobacz [Limit czasu żądania](media/tts-setup.md#request-timeout).
 - **Mikrofon nie działa.** Zainstaluj agenta **Calls** z **Agents → Agent Organizer**. Potem otwórz **Connections**, znajdź **Local speech model** (lokalny model mowy) na karcie **On this device** (na tym urządzeniu), wybierz model Whisper i kliknij **Download Whisper** (pobranie modelu Whisper). Firefox tego wymaga, bo nie ma wbudowanego w przeglądarkę rozpoznawania mowy. Odinstalowanie agenta Calls usuwa jego modele Whisper. Możesz też użyć własnego serwera: zobacz [Użyj własnego serwera zamiany mowy na tekst](conversation/calls.md#use-your-own-speech-to-text-server).
 - **Local Whisper is disabled in Lite mode.** Obraz lite nie potrafi uruchomić lokalnego modelu mowy. Użyj pełnej instalacji.
 

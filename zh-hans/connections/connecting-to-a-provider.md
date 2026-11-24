@@ -52,9 +52,9 @@
 
 账号在 **Connections** 面板里管理。面板从上到下依次是：
 
-- 一个搜索框，边输入边筛选列表。它的标签是 **Search models and accounts**(搜索模型和账号)。
-- **Add**：打开 **Add account**；**More actions**(更多操作，三个点)：里面有 **Import account**(导入账号)、**Export all accounts**(导出全部账号)、折叠和分组。面板较宽时，排序下拉菜单在搜索框旁边；面板较窄时，排序放在 **More actions** 里。
-- **Jobs**(分工) 框。它说明每项工作由哪个模型负责。
+- **Search models and accounts**(搜索模型和账号)：一个搜索框，边输入边筛选列表。你有 8 个或更多模型时它才会显示。
+- **Add**：打开 **Add account**；**More actions**(更多操作，三个点)：里面有 **Import account**(导入账号)、**Export all accounts**(导出全部账号)、排序、折叠和分组。
+- **Jobs**(分工) 摘要。它显示你的 **Main** 模型，以及一句关于其他工作的说明。见[为每项工作选择模型](#choosing-the-model-for-each-job)。
 - **Built-in model** 卡片。见[内置模型设置](local-model.md)。
 - 各个账号，每个账号下面是它保存的模型。见[整理连接](organizing-connections.md)。
 
@@ -64,23 +64,27 @@
 
 ## 为每项工作选择模型
 
-工作就是模型替你做的某件事。**Jobs** 框把它们分成四组列出：
+工作就是模型替你做的某件事。**Main**(主模型) 在聊天里写回复，**Agents**(智能体) 运行辅助智能体，其他工作则负责生成图像、朗读，或者替智能体回答是或否的问题。
 
-| 分组 | 工作 |
+面板顶部的 **Jobs** 摘要显示 **Main** 这一行，以及一句说明，比如“Every other job that is on follows Main, except Images.”跟随 Main 的工作使用 Main 模型。关闭的工作列在 **Jobs** 页面上。有问题的工作，比如所用模型的账号已关闭，会单独占一行，并带一个修复按钮。
+
+要查看所有工作，点击 **All jobs**(全部工作) 或 **Jobs** 标题。**Jobs** 页面按下面的顺序列出它们：
+
+| 部分 | 列出的内容 |
 | --- | --- |
-| **Chat** | **Main**(主模型) 在聊天里写回复。**Agents**(智能体) 运行辅助智能体。**Impersonate**(代写) 以你的身份写。 |
-| **Omnibar**(搜索栏) | **Professor Mari** 和 **Quick answers**(快速回答)。 |
-| **Pictures & sound**(画面与声音) | **Images**(图像)、**Video**(视频)、**Voice**(语音合成)，以及可用时的 **Dictation**(语音识别)。 |
-| **Behind the scenes**(幕后) | **Decision**(判定)、**Embeddings**(嵌入) 和 **Image reading**(读图)。 |
+| **Main** | Main 模型；设置了 **If it fails**(失败时) 模型时，也会列出它。 |
+| **Own model**(自有模型) | 有自己模型的工作，以及有问题需要修复的工作。 |
+| **Follow Main**(跟随主模型)、**Follow Agents**(跟随智能体) | 使用 Main 或 Agents 模型的工作，显示为小按钮。 |
+| **Off**(关闭) | 还没有模型的工作，显示为小按钮。**Pick**(选择) 表示你的账号里有适合它的模型。**Add** 表示没有，**Set up**(设置) 表示这项工作需要先安装某些东西。 |
 
-每一行显示负责这项工作的模型；没有模型时，则显示这项工作会怎么处理，比如 **Follows Main**(跟随主模型) 或 **Off**(关闭)。尚未分配模型的工作会显示 **N models found**(找到的模型) 和 **Pick**(选择)，或 **None in your accounts**(账号里没有可用模型) 和 **Add**。选择器列出所有账号中适合该项工作的模型。**Add** 打开 **Add account** 窗口，完成后回到该项工作。点击 **Jobs** 可以折叠这个框。
+每项工作在页面上只出现一次。点击页面顶部的 **Connections** 可以回到列表。
 
-要更改某项工作的模型，点击它那一行。除了三行以外，都会打开这项工作的 **Model for**(用于……的模型) 窗口。**Decision** 和 **Embeddings** 会打开它们自己的控件（见 [Decision 模型](decision-models.md)和[支持的 AI 服务商](providers-reference.md#embeddings)）。**Dictation** 打开语音设置。**Voice**、**Dictation** 和 **Image reading** 的行也各有一个齿轮，可打开各自的设置窗口；Image reading 的窗口可以设置向模型提出的要求（见[图像描述](../prompts/generation-parameters.md#what-the-reading-model-is-asked)）。选择 **Voice** 模型后就会启用语音合成。
+要更改某项工作的模型，点击它那一行或它的按钮。除了三行以外，都会打开这项工作的 **Model for**(用于……的模型) 窗口。**Decision**(判定) 和 **Embeddings**(嵌入) 会打开它们自己的控件（见 [Decision 模型](decision-models.md)和[支持的 AI 服务商](providers-reference.md#embeddings)）。**Dictation**(语音识别) 打开语音设置。**Voice**、**Dictation** 和 **Image reading**(读图) 的行也各有一个齿轮，可打开各自的设置窗口；Image reading 的窗口可以设置向模型提出的要求（见[图像描述](../prompts/generation-parameters.md#what-the-reading-model-is-asked)）。选择 **Voice** 模型后就会启用语音合成。
 
 在 **Model for** 窗口里：
 
 1. 看一下列表。
-2. 点击一个模型。列表会把它显示在 **Now**(当前) 下面，接着是你的 **Starred**(星标) 模型，再往下是按账号分组的已保存模型。账号下面的 **All models**(全部模型) 会打开它的完整列表。在 **Search all models or paste a model ID**(搜索全部模型或粘贴模型 ID) 里输入文字，可以一次搜索所有账号。模型不必事先保存。
+2. 点击一个模型。列表会把它显示在 **Now**(当前) 下面，接着是你的 **Starred**(星标) 模型，再往下是按账号分组的已保存模型。点击一个账号即可查看它的模型。在 **Search all models or paste a model ID**(搜索全部模型或粘贴模型 ID) 里输入文字，可以一次搜索所有账号。模型不必事先保存。
 
 窗口顶部的 **If it fails**(失败时) 用来选第二个模型，第一个模型失败时由它来回答。底部的 **Add account** 会打开添加窗口。
 
@@ -99,8 +103,10 @@
 新聊天使用你的 **Main** 模型。要给某一个聊天换个模型，点击聊天输入框里的模型按钮（链接图标，上面标着当前模型），或者用 **Chat Settings → Connection**(聊天设置 → 连接) 里的 **Model**(模型) 字段。两者都会打开 **Model for this chat**(此聊天的模型)：
 
 - **Now** 显示这个聊天正在用的模型。**This chat only**(仅此聊天) 表示这个聊天有自己单独的选择。**follows Main**(跟随主模型) 表示它用的是 Main。
-- **Recent**(最近) 和 **Starred** 按账号列出你的模型。
-- **Search models or paste an ID…**(搜索模型或粘贴 ID…) 会搜索所有账号。**Browse**(浏览) 打开某一个账号的完整列表。
+- **Starred** 列出你加了星标的模型，接着 **Recent**(最近) 列出你在这台设备上最近选过的模型。
+- **Search models or paste an ID…**(搜索模型或粘贴 ID…) 会搜索所有账号。
+- 点击一个账号即可查看它的模型：最前面是 **Starred**，然后是 **Saved**(已保存，即你保存过、各有自己设置的模型)，最后是其余模型。列表较长时会先折叠起来，收在 **Browse all N models**(浏览全部 N 个模型) 后面。点击它即可显示所有模型。
+- 列表较长时，**Claude**、**GPT** 和 **DeepSeek** 这类按钮每次只显示一个模型系列。**All**(全部) 会重新显示所有模型。搜索框不受这些按钮影响。
 - **Follow Main**(跟随主模型) 清除这个聊天自己的选择。**Shuffle**(随机轮换) 每次都换一个不同的模型。
 
 选中的模型只改变这个聊天。选完之后的提示消息里有 **Make it my Main model**(设为我的主模型) 和 **Undo**(撤销)。在 Game Mode(游戏模式) 里，这个字段的标签是 **Game Master model**(游戏主持人模型)。

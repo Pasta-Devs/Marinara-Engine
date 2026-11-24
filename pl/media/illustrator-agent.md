@@ -16,7 +16,7 @@ Agent Illustrator pisze prompt, ale obraz rysuje osobny model obrazów. Potrzebu
 
 Model obrazów możesz mu udostępnić na jeden z dwóch sposobów.
 
-1. Ustaw zadanie **Images** (obrazy) w sekcji **Jobs** (zadania) panelu **Connections** (Połączenia).
+1. Ustaw zadanie **Images** (obrazy) na stronie **Jobs** (zadania) panelu **Connections** (Połączenia).
 2. Albo przypisz agentowi Illustrator własny model obrazów na jego ekranie **Open Setup** (pełna konfiguracja).
 
 Jeśli nie da się znaleźć żadnego modelu obrazów, obraz nie powstaje, a aplikacja prosi o wybranie modelu.

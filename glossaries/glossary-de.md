@@ -1196,3 +1196,5 @@ Der #9063-Abgleich von `characters/colors-and-stats.md`, **Die drei Farben**, ge
 - **Send Public Faces** (Öffentliche Profile senden), in `de/chats/guided-and-impersonate.md`.
 
 **Push notifications (2026-11-24, #9756):** *push notification* is **die Push-Benachrichtigung**; an ntfy *topic* is **das Topic** in prose, with **Topic** glossed (Thema) and **New topic** (Neues Thema); **Push notifications (ntfy)** stays bare because its own parentheses would collide with a gloss (`de/settings/settings-overview.md`).
+
+**Jobs summary and Jobs page (2026-11-24, #9760):** the old *Jobs box* („Bereich/Kasten **Jobs**“) is retired: the summary at the top of the panel is **die Übersicht Jobs**, the full list **die Seite Jobs** (**Jobs** keeps *(Aufgaben)*); new glosses **All jobs** *(alle Aufgaben)*, **Own model** *(eigenes Modell)*, **Follow Agents** *(Agenten folgen)*, **Saved** *(gespeichert)*, **Browse all N models** *(alle N Modelle durchsuchen)*, **All** *(alle)*; **Low balance**, **No credit left** and **Sort: …** stay bare.

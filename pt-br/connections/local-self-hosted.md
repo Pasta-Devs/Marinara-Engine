@@ -28,7 +28,7 @@ Um servidor local ou auto-hospedado pode responder com o modelo que está carreg
 
 - Uma conta nova para um servidor no seu computador ou na sua rede começa com um modelo **Padrão**.
 - Para adicionar um depois, clique em **⋯** na conta e escolha **Adicionar modelo**. **Padrão** é a primeira linha.
-- Use **Padrão** como qualquer outro modelo: atribua a ele uma tarefa como **Principal** na caixa **Tarefas**, ou escolha-o em **Modelo para este chat**.
+- Use **Padrão** como qualquer outro modelo: atribua a ele uma tarefa como **Principal** na página **Jobs** (tarefas), ou escolha-o em **Modelo para este chat**.
 - Clique em **Padrão** no painel para definir configurações próprias para ele, como os parâmetros e o preset de prompt, do mesmo modo que faria com um modelo com nome.
 
 **Padrão** aparece para um servidor no seu computador ou na sua rede e para o Grok CLI, que tem um padrão próprio (veja [CLIs de assinatura](subscription-clis.md)). Um serviço de API hospedado precisa de um nome de modelo.

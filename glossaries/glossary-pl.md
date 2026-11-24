@@ -1095,6 +1095,7 @@ Precedents from the #8464 and #8603 catch-up against Engine `staging` `6d96cf919
   zadań agentów)*. The Decision row's gear is **ikona zębatki**, then **zębatka**
   (`connections/decision-models.md:51`, `:100`), as in the pack's existing "ikona
   zębatki" (§7 residual 3).
+- 2026-11-24 (#9760): the **Jobs** box is retired; the summary is **podsumowanie Jobs** and the page **strona Jobs** (*na stronie **Jobs***), glossed once *(zadania)*, with page parts as **części** and *the gear beside* as *koło zębate obok*; new glosses **All jobs** *(wszystkie zadania)*, **Own model** *(własny model)*, **Follow Agents** *(podążanie za modelem agentów)*, **Saved** *(zapisane)*, **Browse all N models** *(przeglądanie wszystkich N modeli)*, **Low balance** *(niskie saldo)*, **No credit left** *(brak środków)*; **Off** stays bare.
 - **Main** stays English in prose behind *model* (**model Main**, *nie masz modelu
   Main*); in the connection docs *model główny* appears only inside glosses:
   **Follow Main** *(podążanie za modelem głównym)*, **Make it my Main model**

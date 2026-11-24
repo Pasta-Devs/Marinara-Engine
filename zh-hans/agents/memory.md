@@ -43,7 +43,7 @@ Memory Recall 需要一个生成指纹的模型。如果你什么都不设，Mar
 
 有些服务不提供嵌入。这时 Marinara 会请你另选一个专门的嵌入账号，比如 OpenAI 兼容账号、Google 或内置模型。
 
-想在所有地方都用同一个来源，就在 **Connections** 的 **Jobs**(分工) 区域里为 **Embeddings**(嵌入) 工作选它。没有自己的嵌入模型的账号会使用它。账号自己的设置仍然优先。
+想在所有地方都用同一个来源，就在 **Connections** 的 **Jobs**(分工) 页面上为 **Embeddings**(嵌入) 工作选它。没有自己的嵌入模型的账号会使用它。账号自己的设置仍然优先。
 
 既没有嵌入账号、也没有 **Embeddings** 默认值时，Marinara 会退回内置嵌入模型。它只下载一次，在你的电脑上运行，不需要 API 密钥。见[内置模型设置](../connections/local-model.md)。
 

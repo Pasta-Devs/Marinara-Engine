@@ -52,9 +52,9 @@ Jeśli zaczniesz czat, zanim będziesz mieć jakikolwiek model, Marinara najpier
 
 Kontami zarządzasz w panelu **Connections**. Od góry do dołu panel pokazuje:
 
-- Pole wyszukiwania, które filtruje listę w trakcie pisania. Jego etykieta to **Search models and accounts** (wyszukiwanie modeli i kont).
-- Przycisk **Add**, który otwiera okno **Add account**, oraz **More actions** (więcej działań, trzy kropki) z opcjami **Import account** (import konta), **Export all accounts** (eksport wszystkich kont), zwijaniem i grupowaniem. W szerokim panelu lista rozwijana sortowania jest obok pola wyszukiwania. W wąskim panelu sortowanie znajduje się w **More actions**.
-- Sekcję **Jobs** (zadania). Pokazuje, który model wykonuje każde zadanie.
+- Pole wyszukiwania **Search models and accounts** (wyszukiwanie modeli i kont), które filtruje listę w trakcie pisania. Pojawia się, gdy masz co najmniej 8 modeli.
+- Przycisk **Add**, który otwiera okno **Add account**, oraz **More actions** (więcej działań, trzy kropki) z opcjami **Import account** (import konta), **Export all accounts** (eksport wszystkich kont), sortowaniem, zwijaniem i grupowaniem.
+- Podsumowanie **Jobs** (zadania). Pokazuje twój model **Main** i jedno zdanie o pozostałych zadaniach. Zobacz [Wybór modelu do każdego zadania](#choosing-the-model-for-each-job).
 - Kartę **Built-in model**. Zobacz [Konfiguracja modelu wbudowanego](local-model.md).
 - Twoje konta, a pod każdym z nich zapisane modele. Zobacz [Porządkowanie połączeń](organizing-connections.md).
 
@@ -64,23 +64,27 @@ Kontami zarządzasz w panelu **Connections**. Od góry do dołu panel pokazuje:
 
 ## Wybór modelu do każdego zadania
 
-Zadanie to coś, co model robi dla ciebie. Sekcja **Jobs** wymienia zadania w czterech grupach:
+Zadanie to coś, co model robi dla ciebie. **Main** (główny) pisze odpowiedzi w twoich czatach, **Agents** (agenci) uruchamia agentów pomocniczych, a inne zadania tworzą obrazy, mówią albo odpowiadają agentom na pytania typu tak lub nie.
 
-| Grupa | Zadania |
+Podsumowanie **Jobs** u góry panelu pokazuje wiersz **Main** i jedno zdanie, na przykład "Every other job that is on follows Main, except Images." Zadanie, które podąża za modelem Main, używa modelu Main. Wyłączone zadania są wymienione na stronie **Jobs**. Zadanie z problemem, na przykład z modelem, którego konto jest wyłączone, dostaje osobny wiersz z przyciskiem naprawy.
+
+Żeby zobaczyć wszystkie zadania, kliknij **All jobs** (wszystkie zadania) albo nagłówek **Jobs**. Strona **Jobs** wymienia je w tej kolejności:
+
+| Część | Co wymienia |
 | --- | --- |
-| **Chat** | **Main** (główny) pisze odpowiedzi w twoich czatach. **Agents** (agenci) uruchamia agentów pomocniczych. **Impersonate** (pisanie za ciebie) pisze w twoim imieniu. |
-| **Omnibar** (wyszukiwarka) | **Professor Mari** i **Quick answers** (szybkie odpowiedzi). |
-| **Pictures & sound** (obrazy i dźwięk) | **Images** (obrazy), **Video** (wideo), **Voice** (głos, synteza mowy) i **Dictation** (dyktowanie, zamiana mowy na tekst), gdy jest dostępne. |
-| **Behind the scenes** (za kulisami) | **Decision** (decyzje), **Embeddings** (embeddingi) i **Image reading** (odczytywanie obrazów). |
+| **Main** | Model Main oraz jego model **If it fails** (jeśli zawiedzie), o ile jest ustawiony. |
+| **Own model** (własny model) | Zadania z własnym modelem i zadania z problemem do naprawienia. |
+| **Follow Main** (podążanie za modelem głównym), **Follow Agents** (podążanie za modelem agentów) | Zadania, które używają modelu Main albo Agents, pokazane jako małe przyciski. |
+| **Off** | Zadania, które nie mają jeszcze modelu, pokazane jako małe przyciski. **Pick** (wybierz) oznacza, że twoje konta mają modele do tego zadania. **Add** oznacza, że nie mają żadnego, a **Set up** (konfiguracja) oznacza, że najpierw trzeba coś zainstalować. |
 
-Każdy wiersz pokazuje model, który wykonuje dane zadanie, albo to, co zadanie robi bez modelu, na przykład **Follows Main** albo **Off**. Zadanie bez modelu pokazuje **N models found** (znalezione modele) i **Pick** (wybierz) albo **None in your accounts** (brak na twoich kontach) i **Add**. Selektor pokazuje pasujące modele ze wszystkich kont. **Add** otwiera okno **Add account**, po czym wraca do zadania. Kliknij **Jobs**, żeby zwinąć sekcję.
+Każde zadanie występuje na stronie tylko raz. Kliknij **Connections** u góry strony, żeby wrócić do listy.
 
-Żeby zmienić model zadania, kliknij jego wiersz. Otwiera się okno **Model for** (model dla) tego zadania, z wyjątkiem trzech wierszy. **Decision** i **Embeddings** otwierają własne kontrolki (zobacz [Modele decyzyjne](decision-models.md) i [Obsługiwani dostawcy AI](providers-reference.md#embeddings)). **Dictation** otwiera konfigurację mowy. Wiersze **Voice**, **Dictation** i **Odczytywanie obrazów** mają też koło zębate otwierające okno ustawień; okno odczytywania obrazów zawiera instrukcje dla jego modelu (zobacz [Opisywanie obrazów](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Wybór modelu w **Voice** włącza syntezę mowy.
+Żeby zmienić model zadania, kliknij jego wiersz albo przycisk. Otwiera się okno **Model for** (model dla) tego zadania, z wyjątkiem trzech wierszy. **Decision** (decyzje) i **Embeddings** (embeddingi) otwierają własne kontrolki (zobacz [Modele decyzyjne](decision-models.md) i [Obsługiwani dostawcy AI](providers-reference.md#embeddings)). **Dictation** (dyktowanie, zamiana mowy na tekst) otwiera konfigurację mowy. Wiersze **Voice**, **Dictation** i **Image reading** (odczytywanie obrazów) mają też koło zębate otwierające okno ustawień; okno odczytywania obrazów zawiera instrukcje dla jego modelu (zobacz [Opisywanie obrazów](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Wybór modelu w **Voice** włącza syntezę mowy.
 
 W oknie **Model for**:
 
 1. Przejrzyj listę.
-2. Kliknij model. Lista pokazuje model wykonujący zadanie w grupie **Now** (teraz), potem twoje modele z grupy **Starred** (oznaczone gwiazdką), a potem zapisane modele według kont. **All models** (wszystkie modele) pod kontem otwiera jego pełną listę. Wpisz tekst w polu **Search all models or paste a model ID** (przeszukiwanie wszystkich modeli lub wklejenie identyfikatora modelu), żeby przeszukać naraz wszystkie konta. Nie trzeba wcześniej zapisywać modelu.
+2. Kliknij model. Lista pokazuje model wykonujący zadanie w grupie **Now** (teraz), potem twoje modele z grupy **Starred** (oznaczone gwiazdką), a potem zapisane modele według kont. Kliknij konto, żeby zobaczyć jego modele. Wpisz tekst w polu **Search all models or paste a model ID** (przeszukiwanie wszystkich modeli lub wklejenie identyfikatora modelu), żeby przeszukać naraz wszystkie konta. Nie trzeba wcześniej zapisywać modelu.
 
 **If it fails** (jeśli zawiedzie) u góry okna wybiera drugi model, który odpowiada, gdy pierwszy zawiedzie. **Add account** na dole otwiera okno dodawania konta.
 
@@ -99,8 +103,10 @@ Funkcja, która nie może działać bez określonego rodzaju modelu, pokazuje et
 Nowy czat używa twojego modelu **Main**. Żeby dać jednemu czatowi inny model, kliknij przycisk modelu w polu wiadomości (ikona linku z nazwą bieżącego modelu) albo użyj pola **Model** (model) w **Chat Settings → Connection** (ustawienia czatu, połączenie). Oba otwierają okno **Model for this chat** (model dla tego czatu):
 
 - **Now** pokazuje model, którego używa czat. **This chat only** oznacza, że czat ma własny wybór. **follows Main** oznacza, że używa modelu Main.
-- **Recent** (ostatnie) i **Starred** wymieniają twoje modele według kont.
-- **Search models or paste an ID…** (wyszukiwanie modeli lub wklejenie identyfikatora) przeszukuje wszystkie konta. **Browse** (przeglądanie) otwiera pełną listę jednego konta.
+- **Starred** wymienia twoje modele oznaczone gwiazdką, a potem **Recent** (ostatnie) wymienia modele ostatnio wybrane na tym urządzeniu.
+- **Search models or paste an ID…** (wyszukiwanie modeli lub wklejenie identyfikatora) przeszukuje wszystkie konta.
+- Kliknij konto, żeby zobaczyć jego modele: najpierw **Starred**, potem **Saved** (zapisane), czyli twoje zapisane modele z własnymi ustawieniami, a na końcu pozostałe. Długa lista jest na początku zwinięta pod przyciskiem **Browse all N models** (przeglądanie wszystkich N modeli). Kliknij go, żeby pokazać wszystkie modele.
+- Na długiej liście przyciski takie jak **Claude**, **GPT** i **DeepSeek** pokazują naraz tylko jedną rodzinę modeli. **All** (wszystkie) znów pokazuje wszystkie modele. Pole wyszukiwania nie uwzględnia tych przycisków.
 - **Follow Main** (podążanie za modelem głównym) usuwa własny wybór czatu. **Shuffle** (losowanie) za każdym razem wybiera inny model.
 
 Wybór zmienia tylko ten czat. Komunikat po wyborze proponuje **Make it my Main model** (ustaw jako mój model główny) i **Undo** (cofnięcie). W trybie Game Mode pole ma etykietę **Game Master model** (model mistrza gry).

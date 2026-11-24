@@ -16,7 +16,7 @@ L'agent Illustrator rédige le prompt, mais c'est un modèle d'image distinct qu
 
 Tu peux lui fournir un modèle d'image de deux façons.
 
-1. Règle la tâche **Images** dans l'encadré **Jobs** (tâches) du panneau **Connections** (Connexions).
+1. Règle la tâche **Images** sur la page **Jobs** (tâches) du panneau **Connections** (Connexions).
 2. Ou donne à l'agent Illustrator son propre modèle d'image sur son écran **Open Setup** (ouvrir la configuration).
 
 Si aucun modèle d'image n'est trouvé, l'image échoue et l'application te demande d'en choisir un.

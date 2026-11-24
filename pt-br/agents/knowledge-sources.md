@@ -72,7 +72,7 @@ Quando você escolhe os lorebooks de origem do roteador, um selo de cobertura ap
 O Knowledge Router também consegue encontrar entradas candidatas por significado, não só por palavra-chave. Isso usa um embedder, um modelo pequeno que transforma texto em números para que Marinara possa comparar significados. O roteador funciona sem ele.
 
 1. Abra o editor de lorebooks e encontre **Semantic search (embeddings)** (busca semântica por embeddings).
-2. Escolha uma conta que tenha um modelo de embedding. Se você definiu a tarefa **Embeddings** no quadro **Jobs** (tarefas) de **Connections** (Conexões), a conta do modelo dessa tarefa é selecionada automaticamente, a não ser que você tenha escolhido outra fonte antes.
+2. Escolha uma conta que tenha um modelo de embedding. Se você definiu a tarefa **Embeddings** na página **Jobs** (tarefas) de **Connections** (Conexões), a conta do modelo dessa tarefa é selecionada automaticamente, a não ser que você tenha escolhido outra fonte antes.
 3. Use a mesma fonte de embedding da conta do seu chat. Vetores de tamanho diferente são ignorados.
 4. Clique no botão de vetorizar. Ele mostra quantas entradas ainda precisam de vetores. **Re-vectorize all** refaz todas as entradas.
 

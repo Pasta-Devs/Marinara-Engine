@@ -111,7 +111,7 @@ Marinara 会告诉正在回复的角色，它可以使用哪些自定义表情�
 - 要自己写描述，点击 **Custom emojis** 或 **Stickers** 选项卡中的 **Edit**，然后点击格子角落里的小描述按钮。如果是图库中标记的表情或贴纸，点击它的标记按钮，再选择 **Add description**(添加描述)。
 - 要让 AI 写描述，点击 **Edit**，再点击 **Describe with AI**(用 AI 描述)。**Image reading**(读图) 模型会查看每张图片，写出简短描述。如果有些图片已经有描述，可以选择 **Describe only the … without**(只描述没有描述的……)，或 **Describe all … again**(重新描述所有……)。
 
-开始之前：AI 描述需要能识别图片的模型。如果在连接设置的 **Behind the scenes**(幕后) 下设置了 **Image reading** 模型，Marinara 就会使用它，否则会使用智能体的模型。
+开始之前：AI 描述需要能识别图片的模型。如果在 **Connections**(连接) 的 **Jobs**(分工) 页面上设置了 **Image reading** 模型，Marinara 就会使用它，否则会使用智能体的模型。
 
 **Selection preferences** 中有两项设置会用到描述：
 

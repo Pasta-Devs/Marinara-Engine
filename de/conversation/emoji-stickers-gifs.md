@@ -111,7 +111,7 @@ Eine Beschreibung sagt, was ein Emoji oder Sticker zeigt und welches Gefühl es 
 - Um selbst eine zu schreiben, klick im Tab **Custom emojis** oder **Stickers** auf **Edit** (Bearbeiten) und dann auf die kleine Beschreibungsschaltfläche in der Ecke einer Kachel. Bei einem in der Galerie markierten Emoji oder Sticker klick auf die Tag-Schaltfläche und wähle **Add description** (Beschreibung hinzufügen).
 - Um die Beschreibungen von der KI schreiben zu lassen, klick auf **Edit** und dann auf **Describe with AI** (Mit KI beschreiben). Das Modell unter **Image reading** (Bildbeschreibungen) sieht sich jedes Bild an und schreibt eine kurze Beschreibung. Wenn einige schon eine haben, wähle **Describe only the … without** (nur die ohne Beschreibung) oder **Describe all … again** (alle erneut beschreiben).
 
-Bevor du anfängst: KI-Beschreibungen brauchen ein Modell, das Bilder lesen kann. Marinara nutzt das Modell unter **Image reading**, wenn du in den Verbindungseinstellungen unter **Behind the scenes** (Hinter den Kulissen) eines festgelegt hast, sonst das Modell deiner Agenten.
+Bevor du anfängst: KI-Beschreibungen brauchen ein Modell, das Bilder lesen kann. Marinara nutzt das Modell unter **Image reading**, wenn du auf der Seite **Jobs** (Aufgaben) in **Connections** (Verbindungen) eines festgelegt hast, sonst das Modell deiner Agenten.
 
 Zwei Einstellungen unter **Selection preferences** (Auswahleinstellungen) nutzen die Beschreibungen:
 

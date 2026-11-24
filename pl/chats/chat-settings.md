@@ -58,7 +58,7 @@ Sekcja **Connection** wybiera model, który odpowiada w tym czacie. Wybór zmien
 1. Otwórz **Chat Settings** i sekcję **Connection**.
 2. Dotknij pola **Model**. Pokazuje ono bieżący model.
 3. Sprawdź, czy pole informuje, że czat podąża za modelem **Main** (główny). Main to domyślny model ustawiany w **Connections** (Połączenia).
-4. Wybierz model. To samo okno wyboru otwiera przycisk modelu w polu wiadomości. Bieżący model zostaje na górze, a pod nim są ostatnio używane modele i modele oznaczone gwiazdką, zgrupowane według kont. Przeszukuj modele i konta albo użyj przycisku **Browse** (przeglądanie), aby otworzyć katalog jednego konta.
+4. Wybierz model. To samo okno wyboru otwiera przycisk modelu w polu wiadomości. Bieżący model zostaje na górze, a pod nim są modele oznaczone gwiazdką i ostatnio używane. Przeszukuj modele i konta albo kliknij konto, żeby zobaczyć jego modele. Długa lista jest na początku zwinięta pod przyciskiem **Browse all N models** (przeglądanie wszystkich N modeli).
 
 **Follow Main** (podążanie za modelem głównym) usuwa własny wybór czatu, więc czat zmienia model, gdy zmieniasz model Main. **Shuffle** (losowanie) wybiera inny model z twojej puli Shuffle przy każdej odpowiedzi. Zobacz [Funkcja Shuffle](../connections/organizing-connections.md#shuffle). Jeśli konto wymaga klucza albo jest wyłączone, jego model prowadzi do działania naprawczego. Jak dodać konto, opisuje przewodnik [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 

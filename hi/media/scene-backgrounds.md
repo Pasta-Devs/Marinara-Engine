@@ -34,7 +34,7 @@ Roleplay में **Background** बटन **Illustrator** एजेंट इ�
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-इसे ठीक करने के लिए **Connections** (कनेक्शन) पैनल में **Jobs** (काम) बॉक्स में **Images** (इमेज) काम सेट करें, या **Illustrator** एजेंट को उसका अपना इमेज मॉडल दें।
+इसे ठीक करने के लिए **Connections** (कनेक्शन) पैनल में **Jobs** (काम) पेज पर **Images** (इमेज) काम सेट करें, या **Illustrator** एजेंट को उसका अपना इमेज मॉडल दें।
 
 ## Gallery सेक्शन
 

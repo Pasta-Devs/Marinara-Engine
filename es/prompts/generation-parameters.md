@@ -134,11 +134,11 @@ Al desactivarlo aparece **Past reasoning blocks** (Bloques de razonamiento anter
 2. Elige un modelo en el menú desplegable **Captioning model** (Modelo de descripción).
 3. Si quieres, edita el **Captioning Prompt** (Prompt de descripción), las instrucciones que se envían con cada imagen. El botón de restablecer, o vaciar el cuadro, vuelve al prompt de Image reading de todo el motor. El prompt se guarda solo para este chat, y **Save as Connection Default** (Guardar como predeterminado de la conexión) no lo copia.
 
-El cuadro también aparece cuando el interruptor está desactivado pero hay un modelo de **Image reading** (Lectura de imágenes) configurado en el cuadro **Jobs** (Tareas) del panel **Connections** (Conexiones): ese modelo describe las imágenes de este chat cuando el propio modelo del chat no puede verlas.
+El cuadro también aparece cuando el interruptor está desactivado pero hay un modelo de **Image reading** (Lectura de imágenes) configurado en la página **Jobs** (Tareas) del panel **Connections** (Conexiones): ese modelo describe las imágenes de este chat cuando el propio modelo del chat no puede verlas.
 
 ### Qué se le pide al modelo de lectura
 
-En el panel **Connections**, haz clic en el engranaje de la fila **Image reading** del cuadro **Jobs** (o elige **Image reading settings** (Ajustes de lectura de imágenes) debajo de la lista de modelos en **Model for Image reading** (Modelo para Lectura de imágenes)). Estos ajustes se aplican a todos los chats:
+En el panel **Connections**, haz clic en **All jobs** (Todas las tareas) y luego en el engranaje junto a **Image reading** (o elige **Image reading settings** (Ajustes de lectura de imágenes) debajo de la lista de modelos en **Model for Image reading** (Modelo para Lectura de imágenes)). Estos ajustes se aplican a todos los chats:
 
 - **Instructions** (Instrucciones): el prompt del sistema que se envía con cada imagen. El **Captioning Prompt** propio de un chat lo reemplaza.
 - **Request** (Solicitud): el mensaje que se envía con cada imagen. `{{filename}}` se convierte en el nombre de archivo de la imagen.

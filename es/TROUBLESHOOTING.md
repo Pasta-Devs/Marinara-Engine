@@ -240,7 +240,7 @@ El **Built-in model** (Modelo integrado) se ejecuta en tu computadora sin API ke
 1. Abre **Chat Settings → Memory Recall** y confirma que **Enable Memory Recall** está activado.
 2. Abre **Access memories for this chat**. En **Memories for This Chat**, mira el estado de cada fragmento.
 3. **Waiting for vector** significa que la memoria todavía se está procesando. Espera y luego vuelve a chatear.
-4. **Embedding unavailable** significa que ninguna fuente de embeddings funciona. Configura una cuenta de embeddings o deja que se cargue el modelo integrado. Para usar una sola fuente en todos los chats, elígela en la tarea **Embeddings** del cuadro **Jobs** (Tareas) de **Connections**.
+4. **Embedding unavailable** significa que ninguna fuente de embeddings funciona. Configura una cuenta de embeddings o deja que se cargue el modelo integrado. Para usar una sola fuente en todos los chats, elígela en la tarea **Embeddings** de la página **Jobs** (Tareas) de **Connections**.
 
 Una memoria necesita al menos 5 mensajes nuevos antes de crearse. Recall solo muestra las memorias que coinciden de cerca con tu nuevo mensaje, así que puede no devolver nada incluso cuando existen memorias.
 
@@ -321,8 +321,8 @@ Si el modelo devuelve JSON roto (texto estructurado), Marinara abre la ventana *
 
 ## Voz, llamadas y TTS
 
-- **Los personajes no hablan en una llamada.** La tarea **Voice** (Voz) no tiene modelo. Abre **Connections**, haz clic en la fila **Voice** del cuadro **Jobs** y elige un modelo de voz. Después haz clic en su engranaje y elige una voz. Un personaje sin voz aparece solo como texto.
-- **La voz se detiene con "No audio after N s".** Tu servidor de voz es más lento de lo que Marinara espera, algo habitual en un servidor local en una laptop. `N` es tu tiempo de espera actual. Sube **Request timeout (seconds)** (Tiempo de espera de la solicitud, en segundos) en **More** (Más) dentro de **Voice settings** (Ajustes de voz; el engranaje de la fila **Voice** del cuadro **Jobs**), o en la ventana **Edit model** (Editar modelo) del modelo de audio que indica el mensaje. Consulta [Tiempo de espera de la solicitud](media/tts-setup.md#request-timeout).
+- **Los personajes no hablan en una llamada.** La tarea **Voice** (Voz) no tiene modelo. Abre **Connections**, haz clic en **All jobs** (Todas las tareas), luego en **Voice** y elige un modelo de voz. Después haz clic en su engranaje y elige una voz. Un personaje sin voz aparece solo como texto.
+- **La voz se detiene con "No audio after N s".** Tu servidor de voz es más lento de lo que Marinara espera, algo habitual en un servidor local en una laptop. `N` es tu tiempo de espera actual. Sube **Request timeout (seconds)** (Tiempo de espera de la solicitud, en segundos) en **More** (Más) dentro de **Voice settings** (Ajustes de voz; el engranaje junto a **Voice** en la página **Jobs**), o en la ventana **Edit model** (Editar modelo) del modelo de audio que indica el mensaje. Consulta [Tiempo de espera de la solicitud](media/tts-setup.md#request-timeout).
 - **El micrófono no funciona.** Instala **Calls** desde **Agents → Agent Organizer**. Luego abre **Connections**, busca **Local speech model** en la tarjeta **On this device**, elige un modelo Whisper y haz clic en **Download Whisper**. Firefox lo necesita porque no tiene reconocimiento de voz del navegador. Desinstalar Calls borra sus modelos Whisper. También puedes usar tu propio servidor: consulta [Usar tu propio servidor de speech-to-text](conversation/calls.md#use-your-own-speech-to-text-server).
 - **Local Whisper is disabled in Lite mode.** La imagen lite no puede ejecutar el modelo de voz local. Usa una instalación completa.
 

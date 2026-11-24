@@ -12,7 +12,7 @@ Klucz API to tajny kod od usługi, dzięki któremu Marinara może korzystać z 
 4. Kliknij **Connect** (połącz). Marinara testuje konto.
 5. Pod **Found in … — use it for:** zaznacz **Images** (obrazy). Jeśli usługa nie ma listy modeli, wpisz identyfikator modelu w wierszu. Kliknij **Done** (gotowe).
 6. Otwórz model obrazów i kliknij **Test image** (test obrazu). Marinara tworzy mały obrazek testowy.
-7. Zaznaczenie **Images** w kroku 5 ustawia też zadanie **Images** w bloku **Jobs** (zadania) u góry panelu **Connections**. Aby później je zmienić, kliknij wiersz **Images**.
+7. Zaznaczenie **Images** w kroku 5 ustawia też zadanie **Images** na stronie **Jobs** (zadania) panelu **Connections**. Aby później je zmienić, kliknij tam **Images**.
 
 Aby dodać kolejny model obrazów do konta, kliknij **⋯** w wierszu konta i wybierz **Add model** (dodanie modelu). Pełny opis tego okna znajdziesz w przewodniku [Łączenie z dostawcą AI](../connections/connecting-to-a-provider.md).
 

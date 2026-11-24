@@ -63,8 +63,8 @@ Strona każdego wbudowanego modelu decyzyjnego pokazuje dwa wiersze:
 
 Zanim zaczniesz, przeczytaj sekcję [Co wybrać](#which-one-to-pick).
 
-1. Kliknij **Connections** (Połączenia) na górnym pasku i otwórz sekcję **Jobs** (zadania).
-2. W grupie **Behind the scenes** (za kulisami) kliknij wiersz **Decision** (decyzje). Otworzy się lista.
+1. Kliknij **Connections** (Połączenia) na górnym pasku, a potem **All jobs** (wszystkie zadania) pod nagłówkiem **Jobs** (zadania).
+2. Kliknij **Decision** (decyzje). Otworzy się lista.
 3. Wybierz model. Lista ma trzy grupy:
    - **None (decisions off)** (brak, decyzje wyłączone) to ustawienie domyślne. Żadne pytania nie są wysyłane, a pola pytań aktywacyjnych w edytorze agenta pozostają wyłączone.
    - **Built-in model** (model wbudowany) wymienia modele, które Marinara uruchamia na twoim komputerze: **Built-in model**, **Built-in model (utility)** (model wbudowany, pomocniczy) i **Built-in model (decisions)** (model wbudowany, decyzje). Nic nie opuszcza twojego komputera.
@@ -100,7 +100,7 @@ Pisz presety, karty i agentów dla "modelu decyzyjnego", nigdy jako "wymaga Jev"
 
 Jeśli masz pobrany model wbudowany, możesz używać go do decyzji bez konta i bez kosztów. Zobacz [Konfiguracja modelu wbudowanego](local-model.md).
 
-1. Kliknij wiersz **Decision** w grupie **Behind the scenes** w sekcji **Jobs**.
+1. Kliknij **Decision** na stronie **Jobs**.
 2. Wybierz **Built-in model** (albo **Built-in model (utility)**, jeśli go masz).
 3. Kliknij zębatkę **Decision settings**, a potem **Test**.
 
@@ -124,7 +124,7 @@ Prawdopodobieństwa tak/nie ogólnego modelu czatu nadają się do porównania z
 
 Jeśli twój model czatu działa na serwerze Ollama, LM Studio, llama.cpp albo innym serwerze zgodnym z OpenAI, może odpowiadać na pytania decyzyjne bez ładowania drugiej kopii przez aplikację Marinara.
 
-1. Kliknij wiersz **Decision** w grupie **Behind the scenes** w sekcji **Jobs**. Selektor pokazuje modele ze wszystkich kont, w tym twój model czatu. Możesz też kliknąć **⋯** przy modelu i wybrać **Use for…** → **Decision**.
+1. Kliknij **Decision** na stronie **Jobs**. Selektor pokazuje modele ze wszystkich kont, w tym twój model czatu. Możesz też kliknąć **⋯** przy modelu i wybrać **Use for…** → **Decision**.
 2. Kliknij koło zębate w wierszu **Decision**, a potem **Test**. Udany test podaje, czy serwer zwrócił logarytmy prawdopodobieństw i czy model musiał najpierw rozumować. Kliknij **Done**.
 Możesz też utworzyć je samodzielnie. Użyj konta Decision ze źródłem **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)** (model czatu zgodny z OpenAI), tym samym adresem co konto czatu (na przykład `http://localhost:11434/v1` dla serwera Ollama) i nazwą modelu, której używa serwer.
 
@@ -141,14 +141,14 @@ Hostowane konto Decision wysyła wybrane ostatnie wiadomości i stwierdzenia do 
 1. Kliknij **Connections** na górnym pasku, a potem **Add** (dodaj).
 2. W filtrach typu kliknij **Decision**, a potem wybierz **TypeSafe** lub **Own decision server**. W przypadku NanoGPT zobacz [Przez usługę NanoGPT](#through-nanogpt). W przypadku OpenRouter lub Google Gemini zobacz [Przez usługę OpenRouter lub Google Gemini](#through-openrouter-or-google-gemini).
 3. Wpisz **API key** (klucz API), a przy **Own decision server** – **Server address** (adres serwera). Kliknij **Connect** (połącz).
-4. Pod **Found in TypeSafe — use it for:** zaznacz **Decision**, a potem kliknij **Done**. Wiersz **Decision** w grupie **Behind the scenes** w sekcji **Jobs** pokazuje teraz model.
+4. Pod **Found in TypeSafe — use it for:** zaznacz **Decision**, a potem kliknij **Done**. Zadanie **Decision** na stronie **Jobs** pokazuje teraz model.
 5. Żeby go przetestować, kliknij model w panelu, żeby otworzyć **Edit model**, a potem kliknij **Test provider** w sekcji **Provider tests** (testy dostawcy). Model **Own decision server** nie ma tam przycisku **Test provider**. Zamiast tego otwórz menu **⋯** konta w panelu i kliknij **Test**.
 
 Udany **Test provider** pokazuje prawdopodobieństwo, czas odpowiedzi i limit czasu konta. **Test** konta w menu **⋯** podaje tylko, czy się udało i ile to trwało. Test czeka co najmniej 10 sekund, a przy dłuższym limicie 5 sekund ponad niego. Jeśli odpowiedź przekroczyła limit, wynik to zaznacza: na czacie taka odpowiedź liczyłaby się jako brak odpowiedzi.
 
 Jeśli test się nie uda, zobacz [Rozwiązywanie problemów](#troubleshooting).
 
-Model decyzyjny ma poniższe pola. Kliknij model w panelu, aby otworzyć **Edit model**, lub kliknij koło zębate przy **Decision** w sekcji **Jobs**, aby otworzyć **Decision settings** aktywnego modelu.
+Model decyzyjny ma poniższe pola. Kliknij model w panelu, aby otworzyć **Edit model**, lub kliknij koło zębate obok **Decision** na stronie **Jobs**, aby otworzyć **Decision settings** aktywnego modelu.
 
 | Pole | Działanie |
 | --- | --- |
@@ -181,7 +181,7 @@ Domyślnie NanoGPT rozstrzyga, czy żądanie rozliczyć w ramach subskrypcji, cz
 Konta OpenRouter i Google Gemini także pokazują własne modele decyzyjne. Marinara odpytuje API decyzyjne usługi kluczem danego konta. OpenRouter udostępnia wiele modeli, w tym bezpłatne (ich nazwy kończą się na `:free`). Google Gemini udostępnia jeden model, **Gemini Decision 1**.
 
 1. Połącz usługę OpenRouter lub Google Gemini jak zwykle.
-2. Kliknij wiersz **Decision** w grupie **Behind the scenes** w sekcji **Jobs**, a potem kliknij konto po lewej. Wybierz model w sekcji **Decision models**.
+2. Kliknij **Decision** na stronie **Jobs**, a potem kliknij konto po lewej. Wybierz model w sekcji **Decision models**.
 3. Żeby go przetestować, otwórz **Edit model** i kliknij **Test provider**.
 
 Na koncie OpenRouter pod **Chat models** znajdziesz także działające modele czatu, które zwracają logarytmy prawdopodobieństw. Konto Google Gemini udostępnia wyłącznie model decyzyjny.
@@ -335,7 +335,7 @@ Zanim cokolwiek zostanie pobrane, Marinara sprawdza, czy twój komputer może ur
 1. Kliknij **Połączenia** na górnym pasku. W sekcji **Na tym urządzeniu** kliknij **Model wbudowany (decyzje)**. Możesz też kliknąć **Dodaj** w panelu **Połączenia** i wybrać **Model wbudowany (decyzje)** w sekcji **Decyzje**.
 2. Wybierz model z listy **Model**. Pod nią zobaczysz jego opis, potem **Odpowiedzi** i **Odczytuje** (zobacz [Co pokazuje strona modelu](#what-a-model-page-lists)), języki i licencje.
 3. Kliknij **Pobierz** z nazwą i rozmiarem modelu. Potwierdź rozmiar, ocenę sprzętu i licencje. Wcześniej nic się nie pobiera.
-4. Kliknij **Używaj do Decyzji** albo kliknij wiersz **Decyzja** w grupie **Za kulisami** w sekcji **Zadania** i wybierz **Model wbudowany (decyzje)**.
+4. Kliknij **Używaj do Decyzji** albo kliknij **Decision** na stronie **Jobs** i wybierz **Model wbudowany (decyzje)**.
 
 Po uruchomieniu modelu jego strona pokazuje też wiersz **Na tym komputerze** z czasami przetwarzania: kilku tur czatu, obrazu i klipu w przypadku modeli, które je odczytują. Te czasy pochodzą z twojego komputera, więc pokazują, o ile wolniejsza staje się ocena stwierdzenia, gdy prosi ono o obraz.
 

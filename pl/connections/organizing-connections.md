@@ -4,19 +4,20 @@ Ten przewodnik opisuje, jak utrzymać porządek wśród kont i modeli w panelu *
 
 ## Lista kont
 
-Pod sekcją **Jobs** (zadania) panel wymienia twoje konta. Każde konto pokazuje swój obrazek, nazwę, liczbę modeli i adres. Wiersz modelu pokazuje obrazek modelu, jego nazwę i plakietki, takie jak zadanie, które model wykonuje (**Main**, **Agents**, **Images**), **Custom settings** (własne ustawienia), jego cenę albo **Plan** (plan) przy modelach wliczonych w subskrypcję. Karta **Built-in model** (model wbudowany) znajduje się pod sekcją **Jobs**. Zobacz [Konfiguracja modelu wbudowanego](local-model.md).
+Pod podsumowaniem **Jobs** (zadania) panel wymienia twoje konta. Każde konto pokazuje swój obrazek, nazwę, liczbę modeli i adres. Gdy coś wymaga twojej uwagi, konto informuje o tym obok swojej nazwy: **Off**, **Needs key**, **Low balance** (niskie saldo, mniej niż 1 w walucie konta) albo **No credit left** (brak środków). Gdy Marinara może odczytać saldo konta albo zużycie planu, pokazuje je w oknie **Edit account** (edycja konta), w sekcji **Usage and balance** (zużycie i saldo). Wiersz modelu pokazuje obrazek modelu, jego nazwę i plakietki, takie jak zadanie, które model wykonuje (**Main**, **Agents**, **Images**), **Custom settings** (własne ustawienia), jego cenę albo **Plan** (plan) przy modelach wliczonych w subskrypcję. Karta **Built-in model** (model wbudowany) znajduje się pod podsumowaniem **Jobs**. Zobacz [Konfiguracja modelu wbudowanego](local-model.md).
 
 Kliknij wiersz konta, żeby zwinąć jego modele, i kliknij ponownie, żeby je pokazać. Marinara pamięta, które konta zostały zwinięte. **More actions** (więcej działań, trzy kropki) u góry panelu ma takie pozycje:
 
 | Pozycja | Co robi |
 | --- | --- |
 | **Fold all accounts** (zwinięcie wszystkich kont), **Open all accounts** (rozwinięcie wszystkich kont) | Zwija albo rozwija wszystkie konta. |
-| **Show only Off or Needs key** (pokazanie tylko kont wyłączonych lub bez klucza) | Pokazuje tylko konta, które wymagają uwagi. |
+| **Sort: Custom** (sortowanie: własna kolejność), **Sort: A–Z**, **Sort: Z–A**, **Sort: Newest** (sortowanie: najnowsze), **Sort: Oldest** (sortowanie: najstarsze) | Sortuje konta. |
+| **Show only Off or Needs key** (pokazanie tylko kont wyłączonych lub bez klucza) | Pokazuje tylko konta, które wymagają uwagi. Pojawia się, gdy któreś konto wymaga uwagi. |
 | **Show cost badges** (pokazanie plakietek kosztów) | Pokazuje cenę każdego modelu. |
 | **Group by folder** (grupowanie według folderów), **Group by account** (grupowanie według kont) | Przełącza sposób grupowania modeli. Zobacz [Foldery](#folders). |
 | **Import account** (import konta), **Export all accounts** (eksport wszystkich kont) | Zobacz [Eksport i import](#export-and-import). |
 
-W szerokim panelu lista rozwijana sortowania jest obok pola **Search models and accounts** (wyszukiwanie modeli i kont). W wąskim panelu sortowanie znajduje się w **More actions**. Do wyboru są **Custom** (własna kolejność), **A–Z**, **Z–A**, **Newest** (najnowsze) i **Oldest** (najstarsze). Pole **Search models and accounts** filtruje listę w trakcie pisania.
+Pole **Search models and accounts** (wyszukiwanie modeli i kont) filtruje listę w trakcie pisania. Pojawia się, gdy masz co najmniej 8 modeli.
 
 Niektóre konta sięgają do modeli kilku twórców, na przykład NanoGPT albo serwer proxy. Ich modele są zgrupowane pod nagłówkami takimi jak **via NanoGPT**.
 
@@ -45,7 +46,7 @@ Każde konto pokazuje ikonę swojej usługi. Ikony są dostarczane razem z aplik
 
 ## Modele oznaczone gwiazdką
 
-Gwiazdka oznacza modele, które chcesz szybko znajdować. Modele oznaczone gwiazdką są wymienione w grupie **Starred** (oznaczone gwiazdką) blisko góry każdego selektora modeli: w oknach **Model for** (model dla) w sekcji **Jobs**, w oknie **Model for this chat** (model dla tego czatu) oraz w polach modelu w **Chat Settings** (ustawienia czatu) i w edytorze agenta.
+Gwiazdka oznacza modele, które chcesz szybko znajdować. Modele oznaczone gwiazdką są wymienione w grupie **Starred** (oznaczone gwiazdką) blisko góry każdego selektora modeli: w oknach **Model for** (model dla) na stronie **Jobs**, w oknie **Model for this chat** (model dla tego czatu) oraz w polach modelu w **Chat Settings** (ustawienia czatu) i w edytorze agenta.
 
 Aby oznaczyć model gwiazdką, kliknij jego gwiazdkę na liście **Add model** konta albo wybierz **Star** (oznaczenie gwiazdką) w menu **⋯** modelu. Przydzielenie modelowi zadania też go zapisuje.
 
@@ -57,7 +58,7 @@ Kliknij **⋯** w wierszu modelu:
 
 | Działanie | Co robi |
 | --- | --- |
-| **Use for…** | Otwiera listę zadań. Kliknij zadanie, aby przypisać je modelowi tak samo jak w sekcji **Jobs**. Znacznik wskazuje przypisane już zadania. |
+| **Use for…** | Otwiera listę zadań. Kliknij zadanie, aby przypisać je modelowi tak samo jak na stronie **Jobs**. Znacznik wskazuje przypisane już zadania. |
 | **Edit model** (edycja modelu) | Otwiera jego ustawienia. Kliknięcie wiersza modelu działa tak samo. |
 | **Move to account…** (przeniesienie do konta) | Przenosi model do innego konta. Model używa wtedy klucza tamtego konta. |
 | **Folder** (folder) | Umieszcza model w folderze. |
@@ -94,7 +95,7 @@ Każda odpowiedź losuje wtedy model z twojej puli Shuffle.
 
 Jeśli model wylosowany dla odpowiedzi zawiedzie, a **Main** ma model **If it fails** (jeśli zawiedzie), odpowiedź pisze ten model. Powiadomienie podaje model, który zawiódł, i krótki powód, na przykład "key rejected", "rate limited" albo "not found". Odpowiedź zachowuje małą etykietę **Fallback** (połączenie zapasowe). Dotknij jej albo wskaż ją kursorem, żeby znów zobaczyć tę samą informację.
 
-Wybór w oknie **Model for this chat** zmienia tylko ten czat. Aby zmienić model dla nowych czatów, ustaw **Main** w sekcji **Jobs**.
+Wybór w oknie **Model for this chat** zmienia tylko ten czat. Aby zmienić model dla nowych czatów, ustaw **Main** w podsumowaniu **Jobs**.
 
 <a id="export-and-import"></a>
 

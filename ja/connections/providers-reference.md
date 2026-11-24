@@ -191,7 +191,7 @@ OpenAI、OpenRouter、xAI、NanoGPT、Arli AI、Z.AI、Googleの画像と動画�
 
 ソースごとに、デフォルトのアドレスとモデルが入力されます。**Default voice**(デフォルトの声)は、キャラクターごとの声など、より細かい指定がないときに使われる声です。**Request timeout (seconds)**(リクエストのタイムアウト、秒単位)は、Marinaraが読み上げる1行を待つ時間です。音声サーバーが遅い場合は値を大きくしてください。
 
-Marinaraがデフォルトで使う音声アカウントを選ぶには、**Jobs**(役割)ボックスの**Voice**(音声)の行をクリックします。アカウントを使ってメッセージを読み上げるには、**Voice**の行でアカウントのモデルを選びます。[Text to Speech (TTS)の設定](../media/tts-setup.md)と[音声の接続を使う](../media/tts-setup.md#use-a-voice-model-from-an-account)を参照してください。
+Marinaraがデフォルトで使う音声アカウントを選ぶには、**Jobs**(役割)ページの**Voice**(音声)をクリックします。アカウントを使ってメッセージを読み上げるには、**Voice**にそのアカウントのモデルを選びます。[Text to Speech (TTS)の設定](../media/tts-setup.md)と[音声の接続を使う](../media/tts-setup.md#use-a-voice-model-from-an-account)を参照してください。
 
 <a id="music--sound-effects"></a>
 
@@ -223,7 +223,7 @@ Marinaraがデフォルトで使う音声アカウントを選ぶには、**Jobs
 
 **Anthropic**、**Claude (Subscription)**、**OpenAI (ChatGPT)**、**Grok CLI (Subscription)**は埋め込みを作れません。これらを使う場合は、**Embedding provider**(埋め込み用のプロバイダー)ドロップダウンで、OpenAI互換のアカウント、**Google Gemini**、**Built-in model**(内蔵モデル)など、ほかのアカウントを借ります。
 
-独自の埋め込み設定がないすべてのアカウントで1つの埋め込みの生成元を使うには、**Jobs**(役割)ボックスの**Embeddings**(埋め込み)の行をクリックします。**Marinara's own search**(Marinara独自の検索)を選ぶと、内蔵の埋め込みモデルを使い続けます。アカウント自身の埋め込みモデルや**Embedding provider**の設定は、引き続き優先されます。変更した後は、ロアブックと記憶をベクトル化し直してください。[ロアブックのセマンティック検索](../lorebooks/semantic-search.md)を参照してください。
+独自の埋め込み設定がないすべてのアカウントで1つの埋め込みの生成元を使うには、**Jobs**(役割)ページの**Embeddings**(埋め込み)をクリックします。**Marinara's own search**(Marinara独自の検索)を選ぶと、内蔵の埋め込みモデルを使い続けます。アカウント自身の埋め込みモデルや**Embedding provider**の設定は、引き続き優先されます。変更した後は、ロアブックと記憶をベクトル化し直してください。[ロアブックのセマンティック検索](../lorebooks/semantic-search.md)を参照してください。
 
 <a id="timeouts"></a>
 

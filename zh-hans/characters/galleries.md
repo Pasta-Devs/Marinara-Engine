@@ -92,7 +92,7 @@ Gallery 里的 **Create with AI**(使用 AI 创建) 会通过图像生成连接�
 - 要自己写描述，点击图片左上角的标记按钮，选择 **Add description**(添加描述)；要修改已有描述，则选择 **Edit description**(编辑描述)。
 - 要让 AI 写描述，点击 **Select images**(选择图像)，选好图片，再点击 **Describe with AI**(用 AI 描述)。**Image reading**(读图) 模型会查看每张图片，写出简短描述。如果有些图片已经有描述，可以选择只描述没有描述的图片，或重新描述所有图片。
 
-开始之前：AI 描述需要能识别图片的模型。如果在连接设置的 **Behind the scenes**(幕后) 下设置了 **Image reading** 模型，Marinara 就会使用它，否则会使用智能体的模型。每次最多发送 8 张图片，所以选的图片较多时需要稍等一会儿。
+开始之前：AI 描述需要能识别图片的模型。如果在 **Connections**(连接) 的 **Jobs**(分工) 页面上设置了 **Image reading** 模型，Marinara 就会使用它，否则会使用智能体的模型。每次最多发送 8 张图片，所以选的图片较多时需要稍等一会儿。
 
 聊天自己的图库在选择模式下也有同样的 **Describe with AI** 功能。
 

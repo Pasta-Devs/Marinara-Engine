@@ -7,13 +7,13 @@ O Text to Speech (TTS), a conversão de texto em voz, lê em voz alta as mensage
 1. Clique em **Connections** (Conexões) na barra superior e depois em **Add** (adicionar).
 2. Clique no filtro de tipo **Voice** (voz), escolha um serviço e cole a chave em **API key** (chave de API). Clique em **Connect**.
 3. Em **Found in … — use it for:**, marque **Voice** e clique em **Done**. Escolher um modelo para Voice ativa a conversão de texto em fala.
-4. Clique na engrenagem da linha **Voice** na caixa **Jobs** (tarefas) e depois em **Preview** (ouvir) para escutar uma amostra. No chat, clique em **Speak** (falar) abaixo de uma mensagem.
+4. Clique na engrenagem ao lado de **Voice** na página **Jobs** (tarefas) e depois em **Preview** (ouvir) para escutar uma amostra. No chat, clique em **Speak** (falar) abaixo de uma mensagem.
 
 ## Ative o Text to Speech
 
 Escolher um modelo para a tarefa **Voice** ativa a conversão de texto em fala. Isso exibe o botão **Speak** em cada mensagem e as opções de **Auto-play** (reprodução automática). Você ainda escolhe o que é lido e quando.
 
-1. Clique em **Connections** na barra superior. Encontre a linha **Voice** em **Pictures & sound**, na caixa **Jobs**.
+1. Clique em **Connections** na barra superior e depois em **All jobs** (todas as tarefas), abaixo de **Jobs**. Encontre **Voice**.
 2. Clique na linha e escolha um modelo ou serviço de voz. A linha mostra sua escolha.
 3. Clique na engrenagem da linha para abrir as configurações de voz. Se você ainda não tem uma conta de voz, clique em **Add** na linha ou adicione uma como no início rápido.
 4. Para desativar a conversão de texto em fala, clique na linha e escolha **Turn voice off** (desativar voz). A linha mostra **Off** e nada é lido em voz alta.
@@ -35,7 +35,7 @@ As requisições passam pelo próprio servidor do Marinara. A sua chave de API �
 
 Se você já adicionou uma conta **Audio** (veja [Provedores de IA compatíveis](../connections/providers-reference.md#audio)), não precisa informar seus dados de novo. Os modelos de voz dela aparecem no seletor **Voice**.
 
-1. Clique na linha **Voice** na caixa **Jobs** e escolha o modelo.
+1. Clique em **Voice** na página **Jobs** e escolha o modelo.
 2. Clique na engrenagem da linha. Escolha as vozes e as outras configurações.
 
 Marinara usa o endereço, a chave, o modelo e o **Request timeout (seconds)** (tempo limite da requisição em segundos) da conta, então as configurações de voz não mostram esses campos. A chave fica na conta, sem ser copiada para as configurações de voz ou enviada ao navegador. Mudanças na conta, como uma chave nova, valem na hora.
@@ -69,7 +69,7 @@ O PocketTTS não vem embutido no Marinara. Instale [o servidor oficial do Pocket
 
 ### Tempo limite da requisição
 
-Ajuste **Request timeout (seconds)** em **More** (mais), na janela **Voice settings** (configurações de voz). Abra-a pela engrenagem na linha **Voice** da caixa **Jobs**. A Marinara espera até 60 segundos por fala. Um servidor local, especialmente em um notebook, pode precisar de mais tempo. O intervalo é de 10 a 3.600 segundos.
+Ajuste **Request timeout (seconds)** em **More** (mais), na janela **Voice settings** (configurações de voz). Abra-a pela engrenagem ao lado de **Voice** na página **Jobs**. A Marinara espera até 60 segundos por fala. Um servidor local, especialmente em um notebook, pode precisar de mais tempo. O intervalo é de 10 a 3.600 segundos.
 
 Uma conta Audio tem seu próprio **Request timeout (seconds)** abaixo de **Default voice** na janela **Edit model** e em **Voice settings**. Os chats que usam essa conta, inclusive quando selecionada para a tarefa **Voice**, usam esse limite. O limite em **Voice settings** vale para o áudio reproduzido nessa janela, inclusive **Preview**. Se uma fala exceder o limite, o erro informa quanto tempo a Marinara esperou e qual configuração ajustar.
 
@@ -182,7 +182,7 @@ Se a voz pronunciar errado o nome de um personagem ou de uma persona, adicione u
 
 ## Solução de problemas
 
-- **Nada é lido em voz alta**: verifique se a linha **Voice** da caixa **Jobs** tem um modelo selecionado e não mostra **Off**. Depois confira a opção de **Auto-play** correspondente ou use **Speak** abaixo da mensagem.
+- **Nada é lido em voz alta**: verifique se **Voice**, na página **Jobs**, não aparece na parte **Off**. Depois confira a opção de **Auto-play** correspondente ou use **Speak** abaixo da mensagem.
 - Se a linha mostrar **The voice account is missing**, escolha outro modelo de voz. Consulte [Como usar um modelo de voz de uma conta](#use-a-voice-model-from-an-account).
 - Confira se há um modelo selecionado na linha **Voice** e se a chave é válida. Depois, clique em **Refresh voices from provider**. O servidor oficial do PocketTTS usa a lista embutida do Marinara. Para um adaptador compatível do PocketTTS, verifique se `<Base URL>/v1/voices` responde.
 - **O ElevenLabs não fala**: escolha uma voz de verdade, e não o marcador "Select an ElevenLabs voice". Confira se **Model** é um modelo de fala, e não um modelo de desenho de voz com `ttv` no ID.

@@ -43,7 +43,7 @@ Antes de empezar: necesitas una cuenta que ofrezca embeddings. Consulta [Conecta
 
 Algunos servicios no ofrecen embeddings. En ese caso, Marinara te pide elegir una cuenta de embeddings dedicada, como una compatible con OpenAI, Google o el modelo integrado.
 
-Para usar una sola fuente en todas partes, elígela en la tarea **Embeddings** del cuadro **Jobs** (Tareas) de **Connections**. Las cuentas sin un modelo de embeddings propio la usan. El ajuste propio de una cuenta sigue teniendo prioridad.
+Para usar una sola fuente en todas partes, elígela en la tarea **Embeddings** de la página **Jobs** (Tareas) de **Connections**. Las cuentas sin un modelo de embeddings propio la usan. El ajuste propio de una cuenta sigue teniendo prioridad.
 
 Sin una cuenta de embeddings ni un valor predeterminado de **Embeddings**, Marinara recurre a un modelo de embeddings integrado. Se descarga una sola vez y se ejecuta en tu computadora sin ninguna API key (clave de API). Consulta [Configuración del modelo integrado](../connections/local-model.md).
 

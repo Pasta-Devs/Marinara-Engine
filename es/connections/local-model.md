@@ -11,7 +11,7 @@ Si falta la tarjeta **Built-in model**, tienes una instalación "Lite", una vers
 Antes de empezar, asegúrate de tener suficiente espacio libre en disco y memoria (RAM) para el modelo. Los tamaños están en la tabla de abajo.
 
 1. Haz clic en **Connections** (Conexiones) en la barra superior.
-2. Busca la tarjeta **Built-in model** debajo del cuadro **Jobs** (Tareas). Dice **Not downloaded**.
+2. Busca la tarjeta **Built-in model** debajo del resumen **Jobs** (Tareas). Dice **Not downloaded**.
 3. Haz clic en la tarjeta o en su botón **Download** (Descargar). Se abre una ventana titulada **Built-in model**.
 4. En **Which model?** (¿Qué modelo?), elige un modelo. **Gemma 4 E2B — Q8 (Best Quality)** lleva la etiqueta **Recommended** (Recomendado). Si tu computadora tiene poca memoria, elige **Q4_K_M**. Necesita unos 3,4 GB de RAM en lugar de 5,4 GB.
 5. Haz clic en el botón **Download** de la parte inferior. Muestra el tamaño del modelo, por ejemplo **Download 5.0 GB**.

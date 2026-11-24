@@ -92,7 +92,7 @@ Toute image de galerie peut avoir une courte description de ce qu'elle montre. L
 - Pour en écrire une, clique sur le bouton de marquage dans le coin supérieur gauche de l'image et choisis **Add description** (ajouter une description), ou **Edit description** (modifier la description) pour la changer.
 - Pour les faire écrire par l'IA, clique sur **Select images** (sélectionner des images), choisis les images, puis clique sur **Describe with AI** (décrire avec l'IA). Le modèle **Image reading** (lecture des images) examine chacune et rédige une courte description. Si certaines en ont déjà une, choisis de décrire seulement celles qui n'en ont pas ou de toutes les décrire à nouveau.
 
-Avant de commencer : les descriptions par l'IA nécessitent un modèle capable de lire les images. Marinara utilise le modèle **Image reading** si tu en as défini un dans **Behind the scenes** (en coulisses) dans tes réglages de connexion, et sinon le modèle de tes agents. Les images sont envoyées par lots de 8 au maximum, donc une grande sélection prend un moment.
+Avant de commencer : les descriptions par l'IA nécessitent un modèle capable de lire les images. Marinara utilise le modèle **Image reading** si tu en as défini un sur la page **Jobs** (tâches) de **Connections** (Connexions), et sinon le modèle de tes agents. Les images sont envoyées par lots de 8 au maximum, donc une grande sélection prend un moment.
 
 La galerie propre à un chat propose le même bouton **Describe with AI** en mode sélection.
 

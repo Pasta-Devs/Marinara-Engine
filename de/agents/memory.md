@@ -43,7 +43,7 @@ Bevor du anfängst: Du brauchst ein Konto, das Embeddings anbietet. Siehe [Verbi
 
 Manche Dienste bieten keine Embeddings an. Marinara bittet dich dann, ein eigenes Embedding-Konto zu wählen, etwa ein OpenAI-kompatibles, Google oder das eingebaute Modell.
 
-Willst du überall dieselbe Quelle nutzen, wähl sie für die Aufgabe **Embeddings** im Bereich **Jobs** (Aufgaben) von **Connections**. Konten ohne eigenes Embedding-Modell verwenden sie dann. Die Einstellung eines Kontos hat weiterhin Vorrang.
+Willst du überall dieselbe Quelle nutzen, wähl sie für die Aufgabe **Embeddings** auf der Seite **Jobs** (Aufgaben) von **Connections**. Konten ohne eigenes Embedding-Modell verwenden sie dann. Die Einstellung eines Kontos hat weiterhin Vorrang.
 
 Gibt es weder ein Embedding-Konto noch einen **Embeddings**-Standard, greift Marinara auf ein eingebautes Embedding-Modell zurück. Es wird einmal heruntergeladen und läuft ohne API-Key auf deinem Rechner. Siehe [Eingebautes Modell einrichten](../connections/local-model.md).
 

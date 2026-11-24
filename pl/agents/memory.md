@@ -43,7 +43,7 @@ Zanim zaczniesz: potrzebujesz konta, które oferuje embeddingi. Zobacz [Łączen
 
 Część usług nie oferuje embeddingów. Marinara prosi wtedy o wybranie osobnego konta do embeddingów, na przykład konta zgodnego z OpenAI, konta Google albo wbudowanego modelu.
 
-Żeby używać jednego źródła wszędzie, wybierz je dla zadania **Embeddings** (embeddingi) w bloku **Jobs** (zadania) panelu **Connections**. Korzystają z niego konta, które nie mają własnego modelu embeddingów. Własne ustawienie konta nadal ma pierwszeństwo.
+Żeby używać jednego źródła wszędzie, wybierz je dla zadania **Embeddings** (embeddingi) na stronie **Jobs** (zadania) panelu **Connections**. Korzystają z niego konta, które nie mają własnego modelu embeddingów. Własne ustawienie konta nadal ma pierwszeństwo.
 
 Gdy nie ma konta do embeddingów ani domyślnego ustawienia **Embeddings**, Marinara przechodzi na wbudowany model embeddingów. Pobiera go jeden raz i uruchamia na twoim komputerze, bez klucza API. Zobacz [Konfiguracja modelu wbudowanego](../connections/local-model.md).
 

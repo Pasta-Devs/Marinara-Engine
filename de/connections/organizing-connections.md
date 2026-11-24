@@ -4,19 +4,20 @@ In dieser Anleitung erfährst du, wie du Konten und Modelle im Panel **Connectio
 
 ## Die Kontoliste
 
-Unter dem Bereich **Jobs** (Aufgaben) listet das Panel deine Konten. Jedes Konto zeigt sein Bild, seinen Namen, die Zahl seiner Modelle und seine Adresse. Eine Modellzeile zeigt das Bild des Modells, seinen Namen und Badges, etwa die Aufgabe, die es übernimmt (**Main**, **Agents**, **Images**), **Custom settings**, seinen Preis oder **Plan** für Modelle, die in einem Abo enthalten sind. Die Karte **Built-in model** (eingebautes Modell) sitzt unter dem Bereich **Jobs**. Siehe [Eingebautes Modell einrichten](local-model.md).
+Unter der Übersicht **Jobs** (Aufgaben) listet das Panel deine Konten. Jedes Konto zeigt sein Bild, seinen Namen, die Zahl seiner Modelle und seine Adresse. Braucht etwas deine Aufmerksamkeit, steht das beim Konto neben seinem Namen: **Off**, **Needs key**, **Low balance** (weniger als 1 in der Währung des Kontos übrig) oder **No credit left**. Kann Marinara das Guthaben oder die Tarifnutzung eines Kontos auslesen, zeigt es beides in **Edit account** (Konto bearbeiten) unter **Usage and balance** (Nutzung und Guthaben). Eine Modellzeile zeigt das Bild des Modells, seinen Namen und Badges, etwa die Aufgabe, die es übernimmt (**Main**, **Agents**, **Images**), **Custom settings**, seinen Preis oder **Plan** für Modelle, die in einem Abo enthalten sind. Die Karte **Built-in model** (eingebautes Modell) sitzt unter der Übersicht **Jobs**. Siehe [Eingebautes Modell einrichten](local-model.md).
 
 Ein Klick auf die Zeile eines Kontos klappt seine Modelle ein, ein weiterer Klick zeigt sie wieder. Marinara merkt sich, welche Konten du eingeklappt hast. **More actions** (Weitere Aktionen, drei Punkte) oben im Panel enthält diese Einträge:
 
 | Eintrag | Funktion |
 | --- | --- |
 | **Fold all accounts**, **Open all accounts** | Klappt alle Konten ein oder auf. |
-| **Show only Off or Needs key** | Listet nur Konten, die Aufmerksamkeit brauchen. |
+| **Sort: Custom**, **Sort: A–Z**, **Sort: Z–A**, **Sort: Newest**, **Sort: Oldest** | Sortiert die Konten. |
+| **Show only Off or Needs key** | Listet nur Konten, die Aufmerksamkeit brauchen. Der Eintrag erscheint, wenn ein Konto Aufmerksamkeit braucht. |
 | **Show cost badges** | Zeigt den Preis jedes Modells. |
 | **Group by folder**, **Group by account** | Wechselt, wie die Modelle gruppiert werden. Siehe [Ordner](#folders). |
 | **Import account**, **Export all accounts** | Siehe [Exportieren und importieren](#export-and-import). |
 
-In einem breiten Panel steht das Dropdown-Menü für die Sortierung neben **Search models and accounts** (Modelle und Konten durchsuchen). In einem schmalen Panel liegt die Sortierung unter **More actions**. Zur Wahl stehen **Custom** (benutzerdefiniert), **A–Z**, **Z–A**, **Newest** (neueste) und **Oldest** (älteste). **Search models and accounts** filtert die Liste beim Tippen.
+**Search models and accounts** (Modelle und Konten durchsuchen) filtert die Liste beim Tippen. Das Suchfeld erscheint, sobald du 8 oder mehr Modelle hast.
 
 Manche Konten erreichen Modelle mehrerer Hersteller, etwa NanoGPT oder ein Proxy. Ihre Modelle sind unter Überschriften wie **via NanoGPT** gruppiert.
 
@@ -37,7 +38,7 @@ Klick in der Zeile eines Kontos auf **⋯**:
 
 Um ein Konto zu löschen, klick auf **Delete account** (Konto löschen). Marinara bittet dich um Bestätigung und listet unter **Used by** (genutzt von) auf, was seine Modelle nutzt: Chats, Agenten, Modelle und Aufgaben. Klick auf **Delete with its N models** (mit seinen N Modellen löschen), um das Konto samt seinen Modellen zu entfernen. Diese Chats und Aufgaben brauchen danach ein anderes Modell. Lässt sich ein Modell nicht entfernen, listet der Editor es unter **This account still has models. Remove these first:** auf. Öffne jedes davon und entferne es.
 
-In **Edit account** (Konto bearbeiten) prüft **Test account** (Konto testen) den Key, **Usage and balance** (Nutzung und Guthaben) zeigt die Nutzung deines Tarifs, und **More options** (Weitere Optionen) enthält **Requests per minute** (Anfragen pro Minute) und **Parallel requests** (parallele Anfragen).
+In **Edit account** prüft **Test account** (Konto testen) den Key, **Usage and balance** zeigt die Nutzung deines Tarifs, und **More options** (Weitere Optionen) enthält **Requests per minute** (Anfragen pro Minute) und **Parallel requests** (parallele Anfragen).
 
 ### Anbietersymbole
 
@@ -45,7 +46,7 @@ Jedes Konto zeigt das Symbol seines Dienstes. Die Symbole werden mit Marinara au
 
 ## Mit Stern markierte Modelle
 
-Ein Stern markiert die Modelle, die du schnell finden willst. Mit Stern markierte Modelle stehen unter **Starred** (mit Stern markiert) weit oben in jeder Modellauswahl: in den Fenstern **Model for** (Modell für) des Bereichs **Jobs**, in **Model for this chat** (Modell für diesen Chat) und in den Modellfeldern der **Chat Settings** (Chat-Einstellungen) und des Agenten-Editors.
+Ein Stern markiert die Modelle, die du schnell finden willst. Mit Stern markierte Modelle stehen unter **Starred** (mit Stern markiert) weit oben in jeder Modellauswahl: in den Fenstern **Model for** (Modell für) der Seite **Jobs**, in **Model for this chat** (Modell für diesen Chat) und in den Modellfeldern der **Chat Settings** (Chat-Einstellungen) und des Agenten-Editors.
 
 Um ein Modell mit einem Stern zu markieren, klick in der Liste **Add model** (Modell hinzufügen) des Kontos auf seinen Stern oder wähl **Star** (mit Stern markieren) im Menü **⋯** des Modells. Auch wenn du einem Modell eine Aufgabe gibst, wird es gespeichert.
 
@@ -57,7 +58,7 @@ Klick in einer Modellzeile auf **⋯**:
 
 | Aktion | Funktion |
 | --- | --- |
-| **Use for…** (Verwenden für…) | Öffnet die Aufgabenliste. Klick auf eine Aufgabe, um sie dem Modell zu geben, wie im Bereich **Jobs**. Ein Häkchen markiert die Aufgaben, die es bereits übernimmt. |
+| **Use for…** (Verwenden für…) | Öffnet die Aufgabenliste. Klick auf eine Aufgabe, um sie dem Modell zu geben, wie auf der Seite **Jobs**. Ein Häkchen markiert die Aufgaben, die es bereits übernimmt. |
 | **Edit model** | Öffnet seine Einstellungen. Ein Klick auf die Modellzeile bewirkt dasselbe. |
 | **Move to account…** | Verschiebt das Modell in ein anderes Konto. Danach nutzt es den Key dieses Kontos. |
 | **Folder** | Legt das Modell in einen Ordner. |
@@ -92,7 +93,7 @@ Jede Antwort greift dann auf ein zufälliges Modell aus deinem Shuffle-Pool zur�
 
 Scheitert das Modell, das für eine Antwort gezogen wurde, und hat **Main** ein Modell unter **If it fails** (falls es fehlschlägt), schreibt stattdessen dieses Modell die Antwort. Ein Hinweis nennt das gescheiterte Modell und einen kurzen Grund wie „key rejected“, „rate limited“ oder „not found“. Die Antwort behält eine kleine Markierung **Fallback**. Tipp darauf oder zeig darauf, um dieselbe Zeile erneut zu sehen.
 
-Eine Auswahl in **Model for this chat** ändert nur diesen Chat. Um das Modell für neue Chats zu ändern, leg **Main** im Bereich **Jobs** fest.
+Eine Auswahl in **Model for this chat** ändert nur diesen Chat. Um das Modell für neue Chats zu ändern, leg **Main** in der Übersicht **Jobs** fest.
 
 <a id="export-and-import"></a>
 

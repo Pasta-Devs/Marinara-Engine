@@ -134,11 +134,11 @@ Send 开关关闭时，输入框里照样显示这个值。打开开关之前，
 2. 在 **Captioning model**(描述用模型) 下拉菜单里选一个模型。
 3. 可选：编辑 **Captioning Prompt**(图像描述提示词)，也就是随每张图片一起发送的指令。点重置按钮或清空输入框，就会回到 Engine 全局的 Image reading 提示词。这段提示词只保存在当前聊天里，**Save as Connection Default**(保存为连接默认值) 也不会复制它。
 
-即使开关已关闭，只要在 **Connections**(连接) 面板的 **Jobs**(任务) 区域设置了 **Image reading**(图片识别) 模型，也会显示这个输入框：当聊天自身的模型无法看图时，该模型会为这个聊天的图片生成描述。
+即使开关已关闭，只要在 **Connections**(连接) 面板的 **Jobs**(分工) 页面上设置了 **Image reading**(图片识别) 模型，也会显示这个输入框：当聊天自身的模型无法看图时，该模型会为这个聊天的图片生成描述。
 
 ### 向读图模型提出什么要求
 
-在 **Connections** 面板中，点击 **Jobs** 区域内 **Image reading** 行上的齿轮按钮（或在 **Model for Image reading**(图片识别模型) 的模型列表下方选择 **Image reading settings**(读取图片设置)）。这些设置适用于所有聊天：
+在 **Connections** 面板中，点击 **All jobs**(全部工作)，再点击 **Image reading** 旁边的齿轮按钮（或在 **Model for Image reading**(图片识别模型) 的模型列表下方选择 **Image reading settings**(读取图片设置)）。这些设置适用于所有聊天：
 
 - **Instructions**(指令)：随每张图片一起发送的系统提示词。聊天自己的 **Captioning Prompt** 会替代它。
 - **Request**(请求)：随每张图片一起发送的消息。`{{filename}}` 会替换为图片文件名。

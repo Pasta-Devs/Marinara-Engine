@@ -34,7 +34,7 @@ Scene background generation is available in Roleplay and Game modes.
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-解决办法：在 **Connections**(连接) 面板的 **Jobs**(分工) 区域里设置 **Images**(图像) 工作，或者给 **Illustrator** 智能体单独指定一个图像模型。
+解决办法：在 **Connections**(连接) 面板的 **Jobs**(分工) 页面上设置 **Images**(图像) 工作，或者给 **Illustrator** 智能体单独指定一个图像模型。
 
 ## Gallery 区域
 

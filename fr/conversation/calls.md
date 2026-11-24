@@ -42,7 +42,7 @@ L'interrupteur principal **Commands** dans la même section doit être activé p
 
 Text to Speech décide quels personnages peuvent parler et avec quelle voix. Lis [Configuration de Text to Speech (TTS)](../media/tts-setup.md) pour le guide complet. En bref :
 
-1. Ouvre **Connections** et clique sur la ligne **Voice** (voix) dans l'encadré **Jobs** (tâches).
+1. Ouvre **Connections** et clique sur **Voice** (voix) sur la page **Jobs** (tâches).
 2. Choisis un modèle ou un service vocal. Ce choix active le Text to Speech. Le compte du modèle fournit la clé et l'adresse.
 3. Clique sur la roue dentée de la ligne **Voice** pour ouvrir **Voice settings** (réglages de la voix).
 4. Dans **Who speaks** (qui parle), choisis une **Shared voice** (voix partagée) ou attribue des voix dans **Character and persona voices**. Des voix par personnage rendent les appels de groupe plus faciles à suivre.
@@ -145,7 +145,7 @@ Si ça n'a pas marché : sur une build Lite de Marinara, tu vois "Local Whisper 
 
 Si Local Whisper a du mal avec ta langue ou ton accent, envoie plutôt ta voix à un autre serveur de reconnaissance vocale. Tout serveur qui accepte le format de reconnaissance vocale d'OpenAI (l'adresse `/audio/transcriptions`) convient, que tu l'exécutes toi-même ou que tu utilises un service comme OpenAI ou Groq.
 
-1. Ouvre **Connections** et clique sur la roue dentée de la ligne **Dictation** (dictée) dans l'encadré **Jobs**. Les réglages du serveur **Speech to text** s'y trouvent. Ils restent masqués tant que Calls n'est pas installé.
+1. Ouvre **Connections** et clique sur la roue dentée à côté de **Dictation** (dictée) sur la page **Jobs**. Les réglages du serveur **Speech to text** s'y trouvent. Ils restent masqués tant que Calls n'est pas installé.
 2. Saisis le champ **Server URL**, par exemple `http://localhost:8000/v1`.
 3. Saisis une **API key** si le serveur en a besoin. Elle est enregistrée chiffrée et affichée masquée.
 4. Saisis le **Model** que ton serveur utilise. Laisse vide pour envoyer `whisper-1`.

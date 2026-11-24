@@ -134,11 +134,11 @@ Desligar essa opção mostra **Past reasoning blocks** (blocos de raciocínio an
 2. Escolha um modelo no menu suspenso **Captioning model** (modelo de descrição).
 3. Se quiser, edite o **Prompt de descrição**, as instruções enviadas com cada imagem. O botão de redefinir, ou esvaziar a caixa, restaura o prompt de Leitura de imagens usado em todo o motor. O prompt fica salvo só neste chat, e **Salvar como padrão da conexão** não o copia.
 
-A caixa também aparece quando o botão liga/desliga está desativado, mas há um modelo de **Leitura de imagens** definido na caixa **Tarefas** do painel **Conexões**: esse modelo então descreve as imagens deste chat sempre que o modelo do próprio chat não consegue vê-las.
+A caixa também aparece quando o botão liga/desliga está desativado, mas há um modelo de **Leitura de imagens** definido na página **Jobs** (tarefas) do painel **Conexões**: esse modelo então descreve as imagens deste chat sempre que o modelo do próprio chat não consegue vê-las.
 
 ### O que é perguntado ao modelo de leitura
 
-No painel **Conexões**, clique na engrenagem da linha **Leitura de imagens** na caixa **Tarefas** (ou escolha **Configurações de leitura de imagens** abaixo da lista de modelos em **Modelo para Leitura de imagens**). Estas configurações valem para todos os chats:
+No painel **Conexões**, clique em **All jobs** (todas as tarefas) e depois na engrenagem ao lado de **Leitura de imagens** (ou escolha **Configurações de leitura de imagens** abaixo da lista de modelos em **Modelo para Leitura de imagens**). Estas configurações valem para todos os chats:
 
 - **Instruções**: o prompt de sistema enviado com cada imagem. O **Prompt de descrição** do próprio chat o substitui.
 - **Requisição**: a mensagem enviada com cada imagem. `{{filename}}` vira o nome do arquivo da imagem.

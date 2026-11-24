@@ -191,7 +191,7 @@ En **Voice**, un servicio de audio pronuncia las voces de los personajes y la na
 
 Cada fuente rellena una dirección y un modelo predeterminados. **Default voice** (Voz predeterminada) es la voz que se usa cuando no hay nada más específico configurado, como una voz por personaje. **Request timeout (seconds)** (Tiempo de espera de la solicitud, en segundos) es cuánto espera Marinara por una línea hablada. Súbelo para un servidor de voz lento.
 
-Para elegir la cuenta de voz predeterminada, haz clic en la fila **Voice** (Voz) del cuadro **Jobs** (Tareas). Para leer mensajes en voz alta, elige el modelo de la cuenta en esa fila. Consulta [Configuración de Text to Speech (TTS)](../media/tts-setup.md) y [Usar un modelo de voz de una cuenta](../media/tts-setup.md#use-a-voice-model-from-an-account).
+Para elegir la cuenta de voz predeterminada, haz clic en **Voice** (Voz) en la página **Jobs** (Tareas). Para leer mensajes en voz alta con una, elige su modelo para **Voice**. Consulta [Configuración de Text to Speech (TTS)](../media/tts-setup.md) y [Usar un modelo de voz de una cuenta](../media/tts-setup.md#use-a-voice-model-from-an-account).
 
 <a id="music--sound-effects"></a>
 
@@ -221,7 +221,7 @@ Los embeddings convierten el texto en listas de números para que Marinara pueda
 
 **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)** y **Grok CLI (Subscription)** no pueden crear embeddings. Para esos, usa el menú desplegable **Embedding provider** (Proveedor de embeddings) para tomar prestada otra cuenta, como una compatible con OpenAI, **Google Gemini** o el **Built-in model** (Modelo integrado).
 
-Para usar una sola fuente de embeddings en todas las cuentas que no tienen ajustes de embeddings propios, haz clic en la fila **Embeddings** del cuadro **Jobs**. **Marinara's own search** (La búsqueda propia de Marinara) conserva el modelo de embeddings integrado. El modelo de embeddings propio de una cuenta o su **Embedding provider** siguen teniendo prioridad. Vuelve a vectorizar tus lorebooks y memorias después de cambiarlo. Consulta [Búsqueda semántica para lorebooks](../lorebooks/semantic-search.md).
+Para usar una sola fuente de embeddings en todas las cuentas que no tienen ajustes de embeddings propios, haz clic en **Embeddings** en la página **Jobs**. **Marinara's own search** (La búsqueda propia de Marinara) conserva el modelo de embeddings integrado. El modelo de embeddings propio de una cuenta o su **Embedding provider** siguen teniendo prioridad. Vuelve a vectorizar tus lorebooks y memorias después de cambiarlo. Consulta [Búsqueda semántica para lorebooks](../lorebooks/semantic-search.md).
 
 <a id="timeouts"></a>
 

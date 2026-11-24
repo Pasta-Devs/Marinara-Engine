@@ -34,7 +34,7 @@ Si no funcionó: si Marinara no encuentra ningún modelo de imagen para usar, el
 Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-Para solucionarlo, establece la tarea **Images** (Imágenes) en el cuadro **Jobs** (Tareas) del panel **Connections** (Conexiones), o dale al agente **Illustrator** su propio modelo de imagen.
+Para solucionarlo, establece la tarea **Images** (Imágenes) en la página **Jobs** (Tareas) del panel **Connections** (Conexiones), o dale al agente **Illustrator** su propio modelo de imagen.
 
 ## La sección Gallery
 

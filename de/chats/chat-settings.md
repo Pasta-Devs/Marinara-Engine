@@ -58,7 +58,7 @@ Im Abschnitt **Connection** wählst du das Modell, das in diesem Chat antwortet.
 1. Öffne **Chat Settings** und den Abschnitt **Connection**.
 2. Tippe auf das Feld **Model** (Modell). Es zeigt das aktuelle Modell.
 3. Prüf, ob dort steht, dass der Chat **Main** folgt. Main ist das Standardmodell, das du unter **Connections** (Verbindungen) festlegst.
-4. Wähl ein Modell. Die Auswahl ist dieselbe wie bei der Modell-Schaltfläche im Eingabebereich des Chats. Das aktuelle Modell bleibt oben, darunter stehen zuletzt genutzte und mit Stern markierte Modelle, nach Konto gruppiert. Durchsuche Modelle und Konten oder öffne mit **Browse** (Durchsuchen) den Katalog eines Kontos.
+4. Wähl ein Modell. Die Auswahl ist dieselbe wie bei der Modell-Schaltfläche im Eingabebereich des Chats. Das aktuelle Modell bleibt oben, darunter stehen mit Stern markierte und zuletzt genutzte Modelle. Durchsuche Modelle und Konten, oder klick auf ein Konto, um seine Modelle zu sehen. Eine lange Liste ist zunächst hinter **Browse all N models** (alle N Modelle durchsuchen) eingeklappt.
 
 **Follow Main** (Main folgen) hebt die eigene Auswahl des Chats auf, sodass sich der Chat mitändert, wenn du Main änderst. **Shuffle** (Zufallsauswahl) wählt für jede Antwort ein anderes Modell aus deinem Pool. Siehe [Shuffle](../connections/organizing-connections.md#shuffle). Braucht ein Konto einen Key oder ist es ausgeschaltet, führt sein Modell zur passenden Reparaturaktion. Wie du ein Konto hinzufügst, steht unter [Verbindung zu einem KI-Anbieter herstellen](../connections/connecting-to-a-provider.md).
 

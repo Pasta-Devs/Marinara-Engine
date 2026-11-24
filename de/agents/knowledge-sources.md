@@ -72,7 +72,7 @@ Wählst du Quell-Lorebooks für den Router, erscheint neben **Fixed source overr
 Knowledge Router kann infrage kommende Einträge auch nach Bedeutung finden, nicht nur nach Schlüsselwort. Dafür nutzt er einen Embedder, ein kleines Modell, das Text in Zahlen umwandelt, damit Marinara Bedeutungen vergleichen kann. Der Router funktioniert auch ohne ihn.
 
 1. Öffne den Lorebook-Editor und such **Semantic search (embeddings)** (semantische Suche).
-2. Wähl ein Konto mit einem Embedding-Modell. Hast du im Bereich **Jobs** (Aufgaben) von **Connections** (Verbindungen) die Aufgabe **Embeddings** festgelegt, ist sie bereits ausgewählt, sofern du nicht vorher eine andere Quelle gewählt hast.
+2. Wähl ein Konto mit einem Embedding-Modell. Hast du auf der Seite **Jobs** (Aufgaben) von **Connections** (Verbindungen) die Aufgabe **Embeddings** festgelegt, ist sie bereits ausgewählt, sofern du nicht vorher eine andere Quelle gewählt hast.
 3. Nutze dieselbe Embedding-Quelle wie dein Chat-Konto. Vektoren mit einer anderen Größe werden übersprungen.
 4. Klick auf die Schaltfläche zum Vektorisieren. Sie zeigt, wie vielen Einträgen noch Vektoren fehlen. **Re-vectorize all** (alle neu vektorisieren) berechnet jeden Eintrag neu.
 

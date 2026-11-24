@@ -52,9 +52,9 @@ Se você começar um chat antes de ter um modelo, Marinara abre primeiro a janel
 
 Você gerencia as contas no painel **Connections**. De cima para baixo, ele mostra:
 
-- Uma caixa de busca que filtra a lista conforme você digita. O rótulo dela é **Search models and accounts** (buscar modelos e contas).
-- **Add**, que abre **Add account**, e **More actions** (mais ações, o botão de três pontos), com **Import account**, **Export all accounts**, o recolhimento e o agrupamento. Num painel largo, o menu suspenso de ordenação fica ao lado da busca. Num painel estreito, a ordenação fica em **More actions**.
-- A caixa **Jobs** (tarefas). Ela diz qual modelo faz cada tarefa.
+- **Search models and accounts** (buscar modelos e contas), uma caixa de busca que filtra a lista conforme você digita. Ela aparece quando você tem 8 modelos ou mais.
+- **Add**, que abre **Add account**, e **More actions** (mais ações, o botão de três pontos), com **Import account**, **Export all accounts**, a ordenação, o recolhimento e o agrupamento.
+- O resumo **Jobs** (tarefas). Ele mostra o seu modelo **Main** e uma frase sobre as outras tarefas. Veja [Como escolher o modelo de cada tarefa](#choosing-the-model-for-each-job).
 - O card **Built-in model**. Veja [Como configurar o Built-in model](local-model.md).
 - As suas contas, cada uma com os modelos salvos abaixo dela. Veja [Organizando as conexões](organizing-connections.md).
 
@@ -64,23 +64,27 @@ Uma **conta** é uma chave, um login ou um endereço salvo para um serviço. Se 
 
 ## Como escolher o modelo de cada tarefa
 
-Uma tarefa é algo que um modelo faz por você. A caixa **Jobs** lista as tarefas em quatro grupos:
+Uma tarefa é algo que um modelo faz por você. **Main** escreve as respostas dos seus chats, **Agents** (agentes) roda os agentes auxiliares, e outras tarefas geram imagens, falam ou respondem a perguntas de sim ou não para os agentes.
 
-| Grupo | Tarefas |
+O resumo **Jobs**, no topo do painel, mostra a linha **Main** e uma frase como "Every other job that is on follows Main, except Images." Uma tarefa que segue o Main usa o modelo Main. As tarefas desligadas aparecem na página **Jobs**. Uma tarefa com um problema, como um modelo cuja conta está desligada, ganha uma linha própria com um botão para corrigir.
+
+Para ver todas as tarefas, clique em **All jobs** (todas as tarefas) ou no título **Jobs**. A página **Jobs** lista as tarefas nesta ordem:
+
+| Parte | O que lista |
 | --- | --- |
-| **Chat** | **Main** escreve as respostas dos seus chats. **Agents** (agentes) roda os agentes auxiliares. **Impersonate** escreve como você. |
-| **Omnibar** | **Professor Mari** e **Quick answers** (respostas rápidas). |
-| **Pictures & sound** (imagens e som) | **Images**, **Video**, **Voice** (voz: texto para fala) e **Dictation** (ditado: fala para texto), quando disponível. |
-| **Behind the scenes** (nos bastidores) | **Decision**, **Embeddings** e **Image reading** (leitura de imagens). |
+| **Main** | O modelo Main e, quando houver, o modelo **If it fails** (se falhar) dele. |
+| **Own model** (modelo próprio) | As tarefas com um modelo próprio e as tarefas com um problema para corrigir. |
+| **Follow Main** (seguir o principal), **Follow Agents** (seguir os agentes) | As tarefas que usam o modelo Main ou o modelo dos agentes, como botões pequenos. |
+| **Off** | As tarefas que ainda não têm modelo, como botões pequenos. **Pick** (escolher) quer dizer que as suas contas têm modelos para a tarefa. **Add** quer dizer que elas não têm nenhum, e **Set up** (configurar) quer dizer que a tarefa precisa que algo seja instalado antes. |
 
-Cada linha mostra o modelo que faz aquela tarefa, ou o que a tarefa faz sem um modelo, como **Follows Main** ou **Off**. Uma tarefa sem modelo mostra **N models found** (modelos encontrados) com **Pick** (escolher), ou **None in your accounts** (nenhum nas suas contas) com **Add**. O seletor lista modelos compatíveis de todas as contas. **Add** abre a janela **Add account** e volta à tarefa. Clique em **Jobs** para recolher a caixa.
+Cada tarefa aparece uma vez na página. Clique em **Connections**, no topo da página, para voltar à lista.
 
-Para trocar o modelo de uma tarefa, clique na linha dela. Abre **Model for** (modelo para) aquela tarefa, exceto em três linhas. **Decision** e **Embeddings** abrem os próprios controles (veja [Modelos de decisão](decision-models.md) e [Provedores de IA compatíveis](providers-reference.md#embeddings)). **Dictation** abre a configuração de fala. As linhas **Voice**, **Dictation** e **Leitura de imagens** também têm uma engrenagem que abre a janela de configurações; a de Leitura de imagens contém o que é pedido ao modelo (veja [Descrição de imagens](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Escolher um modelo de **Voice** ativa a síntese de fala.
+Para trocar o modelo de uma tarefa, clique na linha ou no botão dela. Abre **Model for** (modelo para) aquela tarefa, exceto em três linhas. **Decision** e **Embeddings** abrem os próprios controles (veja [Modelos de decisão](decision-models.md) e [Provedores de IA compatíveis](providers-reference.md#embeddings)). **Dictation** (ditado: fala para texto) abre a configuração de fala. As linhas **Voice**, **Dictation** e **Image reading** (leitura de imagens) também têm uma engrenagem que abre a janela de configurações; a de Image reading contém o que é pedido ao modelo (veja [Descrição de imagens](../prompts/generation-parameters.md#what-the-reading-model-is-asked)). Escolher um modelo de **Voice** ativa a síntese de fala.
 
 Em **Model for**:
 
 1. Olhe a lista.
-2. Clique em um modelo. A lista mostra esse modelo em **Now** (agora), depois os seus modelos em **Starred** (com estrela) e depois os seus modelos salvos por conta. **All models** (todos os modelos), abaixo de uma conta, abre a lista completa dela. Digite em **Search all models or paste a model ID** (buscar em todos os modelos ou colar o ID de um modelo) para buscar em todas as contas ao mesmo tempo. Não é preciso salvar um modelo antes.
+2. Clique em um modelo. A lista mostra esse modelo em **Now** (agora), depois os seus modelos em **Starred** (com estrela) e depois os seus modelos salvos por conta. Clique em uma conta para ver os modelos dela. Digite em **Search all models or paste a model ID** (buscar em todos os modelos ou colar o ID de um modelo) para buscar em todas as contas ao mesmo tempo. Não é preciso salvar um modelo antes.
 
 **If it fails** (se falhar), no topo da janela, escolhe um segundo modelo, que responde quando o primeiro falha. **Add account**, embaixo, abre a janela Add.
 
@@ -99,8 +103,10 @@ O **Connect** já testa a chave. Para testar de novo depois, abra o menu **⋯**
 Um chat novo usa o seu modelo **Main**. Para dar a um chat um modelo diferente, clique no botão de modelo na caixa de mensagem (o ícone de link, com o nome do modelo atual), ou use o campo **Model** (modelo) em **Chat Settings → Connection**. Os dois abrem **Model for this chat** (modelo para este chat):
 
 - **Now** mostra o modelo que o chat usa. **This chat only** quer dizer que o chat tem uma escolha própria. **follows Main** quer dizer que ele usa o Main.
-- **Recent** (recentes) e **Starred** listam os seus modelos por conta.
-- **Search models or paste an ID…** (buscar modelos ou colar um ID) busca em todas as contas. **Browse** (navegar) abre a lista completa de uma conta.
+- **Starred** lista os seus modelos com estrela e, depois, **Recent** (recentes) lista os últimos modelos que você escolheu neste dispositivo.
+- **Search models or paste an ID…** (buscar modelos ou colar um ID) busca em todas as contas.
+- Clique em uma conta para ver os modelos dela: primeiro **Starred**, depois **Saved** (salvos, os modelos que você salvou, com configurações próprias) e depois o resto. Uma lista longa começa recolhida em **Browse all N models** (ver todos os N modelos). Clique nele para mostrar todos os modelos.
+- Numa lista longa, botões como **Claude**, **GPT** e **DeepSeek** mostram uma família de modelos por vez. **All** (todos) mostra todos os modelos de novo. A caixa de busca ignora esses botões.
 - **Follow Main** (seguir o principal) desfaz a escolha própria do chat. **Shuffle** (sortear) escolhe um modelo diferente a cada vez.
 
 Uma escolha muda só aquele chat. A mensagem que aparece depois de uma escolha oferece **Make it my Main model** (tornar este o meu modelo principal) e **Undo** (desfazer). No Game Mode, o campo aparece como **Game Master model**.

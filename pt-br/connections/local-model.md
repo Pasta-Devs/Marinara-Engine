@@ -11,7 +11,7 @@ Se o card **Built-in model** não aparece, a sua instalação é "Lite", uma ver
 Antes de começar, confira se há espaço livre em disco e memória (RAM) suficientes para o modelo. Os tamanhos estão na tabela abaixo.
 
 1. Clique em **Connections** (Conexões) na barra superior.
-2. Encontre o card **Built-in model** abaixo da caixa **Jobs** (tarefas). Ele mostra **Not downloaded**.
+2. Encontre o card **Built-in model** abaixo do resumo **Jobs** (tarefas). Ele mostra **Not downloaded**.
 3. Clique no card ou no botão **Download** (baixar) dele. Abre uma janela com o título **Built-in model**.
 4. Em **Which model?** (qual modelo?), escolha um modelo. **Gemma 4 E2B — Q8 (Best Quality)** vem marcado como **Recommended** (recomendado). Se o seu computador tem pouca memória, escolha **Q4_K_M**. Ele precisa de cerca de 3,4 GB de RAM em vez de 5,4 GB.
 5. Clique no botão **Download**, embaixo. Ele mostra o tamanho do modelo, por exemplo **Download 5.0 GB**.

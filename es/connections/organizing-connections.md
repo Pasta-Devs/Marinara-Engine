@@ -4,19 +4,20 @@ Esta guía explica cómo mantener ordenadas tus cuentas y tus modelos en el pane
 
 ## La lista de cuentas
 
-Debajo del cuadro **Jobs** (Tareas), el panel enumera tus cuentas. Cada cuenta muestra su imagen, su nombre, su número de modelos y su dirección. Una fila de modelo muestra la imagen del modelo, su nombre e insignias como la tarea que hace —**Main** (Principal), **Agents** (Agentes), **Images** (Imágenes)—, **Custom settings** (Ajustes personalizados), su precio o **Plan** para los modelos incluidos en una suscripción. La tarjeta **Built-in model** (Modelo integrado) está debajo del cuadro **Jobs**. Consulta [Configuración del modelo integrado](local-model.md).
+Debajo del resumen **Jobs** (Tareas), el panel enumera tus cuentas. Cada cuenta muestra su imagen, su nombre, su número de modelos y su dirección. Cuando algo necesita tu atención, la cuenta lo indica junto a su nombre: **Off**, **Needs key**, **Low balance** (queda menos de 1 en su moneda) o **No credit left**. Cuando Marinara puede leer el saldo o el uso del plan de una cuenta, los muestra en **Edit account** (Editar cuenta), en **Usage and balance** (Uso y saldo). Una fila de modelo muestra la imagen del modelo, su nombre e insignias como la tarea que hace —**Main** (Principal), **Agents** (Agentes), **Images** (Imágenes)—, **Custom settings** (Ajustes personalizados), su precio o **Plan** para los modelos incluidos en una suscripción. La tarjeta **Built-in model** (Modelo integrado) está debajo del resumen **Jobs**. Consulta [Configuración del modelo integrado](local-model.md).
 
 Haz clic en la fila de una cuenta para plegar sus modelos, y haz clic de nuevo para mostrarlos. Marinara recuerda qué cuentas plegaste. **More actions** (Más acciones; tres puntos), en la parte superior del panel, tiene estos elementos:
 
 | Elemento | Qué hace |
 | --- | --- |
 | **Fold all accounts** (Plegar todas las cuentas), **Open all accounts** (Abrir todas las cuentas) | Pliega o abre todas las cuentas. |
-| **Show only Off or Needs key** (Mostrar solo las cuentas desactivadas o sin clave) | Muestra solo las cuentas que necesitan atención. |
+| **Sort: Custom** (Orden: personalizado), **Sort: A–Z** (Orden: A–Z), **Sort: Z–A** (Orden: Z–A), **Sort: Newest** (Orden: más recientes), **Sort: Oldest** (Orden: más antiguos) | Ordena las cuentas. |
+| **Show only Off or Needs key** (Mostrar solo las cuentas desactivadas o sin clave) | Muestra solo las cuentas que necesitan atención. Aparece cuando una cuenta necesita atención. |
 | **Show cost badges** (Mostrar insignias de costo) | Muestra el precio de cada modelo. |
 | **Group by folder** (Agrupar por carpeta), **Group by account** (Agrupar por cuenta) | Cambia cómo se agrupan los modelos. Consulta [Carpetas](#folders). |
 | **Import account** (Importar cuenta), **Export all accounts** (Exportar todas las cuentas) | Consulta [Exportar e importar](#export-and-import). |
 
-En un panel ancho, el menú desplegable de orden está junto a **Search models and accounts** (Buscar modelos y cuentas). En un panel estrecho, el orden está en **More actions**. Las opciones de orden son **Custom** (Personalizado), **A–Z**, **Z–A**, **Newest** (Más recientes) y **Oldest** (Más antiguos). **Search models and accounts** filtra la lista a medida que escribes.
+**Search models and accounts** (Buscar modelos y cuentas) filtra la lista a medida que escribes. Aparece cuando tienes 8 modelos o más.
 
 Algunas cuentas llegan a modelos de varios creadores, como NanoGPT o un proxy. Sus modelos se agrupan bajo encabezados como **via NanoGPT**.
 
@@ -26,7 +27,7 @@ Haz clic en **⋯** en la fila de una cuenta:
 
 | Acción | Qué hace |
 | --- | --- |
-| **Edit account** (Editar cuenta) | Abre sus ajustes, incluidos **Name** (Nombre), **Address** (Dirección), **API key** (clave de API) y **Use this account** (Usar esta cuenta). |
+| **Edit account** | Abre sus ajustes, incluidos **Name** (Nombre), **Address** (Dirección), **API key** (clave de API) y **Use this account** (Usar esta cuenta). |
 | **Replace key** (Reemplazar clave) | Pega una clave nueva. Si la clave antigua está en otras cuentas, Marinara pregunta si también quieres actualizarlas. |
 | **Test** (Probar) | Comprueba la clave y muestra el resultado. |
 | **Add model** (Añadir modelo) | Abre la lista de modelos de la cuenta. |
@@ -37,7 +38,7 @@ Haz clic en **⋯** en la fila de una cuenta:
 
 Para borrar una cuenta, haz clic en **Delete account**. Marinara te pide que confirmes y enumera lo que usa sus modelos en **Used by** (Lo usa): chats, agentes, modelos y tareas. Haz clic en **Delete with its N models** (Borrar con sus N modelos) para quitar la cuenta y sus modelos. Después, esos chats y esas tareas necesitan otro modelo. Si un modelo no se puede quitar, el editor lo enumera en **This account still has models. Remove these first:** (Esta cuenta todavía tiene modelos. Quita estos primero:). Abre cada uno y quítalo.
 
-En **Edit account**, **Test account** (Probar cuenta) comprueba la clave, **Usage and balance** (Uso y saldo) muestra el uso del plan y **More options** (Más opciones) tiene **Requests per minute** (Solicitudes por minuto) y **Parallel requests** (Solicitudes en paralelo).
+En **Edit account**, **Test account** (Probar cuenta) comprueba la clave, **Usage and balance** muestra el uso del plan y **More options** (Más opciones) tiene **Requests per minute** (Solicitudes por minuto) y **Parallel requests** (Solicitudes en paralelo).
 
 ### Iconos de proveedor
 
@@ -45,7 +46,7 @@ Cada cuenta muestra el icono de su servicio. Los iconos vienen con Marinara y nu
 
 ## Modelos con estrella
 
-Una estrella marca los modelos que quieres encontrar rápido. Los modelos con estrella aparecen en **Starred** (Con estrella), cerca de la parte superior de cada selector de modelos: las ventanas **Model for** (Modelo para) del cuadro **Jobs**, **Model for this chat** (Modelo para este chat) y los campos de modelo de **Chat Settings** (Ajustes del chat) y del editor de agentes.
+Una estrella marca los modelos que quieres encontrar rápido. Los modelos con estrella aparecen en **Starred** (Con estrella), cerca de la parte superior de cada selector de modelos: las ventanas **Model for** (Modelo para) de la página **Jobs**, **Model for this chat** (Modelo para este chat) y los campos de modelo de **Chat Settings** (Ajustes del chat) y del editor de agentes.
 
 Para marcar un modelo con estrella, haz clic en su estrella en la lista **Add model** de la cuenta, o elige **Star** (Marcar con estrella) en el menú **⋯** del modelo. Darle una tarea a un modelo también lo guarda.
 
@@ -57,7 +58,7 @@ Haz clic en **⋯** en una fila de modelo:
 
 | Acción | Qué hace |
 | --- | --- |
-| **Use for…** (Usar para…) | Abre la lista de tareas. Haz clic en una para asignársela al modelo, igual que en el cuadro **Jobs**. Una marca indica las tareas ya asignadas. |
+| **Use for…** (Usar para…) | Abre la lista de tareas. Haz clic en una para asignársela al modelo, igual que al elegirlo en la página **Jobs**. Una marca indica las tareas ya asignadas. |
 | **Edit model** (Editar modelo) | Abre sus ajustes. Hacer clic en la fila del modelo hace lo mismo. |
 | **Move to account…** (Mover a la cuenta…) | Mueve el modelo a otra cuenta. Después usa la clave de esa cuenta. |
 | **Folder** (Carpeta) | Pone el modelo en una carpeta. |
@@ -92,7 +93,7 @@ Entonces cada respuesta elige un modelo al azar de tu grupo de Shuffle.
 
 Si el modelo que eligió una respuesta falla y **Main** tiene un modelo **If it fails** (Si falla), ese modelo escribe la respuesta en su lugar. Un aviso nombra el modelo que falló y un motivo breve, como "key rejected", "rate limited" o "not found". La respuesta conserva una pequeña etiqueta **Fallback** (Respaldo). Tócala, o pasa el puntero sobre ella, para volver a ver esa misma línea.
 
-Una elección en **Model for this chat** cambia solo ese chat. Para cambiar el modelo de los chats nuevos, establece **Main** en el cuadro **Jobs**.
+Una elección en **Model for this chat** cambia solo ese chat. Para cambiar el modelo de los chats nuevos, establece **Main** en el resumen **Jobs**.
 
 <a id="export-and-import"></a>
 
