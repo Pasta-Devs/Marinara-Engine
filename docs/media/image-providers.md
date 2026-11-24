@@ -113,7 +113,7 @@ It runs hosted Stable Diffusion models. A model is required, so type the name of
 
 ### NovelAI
 
-NovelAI focuses on anime-style art. On V4, V4.5 and V5 models, Marinara sends native per-character prompts with positions for multi-character storyboards, Illustrator scenes and Professor Mari's images. Precise reference images work only on a V4.5 model.
+NovelAI focuses on anime-style art. On V4, V4.5 and V5 models, Marinara sends native per-character prompts with positions for multi-character storyboards, Illustrator scenes and Professor Mari's images. Precise reference images work on V4.5 and V5 models.
 
 ### Venice.ai
 
@@ -233,7 +233,7 @@ A reference image is an existing picture you send with your prompt, so the new i
 | ----------------------------------------------- | --------------------------------------------------------------------- |
 | OpenAI (DALL-E)                                 | Up to 16, GPT Image models only. None for a GIF                       |
 | ChatGPT (Codex login)                           | Up to 16                                                              |
-| NovelAI                                         | Up to 16, V4.5 model only                                             |
+| NovelAI                                         | Up to 16, V4.5 and V5 models only                                     |
 | xAI / Grok Imagine                              | Up to 3                                                               |
 | NanoGPT                                         | Up to 3, within the model's limit. None for text-to-image models      |
 | ComfyUI, RunPod Serverless (ComfyUI), SwarmUI   | Up to 4, through workflow placeholders                                |
@@ -244,7 +244,7 @@ A reference image is an existing picture you send with your prompt, so the new i
 | Venice.ai, Z.AI                                 | Not supported for text-to-image                                       |
 | Together AI, Pollinations, Stable Horde, fal.ai | Not supported                                                         |
 
-NovelAI precise reference works only on a V4.5 model such as `nai-diffusion-4-5-full`. NovelAI has not released Precise Reference for V5. If you ask for references on another model, Marinara renders without them and logs a warning on the server.
+NovelAI precise reference works on V4.5 and V5 models, such as `nai-diffusion-4-5-full` or `nai-diffusion-5-full`. On an older model, Marinara renders without the references and logs a warning on the server. V5 has no style fidelity, so it ignores **Style fidelity (V4.5 only)**. Each reference costs NovelAI's own price, 5 Anlas per picture.
 
 ## Queue media generation requests
 

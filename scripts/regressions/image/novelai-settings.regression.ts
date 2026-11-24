@@ -625,3 +625,92 @@ try {
   fetchMock.mock.restore();
   dnsMock.mock.restore();
 }
+
+// Precise Reference on V5 (2026-11-24): references fill V5's nearest bucket (cropped, alpha kept) instead of V4.5's
+// padding, "Prefer same outfit" can be turned off, and V5 sends no fidelity.
+{
+  const sent: Array<{ request: Record<string, any>; references: Array<{ width?: number; height?: number; alpha?: boolean }> }> =
+    [];
+  const referenceDns = mock.method(dns, "lookup", async () => [{ address: "8.8.8.8", family: 4 }]);
+  const referenceFetch = mock.method(globalThis, "fetch", async (_input: string | URL | Request, init?: RequestInit) => {
+    const form = init?.body;
+    assert.ok(form instanceof FormData, "Precise Reference requests are multipart");
+    const references = [];
+    for (let index = 0; form.has(`director_ref_${index}`); index++) {
+      const meta = await sharp(Buffer.from(await (form.get(`director_ref_${index}`) as Blob).arrayBuffer())).metadata();
+      references.push({ width: meta.width, height: meta.height, alpha: meta.hasAlpha });
+    }
+    sent.push({ request: JSON.parse(await (form.get("request") as Blob).text()), references });
+    return new Response(new Uint8Array(sampleSource), { status: 200, headers: { "content-type": "image/png" } });
+  });
+  const picture = async (width: number, height: number, alpha: number) =>
+    (
+      await sharp({ create: { width, height, channels: 4, background: { r: 200, g: 40, b: 90, alpha } } })
+        .png()
+        .toBuffer()
+    ).toString("base64");
+  const portrait = await picture(600, 900, 1);
+  const cutout = await picture(500, 500, 0);
+  const paint = (model: string, extra: Record<string, unknown> = {}, novelai = {}) =>
+    generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
+      prompt: "1girl, school uniform",
+      model,
+      referenceImage: portrait,
+      referenceImages: [portrait, cutout],
+      imageDefaults: { version: 1, service: "novelai", seed: 7, novelai: { ...DEFAULT_NOVELAI_DEFAULTS, ...novelai } },
+      ...extra,
+    });
+  try {
+    await paint("nai-diffusion-5-full", { preferReferenceOutfit: false });
+    const v5 = sent.at(-1)!;
+    const params = v5.request.parameters;
+    assert.equal(v5.request.model, "nai-diffusion-5-full");
+    assert.deepEqual(
+      params.director_reference_descriptions.map((entry: any) => entry.caption.base_caption),
+      ["character&style_anyoutfit", "character&style_anyoutfit"],
+    );
+    assert.deepEqual(params.director_reference_strength_values, [1, 1]);
+    assert.deepEqual(params.director_reference_secondary_strength_values, [0, 0]);
+    assert.equal(params.director_reference_images, undefined, "the pictures travel as multipart parts");
+    assert.equal(params.director_reference_images_cached.length, 2);
+    assert.deepEqual(v5.references, [
+      { width: 832, height: 1216, alpha: true },
+      { width: 1024, height: 1024, alpha: true },
+    ]);
+
+    await paint("nai-diffusion-5-curated");
+    assert.deepEqual(
+      sent.at(-1)!.request.parameters.director_reference_descriptions.map((entry: any) => entry.caption.base_caption),
+      ["character&style", "character&style"],
+      "Prefer same outfit stays on unless the caller turns it off",
+    );
+
+    // The style plate goes first; V5 ignores its fidelity.
+    await paint("nai-diffusion-5-full", {}, { styleReferenceImage: cutout, styleReferenceFidelity: 0.25 });
+    const styled = sent.at(-1)!.request.parameters;
+    assert.deepEqual(
+      styled.director_reference_descriptions.map((entry: any) => entry.caption.base_caption),
+      ["style", "character&style"],
+    );
+    assert.deepEqual(styled.director_reference_secondary_strength_values, [0, 0]);
+
+    // V4.5 is unchanged: padded to its three sizes, its fidelity kept, no outfit variant.
+    await paint("nai-diffusion-4-5-full", { preferReferenceOutfit: false }, { styleReferenceImage: cutout, styleReferenceFidelity: 0.25 });
+    const v45 = sent.at(-1)!;
+    assert.deepEqual(
+      v45.request.parameters.director_reference_descriptions.map((entry: any) => entry.caption.base_caption),
+      ["style", "character&style"],
+    );
+    assert.deepEqual(v45.request.parameters.director_reference_secondary_strength_values, [0.75, 0]);
+    assert.deepEqual(
+      v45.references.map(({ width, height }) => ({ width, height })),
+      [
+        { width: 1472, height: 1472 },
+        { width: 1024, height: 1536 },
+      ],
+    );
+  } finally {
+    referenceFetch.mock.restore();
+    referenceDns.mock.restore();
+  }
+}
