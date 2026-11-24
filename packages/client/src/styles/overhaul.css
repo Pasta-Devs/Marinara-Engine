@@ -18304,7 +18304,11 @@ button.ov-conn-card__name:hover b {
 }
 /* Browse: a base model's variants sit under its line, indented past the star. */
 .ov-conn-browse__row.is-variant {
-  padding-inline-start: 1.75rem;
+  padding-left: 1.75rem;
+}
+[dir="rtl"] .ov-conn-browse__row.is-variant {
+  padding-right: 1.75rem;
+  padding-left: 0.5rem;
 }
 .ov-conn-browse__row.is-base .ov-conn-browse__star {
   transition: transform 0.15s ease;
@@ -18327,8 +18331,9 @@ button.ov-conn-card__name:hover b {
 }
 /* Centred like every Library table's headings (Nov 19). */
 .ov-model-sheet .ov-field-card__table th {
-  border-start-start-radius: inherit;
-  border-start-end-radius: inherit;
+  /* Physical corners: both top corners round alike, so right-to-left needs no override (#8709). */
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
 }
 .ov-model-sheet .ov-field-card__summary {
   display: flex;
@@ -18386,8 +18391,12 @@ button.ov-conn-card__name:hover b {
   font-size: 0.75rem;
 }
 .ov-model-sheet .ov-field-model .ov-conn__link {
-  margin-inline-start: auto;
+  margin-left: auto;
   font-size: 0.8125rem;
+}
+[dir="rtl"] .ov-model-sheet .ov-field-model .ov-conn__link {
+  margin-right: auto;
+  margin-left: 0;
 }
 .ov-model-sheet .ov-field-card__rows > [data-connection-field] {
   border-radius: 0;
