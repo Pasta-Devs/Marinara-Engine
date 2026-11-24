@@ -4880,7 +4880,7 @@ input.ov-edhead__title:focus {
   --ov-cs-width: 27rem;
 }
 .mari-window.ov-cs--docked {
-  top: var(--ov-topbar-height) !important;
+  top: calc(var(--ov-topbar-height) + var(--ov-tabrow-height, 0px)) !important;
   right: 0 !important;
   bottom: 0 !important;
   left: auto !important;
@@ -5065,7 +5065,7 @@ input.ov-edhead__title:focus {
 .ov-cs__resize {
   position: fixed;
   z-index: 5;
-  top: var(--ov-topbar-height);
+  top: calc(var(--ov-topbar-height) + var(--ov-tabrow-height, 0px));
   bottom: 0;
   right: calc(min(var(--ov-cs-width), calc(100vw - 22rem)) - 4px);
   width: 8px;
@@ -8850,44 +8850,188 @@ input.ov-edhead__title:focus {
   top: auto;
   right: auto;
 }
-/* On a grouped tab the bar gets a second row with that group's tabs, like Vivaldi's tab stacks. */
-:root[data-ov-tabrow] {
-  --ov-topbar-height: 4.625rem;
+/* ─── A tab group's row (Vivaldi's tab stacks) ───
+   On a grouped tab, the group's tabs get a whole row of their own under the top bar, across the window. It is a
+   bar of its own (a sibling of the top bar, not a wrapped line inside it), so a theme that fixes the top bar's
+   height (MARI to the Moon's ticker, Velvet Casket's fence) can't squeeze it into the bar. It carries the top
+   bar's names so themes dress its tabs like the ones above; the box itself stays the app's (below). */
+:root {
+  --ov-tabrow-height: var(--ov-tabrow-h, 0px);
 }
-.ov-topbar {
-  flex-wrap: wrap;
-  align-content: center;
-  row-gap: 0.25rem;
+:root[data-ov-topbar-autohide] {
+  --ov-tabrow-height: 0px;
+}
+.ov-tabrow2-slot {
+  display: contents;
 }
 .ov-topbar > .ov-tabs {
   flex: 1 1 0;
 }
-.ov-tabrow2 {
-  display: flex;
-  order: 99;
-  flex: 1 0 100%;
-  min-width: 0;
-  align-items: center;
-  gap: 0.125rem;
-  height: 1.75rem;
-  padding-left: 2.375rem;
-  overflow: hidden;
+/* The bar's look (background, border, a theme's tab plates) carries over; its height, padding and art don't.
+   Protected: themes size the bar with [data-component="TopBar"] rules, many with !important (Velvet Casket's
+   fence room under the bar made the row 80px tall). */
+.ov-topbar.ov-tabrow2[data-tab-row] {
+  z-index: 19;
+  gap: 0.375rem;
 }
-.ov-tabrow2 .ov-tab {
-  height: 1.625rem;
-  font-size: 0.78125rem;
+@layer mari-protected {
+  :root .ov-topbar.ov-tabrow2[data-tab-row] {
+    position: relative !important;
+    display: flex !important;
+    flex: none !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0.25rem 0.5rem !important;
+    overflow: hidden !important;
+    clip-path: none !important;
+    /* The bar's colour, with a touch of the accent so the group's row reads as a step down from the bar. A
+       theme's picture on the bar (a fence, a skyline) stays on the bar; tiled over the row it ran behind the
+       tabs (Velvet Casket). */
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--ov-accent) 7%, transparent),
+      color-mix(in srgb, var(--ov-accent) 7%, transparent)
+    ) !important;
+    border-top: 0 !important;
+  }
+  :root .ov-topbar.ov-tabrow2[data-tab-row][data-solid] {
+    background-color: var(--background) !important;
+  }
+  :root .ov-topbar.ov-tabrow2[data-tab-row]::before,
+  :root .ov-topbar.ov-tabrow2[data-tab-row]::after {
+    content: none !important;
+    display: none !important;
+  }
+  /* Fullscreen: the row rides with the sliding top bar, just under it, and comes out and goes away with it. */
+  :root[data-ov-topbar-autohide] .ov-topbar.ov-tabrow2[data-tab-row] {
+    position: fixed !important;
+    z-index: 79 !important;
+    top: var(--ov-topbar-bar-h, 2.625rem) !important;
+    right: 0 !important;
+    left: 0 !important;
+  }
 }
+/* The group's name and count, at the row's start: it opens the group's menu (rename, ungroup, close). */
 .ov-tabrow2__name {
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 0.3125rem;
-  margin-right: 0.375rem;
+  gap: 0.375rem;
+  max-width: 12rem;
+  height: 1.875rem;
+  padding: 0 0.5rem 0 0.5625rem;
+  border-right: 1px solid var(--ov-line);
+  border-radius: 0.5rem 0 0 0.5rem;
   color: var(--ov-accent-text);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.ov-tabrow2__name > svg {
+  flex: none;
+}
+.ov-tabrow2__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (hover: hover) {
+  .ov-tabrow2__name:hover {
+    background: var(--ov-hover);
+  }
+}
+[dir="rtl"] .ov-tabrow2__name {
+  border-right: 0;
+  border-left: 1px solid var(--ov-line);
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+/* The tabs share the row's width like Vivaldi's, each up to a normal tab's width; a long group scrolls sideways
+   (the wheel scrolls it too) instead of squeezing names away. */
+.ov-tabrow2__tabs {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.ov-tabrow2__tabs::-webkit-scrollbar {
+  display: none;
+}
+.ov-tabrow2__tabs > .ov-tab {
+  flex: 1 1 0;
+  max-width: 16rem;
+}
+.ov-tabrow2__tabs > .ov-tab > .ov-tab__main {
+  flex: 1 1 auto;
+}
+/* The group you're in: its tab in the bar above is underlined in the accent, which the row picks up. */
+.ov-tab--group.is-on {
+  position: relative;
+}
+.ov-tab--group.is-on::after {
+  content: "";
+  position: absolute;
+  right: 0.375rem;
+  bottom: 0;
+  left: 0.375rem;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--ov-accent);
+  pointer-events: none;
+}
+.ov-tab--group.is-on.is-drop-after::after {
+  right: -0.1875rem;
+  left: auto;
+  top: 0.125rem;
+  bottom: 0.125rem;
+  width: 2px;
+  height: auto;
+}
+/* Touch screens: finger-sized tabs in the row. */
+:root[data-marinara-touch-device="true"] .ov-tabrow2__tabs > .ov-tab,
+:root[data-marinara-touch-device="true"] .ov-tabrow2__name {
+  height: 2.5rem;
+}
+@media (pointer: coarse) {
+  .ov-tabrow2__tabs > .ov-tab,
+  .ov-tabrow2__name {
+    height: 2.5rem;
+  }
+}
+/* Fullscreen (see the protected rule above for its place) */
+:root[data-ov-topbar-autohide] .ov-topbar.ov-tabrow2[data-tab-row] {
+  box-shadow: 0 10px 30px -18px rgb(0 0 0 / 0.8);
+  transform: translateY(calc(-100% - var(--ov-topbar-bar-h, 2.625rem) - 2px));
+  visibility: hidden;
+  transition:
+    transform 180ms ease 350ms,
+    visibility 0s linear 530ms;
+}
+:root[data-ov-topbar-autohide]:is(
+    :has(.ov-topbar-hotzone:hover),
+    :has(.ov-topbar.is-autohide:hover),
+    :has(.ov-topbar.is-autohide :focus-visible),
+    :has(.ov-topbar.is-autohide [aria-expanded="true"]:not([data-window-opener])),
+    :has(.ov-tabrow2:hover),
+    :has(.ov-tabrow2 :focus-visible),
+    [data-ov-topbar-pinned]
+  )
+  .ov-topbar.ov-tabrow2[data-tab-row] {
+  transform: none;
+  visibility: visible;
+  transition-delay: 0ms;
+}
+/* …and the bar stays out while the pointer or focus is on the row. */
+:root[data-ov-topbar-autohide]:has(.ov-tabrow2:hover, .ov-tabrow2 :focus-visible) .ov-topbar.is-autohide {
+  transform: none;
+  transition-delay: 0ms;
 }
 
 /* Segmented switches (Convo / Roleplay / Game and friends): the selected segment sits inside the track with a
@@ -14483,12 +14627,6 @@ input.ov-edhead__title:not(#ov-x) {
   height: 144px !important;
 }
 
-/* A grouped tab still gets its second row: the one-row rule above (H4) must not fold the group row into the
-   first one, which piled the bar's buttons on top of each other (keyboard QC round 2, TLR1). */
-.ov-topbar:has(> .ov-tabrow2) {
-  flex-wrap: wrap;
-}
-
 /* "Don't save" and other throw-away choices read as red on the sheet: the default dark theme's
    --destructive is the same pink as the safe choices (keyboard QC round 2, AC16/TP19). */
 :root[data-overhaul] .ovm-action-sheet__group > button.is-danger {
@@ -15786,7 +15924,7 @@ input.ov-edhead__title:not(#ov-x) {
   ):not(#ov-hit),
 :root[data-overhaul][data-marinara-touch-device="true"]
   :is(
-    .ov-topbar :is(.ov-icon-btn, .ov-text-btn, .ov-tab:not(.is-drop-after)),
+    .ov-topbar :is(.ov-icon-btn, .ov-text-btn, .ov-tab:not(.is-drop-after), .ov-tabrow2__name),
     .ov-sideswitch__btn,
     .ov-icon-btn--sm,
     .ov-new-pill,
@@ -15838,7 +15976,7 @@ input.ov-edhead__title:not(#ov-x) {
 }
 :root[data-overhaul][data-marinara-touch-device="true"]
   :is(
-    .ov-topbar :is(.ov-icon-btn, .ov-text-btn, .ov-tab:not(.is-drop-after)),
+    .ov-topbar :is(.ov-icon-btn, .ov-text-btn, .ov-tab:not(.is-drop-after), .ov-tabrow2__name),
     .ov-sideswitch__btn,
     .ov-icon-btn--sm,
     .ov-new-pill,

@@ -7,7 +7,7 @@
 // Safari-style All Tabs viewer, opened from the Stack menu.
 // ──────────────────────────────────────────────
 import { toggleChatSettings as toggleChatSettingsWindow } from "../../lib/chat-settings-close";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, Check, ChevronLeft, Home, Layers, Plus, Search, Settings2, X } from "lucide-react";
 import type { Chat } from "@marinara-engine/shared";
@@ -166,6 +166,7 @@ function TabCard({
 function AllTabsViewer({ chats, current }: { chats: Chat[]; current: OverhaulTab | null }) {
   const localize = useLocalizedUiText();
   const tabs = useOverhaulStore((s) => s.tabs);
+  const tabGroups = useOverhaulStore((s) => s.tabGroups);
   const setOpen = useOverhaulStore((s) => s.setAllTabsOpen);
   const [query, setQuery] = useState("");
   const currentKey = current ? overhaulTabKey(current) : null;
@@ -184,9 +185,12 @@ function AllTabsViewer({ chats, current }: { chats: Chat[]; current: OverhaulTab
       </header>
       <div className="ovm-alltabs__grid">
         <TabCard tab={null} chats={chats} on={current === null} query={query} />
-        {tabs.map((tab) => {
+        {tabs.map((tab, index) => {
           const key = overhaulTabKey(tab);
-          return (
+          // A tab group (made on a computer) gets a heading across the grid, over its tabs, which sit together.
+          const group = tab.group ? tabGroups[tab.group] : undefined;
+          const startsGroup = group && tabs[index - 1]?.group !== tab.group;
+          const card = (
             <TabCard
               key={key}
               tab={tab}
@@ -195,6 +199,28 @@ function AllTabsViewer({ chats, current }: { chats: Chat[]; current: OverhaulTab
               query={query}
               onClose={() => closeTabAndMove(tab, tabs, currentKey)}
             />
+          );
+          // …and the tabs after a group are set apart from it again by a line.
+          const endsGroup = !tab.group && Boolean(tabs[index - 1]?.group);
+          if (query.trim()) return card;
+          if (endsGroup)
+            return (
+              <Fragment key={key}>
+                <div className="ovm-alltabs__group ovm-alltabs__group--end" aria-hidden="true" />
+                {card}
+              </Fragment>
+            );
+          if (!startsGroup) return card;
+          const size = tabs.filter((other) => other.group === tab.group).length;
+          return (
+            <Fragment key={key}>
+              <div className="ovm-alltabs__group">
+                <Layers size={15} aria-hidden="true" />
+                <span className="ovm-alltabs__group-name">{group.name}</span>
+                <span className="ov-tab__count">{size}</span>
+              </div>
+              {card}
+            </Fragment>
           );
         })}
       </div>

@@ -840,19 +840,28 @@ function useWindowFullscreen() {
   return fullscreen;
 }
 
-/** Publishes --mari-top-bar-height on <html>: the bar's real height, desktop and phone (themes can make it taller). */
+/** Publishes --mari-top-bar-height on <html>: the bar's real height, desktop and phone (themes can make it taller),
+ *  plus a tab group's row under it. */
 export function usePublishTopBarHeight(barRef: { current: HTMLElement | null }) {
   useEffect(() => {
     const bar = barRef.current;
     if (!bar || typeof ResizeObserver === "undefined") return;
     const root = document.documentElement;
-    const publish = () => root.style.setProperty("--mari-top-bar-height", `${Math.round(bar.offsetHeight)}px`);
+    // A tab group's row under the bar counts too (--ov-tabrow-height, 0 without one), so what a theme places
+    // below the bar (a docked window, art masked to the page) starts below the row.
+    const publish = () => {
+      const height = Math.round(bar.offsetHeight);
+      root.style.setProperty("--mari-top-bar-height", `calc(${height}px + var(--ov-tabrow-height, 0px))`);
+      // The bar alone: the fullscreen bar slides a group's row in just under itself.
+      root.style.setProperty("--ov-topbar-bar-h", `${height}px`);
+    };
     publish();
     const observer = new ResizeObserver(publish);
     observer.observe(bar);
     return () => {
       observer.disconnect();
       root.style.removeProperty("--mari-top-bar-height");
+      root.style.removeProperty("--ov-topbar-bar-h");
     };
   }, [barRef]);
 }
@@ -869,6 +878,7 @@ export function OverhaulTopBar() {
   // room the page makes while the fullscreen bar is pinned open.
   const barRef = useRef<HTMLElement | null>(null);
   usePublishTopBarHeight(barRef);
+  const [tabRowSlot, setTabRowSlot] = useState<HTMLDivElement | null>(null);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const setOmnibarOpen = useUIStore((s) => s.setOmnibarOpen);
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -939,7 +949,7 @@ export function OverhaulTopBar() {
           aria-hidden="true"
         />
         <Suspense fallback={<nav className="ov-tabs" aria-label={localize("Open tabs")} />}>
-          <DesktopTabStrip chats={chats} current={current} currentKey={currentKey} />
+          <DesktopTabStrip chats={chats} current={current} currentKey={currentKey} rowSlot={tabRowSlot} />
         </Suspense>
         <button
           type="button"
@@ -1003,6 +1013,8 @@ export function OverhaulTopBar() {
           </button>
         </div>
       </header>
+      {/* A tab group's own row, under the bar (DesktopTabStrip puts it here). */}
+      <div ref={setTabRowSlot} className="ov-tabrow2-slot" />
     </>
   );
 }
