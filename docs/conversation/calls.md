@@ -42,7 +42,7 @@ The master **Commands** switch in the same section must be on for in-call comman
 
 Text to Speech decides which characters can speak and with which voice. Read [Text to Speech (TTS) Setup](../media/tts-setup.md) for the full walkthrough. In short:
 
-1. Open **Connections** and click the **Voice** row in the **Jobs** box.
+1. Open **Connections** and click **Voice** on the **Jobs** page.
 2. Pick a voice model or a voice service. Picking one turns Text to Speech on. The account of that model supplies the key and address.
 3. Click the gear of the **Voice** row to open **Voice settings**.
 4. In **Who speaks**, pick a **Shared voice**, or give characters and personas their own voices under **Character and persona voices**. Per-character voices make group calls easier to follow.
@@ -141,7 +141,7 @@ If it did not work: on a Lite build of Marinara you see "Local Whisper is disabl
 
 If Local Whisper struggles with your language or accent, send your voice to another speech-to-text server instead. Any server that accepts the OpenAI speech-to-text format (the `/audio/transcriptions` address) works, whether you run it yourself or use a service such as OpenAI or Groq.
 
-1. Open **Connections** and click the gear of the **Dictation** row in the **Jobs** box. The **Speech to text** server settings are there. They are hidden while Calls is not installed.
+1. Open **Connections** and click the gear beside **Dictation** on the **Jobs** page. The **Speech to text** server settings are there. They are hidden while Calls is not installed.
 2. Enter the **Server URL**, for example `http://localhost:8000/v1`.
 3. Enter an **API key** if the server needs one. It is saved encrypted and shown masked.
 4. Enter the **Model** name your server uses. Leave it empty to send `whisper-1`.

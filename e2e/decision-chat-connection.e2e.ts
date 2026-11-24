@@ -69,13 +69,14 @@ test("a Custom connection's chat model becomes a Decision connection in one clic
       await testInfo.attach(label, { path, contentType: "image/png" });
     };
 
-    // The shortcut lives in the Model's row menu; variant D lists the Model in the panel search.
+    // The shortcut lives in the Model's row menu; variant D lists the Model in the panel search, which shows from
+    // 8 Models (with fewer the row is already in the list).
     await openConnectionsPanel(page);
-    await page
+    const search = page
       .locator("[data-connections-panel]")
       .filter({ visible: true })
-      .getByRole("searchbox", { name: "Search models and accounts" })
-      .fill(name);
+      .getByRole("searchbox", { name: "Search models and accounts" });
+    if (await search.count()) await search.fill(name);
     const actions = page.getByRole("button", { name: `Actions for ${name}`, exact: true });
     await actions.scrollIntoViewIfNeeded();
     await actions.click();

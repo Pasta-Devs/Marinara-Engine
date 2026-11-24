@@ -1,10 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { openJobsPage } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 
 test("Jobs remain available without accounts and show inherited account warnings", async ({ page }, info) => {
+  // Four account states, each opened on the Jobs page and captured at three widths.
+  test.setTimeout(120_000);
   let state = "empty";
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -63,15 +66,19 @@ test("Jobs remain available without accounts and show inherited account warnings
   });
   await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
   const panel = page.locator("[data-connections-panel]").filter({ visible: true });
-  const row = (key: string) => panel.locator(`[data-defaults-role="${key}"]`);
+  // Every job is on the Jobs page; Main also shows on the panel's summary, so rows are read on the page.
+  const jobsPage = page.locator("[data-connections-jobs-page]").filter({ visible: true });
+  const row = (key: string) => jobsPage.locator(`[data-defaults-role="${key}"]`);
   for (const current of ["empty", "main", "agents", "key"]) {
     state = current;
     await page.goto("/");
-    await expect(row("main")).toBeVisible();
     if (current === "empty") {
       await expect(panel.getByRole("button", { name: "Import a backup", exact: true })).toBeVisible();
       await expect(panel.locator('a[href="https://linkapi.ai/"]')).toHaveCount(0);
-    } else {
+    }
+    await openJobsPage(page);
+    await expect(row("main")).toBeVisible();
+    if (current !== "empty") {
       const followers = current === "agents" ? ["mari"] : ["agents", "impersonate", "mari"];
       for (const key of followers) {
         await expect(row(key)).toContainText("Warning model");
@@ -347,7 +354,7 @@ test("Decisions keep an assigned unstarred model visible without a catalog entry
   });
   await page.addInitScript((v) => localStorage.setItem("marinara:whats-new:seen-version", v), version);
   await page.goto("/");
-  const job = page.locator('[data-defaults-role="decision"]').filter({ visible: true });
+  const job = (await openJobsPage(page)).locator('[data-defaults-role="decision"]');
   await expect(job).toContainText("Assigned decision");
   await job.locator("button[aria-haspopup=dialog]").first().click();
   const dialog = page.getByRole("dialog");

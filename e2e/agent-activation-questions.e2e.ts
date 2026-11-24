@@ -1,7 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
-import { hideExistingItems, openJobSettings } from "./connections-panel.js";
+import { hideExistingItems, openJobSettings, openJobsPage } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -70,7 +70,7 @@ test("Decision settings, test errors and custom-agent questions survive reload",
     }, type);
     await expect(page.getByLabel("Question", { exact: true })).toBeVisible();
   };
-  // #8456: Decision is one row of the Jobs box. The row opens its "Model for Decision" picker, and its gear opens
+  // #8456: Decision is one job on the Jobs page. The row opens its "Model for Decision" picker, and its gear opens
   // the rest of the job's settings in place.
   const decisionTile = page.locator('[data-defaults-tile="decision"]');
   const settings = page.getByRole("dialog", { name: "Decision settings", exact: true });
@@ -80,9 +80,8 @@ test("Decision settings, test errors and custom-agent questions survive reload",
       useUIStore.getState().closeAllDetails();
       useUIStore.getState().openRightPanel("connections");
     });
-    const defaults = page.locator('[data-connections-row="defaults"]');
-    await expect(defaults).toBeVisible();
-    if ((await defaults.getAttribute("aria-expanded")) !== "true") await defaults.click();
+    // Decision is on the Jobs page, as a row or a chip.
+    await openJobsPage(page);
     await expect(decisionTile).toBeVisible();
     // The gear opens the job's settings window (#8995).
     if (!(await settings.isVisible()))

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { chooseOption } from "./select-field.js";
-import { openConnectionsPanel, openDefaultsTile, openJobSettings, ttsConfigCard } from "./connections-panel.js";
+import { openDefaultsTile, openJobSettings, openJobsPage, ttsConfigCard } from "./connections-panel.js";
 import { seedUIState } from "./ui-state-fixture.js";
 
 const version = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
@@ -73,12 +73,10 @@ test("An Audio connection chosen as the Source is saved by ID and reported when 
     // Since the Voice job (1e4664c38b) the card has no Source list: the voice's Model is picked in the Voice
     // job's "Model for Voice" window, and the Voice settings window reports a missing account.
     const studio = `Voice studio ${testInfo.project.name}`;
-    const voiceRow = () =>
-      page.locator("[data-connections-panel]").filter({ visible: true }).locator('[data-defaults-role="voice"]');
     const openPicker = async () => {
       await page.goto("/");
-      await openConnectionsPanel(page);
-      await voiceRow().getByRole("button").first().click();
+      // The Voice job is on the Jobs page, as a row or (while voice is off) a chip.
+      await (await openJobsPage(page)).locator('[data-defaults-role="voice"]').getByRole("button").first().click();
       const picker = page.getByRole("dialog", { name: "Model for Voice", exact: true });
       await expect(picker).toBeVisible();
       return picker;

@@ -63,8 +63,8 @@ The page of each built-in decision model shows two lines:
 
 Before you start, see [Which one to pick](#which-one-to-pick).
 
-1. Click **Connections** in the top bar and open the **Jobs** box.
-2. Under **Behind the scenes**, click the **Decision** row. A list opens.
+1. Click **Connections** in the top bar, then click **All jobs** under **Jobs**.
+2. Click **Decision**. A list opens.
 3. Pick a model. The list has three groups:
    - **None (decisions off)** is the default. Nothing is asked, and the activation question fields in the agent editor stay disabled.
    - **Built-in model** lists the models Marinara runs on your computer: **Built-in model**, **Built-in model (utility)**, and **Built-in model (decisions)**. Nothing leaves your computer.
@@ -98,7 +98,7 @@ Write presets, cards, and agents for "a decision model", never "requires Jev". A
 
 If you have the Built-in model downloaded, you can use it for decisions with no account and no cost. See [Built-in Model Setup](local-model.md).
 
-1. Click the **Decision** row under **Behind the scenes** in the **Jobs** box.
+1. Click **Decision** on the **Jobs** page.
 2. Pick **Built-in model** (or **Built-in model (utility)** if you have one).
 3. Click the **Decision settings** gear, then click **Test**.
 
@@ -120,7 +120,7 @@ A general chat model's yes-or-no probabilities work for a threshold, but they we
 
 If your chat model runs in Ollama, LM Studio, llama.cpp, or another OpenAI-compatible server, it can answer decisions without Marinara loading a second copy.
 
-1. Click the **Decision** row under **Behind the scenes** in the **Jobs** box. The picker lists the models of every account, including your chat model. Or click **⋯** on the model and choose **Use for…** → **Decision**.
+1. Click **Decision** on the **Jobs** page. The picker lists the models of every account, including your chat model. Or click **⋯** on the model and choose **Use for…** → **Decision**.
 2. Click the gear of the **Decision** row, then click **Test**. A passing test says whether the server returned log-probabilities and whether the model had to think first. Click **Done**.
 You can also create one yourself. Use a Decision account with the source **OpenAI-compatible chat model (Ollama, LM Studio, llama.cpp)**, the same address as your chat account (for example `http://localhost:11434/v1` for Ollama), and the model name the server uses.
 
@@ -133,14 +133,14 @@ A hosted Decision account sends the selected recent messages and statements to t
 1. Click **Connections** in the top bar, then click **Add**.
 2. Click **Decision** in the type chips, then click **TypeSafe** or **Own decision server**. For NanoGPT, see [Through NanoGPT](#through-nanogpt). For OpenRouter or Google Gemini, see [Through OpenRouter or Google Gemini](#through-openrouter-or-google-gemini).
 3. Enter the **API key**, or for **Own decision server** the **Server address**. Click **Connect**.
-4. Under **Found in TypeSafe — use it for:**, tick **Decision**, then click **Done**. The **Decision** row under **Behind the scenes** in the **Jobs** box now shows the model.
+4. Under **Found in TypeSafe — use it for:**, tick **Decision**, then click **Done**. **Decision** on the **Jobs** page now shows the model.
 5. To test it, click the model in the panel to open **Edit model**, then click **Test provider** in the **Provider tests** card. An **Own decision server** model has no **Test provider** button there. Open the account's **⋯** menu in the panel and click **Test** instead.
 
 A passing **Test provider** shows the probability, how long the answer took, and the account's time limit. The account's **Test** in the **⋯** menu only says whether it worked and how long it took. The test waits at least 10 seconds, or 5 seconds past a longer limit. If the answer took longer than the limit, the result says so: in chats that answer would count as no answer.
 
 If it did not work, see [Troubleshooting](#troubleshooting).
 
-A decision model has these fields. Click the model in the panel to open **Edit model**, or click the gear on the **Decision** row in the **Jobs** box to open **Decision settings** for the current decision model:
+A decision model has these fields. Click the model in the panel to open **Edit model**, or click the gear beside **Decision** on the **Jobs** page to open **Decision settings** for the current decision model:
 
 | Field | What it does |
 | --- | --- |
@@ -169,7 +169,7 @@ By default, NanoGPT decides whether a request uses your subscription or your bal
 OpenRouter and Google Gemini accounts list their own decision models too, and Marinara asks them at the service's decision API with that account's key. OpenRouter lists many, some of them free (their names end in `:free`). Google Gemini lists one, **Gemini Decision 1**.
 
 1. Connect OpenRouter or Google Gemini as usual.
-2. Click the **Decision** row under **Behind the scenes** in the **Jobs** box, then click the account on the left. Pick a model under **Decision models**.
+2. Click **Decision** on the **Jobs** page, then click the account on the left. Pick a model under **Decision models**.
 3. To test it, open **Edit model** on it and click **Test provider**.
 
 On an OpenRouter account, the chat models that return log-probabilities follow under **Chat models** and work too. A Google Gemini account offers only its decision model.
@@ -311,7 +311,7 @@ Before anything downloads, Marinara checks that your computer can run the model:
 1. Click **Connections** in the top bar. Under **On this device**, click **Built-in model (decisions)**. You can also click **Add** in the **Connections** panel and click **Built-in model (decisions)** under **Decisions**.
 2. Pick a model in the **Model** list. Under it you see its description, then **Answers** and **Reads** (see [What a model page lists](#what-a-model-page-lists)), its languages and licenses.
 3. Click **Download** with the model's name and size. Confirm the size, hardware verdict and licenses. Nothing downloads before that.
-4. Click **Use for Decision**, or click the **Decision** row under **Behind the scenes** in the **Jobs** box and pick **Built-in model (decisions)**.
+4. Click **Use for Decision**, or click **Decision** on the **Jobs** page and pick **Built-in model (decisions)**.
 
 Once a model has run, its page also shows **On this computer** with how long it took there: a few turns of chat, a picture, and a clip for models that read them. These times come from your own computer, so they tell you how much slower a statement gets when it asks for a picture.
 

@@ -5,9 +5,10 @@
 // Starred and each account on the left, the selected one's models on the
 // right. A narrow host shows one pane at a time. A pick applies to the host
 // only; the star saves a model, and removing it can remove the saved Model
-// (decision 30).
+// (decision 30). Starred also lists this device's recent picks; an account's
+// long list folds behind Browse and narrows by model family.
 // ──────────────────────────────────────────────
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Check,
   ChevronLeft,
@@ -85,6 +86,8 @@ import { SearchInput } from "../ui/SearchInput";
 import { ModelRow, ModelTile } from "./ModelRow";
 import { openAddConnection } from "../../lib/add-connection";
 import { SubscriptionUsageWidget } from "./SubscriptionUsageWidget";
+import { ModelFamilyChips } from "./ModelFamilyChips";
+import { familyChipsFor, modelFamilyOf, type ModelFamily } from "../../lib/model-families";
 import { reorderStars, starAnchorOf, starsOfRows, useHiddenModelIds, useModelStar } from "../../hooks/use-model-star";
 import { useVoiceRowId } from "../../hooks/use-tts";
 
@@ -133,6 +136,10 @@ type Entry = {
 
 /** A long run of model lines draws only the rows in view; a short one renders in full. */
 const VIRTUAL_MIN = 60;
+/** An account's other models fold behind Browse from this many on, when the pane has models of yours above them. */
+const BROWSE_MIN = 20;
+/** How many recent picks the Starred pane lists. */
+const RECENT_SHOWN = 5;
 function EntryRows({
   listKey,
   entries,
@@ -554,6 +561,8 @@ export function ConnectionSwitcherBody({
   const listsFailed = !listsReady && (connectionsQuery.isError || accountsQuery.isError);
   const openModal = useUIStore((state) => state.openModal);
   const openConnectionDetail = useUIStore((state) => state.openConnectionDetail);
+  const recentPicks = useUIStore((state) => state.recentModelPicks);
+  const rememberModelPick = useUIStore((state) => state.rememberModelPick);
   // The Connections panel's "Group by" choice applies here too.
   const sort = useUIStore((state) => state.connectionPanelSort);
   const accountManualOrder = useUIStore((state) => state.libraryManualOrders?.connection);
@@ -724,6 +733,16 @@ export function ConnectionSwitcherBody({
       // While the host follows its default, the current value is that default.
       else if (confirmCurrent) await followDefault?.onSelect();
       if (applied === false) return;
+      // A chat-model pick feeds the chat chooser's Recent list on this device; an embedding, image, video or voice
+      // pick (another kind, or a filtered list) would be offered there as a chat model. A saved Model is kept by
+      // its row, as two saved Models can share one model id with different settings.
+      if (kind === "chat" && !modelFilter && entry.group?.account && entry.model) {
+        rememberModelPick({
+          accountId: entry.group.account.id,
+          model: entry.model,
+          ...(!entry.choice.model && entry.choice.connectionId ? { rowId: entry.choice.connectionId } : {}),
+        });
+      }
       if (entry.choice.connectionId === LOCAL_SIDECAR_CONNECTION_ID && !useSidecarStore.getState().modelDownloaded) {
         openAddConnection({ category: "device", item: "local-model" });
       }
@@ -941,8 +960,16 @@ export function ConnectionSwitcherBody({
       ? "starred"
       : ((currentGroup?.account ? currentGroup : groups.find((group) => group.account))?.key ?? "starred"));
   const paneGroup = groups.find((group) => group.key === paneKey);
-  // Edit order belongs to the pane it was turned on in.
-  useEffect(() => setEditOrder(false), [paneKey]);
+  /** An account pane's long list: opened past Browse, and the one model family it shows (null = all). */
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [family, setFamily] = useState<ModelFamily | null>(null);
+  const idBase = useId();
+  // Edit order, Browse and the family belong to the pane they were set in.
+  useEffect(() => {
+    setEditOrder(false);
+    setBrowseOpen(false);
+    setFamily(null);
+  }, [paneKey]);
   // A selected account scopes the search to its own models.
   const scopeGroup = paneGroup;
   // The open account's list: shares the cache loadCatalog fills, and tells the pane when it failed.
@@ -981,7 +1008,13 @@ export function ConnectionSwitcherBody({
     const lead = fromCatalog.filter(
       (entry) => !!entry.model && leads(group, entry.model, catalogOf(group)?.of(entry.model)),
     );
-    return { starred, lead, rest: [...saved, ...fromCatalog.filter((entry) => !lead.includes(entry))] };
+    // `rest` starts with the saved Models (`savedCount` of them): models of yours that a folded list keeps in view.
+    return {
+      starred,
+      lead,
+      rest: [...saved, ...fromCatalog.filter((entry) => !lead.includes(entry))],
+      savedCount: saved.length,
+    };
   };
 
   // Search (decision 27): saved Models first (starred, then the rest), then catalog models not saved yet, each
@@ -1489,9 +1522,11 @@ export function ConnectionSwitcherBody({
     setPane(key);
     setDrilled(true);
   };
-  const heading = (label: ReactNode, count?: number) => (
+  const heading = (label: ReactNode, count?: number, id?: string) => (
     <ListHeading className="flex items-baseline justify-between gap-2">
-      <span className="min-w-0 truncate">{label}</span>
+      <span id={id} className="min-w-0 truncate">
+        {label}
+      </span>
       {count !== undefined && <span className="shrink-0 font-normal tabular-nums">{count}</span>}
     </ListHeading>
   );
@@ -1622,6 +1657,56 @@ export function ConnectionSwitcherBody({
   const shownEntries = shownGroup ? paneEntries(shownGroup) : null;
   const restLabel =
     leadCatalog && shownEntries?.lead.length ? leadCatalog.restLabel : t("connections.switcher.allModels");
+  // Browse: below models of yours (starred, recommended or saved), a long list of the account's other models
+  // starts folded. Saved Models stay in view above the fold, since they carry settings of their own.
+  const savedCount = shownEntries?.savedCount ?? 0;
+  const restFolded =
+    !!shownEntries &&
+    shownEntries.starred.length + shownEntries.lead.length + savedCount > 0 &&
+    shownEntries.rest.length - savedCount >= BROWSE_MIN;
+  const savedEntries = restFolded ? shownEntries!.rest.slice(0, savedCount) : [];
+  const foldable = restFolded ? shownEntries!.rest.slice(savedCount) : (shownEntries?.rest ?? []);
+  const restShown = !!shownEntries && (!restFolded || browseOpen);
+  const familyChips = restShown ? familyChipsFor(foldable.map((entry) => entry.model ?? "")) : [];
+  // A family that is gone from the list (after Refresh) shows every model again.
+  const shownFamily = familyChips.some((chip) => chip.family === family) ? family : null;
+  const restEntries = shownFamily
+    ? foldable.filter((entry) => modelFamilyOf(entry.model ?? "") === shownFamily)
+    : foldable;
+  // Recent (Starred pane): this device's last picks that are not starred and that this picker still lists.
+  const recentEntries: Entry[] = [];
+  // Job pickers (showUnstarred) already list every model with the current one in place, so Recent is for the
+  // chat hosts' Starred overview only.
+  if (!shownGroup && !paneFolder && !searching && !showUnstarred) {
+    // Several picks can end on one choice (a catalog pick of a model saved later), so each choice shows once: a
+    // saved Model by its row, so two saved Models that share a model id stay apart.
+    const shown = new Set<string>();
+    const add = (entry: Entry) => {
+      const key = entry.row ? `row:${entry.row.id}` : `model:${entry.group?.key ?? ""}\n${entry.model ?? ""}`;
+      if (shown.has(key)) return;
+      shown.add(key);
+      recentEntries.push(entry);
+    };
+    for (const pick of recentPicks) {
+      if (recentEntries.length === RECENT_SHOWN) break;
+      const group = groupByAccount.get(pick.accountId);
+      if (!group || starsOf(group).has(pick.model)) continue;
+      const facts = catalogOf(group)?.of(pick.model);
+      // A saved Model is the one picked; when it is gone, another saved Model with that id is not offered instead.
+      if (pick.rowId) {
+        const savedRow = group.rows.find((row) => row.id === pick.rowId);
+        if (savedRow && savedRow.model === pick.model && !leadOnly(group, pick.model, facts))
+          add(entryOfRow(savedRow, group));
+        continue;
+      }
+      const listed = group.rows.some((row) => row.model === pick.model)
+        ? !leadOnly(group, pick.model, facts)
+        : catalogBrowse &&
+          !!catalogOf(group)?.idSets.some((ids) => ids.has(pick.model)) &&
+          acceptsCatalog(pick.model, facts, group);
+      if (listed) add(entryFor(group, anchorOf(group), pick.model));
+    }
+  }
   const paneTitle = (title: ReactNode, summary: string) => (
     <div className="flex min-w-0 shrink-0 items-baseline gap-2.5 px-3.5 pb-1 pt-2.5">
       <strong className="truncate text-[0.8125rem] font-semibold">{title}</strong>
@@ -1739,16 +1824,62 @@ export function ConnectionSwitcherBody({
                 />
               </section>
             )}
-            {shownEntries.rest.length > 0 && (
-              <section data-switcher-section="all" aria-label={restLabel}>
-                {heading(restLabel, shownEntries.rest.length)}
+            {savedEntries.length > 0 && (
+              <section data-switcher-section="saved" aria-label={t("connections.switcher.saved")}>
+                {heading(t("connections.switcher.saved"), savedEntries.length)}
                 <EntryRows
-                  listKey={`rest:${paneKey}`}
-                  entries={shownEntries.rest}
+                  listKey={`saved:${paneKey}`}
+                  entries={savedEntries}
                   render={(entry) => renderEntry(entry, { star: "all" })}
                 />
               </section>
             )}
+            {restFolded && (
+              <button
+                type="button"
+                data-switcher-browse={paneKey}
+                aria-expanded={browseOpen}
+                aria-controls={`${idBase}-rest`}
+                onClick={() => setBrowseOpen((open) => !open)}
+                className={cn(ROW_CLASS, "mt-1 text-foreground/70")}
+              >
+                <ChevronRight
+                  size="0.875rem"
+                  aria-hidden
+                  className={cn("mx-[0.3125rem] shrink-0 transition-transform", browseOpen && "rotate-90")}
+                />
+                <span className="min-w-0 flex-1 truncate">
+                  {t("connections.switcher.browseAllCount", { count: foldable.length })}
+                </span>
+              </button>
+            )}
+            <div id={`${idBase}-rest`}>
+              {restShown && foldable.length > 0 && (
+                <>
+                  {familyChips.length > 0 && (
+                    <>
+                      <ModelFamilyChips
+                        chips={familyChips}
+                        total={foldable.length}
+                        selected={shownFamily}
+                        onSelect={setFamily}
+                      />
+                      <p role="status" className="sr-only">
+                        {t("connections.switcher.familyShowing", { count: restEntries.length })}
+                      </p>
+                    </>
+                  )}
+                  <section data-switcher-section="all" aria-label={restLabel}>
+                    {heading(restLabel, restEntries.length)}
+                    <EntryRows
+                      listKey={`rest:${paneKey}:${shownFamily ?? "all"}`}
+                      entries={restEntries}
+                      render={(entry) => renderEntry(entry, { star: "all" })}
+                    />
+                  </section>
+                </>
+              )}
+            </div>
             {scopeModels.isError && !refreshModels.isPending ? (
               <ListStatus>{t("connections.modelPicker.loadFailed")}</ListStatus>
             ) : (
@@ -1772,7 +1903,8 @@ export function ConnectionSwitcherBody({
               </section>
             )}
             <section data-switcher-section="starred" aria-label={t("connections.switcher.starred")}>
-              {showUnstarred &&
+              {/* A list below needs the heading to tell Starred apart from it. */}
+              {(showUnstarred || recentEntries.length > 0) &&
                 starredEntries.length > 0 &&
                 heading(t("connections.switcher.starred"), starredEntries.length)}
               {starredEntries.length > 1 && orderToggle}
@@ -1780,6 +1912,12 @@ export function ConnectionSwitcherBody({
                 renderEntry(entry, { star: "all", away: true, order: starredEntries.length > 1 }),
               )}
             </section>
+            {recentEntries.length > 0 && (
+              <section data-switcher-section="recent" aria-labelledby={`${idBase}-recent`}>
+                {heading(t("connections.switcher.recent"), recentEntries.length, `${idBase}-recent`)}
+                {recentEntries.map((entry) => renderEntry(entry, { star: "all", away: true }))}
+              </section>
+            )}
             {unstarredGroups.map(({ group, entries }) => (
               <section key={group.key} data-switcher-section="provider" aria-label={group.name}>
                 {heading(group.name, entries.length)}

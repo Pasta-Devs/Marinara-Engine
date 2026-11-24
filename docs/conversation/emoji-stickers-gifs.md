@@ -109,7 +109,7 @@ A description says what an emoji or sticker shows and the feeling it gives, for 
 - To write one, click **Edit** on the **Custom emojis** or **Stickers** tab, then click the small description button in a tile's corner. For a gallery-tagged one, click its tag button and choose **Add description**.
 - To have AI write them, click **Edit**, then **Describe with AI**. The **Image reading** model looks at each picture and writes a short description. If some already have one, choose **Describe only the … without** (only the ones with none) or **Describe all … again**.
 
-Before you start: AI descriptions need a model that can read images. Marinara uses the **Image reading** model if you set one under **Behind the scenes** in your connection settings, and otherwise your agents' model.
+Before you start: AI descriptions need a model that can read images. Marinara uses the **Image reading** model if you set one on the **Jobs** page in **Connections**, and otherwise your agents' model.
 
 Two settings in **Selection preferences** use them:
 

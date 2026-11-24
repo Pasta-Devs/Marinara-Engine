@@ -28,7 +28,7 @@ A local or self-hosted server can answer with the model it has loaded, so its ac
 
 - A new account for a server on your computer or network starts with a **Default** model.
 - To add one later, click **⋯** on the account and choose **Add model**. **Default** is the first row.
-- Use **Default** like any other model: give it a job such as **Main** in the **Jobs** box, or pick it in **Model for this chat**.
+- Use **Default** like any other model: give it a job such as **Main** on the **Jobs** page, or pick it in **Model for this chat**.
 - Click **Default** in the panel to give it its own settings, such as its parameters and prompt preset, as you would for a named model.
 
 **Default** shows for a server on your computer or your network, and for the Grok CLI, which has its own default (see [Subscription CLIs](subscription-clis.md)). A hosted API service needs a model name.

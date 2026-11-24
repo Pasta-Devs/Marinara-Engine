@@ -264,7 +264,8 @@ test("the panel list shows each Connection's Models open, and its row or toggle 
 
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
     const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
-    await search.fill("E2E open models");
+    // The search box shows from 8 Models; with it the fold below runs on a filtered list.
+    if (await search.count()) await search.fill("E2E open models");
     await toggle.click();
     await expect(model).toHaveCount(0);
     await toggle.click();
