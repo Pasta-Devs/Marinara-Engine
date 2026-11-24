@@ -523,6 +523,10 @@ export function DesktopTabStrip({
         <span className="ov-tabrow2__label">{currentGroup.name}</span>
         <span className="ov-tab__count">{currentGroup.entries.length}</span>
       </button>
+      {/* A theme's strip under the tabs (MARI to the Moon's ticker, Velvet Casket's fence, Granite Watch's hazard
+          stripe) moves from the top bar to here while a group's row shows: --mari-tab-row-strip-bg and
+          --mari-tab-row-strip-height draw it, [data-mari-part="tab-row-strip"] can animate it. */}
+      <span className="ov-tabrow2__strip" data-mari-part="tab-row-strip" aria-hidden="true" />
       <div className="ov-tabrow2__tabs">
         {currentGroup.entries.map((entry) => (
           <div
@@ -577,7 +581,7 @@ export function DesktopTabStrip({
     };
     publish();
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
-    observer?.observe(el);
+    observer?.observe(el, { box: "border-box" });
     return () => {
       observer?.disconnect();
       root.style.removeProperty("--ov-tabrow-h");

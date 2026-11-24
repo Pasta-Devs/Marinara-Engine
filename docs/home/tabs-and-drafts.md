@@ -15,7 +15,7 @@ In the new layout, every chat, character, persona, lorebook, preset and app you 
 Right-click a tab on a computer, or press and hold it on a touch screen, to open its menu:
 
 - **Move left** and **Move right** move the tab one place. On a computer you can also drag it.
-- **Add to new group** puts the tab in a group. On a computer you can also drag a tab onto another tab and rest it there for a moment: when the other tab lights up, drop it and the two become a group (drop it on a group to add it). A quick drop only moves the tab. Holding Shift while you drop groups straight away. While you are on a grouped tab, the group's tabs show in a second row under the top bar. Click the group's name to rename or close it.
+- **Add to new group** puts the tab in a group. On a computer you can also drag a tab onto another tab and rest it there for a moment: when the other tab lights up, drop it and the two become a group (drop it on a group to add it). A quick drop only moves the tab. Holding Shift while you drop groups straight away. While you are on a grouped tab, the group's tabs get a whole row of their own under the top bar, like Vivaldi's tab stacks. The row starts with the group's name and how many tabs it holds: click it to rename the group, ungroup its tabs or close it. On a phone or an upright tablet, **All Tabs** shows each group's tabs together under the group's name.
 - **Close tab** closes it, and **Close other tabs** closes the rest.
 - **Reopen closed tab** brings back the tab you closed last.
 

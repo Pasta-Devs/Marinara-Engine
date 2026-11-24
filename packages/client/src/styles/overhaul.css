@@ -8885,7 +8885,8 @@ input.ov-edhead__title:focus {
     min-height: 0 !important;
     max-height: none !important;
     margin: 0 !important;
-    padding: 0.25rem 0.5rem !important;
+    /* --mari-tab-row-strip-room: the room a theme's strip under the tabs takes below them (0 = it lies behind) */
+    padding: 0.25rem 0.5rem calc(0.25rem + var(--mari-tab-row-strip-room, var(--mari-tab-row-strip-height, 0px))) !important;
     overflow: hidden !important;
     clip-path: none !important;
     /* The bar's colour, with a touch of the accent so the group's row reads as a step down from the bar. A
@@ -8913,6 +8914,21 @@ input.ov-edhead__title:focus {
     right: 0 !important;
     left: 0 !important;
   }
+}
+/* A theme's strip under the tabs, along the row's foot (see DesktopTabStrip). Nothing by default. */
+.ov-tabrow2__strip {
+  position: absolute;
+  z-index: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--mari-tab-row-strip-height, 0px);
+  background: var(--mari-tab-row-strip-bg, none);
+  pointer-events: none;
+}
+.ov-tabrow2 > :not(.ov-tabrow2__strip) {
+  position: relative;
+  z-index: 1;
 }
 /* The group's name and count, at the row's start: it opens the group's menu (rename, ungroup, close). */
 .ov-tabrow2__name {

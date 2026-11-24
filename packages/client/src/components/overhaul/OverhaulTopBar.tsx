@@ -857,7 +857,8 @@ export function usePublishTopBarHeight(barRef: { current: HTMLElement | null }) 
     };
     publish();
     const observer = new ResizeObserver(publish);
-    observer.observe(bar);
+    // Border box: a theme can trade the bar's height for its padding (the content box alone stays the same).
+    observer.observe(bar, { box: "border-box" });
     return () => {
       observer.disconnect();
       root.style.removeProperty("--mari-top-bar-height");
