@@ -625,3 +625,159 @@ try {
   fetchMock.mock.restore();
   dnsMock.mock.restore();
 }
+
+// Precise Reference on V5 (2026-11-24): references fill V5's nearest bucket (cropped, alpha kept) instead of V4.5's
+// padding, "Prefer same outfit" can be turned off, and V5 sends no fidelity.
+{
+  const sent: Array<{
+    request: Record<string, any>;
+    references: Array<{ width?: number; height?: number; alpha?: boolean }>;
+  }> = [];
+  const referenceDns = mock.method(dns, "lookup", async () => [{ address: "8.8.8.8", family: 4 }]);
+  const referenceFetch = mock.method(
+    globalThis,
+    "fetch",
+    async (_input: string | URL | Request, init?: RequestInit) => {
+      const form = init?.body;
+      assert.ok(form instanceof FormData, "Precise Reference requests are multipart");
+      const references = [];
+      for (let index = 0; form.has(`director_ref_${index}`); index++) {
+        const meta = await sharp(
+          Buffer.from(await (form.get(`director_ref_${index}`) as Blob).arrayBuffer()),
+        ).metadata();
+        references.push({ width: meta.width, height: meta.height, alpha: meta.hasAlpha });
+      }
+      sent.push({ request: JSON.parse(await (form.get("request") as Blob).text()), references });
+      return new Response(new Uint8Array(sampleSource), { status: 200, headers: { "content-type": "image/png" } });
+    },
+  );
+  const picture = async (width: number, height: number, alpha: number) =>
+    (
+      await sharp({ create: { width, height, channels: 4, background: { r: 200, g: 40, b: 90, alpha } } })
+        .png()
+        .toBuffer()
+    ).toString("base64");
+  const portrait = await picture(600, 900, 1);
+  const cutout = await picture(500, 500, 0);
+  const paint = (model: string, extra: Record<string, unknown> = {}, novelai = {}) =>
+    generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
+      prompt: "1girl, school uniform",
+      model,
+      referenceImage: portrait,
+      referenceImages: [portrait, cutout],
+      imageDefaults: { version: 1, service: "novelai", seed: 7, novelai: { ...DEFAULT_NOVELAI_DEFAULTS, ...novelai } },
+      ...extra,
+    });
+  try {
+    await paint("nai-diffusion-5-full", { preferReferenceOutfit: false });
+    const v5 = sent.at(-1)!;
+    const params = v5.request.parameters;
+    assert.equal(v5.request.model, "nai-diffusion-5-full");
+    assert.deepEqual(
+      params.director_reference_descriptions.map((entry: any) => entry.caption.base_caption),
+      ["character&style_anyoutfit", "character&style_anyoutfit"],
+    );
+    assert.deepEqual(params.director_reference_strength_values, [1, 1]);
+    assert.deepEqual(params.director_reference_secondary_strength_values, [0, 0]);
+    assert.equal(params.director_reference_images, undefined, "the pictures travel as multipart parts");
+    assert.equal(params.director_reference_images_cached.length, 2);
+    assert.deepEqual(v5.references, [
+      { width: 832, height: 1216, alpha: true },
+      { width: 1024, height: 1024, alpha: true },
+    ]);
+
+    await paint("nai-diffusion-5-curated");
+    assert.deepEqual(
+      sent.at(-1)!.request.parameters.director_reference_descriptions.map((entry: any) => entry.caption.base_caption),
+      ["character&style", "character&style"],
+      "Prefer same outfit stays on unless the caller turns it off",
+    );
+
+    // The style plate goes first; V5 ignores its fidelity.
+    await paint("nai-diffusion-5-full", {}, { styleReferenceImage: cutout, styleReferenceFidelity: 0.25 });
+    const styled = sent.at(-1)!.request.parameters;
+    assert.deepEqual(
+      styled.director_reference_descriptions.map((entry: any) => entry.caption.base_caption),
+      ["style", "character&style"],
+    );
+    assert.deepEqual(styled.director_reference_secondary_strength_values, [0, 0]);
+
+    // V4.5 is unchanged: padded to its three sizes, its fidelity kept, no outfit variant.
+    await paint(
+      "nai-diffusion-4-5-full",
+      { preferReferenceOutfit: false },
+      { styleReferenceImage: cutout, styleReferenceFidelity: 0.25 },
+    );
+    const v45 = sent.at(-1)!;
+    assert.deepEqual(
+      v45.request.parameters.director_reference_descriptions.map((entry: any) => entry.caption.base_caption),
+      ["style", "character&style"],
+    );
+    assert.deepEqual(v45.request.parameters.director_reference_secondary_strength_values, [0.75, 0]);
+    assert.deepEqual(
+      v45.references.map(({ width, height }) => ({ width, height })),
+      [
+        { width: 1472, height: 1472 },
+        { width: 1024, height: 1536 },
+      ],
+    );
+  } finally {
+    referenceFetch.mock.restore();
+    referenceDns.mock.restore();
+  }
+}
+
+// Automatic NovelAI settings: unset Steps and Prompt guidance send NovelAI's own default for the model (its client,
+// 2026-11-24), a saved value wins, and a profile saved before them reads its built-in 28 / 6 as automatic once.
+{
+  const { normalizeImageGenerationProfile } =
+    await import("../../../packages/shared/src/constants/image-generation-defaults.js");
+  const novelaiOf = (novelai: Record<string, unknown>) =>
+    normalizeImageGenerationProfile({ version: 1, service: "novelai", seed: -1, novelai }, "novelai").profile.novelai!;
+  assert.equal(novelaiOf({ steps: 28, promptGuidance: 6 }).steps, null, "the old built-in steps read as automatic");
+  assert.equal(novelaiOf({ steps: 28, promptGuidance: 6 }).promptGuidance, null);
+  assert.equal(novelaiOf({ steps: 30, promptGuidance: 6.5 }).steps, 30, "an old profile's own choice is kept");
+  assert.equal(novelaiOf({ steps: 30, promptGuidance: 6.5 }).promptGuidance, 6.5);
+  const saved = novelaiOf({ steps: 28, promptGuidance: 6, settingsVersion: 2 });
+  assert.equal(saved.steps, 28, "a value saved with automatic settings is taken as saved");
+  assert.equal(saved.promptGuidance, 6);
+  assert.equal(novelaiOf({ steps: null, settingsVersion: 2 }).steps, null);
+
+  const sentParams: Array<Record<string, unknown>> = [];
+  const settingsDns = mock.method(dns, "lookup", async () => [{ address: "8.8.8.8", family: 4 }]);
+  const settingsFetch = mock.method(globalThis, "fetch", async (_input: string | URL | Request, init?: RequestInit) => {
+    sentParams.push((JSON.parse(String(init?.body)) as { parameters: Record<string, unknown> }).parameters);
+    return new Response(new Uint8Array(sampleSource), { status: 200, headers: { "content-type": "image/png" } });
+  });
+  const paintWith = (model: string, novelai: Record<string, unknown> = {}) =>
+    generateImage("novelai", "https://image.novelai.net", "synthetic", "novelai", {
+      prompt: "1girl, garden",
+      model,
+      imageDefaults: { version: 1, service: "novelai", seed: 7, novelai: novelaiOf(novelai) },
+    });
+  try {
+    await paintWith("nai-diffusion-5-full");
+    assert.equal(sentParams.at(-1)!.steps, 23);
+    assert.equal(sentParams.at(-1)!.scale, 7);
+    assert.equal(sentParams.at(-1)!.sampler, "k_euler_ancestral");
+    assert.equal(sentParams.at(-1)!.noise_schedule, "karras");
+    assert.equal(sentParams.at(-1)!.cfg_rescale, 0);
+    assert.equal(sentParams.at(-1)!.deliberate_euler_ancestral_bug, false);
+    assert.equal(sentParams.at(-1)!.prefer_brownian, true);
+
+    await paintWith("nai-diffusion-4-5-curated", { steps: 28, promptGuidance: 6 });
+    assert.equal(sentParams.at(-1)!.steps, 23, "an old profile's built-in steps follow the model now");
+    assert.equal(sentParams.at(-1)!.scale, 5);
+
+    await paintWith("nai-diffusion-5-curated", { steps: 28, promptGuidance: 6, settingsVersion: 2 });
+    assert.equal(sentParams.at(-1)!.steps, 28, "the connection's own steps win");
+    assert.equal(sentParams.at(-1)!.scale, 6);
+
+    await paintWith("nai-diffusion-5-full", { noiseSchedule: "native", settingsVersion: 2 });
+    assert.equal(sentParams.at(-1)!.deliberate_euler_ancestral_bug, undefined, "native noise keeps NovelAI's own");
+    assert.equal(sentParams.at(-1)!.prefer_brownian, undefined);
+  } finally {
+    settingsFetch.mock.restore();
+    settingsDns.mock.restore();
+  }
+}

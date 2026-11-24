@@ -589,9 +589,9 @@ function capabilityForConnection(conn: ImageConnection): ImageCapability {
         );
       break;
     case "novelai":
-      canEdit = /^nai-diffusion-4-5(?:-(?:curated|full))?$/i.test(model.trim());
+      canEdit = /^nai-diffusion-(?:4-5|5)(?:-(?:curated|full))?$/i.test(model.trim());
       editMode = canEdit ? "reference" : "none";
-      if (!canEdit) notes.push("NovelAI precise reference images require a V4.5 model in Marinara.");
+      if (!canEdit) notes.push("NovelAI precise reference images require a V4.5 or V5 model in Marinara.");
       break;
     case "xai":
       notes.push("The current xAI adapter rejects reference images, so edits are not available through this path yet.");
