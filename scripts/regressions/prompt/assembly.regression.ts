@@ -14,6 +14,7 @@ import {
   resolveCharacterMarkerFields,
 } from "../../../packages/server/src/services/prompt/marker-expander.js";
 import type { DB } from "../../../packages/server/src/db/connection.js";
+import { stripMemoryRecallSlot } from "../../../packages/server/src/services/prompt/memory-recall-slot.js";
 import { passThroughLeaf } from "../../../packages/server/src/services/prompt/prompt-escaping.js";
 import {
   appendContinuationMessageContent,
@@ -702,22 +703,18 @@ const cases: RegressionCase[] = [
     async run() {
       const image = "data:image/png;base64,aW1hZ2U=";
       const file = { type: "application/pdf", data: "data:application/pdf;base64,cGRm", filename: "notes.pdf" };
-      const result = await assemblePrompt({
-        db: undefined as unknown as DB,
-        // The generation route defers merging to the provider step, so the history reaches it message by message.
-        deferMessagePostProcessing: true,
-        preset: {
-          id: "history-attachments",
-          name: "History attachments",
-          sectionOrder: JSON.stringify(["main", "history"]),
-          groupOrder: "[]",
-          wrapFormat: "xml",
-          parameters: "{}",
-          variableGroups: "[]",
-          variableValues: "{}",
-        },
-        sections: [
+      const recallMarker = promptSection({
+        id: "recall",
+        identifier: "recall",
+        name: "Memory Recall",
+        isMarker: "true",
+        markerConfig: JSON.stringify({ type: "memory_recall" }),
+      });
+      // Without a Memory Recall marker; with one the assembler strips; with one generation strips after recall.
+      for (const recall of ["none", "assembler", "deferred"] as const) {
+        const sections = [
           promptSection({ id: "main", identifier: "main", name: "Main", content: "Stay in character." }),
+          ...(recall === "none" ? [] : [recallMarker]),
           promptSection({
             id: "history",
             identifier: "chatHistory",
@@ -725,49 +722,73 @@ const cases: RegressionCase[] = [
             isMarker: "true",
             markerConfig: JSON.stringify({ type: "chat_history" }),
           }),
-        ],
-        groups: [],
-        choiceBlocks: [],
-        chatChoices: {},
-        chatId: "history-attachments",
-        characterIds: [],
-        personaName: "Mari",
-        personaDescription: "",
-        chatMessages: [
-          { role: "assistant", content: "Show me what you found.", contextKind: "history" },
-          { role: "user", content: "", images: [image], contextKind: "history" },
-          { role: "assistant", content: "A brass key.", contextKind: "history" },
-          { role: "user", content: "", files: [file], contextKind: "history" },
-          { role: "assistant", content: "The notes mention a vault.", contextKind: "history" },
-          { role: "user", content: "  \n ", contextKind: "history" },
-          { role: "user", content: "What did I show you?", contextKind: "history" },
-        ],
-        disableLorebooks: true,
-      });
+        ];
+        const result = await assemblePrompt({
+          db: undefined as unknown as DB,
+          // The generation route defers merging to the provider step, so the history reaches it message by message.
+          deferMessagePostProcessing: true,
+          deferMemoryRecall: recall === "deferred",
+          preset: {
+            id: "history-attachments",
+            name: "History attachments",
+            sectionOrder: JSON.stringify(sections.map((section) => section.id)),
+            groupOrder: "[]",
+            wrapFormat: "xml",
+            parameters: "{}",
+            variableGroups: "[]",
+            variableValues: "{}",
+          },
+          sections,
+          groups: [],
+          choiceBlocks: [],
+          chatChoices: {},
+          chatId: "history-attachments",
+          characterIds: [],
+          personaName: "Mari",
+          personaDescription: "",
+          chatMessages: [
+            { role: "assistant", content: "Show me what you found.", contextKind: "history" },
+            { role: "user", content: "", images: [image], contextKind: "history" },
+            { role: "assistant", content: "A brass key.", contextKind: "history" },
+            { role: "user", content: "", files: [file], contextKind: "history" },
+            { role: "assistant", content: "The notes mention a vault.", contextKind: "history" },
+            { role: "user", content: "  \n ", contextKind: "history" },
+            { role: "user", content: "What did I show you?", contextKind: "history" },
+          ],
+          disableLorebooks: true,
+        });
+        const messages = recall === "deferred" ? stripMemoryRecallSlot(result.messages) : result.messages;
 
-      assert.deepEqual(
-        result.messages.filter((message) => message.images?.length).map((message) => message.images),
-        [[image]],
-      );
-      assert.deepEqual(
-        result.messages.filter((message) => message.files?.length).map((message) => message.files),
-        [[file]],
-      );
-      // A blank turn with nothing attached is still left out.
-      assert.equal(
-        result.messages.some((message) => !message.content.trim() && !message.images?.length && !message.files?.length),
-        false,
-      );
+        assert.deepEqual(
+          messages.filter((message) => message.images?.length).map((message) => message.images),
+          [[image]],
+          recall,
+        );
+        assert.deepEqual(
+          messages.filter((message) => message.files?.length).map((message) => message.files),
+          [[file]],
+          recall,
+        );
+        // A blank turn with nothing attached is still left out, and so is an unfilled Memory Recall marker.
+        assert.equal(
+          messages.some((message) => !message.content.trim() && !message.images?.length && !message.files?.length),
+          false,
+          recall,
+        );
+        assert.doesNotMatch(JSON.stringify(messages), /MARINARA_MEMORY_RECALL/u, recall);
 
-      const sent = postProcessMessages(result.messages, { strictRoleFormatting: true });
-      assert.deepEqual(
-        sent.flatMap((message) => message.images ?? []),
-        [image],
-      );
-      assert.deepEqual(
-        sent.flatMap((message) => message.files ?? []),
-        [file],
-      );
+        const sent = postProcessMessages(messages, { strictRoleFormatting: true });
+        assert.deepEqual(
+          sent.flatMap((message) => message.images ?? []),
+          [image],
+          recall,
+        );
+        assert.deepEqual(
+          sent.flatMap((message) => message.files ?? []),
+          [file],
+          recall,
+        );
+      }
     },
   },
 ];
