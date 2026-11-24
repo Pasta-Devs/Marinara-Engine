@@ -57,6 +57,7 @@ import { runWithGenerationFallbackNotifier } from "./services/generation/fallbac
 import { createReplyFallbackNotifier } from "./routes/generate/fallback-notification.js";
 import { initializeCapabilityAgentRegistry } from "./services/capability-packages/capability-agent-registry.service.js";
 import { capabilityPackageManager } from "./services/capability-packages/package-manager.service.js";
+import { warmOfficialAgentCatalogKnowledge } from "./services/professor-mari/official-agent-knowledge.js";
 import { capabilityModuleRuntime } from "./services/capability-packages/capability-module-runtime.service.js";
 import { migrateLegacyCapabilities } from "./services/capability-packages/legacy-capability-migration.js";
 import { createClientNotFoundHandler, createClientStaticOptions } from "./config/client-static-config.js";
@@ -227,6 +228,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     } catch (error) {
       app.log.warn(error, "Optional package availability migration did not complete; it will retry next startup");
     }
+    warmOfficialAgentCatalogKnowledge();
   }
   resetTurnGameRegistry();
 

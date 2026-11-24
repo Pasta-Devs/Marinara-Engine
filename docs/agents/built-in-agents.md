@@ -75,6 +75,26 @@ A book you write together with the model. Set up the story, cast and lorebooks i
 - **Key settings**: install it, restart when prompted, then open **Home → Story Writer** and pick a text connection in its sidebar. Stories are saved on your Marinara server. You can start new ones, return to old ones and download them as Markdown or plain text.
 - **Full guide**: [Story Writer package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/staging/packages/story-writer/README.md).
 
+### Otome Hearth
+
+A single-player otome game made from your characters. Love interests remember what you chose, send you messages, go on dates, and unlock side stories and outfits using Starlight you earn by playing, with no real-money payments or stamina timers.
+
+- **Integration**: App in its own **Otome Hearth** tab in **Home**.
+- **Where it works**: Home.
+- **Availability**: requires Engine **2.5.1+** (below 4.0.0). Permissions: `network`, `routes`, `storage`, `ui`.
+- **Key settings**: install it, restart when prompted, then open **Home → Otome Hearth**. Configure character bibles, **Lines & Veils** content limits, and optional **Remind Me** tracking inside the app.
+- **Full guide**: [Otome Hearth package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/otome-forge/README.md).
+
+### Saucelings
+
+A virtual pet in **Home → Saucelings** and on Home widgets. Choose one of your characters as caretaker to feed, play with, and cuddle a pet on their own schedule while you cover the gaps they miss.
+
+- **Integration**: App in its own **Saucelings** tab and Home widgets in **Home**.
+- **Where it works**: Home.
+- **Availability**: requires Engine **2.5.0+** (below 4.0.0). Permissions: `prompt-context`, `routes`, `storage`, `ui`.
+- **Key settings**: install it, restart when prompted, then open **Home → Saucelings** to manage the pet across **Nook**, **Journal**, **Album**, **Menagerie**, and **Settings**.
+- **Full guide**: [Saucelings package guide](https://github.com/Pasta-Devs/Marinara-Agents/blob/main/packages/saucelings/README.md).
+
 ## Writer agents
 
 Writer agents shape the story or the prose. They add guidance before the reply or clean up the reply after it.
@@ -417,6 +437,22 @@ Adds a one-on-one match where both choices stay hidden until the reveal.
 - **Integration**: Conversation game package.
 - **Where it works**: Conversation.
 - **Key settings**: start it from the games picker or with `/rps`, then choose the opponent and a best-of-three, five or seven match. Installing or removing it needs a restart.
+
+### Blackjack
+
+Adds a Blackjack table against the house for Conversation characters.
+
+- **Integration**: Conversation game package.
+- **Where it works**: Conversation.
+- **Key settings**: start a table with `/blackjack` or from a character prompt, and enable **Blackjack** under **Chat Settings → Agents → Commands** so characters can start a game on their own. Installing or removing it needs a restart.
+
+### Wordle
+
+Adds a daily Wordle word race with Conversation characters.
+
+- **Integration**: Conversation game package.
+- **Where it works**: Conversation.
+- **Key settings**: start today's game with `/wordle`, and enable **Wordle** under **Chat Settings → Agents → Commands** so characters can start today's game on their own. Installing or removing it needs a restart.
 
 ## Related guides
 
