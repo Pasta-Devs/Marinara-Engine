@@ -23421,6 +23421,12 @@ test("page backing keeps the app running when the browser refuses canvas reads",
   await expect
     .poll(() => page.locator("html").evaluate((element) => element.style.getPropertyValue("--marinara-page-backing")))
     .toBe("#234567");
+  // Its contrast can't be checked either, so editors and fields keep the theme's own surface.
+  await expect
+    .poll(() =>
+      page.locator("html").evaluate((element) => getComputedStyle(element).getPropertyValue("--background").trim()),
+    )
+    .toBe("#050312");
 });
 
 test("a dark app background in Light mode leaves editors and fields on the theme's surface", async ({ page }) => {

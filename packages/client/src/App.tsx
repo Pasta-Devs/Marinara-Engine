@@ -716,14 +716,15 @@ export function App() {
     const resolvedBackground = getCssColorFallback(background, defaultBackground);
 
     if (background) {
-      root.style.setProperty("--background", resolvedBackground);
       root.style.setProperty("--marinara-app-background-paint", background);
     } else {
-      root.style.removeProperty("--background");
       root.style.removeProperty("--marinara-app-background-paint");
     }
 
     const syncLiteralBackground = () => {
+      // The app background becomes --background below only once its contrast check passes, so a
+      // canvas the browser refuses leaves the theme's own surface rather than an unreadable one.
+      root.style.removeProperty("--background");
       // iOS paints the safe-area/overscroll backing from the literal html/body
       // background-color, not from resolved custom properties (see index.html).
       // Read the rendered variable so visual themes and injected custom theme
@@ -757,7 +758,6 @@ export function App() {
             context.fillRect(0, 0, 1, 1);
             const textContrast = contrastRatio(backgroundPixels.data, context.getImageData(0, 0, 1, 1).data);
             if (textContrast >= READABLE_TEXT_CONTRAST) root.style.setProperty("--background", resolvedBackground);
-            else root.style.removeProperty("--background");
             context.putImageData(backgroundPixels, 0, 0);
           }
           context.fillStyle = computedStyle.getPropertyValue("--card").trim();
