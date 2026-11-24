@@ -2037,6 +2037,10 @@ export const ChatInput = memo(function ChatInput({
         onPointerDown={(event) => {
           if (hasActiveTextSelection()) return;
           const target = event.target as HTMLElement;
+          // React passes events up from portals: a press inside the phone Quick Switcher sheet (or any
+          // other window opened from this bar) is not a press on the bar, and focusing the message box
+          // from there opened the keyboard under the sheet (Nov 24).
+          if (!event.currentTarget.contains(target)) return;
           if (target.closest("button, input, textarea, select, a, [role='button']")) return;
           event.preventDefault();
           const textarea = textareaRef.current;

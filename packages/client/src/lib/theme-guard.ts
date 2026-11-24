@@ -1070,6 +1070,9 @@ const FOCUS_SURFACES = [
  */
 function chatTextPoints(): SamplePoint[] {
   const points: SamplePoint[] = [];
+  // Text scrolled up under the top bar is covered by design: sample the first line below it instead.
+  const bar = document.querySelector('[data-component="TopBar"]');
+  const barBottom = bar && isShown(bar) ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
   const contents = Array.from(document.querySelectorAll(".mari-message-content")).slice(-8).reverse();
   for (const content of contents) {
     if (content.closest('[aria-hidden="true"], [inert]')) continue;
@@ -1088,7 +1091,7 @@ function chatTextPoints(): SamplePoint[] {
     const visibleTop = Math.max(
       rect.top,
       scroller?.top ?? 0,
-      0,
+      barBottom,
       pinned && pinned.bottom > rect.top ? pinned.bottom : 0,
     );
     const y = Math.min(visibleTop + 12, rect.top + rect.height / 2, rect.bottom - 4);
@@ -1112,9 +1115,12 @@ function chatPointInView(host: Element, point: SamplePoint) {
     .map((area) => area.selector)
     .join(", ");
   for (const hit of document.elementsFromPoint(at.x, at.y)) {
-    if (host.contains(hit)) break;
+    // Panels first: on phones the top bar sits inside <main>, the host of the Docs reader's text, so a
+    // line scrolled up under it answered as "the host" and counted as chat text a theme painted over
+    // (MARI to the Moon switched off in the AI basics tour, Nov 24).
     const panel = hit.closest(panels);
     if (panel && !panel.contains(host)) return false;
+    if (host.contains(hit)) break;
   }
   return true;
 }

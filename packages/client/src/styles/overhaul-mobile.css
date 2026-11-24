@@ -3218,8 +3218,9 @@
   font-size: 1rem;
 }
 
-/* Quick Switcher on phones: a bottom sheet (grabber, rounded top) with big segmented tabs over the
-   shared connection chooser. */
+/* Quick Switcher on phones: a bottom sheet (rounded top) with big segmented tabs over the shared
+   connection chooser. One fixed height and no grab handle (Nov 24): it doesn't resize or pull down, so
+   nothing suggests it can be dragged. It shrinks with the keyboard (visual viewport). */
 :root[data-overhaul="mobile"] .mari-modal:has(> .ovm-qs-modal) {
   align-items: flex-end;
   padding: 0 var(--mari-shell-inset-right, 0px) 0 var(--mari-shell-inset-left, 0px) !important;
@@ -3227,44 +3228,16 @@
 :root[data-overhaul="mobile"] .mari-modal-panel.ovm-qs-modal:not(#ovm-x) {
   width: 100%;
   max-width: none;
-  height: auto;
+  height: min(40rem, 85dvh, calc(var(--mari-visual-viewport-height, 100dvh) - 1.5rem));
   max-height: 85dvh;
-  padding-top: 0.875rem;
+  padding-top: 0.5rem;
   padding-bottom: env(safe-area-inset-bottom);
   border-width: 1px 0 0;
   border-radius: 1.375rem 1.375rem 0 0;
   background: var(--ovm-raised);
 }
-:root[data-overhaul="mobile"] .mari-modal-panel.ovm-qs-modal.is-half:not(#ovm-x) {
-  /* Half height: Starred is one tap away; searching or opening a Connection grows it (.is-tall). */
-  height: min(38rem, 68dvh);
-  transition: height 0.2s ease;
-}
-:root[data-overhaul="mobile"] .ovm-qs-modal.is-half [data-quick-switcher-mobile-menu] {
-  min-height: 0;
-}
-:root[data-overhaul="mobile"] .mari-modal-panel.ovm-qs-modal.is-tall:not(#ovm-x) {
-  height: 85dvh;
-  transition: height 0.2s ease;
-}
-@media (prefers-reduced-motion: reduce) {
-  :root[data-overhaul="mobile"] .mari-modal-panel.ovm-qs-modal:not(#ovm-x) {
-    transition: none;
-  }
-}
-:root[data-overhaul="mobile"] .ovm-qs-modal::before {
-  content: "";
-  position: absolute;
-  top: 0.5rem;
-  left: 50%;
-  width: 2.25rem;
-  height: 0.3125rem;
-  border-radius: 999px;
-  background: var(--ovm-line);
-  transform: translateX(-50%);
-}
 :root[data-overhaul="mobile"] .ovm-qs-modal [data-quick-switcher-mobile-menu] {
-  min-height: min(26rem, 70dvh);
+  min-height: 0;
 }
 :root[data-overhaul="mobile"] .ovm-qs-modal [data-quick-switcher-mobile-menu] > div:first-child {
   gap: 0.25rem;

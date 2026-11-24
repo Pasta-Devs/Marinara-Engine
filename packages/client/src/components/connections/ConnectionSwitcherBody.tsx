@@ -457,7 +457,6 @@ export function ConnectionSwitcherBody({
   searchAtBottom = false,
   connectionChips = false,
   hideNow = false,
-  onGrow,
   showUnstarred = false,
   kind = "chat",
   rowFilter,
@@ -564,8 +563,6 @@ export function ConnectionSwitcherBody({
   hideNow?: boolean;
   /** Phones: a row of Connection chips under Starred ("Browse a connection"), one tap into each catalog. */
   connectionChips?: boolean;
-  /** Called once the user searches or opens a Connection, so a half-height sheet can grow. */
-  onGrow?: () => void;
   /** False skips catalog search and Browse (Quick Switcher's connection-only mode). */
   catalogBrowse?: boolean;
   /** Job pickers also list provider models below the stars in the initial pane. */
@@ -1165,11 +1162,6 @@ export function ConnectionSwitcherBody({
   }, [knownGood, groups, catalogs, anchorOf]);
 
   const searching = deferredQuery.length > 0;
-  const growRef = useRef(onGrow);
-  growRef.current = onGrow;
-  useEffect(() => {
-    if (deferredQuery) growRef.current?.();
-  }, [deferredQuery]);
   // Search results: starred matches first, then one group per account; a selected account searches only its own
   // models. The typed id comes last.
   const isStarredEntry = (entry: Entry) =>
@@ -1654,7 +1646,6 @@ export function ConnectionSwitcherBody({
   const openPane = (key: string) => {
     setPane(key);
     setDrilled(true);
-    if (key !== "starred") onGrow?.();
   };
   const heading = (label: ReactNode, count?: number, trailing?: ReactNode) => (
     <ListHeading className={cn("flex justify-between gap-2", trailing ? "items-center" : "items-baseline")}>
