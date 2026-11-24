@@ -218,6 +218,11 @@ export function MariImageOpener({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState<{ src: string; alt: string; messageId: string } | null>(null);
+  // If opened while a live reply was still streaming (messageId === ""), latch the reply's ID once it arrives
+  // and keep it fixed for the rest of this lightbox session.
+  if (open && !open.messageId && messageId) {
+    setOpen({ ...open, messageId });
+  }
   const triggerRef = useRef<HTMLElement | null>(null);
   const onOpen = useCallback(
     ({ trigger, ...image }: { src: string; alt: string; trigger: HTMLElement }) => {

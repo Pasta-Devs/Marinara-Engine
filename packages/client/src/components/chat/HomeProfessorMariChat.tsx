@@ -2523,6 +2523,7 @@ export function HomeProfessorMariChat({
     setMessages,
     setSending,
     setWorkspaceTimeline,
+    workspaceRunIdRef,
   });
   // #9387: the server already swapped the picture in her saved reply; show it here without reloading the thread,
   // which would drop a turn that is still streaming.
