@@ -113,7 +113,7 @@ OpenAI는 더 많은 프레임을 허용하지만 GIF 하나에 허용되는 픽
 
 ### NovelAI
 
-NovelAI는 애니메이션풍 그림에 특화되어 있습니다. V4, V4.5, V5 모델에서는 Marinara가 여러 캐릭터가 등장하는 스토리보드, Illustrator 장면, Professor Mari의 이미지를 위해 위치 정보가 포함된 캐릭터별 프롬프트를 NovelAI가 자체 지원하는 형식으로 보냅니다. 정밀 참조 이미지는 V4.5 모델에서만 작동합니다.
+NovelAI는 애니메이션풍 그림에 특화되어 있습니다. V4, V4.5, V5 모델에서는 Marinara가 여러 캐릭터가 등장하는 스토리보드, Illustrator 장면, Professor Mari의 이미지를 위해 위치 정보가 포함된 캐릭터별 프롬프트를 NovelAI가 자체 지원하는 형식으로 보냅니다. 정밀 참조 이미지는 V4.5와 V5 모델에서 작동합니다.
 
 ### Venice.ai
 
@@ -190,12 +190,14 @@ Marinara가 값을 채워 넣을 자리마다 워크플로에 다음 문자열�
 | ComfyUI | Sampler | euler_ancestral |
 | ComfyUI | Scheduler | normal |
 | ComfyUI | Denoise | 1 |
-| NovelAI | Steps | 28 |
-| NovelAI | Prompt guidance | 6 |
+| NovelAI | Steps | 자동 |
+| NovelAI | Prompt guidance | 자동 |
 | NovelAI | Sampler | k_euler_ancestral |
 | NovelAI | Noise schedule | karras |
 
 서비스마다 **Prompt prefix**(프롬프트 접두사)와 **Negative prefix**(네거티브 접두사) 입력란도 있습니다. 여기에 넣은 글은 이 모델에서 보내는 모든 프롬프트 앞에 붙습니다. AUTOMATIC1111 / Forge와 ComfyUI에는 **Clip skip**(클립 건너뛰기) 입력란이 있습니다. AUTOMATIC1111 / Forge에는 **Restore faces**(얼굴 복원) 토글이 추가로 있습니다. ComfyUI에는 참조 이미지가 없을 때 1x1 플레이스홀더를 업로드하는 토글이 추가로 있으며, 이 토글은 참조 플레이스홀더를 쓰는 사용자 지정 워크플로에서만 의미가 있습니다. NovelAI에는 **Guidance rescale**(가이던스 리스케일)과 **UC preset**(UC 프리셋)이 추가로 있습니다.
+
+NovelAI의 **Steps**(단계)와 **Prompt guidance**(프롬프트 가이던스)는 기본적으로 비어 있으며, 이는 **Automatic**(자동)을 뜻합니다. Marinara는 모델에 맞는 NovelAI 자체 기본값을 보내고, 이 값은 빈 입력란에 표시됩니다. 스텝 수는 23이고, 가이던스는 V5에서 7, V4.5에서 5, V4에서 5.5입니다. 직접 정한 값을 쓰려면 숫자를 입력하세요. 자동으로 되돌리려면 입력란을 비우세요. 이 설정이 생기기 전에 예전의 내장된 값인 28 스텝이나 가이던스 6으로 저장된 연결은 이제 자동으로 정해지는 값을 사용합니다.
 
 NovelAI에는 **Background dataset for backgrounds**(배경에 배경 데이터셋 사용) 설정도 있으며, 기본값은 꺼짐입니다. 켜면 V4.5와 V5 모델에서 배경 그림(캐릭터와 페르소나 Gallery 배경, 채팅과 Illustrator 장면 배경, 채팅 갤러리의 장소 그림, 게임 배경)의 프롬프트 앞에 NovelAI의 `background dataset` 태그가 붙습니다. NovelAI의 배경 데이터셋은 사진에 가까운 그림을 만드는 경향이 있으므로, 배경을 애니메이션풍 채팅에 맞추려면 꺼 두세요.
 
@@ -221,7 +223,7 @@ NovelAI에는 전용 태그인 `transparent background, alpha transparency`로 �
 | --- | --- |
 | OpenAI (DALL-E) | 최대 16장, GPT Image 모델에서만. GIF에는 보내지 않음 |
 | ChatGPT (Codex login) | 최대 16장 |
-| NovelAI | 최대 16장, V4.5 모델에서만 |
+| NovelAI | 최대 16장, V4.5와 V5 모델에서만 |
 | xAI / Grok Imagine | 최대 3장 |
 | NanoGPT | 최대 3장, 모델 한도 안에서. 텍스트-이미지 모델에는 보내지 않음 |
 | ComfyUI, RunPod Serverless (ComfyUI), SwarmUI | 최대 4장, 워크플로 플레이스홀더를 통해 |
@@ -232,7 +234,7 @@ NovelAI에는 전용 태그인 `transparent background, alpha transparency`로 �
 | Venice.ai, Z.AI | 텍스트-이미지 생성에서는 지원하지 않음 |
 | Together AI, Pollinations, Stable Horde, fal.ai | 지원하지 않음 |
 
-NovelAI 정밀 참조는 `nai-diffusion-4-5-full` 같은 V4.5 모델에서만 작동합니다. NovelAI는 V5용 Precise Reference를 출시하지 않았습니다. 다른 모델에 참조를 요청하면 Marinara는 참조 없이 이미지를 생성하고 서버에 경고 로그를 남깁니다.
+NovelAI 정밀 참조는 `nai-diffusion-4-5-full`이나 `nai-diffusion-5-full` 같은 V4.5와 V5 모델에서 작동합니다. 그보다 오래된 모델에서는 Marinara가 참조 없이 이미지를 생성하고 서버에 경고 로그를 남깁니다. V5에는 스타일 충실도가 없으므로 **Style fidelity (V4.5 only)** 설정을 무시합니다. 참조 이미지마다 NovelAI 자체 요금인 5 Anlas가 듭니다.
 
 ## 미디어 생성 요청을 순서대로 처리하기
 

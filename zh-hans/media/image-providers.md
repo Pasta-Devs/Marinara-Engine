@@ -113,7 +113,7 @@ OpenAI 允许更多帧，但没有公布一个 GIF 最多可以有多少像素�
 
 ### NovelAI
 
-NovelAI 专注于动漫风格的图像。使用 V4、V4.5 和 V5 模型时，Marinara 会为多角色分镜、Illustrator 场景和 Professor Mari 的图片发送带位置的原生角色提示词。精确参考图只能在 V4.5 模型上使用。
+NovelAI 专注于动漫风格的图像。使用 V4、V4.5 和 V5 模型时，Marinara 会为多角色分镜、Illustrator 场景和 Professor Mari 的图片发送带位置的原生角色提示词。精确参考图可以在 V4.5 和 V5 模型上使用。
 
 ### Venice.ai
 
@@ -190,12 +190,14 @@ SwarmUI 可以把 ComfyUI 任务分配到自己的队列中处理。没有账号
 | ComfyUI | Sampler | euler_ancestral |
 | ComfyUI | Scheduler | normal |
 | ComfyUI | Denoise | 1 |
-| NovelAI | Steps | 28 |
-| NovelAI | Prompt guidance | 6 |
+| NovelAI | Steps | 自动 |
+| NovelAI | Prompt guidance | 自动 |
 | NovelAI | Sampler | k_euler_ancestral |
 | NovelAI | Noise schedule | karras |
 
 每个服务还有 **Prompt prefix**(提示词前缀) 和 **Negative prefix**(负面前缀) 两个字段。写在这里的文字会加在这个模型每一条提示词的最前面。AUTOMATIC1111 / Forge 和 ComfyUI 都有 **Clip skip** 字段。AUTOMATIC1111 / Forge 另有一个 **Restore faces** 开关。ComfyUI 另有一个开关，用于在没有提供参考图时上传一张 1x1 占位图，它只对带参考图占位符的自定义工作流有意义。NovelAI 另有 **Guidance rescale** 和 **UC preset**。
+
+NovelAI 的 **Steps**(步数) 和 **Prompt guidance**(提示词引导) 默认留空，表示 **Automatic**(自动)：Marinara 会发送 NovelAI 自己为该模型设定的默认值，并在空字段中显示出来。也就是 23 步，提示词引导在 V5 上为 7，在 V4.5 上为 5，在 V4 上为 5.5。输入数字即可使用你自己的值。清空字段即可恢复为自动。在这项设置出现之前保存、并带有旧的内置值 28 步或提示词引导 6 的连接，现在会改用自动值。
 
 NovelAI 还有 **Background dataset for backgrounds**(背景图使用背景数据集) 开关，默认关闭。开启后，使用 V4.5 和 V5 模型生成背景图片（角色和用户角色图库的背景、聊天和 Illustrator 的场景背景、聊天图库的地点图片以及游戏背景）时，提示词会以 NovelAI 的 `background dataset` 标签开头。NovelAI 的背景数据集偏向摄影风格，所以如果想让背景与动漫风格的聊天保持一致，就让它保持关闭。
 
@@ -221,7 +223,7 @@ NovelAI 还有 **Background dataset for backgrounds**(背景图使用背景数�
 | --- | --- |
 | OpenAI (DALL-E) | 最多 16 张，仅限 GPT Image 模型。GIF 不能带参考图 |
 | ChatGPT (Codex login) | 最多 16 张 |
-| NovelAI | 最多 16 张，仅限 V4.5 模型 |
+| NovelAI | 最多 16 张，仅限 V4.5 和 V5 模型 |
 | xAI / Grok Imagine | 最多 3 张 |
 | NanoGPT | 最多 3 张，不超过模型的上限。文生图模型不支持 |
 | ComfyUI、RunPod Serverless (ComfyUI)、SwarmUI | 最多 4 张，通过工作流占位符传入 |
@@ -232,7 +234,7 @@ NovelAI 还有 **Background dataset for backgrounds**(背景图使用背景数�
 | Venice.ai、Z.AI | 文生图不支持 |
 | Together AI、Pollinations、Stable Horde、fal.ai | 不支持 |
 
-NovelAI 的精确参考图只能在 V4.5 模型上使用，比如 `nai-diffusion-4-5-full`。NovelAI 尚未为 V5 发布 Precise Reference。在其他模型上请求参考图时，Marinara 会在不使用参考图的情况下生成图像，并在服务器上记录一条警告。
+NovelAI 的精确参考图可以在 V4.5 和 V5 模型上使用，比如 `nai-diffusion-4-5-full` 或 `nai-diffusion-5-full`。在更早的模型上，Marinara 会在不使用参考图的情况下生成图像，并在服务器上记录一条警告。V5 没有风格保真度，因此会忽略 **Style fidelity (V4.5 only)**。每张参考图按 NovelAI 自己的价格计费，即每张 5 Anlas。
 
 ## 媒体生成请求排队
 

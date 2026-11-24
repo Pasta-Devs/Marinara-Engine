@@ -113,7 +113,7 @@ Roda modelos Stable Diffusion hospedados. Um modelo é obrigatório, então digi
 
 ### NovelAI
 
-A NovelAI é focada em arte no estilo anime. Nos modelos V4, V4.5 e V5, Marinara envia prompts nativos de personagem, com posições, para storyboards, cenas do Illustrator e imagens da Professor Mari com vários personagens. As imagens de referência precisas só funcionam em um modelo V4.5.
+A NovelAI é focada em arte no estilo anime. Nos modelos V4, V4.5 e V5, Marinara envia prompts nativos de personagem, com posições, para storyboards, cenas do Illustrator e imagens da Professor Mari com vários personagens. As imagens de referência precisas funcionam nos modelos V4.5 e V5.
 
 ### Venice.ai
 
@@ -190,12 +190,14 @@ Todo serviço tem um campo **Seed**. O valor -1 mantém cada imagem aleatória. 
 | ComfyUI | Sampler | euler_ancestral |
 | ComfyUI | Scheduler | normal |
 | ComfyUI | Denoise | 1 |
-| NovelAI | Steps | 28 |
-| NovelAI | Prompt guidance | 6 |
+| NovelAI | Steps | Automático |
+| NovelAI | Prompt guidance | Automático |
 | NovelAI | Sampler | k_euler_ancestral |
 | NovelAI | Noise schedule | karras |
 
 Cada serviço também tem os campos **Prompt prefix** e **Negative prefix**. O texto colocado ali entra na frente de todo prompt deste modelo. AUTOMATIC1111 / Forge e ComfyUI têm um campo **Clip skip**. AUTOMATIC1111 / Forge acrescenta um botão liga/desliga **Restore faces**. ComfyUI acrescenta um botão liga/desliga para fazer upload de uma imagem de preenchimento 1x1 quando nenhuma imagem de referência é fornecida, o que só importa em fluxos de trabalho personalizados com marcadores de referência. NovelAI acrescenta **Guidance rescale** e **UC preset**.
+
+Os campos **Steps** e **Prompt guidance** da NovelAI ficam vazios por padrão, o que significa **Automatic** (automático): Marinara envia o padrão da própria NovelAI para o modelo, mostrado no campo vazio. São 23 passos, com orientação do prompt de 7 no V5, 5 no V4.5 e 5,5 no V4. Digite um número para usar o seu próprio valor. Limpe o campo para voltar ao valor automático. Uma conexão salva antes de essa configuração existir, com os antigos valores embutidos de 28 passos ou orientação do prompt 6, agora usa o valor automático.
 
 A NovelAI também tem a opção **Background dataset for backgrounds** (conjunto de dados de planos de fundo para gerar fundos), desativada por padrão. Quando ela está ativada, as imagens de fundo (planos de fundo da Galeria do personagem e da Galeria da persona, planos de fundo de cena do chat e do Illustrator, imagens de locais da galeria do chat e planos de fundo de jogo) começam com a tag `background dataset` da NovelAI nos modelos V4.5 e V5. O conjunto de dados de planos de fundo da NovelAI tende ao estilo fotográfico, então deixe a opção desativada se os planos de fundo devem combinar com um chat no estilo anime.
 
@@ -221,7 +223,7 @@ Uma imagem de referência é uma figura já existente que você envia junto com 
 | --- | --- |
 | OpenAI (DALL-E) | Até 16, só nos modelos GPT Image. Nenhuma para um GIF |
 | ChatGPT (Codex login) | Até 16 |
-| NovelAI | Até 16, somente no modelo V4.5 |
+| NovelAI | Até 16, somente nos modelos V4.5 e V5 |
 | xAI / Grok Imagine | Até 3 |
 | NanoGPT | Até 3, dentro do limite do modelo. Nenhuma para modelos de texto para imagem |
 | ComfyUI, RunPod Serverless (ComfyUI), SwarmUI | Até 4, por meio dos marcadores do fluxo de trabalho |
@@ -232,7 +234,7 @@ Uma imagem de referência é uma figura já existente que você envia junto com 
 | Venice.ai, Z.AI | Sem suporte em texto para imagem |
 | Together AI, Pollinations, Stable Horde, fal.ai | Sem suporte |
 
-A referência precisa da NovelAI só funciona em um modelo V4.5, como `nai-diffusion-4-5-full`. A NovelAI não lançou o Precise Reference para o V5. Se você pedir referências em outro modelo, Marinara gera a imagem sem elas e registra um aviso no servidor.
+A referência precisa da NovelAI funciona nos modelos V4.5 e V5, como `nai-diffusion-4-5-full` ou `nai-diffusion-5-full`. Em um modelo mais antigo, Marinara gera a imagem sem as referências e registra um aviso no servidor. O V5 não tem fidelidade ao estilo, então ignora **Style fidelity (V4.5 only)**. Cada referência custa o preço da própria NovelAI, 5 Anlas por imagem.
 
 <a id="queue-media-generation-requests"></a>
 
