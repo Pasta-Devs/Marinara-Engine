@@ -64,7 +64,7 @@ An **account** is one saved key, sign-in, or address for one service. If you use
 
 A job is something a model does for you. **Main** writes replies in your chats, **Agents** runs the helper agents, and other jobs make pictures, speak or answer yes-or-no questions for agents.
 
-The **Jobs** summary at the top of the panel shows the **Main** row and one sentence such as "Every other job follows Main, except Images." A job that follows Main uses the Main model. A job with a problem, such as a model whose account is off, gets its own line with a fix button.
+The **Jobs** summary at the top of the panel shows the **Main** row and one sentence such as "Every other job that is on follows Main, except Images." A job that follows Main uses the Main model. Jobs that are off are listed on the **Jobs** page. A job with a problem, such as a model whose account is off, gets its own line with a fix button.
 
 To see every job, click **All jobs** or the **Jobs** heading. The **Jobs** page lists them in this order:
 

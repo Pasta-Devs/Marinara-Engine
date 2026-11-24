@@ -264,14 +264,12 @@ test("the panel list shows each Connection's Models open, and its row or toggle 
 
     const panel = page.locator("[data-connections-panel]").filter({ visible: true });
     const search = panel.getByRole("searchbox", { name: "Search models and accounts" });
-    // The search box shows from 8 Models; the shared server usually holds that many from other specs.
-    if (await search.count()) {
-      await search.fill("E2E open models");
-      await toggle.click();
-      await expect(model).toHaveCount(0);
-      await toggle.click();
-      await expect(model).toBeVisible();
-    }
+    // The search box shows from 8 Models; with it the fold below runs on a filtered list.
+    if (await search.count()) await search.fill("E2E open models");
+    await toggle.click();
+    await expect(model).toHaveCount(0);
+    await toggle.click();
+    await expect(model).toBeVisible();
     // A connection whose final Model was deleted still shows, with its Add model action.
     await request.delete(`/api/connections/${created.connectionId}`);
     await page.reload();

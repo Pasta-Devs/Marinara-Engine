@@ -149,7 +149,7 @@ test("the Jobs summary says what follows Main and opens the Jobs page", async ({
     const panel = panelOf(page);
     // The summary: Main is one tap away, and one sentence says what the rest run.
     const jobsRow = panel.locator('[data-connections-row="defaults"]');
-    await expect(jobsRow).toHaveAttribute("aria-label", /^Jobs\. Every other job follows Main/u);
+    await expect(jobsRow).toHaveAttribute("aria-label", /^Jobs\. Every other job that is on follows Main/u);
     await expect(panel.locator('[data-defaults-role="main"]')).toContainText("claude-test-0");
     await expect(panel.locator('[data-defaults-tile="agents"]')).toHaveCount(0);
 

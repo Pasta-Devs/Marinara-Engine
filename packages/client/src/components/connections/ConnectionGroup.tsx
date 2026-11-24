@@ -27,6 +27,7 @@ import {
   isChatProvider,
   isLocalAuthProvider,
   PROVIDERS,
+  supportsSubscriptionUsageWidget,
   type APIProvider,
   type ConnectionAccountListItem,
 } from "@marinara-engine/shared";
@@ -386,8 +387,11 @@ export function ConnectionGroup({
             : null;
   // A key or test problem outranks the balance: only a Connection that works says its credit is running out.
   // A subscriber's pay-as-you-go credit can be 0 while the plan covers their models, so an active plan means no
-  // warning. The card's usage meter reads the same query, so this asks nothing more while it shows.
-  const { data: plan } = useSubscriptionUsage(firstRow?.id ?? null, !!usage && !!lowBalance && account.state === "ok");
+  // warning. Asked by what the service offers, not by whether its meter shows; the meter reads the same query.
+  const { data: plan } = useSubscriptionUsage(
+    firstRow?.id ?? null,
+    supportsSubscriptionUsageWidget(account.provider) && !!lowBalance && account.state === "ok",
+  );
   const planActive = !!plan && "active" in plan && plan.active;
   const warning =
     lowBalance && !planActive && account.state === "ok" && !testFailure

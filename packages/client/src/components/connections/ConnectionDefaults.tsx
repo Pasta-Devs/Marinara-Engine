@@ -797,6 +797,10 @@ function DefaultsJobRow({
   const embeddings = job.key === "embeddings";
   const decision = job.key === "decision";
   const hasSettings = JOB_SETTINGS.has(job.key as JobKey) || overrides.length > 0;
+  // A settings window that no longer applies (Embeddings' last override cleared) must not hold the job as busy.
+  useEffect(() => {
+    if (!hasSettings) setSettingsOpen(false);
+  }, [hasSettings]);
   const model = embeddings || decision || job.device ? null : modelFor(job);
   const title = t(jobLabelKey(job));
   const onClick = () => {
@@ -1021,7 +1025,7 @@ function JobProblemLine({ tile }: { tile: DefaultsTile }) {
   if (!warning) return null;
   return (
     <li className="flex min-h-9 min-w-0 items-center gap-2 px-1.5 text-xs max-md:min-h-11">
-      <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-amber-500" />
+      <AlertTriangle size="0.75rem" aria-hidden className="shrink-0 text-[var(--warning)]" />
       <span id={textId} title={warning.text} className="min-w-0 flex-1 truncate text-[var(--foreground)]">
         {t("connections.defaults.jobLabel", { role: tile.title, value: warning.short ?? warning.text })}
       </span>
@@ -1033,7 +1037,7 @@ function JobProblemLine({ tile }: { tile: DefaultsTile }) {
           aria-describedby={textId}
           className="group flex min-h-9 shrink-0 items-center rounded-md outline-none focus-visible:[&>span]:ring-1 focus-visible:[&>span]:ring-[var(--ring)] max-md:min-h-11"
         >
-          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[0.625rem] text-amber-500 transition-colors group-hover:bg-amber-500/20">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-[color-mix(in_srgb,var(--warning)_10%,transparent)] px-1.5 py-0.5 text-[0.625rem] text-[var(--warning)] transition-colors group-hover:bg-[color-mix(in_srgb,var(--warning)_20%,transparent)]">
             <AlertTriangle size="0.625rem" aria-hidden className="shrink-0" />
             {warning.fix.label}
           </span>

@@ -1678,15 +1678,25 @@ export function ConnectionSwitcherBody({
   // Job pickers (showUnstarred) already list every model with the current one in place, so Recent is for the
   // chat hosts' Starred overview only.
   if (!shownGroup && !paneFolder && !searching && !showUnstarred) {
+    // Several picks can end on one choice (a catalog pick of a model saved later), so each choice shows once: a
+    // saved Model by its row, so two saved Models that share a model id stay apart.
+    const shown = new Set<string>();
+    const add = (entry: Entry) => {
+      const key = entry.row ? `row:${entry.row.id}` : `model:${entry.group?.key ?? ""}\n${entry.model ?? ""}`;
+      if (shown.has(key)) return;
+      shown.add(key);
+      recentEntries.push(entry);
+    };
     for (const pick of recentPicks) {
       if (recentEntries.length === RECENT_SHOWN) break;
       const group = groupByAccount.get(pick.accountId);
       if (!group || starsOf(group).has(pick.model)) continue;
       const facts = catalogOf(group)?.of(pick.model);
-      const savedRow = pick.rowId ? group.rows.find((row) => row.id === pick.rowId) : undefined;
-      if (savedRow) {
-        if (savedRow.model === pick.model && !leadOnly(group, pick.model, facts))
-          recentEntries.push(entryOfRow(savedRow, group));
+      // A saved Model is the one picked; when it is gone, another saved Model with that id is not offered instead.
+      if (pick.rowId) {
+        const savedRow = group.rows.find((row) => row.id === pick.rowId);
+        if (savedRow && savedRow.model === pick.model && !leadOnly(group, pick.model, facts))
+          add(entryOfRow(savedRow, group));
         continue;
       }
       const listed = group.rows.some((row) => row.model === pick.model)
@@ -1694,7 +1704,7 @@ export function ConnectionSwitcherBody({
         : catalogBrowse &&
           !!catalogOf(group)?.idSets.some((ids) => ids.has(pick.model)) &&
           acceptsCatalog(pick.model, facts, group);
-      if (listed) recentEntries.push(entryFor(group, anchorOf(group), pick.model));
+      if (listed) add(entryFor(group, anchorOf(group), pick.model));
     }
   }
   const paneTitle = (title: ReactNode, summary: string) => (
