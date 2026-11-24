@@ -8,6 +8,7 @@ In the new layout, every chat, character, persona, lorebook, preset and app you 
 - **Phone and tablet held upright:** tap the number button at the top right. **All Tabs** shows every tab as a card. Tap a card to open it, or tap **Done** to go back.
 - **Swipe the top bar** left or right on a phone to go to the next or previous tab.
 - **Chat tabs** start with the chat's mode: its symbol in the mode's color and a short code, **CO** for Conversation, **RP** for Roleplay and **GM** for Game, then the chat's name. Two open chats with the same name and mode are numbered, such as "Luna · 2".
+- **Other tabs** show their symbol (a character, a lorebook, a persona and so on) and the name. A chat and a character that share a name both keep the plain name, since the symbol tells them apart. Two open tabs of the same kind with the same name are numbered the same way.
 
 ## Move, group and close tabs
 

@@ -18393,7 +18393,6 @@
   "ui.overhaul.tab.kindRoleplay": "roleplay",
   "ui.overhaul.tab.labelN": "{{name}} · {{n}}",
   "ui.overhaul.tab.labelWithKind": "{{name}} · {{kind}}",
-  "ui.overhaul.tab.labelWithKindN": "{{name}} · {{kind}} {{n}}",
   "ui.overhaul.text.account": "account",
   "ui.overhaul.text.accountActions": "Account actions",
   "ui.overhaul.text.accounts": "accounts",
