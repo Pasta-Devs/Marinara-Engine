@@ -154,6 +154,7 @@ export function ConversationPresenceCard({
   const statusButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const activityFieldRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const statusAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const placedAnchorRef = useRef<{ bottom: number; left: number } | null>(null);
   const [position, setPosition] = useState<{ top: number; left: number; width: number }>({
     top: 0,
     left: 0,
@@ -210,6 +211,7 @@ export function ConversationPresenceCard({
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
+    placedAnchorRef.current = { bottom: rect.bottom, left: rect.left };
     const viewportPadding = 12;
     const isMobile = window.innerWidth < 768;
     const width = isMobile ? Math.min(360, window.innerWidth - viewportPadding * 2) : 360;
@@ -247,6 +249,11 @@ export function ConversationPresenceCard({
     const handleResize = () => {
       // Mobile keyboards resize/pan the viewport when the activity editor gains focus.
       if (popoverRef.current?.contains(popoverRef.current.ownerDocument.activeElement)) return;
+      // The pill is pinned in the transcript's sticky header, so a transcript scroll (a reply, a late image,
+      // the browser keeping its place after a layout shift) leaves it where it was. Close only when it moved.
+      const rect = buttonRef.current?.getBoundingClientRect();
+      const placed = placedAnchorRef.current;
+      if (rect && placed && Math.abs(rect.bottom - placed.bottom) < 1 && Math.abs(rect.left - placed.left) < 1) return;
       setOpen(false);
     };
     const handleScroll = (event: Event) => {

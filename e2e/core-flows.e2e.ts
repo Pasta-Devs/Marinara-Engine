@@ -22623,6 +22623,72 @@ test("iPhone chat menus stay in the visual viewport while editing", async ({ pag
   }
 });
 
+// #9768: the pill sits in the transcript's sticky header, so a transcript scroll must not close its panel.
+test("Conversation Presence stays open while the transcript scrolls under its pill", async ({ page }) => {
+  const characterResponse = await page.request.post("/api/characters", {
+    data: { data: { name: "Scrolling Presence" } },
+  });
+  expect(characterResponse.ok()).toBeTruthy();
+  const characterId = ((await characterResponse.json()) as { id: string }).id;
+  let chatId: string | null = null;
+  try {
+    const chatResponse = await page.request.post("/api/chats", {
+      data: { name: "Presence Transcript Scroll", mode: "conversation", characterIds: [characterId] },
+    });
+    expect(chatResponse.ok()).toBeTruthy();
+    chatId = ((await chatResponse.json()) as { id: string }).id;
+    for (let index = 0; index < 24; index += 1) {
+      const messageResponse = await page.request.post(`/api/chats/${chatId}/messages`, {
+        data:
+          index % 2 === 0
+            ? { role: "user", content: `Shell note ${index}` }
+            : { role: "assistant", characterId, content: `Tide note ${index}` },
+      });
+      expect(messageResponse.ok()).toBeTruthy();
+    }
+
+    await prepareFreshClient(page);
+    await page.addInitScript((activeChatId) => {
+      localStorage.setItem("marinara-active-chat-id", activeChatId);
+    }, chatId);
+    await page.goto("/");
+    await expect(page.getByText("Tide note 23", { exact: true })).toBeVisible();
+
+    const pill = page.locator('[data-chat-mode="conversation"] [data-chat-help="identity"]');
+    const transcript = page.locator('[data-chat-mode="conversation"] [data-chat-scroll]');
+    const presencePanel = page
+      .locator("body > [data-chat-floating-panel]")
+      .filter({ hasText: "Conversation Presence" });
+    const scrollTranscriptBy = (distance: number) =>
+      transcript.evaluate(async (element, delta) => {
+        const before = element.scrollTop;
+        element.scrollTop = Math.max(0, before - delta);
+        // Let the scroll event and any close it causes render before checking.
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return before - element.scrollTop;
+      }, distance);
+
+    await pill.click();
+    await expect(presencePanel).toBeVisible();
+    const pillBox = await pill.boundingBox();
+    expect(await scrollTranscriptBy(240)).toBeGreaterThan(0);
+    expect(await pill.boundingBox()).toEqual(pillBox);
+    await expect(presencePanel).toBeVisible();
+
+    // A panel whose pill did move still closes, so it never floats away from it.
+    await pill.evaluate((element) => {
+      (element as HTMLElement).style.transition = "none";
+      (element as HTMLElement).style.translate = "0 48px";
+    });
+    expect(await scrollTranscriptBy(40)).toBeGreaterThan(0);
+    await expect(presencePanel).toHaveCount(0);
+  } finally {
+    if (chatId) await page.request.delete(`/api/chats/${chatId}?force=true`).catch(() => undefined);
+    await page.request.delete(`/api/characters/${characterId}`).catch(() => undefined);
+  }
+});
+
 test("iPhone Conversation Presence keeps its last activity field reachable", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile-webkit"), "The visual-viewport pan regression is iPhone-only.");
 
