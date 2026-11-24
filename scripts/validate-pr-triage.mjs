@@ -81,10 +81,9 @@ export function validatePullRequestTriage() {
     reviewEvaluator,
     /on:\n  workflow_run:\n    workflows: \[Owner Approval Review Signal\]\n    types: \[completed\]/u,
   );
-  assert.match(
-    reviewEvaluator,
-    /group: owner-approval-review-\$\{\{ github\.event\.workflow_run\.pull_requests\[0\]\.number \|\| github\.event\.workflow_run\.head_sha \}\}\n  cancel-in-progress: true/u,
-  );
+  // GitHub runs the evaluator on main, where a cancelled run is a failed check; a superseded run ends in the script.
+  assert.doesNotMatch(reviewEvaluator, /^\s*concurrency:/mu);
+  assert.match(reviewEvaluator, /SIGNAL_RUN_ID: \$\{\{ github\.event\.workflow_run\.id \}\}/u);
   assert.match(reviewEvaluator, /statuses: write/u);
   assert.match(reviewEvaluator, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/u);
   assert.match(reviewEvaluator, /GET \/repos\/\{owner\}\/\{repo\}\/commits\/\{commit_sha\}\/pulls/u);
