@@ -329,6 +329,7 @@ export function useTrackerMutations({
           // Tracker fields are raw model output; send only text.
           appearance: typeof character.appearance === "string" ? character.appearance : null,
           outfit: typeof character.outfit === "string" ? character.outfit : null,
+          mood: typeof character.mood === "string" ? character.mood : null,
           includeOutfit,
           debugMode: useUIStore.getState().debugMode,
         });
