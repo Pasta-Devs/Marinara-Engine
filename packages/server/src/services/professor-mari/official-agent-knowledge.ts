@@ -593,7 +593,7 @@ async function awaitCatalogStateWithinBudget(
   signal?: AbortSignal,
   timeoutMs?: number,
 ): Promise<CachedCatalogState | null> {
-  if (signal?.aborted) return liveCatalogCache;
+  if (signal?.aborted) return null;
   if (!signal && timeoutMs === undefined) {
     return pending.then(
       (state) => state ?? liveCatalogCache,
@@ -632,7 +632,7 @@ async function loadCatalogState(options?: CatalogLoadOptions): Promise<CachedCat
   }
 
   if (options?.signal?.aborted) {
-    return liveCatalogCache;
+    return null;
   }
 
   if (

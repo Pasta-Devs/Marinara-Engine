@@ -3245,7 +3245,19 @@ export function bashIsLoneMariRead(command: string): boolean {
   return MARI_STORE_READ.test(normalized);
 }
 
+function isOfficialCatalogRead(call: WorkspaceCommandCall): boolean {
+  if (call.name !== "app_data" || typeof call.arguments.action !== "string") return false;
+  const normalized = call.arguments.action
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]+/gu, "");
+  return normalized === "agent.catalog.get" || normalized === "agents.catalog.get";
+}
+
 function isStateReadCommand(call: WorkspaceCommandCall): boolean {
+  // Catalog metadata lookup reads the official catalog (not user store/config state), so it stays
+  // read-only in Plan mode without satisfying mutation read-back verification or recap evidence.
+  if (isOfficialCatalogRead(call)) return false;
   if (isReadOnlyWorkspaceCommand(call)) return true;
   const command = call.arguments.command;
   return call.name === "bash" && typeof command === "string" && bashIsLoneMariRead(command);

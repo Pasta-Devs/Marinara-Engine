@@ -3008,19 +3008,25 @@ export async function buildOfficialCatalogPackageDetail(
     };
   }
 
-  let installedPackages: readonly InstalledCapabilityPackage[] = [];
+  let installedPackages: readonly InstalledCapabilityPackage[] | null = null;
   try {
     installedPackages = await (deps?.getInstalled ? deps.getInstalled() : capabilityPackageManager.installed());
   } catch {
-    installedPackages = [];
+    installedPackages = null;
   }
 
   const { entry } = lookup;
   const pkg = lookup.package;
-  const installedPkg = installedPackages.find((item) => item.id === entry.id) ?? null;
-  const updateAvailable = Boolean(
-    pkg && installedPkg && compareCapabilityPackageVersions(pkg.manifest.version, installedPkg.version) > 0,
-  );
+  const installedKnown = installedPackages !== null;
+  const installedPkg = installedPackages?.find((item) => item.id === entry.id) ?? null;
+  const installed: boolean | null = installedKnown ? Boolean(installedPkg) : null;
+  const updateAvailable: boolean | null = !installedKnown
+    ? null
+    : pkg
+      ? Boolean(installedPkg && compareCapabilityPackageVersions(pkg.manifest.version, installedPkg.version) > 0)
+      : installedPkg
+        ? null
+        : false;
   const requiresConnection =
     BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.packageId === entry.id)?.requiresConnection ?? null;
 
@@ -3036,10 +3042,10 @@ export async function buildOfficialCatalogPackageDetail(
         summary: entry.summary,
         preview: Boolean(entry.preview),
         ...(requiresConnection ? { requiresConnection } : {}),
-        installed: Boolean(installedPkg),
+        installed,
         installedVersion: installedPkg?.version ?? null,
         installedStatus: installedPkg?.status ?? null,
-        updateAvailable: false,
+        updateAvailable,
         releaseNotes: [],
         note: "Live catalog unavailable; showing bundled summary metadata without full manifest permissions or release notes.",
       },
@@ -3083,7 +3089,7 @@ export async function buildOfficialCatalogPackageDetail(
       restartRequired: manifest.restartRequired,
       ...(requiresConnection ? { requiresConnection } : {}),
       documentationUrl: pkg.documentationUrl ?? null,
-      installed: Boolean(installedPkg),
+      installed,
       installedVersion: installedPkg?.version ?? null,
       installedStatus: installedPkg?.status ?? null,
       updateAvailable,

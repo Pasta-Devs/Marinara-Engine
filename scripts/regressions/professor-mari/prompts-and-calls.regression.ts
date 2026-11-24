@@ -768,6 +768,22 @@ const cases: RegressionCase[] = [
         assert.equal(staleLiveFallback.source, "live");
         assert.equal(fetchCount, 3);
         assert.ok(staleLiveFallback.block.includes("`saucelings-next`"));
+
+        // After TTL expiry, an already-aborted wait must fall back to the bundled catalog rather than
+        // returning an expired cache marked as live without attempting refresh.
+        nowMs += 70_000;
+        const expiredPreAborted = new AbortController();
+        expiredPreAborted.abort();
+        const expiredAbortedResult = await getOfficialAgentCatalogKnowledge({
+          now: () => nowMs,
+          signal: expiredPreAborted.signal,
+          fetchCatalog: async () => {
+            fetchCount += 1;
+            return { packages: [] };
+          },
+        });
+        assert.equal(expiredAbortedResult.source, "fallback");
+        assert.equal(fetchCount, 3);
       } finally {
         resetOfficialAgentCatalogCacheForTests();
       }
@@ -949,6 +965,34 @@ const cases: RegressionCase[] = [
         assert.ok(scrubbed.includes("the agent catalog"));
         assert.ok(workspaceCommandKnowledgePrompt().includes("agent.list|get|search|runs|catalog.get"));
 
+        // agent.catalog.get reads the official catalog, not saved DB state, so it must never mark an
+        // earlier unverified write without readBack as verified.
+        const agentWriteWithoutReadBack: WorkspaceCommandResult = {
+          id: "create-agent",
+          name: "app_data",
+          input: { action: "agent.create" },
+          output: '{"saved": true}',
+          success: true,
+        };
+        const catalogReadResult: WorkspaceCommandResult = {
+          id: "read-catalog",
+          name: "app_data",
+          input: { action: "agent.catalog.get", id: "otome-forge" },
+          output: '{"id":"otome-forge"}',
+          success: true,
+        };
+        assert.equal(
+          resolveWorkspaceMutationVerification([agentWriteWithoutReadBack, catalogReadResult]),
+          "unverified",
+        );
+        assert.equal(
+          resolveWorkspaceMutationVerification([
+            agentWriteWithoutReadBack,
+            { ...catalogReadResult, input: { action: "agent.get", id: "agent-1" } },
+          ]),
+          "verified",
+        );
+
         const otomePkg = fakeCatalogPackage({
           id: "otome-forge",
           name: "Otome Hearth",
@@ -1032,7 +1076,9 @@ const cases: RegressionCase[] = [
         assert.deepEqual(notesTimedOut.output?.releaseNotes, []);
 
         // Offline fallback omits manifest permissions/version cleanly and never blocks on release notes.
-        const fallbackDetail = await buildOfficialCatalogPackageDetail("blackjack", {
+        // A rejected installed() read keeps install/update status unknown (null), while an empty registry reports false.
+        let offlineReleaseNotesCalls = 0;
+        const fallbackUnknownInstall = await buildOfficialCatalogPackageDetail("blackjack", {
           lookup: async () => ({
             found: true,
             source: "fallback",
@@ -1048,14 +1094,40 @@ const cases: RegressionCase[] = [
             throw new Error("no registry");
           },
           getReleaseNotes: async () => {
-            throw new Error("should not be called when offline");
+            offlineReleaseNotesCalls += 1;
+            return [];
           },
         });
-        assert.equal(fallbackDetail.ok, true);
-        assert.equal(fallbackDetail.output?.source, "fallback");
-        assert.equal(fallbackDetail.output?.installed, false);
-        assert.deepEqual(fallbackDetail.output?.releaseNotes, []);
-        assert.match(String(fallbackDetail.output?.note ?? ""), /bundled summary/i);
+        assert.equal(offlineReleaseNotesCalls, 0);
+        assert.equal(fallbackUnknownInstall.ok, true);
+        assert.equal(fallbackUnknownInstall.output?.source, "fallback");
+        assert.equal(fallbackUnknownInstall.output?.installed, null);
+        assert.equal(fallbackUnknownInstall.output?.updateAvailable, null);
+        assert.deepEqual(fallbackUnknownInstall.output?.releaseNotes, []);
+        assert.match(String(fallbackUnknownInstall.output?.note ?? ""), /bundled summary/i);
+
+        const fallbackNotInstalled = await buildOfficialCatalogPackageDetail("blackjack", {
+          lookup: async () => ({
+            found: true,
+            source: "fallback",
+            entry: {
+              id: "blackjack",
+              name: "Blackjack",
+              section: "games",
+              modes: "Conversation",
+              summary: "Conversation game: play blackjack against the house",
+            },
+          }),
+          getInstalled: async () => [],
+          getReleaseNotes: async () => {
+            offlineReleaseNotesCalls += 1;
+            return [];
+          },
+        });
+        assert.equal(offlineReleaseNotesCalls, 0);
+        assert.equal(fallbackNotInstalled.ok, true);
+        assert.equal(fallbackNotInstalled.output?.installed, false);
+        assert.equal(fallbackNotInstalled.output?.updateAvailable, false);
 
         // Empty query returns validation error before any lookup.
         const missingArg = await buildOfficialCatalogPackageDetail("   ");
