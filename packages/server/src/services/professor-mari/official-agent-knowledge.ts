@@ -696,7 +696,18 @@ export async function getOfficialAgentCatalogKnowledge(
 }
 
 function normalizeLookupToken(value: string): string {
-  return value.trim().toLowerCase().replace(/[-_\s]+/gu, " ");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]+/gu, " ");
+}
+
+function singleOrAmbiguous(
+  matches: readonly OfficialAgentKnowledgeEntry[],
+): { matched: OfficialAgentKnowledgeEntry | null; candidates: readonly OfficialAgentKnowledgeEntry[] } | null {
+  const [first, second] = matches;
+  if (!first) return null;
+  return second ? { matched: null, candidates: matches } : { matched: first, candidates: [] };
 }
 
 function matchOfficialCatalogEntries(
@@ -709,17 +720,17 @@ function matchOfficialCatalogEntries(
   const exactId = entries.find((entry) => entry.id.toLowerCase() === lower);
   if (exactId) return { matched: exactId, candidates: [] };
 
-  const exactName = entries.filter((entry) => entry.name.toLowerCase() === lower);
-  if (exactName.length === 1) return { matched: exactName[0], candidates: [] };
-  if (exactName.length > 1) return { matched: null, candidates: exactName };
+  const byExactName = singleOrAmbiguous(entries.filter((entry) => entry.name.toLowerCase() === lower));
+  if (byExactName) return byExactName;
 
   const normalizedQuery = normalizeLookupToken(trimmed);
-  const exactNormalized = entries.filter(
-    (entry) =>
-      normalizeLookupToken(entry.id) === normalizedQuery || normalizeLookupToken(entry.name) === normalizedQuery,
+  const byExactNormalized = singleOrAmbiguous(
+    entries.filter(
+      (entry) =>
+        normalizeLookupToken(entry.id) === normalizedQuery || normalizeLookupToken(entry.name) === normalizedQuery,
+    ),
   );
-  if (exactNormalized.length === 1) return { matched: exactNormalized[0], candidates: [] };
-  if (exactNormalized.length > 1) return { matched: null, candidates: exactNormalized };
+  if (byExactNormalized) return byExactNormalized;
 
   const partial = entries.filter(
     (entry) =>
@@ -728,8 +739,7 @@ function matchOfficialCatalogEntries(
       normalizeLookupToken(entry.id).includes(normalizedQuery) ||
       normalizeLookupToken(entry.name).includes(normalizedQuery),
   );
-  if (partial.length === 1) return { matched: partial[0], candidates: [] };
-  return { matched: null, candidates: partial };
+  return singleOrAmbiguous(partial) ?? { matched: null, candidates: [] };
 }
 
 /**

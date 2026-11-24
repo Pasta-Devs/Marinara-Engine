@@ -3,10 +3,19 @@ import { readFileSync } from "node:fs";
 import type { StampedCapabilityCatalogPackage } from "../../../packages/shared/src/schemas/capability-package.schema.js";
 import { buildMariAssistantPrompt } from "../../../packages/server/src/db/seed-mari.js";
 import {
+  buildOfficialCatalogPackageDetail,
+  MariDbService,
+} from "../../../packages/server/src/services/mari-db/mari-db.service.js";
+import {
+  appDataActionLooksReadOnly,
   buildMariSystemPrompt,
+  isAppDataActionName,
   parseAssistantWorkspaceAction,
+  PROFESSOR_MARI_APP_DATA_ACTIONS,
   professorMariWorkspaceResponseFormat,
   resolveWorkspaceMutationVerification,
+  scrubInternalNames,
+  workspaceCommandKnowledgePrompt,
   auditWorkspaceCompletionClaim,
   workspaceTextClaimsMutationCompletion,
   type WorkspaceCommandResult,
@@ -16,6 +25,7 @@ import {
   formatOfficialAgentCatalogBlock,
   getCachedOfficialAgentCatalogEntries,
   getOfficialAgentCatalogKnowledge,
+  lookupOfficialAgentCatalogPackage,
   OFFICIAL_AGENT_CATALOG_SECTIONS,
   OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
   PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE,
@@ -71,9 +81,7 @@ function fakeCatalogPackage(opts: {
     },
     artifact: { url: `https://example.invalid/${opts.id}.zip`, sha256: "b".repeat(64), size: 1024 },
     ...(opts.preview ? { preview: true as const } : {}),
-    ...(opts.section
-      ? { store: { section: opts.section, tagline: opts.tagline ?? `${opts.name} tagline.` } }
-      : {}),
+    ...(opts.section ? { store: { section: opts.section, tagline: opts.tagline ?? `${opts.name} tagline.` } } : {}),
   };
 }
 
@@ -134,7 +142,9 @@ const cases: RegressionCase[] = [
       assert.ok(buildMariAssistantPrompt(customCatalog).includes(customCatalog));
       assert.ok(buildMariSystemPrompt(customCatalog).includes(customCatalog));
       assert.ok(PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE.includes("`agent.list`"));
+      assert.ok(PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE.includes("`agent.catalog.get`"));
       assert.ok(!PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("agent.list"));
+      assert.ok(!PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("agent.catalog.get"));
       assert.ok(
         PROFESSOR_MARI_ASSISTANT_AGENT_CATALOG_KNOWLEDGE.includes("Never claim an uninstalled agent is active."),
       );
@@ -661,10 +671,22 @@ const cases: RegressionCase[] = [
         entriesFromCapabilityCatalog({ packages: [fallbackMisc, lifeSim, wordGame] }),
       );
       assert.equal(first, reversed, "catalog order must stay byte-identical across shuffled inputs");
-      assert.match(first, /^<official_agent_catalog>\nThe official Marinara Engine v2\.3\.0\+ catalog contains these 3 optional/u);
-      assert.match(first, /## Apps\n- Modern Life Sim \(package `modern-life-sim`; Home; preview\): A small-town life simulation\./u);
-      assert.match(first, /## Chat games\n- Word Game Two \(package `word-game-two`; Conversation\): First sentence explains the game\./u);
-      assert.match(first, /## More agents\n- Mystery Pack \(package `mystery-pack`\): Adds something unexpected without store metadata\./u);
+      assert.match(
+        first,
+        /^<official_agent_catalog>\nThe official Marinara Engine v2\.3\.0\+ catalog contains these 3 optional/u,
+      );
+      assert.match(
+        first,
+        /## Apps\n- Modern Life Sim \(package `modern-life-sim`; Home; preview\): A small-town life simulation\./u,
+      );
+      assert.match(
+        first,
+        /## Chat games\n- Word Game Two \(package `word-game-two`; Conversation\): First sentence explains the game\./u,
+      );
+      assert.match(
+        first,
+        /## More agents\n- Mystery Pack \(package `mystery-pack`\): Adds something unexpected without store metadata\./u,
+      );
       assert.ok(first.includes("Do not describe About Me Keeper as an agent."));
       assert.ok(!first.includes("## Trackers"), "empty sections must be omitted");
     },
@@ -809,6 +831,293 @@ const cases: RegressionCase[] = [
         });
         assert.equal(timedOut.source, "fallback");
         releaseTimeoutFetch?.();
+      } finally {
+        resetOfficialAgentCatalogCacheForTests();
+      }
+    },
+  },
+  {
+    name: "Catalog package lookup resolves exact id, name, unambiguous partial, ambiguous candidates, and offline fallback",
+    async run() {
+      resetOfficialAgentCatalogCacheForTests();
+      try {
+        let fetchCount = 0;
+        const catalogPackages: StampedCapabilityCatalogPackage[] = [
+          fakeCatalogPackage({
+            id: "otome-forge",
+            name: "Otome Hearth",
+            section: "apps",
+            tagline: "An otome game made from your characters.",
+            description: "Full description for Otome Hearth with routes and affection tracking.",
+            homeBrowserTab: true,
+          }),
+          fakeCatalogPackage({
+            id: "story-tracker-alpha",
+            name: "Alpha Tracker",
+            section: "trackers",
+            category: "tracker",
+            tagline: "Tracks scenes.",
+            description: "Alpha tracker detailed copy.",
+          }),
+          fakeCatalogPackage({
+            id: "story-tracker-beta",
+            name: "Beta Tracker",
+            section: "trackers",
+            category: "tracker",
+            tagline: "Tracks beats.",
+            description: "Beta tracker detailed copy.",
+            preview: true,
+          }),
+        ];
+        const fetchCatalog = async () => {
+          fetchCount += 1;
+          return { packages: catalogPackages };
+        };
+
+        // Cold load caches both entries and raw packages; subsequent lookups reuse warm cache.
+        const byId = await lookupOfficialAgentCatalogPackage("otome-forge", { fetchCatalog });
+        assert.equal(byId.found, true);
+        if (byId.found) {
+          assert.equal(byId.source, "live");
+          assert.equal(byId.entry.name, "Otome Hearth");
+          assert.equal(
+            byId.package?.manifest.description,
+            "Full description for Otome Hearth with routes and affection tracking.",
+          );
+        }
+        assert.equal(fetchCount, 1);
+
+        const byName = await lookupOfficialAgentCatalogPackage("otome hearth", { fetchCatalog });
+        assert.equal(byName.found, true);
+        if (byName.found) assert.equal(byName.entry.id, "otome-forge");
+        assert.equal(fetchCount, 1, "warm cache must satisfy lookups without extra catalog fetches");
+
+        const byNormalizedId = await lookupOfficialAgentCatalogPackage("otome forge");
+        assert.equal(byNormalizedId.found, true);
+        if (byNormalizedId.found) assert.equal(byNormalizedId.entry.id, "otome-forge");
+
+        const byUnambiguousPartial = await lookupOfficialAgentCatalogPackage("alpha");
+        assert.equal(byUnambiguousPartial.found, true);
+        if (byUnambiguousPartial.found) assert.equal(byUnambiguousPartial.entry.id, "story-tracker-alpha");
+
+        const ambiguous = await lookupOfficialAgentCatalogPackage("tracker");
+        assert.equal(ambiguous.found, false);
+        if (!ambiguous.found) {
+          assert.equal(ambiguous.ambiguous, true);
+          assert.deepEqual(
+            ambiguous.candidates.map((candidate) => candidate.id),
+            ["story-tracker-alpha", "story-tracker-beta"],
+          );
+        }
+
+        const missing = await lookupOfficialAgentCatalogPackage("no-such-agent");
+        assert.equal(missing.found, false);
+        if (!missing.found) {
+          assert.equal(missing.ambiguous, false);
+          assert.deepEqual(missing.candidates, []);
+        }
+
+        // Offline fallback still resolves bundled entries when live fetch fails.
+        resetOfficialAgentCatalogCacheForTests();
+        const offline = await lookupOfficialAgentCatalogPackage("Blackjack", {
+          fetchCatalog: async () => {
+            throw new Error("offline");
+          },
+        });
+        assert.equal(offline.found, true);
+        if (offline.found) {
+          assert.equal(offline.source, "fallback");
+          assert.equal(offline.entry.id, "blackjack");
+          assert.equal(offline.package, undefined);
+        }
+      } finally {
+        resetOfficialAgentCatalogCacheForTests();
+      }
+    },
+  },
+  {
+    name: "agent.catalog.get builds bounded package details, classifies read-only, and integrates with MariDbService",
+    async run() {
+      resetOfficialAgentCatalogCacheForTests();
+      try {
+        // Workspace registration, read-only classification, and internal-name scrubbing.
+        assert.ok(PROFESSOR_MARI_APP_DATA_ACTIONS.includes("agent.catalog.get"));
+        assert.equal(isAppDataActionName("agent.catalog.get"), true);
+        assert.equal(appDataActionLooksReadOnly("agent.catalog.get"), true);
+        const scrubbed = scrubInternalNames("I checked agent.catalog.get before answering.");
+        assert.ok(!scrubbed.includes("agent.catalog.get"));
+        assert.ok(scrubbed.includes("the agent catalog"));
+        assert.ok(workspaceCommandKnowledgePrompt().includes("agent.list|get|search|runs|catalog.get"));
+
+        const otomePkg = fakeCatalogPackage({
+          id: "otome-forge",
+          name: "Otome Hearth",
+          section: "apps",
+          tagline: "An otome game made from your characters.",
+          description: "Detailed otome app with routes, choices, and persistent affection state.",
+          homeBrowserTab: true,
+        });
+        otomePkg.documentationUrl = "https://github.com/Pasta-Devs/Marinara-Agents/tree/staging/packages/otome-forge";
+        otomePkg.manifest.version = "1.4.0";
+        otomePkg.manifest.permissions = ["network", "routes", "storage", "ui"];
+
+        // Unit detail builder: installed Home app with newer catalog version + release notes capped to 3.
+        const liveDetail = await buildOfficialCatalogPackageDetail("Otome Hearth", {
+          lookup: async () => ({
+            found: true,
+            source: "live",
+            entry: {
+              id: "otome-forge",
+              name: "Otome Hearth",
+              section: "apps",
+              modes: "Home",
+              summary: "An otome game made from your characters",
+            },
+            package: otomePkg,
+          }),
+          getInstalled: async () => [
+            {
+              id: "otome-forge",
+              version: "1.2.0",
+              manifest: otomePkg.manifest,
+              installedAt: "2026-11-01T00:00:00.000Z",
+              status: "active",
+              error: null,
+              readiness: "ready",
+              readinessError: null,
+              legacy: false,
+            },
+          ],
+          getReleaseNotes: async () => [
+            { version: "1.4.0", date: "2026-11-20", notes: "Added route skip", highlight: true },
+            { version: "1.3.0", date: "2026-11-10", notes: "Added cg gallery", highlight: false },
+            { version: "1.2.0", date: "2026-11-01", notes: "Bug fixes", highlight: false },
+            { version: "1.1.0", date: "2026-10-20", notes: "Initial fixes", highlight: false },
+          ],
+        });
+        assert.equal(liveDetail.ok, true, liveDetail.error);
+        assert.equal(liveDetail.output?.source, "live");
+        assert.equal(liveDetail.output?.id, "otome-forge");
+        assert.equal(liveDetail.output?.version, "1.4.0");
+        assert.deepEqual(liveDetail.output?.permissions, ["network", "routes", "storage", "ui"]);
+        assert.equal(liveDetail.output?.capabilityApi, "1.836");
+        assert.equal(liveDetail.output?.installed, true);
+        assert.equal(liveDetail.output?.installedVersion, "1.2.0");
+        assert.equal(liveDetail.output?.updateAvailable, true);
+        assert.equal((liveDetail.output?.releaseNotes as unknown[])?.length, 3);
+
+        // Slow/hanging release notes time out within budget without keeping Node handles open.
+        let releaseSlowNotes: (() => void) | undefined;
+        const notesTimedOut = await buildOfficialCatalogPackageDetail("otome-forge", {
+          lookup: async () => ({
+            found: true,
+            source: "live",
+            entry: {
+              id: "otome-forge",
+              name: "Otome Hearth",
+              section: "apps",
+              summary: "An otome game made from your characters",
+            },
+            package: otomePkg,
+          }),
+          getInstalled: async () => [],
+          getReleaseNotes: () =>
+            new Promise((resolve) => {
+              releaseSlowNotes = () => resolve([]);
+            }),
+          releaseNotesTimeoutMs: 10,
+        });
+        releaseSlowNotes?.();
+        assert.equal(notesTimedOut.ok, true);
+        assert.deepEqual(notesTimedOut.output?.releaseNotes, []);
+
+        // Offline fallback omits manifest permissions/version cleanly and never blocks on release notes.
+        const fallbackDetail = await buildOfficialCatalogPackageDetail("blackjack", {
+          lookup: async () => ({
+            found: true,
+            source: "fallback",
+            entry: {
+              id: "blackjack",
+              name: "Blackjack",
+              section: "games",
+              modes: "Conversation",
+              summary: "Conversation game: play blackjack against the house",
+            },
+          }),
+          getInstalled: async () => {
+            throw new Error("no registry");
+          },
+          getReleaseNotes: async () => {
+            throw new Error("should not be called when offline");
+          },
+        });
+        assert.equal(fallbackDetail.ok, true);
+        assert.equal(fallbackDetail.output?.source, "fallback");
+        assert.equal(fallbackDetail.output?.installed, false);
+        assert.deepEqual(fallbackDetail.output?.releaseNotes, []);
+        assert.match(String(fallbackDetail.output?.note ?? ""), /bundled summary/i);
+
+        // Empty query returns validation error before any lookup.
+        const missingArg = await buildOfficialCatalogPackageDetail("   ");
+        assert.equal(missingArg.ok, false);
+        assert.match(String(missingArg.error ?? ""), /Provide a catalog package/i);
+
+        // MariDbService.executeAction end-to-end against warm live cache.
+        await getOfficialAgentCatalogKnowledge({
+          forceRefresh: true,
+          fetchCatalog: async () => ({
+            packages: [
+              fakeCatalogPackage({
+                id: "test-home-app",
+                name: "Test Home App",
+                section: "apps",
+                tagline: "Short summary.",
+                description: "Long description from live package manifest.",
+                homeBrowserTab: true,
+              }),
+              fakeCatalogPackage({
+                id: "test-game-one",
+                name: "Test Game One",
+                section: "games",
+                conversationGame: true,
+                tagline: "First test game.",
+                description: "First test game.",
+              }),
+              fakeCatalogPackage({
+                id: "test-game-two",
+                name: "Test Game Two",
+                section: "games",
+                conversationGame: true,
+                tagline: "Second test game.",
+                description: "Second test game.",
+              }),
+            ],
+          }),
+        });
+        const mariDb = new MariDbService(null as never);
+        const missingCall = await mariDb.executeAction({ action: "agent.catalog.get" } as never);
+        assert.equal(missingCall.ok, false);
+        assert.equal(missingCall.mode, "read");
+
+        const ambiguousCall = await mariDb.executeAction({
+          action: "agent.catalog.get",
+          query: "Test Game",
+        } as never);
+        assert.equal(ambiguousCall.ok, false);
+        assert.equal(ambiguousCall.mode, "read");
+        assert.equal(((ambiguousCall.output as { candidates?: unknown[] } | undefined)?.candidates ?? []).length, 2);
+
+        const foundCall = await mariDb.executeAction({
+          action: "agent.catalog.get",
+          name: "Test Home App",
+        } as never);
+        assert.equal(foundCall.ok, true, foundCall.error);
+        assert.equal(foundCall.mode, "read");
+        const foundOutput = foundCall.output as Record<string, unknown>;
+        assert.equal(foundOutput.source, "live");
+        assert.equal(foundOutput.id, "test-home-app");
+        assert.equal(foundOutput.description, "Long description from live package manifest.");
+        assert.equal(foundOutput.capabilityApi, "1.836");
       } finally {
         resetOfficialAgentCatalogCacheForTests();
       }

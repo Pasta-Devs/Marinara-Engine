@@ -110,6 +110,9 @@ import {
   lorebookDecisionModeSchema,
   parseLorebookDecisionActivation,
   BUILT_IN_AGENT_MANIFESTS,
+  compareCapabilityPackageVersions,
+  type CapabilityPackageVersionNote,
+  type InstalledCapabilityPackage,
   type BuiltInAgentManifest,
   type Lorebook,
   type LorebookEntry,
@@ -125,6 +128,11 @@ import {
   type ReplyCheckupInput,
 } from "@marinara-engine/shared";
 import { guardMariDecisionWrites, MARI_DECISION_STATE_KEY } from "../professor-mari/decision-authoring.js";
+import {
+  lookupOfficialAgentCatalogPackage,
+  type OfficialAgentCatalogLookupResult,
+} from "../professor-mari/official-agent-knowledge.js";
+import { capabilityPackageManager } from "../capability-packages/package-manager.service.js";
 import { computePersonalExtensionHash } from "../extensions/personal-extension-hash.js";
 import { HomeWidgetCatalogConflictError, replaceHomeWidgetCatalog } from "../home-widget-catalog.service.js";
 import { createMariWherePredicate } from "./mari-where-expression.js";
@@ -1283,7 +1291,7 @@ const LOREBOOK_ACTIONS = [
 const HOME_WIDGET_ACTIONS = ["list", "get", "create", "update", "delete"] as const;
 const THEME_ACTIONS = ["list", "active", "get", "create", "update", "setActive"] as const;
 const PERSONAL_EXTENSION_ACTIONS = ["list", "get", "search", "create", "update"] as const;
-const AGENT_ACTIONS = ["list", "get", "runs", "search", "create", "update"] as const;
+const AGENT_ACTIONS = ["list", "get", "runs", "search", "catalog.get", "create", "update"] as const;
 const PRESET_ACTIONS = [
   "list",
   "get",
@@ -2921,6 +2929,171 @@ export function summarizeMergedAgentRow(manifest: BuiltInAgentManifest | undefin
     custom: !manifest,
     promptOverridden: configPrompt.length > 0 && configPrompt !== (manifest?.defaultPromptTemplate ?? ""),
     settingKeys,
+  };
+}
+
+const CATALOG_DETAIL_RELEASE_NOTES_LIMIT = 3;
+const CATALOG_DETAIL_RELEASE_NOTES_TIMEOUT_MS = 1_500;
+
+export interface OfficialCatalogPackageDetailDeps {
+  lookup?: (query: string) => Promise<OfficialAgentCatalogLookupResult>;
+  getInstalled?: () => Promise<readonly InstalledCapabilityPackage[]>;
+  getReleaseNotes?: (packageId: string) => Promise<readonly CapabilityPackageVersionNote[]>;
+  releaseNotesTimeoutMs?: number;
+}
+
+export interface OfficialCatalogPackageDetailResult {
+  ok: boolean;
+  output?: Row;
+  error?: string;
+}
+
+async function resolveWithinBudget<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(
+      () => {
+        if (settled) return;
+        settled = true;
+        resolve(fallback);
+      },
+      Math.max(0, timeoutMs),
+    );
+    void promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
+/**
+ * Resolves full official catalog package metadata for `agent.catalog.get`, cross-referencing
+ * installed package status and best-effort release notes within a bounded timeout.
+ */
+export async function buildOfficialCatalogPackageDetail(
+  rawQuery: string,
+  deps?: OfficialCatalogPackageDetailDeps,
+): Promise<OfficialCatalogPackageDetailResult> {
+  const query = rawQuery.trim();
+  if (!query) {
+    return { ok: false, error: 'Provide a catalog package "id" or "name".' };
+  }
+  const lookup = await (deps?.lookup
+    ? deps.lookup(query)
+    : lookupOfficialAgentCatalogPackage(query, { timeoutMs: 2_000 }));
+  if (!lookup.found) {
+    const candidates = lookup.candidates.map((candidate) => ({
+      id: candidate.id,
+      name: candidate.name,
+      section: candidate.section,
+      ...(candidate.modes ? { modes: candidate.modes } : {}),
+      ...(candidate.preview ? { preview: true } : {}),
+    }));
+    return {
+      ok: false,
+      error: lookup.ambiguous
+        ? `Multiple official catalog packages match "${lookup.query}". Retry with an exact id or name.`
+        : `No official catalog package matches "${lookup.query}".`,
+      ...(candidates.length > 0 ? { output: { candidates } } : {}),
+    };
+  }
+
+  let installedPackages: readonly InstalledCapabilityPackage[] = [];
+  try {
+    installedPackages = await (deps?.getInstalled ? deps.getInstalled() : capabilityPackageManager.installed());
+  } catch {
+    installedPackages = [];
+  }
+
+  const { entry } = lookup;
+  const pkg = lookup.package;
+  const installedPkg = installedPackages.find((item) => item.id === entry.id) ?? null;
+  const updateAvailable = Boolean(
+    pkg && installedPkg && compareCapabilityPackageVersions(pkg.manifest.version, installedPkg.version) > 0,
+  );
+  const requiresConnection =
+    BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.packageId === entry.id)?.requiresConnection ?? null;
+
+  if (lookup.source === "fallback" || !pkg) {
+    return {
+      ok: true,
+      output: {
+        source: "fallback",
+        id: entry.id,
+        name: entry.name,
+        section: entry.section,
+        ...(entry.modes ? { modes: entry.modes } : {}),
+        summary: entry.summary,
+        preview: Boolean(entry.preview),
+        ...(requiresConnection ? { requiresConnection } : {}),
+        installed: Boolean(installedPkg),
+        installedVersion: installedPkg?.version ?? null,
+        installedStatus: installedPkg?.status ?? null,
+        updateAvailable: false,
+        releaseNotes: [],
+        note: "Live catalog unavailable; showing bundled summary metadata without full manifest permissions or release notes.",
+      },
+    };
+  }
+
+  let rawNotes: readonly CapabilityPackageVersionNote[] = [];
+  try {
+    const timeoutMs = deps?.releaseNotesTimeoutMs ?? CATALOG_DETAIL_RELEASE_NOTES_TIMEOUT_MS;
+    const notesPromise = deps?.getReleaseNotes
+      ? deps.getReleaseNotes(entry.id)
+      : capabilityPackageManager.releaseNotes(entry.id);
+    rawNotes = await resolveWithinBudget(notesPromise, timeoutMs, [] as readonly CapabilityPackageVersionNote[]);
+  } catch {
+    rawNotes = [];
+  }
+
+  const { manifest } = pkg;
+  const capabilityApi =
+    manifest.schemaVersion === 2 ? `${manifest.capabilityApi.major}.${manifest.capabilityApi.minor}` : null;
+  return {
+    ok: true,
+    output: {
+      source: "live",
+      id: manifest.id,
+      name: manifest.name.trim(),
+      version: manifest.version,
+      section: entry.section,
+      tagline: pkg.store?.tagline?.trim() ?? entry.summary,
+      description: manifest.description,
+      kind: [...manifest.kind],
+      category: pkg.category,
+      ...(entry.modes ? { modes: entry.modes } : {}),
+      preview: Boolean(pkg.preview),
+      permissions: [...manifest.permissions],
+      engine: {
+        min: manifest.engine.min,
+        ...(manifest.engine.maxExclusive ? { maxExclusive: manifest.engine.maxExclusive } : {}),
+      },
+      capabilityApi,
+      restartRequired: manifest.restartRequired,
+      ...(requiresConnection ? { requiresConnection } : {}),
+      documentationUrl: pkg.documentationUrl ?? null,
+      installed: Boolean(installedPkg),
+      installedVersion: installedPkg?.version ?? null,
+      installedStatus: installedPkg?.status ?? null,
+      updateAvailable,
+      releaseNotes: rawNotes.slice(0, CATALOG_DETAIL_RELEASE_NOTES_LIMIT).map((note) => ({
+        version: note.version,
+        date: note.date,
+        notes: note.notes,
+        highlight: note.highlight,
+      })),
+    },
   };
 }
 
@@ -5811,6 +5984,17 @@ export class MariDbService {
           .slice(0, limit)
           .map(summarizeAgentConfigRow);
         return { ok: true, mode: "read", command: context.command, output: rows };
+      }
+      case "catalog.get": {
+        const query = firstString(args, ["id", "packageId", "name", "query", "agentId", "type"]) ?? "";
+        const detail = await buildOfficialCatalogPackageDetail(query);
+        return {
+          ok: detail.ok,
+          mode: "read",
+          command: context.command,
+          ...(detail.output !== undefined ? { output: detail.output } : {}),
+          ...(detail.error ? { error: detail.error } : {}),
+        };
       }
       case "create": {
         const data = normalizeAgentActionData(

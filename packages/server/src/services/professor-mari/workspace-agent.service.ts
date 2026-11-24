@@ -615,6 +615,7 @@ export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
   "agent.get",
   "agent.search",
   "agent.runs",
+  "agent.catalog.get",
   "agent.create",
   "agent.update",
   "preset.list",
@@ -1105,7 +1106,7 @@ export function workspaceCommandKnowledgePrompt() {
 
 \`app_data\` quick reference:
 - Shipped skills are procedures you must read, never optional docs: before the first write or multi-step answer on a surface one covers (characters, onboarding, lorebooks, presets, themes, extensions, decisions, home widgets, reply repair), \`skill.get\` it in that same response. Explaining how one of those surfaces works counts too — read its skill before you explain it. Acting without it is guessing.
-- Reads: \`chat.list|get|messages|search|diagnose\`, \`character.list|get|search|folder.list|onboarding.get|rulesetSheet.get\`, \`persona.list|get|search|rulesetSheet.get\`, \`lorebook.list|get|entries|getEntry|search|testScan|folder.list|libraryFolder.list\`, \`theme.list|active|get\`, \`personal_extension.list|get|search\`, \`agent.list|get|search|runs\`, \`preset.list|get|search|sections|getSection|groups|getGroup|choiceBlocks|getChoiceBlock\`, \`home_widget.list|get\`, \`skill.list|get\`, \`instruction.list|get\`. Reads take the record id at the top level (\`id\` for \`skill.get\`, \`characterId\` for \`character.get\`); \`data\` carries entity fields a write sets, never a read's id.
+- Reads: \`chat.list|get|messages|search|diagnose\`, \`character.list|get|search|folder.list|onboarding.get|rulesetSheet.get\`, \`persona.list|get|search|rulesetSheet.get\`, \`lorebook.list|get|entries|getEntry|search|testScan|folder.list|libraryFolder.list\`, \`theme.list|active|get\`, \`personal_extension.list|get|search\`, \`agent.list|get|search|runs|catalog.get\`, \`preset.list|get|search|sections|getSection|groups|getGroup|choiceBlocks|getChoiceBlock\`, \`home_widget.list|get\`, \`skill.list|get\`, \`instruction.list|get\`. Reads take the record id at the top level (\`id\` for \`skill.get\`, \`characterId\` for \`character.get\`); \`data\` carries entity fields a write sets, never a read's id.
 - Chat reading: use \`chat.messages\` with \`chatId\`; preserve user-requested bounds with \`last\` or \`afterPost\`, and page only inside that range with \`limit\` and \`offset\`.
 - Oversized chat ranges elide \`messages\`; re-read one post with \`last: 1\` or \`afterPost\`, \`field: "messages[0].content"\`, and \`offset\`/\`limit\` content windows.
 - Themes: read skill \`builtin-themes\` with \`skill.get\` BEFORE you create, edit or activate a theme, explain what custom CSS can reach, or style one chat's card. \`apply\` is read from the top level only, and a theme is one document-wide \`<style>\`: keep it to paint on the documented classes, never to hide, move or fake a control.
@@ -1918,6 +1919,7 @@ function parseTextualWorkspaceCommandCalls(content: string): WorkspaceCommandCal
 const INTERNAL_NAME_WORDS: Record<string, string> = {
   "chat.diagnose": "the chat checkup",
   "agent.list": "your installed agents",
+  "agent.catalog.get": "the agent catalog",
   "chat.updatemessage": "a reply repair",
   docs_search: "the docs",
   docs_read: "the docs",
