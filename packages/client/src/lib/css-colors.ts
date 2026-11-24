@@ -202,3 +202,19 @@ export function gradientStopsFromColor(color: string | null | undefined): [strin
   const shade = hsvToHex(hue, saturation, brightness < 50 ? brightness + 35 : brightness - 35);
   return [hex, withAlpha(shade, hexAlpha(hex))];
 }
+
+/** WCAG AA contrast for body text. */
+export const READABLE_TEXT_CONTRAST = 4.5;
+
+/** WCAG 2 contrast ratio (1 to 21) of two opaque sRGB colours, each given as its 0-255 red, green and blue. */
+export function contrastRatio(first: ArrayLike<number>, second: ArrayLike<number>): number {
+  const luminance = (color: ArrayLike<number>) => {
+    const linear = (channel: number) => {
+      const value = channel / 255;
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * linear(color[0]!) + 0.7152 * linear(color[1]!) + 0.0722 * linear(color[2]!);
+  };
+  const [lighter, darker] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  return (lighter! + 0.05) / (darker! + 0.05);
+}

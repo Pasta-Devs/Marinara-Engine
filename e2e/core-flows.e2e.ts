@@ -23421,6 +23421,38 @@ test("page backing keeps the app running when the browser refuses canvas reads",
   await expect
     .poll(() => page.locator("html").evaluate((element) => element.style.getPropertyValue("--marinara-page-backing")))
     .toBe("#234567");
+  // Its contrast can't be checked either, so editors and fields keep the theme's own surface.
+  await expect
+    .poll(() =>
+      page.locator("html").evaluate((element) => getComputedStyle(element).getPropertyValue("--background").trim()),
+    )
+    .toBe("#050312");
+});
+
+test("a dark app background in Light mode leaves editors and fields on the theme's surface", async ({ page }) => {
+  // #9741: SillyTavern Light with a dark Whole app background painted editors dark under dark text.
+  await seedUIState(
+    page,
+    { theme: "light", visualTheme: "sillytavern", uiStyleOverrides: { app: { background: "#0d0830" } } },
+    "merge",
+  );
+  await page.goto("/");
+  await expect(page.locator('[data-component="AppShell"]')).toBeVisible();
+  const rootValue = (name: string) =>
+    page
+      .locator("html")
+      .evaluate((element, property) => getComputedStyle(element).getPropertyValue(property).trim(), name);
+
+  // The backdrop keeps the chosen color; the surfaces under the theme's text keep SillyTavern Light's.
+  await expect.poll(() => rootValue("--marinara-app-background-paint")).toBe("#0d0830");
+  await expect.poll(() => rootValue("--background")).toBe("#e8e8ec");
+
+  // Dark mode's light text reads on it, so there it is the surface as before.
+  await page.evaluate(async () => {
+    const { useUIStore } = await import("/src/stores/ui.store.ts" as string);
+    useUIStore.getState().setTheme("dark");
+  });
+  await expect.poll(() => rootValue("--background")).toBe("#0d0830");
 });
 
 test("mobile Roleplay releases its inactive background after a crossfade", async ({ page }, testInfo) => {

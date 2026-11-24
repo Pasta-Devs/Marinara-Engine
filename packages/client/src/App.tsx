@@ -57,10 +57,12 @@ import { showAppUpdatePrompt } from "./lib/app-update-prompt";
 import { UI_PERSISTENCE_HOST_COPY } from "./lib/ui-persistence";
 import { formatRuntimeBuild, getServerRuntimeBuild, isRuntimeBuildCurrent } from "./lib/runtime-build";
 import {
+  contrastRatio,
   getCssColorFallback,
   getCssGradientColorStops,
   isCssGradient,
   RAINBOW_GRADIENT_PRESET,
+  READABLE_TEXT_CONTRAST,
 } from "./lib/css-colors";
 import { normalizeThemeCss } from "./lib/theme-css";
 import {
@@ -714,21 +716,25 @@ export function App() {
     const resolvedBackground = getCssColorFallback(background, defaultBackground);
 
     if (background) {
-      root.style.setProperty("--background", resolvedBackground);
       root.style.setProperty("--marinara-app-background-paint", background);
     } else {
-      root.style.removeProperty("--background");
       root.style.removeProperty("--marinara-app-background-paint");
     }
 
     const syncLiteralBackground = () => {
+      // The app background becomes --background below only once its contrast check passes, so a
+      // canvas the browser refuses leaves the theme's own surface rather than an unreadable one.
+      root.style.removeProperty("--background");
       // iOS paints the safe-area/overscroll backing from the literal html/body
       // background-color, not from resolved custom properties (see index.html).
       // Read the rendered variable so visual themes and injected custom theme
       // CSS are reflected instead of falling back to the stock scheme.
       const computedStyle = getComputedStyle(root);
       const computedBackground = computedStyle.getPropertyValue("--background").trim();
-      let literalBackground = getCssColorFallback(computedBackground, resolvedBackground);
+      // The page backing follows the app background the shell paints, even when --background stays the theme's.
+      let literalBackground = background
+        ? resolvedBackground
+        : getCssColorFallback(computedBackground, resolvedBackground);
       // Flatten translucent shell surfaces over the app background. Browser
       // chrome needs an opaque color, and sidebars retain the Home menu surface.
       const canvas = document.createElement("canvas");
@@ -743,6 +749,17 @@ export function App() {
           context.fillStyle = literalBackground;
           context.fillRect(0, 0, 1, 1);
           const backgroundPixels = context.getImageData(0, 0, 1, 1);
+          if (background) {
+            // Editors, libraries and fields paint --background under the theme's own text. A dark app
+            // background in Light mode (or a light one in Dark) would leave that text unreadable there, so
+            // the app background becomes --background only while the theme's text stays readable on it.
+            // Otherwise it still paints the backdrop and those surfaces keep the theme's (#9741).
+            context.fillStyle = computedStyle.getPropertyValue("--foreground").trim();
+            context.fillRect(0, 0, 1, 1);
+            const textContrast = contrastRatio(backgroundPixels.data, context.getImageData(0, 0, 1, 1).data);
+            if (textContrast >= READABLE_TEXT_CONTRAST) root.style.setProperty("--background", resolvedBackground);
+            context.putImageData(backgroundPixels, 0, 0);
+          }
           context.fillStyle = computedStyle.getPropertyValue("--card").trim();
           context.fillRect(0, 0, 1, 1);
           const [red, green, blue] = context.getImageData(0, 0, 1, 1).data;
