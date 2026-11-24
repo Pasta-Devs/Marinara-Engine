@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import {
+  contrastRatio,
   gradientStopsFromColor,
   hexAlpha,
   hexToHsv,
   hsvToHex,
   normalizeHexColor,
+  READABLE_TEXT_CONTRAST,
   withAlpha,
 } from "../../../packages/client/src/lib/css-colors.js";
 import { sanitizeAppCss } from "../../../packages/client/src/lib/theme-css.js";
@@ -252,6 +254,10 @@ assert.equal(withAlpha("#112233", 0), "#11223300");
 assert.equal(withAlpha("#112233", -1), "#11223300", "alpha is clamped");
 assert.equal(hexAlpha("#112233"), 1);
 assert.equal(withAlpha("#ff0000", hexAlpha("#11223366")), "#ff000066", "a palette pick keeps the current opacity");
+// The Whole app background becomes --background only where the theme's text reads on it (#9741).
+assert.equal(contrastRatio([255, 255, 255], [0, 0, 0]), 21);
+assert.ok(contrastRatio([13, 8, 48], [26, 26, 36]) < READABLE_TEXT_CONTRAST, "dark app background under Light text");
+assert.ok(contrastRatio([13, 8, 48], [204, 204, 204]) >= READABLE_TEXT_CONTRAST, "dark app background under Dark text");
 assert.equal(
   sanitizeAppCss(buildUiStyleOverridesCss({ "top-bar": { background: "#11223380" } })),
   ':root [data-component="TopBar"]{background:#11223380!important}',
